@@ -11,6 +11,9 @@ TestResults/
 export_presets.cfg
 *.translation
 
+# Local reference material (fan models, screenshots, manual scans, OpenMachines); not redistributed
+references/
+
 # OS
 Thumbs.db
 .DS_Store

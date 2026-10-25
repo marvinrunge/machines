@@ -22,6 +22,7 @@ public partial class Main : Node3D
                 $"Loaded {path}\n" +
                 $"{data.Machines.Count} machine types, {data.Constructions.Count} buildings, {data.Weapons.Count} weapons\n" +
                 $"Scout: {grunt.Cost} BMU, {grunt.HitPoints} HP, {grunt.Armour} armour";
+            GD.Print(status.Text);
         }
         catch (Exception e) when (e is System.IO.IOException or ParmFormatException)
         {

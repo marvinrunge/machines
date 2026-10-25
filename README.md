@@ -14,6 +14,7 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
 | `tests/Machines.Tests` | xUnit tests that pin the importer and simulation to the 1999 numbers |
 | `game/` | The Godot 4 project. Its start scene loads `parmdata.dat` and shows a summary |
 | `data/original` | Original design data, copied unchanged (see `data/README.md`) |
+| `references/` | Local-only reference material (git-ignored): OpenMachines mod, fan Blender models, screenshots, manual scans |
 
 ## Requirements
 
