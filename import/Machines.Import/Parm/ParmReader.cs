@@ -26,7 +26,7 @@ public static class ParmReader
         int recordLine = 0;
         List<ParmLine> recordLines = [];
 
-        foreach (var line in Lines(text))
+        foreach (var line in TextLines.Read(text))
         {
             if (sectionName is null)
             {
@@ -90,25 +90,5 @@ public static class ParmReader
             throw new ParmFormatException($"section '{sectionName}' is never closed", sectionLine);
 
         return new ParmDocument(sections);
-    }
-
-    private static IEnumerable<ParmLine> Lines(string text)
-    {
-        var lineNumber = 0;
-        foreach (var raw in text.Split('\n'))
-        {
-            lineNumber++;
-
-            var content = raw;
-            var comment = content.IndexOf("//", StringComparison.Ordinal);
-            if (comment >= 0)
-                content = content[..comment];
-
-            var tokens = content.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-            if (tokens.Length == 0)
-                continue;
-
-            yield return new ParmLine(tokens[0], tokens[1..], lineNumber);
-        }
     }
 }
