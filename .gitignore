@@ -1,0 +1,16 @@
+# .NET build output
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+
+# Godot
+.godot/
+.import/
+export_presets.cfg
+*.translation
+
+# OS
+Thumbs.db
+.DS_Store

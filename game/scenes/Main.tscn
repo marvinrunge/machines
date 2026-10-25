@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/Main.cs" id="1_main"]
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="Status" type="Label" parent="."]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 816.0
+offset_bottom = 216.0
+text = "Loading parmdata.dat..."
