@@ -12,6 +12,7 @@ namespace Machines.Game;
 public sealed class ClassicAssets
 {
     private readonly string? _modelFolder;
+    private readonly string? _planetFolder;
     private readonly string? _gameFolder;
     private readonly Dictionary<string, Mesh> _meshes = [];
     private readonly Dictionary<string, Material> _materials = [];
@@ -20,6 +21,8 @@ public sealed class ClassicAssets
     {
         var models = Path.Combine(repositoryFolder, "classic", "models");
         _modelFolder = Directory.Exists(models) ? models : null;
+        var planets = Path.Combine(repositoryFolder, "classic", "planets");
+        _planetFolder = Directory.Exists(planets) ? planets : null;
         var gamePath = Path.Combine(repositoryFolder, "classic", "game_path.txt");
         if (File.Exists(gamePath))
         {
@@ -100,6 +103,28 @@ public sealed class ClassicAssets
                 return null;
         }
 
+        return MeshFromJson(path);
+    }
+
+    /// <summary>
+    /// The planet's original terrain tiles (<c>classic/planets/&lt;planet&gt;/terrain.json</c>, see
+    /// tools/classic-export), or null when they have not been exported.
+    /// </summary>
+    public Mesh? PlanetTerrain(string planet)
+    {
+        var path = _planetFolder is null ? null : Path.Combine(_planetFolder, planet, "terrain.json");
+        return path is not null && File.Exists(path) ? MeshFromJson(path) : null;
+    }
+
+    /// <summary>The terrain heights the original engine reported for the planet (<c>heights.bin</c>), if exported.</summary>
+    public byte[]? PlanetHeights(string planet)
+    {
+        var path = _planetFolder is null ? null : Path.Combine(_planetFolder, planet, "heights.bin");
+        return path is not null && File.Exists(path) ? File.ReadAllBytes(path) : null;
+    }
+
+    private Mesh? MeshFromJson(string path)
+    {
         using var document = JsonDocument.Parse(File.ReadAllBytes(path));
         var mesh = new ArrayMesh();
         foreach (var part in document.RootElement.GetProperty("parts").EnumerateArray())

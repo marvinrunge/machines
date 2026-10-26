@@ -1,0 +1,132 @@
+# Tests every push and pull request, builds the Windows test build, and publishes it as a pre-release
+# when a version tag (v0.1.0, ...) is pushed. The build contains no original game assets: players import
+# them from their own copy with the bundled classic exporter.
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: 4.7.2
+  DOTNET_NOLOGO: "1"
+  # The original engine (GPLv3 source release) the classic exporter links against.
+  ENGINE_REPOSITORY: NightDive-Studio/machines
+  ENGINE_COMMIT: 2c857564ac9145fa8913ed57e533a5069faf7662
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Test
+        run: dotnet test Machines.sln -c Release
+
+  exporter:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.ENGINE_REPOSITORY }}
+          ref: ${{ env.ENGINE_COMMIT }}
+          path: engine
+          lfs: true
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image mingw-w64-x86_64-openal
+            mingw-w64-x86_64-alure mingw-w64-x86_64-glew mingw-w64-x86_64-glm
+            mingw-w64-x86_64-freetype mingw-w64-ucrt-x86_64-enet
+      - name: Build the classic exporter
+        run: |
+          tools/classic-export/build.sh "$(pwd)/engine"
+          cp /ucrt64/bin/libenet-7.dll tools/classic-export/build/
+      - name: Package it with its DLLs
+        run: tools/classic-export/package.sh "$(pwd)/exporter-package"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: classic-exporter
+          path: exporter-package
+
+  windows:
+    needs: [test, exporter]
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          name: classic-exporter
+          path: exporter-package
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: godot
+          key: godot-${{ env.GODOT_VERSION }}-mono-win64-templates
+      - name: Download Godot and its export templates
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          mkdir -p godot
+          curl -sSL -o godot/editor.zip "$base/Godot_v${GODOT_VERSION}-stable_mono_win64.zip"
+          curl -sSL -o godot/templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_mono_export_templates.tpz"
+          7z x -bd -ogodot godot/editor.zip > /dev/null
+          # Only the Windows templates are needed.
+          7z x -bd -ogodot godot/templates.tpz "templates/version.txt" "templates/windows_*" > /dev/null
+          rm godot/editor.zip godot/templates.tpz
+      - name: Install the export templates
+        run: |
+          target="$(cygpath -u "$APPDATA")/Godot/export_templates/${GODOT_VERSION}.stable.mono"
+          mkdir -p "$target"
+          cp godot/templates/* "$target/"
+      - name: Version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then v="${GITHUB_REF#refs/tags/v}"; else v="0.0.0-${GITHUB_SHA::7}"; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - name: Build the release zip
+        run: |
+          godot_exe="$(pwd)/godot/Godot_v${GODOT_VERSION}-stable_mono_win64/Godot_v${GODOT_VERSION}-stable_mono_win64_console.exe"
+          tools/release/build-windows.sh "$godot_exe" "${{ steps.version.outputs.version }}" "$(pwd)/exporter-package"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Machines-Remake-${{ steps.version.outputs.version }}-windows
+          path: build/*.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Machines-Remake-*-windows
+          merge-multiple: true
+          path: dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          files: dist/*.zip
+          body_path: tools/release/NOTES.md

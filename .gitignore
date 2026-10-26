@@ -8,8 +8,10 @@ TestResults/
 # Godot
 .godot/
 .import/
-export_presets.cfg
 *.translation
+
+# Release builds (tools/release)
+/build/
 
 # Exporter build output, and models/textures exported from your own copy of the game (never committed)
 tools/classic-export/build/

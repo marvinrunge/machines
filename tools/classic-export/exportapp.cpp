@@ -64,6 +64,9 @@
 #include "machphys/garrison.hpp"
 #include "machphys/mine.hpp"
 #include "machphys/beacon.hpp"
+#include "machphys/plansurf.hpp"
+#include "machphys/terrtile.hpp"
+#include "system/pathname.hpp"
 #include "machlog/machlog.hpp"
 #include "machlog/scenario.hpp"
 #include "sound/snd.hpp"
@@ -323,6 +326,41 @@ W4dEntity* build(W4dEntity* root, const std::vector<std::string>& words, MachPhy
     return NULL;
 }
 
+// Loads a planet the way the game does (MachPhysPlanetSurface reads pdata/<planet>.psb from the game folder and
+// the .env next to the .psf) and writes its terrain tiles as one model, plus a height grid sampled with the
+// engine's own terrainHeight. Returns the number of triangles.
+size_t exportPlanet(W4dSceneManager* manager, const std::string& psf, const std::string& out, std::set<std::string>* textures)
+{
+    // The tiles are entities of the scene; the surface is left alive until the process ends.
+    MachPhysPlanetSurface* surface = _NEW(MachPhysPlanetSurface(manager, SysPathName(psf.c_str())));
+
+    ModelWriter writer;
+    for (size_t y = 0; y < surface->nTilesY_; ++y)
+        for (size_t x = 0; x < surface->nTilesX_; ++x)
+            writer.addEntity(*surface->tileArray_[y][x]);
+    mkdir(out.c_str());
+    writer.write(out + "/terrain.json", "terrain");
+    textures->insert(writer.textures().begin(), writer.textures().end());
+
+    // heights.bin: int32 columns, int32 rows, float32 spacing in metres, then float32 heights row by row
+    // (y outer, x inner), starting at (0, 0).
+    const float spacing = 4;
+    const MATHEX_SCALAR xMax = surface->xMax(), yMax = surface->yMax();
+    const int32_t columns = int32_t(xMax / spacing) + 1, rows = int32_t(yMax / spacing) + 1;
+    std::ofstream heights((out + "/heights.bin").c_str(), std::ios::binary);
+    heights.write(reinterpret_cast<const char*>(&columns), 4);
+    heights.write(reinterpret_cast<const char*>(&rows), 4);
+    heights.write(reinterpret_cast<const char*>(&spacing), 4);
+    for (int32_t y = 0; y < rows; ++y)
+        for (int32_t x = 0; x < columns; ++x)
+        {
+            const float h = surface->terrainHeight(std::min<MATHEX_SCALAR>(x * spacing, xMax - 0.01),
+                                                   std::min<MATHEX_SCALAR>(y * spacing, yMax - 0.01));
+            heights.write(reinterpret_cast<const char*>(&h), 4);
+        }
+    return writer.triangleCount();
+}
+
 std::string modelId(const std::vector<std::string>& words)
 {
     std::string id;
@@ -339,17 +377,23 @@ ExportApp::~ExportApp() {}
 
 bool ExportApp::clientStartup()
 {
-    if (invokeArgs().size() != 4)
+    // Planet mode: --planet <game folder> <planet .psf> <output folder> <snddef64.dat>
+    const bool planet = invokeArgs().size() == 5 and std::string(invokeArgs()[0].c_str()) == "--planet";
+    const size_t first = planet ? 1 : 0;
+    if (invokeArgs().size() != 4 and not planet)
     {
-        std::cerr << "usage: classic_export <game folder> <model list> <output folder> <snddef64.dat>" << std::endl;
+        std::cerr << "usage: classic_export <game folder> <model list> <output folder> <snddef64.dat>\n"
+                  << "       classic_export --planet <game folder> <planet .psf> <output folder> <snddef64.dat>" << std::endl;
         exitCode_ = 2;
         finish();
         return true;
     }
 
-    const std::string game = invokeArgs()[0].c_str();
-    std::ifstream list(invokeArgs()[1].c_str());
-    const std::string out = invokeArgs()[2].c_str();
+    const std::string game = invokeArgs()[first].c_str();
+    const std::string input = invokeArgs()[first + 1].c_str();
+    std::ifstream list(input.c_str());
+    const std::string out = invokeArgs()[first + 2].c_str();
+    const std::string soundDefinitions = invokeArgs()[first + 3].c_str();
     if (not list)
     {
         std::cerr << "cannot read " << invokeArgs()[1].c_str() << std::endl;
@@ -358,7 +402,7 @@ bool ExportApp::clientStartup()
         return true;
     }
     std::vector<std::vector<std::string> > models;
-    for (std::string line; std::getline(list, line);)
+    for (std::string line; not planet and std::getline(list, line);)
     {
         std::istringstream words(line);
         std::vector<std::string> w;
@@ -383,7 +427,7 @@ bool ExportApp::clientStartup()
         Snd::SIXTEEN_BIT, Snd::STEREO, Snd::THREE_D, 20);
     SndMixer::initialise(soundParams);
     MachPhysPreload::registerSounds();
-    W4dSoundManager::instance().readSoundDefinitionFile(SysPathName(invokeArgs()[3].c_str()));
+    W4dSoundManager::instance().readSoundDefinitionFile(SysPathName(soundDefinitions.c_str()));
 
     W4dRoot* root = _NEW(W4dRoot(W4dRoot::W4dRootId()));
     RenDisplay* display = _NEW(RenDisplay(window()));
@@ -397,7 +441,28 @@ bool ExportApp::clientStartup()
     searchList.push_back(SysPathName("models/texture4/exp"));
     searchList.push_back(SysPathName("models/texture4/fire"));
     searchList.push_back(SysPathName("models/texture4/smoke"));
+    if (planet)
+    {
+        // The planet's own textures: the surface would look next to the .psf, which is outside the game folder.
+        std::string name = input.substr(input.find_last_of("/\\") + 1);
+        name = name.substr(0, name.find('.'));
+        searchList.push_back(SysPathName(("models/planet/" + name + "/texture4").c_str()));
+    }
     RenTexManager::instance().searchList(searchList);
+
+    if (planet)
+    {
+        std::set<std::string> textures;
+        std::cout << "loading planet " << input << " ..." << std::endl;
+        MachPhysPersistence::instance();
+        const size_t triangles = exportPlanet(manager, input, out, &textures);
+        std::ofstream textureList((out + "/textures.txt").c_str());
+        for (std::set<std::string>::const_iterator it = textures.begin(); it != textures.end(); ++it)
+            textureList << *it << "\n";
+        std::cout << "terrain: " << triangles << " triangles, " << textures.size() << " textures in " << out << std::endl;
+        finish();
+        return true;
+    }
 
     std::cout << "loading models.bin ..." << std::endl;
     MachPhysPersistence::instance();

@@ -12,3 +12,15 @@ cygpath -m "$GAME" > "$REPO/classic/game_path.txt"
 "$HERE/model-list.sh" "$REPO/data/original" > "$REPO/classic/models.txt"
 timeout 1800 "$HERE/build/classic_export.exe" "$GAME" "$REPO/classic/models.txt" "$REPO/classic/models" "$REPO/data/original/sounds/snddef64.dat" > "$REPO/classic/export.log" 2>&1 || true
 tail -15 "$REPO/classic/export.log"
+
+# Terrain: every planet the game copy has a persisted surface for (pdata/<planet>.psb), one run each.
+# The .psf and .env come from data/original; the game folder supplies pdata, sky meshes and textures.
+mkdir -p "$REPO/classic/planets"
+: > "$REPO/classic/planets.log"
+for psf in "$REPO"/data/original/models/planet/*/*.psf; do
+    name="$(basename "$psf" .psf)"
+    [ -f "$GAME/pdata/$name.psb" ] || continue
+    timeout 300 "$HERE/build/classic_export.exe" --planet "$GAME" "$(cygpath -m "$psf")" "$(cygpath -m "$REPO/classic/planets/$name")" \
+        "$REPO/data/original/sounds/snddef64.dat" 2>&1 | grep -E "^terrain:|rror" | sed "s/^/$name: /" >> "$REPO/classic/planets.log" || true
+done
+cat "$REPO/classic/planets.log"

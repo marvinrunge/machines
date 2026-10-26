@@ -46,7 +46,11 @@ public partial class SkirmishMenu : Control
             return;
         }
 
-        _assets = new ClassicAssets(Paths.Repository);
+        // For automated checks: MACHINES_IMPORT=<game folder> imports from that copy before the menu opens.
+        if (System.Environment.GetEnvironmentVariable("MACHINES_IMPORT") is { Length: > 0 } importFrom && ClassicImport.Available)
+            GD.Print(ClassicImport.Run(importFrom, line => GD.Print(line)) ?? "import finished");
+
+        _assets = new ClassicAssets(Paths.Root);
         var stringsPath = System.IO.Path.Combine(Paths.OriginalData, "machstrg.xml");
         _strings = File.Exists(stringsPath) ? StringTableParser.Load(stringsPath) : null;
         BuildLayout();
@@ -138,6 +142,8 @@ public partial class SkirmishMenu : Control
         _victory.Selected = _lastVictory;
 
         right.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
+        if (ClassicImport.Available)
+            AddImport(right);
         _start = new Button { Text = "Start", CustomMinimumSize = new Vector2(0, 44) };
         _start.Pressed += () => StartMatch(true);
         right.AddChild(_start);
@@ -147,6 +153,64 @@ public partial class SkirmishMenu : Control
 
         var hint = new Label { Text = "In the game: F10 returns here.", Modulate = new Color(1, 1, 1, 0.6f) };
         right.AddChild(hint);
+    }
+
+    /// <summary>
+    /// The button that imports the original models and terrain from the player's own copy of the game
+    /// (see <see cref="ClassicImport"/>). Without them the game shows simple shapes.
+    /// </summary>
+    private void AddImport(VBoxContainer column)
+    {
+        var status = new Label
+        {
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            Text = ClassicImport.Imported
+                ? "Original models and terrain: imported from your game copy."
+                : "Original models and terrain: not imported. You need your own copy of Machines: Wired for War.",
+        };
+        var button = new Button
+        {
+            Text = ClassicImport.Imported ? "Import again from your game copy…" : "Import from your game copy…",
+            CustomMinimumSize = new Vector2(0, 36),
+        };
+        var dialog = new FileDialog
+        {
+            FileMode = FileDialog.FileModeEnum.OpenDir,
+            Access = FileDialog.AccessEnum.Filesystem,
+            Title = "Pick the folder Machines is installed in (it holds models.bin)",
+            UseNativeDialog = true,
+        };
+        AddChild(dialog);
+        button.Pressed += () => dialog.PopupCentered(new Vector2I(900, 600));
+        dialog.DirSelected += folder =>
+        {
+            if (ClassicImport.WhyNot(folder) is { } why)
+            {
+                status.Text = why;
+                return;
+            }
+            button.Disabled = _start.Disabled = true;
+            // The export takes a minute; it runs off the main thread and reports back through deferred calls.
+            Task.Run(() =>
+            {
+                var error = ClassicImport.Run(folder, line => Callable.From(() => status.Text = line).CallDeferred());
+                Callable.From(() =>
+                {
+                    if (error is not null)
+                    {
+                        status.Text = error;
+                        button.Disabled = _start.Disabled = false;
+                    }
+                    else
+                    {
+                        // Reload the menu so previews and descriptions come from the imported copy.
+                        GetTree().ReloadCurrentScene();
+                    }
+                }).CallDeferred();
+            });
+        };
+        column.AddChild(status);
+        column.AddChild(button);
     }
 
     private static OptionButton Option(GridContainer grid, string label, IEnumerable<string> items, Action<int> changed)

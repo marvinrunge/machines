@@ -8,15 +8,25 @@ namespace Machines.Game;
 /// <see cref="HeightField"/>), textured with the planet's overview image when the game copy is present, and
 /// the original obstacles raised as rock.
 /// </summary>
-/// <remarks>The original terrain tiles are not available (they are in the game's encrypted archive).</remarks>
+/// <remarks>
+/// With tools/classic-export run, the original terrain tiles are drawn instead (from the game copy's
+/// <c>pdata/*.psb</c>, loaded by the original engine).
+/// </remarks>
 public static class TerrainBuilder
 {
     /// <summary>Obstacles are drawn at their real height, but no taller than this, so the view stays clear.</summary>
     private const float MaxWallHeight = 14f;
 
-    public static Node3D Build(Planet planet, HeightField field, Texture2D? overview)
+    public static Node3D Build(Planet planet, HeightField field, Texture2D? overview, Mesh? classicTerrain = null)
     {
         var root = new Node3D { Name = "Terrain" };
+
+        // The original tiles hold the cliffs, ramps and water edges themselves.
+        if (classicTerrain is not null)
+        {
+            root.AddChild(new MeshInstance3D { Name = "ClassicTerrain", Mesh = classicTerrain });
+            return root;
+        }
 
         var groundMaterial = new StandardMaterial3D { AlbedoColor = new Color(0.76f, 0.62f, 0.42f), Roughness = 1 };
         if (overview is not null)

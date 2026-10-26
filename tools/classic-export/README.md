@@ -4,10 +4,18 @@ Exports the original 1999 unit and building models from **your own copy** of Mac
 so the remake can show them. The output stays on your machine: `classic/` is git-ignored and must never
 be committed or shared.
 
-It links the original engine from the GPLv3 source release, loads the game's `models.bin` exactly as
-the game did, builds every machine and building for each race, and writes their visible geometry as
-JSON (`classic/models/<race>/<model id>.json`). Textures are not copied: the Godot client reads the
-BMP files straight from your game folder (`classic/game_path.txt`).
+It links the original engine from the GPLv3 source release and loads the game's own files exactly as the
+game did:
+
+- **Models:** from `models.bin`, every machine and building for each race, written as JSON
+  (`classic/models/<race>/<model id>.json`).
+- **Terrain:** each planet's surface from `pdata/<planet>.psb`, the engine's persisted planet with all its
+  terrain tiles. The exporter writes the tiles as one model (`classic/planets/<planet>/terrain.json`) and the
+  engine's `terrainHeight` sampled every 4 m (`heights.bin`: int32 columns, int32 rows, float32 spacing,
+  then float32 heights row by row).
+
+Textures are not copied: the Godot client reads the BMP files straight from your game folder
+(`classic/game_path.txt`).
 
 ## Requirements
 
@@ -27,8 +35,13 @@ tools/classic-export/run.sh /c/Users/<you>/Downloads/Machines
 ```
 
 `run.sh` writes the model list (`model-list.sh`: every research-tree machine and construction plus all
-building levels, 79 models), runs the exporter for the four races (316 files, a few seconds), and
-records the game folder for the client.
+building levels, 79 models), runs the exporter for the four races (316 files, a few seconds), then once
+per planet with `--planet` (45 planets, under a minute), and records the game folder for the client.
+A single planet:
+
+```bash
+classic_export.exe --planet <game folder> data/original/models/planet/<p>/<p>.psf classic/planets/<p> data/original/sounds/snddef64.dat
+```
 
 ## How it works
 
@@ -42,3 +55,10 @@ records the game folder for the client.
   `-fno-access-control` rather than changing the engine.
 - Engineers and Brainboxes only exist at software ("brain") levels 3 and 5 (`machphys/levels.cpp`).
 - Coordinates stay in the original's z-up model space; the client converts them.
+- The game folder has no `.psf` or `.env` files (they are in the encrypted `mach1.met`, which the source
+  release cannot read and the exporter leaves alone). The surface is given the `.psf` path in
+  `data/original`, so it finds the `.env` beside it, and still reads `pdata/<planet>.psb`, the sky meshes
+  and the textures from the game folder, its working directory.
+- `MachPhysPersistence::instance()` must run first: it registers the classes the `.psb` stream holds.
+- The game copy has no `.psb` for `2o1` and `desert`, so those two keep the stand-in terrain; neither is a
+  skirmish planet.

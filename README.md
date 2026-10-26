@@ -20,8 +20,9 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
     Pods arm their ion cannon once it is researched.
   - Support work: healing, the orb of treachery, repair, capture, deconstruction, recycling, garrisons and
     self-destruct.
-  - Ground heights from the planet tiles, and sun, sky and fog from each planet's `.env`, following its
-    day.
+  - The original terrain on every skirmish planet, loaded from your game copy by the classic exporter
+    (without it, a heightfield with stand-in rock). Sun, sky and fog come from each planet's `.env` and
+    follow its day.
   - 170 tests. Every map runs AI-only for three minutes, and every map whose scripts give orders gets moving.
 
 ## Layout
@@ -34,7 +35,7 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
 | `game/` | The Godot 4 client: terrain, units, RTS camera, selection and orders, build menus, HUD, minimap, first person |
 | `tools/classic-export` | Exports the original models from your own copy of the game (see its README) |
 | `data/original` | Original design data, copied unchanged (see `data/README.md`) |
-| `classic/` | Local-only (git-ignored): models exported from your game copy |
+| `classic/` | Local-only (git-ignored): models and planet terrain exported from your game copy |
 | `references/` | Local-only (git-ignored): OpenMachines mod, fan Blender models, screenshots, manual scans |
 
 ## Requirements
@@ -70,6 +71,22 @@ saves a screenshot and quits (see `Game.cs` and `SkirmishMenu.cs` for the other 
 | F | Drive the selected machine in first person: W/S drive, A/D or mouse turn, left mouse fires |
 | Ctrl+S, P, Esc | Stop, pause, clear selection |
 | F10 | Back to the skirmish menu |
+
+## Releases
+
+GitHub Actions (`.github/workflows/build.yml`) runs the tests on every push and pull request, builds the
+classic exporter against the original engine, and exports a Windows build. Pushing a tag such as `v0.1.0`
+publishes that build as a pre-release (notes in `tools/release/NOTES.md`).
+
+The zip holds the game, `data/original` and the exporter with its DLLs, but nothing from the original game.
+Players who own it press **Import from your game copy…** in the menu; the import writes `classic/` next
+to `Machines.exe`, as `tools/classic-export/run.sh` does in the repository.
+
+A local build needs the Godot 4.7.2 .NET export templates:
+
+```bash
+tools/release/build-windows.sh <Godot console exe> 0.1.0 <folder made by tools/classic-export/package.sh>
+```
 
 ## Licence
 

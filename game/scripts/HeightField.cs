@@ -4,9 +4,10 @@ using Machines.Import.Model;
 namespace Machines.Game;
 
 /// <summary>
-/// Ground heights from the planet surface (<c>.psf</c>). The original tile meshes are not available, but each
-/// tile records the height it was placed at: tiles are flat at that height inside, and the vertices on a
-/// tile edge take the average of the tiles that meet there, giving short ramps between levels.
+/// Ground heights. With tools/classic-export run, they are the original engine's own terrain heights.
+/// Otherwise they come from the planet surface (<c>.psf</c>): each tile records the height it was placed at,
+/// tiles are flat at that height inside, and the vertices on a tile edge take the average of the tiles that
+/// meet there, giving short ramps between levels.
 /// </summary>
 public sealed class HeightField
 {
@@ -37,6 +38,31 @@ public sealed class HeightField
                 _heights[vx, vy] = count == 0 ? 0 : sum / count;
             }
         }
+    }
+
+    private HeightField(float[,] heights, float spacing, float width, float depth)
+    {
+        _heights = heights;
+        Spacing = spacing;
+        Width = width;
+        Depth = depth;
+        CellsPerTile = 1;
+    }
+
+    /// <summary>
+    /// The heights the original engine reported (MachPhysPlanetSurface::terrainHeight), as written by
+    /// tools/classic-export: int32 columns, int32 rows, float32 spacing, then the heights row by row.
+    /// </summary>
+    public static HeightField FromExport(byte[] data, float width, float depth)
+    {
+        var columns = BitConverter.ToInt32(data, 0);
+        var rows = BitConverter.ToInt32(data, 4);
+        var spacing = BitConverter.ToSingle(data, 8);
+        var heights = new float[columns, rows];
+        for (var y = 0; y < rows; y++)
+            for (var x = 0; x < columns; x++)
+                heights[x, y] = BitConverter.ToSingle(data, 12 + 4 * (y * columns + x));
+        return new HeightField(heights, spacing, width, depth);
     }
 
     /// <summary>The field of the match being played; flat until a match sets it.</summary>

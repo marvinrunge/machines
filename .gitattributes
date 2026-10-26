@@ -1,0 +1,2 @@
+# Shell scripts run in bash on Windows too (CI checks out with CRLF otherwise)
+*.sh text eol=lf

@@ -58,10 +58,13 @@ public partial class Game : Node3D
         World = MatchSetup.Create(data, request.Scenario, request.Planet, request.Starts.Players,
             seed: (int)(Time.GetUnixTimeFromSystem() % int.MaxValue), request.Options);
 
-        _assets = new ClassicAssets(Paths.Repository);
+        _assets = new ClassicAssets(Paths.Root);
         var map = _assets.PlanetMap(request.Planet);
-        HeightField.Current = new HeightField(World.Planet.Surface);
-        AddChild(TerrainBuilder.Build(World.Planet, HeightField.Current, map));
+        var surface = World.Planet.Surface;
+        HeightField.Current = _assets.PlanetHeights(request.Planet) is { } heights
+            ? HeightField.FromExport(heights, surface.Width, surface.Depth)
+            : new HeightField(surface);
+        AddChild(TerrainBuilder.Build(World.Planet, HeightField.Current, map, _assets.PlanetTerrain(request.Planet)));
         AddLighting();
 
         _effects = new Node3D { Name = "Effects" };
