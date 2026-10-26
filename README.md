@@ -5,11 +5,17 @@ The original game rules are imported from the GPLv3 data files of the original s
 
 Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifact/HaZzuN2abszMB1ytkbdQww)
 
+## Status
+
+**M0 · Foundation is complete.** Every one of the 362 original data files has an importer and loads
+(`DataCoverageTests`), and 99 tests pin the importers and the armour rule to the 1999 values. Next is
+**M1 · Vertical slice**: a playable 1v1 skirmish on the desert planet.
+
 ## Layout
 
 | Folder | Holds |
 | --- | --- |
-| `import/Machines.Import` | Readers for the original data formats. Today: `parmdata.dat` (all unit, building and weapon stats) |
+| `import/Machines.Import` | Readers for every original data format: stats, research, factories, scenarios, AI scripts, menus, strings, planets, sounds |
 | `sim/Machines.Sim` | The simulation core, plain C# with no Godot types. Today: the original armour/damage rule |
 | `tests/Machines.Tests` | xUnit tests that pin the importer and simulation to the 1999 numbers |
 | `game/` | The Godot 4 project. Its start scene loads `parmdata.dat` and shows a summary |
