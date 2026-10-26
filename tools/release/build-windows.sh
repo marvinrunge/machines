@@ -26,6 +26,11 @@ if [ -n "$EXPORTER" ]; then
     mkdir -p "$OUT/tools"
     cp -r "$EXPORTER" "$OUT/tools/classic-export"
 fi
+# Real-ESRGAN for the HD textures (tools/texture-upscale/fetch.sh), with its licence.
+if [ -f "$REPO/tools/texture-upscale/bin/realesrgan-ncnn-vulkan.exe" ]; then
+    mkdir -p "$OUT/tools/texture-upscale"
+    cp -r "$REPO/tools/texture-upscale/bin" "$OUT/tools/texture-upscale/bin"
+fi
 cp "$REPO/LICENSE.md" "$OUT/LICENSE.md"
 sed "s/{{VERSION}}/$VERSION/g" "$REPO/tools/release/README.txt" > "$OUT/README.txt"
 

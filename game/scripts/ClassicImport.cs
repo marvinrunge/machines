@@ -71,6 +71,10 @@ public static class ClassicImport
 
         File.WriteAllText(Path.Combine(Paths.Classic, "game_path.txt"), Slashes(gameFolder));
         File.WriteAllText(FormatFile, Format.ToString());
+
+        // The remake's sharper textures, made from the same copy.
+        if (HdTextures.Run(gameFolder, progress) is { } error)
+            return error;
         progress("Done.");
         return null;
     }

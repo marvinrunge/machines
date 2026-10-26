@@ -50,6 +50,13 @@ public partial class SkirmishMenu : Control
         // For automated checks: MACHINES_IMPORT=<game folder> imports from that copy before the menu opens.
         if (System.Environment.GetEnvironmentVariable("MACHINES_IMPORT") is { Length: > 0 } importFrom && ClassicImport.Available)
             GD.Print(ClassicImport.Run(importFrom, line => GD.Print(line)) ?? "import finished");
+        // MACHINES_HD=<game folder> makes only the HD textures (see HdTextures) and quits.
+        if (System.Environment.GetEnvironmentVariable("MACHINES_HD") is { Length: > 0 } hdFrom && ClassicImport.Imported)
+        {
+            GD.Print(HdTextures.Run(hdFrom, line => GD.Print(line)) ?? "HD textures finished");
+            GetTree().Quit();
+            return;
+        }
 
         _assets = new ClassicAssets(Paths.Root);
         var stringsPath = System.IO.Path.Combine(Paths.OriginalData, "machstrg.xml");
@@ -193,6 +200,8 @@ public partial class SkirmishMenu : Control
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
             Text = ClassicImport.Outdated
                 ? "Original models and terrain: imported by an older version. Import again for the right lighting."
+                : ClassicImport.Imported && !HdTextures.Made
+                    ? "Original models and terrain: imported. Import again for the remake's sharper textures."
                 : ClassicImport.Imported
                     ? "Original models and terrain: imported from your game copy."
                     : "Original models and terrain: not imported. You need your own copy of Machines: Wired for War.",

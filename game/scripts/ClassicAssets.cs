@@ -214,6 +214,15 @@ public sealed class ClassicAssets
         return File.Exists(Path.Combine(_gameFolder, swapped)) ? swapped : texture;
     }
 
+    /// <summary>Every race's version of a race-coloured texture (see <see cref="RaceTexture"/>); none for others.</summary>
+    public static IEnumerable<string> RaceVariants(string texture)
+    {
+        if (!RaceTextures.Value.TryGetValue(Path.GetFileName(texture).ToLowerInvariant(), out var variant))
+            yield break;
+        for (var race = 1; race <= 4; race++)
+            yield return Path.Combine(Path.GetDirectoryName(texture) ?? "", $"{variant.Root}{race}{variant.Extension}").Replace('\\', '/');
+    }
+
     /// <summary>The race-coloured textures of <c>logos.dat</c>, by their Red (first) name.</summary>
     private static readonly Lazy<Dictionary<string, (string Root, string Extension)>> RaceTextures = new(() =>
     {
@@ -497,6 +506,14 @@ public sealed class ClassicAssets
                 arrays[(int)Mesh.ArrayType.Color] = Enumerable.Range(0, count).Select(i => new Color(c[i * 3], c[i * 3 + 1], c[i * 3 + 2])).ToArray();
                 diffuse = [1, 1, 1, diffuse.Length > 3 ? diffuse[3] : 1];
             }
+            // The HD textures' normal maps need tangents along the texture's axes.
+            if (GraphicsSettings.Remake && HdTextures.Made)
+            {
+                var tool = new SurfaceTool();
+                tool.CreateFromArrays(arrays);
+                tool.GenerateTangents();
+                arrays = tool.CommitToArrays();
+            }
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
 
             var emissive = part.TryGetProperty("emissive", out var glow) ? glow.EnumerateArray().Select(e => e.GetSingle()).ToArray() : [0f, 0f, 0f];
@@ -522,6 +539,10 @@ public sealed class ClassicAssets
             (low, high) = (Mathf.Min(low, positions[i]), Mathf.Max(high, positions[i]));
         return high - low < 0.1f;
     }
+
+    /// <summary>How deep the HD normal maps look on machines and buildings, and on the ground.</summary>
+    private const float ModelNormalScale = 1f;
+    private const float PlanetNormalScale = 0.6f;
 
     private Material MaterialFor(string texture, float[] diffuse, Race? race = null, float[]? emissive = null, bool vertexColours = false)
     {
@@ -568,6 +589,20 @@ public sealed class ClassicAssets
             // black instead of a white box.
             material.EmissionOperator = BaseMaterial3D.EmissionOperatorEnum.Multiply;
             material.EmissionEnergyMultiplier = GraphicsSettings.Remake ? 1.6f : 1;
+        }
+        // The HD textures bring normal and roughness maps (see HdTextures): panel lines and rivets catch the light
+        // on machines and buildings, grain and cracks on the ground. Glowing parts stay as they are.
+        else if (remake && HdTextures.Made
+            && LoadPng(HdTextures.NormalPath(texture), Image.CompressSource.Normal) is { } normal
+            && LoadPng(HdTextures.RoughnessPath(texture), Image.CompressSource.Generic) is { } rough)
+        {
+            material.NormalEnabled = true;
+            material.NormalTexture = normal;
+            material.NormalScale = race is null ? PlanetNormalScale : ModelNormalScale;
+            // The map holds the roughness itself, a little sheen on machines and matt ground.
+            material.RoughnessTexture = rough;
+            material.RoughnessTextureChannel = BaseMaterial3D.TextureChannel.Red;
+            material.Roughness = 1;
         }
         // See-through textures: cut out where keyed, blended where they have an alpha map.
         if (clearness == Clearness.Keyed)
@@ -642,6 +677,28 @@ public sealed class ClassicAssets
         return ImageTexture.CreateFromImage(image);
     }
 
+    private readonly Dictionary<string, Texture2D?> _pngs = [];
+
+    /// <summary>
+    /// A texture made by <see cref="HdTextures"/>, with mipmaps and compressed for the GPU (they are sixteen times
+    /// the original's size); loaded once. Null when it has not been made.
+    /// </summary>
+    private Texture2D? LoadPng(string path, Image.CompressSource source)
+    {
+        if (_pngs.TryGetValue(path, out var cached))
+            return cached;
+        Texture2D? texture = null;
+        if (File.Exists(path) && Image.LoadFromFile(path) is { } image && !image.IsEmpty())
+        {
+            image.GenerateMipmaps();
+            // Builds without a compressor (export templates may lack one) keep the image as it is.
+            image.Compress(Image.CompressMode.S3Tc, source);
+            texture = ImageTexture.CreateFromImage(image);
+        }
+        _pngs[path] = texture;
+        return texture;
+    }
+
     /// <summary>How a texture lets things through: not at all, cut out by a key colour, or softly by an alpha map.</summary>
     private enum Clearness { Opaque, Keyed, Soft }
 
@@ -658,12 +715,16 @@ public sealed class ClassicAssets
         var path = Path.Combine(_gameFolder, relative);
         var name = Path.GetFileName(relative).ToLowerInvariant();
         var transparent = name.EndsWith("_t.bmp") || name.EndsWith("_bt.bmp");
-        if (!transparent)
-            return (File.Exists(path) ? LoadBmp(path) : null, Clearness.Opaque);
-
         string Sibling(char letter) => path[..^5] + letter + path[^4..];
         var colourPath = Sibling('c');
         var alphaPath = Sibling('a');
+
+        // The remake shows the textures enlarged by HdTextures, their coverage already in their alpha.
+        if (GraphicsSettings.Remake && HdTextures.Made && LoadPng(HdTextures.AlbedoPath(relative), Image.CompressSource.Srgb) is { } sharp)
+            return (sharp, !transparent ? Clearness.Opaque : File.Exists(colourPath) && File.Exists(alphaPath) ? Clearness.Soft : Clearness.Keyed);
+
+        if (!transparent)
+            return (File.Exists(path) ? LoadBmp(path) : null, Clearness.Opaque);
         if (File.Exists(colourPath) && File.Exists(alphaPath)
             && DecodeBmp(File.ReadAllBytes(colourPath)) is { } colour && DecodeBmp(File.ReadAllBytes(alphaPath)) is { } alpha
             && colour.GetSize() == alpha.GetSize())

@@ -16,6 +16,7 @@ TestResults/
 
 # Exporter build output, and models/textures exported from your own copy of the game (never committed)
 tools/classic-export/build/
+tools/texture-upscale/bin/
 classic/
 
 # Local reference material (fan models, screenshots, manual scans, OpenMachines); not redistributed

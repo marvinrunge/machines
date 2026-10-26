@@ -62,6 +62,10 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
 - **Remake graphics (phase C):** the moon lights the night as in the original (it was pitch black), with
   stars and moon discs in the sky; buildings light their surroundings and machines switch on headlights
   after dark; water ripples, glints and mirrors its surroundings, waterfalls flow.
+- **Remake graphics (phase D, HD textures):** the import ends by enlarging every original texture four
+  times with Real-ESRGAN on your GPU (fetched by `tools/texture-upscale/fetch.sh`; Lanczos without it) and
+  deriving normal and roughness maps from them, so panel lines, rivets, cracks and grain catch the light.
+  They stay in `classic/hd` on your machine. Already imported? **Import again** makes them.
 - **Models in motion:** the machines' glowing eyes and turn-to-face sprites, glowing parts such as the
   plasma weapons' green, rotors and turbines that spin, hips that bob and the bee bomber's energy ball, all
   as the original moved them. Flyers and hover machines tip as they speed up, brake and turn; real
