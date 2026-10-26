@@ -61,8 +61,8 @@ public sealed class Blast(string weapon, Vector2 position, Race? by, float start
             "VORTEX" => [new BlastWave(0.5f, 2f, 0.75f, Extra(0, 40), damage)],
             // beebomex.cpp / beewave.cpp: a ring from 1.55 m to 34 m, 1.5 s to 4 s after impact.
             "BEE_BOMB" => [new BlastWave(1.5f, 2.5f, 1.55f, 15.5137f * 2.2f, damage)],
-            // punch.cpp: a 40 m cone, 0.53 radians either side, out in about a second.
-            "GORILLA_PUNCH" => [new BlastWave(0f, 1f, 0f, Extra(0, 40), damage, ConeHalfAngle: 0.53f)],
+            // punch.cpp: a 40 m cone, 0.53 radians either side, out in 1.2 s (MachLogPunchBlast's "best guess").
+            "GORILLA_PUNCH" => [new BlastWave(0f, 1.2f, 0f, Extra(0, 40), damage, ConeHalfAngle: 0.53f)],
             // ionbeam.cpp: the beam (EXTRAS[0] = 30 m) burns through, then a wave three times wider flash-burns.
             "ION_ORBITAL_CANNON" => [
                 new BlastWave(1f, 1f, 0f, Extra(0, 30), damage),
@@ -73,6 +73,12 @@ public sealed class Blast(string weapon, Vector2 position, Race? by, float start
             _ => [new BlastWave(0f, 0f, 0f, 5f, damage)],
         };
     }
+
+    /// <summary>
+    /// How long after the Gorilla punches its fists hit the ground and the blast begins: 42 frames of its punch
+    /// plan at 25 a second (MachPhysPunchWeapon::createPunchBlast).
+    /// </summary>
+    public const float PunchLanding = 42f / 25f;
 
     public static bool IsArea(string weapon) => weapon is "VORTEX" or "BEE_BOMB" or "GORILLA_PUNCH" or "ION_ORBITAL_CANNON" or "NUCLEAR_MISSILE";
 

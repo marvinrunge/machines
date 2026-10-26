@@ -22,9 +22,11 @@ public static class ClassicImport
     /// What the exporter writes, raised when an import has to be redone: 2 added the original vertex normals
     /// (without them some terrain tiles and model parts are lit from behind), 3 the first-person eye on each
     /// machine's faceplate, 4 the turn-to-face sprites (eyes, lamps, leaves) and the materials' ambient and emissive
-    /// colours.
+    /// colours, 5 the parts that move by themselves (rotors, bobbing hips, a weapon's energy ball) and their motion,
+    /// buildings' moving parts and how they work, and the vertices' own materials (terrain tiles shade their corners
+    /// with them; without, whole corner tiles came out dark).
     /// </summary>
-    public const int Format = 4;
+    public const int Format = 5;
 
     private static string FormatFile => Path.Combine(Paths.Classic, "format.txt");
 

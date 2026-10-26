@@ -55,6 +55,7 @@ public partial class SkirmishMenu : Control
         var stringsPath = System.IO.Path.Combine(Paths.OriginalData, "machstrg.xml");
         _strings = File.Exists(stringsPath) ? StringTableParser.Load(stringsPath) : null;
         BuildLayout();
+        Music.Menu(this);
         FillTree(ScenarioCatalogueParser.Load(System.IO.Path.Combine(Paths.OriginalData, "sceninfo.dat")));
     }
 
@@ -171,6 +172,7 @@ public partial class SkirmishMenu : Control
         };
         graphics.Toggled += on => GraphicsSettings.Remake = on;
         right.AddChild(graphics);
+        AddMusic(right);
 
         var quit = new Button { Text = "Quit", CustomMinimumSize = new Vector2(0, 32) };
         quit.Pressed += () => GetTree().Quit();
@@ -238,6 +240,45 @@ public partial class SkirmishMenu : Control
         };
         column.AddChild(status);
         column.AddChild(button);
+    }
+
+    /// <summary>The soundtrack's folder (the player's own MP3s, see <see cref="Music"/>) and the music volume.</summary>
+    private void AddMusic(VBoxContainer column)
+    {
+        static string Status(string? folder) => Music.TrackCount(folder) is var count and > 0
+            ? $"Music: {count} tracks"
+            : "Music: pick the folder with the soundtrack's MP3s";
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 8);
+        var pick = new Button { Text = "Music folder…", TooltipText = Status(Music.Folder) };
+        var volume = new HSlider
+        {
+            MinValue = 0,
+            MaxValue = 1,
+            Step = 0.05,
+            Value = Music.Volume,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ShrinkCenter,
+            TooltipText = "Music volume",
+        };
+        volume.ValueChanged += value => Music.Volume = (float)value;
+        var dialog = new FileDialog
+        {
+            FileMode = FileDialog.FileModeEnum.OpenDir,
+            Access = FileDialog.AccessEnum.Filesystem,
+            Title = "Pick the folder with the soundtrack (Track 00 - Intro.mp3 ...)",
+            UseNativeDialog = true,
+        };
+        AddChild(dialog);
+        pick.Pressed += () => dialog.PopupCentered(new Vector2I(900, 600));
+        dialog.DirSelected += folder =>
+        {
+            Music.Folder = folder;
+            pick.TooltipText = Status(folder);
+        };
+        row.AddChild(pick);
+        row.AddChild(volume);
+        column.AddChild(row);
     }
 
     private static OptionButton Option(GridContainer grid, string label, IEnumerable<string> items, Action<int> changed)

@@ -6,12 +6,12 @@ namespace Machines.Sim.World;
 
 public sealed partial class GameWorld
 {
-    private readonly List<(float At, WeaponSpec Weapon, Vector2 Target, Race By)> _incoming = [];
+    private readonly List<(float At, WeaponSpec Weapon, Vector2 Target, Race By, Vector2 Direction)> _incoming = [];
 
     /// <summary>Area weapons going off now.</summary>
     public List<Blast> Blasts { get; } = [];
 
-    /// <summary>Nuclear missiles in flight: where they land and when.</summary>
+    /// <summary>Blasts still to come (nuclear missiles in flight, punches on their way down): where and when.</summary>
     public IEnumerable<(float At, Vector2 Target)> Incoming => _incoming.Select(i => (i.At, i.Target));
 
     /// <summary>The research item that gives every pod of a race its ion cannon.</summary>
@@ -26,6 +26,10 @@ public sealed partial class GameWorld
         return blast;
     }
 
+    /// <summary>A blast that goes off later, at the time <paramref name="at"/>: a missile landing, a punch coming down.</summary>
+    internal void ScheduleBlast(float at, WeaponSpec weapon, Vector2 position, Race by, Vector2 direction = default) =>
+        _incoming.Add((at, weapon, position, by, direction));
+
     /// <summary>
     /// Fires an ion cannon or nuclear missile. The ion beam comes down at once; the missile flies at its
     /// SPEED and its bomb goes off on arrival.
@@ -37,7 +41,7 @@ public sealed partial class GameWorld
         if (weapon.Spec.TypeName == "NUCLEAR_MISSILE")
         {
             var flight = Vector2.Distance(launcher.Position, target) / MathF.Max(1, weapon.Spec.ProjectileSpeed);
-            _incoming.Add((Time + flight, weapon.Spec, target, launcher.Race));
+            ScheduleBlast(Time + flight, weapon.Spec, target, launcher.Race);
         }
         else
         {
@@ -69,7 +73,7 @@ public sealed partial class GameWorld
         {
             if (_incoming[i].At > Time)
                 continue;
-            StartBlast(_incoming[i].Weapon, _incoming[i].Target, _incoming[i].By);
+            StartBlast(_incoming[i].Weapon, _incoming[i].Target, _incoming[i].By, _incoming[i].Direction);
             _incoming.RemoveAt(i);
         }
 

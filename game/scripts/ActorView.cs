@@ -59,6 +59,22 @@ public partial class ActorView : Node3D
     public Vector3 Eye => _rigView?.Eye
         ?? GlobalTransform * new Vector3(_bounds.End.X, _bounds.Position.Y + _bounds.Size.Y * 0.8f, _bounds.GetCenter().Z);
 
+    /// <summary>The Gorilla's punch: one of its two plans, picked at random as the original did (MachPhysPunchWeapon).</summary>
+    public void Punch() => Play(Random.Shared.Next(2) == 0 ? "punchA" : "punchB");
+
+    /// <summary>Plays one of the machine's exported animations once; false without a rig or that animation.</summary>
+    public bool Play(string animation) => _rigView?.Play(animation) ?? false;
+
+    /// <summary>A building at work plays its working motion (fans turn, arms dig).</summary>
+    public bool Working
+    {
+        set
+        {
+            if (_rigView is not null)
+                _rigView.Working = value;
+        }
+    }
+
     /// <summary>Render layer of a machine being driven: the first-person camera does not draw it, so it never blocks the view.</summary>
     public const uint DrivenLayer = 2;
 
@@ -88,11 +104,11 @@ public partial class ActorView : Node3D
                 view.AddChild(view._engine.Player);
         }
 
-        // Machines with an exported rig move their parts; everything else is one mesh.
-        if (actor is Machine rigged && assets.RigFor(id, Game.Look(actor.Race)) is { } rig)
+        // Machines and buildings with an exported rig move their parts; everything else is one mesh.
+        if (assets.RigFor(id, Game.Look(actor.Race)) is { } rig)
         {
             view._rigView = RigView.Create(rig);
-            view._maxSpeed = rigged.Stats.Speed;
+            view._maxSpeed = actor is Machine rigged ? rigged.Stats.Speed : 0;
             view.AddChild(view._rigView);
         }
         else
@@ -316,6 +332,8 @@ public partial class ActorView : Node3D
             var speed = new Vector3(moved.X, 0, moved.Z).Dot(facing) / (float)delta;
             var turnRate = -Mathf.AngleDifference(_lastYaw, _yaw) / (float)delta;
             _rigView.Animate((float)delta, speed, turnRate, _maxSpeed, _aim);
+            if (!_followsGround)
+                Lean((float)delta, speed, turnRate);
         }
         _lastPosition = Position;
         _lastYaw = _yaw;
@@ -356,6 +374,32 @@ public partial class ActorView : Node3D
         // The model faces +x; the basis keeps Godot's handedness (z = x × y).
         var z = along.Cross(up).Normalized();
         Basis = new Basis(along, z.Cross(along), z).Scaled(Scale);
+    }
+
+    // Hovering and gliding machines lean with their motion, as MachPhysGlider and MachPhysHoverBoots planned it:
+    // nose down while speeding up, up while braking (at most 20°), and into a turn (at most 30°), with a lag.
+    private float _speed, _pitch, _roll;
+
+    private void Lean(float delta, float speed, float turnRate)
+    {
+        var acceleration = (speed - _speed) / delta;
+        _speed = Mathf.Lerp(_speed, speed, 1 - Mathf.Exp(-6 * delta));
+        var pitchWanted = Mathf.Clamp(-acceleration * Mathf.DegToRad(2.5f), -Mathf.DegToRad(20), Mathf.DegToRad(20));
+        var rollWanted = Mathf.Clamp(turnRate * 0.6f, -Mathf.DegToRad(30), Mathf.DegToRad(30));
+        var follow = 1 - Mathf.Exp(-3 * delta);
+        _pitch = Mathf.Lerp(_pitch, pitchWanted, follow);
+        _roll = Mathf.Lerp(_roll, rollWanted, follow);
+        // The model's nose is +x and its right +z: pitching turns about z, rolling about x.
+        _rigView!.Basis = new Basis(Vector3.Back, _pitch) * new Basis(Vector3.Right, _roll);
+    }
+
+    /// <summary>Blows the machine apart into its parts under <paramref name="parent"/> (see <see cref="Debris"/>); null for one without parts.</summary>
+    public Debris? Shatter(Node parent)
+    {
+        if (_rigView is null)
+            return null;
+        // Parts fly from the middle of the machine, not from its feet.
+        return Debris.From(_rigView, GlobalPosition + Vector3.Up * Mathf.Max(1, Size * 0.3f), Size, parent);
     }
 
     /// <summary>Original ground coordinates (x, y) to Godot (x, ground height, y).</summary>

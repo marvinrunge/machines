@@ -11,7 +11,8 @@ game did:
   (`classic/models/<race>/<model id>.json`). Machines also carry a `rig`: the machine and each of its links
   as a tree of nodes with their rest transforms and their own geometry, the link that turns the upper body,
   and how the locomotion moves them. Spider legs bring their resting, walking, turning, start and stop
-  cycles, sampled 20 times a second from the original composite plans. Wheels bring their nodes and radius,
+  cycles, sampled 20 times a second from the original composite plans, and the Gorilla its two punches
+  (`punchA`, `punchB`). Wheels bring their nodes and radius,
   and tracks their tread nodes and texture repeats per metre.
 - **Terrain:** each planet's surface from `pdata/<planet>.psb`, the engine's persisted planet with all its
   terrain tiles. The exporter writes the tiles as one model (`classic/planets/<planet>/terrain.json`) and the

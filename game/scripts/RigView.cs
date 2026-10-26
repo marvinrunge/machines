@@ -6,7 +6,7 @@ namespace Machines.Game;
 /// Draws a <see cref="Rig"/> and moves its parts as the original did: spider legs play their walking, turning and
 /// resting cycles (MachPhysSpiderLegs), wheels roll by the distance travelled over their radius (MachPhysWheels),
 /// track treads scroll their texture (MachPhysITrack), and the upper body turns towards its target
-/// (MachPhysMachine::upperBodyTurnTo).
+/// (MachPhysMachine::upperBodyTurnTo). One-off actions, such as the Gorilla's punches, play over the cycles.
 /// </summary>
 public partial class RigView : Node3D
 {
@@ -19,6 +19,10 @@ public partial class RigView : Node3D
     private float _phase;
     private float _leftWheel, _rightWheel;
     private float _upperBody;
+    private float _idleTime = (float)GD.RandRange(0, 10);
+    private float _workTime;
+    private RigAnimation? _action;
+    private float _actionTime;
     private readonly List<StandardMaterial3D> _leftTread = [], _rightTread = [];
 
     public static RigView Create(Rig rig)
@@ -48,9 +52,25 @@ public partial class RigView : Node3D
     /// Where first person looks out from: the centre front of the faceplate as it stands now (the original's
     /// camera attachment), or null when the export has none.
     /// </summary>
+    /// <summary>A building's working motion plays (MachPhysConstruction::isWorking).</summary>
+    public bool Working { get; set; }
+
     public Vector3? Eye => _rig.Faceplate >= 0 && _rig.Faceplate < _nodes.Length
         ? _nodes[_rig.Faceplate].GlobalTransform * _rig.Eye
         : null;
+
+    /// <summary>
+    /// Plays the animation <paramref name="name"/> once from its start, over the cycles (a machine's
+    /// <c>plan</c> in the original); false when the export has none of that name.
+    /// </summary>
+    public bool Play(string name)
+    {
+        if (!_rig.Animations.TryGetValue(name, out var animation) || animation.Duration <= 0)
+            return false;
+        _action = animation;
+        _actionTime = 0;
+        return true;
+    }
 
     /// <summary>
     /// Moves the parts for one frame. <paramref name="speed"/> is metres per second forwards (negative backwards),
@@ -61,6 +81,30 @@ public partial class RigView : Node3D
     {
         var moving = Mathf.Abs(speed) > 0.3f;
         var turning = !moving && Mathf.Abs(turnRate) > 0.3f;
+
+        // A finished action gives its parts back: to rest, then to the cycles below.
+        if (_action is { } done && (_actionTime += delta) >= done.Duration)
+        {
+            foreach (var track in done.Tracks)
+                if (track.Node < _nodes.Length)
+                    _nodes[track.Node].Transform = _rig.Nodes[track.Node].Rest;
+            _action = null;
+        }
+
+        // Parts that move by themselves; the walking cycles below take over the parts they move.
+        _idleTime += delta;
+        foreach (var idle in _rig.Idle)
+            if (idle.Track.Node < _nodes.Length && idle.Duration > 0)
+                _nodes[idle.Track.Node].Transform = idle.Track.At(_idleTime % idle.Duration / idle.Duration);
+
+        // A building at work; when it stops, its parts stay where they stopped.
+        if (Working)
+        {
+            _workTime += delta;
+            foreach (var work in _rig.Working)
+                if (work.Track.Node < _nodes.Length && work.Duration > 0)
+                    _nodes[work.Track.Node].Transform = work.Track.At(_workTime % work.Duration / work.Duration);
+        }
 
         if (_rig.Animations.Count > 0)
         {
@@ -80,6 +124,11 @@ public partial class RigView : Node3D
                         _nodes[track.Node].Transform = track.At(_phase);
             }
         }
+
+        if (_action is { } action)
+            foreach (var track in action.Tracks)
+                if (track.Node < _nodes.Length)
+                    _nodes[track.Node].Transform = track.At(_actionTime / action.Duration);
 
         if (_rig.Wheels is { } wheels && wheels.Radius > 0)
         {

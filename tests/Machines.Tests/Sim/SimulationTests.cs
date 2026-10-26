@@ -127,6 +127,25 @@ public class SimulationTests
     }
 
     [Fact]
+    public void Buildings_work_as_the_original_switched_them_on()
+    {
+        var world = NewMatch(red: Controller.Player);
+        var garrison = world.AddConstruction(Race.Red, new Vector2(500, 300), "GARRISON", null, 1, 0, complete: true);
+        var site = world.AddConstruction(Race.Red, new Vector2(560, 300), "GARRISON", null, 1, 0, complete: false);
+        var factory = world.AddConstruction(Race.Red, new Vector2(620, 300), "FACTORY", "CIVILIAN", 1, 0, complete: true);
+        var smelter = world.AddConstruction(Race.Red, new Vector2(500, 380), "SMELTER", null, 1, 0, complete: true);
+
+        Assert.True(world.IsWorking(garrison));
+        Assert.False(world.IsWorking(site));
+        Assert.False(world.IsWorking(factory));
+        factory.ProductionQueue.Add(new ResearchKey("CONSTRUCTOR", "DOZER", 1, null));
+        Assert.True(world.IsWorking(factory));
+        Assert.False(world.IsWorking(smelter));
+        smelter.OreDroppedTick = world.Tick;
+        Assert.True(world.IsWorking(smelter));
+    }
+
+    [Fact]
     public void A_driven_machine_follows_first_person_input()
     {
         var world = NewMatch(red: Controller.Player);

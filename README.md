@@ -62,7 +62,23 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
 - **Remake graphics (phase C):** the moon lights the night as in the original (it was pitch black), with
   stars and moon discs in the sky; buildings light their surroundings and machines switch on headlights
   after dark; water ripples, glints and mirrors its surroundings, waterfalls flow.
-- 192 tests. Every map runs AI-only for three minutes, and every map whose scripts give orders gets moving.
+- **Models in motion:** the machines' glowing eyes and turn-to-face sprites, glowing parts such as the
+  plasma weapons' green, rotors and turbines that spin, hips that bob and the bee bomber's energy ball, all
+  as the original moved them. Flyers and hover machines tip as they speed up, brake and turn; real
+  shadows replace the flat shadow plates under flyers. In the remake look, destroyed machines burst into
+  their parts, which fly, bounce and sink away. Buildings play their working animations as the original
+  switched them on: factories while they produce, mines while they fill, smelters as ore arrives, beacons
+  and pods all the time. Terrain tiles take the colours of their own vertices, so the dark squares at rock
+  corners are gone. Groups ordered somewhere spread out around the target as in the original instead of
+  piling onto one point. The import format is now 5: start the import again after updating.
+- **Music:** the original soundtrack from your own MP3s (**Music folder…** in the menu, with a volume
+  slider), played as the original played its CD: the intro and then the menu tune, each map's own track
+  when the match begins and then the in-game tracks at random, a victory or defeat tune at the end.
+- **Fog of war** as the original drew it: your machines uncover the planet by their scanner range; looking
+  at unknown ground darkens the view with static down to black, where nothing can be picked and the world
+  is silent. A level 1 beacon's map shows only what you have uncovered; a level 3 beacon lifts the fog.
+  It is your view only: the AI never had it, in the original either.
+- 195 tests. Every map runs AI-only for three minutes, and every map whose scripts give orders gets moving.
 
 ## Layout
 
@@ -97,8 +113,9 @@ Open `game/project.godot` in the Godot .NET editor and press Play. Godot builds 
 repository root (`dotnet/project/solution_directory`). The game opens on the skirmish menu: pick a map
 (double click starts it) and settings, then Start.
 
-For automated checks, `MACHINES_MAP=<scenario>,<planet>` skips the menu, and `MACHINES_SCREENSHOT=<file.png>`
-saves a screenshot and quits (see `Game.cs` and `SkirmishMenu.cs` for the other `MACHINES_*` switches).
+For automated checks, `MACHINES_MAP=<scenario>,<planet>` skips the menu, `MACHINES_SCREENSHOT=<file.png>`
+saves a screenshot and quits (without fog of war unless `MACHINES_FOG=1`), and `MACHINES_SCREENSHOT_PLAY=punchA,3` plays an animation 3 s in (see `Game.cs` and
+`SkirmishMenu.cs` for the other `MACHINES_*` switches).
 
 | Control | Does |
 | --- | --- |

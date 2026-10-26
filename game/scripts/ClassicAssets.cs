@@ -285,6 +285,9 @@ public sealed class ClassicAssets
     });
 
     /// <summary>A model's mesh from its export: the triangles of its <c>parts</c> and the <c>sprites</c> that face the camera.</summary>
+    /// <summary>How far a model's plates on the ground are lifted above it, metres.</summary>
+    private const float GroundPlateLift = 0.12f;
+
     private Mesh? MeshFromParts(JsonElement model, Race? race = null)
     {
         var mesh = new ArrayMesh();
@@ -295,14 +298,20 @@ public sealed class ClassicAssets
             var count = positions.Length / 3;
             if (count == 0)
                 continue;
+            var diffuse = part.GetProperty("diffuse").EnumerateArray().Select(e => e.GetSingle()).ToArray();
+            if (IsPaintedShadow(part, diffuse, positions))
+                continue;
 
             // Original axes are z-up; Godot is y-up: (x, y, z) -> (x, z, y). The swap mirrors the model,
             // so each triangle's winding is reversed to keep its front face outward.
+            // Flat plates lying on the ground (the pads before a building's doors) sit a little above it, or the
+            // ground would show through them where the two meet.
+            var lift = race is not null && Enumerable.Range(0, count).All(i => Mathf.Abs(positions[i * 3 + 2]) < 0.02f) ? GroundPlateLift : 0;
             var vertices = new Vector3[count];
             var texCoords = new Vector2[count];
             for (var i = 0; i < count; i++)
             {
-                vertices[i] = new Vector3(positions[i * 3], positions[i * 3 + 2], positions[i * 3 + 1]);
+                vertices[i] = new Vector3(positions[i * 3], positions[i * 3 + 2] + lift, positions[i * 3 + 1]);
                 texCoords[i] = new Vector2(uvs[i * 2], uvs[i * 2 + 1]);
             }
             var indices = new int[count];
@@ -337,21 +346,46 @@ public sealed class ClassicAssets
             arrays[(int)Mesh.ArrayType.Normal] = normals;
             arrays[(int)Mesh.ArrayType.TexUV] = texCoords;
             arrays[(int)Mesh.ArrayType.Index] = indices;
+
+            // Vertices with a material of their own (terrain tiles shade their corners that way, see
+            // RenIIlluminator::applyVertexMaterials) bring their colour; it tints the texture instead of the part's.
+            var vertexColours = part.TryGetProperty("colours", out var colourList) && colourList.GetArrayLength() == positions.Length;
+            if (vertexColours)
+            {
+                var c = colourList.EnumerateArray().Select(e => e.GetSingle()).ToArray();
+                arrays[(int)Mesh.ArrayType.Color] = Enumerable.Range(0, count).Select(i => new Color(c[i * 3], c[i * 3 + 1], c[i * 3 + 2])).ToArray();
+                diffuse = [1, 1, 1, diffuse.Length > 3 ? diffuse[3] : 1];
+            }
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
 
-            var diffuse = part.GetProperty("diffuse").EnumerateArray().Select(e => e.GetSingle()).ToArray();
-            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, MaterialFor(part.GetProperty("texture").GetString() ?? "", diffuse, race));
+            var emissive = part.TryGetProperty("emissive", out var glow) ? glow.EnumerateArray().Select(e => e.GetSingle()).ToArray() : [0f, 0f, 0f];
+            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, MaterialFor(part.GetProperty("texture").GetString() ?? "", diffuse, race, emissive, vertexColours));
         }
         if (model.TryGetProperty("sprites", out var sprites))
             AddSprites(mesh, sprites, race);
         return mesh.GetSurfaceCount() > 0 ? mesh : null;
     }
 
-    private Material MaterialFor(string texture, float[] diffuse, Race? race = null)
+    /// <summary>
+    /// The flat, half-clear black plate the original laid under flying machines as their shadow. Real shadows
+    /// replace it, so it is left out.
+    /// </summary>
+    private static bool IsPaintedShadow(JsonElement part, float[] diffuse, float[] positions)
+    {
+        if (part.GetProperty("texture").GetString() is { Length: > 0 } || diffuse.Length < 4 || diffuse[3] > 0.99f || diffuse[0] + diffuse[1] + diffuse[2] > 0.03f)
+            return false;
+        float low = float.MaxValue, high = float.MinValue;
+        for (var i = 2; i < positions.Length; i += 3)
+            (low, high) = (Mathf.Min(low, positions[i]), Mathf.Max(high, positions[i]));
+        return high - low < 0.1f;
+    }
+
+    private Material MaterialFor(string texture, float[] diffuse, Race? race = null, float[]? emissive = null, bool vertexColours = false)
     {
         if (race is { } r)
             texture = RaceTexture(texture, r);
-        var key = $"{texture}|{string.Join(',', diffuse)}|{race is not null}";
+        emissive ??= [0, 0, 0];
+        var key = $"{texture}|{string.Join(',', diffuse)}|{string.Join(',', emissive)}|{race is not null}|{vertexColours}";
         if (_materials.TryGetValue(key, out var cached))
             return cached;
 
@@ -365,6 +399,9 @@ public sealed class ClassicAssets
             TextureFilter = remake ? BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic : BaseMaterial3D.TextureFilterEnum.LinearWithMipmaps,
             // The original's winding convention is not confirmed yet; draw both sides.
             CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            // Vertex colours are material colours, given as the albedo colour is.
+            VertexColorUseAsAlbedo = vertexColours,
+            VertexColorIsSrgb = vertexColours,
         };
         // Machines and buildings get a little sheen; the ground stays matt.
         if (remake && race is not null)
@@ -375,6 +412,15 @@ public sealed class ClassicAssets
         }
         var (loaded, clearness) = LoadTexture(texture);
         material.AlbedoTexture = loaded;
+        // Glowing parts (the green of plasma weapons, lamps): the original added the emissive colour to the
+        // lighting before the texture tinted it.
+        if (emissive.Max() > 0.01f)
+        {
+            material.EmissionEnabled = true;
+            material.Emission = new Color(emissive[0], emissive[1], emissive[2]);
+            material.EmissionTexture = loaded;
+            material.EmissionEnergyMultiplier = GraphicsSettings.Remake ? 1.6f : 1;
+        }
         // See-through textures: cut out where keyed, blended where they have an alpha map.
         if (clearness == Clearness.Keyed)
         {
@@ -383,6 +429,12 @@ public sealed class ClassicAssets
         }
         else if (clearness == Clearness.Soft)
         {
+            material.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
+        }
+        // A see-through colour: the flat shadow that flying machines drag over the ground is half-clear black.
+        if (diffuse.Length > 3 && diffuse[3] < 0.99f)
+        {
+            material.AlbedoColor = material.AlbedoColor with { A = diffuse[3] };
             material.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
         }
 

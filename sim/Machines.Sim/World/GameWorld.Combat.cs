@@ -86,11 +86,12 @@ public sealed partial class GameWorld
                 Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, target.Id, weapon.Spec.TypeName));
                 if (weapon.IsArea)
                 {
-                    // Area weapons go off where the target is (the punch in front of the shooter) and hit
-                    // everyone the blast reaches, friend or foe, as in the original.
-                    var punch = weapon.Spec.TypeName == "GORILLA_PUNCH";
-                    StartBlast(weapon.Spec, punch ? shooter.Position : target.Position, shooter.Race,
-                        punch ? target.Position - shooter.Position : default);
+                    // Area weapons go off where the target is and hit everyone the blast reaches, friend or foe,
+                    // as in the original. The punch goes off in front of the shooter once its fists come down.
+                    if (weapon.Spec.TypeName == "GORILLA_PUNCH")
+                        ScheduleBlast(Time + Blast.PunchLanding, weapon.Spec, shooter.Position, shooter.Race, target.Position - shooter.Position);
+                    else
+                        StartBlast(weapon.Spec, target.Position, shooter.Race);
                 }
                 else if (weapon.IsTreachery)
                 {

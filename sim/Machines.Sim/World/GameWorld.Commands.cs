@@ -14,13 +14,13 @@ public sealed partial class GameWorld
         switch (command)
         {
             case MoveCommand move:
-                foreach (var machine in Own<Machine>(move.Race, move.Machines))
-                    Send(machine, new MoveOrder(move.Target), move.Target);
+                foreach (var (machine, destination) in GroupMove.Destinations(Own<Machine>(move.Race, move.Machines).ToList(), move.Target, Nav))
+                    Send(machine, new MoveOrder(destination), destination, move.Target);
                 return null;
 
             case AttackMoveCommand attackMove:
-                foreach (var machine in Own<Machine>(attackMove.Race, attackMove.Machines).Where(m => m.CanFight))
-                    Send(machine, new AttackMoveOrder(attackMove.Target), attackMove.Target);
+                foreach (var (machine, destination) in GroupMove.Destinations(Own<Machine>(attackMove.Race, attackMove.Machines).Where(m => m.CanFight).ToList(), attackMove.Target, Nav))
+                    Send(machine, new AttackMoveOrder(destination), destination, attackMove.Target);
                 return null;
 
             case AttackCommand attack:
@@ -212,14 +212,34 @@ public sealed partial class GameWorld
             && (a is not Machine { Inside: { } building } || Find<Construction>(building)?.IsType("GARRISON") == true));
 
     /// <summary>Gives a machine a new order and plans its route.</summary>
-    internal void Send(Machine machine, Order order, Vector2? destination)
+    internal void Send(Machine machine, Order order, Vector2? destination, Vector2? groupTarget = null)
     {
         LeaveGarrison(machine);
         machine.Order = order;
         machine.Path.Clear();
         machine.PathIndex = 0;
         if (destination is { } goal)
-            machine.Path.AddRange(Nav.FindPath(machine.Position, goal, CrossesWater(machine)));
+            machine.Path.AddRange(groupTarget is { } shared && shared != goal
+                ? PathVia(machine, shared, goal)
+                : Nav.FindPath(machine.Position, goal, CrossesWater(machine)));
+    }
+
+    /// <summary>
+    /// A group member's path: the search the group shares towards its target, with the last stretch bent to the
+    /// member's own place around it.
+    /// </summary>
+    private List<Vector2> PathVia(Machine machine, Vector2 shared, Vector2 goal)
+    {
+        var crossesWater = CrossesWater(machine);
+        var path = Nav.FindPath(machine.Position, shared, crossesWater);
+        if (path.Count == 0)
+            return Nav.FindPath(machine.Position, goal, crossesWater);
+        var before = path.Count > 1 ? path[^2] : machine.Position;
+        if (Nav.LineOfSight(before, goal, crossesWater))
+            path[^1] = goal;
+        else
+            path.AddRange(Nav.FindPath(path[^1], goal, crossesWater));
+        return path;
     }
 
     public static bool CrossesWater(Machine machine) => machine.Stats.Locomotion is Locomotion.Hover or Locomotion.Glider;

@@ -45,6 +45,19 @@ public partial class GameAudio : Node
 
     public bool Enabled => _sounds.Count > 0;
 
+    /// <summary>
+    /// The world falls silent (in the dark of the fog of war, as W4dSoundManager::setPlayingSoundsStatus did);
+    /// every world sound is positional, so the view's 3D listener is switched off. Reports still speak.
+    /// </summary>
+    public bool Muted
+    {
+        set
+        {
+            if (IsInsideTree() && GetViewport().AudioListenerEnable3D == value)
+                GetViewport().AudioListenerEnable3D = !value;
+        }
+    }
+
     // ---- one-shot sounds ------------------------------------------------------------------------
 
     /// <summary>Plays a sound effect once at a point of the world.</summary>

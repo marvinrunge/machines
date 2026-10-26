@@ -1,5 +1,6 @@
 using Godot;
 using Machines.Import.Model;
+using Machines.Import.Scenarios;
 using Machines.Net;
 using Machines.Sim;
 using Machines.Sim.Combat;
@@ -34,6 +35,9 @@ public partial class Game : Node3D
     private CameraRig _rig = null!;
     private Hud _hud = null!;
     private Effects _effects = null!;
+
+    // Actors destroyed this tick, whose views are blown apart rather than removed.
+    private readonly HashSet<int> _destroyed = [];
     private GameAudio _audio = null!;
 
     // Drag selection
@@ -56,6 +60,9 @@ public partial class Game : Node3D
     private float _lookPitch;
 
     public GameWorld World { get; private set; } = null!;
+
+    /// <summary>The player's fog of war; null when watching a replay.</summary>
+    public FogOfWar? Fog { get; private set; }
     public IReadOnlyList<int> Selection => _selection;
     public bool Paused { get; set; }
 
@@ -75,6 +82,16 @@ public partial class Game : Node3D
     private int _seed;
     private double _waitingFor;
     private bool _replaySaved;
+    private bool _musicEnded;
+
+    /// <summary>The track sceninfo.dat names for a scenario (its MUSIC), if any.</summary>
+    private static int? ScenarioMusic(string scenario)
+    {
+        var catalogue = System.IO.Path.Combine(Paths.OriginalData, "sceninfo.dat");
+        return File.Exists(catalogue)
+            ? ScenarioCatalogueParser.Load(catalogue).AllScenarios.FirstOrDefault(s => s.Name.Equals(scenario, StringComparison.OrdinalIgnoreCase))?.Music
+            : null;
+    }
 
     public override void _Ready()
     {
@@ -117,9 +134,20 @@ public partial class Game : Node3D
 
         _audio = GameAudio.Create(_assets.GameFolder);
         AddChild(_audio);
+        Music.Match(this, ScenarioMusic(request.Scenario));
 
         _hud = new Hud(this, map);
         AddChild(_hud);
+
+        // The fog of war is the player's: a replay shows everything. Automated screenshots look anywhere, so
+        // they leave it out unless MACHINES_FOG=1 asks for it.
+        var screenshot = System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT") is { Length: > 0 };
+        if (!Watching && (!screenshot || System.Environment.GetEnvironmentVariable("MACHINES_FOG") == "1"))
+        {
+            // The original uncovered and tested its map image, one pixel at a time.
+            Fog = new FogOfWar(World, Player, map is null ? 6 : surface.Width / map.GetWidth());
+            AddChild(Fog);
+        }
 
         SyncViews();
         _hud.Message(_assets.HasClassicModels
@@ -186,11 +214,21 @@ public partial class Game : Node3D
             _hud.Banner("Defeat");
         else if (_waitingFor <= 1)
             _hud.Banner(null);
+        if (!_musicEnded && !Watching && (World.Winner is not null || World.Races[Player].Defeated))
+        {
+            _musicEnded = true;
+            Music.End(this, World.Winner == Player);
+        }
         if (World.Winner is not null)
             SaveReplay();
 
         UpdateGhost();
         UpdateFirstPersonCamera();
+        if (Fog is not null)
+        {
+            Fog.Update(delta, new NVector2(_rig.Position.X, _rig.Position.Z), _driven is not null);
+            _audio.Muted = Fog.Blind;
+        }
         _hud.Refresh();
         TakeScreenshotIfAsked(delta);
     }
@@ -262,6 +300,14 @@ public partial class Game : Node3D
             World.AddMachine(race, at, parts[0], parts[1] is "" or "-" ? null : parts[1], int.Parse(parts[2]), parts.Length > 3 ? parts[3] : null);
             SyncViews();
         }
+        // e.g. "punchA,3": every machine with that animation plays it once, 3 s in (after loading), to look at it.
+        if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_PLAY")?.Split(',') is [var play, var playAt]
+            && double.Parse(playAt, System.Globalization.CultureInfo.InvariantCulture) is var startAt
+            && _runTime < startAt && _runTime + delta >= startAt)
+        {
+            foreach (var view in _views.Values)
+                view.Play(play);
+        }
         if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_SELECT") is { Length: > 0 } select)
         {
             // e.g. "CONSTRUCTOR" or "AGGRESSOR"; with MACHINES_SCREENSHOT_FIRSTPERSON=1 the first one is driven.
@@ -275,7 +321,8 @@ public partial class Game : Node3D
             }
         }
         _runTime += delta;
-        var after = double.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_AFTER"), out var s) ? s : 4;
+        var after = double.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_AFTER"),
+            System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 4;
         if (_runTime < after)
             return;
         GetViewport().GetTexture().GetImage().SavePng(path);
@@ -302,10 +349,15 @@ public partial class Game : Node3D
                 AddChild(view);
             }
             view.Sync(actor, actor is Machine { Order: AttackOrder attack } ? World.Find(attack.Target) : null);
+            if (actor is Construction building)
+                view.Working = World.IsWorking(building);
         }
 
         foreach (var id in _views.Keys.Where(id => World.Find(id) is null).ToList())
         {
+            // A destroyed machine flies apart in the remake; anything else just goes.
+            if (GraphicsSettings.Remake && _destroyed.Remove(id))
+                _views[id].Shatter(_effects);
             _views[id].QueueFree();
             _views.Remove(id);
             _selection.Remove(id);
@@ -322,7 +374,13 @@ public partial class Game : Node3D
             switch (e.Kind)
             {
                 case GameEventKind.Fired:
-                    if (e.Other is { } target && World.Find(target) is { } victim)
+                    // The punch is no shot: the Gorilla swings, and its blast follows when the fists land.
+                    if (e.Detail == "GORILLA_PUNCH")
+                    {
+                        if (_views.TryGetValue(e.Actor, out var puncher))
+                            puncher.Punch();
+                    }
+                    else if (e.Other is { } target && World.Find(target) is { } victim)
                         Shot(at, ActorView.World(victim.Position) + Vector3.Up * 1.5f, e.Detail ?? "");
                     _audio.Play(SoundTable.FiringSound(e.Detail ?? ""), at);
                     break;
@@ -333,6 +391,7 @@ public partial class Game : Node3D
                     _audio.Play(SoundTable.BlastSound(weapon), at);
                     break;
                 case GameEventKind.Destroyed:
+                    _destroyed.Add(e.Actor);
                     if (GraphicsSettings.Remake)
                         _effects.Explosion(at - Vector3.Up * 2, _views.TryGetValue(e.Actor, out var gone) ? gone.Size : 4);
                     else
@@ -624,6 +683,9 @@ public partial class Game : Node3D
     /// <summary>The actor under the cursor: a machine near it on screen, or the building whose footprint holds it.</summary>
     public Actor? ActorAt(Vector2 screen)
     {
+        // In the dark of the fog of war nothing can be picked (MachContinentMap::cursorInFogOfWar).
+        if (Fog?.Blind == true)
+            return null;
         var camera = GetViewport().GetCamera3D();
         Actor? best = null;
         var bestDistance = 18f;

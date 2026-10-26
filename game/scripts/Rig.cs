@@ -17,6 +17,12 @@ public sealed class Rig
     public RigWheels? Wheels { get; init; }
     public RigTracks? Tracks { get; init; }
 
+    /// <summary>What parts do by themselves all the time: rotors spin, hips bob, a weapon's ball turns.</summary>
+    public RigIdle[] Idle { get; init; } = [];
+
+    /// <summary>A building's parts while it works (MachPhysConstruction::doWorking): fans turn, arms dig.</summary>
+    public RigIdle[] Working { get; init; } = [];
+
     /// <summary>The faceplate part and the point on it first person looks out from (centre front), or -1.</summary>
     public int Faceplate { get; init; } = -1;
     public Vector3 Eye { get; init; }
@@ -52,12 +58,19 @@ public sealed class Rig
             Animations = animations,
             Wheels = wheels,
             Tracks = tracksOf,
+            Idle = Motion(rig, "idle"),
+            Working = Motion(rig, "working"),
             Faceplate = rig.TryGetProperty("faceplate", out var f) ? f.GetInt32() : -1,
             Eye = rig.TryGetProperty("eye", out var e) && e.EnumerateArray().Select(x => x.GetSingle()).ToArray() is [var ex, var ey, var ez]
                 ? new Vector3(ex, ez, ey)   // original z up
                 : Vector3.Zero,
         };
     }
+
+    private static RigIdle[] Motion(JsonElement rig, string name) => rig.TryGetProperty(name, out var motion)
+        ? motion.EnumerateArray().Select(t => new RigIdle(t.GetProperty("duration").GetSingle(),
+            new RigTrack(t.GetProperty("node").GetInt32(), t.GetProperty("samples").EnumerateArray().Select(Transform).ToArray()))).ToArray()
+        : [];
 
     /// <summary>
     /// An original transform (x, y and z basis, then position; z up) in Godot's axes (y up). The models swap y
@@ -89,6 +102,9 @@ public sealed record RigTrack(int Node, Transform3D[] Samples)
 }
 
 public sealed record RigAnimation(float Duration, RigTrack[] Tracks);
+
+/// <summary>A part's endless motion of its own, one period long.</summary>
+public sealed record RigIdle(float Duration, RigTrack Track);
 
 /// <summary>Wheels spin about their axle (the original's local y axis) by distance over radius.</summary>
 public sealed record RigWheels(float Radius, int[] Left, int[] Right);

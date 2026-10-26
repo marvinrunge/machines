@@ -37,8 +37,11 @@
 #include "render/colour.hpp"
 #include "render/scale.hpp"
 #include "render/internal/vtxdata.hpp"
+#include "render/internal/vtxmat.hpp"
 #include "render/internal/fixptvec.hpp"
 #include "render/ttfpoly.hpp"
+#include "sim/manager.hpp"
+#include "world4d/entyplan.hpp"
 #include "mathex/vec2.hpp"
 #include "render/internal/trigroup.hpp"
 #include "world4d/root.hpp"
@@ -112,6 +115,10 @@ struct Bucket
     std::vector<float> normals;
     std::vector<float> uvs;
     std::vector<unsigned> indices;
+    // Each vertex's diffuse colour: a vertex with a material of its own (terrain tiles shade their corners
+    // that way) is lit by that rather than the bucket's. Written only when some vertex has one.
+    std::vector<float> colours;
+    bool ownColours = false;
 };
 
 class ModelWriter
@@ -120,7 +127,8 @@ public:
     ModelWriter() {}
 
     // Rig mode: geometry relative to `node`, leaving out the links of `rigRoot` (they are nodes of their own).
-    ModelWriter(const W4dEntity* node, const W4dComposite* rigRoot) : node_(node), rigRoot_(rigRoot) {}
+    ModelWriter(const W4dEntity* node, const W4dComposite* rigRoot, const std::set<const W4dEntity*>* ownNodes = NULL)
+        : node_(node), rigRoot_(rigRoot), ownNodes_(ownNodes) {}
 
     void addEntity(const W4dEntity& entity, int depth = 0)
     {
@@ -128,6 +136,9 @@ public:
         {
             const W4dLink* link = dynamic_cast<const W4dLink*>(&entity);
             if (link != NULL and link->pComposite() == rigRoot_)
+                return;
+            // Moving parts of other things (a weapon's spinning ball) are nodes of their own too.
+            if (ownNodes_ != NULL and ownNodes_->count(&entity))
                 return;
         }
         if (getenv("CLASSIC_EXPORT_TRACE"))
@@ -209,6 +220,8 @@ public:
             writeArray(out, "positions", b.positions);
             writeArray(out, "normals", b.normals);
             writeArray(out, "uvs", b.uvs);
+            if (b.ownColours)
+                writeArray(out, "colours", b.colours);
             out << ",\"indices\":[";
             for (size_t i = 0; i < b.indices.size(); ++i)
                 out << (i ? "," : "") << b.indices[i];
@@ -254,6 +267,11 @@ private:
         if (vertices == NULL)
             return;
 
+        std::map<Ren::VertexIdx, const RenMaterial*> vertexMaterials;
+        if (const RenIVertexMaterials* map = vertices->materialMap())
+            for (RenIVertexMaterials::const_iterator it = map->begin(); it != map->end(); ++it)
+                vertexMaterials[(*it).index()] = &(*it).material();
+
         double scale = 1.0;
         if (not instance.scale().isUnity())
         {
@@ -275,6 +293,7 @@ private:
                 : triangles->material();
 
             Bucket& bucket = bucketFor(material);
+            const RenColour& groupColour = material.diffuse();
             for (size_t t = 0; t < triangles->nTriangles(); ++t)
             {
                 Ren::VertexIdx corner[3];
@@ -302,6 +321,13 @@ private:
                     bucket.normals.push_back(n.z());
                     bucket.uvs.push_back(v.tu);
                     bucket.uvs.push_back(v.tv);
+                    // RenIIlluminator::applyVertexMaterials: the vertex's own material replaces the group's.
+                    std::map<Ren::VertexIdx, const RenMaterial*>::const_iterator own = vertexMaterials.find(corner[c]);
+                    const RenColour& colour = own != vertexMaterials.end() ? own->second->diffuse() : groupColour;
+                    bucket.ownColours = bucket.ownColours or own != vertexMaterials.end();
+                    bucket.colours.push_back(colour.r());
+                    bucket.colours.push_back(colour.g());
+                    bucket.colours.push_back(colour.b());
                     bucket.indices.push_back(bucket.indices.size());
                 }
                 ++triangles_;
@@ -388,6 +414,7 @@ private:
     std::set<std::string> textures_;
     size_t triangles_ = 0;
     const W4dEntity* node_ = NULL;
+    const std::set<const W4dEntity*>* ownNodes_ = NULL;
     const W4dComposite* rigRoot_ = NULL;
 };
 
@@ -440,44 +467,149 @@ void writeAnimation(std::ostream& out, const char* name, const W4dCompositePlanP
 // "rig":{...}: the machine as a tree of nodes (the machine, then each link), each with its rest transform
 // relative to its parent and its own geometry; the upper body's turning node; and how its locomotion moves:
 // spider-leg cycles sampled from the original plans, wheel nodes and radius, or track nodes and texture speed.
-void writeRig(std::ostream& out, MachPhysMachine& machine, std::set<std::string>* textures)
+// A building is written the same way, with no locomotion, plus how its parts move while it works.
+void writeRig(std::ostream& out, W4dComposite& composite, std::set<std::string>* textures)
 {
-    const W4dComposite::W4dLinks& links = machine.links();
-    std::vector<const W4dEntity*> nodes(1, &machine);
+    MachPhysMachine* machine = dynamic_cast<MachPhysMachine*>(&composite);
+    const W4dComposite::W4dLinks& links = composite.links();
+    std::vector<const W4dEntity*> nodes(1, &composite);
     nodes.insert(nodes.end(), links.begin(), links.end());
+
+    // Parts that move by themselves (spinning rotors, a weapon's turning ball) become nodes too, even when they
+    // belong to something mounted on the machine rather than to its own links.
+    std::set<const W4dEntity*> ownNodes(nodes.begin(), nodes.end());
+    std::vector<const W4dEntity*> pending(nodes.begin(), nodes.end());
+    while (not pending.empty())
+    {
+        const W4dEntity* entity = pending.back();
+        pending.pop_back();
+        std::vector<const W4dEntity*> inside(entity->children().begin(), entity->children().end());
+        if (const W4dComposite* inner = dynamic_cast<const W4dComposite*>(entity))
+            if (inner != &composite)
+                inside.insert(inside.end(), inner->links().begin(), inner->links().end());
+        for (size_t i = 0; i < inside.size(); ++i)
+        {
+            if (ownNodes.count(inside[i]))
+                continue;
+            if (inside[i]->hasPlan() and inside[i]->entityPlan().hasMotionPlan())
+            {
+                nodes.push_back(inside[i]);
+                ownNodes.insert(inside[i]);
+            }
+            pending.push_back(inside[i]);
+        }
+    }
+
     const auto indexOf = [&](const W4dEntity* entity) {
         for (size_t i = 0; i < nodes.size(); ++i)
             if (nodes[i] == entity)
                 return int(i);
         return -1;
     };
+    // The nearest node above an entity.
+    const auto nodeAbove = [&](const W4dEntity* entity) {
+        for (const W4dEntity* above = entity->pParent(); above != NULL; above = above->pParent())
+            if (indexOf(above) >= 0)
+                return above;
+        return _STATIC_CAST(const W4dEntity*, &composite);
+    };
 
     out << "\"rig\":{\"nodes\":[";
     for (size_t i = 0; i < nodes.size(); ++i)
     {
-        const int parent = i == 0 ? -1 : std::max(0, indexOf(nodes[i]->pParent()));
-        ModelWriter writer(nodes[i], &machine);
+        const W4dEntity* parentNode = i == 0 ? NULL : nodeAbove(nodes[i]);
+        const int parent = i == 0 ? -1 : indexOf(parentNode);
+        ModelWriter writer(nodes[i], &composite, &ownNodes);
         writer.addEntity(*nodes[i]);
         textures->insert(writer.textures().begin(), writer.textures().end());
         out << (i ? "," : "") << "\n{\"parent\":" << parent << ",\"transform\":";
-        writeTransform(out, i == 0 ? MexTransform3d() : nodes[i]->localTransform());
+        writeTransform(out, i == 0 ? MexTransform3d() : ModelWriter::relativeTransform(*nodes[i], parentNode));
         out << ",";
         writer.writeParts(out);
         out << "}";
     }
-    out << "],\"upperBody\":" << indexOf(machine.pImpl_->pUpperBodyTurnLink_);
+    out << "],\"upperBody\":" << (machine != NULL ? indexOf(machine->pImpl_->pUpperBodyTurnLink_) : -1);
+
+    // How the parts move as their motion plans move them, sampled at 50 Hz over one period, found where the
+    // motion comes back to where it began.
+    const PhysAbsoluteTime now = SimManager::instance().currentTime();
+    const auto same = [](const MexTransform3d& a, const MexTransform3d& b) {
+        MexPoint3d pa = a.position(), pb = b.position();
+        if (pa.euclidianDistance(pb) > 1e-3)
+            return false;
+        MexVec3 ax = a.xBasis(), bx = b.xBasis(), ay = a.yBasis(), by = b.yBasis();
+        return ax.euclidianDistance(bx) < 1e-3 and ay.euclidianDistance(by) < 1e-3;
+    };
+    const auto writeMotion = [&](const char* name) {
+        out << ",\"" << name << "\":[";
+        bool firstTrack = true;
+        for (size_t i = 1; i < nodes.size(); ++i)
+        {
+            if (not nodes[i]->hasPlan() or not nodes[i]->entityPlan().hasMotionPlan())
+                continue;
+            const W4dEntity* parentNode = nodeAbove(nodes[i]);
+            const MexTransform3d above = ModelWriter::relativeTransform(*nodes[i]->pParent(), parentNode);
+            const double step = 0.02;
+            const int most = 600;
+            std::vector<MexTransform3d> samples;
+            for (int s = 0; s <= most; ++s)
+            {
+                MexTransform3d local = nodes[i]->localTransform(), at;
+                uint obsolete = 0;
+                nodes[i]->entityPlan().transform(now + s * step, &local, &obsolete);
+                above.transform(local, &at);
+                samples.push_back(at);
+            }
+            int period = most;
+            for (int k = 5; k < most; ++k)
+                if (same(samples[k], samples[0]) and same(samples[k + 1], samples[1]))
+                {
+                    period = k;
+                    break;
+                }
+            bool moves = false;
+            for (int s = 1; s <= period and not moves; ++s)
+                moves = not same(samples[s], samples[0]);
+            if (not moves)
+                continue;
+            out << (firstTrack ? "" : ",") << "\n{\"node\":" << i << ",\"duration\":" << period * step << ",\"samples\":[";
+            firstTrack = false;
+            for (int s = 0; s <= period; ++s)
+            {
+                out << (s ? "," : "");
+                writeTransform(out, samples[s]);
+            }
+            out << "]}";
+        }
+        out << "]";
+    };
+
+    // Idle motion: what parts do on their own (rotors spin, hips bob, a weapon's ball turns).
+    writeMotion("idle");
+
+    // A building at work (MachPhysConstruction::doWorking): its working cycle, fans turning.
+    if (MachPhysConstruction* construction = dynamic_cast<MachPhysConstruction*>(&composite))
+    {
+        construction->isWorking(true);
+        writeMotion("working");
+    }
+    if (machine == NULL)
+    {
+        out << "}";
+        return;
+    }
 
     // First person looks out from the centre front of the faceplate (MachPhys1stPersonMachineDriver::cameraAttachment).
-    if (machine.hasFacePlate())
+    if (machine->hasFacePlate())
     {
-        W4dLink& faceplate = machine.facePlate();
+        W4dLink& faceplate = machine->facePlate();
         const MexAlignedBox3d& box = faceplate.boundingVolume();
         MexPoint3d eye = box.centroid();
         eye.x(box.maxCorner().x());
         out << ",\"faceplate\":" << indexOf(&faceplate) << ",\"eye\":[" << eye.x() << "," << eye.y() << "," << eye.z() << "]";
     }
 
-    MachPhysLocomotionMethod& locomotion = machine.locomotionMethod();
+    MachPhysLocomotionMethod& locomotion = machine->locomotionMethod();
     if (MachPhysSpiderLegs* legs = dynamic_cast<MachPhysSpiderLegs*>(&locomotion))
     {
         const MachPhysSpiderLegsImpl& impl = *legs->pImpl_;
@@ -489,6 +621,12 @@ void writeRig(std::ostream& out, MachPhysMachine& machine, std::set<std::string>
         writeAnimation(out, "turnRight", impl.turningRightPlanPtr_, links, &first);
         writeAnimation(out, "startWalking", impl.startWalkingPlanPtr_, links, &first);
         writeAnimation(out, "stopWalking", impl.stopWalkingPlanPtr_, links, &first);
+        // The Gorilla's punches: the weapon plays one of its machine's two plans (MachPhysPunchWeapon::createPunchBlast).
+        W4dCompositePlanPtr punch;
+        if (machine->findCompositePlan("PunchA", &punch))
+            writeAnimation(out, "punchA", punch, links, &first);
+        if (machine->findCompositePlan("PunchB", &punch))
+            writeAnimation(out, "punchB", punch, links, &first);
         out << "}";
     }
     else if (MachPhysWheels* wheels = dynamic_cast<MachPhysWheels*>(&locomotion))
@@ -753,10 +891,10 @@ bool ExportApp::clientStartup()
                 std::ofstream out((folder + "/" + modelId(models[m]) + ".json").c_str());
                 out << std::setprecision(6) << "{\"id\":\"" << modelId(models[m]) << "\",";
                 writer.writeParts(out);
-                if (MachPhysMachine* machine = dynamic_cast<MachPhysMachine*>(object))
+                if (W4dComposite* composite = dynamic_cast<W4dComposite*>(object))
                 {
                     out << ",\n";
-                    writeRig(out, *machine, &textures);
+                    writeRig(out, *composite, &textures);
                 }
                 out << "}\n";
             }

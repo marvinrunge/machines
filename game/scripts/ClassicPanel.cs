@@ -351,6 +351,9 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                 var kind = actor is Machine ? "machpix" : actor is Construction c && c.IsType("POD") ? "podpix" : "conspix";
                 DrawPixel(ToMap(actor.Position), ClassicGui.Bitmap($"map/{letter}{kind}.bmp"), ClassicAssets.RaceColour(Game.Look(actor.Race)));
             }
+            // Below a level 3 beacon the map shows only what the player's machines have uncovered.
+            if (game.Fog is { } fog && fog.Beacon < 3)
+                DrawTextureRect(fog.Mask, rect, false);
             if (GetViewport().GetCamera3D() is { } camera)
             {
                 var at = ToMap(new NVector2(camera.GlobalPosition.X, camera.GlobalPosition.Z));

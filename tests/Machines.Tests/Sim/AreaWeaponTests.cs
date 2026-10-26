@@ -1,6 +1,7 @@
 using System.Numerics;
 using Machines.Import.Model;
 using Machines.Sim;
+using Machines.Sim.Combat;
 using Machines.Sim.World;
 
 namespace Machines.Tests.Sim;
@@ -56,6 +57,32 @@ public class AreaWeaponTests
         Assert.True(front.IsDead);
         Assert.Equal(side.MaxHitPoints, side.HitPoints);
         Assert.Equal(puncher.MaxHitPoints, puncher.HitPoints);
+    }
+
+    [Fact]
+    public void A_gorilla_punch_lands_when_its_fists_come_down()
+    {
+        var world = NewMatch();
+        var gorilla = world.AddMachine(Race.Red, Field, "AGGRESSOR", "NINJA", 5, "L_MULTI_LAUNCHER7_T_GORILLA_PUNCH_R_MULTI_LAUNCHER7");
+        var target = world.AddMachine(Race.Blue, Field + new Vector2(6, 0), "CONSTRUCTOR", "DOZER", 1, null);
+
+        world.Issue(new AttackCommand(Race.Red, [gorilla.Id], target.Id));
+        float? punched = null, landed = null;
+        for (var i = 0; i < 20 * GameWorld.TicksPerSecond && landed is null; i++)
+        {
+            world.Step();
+            foreach (var e in world.Events.Where(e => e.Detail == "GORILLA_PUNCH"))
+            {
+                if (e.Kind == GameEventKind.Fired)
+                    punched ??= world.Time;
+                if (e.Kind == GameEventKind.Blast)
+                    landed ??= world.Time;
+            }
+        }
+
+        Assert.NotNull(punched);
+        Assert.NotNull(landed);
+        Assert.InRange(landed!.Value - punched!.Value, Blast.PunchLanding - 0.01f, Blast.PunchLanding + 0.2f);
     }
 
     [Fact]

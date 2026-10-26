@@ -151,6 +151,9 @@ public sealed class Construction : Actor
     public int? MineralSite { get; set; }
     public float Ore { get; set; }
 
+    // Smelters (and pods): when a carrier last dropped ore off
+    public long? OreDroppedTick { get; set; }
+
     // Factories
     public List<ResearchKey> ProductionQueue { get; } = [];
     public float ProductionSpent { get; set; }

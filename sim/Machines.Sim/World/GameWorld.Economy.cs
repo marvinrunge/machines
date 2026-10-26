@@ -33,6 +33,21 @@ public sealed partial class GameWorld
         RegrowArmour();
     }
 
+    /// <summary>
+    /// Whether a building is at work, so its working animation plays, as the original switched it on
+    /// (MachLog*::update): factories while they produce, labs while they research, mines while a site fills
+    /// them, smelters for ten seconds after ore arrives; beacons, garrisons, pods and missile emplacements once
+    /// they stand.
+    /// </summary>
+    public bool IsWorking(Construction building) => building.Complete && building.Spec.Type switch
+    {
+        "FACTORY" => building.ProductionQueue.Count > 0,
+        "HARDWARE_LAB" or "SOFTWARE_LAB" => building.ResearchQueue.Count > 0,
+        "MINE" => building.MineralSite is not null && building.Ore < (building.Stats.Capacity ?? 0),
+        "SMELTER" => building.OreDroppedTick is { } dropped && Tick - dropped < 10 * TicksPerSecond,
+        _ => true,
+    };
+
     private void UpdateMine(Construction mine)
     {
         if (mine.MineralSite is not { } siteId)

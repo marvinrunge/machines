@@ -91,6 +91,31 @@ public class NavigationTests
     }
 
     [Fact]
+    public void A_group_keeps_its_shape_and_spreads_around_the_target()
+    {
+        var world = NewMatch("m_green");
+        var home = FreePointNear(world, new Vector2(445, 1250));
+        var machines = Enumerable.Range(0, 12)
+            .Select(i => world.AddMachine(Race.Red, FreePointNear(world, home + new Vector2(i % 4 * 6, i / 4 * 6)), "AGGRESSOR", "GRUNT", 2, "L_BOLTER"))
+            .ToList();
+        var far = FreePointNear(world, new Vector2(1480, 480));
+
+        world.Issue(new MoveCommand(Race.Red, machines.Select(m => m.Id).ToList(), far));
+        world.Step();
+
+        var ends = machines.Select(m => m.Path[^1]).ToList();
+        // Nobody shares a place: each keeps the clearance of both machines from the others.
+        for (var i = 0; i < ends.Count; i++)
+            for (var j = i + 1; j < ends.Count; j++)
+                Assert.True(Vector2.Distance(ends[i], ends[j]) >= 2 * machines[i].Stats.LowClearance - 0.01f, $"{ends[i]} and {ends[j]} overlap");
+        // Gathered around the target, not strung out.
+        Assert.All(ends, end => Assert.InRange(Vector2.Distance(end, far), 0, 60));
+        // Where the ground allows, the clump arrives in the shape it left in.
+        var kept = machines.Count(m => Vector2.Distance(m.Path[^1] - far, m.Position - machines.Aggregate(Vector2.Zero, (s, n) => s + n.Position) / machines.Count) < 0.01f);
+        Assert.True(kept >= machines.Count / 2, $"only {kept} kept their place in the group");
+    }
+
+    [Fact]
     public void Nearest_enemy_prefers_armed_machines_then_distance()
     {
         var world = NewMatch("m_desert");

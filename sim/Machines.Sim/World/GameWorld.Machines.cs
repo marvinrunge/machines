@@ -304,6 +304,8 @@ public sealed partial class GameWorld
             // Ore becomes BMUs at once; whatever does not fit in storage stays on board.
             var added = AddBmu(carrier.Race, carrier.Ore);
             carrier.Ore -= (int)added;
+            if (added > 0)
+                smelter.OreDroppedTick = Tick;
         }
         else
         {
