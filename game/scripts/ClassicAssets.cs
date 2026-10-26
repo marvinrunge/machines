@@ -296,7 +296,7 @@ public sealed class ClassicAssets
         var bpp = BitConverter.ToUInt16(data, 28);
         var compression = BitConverter.ToInt32(data, 30);
         var colours = BitConverter.ToInt32(data, 46);
-        if (compression != 0 || width <= 0 || rawHeight == 0 || bpp is not (8 or 24 or 32))
+        if (compression != 0 || width <= 0 || rawHeight == 0 || bpp is not (4 or 8 or 24 or 32))
             return null;
 
         var bottomUp = rawHeight > 0;
@@ -304,7 +304,7 @@ public sealed class ClassicAssets
         var paletteStart = 14 + headerSize;
         if (colours <= 0 || colours > 256)
             colours = 256;
-        var stride = (width * bpp / 8 + 3) & ~3;
+        var stride = (width * bpp + 31) / 32 * 4;
         var rgba = new byte[width * height * 4];
 
         for (var y = 0; y < height; y++)
@@ -315,8 +315,11 @@ public sealed class ClassicAssets
                 byte r = 0, g = 0, b = 0;
                 switch (bpp)
                 {
+                    case 4:
                     case 8:
-                        var index = row + x < data.Length ? data[row + x] : 0;
+                        var index = bpp == 8
+                            ? (row + x < data.Length ? data[row + x] : 0)
+                            : (row + x / 2 < data.Length ? (x % 2 == 0 ? data[row + x / 2] >> 4 : data[row + x / 2] & 0xF) : 0);
                         var entry = paletteStart + Math.Min(index, colours - 1) * 4;
                         if (entry + 2 < data.Length)
                             (b, g, r) = (data[entry], data[entry + 1], data[entry + 2]);

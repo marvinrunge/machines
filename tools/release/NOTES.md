@@ -6,6 +6,7 @@ An early **test build** of the Machines: Wired for War remake, for Windows 10/11
 - Skirmish against the original AI scripts on all 32 skirmish and multiplayer maps, with the original settings (players, colours, start positions, starting BMUs, resources, technology level, victory conditions).
 - The original rules and numbers: economy, construction, production, research, combat, area weapons, ion cannon and nukes, healing, repair, capture, recycling and garrisons.
 - First-person driving of any machine.
+- A control panel laid out like the original's, with its icons from your game copy: continent map (with a beacon), selection, command buttons, build, production and research.
 - Sound and animation from your own game copy, APC transport, and an AI that builds and rebuilds as the original did.
 - **Multiplayer** over the network: one player presses **Host** under **Multiplayer…**, the others connect to their address (port 7777), join the room and get ready. Free slots can play the AI; if someone drops out, the AI plays on for them until they rejoin. Every match is saved as a replay you can watch from the menu.
 

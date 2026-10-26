@@ -25,6 +25,11 @@ public partial class Game : Node3D
     private readonly List<int> _selection = [];
     private double _accumulator;
 
+    // The tick the world should have reached by the clock, and how far behind it may fall before it gives up on
+    // catching the time back (after a long wait it just carries on).
+    private long _clockTick;
+    private const int MaxCatchUp = 10;
+
     private ClassicAssets _assets = null!;
     private CameraRig _rig = null!;
     private Hud _hud = null!;
@@ -88,6 +93,7 @@ public partial class Game : Node3D
             _session.Outgoing += NetLink.Send;
 
         _assets = new ClassicAssets(Paths.Root);
+        ClassicGui.Use(_assets.GameFolder);
         var map = _assets.PlanetMap(request.Planet);
         var surface = World.Planet.Surface;
         HeightField.Current = _assets.PlanetHeights(request.Planet) is { } heights
@@ -144,11 +150,14 @@ public partial class Game : Node3D
             while (_accumulator >= GameWorld.Dt)
             {
                 _accumulator -= GameWorld.Dt;
+                // The clock: one tick per 50 ms of real time. A world that fell behind it (waiting for a
+                // player's turns) catches up a little faster, but never runs ahead of it.
+                _clockTick = Math.Max(_clockTick + 1, World.Tick);
+                _clockTick = Math.Min(_clockTick, World.Tick + MaxCatchUp);
                 UpdateDriving();
                 _session.Pump();
-                // A world behind the others catches up a little faster than real time.
                 var stepped = 0;
-                while (stepped < 3 && _session.TryStep())
+                while (stepped < 3 && World.Tick < _clockTick && _session.TryStep())
                 {
                     stepped++;
                     foreach (var rejected in World.Rejected.Where(r => r.Command.Race == Player))
@@ -252,7 +261,9 @@ public partial class Game : Node3D
         if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_SELECT") is { Length: > 0 } select)
         {
             // e.g. "CONSTRUCTOR" or "AGGRESSOR"; with MACHINES_SCREENSHOT_FIRSTPERSON=1 the first one is driven.
-            Select(World.Machines.Where(m => m.Race == Player && (m.Spec.Type == select || m.Spec.SubType == select)).OrderByDescending(m => m.Id).Select(m => m.Id).ToList());
+            // A building type (FACTORY, HARDWARE_LAB ...) selects the first such building instead.
+            var machines = World.Machines.Where(m => m.Race == Player && (m.Spec.Type == select || m.Spec.SubType == select)).OrderByDescending(m => m.Id).Select(m => m.Id).ToList();
+            Select(machines.Count > 0 ? machines : World.Constructions.Where(c => c.Race == Player && c.Spec.Type == select).Take(1).Select(c => c.Id).ToList());
             if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_FIRSTPERSON") == "1")
             {
                 Select(_selection.Take(1).ToList());
@@ -633,6 +644,9 @@ public partial class Game : Node3D
         Select(add ? _selection.Union(picked).ToList() : picked);
     }
 
+    /// <summary>Moves the strategy camera over a ground point.</summary>
+    public void LookAt(NVector2 point) => _rig.Position = new Vector3(point.X, 0, point.Y);
+
     public void Select(List<int> ids)
     {
         foreach (var id in _selection)
@@ -641,7 +655,6 @@ public partial class Game : Node3D
         _selection.AddRange(ids.Where(id => World.Find(id) is not null));
         foreach (var id in _selection)
             if (_views.TryGetValue(id, out var view)) view.Selected = true;
-        _hud.SelectionChanged();
         // The first selected machine answers, as in the original.
         if (SelectedMachines().FirstOrDefault() is { } first && SoundTable.VoiceOf(first) is { } voice)
             _audio.Say($"VID_{voice}_SELECTED");
@@ -812,7 +825,7 @@ public partial class Game : Node3D
 
     // ---- first person ---------------------------------------------------------------------------
 
-    private void EnterFirstPerson()
+    public void EnterFirstPerson()
     {
         if (SelectedMachines().FirstOrDefault() is not { } machine)
         {
@@ -886,7 +899,9 @@ public partial class Game : Node3D
                 .FirstOrDefault();
             aimAt = target?.Id;
         }
-        Issue(new DriveCommand(Player, machine.Id, Driving: true, forward, Mathf.Clamp(turn, -1, 1), aimAt));
+        // The simulation turns left (counter-clockwise in the original's axes) for a positive turn; the client
+        // shows the world with y and z swapped, which mirrors it, so on screen that is a turn to the right.
+        Issue(new DriveCommand(Player, machine.Id, Driving: true, forward, Mathf.Clamp(-turn, -1, 1), aimAt));
     }
 
     private void UpdateFirstPersonCamera()
