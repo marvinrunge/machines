@@ -56,11 +56,44 @@ public partial class PlanetLook : Node
             FogDepthCurve = 1.5f,
             FogSkyAffect = 0.6f,
         };
+        if (GraphicsSettings.Remake)
+            look.Enhance();
         look.AddChild(look._sun);
         look.AddChild(new WorldEnvironment { Environment = look._environment });
         look.Update();
         return look;
     }
+
+    /// <summary>
+    /// The remake's look over the original's light: filmic tone mapping (AgX) with a touch more saturation, glow
+    /// around the brightest spots (muzzle flashes, explosions, the sun), ambient occlusion where things meet the
+    /// ground, and soft shadows that reach as far as the camera looks.
+    /// </summary>
+    private void Enhance()
+    {
+        _environment.TonemapMode = Godot.Environment.ToneMapper.Agx;
+        _environment.TonemapExposure = 1.0f;
+        _environment.AdjustmentEnabled = true;
+        _environment.AdjustmentSaturation = 1.1f;
+        _environment.AdjustmentContrast = 1.12f;
+        _environment.GlowEnabled = true;
+        _environment.GlowIntensity = 0.6f;
+        _environment.GlowBloom = 0.04f;
+        _environment.GlowHdrThreshold = 1.1f;
+        _environment.GlowBlendMode = Godot.Environment.GlowBlendModeEnum.Softlight;
+        // Metres: the machines stand a few metres tall, the buildings ten and more.
+        _environment.SsaoEnabled = true;
+        _environment.SsaoRadius = 3f;
+        _environment.SsaoIntensity = 1.6f;
+        _environment.SsaoDetail = 0.6f;
+        _sun.LightAngularDistance = 1.2f;
+        _sun.ShadowBlur = 1.5f;
+        _sun.DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel4Splits;
+        _sun.DirectionalShadowBlendSplits = true;
+        _softShadows = true;
+    }
+
+    private bool _softShadows;
 
     public override void _Process(double delta) => Update();
 
@@ -138,5 +171,9 @@ public partial class PlanetLook : Node
             _environment.FogDepthEnd = view + f.MaxVisibility * 1.5f;
             _environment.FogDensity = Mathf.Clamp(fogColour.A, 0.5f, 1f);
         }
+
+        // Shadows reach a little beyond what the camera looks at, so they stay sharp up close.
+        if (_softShadows)
+            _sun.DirectionalShadowMaxDistance = Mathf.Clamp(_viewDistance() * 3f, 120, 700);
     }
 }

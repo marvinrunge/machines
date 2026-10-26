@@ -249,19 +249,28 @@ public sealed class ClassicAssets
     {
         if (race is { } r)
             texture = RaceTexture(texture, r);
-        var key = $"{texture}|{string.Join(',', diffuse)}";
+        var key = $"{texture}|{string.Join(',', diffuse)}|{race is not null}";
         if (_materials.TryGetValue(key, out var cached))
             return cached;
 
         // As the original renderer did, the texture is tinted by the material's colour: the race colour of a
         // machine sits in the diffuse colour of its grey textures.
+        var remake = GraphicsSettings.Remake;
         var material = new StandardMaterial3D
         {
             AlbedoColor = new Color(diffuse[0], diffuse[1], diffuse[2]),
-            TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmaps,
+            // The remake filters textures seen at a slant (the ground, mostly) anisotropically: far sharper.
+            TextureFilter = remake ? BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic : BaseMaterial3D.TextureFilterEnum.LinearWithMipmaps,
             // The original's winding convention is not confirmed yet; draw both sides.
             CullMode = BaseMaterial3D.CullModeEnum.Disabled,
         };
+        // Machines and buildings get a little sheen; the ground stays matt.
+        if (remake && race is not null)
+        {
+            material.Roughness = 0.55f;
+            material.Metallic = 0.2f;
+            material.MetallicSpecular = 0.6f;
+        }
         if (texture.Length > 0 && _gameFolder is not null)
         {
             var path = Path.Combine(_gameFolder, texture);

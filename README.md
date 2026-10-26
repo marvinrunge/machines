@@ -53,6 +53,9 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   - Performance gate: four players with 200 armed machines each fighting on m_green run at 2.7 ms per tick
     on average (p99 14 ms; the budget is 50 ms), measured with `tools/sim-bench`. Path searches share work
     for group orders, know which areas are cut off, and enemies are found through a spatial grid.
+- **Remake graphics (phase A):** AgX tone mapping, glow, ambient occlusion, soft shadows that follow the
+  camera, 16× anisotropic texture filtering and slightly glossy machines; **Remake graphics** in the menu
+  switches back to the classic look. The control panel follows the original's layout with its icons.
 - 192 tests. Every map runs AI-only for three minutes, and every map whose scripts give orders gets moving.
 
 ## Layout

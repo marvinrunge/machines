@@ -6,6 +6,7 @@ skirmish against the original AI on all 32 skirmish and multiplayer maps, alone 
 
 START
   Unzip anywhere and run Machines.exe. Windows 10 or 11, 64-bit.
+  "Remake graphics" in the menu switches between the remake's look and the classic one.
 
 ORIGINAL MODELS AND TERRAIN
   This build contains no art, sound or terrain from the original game; those belong to Night Dive

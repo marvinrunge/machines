@@ -163,6 +163,15 @@ public partial class SkirmishMenu : Control
         if (System.Environment.GetEnvironmentVariable("MACHINES_MP") is { Length: > 0 })
             multiplayer.Visible = true;
 
+        var graphics = new CheckButton
+        {
+            Text = "Remake graphics",
+            ButtonPressed = GraphicsSettings.Remake,
+            TooltipText = "Tone mapping, glow, ambient occlusion, soft shadows and sharper textures; off is the classic look",
+        };
+        graphics.Toggled += on => GraphicsSettings.Remake = on;
+        right.AddChild(graphics);
+
         var quit = new Button { Text = "Quit", CustomMinimumSize = new Vector2(0, 32) };
         quit.Pressed += () => GetTree().Quit();
         right.AddChild(quit);
