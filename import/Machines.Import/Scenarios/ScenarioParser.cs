@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Numerics;
-using System.Text.RegularExpressions;
 using Machines.Import.Model;
 using Machines.Import.Parm;
 
@@ -522,22 +521,15 @@ public static class ScenarioParser
                     line.LineNumber);
         }
 
-        /// <summary>
-        /// Reads a number the way C's <c>atoi</c>/<c>atof</c> did in the original: the longest numeric prefix,
-        /// or 0 if there is none. Anything not cleanly numeric is recorded as a warning.
-        /// </summary>
+        /// <summary>Reads a number as the original did (<see cref="CNumbers"/>); anything not clean becomes a warning.</summary>
         private double CNumber(ParmLine line, int index, bool integer)
         {
             var token = line.Args[index];
-            var match = (integer ? IntegerPrefix : FloatPrefix).Match(token);
-            if (match.Length != token.Length)
-                _warnings.Add(new ScenarioWarning(line.LineNumber, $"{line.Keyword}: '{token}' read as {(match.Success ? match.Value : "0")}"));
-
-            return match.Success ? double.Parse(match.Value, NumberStyles.Float, CultureInfo.InvariantCulture) : 0;
+            var (value, clean, readAs) = CNumbers.Parse(token, integer);
+            if (!clean)
+                _warnings.Add(new ScenarioWarning(line.LineNumber, $"{line.Keyword}: '{token}' read as {readAs}"));
+            return value;
         }
-
-        private static readonly Regex IntegerPrefix = new(@"^[+-]?\d+", RegexOptions.CultureInvariant);
-        private static readonly Regex FloatPrefix = new(@"^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?", RegexOptions.CultureInvariant);
 
         private int Int(ParmLine line, int index) => (int)CNumber(line, index, integer: true);
 

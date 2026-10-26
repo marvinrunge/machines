@@ -13,7 +13,7 @@ No original art, sound or video is included. Those are not part of the source re
 | `global.rst` | Research tree | `Machines.Import.Research.ResearchTreeParser` |
 | `global.cst` | Construction order for constructors | `Machines.Import.Research.ConstructionOrderParser` |
 | `*.scn` | Scenarios: starting units, mineral sites, triggers | `Machines.Import.Scenarios.ScenarioParser` |
-| `*.spl` | AI race scripts: production lists and squads | not yet |
+| `*.spl` | AI race scripts: production lists and squads | `Machines.Import.Scenarios.AiScriptParser` |
 | `*.rsi` | Research available at the start of a scenario | `Machines.Import.Research.ScenarioResearchParser` |
 | `sceninfo.dat` | Campaign, skirmish and multiplayer menus | not yet |
 | `machstrg.xml` | UI strings and in-game names | not yet |
@@ -37,6 +37,16 @@ The importers keep these as they are; the tests list them so new ones stand out.
   (`REBUILT`, `REBUILD2`, `REBUILDY`) silently mean "no flag" and are listed in `UnknownWords`.
 - `deepspac.scn` writes `SET_SCENARIO_FLAG NAME x` instead of `ON x`; the original never checks that word.
 - `tut02.scn` and `tut03.scn` close the RED block twice, so the assembly points after it never load.
+- AI scripts: the `N_MINES`, `N_CONSTRUCTORS`, `N_GEO_LOCATORS` and `N_RESOURCE_CARRIERS` lines of every
+  production list are ignored by the original (that code is commented out); only `NUMBER` lines count.
+- `control.spl` lines 15, 21, 27: `AI PATROL ... DO 4` — the original reads `DO 4` as one more patrol point,
+  (0, 4), so those Gorillas walk to the map corner.
+- `m_1o2R.spl` line 108 and `m_greenR.spl` line 148 start a `SQUAD` without closing the previous one. The
+  original merges the two squads, which shifts the number of every later squad.
+- Misspelt or misplaced AI words (`D0`, `DO1`, `DO4`, `RANGE` for `RANGE_POD`, options on `AI CONSTRUCT`) are
+  skipped, as in the original, and listed in `AiScript.Warnings`.
+- `deswar.spl` line 73 orders a Demon Warlord (`COMMANDER 5 L_PULSE_CANNON_R_VIRUS`), which has no research item.
+  The original asserts on this; `deswar.scn`, its only user, is not in the game menus.
 
 Do not edit these files. Balance changes for the remake go in separate override files,
 so the original values stay available as "classic rules".
