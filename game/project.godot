@@ -8,7 +8,7 @@ config_version=5
 
 config/name="Machines Remake"
 config/description="Ground-up remake of Machines: Wired for War (1999)."
-run/main_scene="res://scenes/Main.tscn"
+run/main_scene="res://scenes/Menu.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 
 [dotnet]
