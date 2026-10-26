@@ -19,6 +19,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\import\Machines.Import\Machines.Import.csproj" />
     <ProjectReference Include="..\..\sim\Machines.Sim\Machines.Sim.csproj" />
+    <ProjectReference Include="..\..\net\Machines.Net\Machines.Net.csproj" />
+    <ProjectReference Include="..\..\server\Machines.Relay\Machines.Relay.csproj" />
   </ItemGroup>
 
 </Project>

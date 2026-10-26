@@ -2,6 +2,7 @@ using Godot;
 using Machines.Import.Model;
 using Machines.Import.Scenarios;
 using Machines.Import.Text;
+using Machines.Net;
 using Machines.Sim.World;
 
 namespace Machines.Game;
@@ -38,7 +39,7 @@ public partial class SkirmishMenu : Control
 
     public override void _Ready()
     {
-        if (System.Environment.GetEnvironmentVariable("MACHINES_MENU_SCREENSHOT") is null
+        if (System.Environment.GetEnvironmentVariable("MACHINES_MENU_SCREENSHOT") is null && System.Environment.GetEnvironmentVariable("MACHINES_MP") is null
             && (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT") is not null || System.Environment.GetEnvironmentVariable("MACHINES_MAP") is not null))
         {
             // Automated checks of a match skip the menu.
@@ -147,6 +148,21 @@ public partial class SkirmishMenu : Control
         _start = new Button { Text = "Start", CustomMinimumSize = new Vector2(0, 44) };
         _start.Pressed += () => StartMatch(true);
         right.AddChild(_start);
+
+        // Multiplayer opens over the menu; its room takes the map and settings selected here.
+        var multiplayer = new MultiplayerPanel { RoomFromMenu = RoomFromMenu, Visible = false };
+        var centre = new CenterContainer { AnchorRight = 1, AnchorBottom = 1, MouseFilter = MouseFilterEnum.Ignore };
+        centre.AddChild(multiplayer);
+        AddChild(centre);
+        var online = new Button { Text = "Multiplayer…", CustomMinimumSize = new Vector2(0, 32) };
+        online.Pressed += () => multiplayer.Visible = true;
+        right.AddChild(online);
+        var watch = new Button { Text = "Watch a replay…", CustomMinimumSize = new Vector2(0, 32) };
+        watch.Pressed += WatchReplay;
+        right.AddChild(watch);
+        if (System.Environment.GetEnvironmentVariable("MACHINES_MP") is { Length: > 0 })
+            multiplayer.Visible = true;
+
         var quit = new Button { Text = "Quit", CustomMinimumSize = new Vector2(0, 32) };
         quit.Pressed += () => GetTree().Quit();
         right.AddChild(quit);
@@ -339,23 +355,64 @@ public partial class SkirmishMenu : Control
             if (_selected is null || _slots.Count == 0)
                 return;
             var players = _players.GetItemText(_players.Selected) is var text && int.TryParse(text.Split(' ')[0], out var n) ? n : 2;
-            var victory = _victory.Selected switch
-            {
-                0 => VictoryCondition.Annihilation,
-                1 => VictoryCondition.Pod,
-                _ => VictoryCondition.Timer,
-            };
-            var options = new MatchOptions
-            {
-                StartingBmu = (StartingBmu)_bmu.Selected,
-                Resources = ResourceLevel.Low + _resources.Selected,
-                TechLevel = (TechLevel)_tech.Selected,
-                Victory = victory,
-                TimeLimit = victory == VictoryCondition.Timer ? MatchOptions.TimeLimits[_victory.Selected - 2] : 1800,
-            };
             var starts = StartPositions.Assign(_slots, players, Colours[_colour.Selected], random: _starts.Selected == 1, new Random());
-            MatchRequest.Current = new MatchRequest(_selected.Name, _selected.Planet, starts, options);
+            MatchRequest.Current = new MatchRequest(_selected.Name, _selected.Planet, starts, MenuOptions());
         }
         GetTree().ChangeSceneToFile("res://scenes/Main.tscn");
+    }
+
+    /// <summary>The settings chosen in the menu.</summary>
+    private MatchOptions MenuOptions()
+    {
+        var victory = _victory.Selected switch
+        {
+            0 => VictoryCondition.Annihilation,
+            1 => VictoryCondition.Pod,
+            _ => VictoryCondition.Timer,
+        };
+        return new MatchOptions
+        {
+            StartingBmu = (StartingBmu)_bmu.Selected,
+            Resources = ResourceLevel.Low + _resources.Selected,
+            TechLevel = (TechLevel)_tech.Selected,
+            Victory = victory,
+            TimeLimit = victory == VictoryCondition.Timer ? MatchOptions.TimeLimits[_victory.Selected - 2] : 1800,
+        };
+    }
+
+    /// <summary>A multiplayer room on the selected map with the menu's settings.</summary>
+    private CreateRoom? RoomFromMenu() => _selected is null || _slots.Count < 2
+        ? null
+        : new CreateRoom("", _selected.Name, _selected.Planet, _slots, MenuOptions(), FillWithAi: true);
+
+    /// <summary>Opens a recorded match from <c>replays/</c> next to the game.</summary>
+    private void WatchReplay()
+    {
+        var folder = System.IO.Path.Combine(Paths.Root, "replays");
+        Directory.CreateDirectory(folder);
+        var dialog = new FileDialog
+        {
+            FileMode = FileDialog.FileModeEnum.OpenFile,
+            Access = FileDialog.AccessEnum.Filesystem,
+            CurrentDir = folder,
+            Filters = [$"*{Replay.Extension} ; Machines replays"],
+            Title = "Watch a replay",
+            UseNativeDialog = true,
+        };
+        AddChild(dialog);
+        dialog.FileSelected += path =>
+        {
+            try
+            {
+                var replay = Replay.Load(path);
+                MatchRequest.Current = MatchRequest.FromMatch(replay.Match, clientId: -1) with { Replay = replay };
+                GetTree().ChangeSceneToFile("res://scenes/Main.tscn");
+            }
+            catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
+            {
+                _description.Text = $"That replay cannot be read: {exception.Message}";
+            }
+        };
+        dialog.PopupCentered(new Vector2I(900, 600));
     }
 }

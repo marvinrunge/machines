@@ -258,7 +258,7 @@ public sealed partial class GameWorld
     private Vector2 DoorOf(Construction building, Machine machine)
     {
         var angle = building.Orientation * MathF.PI / 180;
-        var outward = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+        var outward = new Vector2(DetMath.Cos(angle), DetMath.Sin(angle));
         var far = building.Position + outward * (building.Radius + 20);
         for (var ring = 0; ring < 6; ring++)
         {

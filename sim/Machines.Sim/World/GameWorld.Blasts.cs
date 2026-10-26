@@ -92,7 +92,7 @@ public sealed partial class GameWorld
                         continue;
                     // A cone (the punch) spares whoever stands at its point: the puncher.
                     if (wave.ConeHalfAngle is { } cone && (offset.LengthSquared() < 1e-4f
-                        || MathF.Acos(Math.Clamp(Vector2.Dot(Vector2.Normalize(offset), blast.Direction), -1, 1)) > cone))
+                        || DetMath.Acos(Math.Clamp(Vector2.Dot(Vector2.Normalize(offset), blast.Direction), -1, 1)) > cone))
                         continue;
                     blast.Hit[w].Add(actor.Id);
                     Damage(actor, wave.DamageAt(distance), blast.By);

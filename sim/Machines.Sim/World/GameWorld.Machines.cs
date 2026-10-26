@@ -30,7 +30,7 @@ public sealed partial class GameWorld
         // The original's first-person turn rate (degrees per second) from GENERAL_DATA.
         var turnRate = Data.Parm.General.FirstPersonMaxFastTurnRate * MathF.PI / 180;
         machine.Facing += input.Turn * turnRate * Dt;
-        var direction = new Vector2(MathF.Cos(machine.Facing), MathF.Sin(machine.Facing));
+        var direction = new Vector2(DetMath.Cos(machine.Facing), DetMath.Sin(machine.Facing));
         var next = machine.Position + direction * (input.Forward * machine.Stats.Speed * Dt);
         if (Nav.IsFree(next, CrossesWater(machine)))
             machine.Position = next;
@@ -169,7 +169,7 @@ public sealed partial class GameWorld
         {
             var direction = offset / distance;
             machine.Position += direction * step;
-            machine.Facing = MathF.Atan2(direction.Y, direction.X);
+            machine.Facing = DetMath.Atan2(direction.Y, direction.X);
         }
 
         // Plan again when the waypoint itself got blocked (usually by a new building), or when the machine
@@ -215,7 +215,7 @@ public sealed partial class GameWorld
     {
         var d = point - machine.Position;
         if (d.LengthSquared() > 0.01f)
-            machine.Facing = MathF.Atan2(d.Y, d.X);
+            machine.Facing = DetMath.Atan2(d.Y, d.X);
     }
 
     // ---- fighting -------------------------------------------------------------------------------

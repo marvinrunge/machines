@@ -75,7 +75,7 @@ public sealed partial class GameWorld
             for (var s = 0; s < spots; s++)
             {
                 var angle = MathF.Tau * s / spots;
-                var spot = centre + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * (8 * ring);
+                var spot = centre + new Vector2(DetMath.Cos(angle), DetMath.Sin(angle)) * (8 * ring);
                 if (!Nav.IsFree(spot, CrossesWater(machine)))
                     continue;
                 if (tried++ == n)

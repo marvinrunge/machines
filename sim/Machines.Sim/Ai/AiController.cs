@@ -181,7 +181,7 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
             var step = state.SearchStep++;
             var angle = step * 2.4f;
             var radius = MathF.Min(range, 80 + step * 40);
-            var target = pod.Position + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
+            var target = pod.Position + new Vector2(DetMath.Cos(angle), DetMath.Sin(angle)) * radius;
             target = Vector2.Clamp(target, new Vector2(10, 10), new Vector2(world.Planet.Surface.Width - 10, world.Planet.Surface.Depth - 10));
             world.Issue(new LocateCommand(Race, [locator.Id], target));
         }

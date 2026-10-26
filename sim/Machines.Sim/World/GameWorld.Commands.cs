@@ -148,6 +148,25 @@ public sealed partial class GameWorld
                     id => new EnterGarrisonOrder(id));
             }
 
+            case DriveCommand drive:
+            {
+                if (Own<Machine>(drive.Race, [drive.Machine]).FirstOrDefault() is not { } driven)
+                    return "that machine cannot be driven";
+                driven.DrivenByPlayer = drive.Driving;
+                if (!drive.Driving)
+                {
+                    DriveInput.Remove(driven.Id);
+                    PlayerAims.Remove(driven.Id);
+                    return null;
+                }
+                DriveInput[driven.Id] = (Math.Clamp(drive.Forward, -1, 1), Math.Clamp(drive.Turn, -1, 1));
+                if (drive.Aim is { } aim && Find(aim) is { } target && AreEnemies(drive.Race, target.Race))
+                    PlayerAims[driven.Id] = aim;
+                else
+                    PlayerAims.Remove(driven.Id);
+                return null;
+            }
+
             case BoardCommand board:
                 return OrderWork(board.Race, board.Machines, board.Apc, m => !m.IsType("APC"), "nothing that can board",
                     t => t is Machine apc && apc.IsType("APC") && apc.Race == board.Race ? null : "that is not one of your APCs",

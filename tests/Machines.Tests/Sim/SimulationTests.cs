@@ -132,10 +132,10 @@ public class SimulationTests
         var world = NewMatch(red: Controller.Player);
         var grunt = world.Machines.First(m => m.Race == Race.Red && m.IsType("AGGRESSOR"));
         var start = grunt.Position;
-        grunt.DrivenByPlayer = true;
-        world.DriveInput[grunt.Id] = (1, 0);
+        // Sent every tick while driving, as the client does.
+        Run(world, seconds: 1, onTick: () => world.Issue(new DriveCommand(Race.Red, grunt.Id, Driving: true, Forward: 1)));
 
-        Run(world, seconds: 1);
+        Assert.True(grunt.DrivenByPlayer);
 
         // A level-2 Grunt drives at its parmdata SPEED of 11 m/s, unless something blocks it.
         Assert.InRange(Vector2.Distance(start, grunt.Position), 0.1f, 11.5f);

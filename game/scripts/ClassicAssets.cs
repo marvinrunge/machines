@@ -92,7 +92,7 @@ public sealed class ClassicAssets
         return mesh;
     }
 
-    private Mesh? LoadClassic(string id, Race race) => ModelPath(id, race) is { } path ? MeshFromJson(path) : null;
+    private Mesh? LoadClassic(string id, Race race) => ModelPath(id, race) is { } path ? MeshFromJson(path, race) : null;
 
     private string? ModelPath(string id, Race race)
     {
@@ -124,10 +124,10 @@ public sealed class ClassicAssets
         return path is not null && File.Exists(path) ? File.ReadAllBytes(path) : null;
     }
 
-    private Mesh? MeshFromJson(string path)
+    private Mesh? MeshFromJson(string path, Race? race = null)
     {
         using var document = JsonDocument.Parse(File.ReadAllBytes(path));
-        return MeshFromParts(document.RootElement.GetProperty("parts"));
+        return MeshFromParts(document.RootElement.GetProperty("parts"), race);
     }
 
     /// <summary>
@@ -144,13 +144,48 @@ public sealed class ClassicAssets
         {
             using var document = JsonDocument.Parse(File.ReadAllBytes(path));
             if (document.RootElement.TryGetProperty("rig", out var element))
-                rig = Rig.Read(element, MeshFromParts);
+                rig = Rig.Read(element, parts => MeshFromParts(parts, race));
         }
         _rigs[key] = rig;
         return rig;
     }
 
-    private Mesh? MeshFromParts(JsonElement parts)
+    /// <summary>
+    /// A race's version of a texture (MachPhysRaceChangerBody::texturesVec): textures named in
+    /// <c>data/logos.dat</c> come in four variants numbered 1 to 4 for Red, Blue, Green and Yellow, e.g.
+    /// <c>pod1_b.bmp</c> and <c>pod2_b.bmp</c>. The exporter writes the Red ones; the swap happens here.
+    /// </summary>
+    private string RaceTexture(string texture, Race race)
+    {
+        var file = Path.GetFileName(texture).ToLowerInvariant();
+        if (!RaceTextures.Value.TryGetValue(file, out var variant) || _gameFolder is null)
+            return texture;
+        var swapped = Path.Combine(Path.GetDirectoryName(texture) ?? "", $"{variant.Root}{(int)race + 1}{variant.Extension}").Replace('\\', '/');
+        return File.Exists(Path.Combine(_gameFolder, swapped)) ? swapped : texture;
+    }
+
+    /// <summary>The race-coloured textures of <c>logos.dat</c>, by their Red (first) name.</summary>
+    private static readonly Lazy<Dictionary<string, (string Root, string Extension)>> RaceTextures = new(() =>
+    {
+        var map = new Dictionary<string, (string, string)>();
+        var path = Path.Combine(Paths.OriginalData, "logos.dat");
+        if (!File.Exists(path))
+            return map;
+        foreach (var raw in File.ReadLines(path))
+        {
+            var name = raw.Split("//")[0].Trim().ToLowerInvariant();
+            // As the original reads the list: the root drops the "1" before the extension.
+            var extension = name.EndsWith("_b.bmp", StringComparison.Ordinal) ? "_b.bmp"
+                : name.EndsWith("_bt.bmp", StringComparison.Ordinal) ? "_bt.bmp"
+                : name.EndsWith(".bmp", StringComparison.Ordinal) ? ".bmp" : null;
+            if (extension is null || name.Length <= extension.Length + 1)
+                continue;
+            map[name] = (name[..^(extension.Length + 1)], extension);
+        }
+        return map;
+    });
+
+    private Mesh? MeshFromParts(JsonElement parts, Race? race = null)
     {
         var mesh = new ArrayMesh();
         foreach (var part in parts.EnumerateArray())
@@ -190,17 +225,21 @@ public sealed class ClassicAssets
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
 
             var diffuse = part.GetProperty("diffuse").EnumerateArray().Select(e => e.GetSingle()).ToArray();
-            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, MaterialFor(part.GetProperty("texture").GetString() ?? "", diffuse));
+            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, MaterialFor(part.GetProperty("texture").GetString() ?? "", diffuse, race));
         }
         return mesh.GetSurfaceCount() > 0 ? mesh : null;
     }
 
-    private Material MaterialFor(string texture, float[] diffuse)
+    private Material MaterialFor(string texture, float[] diffuse, Race? race = null)
     {
+        if (race is { } r)
+            texture = RaceTexture(texture, r);
         var key = $"{texture}|{string.Join(',', diffuse)}";
         if (_materials.TryGetValue(key, out var cached))
             return cached;
 
+        // As the original renderer did, the texture is tinted by the material's colour: the race colour of a
+        // machine sits in the diffuse colour of its grey textures.
         var material = new StandardMaterial3D
         {
             AlbedoColor = new Color(diffuse[0], diffuse[1], diffuse[2]),
@@ -212,10 +251,7 @@ public sealed class ClassicAssets
         {
             var path = Path.Combine(_gameFolder, texture);
             if (File.Exists(path) && LoadBmp(path) is { } image)
-            {
                 material.AlbedoTexture = image;
-                material.AlbedoColor = Colors.White;
-            }
         }
         _materials[key] = material;
         return material;

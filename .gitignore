@@ -12,6 +12,7 @@ TestResults/
 
 # Release builds (tools/release)
 /build/
+/replays/
 
 # Exporter build output, and models/textures exported from your own copy of the game (never committed)
 tools/classic-export/build/

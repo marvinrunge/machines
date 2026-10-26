@@ -100,10 +100,11 @@ public partial class Hud : CanvasLayer
             _messages.RemoveAt(0);
     }
 
-    public void Banner(string text)
+    /// <summary>Shows a large message across the screen; null hides it.</summary>
+    public void Banner(string? text)
     {
-        _banner.Text = text;
-        _banner.Visible = true;
+        _banner.Text = text ?? "";
+        _banner.Visible = text is not null;
     }
 
     public void SelectionChanged() => _buttonsFor = "";
@@ -151,7 +152,7 @@ public partial class Hud : CanvasLayer
                     : building.Weapons.FirstOrDefault(w => w.IsStrike) is { } strike ? StrikeButton(building, strike)
                     : ($"building{building.Id}", new List<(string Label, Action Action)>());
                 if (building.Garrisoned.Count > 0)
-                    buttons.Add(($"Let out\n{building.Garrisoned.Count} machines",() => world.Issue(new StopCommand(Game.Player, building.Garrisoned.ToList()))));
+                    buttons.Add(($"Let out\n{building.Garrisoned.Count} machines",() => _game.Issue(new StopCommand(Game.Player, building.Garrisoned.ToList()))));
                 buttons.Add(SelfDestructButton([building.Id], building.SelfDestructAt is not null));
                 SetButtons($"{signature}:{building.SelfDestructAt is not null}:{building.Garrisoned.Count}", buttons);
                 return;
@@ -173,19 +174,19 @@ public partial class Hud : CanvasLayer
         var counting = machines.Any(m => m.SelfDestructAt is not null);
         var common = new List<(string Label, Action Action)>
         {
-            ("Recycle\nhalf price back", () => world.Issue(new RecycleCommand(Game.Player, ids))),
+            ("Recycle\nhalf price back", () => _game.Issue(new RecycleCommand(Game.Player, ids))),
             SelfDestructButton(ids, counting),
         };
         var apcs = machines.Where(m => m.IsType("APC")).ToList();
         var carried = apcs.Sum(m => m.Passengers.Count);
         if (carried > 0)
             common.Insert(0, ($"Deploy {carried}\nclick the point", () => _game.BeginTargeting("Left click where to let them out; right click cancels",
-                (point, _) => world.Issue(new DeployCommand(Game.Player, apcs.Select(a => a.Id).ToList(), point)))));
+                (point, _) => _game.Issue(new DeployCommand(Game.Player, apcs.Select(a => a.Id).ToList(), point)))));
         var state = $"{counting}:{carried}";
         if (machines.Any(m => m.Spec.Type == "CONSTRUCTOR"))
         {
             common.Insert(0, ("Deconstruct\nclick a building", () => _game.BeginTargeting("Left click the building to take apart; right click cancels",
-                (_, target) => world.Issue(new DeconstructCommand(Game.Player, ids, target?.Id ?? 0)))));
+                (_, target) => _game.Issue(new DeconstructCommand(Game.Player, ids, target?.Id ?? 0)))));
             var buildable = world.Buildable(Game.Player);
             SetButtons($"build:{state}:" + string.Join(',', buildable), common.Concat(buildable.Select(e => (
                 Label: $"{e.Type.Replace("MISSILE_EMPLACEMENT", "EMPLACEMENT")} {e.SubType} L{e.HardwareLevel}\n{world.Data.Parm.Construction(e.SubType is null ? e.Type : $"{e.Type} {e.SubType}").Level(e.HardwareLevel).Cost} BMU",
@@ -206,8 +207,8 @@ public partial class Hud : CanvasLayer
 
     /// <summary>Starts the 5-second self-destruct, or calls it off while it counts down.</summary>
     private (string Label, Action Action) SelfDestructButton(List<int> ids, bool counting) => counting
-        ? ("Cancel\nself-destruct", () => _game.World.Issue(new StopCommand(Game.Player, ids)))
-        : ("Self-destruct\nin 5 seconds", () => _game.World.Issue(new SelfDestructCommand(Game.Player, ids)));
+        ? ("Cancel\nself-destruct", () => _game.Issue(new StopCommand(Game.Player, ids)))
+        : ("Self-destruct\nin 5 seconds", () => _game.Issue(new SelfDestructCommand(Game.Player, ids)));
 
     private List<(string Label, Action Action)> FactoryButtons(Construction factory)
     {
@@ -217,7 +218,7 @@ public partial class Hud : CanvasLayer
             .Where(key => state.Researched.Contains(key))
             .Select(key => (
                 Label: $"{KeyName(key)}\n{ResearchTree.FactoryPrice(world.Data.ResearchTree.Get(key), world.Data.Parm)} BMU",
-                Action: (Action)(() => world.Issue(new BuildMachineCommand(Game.Player, factory.Id, key)))))
+                Action: (Action)(() => _game.Issue(new BuildMachineCommand(Game.Player, factory.Id, key)))))
             .ToList();
     }
 
@@ -228,7 +229,7 @@ public partial class Hud : CanvasLayer
             .Where(item => world.WhyCannotResearch(Game.Player, item.Key, lab) is null && !lab.ResearchQueue.Contains(item.Key))
             .Select(item => (
                 Label: $"{KeyName(item.Key)}\n{world.ResearchCost(Game.Player, item)} RU, {item.BuildingCost} BMU",
-                Action: (Action)(() => world.Issue(new ResearchCommand(Game.Player, lab.Id, item.Key)))))
+                Action: (Action)(() => _game.Issue(new ResearchCommand(Game.Player, lab.Id, item.Key)))))
             .ToList();
     }
 

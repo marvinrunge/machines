@@ -1,5 +1,6 @@
 using Godot;
 using Machines.Import.Model;
+using Machines.Net;
 using Machines.Sim;
 using Machines.Sim.Combat;
 using Machines.Sim.Presentation;
@@ -53,12 +54,37 @@ public partial class Game : Node3D
     public IReadOnlyList<int> Selection => _selection;
     public bool Paused { get; set; }
 
+    /// <summary>Gives the player's command to the world (in multiplayer: to every player's world, same tick).</summary>
+    public void Issue(Command command)
+    {
+        if (!Watching)
+            _session.Queue(command);
+    }
+
+    /// <summary>A replay: the player watches and cannot give orders.</summary>
+    public bool Watching => MatchRequest.Current.Replay is not null;
+
+    public bool Online => MatchRequest.Current.Network is not null;
+
+    private LockstepSession _session = null!;
+    private int _seed;
+    private double _waitingFor;
+    private bool _replaySaved;
+
     public override void _Ready()
     {
         var request = MatchRequest.Current;
         var data = Paths.Data;
-        World = MatchSetup.Create(data, request.Scenario, request.Planet, request.Starts.Players,
-            seed: (int)(Time.GetUnixTimeFromSystem() % int.MaxValue), request.Options);
+        _seed = request.Seed ?? (int)(Time.GetUnixTimeFromSystem() % int.MaxValue);
+        World = MatchSetup.Create(data, request.Scenario, request.Planet, request.Starts.Players, _seed, request.Options);
+
+        // Every match runs through lockstep: alone with one tick of input delay, online with the relay's, or
+        // played back from a replay.
+        var humans = request.Starts.Players.Where(p => p.Value == Controller.Player).Select(p => p.Key);
+        _session = request.Replay?.Playback(World)
+            ?? new LockstepSession(World, Player, humans, request.Network?.InputDelay ?? 1);
+        if (request.Network is not null)
+            _session.Outgoing += NetLink.Send;
 
         _assets = new ClassicAssets(Paths.Root);
         var map = _assets.PlanetMap(request.Planet);
@@ -101,26 +127,48 @@ public partial class Game : Node3D
 
     public override void _Process(double delta)
     {
-        if (!Paused && World.Winner is null)
+        ReadNetwork();
+        if ((!Paused || Online) && World.Winner is null)
         {
             _accumulator += Math.Min(delta, 0.25);
             while (_accumulator >= GameWorld.Dt)
             {
                 _accumulator -= GameWorld.Dt;
                 UpdateDriving();
-                World.Step();
-                foreach (var rejected in World.Rejected.Where(r => r.Command.Race == Player))
-                    _hud.Message(rejected.Reason);
-                ShowEvents();
-                SyncBlasts();
-                SyncViews();
+                _session.Pump();
+                // A world behind the others catches up a little faster than real time.
+                var stepped = 0;
+                while (stepped < 3 && _session.TryStep())
+                {
+                    stepped++;
+                    foreach (var rejected in World.Rejected.Where(r => r.Command.Race == Player))
+                        _hud.Message(rejected.Reason);
+                    ShowEvents();
+                    SyncBlasts();
+                    SyncViews();
+                    // For automated checks: MACHINES_CHECKSUM_AT=<tick> prints the world's checksum at that tick.
+                    if (System.Environment.GetEnvironmentVariable("MACHINES_CHECKSUM_AT") is { } at && long.TryParse(at, out var checkTick) && World.Tick == checkTick)
+                        GD.Print($"checksum at tick {World.Tick}: {World.Checksum():x16}");
+                }
+                _waitingFor = stepped > 0 ? 0 : _waitingFor + GameWorld.Dt;
+            }
+            if (_waitingFor > 1)
+            {
+                var names = _session.Waiting().Select(race => MatchRequest.Current.Network?.Players.FirstOrDefault(p => p.Slot == race)?.Name ?? race.ToString());
+                _hud.Banner($"Waiting for {string.Join(", ", names)}");
             }
         }
 
-        if (World.Winner is { } winner)
-            _hud.Banner(winner == Player ? "Victory" : "Defeat");
-        else if (World.Races[Player].Defeated)
+        if (_session.DesyncTick is { } desync)
+            _hud.Banner($"Out of sync since tick {desync}: the players' games differ");
+        else if (World.Winner is { } winner)
+            _hud.Banner(Watching ? $"{Look(winner)} wins" : winner == Player ? "Victory" : "Defeat");
+        else if (World.Races[Player].Defeated && !Watching)
             _hud.Banner("Defeat");
+        else if (_waitingFor <= 1)
+            _hud.Banner(null);
+        if (World.Winner is not null)
+            SaveReplay();
 
         UpdateGhost();
         UpdateFirstPersonCamera();
@@ -174,6 +222,7 @@ public partial class Game : Node3D
         if (_runTime < after)
             return;
         GetViewport().GetTexture().GetImage().SavePng(path);
+        SaveReplay();
         GetTree().Quit();
     }
 
@@ -265,7 +314,7 @@ public partial class Game : Node3D
 
     /// <summary>Waits for a left click on the target of the building's ion cannon or nuclear missile.</summary>
     public void BeginStrike(int launcher) =>
-        BeginTargeting("Left click the target; right click cancels", (point, _) => World.Issue(new StrikeCommand(Player, launcher, point)));
+        BeginTargeting("Left click the target; right click cancels", (point, _) => Issue(new StrikeCommand(Player, launcher, point)));
 
     /// <summary>The next left click picks the target for <paramref name="onClick"/>; a right click cancels.</summary>
     public void BeginTargeting(string message, Action<NVector2, Actor?> onClick)
@@ -416,18 +465,71 @@ public partial class Game : Node3D
                 _placingOrientation = (_placingOrientation + 90) % 360;
                 break;
             case Key.S when key.CtrlPressed || key.ShiftPressed:
-                World.Issue(new StopCommand(Player, _selection.ToList()));
+                Issue(new StopCommand(Player, _selection.ToList()));
                 break;
             case Key.F:
                 EnterFirstPerson();
+                break;
+            case Key.P when Online:
+                _hud.Message("A multiplayer match cannot be paused");
                 break;
             case Key.P:
                 Paused = !Paused;
                 _hud.Message(Paused ? "Paused" : "Running");
                 break;
             case Key.F10:
+                SaveReplay();
+                if (Online)
+                    NetLink.Send(new LeaveRoom());
                 GetTree().ChangeSceneToFile("res://scenes/Menu.tscn");
                 break;
+        }
+    }
+
+    /// <summary>Hands the relay's messages to the session and tells the player what happened.</summary>
+    private void ReadNetwork()
+    {
+        if (!Online || NetLink.Connection is not { } connection)
+            return;
+        while (connection.Inbox.TryRead(out var message))
+        {
+            _session.Receive(message);
+            switch (message)
+            {
+                case PlayerLeft left:
+                    var name = MatchRequest.Current.Network?.Players.FirstOrDefault(p => p.Slot == left.Race)?.Name ?? left.Race.ToString();
+                    _hud.Message($"{name} left the match; their machines stay where they are");
+                    break;
+                case Chat chat:
+                    _hud.Message($"{chat.From}: {chat.Text}");
+                    break;
+            }
+        }
+        if (connection.Closed && _session.CanStep is false)
+            _hud.Banner("Connection to the relay lost");
+    }
+
+    /// <summary>
+    /// Keeps the match as a replay in <c>replays/</c> next to the game: the setup and every turn, which the
+    /// deterministic simulation turns back into the same match.
+    /// </summary>
+    private void SaveReplay()
+    {
+        if (_replaySaved || Watching || World.Tick == 0)
+            return;
+        _replaySaved = true;
+        try
+        {
+            var folder = System.IO.Path.Combine(Paths.Root, "replays");
+            Directory.CreateDirectory(folder);
+            var match = MatchRequest.Current.ToMatchInfo(_seed, _session.InputDelay);
+            var file = System.IO.Path.Combine(folder, $"{DateTime.Now:yyyy-MM-dd_HH-mm}_{match.Scenario}{Replay.Extension}");
+            new Replay(match, _session.Played, World.Tick).Save(file);
+            _hud.Message($"Replay saved: {System.IO.Path.GetFileName(file)}");
+        }
+        catch (IOException exception)
+        {
+            _hud.Message($"Replay not saved: {exception.Message}");
         }
     }
 
@@ -522,9 +624,9 @@ public partial class Game : Node3D
             // Constructors take enemy buildings over; everyone armed attacks.
             var capturers = target is Construction { Complete: true } ? Ids(m => m.Spec.Type == "CONSTRUCTOR") : [];
             if (capturers.Count > 0)
-                World.Issue(new CaptureCommand(Player, capturers, target.Id));
-            World.Issue(new AttackCommand(Player, Ids(m => m.CanFight), target.Id));
-            World.Issue(new MoveCommand(Player, Ids(m => !m.CanFight && !capturers.Contains(m.Id)), target.Position));
+                Issue(new CaptureCommand(Player, capturers, target.Id));
+            Issue(new AttackCommand(Player, Ids(m => m.CanFight), target.Id));
+            Issue(new MoveCommand(Player, Ids(m => !m.CanFight && !capturers.Contains(m.Id)), target.Position));
             Acknowledge(machines.Where(m => m.CanFight), "TARGET_ENEMY");
             return;
         }
@@ -532,14 +634,14 @@ public partial class Game : Node3D
         if (target is Machine patient && patient.Race == Player && patient.HitPoints < patient.MaxHitPoints
             && machines.Any(m => m.CanHeal && m.Id != patient.Id))
         {
-            World.Issue(new HealCommand(Player, Ids(m => m.CanHeal && m.Id != patient.Id), patient.Id));
+            Issue(new HealCommand(Player, Ids(m => m.CanHeal && m.Id != patient.Id), patient.Id));
             Acknowledge(machines.Where(m => m.CanHeal), "TASKED");
             return;
         }
 
         if (target is Machine apc && apc.Race == Player && apc.IsType("APC") && machines.Any(m => m.Id != apc.Id && !m.IsType("APC")))
         {
-            World.Issue(new BoardCommand(Player, Ids(m => m.Id != apc.Id && !m.IsType("APC")), apc.Id));
+            Issue(new BoardCommand(Player, Ids(m => m.Id != apc.Id && !m.IsType("APC")), apc.Id));
             Acknowledge(machines, "TASKED");
             return;
         }
@@ -550,24 +652,24 @@ public partial class Game : Node3D
             if (!building.Complete)
             {
                 var constructors = Ids(m => m.Spec.Type == "CONSTRUCTOR");
-                World.Issue(new ConstructCommand(Player, constructors, building.Id));
+                Issue(new ConstructCommand(Player, constructors, building.Id));
                 rest.ExceptWith(constructors);
             }
             else if (building.HitPoints < building.MaxHitPoints)
             {
                 var constructors = Ids(m => m.Spec.Type == "CONSTRUCTOR");
-                World.Issue(new RepairCommand(Player, constructors, building.Id));
+                Issue(new RepairCommand(Player, constructors, building.Id));
                 rest.ExceptWith(constructors);
             }
             if (building.IsType("GARRISON") && building.Complete)
             {
-                World.Issue(new EnterGarrisonCommand(Player, rest.ToList(), building.Id));
+                Issue(new EnterGarrisonCommand(Player, rest.ToList(), building.Id));
                 rest.Clear();
             }
             if (building.IsType("HARDWARE_LAB"))
             {
                 var technicians = Ids(m => m.Spec.Type == "TECHNICIAN");
-                World.Issue(new EnterLabCommand(Player, technicians, building.Id));
+                Issue(new EnterLabCommand(Player, technicians, building.Id));
                 rest.ExceptWith(technicians);
             }
             if (building.IsType("MINE"))
@@ -576,11 +678,11 @@ public partial class Game : Node3D
                     .MinBy(c => NVector2.Distance(c.Position, building.Position));
                 var carriers = Ids(m => m.Spec.Type == "RESOURCE_CARRIER");
                 if (store is not null)
-                    World.Issue(new TransportCommand(Player, carriers, building.Id, store.Id));
+                    Issue(new TransportCommand(Player, carriers, building.Id, store.Id));
                 rest.ExceptWith(carriers);
             }
             if (rest.Count > 0)
-                World.Issue(new MoveCommand(Player, rest.ToList(), building.Position));
+                Issue(new MoveCommand(Player, rest.ToList(), building.Position));
             Acknowledge(machines, "TASKED");
             return;
         }
@@ -589,12 +691,12 @@ public partial class Game : Node3D
             return;
         var locators = Ids(m => m.Spec.Type == "GEO_LOCATOR");
         if (locators.Count > 0)
-            World.Issue(new LocateCommand(Player, locators, point));
+            Issue(new LocateCommand(Player, locators, point));
         var others = Ids(m => m.Spec.Type != "GEO_LOCATOR");
         if (Input.IsKeyPressed(Key.Ctrl))
-            World.Issue(new AttackMoveCommand(Player, others, point));
+            Issue(new AttackMoveCommand(Player, others, point));
         else
-            World.Issue(new MoveCommand(Player, others, point));
+            Issue(new MoveCommand(Player, others, point));
         Acknowledge(machines, "MOVING");
     }
 
@@ -655,7 +757,7 @@ public partial class Game : Node3D
         if (_placing is not { } p || GroundAt(GetViewport().GetMousePosition()) is not { } ground)
             return;
         var constructors = SelectedMachines().Where(m => m.Spec.Type == "CONSTRUCTOR").Select(m => m.Id).ToList();
-        World.Issue(new PlaceConstructionCommand(Player, constructors, p.Type, p.SubType, p.Level, Snap(p.Type, ground), _placingOrientation));
+        Issue(new PlaceConstructionCommand(Player, constructors, p.Type, p.SubType, p.Level, Snap(p.Type, ground), _placingOrientation));
         if (!Input.IsKeyPressed(Key.Shift))
             CancelPlacement();
     }
@@ -670,8 +772,8 @@ public partial class Game : Node3D
             return;
         }
         _driven = machine;
-        machine.DrivenByPlayer = true;
-        World.Issue(new StopCommand(Player, [machine.Id]));
+        Issue(new StopCommand(Player, [machine.Id]));
+        Issue(new DriveCommand(Player, machine.Id, Driving: true));
         _rig.Active = false;
         _firstPersonCamera.Current = true;
         _lookPitch = 0;
@@ -682,12 +784,8 @@ public partial class Game : Node3D
 
     private void LeaveFirstPerson()
     {
-        if (_driven is { } machine)
-        {
-            machine.DrivenByPlayer = false;
-            World.DriveInput.Remove(machine.Id);
-            World.PlayerAims.Remove(machine.Id);
-        }
+        if (_driven is { } machine && World.Find(machine.Id) is not null)
+            Issue(new DriveCommand(Player, machine.Id, Driving: false));
         _driven = null;
         _rig.Active = true;
         _rig.Camera.Current = true;
@@ -720,9 +818,9 @@ public partial class Game : Node3D
         var forward = (Input.IsKeyPressed(Key.W) ? 1f : 0f) - (Input.IsKeyPressed(Key.S) ? 1f : 0f);
         var turn = (Input.IsKeyPressed(Key.A) ? 1f : 0f) - (Input.IsKeyPressed(Key.D) ? 1f : 0f) + Mathf.Clamp(_mouseTurn, -1, 1);
         _mouseTurn *= 0.5f;
-        World.DriveInput[machine.Id] = (forward, Mathf.Clamp(turn, -1, 1));
 
         // Fire at the enemy closest to the crosshair while the left button is held.
+        int? aimAt = null;
         if (Input.IsMouseButtonPressed(MouseButton.Left) && machine.CanFight)
         {
             var range = machine.Weapons.Max(w => w.Spec.Range);
@@ -734,15 +832,9 @@ public partial class Game : Node3D
                 .OrderBy(x => x.Angle)
                 .Select(x => x.Actor)
                 .FirstOrDefault();
-            if (target is not null)
-                World.PlayerAims[machine.Id] = target.Id;
-            else
-                World.PlayerAims.Remove(machine.Id);
+            aimAt = target?.Id;
         }
-        else
-        {
-            World.PlayerAims.Remove(machine.Id);
-        }
+        Issue(new DriveCommand(Player, machine.Id, Driving: true, forward, Mathf.Clamp(turn, -1, 1), aimAt));
     }
 
     private void UpdateFirstPersonCamera()

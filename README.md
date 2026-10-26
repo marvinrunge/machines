@@ -34,7 +34,20 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
     small enough for their doors.
   - The AI builds as the original did beyond its script: a prioritised list with mines on every found site
     first and its destroyed REBUILD buildings again.
-  - 181 tests. Every map runs AI-only for three minutes, and every map whose scripts give orders gets moving.
+  - Race colours on buildings and machines: textures take their material's colour, and the original's
+    `logos.dat` textures switch to the owner's race.
+- **M3 · Multiplayer: playable over the network, waiting for its play-test.**
+  - Deterministic lockstep: every client runs the same simulation from the same seed and exchanges only
+    commands, one turn per tick with four ticks of input delay. The simulation uses its own trigonometry
+    (`DetMath`) so every machine computes the same floats, and clients report world checksums the relay
+    compares; on a mismatch every player sees the tick the games diverged at.
+  - A relay (`server/Machines.Relay`) with rooms. **Host** under **Multiplayer…** runs it inside the game;
+    it also runs on its own. Lobby: open a room on the map and settings of the skirmish menu, join, pick a
+    colour, get ready; the host starts, and free slots can play the AI.
+  - Replays: every match, single player too, is recorded as its commands to `replays/`; **Watch a replay…**
+    plays one back to the identical checksum.
+  - Not yet: rejoining after a dropped connection, and an AI that takes over a dropped player's machines.
+- 187 tests. Every map runs AI-only for three minutes, and every map whose scripts give orders gets moving.
 
 ## Layout
 
@@ -42,6 +55,8 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
 | --- | --- |
 | `import/Machines.Import` | Readers for every original data format: stats, research, factories, scenarios, AI scripts, menus, strings, planets, sounds |
 | `sim/Machines.Sim` | The simulation core, plain C# with no Godot types: world, pathfinding on the original obstacles, economy, construction, production, research, combat, the original AI scripts |
+| `net/Machines.Net` | Multiplayer messages and framing, the lockstep session and replays |
+| `server/Machines.Relay` | The multiplayer relay: rooms, turn forwarding, checksum comparison (`--port`, default 7777) |
 | `tests/Machines.Tests` | xUnit tests that pin the importers and simulation to the 1999 numbers |
 | `game/` | The Godot 4 client: terrain, units, RTS camera, selection and orders, build menus, HUD, minimap, first person |
 | `tools/classic-export` | Exports the original models from your own copy of the game (see its README) |
@@ -80,8 +95,22 @@ saves a screenshot and quits (see `Game.cs` and `SkirmishMenu.cs` for the other 
 | Factory / lab selected | Buttons to build machines or start research |
 | W A S D, edges, Q / E, wheel | Pan, rotate, zoom |
 | F | Drive the selected machine in first person: W/S drive, A/D or mouse turn, left mouse fires |
-| Ctrl+S, P, Esc | Stop, pause, clear selection |
-| F10 | Back to the skirmish menu |
+| Ctrl+S, P, Esc | Stop, pause (not online), clear selection |
+| F10 | Back to the skirmish menu (online: leaves the match; the replay is saved) |
+
+## Multiplayer
+
+One player presses **Multiplayer…** and **Host**: the game runs the relay on port 7777 and shows the
+addresses the others connect to. The others type that address and **Connect**. Over the internet, the host
+forwards TCP 7777 to their computer, or everyone joins a VPN such as Tailscale. A dedicated relay runs with
+
+```bash
+dotnet run --project server/Machines.Relay -- --port 7777
+```
+
+For automated checks, `MACHINES_MP=host,<address>` (or `serve` to host the relay in the game, `join` to join
+the first room) drives the lobby, and `MACHINES_CHECKSUM_AT=<tick>` prints the world checksum at that tick.
+`MACHINES_REPLAY=<file.mreplay>` watches a replay.
 
 ## Releases
 

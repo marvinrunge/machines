@@ -138,7 +138,7 @@ public sealed partial class GameWorld
             for (var step = 0; step < 16; step++)
             {
                 var angle = MathF.PI / 2 + step * MathF.Tau / 16;
-                var p = centre + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * distance;
+                var p = centre + new Vector2(DetMath.Cos(angle), DetMath.Sin(angle)) * distance;
                 if (Nav.IsFree(p, crossesWater: false) && !Machines.Any(m => Vector2.DistanceSquared(m.Position, p) < 9))
                     return p;
             }

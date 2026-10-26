@@ -1,16 +1,44 @@
 using Machines.Import.Model;
+using Machines.Net;
 using Machines.Sim.World;
 
 namespace Machines.Game;
 
-/// <summary>The match the skirmish menu asked for; the match scene reads it when it starts.</summary>
+/// <summary>
+/// The match the menu asked for; the match scene reads it when it starts. A multiplayer match brings the relay's
+/// <see cref="MatchInfo"/> (seed and players included); a replay brings its recording.
+/// </summary>
 public sealed record MatchRequest(string Scenario, string Planet, StartPositions Starts, MatchOptions Options)
 {
     public static MatchRequest Current { get; set; } = FromEnvironment() ?? Default;
 
+    /// <summary>The world's random seed; a new one each time when not given.</summary>
+    public int? Seed { get; init; }
+
+    /// <summary>A multiplayer match started by the relay.</summary>
+    public MatchInfo? Network { get; init; }
+
+    /// <summary>A recorded match to watch.</summary>
+    public Replay? Replay { get; init; }
+
     /// <summary>The M1 match: Red against Blue on m_desert.</summary>
     public static MatchRequest Default => new("m_desert", "m_desert",
         StartPositions.Assign([Race.Red, Race.Blue], 2, Race.Red, random: false, new Random(0)), new MatchOptions());
+
+    /// <summary>A relay's match, from the point of view of the local client (or the first player, for replays).</summary>
+    public static MatchRequest FromMatch(MatchInfo match, int clientId)
+    {
+        var local = match.Players.FirstOrDefault(p => !p.Ai && p.ClientId == clientId) ?? match.Players.First(p => !p.Ai);
+        var starts = new StartPositions(local.Slot,
+            match.Players.ToDictionary(p => p.Slot, p => p.Ai ? Controller.Ai : Controller.Player),
+            match.Players.ToDictionary(p => p.Slot, p => p.Colour));
+        return new MatchRequest(match.Scenario, match.Planet, starts, match.Options) { Seed = match.Seed };
+    }
+
+    /// <summary>This match as the relay would describe it, for recording a replay of a single-player game.</summary>
+    public MatchInfo ToMatchInfo(int seed, int inputDelay) => Network ?? new MatchInfo(Scenario, Planet, Options, seed, inputDelay,
+        Starts.Players.Select(p => new MatchPlayer(0, p.Value == Controller.Ai ? "AI" : NetLink.Name, p.Key,
+            Starts.Colours.GetValueOrDefault(p.Key, p.Key), p.Value == Controller.Ai)).ToList());
 
     /// <summary>
     /// For automated checks: MACHINES_MAP=&lt;scenario&gt;,&lt;planet&gt; starts that map straight away, with an AI
@@ -18,6 +46,12 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
     /// </summary>
     private static MatchRequest? FromEnvironment()
     {
+        // MACHINES_REPLAY=<file> watches a recorded match.
+        if (System.Environment.GetEnvironmentVariable("MACHINES_REPLAY") is { Length: > 0 } recording)
+        {
+            var replay = Replay.Load(recording);
+            return FromMatch(replay.Match, clientId: -1) with { Replay = replay };
+        }
         var map = System.Environment.GetEnvironmentVariable("MACHINES_MAP");
         if (string.IsNullOrEmpty(map))
             return null;

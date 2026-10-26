@@ -64,5 +64,11 @@ public sealed record DeployCommand(Race Race, IReadOnlyList<int> Apcs, Vector2 T
 /// <summary>Blow up machines or buildings after the original's 5 seconds; a stop command calls it off.</summary>
 public sealed record SelfDestructCommand(Race Race, IReadOnlyList<int> Actors) : Command(Race);
 
+/// <summary>
+/// First-person control of one machine, sent every tick while a player drives it: forward and turn input
+/// (−1 to 1) and the enemy under the crosshair to fire at. <paramref name="Driving"/> false hands it back.
+/// </summary>
+public sealed record DriveCommand(Race Race, int Machine, bool Driving, float Forward = 0, float Turn = 0, int? Aim = null) : Command(Race);
+
 /// <summary>Why a command was refused, for the client to show.</summary>
 public sealed record CommandRejected(Command Command, string Reason);
