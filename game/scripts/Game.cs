@@ -33,7 +33,7 @@ public partial class Game : Node3D
     private ClassicAssets _assets = null!;
     private CameraRig _rig = null!;
     private Hud _hud = null!;
-    private Node3D _effects = null!;
+    private Effects _effects = null!;
     private GameAudio _audio = null!;
 
     // Drag selection
@@ -102,7 +102,7 @@ public partial class Game : Node3D
         AddChild(TerrainBuilder.Build(World.Planet, HeightField.Current, map, _assets.PlanetTerrain(request.Planet)));
         AddLighting();
 
-        _effects = new Node3D { Name = "Effects" };
+        _effects = new Effects { Name = "Effects" };
         AddChild(_effects);
 
         _rig = new CameraRig { Name = "CameraRig" };
@@ -253,9 +253,11 @@ public partial class Game : Node3D
         if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_SPAWN") is { Length: > 0 } spawn)
         {
             // e.g. "AGGRESSOR,ASSASSIN,2,L_PLASMA_RIFLE": puts one of those down at the camera, to drive.
-            var parts = spawn.Split(',');
-            var at = new NVector2(_rig.Position.X, _rig.Position.Z);
-            World.AddMachine(Player, at, parts[0], parts[1] is "" or "-" ? null : parts[1], int.Parse(parts[2]), parts.Length > 3 ? parts[3] : null);
+            // "Blue:AGGRESSOR,GRUNT,2,L_BOLTER" puts down an enemy instead, a little off, to watch a fight.
+            var race = spawn.Split(':') is [var name, _] && Enum.TryParse<Race>(name, out var other) ? other : Player;
+            var parts = spawn[(spawn.IndexOf(':') + 1)..].Split(',');
+            var at = new NVector2(_rig.Position.X, _rig.Position.Z) + (race == Player ? NVector2.Zero : new NVector2(25, 0));
+            World.AddMachine(race, at, parts[0], parts[1] is "" or "-" ? null : parts[1], int.Parse(parts[2]), parts.Length > 3 ? parts[3] : null);
             SyncViews();
         }
         if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_SELECT") is { Length: > 0 } select)
@@ -319,7 +321,7 @@ public partial class Game : Node3D
             {
                 case GameEventKind.Fired:
                     if (e.Other is { } target && World.Find(target) is { } victim)
-                        Tracer(at, ActorView.World(victim.Position) + Vector3.Up * 1.5f, e.Detail ?? "");
+                        Shot(at, ActorView.World(victim.Position) + Vector3.Up * 1.5f, e.Detail ?? "");
                     _audio.Play(SoundTable.FiringSound(e.Detail ?? ""), at);
                     break;
                 case GameEventKind.Hit when e.Detail is { } weapon:
@@ -329,7 +331,10 @@ public partial class Game : Node3D
                     _audio.Play(SoundTable.BlastSound(weapon), at);
                     break;
                 case GameEventKind.Destroyed:
-                    Flash(at);
+                    if (GraphicsSettings.Remake)
+                        _effects.Explosion(at - Vector3.Up * 2, _views.TryGetValue(e.Actor, out var gone) ? gone.Size : 4);
+                    else
+                        Flash(at);
                     if (_views.TryGetValue(e.Actor, out var dead))
                     {
                         _audio.Play(SoundTable.ExplosionSound(dead.IsBuilding, dead.Size, Random.Shared.Next(1, 7)), at);
@@ -392,9 +397,12 @@ public partial class Game : Node3D
             var view = new MeshInstance3D
             {
                 Mesh = new SphereMesh { Radius = 1, Height = 2 },
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
                 MaterialOverride = new StandardMaterial3D
                 {
-                    AlbedoColor = colour,
+                    // The remake's dome glows (added light, seen through); the classic one is a tinted shell.
+                    AlbedoColor = GraphicsSettings.Remake && blast.Weapon != "VORTEX" ? new Color(colour.R, colour.G, colour.B, colour.A * 0.6f) : colour,
+                    BlendMode = GraphicsSettings.Remake && blast.Weapon != "VORTEX" ? BaseMaterial3D.BlendModeEnum.Add : BaseMaterial3D.BlendModeEnum.Mix,
                     Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
                     ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
                     CullMode = BaseMaterial3D.CullModeEnum.Disabled,
@@ -403,6 +411,8 @@ public partial class Game : Node3D
             _effects.AddChild(view);
             view.GlobalPosition = ActorView.World(blast.Position);
             _blastViews[blast] = view;
+            if (GraphicsSettings.Remake)
+                _effects.Blast(view.GlobalPosition, blast.Radius(blast.StartTime + blast.Duration), new Color(colour.R, colour.G, colour.B));
             if (blast.Weapon is "ION_ORBITAL_CANNON" or "NUCLEAR_MISSILE")
                 _hud.Message(blast.Weapon == "NUCLEAR_MISSILE" ? "Nuclear detonation" : "Ion cannon strike");
         }
@@ -419,6 +429,15 @@ public partial class Game : Node3D
             // Domes, flattened a little: the original's spheres and rings hug the ground.
             view.Scale = new Vector3(radius, radius * 0.6f, radius);
         }
+    }
+
+    /// <summary>A shot: the remake's flying bolt at the weapon's speed, or the classic short beam.</summary>
+    private void Shot(Vector3 from, Vector3 to, string weapon)
+    {
+        if (GraphicsSettings.Remake)
+            _effects.Shot(from, to, weapon, World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == weapon)?.ProjectileSpeed ?? 80);
+        else
+            Tracer(from, to, weapon);
     }
 
     private void Tracer(Vector3 from, Vector3 to, string weapon)

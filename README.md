@@ -56,6 +56,9 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
 - **Remake graphics (phase A):** AgX tone mapping, glow, ambient occlusion, soft shadows that follow the
   camera, 16× anisotropic texture filtering and slightly glossy machines; **Remake graphics** in the menu
   switches back to the classic look. The control panel follows the original's layout with its icons.
+- **Remake graphics (phase B):** glowing bolts that fly at the weapon's speed with muzzle flashes and sparks;
+  explosions of fire, smoke and debris with a flash of light; scorch marks that fade after a minute; dust
+  behind moving machines; area weapons glow; selection rings lie on the ground.
 - 192 tests. Every map runs AI-only for three minutes, and every map whose scripts give orders gets moving.
 
 ## Layout

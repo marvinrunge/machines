@@ -17,6 +17,9 @@ public static class TerrainBuilder
     /// <summary>Obstacles are drawn at their real height, but no taller than this, so the view stays clear.</summary>
     private const float MaxWallHeight = 14f;
 
+    /// <summary>The ground's extra render layer: scorch marks and selection rings are cast onto it alone.</summary>
+    public const uint GroundLayer = 4;
+
     public static Node3D Build(Planet planet, HeightField field, Texture2D? overview, Mesh? classicTerrain = null)
     {
         var root = new Node3D { Name = "Terrain" };
@@ -24,7 +27,7 @@ public static class TerrainBuilder
         // The original tiles hold the cliffs, ramps and water edges themselves.
         if (classicTerrain is not null)
         {
-            root.AddChild(new MeshInstance3D { Name = "ClassicTerrain", Mesh = classicTerrain });
+            root.AddChild(new MeshInstance3D { Name = "ClassicTerrain", Mesh = classicTerrain, Layers = 1 | GroundLayer });
             return root;
         }
 
@@ -35,7 +38,7 @@ public static class TerrainBuilder
             groundMaterial.AlbedoTexture = overview;
             groundMaterial.AlbedoColor = Colors.White;
         }
-        root.AddChild(new MeshInstance3D { Name = "Ground", Mesh = Ground(field), MaterialOverride = groundMaterial });
+        root.AddChild(new MeshInstance3D { Name = "Ground", Mesh = Ground(field), MaterialOverride = groundMaterial, Layers = 1 | GroundLayer });
 
         var rock = new StandardMaterial3D
         {

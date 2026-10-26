@@ -8,7 +8,8 @@ namespace Machines.Game;
 /// <summary>Shows one simulation actor: its model, a selection ring and a health bar.</summary>
 public partial class ActorView : Node3D
 {
-    private MeshInstance3D _ring = null!;
+    private VisualInstance3D _ring = null!;
+    private GpuParticles3D? _dust;
     private MeshInstance3D _health = null!;
     private MeshInstance3D _armour = null!;
     private Vector3 _target;
@@ -112,14 +113,35 @@ public partial class ActorView : Node3D
                 : (grounded.Radius, -grounded.Radius);
         }
 
-        view._ring = new MeshInstance3D
-        {
-            Mesh = new TorusMesh { InnerRadius = view.Size * 0.55f, OuterRadius = view.Size * 0.62f + 0.3f },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.3f, 1f, 0.3f), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded },
-            Position = new Vector3(0, 0.2f, 0),
-            Visible = false,
-        };
+        // The remake lays the selection ring onto the ground (over slopes too); the classic look floats a torus.
+        view._ring = GraphicsSettings.Remake
+            ? new Decal
+            {
+                TextureAlbedo = Effects.Ring,
+                TextureEmission = Effects.RingGlow,
+                EmissionEnergy = 2,
+                Modulate = new Color(0.35f, 1f, 0.35f),
+                AlbedoMix = 1,
+                Size = new Vector3(view.Size * 1.6f + 2, 16, view.Size * 1.6f + 2),
+                CullMask = TerrainBuilder.GroundLayer,
+                Visible = false,
+            }
+            : new MeshInstance3D
+            {
+                Mesh = new TorusMesh { InnerRadius = view.Size * 0.55f, OuterRadius = view.Size * 0.62f + 0.3f },
+                MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.3f, 1f, 0.3f), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded },
+                Position = new Vector3(0, 0.2f, 0),
+                Visible = false,
+            };
         view.AddChild(view._ring);
+
+        // Ground machines kick up dust as they go.
+        if (GraphicsSettings.Remake && view._followsGround)
+        {
+            view._dust = Effects.DustTrail();
+            view._dust.Position = new Vector3(view._aft * 0.6f, 0.3f, 0);
+            view.AddChild(view._dust);
+        }
 
         view._health = Bar(new Color(0.2f, 0.9f, 0.2f));
         view._armour = Bar(new Color(0.4f, 0.7f, 1f));
@@ -245,6 +267,8 @@ public partial class ActorView : Node3D
         Position = Position.Lerp(_target, t);
         _yaw = Mathf.LerpAngle(_yaw, _targetYaw, t);
         Stand();
+        if (_dust is not null && delta > 0)
+            _dust.Emitting = Visible && new Vector2(Position.X - _lastPosition.X, Position.Z - _lastPosition.Z).Length() / (float)delta > 1.5f;
 
         if (_rigView is not null && delta > 0)
         {
