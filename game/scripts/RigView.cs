@@ -45,6 +45,14 @@ public partial class RigView : Node3D
     }
 
     /// <summary>
+    /// Where first person looks out from: the centre front of the faceplate as it stands now (the original's
+    /// camera attachment), or null when the export has none.
+    /// </summary>
+    public Vector3? Eye => _rig.Faceplate >= 0 && _rig.Faceplate < _nodes.Length
+        ? _nodes[_rig.Faceplate].GlobalTransform * _rig.Eye
+        : null;
+
+    /// <summary>
     /// Moves the parts for one frame. <paramref name="speed"/> is metres per second forwards (negative backwards),
     /// <paramref name="turnRate"/> radians per second (positive turns left), <paramref name="maxSpeed"/> the
     /// machine's top speed, and <paramref name="aim"/> the upper body's wanted angle relative to the body.

@@ -105,7 +105,8 @@ public partial class Game : Node3D
         _rig.Setup(start is null ? new Vector3(400, 0, 400) : new Vector3(start.Position.X, 0, start.Position.Y),
             new Vector2(World.Planet.Surface.Width, World.Planet.Surface.Depth));
 
-        _firstPersonCamera = new Camera3D { Far = 3000, Fov = 70, Name = "FirstPersonCamera" };
+        // The machine being driven sits on its own render layer, which this camera leaves out.
+        _firstPersonCamera = new Camera3D { Far = 3000, Near = 0.1f, Fov = 70, Name = "FirstPersonCamera", CullMask = ~ActorView.DrivenLayer & 0xFFFFF };
         AddChild(_firstPersonCamera);
 
         _audio = GameAudio.Create(_assets.GameFolder);
@@ -240,10 +241,18 @@ public partial class Game : Node3D
             World.StartBlast(weapon, new NVector2(float.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture),
                 float.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture)), null);
         }
+        if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_SPAWN") is { Length: > 0 } spawn)
+        {
+            // e.g. "AGGRESSOR,ASSASSIN,2,L_PLASMA_RIFLE": puts one of those down at the camera, to drive.
+            var parts = spawn.Split(',');
+            var at = new NVector2(_rig.Position.X, _rig.Position.Z);
+            World.AddMachine(Player, at, parts[0], parts[1] is "" or "-" ? null : parts[1], int.Parse(parts[2]), parts.Length > 3 ? parts[3] : null);
+            SyncViews();
+        }
         if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_SELECT") is { Length: > 0 } select)
         {
             // e.g. "CONSTRUCTOR" or "AGGRESSOR"; with MACHINES_SCREENSHOT_FIRSTPERSON=1 the first one is driven.
-            Select(World.Machines.Where(m => m.Race == Player && m.Spec.Type == select).Select(m => m.Id).ToList());
+            Select(World.Machines.Where(m => m.Race == Player && (m.Spec.Type == select || m.Spec.SubType == select)).OrderByDescending(m => m.Id).Select(m => m.Id).ToList());
             if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_FIRSTPERSON") == "1")
             {
                 Select(_selection.Take(1).ToList());
@@ -811,6 +820,8 @@ public partial class Game : Node3D
             return;
         }
         _driven = machine;
+        if (_views.TryGetValue(machine.Id, out var view))
+            view.SetDriven(true);
         Issue(new StopCommand(Player, [machine.Id]));
         Issue(new DriveCommand(Player, machine.Id, Driving: true));
         _rig.Active = false;
@@ -825,6 +836,8 @@ public partial class Game : Node3D
     {
         if (_driven is { } machine && World.Find(machine.Id) is not null)
             Issue(new DriveCommand(Player, machine.Id, Driving: false));
+        if (_driven is { } was && _views.TryGetValue(was.Id, out var view))
+            view.SetDriven(false);
         _driven = null;
         _rig.Active = true;
         _rig.Camera.Current = true;
@@ -880,8 +893,8 @@ public partial class Game : Node3D
     {
         if (_driven is not { } machine || !_views.TryGetValue(machine.Id, out var view))
             return;
-        var eye = view.GlobalPosition + Vector3.Up * Mathf.Max(2.5f, view.Size * 0.9f);
-        _firstPersonCamera.GlobalPosition = eye;
+        // From the faceplate, as the original; the view stays level whatever the machine leans or sways.
+        _firstPersonCamera.GlobalPosition = view.Eye;
         _firstPersonCamera.GlobalRotation = new Vector3(_lookPitch, view.Yaw - Mathf.Pi / 2, 0);
     }
 }

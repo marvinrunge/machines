@@ -33,9 +33,14 @@ public partial class Hud : CanvasLayer
 
     public Rect2? DragRect { get; set; }
 
+    /// <summary>Driving in first person: a crosshair, and no command buttons over the view.</summary>
     public bool FirstPerson
     {
-        set => _crosshair.Visible = value;
+        set
+        {
+            _crosshair.Visible = value;
+            _buttons.Visible = !value;
+        }
     }
 
     public override void _Ready()

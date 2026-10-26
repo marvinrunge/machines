@@ -383,6 +383,16 @@ void writeRig(std::ostream& out, MachPhysMachine& machine, std::set<std::string>
     }
     out << "],\"upperBody\":" << indexOf(machine.pImpl_->pUpperBodyTurnLink_);
 
+    // First person looks out from the centre front of the faceplate (MachPhys1stPersonMachineDriver::cameraAttachment).
+    if (machine.hasFacePlate())
+    {
+        W4dLink& faceplate = machine.facePlate();
+        const MexAlignedBox3d& box = faceplate.boundingVolume();
+        MexPoint3d eye = box.centroid();
+        eye.x(box.maxCorner().x());
+        out << ",\"faceplate\":" << indexOf(&faceplate) << ",\"eye\":[" << eye.x() << "," << eye.y() << "," << eye.z() << "]";
+    }
+
     MachPhysLocomotionMethod& locomotion = machine.locomotionMethod();
     if (MachPhysSpiderLegs* legs = dynamic_cast<MachPhysSpiderLegs*>(&locomotion))
     {

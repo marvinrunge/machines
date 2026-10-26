@@ -17,6 +17,10 @@ public sealed class Rig
     public RigWheels? Wheels { get; init; }
     public RigTracks? Tracks { get; init; }
 
+    /// <summary>The faceplate part and the point on it first person looks out from (centre front), or -1.</summary>
+    public int Faceplate { get; init; } = -1;
+    public Vector3 Eye { get; init; }
+
     public static Rig Read(JsonElement rig, Func<JsonElement, Mesh?> mesh)
     {
         var nodes = rig.GetProperty("nodes").EnumerateArray()
@@ -48,6 +52,10 @@ public sealed class Rig
             Animations = animations,
             Wheels = wheels,
             Tracks = tracksOf,
+            Faceplate = rig.TryGetProperty("faceplate", out var f) ? f.GetInt32() : -1,
+            Eye = rig.TryGetProperty("eye", out var e) && e.EnumerateArray().Select(x => x.GetSingle()).ToArray() is [var ex, var ey, var ez]
+                ? new Vector3(ex, ez, ey)   // original z up
+                : Vector3.Zero,
         };
     }
 

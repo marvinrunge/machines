@@ -46,6 +46,32 @@ public partial class ActorView : Node3D
     /// <summary>The direction the view faces, about the vertical (Godot's sense); leaning on slopes leaves it.</summary>
     public float Yaw => _yaw;
 
+    // The model's box in its own space, for an eye when the export names no faceplate.
+    private Aabb _bounds = new(new Vector3(-1, 0, -1), new Vector3(2, 2, 2));
+
+    /// <summary>
+    /// Where first person looks out from: the centre front of the faceplate, as the original attached its camera,
+    /// or high at the front of the model without one.
+    /// </summary>
+    public Vector3 Eye => _rigView?.Eye
+        ?? GlobalTransform * new Vector3(_bounds.End.X, _bounds.Position.Y + _bounds.Size.Y * 0.8f, _bounds.GetCenter().Z);
+
+    /// <summary>Render layer of a machine being driven: the first-person camera does not draw it, so it never blocks the view.</summary>
+    public const uint DrivenLayer = 2;
+
+    /// <summary>Hides the model from the first-person camera (it still casts its shadow and shows elsewhere).</summary>
+    public void SetDriven(bool driven) => SetLayers(this, driven ? DrivenLayer : 1);
+
+    private static void SetLayers(Node node, uint layers)
+    {
+        foreach (var child in node.GetChildren())
+        {
+            if (child is VisualInstance3D visual)
+                visual.Layers = layers;
+            SetLayers(child, layers);
+        }
+    }
+
     public static ActorView Create(Actor actor, ClassicAssets assets, GameAudio audio)
     {
         var view = new ActorView { ActorId = actor.Id, Race = actor.Race, Name = $"Actor{actor.Id}", IsBuilding = actor is Construction };
@@ -74,6 +100,8 @@ public partial class ActorView : Node3D
             view.AddChild(body);
         }
 
+        if (MeshBounds(view, Transform3D.Identity) is { } modelBounds)
+            view._bounds = modelBounds;
         if (actor is Machine grounded && grounded.Stats.Locomotion is Locomotion.Wheels or Locomotion.Tracks or Locomotion.Spider)
         {
             // The original takes the ends from the machine's bounding box along its facing (x).
