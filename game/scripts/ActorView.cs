@@ -10,6 +10,8 @@ public partial class ActorView : Node3D
 {
     private VisualInstance3D _ring = null!;
     private GpuParticles3D? _dust;
+    private Light3D? _lamp;
+    private float _lampEnergy;
     private MeshInstance3D _health = null!;
     private MeshInstance3D _armour = null!;
     private Vector3 _target;
@@ -134,6 +136,37 @@ public partial class ActorView : Node3D
                 Visible = false,
             };
         view.AddChild(view._ring);
+
+        // At night buildings light their surroundings and machines switch on headlights.
+        if (GraphicsSettings.Remake)
+        {
+            if (actor is Construction)
+            {
+                view._lamp = new OmniLight3D
+                {
+                    LightColor = new Color(1, 0.75f, 0.45f),
+                    OmniRange = view.Size * 1.2f + 8,
+                    Position = new Vector3(0, Mathf.Max(4, size.Y * 0.8f), 0),
+                    Visible = false,
+                };
+            }
+            else
+            {
+                // A spot looks down its -z; turned to the machine's front (+x) and tipped a little down.
+                view._lamp = new SpotLight3D
+                {
+                    LightColor = new Color(1, 0.95f, 0.82f),
+                    SpotRange = 32,
+                    SpotAngle = 32,
+                    Position = new Vector3(Mathf.Max(0.5f, view._fore), 1.6f, 0),
+                    Rotation = new Vector3(0, -Mathf.Pi / 2, 0),
+                    Visible = false,
+                };
+                view._lamp.RotateObjectLocal(Vector3.Right, -0.25f);
+            }
+            view._lampEnergy = actor is Construction ? 2.2f : 4f;
+            view.AddChild(view._lamp);
+        }
 
         // Ground machines kick up dust as they go.
         if (GraphicsSettings.Remake && view._followsGround)
@@ -267,6 +300,11 @@ public partial class ActorView : Node3D
         Position = Position.Lerp(_target, t);
         _yaw = Mathf.LerpAngle(_yaw, _targetYaw, t);
         Stand();
+        if (_lamp is not null)
+        {
+            _lamp.Visible = PlanetLook.Night > 0.05f;
+            _lamp.LightEnergy = PlanetLook.Night * _lampEnergy;
+        }
         if (_dust is not null && delta > 0)
             _dust.Emitting = Visible && new Vector2(Position.X - _lastPosition.X, Position.Z - _lastPosition.Z).Length() / (float)delta > 1.5f;
 

@@ -12,6 +12,9 @@ public partial class CameraRig : Node3D
     private const float EdgeMargin = 6f;
 
     private float _yaw;
+
+    /// <summary>Which way the camera looks around its focus, radians (Q and E turn it).</summary>
+    public float Yaw { get => _yaw; set => _yaw = value; }
     private float _distance = 160f;
     private Vector2 _bounds = new(1600, 1600);
 

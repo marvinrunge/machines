@@ -72,7 +72,7 @@ public static class ClassicGui
         return files.GetValueOrDefault(Path.GetFileName(relative));
     }
 
-    private static void KeyOut(Image image, bool black)
+    public static void KeyOut(Image image, bool black)
     {
         for (var y = 0; y < image.GetHeight(); y++)
             for (var x = 0; x < image.GetWidth(); x++)

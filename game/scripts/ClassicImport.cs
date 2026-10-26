@@ -21,9 +21,10 @@ public static class ClassicImport
     /// <summary>
     /// What the exporter writes, raised when an import has to be redone: 2 added the original vertex normals
     /// (without them some terrain tiles and model parts are lit from behind), 3 the first-person eye on each
-    /// machine's faceplate.
+    /// machine's faceplate, 4 the turn-to-face sprites (eyes, lamps, leaves) and the materials' ambient and emissive
+    /// colours.
     /// </summary>
-    public const int Format = 3;
+    public const int Format = 4;
 
     private static string FormatFile => Path.Combine(Paths.Classic, "format.txt");
 

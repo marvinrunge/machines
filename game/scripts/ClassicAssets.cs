@@ -127,7 +127,7 @@ public sealed class ClassicAssets
     private Mesh? MeshFromJson(string path, Race? race = null)
     {
         using var document = JsonDocument.Parse(File.ReadAllBytes(path));
-        return MeshFromParts(document.RootElement.GetProperty("parts"), race);
+        return MeshFromParts(document.RootElement, race);
     }
 
     /// <summary>
@@ -144,7 +144,7 @@ public sealed class ClassicAssets
         {
             using var document = JsonDocument.Parse(File.ReadAllBytes(path));
             if (document.RootElement.TryGetProperty("rig", out var element))
-                rig = Rig.Read(element, parts => MeshFromParts(parts, race));
+                rig = Rig.Read(element, node => MeshFromParts(node, race));
         }
         _rigs[key] = rig;
         return rig;
@@ -185,10 +185,110 @@ public sealed class ClassicAssets
         return map;
     });
 
-    private Mesh? MeshFromParts(JsonElement parts, Race? race = null)
+    /// <summary>
+    /// The original's turn-to-face polygons (RenTTFRectangle): each a rectangle around a centre that always faces
+    /// the camera — the glowing eyes and lamps of machines, flares, leaves. Every corner sits at the centre and
+    /// carries its offset across the screen in UV2; the sprite shader spreads it out in view space, as the
+    /// original's compose2DGeometry did. Glowing sprites add their light; the others are lit and see-through
+    /// where their texture is magenta.
+    /// </summary>
+    private void AddSprites(ArrayMesh mesh, JsonElement sprites, Race? race)
+    {
+        // Corners in the original's order (a triangle fan): right-down, right-up, left-up, left-down.
+        Vector2[] corners = [new(1, -1), new(1, 1), new(-1, 1), new(-1, -1)];
+        foreach (var group in sprites.EnumerateArray().GroupBy(s => s.GetProperty("texture").GetString() + "|"
+                     + s.GetProperty("diffuse").GetRawText() + "|" + s.GetProperty("emissive").GetRawText()))
+        {
+            var vertices = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var offsets = new List<Vector2>();
+            var indices = new List<int>();
+            foreach (var sprite in group)
+            {
+                var c = sprite.GetProperty("centre").EnumerateArray().Select(e => e.GetSingle()).ToArray();
+                var half = new Vector2(sprite.GetProperty("width").GetSingle(), sprite.GetProperty("height").GetSingle()) / 2;
+                var spriteUvs = sprite.GetProperty("uvs").EnumerateArray().Select(e => e.GetSingle()).ToArray();
+                var first = vertices.Count;
+                for (var i = 0; i < 4; i++)
+                {
+                    vertices.Add(new Vector3(c[0], c[2], c[1]));
+                    uvs.Add(spriteUvs.Length >= 8 ? new Vector2(spriteUvs[i * 2], spriteUvs[i * 2 + 1]) : (corners[i] * new Vector2(1, -1) + Vector2.One) / 2);
+                    offsets.Add(corners[i] * half);
+                }
+                indices.AddRange([first, first + 1, first + 2, first, first + 2, first + 3]);
+            }
+            var arrays = new Godot.Collections.Array();
+            arrays.Resize((int)Mesh.ArrayType.Max);
+            arrays[(int)Mesh.ArrayType.Vertex] = vertices.ToArray();
+            arrays[(int)Mesh.ArrayType.TexUV] = uvs.ToArray();
+            arrays[(int)Mesh.ArrayType.TexUV2] = offsets.ToArray();
+            arrays[(int)Mesh.ArrayType.Index] = indices.ToArray();
+            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+
+            var sample = group.First();
+            var diffuse = sample.GetProperty("diffuse").EnumerateArray().Select(e => e.GetSingle()).ToArray();
+            var emissive = sample.GetProperty("emissive").EnumerateArray().Select(e => e.GetSingle()).ToArray();
+            var glowing = emissive.Max() > 0.03f;
+            var material = new ShaderMaterial { Shader = glowing ? GlowSpriteShader.Value : LitSpriteShader.Value };
+            var texture = sample.GetProperty("texture").GetString() ?? "";
+            if (race is { } r)
+                texture = RaceTexture(texture, r);
+            if (LoadTexture(texture).Texture is { } image)
+                material.SetShaderParameter("sprite", image);
+            material.SetShaderParameter("colour", glowing ? new Vector3(emissive[0], emissive[1], emissive[2]) : new Vector3(diffuse[0], diffuse[1], diffuse[2]));
+            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, material);
+        }
+    }
+
+    private const string SpriteVertex = """
+        void vertex() {
+            // Every corner starts at the sprite's centre and moves by its offset across the screen.
+            vec4 centre = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
+            centre.xy += UV2;
+            POSITION = PROJECTION_MATRIX * centre;
+            NORMAL = normalize((inverse(MODELVIEW_MATRIX) * vec4(0.0, 0.0, 1.0, 0.0)).xyz);
+        }
+        """;
+
+    /// <summary>A sprite that gives light: added on top, its black background vanishing.</summary>
+    private static readonly Lazy<Shader> GlowSpriteShader = new(() => new Shader
+    {
+        Code = $$"""
+            shader_type spatial;
+            render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
+            uniform sampler2D sprite : source_color, filter_linear_mipmap;
+            uniform vec3 colour = vec3(1.0);
+            {{SpriteVertex}}
+            void fragment() {
+                vec4 c = texture(sprite, UV);
+                ALBEDO = c.rgb * c.a * colour * 2.0;
+            }
+            """,
+    });
+
+    /// <summary>A lit sprite (leaves and the like), see-through where its texture is magenta.</summary>
+    private static readonly Lazy<Shader> LitSpriteShader = new(() => new Shader
+    {
+        Code = $$"""
+            shader_type spatial;
+            render_mode cull_disabled;
+            uniform sampler2D sprite : source_color, filter_linear_mipmap;
+            uniform vec3 colour = vec3(1.0);
+            {{SpriteVertex}}
+            void fragment() {
+                vec4 c = texture(sprite, UV);
+                ALBEDO = c.rgb * colour;
+                ALPHA = c.a;
+                ALPHA_SCISSOR_THRESHOLD = 0.5;
+            }
+            """,
+    });
+
+    /// <summary>A model's mesh from its export: the triangles of its <c>parts</c> and the <c>sprites</c> that face the camera.</summary>
+    private Mesh? MeshFromParts(JsonElement model, Race? race = null)
     {
         var mesh = new ArrayMesh();
-        foreach (var part in parts.EnumerateArray())
+        foreach (var part in model.GetProperty("parts").EnumerateArray())
         {
             var positions = part.GetProperty("positions").EnumerateArray().Select(e => e.GetSingle()).ToArray();
             var uvs = part.GetProperty("uvs").EnumerateArray().Select(e => e.GetSingle()).ToArray();
@@ -242,6 +342,8 @@ public sealed class ClassicAssets
             var diffuse = part.GetProperty("diffuse").EnumerateArray().Select(e => e.GetSingle()).ToArray();
             mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, MaterialFor(part.GetProperty("texture").GetString() ?? "", diffuse, race));
         }
+        if (model.TryGetProperty("sprites", out var sprites))
+            AddSprites(mesh, sprites, race);
         return mesh.GetSurfaceCount() > 0 ? mesh : null;
     }
 
@@ -271,15 +373,65 @@ public sealed class ClassicAssets
             material.Metallic = 0.2f;
             material.MetallicSpecular = 0.6f;
         }
-        if (texture.Length > 0 && _gameFolder is not null)
+        var (loaded, clearness) = LoadTexture(texture);
+        material.AlbedoTexture = loaded;
+        // See-through textures: cut out where keyed, blended where they have an alpha map.
+        if (clearness == Clearness.Keyed)
         {
-            var path = Path.Combine(_gameFolder, texture);
-            if (File.Exists(path) && LoadBmp(path) is { } image)
-                material.AlbedoTexture = image;
+            material.Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor;
+            material.AlphaScissorThreshold = 0.5f;
+        }
+        else if (clearness == Clearness.Soft)
+        {
+            material.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
+        }
+
+        // The planets' water tiles (watr*, and the falling and flowing watfal / watflw) move in the remake.
+        var name = Path.GetFileName(texture).ToLowerInvariant();
+        if (remake && race is null && material.AlbedoTexture is { } water && (name.StartsWith("watr") || name.StartsWith("watfal") || name.StartsWith("watflw")))
+        {
+            var moving = new ShaderMaterial { Shader = WaterShader.Value };
+            moving.SetShaderParameter("albedo_tex", water);
+            moving.SetShaderParameter("tint", new Vector3(diffuse[0], diffuse[1], diffuse[2]));
+            moving.SetShaderParameter("flow", name.StartsWith("watr") ? Vector2.Zero : new Vector2(0, 0.35f));
+            _materials[key] = moving;
+            return moving;
         }
         _materials[key] = material;
         return material;
     }
+
+    /// <summary>
+    /// Water: the original texture sampled twice, drifting and rippling against each other, on a smooth surface
+    /// that catches the sun and mirrors its surroundings (screen-space reflections).
+    /// </summary>
+    private static readonly Lazy<Shader> WaterShader = new(() => new Shader
+    {
+        Code = """
+            shader_type spatial;
+            render_mode cull_disabled;
+            uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+            uniform vec3 tint = vec3(1.0);
+            uniform vec2 flow = vec2(0.0);
+            varying vec3 world;
+            void vertex() {
+                world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+            }
+            void fragment() {
+                float t = TIME;
+                // Waves in metres, so they look the same however the tiles repeat their texture.
+                vec2 p = world.xz;
+                vec2 drift = vec2(sin(p.y * 0.35 + t * 0.9), cos(p.x * 0.3 + t * 0.8)) * 0.006;
+                vec3 water = texture(albedo_tex, UV + flow * t + drift).rgb;
+                ALBEDO = water * tint * 0.9;
+                ROUGHNESS = 0.05;
+                SPECULAR = 0.7;
+                float r1 = sin(p.x * 0.9 + p.y * 0.4 + t * 1.6) + sin(p.x * 0.31 - p.y * 0.77 - t * 1.1);
+                float r2 = sin(p.y * 0.85 - p.x * 0.35 + t * 1.4) + sin(p.y * 0.27 + p.x * 0.61 + t * 0.9);
+                NORMAL_MAP = vec3(0.5 + r1 * 0.04, 0.5 + r2 * 0.04, 1.0);
+            }
+            """,
+    });
 
     private static Texture2D? LoadBmp(string path)
     {
@@ -288,6 +440,48 @@ public sealed class ClassicAssets
             return null;
         image.GenerateMipmaps();
         return ImageTexture.CreateFromImage(image);
+    }
+
+    /// <summary>How a texture lets things through: not at all, cut out by a key colour, or softly by an alpha map.</summary>
+    private enum Clearness { Opaque, Keyed, Soft }
+
+    /// <summary>
+    /// A model texture as the original loaded it (RenITexBody::read). Names ending in <c>_t</c> or <c>_bt</c> are
+    /// see-through: where a colour map (<c>_c</c> / <c>_bc</c>) and an alpha map (<c>_a</c> / <c>_ba</c>) lie beside
+    /// them, the colour comes from the one and the transparency from the other's brightness; otherwise magenta is
+    /// cut out.
+    /// </summary>
+    private (Texture2D? Texture, Clearness Clearness) LoadTexture(string relative)
+    {
+        if (_gameFolder is null || relative.Length == 0)
+            return (null, Clearness.Opaque);
+        var path = Path.Combine(_gameFolder, relative);
+        var name = Path.GetFileName(relative).ToLowerInvariant();
+        var transparent = name.EndsWith("_t.bmp") || name.EndsWith("_bt.bmp");
+        if (!transparent)
+            return (File.Exists(path) ? LoadBmp(path) : null, Clearness.Opaque);
+
+        string Sibling(char letter) => path[..^5] + letter + path[^4..];
+        var colourPath = Sibling('c');
+        var alphaPath = Sibling('a');
+        if (File.Exists(colourPath) && File.Exists(alphaPath)
+            && DecodeBmp(File.ReadAllBytes(colourPath)) is { } colour && DecodeBmp(File.ReadAllBytes(alphaPath)) is { } alpha
+            && colour.GetSize() == alpha.GetSize())
+        {
+            for (var y = 0; y < colour.GetHeight(); y++)
+                for (var x = 0; x < colour.GetWidth(); x++)
+                {
+                    var c = colour.GetPixel(x, y);
+                    colour.SetPixel(x, y, new Color(c.R, c.G, c.B, alpha.GetPixel(x, y).R));
+                }
+            colour.GenerateMipmaps();
+            return (ImageTexture.CreateFromImage(colour), Clearness.Soft);
+        }
+        if (!File.Exists(path) || DecodeBmp(File.ReadAllBytes(path)) is not { } keyed)
+            return (null, Clearness.Opaque);
+        ClassicGui.KeyOut(keyed, black: false);
+        keyed.GenerateMipmaps();
+        return (ImageTexture.CreateFromImage(keyed), Clearness.Keyed);
     }
 
     /// <summary>

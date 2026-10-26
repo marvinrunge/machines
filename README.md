@@ -59,6 +59,9 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
 - **Remake graphics (phase B):** glowing bolts that fly at the weapon's speed with muzzle flashes and sparks;
   explosions of fire, smoke and debris with a flash of light; scorch marks that fade after a minute; dust
   behind moving machines; area weapons glow; selection rings lie on the ground.
+- **Remake graphics (phase C):** the moon lights the night as in the original (it was pitch black), with
+  stars and moon discs in the sky; buildings light their surroundings and machines switch on headlights
+  after dark; water ripples, glints and mirrors its surroundings, waterfalls flow.
 - 192 tests. Every map runs AI-only for three minutes, and every map whose scripts give orders gets moving.
 
 ## Layout

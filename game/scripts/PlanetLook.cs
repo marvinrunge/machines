@@ -91,7 +91,44 @@ public partial class PlanetLook : Node
         _sun.DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel4Splits;
         _sun.DirectionalShadowBlendSplits = true;
         _softShadows = true;
+
+        // Smooth surfaces (the water) mirror what is around them.
+        _environment.SsrEnabled = true;
+        _environment.SsrMaxSteps = 48;
+
+        // Stars come out at night, and the other satellites (the moon) show as discs.
+        _sky.SkyCover = Stars.Value;
+        _sky.SkyCoverModulate = new Color(1, 1, 1, 0);
+        foreach (var satellite in _env.Satellites.Where(s => s != _sunSatellite && _env.Orbits.ContainsKey(s.Orbit)))
+        {
+            var disc = new DirectionalLight3D { SkyMode = DirectionalLight3D.SkyModeEnum.SkyOnly, LightAngularDistance = 1.6f, Name = satellite.Name };
+            AddChild(disc);
+            _discs.Add((satellite, disc));
+        }
     }
+
+    private readonly List<(Satellite Satellite, DirectionalLight3D Disc)> _discs = [];
+
+    /// <summary>How dark it is, from 0 by day to 1 at night, by the sun's height; lamps follow it.</summary>
+    public static float Night { get; private set; }
+
+    /// <summary>A starfield on the sky (equirectangular), the same every time.</summary>
+    private static readonly Lazy<Texture2D> Stars = new(() =>
+    {
+        const int width = 2048, height = 1024;
+        var image = Image.CreateEmpty(width, height, false, Image.Format.Rgba8);
+        var random = new Random(1999);
+        for (var i = 0; i < 2600; i++)
+        {
+            // Spread evenly over the sphere, and only above the horizon.
+            var x = random.Next(width);
+            var y = (int)(Math.Acos(random.NextDouble()) / Math.PI * height);
+            var brightness = (float)Math.Pow(random.NextDouble(), 3) * 0.8f + 0.2f;
+            var tint = random.NextDouble() < 0.2 ? new Color(0.8f, 0.85f, 1f) : random.NextDouble() < 0.1 ? new Color(1f, 0.9f, 0.75f) : Colors.White;
+            image.SetPixel(x, Math.Clamp(y, 0, height - 1), new Color(tint.R * brightness, tint.G * brightness, tint.B * brightness));
+        }
+        return ImageTexture.CreateFromImage(image);
+    });
 
     private bool _softShadows;
 
@@ -140,8 +177,19 @@ public partial class PlanetLook : Node
         var direct = Table(_sunSatellite?.DirectionalColourTable, elevation, Colors.White);
         _sun.LightColor = direct;
         _sun.LightEnergy = elevation > 0 ? 1.1f : 0.15f;
-        var ambient = Table(_sunSatellite?.AmbientColourTable, elevation, Colors.Black);
+        // Every satellite adds its ambient light by its own height in the sky: the sun by day, the moon by night.
+        var ambient = Colors.Black;
+        foreach (var satellite in _env.Satellites)
+        {
+            if (satellite.AmbientColourTable is null || !_env.Orbits.TryGetValue(satellite.Orbit, out var satelliteOrbit))
+                continue;
+            var light = Table(satellite.AmbientColourTable, Elevation(satelliteOrbit, _gameTime()), Colors.Black);
+            ambient = new Color(ambient.R + light.R, ambient.G + light.G, ambient.B + light.B);
+        }
         var floor = direct * MinimumAmbient;
+        // The remake never lets a night go fully black: a little starlight stays.
+        if (_softShadows)
+            floor = new Color(Mathf.Max(floor.R, 0.05f), Mathf.Max(floor.G, 0.06f), Mathf.Max(floor.B, 0.1f));
         _environment.AmbientLightColor = new Color(Mathf.Max(ambient.R, floor.R), Mathf.Max(ambient.G, floor.G), Mathf.Max(ambient.B, floor.B));
         _environment.AmbientLightEnergy = 1;
 
@@ -158,6 +206,21 @@ public partial class PlanetLook : Node
         }
         _sky.SkyHorizonColor = horizon;
         _sky.SkyTopColor = top;
+
+        Night = Mathf.Clamp((4 - elevation) / 6, 0, 1);
+        if (_discs.Count > 0)
+        {
+            _sky.SkyCoverModulate = new Color(1, 1, 1, Night);
+            foreach (var (satellite, disc) in _discs)
+            {
+                var discOrbit = _env.Orbits[satellite.Orbit];
+                var height = Elevation(discOrbit, _gameTime());
+                var colour = Table(satellite.MeshColourTable, height, Colors.White);
+                disc.RotationDegrees = new Vector3(-Mathf.Clamp(height, 1, 89), 180 - (discOrbit.SetHeading ?? 0), 0);
+                disc.LightColor = new Color(colour.R, colour.G, colour.B);
+                disc.LightEnergy = height > 0 ? colour.A * 1.5f : 0;
+            }
+        }
         _sky.GroundHorizonColor = fogColour;
         _sky.GroundBottomColor = fogColour.Darkened(0.3f);
 

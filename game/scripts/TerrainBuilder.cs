@@ -27,7 +27,13 @@ public static class TerrainBuilder
         // The original tiles hold the cliffs, ramps and water edges themselves.
         if (classicTerrain is not null)
         {
-            root.AddChild(new MeshInstance3D { Name = "ClassicTerrain", Mesh = classicTerrain, Layers = 1 | GroundLayer });
+            // The original's coarse ground throws no shadows (they fell in hard-edged wedges across the map); it
+            // takes those of machines and buildings, and its slopes shade by their normals.
+            root.AddChild(new MeshInstance3D
+            {
+                Name = "ClassicTerrain", Mesh = classicTerrain, Layers = 1 | GroundLayer,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            });
             return root;
         }
 

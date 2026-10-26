@@ -24,7 +24,7 @@ public sealed class Rig
     public static Rig Read(JsonElement rig, Func<JsonElement, Mesh?> mesh)
     {
         var nodes = rig.GetProperty("nodes").EnumerateArray()
-            .Select(n => new RigNode(n.GetProperty("parent").GetInt32(), Transform(n.GetProperty("transform")), mesh(n.GetProperty("parts"))))
+            .Select(n => new RigNode(n.GetProperty("parent").GetInt32(), Transform(n.GetProperty("transform")), mesh(n)))
             .ToArray();
         var animations = new Dictionary<string, RigAnimation>();
         if (rig.TryGetProperty("animations", out var anims))

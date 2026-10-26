@@ -240,6 +240,8 @@ public partial class Game : Node3D
             {
                 _rig.Pitch = float.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture);
                 _rig.Distance = float.Parse(parts[3], System.Globalization.CultureInfo.InvariantCulture);
+                if (parts.Length >= 5)
+                    _rig.Yaw = Mathf.DegToRad(float.Parse(parts[4], System.Globalization.CultureInfo.InvariantCulture));
             }
         }
         if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_BLAST") is { Length: > 0 } blastAt)

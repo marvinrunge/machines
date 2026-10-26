@@ -38,6 +38,8 @@
 #include "render/scale.hpp"
 #include "render/internal/vtxdata.hpp"
 #include "render/internal/fixptvec.hpp"
+#include "render/ttfpoly.hpp"
+#include "mathex/vec2.hpp"
 #include "render/internal/trigroup.hpp"
 #include "world4d/root.hpp"
 #include "world4d/composit.hpp"
@@ -88,11 +90,24 @@
 namespace
 {
 
+// A turn-to-face polygon (RenTTFPolygon): a sprite around a centre, always facing the camera.
+struct Sprite
+{
+    std::string texture;
+    float diffuse[4];
+    float emissive[3];
+    float centre[3];
+    float width, height, depthOffset;
+    std::vector<float> uvs;
+};
+
 // One material's worth of triangles, in model space (original axes: z up).
 struct Bucket
 {
     std::string texture;
     float diffuse[4];
+    float ambient[3];
+    float emissive[3];
     std::vector<float> positions;
     std::vector<float> normals;
     std::vector<float> uvs;
@@ -188,7 +203,9 @@ public:
             if (b.indices.empty())
                 continue;
             out << (firstBucket ? "" : ",") << "\n{\"texture\":\"" << b.texture << "\",\"diffuse\":["
-                << b.diffuse[0] << "," << b.diffuse[1] << "," << b.diffuse[2] << "," << b.diffuse[3] << "]";
+                << b.diffuse[0] << "," << b.diffuse[1] << "," << b.diffuse[2] << "," << b.diffuse[3] << "]"
+                << ",\"ambient\":[" << b.ambient[0] << "," << b.ambient[1] << "," << b.ambient[2] << "]"
+                << ",\"emissive\":[" << b.emissive[0] << "," << b.emissive[1] << "," << b.emissive[2] << "]";
             writeArray(out, "positions", b.positions);
             writeArray(out, "normals", b.normals);
             writeArray(out, "uvs", b.uvs);
@@ -197,6 +214,21 @@ public:
                 out << (i ? "," : "") << b.indices[i];
             out << "]}";
             firstBucket = false;
+        }
+        out << "\n]";
+
+        // Turn-to-face polygons: sprites that always face the camera (eyes, glows, leaves).
+        out << ",\"sprites\":[";
+        for (size_t i = 0; i < sprites_.size(); ++i)
+        {
+            const Sprite& s = sprites_[i];
+            out << (i ? "," : "") << "\n{\"texture\":\"" << s.texture << "\",\"diffuse\":["
+                << s.diffuse[0] << "," << s.diffuse[1] << "," << s.diffuse[2] << "," << s.diffuse[3] << "]"
+                << ",\"emissive\":[" << s.emissive[0] << "," << s.emissive[1] << "," << s.emissive[2] << "]"
+                << ",\"centre\":[" << s.centre[0] << "," << s.centre[1] << "," << s.centre[2] << "]"
+                << ",\"width\":" << s.width << ",\"height\":" << s.height << ",\"depthOffset\":" << s.depthOffset;
+            writeArray(out, "uvs", s.uvs);
+            out << "}";
         }
         out << "\n]";
     }
@@ -275,6 +307,48 @@ private:
                 ++triangles_;
             }
         }
+
+        // The mesh's turn-to-face polygons, placed like its vertices.
+        for (int s = 0; s < mesh->nTTFPolygons(); ++s)
+        {
+            const RenTTFPolygon& ttf = mesh->TTFPolygon(s);
+            Sprite sprite;
+            MexPoint3d centre = ttf.centre();
+            centre = MexPoint3d(centre.x() * scale, centre.y() * scale, centre.z() * scale);
+            transform.transform(&centre);
+            sprite.centre[0] = centre.x();
+            sprite.centre[1] = centre.y();
+            sprite.centre[2] = centre.z();
+            if (ttf.isRectangle())
+            {
+                sprite.width = ttf.asRectangle().width() * scale;
+                sprite.height = ttf.asRectangle().height() * scale;
+            }
+            else
+            {
+                sprite.width = sprite.height = 2 * ttf.radius() * scale;
+            }
+            sprite.depthOffset = ttf.depthOffset();
+            const RenMaterial& material = ttf.material();
+            if (not material.texture().isNull())
+            {
+                sprite.texture = material.texture().name();
+                textures_.insert(sprite.texture);
+            }
+            sprite.diffuse[0] = material.diffuse().r();
+            sprite.diffuse[1] = material.diffuse().g();
+            sprite.diffuse[2] = material.diffuse().b();
+            sprite.diffuse[3] = material.diffuse().a();
+            sprite.emissive[0] = material.emissive().r();
+            sprite.emissive[1] = material.emissive().g();
+            sprite.emissive[2] = material.emissive().b();
+            for (size_t v = 0; v < ttf.nVertices(); ++v)
+            {
+                sprite.uvs.push_back(ttf.uv(_STATIC_CAST(Ren::VertexIdx, v)).x());
+                sprite.uvs.push_back(ttf.uv(_STATIC_CAST(Ren::VertexIdx, v)).y());
+            }
+            sprites_.push_back(sprite);
+        }
     }
 
     Bucket& bucketFor(const RenMaterial& material)
@@ -283,9 +357,12 @@ private:
         if (not material.texture().isNull())
             texture = material.texture().name();
         const RenColour& d = material.diffuse();
+        const RenColour& a = material.ambient();
+        const RenColour& e = material.emissive();
 
         std::ostringstream key;
-        key << texture << "|" << d.r() << "," << d.g() << "," << d.b() << "," << d.a();
+        key << texture << "|" << d.r() << "," << d.g() << "," << d.b() << "," << d.a()
+            << "|" << a.r() << "," << a.g() << "," << a.b() << "|" << e.r() << "," << e.g() << "," << e.b();
         Bucket& bucket = buckets_[key.str()];
         if (bucket.texture.empty() and bucket.indices.empty())
         {
@@ -294,6 +371,12 @@ private:
             bucket.diffuse[1] = d.g();
             bucket.diffuse[2] = d.b();
             bucket.diffuse[3] = d.a();
+            bucket.ambient[0] = a.r();
+            bucket.ambient[1] = a.g();
+            bucket.ambient[2] = a.b();
+            bucket.emissive[0] = e.r();
+            bucket.emissive[1] = e.g();
+            bucket.emissive[2] = e.b();
         }
         if (not texture.empty())
             textures_.insert(texture);
@@ -301,6 +384,7 @@ private:
     }
 
     std::map<std::string, Bucket> buckets_;
+    std::vector<Sprite> sprites_;
     std::set<std::string> textures_;
     size_t triangles_ = 0;
     const W4dEntity* node_ = NULL;
