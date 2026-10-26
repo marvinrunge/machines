@@ -85,8 +85,11 @@ public sealed class Machine : Actor
     /// <summary>AI squadron number, if any.</summary>
     public int? Squad { get; set; }
 
-    /// <summary>The building a machine is inside (technicians in a lab, machines in a garrison); it is off the map.</summary>
+    /// <summary>The building or APC a machine is inside (a lab, a garrison, an APC); it is off the map.</summary>
     public int? Inside { get; set; }
+
+    /// <summary>For an APC: the machines it carries.</summary>
+    public List<int> Passengers { get; } = [];
 
     /// <summary>True while a player drives this machine in first person.</summary>
     public bool DrivenByPlayer { get; set; }
@@ -140,6 +143,9 @@ public sealed class Construction : Actor
 
     /// <summary>A pod given its ion cannon by the scenario (<c>ACTIVATE_ION_CANNON</c>) rather than by research.</summary>
     public bool IonCannonGranted { get; set; }
+
+    /// <summary>The AI builds it again where it stood when it is destroyed (<c>REBUILD</c> in the scenario).</summary>
+    public bool Rebuild { get; set; }
 
     // Mines
     public int? MineralSite { get; set; }

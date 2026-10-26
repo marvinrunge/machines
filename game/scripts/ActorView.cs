@@ -1,5 +1,6 @@
 using Godot;
 using Machines.Import.Model;
+using Machines.Sim.Presentation;
 using Machines.Sim.World;
 
 namespace Machines.Game;
@@ -20,16 +21,49 @@ public partial class ActorView : Node3D
     public Race Race { get; private set; }
     public float Size { get; private set; } = 3;
 
-    public static ActorView Create(Actor actor, ClassicAssets assets)
+    /// <summary>A building rather than a machine; it explodes with the construction sounds.</summary>
+    public bool IsBuilding { get; private set; }
+
+    /// <summary>The machine's voice-mail name (GRUNT, DOZER ...), kept for its last report after it is gone.</summary>
+    public string? Voice { get; private set; }
+
+    private GameAudio.EngineSound? _engine;
+    private Vector3 _lastTarget;
+
+    // Animated parts
+    private RigView? _rigView;
+    private float _maxSpeed;
+    private float _aim;
+    private Vector3 _lastPosition;
+    private float _lastYaw;
+
+    public static ActorView Create(Actor actor, ClassicAssets assets, GameAudio audio)
     {
-        var view = new ActorView { ActorId = actor.Id, Race = actor.Race, Name = $"Actor{actor.Id}" };
+        var view = new ActorView { ActorId = actor.Id, Race = actor.Race, Name = $"Actor{actor.Id}", IsBuilding = actor is Construction };
         var (id, size) = ModelOf(actor);
         view.Size = Mathf.Max(size.X, size.Z);
+        if (actor is Machine machine)
+        {
+            view.Voice = SoundTable.VoiceOf(machine);
+            view._engine = audio.EngineFor(machine);
+            if (view._engine is not null)
+                view.AddChild(view._engine.Player);
+        }
 
-        var body = new MeshInstance3D { Mesh = assets.MeshFor(id, Game.Look(actor.Race), size), Name = "Body" };
-        if (!assets.HasClassicModels)
-            body.Position = new Vector3(0, size.Y / 2, 0);
-        view.AddChild(body);
+        // Machines with an exported rig move their parts; everything else is one mesh.
+        if (actor is Machine rigged && assets.RigFor(id, Game.Look(actor.Race)) is { } rig)
+        {
+            view._rigView = RigView.Create(rig);
+            view._maxSpeed = rigged.Stats.Speed;
+            view.AddChild(view._rigView);
+        }
+        else
+        {
+            var body = new MeshInstance3D { Mesh = assets.MeshFor(id, Game.Look(actor.Race), size), Name = "Body" };
+            if (!assets.HasClassicModels)
+                body.Position = new Vector3(0, size.Y / 2, 0);
+            view.AddChild(body);
+        }
 
         view._ring = new MeshInstance3D
         {
@@ -89,9 +123,16 @@ public partial class ActorView : Node3D
     }
 
     /// <summary>Moves the view toward the actor's latest simulated state; called after each simulation tick.</summary>
-    public void Sync(Actor actor)
+    /// <param name="aimAt">What the machine is attacking, for its upper body to turn to.</param>
+    public void Sync(Actor actor, Actor? aimAt = null)
     {
         _target = World(actor.Position);
+        if (actor is Machine machine)
+        {
+            // The upper body's angle relative to the hull, in the original's sense (counter-clockwise).
+            var toTarget = aimAt is null ? 0 : MathF.Atan2(aimAt.Position.Y - actor.Position.Y, aimAt.Position.X - actor.Position.X) - machine.Facing;
+            _aim = aimAt is null ? 0 : Mathf.Wrap(toTarget, -Mathf.Pi, Mathf.Pi);
+        }
         _targetYaw = actor switch
         {
             Machine m => -m.Facing,
@@ -103,6 +144,17 @@ public partial class ActorView : Node3D
             Position = _target;
             Rotation = new Vector3(0, _targetYaw, 0);
             _placed = true;
+        }
+
+        // Engines hum at rest and roar on the move; machines inside buildings are silent.
+        if (_engine is not null)
+        {
+            var moving = _target.DistanceSquaredTo(_lastTarget) > 0.0001f;
+            if (actor is Machine { Inside: not null })
+                _engine.Player.Stop();
+            else
+                _engine.Update(moving);
+            _lastTarget = _target;
         }
 
         var hurt = actor.HitPoints < actor.MaxHitPoints || actor.Armour < actor.MaxArmour;
@@ -124,6 +176,18 @@ public partial class ActorView : Node3D
         var t = 1 - Mathf.Exp(-12 * (float)delta);
         Position = Position.Lerp(_target, t);
         Rotation = new Vector3(0, Mathf.LerpAngle(Rotation.Y, _targetYaw, t), 0);
+
+        if (_rigView is not null && delta > 0)
+        {
+            // Speed along the hull's facing, from how the view itself moved this frame.
+            var moved = Position - _lastPosition;
+            var facing = new Vector3(Mathf.Cos(-Rotation.Y), 0, Mathf.Sin(-Rotation.Y));
+            var speed = new Vector3(moved.X, 0, moved.Z).Dot(facing) / (float)delta;
+            var turnRate = -Mathf.AngleDifference(_lastYaw, Rotation.Y) / (float)delta;
+            _rigView.Animate((float)delta, speed, turnRate, _maxSpeed, _aim);
+        }
+        _lastPosition = Position;
+        _lastYaw = Rotation.Y;
         // Bars face the camera.
         if (GetViewport().GetCamera3D() is { } camera)
         {

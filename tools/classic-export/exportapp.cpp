@@ -64,6 +64,16 @@
 #include "machphys/garrison.hpp"
 #include "machphys/mine.hpp"
 #include "machphys/beacon.hpp"
+#include "machphys/machine.hpp"
+#include "machphys/spider.hpp"
+#include "machphys/wheels.hpp"
+#include "machphys/tracks.hpp"
+#include "machphys/internal/machinei.hpp"
+#include "machphys/internal/spideri.hpp"
+#include "machphys/internal/wheelsi.hpp"
+#include "machphys/internal/itrack.hpp"
+#include "world4d/compplan.hpp"
+#include "world4d/planentr.hpp"
 #include "machphys/plansurf.hpp"
 #include "machphys/terrtile.hpp"
 #include "system/pathname.hpp"
@@ -90,8 +100,19 @@ struct Bucket
 class ModelWriter
 {
 public:
+    ModelWriter() {}
+
+    // Rig mode: geometry relative to `node`, leaving out the links of `rigRoot` (they are nodes of their own).
+    ModelWriter(const W4dEntity* node, const W4dComposite* rigRoot) : node_(node), rigRoot_(rigRoot) {}
+
     void addEntity(const W4dEntity& entity, int depth = 0)
     {
+        if (rigRoot_ != NULL and depth > 0)
+        {
+            const W4dLink* link = dynamic_cast<const W4dLink*>(&entity);
+            if (link != NULL and link->pComposite() == rigRoot_)
+                return;
+        }
         if (getenv("CLASSIC_EXPORT_TRACE"))
         {
             std::cerr << std::string(depth * 2, ' ') << "entity visible=" << entity.visible() << " lods=";
@@ -109,8 +130,10 @@ public:
         if (entity.visible() and entity.hasMesh())
             addMesh(entity);
 
-        // A composite's parts (links) are not ordinary children: they form their own subtree.
-        if (const W4dComposite* composite = dynamic_cast<const W4dComposite*>(&entity))
+        // A composite's parts (links) are not ordinary children: they form their own subtree. A rig's own
+        // links become nodes of their own; the parts of things mounted on it (weapons) stay with their node.
+        const W4dComposite* composite = dynamic_cast<const W4dComposite*>(&entity);
+        if (composite != NULL and composite != rigRoot_)
         {
             const W4dComposite::W4dLinks& links = composite->links();
             for (size_t i = 0; i < links.size(); ++i)
@@ -133,11 +156,29 @@ public:
         return result;
     }
 
+    // The transform from `entity` to its ancestor `to` (the local transforms in between, composed).
+    static MexTransform3d relativeTransform(const W4dEntity& entity, const W4dEntity* to)
+    {
+        if (&entity == to or entity.pParent() == NULL)
+            return MexTransform3d();
+        MexTransform3d result;
+        relativeTransform(*entity.pParent(), to).transform(entity.localTransform(), &result);
+        return result;
+    }
+
     void write(const std::string& path, const std::string& id) const
     {
         std::ofstream out(path.c_str());
         out << std::setprecision(6);
-        out << "{\"id\":\"" << id << "\",\"parts\":[";
+        out << "{\"id\":\"" << id << "\",";
+        writeParts(out);
+        out << "}\n";
+    }
+
+    // "parts":[...] — one entry per material.
+    void writeParts(std::ostream& out) const
+    {
+        out << "\"parts\":[";
         bool firstBucket = true;
         for (std::map<std::string, Bucket>::const_iterator it = buckets_.begin(); it != buckets_.end(); ++it)
         {
@@ -154,7 +195,7 @@ public:
             out << "]}";
             firstBucket = false;
         }
-        out << "\n]}\n";
+        out << "\n]";
     }
 
     const std::set<std::string>& textures() const { return textures_; }
@@ -186,7 +227,7 @@ private:
                 scale = uniform->factor();
         }
 
-        const MexTransform3d transform = modelTransform(entity);
+        const MexTransform3d transform = rigRoot_ != NULL ? relativeTransform(entity, node_) : modelTransform(entity);
         const Ren::MaterialVecPtr& overrides = instance.materialVec();
 
         size_t group = 0;
@@ -246,7 +287,118 @@ private:
     std::map<std::string, Bucket> buckets_;
     std::set<std::string> textures_;
     size_t triangles_ = 0;
+    const W4dEntity* node_ = NULL;
+    const W4dComposite* rigRoot_ = NULL;
 };
+
+void writeTransform(std::ostream& out, const MexTransform3d& t)
+{
+    const MexVec3 x = t.xBasis(), y = t.yBasis(), z = t.zBasis();
+    const MexPoint3d p = t.position();
+    out << "[" << x.x() << "," << x.y() << "," << x.z() << "," << y.x() << "," << y.y() << "," << y.z() << ","
+        << z.x() << "," << z.y() << "," << z.z() << "," << p.x() << "," << p.y() << "," << p.z() << "]";
+}
+
+// "name":{"duration":d,"tracks":[{"node":i,"samples":[[12 floats], ...]}]} — a link animation sampled 20 times a
+// second; each sample is the link's local transform at that time.
+void writeAnimation(std::ostream& out, const char* name, const W4dCompositePlanPtr& plan,
+                    const W4dComposite::W4dLinks& links, bool* first)
+{
+    if (not plan.isDefined())
+        return;
+    const PhysRelativeTime duration = plan->finishTime();
+    const int samples = std::max(2, int(duration * 20 + 0.5) + 1);
+    out << (*first ? "" : ",") << "\"" << name << "\":{\"duration\":" << duration << ",\"tracks\":[";
+    *first = false;
+    bool firstTrack = true;
+    const W4dCompositePlan::Entries& entries = plan->entries();
+    for (W4dCompositePlan::Entries::const_iterator it = entries.begin(); it != entries.end(); ++it)
+    {
+        int node = -1;
+        for (size_t i = 0; i < links.size(); ++i)
+            if (links[i]->id() == (*it)->id())
+                node = int(i) + 1; // node 0 is the machine itself
+        if (node < 0)
+            continue;
+        out << (firstTrack ? "" : ",") << "{\"node\":" << node << ",\"samples\":[";
+        firstTrack = false;
+        MexTransform3d last = links[node - 1]->localTransform();
+        for (int s = 0; s < samples; ++s)
+        {
+            MexTransform3d at;
+            uint obsolete = 0;
+            if ((*it)->plan().transform(duration * s / (samples - 1), &at, &obsolete) == W4dEntityPlan::DEFINED)
+                last = at;
+            out << (s ? "," : "");
+            writeTransform(out, last);
+        }
+        out << "]}";
+    }
+    out << "]}";
+}
+
+// "rig":{...}: the machine as a tree of nodes (the machine, then each link), each with its rest transform
+// relative to its parent and its own geometry; the upper body's turning node; and how its locomotion moves:
+// spider-leg cycles sampled from the original plans, wheel nodes and radius, or track nodes and texture speed.
+void writeRig(std::ostream& out, MachPhysMachine& machine, std::set<std::string>* textures)
+{
+    const W4dComposite::W4dLinks& links = machine.links();
+    std::vector<const W4dEntity*> nodes(1, &machine);
+    nodes.insert(nodes.end(), links.begin(), links.end());
+    const auto indexOf = [&](const W4dEntity* entity) {
+        for (size_t i = 0; i < nodes.size(); ++i)
+            if (nodes[i] == entity)
+                return int(i);
+        return -1;
+    };
+
+    out << "\"rig\":{\"nodes\":[";
+    for (size_t i = 0; i < nodes.size(); ++i)
+    {
+        const int parent = i == 0 ? -1 : std::max(0, indexOf(nodes[i]->pParent()));
+        ModelWriter writer(nodes[i], &machine);
+        writer.addEntity(*nodes[i]);
+        textures->insert(writer.textures().begin(), writer.textures().end());
+        out << (i ? "," : "") << "\n{\"parent\":" << parent << ",\"transform\":";
+        writeTransform(out, i == 0 ? MexTransform3d() : nodes[i]->localTransform());
+        out << ",";
+        writer.writeParts(out);
+        out << "}";
+    }
+    out << "],\"upperBody\":" << indexOf(machine.pImpl_->pUpperBodyTurnLink_);
+
+    MachPhysLocomotionMethod& locomotion = machine.locomotionMethod();
+    if (MachPhysSpiderLegs* legs = dynamic_cast<MachPhysSpiderLegs*>(&locomotion))
+    {
+        const MachPhysSpiderLegsImpl& impl = *legs->pImpl_;
+        out << ",\"animations\":{";
+        bool first = true;
+        writeAnimation(out, "rest", impl.restingPlanPtr_, links, &first);
+        writeAnimation(out, "walk", impl.walkingPlanPtr_, links, &first);
+        writeAnimation(out, "turnLeft", impl.turningLeftPlanPtr_, links, &first);
+        writeAnimation(out, "turnRight", impl.turningRightPlanPtr_, links, &first);
+        writeAnimation(out, "startWalking", impl.startWalkingPlanPtr_, links, &first);
+        writeAnimation(out, "stopWalking", impl.stopWalkingPlanPtr_, links, &first);
+        out << "}";
+    }
+    else if (MachPhysWheels* wheels = dynamic_cast<MachPhysWheels*>(&locomotion))
+    {
+        const MachPhysWheelsImpl& impl = *wheels->pImpl_;
+        out << ",\"wheels\":{\"radius\":" << impl.wheelRadius_ << ",\"left\":[";
+        for (size_t i = 0; i < impl.leftWheels_.size(); ++i)
+            out << (i ? "," : "") << indexOf(impl.leftWheels_[i]);
+        out << "],\"right\":[";
+        for (size_t i = 0; i < impl.rightWheels_.size(); ++i)
+            out << (i ? "," : "") << indexOf(impl.rightWheels_[i]);
+        out << "]}";
+    }
+    else if (MachPhysTracks* tracks = dynamic_cast<MachPhysTracks*>(&locomotion))
+    {
+        out << ",\"tracks\":{\"repeatsPerMeter\":" << tracks->lTrack_->repeatsPerMeter_
+            << ",\"left\":" << indexOf(tracks->lTrack_->leg_) << ",\"right\":" << indexOf(tracks->rTrack_->leg_) << "}";
+    }
+    out << "}";
+}
 
 const char* raceName(MachPhys::Race race)
 {
@@ -487,7 +639,17 @@ bool ExportApp::clientStartup()
             }
             ModelWriter writer;
             writer.addEntity(*object);
-            writer.write(folder + "/" + modelId(models[m]) + ".json", modelId(models[m]));
+            {
+                std::ofstream out((folder + "/" + modelId(models[m]) + ".json").c_str());
+                out << std::setprecision(6) << "{\"id\":\"" << modelId(models[m]) << "\",";
+                writer.writeParts(out);
+                if (MachPhysMachine* machine = dynamic_cast<MachPhysMachine*>(object))
+                {
+                    out << ",\n";
+                    writeRig(out, *machine, &textures);
+                }
+                out << "}\n";
+            }
             textures.insert(writer.textures().begin(), writer.textures().end());
             if (r == 0)
                 std::cout << modelId(models[m]) << ": " << writer.triangleCount() << " triangles" << std::endl;

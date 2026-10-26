@@ -11,7 +11,7 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
 - **M1 · Vertical slice: complete and play-tested.** Red against Blue's original AI on `m_desert`: locate,
   mine, haul, bank, build, produce, research and fight with the original numbers, and drive any machine in
   first person.
-- **M2 · Full roster and all maps: playable, waiting for its play-test.**
+- **M2 · Full roster and all maps: complete; v0.1.0 is the first test release.**
   - A skirmish menu with all 32 skirmish and multiplayer maps, under their original names, with planet
     previews and descriptions from your game copy. It offers the original settings: players, colour, fixed or
     random starts, starting BMUs, mineral resources, technology level, and annihilation, pod or timed victory.
@@ -23,7 +23,18 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   - The original terrain on every skirmish planet, loaded from your game copy by the classic exporter
     (without it, a heightfield with stand-in rock). Sun, sky and fog come from each planet's `.env` and
     follow its day.
-  - 170 tests. Every map runs AI-only for three minutes, and every map whose scripts give orders gets moving.
+- **Polish round before M3: playable, waiting for its play-test.**
+  - Sound from your game copy: weapons, hits, explosions, blasts and engine loops by machine type, as the
+    original chose them, and the voice reports of your own machines (selected, moving, built, destroyed ...).
+  - Animation: machines move their parts as exported from the original engine. Spider legs play their
+    walking, turning and resting cycles, wheels roll, track treads scroll, and upper bodies turn to their
+    target.
+  - Transport by APC: machines board by volume within the APC's capacity, ride along and deploy at a point;
+    passengers die with their APC, and an APC near destruction lets them out. Buildings let in only machines
+    small enough for their doors.
+  - The AI builds as the original did beyond its script: a prioritised list with mines on every found site
+    first and its destroyed REBUILD buildings again.
+  - 181 tests. Every map runs AI-only for three minutes, and every map whose scripts give orders gets moving.
 
 ## Layout
 
@@ -61,8 +72,8 @@ saves a screenshot and quits (see `Game.cs` and `SkirmishMenu.cs` for the other 
 | Control | Does |
 | --- | --- |
 | Left click / drag | Select (Shift adds) |
-| Right click | Move; attack an enemy; build an unfinished site, repair a damaged building or capture an enemy one (constructors); heal a damaged machine (administrators with superchargers); haul from a mine (transporters); enter a lab (technicians) or a garrison; locate (locators) |
-| Buttons (machines selected) | Recycle at the nearest smelter or pod; self-destruct (or cancel it); deconstruct a building (constructors) |
+| Right click | Move; attack an enemy; build an unfinished site, repair a damaged building or capture an enemy one (constructors); heal a damaged machine (administrators with superchargers); haul from a mine (transporters); enter a lab (technicians), a garrison or one of your APCs; locate (locators) |
+| Buttons (machines selected) | Recycle at the nearest smelter or pod; self-destruct (or cancel it); deconstruct a building (constructors); deploy an APC's passengers at a point |
 | Buttons (pod or nuclear silo selected) | Fire the ion cannon or launch the missile once charged, then left click the target |
 | Ctrl + right click | Attack-move |
 | Build buttons (constructors selected) | Place a building: R rotates, right click cancels, Shift keeps placing |

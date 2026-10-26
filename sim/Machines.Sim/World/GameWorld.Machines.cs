@@ -122,6 +122,18 @@ public sealed partial class GameWorld
                 UpdateEnterGarrison(machine, garrison);
                 break;
 
+            case BoardOrder board:
+                UpdateBoard(machine, board);
+                break;
+
+            case DeployOrder deploy:
+                if (!FollowPath(machine))
+                {
+                    Unload(machine);
+                    machine.Order = Order.Idle;
+                }
+                break;
+
             case IdleOrder when machine.CanHeal && !machine.DrivenByPlayer:
                 SeekPatients(machine);
                 break;

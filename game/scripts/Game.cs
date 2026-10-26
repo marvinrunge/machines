@@ -2,6 +2,7 @@ using Godot;
 using Machines.Import.Model;
 using Machines.Sim;
 using Machines.Sim.Combat;
+using Machines.Sim.Presentation;
 using Machines.Sim.World;
 using NVector2 = System.Numerics.Vector2;
 
@@ -27,6 +28,7 @@ public partial class Game : Node3D
     private CameraRig _rig = null!;
     private Hud _hud = null!;
     private Node3D _effects = null!;
+    private GameAudio _audio = null!;
 
     // Drag selection
     private Vector2? _dragStart;
@@ -78,6 +80,9 @@ public partial class Game : Node3D
 
         _firstPersonCamera = new Camera3D { Far = 3000, Fov = 70, Name = "FirstPersonCamera" };
         AddChild(_firstPersonCamera);
+
+        _audio = GameAudio.Create(_assets.GameFolder);
+        AddChild(_audio);
 
         _hud = new Hud(this, map);
         AddChild(_hud);
@@ -186,11 +191,11 @@ public partial class Game : Node3D
             }
             if (view is null)
             {
-                view = ActorView.Create(actor, _assets);
+                view = ActorView.Create(actor, _assets, _audio);
                 _views[actor.Id] = view;
                 AddChild(view);
             }
-            view.Sync(actor);
+            view.Sync(actor, actor is Machine { Order: AttackOrder attack } ? World.Find(attack.Target) : null);
         }
 
         foreach (var id in _views.Keys.Where(id => World.Find(id) is null).ToList())
@@ -207,25 +212,52 @@ public partial class Game : Node3D
     {
         foreach (var e in World.Events)
         {
+            var at = ActorView.World(e.Position) + Vector3.Up * 2;
             switch (e.Kind)
             {
-                case GameEventKind.Fired when e.Other is { } target && World.Find(target) is { } victim:
-                    Tracer(ActorView.World(e.Position) + Vector3.Up * 2, ActorView.World(victim.Position) + Vector3.Up * 1.5f, e.Detail ?? "");
+                case GameEventKind.Fired:
+                    if (e.Other is { } target && World.Find(target) is { } victim)
+                        Tracer(at, ActorView.World(victim.Position) + Vector3.Up * 1.5f, e.Detail ?? "");
+                    _audio.Play(SoundTable.FiringSound(e.Detail ?? ""), at);
+                    break;
+                case GameEventKind.Hit when e.Detail is { } weapon:
+                    _audio.Play(SoundTable.HitSound(weapon, Random.Shared.Next(1, 5)), at);
+                    break;
+                case GameEventKind.Blast when e.Detail is { } weapon:
+                    _audio.Play(SoundTable.BlastSound(weapon), at);
                     break;
                 case GameEventKind.Destroyed:
-                    Flash(ActorView.World(e.Position));
+                    Flash(at);
+                    if (_views.TryGetValue(e.Actor, out var dead))
+                    {
+                        _audio.Play(SoundTable.ExplosionSound(dead.IsBuilding, dead.Size, Random.Shared.Next(1, 7)), at);
+                        if (dead.Race == Player)
+                            _audio.Say(dead.Voice is { } voice ? $"VID_{voice}_DESTROYED" : "VID_POD_BUILDING_DESTROYED");
+                    }
                     break;
-                case GameEventKind.MachineBuilt when World.Find(e.Actor)?.Race == Player:
+                case GameEventKind.MachineBuilt when World.Find<Machine>(e.Actor) is { } built && built.Race == Player:
                     _hud.Message($"Machine ready: {e.Detail}");
+                    if (SoundTable.VoiceOf(built) is { } builtVoice)
+                        _audio.Say($"VID_{builtVoice}_BUILT");
                     break;
                 case GameEventKind.ConstructionComplete when World.Find(e.Actor)?.Race == Player:
                     _hud.Message($"Construction complete: {e.Detail}");
+                    _audio.Say("VID_DOZER_BUILDING_COMPLETE");
                     break;
                 case GameEventKind.ResearchComplete when World.Find(e.Actor)?.Race == Player:
                     _hud.Message($"Research complete: {e.Detail}");
+                    _audio.Say("VID_TECHNICIAN_RESEARCH_COMPLETE");
+                    break;
+                case GameEventKind.Boarded when World.Find(e.Actor)?.Race == Player:
+                    _audio.Say("VID_APC_UNIT_BOARDED");
+                    break;
+                case GameEventKind.Deployed when World.Find(e.Actor)?.Race == Player:
+                    _hud.Message($"APC deployed {e.Detail} machines");
+                    _audio.Say("VID_APC_DEPLOYMENT_COMPLETE");
                     break;
                 case GameEventKind.SiteDiscovered when e.Detail == Player.ToString():
                     _hud.Message("Mineral site found");
+                    _audio.Say("VID_GEO_MINERAL_LOCATED");
                     break;
             }
         }
@@ -460,6 +492,16 @@ public partial class Game : Node3D
         foreach (var id in _selection)
             if (_views.TryGetValue(id, out var view)) view.Selected = true;
         _hud.SelectionChanged();
+        // The first selected machine answers, as in the original.
+        if (SelectedMachines().FirstOrDefault() is { } first && SoundTable.VoiceOf(first) is { } voice)
+            _audio.Say($"VID_{voice}_SELECTED");
+    }
+
+    /// <summary>The first of the ordered machines acknowledges: moving, tasked or attacking.</summary>
+    private void Acknowledge(IEnumerable<Machine> machines, string report)
+    {
+        if (machines.FirstOrDefault() is { } first && SoundTable.VoiceOf(first) is { } voice)
+            _audio.Say($"VID_{voice}_{report}");
     }
 
     public IEnumerable<Machine> SelectedMachines() =>
@@ -483,6 +525,7 @@ public partial class Game : Node3D
                 World.Issue(new CaptureCommand(Player, capturers, target.Id));
             World.Issue(new AttackCommand(Player, Ids(m => m.CanFight), target.Id));
             World.Issue(new MoveCommand(Player, Ids(m => !m.CanFight && !capturers.Contains(m.Id)), target.Position));
+            Acknowledge(machines.Where(m => m.CanFight), "TARGET_ENEMY");
             return;
         }
 
@@ -490,6 +533,14 @@ public partial class Game : Node3D
             && machines.Any(m => m.CanHeal && m.Id != patient.Id))
         {
             World.Issue(new HealCommand(Player, Ids(m => m.CanHeal && m.Id != patient.Id), patient.Id));
+            Acknowledge(machines.Where(m => m.CanHeal), "TASKED");
+            return;
+        }
+
+        if (target is Machine apc && apc.Race == Player && apc.IsType("APC") && machines.Any(m => m.Id != apc.Id && !m.IsType("APC")))
+        {
+            World.Issue(new BoardCommand(Player, Ids(m => m.Id != apc.Id && !m.IsType("APC")), apc.Id));
+            Acknowledge(machines, "TASKED");
             return;
         }
 
@@ -530,6 +581,7 @@ public partial class Game : Node3D
             }
             if (rest.Count > 0)
                 World.Issue(new MoveCommand(Player, rest.ToList(), building.Position));
+            Acknowledge(machines, "TASKED");
             return;
         }
 
@@ -543,6 +595,7 @@ public partial class Game : Node3D
             World.Issue(new AttackMoveCommand(Player, others, point));
         else
             World.Issue(new MoveCommand(Player, others, point));
+        Acknowledge(machines, "MOVING");
     }
 
     // ---- building placement ---------------------------------------------------------------------

@@ -36,6 +36,7 @@ public static class MatchSetup
                     building.HardwareLevel, building.Orientation, complete: true, building.WeaponCombo);
                 placed.Height = building.Position.Z;
                 placed.IonCannonGranted = building.ActivateIonCannon;
+                placed.Rebuild = building.Rebuild;
             }
 
             foreach (var unit in setup.Machines)

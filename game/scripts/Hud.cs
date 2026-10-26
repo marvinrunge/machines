@@ -176,18 +176,24 @@ public partial class Hud : CanvasLayer
             ("Recycle\nhalf price back", () => world.Issue(new RecycleCommand(Game.Player, ids))),
             SelfDestructButton(ids, counting),
         };
+        var apcs = machines.Where(m => m.IsType("APC")).ToList();
+        var carried = apcs.Sum(m => m.Passengers.Count);
+        if (carried > 0)
+            common.Insert(0, ($"Deploy {carried}\nclick the point", () => _game.BeginTargeting("Left click where to let them out; right click cancels",
+                (point, _) => world.Issue(new DeployCommand(Game.Player, apcs.Select(a => a.Id).ToList(), point)))));
+        var state = $"{counting}:{carried}";
         if (machines.Any(m => m.Spec.Type == "CONSTRUCTOR"))
         {
             common.Insert(0, ("Deconstruct\nclick a building", () => _game.BeginTargeting("Left click the building to take apart; right click cancels",
                 (_, target) => world.Issue(new DeconstructCommand(Game.Player, ids, target?.Id ?? 0)))));
             var buildable = world.Buildable(Game.Player);
-            SetButtons($"build:{counting}:" + string.Join(',', buildable), common.Concat(buildable.Select(e => (
+            SetButtons($"build:{state}:" + string.Join(',', buildable), common.Concat(buildable.Select(e => (
                 Label: $"{e.Type.Replace("MISSILE_EMPLACEMENT", "EMPLACEMENT")} {e.SubType} L{e.HardwareLevel}\n{world.Data.Parm.Construction(e.SubType is null ? e.Type : $"{e.Type} {e.SubType}").Level(e.HardwareLevel).Cost} BMU",
                 Action: (Action)(() => _game.BeginPlacement(e.Type, e.SubType, e.HardwareLevel))))).ToList());
         }
         else
         {
-            SetButtons($"machines:{counting}:{string.Join(',', ids)}", common);
+            SetButtons($"machines:{state}:{string.Join(',', ids)}", common);
         }
     }
 
@@ -251,7 +257,8 @@ public partial class Hud : CanvasLayer
         switch (actor)
         {
             case Machine m:
-                var extra = m.Spec.Type == "RESOURCE_CARRIER" ? $"  Ore {m.Ore}/{m.Stats.Capacity}" : "";
+                var extra = m.Spec.Type == "RESOURCE_CARRIER" ? $"  Ore {m.Ore}/{m.Stats.Capacity}"
+                    : m.IsType("APC") ? $"  Carrying {world.CarriedVolume(m)}/{m.Stats.Capacity} ({m.Passengers.Count} machines)" : "";
                 var weapons = m.Weapons.Count > 0 ? "\nWeapons: " + string.Join(", ", m.Weapons.Select(w => w.Spec.TypeName)) : "";
                 return $"{Game.Look(m.Race)} {MachineName(m)}  [{m.Order.GetType().Name.Replace("Order", "")}]\n{health}{extra}{weapons}";
             case Construction c:

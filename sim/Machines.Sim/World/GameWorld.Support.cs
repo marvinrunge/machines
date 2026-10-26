@@ -224,7 +224,7 @@ public sealed partial class GameWorld
     private void UpdateEnterGarrison(Machine machine, EnterGarrisonOrder enter)
     {
         var garrison = Find<Construction>(enter.Garrison);
-        if (garrison is null || !garrison.Complete || garrison.Race != machine.Race)
+        if (garrison is null || !garrison.Complete || garrison.Race != machine.Race || !FitsThrough(machine, garrison))
         {
             machine.Order = Order.Idle;
             return;

@@ -9,8 +9,10 @@ namespace Machines.Sim.Ai;
 /// and each squad carries out its operation (locate, construct, attack, patrol).
 /// </summary>
 /// <remarks>
-/// The operations follow the script's parameters. Things the 1999 AI did in code that the script does not
-/// describe (where to put mines, staffing labs, which carriers serve which mine) use simple rules here.
+/// The operations follow the script's parameters. Construction follows MachLogAIController: a prioritised list of
+/// the scenario's plans, mines on found sites and destroyed REBUILD buildings. Without the original's free
+/// BMUs the AI saves up before building and puts mines first when its bank runs dry. Staffing labs and which
+/// carriers serve which mine use simple rules here.
 /// </remarks>
 public sealed class AiController(Race race, AiScript script, RaceSetup setup)
 {
@@ -38,6 +40,7 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
         AssignToSquads(mine);
         StaffLabs(world, mine);
         Produce(world, mine);
+        PlanConstructions(world);
 
         foreach (var state in _squads.Values)
         {
@@ -186,50 +189,136 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
 
     private void Construct(GameWorld world, List<Machine> members)
     {
-        var idle = members.Where(m => m.Spec.Type == "CONSTRUCTOR" && m.Order is IdleOrder).ToList();
+        var state = world.Races[Race];
+
+        // The 1999 AI could not run dry: it had free BMUs (a cheat the remake leaves out). So an AI with an empty
+        // bank takes its constructors off buildings it cannot pay for whenever a mine is waiting to be built,
+        // because only mines bring money in.
+        var broke = state.Bmu < 1;
+        var mineWaiting = Plans(world).Any(p => p.Type == "MINE");
+        var idle = members.Where(m => m.Spec.Type == "CONSTRUCTOR" && (m.Order is IdleOrder
+            || broke && mineWaiting && m.Order is ConstructOrder work && world.Find<Construction>(work.Construction) is { } site && !site.IsType("MINE")))
+            .ToList();
         if (idle.Count == 0)
             return;
 
-        // Help finish anything already started.
-        var unfinished = world.Constructions.FirstOrDefault(c => c.Race == Race && !c.Complete);
-        if (unfinished is not null)
+        // Help finish what is already started: mines first, anything else only while there is money for it.
+        var unfinished = world.Constructions.Where(c => c.Race == Race && !c.Complete && (c.IsType("MINE") || !broke))
+            .OrderByDescending(c => c.IsType("MINE"))
+            .FirstOrDefault();
+        if (unfinished is not null && !(broke && mineWaiting && !unfinished.IsType("MINE")))
         {
             world.Issue(new ConstructCommand(Race, idle.Select(m => m.Id).ToList(), unfinished.Id));
             return;
         }
-
-        var state = world.Races[Race];
         if (state.Bmu < GameWorld.MinimumBmuToPlace * 4)
             return;
 
-        // Keep two mines going on the nearest found sites, then follow the scenario's building plans in order.
-        var pod = Pod(world);
-        var mines = world.Constructions.Count(c => c.Race == Race && c.IsType("MINE"));
-        if (mines < 2 && pod is not null)
+        // MachLogAIController::getHighestPriorityConstruction: the highest priority entry the race can build and
+        // place, the first of equals; it leaves the list once started.
+        var buildable = world.Buildable(Race);
+        Planned? best = null;
+        (Vector2 Position, int Orientation) bestSite = default;
+        foreach (var plan in Plans(world))
         {
-            var site = world.Sites.Where(s => s.DiscoveredBy.Contains(Race) && s.Mine is null && s.Ore > 0)
-                .OrderBy(s => Vector2.Distance(s.Position, pod.Position))
-                .FirstOrDefault(s => world.WhyCannotPlace(Race, "MINE", null, 1, s.Position, 0) is null);
-            if (site is not null)
-            {
-                world.Issue(new PlaceConstructionCommand(Race, idle.Select(m => m.Id).ToList(), "MINE", null, 1, site.Position, 0));
-                return;
-            }
+            if (best is not null && plan.Priority <= best.Priority)
+                continue;
+            if (!buildable.Any(e => e.Type == plan.Type && e.SubType == plan.SubType && e.HardwareLevel == plan.Level))
+                continue;
+            if (world.Constructions.Any(c => c.Race == Race && c.IsType(plan.Type, plan.SubType) && plan.Sites.Any(s => Vector2.Distance(c.Position, s.Position) < 1)))
+                continue; // already standing there (MachLogRaces::noAlternativeAlreadyBuilt)
+            var site = plan.Sites.FirstOrDefault(s => world.WhyCannotPlace(Race, plan.Type, plan.SubType, plan.Level, s.Position, s.Orientation) is null);
+            if (site == default)
+                continue;
+            best = plan;
+            bestSite = site;
+        }
+        if (best is null)
+            return;
+        var typeName = best.SubType is null ? best.Type : $"{best.Type} {best.SubType}";
+        // Save up rather than start something else: a mine once a quarter of it is in the bank, anything
+        // else only when it can be paid for in full, so the AI does not strand itself.
+        var cost = world.Data.Parm.Construction(typeName).Level(best.Level).Cost;
+        if (state.Bmu < (best.Type == "MINE" ? cost / 4f : cost))
+            return;
+        _plans!.Remove(best);
+        if (best.Rebuild)
+            _rebuildAt.Add((best.Type, best.SubType, bestSite.Position));
+        world.Issue(new PlaceConstructionCommand(Race, idle.Select(m => m.Id).ToList(), best.Type, best.SubType, best.Level, bestSite.Position, bestSite.Orientation));
+    }
+
+    // ---- the construction list ------------------------------------------------------------------
+
+    /// <summary>
+    /// A construction the AI means to build (MachLogProductionUnit): where it may go (the plan's site, then its
+    /// ALTERNATIVE_SITEs), its priority, and whether it is rebuilt when destroyed.
+    /// </summary>
+    private sealed record Planned(string Type, string? SubType, int Level, IReadOnlyList<(Vector2 Position, int Orientation)> Sites, int Priority, bool Rebuild);
+
+    /// <summary>Mines on found sites come before the scenario's plans (priority 1 against 0).</summary>
+    private const int MinePriority = 1;
+
+    private List<Planned>? _plans;
+    private readonly Dictionary<int, Planned> _standing = [];
+    private readonly List<(string Type, string? SubType, Vector2 Position)> _rebuildAt = [];
+    private float _nextSiteCheck;
+
+    /// <summary>The construction list, started from the scenario's NOT_BUILT plans in file order.</summary>
+    private List<Planned> Plans(GameWorld world) => _plans ??= world.BuildingPlans[Race]
+        .Select(p => new Planned(p.Type, p.SubType, p.HardwareLevel,
+            [(new Vector2(p.Position.X, p.Position.Y), p.Orientation), .. p.AlternativeSites.Select(a => (new Vector2(a.Position.X, a.Position.Y), a.Orientation))],
+            0, p.Rebuild))
+        .ToList();
+
+    /// <summary>
+    /// What the 1999 AI added to its list itself (MachLogAIController::update, every 15 seconds): a mine on each
+    /// found site with more than 100 ore and none on it yet, of level 3 or 5 when researched, rich enough and
+    /// nearly affordable; and every destroyed REBUILD building, again where it stood.
+    /// </summary>
+    private void PlanConstructions(GameWorld world)
+    {
+        var plans = Plans(world);
+
+        // Buildings put up from rebuild plans are rebuilt again when lost.
+        foreach (var (type, subType, position) in _rebuildAt.ToList())
+        {
+            var built = world.Constructions.FirstOrDefault(c => c.Race == Race && c.IsType(type, subType) && Vector2.Distance(c.Position, position) < 1);
+            if (built is null)
+                continue;
+            built.Rebuild = true;
+            _rebuildAt.Remove((type, subType, position));
+        }
+        foreach (var building in world.Constructions.Where(c => c.Race == Race && c.Rebuild && !_standing.ContainsKey(c.Id)))
+            _standing[building.Id] = new Planned(building.Spec.Type, building.Spec.SubType, building.Stats.HardwareLevel,
+                [(building.Position, building.Orientation)], 0, true);
+        foreach (var (id, plan) in _standing.ToList())
+        {
+            if (world.Find(id) is { } still && still.Race == Race)
+                continue;
+            _standing.Remove(id);
+            if (world.Find(id) is null)
+                plans.Add(plan); // destroyed (a captured building is not rebuilt)
         }
 
-        foreach (var plan in world.BuildingPlans[Race])
-        {
-            var position = new Vector2(plan.Position.X, plan.Position.Y);
-            var built = world.Constructions.Any(c => c.Race == Race && c.TypeName == plan.TypeName
-                && c.Stats.HardwareLevel == plan.HardwareLevel && Vector2.Distance(c.Position, position) < 1);
-            if (built)
-                continue;
-            if (world.WhyCannotPlace(Race, plan.Type, plan.SubType, plan.HardwareLevel, position, plan.Orientation) is not null)
-                continue;
-            if (state.Bmu < world.Data.Parm.Construction(plan.TypeName).Level(plan.HardwareLevel).Cost / 4f)
-                return; // save up for the next plan rather than skipping it
-            world.Issue(new PlaceConstructionCommand(Race, idle.Select(m => m.Id).ToList(), plan.Type, plan.SubType, plan.HardwareLevel, position, plan.Orientation));
+        if (world.Time < _nextSiteCheck)
             return;
+        _nextSiteCheck = world.Time + 15;
+        var bmu = world.Races[Race].Bmu;
+        var buildable = world.Buildable(Race);
+        foreach (var site in world.Sites.Where(s => s.DiscoveredBy.Contains(Race) && s.Ore > 100 && s.Mine is null))
+        {
+            if (plans.Any(p => p.Type == "MINE" && Vector2.Distance(p.Sites[0].Position, site.Position) < 1))
+                continue;
+            if (world.WhyCannotPlace(Race, "MINE", null, 1, site.Position, 0) is "obstacles or uneven terrain")
+                continue; // occupied
+            var level = 1;
+            foreach (var candidate in new[] { 3, 5 })
+            {
+                var cost = world.Data.Parm.Construction("MINE").Level(candidate).Cost;
+                if (buildable.Any(e => e.Type == "MINE" && e.HardwareLevel == candidate) && site.Ore >= cost * 3 && bmu > cost * 0.8f)
+                    level = candidate;
+            }
+            plans.Add(new Planned("MINE", null, level, [(site.Position, 0)], MinePriority, false));
         }
     }
 

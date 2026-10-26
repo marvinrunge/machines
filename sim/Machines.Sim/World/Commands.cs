@@ -55,6 +55,12 @@ public sealed record RecycleCommand(Race Race, IReadOnlyList<int> Machines, int?
 
 public sealed record EnterGarrisonCommand(Race Race, IReadOnlyList<int> Machines, int Garrison) : Command(Race);
 
+/// <summary>Send machines into one of the race's APCs; those that do not fit stay out.</summary>
+public sealed record BoardCommand(Race Race, IReadOnlyList<int> Machines, int Apc) : Command(Race);
+
+/// <summary>Send APCs to a point to let their passengers out there.</summary>
+public sealed record DeployCommand(Race Race, IReadOnlyList<int> Apcs, Vector2 Target) : Command(Race);
+
 /// <summary>Blow up machines or buildings after the original's 5 seconds; a stop command calls it off.</summary>
 public sealed record SelfDestructCommand(Race Race, IReadOnlyList<int> Actors) : Command(Race);
 

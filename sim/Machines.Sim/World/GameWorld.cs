@@ -94,6 +94,7 @@ public sealed partial class GameWorld
 
         UpdateEconomy();
         UpdateSupport();
+        UpdateTransport();
         UpdateCombat();
         RemoveDead();
         CheckVictory();
@@ -214,6 +215,8 @@ public sealed partial class GameWorld
                 losing.Score.Destruction -= actor.Cost / 2;
             }
 
+            if (actor is Machine { Passengers.Count: > 0 } apc)
+                KillPassengers(apc);
             if (actor is Construction building)
             {
                 Nav.SetBuilding(building.Footprint, present: false);

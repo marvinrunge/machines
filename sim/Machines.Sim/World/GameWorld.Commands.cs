@@ -139,9 +139,29 @@ public sealed partial class GameWorld
                 return Recycle(recycle);
 
             case EnterGarrisonCommand garrison:
-                return OrderWork(garrison.Race, garrison.Machines, garrison.Garrison, _ => true, "nothing selected",
+            {
+                // machine.cpp: a machine fits through a building's door when its access size allows it.
+                var building = Find<Construction>(garrison.Garrison);
+                return OrderWork(garrison.Race, garrison.Machines, garrison.Garrison, m => building is null || FitsThrough(m, building),
+                    "too big for the garrison's doors",
                     t => t is Construction { Complete: true } g && g.IsType("GARRISON") && g.Race == garrison.Race ? null : "that is not one of your garrisons",
                     id => new EnterGarrisonOrder(id));
+            }
+
+            case BoardCommand board:
+                return OrderWork(board.Race, board.Machines, board.Apc, m => !m.IsType("APC"), "nothing that can board",
+                    t => t is Machine apc && apc.IsType("APC") && apc.Race == board.Race ? null : "that is not one of your APCs",
+                    id => new BoardOrder(id));
+
+            case DeployCommand deploy:
+            {
+                var apcs = Own<Machine>(deploy.Race, deploy.Apcs).Where(m => m.IsType("APC")).ToList();
+                if (apcs.Count == 0)
+                    return "no APC selected";
+                foreach (var apc in apcs)
+                    Send(apc, new DeployOrder(deploy.Target), deploy.Target);
+                return null;
+            }
 
             case SelfDestructCommand selfDestruct:
                 foreach (var actor in Own<Actor>(selfDestruct.Race, selfDestruct.Actors))

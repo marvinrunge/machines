@@ -16,6 +16,7 @@ public sealed class ClassicAssets
     private readonly string? _gameFolder;
     private readonly Dictionary<string, Mesh> _meshes = [];
     private readonly Dictionary<string, Material> _materials = [];
+    private readonly Dictionary<string, Rig?> _rigs = [];
 
     public ClassicAssets(string repositoryFolder)
     {
@@ -32,6 +33,9 @@ public sealed class ClassicAssets
     }
 
     public bool HasClassicModels => _modelFolder is not null;
+
+    /// <summary>The player's own copy of the game, when imported; sounds and textures load from it.</summary>
+    public string? GameFolder => _gameFolder;
 
     public static Color RaceColour(Race race) => race switch
     {
@@ -88,22 +92,19 @@ public sealed class ClassicAssets
         return mesh;
     }
 
-    private Mesh? LoadClassic(string id, Race race)
+    private Mesh? LoadClassic(string id, Race race) => ModelPath(id, race) is { } path ? MeshFromJson(path) : null;
+
+    private string? ModelPath(string id, Race race)
     {
         if (_modelFolder is null)
             return null;
         var folder = Path.Combine(_modelFolder, race.ToString().ToLowerInvariant());
         var path = Path.Combine(folder, id + ".json");
-        if (!File.Exists(path))
-        {
-            // e.g. a turret placed with another combo: use any export of the same type and level.
-            var prefix = string.Join('_', id.Split('_').Take(3));
-            path = Directory.Exists(folder) ? Directory.GetFiles(folder, prefix + "*.json").FirstOrDefault() ?? "" : "";
-            if (path.Length == 0)
-                return null;
-        }
-
-        return MeshFromJson(path);
+        if (File.Exists(path))
+            return path;
+        // e.g. a turret placed with another combo: use any export of the same type and level.
+        var prefix = string.Join('_', id.Split('_').Take(3));
+        return Directory.Exists(folder) ? Directory.GetFiles(folder, prefix + "*.json").FirstOrDefault() : null;
     }
 
     /// <summary>
@@ -126,8 +127,33 @@ public sealed class ClassicAssets
     private Mesh? MeshFromJson(string path)
     {
         using var document = JsonDocument.Parse(File.ReadAllBytes(path));
+        return MeshFromParts(document.RootElement.GetProperty("parts"));
+    }
+
+    /// <summary>
+    /// A machine's parts as the original animates them (the <c>rig</c> of its export), or null for buildings,
+    /// older exports and the shape fallback.
+    /// </summary>
+    public Rig? RigFor(string id, Race race)
+    {
+        var key = $"{race}/{id}";
+        if (_rigs.TryGetValue(key, out var cached))
+            return cached;
+        Rig? rig = null;
+        if (ModelPath(id, race) is { } path)
+        {
+            using var document = JsonDocument.Parse(File.ReadAllBytes(path));
+            if (document.RootElement.TryGetProperty("rig", out var element))
+                rig = Rig.Read(element, MeshFromParts);
+        }
+        _rigs[key] = rig;
+        return rig;
+    }
+
+    private Mesh? MeshFromParts(JsonElement parts)
+    {
         var mesh = new ArrayMesh();
-        foreach (var part in document.RootElement.GetProperty("parts").EnumerateArray())
+        foreach (var part in parts.EnumerateArray())
         {
             var positions = part.GetProperty("positions").EnumerateArray().Select(e => e.GetSingle()).ToArray();
             var uvs = part.GetProperty("uvs").EnumerateArray().Select(e => e.GetSingle()).ToArray();

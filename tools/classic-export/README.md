@@ -8,7 +8,11 @@ It links the original engine from the GPLv3 source release and loads the game's 
 game did:
 
 - **Models:** from `models.bin`, every machine and building for each race, written as JSON
-  (`classic/models/<race>/<model id>.json`).
+  (`classic/models/<race>/<model id>.json`). Machines also carry a `rig`: the machine and each of its links
+  as a tree of nodes with their rest transforms and their own geometry, the link that turns the upper body,
+  and how the locomotion moves them. Spider legs bring their resting, walking, turning, start and stop
+  cycles, sampled 20 times a second from the original composite plans. Wheels bring their nodes and radius,
+  and tracks their tread nodes and texture repeats per metre.
 - **Terrain:** each planet's surface from `pdata/<planet>.psb`, the engine's persisted planet with all its
   terrain tiles. The exporter writes the tiles as one model (`classic/planets/<planet>/terrain.json`) and the
   engine's `terrainHeight` sampled every 4 m (`heights.bin`: int32 columns, int32 rows, float32 spacing,

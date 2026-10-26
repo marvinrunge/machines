@@ -10,4 +10,4 @@ An early **test build** of the Machines: Wired for War remake, for Windows 10/11
 **Original models and terrain**
 This build contains no art, sound or terrain from the original game; those belong to Night Dive Studios. Without them, units are coloured shapes. If you own the game (GOG or Steam), press **Import from your game copy…** in the menu and pick its install folder. The import reads the models and terrain from your copy and keeps them next to the game.
 
-Not in this build yet: campaign, multiplayer, sound and music.
+Not in this build yet: campaign, multiplayer and music. Sound and voice reports come from your own copy with the import.

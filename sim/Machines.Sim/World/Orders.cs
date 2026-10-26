@@ -52,6 +52,12 @@ public sealed record RecycleOrder(int Smelter) : Order;
 /// <summary>Drive into a garrison to be repaired.</summary>
 public sealed record EnterGarrisonOrder(int Garrison) : Order;
 
+/// <summary>Drive to an APC and get in.</summary>
+public sealed record BoardOrder(int Apc) : Order;
+
+/// <summary>For an APC: drive to a point and let everyone out there.</summary>
+public sealed record DeployOrder(Vector2 Target) : Order;
+
 public enum Controller
 {
     Player,
@@ -107,6 +113,10 @@ public enum GameEventKind
     RaceChanged,
     /// <summary>An area weapon went off (Detail: the weapon).</summary>
     Blast,
+    /// <summary>A machine got into an APC (Other: the APC).</summary>
+    Boarded,
+    /// <summary>An APC let its passengers out (Detail: how many).</summary>
+    Deployed,
 }
 
 public sealed record GameEvent(GameEventKind Kind, int Actor, Vector2 Position, int? Other = null, string? Detail = null);
