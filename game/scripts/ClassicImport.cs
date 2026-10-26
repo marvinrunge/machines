@@ -18,6 +18,18 @@ public static class ClassicImport
 
     public static bool Imported => Directory.Exists(Path.Combine(Paths.Classic, "models"));
 
+    /// <summary>
+    /// What the exporter writes, raised when an import has to be redone: 2 added the original vertex normals
+    /// (without them some terrain tiles and model parts are lit from behind).
+    /// </summary>
+    public const int Format = 2;
+
+    private static string FormatFile => Path.Combine(Paths.Classic, "format.txt");
+
+    /// <summary>The import was made by an older exporter and should be run again.</summary>
+    public static bool Outdated => Imported
+        && !(File.Exists(FormatFile) && int.TryParse(File.ReadAllText(FormatFile).Trim(), out var format) && format >= Format);
+
     /// <returns>null when the folder holds the game, otherwise why not.</returns>
     public static string? WhyNot(string gameFolder)
     {
@@ -54,6 +66,7 @@ public static class ClassicImport
         }
 
         File.WriteAllText(Path.Combine(Paths.Classic, "game_path.txt"), Slashes(gameFolder));
+        File.WriteAllText(FormatFile, Format.ToString());
         progress("Done.");
         return null;
     }

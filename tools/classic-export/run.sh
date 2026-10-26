@@ -24,3 +24,6 @@ for psf in "$REPO"/data/original/models/planet/*/*.psf; do
         "$REPO/data/original/sounds/snddef64.dat" 2>&1 | grep -E "^terrain:|rror" | sed "s/^/$name: /" >> "$REPO/classic/planets.log" || true
 done
 cat "$REPO/classic/planets.log"
+
+# The import format the client expects (ClassicImport.Format).
+echo 2 > "$REPO/classic/format.txt"

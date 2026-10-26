@@ -120,8 +120,12 @@ public partial class Game : Node3D
     }
 
     /// <summary>Sun, sky and fog from the planet's .env file, following the game clock.</summary>
-    private void AddLighting() =>
-        AddChild(PlanetLook.Create(World.Planet.Environment, () => World.Time, () => _driven is not null ? 0 : _rig?.Distance ?? 160));
+    private void AddLighting()
+    {
+        // For automated checks: MACHINES_CLOCK=<seconds> moves the planet's day on by that much.
+        var clock = float.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_CLOCK"), System.Globalization.CultureInfo.InvariantCulture, out var c) ? c : 0;
+        AddChild(PlanetLook.Create(World.Planet.Environment, () => World.Time + clock, () => _driven is not null ? 0 : _rig?.Distance ?? 160));
+    }
 
     // ---- simulation loop ------------------------------------------------------------------------
 
@@ -843,6 +847,6 @@ public partial class Game : Node3D
             return;
         var eye = view.GlobalPosition + Vector3.Up * Mathf.Max(2.5f, view.Size * 0.9f);
         _firstPersonCamera.GlobalPosition = eye;
-        _firstPersonCamera.GlobalRotation = new Vector3(_lookPitch, view.GlobalRotation.Y - Mathf.Pi / 2, 0);
+        _firstPersonCamera.GlobalRotation = new Vector3(_lookPitch, view.Yaw - Mathf.Pi / 2, 0);
     }
 }

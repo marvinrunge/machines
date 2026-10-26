@@ -209,11 +209,26 @@ public sealed class ClassicAssets
             for (var t = 0; t + 2 < count; t += 3)
                 (indices[t], indices[t + 1], indices[t + 2]) = (t, t + 2, t + 1);
 
+            // The original's own vertex normals, as it lit them. Older exports have none (nor has a vertex
+            // the original stored none for); those triangles take the normal of their front face.
             var normals = new Vector3[count];
+            if (part.TryGetProperty("normals", out var stored) && stored.GetArrayLength() == positions.Length)
+            {
+                var n = stored.EnumerateArray().Select(e => e.GetSingle()).ToArray();
+                for (var i = 0; i < count; i++)
+                    normals[i] = new Vector3(n[i * 3], n[i * 3 + 2], n[i * 3 + 1]).Normalized();
+            }
             for (var t = 0; t + 2 < count; t += 3)
             {
-                var n = (vertices[t + 2] - vertices[t]).Cross(vertices[t + 1] - vertices[t]).Normalized();
-                normals[t] = normals[t + 1] = normals[t + 2] = n;
+                // Godot's front faces wind clockwise. A two-sided material lights a triangle's back with its
+                // normal turned round, so a triangle wound against its normals (some original tiles are)
+                // would face away from the light: it is wound the other way.
+                var front = (vertices[t + 1] - vertices[t]).Cross(vertices[t + 2] - vertices[t]);
+                var sum = normals[t] + normals[t + 1] + normals[t + 2];
+                if (sum.LengthSquared() < 0.01f)
+                    normals[t] = normals[t + 1] = normals[t + 2] = front.Normalized();
+                else if (front.Dot(sum) < 0)
+                    (indices[t + 1], indices[t + 2]) = (t + 1, t + 2);
             }
 
             var arrays = new Godot.Collections.Array();

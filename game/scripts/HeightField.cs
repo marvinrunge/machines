@@ -91,6 +91,15 @@ public sealed class HeightField
         return Mathf.Lerp(top, bottom, fy);
     }
 
+    /// <summary>The ground's unit normal at an original ground position (x, y), in Godot axes (y up).</summary>
+    public Vector3 Normal(float x, float y)
+    {
+        var d = Spacing / 2;
+        var slopeX = (At(x + d, y) - At(x - d, y)) / (2 * d);
+        var slopeY = (At(x, y + d) - At(x, y - d)) / (2 * d);
+        return new Vector3(-slopeX, 1, -slopeY).Normalized();
+    }
+
     /// <summary>Where a ray first meets the ground, marching in short steps and refining the last one.</summary>
     public Vector3? Hit(Vector3 origin, Vector3 direction, float maxDistance = 8000)
     {

@@ -180,9 +180,11 @@ public partial class SkirmishMenu : Control
         var status = new Label
         {
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            Text = ClassicImport.Imported
-                ? "Original models and terrain: imported from your game copy."
-                : "Original models and terrain: not imported. You need your own copy of Machines: Wired for War.",
+            Text = ClassicImport.Outdated
+                ? "Original models and terrain: imported by an older version. Import again for the right lighting."
+                : ClassicImport.Imported
+                    ? "Original models and terrain: imported from your game copy."
+                    : "Original models and terrain: not imported. You need your own copy of Machines: Wired for War.",
         };
         var button = new Button
         {

@@ -37,6 +37,7 @@
 #include "render/colour.hpp"
 #include "render/scale.hpp"
 #include "render/internal/vtxdata.hpp"
+#include "render/internal/fixptvec.hpp"
 #include "render/internal/trigroup.hpp"
 #include "world4d/root.hpp"
 #include "world4d/composit.hpp"
@@ -93,6 +94,7 @@ struct Bucket
     std::string texture;
     float diffuse[4];
     std::vector<float> positions;
+    std::vector<float> normals;
     std::vector<float> uvs;
     std::vector<unsigned> indices;
 };
@@ -188,6 +190,7 @@ public:
             out << (firstBucket ? "" : ",") << "\n{\"texture\":\"" << b.texture << "\",\"diffuse\":["
                 << b.diffuse[0] << "," << b.diffuse[1] << "," << b.diffuse[2] << "," << b.diffuse[3] << "]";
             writeArray(out, "positions", b.positions);
+            writeArray(out, "normals", b.normals);
             writeArray(out, "uvs", b.uvs);
             out << ",\"indices\":[";
             for (size_t i = 0; i < b.indices.size(); ++i)
@@ -252,6 +255,19 @@ private:
                     bucket.positions.push_back(p.x());
                     bucket.positions.push_back(p.y());
                     bucket.positions.push_back(p.z());
+                    // The original lights each vertex by its own normal; some tiles are wound the other way,
+                    // so normals worked out from the winding would face down.
+                    // A vertex without a stored normal is written as (0, 0, 0).
+                    MexVec3 n(0, 0, 0);
+                    if (v.normalIndex < vertices->normals().size())
+                    {
+                        RenIVec3FixPtS0_7 stored = vertices->normals()[v.normalIndex];
+                        stored.convertToMex(&n);
+                        transform.transform(&n);
+                    }
+                    bucket.normals.push_back(n.x());
+                    bucket.normals.push_back(n.y());
+                    bucket.normals.push_back(n.z());
                     bucket.uvs.push_back(v.tu);
                     bucket.uvs.push_back(v.tv);
                     bucket.indices.push_back(bucket.indices.size());
