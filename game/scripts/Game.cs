@@ -82,7 +82,8 @@ public partial class Game : Node3D
         // played back from a replay.
         var humans = request.Starts.Players.Where(p => p.Value == Controller.Player).Select(p => p.Key);
         _session = request.Replay?.Playback(World)
-            ?? new LockstepSession(World, Player, humans, request.Network?.InputDelay ?? 1);
+            ?? new LockstepSession(World, Player, humans, request.Network?.InputDelay ?? 1,
+                firstLocalTurn: request.ResumeFrom, echoed: request.Network is not null);
         if (request.Network is not null)
             _session.Outgoing += NetLink.Send;
 
@@ -132,7 +133,11 @@ public partial class Game : Node3D
     public override void _Process(double delta)
     {
         ReadNetwork();
-        if ((!Paused || Online) && World.Winner is null)
+        if (Online && World.Winner is null && _session.Ready(CatchUpLead) >= CatchUpLead)
+        {
+            CatchUp();
+        }
+        else if ((!Paused || Online) && World.Winner is null)
         {
             _accumulator += Math.Min(delta, 0.25);
             while (_accumulator >= GameWorld.Dt)
@@ -178,6 +183,30 @@ public partial class Game : Node3D
         UpdateFirstPersonCamera();
         _hud.Refresh();
         TakeScreenshotIfAsked(delta);
+    }
+
+    /// <summary>A world this many ticks behind the turns it has (rejoining a running match) fast-forwards.</summary>
+    private const int CatchUpLead = 60;
+
+    /// <summary>
+    /// Runs as many ticks as fit in a frame, without sounds or effects, and draws only where they end: a player
+    /// rejoining a match rebuilds the whole match so far this way.
+    /// </summary>
+    private void CatchUp()
+    {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        while (clock.ElapsedMilliseconds < 30)
+        {
+            _session.Pump();
+            if (!_session.TryStep())
+                break;
+        }
+        _accumulator = 0;
+        _waitingFor = 0;
+        SyncBlasts();
+        SyncViews();
+        var resume = MatchRequest.Current.ResumeFrom is { } from && World.Tick < from ? $" of {from}" : "";
+        _hud.Banner($"Catching up: tick {World.Tick}{resume}");
     }
 
     private double _runTime;
@@ -491,6 +520,9 @@ public partial class Game : Node3D
     }
 
     /// <summary>Hands the relay's messages to the session and tells the player what happened.</summary>
+    private static string PlayerName(Race race) =>
+        MatchRequest.Current.Network?.Players.FirstOrDefault(p => p.Slot == race)?.Name ?? race.ToString();
+
     private void ReadNetwork()
     {
         if (!Online || NetLink.Connection is not { } connection)
@@ -500,9 +532,12 @@ public partial class Game : Node3D
             _session.Receive(message);
             switch (message)
             {
-                case PlayerLeft left:
-                    var name = MatchRequest.Current.Network?.Players.FirstOrDefault(p => p.Slot == left.Race)?.Name ?? left.Race.ToString();
-                    _hud.Message($"{name} left the match; their machines stay where they are");
+                // Rejoining, the match so far arrives too; only what happens from now on is news.
+                case PlayerLeft left when left.FromTick >= (MatchRequest.Current.ResumeFrom ?? 0):
+                    _hud.Message($"{PlayerName(left.Race)} left the match; the AI takes over");
+                    break;
+                case PlayerReturned back when back.Race != Player && back.FromTick >= (MatchRequest.Current.ResumeFrom ?? 0):
+                    _hud.Message($"{PlayerName(back.Race)} is back and takes over from the AI");
                     break;
                 case Chat chat:
                     _hud.Message($"{chat.From}: {chat.Text}");
@@ -528,7 +563,7 @@ public partial class Game : Node3D
             Directory.CreateDirectory(folder);
             var match = MatchRequest.Current.ToMatchInfo(_seed, _session.InputDelay);
             var file = System.IO.Path.Combine(folder, $"{DateTime.Now:yyyy-MM-dd_HH-mm}_{match.Scenario}{Replay.Extension}");
-            new Replay(match, _session.Played, World.Tick).Save(file);
+            new Replay(match, _session.Played, World.Tick, _session.Presence).Save(file);
             _hud.Message($"Replay saved: {System.IO.Path.GetFileName(file)}");
         }
         catch (IOException exception)

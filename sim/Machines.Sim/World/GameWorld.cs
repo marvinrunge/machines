@@ -41,6 +41,27 @@ public sealed partial class GameWorld
     public List<MineralSiteState> Sites { get; } = [];
     public List<Ai.AiController> AiControllers { get; } = [];
 
+    /// <summary>The AI that plays each race when no one does (its scenario's script), also for players' races.</summary>
+    public Dictionary<Race, Func<Ai.AiController>> StandIns { get; } = [];
+
+    /// <summary>The AI takes over a player's race, e.g. when the player left a network match.</summary>
+    public void HandOverToAi(Race race)
+    {
+        if (!Races.TryGetValue(race, out var state) || state.Controller == Controller.Ai || !StandIns.TryGetValue(race, out var standIn))
+            return;
+        state.Controller = Controller.Ai;
+        AiControllers.Add(standIn());
+    }
+
+    /// <summary>A player takes their race back from the AI (they rejoined a network match).</summary>
+    public void HandBackFromAi(Race race)
+    {
+        if (!Races.TryGetValue(race, out var state) || state.Controller != Controller.Ai)
+            return;
+        state.Controller = Controller.Player;
+        AiControllers.RemoveAll(ai => ai.Race == race);
+    }
+
     /// <summary>Building plans from the scenario that an AI race may build (<c>NOT_BUILT</c> constructions).</summary>
     public Dictionary<Race, List<Import.Model.ScenarioConstruction>> BuildingPlans { get; } = [];
 
@@ -80,26 +101,52 @@ public sealed partial class GameWorld
                 _rejected.Add(new CommandRejected(command, reason));
         }
 
+        Nav.NewTick();
+        Timed("index", IndexActors);
+
         if (Tick % TicksPerSecond == 0)
         {
-            foreach (var ai in AiControllers)
-                ai.Think(this);
+            Timed("ai", () =>
+            {
+                foreach (var ai in AiControllers)
+                    ai.Think(this);
+            });
         }
 
-        foreach (var machine in Machines.ToList())
+        Timed("machines", () =>
         {
-            if (!machine.IsDead && machine.Inside is null)
-                UpdateMachine(machine);
-        }
+            foreach (var machine in Machines.ToList())
+            {
+                if (!machine.IsDead && machine.Inside is null && Profile is null)
+                    UpdateMachine(machine);
+                else if (!machine.IsDead && machine.Inside is null)
+                    Timed("  " + machine.Order.GetType().Name, () => UpdateMachine(machine));
+            }
+        });
 
-        UpdateEconomy();
-        UpdateSupport();
-        UpdateTransport();
-        UpdateCombat();
-        RemoveDead();
-        CheckVictory();
+        Timed("economy", UpdateEconomy);
+        Timed("support", UpdateSupport);
+        Timed("transport", UpdateTransport);
+        Timed("combat", UpdateCombat);
+        Timed("dead", RemoveDead);
+        Timed("victory", CheckVictory);
 
         Tick++;
+    }
+
+    /// <summary>For profiling (tools/sim-bench): milliseconds spent in each part of the tick, summed, when set.</summary>
+    public Dictionary<string, double>? Profile { get; set; }
+
+    private void Timed(string part, Action action)
+    {
+        if (Profile is null)
+        {
+            action();
+            return;
+        }
+        var start = System.Diagnostics.Stopwatch.GetTimestamp();
+        action();
+        Profile[part] = Profile.GetValueOrDefault(part) + System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
     }
 
     // ---- creating actors ------------------------------------------------------------------------

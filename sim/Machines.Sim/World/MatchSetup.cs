@@ -46,8 +46,10 @@ public static class MatchSetup
                 machine.Height = unit.Position.Z;
             }
 
-            if (controller == Controller.Ai && setup.AiScript is not null)
-                world.AiControllers.Add(new Ai.AiController(race, data.LoadAiScript(setup.AiScript), setup));
+            if (setup.AiScript is { } script)
+                world.StandIns[race] = () => new Ai.AiController(race, data.LoadAiScript(script), setup);
+            if (controller == Controller.Ai && world.StandIns.TryGetValue(race, out var standIn))
+                world.AiControllers.Add(standIn());
         }
 
         if (scenario.Research is { } research)

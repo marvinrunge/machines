@@ -25,6 +25,9 @@ namespace Machines.Net;
 [JsonDerivedType(typeof(ChecksumReport), "checksum")]
 [JsonDerivedType(typeof(Desync), "desync")]
 [JsonDerivedType(typeof(PlayerLeft), "playerLeft")]
+[JsonDerivedType(typeof(RejoinMatch), "rejoinMatch")]
+[JsonDerivedType(typeof(MatchResumed), "matchResumed")]
+[JsonDerivedType(typeof(PlayerReturned), "playerReturned")]
 [JsonDerivedType(typeof(Chat), "chat")]
 public abstract record NetMessage;
 
@@ -81,7 +84,22 @@ public sealed record ChecksumReport(long Tick, Race Race, ulong Value) : NetMess
 /// <summary>Players' worlds differed after this tick.</summary>
 public sealed record Desync(long Tick) : NetMessage;
 
-/// <summary>A player left; their last turn was for <paramref name="FromTick"/> − 1, nobody waits for them after it.</summary>
+/// <summary>
+/// A player left; their last turn was for <paramref name="FromTick"/> − 1, nobody waits for them after it, and
+/// from that tick the AI plays their race.
+/// </summary>
 public sealed record PlayerLeft(Race Race, long FromTick) : NetMessage;
+
+/// <summary>A player who dropped out asks to play their race again (the relay knows them by name).</summary>
+public sealed record RejoinMatch(int RoomId) : NetMessage;
+
+/// <summary>
+/// The relay takes a returning player back: their race in <paramref name="Match"/>, and the tick from which they
+/// play again. Every turn and every coming and going so far follows, in order, to rebuild the world from.
+/// </summary>
+public sealed record MatchResumed(MatchInfo Match, Race Slot, long FromTick) : NetMessage;
+
+/// <summary>A player is back: from <paramref name="FromTick"/> on, the AI hands their race back and everyone waits for their turns again.</summary>
+public sealed record PlayerReturned(Race Race, long FromTick) : NetMessage;
 
 public sealed record Chat(string From, string Text) : NetMessage;

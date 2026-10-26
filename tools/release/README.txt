@@ -25,6 +25,8 @@ MULTIPLAYER
   On the same network that is all. Over the internet the host forwards TCP port 7777 in the router to
   their computer and gives the others their public address; a VPN such as Tailscale or ZeroTier works too.
   Every player needs the same version, and the imported models of their own game copy for the full look.
+  If someone drops out, the AI plays on for them. To come back, connect again with the same name, pick
+  the running match and press "Join": the game catches up and hands your race back.
   Each match is saved to the "replays" folder; "Watch a replay..." in the menu plays one back.
 
 CONTROLS

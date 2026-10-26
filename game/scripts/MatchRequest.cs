@@ -21,14 +21,18 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
     /// <summary>A recorded match to watch.</summary>
     public Replay? Replay { get; init; }
 
+    /// <summary>Rejoining a running match: the tick this player plays again from (the world catches up to it first).</summary>
+    public long? ResumeFrom { get; init; }
+
     /// <summary>The M1 match: Red against Blue on m_desert.</summary>
     public static MatchRequest Default => new("m_desert", "m_desert",
         StartPositions.Assign([Race.Red, Race.Blue], 2, Race.Red, random: false, new Random(0)), new MatchOptions());
 
     /// <summary>A relay's match, from the point of view of the local client (or the first player, for replays).</summary>
-    public static MatchRequest FromMatch(MatchInfo match, int clientId)
+    public static MatchRequest FromMatch(MatchInfo match, int clientId, Race? slot = null)
     {
-        var local = match.Players.FirstOrDefault(p => !p.Ai && p.ClientId == clientId) ?? match.Players.First(p => !p.Ai);
+        var local = match.Players.FirstOrDefault(p => !p.Ai && (slot is null ? p.ClientId == clientId : p.Slot == slot))
+                    ?? match.Players.First(p => !p.Ai);
         var starts = new StartPositions(local.Slot,
             match.Players.ToDictionary(p => p.Slot, p => p.Ai ? Controller.Ai : Controller.Player),
             match.Players.ToDictionary(p => p.Slot, p => p.Colour));

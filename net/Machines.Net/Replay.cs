@@ -5,10 +5,10 @@ using Machines.Sim.World;
 namespace Machines.Net;
 
 /// <summary>
-/// A recorded match: how it was set up and every turn that held commands. Because the simulation is
+/// A recorded match: how it was set up, every turn that held commands and who left and came back when. Because the simulation is
 /// deterministic, playing the turns back into a world built the same way shows the same match.
 /// </summary>
-public sealed record Replay(MatchInfo Match, IReadOnlyList<Turn> Turns, long Ticks)
+public sealed record Replay(MatchInfo Match, IReadOnlyList<Turn> Turns, long Ticks, IReadOnlyList<NetMessage>? Presence = null)
 {
     public const string Extension = ".mreplay";
 
@@ -33,6 +33,8 @@ public sealed record Replay(MatchInfo Match, IReadOnlyList<Turn> Turns, long Tic
             foreach (var player in Match.Players.Where(p => !p.Ai))
                 session.Receive(recorded[tick].FirstOrDefault(t => t.Race == player.Slot) ?? new Turn(tick, player.Slot, []));
         }
+        foreach (var change in Presence ?? [])
+            session.Receive(change);
         return session;
     }
 }

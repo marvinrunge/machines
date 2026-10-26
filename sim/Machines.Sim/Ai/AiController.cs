@@ -64,15 +64,18 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
 
     private void AssignToSquads(List<Machine> machines)
     {
+        // Each squad's members that fill one of its places, counted once and kept up as machines join.
+        var have = _squads.Values.ToDictionary(s => s.Squad.Number,
+            s => machines.Count(m => m.Squad == s.Squad.Number && s.Squad.Members.Any(o => Matches(o.Machine, m))));
         foreach (var machine in machines.Where(m => m.Squad is null || !_squads.ContainsKey(m.Squad.Value)))
         {
             foreach (var state in _squads.Values)
             {
                 var wanted = state.Squad.Members.Where(o => Matches(o.Machine, machine)).Sum(o => o.Count);
-                var have = machines.Count(m => m.Squad == state.Squad.Number && state.Squad.Members.Any(o => Matches(o.Machine, m)));
-                if (wanted > have)
+                if (wanted > have[state.Squad.Number])
                 {
                     machine.Squad = state.Squad.Number;
+                    have[state.Squad.Number]++;
                     break;
                 }
             }

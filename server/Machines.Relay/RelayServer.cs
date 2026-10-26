@@ -166,10 +166,17 @@ public sealed class RelayServer : IAsyncDisposable
                     Start(room);
                 break;
 
-            case Turn turn when member.Room is { Match: not null } room && member.Slot == turn.Race:
+            case RejoinMatch rejoin:
+                Rejoin(member, rejoin);
+                break;
+
+            case Turn turn when member.Room is { Match: not null } room && member.Slot == turn.Race
+                                && turn.Tick >= room.FirstTurn.GetValueOrDefault(turn.Race):
                 room.LastTurn[turn.Race] = turn.Tick;
-                foreach (var other in room.Members.Where(m => m != member))
-                    other.Connection.Send(turn);
+                room.Log.Add(turn);
+                // Back to its sender too: a world runs a tick only once the relay has seen every turn for it, so the
+                // tick a returning player takes over from is always still ahead of every world.
+                Broadcast(room, turn);
                 break;
 
             case ChecksumReport report when member.Room is { Match: not null } room && member.Slot == report.Race:
@@ -210,11 +217,55 @@ public sealed class RelayServer : IAsyncDisposable
         }
         else if (member.Slot is { } slot)
         {
-            // Nobody waits for the leaver after its last turn; its machines stay where they are.
+            // Nobody waits for the leaver after its last turn; from the next tick on, the AI plays its race.
             var from = room.LastTurn.TryGetValue(slot, out var last) ? last + 1 : InputDelay;
             room.Left.Add(slot);
-            Broadcast(room, new PlayerLeft(slot, from));
+            var left = new PlayerLeft(slot, from);
+            room.Log.Add(left);
+            Broadcast(room, left);
         }
+    }
+
+    /// <summary>
+    /// A player who dropped out of a running match takes their race back. The others are told the tick it
+    /// changes hands: one after every turn forwarded so far, so no world can have passed it. The returning player
+    /// gets the match and everything forwarded since its start, rebuilds the world from it and catches up; the
+    /// others wait for its turns from that tick on.
+    /// </summary>
+    private void Rejoin(Member member, RejoinMatch rejoin)
+    {
+        if (!_rooms.TryGetValue(rejoin.RoomId, out var room) || room.Match is null)
+        {
+            member.Connection.Send(new Refused("that match is not running"));
+            return;
+        }
+        var seat = room.Match.Players.FirstOrDefault(p => !p.Ai && room.Left.Contains(p.Slot) && p.Name == member.Name);
+        if (seat is null)
+        {
+            member.Connection.Send(new Refused($"no player called {member.Name} left that match"));
+            return;
+        }
+        Leave(member);
+
+        var slot = seat.Slot;
+        var leftAt = room.Log.OfType<PlayerLeft>().Last(l => l.Race == slot).FromTick;
+        var from = Math.Max(leftAt, room.LastTurn.Values.DefaultIfEmpty(0).Max() + 1);
+        var back = new PlayerReturned(slot, from);
+        room.Log.Add(back);
+        room.Left.Remove(slot);
+        room.FirstTurn[slot] = from;
+        room.LastTurn[slot] = from - 1;
+        Broadcast(room, back);
+
+        member.Room = room;
+        member.Slot = slot;
+        member.Colour = seat.Colour;
+        member.Ready = true;
+        member.Connection.Send(new MatchResumed(room.Match, slot, from));
+        foreach (var message in room.Log)
+            member.Connection.Send(message);
+        room.Members.Add(member);
+        Log?.Invoke($"{member.Name} rejoined room {room.Id} as {slot} from tick {from}");
     }
 
     private void Start(Room room)
@@ -245,6 +296,13 @@ public sealed class RelayServer : IAsyncDisposable
     /// <summary>Once every remaining player reported a tick, they must all agree.</summary>
     private void Compare(Room room, ChecksumReport report)
     {
+        // A returning player catching up reports ticks the others agreed on long ago.
+        if (room.Agreed.TryGetValue(report.Tick, out var agreed))
+        {
+            if (agreed != report.Value)
+                Desynced(room, report.Tick);
+            return;
+        }
         if (!room.Checksums.TryGetValue(report.Tick, out var reports))
             room.Checksums[report.Tick] = reports = [];
         reports[report.Race] = report.Value;
@@ -252,12 +310,19 @@ public sealed class RelayServer : IAsyncDisposable
         if (expected.Any(race => !reports.ContainsKey(race)))
             return;
         room.Checksums.Remove(report.Tick);
-        if (reports.Values.Distinct().Count() > 1 && !room.Desynced)
-        {
-            room.Desynced = true;
-            Broadcast(room, new Desync(report.Tick));
-            Log?.Invoke($"room {room.Id} desynced at tick {report.Tick}");
-        }
+        if (reports.Values.Distinct().Count() > 1)
+            Desynced(room, report.Tick);
+        else
+            room.Agreed[report.Tick] = report.Value;
+    }
+
+    private void Desynced(Room room, long tick)
+    {
+        if (room.Desynced)
+            return;
+        room.Desynced = true;
+        Broadcast(room, new Desync(tick));
+        Log?.Invoke($"room {room.Id} desynced at tick {tick}");
     }
 
     private static void Broadcast(Room room, NetMessage message)
@@ -299,6 +364,15 @@ public sealed class RelayServer : IAsyncDisposable
         public HashSet<Race> Left { get; } = [];
         public Dictionary<long, Dictionary<Race, ulong>> Checksums { get; } = [];
         public bool Desynced { get; set; }
+
+        /// <summary>Checksums every player reported alike, by tick.</summary>
+        public Dictionary<long, ulong> Agreed { get; } = [];
+
+        /// <summary>Every turn, departure and return forwarded since the match started, for a returning player.</summary>
+        public List<NetMessage> Log { get; } = [];
+
+        /// <summary>The first tick a returning player's turns count from.</summary>
+        public Dictionary<Race, long> FirstTurn { get; } = [];
 
         public RoomSummary Summary() => new(Id, Setup.Name, Setup.Scenario, Setup.Planet, Members.Count, Setup.Slots.Count, Match is not null);
 

@@ -68,7 +68,7 @@ public enum Controller
 public sealed class RaceState(Race race, Controller controller)
 {
     public Race Race { get; } = race;
-    public Controller Controller { get; } = controller;
+    public Controller Controller { get; set; } = controller;
 
     /// <summary>BMUs in the bank. The original counts whole BMUs; fractions accumulate here between ticks.</summary>
     public float Bmu { get; set; }

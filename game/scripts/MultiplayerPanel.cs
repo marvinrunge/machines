@@ -63,7 +63,7 @@ public partial class MultiplayerPanel : PanelContainer
         var lobbyButtons = new HBoxContainer();
         var refresh = new Button { Text = "Refresh" };
         refresh.Pressed += () => NetLink.Send(new ListRooms());
-        var join = new Button { Text = "Join" };
+        var join = new Button { Text = "Join", TooltipText = "Join a room, or rejoin a match you dropped out of" };
         join.Pressed += Join;
         _fillWithAi = new CheckButton { Text = "Free slots play the AI", ButtonPressed = true };
         var create = new Button { Text = "Open a room on the selected map" };
@@ -138,6 +138,12 @@ public partial class MultiplayerPanel : PanelContainer
                     break;
                 case MatchStarted started:
                     MatchRequest.Current = MatchRequest.FromMatch(started.Match, NetLink.ClientId) with { Network = started.Match };
+                    GetTree().ChangeSceneToFile("res://scenes/Main.tscn");
+                    return;
+                case MatchResumed resumed:
+                    // The match so far follows in the inbox; the match scene reads it from there.
+                    MatchRequest.Current = MatchRequest.FromMatch(resumed.Match, NetLink.ClientId, resumed.Slot)
+                        with { Network = resumed.Match, ResumeFrom = resumed.FromTick };
                     GetTree().ChangeSceneToFile("res://scenes/Main.tscn");
                     return;
                 case Chat chat:
@@ -241,7 +247,9 @@ public partial class MultiplayerPanel : PanelContainer
         var selected = _rooms.GetSelectedItems();
         if (_roomList is null || selected.Length == 0)
             return;
-        NetLink.Send(new JoinRoom(_roomList.Rooms[selected[0]].Id));
+        // A match already running takes back a player who dropped out of it.
+        var room = _roomList.Rooms[selected[0]];
+        NetLink.Send(room.Started ? new RejoinMatch(room.Id) : new JoinRoom(room.Id));
     }
 
     private void SendPlayer() => NetLink.Send(new SetPlayer(Colours[_colour.Selected], _ready.ButtonPressed));

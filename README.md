@@ -46,8 +46,14 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
     colour, get ready; the host starts, and free slots can play the AI.
   - Replays: every match, single player too, is recorded as its commands to `replays/`; **Watch a replay…**
     plays one back to the identical checksum.
-  - Not yet: rejoining after a dropped connection, and an AI that takes over a dropped player's machines.
-- 187 tests. Every map runs AI-only for three minutes, and every map whose scripts give orders gets moving.
+  - Dropping out: a player who leaves or loses the connection hands their race to the original AI from the
+    tick of their first missing turn. Reconnecting under the same name and pressing **Join** on the running
+    match rebuilds it from the relay's log, catches up in fast-forward and takes the race back from the AI.
+    Replays record who left and came back.
+  - Performance gate: four players with 200 armed machines each fighting on m_green run at 2.7 ms per tick
+    on average (p99 14 ms; the budget is 50 ms), measured with `tools/sim-bench`. Path searches share work
+    for group orders, know which areas are cut off, and enemies are found through a spatial grid.
+- 192 tests. Every map runs AI-only for three minutes, and every map whose scripts give orders gets moving.
 
 ## Layout
 
@@ -60,6 +66,7 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
 | `tests/Machines.Tests` | xUnit tests that pin the importers and simulation to the 1999 numbers |
 | `game/` | The Godot 4 client: terrain, units, RTS camera, selection and orders, build menus, HUD, minimap, first person |
 | `tools/classic-export` | Exports the original models from your own copy of the game (see its README) |
+| `tools/sim-bench` | The performance gate: four players with 200 machines each, timed tick by tick (`dotnet run -c Release --project tools/sim-bench`) |
 | `data/original` | Original design data, copied unchanged (see `data/README.md`) |
 | `classic/` | Local-only (git-ignored): models and planet terrain exported from your game copy |
 | `references/` | Local-only (git-ignored): OpenMachines mod, fan Blender models, screenshots, manual scans |

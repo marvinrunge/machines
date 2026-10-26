@@ -245,16 +245,6 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>The closest enemy within range, preferring armed machines.</summary>
-    public Actor? NearestEnemy(Actor from, float range) => Actors
-        .Where(a => !a.IsDead && AreEnemies(from.Race, a.Race) && a is not Machine { Inside: not null })
-        .Select(a => (Actor: a, Distance: from.DistanceTo(a)))
-        .Where(x => x.Distance <= range)
-        .OrderBy(x => x.Actor is Machine { CanFight: true } ? 0 : 1)
-        .ThenBy(x => x.Distance)
-        .Select(x => x.Actor)
-        .FirstOrDefault();
-
     // ---- working --------------------------------------------------------------------------------
 
     private void UpdateConstruct(Machine machine, ConstructOrder construct)

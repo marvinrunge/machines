@@ -99,7 +99,7 @@ public class LockstepTests
     }
 
     [Fact]
-    public async Task The_others_play_on_when_a_player_leaves()
+    public async Task The_others_play_on_against_the_AI_when_a_player_leaves()
     {
         await using var relay = RelayServer.Start(0, IPAddress.Loopback);
         await using var a = await Player.Join(relay, "Anna", host: true);
@@ -114,6 +114,66 @@ public class LockstepTests
             await Player.Frame(a);
 
         Assert.True(a.Session.World.Tick > before + 20, $"stuck at {a.Session.World.Tick}");
+        Assert.Equal(Controller.Ai, a.Session.World.Races[b.Race].Controller);
+        Assert.Contains(a.Session.World.AiControllers, ai => ai.Race == b.Race);
+
+        // A replay hands over on the same tick and ends in the same world.
+        var replay = new Replay(a.Match, a.Session.Played, a.Session.World.Tick, a.Session.Presence);
+        var playback = replay.Playback(Replay.BuildWorld(DataLoader.Value, replay.Match));
+        while (playback.World.Tick < replay.Ticks && playback.TryStep())
+        {
+        }
+        Assert.Equal(a.Session.World.Checksum(), playback.World.Checksum());
+    }
+
+    [Fact]
+    public async Task A_player_who_dropped_out_rejoins_catches_up_and_takes_their_race_back()
+    {
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var a = await Player.Join(relay, "Anna", host: true);
+        var b = await Player.Join(relay, "Ben", host: false);
+        await Player.Start(a, b);
+        var rng = new Random(5);
+        async Task Play(int frames, params Player[] players)
+        {
+            for (var frame = 0; frame < frames; frame++)
+            {
+                foreach (var player in players)
+                {
+                    if (rng.Next(20) == 0 && player.Session.World.Machines.Where(m => m.Race == player.Race).ToList() is { Count: > 0 } own)
+                        player.Session.Queue(new MoveCommand(player.Race, [own[rng.Next(own.Count)].Id],
+                            new Vector2(200 + (float)rng.NextDouble() * 1200, 200 + (float)rng.NextDouble() * 1200)));
+                }
+                await Player.Frame(players);
+            }
+        }
+        await Play(60, a, b);
+        var race = b.Race;
+        await b.DisposeAsync();
+        await Play(150, a);
+        Assert.Equal(Controller.Ai, a.Session.World.Races[race].Controller);
+
+        await using var back = await Player.Rejoin(relay, "Ben");
+        Assert.Equal(race, back.Race);
+        await Play(400, a, back);
+        await Player.CatchUp(a, back);
+
+        Assert.True(back.Session.World.Tick > 250, $"the returning world only reached tick {back.Session.World.Tick}");
+        Assert.Equal(a.Session.World.Tick, back.Session.World.Tick);
+        Assert.Equal(a.Session.World.Checksum(), back.Session.World.Checksum());
+        Assert.Equal(Controller.Player, a.Session.World.Races[race].Controller);
+        Assert.Equal(Controller.Player, back.Session.World.Races[race].Controller);
+        Assert.Null(a.Session.DesyncTick);
+        Assert.Null(back.Session.DesyncTick);
+        Assert.Contains(a.Session.Presence, m => m is PlayerReturned r && r.Race == race);
+
+        // The whole match, departure and return included, plays back the same.
+        var replay = new Replay(a.Match, a.Session.Played, a.Session.World.Tick, a.Session.Presence);
+        var playback = replay.Playback(Replay.BuildWorld(DataLoader.Value, replay.Match));
+        while (playback.World.Tick < replay.Ticks && playback.TryStep())
+        {
+        }
+        Assert.Equal(a.Session.World.Checksum(), playback.World.Checksum());
     }
 
     /// <summary>A client as the game runs it: a connection, and once started a world and a lockstep session.</summary>
@@ -159,13 +219,28 @@ public class LockstepTests
             }
         }
 
-        private void Begin(MatchInfo match)
+        private void Begin(MatchInfo match, Race? slot = null, long? from = null)
         {
             Match = match;
-            Race = match.Players.Single(p => p.ClientId == Id).Slot;
+            Race = slot ?? match.Players.Single(p => p.ClientId == Id).Slot;
             Session = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), Race,
-                match.Players.Where(p => !p.Ai).Select(p => p.Slot), match.InputDelay);
+                match.Players.Where(p => !p.Ai).Select(p => p.Slot), match.InputDelay, firstLocalTurn: from, echoed: true);
             Session.Outgoing += Connection.Send;
+        }
+
+        /// <summary>Connects under the name of a player who dropped out and takes their race back.</summary>
+        public static async Task<Player> Rejoin(RelayServer relay, string name)
+        {
+            var connection = await Connection.ConnectAsync("127.0.0.1", relay.Port, CancellationToken.None);
+            connection.Send(new Hello(name, NetJson.Protocol));
+            var welcome = (Welcome)await Next(connection, m => m is Welcome);
+            connection.Send(new ListRooms());
+            var rooms = (RoomList)await Next(connection, m => m is RoomList);
+            connection.Send(new RejoinMatch(rooms.Rooms.Single(r => r.Started).Id));
+            var resumed = (MatchResumed)await Next(connection, m => m is MatchResumed);
+            var player = new Player { Connection = connection, Id = welcome.ClientId };
+            player.Begin(resumed.Match, resumed.Slot, resumed.FromTick);
+            return player;
         }
 
         /// <summary>One frame of each client: send turns, read what arrived, step what can be stepped.</summary>
@@ -176,7 +251,10 @@ public class LockstepTests
                 player.Session.Pump();
                 while (player.Connection.Inbox.TryRead(out var message))
                     player.Session.Receive(message);
-                player.Session.TryStep();
+                // A world far behind (rejoining) catches up several ticks a frame, as the game does.
+                for (var steps = 0; steps < 40 && player.Session.TryStep(); steps++)
+                {
+                }
             }
             await Task.Delay(1);
         }
