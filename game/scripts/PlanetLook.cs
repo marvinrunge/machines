@@ -27,7 +27,8 @@ public partial class PlanetLook : Node
     /// </summary>
     private const float MinimumAmbient = 0.5f;
 
-    public static PlanetLook Create(PlanetEnvironment env, string planet, Func<float> gameTime, Func<float> viewDistance, Func<string, ClassicAssets.SkySprite?> skySprite)
+    public static PlanetLook Create(PlanetEnvironment env, string planet, Func<float> gameTime, Func<float> viewDistance,
+        Func<string, ClassicAssets.SkySprite?> skySprite, (Mesh Mesh, Texture2D Texture, float Radius)? dome = null)
     {
         var look = new PlanetLook { Name = "PlanetLook", _env = env, _planet = planet, _gameTime = gameTime, _viewDistance = viewDistance };
         look._sunSatellite = env.Satellites.FirstOrDefault(s => s.Name == "sun") ?? env.Satellites.FirstOrDefault();
@@ -41,6 +42,11 @@ public partial class PlanetLook : Node
             .ToList();
         if (bands is { Count: > 0 })
             look._skyTables = (bands[0].Table, bands[^1].Table);
+        // A static sky has one table for all of its dome.
+        if (bands is not { Count: > 0 } && env.OtherBlocks.FirstOrDefault(b => b.Kind == "static sky")?.Properties
+                .FirstOrDefault(p => p.Key == "colour table").Value?.Text is { } staticTable)
+            bands = [(0f, staticTable)];
+        look._bands = bands ?? [];
         look._uniformSky = env.OtherBlocks.FirstOrDefault(b => b.Kind == "uniform sky")?.Properties
             .FirstOrDefault(p => p.Key == "colour table").Value?.Text;
 
@@ -82,6 +88,22 @@ public partial class PlanetLook : Node
             look._sprites.Add((satellite, sprite, quad, material));
             if (satellite == look._sunSatellite)
                 look._sun.SkyMode = DirectionalLight3D.SkyModeEnum.LightOnly;
+        }
+
+        // The original's sky dome: its own texture, tinted vertex by vertex from the bands' colours.
+        if (dome is { } sky && look._bands.Count > 0)
+        {
+            look._dome = new ShaderMaterial { Shader = DomeShader.Value, RenderPriority = -10 };
+            look._dome.SetShaderParameter("sky_texture", sky.Texture);
+            look._domeView = new MeshInstance3D
+            {
+                Mesh = sky.Mesh,
+                MaterialOverride = look._dome,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                Name = "SkyDome",
+            };
+            look._domeRadius = sky.Radius;
+            look.AddChild(look._domeView);
         }
 
         if (GraphicsSettings.Remake)
@@ -137,6 +159,50 @@ public partial class PlanetLook : Node
     }
 
     private readonly List<(Satellite Satellite, DirectionalLight3D Disc)> _discs = [];
+
+    // The dynamic sky's colour tables by the dome height they apply from (EnvDynamicSky::findVertexColour).
+    private List<(float Elevation, string Table)> _bands = [];
+    private ShaderMaterial? _dome;
+    private MeshInstance3D? _domeView;
+    private float _domeRadius = 1;
+    private const int MostBands = 8;
+
+    /// <summary>
+    /// The sky dome: each vertex takes the colour of the bands for its height above the horizon, as the
+    /// original coloured them, and the texture is lit by it. It is added over a black background, so the
+    /// stars behind it show through as the sky darkens.
+    /// </summary>
+    private static readonly Lazy<Shader> DomeShader = new(() => new Shader
+    {
+        Code = $$"""
+            shader_type spatial;
+            render_mode unshaded, blend_add, depth_draw_never, cull_disabled, fog_disabled;
+            uniform sampler2D sky_texture : source_color, repeat_enable, filter_linear_mipmap;
+            uniform vec3 band_colour[{{MostBands}}];
+            uniform float band_elevation[{{MostBands}}];
+            uniform int bands = 1;
+            varying vec3 tint;
+            void vertex() {
+                float elevation = degrees(atan(VERTEX.y, length(VERTEX.xz)));
+                vec3 colour = band_colour[bands - 1];
+                if (elevation <= band_elevation[0]) {
+                    colour = band_colour[0];
+                } else {
+                    for (int i = 1; i < bands; i++) {
+                        if (elevation <= band_elevation[i]) {
+                            float f = (elevation - band_elevation[i - 1]) / max(band_elevation[i] - band_elevation[i - 1], 0.001);
+                            colour = mix(band_colour[i - 1], band_colour[i], f);
+                            break;
+                        }
+                    }
+                }
+                tint = colour;
+            }
+            void fragment() {
+                ALBEDO = texture(sky_texture, UV).rgb * tint;
+            }
+            """,
+    });
     private readonly List<(Satellite Satellite, ClassicAssets.SkySprite Sprite, MeshInstance3D Quad, StandardMaterial3D Material)> _sprites = [];
     private string _planet = "";
 
@@ -286,6 +352,24 @@ public partial class PlanetLook : Node
         }
         _sky.SkyHorizonColor = horizon;
         _sky.SkyTopColor = top;
+        if (_dome is not null)
+        {
+            // The dome brings the sky's colours; behind it the sky stays black for the stars.
+            var count = Math.Min(MostBands, _bands.Count);
+            var colours = new Vector3[MostBands];
+            var heights = new float[MostBands];
+            for (var i = 0; i < count; i++)
+            {
+                var c = Table(_bands[i].Table, elevation, horizon);
+                colours[i] = new Vector3(c.R, c.G, c.B);
+                heights[i] = _bands[i].Elevation;
+            }
+            _dome.SetShaderParameter("band_colour", colours);
+            _dome.SetShaderParameter("band_elevation", heights);
+            _dome.SetShaderParameter("bands", count);
+            _sky.SkyHorizonColor = Colors.Black;
+            _sky.SkyTopColor = Colors.Black;
+        }
 
         Night = Mathf.Clamp((4 - elevation) / 6, 0, 1);
         if (_sky.SkyCover is not null)
@@ -326,7 +410,15 @@ public partial class PlanetLook : Node
     /// </summary>
     private void PlaceSprites()
     {
-        if (_sprites.Count == 0 || GetViewport()?.GetCamera3D() is not { } camera)
+        if (GetViewport()?.GetCamera3D() is not { } camera)
+            return;
+        // The dome goes round the camera, inside its far plane.
+        if (_domeView is not null)
+        {
+            _domeView.GlobalPosition = camera.GlobalPosition;
+            _domeView.Scale = Vector3.One * (camera.Far * 0.8f / _domeRadius);
+        }
+        if (_sprites.Count == 0)
             return;
         var distance = camera.Far * 0.85f;
         foreach (var (satellite, sprite, quad, material) in _sprites)

@@ -841,7 +841,11 @@ void exportSky(W4dEntity* root, const std::string& psf, const std::string& out, 
         const std::string quoted = quote == std::string::npos ? "" : line.substr(quote + 1, line.find('"', quote + 1) - quote - 1);
         // A block starts at the left margin: a satellite or the skyline has a mesh to export, others do not.
         if (not line.empty() and not isspace((unsigned char)line[0]) and line[0] != '{' and line[0] != '}' and line[0] != '/')
-            name = line.compare(0, 10, "satellite:") == 0 ? quoted : line.compare(0, 8, "skyline:") == 0 ? "skyline" : "";
+            name = line.compare(0, 10, "satellite:") == 0 ? quoted
+                : line.compare(0, 8, "skyline:") == 0 ? "skyline"
+                // The sky dome (EnvDynamicSky, EnvStaticSky), its mesh called "sky".
+                : line.compare(0, 12, "dynamic sky:") == 0 or line.compare(0, 11, "static sky:") == 0 ? "sky"
+                : "";
         const size_t key = line.find("mesh file:");
         if (name.empty() or key == std::string::npos or quoted.empty())
             continue;

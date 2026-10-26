@@ -50,6 +50,11 @@ public partial class ProjectileViews : Node3D
                 shown = (projectile, NewView(projectile), muzzle);
                 _shown[projectile.Id] = shown;
                 _line[projectile.Id] = projectile.Position;
+                // Straight from the muzzle's height to the height of what it was fired at, whatever the ground
+                // does in between, as the original's rounds flew.
+                var from = Ground(projectile.Start).Y + muzzle.Y;
+                var to = ActorView.World(projectile.Aim).Y + Height;
+                _climb[projectile.Id] = (from, (to - from) / Mathf.Max(1, System.Numerics.Vector2.Distance(projectile.Start, projectile.Aim)));
                 AddChild(shown.View);
             }
             // Between ticks the round flies on at its speed, so it moves smoothly; the tick sets it right again.
@@ -58,12 +63,15 @@ public partial class ProjectileViews : Node3D
                 ? ahead
                 : projectile.Position;
             var travelled = System.Numerics.Vector2.Distance(_line[projectile.Id], projectile.Start);
-            Place(shown.View, _line[projectile.Id], projectile, shown.Muzzle * Mathf.Clamp(1 - travelled / Converge, 0, 1));
+            var (height, slope) = _climb[projectile.Id];
+            var sideways = shown.Muzzle with { Y = 0 };
+            Place(shown.View, _line[projectile.Id], projectile, sideways * Mathf.Clamp(1 - travelled / Converge, 0, 1), height + slope * travelled, slope);
         }
 
         foreach (var id in _shown.Keys.Where(id => !live.Contains(id)).ToList())
         {
             _line.Remove(id);
+            _climb.Remove(id);
             var (projectile, view, _) = _shown[id];
             _shown.Remove(id);
             // Struck short of its range: the weapon's splat where it hit.
@@ -77,15 +85,20 @@ public partial class ProjectileViews : Node3D
 
     private static Vector3 Ground(System.Numerics.Vector2 at) => ActorView.World(at) + Vector3.Up * Height;
 
-    private static void Place(Node3D view, System.Numerics.Vector2 at, Projectile projectile, Vector3 offset)
+    private static void Place(Node3D view, System.Numerics.Vector2 at, Projectile projectile, Vector3 offset, float height, float slope)
     {
-        var forward = Direction(projectile);
-        // The models point along their x axis; the basis keeps Godot's handedness.
-        view.GlobalTransform = new Transform3D(new Basis(forward, Vector3.Up, forward.Cross(Vector3.Up)), Ground(at) + offset);
+        // Nose along the line of flight, climbing or falling with it; the models point along their x axis and
+        // the basis keeps Godot's handedness.
+        var forward = (Direction(projectile) + Vector3.Up * slope).Normalized();
+        var side = forward.Cross(Vector3.Up).Normalized();
+        var position = ActorView.World(at) + offset;
+        view.GlobalTransform = new Transform3D(new Basis(forward, side.Cross(forward), side), position with { Y = height });
     }
 
-    // Where each round is on its line of flight, moved on smoothly between ticks.
+    // Where each round is on its line of flight, moved on smoothly between ticks, and the height it starts at
+    // and climbs (or falls) by per metre.
     private readonly Dictionary<int, System.Numerics.Vector2> _line = [];
+    private readonly Dictionary<int, (float Height, float Slope)> _climb = [];
 
     private Node3D NewView(Projectile projectile)
     {

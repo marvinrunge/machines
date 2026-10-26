@@ -149,6 +149,24 @@ public sealed class ClassicAssets
 
     public sealed record SkySprite(Texture2D Texture, float HalfSize);
 
+    /// <summary>
+    /// The planet's sky dome (<c>classic/planets/&lt;planet&gt;/sky/sky.json</c>): its mesh, its texture and its
+    /// radius, or null when the planet has none exported.
+    /// </summary>
+    public (Mesh Mesh, Texture2D Texture, float Radius)? PlanetSkyDome(string planet)
+    {
+        var path = _planetFolder is null ? null : Path.Combine(_planetFolder, planet, "sky", "sky.json");
+        if (path is null || !File.Exists(path))
+            return null;
+        using var document = JsonDocument.Parse(File.ReadAllBytes(path));
+        if (document.RootElement.GetProperty("parts").EnumerateArray().FirstOrDefault() is not { ValueKind: JsonValueKind.Object } part
+            || LoadTexture(part.GetProperty("texture").GetString() ?? "").Texture is not { } texture
+            || MeshFromParts(document.RootElement) is not { } mesh)
+            return null;
+        var radius = part.GetProperty("positions").EnumerateArray().Select(e => Mathf.Abs(e.GetSingle())).DefaultIfEmpty(1).Max();
+        return (mesh, texture, radius);
+    }
+
     /// <summary>The terrain heights the original engine reported for the planet (<c>heights.bin</c>), if exported.</summary>
     public byte[]? PlanetHeights(string planet)
     {

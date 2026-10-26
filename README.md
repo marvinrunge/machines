@@ -81,8 +81,10 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   which slides open; the AI sends hurt machines into garrisons. Buildings turn with Space while placing.
   Plasma and pulse bolts, missiles and stings fly as the original's own models and do their damage where
   they strike, so slow ones can be dodged; in first person the trigger fires where the crosshair points.
-  Rounds leave from the weapons' own muzzles. First person has the original crosshair and weapon panels
-  (Tab picks the weapons). Buildings under construction stand as a pulsing green hologram while the
+  Rounds leave from the weapons' own muzzles and fly straight at what they aim at. First person has the
+  original crosshair with the target's health and armour bars and the compass, and the weapon panels
+  (Tab picks the weapons). Each planet's own sky dome hangs over it, tinted by the time of day, with the
+  stars showing through at night. Clicks make the original's sounds, and a refused order its bad click. Buildings under construction stand as a pulsing green hologram while the
   constructors' arms work and their jets throw beams and sparks. Factory and lab queues take any number
   of entries, and a click cancels one.
   Painted night skies can be added in `game/assets/sky` (see its README for the prompts).

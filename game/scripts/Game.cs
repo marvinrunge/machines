@@ -206,7 +206,7 @@ public partial class Game : Node3D
         var clock = float.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_CLOCK"), System.Globalization.CultureInfo.InvariantCulture, out var c) ? c : 0;
         var planet = MatchRequest.Current.Planet;
         AddChild(PlanetLook.Create(World.Planet.Environment, planet, () => World.Time + clock, () => _driven is not null ? 0 : _rig?.Distance ?? 160,
-            satellite => _assets.PlanetSky(planet, satellite)));
+            satellite => _assets.PlanetSky(planet, satellite), _assets.PlanetSkyDome(planet)));
     }
 
     // ---- simulation loop ------------------------------------------------------------------------
@@ -337,10 +337,11 @@ public partial class Game : Node3D
             World.StartBlast(weapon, new NVector2(float.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture),
                 float.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture)), null);
         }
-        if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_SPAWN") is { Length: > 0 } spawn)
+        // e.g. "AGGRESSOR,ASSASSIN,2,L_PLASMA_RIFLE": puts one of those down at the camera, to drive.
+        // "Blue:AGGRESSOR,GRUNT,2,L_BOLTER" puts down an enemy instead, 25 m east (straight ahead), to watch a fight;
+        // several go apart with ';'.
+        foreach (var spawn in _runTime == 0 ? System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_SPAWN")?.Split(';') ?? [] : [])
         {
-            // e.g. "AGGRESSOR,ASSASSIN,2,L_PLASMA_RIFLE": puts one of those down at the camera, to drive.
-            // "Blue:AGGRESSOR,GRUNT,2,L_BOLTER" puts down an enemy instead, a little off, to watch a fight.
             var race = spawn.Split(':') is [var name, _] && Enum.TryParse<Race>(name, out var other) ? other : Player;
             var parts = spawn[(spawn.IndexOf(':') + 1)..].Split(',');
             var at = new NVector2(_rig.Position.X, _rig.Position.Z) + (race == Player ? NVector2.Zero : new NVector2(25, 0));
@@ -376,6 +377,10 @@ public partial class Game : Node3D
             {
                 Select(_selection.Take(1).ToList());
                 EnterFirstPerson();
+                // MACHINES_SCREENSHOT_LOOK=-20 tilts the view that many degrees (down when negative).
+                if (float.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_LOOK"),
+                    System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var look))
+                    _lookPitch = Mathf.DegToRad(look);
             }
         }
         _runTime += delta;
@@ -981,6 +986,12 @@ public partial class Game : Node3D
 
         if (ground is not { } point)
             return;
+        // Ground no one can stand on (the no-entry cursor) refuses the order with the original's bad click.
+        if (!World.Nav.IsFree(point, machines.Any(GameWorld.CrossesWater)))
+        {
+            _audio.PlayGui("gui/sounds/clickbad.wav");
+            return;
+        }
         var locators = Ids(m => m.Spec.Type == "GEO_LOCATOR");
         if (locators.Count > 0)
             Issue(new LocateCommand(Player, locators, point));
@@ -1051,6 +1062,14 @@ public partial class Game : Node3D
         if (_placing is not { } p || GroundAt(GetViewport().GetMousePosition()) is not { } ground)
             return;
         var constructors = SelectedMachines().Where(m => m.Spec.Type == "CONSTRUCTOR").Select(m => m.Id).ToList();
+        // A site that can't stand there gets the original's refusal click (MachGuiConstructCommand).
+        if (World.WhyCannotPlace(Player, p.Type, p.SubType, p.Level, Snap(p.Type, ground), _placingOrientation) is { } why)
+        {
+            _audio.PlayGui("gui/sounds/clickbad.wav");
+            _hud.Message(why);
+            return;
+        }
+        _audio.PlayGui("gui/sounds/waypoint.wav");
         Issue(new PlaceConstructionCommand(Player, constructors, p.Type, p.SubType, p.Level, Snap(p.Type, ground), _placingOrientation));
         if (!Input.IsKeyPressed(Key.Shift))
             CancelPlacement();
@@ -1168,8 +1187,13 @@ public partial class Game : Node3D
         // The crosshair shows what it rests on: an enemy to shoot or a friend to spare (ore and wrecks don't count).
         var under = ActorAt(GetViewport().GetVisibleRect().Size / 2);
         var reach = machine.Weapons.Select(w => w.Spec.Range).DefaultIfEmpty(0).Max();
-        _hud.Crosshair.Aim = under is null || under.Id == machine.Id || machine.DistanceTo(under) > reach ? Crosshair.Sight.None
-            : World.AreEnemies(Player, under.Race) ? Crosshair.Sight.Enemy
+        var aimed = under is null || under.Id == machine.Id || machine.DistanceTo(under) > reach ? null : under;
+        _hud.Crosshair.Target = aimed is null ? null
+            : (aimed.HitPoints / (float)Math.Max(1, aimed.MaxHitPoints), aimed.Armour / (float)Math.Max(1, aimed.MaxArmour));
+        // The compass reads the heading as the original's azimuth: degrees anticlockwise from its x axis.
+        _hud.Crosshair.Heading = Mathf.RadToDeg(machine.Facing);
+        _hud.Crosshair.Aim = aimed is null ? Crosshair.Sight.None
+            : World.AreEnemies(Player, aimed.Race) ? Crosshair.Sight.Enemy
             : Crosshair.Sight.Friend;
     }
 }

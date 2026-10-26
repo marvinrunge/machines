@@ -470,10 +470,17 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                 break;
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click:
                 var widget = _widgets.LastOrDefault(w => w.Rect.HasPoint(click.Position));
+                // The control panel clicks as the original's did (igclick.wav on its buttons, icons and map).
                 if (widget?.Click is { } act)
+                {
+                    game.Audio.PlayGui("gui/sounds/igclick.wav");
                     act();
+                }
                 else if (InMap(click.Position) is { } ground)
+                {
+                    game.Audio.PlayGui("gui/sounds/igclick.wav");
                     game.LookAt(ground);
+                }
                 AcceptEvent();
                 break;
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Right } right:

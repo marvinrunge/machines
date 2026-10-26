@@ -8,7 +8,7 @@ namespace Machines.Sim.World;
 /// A round in flight (MachLogLinearProjectile): it flies straight at its weapon's SPEED from where it was fired
 /// and strikes the first enemy in its way, or is spent once it has flown its weapon's RANGE.
 /// </summary>
-public sealed class Projectile(int id, WeaponSpec weapon, int shooter, Race race, Vector2 start, Vector2 direction, Mounting mounting = Mounting.Top, int barrel = 0)
+public sealed class Projectile(int id, WeaponSpec weapon, int shooter, Race race, Vector2 start, Vector2 direction, Mounting mounting = Mounting.Top, int barrel = 0, Vector2? aim = null)
 {
     public int Id { get; } = id;
     public WeaponSpec Weapon { get; } = weapon;
@@ -19,6 +19,9 @@ public sealed class Projectile(int id, WeaponSpec weapon, int shooter, Race race
     public int Barrel { get; } = barrel;
     public Race Race { get; } = race;
     public Vector2 Start { get; } = start;
+
+    /// <summary>The point it was fired at (a view flies it there in a straight line, height and all).</summary>
+    public Vector2 Aim { get; } = aim ?? start + direction;
 
     /// <summary>Which way it flies (a unit vector).</summary>
     public Vector2 Direction { get; } = direction;
@@ -53,7 +56,7 @@ public sealed partial class GameWorld
             ? Vector2.Normalize(offset)
             : shooter is Machine machine ? new Vector2(DetMath.Cos(machine.Facing), DetMath.Sin(machine.Facing)) : Vector2.UnitX;
         _projectiles.Add(new Projectile(_nextProjectile++, weapon.Spec, shooter.Id, shooter.Race, shooter.Position, direction,
-            weapon.Mounting, weapon.Shots++));
+            weapon.Mounting, weapon.Shots++, towards));
     }
 
     /// <summary>
