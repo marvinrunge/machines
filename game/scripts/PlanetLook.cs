@@ -27,9 +27,9 @@ public partial class PlanetLook : Node
     /// </summary>
     private const float MinimumAmbient = 0.5f;
 
-    public static PlanetLook Create(PlanetEnvironment env, Func<float> gameTime, Func<float> viewDistance)
+    public static PlanetLook Create(PlanetEnvironment env, string planet, Func<float> gameTime, Func<float> viewDistance, Func<string, ClassicAssets.SkySprite?> skySprite)
     {
-        var look = new PlanetLook { Name = "PlanetLook", _env = env, _gameTime = gameTime, _viewDistance = viewDistance };
+        var look = new PlanetLook { Name = "PlanetLook", _env = env, _planet = planet, _gameTime = gameTime, _viewDistance = viewDistance };
         look._sunSatellite = env.Satellites.FirstOrDefault(s => s.Name == "sun") ?? env.Satellites.FirstOrDefault();
         look._sunOrbit = look._sunSatellite is { } sat && env.Orbits.TryGetValue(sat.Orbit, out var orbit) ? orbit : null;
 
@@ -56,6 +56,34 @@ public partial class PlanetLook : Node
             FogDepthCurve = 1.5f,
             FogSkyAffect = 0.6f,
         };
+        // The satellites' own pictures (the sun, moons and planets), as the original drew them in its sky.
+        foreach (var satellite in env.Satellites.Where(s => env.Orbits.ContainsKey(s.Orbit)))
+        {
+            if (skySprite(satellite.Name) is not { } sprite)
+                continue;
+            var material = new StandardMaterial3D
+            {
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                AlbedoTexture = sprite.Texture,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
+                BillboardKeepScale = true,
+                DisableFog = true,
+                DisableReceiveShadows = true,
+            };
+            var quad = new MeshInstance3D
+            {
+                Mesh = new QuadMesh { Size = Vector2.One },
+                MaterialOverride = material,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                Name = satellite.Name,
+            };
+            look.AddChild(quad);
+            look._sprites.Add((satellite, sprite, quad, material));
+            if (satellite == look._sunSatellite)
+                look._sun.SkyMode = DirectionalLight3D.SkyModeEnum.LightOnly;
+        }
+
         if (GraphicsSettings.Remake)
             look.Enhance();
         look.AddChild(look._sun);
@@ -96,10 +124,11 @@ public partial class PlanetLook : Node
         _environment.SsrEnabled = true;
         _environment.SsrMaxSteps = 48;
 
-        // Stars come out at night, and the other satellites (the moon) show as discs.
-        _sky.SkyCover = Stars.Value;
+        // Stars come out at night (a painted night sky when there is one for the planet), and the other
+        // satellites without a picture of their own show as discs.
+        _sky.SkyCover = NightSky(_planet) ?? Stars.Value;
         _sky.SkyCoverModulate = new Color(1, 1, 1, 0);
-        foreach (var satellite in _env.Satellites.Where(s => s != _sunSatellite && _env.Orbits.ContainsKey(s.Orbit)))
+        foreach (var satellite in _env.Satellites.Where(s => s != _sunSatellite && _env.Orbits.ContainsKey(s.Orbit) && _sprites.All(p => p.Satellite != s)))
         {
             var disc = new DirectionalLight3D { SkyMode = DirectionalLight3D.SkyModeEnum.SkyOnly, LightAngularDistance = 1.6f, Name = satellite.Name };
             AddChild(disc);
@@ -108,6 +137,51 @@ public partial class PlanetLook : Node
     }
 
     private readonly List<(Satellite Satellite, DirectionalLight3D Disc)> _discs = [];
+    private readonly List<(Satellite Satellite, ClassicAssets.SkySprite Sprite, MeshInstance3D Quad, StandardMaterial3D Material)> _sprites = [];
+    private string _planet = "";
+
+    /// <summary>
+    /// Which painted night sky a planet takes (<c>game/assets/sky/&lt;theme&gt;.png</c>, or one named after the
+    /// planet itself): planets that share a landscape share a sky.
+    /// </summary>
+    private static readonly Dictionary<string, string> SkyThemes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["m_desert"] = "desert", ["desspy"] = "desert", ["daynight"] = "desert", ["desert"] = "desert",
+        ["m_green"] = "green", ["mgreendn"] = "green", ["m_dales"] = "green", ["mdalesdn"] = "green", ["finger"] = "green",
+        ["hilly"] = "green", ["talonth8"] = "green",
+        ["ice"] = "ice", ["icedn"] = "ice", ["micey"] = "ice", ["miceydn"] = "ice", ["resfac"] = "ice",
+        ["m_moon"] = "lunar", ["mmoony"] = "lunar", ["1o1"] = "lunar", ["1o2"] = "lunar", ["1o3"] = "lunar", ["CommSat"] = "lunar",
+        ["dogbar"] = "lunar", ["multidog"] = "lunar", ["seekndes"] = "lunar", ["tut"] = "lunar",
+        ["gracko"] = "volcanic", ["mgrack"] = "volcanic",
+        ["fortmult"] = "fortress", ["fortmdn"] = "fortress", ["fortsdn"] = "fortress", ["fortseig"] = "fortress", ["seige"] = "fortress",
+        ["5o1"] = "fortress",
+        ["home"] = "industrial", ["joust"] = "industrial", ["midian"] = "industrial", ["control"] = "industrial",
+        ["m_contrl"] = "industrial", ["kidnap"] = "industrial", ["sat"] = "industrial", ["roller"] = "industrial",
+        ["space"] = "space", ["suicide"] = "space", ["guns"] = "space", ["deepspac"] = "space", ["2o1"] = "space",
+    };
+
+    /// <summary>A painted night sky (equirectangular) for the planet, its theme or every planet, if one is there.</summary>
+    private static Texture2D? NightSky(string planet)
+    {
+        var names = new[] { planet, SkyThemes.GetValueOrDefault(planet, ""), "stars" }.Where(n => n.Length > 0);
+        foreach (var name in names)
+            foreach (var extension in new[] { "png", "jpg", "webp" })
+                if (ResourceLoader.Exists($"res://assets/sky/{name}.{extension}"))
+                    return GD.Load<Texture2D>($"res://assets/sky/{name}.{extension}");
+        return null;
+    }
+
+    /// <summary>
+    /// Where a satellite stands at a game time (EnvOrbit): its height swings between the orbit's minimum and
+    /// maximum elevation and back over a period, while it goes once round the sky from its set heading.
+    /// </summary>
+    public static Vector3 Direction(Orbit orbit, float time)
+    {
+        var elevation = Mathf.DegToRad(Elevation(orbit, time));
+        var heading = Mathf.DegToRad((orbit.SetHeading ?? 0) + 360 * (orbit.StartTime + time) / orbit.Period);
+        // The original's x and y are the ground plane (Godot's x and z), z up.
+        return new Vector3(Mathf.Cos(elevation) * Mathf.Cos(heading), Mathf.Sin(elevation), Mathf.Cos(elevation) * Mathf.Sin(heading));
+    }
 
     /// <summary>How dark it is, from 0 by day to 1 at night, by the sun's height; lamps follow it.</summary>
     public static float Night { get; private set; }
@@ -137,8 +211,10 @@ public partial class PlanetLook : Node
     /// <summary>The sun's elevation in degrees at a game time (EnvOrbit's rise-and-set plan).</summary>
     public static float Elevation(Orbit orbit, float time)
     {
-        var t = (orbit.StartTime + time) % orbit.Period;
-        var half = orbit.Period / 2;
+        // A negative period runs the orbit the other way round; the height swings the same.
+        var period = Mathf.Abs(orbit.Period);
+        var t = (orbit.StartTime + time) % period;
+        var half = period / 2;
         var phase = t < half ? t / half : 2 - t / half;
         return orbit.MinElevation + (orbit.MaxElevation - orbit.MinElevation) * phase;
     }
@@ -170,10 +246,14 @@ public partial class PlanetLook : Node
     private void Update()
     {
         var elevation = _sunOrbit is { } orbit ? Elevation(orbit, _gameTime()) : 60;
-        var heading = _sunOrbit?.SetHeading ?? 0;
 
-        // The light shines from the sun's position towards the ground.
-        _sun.RotationDegrees = new Vector3(-Mathf.Clamp(elevation, 1, 89), 180 - heading, 0);
+        // The light shines from the sun's position towards the ground; it never comes from below the horizon.
+        var towardsSun = _sunOrbit is { } sunOrbit ? Direction(sunOrbit, _gameTime()) : new Vector3(0, 1, 0.6f).Normalized();
+        var level = new Vector3(towardsSun.X, 0, towardsSun.Z).Normalized();
+        if (level == Vector3.Zero)
+            level = Vector3.Back;
+        var lit = Mathf.DegToRad(Mathf.Clamp(elevation, 1, 89));
+        _sun.Basis = Basis.LookingAt(-(level * Mathf.Cos(lit) + Vector3.Up * Mathf.Sin(lit)), Vector3.Up);
         var direct = Table(_sunSatellite?.DirectionalColourTable, elevation, Colors.White);
         _sun.LightColor = direct;
         _sun.LightEnergy = elevation > 0 ? 1.1f : 0.15f;
@@ -208,19 +288,22 @@ public partial class PlanetLook : Node
         _sky.SkyTopColor = top;
 
         Night = Mathf.Clamp((4 - elevation) / 6, 0, 1);
-        if (_discs.Count > 0)
+        if (_sky.SkyCover is not null)
         {
-            _sky.SkyCoverModulate = new Color(1, 1, 1, Night);
-            foreach (var (satellite, disc) in _discs)
-            {
-                var discOrbit = _env.Orbits[satellite.Orbit];
-                var height = Elevation(discOrbit, _gameTime());
-                var colour = Table(satellite.MeshColourTable, height, Colors.White);
-                disc.RotationDegrees = new Vector3(-Mathf.Clamp(height, 1, 89), 180 - (discOrbit.SetHeading ?? 0), 0);
-                disc.LightColor = new Color(colour.R, colour.G, colour.B);
-                disc.LightEnergy = height > 0 ? colour.A * 1.5f : 0;
-            }
+            // Stars by night, and all day where the sky stays dark (moons and space have hardly any air).
+            var airless = Mathf.Clamp((0.18f - top.Luminance) / 0.12f, 0, 1);
+            _sky.SkyCoverModulate = new Color(1, 1, 1, Mathf.Max(Night, airless));
         }
+        foreach (var (satellite, disc) in _discs)
+        {
+            var discOrbit = _env.Orbits[satellite.Orbit];
+            var height = Elevation(discOrbit, _gameTime());
+            var colour = Table(satellite.MeshColourTable, height, Colors.White);
+            disc.Basis = Basis.LookingAt(-Direction(discOrbit, _gameTime()), Vector3.Up);
+            disc.LightColor = new Color(colour.R, colour.G, colour.B);
+            disc.LightEnergy = height > 0 ? colour.A * 1.5f : 0;
+        }
+        PlaceSprites();
         _sky.GroundHorizonColor = fogColour;
         _sky.GroundBottomColor = fogColour.Darkened(0.3f);
 
@@ -234,7 +317,32 @@ public partial class PlanetLook : Node
             _environment.FogDepthEnd = view + f.MaxVisibility * 1.5f;
             _environment.FogDensity = Mathf.Clamp(fogColour.A, 0.5f, 1f);
         }
+        UpdateShadowReach();
+    }
 
+    /// <summary>
+    /// The satellites' pictures stand far out in their direction from the camera, sized as the original's square
+    /// at its orbit radius, in the colour (and fade) its mesh colour table gives for its height.
+    /// </summary>
+    private void PlaceSprites()
+    {
+        if (_sprites.Count == 0 || GetViewport()?.GetCamera3D() is not { } camera)
+            return;
+        var distance = camera.Far * 0.85f;
+        foreach (var (satellite, sprite, quad, material) in _sprites)
+        {
+            var orbit = _env.Orbits[satellite.Orbit];
+            var height = Elevation(orbit, _gameTime());
+            var colour = Table(satellite.MeshColourTable, height, Colors.White);
+            quad.Visible = height > -10 && colour.A > 0.01f;
+            quad.GlobalPosition = camera.GlobalPosition + Direction(orbit, _gameTime()) * distance;
+            quad.Scale = Vector3.One * (2 * sprite.HalfSize / Mathf.Max(1, orbit.Radius) * distance);
+            // The table colours the picture as the original's material plan did; black would hide it.
+            material.AlbedoColor = colour.R + colour.G + colour.B < 0.05f ? new Color(1, 1, 1, colour.A) : colour;        }
+    }
+
+    private void UpdateShadowReach()
+    {
         // Shadows reach a little beyond what the camera looks at, so they stay sharp up close.
         if (_softShadows)
             _sun.DirectionalShadowMaxDistance = Mathf.Clamp(_viewDistance() * 3f, 120, 700);

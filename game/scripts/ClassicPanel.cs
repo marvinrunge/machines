@@ -163,11 +163,11 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         var ids = machines.Select(m => m.Id).ToList();
         if (machines.Count > 0)
         {
-            bars.Add(new Bar("Move", "Move: click where to", () => game.BeginTargeting("Click where to move; right click cancels",
+            bars.Add(new Bar("Move", "Move: click where to", () => game.BeginTargeting("Click where to move; right click cancels", "move",
                 (point, _) => game.Issue(new MoveCommand(Game.Player, ids, point)))));
             bars.Add(new Bar("Stop", "Stop", () => game.Issue(new StopCommand(Game.Player, ids))));
             if (machines.Any(m => m.CanFight))
-                bars.Add(new Bar("Attack", "Attack: click the target", () => game.BeginTargeting("Click what to attack; right click cancels",
+                bars.Add(new Bar("Attack", "Attack: click the target", () => game.BeginTargeting("Click what to attack; right click cancels", "attack",
                     (_, target) =>
                     {
                         if (target is not null && world.AreEnemies(Game.Player, target.Race))
@@ -177,24 +177,24 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             if (constructors.Count > 0)
             {
                 bars.Add(new Bar("Construct", "Construct: pick a building below", () => _buildMenu = !_buildMenu));
-                bars.Add(new Bar("Repair", "Repair: click a building", () => game.BeginTargeting("Click the building to repair; right click cancels",
+                bars.Add(new Bar("Repair", "Repair: click a building", () => game.BeginTargeting("Click the building to repair; right click cancels", "repair",
                     (_, target) => game.Issue(new RepairCommand(Game.Player, constructors, target?.Id ?? 0)))));
-                bars.Add(new Bar("Capture", "Capture: click an enemy building", () => game.BeginTargeting("Click the building to capture; right click cancels",
+                bars.Add(new Bar("Capture", "Capture: click an enemy building", () => game.BeginTargeting("Click the building to capture; right click cancels", "capture",
                     (_, target) => game.Issue(new CaptureCommand(Game.Player, constructors, target?.Id ?? 0)))));
-                bars.Add(new Bar("Deconstruct", "Deconstruct: click a building", () => game.BeginTargeting("Click the building to take apart; right click cancels",
+                bars.Add(new Bar("Deconstruct", "Deconstruct: click a building", () => game.BeginTargeting("Click the building to take apart; right click cancels", "deconst",
                     (_, target) => game.Issue(new DeconstructCommand(Game.Player, constructors, target?.Id ?? 0)))));
             }
             var locators = machines.Where(m => m.Spec.Type == "GEO_LOCATOR").Select(m => m.Id).ToList();
             if (locators.Count > 0)
-                bars.Add(new Bar("Locate", "Locate: click where to search", () => game.BeginTargeting("Click where to search for minerals; right click cancels",
+                bars.Add(new Bar("Locate", "Locate: click where to search", () => game.BeginTargeting("Click where to search for minerals; right click cancels", "locat",
                     (point, _) => game.Issue(new LocateCommand(Game.Player, locators, point)))));
             var healers = machines.Where(m => m.CanHeal).Select(m => m.Id).ToList();
             if (healers.Count > 0)
-                bars.Add(new Bar("Heal", "Heal: click a machine", () => game.BeginTargeting("Click the machine to heal; right click cancels",
+                bars.Add(new Bar("Heal", "Heal: click a machine", () => game.BeginTargeting("Click the machine to heal; right click cancels", "heal",
                     (_, target) => game.Issue(new HealCommand(Game.Player, healers, target?.Id ?? 0)))));
             var apcs = machines.Where(m => m.IsType("APC") && m.Passengers.Count > 0).Select(m => m.Id).ToList();
             if (apcs.Count > 0)
-                bars.Add(new Bar("Deploy", "Deploy: click where to let them out", () => game.BeginTargeting("Click where to let them out; right click cancels",
+                bars.Add(new Bar("Deploy", "Deploy: click where to let them out", () => game.BeginTargeting("Click where to let them out; right click cancels", "deploy",
                     (point, _) => game.Issue(new DeployCommand(Game.Player, apcs, point)))));
             bars.Add(new Bar("Recycle", "Recycle at the nearest smelter: half the price back", () => game.Issue(new RecycleCommand(Game.Player, ids))));
         }
@@ -208,6 +208,10 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                 () => { if (ready) game.BeginStrike(building.Id); },
                 strike.ChargePercent / 100f));
         }
+        // Factories send their new machines to an assembly point (B, as in the original).
+        var factories = selected.OfType<Construction>().Where(c => c.Race == Game.Player && c.Complete && c.IsType("FACTORY")).Select(c => c.Id).ToList();
+        if (factories.Count > 0)
+            bars.Add(new Bar("Assembly point", "Assembly point (B): click where new machines gather", game.BeginAssemblyPoint));
         if (selected.Count > 0)
         {
             var all = selected.Select(a => a.Id).ToList();
@@ -252,10 +256,9 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                         $"Build {KeyName(key)}: {ResearchTree.FactoryPrice(world.Data.ResearchTree.Get(key), world.Data.Parm)} BMU",
                         () => game.Issue(new BuildMachineCommand(Game.Player, building.Id, key))));
                 if (building.ProductionQueue.Count > 0)
-                {
-                    AddQueue(building, y);
-                    y += ButtonWidth + 4;
-                }
+                    y = AddQueue(building, building.ProductionQueue, y,
+                        key => building.ProductionSpent / Math.Max(1, ResearchTree.FactoryPrice(world.Data.ResearchTree.Get(key), world.Data.Parm)),
+                        "Building", index => game.Issue(new CancelProductionCommand(Game.Player, building.Id, index)));
             }
             else if (building.IsType("HARDWARE_LAB"))
             {
@@ -264,14 +267,11 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                         $"Research {KeyName(item.Key)}: {world.ResearchCost(Game.Player, item)} RU, {item.BuildingCost} BMU",
                         () => game.Issue(new ResearchCommand(Game.Player, building.Id, item.Key))));
                 if (building.ResearchQueue.Count > 0)
-                {
-                    var key = building.ResearchQueue[0];
-                    state.ResearchProgress.TryGetValue(key, out var progress);
-                    var share = progress / Math.Max(1, world.ResearchCost(Game.Player, world.Data.ResearchTree.Get(key)));
-                    _widgets.Add(new Widget(R(14, y, ButtonWidth, ButtonWidth), rect => DrawIcon(rect, MachineBitmap(key, Game.Player), Short(key), share),
-                        null, $"Researching {KeyName(key)}: {share * 100:F0}%"));
-                    y += ButtonWidth + 4;
-                }
+                    y = AddQueue(building, building.ResearchQueue, y, key =>
+                    {
+                        state.ResearchProgress.TryGetValue(key, out var progress);
+                        return progress / Math.Max(1, world.ResearchCost(Game.Player, world.Data.ResearchTree.Get(key)));
+                    }, "Researching", index => game.Issue(new CancelResearchCommand(Game.Player, building.Id, index)));
             }
         }
         var columns = 3;
@@ -284,18 +284,24 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         }
     }
 
-    /// <summary>A factory's queue, the first being built with its progress.</summary>
-    private void AddQueue(Construction factory, int y)
+    /// <summary>
+    /// A factory's or lab's whole queue (MachGuiProductionBank), three to a row: the first in work with its
+    /// progress, and any of them cancelled with a click. Returns where the rows end.
+    /// </summary>
+    private int AddQueue(Construction building, List<ResearchKey> queue, int y, Func<ResearchKey, float> progress, string doing, Action<int> cancel)
     {
-        var world = game.World;
-        for (var i = 0; i < Math.Min(3, factory.ProductionQueue.Count); i++)
+        const int columns = 3;
+        for (var i = 0; i < queue.Count; i++)
         {
-            var key = factory.ProductionQueue[i];
-            var price = ResearchTree.FactoryPrice(world.Data.ResearchTree.Get(key), world.Data.Parm);
-            float? share = i == 0 ? factory.ProductionSpent / Math.Max(1, price) : null;
-            _widgets.Add(new Widget(R(14 + i * ButtonWidth, y, ButtonWidth, ButtonWidth), rect => DrawIcon(rect, MachineBitmap(key, Game.Player), Short(key), share),
-                null, i == 0 ? $"Building {KeyName(key)}: {share * 100:F0}%" : $"Queued: {KeyName(key)}"));
+            var key = queue[i];
+            var index = i;
+            float? share = i == 0 ? progress(key) : null;
+            _widgets.Add(new Widget(R(14 + i % columns * ButtonWidth, y + i / columns * ButtonWidth, ButtonWidth, ButtonWidth),
+                rect => DrawIcon(rect, MachineBitmap(key, Game.Player), Short(key), share),
+                () => cancel(index),
+                (i == 0 ? $"{doing} {KeyName(key)}: {share * 100:F0}%" : $"Queued: {KeyName(key)}") + " (click to cancel)"));
         }
+        return y + (queue.Count + columns - 1) / columns * ButtonWidth + 4;
     }
 
     // ---- drawing --------------------------------------------------------------------------------

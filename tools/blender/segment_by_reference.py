@@ -130,9 +130,19 @@ def cut_at_joints(bm, layer, world, joints, prefix="orig"):
     sits when the original's pivot is elsewhere), across the way it reaches (or the world `normal` given), and
     the faces are sorted by side. "split" sorts its parent's and its subtree's faces (a limb joint); "trim" only
     its subtree's faces, for a part that sits beside others of its parent (a shoulder pad on the torso).
+    Faces of a whole shell (`shell` layer, see `whole_shells`) are not cut: the shell goes to the side its middle
+    is on.
     """
     parent, pivot, verts, children = reference_rig(prefix)
     inverse = world.inverted()
+    shell = bm.faces.layers.int.get("shell")
+    middles = {}
+    if shell is not None:
+        for f in bm.faces:
+            if f[shell] >= 0:
+                total, count = middles.get(f[shell], (Vector(), 0))
+                middles[f[shell]] = (total + f.calc_center_median(), count + 1)
+        middles = {k: total / count for k, (total, count) in middles.items()}
     for node, mode, *given in joints:
         inside = set(subtree(node, children))
         region = [f for f in bm.faces if f[layer] in inside or (mode == "split" and f[layer] == parent[node])]
@@ -142,20 +152,111 @@ def cut_at_joints(bm, layer, world, joints, prefix="orig"):
         # The plane in the mesh's own space.
         co = inverse @ (Vector(given[1]) if len(given) > 1 else pivot[node])
         no = (inverse.to_3x3().inverted().transposed() @ normal).normalized()
-        edges = {e for f in region for e in f.edges}
-        vs = {v for f in region for v in f.verts}
-        bmesh.ops.bisect_plane(bm, geom=list(region) + list(edges) + list(vs), plane_co=co, plane_no=no)
+        cuttable = [f for f in region if shell is None or f[shell] < 0]
+        edges = {e for f in cuttable for e in f.edges}
+        vs = {v for f in cuttable for v in f.verts}
+        if cuttable:
+            bmesh.ops.bisect_plane(bm, geom=list(cuttable) + list(edges) + list(vs), plane_co=co, plane_no=no)
         for f in bm.faces:
             if f[layer] in inside or (mode == "split" and f[layer] == parent[node]):
-                if (f.calc_center_median() - co).dot(no) > 0:
+                at = middles[f[shell]] if shell is not None and f[shell] >= 0 else f.calc_center_median()
+                if (at - co).dot(no) > 0:
                     if f[layer] not in inside:
                         f[layer] = node
                 else:
                     f[layer] = parent[node]
 
 
-def segment(obj, skip=(), joints=(), merge=None, prefix="orig", rounds=4):
-    """The whole pre-segmentation; `merge` folds parts into others (node: into)."""
+def shells_of(bm):
+    """Each face's shell: the connected piece of the mesh it belongs to."""
+    shell = [-1] * len(bm.faces)
+    count = 0
+    for f in bm.faces:
+        if shell[f.index] >= 0:
+            continue
+        stack = [f]
+        shell[f.index] = count
+        while stack:
+            for e in stack.pop().edges:
+                for g in e.link_faces:
+                    if shell[g.index] < 0:
+                        shell[g.index] = count
+                        stack.append(g)
+        count += 1
+    return shell
+
+
+def whole_shells(labels, shell, purity):
+    """
+    Models made of separate pieces (armour plates, claws): a shell whose faces mostly go to one part (at least
+    `purity`) goes to it whole and is never cut. Returns the labels and, per face, its shell or -1 for the faces
+    of mixed shells, which stay to be cut at the joints.
+    """
+    votes = {}
+    for label, s in zip(labels, shell):
+        votes.setdefault(s, Counter())[label] += 1
+    whole = {s: v.most_common(1)[0][0] for s, v in votes.items() if v.most_common(1)[0][1] >= purity * sum(v.values())}
+    return [whole.get(s, label) for label, s in zip(labels, shell)], [s if s in whole else -1 for s in shell]
+
+
+def touching(bm, layer, world, gap, rounds=5):
+    """
+    A piece must hang on its part: a piece (a shell, or one side of a cut shell) belongs where a chain of pieces
+    of its part, each within `gap` (world metres) of the next, leads to the part's biggest piece. Pieces with no
+    such chain go to the part they touch most (claws sorted to the torso that sit on a foot).
+    """
+    from mathutils.kdtree import KDTree
+    shell = shells_of(bm)
+    tree = KDTree(len(bm.verts))
+    for v in bm.verts:
+        tree.insert(world @ v.co, v.index)
+    tree.balance()
+    shell_of_vert = {}
+    for f in bm.faces:
+        for v in f.verts:
+            shell_of_vert.setdefault(v.index, set()).add(shell[f.index])
+    # Which shells touch which: fixed, since moving labels does not move geometry.
+    near = {}
+    for v in bm.verts:
+        mine = shell_of_vert.get(v.index, set())
+        for _, index, _ in tree.find_range(world @ v.co, gap):
+            for s in mine:
+                near.setdefault(s, set()).update(shell_of_vert.get(index, set()) - {s})
+    for _ in range(rounds):
+        pieces = {}
+        for f in bm.faces:
+            pieces.setdefault((shell[f.index], f[layer]), []).append(f)
+        # Pieces touch when their shells touch, or when they are the two sides of one cut shell.
+        def contacts(piece):
+            s, _ = piece
+            return [p for p in pieces if p != piece and (p[0] in near.get(s, ()) or p[0] == s)]
+        anchored = set()
+        for label in {label for _, label in pieces}:
+            start = max((p for p in pieces if p[1] == label), key=lambda p: len(pieces[p]))
+            stack = [start]
+            anchored.add(start)
+            while stack:
+                for p in contacts(stack.pop()):
+                    if p[1] == label and p not in anchored:
+                        anchored.add(p)
+                        stack.append(p)
+        changed = False
+        for piece in [p for p in pieces if p not in anchored]:
+            others = Counter(p[1] for p in contacts(piece) if p[1] != piece[1])
+            if others:
+                for f in pieces[piece]:
+                    f[layer] = others.most_common(1)[0][0]
+                changed = True
+        if not changed:
+            return
+
+
+def segment(obj, skip=(), joints=(), merge=None, prefix="orig", rounds=4, shells=None, gap=0.3):
+    """
+    The whole pre-segmentation; `merge` folds parts into others (node: into). With `shells` (a purity such as
+    0.85), a model made of separate pieces keeps its pieces whole (see `whole_shells`), and each piece ends up
+    on a part it touches (`gap`, see `touching`).
+    """
     merge = merge or {}
     trees = reference_trees(prefix, skip)
     world = obj.matrix_world
@@ -166,9 +267,16 @@ def segment(obj, skip=(), joints=(), merge=None, prefix="orig", rounds=4):
     labels = [merge.get(n, n) for n in labels]
     adjacent = neighbours(bm)
     labels = one_piece(smooth(labels, adjacent, rounds), adjacent)
+    if shells is not None:
+        labels, whole = whole_shells(labels, shells_of(bm), shells)
+        shell = bm.faces.layers.int.get("shell") or bm.faces.layers.int.new("shell")
+        for f, s in zip(bm.faces, whole):
+            f[shell] = s
     for f, n in zip(bm.faces, labels):
         f[layer] = n
     cut_at_joints(bm, layer, world, joints, prefix)
+    if shells is not None:
+        touching(bm, layer, world, gap)
     adjacent = neighbours(bm)
     labels = one_piece([f[layer] for f in bm.faces], adjacent)
     bm.to_mesh(obj.data)

@@ -83,8 +83,23 @@ public sealed partial class GameWorld
 
         factory.ProductionQueue.RemoveAt(0);
         factory.ProductionSpent = 0;
-        var spawn = FreePointNear(factory);
+        // The new machine appears on the pad before the door (MachLogFactory::createNewMachine), unless something
+        // stands there, and then walks off it so the next one has room (moveToDeployPoint).
+        var pad = factory.EntranceOutside is { } outside && PadClear(outside) ? outside : (Vector2?)null;
+        var spawn = pad ?? FreePointNear(factory);
         var machine = AddMachine(factory.Race, spawn, key.Type, key.SubType, key.HardwareLevel, key.WeaponCombo);
+        // To the assembly point if one is set, else a little way out from the door.
+        if (factory.AssemblyPoint is { } assembly)
+        {
+            var spot = FreeSpotNear(assembly, MathF.Max(1, machine.Stats.LowClearance));
+            Send(machine, new MoveOrder(spot), spot);
+        }
+        else if (pad is { } at)
+        {
+            var away = at - factory.Position;
+            var deploy = at + (away.LengthSquared() > 0.01f ? Vector2.Normalize(away) : Vector2.UnitX) * 25;
+            Send(machine, new MoveOrder(deploy), deploy);
+        }
         Raise(new GameEvent(GameEventKind.MachineBuilt, machine.Id, spawn, factory.Id, key.ToString()));
     }
 
@@ -143,6 +158,37 @@ public sealed partial class GameWorld
     }
 
     /// <summary>A free spot just outside a building for a newly built machine.</summary>
+    /// <summary>
+    /// The nearest place to <paramref name="point"/> that no machine stands on or is heading for
+    /// (MachLogSpacialManipulation::getNearestFreeSpacePoint), searched ring by ring.
+    /// </summary>
+    private Vector2 FreeSpotNear(Vector2 point, float clearance)
+    {
+        var taken = Machines.Where(m => m.Inside is null)
+            .SelectMany(m => m.Path.Count > 0 ? new[] { m.Position, m.Path[^1] } : [m.Position])
+            .ToList();
+        bool Free(Vector2 p) => Nav.IsFree(p, crossesWater: false) && taken.All(t => Vector2.DistanceSquared(t, p) >= 4 * clearance * clearance);
+        if (Free(point))
+            return point;
+        for (var ring = 1; ring <= 10; ring++)
+        {
+            var distance = ring * 2.5f * clearance;
+            var steps = 6 * ring;
+            for (var step = 0; step < steps; step++)
+            {
+                var angle = step * MathF.Tau / steps;
+                var candidate = point + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * distance;
+                if (Free(candidate))
+                    return candidate;
+            }
+        }
+        return point;
+    }
+
+    /// <summary>A factory pad nothing stands on (the original tested it with a short motion chunk, 5 m clear).</summary>
+    private bool PadClear(Vector2 pad) =>
+        Nav.IsFree(pad, crossesWater: false) && !Machines.Any(m => m.Inside is null && Vector2.DistanceSquared(m.Position, pad) < 5 * 5);
+
     private Vector2 FreePointNear(Construction building)
     {
         var (min, max) = building.Footprint;

@@ -174,6 +174,46 @@ public partial class Effects : Node3D
         return dust;
     }
 
+    /// <summary>
+    /// A chimney's smoke (MachPhysSmokePlume) while it is <see cref="GpuParticles3D.Emitting"/>: puffs that rise
+    /// <paramref name="height"/> metres over <paramref name="rise"/> seconds with a little drift, swelling to
+    /// about <paramref name="size"/> halfway and thinning out at the top. <paramref name="wisps"/>, the original's
+    /// puffs per plume, sets how thick it is.
+    /// </summary>
+    public static GpuParticles3D Plume(int wisps, float rise, float height, float size, Color colour)
+    {
+        var swell = new Curve();
+        swell.AddPoint(new Vector2(0, 0.2f));
+        swell.AddPoint(new Vector2(0.5f, 1));
+        swell.AddPoint(new Vector2(1, 0.7f));
+        return new GpuParticles3D
+        {
+            Amount = Math.Max(1, wisps) * 6,
+            Lifetime = rise,
+            Randomness = 0.3f,
+            Emitting = false,
+            LocalCoords = false,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            VisibilityAabb = new Aabb(new Vector3(-size * 2, -size, -size * 2), new Vector3(size * 4, height + size * 2, size * 4)),
+            DrawPass1 = Billboard(Soft, additive: false),
+            ProcessMaterial = new ParticleProcessMaterial
+            {
+                Direction = Vector3.Up,
+                // The original's path wanders a tenth of the height either way.
+                Spread = 6,
+                InitialVelocityMin = height / rise * 0.9f,
+                InitialVelocityMax = height / rise * 1.1f,
+                Gravity = Vector3.Zero,
+                ScaleMin = size * 0.9f,
+                ScaleMax = size * 1.3f,
+                ScaleCurve = new CurveTexture { Curve = swell },
+                AngleMin = 0,
+                AngleMax = 360,
+                ColorRamp = Ramp(new Color(colour, colour.A * 0.6f), colour, new Color(colour, 0)),
+            },
+        };
+    }
+
     // ---- building blocks ------------------------------------------------------------------------
 
     private void Sparks(Vector3 at, Color colour, int amount) =>

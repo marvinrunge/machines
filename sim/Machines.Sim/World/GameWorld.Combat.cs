@@ -1,3 +1,4 @@
+using System.Numerics;
 using Machines.Import.Model;
 using Machines.Sim.Combat;
 
@@ -7,20 +8,31 @@ public sealed partial class GameWorld
 {
     private readonly Dictionary<int, int> _turretTargets = [];
 
-    /// <summary>Target a machine driven in first person aims at; set by the client.</summary>
-    public Dictionary<int, int> PlayerAims { get; } = [];
+    /// <summary>
+    /// Where a machine driven in first person is firing while the trigger is held: a point on the ground (or as
+    /// far as its weapons reach), whether or not anything stands there; set by the client.
+    /// </summary>
+    public Dictionary<int, Vector2> PlayerAims { get; } = [];
+
+    /// <summary>Which weapons of a machine driven in first person may fire: a bit for each, in mounting order.</summary>
+    public Dictionary<int, int> PlayerWeapons { get; } = [];
 
     private void UpdateCombat()
     {
         foreach (var machine in Machines.Where(m => m.CanFight && !m.IsDead && m.Inside is null).ToList())
         {
-            var target = machine.DrivenByPlayer
-                ? (PlayerAims.TryGetValue(machine.Id, out var aim) ? Find(aim) : null)
-                : machine.Order switch
-                {
-                    AttackOrder attack => Find(attack.Target),
-                    _ => NearestEnemy(machine, machine.Weapons.Max(w => w.Spec.Range)),
-                };
+            if (machine.DrivenByPlayer)
+            {
+                var selected = PlayerWeapons.GetValueOrDefault(machine.Id, -1);
+                Fire(machine, machine.Weapons.Where((_, i) => (selected & (1 << i)) != 0).ToList(), null, machine.Stats.Accuracy ?? 100,
+                    PlayerAims.TryGetValue(machine.Id, out var point) ? point : null);
+                continue;
+            }
+            var target = machine.Order switch
+            {
+                AttackOrder attack => Find(attack.Target),
+                _ => NearestEnemy(machine, machine.Weapons.Max(w => w.Spec.Range)),
+            };
             Fire(machine, machine.Weapons, target, machine.Stats.Accuracy ?? 100);
         }
 
@@ -47,6 +59,7 @@ public sealed partial class GameWorld
             Fire(turret, turret.Weapons.Where(w => !w.IsStrike).ToList(), target, turret.Stats.Accuracy ?? 100);
         }
 
+        UpdateProjectiles();
         UpdateBlasts();
     }
 
@@ -62,10 +75,11 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// Runs each weapon's burst and reload cycle: a burst of BURST rounds spread over its duration, then
-    /// RELOAD_TIME seconds. Each round hits with the shooter's ACCURACY percent and is applied with the
-    /// original armour rule.
+    /// RELOAD_TIME seconds. Flying rounds (see <see cref="Flies"/>) are launched and do their damage where they
+    /// strike; the others hit at once with the shooter's ACCURACY percent. Damage follows the original armour rule.
+    /// A machine driven in first person fires at <paramref name="aimPoint"/> instead, at whatever is there or not.
     /// </summary>
-    private void Fire(Actor shooter, List<WeaponMount> weapons, Actor? target, int accuracy)
+    private void Fire(Actor shooter, List<WeaponMount> weapons, Actor? target, int accuracy, Vector2? aimPoint = null)
     {
         foreach (var weapon in weapons)
         {
@@ -80,11 +94,18 @@ public sealed partial class GameWorld
                 if (weapon.RoundsLeft == 0)
                     weapon.Reload = weapon.Spec.ReloadTime;
 
+                if (aimPoint is { } point)
+                {
+                    FireAtPoint(shooter, weapon, point, accuracy);
+                    continue;
+                }
                 if (target is null || target.IsDead || shooter.DistanceTo(target) > weapon.Spec.Range || !AreEnemies(shooter.Race, target.Race))
                     continue;
 
                 Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, target.Id, weapon.Spec.TypeName));
-                if (weapon.IsArea)
+                if (Flies(weapon))
+                    Launch(shooter, weapon, AimAt(shooter, target, accuracy));
+                else if (weapon.IsArea)
                 {
                     // Area weapons go off where the target is and hit everyone the blast reaches, friend or foe,
                     // as in the original. The punch goes off in front of the shooter once its fists come down.
@@ -113,11 +134,45 @@ public sealed partial class GameWorld
                 continue;
             }
 
-            if (weapon.FiresAt(target) && target is not null && !target.IsDead && shooter.DistanceTo(target) <= weapon.Spec.Range)
+            var triggered = aimPoint is not null
+                ? weapon.DealsDamage || weapon.IsTreachery
+                : weapon.FiresAt(target) && target is not null && !target.IsDead && shooter.DistanceTo(target) <= weapon.Spec.Range;
+            if (triggered)
             {
                 weapon.RoundsLeft = Math.Max(1, weapon.Spec.BurstRounds);
                 weapon.RoundTimer = 0;
             }
+        }
+    }
+
+    /// <summary>
+    /// A round fired at a point in first person: flying rounds are launched at it and strike whatever they meet;
+    /// the others hit the enemy nearest the point if one stands within reach of it, and otherwise nothing.
+    /// </summary>
+    private void FireAtPoint(Actor shooter, WeaponMount weapon, Vector2 point, int accuracy)
+    {
+        var offset = point - shooter.Position;
+        if (offset.Length() > weapon.Spec.Range)
+            point = shooter.Position + Vector2.Normalize(offset) * weapon.Spec.Range;
+        float Off(Actor a) => a is Construction building ? building.DistanceFrom(point) : MathF.Max(0, Vector2.Distance(a.Position, point) - a.Radius);
+        var there = Actors.Where(a => !a.IsDead && AreEnemies(shooter.Race, a.Race) && a is not Machine { Inside: not null } && Off(a) <= 3)
+            .OrderBy(Off).ThenBy(a => a.Id).FirstOrDefault();
+        Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, there?.Id, weapon.Spec.TypeName));
+        if (Flies(weapon))
+        {
+            Launch(shooter, weapon, point);
+        }
+        else if (weapon.IsArea)
+        {
+            if (weapon.Spec.TypeName == "GORILLA_PUNCH")
+                ScheduleBlast(Time + Blast.PunchLanding, weapon.Spec, shooter.Position, shooter.Race, point - shooter.Position);
+            else
+                StartBlast(weapon.Spec, point, shooter.Race);
+        }
+        else if (there is not null && Random.Next(100) < accuracy)
+        {
+            Damage(there, (int)MathF.Round(weapon.Spec.Damage), shooter.Race);
+            Raise(new GameEvent(GameEventKind.Hit, there.Id, there.Position, shooter.Id, weapon.Spec.TypeName));
         }
     }
 }

@@ -92,6 +92,19 @@ public sealed class ClassicAssets
         return mesh;
     }
 
+    /// <summary>A weapon effect from the original (a projectile or an impact splat, <c>classic/models/fx</c>), or null.</summary>
+    public Mesh? EffectMesh(string name)
+    {
+        var key = "fx/" + name;
+        if (_meshes.TryGetValue(key, out var cached))
+            return cached;
+        var path = _modelFolder is null ? null : Path.Combine(_modelFolder, "fx", name + ".json");
+        var mesh = path is not null && File.Exists(path) ? MeshFromJson(path) : null;
+        if (mesh is not null)
+            _meshes[key] = mesh;
+        return mesh;
+    }
+
     private Mesh? LoadClassic(string id, Race race) => ModelPath(id, race) is { } path ? MeshFromJson(path, race) : null;
 
     private string? ModelPath(string id, Race race)
@@ -116,6 +129,25 @@ public sealed class ClassicAssets
         var path = _planetFolder is null ? null : Path.Combine(_planetFolder, planet, "terrain.json");
         return path is not null && File.Exists(path) ? MeshFromJson(path) : null;
     }
+
+    /// <summary>
+    /// A satellite's picture in the planet's sky (<c>classic/planets/&lt;planet&gt;/sky/&lt;name&gt;.json</c>): its
+    /// texture and its half size, a square seen from the original's 80 km orbit radius. Null when not exported.
+    /// </summary>
+    public SkySprite? PlanetSky(string planet, string satellite)
+    {
+        var path = _planetFolder is null ? null : Path.Combine(_planetFolder, planet, "sky", satellite + ".json");
+        if (path is null || !File.Exists(path))
+            return null;
+        using var document = JsonDocument.Parse(File.ReadAllBytes(path));
+        if (document.RootElement.GetProperty("parts").EnumerateArray().FirstOrDefault() is not { ValueKind: JsonValueKind.Object } part
+            || LoadTexture(part.GetProperty("texture").GetString() ?? "").Texture is not { } texture)
+            return null;
+        var extent = part.GetProperty("positions").EnumerateArray().Select(e => Mathf.Abs(e.GetSingle())).DefaultIfEmpty(0).Max();
+        return new SkySprite(texture, extent);
+    }
+
+    public sealed record SkySprite(Texture2D Texture, float HalfSize);
 
     /// <summary>The terrain heights the original engine reported for the planet (<c>heights.bin</c>), if exported.</summary>
     public byte[]? PlanetHeights(string planet)
@@ -240,6 +272,97 @@ public sealed class ClassicAssets
         }
     }
 
+    /// <summary>
+    /// Spin-to-face polygons (RenSpinTFPolygon: gun barrels, pipes): each vertex sits on its polygon's axis base,
+    /// carries the axis as its normal and its corner (along, across the axis) in UV2; the shader turns the shape
+    /// about the axis to face the camera, as the original did every frame.
+    /// </summary>
+    private void AddSpinners(ArrayMesh mesh, JsonElement spinners, Race? race)
+    {
+        foreach (var group in spinners.EnumerateArray().GroupBy(s => s.GetProperty("texture").GetString() + "|"
+                     + s.GetProperty("diffuse").GetRawText() + "|" + s.GetProperty("emissive").GetRawText()))
+        {
+            var vertices = new List<Vector3>();
+            var normals = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var corners = new List<Vector2>();
+            var indices = new List<int>();
+            foreach (var spinner in group)
+            {
+                var b = spinner.GetProperty("base").EnumerateArray().Select(e => e.GetSingle()).ToArray();
+                var a = spinner.GetProperty("axis").EnumerateArray().Select(e => e.GetSingle()).ToArray();
+                var c = spinner.GetProperty("corners").EnumerateArray().Select(e => e.GetSingle()).ToArray();
+                var t = spinner.GetProperty("uvs").EnumerateArray().Select(e => e.GetSingle()).ToArray();
+                var first = vertices.Count;
+                var n = c.Length / 2;
+                for (var i = 0; i < n; i++)
+                {
+                    // Original z up; the swap to Godot's y up mirrors, which flips the across direction too.
+                    vertices.Add(new Vector3(b[0], b[2], b[1]));
+                    normals.Add(new Vector3(a[0], a[2], a[1]));
+                    corners.Add(new Vector2(c[i * 2], -c[i * 2 + 1]));
+                    uvs.Add(t.Length >= n * 2 ? new Vector2(t[i * 2], t[i * 2 + 1]) : Vector2.Zero);
+                }
+                for (var i = 1; i + 1 < n; i++)
+                    indices.AddRange([first, first + i, first + i + 1]);
+            }
+            if (indices.Count == 0)
+                continue;
+            var arrays = new Godot.Collections.Array();
+            arrays.Resize((int)Mesh.ArrayType.Max);
+            arrays[(int)Mesh.ArrayType.Vertex] = vertices.ToArray();
+            arrays[(int)Mesh.ArrayType.Normal] = normals.ToArray();
+            arrays[(int)Mesh.ArrayType.TexUV] = uvs.ToArray();
+            arrays[(int)Mesh.ArrayType.TexUV2] = corners.ToArray();
+            arrays[(int)Mesh.ArrayType.Index] = indices.ToArray();
+            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+
+            var sample = group.First();
+            var diffuse = sample.GetProperty("diffuse").EnumerateArray().Select(e => e.GetSingle()).ToArray();
+            var emissive = sample.GetProperty("emissive").EnumerateArray().Select(e => e.GetSingle()).ToArray();
+            var material = new ShaderMaterial { Shader = SpinnerShader.Value };
+            var texture = sample.GetProperty("texture").GetString() ?? "";
+            if (race is { } r)
+                texture = RaceTexture(texture, r);
+            if (LoadTexture(texture).Texture is { } image)
+                material.SetShaderParameter("sprite", image);
+            material.SetShaderParameter("colour", new Vector3(diffuse[0], diffuse[1], diffuse[2]));
+            material.SetShaderParameter("glow", new Vector3(emissive[0], emissive[1], emissive[2]));
+            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, material);
+        }
+    }
+
+    /// <summary>A spin-to-face polygon: lit, see-through where its texture is, turned about its axis to the camera.</summary>
+    private static readonly Lazy<Shader> SpinnerShader = new(() => new Shader
+    {
+        Code = """
+            shader_type spatial;
+            render_mode cull_disabled;
+            uniform sampler2D sprite : source_color, filter_linear_mipmap;
+            uniform vec3 colour = vec3(1.0);
+            uniform vec3 glow = vec3(0.0);
+            void vertex() {
+                // In view space: along the axis, and across it square to the line of sight (RenSpinTFPolygon::spinPlan).
+                vec3 base = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+                vec3 along = (MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz;
+                float scale = length(along);
+                along = normalize(along);
+                vec3 across = cross(-base, along);
+                across = length(across) > 1e-5 ? normalize(across) : normalize(cross(along, vec3(0.0, 0.0, 1.0)));
+                vec3 position = base + (along * UV2.x + across * UV2.y) * scale;
+                POSITION = PROJECTION_MATRIX * vec4(position, 1.0);
+                NORMAL = normalize(cross(along, across));
+            }
+            void fragment() {
+                vec4 c = texture(sprite, UV);
+                ALBEDO = c.rgb * colour;
+                EMISSION = c.rgb * glow;
+                ALPHA = c.a;
+                ALPHA_SCISSOR_THRESHOLD = 0.5;
+            }
+            """,
+    });
+
     private const string SpriteVertex = """
         void vertex() {
             // Every corner starts at the sprite's centre and moves by its offset across the screen.
@@ -363,6 +486,8 @@ public sealed class ClassicAssets
         }
         if (model.TryGetProperty("sprites", out var sprites))
             AddSprites(mesh, sprites, race);
+        if (model.TryGetProperty("spinners", out var spinners))
+            AddSpinners(mesh, spinners, race);
         return mesh.GetSurfaceCount() > 0 ? mesh : null;
     }
 
@@ -412,6 +537,8 @@ public sealed class ClassicAssets
         }
         var (loaded, clearness) = LoadTexture(texture);
         material.AlbedoTexture = loaded;
+        // Which original texture it shows (lower case, no folder): material plans find their parts by it.
+        material.SetMeta("texture", Path.GetFileName(texture).ToLowerInvariant());
         // Glowing parts (the green of plasma weapons, lamps): the original added the emissive colour to the
         // lighting before the texture tinted it.
         if (emissive.Max() > 0.01f)

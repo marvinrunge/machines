@@ -9,7 +9,7 @@ import bpy
 from mathutils import Matrix, Vector
 
 
-def split(obj, names, prefix="orig", into="parts", attach=True):
+def split(obj, names, prefix="orig", into="parts", attach=True, suffix=""):
     """One object per part in the collection `into`; with `attach`, parented to the reference's animated nodes."""
     col = bpy.data.collections.get(into) or bpy.data.collections.new(into)
     if col.name not in bpy.context.scene.collection.children:
@@ -24,7 +24,7 @@ def split(obj, names, prefix="orig", into="parts", attach=True):
         bmesh.ops.delete(bm, geom=[f for f in bm.faces if labels[f.index] != node], context="FACES")
         # Into the node's space as it stands now.
         bmesh.ops.transform(bm, matrix=empty.matrix_world.inverted() @ obj.matrix_world, verts=bm.verts)
-        name = f"n{node:02d}_{names.get(node, 'part')}"
+        name = f"n{node:02d}_{names.get(node, 'part')}{suffix}"
         mesh = bpy.data.meshes.get(name) or bpy.data.meshes.new(name)
         bm.to_mesh(mesh)
         bm.free()
@@ -70,15 +70,8 @@ def move_pivot(node, point, prefix="orig"):
 
 def shift_keys(obj, offset):
     """Adds `offset` to an object's location, keys and rest alike."""
-    action = obj.animation_data.action if obj.animation_data else None
-    curves = [c for c in getattr(action, "fcurves", [])] if action else []
-    if not curves and action is not None:
-        # Slotted actions (Blender 4.4+): the curves live in the layers' channelbags.
-        for layer in action.layers:
-            for strip in layer.strips:
-                for bag in strip.channelbags:
-                    curves += list(bag.fcurves)
-    for c in curves:
+    from import_classic_rig import fcurves
+    for c in fcurves(obj):
         if c.data_path == "location":
             for k in c.keyframe_points:
                 k.co.y += offset[c.array_index]

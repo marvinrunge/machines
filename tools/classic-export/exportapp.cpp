@@ -40,11 +40,26 @@
 #include "render/internal/vtxmat.hpp"
 #include "render/internal/fixptvec.hpp"
 #include "render/ttfpoly.hpp"
+#include "render/spinpoly.hpp"
+#include "machphys/oreholo.hpp"
+#include "machphys/plasmbol.hpp"
+#include "machphys/pulseblb.hpp"
+#include "machphys/missile.hpp"
+#include "machphys/stingl.hpp"
+#include "machphys/stingm.hpp"
+#include "machphys/plasplat.hpp"
+#include "machphys/plasaura.hpp"
+#include "machphys/pulsplat.hpp"
+#include "machphys/pulsaura.hpp"
+#include "machphys/jetringm.hpp"
+#include "machphys/sparks.hpp"
 #include "sim/manager.hpp"
 #include "world4d/entyplan.hpp"
 #include "mathex/vec2.hpp"
 #include "render/internal/trigroup.hpp"
 #include "world4d/root.hpp"
+#include "world4d/generic.hpp"
+#include "world4d/genecomp.hpp"
 #include "world4d/composit.hpp"
 #include "world4d/link.hpp"
 #include "ctl/list.hpp"
@@ -101,6 +116,18 @@ struct Sprite
     float emissive[3];
     float centre[3];
     float width, height, depthOffset;
+    std::vector<float> uvs;
+};
+
+// A spin-to-face polygon: corners along (x) and across (y) its axis, which turns to face the camera.
+struct Spinner
+{
+    std::string texture;
+    float diffuse[4];
+    float emissive[3];
+    float base[3];
+    float axis[3];
+    std::vector<float> corners;
     std::vector<float> uvs;
 };
 
@@ -244,6 +271,22 @@ public:
             out << "}";
         }
         out << "\n]";
+
+        // Spin-to-face polygons: shapes that turn about an axis to face the camera (barrels, pipes).
+        out << ",\"spinners\":[";
+        for (size_t i = 0; i < spinners_.size(); ++i)
+        {
+            const Spinner& s = spinners_[i];
+            out << (i ? "," : "") << "\n{\"texture\":\"" << s.texture << "\",\"diffuse\":["
+                << s.diffuse[0] << "," << s.diffuse[1] << "," << s.diffuse[2] << "," << s.diffuse[3] << "]"
+                << ",\"emissive\":[" << s.emissive[0] << "," << s.emissive[1] << "," << s.emissive[2] << "]"
+                << ",\"base\":[" << s.base[0] << "," << s.base[1] << "," << s.base[2] << "]"
+                << ",\"axis\":[" << s.axis[0] << "," << s.axis[1] << "," << s.axis[2] << "]";
+            writeArray(out, "corners", s.corners);
+            writeArray(out, "uvs", s.uvs);
+            out << "}";
+        }
+        out << "\n]";
     }
 
     const std::set<std::string>& textures() const { return textures_; }
@@ -375,6 +418,48 @@ private:
             }
             sprites_.push_back(sprite);
         }
+
+        // The mesh's spin-to-face polygons (gun barrels, pipes): flat shapes that turn about their own axis to
+        // face the camera (RenSpinTFPolygon), placed like its vertices. Their corners lie along the axis (x) and
+        // across it (y).
+        for (size_t s = 0; s < mesh->stfps_.size(); ++s)
+        {
+            const RenSpinTFPolygon& stf = *mesh->stfps_[s];
+            Spinner spinner;
+            MexPoint3d base = stf.spinAxis().base();
+            base = MexPoint3d(base.x() * scale, base.y() * scale, base.z() * scale);
+            transform.transform(&base);
+            MexVec3 axis = stf.spinAxis().direction();
+            transform.transform(&axis);
+            spinner.base[0] = base.x();
+            spinner.base[1] = base.y();
+            spinner.base[2] = base.z();
+            spinner.axis[0] = axis.x();
+            spinner.axis[1] = axis.y();
+            spinner.axis[2] = axis.z();
+            const RenIVertexData& corners = *stf.vertices();
+            for (size_t v = 0; v < corners.size(); ++v)
+            {
+                spinner.corners.push_back(corners[v].x * scale);
+                spinner.corners.push_back(corners[v].y * scale);
+                spinner.uvs.push_back(corners[v].tu);
+                spinner.uvs.push_back(corners[v].tv);
+            }
+            const RenMaterial& material = stf.material();
+            if (not material.texture().isNull())
+            {
+                spinner.texture = material.texture().name();
+                textures_.insert(spinner.texture);
+            }
+            spinner.diffuse[0] = material.diffuse().r();
+            spinner.diffuse[1] = material.diffuse().g();
+            spinner.diffuse[2] = material.diffuse().b();
+            spinner.diffuse[3] = material.diffuse().a();
+            spinner.emissive[0] = material.emissive().r();
+            spinner.emissive[1] = material.emissive().g();
+            spinner.emissive[2] = material.emissive().b();
+            spinners_.push_back(spinner);
+        }
     }
 
     Bucket& bucketFor(const RenMaterial& material)
@@ -411,6 +496,7 @@ private:
 
     std::map<std::string, Bucket> buckets_;
     std::vector<Sprite> sprites_;
+    std::vector<Spinner> spinners_;
     std::set<std::string> textures_;
     size_t triangles_ = 0;
     const W4dEntity* node_ = NULL;
@@ -522,7 +608,8 @@ void writeRig(std::ostream& out, W4dComposite& composite, std::set<std::string>*
         ModelWriter writer(nodes[i], &composite, &ownNodes);
         writer.addEntity(*nodes[i]);
         textures->insert(writer.textures().begin(), writer.textures().end());
-        out << (i ? "," : "") << "\n{\"parent\":" << parent << ",\"transform\":";
+        // Links keep their names from the model (a building's doors are found by them).
+        out << (i ? "," : "") << "\n{\"name\":\"" << nodes[i]->name() << "\",\"parent\":" << parent << ",\"transform\":";
         writeTransform(out, i == 0 ? MexTransform3d() : ModelWriter::relativeTransform(*nodes[i], parentNode));
         out << ",";
         writer.writeParts(out);
@@ -610,26 +697,35 @@ void writeRig(std::ostream& out, W4dComposite& composite, std::set<std::string>*
     }
 
     MachPhysLocomotionMethod& locomotion = machine->locomotionMethod();
-    if (MachPhysSpiderLegs* legs = dynamic_cast<MachPhysSpiderLegs*>(&locomotion))
+    MachPhysSpiderLegs* legs = dynamic_cast<MachPhysSpiderLegs*>(&locomotion);
+    // A constructor at work (MachPhysConstructor::startConstructing) plays its building cycle: the arms move.
+    W4dCompositePlanPtr constructing;
+    const bool constructs = dynamic_cast<MachPhysConstructor*>(machine) != NULL and machine->cycleAnims(&constructing);
+    if (legs != NULL or constructs)
     {
-        const MachPhysSpiderLegsImpl& impl = *legs->pImpl_;
         out << ",\"animations\":{";
         bool first = true;
-        writeAnimation(out, "rest", impl.restingPlanPtr_, links, &first);
-        writeAnimation(out, "walk", impl.walkingPlanPtr_, links, &first);
-        writeAnimation(out, "turnLeft", impl.turningLeftPlanPtr_, links, &first);
-        writeAnimation(out, "turnRight", impl.turningRightPlanPtr_, links, &first);
-        writeAnimation(out, "startWalking", impl.startWalkingPlanPtr_, links, &first);
-        writeAnimation(out, "stopWalking", impl.stopWalkingPlanPtr_, links, &first);
-        // The Gorilla's punches: the weapon plays one of its machine's two plans (MachPhysPunchWeapon::createPunchBlast).
-        W4dCompositePlanPtr punch;
-        if (machine->findCompositePlan("PunchA", &punch))
-            writeAnimation(out, "punchA", punch, links, &first);
-        if (machine->findCompositePlan("PunchB", &punch))
-            writeAnimation(out, "punchB", punch, links, &first);
+        if (legs != NULL)
+        {
+            const MachPhysSpiderLegsImpl& impl = *legs->pImpl_;
+            writeAnimation(out, "rest", impl.restingPlanPtr_, links, &first);
+            writeAnimation(out, "walk", impl.walkingPlanPtr_, links, &first);
+            writeAnimation(out, "turnLeft", impl.turningLeftPlanPtr_, links, &first);
+            writeAnimation(out, "turnRight", impl.turningRightPlanPtr_, links, &first);
+            writeAnimation(out, "startWalking", impl.startWalkingPlanPtr_, links, &first);
+            writeAnimation(out, "stopWalking", impl.stopWalkingPlanPtr_, links, &first);
+            // The Gorilla's punches: the weapon plays one of its machine's two plans (MachPhysPunchWeapon::createPunchBlast).
+            W4dCompositePlanPtr punch;
+            if (machine->findCompositePlan("PunchA", &punch))
+                writeAnimation(out, "punchA", punch, links, &first);
+            if (machine->findCompositePlan("PunchB", &punch))
+                writeAnimation(out, "punchB", punch, links, &first);
+        }
+        if (constructs)
+            writeAnimation(out, "construct", constructing, links, &first);
         out << "}";
     }
-    else if (MachPhysWheels* wheels = dynamic_cast<MachPhysWheels*>(&locomotion))
+    if (MachPhysWheels* wheels = dynamic_cast<MachPhysWheels*>(&locomotion))
     {
         const MachPhysWheelsImpl& impl = *wheels->pImpl_;
         out << ",\"wheels\":{\"radius\":" << impl.wheelRadius_ << ",\"left\":[";
@@ -666,6 +762,9 @@ W4dEntity* build(W4dEntity* root, const std::vector<std::string>& words, MachPhy
     const std::string& type = words[1];
     const size_t level = atoi(words[2].c_str());
     const MexTransform3d at;
+    // The hologram a found mineral site shows (MachLogOreHolograph), turning slowly in the race's colour.
+    if (type == "ORE_HOLOGRAPH")
+        return _NEW(MachPhysOreHolograph(root, W4dTransform3d(), race, 1, 1));
     const MachLog::ObjectType objectType = MachLogScenario::objectType(type);
 
     // After the level come an optional subtype and an optional weapon combo (L_..., R_..., LR_..., T_..., LRT_...).
@@ -729,8 +828,47 @@ W4dEntity* build(W4dEntity* root, const std::vector<std::string>& words, MachPhy
 // Loads a planet the way the game does (MachPhysPlanetSurface reads pdata/<planet>.psb from the game folder and
 // the .env next to the .psf) and writes its terrain tiles as one model, plus a height grid sampled with the
 // engine's own terrainHeight. Returns the number of triangles.
-size_t exportPlanet(W4dSceneManager* manager, const std::string& psf, const std::string& out, std::set<std::string>* textures)
+// The sky's meshes, as EnvSatellite::loadMesh and EnvSkyline load them: each satellite's mesh (named after the
+// satellite in its .x file) and the skyline, written to sky/<name>.json.
+void exportSky(W4dEntity* root, const std::string& psf, const std::string& out, std::set<std::string>* textures)
 {
+    std::ifstream env((psf.substr(0, psf.find_last_of('.')) + ".env").c_str());
+    mkdir((out + "/sky").c_str());
+    std::string name;
+    for (std::string line; std::getline(env, line);)
+    {
+        const size_t quote = line.find('"');
+        const std::string quoted = quote == std::string::npos ? "" : line.substr(quote + 1, line.find('"', quote + 1) - quote - 1);
+        // A block starts at the left margin: a satellite or the skyline has a mesh to export, others do not.
+        if (not line.empty() and not isspace((unsigned char)line[0]) and line[0] != '{' and line[0] != '}' and line[0] != '/')
+            name = line.compare(0, 10, "satellite:") == 0 ? quoted : line.compare(0, 8, "skyline:") == 0 ? "skyline" : "";
+        const size_t key = line.find("mesh file:");
+        if (name.empty() or key == std::string::npos or quoted.empty())
+            continue;
+
+        // The mesh's textures sit in its planet's texture folder (models/planet/<planet>/sky/x.x).
+        const std::string folder = quoted.substr(0, quoted.find("/sky/"));
+        RenTexManager::PathNames searchList = RenTexManager::instance().searchList();
+        searchList.push_back(SysPathName((folder + "/texture4").c_str()));
+        RenTexManager::instance().searchList(searchList);
+
+        W4dGeneric* sky = _NEW(W4dGeneric(root, MexTransform3d()));
+        if (sky->loadSingleMesh(SysPathName(quoted.c_str()), name == "skyline" ? "skyline" : name))
+        {
+            ModelWriter writer;
+            writer.addEntity(*sky);
+            writer.write(out + "/sky/" + name + ".json", name);
+            textures->insert(writer.textures().begin(), writer.textures().end());
+            std::cout << "sky: " << name << " from " << quoted << ", " << writer.triangleCount() << " triangles" << std::endl;
+        }
+        name.clear();
+    }
+}
+
+size_t exportPlanet(W4dSceneManager* manager, W4dEntity* root, const std::string& psf, const std::string& out, std::set<std::string>* textures)
+{
+    exportSky(root, psf, out, textures);
+
     // The tiles are entities of the scene; the surface is left alive until the process ends.
     MachPhysPlanetSurface* surface = _NEW(MachPhysPlanetSurface(manager, SysPathName(psf.c_str())));
 
@@ -855,7 +993,7 @@ bool ExportApp::clientStartup()
         std::set<std::string> textures;
         std::cout << "loading planet " << input << " ..." << std::endl;
         MachPhysPersistence::instance();
-        const size_t triangles = exportPlanet(manager, input, out, &textures);
+        const size_t triangles = exportPlanet(manager, root, input, out, &textures);
         std::ofstream textureList((out + "/textures.txt").c_str());
         for (std::set<std::string>::const_iterator it = textures.begin(); it != textures.end(); ++it)
             textureList << *it << "\n";
@@ -904,6 +1042,47 @@ bool ExportApp::clientStartup()
             _DELETE(object);
             ++written;
         }
+    }
+
+    // The weapons' projectiles and impact splats, race-free, into fx/<name>.json. They live only in models.bin,
+    // so each is made the way the game makes it (machphys: plasmbol, pulseblb, missile, stingl/m, plasplat,
+    // plasaura, pulsplat, pulsaura).
+    static const char* effects[] = {
+        "plaboltr", "plaboltc", "plabolt2", "pulboltr", "pulboltc",
+        "mis1", "mis2", "mis3", "mis4", "mis5", "mis6", "mis7", "lmiss", "nmisea",
+        "stinglight", "stingmetal", "splat", "aura", "pulsesplat", "pulseaura", "torch", "sparks",
+    };
+    mkdir((out + "/fx").c_str());
+    for (size_t e = 0; e < sizeof(effects) / sizeof(effects[0]); ++e)
+    {
+        const std::string name = effects[e];
+        const MexTransform3d at;
+        W4dEntity* effect = NULL;
+        if (name == "plaboltr") effect = _NEW(MachPhysPlasmaBolt(root, at, MachPhys::PLASMA_RIFLE, MachPhysPlasmaBolt::DONT_CREATE_LIGHTS));
+        else if (name == "plaboltc") effect = _NEW(MachPhysPlasmaBolt(root, at, MachPhys::PLASMA_CANNON1, MachPhysPlasmaBolt::DONT_CREATE_LIGHTS));
+        else if (name == "plabolt2") effect = _NEW(MachPhysPlasmaBolt(root, at, MachPhys::PLASMA_CANNON2, MachPhysPlasmaBolt::DONT_CREATE_LIGHTS));
+        else if (name == "pulboltr") effect = _NEW(MachPhysPulseBlob(root, at, MachPhys::PULSE_RIFLE, MachPhysPulseBlob::DONT_CREATE_LIGHTS));
+        else if (name == "pulboltc") effect = _NEW(MachPhysPulseBlob(root, at, MachPhys::PULSE_CANNON, MachPhysPulseBlob::DONT_CREATE_LIGHTS));
+        else if (name.compare(0, 3, "mis") == 0) effect = _NEW(MachPhysMissile(root, W4dTransform3d(), size_t(name[3] - '0'), MachPhysMissile::DONT_CREATE_LIGHTS));
+        // MachPhysTrailedProjectile: MISSILE_LARGE 8, NUCLEAR_MISSILE 9.
+        else if (name == "lmiss") effect = _NEW(MachPhysMissile(root, W4dTransform3d(), 8, MachPhysMissile::DONT_CREATE_LIGHTS));
+        else if (name == "nmisea") effect = _NEW(MachPhysMissile(root, W4dTransform3d(), 9, MachPhysMissile::DONT_CREATE_LIGHTS));
+        else if (name == "stinglight") effect = _NEW(MachPhysLightSting(root, at));
+        else if (name == "stingmetal") effect = _NEW(MachPhysMetalSting(root, at));
+        else if (name == "splat") effect = _NEW(MachPhysPlasmaSplat(root, at));
+        else if (name == "aura") effect = _NEW(MachPhysPlasmaAura(root, at));
+        else if (name == "pulsesplat") effect = _NEW(MachPhysPulseSplat(root, at));
+        else if (name == "pulseaura") effect = _NEW(MachPhysPulseAura(root, at));
+        // A constructor at work: the green beam from its jets (MachPhysJetRing, 5 m long) and their sparks.
+        else if (name == "torch") effect = _NEW(MachPhysJetRing(root, at));
+        else if (name == "sparks") effect = _NEW(MachPhysSparks(root, at));
+        if (effect == NULL)
+            continue;
+        ModelWriter writer;
+        writer.addEntity(*effect);
+        writer.write(out + "/fx/" + name + ".json", name);
+        textures.insert(writer.textures().begin(), writer.textures().end());
+        std::cout << "fx " << name << ": " << writer.triangleCount() << " triangles" << std::endl;
     }
 
     std::ofstream textureList((out + "/textures.txt").c_str());

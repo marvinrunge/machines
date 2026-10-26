@@ -229,12 +229,16 @@ public sealed partial class GameWorld
             machine.Order = Order.Idle;
             return;
         }
-        if (!AtBuilding(machine, garrison))
+        if (garrison.Garrisoned.Count >= GarrisonStations(garrison))
+        {
+            machine.Order = Order.Idle;
+            return;
+        }
+        if (!ThroughDoor(machine, garrison))
             return;
 
         machine.Order = Order.Idle;
-        if (garrison.Garrisoned.Count >= GarrisonStations(garrison))
-            return;
+        machine.Doorway = null;
         machine.Inside = garrison.Id;
         machine.Position = garrison.Position;
         garrison.Garrisoned.Add(machine.Id);
@@ -254,9 +258,53 @@ public sealed partial class GameWorld
         machine.Position = DoorOf(garrison, machine);
     }
 
-    /// <summary>A free spot outside the building on its entrance side (the original doors face +x before rotation).</summary>
+    /// <summary>
+    /// Brings a machine into a building through its door, as the original's entrances did: up to the point before
+    /// the door, then straight through it to the point inside. True once it is in; for a building without an
+    /// entrance, once it stands at it.
+    /// </summary>
+    private bool ThroughDoor(Machine machine, Construction building)
+    {
+        if (building.EntranceOutside is not { } outside || building.EntranceInside is not { } inside)
+            return AtBuilding(machine, building);
+        if (machine.Doorway != building.Id)
+        {
+            if (Vector2.DistanceSquared(machine.Position, outside) > 2 * 2)
+            {
+                Approach(machine, outside);
+                return false;
+            }
+            machine.Doorway = building.Id;
+            machine.Path.Clear();
+            machine.PathIndex = 0;
+        }
+        return StepTowards(machine, inside);
+    }
+
+    /// <summary>Walks straight at a point, through a door and all; true on arrival.</summary>
+    private bool StepTowards(Machine machine, Vector2 point)
+    {
+        var offset = point - machine.Position;
+        var distance = offset.Length();
+        var step = machine.Stats.Speed * Dt;
+        if (distance <= step)
+        {
+            machine.Position = point;
+            return true;
+        }
+        machine.Facing = DetMath.Atan2(offset.Y, offset.X);
+        machine.Position += offset / distance * step;
+        return false;
+    }
+
+    /// <summary>
+    /// Where a machine comes out of a building: the point before its door, or else a free spot outside on its
+    /// entrance side (the original doors face +x before rotation).
+    /// </summary>
     private Vector2 DoorOf(Construction building, Machine machine)
     {
+        if (building.EntranceOutside is { } outside && Nav.IsFree(outside, CrossesWater(machine)))
+            return outside;
         var angle = building.Orientation * MathF.PI / 180;
         var outward = new Vector2(DetMath.Cos(angle), DetMath.Sin(angle));
         var far = building.Position + outward * (building.Radius + 20);

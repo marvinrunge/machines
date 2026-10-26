@@ -74,6 +74,18 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
 - **Music:** the original soundtrack from your own MP3s (**Music folder…** in the menu, with a volume
   slider), played as the original played its CD: the intro and then the menu tune, each map's own track
   when the match begins and then the in-game tracks at random, a victory or defeat tune at the end.
+- **Closer to the original:** its own mouse cursors, smoothly upscaled (Scale2x); the sun and moons on their
+  real orbits, round the sky, with the planets' own pictures of them; barrels and pipes that turn to face
+  the camera; turning ore holograms over found mineral sites; new machines come out on the factory pad,
+  and a factory's assembly point (B) gathers them; machines walk into labs and garrisons through the door,
+  which slides open; the AI sends hurt machines into garrisons. Buildings turn with Space while placing.
+  Plasma and pulse bolts, missiles and stings fly as the original's own models and do their damage where
+  they strike, so slow ones can be dodged; in first person the trigger fires where the crosshair points.
+  Rounds leave from the weapons' own muzzles. First person has the original crosshair and weapon panels
+  (Tab picks the weapons). Buildings under construction stand as a pulsing green hologram while the
+  constructors' arms work and their jets throw beams and sparks. Factory and lab queues take any number
+  of entries, and a click cancels one.
+  Painted night skies can be added in `game/assets/sky` (see its README for the prompts).
 - **Fog of war** as the original drew it: your machines uncover the planet by their scanner range; looking
   at unknown ground darkens the view with static down to black, where nothing can be picked and the world
   is silent. A level 1 beacon's map shows only what you have uncovered; a level 3 beacon lifts the fog.

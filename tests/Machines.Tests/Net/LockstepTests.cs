@@ -21,7 +21,7 @@ public class LockstepTests
             new MoveCommand(Race.Red, [1, 2, 3], new Vector2(123.456789f, 0.1f + 0.2f)),
             new PlaceConstructionCommand(Race.Blue, [7], "MISSILE_EMPLACEMENT", "TURRET", 2, new Vector2(-1.5e-3f, 1e7f), 270),
             new ResearchCommand(Race.Green, 4, new ResearchKey("AGGRESSOR", "GRUNT", 2, "L_BOLTER")),
-            new DriveCommand(Race.Yellow, 9, true, 0.3333333f, -1, 12),
+            new DriveCommand(Race.Yellow, 9, true, 0.3333333f, -1, new Vector2(12.5f, 1e-4f)),
             new StrikeCommand(Race.Red, 5, new Vector2(MathF.PI, MathF.E)),
         ];
         var turn = new Turn(42, Race.Red, commands);

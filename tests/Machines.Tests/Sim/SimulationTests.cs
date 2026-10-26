@@ -146,6 +146,87 @@ public class SimulationTests
     }
 
     [Fact]
+    public void A_new_machine_comes_out_on_the_factory_pad_and_steps_off_it()
+    {
+        var world = NewMatch(red: Controller.Player);
+        // Somewhere open, the pad included.
+        var spot = Enumerable.Range(0, 400).Select(i => new Vector2(200 + i % 20 * 30, 200 + i / 20 * 30))
+            .First(p => world.WhyCannotPlace(Race.Red, "FACTORY", "CIVILIAN", 1, p, 90) is null
+                        && world.Nav.IsFree(p + new Vector2(-0.6f, 21), crossesWater: false));
+        var factory = world.AddConstruction(Race.Red, spot, "FACTORY", "CIVILIAN", 1, 90, complete: true);
+        world.Races[Race.Red].Bmu = 5000;
+        factory.ProductionQueue.Add(new ResearchKey("CONSTRUCTOR", "DOZER", 1, null));
+
+        GameEvent? built = null;
+        for (var tick = 0; tick < 20 * 120 && built is null; tick++)
+        {
+            world.Step();
+            built = world.Events.FirstOrDefault(e => e.Kind == GameEventKind.MachineBuilt && e.Other == factory.Id);
+        }
+
+        Assert.NotNull(built);
+        Assert.NotNull(factory.EntranceOutside);
+        Assert.InRange(Vector2.Distance(built.Position, factory.EntranceOutside!.Value), 0, 0.01f);
+        Assert.IsType<MoveOrder>(world.Find<Machine>(built.Actor)!.Order);
+    }
+
+    [Fact]
+    public void A_technician_walks_into_the_lab_through_its_door()
+    {
+        var world = NewMatch(red: Controller.Player);
+        var spot = Enumerable.Range(0, 400).Select(i => new Vector2(200 + i % 20 * 30, 200 + i / 20 * 30))
+            .First(p => world.WhyCannotPlace(Race.Red, "HARDWARE_LAB", "CIVILIAN", 1, p, 0) is null
+                        && world.Nav.IsFree(p + new Vector2(30, 0), crossesWater: false));
+        var lab = world.AddConstruction(Race.Red, spot, "HARDWARE_LAB", "CIVILIAN", 1, 0, complete: true);
+        var technician = world.AddMachine(Race.Red, spot + new Vector2(30, 0), "TECHNICIAN", "LAB_TECH", 2, null);
+        world.Issue(new EnterLabCommand(Race.Red, [technician.Id], lab.Id));
+
+        var nearestToDoor = float.MaxValue;
+        for (var tick = 0; tick < 20 * 60 && technician.Inside is null; tick++)
+        {
+            world.Step();
+            nearestToDoor = MathF.Min(nearestToDoor, Vector2.Distance(technician.Position, lab.EntranceOutside!.Value));
+        }
+
+        Assert.Equal(lab.Id, technician.Inside);
+        Assert.InRange(nearestToDoor, 0, 2);
+        Assert.Contains(technician.Id, lab.Technicians);
+    }
+
+    [Fact]
+    public void A_plasma_bolt_strikes_when_it_arrives_and_misses_a_target_that_stepped_aside()
+    {
+        var world = NewMatch(red: Controller.Player);
+        var spot = Enumerable.Range(0, 400).Select(i => new Vector2(200 + i % 20 * 30, 200 + i / 20 * 30))
+            .First(p => Enumerable.Range(0, 9).All(k => world.Nav.IsFree(p + new Vector2(k * 10, 0), crossesWater: false)
+                                                        && world.Nav.IsFree(p + new Vector2(80, k * 3), crossesWater: false)));
+        var shooter = world.AddMachine(Race.Red, spot, "AGGRESSOR", "ASSASSIN", 2, "L_PLASMA_RIFLE");
+        var target = world.AddMachine(Race.Blue, spot + new Vector2(80, 0), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+        world.Issue(new AttackCommand(Race.Red, [shooter.Id], target.Id));
+
+        // The first bolt: launched, and still in flight for the 80 m at 130 m/s.
+        var fired = -1L;
+        for (var tick = 0; tick < 20 * 10 && fired < 0; tick++)
+        {
+            world.Step();
+            if (world.Projectiles.Count > 0)
+                fired = world.Tick;
+        }
+        Assert.True(fired >= 0, "no bolt was fired");
+        var bolt = world.Projectiles[0];
+        var hitPoints = target.HitPoints;
+        world.Step();
+        Assert.Equal(hitPoints, target.HitPoints);
+
+        // The target steps out of the bolt's way: it flies on past and is spent.
+        target.Position += new Vector2(0, 15);
+        while (world.Projectiles.Contains(bolt))
+            world.Step();
+        // It flew its whole range: nothing stopped it.
+        Assert.InRange(Vector2.Distance(bolt.Position, bolt.Start), bolt.Weapon.Range - 1, bolt.Weapon.Range + 0.01f);
+    }
+
+    [Fact]
     public void A_driven_machine_follows_first_person_input()
     {
         var world = NewMatch(red: Controller.Player);

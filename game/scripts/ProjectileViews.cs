@@ -1,0 +1,127 @@
+using Godot;
+using Machines.Sim.World;
+
+namespace Machines.Game;
+
+/// <summary>
+/// The rounds in flight (<see cref="GameWorld.Projectiles"/>) as the original drew them: each weapon's own
+/// projectile model (plasma and pulse bolts, missiles, stings) flying nose first at the height it was fired
+/// from, and where one strikes, its weapon's splat. Without the exported effects a glowing streak stands in.
+/// </summary>
+public partial class ProjectileViews : Node3D
+{
+    // The projectile model each weapon fires (machphys: plasmbol, pulseblb, missile, stingl, stingm).
+    private static readonly Dictionary<string, string> Models = new()
+    {
+        ["PLASMA_RIFLE"] = "plaboltr", ["PLASMA_CANNON1"] = "plaboltc", ["PLASMA_CANNON2"] = "plabolt2",
+        ["PULSE_RIFLE"] = "pulboltr", ["PULSE_CANNON"] = "pulboltc",
+        ["MULTI_LAUNCHER1"] = "mis1", ["MULTI_LAUNCHER2"] = "mis2", ["MULTI_LAUNCHER3"] = "mis3", ["MULTI_LAUNCHER4"] = "mis4",
+        ["MULTI_LAUNCHER5"] = "mis5", ["MULTI_LAUNCHER6"] = "mis6", ["MULTI_LAUNCHER7"] = "mis7",
+        ["LARGE_MISSILE"] = "lmiss", ["WASP_LIGHT_STING"] = "stinglight", ["WASP_METAL_STING"] = "stingmetal",
+        ["VIRUS"] = "virusblt",
+    };
+
+    /// <summary>Rounds leave the gun about this high above the ground and keep to it.</summary>
+    private const float Height = 1.6f;
+
+    private readonly Dictionary<int, (Projectile Projectile, Node3D View, Vector3 Muzzle)> _shown = [];
+    private Func<int, ActorView?> _viewOf = _ => null;
+
+    /// <summary>Over this distance a round goes from its muzzle onto the line the simulation flies it along.</summary>
+    private const float Converge = 20;
+    private GameWorld _world = null!;
+    private ClassicAssets _assets = null!;
+
+    public static ProjectileViews Create(GameWorld world, ClassicAssets assets, Func<int, ActorView?> viewOf) =>
+        new() { Name = "Projectiles", _world = world, _assets = assets, _viewOf = viewOf };
+
+    public override void _Process(double delta)
+    {
+        var live = new HashSet<int>();
+        foreach (var projectile in _world.Projectiles)
+        {
+            live.Add(projectile.Id);
+            if (!_shown.TryGetValue(projectile.Id, out var shown))
+            {
+                // It leaves the weapon's muzzle and comes onto its line of flight as it goes.
+                var muzzle = _viewOf(projectile.Shooter)?.Muzzle(projectile.Mounting, projectile.Weapon, projectile.Barrel) is { } at
+                    ? at - Ground(projectile.Start)
+                    : Vector3.Zero;
+                shown = (projectile, NewView(projectile), muzzle);
+                _shown[projectile.Id] = shown;
+                _line[projectile.Id] = projectile.Position;
+                AddChild(shown.View);
+            }
+            // Between ticks the round flies on at its speed, so it moves smoothly; the tick sets it right again.
+            var ahead = _line[projectile.Id] + projectile.Direction * projectile.Weapon.ProjectileSpeed * (float)delta;
+            _line[projectile.Id] = System.Numerics.Vector2.Distance(ahead, projectile.Position) < projectile.Weapon.ProjectileSpeed * 0.1f
+                ? ahead
+                : projectile.Position;
+            var travelled = System.Numerics.Vector2.Distance(_line[projectile.Id], projectile.Start);
+            Place(shown.View, _line[projectile.Id], projectile, shown.Muzzle * Mathf.Clamp(1 - travelled / Converge, 0, 1));
+        }
+
+        foreach (var id in _shown.Keys.Where(id => !live.Contains(id)).ToList())
+        {
+            _line.Remove(id);
+            var (projectile, view, _) = _shown[id];
+            _shown.Remove(id);
+            // Struck short of its range: the weapon's splat where it hit.
+            if (projectile.Travelled < projectile.Weapon.Range - 0.5f)
+                Splat(view.GlobalPosition, projectile.Weapon.TypeName);
+            view.QueueFree();
+        }
+    }
+
+    private static Vector3 Direction(Projectile projectile) => new(projectile.Direction.X, 0, projectile.Direction.Y);
+
+    private static Vector3 Ground(System.Numerics.Vector2 at) => ActorView.World(at) + Vector3.Up * Height;
+
+    private static void Place(Node3D view, System.Numerics.Vector2 at, Projectile projectile, Vector3 offset)
+    {
+        var forward = Direction(projectile);
+        // The models point along their x axis; the basis keeps Godot's handedness.
+        view.GlobalTransform = new Transform3D(new Basis(forward, Vector3.Up, forward.Cross(Vector3.Up)), Ground(at) + offset);
+    }
+
+    // Where each round is on its line of flight, moved on smoothly between ticks.
+    private readonly Dictionary<int, System.Numerics.Vector2> _line = [];
+
+    private Node3D NewView(Projectile projectile)
+    {
+        if (Models.TryGetValue(projectile.Weapon.TypeName, out var model) && _assets.EffectMesh(model) is { } mesh)
+            return new MeshInstance3D { Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+
+        // A streak in the weapon's colour.
+        var colour = projectile.Weapon.TypeName.Contains("PLASMA") ? new Color(0.3f, 1, 0.4f)
+            : projectile.Weapon.TypeName.Contains("PULSE") ? new Color(0.4f, 0.7f, 1)
+            : new Color(1, 0.8f, 0.4f);
+        return new MeshInstance3D
+        {
+            Mesh = new BoxMesh { Size = new Vector3(1.6f, 0.2f, 0.2f) },
+            MaterialOverride = new StandardMaterial3D
+            {
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                AlbedoColor = colour,
+                EmissionEnabled = true,
+                Emission = colour,
+                EmissionEnergyMultiplier = 3,
+            },
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+    }
+
+    /// <summary>The weapon's impact splat (plasplat, pulsplat), growing and fading in a third of a second.</summary>
+    private void Splat(Vector3 at, string weapon)
+    {
+        var name = weapon.Contains("PLASMA") ? "splat" : weapon.Contains("PULSE") ? "pulsesplat" : null;
+        if (name is null || _assets.EffectMesh(name) is not { } mesh)
+            return;
+        var splat = new MeshInstance3D { Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+        AddChild(splat);
+        splat.GlobalPosition = at;
+        var grow = CreateTween();
+        grow.TweenProperty(splat, "scale", Vector3.One * 2.5f, 0.33f).From(Vector3.One * 0.5f);
+        grow.TweenCallback(Callable.From(splat.QueueFree));
+    }
+}

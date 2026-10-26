@@ -39,12 +39,14 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
         var mine = world.Machines.Where(m => m.Race == Race && !m.IsDead).ToList();
         AssignToSquads(mine);
         StaffLabs(world, mine);
+        Garrison(world, mine);
         Produce(world, mine);
         PlanConstructions(world);
 
         foreach (var state in _squads.Values)
         {
-            var members = mine.Where(m => m.Squad == state.Squad.Number && m.Inside is null).ToList();
+            // Machines inside a building, or on their way into a garrison, sit the squad's orders out.
+            var members = mine.Where(m => m.Squad == state.Squad.Number && m.Inside is null && m.Order is not EnterGarrisonOrder).ToList();
             foreach (var operation in state.Squad.Operations)
             {
                 switch (operation)
@@ -162,6 +164,38 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
                 .MinBy(l => Vector2.Distance(l.Position, technician.Position));
             if (lab is not null)
                 world.Issue(new EnterLabCommand(Race, [technician.Id], lab.Id));
+        }
+    }
+
+    /// <summary>
+    /// MachLogEvadeOperation, as far as garrisons go: a machine badly hurt with an enemy in scanner range runs to
+    /// the nearest garrison of its race with a free bay it fits through, if its evasion plan (EPP) considers
+    /// garrisons at all; inside it is repaired, and once whole it comes out again.
+    /// </summary>
+    private void Garrison(GameWorld world, List<Machine> machines)
+    {
+        var garrisons = world.Constructions.Where(c => c.Race == Race && c.Complete && c.IsType("GARRISON")).ToList();
+        if (garrisons.Count == 0)
+            return;
+        var bays = garrisons.ToDictionary(g => g.Id, g => GameWorld.GarrisonStations(g) - g.Garrisoned.Count);
+        foreach (var machine in machines)
+        {
+            if (machine.Inside is { } inside)
+            {
+                if (bays.ContainsKey(inside) && machine.HitPoints >= machine.MaxHitPoints)
+                    world.Issue(new StopCommand(Race, [machine.Id]));
+                continue;
+            }
+            if (machine.Order is EnterGarrisonOrder || machine.HitPoints * 2 > machine.MaxHitPoints
+                || world.Data.Parm.EvasionStrategies.FirstOrDefault(e => e.Name == machine.Stats.Evasion) is not { GarrisonsPriority: >= 0 }
+                || world.NearestEnemy(machine, machine.Stats.ScannerRange) is null)
+                continue;
+            var refuge = garrisons.Where(g => bays[g.Id] > 0 && GameWorld.FitsThrough(machine, g))
+                .MinBy(g => Vector2.DistanceSquared(g.Position, machine.Position));
+            if (refuge is null)
+                continue;
+            bays[refuge.Id]--;
+            world.Issue(new EnterGarrisonCommand(Race, [machine.Id], refuge.Id));
         }
     }
 

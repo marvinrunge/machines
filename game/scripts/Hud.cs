@@ -17,7 +17,11 @@ public partial class Hud : CanvasLayer
     private Label _messageLabel = null!;
     private Label _banner = null!;
     private Control _dragBox = null!;
-    private Label _crosshair = null!;
+    /// <summary>The first-person crosshair.</summary>
+    public Crosshair Crosshair { get; private set; } = null!;
+
+    /// <summary>The first-person weapon panels.</summary>
+    public WeaponDisplay Weapons { get; private set; } = null!;
 
     public Hud(Game game, Texture2D? map)
     {
@@ -33,7 +37,13 @@ public partial class Hud : CanvasLayer
     {
         set
         {
-            _crosshair.Visible = value;
+            Crosshair.Visible = value;
+            if (value)
+            {
+                Crosshair.Start();
+                Weapons.Start();
+            }
+            Weapons.Visible = value;
             _panel.Visible = !value;
         }
     }
@@ -53,10 +63,12 @@ public partial class Hud : CanvasLayer
         _dragBox.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         root.AddChild(_dragBox);
 
-        _crosshair = new Label { Text = "+", Visible = false, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-        _crosshair.AddThemeFontSizeOverride("font_size", 32);
-        _crosshair.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        root.AddChild(_crosshair);
+        Crosshair = Crosshair.Create(_game.Audio);
+        Crosshair.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        root.AddChild(Crosshair);
+        Weapons = WeaponDisplay.Create();
+        Weapons.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        root.AddChild(Weapons);
 
         _figures = new Label { Modulate = new Color(1, 1, 1, 0.85f) };
         root.AddChild(_figures);
@@ -90,11 +102,13 @@ public partial class Hud : CanvasLayer
 
         // Beside the panel: score, machines and the clock along the top, messages under them.
         var left = (_panel.Visible ? _panel.ScreenWidth : 0) + 12;
-        _figures.Position = new Vector2(left, 8);
+        // In first person the weapon panels take the top left; the text goes below them.
+        var top = Weapons.Visible ? GetViewport().GetVisibleRect().Size.Y * 0.05f + 90 * Math.Max(1, (int)Math.Round(GetViewport().GetVisibleRect().Size.Y / 480f)) : 0;
+        _figures.Position = new Vector2(left, 8 + top);
         _figures.Text = $"Machines {world.Machines.Count(m => m.Race == Game.Player)}     Score {state.Score.Gross}     " +
                         (world.TimeLeft is { } timeLeft ? $"Time left {TimeSpan.FromSeconds(timeLeft):h\\:mm\\:ss}" : $"Time {TimeSpan.FromSeconds(world.Time):h\\:mm\\:ss}") +
                         (_game.Paused ? "     PAUSED" : "");
-        _messageLabel.Position = new Vector2(left, 34);
+        _messageLabel.Position = new Vector2(left, 34 + top);
         var now = Time.GetTicksMsec() / 1000.0;
         _messages.RemoveAll(m => m.Until < now);
         _messageLabel.Text = string.Join("\n", _messages.Select(m => m.Text));

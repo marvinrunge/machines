@@ -42,6 +42,11 @@ public sealed partial class GameWorld
                 }
                 return null;
 
+            case AssemblyPointCommand assembly:
+                foreach (var factory in Own<Construction>(assembly.Race, assembly.Factories).Where(c => c.IsType("FACTORY")))
+                    factory.AssemblyPoint = assembly.Point;
+                return null;
+
             case PatrolCommand patrol:
                 if (patrol.Points.Count == 0)
                     return "a patrol needs points";
@@ -103,6 +108,29 @@ public sealed partial class GameWorld
                 return null;
             }
 
+            case CancelProductionCommand cancel:
+            {
+                var factory = Find<Construction>(cancel.Factory);
+                if (factory is null || factory.Race != cancel.Race || cancel.Index < 0 || cancel.Index >= factory.ProductionQueue.Count)
+                    return "nothing to cancel there";
+                factory.ProductionQueue.RemoveAt(cancel.Index);
+                if (cancel.Index == 0)
+                {
+                    AddBmu(cancel.Race, factory.ProductionSpent);
+                    factory.ProductionSpent = 0;
+                }
+                return null;
+            }
+
+            case CancelResearchCommand cancel:
+            {
+                var lab = Find<Construction>(cancel.Lab);
+                if (lab is null || lab.Race != cancel.Race || cancel.Index < 0 || cancel.Index >= lab.ResearchQueue.Count)
+                    return "nothing to cancel there";
+                lab.ResearchQueue.RemoveAt(cancel.Index);
+                return null;
+            }
+
             case ResearchCommand research:
             {
                 var lab = Find<Construction>(research.Lab);
@@ -157,10 +185,12 @@ public sealed partial class GameWorld
                 {
                     DriveInput.Remove(driven.Id);
                     PlayerAims.Remove(driven.Id);
+                    PlayerWeapons.Remove(driven.Id);
                     return null;
                 }
                 DriveInput[driven.Id] = (Math.Clamp(drive.Forward, -1, 1), Math.Clamp(drive.Turn, -1, 1));
-                if (drive.Aim is { } aim && Find(aim) is { } target && AreEnemies(drive.Race, target.Race))
+                PlayerWeapons[driven.Id] = drive.Weapons;
+                if (drive.Aim is { } aim)
                     PlayerAims[driven.Id] = aim;
                 else
                     PlayerAims.Remove(driven.Id);
@@ -215,6 +245,7 @@ public sealed partial class GameWorld
     internal void Send(Machine machine, Order order, Vector2? destination, Vector2? groupTarget = null)
     {
         LeaveGarrison(machine);
+        machine.Doorway = null;
         machine.Order = order;
         machine.Path.Clear();
         machine.PathIndex = 0;

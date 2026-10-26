@@ -88,6 +88,9 @@ public sealed class Machine : Actor
     /// <summary>The building or APC a machine is inside (a lab, a garrison, an APC); it is off the map.</summary>
     public int? Inside { get; set; }
 
+    /// <summary>The building whose door the machine is walking through (on the way in).</summary>
+    public int? Doorway { get; set; }
+
     /// <summary>For an APC: the machines it carries.</summary>
     public List<int> Passengers { get; } = [];
 
@@ -122,7 +125,21 @@ public sealed class Construction : Actor
         HitPoints = 1;
         var (min, max) = LocalFootprint(stats, orientation);
         Footprint = (min + position, max + position);
+        // ENTRANCE: the point outside the door first (MachPhysConstructionData::addEntrance).
+        if (stats.Geometry.FirstOrDefault(g => g.Keyword == "ENTRANCE") is { Args.Count: >= 2 } entrance)
+        {
+            float F(int i) => float.Parse(entrance.Args[i], System.Globalization.CultureInfo.InvariantCulture);
+            EntranceOutside = Rotate(new Vector2(F(0), F(1)), orientation) + position;
+            if (entrance.Args.Count >= 4)
+                EntranceInside = Rotate(new Vector2(F(2), F(3)), orientation) + position;
+        }
     }
+
+    /// <summary>Where machines come out of the building: a factory's pad before its door.</summary>
+    public Vector2? EntranceOutside { get; }
+
+    /// <summary>The point just inside the door, where machines going in end up.</summary>
+    public Vector2? EntranceInside { get; }
 
     public ConstructionSpec Spec { get; }
     public ConstructionLevel Stats { get; }
@@ -156,6 +173,9 @@ public sealed class Construction : Actor
 
     // Factories
     public List<ResearchKey> ProductionQueue { get; } = [];
+
+    /// <summary>Where new machines gather (MachLogFactory::specifiedDeployPoint), if the player set one.</summary>
+    public Vector2? AssemblyPoint { get; set; }
     public float ProductionSpent { get; set; }
 
     // Labs

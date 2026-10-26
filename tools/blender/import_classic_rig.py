@@ -3,7 +3,7 @@ one empty per rig node, its original meshes as children, and every animation lai
 timeline one after another with a marker at each start. Original axes are z up, like Blender's."""
 import json
 import bpy
-from mathutils import Matrix, Vector
+from mathutils import Matrix, Quaternion, Vector
 
 FPS = 30
 
@@ -23,6 +23,7 @@ def build(path, prefix="orig"):
         e = bpy.data.objects.new(f"{prefix}_{i:02d}", None)
         e.empty_display_size = 0.3
         e.empty_display_type = "ARROWS"
+        e.rotation_mode = "QUATERNION"
         col.objects.link(e)
         nodes.append(e)
     for i, n in enumerate(rig["nodes"]):
@@ -44,22 +45,62 @@ def build(path, prefix="orig"):
             col.objects.link(ob)
 
     bpy.context.scene.render.fps = FPS
-    add_animations(nodes, rig.get("animations", {}))
+    add_animations(nodes, rig.get("animations", {}), start=0)
     return nodes
 
 
-def add_animations(nodes, animations, only=None):
+def fcurves(obj):
+    """An object's animation curves, in legacy and in slotted (Blender 4.4+) actions."""
+    action = obj.animation_data.action if obj.animation_data else None
+    if action is None:
+        return []
+    curves = list(getattr(action, "fcurves", []))
+    if not curves and hasattr(action, "layers"):
+        for layer in action.layers:
+            for strip in layer.strips:
+                for bag in strip.channelbags:
+                    curves += list(bag.fcurves)
+    return curves
+
+
+def key(obj, frame):
     """
-    Keys each animation (or those named in `only`) on the timeline after the last marker, behind a marker of
-    its name. A node whose pivot was moved (its "pivot_offset", see split_parts.move_pivot) keeps it.
+    Keys an object's transform as the game plays it: quaternions (no euler flips), each on the same side as the
+    one keyed before it, so the turn between them is the short way.
     """
-    from mathutils import Vector
+    obj.rotation_mode = "QUATERNION"
+    before = obj.get("_last_quaternion")
+    if before is not None and obj.rotation_quaternion.dot(Quaternion(before)) < 0:
+        obj.rotation_quaternion = -obj.rotation_quaternion
+    obj["_last_quaternion"] = list(obj.rotation_quaternion)
+    obj.keyframe_insert("location", frame=frame)
+    obj.keyframe_insert("rotation_quaternion", frame=frame)
+    obj.keyframe_insert("scale", frame=frame)
+
+
+def linear(objects):
+    """Straight interpolation between samples, as the game's slerp: Bezier curves overshoot between them."""
+    for obj in objects:
+        for curve in fcurves(obj):
+            for point in curve.keyframe_points:
+                point.interpolation = "LINEAR"
+
+
+def add_animations(nodes, animations, only=None, start=None):
+    """
+    Keys each animation (or those named in `only`) on the timeline from `start` (by default after the last
+    marker), behind a marker of its name. A node whose pivot was moved (its "pivot_offset", see
+    split_parts.move_pivot) keeps it. Between two cycles the pose moves straight from the end of one to the
+    start of the next.
+    """
     scene = bpy.context.scene
-    start = scene.frame_end + 10 if scene.timeline_markers else 0
+    if start is None:
+        start = scene.frame_end + 10 if scene.timeline_markers else 0
     for name, anim in animations.items():
         if only is not None and name not in only:
             continue
-        scene.timeline_markers.new(name, frame=start)
+        if not any(m.name == name and m.frame == start for m in scene.timeline_markers):
+            scene.timeline_markers.new(name, frame=start)
         frames = 0
         for track in anim["tracks"]:
             e = nodes[track["node"]]
@@ -69,12 +110,10 @@ def add_animations(nodes, animations, only=None):
             for s, v in enumerate(samples):
                 e.matrix_basis = matrix(v)
                 e.location = e.location + offset
-                f = start + s * step
-                e.keyframe_insert("location", frame=f)
-                e.keyframe_insert("rotation_euler", frame=f)
-                e.keyframe_insert("scale", frame=f)
+                key(e, start + s * step)
             frames = max(frames, round((len(samples) - 1) * step))
         start += frames + 10
+    linear(nodes)
     for e in nodes:
         e.matrix_basis = matrix(e["rest"])
     scene.frame_start, scene.frame_end = 0, start - 10

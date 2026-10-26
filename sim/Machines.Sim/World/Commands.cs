@@ -68,7 +68,20 @@ public sealed record SelfDestructCommand(Race Race, IReadOnlyList<int> Actors) :
 /// First-person control of one machine, sent every tick while a player drives it: forward and turn input
 /// (−1 to 1) and the enemy under the crosshair to fire at. <paramref name="Driving"/> false hands it back.
 /// </summary>
-public sealed record DriveCommand(Race Race, int Machine, bool Driving, float Forward = 0, float Turn = 0, int? Aim = null) : Command(Race);
+/// <summary>
+/// First-person driving: speed and turn, while the trigger is held the point the weapons fire at, and which of
+/// the machine's weapons are selected to fire (a bit for each, in mounting order; Tab in the original).
+/// </summary>
+public sealed record DriveCommand(Race Race, int Machine, bool Driving, float Forward = 0, float Turn = 0, Vector2? Aim = null, int Weapons = -1) : Command(Race);
 
 /// <summary>Why a command was refused, for the client to show.</summary>
 public sealed record CommandRejected(Command Command, string Reason);
+
+/// <summary>Where a factory's new machines go once built (MachGuiAssemblyPointCommand); null clears it.</summary>
+public sealed record AssemblyPointCommand(Race Race, IReadOnlyList<int> Factories, Vector2? Point) : Command(Race);
+
+/// <summary>Takes an entry off a factory's queue; what was spent on it comes back (MachGuiProductionBank).</summary>
+public sealed record CancelProductionCommand(Race Race, int Factory, int Index) : Command(Race);
+
+/// <summary>Takes an entry off a lab's research queue; the research done on it is kept.</summary>
+public sealed record CancelResearchCommand(Race Race, int Lab, int Index) : Command(Race);

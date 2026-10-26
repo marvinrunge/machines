@@ -43,6 +43,9 @@ public partial class ActorView : Node3D
     // Ground contact (MachPhysLocomotionMethodImpl): wheeled, tracked and legged machines stand on the ground
     // at their front and back ends and lean with it; hovering and gliding ones keep level.
     private bool _followsGround;
+
+    // Hovering and gliding machines lean with their motion.
+    private bool _leans;
     private float _fore = 1, _aft = -1;
     private float _yaw;
 
@@ -56,6 +59,28 @@ public partial class ActorView : Node3D
     /// Where first person looks out from: the centre front of the faceplate, as the original attached its camera,
     /// or high at the front of the model without one.
     /// </summary>
+    /// <summary>
+    /// Where a weapon's round leaves it (MachPhysWeapon::launchTransform): its mounting part (r_gun, l_gun or
+    /// gun, MachPhysCanAttack) moved out by the weapon's LAUNCH_OFFSET for that barrel; null without a rig.
+    /// </summary>
+    public Vector3? Muzzle(Machines.Sim.Combat.Mounting mounting, Machines.Import.Model.WeaponSpec weapon, int barrel)
+    {
+        var part = mounting switch
+        {
+            Machines.Sim.Combat.Mounting.Right => "r_gun",
+            Machines.Sim.Combat.Mounting.Left => "l_gun",
+            _ => "gun",
+        };
+        if (_rigView?.PartTransform(part) is not { } at)
+            return null;
+        var offsets = weapon.Presentation.Where(l => l.Keyword == "LAUNCH_OFFSET" && l.Args.Count >= 3)
+            .Select(l => l.Args.Select(a => float.Parse(a, System.Globalization.CultureInfo.InvariantCulture)).ToArray())
+            .ToList();
+        // Original axes, z up.
+        var offset = offsets.Count > 0 ? offsets[barrel % offsets.Count] : [0f, 0f, 0f];
+        return at * new Vector3(offset[0], offset[2], offset[1]);
+    }
+
     public Vector3 Eye => _rigView?.Eye
         ?? GlobalTransform * new Vector3(_bounds.End.X, _bounds.Position.Y + _bounds.Size.Y * 0.8f, _bounds.GetCenter().Z);
 
@@ -65,14 +90,145 @@ public partial class ActorView : Node3D
     /// <summary>Plays one of the machine's exported animations once; false without a rig or that animation.</summary>
     public bool Play(string animation) => _rigView?.Play(animation) ?? false;
 
-    /// <summary>A building at work plays its working motion (fans turn, arms dig).</summary>
+    /// <summary>A building's doors open for machines coming in or out.</summary>
+    public bool DoorsOpen
+    {
+        set
+        {
+            if (_rigView is not null)
+                _rigView.DoorsOpen = value;
+        }
+    }
+
+    /// <summary>
+    /// The doors of a building's ENTRANCE lines (MachPhysConstructionData::addEntrance): across the way through,
+    /// at the door point, 6.9 m wide for a small door and 11.9 m for a large one.
+    /// </summary>
+    private static void AddDoors(RigView rig, Construction building)
+    {
+        foreach (var entrance in building.Stats.Geometry.Where(g => g.Keyword == "ENTRANCE" && g.Args.Count >= 8))
+        {
+            float F(int i) => float.Parse(entrance.Args[i], System.Globalization.CultureInfo.InvariantCulture);
+            var through = new Vector2(F(2) - F(0), F(3) - F(1));
+            if (through.LengthSquared() < 0.0001f)
+                continue;
+            var width = entrance.Args[7] == "LARGE_DOOR" ? 11.9f : 6.9f;
+            rig.AddDoors(entrance.Args[6], new Vector2(through.Y, -through.X).Normalized() * width);
+        }
+    }
+
+    // A constructor at work (MachPhysConstructor::startConstructing): per jet a torch beam reaching for the
+    // building's centre, sparks, and a flickering light.
+    private readonly List<(string Jet, Node3D Torch, Node3D Sparks, OmniLight3D Light)> _jets = [];
+    private Vector3? _constructAt;
+    private double _constructTime;
+
+    /// <summary>
+    /// A constructor builds or repairs at <paramref name="target"/> (the building's centre), or stops (null):
+    /// its arms play the building cycle and its jets reach out with the original's torch beam and sparks.
+    /// </summary>
+    public void Construct(Vector3? target, Mesh? torch, Mesh? sparks)
+    {
+        if (_rigView is null)
+            return;
+        _rigView.Constructing = target is not null;
+        _constructAt = target;
+        if (target is null)
+        {
+            foreach (var jet in _jets)
+            {
+                jet.Torch.QueueFree();
+                jet.Sparks.QueueFree();
+                jet.Light.QueueFree();
+            }
+            _jets.Clear();
+            return;
+        }
+        if (_jets.Count > 0)
+            return;
+        foreach (var jet in new[] { "l_jet", "r_jet" })
+        {
+            if (_rigView.PartTransform(jet) is null)
+                continue;
+            var beam = new MeshInstance3D { Mesh = torch ?? new BoxMesh { Size = new Vector3(5, 0.15f, 0.15f) }, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            var spray = new MeshInstance3D { Mesh = sparks ?? new SphereMesh { Radius = 0.3f, Height = 0.6f }, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            // The original's light: blue-white, a few metres.
+            var light = new OmniLight3D { LightColor = new Color(0.6f, 0.8f, 1), LightEnergy = 3, OmniRange = 10 };
+            AddChild(beam);
+            AddChild(spray);
+            AddChild(light);
+            _jets.Add((jet, beam, spray, light));
+        }
+    }
+
+    private void UpdateJets(double delta)
+    {
+        if (_constructAt is not { } target || _rigView is null)
+            return;
+        _constructTime += delta;
+        // The light's flicker (on, off at 0.3 s, on at 0.5 s ... over 1.1 s).
+        var t = _constructTime % 1.1;
+        var lit = t < 0.3 || t is >= 0.5 and < 0.6 || t is >= 0.8 and < 0.9;
+        foreach (var (jet, torch, sparks, light) in _jets)
+        {
+            if (_rigView.PartTransform(jet) is not { } at)
+                continue;
+            var from = at.Origin;
+            // Level, as the original flattened the beam's direction, and stretched to reach: the torch is 5 m long.
+            var reach = new Vector3(target.X - from.X, 0, target.Z - from.Z);
+            var length = reach.Length();
+            if (length > 0.1f)
+            {
+                var along = reach / length;
+                torch.GlobalTransform = new Transform3D(new Basis(along * (length / 5), Vector3.Up, along.Cross(Vector3.Up)), from);
+            }
+            sparks.GlobalTransform = new Transform3D(new Basis(Vector3.Up, (float)GD.RandRange(0, Mathf.Tau)), from);
+            sparks.Visible = GD.Randf() < 0.8f;
+            light.GlobalPosition = from;
+            light.Visible = lit;
+        }
+    }
+
+    /// <summary>A building at work plays its working motion (fans turn, arms dig) and smokes from its chimneys.</summary>
     public bool Working
     {
         set
         {
             if (_rigView is not null)
                 _rigView.Working = value;
+            _working = value;
         }
+    }
+
+    private bool _working;
+    private readonly List<GpuParticles3D> _plumes = [];
+
+    /// <summary>The building's chimneys (<see cref="ChimneyTable"/>): an emitter at each, smoking while it works.</summary>
+    private void AddChimneys(Construction building)
+    {
+        var rise = ChimneyTable.Rise(building.Spec.Type);
+        foreach (var chimney in ChimneyTable.For(building.Spec.Type, building.Spec.SubType, building.Stats.HardwareLevel))
+        {
+            var colour = chimney.Smoke switch
+            {
+                ChimneySmoke.Civilian => new Color(0.86f, 0.87f, 0.88f, 0.55f),
+                ChimneySmoke.Military => new Color(0.32f, 0.04f, 0.04f, 0.6f),
+                _ => new Color(0.22f, 0.21f, 0.2f, 0.65f),
+            };
+            var plume = Effects.Plume(chimney.Wisps, rise, ChimneyTable.Height, ChimneyTable.WispSize, colour);
+            // Original axes, z up, as the models (see ClassicAssets): y and z swap.
+            plume.Position = new Vector3(chimney.X, chimney.Z, chimney.Y);
+            AddChild(plume);
+            _plumes.Add(plume);
+        }
+    }
+
+    /// <summary>Smoke flows from the chimneys while the building works; what is in the air rises on when it stops.</summary>
+    private void Smoke()
+    {
+        foreach (var plume in _plumes)
+            if (plume.Emitting != _working)
+                plume.Emitting = _working;
     }
 
     /// <summary>Render layer of a machine being driven: the first-person camera does not draw it, so it never blocks the view.</summary>
@@ -109,6 +265,8 @@ public partial class ActorView : Node3D
         {
             view._rigView = RigView.Create(rig);
             view._maxSpeed = actor is Machine rigged ? rigged.Stats.Speed : 0;
+            if (actor is Construction building)
+                AddDoors(view._rigView, building);
             view.AddChild(view._rigView);
         }
         else
@@ -119,8 +277,12 @@ public partial class ActorView : Node3D
             view.AddChild(body);
         }
 
+        if (actor is Construction works)
+            view.AddChimneys(works);
+
         if (MeshBounds(view, Transform3D.Identity) is { } modelBounds)
             view._bounds = modelBounds;
+        view._leans = actor is Machine { Stats.Locomotion: Locomotion.Hover or Locomotion.Glider };
         if (actor is Machine grounded && grounded.Stats.Locomotion is Locomotion.Wheels or Locomotion.Tracks or Locomotion.Spider)
         {
             // The original takes the ends from the machine's bounding box along its facing (x).
@@ -282,6 +444,9 @@ public partial class ActorView : Node3D
             Position = _target;
             _yaw = _targetYaw;
             Stand();
+            // Motion is measured from here, not from the origin.
+            _lastPosition = Position;
+            _lastYaw = _yaw;
             _placed = true;
         }
 
@@ -301,21 +466,72 @@ public partial class ActorView : Node3D
         _health.Scale = new Vector3(Mathf.Max(0.05f, Size * actor.HitPoints / Mathf.Max(1, actor.MaxHitPoints)), 1, 1);
         _armour.Scale = new Vector3(Mathf.Max(0.05f, Size * actor.Armour / Mathf.Max(1, actor.MaxArmour)), 1, 1);
 
-        // Unfinished buildings rise out of the ground as they are built.
-        if (actor is Construction { Complete: false } site)
-            Scale = new Vector3(1, Mathf.Max(0.1f, site.Built / Mathf.Max(1, site.Stats.Cost)), 1);
-        else
-            Scale = Vector3.One;
+        // Unfinished buildings stand as a pulsing green hologram, more solid as the work goes on.
+        Hologram(actor is Construction { Complete: false } site ? 100 * site.Built / Mathf.Max(1, site.Stats.Cost) : null);
 
         Visible = actor is not Machine { Inside: not null };
     }
 
+    // A building under construction is drawn all in see-through glowing green whose opacity swings between
+    // nothing and a peak (MachPhysConstruction::doPercentageComplete, W4dSolidFadedAlphaPlan): ten bands of
+    // progress, each with its frame cycle and peak.
+    private StandardMaterial3D? _hologram;
+    private (int Frames, float Peak) _band;
+    private double _hologramTime;
+
+    private static (int Frames, float Peak) Band(float percent) => percent switch
+    {
+        < 10 => (40, 0.25f), < 20 => (40, 0.4f), < 30 => (40, 0.55f), < 40 => (40, 0.85f), < 50 => (40, 0.55f),
+        < 80 => (40, 1f), < 90 => (30, 1f), _ => (2, 1f),
+    };
+
+    private void Hologram(float? percent)
+    {
+        var model = (Node?)_rigView ?? GetNodeOrNull("Body");
+        if (model is null)
+            return;
+        if (percent is not { } done)
+        {
+            if (_hologram is null)
+                return;
+            _hologram = null;
+            foreach (var mesh in model.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>().Append(model as MeshInstance3D).OfType<MeshInstance3D>())
+                mesh.MaterialOverride = null;
+            return;
+        }
+        _band = Band(done);
+        if (_hologram is not null)
+            return;
+        _hologram = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            AlbedoColor = new Color(0, 1, 0, 0.25f),
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            EmissionEnabled = GraphicsSettings.Remake,
+            Emission = new Color(0, 1, 0),
+            EmissionEnergyMultiplier = 1.2f,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+        };
+        foreach (var mesh in model.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>().Append(model as MeshInstance3D).OfType<MeshInstance3D>())
+            mesh.MaterialOverride = _hologram;
+    }
+
     public override void _Process(double delta)
     {
+        UpdateJets(delta);
+        if (_hologram is not null)
+        {
+            // Frame by frame, as the original counted them at about 30 a second: the peak, down to nothing and back.
+            _hologramTime += delta;
+            var half = _band.Frames / 2f;
+            var frame = (int)(_hologramTime * 30) % _band.Frames;
+            _hologram.AlbedoColor = new Color(0, 1, 0, _band.Peak * Mathf.Abs(frame - half) / half);
+        }
         var t = 1 - Mathf.Exp(-12 * (float)delta);
         Position = Position.Lerp(_target, t);
         _yaw = Mathf.LerpAngle(_yaw, _targetYaw, t);
         Stand();
+        Smoke();
         if (_lamp is not null)
         {
             _lamp.Visible = PlanetLook.Night > 0.05f;
@@ -332,7 +548,7 @@ public partial class ActorView : Node3D
             var speed = new Vector3(moved.X, 0, moved.Z).Dot(facing) / (float)delta;
             var turnRate = -Mathf.AngleDifference(_lastYaw, _yaw) / (float)delta;
             _rigView.Animate((float)delta, speed, turnRate, _maxSpeed, _aim);
-            if (!_followsGround)
+            if (_leans)
                 Lean((float)delta, speed, turnRate);
         }
         _lastPosition = Position;

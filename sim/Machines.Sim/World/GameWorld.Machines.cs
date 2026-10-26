@@ -11,6 +11,14 @@ public sealed partial class GameWorld
     /// Whether a machine is close enough to work on a building. The grid blocks up to one cell around a
     /// footprint, so the nearest free spot can be a cell further out; that still counts.
     /// </summary>
+    /// <summary>The building a constructor is at work on (building or repairing it, and standing at it), if any.</summary>
+    public Construction? WorkedOn(Machine machine) => machine.Order switch
+    {
+        ConstructOrder construct when Find<Construction>(construct.Construction) is { Complete: false } site && InReach(machine, site) => site,
+        RepairOrder repair when Find<Construction>(repair.Building) is { } damaged && InReach(machine, damaged) => damaged,
+        _ => null,
+    };
+
     private static bool InReach(Machine machine, Construction building) =>
         building.DistanceFrom(machine.Position) <= InteractionDistance + machine.Radius + Navigation.NavGrid.CellSize * 1.5f;
 
@@ -326,18 +334,15 @@ public sealed partial class GameWorld
             return;
         }
 
-        if (!InReach(technician, lab))
-        {
-            Approach(technician, ClosestPointOutside(lab, technician.Position));
-            return;
-        }
-
         if (lab.Technicians.Count >= ResearchStations(lab))
         {
             technician.Order = Order.Idle;
             return;
         }
+        if (!ThroughDoor(technician, lab))
+            return;
 
+        technician.Doorway = null;
         technician.Inside = lab.Id;
         technician.Position = lab.Position;
         technician.Order = Order.Idle;

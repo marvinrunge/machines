@@ -30,7 +30,8 @@ public sealed class Rig
     public static Rig Read(JsonElement rig, Func<JsonElement, Mesh?> mesh)
     {
         var nodes = rig.GetProperty("nodes").EnumerateArray()
-            .Select(n => new RigNode(n.GetProperty("parent").GetInt32(), Transform(n.GetProperty("transform")), mesh(n)))
+            .Select(n => new RigNode(n.GetProperty("parent").GetInt32(), Transform(n.GetProperty("transform")), mesh(n),
+                n.TryGetProperty("name", out var name) ? name.GetString() ?? "" : ""))
             .ToArray();
         var animations = new Dictionary<string, RigAnimation>();
         if (rig.TryGetProperty("animations", out var anims))
@@ -88,7 +89,7 @@ public sealed class Rig
     }
 }
 
-public sealed record RigNode(int Parent, Transform3D Rest, Mesh? Mesh);
+public sealed record RigNode(int Parent, Transform3D Rest, Mesh? Mesh, string Name = "");
 
 public sealed record RigTrack(int Node, Transform3D[] Samples)
 {

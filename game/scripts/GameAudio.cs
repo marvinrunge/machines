@@ -162,6 +162,20 @@ public partial class GameAudio : Node
         Trace(mail.Id);
     }
 
+    /// <summary>A sound of the interface (MachGuiSoundManager), e.g. <c>gui/sounds/attackon.wav</c>: not placed, never muted.</summary>
+    public void PlayGui(string file)
+    {
+        if (Stream(file) is not { } stream)
+            return;
+        _gui ??= new AudioStreamPlayer { Name = "Gui" };
+        if (_gui.GetParent() is null)
+            AddChild(_gui);
+        _gui.Stream = stream;
+        _gui.Play();
+    }
+
+    private AudioStreamPlayer? _gui;
+
     // ---- loading ------------------------------------------------------------------------------
 
     private AudioStreamWav? Stream(string file)
