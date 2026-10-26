@@ -93,7 +93,8 @@ public sealed class Blast(string weapon, Vector2 position, Race? by, float start
         ];
     }
 
-    private static List<float> Extras(WeaponSpec weapon) => weapon.Presentation
+    /// <summary>A weapon's EXTRAS numbers from parmdata, up to the first comment.</summary>
+    public static List<float> Extras(WeaponSpec weapon) => weapon.Presentation
         .Where(p => p.Keyword == "EXTRAS")
         .SelectMany(p => p.Args)
         .TakeWhile(a => !a.StartsWith("//"))

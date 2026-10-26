@@ -91,6 +91,7 @@ public partial class Game : Node3D
 
     // Area weapons going off, drawn as growing spheres
     private readonly Dictionary<Blast, MeshInstance3D> _blastViews = [];
+    private readonly HashSet<Blast> _groundBlasts = [];
 
     // First person
     private Machine? _driven;
@@ -318,9 +319,11 @@ public partial class Game : Node3D
         _rig.EdgePan = false;
         if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_FOCUS") is { } focus)
         {
+            // "-,-,pitch,distance" keeps the camera where it starts.
             var parts = focus.Split(',');
-            _rig.Position = new Vector3(float.Parse(parts[0], System.Globalization.CultureInfo.InvariantCulture), 0,
-                float.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture));
+            if (parts[0] != "-")
+                _rig.Position = new Vector3(float.Parse(parts[0], System.Globalization.CultureInfo.InvariantCulture), 0,
+                    float.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture));
             if (parts.Length >= 4)
             {
                 _rig.Pitch = float.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture);
@@ -331,11 +334,13 @@ public partial class Game : Node3D
         }
         if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_BLAST") is { Length: > 0 } blastAt)
         {
-            // e.g. "NUCLEAR_MISSILE,800,800": sets the weapon off there at once.
+            // e.g. "NUCLEAR_MISSILE,800,800": sets the weapon off there at once; "BEE_BOMB,-,-" where the camera looks.
             var parts = blastAt.Split(',');
             var weapon = World.Data.Parm.Weapons.First(w => w.TypeName == parts[0]);
-            World.StartBlast(weapon, new NVector2(float.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture),
-                float.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture)), null);
+            World.StartBlast(weapon, parts[1] == "-"
+                ? new NVector2(_rig.Position.X, _rig.Position.Z)
+                : new NVector2(float.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture),
+                    float.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture)), null);
         }
         // e.g. "AGGRESSOR,ASSASSIN,2,L_PLASMA_RIFLE": puts one of those down at the camera, to drive.
         // "Blue:AGGRESSOR,GRUNT,2,L_BOLTER" puts down an enemy instead, 25 m east (straight ahead), to watch a fight;
@@ -591,8 +596,18 @@ public partial class Game : Node3D
 
     private void SyncBlasts()
     {
-        foreach (var blast in World.Blasts.Where(b => !_blastViews.ContainsKey(b)))
+        _groundBlasts.RemoveWhere(b => !World.Blasts.Contains(b));
+        foreach (var blast in World.Blasts.Where(b => !_blastViews.ContainsKey(b) && !_groundBlasts.Contains(b)))
         {
+            // The punch and the bee bomb tear the ground open, as the original's own effects; they burn out
+            // by themselves, after the blast's damage has been done.
+            var spec = World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == blast.Weapon);
+            if (GroundBlast.Create(_assets, blast, spec is null ? [] : Blast.Extras(spec)) is { } ground)
+            {
+                _effects.AddChild(ground);
+                _groundBlasts.Add(blast);
+                continue;
+            }
             var colour = blast.Weapon switch
             {
                 "VORTEX" => new Color(0.1f, 0.05f, 0.2f, 0.75f),
@@ -752,9 +767,6 @@ public partial class Game : Node3D
                 break;
             case Key.B:
                 BeginAssemblyPoint();
-                break;
-            case Key.Tab when _driven is not null:
-                SelectNextWeapons();
                 break;
             case Key.P when Online:
                 _hud.Message("A multiplayer match cannot be paused");
@@ -1094,8 +1106,10 @@ public partial class Game : Node3D
         _lookPitch = 0;
         Input.MouseMode = Input.MouseModeEnum.Captured;
         _weaponSelect = int.MaxValue;
+        // A panel button keeping the focus would take Tab for moving the focus on.
+        GetViewport().GuiReleaseFocus();
         _hud.FirstPerson = true;
-        _hud.Message("First person: W/S drive, A/D or mouse turn, left mouse fire, F or Esc to leave");
+        _hud.Message("First person: W/S drive, A/D or mouse turn, left mouse fire, Tab weapons, F or Esc to leave");
     }
 
     private void LeaveFirstPerson()
@@ -1119,6 +1133,9 @@ public partial class Game : Node3D
         {
             case InputEventKey { Pressed: true, Echo: false, Keycode: Key.F or Key.Escape }:
                 LeaveFirstPerson();
+                break;
+            case InputEventKey { Pressed: true, Echo: false, Keycode: Key.Tab }:
+                SelectNextWeapons();
                 break;
             case InputEventMouseMotion motion:
                 _mouseTurn -= motion.Relative.X * 0.02f;
@@ -1145,8 +1162,10 @@ public partial class Game : Node3D
         _audio.PlayGui("gui/sounds/weapchng.wav");
         var count = machine.Weapons.Count;
         _weaponSelect = _weaponSelect >= count ? 0 : _weaponSelect + 1;
-        if (machine.IsType("AGGRESSOR", "NINJA") && _weaponSelect == count - 1)
-            _weaponSelect = count;
+        // The original's Ninja (the Gorilla) lists its punch last and never picks it alone; here the punch
+        // sits between the launchers, so it is passed over wherever it is.
+        if (_weaponSelect < count && machine.Weapons[_weaponSelect].Spec.TypeName == "GORILLA_PUNCH")
+            _weaponSelect++;
     }
 
     private void UpdateDriving()

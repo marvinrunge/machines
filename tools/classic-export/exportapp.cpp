@@ -53,6 +53,9 @@
 #include "machphys/pulsaura.hpp"
 #include "machphys/jetringm.hpp"
 #include "machphys/sparks.hpp"
+#include "machphys/crakfire.hpp"
+#include "machphys/beewave.hpp"
+#include "world4d/link.hpp"
 #include "sim/manager.hpp"
 #include "world4d/entyplan.hpp"
 #include "mathex/vec2.hpp"
@@ -1055,6 +1058,7 @@ bool ExportApp::clientStartup()
         "plaboltr", "plaboltc", "plabolt2", "pulboltr", "pulboltc",
         "mis1", "mis2", "mis3", "mis4", "mis5", "mis6", "mis7", "lmiss", "nmisea",
         "stinglight", "stingmetal", "splat", "aura", "pulsesplat", "pulseaura", "torch", "sparks",
+        "punchcrack", "punchfire", "beecrack", "beefire", "beewave",
     };
     mkdir((out + "/fx").c_str());
     for (size_t e = 0; e < sizeof(effects) / sizeof(effects[0]); ++e)
@@ -1080,10 +1084,29 @@ bool ExportApp::clientStartup()
         // A constructor at work: the green beam from its jets (MachPhysJetRing, 5 m long) and their sparks.
         else if (name == "torch") effect = _NEW(MachPhysJetRing(root, at));
         else if (name == "sparks") effect = _NEW(MachPhysSparks(root, at));
+        // The Gorilla's punch and the bee bomb tear the ground (MachPhysCrackFire, models/weapons/punch and
+        // bee/chasm.cdf): one section 2 m long (unscaled), its crack and its wall of fire written apart, as the
+        // game scales them apart. The bee bomb's shock wave spreads with them (MachPhysBeeBombWave).
+        else if (name == "beewave") effect = _NEW(MachPhysBeeBombWave(root, at));
+        const W4dEntity* part = effect;
+        if (name == "punchcrack" or name == "punchfire" or name == "beecrack" or name == "beefire")
+        {
+            MachPhysCrackFire* chasm = _NEW(MachPhysCrackFire(root, MexPoint3d(0, 0, 0), MexPoint3d(2, 0, 0),
+                name[0] == 'p' ? MachPhysCrackFire::GARILLA_PUNCH_CHASM : MachPhysCrackFire::BEE_BOMB_CHASM));
+            W4dLink* link = NULL;
+            if (not chasm->findLink(name.find("crack") != std::string::npos ? "Crack23" : "Fire23", &link))
+                continue;
+            link->visible(true);
+            effect = chasm;
+            part = link;
+        }
         if (effect == NULL)
             continue;
+        // The game makes splats, auras and the wave hidden and shows them when they go off.
+        if (part == effect)
+            effect->visible(true);
         ModelWriter writer;
-        writer.addEntity(*effect);
+        writer.addEntity(*part);
         writer.write(out + "/fx/" + name + ".json", name);
         textures.insert(writer.textures().begin(), writer.textures().end());
         std::cout << "fx " << name << ": " << writer.triangleCount() << " triangles" << std::endl;

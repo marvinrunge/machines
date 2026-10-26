@@ -564,6 +564,9 @@ public sealed class ClassicAssets
             material.EmissionEnabled = true;
             material.Emission = new Color(emissive[0], emissive[1], emissive[2]);
             material.EmissionTexture = loaded;
+            // Tinted by the texture, not added to it: the eyes (black, glowing white) show their white circles on
+            // black instead of a white box.
+            material.EmissionOperator = BaseMaterial3D.EmissionOperatorEnum.Multiply;
             material.EmissionEnergyMultiplier = GraphicsSettings.Remake ? 1.6f : 1;
         }
         // See-through textures: cut out where keyed, blended where they have an alpha map.

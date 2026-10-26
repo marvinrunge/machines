@@ -81,6 +81,9 @@ public partial class ActorView : Node3D
         return at * new Vector3(offset[0], offset[2], offset[1]);
     }
 
+    /// <summary>The middle of the model, where rounds fired at it fly to (high up for a flyer).</summary>
+    public Vector3 Centre => GlobalTransform * _bounds.GetCenter();
+
     public Vector3 Eye => _rigView?.Eye
         ?? GlobalTransform * new Vector3(_bounds.End.X, _bounds.Position.Y + _bounds.Size.Y * 0.8f, _bounds.GetCenter().Z);
 

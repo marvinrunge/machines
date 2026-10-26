@@ -92,6 +92,7 @@ public partial class RigView : Node3D
             if (material.EmissionEnabled)
             {
                 material.EmissionTexture = material.AlbedoTexture;
+                material.EmissionOperator = BaseMaterial3D.EmissionOperatorEnum.Multiply;
                 material.Emission = Colors.White;
                 material.EmissionEnergyMultiplier = 1.5f * pulse;
             }

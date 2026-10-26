@@ -53,7 +53,7 @@ public partial class ProjectileViews : Node3D
                 // Straight from the muzzle's height to the height of what it was fired at, whatever the ground
                 // does in between, as the original's rounds flew.
                 var from = Ground(projectile.Start).Y + muzzle.Y;
-                var to = ActorView.World(projectile.Aim).Y + Height;
+                var to = AimHeight(projectile);
                 _climb[projectile.Id] = (from, (to - from) / Mathf.Max(1, System.Numerics.Vector2.Distance(projectile.Start, projectile.Aim)));
                 AddChild(shown.View);
             }
@@ -84,6 +84,20 @@ public partial class ProjectileViews : Node3D
     private static Vector3 Direction(Projectile projectile) => new(projectile.Direction.X, 0, projectile.Direction.Y);
 
     private static Vector3 Ground(System.Numerics.Vector2 at) => ActorView.World(at) + Vector3.Up * Height;
+
+    /// <summary>
+    /// How high the point a round was fired at lies: the middle of the actor there (or the one it was aimed to
+    /// miss, which the simulation aims at most 4.5 m beside it), so it flies up to a flyer; else above the ground.
+    /// </summary>
+    private float AimHeight(Projectile projectile)
+    {
+        var target = _world.Actors
+            .Where(a => a.Id != projectile.Shooter && !a.IsDead
+                && System.Numerics.Vector2.Distance(a.Position, projectile.Aim) <= a.Radius + 5)
+            .OrderBy(a => System.Numerics.Vector2.Distance(a.Position, projectile.Aim) - a.Radius)
+            .FirstOrDefault();
+        return target is not null && _viewOf(target.Id) is { } view ? view.Centre.Y : Ground(projectile.Aim).Y;
+    }
 
     private static void Place(Node3D view, System.Numerics.Vector2 at, Projectile projectile, Vector3 offset, float height, float slope)
     {
