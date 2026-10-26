@@ -20,7 +20,7 @@ Textures are not copied: the Godot client reads the BMP files straight from your
 ## Requirements
 
 - MSYS2 with the MinGW64 toolchain:
-  `pacman -S mingw-w64-x86_64-{gcc,cmake,ninja,SDL2,SDL2_image,openal,alure,glew,glm,freetype} mingw-w64-ucrt-x86_64-enet`
+  `pacman -S mingw-w64-x86_64-{gcc,cmake,ninja,SDL2,SDL2_image,openal,glew,glm,freetype} mingw-w64-ucrt-x86_64-enet`
 - The original engine source (`nightdivestudio/machines`)
 - A purchased copy of the game (folder with `models.bin` and `models/texture4`)
 
