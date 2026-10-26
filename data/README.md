@@ -12,7 +12,7 @@ No original art, sound or video is included. Those are not part of the source re
 | `parmdata.dat` | Stats of every machine, building and weapon, evasion strategies, general data | `Machines.Import.Parm.ParmDataParser` |
 | `global.rst` | Research tree | `Machines.Import.Research.ResearchTreeParser` |
 | `global.cst` | Construction order for constructors | `Machines.Import.Research.ConstructionOrderParser` |
-| `*.scn` | Scenarios: starting units, mineral sites, triggers | not yet |
+| `*.scn` | Scenarios: starting units, mineral sites, triggers | `Machines.Import.Scenarios.ScenarioParser` |
 | `*.spl` | AI race scripts: production lists and squads | not yet |
 | `*.rsi` | Research available at the start of a scenario | `Machines.Import.Research.ScenarioResearchParser` |
 | `sceninfo.dat` | Campaign, skirmish and multiplayer menus | not yet |
@@ -29,6 +29,14 @@ The importers keep these as they are; the tests list them so new ones stand out.
 - `global.rst`: the original applies `FACTORY_COST` only when the amount is above zero, so the four
   negative `RELATIVE` adjustments (medic and surgeon administrators) have no effect.
 - `fortseig.rsi` lines 46–47 start with `Med tech` and are ignored, as in the original.
+- Scenarios: the original reads numbers with C's `atoi`/`atof`, which never fail. So `0T` (`m_contrl.scn` 116)
+  reads as 0. In `multidog.scn` lines 34 and 40, `MEDIUM`/`HIGH` land in the height slot of a `SITE` line that
+  lacks its height, so they read as 0 and the sites count for every resource setting. The importer copies this
+  behaviour and lists each case in `Scenario.Warnings`.
+- Scenarios: building flags only count when spelt exactly (`REBUILD`, `NOT_BUILT`). The 13 misspellings
+  (`REBUILT`, `REBUILD2`, `REBUILDY`) silently mean "no flag" and are listed in `UnknownWords`.
+- `deepspac.scn` writes `SET_SCENARIO_FLAG NAME x` instead of `ON x`; the original never checks that word.
+- `tut02.scn` and `tut03.scn` close the RED block twice, so the assembly points after it never load.
 
 Do not edit these files. Balance changes for the remake go in separate override files,
 so the original values stay available as "classic rules".
