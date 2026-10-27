@@ -34,21 +34,28 @@ public static class TerrainDetail
         if (_tried)
             return _arrays;
         _tried = true;
+        // The thirty maps load and compress side by side.
+        var maps = new Image?[Layers.Length, 3];
+        var brightness = new float[Layers.Length];
+        Image.CompressSource[] sources = [Image.CompressSource.Srgb, Image.CompressSource.Normal, Image.CompressSource.Generic];
+        string[] files = ["albedo.jpg", "normal.jpg", "roughness.jpg"];
+        Parallel.For(0, Layers.Length * 3, k =>
+        {
+            var (i, m) = (k / 3, k % 3);
+            maps[i, m] = Read(Path.Combine(Folder, Layers[i].Name, files[m]), sources[m], out var mean);
+            if (m == 0)
+                brightness[i] = Mathf.Max(mean, 0.05f);
+        });
         var albedo = new Godot.Collections.Array<Image>();
         var normal = new Godot.Collections.Array<Image>();
         var roughness = new Godot.Collections.Array<Image>();
-        var brightness = new float[Layers.Length];
         for (var i = 0; i < Layers.Length; i++)
         {
-            var folder = Path.Combine(Folder, Layers[i].Name);
-            if (Read(Path.Combine(folder, "albedo.jpg"), Image.CompressSource.Srgb, out var mean) is not { } a
-                || Read(Path.Combine(folder, "normal.jpg"), Image.CompressSource.Normal, out _) is not { } n
-                || Read(Path.Combine(folder, "roughness.jpg"), Image.CompressSource.Generic, out _) is not { } r)
+            if (maps[i, 0] is not { } a || maps[i, 1] is not { } n || maps[i, 2] is not { } r)
                 return null;
             albedo.Add(a);
             normal.Add(n);
             roughness.Add(r);
-            brightness[i] = Mathf.Max(mean, 0.05f);
         }
         var albedoArray = new Texture2DArray();
         var normalArray = new Texture2DArray();

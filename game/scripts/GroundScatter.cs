@@ -128,11 +128,18 @@ public partial class GroundScatter : Node3D
             Mesh = mesh,
             InstanceCount = items.Count,
         };
+        // All instances in one go: per instance its basis rows and origin (12 floats), then its colour (4).
+        var buffer = new float[items.Count * 16];
         for (var i = 0; i < items.Count; i++)
         {
-            multimesh.SetInstanceTransform(i, items[i].Transform);
-            multimesh.SetInstanceColor(i, items[i].Colour);
+            var (t, c) = (items[i].Transform, items[i].Colour);
+            var o = i * 16;
+            (buffer[o], buffer[o + 1], buffer[o + 2], buffer[o + 3]) = (t.Basis.Row0.X, t.Basis.Row0.Y, t.Basis.Row0.Z, t.Origin.X);
+            (buffer[o + 4], buffer[o + 5], buffer[o + 6], buffer[o + 7]) = (t.Basis.Row1.X, t.Basis.Row1.Y, t.Basis.Row1.Z, t.Origin.Y);
+            (buffer[o + 8], buffer[o + 9], buffer[o + 10], buffer[o + 11]) = (t.Basis.Row2.X, t.Basis.Row2.Y, t.Basis.Row2.Z, t.Origin.Z);
+            (buffer[o + 12], buffer[o + 13], buffer[o + 14], buffer[o + 15]) = (c.R, c.G, c.B, c.A);
         }
+        multimesh.Buffer = buffer;
         var piece = new MultiMeshInstance3D
         {
             Multimesh = multimesh,
