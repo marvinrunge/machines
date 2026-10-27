@@ -122,7 +122,8 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   stars over the airless moons. Light weather comes and goes, a storm every ten to fifteen minutes, all drawn from
   the match's seed so every player and replay sees the same. Storms close in the fog and dim the sun; the grass
   leans with the wind; wind and rain sound (made from noise, not recorded). The dust machines kick up takes the
-  planet's colour.
+  planet's colour. Storms roll billows of sand, snow or ash over the ground. The particles' pictures are from
+  Kenney's [Particle Pack](https://kenney.nl/assets/particle-pack) (CC0), in `game/assets/particles`.
 - **The planets' artefacts:** the trees, palms, rocks, ruins and other scenery the scenarios set on the
   planets (ARTEFACTS) stand where the original put them, from each planet's own models (`pdata/*.arb`). They
   stand in the way as in the original: machines go round the active ones (their boundaries, turned as they

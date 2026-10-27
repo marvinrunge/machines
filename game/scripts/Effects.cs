@@ -253,6 +253,32 @@ public partial class Effects : Node3D
         return ImageTexture.CreateFromImage(image);
     }
 
+    /// <summary>
+    /// A particle picture from game/assets/particles (Kenney's Particle Pack, CC0), or the soft spot when it is missing.
+    /// Imported pictures load as resources; ones not yet imported (a fresh checkout run without the editor) straight from
+    /// their file.
+    /// </summary>
+    public static Texture2D Particle(string name)
+    {
+        lock (Particles)
+        {
+            if (Particles.TryGetValue(name, out var cached))
+                return cached;
+            var path = $"res://assets/particles/{name}.png";
+            Texture2D texture = Soft;
+            if (ResourceLoader.Exists(path))
+                texture = GD.Load<Texture2D>(path);
+            else if (Image.LoadFromFile(ProjectSettings.GlobalizePath(path)) is { } image && !image.IsEmpty())
+            {
+                image.GenerateMipmaps();
+                texture = ImageTexture.CreateFromImage(image);
+            }
+            return Particles[name] = texture;
+        }
+    }
+
+    private static readonly Dictionary<string, Texture2D> Particles = [];
+
     /// <summary>The colour of the dust machines kick up: the planet's ground (sand by default; see Weather).</summary>
     public static Color DustTint { get; set; } = new(0.72f, 0.62f, 0.48f);
 
@@ -266,7 +292,8 @@ public partial class Effects : Node3D
             Emitting = false,
             LocalCoords = false,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-            DrawPass1 = Billboard(Soft, additive: false),
+            // Billowing puffs in the remake look, the soft spot in the classic one.
+            DrawPass1 = Billboard(GraphicsSettings.Remake ? Particle("smoke_04") : Soft, additive: false),
             ProcessMaterial = new ParticleProcessMaterial
             {
                 EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Box,
@@ -279,6 +306,8 @@ public partial class Effects : Node3D
                 ScaleMin = 2.2f,
                 ScaleMax = 4f,
                 ScaleCurve = Grow(0.35f),
+                AngleMin = -180,
+                AngleMax = 180,
                 ColorRamp = Ramp(DustTint with { A = 0 }, DustTint with { A = 0.35f }, DustTint.Darkened(0.05f) with { A = 0 }),
             },
         };

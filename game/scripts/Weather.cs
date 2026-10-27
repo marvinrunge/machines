@@ -9,7 +9,8 @@ namespace Machines.Game;
 /// Gracko and the red moons ash and embers; on the airless grey moons shooting stars. Light weather comes and goes
 /// almost all the time, a storm every ten to fifteen minutes. When is drawn from the match's seed, so every player
 /// (and a replay) sees the same weather. The wind blows the grass and the drifts; its sound and the rain's are made
-/// here, from noise.
+/// here, from noise. Storms roll billows of sand, snow or ash over the ground. The particles' pictures are Kenney's
+/// (game/assets/particles, CC0).
 /// </summary>
 public partial class Weather : Node3D
 {
@@ -50,7 +51,8 @@ public partial class Weather : Node3D
     private float _windAngle, _wet, _nextMeteor, _nextDevil;
     private Random _random = null!;
 
-    private GpuParticles3D? _fall, _fallNear, _splash, _embers, _drift;
+    private GpuParticles3D? _fall, _fallNear, _splash, _embers, _drift, _clouds;
+    private Color _cloudColour = Colors.White;
     private ShaderMaterial? _driftMaterial;
     private FogVolume? _mist;
     private FogMaterial? _mistMaterial;
@@ -150,21 +152,24 @@ public partial class Weather : Node3D
                 AddChild(_mist);
                 break;
             case Kind.Ice:
-                (_fall, _fallNear) = (Flakes(6000, new Color(0.95f, 0.97f, 1f, 0.9f), 1.6f, 0.07f), Flakes(1200, new Color(0.95f, 0.97f, 1f, 0.9f), 1.6f, 0.05f));
+                (_fall, _fallNear) = (Flakes(6000, "circle_05", new Color(0.95f, 0.97f, 1f, 0.9f), 1.6f, 0.24f), Flakes(1200, "circle_05", new Color(0.95f, 0.97f, 1f, 0.9f), 1.6f, 0.18f));
                 _drift = Drift(new Color(0.95f, 0.97f, 1f, 0.7f));
+                _clouds = Clouds(_cloudColour = new Color(0.9f, 0.93f, 0.97f));
                 break;
             case Kind.Desert:
                 // Lighter than the sand, so the wisps show against it.
                 _drift = Drift(new Color(0.97f, 0.88f, 0.72f, 0.8f));
-                (_fall, _fallNear) = (Flakes(5000, new Color(0.92f, 0.76f, 0.55f, 0.7f), 0.4f, 0.05f, sideways: true),
-                    Flakes(1500, new Color(0.92f, 0.76f, 0.55f, 0.6f), 0.4f, 0.04f, sideways: true));
+                (_fall, _fallNear) = (Flakes(5000, "dirt_03", new Color(0.85f, 0.66f, 0.44f, 0.8f), 0.4f, 0.09f, sideways: true),
+                    Flakes(1500, "dirt_03", new Color(0.85f, 0.66f, 0.44f, 0.7f), 0.4f, 0.07f, sideways: true));
+                _clouds = Clouds(_cloudColour = new Color(0.82f, 0.62f, 0.4f));
                 break;
             case Kind.Ash:
-                (_fall, _fallNear) = (Flakes(3000, new Color(0.22f, 0.2f, 0.19f, 0.95f), 0.7f, 0.06f), Flakes(500, new Color(0.22f, 0.2f, 0.19f, 0.95f), 0.7f, 0.04f));
+                (_fall, _fallNear) = (Flakes(3000, "dirt_02", new Color(0.62f, 0.6f, 0.58f, 0.95f), 0.7f, 0.25f), Flakes(500, "dirt_02", new Color(0.62f, 0.6f, 0.58f, 0.95f), 0.7f, 0.18f));
                 _embers = Embers();
+                _clouds = Clouds(_cloudColour = new Color(0.5f, 0.4f, 0.35f));
                 break;
         }
-        foreach (var node in new Node?[] { _fall, _fallNear, _splash, _embers, _drift })
+        foreach (var node in new Node?[] { _fall, _fallNear, _splash, _embers, _drift, _clouds })
             if (node is not null)
                 AddChild(node);
         if (_fall is not null)
@@ -234,6 +239,21 @@ public partial class Weather : Node3D
         }
         if (_embers is not null)
             _embers.GlobalPosition = focus + Vector3.Up * 2;
+        if (_clouds?.ProcessMaterial is ParticleProcessMaterial clouds)
+        {
+            // In a storm, billows of sand, snow or ash roll over the ground with the wind.
+            var billows = _kind == Kind.Ash ? 0.3f * light + storm : storm;
+            _clouds.GlobalPosition = focus + Vector3.Up * 4;
+            _clouds.AmountRatio = Mathf.Clamp(billows, 0, 1);
+            _clouds.Emitting = billows > 0.03f;
+            clouds.EmissionBoxExtents = new Vector3(Mathf.Clamp(distance, 60, 260), 4, Mathf.Clamp(distance, 60, 260));
+            clouds.Direction = new Vector3(Wind.X, 0.05f, Wind.Y).Normalized();
+            clouds.InitialVelocityMin = Wind.Length() * 0.6f;
+            clouds.InitialVelocityMax = Wind.Length() * 1.0f;
+            // As bright as the day, dark at night.
+            if (_clouds.DrawPass1 is QuadMesh { Material: StandardMaterial3D cloudLook })
+                cloudLook.AlbedoColor = _cloudColour * Mathf.Lerp(1, 0.18f, PlanetLook.Night);
+        }
 
         // Rain wets the ground over a minute; it dries over three.
         var target = _kind == Kind.Green && storm > 0.15f ? 1 : 0;
@@ -305,7 +325,7 @@ public partial class Weather : Node3D
         {
             Name = "Splash", Amount = 4000, Lifetime = 0.35f, Emitting = false, LocalCoords = false,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, VisibilityAabb = new Aabb(-Vector3.One * 400, Vector3.One * 800),
-            DrawPass1 = Effects.Billboard(Splashes.Value, additive: false),
+            DrawPass1 = Effects.Billboard(Effects.Particle("circle_02"), additive: false),
             ProcessMaterial = new ParticleProcessMaterial
             {
                 Direction = Vector3.Up, Spread = 60, InitialVelocityMin = 0.5f, InitialVelocityMax = 1.5f, Gravity = new Vector3(0, -6, 0),
@@ -326,7 +346,7 @@ public partial class Weather : Node3D
                 process.SubEmitterMode = ParticleProcessMaterial.SubEmitterModeEnum.AtCollision;
             var material = new StandardMaterial3D
             {
-                AlbedoTexture = Streak.Value, AlbedoColor = new Color(0.8f, 0.85f, 0.95f, 0.45f), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                AlbedoTexture = Effects.Particle("trace_06"), AlbedoColor = new Color(0.8f, 0.85f, 0.95f, 0.55f), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
                 Transparency = BaseMaterial3D.TransparencyEnum.Alpha, VertexColorUseAsAlbedo = true, DisableReceiveShadows = true,
                 BillboardMode = BaseMaterial3D.BillboardModeEnum.Disabled,
             };
@@ -335,7 +355,7 @@ public partial class Weather : Node3D
                 Name = name, Amount = amount, Lifetime = 2.2f, Emitting = false, LocalCoords = false, CollisionBaseSize = 0.02f,
                 TransformAlign = GpuParticles3D.TransformAlignEnum.ZBillboardYToVelocity,
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, VisibilityAabb = new Aabb(-Vector3.One * 400, Vector3.One * 800),
-                DrawPass1 = new QuadMesh { Size = new Vector2(0.03f, 1.1f), Material = material },
+                DrawPass1 = new QuadMesh { Size = new Vector2(0.25f, 1.2f), Material = material },
                 ProcessMaterial = process,
             };
         }
@@ -344,17 +364,17 @@ public partial class Weather : Node3D
         return (far, Streaks("RainNear", 1500, 25, splashes: false), splash);
     }
 
-    /// <summary>Snow, ash or blown sand: soft flakes drifting down (or along, for sand) and tumbling.</summary>
-    private static GpuParticles3D Flakes(int amount, Color colour, float fall, float size, bool sideways = false) => new()
+    /// <summary>Snow, ash or blown sand: flakes or grit drifting down (or along, for sand) and tumbling.</summary>
+    private static GpuParticles3D Flakes(int amount, string picture, Color colour, float fall, float size, bool sideways = false) => new()
     {
         Name = "Flakes", Amount = amount, Lifetime = sideways ? 4 : 9, Emitting = false, LocalCoords = false, CollisionBaseSize = 0.05f,
         CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, VisibilityAabb = new Aabb(-Vector3.One * 400, Vector3.One * 800),
         DrawPass1 = new QuadMesh
         {
-            Size = Vector2.One * size * (sideways ? 6 : 1),
+            Size = Vector2.One * size * (sideways ? 3 : 1),
             Material = new StandardMaterial3D
             {
-                AlbedoTexture = Flake.Value, AlbedoColor = colour, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                AlbedoTexture = Effects.Particle(picture), AlbedoColor = colour, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
                 Transparency = BaseMaterial3D.TransparencyEnum.Alpha, VertexColorUseAsAlbedo = true,
                 BillboardMode = BaseMaterial3D.BillboardModeEnum.Particles, BillboardKeepScale = true,
             },
@@ -364,24 +384,56 @@ public partial class Weather : Node3D
             EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Box, EmissionBoxExtents = new Vector3(120, sideways ? 6 : 3, 120),
             Direction = Vector3.Down, Spread = 10, InitialVelocityMin = fall * 0.8f, InitialVelocityMax = fall * 1.2f, Gravity = Vector3.Zero,
             TurbulenceEnabled = true, TurbulenceNoiseStrength = sideways ? 0.6f : 1.2f, TurbulenceNoiseScale = 6, TurbulenceInfluenceMin = 0.05f, TurbulenceInfluenceMax = 0.15f,
-            ScaleMin = 0.6f, ScaleMax = 1.4f,
+            ScaleMin = 0.6f, ScaleMax = 1.4f, AngleMin = -180, AngleMax = 180,
             ColorRamp = Effects.Ramp(Colors.White with { A = 0 }, Colors.White, Colors.White with { A = 0 }),
             CollisionMode = ParticleProcessMaterial.CollisionModeEnum.HideOnContact,
         },
     };
+
+    /// <summary>
+    /// A storm's billows: big clouds of sand, snow or ash (Kenney's smoke pictures, turned every way) rolling low over
+    /// the ground with the wind, lit by the sun.
+    /// </summary>
+    private static GpuParticles3D Clouds(Color colour)
+    {
+        var material = new StandardMaterial3D
+        {
+            AlbedoTexture = Effects.Particle("smoke_07"), AlbedoColor = colour, Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            BillboardMode = BaseMaterial3D.BillboardModeEnum.Particles, BillboardKeepScale = true, VertexColorUseAsAlbedo = true,
+            DepthDrawMode = BaseMaterial3D.DepthDrawModeEnum.Disabled, DisableReceiveShadows = true,
+            // Lit by the day as a whole, not by the sun from one side: a billow is mostly the light scattered in it.
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            // Fade where they cut into the ground, rather than showing a hard edge.
+            ProximityFadeEnabled = true, ProximityFadeDistance = 6,
+        };
+        return new GpuParticles3D
+        {
+            Name = "StormClouds", Amount = 90, Lifetime = 14, Preprocess = 14, LocalCoords = false,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, VisibilityAabb = new Aabb(-Vector3.One * 400, Vector3.One * 800),
+            DrawPass1 = new QuadMesh { Size = Vector2.One, Material = material },
+            ProcessMaterial = new ParticleProcessMaterial
+            {
+                EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Box, EmissionBoxExtents = new Vector3(150, 4, 150),
+                Direction = Vector3.Right, Spread = 15, InitialVelocityMin = 4, InitialVelocityMax = 8, Gravity = Vector3.Zero,
+                ScaleMin = 18, ScaleMax = 40, ScaleCurve = Effects.Grow(0.6f),
+                AngleMin = -180, AngleMax = 180, AngularVelocityMin = -6, AngularVelocityMax = 6,
+                ColorRamp = Effects.Ramp(Colors.White with { A = 0 }, Colors.White with { A = 0.65f }, Colors.White with { A = 0 }),
+            },
+        };
+    }
 
     /// <summary>Embers rising over Gracko and the red moons, glowing as they go.</summary>
     private static GpuParticles3D Embers() => new()
     {
         Name = "Embers", Amount = 160, Lifetime = 6, LocalCoords = false,
         CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, VisibilityAabb = new Aabb(-Vector3.One * 400, Vector3.One * 800),
-        DrawPass1 = Effects.Billboard(Flake.Value, additive: true),
+        DrawPass1 = Effects.Billboard(Effects.Particle("star_01"), additive: true),
         ProcessMaterial = new ParticleProcessMaterial
         {
             EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Box, EmissionBoxExtents = new Vector3(110, 1, 110),
             Direction = Vector3.Up, Spread = 25, InitialVelocityMin = 0.6f, InitialVelocityMax = 1.6f, Gravity = new Vector3(0, 0.3f, 0),
             TurbulenceEnabled = true, TurbulenceNoiseStrength = 1.5f, TurbulenceNoiseScale = 3,
-            ScaleMin = 0.08f, ScaleMax = 0.16f,
+            ScaleMin = 0.25f, ScaleMax = 0.45f, AngleMin = -180, AngleMax = 180,
             ColorRamp = Effects.Ramp(new Color(4, 1.4f, 0.3f, 0), new Color(3.5f, 1.1f, 0.2f, 1), new Color(1.5f, 0.3f, 0.05f, 0)),
         },
     };
@@ -630,21 +682,6 @@ public partial class Weather : Node3D
     }
 
     // ---- pictures -------------------------------------------------------------------------------
-
-    /// <summary>A rain streak: brightest in the middle, fading at both ends and to the sides.</summary>
-    private static readonly Lazy<Texture2D> Streak = new(() => Effects.Generate(32, (x, y) =>
-        new Color(1, 1, 1, Mathf.Clamp(1 - Mathf.Abs(x) * 1.6f, 0, 1) * Mathf.Clamp(1 - Mathf.Abs(y), 0, 1))));
-
-    /// <summary>A snowflake or a fleck of ash: a soft white dot.</summary>
-    private static readonly Lazy<Texture2D> Flake = new(() => Effects.Generate(32, (x, y) =>
-        new Color(1, 1, 1, Mathf.Pow(Mathf.Clamp(1 - new Vector2(x, y).Length(), 0, 1), 1.5f))));
-
-    /// <summary>A splash: a thin bright ring.</summary>
-    private static readonly Lazy<Texture2D> Splashes = new(() => Effects.Generate(32, (x, y) =>
-    {
-        var r = new Vector2(x, y).Length();
-        return new Color(1, 1, 1, Mathf.Clamp(1 - Mathf.Abs(r - 0.7f) * 5, 0, 1));
-    }));
 
     /// <summary>A shooting star's trail: bright at its head, fading behind.</summary>
     private static readonly Lazy<Texture2D> Trail = new(() => Effects.Generate(64, (x, y) =>
