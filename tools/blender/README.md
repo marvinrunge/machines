@@ -10,6 +10,9 @@ rest of `classic/`:
 
 - It rounds the edges where the original shaded flat, and leaves spike tips sharp so legs keep touching the ground.
 - It bakes ambient occlusion into the vertices.
+- It turns the original's spinners into solids of revolution. These are flat outlines that turn to face the
+  camera: tyres, gatling barrels, the Gorilla's fingers. Tyres get a tread of staggered blocks and matt dark rubber.
+  Sprites, the lights and glows, stay flat.
 - Rigs, animations, sprites and weapons stay the same.
 - The game uses these models in the remake look, together with the metal masks HdTextures makes from the HD
   textures. `MACHINES_MODEL_UPGRADE=0` shows the classic models instead, for comparison.

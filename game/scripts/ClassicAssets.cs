@@ -564,7 +564,9 @@ public sealed class ClassicAssets
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
 
             var emissive = part.TryGetProperty("emissive", out var glow) ? glow.EnumerateArray().Select(e => e.GetSingle()).ToArray() : [0f, 0f, 0f];
-            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, MaterialFor(part.GetProperty("texture").GetString() ?? "", diffuse, race, emissive, vertexColours, occluded));
+            // Upgraded parts may say how rough they are (the tyres' rubber).
+            float? roughness = part.TryGetProperty("roughness", out var given) ? given.GetSingle() : null;
+            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, MaterialFor(part.GetProperty("texture").GetString() ?? "", diffuse, race, emissive, vertexColours, occluded, roughness));
         }
         if (model.TryGetProperty("sprites", out var sprites))
             AddSprites(mesh, sprites, race);
@@ -594,12 +596,13 @@ public sealed class ClassicAssets
     /// <summary>How metallic the bare metal of machines and buildings is (the rest of them stays paint).</summary>
     private const float ModelMetal = 0.35f;
 
-    private Material MaterialFor(string texture, float[] diffuse, Race? race = null, float[]? emissive = null, bool vertexColours = false, bool occluded = false)
+    private Material MaterialFor(string texture, float[] diffuse, Race? race = null, float[]? emissive = null, bool vertexColours = false, bool occluded = false,
+        float? roughness = null)
     {
         if (race is { } r)
             texture = RaceTexture(texture, r);
         emissive ??= [0, 0, 0];
-        var key = $"{texture}|{string.Join(',', diffuse)}|{string.Join(',', emissive)}|{race is not null}|{vertexColours}|{occluded}";
+        var key = $"{texture}|{string.Join(',', diffuse)}|{string.Join(',', emissive)}|{race is not null}|{vertexColours}|{occluded}|{roughness}";
         if (_materials.TryGetValue(key, out var cached))
             return cached;
 
@@ -623,6 +626,9 @@ public sealed class ClassicAssets
             material.Roughness = 0.55f;
             material.Metallic = 0.2f;
             material.MetallicSpecular = 0.6f;
+            // Rubber and the like: as rough as the part says, and no metal.
+            if (roughness is { } rough)
+                (material.Roughness, material.Metallic) = (rough, 0);
         }
         var (loaded, clearness) = LoadTexture(texture);
         material.AlbedoTexture = loaded;
