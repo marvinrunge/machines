@@ -414,7 +414,10 @@ public partial class PlanetLook : Node
             var discOrbit = _env.Orbits[satellite.Orbit];
             var height = Elevation(discOrbit, _gameTime());
             var colour = Table(satellite.MeshColourTable, height, Colors.White);
-            disc.Basis = Basis.LookingAt(-Direction(discOrbit, _gameTime()), Vector3.Up);
+            // A satellite straight overhead or underfoot (control's stand at 90.5° and -90°) looks along the up
+            // vector, which cannot then say which way is up: north does instead.
+            var towards = -Direction(discOrbit, _gameTime());
+            disc.Basis = Basis.LookingAt(towards, Mathf.Abs(towards.Y) > 0.999f ? Vector3.Forward : Vector3.Up);
             disc.LightColor = new Color(colour.R, colour.G, colour.B);
             disc.LightEnergy = height > 0 ? colour.A * 1.5f : 0;
         }
