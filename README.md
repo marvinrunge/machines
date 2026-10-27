@@ -90,6 +90,8 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   in to a thread and leaves a ring of burning cracks; the nuke flashes, its shock wave runs out 220 m and its
   mushroom cloud rises over 16 seconds while cracks tear outwards; the vortex grows into a swirling sphere and
   collapses black. Import again for them.
+- **The earth shakes** as in the original (W4dCameraShake): the nuke and the Gorilla's punch shake the view
+  hardest, buildings blowing up by their size, weakening with distance in the strategy view.
 - **Ground detail (remake look):** the terrain keeps the original's pictures and colours, and textures from
   [Poly Haven](https://polyhaven.com) (CC0) add the grain, pebbles, cracks, relief and roughness of sand,
   soil, grass, rock, mud, snow or metal plates close up; steep faces turn to rock. Each tile's layer is read

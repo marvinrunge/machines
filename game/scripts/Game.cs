@@ -552,6 +552,11 @@ public partial class Game : Node3D
                     break;
                 case GameEventKind.Blast when e.Detail is { } weapon:
                     _audio.Play(SoundTable.BlastSound(weapon), at);
+                    // The nuke and the punch shake the earth (MachPhysNuclearBomb, MachPhysPunchBlast).
+                    if (weapon == "NUCLEAR_MISSILE")
+                        CameraRig.Shake(at, 15, 2);
+                    else if (weapon == "GORILLA_PUNCH")
+                        CameraRig.Shake(at, 15, 0.6f);
                     break;
                 case GameEventKind.Destroyed:
                     _destroyed.Add(e.Actor);
@@ -562,6 +567,9 @@ public partial class Game : Node3D
                     if (_views.TryGetValue(e.Actor, out var dead))
                     {
                         _audio.Play(SoundTable.ExplosionSound(dead.IsBuilding, dead.Size, Random.Shared.Next(1, 7)), at);
+                        // A building blowing up shakes the earth, the bigger the harder (MachPhysObjectExplosion).
+                        if (dead.IsBuilding)
+                            CameraRig.Shake(at, dead.Size >= 20 ? 10 : 5.5f, 1.2f);
                         if (dead.Race == Player)
                             _audio.Say(dead.Voice is { } voice ? $"VID_{voice}_DESTROYED" : "VID_POD_BUILDING_DESTROYED");
                     }
@@ -1313,6 +1321,7 @@ public partial class Game : Node3D
         // From the faceplate, as the original; the view stays level whatever the machine leans or sways.
         _firstPersonCamera.GlobalPosition = view.Eye;
         _firstPersonCamera.GlobalRotation = new Vector3(_lookPitch, view.Yaw - Mathf.Pi / 2, 0);
+        _firstPersonCamera.Basis *= CameraRig.ShakeAt(_firstPersonCamera.GlobalPosition);
 
         _hud.Weapons.Show(machine.Weapons, SelectedWeapons(machine));
 
