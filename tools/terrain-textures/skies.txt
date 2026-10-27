@@ -1,0 +1,9 @@
+# The remake's photo skies: <Poly Haven HDRI id> <resolution>. Pure skies (CC0) by the sun's height, fetched by fetch.sh
+# into textures/polyhaven/sky; PhotoSky lays them over the planets whose original sky is a day sky, tinted to it. High
+# suns are seen most, so they come at 4k.
+kloofendal_48d_partly_cloudy_puresky   4k
+kloofendal_overcast_puresky            4k
+kloofendal_38d_partly_cloudy_puresky   2k
+qwantani_late_afternoon_puresky        2k
+qwantani_sunset_puresky                2k
+qwantani_night_puresky                 2k

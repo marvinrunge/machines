@@ -6,7 +6,8 @@ namespace Machines.Game;
 /// <summary>
 /// Sun, sky and fog from the planet's <c>.env</c> file, following envirnmt's rules: the sun's orbit rises
 /// linearly from its minimum to its maximum elevation over half a period and sinks back (EnvOrbit), and
-/// colour tables controlled by the sun are looked up by its elevation, interpolating between keys.
+/// colour tables controlled by the sun are looked up by its elevation, interpolating between keys. In the remake
+/// look, planets with a day sky show a photographed one tinted to it (<see cref="PhotoSky"/>).
 /// </summary>
 public partial class PlanetLook : Node
 {
@@ -32,8 +33,11 @@ public partial class PlanetLook : Node
     private const float RemakeAmbient = 0.5f;
     private const float RemakeSun = 1.6f;
 
-    /// <summary>The volumetric fog's density by day; it thickens towards dawn, dusk and night.</summary>
-    private const float HazeDensity = 0.004f;
+    /// <summary>
+    /// The volumetric fog's density by day, at most (it thickens towards dawn, dusk and night): a share of the light is
+    /// lost over the planet's MAX VISIBILITY (<see cref="HazeReach"/> of e-foldings), but never less than the minimum.
+    /// </summary>
+    private const float HazeDensity = 0.004f, MinimumHaze = 0.0006f, HazeReach = 0.6f;
 
     public static PlanetLook Create(PlanetEnvironment env, string planet, Func<float> gameTime, Func<float> viewDistance,
         Func<string, ClassicAssets.SkySprite?> skySprite, (Mesh Mesh, Texture2D Texture, float Radius)? dome = null)
@@ -70,6 +74,18 @@ public partial class PlanetLook : Node
             FogDepthCurve = 1.5f,
             FogSkyAffect = 0.6f,
         };
+        // The remake shows a photographed sky where the original's is a day sky (PhotoSky), in place of its dome; it
+        // also lights the scene a little: reflections, and part of the ambient light.
+        if (GraphicsSettings.Remake && look._sunOrbit is { } sunOrbit
+            && PhotoSky.For(planet, Mathf.Min(sunOrbit.MinElevation, sunOrbit.MaxElevation), Mathf.Max(sunOrbit.MinElevation, sunOrbit.MaxElevation), dome?.Texture) is { } photo)
+        {
+            look._photo = photo;
+            look._environment.Sky = new Sky { SkyMaterial = photo.Material, ProcessMode = Sky.ProcessModeEnum.Incremental };
+            look._environment.AmbientLightSource = Godot.Environment.AmbientSource.Bg;
+            look._environment.AmbientLightSkyContribution = PhotoSky.AmbientShare;
+            look._environment.ReflectedLightSource = Godot.Environment.ReflectionSource.Bg;
+            dome = null;
+        }
         // The satellites' own pictures (the sun, moons and planets), as the original drew them in its sky.
         foreach (var satellite in env.Satellites.Where(s => env.Orbits.ContainsKey(s.Orbit)))
         {
@@ -176,6 +192,7 @@ public partial class PlanetLook : Node
         // satellites without a picture of their own show as discs.
         _sky.SkyCover = NightSky(_planet) ?? Stars.Value;
         _sky.SkyCoverModulate = new Color(1, 1, 1, 0);
+        _photo?.SetStars(_sky.SkyCover);
         foreach (var satellite in _env.Satellites.Where(s => s != _sunSatellite && _env.Orbits.ContainsKey(s.Orbit) && _sprites.All(p => p.Satellite != s)))
         {
             var disc = new DirectionalLight3D { SkyMode = DirectionalLight3D.SkyModeEnum.SkyOnly, LightAngularDistance = 1.6f, Name = satellite.Name };
@@ -185,6 +202,7 @@ public partial class PlanetLook : Node
     }
 
     private readonly List<(Satellite Satellite, DirectionalLight3D Disc)> _discs = [];
+    private PhotoSky? _photo;
 
     // The dynamic sky's colour tables by the dome height they apply from (EnvDynamicSky::findVertexColour).
     private List<(float Elevation, string Table)> _bands = [];
@@ -335,6 +353,18 @@ public partial class PlanetLook : Node
     private Color Table(string? name, float key, Color fallback) =>
         name is not null && _env.ColourTables.TryGetValue(name, out var table) ? Lookup(table, key) : fallback;
 
+    /// <summary>The dome's colour at a height above the horizon (degrees), between its bands as the dome shader blends them.</summary>
+    private Color BandAt(float height, float elevation, Color fallback)
+    {
+        if (height <= _bands[0].Elevation)
+            return Table(_bands[0].Table, elevation, fallback);
+        for (var i = 1; i < _bands.Count; i++)
+            if (height <= _bands[i].Elevation)
+                return Table(_bands[i - 1].Table, elevation, fallback).Lerp(Table(_bands[i].Table, elevation, fallback),
+                    (height - _bands[i - 1].Elevation) / Mathf.Max(_bands[i].Elevation - _bands[i - 1].Elevation, 0.001f));
+        return Table(_bands[^1].Table, elevation, fallback);
+    }
+
     private void Update()
     {
         var elevation = _sunOrbit is { } orbit ? Elevation(orbit, _gameTime()) : 60;
@@ -409,6 +439,15 @@ public partial class PlanetLook : Node
             var airless = Mathf.Clamp((0.18f - top.Luminance) / 0.12f, 0, 1);
             _sky.SkyCoverModulate = new Color(1, 1, 1, Mathf.Max(Night, airless));
         }
+        if (_photo is not null)
+        {
+            // The photographed sky takes the colours the original's dome bands have now, a little above the horizon (the
+            // lowest band often lies under it, black) and overhead.
+            var horizonBand = _bands.Count > 0 ? BandAt(5, elevation, horizon) : horizon;
+            var topBand = _bands.Count > 0 ? BandAt(60, elevation, top) : top;
+            _photo.Update(elevation, horizonBand, topBand, towardsSun, direct, _sun.SkyMode != DirectionalLight3D.SkyModeEnum.LightOnly, Night, _gameTime());
+            _photo.SetGround(fogColour);
+        }
         foreach (var (satellite, disc) in _discs)
         {
             var discOrbit = _env.Orbits[satellite.Orbit];
@@ -436,10 +475,14 @@ public partial class PlanetLook : Node
             _environment.FogDensity = Mathf.Clamp(fogColour.A, 0.5f, 1f);
             if (_environment.VolumetricFogEnabled)
             {
-                // A low sun shines through more air: the haze thickens a little as it sinks, and shafts stand out.
+                // A low sun shines through more air: the haze thickens a little as it sinks, and shafts stand out. It is
+                // as thick as the planet's air is clear (thinner where the original sees farther), and lit in the
+                // sky's colour at the horizon where the original's fog is darker: many planets fade to black far off,
+                // and haze that dark would swallow the day.
                 var low = Mathf.Clamp(1 - elevation / 30, 0, 1);
-                _environment.VolumetricFogAlbedo = new Color(fogColour.R, fogColour.G, fogColour.B);
-                _environment.VolumetricFogDensity = HazeDensity * (1 + 0.5f * low);
+                var haze = new Color(Mathf.Max(fogColour.R, horizon.R), Mathf.Max(fogColour.G, horizon.G), Mathf.Max(fogColour.B, horizon.B));
+                _environment.VolumetricFogAlbedo = haze;
+                _environment.VolumetricFogDensity = Mathf.Clamp(HazeReach / Mathf.Max(f.MaxVisibility, 1), MinimumHaze, HazeDensity) * (1 + 0.5f * low);
             }
         }
         UpdateShadowReach();

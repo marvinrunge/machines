@@ -25,3 +25,15 @@ grep -v '^#' "$HERE/layers.txt" | while read -r layer id; do
     done
     echo "$layer: $id"
 done
+
+# The photo skies (skies.txt): Radiance HDR files at the listed resolution.
+mkdir -p "$OUT/sky"
+grep -v '^#' "$HERE/skies.txt" | while read -r id size; do
+    [ -n "$id" ] || continue
+    file="$OUT/sky/$id.hdr"
+    [ -s "$file" ] && continue
+    url="$(curl -sSf -A "$AGENT" "https://api.polyhaven.com/files/$id" | grep -o "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/$size/[^\"]*\.hdr" | head -1)"
+    [ -n "$url" ] || { echo "$id has no $size HDR"; exit 1; }
+    curl -sSfL -A "$AGENT" -o "$file" "$url"
+    echo "sky: $id ($size)"
+done

@@ -108,6 +108,14 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   in patches by chance and by the ground around: packed sand at the foot of the rock, wet sand and mud by the
   water, drier grass on the slopes, scorched ground by the lava. Water, lava and everything built keep
   their pictures. The same `fetch.sh` downloads them.
+- **Photographed skies (remake look):** where the original's sky is a day sky (desert, green, hills, the
+  day-and-night forts, the industrial worlds under a blue sky), photographed skies from Poly Haven (CC0) take its
+  place, one for each height of the sun from night to noon, blended as it moves and tinted to the original sky's
+  colours at that hour. The photographed sun is taken out; a glow lies round the planet's own. The clouds drift,
+  stars come out at night, and the sky lends the scene reflections and some of its ambient light. Alien skies
+  (moons, Gracko, the dark forts, ice) keep their painted pictures. The same `fetch.sh` downloads them (about
+  55 MB). The air's haze now thins with the planet's view distance, so planets that fade to black far off no
+  longer look like night by day.
 - **The planets' artefacts:** the trees, palms, rocks, ruins and other scenery the scenarios set on the
   planets (ARTEFACTS) stand where the original put them, from each planet's own models (`pdata/*.arb`). They
   stand in the way as in the original: machines go round the active ones (their boundaries, turned as they
