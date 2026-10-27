@@ -103,6 +103,13 @@
 #include "machphys/loadover.hpp"
 #include "machphys/loadligh.hpp"
 #include "machphys/dblflame.hpp"
+#include "machphys/beam.hpp"
+#include "machphys/nukewave.hpp"
+#include "machphys/mushtop.hpp"
+#include "machphys/mushshaf.hpp"
+#include "machphys/vsphere.hpp"
+#include "machphys/bsphere.hpp"
+#include "machphys/wsphere.hpp"
 #include "machphys/spider.hpp"
 #include "machphys/wheels.hpp"
 #include "machphys/tracks.hpp"
@@ -1188,6 +1195,7 @@ bool ExportApp::clientStartup()
         "punchcrack", "punchfire", "beecrack", "beefire", "beewave",
         "helix1", "helix2", "healcross", "healaura", "disc", "lightning", "lightbox",
         "loadunder", "loadover", "loadlight", "fire",
+        "ionbeam", "ionflare", "ionouter", "ionwave", "nukewave", "mushtop", "mushshaft", "vsphere", "bsphere", "wsphere",
     };
     mkdir((out + "/fx").c_str());
     for (size_t e = 0; e < sizeof(effects) / sizeof(effects[0]); ++e)
@@ -1195,6 +1203,7 @@ bool ExportApp::clientStartup()
         const std::string name = effects[e];
         const MexTransform3d at;
         W4dEntity* effect = NULL;
+        const W4dEntity* link = NULL;
         if (name == "plaboltr") effect = _NEW(MachPhysPlasmaBolt(root, at, MachPhys::PLASMA_RIFLE, MachPhysPlasmaBolt::DONT_CREATE_LIGHTS));
         else if (name == "plaboltc") effect = _NEW(MachPhysPlasmaBolt(root, at, MachPhys::PLASMA_CANNON1, MachPhysPlasmaBolt::DONT_CREATE_LIGHTS));
         else if (name == "plabolt2") effect = _NEW(MachPhysPlasmaBolt(root, at, MachPhys::PLASMA_CANNON2, MachPhysPlasmaBolt::DONT_CREATE_LIGHTS));
@@ -1235,7 +1244,26 @@ bool ExportApp::clientStartup()
         else if (name == "loadover") effect = _NEW(MachPhysLoadingOver(root, at));
         else if (name == "loadlight") effect = _NEW(MachPhysLoadingLight(root, at));
         else if (name == "fire") effect = _NEW(MachPhysDoublesidedFlame(root, at));
-        const W4dEntity* part = effect;
+        // The area weapons: the ion cannon's beam, flare, outer shell and wave (the links of MachPhysBeam, each
+        // written on its own, as each grows and shrinks on its own), the nuclear blast's shock wave and mushroom
+        // cloud (MachPhysNukeWave, MachPhysMushroomTop and Shaft) and the vortex's three spheres.
+        else if (name.compare(0, 3, "ion") == 0)
+        {
+            MachPhysBeam* beam = _NEW(MachPhysBeam(root, at));
+            W4dLink* found = NULL;
+            if (not beam->findLink(name.substr(3).c_str(), &found))
+                continue;
+            found->visible(true);
+            effect = beam;
+            link = found;
+        }
+        else if (name == "nukewave") effect = _NEW(MachPhysNukeWave(root, at));
+        else if (name == "mushtop") effect = _NEW(MachPhysMushroomTop(root, at));
+        else if (name == "mushshaft") effect = _NEW(MachPhysMushroomShaft(root, at));
+        else if (name == "vsphere") effect = _NEW(MachPhysVortexSphere(root, at));
+        else if (name == "bsphere") effect = _NEW(MachPhysBlackSphere(root, at));
+        else if (name == "wsphere") effect = _NEW(MachPhysWhiteSphere(root, at));
+        const W4dEntity* part = link != NULL ? link : effect;
         if (name == "punchcrack" or name == "punchfire" or name == "beecrack" or name == "beefire")
         {
             MachPhysCrackFire* chasm = _NEW(MachPhysCrackFire(root, MexPoint3d(0, 0, 0), MexPoint3d(2, 0, 0),

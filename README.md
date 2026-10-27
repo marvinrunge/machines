@@ -86,6 +86,10 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   strikes with spinning lightning while halos run up and down its victim; the orb of treachery opens as a
   ring in the shooter's colour; machines a flamethrower hits burn for 15 seconds; transporters flash with
   rings of light as they load and unload ore. Import again for them.
+- **Area weapons as the original drew them:** the ion cannon's beam widens from the sky for six seconds, draws
+  in to a thread and leaves a ring of burning cracks; the nuke flashes, its shock wave runs out 220 m and its
+  mushroom cloud rises over 16 seconds while cracks tear outwards; the vortex grows into a swirling sphere and
+  collapses black. Import again for them.
 - **Ground detail (remake look):** the terrain keeps the original's pictures and colours, and textures from
   [Poly Haven](https://polyhaven.com) (CC0) add the grain, pebbles, cracks, relief and roughness of sand,
   soil, grass, rock, mud, snow or metal plates close up; steep faces turn to rock. Each tile's layer is read

@@ -24,8 +24,170 @@ public partial class GroundBlast : Node3D
     {
         "GORILLA_PUNCH" => Punch(assets, blast),
         "BEE_BOMB" => BeeBomb(assets, blast, beeExtras),
+        "ION_ORBITAL_CANNON" => IonCannon(assets, blast, beeExtras),
+        "NUCLEAR_MISSILE" => Nuke(assets, blast, beeExtras),
+        "VORTEX" => Vortex(assets, blast, beeExtras),
         _ => null,
     };
+
+    /// <summary>
+    /// The ion cannon (MachPhysIonBeam, MachPhysBeam): for 6 s its beam and outer shell, 300 m columns from the sky,
+    /// widen from nothing to its radius (EXTRAS, 30 m) in a white light; then the shell draws in to a thread
+    /// reaching up within a quarter second, the wave on the ground flares out to the radius and shoots up as a
+    /// thread too, an orange light flashes, and a ring of burning cracks 30 m round opens for 3 s.
+    /// </summary>
+    private static GroundBlast? IonCannon(ClassicAssets assets, Blast blast, IReadOnlyList<float> extras)
+    {
+        if (assets.EffectMesh("ionbeam") is not { } beamMesh || assets.EffectMesh("ionouter") is not { } outerMesh
+            || assets.EffectMesh("ionwave") is not { } waveMesh)
+            return null;
+        float Extra(int i, float fallback) => i < extras.Count ? extras[i] : fallback;
+        var radius = Extra(0, 30);
+        const float expansion = 6, shrink = 0.25f;
+        var view = new GroundBlast { Name = "IonCannon" };
+        var at = ActorView.World(blast.Position);
+        var (beam, _) = view.Piece(beamMesh);
+        var (outer, _) = view.Piece(outerMesh);
+        var (wave, _) = view.Piece(waveMesh);
+        view._parts.Add(age =>
+        {
+            var width = Mathf.Lerp(0.01f, radius, Mathf.Clamp(age / expansion, 0, 1));
+            beam.Visible = age < expansion;
+            beam.Transform = new Transform3D(Basis.FromScale(new Vector3(width, 1, width)), at);
+            outer.Visible = age < expansion + shrink;
+            var drawn = Mathf.Clamp((age - expansion) / shrink, 0, 1);
+            outer.Transform = new Transform3D(Basis.FromScale(new Vector3(Mathf.Lerp(width, 0.01f, drawn), Mathf.Lerp(1, 100, drawn), Mathf.Lerp(width, 0.01f, drawn))), at);
+            // The wave: nothing until the beam is full, out to the radius in a quarter second, in to a small
+            // ring and up as a thread in two more.
+            wave.Visible = age >= expansion && age < expansion + 3 * shrink;
+            var w = age < expansion + shrink
+                ? new Vector3(Mathf.Lerp(0.01f, radius, Mathf.Clamp((age - expansion) / shrink, 0, 1)), 1, 0)
+                : age < expansion + 2 * shrink
+                    ? new Vector3(Mathf.Lerp(radius, 0.2f * radius, (age - expansion - shrink) / shrink), Mathf.Lerp(1, 0.5f, (age - expansion - shrink) / shrink), 0)
+                    : new Vector3(Mathf.Lerp(0.2f * radius, 0.005f * radius, (age - expansion - 2 * shrink) / shrink), Mathf.Lerp(0.5f, 2000, (age - expansion - 2 * shrink) / shrink), 0);
+            wave.Transform = new Transform3D(Basis.FromScale(new Vector3(w.X, w.Y, w.X)), at);
+            return age < expansion + 3 * shrink;
+        });
+        view.Flash(at + Vector3.Up * Extra(9, 2) * 30, new Color(Extra(1, 1.3f), Extra(2, 1.2f), Extra(3, 0.8f)), 3, radius * 4, 0, expansion);
+        view.Flash(at + Vector3.Up * 20, new Color(1.5f, 0.78f, 0), 4, radius * 4, expansion - 0.2f, 0.1f);
+        if (assets.EffectMesh("punchcrack") is { } crack && assets.EffectMesh("punchfire") is { } fire)
+        {
+            var ring = RingPath(2).Select(p => blast.Position + p).ToList();
+            var time = Extra(10, 3);
+            for (var i = 0; i + 1 < ring.Count; i++)
+                view.Section(crack, fire, ring[i], ring[i + 1], expansion,
+                    crackTime: time, crackFade: time / 3, crackWidth: (0.01f, 7.5f),
+                    fireTime: time * 2 / 3, fireFade: time / 3, fireHeight: 12, fireFalls: true);
+        }
+        return view;
+    }
+
+    /// <summary>
+    /// The nuclear missile (MachPhysNuclearBomb), over 16 s: a blinding flash for its first second; then the shock
+    /// wave runs out over the ground from nothing to 220 m in 3 s (EXTRAS); the mushroom's stem rises to seven
+    /// times its height while its cap grows by 2.67 times and climbs from 6 to 60 m, both fading out at the
+    /// end; four to six punch cracks tear outwards in its first fifth; a fiery light burns all along.
+    /// </summary>
+    private static GroundBlast? Nuke(ClassicAssets assets, Blast blast, IReadOnlyList<float> extras)
+    {
+        if (assets.EffectMesh("nukewave") is not { } waveMesh || assets.EffectMesh("mushtop") is not { } topMesh
+            || assets.EffectMesh("mushshaft") is not { } shaftMesh)
+            return null;
+        float Extra(int i, float fallback) => i < extras.Count ? extras[i] : fallback;
+        const float duration = 400f / 25;
+        var (waveStart, waveTime, fromRadius, toRadius) = (Extra(6, 1), Extra(14, 3), Extra(12, 0.01f), Extra(13, 220));
+        var view = new GroundBlast { Name = "Nuke" };
+        var at = ActorView.World(blast.Position);
+        var (wave, waveMaterial) = view.Piece(waveMesh);
+        var (shaft, shaftMaterial) = view.Piece(shaftMesh);
+        var (top, topMaterial) = view.Piece(topMesh);
+        var (waveClear, shaftClear, topClear) = (waveMaterial.AlbedoColor.A, shaftMaterial.AlbedoColor.A, topMaterial.AlbedoColor.A);
+        view._parts.Add(age =>
+        {
+            // The wave mesh is a ring 7.35 m round; it is stretched to the radius the wave has reached.
+            var t = (age - waveStart) / waveTime;
+            wave.Visible = t is >= 0 and < 1;
+            var reach = Mathf.Lerp(fromRadius, toRadius, Mathf.Clamp(t, 0, 1)) / 7.35f;
+            wave.Transform = new Transform3D(Basis.FromScale(new Vector3(reach, 1, reach)), at);
+            Fade(waveMaterial, Fading(t, 0.7f, 1), waveClear);
+
+            var grown = Mathf.Clamp(age / duration, 0, 1);
+            shaft.Visible = top.Visible = age < duration;
+            shaft.Transform = new Transform3D(Basis.FromScale(new Vector3(1, Mathf.Lerp(1, 7, grown), 1)), at);
+            top.Transform = new Transform3D(Basis.FromScale(Vector3.One * Mathf.Lerp(1, 2.67f, grown)), at + Vector3.Up * Mathf.Lerp(6, 60, grown));
+            Fade(shaftMaterial, Fading(age, duration - 40f / 25, duration), shaftClear);
+            Fade(topMaterial, Fading(age, duration - 34f / 25, duration), topClear);
+            return age < duration;
+        });
+        view.Flash(at + Vector3.Up * 40, new Color(1, 1, 1), 12, 400, 0, Extra(6, 1));
+        view.Flash(at + Vector3.Up * 30, new Color(1, 0.55f, 0.2f), Extra(9, 4), Extra(11, 125) * 2, 0, duration * Mathf.Min(1, Extra(10, 1.5f)));
+        if (assets.EffectMesh("punchcrack") is { } crack && assets.EffectMesh("punchfire") is { } fire)
+        {
+            var random = new Random((int)(blast.Position.X * 31 + blast.Position.Y));
+            var cracks = random.Next(4, 7);
+            for (var k = 0; k < cracks; k++)
+            {
+                var angle = Mathf.DegToRad(k * 360f / cracks + (float)random.NextDouble() * 20 - 10);
+                var start = duration * (0.05f + 0.2f * (float)random.NextDouble());
+                view.PunchCracks(crack, fire, blast.Position, new NVector2(MathF.Cos(angle), MathF.Sin(angle)), start);
+            }
+        }
+        return view;
+    }
+
+    /// <summary>
+    /// The vortex (MachPhysVortexBomb), over 10 s: a white sphere flares up for 2 s; the swirling vortex sphere
+    /// grows to the weapon's radius (EXTRAS, 40 m) and holds; in the last 2 s it turns pitch black and collapses to
+    /// nothing inside a white shell.
+    /// </summary>
+    private static GroundBlast? Vortex(ClassicAssets assets, Blast blast, IReadOnlyList<float> extras)
+    {
+        if (assets.EffectMesh("vsphere") is not { } vortexMesh || assets.EffectMesh("bsphere") is not { } blackMesh
+            || assets.EffectMesh("wsphere") is not { } whiteMesh)
+            return null;
+        var radius = extras.Count > 0 ? extras[0] : 40;
+        const float duration = 10, split = 8;
+        var view = new GroundBlast { Name = "Vortex" };
+        var at = ActorView.World(blast.Position);
+        var (vortex, _) = view.Piece(vortexMesh);
+        var (black, _) = view.Piece(blackMesh);
+        var (white, whiteMaterial) = view.Piece(whiteMesh);
+        var whiteClear = whiteMaterial.AlbedoColor.A;
+        // The spheres are a metre across: twice the radius is their scale.
+        view._parts.Add(age =>
+        {
+            var grown = Mathf.SmoothStep(0, 1, Mathf.Clamp(age / 5, 0, 1));
+            var collapse = Mathf.Clamp((age - split) / (duration - split), 0, 1);
+            var size = 2 * radius * grown * (1 - collapse * collapse);
+            vortex.Visible = age < split;
+            vortex.Transform = new Transform3D(new Basis(Vector3.Up, age * 1.2f).Scaled(Vector3.One * Mathf.Max(size, 0.01f)), at);
+            black.Visible = age >= split && age < duration;
+            black.Transform = new Transform3D(Basis.FromScale(Vector3.One * Mathf.Max(size, 0.01f)), at);
+            white.Visible = age < 2 || black.Visible;
+            var flare = age < 2 ? 2 * radius * 0.4f * Mathf.Clamp(age / 0.5f, 0, 1) : size * 1.04f;
+            white.Transform = new Transform3D(Basis.FromScale(Vector3.One * Mathf.Max(flare, 0.01f)), at);
+            Fade(whiteMaterial, age < 2 ? Fading(age, 1, 2) : 0.6f, whiteClear);
+            return age < duration;
+        });
+        view.Flash(at + Vector3.Up * 10, new Color(0.8f, 0.7f, 1), 6, radius * 3, 0, 2);
+        view.Flash(at + Vector3.Up * 10, new Color(0.6f, 0.5f, 1), 3, radius * 3, split, duration - split);
+        return view;
+    }
+
+    /// <summary>One punch's six cracks with their fire, from a point in a direction (as the Gorilla's, MachPhysPunchBlast), starting late.</summary>
+    private void PunchCracks(Mesh crack, Mesh fire, NVector2 origin, NVector2 forward, float delay)
+    {
+        var left = new NVector2(-forward.Y, forward.X);
+        NVector2 At((float X, float Y, float) p) => origin + forward * p.X + left * p.Y;
+        foreach (var path in PunchPaths)
+            for (var i = 0; i + 1 < path.Length; i++)
+            {
+                var (from, to) = (PunchPoints[path[i]], PunchPoints[path[i + 1]]);
+                Section(crack, fire, At(from), At(to), delay + to.Frame / FrameRate,
+                    crackTime: 35 / FrameRate, crackFade: 10 / FrameRate, crackWidth: (0.01f, 7.5f),
+                    fireTime: 20 / FrameRate, fireFade: 10 / FrameRate, fireHeight: 9, fireFalls: true);
+            }
+    }
 
     public override void _Process(double delta)
     {

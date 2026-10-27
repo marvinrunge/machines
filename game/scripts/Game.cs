@@ -701,6 +701,9 @@ public partial class Game : Node3D
             {
                 _effects.AddChild(ground);
                 _groundBlasts.Add(blast);
+                // The remake leaves the ground burnt where the ion cannon and the nuke struck.
+                if (GraphicsSettings.Remake && blast.Weapon is "ION_ORBITAL_CANNON" or "NUCLEAR_MISSILE")
+                    _effects.Scorch(ActorView.World(blast.Position), blast.Weapon == "NUCLEAR_MISSILE" ? 120 : 50);
                 continue;
             }
             var colour = blast.Weapon switch
