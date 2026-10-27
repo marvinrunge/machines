@@ -233,8 +233,13 @@ public sealed partial class GameWorld
         var target = Find(attack.Target);
         if (target is null || target.IsDead || !AreEnemies(machine.Race, target.Race))
         {
-            if (attack.Then is { } then)
-                Send(machine, new AttackMoveOrder(then), then);
+            // On an attack-move, the next enemy in sight is taken on at once, as the move would the next tick:
+            // when a target falls, everyone who shot at it would otherwise plan the way on to its own place,
+            // only to drop it again.
+            if (attack.Then is { } then && NearestEnemy(machine, machine.Stats.ScannerRange) is { } next)
+                Send(machine, new AttackOrder(next.Id, then), next.Position);
+            else if (attack.Then is { } on)
+                Send(machine, new AttackMoveOrder(on), on);
             else
                 machine.Order = Order.Idle;
             return;

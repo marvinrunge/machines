@@ -50,9 +50,10 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
     tick of their first missing turn. Reconnecting under the same name and pressing **Join** on the running
     match rebuilds it from the relay's log, catches up in fast-forward and takes the race back from the AI.
     Replays record who left and came back.
-  - Performance gate: four players with 200 armed machines each fighting on m_green run at 2.7 ms per tick
-    on average (p99 14 ms; the budget is 50 ms), measured with `tools/sim-bench`. Path searches share work
-    for group orders, know which areas are cut off, and enemies are found through a spatial grid.
+  - Performance gate: four players with 200 armed machines each fighting on m_green run at 1.7 ms per tick
+    on average (p99 12 ms; the budget is 50 ms), measured with `tools/sim-bench`. Path searches share work
+    for group orders, know which areas are cut off, and enemies are found through a spatial grid; a machine
+    on an attack-move whose target falls takes on the next enemy at once instead of planning its way on.
 - **Remake graphics (phase A):** AgX tone mapping, glow, ambient occlusion, soft shadows that follow the
   camera, 16× anisotropic texture filtering and slightly glossy machines; **Remake graphics** in the menu
   switches back to the classic look. The control panel follows the original's layout with its icons.
