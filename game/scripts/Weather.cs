@@ -73,7 +73,7 @@ public partial class Weather : Node3D
         weather._random = new Random(seed ^ 0x5eed);
         weather.Plan();
         if (float.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_WEATHER"), System.Globalization.CultureInfo.InvariantCulture, out var forced))
-            weather._forced = Mathf.Clamp(forced, 0, 1);
+            (weather._forced, weather._nextDevil) = (Mathf.Clamp(forced, 0, 1), 1);
         weather.Build();
         return weather;
     }
@@ -229,7 +229,8 @@ public partial class Weather : Node3D
         if (_drift is not null && _driftMaterial is not null)
         {
             // Over the ground in the wind: always a little on the desert, more as it freshens.
-            var drift = _kind == Kind.Desert ? 0.25f + 0.45f * light + 0.6f * storm : 0.15f + 0.4f * light + 0.7f * storm;
+            // In a storm the billows and the haze carry it; the wisps belong to the windy days between.
+            var drift = _kind == Kind.Desert ? 0.25f + 0.45f * light + 0.2f * storm : 0.15f + 0.4f * light + 0.3f * storm;
             _drift.GlobalPosition = focus;
             _drift.AmountRatio = Mathf.Clamp(drift, 0.05f, 1);
             _driftMaterial.SetShaderParameter("wind", Wind);
@@ -264,7 +265,7 @@ public partial class Weather : Node3D
         Haze = _kind switch { Kind.Desert => storm, Kind.Ice => storm * 0.7f, Kind.Green => storm * 0.45f, Kind.Ash => storm * 0.5f, _ => 0 };
         HazeColour = _kind switch
         {
-            Kind.Desert => new Color(0.78f, 0.58f, 0.36f),
+            Kind.Desert => new Color(0.92f, 0.72f, 0.48f),
             Kind.Ice => new Color(0.86f, 0.89f, 0.94f),
             Kind.Green => new Color(0.45f, 0.48f, 0.52f),
             _ => new Color(0.35f, 0.25f, 0.2f),
@@ -321,16 +322,21 @@ public partial class Weather : Node3D
     /// <summary>Rain: streaks falling 26 m/s, splashing where they meet the ground; and a few close to the camera.</summary>
     private static (GpuParticles3D Far, GpuParticles3D Near, GpuParticles3D Splash) Rain()
     {
+        // Each splash plays its flipbook once (a crown of drops and a spreading ring, rendered in Blender), standing where
+        // the drop met the ground.
+        var splashLook = Effects.Billboard(Effects.Particle("flipbooks/splash"), additive: false);
+        if (splashLook.Material is StandardMaterial3D look)
+            (look.ParticlesAnimHFrames, look.ParticlesAnimVFrames, look.ParticlesAnimLoop) = (4, 4, false);
         var splash = new GpuParticles3D
         {
-            Name = "Splash", Amount = 4000, Lifetime = 0.35f, Emitting = false, LocalCoords = false,
+            Name = "Splash", Amount = 4000, Lifetime = 0.4f, Emitting = false, LocalCoords = false,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, VisibilityAabb = new Aabb(-Vector3.One * 400, Vector3.One * 800),
-            DrawPass1 = Effects.Billboard(Effects.Particle("circle_02"), additive: false),
+            DrawPass1 = splashLook,
             ProcessMaterial = new ParticleProcessMaterial
             {
-                Direction = Vector3.Up, Spread = 60, InitialVelocityMin = 0.5f, InitialVelocityMax = 1.5f, Gravity = new Vector3(0, -6, 0),
-                ScaleMin = 0.15f, ScaleMax = 0.3f, ScaleCurve = Effects.Grow(0.4f),
-                ColorRamp = Effects.Ramp(new Color(0.85f, 0.9f, 1, 0.5f), new Color(0.85f, 0.9f, 1, 0.3f), new Color(0.85f, 0.9f, 1, 0)),
+                Direction = Vector3.Up, Spread = 0, InitialVelocityMin = 0, InitialVelocityMax = 0, Gravity = Vector3.Zero,
+                ScaleMin = 0.35f, ScaleMax = 0.6f, AnimSpeedMin = 1, AnimSpeedMax = 1,
+                ColorRamp = Effects.Ramp(new Color(0.85f, 0.9f, 1, 0.7f), new Color(0.85f, 0.9f, 1, 0.6f), new Color(0.85f, 0.9f, 1, 0.2f)),
             },
         };
         GpuParticles3D Streaks(string name, int amount, float reach, bool splashes)
@@ -371,7 +377,7 @@ public partial class Weather : Node3D
         CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, VisibilityAabb = new Aabb(-Vector3.One * 400, Vector3.One * 800),
         DrawPass1 = new QuadMesh
         {
-            Size = Vector2.One * size * (sideways ? 3 : 1),
+            Size = Vector2.One * size * (sideways ? 1.5f : 1),
             Material = new StandardMaterial3D
             {
                 AlbedoTexture = Effects.Particle(picture), AlbedoColor = colour, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
@@ -396,10 +402,12 @@ public partial class Weather : Node3D
     /// </summary>
     private static GpuParticles3D Clouds(Color colour)
     {
+        // Each billow plays the cloud flipbook once over its life: it swells, rolls and thins (rendered in Blender).
         var material = new StandardMaterial3D
         {
-            AlbedoTexture = Effects.Particle("smoke_07"), AlbedoColor = colour, Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            AlbedoTexture = Effects.Particle("flipbooks/billow"), AlbedoColor = colour, Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
             BillboardMode = BaseMaterial3D.BillboardModeEnum.Particles, BillboardKeepScale = true, VertexColorUseAsAlbedo = true,
+            ParticlesAnimHFrames = 4, ParticlesAnimVFrames = 4, ParticlesAnimLoop = false,
             DepthDrawMode = BaseMaterial3D.DepthDrawModeEnum.Disabled, DisableReceiveShadows = true,
             // Lit by the day as a whole, not by the sun from one side: a billow is mostly the light scattered in it.
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
@@ -417,7 +425,8 @@ public partial class Weather : Node3D
                 Direction = Vector3.Right, Spread = 15, InitialVelocityMin = 4, InitialVelocityMax = 8, Gravity = Vector3.Zero,
                 ScaleMin = 18, ScaleMax = 40, ScaleCurve = Effects.Grow(0.6f),
                 AngleMin = -180, AngleMax = 180, AngularVelocityMin = -6, AngularVelocityMax = 6,
-                ColorRamp = Effects.Ramp(Colors.White with { A = 0 }, Colors.White with { A = 0.65f }, Colors.White with { A = 0 }),
+                AnimSpeedMin = 1, AnimSpeedMax = 1,
+                ColorRamp = Effects.Ramp(Colors.White with { A = 0 }, Colors.White with { A = 0.85f }, Colors.White with { A = 0 }),
             },
         };
     }
@@ -548,16 +557,21 @@ public partial class Weather : Node3D
         _nextDevil = t + 40 + (float)_random.NextDouble() * (light > 0.5f ? 50 : 120);
         var r = Mathf.Clamp(distance * 0.5f, 30, 160);
         var start = focus + new Vector3(((float)_random.NextDouble() - 0.5f) * 2 * r, 0, ((float)_random.NextDouble() - 0.5f) * 2 * r);
+        // For automated checks (a forced storm) the first one starts where the camera looks.
+        if (_forced is not null && _devils.Count == 0)
+            start = focus;
         var shader = new ShaderMaterial { Shader = DevilShader.Value };
-        shader.SetShaderParameter("noise", Swirl.Value);
-        shader.SetShaderParameter("tint", Effects.DustTint);
+        shader.SetShaderParameter("frames", Effects.Particle("flipbooks/devil"));
+        shader.SetShaderParameter("tint", Effects.DustTint.Lightened(0.2f));
+        shader.SetShaderParameter("phase", (float)_random.NextDouble() * 16);
         var size = 0.7f + (float)_random.NextDouble() * 0.6f;
+        // An upright picture turning to face the view, playing the turning funnel rendered in Blender.
         var devil = new MeshInstance3D
         {
-            Mesh = new CylinderMesh { TopRadius = 3.2f * size, BottomRadius = 0.5f * size, Height = 22 * size, CapTop = false, CapBottom = false, RadialSegments = 24, Rings = 6 },
+            Mesh = new QuadMesh { Size = new Vector2(15 * size, 30 * size) },
             MaterialOverride = shader, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Name = "DustDevil",
         };
-        devil.Position = Vector3.Up * 11 * size;
+        devil.Position = Vector3.Up * 14.5f * size;
         var holder = new MeshInstance3D { Name = "DustDevilBase" };
         AddChild(holder);
         holder.AddChild(devil);
@@ -569,16 +583,24 @@ public partial class Weather : Node3D
         Code = """
             shader_type spatial;
             render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled;
-            uniform sampler2D noise : filter_linear_mipmap, repeat_enable;
+            uniform sampler2D frames : source_color, filter_linear_mipmap;
             uniform vec3 tint = vec3(0.72, 0.62, 0.48);
             uniform float strength = 0.0;
+            uniform float phase = 0.0;
+            void vertex() {
+                // Stands upright and turns about its own up to face the view.
+                vec3 up = MODEL_MATRIX[1].xyz;
+                vec3 side = normalize(cross(up, INV_VIEW_MATRIX[2].xyz));
+                MODELVIEW_MATRIX = VIEW_MATRIX * mat4(vec4(side * length(MODEL_MATRIX[0].xyz), 0.0), vec4(up, 0.0),
+                    vec4(normalize(cross(side, up)), 0.0), MODEL_MATRIX[3]);
+            }
             void fragment() {
-                // The dust spins up the funnel: the picture turns faster at the bottom and climbs.
-                vec2 uv = vec2(UV.x * 2.0 + TIME * (0.9 + 0.6 * (1.0 - UV.y)), UV.y * 1.5 + TIME * 0.35);
-                float n = texture(noise, uv).r * texture(noise, uv * vec2(1.7, 0.6) + 0.37).r;
-                float ends = smoothstep(0.0, 0.25, UV.y) * smoothstep(1.0, 0.55, UV.y);
-                ALBEDO = tint;
-                ALPHA = clamp(n * 1.8 - 0.25, 0.0, 1.0) * ends * strength * 0.75;
+                // The funnel turns once round in sixteen frames, twelve a second.
+                int frame = int(mod(floor(TIME * 12.0 + phase), 16.0));
+                vec2 cell = vec2(float(frame % 4), float(frame / 4));
+                vec4 picture = texture(frames, (UV + cell) / 4.0);
+                ALBEDO = tint * picture.rgb;
+                ALPHA = clamp(picture.a * 1.7, 0.0, 1.0) * strength;
             }
             """,
     });
@@ -698,12 +720,5 @@ public partial class Weather : Node3D
             var ragged = 0.5f + 0.5f * noise.GetNoise2D(x * 40, y * 6);
             return new Color(1, 1, 1, Mathf.Pow(along, 0.7f) * across * across * ragged);
         });
-    });
-
-    /// <summary>Swirling noise for the dust devils, repeating.</summary>
-    private static readonly Lazy<Texture2D> Swirl = new(() => new NoiseTexture2D
-    {
-        Width = 128, Height = 128, Seamless = true, GenerateMipmaps = true,
-        Noise = new FastNoiseLite { Frequency = 0.05f, FractalOctaves = 3, Seed = 4 },
     });
 }

@@ -385,7 +385,7 @@ public partial class PlanetLook : Node
         // The remake's sun is stronger and its ambient weaker (below): lit sides and shade stand apart.
         _sun.LightEnergy = elevation > 0 ? (_softShadows ? RemakeSun : 1.1f) : 0.15f;
         // A storm's thick air dims the sun (Weather).
-        _sun.LightEnergy *= 1 - 0.55f * Weather.Haze;
+        _sun.LightEnergy *= 1 - 0.35f * Weather.Haze;
         // Every satellite adds its ambient light by its own height in the sky: the sun by day, the moon by night.
         var ambient = Colors.Black;
         foreach (var satellite in _env.Satellites)
@@ -482,6 +482,8 @@ public partial class PlanetLook : Node
             _environment.FogDepthBegin = Mathf.Lerp(view + f.MaxVisibility * 0.25f, view * 0.3f, Weather.Haze);
             _environment.FogDepthEnd = Mathf.Lerp(view + f.MaxVisibility * 1.5f, view + 140, Weather.Haze);
             _environment.FogDensity = Mathf.Lerp(Mathf.Clamp(fogColour.A, 0.5f, 1f), 0.95f, Weather.Haze);
+            // The storm hides the sky too, so the clear sky does not show above the hills.
+            _environment.FogSkyAffect = Mathf.Lerp(0.6f, 1, Weather.Haze);
             if (_environment.VolumetricFogEnabled)
             {
                 // A low sun shines through more air: the haze thickens a little as it sinks, and shafts stand out. It is
@@ -492,7 +494,9 @@ public partial class PlanetLook : Node
                 var haze = new Color(Mathf.Max(fogColour.R, horizon.R), Mathf.Max(fogColour.G, horizon.G), Mathf.Max(fogColour.B, horizon.B));
                 _environment.VolumetricFogAlbedo = haze;
                 _environment.VolumetricFogDensity = Mathf.Clamp(HazeReach / Mathf.Max(f.MaxVisibility, 1), MinimumHaze, HazeDensity) * (1 + 0.5f * low)
-                    * (1 + 5 * Weather.Haze);
+                    * (1 + 3 * Weather.Haze);
+                // In a storm the haze hides the sky as it hides the hills, so no clear patch shows above them.
+                _environment.VolumetricFogSkyAffect = Weather.Haze;
             }
         }
         UpdateShadowReach();

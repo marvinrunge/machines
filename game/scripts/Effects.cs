@@ -264,6 +264,7 @@ public partial class Effects : Node3D
         {
             if (Particles.TryGetValue(name, out var cached))
                 return cached;
+            // "flipbooks/billow" names one of the animated sheets rendered in Blender (tools/blender/flipbooks.py).
             var path = $"res://assets/particles/{name}.png";
             Texture2D texture = Soft;
             if (ResourceLoader.Exists(path))
