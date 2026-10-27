@@ -270,6 +270,9 @@ public partial class GroundScatter : Node3D
                 ALBEDO = blade.rgb * COLOR.rgb;
                 ALPHA = blade.a;
                 ALPHA_SCISSOR_THRESHOLD = 0.3;
+                // Soft blade edges under MSAA (alpha to coverage), so the grass does not shimmer.
+                ALPHA_ANTIALIASING_EDGE = 0.3;
+                ALPHA_TEXTURE_COORDINATE = UV * vec2(textureSize(blades, 0));
                 ROUGHNESS = 0.85;
                 SPECULAR = 0.2;
             }
