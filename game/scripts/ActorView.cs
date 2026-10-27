@@ -81,6 +81,44 @@ public partial class ActorView : Node3D
         return at * new Vector3(offset[0], offset[2], offset[1]);
     }
 
+    /// <summary>
+    /// The weapon at <paramref name="mounting"/> fires one round and moves with it: back and forward by its RECOIL
+    /// distance and times, fitted into the round's share of the burst as MachPhysWeapon::recoil fitted them, or
+    /// the autocannon's barrels turn on.
+    /// </summary>
+    public void Fire(Machines.Sim.Combat.Mounting mounting, Machines.Import.Model.WeaponSpec weapon)
+    {
+        if (_rigView is null)
+            return;
+        var recoil = weapon.Presentation.FirstOrDefault(l => l.Keyword == "RECOIL" && l.Args.Count >= 3)?.Args
+            .Select(a => float.Parse(a, System.Globalization.CultureInfo.InvariantCulture)).ToArray() ?? [0f, 0.05f, 0.15f];
+        var (distance, back, fore) = (recoil[0], recoil[1], recoil[2]);
+        var round = weapon.BurstDuration / Math.Max(1, weapon.BurstRounds);
+        // Rounds faster than the recoil cut its way forward short.
+        if (round - (back + fore) < 0.01f)
+            fore = Math.Max(round - back, 0.01f);
+        var side = mounting switch
+        {
+            Machines.Sim.Combat.Mounting.Left => "left",
+            Machines.Sim.Combat.Mounting.Right => "right",
+            _ => "top",
+        };
+        _rigView.Fire(side, distance, back, fore, round, turn: weapon.TypeName == "AUTO_CANNON");
+    }
+
+    /// <summary>A building's interior (see <see cref="RigView.ShowInterior"/>).</summary>
+    public bool HasInterior => _rigView?.HasInterior ?? false;
+
+    /// <summary>Shows the interior while first person looks out from <paramref name="eye"/> inside it; null hides it.</summary>
+    public void ShowInteriorFrom(Vector3? eye)
+    {
+        if (_rigView is not null)
+            _rigView.ShowInterior = eye is { } point && _rigView.InInterior(point);
+    }
+
+    /// <summary>The model's bounds in the view's own space.</summary>
+    public Aabb Bounds => _bounds;
+
     /// <summary>The middle of the model, where rounds fired at it fly to (high up for a flyer).</summary>
     public Vector3 Centre => GlobalTransform * _bounds.GetCenter();
 
@@ -226,6 +264,51 @@ public partial class ActorView : Node3D
         }
     }
 
+    private GpuParticles3D? _damageSmoke, _thickSmoke, _damageFire;
+
+    /// <summary>
+    /// Smoke and fire as the damage mounts, at the original's thresholds: a machine smokes black from 65 % damage,
+    /// and from 90 % it smokes thickly and burns (MachPhysMachineDamage); a finished building smokes from 40 %,
+    /// burns from 50 % and smokes thickly from 75 % (MachPhysEntityDamage). The smoke trails behind what moves.
+    /// </summary>
+    private void ShowDamage(Actor actor)
+    {
+        if (actor.MaxHitPoints <= 0 || actor is Construction { Complete: false } || actor is not (Machine or Construction))
+            return;
+        var damage = 100 * (1 - actor.HitPoints / (float)actor.MaxHitPoints);
+        var building = actor is Construction;
+        var size = Mathf.Clamp(Size * 0.5f, 1.5f, 6);
+        _damageSmoke = Emitter(_damageSmoke, damage >= (building ? 40 : 65),
+            () => Effects.Plume(4, 3, size * 3, size * 1.2f, new Color(0.08f, 0.08f, 0.08f, 0.85f)));
+        _thickSmoke = Emitter(_thickSmoke, damage >= (building ? 75 : 90),
+            () => Effects.Plume(6, 4, size * 4, size * 1.4f, new Color(0.14f, 0.07f, 0.05f, 0.8f)));
+        _damageFire = Emitter(_damageFire, damage >= (building ? 50 : 90), () =>
+        {
+            var fire = Effects.DamageFire(size * 0.8f, size);
+            // In the remake the flames light what is around them.
+            if (GraphicsSettings.Remake)
+                fire.AddChild(new OmniLight3D { LightColor = new Color(1, 0.55f, 0.2f), LightEnergy = 2, OmniRange = size * 4, Position = Vector3.Up * size * 0.5f });
+            return fire;
+        });
+    }
+
+    /// <summary>Starts or stops a damage emitter at the top of the model, making it the first time it is needed.</summary>
+    private GpuParticles3D? Emitter(GpuParticles3D? emitter, bool on, Func<GpuParticles3D> make)
+    {
+        if (emitter is null)
+        {
+            if (!on)
+                return null;
+            emitter = make();
+            AddChild(emitter);
+            emitter.Position = new Vector3(_bounds.GetCenter().X, _bounds.End.Y * 0.9f, _bounds.GetCenter().Z);
+        }
+        emitter.Emitting = on;
+        if (emitter.GetChildCount() > 0 && emitter.GetChild(0) is OmniLight3D light)
+            light.Visible = on;
+        return emitter;
+    }
+
     /// <summary>Smoke flows from the chimneys while the building works; what is in the air rises on when it stops.</summary>
     private void Smoke()
     {
@@ -269,7 +352,12 @@ public partial class ActorView : Node3D
             view._rigView = RigView.Create(rig);
             view._maxSpeed = actor is Machine rigged ? rigged.Stats.Speed : 0;
             if (actor is Construction building)
+            {
                 AddDoors(view._rigView, building);
+                // A tower's head turns at its MAX_ROTATION, degrees per second (MachPhysTurnerTracker).
+                if (building.Stats.MaxRotation is > 0 and var rate)
+                    view._rigView.TurnRate = Mathf.DegToRad(rate);
+            }
             view.AddChild(view._rigView);
         }
         else
@@ -426,16 +514,20 @@ public partial class ActorView : Node3D
     }
 
     /// <summary>Moves the view toward the actor's latest simulated state; called after each simulation tick.</summary>
-    /// <param name="aimAt">What the machine is attacking, for its upper body to turn to.</param>
+    /// <param name="aimAt">What the machine or tower is attacking, for its upper body or head to turn to.</param>
     public void Sync(Actor actor, Actor? aimAt = null)
     {
         _target = World(actor.Position);
-        if (actor is Machine machine)
+        // The upper body's (or a tower head's) angle relative to the hull, in the original's sense
+        // (counter-clockwise); with nothing to aim at it turns back to the front.
+        var facing = actor switch
         {
-            // The upper body's angle relative to the hull, in the original's sense (counter-clockwise).
-            var toTarget = aimAt is null ? 0 : MathF.Atan2(aimAt.Position.Y - actor.Position.Y, aimAt.Position.X - actor.Position.X) - machine.Facing;
-            _aim = aimAt is null ? 0 : Mathf.Wrap(toTarget, -Mathf.Pi, Mathf.Pi);
-        }
+            Machine m => m.Facing,
+            Construction c => Mathf.DegToRad(c.Orientation),
+            _ => 0,
+        };
+        var toTarget = aimAt is null ? 0 : MathF.Atan2(aimAt.Position.Y - actor.Position.Y, aimAt.Position.X - actor.Position.X) - facing;
+        _aim = aimAt is null ? 0 : Mathf.Wrap(toTarget, -Mathf.Pi, Mathf.Pi);
         _targetYaw = actor switch
         {
             Machine m => -m.Facing,
@@ -452,6 +544,7 @@ public partial class ActorView : Node3D
             _lastYaw = _yaw;
             _placed = true;
         }
+        ShowDamage(actor);
 
         // Engines hum at rest and roar on the move; machines inside buildings are silent.
         if (_engine is not null)

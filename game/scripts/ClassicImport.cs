@@ -24,9 +24,11 @@ public static class ClassicImport
     /// machine's faceplate, 4 the turn-to-face sprites (eyes, lamps, leaves) and the materials' ambient and emissive
     /// colours, 5 the parts that move by themselves (rotors, bobbing hips, a weapon's energy ball) and their motion,
     /// buildings' moving parts and how they work, and the vertices' own materials (terrain tiles shade their corners
-    /// with them; without, whole corner tiles came out dark).
+    /// with them; without, whole corner tiles came out dark), 6 the weapons' parts that move as they fire (the
+    /// recoil, the autocannon's barrels), buildings' interiors as parts of their own, towers' turning heads, the
+    /// support weapons' and loading effects' meshes, and each planet's artefacts (trees, rocks, ruins).
     /// </summary>
-    public const int Format = 5;
+    public const int Format = 6;
 
     private static string FormatFile => Path.Combine(Paths.Classic, "format.txt");
 

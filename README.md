@@ -66,6 +66,28 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   times with Real-ESRGAN on your GPU (fetched by `tools/texture-upscale/fetch.sh`; Lanczos without it) and
   deriving normal and roughness maps from them, so panel lines, rivets, cracks and grain catch the light.
   They stay in `classic/hd` on your machine. Already imported? **Import again** makes them.
+- **Weapons at work and closed buildings:** guns recoil with every round by the original's distances and
+  times, and the autocannon turns its barrels on by one per round. Buildings no longer show their interiors
+  from outside: as in the original, an interior appears only to first person looking out from inside it.
+  The import format is now 6: **Import again** after updating.
+- **Remake graphics (phase E, light and air):** the ground casts shadows, so cliffs shade the slopes below
+  them; while the sun stands high the ambient light is darker and the sun stronger, so shade stands apart
+  from sunlight (at dawn and dusk the ambient returns to the original's); light bounces between nearby
+  surfaces (SSIL); a thin volumetric haze in the planet's fog colour gives light shafts and lamp haloes
+  (airless planets have none); plasma and pulse rounds light the ground as they fly.
+- **Towers and battle damage:** turrets, sentries and launchers turn their heads to their targets at the
+  original's MAX_ROTATION, and machines fighting on their own turn their upper bodies to what they shoot.
+  As in the original, damaged machines smoke black from 65 % damage and burn from 90 %, buildings smoke from
+  40 % and burn from 50 %; missiles trail vapour and burst in fireballs, and bolters, autocannons,
+  flamethrowers and electric chargers puff out smoke as they fire. Import again for the towers.
+- **Support effects from the original's own meshes:** healers reach their patients with a beam of two
+  helices turning against each other, and the patient glows with green crosses; the electric charger
+  strikes with spinning lightning while halos run up and down its victim; the orb of treachery opens as a
+  ring in the shooter's colour; machines a flamethrower hits burn for 15 seconds; transporters flash with
+  rings of light as they load and unload ore. Import again for them.
+- **The planets' artefacts:** the trees, palms, rocks, ruins and other scenery the scenarios set on the
+  planets (ARTEFACTS) stand where the original put them, from each planet's own models (`pdata/*.arb`). They
+  are scenery only so far: machines do not yet go round them, and the active ones cannot be destroyed.
 - **Models in motion:** the machines' glowing eyes and turn-to-face sprites, glowing parts such as the
   plasma weapons' green, rotors and turbines that spin, hips that bob and the bee bomber's energy ball, all
   as the original moved them. Flyers and hover machines tip as they speed up, brake and turn; real

@@ -13,7 +13,10 @@ game did:
   and how the locomotion moves them. Spider legs bring their resting, walking, turning, start and stop
   cycles, sampled 20 times a second from the original composite plans, and the Gorilla its two punches
   (`punchA`, `punchB`). Wheels bring their nodes and radius,
-  and tracks their tread nodes and texture repeats per metre.
+  and tracks their tread nodes and texture repeats per metre. Each mounted weapon's moving part becomes a
+  node of its own, listed under `weapons` with its mounting: the link named `recoil` or the whole weapon
+  (MachPhysWeapon::recoil), or the autocannon's turning barrels (MachPhysBolter::fire). A building's interior
+  (MachPhysConstruction::pInteriorDomain) is a node named `interior`, kept apart from the outside.
 - **Terrain:** each planet's surface from `pdata/<planet>.psb`, the engine's persisted planet with all its
   terrain tiles. The exporter writes the tiles as one model (`classic/planets/<planet>/terrain.json`) and the
   engine's `terrainHeight` sampled every 4 m (`heights.bin`: int32 columns, int32 rows, float32 spacing,

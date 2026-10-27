@@ -27,6 +27,14 @@ public partial class PlanetLook : Node
     /// </summary>
     private const float MinimumAmbient = 0.5f;
 
+    /// <summary>The remake's darker base light: the ambient's floor, its share of the planet's own, and the sun.</summary>
+    private const float RemakeMinimumAmbient = 0.2f;
+    private const float RemakeAmbient = 0.5f;
+    private const float RemakeSun = 1.6f;
+
+    /// <summary>The volumetric fog's density by day; it thickens towards dawn, dusk and night.</summary>
+    private const float HazeDensity = 0.004f;
+
     public static PlanetLook Create(PlanetEnvironment env, string planet, Func<float> gameTime, Func<float> viewDistance,
         Func<string, ClassicAssets.SkySprite?> skySprite, (Mesh Mesh, Texture2D Texture, float Radius)? dome = null)
     {
@@ -145,6 +153,24 @@ public partial class PlanetLook : Node
         // Smooth surfaces (the water) mirror what is around them.
         _environment.SsrEnabled = true;
         _environment.SsrMaxSteps = 48;
+
+        // Light bounces between nearby surfaces: sunlit sand warms the shade beside it, a red hull tints the ground.
+        _environment.SsilEnabled = true;
+        _environment.SsilRadius = 6;
+        _environment.SsilIntensity = 1.3f;
+        _environment.SsilSharpness = 0.9f;
+
+        // Air the light shines through, in the planet's fog colour: shafts where cliffs and buildings shade the
+        // sun, haloes round lamps and fire at night (see Update). Airless planets have none.
+        if (_env.Fog is not null)
+        {
+            _environment.VolumetricFogEnabled = true;
+            _environment.VolumetricFogAnisotropy = 0.6f;
+            _environment.VolumetricFogLength = 320;
+            _environment.VolumetricFogDetailSpread = 2;
+            _environment.VolumetricFogSkyAffect = 0;
+            _environment.VolumetricFogTemporalReprojectionEnabled = true;
+        }
 
         // Stars come out at night (a painted night sky when there is one for the planet), and the other
         // satellites without a picture of their own show as discs.
@@ -322,7 +348,8 @@ public partial class PlanetLook : Node
         _sun.Basis = Basis.LookingAt(-(level * Mathf.Cos(lit) + Vector3.Up * Mathf.Sin(lit)), Vector3.Up);
         var direct = Table(_sunSatellite?.DirectionalColourTable, elevation, Colors.White);
         _sun.LightColor = direct;
-        _sun.LightEnergy = elevation > 0 ? 1.1f : 0.15f;
+        // The remake's sun is stronger and its ambient weaker (below): lit sides and shade stand apart.
+        _sun.LightEnergy = elevation > 0 ? (_softShadows ? RemakeSun : 1.1f) : 0.15f;
         // Every satellite adds its ambient light by its own height in the sky: the sun by day, the moon by night.
         var ambient = Colors.Black;
         foreach (var satellite in _env.Satellites)
@@ -332,12 +359,16 @@ public partial class PlanetLook : Node
             var light = Table(satellite.AmbientColourTable, Elevation(satelliteOrbit, _gameTime()), Colors.Black);
             ambient = new Color(ambient.R + light.R, ambient.G + light.G, ambient.B + light.B);
         }
-        var floor = direct * MinimumAmbient;
+        // The remake darkens the ambient while the sun stands high, where shade then stands apart from sunlight; as it
+        // sinks the scene lives on its ambient, which goes back to the original's.
+        var high = _softShadows ? Mathf.Clamp(elevation / 35, 0, 1) : 0;
+        var floor = direct * Mathf.Lerp(MinimumAmbient, RemakeMinimumAmbient, high);
         // The remake never lets a night go fully black: a little starlight stays.
         if (_softShadows)
-            floor = new Color(Mathf.Max(floor.R, 0.05f), Mathf.Max(floor.G, 0.06f), Mathf.Max(floor.B, 0.1f));
+            floor = new Color(Mathf.Max(floor.R, 0.04f), Mathf.Max(floor.G, 0.05f), Mathf.Max(floor.B, 0.085f));
         _environment.AmbientLightColor = new Color(Mathf.Max(ambient.R, floor.R), Mathf.Max(ambient.G, floor.G), Mathf.Max(ambient.B, floor.B));
-        _environment.AmbientLightEnergy = 1;
+        // Bounced light (SSIL) brings back some of what the darker ambient takes away, where it really bounces.
+        _environment.AmbientLightEnergy = Mathf.Lerp(1, RemakeAmbient, high);
 
         var fogColour = _env.Fog is { } fog ? Table(fog.ColourTable, elevation, new Color(0.6f, 0.6f, 0.65f)) : new Color(0.6f, 0.6f, 0.65f);
         Color horizon, top;
@@ -400,6 +431,13 @@ public partial class PlanetLook : Node
             _environment.FogDepthBegin = view + f.MaxVisibility * 0.25f;
             _environment.FogDepthEnd = view + f.MaxVisibility * 1.5f;
             _environment.FogDensity = Mathf.Clamp(fogColour.A, 0.5f, 1f);
+            if (_environment.VolumetricFogEnabled)
+            {
+                // A low sun shines through more air: the haze thickens a little as it sinks, and shafts stand out.
+                var low = Mathf.Clamp(1 - elevation / 30, 0, 1);
+                _environment.VolumetricFogAlbedo = new Color(fogColour.R, fogColour.G, fogColour.B);
+                _environment.VolumetricFogDensity = HazeDensity * (1 + 0.5f * low);
+            }
         }
         UpdateShadowReach();
     }

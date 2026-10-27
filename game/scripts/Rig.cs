@@ -23,6 +23,9 @@ public sealed class Rig
     /// <summary>A building's parts while it works (MachPhysConstruction::doWorking): fans turn, arms dig.</summary>
     public RigIdle[] Working { get; init; } = [];
 
+    /// <summary>The part of each mounted weapon that moves as it fires: it recoils, or the autocannon's barrels turn.</summary>
+    public RigWeapon[] Weapons { get; init; } = [];
+
     /// <summary>The faceplate part and the point on it first person looks out from (centre front), or -1.</summary>
     public int Faceplate { get; init; } = -1;
     public Vector3 Eye { get; init; }
@@ -61,6 +64,9 @@ public sealed class Rig
             Tracks = tracksOf,
             Idle = Motion(rig, "idle"),
             Working = Motion(rig, "working"),
+            Weapons = rig.TryGetProperty("weapons", out var weapons)
+                ? weapons.EnumerateArray().Select(w => new RigWeapon(w.GetProperty("node").GetInt32(), w.GetProperty("mounting").GetString() ?? "")).ToArray()
+                : [],
             Faceplate = rig.TryGetProperty("faceplate", out var f) ? f.GetInt32() : -1,
             Eye = rig.TryGetProperty("eye", out var e) && e.EnumerateArray().Select(x => x.GetSingle()).ToArray() is [var ex, var ey, var ez]
                 ? new Vector3(ex, ez, ey)   // original z up
@@ -106,6 +112,9 @@ public sealed record RigAnimation(float Duration, RigTrack[] Tracks);
 
 /// <summary>A part's endless motion of its own, one period long.</summary>
 public sealed record RigIdle(float Duration, RigTrack Track);
+
+/// <summary>A mounted weapon's moving part (see <see cref="Rig.Weapons"/>) and where it is mounted: left, right or top.</summary>
+public sealed record RigWeapon(int Node, string Mounting);
 
 /// <summary>Wheels spin about their axle (the original's local y axis) by distance over radius.</summary>
 public sealed record RigWheels(float Radius, int[] Left, int[] Right);

@@ -167,6 +167,26 @@ public sealed class ClassicAssets
         return (mesh, texture, radius);
     }
 
+    /// <summary>
+    /// A scenery or destructible object's model, from the artefact models a scenario names (<c>MODELS
+    /// models/planet/1o2/1o2.arf</c>, exported to <c>classic/planets/1o2/artefacts/&lt;name&gt;.json</c>), or null.
+    /// </summary>
+    public Mesh? ArtefactMesh(string modelsFile, string name)
+    {
+        var folder = Path.GetFileNameWithoutExtension(modelsFile.Replace('\\', '/'));
+        var key = $"artefact/{folder}/{name}".ToLowerInvariant();
+        if (_meshes.TryGetValue(key, out var cached))
+            return cached;
+        var planets = _planetFolder is null ? null : new DirectoryInfo(_planetFolder);
+        // The planet folders keep the game's spelling (CommSat), the scenarios do not always.
+        var planet = planets?.EnumerateDirectories().FirstOrDefault(d => d.Name.Equals(folder, StringComparison.OrdinalIgnoreCase));
+        var path = planet is null ? null : Path.Combine(planet.FullName, "artefacts", name + ".json");
+        var mesh = path is not null && File.Exists(path) ? MeshFromJson(path) : null;
+        if (mesh is not null)
+            _meshes[key] = mesh;
+        return mesh;
+    }
+
     /// <summary>The terrain heights the original engine reported for the planet (<c>heights.bin</c>), if exported.</summary>
     public byte[]? PlanetHeights(string planet)
     {
@@ -675,6 +695,16 @@ public sealed class ClassicAssets
             return null;
         image.GenerateMipmaps();
         return ImageTexture.CreateFromImage(image);
+    }
+
+    private readonly Dictionary<string, Texture2D?> _textures = [];
+
+    /// <summary>An original texture by its path in the game folder, loaded once (HD in the remake look), or null.</summary>
+    public Texture2D? Texture(string relative)
+    {
+        if (!_textures.TryGetValue(relative, out var texture))
+            _textures[relative] = texture = LoadTexture(relative).Texture;
+        return texture;
     }
 
     private readonly Dictionary<string, Texture2D?> _pngs = [];

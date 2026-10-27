@@ -23,6 +23,8 @@ public partial class Effects : Node3D
         var colour = WeaponColour(weapon);
         Glow(from, colour * 4, 1.2f, 0.06f);
         Light(from, colour, 2.5f, 8, 0.08f);
+        if (Smokes(weapon))
+            FiringSmoke(from);
 
         var distance = from.DistanceTo(to);
         if (distance < 0.5f)
@@ -110,6 +112,61 @@ public partial class Effects : Node3D
 
         Scorch(at, 3.5f * scale);
     }
+
+    /// <summary>
+    /// A missile strikes (MachPhysTrailedProjectile's explosion): three fireballs 2 to 4 m across within a metre of
+    /// the point, a little smoke, a flash of light and a small scorch.
+    /// </summary>
+    public void Impact(Vector3 at)
+    {
+        Light(at + Vector3.Up, new Color(1, 0.6f, 0.25f), 4, 10, 0.3f);
+        Burst(at, amount: 3, lifetime: 0.6f, texture: Soft,
+            new ParticleProcessMaterial
+            {
+                EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Sphere,
+                EmissionSphereRadius = 1,
+                Gravity = new Vector3(0, 1.5f, 0),
+                ScaleMin = 2,
+                ScaleMax = 4,
+                ScaleCurve = Grow(0.5f),
+                ColorRamp = Ramp(new Color(3.2f, 1.8f, 0.6f), new Color(2.2f, 0.7f, 0.12f, 0.9f), new Color(0.5f, 0.12f, 0.04f, 0)),
+            }, additive: true);
+        Burst(at + Vector3.Up * 0.5f, amount: 4, lifetime: 2f, texture: Soft,
+            new ParticleProcessMaterial
+            {
+                Direction = Vector3.Up,
+                Spread = 30,
+                InitialVelocityMin = 1,
+                InitialVelocityMax = 2.5f,
+                Gravity = new Vector3(0.3f, 0.8f, 0),
+                ScaleMin = 3,
+                ScaleMax = 5,
+                ScaleCurve = Grow(0.3f),
+                ColorRamp = Ramp(new Color(0.15f, 0.13f, 0.12f, 0.5f), new Color(0.2f, 0.18f, 0.17f, 0.6f), new Color(0.32f, 0.3f, 0.29f, 0)),
+            }, additive: false);
+        Scorch(at, 2.5f);
+    }
+
+    /// <summary>Bolters, the autocannon, flamethrowers and electric chargers puff out smoke as they fire (MachPhysSmokeCloud).</summary>
+    private static bool Smokes(string weapon) =>
+        weapon.Contains("BOLTER") || weapon == "AUTO_CANNON" || weapon.StartsWith("FLAME_THROWER") || weapon.StartsWith("ELECTRIC");
+
+    /// <summary>Three grey wisps rising from the muzzle and spreading as they thin out.</summary>
+    private void FiringSmoke(Vector3 at) =>
+        Burst(at, amount: 3, lifetime: 1.2f, texture: Soft, new ParticleProcessMaterial
+        {
+            Direction = Vector3.Up,
+            Spread = 25,
+            InitialVelocityMin = 1,
+            InitialVelocityMax = 2,
+            Gravity = Vector3.Zero,
+            DampingMin = 0.5f,
+            DampingMax = 1,
+            ScaleMin = 0.8f,
+            ScaleMax = 1.3f,
+            ScaleCurve = Grow(0.4f),
+            ColorRamp = Ramp(new Color(0.55f, 0.55f, 0.55f, 0), new Color(0.5f, 0.5f, 0.5f, 0.45f), new Color(0.55f, 0.55f, 0.55f, 0)),
+        }, additive: false);
 
     /// <summary>An area weapon goes off: a big flash and a scorch the size of its reach.</summary>
     public void Blast(Vector3 at, float radius, Color colour)
@@ -213,6 +270,60 @@ public partial class Effects : Node3D
             },
         };
     }
+
+    /// <summary>
+    /// The vapour a missile leaves behind it (MachPhysVapourTrail: sixteen puffs of about 1.5 m), white turning
+    /// grey as the puffs swell and thin out; set it emitting at the missile's tail.
+    /// </summary>
+    public static GpuParticles3D VapourTrail() => new()
+    {
+        Name = "Trail",
+        Amount = 16,
+        Lifetime = 1.1f,
+        LocalCoords = false,
+        CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        DrawPass1 = Billboard(Soft, additive: false),
+        ProcessMaterial = new ParticleProcessMaterial
+        {
+            Spread = 180,
+            InitialVelocityMin = 0,
+            InitialVelocityMax = 0.4f,
+            Gravity = new Vector3(0, 0.3f, 0),
+            ScaleMin = 1.2f,
+            ScaleMax = 1.8f,
+            ScaleCurve = Grow(0.4f),
+            ColorRamp = Ramp(new Color(0.9f, 0.9f, 0.88f, 0.6f), new Color(0.75f, 0.75f, 0.74f, 0.4f), new Color(0.6f, 0.6f, 0.6f, 0)),
+        },
+    };
+
+    /// <summary>
+    /// Flames licking up from a badly damaged machine or building (MachPhysDoublesidedFlame, MachPhysSTFFlame)
+    /// over <paramref name="width"/> metres, about <paramref name="height"/> metres high, while it is emitting.
+    /// </summary>
+    public static GpuParticles3D DamageFire(float width, float height) => new()
+    {
+        Name = "DamageFire",
+        Amount = 18,
+        Lifetime = 0.7f,
+        LocalCoords = false,
+        Emitting = false,
+        CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        DrawPass1 = Billboard(Soft, additive: true),
+        ProcessMaterial = new ParticleProcessMaterial
+        {
+            EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Box,
+            EmissionBoxExtents = new Vector3(width / 2, 0.2f, width / 2),
+            Direction = Vector3.Up,
+            Spread = 10,
+            InitialVelocityMin = height / 0.7f * 0.8f,
+            InitialVelocityMax = height / 0.7f * 1.2f,
+            Gravity = Vector3.Zero,
+            ScaleMin = width * 0.7f,
+            ScaleMax = width * 1.1f,
+            ScaleCurve = Grow(0.6f),
+            ColorRamp = Ramp(new Color(2.6f, 1.4f, 0.4f), new Color(2f, 0.6f, 0.1f, 0.8f), new Color(0.4f, 0.08f, 0.02f, 0)),
+        },
+    };
 
     // ---- building blocks ------------------------------------------------------------------------
 

@@ -89,6 +89,20 @@
 #include "machphys/mine.hpp"
 #include "machphys/beacon.hpp"
 #include "machphys/machine.hpp"
+#include "machphys/attack.hpp"
+#include "world4d/domain.hpp"
+#include "world4d/genrepos.hpp"
+#include "machphys/weapon.hpp"
+#include "machphys/bolter.hpp"
+#include "machphys/helix.hpp"
+#include "machphys/private/otherper.hpp"
+#include "machphys/radidisc.hpp"
+#include "machphys/electro.hpp"
+#include "machphys/halo.hpp"
+#include "machphys/loadunde.hpp"
+#include "machphys/loadover.hpp"
+#include "machphys/loadligh.hpp"
+#include "machphys/dblflame.hpp"
 #include "machphys/spider.hpp"
 #include "machphys/wheels.hpp"
 #include "machphys/tracks.hpp"
@@ -185,7 +199,7 @@ public:
             std::cerr << "children=" << entity.children().size() << std::endl;
         }
 
-        if (entity.visible() and entity.hasMesh())
+        if (entity.visible() and entity.hasMesh(lod_))
             addMesh(entity);
 
         // A composite's parts (links) are not ordinary children: they form their own subtree. A rig's own
@@ -307,7 +321,7 @@ private:
 
     void addMesh(const W4dEntity& entity)
     {
-        const RenMeshInstance& instance = entity.mesh();
+        const RenMeshInstance& instance = entity.mesh(lod_);
         Ren::ConstMeshPtr mesh = instance.mesh();
         const RenIVertexData* vertices = mesh->vertices_;   // private: -fno-access-control
         if (vertices == NULL)
@@ -504,6 +518,11 @@ private:
     size_t triangles_ = 0;
     const W4dEntity* node_ = NULL;
     const std::set<const W4dEntity*>* ownNodes_ = NULL;
+public:
+    // Which level of detail is written: 0, the most detailed in the models, unless told otherwise.
+    void lod(W4dLOD level) { lod_ = level; }
+private:
+    W4dLOD lod_ = 0;
     const W4dComposite* rigRoot_ = NULL;
 };
 
@@ -588,6 +607,43 @@ void writeRig(std::ostream& out, W4dComposite& composite, std::set<std::string>*
             pending.push_back(inside[i]);
         }
     }
+    const auto addNode = [&](const W4dEntity* entity) {
+        if (entity != NULL and not ownNodes.count(entity))
+        {
+            nodes.push_back(entity);
+            ownNodes.insert(entity);
+        }
+    };
+
+    // What moves as a weapon fires: the part that recoils (MachPhysWeapon::recoil: the link named "recoil", or the
+    // whole weapon when it has none), or the autocannon's barrels, which turn instead (MachPhysBolter::fire).
+    std::vector<std::pair<const W4dEntity*, MachPhys::Mounting> > firing;
+    if (MachPhysCanAttack* attacker = dynamic_cast<MachPhysCanAttack*>(&composite))
+    {
+        for (uint w = 0; w < attacker->nMountedWeapons(); ++w)
+        {
+            MachPhysWeapon& weapon = attacker->weapon(w);
+            const W4dEntity* moving = NULL;
+            MachPhysBolter* bolter = dynamic_cast<MachPhysBolter*>(&weapon);
+            if (bolter != NULL and weapon.type() == MachPhys::AUTO_CANNON)
+                moving = bolter->pTurnLink_;
+            else if (weapon.recoilId_ == 1)
+                moving = &weapon;
+            else if (weapon.recoilId_ > 1)
+                moving = weapon.links()[weapon.recoilId_ - 2];
+            if (moving == NULL)
+                continue;
+            addNode(moving);
+            firing.push_back(std::make_pair(moving, weapon.mounting()));
+        }
+    }
+
+    // A building's interior (MachPhysConstruction::pInteriorDomain) is a domain of its own, which the original
+    // drew only while the camera was inside it.
+    const W4dEntity* interior = NULL;
+    if (MachPhysConstruction* construction = dynamic_cast<MachPhysConstruction*>(&composite))
+        if (construction->hasInterior())
+            addNode(interior = construction->pInteriorDomain());
 
     const auto indexOf = [&](const W4dEntity* entity) {
         for (size_t i = 0; i < nodes.size(); ++i)
@@ -612,13 +668,33 @@ void writeRig(std::ostream& out, W4dComposite& composite, std::set<std::string>*
         writer.addEntity(*nodes[i]);
         textures->insert(writer.textures().begin(), writer.textures().end());
         // Links keep their names from the model (a building's doors are found by them).
-        out << (i ? "," : "") << "\n{\"name\":\"" << nodes[i]->name() << "\",\"parent\":" << parent << ",\"transform\":";
+        out << (i ? "," : "") << "\n{\"name\":\"";
+        if (nodes[i] == interior)
+            out << "interior";
+        else
+            out << nodes[i]->name();
+        out << "\",\"parent\":" << parent << ",\"transform\":";
         writeTransform(out, i == 0 ? MexTransform3d() : ModelWriter::relativeTransform(*nodes[i], parentNode));
         out << ",";
         writer.writeParts(out);
         out << "}";
     }
-    out << "],\"upperBody\":" << (machine != NULL ? indexOf(machine->pImpl_->pUpperBodyTurnLink_) : -1);
+    // A tower's head (MachPhysMissileEmplacement's "body" link) turns to its target like a machine's upper body
+    // (MachPhysTurnerTracker); its rate, MAX_ROTATION, comes from parmdata.
+    MachPhysMissileEmplacement* tower = dynamic_cast<MachPhysMissileEmplacement*>(&composite);
+    const W4dEntity* turning = machine != NULL ? machine->pImpl_->pUpperBodyTurnLink_ : tower != NULL ? tower->pTurnLink_ : NULL;
+    out << "],\"upperBody\":" << (turning != NULL ? indexOf(turning) : -1);
+    if (not firing.empty())
+    {
+        out << ",\"weapons\":[";
+        for (size_t i = 0; i < firing.size(); ++i)
+        {
+            const MachPhys::Mounting mounting = firing[i].second;
+            out << (i ? "," : "") << "{\"node\":" << indexOf(firing[i].first) << ",\"mounting\":\""
+                << (mounting == MachPhys::LEFT ? "left" : mounting == MachPhys::RIGHT ? "right" : "top") << "\"}";
+        }
+        out << "]";
+    }
 
     // How the parts move as their motion plans move them, sampled at 50 Hz over one period, found where the
     // motion comes back to where it began.
@@ -872,9 +948,60 @@ void exportSky(W4dEntity* root, const std::string& psf, const std::string& out, 
     }
 }
 
+// The scenery and destructible objects the scenarios set on the planet (ARTEFACTS, MachLogArtefacts::load): the
+// game keeps their models in pdata/<planet>.arb, a persisted W4dGenericRepository; each model is written to
+// artefacts/<name>.json under its name in the repository, the name the scenarios use.
+void exportArtefacts(const std::string& psf, const std::string& out, std::set<std::string>* textures)
+{
+    const size_t slash = psf.find_last_of("/\\");
+    const std::string file = psf.substr(slash == std::string::npos ? 0 : slash + 1);
+    const std::string planet = file.substr(0, file.find_last_of('.'));
+    const SysPathName arb(("pdata/" + planet + ".arb").c_str());
+    if (not arb.existsAsFile())
+        return;
+
+    // Their textures sit in the planet's texture folder.
+    RenTexManager::PathNames searchList = RenTexManager::instance().searchList();
+    searchList.push_back(SysPathName(("models/planet/" + planet + "/texture4").c_str()));
+    RenTexManager::instance().searchList(searchList);
+
+    W4dGenericRepository* repository = _NEW(W4dGenericRepository);
+    std::ifstream in(arb.c_str(), std::ios::binary);
+    PerIstream persisted(in);
+    persisted >> (*repository);
+    mkdir((out + "/artefacts").c_str());
+    for (uint i = 0; i < repository->nGenerics(); ++i)
+    {
+        const std::string name(repository->key(i).c_str());
+        // The repository keeps its models' levels of detail in no fixed order (a palm's first is its bare trunk);
+        // the richest is written.
+        const W4dEntity& model = repository->entity(repository->key(i));
+        W4dLOD richest = 0;
+        size_t most = 0;
+        for (W4dLOD lod = 0; lod < 4; ++lod)
+        {
+            if (not model.hasMesh(lod))
+                continue;
+            Ren::ConstMeshPtr mesh = model.mesh(lod).mesh();
+            size_t count = mesh->ttfs_.size() + mesh->stfps_.size();
+            for (size_t g = 0; g < mesh->triangles_.size(); ++g)
+                count += mesh->triangles_[g]->nTriangles();
+            if (count > most)
+                (most = count, richest = lod);
+        }
+        ModelWriter writer;
+        writer.lod(richest);
+        writer.addEntity(model);
+        writer.write(out + "/artefacts/" + name + ".json", name);
+        textures->insert(writer.textures().begin(), writer.textures().end());
+        std::cout << "artefact: " << name << ", " << writer.triangleCount() << " triangles" << std::endl;
+    }
+}
+
 size_t exportPlanet(W4dSceneManager* manager, W4dEntity* root, const std::string& psf, const std::string& out, std::set<std::string>* textures)
 {
     exportSky(root, psf, out, textures);
+    exportArtefacts(psf, out, textures);
 
     // The tiles are entities of the scene; the surface is left alive until the process ends.
     MachPhysPlanetSurface* surface = _NEW(MachPhysPlanetSurface(manager, SysPathName(psf.c_str())));
@@ -1059,6 +1186,8 @@ bool ExportApp::clientStartup()
         "mis1", "mis2", "mis3", "mis4", "mis5", "mis6", "mis7", "lmiss", "nmisea",
         "stinglight", "stingmetal", "splat", "aura", "pulsesplat", "pulseaura", "torch", "sparks",
         "punchcrack", "punchfire", "beecrack", "beefire", "beewave",
+        "helix1", "helix2", "healcross", "healaura", "disc", "lightning", "lightbox",
+        "loadunder", "loadover", "loadlight", "fire",
     };
     mkdir((out + "/fx").c_str());
     for (size_t e = 0; e < sizeof(effects) / sizeof(effects[0]); ++e)
@@ -1088,6 +1217,24 @@ bool ExportApp::clientStartup()
         // bee/chasm.cdf): one section 2 m long (unscaled), its crack and its wall of fire written apart, as the
         // game scales them apart. The bee bomb's shock wave spreads with them (MachPhysBeeBombWave).
         else if (name == "beewave") effect = _NEW(MachPhysBeeBombWave(root, at));
+        // The support weapons' and the transporters' effects, made as their classes make them from models.bin
+        // (the loose .lod files are not in the game copy): the healing helices (MachPhysHelix) and crosses
+        // (MachPhysHealAura), the treachery orb's disc (MachPhysRadialDisc), the electric charger's lightning and
+        // the halo round its victim (MachPhysElectro, MachPhysLightningHalo), ore loading's rings and light
+        // (MachPhysResourceLoading) and the flame of burning (MachPhysDoublesidedFlame).
+        else if (name == "helix1") effect = _NEW(MachPhysHelix(root, at, MachPhysHelix::LEFT_TWIST));
+        else if (name == "helix2") effect = _NEW(MachPhysHelix(root, at, MachPhysHelix::RIGHT_TWIST));
+        else if (name == "healcross")
+            effect = _NEW(W4dGeneric(MachPhysOtherPersistence::instance().healAuraRadialCrossExemplar(), root, W4dTransform3d()));
+        else if (name == "healaura")
+            effect = _NEW(W4dGeneric(MachPhysOtherPersistence::instance().healAuraCentralCrossExemplar(), root, W4dTransform3d()));
+        else if (name == "disc") effect = _NEW(MachPhysRadialDisc(root, at));
+        else if (name == "lightning") effect = _NEW(MachPhysElectro(root, at, MachPhysElectro::ELECTRIC));
+        else if (name == "lightbox") effect = _NEW(MachPhysLightningHalo(root, at, MachPhysLightningHalo::ELECTRIC));
+        else if (name == "loadunder") effect = _NEW(MachPhysLoadingUnder(root, at));
+        else if (name == "loadover") effect = _NEW(MachPhysLoadingOver(root, at));
+        else if (name == "loadlight") effect = _NEW(MachPhysLoadingLight(root, at));
+        else if (name == "fire") effect = _NEW(MachPhysDoublesidedFlame(root, at));
         const W4dEntity* part = effect;
         if (name == "punchcrack" or name == "punchfire" or name == "beecrack" or name == "beefire")
         {

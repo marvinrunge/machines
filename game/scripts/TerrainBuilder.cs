@@ -32,7 +32,7 @@ public static class TerrainBuilder
             root.AddChild(new MeshInstance3D
             {
                 Name = "ClassicTerrain", Mesh = classicTerrain, Layers = 1 | GroundLayer,
-                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                CastShadow = GraphicsSettings.Remake ? GeometryInstance3D.ShadowCastingSetting.On : GeometryInstance3D.ShadowCastingSetting.Off,
             });
             return root;
         }

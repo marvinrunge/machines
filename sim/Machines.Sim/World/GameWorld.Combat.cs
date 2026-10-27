@@ -8,6 +8,16 @@ public sealed partial class GameWorld
 {
     private readonly Dictionary<int, int> _turretTargets = [];
 
+    /// <summary>What each machine fighting on its own last chose to fire at; for the view only.</summary>
+    private readonly Dictionary<int, int> _machineAims = [];
+
+    /// <summary>
+    /// What a tower or a machine fighting on its own (not under an attack order) is firing at, for its head or
+    /// upper body to turn to; null when nothing. The simulation itself does not read it.
+    /// </summary>
+    public Actor? AimOf(int id) =>
+        _turretTargets.TryGetValue(id, out var target) || _machineAims.TryGetValue(id, out target) ? Find(target) : null;
+
     /// <summary>
     /// Where a machine driven in first person is firing while the trigger is held: a point on the ground (or as
     /// far as its weapons reach), whether or not anything stands there; set by the client.
@@ -33,6 +43,10 @@ public sealed partial class GameWorld
                 AttackOrder attack => Find(attack.Target),
                 _ => NearestEnemy(machine, machine.Weapons.Max(w => w.Spec.Range)),
             };
+            if (target is null)
+                _machineAims.Remove(machine.Id);
+            else
+                _machineAims[machine.Id] = target.Id;
             Fire(machine, machine.Weapons, target, machine.Stats.Accuracy ?? 100);
         }
 

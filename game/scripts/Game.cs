@@ -73,6 +73,10 @@ public partial class Game : Node3D
     private CameraRig _rig = null!;
     private Hud _hud = null!;
     private Effects _effects = null!;
+    private SupportEffects _support = null!;
+
+    // How much ore each machine carried at the last tick, to see transporters load and unload.
+    private readonly Dictionary<int, int> _oreCarried = [];
 
     // Actors destroyed this tick, whose views are blown apart rather than removed.
     private readonly HashSet<int> _destroyed = [];
@@ -159,11 +163,15 @@ public partial class Game : Node3D
             ? HeightField.FromExport(heights, surface.Width, surface.Depth)
             : new HeightField(surface);
         AddChild(TerrainBuilder.Build(World.Planet, HeightField.Current, map, _assets.PlanetTerrain(request.Planet)));
+        if (data.LoadScenario(request.Scenario).Artefacts is { } artefacts)
+            AddChild(Artefacts(artefacts));
         AddLighting();
 
         _effects = new Effects { Name = "Effects" };
         AddChild(_effects);
-        AddChild(ProjectileViews.Create(World, _assets, id => _views.GetValueOrDefault(id)));
+        _support = SupportEffects.Create(_assets);
+        AddChild(_support);
+        AddChild(ProjectileViews.Create(World, _assets, id => _views.GetValueOrDefault(id), _effects));
 
         _rig = new CameraRig { Name = "CameraRig" };
         AddChild(_rig);
@@ -201,6 +209,31 @@ public partial class Game : Node3D
     }
 
     /// <summary>Sun, sky and fog from the planet's .env file, following the game clock.</summary>
+    /// <summary>
+    /// The scenery and destructible objects the scenario sets on the planet (ARTEFACTS: trees, rocks, wrecks,
+    /// ruins), each at its place and turned as the scenario says, standing on the ground. They are drawn only; the
+    /// simulation does not know them yet.
+    /// </summary>
+    private Node3D Artefacts(ArtefactSection section)
+    {
+        var root = new Node3D { Name = "Artefacts" };
+        if (section.ModelsPath is not { } models)
+            return root;
+        foreach (var placement in section.Placements)
+        {
+            if (_assets.ArtefactMesh(models, placement.TypeName) is not { } mesh)
+                continue;
+            var at = new Vector3(placement.Position.X, HeightField.Current?.At(placement.Position.X, placement.Position.Y) ?? placement.Position.Z, placement.Position.Y);
+            root.AddChild(new MeshInstance3D
+            {
+                Name = placement.TypeName,
+                Mesh = mesh,
+                Transform = new Transform3D(new Basis(Vector3.Up, -Mathf.DegToRad(placement.Orientation)), at),
+            });
+        }
+        return root;
+    }
+
     private void AddLighting()
     {
         // For automated checks: MACHINES_CLOCK=<seconds> moves the planet's day on by that much.
@@ -271,6 +304,8 @@ public partial class Game : Node3D
 
         UpdateGhost();
         UpdateFirstPersonCamera();
+        ShowInteriors();
+        ShowHealing();
         if (Fog is not null)
         {
             Fog.Update(delta, new NVector2(_rig.Position.X, _rig.Position.Z), _driven is not null);
@@ -344,12 +379,14 @@ public partial class Game : Node3D
         }
         // e.g. "AGGRESSOR,ASSASSIN,2,L_PLASMA_RIFLE": puts one of those down at the camera, to drive.
         // "Blue:AGGRESSOR,GRUNT,2,L_BOLTER" puts down an enemy instead, 25 m east (straight ahead), to watch a fight;
-        // several go apart with ';'.
+        // several go apart with ';'. Two more numbers move it that many metres east and south: "...,L_BOLTER,-10,0".
         foreach (var spawn in _runTime == 0 ? System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_SPAWN")?.Split(';') ?? [] : [])
         {
             var race = spawn.Split(':') is [var name, _] && Enum.TryParse<Race>(name, out var other) ? other : Player;
             var parts = spawn[(spawn.IndexOf(':') + 1)..].Split(',');
             var at = new NVector2(_rig.Position.X, _rig.Position.Z) + (race == Player ? NVector2.Zero : new NVector2(25, 0));
+            if (parts.Length > 5)
+                at += new NVector2(float.Parse(parts[4], System.Globalization.CultureInfo.InvariantCulture), float.Parse(parts[5], System.Globalization.CultureInfo.InvariantCulture));
             World.AddMachine(race, at, parts[0], parts[1] is "" or "-" ? null : parts[1], int.Parse(parts[2]), parts.Length > 3 ? parts[3] : null);
             SyncViews();
         }
@@ -416,7 +453,15 @@ public partial class Game : Node3D
                 _views[actor.Id] = view;
                 AddChild(view);
             }
-            view.Sync(actor, actor is Machine { Order: AttackOrder attack } ? World.Find(attack.Target) : null);
+            // Upper bodies and towers' heads turn to what they attack, ordered or of their own choice.
+            view.Sync(actor, actor is Machine { Order: AttackOrder attack } ? World.Find(attack.Target) : World.AimOf(actor.Id));
+            // A transporter loading or unloading ore glows with rings of light (MachPhysResourceCarrier::doLoading).
+            if (actor is Machine carrier)
+            {
+                if (_oreCarried.TryGetValue(carrier.Id, out var carried) && carried != carrier.Ore)
+                    _support.Loading(view);
+                _oreCarried[carrier.Id] = carrier.Ore;
+            }
             // Constructors at work reach out to the building with beams and sparks.
             if (actor is Machine { Spec.Type: "CONSTRUCTOR" } constructor)
                 view.Construct(World.WorkedOn(constructor) is { } site ? ActorView.World((site.Footprint.Min + site.Footprint.Max) / 2) + Vector3.Up * 2 : null,
@@ -465,6 +510,13 @@ public partial class Game : Node3D
                         var muzzle = MuzzleOf(e.Actor, spec) ?? at;
                         _effects.Shot(muzzle, muzzle, e.Detail ?? "", spec.ProjectileSpeed);
                     }
+                    // The electric charger strikes with lightning, and a halo runs over its victim.
+                    else if (e.Detail == "ELECTRIC_CHARGE" && e.Other is { } struck && World.Find(struck) is { } shocked
+                             && World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail) is { } charge)
+                    {
+                        var victimView = _views.GetValueOrDefault(struck);
+                        _support.Lightning(MuzzleOf(e.Actor, charge) ?? at, victimView?.Centre ?? ActorView.World(shocked.Position) + Vector3.Up * 1.5f, victimView);
+                    }
                     else if (e.Other is { } target && World.Find(target) is { } victim)
                     {
                         var weapon = World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail);
@@ -473,6 +525,10 @@ public partial class Game : Node3D
                     _audio.Play(SoundTable.FiringSound(e.Detail ?? ""), at);
                     break;
                 case GameEventKind.Hit when e.Detail is { } weapon:
+                    // A flamethrower sets the machine it hits alight.
+                    if (weapon.StartsWith("FLAME_THROWER", StringComparison.Ordinal) && World.Find<Machine>(e.Actor) is not null
+                        && _views.TryGetValue(e.Actor, out var burning))
+                        _support.Burn(burning);
                     _audio.Play(SoundTable.HitSound(weapon, Random.Shared.Next(1, 5)), at);
                     break;
                 case GameEventKind.Blast when e.Detail is { } weapon:
@@ -522,7 +578,10 @@ public partial class Game : Node3D
     // Shots fired by each shooter's weapons so far, so that twin weapons and barrels take turns.
     private readonly Dictionary<(int, string), int> _shotsShown = [];
 
-    /// <summary>The muzzle a shooter's weapon of this kind fires from now, its twins and barrels in turn.</summary>
+    /// <summary>
+    /// The muzzle a shooter's weapon of this kind fires from now, its twins and barrels in turn; that weapon
+    /// recoils.
+    /// </summary>
     private Vector3? MuzzleOf(int shooter, Machines.Import.Model.WeaponSpec weapon)
     {
         if (World.Find(shooter) is not { } actor || !_views.TryGetValue(shooter, out var view))
@@ -533,7 +592,39 @@ public partial class Game : Node3D
             return null;
         var shot = _shotsShown.GetValueOrDefault((shooter, weapon.TypeName));
         _shotsShown[(shooter, weapon.TypeName)] = shot + 1;
-        return view.Muzzle(mounts[shot % mounts.Count].Mounting, weapon, shot / mounts.Count);
+        // The weapon the round leaves recoils with it.
+        var mounting = mounts[shot % mounts.Count].Mounting;
+        view.Fire(mounting, weapon);
+        return view.Muzzle(mounting, weapon, shot / mounts.Count);
+    }
+
+    /// <summary>
+    /// Healers in reach of a damaged machine they are ordered to heal (as the simulation heals: within 95 % of the
+    /// charger's range) draw their beam from the charger to it, and it glows with the healing crosses.
+    /// </summary>
+    private void ShowHealing()
+    {
+        var healing = new List<(int, Vector3, ActorView)>();
+        foreach (var healer in World.Machines)
+        {
+            if (healer.Order is not HealOrder heal || World.Find<Machine>(heal.Target) is not { } patient
+                || healer.Weapons.FirstOrDefault(w => w.IsHealer) is not { } charger
+                || patient.HitPoints >= patient.MaxHitPoints || patient.Inside is not null
+                || healer.DistanceTo(patient) > charger.Spec.Range * 0.95f + 0.5f
+                || !_views.TryGetValue(healer.Id, out var healerView) || !_views.TryGetValue(patient.Id, out var patientView))
+                continue;
+            healing.Add((healer.Id, healerView.Muzzle(charger.Mounting, charger.Spec, 0) ?? healerView.Centre, patientView));
+        }
+        _support.ShowHealing(healing);
+    }
+
+    /// <summary>Building interiors show only to first person looking out from inside them.</summary>
+    private void ShowInteriors()
+    {
+        Vector3? eye = _driven is not null ? _firstPersonCamera.GlobalPosition : null;
+        foreach (var view in _views.Values)
+            if (view.HasInterior)
+                view.ShowInteriorFrom(eye);
     }
 
     /// <summary>Waits for a left click on the target of the building's ion cannon or nuclear missile.</summary>

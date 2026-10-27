@@ -26,4 +26,4 @@ done
 cat "$REPO/classic/planets.log"
 
 # The import format the client expects (ClassicImport.Format).
-echo 5 > "$REPO/classic/format.txt"
+echo 6 > "$REPO/classic/format.txt"

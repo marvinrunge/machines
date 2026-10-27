@@ -32,8 +32,13 @@ public partial class ProjectileViews : Node3D
     private GameWorld _world = null!;
     private ClassicAssets _assets = null!;
 
-    public static ProjectileViews Create(GameWorld world, ClassicAssets assets, Func<int, ActorView?> viewOf) =>
-        new() { Name = "Projectiles", _world = world, _assets = assets, _viewOf = viewOf };
+    public static ProjectileViews Create(GameWorld world, ClassicAssets assets, Func<int, ActorView?> viewOf, Effects? effects = null) =>
+        new() { Name = "Projectiles", _world = world, _assets = assets, _viewOf = viewOf, _effects = effects };
+
+    private Effects? _effects;
+
+    /// <summary>Missiles (the multi-launchers' and the large missile) trail vapour and burst in fireballs (MachPhysMissile).</summary>
+    private static bool IsMissile(string weapon) => weapon.StartsWith("MULTI_LAUNCHER") || weapon == "LARGE_MISSILE";
 
     public override void _Process(double delta)
     {
@@ -77,6 +82,18 @@ public partial class ProjectileViews : Node3D
             // Struck short of its range: the weapon's splat where it hit.
             if (projectile.Travelled < projectile.Weapon.Range - 0.5f)
                 Splat(view.GlobalPosition, projectile.Weapon.TypeName);
+            if (IsMissile(projectile.Weapon.TypeName))
+            {
+                // A missile bursts wherever its flight ends, and its trail drifts on and thins out behind it.
+                if (GraphicsSettings.Remake)
+                    _effects?.Impact(view.GlobalPosition);
+                if (view.GetNodeOrNull<GpuParticles3D>("Trail") is { } trail)
+                {
+                    trail.Reparent(this);
+                    trail.Emitting = false;
+                    GetTree().CreateTimer(trail.Lifetime + 0.2).Timeout += trail.QueueFree;
+                }
+            }
             view.QueueFree();
         }
     }
@@ -114,8 +131,41 @@ public partial class ProjectileViews : Node3D
     private readonly Dictionary<int, System.Numerics.Vector2> _line = [];
     private readonly Dictionary<int, (float Height, float Slope)> _climb = [];
 
+    /// <summary>Energy rounds in flight that light their way, at most this many at once.</summary>
+    private const int MostLitRounds = 8;
+    private int _litRounds;
+
     private Node3D NewView(Projectile projectile)
     {
+        var view = Shape(projectile);
+        var name = projectile.Weapon.TypeName;
+        // Missiles trail vapour from their tail; the models point along their x axis.
+        if (IsMissile(name))
+        {
+            var trail = Effects.VapourTrail();
+            view.AddChild(trail);
+            trail.Position = new Vector3(-0.8f, 0, 0);
+        }
+        // In the remake plasma and pulse rounds light the ground and machines they pass.
+        if (GraphicsSettings.Remake && _litRounds < MostLitRounds && (name.Contains("PLASMA") || name.Contains("PULSE")))
+        {
+            _litRounds++;
+            view.AddChild(new OmniLight3D
+            {
+                LightColor = name.Contains("PLASMA") ? new Color(0.35f, 1f, 0.45f) : new Color(0.45f, 0.7f, 1f),
+                LightEnergy = 2f,
+                OmniRange = 9,
+                ShadowEnabled = false,
+            });
+            view.TreeExiting += () => _litRounds--;
+        }
+        return view;
+    }
+
+    private Node3D Shape(Projectile projectile)
+    {
+        if (projectile.Weapon.TypeName == "ORB_OF_TREACHERY" && Orb(projectile.Race) is { } orb)
+            return orb;
         if (Models.TryGetValue(projectile.Weapon.TypeName, out var model) && _assets.EffectMesh(model) is { } mesh)
             return new MeshInstance3D { Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
 
@@ -136,6 +186,41 @@ public partial class ProjectileViews : Node3D
             },
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
         };
+    }
+
+    /// <summary>
+    /// The orb of treachery (MachPhysTreacheryOrb): a ring of the shooter's colour (MachPhysRadialDisc's ring_bt)
+    /// that opens from nothing to 4 m across over 0.7 s, fading in, and flies on at half strength. It always faces
+    /// the camera; the original's disc faced along its flight, edge-on from above.
+    /// </summary>
+    private Node3D? Orb(Machines.Import.Model.Race race)
+    {
+        if (_assets.Texture("models/texture4/ring_bt.bmp") is not { } ring)
+            return null;
+        var colour = ClassicAssets.RaceColour(race);
+        var material = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            BlendMode = BaseMaterial3D.BlendModeEnum.Add,
+            BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
+            BillboardKeepScale = true,
+            AlbedoTexture = ring,
+            AlbedoColor = colour with { A = 0 },
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+        };
+        var orb = new MeshInstance3D
+        {
+            Mesh = new QuadMesh { Size = new Vector2(2, 2) },
+            MaterialOverride = material,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            Scale = Vector3.One * 0.01f,
+        };
+        var open = CreateTween().BindNode(orb).SetParallel();
+        open.TweenProperty(orb, "scale", Vector3.One * 2, 0.7f);
+        open.TweenProperty(material, "albedo_color", colour with { A = 1 }, 0.7f);
+        open.Chain().TweenProperty(material, "albedo_color", colour with { A = 0.5f }, 0.05f);
+        return orb;
     }
 
     /// <summary>The weapon's impact splat (plasplat, pulsplat), growing and fading in a third of a second.</summary>

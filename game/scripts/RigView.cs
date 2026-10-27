@@ -11,8 +11,8 @@ namespace Machines.Game;
 /// </summary>
 public partial class RigView : Node3D
 {
-    /// <summary>The upper body's turning speed, radians per second.</summary>
-    private const float UpperBodyTurnRate = 2.5f;
+    /// <summary>The upper body's turning speed, radians per second; a tower's head turns at its MAX_ROTATION.</summary>
+    public float TurnRate { get; set; } = 2.5f;
 
     private Rig _rig = null!;
     private Node3D[] _nodes = [];
@@ -46,8 +46,91 @@ public partial class RigView : Node3D
             view.OwnMaterials(tracks.Left, view._leftTread);
             view.OwnMaterials(tracks.Right, view._rightTread);
         }
+        // A building's interior is hidden until first person looks out from inside it (see ShowInterior).
+        view._interior = Array.FindIndex(rig.Nodes, n => n.Name == "interior");
+        if (view._interior > 0)
+            view._nodes[view._interior].Visible = false;
         view.OwnGlow();
         return view;
+    }
+
+    private int _interior = -1;
+
+    /// <summary>The building has an interior (MachPhysConstruction::pInteriorDomain).</summary>
+    public bool HasInterior => _interior > 0;
+
+    /// <summary>
+    /// Shows the interior. The original drew a building's interior domain only while the camera was in it, so it
+    /// shows only while first person looks out from inside.
+    /// </summary>
+    public bool ShowInterior
+    {
+        set
+        {
+            if (HasInterior)
+                _nodes[_interior].Visible = value;
+        }
+    }
+
+    /// <summary>Whether a point in the world lies within the interior's bounds.</summary>
+    public bool InInterior(Vector3 point) =>
+        HasInterior && _nodes[_interior].GetNodeOrNull<MeshInstance3D>("Mesh") is { } mesh
+        && (mesh.GlobalTransform * mesh.GetAabb()).HasPoint(point);
+
+    /// <summary>A weapon's part moving through one round: sliding back and forward again, or turning on.</summary>
+    private sealed class Firing
+    {
+        public required int Node { get; init; }
+        public float Time;
+        public float Distance, Back, Fore;
+        public float Angle, Target, TurnRate;
+    }
+
+    private readonly Dictionary<int, Firing> _firing = [];
+
+    /// <summary>
+    /// A round leaves the weapon mounted at <paramref name="mounting"/> (left, right or top). Its recoiling part
+    /// slides <paramref name="distance"/> metres back along the barrel in <paramref name="back"/> seconds and
+    /// forward in <paramref name="fore"/> (MachPhysWeapon::recoil); with <paramref name="turn"/> the autocannon's
+    /// six barrels turn on by one instead, 60 degrees over the round's <paramref name="round"/> seconds
+    /// (MachPhysBolter::fire).
+    /// </summary>
+    public void Fire(string mounting, float distance, float back, float fore, float round, bool turn)
+    {
+        foreach (var weapon in _rig.Weapons)
+        {
+            if (weapon.Mounting != mounting || weapon.Node <= 0 || weapon.Node >= _nodes.Length)
+                continue;
+            if (!_firing.TryGetValue(weapon.Node, out var firing))
+                _firing[weapon.Node] = firing = new Firing { Node = weapon.Node };            if (turn)
+            {
+                firing.Target += Mathf.Pi / 3;
+                firing.TurnRate = Mathf.Pi / 3 / Mathf.Max(round, 0.01f);
+            }
+            else if (distance > 0)
+            {
+                (firing.Time, firing.Distance, firing.Back, firing.Fore) = (0, distance, Mathf.Max(back, 0.001f), Mathf.Max(fore, 0.001f));
+            }
+        }
+    }
+
+    private void MoveFiring(float delta)
+    {
+        foreach (var firing in _firing.Values)
+        {
+            firing.Time += delta;
+            // Back fast, forward slower, then still until the next round (PhysLinearMotionPlan).
+            var t = firing.Time;
+            var back = t < firing.Back ? t / firing.Back
+                : t < firing.Back + firing.Fore ? 1 - (t - firing.Back) / firing.Fore
+                : 0;
+            firing.Angle = Mathf.MoveToward(firing.Angle, firing.Target, firing.TurnRate * delta);
+            if (firing.Angle >= Mathf.Tau)
+                (firing.Angle, firing.Target) = (firing.Angle - Mathf.Tau, firing.Target - Mathf.Tau);
+            // The barrel points along the part's x axis, which the axis swap leaves as Godot's x.
+            _nodes[firing.Node].Transform = _rig.Nodes[firing.Node].Rest
+                * new Transform3D(new Basis(Vector3.Right, -firing.Angle), new Vector3(-firing.Distance * back, 0, 0));
+        }
     }
 
     private readonly List<(StandardMaterial3D Material, Color Colour)> _glow = [];
@@ -265,9 +348,11 @@ public partial class RigView : Node3D
             Scroll(_rightTread, (speed + spin) * tracks.RepeatsPerMeter * delta);
         }
 
+        MoveFiring(delta);
+
         if (_rig.UpperBody > 0 && _rig.UpperBody < _nodes.Length)
         {
-            var step = Mathf.Clamp(Mathf.AngleDifference(_upperBody, aim), -UpperBodyTurnRate * delta, UpperBodyTurnRate * delta);
+            var step = Mathf.Clamp(Mathf.AngleDifference(_upperBody, aim), -TurnRate * delta, TurnRate * delta);
             _upperBody += step;
             // The original turns about its vertical z axis; with the axis swap that is Godot's y, reversed.
             _nodes[_rig.UpperBody].Transform = _rig.Nodes[_rig.UpperBody].Rest * new Transform3D(new Basis(Vector3.Up, -_upperBody), Vector3.Zero);
