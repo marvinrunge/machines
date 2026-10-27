@@ -18,6 +18,7 @@ import os
 import sys
 
 import bmesh
+import numpy
 from mathutils import kdtree
 import bpy
 from mathutils import Matrix, Vector
@@ -34,6 +35,9 @@ TREAD_ROWS = (0, 0.3, 0.5, 0.7, 1)
 TREAD_DEPTH = 0.06
 TYRE_COLOUR = [0.13, 0.13, 0.13, 1]
 TYRE_ROUGHNESS = 0.85
+# The HD textures (set by main), where see-through pictures are measured, and what was measured.
+HD_FOLDER = ""
+COVERAGE = {}
 # A point whose faces' corner angles add up to less than this is a spike tip and keeps its sharp point (a flat
 # surface has 360°, a box corner 270°).
 TIP_ANGLE = math.radians(150)
@@ -200,7 +204,63 @@ def lathe(spinner, tyre=False):
     if tyre:
         solid["roughness"] = TYRE_ROUGHNESS
         solid["tread"] = True
+        # How far the tyre reaches out at its ends, where the wheel's flat side plates sit (see fit_plates).
+        solid["rim"] = min(profile[0][1], profile[-1][1])
     return solid
+
+
+def coverage(texture):
+    """
+    How much of a see-through picture is covered across its middle (1 to its edges), from the HD texture's alpha:
+    a wheel's side is a round picture on a square plate. 1 when the HD texture has not been made.
+    """
+    stem = os.path.splitext(os.path.basename(texture))[0].lower()
+    if stem not in COVERAGE:
+        COVERAGE[stem] = 1.0
+        path = os.path.join(HD_FOLDER, stem + ".png") if HD_FOLDER else ""
+        if os.path.exists(path):
+            image = bpy.data.images.load(path)
+            w, h = image.size
+            alpha = numpy.array(image.pixels[:], dtype=numpy.float32).reshape(h, w, 4)[..., 3]
+            bpy.data.images.remove(image)
+            spans = [numpy.flatnonzero(line > 0.5) for line in (alpha[h // 2], alpha[:, w // 2])]
+            if all(len(s) for s in spans):
+                COVERAGE[stem] = max((s.max() - s.min() + 1) / len(line) for s, line in zip(spans, (alpha[h // 2], alpha[:, w // 2])))
+    return COVERAGE[stem]
+
+
+def fit_plates(node, spinner, rim):
+    """
+    A wheel's sides are flat square plates with the round picture of the tyre's wall and hub, a little larger
+    than the tyre: on a solid tyre they stood out past it. Each plate across the axle is shrunk about its middle
+    until its picture's circle meets the tyre where it ends.
+    """
+    base, axis = Vector(spinner["base"]), Vector(spinner["axis"]).normalized()
+    for part in node["parts"]:
+        texture = part.get("texture", "").lower()
+        if part.get("tread") or not (texture.endswith("_t.bmp") or texture.endswith("_bt.bmp")):
+            continue
+        pos = part["positions"]
+        points = [Vector(pos[k:k + 3]) for k in range(0, len(pos) - 2, 3)]
+        # A part can hold the plates of both ends: the triangles go by where they sit along the axle.
+        plates = {}
+        for t in range(0, len(points) - 2, 3):
+            along = [(p - base).dot(axis) for p in points[t:t + 3]]
+            if max(along) - min(along) < rim * 0.01:
+                plates.setdefault(round(sum(along) / 3, 3), []).append(t)
+        for triangles in plates.values():
+            corners = [points[t + k] for t in triangles for k in range(3)]
+            centre = sum(corners, Vector()) / len(corners)
+            off_axle = (centre - base) - axis * (centre - base).dot(axis)
+            # The plates are squares: half their side is their corners' distance over √2.
+            half = max((p - centre).length for p in corners) / math.sqrt(2)
+            visible = half * coverage(texture)
+            if off_axle.length > rim * 0.1 or visible <= rim:
+                continue
+            for t in triangles:
+                for k in range(3):
+                    points[t + k] = centre + (points[t + k] - centre) * (rim / visible)
+        part["positions"] = [round(c, 5) for p in points for c in p]
 
 
 def build_node(name, parts, world):
@@ -401,6 +461,8 @@ def upgrade(source, target):
         for spinner in node.get("spinners", []):
             solid = lathe(spinner, tyre=i in wheel_nodes and not spinner.get("texture"))
             if solid:
+                if "rim" in solid:
+                    fit_plates(node, spinner, solid.pop("rim"))
                 node["parts"].append(solid)
                 solids += 1
             else:
@@ -490,6 +552,8 @@ def main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     classic = argv[0] if argv else os.path.join(os.path.dirname(__file__), "..", "..", "classic")
     only = set(argv[1:])
+    global HD_FOLDER
+    HD_FOLDER = os.path.join(os.path.abspath(classic), "hd", "models", "texture4")
     for race in ("red", "blue", "green", "yellow"):
         folder = os.path.join(classic, "models", race)
         for name in sorted(os.listdir(folder)):

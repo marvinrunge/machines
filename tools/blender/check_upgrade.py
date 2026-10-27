@@ -15,9 +15,15 @@ from mathutils import Vector  # noqa: E402
 
 
 def drawn(part):
-    """The parts the game draws: not the flat, half-clear black shadow plate under flyers and hovers."""
+    """
+    The parts whose shape is their geometry: not the flat, half-clear black shadow plate under flyers and hovers,
+    nor see-through pictures (a wheel's side is a round picture on a square plate, whose corners nobody sees).
+    """
     diffuse = part.get("diffuse", [1, 1, 1, 1])
-    return part.get("texture") or len(diffuse) < 4 or diffuse[3] > 0.99 or sum(diffuse[:3]) > 0.03
+    texture = part.get("texture", "").lower()
+    if texture.endswith("_t.bmp") or texture.endswith("_bt.bmp"):
+        return False
+    return texture or len(diffuse) < 4 or diffuse[3] > 0.99 or sum(diffuse[:3]) > 0.03
 
 
 def points(model):
