@@ -83,12 +83,15 @@ public static class TerrainDetail
     /// <summary>
     /// Gives the terrain's tiles the detail shader in place of their materials, keeping their pictures, vertex
     /// colours and tints. See-through tiles and water keep theirs.
+    /// Returns each detailed surface's layer and average colour, for what grows on it (GroundScatter).
     /// </summary>
-    public static void Apply(Mesh terrain)
+    public static IReadOnlyDictionary<int, (string Layer, Color Colour, string Texture)> Apply(Mesh terrain)
     {
+        var surfaces = new Dictionary<int, (string, Color, string)>();
         if (Load() is not { } arrays)
-            return;
+            return surfaces;
         var materials = new Dictionary<Material, Material>();
+        var classified = new Dictionary<Material, (string, Color, string)>();
         for (var s = 0; s < terrain.GetSurfaceCount(); s++)
         {
             if (terrain.SurfaceGetMaterial(s) is not StandardMaterial3D original
@@ -113,9 +116,25 @@ public static class TerrainDetail
                 shader.SetShaderParameter("cliff_size", Layers[cliff].Size);
                 shader.SetShaderParameter("cliff_brightness", arrays.Brightness[cliff]);
                 materials[original] = detailed = shader;
+                classified[original] = (Layers[layer].Name, Average(picture) * original.AlbedoColor, original.GetMeta("texture", "").AsString());
             }
             terrain.SurfaceSetMaterial(s, detailed);
+            surfaces[s] = classified[original];
         }
+        return surfaces;
+    }
+
+    private static readonly Dictionary<string, Texture2D?> Albedos = [];
+
+    /// <summary>One layer's colour map on its own (the stones of GroundScatter wear the rock), or null without it.</summary>
+    public static Texture2D? LayerAlbedo(string layer)
+    {
+        if (Albedos.TryGetValue(layer, out var cached))
+            return cached;
+        Texture2D? texture = null;
+        if (Read(Path.Combine(Folder, layer, "albedo.jpg"), Image.CompressSource.Srgb, out _) is { } image)
+            texture = ImageTexture.CreateFromImage(image);
+        return Albedos[layer] = texture;
     }
 
     /// <summary>

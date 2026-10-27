@@ -452,6 +452,10 @@ public partial class Game : Node3D
                 view = ActorView.Create(actor, _assets, _audio);
                 _views[actor.Id] = view;
                 AddChild(view);
+                // A building clears the grass and stones from the ground it stands on.
+                if (actor is Construction placed && GetNodeOrNull<GroundScatter>("Terrain/GroundScatter") is { } scatter)
+                    scatter.ClearUnder(new Vector2(placed.Footprint.Min.X - 1, placed.Footprint.Min.Y - 1),
+                        new Vector2(placed.Footprint.Max.X + 1, placed.Footprint.Max.Y + 1));
             }
             // Upper bodies and towers' heads turn to what they attack, ordered or of their own choice.
             view.Sync(actor, actor is Machine { Order: AttackOrder attack } ? World.Find(attack.Target) : World.AimOf(actor.Id));

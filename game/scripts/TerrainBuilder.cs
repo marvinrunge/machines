@@ -27,9 +27,11 @@ public static class TerrainBuilder
         // The original tiles hold the cliffs, ramps and water edges themselves.
         if (classicTerrain is not null)
         {
-            // The remake adds the ground's detail close up (TerrainDetail).
-            if (GraphicsSettings.Remake)
-                TerrainDetail.Apply(classicTerrain);
+            // The remake adds the ground's detail close up (TerrainDetail), and grass and stones on it (GroundScatter),
+            // the same each time on a planet.
+            if (GraphicsSettings.Remake
+                && GroundScatter.Create(classicTerrain, TerrainDetail.Apply(classicTerrain), (int)(field.Width * 7919 + field.Depth)) is { } scatter)
+                root.AddChild(scatter);
             // The original's coarse ground throws no shadows (they fell in hard-edged wedges across the map); it
             // takes those of machines and buildings, and its slopes shade by their normals.
             root.AddChild(new MeshInstance3D
