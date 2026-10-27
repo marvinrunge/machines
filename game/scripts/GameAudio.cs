@@ -165,16 +165,30 @@ public partial class GameAudio : Node
     /// <summary>A sound of the interface (MachGuiSoundManager), e.g. <c>gui/sounds/attackon.wav</c>: not placed, never muted.</summary>
     public void PlayGui(string file)
     {
-        if (Stream(file) is not { } stream)
+        if (!IsInsideTree() || Stream(file) is not { } stream)
             return;
-        _gui ??= new AudioStreamPlayer { Name = "Gui" };
-        if (_gui.GetParent() is null)
-            AddChild(_gui);
-        _gui.Stream = stream;
-        _gui.Play();
+        // Several interface sounds may sound together (a panel click and the order it gives); the same one asked
+        // for twice at once is heard once.
+        var now = Time.GetTicksMsec() / 1000.0;
+        if (_lastPlayed.TryGetValue(file, out var last) && now - last < 0.06)
+            return;
+        _lastPlayed[file] = now;
+        var player = _gui.FirstOrDefault(p => !p.Playing);
+        if (player is null)
+        {
+            if (_gui.Count >= GuiVoices)
+                return;
+            player = new AudioStreamPlayer { Name = $"Gui{_gui.Count}" };
+            AddChild(player);
+            _gui.Add(player);
+        }
+        player.Stream = stream;
+        player.Play();
+        Trace(file);
     }
 
-    private AudioStreamPlayer? _gui;
+    private const int GuiVoices = 4;
+    private readonly List<AudioStreamPlayer> _gui = [];
 
     // ---- loading ------------------------------------------------------------------------------
 
@@ -186,6 +200,9 @@ public partial class GameAudio : Node
         if (_gameFolder is not null)
         {
             var path = System.IO.Path.Combine(_gameFolder, file.Replace('\\', '/'));
+            // The game ships Waypoint.wav beside waypoint names in the code: match regardless of case.
+            if (!File.Exists(path) && System.IO.Path.GetDirectoryName(path) is { } folder && Directory.Exists(folder))
+                path = Directory.EnumerateFiles(folder).FirstOrDefault(f => System.IO.Path.GetFileName(f).Equals(System.IO.Path.GetFileName(path), StringComparison.OrdinalIgnoreCase)) ?? path;
             if (File.Exists(path))
                 stream = DecodeWav(File.ReadAllBytes(path));
             if (stream is null)

@@ -56,9 +56,10 @@ public class AiBuildingTests
             site.DiscoveredBy.Add(Race.Blue);
         world.Races[Race.Blue].Bmu = 2000;
 
-        Run(world, 900, () => near.All(s => s.Mine is not null));
+        bool Mined(MineralSiteState site) => world.Constructions.Any(c => c.Race == Race.Blue && c.MineralSite == site.Id);
+        Run(world, 900, () => near.All(Mined));
 
         // More than the two mines the remake's first AI kept: one on each of the four found sites.
-        Assert.All(near, s => Assert.NotNull(s.Mine));
+        Assert.All(near, s => Assert.True(Mined(s)));
     }
 }

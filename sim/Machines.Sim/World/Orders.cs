@@ -13,8 +13,23 @@ public sealed record IdleOrder : Order;
 
 public sealed record MoveOrder(Vector2 Target) : Order;
 
-/// <summary>Attack one target until it dies, then continue to <paramref name="Then"/> if given.</summary>
-public sealed record AttackOrder(int Target, Vector2? Then = null) : Order;
+/// <summary>
+/// Attack one target until it dies, then continue to <paramref name="Then"/> if given: fighting on the way, or with
+/// <paramref name="Resume"/> just moving on (a machine that broke off its move for the fight).
+/// </summary>
+public sealed record AttackOrder(int Target, Vector2? Then = null, bool Resume = false) : Order;
+
+/// <summary>Stay put and shoot at what comes into range, never moving to it (MachLogStandGroundOperation).</summary>
+public sealed record StandGroundOrder : Order;
+
+/// <summary>For a spy locator: drive to each point in turn and lay a land mine there (MachLogDropLandMineOperation).</summary>
+public sealed record DropMinesOrder(IReadOnlyList<Vector2> Points) : Order;
+
+/// <summary>
+/// For a spy locator: go to the nearest own garrison for a full load of mines, then back to where it was
+/// (MachLogRefillLandMinesOperation).
+/// </summary>
+public sealed record RefillMinesOrder(int Garrison, Vector2 ReturnTo) : Order;
 
 /// <summary>Move to a point, fighting anything met on the way.</summary>
 public sealed record AttackMoveOrder(Vector2 Target) : Order;
@@ -22,11 +37,17 @@ public sealed record AttackMoveOrder(Vector2 Target) : Order;
 /// <summary>Walk to a construction site and build it.</summary>
 public sealed record ConstructOrder(int Construction) : Order;
 
-/// <summary>Walk to a point, finding mineral sites within scanner range on the way and there.</summary>
-public sealed record LocateOrder(Vector2 Target) : Order;
+/// <summary>
+/// Walk to a point, driving over the deposits on the list (those in scanner range of the way) to find them first.
+/// </summary>
+public sealed record LocateOrder(Vector2 Target, IReadOnlyList<int> Sites) : Order;
 
-/// <summary>Shuttle ore from a mine to a smelter or pod, forever.</summary>
-public sealed record TransportOrder(int Mine, int Smelter) : Order;
+/// <summary>
+/// Shuttle ore from a mine to a smelter or pod, forever: with <paramref name="Delivering"/> on the way to drop
+/// what it carries, else on the way to load; until <paramref name="WaitUntil"/> it stands on the pad loading or
+/// dropping (MachLogTransportOperation).
+/// </summary>
+public sealed record TransportOrder(int Mine, int Smelter, bool Delivering = false, float WaitUntil = 0) : Order;
 
 /// <summary>Walk into a lab and work there as a researcher.</summary>
 public sealed record EnterLabOrder(int Lab) : Order;
@@ -54,6 +75,9 @@ public sealed record EnterGarrisonOrder(int Garrison) : Order;
 
 /// <summary>Drive to an APC and get in.</summary>
 public sealed record BoardOrder(int Apc) : Order;
+
+/// <summary>For a scavenger: drive onto each wreck in turn and gather its BMUs (MachLogScavengeOperation).</summary>
+public sealed record ScavengeOrder(IReadOnlyList<int> Debris) : Order;
 
 /// <summary>For an APC: drive to a point and let everyone out there.</summary>
 public sealed record DeployOrder(Vector2 Target) : Order;
@@ -117,6 +141,14 @@ public enum GameEventKind
     Boarded,
     /// <summary>An APC let its passengers out (Detail: how many).</summary>
     Deployed,
+    /// <summary>A scavenger picked up a wreck (Other: the wreck, Detail: its BMUs).</summary>
+    Scavenged,
+    /// <summary>A round struck the ground: a hill in its way (Actor: the shooter, Detail: the weapon).</summary>
+    Impact,
+    /// <summary>A spy locator laid a land mine (Other: the mine).</summary>
+    MineLaid,
+    /// <summary>A land mine went off under a machine (Actor: the machine, Other: the mine).</summary>
+    MineExploded,
 }
 
 public sealed record GameEvent(GameEventKind Kind, int Actor, Vector2 Position, int? Other = null, string? Detail = null);

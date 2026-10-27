@@ -74,6 +74,8 @@ public sealed record MachineLevel
     public int? MaxSubordinates { get; init; }
     public int? ResearchRate { get; init; }
     public int? DownloadRate { get; init; }
+    /// <summary>Land mines a spy locator carries (MINE_CAPACITY).</summary>
+    public int? MineCapacity { get; init; }
     public int? ConstructionRate { get; init; }
     public int? MineralGrade { get; init; }
     public ConstructionRef? MostAdvancedConstruction { get; init; }

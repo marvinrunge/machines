@@ -1,6 +1,7 @@
 using System.Numerics;
 using Machines.Import.Model;
 using Machines.Sim.Combat;
+using Machines.Sim.Navigation;
 
 namespace Machines.Sim.World;
 
@@ -27,6 +28,42 @@ public sealed partial class GameWorld
     /// <summary>Which weapons of a machine driven in first person may fire: a bit for each, in mounting order.</summary>
     public Dictionary<int, int> PlayerWeapons { get; } = [];
 
+    /// <summary>
+    /// Where the upper body of a machine driven in first person is turned, radians anticlockwise from its hull; for
+    /// the view only.
+    /// </summary>
+    public Dictionary<int, float> PlayerHeads { get; } = [];
+
+    /// <summary>
+    /// The ground's heights, when every player has the same (the original engine's, from the game copy); null
+    /// leaves shots unhindered by hills.
+    /// </summary>
+    public TerrainHeights? Terrain { get; set; }
+
+    /// <summary>
+    /// Whether a shot from one actor at another clears the ground: the straight line between their middles
+    /// (MachLogCanAttack::IHaveClearWeaponPathToHim, testActorBehindCover); always so without terrain.
+    /// </summary>
+    public bool ClearShot(Actor shooter, Actor target) =>
+        Terrain is not { } ground || ground.FirstBlocked(AimPoint(shooter), AimPoint(target), ends: 3) is null;
+
+    /// <summary>
+    /// An actor's middle in the air, as the original aimed between its bounding box's corners: a little over a
+    /// machine's own height, higher for a flyer, a few metres up a building.
+    /// </summary>
+    public Vector3 AimPoint(Actor actor)
+    {
+        var ground = Terrain?.At(actor.Position) ?? 0;
+        var up = actor switch
+        {
+            Machine { Stats.Locomotion: Locomotion.Glider } => 10,
+            Machine machine => MathF.Max(1.2f, machine.Radius * 0.6f),
+            Construction building => MathF.Min(6, 1 + building.Radius * 0.3f),
+            _ => 1,
+        };
+        return new Vector3(actor.Position, ground + up);
+    }
+
     private void UpdateCombat()
     {
         foreach (var machine in Machines.Where(m => m.CanFight && !m.IsDead && m.Inside is null).ToList())
@@ -41,7 +78,7 @@ public sealed partial class GameWorld
             var target = machine.Order switch
             {
                 AttackOrder attack => Find(attack.Target),
-                _ => NearestEnemy(machine, machine.Weapons.Max(w => w.Spec.Range)),
+                _ => NearestEnemy(machine, machine.Weapons.Max(w => w.Spec.Range), clearShot: true),
             };
             if (target is null)
                 _machineAims.Remove(machine.Id);
@@ -62,9 +99,9 @@ public sealed partial class GameWorld
             // Turrets keep their target while it stays in range, then pick the nearest enemy.
             var range = turret.Weapons.Where(w => !w.IsStrike).Max(w => w.Spec.Range);
             var target = _turretTargets.TryGetValue(turret.Id, out var id) ? Find(id) : null;
-            if (target is null || target.IsDead || turret.DistanceTo(target) > range)
+            if (target is null || target.IsDead || turret.DistanceTo(target) > range || !ClearShot(turret, target))
             {
-                target = NearestEnemy(turret, range);
+                target = NearestEnemy(turret, range, clearShot: true);
                 if (target is null)
                     _turretTargets.Remove(turret.Id);
                 else
@@ -116,9 +153,18 @@ public sealed partial class GameWorld
                 if (target is null || target.IsDead || shooter.DistanceTo(target) > weapon.Spec.Range || !AreEnemies(shooter.Race, target.Race))
                     continue;
 
+                // A round that cannot fly through the ground (the punch lands where the shooter stands).
+                if (weapon.Spec.TypeName != "GORILLA_PUNCH" && !Flies(weapon) && Terrain is { } ground
+                    && ground.FirstBlocked(AimPoint(shooter), AimPoint(target), ends: 3) is { } share)
+                {
+                    Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, null, weapon.Spec.TypeName));
+                    Raise(new GameEvent(GameEventKind.Impact, shooter.Id, Vector2.Lerp(shooter.Position, target.Position, share), null, weapon.Spec.TypeName));
+                    continue;
+                }
+
                 Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, target.Id, weapon.Spec.TypeName));
                 if (Flies(weapon))
-                    Launch(shooter, weapon, AimAt(shooter, target, accuracy));
+                    Launch(shooter, weapon, AimAt(shooter, target, accuracy), AimPoint(target).Z);
                 else if (weapon.IsArea)
                 {
                     // Area weapons go off where the target is and hit everyone the blast reaches, friend or foe,
@@ -148,9 +194,11 @@ public sealed partial class GameWorld
                 continue;
             }
 
+            // A weapon opens fire only with a clear line to its target (the attack operation's behindCover test).
             var triggered = aimPoint is not null
                 ? weapon.DealsDamage || weapon.IsTreachery
-                : weapon.FiresAt(target) && target is not null && !target.IsDead && shooter.DistanceTo(target) <= weapon.Spec.Range;
+                : weapon.FiresAt(target) && target is not null && !target.IsDead && shooter.DistanceTo(target) <= weapon.Spec.Range
+                    && (weapon.Spec.TypeName == "GORILLA_PUNCH" || ClearShot(shooter, target));
             if (triggered)
             {
                 weapon.RoundsLeft = Math.Max(1, weapon.Spec.BurstRounds);
@@ -171,10 +219,19 @@ public sealed partial class GameWorld
         float Off(Actor a) => a is Construction building ? building.DistanceFrom(point) : MathF.Max(0, Vector2.Distance(a.Position, point) - a.Radius);
         var there = Actors.Where(a => !a.IsDead && AreEnemies(shooter.Race, a.Race) && a is not Machine { Inside: not null } && Off(a) <= 3)
             .OrderBy(Off).ThenBy(a => a.Id).FirstOrDefault();
+        // What the crosshair rests on: the enemy there, or the ground itself.
+        var aimHeight = there is not null ? AimPoint(there).Z : Terrain?.At(point) ?? 0;
+        if (!Flies(weapon) && !weapon.IsArea && Terrain is { } ground
+            && ground.FirstBlocked(AimPoint(shooter), new Vector3(point, aimHeight + 0.5f), ends: 3) is { } share)
+        {
+            Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, null, weapon.Spec.TypeName));
+            Raise(new GameEvent(GameEventKind.Impact, shooter.Id, Vector2.Lerp(shooter.Position, point, share), null, weapon.Spec.TypeName));
+            return;
+        }
         Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, there?.Id, weapon.Spec.TypeName));
         if (Flies(weapon))
         {
-            Launch(shooter, weapon, point);
+            Launch(shooter, weapon, point, aimHeight + 0.5f);
         }
         else if (weapon.IsArea)
         {

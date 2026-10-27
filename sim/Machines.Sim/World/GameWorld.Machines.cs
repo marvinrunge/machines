@@ -39,9 +39,37 @@ public sealed partial class GameWorld
         var turnRate = Data.Parm.General.FirstPersonMaxFastTurnRate * MathF.PI / 180;
         machine.Facing += input.Turn * turnRate * Dt;
         var direction = new Vector2(DetMath.Cos(machine.Facing), DetMath.Sin(machine.Facing));
-        var next = machine.Position + direction * (input.Forward * machine.Stats.Speed * Dt);
-        if (Nav.IsFree(next, CrossesWater(machine)))
-            machine.Position = next;
+        var step = direction * (input.Forward * machine.Stats.Speed * Dt);
+        if (step == Vector2.Zero)
+            return;
+        // Blocked ahead, it slides along the obstacle as far as the way is open, on whichever of the grid's axes
+        // still lets it on (MachLog1stPersonMachineHandler::nextPositionOk slid along the polygon's edge).
+        var (along, across) = MathF.Abs(step.X) >= MathF.Abs(step.Y)
+            ? (new Vector2(step.X, 0), new Vector2(0, step.Y))
+            : (new Vector2(0, step.Y), new Vector2(step.X, 0));
+        foreach (var move in (ReadOnlySpan<Vector2>)[step, along, across])
+        {
+            if (CanDriveTo(machine, machine.Position + move))
+            {
+                machine.Position += move;
+                return;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether a machine driven in first person may go on to <paramref name="next"/>: onto open ground on the planet,
+    /// or, while it stands on blocked ground (beside a building, or set down on rock), anywhere nearer to open ground.
+    /// </summary>
+    private bool CanDriveTo(Machine machine, Vector2 next)
+    {
+        var water = CrossesWater(machine);
+        if (!Nav.OnPlanet(next))
+            return false;
+        if (Nav.IsFree(next, water))
+            return true;
+        return !Nav.IsFree(machine.Position, water) && Nav.NearestFreePoint(machine.Position, water) is { } open
+            && Vector2.DistanceSquared(next, open) < Vector2.DistanceSquared(machine.Position, open);
     }
 
     private void UpdateMachine(Machine machine)
@@ -56,9 +84,23 @@ public sealed partial class GameWorld
 
         switch (machine.Order)
         {
-            case MoveOrder:
+            case MoveOrder move:
                 if (!FollowPath(machine))
                     machine.Order = Order.Idle;
+                else
+                    TakeInitiative(machine, move.Target);
+                break;
+
+            case StandGroundOrder:
+                // It fires from where it stands (UpdateCombat) and goes nowhere.
+                break;
+
+            case DropMinesOrder drop:
+                UpdateDropMines(machine, drop);
+                break;
+
+            case RefillMinesOrder refill:
+                UpdateRefillMines(machine, refill);
                 break;
 
             case AttackMoveOrder attackMove:
@@ -77,13 +119,7 @@ public sealed partial class GameWorld
                 break;
 
             case LocateOrder locate:
-                if (Tick % TicksPerSecond == machine.Id % TicksPerSecond)
-                    DiscoverSites(machine);
-                if (!FollowPath(machine))
-                {
-                    DiscoverSites(machine);
-                    machine.Order = Order.Idle;
-                }
+                UpdateLocate(machine, locate);
                 break;
 
             case TransportOrder transport:
@@ -146,10 +182,18 @@ public sealed partial class GameWorld
                 SeekPatients(machine);
                 break;
 
+            case ScavengeOrder scavenge:
+                UpdateScavenge(machine, scavenge);
+                break;
+
+            case IdleOrder when machine.IsScavenger:
+                SeekDebris(machine);
+                break;
+
             default:
-                // Idle fighters engage whatever comes into scanner range.
+                // Idle fighters take on what their initiative lets them.
                 if (machine.CanFight && !machine.DrivenByPlayer && Tick % 10 == machine.Id % 10
-                    && NearestEnemy(machine, machine.Stats.ScannerRange) is { } threat)
+                    && InitiativeTarget(machine) is { } threat)
                     Send(machine, new AttackOrder(threat.Id), threat.Position);
                 break;
         }
@@ -236,7 +280,10 @@ public sealed partial class GameWorld
             // On an attack-move, the next enemy in sight is taken on at once, as the move would the next tick:
             // when a target falls, everyone who shot at it would otherwise plan the way on to its own place,
             // only to drop it again.
-            if (attack.Then is { } then && NearestEnemy(machine, machine.Stats.ScannerRange) is { } next)
+            // One that broke off a move for the fight goes on with its move.
+            if (attack is { Resume: true, Then: { } resume })
+                Send(machine, new MoveOrder(resume), resume);
+            else if (attack.Then is { } then && NearestEnemy(machine, machine.Stats.ScannerRange) is { } next)
                 Send(machine, new AttackOrder(next.Id, then), next.Position);
             else if (attack.Then is { } on)
                 Send(machine, new AttackMoveOrder(on), on);
@@ -246,11 +293,15 @@ public sealed partial class GameWorld
         }
 
         var range = machine.Weapons.Where(w => w.DealsDamage || w.IsTreachery).Select(w => w.Spec.Range).DefaultIfEmpty(0).Min();
-        if (machine.DistanceTo(target) <= range * 0.95f)
+        // In range but hidden behind a hill, it moves closer (MachLogAttackOperation's MOVE_CLOSER for a target behind cover).
+        if (machine.DistanceTo(target) <= range * 0.95f && ClearShot(machine, target))
         {
             machine.Path.Clear();
             machine.PathIndex = 0;
-            Face(machine, target.Position);
+            // A machine that turns its upper body aims with that and leaves its hull as it stands; the others turn
+            // to face the target (MachLogAttackOperation's TURN_TO_FACE is for "non torso-twisty" machines).
+            if (!machine.CanTurnUpperBody)
+                Face(machine, target.Position);
         }
         else if (!machine.DrivenByPlayer)
         {
@@ -299,11 +350,47 @@ public sealed partial class GameWorld
             return;
         }
 
+        // Loading or dropping, it stands on the pad as long as the rings of light play (MachPhysResourceLoading).
+        if (Time < transport.WaitUntil)
+            return;
         var capacity = carrier.Stats.Capacity ?? 0;
-        var delivering = carrier.Ore >= capacity || (carrier.Ore > 0 && mine.Ore < 1);
+        var delivering = transport.Delivering;
         var stop = delivering ? smelter : mine;
 
-        if (!InReach(carrier, stop))
+        // It drives right onto one of the building's pads, loading or dropping once it stands within one and a
+        // half times its clearance of it (MachLogPickUpOperation, MachLogPutDownOperation); a building without pads
+        // is served from its edge.
+        var pads = delivering ? stop.PutDownPads : stop.PickUpPads;
+        if (pads.Count > 0)
+        {
+            var pad = PadFor(carrier, stop, pads);
+            var reach = MathF.Max(1, carrier.Stats.HighClearance * 1.5f);
+            var distance = Vector2.Distance(carrier.Position, pad);
+            if (distance > 0.05f)
+            {
+                // The grid blocks the cells round a building; a pad lying in one is driven onto straight.
+                if (!Nav.IsFree(pad, CrossesWater(carrier)) && distance < Navigation.NavGrid.CellSize * 2.5f)
+                {
+                    carrier.Path.Clear();
+                    carrier.PathIndex = 0;
+                    StepTowards(carrier, pad);
+                    return;
+                }
+                // It drives the whole way onto the pad's point (MachLogMoveToOperation); one held up short of it
+                // still loads within its reach.
+                if (distance > reach)
+                {
+                    Approach(carrier, pad);
+                    return;
+                }
+                if (carrier.PathIndex < carrier.Path.Count)
+                {
+                    FollowPath(carrier);
+                    return;
+                }
+            }
+        }
+        else if (!InReach(carrier, stop))
         {
             Approach(carrier, ClosestPointOutside(stop, carrier.Position));
             return;
@@ -314,21 +401,51 @@ public sealed partial class GameWorld
 
         if (delivering)
         {
-            // Ore becomes BMUs at once; whatever does not fit in storage stays on board.
+            // Ore becomes BMUs at once; whatever does not fit in storage stays on board, and the carrier waits
+            // with it until there is room (MachLogPutDownOperation).
             var added = AddBmu(carrier.Race, carrier.Ore);
             carrier.Ore -= (int)added;
             if (added > 0)
                 smelter.OreDroppedTick = Tick;
+            if (carrier.Ore <= 0)
+                carrier.Order = transport with { Delivering = false, WaitUntil = Time + LoadingTime };
         }
-        else
+        else if (mine.Ore >= 1)
         {
+            // It takes what the mine has ready, up to its capacity, and is off with it; at an empty mine it waits
+            // (MachLogPickUpOperation).
             var load = (int)MathF.Min(capacity - carrier.Ore, mine.Ore);
             carrier.Ore += load;
             mine.Ore -= load;
+            if (carrier.Ore > 0)
+                carrier.Order = transport with { Delivering = true, WaitUntil = Time + LoadingTime };
         }
         carrier.Path.Clear();
         carrier.PathIndex = 0;
     }
+
+    /// <summary>Seconds a carrier stands on a pad loading or dropping ore: 22 frames at 22 a second (MachPhysResourceLoading).</summary>
+    public const float LoadingTime = 1;
+
+    // The pad each carrier is heading for, and at which building.
+    private readonly Dictionary<int, (int Stop, Vector2 Pad)> _carrierPads = [];
+
+    /// <summary>
+    /// The pad a carrier heads for at a building: the one it chose on the way there, else the nearest that no
+    /// other carrier is heading for, else the nearest (MachLogPickUpOperation chose the nearest free one).
+    /// </summary>
+    private Vector2 PadFor(Machine carrier, Construction stop, IReadOnlyList<Vector2> pads)
+    {
+        if (_carrierPads.TryGetValue(carrier.Id, out var chosen) && chosen.Stop == stop.Id)
+            return chosen.Pad;
+        bool Taken(Vector2 pad) => _carrierPads.Any(p => p.Key != carrier.Id && p.Value.Stop == stop.Id && p.Value.Pad == pad
+            && Find<Machine>(p.Key) is { Order: TransportOrder });
+        var byDistance = pads.OrderBy(p => Vector2.DistanceSquared(p, carrier.Position)).ToList();
+        var pad = byDistance.FirstOrDefault(p => !Taken(p), byDistance[0]);
+        _carrierPads[carrier.Id] = (stop.Id, pad);
+        return pad;
+    }
+
 
     private void UpdateEnterLab(Machine technician, EnterLabOrder enter)
     {
@@ -358,17 +475,56 @@ public sealed partial class GameWorld
     public static int ResearchStations(Construction lab) =>
         Math.Max(1, lab.Stats.Geometry.Count(g => g.Keyword == "STATION" && g.Args[^1] == "RESEARCH"));
 
-    private void DiscoverSites(Machine locator)
+    /// <summary>
+    /// The deposits a locator sent to <paramref name="target"/> drives over on the way (MachLogLocateOperation): those
+    /// its race has not found within scanner range of the straight way there (or of where it stands, when it is
+    /// there already) on ground it can reach, in the planet's order of sites.
+    /// </summary>
+    private List<int> SitesOnTheWay(Machine locator, Vector2 target)
     {
-        foreach (var site in Sites)
+        var range = locator.Stats.ScannerRange;
+        var water = CrossesWater(locator);
+        return Sites.Where(s => !s.DiscoveredBy.Contains(locator.Race) && Nav.IsFree(s.Position, water)
+                && DistanceToSegment(s.Position, locator.Position, target) < range)
+            .Select(s => s.Id)
+            .ToList();
+    }
+
+    private static float DistanceToSegment(Vector2 point, Vector2 from, Vector2 to)
+    {
+        var along = to - from;
+        var length = along.LengthSquared();
+        var t = length < 1e-4f ? 0 : Math.Clamp(Vector2.Dot(point - from, along) / length, 0, 1);
+        return Vector2.Distance(point, from + along * t);
+    }
+
+    /// <summary>
+    /// A locator drives onto each deposit on its list and finds it only there, within a metre of it, then goes on to
+    /// its destination (MachLogLocateOperation::doUpdate); a deposit it cannot reach is passed over.
+    /// </summary>
+    private void UpdateLocate(Machine locator, LocateOrder locate)
+    {
+        var next = locate.Sites.FirstOrDefault(id => !Sites[id].DiscoveredBy.Contains(locator.Race), -1);
+        if (next >= 0 && Vector2.DistanceSquared(locator.Position, Sites[next].Position) < 1)
         {
-            if (!site.DiscoveredBy.Contains(locator.Race)
-                && Vector2.Distance(site.Position, locator.Position) <= locator.Stats.ScannerRange)
-            {
-                site.DiscoveredBy.Add(locator.Race);
-                Raise(new GameEvent(GameEventKind.SiteDiscovered, locator.Id, site.Position, site.Id, locator.Race.ToString()));
-            }
+            DiscoverSite(Sites[next], locator);
+            next = -1;
         }
+        if (next < 0 && locate.Sites.Count > 0 || next >= 0 && !FollowPath(locator))
+        {
+            // On to the next deposit (passing over one it could not get to), or to the destination.
+            var rest = locate.Sites.Where(id => id != next && !Sites[id].DiscoveredBy.Contains(locator.Race)).ToList();
+            Send(locator, locate with { Sites = rest }, rest.Count > 0 ? Sites[rest[0]].Position : locate.Target);
+            return;
+        }
+        if (next < 0 && !FollowPath(locator))
+            locator.Order = Order.Idle;
+    }
+
+    private void DiscoverSite(MineralSiteState site, Machine locator)
+    {
+        site.DiscoveredBy.Add(locator.Race);
+        Raise(new GameEvent(GameEventKind.SiteDiscovered, locator.Id, site.Position, site.Id, locator.Race.ToString()));
     }
 
     /// <summary>A point just outside a building, on the side facing the machine.</summary>

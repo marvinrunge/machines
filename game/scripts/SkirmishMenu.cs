@@ -62,6 +62,7 @@ public partial class SkirmishMenu : Control
         var stringsPath = System.IO.Path.Combine(Paths.OriginalData, "machstrg.xml");
         _strings = File.Exists(stringsPath) ? StringTableParser.Load(stringsPath) : null;
         BuildLayout();
+        MenuSounds.Attach(this, _assets.GameFolder);
         Music.Menu(this);
         FillTree(ScenarioCatalogueParser.Load(System.IO.Path.Combine(Paths.OriginalData, "sceninfo.dat")));
     }

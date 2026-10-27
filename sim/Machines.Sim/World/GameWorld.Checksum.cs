@@ -7,6 +7,8 @@ public sealed partial class GameWorld
     /// means their simulations went apart (a desync). Covers every actor in id order (position, facing, hit
     /// points, armour, order, race) and every race's bank, score and research, as exact bits (FNV-1a, 64 bit).
     /// </summary>
+    private long? _terrainFingerprint;
+
     public ulong Checksum()
     {
         var hash = 14695981039346656037UL;
@@ -21,6 +23,8 @@ public sealed partial class GameWorld
         void MixFloat(float value) => Mix(BitConverter.SingleToInt32Bits(value));
 
         Mix(Tick);
+        // Shots are stopped by the ground: worlds with different ground go apart.
+        Mix(_terrainFingerprint ??= Terrain?.Fingerprint() ?? 0);
         foreach (var actor in _actors.Values.OrderBy(a => a.Id))
         {
             Mix(actor.Id);
@@ -39,6 +43,13 @@ public sealed partial class GameWorld
             {
                 MixFloat(building.Built);
             }
+        }
+        foreach (var mine in LandMines)
+            Mix(mine.Id);
+        foreach (var wreck in Debris)
+        {
+            Mix(wreck.Id);
+            Mix(wreck.Quantity);
         }
         foreach (var state in Races.Values.OrderBy(r => r.Race))
         {

@@ -20,6 +20,14 @@ var data = GameData.Load(Path.Combine(repo, "data", "original"));
 
 var races = data.LoadScenario(scenario).Races.Select(r => r.Race).Take(4).ToList();
 var world = MatchSetup.Create(data, scenario, planet, races.ToDictionary(r => r, _ => Controller.Ai), seed: 7);
+// With the original terrain exported (tools/classic-export), shots are checked against the ground as in a real
+// match; SIM_BENCH_TERRAIN=0 leaves it out.
+var heights = Path.Combine(repo, "classic", "planets", planet, "heights.bin");
+if (File.Exists(heights) && Environment.GetEnvironmentVariable("SIM_BENCH_TERRAIN") != "0")
+{
+    world.Terrain = Machines.Sim.Navigation.TerrainHeights.FromExport(File.ReadAllBytes(heights));
+    Console.WriteLine("terrain: the original ground heights");
+}
 
 // A mix of the fighting machines, each with a weapon it can carry.
 (string Type, string? SubType, int Level, string Combo)[] roster =

@@ -8,7 +8,7 @@ namespace Machines.Game;
 /// The first-person radar of the original (MachGuiRadar), in the lower right corner: it switches on in ten frames
 /// (<c>radar0</c> to <c>radar9</c>, half a second), then shows what lies within the driven machine's scanner range
 /// as blips turned to its heading (machines, buildings, pods and missile emplacements in their race's colour, and the
-/// ore the player has found), the dome and arrow in its middle, the machine's picture, and its own health and armour
+/// ore anyone has found, and wreckage), the dome and arrow in its middle, the machine's picture, and its own health and armour
 /// as two upright bars filled from the bottom, amber and then red as they run low; at a fifth of its health a warning
 /// sounds. The bitmaps come from <c>gui/fstpersn/radar</c> of the player's game copy, scaled up with the screen.
 /// </summary>
@@ -39,6 +39,12 @@ public partial class Radar : Control
 
     /// <summary>The machine being driven, whose surroundings the radar shows.</summary>
     public Machine? Driven { get; set; }
+
+    /// <summary>
+    /// How far the driven machine's upper body is turned from its hull, radians anticlockwise: the radar turns with
+    /// the view, and its arrow points the way the hull goes (MachGuiRadar::displayMotionDirection).
+    /// </summary>
+    public float Head { get; set; }
 
     /// <summary>Switches the radar on from its first frame, as when the original embodies a machine.</summary>
     public void Start()
@@ -73,14 +79,16 @@ public partial class Radar : Control
         }
 
         DrawTextureRect(backdrop, new Rect2(corner, backdrop.GetSize() * scale), false);
-        Blit("fstpersn/radar/arrow/point1.bmp", corner + ArrowAt * scale, scale);
+        // Sixteen arrows round the compass, the first straight ahead.
+        var arrow = (int)(Mathf.PosMod(-Mathf.RadToDeg(Head), 360) / 360 * 16) % 16;
+        Blit($"fstpersn/radar/arrow/point{arrow + 1}.bmp", corner + ArrowAt * scale, scale);
 
         // Blips: each actor's place relative to the machine, turned so that ahead is up (the original turns by its
         // azimuth and a quarter more), within the scanner range drawn to the scanner's radius.
         var world = _game.World;
         var range = Math.Max(machine.Stats.ScannerRange, 1);
         var reach = ScannerRadius / range;
-        var turn = machine.Facing + MathF.PI / 2;
+        var turn = machine.Facing + Head + MathF.PI / 2;
         var (cos, sin) = (MathF.Cos(turn), MathF.Sin(turn));
         Vector2? OnRadar(NVector2 position)
         {
@@ -89,14 +97,17 @@ public partial class Radar : Control
                 return null;
             return corner + (ScannerCentre + new Vector2(d.X * cos + d.Y * sin, -d.X * sin + d.Y * cos) * reach) * scale;
         }
-        foreach (var site in world.Sites.Where(s => s.DiscoveredBy.Contains(Game.Player)))
+        foreach (var site in world.Sites.Where(s => s.DiscoveredBy.Count > 0 && s.Ore > 0))
             if (OnRadar(site.Position) is { } at)
                 Blit("fstpersn/radar/blips/ore.bmp", at, scale);
+        foreach (var wreck in world.Debris)
+            if (OnRadar(wreck.Position) is { } at)
+                Blit("fstpersn/radar/blips/debris.bmp", at, scale);
         foreach (var actor in world.Actors)
         {
             if (actor.Id == machine.Id || actor is Machine { Inside: not null } || OnRadar(actor.Position) is not { } at)
                 continue;
-            var letter = ClassicPanel.RaceFolder(actor.Race)[0];
+            var letter = ClassicPanel.RaceFolder(actor is Machine { Camouflaged: true } ? Game.Player : actor.Race)[0];
             var kind = actor switch
             {
                 Machine => "machpix",

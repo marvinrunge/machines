@@ -19,7 +19,11 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     /// <summary>The panel's size in original pixels (MachGui::controlPanelOutXPos, mapAreaHeight).</summary>
     public const int PanelWidth = 169, MapAreaHeight = 129;
 
-    private const int IconSize = 38, ButtonWidth = 42, BarWidth = 81, BarHeight = 12, HealthBarHeight = 6;
+    private const int IconSize = 38, ButtonWidth = 42, HealthBarHeight = 6;
+
+    // A command button (MachCommandIcon): the original's 73 × 10 bitmap in a two-pixel border, two to a row with
+    // five pixels between them (MachCommandIcons).
+    private const int BarWidth = 77, BarHeight = 14, BarGap = 5;
 
     private sealed record Widget(Rect2 Rect, Action<Rect2> Draw, Action? Click = null, string? Prompt = null);
 
@@ -28,6 +32,11 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     private Widget? _hovered;
     private bool _showBmus = true;
     private bool _buildMenu;
+
+    // The squadron bank (MachGuiSquadronBank): shown from the navigator to pick a squadron, or by the form
+    // squadron command to fill one.
+    private enum SquadronMode { None, Select, Form }
+    private SquadronMode _squadrons;
     private string _selectionKey = "";
 
     /// <summary>A message for the prompt line when the mouse points at nothing in the panel.</summary>
@@ -59,6 +68,9 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         {
             _selectionKey = selectionKey;
             _buildMenu = false;
+            _coverOpenedAt = null;
+            if (_squadrons == SquadronMode.Form)
+                _squadrons = SquadronMode.None;
         }
 
         _widgets.Clear();
@@ -92,8 +104,9 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             "Machines: select them all"));
         _widgets.Add(new Widget(R(x, 47, 20, 29), rect => DrawBitmap(rect, $"navigate/{race}/construc.bmp", "C"), NextConstruction,
             "Constructions: go to the next one"));
-        _widgets.Add(new Widget(R(x, 75, 20, 29), rect => DrawBitmap(rect, $"navigate/{race}/squads.bmp", "S"), null,
-            "Squadrons"));
+        _widgets.Add(new Widget(R(x, 75, 20, 29), rect => DrawBitmap(rect, $"navigate/{race}/squads.bmp", "S"),
+            () => _squadrons = _squadrons == SquadronMode.None ? SquadronMode.Select : SquadronMode.None,
+            "Squadrons: pick one (or its number; Ctrl and the number forms one)"));
     }
 
     private int AddSelection(int y)
@@ -114,7 +127,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                     game.EnterFirstPerson, "Drive it in first person (F)"));
             else if (actor is Construction { Garrisoned.Count: > 0 } garrison && garrison.Race == Game.Player)
                 _widgets.Add(new Widget(R(PanelWidth - 21, y, 20, 20), rect => DrawBitmap(rect, "misc/contents.bmp", "Out"),
-                    () => game.Issue(new StopCommand(Game.Player, garrison.Garrisoned.ToList())),
+                    () => game.Order(new StopCommand(Game.Player, garrison.Garrisoned.ToList())),
                     $"Let the {garrison.Garrisoned.Count} machines inside out"));
             return y + height;
         }
@@ -139,7 +152,14 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         return y + rows * rowHeight;
     }
 
-    private sealed record Bar(string Label, string Name, Action Act, float? Charged = null);
+    // Icon is the bitmap in gui/commands; a charging strike weapon lays Charged of its Overlay over it.
+    private sealed record Bar(string Label, string Name, Action Act, string Icon, float? Charged = null, string? Overlay = null);
+
+    // The self-destruct button (MachGuiSelfDestructCommandIcon): the first click slides its cover open, the second
+    // starts the countdown. It shuts again when the selection changes.
+    private double? _coverOpenedAt;
+
+    private static double Now => Time.GetTicksMsec() / 1000.0;
 
     private int AddCommands(int y)
     {
@@ -147,11 +167,17 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         for (var i = 0; i < bars.Count; i++)
         {
             var bar = bars[i];
-            _widgets.Add(new Widget(R(2 + i % 2 * (BarWidth + 3), y + i / 2 * (BarHeight + 2), BarWidth, BarHeight), rect => DrawBar(rect, bar), bar.Act, bar.Name));
+            _widgets.Add(new Widget(R(2 + i % 2 * (BarWidth + BarGap), y + i / 2 * BarHeight, BarWidth, BarHeight), rect => DrawBar(rect, bar), bar.Act, bar.Name));
         }
-        return y + (bars.Count + 1) / 2 * (BarHeight + 2);
+        return y + (bars.Count + 1) / 2 * BarHeight;
     }
 
+    /// <summary>
+    /// The commands for the selection, in the original's order (MachInGameScreen::allCommands): self-destruct, move,
+    /// stop, attack, construct, repair, capture, deconstruct, recycle, locate, mines, deploy, patrol, transport,
+    /// scavenge, treachery, form squadron, heal, stand ground, assembly point, the strike weapons, initiative and
+    /// camouflage.
+    /// </summary>
     private List<Bar> Commands()
     {
         if (game.Watching)
@@ -161,71 +187,146 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         var selected = game.Selection.Select(world.Find).OfType<Actor>().Where(a => a.Race == Game.Player).ToList();
         var machines = selected.OfType<Machine>().ToList();
         var ids = machines.Select(m => m.Id).ToList();
+        if (selected.Count > 0)
+            bars.Add(SelfDestruct(selected));
+        var constructors = machines.Where(m => m.Spec.Type == "CONSTRUCTOR").Select(m => m.Id).ToList();
+        var spies = machines.Where(m => m.IsSpy).ToList();
         if (machines.Count > 0)
         {
             bars.Add(new Bar("Move", "Move: click where to", () => game.BeginTargeting("Click where to move; right click cancels", "move",
-                (point, _) => game.Issue(new MoveCommand(Game.Player, ids, point)))));
-            bars.Add(new Bar("Stop", "Stop", () => game.Issue(new StopCommand(Game.Player, ids))));
+                (point, _) => game.Order(new MoveCommand(Game.Player, ids, point))), "commands/move.bmp"));
+            bars.Add(new Bar("Stop", "Stop", () => game.Order(new StopCommand(Game.Player, ids)), "commands/stop.bmp"));
             if (machines.Any(m => m.CanFight))
                 bars.Add(new Bar("Attack", "Attack: click the target", () => game.BeginTargeting("Click what to attack; right click cancels", "attack",
                     (_, target) =>
                     {
                         if (target is not null && world.AreEnemies(Game.Player, target.Race))
-                            game.Issue(new AttackCommand(Game.Player, ids.Where(id => world.Find<Machine>(id)?.CanFight == true).ToList(), target.Id));
-                    })));
-            var constructors = machines.Where(m => m.Spec.Type == "CONSTRUCTOR").Select(m => m.Id).ToList();
+                            game.Order(new AttackCommand(Game.Player, ids.Where(id => world.Find<Machine>(id)?.CanFight == true).ToList(), target.Id));
+                    }), "commands/attack.bmp"));
             if (constructors.Count > 0)
             {
-                bars.Add(new Bar("Construct", "Construct: pick a building below", () => _buildMenu = !_buildMenu));
+                bars.Add(new Bar("Construct", "Construct: pick a building below", () => _buildMenu = !_buildMenu, "commands/const.bmp"));
                 bars.Add(new Bar("Repair", "Repair: click a building", () => game.BeginTargeting("Click the building to repair; right click cancels", "repair",
-                    (_, target) => game.Issue(new RepairCommand(Game.Player, constructors, target?.Id ?? 0)))));
+                    (_, target) => game.Order(new RepairCommand(Game.Player, constructors, target?.Id ?? 0))), "commands/repair.bmp"));
                 bars.Add(new Bar("Capture", "Capture: click an enemy building", () => game.BeginTargeting("Click the building to capture; right click cancels", "capture",
-                    (_, target) => game.Issue(new CaptureCommand(Game.Player, constructors, target?.Id ?? 0)))));
+                    (_, target) => game.Order(new CaptureCommand(Game.Player, constructors, target?.Id ?? 0))), "commands/capture.bmp"));
                 bars.Add(new Bar("Deconstruct", "Deconstruct: click a building", () => game.BeginTargeting("Click the building to take apart; right click cancels", "deconst",
-                    (_, target) => game.Issue(new DeconstructCommand(Game.Player, constructors, target?.Id ?? 0)))));
+                    (_, target) => game.Order(new DeconstructCommand(Game.Player, constructors, target?.Id ?? 0))), "commands/deconst.bmp"));
             }
+            bars.Add(new Bar("Recycle", "Recycle at the nearest smelter: half the price back", () => game.Order(new RecycleCommand(Game.Player, ids)), "commands/recycle.bmp"));
             var locators = machines.Where(m => m.Spec.Type == "GEO_LOCATOR").Select(m => m.Id).ToList();
             if (locators.Count > 0)
                 bars.Add(new Bar("Locate", "Locate: click where to search", () => game.BeginTargeting("Click where to search for minerals; right click cancels", "locat",
-                    (point, _) => game.Issue(new LocateCommand(Game.Player, locators, point)))));
-            var healers = machines.Where(m => m.CanHeal).Select(m => m.Id).ToList();
-            if (healers.Count > 0)
-                bars.Add(new Bar("Heal", "Heal: click a machine", () => game.BeginTargeting("Click the machine to heal; right click cancels", "heal",
-                    (_, target) => game.Issue(new HealCommand(Game.Player, healers, target?.Id ?? 0)))));
+                    (point, _) => game.Order(new LocateCommand(Game.Player, locators, point))), "commands/locate.bmp"));
+            if (spies.Any(s => s.Mines > 0))
+                bars.Add(new Bar("Lay mines", $"Lay land mines (Shift for more points): {spies.Sum(s => s.Mines)} carried", () => game.BeginWaypoints(
+                    "Click where to lay a mine, Shift for more; right click cancels", "landmin",
+                    points => game.Order(new DropLandMinesCommand(Game.Player, spies.Where(s => s.Mines > 0).Select(s => s.Id).ToList(), points))),
+                    "commands/dropmine.bmp"));
+            if (spies.Count > 0)
+                bars.Add(new Bar("Refill mines", "Refill land mines at the nearest garrison",
+                    () => game.Order(new RefillLandMinesCommand(Game.Player, spies.Select(s => s.Id).ToList())), "commands/refill.bmp"));
             var apcs = machines.Where(m => m.IsType("APC") && m.Passengers.Count > 0).Select(m => m.Id).ToList();
             if (apcs.Count > 0)
                 bars.Add(new Bar("Deploy", "Deploy: click where to let them out", () => game.BeginTargeting("Click where to let them out; right click cancels", "deploy",
-                    (point, _) => game.Issue(new DeployCommand(Game.Player, apcs, point)))));
-            bars.Add(new Bar("Recycle", "Recycle at the nearest smelter: half the price back", () => game.Issue(new RecycleCommand(Game.Player, ids))));
+                    (point, _) => game.Order(new DeployCommand(Game.Player, apcs, point))), "commands/deploy.bmp"));
+            // Every machine patrols, holds its ground and has an initiative (MachGuiPatrolCommand, StandGround, Defcon).
+            bars.Add(new Bar("Patrol", "Patrol (Shift for more points): it goes round them and back", () => game.BeginWaypoints(
+                "Click where to patrol, Shift for more points; right click cancels", "patrol", points =>
+                {
+                    // Each patrols the points and back to where it stands now (the original adds its position last).
+                    foreach (var machine in machines)
+                        game.Order(new PatrolCommand(Game.Player, [machine.Id], [.. points, machine.Position]));
+                }), "commands/patrol.bmp"));
+            var carriers = machines.Where(m => m.Spec.Type == "RESOURCE_CARRIER" && !m.IsScavenger).Select(m => m.Id).ToList();
+            if (carriers.Count > 0)
+                bars.Add(new Bar("Transport", "Transport: click a mine, then a smelter or pod", () => game.BeginTargeting(
+                    "Click the mine to fetch ore from; right click cancels", "pickup", (_, mine) =>
+                    {
+                        if (mine is not Construction { Spec.Type: "MINE" } from || from.Race != Game.Player)
+                            return;
+                        game.BeginTargeting("Click the smelter or pod to bring it to; right click cancels", "putdn", (_, store) =>
+                        {
+                            if (store is Construction { Spec.Type: "SMELTER" or "POD" } to && to.Race == Game.Player)
+                                game.Order(new TransportCommand(Game.Player, carriers, from.Id, to.Id));
+                        });
+                    }), "commands/transprt.bmp"));
+            var scavengers = machines.Where(m => m.IsScavenger).Select(m => m.Id).ToList();
+            if (scavengers.Count > 0)
+                bars.Add(new Bar("Scavenge", "Scavenge: click the wreckage to gather", () => game.BeginTargeting("Click the wreckage to gather; right click cancels", "scav",
+                    (point, _) =>
+                    {
+                        if (game.DebrisNear(point) is { } wreck)
+                            game.Order(new ScavengeCommand(Game.Player, scavengers, [wreck.Id]));
+                    }), "commands/scavenge.bmp"));
+            var traitors = machines.Where(m => m.Weapons.Any(w => w.IsTreachery)).Select(m => m.Id).ToList();
+            if (traitors.Count > 0)
+                bars.Add(new Bar("Treachery", "Treachery: click an enemy machine to turn it", () => game.BeginTargeting(
+                    "Click the enemy machine to turn; right click cancels", "treach", (_, target) =>
+                    {
+                        if (target is Machine && world.AreEnemies(Game.Player, target.Race))
+                            game.Order(new AttackCommand(Game.Player, traitors, target.Id));
+                    }), "commands/treach.bmp"));
+            bars.Add(new Bar("Form squadron", "Form squadron: click one of the squadrons below (or Ctrl and its number)",
+                () => _squadrons = SquadronMode.Form, "commands/formsqad.bmp"));
+            var healers = machines.Where(m => m.CanHeal).Select(m => m.Id).ToList();
+            if (healers.Count > 0)
+                bars.Add(new Bar("Heal", "Heal: click a machine", () => game.BeginTargeting("Click the machine to heal; right click cancels", "heal",
+                    (_, target) => game.Order(new HealCommand(Game.Player, healers, target?.Id ?? 0))), "commands/heal.bmp"));
+            bars.Add(new Bar("Stand ground", "Stand ground: shoot from where it is, never move to",
+                () => game.Order(new StandGroundCommand(Game.Player, ids)), "commands/stand.bmp"));
         }
+        // Factories send their new machines to an assembly point (B, as in the original).
+        var factories = selected.OfType<Construction>().Where(c => c.Complete && c.IsType("FACTORY")).Select(c => c.Id).ToList();
+        if (factories.Count > 0)
+            bars.Add(new Bar("Assembly point", "Assembly point (B): click where new machines gather", game.BeginAssemblyPoint, "commands/assemble.bmp"));
         if (selected.Count == 1 && selected[0] is Construction { Complete: true } building
             && building.Weapons.FirstOrDefault(w => w.IsStrike) is { } strike)
         {
-            var nuke = strike.Spec.TypeName == "NUCLEAR_MISSILE";
+            // The strike weapons' buttons light up red from the left as they charge (MachGuiIonAttackCommandIcon).
+            var icon = strike.Spec.TypeName == "NUCLEAR_MISSILE" ? "nukeattk" : "ionattk";
             var ready = strike.Reload <= 0;
-            bars.Add(new Bar(nuke ? "Nuke" : "Ion cannon",
-                (nuke ? "Launch the nuclear missile" : "Fire the ion cannon") + (ready ? "" : $": charging, {strike.ChargePercent:F0}%"),
+            bars.Add(new Bar(icon == "nukeattk" ? "Nuke" : "Ion cannon",
+                (icon == "nukeattk" ? "Launch the nuclear missile" : "Fire the ion cannon") + (ready ? "" : $": charging, {strike.ChargePercent:F0}%"),
                 () => { if (ready) game.BeginStrike(building.Id); },
-                strike.ChargePercent / 100f));
+                $"commands/{icon}.bmp", strike.ChargePercent / 100f, icon == "nukeattk" ? "commands/nukeatkr.bmp" : "commands/ionattkr.bmp"));
         }
-        // Factories send their new machines to an assembly point (B, as in the original).
-        var factories = selected.OfType<Construction>().Where(c => c.Race == Game.Player && c.Complete && c.IsType("FACTORY")).Select(c => c.Id).ToList();
-        if (factories.Count > 0)
-            bars.Add(new Bar("Assembly point", "Assembly point (B): click where new machines gather", game.BeginAssemblyPoint));
-        if (selected.Count > 0)
+        if (machines.Count > 0)
         {
-            var all = selected.Select(a => a.Id).ToList();
-            var countdown = selected.Select(a => a.SelfDestructAt).FirstOrDefault(t => t is not null);
-            if (countdown is { } at)
-            {
-                bars.Add(new Bar($"Destruct {Math.Max(0, at - world.Time):F0}", "Cancel the self-destruct", () => game.Issue(new StopCommand(Game.Player, all))));
-            }
-            else
-            {
-                bars.Add(new Bar("Self-destruct", "Self-destruct in five seconds", () => game.Issue(new SelfDestructCommand(Game.Player, all))));
-            }
+            // Its lights show which initiatives the selection has (defco1 low, defco2 normal, defco3 high DefCon).
+            var (low, normal, high) = game.Initiative();
+            var initiative = (low ? 1 : 0) + (normal ? 1 : 0) + (high ? 1 : 0) > 1 ? "mixed" : low ? "high" : normal ? "medium" : "low";
+            bars.Add(new Bar($"Initiative {initiative}", $"Machine initiative: {initiative} (Tab to change)", game.CycleInitiative,
+                $"commands/defco{(low ? "1" : "")}{(normal ? "2" : "")}{(high ? "3" : "")}.bmp"));
+        }
+        // Camouflage hides a spy from the other players' machines; there are only those in a network game.
+        if (spies.Count > 0 && game.Online)
+        {
+            var hidden = spies.Count(s => s.Camouflaged);
+            bars.Add(new Bar(hidden == spies.Count ? "Uncamouflage" : "Camouflage", "Camouflage: the enemy's machines pass it over",
+                () => game.Order(new CamouflageCommand(Game.Player, spies.Select(s => s.Id).ToList())),
+                hidden == 0 ? "commands/camooff.bmp" : hidden == spies.Count ? "commands/camoon.bmp" : "commands/camomix.bmp"));
         }
         return bars;
+    }
+
+    /// <summary>
+    /// The self-destruct button: shut (selfdes1), a click slides its cover open (selfdes2 to 7, a frame every
+    /// 0.05 s) and the next starts the five-second countdown, during which it flashes (selfdes7 and 8, four times a
+    /// second) until a click calls it off.
+    /// </summary>
+    private Bar SelfDestruct(List<Actor> selected)
+    {
+        var world = game.World;
+        var all = selected.Select(a => a.Id).ToList();
+        if (selected.Select(a => a.SelfDestructAt).FirstOrDefault(t => t is not null) is { } at)
+            return new Bar($"Destruct {Math.Max(0, at - world.Time):F0}", $"Self-destruct in {Math.Max(0, at - world.Time):F0} s: click to call it off",
+                () => game.Order(new StopCommand(Game.Player, all)), (int)(Now * 4) % 2 == 1 ? "commands/selfdes8.bmp" : "commands/selfdes7.bmp");
+        if (_coverOpenedAt is not { } opened)
+            return new Bar("Self-destruct", "Self-destruct: click to open the cover", () => _coverOpenedAt = Now, "commands/selfdes1.bmp");
+        var frame = Math.Min(6, 1 + (int)((Now - opened) / 0.05));
+        return new Bar("Self-destruct", "Self-destruct: click again to blow up in five seconds",
+            () => game.Order(new SelfDestructCommand(Game.Player, all)), $"commands/selfdes{frame + 1}.bmp");
     }
 
     /// <summary>The build menu of constructors, the production of a factory or the research of a lab.</summary>
@@ -233,6 +334,11 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     {
         if (game.Watching)
             return;
+        if (_squadrons != SquadronMode.None)
+        {
+            AddSquadronBank(y);
+            return;
+        }
         var world = game.World;
         var selected = game.Selection.Select(world.Find).OfType<Actor>().Where(a => a.Race == Game.Player).ToList();
         var icons = new List<(string Bitmap, string Short, string Prompt, Action Act)>();
@@ -274,15 +380,142 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                     }, "Researching", index => game.Issue(new CancelResearchCommand(Game.Player, building.Id, index)));
             }
         }
-        var columns = 3;
-        var maxRows = Math.Max(0, ((int)(Size.Y / _scale) - 30 - y) / ButtonWidth);
-        for (var i = 0; i < icons.Count && i / columns < maxRows; i++)
+        var menu = _buildMenu ? "build" : string.Join(',', selected.Select(a => a.Id));
+        if (menu != _iconMenu)
         {
-            var icon = icons[i];
-            _widgets.Add(new Widget(R(14 + i % columns * ButtonWidth, y + i / columns * ButtonWidth, ButtonWidth, ButtonWidth),
+            _iconMenu = menu;
+            _scrolled = 0;
+        }
+        _iconArea = null;
+        if (icons.Count == 0)
+            return;
+
+        // As the original's MachGuiScrollArea: the icons three to a row in the panel's height, between two bars of
+        // scroll buttons, to the first and last row on the left and a row up or down on the right; a button lights
+        // up while it can scroll. The mouse wheel scrolls a row too.
+        const int columns = 3;
+        var rows = Math.Max(1, ((int)(Size.Y / _scale) - 30 - y) / ButtonWidth);
+        var visible = rows * columns;
+        var last = Math.Max(0, (icons.Count + columns - 1) / columns * columns - visible);
+        _scrolled = Math.Clamp(_scrolled, 0, last);
+        var (back, forward) = (_scrolled > 0, _scrolled < last);
+        for (var i = 0; i < visible && _scrolled + i < icons.Count; i++)
+        {
+            var icon = icons[_scrolled + i];
+            _widgets.Add(new Widget(R(ScrollBarWidth + 1 + i % columns * ButtonWidth, y + i / columns * ButtonWidth, ButtonWidth, ButtonWidth),
                 rect => DrawIcon(rect, icon.Bitmap, icon.Short), icon.Act, icon.Prompt));
         }
+        _iconArea = R(1, y, 2 * ScrollBarWidth + columns * ButtonWidth, rows * ButtonWidth);
+
+        var height = Math.Min(ScrollButtonHeight, rows * ButtonWidth / 2);
+        var right = ScrollBarWidth + 1 + columns * ButtonWidth;
+        void ScrollButton(int x, int top, string bitmap, bool lit, string prompt, Action act) =>
+            _widgets.Add(new Widget(R(x, top, ScrollBarWidth, height), rect => DrawBitmap(rect, $"corral/{bitmap}{(lit ? "H" : "")}.bmp", bitmap[^1] == '2' ? "⇈" : "↑"),
+                lit ? act : null, lit ? prompt : null));
+        ScrollButton(1, y, "scrlup2", back, "First row", () => _scrolled = 0);
+        ScrollButton(1, y + height, "scrldn2", forward, "Last row", () => _scrolled = last);
+        ScrollButton(right, y, "scrlup", back, "Scroll up", () => ScrollIcons(-1));
+        ScrollButton(right, y + height, "scrldn", forward, "Scroll down", () => ScrollIcons(1));
     }
+
+    /// <summary>
+    /// The squadron bank as the original laid it out (MachGuiSquadronBank): squadrons 1 to 9 and then 0 in two
+    /// columns of five, each its number with the count of its members, and beside it the picture of its commander
+    /// (an administrator among them), the static of a squadron without one, or black for an empty one. A click picks
+    /// the squadron, or, forming one, makes the selection that squadron.
+    /// </summary>
+    private void AddSquadronBank(int y)
+    {
+        const int number = 29, admin = 40, height = 40, spacer = 22;
+        var left = (PanelWidth - 2 * (number + admin) - spacer) / 2;
+        var world = game.World;
+        var forming = _squadrons == SquadronMode.Form;
+        for (var slot = 0; slot < 10; slot++)
+        {
+            var squad = (slot + 1) % 10;
+            var members = world.Machines.Where(m => m.Race == Game.Player && m.Squad == squad).ToList();
+            var commander = members.FirstOrDefault(m => m.IsType("ADMINISTRATOR"));
+            var x = left + slot / 5 * (number + admin + spacer);
+            var top = y + slot % 5 * (height - 1);
+            _widgets.Add(new Widget(R(x, top, number + admin, height), rect => DrawSquadron(rect, squad, members.Count, commander),
+                () =>
+                {
+                    if (forming)
+                    {
+                        game.FormSquadron(squad);
+                        _squadrons = SquadronMode.None;
+                    }
+                    else
+                        game.SelectSquadron(squad);
+                },
+                (forming ? $"Form squadron {squad} from the selection" : $"Squadron {squad}: select it")
+                + $" ({members.Count} machines{(commander is null ? "" : ", led by its administrator")})"));
+        }
+    }
+
+    private void DrawSquadron(Rect2 rect, int squad, int members, Machine? commander)
+    {
+        var numberRect = new Rect2(rect.Position, new Vector2(29, 40) * _scale);
+        DrawBitmap(numberRect, $"misc/squad{squad}.bmp", squad.ToString());
+        // The count, right-aligned at the foot of the number (numsqd0 to numsqd9).
+        var at = numberRect.End - new Vector2(4, 4 + 9) * _scale;
+        foreach (var digit in members.ToString().Reverse())
+        {
+            if (ClassicGui.Bitmap($"misc/numsqd{digit}.bmp") is not { } picture)
+            {
+                DrawText(at - new Vector2(6 * _scale, 0), digit.ToString(), Colors.White);
+                at.X -= 6 * _scale;
+                continue;
+            }
+            at.X -= picture.GetWidth() * _scale;
+            DrawTextureRect(picture, new Rect2(at, picture.GetSize() * _scale), false);
+        }
+        var adminRect = new Rect2(rect.Position + new Vector2(29, 0) * _scale, new Vector2(40, 40) * _scale);
+        DrawRect(adminRect, Colors.Black);
+        if (members == 0)
+            return;
+        var inner = new Rect2(adminRect.Position + Vector2.One * _scale, adminRect.Size - Vector2.One * 2 * _scale);
+        if (commander is not null)
+            DrawBitmap(inner, MachineBitmap(commander.Key, Game.Look(commander.Race)), "Adm");
+        // No commander: the screen shows static, a new frame each time (nosquad1 to nosquad5).
+        else if (ClassicGui.Bitmap($"misc/nosquad{Random.Shared.Next(1, 6)}.bmp") is { } noise)
+            DrawTextureRect(noise, inner, false);
+    }
+
+    // The icon menu shown (the build menu, or the selected factory's or lab's) and how many of its icons are
+    // scrolled past, a row of three at a time; where it lies on screen, for the mouse wheel.
+    private string _iconMenu = "";
+    private int _scrolled;
+    private Rect2? _iconArea;
+
+    /// <summary>The original's scroll bars: 17 pixels wide, each button 50 high (MachGuiScrollButton).</summary>
+    private const int ScrollBarWidth = 17, ScrollButtonHeight = 50;
+
+    /// <summary>Opens the self-destruct button's cover (for automated checks).</summary>
+    public void OpenSelfDestructCover()
+    {
+        Refresh();
+        _coverOpenedAt = Now;
+    }
+
+    /// <summary>Opens the squadron bank, to pick squadrons or (with <paramref name="forming"/>) to form one (for automated checks).</summary>
+    public void OpenSquadrons(bool forming)
+    {
+        Refresh();
+        _squadrons = forming ? SquadronMode.Form : SquadronMode.Select;
+    }
+
+    /// <summary>Opens the constructors' build menu, scrolled down by <paramref name="rows"/> (for automated checks).</summary>
+    public void OpenBuildMenu(int rows)
+    {
+        Refresh();
+        _buildMenu = true;
+        _iconMenu = "build";
+        _scrolled = rows * 3;
+    }
+
+    /// <summary>Scrolls the icon menu by rows (the end is held at the last full row by the next layout).</summary>
+    private void ScrollIcons(int rows) => _scrolled = Math.Max(0, _scrolled + rows * 3);
 
     /// <summary>
     /// A factory's or lab's whole queue (MachGuiProductionBank), three to a row: the first in work with its
@@ -328,7 +561,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     }
 
     private static readonly Color Panel = new(0.11f, 0.12f, 0.14f, 0.96f), Edge = new(0.32f, 0.35f, 0.4f),
-        Button = new(0.2f, 0.22f, 0.26f), ButtonEdge = new(0.42f, 0.46f, 0.52f), Accent = new(0.95f, 0.75f, 0.25f);
+        Button = new(0.2f, 0.22f, 0.26f), ButtonEdge = new(0.42f, 0.46f, 0.52f), Accent = new(0.95f, 0.75f, 0.25f),
+        DarkGrey = new(0.3f, 0.3f, 0.3f);
 
     private static Font Font => ThemeDB.FallbackFont;
 
@@ -349,13 +583,19 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         if (beacon)
         {
             var ore = ClassicGui.Bitmap("map/ore.bmp");
-            foreach (var site in world.Sites.Where(s => s.DiscoveredBy.Contains(Game.Player)))
+            // Every found deposit, whoever found it, as the original's map showed every ore hologram.
+            foreach (var site in world.Sites.Where(s => s.DiscoveredBy.Count > 0 && s.Ore > 0))
                 DrawPixel(ToMap(site.Position), ore, new Color(1, 0.9f, 0.2f));
+            var debris = ClassicGui.Bitmap("map/debris.bmp");
+            foreach (var wreck in world.Debris)
+                DrawPixel(ToMap(wreck.Position), debris, new Color(0.5f, 0.5f, 0.5f));
             foreach (var actor in world.Actors.Where(a => a is not Machine { Inside: not null }))
             {
-                var letter = RaceFolder(actor.Race)[0];
+                // A camouflaged spy shows in the colours of whoever looks at the map (MachContinentMap's CAMOUFLAGEDMACHINE).
+                var shownRace = actor is Machine { Camouflaged: true } ? Game.Player : actor.Race;
+                var letter = RaceFolder(shownRace)[0];
                 var kind = actor is Machine ? "machpix" : actor is Construction c && c.IsType("POD") ? "podpix" : "conspix";
-                DrawPixel(ToMap(actor.Position), ClassicGui.Bitmap($"map/{letter}{kind}.bmp"), ClassicAssets.RaceColour(Game.Look(actor.Race)));
+                DrawPixel(ToMap(actor.Position), ClassicGui.Bitmap($"map/{letter}{kind}.bmp"), ClassicAssets.RaceColour(Game.Look(shownRace)));
             }
             // Below a level 3 beacon the map shows only what the player's machines have uncovered.
             if (game.Fog is { } fog && fog.Beacon < 3)
@@ -398,15 +638,34 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         DrawText(rect.Position + new Vector2(2, 2) * _scale, fallback, Colors.White);
     }
 
+    /// <summary>
+    /// A command button as MachCommandIcon draws it: a black frame round a dark grey bevel round the bitmap, which
+    /// sinks a pixel while the button is held. Without a game copy it shows its name instead.
+    /// </summary>
     private void DrawBar(Rect2 rect, Bar bar)
     {
-        DrawRect(rect, Button);
-        // A charging strike weapon fills its bar from the left as it charges.
-        if (bar.Charged is { } share && share < 1)
-            DrawRect(new Rect2(rect.Position, new Vector2(rect.Size.X * share, rect.Size.Y)), new Color(0.55f, 0.25f, 0.15f));
-        DrawRect(rect, ButtonEdge, filled: false, width: Mathf.Max(1, _scale / 2));
+        DrawRect(rect, Colors.Black);
+        DrawRect(rect.Grow(-_scale), DarkGrey);
+        var held = _hovered?.Rect == rect && Input.IsMouseButtonPressed(MouseButton.Left);
+        var inner = new Rect2(rect.Position + Vector2.One * (held ? 3 : 2) * _scale, new Vector2(BarWidth - 4, BarHeight - 4) * _scale);
+        var share = Mathf.Clamp(bar.Charged ?? 1, 0, 1);
+        if (ClassicGui.Bitmap(bar.Icon) is { } icon)
+        {
+            DrawTextureRect(icon, inner, false);
+            // A strike weapon's charged share shows its lit bitmap, with a black line where the charge has got to.
+            if (bar.Overlay is { } overlay && ClassicGui.Bitmap(overlay) is { } lit)
+            {
+                var width = inner.Size.X * share;
+                DrawTextureRectRegion(lit, new Rect2(inner.Position, new Vector2(width, inner.Size.Y)), new Rect2(0, 0, lit.GetWidth() * share, lit.GetHeight()));
+                DrawRect(new Rect2(inner.Position.X + width, inner.Position.Y, _scale, inner.Size.Y), Colors.Black);
+            }
+            return;
+        }
+        DrawRect(inner, Button);
+        if (bar.Charged is not null && share < 1)
+            DrawRect(new Rect2(inner.Position, new Vector2(inner.Size.X * share, inner.Size.Y)), new Color(0.55f, 0.25f, 0.15f));
         var size = Font.GetStringSize(bar.Label, HorizontalAlignment.Left, -1, FontSize);
-        DrawText(rect.Position + new Vector2((rect.Size.X - size.X) / 2, (rect.Size.Y - 9 * _scale) / 2 + _scale), bar.Label, Colors.White);
+        DrawText(inner.Position + new Vector2((inner.Size.X - size.X) / 2, (inner.Size.Y - 9 * _scale) / 2 + _scale), bar.Label, Colors.White);
     }
 
     private void DrawIcon(Rect2 rect, string path, string fallback, float? progress = null)
@@ -485,7 +744,12 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                 break;
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Right } right:
                 if (InMap(right.Position) is { } target && game.SelectedMachines().Where(m => m.Race == Game.Player).Select(m => m.Id).ToList() is { Count: > 0 } ids)
-                    game.Issue(new MoveCommand(Game.Player, ids, target));
+                    game.Order(new MoveCommand(Game.Player, ids, target));
+                AcceptEvent();
+                break;
+            case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelUp or MouseButton.WheelDown } wheel
+                when _iconArea is { } area && area.HasPoint(wheel.Position):
+                ScrollIcons(wheel.ButtonIndex == MouseButton.WheelUp ? -1 : 1);
                 AcceptEvent();
                 break;
         }
@@ -527,6 +791,50 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
 
     // ---- names ----------------------------------------------------------------------------------
 
+    /// <summary>
+    /// The prompt line for what the mouse points at in the world (MachInGameScreen::displayActorPromptText): its
+    /// name, and for your own its weapons, hit and armour points, a carrier's load, a mine's ore left in its
+    /// deposit and mined so far, and how far a building site has come.
+    /// </summary>
+    public string PromptFor(Actor actor)
+    {
+        var name = actor switch
+        {
+            Machine m when m.Race == Game.Player => KeyName(m.Key),
+            Machine m => $"{TypeName(m.Spec.Type, m.Spec.SubType)} L{m.Stats.HardwareLevel}",
+            Construction c => $"{TypeName(c.Spec.Type, c.Spec.SubType)} L{c.Stats.HardwareLevel}",
+            _ => "",
+        };
+        if (actor.Race != Game.Player)
+            return name;
+        var parts = new List<string> { name };
+        if (actor is not Construction { Complete: false })
+            parts.Add($"HP {actor.HitPoints}  AP {actor.Armour}");
+        switch (actor)
+        {
+            case Machine { Spec.Type: "RESOURCE_CARRIER", IsScavenger: false } carrier:
+                parts.Add($"Ore {carrier.Ore}/{carrier.Stats.Capacity}");
+                break;
+            case Construction building:
+                if (building.IsType("MINE"))
+                {
+                    parts.Add($"deposit {DepositOre(building):F0} BMU");
+                    if (building.Complete)
+                        parts.Add($"mined {building.Ore:F0}");
+                }
+                if (!building.Complete)
+                    parts.Add($"constructed {100 * building.Built / Math.Max(1, building.Stats.Cost):F0}%");
+                break;
+        }
+        return string.Join("   ", parts);
+    }
+
+    /// <summary>The prompt line over a found deposit's ore hologram: the BMUs of ore still in it.</summary>
+    public static string DepositPrompt(MineralSiteState site) => $"Mineral Deposit   {site.Ore:F0} BMU";
+
+    /// <summary>The ore left in a mine's deposit (none once it has run dry or when it has no site).</summary>
+    private float DepositOre(Construction mine) => mine.MineralSite is { } id ? game.World.Sites[id].Ore : 0;
+
     private string Describe(Actor actor) => actor switch
     {
         Machine m => $"{KeyName(m.Key)}: {m.HitPoints}/{m.MaxHitPoints} HP, armour {m.Armour}/{m.MaxArmour}",
@@ -544,17 +852,25 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                 lines.Add($"{TypeName(m.Spec.Type, m.Spec.SubType)} L{m.Stats.HardwareLevel}");
                 if (m.Weapons.Count > 0)
                     lines.Add(string.Join(", ", m.Weapons.Select(w => Title(w.Spec.TypeName)).Distinct()));
-                if (m.Spec.Type == "RESOURCE_CARRIER")
+                if (m.Spec.Type == "RESOURCE_CARRIER" && !m.IsScavenger)
                     lines.Add($"Ore {m.Ore}/{m.Stats.Capacity}");
                 if (m.IsType("APC"))
                     lines.Add($"Carrying {world.CarriedVolume(m)}/{m.Stats.Capacity}");
+                if (m.IsSpy)
+                    lines.Add($"Mines {m.Mines}/{m.Stats.MineCapacity ?? 0}");
+                if (m.Squad is { } squad && m.Race == Game.Player)
+                    lines.Add($"Squadron {squad}");
                 break;
             case Construction c:
                 lines.Add($"{TypeName(c.Spec.Type, c.Spec.SubType)} L{c.Stats.HardwareLevel}");
                 if (!c.Complete)
                     lines.Add($"Built {c.Built:F0}/{c.Stats.Cost}");
                 if (c.IsType("MINE"))
+                {
                     lines.Add($"Ore {c.Ore:F0}/{c.Stats.Capacity}");
+                    // The deposit's ore left, as the original's single icon showed it (MachGuiCorralSingleIcon).
+                    lines.Add($"Deposit {DepositOre(c):F0} BMU");
+                }
                 if (c.IsType("GARRISON"))
                     lines.Add($"Inside {c.Garrisoned.Count}/{GameWorld.GarrisonStations(c)}");
                 if (c.IsType("HARDWARE_LAB"))

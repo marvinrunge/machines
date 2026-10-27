@@ -148,6 +148,7 @@ public partial class MultiplayerPanel : PanelContainer
                     return;
                 case Chat chat:
                     _status.Text = $"{chat.From}: {chat.Text}";
+                    MenuSounds.Chat();
                     break;
             }
         }

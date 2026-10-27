@@ -96,6 +96,7 @@
 #include "machphys/bolter.hpp"
 #include "machphys/helix.hpp"
 #include "machphys/private/otherper.hpp"
+#include "machphys/lmine.hpp"
 #include "machphys/radidisc.hpp"
 #include "machphys/electro.hpp"
 #include "machphys/halo.hpp"
@@ -1196,6 +1197,7 @@ bool ExportApp::clientStartup()
         "helix1", "helix2", "healcross", "healaura", "disc", "lightning", "lightbox",
         "loadunder", "loadover", "loadlight", "fire",
         "ionbeam", "ionflare", "ionouter", "ionwave", "nukewave", "mushtop", "mushshaft", "vsphere", "bsphere", "wsphere",
+        "lmine",
     };
     mkdir((out + "/fx").c_str());
     for (size_t e = 0; e < sizeof(effects) / sizeof(effects[0]); ++e)
@@ -1263,6 +1265,9 @@ bool ExportApp::clientStartup()
         else if (name == "vsphere") effect = _NEW(MachPhysVortexSphere(root, at));
         else if (name == "bsphere") effect = _NEW(MachPhysBlackSphere(root, at));
         else if (name == "wsphere") effect = _NEW(MachPhysWhiteSphere(root, at));
+        // A spy's land mine (MachPhysLandMine, models/weapons/lmine/lmine.lod in models.bin).
+        else if (name == "lmine")
+            effect = _NEW(MachPhysLandMine(root, W4dTransform3d(), MachPhys::RED));
         const W4dEntity* part = link != NULL ? link : effect;
         if (name == "punchcrack" or name == "punchfire" or name == "beecrack" or name == "beefire")
         {

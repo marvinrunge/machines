@@ -69,7 +69,10 @@ public sealed partial class GameWorld
 
             case LocateCommand locate:
                 foreach (var locator in Own<Machine>(locate.Race, locate.Locators).Where(m => m.Spec.Type == "GEO_LOCATOR"))
-                    Send(locator, new LocateOrder(locate.Target), locate.Target);
+                {
+                    var sites = SitesOnTheWay(locator, locate.Target);
+                    Send(locator, new LocateOrder(locate.Target, sites), sites.Count > 0 ? Sites[sites[0]].Position : locate.Target);
+                }
                 return null;
 
             case TransportCommand transport:
@@ -80,8 +83,10 @@ public sealed partial class GameWorld
                     return "that is not one of your mines";
                 if (smelter is null || smelter.Race != transport.Race || smelter.Spec.Type is not ("SMELTER" or "POD"))
                     return "ore can only go to your smelter or pod";
-                foreach (var carrier in Own<Machine>(transport.Race, transport.Carriers).Where(m => m.Spec.Type == "RESOURCE_CARRIER"))
-                    Send(carrier, new TransportOrder(mine.Id, smelter.Id), mine.Position);
+                // Scavengers gather wreckage, not ore (MachLogResourceCarrier::isNormalResourceCarrier).
+                foreach (var carrier in Own<Machine>(transport.Race, transport.Carriers).Where(m => m.Spec.Type == "RESOURCE_CARRIER" && !m.IsScavenger))
+                    // A carrier with ore on board drops it first (MachLogResourceCarrier::START_WITH_PUTDOWN).
+                    Send(carrier, new TransportOrder(mine.Id, smelter.Id, Delivering: carrier.Ore > 0), carrier.Ore > 0 ? smelter.Position : mine.Position);
                 return null;
             }
 
@@ -166,6 +171,68 @@ public sealed partial class GameWorld
             case RecycleCommand recycle:
                 return Recycle(recycle);
 
+            case StandGroundCommand stand:
+                foreach (var machine in Own<Machine>(stand.Race, stand.Machines))
+                    Send(machine, new StandGroundOrder(), null);
+                return null;
+
+            case DefConCommand defCon:
+                foreach (var machine in Own<Machine>(defCon.Race, defCon.Machines))
+                    machine.DefCon = defCon.DefCon;
+                return null;
+
+            case DropLandMinesCommand drop:
+            {
+                if (drop.Points.Count == 0)
+                    return "no place for the mines";
+                var spies = Own<Machine>(drop.Race, drop.Spies).Where(m => m.IsSpy && m.Mines > 0).ToList();
+                if (spies.Count == 0)
+                    return "no spy with mines selected";
+                foreach (var spy in spies)
+                    Send(spy, new DropMinesOrder(drop.Points), drop.Points[0]);
+                return null;
+            }
+
+            case RefillLandMinesCommand refill:
+                foreach (var spy in Own<Machine>(refill.Race, refill.Spies).Where(m => m.IsSpy))
+                {
+                    var garrison = Constructions.Where(c => c.Race == refill.Race && c.Complete && c.IsType("GARRISON"))
+                        .MinBy(c => Vector2.DistanceSquared(c.Position, spy.Position));
+                    if (garrison is null)
+                        return "no garrison to fetch mines from";
+                    Send(spy, new RefillMinesOrder(garrison.Id, spy.Position), ClosestPointOutside(garrison, spy.Position));
+                }
+                return null;
+
+            case CamouflageCommand camouflage:
+                foreach (var spy in Own<Machine>(camouflage.Race, camouflage.Spies).Where(m => m.IsSpy))
+                    spy.Camouflaged = !spy.Camouflaged;
+                return null;
+
+            case FormSquadronCommand form:
+            {
+                if (form.Squad is < 0 or > 9)
+                    return "squadrons are numbered 0 to 9";
+                foreach (var member in Machines.Where(m => m.Race == form.Race && m.Squad == form.Squad))
+                    member.Squad = null;
+                foreach (var machine in Own<Machine>(form.Race, form.Machines))
+                    machine.Squad = form.Squad;
+                return null;
+            }
+
+            case ScavengeCommand scavenge:
+            {
+                var wrecks = scavenge.Debris.Where(id => FindDebris(id) is not null).Distinct().ToList();
+                if (wrecks.Count == 0)
+                    return "no wreckage there";
+                var scavengers = Own<Machine>(scavenge.Race, scavenge.Scavengers).Where(m => m.IsScavenger).ToList();
+                if (scavengers.Count == 0)
+                    return "only scavengers gather wreckage";
+                foreach (var scavenger in scavengers)
+                    Send(scavenger, new ScavengeOrder(wrecks), FindDebris(wrecks[0])!.Position);
+                return null;
+            }
+
             case EnterGarrisonCommand garrison:
             {
                 // machine.cpp: a machine fits through a building's door when its access size allows it.
@@ -186,10 +253,12 @@ public sealed partial class GameWorld
                     DriveInput.Remove(driven.Id);
                     PlayerAims.Remove(driven.Id);
                     PlayerWeapons.Remove(driven.Id);
+                    PlayerHeads.Remove(driven.Id);
                     return null;
                 }
                 DriveInput[driven.Id] = (Math.Clamp(drive.Forward, -1, 1), Math.Clamp(drive.Turn, -1, 1));
                 PlayerWeapons[driven.Id] = drive.Weapons;
+                PlayerHeads[driven.Id] = drive.Head;
                 if (drive.Aim is { } aim)
                     PlayerAims[driven.Id] = aim;
                 else
@@ -247,6 +316,7 @@ public sealed partial class GameWorld
         LeaveGarrison(machine);
         machine.Doorway = null;
         machine.Order = order;
+        machine.OrderedAt = Time;
         machine.Path.Clear();
         machine.PathIndex = 0;
         if (destination is { } goal)
@@ -306,10 +376,10 @@ public sealed partial class GameWorld
 
         if (type == "MINE")
         {
-            var site = Sites.Where(s => s.DiscoveredBy.Contains(race) && s.Mine is null)
-                .FirstOrDefault(s => Vector2.DistanceSquared(s.Position, position) <= (probe.Stats.MineralDistance ?? 900));
-            if (site is null)
-                return "mine not on a found mineral site";
+            // Anywhere within MINERAL_DISTANCE of a found site with ore left, whoever found it, mined or not
+            // (MachLogMine::validMineSite).
+            if (!Sites.Any(s => InMineReach(s, position, MineSiteReachSquared(probe))))
+                return "mine too far from a found mineral site";
             if (Constructions.Any(c => c.Spec.Type is "SMELTER" or "POD" && TooClose(c, position)))
                 return "mine too close to a smelter or pod";
         }

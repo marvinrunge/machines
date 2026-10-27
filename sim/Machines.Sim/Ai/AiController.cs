@@ -59,7 +59,7 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
             }
         }
 
-        Transport(world, mine.Where(m => m.Spec.Type == "RESOURCE_CARRIER").ToList());
+        Transport(world, mine.Where(m => m.Spec.Type == "RESOURCE_CARRIER" && !m.IsScavenger).ToList());
     }
 
     // ---- squads and production ------------------------------------------------------------------
@@ -342,7 +342,10 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
         _nextSiteCheck = world.Time + 15;
         var bmu = world.Races[Race].Bmu;
         var buildable = world.Buildable(Race);
-        foreach (var site in world.Sites.Where(s => s.DiscoveredBy.Contains(Race) && s.Ore > 100 && s.Mine is null))
+        // Sites it found itself, without a mine of its own yet (MachLogAIController::hasMineOnSite); a site taken by
+        // someone else's mine is only skipped when that mine stands in the way.
+        foreach (var site in world.Sites.Where(s => s.DiscoveredBy.Contains(Race) && s.Ore > 100
+                     && !world.Constructions.Any(c => c.Race == Race && c.MineralSite == s.Id)))
         {
             if (plans.Any(p => p.Type == "MINE" && Vector2.Distance(p.Sites[0].Position, site.Position) < 1))
                 continue;

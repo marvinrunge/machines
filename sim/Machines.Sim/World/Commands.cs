@@ -64,15 +64,41 @@ public sealed record DeployCommand(Race Race, IReadOnlyList<int> Apcs, Vector2 T
 /// <summary>Blow up machines or buildings after the original's 5 seconds; a stop command calls it off.</summary>
 public sealed record SelfDestructCommand(Race Race, IReadOnlyList<int> Actors) : Command(Race);
 
+/// <summary>Machines hold their ground: they shoot from where they stand and never move to (MachGuiStandGroundCommand).</summary>
+public sealed record StandGroundCommand(Race Race, IReadOnlyList<int> Machines) : Command(Race);
+
+/// <summary>Sets the machines' initiative (MachGuiDefconCommand).</summary>
+public sealed record DefConCommand(Race Race, IReadOnlyList<int> Machines, DefCon DefCon) : Command(Race);
+
+/// <summary>Spy locators lay land mines at the points, one at each, in turn (MachGuiDropLandMineCommand).</summary>
+public sealed record DropLandMinesCommand(Race Race, IReadOnlyList<int> Spies, IReadOnlyList<Vector2> Points) : Command(Race);
+
+/// <summary>Spy locators fetch new mines from the nearest own garrison (MachGuiRefillLandMineCommand).</summary>
+public sealed record RefillLandMinesCommand(Race Race, IReadOnlyList<int> Spies) : Command(Race);
+
+/// <summary>Spy locators put their camouflage on or take it off (MachGuiCamouflageCommand; network games).</summary>
+public sealed record CamouflageCommand(Race Race, IReadOnlyList<int> Spies) : Command(Race);
+
+/// <summary>
+/// The machines become squadron <paramref name="Squad"/> (0 to 9), whose members it had are let go
+/// (MachGuiSquadronBank::createSquad).
+/// </summary>
+public sealed record FormSquadronCommand(Race Race, IReadOnlyList<int> Machines, int Squad) : Command(Race);
+
+/// <summary>Scavengers gather the given wrecks, one after another (MachGuiScavengeCommand).</summary>
+public sealed record ScavengeCommand(Race Race, IReadOnlyList<int> Scavengers, IReadOnlyList<int> Debris) : Command(Race);
+
 /// <summary>
 /// First-person control of one machine, sent every tick while a player drives it: forward and turn input
 /// (−1 to 1) and the enemy under the crosshair to fire at. <paramref name="Driving"/> false hands it back.
 /// </summary>
 /// <summary>
-/// First-person driving: speed and turn, while the trigger is held the point the weapons fire at, and which of
-/// the machine's weapons are selected to fire (a bit for each, in mounting order; Tab in the original).
+/// First-person driving: speed and turn, while the trigger is held the point the weapons fire at, which of the
+/// machine's weapons are selected to fire (a bit for each, in mounting order; Tab in the original), and where its
+/// upper body is turned, radians anticlockwise from the hull (for the other players to see; the simulation does
+/// not read it).
 /// </summary>
-public sealed record DriveCommand(Race Race, int Machine, bool Driving, float Forward = 0, float Turn = 0, Vector2? Aim = null, int Weapons = -1) : Command(Race);
+public sealed record DriveCommand(Race Race, int Machine, bool Driving, float Forward = 0, float Turn = 0, Vector2? Aim = null, int Weapons = -1, float Head = 0) : Command(Race);
 
 /// <summary>Why a command was refused, for the client to show.</summary>
 public sealed record CommandRejected(Command Command, string Reason);

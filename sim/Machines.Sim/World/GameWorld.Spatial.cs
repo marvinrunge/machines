@@ -46,8 +46,13 @@ public sealed partial class GameWorld
     private (int X, int Y) SpatialCellOf(Vector2 p) =>
         (Math.Clamp((int)(p.X / SpatialCell), 0, _spatialX - 1), Math.Clamp((int)(p.Y / SpatialCell), 0, _spatialY - 1));
 
-    /// <summary>The closest enemy within range, preferring armed machines; ties go to the lower id.</summary>
-    public Actor? NearestEnemy(Actor from, float range)
+    /// <summary>
+    /// The closest enemy within range, preferring armed machines; ties go to the lower id. With
+    /// <paramref name="clearShot"/> only one the ground does not hide (MachLogCanAttack::canTurnToAttackAndNoCover), and
+    /// only one <paramref name="accept"/> takes. A camouflaged spy is passed over unless <paramref name="seeCamouflage"/>
+    /// (MachLogRaces::findTargetClosestTo's clause for spies).
+    /// </summary>
+    public Actor? NearestEnemy(Actor from, float range, bool clearShot = false, Func<Actor, bool>? accept = null, bool seeCamouflage = false)
     {
         if (_spatial.Length == 0)
             IndexActors();
@@ -63,13 +68,14 @@ public sealed partial class GameWorld
             {
                 foreach (var actor in _spatial[y * _spatialX + x])
                 {
-                    if (actor.IsDead || !AreEnemies(from.Race, actor.Race) || actor is Machine { Inside: not null })
+                    if (actor.IsDead || !AreEnemies(from.Race, actor.Race) || actor is Machine { Inside: not null }
+                        || !seeCamouflage && actor is Machine { Camouflaged: true })
                         continue;
                     var distance = from.DistanceTo(actor);
                     if (distance > range)
                         continue;
                     var rank = (Unarmed: actor is Machine { CanFight: true } ? 0 : 1, Distance: distance, actor.Id);
-                    if (rank.CompareTo(bestRank) < 0)
+                    if (rank.CompareTo(bestRank) < 0 && (accept is null || accept(actor)) && (!clearShot || ClearShot(from, actor)))
                     {
                         best = actor;
                         bestRank = rank;

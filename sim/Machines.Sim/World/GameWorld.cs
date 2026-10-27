@@ -128,7 +128,9 @@ public sealed partial class GameWorld
         Timed("support", UpdateSupport);
         Timed("transport", UpdateTransport);
         Timed("combat", UpdateCombat);
+        Timed("mines", UpdateLandMines);
         Timed("dead", RemoveDead);
+        Timed("debris", BurnOutDebris);
         Timed("victory", CheckVictory);
 
         Tick++;
@@ -155,6 +157,10 @@ public sealed partial class GameWorld
     {
         var spec = Data.Parm.Machine(subType is null ? type : $"{type} {subType}");
         var machine = new Machine(_nextId++, race, position, spec, spec.Level(level), weaponCombo);
+        // The AI's machines take the initiative, players' wait for a reason (MachLogScenario: DEFCON_LOW, DEFCON_NORMAL).
+        if (Races.TryGetValue(race, out var owner) && owner.Controller == Controller.Ai)
+            machine.DefCon = DefCon.Low;
+        machine.Mines = machine.Stats.MineCapacity ?? 0;
         if (weaponCombo is not null)
         {
             foreach (var (mounting, weapon) in WeaponCombos.Split(weaponCombo))
@@ -198,15 +204,10 @@ public sealed partial class GameWorld
         _actors.Add(construction.Id, construction);
         Nav.SetBuilding(construction.Footprint, present: true);
 
+        // A placed mine digs at a found site in reach; a scenario's own mine finds the site it stands at
+        // (MachLogMine's CHECK_DISCOVERED_FLAG and IGNORE_DISCOVERED_FLAG).
         if (type == "MINE")
-        {
-            var site = Sites.Where(s => s.Mine is null).MinBy(s => Vector2.Distance(s.Position, position));
-            if (site is not null && Vector2.DistanceSquared(site.Position, position) <= MineSiteReachSquared(construction))
-            {
-                site.Mine = construction.Id;
-                construction.MineralSite = site.Id;
-            }
-        }
+            AssignMineralSite(construction, discover: complete);
         return construction;
     }
 
@@ -214,6 +215,28 @@ public sealed partial class GameWorld
 
     /// <summary>How close (squared) a mine must stand to its mineral site: <c>MINERAL_DISTANCE</c> in parmdata.</summary>
     private static float MineSiteReachSquared(Construction mine) => mine.Stats.MineralDistance ?? 900;
+
+    /// <summary>
+    /// Whether a mine may dig at a site: it has ore left, lies within the mine's MINERAL_DISTANCE and has been found,
+    /// by any race (MachLogMine::validMineSite asks hasBeenDiscovered, not by whom). Sites may be shared.
+    /// </summary>
+    private static bool InMineReach(MineralSiteState site, Vector2 mine, float reachSquared, bool foundOrNot = false) =>
+        site.Ore > 0 && (foundOrNot || site.DiscoveredBy.Count > 0) && Vector2.DistanceSquared(site.Position, mine) < reachSquared;
+
+    /// <summary>
+    /// Gives a mine the nearest site it may dig at (MachLogMine::assignToNearestMineralSite), or none; with
+    /// <paramref name="discover"/> any site will do and the mine's race finds it (discoverAndAssignToNearestMineralSite).
+    /// </summary>
+    private bool AssignMineralSite(Construction mine, bool discover = false)
+    {
+        var reach = MineSiteReachSquared(mine);
+        var site = Sites.Where(s => InMineReach(s, mine.Position, reach, foundOrNot: discover))
+            .MinBy(s => Vector2.DistanceSquared(s.Position, mine.Position));
+        mine.MineralSite = site?.Id;
+        if (site is not null && discover)
+            site.DiscoveredBy.Add(mine.Race);
+        return site is not null;
+    }
 
     // ---- races ----------------------------------------------------------------------------------
 
@@ -255,6 +278,7 @@ public sealed partial class GameWorld
         {
             _actors.Remove(actor.Id);
             Raise(new GameEvent(GameEventKind.Destroyed, actor.Id, actor.Position));
+            DropDebris(actor);
             if (actor.LastHitBy is { } killer && killer != actor.Race && Races.TryGetValue(killer, out var gaining)
                 && Races.TryGetValue(actor.Race, out var losing))
             {
@@ -267,8 +291,6 @@ public sealed partial class GameWorld
             if (actor is Construction building)
             {
                 Nav.SetBuilding(building.Footprint, present: false);
-                foreach (var site in Sites.Where(s => s.Mine == building.Id))
-                    site.Mine = null;
                 // Technicians inside a destroyed lab die with it; a garrison's machines get out.
                 foreach (var technician in building.Technicians.Select(Find<Machine>).OfType<Machine>())
                     technician.HitPoints = 0;

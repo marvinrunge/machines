@@ -84,7 +84,12 @@ public sealed partial class GameWorld
         {
             garrison.Garrisoned.RemoveAll(id => Find<Machine>(id) is null);
             foreach (var machine in garrison.Garrisoned.Select(Find<Machine>).OfType<Machine>())
+            {
                 AddHitPoints(machine, (garrison.Stats.RepairRate ?? 0) / 60f * Dt);
+                // A spy of its own gets a full load of land mines (MachLogGarrison::update).
+                if (machine.IsSpy && machine.Race == garrison.Race)
+                    machine.Mines = machine.Stats.MineCapacity ?? 0;
+            }
         }
     }
 
@@ -106,7 +111,9 @@ public sealed partial class GameWorld
         }
         healer.Path.Clear();
         healer.PathIndex = 0;
-        Face(healer, target.Position);
+        // As in an attack, a healer that turns its upper body aims with that (MachLogHealOperation).
+        if (!healer.CanTurnUpperBody)
+            Face(healer, target.Position);
         // MachLogSuperCharger: DAMAGE hit points per second while the beam holds.
         AddHitPoints(target, charger.Spec.Damage * Dt);
     }

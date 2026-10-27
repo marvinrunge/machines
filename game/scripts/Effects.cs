@@ -537,19 +537,6 @@ public partial class Effects : Node3D
 
     private static readonly Texture2D Square = Generate(8, (_, _) => Colors.White);
 
-    /// <summary>A thin bright ring with soft edges, for selection marks on the ground.</summary>
-    public static readonly Texture2D Ring = Generate(128, (x, y) => new Color(1, 1, 1, RingShare(x, y)));
-
-    /// <summary>The ring's glow: light where the ring is, black around it (emission ignores alpha).</summary>
-    public static readonly Texture2D RingGlow = Generate(128, (x, y) =>
-    {
-        var share = RingShare(x, y);
-        return new Color(share, share, share);
-    });
-
-    private static float RingShare(float x, float y) =>
-        Mathf.Clamp(1.4f - Mathf.Abs(new Vector2(x, y).Length() - 0.85f) / 0.1f, 0, 1);
-
     /// <summary>A burn mark: dark in the middle, ragged at the edge.</summary>
     private static readonly Texture2D Burn = Generate(128, (x, y) =>
     {

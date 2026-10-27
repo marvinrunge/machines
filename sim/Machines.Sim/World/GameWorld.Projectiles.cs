@@ -6,10 +6,23 @@ namespace Machines.Sim.World;
 
 /// <summary>
 /// A round in flight (MachLogLinearProjectile): it flies straight at its weapon's SPEED from where it was fired
-/// and strikes the first enemy in its way, or is spent once it has flown its weapon's RANGE.
+/// and strikes the first enemy in its way, the ground where a hill rises into its path, or is spent once it has
+/// flown its weapon's RANGE.
 /// </summary>
-public sealed class Projectile(int id, WeaponSpec weapon, int shooter, Race race, Vector2 start, Vector2 direction, Mounting mounting = Mounting.Top, int barrel = 0, Vector2? aim = null)
+public sealed class Projectile(int id, WeaponSpec weapon, int shooter, Race race, Vector2 start, Vector2 direction, Mounting mounting = Mounting.Top, int barrel = 0, Vector2? aim = null,
+    float startHeight = 0, float aimHeight = 0)
 {
+    /// <summary>Its height where it was fired and over the point it was fired at; between and beyond, a straight line.</summary>
+    public float StartHeight { get; } = startHeight;
+    public float AimHeight { get; } = aimHeight;
+
+    /// <summary>Its height over a point <paramref name="travelled"/> metres along its way.</summary>
+    public float HeightAfter(float travelled)
+    {
+        var toAim = Vector2.Distance(Start, Aim);
+        return toAim < 0.01f ? StartHeight : StartHeight + (AimHeight - StartHeight) * travelled / toAim;
+    }
+
     public int Id { get; } = id;
     public WeaponSpec Weapon { get; } = weapon;
     public int Shooter { get; } = shooter;
@@ -48,15 +61,18 @@ public sealed partial class GameWorld
         !Blast.IsArea(weapon.TypeName) && !weapon.TypeName.StartsWith("SUPERCHARGE", StringComparison.Ordinal)
         && weapon.ProjectileSpeed is > 20 and < 500 && weapon.Range > 20;
 
-    /// <summary>Sends a round from the shooter towards a point; it flies on past it until its range is spent.</summary>
-    private void Launch(Actor shooter, WeaponMount weapon, Vector2 towards)
+    /// <summary>
+    /// Sends a round from the shooter's middle towards a point <paramref name="aimHeight"/> up; it flies on past it
+    /// until its range is spent.
+    /// </summary>
+    private void Launch(Actor shooter, WeaponMount weapon, Vector2 towards, float aimHeight)
     {
         var offset = towards - shooter.Position;
         var direction = offset.LengthSquared() > 0.01f
             ? Vector2.Normalize(offset)
             : shooter is Machine machine ? new Vector2(DetMath.Cos(machine.Facing), DetMath.Sin(machine.Facing)) : Vector2.UnitX;
         _projectiles.Add(new Projectile(_nextProjectile++, weapon.Spec, shooter.Id, shooter.Race, shooter.Position, direction,
-            weapon.Mounting, weapon.Shots++, towards));
+            weapon.Mounting, weapon.Shots++, towards, AimPoint(shooter).Z, aimHeight));
     }
 
     /// <summary>
@@ -81,9 +97,21 @@ public sealed partial class GameWorld
             var step = MathF.Min(projectile.Weapon.ProjectileSpeed * Dt, projectile.Weapon.Range - projectile.Travelled);
             var from = projectile.Position;
             var to = from + projectile.Direction * step;
+            // A hill rising into its way stops it there (MachLogLinearProjectile's ON_TERRAIN strike); an enemy
+            // before that point is struck first.
+            var grounded = Terrain?.FirstBlocked(new Vector3(from, projectile.HeightAfter(projectile.Travelled)),
+                new Vector3(to, projectile.HeightAfter(projectile.Travelled + step)), step: 1.5f, ends: 0);
+            if (grounded is { } share)
+                to = Vector2.Lerp(from, to, share);
             if (FirstInTheWay(projectile, from, to) is { } struck)
             {
                 Strike(projectile, struck);
+                spent.Add(projectile);
+                continue;
+            }
+            if (grounded is not null)
+            {
+                Raise(new GameEvent(GameEventKind.Impact, projectile.Shooter, to, null, projectile.Weapon.TypeName));
                 spent.Add(projectile);
                 continue;
             }

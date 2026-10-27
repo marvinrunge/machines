@@ -5,10 +5,13 @@ using Machines.Sim.World;
 
 namespace Machines.Game;
 
-/// <summary>Shows one simulation actor: its model, a selection ring and a health bar.</summary>
+/// <summary>Shows one simulation actor: its model, a wireframe box when selected or pointed at, and a health bar.</summary>
 public partial class ActorView : Node3D
 {
-    private VisualInstance3D _ring = null!;
+    private MeshInstance3D _marker = null!;
+    private StandardMaterial3D _markerMaterial = null!;
+    private bool _selected, _highlighted;
+    private float _healthShare = 1;
     private GpuParticles3D? _dust;
     private Light3D? _lamp;
     private float _lampEnergy;
@@ -118,6 +121,18 @@ public partial class ActorView : Node3D
 
     /// <summary>The model's bounds in the view's own space.</summary>
     public Aabb Bounds => _bounds;
+
+    /// <summary>
+    /// Where the upper body (or a tower's head) should turn, radians anticlockwise from the hull in the original's
+    /// axes; <see cref="Sync"/> sets it to the target, first person to where the driver looks.
+    /// </summary>
+    public float UpperBodyAngle
+    {
+        set => _aim = value;
+    }
+
+    /// <summary>Where the upper body has turned to so far (it turns at its own rate), radians as <see cref="UpperBodyAngle"/>.</summary>
+    public float UpperBodyNow => _rigView?.UpperBody ?? 0;
 
     /// <summary>The middle of the model, where rounds fired at it fly to (high up for a flyer).</summary>
     public Vector3 Centre => GlobalTransform * _bounds.GetCenter();
@@ -351,6 +366,9 @@ public partial class ActorView : Node3D
         {
             view._rigView = RigView.Create(rig);
             view._maxSpeed = actor is Machine rigged ? rigged.Stats.Speed : 0;
+            // A machine's upper body turns at its BODY_TURN_RATE, degrees per second (MachPhysTurnerTracker).
+            if (actor is Machine { Stats.BodyTurnRate: > 0 and var bodyRate })
+                view._rigView.TurnRate = Mathf.DegToRad(bodyRate);
             if (actor is Construction building)
             {
                 AddDoors(view._rigView, building);
@@ -384,27 +402,27 @@ public partial class ActorView : Node3D
                 : (grounded.Radius, -grounded.Radius);
         }
 
-        // The remake lays the selection ring onto the ground (over slopes too); the classic look floats a torus.
-        view._ring = GraphicsSettings.Remake
-            ? new Decal
-            {
-                TextureAlbedo = Effects.Ring,
-                TextureEmission = Effects.RingGlow,
-                EmissionEnergy = 2,
-                Modulate = new Color(0.35f, 1f, 0.35f),
-                AlbedoMix = 1,
-                Size = new Vector3(view.Size * 1.6f + 2, 16, view.Size * 1.6f + 2),
-                CullMask = TerrainBuilder.GroundLayer,
-                Visible = false,
-            }
-            : new MeshInstance3D
-            {
-                Mesh = new TorusMesh { InnerRadius = view.Size * 0.55f, OuterRadius = view.Size * 0.62f + 0.3f },
-                MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.3f, 1f, 0.3f), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded },
-                Position = new Vector3(0, 0.2f, 0),
-                Visible = false,
-            };
-        view.AddChild(view._ring);
+        // Selected or pointed at, the model stands in a wireframe box, as the original marked it (MachPhysMarker).
+        view._markerMaterial = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            AlbedoColor = MarkerGreen,
+            DisableReceiveShadows = true,
+            // An edge passing right by the camera (a tall building's, seen from close) would sweep across the view.
+            DistanceFadeMode = BaseMaterial3D.DistanceFadeModeEnum.PixelDither,
+            DistanceFadeMinDistance = 3,
+            DistanceFadeMaxDistance = 10,
+        };
+        view._marker = new MeshInstance3D
+        {
+            Name = "Marker",
+            Mesh = MarkerBox(view._bounds),
+            MaterialOverride = view._markerMaterial,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            Visible = false,
+        };
+        view.AddChild(view._marker);
+        view._model = (Node?)view._rigView ?? view.GetNodeOrNull("Body");
 
         // At night buildings light their surroundings and machines switch on headlights.
         if (GraphicsSettings.Remake)
@@ -485,8 +503,151 @@ public partial class ActorView : Node3D
 
     public bool Selected
     {
-        get => _ring.Visible;
-        set => _ring.Visible = value;
+        get => _selected;
+        set
+        {
+            _selected = value;
+            ShowMarker();
+        }
+    }
+
+    /// <summary>Pointed at by the mouse while not selected: the box shows in blue.</summary>
+    public bool Highlighted
+    {
+        get => _highlighted;
+        set
+        {
+            _highlighted = value;
+            ShowMarker();
+        }
+    }
+
+    // The marker's colours (MachPhysIHealthMaterials): blue for pointed at; selected, green above 90 % of its hit
+    // points, through yellow at 50 % to red at 10 % and below.
+    private static readonly Color MarkerBlue = new(0, 122 / 255f, 179 / 255f), MarkerGreen = new(0, 194 / 255f, 0),
+        MarkerYellow = new(238 / 255f, 215 / 255f, 6 / 255f), MarkerRed = new(224 / 255f, 0, 0);
+
+    private static Color HealthColour(float percent) => percent switch
+    {
+        > 90 => MarkerGreen,
+        > 50 => MarkerYellow.Lerp(MarkerGreen, (percent - 50) / 40),
+        > 10 => MarkerRed.Lerp(MarkerYellow, (percent - 10) / 40),
+        _ => MarkerRed,
+    };
+
+    private void ShowMarker()
+    {
+        _marker.Visible = _selected || _highlighted;
+        // The original picked one of 20 shades, each standing for a twentieth of the hit points.
+        var shade = (int)(20 * Mathf.Clamp(_healthShare, 0, 1) * 100 / 100.1f);
+        var colour = _selected ? HealthColour(100f * shade / 19) : MarkerBlue;
+        if (_markerMaterial.AlbedoColor != colour)
+            _markerMaterial.AlbedoColor = colour;
+    }
+
+    /// <summary>
+    /// The marker: the edges of a box round the model, a metre out to the sides, from half a metre above its foot
+    /// (or the ground, for what is sunk into it) to half a metre over its top (MachPhysMarker's 3D wireframe). The
+    /// edges are thin bars, so they keep their weight on a large screen, and lines, so they never vanish far off.
+    /// </summary>
+    private static ArrayMesh MarkerBox(Aabb bounds)
+    {
+        var min = new Vector3(bounds.Position.X - 1, Mathf.Max(bounds.Position.Y, 0) + 0.5f, bounds.Position.Z - 1);
+        var max = new Vector3(bounds.End.X + 1, bounds.End.Y + 0.5f, bounds.End.Z + 1);
+        var corners = new Vector3[8];
+        for (var i = 0; i < 8; i++)
+            corners[i] = new Vector3((i & 1) == 0 ? min.X : max.X, (i & 2) == 0 ? min.Y : max.Y, (i & 4) == 0 ? min.Z : max.Z);
+        // Corner pairs differing in one coordinate.
+        var edges = new List<(Vector3 A, Vector3 B)>();
+        for (var i = 0; i < 8; i++)
+            foreach (var bit in new[] { 1, 2, 4 })
+                if ((i & bit) == 0)
+                    edges.Add((corners[i], corners[i | bit]));
+
+        var mesh = new ArrayMesh();
+        var lines = new SurfaceTool();
+        lines.Begin(Mesh.PrimitiveType.Lines);
+        foreach (var (a, b) in edges)
+        {
+            lines.AddVertex(a);
+            lines.AddVertex(b);
+        }
+        lines.Commit(mesh);
+
+        var bars = new SurfaceTool();
+        bars.Begin(Mesh.PrimitiveType.Triangles);
+        var half = Mathf.Clamp(Mathf.Max(max.X - min.X, max.Z - min.Z) * 0.006f, 0.03f, 0.12f);
+        foreach (var (a, b) in edges)
+        {
+            var low = a.Min(b) - Vector3.One * half;
+            var high = a.Max(b) + Vector3.One * half;
+            Vector3 C(int i) => new((i & 1) == 0 ? low.X : high.X, (i & 2) == 0 ? low.Y : high.Y, (i & 4) == 0 ? low.Z : high.Z);
+            // The bar's six faces, two triangles each.
+            foreach (var face in new[] { (0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3) })
+            {
+                var (p, q, r, s) = face;
+                foreach (var corner in new[] { p, q, r, p, r, s })
+                    bars.AddVertex(C(corner));
+            }
+        }
+        bars.Commit(mesh);
+        return mesh;
+    }
+
+    // ---- picking ----------------------------------------------------------------------------------
+
+    // The model's own meshes, without the marker, bars and effects around it.
+    private Node? _model;
+
+    /// <summary>
+    /// How far along the ray the model is first met, or null: through the box round the whole model and then the
+    /// box of each of its parts, as the original found what lies under the cursor
+    /// (W4dComposite::defaultCompositeIntersectsLine, MEDIUM accuracy).
+    /// </summary>
+    public float? Hit(Vector3 from, Vector3 direction)
+    {
+        if (!Visible || _model is null || BoxHit(GlobalTransform, _bounds, from, direction) is null)
+            return null;
+        return PartsHit(_model, from, direction);
+    }
+
+    /// <summary>How far along the ray it first meets the box of a mesh under <paramref name="root"/>, or null.</summary>
+    public static float? PartsHit(Node root, Vector3 from, Vector3 direction)
+    {
+        float? nearest = null;
+        foreach (var mesh in root.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>().Append(root as MeshInstance3D).OfType<MeshInstance3D>())
+            if (mesh.Mesh is { } shape && mesh.IsVisibleInTree() && BoxHit(mesh.GlobalTransform, shape.GetAabb(), from, direction) is { } distance
+                && (nearest is null || distance < nearest))
+                nearest = distance;
+        return nearest;
+    }
+
+    /// <summary>Where a ray enters a box placed by <paramref name="transform"/>, in the ray's own lengths (0 from inside), or null.</summary>
+    private static float? BoxHit(Transform3D transform, Aabb box, Vector3 from, Vector3 direction)
+    {
+        // In the box's own space the ray keeps its parameter: the transform is affine.
+        var inverse = transform.AffineInverse();
+        var origin = inverse * from;
+        var along = inverse.Basis * direction;
+        float near = 0, far = float.MaxValue;
+        for (var axis = 0; axis < 3; axis++)
+        {
+            var (o, d, low, high) = (origin[axis], along[axis], box.Position[axis], box.End[axis]);
+            if (Mathf.Abs(d) < 1e-8f)
+            {
+                if (o < low || o > high)
+                    return null;
+                continue;
+            }
+            var (t1, t2) = ((low - o) / d, (high - o) / d);
+            if (t1 > t2)
+                (t1, t2) = (t2, t1);
+            near = Mathf.Max(near, t1);
+            far = Mathf.Min(far, t2);
+            if (near > far)
+                return null;
+        }
+        return near;
     }
 
     /// <summary>The exported model id (<c>TYPE_LEVEL[_SUBTYPE][_COMBO]</c>) and a fallback size in metres.</summary>
@@ -561,6 +722,13 @@ public partial class ActorView : Node3D
 
         var hurt = actor.HitPoints < actor.MaxHitPoints || actor.Armour < actor.MaxArmour;
         _health.Visible = _armour.Visible = hurt || Selected;
+        // The marker of a selected actor takes the colour of its health.
+        var share = actor.HitPoints / (float)Mathf.Max(1, actor.MaxHitPoints);
+        if (share != _healthShare)
+        {
+            _healthShare = share;
+            ShowMarker();
+        }
         _health.Scale = new Vector3(Mathf.Max(0.05f, Size * actor.HitPoints / Mathf.Max(1, actor.MaxHitPoints)), 1, 1);
         _armour.Scale = new Vector3(Mathf.Max(0.05f, Size * actor.Armour / Mathf.Max(1, actor.MaxArmour)), 1, 1);
 

@@ -76,6 +76,7 @@ public static class ParmDataParser
                 MaxSubordinates = columns.OptionalInt("MAX_SUBORDINATES", i),
                 ResearchRate = columns.OptionalInt("RESEARCH_RATE", i),
                 DownloadRate = columns.OptionalInt("DOWNLOAD_RATE", i),
+                MineCapacity = columns.OptionalInt("MINE_CAPACITY", i),
                 ConstructionRate = columns.OptionalInt("RATE_CONSTRUCTION", i),
                 MineralGrade = columns.OptionalInt("MINERAL_GRADE", i),
                 MostAdvancedConstruction = conType is null

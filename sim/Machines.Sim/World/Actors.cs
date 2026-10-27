@@ -82,8 +82,25 @@ public sealed class Machine : Actor
     /// <summary>Ore on board (transporters).</summary>
     public int Ore { get; set; }
 
-    /// <summary>AI squadron number, if any.</summary>
+    /// <summary>The squadron it belongs to, if any: an AI's from its script, a player's one of 0 to 9.</summary>
     public int? Squad { get; set; }
+
+    /// <summary>
+    /// Its initiative (MachLog::DefCon): how readily it picks fights of its own. Players' machines start at
+    /// <see cref="DefCon.Normal"/>, the AI's at <see cref="DefCon.Low"/> (MachLogScenario).
+    /// </summary>
+    public DefCon DefCon { get; set; } = DefCon.Normal;
+
+    /// <summary>When it was last given an order; for a while after one it does only that (MachLogMachine::virtualDefCon).</summary>
+    public float OrderedAt { get; set; } = float.MinValue;
+
+    /// <summary>For a spy locator: the land mines it still carries.</summary>
+    public int Mines { get; set; }
+
+    /// <summary>For a spy locator: hidden from the enemy's own choice of targets (camouflage, network games).</summary>
+    public bool Camouflaged { get; set; }
+
+    public bool IsSpy => Spec.Type == "SPY_LOCATOR";
 
     /// <summary>The building or APC a machine is inside (a lab, a garrison, an APC); it is off the map.</summary>
     public int? Inside { get; set; }
@@ -105,10 +122,39 @@ public sealed class Machine : Actor
 
     public bool CanHeal => Weapons.Any(w => w.IsHealer);
 
+    /// <summary>
+    /// Turns its upper body on its legs or tracks, to aim and to look about, rather than its whole hull: a
+    /// <c>BODY_TURN_LINK</c> in parmdata (MachPhysMachine::canTurnUpperBody).
+    /// </summary>
+    public bool CanTurnUpperBody => Stats.BodyTurnLink is { Length: > 0 } link && link != "NONE";
+
+    /// <summary>The level-3 resource carrier, which gathers wreckage instead of carrying ore (MachLogResourceCarrier::isScavenger).</summary>
+    public bool IsScavenger => Spec.Type == "RESOURCE_CARRIER" && Stats.HardwareLevel == 3;
+
     public override float Radius => MathF.Max(1.5f, Stats.HighClearance);
     public override int Cost => Stats.Cost;
 
     public bool IsType(string type, string? subType = null) => Spec.Type == type && (subType is null || Spec.SubType == subType);
+}
+
+/// <summary>
+/// How readily a machine fights of its own accord (MachLog::DefCon; the panel's "initiative"): <see cref="Low"/>
+/// hunts whatever its scanner finds, <see cref="Normal"/> takes on what it can shoot from where it is or what
+/// threatens it, <see cref="High"/> keeps to its orders.
+/// </summary>
+public enum DefCon
+{
+    Low,
+    Normal,
+    High,
+}
+
+/// <summary>A land mine a spy locator laid (MachLogLandMine): it goes off under the first enemy to come near.</summary>
+public sealed class LandMineState(int id, Race race, Vector2 position)
+{
+    public int Id { get; } = id;
+    public Race Race { get; } = race;
+    public Vector2 Position { get; } = position;
 }
 
 /// <summary>A building: placed by constructors, or present at the start.</summary>
@@ -137,6 +183,19 @@ public sealed class Construction : Actor
 
     /// <summary>Where machines come out of the building: a factory's pad before its door.</summary>
     public Vector2? EntranceOutside { get; }
+
+    /// <summary>The pads carriers drive onto to load ore: a mine's <c>PICKUP</c> points, turned and placed with it.</summary>
+    public IReadOnlyList<Vector2> PickUpPads => _pickUpPads ??= Pads("PICKUP");
+
+    /// <summary>The pads carriers drive onto to drop ore: a smelter's or pod's <c>PUTDOWN</c> points.</summary>
+    public IReadOnlyList<Vector2> PutDownPads => _putDownPads ??= Pads("PUTDOWN");
+
+    private IReadOnlyList<Vector2>? _pickUpPads, _putDownPads;
+
+    private List<Vector2> Pads(string keyword) => Stats.Geometry.Where(g => g.Keyword == keyword && g.Args.Count >= 2)
+        .Select(g => Rotate(new Vector2(float.Parse(g.Args[0], System.Globalization.CultureInfo.InvariantCulture),
+            float.Parse(g.Args[1], System.Globalization.CultureInfo.InvariantCulture)), Orientation) + Position)
+        .ToList();
 
     /// <summary>The point just inside the door, where machines going in end up.</summary>
     public Vector2? EntranceInside { get; }
@@ -251,7 +310,27 @@ public sealed class Construction : Actor
     };
 }
 
-/// <summary>A mineral deposit. Sites are hidden from a race until one of its locators finds them.</summary>
+/// <summary>
+/// The burning wreckage a destroyed machine or building leaves (MachLogDebris): BMUs that a scavenger can pick up
+/// for its race until it burns out. It belongs to no one's forces and cannot be hit.
+/// </summary>
+public sealed class DebrisState(int id, Race race, Vector2 position, int quantity, (Vector2 Min, Vector2 Max) boundary, float createdAt, float expiresAt)
+{
+    public int Id { get; } = id;
+    /// <summary>The race of what was destroyed (anyone's scavengers may take it).</summary>
+    public Race Race { get; } = race;
+    public Vector2 Position { get; } = position;
+    public int Quantity { get; } = quantity;
+    /// <summary>The ground the wreck covers: the building's footprint or the machine's box.</summary>
+    public (Vector2 Min, Vector2 Max) Boundary { get; } = boundary;
+    public float CreatedAt { get; } = createdAt;
+    public float ExpiresAt { get; } = expiresAt;
+}
+
+/// <summary>
+/// A mineral deposit. Sites are hidden until a locator finds them; once found, by whichever race, every race's
+/// mines may dig there (MachLogMineralSite::hasBeenDiscovered).
+/// </summary>
 public sealed class MineralSiteState(int id, MineralSite source)
 {
     public int Id { get; } = id;
@@ -259,5 +338,4 @@ public sealed class MineralSiteState(int id, MineralSite source)
     public Vector2 Position { get; } = new(source.Position.X, source.Position.Y);
     public float Ore { get; set; } = source.Ore;
     public HashSet<Race> DiscoveredBy { get; } = [];
-    public int? Mine { get; set; }
 }

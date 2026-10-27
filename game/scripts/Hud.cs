@@ -35,6 +35,9 @@ public partial class Hud : CanvasLayer
 
     public Rect2? DragRect { get; set; }
 
+    /// <summary>The control panel, with the prompt line beside it.</summary>
+    public ClassicPanel Panel => _panel;
+
     /// <summary>Driving in first person: a crosshair, and no control panel over the view.</summary>
     public bool FirstPerson
     {

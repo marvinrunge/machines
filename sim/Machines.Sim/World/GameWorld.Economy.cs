@@ -50,8 +50,14 @@ public sealed partial class GameWorld
 
     private void UpdateMine(Construction mine)
     {
-        if (mine.MineralSite is not { } siteId)
-            return;
+        // A mine whose site ran dry moves on to another in reach, and one without a site takes one found later
+        // (MachLogMine::mineralSiteIsExhausted, newMineralSiteAvailable); it looks once a second.
+        if (mine.MineralSite is not { } siteId || Sites[siteId].Ore <= 0)
+        {
+            if (Tick % TicksPerSecond != mine.Id % TicksPerSecond || !AssignMineralSite(mine))
+                return;
+            siteId = mine.MineralSite!.Value;
+        }
         var site = Sites[siteId];
         var room = (mine.Stats.Capacity ?? 0) - mine.Ore;
         var extracted = MathF.Min(MathF.Min((mine.Stats.ExtractionRate ?? 0) / 60f * Dt, room), site.Ore);

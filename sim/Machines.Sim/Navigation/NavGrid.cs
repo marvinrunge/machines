@@ -141,6 +141,13 @@ public sealed class NavGrid
     private (int X, int Y)? NearestFree((int X, int Y) cell, bool crossesWater) =>
         Nearest(cell, (x, y) => IsFree(x, y, crossesWater), 40);
 
+    /// <summary>The middle of the free cell nearest to <paramref name="p"/>, at most 40 cells away, or null.</summary>
+    public Vector2? NearestFreePoint(Vector2 p, bool crossesWater) =>
+        NearestFree(Cell(p), crossesWater) is { } cell ? Centre(cell.X, cell.Y) : null;
+
+    /// <summary>Whether a point lies on the planet.</summary>
+    public bool OnPlanet(Vector2 p) => p.X >= 0 && p.Y >= 0 && p.X < Width * CellSize && p.Y < Depth * CellSize;
+
     private (int X, int Y)? Nearest((int X, int Y) cell, Func<int, int, bool> accept, int rings)
     {
         for (var r = 0; r < rings; r++)
