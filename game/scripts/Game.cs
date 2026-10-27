@@ -78,6 +78,9 @@ public partial class Game : Node3D
     // How much ore each machine carried at the last tick, to see transporters load and unload.
     private readonly Dictionary<int, int> _oreCarried = [];
 
+    // Where each tracked or wheeled machine left its last tread mark.
+    private readonly Dictionary<int, Vector3> _lastMark = [];
+
     // Actors destroyed this tick, whose views are blown apart rather than removed.
     private readonly HashSet<int> _destroyed = [];
     private GameAudio _audio = null!;
@@ -459,6 +462,18 @@ public partial class Game : Node3D
             }
             // Upper bodies and towers' heads turn to what they attack, ordered or of their own choice.
             view.Sync(actor, actor is Machine { Order: AttackOrder attack } ? World.Find(attack.Target) : World.AimOf(actor.Id));
+            // In the remake tracks and wheels leave their marks on the ground behind them.
+            if (GraphicsSettings.Remake && actor is Machine { Inside: null, Stats.Locomotion: Locomotion.Tracks or Locomotion.Wheels } rolling)
+            {
+                var here = ActorView.World(rolling.Position);
+                if (!_lastMark.TryGetValue(rolling.Id, out var last) || last.DistanceTo(here) > 4)
+                    _lastMark[rolling.Id] = here;
+                else if (last.DistanceTo(here) >= 1.2f)
+                {
+                    _effects.TreadMark((last + here) / 2, view.Yaw, view.Bounds.Size.Z * 0.9f, last.DistanceTo(here) + 0.15f);
+                    _lastMark[rolling.Id] = here;
+                }
+            }
             // A transporter loading or unloading ore glows with rings of light (MachPhysResourceCarrier::doLoading).
             if (actor is Machine carrier)
             {

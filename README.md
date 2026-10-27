@@ -96,7 +96,8 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   from its original texture's name or colour. Fetch them once with `tools/terrain-textures/fetch.sh`
   (Powered by Poly Haven); without them the ground stays as before. Tufts of grass sway on grass and soil,
   pebbles and stones lie on rock, sand, gravel, mud and snow, each in the colours of the tile beneath; never
-  on steep slopes, water, roads or metal, and buildings clear the ground they stand on.
+  on steep slopes, water, roads or metal, and buildings clear the ground they stand on. Tracks and wheels leave
+  marks behind them that fade after half a minute.
 - **The planets' artefacts:** the trees, palms, rocks, ruins and other scenery the scenarios set on the
   planets (ARTEFACTS) stand where the original put them, from each planet's own models (`pdata/*.arb`). They
   stand in the way as in the original: machines go round the active ones (their boundaries, turned as they

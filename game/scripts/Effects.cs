@@ -202,6 +202,57 @@ public partial class Effects : Node3D
         fade.TweenCallback(Callable.From(decal.QueueFree));
     }
 
+    private const int MaxTreadMarks = 300;
+    private readonly Queue<Decal> _treadMarks = new();
+
+    /// <summary>
+    /// A stretch of the marks a tracked or wheeled machine leaves on the ground: two ribbed stripes as far apart as
+    /// it is wide, along its heading, fading after half a minute. Only the ground takes them.
+    /// </summary>
+    public void TreadMark(Vector3 at, float yaw, float width, float length)
+    {
+        var decal = new Decal
+        {
+            TextureAlbedo = Treads,
+            Size = new Vector3(length, 3, width),
+            Modulate = new Color(1, 1, 1, 0.55f),
+            UpperFade = 0.3f,
+            LowerFade = 0.3f,
+            CullMask = TerrainBuilder.GroundLayer,
+        };
+        AddChild(decal);
+        decal.GlobalPosition = at;
+        decal.Rotation = new Vector3(0, yaw, 0);
+        _treadMarks.Enqueue(decal);
+        if (_treadMarks.Count > MaxTreadMarks && _treadMarks.Dequeue() is { } oldest && IsInstanceValid(oldest))
+            oldest.QueueFree();
+        var fade = decal.CreateTween();
+        fade.TweenInterval(20);
+        fade.TweenProperty(decal, "modulate:a", 0f, 10);
+        fade.TweenCallback(Callable.From(decal.QueueFree));
+    }
+
+    /// <summary>Two dark ribbed stripes along the picture's length, clear between and beside them.</summary>
+    private static readonly Texture2D Treads = MakeTreads();
+
+    private static Texture2D MakeTreads()
+    {
+        const int length = 64, width = 32;
+        var image = Image.CreateEmpty(length, width, false, Image.Format.Rgba8);
+        image.Fill(new Color(0.1f, 0.08f, 0.06f, 0));
+        foreach (var (from, to) in new[] { (1, 9), (23, 31) })
+            for (var y = from; y < to; y++)
+                for (var x = 0; x < length; x++)
+                {
+                    // Ribs across the stripe, a little darker at its middle.
+                    var rib = x % 8 < 5 ? 0.8f : 0.45f;
+                    var middle = 1 - Mathf.Abs((y - (from + to) / 2f) / ((to - from) / 2f)) * 0.4f;
+                    image.SetPixel(x, y, new Color(0.1f, 0.08f, 0.06f, rib * middle));
+                }
+        image.GenerateMipmaps();
+        return ImageTexture.CreateFromImage(image);
+    }
+
     /// <summary>A puff of dust kicked up behind a moving machine.</summary>
     public static GpuParticles3D DustTrail()
     {
