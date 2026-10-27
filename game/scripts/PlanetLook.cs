@@ -296,6 +296,9 @@ public partial class PlanetLook : Node
     /// <summary>How dark it is, from 0 by day to 1 at night, by the sun's height; lamps follow it.</summary>
     public static float Night { get; private set; }
 
+    /// <summary>The sun's height above the horizon now, degrees (morning mist follows it; see Weather).</summary>
+    public static float SunElevation { get; private set; } = 60;
+
     /// <summary>A starfield on the sky (equirectangular), the same every time.</summary>
     private static readonly Lazy<Texture2D> Stars = new(() =>
     {
@@ -368,6 +371,7 @@ public partial class PlanetLook : Node
     private void Update()
     {
         var elevation = _sunOrbit is { } orbit ? Elevation(orbit, _gameTime()) : 60;
+        SunElevation = elevation;
 
         // The light shines from the sun's position towards the ground; it never comes from below the horizon.
         var towardsSun = _sunOrbit is { } sunOrbit ? Direction(sunOrbit, _gameTime()) : new Vector3(0, 1, 0.6f).Normalized();
@@ -380,6 +384,8 @@ public partial class PlanetLook : Node
         _sun.LightColor = direct;
         // The remake's sun is stronger and its ambient weaker (below): lit sides and shade stand apart.
         _sun.LightEnergy = elevation > 0 ? (_softShadows ? RemakeSun : 1.1f) : 0.15f;
+        // A storm's thick air dims the sun (Weather).
+        _sun.LightEnergy *= 1 - 0.55f * Weather.Haze;
         // Every satellite adds its ambient light by its own height in the sky: the sun by day, the moon by night.
         var ambient = Colors.Black;
         foreach (var satellite in _env.Satellites)
@@ -401,6 +407,8 @@ public partial class PlanetLook : Node
         _environment.AmbientLightEnergy = Mathf.Lerp(1, RemakeAmbient, high);
 
         var fogColour = _env.Fog is { } fog ? Table(fog.ColourTable, elevation, new Color(0.6f, 0.6f, 0.65f)) : new Color(0.6f, 0.6f, 0.65f);
+        // A storm fills the air with sand, snow or rain: the fog takes its colour (Weather).
+        fogColour = fogColour.Lerp((Weather.HazeColour * Mathf.Clamp(direct.Luminance * 1.2f, 0.25f, 1)) with { A = 1 }, Weather.Haze);
         Color horizon, top;
         if (_skyTables is { } sky)
         {
@@ -470,9 +478,10 @@ public partial class PlanetLook : Node
             // here sits further back, so the fog starts beyond what it looks at.
             var view = _viewDistance();
             _environment.FogLightColor = new Color(fogColour.R, fogColour.G, fogColour.B);
-            _environment.FogDepthBegin = view + f.MaxVisibility * 0.25f;
-            _environment.FogDepthEnd = view + f.MaxVisibility * 1.5f;
-            _environment.FogDensity = Mathf.Clamp(fogColour.A, 0.5f, 1f);
+            // In a storm the fog closes in: at its height one sees only a hundred metres or so past what the camera looks at.
+            _environment.FogDepthBegin = Mathf.Lerp(view + f.MaxVisibility * 0.25f, view * 0.3f, Weather.Haze);
+            _environment.FogDepthEnd = Mathf.Lerp(view + f.MaxVisibility * 1.5f, view + 140, Weather.Haze);
+            _environment.FogDensity = Mathf.Lerp(Mathf.Clamp(fogColour.A, 0.5f, 1f), 0.95f, Weather.Haze);
             if (_environment.VolumetricFogEnabled)
             {
                 // A low sun shines through more air: the haze thickens a little as it sinks, and shafts stand out. It is
@@ -482,7 +491,8 @@ public partial class PlanetLook : Node
                 var low = Mathf.Clamp(1 - elevation / 30, 0, 1);
                 var haze = new Color(Mathf.Max(fogColour.R, horizon.R), Mathf.Max(fogColour.G, horizon.G), Mathf.Max(fogColour.B, horizon.B));
                 _environment.VolumetricFogAlbedo = haze;
-                _environment.VolumetricFogDensity = Mathf.Clamp(HazeReach / Mathf.Max(f.MaxVisibility, 1), MinimumHaze, HazeDensity) * (1 + 0.5f * low);
+                _environment.VolumetricFogDensity = Mathf.Clamp(HazeReach / Mathf.Max(f.MaxVisibility, 1), MinimumHaze, HazeDensity) * (1 + 0.5f * low)
+                    * (1 + 5 * Weather.Haze);
             }
         }
         UpdateShadowReach();

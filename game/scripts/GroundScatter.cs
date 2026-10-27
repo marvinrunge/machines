@@ -301,10 +301,15 @@ public partial class GroundScatter : Node3D
             shader_type spatial;
             render_mode cull_disabled;
             uniform sampler2D blades : source_color, filter_linear_mipmap;
+            global uniform vec2 weather_wind;
             void vertex() {
                 vec3 world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-                float sway = sin(TIME * 1.7 + world.x * 0.21 + world.z * 0.17) + 0.5 * sin(TIME * 3.1 + world.z * 0.43);
-                VERTEX.xz += vec2(0.06, 0.04) * sway * (1.0 - UV.y);
+                // Leaning with the weather's wind and swaying about it, harder as it blows.
+                float strength = length(weather_wind);
+                vec2 along = weather_wind / max(strength, 0.001);
+                float sway = sin(TIME * (1.7 + strength * 0.15) + world.x * 0.21 + world.z * 0.17) + 0.5 * sin(TIME * 3.1 + world.z * 0.43);
+                vec2 bend = along * (0.02 * strength) + vec2(0.06, 0.04) * sway * (0.6 + strength * 0.08);
+                VERTEX.xz += bend * min(1.0, 0.5 + strength * 0.05) * (1.0 - UV.y);
                 NORMAL = vec3(0.0, 1.0, 0.0);
             }
             void fragment() {

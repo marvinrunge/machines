@@ -116,6 +116,13 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   (moons, Gracko, the dark forts, ice) keep their painted pictures. The same `fetch.sh` downloads them (about
   55 MB). The air's haze now thins with the planet's view distance, so planets that fade to black far off no
   longer look like night by day.
+- **Weather (remake look, only for the eye):** sand drifting over the desert, dust devils and sandstorms; snowfall,
+  snow drifts and blizzards on the ice; rain showers on the green planets, hills and forts that darken and wet
+  the ground, and mist in the hollows when the sun is low; ash and embers over Gracko and the red moons; shooting
+  stars over the airless moons. Light weather comes and goes, a storm every ten to fifteen minutes, all drawn from
+  the match's seed so every player and replay sees the same. Storms close in the fog and dim the sun; the grass
+  leans with the wind; wind and rain sound (made from noise, not recorded). The dust machines kick up takes the
+  planet's colour.
 - **The planets' artefacts:** the trees, palms, rocks, ruins and other scenery the scenarios set on the
   planets (ARTEFACTS) stand where the original put them, from each planet's own models (`pdata/*.arb`). They
   stand in the way as in the original: machines go round the active ones (their boundaries, turned as they

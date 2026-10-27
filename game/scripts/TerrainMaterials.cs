@@ -836,6 +836,7 @@ public static class TerrainMaterials
             uniform sampler2D context_map : filter_linear;
             uniform vec2 context_size = vec2(1600.0);
             uniform float patches = 0.12;
+            global uniform float weather_wetness;
             uniform float shade_strength = 1.0;
             uniform float relief = 0.9;
             uniform float rock_relief = 1.8;
@@ -1015,6 +1016,10 @@ public static class TerrainMaterials
                 float near = 1.0 - smoothstep(300.0, 700.0, dist);
                 NORMAL = normalize((VIEW_MATRIX * vec4(normalize(n + bent * near), 0.0)).xyz);
                 ROUGHNESS = roughness + 0.92 * bk;
+                // Rain darkens the ground and makes it glisten, more where it lies flat and in its hollows.
+                float wet = weather_wetness * (1.0 - steep) * mix(0.75, 1.0, 1.0 - (l0.albedo.a * b.x + l1.albedo.a * b.y + l2.albedo.a * b.z + l3.albedo.a * b.w));
+                ALBEDO *= mix(1.0, 0.55, wet);
+                ROUGHNESS = mix(ROUGHNESS, 0.15, wet * 0.85);
                 SPECULAR = 0.35;
             }
             """,

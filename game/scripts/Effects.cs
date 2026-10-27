@@ -253,6 +253,9 @@ public partial class Effects : Node3D
         return ImageTexture.CreateFromImage(image);
     }
 
+    /// <summary>The colour of the dust machines kick up: the planet's ground (sand by default; see Weather).</summary>
+    public static Color DustTint { get; set; } = new(0.72f, 0.62f, 0.48f);
+
     /// <summary>A puff of dust kicked up behind a moving machine.</summary>
     public static GpuParticles3D DustTrail()
     {
@@ -276,7 +279,7 @@ public partial class Effects : Node3D
                 ScaleMin = 2.2f,
                 ScaleMax = 4f,
                 ScaleCurve = Grow(0.35f),
-                ColorRamp = Ramp(new Color(0.75f, 0.65f, 0.5f, 0), new Color(0.72f, 0.62f, 0.48f, 0.35f), new Color(0.7f, 0.6f, 0.5f, 0)),
+                ColorRamp = Ramp(DustTint with { A = 0 }, DustTint with { A = 0.35f }, DustTint.Darkened(0.05f) with { A = 0 }),
             },
         };
         return dust;
@@ -469,7 +472,7 @@ public partial class Effects : Node3D
         DepthDrawMode = BaseMaterial3D.DepthDrawModeEnum.Disabled,
     };
 
-    private static QuadMesh Billboard(Texture2D texture, bool additive)
+    internal static QuadMesh Billboard(Texture2D texture, bool additive)
     {
         var material = Sprite(texture, Colors.White, additive);
         material.BillboardMode = BaseMaterial3D.BillboardModeEnum.Particles;
@@ -479,7 +482,7 @@ public partial class Effects : Node3D
     }
 
     /// <summary>A size that grows from <paramref name="start"/> of the particle's scale to all of it.</summary>
-    private static CurveTexture Grow(float start)
+    internal static CurveTexture Grow(float start)
     {
         var curve = new Curve();
         curve.AddPoint(new Vector2(0, start));
@@ -487,7 +490,7 @@ public partial class Effects : Node3D
         return new CurveTexture { Curve = curve };
     }
 
-    private static GradientTexture1D Ramp(Color start, Color middle, Color end) => new()
+    internal static GradientTexture1D Ramp(Color start, Color middle, Color end) => new()
     {
         Gradient = new Gradient { Offsets = [0, 0.3f, 1], Colors = [start, middle, end] },
         UseHdr = true,
@@ -496,7 +499,7 @@ public partial class Effects : Node3D
     // ---- generated textures ---------------------------------------------------------------------
 
     /// <summary>A soft round spot, white in the middle fading out at the edge.</summary>
-    private static readonly Texture2D Soft = Generate(64, (x, y) =>
+    internal static readonly Texture2D Soft = Generate(64, (x, y) =>
     {
         var d = Mathf.Clamp(1 - new Vector2(x, y).Length(), 0, 1);
         return new Color(1, 1, 1, d * d);
@@ -527,7 +530,7 @@ public partial class Effects : Node3D
         return new Color(0.05f, 0.04f, 0.035f, alpha * alpha * 0.9f);
     });
 
-    private static Texture2D Generate(int size, Func<float, float, Color> pixel)
+    internal static Texture2D Generate(int size, Func<float, float, Color> pixel)
     {
         var image = Image.CreateEmpty(size, size, true, Image.Format.Rgba8);
         for (var y = 0; y < size; y++)

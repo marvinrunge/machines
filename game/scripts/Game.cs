@@ -165,10 +165,16 @@ public partial class Game : Node3D
         HeightField.Current = _assets.PlanetHeights(request.Planet) is { } heights
             ? HeightField.FromExport(heights, surface.Width, surface.Depth)
             : new HeightField(surface);
+        // The ground's and the grass's shaders read the weather's values (wind, wetness): they must exist first.
+        Weather.EnsureGlobals();
         AddChild(TerrainBuilder.Build(World.Planet, HeightField.Current, map, _assets.PlanetTerrain(request.Planet)));
         if (data.LoadScenario(request.Scenario).Artefacts is { } artefacts)
             AddChild(Artefacts(artefacts));
         AddLighting();
+        // The weather follows what the camera looks at (or the camera, driving), and its own time is the match's.
+        if (Weather.Create(request.Planet, _seed, () => World.Time, () => _driven is not null ? _firstPersonCamera.GlobalPosition : _rig.GlobalPosition,
+                () => _driven is not null ? 30 : _rig.Distance) is { } weather)
+            AddChild(weather);
 
         _effects = new Effects { Name = "Effects" };
         AddChild(_effects);
