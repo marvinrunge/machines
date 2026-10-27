@@ -104,7 +104,9 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   the ground no longer shows the original's tiles with their hard edges and dark rectangles. A material map over
   the whole planet is read from the old pictures (sand, sandstone, beach, gravel, grass, mossy rock, regolith, red
   soil, dark rock, snow, ice) and painted with Poly Haven materials blended by their height maps, tinted to the
-  original's colours; cliffs take their family's rock seen from the side. Water, lava and everything built keep
+  original's colours; cliffs take their family's rock seen from the side. Each material comes in three looks laid
+  in patches by chance and by the ground around: packed sand at the foot of the rock, wet sand and mud by the
+  water, drier grass on the slopes, scorched ground by the lava. Water, lava and everything built keep
   their pictures. The same `fetch.sh` downloads them.
 - **The planets' artefacts:** the trees, palms, rocks, ruins and other scenery the scenarios set on the
   planets (ARTEFACTS) stand where the original put them, from each planet's own models (`pdata/*.arb`). They

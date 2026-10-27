@@ -13,34 +13,56 @@ namespace Machines.Game;
 /// height maps (rock shows between the sand instead of fading into it), turns steep faces to the family's cliff
 /// material seen from the side, and tints each material to the colour the original had. The old pictures' light and
 /// dark (the shading of dunes and craters) stays as a soft brightness, and the tiles' corner colours as a light spread
-/// wide over the ground. Water, lava and everything built keep their old pictures. The materials were picked with the
-/// player on the terrain texture page. Purely for the eye.
+/// wide over the ground. Each material has three looks, laid in patches by chance and by what is around (packed sand
+/// at the foot of the rock, wet sand by the water, drier grass on the slopes ...). Water, lava and everything built
+/// keep their old pictures. The materials and how they vary were picked with the player on the terrain texture and
+/// planet pages. Purely for the eye.
 /// </summary>
 public static class TerrainMaterials
 {
+    /// <summary>Where a material's variant goes rather than by chance (the player chose terrain and chance together).</summary>
+    private enum Role { Main, Chance, Foot, Open, Water, Slope }
+
+    /// <summary>One look of a material: its maps' folder under textures/polyhaven, the metres one repeat covers, and where it lies.</summary>
+    private sealed record Variant(string Layer, float Size, Role Role);
+
     /// <summary>
-    /// A material: its maps' folder under textures/polyhaven, the metres one repeat covers, whether it stands on
-    /// cliffs, and how many grass tufts and stones grow on a square metre of it.
+    /// A material: its three looks (the one picked on the terrain texture page first, then the two other suggestions),
+    /// whether it stands on cliffs, and how many grass tufts and stones grow on a square metre of it.
     /// </summary>
-    private sealed record Material(string Layer, float Size, bool Rocky, float Grass, float Stones);
+    private sealed record Material(Variant[] Variants, bool Rocky, float Grass, float Stones);
 
     private static readonly Dictionary<string, Material> Materials = new()
     {
-        ["sand"] = new("sand", 5, false, 0, 0.02f),
-        ["sandstone"] = new("sandstone", 14, true, 0, 0.05f),
-        ["beach"] = new("beach", 12, false, 0, 0.03f),
-        ["gravel"] = new("rock", 5, false, 0, 0.15f),
-        ["drygrass"] = new("grass", 4.5f, false, 0.08f, 0.03f),
-        ["lushgrass"] = new("grass", 4.5f, false, 0.6f, 0.01f),
-        ["mossrock"] = new("mossrock", 8, true, 0, 0.08f),
-        ["regolith"] = new("regolith", 7, false, 0, 0.04f),
-        ["dust"] = new("regolith", 7, false, 0, 0.01f),
-        ["redsoil"] = new("redsoil", 5, false, 0, 0.06f),
-        ["darkrock"] = new("darkrock", 8, true, 0, 0.1f),
-        ["snow"] = new("snow", 7, false, 0, 0.02f),
-        ["greysnow"] = new("snow", 7, false, 0, 0.03f),
-        ["ice"] = new("ice", 12, true, 0, 0),
+        // Ripples out in the open, packed sand at the foot of the rock.
+        ["sand"] = new([new("sand", 5, Role.Main), new("aerial_sand", 10, Role.Open), new("dense_sand", 5, Role.Foot)], false, 0, 0.02f),
+        ["sandstone"] = new([new("sandstone", 14, Role.Main), new("marble_cliff_02", 14, Role.Chance), new("rock_06", 10, Role.Chance)], true, 0, 0.05f),
+        // Wet sand by the water, rippled beach away from the cliffs.
+        ["beach"] = new([new("beach", 12, Role.Main), new("aerial_beach_01", 20, Role.Open), new("damp_beach_sand", 8, Role.Water)], false, 0, 0.03f),
+        // River pebbles by the water, finer gravel out in the open.
+        ["gravel"] = new([new("rock", 5, Role.Main), new("dry_river_pebbles", 4, Role.Water), new("gravel", 5, Role.Open)], false, 0, 0.15f),
+        // Muddy, leafy ground by the water, drier grass on the slopes.
+        ["drygrass"] = new([new("grass", 4.5f, Role.Main), new("brown_mud_leaves_01", 4, Role.Water), new("grass_ground", 4.5f, Role.Slope)], false, 0.08f, 0.03f),
+        // Forest floor under the cliffs.
+        ["lushgrass"] = new([new("grass", 4.5f, Role.Main), new("leafy_grass", 4.5f, Role.Chance), new("forrest_ground_01", 4.5f, Role.Foot)], false, 0.6f, 0.01f),
+        // Mossier by the water.
+        ["mossrock"] = new([new("mossrock", 8, Role.Main), new("aerial_rocks_02", 16, Role.Water), new("lichen_rock", 6, Role.Chance)], true, 0, 0.08f),
+        ["regolith"] = new([new("regolith", 7, Role.Main), new("moon_meteor_01", 7, Role.Chance), new("moon_02", 7, Role.Foot)], false, 0, 0.04f),
+        ["dust"] = new([new("regolith", 7, Role.Main), new("moon_meteor_01", 7, Role.Chance), new("moon_02", 7, Role.Foot)], false, 0, 0.01f),
+        // Scorched, cracked ground by the lava.
+        ["redsoil"] = new([new("redsoil", 5, Role.Main), new("laterite", 5, Role.Chance), new("cracked_red_ground", 5, Role.Water)], false, 0, 0.06f),
+        ["darkrock"] = new([new("darkrock", 8, Role.Main), new("rock_face_04", 8, Role.Chance), new("dark_rock", 8, Role.Chance)], true, 0, 0.1f),
+        // Patchy snow with rock showing at the foot of the cliffs.
+        ["snow"] = new([new("snow", 7, Role.Main), new("snow_field_aerial", 20, Role.Foot), new("snow_01", 6, Role.Chance)], false, 0, 0.02f),
+        ["greysnow"] = new([new("snow", 7, Role.Main), new("snow_field_aerial", 20, Role.Foot), new("snow_01", 6, Role.Chance)], false, 0, 0.03f),
+        ["ice"] = new([new("ice", 12, Role.Main), new("marble_cliff_01", 12, Role.Chance), new("rock_face_04", 10, Role.Chance)], true, 0, 0),
     };
+
+    /// <summary>
+    /// How far each look goes to the colour the original painted its material: the picked one most of the way, the two
+    /// others keep a quarter of their own colour, so the patches show (the player chose the livelier ground).
+    /// </summary>
+    private const float MainTint = 0.95f, OtherTint = 0.75f;
 
     /// <summary>One of a family's materials, the colour the original painted it (sRGB) and how far it is tinted to it (1 full, 0.5 half).</summary>
     private sealed record Slot(string Material, string Colour, float Tint);
@@ -131,6 +153,12 @@ public static class TerrainMaterials
     /// <summary>The cells of the light map (the tiles' corner colours), and how far it is spread, in metres.</summary>
     private const float LightCell = 2, LightSpread = 6;
 
+    /// <summary>
+    /// The cells of the context map (how near the rock and how near the water or lava are), and how far each reaches,
+    /// in metres.
+    /// </summary>
+    private const float ContextCell = 2, FootReach = 10, WaterReach = 14;
+
     /// <summary>The texels each old picture is read at, along a side.</summary>
     private const int Grid = 64;
 
@@ -215,29 +243,44 @@ public static class TerrainMaterials
 
         var cell = Mathf.Max(FinestCell, Mathf.Max(width, depth) / MaxCells);
         var (columns, rows) = (Mathf.CeilToInt(width / cell), Mathf.CeilToInt(depth / cell));
-        var (weights, shade) = Paint(terrain, natural, pictures, cell, columns, rows, family.Slots.Length);
+        var (weights, shade, context) = Paint(terrain, natural, pictures, cell, columns, rows, family.Slots.Length);
 
         var map = ImageTexture.CreateFromImage(Image.CreateFromData(columns, rows, false, Image.Format.Rgba8, weights));
         var shadeMap = ImageTexture.CreateFromImage(Image.CreateFromData(columns, rows, false, Image.Format.L8, shade));
+        var contextMap = ImageTexture.CreateFromImage(Image.CreateFromData(context.Columns, context.Rows, false, Image.Format.Rg8, context.Data));
         var (lights, lightColumns, lightRows) = Light(ground, natural.Keys, width, depth);
         var lightMap = ImageTexture.CreateFromImage(Image.CreateFromData(lightColumns, lightRows, false, Image.Format.Rgb8, lights));
         var warp = ImageTexture.CreateFromImage(new FastNoiseLite { Frequency = 1 / 24f, FractalOctaves = 3, Seed = 3 }.GetSeamlessImage(256, 256));
 
-        var slotLayer = new float[4];
-        var slotSize = new float[4];
+        // Each slot's three looks: their layers, sizes and tints, and how much each is drawn to the foot of the rock,
+        // the open, the water (or lava) and the slopes. The picked look starts ahead, so it covers about half the ground.
         var slotRocky = new float[4];
-        var slotTint = new Vector3[4];
+        var (variantLayer, variantSize, variantBias) = (new Vector3[4], new Vector3[4], new Vector3[4]);
+        var (variantFoot, variantOpen, variantWater, variantSlope) = (new Vector3[4], new Vector3[4], new Vector3[4], new Vector3[4]);
+        var variantTint = new Vector3[12];
         for (var s = 0; s < family.Slots.Length; s++)
         {
             var slot = family.Slots[s];
             var material = Materials[slot.Material];
-            var layer = Array.IndexOf(layers.Names, material.Layer);
-            (slotLayer[s], slotSize[s], slotRocky[s]) = (layer, material.Size, material.Rocky ? 1 : 0);
-            // The material, on average, takes the colour the original had (fully, or halfway).
+            slotRocky[s] = material.Rocky ? 1 : 0;
             var target = Color.FromHtml(slot.Colour).SrgbToLinear();
-            var mean = layers.Means[layer];
-            var gain = new Vector3(target.R / mean.X, target.G / mean.Y, target.B / mean.Z);
-            slotTint[s] = new Vector3(Mathf.Pow(gain.X, slot.Tint), Mathf.Pow(gain.Y, slot.Tint), Mathf.Pow(gain.Z, slot.Tint)).Clamp(Vector3.One * 0.1f, Vector3.One * 8);
+            for (var v = 0; v < 3; v++)
+            {
+                var variant = material.Variants[v];
+                var layer = Array.IndexOf(layers.Names, variant.Layer);
+                variantLayer[s][v] = layer;
+                variantSize[s][v] = variant.Size;
+                variantBias[s][v] = variant.Role == Role.Main ? 0.3f : 0;
+                variantFoot[s][v] = variant.Role == Role.Foot ? 0.9f : 0;
+                variantOpen[s][v] = variant.Role == Role.Open ? 0.5f : 0;
+                variantWater[s][v] = variant.Role == Role.Water ? 0.9f : 0;
+                variantSlope[s][v] = variant.Role == Role.Slope ? 0.8f : 0;
+                // Each look, on average, takes most of the colour the original had (fully, or halfway, as picked).
+                var mean = layers.Means[layer];
+                var gain = new Vector3(target.R / mean.X, target.G / mean.Y, target.B / mean.Z);
+                var share = slot.Tint * (variant.Role == Role.Main ? MainTint : OtherTint);
+                variantTint[s * 3 + v] = new Vector3(Mathf.Pow(gain.X, share), Mathf.Pow(gain.Y, share), Mathf.Pow(gain.Z, share)).Clamp(Vector3.One * 0.1f, Vector3.One * 8);
+            }
         }
         var cliff = new float[4];
         cliff[family.Cliff] = 1;
@@ -260,11 +303,18 @@ public static class TerrainMaterials
                 shader.SetShaderParameter("layer_albedo", layers.Albedo);
                 shader.SetShaderParameter("layer_normal", layers.Normal);
                 shader.SetShaderParameter("layer_rough", layers.Roughness);
-                shader.SetShaderParameter("slot_layer", new Vector4(slotLayer[0], slotLayer[1], slotLayer[2], slotLayer[3]));
-                shader.SetShaderParameter("slot_size", new Vector4(slotSize[0], slotSize[1], slotSize[2], slotSize[3]));
                 shader.SetShaderParameter("slot_rocky", new Vector4(slotRocky[0], slotRocky[1], slotRocky[2], slotRocky[3]));
                 shader.SetShaderParameter("cliff", new Vector4(cliff[0], cliff[1], cliff[2], cliff[3]));
-                shader.SetShaderParameter("slot_tint", slotTint);
+                shader.SetShaderParameter("variant_layer", variantLayer);
+                shader.SetShaderParameter("variant_size", variantSize);
+                shader.SetShaderParameter("variant_bias", variantBias);
+                shader.SetShaderParameter("variant_foot", variantFoot);
+                shader.SetShaderParameter("variant_open", variantOpen);
+                shader.SetShaderParameter("variant_water", variantWater);
+                shader.SetShaderParameter("variant_slope", variantSlope);
+                shader.SetShaderParameter("variant_tint", variantTint);
+                shader.SetShaderParameter("context_map", contextMap);
+                shader.SetShaderParameter("context_size", new Vector2(context.Columns * ContextCell, context.Rows * ContextCell));
             }
             terrain.SurfaceSetMaterial(s, shader);
         }
@@ -325,9 +375,10 @@ public static class TerrainMaterials
     /// <summary>
     /// The material map: each cell takes what the old picture shows above it (the flattest tile there, where faces
     /// overlap seen from above), cells no natural tile covers take their neighbours', and the whole is softened.
-    /// Four bytes a cell for the slots' shares (what is left keeps the old picture), and one for the brightness.
+    /// Four bytes a cell for the slots' shares (what is left keeps the old picture), and one for the brightness; and
+    /// the context map (see <see cref="Context"/>).
     /// </summary>
-    private static (byte[] Weights, byte[] Shade) Paint(Mesh terrain, Dictionary<int, StandardMaterial3D> natural,
+    private static (byte[] Weights, byte[] Shade, (byte[] Data, int Columns, int Rows) Context) Paint(Mesh terrain, Dictionary<int, StandardMaterial3D> natural,
         Dictionary<Texture2D, (byte[] Class, byte[] Shade)> pictures, float cell, int columns, int rows, int slots)
     {
         var triangles = new List<(Vector2 A, Vector2 B, Vector2 C, Vector2 Ua, Vector2 Ub, Vector2 Uc, float Flat, byte[] Class, byte[] Shade)>();
@@ -405,6 +456,8 @@ public static class TerrainMaterials
             }
         });
 
+        var context = Context(classOf, flatOf, cell, columns, rows);
+
         // Cells beside the natural tiles (under roads, walls, water) take their neighbours', so nothing fades at the edge.
         for (var pass = 0; pass < 6; pass++)
         {
@@ -439,7 +492,48 @@ public static class TerrainMaterials
         var radius = Math.Max(1, Mathf.RoundToInt(Softening / cell));
         Soften(weights, columns, rows, 4, radius);
         Soften(shade, columns, rows, 1, radius);
-        return (weights, shade);
+        return (weights, shade, context);
+    }
+
+    /// <summary>
+    /// The context map, two bytes a cell of <see cref="ContextCell"/>: how near the rock is (steep faces, out to
+    /// <see cref="FootReach"/>) and how near the water or lava (what keeps the old picture, out to
+    /// <see cref="WaterReach"/>), from the material map's cells before they were filled in.
+    /// </summary>
+    private static (byte[] Data, int Columns, int Rows) Context(byte[] classOf, float[] flatOf, float cell, int columns, int rows)
+    {
+        var step = Math.Max(1, Mathf.RoundToInt(ContextCell / cell));
+        var (outColumns, outRows) = ((columns + step - 1) / step, (rows + step - 1) / step);
+        var steep = new byte[outColumns * outRows];
+        var kept = new byte[outColumns * outRows];
+        Parallel.For(0, outRows, cz =>
+        {
+            for (var cx = 0; cx < outColumns; cx++)
+            {
+                int steepCount = 0, keptCount = 0, count = 0;
+                for (var z = cz * step; z < Math.Min(rows, (cz + 1) * step); z++)
+                {
+                    for (var x = cx * step; x < Math.Min(columns, (cx + 1) * step); x++)
+                    {
+                        var o = z * columns + x;
+                        count++;
+                        if (flatOf[o] >= 0 && flatOf[o] < 0.8f)
+                            steepCount++;
+                        if (classOf[o] == 4 || classOf[o] == 255)
+                            keptCount++;
+                    }
+                }
+                var c = cz * outColumns + cx;
+                (steep[c], kept[c]) = ((byte)(255 * steepCount / Math.Max(count, 1)), (byte)(255 * keptCount / Math.Max(count, 1)));
+            }
+        });
+        // Spread out to their reach; anywhere within it counts fully, fading at its end.
+        Soften(steep, outColumns, outRows, 1, Mathf.RoundToInt(FootReach / ContextCell));
+        Soften(kept, outColumns, outRows, 1, Mathf.RoundToInt(WaterReach / ContextCell));
+        var data = new byte[outColumns * outRows * 2];
+        for (var c = 0; c < steep.Length; c++)
+            (data[c * 2], data[c * 2 + 1]) = ((byte)Math.Min(255, steep[c] * 4), (byte)Math.Min(255, kept[c] * 4));
+        return (data, outColumns, outRows);
     }
 
     /// <summary>
@@ -612,7 +706,7 @@ public static class TerrainMaterials
     {
         if (Loaded.TryGetValue(family, out var cached))
             return cached;
-        var names = family.Slots.Select(s => Materials[s.Material].Layer).Distinct().ToArray();
+        var names = family.Slots.SelectMany(s => Materials[s.Material].Variants).Select(v => v.Layer).Distinct().ToArray();
         var maps = new Image?[names.Length, 3];
         var means = new Vector3[names.Length];
         Parallel.For(0, names.Length * 3, k =>
@@ -729,11 +823,19 @@ public static class TerrainMaterials
             uniform sampler2DArray layer_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
             uniform sampler2DArray layer_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
             uniform sampler2DArray layer_rough : filter_linear_mipmap_anisotropic, repeat_enable;
-            uniform vec4 slot_layer = vec4(0.0);
-            uniform vec4 slot_size = vec4(3.0);
             uniform vec4 slot_rocky = vec4(0.0);
             uniform vec4 cliff = vec4(1.0, 0.0, 0.0, 0.0);
-            uniform vec3 slot_tint[4];
+            uniform vec3 variant_layer[4];
+            uniform vec3 variant_size[4];
+            uniform vec3 variant_bias[4];
+            uniform vec3 variant_foot[4];
+            uniform vec3 variant_open[4];
+            uniform vec3 variant_water[4];
+            uniform vec3 variant_slope[4];
+            uniform vec3 variant_tint[12];
+            uniform sampler2D context_map : filter_linear;
+            uniform vec2 context_size = vec2(1600.0);
+            uniform float patches = 0.12;
             uniform float shade_strength = 1.0;
             uniform float relief = 0.9;
             uniform float rock_relief = 1.8;
@@ -757,17 +859,17 @@ public static class TerrainMaterials
 
             // A map seen from above at three scales, so no repeat shows: close up the material's own size and a turned
             // copy 3.7 times larger, mixed by a slow noise; farther off that copy and one 14 times larger.
-            vec4 top_sample(sampler2DArray tex, vec2 p, float size, float index, float mixer, float far) {
-                vec2 a = p / size;
-                vec2 b = mat2(vec2(0.8, 0.6), vec2(-0.6, 0.8)) * p / (size * 3.7);
-                vec2 c = mat2(vec2(-0.28, 0.96), vec2(-0.96, -0.28)) * p / (size * 14.0);
-                vec4 near_value = far < 0.99 ? mix(texture(tex, vec3(a, index)), texture(tex, vec3(b, index)), mixer) : vec4(0.0);
-                vec4 far_value = far > 0.01 ? mix(texture(tex, vec3(b, index)), texture(tex, vec3(c, index)), 0.5) : vec4(0.0);
+            // The colour from above: close up the size and the 3.7 times larger copy, farther off that copy and the 14
+            // times larger one; the middle copy is read once for both, so no point reads more than three times.
+            vec4 top_colour(vec2 p, float size, float index, float mixer, float far) {
+                vec4 middle = texture(layer_albedo, vec3(mat2(vec2(0.8, 0.6), vec2(-0.6, 0.8)) * p / (size * 3.7), index));
+                vec4 near_value = far < 0.99 ? mix(texture(layer_albedo, vec3(p / size, index)), middle, mixer) : middle;
+                vec4 far_value = far > 0.01 ? mix(middle, texture(layer_albedo, vec3(mat2(vec2(-0.28, 0.96), vec2(-0.96, -0.28)) * p / (size * 14.0), index)), 0.5) : middle;
                 return mix(near_value, far_value, far);
             }
 
             // Seen from above, and from the two sides by how much the face looks each way, so slopes do not stretch it;
-            // the sides at two scales too.
+            // the sides at two scales too. The relief and roughness read fewer copies than the colour: they show less.
             Layer layer(float index, float size, vec3 p, vec3 n, float wobble, float mixer, float far) {
                 Layer l;
                 l.albedo = vec4(0.0);
@@ -777,27 +879,65 @@ public static class TerrainMaterials
                 f /= f.x + f.y + f.z;
                 float top = f.y;
                 if (top > 0.02) {
-                    l.albedo += top_sample(layer_albedo, p.xz, size, index, mixer, far) * top;
-                    vec3 t = top_sample(layer_normal, p.xz, size, index, mixer * 0.5, far).xyz * 2.0 - 1.0;
+                    l.albedo += top_colour(p.xz, size, index, mixer, far) * top;
+                    vec3 a = vec3(p.xz / size, index);
+                    vec3 b = vec3(mat2(vec2(0.8, 0.6), vec2(-0.6, 0.8)) * p.xz / (size * 3.7), index);
+                    vec3 t = mix(texture(layer_normal, a).xyz, texture(layer_normal, b).xyz, max(mixer * 0.5, far)) * 2.0 - 1.0;
                     // The maps' x runs east, their y (OpenGL, up the picture) north, against the picture's rows.
                     l.bend += vec3(t.x, 0.0, -t.y) * top;
-                    l.rough += top_sample(layer_rough, p.xz, size, index, mixer, far).r * top;
+                    l.rough += texture(layer_rough, b).r * top;
                 }
                 if (top < 0.98) {
                     vec2 w = f.xz / max(f.x + f.z, 1e-4) * (1.0 - top);
-                    vec3 sx = vec3(p.zy / size + vec2(0.0, wobble), index);
-                    vec3 sz = vec3(p.xy / size + vec2(0.0, wobble), index);
-                    vec3 bx = vec3(p.zy / (size * 3.1) + vec2(0.37, wobble * 0.3), index);
-                    vec3 bz = vec3(p.xy / (size * 3.1) + vec2(0.61, wobble * 0.3), index);
                     float second = mix(0.3, 0.6, far);
-                    l.albedo += mix(texture(layer_albedo, sx), texture(layer_albedo, bx), second) * w.x
-                        + mix(texture(layer_albedo, sz), texture(layer_albedo, bz), second) * w.y;
-                    vec3 tx = mix(texture(layer_normal, sx).xyz, texture(layer_normal, bx).xyz, second * 0.5) * 2.0 - 1.0;
-                    vec3 tz = mix(texture(layer_normal, sz).xyz, texture(layer_normal, bz).xyz, second * 0.5) * 2.0 - 1.0;
                     // Turned the way the face looks, so the relief stands out of it on either side.
-                    l.bend += vec3(0.0, -tx.y, tx.x * sign(n.x)) * w.x + vec3(tz.x * -sign(n.z), -tz.y, 0.0) * w.y;
-                    l.rough += texture(layer_rough, sx).r * w.x + texture(layer_rough, sz).r * w.y;
+                    if (w.x > 0.02) {
+                        vec3 sx = vec3(p.zy / size + vec2(0.0, wobble), index);
+                        vec3 bx = vec3(p.zy / (size * 3.1) + vec2(0.37, wobble * 0.3), index);
+                        l.albedo += mix(texture(layer_albedo, sx), texture(layer_albedo, bx), second) * w.x;
+                        vec3 tx = texture(layer_normal, sx).xyz * 2.0 - 1.0;
+                        l.bend += vec3(0.0, -tx.y, tx.x * sign(n.x)) * w.x;
+                        l.rough += texture(layer_rough, sx).r * w.x;
+                    }
+                    if (w.y > 0.02) {
+                        vec3 sz = vec3(p.xy / size + vec2(0.0, wobble), index);
+                        vec3 bz = vec3(p.xy / (size * 3.1) + vec2(0.61, wobble * 0.3), index);
+                        l.albedo += mix(texture(layer_albedo, sz), texture(layer_albedo, bz), second) * w.y;
+                        vec3 tz = texture(layer_normal, sz).xyz * 2.0 - 1.0;
+                        l.bend += vec3(tz.x * -sign(n.z), -tz.y, 0.0) * w.y;
+                        l.rough += texture(layer_rough, sz).r * w.y;
+                    }
                 }
+                return l;
+            }
+
+            // One material at a point: its three looks are scored by slow noise (patches of 20 to 60 m) and by what is
+            // around (the foot of the rock, the open, the water, the slope); the best two are sampled, tinted each to
+            // its share of the original's colour, and mixed by their heights where they are close.
+            Layer material(int s, vec3 p, vec3 n, float wobble, float mixer, float far, vec2 ctx, float slope) {
+                vec3 noise = vec3(texture(warp, p.xz / 400.0 + vec2(0.11, 0.37) * float(s)).r,
+                    texture(warp, p.zx / 430.0 + vec2(0.53, 0.21) + vec2(0.17) * float(s)).r,
+                    texture(warp, p.xz / 370.0 + vec2(0.77, 0.69) + vec2(0.29) * float(s)).r);
+                vec3 score = (noise - 0.5) * 1.6 + variant_bias[s] + variant_foot[s] * ctx.x + variant_open[s] * (1.0 - ctx.x)
+                    + variant_water[s] * ctx.y + variant_slope[s] * slope;
+                int first = score.x >= score.y && score.x >= score.z ? 0 : (score.y >= score.z ? 1 : 2);
+                vec3 rest = score;
+                rest[first] = -1e3;
+                int second = rest.x >= rest.y && rest.x >= rest.z ? 0 : (rest.y >= rest.z ? 1 : 2);
+                Layer a = layer(variant_layer[s][first], variant_size[s][first], p, n, wobble, mixer, far);
+                a.albedo.rgb *= variant_tint[s * 3 + first];
+                float gap = score[first] - score[second];
+                if (gap > 0.25)
+                    return a;
+                Layer b = layer(variant_layer[s][second], variant_size[s][second], p, n, wobble, mixer, far);
+                b.albedo.rgb *= variant_tint[s * 3 + second];
+                float wa = max(gap + a.albedo.a * 0.5 - b.albedo.a * 0.5 + 0.12, 0.0);
+                float wb = max(b.albedo.a * 0.5 - a.albedo.a * 0.5 - gap + 0.12, 0.0);
+                float t = wb / max(wa + wb, 1e-4);
+                Layer l;
+                l.albedo = mix(a.albedo, b.albedo, t);
+                l.bend = mix(a.bend, b.bend, t);
+                l.rough = mix(a.rough, b.rough, t);
                 return l;
             }
 
@@ -818,25 +958,29 @@ public static class TerrainMaterials
                 float given = dot(w, vec4(1.0) - slot_rocky) * steep;
                 w = w * mix(vec4(1.0), slot_rocky, steep) + cliff * given;
 
+                // What is around: how near the rock and the water (or lava) are, and how sloped the ground is here.
+                vec2 ctx = texture(context_map, world_pos.xz / context_size).rg;
+                float slope = smoothstep(0.98, 0.88, n.y);
+
                 Layer l0 = Layer(vec4(0.0), vec3(0.0), 0.0);
                 Layer l1 = l0;
                 Layer l2 = l0;
                 Layer l3 = l0;
                 vec4 score = vec4(-1.0);
                 if (w.x > 0.01) {
-                    l0 = layer(slot_layer.x, slot_size.x, world_pos, n, wobble, mixer, far);
+                    l0 = material(0, world_pos, n, wobble, mixer, far, ctx, slope);
                     score.x = w.x + l0.albedo.a * 0.6;
                 }
                 if (w.y > 0.01) {
-                    l1 = layer(slot_layer.y, slot_size.y, world_pos, n, wobble, mixer, far);
+                    l1 = material(1, world_pos, n, wobble, mixer, far, ctx, slope);
                     score.y = w.y + l1.albedo.a * 0.6;
                 }
                 if (w.z > 0.01) {
-                    l2 = layer(slot_layer.z, slot_size.z, world_pos, n, wobble, mixer, far);
+                    l2 = material(2, world_pos, n, wobble, mixer, far, ctx, slope);
                     score.z = w.z + l2.albedo.a * 0.6;
                 }
                 if (w.w > 0.01) {
-                    l3 = layer(slot_layer.w, slot_size.w, world_pos, n, wobble, mixer, far);
+                    l3 = material(3, world_pos, n, wobble, mixer, far, ctx, slope);
                     score.w = w.w + l3.albedo.a * 0.6;
                 }
                 // The shares weighed against the heights: the higher grains win where materials meet.
@@ -854,10 +998,12 @@ public static class TerrainMaterials
                 vec3 colour = vec3(0.0);
                 vec3 bent = vec3(0.0);
                 float roughness = 0.0;
-                if (b.x > 0.0) { colour += l0.albedo.rgb * slot_tint[0] * mix(1.0, 0.45 + 1.1 * l0.albedo.a, hollows.x) * b.x; bent += l0.bend * depth.x * b.x; roughness += l0.rough * b.x; }
-                if (b.y > 0.0) { colour += l1.albedo.rgb * slot_tint[1] * mix(1.0, 0.45 + 1.1 * l1.albedo.a, hollows.y) * b.y; bent += l1.bend * depth.y * b.y; roughness += l1.rough * b.y; }
-                if (b.z > 0.0) { colour += l2.albedo.rgb * slot_tint[2] * mix(1.0, 0.45 + 1.1 * l2.albedo.a, hollows.z) * b.z; bent += l2.bend * depth.z * b.z; roughness += l2.rough * b.z; }
-                if (b.w > 0.0) { colour += l3.albedo.rgb * slot_tint[3] * mix(1.0, 0.45 + 1.1 * l3.albedo.a, hollows.w) * b.w; bent += l3.bend * depth.w * b.w; roughness += l3.rough * b.w; }
+                if (b.x > 0.0) { colour += l0.albedo.rgb * mix(1.0, 0.45 + 1.1 * l0.albedo.a, hollows.x) * b.x; bent += l0.bend * depth.x * b.x; roughness += l0.rough * b.x; }
+                if (b.y > 0.0) { colour += l1.albedo.rgb * mix(1.0, 0.45 + 1.1 * l1.albedo.a, hollows.y) * b.y; bent += l1.bend * depth.y * b.y; roughness += l1.rough * b.y; }
+                if (b.z > 0.0) { colour += l2.albedo.rgb * mix(1.0, 0.45 + 1.1 * l2.albedo.a, hollows.z) * b.z; bent += l2.bend * depth.z * b.z; roughness += l2.rough * b.z; }
+                if (b.w > 0.0) { colour += l3.albedo.rgb * mix(1.0, 0.45 + 1.1 * l3.albedo.a, hollows.w) * b.w; bent += l3.bend * depth.w * b.w; roughness += l3.rough * b.w; }
+                // Large patches a little lighter and darker, so the ground does not look evenly made.
+                colour *= 1.0 + patches * (texture(warp, world_pos.zx / 310.0 + 0.13).r - 0.5) * 2.0;
                 // The old pictures' light and dark: dunes, the rims of craters.
                 float shade = texture(shade_map, at).r * (255.0 / 128.0);
                 colour *= mix(1.0, shade, shade_strength * (1.0 - steep));
