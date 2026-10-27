@@ -131,6 +131,12 @@ public static class TerrainDetail
         return surfaces;
     }
 
+    /// <summary>The layer an opaque terrain tile shows (see <see cref="Classify"/>); null for see-through tiles and water.</summary>
+    public static string? LayerOf(Material? material) =>
+        material is StandardMaterial3D { Transparency: BaseMaterial3D.TransparencyEnum.Disabled, AlbedoTexture: { } picture } original
+            ? Layers[Classify(original.GetMeta("texture", "").AsString(), picture)].Name
+            : null;
+
     private static readonly Dictionary<string, Texture2D?> Albedos = [];
 
     /// <summary>One layer's colour map on its own (the stones of GroundScatter wear the rock), or null without it.</summary>

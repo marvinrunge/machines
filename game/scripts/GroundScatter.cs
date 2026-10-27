@@ -31,21 +31,22 @@ public partial class GroundScatter : Node3D
 
     private readonly List<MultiMeshInstance3D> _pieces = [];
 
-    /// <summary>The scatter for a terrain mesh whose surfaces the ground detail sorted into layers; null for none.</summary>
-    public static GroundScatter? Create(Mesh terrain, IReadOnlyDictionary<int, (string Layer, Color Colour, string Texture)> surfaces, int seed)
+    /// <summary>The scatter for the ground's surfaces, as the ground detail sorted them into layers; null for none.</summary>
+    public static GroundScatter? Create(TerrainGeometry.Part[] ground, IReadOnlyDictionary<int, (string Layer, Color Colour, string Texture)> surfaces, int seed)
     {
-        var random = new Random(seed);
-        var grass = new Dictionary<Vector2I, List<(Transform3D, Color)>>();
-        var stones = new Dictionary<Vector2I, List<(Transform3D, Color)>>();
-        foreach (var (surface, (layer, colour, texture)) in surfaces)
+        // Each surface is scattered on its own, side by side, with dice of its own: the same each time.
+        var work = surfaces.ToArray();
+        var grassOf = new Dictionary<Vector2I, List<(Transform3D, Color)>>[work.Length];
+        var stonesOf = new Dictionary<Vector2I, List<(Transform3D, Color)>>[work.Length];
+        Parallel.For(0, work.Length, w =>
         {
+            var (surface, (layer, colour, texture)) = work[w];
+            var random = new Random(seed + surface);
+            var (grass, stones) = (grassOf[w] = [], stonesOf[w] = []);
             var (grassDensity, stoneDensity) = Density(layer);
             if (grassDensity + stoneDensity <= 0 || texture.Contains("road") || texture.Contains("walk") || texture.Contains("strip"))
-                continue;
-            var arrays = terrain.SurfaceGetArrays(surface);
-            var vertices = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
-            var indices = arrays[(int)Mesh.ArrayType.Index].AsInt32Array();
-            var colours = arrays[(int)Mesh.ArrayType.Color].VariantType == Variant.Type.Nil ? null : arrays[(int)Mesh.ArrayType.Color].AsColorArray();
+                return;
+            var (vertices, indices, colours) = (ground[surface].Vertices, ground[surface].Indices, ground[surface].Colours);
             for (var t = 0; t + 2 < indices.Length; t += 3)
             {
                 var (a, b, c) = (vertices[indices[t]], vertices[indices[t + 1]], vertices[indices[t + 2]]);
@@ -56,12 +57,15 @@ public partial class GroundScatter : Node3D
                     continue;
                 if (normal.Y < 0)
                     normal = -normal;
+                var (grassCount, stoneCount) = (Count(random, area * grassDensity), Count(random, area * stoneDensity));
+                if (grassCount + stoneCount == 0)
+                    continue;
                 // The tile's corners shade its colour as they shade its picture.
-                var shade = colours is null ? Colors.White : (colours[indices[t]] + colours[indices[t + 1]] + colours[indices[t + 2]]) / 3;
+                var shade =colours is null ? Colors.White : (colours[indices[t]] + colours[indices[t + 1]] + colours[indices[t + 2]]) / 3;
                 var tint = colour * shade;
-                Scatter(random, a, b, c, area * grassDensity, grass, (at, r) =>
+                Scatter(random, a, b, c, grassCount, grass, (at, r) =>
                     new Transform3D(new Basis(Vector3.Up, (float)r.NextDouble() * Mathf.Tau).Scaled(Vector3.One * (0.7f + 0.6f * (float)r.NextDouble())), at), tint.SrgbToLinear());
-                Scatter(random, a, b, c, area * stoneDensity, stones, (at, r) =>
+                Scatter(random, a, b, c, stoneCount, stones, (at, r) =>
                 {
                     // Mostly pebbles, now and then a stone; lying along the ground, sunk a little into it.
                     var size = r.NextDouble() < 0.85 ? 0.12f + 0.25f * (float)r.NextDouble() : 0.4f + 0.35f * (float)r.NextDouble();
@@ -72,7 +76,8 @@ public partial class GroundScatter : Node3D
                         at - up * size * 0.15f);
                 }, tint * 0.85f);
             }
-        }
+        });
+        var (grass, stones) = (Merge(grassOf), Merge(stonesOf));
         if (grass.Count == 0 && stones.Count == 0)
             return null;
 
@@ -98,11 +103,29 @@ public partial class GroundScatter : Node3D
         return scatter;
     }
 
-    /// <summary>About <paramref name="expected"/> random points on a triangle, sorted into chunks.</summary>
-    private static void Scatter(Random random, Vector3 a, Vector3 b, Vector3 c, float expected, Dictionary<Vector2I, List<(Transform3D, Color)>> into,
+    private static Dictionary<Vector2I, List<(Transform3D, Color)>> Merge(Dictionary<Vector2I, List<(Transform3D, Color)>>[] parts)
+    {
+        var all = new Dictionary<Vector2I, List<(Transform3D, Color)>>();
+        foreach (var part in parts)
+        {
+            foreach (var (chunk, items) in part)
+            {
+                if (all.TryGetValue(chunk, out var list))
+                    list.AddRange(items);
+                else
+                    all[chunk] = items;
+            }
+        }
+        return all;
+    }
+
+    /// <summary>About <paramref name="expected"/>: as many whole, and one more as often as the rest says.</summary>
+    private static int Count(Random random, float expected) => (int)expected + (random.NextDouble() < expected - (int)expected ? 1 : 0);
+
+    /// <summary><paramref name="count"/> random points on a triangle, sorted into chunks.</summary>
+    private static void Scatter(Random random, Vector3 a, Vector3 b, Vector3 c, int count, Dictionary<Vector2I, List<(Transform3D, Color)>> into,
         Func<Vector3, Random, Transform3D> place, Color tint)
     {
-        var count = (int)expected + (random.NextDouble() < expected - (int)expected ? 1 : 0);
         for (var i = 0; i < count; i++)
         {
             var (u, v) = ((float)random.NextDouble(), (float)random.NextDouble());

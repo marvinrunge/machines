@@ -27,18 +27,27 @@ public static class TerrainBuilder
         // The original tiles hold the cliffs, ramps and water edges themselves.
         if (classicTerrain is not null)
         {
-            // The remake adds the ground's detail close up (TerrainDetail), and grass and stones on it (GroundScatter),
-            // the same each time on a planet.
-            if (GraphicsSettings.Remake
-                && GroundScatter.Create(classicTerrain, TerrainDetail.Apply(classicTerrain), (int)(field.Width * 7919 + field.Depth)) is { } scatter)
-                root.AddChild(scatter);
             // The original's coarse ground throws no shadows (they fell in hard-edged wedges across the map); it
             // takes those of machines and buildings, and its slopes shade by their normals.
-            root.AddChild(new MeshInstance3D
+            if (!GraphicsSettings.Remake)
             {
-                Name = "ClassicTerrain", Mesh = classicTerrain, Layers = 1 | GroundLayer,
-                CastShadow = GraphicsSettings.Remake ? GeometryInstance3D.ShadowCastingSetting.On : GeometryInstance3D.ShadowCastingSetting.Off,
-            });
+                root.AddChild(new MeshInstance3D
+                {
+                    Name = "ClassicTerrain", Mesh = classicTerrain, Layers = 1 | GroundLayer,
+                    CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                });
+                return root;
+            }
+            // The remake gives the coarse tiles a finer shape first (TerrainGeometry: it reads their own materials, and
+            // gives those without corner colours some), then the ground's detail close up (TerrainDetail) and grass and
+            // stones on it (GroundScatter), the same each time on a planet. It is drawn in squares, so only those in
+            // view are, and casts shadows.
+            var ground = TerrainGeometry.Refine(classicTerrain, field);
+            var detail = TerrainDetail.Apply(classicTerrain);
+            if (GroundScatter.Create(ground, detail, (int)(field.Width * 7919 + field.Depth)) is { } scatter)
+                root.AddChild(scatter);
+            foreach (var piece in TerrainGeometry.Chunks(ground, classicTerrain.SurfaceGetMaterial))
+                root.AddChild(new MeshInstance3D { Name = "Ground", Mesh = piece, Layers = 1 | GroundLayer });
             return root;
         }
 
