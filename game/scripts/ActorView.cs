@@ -430,6 +430,8 @@ public partial class ActorView : Node3D
                     Position = new Vector3(Mathf.Max(0.5f, view._fore), 1.6f, 0),
                     Rotation = new Vector3(0, -Mathf.Pi / 2, 0),
                     Visible = false,
+                    // A faint beam in the haze; at full strength it washed the ground out at night.
+                    LightVolumetricFogEnergy = 0.25f,
                 };
                 view._lamp.RotateObjectLocal(Vector3.Right, -0.25f);
             }
