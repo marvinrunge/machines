@@ -249,7 +249,7 @@ public partial class Game : Node3D
                 Mesh = mesh,
                 Transform = new Transform3D(new Basis(Vector3.Up, -Mathf.DegToRad(placement.Orientation)), at),
                 // The red moons' lava pools glow and creep in the remake, as the lava on the ground does.
-                MaterialOverride = GraphicsSettings.Remake && placement.TypeName.Equals("lava", StringComparison.OrdinalIgnoreCase) ? Scenery.Lava : null,
+                MaterialOverride = GraphicsSettings.Remake && placement.TypeName.Equals("lava", StringComparison.OrdinalIgnoreCase) ? Scenery.Lava(mesh) : null,
             });
         }
         return root;
@@ -453,10 +453,20 @@ public partial class Game : Node3D
             System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 4;
         if (_runTime < after)
             return;
-        GetViewport().GetTexture().GetImage().SavePng(path);
+        // MACHINES_SCREENSHOT_FRAMES=<n> keeps n frames in a row (path-0.png ...), to see what flickers.
+        if (int.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_FRAMES"), out var frames) && frames > 1)
+        {
+            GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.ChangeExtension(path, null) + $"-{_framesKept}.png");
+            if (++_framesKept < frames)
+                return;
+        }
+        else
+            GetViewport().GetTexture().GetImage().SavePng(path);
         SaveReplay();
         GetTree().Quit();
     }
+
+    private int _framesKept;
 
     private void SyncViews()
     {

@@ -67,8 +67,10 @@ public static class Scenery
             var state = new GltfState();
             if (document.AppendFromFile(path, state) == Error.Ok && state.GetMeshes() is { Count: > 0 } meshes && meshes[0].Mesh is { } importer)
             {
-                // The importer's levels of detail, as for an imported scene: far trees draw a few hundred triangles.
-                importer.GenerateLods(25, 60, []);
+                // The importer's levels of detail, as for an imported scene: far rocks draw a few hundred triangles.
+                // Not for plants: their cards are already only a few triangles each, and simplifying tore them apart.
+                if (!Plants.Contains(name))
+                    importer.GenerateLods(25, 60, []);
                 var mesh = importer.GetMesh();
                 // Plants sway by their height; the big scans, only ever drawn enlarged many times, get the finer rock
                 // picture; the light ones lie on the ground and take some of its colour.
@@ -158,25 +160,25 @@ public static class Scenery
     {
         if (from is not BaseMaterial3D source)
             return from ?? new StandardMaterial3D();
+        // Foliage cards are cut out where their picture is clear (glTF's alpha mask).
+        var foliage = source.Transparency == BaseMaterial3D.TransparencyEnum.AlphaScissor;
         var twoSided = source.CullMode == BaseMaterial3D.CullModeEnum.Disabled;
-        var shader = new ShaderMaterial { Shader = twoSided ? TwoSided.Value : OneSided.Value, ResourceName = source.ResourceName };
-        // The leaves' colours come from a palette a pixel high, read without blending its neighbours.
-        if (source.AlbedoTexture is { } albedo && albedo.GetHeight() <= 4)
+        var shader = new ShaderMaterial
         {
-            shader.SetShaderParameter("palette_tex", albedo);
-            shader.SetShaderParameter("use_palette", true);
-        }
-        else if (source.AlbedoTexture is { } picture)
-            shader.SetShaderParameter("albedo_tex", picture);
+            Shader = foliage ? Foliage.Value : twoSided ? TwoSided.Value : OneSided.Value,
+            ResourceName = source.ResourceName,
+        };
+        if (source.AlbedoTexture is { } picture)
+            shader.SetShaderParameter("albedo_tex", Mipmapped(picture));
         shader.SetShaderParameter("albedo_colour", source.AlbedoColor);
         if (source.NormalEnabled && source.NormalTexture is { } normal)
         {
-            shader.SetShaderParameter("normal_tex", normal);
+            shader.SetShaderParameter("normal_tex", Mipmapped(normal));
             shader.SetShaderParameter("use_normal", true);
         }
         if (source.RoughnessTexture is { } rough)
         {
-            shader.SetShaderParameter("rough_tex", rough);
+            shader.SetShaderParameter("rough_tex", Mipmapped(rough));
             shader.SetShaderParameter("use_rough", true);
         }
         shader.SetShaderParameter("roughness", source.Roughness);
@@ -190,51 +192,76 @@ public static class Scenery
         return shader;
     }
 
-    /// <summary>The lava pools the scenarios set (the red moons' "lava"): creeping and glowing as the lava on the ground does.</summary>
-    public static Material Lava => LavaMaterial.Value;
+    private static readonly Dictionary<Texture2D, Texture2D> WithMipmaps = [];
 
-    private static readonly Lazy<ShaderMaterial> LavaMaterial = new(() =>
+    /// <summary>
+    /// A picture read from glTF at runtime, with mipmaps: without them bark and rock shimmer far off and the leaves'
+    /// edges sparkle.
+    /// </summary>
+    private static Texture2D Mipmapped(Texture2D texture)
     {
-        var material = new ShaderMaterial
+        if (WithMipmaps.TryGetValue(texture, out var done))
+            return done;
+        var result = texture;
+        if (texture.GetImage() is { } image && !image.HasMipmaps())
         {
-            Shader = new Shader
-            {
-                Code = $$"""
-                    shader_type spatial;
-                    uniform sampler2D lava_noise : filter_linear, repeat_enable;
-                    varying vec3 world_position;
-                    {{TerrainMaterials.LavaGlsl}}
-                    void vertex() {
-                        world_position = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-                    }
-                    void fragment() {
-                        vec3 glow;
-                        // A lake: mostly open melt with plates of crust drifting on it.
-                        ALBEDO = lava_at(lava_noise, world_position, 0.55, 0.85, TIME, glow);
-                        EMISSION = glow;
-                        ROUGHNESS = 0.8;
-                    }
-                    """,
-            },
-        };
-        material.SetShaderParameter("lava_noise", ImageTexture.CreateFromImage(TerrainMaterials.WarpNoise()));
+            if (image.IsCompressed())
+                image.Decompress();
+            image.GenerateMipmaps();
+            result = ImageTexture.CreateFromImage(image);
+        }
+        WithMipmaps[texture] = result;
+        return result;
+    }
+
+    /// <summary>
+    /// A lava pool the scenarios set (the red moons' "lava"), in its own picture: flowing and glowing as the lava on
+    /// the ground does.
+    /// </summary>
+    public static Material Lava(Mesh pool)
+    {
+        var material = new ShaderMaterial { Shader = LavaShader.Value };
+        if ((pool.SurfaceGetMaterial(0) as BaseMaterial3D)?.AlbedoTexture is { } picture)
+            material.SetShaderParameter("pool_picture", picture);
+        material.SetShaderParameter("lava_noise", LavaNoise.Value);
         return material;
+    }
+
+    private static readonly Lazy<Texture2D> LavaNoise = new(() => ImageTexture.CreateFromImage(TerrainMaterials.WarpNoise()));
+
+    private static readonly Lazy<Shader> LavaShader = new(() => new Shader
+    {
+        Code = $$"""
+            shader_type spatial;
+            uniform sampler2D pool_picture : source_color, hint_default_black, filter_linear_mipmap, repeat_enable;
+            uniform sampler2D lava_noise : filter_linear, repeat_enable;
+            varying vec3 world_position;
+            {{TerrainMaterials.LavaGlsl}}
+            void vertex() {
+                world_position = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+            }
+            void fragment() {
+                vec3 glow;
+                ALBEDO = lava_glow(texture(pool_picture, UV + lava_flow(lava_noise, world_position, TIME)).rgb, lava_noise, world_position, TIME, glow);
+                EMISSION = glow;
+                ROUGHNESS = 0.8;
+            }
+            """,
     });
 
-    private static readonly Lazy<Shader> OneSided = new(() => new Shader { Code = Code("cull_back") });
-    private static readonly Lazy<Shader> TwoSided = new(() => new Shader { Code = Code("cull_disabled") });
+    private static readonly Lazy<Shader> OneSided = new(() => new Shader { Code = Code("cull_back", foliage: false) });
+    private static readonly Lazy<Shader> TwoSided = new(() => new Shader { Code = Code("cull_disabled", foliage: false) });
+    private static readonly Lazy<Shader> Foliage = new(() => new Shader { Code = Code("cull_disabled", foliage: true) });
 
     /// <summary>
     /// The scenery's shader: the glTF pictures; for plants, the top swaying in the weather's wind (the trunk's foot
     /// stays), each at its own pace by where it stands; for enlarged scans, the ground's rock picture laid over in
     /// world metres from three sides; for scattered stones, a share of the ground's colour (the instance colour).
     /// </summary>
-    private static string Code(string cull) => $$"""
+    private static string Code(string cull, bool foliage) => $$"""
         shader_type spatial;
         render_mode {{cull}};
         uniform sampler2D albedo_tex : source_color, hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
-        uniform sampler2D palette_tex : source_color, hint_default_white, filter_nearest;
-        uniform bool use_palette = false;
         uniform vec4 albedo_colour : source_color = vec4(1.0);
         uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
         uniform bool use_normal = false;
@@ -271,7 +298,8 @@ public static class Scenery
         }
 
         void fragment() {
-            vec3 colour = (use_palette ? texture(palette_tex, UV) : texture(albedo_tex, UV)).rgb * albedo_colour.rgb;
+            vec4 picture = texture(albedo_tex, UV);
+            vec3 colour = picture.rgb * albedo_colour.rgb;
             if (detail > 0.0) {
                 // The rock picture from three sides, three metres to a repeat, against its own average (its smallest mipmap).
                 vec3 w = pow(abs(world_normal), vec3(4.0));
@@ -288,6 +316,23 @@ public static class Scenery
             if (use_normal)
                 NORMAL_MAP = texture(normal_tex, UV).rgb;
             ROUGHNESS = use_rough ? texture(rough_tex, UV).g : roughness;
+            {{(foliage ? FoliageFragment : "")}}
         }
+        """;
+
+    /// <summary>
+    /// What a foliage card adds: cut out where its picture is clear (the cut lowered as the picture's mipmaps blur its
+    /// edges far off, so the crowns do not thin out with distance), its normals out of the crown on both sides alike
+    /// (both faces of a card belong to the same crown), and sunlight shining through its leaves.
+    /// </summary>
+    private const string FoliageFragment = """
+            ALPHA = picture.a;
+            ALPHA_SCISSOR_THRESHOLD = clamp(0.5 - textureQueryLod(albedo_tex, UV).x * 0.07, 0.2, 0.5);
+            ALPHA_ANTIALIASING_EDGE = 0.3;
+            ALPHA_TEXTURE_COORDINATE = UV * vec2(textureSize(albedo_tex, 0));
+            if (!FRONT_FACING)
+                NORMAL = -NORMAL;
+            BACKLIGHT = colour * 0.45;
+            SPECULAR = 0.25;
         """;
 }

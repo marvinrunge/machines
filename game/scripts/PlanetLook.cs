@@ -155,11 +155,15 @@ public partial class PlanetLook : Node
         _environment.GlowBloom = 0.04f;
         _environment.GlowHdrThreshold = 1.1f;
         _environment.GlowBlendMode = Godot.Environment.GlowBlendModeEnum.Softlight;
-        // Metres: the machines stand a few metres tall, the buildings ten and more.
+        // Metres: the machines stand a few metres tall, the buildings ten and more. Seen from the strategy camera a
+        // small radius barely shows, and occlusion that only darkens the ambient light is lost in the sun: it reaches
+        // further, and takes a share of the direct light too.
         _environment.SsaoEnabled = true;
-        _environment.SsaoRadius = 3f;
-        _environment.SsaoIntensity = 1.6f;
-        _environment.SsaoDetail = 0.6f;
+        _environment.SsaoRadius = 6f;
+        _environment.SsaoIntensity = 2.6f;
+        _environment.SsaoPower = 1.6f;
+        _environment.SsaoDetail = 0.8f;
+        _environment.SsaoLightAffect = 0.35f;
         _sun.LightAngularDistance = 1.2f;
         _sun.ShadowBlur = 1.5f;
         _sun.DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel4Splits;
@@ -319,6 +323,9 @@ public partial class PlanetLook : Node
 
     private bool _softShadows;
 
+    /// <summary>The way the sun shines as last set (see Update).</summary>
+    private Vector3? _sunSet;
+
     public override void _Process(double delta) => Update();
 
     /// <summary>The first game time the sun stands highest (0 on a planet without one).</summary>
@@ -390,7 +397,14 @@ public partial class PlanetLook : Node
         if (level == Vector3.Zero)
             level = Vector3.Back;
         var lit = Mathf.DegToRad(Mathf.Clamp(elevation, 1, 89));
-        _sun.Basis = Basis.LookingAt(-(level * Mathf.Cos(lit) + Vector3.Up * Mathf.Sin(lit)), Vector3.Up);
+        // Turned in small steps, not every frame: each turn makes every shadow edge snap anew to the shadow map, and a
+        // sun creeping on frame by frame made them shimmer.
+        var shining = -(level * Mathf.Cos(lit) + Vector3.Up * Mathf.Sin(lit));
+        if (_sunSet is not { } was || was.AngleTo(shining) > Mathf.DegToRad(0.15f))
+        {
+            _sunSet = shining;
+            _sun.Basis = Basis.LookingAt(shining, Vector3.Up);
+        }
         var direct = Table(_sunSatellite?.DirectionalColourTable, elevation, Colors.White);
         _sun.LightColor = direct;
         // The remake's sun is stronger and its ambient weaker (below): lit sides and shade stand apart.
@@ -544,8 +558,14 @@ public partial class PlanetLook : Node
 
     private void UpdateShadowReach()
     {
-        // Shadows reach a little beyond what the camera looks at, so they stay sharp up close.
-        if (_softShadows)
-            _sun.DirectionalShadowMaxDistance = Mathf.Clamp(_viewDistance() * 3f, 120, 700);
+        // Shadows reach a little beyond what the camera looks at, so they stay sharp up close. The reach moves only
+        // when the zoom has moved a quarter away from it: changed every frame, it laid the shadow cascades out anew
+        // each time and the shadows jumped while zooming.
+        if (!_softShadows)
+            return;
+        var wanted = Mathf.Clamp(_viewDistance() * 3f, 120, 700);
+        var reach = _sun.DirectionalShadowMaxDistance;
+        if (wanted > reach * 1.25f || wanted < reach / 1.25f)
+            _sun.DirectionalShadowMaxDistance = wanted;
     }
 }

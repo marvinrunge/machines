@@ -132,12 +132,14 @@ public partial class GroundScatter : Node3D
         if (scans.Length > 0)
         {
             // The scans in their own pictures, taking a third of the ground's colour; each brought to a unit across first.
+            // Stones cast no shadows: thousands of them, smaller than a shadow map's texel further off, flickered in and
+            // out as the camera moved (the ambient occlusion darkens the ground at their feet).
             foreach (var (chunk, items) in stones)
                 for (var v = 0; v < scans.Length; v++)
                 {
                     var unit = scans[v].Unit;
                     scatter.AddPiece(scans[v].Mesh, null, items.Where((_, i) => i % scans.Length == v)
-                        .Select(s => (new Transform3D(s.Item1.Basis.Scaled(Vector3.One * unit), s.Item1.Origin), s.Item2)).ToList(), 320, shadows: true);
+                        .Select(s => (new Transform3D(s.Item1.Basis.Scaled(Vector3.One * unit), s.Item1.Origin), s.Item2)).ToList(), 320, shadows: false);
                 }
         }
         else
@@ -154,7 +156,7 @@ public partial class GroundScatter : Node3D
             };
             foreach (var (chunk, items) in stones)
                 for (var v = 0; v < stoneMeshes.Length; v++)
-                    scatter.AddPiece(stoneMeshes[v], stoneMaterial, items.Where((_, i) => i % stoneMeshes.Length == v).ToList(), 320, shadows: true);
+                    scatter.AddPiece(stoneMeshes[v], stoneMaterial, items.Where((_, i) => i % stoneMeshes.Length == v).ToList(), 320, shadows: false);
         }
         // Bushes are seen a few hundred metres off, dead trees as far as the trees.
         for (var d = 0; d < decoration.Length; d++)

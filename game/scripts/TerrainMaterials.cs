@@ -167,34 +167,33 @@ public static class TerrainMaterials
 
     /// <summary>
     /// The families (by their first planet) whose old pictures hold lava, and sulphur: drawn anew where they show, the
-    /// lava creeping and glowing (<see cref="LavaGlsl"/>), the sulphur a crust of crystals.
+    /// lava flowing and glowing (<see cref="LavaGlsl"/>), the sulphur a crust of crystals.
     /// </summary>
     private static readonly HashSet<string> Lava = ["m_moon", "dogbar"], Sulphur = ["m_moon"];
 
     /// <summary>
-    /// Lava at a point of the world, for the ground and for the pools the scenarios set (<see cref="Scenery.Lava"/>): a
-    /// dark crust creeping slowly over the melt, which glows through its cracks and breathes a little; heat (about 1)
-    /// makes the melt yellower, molten (0 to 1) leaves more of it open. Returns the colour; the glow goes out through
-    /// the last argument. The noise is the repeating picture of <see cref="WarpNoise"/>.
+    /// Lava from the original's own picture of it (its red veins), for the ground and for the pools the scenarios set
+    /// (<see cref="Scenery.Lava"/>): flowing slowly (the picture is read through a drifting wobble), glowing by its own
+    /// brightness in its own red, and seamed finely close up. lava_flow gives where to read the picture; lava_glow
+    /// takes what was read there and returns the colour, the glow going out through its last argument. The noise is
+    /// the repeating picture of <see cref="WarpNoise"/>.
     /// </summary>
     public const string LavaGlsl = """
-        vec3 lava_at(sampler2D noise, vec3 p, float heat_bias, float molten, float time, out vec3 glow) {
-            vec2 q = p.xz / 40.0;
-            vec2 creep = vec2(time * 0.004, time * 0.0025);
-            float slow = texture(noise, q + creep).r;
-            float fast = texture(noise, q * 2.7 - creep * 1.6 + slow * 0.3).r;
-            // Plates of crust a few metres across with thin seams between them (where the noise crosses its middle),
-            // and here and there an open pool of melt; the more molten (0 to 1), the more of it is open.
-            float seam = 1.0 - smoothstep(0.0, 0.035 + molten * 0.04, abs(fast - 0.5));
-            float pool = smoothstep(0.64 - molten * 0.34, 0.74 - molten * 0.34, slow);
-            float open = max(seam, pool);
-            float heat = clamp(open * heat_bias, 0.0, 1.0);
-            float breath = 0.85 + 0.15 * sin(time * 1.1 + slow * 9.0);
-            // The melt is its own light, deep red to orange; lit by the sun it would wash out to beige.
-            vec3 melt = mix(vec3(0.6, 0.03, 0.0), vec3(1.0, 0.32, 0.02), heat);
-            vec3 rock = vec3(0.04, 0.02, 0.014) * (0.7 + 0.6 * fast);
-            glow = melt * open * (0.5 + 0.5 * heat) * breath * 0.9;
-            return mix(rock, melt * 0.25, open);
+        vec2 lava_flow(sampler2D noise, vec3 p, float time) {
+            vec2 drift = vec2(texture(noise, p.xz / 30.0 + vec2(time * 0.012, time * 0.007)).r,
+                texture(noise, p.zx / 30.0 - vec2(time * 0.009, time * 0.011)).r);
+            return (drift - 0.5) * 0.05;
+        }
+
+        vec3 lava_glow(vec3 picture, sampler2D noise, vec3 p, float time, out vec3 glow) {
+            float fine = texture(noise, p.xz / 7.0 + vec2(time * 0.006, time * 0.004)).r;
+            // Thin seams where the noise crosses its middle, brightening the melt; between them it cools a little.
+            float seam = 1.0 - smoothstep(0.0, 0.06, abs(fine - 0.5));
+            vec3 hot = picture * (0.75 + 0.6 * seam);
+            float breath = 0.9 + 0.1 * sin(time * 1.1 + fine * 9.0);
+            // The brighter, the more it glows: the dark veins stay crust, the bright ones burn.
+            glow = hot * smoothstep(0.08, 0.6, hot.r) * 1.8 * breath;
+            return hot * 0.3;
         }
         """;
 
@@ -1175,10 +1174,8 @@ public static class TerrainMaterials
                 // in red), sulphur yellow.
                 float lava = lava_ground ? smoothstep(0.1, 0.25, old.r - max(old.g, old.b) * 1.1) : 0.0;
                 if (lava > 0.0) {
-                    // Hotter where the old picture was brightest.
                     vec3 heat_glow;
-                    float bright = dot(old, vec3(0.5, 0.4, 0.1));
-                    vec3 melt = lava_at(warp, world_pos, 0.6 + 0.6 * bright, 0.2 + 0.6 * bright, TIME, heat_glow);
+                    vec3 melt = lava_glow(texture(albedo_tex, UV + lava_flow(warp, world_pos, TIME)).rgb, warp, world_pos, TIME, heat_glow);
                     old = mix(old, melt, lava);
                     glow = heat_glow * lava;
                 }
