@@ -30,6 +30,13 @@ fi
 bash "$REPO/tools/terrain-textures/fetch.sh"
 mkdir -p "$OUT/textures"
 cp -r "$REPO/textures/polyhaven" "$OUT/textures/polyhaven"
+# The trees, rocks and spires built in Blender (tools/blender/build-nature.sh); without them the originals stay.
+if [ -d "$REPO/models/nature" ]; then
+    mkdir -p "$OUT/models"
+    cp -r "$REPO/models/nature" "$OUT/models/nature"
+else
+    echo "models/nature is missing (tools/blender/build-nature.sh): the release keeps the original trees and rocks"
+fi
 # Real-ESRGAN for the HD textures (tools/texture-upscale/fetch.sh), with its licence.
 if [ -f "$REPO/tools/texture-upscale/bin/realesrgan-ncnn-vulkan.exe" ]; then
     mkdir -p "$OUT/tools/texture-upscale"

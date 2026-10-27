@@ -228,16 +228,28 @@ public partial class Game : Node3D
         var root = new Node3D { Name = "Artefacts" };
         if (section.ModelsPath is not { } models)
             return root;
-        foreach (var placement in section.Placements)
+        Vector3 At(Vector2 position, float z) => new(position.X, HeightField.Current?.At(position.X, position.Y) ?? z, position.Y);
+        var placements = section.Placements.ToList();
+        if (GraphicsSettings.Remake)
+        {
+            // The remake's trees and rocks stand in for the original's (Scenery); the rest keeps its model.
+            var (scenery, left) = Scenery.Place(placements, p =>
+                (p.TypeName, At(new Vector2(p.Position.X, p.Position.Y), p.Position.Z), p.Orientation, _assets.ArtefactMesh(models, p.TypeName)));
+            root.AddChild(scenery);
+            placements = left;
+        }
+        foreach (var placement in placements)
         {
             if (_assets.ArtefactMesh(models, placement.TypeName) is not { } mesh)
                 continue;
-            var at = new Vector3(placement.Position.X, HeightField.Current?.At(placement.Position.X, placement.Position.Y) ?? placement.Position.Z, placement.Position.Y);
+            var at = At(new Vector2(placement.Position.X, placement.Position.Y), placement.Position.Z);
             root.AddChild(new MeshInstance3D
             {
                 Name = placement.TypeName,
                 Mesh = mesh,
                 Transform = new Transform3D(new Basis(Vector3.Up, -Mathf.DegToRad(placement.Orientation)), at),
+                // The red moons' lava pools glow and creep in the remake, as the lava on the ground does.
+                MaterialOverride = GraphicsSettings.Remake && placement.TypeName.Equals("lava", StringComparison.OrdinalIgnoreCase) ? Scenery.Lava : null,
             });
         }
         return root;
@@ -245,8 +257,10 @@ public partial class Game : Node3D
 
     private void AddLighting()
     {
-        // For automated checks: MACHINES_CLOCK=<seconds> moves the planet's day on by that much.
-        var clock = float.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_CLOCK"), System.Globalization.CultureInfo.InvariantCulture, out var c) ? c : 0;
+        // For automated checks: MACHINES_CLOCK=<seconds> moves the planet's day on by that much, "noon" to the sun's highest.
+        var setting = System.Environment.GetEnvironmentVariable("MACHINES_CLOCK");
+        var clock = float.TryParse(setting, System.Globalization.CultureInfo.InvariantCulture, out var c) ? c
+            : setting == "noon" ? PlanetLook.Noon(World.Planet.Environment) : 0;
         var planet = MatchRequest.Current.Planet;
         AddChild(PlanetLook.Create(World.Planet.Environment, planet, () => World.Time + clock, () => _driven is not null ? 0 : _rig?.Distance ?? 160,
             satellite => _assets.PlanetSky(planet, satellite), _assets.PlanetSkyDome(planet)));
@@ -1330,6 +1344,7 @@ public partial class Game : Node3D
         _firstPersonCamera.Basis *= CameraRig.ShakeAt(_firstPersonCamera.GlobalPosition);
 
         _hud.Weapons.Show(machine.Weapons, SelectedWeapons(machine));
+        _hud.Radar.Driven = machine;
 
         // The crosshair shows what it rests on: an enemy to shoot or a friend to spare (ore and wrecks don't count).
         var under = ActorAt(GetViewport().GetVisibleRect().Size / 2);

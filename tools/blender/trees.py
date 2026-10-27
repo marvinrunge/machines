@@ -379,7 +379,8 @@ def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     leaves = palette_material()
     palm_bark = bark_material(textures, "palm_bark")
-    tree_bark = bark_material(textures, "eucalyptus_bark")
+    # A baobab's bark is smooth and pale, greyish pink: the plane tree's comes closest.
+    tree_bark = bark_material(textures, "bark_platanus")
     dead_bark = bark_material(textures, "jolcham_oak_bark_01")
     made = [
         palm(random.Random(1), 7.5, 0.12, 11, 2, "palm_a", palm_bark, leaves),

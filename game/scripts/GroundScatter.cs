@@ -36,29 +36,42 @@ public partial class GroundScatter : Node3D
     /// painted from the material map, as the map has it where each triangle lies; null for none.
     /// </summary>
     public static GroundScatter? Create(TerrainGeometry.Part[] ground, IReadOnlyDictionary<int, (string Layer, Color Colour, string Texture)> surfaces,
-        TerrainMaterials.Ground? painted, int seed)
+        TerrainMaterials.Ground? painted, string planet, int seed)
     {
+        // Scanned stones where the planet has them (Scenery), else coarse balls; and the bushes and dead trees between.
+        var scans = Scenery.Stones(planet);
+        var decoration = Scenery.Decoration(planet);
         // What grows on a triangle, from its middle and the shade of its corners: grass tufts and stones per square
         // metre, and their colours.
         var work = new List<(int Surface, Func<Vector3, Color, (float Grass, float Stones, Color GrassColour, Color StoneColour)> Cover)>();
         foreach (var (surface, (layer, colour, texture)) in surfaces)
         {
             var (grassDensity, stoneDensity) = Density(layer);
-            if (grassDensity + stoneDensity > 0 && !texture.Contains("road") && !texture.Contains("walk") && !texture.Contains("strip"))
+            if (grassDensity + stoneDensity == 0 || texture.Contains("road") || texture.Contains("walk") || texture.Contains("strip"))
+                continue;
+            if (painted is not null)
+                // On a painted planet the tiles it left (shores, tiles with see-through edges) follow its map too: by
+                // their own layer they stood out as rectangles thick with stones.
+                work.Add((surface, (middle, _) => painted.At(middle.X, middle.Z)));
+            else
                 // The tile's corners shade its colour as they shade its picture.
                 work.Add((surface, (_, shade) => (grassDensity, stoneDensity, colour * shade, colour * shade * 0.85f)));
         }
         foreach (var surface in painted?.Surfaces ?? new HashSet<int>())
-            work.Add((surface, (middle, _) => painted!.At(middle.X, middle.Z)));
+            if (!painted!.Roads.Contains(surface))
+                work.Add((surface, (middle, _) => painted.At(middle.X, middle.Z)));
 
         // Each surface is scattered on its own, side by side, with dice of its own: the same each time.
         var grassOf = new Dictionary<Vector2I, List<(Transform3D, Color)>>[work.Count];
         var stonesOf = new Dictionary<Vector2I, List<(Transform3D, Color)>>[work.Count];
+        var plantsOf = new Dictionary<Vector2I, List<(Transform3D, Color)>>[work.Count, decoration.Length];
         Parallel.For(0, work.Count, w =>
         {
             var (surface, cover) = work[w];
             var random = new Random(seed + surface);
             var (grass, stones) = (grassOf[w] = [], stonesOf[w] = []);
+            for (var d = 0; d < decoration.Length; d++)
+                plantsOf[w, d] = [];
             var (vertices, indices, colours) = (ground[surface].Vertices, ground[surface].Indices, ground[surface].Colours);
             for (var t = 0; t + 2 < indices.Length; t += 3)
             {
@@ -71,12 +84,26 @@ public partial class GroundScatter : Node3D
                 if (normal.Y < 0)
                     normal = -normal;
                 var shade = colours is null ? Colors.White : (colours[indices[t]] + colours[indices[t + 1]] + colours[indices[t + 2]]) / 3;
-                var (grassDensity, stoneDensity, grassColour, stoneColour) = cover((a + b + c) / 3, shade);
-                var (grassCount, stoneCount) = (Count(random, area * grassDensity), Count(random, area * stoneDensity));
+                // The most the triangle carries anywhere on it (a big one may cross a border); each point is then kept
+                // by what grows just there, so the cover thins out over the ground's soft edges instead of stopping at
+                // the triangle's.
+                var corners = new[] { cover(a, shade), cover(b, shade), cover(c, shade), cover((a + b + c) / 3, shade) };
+                var (grassMost, stonesMost) = (corners.Max(k => k.Grass), corners.Max(k => k.Stones));
+                for (var d = 0; d < decoration.Length; d++)
+                {
+                    var (_, perGrass, perGround) = decoration[d];
+                    float Density((float Grass, float Stones, Color, Color) k) => perGrass * k.Grass + (k.Stones > 0 ? perGround : 0);
+                    var most = corners.Max(Density);
+                    Scatter(random, a, b, c, Count(random, area * most), plantsOf[w, d], (at, r) =>
+                        new Transform3D(new Basis(Vector3.Up, (float)r.NextDouble() * Mathf.Tau).Scaled(Vector3.One * (0.8f + 0.5f * (float)r.NextDouble())), at - Vector3.Up * 0.1f),
+                        (at, r) => r.NextDouble() * most < Density(cover(at, shade)) ? Colors.White : null);
+                }
+                var (grassCount, stoneCount) = (Count(random, area * grassMost), Count(random, area * stonesMost));
                 if (grassCount + stoneCount == 0)
                     continue;
                 Scatter(random, a, b, c, grassCount, grass, (at, r) =>
-                    new Transform3D(new Basis(Vector3.Up, (float)r.NextDouble() * Mathf.Tau).Scaled(Vector3.One * (0.7f + 0.6f * (float)r.NextDouble())), at), grassColour.SrgbToLinear());
+                    new Transform3D(new Basis(Vector3.Up, (float)r.NextDouble() * Mathf.Tau).Scaled(Vector3.One * (0.7f + 0.6f * (float)r.NextDouble())), at),
+                    (at, r) => cover(at, shade) is var here && r.NextDouble() * grassMost < here.Grass ? here.GrassColour.SrgbToLinear() : null);
                 Scatter(random, a, b, c, stoneCount, stones, (at, r) =>
                 {
                     // Mostly pebbles, now and then a stone; lying along the ground, sunk a little into it.
@@ -84,13 +111,16 @@ public partial class GroundScatter : Node3D
                     var up = normal;
                     var side = up.Cross(Vector3.Forward).Normalized();
                     var basis = new Basis(side, up, side.Cross(up)).Rotated(up, (float)r.NextDouble() * Mathf.Tau);
-                    return new Transform3D(basis.Scaled(new Vector3(size, size * (0.5f + 0.3f * (float)r.NextDouble()), size * (0.8f + 0.4f * (float)r.NextDouble()))),
-                        at - up * size * 0.15f);
-                }, stoneColour);
+                    // A scan keeps its own shape; a ball is flattened into a pebble.
+                    var shape = scans.Length > 0 ? Vector3.One * size
+                        : new Vector3(size, size * (0.5f + 0.3f * (float)r.NextDouble()), size * (0.8f + 0.4f * (float)r.NextDouble()));
+                    return new Transform3D(basis.Scaled(shape), at - up * size * 0.15f);
+                }, (at, r) => cover(at, shade) is var here && r.NextDouble() * stonesMost < here.Stones ? here.StoneColour : null);
             }
         });
         var (grass, stones) = (Merge(grassOf), Merge(stonesOf));
-        if (grass.Count == 0 && stones.Count == 0)
+        var plants = Enumerable.Range(0, decoration.Length).Select(d => Merge(Enumerable.Range(0, work.Count).Select(w => plantsOf[w, d]).ToArray())).ToArray();
+        if (grass.Count == 0 && stones.Count == 0 && plants.All(p => p.Count == 0))
             return null;
 
         var scatter = new GroundScatter { Name = "GroundScatter" };
@@ -99,19 +129,40 @@ public partial class GroundScatter : Node3D
         grassMaterial.SetShaderParameter("blades", Blades.Value);
         foreach (var (chunk, items) in grass)
             scatter.AddPiece(tuft, grassMaterial, items, 230, shadows: false);
-        var stoneMeshes = Enumerable.Range(0, 3).Select(i => Stone(new Random(seed + i))).ToArray();
-        var stoneMaterial = new StandardMaterial3D
+        if (scans.Length > 0)
         {
-            AlbedoTexture = TerrainDetail.LayerAlbedo("rock"),
-            Uv1Triplanar = true,
-            Uv1Scale = Vector3.One * 0.7f,
-            VertexColorUseAsAlbedo = true,
-            VertexColorIsSrgb = true,
-            Roughness = 0.9f,
-        };
-        foreach (var (chunk, items) in stones)
-            for (var v = 0; v < stoneMeshes.Length; v++)
-                scatter.AddPiece(stoneMeshes[v], stoneMaterial, items.Where((_, i) => i % stoneMeshes.Length == v).ToList(), 320, shadows: true);
+            // The scans in their own pictures, taking a third of the ground's colour; each brought to a unit across first.
+            foreach (var (chunk, items) in stones)
+                for (var v = 0; v < scans.Length; v++)
+                {
+                    var unit = scans[v].Unit;
+                    scatter.AddPiece(scans[v].Mesh, null, items.Where((_, i) => i % scans.Length == v)
+                        .Select(s => (new Transform3D(s.Item1.Basis.Scaled(Vector3.One * unit), s.Item1.Origin), s.Item2)).ToList(), 320, shadows: true);
+                }
+        }
+        else
+        {
+            var stoneMeshes = Enumerable.Range(0, 3).Select(i => Stone(new Random(seed + i))).ToArray();
+            var stoneMaterial = new StandardMaterial3D
+            {
+                AlbedoTexture = TerrainDetail.LayerAlbedo("rock"),
+                Uv1Triplanar = true,
+                Uv1Scale = Vector3.One * 0.7f,
+                VertexColorUseAsAlbedo = true,
+                VertexColorIsSrgb = true,
+                Roughness = 0.9f,
+            };
+            foreach (var (chunk, items) in stones)
+                for (var v = 0; v < stoneMeshes.Length; v++)
+                    scatter.AddPiece(stoneMeshes[v], stoneMaterial, items.Where((_, i) => i % stoneMeshes.Length == v).ToList(), 320, shadows: true);
+        }
+        // Bushes are seen a few hundred metres off, dead trees as far as the trees.
+        for (var d = 0; d < decoration.Length; d++)
+        {
+            var model = decoration[d].Model;
+            foreach (var (chunk, items) in plants[d])
+                scatter.AddPiece(model.Mesh, null, items, model.Bounds.Size.Y > 4 ? 900 : 300, shadows: true);
+        }
         return scatter;
     }
 
@@ -134,9 +185,9 @@ public partial class GroundScatter : Node3D
     /// <summary>About <paramref name="expected"/>: as many whole, and one more as often as the rest says.</summary>
     private static int Count(Random random, float expected) => (int)expected + (random.NextDouble() < expected - (int)expected ? 1 : 0);
 
-    /// <summary><paramref name="count"/> random points on a triangle, sorted into chunks.</summary>
+    /// <summary><paramref name="count"/> random points on a triangle; those kept, with their colour, sorted into chunks.</summary>
     private static void Scatter(Random random, Vector3 a, Vector3 b, Vector3 c, int count, Dictionary<Vector2I, List<(Transform3D, Color)>> into,
-        Func<Vector3, Random, Transform3D> place, Color tint)
+        Func<Vector3, Random, Transform3D> place, Func<Vector3, Random, Color?> keep)
     {
         for (var i = 0; i < count; i++)
         {
@@ -144,6 +195,8 @@ public partial class GroundScatter : Node3D
             if (u + v > 1)
                 (u, v) = (1 - u, 1 - v);
             var at = a + (b - a) * u + (c - a) * v;
+            if (keep(at, random) is not { } tint)
+                continue;
             var chunk = new Vector2I(Mathf.FloorToInt(at.X / ChunkSize), Mathf.FloorToInt(at.Z / ChunkSize));
             if (!into.TryGetValue(chunk, out var list))
                 into[chunk] = list = [];
@@ -152,10 +205,11 @@ public partial class GroundScatter : Node3D
         }
     }
 
-    private void AddPiece(Mesh mesh, Material material, List<(Transform3D Transform, Color Colour)> items, float reach, bool shadows)
+    /// <summary>One chunk's instances of a mesh, in the material given or the mesh's own; null for none.</summary>
+    private MultiMeshInstance3D? AddPiece(Mesh mesh, Material? material, List<(Transform3D Transform, Color Colour)> items, float reach, bool shadows)
     {
         if (items.Count == 0)
-            return;
+            return null;
         var multimesh = new MultiMesh
         {
             TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
@@ -186,6 +240,7 @@ public partial class GroundScatter : Node3D
         };
         AddChild(piece);
         _pieces.Add(piece);
+        return piece;
     }
 
     /// <summary>Takes away the grass and stones within a rectangle on the ground (a building's footprint, in metres).</summary>

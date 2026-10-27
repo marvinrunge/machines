@@ -88,7 +88,8 @@ public static class TerrainMaterials
         // Green planets and dales: beaches, gravel, dry grass, mossy cliffs, water.
         new(["m_green", "mgreendn", "m_dales", "mdalesdn", "finger"],
             [new("beach", "#9a764c", 1), new("gravel", "#8f6f4d", 1), new("drygrass", "#573c0c", 1), new("mossrock", "#40452d", 1)], 3,
-            ["watflw", "wated1", "watr00", "watfal"],
+            // The shore (wated1) is painted like the other water edges: its sand gets the beach, its water stays.
+            ["watflw", "watr00", "watfal"],
             [(0, 31.1f, 5.4f, 17.7f), (0, 49.6f, 8.4f, 28), (0, 55, 8.7f, 29),
              (1, 43.8f, 7.9f, 20), (1, 56.1f, 8.6f, 26.9f), (1, 48.5f, 8.4f, 27.9f),
              (2, 28.5f, 1.5f, 33.1f), (2, 17, 4.8f, 21.1f), (2, 27.6f, 10, 32.5f),
@@ -97,7 +98,7 @@ public static class TerrainMaterials
         // Hills: sand, grey gravel, lush grass, dark rock.
         new(["hilly", "talonth8"],
             [new("beach", "#9c804c", 1), new("gravel", "#484941", 1), new("lushgrass", "#3e461a", 1), new("mossrock", "#443f32", 1)], 3,
-            ["wat00", "metal", "metal2", "sroad", "sroad2", "ductf_t"],
+            ["wat00", "metal", "metal2", "ductf_t"],
             [(0, 30.3f, 1.9f, 18.8f), (0, 53, 2.7f, 31.7f), (0, 57.1f, 4.1f, 32.8f),
              (1, 24.6f, -1.9f, 4.9f), (1, 30.2f, -4, 9.2f), (1, 35.4f, -1, 2.8f),
              (2, 15.8f, -7, 14.9f), (2, 26.1f, -10.4f, 22.7f), (2, 30.9f, -11.9f, 27.5f),
@@ -121,7 +122,8 @@ public static class TerrainMaterials
         // Red moons: red soil, black rock, pale crater floors, lava.
         new(["dogbar", "multidog", "commsat"],
             [new("redsoil", "#492212", 1), new("darkrock", "#3e1f12", 1), new("dust", "#757971", 1)], 1,
-            ["wat00", "wat06", "tower2", "waltop"],
+            // The lava pools (wat00, wat06) are painted too: their melt keeps to the old picture and is drawn as lava.
+            ["tower2", "waltop"],
             [(0, 16.7f, 16.1f, 17.1f), (0, 21.3f, 19.1f, 21.1f), (0, 34.9f, 21.8f, 28.5f), (0, 41.3f, 25.4f, 33.6f), (0, 49.3f, 28.5f, 38.8f),
              (1, 5.9f, 2.3f, 1.9f), (1, 11.3f, 8, 8.7f),
              (2, 45.4f, -2.8f, 3.9f), (2, 49.9f, -3.1f, 4), (2, 53.9f, -3.5f, 4.6f),
@@ -148,7 +150,60 @@ public static class TerrainMaterials
     private const int MaxCells = 3072;
 
     /// <summary>How far the map is softened, in metres.</summary>
-    private const float Softening = 2f;
+    private const float Softening = 3f;
+
+    /// <summary>
+    /// The material map's noise picture, along a side; and how far the borders wander over a couple of hundred metres
+    /// (the original's tiles laid them in steps tens of metres long), in metres.
+    /// </summary>
+    private const int WarpSize = 256;
+    private const float BorderWander = 16;
+
+    /// <summary>
+    /// The road tiles (the hills' asphalt with hazard stripes along it): their grass is painted like the ground around,
+    /// their road drawn anew (photographed asphalt, sharp stripes), and their borders keep straight.
+    /// </summary>
+    private static readonly HashSet<string> Roads = ["sroad", "sroad2"];
+
+    /// <summary>
+    /// The families (by their first planet) whose old pictures hold lava, and sulphur: drawn anew where they show, the
+    /// lava creeping and glowing (<see cref="LavaGlsl"/>), the sulphur a crust of crystals.
+    /// </summary>
+    private static readonly HashSet<string> Lava = ["m_moon", "dogbar"], Sulphur = ["m_moon"];
+
+    /// <summary>
+    /// Lava at a point of the world, for the ground and for the pools the scenarios set (<see cref="Scenery.Lava"/>): a
+    /// dark crust creeping slowly over the melt, which glows through its cracks and breathes a little; heat (about 1)
+    /// makes the melt yellower, molten (0 to 1) leaves more of it open. Returns the colour; the glow goes out through
+    /// the last argument. The noise is the repeating picture of <see cref="WarpNoise"/>.
+    /// </summary>
+    public const string LavaGlsl = """
+        vec3 lava_at(sampler2D noise, vec3 p, float heat_bias, float molten, float time, out vec3 glow) {
+            vec2 q = p.xz / 40.0;
+            vec2 creep = vec2(time * 0.004, time * 0.0025);
+            float slow = texture(noise, q + creep).r;
+            float fast = texture(noise, q * 2.7 - creep * 1.6 + slow * 0.3).r;
+            // Plates of crust a few metres across with thin seams between them (where the noise crosses its middle),
+            // and here and there an open pool of melt; the more molten (0 to 1), the more of it is open.
+            float seam = 1.0 - smoothstep(0.0, 0.035 + molten * 0.04, abs(fast - 0.5));
+            float pool = smoothstep(0.64 - molten * 0.34, 0.74 - molten * 0.34, slow);
+            float open = max(seam, pool);
+            float heat = clamp(open * heat_bias, 0.0, 1.0);
+            float breath = 0.85 + 0.15 * sin(time * 1.1 + slow * 9.0);
+            // The melt is its own light, deep red to orange; lit by the sun it would wash out to beige.
+            vec3 melt = mix(vec3(0.6, 0.03, 0.0), vec3(1.0, 0.32, 0.02), heat);
+            vec3 rock = vec3(0.04, 0.02, 0.014) * (0.7 + 0.6 * fast);
+            glow = melt * open * (0.5 + 0.5 * heat) * breath * 0.9;
+            return mix(rock, melt * 0.25, open);
+        }
+        """;
+
+    /// <summary>The ground's wandering noise (its borders and patches wander by it, its lava creeps by it).</summary>
+    public static Image WarpNoise() => new FastNoiseLite { Frequency = 1 / 24f, FractalOctaves = 3, Seed = 3 }.GetSeamlessImage(WarpSize, WarpSize);
+
+    /// <summary>The asphalt the roads are drawn in (textures/polyhaven/asphalt), or null when it was not fetched.</summary>
+    private static readonly Lazy<Texture2D?> Asphalt = new(() =>
+        Read(Path.Combine(Folder, "asphalt", "albedo.jpg"), Image.Format.Rgb8, Image.CompressSource.Srgb) is { } image ? ImageTexture.CreateFromImage(image) : null);
 
     /// <summary>The cells of the light map (the tiles' corner colours), and how far it is spread, in metres.</summary>
     private const float LightCell = 2, LightSpread = 6;
@@ -172,16 +227,31 @@ public static class TerrainMaterials
         private readonly byte[] _light;
         private readonly int _lightColumns, _lightRows;
 
+        private readonly float[] _warp;
+
         internal Ground(HashSet<int> surfaces, byte[] weights, int columns, int rows, float cell, (float Grass, float Stones, Color Colour)[] slots,
-            byte[] light, int lightColumns, int lightRows)
+            byte[] light, int lightColumns, int lightRows, float[] warp)
         {
             Surfaces = surfaces;
             (_weights, _columns, _rows, _cell, _slots) = (weights, columns, rows, cell, slots);
-            (_light, _lightColumns, _lightRows) = (light, lightColumns, lightRows);
+            (_light, _lightColumns, _lightRows, _warp) = (light, lightColumns, lightRows, warp);
+        }
+
+        /// <summary>The wandering noise as the shader reads it: repeating, blended between its pixels.</summary>
+        private float Warp(float u, float v)
+        {
+            var (x, y) = (u * WarpSize - 0.5f, v * WarpSize - 0.5f);
+            var (x0, y0) = ((int)Mathf.Floor(x), (int)Mathf.Floor(y));
+            var (fx, fy) = (x - x0, y - y0);
+            float At(int px, int py) => _warp[Mathf.PosMod(py, WarpSize) * WarpSize + Mathf.PosMod(px, WarpSize)];
+            return Mathf.Lerp(Mathf.Lerp(At(x0, y0), At(x0 + 1, y0), fx), Mathf.Lerp(At(x0, y0 + 1), At(x0 + 1, y0 + 1), fx), fy);
         }
 
         /// <summary>The terrain surfaces drawn from the material map.</summary>
         public IReadOnlySet<int> Surfaces { get; }
+
+        /// <summary>Those of them that are roads: nothing grows on them.</summary>
+        public IReadOnlySet<int> Roads { get; init; } = new HashSet<int>();
 
         /// <summary>
         /// Grass tufts and stones per square metre at a point of the ground, the colour of its grass and of its stones
@@ -189,14 +259,22 @@ public static class TerrainMaterials
         /// </summary>
         public (float Grass, float Stones, Color GrassColour, Color StoneColour) At(float x, float z)
         {
-            var cx = Math.Clamp((int)(x / _cell), 0, _columns - 1);
-            var cz = Math.Clamp((int)(z / _cell), 0, _rows - 1);
-            var o = (cz * _columns + cx) * 4;
+            // Where the shader reads the map for this point (its borders wander), between the cells as it blends them:
+            // grass and stones keep to the painted ground and thin out over its soft edges.
+            var (wx, wz) = (x, z);
+            x += (Warp(wx / 61, wz / 61) - 0.5f) * 5 + (Warp(wx / 190 + 0.23f, wz / 190 + 0.23f) - 0.5f) * BorderWander;
+            z += (Warp(wz / 61 + 0.37f, wx / 61 + 0.37f) - 0.5f) * 5 + (Warp(wz / 190 + 0.61f, wx / 190 + 0.61f) - 0.5f) * BorderWander;
+            var (fx, fz) = (Mathf.Clamp(x / _cell - 0.5f, 0, _columns - 1), Mathf.Clamp(z / _cell - 0.5f, 0, _rows - 1));
+            var (cx, cz) = ((int)fx, (int)fz);
+            var (cx1, cz1) = (Math.Min(cx + 1, _columns - 1), Math.Min(cz + 1, _rows - 1));
+            var (tx, tz) = (fx - cx, fz - cz);
+            float Weight(int s) => Mathf.Lerp(Mathf.Lerp(_weights[(cz * _columns + cx) * 4 + s], _weights[(cz * _columns + cx1) * 4 + s], tx),
+                Mathf.Lerp(_weights[(cz1 * _columns + cx) * 4 + s], _weights[(cz1 * _columns + cx1) * 4 + s], tx), tz) / 255f;
             float grass = 0, stones = 0, grassWeight = 0;
             Color grassColour = new(0, 0, 0), stoneColour = new(0, 0, 0);
             for (var s = 0; s < _slots.Length; s++)
             {
-                var w = _weights[o + s] / 255f;
+                var w = Weight(s);
                 var (slotGrass, slotStones, colour) = _slots[s];
                 grass += w * slotGrass;
                 stones += w * slotStones;
@@ -225,6 +303,7 @@ public static class TerrainMaterials
         // The natural tiles and what their pictures show.
         var natural = new Dictionary<int, StandardMaterial3D>();
         var pictures = new Dictionary<Texture2D, (byte[] Class, byte[] Shade)>();
+        var roads = new HashSet<int>();
         for (var s = 0; s < terrain.GetSurfaceCount(); s++)
         {
             if (terrain.SurfaceGetMaterial(s) is not StandardMaterial3D { Transparency: BaseMaterial3D.TransparencyEnum.Disabled, AlbedoTexture: { } picture } material)
@@ -232,11 +311,14 @@ public static class TerrainMaterials
             var name = Path.GetFileNameWithoutExtension(material.GetMeta("texture", "").AsString());
             if (name.EndsWith("_b", StringComparison.Ordinal))
                 name = name[..^2];
-            if (family.Keep.Contains(name) || TerrainDetail.LayerOf(material) == "metal")
+            var road = Roads.Contains(name);
+            if (family.Keep.Contains(name) || (!road && TerrainDetail.LayerOf(material) == "metal"))
                 continue;
             natural[s] = material;
+            if (road)
+                roads.Add(s);
             if (!pictures.ContainsKey(picture))
-                pictures[picture] = Classify(picture, family);
+                pictures[picture] = Classify(picture, family, road);
         }
         if (natural.Count == 0)
             return null;
@@ -244,13 +326,19 @@ public static class TerrainMaterials
         var cell = Mathf.Max(FinestCell, Mathf.Max(width, depth) / MaxCells);
         var (columns, rows) = (Mathf.CeilToInt(width / cell), Mathf.CeilToInt(depth / cell));
         var (weights, shade, context) = Paint(terrain, natural, pictures, cell, columns, rows, family.Slots.Length);
+        if (System.Environment.GetEnvironmentVariable("MACHINES_MATERIAL_MAP") is { Length: > 0 } dump)
+        {
+            Dump(dump, weights, shade, columns, rows);
+            GD.Print($"material map of {planet}: {width} x {depth} m");
+        }
 
         var map = ImageTexture.CreateFromImage(Image.CreateFromData(columns, rows, false, Image.Format.Rgba8, weights));
         var shadeMap = ImageTexture.CreateFromImage(Image.CreateFromData(columns, rows, false, Image.Format.L8, shade));
         var contextMap = ImageTexture.CreateFromImage(Image.CreateFromData(context.Columns, context.Rows, false, Image.Format.Rg8, context.Data));
         var (lights, lightColumns, lightRows) = Light(ground, natural.Keys, width, depth);
         var lightMap = ImageTexture.CreateFromImage(Image.CreateFromData(lightColumns, lightRows, false, Image.Format.Rgb8, lights));
-        var warp = ImageTexture.CreateFromImage(new FastNoiseLite { Frequency = 1 / 24f, FractalOctaves = 3, Seed = 3 }.GetSeamlessImage(256, 256));
+        var warpImage = WarpNoise();
+        var warp = ImageTexture.CreateFromImage(warpImage);
 
         // Each slot's three looks: their layers, sizes and tints, and how much each is drawn to the foot of the rock,
         // the open, the water (or lava) and the slopes. The picked look starts ahead, so it covers about half the ground.
@@ -292,6 +380,13 @@ public static class TerrainMaterials
             {
                 shaders[original] = shader = new ShaderMaterial { Shader = Shader.Value };
                 shader.SetShaderParameter("albedo_tex", original.AlbedoTexture);
+                shader.SetShaderParameter("lava_ground", Lava.Contains(family.Planets[0]));
+                shader.SetShaderParameter("sulphur_ground", Sulphur.Contains(family.Planets[0]));
+                if (roads.Contains(s) && Asphalt.Value is { } asphalt)
+                {
+                    shader.SetShaderParameter("road", true);
+                    shader.SetShaderParameter("asphalt", asphalt);
+                }
                 shader.SetShaderParameter("tint", new Vector3(original.AlbedoColor.R, original.AlbedoColor.G, original.AlbedoColor.B));
                 shader.SetShaderParameter("vertex_colours", original.VertexColorUseAsAlbedo);
                 shader.SetShaderParameter("material_map", map);
@@ -300,6 +395,7 @@ public static class TerrainMaterials
                 shader.SetShaderParameter("light_size", new Vector2(lightColumns * LightCell, lightRows * LightCell));
                 shader.SetShaderParameter("map_size", new Vector2(columns * cell, rows * cell));
                 shader.SetShaderParameter("warp", warp);
+                shader.SetShaderParameter("border_wander", BorderWander);
                 shader.SetShaderParameter("layer_albedo", layers.Albedo);
                 shader.SetShaderParameter("layer_normal", layers.Normal);
                 shader.SetShaderParameter("layer_rough", layers.Roughness);
@@ -319,7 +415,8 @@ public static class TerrainMaterials
             terrain.SurfaceSetMaterial(s, shader);
         }
         var slots = family.Slots.Select(s => (Materials[s.Material].Grass, Materials[s.Material].Stones, Color.FromHtml(s.Colour))).ToArray();
-        return new Ground([.. natural.Keys], weights, columns, rows, cell, slots, lights, lightColumns, lightRows);
+        return new Ground([.. natural.Keys], weights, columns, rows, cell, slots, lights, lightColumns, lightRows,
+            Enumerable.Range(0, WarpSize * WarpSize).Select(i => warpImage.GetPixel(i % WarpSize, i / WarpSize).R).ToArray()) { Roads = roads };
     }
 
     /// <summary>
@@ -327,7 +424,7 @@ public static class TerrainMaterials
     /// colour (4 where the old picture stays), and how light the texel is against the picture's other texels of that
     /// material (128 = as light; 0 to 255 = none to twice).
     /// </summary>
-    private static (byte[] Class, byte[] Shade) Classify(Texture2D picture, Family family)
+    private static (byte[] Class, byte[] Shade) Classify(Texture2D picture, Family family, bool road = false)
     {
         var classes = new byte[Grid * Grid];
         var shade = new byte[Grid * Grid];
@@ -352,6 +449,9 @@ public static class TerrainMaterials
             var (r, g, b) = (data[i * 3] / 255f, data[i * 3 + 1] / 255f, data[i * 3 + 2] / 255f);
             var lab = Lab(r, g, b);
             var (best, nearest) = (4, float.MaxValue);
+            // On a road tile the grey asphalt and kerbs and the yellow stripes are the road (drawn anew); the grass is ground.
+            if (road && ((lab.Y * lab.Y + lab.Z * lab.Z < 225 && lab.X < 75) || lab.Z > 50))
+                nearest = 0;
             foreach (var (slot, l, a, bb) in family.Colours)
             {
                 var (dl, da, db) = ((lab.X - l) * 0.7f, lab.Y - a, lab.Z - bb);
@@ -627,6 +727,34 @@ public static class TerrainMaterials
 
     private static byte Byte(float value) => (byte)Math.Clamp(Mathf.RoundToInt(value * 255), 0, 255);
 
+    /// <summary>The colours <see cref="Dump"/> marks the slots with (Okabe and Ito's, told apart by everyone).</summary>
+    private static readonly Color[] Legend = [new(0.9f, 0.62f, 0), new(0.34f, 0.71f, 0.91f), new(0, 0.62f, 0.45f), new(0.8f, 0.47f, 0.65f)];
+
+    /// <summary>
+    /// For the texture pages (MACHINES_MATERIAL_MAP): the material map seen from above, north up, each slot in its
+    /// <see cref="Legend"/> colour, dark grey where the old picture stays, lit by the old pictures' light and dark.
+    /// </summary>
+    private static void Dump(string path, byte[] weights, byte[] shade, int columns, int rows)
+    {
+        var image = Image.CreateEmpty(columns, rows, false, Image.Format.Rgb8);
+        for (var z = 0; z < rows; z++)
+            for (var x = 0; x < columns; x++)
+            {
+                var o = z * columns + x;
+                var (colour, left) = (Colors.Black, 1f);
+                for (var s = 0; s < 4; s++)
+                {
+                    var w = weights[o * 4 + s] / 255f;
+                    (colour, left) = (colour + Legend[s] * w, left - w);
+                }
+                colour += new Color(0.22f, 0.22f, 0.22f) * Mathf.Max(left, 0);
+                image.SetPixel(x, z, (colour * Mathf.Clamp(0.55f + 0.45f * shade[o] / 128f, 0.5f, 1.2f)) with { A = 1 });
+            }
+        var scale = Mathf.Min(1, 1024f / Mathf.Max(columns, rows));
+        image.Resize(Mathf.RoundToInt(columns * scale), Mathf.RoundToInt(rows * scale), Image.Interpolation.Bilinear);
+        image.SavePng(path);
+    }
+
     /// <summary>
     /// A box blur across and one down (the shader's height blending and wandering borders do the rest). Rows are blurred
     /// one each, side by side; columns a strip of them at a time, row after row, so both read the map in the order it
@@ -808,7 +936,7 @@ public static class TerrainMaterials
     /// </summary>
     private static readonly Lazy<Shader> Shader = new(() => new Shader
     {
-        Code = """
+        Code = $$"""
             shader_type spatial;
             render_mode cull_disabled;
             uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic;
@@ -820,6 +948,13 @@ public static class TerrainMaterials
             uniform vec2 light_size = vec2(1600.0);
             uniform vec2 map_size = vec2(1600.0);
             uniform sampler2D warp : filter_linear, repeat_enable;
+            uniform float border_wander;
+            // A road tile: its road drawn anew in the photographed asphalt with sharp hazard stripes, its borders straight.
+            uniform bool road = false;
+            uniform sampler2D asphalt : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+            // Lava and sulphur in the old pictures, drawn anew (on the planets that have them).
+            uniform bool lava_ground = false;
+            uniform bool sulphur_ground = false;
             uniform sampler2DArray layer_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
             uniform sampler2DArray layer_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
             uniform sampler2DArray layer_rough : filter_linear_mipmap_anisotropic, repeat_enable;
@@ -912,6 +1047,8 @@ public static class TerrainMaterials
                 return l;
             }
 
+            {{LavaGlsl}}
+
             // One material at a point: its three looks are scored by slow noise (patches of 20 to 60 m) and by what is
             // around (the foot of the rock, the open, the water, the slope); the best two are sampled, tinted each to
             // its share of the original's colour, and mixed by their heights where they are close.
@@ -948,7 +1085,10 @@ public static class TerrainMaterials
                 vec2 drift = vec2(texture(warp, world_pos.xz / 61.0).r, texture(warp, world_pos.zx / 61.0 + 0.37).r) - 0.5;
                 // Rock layers rise and fall a little along the cliffs.
                 float wobble = (texture(warp, world_pos.xz / 260.0).r - 0.5) * 0.25;
-                vec2 at = (world_pos.xz + drift * 5.0) / map_size;
+                // The borders wander twice: a few metres close up, and more over a couple of hundred metres, so the
+                // original's steps turn into bends (Ground.At reads the map the same way).
+                vec2 broad = vec2(texture(warp, world_pos.xz / 190.0 + 0.23).r, texture(warp, world_pos.zx / 190.0 + 0.61).r) - 0.5;
+                vec2 at = (world_pos.xz + (road ? vec2(0.0) : drift * 5.0 + broad * border_wander)) / map_size;
                 // How the two close scales mix here, and how far off the ground is.
                 float mixer = clamp(0.5 + (texture(warp, world_pos.zx / 37.0 + 0.71).r - 0.5) * 1.6, 0.15, 0.85);
                 float dist = length(world_pos - CAMERA_POSITION_WORLD);
@@ -1010,8 +1150,55 @@ public static class TerrainMaterials
                 colour *= mix(1.0, shade, shade_strength * (1.0 - steep));
                 // The tiles' corner colours, as the original lit its ground by them, spread wide so no tile shows.
                 colour *= texture(light_map, world_pos.xz / light_size).rgb;
-                vec3 old = texture(albedo_tex, UV).rgb * tint * (vertex_colours ? COLOR.rgb : vec3(1.0));
+                vec3 old = texture(albedo_tex, UV).rgb;
+                if (road) {
+                    // The dark, colourless stretches are asphalt: the photograph at its own scale, as light as the old
+                    // road was there. The hazard bands (yellow and black blurred together they lean yellow) get sharp
+                    // slanting stripes; the kerbs keep their picture.
+                    float lum = dot(old, vec3(0.2126, 0.7152, 0.0722));
+                    float chroma = max(old.r, max(old.g, old.b)) - min(old.r, min(old.g, old.b));
+                    vec3 tar = texture(asphalt, world_pos.xz / 4.0).rgb;
+                    float tar_lum = dot(textureLod(asphalt, vec2(0.5), 12.0).rgb, vec3(0.2126, 0.7152, 0.0722));
+                    float paved = smoothstep(0.1, 0.04, chroma) * smoothstep(0.3, 0.18, lum);
+                    old = mix(old, tar * (lum / max(tar_lum, 0.01)), paved);
+                    vec3 blurred = textureLod(albedo_tex, UV, 3.0).rgb;
+                    float band = smoothstep(0.09, 0.13, blurred.r - blurred.b) * smoothstep(0.12, 0.2, blurred.r)
+                        // ... and there only where it is yellow or black itself, not where the road fades into the grass.
+                        * max(smoothstep(0.18, 0.28, old.r - old.b), smoothstep(0.14, 0.08, lum));
+                    float slant = fract((UV.x + UV.y) * 24.0);
+                    float edge = fwidth((UV.x + UV.y) * 24.0);
+                    float yellow = smoothstep(0.5 - edge, 0.5 + edge, slant) * (1.0 - smoothstep(1.0 - edge, 1.0, slant));
+                    old = mix(old, mix(vec3(0.03), vec3(0.78, 0.58, 0.04), yellow), band);
+                }
+                vec3 glow = vec3(0.0);
+                // Told apart by the old picture's colour: lava is red to orange (and its brightest spots, yellow, lie
+                // in red), sulphur yellow.
+                float lava = lava_ground ? smoothstep(0.1, 0.25, old.r - max(old.g, old.b) * 1.1) : 0.0;
+                if (lava > 0.0) {
+                    // Hotter where the old picture was brightest.
+                    vec3 heat_glow;
+                    float bright = dot(old, vec3(0.5, 0.4, 0.1));
+                    vec3 melt = lava_at(warp, world_pos, 0.6 + 0.6 * bright, 0.2 + 0.6 * bright, TIME, heat_glow);
+                    old = mix(old, melt, lava);
+                    glow = heat_glow * lava;
+                }
+                float sulphur = sulphur_ground
+                    ? smoothstep(0.1, 0.22, min(old.r, old.g) - old.b) * (1.0 - smoothstep(0.25, 0.4, abs(old.r - old.g))) * (1.0 - lava) : 0.0;
+                if (sulphur > 0.0) {
+                    // A crust of small crystals, bright where they catch the light, stained brown in patches, as light
+                    // or dark at large as the old picture was there.
+                    float grain = texture(warp, world_pos.xz / 4.0).r;
+                    float fine = texture(warp, world_pos.zx / 1.1 + 0.5).r;
+                    float stain = texture(warp, world_pos.xz / 17.0 + 0.2).r;
+                    vec3 crystals = mix(vec3(0.6, 0.42, 0.04), vec3(0.88, 0.72, 0.1), smoothstep(0.3, 0.7, grain));
+                    crystals = mix(crystals, vec3(0.97, 0.9, 0.45), smoothstep(0.7, 0.88, fine) * 0.45);
+                    crystals = mix(crystals, vec3(0.34, 0.22, 0.05), smoothstep(0.55, 0.75, stain) * 0.4);
+                    float broad_light = dot(textureLod(albedo_tex, UV, 4.0).rgb, vec3(0.3, 0.6, 0.1));
+                    old = mix(old, crystals * (0.55 + 0.7 * broad_light), sulphur);
+                }
+                old *= tint * (vertex_colours ? COLOR.rgb : vec3(1.0));
                 ALBEDO = colour + old * bk;
+                EMISSION = glow * bk;
                 // The relief fades only far off (the far scale is larger, so it still reads there).
                 float near = 1.0 - smoothstep(300.0, 700.0, dist);
                 NORMAL = normalize((VIEW_MATRIX * vec4(normalize(n + bent * near), 0.0)).xyz);

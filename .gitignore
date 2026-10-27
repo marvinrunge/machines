@@ -31,3 +31,6 @@ Thumbs.db
 
 # Python bytecode (tools/blender)
 __pycache__/
+
+# Trees, rocks and spires built in Blender, and the scans they are made from (tools/blender/build-nature.sh)
+/models/

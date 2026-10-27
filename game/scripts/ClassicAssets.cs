@@ -158,7 +158,14 @@ public sealed class ClassicAssets
         var path = _planetFolder is null ? null : Path.Combine(_planetFolder, planet, "sky", "sky.json");
         if (path is null || !File.Exists(path))
             return null;
-        using var document = JsonDocument.Parse(File.ReadAllBytes(path));
+        // The day-and-night planets' sky is a box, and its untextured lid and floor were drawn with it: fitted to the
+        // camera, the floor lay a hundred metres or so below it and hid all the ground beneath. Only the pictured
+        // sides are the sky.
+        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllBytes(path))!;
+        var parts = root["parts"]!.AsArray();
+        foreach (var bare in parts.Where(p => p?["texture"]?.GetValue<string>() is not { Length: > 0 }).ToList())
+            parts.Remove(bare);
+        using var document = JsonDocument.Parse(root.ToJsonString());
         if (document.RootElement.GetProperty("parts").EnumerateArray().FirstOrDefault() is not { ValueKind: JsonValueKind.Object } part
             || LoadTexture(part.GetProperty("texture").GetString() ?? "").Texture is not { } texture
             || MeshFromParts(document.RootElement) is not { } mesh)

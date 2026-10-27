@@ -46,7 +46,7 @@ public static class TerrainBuilder
             var ground = TerrainGeometry.Refine(classicTerrain, field);
             var painted = TerrainMaterials.Apply(classicTerrain, ground, planet.Name, field.Width, field.Depth);
             var detail = TerrainDetail.Apply(classicTerrain);
-            if (GroundScatter.Create(ground, detail, painted, (int)(field.Width * 7919 + field.Depth)) is { } scatter)
+            if (GroundScatter.Create(ground, detail, painted, planet.Name, (int)(field.Width * 7919 + field.Depth)) is { } scatter)
                 root.AddChild(scatter);
             foreach (var piece in TerrainGeometry.Chunks(ground, classicTerrain.SurfaceGetMaterial))
                 root.AddChild(new MeshInstance3D { Name = "Ground", Mesh = piece, Layers = 1 | GroundLayer });

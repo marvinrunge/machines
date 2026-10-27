@@ -321,6 +321,17 @@ public partial class PlanetLook : Node
 
     public override void _Process(double delta) => Update();
 
+    /// <summary>The first game time the sun stands highest (0 on a planet without one).</summary>
+    public static float Noon(PlanetEnvironment env)
+    {
+        var sun = env.Satellites.FirstOrDefault(s => s.Name == "sun") ?? env.Satellites.FirstOrDefault();
+        if (sun is null || !env.Orbits.TryGetValue(sun.Orbit, out var orbit) || orbit.Period == 0)
+            return 0;
+        var period = Mathf.Abs(orbit.Period);
+        var highest = orbit.MaxElevation >= orbit.MinElevation ? period / 2 : 0;
+        return Mathf.PosMod(highest - orbit.StartTime, period);
+    }
+
     /// <summary>The sun's elevation in degrees at a game time (EnvOrbit's rise-and-set plan).</summary>
     public static float Elevation(Orbit orbit, float time)
     {

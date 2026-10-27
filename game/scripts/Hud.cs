@@ -23,6 +23,9 @@ public partial class Hud : CanvasLayer
     /// <summary>The first-person weapon panels.</summary>
     public WeaponDisplay Weapons { get; private set; } = null!;
 
+    /// <summary>The first-person radar, with the driven machine's own health and armour.</summary>
+    public Radar Radar { get; private set; } = null!;
+
     public Hud(Game game, Texture2D? map)
     {
         _game = game;
@@ -42,8 +45,10 @@ public partial class Hud : CanvasLayer
             {
                 Crosshair.Start();
                 Weapons.Start();
+                Radar.Start();
             }
             Weapons.Visible = value;
+            Radar.Visible = value;
             _panel.Visible = !value;
         }
     }
@@ -69,6 +74,9 @@ public partial class Hud : CanvasLayer
         Weapons = WeaponDisplay.Create();
         Weapons.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         root.AddChild(Weapons);
+        Radar = Radar.Create(_game, _game.Audio);
+        Radar.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        root.AddChild(Radar);
 
         _figures = new Label { Modulate = new Color(1, 1, 1, 0.85f) };
         root.AddChild(_figures);

@@ -578,14 +578,14 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
 
     private static string Short(ResearchKey key) => (key.SubType ?? key.Type)[..3] + key.HardwareLevel;
 
-    private static string RaceFolder(Race race) => Game.Look(race).ToString().ToLowerInvariant();
+    internal static string RaceFolder(Race race) => Game.Look(race).ToString().ToLowerInvariant();
 
     // ---- original bitmap names (MachActorBitmaps) -------------------------------------------------
 
     private static string MachineBitmap(ResearchKey key, Race race) =>
         $"machines/{RaceFolder(race)}/{MachinePrefix(key.Type, key.SubType)}{key.HardwareLevel}{WeaponSuffix(key.WeaponCombo)}.bmp";
 
-    private static string MachinePrefix(string type, string? subType) => (type, subType) switch
+    internal static string MachinePrefix(string type, string? subType) => (type, subType) switch
     {
         ("ADMINISTRATOR", "BOSS") => "adb",
         ("ADMINISTRATOR", "OVERSEER") => "ado",
@@ -627,7 +627,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     };
 
     /// <summary>The weapon part of a machine's bitmap name (MachActorBitmaps::appendWeaponCombo).</summary>
-    private static string WeaponSuffix(string? combo) => combo switch
+    internal static string WeaponSuffix(string? combo) => combo switch
     {
         null => "",
         "L_BOLTER" or "R_BOLTER" => "bolt",
