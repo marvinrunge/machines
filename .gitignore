@@ -17,6 +17,9 @@ TestResults/
 # Exporter build output, and models/textures exported from your own copy of the game (never committed)
 tools/classic-export/build/
 tools/texture-upscale/bin/
+
+# Ground detail textures fetched from Poly Haven (tools/terrain-textures/fetch.sh)
+/textures/
 classic/
 
 # Local reference material (fan models, screenshots, manual scans, OpenMachines); not redistributed

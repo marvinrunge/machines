@@ -26,6 +26,10 @@ if [ -n "$EXPORTER" ]; then
     mkdir -p "$OUT/tools"
     cp -r "$EXPORTER" "$OUT/tools/classic-export"
 fi
+# The ground's detail textures from Poly Haven (CC0; tools/terrain-textures/fetch.sh).
+bash "$REPO/tools/terrain-textures/fetch.sh"
+mkdir -p "$OUT/textures"
+cp -r "$REPO/textures/polyhaven" "$OUT/textures/polyhaven"
 # Real-ESRGAN for the HD textures (tools/texture-upscale/fetch.sh), with its licence.
 if [ -f "$REPO/tools/texture-upscale/bin/realesrgan-ncnn-vulkan.exe" ]; then
     mkdir -p "$OUT/tools/texture-upscale"

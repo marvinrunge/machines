@@ -1,0 +1,12 @@
+# The ground's detail layers: <layer> <Poly Haven texture id>. The textures are CC0 (polyhaven.com); fetch.sh
+# downloads each one's colour, normal (OpenGL) and roughness maps at 1k into textures/polyhaven/<layer>.
+sand      sand_01
+soil      forest_ground_04
+grass     sparse_grass
+rock      rocks_ground_02
+cliff     rock_face_03
+mud       mud_cracked_dry_03
+snow      snow_02
+metal     metal_plate
+gravel    gravelly_sand
+laterite  red_laterite_soil_stones

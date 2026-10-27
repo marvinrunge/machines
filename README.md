@@ -85,6 +85,11 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   strikes with spinning lightning while halos run up and down its victim; the orb of treachery opens as a
   ring in the shooter's colour; machines a flamethrower hits burn for 15 seconds; transporters flash with
   rings of light as they load and unload ore. Import again for them.
+- **Ground detail (remake look):** the terrain keeps the original's pictures and colours, and textures from
+  [Poly Haven](https://polyhaven.com) (CC0) add the grain, pebbles, cracks, relief and roughness of sand,
+  soil, grass, rock, mud, snow or metal plates close up; steep faces turn to rock. Each tile's layer is read
+  from its original texture's name or colour. Fetch them once with `tools/terrain-textures/fetch.sh`
+  (Powered by Poly Haven); without them the ground stays as before.
 - **The planets' artefacts:** the trees, palms, rocks, ruins and other scenery the scenarios set on the
   planets (ARTEFACTS) stand where the original put them, from each planet's own models (`pdata/*.arb`). They
   are scenery only so far: machines do not yet go round them, and the active ones cannot be destroyed.
