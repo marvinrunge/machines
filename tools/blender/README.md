@@ -1,5 +1,23 @@
 # Remake machine models
 
+## Stage 1: the classic models upgraded
+
+Before any machine gets a new model, `upgrade_classic.py` improves all the classic exports at once. It runs
+headless in about two minutes and writes `classic/remake/models/<race>/<id>.json`, which is git-ignored like the
+rest of `classic/`:
+
+    blender -b --factory-startup -P tools/blender/upgrade_classic.py -- classic
+
+- It rounds the edges where the original shaded flat, and leaves spike tips sharp so legs keep touching the ground.
+- It bakes ambient occlusion into the vertices.
+- Rigs, animations, sprites and weapons stay the same.
+- The game uses these models in the remake look, together with the metal masks HdTextures makes from the HD
+  textures. `MACHINES_MODEL_UPGRADE=0` shows the classic models instead, for comparison.
+- `check_upgrade.py` checks that no machine rises above the ground in any animation sample.
+- `preview_upgrade.py` renders a model before and after.
+
+## New models
+
 How a new model (from Meshy or by hand) becomes a remake machine that moves like the original. The first one
 through is the Gorilla (`AGGRESSOR_5_NINJA_L_MULTI_LAUNCHER7_T_GORILLA_PUNCH_R_MULTI_LAUNCHER7`).
 

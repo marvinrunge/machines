@@ -111,7 +111,23 @@ public sealed class ClassicAssets
     {
         if (_modelFolder is null)
             return null;
-        var folder = Path.Combine(_modelFolder, race.ToString().ToLowerInvariant());
+        var colour = race.ToString().ToLowerInvariant();
+        if (FindModel(Path.Combine(_modelFolder, colour), id) is not { } path)
+            return null;
+        // The remake look uses the upgraded model (rounded edges, baked occlusion; tools/blender/upgrade_classic.py)
+        // where it has been made.
+        var upgraded = Path.Combine(_modelFolder, "..", "remake", "models", colour, Path.GetFileName(path));
+        return Upgraded && File.Exists(upgraded) ? upgraded : path;
+    }
+
+    /// <summary>
+    /// The remake look shows the upgraded models and their bare metal; MACHINES_MODEL_UPGRADE=0 shows the classic
+    /// ones in it, to compare.
+    /// </summary>
+    private static bool Upgraded => GraphicsSettings.Remake && System.Environment.GetEnvironmentVariable("MACHINES_MODEL_UPGRADE") != "0";
+
+    private static string? FindModel(string folder, string id)
+    {
         var path = Path.Combine(folder, id + ".json");
         if (File.Exists(path))
             return path;
@@ -533,6 +549,10 @@ public sealed class ClassicAssets
                 arrays[(int)Mesh.ArrayType.Color] = Enumerable.Range(0, count).Select(i => new Color(c[i * 3], c[i * 3 + 1], c[i * 3 + 2])).ToArray();
                 diffuse = [1, 1, 1, diffuse.Length > 3 ? diffuse[3] : 1];
             }
+            // Upgraded models bring the occlusion baked into their vertices (1 is open); it darkens the colour.
+            var occluded = part.TryGetProperty("ao", out var occlusion) && occlusion.GetArrayLength() == count && !vertexColours;
+            if (occluded)
+                arrays[(int)Mesh.ArrayType.Color] = occlusion.EnumerateArray().Select(e => e.GetSingle()).Select(a => new Color(a, a, a)).ToArray();
             // The HD textures' normal maps need tangents along the texture's axes.
             if (GraphicsSettings.Remake && HdTextures.Made)
             {
@@ -544,7 +564,7 @@ public sealed class ClassicAssets
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
 
             var emissive = part.TryGetProperty("emissive", out var glow) ? glow.EnumerateArray().Select(e => e.GetSingle()).ToArray() : [0f, 0f, 0f];
-            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, MaterialFor(part.GetProperty("texture").GetString() ?? "", diffuse, race, emissive, vertexColours));
+            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, MaterialFor(part.GetProperty("texture").GetString() ?? "", diffuse, race, emissive, vertexColours, occluded));
         }
         if (model.TryGetProperty("sprites", out var sprites))
             AddSprites(mesh, sprites, race);
@@ -571,12 +591,15 @@ public sealed class ClassicAssets
     private const float ModelNormalScale = 1f;
     private const float PlanetNormalScale = 0.6f;
 
-    private Material MaterialFor(string texture, float[] diffuse, Race? race = null, float[]? emissive = null, bool vertexColours = false)
+    /// <summary>How metallic the bare metal of machines and buildings is (the rest of them stays paint).</summary>
+    private const float ModelMetal = 0.35f;
+
+    private Material MaterialFor(string texture, float[] diffuse, Race? race = null, float[]? emissive = null, bool vertexColours = false, bool occluded = false)
     {
         if (race is { } r)
             texture = RaceTexture(texture, r);
         emissive ??= [0, 0, 0];
-        var key = $"{texture}|{string.Join(',', diffuse)}|{string.Join(',', emissive)}|{race is not null}|{vertexColours}";
+        var key = $"{texture}|{string.Join(',', diffuse)}|{string.Join(',', emissive)}|{race is not null}|{vertexColours}|{occluded}";
         if (_materials.TryGetValue(key, out var cached))
             return cached;
 
@@ -591,7 +614,7 @@ public sealed class ClassicAssets
             // The original's winding convention is not confirmed yet; draw both sides.
             CullMode = BaseMaterial3D.CullModeEnum.Disabled,
             // Vertex colours are material colours, given as the albedo colour is.
-            VertexColorUseAsAlbedo = vertexColours,
+            VertexColorUseAsAlbedo = vertexColours || occluded,
             VertexColorIsSrgb = vertexColours,
         };
         // Machines and buildings get a little sheen; the ground stays matt.
@@ -630,6 +653,16 @@ public sealed class ClassicAssets
             material.RoughnessTexture = rough;
             material.RoughnessTextureChannel = BaseMaterial3D.TextureChannel.Red;
             material.Roughness = 1;
+            // Bare metal where the texture is grey and light (HdTextures.MakeMetalMap). A texture tinted by a
+            // colour (the race's paint on grey) is paint, however grey the picture.
+            if (race is not null && Upgraded && HdTextures.MakeMetalMap(texture)
+                && LoadPng(HdTextures.MetalPath(texture), Image.CompressSource.Generic) is { } metal)
+            {
+                var tint = new Color(diffuse[0], diffuse[1], diffuse[2]);
+                material.MetallicTexture = metal;
+                material.MetallicTextureChannel = BaseMaterial3D.TextureChannel.Red;
+                material.Metallic = ModelMetal * (1 - tint.S);
+            }
         }
         // See-through textures: cut out where keyed, blended where they have an alpha map.
         if (clearness == Clearness.Keyed)

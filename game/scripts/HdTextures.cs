@@ -39,6 +39,46 @@ public static partial class HdTextures
     /// <summary>Its roughness map (grey).</summary>
     public static string RoughnessPath(string relative) => Path.Combine(Folder, Key(relative) + "_r.png");
 
+    /// <summary>Its metal mask (grey, white is bare metal), for machines and buildings; see <see cref="MakeMetalMap"/>.</summary>
+    public static string MetalPath(string relative) => Path.Combine(Folder, Key(relative) + "_m.png");
+
+    /// <summary>
+    /// The metal mask of a model texture, made from its enlarged picture the first time it is asked for: grey,
+    /// lighter parts are bare metal (struts, barrels, plating), coloured paint and the dark parts (rubber, black
+    /// paint, shadow painted in) are not. False when the HD texture has not been made.
+    /// </summary>
+    public static bool MakeMetalMap(string relative)
+    {
+        var path = MetalPath(relative);
+        if (File.Exists(path))
+            return true;
+        var albedoPath = AlbedoPath(relative);
+        if (!File.Exists(albedoPath) || Image.LoadFromFile(albedoPath) is not { } albedo)
+            return false;
+        albedo.Convert(Image.Format.Rgba8);
+        var (w, h) = (albedo.GetWidth(), albedo.GetHeight());
+        var rgba = albedo.GetData();
+        var metal = new byte[w * h];
+        for (var i = 0; i < metal.Length; i++)
+        {
+            var (r, g, b) = (rgba[i * 4] / 255f, rgba[i * 4 + 1] / 255f, rgba[i * 4 + 2] / 255f);
+            var high = Mathf.Max(r, Mathf.Max(g, b));
+            var saturation = high > 0.01f ? (high - Mathf.Min(r, Mathf.Min(g, b))) / high : 0;
+            var amount = Mathf.SmoothStep(0.32f, 0.12f, saturation) * Mathf.SmoothStep(0.22f, 0.5f, high);
+            metal[i] = (byte)Mathf.RoundToInt(amount * 255);
+        }
+        try
+        {
+            Save(Image.CreateFromData(w, h, false, Image.Format.L8, metal), path);
+            return true;
+        }
+        catch (IOException error)
+        {
+            GD.PushWarning(error.Message);
+            return false;
+        }
+    }
+
     private static string Key(string relative)
     {
         var key = relative.Replace('\\', '/').ToLowerInvariant();
