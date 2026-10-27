@@ -215,14 +215,15 @@ public static class Scenery
     }
 
     /// <summary>
-    /// A lava pool the scenarios set (the red moons' "lava"), in its own picture: flowing and glowing as the lava on
-    /// the ground does.
+    /// A lava pool the scenarios set (the red moons' "lava"): mostly open melt with a little crust drifting on it, as
+    /// the lava on the ground is drawn; null (it keeps its own picture) when the lava maps were not fetched.
     /// </summary>
-    public static Material Lava(Mesh pool)
+    public static Material? Lava()
     {
+        if (TerrainMaterials.LavaMaps is not { } maps)
+            return null;
         var material = new ShaderMaterial { Shader = LavaShader.Value };
-        if ((pool.SurfaceGetMaterial(0) as BaseMaterial3D)?.AlbedoTexture is { } picture)
-            material.SetShaderParameter("pool_picture", picture);
+        material.SetShaderParameter("lava_maps", maps);
         material.SetShaderParameter("lava_noise", LavaNoise.Value);
         return material;
     }
@@ -233,7 +234,7 @@ public static class Scenery
     {
         Code = $$"""
             shader_type spatial;
-            uniform sampler2D pool_picture : source_color, hint_default_black, filter_linear_mipmap, repeat_enable;
+            uniform sampler2DArray lava_maps : source_color, filter_linear_mipmap, repeat_enable;
             uniform sampler2D lava_noise : filter_linear, repeat_enable;
             varying vec3 world_position;
             {{TerrainMaterials.LavaGlsl}}
@@ -242,7 +243,8 @@ public static class Scenery
             }
             void fragment() {
                 vec3 glow;
-                ALBEDO = lava_glow(texture(pool_picture, UV + lava_flow(lava_noise, world_position, TIME)).rgb, lava_noise, world_position, TIME, glow);
+                // A lake: open melt with crust drifting on it.
+                ALBEDO = lava_at(lava_maps, lava_noise, world_position, 0.6, TIME, glow);
                 EMISSION = glow;
                 ROUGHNESS = 0.8;
             }

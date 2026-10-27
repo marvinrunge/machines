@@ -172,30 +172,51 @@ public static class TerrainMaterials
     private static readonly HashSet<string> Lava = ["m_moon", "dogbar"], Sulphur = ["m_moon"];
 
     /// <summary>
-    /// Lava from the original's own picture of it (its red veins), for the ground and for the pools the scenarios set
-    /// (<see cref="Scenery.Lava"/>): flowing slowly (the picture is read through a drifting wobble), glowing by its own
-    /// brightness in its own red, and seamed finely close up. lava_flow gives where to read the picture; lava_glow
-    /// takes what was read there and returns the colour, the glow going out through its last argument. The noise is
-    /// the repeating picture of <see cref="WarpNoise"/>.
+    /// Lava (ambientCG's Lava001 and Lava004, CC0, fetched by tools/terrain-textures/fetch.sh into textures/ambientcg),
+    /// for the ground and for the pools the scenarios set (<see cref="Scenery.Lava"/>): a dark crust seamed with glowing
+    /// cracks where it has cooled, open melt where it is hot (molten, 0 to 1, and slow noise decide), both flowing slowly
+    /// and the glow breathing a little. The maps are <see cref="LavaMaps"/> (crust colour and glow, melt colour and
+    /// glow); the noise is the repeating picture of <see cref="WarpNoise"/>. Returns the colour; the glow goes out
+    /// through the last argument.
     /// </summary>
     public const string LavaGlsl = """
-        vec2 lava_flow(sampler2D noise, vec3 p, float time) {
-            vec2 drift = vec2(texture(noise, p.xz / 30.0 + vec2(time * 0.012, time * 0.007)).r,
-                texture(noise, p.zx / 30.0 - vec2(time * 0.009, time * 0.011)).r);
-            return (drift - 0.5) * 0.05;
-        }
-
-        vec3 lava_glow(vec3 picture, sampler2D noise, vec3 p, float time, out vec3 glow) {
-            float fine = texture(noise, p.xz / 7.0 + vec2(time * 0.006, time * 0.004)).r;
-            // Thin seams where the noise crosses its middle, brightening the melt; between them it cools a little.
-            float seam = 1.0 - smoothstep(0.0, 0.06, abs(fine - 0.5));
-            vec3 hot = picture * (0.75 + 0.6 * seam);
-            float breath = 0.9 + 0.1 * sin(time * 1.1 + fine * 9.0);
-            // The brighter, the more it glows: the dark veins stay crust, the bright ones burn.
-            glow = hot * smoothstep(0.08, 0.6, hot.r) * 1.8 * breath;
-            return hot * 0.3;
+        vec3 lava_at(sampler2DArray maps, sampler2D noise, vec3 p, float molten, float time, out vec3 glow) {
+            // Twelve metres to a repeat, read through a slow drifting wobble, so the lava creeps rather than slides.
+            vec2 uv = p.xz / 12.0 + (vec2(texture(noise, p.xz / 60.0 + time * 0.003).r, texture(noise, p.zx / 60.0 - time * 0.002).r) - 0.5) * 0.5;
+            vec2 crust_uv = uv + vec2(time * 0.0025, time * 0.0015);
+            vec2 melt_uv = uv * 0.8 - vec2(time * 0.006, -time * 0.004);
+            // Plates of crust tens of metres across, drifting slowly over the melt.
+            float plates = texture(noise, p.xz / 70.0 + 0.4 + vec2(time * 0.0012, time * 0.0008)).r * 0.7 + texture(noise, p.zx / 19.0 + 0.1).r * 0.3;
+            float open = clamp((molten - 0.5) * 2.0 + (plates - 0.5) * 2.4 + 0.5, 0.0, 1.0);
+            open = smoothstep(0.2, 0.8, open);
+            vec3 colour = mix(texture(maps, vec3(crust_uv, 0.0)).rgb, texture(maps, vec3(melt_uv, 2.0)).rgb, open);
+            vec3 heat = mix(texture(maps, vec3(crust_uv, 1.0)).rgb, texture(maps, vec3(melt_uv, 3.0)).rgb, open);
+            float breath = 0.88 + 0.12 * sin(time * 0.9 + texture(noise, p.xz / 9.0).r * 10.0);
+            // Deeper red than the maps: bright orange light turns pale and yellowish on screen.
+            glow = heat * vec3(1.0, 0.55, 0.35) * breath * 1.4;
+            return colour * 0.35;
         }
         """;
+
+    /// <summary>
+    /// The lava's maps as one array (crust colour, crust glow, melt colour, melt glow), or null when they were not
+    /// fetched: the lava then keeps the original's picture.
+    /// </summary>
+    public static Texture2DArray? LavaMaps => LavaMapsLoaded.Value;
+
+    private static readonly Lazy<Texture2DArray?> LavaMapsLoaded = new(() =>
+    {
+        var folder = Path.Combine(Paths.Root, "textures", "ambientcg");
+        var images = new Godot.Collections.Array<Image>();
+        foreach (var (id, map) in new[] { ("Lava001", "albedo"), ("Lava001", "emission"), ("Lava004", "albedo"), ("Lava004", "emission") })
+        {
+            if (Read(Path.Combine(folder, id, map + ".jpg"), Image.Format.Rgb8, Image.CompressSource.Srgb) is not { } image)
+                return null;
+            images.Add(image);
+        }
+        var maps = new Texture2DArray();
+        return maps.CreateFromImages(images) == Error.Ok ? maps : null;
+    });
 
     /// <summary>The ground's wandering noise (its borders and patches wander by it, its lava creeps by it).</summary>
     public static Image WarpNoise() => new FastNoiseLite { Frequency = 1 / 24f, FractalOctaves = 3, Seed = 3 }.GetSeamlessImage(WarpSize, WarpSize);
@@ -379,7 +400,9 @@ public static class TerrainMaterials
             {
                 shaders[original] = shader = new ShaderMaterial { Shader = Shader.Value };
                 shader.SetShaderParameter("albedo_tex", original.AlbedoTexture);
-                shader.SetShaderParameter("lava_ground", Lava.Contains(family.Planets[0]));
+                shader.SetShaderParameter("lava_ground", Lava.Contains(family.Planets[0]) && LavaMaps is not null);
+                if (LavaMaps is { } lavaMaps)
+                    shader.SetShaderParameter("lava_maps", lavaMaps);
                 shader.SetShaderParameter("sulphur_ground", Sulphur.Contains(family.Planets[0]));
                 if (roads.Contains(s) && Asphalt.Value is { } asphalt)
                 {
@@ -953,6 +976,7 @@ public static class TerrainMaterials
             uniform sampler2D asphalt : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
             // Lava and sulphur in the old pictures, drawn anew (on the planets that have them).
             uniform bool lava_ground = false;
+            uniform sampler2DArray lava_maps : source_color, filter_linear_mipmap, repeat_enable;
             uniform bool sulphur_ground = false;
             uniform sampler2DArray layer_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
             uniform sampler2DArray layer_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
@@ -1174,8 +1198,10 @@ public static class TerrainMaterials
                 // in red), sulphur yellow.
                 float lava = lava_ground ? smoothstep(0.1, 0.25, old.r - max(old.g, old.b) * 1.1) : 0.0;
                 if (lava > 0.0) {
+                    // Hot and open where the old picture was brightest, crusted towards its rim.
                     vec3 heat_glow;
-                    vec3 melt = lava_glow(texture(albedo_tex, UV + lava_flow(warp, world_pos, TIME)).rgb, warp, world_pos, TIME, heat_glow);
+                    float bright = dot(textureLod(albedo_tex, UV, 3.0).rgb, vec3(0.5, 0.4, 0.1));
+                    vec3 melt = lava_at(lava_maps, warp, world_pos, 0.2 + 0.9 * bright, TIME, heat_glow);
                     old = mix(old, melt, lava);
                     glow = heat_glow * lava;
                 }

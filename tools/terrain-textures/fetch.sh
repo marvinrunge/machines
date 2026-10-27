@@ -37,3 +37,16 @@ grep -v '^#' "$HERE/skies.txt" | while read -r id size; do
     curl -sSfL -A "$AGENT" -o "$file" "$url"
     echo "sky: $id ($size)"
 done
+
+# The lava (ambientCG, CC0; Poly Haven has none): colour and glow at 1k, into textures/ambientcg/<id>.
+for id in Lava001 Lava004; do
+    dir="$REPO/textures/ambientcg/$id"
+    [ -s "$dir/emission.jpg" ] && continue
+    mkdir -p "$dir"
+    curl -sSfL -A "$AGENT" -o "$dir/$id.zip" "https://ambientcg.com/get?file=${id}_1K-JPG.zip"
+    (cd "$dir" && { unzip -qo "$id.zip" 2> /dev/null || /c/Windows/System32/tar.exe -xf "$id.zip"; })
+    mv "$dir/${id}_1K-JPG_Color.jpg" "$dir/albedo.jpg"
+    mv "$dir/${id}_1K-JPG_Emission.jpg" "$dir/emission.jpg"
+    find "$dir" -mindepth 1 ! -name albedo.jpg ! -name emission.jpg -delete
+    echo "lava: $id"
+done

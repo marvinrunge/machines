@@ -249,7 +249,7 @@ public partial class Game : Node3D
                 Mesh = mesh,
                 Transform = new Transform3D(new Basis(Vector3.Up, -Mathf.DegToRad(placement.Orientation)), at),
                 // The red moons' lava pools glow and creep in the remake, as the lava on the ground does.
-                MaterialOverride = GraphicsSettings.Remake && placement.TypeName.Equals("lava", StringComparison.OrdinalIgnoreCase) ? Scenery.Lava(mesh) : null,
+                MaterialOverride = GraphicsSettings.Remake && placement.TypeName.Equals("lava", StringComparison.OrdinalIgnoreCase) ? Scenery.Lava() : null,
             });
         }
         return root;

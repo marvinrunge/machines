@@ -26,10 +26,11 @@ if [ -n "$EXPORTER" ]; then
     mkdir -p "$OUT/tools"
     cp -r "$EXPORTER" "$OUT/tools/classic-export"
 fi
-# The ground's detail textures from Poly Haven (CC0; tools/terrain-textures/fetch.sh).
+# The ground's detail textures from Poly Haven and the lava from ambientCG (all CC0; tools/terrain-textures/fetch.sh).
 bash "$REPO/tools/terrain-textures/fetch.sh"
 mkdir -p "$OUT/textures"
 cp -r "$REPO/textures/polyhaven" "$OUT/textures/polyhaven"
+cp -r "$REPO/textures/ambientcg" "$OUT/textures/ambientcg"
 # The trees, rocks and spires built in Blender (tools/blender/build-nature.sh); without them the originals stay.
 if [ -d "$REPO/models/nature" ]; then
     mkdir -p "$OUT/models"
