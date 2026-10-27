@@ -60,6 +60,33 @@ public sealed class NavGrid
         ReleaseFields();
     }
 
+    /// <summary>
+    /// Marks (or unmarks) the cells a polygon covers as blocked, as building footprints are: an active artefact's
+    /// boundary (MachLogArtefact::addObstaclePolygon).
+    /// </summary>
+    public void SetArea(IReadOnlyList<Vector2> polygon, bool present)
+    {
+        var (x0, y0) = Cell(new Vector2(polygon.Min(p => p.X), polygon.Min(p => p.Y)));
+        var (x1, y1) = Cell(new Vector2(polygon.Max(p => p.X), polygon.Max(p => p.Y)));
+        var covered = 0;
+        for (var y = y0; y <= y1; y++)
+            for (var x = x0; x <= x1; x++)
+                if (Contains(polygon, Centre(x, y)))
+                {
+                    _buildings[y * Width + x] += present ? 1 : -1;
+                    covered++;
+                }
+        // A polygon smaller than a cell (a palm's trunk) still blocks the cell it stands in.
+        if (covered == 0)
+        {
+            var middle = polygon.Aggregate(Vector2.Zero, (sum, p) => sum + p) / polygon.Count;
+            var (x, y) = Cell(middle);
+            _buildings[y * Width + x] += present ? 1 : -1;
+        }
+        _regions[0] = _regions[1] = null;
+        ReleaseFields();
+    }
+
     // ---- regions --------------------------------------------------------------------------------
 
     // For each way of moving (on land; across water too), the connected area each free cell belongs to,

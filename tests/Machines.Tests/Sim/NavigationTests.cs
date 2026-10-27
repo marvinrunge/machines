@@ -37,6 +37,17 @@ public class NavigationTests
     }
 
     [Fact]
+    public void Active_artefacts_stand_in_the_way_even_a_palm_smaller_than_a_cell()
+    {
+        var world = NewMatch("m_green");
+        // m_green: ACTIVE hrock1 (a rock some 30 m across) at 637.9, 748.7 and ACTIVE palm01 (2 m) at 657.0, 724.7.
+        Assert.False(world.Nav.IsFree(new Vector2(637.881f, 748.722f), crossesWater: false));
+        Assert.False(world.Nav.IsFree(new Vector2(656.982f, 724.655f), crossesWater: false));
+        // Round the rock the ground is open again.
+        Assert.True(world.Nav.IsFree(new Vector2(637.881f + 40, 748.722f), crossesWater: false));
+    }
+
+    [Fact]
     public void A_goal_out_in_the_lake_ends_the_path_on_the_shore_without_combing_the_map()
     {
         var world = NewMatch("m_green");
@@ -80,12 +91,14 @@ public class NavigationTests
             .Select(i => world.AddMachine(Race.Red, FreePointNear(world, home + new Vector2(i % 8 * 6, i / 8 * 6)), "AGGRESSOR", "GRUNT", 2, "L_BOLTER"))
             .ToList();
         var far = FreePointNear(world, new Vector2(1480, 480));
+        // Paths are planned from where the machines stand; the step that plans them also moves them on a little.
+        var starts = machines.ToDictionary(m => m.Id, m => m.Position);
 
         world.Issue(new MoveCommand(Race.Red, machines.Select(m => m.Id).ToList(), far));
         world.Step();
 
         Assert.All(machines, m => Assert.NotEmpty(m.Path));
-        Assert.All(machines, m => AssertWalkable(world, m.Position, m.Path.Skip(m.PathIndex).ToList()));
+        Assert.All(machines, m => AssertWalkable(world, starts[m.Id], m.Path.ToList()));
         // One A* for the first machine, one shared search for the others.
         Assert.InRange(world.Nav.Searches, 1, 3);
     }

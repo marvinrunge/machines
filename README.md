@@ -94,7 +94,8 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   on steep slopes, water, roads or metal, and buildings clear the ground they stand on.
 - **The planets' artefacts:** the trees, palms, rocks, ruins and other scenery the scenarios set on the
   planets (ARTEFACTS) stand where the original put them, from each planet's own models (`pdata/*.arb`). They
-  are scenery only so far: machines do not yet go round them, and the active ones cannot be destroyed.
+  stand in the way as in the original: machines go round the active ones (their boundaries, turned as they
+  stand) and cannot build on them, while scenery (DUMB) blocks nothing. They cannot be destroyed yet.
 - **Models in motion:** the machines' glowing eyes and turn-to-face sprites, glowing parts such as the
   plasma weapons' green, rotors and turbines that spin, hips that bob and the bee bomber's energy ball, all
   as the original moved them. Flyers and hover machines tip as they speed up, brake and turn; real

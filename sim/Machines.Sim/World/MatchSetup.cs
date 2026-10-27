@@ -14,6 +14,21 @@ public static class MatchSetup
         var scenario = data.LoadScenario(scenarioName);
         var world = new GameWorld(data, data.LoadPlanet(planetName), seed) { Options = options };
 
+        // Active artefacts (trees, rocks, wrecks the scenario names ACTIVE) stand in the way: their boundary, turned
+        // as they stand, is blocked to machines and building (MachLogArtefact::addObstaclePolygon). Scenery (DUMB)
+        // blocks nothing.
+        if (scenario.Artefacts is { } artefacts)
+        {
+            foreach (var placement in artefacts.Placements)
+            {
+                if (artefacts.Types.FirstOrDefault(t => t.Name == placement.TypeName) is not { Active: true, Boundary.Count: >= 3 } type)
+                    continue;
+                var (sin, cos) = (DetMath.Sin(placement.Orientation * MathF.PI / 180), DetMath.Cos(placement.Orientation * MathF.PI / 180));
+                var at = new Vector2(placement.Position.X, placement.Position.Y);
+                world.Nav.SetArea(type.Boundary.Select(p => at + new Vector2(p.X * cos - p.Y * sin, p.X * sin + p.Y * cos)).ToList(), present: true);
+            }
+        }
+
         // Unmarked sites appear in every setting, marked ones only in theirs; ids are list positions.
         foreach (var site in scenario.MineralSites.Where(s => s.Level == ResourceLevel.Default || s.Level == options.Resources))
             world.Sites.Add(new MineralSiteState(world.Sites.Count, site));
