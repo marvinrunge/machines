@@ -4,11 +4,11 @@ namespace Machines.Game;
 
 /// <summary>
 /// What lies and grows on the ground in the remake look: tufts of grass swaying in the wind on grass and soil, and
-/// pebbles and stones on rock, sand, gravel, mud and snow, each in the colours of the original tile beneath it.
-/// They are scattered over the terrain's triangles by the layer the ground detail gave each tile
-/// (<see cref="TerrainDetail"/>), the same way every time on a planet, never on steep slopes, water, roads or metal,
-/// and drawn in 64 m pieces that fade out with distance. Buildings clear the ground they stand on
-/// (<see cref="ClearUnder"/>).
+/// pebbles and stones on rock, sand, gravel, mud and snow, each in the colours of the ground beneath it.
+/// They are scattered over the terrain's triangles by what the material map has where each triangle lies
+/// (<see cref="TerrainMaterials"/>), or else by the layer the ground detail gave its tile (<see cref="TerrainDetail"/>),
+/// the same way every time on a planet, never on steep slopes, water, roads or metal, and drawn in 64 m pieces that
+/// fade out with distance. Buildings clear the ground they stand on (<see cref="ClearUnder"/>).
 /// </summary>
 public partial class GroundScatter : Node3D
 {
@@ -31,21 +31,34 @@ public partial class GroundScatter : Node3D
 
     private readonly List<MultiMeshInstance3D> _pieces = [];
 
-    /// <summary>The scatter for the ground's surfaces, as the ground detail sorted them into layers; null for none.</summary>
-    public static GroundScatter? Create(TerrainGeometry.Part[] ground, IReadOnlyDictionary<int, (string Layer, Color Colour, string Texture)> surfaces, int seed)
+    /// <summary>
+    /// The scatter for the ground's surfaces: those the ground detail sorted into layers, as their layer has it, and those
+    /// painted from the material map, as the map has it where each triangle lies; null for none.
+    /// </summary>
+    public static GroundScatter? Create(TerrainGeometry.Part[] ground, IReadOnlyDictionary<int, (string Layer, Color Colour, string Texture)> surfaces,
+        TerrainMaterials.Ground? painted, int seed)
     {
-        // Each surface is scattered on its own, side by side, with dice of its own: the same each time.
-        var work = surfaces.ToArray();
-        var grassOf = new Dictionary<Vector2I, List<(Transform3D, Color)>>[work.Length];
-        var stonesOf = new Dictionary<Vector2I, List<(Transform3D, Color)>>[work.Length];
-        Parallel.For(0, work.Length, w =>
+        // What grows on a triangle, from its middle and the shade of its corners: grass tufts and stones per square
+        // metre, and their colours.
+        var work = new List<(int Surface, Func<Vector3, Color, (float Grass, float Stones, Color GrassColour, Color StoneColour)> Cover)>();
+        foreach (var (surface, (layer, colour, texture)) in surfaces)
         {
-            var (surface, (layer, colour, texture)) = work[w];
+            var (grassDensity, stoneDensity) = Density(layer);
+            if (grassDensity + stoneDensity > 0 && !texture.Contains("road") && !texture.Contains("walk") && !texture.Contains("strip"))
+                // The tile's corners shade its colour as they shade its picture.
+                work.Add((surface, (_, shade) => (grassDensity, stoneDensity, colour * shade, colour * shade * 0.85f)));
+        }
+        foreach (var surface in painted?.Surfaces ?? new HashSet<int>())
+            work.Add((surface, (middle, _) => painted!.At(middle.X, middle.Z)));
+
+        // Each surface is scattered on its own, side by side, with dice of its own: the same each time.
+        var grassOf = new Dictionary<Vector2I, List<(Transform3D, Color)>>[work.Count];
+        var stonesOf = new Dictionary<Vector2I, List<(Transform3D, Color)>>[work.Count];
+        Parallel.For(0, work.Count, w =>
+        {
+            var (surface, cover) = work[w];
             var random = new Random(seed + surface);
             var (grass, stones) = (grassOf[w] = [], stonesOf[w] = []);
-            var (grassDensity, stoneDensity) = Density(layer);
-            if (grassDensity + stoneDensity <= 0 || texture.Contains("road") || texture.Contains("walk") || texture.Contains("strip"))
-                return;
             var (vertices, indices, colours) = (ground[surface].Vertices, ground[surface].Indices, ground[surface].Colours);
             for (var t = 0; t + 2 < indices.Length; t += 3)
             {
@@ -57,14 +70,13 @@ public partial class GroundScatter : Node3D
                     continue;
                 if (normal.Y < 0)
                     normal = -normal;
+                var shade = colours is null ? Colors.White : (colours[indices[t]] + colours[indices[t + 1]] + colours[indices[t + 2]]) / 3;
+                var (grassDensity, stoneDensity, grassColour, stoneColour) = cover((a + b + c) / 3, shade);
                 var (grassCount, stoneCount) = (Count(random, area * grassDensity), Count(random, area * stoneDensity));
                 if (grassCount + stoneCount == 0)
                     continue;
-                // The tile's corners shade its colour as they shade its picture.
-                var shade =colours is null ? Colors.White : (colours[indices[t]] + colours[indices[t + 1]] + colours[indices[t + 2]]) / 3;
-                var tint = colour * shade;
                 Scatter(random, a, b, c, grassCount, grass, (at, r) =>
-                    new Transform3D(new Basis(Vector3.Up, (float)r.NextDouble() * Mathf.Tau).Scaled(Vector3.One * (0.7f + 0.6f * (float)r.NextDouble())), at), tint.SrgbToLinear());
+                    new Transform3D(new Basis(Vector3.Up, (float)r.NextDouble() * Mathf.Tau).Scaled(Vector3.One * (0.7f + 0.6f * (float)r.NextDouble())), at), grassColour.SrgbToLinear());
                 Scatter(random, a, b, c, stoneCount, stones, (at, r) =>
                 {
                     // Mostly pebbles, now and then a stone; lying along the ground, sunk a little into it.
@@ -74,7 +86,7 @@ public partial class GroundScatter : Node3D
                     var basis = new Basis(side, up, side.Cross(up)).Rotated(up, (float)r.NextDouble() * Mathf.Tau);
                     return new Transform3D(basis.Scaled(new Vector3(size, size * (0.5f + 0.3f * (float)r.NextDouble()), size * (0.8f + 0.4f * (float)r.NextDouble()))),
                         at - up * size * 0.15f);
-                }, tint * 0.85f);
+                }, stoneColour);
             }
         });
         var (grass, stones) = (Merge(grassOf), Merge(stonesOf));

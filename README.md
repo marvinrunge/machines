@@ -100,6 +100,12 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   pebbles and stones lie on rock, sand, gravel, mud and snow, each in the colours of the tile beneath; never
   on steep slopes, water, roads or metal, and buildings clear the ground they stand on. Tracks and wheels leave
   marks behind them that fade after half a minute.
+- **Painted ground (remake look):** on the natural planets (desert, green, hills, forts, moons, Gracko, ice)
+  the ground no longer shows the original's tiles with their hard edges and dark rectangles. A material map over
+  the whole planet is read from the old pictures (sand, sandstone, beach, gravel, grass, mossy rock, regolith, red
+  soil, dark rock, snow, ice) and painted with Poly Haven materials blended by their height maps, tinted to the
+  original's colours; cliffs take their family's rock seen from the side. Water, lava and everything built keep
+  their pictures. The same `fetch.sh` downloads them.
 - **The planets' artefacts:** the trees, palms, rocks, ruins and other scenery the scenarios set on the
   planets (ARTEFACTS) stand where the original put them, from each planet's own models (`pdata/*.arb`). They
   stand in the way as in the original: machines go round the active ones (their boundaries, turned as they

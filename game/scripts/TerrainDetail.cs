@@ -9,14 +9,16 @@ namespace Machines.Game;
 /// only brightens and darkens the original's colours, so the planets keep their look. Steep faces take rock
 /// whatever the tile, projected from the side so it does not stretch; far away the detail fades out. Which layer a
 /// tile gets is read from its texture's name, else from its colour. Without the textures the ground stays as it is.
+/// On the natural planets the ground is painted from a material map instead (<see cref="TerrainMaterials"/>); the
+/// detail stays for what that leaves (stations, industrial worlds, what is built).
 /// </summary>
 public static class TerrainDetail
 {
     /// <summary>The layers, in the order of the texture arrays, and how many metres one repeat of each covers.</summary>
     private static readonly (string Name, float Size)[] Layers =
     [
-        ("sand", 3), ("soil", 3), ("grass", 2.5f), ("rock", 4), ("cliff", 6), ("mud", 4), ("snow", 4), ("metal", 4),
-        ("gravel", 2.5f), ("laterite", 3),
+        ("sand", 5), ("soil", 5), ("grass", 4.5f), ("rock", 6), ("cliff", 10), ("mud", 6), ("snow", 7), ("metal", 4),
+        ("gravel", 4.5f), ("laterite", 5),
     ];
 
     private static int Layer(string name) => Array.FindIndex(Layers, l => l.Name == name);
@@ -241,11 +243,14 @@ public static class TerrainDetail
                 world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
             }
 
-            // Two samples at different scales and angles, so the repeats break up.
-            vec4 two_scales(sampler2DArray tex, vec2 p, float size, float index) {
+            // Samples at different scales and angles, so the repeats break up: close up the size and a turned copy 3.7
+            // times larger, farther off that copy and one 14 times larger.
+            vec4 two_scales(sampler2DArray tex, vec2 p, float size, float index, float far) {
                 vec2 a = p / size;
                 vec2 b = mat2(vec2(0.8, 0.6), vec2(-0.6, 0.8)) * p / (size * 3.7);
-                return mix(texture(tex, vec3(a, index)), texture(tex, vec3(b, index)), 0.4);
+                vec2 c = mat2(vec2(-0.28, 0.96), vec2(-0.96, -0.28)) * p / (size * 14.0);
+                vec4 middle = texture(tex, vec3(b, index));
+                return mix(mix(texture(tex, vec3(a, index)), middle, 0.4), mix(middle, texture(tex, vec3(c, index)), 0.5), far);
             }
 
             void fragment() {
@@ -254,13 +259,14 @@ public static class TerrainDetail
 
                 float dist = length(world_pos - CAMERA_POSITION_WORLD);
                 float near = 1.0 - smoothstep(160.0, 420.0, dist);
+                float far = smoothstep(40.0, 180.0, dist);
                 vec3 n = normalize(world_normal) * (FRONT_FACING ? 1.0 : -1.0);
                 float steep = smoothstep(0.45, 0.75, 1.0 - abs(n.y));
 
                 // Flat ground: the tile's layer from above.
-                vec3 flat_colour = two_scales(detail_albedo, world_pos.xz, layer_size, layer).rgb;
-                vec3 flat_bump = two_scales(detail_normal, world_pos.xz, layer_size, layer).xyz * 2.0 - 1.0;
-                float flat_rough = two_scales(detail_rough, world_pos.xz, layer_size, layer).r;
+                vec3 flat_colour = two_scales(detail_albedo, world_pos.xz, layer_size, layer, far).rgb;
+                vec3 flat_bump = two_scales(detail_normal, world_pos.xz, layer_size, layer, far).xyz * 2.0 - 1.0;
+                float flat_rough = two_scales(detail_rough, world_pos.xz, layer_size, layer, far).r;
                 float flat_light = dot(flat_colour, vec3(0.299, 0.587, 0.114)) / layer_brightness;
 
                 // Steep faces: the cliff layer from the two sides, by how much the face looks each way.

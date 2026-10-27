@@ -10,3 +10,11 @@ snow      snow_02
 metal     metal_plate
 gravel    gravelly_sand
 laterite  red_laterite_soil_stones
+# The materials the remake paints the ground with (TerrainMaterials); sand, grass, rock and snow above are some of them.
+sandstone cliff_side
+beach     coast_sand_01
+mossrock  mossy_rock
+regolith  moon_01
+redsoil   red_dirt_mud_01
+darkrock  dark_rock_02
+ice       marble_cliff_03
