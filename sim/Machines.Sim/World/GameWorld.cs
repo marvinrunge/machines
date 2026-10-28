@@ -128,7 +128,10 @@ public sealed partial class GameWorld
         Timed("support", UpdateSupport);
         Timed("transport", UpdateTransport);
         Timed("combat", UpdateCombat);
+        Timed("evasion", UpdateEvasion);
+        Timed("squadrons", UpdateSquadAttacks);
         Timed("mines", UpdateLandMines);
+        Timed("spies", UpdateSpies);
         Timed("dead", RemoveDead);
         Timed("debris", BurnOutDebris);
         Timed("victory", CheckVictory);
@@ -284,6 +287,15 @@ public sealed partial class GameWorld
             {
                 gaining.Score.Destruction += actor.Cost;
                 losing.Score.Destruction -= actor.Cost / 2;
+                var destroyed = actor is Machine ? gaining.Score.MachinesDestroyed : gaining.Score.ConstructionsDestroyed;
+                destroyed[actor.Race] = destroyed.GetValueOrDefault(actor.Race) + 1;
+            }
+            if (Races.TryGetValue(actor.Race, out var owner))
+            {
+                if (actor is Machine)
+                    owner.Score.MachinesLost++;
+                else
+                    owner.Score.ConstructionsLost++;
             }
 
             if (actor is Machine { Passengers.Count: > 0 } apc)

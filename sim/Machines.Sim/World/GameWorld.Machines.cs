@@ -103,6 +103,10 @@ public sealed partial class GameWorld
                 UpdateRefillMines(machine, refill);
                 break;
 
+            case EvadeOrder evade:
+                UpdateEvade(machine, evade);
+                break;
+
             case AttackMoveOrder attackMove:
                 if (!FollowPath(machine))
                     machine.Order = Order.Idle;
@@ -335,6 +339,7 @@ public sealed partial class GameWorld
         if (site.Complete)
         {
             site.MakeComplete();
+            Races[site.Race].Score.ConstructionsBuilt++;
             Raise(new GameEvent(GameEventKind.ConstructionComplete, site.Id, site.Position, machine.Id, site.TypeName));
             machine.Order = Order.Idle;
         }
@@ -456,7 +461,7 @@ public sealed partial class GameWorld
             return;
         }
 
-        if (lab.Technicians.Count >= ResearchStations(lab))
+        if (lab.Technicians.Count + lab.Garrisoned.Count >= ResearchStations(lab))
         {
             technician.Order = Order.Idle;
             return;
@@ -468,7 +473,8 @@ public sealed partial class GameWorld
         technician.Inside = lab.Id;
         technician.Position = lab.Position;
         technician.Order = Order.Idle;
-        lab.Technicians.Add(technician.Id);
+        // A spy in another race's lab waits there, downloading, until it is ordered out.
+        (technician.IsSpy && lab.Race != technician.Race ? lab.Garrisoned : lab.Technicians).Add(technician.Id);
     }
 
     /// <summary>How many technicians fit in a lab: its <c>STATION ... RESEARCH</c> places in parmdata.</summary>

@@ -46,6 +46,24 @@ public sealed partial class GameWorld
     private (int X, int Y) SpatialCellOf(Vector2 p) =>
         (Math.Clamp((int)(p.X / SpatialCell), 0, _spatialX - 1), Math.Clamp((int)(p.Y / SpatialCell), 0, _spatialY - 1));
 
+    /// <summary>The living actors filed near a point: every one within <paramref name="range"/> and some beyond.</summary>
+    private IEnumerable<Actor> FiledNear(Vector2 point, float range)
+    {
+        if (_spatial.Length == 0)
+            IndexActors();
+        var reach = range + SpatialSlack;
+        var (x0, y0) = SpatialCellOf(point - new Vector2(reach));
+        var (x1, y1) = SpatialCellOf(point + new Vector2(reach));
+        for (var y = y0; y <= y1; y++)
+        {
+            for (var x = x0; x <= x1; x++)
+            {
+                foreach (var actor in _spatial[y * _spatialX + x])
+                    yield return actor;
+            }
+        }
+    }
+
     /// <summary>
     /// The closest enemy within range, preferring armed machines; ties go to the lower id. With
     /// <paramref name="clearShot"/> only one the ground does not hide (MachLogCanAttack::canTurnToAttackAndNoCover), and

@@ -154,6 +154,7 @@ public sealed class RelayServer : IAsyncDisposable
                 }
                 member.Colour = set.Colour;
                 member.Ready = set.Ready;
+                member.Terrain = set.Terrain;
                 Broadcast(room, room.State());
                 break;
 
@@ -288,7 +289,9 @@ public sealed class RelayServer : IAsyncDisposable
                 players.Add(new MatchPlayer(0, "AI", slot, colour, Ai: true));
             }
         }
-        room.Match = new MatchInfo(room.Setup.Scenario, room.Setup.Planet, room.Setup.Options, _random.Next(1, int.MaxValue), InputDelay, players);
+        // The ground goes into the match only when every player has the same (MatchInfo.Terrain).
+        var terrain = room.Members.Select(m => m.Terrain).Distinct().ToList() is [{ } same] ? same : (long?)null;
+        room.Match = new MatchInfo(room.Setup.Scenario, room.Setup.Planet, room.Setup.Options, _random.Next(1, int.MaxValue), InputDelay, players, terrain);
         Broadcast(room, new MatchStarted(room.Match));
         Log?.Invoke($"room {room.Id} started {room.Setup.Scenario} with {room.Members.Count} players");
     }
@@ -350,6 +353,7 @@ public sealed class RelayServer : IAsyncDisposable
         public Room? Room { get; set; }
         public Race Colour { get; set; }
         public bool Ready { get; set; }
+        public long? Terrain { get; set; }
         public Race? Slot { get; set; }
     }
 
@@ -377,6 +381,6 @@ public sealed class RelayServer : IAsyncDisposable
         public RoomSummary Summary() => new(Id, Setup.Name, Setup.Scenario, Setup.Planet, Members.Count, Setup.Slots.Count, Match is not null);
 
         public RoomState State() => new(Id, Setup.Name, Setup.Scenario, Setup.Planet, Setup.Slots, Setup.Options, Setup.FillWithAi, HostId,
-            Members.Select(m => new LobbyPlayer(m.Id, m.Name, m.Colour, m.Ready)).ToList());
+            Members.Select(m => new LobbyPlayer(m.Id, m.Name, m.Colour, m.Ready, m.Terrain)).ToList());
     }
 }

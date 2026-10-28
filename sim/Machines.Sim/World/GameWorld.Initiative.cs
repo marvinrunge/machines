@@ -95,10 +95,20 @@ public sealed partial class GameWorld
             spy.Order = Order.Idle;
             return;
         }
-        if (!AtBuilding(spy, garrison))
+        // Full, it drives back to where it was sent from (and out of the garrison); otherwise it goes in through the
+        // door, bays or no bays (MachLogRefillLandMinesOperation, FREE_BAYS_UNIMPORTANT), and is restocked inside.
+        if (spy.Mines >= (spy.Stats.MineCapacity ?? 0))
+        {
+            Send(spy, new MoveOrder(refill.ReturnTo), refill.ReturnTo);
             return;
-        spy.Mines = spy.Stats.MineCapacity ?? 0;
-        Send(spy, new MoveOrder(refill.ReturnTo), refill.ReturnTo);
+        }
+        if (spy.Inside == garrison.Id || !ThroughDoor(spy, garrison))
+            return;
+        spy.Doorway = null;
+        spy.Inside = garrison.Id;
+        spy.Position = garrison.Position;
+        spy.Order = refill with { InsideSince = Time };
+        garrison.Garrisoned.Add(spy.Id);
     }
 
     /// <summary>
@@ -122,6 +132,58 @@ public sealed partial class GameWorld
             LandMines.Remove(mine);
             Damage(victim, 80, mine.Race);
             Raise(new GameEvent(GameEventKind.MineExploded, victim.Id, mine.Position, mine.Id));
+        }
+    }
+
+    /// <summary>
+    /// Spies inside buildings: one restocked in a garrison drives back out to where it was sent from; one idle in
+    /// another race's hardware lab downloads research (MachLogSpyLocator::executeTheft). It picks, at random, an
+    /// item the lab's race has researched in that kind of lab and its own race may research but has not, then
+    /// gains DOWNLOAD_RATE research units a minute towards it, until it has it and picks the next.
+    /// </summary>
+    private void UpdateSpies()
+    {
+        foreach (var spy in Machines.Where(m => m.IsSpy && !m.IsDead))
+        {
+            if (spy.Inside is not { } inside || Find<Construction>(inside) is not { } building)
+            {
+                spy.Stealing = null;
+                continue;
+            }
+            // The garrison restocks it (UpdateSupport); after a second inside it sets off back.
+            if (spy.Order is RefillMinesOrder { InsideSince: { } since } refill)
+            {
+                if (Time - since >= 1)
+                {
+                    spy.Mines = spy.Stats.MineCapacity ?? 0;
+                    Send(spy, new MoveOrder(refill.ReturnTo), refill.ReturnTo);
+                }
+                continue;
+            }
+            if (!building.IsType("HARDWARE_LAB") || building.Race == spy.Race || spy.Order is not IdleOrder)
+                continue;
+            var state = Races[spy.Race];
+            if (spy.Stealing is null)
+            {
+                var military = building.Spec.SubType == "MILITARY";
+                var stealable = Data.ResearchTree.Items.Where(item => (item.Lab == LabType.Military) == military
+                    && Races[building.Race].Researched.Contains(item.Key)
+                    && state.Available.Contains(item.Key) && !state.Researched.Contains(item.Key)).ToList();
+                if (stealable.Count == 0)
+                    continue;
+                spy.Stealing = stealable[Random.Next(stealable.Count)].Key;
+            }
+            var key = spy.Stealing;
+            var item = Data.ResearchTree.Get(key);
+            state.ResearchProgress.TryGetValue(key, out var progress);
+            progress += (spy.Stats.DownloadRate ?? 0) / 60f * Dt;
+            state.ResearchProgress[key] = progress;
+            if (progress < ResearchCost(spy.Race, item))
+                continue;
+            state.Researched.Add(key);
+            state.Score.ItemsResearched++;
+            spy.Stealing = null;
+            Raise(new GameEvent(GameEventKind.ResearchStolen, spy.Id, building.Position, building.Id, key.ToString()));
         }
     }
 

@@ -25,6 +25,46 @@ public partial class GameAudio : Node
     private AudioStreamPlayer _voice = null!;
     private string? _gameFolder;
 
+    /// <summary>
+    /// The bus the game's own sounds play on (not the music), so that their volume is set apart; made on first
+    /// use at the volume kept in <c>user://settings.cfg</c>.
+    /// </summary>
+    public static StringName EffectsBus
+    {
+        get
+        {
+            const string name = "Effects";
+            if (AudioServer.GetBusIndex(name) < 0)
+            {
+                AudioServer.AddBus();
+                var index = AudioServer.BusCount - 1;
+                AudioServer.SetBusName(index, name);
+                AudioServer.SetBusSend(index, "Master");
+                AudioServer.SetBusVolumeDb(index, Mathf.LinearToDb(Mathf.Max(0.001f, SoundVolume)));
+            }
+            return name;
+        }
+    }
+
+    /// <summary>The volume of the game's own sounds, 0 to 1 (the options' sound volume).</summary>
+    public static float SoundVolume
+    {
+        get
+        {
+            var config = new ConfigFile();
+            return config.Load("user://settings.cfg") == Error.Ok ? (float)(double)config.GetValue("audio", "sound_volume", 1.0) : 1;
+        }
+        set
+        {
+            var config = new ConfigFile();
+            config.Load("user://settings.cfg");
+            config.SetValue("audio", "sound_volume", (double)value);
+            config.Save("user://settings.cfg");
+            if (AudioServer.GetBusIndex("Effects") is var index and >= 0)
+                AudioServer.SetBusVolumeDb(index, Mathf.LinearToDb(Mathf.Max(0.001f, value)));
+        }
+    }
+
     public static GameAudio Create(string? gameFolder)
     {
         var audio = new GameAudio { Name = "Audio", _gameFolder = gameFolder };
@@ -38,7 +78,7 @@ public partial class GameAudio : Node
                 foreach (var mail in VoiceMailParser.Load(voiceMail))
                     audio._voiceMail[mail.Id] = mail;
         }
-        audio._voice = new AudioStreamPlayer { Name = "VoiceMail" };
+        audio._voice = new AudioStreamPlayer { Name = "VoiceMail", Bus = EffectsBus };
         audio.AddChild(audio._voice);
         return audio;
     }
@@ -76,7 +116,7 @@ public partial class GameAudio : Node
         {
             if (_players.Count >= Voices)
                 return;
-            player = new AudioStreamPlayer3D();
+            player = new AudioStreamPlayer3D { Bus = EffectsBus };
             AddChild(player);
             _players.Add(player);
         }
@@ -108,7 +148,7 @@ public partial class GameAudio : Node
         var moveStream = Looping(moveSound.File);
         if (idleStream is null || moveStream is null)
             return null;
-        var player = new AudioStreamPlayer3D { Name = "Engine" };
+        var player = new AudioStreamPlayer3D { Name = "Engine", Bus = EffectsBus };
         return new EngineSound(player, idleSound, idleStream, moveSound, moveStream);
     }
 
@@ -178,7 +218,7 @@ public partial class GameAudio : Node
         {
             if (_gui.Count >= GuiVoices)
                 return;
-            player = new AudioStreamPlayer { Name = $"Gui{_gui.Count}" };
+            player = new AudioStreamPlayer { Name = $"Gui{_gui.Count}", Bus = EffectsBus };
             AddChild(player);
             _gui.Add(player);
         }

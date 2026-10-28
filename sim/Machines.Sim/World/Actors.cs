@@ -102,6 +102,9 @@ public sealed class Machine : Actor
 
     public bool IsSpy => Spec.Type == "SPY_LOCATOR";
 
+    /// <summary>What a spy inside an enemy lab is downloading, or null (MachLogSpyLocator's pResItemCurrentlyStealing_).</summary>
+    public ResearchKey? Stealing { get; set; }
+
     /// <summary>The building or APC a machine is inside (a lab, a garrison, an APC); it is off the map.</summary>
     public int? Inside { get; set; }
 
@@ -241,7 +244,7 @@ public sealed class Construction : Actor
     public List<ResearchKey> ResearchQueue { get; } = [];
     public List<int> Technicians { get; } = [];
 
-    // Garrisons: machines inside, being repaired
+    // Garrisons: machines inside, being repaired; labs: enemy spies inside, downloading research
     public List<int> Garrisoned { get; } = [];
 
     public string TypeName => Spec.TypeName;

@@ -40,6 +40,13 @@ public static class MenuSounds
 
     private static void Hook(Node node)
     {
+        // The keyboard moving the focus to another control clicks with navkey.wav (MachGuiStartupScreens' keys).
+        if (node is Control { FocusMode: not Control.FocusModeEnum.None } focusable)
+            focusable.FocusEntered += () =>
+            {
+                if (Input.IsAnythingPressed() && !Input.IsMouseButtonPressed(MouseButton.Left) && !Input.IsMouseButtonPressed(MouseButton.Right))
+                    Play("navkey.wav");
+            };
         switch (node)
         {
             case OptionButton option:

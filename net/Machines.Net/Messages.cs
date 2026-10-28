@@ -55,13 +55,16 @@ public sealed record JoinRoom(int RoomId) : NetMessage;
 
 public sealed record LeaveRoom : NetMessage;
 
-/// <summary>A player's colour and whether they are ready to start.</summary>
-public sealed record SetPlayer(Race Colour, bool Ready) : NetMessage;
+/// <summary>
+/// A player's colour and whether they are ready to start; <paramref name="Terrain"/> fingerprints the ground their game
+/// copy's export gives the room's planet (none without one).
+/// </summary>
+public sealed record SetPlayer(Race Colour, bool Ready, long? Terrain = null) : NetMessage;
 
 public sealed record RoomState(int Id, string Name, string Scenario, string Planet, IReadOnlyList<Race> Slots, MatchOptions Options,
     bool FillWithAi, int HostId, IReadOnlyList<LobbyPlayer> Players) : NetMessage;
 
-public sealed record LobbyPlayer(int ClientId, string Name, Race Colour, bool Ready);
+public sealed record LobbyPlayer(int ClientId, string Name, Race Colour, bool Ready, long? Terrain = null);
 
 /// <summary>The host starts the match once everyone is ready.</summary>
 public sealed record StartMatch : NetMessage;
@@ -70,7 +73,10 @@ public sealed record MatchStarted(MatchInfo Match) : NetMessage;
 
 /// <summary>Everything a client needs to build the same world as everyone else.</summary>
 /// <param name="InputDelay">Ticks between giving a command and every world carrying it out.</param>
-public sealed record MatchInfo(string Scenario, string Planet, MatchOptions Options, int Seed, int InputDelay, IReadOnlyList<MatchPlayer> Players);
+/// <param name="Terrain">The ground every player has alike, by its fingerprint: shots are stopped by hills only
+/// then, so that all worlds agree. Null when some player has none or another.</param>
+public sealed record MatchInfo(string Scenario, string Planet, MatchOptions Options, int Seed, int InputDelay, IReadOnlyList<MatchPlayer> Players,
+    long? Terrain = null);
 
 /// <summary>Who plays which start position (<paramref name="Slot"/>) in which colour; AI slots have no client.</summary>
 public sealed record MatchPlayer(int ClientId, string Name, Race Slot, Race Colour, bool Ai);

@@ -29,7 +29,13 @@ public sealed record DropMinesOrder(IReadOnlyList<Vector2> Points) : Order;
 /// For a spy locator: go to the nearest own garrison for a full load of mines, then back to where it was
 /// (MachLogRefillLandMinesOperation).
 /// </summary>
-public sealed record RefillMinesOrder(int Garrison, Vector2 ReturnTo) : Order;
+public sealed record RefillMinesOrder(int Garrison, Vector2 ReturnTo, float? InsideSince = null) : Order;
+
+/// <summary>
+/// Getting out of danger (MachLogEvadeOperation): Resume is what it was doing, to take up again (with the end of its
+/// way, ResumeTo); LastThreat when something last threatened it; Goal and Refuge where it is going.
+/// </summary>
+public sealed record EvadeOrder(Order Resume, Vector2? ResumeTo, float LastThreat, EvadeGoal Goal, int? Refuge) : Order;
 
 /// <summary>Move to a point, fighting anything met on the way.</summary>
 public sealed record AttackMoveOrder(Vector2 Target) : Order;
@@ -118,6 +124,18 @@ public sealed class Score
     public int Destruction { get; set; }
 
     public int Gross => (int)(BmusMined / 4) + (int)(ResearchUnits / 2) + Destruction;
+
+    // The statistics screen's figures (MachLogRace's counts, shown by MachGuiCtxStatistics).
+    public int MachinesBuilt { get; set; }
+    public int MilitaryMachinesBuilt { get; set; }
+    public int ConstructionsBuilt { get; set; }
+    public int ItemsResearched { get; set; }
+    public int MachinesLost { get; set; }
+    public int ConstructionsLost { get; set; }
+
+    /// <summary>The machines and buildings of each race this one destroyed.</summary>
+    public Dictionary<Race, int> MachinesDestroyed { get; } = [];
+    public Dictionary<Race, int> ConstructionsDestroyed { get; } = [];
 }
 
 /// <summary>Something the client may want to show or play a sound for.</summary>
@@ -149,6 +167,8 @@ public enum GameEventKind
     MineLaid,
     /// <summary>A land mine went off under a machine (Actor: the machine, Other: the mine).</summary>
     MineExploded,
+    /// <summary>A spy finished downloading research in an enemy lab (Actor: the spy, Other: the lab, Detail: the item).</summary>
+    ResearchStolen,
 }
 
 public sealed record GameEvent(GameEventKind Kind, int Actor, Vector2 Position, int? Other = null, string? Detail = null);

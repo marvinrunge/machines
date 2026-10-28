@@ -93,10 +93,15 @@ public sealed partial class GameWorld
             case EnterLabCommand enter:
             {
                 var lab = Find<Construction>(enter.Lab);
-                if (lab is null || lab.Race != enter.Race || !lab.IsType("HARDWARE_LAB") || !lab.Complete)
-                    return "that is not one of your finished labs";
-                foreach (var technician in Own<Machine>(enter.Race, enter.Technicians).Where(m => m.Spec.Type == "TECHNICIAN"))
-                    Send(technician, new EnterLabOrder(lab.Id), lab.Position);
+                if (lab is null || !lab.IsType("HARDWARE_LAB") || !lab.Complete)
+                    return "that is not a finished lab";
+                // Technicians work in their own labs; spies slip into other races' to steal research (MachLogSpyLocator).
+                var own = lab.Race == enter.Race;
+                var entering = Own<Machine>(enter.Race, enter.Technicians).Where(m => own ? m.Spec.Type == "TECHNICIAN" : m.IsSpy).ToList();
+                if (entering.Count == 0)
+                    return own ? "only technicians work in labs" : "only spies get into enemy labs";
+                foreach (var machine in entering)
+                    Send(machine, new EnterLabOrder(lab.Id), lab.Position);
                 return null;
             }
 
@@ -209,6 +214,11 @@ public sealed partial class GameWorld
                     spy.Camouflaged = !spy.Camouflaged;
                 return null;
 
+            case SquadronCommand squadron:
+                return squadron.Order is SquadronCommand || squadron.Order.Race != squadron.Race
+                    ? "not an order for a squadron"
+                    : ApplySquadron(squadron);
+
             case FormSquadronCommand form:
             {
                 if (form.Squad is < 0 or > 9)
@@ -308,7 +318,7 @@ public sealed partial class GameWorld
     /// <summary>The race's live actors among the ids. Technicians in labs stay put; garrisoned machines come out.</summary>
     private IEnumerable<T> Own<T>(Race race, IEnumerable<int> ids) where T : Actor =>
         ids.Select(Find<T>).OfType<T>().Where(a => a.Race == race && !a.IsDead
-            && (a is not Machine { Inside: { } building } || Find<Construction>(building)?.IsType("GARRISON") == true));
+            && (a is not Machine { Inside: { } building } || Find<Construction>(building)?.Garrisoned.Contains(a.Id) == true));
 
     /// <summary>Gives a machine a new order and plans its route.</summary>
     internal void Send(Machine machine, Order order, Vector2? destination, Vector2? groupTarget = null)

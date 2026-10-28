@@ -85,6 +85,12 @@ public sealed record CamouflageCommand(Race Race, IReadOnlyList<int> Spies) : Co
 /// </summary>
 public sealed record FormSquadronCommand(Race Race, IReadOnlyList<int> Machines, int Squad) : Command(Race);
 
+/// <summary>
+/// An order to a whole squadron through its commander (MachGuiCommand::doAdminApply): with an administrator in it,
+/// the commander shares the work out among the members; without one, the order goes to them as it is.
+/// </summary>
+public sealed record SquadronCommand(Race Race, int Squad, Command Order) : Command(Race);
+
 /// <summary>Scavengers gather the given wrecks, one after another (MachGuiScavengeCommand).</summary>
 public sealed record ScavengeCommand(Race Race, IReadOnlyList<int> Scavengers, IReadOnlyList<int> Debris) : Command(Race);
 

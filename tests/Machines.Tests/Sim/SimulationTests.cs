@@ -588,13 +588,142 @@ public class SimulationTests
         Assert.Contains(events, e => e.Kind == GameEventKind.MineExploded && e.Actor == grunt.Id);
         Assert.Equal(Machines.Sim.Combat.ArmourModel.ApplyHit(durability, 80), grunt.Durability);
 
-        // At its garrison it takes on a full load and comes back.
+        // It goes into its garrison, takes on a full load there and comes back (MachLogRefillLandMinesOperation).
         var garrison = world.AddConstruction(Race.Red, at + new Vector2(-40, 30), "GARRISON", null, 1, 0, complete: true);
         var back = spy.Position;
+        var wentIn = false;
         world.Issue(new RefillLandMinesCommand(Race.Red, [spy.Id]));
-        Run(world, seconds: 30, until: () => spy.Mines == 5 && spy.Order is IdleOrder);
+        Run(world, seconds: 30, until: () => spy.Mines == 5 && spy.Order is IdleOrder, onTick: () => wentIn |= spy.Inside == garrison.Id);
+        Assert.True(wentIn);
         Assert.Equal(5, spy.Mines);
+        Assert.Null(spy.Inside);
+        Assert.DoesNotContain(spy.Id, garrison.Garrisoned);
         Assert.True(Vector2.Distance(spy.Position, back) < 3);
+    }
+
+    [Fact]
+    public void A_squadron_with_an_administrator_takes_on_a_target_together_and_chases_it()
+    {
+        var world = NewMatch(red: Controller.Player);
+        var at = OpenGround(world);
+        var boss = world.Data.Parm.Machines.First(m => m.Type == "ADMINISTRATOR" && m.SubType == "BOSS").Levels[0].HardwareLevel;
+        var commander = world.AddMachine(Race.Red, at, "ADMINISTRATOR", "BOSS", boss, null);
+        var near = world.AddMachine(Race.Red, at + new Vector2(0, 10), "AGGRESSOR", "GRUNT", 1, "L_BOLTER");
+        var far = world.AddMachine(Race.Red, at + new Vector2(-150, 0), "AGGRESSOR", "GRUNT", 1, "L_BOLTER");
+        var dozer = world.AddMachine(Race.Red, at + new Vector2(0, -10), "CONSTRUCTOR", "DOZER", 1, null);
+        var target = world.AddMachine(Race.Blue, at + new Vector2(60, 0), "CONSTRUCTOR", "DOZER", 1, null);
+        target.DefCon = DefCon.High;
+        world.Issue(new FormSquadronCommand(Race.Red, [commander.Id, near.Id, far.Id, dozer.Id], 2));
+        world.Step();
+        Assert.Equal(commander.Id, world.CommanderOf(Race.Red, 2)?.Id);
+
+        // Within 100 m they attack; further off they drive after it; the unarmed stay as they are.
+        world.Issue(new SquadronCommand(Race.Red, 2, new AttackCommand(Race.Red, [], target.Id)));
+        world.Step();
+        Assert.Equal(target.Id, Assert.IsType<AttackOrder>(near.Order).Target);
+        Assert.IsType<MoveOrder>(far.Order);
+        Assert.IsType<IdleOrder>(dozer.Order);
+        Run(world, seconds: 60, until: () => far.Order is AttackOrder || target.IsDead);
+        Assert.True(far.Order is AttackOrder || target.IsDead);
+
+        // Without a commander the order simply goes to the members.
+        world.Issue(new FormSquadronCommand(Race.Red, [near.Id, dozer.Id], 3));
+        world.Issue(new SquadronCommand(Race.Red, 3, new MoveCommand(Race.Red, [], at + new Vector2(0, 40))));
+        world.Step();
+        world.Step();
+        Assert.IsType<MoveOrder>(near.Order);
+        Assert.IsType<MoveOrder>(dozer.Order);
+    }
+
+    [Fact]
+    public void An_unarmed_machine_under_attack_runs_away_by_its_evasion_plan_and_settles_once_the_danger_is_past()
+    {
+        var world = NewMatch(red: Controller.Player);
+        var at = OpenGround(world);
+        var dozer = world.AddMachine(Race.Red, at, "CONSTRUCTOR", "DOZER", 1, null);
+        var grunt = world.AddMachine(Race.Blue, at + new Vector2(25, 0), "AGGRESSOR", "GRUNT", 1, "L_BOLTER");
+        world.Issue(new AttackCommand(Race.Blue, [grunt.Id], dozer.Id));
+        var evaded = false;
+        Run(world, seconds: 6, onTick: () => evaded |= dozer.Order is EvadeOrder);
+
+        // A dozer runs away (RUN_AWAY): 60 m on from its attacker, straight away from it.
+        Assert.True(evaded);
+        Assert.True(Vector2.Distance(dozer.Position, at) > 10);
+        Assert.True(dozer.Position.X < at.X);
+
+        // Once nothing threatens it any more it stops evading and stands.
+        world.Issue(new StopCommand(Race.Blue, [grunt.Id]));
+        world.Issue(new MoveCommand(Race.Blue, [grunt.Id], at + new Vector2(400, 0)));
+        Run(world, seconds: 40, until: () => dozer.Order is IdleOrder);
+        Assert.IsType<IdleOrder>(dozer.Order);
+        Assert.False(dozer.IsDead);
+    }
+
+    [Fact]
+    public void A_machine_at_high_initiative_or_standing_its_ground_does_not_evade()
+    {
+        var world = NewMatch(red: Controller.Player);
+        var at = OpenGround(world);
+        var dozer = world.AddMachine(Race.Red, at, "CONSTRUCTOR", "DOZER", 1, null);
+        var grunt = world.AddMachine(Race.Blue, at + new Vector2(25, 0), "AGGRESSOR", "GRUNT", 1, "L_BOLTER");
+        world.Issue(new DefConCommand(Race.Red, [dozer.Id], DefCon.High));
+        world.Issue(new AttackCommand(Race.Blue, [grunt.Id], dozer.Id));
+        var evaded = false;
+        Run(world, seconds: 5, onTick: () => evaded |= dozer.Order is EvadeOrder);
+        Assert.False(evaded);
+    }
+
+    [Fact]
+    public void A_machine_whose_plan_runs_home_evades_into_a_garrison()
+    {
+        var world = NewMatch(red: Controller.Player);
+        var at = OpenGround(world);
+        // A geo locator's second level runs home (RUN_HOME: garrisons and pods first).
+        var level = world.Data.Parm.Machines.First(m => m.Type == "GEO_LOCATOR").Levels.First(l => l.Evasion == "RUN_HOME").HardwareLevel;
+        var locator = world.AddMachine(Race.Red, at, "GEO_LOCATOR", null, level, null);
+        var garrison = world.AddConstruction(Race.Red, at + new Vector2(-50, 0), "GARRISON", null, 1, 0, complete: true);
+        var grunt = world.AddMachine(Race.Blue, at + new Vector2(25, 0), "AGGRESSOR", "GRUNT", 1, "L_BOLTER");
+        world.Issue(new AttackCommand(Race.Blue, [grunt.Id], locator.Id));
+        Run(world, seconds: 30, until: () => locator.Inside == garrison.Id);
+        Assert.Equal(garrison.Id, locator.Inside);
+        Assert.IsType<EvadeOrder>(locator.Order);
+    }
+
+    [Fact]
+    public void A_spy_in_an_enemy_lab_downloads_research_the_enemy_has_and_its_own_race_has_not()
+    {
+        var world = NewMatch(red: Controller.Player);
+        var at = OpenGround(world);
+        var lab = world.AddConstruction(Race.Blue, at, "HARDWARE_LAB", "MILITARY", 1, 0, complete: true);
+        var (red, blue) = (world.Races[Race.Red], world.Races[Race.Blue]);
+        var wanted = world.Data.ResearchTree.Items.First(i => i.Lab == LabType.Military && red.Available.Contains(i.Key) && !red.Researched.Contains(i.Key));
+        blue.Researched.Add(wanted.Key);
+        var stealable = world.Data.ResearchTree.Items.Where(i => i.Lab == LabType.Military && blue.Researched.Contains(i.Key)
+            && red.Available.Contains(i.Key) && !red.Researched.Contains(i.Key)).Select(i => i.Key).ToList();
+        foreach (var key in stealable)
+            red.ResearchCostOverrides[key] = 20;
+
+        var spy = world.AddMachine(Race.Red, at + new Vector2(40, 0), "SPY_LOCATOR", null, 3, null);
+        world.Issue(new EnterLabCommand(Race.Red, [spy.Id], lab.Id));
+        Run(world, seconds: 30, until: () => spy.Inside == lab.Id);
+        Assert.Contains(spy.Id, lab.Garrisoned);
+        Assert.DoesNotContain(spy.Id, lab.Technicians);
+        world.Step();
+        Assert.Contains(spy.Stealing, stealable);
+
+        // DOWNLOAD_RATE 60 a minute: 20 units take 20 seconds.
+        var taking = spy.Stealing!;
+        var events = new List<GameEvent>();
+        Run(world, seconds: 25, until: () => red.Researched.Contains(taking), onTick: () => events.AddRange(world.Events));
+        Assert.Contains(taking, red.Researched);
+        Assert.Contains(events, e => e.Kind == GameEventKind.ResearchStolen && e.Actor == spy.Id && e.Other == lab.Id);
+
+        // Ordered out, it leaves by the door.
+        world.Issue(new MoveCommand(Race.Red, [spy.Id], at + new Vector2(40, 0)));
+        world.Step();
+        Assert.Null(spy.Inside);
+        Assert.Null(spy.Stealing);
+        Assert.DoesNotContain(spy.Id, lab.Garrisoned);
     }
 
     [Fact]

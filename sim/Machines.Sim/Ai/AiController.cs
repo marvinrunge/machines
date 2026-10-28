@@ -180,6 +180,9 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
         var bays = garrisons.ToDictionary(g => g.Id, g => GameWorld.GarrisonStations(g) - g.Garrisoned.Count);
         foreach (var machine in machines)
         {
+            // A machine evading (GameWorld.UpdateEvasion) goes its own way.
+            if (machine.Order is EvadeOrder)
+                continue;
             if (machine.Inside is { } inside)
             {
                 if (bays.ContainsKey(inside) && machine.HitPoints >= machine.MaxHitPoints)

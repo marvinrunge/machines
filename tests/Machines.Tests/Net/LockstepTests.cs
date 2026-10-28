@@ -81,6 +81,51 @@ public class LockstepTests
     }
 
     [Fact]
+    public void A_saved_game_carries_on_exactly_where_it_was_saved()
+    {
+        // One player alone, as on this machine: orders now and then, saved half way, then played on twice: straight
+        // through, and from the save.
+        var match = new MatchInfo("m_desert", "m_desert", new MatchOptions(), 11, 1,
+            [new MatchPlayer(0, "Anna", Race.Red, Race.Red, Ai: false), new MatchPlayer(0, "AI", Race.Blue, Race.Blue, Ai: true)]);
+        var straight = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), Race.Red, [Race.Red], match.InputDelay);
+        var rng = new Random(5);
+        void Play(LockstepSession session, int ticks)
+        {
+            for (var i = 0; i < ticks; i++)
+            {
+                if (rng.Next(20) == 0 && session.World.Machines.Where(m => m.Race == Race.Red).ToList() is { Count: > 0 } own)
+                    session.Queue(new MoveCommand(Race.Red, [own[rng.Next(own.Count)].Id], new Vector2(300 + rng.Next(800), 300 + rng.Next(800))));
+                session.Pump();
+                Assert.True(session.TryStep());
+            }
+        }
+        Play(straight, 300);
+        var saved = new Replay(match, straight.Played, straight.World.Tick);
+        var path = Path.Combine(Path.GetTempPath(), $"save-{Guid.NewGuid():N}.msave");
+        saved.Save(path);
+        var loaded = Replay.Load(path);
+        File.Delete(path);
+
+        var resumed = loaded.Resume(Replay.BuildWorld(DataLoader.Value, loaded.Match), Race.Red);
+        while (resumed.World.Tick < loaded.Ticks && resumed.TryStep())
+        {
+        }
+        Assert.Equal(straight.World.Tick, resumed.World.Tick);
+        Assert.Equal(straight.World.Checksum(), resumed.World.Checksum());
+
+        // Played on, the resumed game's own record holds the whole match: saved again, it comes back just so.
+        Play(resumed, 200);
+        Assert.True(resumed.Played.Count >= straight.Played.Count);
+        var again = new Replay(match, resumed.Played, resumed.World.Tick);
+        var second = again.Resume(Replay.BuildWorld(DataLoader.Value, again.Match), Race.Red);
+        while (second.World.Tick < again.Ticks && second.TryStep())
+        {
+        }
+        Assert.Equal(resumed.World.Tick, second.World.Tick);
+        Assert.Equal(resumed.World.Checksum(), second.World.Checksum());
+    }
+
+    [Fact]
     public async Task The_relay_reports_a_desync_when_worlds_differ()
     {
         await using var relay = RelayServer.Start(0, IPAddress.Loopback);

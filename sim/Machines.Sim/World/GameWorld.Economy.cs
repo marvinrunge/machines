@@ -106,6 +106,10 @@ public sealed partial class GameWorld
             var deploy = at + (away.LengthSquared() > 0.01f ? Vector2.Normalize(away) : Vector2.UnitX) * 25;
             Send(machine, new MoveOrder(deploy), deploy);
         }
+        var score = Races[machine.Race].Score;
+        score.MachinesBuilt++;
+        if (machine.Spec.Type is "AGGRESSOR" or "ADMINISTRATOR")
+            score.MilitaryMachinesBuilt++;
         Raise(new GameEvent(GameEventKind.MachineBuilt, machine.Id, spawn, factory.Id, key.ToString()));
     }
 
@@ -141,6 +145,7 @@ public sealed partial class GameWorld
         if (progress >= cost)
         {
             state.Researched.Add(key);
+            state.Score.ItemsResearched++;
             lab.ResearchQueue.RemoveAt(0);
             Raise(new GameEvent(GameEventKind.ResearchComplete, lab.Id, lab.Position, Detail: key.ToString()));
         }

@@ -97,6 +97,8 @@
 #include "machphys/helix.hpp"
 #include "machphys/private/otherper.hpp"
 #include "machphys/lmine.hpp"
+#include "machphys/debrisun.hpp"
+#include "mathex/abox2d.hpp"
 #include "machphys/radidisc.hpp"
 #include "machphys/electro.hpp"
 #include "machphys/halo.hpp"
@@ -1197,7 +1199,7 @@ bool ExportApp::clientStartup()
         "helix1", "helix2", "healcross", "healaura", "disc", "lightning", "lightbox",
         "loadunder", "loadover", "loadlight", "fire",
         "ionbeam", "ionflare", "ionouter", "ionwave", "nukewave", "mushtop", "mushshaft", "vsphere", "bsphere", "wsphere",
-        "lmine",
+        "lmine", "debris",
     };
     mkdir((out + "/fx").c_str());
     for (size_t e = 0; e < sizeof(effects) / sizeof(effects[0]); ++e)
@@ -1268,6 +1270,9 @@ bool ExportApp::clientStartup()
         // A spy's land mine (MachPhysLandMine, models/weapons/lmine/lmine.lod in models.bin).
         else if (name == "lmine")
             effect = _NEW(MachPhysLandMine(root, W4dTransform3d(), MachPhys::RED));
+        // The wreck a destroyed machine or building leaves (MachPhysDebrisUnit, the debris exemplar in models.bin).
+        else if (name == "debris")
+            effect = _NEW(MachPhysDebrisUnit(root, W4dTransform3d(), MexAlignedBox2d(-2, -2, 2, 2), 10.0));
         const W4dEntity* part = link != NULL ? link : effect;
         if (name == "punchcrack" or name == "punchfire" or name == "beecrack" or name == "beefire")
         {

@@ -39,11 +39,63 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     private SquadronMode _squadrons;
     private string _selectionKey = "";
 
-    /// <summary>A message for the prompt line when the mouse points at nothing in the panel.</summary>
+    /// <summary>A message for the prompt line when the mouse points at nothing in the panel (the cursor prompt).</summary>
     public string? Prompt { get; set; }
 
-    /// <summary>The panel's width on screen.</summary>
-    public float ScreenWidth => PanelWidth * _scale;
+    /// <summary>What the command waiting for a click asks for; shown when there is no cursor prompt.</summary>
+    public string? CommandPrompt { get; set; }
+
+    /// <summary>The panel's width on screen, as far as it has slid out.</summary>
+    public float ScreenWidth => _edge * _scale;
+
+    // ---- sliding (MachInGameScreen's controlPanelXPos, MachGuiControlPanelOnOffBtn) --------------
+
+    /// <summary>Where the panel's right edge stands when slid in: only its slider shows (controlPanelInXPos).</summary>
+    private const int InEdge = 6;
+
+    // Whether the player wants the panel out, and where its right edge is now, in the original's pixels.
+    private bool _on = true;
+    private float _edge = PanelWidth;
+    private double _lastFrame;
+
+    /// <summary>Hides or shows the panel (Alt and the left or right arrow; the slider at its edge).</summary>
+    public void SlideOut(bool on) => _on = on;
+
+    /// <summary>
+    /// Some contexts bring the panel out even when it is put away: a navigator, the squadron bank, the build menu,
+    /// a factory or lab, constructors (MachInGameScreen::displayControlPanel).
+    /// </summary>
+    private bool PanelNeeded()
+    {
+        if (_navigator != NavigatorKind.None || _squadrons != SquadronMode.None || _buildMenu)
+            return true;
+        var selected = game.Selection.Select(game.World.Find).OfType<Actor>().Where(a => a.Race == Game.Player).ToList();
+        return selected.Count == 1 && selected[0] is Construction { Complete: true } building && building.Spec.Type is "FACTORY" or "HARDWARE_LAB"
+            || selected.Count > 0 && selected.All(a => a is Machine { Spec.Type: "CONSTRUCTOR" });
+    }
+
+    /// <summary>
+    /// Slides the panel towards where it should be: out at 20 pixels a frame of the original's 30, in at 15; it
+    /// clicks out with ctrlpon.wav and in with ctrlpoff.wav.
+    /// </summary>
+    private void Slide()
+    {
+        var now = Time.GetTicksMsec() / 1000.0;
+        var dt = _lastFrame == 0 ? 0 : (float)Math.Min(0.1, now - _lastFrame);
+        _lastFrame = now;
+        if (_on || PanelNeeded())
+        {
+            if (_edge < PanelWidth && _edge <= InEdge)
+                game.Audio.PlayGui("gui/sounds/ctrlpon.wav");
+            _edge = Math.Min(PanelWidth, _edge + 600 * dt);
+        }
+        else
+        {
+            if (_edge > InEdge && _edge >= PanelWidth)
+                game.Audio.PlayGui("gui/sounds/ctrlpoff.wav");
+            _edge = Math.Max(InEdge, _edge - 450 * dt);
+        }
+    }
 
     public float PixelScale => _scale;
 
@@ -60,7 +112,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         // The original's 480 lines fill the screen's height, in quarter steps; whole steps keep the icons sharp.
         _scale = Mathf.Max(1, Mathf.Floor(viewport.Y / 480f * 4) / 4);
         TextureFilter = _scale % 1 == 0 ? TextureFilterEnum.Nearest : TextureFilterEnum.Linear;
-        Position = Vector2.Zero;
+        Slide();
+        Position = new Vector2((_edge - PanelWidth) * _scale, 0);
         Size = new Vector2(PanelWidth * _scale, viewport.Y);
 
         var selectionKey = string.Join(',', game.Selection);
@@ -69,16 +122,30 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             _selectionKey = selectionKey;
             _buildMenu = false;
             _coverOpenedAt = null;
+            _corralScrolled = 0;
+            // A change of selection closes a navigator, unless the navigator made it with Ctrl (checkDismissNavigator).
+            if (!_keepNavigator)
+                _navigator = NavigatorKind.None;
+            _keepNavigator = false;
             if (_squadrons == SquadronMode.Form)
                 _squadrons = SquadronMode.None;
         }
 
         _widgets.Clear();
+        _corralArea = null;
+        AddCameraTab();
+        AddSlider();
         AddMapArea();
         var y = MapAreaHeight;
         y = AddSelection(y);
-        y = AddCommands(y + 2);
-        AddContextIcons(y + 2);
+        // With a navigator open, it takes the place of the commands and menus (MACHINE_NAVIGATION_MENU).
+        if (_navigator != NavigatorKind.None && !game.Watching)
+            AddNavigator();
+        else
+        {
+            y = AddCommands(y + 2);
+            AddContextIcons(y + 2);
+        }
         if (_hovered is not null)
             _hovered = _widgets.FirstOrDefault(w => w.Rect == _hovered.Rect);
         QueueRedraw();
@@ -87,6 +154,53 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     // ---- layout ---------------------------------------------------------------------------------
 
     private Rect2 R(float x, float y, float w, float h) => new(x * _scale, y * _scale, w * _scale, h * _scale);
+
+    /// <summary>
+    /// The slider down the panel's right edge (6 by 49 pixels, 8 down): the knob at the top while the panel is out,
+    /// at the bottom while it is in, half way while held.
+    /// </summary>
+    private void AddSlider() =>
+        _widgets.Add(new Widget(R(PanelWidth - 6, 8, 6, 49), rect =>
+        {
+            DrawBitmap(rect, "misc/slidhole.bmp", "");
+            var held = _hovered?.Rect == rect && Input.IsMouseButtonPressed(MouseButton.Left);
+            if (ClassicGui.Bitmap("misc/slider.bmp") is { } knob)
+                DrawTextureRect(knob, new Rect2(rect.Position + new Vector2(0, held ? 12 : _on ? 0 : 24) * _scale,
+                    new Vector2(knob.GetWidth(), knob.GetHeight()) * _scale), false);
+        }, () => _on = !_on, _on ? "Put the control panel away (Alt and left arrow)" : "Bring the control panel out (Alt and right arrow)"));
+
+    /// <summary>
+    /// The tab beside the panel (MachGuiControlPanelAddOn, camtab.bmp, 30 by 66 pixels at the panel's full width):
+    /// the way back to the menus and, below it, the switch between the zenith and the ground camera. It stays put
+    /// while the panel slides.
+    /// </summary>
+    private void AddCameraTab()
+    {
+        if (game.InFirstPerson)
+            return;
+        var x = PanelWidth + (PanelWidth - _edge);
+        _widgets.Add(new Widget(R(x, 0, 30, 66), rect => DrawBitmap(rect, "misc/camtab.bmp", "")));
+        _widgets.Add(new Widget(R(x + 4, 0, 20, 20), rect =>
+        {
+            var held = _hovered?.Rect == rect && Input.IsMouseButtonPressed(MouseButton.Left);
+            DrawBitmap(rect, held ? "misc/return2.bmp" : "misc/return1.bmp", "Menu");
+        }, game.OpenMenu, "Return to the menus (Esc)"));
+        var zenith = game.ZenithCamera;
+        _widgets.Add(new Widget(R(x + 4, 22, 22, 22), rect =>
+        {
+            var held = _hovered?.Rect == rect && Input.IsMouseButtonPressed(MouseButton.Left);
+            DrawBevel(rect, new Color(144 / 255f, 148 / 255f, 160 / 255f), new Color(232 / 255f, 232 / 255f, 232 / 255f), new Color(62 / 255f, 62 / 255f, 62 / 255f), held);
+            var bitmap = zenith ? "misc/ground.bmp" : "misc/zenith.bmp";
+            if (ClassicGui.Bitmap(bitmap) is { } icon)
+                DrawTextureRect(icon, new Rect2(rect.Position + Vector2.One * (held ? 3 : 2) * _scale, new Vector2(icon.GetWidth(), icon.GetHeight()) * _scale), false);
+            else
+                DrawText(rect.Position + Vector2.One * 2 * _scale, zenith ? "Gnd" : "Zen", Colors.White);
+        }, game.ToggleCamera, zenith ? "Ground camera (0 on the number pad)" : "Zenith camera (2 on the number pad)"));
+    }
+
+    /// <summary>The camera tab lies outside the panel's rectangle but takes the mouse all the same.</summary>
+    public override bool _HasPoint(Vector2 point) =>
+        new Rect2(Vector2.Zero, Size).HasPoint(point) || !game.InFirstPerson && R(PanelWidth + (PanelWidth - _edge), 0, 30, 66).HasPoint(point);
 
     private void AddMapArea()
     {
@@ -100,10 +214,23 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         _widgets.Add(new Widget(R(x, 0, 20, 20), rect => DrawBitmap(rect, "navigate/bmus.bmp", "BMU"), () => _showBmus = !_showBmus,
             $"BMUs {world.Races[Game.Player].Bmu:F0} of {world.BmuCapacity(Game.Player)}"));
         var race = RaceFolder(Game.Player);
-        _widgets.Add(new Widget(R(x, 19, 20, 29), rect => DrawBitmap(rect, $"navigate/{race}/machines.bmp", "M"), SelectAllMachines,
-            "Machines: select them all"));
-        _widgets.Add(new Widget(R(x, 47, 20, 29), rect => DrawBitmap(rect, $"navigate/{race}/construc.bmp", "C"), NextConstruction,
-            "Constructions: go to the next one"));
+        _widgets.Add(new Widget(R(x, 19, 20, 29), rect => DrawBitmap(rect, $"navigate/{race}/machines.bmp", "M"),
+            () => _navigator = _navigator == NavigatorKind.Machines ? NavigatorKind.None : NavigatorKind.Machines,
+            "Machine navigator"));
+        _widgets.Add(new Widget(R(x, 47, 20, 29), rect => DrawBitmap(rect, $"navigate/{race}/construc.bmp", "C"),
+            () => _navigator = _navigator == NavigatorKind.Constructions ? NavigatorKind.None : NavigatorKind.Constructions,
+            "Construction navigator"));
+
+        // Below right on the map: what it shows (units, resources or both) and the ground under it on or off
+        // (MachGuiMapModeButton, MachGuiTerrainOnOffButton, 14 by 11 pixels).
+        if (beacon)
+        {
+            _widgets.Add(new Widget(R(2 + 134 - 27, 1 + 127 - 11, 14, 11), rect => DrawMapButton(rect, "map/mapm.bmp", false),
+                () => _mapMode = _mapMode switch { MapMode.UnitsOnly => MapMode.ResourcesOnly, MapMode.ResourcesOnly => MapMode.All, _ => MapMode.UnitsOnly },
+                _mapMode switch { MapMode.UnitsOnly => "Map shows machines and buildings", MapMode.ResourcesOnly => "Map shows resources", _ => "Map shows everything" }));
+            _widgets.Add(new Widget(R(2 + 134 - 14, 1 + 127 - 11, 14, 11), rect => DrawMapButton(rect, "map/mapt.bmp", _terrainOn),
+                () => _terrainOn = !_terrainOn, "Terrain on or off"));
+        }
         _widgets.Add(new Widget(R(x, 75, 20, 29), rect => DrawBitmap(rect, $"navigate/{race}/squads.bmp", "S"),
             () => _squadrons = _squadrons == SquadronMode.None ? SquadronMode.Select : SquadronMode.None,
             "Squadrons: pick one (or its number; Ctrl and the number forms one)"));
@@ -125,32 +252,49 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             if (actor is Machine { Race: var r } driven && r == Game.Player && !game.Watching)
                 _widgets.Add(new Widget(R(PanelWidth - 21, y, 20, 20), rect => DrawBitmap(rect, $"misc/{RaceFolder(r)}/inhead.bmp", "1st"),
                     game.EnterFirstPerson, "Drive it in first person (F)"));
-            else if (actor is Construction { Garrisoned.Count: > 0 } garrison && garrison.Race == Game.Player)
+            else if (actor is Construction { Garrisoned.Count: > 0 } garrison && garrison.Race == Game.Player && garrison.IsType("GARRISON"))
                 _widgets.Add(new Widget(R(PanelWidth - 21, y, 20, 20), rect => DrawBitmap(rect, "misc/contents.bmp", "Out"),
                     () => game.Order(new StopCommand(Game.Player, garrison.Garrisoned.ToList())),
                     $"Let the {garrison.Garrisoned.Count} machines inside out"));
             return y + height;
         }
 
-        // The corral: three columns of the selected machines; a click picks one out.
+        // The corral: three columns of the selected machines; a click picks one out. When they do not all fit, it
+        // scrolls between the original's scroll bars as the icon menus do (MachGuiCorral, a MachGuiScrollArea).
         var bottom = (int)(Size.Y / _scale) - 60;
         var rowHeight = IconSize + 4 + HealthBarHeight;
         var rows = Math.Max(1, Math.Min((actors.Count + 2) / 3, (bottom - y) / 2 / rowHeight));
-        var shown = actors.Take(rows * 3).ToList();
+        var scrolls = actors.Count > rows * 3;
+        var last = Math.Max(0, (actors.Count + 2) / 3 * 3 - rows * 3);
+        _corralScrolled = scrolls ? Math.Clamp(_corralScrolled, 0, last) : 0;
+        var left = scrolls ? ScrollBarWidth + 1 : 14;
+        var shown = actors.Skip(_corralScrolled).Take(rows * 3).ToList();
         for (var i = 0; i < shown.Count; i++)
         {
             var actor = shown[i];
-            _widgets.Add(new Widget(R(14 + i % 3 * ButtonWidth, y + i / 3 * rowHeight, ButtonWidth, rowHeight), rect => DrawActorButton(rect, actor),
+            _widgets.Add(new Widget(R(left + i % 3 * ButtonWidth, y + i / 3 * rowHeight, ButtonWidth, rowHeight), rect => DrawActorButton(rect, actor),
                 () => game.Select([actor.Id]), Describe(actor)));
         }
-        if (actors.Count > shown.Count)
+        if (scrolls)
         {
-            var more = actors.Count - shown.Count;
-            _widgets.Add(new Widget(R(14, y + rows * rowHeight, 3 * ButtonWidth, 9), rect => DrawLines(rect, [$"and {more} more"])));
-            return y + rows * rowHeight + 10;
+            var (back, forward) = (_corralScrolled > 0, _corralScrolled < last);
+            var height = Math.Min(ScrollButtonHeight, rows * rowHeight / 2);
+            var right = left + 3 * ButtonWidth;
+            void ScrollButton(int x, int top, string bitmap, bool lit, string prompt, Action act) =>
+                _widgets.Add(new Widget(R(x, top, ScrollBarWidth, height), rect => DrawBitmap(rect, $"corral/{bitmap}{(lit ? "H" : "")}.bmp", bitmap[^1] == '2' ? "⇈" : "↑"),
+                    lit ? act : null, lit ? prompt : null));
+            ScrollButton(1, y, "scrlup2", back, "First row", () => _corralScrolled = 0);
+            ScrollButton(1, y + height, "scrldn2", forward, "Last row", () => _corralScrolled = last);
+            ScrollButton(right, y, "scrlup", back, "Scroll up", () => _corralScrolled = Math.Max(0, _corralScrolled - 3));
+            ScrollButton(right, y + height, "scrldn", forward, "Scroll down", () => _corralScrolled = Math.Min(last, _corralScrolled + 3));
+            _corralArea = R(1, y, right + ScrollBarWidth, rows * rowHeight);
         }
         return y + rows * rowHeight;
     }
+
+    // How many of the selected the corral is scrolled past, a row of three at a time; where it lies, for the wheel.
+    private int _corralScrolled;
+    private Rect2? _corralArea;
 
     // Icon is the bitmap in gui/commands; a charging strike weapon lays Charged of its Overlay over it.
     private sealed record Bar(string Label, string Name, Action Act, string Icon, float? Charged = null, string? Overlay = null);
@@ -167,7 +311,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         for (var i = 0; i < bars.Count; i++)
         {
             var bar = bars[i];
-            _widgets.Add(new Widget(R(2 + i % 2 * (BarWidth + BarGap), y + i / 2 * BarHeight, BarWidth, BarHeight), rect => DrawBar(rect, bar), bar.Act, bar.Name));
+            _widgets.Add(new Widget(R(2 + i % 2 * (BarWidth + BarGap), y + i / 2 * BarHeight, BarWidth, BarHeight), rect => DrawBar(rect, bar),
+                () => { if (!game.RefusesOrders()) bar.Act(); }, bar.Name));
         }
         return y + (bars.Count + 1) / 2 * BarHeight;
     }
@@ -550,29 +695,83 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         if (_hovered?.Rect is { } hover && _hovered.Click is not null)
             DrawRect(hover, new Color(1, 1, 1, 0.12f), filled: true);
 
-        // The prompt line, beside the panel at the foot of the screen (MachPromptText).
-        if ((_hovered?.Prompt ?? Prompt) is { Length: > 0 } prompt)
+        DrawPrompt();
+    }
+
+    // The prompt on show and when it came, for its wipe in from the left.
+    private string? _promptShown;
+    private double _promptSince;
+
+    /// <summary>
+    /// The prompt line beside the panel at the foot of the screen (MachPromptText): what the mouse points at, or
+    /// failing that what the command in hand wants. Up to two lines in the original's prompt font with its shadow,
+    /// wiped in from the left at 20 pixels a frame while the lamp beside it is lit.
+    /// </summary>
+    private void DrawPrompt()
+    {
+        var prompt = _hovered?.Prompt ?? Prompt ?? CommandPrompt;
+        if (prompt != _promptShown)
+            (_promptShown, _promptSince) = (prompt, Time.GetTicksMsec() / 1000.0);
+        if (prompt is not { Length: > 0 })
+            return;
+        var origin = new Vector2((PanelWidth - 7) * _scale, Size.Y - 24 * _scale);
+        var right = GetViewportRect().Size.X - Position.X;
+        if (ClassicFont.Get("menu/promtfnt.bmp") is not { } font || ClassicFont.Get("menu/promdfnt.bmp") is not { } shadow)
         {
-            var at = new Vector2(ScreenWidth + 6 * _scale, Size.Y - 16 * _scale);
-            var width = Font.GetStringSize(prompt, HorizontalAlignment.Left, -1, FontSize).X;
-            DrawRect(new Rect2(at - new Vector2(4, 2) * _scale, new Vector2(width + 8 * _scale, 13 * _scale)), new Color(0, 0, 0, 0.55f));
+            var at = new Vector2(origin.X + 13 * _scale, Size.Y - 16 * _scale);
+            var size = Font.GetStringSize(prompt, HorizontalAlignment.Left, -1, FontSize).X;
+            DrawRect(new Rect2(at - new Vector2(4, 2) * _scale, new Vector2(size + 8 * _scale, 13 * _scale)), new Color(0, 0, 0, 0.55f));
             DrawText(at, prompt, Colors.White);
+            return;
+        }
+        var lamp = ClassicGui.Bitmap("misc/tplight1.bmp");
+        var lampWidth = lamp?.GetWidth() ?? 6;
+        var textAt = origin + new Vector2(lampWidth + 1, 7) * _scale;
+        var width = (int)((right - textAt.X) / _scale);
+        var lines = font.Chop(prompt, width).Take(2).ToList();
+        var wiped = (int)((Time.GetTicksMsec() / 1000.0 - _promptSince) * 600);
+        var lit = wiped < width;
+        if (ClassicGui.Bitmap(lit ? "misc/tplight2.bmp" : "misc/tplight1.bmp") is { } light)
+            DrawTextureRect(light, new Rect2(origin, new Vector2(light.GetWidth(), light.GetHeight()) * _scale), false);
+        var y = lines.Count == 1 ? shadow.Height / 2 : 0;
+        foreach (var line in lines)
+        {
+            var at = textAt + new Vector2(0, y) * _scale;
+            shadow.Draw(this, at + Vector2.One * _scale, line, _scale, Math.Min(wiped, width - 1));
+            font.Draw(this, at, line, _scale, Math.Min(wiped, width));
+            y += shadow.Height + 1;
         }
     }
 
     private static readonly Color Panel = new(0.11f, 0.12f, 0.14f, 0.96f), Edge = new(0.32f, 0.35f, 0.4f),
         Button = new(0.2f, 0.22f, 0.26f), ButtonEdge = new(0.42f, 0.46f, 0.52f), Accent = new(0.95f, 0.75f, 0.25f),
-        DarkGrey = new(0.3f, 0.3f, 0.3f);
+        DarkGrey = new(0.3f, 0.3f, 0.3f), LightGrey = new(0.7f, 0.7f, 0.7f);
 
     private static Font Font => ThemeDB.FallbackFont;
 
     private int FontSize => (int)(6.5f * _scale);
 
+    // What the continent map shows (MachContinentMap::MapMode; it starts with units only) and whether it shows the
+    // ground beneath them.
+    private enum MapMode { UnitsOnly, ResourcesOnly, All }
+
+    private MapMode _mapMode = MapMode.UnitsOnly;
+    private bool _terrainOn = true;
+
+    /// <summary>A map button: a very dark grey frame and a bevel, sunk while it is on.</summary>
+    private void DrawMapButton(Rect2 rect, string bitmap, bool on)
+    {
+        DrawBevel(rect, new Color(0.18f, 0.18f, 0.18f), LightGrey, DarkGrey, on);
+        DrawBitmap(new Rect2(rect.Position + Vector2.One * (on ? 3 : 2) * _scale, rect.Size - Vector2.One * 4 * _scale), bitmap, "");
+    }
+
     private void DrawContinentMap(Rect2 rect, bool beacon)
     {
         var world = game.World;
         var logo = ClassicGui.Bitmap($"map/{RaceFolder(Game.Player)[0]}logo.bmp");
-        if (beacon && planetMap is not null)
+        if (beacon && !_terrainOn)
+            DrawRect(rect, Colors.Black);
+        else if (beacon && planetMap is not null)
             DrawTextureRect(planetMap, rect, false);
         else if (logo is not null)
             DrawTextureRect(logo, rect, false);
@@ -582,14 +781,17 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         Vector2 ToMap(NVector2 p) => rect.Position + new Vector2(p.X / world.Planet.Surface.Width * rect.Size.X, p.Y / world.Planet.Surface.Depth * rect.Size.Y);
         if (beacon)
         {
-            var ore = ClassicGui.Bitmap("map/ore.bmp");
-            // Every found deposit, whoever found it, as the original's map showed every ore hologram.
-            foreach (var site in world.Sites.Where(s => s.DiscoveredBy.Count > 0 && s.Ore > 0))
-                DrawPixel(ToMap(site.Position), ore, new Color(1, 0.9f, 0.2f));
-            var debris = ClassicGui.Bitmap("map/debris.bmp");
-            foreach (var wreck in world.Debris)
-                DrawPixel(ToMap(wreck.Position), debris, new Color(0.5f, 0.5f, 0.5f));
-            foreach (var actor in world.Actors.Where(a => a is not Machine { Inside: not null }))
+            if (_mapMode != MapMode.UnitsOnly)
+            {
+                var ore = ClassicGui.Bitmap("map/ore.bmp");
+                // Every found deposit, whoever found it, as the original's map showed every ore hologram.
+                foreach (var site in world.Sites.Where(s => s.DiscoveredBy.Count > 0 && s.Ore > 0))
+                    DrawPixel(ToMap(site.Position), ore, new Color(1, 0.9f, 0.2f));
+                var debris = ClassicGui.Bitmap("map/debris.bmp");
+                foreach (var wreck in world.Debris)
+                    DrawPixel(ToMap(wreck.Position), debris, new Color(0.5f, 0.5f, 0.5f));
+            }
+            foreach (var actor in _mapMode == MapMode.ResourcesOnly ? [] : world.Actors.Where(a => a is not Machine { Inside: not null }))
             {
                 // A camouflaged spy shows in the colours of whoever looks at the map (MachContinentMap's CAMOUFLAGEDMACHINE).
                 var shownRace = actor is Machine { Camouflaged: true } ? Game.Player : actor.Race;
@@ -752,6 +954,11 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                 ScrollIcons(wheel.ButtonIndex == MouseButton.WheelUp ? -1 : 1);
                 AcceptEvent();
                 break;
+            case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelUp or MouseButton.WheelDown } wheel
+                when _corralArea is { } corral && corral.HasPoint(wheel.Position):
+                _corralScrolled = Math.Max(0, _corralScrolled + (wheel.ButtonIndex == MouseButton.WheelUp ? -3 : 3));
+                AcceptEvent();
+                break;
         }
     }
 
@@ -774,19 +981,193 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
 
     // ---- actions --------------------------------------------------------------------------------
 
-    private void SelectAllMachines() =>
-        game.Select(game.World.Machines.Where(m => m.Race == Game.Player && m.Inside is null).Select(m => m.Id).ToList());
+    // ---- navigators (MachGuiMachineNavigator, MachGuiConstructionNavigator) ----------------------
 
-    private int _nextConstruction;
+    private enum NavigatorKind { None, Machines, Constructions }
 
-    private void NextConstruction()
+    private NavigatorKind _navigator;
+
+    // A navigator button picked with Ctrl keeps the navigator open through the change of selection it makes.
+    private bool _keepNavigator;
+
+    // Where Alt-clicking each button has got to in cycling the camera through its actors.
+    private readonly Dictionary<string, int> _navigatorCycle = [];
+
+    /// <summary>One button: what it stands for (no subtype for any), its bitmap and its name in the prompt.</summary>
+    private sealed record NavButton(string Type, string? SubType, string Bitmap, string Name);
+
+    // Each row: the type as a whole (all.bmp), then its kinds, as buildMachineIcons and buildConstructIcons lay them out.
+    private static readonly NavButton[][] MachineRows =
+    [
+        [new("AGGRESSOR", null, "", "aggressors"), new("AGGRESSOR", "GRUNT", "nagg", "grunts"), new("AGGRESSOR", "ASSASSIN", "naga", "assassins"),
+            new("AGGRESSOR", "BALLISTA", "nagb", "ballistas"), new("AGGRESSOR", "KNIGHT", "nagk", "knights"), new("AGGRESSOR", "NINJA", "nagm", "ninjas")],
+        [new("ADMINISTRATOR", null, "", "administrators"), new("ADMINISTRATOR", "BOSS", "nadb", "bosses"),
+            new("ADMINISTRATOR", "OVERSEER", "nado", "overseers"), new("ADMINISTRATOR", "COMMANDER", "nadc", "commanders")],
+        [new("TECHNICIAN", null, "", "technicians"), new("TECHNICIAN", "LAB_TECH", "ntel", "lab techs"),
+            new("TECHNICIAN", "TECH_BOY", "ntet", "tech boys"), new("TECHNICIAN", "BRAIN_BOX", "nteb", "brain boxes")],
+        [new("CONSTRUCTOR", null, "", "constructors"), new("CONSTRUCTOR", "DOZER", "ncod", "dozers"),
+            new("CONSTRUCTOR", "BUILDER", "ncob", "builders"), new("CONSTRUCTOR", "BEHEMOTH", "ncom", "behemoths")],
+        [new("LOCATOR", null, "", "locators"), new("GEO_LOCATOR", null, "nlog", "geo locators"), new("SPY_LOCATOR", null, "nlos", "spy locators")],
+        [new("CARRIER", null, "", "carriers"), new("RESOURCE_CARRIER", null, "ntrr", "resource carriers"), new("APC", null, "ntrp", "APCs")],
+    ];
+
+    private static readonly NavButton[][] ConstructionRows =
+    [
+        [new("PODS", null, "", "pods and beacons"), new("POD", null, "pod", "pods"), new("BEACON", null, "beacon", "beacons")],
+        [new("MISSILE_EMPLACEMENT", null, "", "missile emplacements"), new("MISSILE_EMPLACEMENT", "TURRET", "turret", "turrets"),
+            new("MISSILE_EMPLACEMENT", "SENTRY", "sentry", "sentries"), new("MISSILE_EMPLACEMENT", "LAUNCHER", "launche", "launchers"),
+            new("MISSILE_EMPLACEMENT", "ICBM", "icbm", "ICBMs")],
+        [new("FACTORY", null, "", "factories"), new("FACTORY", "CIVILIAN", "civfac", "civilian factories"), new("FACTORY", "MILITARY", "milfac", "military factories")],
+        [new("HARDWARE_LAB", null, "", "labs"), new("HARDWARE_LAB", "CIVILIAN", "civlab", "civilian labs"), new("HARDWARE_LAB", "MILITARY", "millab", "military labs")],
+        [new("SMELTERS", null, "", "smelters and mines"), new("SMELTER", null, "smelt", "smelters"), new("MINE", null, "mine", "mines")],
+        [new("GARRISON", null, "", "garrisons"), new("GARRISON", null, "garris", "garrisons")],
+    ];
+
+    /// <summary>
+    /// The player's actors a button stands for: of its type and kind, or of every kind in its row for the first.
+    /// A machine in an APC is there as the APC (cycleThroughActors).
+    /// </summary>
+    private List<Actor> NavActors(NavButton[] row, NavButton button)
     {
-        var own = game.World.Constructions.Where(c => c.Race == Game.Player).OrderBy(c => c.Id).ToList();
-        if (own.Count == 0)
+        var kinds = button.Bitmap == "" ? row.Skip(1).ToArray() : [button];
+        bool Is(Actor a, NavButton k) => a switch
+        {
+            Machine m => m.IsType(k.Type, k.SubType),
+            Construction c => c.IsType(k.Type, k.SubType),
+            _ => false,
+        };
+        return game.World.Actors.Where(a => a.Race == Game.Player && !a.IsDead && kinds.Any(k => Is(a, k))).OrderBy(a => a.Id).ToList();
+    }
+
+    /// <summary>
+    /// A kind's button appears once its race may have that kind (MachLogResearchTree::activated) or owns one; it
+    /// greys out while there are none.
+    /// </summary>
+    private bool NavSwitchedOn(NavButton button, int count)
+    {
+        if (count > 0)
+            return true;
+        var state = game.World.Races[Game.Player];
+        return state.Available.Concat(state.Researched).Any(k => k.Type == button.Type && (button.SubType is null || k.SubType == button.SubType));
+    }
+
+    /// <summary>
+    /// The navigator at the foot of the panel: six rows, each the type's button and then its kinds, 20 and 28 by 33
+    /// pixels, with the number of each in its corner and the dismiss button bottom right. A click selects them all
+    /// (and closes it), with Ctrl adds or takes them away (and keeps it open), with Alt looks at the next of them.
+    /// </summary>
+    private void AddNavigator()
+    {
+        var rows = _navigator == NavigatorKind.Machines ? MachineRows : ConstructionRows;
+        var top = (int)(Size.Y / _scale) - 6 * 33;
+        for (var r = 0; r < rows.Length; r++)
+        {
+            var row = rows[r];
+            var x = 1;
+            foreach (var button in row)
+            {
+                var actors = NavActors(row, button);
+                var all = button.Bitmap == "";
+                if (!all && !NavSwitchedOn(button, actors.Count))
+                    continue;
+                var width = all ? 20 : 28;
+                var selected = actors.Count > 0 && actors.All(a => game.Selection.Contains(a.Id));
+                var bitmap = all ? "navigate/all.bmp"
+                    : $"navigate/{(button.Type is "POD" or "BEACON" or "MISSILE_EMPLACEMENT" or "FACTORY" or "HARDWARE_LAB" or "SMELTER" or "MINE" or "GARRISON" ? "construc" : "machines")}/{(actors.Count > 0 ? RaceFolder(Game.Player) : "grey")}/{button.Bitmap}.bmp";
+                var key = $"{r}/{button.Type}/{button.SubType}/{button.Bitmap}";
+                _widgets.Add(new Widget(R(x, top + r * 33, width, 33), rect => DrawNavButton(rect, bitmap, actors.Count, selected, all ? "All" : Short(button.Name)),
+                    () => NavClick(actors, selected, key), $"Select all {button.Name} (Ctrl adds, Alt looks at the next)"));
+                x += width;
+            }
+        }
+        _widgets.Add(new Widget(R(1 + 5 * 28, top + 5 * 33, 28, 33), rect => DrawBitmap(rect, "navigate/nonav.bmp", "X"),
+            () => _navigator = NavigatorKind.None, "Close the navigator (Esc)"));
+    }
+
+    private static string Short(string name) => name.Length <= 4 ? name : name[..4];
+
+    private void NavClick(List<Actor> actors, bool selected, string key)
+    {
+        if (Input.IsKeyPressed(Key.Alt))
+        {
+            if (actors.Count == 0)
+                return;
+            _navigatorCycle.TryGetValue(key, out var next);
+            var actor = actors[next % actors.Count];
+            _navigatorCycle[key] = next + 1;
+            game.LookAt(actor is Machine { Inside: { } apc } && game.World.Find<Machine>(apc) is { } carrier ? carrier.Position : actor.Position);
             return;
-        var building = own[_nextConstruction++ % own.Count];
-        game.Select([building.Id]);
-        game.LookAt(building.Position);
+        }
+        var ids = actors.Select(a => a.Id).ToList();
+        if (Input.IsKeyPressed(Key.Ctrl))
+        {
+            _keepNavigator = true;
+            game.Select(selected ? game.Selection.Except(ids).ToList() : game.Selection.Union(ids).ToList());
+            return;
+        }
+        game.Select(ids);
+        _navigator = NavigatorKind.None;
+    }
+
+    /// <summary>A navigator button (MachGuiNavButtonWithCounter): bevelled, green when its actors are selected, the count in navi digits.</summary>
+    private void DrawNavButton(Rect2 rect, string bitmap, int count, bool selected, string fallback)
+    {
+        var held = _hovered?.Rect == rect && Input.IsMouseButtonPressed(MouseButton.Left);
+        DrawBevel(rect, selected ? new Color(0, 0.8f, 0) : Colors.Black, LightGrey, DarkGrey, held);
+        var inner = new Rect2(rect.Position + Vector2.One * (held ? 3 : 2) * _scale, rect.Size - Vector2.One * 4 * _scale);
+        DrawBitmap(inner, bitmap, fallback);
+        if (count > 0)
+            DrawDigits(new Vector2(rect.End.X - 2 * _scale, rect.Position.Y + 25 * _scale), count, "navigate/navi");
+    }
+
+    /// <summary>
+    /// A button's border (GuiFilledBorder, metrics 1, 1, 1): its frame, the highlight along the top and left, the
+    /// shadow along the bottom and right, the two swapped while it is held down.
+    /// </summary>
+    private void DrawBevel(Rect2 rect, Color frame, Color highlight, Color shadow, bool held)
+    {
+        if (held)
+            (highlight, shadow) = (shadow, highlight);
+        var s = _scale;
+        DrawRect(rect, frame);
+        DrawRect(new Rect2(rect.Position + Vector2.One * s, rect.Size - Vector2.One * 2 * s), shadow);
+        DrawRect(new Rect2(rect.Position + Vector2.One * s, new Vector2(rect.Size.X - 3 * s, s)), highlight);
+        DrawRect(new Rect2(rect.Position + Vector2.One * s, new Vector2(s, rect.Size.Y - 3 * s)), highlight);
+    }
+
+    /// <summary>A number in the original's digit bitmaps, right-aligned at <paramref name="right"/> (MachGui::drawNumber).</summary>
+    private void DrawDigits(Vector2 right, int number, string digits)
+    {
+        var text = number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var x = right.X;
+        for (var i = text.Length - 1; i >= 0; i--)
+        {
+            if (ClassicGui.Bitmap($"{digits}{text[i]}.bmp") is not { } digit)
+            {
+                DrawText(new Vector2(x - 6 * _scale, right.Y), text[i].ToString(), Colors.White);
+                x -= 6 * _scale;
+                continue;
+            }
+            var size = new Vector2(digit.GetWidth(), digit.GetHeight()) * _scale;
+            x -= size.X;
+            DrawTextureRect(digit, new Rect2(new Vector2(x, right.Y), size), false);
+        }
+    }
+
+    /// <summary>Opens the machine or construction navigator (for automated checks).</summary>
+    public void OpenNavigator(bool machines)
+    {
+        Refresh();
+        _navigator = machines ? NavigatorKind.Machines : NavigatorKind.Constructions;
+    }
+
+    /// <summary>Closes an open navigator; false if none was open (Esc then does what it otherwise does).</summary>
+    public bool CloseNavigator()
+    {
+        if (_navigator == NavigatorKind.None)
+            return false;
+        _navigator = NavigatorKind.None;
+        return true;
     }
 
     // ---- names ----------------------------------------------------------------------------------

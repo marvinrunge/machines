@@ -255,13 +255,13 @@ public sealed partial class GameWorld
     public static int GarrisonStations(Construction garrison) =>
         Math.Max(1, garrison.Stats.Geometry.Count(g => g.Keyword == "STATION" && g.Args[^1] == "PARK"));
 
-    /// <summary>Brings a garrisoned machine out by the door; does nothing for anyone else.</summary>
+    /// <summary>Brings a garrisoned machine (or a spy in an enemy lab) out by the door; does nothing for anyone else.</summary>
     private void LeaveGarrison(Machine machine)
     {
-        if (machine.Inside is not { } id || Find<Construction>(id) is not { } garrison || !garrison.IsType("GARRISON"))
+        if (machine.Inside is not { } id || Find<Construction>(id) is not { } garrison || !garrison.Garrisoned.Remove(machine.Id))
             return;
-        garrison.Garrisoned.Remove(machine.Id);
         machine.Inside = null;
+        machine.Stealing = null;
         machine.Position = DoorOf(garrison, machine);
     }
 

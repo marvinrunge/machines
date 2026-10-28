@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Machines.Import.Model;
 using Machines.Sim;
 using Machines.Sim.World;
 
@@ -23,9 +24,17 @@ public sealed record Replay(MatchInfo Match, IReadOnlyList<Turn> Turns, long Tic
             match.Players.ToDictionary(p => p.Slot, p => p.Ai ? Controller.Ai : Controller.Player), match.Seed, match.Options);
 
     /// <summary>A session that plays the recording back: every turn is in from the start.</summary>
-    public LockstepSession Playback(GameWorld world)
+    public LockstepSession Playback(GameWorld world) => Fill(new LockstepSession(world, local: null, Match.Players.Where(p => !p.Ai).Select(p => p.Slot), Match.InputDelay));
+
+    /// <summary>
+    /// A saved game carried on: the recorded turns bring the world back to where it was saved, and from there the
+    /// local player plays on.
+    /// </summary>
+    public LockstepSession Resume(GameWorld world, Race local) =>
+        Fill(new LockstepSession(world, local, Match.Players.Where(p => !p.Ai).Select(p => p.Slot), Match.InputDelay, firstLocalTurn: Ticks));
+
+    private LockstepSession Fill(LockstepSession session)
     {
-        var session = new LockstepSession(world, local: null, Match.Players.Where(p => !p.Ai).Select(p => p.Slot), Match.InputDelay);
         var recorded = Turns.ToLookup(t => t.Tick);
         // Ticks without a recorded turn were empty; fill them so the session never waits.
         for (var tick = 0L; tick < Ticks; tick++)

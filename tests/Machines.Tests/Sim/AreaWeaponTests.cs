@@ -65,6 +65,8 @@ public class AreaWeaponTests
         var world = NewMatch();
         var gorilla = world.AddMachine(Race.Red, Field, "AGGRESSOR", "NINJA", 5, "L_MULTI_LAUNCHER7_T_GORILLA_PUNCH_R_MULTI_LAUNCHER7");
         var target = world.AddMachine(Race.Blue, Field + new Vector2(6, 0), "CONSTRUCTOR", "DOZER", 1, null);
+        // At high initiative it holds still instead of running from the gorilla (MachLogMachine::checkAndDoOnDefCon).
+        target.DefCon = DefCon.High;
 
         world.Issue(new AttackCommand(Race.Red, [gorilla.Id], target.Id));
         float? punched = null, landed = null;

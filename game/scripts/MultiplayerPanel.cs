@@ -223,6 +223,9 @@ public partial class MultiplayerPanel : PanelContainer
         _players.Clear();
         foreach (var player in state.Players)
             _players.AddItem($"{player.Name}   {player.Colour}{(player.ClientId == state.HostId ? "   (host)" : "")}{(player.Ready ? "   ready" : "")}");
+        // The ground counts only when everyone has the same export of it (MatchInfo.Terrain).
+        if (state.Players.Where(p => p.Ready).Select(p => p.Terrain).Distinct().Count() > 1)
+            _roomTitle.Text += "\nThe players' classic terrain exports differ: hills will not stop shots in this match";
         _colour.SetBlockSignals(true);
         _colour.Selected = Array.IndexOf(Colours, me.Colour);
         _colour.SetBlockSignals(false);
@@ -253,7 +256,21 @@ public partial class MultiplayerPanel : PanelContainer
         NetLink.Send(room.Started ? new RejoinMatch(room.Id) : new JoinRoom(room.Id));
     }
 
-    private void SendPlayer() => NetLink.Send(new SetPlayer(Colours[_colour.Selected], _ready.ButtonPressed));
+    private void SendPlayer() => NetLink.Send(new SetPlayer(Colours[_colour.Selected], _ready.ButtonPressed, TerrainPrint(_state?.Planet)));
+
+    private static readonly Dictionary<string, long?> TerrainPrints = [];
+
+    /// <summary>The fingerprint of the ground this game copy's export gives a planet; null without one.</summary>
+    private static long? TerrainPrint(string? planet)
+    {
+        if (planet is null)
+            return null;
+        if (!TerrainPrints.TryGetValue(planet, out var print))
+            TerrainPrints[planet] = print = new ClassicAssets(Paths.Root).PlanetHeights(planet) is { } heights
+                ? Machines.Sim.Navigation.TerrainHeights.FromExport(heights).Fingerprint()
+                : null;
+        return print;
+    }
 
     /// <summary>
     /// For automated checks: MACHINES_MP=host,&lt;address&gt; opens a room on the selected map, readies and starts once

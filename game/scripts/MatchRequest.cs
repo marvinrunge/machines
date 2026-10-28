@@ -24,6 +24,9 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
     /// <summary>Rejoining a running match: the tick this player plays again from (the world catches up to it first).</summary>
     public long? ResumeFrom { get; init; }
 
+    /// <summary>A saved game to carry on: its recording brings the world back to where it was saved.</summary>
+    public Replay? Saved { get; init; }
+
     /// <summary>The M1 match: Red against Blue on m_desert.</summary>
     public static MatchRequest Default => new("m_desert", "m_desert",
         StartPositions.Assign([Race.Red, Race.Blue], 2, Race.Red, random: false, new Random(0)), new MatchOptions());
@@ -39,10 +42,14 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
         return new MatchRequest(match.Scenario, match.Planet, starts, match.Options) { Seed = match.Seed };
     }
 
-    /// <summary>This match as the relay would describe it, for recording a replay of a single-player game.</summary>
-    public MatchInfo ToMatchInfo(int seed, int inputDelay) => Network ?? new MatchInfo(Scenario, Planet, Options, seed, inputDelay,
-        Starts.Players.Select(p => new MatchPlayer(0, p.Value == Controller.Ai ? "AI" : NetLink.Name, p.Key,
-            Starts.Colours.GetValueOrDefault(p.Key, p.Key), p.Value == Controller.Ai)).ToList());
+    /// <summary>
+    /// This match as the relay would describe it, for recording a replay or saving a single-player game, with the
+    /// ground it is played on (<paramref name="terrain"/>, its fingerprint).
+    /// </summary>
+    public MatchInfo ToMatchInfo(int seed, int inputDelay, long? terrain) => Network ?? Saved?.Match ?? Replay?.Match
+        ?? new MatchInfo(Scenario, Planet, Options, seed, inputDelay,
+            Starts.Players.Select(p => new MatchPlayer(0, p.Value == Controller.Ai ? "AI" : NetLink.Name, p.Key,
+                Starts.Colours.GetValueOrDefault(p.Key, p.Key), p.Value == Controller.Ai)).ToList(), terrain);
 
     /// <summary>
     /// For automated checks: MACHINES_MAP=&lt;scenario&gt;,&lt;planet&gt; starts that map straight away, with an AI

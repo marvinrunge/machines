@@ -80,7 +80,16 @@ public partial class Game : Node3D
             float Between(float low, float high) => low + (float)random.NextDouble() * (high - low);
             var metal = new StandardMaterial3D { AlbedoColor = new Color(0.17f, 0.15f, 0.14f), Metallic = 0.5f, Roughness = 0.75f };
             var charred = new StandardMaterial3D { AlbedoColor = new Color(0.07f, 0.06f, 0.06f), Roughness = 0.95f };
-            for (var i = Math.Clamp(4 + wreck.Quantity / 25, 4, 14); i > 0; i--)
+            // The original's own wreck (the debris exemplar, exported as fx/debris), as it lay: one unit at the
+            // middle, turned at random, its own size whatever burnt there (MachPhysDebris); without it, a heap of scrap.
+            if (_assets.EffectMesh("debris") is { } original)
+                heap.AddChild(new MeshInstance3D
+                {
+                    Mesh = original,
+                    Position = ActorView.World(wreck.Position),
+                    Rotation = new Vector3(0, Between(0, Mathf.Tau), 0),
+                });
+            for (var i = _assets.EffectMesh("debris") is null ? Math.Clamp(4 + wreck.Quantity / 25, 4, 14) : 0; i > 0; i--)
             {
                 var angle = Between(0, Mathf.Tau);
                 var at = wreck.Position + new System.Numerics.Vector2(MathF.Cos(angle), MathF.Sin(angle)) * Between(0, spread);
@@ -250,9 +259,23 @@ public partial class Game : Node3D
     /// </summary>
     public void Order(Command command)
     {
-        Issue(command);
+        if (RefusesOrders())
+            return;
+        Issue(ThroughCommander(command));
         if (!Watching)
             _audio.PlayGui("gui/sounds/taskmach.wav");
+    }
+
+    /// <summary>
+    /// While a game on this machine is paused, no orders go out: the original refused the command with clickbad.wav
+    /// (MachInGameScreen::activeCommand while the sim was suspended).
+    /// </summary>
+    public bool RefusesOrders()
+    {
+        if (!Paused || Online || Watching)
+            return false;
+        _audio.PlayGui("gui/sounds/clickbad.wav");
+        return true;
     }
 
     /// <summary>A replay: the player watches and cannot give orders.</summary>
@@ -286,6 +309,7 @@ public partial class Game : Node3D
         // played back from a replay.
         var humans = request.Starts.Players.Where(p => p.Value == Controller.Player).Select(p => p.Key);
         _session = request.Replay?.Playback(World)
+            ?? request.Saved?.Resume(World, Player)
             ?? new LockstepSession(World, Player, humans, request.Network?.InputDelay ?? 1,
                 firstLocalTurn: request.ResumeFrom, echoed: request.Network is not null);
         if (request.Network is not null)
@@ -298,10 +322,20 @@ public partial class Game : Node3D
         HeightField.Current = _assets.PlanetHeights(request.Planet) is { } heights
             ? HeightField.FromExport(heights, surface.Width, surface.Depth)
             : new HeightField(surface);
-        // The simulation stops shots at the same ground, from the same game copy (every player needs it alike: the
-        // world's checksum carries it, so differing ground shows at once as being out of sync).
-        if (_assets.PlanetHeights(request.Planet) is { } ground)
-            World.Terrain = TerrainHeights.FromExport(ground);
+        // The simulation stops shots at the same ground, from the same game copy. A match played together, watched
+        // or carried on uses the ground it was played with (MatchInfo.Terrain): online, every player's alike or none.
+        var recorded = request.Replay?.Match ?? request.Saved?.Match ?? request.Network;
+        if (_assets.PlanetHeights(request.Planet) is { } ground && TerrainHeights.FromExport(ground) is var terrain
+            && (recorded is null || recorded.Terrain == terrain.Fingerprint()))
+            World.Terrain = terrain;
+        var groundMissing = recorded?.Terrain is { } needed && World.Terrain?.Fingerprint() != needed;
+        // A saved game: the world plays its recording through to where it was saved before anything is shown.
+        if (request.Saved is { } saved)
+        {
+            while (World.Tick < saved.Ticks && _session.TryStep())
+            {
+            }
+        }
         // The ground's and the grass's shaders read the weather's values (wind, wetness): they must exist first.
         Weather.EnsureGlobals();
         AddChild(TerrainBuilder.Build(World.Planet, HeightField.Current, map, _assets.PlanetTerrain(request.Planet)));
@@ -335,6 +369,8 @@ public partial class Game : Node3D
 
         _hud = new Hud(this, map);
         AddChild(_hud);
+        if (groundMissing)
+            _hud.Message("This match was played on the classic export's ground, which this game copy lacks: it will not play out the same");
         _cursor = new ClassicCursor { Name = "Cursor" };
         AddChild(_cursor);
 
@@ -454,6 +490,18 @@ public partial class Game : Node3D
             _hud.Banner("Defeat");
         else if (_waitingFor <= 1)
             _hud.Banner(null);
+        // Five seconds after the match is decided, the statistics (MachGuiCtxStatistics) come up over it.
+        if (World.Winner is not null || World.Races[Player].Defeated && !Watching)
+        {
+            var now = Time.GetTicksMsec() / 1000.0;
+            _decidedAt ??= now;
+            if (!_statisticsShown && now - _decidedAt > 5 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT") is not { Length: > 0 })
+            {
+                _statisticsShown = true;
+                CloseMenu();
+                OpenMenu(statistics: true);
+            }
+        }
         if (!_musicEnded && !Watching && (World.Winner is not null || World.Races[Player].Defeated))
         {
             _musicEnded = true;
@@ -607,9 +655,14 @@ public partial class Game : Node3D
                 FormSquadron(squad);
             if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU") is "squads" or "form")
                 _hud.Panel.OpenSquadrons(forming: System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU") == "form");
-            // MACHINES_SCREENSHOT_MENU=cover: the self-destruct button's cover is open.
+            // MACHINES_SCREENSHOT_MENU=cover: the self-destruct button's cover is open; navm or navc: a navigator.
             if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU") == "cover")
                 _hud.Panel.OpenSelfDestructCover();
+            if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU") is "navm" or "navc")
+                _hud.Panel.OpenNavigator(machines: System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU") == "navm");
+            // MACHINES_SCREENSHOT_MENU=menus or stats: the in-game menus, or the statistics.
+            if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU") is "menus" or "stats")
+                OpenMenu(statistics: System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU") == "stats");
             if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_FIRSTPERSON") == "1")
             {
                 Select(_selection.Take(1).ToList());
@@ -823,6 +876,11 @@ public partial class Game : Node3D
                         _audio.Play(SoundTable.HitSound(weapon, Random.Shared.Next(1, 5)), ground);
                     }
                     break;
+                // A spy has stolen a piece of research (VID_SPY_RESEARCH_DOWNLOADED).
+                case GameEventKind.ResearchStolen when World.Find(e.Actor)?.Race == Player:
+                    _hud.Message($"Research stolen: {e.Detail}");
+                    _audio.Say("VID_SPY_RESEARCH_DOWNLOADED");
+                    break;
                 // A spy drops a mine with a click (SID_MINE_DROP); one going off throws up a blast under the machine.
                 case GameEventKind.MineLaid:
                     _audio.Play("SID_MINE_DROP", at);
@@ -916,8 +974,11 @@ public partial class Game : Node3D
         CancelPlacement();
         _targeting = onClick;
         _targetingCursor = cursor;
-        _hud.Message(message);
+        _targetingMessage = message;
     }
+
+    // What the command waiting for its target asks for, on the prompt line (the original's command prompt).
+    private string _targetingMessage = "";
 
     /// <summary>
     /// Left clicks pick points for <paramref name="onDone"/>: with Shift held each adds one more, with the waypoint
@@ -973,6 +1034,10 @@ public partial class Game : Node3D
             return _targetingCursor;
         var actor = _hovered;
         var mine = SelectedMachines().Where(m => m.Race == Player).ToList();
+        // Spies over an enemy lab go in (MachGuiIntelligentCursorOnActor's ENTER_BUILDING_CURSOR).
+        if (actor is Construction { Complete: true } lab && lab.IsType("HARDWARE_LAB") && World.AreEnemies(Player, lab.Race)
+            && mine.Count > 0 && mine.All(m => m.IsSpy))
+            return "enter";
         if (actor is not null && World.AreEnemies(Player, actor.Race))
             return mine.Any(m => m.CanFight) ? "attack" : "select";
         if (actor is not null)
@@ -1146,9 +1211,12 @@ public partial class Game : Node3D
     {
         switch (key.Keycode)
         {
+            // Esc cancels what is in hand (a building to place, a command's target, a navigator), and otherwise
+            // leads to the menus as in the original.
             case Key.Escape:
                 if (_placing is not null) CancelPlacement();
-                else Select([]);
+                else if (_targeting is not null) _targeting = null;
+                else if (!_hud.Panel.CloseNavigator()) OpenMenu();
                 break;
             // Space turns the building a quarter, as in the original (MachGuiConstructCommand); R does too.
             case Key.Space or Key.R when _placing is not null:
@@ -1181,11 +1249,22 @@ public partial class Game : Node3D
                 Paused = !Paused;
                 _hud.Message(Paused ? "Paused" : "Running");
                 break;
+            // F10 leads to the menus, as Esc does when there is nothing to cancel (MachInGameScreen's keys).
             case Key.F10:
-                SaveReplay();
-                if (Online)
-                    NetLink.Send(new LeaveRoom());
-                GetTree().ChangeSceneToFile("res://scenes/Menu.tscn");
+                OpenMenu();
+                break;
+            // Alt and the left arrow puts the control panel away, Alt and the right arrow brings it out.
+            case Key.Left when key.AltPressed:
+                _hud.Panel.SlideOut(false);
+                break;
+            case Key.Right when key.AltPressed:
+                _hud.Panel.SlideOut(true);
+                break;
+            case Key.Kp2:
+                UseZenithCamera(true);
+                break;
+            case Key.Kp0:
+                UseZenithCamera(false);
                 break;
         }
     }
@@ -1233,7 +1312,7 @@ public partial class Game : Node3D
         {
             var folder = System.IO.Path.Combine(Paths.Root, "replays");
             Directory.CreateDirectory(folder);
-            var match = MatchRequest.Current.ToMatchInfo(_seed, _session.InputDelay);
+            var match = MatchRequest.Current.ToMatchInfo(_seed, _session.InputDelay, World.Terrain?.Fingerprint());
             var file = System.IO.Path.Combine(folder, $"{DateTime.Now:yyyy-MM-dd_HH-mm}_{match.Scenario}{Replay.Extension}");
             new Replay(match, _session.Played, World.Tick, _session.Presence).Save(file);
             _hud.Message($"Replay saved: {System.IO.Path.GetFileName(file)}");
@@ -1241,6 +1320,151 @@ public partial class Game : Node3D
         catch (IOException exception)
         {
             _hud.Message($"Replay not saved: {exception.Message}");
+        }
+    }
+
+    // ---- the in-game menus (MachGuiCtxInGameOptions) ------------------------------------------
+
+    /// <summary>Where saved games go, as replays that end where the game was saved.</summary>
+    public static string SaveFolder => System.IO.Path.Combine(Paths.Root, "saves");
+
+    public const string SaveExtension = ".msave";
+
+    private InGameMenu? _menu;
+    private bool _pausedBeforeMenu;
+
+    // When the match was decided, and whether its statistics have come up.
+    private double? _decidedAt;
+    private bool _statisticsShown;
+
+    /// <summary>Opens the menus over the match (Esc, F10, the return button); a game on this machine waits meanwhile.</summary>
+    public void OpenMenu() => OpenMenu(statistics: false);
+
+    private void OpenMenu(bool statistics)
+    {
+        if (_menu is not null && IsInstanceValid(_menu))
+            return;
+        _pausedBeforeMenu = Paused;
+        if (!Online)
+            Paused = true;
+        var layer = new CanvasLayer { Layer = 10, Name = "Menus" };
+        AddChild(layer);
+        _menu = new InGameMenu(this, statistics);
+        _menu.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        layer.AddChild(_menu);
+        _rig.Active = false;
+    }
+
+    /// <summary>Back to the match from the menus.</summary>
+    public void CloseMenu()
+    {
+        if (_menu is null || !IsInstanceValid(_menu))
+            return;
+        _menu.GetParent().QueueFree();
+        _menu = null;
+        _rig.Active = _driven is null;
+        if (!Online)
+            Paused = _pausedBeforeMenu;
+    }
+
+    /// <summary>Whether this match can be saved, restarted or swapped for a saved one: a game on this machine.</summary>
+    public bool CanSave => !Online && !Watching && World.Winner is null;
+
+    /// <summary>The match so far, saved under <paramref name="name"/>; null when it went well, otherwise why not.</summary>
+    public string? SaveGame(string name)
+    {
+        try
+        {
+            Directory.CreateDirectory(SaveFolder);
+            var match = MatchRequest.Current.ToMatchInfo(_seed, _session.InputDelay, World.Terrain?.Fingerprint());
+            var invalid = System.IO.Path.GetInvalidFileNameChars();
+            var file = System.IO.Path.Combine(SaveFolder, new string(name.Select(c => invalid.Contains(c) ? '_' : c).ToArray()) + SaveExtension);
+            new Replay(match, _session.Played, World.Tick, _session.Presence).Save(file);
+            return null;
+        }
+        catch (IOException exception)
+        {
+            return exception.Message;
+        }
+    }
+
+    /// <summary>Leaves this match for a saved one.</summary>
+    public string? LoadGame(string path)
+    {
+        try
+        {
+            var saved = Replay.Load(path);
+            var local = saved.Match.Players.FirstOrDefault(p => !p.Ai)?.Slot;
+            MatchRequest.Current = MatchRequest.FromMatch(saved.Match, clientId: -1, local) with { Saved = saved };
+            GetTree().ChangeSceneToFile("res://scenes/Main.tscn");
+            return null;
+        }
+        catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
+        {
+            return exception.Message;
+        }
+    }
+
+    /// <summary>The same scenario again from the start (the Restart button).</summary>
+    public void Restart()
+    {
+        MatchRequest.Current = MatchRequest.Current with { Saved = null, Seed = null, ResumeFrom = null };
+        GetTree().ChangeSceneToFile("res://scenes/Main.tscn");
+    }
+
+    /// <summary>Back to the main menu (the Exit Game button, F10 used to), keeping a replay of the match.</summary>
+    public void ExitToMenus()
+    {
+        SaveReplay();
+        if (Online)
+            NetLink.Send(new LeaveRoom());
+        GetTree().ChangeSceneToFile("res://scenes/Menu.tscn");
+    }
+
+    /// <summary>The scenario's briefing text from the game copy, when there is one.</summary>
+    public string? BriefingText()
+    {
+        var request = MatchRequest.Current;
+        var catalogue = System.IO.Path.Combine(Paths.OriginalData, "sceninfo.dat");
+        if (!File.Exists(catalogue))
+            return null;
+        var entry = ScenarioCatalogueParser.Load(catalogue).AllScenarios
+            .FirstOrDefault(s => s.Name.Equals(request.Scenario, StringComparison.OrdinalIgnoreCase) && s.Planet.Equals(request.Planet, StringComparison.OrdinalIgnoreCase))
+            ?? ScenarioCatalogueParser.Load(catalogue).AllScenarios
+                .FirstOrDefault(s => s.Name.Equals(request.Scenario, StringComparison.OrdinalIgnoreCase));
+        return entry is null ? null : _assets.MenuText(entry.Text);
+    }
+
+    // ---- cameras (MachCameras) --------------------------------------------------------------
+
+    /// <summary>Whether the player drives a machine in first person.</summary>
+    public bool InFirstPerson => _driven is not null;
+
+    // The zenith camera's pitch and distance while the ground camera is in use.
+    private (float Pitch, float Distance)? _zenith;
+
+    /// <summary>Whether the zenith camera (looking down from high up) is in use rather than the ground camera.</summary>
+    public bool ZenithCamera => _zenith is null;
+
+    /// <summary>
+    /// Switches between the zenith camera and the ground camera, low over the ground looking ahead
+    /// (MachCameras::useGroundCamera; 2 and 0 on the number pad).
+    /// </summary>
+    public void ToggleCamera() => UseZenithCamera(!ZenithCamera);
+
+    private void UseZenithCamera(bool zenith)
+    {
+        if (zenith == ZenithCamera)
+            return;
+        if (zenith && _zenith is { } before)
+        {
+            (_rig.Pitch, _rig.Distance) = before;
+            _zenith = null;
+        }
+        else if (!zenith)
+        {
+            _zenith = (_rig.Pitch, _rig.Distance);
+            (_rig.Pitch, _rig.Distance) = (9, 28);
         }
     }
 
@@ -1346,6 +1570,7 @@ public partial class Game : Node3D
             : _hoveredDebris is { } wreck ? $"Debris   {wreck.Quantity} BMU"
             : SiteAt(mouse) is { } site ? ClassicPanel.DepositPrompt(site)
             : null;
+        _hud.Panel.CommandPrompt = _targeting is not null ? _targetingMessage : null;
     }
 
     // The wreck the mouse points at this frame, when no actor is in front of it.
@@ -1379,6 +1604,7 @@ public partial class Game : Node3D
 
     public void Select(List<int> ids)
     {
+        _squadronSelected = null;
         foreach (var id in _selection)
             if (_views.TryGetValue(id, out var view)) view.Selected = false;
         _selection.Clear();
@@ -1399,9 +1625,30 @@ public partial class Game : Node3D
         _hud.Message($"Squadron {squad} formed");
     }
 
-    /// <summary>The members of squadron <paramref name="squad"/> are selected (those inside an APC or a lab stay out).</summary>
-    public void SelectSquadron(int squad) =>
+    /// <summary>
+    /// The members of squadron <paramref name="squad"/> are selected (those inside an APC or a lab stay out); until
+    /// the selection changes, orders go to it through its commander (MachInGameScreen::applyCommandToSquadron).
+    /// </summary>
+    public void SelectSquadron(int squad)
+    {
         Select(World.Machines.Where(m => m.Race == Player && m.Squad == squad && m.Inside is null).Select(m => m.Id).ToList());
+        _squadronSelected = squad;
+    }
+
+    // The squadron picked by its number or from the bank, while the selection is still just that.
+    private int? _squadronSelected;
+
+    /// <summary>
+    /// An order for the selected squadron goes through its commander when it has one (MachGuiCommand::apply in the
+    /// squadron context); orders that are not for machines go as they are.
+    /// </summary>
+    private Command ThroughCommander(Command command) =>
+        _squadronSelected is { } squad && World.CommanderOf(Player, squad) is not null && command is MoveCommand or AttackCommand
+            or AttackMoveCommand or StopCommand or ConstructCommand or LocateCommand or PatrolCommand or HealCommand or RepairCommand
+            or CaptureCommand or DeconstructCommand or RecycleCommand or StandGroundCommand or DefConCommand
+            or DropLandMinesCommand or RefillLandMinesCommand or CamouflageCommand
+            ? new SquadronCommand(Player, squad, command)
+            : command;
 
     /// <summary>The initiative of the selection: which of low, normal and high DefCon its machines have.</summary>
     public (bool Low, bool Normal, bool High) Initiative()
@@ -1452,8 +1699,25 @@ public partial class Game : Node3D
     public IEnumerable<Machine> SelectedMachines() =>
         _selection.Select(World.Find<Machine>).OfType<Machine>().Where(m => m.Race == Player);
 
-    /// <summary>Right click: the right order for each selected machine and what was clicked.</summary>
+    /// <summary>
+    /// Right click: the right order for each selected machine and what was clicked. It goes to the machines
+    /// themselves even for a squadron: the original's default command had no admin version.
+    /// </summary>
     private void OrderAt(Vector2 screen)
+    {
+        var squadron = _squadronSelected;
+        _squadronSelected = null;
+        try
+        {
+            DefaultOrderAt(screen);
+        }
+        finally
+        {
+            _squadronSelected = squadron;
+        }
+    }
+
+    private void DefaultOrderAt(Vector2 screen)
     {
         var machines = SelectedMachines().ToList();
         if (machines.Count == 0)
@@ -1464,12 +1728,16 @@ public partial class Game : Node3D
 
         if (target is not null && World.AreEnemies(Player, target.Race))
         {
-            // Constructors take enemy buildings over; everyone armed attacks.
+            // Constructors take enemy buildings over, spies slip into enemy labs to steal research; everyone armed
+            // attacks.
             var capturers = target is Construction { Complete: true } ? Ids(m => m.Spec.Type == "CONSTRUCTOR") : [];
             if (capturers.Count > 0)
                 Order(new CaptureCommand(Player, capturers, target.Id));
+            var spies = target is Construction { Complete: true } lab && lab.IsType("HARDWARE_LAB") ? Ids(m => m.IsSpy) : [];
+            if (spies.Count > 0)
+                Order(new EnterLabCommand(Player, spies, target.Id));
             Order(new AttackCommand(Player, Ids(m => m.CanFight), target.Id));
-            Order(new MoveCommand(Player, Ids(m => !m.CanFight && !capturers.Contains(m.Id)), target.Position));
+            Order(new MoveCommand(Player, Ids(m => !m.CanFight && !capturers.Contains(m.Id) && !spies.Contains(m.Id)), target.Position));
             Acknowledge(machines.Where(m => m.CanFight), "TARGET_ENEMY");
             return;
         }
