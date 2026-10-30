@@ -33,7 +33,7 @@ public partial class InGameMenu(Game game, bool statistics = false) : Control
 
     // Options as set on the page, kept only on OK.
     private float _music, _sound;
-    private bool _remake;
+    private Look _look;
 
     public override void _Ready()
     {
@@ -75,13 +75,13 @@ public partial class InGameMenu(Game game, bool statistics = false) : Control
                 _buttons.Add(new(Box(351, 420, 553, 464), 7312, "Continue", () => Show(Page.Main)));
                 break;
             case Page.Options:
-                (_music, _sound, _remake) = (Music.Volume, GameAudio.SoundVolume, GraphicsSettings.Remake);
+                (_music, _sound, _look) = (Music.Volume, GameAudio.SoundVolume, GraphicsSettings.Look);
                 _buttons.Add(new(Box(85, 377, 291, 423), 7302, "OK", () =>
                 {
                     Music.Volume = _music;
                     GameAudio.SoundVolume = _sound;
-                    var lookChanged = GraphicsSettings.Remake != _remake;
-                    GraphicsSettings.Remake = _remake;
+                    var lookChanged = GraphicsSettings.Look != _look;
+                    GraphicsSettings.Look = _look;
                     Show(Page.Main);
                     if (lookChanged)
                         _note = "The new look shows from the next match";
@@ -283,6 +283,9 @@ public partial class InGameMenu(Game game, bool statistics = false) : Control
         List(7065, "General Control", GeneralKeys);
     }
 
+    /// <summary>The look a click on the look row turns to: classic, overhauled, HD, and round again.</summary>
+    private static Look Next(Look look) => (Look)(((int)look + 1) % 3);
+
     // The options page's rows: a slider for each volume and the look.
     private Rect2 MusicSlider => Box(260, 120, 500, 132);
     private Rect2 SoundSlider => Box(260, 160, 500, 172);
@@ -304,7 +307,7 @@ public partial class InGameMenu(Game game, bool statistics = false) : Control
         Slider("Sound volume", SoundSlider, _sound);
         small.Draw(this, _origin + new Vector2(90, LookToggle.Position.Y + 2) * _scale, "Look", _scale);
         small.Draw(this, _origin + new Vector2(LookToggle.Position.X, LookToggle.Position.Y + 2) * _scale,
-            _remake ? "Remake (click for the classic look)" : "Classic (click for the remake look)", _scale);
+            $"{GraphicsSettings.Name(_look)} (click for {GraphicsSettings.Name(Next(_look))})", _scale);
     }
 
     private void DrawSaves()
@@ -480,7 +483,7 @@ public partial class InGameMenu(Game game, bool statistics = false) : Control
             else if (SoundSlider.Grow(4).HasPoint(at))
                 _sound = Mathf.Clamp((at.X - SoundSlider.Position.X) / SoundSlider.Size.X, 0, 1);
             else if (LookToggle.HasPoint(at))
-                _remake = !_remake;
+                _look = Next(_look);
             else
                 return;
             game.Audio.PlayGui("gui/sounds/listclik.wav");

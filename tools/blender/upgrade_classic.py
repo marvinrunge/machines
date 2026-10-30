@@ -11,6 +11,7 @@ Per node:
   SHARP_ANGLE get a small bevel; its normals are hardened, so the faces stay flat and the bevel catches the light.
   Edges the original shaded smoothly stay smooth.
 - Cycles bakes ambient occlusion into the vertices (`ao`, one value per vertex, 1 is open).
+The eye box (the rig's faceplate) is left as the original's, flat antennas and all, and so are other antennas.
 The model's own parts (its mesh without the rig) are rebuilt from the nodes' in the rest pose."""
 import json
 import math
@@ -38,6 +39,9 @@ TYRE_ROUGHNESS = 0.85
 # The HD textures (set by main), where see-through pictures are measured, and what was measured.
 HD_FOLDER = ""
 COVERAGE = {}
+# A triangular spinner this many times longer than wide is an antenna (see antenna); the slimmest cones that stand
+# for barrels and fingers are under 4.
+ANTENNA_SLENDERNESS = 6
 # A point whose faces' corner angles add up to less than this is a spike tip and keeps its sharp point (a flat
 # surface has 360°, a box corner 270°).
 TIP_ANGLE = math.radians(150)
@@ -207,6 +211,18 @@ def lathe(spinner, tyre=False):
         # How far the tyre reaches out at its ends, where the wheel's flat side plates sit (see fit_plates).
         solid["rim"] = min(profile[0][1], profile[-1][1])
     return solid
+
+
+def antenna(spinner):
+    """A long, thin triangle is an antenna or a spike (the Geo Locator's mast), not a cone: turned into a solid it
+    comes out as a fat cone with one stripe of its picture. It stays a flat outline facing the camera."""
+    c = spinner["corners"]
+    outline = [(c[i], c[i + 1]) for i in range(0, len(c) - 1, 2)]
+    if len(outline) != 3:
+        return False
+    length = max(a for a, _ in outline) - min(a for a, _ in outline)
+    width = 2 * max(abs(d) for _, d in outline)
+    return length > ANTENNA_SLENDERNESS * width
 
 
 def coverage(texture):
@@ -431,6 +447,19 @@ def export_parts(ob, parts, space):
     return out
 
 
+def in_space(part, space):
+    """An original part moved into another space (the model's), as export_parts gives them, open to the sky."""
+    count = len(part["positions"]) // 3
+    rotate = space.to_3x3().inverted().transposed()
+    positions, normals = [], []
+    for k in range(count):
+        positions += list(space @ Vector(part["positions"][k * 3:k * 3 + 3]))
+        if len(part.get("normals", [])) == len(part["positions"]):
+            normals += list((rotate @ Vector(part["normals"][k * 3:k * 3 + 3])).normalized())
+    return dict(part, positions=positions, normals=normals, uvs=list(part.get("uvs", [])), ao=[1.0] * count,
+                indices=list(range(count)))
+
+
 def joined(exports):
     """Parts exported from several objects, joined part by part."""
     parts = exports[0]
@@ -450,6 +479,9 @@ def upgrade(source, target):
         return None
     nodes = rig["nodes"]
     world = world_transforms(nodes)
+    # The eye box (the faceplate) stays as the original drew it: a sharp-edged box with flat antennas that turn to
+    # face the camera. Rounded, and turned into solids, the antennas came out thick and soft.
+    faceplate = rig.get("faceplate", -1)
     # Spinners become solids of the node they turn with (see lathe); the model's own list keeps those that could
     # not be turned into one.
     kept = set()
@@ -459,7 +491,8 @@ def upgrade(source, target):
     for i, node in enumerate(nodes):
         remaining = []
         for spinner in node.get("spinners", []):
-            solid = lathe(spinner, tyre=i in wheel_nodes and not spinner.get("texture"))
+            solid = None if i == faceplate or antenna(spinner) else lathe(
+                spinner, tyre=i in wheel_nodes and not spinner.get("texture"))
             if solid:
                 if "rim" in solid:
                     fit_plates(node, spinner, solid.pop("rim"))
@@ -476,7 +509,7 @@ def upgrade(source, target):
     twins = {}
     sharp_edges = 0
     for i, node in enumerate(nodes):
-        if not node["parts"]:
+        if not node["parts"] or i == faceplate:
             objects.append(None)
             continue
         ob, twin, count = build_node(f"n{i:02d}", node["parts"], world[i])
@@ -514,6 +547,9 @@ def upgrade(source, target):
             originals = node["parts"]
             node["parts"] = joined([export_parts(o, originals, world[i].inverted()) for o in pieces])
             new_parts[i] = joined([export_parts(o, originals, Matrix.Identity(4)) for o in pieces])
+    # The eye box keeps its own parts; the model's take them as they are.
+    if 0 <= faceplate < len(nodes) and nodes[faceplate]["parts"]:
+        new_parts[faceplate] = [in_space(part, world[faceplate]) for part in nodes[faceplate]["parts"]]
     # The model's parts: every node part with the same texture and colours, in the model's space.
     rebuilt = []
     for part in model.get("parts", []):

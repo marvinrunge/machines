@@ -114,11 +114,20 @@ public sealed class ClassicAssets
         var colour = race.ToString().ToLowerInvariant();
         if (FindModel(Path.Combine(_modelFolder, colour), id) is not { } path)
             return null;
+        // The HD look shows the Meshy remakes fitted into the original rigs (tools/blender/meshy_rig.py) where they
+        // have been made.
+        var meshy = Path.Combine(_modelFolder, "..", "meshy", "models", colour, Path.GetFileName(path));
+        if (MeshySet && File.Exists(meshy))
+            return meshy;
         // The remake look uses the upgraded model (rounded edges, baked occlusion; tools/blender/upgrade_classic.py)
         // where it has been made.
         var upgraded = Path.Combine(_modelFolder, "..", "remake", "models", colour, Path.GetFileName(path));
         return Upgraded && File.Exists(upgraded) ? upgraded : path;
     }
+
+    /// <summary>The HD look, or MACHINES_MODEL_SET=meshy in the overhauled one (to compare from the command line).</summary>
+    private static bool MeshySet => GraphicsSettings.Look == Look.Hd
+        || (GraphicsSettings.Remake && System.Environment.GetEnvironmentVariable("MACHINES_MODEL_SET") == "meshy");
 
     /// <summary>
     /// The remake look shows the upgraded models and their bare metal; MACHINES_MODEL_UPGRADE=0 shows the classic
@@ -553,8 +562,10 @@ public sealed class ClassicAssets
             var occluded = part.TryGetProperty("ao", out var occlusion) && occlusion.GetArrayLength() == count && !vertexColours;
             if (occluded)
                 arrays[(int)Mesh.ArrayType.Color] = occlusion.EnumerateArray().Select(e => e.GetSingle()).Select(a => new Color(a, a, a)).ToArray();
-            // The HD textures' normal maps need tangents along the texture's axes.
-            if (GraphicsSettings.Remake && HdTextures.Made)
+            // Meshy parts bring their own maps (colour, normal, occlusion-roughness-metal), relative to classic/.
+            JsonElement? maps = part.TryGetProperty("maps", out var mapList) ? mapList : null;
+            // The HD textures' normal maps need tangents along the texture's axes, as the Meshy ones do.
+            if ((GraphicsSettings.Remake && HdTextures.Made) || maps is not null)
             {
                 var tool = new SurfaceTool();
                 tool.CreateFromArrays(arrays);
@@ -566,13 +577,52 @@ public sealed class ClassicAssets
             var emissive = part.TryGetProperty("emissive", out var glow) ? glow.EnumerateArray().Select(e => e.GetSingle()).ToArray() : [0f, 0f, 0f];
             // Upgraded parts may say how rough they are (the tyres' rubber).
             float? roughness = part.TryGetProperty("roughness", out var given) ? given.GetSingle() : null;
-            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, MaterialFor(part.GetProperty("texture").GetString() ?? "", diffuse, race, emissive, vertexColours, occluded, roughness));
+            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, maps is { } meshyMaps
+                ? MeshyMaterial(meshyMaps)
+                : MaterialFor(part.GetProperty("texture").GetString() ?? "", diffuse, race, emissive, vertexColours, occluded, roughness));
         }
         if (model.TryGetProperty("sprites", out var sprites))
             AddSprites(mesh, sprites, race);
         if (model.TryGetProperty("spinners", out var spinners))
             AddSpinners(mesh, spinners, race);
         return mesh.GetSurfaceCount() > 0 ? mesh : null;
+    }
+
+    /// <summary>
+    /// A Meshy model's material: its colour map, its normal map and the glTF metal-roughness map (roughness in
+    /// green, metal in blue), all in classic/ under the paths the part names.
+    /// </summary>
+    private Material MeshyMaterial(JsonElement maps)
+    {
+        string? MapPath(string key) => maps.TryGetProperty(key, out var p) && _modelFolder is not null
+            ? Path.Combine(_modelFolder, "..", p.GetString() ?? "")
+            : null;
+        var albedo = MapPath("albedo") ?? "";
+        if (_materials.TryGetValue("meshy|" + albedo, out var cached))
+            return cached;
+        var material = new StandardMaterial3D
+        {
+            AlbedoTexture = LoadPng(albedo, Image.CompressSource.Srgb),
+            TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+        };
+        if (MapPath("normal") is { } normalPath && LoadPng(normalPath, Image.CompressSource.Normal) is { } normal)
+        {
+            material.NormalEnabled = true;
+            material.NormalTexture = normal;
+            material.NormalScale = ModelNormalScale;
+        }
+        if (MapPath("orm") is { } ormPath && LoadPng(ormPath, Image.CompressSource.Generic) is { } orm)
+        {
+            material.RoughnessTexture = orm;
+            material.RoughnessTextureChannel = BaseMaterial3D.TextureChannel.Green;
+            material.Roughness = 1;
+            material.MetallicTexture = orm;
+            material.MetallicTextureChannel = BaseMaterial3D.TextureChannel.Blue;
+            material.Metallic = 1;
+        }
+        _materials["meshy|" + albedo] = material;
+        return material;
     }
 
     /// <summary>

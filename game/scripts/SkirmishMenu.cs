@@ -172,14 +172,23 @@ public partial class SkirmishMenu : Control
         if (System.Environment.GetEnvironmentVariable("MACHINES_MP") is { Length: > 0 })
             multiplayer.Visible = true;
 
-        var graphics = new CheckButton
+        // The look: the original's, the original's overhauled (rounded models, HD textures, the remake's lighting),
+        // or HD (the remade models as well).
+        var look = new HBoxContainer();
+        look.AddChild(new Label { Text = "Look" });
+        var graphics = new OptionButton
         {
-            Text = "Remake graphics",
-            ButtonPressed = GraphicsSettings.Remake,
-            TooltipText = "Tone mapping, glow, ambient occlusion, soft shadows and sharper textures; off is the classic look",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            TooltipText = "Classic: the original's models, textures and lighting.\n"
+                + "Overhauled classic: its models with rounded edges, HD textures, tone mapping, glow, ambient occlusion and soft shadows.\n"
+                + "HD: the remade models as well, where they exist; the rest shows overhauled.",
         };
-        graphics.Toggled += on => GraphicsSettings.Remake = on;
-        right.AddChild(graphics);
+        foreach (var each in Enum.GetValues<Look>())
+            graphics.AddItem(GraphicsSettings.Name(each));
+        graphics.Selected = (int)GraphicsSettings.Look;
+        graphics.ItemSelected += i => GraphicsSettings.Look = (Look)(int)i;
+        look.AddChild(graphics);
+        right.AddChild(look);
         AddMusic(right);
 
         var quit = new Button { Text = "Quit", CustomMinimumSize = new Vector2(0, 32) };
