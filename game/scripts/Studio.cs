@@ -7,7 +7,8 @@ namespace Machines.Game;
 /// <summary>
 /// Reference pictures of the machines, for remaking them piece by piece: run res://scenes/Studio.tscn with
 /// <c>MACHINES_STUDIO=&lt;out folder&gt;[,GRUNT,DOZER,...]</c> (the machines' types or subtypes as classic/models.txt
-/// names them; none for all). Every machine is built as the game builds it (<see cref="ClassicAssets.RigFor"/>,
+/// names them; none for all machines; BUILDINGS for all buildings, or their kinds: FACTORY_MILITARY, TURRET, MINE...).
+/// Every machine is built as the game builds it (<see cref="ClassicAssets.RigFor"/>,
 /// <see cref="RigView"/>), in red, in its rest pose, on white, seen from the front left and a little above.
 /// Per hull (a type at one level), in &lt;out&gt;/&lt;type&gt;/:
 /// <list type="bullet">
@@ -21,6 +22,7 @@ namespace Machines.Game;
 /// Per type: <c>-weapons.png</c>, every weapon its exports carry, at one scale so sizes compare, and
 /// <c>-overview.png</c>, its levels side by side. For all: <c>&lt;out&gt;/faceplates.png</c>, every distinct eye box
 /// once with its eyes dark, at one scale. The three pictures of a hull share one camera and line up pixel for pixel.
+/// A building is photographed like a hull, its weapons kept on (an emplacement carries one set for good).
 /// Smaller JPEGs of the pictures go to &lt;out&gt;/web, for the gallery page.
 /// </summary>
 public partial class Studio : Node
@@ -45,6 +47,9 @@ public partial class Studio : Node
         ["BOSS"] = "Boss", ["OVERSEER"] = "Overseer", ["COMMANDER"] = "Commander", ["DOZER"] = "Dozer", ["BUILDER"] = "Builder",
         ["BEHEMOTH"] = "Behemoth", ["LAB_TECH"] = "Lab Tech", ["TECH_BOY"] = "Engineer", ["BRAIN_BOX"] = "Brainbox",
         ["RESOURCE_CARRIER"] = "Resource Carrier", ["GEO_LOCATOR"] = "Geo Locator", ["SPY_LOCATOR"] = "Spy Locator", ["APC"] = "APC",
+        ["FACTORY_MILITARY"] = "Military Factory", ["FACTORY_CIVILIAN"] = "Civilian Factory", ["HARDWARE_LAB_MILITARY"] = "Military Lab",
+        ["HARDWARE_LAB_CIVILIAN"] = "Civilian Lab", ["SMELTER"] = "Smelter", ["MINE"] = "Mine", ["GARRISON"] = "Garrison",
+        ["BEACON"] = "Beacon", ["POD"] = "Pod", ["TURRET"] = "Turret", ["SENTRY"] = "Sentry", ["LAUNCHER"] = "Launcher", ["ICBM"] = "ICBM",
     };
 
     /// <summary>The weapon mounts, by their part's name: left, right and top.</summary>
@@ -58,7 +63,7 @@ public partial class Studio : Node
         new("#aaffc3"), new("#808000"), new("#ffd8b1"), new("#000075"), new("#a9a9a9"), new("#ffe119"), new("#000000"),
     ];
 
-    private sealed record Export(string Id, string Kind, int Level, string? Loadout);
+    private sealed record Export(string Id, string Kind, int Level, string? Loadout, bool Building = false);
 
     /// <summary>A machine on the stage: its rig, its parts' meshes, and which parts are weapons or the faceplate.</summary>
     private sealed class Unit
@@ -98,7 +103,7 @@ public partial class Studio : Node
         _assets = new ClassicAssets(Paths.Root);
         BuildStage();
 
-        var exports = ReadExports().Where(e => wanted.Count == 0 || wanted.Contains(e.Kind)).ToList();
+        var exports = ReadExports().Where(e => wanted.Count == 0 ? !e.Building : wanted.Contains(e.Kind) || (e.Building && wanted.Contains("BUILDINGS"))).ToList();
         foreach (var kind in exports.Select(e => e.Kind).Distinct())
             await Photograph(kind, exports.Where(e => e.Kind == kind).ToList(), output);
         await FaceSheet(Path.Combine(output, "faceplates.png"));
@@ -109,10 +114,25 @@ public partial class Studio : Node
         GetTree().Quit();
     }
 
-    /// <summary>The machines exported (classic/models.txt): MACHINE type level [subtype] [loadout].</summary>
+    /// <summary>
+    /// The machines and buildings exported (classic/models.txt): MACHINE type level [subtype] [loadout], CONSTRUCTION
+    /// type level [subtype] [weapons]. Factories and labs are military or civilian, emplacements turrets, sentries,
+    /// launchers or ICBMs.
+    /// </summary>
     private static IEnumerable<Export> ReadExports()
     {
         var path = Path.Combine(Paths.Classic, "models.txt");
+        foreach (var line in File.ReadLines(path).Where(l => l.StartsWith("CONSTRUCTION ")))
+        {
+            var words = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var kind = words[1] switch
+            {
+                "FACTORY" or "HARDWARE_LAB" => $"{words[1]}_{words[3]}",
+                "MISSILE_EMPLACEMENT" => words[3],
+                _ => words[1],
+            };
+            yield return new Export(string.Join('_', words.Skip(1)), kind, int.Parse(words[2]), null, true);
+        }
         foreach (var line in File.ReadLines(path).Where(l => l.StartsWith("MACHINE ")))
         {
             var words = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -261,7 +281,7 @@ public partial class Studio : Node
             char? side = null;
             for (var n = i; n >= 0 && n < rig.Nodes.Length; n = rig.Nodes[n].Parent == n ? -1 : rig.Nodes[n].Parent)
             {
-                if (Mounts.TryGetValue(rig.Nodes[n].Name, out var mount))
+                if (!export.Building && Mounts.TryGetValue(rig.Nodes[n].Name, out var mount))
                     side = mount;
                 if (n == rig.Faceplate)
                     face.Add(i);

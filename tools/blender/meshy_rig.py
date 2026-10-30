@@ -8,6 +8,10 @@ The plan names per export id the Meshy models of its pieces:
     {"AGGRESSOR_1_GRUNT_R_BOLTER": {"hull": "grunt-1", "weapons": {"r_gun": "grunt-bolter"}, "faceplate": "faceplate-A"}}
 Weapons are keyed by their mount (the rig node l_gun, r_gun, gun or t_gun); a name may point into a subfolder
 (split/knight-sheet-heavy-bolter-2). Each <meshy folder>/<name>/model.glb is one Meshy model.
+A building is one Meshy model, weapons and all: {"FACTORY_1_MILITARY": {"hull": "military-factory-1", "whole": true}}.
+Its interior, which the game shows only to first person inside it, keeps the original's: the Meshy shell has none.
+"still" names moving parts the Meshy model has no shape for (Mine 5's fans, under a flat panel): their surface goes to
+their neighbours and they are left empty, or they would turn pieces of wall.
 
 Each piece goes the same way. The original's parts of that piece (the hull without weapons and eye box, a weapon's
 subtree, the eye box) in their rest pose are the target:
@@ -72,6 +76,12 @@ def painted_shadow(part):
     return not part.get("texture") and len(d) > 3 and d[3] < 0.99 and sum(d[:3]) < 0.03 and max(zs) - min(zs) < 0.1
 
 
+def hidden(part):
+    """A clear part (the pod's turning helper, a gun mount's marker): nothing to see, so nothing to fit to."""
+    d = part.get("diffuse", [1, 1, 1, 1])
+    return len(d) > 3 and d[3] < 0.01
+
+
 def pieces(rig):
     """The rig's nodes split into the hull, each weapon (a mount and everything under it) and the eye box."""
     nodes = rig["nodes"]
@@ -98,7 +108,7 @@ def target_triangles(nodes, world, group):
     tris = []
     for i in group:
         for part in nodes[i]["parts"]:
-            if painted_shadow(part):
+            if painted_shadow(part) or hidden(part):
                 continue
             p = part["positions"]
             for t in range(0, len(p) - 8, 9):
@@ -365,7 +375,8 @@ def fit_piece(model_name, meshy, classic, nodes, world, group, report, mirror=Fa
     counts = {}
     for label in labels:
         counts[label] = counts.get(label, 0) + 1
-    empty = [nodes[i]["name"] for i in group if any(not painted_shadow(p) for p in nodes[i]["parts"]) and i not in counts]
+    empty = [nodes[i]["name"] for i in group
+             if any(not painted_shadow(p) and not hidden(p) for p in nodes[i]["parts"]) and i not in counts]
     report.append(f"  {model_name}: fit {score:.3f} ({how}), {len(tris)} triangles to "
                   + ", ".join(f"{nodes[i]['name']} {n}" for i, n in sorted(counts.items()))
                   + (f"; nothing for {', '.join(empty)}" if empty else ""))
@@ -379,9 +390,12 @@ def build(export_id, entry, classic, meshy):
     nodes = rig["nodes"]
     world = world_transforms(nodes)
     hull, weapons, faceplate = pieces(rig)
+    if entry.get("whole"):
+        hull = [i for i, n in enumerate(nodes) if n["name"] != "interior" and i not in faceplate]
+    still = entry.get("still", [])
     report = [export_id]
     new = {}
-    new.update(fit_piece(entry["hull"], meshy, classic, nodes, world, hull, report))
+    new.update(fit_piece(entry["hull"], meshy, classic, nodes, world, [i for i in hull if nodes[i]["name"] not in still], report))
     for mount, name in entry.get("weapons", {}).items():
         new.update(fit_piece(name, meshy, classic, nodes, world, weapons[mount], report, mirror=True))
     if entry.get("faceplate") and faceplate:
