@@ -7,8 +7,8 @@ namespace Machines.Game;
 /// circuit board filling the window (<see cref="MenuBoard"/>), one page on it at a time and, over the page, a message
 /// when there is one. It is laid out for a window <see cref="DesignHeight"/> menu pixels high, as wide as the window's
 /// shape makes that, and scaled to the real window and the player's interface size, so it fills any window and stays
-/// sharp: the font is drawn from a distance field, the art rendered at twice the menus' scale. Esc closes the message,
-/// or goes back from the page.
+/// sharp: the letters are drawn at the stage's scale, the art rendered at twice the menus' scale. Esc closes the
+/// message, or goes back from the page.
 /// </summary>
 public partial class MenuStage : Control
 {
@@ -51,6 +51,7 @@ public partial class MenuStage : Control
         Scale = new Vector2(scale, scale);
         Size = size / scale;
         MenuTheme.FitPopups(_theme, scale);
+        MenuTheme.FitFont(scale);
     }
 
     /// <summary>Puts <paramref name="page"/> on the stage in place of the one there.</summary>

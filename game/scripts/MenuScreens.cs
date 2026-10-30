@@ -10,8 +10,9 @@ namespace Machines.Game;
 /// Automated runs skip them: MACHINES_MAP and MACHINES_SCREENSHOT start the match straight away, MACHINES_IMPORT
 /// imports from a game copy first, MACHINES_HD makes the HD textures and quits, MACHINES_MP opens the multiplayer page
 /// and drives the lobby (see <see cref="MultiplayerPage"/>), MACHINES_MENU_SELECT=&lt;scenario&gt;,&lt;planet&gt; picks a
-/// map. MACHINES_MENU_SCREENSHOT=&lt;png&gt;[,page[,WxH]] saves a page (main, skirmish, room, multiplayer, load,
-/// replays, options or quit), at that size if one is given, and quits.
+/// map and MACHINES_MENU_START=1 starts it from the skirmish page (MACHINES_LOADING_SCREENSHOT, see
+/// <see cref="LoadingScreen"/>). MACHINES_MENU_SCREENSHOT=&lt;png&gt;[,page[,WxH]] saves a page (main, skirmish, room,
+/// multiplayer, load, replays, options or quit), at that size if one is given, and quits.
 /// </summary>
 public partial class MenuScreens : Control
 {
@@ -31,7 +32,7 @@ public partial class MenuScreens : Control
     {
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         var shot = (Setting("MACHINES_MENU_SCREENSHOT") ?? "").Split(',', StringSplitOptions.TrimEntries);
-        if (shot[0].Length == 0 && Setting("MACHINES_MP") is null && (Setting("MACHINES_SCREENSHOT") ?? Setting("MACHINES_MAP")) is not null)
+        if (shot[0].Length == 0 && Setting("MACHINES_MP") is null && Setting("MACHINES_MENU_START") is null && (Setting("MACHINES_SCREENSHOT") ?? Setting("MACHINES_MAP")) is not null)
         {
             // Automated checks of a match skip the menus; the match reads them from the environment.
             GetTree().CallDeferred(SceneTree.MethodName.ChangeSceneToFile, "res://scenes/Main.tscn");
@@ -45,6 +46,12 @@ public partial class MenuScreens : Control
         {
             GD.Print(HdTextures.Run(hdFrom, line => GD.Print(line)) ?? "HD textures finished");
             GetTree().Quit();
+            return;
+        }
+        // MACHINES_MINIMAPS=1 (or all) takes the remake's maps of the scenarios (see MiniMaps) and quits.
+        if (Setting("MACHINES_MINIMAPS") is { } minimaps)
+        {
+            MiniMaps.TakeAll(GetTree(), again: minimaps == "all");
             return;
         }
 
@@ -74,7 +81,7 @@ public partial class MenuScreens : Control
         _host.AddChild(_stage);
         MenuSounds.Attach(_stage, _assets.GameFolder);
         Music.Menu(this);
-        Open(shot.Length > 1 ? shot[1] : Setting("MACHINES_MP") is not null ? "multiplayer" : "main");
+        Open(shot.Length > 1 ? shot[1] : Setting("MACHINES_MP") is not null ? "multiplayer" : Setting("MACHINES_MENU_START") is not null ? "skirmish" : "main");
     }
 
     public override void _Process(double delta)

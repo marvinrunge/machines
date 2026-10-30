@@ -124,6 +124,11 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   leans with the wind; wind and rain sound (made from noise, not recorded). The dust machines kick up takes the
   planet's colour. Storms roll billows of sand, snow or ash over the ground. The particles' pictures are from
   Kenney's [Particle Pack](https://kenney.nl/assets/particle-pack) (CC0), in `game/assets/particles`.
+- **Maps of the remake looks:** the continent map, the skirmish page's preview and the loading screen show
+  the planet as the Overhauled and HD looks draw it, each its own, taken from straight above without the
+  machines, buildings, weather or the sun's shadow the first time a scenario is played (under the loading screen)
+  and kept in `classic/minimaps`; the classic look keeps the original's map. `MACHINES_MINIMAPS=1` takes them
+  for every scenario at once (`MACHINES_LOOK` picks the look).
 - **The planets' artefacts:** the trees, palms, rocks, ruins and other scenery the scenarios set on the
   planets (ARTEFACTS) stand where the original put them, from each planet's own models (`pdata/*.arb`). They
   stand in the way as in the original: machines go round the active ones (their boundaries, turned as they

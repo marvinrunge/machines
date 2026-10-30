@@ -8,11 +8,11 @@ namespace Machines.Game;
 
 /// <summary>
 /// The original's control panel down the left of the screen (MachInGameScreen), laid out as its 640 × 480
-/// screen and scaled up: at the top the continent map (the race logo until a beacon stands) with the BMU button
-/// and the navigator icons beside it; below, the selected machine or building, or the corral of several, then the
-/// command buttons, then the build, production or research icons. What the mouse points at is described in the
-/// prompt line beside the panel. The icons are the original's, from the player's game copy; the panel itself is
-/// drawn plainly, and without a game copy the icons are words.
+/// screen and scaled up: at the top the continent map (the race logo until a beacon stands; the planet as the look
+/// draws it, see <see cref="MiniMaps"/>) with the BMU button and the navigator icons beside it; below, the selected
+/// machine or building, or the corral of several, then the command buttons, then the build, production or research
+/// icons. What the mouse points at is described in the prompt line beside the panel. The icons are the original's,
+/// from the player's game copy; the panel itself is drawn plainly, and without a game copy the icons are words.
 /// </summary>
 public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
 {
@@ -771,8 +771,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         var logo = ClassicGui.Bitmap($"map/{RaceFolder(Game.Player)[0]}logo.bmp");
         if (beacon && !_terrainOn)
             DrawRect(rect, Colors.Black);
-        else if (beacon && planetMap is not null)
-            DrawTextureRect(planetMap, rect, false);
+        else if (beacon && (MiniMaps.For(MatchRequest.Current.Scenario, (int)rect.Size.X) ?? planetMap) is { } map)
+            DrawTextureRect(map, rect, false);
         else if (logo is not null)
             DrawTextureRect(logo, rect, false);
         else

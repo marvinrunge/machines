@@ -42,7 +42,8 @@ public partial class FilesPage : MenuPage
             var saved = Replay.Load(path);
             var local = saved.Match.Players.FirstOrDefault(p => !p.Ai)?.Slot;
             MatchRequest.Current = MatchRequest.FromMatch(saved.Match, clientId: -1, local) with { Saved = saved };
-            tree.ChangeSceneToFile("res://scenes/Main.tscn");
+            LoadingScreen.Show(tree, System.IO.Path.GetFileNameWithoutExtension(path).ToUpperInvariant(),
+                $"SAVED GAME   ·   {LoadingScreen.MapName(MatchRequest.Current)}");
             return null;
         }
         catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
@@ -58,7 +59,8 @@ public partial class FilesPage : MenuPage
         {
             var replay = Replay.Load(path);
             MatchRequest.Current = MatchRequest.FromMatch(replay.Match, clientId: -1) with { Replay = replay };
-            tree.ChangeSceneToFile("res://scenes/Main.tscn");
+            LoadingScreen.Show(tree, System.IO.Path.GetFileNameWithoutExtension(path).ToUpperInvariant(),
+                $"REPLAY   ·   {LoadingScreen.MapName(MatchRequest.Current)}");
             return null;
         }
         catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)

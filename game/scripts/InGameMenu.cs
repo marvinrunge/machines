@@ -63,9 +63,7 @@ public partial class InGameMenu(Game game, bool statistics = false) : Control
     {
         var column = MenuPage.Column(MenuPage.Gap);
         page.AddChild(column);
-        var request = MatchRequest.Current;
-        var map = MenuTheme.Label((request.Scenario.Equals(request.Planet, StringComparison.OrdinalIgnoreCase)
-            ? request.Scenario : $"{request.Scenario}   ·   {request.Planet}").ToUpperInvariant(), 22, MenuTheme.Dim);
+        var map = MenuTheme.Label(LoadingScreen.MapName(MatchRequest.Current), 22, MenuTheme.Dim);
         map.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         column.AddChild(MenuPage.Line(MenuPage.Gap, MenuPage.Heading("Menu"), MenuPage.Spring(), map));
 
@@ -81,7 +79,8 @@ public partial class InGameMenu(Game game, bool statistics = false) : Control
             Button(7321, "Options", ShowOptions),
             Button(7304, "Briefing", ShowBriefing),
             Button(7307, "Save Game", ShowSave, game.CanSave),
-            Button(7305, "Restart", () => _stage.Message("Start this match again from the beginning?", ("Restart", game.Restart), ("Cancel", null)), game.CanSave),
+            Button(7305, "Restart", () => _stage.Message("Start this match again from the beginning?",
+                ("Restart", () => LoadingScreen.Show(game.GetTree(), LoadingScreen.MapName(MatchRequest.Current), "RESTART", game.Restart)), ("Cancel", null)), game.CanSave),
             Button(7310, "Load Game", ShowLoad, !game.Online),
             Button(7306, "Hot Keys", ShowHotkeys),
             Button(7303, "Exit Game", () => _stage.Message(
@@ -170,7 +169,7 @@ public partial class InGameMenu(Game game, bool statistics = false) : Control
         return why;
     }));
 
-    private void ShowLoad() => _stage.Show(FilesPage.Load(() => ShowMain(), game.LoadGame));
+    private void ShowLoad() => _stage.Show(FilesPage.Load(() => ShowMain(), path => FilesPage.OpenSaved(game.GetTree(), path)));
 
     /// <summary>The statistics after a match (MachGuiCtxStatistics); OK leaves for the main menu.</summary>
     private void ShowStatistics() => _stage.Show(new BuiltPage(() => ShowMain(), page =>

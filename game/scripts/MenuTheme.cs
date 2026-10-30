@@ -23,16 +23,31 @@ public static class MenuTheme
 
     private const string Settings = "user://settings.cfg";
 
-    private static Font? _font;
+    private const string SairaPath = "res://assets/fonts/saira/Saira.ttf";
 
-    /// <summary>Saira (Open Font License, game/assets/fonts/saira), a variable font, at its semibold weight.</summary>
-    public static Font Font => _font ??= LoadFont("res://assets/fonts/saira/Saira.ttf", 600);
+    private static FontFile? _file;
+    private static Font? _font, _popupFont;
 
-    private static Font LoadFont(string path, int weight)
+    /// <summary>
+    /// Saira (Open Font License, game/assets/fonts/saira), a variable font, at its semibold weight. It is drawn from its
+    /// outlines at the stage's scale (<see cref="FitFont"/>), not from a distance field, which shows where the variable
+    /// font's outlines overlap as specks on the large letters.
+    /// </summary>
+    public static Font Font => _font ??= SemiBold(_file = GD.Load<FontFile>(SairaPath));
+
+    /// <summary>The same for the popups, which open at the window's own scale (see <see cref="FitPopups"/>).</summary>
+    private static Font PopupFont => _popupFont ??= SemiBold(ResourceLoader.Load<FontFile>(SairaPath, cacheMode: ResourceLoader.CacheMode.Ignore));
+
+    /// <summary>Has the letters drawn as sharp as the stage, <paramref name="scale"/> times the menus' own size.</summary>
+    public static void FitFont(float scale)
     {
-        var file = GD.Load<FontFile>(path);
-        file.MultichannelSignedDistanceField = true;
-        file.MsdfSize = 64;
+        _ = Font;
+        _file!.Oversampling = scale;
+    }
+
+    private static Font SemiBold(FontFile file)
+    {
+        const int weight = 600;
         var tag = TextServerManager.GetPrimaryInterface().NameToTag("wght");
         return new FontVariation { BaseFont = file, VariationOpentype = new Godot.Collections.Dictionary { [tag] = weight } };
     }
@@ -207,12 +222,14 @@ public static class MenuTheme
         };
         theme.SetStylebox("panel", "TooltipPanel", Box(new Color(0.03f, 0.09f, 0.035f, 0.96f), Edge, 12, 8));
         theme.SetColor("font_color", "TooltipLabel", Text);
+        theme.SetFont("font", "TooltipLabel", PopupFont);
         theme.SetFontSize("font_size", "TooltipLabel", Px(20));
         theme.SetStylebox("panel", "PopupMenu", Box(new Color(0.03f, 0.09f, 0.035f, 0.98f), Edge, 6, 6));
         theme.SetStylebox("hover", "PopupMenu", Box(new Color(0.3f, 0.85f, 0.2f), new Color(0.3f, 0.85f, 0.2f), 6, 2));
         theme.SetColor("font_color", "PopupMenu", Text);
         theme.SetColor("font_hover_color", "PopupMenu", OnLight);
         theme.SetColor("font_disabled_color", "PopupMenu", Dim);
+        theme.SetFont("font", "PopupMenu", PopupFont);
         theme.SetFontSize("font_size", "PopupMenu", Px(22));
         theme.SetConstant("v_separation", "PopupMenu", Px(8));
     }

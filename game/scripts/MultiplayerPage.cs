@@ -26,7 +26,7 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
     private Control _offline = null!, _lobby = null!, _room = null!;
     private RoomList? _roomList;
     private RoomState? _state;
-    private bool _busy;
+    private bool _busy, _leaving;
 
     protected override void Build()
     {
@@ -106,9 +106,16 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
 
     private void Say(string text) => _status.Text = _statusText = text;
 
+    /// <summary>Leaves for the match the relay started; what follows in the inbox is the match scene's to read.</summary>
+    private void Leave()
+    {
+        _leaving = true;
+        LoadingScreen.Show(GetTree(), LoadingScreen.MapName(MatchRequest.Current), "MULTIPLAYER");
+    }
+
     public override void _Process(double delta)
     {
-        if (NetLink.Connection is not { } connection)
+        if (_leaving || NetLink.Connection is not { } connection)
             return;
         while (connection.Inbox.TryRead(out var message))
         {
@@ -129,13 +136,13 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
                     break;
                 case MatchStarted started:
                     MatchRequest.Current = MatchRequest.FromMatch(started.Match, NetLink.ClientId) with { Network = started.Match };
-                    GetTree().ChangeSceneToFile("res://scenes/Main.tscn");
+                    Leave();
                     return;
                 case MatchResumed resumed:
                     // The match so far follows in the inbox; the match scene reads it from there.
                     MatchRequest.Current = MatchRequest.FromMatch(resumed.Match, NetLink.ClientId, resumed.Slot)
                         with { Network = resumed.Match, ResumeFrom = resumed.FromTick };
-                    GetTree().ChangeSceneToFile("res://scenes/Main.tscn");
+                    Leave();
                     return;
                 case Chat chat:
                     Say($"{chat.From}: {chat.Text}");

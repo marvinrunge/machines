@@ -101,6 +101,9 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
         FillTree(ScenarioCatalogueParser.Load(System.IO.Path.Combine(Paths.OriginalData, "sceninfo.dat")));
         SwitchOn();
         Focus(_tree);
+        // MACHINES_MENU_START=1 presses Start on the map picked (MACHINES_MENU_SELECT), the way a player would.
+        if (!forRoom && System.Environment.GetEnvironmentVariable("MACHINES_MENU_START") == "1")
+            Callable.From(Start).CallDeferred();
     }
 
     private static ChipChoice Choice(IEnumerable<string> items, int selected, Action<int> changed)
@@ -148,7 +151,10 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
                     var terrainItem = Branch(sizeItem, screens.Text(terrain.StringId, terrain.Name), MenuTheme.Text);
                     terrainItem.Collapsed = section != "Skirmish";
                     foreach (var scenario in terrain.Scenarios)
-                        first ??= Leaf(terrainItem, screens.Text(scenario.StringId, scenario.Name), scenario);
+                    {
+                        var leaf = Leaf(terrainItem, screens.Text(scenario.StringId, scenario.Name), scenario);
+                        first ??= leaf;
+                    }
                 }
             }
         }
@@ -207,7 +213,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
         _facts.Text = $"{_selected.Planet.ToUpperInvariant()}   ·   UP TO {maxPlayers} PLAYERS";
         if (!_maps.TryGetValue(_selected.Planet, out var map))
             _maps[_selected.Planet] = map = screens.Assets.PlanetMap(_selected.Planet);
-        _preview.Texture = map;
+        _preview.Texture = MiniMaps.For(_selected.Name) ?? map;
         _description.Text = screens.Assets.MenuText(_selected.Text)
             ?? (screens.Assets.HasClassicModels ? "" : "Map overviews and descriptions come from your own game copy (Options, Import).");
 
@@ -239,7 +245,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
         var players = int.TryParse(_players.Text.Split(' ')[0], out var n) ? n : 2;
         var starts = StartPositions.Assign(_slots, players, Colours[_lastColour], random: _lastStarts == 1, new Random());
         MatchRequest.Current = new MatchRequest(_selected.Name, _selected.Planet, starts, Options());
-        GetTree().ChangeSceneToFile("res://scenes/Main.tscn");
+        LoadingScreen.Show(GetTree(), _title.Text, $"{_selected.Planet.ToUpperInvariant()}   ·   {(players == 1 ? "NO OPPONENT" : $"{players} PLAYERS")}");
     }
 
     /// <summary>The settings last chosen on the page.</summary>
