@@ -106,6 +106,7 @@ public partial class MenuScreens : Control
             case "load": ShowLoad(); break;
             case "replays": ShowReplays(); break;
             case "options": ShowOptions(); break;
+            case "graphics": _stage.Show(new GraphicsPage(ShowOptions, inGame: false)); break;
             case "quit":
                 ShowMain();
                 Quit();

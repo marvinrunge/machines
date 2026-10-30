@@ -14,6 +14,7 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
 
     private static readonly float[] Sizes = [0.8f, 0.9f, 1f, 1.1f, 1.25f];
 
+    private readonly Action _back = back;
     private bool _importing;
 
     /// <summary>Whether the game fills the screen; it opens in a window otherwise.</summary>
@@ -70,7 +71,12 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
             lookNote.Text = inGame ? "The new look shows from the next match." : Describe((Look)i);
         };
         lookNote.Text = inGame ? "" : Describe(GraphicsSettings.Look);
-        rows.AddChild(Setting("Look", look));
+        // Each part of the look on a page of its own; Back there comes back here.
+        var stage = Stage;
+        var customize = Button("Customize", () => stage.Show(new GraphicsPage(() => stage.Show(new OptionsPage(_back, inGame)), inGame)), 64, 22);
+        customize.CustomMinimumSize = new Vector2(220, 64);
+        rows.AddChild(Setting("Look", Line(18, look, customize)));
+        look.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         rows.AddChild(lookNote);
 
         rows.AddChild(Setting("Music", Slider(Music.Volume, value => Music.Volume = value)));
@@ -121,9 +127,10 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
 
     private static string Describe(Look look) => look switch
     {
-        Look.Classic => "The original's models, textures and lighting.",
-        Look.Overhauled => "Its models with rounded edges, HD textures, tone mapping, glow, ambient occlusion and soft shadows.",
-        _ => "The remade models as well, where they exist; the rest shows overhauled.",
+        Look.Classic => "The original's models, ground, lighting and effects.",
+        Look.Overhauled => "The original sharpened: its ground and models upscaled, with tone mapping, glow, soft shadows and the remake's effects.",
+        Look.Hd => "The remade models on the painted ground, where they exist; the rest shows overhauled.",
+        _ => "Each part of the look as chosen under Customize.",
     };
 
     private static HSlider Slider(float value, Action<float> changed)

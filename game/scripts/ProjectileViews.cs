@@ -85,7 +85,7 @@ public partial class ProjectileViews : Node3D
             if (IsMissile(projectile.Weapon.TypeName))
             {
                 // A missile bursts wherever its flight ends, and its trail drifts on and thins out behind it.
-                if (GraphicsSettings.Remake)
+                if (GraphicsSettings.Effects)
                     _effects?.Impact(view.GlobalPosition);
                 if (view.GetNodeOrNull<GpuParticles3D>("Trail") is { } trail)
                 {
@@ -147,7 +147,7 @@ public partial class ProjectileViews : Node3D
             trail.Position = new Vector3(-0.8f, 0, 0);
         }
         // In the remake plasma and pulse rounds light the ground and machines they pass.
-        if (GraphicsSettings.Remake && _litRounds < MostLitRounds && (name.Contains("PLASMA") || name.Contains("PULSE")))
+        if (GraphicsSettings.Effects && _litRounds < MostLitRounds && (name.Contains("PLASMA") || name.Contains("PULSE")))
         {
             _litRounds++;
             view.AddChild(new OmniLight3D

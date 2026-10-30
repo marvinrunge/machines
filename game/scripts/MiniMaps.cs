@@ -5,10 +5,11 @@ using Machines.Sim.World;
 namespace Machines.Game;
 
 /// <summary>
-/// The maps of the panel's continent map and of the menus. The classic look shows the original's overview image of
-/// the planet (map.BMP, <see cref="ClassicAssets.PlanetMap"/>); the remake's looks show the map as they draw it,
-/// taken straight down without the machines and buildings, once for each scenario and look, the first time it is
-/// played (under the <see cref="LoadingScreen"/>), and kept in <c>classic/minimaps/&lt;look&gt;</c>.
+/// The maps of the panel's continent map and of the menus. With the original ground they show the original's overview
+/// image of the planet (map.BMP, <see cref="ClassicAssets.PlanetMap"/>); with the sharpened or painted ground, the map
+/// as the look draws it, taken straight down without the machines and buildings, once for each scenario and for each
+/// choice of the parts that show on it (the ground, the trees and rocks, the lighting), the first time it is played
+/// (under the <see cref="LoadingScreen"/>), and kept in <c>classic/minimaps/&lt;ground&gt;-&lt;scenery&gt;-&lt;lighting&gt;</c>.
 ///
 /// MACHINES_MINIMAPS=1 takes every scenario's that is missing, in the look of MACHINES_LOOK, and quits;
 /// MACHINES_MINIMAPS=all takes them all again.
@@ -20,18 +21,27 @@ public static partial class MiniMaps
 
     private static readonly Dictionary<string, Texture2D?> Loaded = [];
 
-    private static string PathOf(Look look, string scenario) =>
-        System.IO.Path.Combine(Paths.Classic, "minimaps", look.ToString().ToLowerInvariant(), scenario.ToLowerInvariant() + ".png");
+    /// <summary>Whether the ground chosen has its own map: all but the original one.</summary>
+    private static bool Drawn => GraphicsSettings.Terrain != TerrainLook.Original;
+
+    /// <summary>Where the map of <paramref name="scenario"/> lies for the parts chosen that show on it.</summary>
+    private static string PathOf(string scenario)
+    {
+        static string Part(bool remake) => remake ? "remake" : "original";
+        var parts = GraphicsSettings.Parts;
+        var folder = $"{parts.Terrain}-{Part(parts.Scenery)}-{Part(parts.Lighting)}".ToLowerInvariant();
+        return System.IO.Path.Combine(Paths.Classic, "minimaps", folder, scenario.ToLowerInvariant() + ".png");
+    }
 
     /// <summary>
-    /// The map shown for <paramref name="scenario"/> in the look chosen, or null where the original's is: with mipmaps
+    /// The map shown for <paramref name="scenario"/> with the parts chosen, or null where the original's is: with mipmaps
     /// for drawing at any size, or made <paramref name="width"/> pixels wide for drawing at that size without them.
     /// </summary>
     public static Texture2D? For(string scenario, int width = 0)
     {
-        if (!GraphicsSettings.Remake)
+        if (!Drawn)
             return null;
-        var path = PathOf(GraphicsSettings.Look, scenario);
+        var path = PathOf(scenario);
         var key = $"{path}|{width}";
         if (Loaded.TryGetValue(key, out var map))
             return map;
@@ -46,8 +56,8 @@ public static partial class MiniMaps
         return Loaded[key] = map;
     }
 
-    /// <summary>Whether the look chosen draws its own map of <paramref name="scenario"/> and has not taken it yet.</summary>
-    public static bool Missing(string scenario) => GraphicsSettings.Remake && !File.Exists(PathOf(GraphicsSettings.Look, scenario));
+    /// <summary>Whether the parts chosen draw their own map of <paramref name="scenario"/> and has not taken it yet.</summary>
+    public static bool Missing(string scenario) => Drawn && !File.Exists(PathOf(scenario));
 
     /// <summary>
     /// MACHINES_MINIMAPS: starts every scenario of the skirmish page in turn, with the first two races, so the loading
@@ -66,8 +76,8 @@ public static partial class MiniMaps
         var left = new Queue<(string, string)>(scenarios.DistinctBy(s => s.Name.ToLowerInvariant()));
         if (again)
             foreach (var (name, _) in left)
-                File.Delete(PathOf(GraphicsSettings.Look, name));
-        GD.Print($"minimaps: {left.Count(s => Missing(s.Item1))} of {left.Count} scenarios to take in the {GraphicsSettings.Look} look");
+                File.Delete(PathOf(name));
+        GD.Print($"minimaps: {left.Count(s => Missing(s.Item1))} of {left.Count} scenarios to take for {GraphicsSettings.Parts}");
         tree.Root.CallDeferred(Node.MethodName.AddChild, new Round(left));
     }
 
@@ -94,7 +104,7 @@ public static partial class MiniMaps
 
     /// <summary>Takes the map of the match <paramref name="game"/> has begun, then does <paramref name="done"/>.</summary>
     public static void Take(Game game, string scenario, Action done) =>
-        game.AddChild(new Camera(PathOf(GraphicsSettings.Look, scenario), done));
+        game.AddChild(new Camera(PathOf(scenario), done));
 
     /// <summary>
     /// A picture of the match's world from straight above, the planet filling it: an orthographic camera of its own

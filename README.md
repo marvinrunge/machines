@@ -124,10 +124,18 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   leans with the wind; wind and rain sound (made from noise, not recorded). The dust machines kick up takes the
   planet's colour. Storms roll billows of sand, snow or ash over the ground. The particles' pictures are from
   Kenney's [Particle Pack](https://kenney.nl/assets/particle-pack) (CC0), in `game/assets/particles`.
+- **Graphics, part by part:** **Customize** next to the look in the options opens the Graphics page, where each
+  part of the look is chosen on its own: the ground (original; sharpened, the original's tiles with their
+  pictures upscaled and given relief and roughness; or painted), the machines and buildings (original,
+  overhauled or HD), the lighting and sky, the effects, the weather, and the trees and rocks. The looks set
+  every part at once: Classic all original, Overhauled the sharpened ground under the overhauled models, HD the
+  painted ground under the remade ones, both with the rest of the remake. Any other mix is Custom, which comes
+  back as it was left. Grass and stones grow on the painted ground alone, as they need its finer shape.
 - **Maps of the remake looks:** the continent map, the skirmish page's preview and the loading screen show
-  the planet as the Overhauled and HD looks draw it, each its own, taken from straight above without the
-  machines, buildings, weather or the sun's shadow the first time a scenario is played (under the loading screen)
-  and kept in `classic/minimaps`; the classic look keeps the original's map. `MACHINES_MINIMAPS=1` takes them
+  the planet as the chosen look draws it, taken from straight above without the machines, buildings, weather or
+  the sun's shadow the first time a scenario is played (under the loading screen). Each mix of ground, trees and
+  rocks, and lighting has its own, kept in `classic/minimaps/<ground>-<scenery>-<lighting>` (such as
+  `sharpened-remake-remake`); the original ground keeps the original's map. `MACHINES_MINIMAPS=1` takes them
   for every scenario at once (`MACHINES_LOOK` picks the look).
 - **The planets' artefacts:** the trees, palms, rocks, ruins and other scenery the scenarios set on the
   planets (ARTEFACTS) stand where the original put them, from each planet's own models (`pdata/*.arb`). They
@@ -200,10 +208,12 @@ dotnet test Machines.sln
 
 Open `game/project.godot` in the Godot .NET editor and press Play. Godot builds `Machines.sln` from the
 repository root (`dotnet/project/solution_directory`). The game opens on the main menu: Skirmish leads to the
-maps (double click starts one) and settings, Options to the look, volumes, window and the import from your game copy.
+maps (double click starts one) and settings, Options to the look (Customize to each part of it), volumes, window and the import from your game copy.
 
 For automated checks, `MACHINES_MAP=<scenario>,<planet>` skips the menu, `MACHINES_SCREENSHOT=<file.png>`
-saves a screenshot and quits (without fog of war unless `MACHINES_FOG=1`), and `MACHINES_SCREENSHOT_PLAY=punchA,3` plays an animation 3 s in (see `Game.cs` and
+saves a screenshot and quits (without fog of war unless `MACHINES_FOG=1`),
+`MACHINES_LOOK=<look>[,terrain=original|sharpened|painted,models=original|overhauled|hd,lighting=on|off,effects=on|off,weather=on|off,scenery=on|off]`
+picks the look for one run without saving it, and `MACHINES_SCREENSHOT_PLAY=punchA,3` plays an animation 3 s in (see `Game.cs` and
 `MenuScreens.cs` for the other `MACHINES_*` switches; `MACHINES_MENU_SCREENSHOT=<file.png>,<page>,<W>x<H>` saves a
 menu page at any window size).
 

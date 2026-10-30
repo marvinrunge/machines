@@ -76,7 +76,7 @@ public partial class PlanetLook : Node
         };
         // The remake shows a photographed sky where the original's is a day sky (PhotoSky), in place of its dome; it
         // also lights the scene a little: reflections, and part of the ambient light.
-        if (GraphicsSettings.Remake && look._sunOrbit is { } sunOrbit
+        if (GraphicsSettings.Lighting && look._sunOrbit is { } sunOrbit
             && PhotoSky.For(planet, Mathf.Min(sunOrbit.MinElevation, sunOrbit.MaxElevation), Mathf.Max(sunOrbit.MinElevation, sunOrbit.MaxElevation), dome?.Texture) is { } photo)
         {
             look._photo = photo;
@@ -130,7 +130,7 @@ public partial class PlanetLook : Node
             look.AddChild(look._domeView);
         }
 
-        if (GraphicsSettings.Remake)
+        if (GraphicsSettings.Lighting)
             look.Enhance();
         look.AddChild(look._sun);
         look.AddChild(new WorldEnvironment { Environment = look._environment });

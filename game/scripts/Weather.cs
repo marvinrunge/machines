@@ -66,7 +66,7 @@ public partial class Weather : Node3D
     public static Weather? Create(string planet, int seed, Func<float> time, Func<Vector3> focus, Func<float> distance)
     {
         EnsureGlobals();
-        if (!GraphicsSettings.Remake || !Planets.TryGetValue(planet, out var kind))
+        if (!GraphicsSettings.Weather || !Planets.TryGetValue(planet, out var kind))
             return null;
         Effects.DustTint = Dust[kind];
         var weather = new Weather { Name = "Weather", _kind = kind, _time = time, _focus = focus, _distance = distance };

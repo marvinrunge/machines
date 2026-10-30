@@ -294,7 +294,7 @@ public partial class Effects : Node3D
             LocalCoords = false,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             // Billowing puffs in the remake look, the soft spot in the classic one.
-            DrawPass1 = Billboard(GraphicsSettings.Remake ? Particle("smoke_04") : Soft, additive: false),
+            DrawPass1 = Billboard(GraphicsSettings.Effects ? Particle("smoke_04") : Soft, additive: false),
             ProcessMaterial = new ParticleProcessMaterial
             {
                 EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Box,

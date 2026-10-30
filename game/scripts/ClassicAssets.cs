@@ -125,15 +125,24 @@ public sealed class ClassicAssets
         return Upgraded && File.Exists(upgraded) ? upgraded : path;
     }
 
-    /// <summary>The HD look, or MACHINES_MODEL_SET=meshy in the overhauled one (to compare from the command line).</summary>
-    private static bool MeshySet => GraphicsSettings.Look == Look.Hd
-        || (GraphicsSettings.Remake && System.Environment.GetEnvironmentVariable("MACHINES_MODEL_SET") == "meshy");
+    /// <summary>The HD models, or MACHINES_MODEL_SET=meshy with the overhauled ones (to compare from the command line).</summary>
+    private static bool MeshySet => GraphicsSettings.Models == ModelLook.Hd
+        || (GraphicsSettings.Models != ModelLook.Original && System.Environment.GetEnvironmentVariable("MACHINES_MODEL_SET") == "meshy");
 
     /// <summary>
-    /// The remake look shows the upgraded models and their bare metal; MACHINES_MODEL_UPGRADE=0 shows the classic
-    /// ones in it, to compare.
+    /// The overhauled and HD models show the upgraded models and their bare metal; MACHINES_MODEL_UPGRADE=0 shows the
+    /// classic ones in them, to compare.
     /// </summary>
-    private static bool Upgraded => GraphicsSettings.Remake && System.Environment.GetEnvironmentVariable("MACHINES_MODEL_UPGRADE") != "0";
+    private static bool Upgraded => GraphicsSettings.Models != ModelLook.Original && System.Environment.GetEnvironmentVariable("MACHINES_MODEL_UPGRADE") != "0";
+
+    /// <summary>
+    /// Whether a texture shows sharpened (<see cref="HdTextures"/>): the planet's pictures (its ground, scenery and sky,
+    /// all under models/planet) as the ground is chosen, the machines', buildings' and effects' as the models are.
+    /// </summary>
+    private static bool Sharp(string relative) =>
+        relative.Replace('\\', '/').StartsWith("models/planet/", StringComparison.OrdinalIgnoreCase)
+            ? GraphicsSettings.Terrain != TerrainLook.Original
+            : GraphicsSettings.Models != ModelLook.Original;
 
     private static string? FindModel(string folder, string id)
     {
@@ -565,7 +574,7 @@ public sealed class ClassicAssets
             // Meshy parts bring their own maps (colour, normal, occlusion-roughness-metal), relative to classic/.
             JsonElement? maps = part.TryGetProperty("maps", out var mapList) ? mapList : null;
             // The HD textures' normal maps need tangents along the texture's axes, as the Meshy ones do.
-            if ((GraphicsSettings.Remake && HdTextures.Made) || maps is not null)
+            if ((Sharp(part.GetProperty("texture").GetString() ?? "") && HdTextures.Made) || maps is not null)
             {
                 var tool = new SurfaceTool();
                 tool.CreateFromArrays(arrays);
@@ -652,26 +661,26 @@ public sealed class ClassicAssets
         if (race is { } r)
             texture = RaceTexture(texture, r);
         emissive ??= [0, 0, 0];
-        var key = $"{texture}|{string.Join(',', diffuse)}|{string.Join(',', emissive)}|{race is not null}|{vertexColours}|{occluded}|{roughness}";
+        var key = $"{texture}|{string.Join(',', diffuse)}|{string.Join(',', emissive)}|{race is not null}|{vertexColours}|{occluded}|{roughness}|{GraphicsSettings.Parts.GetHashCode()}";
         if (_materials.TryGetValue(key, out var cached))
             return cached;
 
         // As the original renderer did, the texture is tinted by the material's colour: the race colour of a
         // machine sits in the diffuse colour of its grey textures.
-        var remake = GraphicsSettings.Remake;
+        var sharp = Sharp(texture);
         var material = new StandardMaterial3D
         {
             AlbedoColor = new Color(diffuse[0], diffuse[1], diffuse[2]),
-            // The remake filters textures seen at a slant (the ground, mostly) anisotropically: far sharper.
-            TextureFilter = remake ? BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic : BaseMaterial3D.TextureFilterEnum.LinearWithMipmaps,
+            // Sharpened textures are filtered anisotropically where seen at a slant (the ground, mostly): far sharper.
+            TextureFilter = sharp ? BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic : BaseMaterial3D.TextureFilterEnum.LinearWithMipmaps,
             // The original's winding convention is not confirmed yet; draw both sides.
             CullMode = BaseMaterial3D.CullModeEnum.Disabled,
             // Vertex colours are material colours, given as the albedo colour is.
             VertexColorUseAsAlbedo = vertexColours || occluded,
             VertexColorIsSrgb = vertexColours,
         };
-        // Machines and buildings get a little sheen; the ground stays matt.
-        if (remake && race is not null)
+        // Overhauled machines and buildings get a little sheen; the ground stays matt.
+        if (sharp && race is not null)
         {
             material.Roughness = 0.55f;
             material.Metallic = 0.2f;
@@ -694,11 +703,11 @@ public sealed class ClassicAssets
             // Tinted by the texture, not added to it: the eyes (black, glowing white) show their white circles on
             // black instead of a white box.
             material.EmissionOperator = BaseMaterial3D.EmissionOperatorEnum.Multiply;
-            material.EmissionEnergyMultiplier = GraphicsSettings.Remake ? 1.6f : 1;
+            material.EmissionEnergyMultiplier = GraphicsSettings.Lighting ? 1.6f : 1;
         }
         // The HD textures bring normal and roughness maps (see HdTextures): panel lines and rivets catch the light
         // on machines and buildings, grain and cracks on the ground. Glowing parts stay as they are.
-        else if (remake && HdTextures.Made
+        else if (sharp && HdTextures.Made
             && LoadPng(HdTextures.NormalPath(texture), Image.CompressSource.Normal) is { } normal
             && LoadPng(HdTextures.RoughnessPath(texture), Image.CompressSource.Generic) is { } rough)
         {
@@ -737,9 +746,9 @@ public sealed class ClassicAssets
             material.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
         }
 
-        // The planets' water tiles (watr*, and the falling and flowing watfal / watflw) move in the remake.
+        // The planets' water tiles (watr*, and the falling and flowing watfal / watflw) move on the painted ground.
         var name = Path.GetFileName(texture).ToLowerInvariant();
-        if (remake && race is null && material.AlbedoTexture is { } water && (name.StartsWith("watr") || name.StartsWith("watfal") || name.StartsWith("watflw")))
+        if (GraphicsSettings.Terrain == TerrainLook.Painted && race is null && material.AlbedoTexture is { } water && (name.StartsWith("watr") || name.StartsWith("watfal") || name.StartsWith("watflw")))
         {
             var moving = new ShaderMaterial { Shader = WaterShader.Value };
             moving.SetShaderParameter("albedo_tex", water);
@@ -795,11 +804,12 @@ public sealed class ClassicAssets
 
     private readonly Dictionary<string, Texture2D?> _textures = [];
 
-    /// <summary>An original texture by its path in the game folder, loaded once (HD in the remake look), or null.</summary>
+    /// <summary>An original texture by its path in the game folder, loaded once (sharpened as chosen), or null.</summary>
     public Texture2D? Texture(string relative)
     {
-        if (!_textures.TryGetValue(relative, out var texture))
-            _textures[relative] = texture = LoadTexture(relative).Texture;
+        var key = $"{relative}|{Sharp(relative)}";
+        if (!_textures.TryGetValue(key, out var texture))
+            _textures[key] = texture = LoadTexture(relative).Texture;
         return texture;
     }
 
@@ -845,8 +855,8 @@ public sealed class ClassicAssets
         var colourPath = Sibling('c');
         var alphaPath = Sibling('a');
 
-        // The remake shows the textures enlarged by HdTextures, their coverage already in their alpha.
-        if (GraphicsSettings.Remake && HdTextures.Made && LoadPng(HdTextures.AlbedoPath(relative), Image.CompressSource.Srgb) is { } sharp)
+        // Sharpened, the textures are those enlarged by HdTextures, their coverage already in their alpha.
+        if (Sharp(relative) && HdTextures.Made && LoadPng(HdTextures.AlbedoPath(relative), Image.CompressSource.Srgb) is { } sharp)
             return (sharp, !transparent ? Clearness.Opaque : File.Exists(colourPath) && File.Exists(alphaPath) ? Clearness.Soft : Clearness.Keyed);
 
         if (!transparent)

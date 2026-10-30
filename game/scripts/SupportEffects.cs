@@ -109,7 +109,7 @@ public partial class SupportEffects : Node3D
         root.AddChild(leftView);
         root.AddChild(rightView);
         // MachPhysSuperCharger::lighting: the healer glows green while it heals.
-        if (GraphicsSettings.Remake)
+        if (GraphicsSettings.Effects)
             root.AddChild(new OmniLight3D { LightColor = new Color(0.3f, 1, 0.4f), LightEnergy = 1.5f, OmniRange = 8 });
         AddChild(root);
         return new Beam { Root = root, Left = leftView, Right = rightView, Material = material };
@@ -243,7 +243,7 @@ public partial class SupportEffects : Node3D
         root.GlobalTransform = new Transform3D(new Basis(along * length / 5, normal * 2, along.Cross(normal) * 2), from);
         var bolt = new MeshInstance3D { Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
         root.AddChild(bolt);
-        if (GraphicsSettings.Remake)
+        if (GraphicsSettings.Effects)
         {
             var light = new OmniLight3D { LightColor = new Color(0.32f, 0.86f, 1f), LightEnergy = 4, OmniRange = 12 };
             root.AddChild(light);
@@ -348,7 +348,7 @@ public partial class SupportEffects : Node3D
             flames.Add((material, i * 5));
         }
         OmniLight3D? light = null;
-        if (GraphicsSettings.Remake)
+        if (GraphicsSettings.Effects)
         {
             light = new OmniLight3D { LightColor = new Color(1, 0.55f, 0.2f), LightEnergy = 2, OmniRange = size * 5 };
             root.AddChild(light);
@@ -390,7 +390,7 @@ public partial class SupportEffects : Node3D
         var rings = new[] { Fading(root, under), Fading(root, over) };
         var light = Fading(root, disc);
         OmniLight3D? lamp = null;
-        if (GraphicsSettings.Remake)
+        if (GraphicsSettings.Effects)
         {
             lamp = new OmniLight3D { LightColor = new Color(0.9f, 1f, 0.9f), LightEnergy = 3, OmniRange = 20, Position = Vector3.Up };
             root.AddChild(lamp);

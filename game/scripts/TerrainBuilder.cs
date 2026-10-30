@@ -28,8 +28,9 @@ public static class TerrainBuilder
         if (classicTerrain is not null)
         {
             // The original's coarse ground throws no shadows (they fell in hard-edged wedges across the map); it
-            // takes those of machines and buildings, and its slopes shade by their normals.
-            if (!GraphicsSettings.Remake)
+            // takes those of machines and buildings, and its slopes shade by their normals. Sharpened, it is the same
+            // ground: its tiles' pictures come upscaled with their relief and roughness (ClassicAssets, HdTextures).
+            if (GraphicsSettings.Terrain != TerrainLook.Painted)
             {
                 root.AddChild(new MeshInstance3D
                 {
@@ -38,15 +39,15 @@ public static class TerrainBuilder
                 });
                 return root;
             }
-            // The remake gives the coarse tiles a finer shape first (TerrainGeometry: it reads their own materials, and
+            // Painted, the coarse tiles get a finer shape first (TerrainGeometry: it reads their own materials, and
             // gives those without corner colours some). The natural planets' ground is then painted from a material
             // map (TerrainMaterials); what it leaves (buildings, stations) gets its detail close up (TerrainDetail).
-            // Grass and stones grow on both (GroundScatter), the same each time on a planet. It is drawn in squares, so
-            // only those in view are, and casts shadows.
+            // With the remade scenery, grass and stones grow on both (GroundScatter), the same each time on a planet. It
+            // is drawn in squares, so only those in view are, and casts shadows.
             var ground = TerrainGeometry.Refine(classicTerrain, field);
             var painted = TerrainMaterials.Apply(classicTerrain, ground, planet.Name, field.Width, field.Depth);
             var detail = TerrainDetail.Apply(classicTerrain);
-            if (GroundScatter.Create(ground, detail, painted, planet.Name, (int)(field.Width * 7919 + field.Depth)) is { } scatter)
+            if (GraphicsSettings.Scenery && GroundScatter.Create(ground, detail, painted, planet.Name, (int)(field.Width * 7919 + field.Depth)) is { } scatter)
                 root.AddChild(scatter);
             foreach (var piece in TerrainGeometry.Chunks(ground, classicTerrain.SurfaceGetMaterial))
                 root.AddChild(new MeshInstance3D { Name = "Ground", Mesh = piece, Layers = 1 | GroundLayer });

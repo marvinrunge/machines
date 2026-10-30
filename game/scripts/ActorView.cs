@@ -301,7 +301,7 @@ public partial class ActorView : Node3D
         {
             var fire = Effects.DamageFire(size * 0.8f, size);
             // In the remake the flames light what is around them.
-            if (GraphicsSettings.Remake)
+            if (GraphicsSettings.Effects)
                 fire.AddChild(new OmniLight3D { LightColor = new Color(1, 0.55f, 0.2f), LightEnergy = 2, OmniRange = size * 4, Position = Vector3.Up * size * 0.5f });
             return fire;
         });
@@ -425,7 +425,7 @@ public partial class ActorView : Node3D
         view._model = (Node?)view._rigView ?? view.GetNodeOrNull("Body");
 
         // At night buildings light their surroundings and machines switch on headlights.
-        if (GraphicsSettings.Remake)
+        if (GraphicsSettings.Lighting)
         {
             if (actor is Construction)
             {
@@ -458,7 +458,7 @@ public partial class ActorView : Node3D
         }
 
         // Ground machines kick up dust as they go.
-        if (GraphicsSettings.Remake && view._followsGround)
+        if (GraphicsSettings.Effects && view._followsGround)
         {
             view._dust = Effects.DustTrail();
             view._dust.Position = new Vector3(view._aft * 0.6f, 0.3f, 0);
@@ -773,7 +773,7 @@ public partial class ActorView : Node3D
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
             AlbedoColor = new Color(0, 1, 0, 0.25f),
             Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-            EmissionEnabled = GraphicsSettings.Remake,
+            EmissionEnabled = GraphicsSettings.Lighting,
             Emission = new Color(0, 1, 0),
             EmissionEnergyMultiplier = 1.2f,
             CullMode = BaseMaterial3D.CullModeEnum.Disabled,

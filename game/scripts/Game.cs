@@ -403,7 +403,7 @@ public partial class Game : Node3D
             return root;
         Vector3 At(Vector2 position, float z) => new(position.X, HeightField.Current?.At(position.X, position.Y) ?? z, position.Y);
         var placements = section.Placements.ToList();
-        if (GraphicsSettings.Remake)
+        if (GraphicsSettings.Scenery)
         {
             // The remake's trees and rocks stand in for the original's (Scenery); the rest keeps its model.
             var (scenery, left) = Scenery.Place(placements, p =>
@@ -422,7 +422,7 @@ public partial class Game : Node3D
                 Mesh = mesh,
                 Transform = new Transform3D(new Basis(Vector3.Up, -Mathf.DegToRad(placement.Orientation)), at),
                 // The red moons' lava pools glow and creep in the remake, as the lava on the ground does.
-                MaterialOverride = GraphicsSettings.Remake && placement.TypeName.Equals("lava", StringComparison.OrdinalIgnoreCase) ? Scenery.Lava() : null,
+                MaterialOverride = GraphicsSettings.Scenery && placement.TypeName.Equals("lava", StringComparison.OrdinalIgnoreCase) ? Scenery.Lava() : null,
             });
         }
         return root;
@@ -729,7 +729,7 @@ public partial class Game : Node3D
             if (actor is Machine { DrivenByPlayer: true } driven)
                 view.UpperBodyAngle = driven.Id == _driven?.Id ? _headTarget : World.PlayerHeads.GetValueOrDefault(driven.Id);
             // In the remake tracks and wheels leave their marks on the ground behind them.
-            if (GraphicsSettings.Remake && actor is Machine { Inside: null, Stats.Locomotion: Locomotion.Tracks or Locomotion.Wheels } rolling)
+            if (GraphicsSettings.Effects && actor is Machine { Inside: null, Stats.Locomotion: Locomotion.Tracks or Locomotion.Wheels } rolling)
             {
                 var here = ActorView.World(rolling.Position);
                 if (!_lastMark.TryGetValue(rolling.Id, out var last) || last.DistanceTo(here) > 4)
@@ -766,7 +766,7 @@ public partial class Game : Node3D
         foreach (var id in _views.Keys.Where(id => World.Find(id) is null).ToList())
         {
             // A destroyed machine flies apart in the remake; anything else just goes.
-            if (GraphicsSettings.Remake && _destroyed.Remove(id))
+            if (GraphicsSettings.Effects && _destroyed.Remove(id))
                 _views[id].Shatter(_effects);
             _views[id].QueueFree();
             _views.Remove(id);
@@ -831,7 +831,7 @@ public partial class Game : Node3D
                     break;
                 case GameEventKind.Destroyed:
                     _destroyed.Add(e.Actor);
-                    if (GraphicsSettings.Remake)
+                    if (GraphicsSettings.Effects)
                         _effects.Explosion(at - Vector3.Up * 2, _views.TryGetValue(e.Actor, out var gone) ? gone.Size : 4);
                     else
                         Flash(at);
@@ -888,7 +888,7 @@ public partial class Game : Node3D
                 case GameEventKind.MineExploded:
                 {
                     var blast = ActorView.World(e.Position);
-                    if (GraphicsSettings.Remake)
+                    if (GraphicsSettings.Effects)
                         _effects.Explosion(blast, 3);
                     else
                         _effects.Impact(blast);
@@ -1063,7 +1063,7 @@ public partial class Game : Node3D
                 _effects.AddChild(ground);
                 _groundBlasts.Add(blast);
                 // The remake leaves the ground burnt where the ion cannon and the nuke struck.
-                if (GraphicsSettings.Remake && blast.Weapon is "ION_ORBITAL_CANNON" or "NUCLEAR_MISSILE")
+                if (GraphicsSettings.Effects && blast.Weapon is "ION_ORBITAL_CANNON" or "NUCLEAR_MISSILE")
                     _effects.Scorch(ActorView.World(blast.Position), blast.Weapon == "NUCLEAR_MISSILE" ? 120 : 50);
                 continue;
             }
@@ -1082,8 +1082,8 @@ public partial class Game : Node3D
                 MaterialOverride = new StandardMaterial3D
                 {
                     // The remake's dome glows (added light, seen through); the classic one is a tinted shell.
-                    AlbedoColor = GraphicsSettings.Remake && blast.Weapon != "VORTEX" ? new Color(colour.R, colour.G, colour.B, colour.A * 0.6f) : colour,
-                    BlendMode = GraphicsSettings.Remake && blast.Weapon != "VORTEX" ? BaseMaterial3D.BlendModeEnum.Add : BaseMaterial3D.BlendModeEnum.Mix,
+                    AlbedoColor = GraphicsSettings.Effects && blast.Weapon != "VORTEX" ? new Color(colour.R, colour.G, colour.B, colour.A * 0.6f) : colour,
+                    BlendMode = GraphicsSettings.Effects && blast.Weapon != "VORTEX" ? BaseMaterial3D.BlendModeEnum.Add : BaseMaterial3D.BlendModeEnum.Mix,
                     Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
                     ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
                     CullMode = BaseMaterial3D.CullModeEnum.Disabled,
@@ -1092,7 +1092,7 @@ public partial class Game : Node3D
             _effects.AddChild(view);
             view.GlobalPosition = ActorView.World(blast.Position);
             _blastViews[blast] = view;
-            if (GraphicsSettings.Remake)
+            if (GraphicsSettings.Effects)
                 _effects.Blast(view.GlobalPosition, blast.Radius(blast.StartTime + blast.Duration), new Color(colour.R, colour.G, colour.B));
             if (blast.Weapon is "ION_ORBITAL_CANNON" or "NUCLEAR_MISSILE")
                 _hud.Message(blast.Weapon == "NUCLEAR_MISSILE" ? "Nuclear detonation" : "Ion cannon strike");
@@ -1115,7 +1115,7 @@ public partial class Game : Node3D
     /// <summary>A shot: the remake's flying bolt at the weapon's speed, or the classic short beam.</summary>
     private void Shot(Vector3 from, Vector3 to, string weapon)
     {
-        if (GraphicsSettings.Remake)
+        if (GraphicsSettings.Effects)
             _effects.Shot(from, to, weapon, World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == weapon)?.ProjectileSpeed ?? 80);
         else
             Tracer(from, to, weapon);

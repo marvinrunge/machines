@@ -177,7 +177,7 @@ public partial class RigView : Node3D
         foreach (var (material, colour) in _glow)
         {
             material.AlbedoColor = new Color(colour.R * pulse, colour.G * pulse, colour.B * pulse, colour.A);
-            material.EmissionEnabled = working && GraphicsSettings.Remake;
+            material.EmissionEnabled = working && GraphicsSettings.Lighting;
             if (material.EmissionEnabled)
             {
                 material.EmissionTexture = material.AlbedoTexture;
