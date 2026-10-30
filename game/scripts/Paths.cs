@@ -18,6 +18,9 @@ public static class Paths
 
     public static string OriginalData => System.IO.Path.Combine(Root, "data", "original");
 
+    /// <summary>The remake's own maps (<see cref="GameData.MapsFolder"/>).</summary>
+    public static string Maps => System.IO.Path.Combine(Root, "data", "maps");
+
     /// <summary>Models, terrain and the game folder path imported from the player's own copy (never shipped).</summary>
     public static string Classic => System.IO.Path.Combine(Root, "classic");
 

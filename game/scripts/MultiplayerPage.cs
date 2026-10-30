@@ -5,116 +5,106 @@ using Machines.Net;
 namespace Machines.Game;
 
 /// <summary>
-/// The multiplayer lobby, over the skirmish menu: connect to a relay, open a room on the map selected in the menu
-/// or join one, pick a colour, get ready, and the host starts. The relay then hands every player the same match.
+/// The multiplayer page: connect to a relay or host one, then open a room (set up on the skirmish page) or join one,
+/// pick a colour, get ready, and the host starts. The relay then hands every player the same match.
 /// </summary>
-public partial class MultiplayerPanel : PanelContainer
+public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.ShowMain)
 {
     private static readonly Race[] Colours = [Race.Red, Race.Blue, Race.Green, Race.Yellow];
 
-    /// <summary>The room to open: the map and settings currently chosen in the skirmish menu.</summary>
-    public required Func<CreateRoom?> RoomFromMenu { get; init; }
+    // Kept while the game runs, so the page comes back as it was left.
+    private static string _address = "127.0.0.1:7777";
+    private static string _statusText = "Host runs the relay in this game (port 7777); the others connect to your computer's address. " +
+                                        "Or connect to a relay someone else runs.";
 
-    private LineEdit _name = null!, _address = null!;
+    private LineEdit _name = null!, _relay = null!;
     private Label _status = null!, _roomTitle = null!;
     private ItemList _rooms = null!, _players = null!;
-    private OptionButton _colour = null!;
-    private CheckButton _ready = null!, _fillWithAi = null!;
-    private Button _connect = null!, _start = null!;
-    private VBoxContainer _lobby = null!, _room = null!;
+    private ChipChoice _colour = null!;
+    private CheckButton _ready = null!;
+    private ChipButton _connect = null!, _host = null!, _start = null!, _join = null!;
+    private Control _offline = null!, _lobby = null!, _room = null!;
     private RoomList? _roomList;
     private RoomState? _state;
     private bool _busy;
 
-    public override void _Ready()
+    protected override void Build()
     {
-        CustomMinimumSize = new Vector2(560, 520);
-        var column = new VBoxContainer();
-        column.AddThemeConstantOverride("separation", 10);
-        AddChild(column);
+        var page = Column(Gap);
+        AddChild(page);
+        page.AddChild(Heading("Multiplayer"));
+        var columns = Line(Gap);
+        columns.SizeFlagsVertical = SizeFlags.ExpandFill;
+        page.AddChild(columns);
 
-        var heading = new Label { Text = "Multiplayer" };
-        heading.AddThemeFontSizeOverride("font_size", 22);
-        column.AddChild(heading);
+        var login = new ChipPanel { CustomMinimumSize = new Vector2(480, 0), Padding = 22 };
+        _name = new LineEdit { Text = NetLink.Name, PlaceholderText = "Your name", ContextMenuEnabled = false };
+        _relay = new LineEdit { Text = _address, PlaceholderText = "Relay address", ContextMenuEnabled = false };
+        _relay.TextChanged += text => _address = text;
+        _connect = Button("Connect", () => _ = Connect(), 70, 26);
+        _host = Button("Host", () => _ = Host(), 70, 26);
+        _connect.SizeFlagsHorizontal = _host.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _status = MenuTheme.Paragraph(_statusText, 21, MenuTheme.Dim);
+        login.AddChild(Column(14,
+            MenuTheme.Label("YOUR NAME", 20, MenuTheme.Dim), _name,
+            MenuTheme.Label("RELAY", 20, MenuTheme.Dim), _relay,
+            Line(16, _connect, _host),
+            Spring(across: false),
+            _status));
+        columns.AddChild(login);
 
-        var login = new HBoxContainer();
-        _name = new LineEdit { Text = NetLink.Name, PlaceholderText = "Your name", CustomMinimumSize = new Vector2(150, 0) };
-        _address = new LineEdit { Text = "127.0.0.1:7777", PlaceholderText = "relay address", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _connect = new Button { Text = "Connect" };
-        _connect.Pressed += () => _ = Connect();
-        var hostButton = new Button { Text = "Host" };
-        hostButton.Pressed += () => _ = Host();
-        login.AddChild(_name);
-        login.AddChild(_address);
-        login.AddChild(_connect);
-        login.AddChild(hostButton);
-        column.AddChild(login);
+        var rooms = new ChipPanel { SizeFlagsHorizontal = SizeFlags.ExpandFill, Padding = 22 };
+        var views = new Control();
+        rooms.AddChild(views);
+        columns.AddChild(rooms);
 
-        _status = new Label
-        {
-            AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            Text = "Host runs the relay in this game (port 7777); the others connect to your computer's address. " +
-                   "Or connect to a relay someone else runs.",
-        };
-        column.AddChild(_status);
+        _offline = new CenterContainer();
+        _offline.AddChild(MenuTheme.Label("Connect to a relay, or host one,\nto see its rooms.", 26, MenuTheme.Dim, HorizontalAlignment.Center));
 
-        _lobby = new VBoxContainer { Visible = false, SizeFlagsVertical = SizeFlags.ExpandFill };
         _rooms = new ItemList { SizeFlagsVertical = SizeFlags.ExpandFill };
-        var lobbyButtons = new HBoxContainer();
-        var refresh = new Button { Text = "Refresh" };
-        refresh.Pressed += () => NetLink.Send(new ListRooms());
-        var join = new Button { Text = "Join", TooltipText = "Join a room, or rejoin a match you dropped out of" };
-        join.Pressed += Join;
-        _fillWithAi = new CheckButton { Text = "Free slots play the AI", ButtonPressed = true };
-        var create = new Button { Text = "Open a room on the selected map" };
-        create.Pressed += Create;
-        lobbyButtons.AddChild(refresh);
-        lobbyButtons.AddChild(join);
-        lobbyButtons.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
-        lobbyButtons.AddChild(_fillWithAi);
-        lobbyButtons.AddChild(create);
-        _lobby.AddChild(new Label { Text = "Rooms" });
-        _lobby.AddChild(_rooms);
-        _lobby.AddChild(lobbyButtons);
-        column.AddChild(_lobby);
+        _rooms.ItemActivated += _ => Join();
+        _join = Button("Join", Join, 70, 26);
+        _join.TooltipText = "Join a room, or rejoin a match you dropped out of";
+        _lobby = Column(16,
+            MenuTheme.Label("ROOMS", 26, MenuTheme.Bright),
+            _rooms,
+            Line(16, Button("Refresh", () => NetLink.Send(new ListRooms()), 70, 26), _join, Spring(),
+                Button("Open a room", () => screens.ShowSkirmish(forRoom: true), 70, 26)));
 
-        _room = new VBoxContainer { Visible = false, SizeFlagsVertical = SizeFlags.ExpandFill };
-        _roomTitle = new Label();
-        _players = new ItemList { SizeFlagsVertical = SizeFlags.ExpandFill };
-        var roomButtons = new HBoxContainer();
-        _colour = new OptionButton();
-        foreach (var colour in Colours)
-            _colour.AddItem(colour.ToString());
+        _roomTitle = MenuTheme.Paragraph("", 26, MenuTheme.Bright);
+        _players = new ItemList { SizeFlagsVertical = SizeFlags.ExpandFill, FocusMode = FocusModeEnum.None };
+        _colour = new ChipChoice(Colours.Select(c => c.ToString())) { CustomMinimumSize = new Vector2(220, 0) };
         _colour.ItemSelected += _ => SendPlayer();
         _ready = new CheckButton { Text = "Ready" };
         _ready.Toggled += _ => SendPlayer();
-        _start = new Button { Text = "Start match" };
-        _start.Pressed += () => NetLink.Send(new StartMatch());
-        var leave = new Button { Text = "Leave room" };
-        leave.Pressed += () =>
+        _start = Button("Start match", () => NetLink.Send(new StartMatch()), 70, 26);
+        var leave = Button("Leave room", () =>
         {
             NetLink.Send(new LeaveRoom());
             ShowLobby();
-        };
-        roomButtons.AddChild(new Label { Text = "Colour" });
-        roomButtons.AddChild(_colour);
-        roomButtons.AddChild(_ready);
-        roomButtons.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
-        roomButtons.AddChild(leave);
-        roomButtons.AddChild(_start);
-        _room.AddChild(_roomTitle);
-        _room.AddChild(_players);
-        _room.AddChild(roomButtons);
-        column.AddChild(_room);
+        }, 70, 26);
+        _room = Column(16, _roomTitle, _players,
+            Line(20, MenuTheme.Label("Colour", 22, MenuTheme.Text), _colour, _ready, Spring(), leave, _start));
+        foreach (var view in new[] { _offline, _lobby, _room })
+        {
+            view.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+            views.AddChild(view);
+        }
 
-        var close = new Button { Text = "Close" };
-        close.Pressed += () => Visible = false;
-        column.AddChild(close);
+        var back = Button("Back", Back);
+        back.CustomMinimumSize = new Vector2(400, 76);
+        page.AddChild(Line(Gap, back));
 
         if (NetLink.Connected)
             ShowLobby();
+        else
+            ShowOffline();
+        SwitchOn();
+        Focus(NetLink.Connected ? _rooms : _connect);
         Automate();
     }
+
+    private void Say(string text) => _status.Text = _statusText = text;
 
     public override void _Process(double delta)
     {
@@ -129,12 +119,13 @@ public partial class MultiplayerPanel : PanelContainer
                     _rooms.Clear();
                     foreach (var room in list.Rooms)
                         _rooms.AddItem($"{room.Name}   ·   {room.Scenario} on {room.Planet}   ·   {room.Players}/{room.MaxPlayers}{(room.Started ? "   ·   playing" : "")}");
+                    _join.Disabled = list.Rooms.Count == 0;
                     break;
                 case RoomState state:
                     ShowRoom(state);
                     break;
                 case Refused refused:
-                    _status.Text = refused.Reason;
+                    Say(refused.Reason);
                     break;
                 case MatchStarted started:
                     MatchRequest.Current = MatchRequest.FromMatch(started.Match, NetLink.ClientId) with { Network = started.Match };
@@ -147,33 +138,35 @@ public partial class MultiplayerPanel : PanelContainer
                     GetTree().ChangeSceneToFile("res://scenes/Main.tscn");
                     return;
                 case Chat chat:
-                    _status.Text = $"{chat.From}: {chat.Text}";
+                    Say($"{chat.From}: {chat.Text}");
                     MenuSounds.Chat();
                     break;
             }
         }
         if (connection.Closed)
         {
-            _status.Text = "Disconnected from the relay.";
-            _lobby.Visible = _room.Visible = false;
+            Say("Disconnected from the relay.");
+            ShowOffline();
             _ = NetLink.DisconnectAsync();
         }
     }
+
+    private string PlayerName => string.IsNullOrWhiteSpace(_name.Text) ? "Player" : _name.Text;
 
     private async Task Connect()
     {
         if (_busy)
             return;
         _busy = true;
-        _status.Text = "Connecting…";
-        var error = await NetLink.ConnectAsync(_address.Text, string.IsNullOrWhiteSpace(_name.Text) ? "Player" : _name.Text);
+        Say("Connecting…");
+        var error = await NetLink.ConnectAsync(_relay.Text, PlayerName);
         _busy = false;
         if (error is not null)
         {
-            _status.Text = error;
+            Say(error);
             return;
         }
-        _status.Text = $"Connected as {NetLink.Name}.";
+        Say($"Connected as {NetLink.Name}.");
         ShowLobby();
     }
 
@@ -182,28 +175,36 @@ public partial class MultiplayerPanel : PanelContainer
         if (_busy)
             return;
         _busy = true;
-        _status.Text = "Starting the relay…";
-        var port = _address.Text.Split(':') is [_, var p] && int.TryParse(p, out var parsed) ? parsed : 7777;
-        var error = await NetLink.HostAsync(port, string.IsNullOrWhiteSpace(_name.Text) ? "Player" : _name.Text);
+        Say("Starting the relay…");
+        var port = _relay.Text.Split(':') is [_, var p] && int.TryParse(p, out var parsed) ? parsed : 7777;
+        var error = await NetLink.HostAsync(port, PlayerName);
         _busy = false;
         if (error is not null)
         {
-            _status.Text = error;
+            Say(error);
             return;
         }
         var addresses = System.Net.Dns.GetHostAddresses(System.Net.Dns.GetHostName())
             .Where(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && !System.Net.IPAddress.IsLoopback(a))
             .Select(a => $"{a}:{NetLink.HostedRelay!.Port}");
-        _status.Text = $"Hosting. The others connect to {string.Join(" or ", addresses)} " +
-                       "(over the internet: your public address, with the port forwarded).";
+        Say($"Hosting. The others connect to {string.Join(" or ", addresses)} " +
+            "(over the internet: your public address, with the port forwarded).");
         ShowLobby();
+    }
+
+    private void ShowOffline()
+    {
+        _state = null;
+        (_offline.Visible, _lobby.Visible, _room.Visible) = (true, false, false);
+        _connect.Disabled = _host.Disabled = false;
     }
 
     private void ShowLobby()
     {
         _state = null;
-        _lobby.Visible = true;
-        _room.Visible = false;
+        (_offline.Visible, _lobby.Visible, _room.Visible) = (false, true, false);
+        _connect.Disabled = _host.Disabled = true;
+        _join.Disabled = _roomList is not { Rooms.Count: > 0 };
         NetLink.Send(new ListRooms());
     }
 
@@ -216,8 +217,7 @@ public partial class MultiplayerPanel : PanelContainer
             return;
         }
         _state = state;
-        _lobby.Visible = false;
-        _room.Visible = true;
+        (_offline.Visible, _lobby.Visible, _room.Visible) = (false, false, true);
         _roomTitle.Text = $"{state.Name}   ·   {state.Scenario} on {state.Planet}   ·   {state.Players.Count}/{state.Slots.Count} players" +
                           (state.FillWithAi ? ", the rest AI" : "");
         _players.Clear();
@@ -226,24 +226,12 @@ public partial class MultiplayerPanel : PanelContainer
         // The ground counts only when everyone has the same export of it (MatchInfo.Terrain).
         if (state.Players.Where(p => p.Ready).Select(p => p.Terrain).Distinct().Count() > 1)
             _roomTitle.Text += "\nThe players' classic terrain exports differ: hills will not stop shots in this match";
-        _colour.SetBlockSignals(true);
         _colour.Selected = Array.IndexOf(Colours, me.Colour);
-        _colour.SetBlockSignals(false);
         _ready.SetBlockSignals(true);
         _ready.ButtonPressed = me.Ready;
         _ready.SetBlockSignals(false);
         _start.Visible = state.HostId == NetLink.ClientId;
         _start.Disabled = state.Players.Any(p => !p.Ready);
-    }
-
-    private void Create()
-    {
-        if (RoomFromMenu() is not { } room)
-        {
-            _status.Text = "Pick a map in the skirmish menu first.";
-            return;
-        }
-        NetLink.Send(room with { Name = $"{NetLink.Name}'s game", FillWithAi = _fillWithAi.ButtonPressed });
     }
 
     private void Join()
@@ -273,9 +261,9 @@ public partial class MultiplayerPanel : PanelContainer
     }
 
     /// <summary>
-    /// For automated checks: MACHINES_MP=host,&lt;address&gt; opens a room on the selected map, readies and starts once
-    /// a second player is ready; MACHINES_MP=serve,&lt;address&gt; does the same on a relay it hosts itself;
-    /// MACHINES_MP=join,&lt;address&gt; joins the first room and readies.
+    /// For automated checks: MACHINES_MP=host,&lt;address&gt; opens a room on the map last picked (or
+    /// MACHINES_MENU_SELECT's), readies and starts once a second player is ready; MACHINES_MP=serve,&lt;address&gt;
+    /// does the same on a relay it hosts itself; MACHINES_MP=join,&lt;address&gt; joins the first room and readies.
     /// </summary>
     private void Automate()
     {
@@ -284,7 +272,7 @@ public partial class MultiplayerPanel : PanelContainer
         var parts = setting.Split(',');
         var serve = parts[0] == "serve";
         var host = serve || parts[0] == "host";
-        _address.Text = parts.Length > 1 ? parts[1] : "127.0.0.1:7777";
+        _relay.Text = parts.Length > 1 ? parts[1] : "127.0.0.1:7777";
         _name.Text = host ? "Host" : "Guest";
         _ = Run();
 
@@ -295,7 +283,8 @@ public partial class MultiplayerPanel : PanelContainer
                 return;
             if (host)
             {
-                Create();
+                if (SkirmishPage.LastRoom() is { } room)
+                    NetLink.Send(room);
                 while (_state is not { Players.Count: >= 2 } || _state.Players.Any(p => p.ClientId != NetLink.ClientId && !p.Ready))
                     await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
                 _ready.ButtonPressed = true;

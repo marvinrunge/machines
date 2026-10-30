@@ -38,6 +38,9 @@ public static class MenuSounds
     /// <summary>A chat message has come in (MachGuiMessageBroker, chatmsg.wav).</summary>
     public static void Chat() => Play("chatmsg.wav");
 
+    /// <summary>A control changed by the keyboard rather than pressed (a choice stepped with the arrows).</summary>
+    public static void Click() => Play("click.wav");
+
     private static void Hook(Node node)
     {
         // The keyboard moving the focus to another control clicks with navkey.wav (MachGuiStartupScreens' keys).

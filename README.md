@@ -194,12 +194,13 @@ dotnet test Machines.sln
 ```
 
 Open `game/project.godot` in the Godot .NET editor and press Play. Godot builds `Machines.sln` from the
-repository root (`dotnet/project/solution_directory`). The game opens on the skirmish menu: pick a map
-(double click starts it) and settings, then Start.
+repository root (`dotnet/project/solution_directory`). The game opens on the main menu: Skirmish leads to the
+maps (double click starts one) and settings, Options to the look, volumes, window and the import from your game copy.
 
 For automated checks, `MACHINES_MAP=<scenario>,<planet>` skips the menu, `MACHINES_SCREENSHOT=<file.png>`
 saves a screenshot and quits (without fog of war unless `MACHINES_FOG=1`), and `MACHINES_SCREENSHOT_PLAY=punchA,3` plays an animation 3 s in (see `Game.cs` and
-`SkirmishMenu.cs` for the other `MACHINES_*` switches).
+`MenuScreens.cs` for the other `MACHINES_*` switches; `MACHINES_MENU_SCREENSHOT=<file.png>,<page>,<W>x<H>` saves a
+menu page at any window size).
 
 | Control | Does |
 | --- | --- |
@@ -213,11 +214,11 @@ saves a screenshot and quits (without fog of war unless `MACHINES_FOG=1`), and `
 | W A S D, edges, Q / E, wheel | Pan, rotate, zoom |
 | F | Drive the selected machine in first person: W/S drive, A/D or mouse turn, left mouse fires |
 | Ctrl+S, P, Esc | Stop, pause (not online), clear selection |
-| F10 | Back to the skirmish menu (online: leaves the match; the replay is saved) |
+| F10 | The menus: continue, briefing, save, load, options, or leave the match (the replay is saved) |
 
 ## Multiplayer
 
-One player presses **Multiplayer…** and **Host**: the game runs the relay on port 7777 and shows the
+One player opens **Multiplayer** and presses **Host**: the game runs the relay on port 7777 and shows the
 addresses the others connect to. The others type that address and **Connect**. Over the internet, the host
 forwards TCP 7777 to their computer, or everyone joins a VPN such as Tailscale. A dedicated relay runs with
 
