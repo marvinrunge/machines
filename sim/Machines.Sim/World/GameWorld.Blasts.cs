@@ -14,6 +14,14 @@ public sealed partial class GameWorld
     /// <summary>Blasts still to come (nuclear missiles in flight, punches on their way down): where and when.</summary>
     public IEnumerable<(float At, Vector2 Target)> Incoming => _incoming.Select(i => (i.At, i.Target));
 
+    /// <summary>A nuclear missile in flight: the silo it left and from where, its target, when it left and when it lands.</summary>
+    public readonly record struct MissileFlight(int Launcher, Vector2 From, Vector2 Target, float Launched, float Lands);
+
+    private readonly List<MissileFlight> _missiles = [];
+
+    /// <summary>The nuclear missiles in flight, for drawing them; their bombs are among <see cref="Incoming"/>.</summary>
+    public IReadOnlyList<MissileFlight> MissilesInFlight => _missiles;
+
     /// <summary>The research item that gives every pod of a race its ion cannon.</summary>
     public static readonly ResearchKey IonCannonResearch = new("POD", null, 1, "T_ION_ORBITAL_CANNON");
 
@@ -42,6 +50,7 @@ public sealed partial class GameWorld
         {
             var flight = Vector2.Distance(launcher.Position, target) / MathF.Max(1, weapon.Spec.ProjectileSpeed);
             ScheduleBlast(Time + flight, weapon.Spec, target, launcher.Race);
+            _missiles.Add(new MissileFlight(launcher.Id, launcher.Position, target, Time, Time + flight));
         }
         else
         {
@@ -76,6 +85,7 @@ public sealed partial class GameWorld
             StartBlast(_incoming[i].Weapon, _incoming[i].Target, _incoming[i].By, _incoming[i].Direction);
             _incoming.RemoveAt(i);
         }
+        _missiles.RemoveAll(m => m.Lands <= Time);
 
         foreach (var blast in Blasts)
         {

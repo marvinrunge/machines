@@ -136,4 +136,29 @@ public class AreaWeaponTests
         Assert.Equal(outside.MaxHitPoints, outside.HitPoints);
         Assert.Equal(outside.MaxArmour, outside.Armour);
     }
+
+    [Fact]
+    public void A_nuclear_missile_is_in_flight_from_its_silo_until_its_bomb_goes_off()
+    {
+        var world = NewMatch();
+        var silo = world.AddConstruction(Race.Red, new Vector2(500, 300), "MISSILE_EMPLACEMENT", "ICBM", 5, 0, complete: true);
+        var missile = Assert.Single(silo.Weapons);
+        missile.Reload = 0;
+        Assert.Empty(world.MissilesInFlight);
+
+        world.Issue(new StrikeCommand(Race.Red, silo.Id, Field));
+        world.Step();
+        var flight = Assert.Single(world.MissilesInFlight);
+        Assert.Equal(silo.Id, flight.Launcher);
+        Assert.Equal(silo.Position, flight.From);
+        Assert.Equal(Field, flight.Target);
+        Assert.Equal(Vector2.Distance(silo.Position, Field) / missile.Spec.ProjectileSpeed, flight.Lands - flight.Launched, 3);
+
+        Run(world, flight.Lands - world.Time - 0.2f);
+        Assert.Single(world.MissilesInFlight);
+        Assert.DoesNotContain(world.Blasts, b => b.Weapon == "NUCLEAR_MISSILE");
+        Run(world, 0.4f);
+        Assert.Empty(world.MissilesInFlight);
+        Assert.Contains(world.Blasts, b => b.Weapon == "NUCLEAR_MISSILE");
+    }
 }

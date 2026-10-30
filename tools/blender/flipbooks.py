@@ -1,10 +1,12 @@
 """Renders the weather's animated flipbooks (game/assets/particles/flipbooks) in Blender, from procedural volumes.
 
-    blender --background --factory-startup --python tools/blender/flipbooks.py -- <output folder> [frames] [size]
+    blender --background --factory-startup --python tools/blender/flipbooks.py -- <output folder> [frames] [size] [name ...]
 
 Each flipbook is a square sheet of 4 x 4 frames (16 by default), white on a transparent background, so the game
 tints it: a billowing cloud for storms (grows and thins over its life), a dust devil's funnel turning once round
-(it loops), and a splash ring for rain. Rendered with Cycles, on the GPU when there is one.
+(it loops), and a splash ring for rain. For the weapons, coloured as they burn (the game does not tint them): a
+fireball (a burst of fire cooling into smoke) and a flame (a tongue of fire licking up and dying away). Names pick
+some of them; all are made without. Rendered with Cycles, on the GPU when there is one.
 """
 import math
 import os
@@ -18,7 +20,7 @@ def arguments():
     out = args[0] if args else os.path.join(os.getcwd(), "flipbooks")
     frames = int(args[1]) if len(args) > 1 else 16
     size = int(args[2]) if len(args) > 2 else 256
-    return out, frames, size
+    return out, frames, size, set(args[3:])
 
 
 def reset():
@@ -234,6 +236,122 @@ def splash(scene, frames):
         yield f
 
 
+def fire_material(name, taper=0.0):
+    """
+    A burning volume: density from noise the caller shapes (see fireball and flame), and where it is hot a glow whose
+    colour runs from deep red through orange to a yellow core; where it has cooled, dark smoke. With a taper the ball
+    narrows towards its top to that share of its width, a tongue of flame. Returns the material and the nodes the
+    frames change: the noise, where it is sampled from, its threshold, the density's strength and the heat's.
+    """
+    mat, tree, volume = volume_material(name, (0.16, 0.15, 0.14))
+    volume.inputs["Absorption Color"].default_value = (0.02, 0.02, 0.02, 1)
+    coords = tree.nodes.new("ShaderNodeTexCoord")
+    shift = tree.nodes.new("ShaderNodeMapping")
+    tree.links.new(coords.outputs["Object"], shift.inputs["Vector"])
+    noise = node(tree, "ShaderNodeTexNoise", Scale=2.4, Detail=5.0, Roughness=0.62)
+    noise.noise_dimensions = "4D"
+    tree.links.new(shift.outputs["Vector"], noise.inputs["Vector"])
+    shape = coords.outputs["Object"]
+    if taper:
+        # Divide the width at each height by how wide the tongue is there: full at its foot, the taper at its top.
+        separate = tree.nodes.new("ShaderNodeSeparateXYZ")
+        tree.links.new(coords.outputs["Object"], separate.inputs["Vector"])
+        width = node(tree, "ShaderNodeMapRange", **{"From Min": -1.0, "From Max": 1.0, "To Min": 1.0, "To Max": taper})
+        tree.links.new(separate.outputs["Z"], width.inputs["Value"])
+        narrowed = tree.nodes.new("ShaderNodeCombineXYZ")
+        for axis in ("X", "Y"):
+            divide = tree.nodes.new("ShaderNodeMath")
+            divide.operation = "DIVIDE"
+            tree.links.new(separate.outputs[axis], divide.inputs[0])
+            tree.links.new(width.outputs["Result"], divide.inputs[1])
+            tree.links.new(divide.outputs["Value"], narrowed.inputs[axis])
+        tree.links.new(separate.outputs["Z"], narrowed.inputs["Z"])
+        shape = narrowed.outputs["Vector"]
+    distance = tree.nodes.new("ShaderNodeVectorMath")
+    distance.operation = "LENGTH"
+    tree.links.new(shape, distance.inputs[0])
+    edge = node(tree, "ShaderNodeMapRange", **{"From Min": 0.3, "From Max": 1.0, "To Min": 1.0, "To Max": 0.0})
+    tree.links.new(distance.outputs["Value"], edge.inputs["Value"])
+    threshold = node(tree, "ShaderNodeMapRange", **{"From Min": 0.42, "From Max": 0.68, "To Min": 0.0, "To Max": 1.0})
+    tree.links.new(noise.outputs["Fac"], threshold.inputs["Value"])
+    shaped = tree.nodes.new("ShaderNodeMath")
+    shaped.operation = "MULTIPLY"
+    tree.links.new(threshold.outputs["Result"], shaped.inputs[0])
+    tree.links.new(edge.outputs["Result"], shaped.inputs[1])
+    density = tree.nodes.new("ShaderNodeMath")
+    density.operation = "MULTIPLY"
+    tree.links.new(shaped.outputs["Value"], density.inputs[0])
+    tree.links.new(density.outputs["Value"], volume.inputs["Density"])
+    # The heat: hottest where it is dense and deep inside, scaled by how far the fire has burnt out.
+    inner = tree.nodes.new("ShaderNodeMath")
+    inner.operation = "MULTIPLY"
+    tree.links.new(shaped.outputs["Value"], inner.inputs[0])
+    tree.links.new(edge.outputs["Result"], inner.inputs[1])
+    heat = tree.nodes.new("ShaderNodeMath")
+    heat.operation = "MULTIPLY"
+    heat.use_clamp = True
+    tree.links.new(inner.outputs["Value"], heat.inputs[0])
+    ramp = tree.nodes.new("ShaderNodeValToRGB")
+    stops = ramp.color_ramp.elements
+    stops[0].position, stops[0].color = 0.0, (0.0, 0.0, 0.0, 1)
+    stops[1].position, stops[1].color = 1.0, (1.0, 0.82, 0.42, 1)
+    for at, colour in ((0.08, (0.3, 0.025, 0.0, 1)), (0.3, (0.9, 0.18, 0.015, 1)), (0.6, (1.0, 0.5, 0.08, 1))):
+        stop = stops.new(at)
+        stop.color = colour
+    tree.links.new(heat.outputs["Value"], ramp.inputs["Fac"])
+    tree.links.new(ramp.outputs["Color"], volume.inputs["Emission Color"])
+    glow = tree.nodes.new("ShaderNodeMath")
+    glow.operation = "MULTIPLY"
+    glow.inputs[1].default_value = 3.5
+    tree.links.new(heat.outputs["Value"], glow.inputs[0])
+    tree.links.new(glow.outputs["Value"], volume.inputs["Emission Strength"])
+    return mat, noise, shift, threshold, density, heat
+
+
+def fireball(scene, frames):
+    """A burst of fire: a glowing ball that swells, tears into tatters and cools into dark smoke."""
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=3, radius=1)
+    ball = bpy.context.active_object
+    mat, noise, _, threshold, density, heat = fire_material("Fireball")
+    ball.data.materials.append(mat)
+    camera(scene, 2.2, 2.2, 0)
+    for f in range(frames):
+        t = f / (frames - 1)
+        scene.frame_set(f + 1)
+        s = 0.5 + 0.5 * t ** 0.5
+        ball.scale = (s, s, s)
+        noise.inputs["W"].default_value = t * 1.2
+        threshold.inputs["From Min"].default_value = 0.4 + 0.14 * t
+        density.inputs[1].default_value = 5.0 * (1 - 0.5 * t)
+        heat.inputs[1].default_value = 2.4 * max(0.0, 1 - t / 0.75) ** 1.4
+        yield f
+
+
+def flame(scene, frames):
+    """A tongue of flame, broad at its foot and pointed at its top: it leaps up hot and yellow, its fire rising through
+    it, and reddens, tears and dies away."""
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=16, radius=1)
+    tongue = bpy.context.active_object
+    mat, noise, shift, threshold, density, heat = fire_material("Flame", taper=0.2)
+    noise.inputs["Scale"].default_value = 2.6
+    tongue.data.materials.append(mat)
+    camera(scene, 1.1, 2.2, 0)
+    for f in range(frames):
+        t = f / (frames - 1)
+        scene.frame_set(f + 1)
+        # Twice as tall as wide, rising a little and thinning as it goes.
+        tongue.location = (0, 0, -0.05 + 0.15 * t)
+        s = 1 - 0.3 * t
+        tongue.scale = (0.5 * s, 0.5 * s, 1.0)
+        shift.inputs["Location"].default_value = (0, 0, -1.4 * t)
+        shift.inputs["Scale"].default_value = (1, 1, 0.55)
+        noise.inputs["W"].default_value = t * 0.8
+        threshold.inputs["From Min"].default_value = 0.36 + 0.14 * t
+        density.inputs[1].default_value = 9.0 * (1 - 0.4 * t)
+        heat.inputs[1].default_value = 3.0 * (1 - 0.6 * t)
+        yield f
+
+
 def sheet(paths, out, columns, gain):
     """
     The frames side by side in a square sheet, left to right and top to bottom, their colour brightened by gain (the
@@ -261,10 +379,16 @@ def sheet(paths, out, columns, gain):
 
 
 def main():
-    out, frames, size = arguments()
+    out, frames, size, only = arguments()
     os.makedirs(out, exist_ok=True)
-    for name, make, (rx, ry), gain in (("billow", billow, (1, 1), 1.8), ("devil", devil, (1, 2), 1.5), ("splash", splash, (1, 1), 1.0)):
+    for name, make, (rx, ry), gain in (("billow", billow, (1, 1), 1.8), ("devil", devil, (1, 2), 1.5), ("splash", splash, (1, 1), 1.0),
+                                        ("fireball", fireball, (1, 1), 1.0), ("flame", flame, (1, 2), 1.0)):
+        if only and name not in only:
+            continue
         scene = reset()
+        # Fire glows inside: more samples, or its edge stays grainy.
+        if name in ("fireball", "flame"):
+            scene.cycles.samples = 256
         # The devil is twice as tall as wide; its frames are too.
         scene.render.resolution_x = size * rx // ry
         scene.render.resolution_y = size

@@ -8,7 +8,9 @@ namespace Machines.Game;
 /// (MachPhysHealHelix) and the green crosses round the machine it heals (MachPhysHealAura), the electric charger's
 /// spinning lightning (MachPhysElectro) and the halo that runs up and down its victim (MachPhysLightningHalo), the
 /// flames of a machine a flamethrower set alight (MachPhysMachineBurning) and the rings of light round a
-/// transporter as it loads or unloads ore (MachPhysResourceLoading). Without the export they are left out.
+/// transporter as it loads or unloads ore (MachPhysResourceLoading). Without the export they are left out. In the
+/// remake's effects the helices, the lightning and the loading rings are bands and rings of light instead, and the
+/// flames the rendered fire (see SupportEffects.Remake.cs).
 /// </summary>
 public partial class SupportEffects : Node3D
 {
@@ -32,7 +34,8 @@ public partial class SupportEffects : Node3D
         public required Node3D Root { get; init; }
         public required MeshInstance3D Left { get; init; }
         public required MeshInstance3D Right { get; init; }
-        public required StandardMaterial3D Material { get; init; }
+        /// <summary>The original helices' material; null for the remake's bands of light.</summary>
+        public StandardMaterial3D? Material { get; init; }
         public Vector3 From, To;
         public bool Seen;
     }
@@ -47,6 +50,8 @@ public partial class SupportEffects : Node3D
         public required StandardMaterial3D Material { get; init; }
         public required float Size { get; init; }
         public required float Clearance { get; init; }
+        /// <summary>How much brighter than the original the crosses glow (the remake's effects).</summary>
+        public float Bright = 1;
         public float Started;
         public bool Seen;
     }
@@ -100,6 +105,8 @@ public partial class SupportEffects : Node3D
 
     private Beam? NewBeam()
     {
+        if (GraphicsSettings.Effects)
+            return NewBand();
         if (_assets.EffectMesh("helix1") is not { } left || _assets.EffectMesh("helix2") is not { } right)
             return null;
         var material = Glow(new Color(0.2f, 1f, 0.3f));
@@ -137,7 +144,13 @@ public partial class SupportEffects : Node3D
             var turn = Mathf.Tau * _time / 3;
             beam.Left.Transform = new Transform3D(new Basis(Vector3.Right, turn + Mathf.Tau * 2 / 3), Vector3.Zero);
             beam.Right.Transform = new Transform3D(new Basis(Vector3.Right, -turn), Vector3.Zero);
-            beam.Material.AlbedoColor = new Color(0.2f, 1f, 0.3f, alpha);
+            if (beam.Material is { } material)
+                material.AlbedoColor = new Color(0.2f, 1f, 0.3f, alpha);
+            else
+            {
+                beam.Left.SetInstanceShaderParameter("fade", 0.4f + 0.6f * alpha);
+                beam.Right.SetInstanceShaderParameter("fade", 0.4f + 0.6f * alpha);
+            }
         }
     }
 
@@ -173,7 +186,11 @@ public partial class SupportEffects : Node3D
         root.AddChild(top);
         top.Position = new Vector3(centre.X, bounds.End.Y + clearance, centre.Z);
         patient.AddChild(root);
-        return new Aura { Root = root, Radial = radial, Central = top, Material = material, Size = size, Clearance = clearance, Started = _time };
+        return new Aura
+        {
+            Root = root, Radial = radial, Central = top, Material = material, Size = size, Clearance = clearance, Started = _time,
+            Bright = GraphicsSettings.Effects ? 2.4f : 1,
+        };
     }
 
     private void UpdateAuras()
@@ -190,7 +207,7 @@ public partial class SupportEffects : Node3D
             }
             aura.Central.Scale = Vector3.One * scale;
             var fade = Mathf.Clamp((cycle - phase * cycle) / 0.2f, 0, 1);
-            aura.Material.AlbedoColor = new Color(0.2f, 1f, 0.3f, 0.8f * fade);
+            aura.Material.AlbedoColor = new Color(0.2f * aura.Bright, aura.Bright, 0.3f * aura.Bright, 0.8f * fade);
         }
     }
 
@@ -230,6 +247,14 @@ public partial class SupportEffects : Node3D
     /// </summary>
     public void Lightning(Vector3 from, Vector3 to, ActorView? victim)
     {
+        if (GraphicsSettings.Effects)
+        {
+            Bolt(from, to);
+            if (victim is not null && _assets.EffectMesh("lightbox") is { } halo)
+                for (var sign = -1; sign <= 1; sign += 2)
+                    Halo(victim, halo, sign);
+            return;
+        }
         if (_assets.EffectMesh("lightning") is not { } mesh)
             return;
         var length = from.DistanceTo(to);
@@ -316,6 +341,11 @@ public partial class SupportEffects : Node3D
             already.Duration = already.Age + seconds;
             return;
         }
+        if (GraphicsSettings.Effects)
+        {
+            Fire(victim, seconds);
+            return;
+        }
         var pictures = Enumerable.Range(0, 16).Select(i => _assets.Texture($"models/texture4/fire/fl{i:D2}_bt.bmp")).OfType<Texture2D>().ToArray();
         if (pictures.Length == 0)
             return;
@@ -379,6 +409,11 @@ public partial class SupportEffects : Node3D
     /// </summary>
     public void Loading(ActorView carrier)
     {
+        if (GraphicsSettings.Effects)
+        {
+            Rings(carrier);
+            return;
+        }
         if (_assets.EffectMesh("loadunder") is not { } under || _assets.EffectMesh("loadover") is not { } over
             || _assets.EffectMesh("loadlight") is not { } disc)
             return;

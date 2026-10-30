@@ -120,6 +120,26 @@ runs steps 1 to 6 (and the check in 7) in an empty Blender file, and it is run a
 - Ask for no painted eyes (a plain plate where the faceplate goes) and no weapons. Weapons are made on their own.
 - Check the licence of the generation (Meshy's free tier is CC BY 4.0) before it goes into the repo.
 
+## Projectiles
+
+The solid projectiles and what the weapons leave lying about are built from primitives by a script, with no
+Meshy or Gemini: the multi-launchers' missiles `mis1`–`mis7`, the large missile `lmiss`, the nuclear missile
+`nmisea`, the wasp's metal sting `stingmetal`, the land mine `lmine` and the wreck `debris`.
+
+```
+blender -b --factory-startup -P tools/blender/fx_models.py -- classic [name ...]
+blender -b --factory-startup -P tools/blender/fx_preview.py -- classic renders/fx/models.png mis3:<machine id> ...
+```
+
+- `fx_models.py` keeps each original's size, axes and origin (nose along x, tail at x = 0, mine and wreck on
+  z = 0) and writes `classic/remake/fx/<name>.json` with 1k albedo, normal, ORM and, for glowing parts, emission
+  maps beside it. `ClassicAssets.EffectMesh` shows them in the overhauled and HD looks.
+- `fx_preview.py` renders the contact sheet: each original beside its remake, and the remake beside the machine
+  that fires it.
+- The energy rounds (plasma, pulse, the light sting), shots, impacts, explosions and the big blasts are not
+  models: they are shaders and particles made in the game (`FxShaders`, `Effects`, `RoundLooks`, `GroundBlast`),
+  with the fire flipbooks from `flipbooks.py`.
+
 ## What the original rigs are like
 
 - **The parts the cycles move.** Look at the cycles first (the amplitude of each node over each cycle). In the

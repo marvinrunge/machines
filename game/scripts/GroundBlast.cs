@@ -38,6 +38,8 @@ public partial class GroundBlast : Node3D
     /// </summary>
     private static GroundBlast? IonCannon(ClassicAssets assets, Blast blast, IReadOnlyList<float> extras)
     {
+        if (GraphicsSettings.Effects)
+            return RemadeIonCannon(assets, blast, extras);
         if (assets.EffectMesh("ionbeam") is not { } beamMesh || assets.EffectMesh("ionouter") is not { } outerMesh
             || assets.EffectMesh("ionwave") is not { } waveMesh)
             return null;
@@ -90,6 +92,8 @@ public partial class GroundBlast : Node3D
     /// </summary>
     private static GroundBlast? Nuke(ClassicAssets assets, Blast blast, IReadOnlyList<float> extras)
     {
+        if (GraphicsSettings.Effects)
+            return RemadeNuke(assets, blast, extras);
         if (assets.EffectMesh("nukewave") is not { } waveMesh || assets.EffectMesh("mushtop") is not { } topMesh
             || assets.EffectMesh("mushshaft") is not { } shaftMesh)
             return null;
@@ -149,7 +153,8 @@ public partial class GroundBlast : Node3D
         const float duration = 10, split = 8;
         var view = new GroundBlast { Name = "Vortex" };
         var at = ActorView.World(blast.Position);
-        var (vortex, _) = view.Piece(vortexMesh);
+        // In the remake's effects the vortex is a sphere of swirling light drawing dust in.
+        var vortex = GraphicsSettings.Effects ? view.SwirlingVortex(at, split) : view.Piece(vortexMesh).View;
         var (black, _) = view.Piece(blackMesh);
         var (white, whiteMaterial) = view.Piece(whiteMesh);
         var whiteClear = whiteMaterial.AlbedoColor.A;
@@ -250,7 +255,8 @@ public partial class GroundBlast : Node3D
         if (assets.EffectMesh("beecrack") is not { } crack || assets.EffectMesh("beefire") is not { } fire)
             return null;
         float Extra(int i, float fallback) => i < extras.Count ? extras[i] : fallback;
-        var view = new GroundBlast { Name = "BeeBomb" };
+        // Its fire burns blue.
+        var view = new GroundBlast { Name = "BeeBomb", _flameTint = new Color(0.45f, 0.65f, 1.6f) };
         var light = new Color(Extra(0, 0), Extra(1, 0), Extra(2, 2));
         // EXTRAS: the light's colour, then for each of the six rings its size, fire height, start and duration.
         for (var ring = 0; ring < 6; ring++)
@@ -303,14 +309,19 @@ public partial class GroundBlast : Node3D
         var along = (b - a) / 2;
         var across = along.Cross(Vector3.Up).Normalized();
         var (crack, crackMaterial) = Piece(crackMesh);
-        var (fire, fireMaterial) = Piece(fireMesh);
+        // In the remake's effects the fire is a wall of the rendered flames, burning by itself.
+        if (GraphicsSettings.Effects)
+            FlameWall(a, b, start, fireTime, fireFade, fireHeight * fireMesh.GetAabb().Size.Y, fireFalls);
+        (MeshInstance3D? fire, StandardMaterial3D? fireMaterial) = GraphicsSettings.Effects ? (null, null) : Piece(fireMesh);
 
         _parts.Add(age =>
         {
             var t = age - start;
             crack.Visible = t >= 0 && t < crackTime;
-            fire.Visible = t >= 0 && t < fireTime;
-            if (!crack.Visible && !fire.Visible)
+            var burning = fire is not null && t >= 0 && t < fireTime;
+            if (fire is not null)
+                fire.Visible = burning;
+            if (!crack.Visible && !burning)
                 return t < 0;
             if (crack.Visible)
             {
@@ -318,15 +329,15 @@ public partial class GroundBlast : Node3D
                 crack.Transform = new Transform3D(new Basis(along, Vector3.Up, across * width), a);
                 Fade(crackMaterial, Fading(t, crackFade, crackTime));
             }
-            if (fire.Visible)
+            if (burning)
             {
                 // From a tenth of its height up to fireHeight, and for the punch straight back down again.
                 var rise = fireFalls ? fireFade : fireTime;
                 var height = t < rise
                     ? Mathf.Lerp(0.1f, fireHeight, t / rise)
                     : Mathf.Lerp(fireHeight, 0.1f, (t - rise) / Mathf.Max(0.01f, fireTime - rise));
-                fire.Transform = new Transform3D(new Basis(along, Vector3.Up * height, across), a);
-                Fade(fireMaterial, Fading(t, fireFade, fireTime));
+                fire!.Transform = new Transform3D(new Basis(along, Vector3.Up * height, across), a);
+                Fade(fireMaterial!, Fading(t, fireFade, fireTime));
             }
             return true;
         });

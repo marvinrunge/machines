@@ -15,5 +15,13 @@ pixels; their alpha holds the shape, their colour is white or grey and is tinted
 | `spark_05`, `star_01` | embers |
 | `scorch_02`, `twirl_02` | spare (dust devils, wind gusts) |
 
-Animated flipbooks (dust devils, storm walls, splashes) are rendered in Blender and go in
-`flipbooks/` beside these.
+Animated flipbooks are rendered in Blender (`tools/blender/flipbooks.py`, 4 by 4 frames) and go in
+`flipbooks/` beside these:
+
+| File | Used for |
+|---|---|
+| `billow` | storm walls; smoke from explosions, missile hits and the nuke's cap; the nuke's dust wave |
+| `devil` | dust devils |
+| `splash` | rain splashes |
+| `fireball` | explosions, missile hits, the flamethrower's stream (its burning half only), the nuke's mushroom (fire cooling into smoke, coloured as rendered) |
+| `flame` | damage fires, burning machines, where the flamethrower reaches the ground, the fire walls of punch, bee bomb, ion cannon and nuke (twice as high as wide; greyed in the game for the bee bomb's blue) |

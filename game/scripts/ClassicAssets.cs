@@ -92,14 +92,28 @@ public sealed class ClassicAssets
         return mesh;
     }
 
-    /// <summary>A weapon effect from the original (a projectile or an impact splat, <c>classic/models/fx</c>), or null.</summary>
+    /// <summary>
+    /// A weapon effect from the original (a projectile, an impact splat, the land mine, the wreck: <c>classic/models/fx</c>),
+    /// or null. With the overhauled or HD models the solid ones are the remakes (<c>classic/remake/fx</c>, made by
+    /// tools/blender/fx_models.py) where they have been made. A remake brings the original's glows (a missile's exhaust
+    /// flare) only while the remake's effects are off: those draw their own.
+    /// </summary>
     public Mesh? EffectMesh(string name)
     {
-        var key = "fx/" + name;
+        var remade = _modelFolder is null || !Upgraded ? null : Path.Combine(_modelFolder, "..", "remake", "fx", name + ".json");
+        if (remade is not null && !File.Exists(remade))
+            remade = null;
+        var key = $"fx/{name}|{remade is not null}|{GraphicsSettings.Effects}";
         if (_meshes.TryGetValue(key, out var cached))
             return cached;
         var path = _modelFolder is null ? null : Path.Combine(_modelFolder, "fx", name + ".json");
-        var mesh = path is not null && File.Exists(path) ? MeshFromJson(path) : null;
+        var mesh = remade is not null ? MeshFromJson(remade) : path is not null && File.Exists(path) ? MeshFromJson(path) : null;
+        if (remade is not null && !GraphicsSettings.Effects && mesh is ArrayMesh made && path is not null && File.Exists(path))
+        {
+            using var original = JsonDocument.Parse(File.ReadAllBytes(path));
+            if (original.RootElement.TryGetProperty("sprites", out var glows))
+                AddSprites(made, glows, null);
+        }
         if (mesh is not null)
             _meshes[key] = mesh;
         return mesh;
@@ -587,7 +601,7 @@ public sealed class ClassicAssets
             // Upgraded parts may say how rough they are (the tyres' rubber).
             float? roughness = part.TryGetProperty("roughness", out var given) ? given.GetSingle() : null;
             mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, maps is { } meshyMaps
-                ? MeshyMaterial(meshyMaps)
+                ? MeshyMaterial(meshyMaps, part.TryGetProperty("emissionEnergy", out var energy) ? energy.GetSingle() : 1)
                 : MaterialFor(part.GetProperty("texture").GetString() ?? "", diffuse, race, emissive, vertexColours, occluded, roughness));
         }
         if (model.TryGetProperty("sprites", out var sprites))
@@ -599,9 +613,10 @@ public sealed class ClassicAssets
 
     /// <summary>
     /// A Meshy model's material: its colour map, its normal map and the glTF metal-roughness map (roughness in
-    /// green, metal in blue), all in classic/ under the paths the part names.
+    /// green, metal in blue), all in classic/ under the paths the part names. The remade effect models may bring an
+    /// emission map too, glowing <paramref name="emissionEnergy"/> times as bright.
     /// </summary>
-    private Material MeshyMaterial(JsonElement maps)
+    private Material MeshyMaterial(JsonElement maps, float emissionEnergy = 1)
     {
         string? MapPath(string key) => maps.TryGetProperty(key, out var p) && _modelFolder is not null
             ? Path.Combine(_modelFolder, "..", p.GetString() ?? "")
@@ -629,6 +644,15 @@ public sealed class ClassicAssets
             material.MetallicTexture = orm;
             material.MetallicTextureChannel = BaseMaterial3D.TextureChannel.Blue;
             material.Metallic = 1;
+        }
+        if (MapPath("emission") is { } emissionPath && LoadPng(emissionPath, Image.CompressSource.Srgb) is { } emission)
+        {
+            material.EmissionEnabled = true;
+            material.EmissionTexture = emission;
+            // The map alone: by default the colour would be added to it, lighting the whole model.
+            material.EmissionOperator = BaseMaterial3D.EmissionOperatorEnum.Multiply;
+            material.Emission = Colors.White;
+            material.EmissionEnergyMultiplier = emissionEnergy;
         }
         _materials["meshy|" + albedo] = material;
         return material;

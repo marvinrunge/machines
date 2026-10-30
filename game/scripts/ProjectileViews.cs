@@ -81,12 +81,12 @@ public partial class ProjectileViews : Node3D
             _shown.Remove(id);
             // Struck short of its range: the weapon's splat where it hit.
             if (projectile.Travelled < projectile.Weapon.Range - 0.5f)
-                Splat(view.GlobalPosition, projectile.Weapon.TypeName);
+                Splat(view.GlobalPosition, projectile.Weapon.TypeName, view.GlobalBasis.X);
             if (IsMissile(projectile.Weapon.TypeName))
             {
                 // A missile bursts wherever its flight ends, and its trail drifts on and thins out behind it.
                 if (GraphicsSettings.Effects)
-                    _effects?.Impact(view.GlobalPosition);
+                    _effects?.MissileHit(view.GlobalPosition, view.GlobalBasis.X);
                 if (view.GetNodeOrNull<GpuParticles3D>("Trail") is { } trail)
                 {
                     trail.Reparent(this);
@@ -96,6 +96,7 @@ public partial class ProjectileViews : Node3D
             }
             view.QueueFree();
         }
+        ShowMissilesInFlight((float)delta);
     }
 
     private static Vector3 Direction(Projectile projectile) => new(projectile.Direction.X, 0, projectile.Direction.Y);
@@ -139,20 +140,31 @@ public partial class ProjectileViews : Node3D
     {
         var view = Shape(projectile);
         var name = projectile.Weapon.TypeName;
-        // Missiles trail vapour from their tail; the models point along their x axis.
+        // Missiles trail vapour from their tail; the models point along their x axis. In the remake's effects they
+        // burn with an exhaust flame and trail smoke from their real tail.
         if (IsMissile(name))
         {
-            var trail = Effects.VapourTrail();
-            view.AddChild(trail);
-            trail.Position = new Vector3(-0.8f, 0, 0);
+            if (GraphicsSettings.Effects && view is MeshInstance3D { Mesh: { } model })
+                RoundLooks.Exhaust(view, model);
+            else
+            {
+                var trail = Effects.VapourTrail();
+                view.AddChild(trail);
+                trail.Position = new Vector3(-0.8f, 0, 0);
+            }
         }
-        // In the remake plasma and pulse rounds light the ground and machines they pass.
-        if (GraphicsSettings.Effects && _litRounds < MostLitRounds && (name.Contains("PLASMA") || name.Contains("PULSE")))
+        // The wasp's metal sting glows hot at its tip and streaks through the air.
+        if (GraphicsSettings.Effects && name == "WASP_METAL_STING" && view is MeshInstance3D { Mesh: { } sting })
+            RoundLooks.HotTip(view, sting);
+        // In the remake energy rounds and missiles light the ground and machines they pass.
+        var glow = name.Contains("PLASMA") ? RoundLooks.Plasma : name.Contains("PULSE") ? RoundLooks.Pulse
+            : name == "WASP_LIGHT_STING" ? RoundLooks.Sting : IsMissile(name) ? new Color(1, 0.6f, 0.3f) : (Color?)null;
+        if (GraphicsSettings.Effects && _litRounds < MostLitRounds && glow is { } colour)
         {
             _litRounds++;
             view.AddChild(new OmniLight3D
             {
-                LightColor = name.Contains("PLASMA") ? new Color(0.35f, 1f, 0.45f) : new Color(0.45f, 0.7f, 1f),
+                LightColor = colour,
                 LightEnergy = 2f,
                 OmniRange = 9,
                 ShadowEnabled = false,
@@ -166,6 +178,9 @@ public partial class ProjectileViews : Node3D
     {
         if (projectile.Weapon.TypeName == "ORB_OF_TREACHERY" && Orb(projectile.Race) is { } orb)
             return orb;
+        // The remake's energy bolts in place of the original's flares.
+        if (GraphicsSettings.Effects && RoundLooks.Bolt(projectile.Weapon.TypeName) is { } bolt)
+            return bolt;
         if (Models.TryGetValue(projectile.Weapon.TypeName, out var model) && _assets.EffectMesh(model) is { } mesh)
             return new MeshInstance3D { Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
 
@@ -216,16 +231,28 @@ public partial class ProjectileViews : Node3D
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             Scale = Vector3.One * 0.01f,
         };
+        // In the remake's effects the ring glows brighter, and a swirling ball of the colour in it.
+        var lit = colour;
+        if (GraphicsSettings.Effects)
+        {
+            lit = colour * 1.6f;
+            orb.AddChild(FxShaders.NewOrb(colour, 2.5f, 1.1f));
+        }
         var open = CreateTween().BindNode(orb).SetParallel();
         open.TweenProperty(orb, "scale", Vector3.One * 2, 0.7f);
-        open.TweenProperty(material, "albedo_color", colour with { A = 1 }, 0.7f);
-        open.Chain().TweenProperty(material, "albedo_color", colour with { A = 0.5f }, 0.05f);
+        open.TweenProperty(material, "albedo_color", lit with { A = 1 }, 0.7f);
+        open.Chain().TweenProperty(material, "albedo_color", lit with { A = 0.5f }, 0.05f);
         return orb;
     }
 
     /// <summary>The weapon's impact splat (plasplat, pulsplat), growing and fading in a third of a second.</summary>
-    private void Splat(Vector3 at, string weapon)
+    private void Splat(Vector3 at, string weapon, Vector3 heading)
     {
+        if (GraphicsSettings.Effects && _effects is not null && (weapon.Contains("PLASMA") || weapon.Contains("PULSE") || weapon == "WASP_LIGHT_STING"))
+        {
+            _effects.EnergySplat(at, weapon, heading);
+            return;
+        }
         var name = weapon.Contains("PLASMA") ? "splat" : weapon.Contains("PULSE") ? "pulsesplat" : null;
         if (name is null || _assets.EffectMesh(name) is not { } mesh)
             return;

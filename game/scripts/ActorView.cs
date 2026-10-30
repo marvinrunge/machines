@@ -176,6 +176,8 @@ public partial class ActorView : Node3D
     // A constructor at work (MachPhysConstructor::startConstructing): per jet a torch beam reaching for the
     // building's centre, sparks, and a flickering light.
     private readonly List<(string Jet, Node3D Torch, Node3D Sparks, OmniLight3D Light)> _jets = [];
+    // In the remake's effects the torch is a flowing beam of light and the sparks fly as particles.
+    private bool _remadeJets;
     private Vector3? _constructAt;
     private double _constructTime;
 
@@ -202,10 +204,23 @@ public partial class ActorView : Node3D
         }
         if (_jets.Count > 0)
             return;
+        _remadeJets = GraphicsSettings.Effects;
         foreach (var jet in new[] { "l_jet", "r_jet" })
         {
             if (_rigView.PartTransform(jet) is null)
                 continue;
+            if (_remadeJets)
+            {
+                var flowing = FxShaders.NewStreak(new Color(0.55f, 0.8f, 1f), 3, 0.3f, 5, head: 0, taper: 0.5f, flicker: 0.3f, white: 0.35f);
+                flowing.SetInstanceShaderParameter("flow", 25f);
+                var shower = TorchSparks();
+                var glare = new OmniLight3D { LightColor = new Color(0.6f, 0.8f, 1), LightEnergy = 3, OmniRange = 10 };
+                AddChild(flowing);
+                AddChild(shower);
+                AddChild(glare);
+                _jets.Add((jet, flowing, shower, glare));
+                continue;
+            }
             var beam = new MeshInstance3D { Mesh = torch ?? new BoxMesh { Size = new Vector3(5, 0.15f, 0.15f) }, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
             var spray = new MeshInstance3D { Mesh = sparks ?? new SphereMesh { Radius = 0.3f, Height = 0.6f }, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
             // The original's light: blue-white, a few metres.
@@ -236,14 +251,48 @@ public partial class ActorView : Node3D
             if (length > 0.1f)
             {
                 var along = reach / length;
-                torch.GlobalTransform = new Transform3D(new Basis(along * (length / 5), Vector3.Up, along.Cross(Vector3.Up)), from);
+                if (_remadeJets)
+                {
+                    // The beam runs back along its +z from its origin: from the jet towards the building.
+                    torch.GlobalTransform = new Transform3D(Basis.LookingAt(-along, Vector3.Up), from);
+                    ((GeometryInstance3D)torch).SetInstanceShaderParameter("reach", length);
+                }
+                else
+                    torch.GlobalTransform = new Transform3D(new Basis(along * (length / 5), Vector3.Up, along.Cross(Vector3.Up)), from);
             }
-            sparks.GlobalTransform = new Transform3D(new Basis(Vector3.Up, (float)GD.RandRange(0, Mathf.Tau)), from);
-            sparks.Visible = GD.Randf() < 0.8f;
+            if (_remadeJets)
+                sparks.GlobalPosition = from;
+            else
+            {
+                sparks.GlobalTransform = new Transform3D(new Basis(Vector3.Up, (float)GD.RandRange(0, Mathf.Tau)), from);
+                sparks.Visible = GD.Randf() < 0.8f;
+            }
             light.GlobalPosition = from;
             light.Visible = lit;
         }
     }
+
+    /// <summary>The torch's sparks in the remake's effects: a steady shower of hot streaks from the jet, falling as they cool.</summary>
+    private static GpuParticles3D TorchSparks() => new()
+    {
+        Amount = 30,
+        Lifetime = 0.5f,
+        LocalCoords = false,
+        CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        DrawPass1 = FxShaders.SparkQuad.Value,
+        ProcessMaterial = new ParticleProcessMaterial
+        {
+            ParticleFlagAlignY = true,
+            Direction = Vector3.Up,
+            Spread = 70,
+            InitialVelocityMin = 3,
+            InitialVelocityMax = 7,
+            Gravity = new Vector3(0, -12, 0),
+            ScaleMin = 0.2f,
+            ScaleMax = 0.4f,
+            ColorRamp = Effects.Ramp(new Color(2.6f, 2.8f, 3.2f, 1), new Color(2.4f, 1.6f, 0.7f, 1), new Color(1.2f, 0.5f, 0.15f, 0)),
+        },
+    };
 
     /// <summary>A building at work plays its working motion (fans turn, arms dig) and smokes from its chimneys.</summary>
     public bool Working

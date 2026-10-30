@@ -15,137 +15,7 @@ public partial class Effects : Node3D
     private readonly Queue<Decal> _scorches = new();
     private int _lights;
 
-    // ---- shots ----------------------------------------------------------------------------------
-
-    /// <summary>A shot: flash at the muzzle, a bolt flying to the target at <paramref name="speed"/> m/s, sparks on arrival.</summary>
-    public void Shot(Vector3 from, Vector3 to, string weapon, float speed)
-    {
-        var colour = WeaponColour(weapon);
-        Glow(from, colour * 4, 1.2f, 0.06f);
-        Light(from, colour, 2.5f, 8, 0.08f);
-        if (Smokes(weapon))
-            FiringSmoke(from);
-
-        var distance = from.DistanceTo(to);
-        if (distance < 0.5f)
-            return;
-        var flight = Mathf.Clamp(distance / Mathf.Max(speed, 1), 0.04f, 0.6f);
-        var bolt = new MeshInstance3D
-        {
-            Mesh = new BoxMesh { Size = new Vector3(0.18f, 0.18f, Mathf.Min(3f, distance * 0.3f)) },
-            MaterialOverride = Emissive(colour, 5),
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-        };
-        AddChild(bolt);
-        bolt.GlobalPosition = from;
-        bolt.LookAt(to, Vector3.Up);
-        var tween = bolt.CreateTween();
-        tween.TweenProperty(bolt, "global_position", to, flight);
-        tween.TweenCallback(Callable.From(() =>
-        {
-            Sparks(to, colour, 10);
-            bolt.QueueFree();
-        }));
-    }
-
-    // ---- explosions -----------------------------------------------------------------------------
-
-    /// <summary>Something blows up: a fireball, rolling smoke, flying debris, a flash and a scorch mark, scaled by its size.</summary>
-    public void Explosion(Vector3 at, float size)
-    {
-        var scale = Mathf.Clamp(size / 3, 1f, 4f);
-        Light(at + Vector3.Up * 2 * scale, new Color(1, 0.6f, 0.25f), 6, 18 * scale, 0.5f);
-
-        // Fireball: bright, growing, fading to dark red.
-        Burst(at + Vector3.Up * scale, amount: (int)(24 * scale), lifetime: 0.9f, texture: Soft,
-            new ParticleProcessMaterial
-            {
-                EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Sphere,
-                EmissionSphereRadius = 1.2f * scale,
-                Direction = Vector3.Up,
-                Spread = 180,
-                InitialVelocityMin = 2 * scale,
-                InitialVelocityMax = 6 * scale,
-                Gravity = new Vector3(0, 2, 0),
-                DampingMin = 4,
-                DampingMax = 6,
-                ScaleMin = 5f * scale,
-                ScaleMax = 8.5f * scale,
-                ScaleCurve = Grow(0.45f),
-                ColorRamp = Ramp(new Color(3.2f, 1.8f, 0.6f), new Color(2.2f, 0.7f, 0.12f, 0.9f), new Color(0.5f, 0.12f, 0.04f, 0)),
-            }, additive: true);
-
-        // Smoke: dark, slow, rising and spreading.
-        Burst(at + Vector3.Up * scale, amount: (int)(18 * scale), lifetime: 4f, texture: Soft,
-            new ParticleProcessMaterial
-            {
-                EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Sphere,
-                EmissionSphereRadius = 1.5f * scale,
-                Direction = Vector3.Up,
-                Spread = 35,
-                InitialVelocityMin = 1.5f,
-                InitialVelocityMax = 4f,
-                Gravity = new Vector3(0.4f, 1.2f, 0),
-                DampingMin = 0.5f,
-                DampingMax = 1,
-                ScaleMin = 10f * scale,
-                ScaleMax = 15f * scale,
-                ScaleCurve = Grow(0.25f),
-                ColorRamp = Ramp(new Color(0.15f, 0.13f, 0.12f, 0.6f), new Color(0.13f, 0.12f, 0.11f, 0.85f), new Color(0.32f, 0.3f, 0.29f, 0)),
-            }, additive: false);
-
-        // Debris: small dark chunks thrown up and falling.
-        Burst(at + Vector3.Up * scale, amount: (int)(16 * scale), lifetime: 1.6f, texture: Square,
-            new ParticleProcessMaterial
-            {
-                Direction = Vector3.Up,
-                Spread = 60,
-                InitialVelocityMin = 6 * Mathf.Sqrt(scale),
-                InitialVelocityMax = 14 * Mathf.Sqrt(scale),
-                Gravity = new Vector3(0, -20, 0),
-                ScaleMin = 0.3f,
-                ScaleMax = 0.7f,
-                AngularVelocityMin = -400,
-                AngularVelocityMax = 400,
-                Color = new Color(0.12f, 0.1f, 0.09f),
-            }, additive: false);
-
-        Scorch(at, 3.5f * scale);
-    }
-
-    /// <summary>
-    /// A missile strikes (MachPhysTrailedProjectile's explosion): three fireballs 2 to 4 m across within a metre of
-    /// the point, a little smoke, a flash of light and a small scorch.
-    /// </summary>
-    public void Impact(Vector3 at)
-    {
-        Light(at + Vector3.Up, new Color(1, 0.6f, 0.25f), 4, 10, 0.3f);
-        Burst(at, amount: 3, lifetime: 0.6f, texture: Soft,
-            new ParticleProcessMaterial
-            {
-                EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Sphere,
-                EmissionSphereRadius = 1,
-                Gravity = new Vector3(0, 1.5f, 0),
-                ScaleMin = 2,
-                ScaleMax = 4,
-                ScaleCurve = Grow(0.5f),
-                ColorRamp = Ramp(new Color(3.2f, 1.8f, 0.6f), new Color(2.2f, 0.7f, 0.12f, 0.9f), new Color(0.5f, 0.12f, 0.04f, 0)),
-            }, additive: true);
-        Burst(at + Vector3.Up * 0.5f, amount: 4, lifetime: 2f, texture: Soft,
-            new ParticleProcessMaterial
-            {
-                Direction = Vector3.Up,
-                Spread = 30,
-                InitialVelocityMin = 1,
-                InitialVelocityMax = 2.5f,
-                Gravity = new Vector3(0.3f, 0.8f, 0),
-                ScaleMin = 3,
-                ScaleMax = 5,
-                ScaleCurve = Grow(0.3f),
-                ColorRamp = Ramp(new Color(0.15f, 0.13f, 0.12f, 0.5f), new Color(0.2f, 0.18f, 0.17f, 0.6f), new Color(0.32f, 0.3f, 0.29f, 0)),
-            }, additive: false);
-        Scorch(at, 2.5f);
-    }
+    // Shots are in Effects.Shots.cs, impacts and explosions in Effects.Impacts.cs.
 
     /// <summary>Bolters, the autocannon, flamethrowers and electric chargers puff out smoke as they fire (MachPhysSmokeCloud).</summary>
     private static bool Smokes(string weapon) =>
@@ -382,9 +252,34 @@ public partial class Effects : Node3D
 
     /// <summary>
     /// Flames licking up from a badly damaged machine or building (MachPhysDoublesidedFlame, MachPhysSTFFlame)
-    /// over <paramref name="width"/> metres, about <paramref name="height"/> metres high, while it is emitting.
+    /// over <paramref name="width"/> metres, about <paramref name="height"/> metres high, while it is emitting; in the
+    /// remake's effects tongues of the rendered fire.
     /// </summary>
-    public static GpuParticles3D DamageFire(float width, float height) => new()
+    public static GpuParticles3D DamageFire(float width, float height) => GraphicsSettings.Effects ? new()
+    {
+        Name = "DamageFire",
+        Amount = 12,
+        Lifetime = 0.8f,
+        LocalCoords = false,
+        Emitting = false,
+        CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        DrawPass1 = Flipbook("flame", tall: true),
+        ProcessMaterial = new ParticleProcessMaterial
+        {
+            EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Box,
+            EmissionBoxExtents = new Vector3(width / 2, 0.2f, width / 2),
+            Direction = Vector3.Up,
+            Spread = 10,
+            InitialVelocityMin = height / 0.8f * 0.4f,
+            InitialVelocityMax = height / 0.8f * 0.7f,
+            Gravity = Vector3.Zero,
+            ScaleMin = Mathf.Max(width, height * 0.5f) * 0.5f,
+            ScaleMax = Mathf.Max(width, height * 0.5f) * 0.8f,
+            AnimSpeedMin = 1,
+            AnimSpeedMax = 1,
+            ColorRamp = Ramp(new Color(1.8f, 1.7f, 1.6f, 0.9f), new Color(1.4f, 1.3f, 1.2f, 1), new Color(1, 1, 1, 0)),
+        },
+    } : new()
     {
         Name = "DamageFire",
         Amount = 18,
@@ -411,35 +306,71 @@ public partial class Effects : Node3D
 
     // ---- building blocks ------------------------------------------------------------------------
 
-    private void Sparks(Vector3 at, Color colour, int amount) =>
-        Burst(at, amount, 0.35f, Soft, new ParticleProcessMaterial
-        {
-            Direction = Vector3.Up,
-            Spread = 180,
-            InitialVelocityMin = 4,
-            InitialVelocityMax = 9,
-            Gravity = new Vector3(0, -15, 0),
-            ScaleMin = 0.15f,
-            ScaleMax = 0.35f,
-            ColorRamp = Ramp(colour * 5, colour * 3, new Color(colour, 0)),
-        }, additive: true);
+    private void Burst(Vector3 at, int amount, float lifetime, Texture2D texture, ParticleProcessMaterial process, bool additive) =>
+        Burst(at, amount, lifetime, Billboard(texture, additive), process);
 
-    private void Burst(Vector3 at, int amount, float lifetime, Texture2D texture, ParticleProcessMaterial process, bool additive)
+    /// <summary>
+    /// Particles thrown out all at once and freed when they are gone, each drawn as <paramref name="look"/>; turned
+    /// to <paramref name="facing"/> (its -z), which the process's direction follows.
+    /// </summary>
+    private GpuParticles3D Burst(Vector3 at, int amount, float lifetime, Mesh look, ParticleProcessMaterial process,
+        float explosiveness = 0.9f, Vector3? facing = null)
     {
         var particles = new GpuParticles3D
         {
             Amount = Math.Max(1, amount),
             Lifetime = lifetime,
             OneShot = true,
-            Explosiveness = 0.9f,
+            Explosiveness = explosiveness,
+            LocalCoords = false,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             ProcessMaterial = process,
-            DrawPass1 = Billboard(texture, additive),
+            DrawPass1 = look,
         };
         AddChild(particles);
         particles.GlobalPosition = at;
+        if (facing is { } towards && towards.LengthSquared() > 0.0001f)
+            particles.LookAt(at + towards, Mathf.Abs(towards.Normalized().Y) > 0.98f ? Vector3.Right : Vector3.Up);
         particles.Emitting = true;
         GetTree().CreateTimer(lifetime + 0.5).Timeout += particles.QueueFree;
+        return particles;
+    }
+
+    /// <summary>
+    /// A particle quad playing one of the flipbooks rendered in Blender (<c>flipbooks/name</c>, 4 by 4 frames) once
+    /// over each particle's life (the process sets AnimSpeed 1); <paramref name="tall"/> ones are twice as high as wide.
+    /// <paramref name="grey"/> ones lose their colour (each pixel as bright as its brightest channel), for the
+    /// process's colours to tint: the bee bomb's blue fire.
+    /// </summary>
+    internal static QuadMesh Flipbook(string name, bool additive = false, bool tall = false, bool grey = false)
+    {
+        var key = $"{name}|{additive}|{tall}|{grey}";
+        if (Flipbooks.TryGetValue(key, out var cached))
+            return cached;
+        var texture = Particle($"flipbooks/{name}");
+        var mesh = Billboard(grey ? Greyed(texture) : texture, additive);
+        var material = (StandardMaterial3D)mesh.Material;
+        (material.ParticlesAnimHFrames, material.ParticlesAnimVFrames, material.ParticlesAnimLoop) = (4, 4, false);
+        if (tall)
+            mesh.Size = new Vector2(1, 2);
+        return Flipbooks[key] = mesh;
+    }
+
+    private static readonly Dictionary<string, QuadMesh> Flipbooks = [];
+
+    private static Texture2D Greyed(Texture2D texture)
+    {
+        var image = texture.GetImage();
+        if (image.IsCompressed())
+            image.Decompress();
+        image.ClearMipmaps();
+        image.Convert(Image.Format.Rgba8);
+        var data = image.GetData();
+        for (var i = 0; i < data.Length; i += 4)
+            data[i] = data[i + 1] = data[i + 2] = Math.Max(data[i], Math.Max(data[i + 1], data[i + 2]));
+        var grey = Image.CreateFromData(image.GetWidth(), image.GetHeight(), false, Image.Format.Rgba8, data);
+        grey.GenerateMipmaps();
+        return ImageTexture.CreateFromImage(grey);
     }
 
     /// <summary>A brief glowing sprite (muzzle flash, blast core).</summary>
@@ -520,9 +451,10 @@ public partial class Effects : Node3D
         return new CurveTexture { Curve = curve };
     }
 
-    internal static GradientTexture1D Ramp(Color start, Color middle, Color end) => new()
+    /// <summary>A particle's colour over its life: <paramref name="middle"/> at <paramref name="hold"/> of it.</summary>
+    internal static GradientTexture1D Ramp(Color start, Color middle, Color end, float hold = 0.3f) => new()
     {
-        Gradient = new Gradient { Offsets = [0, 0.3f, 1], Colors = [start, middle, end] },
+        Gradient = new Gradient { Offsets = [0, hold, 1], Colors = [start, middle, end] },
         UseHdr = true,
     };
 
