@@ -104,7 +104,7 @@ public partial class CameraRig : Node3D
         var offset = new Vector3(Mathf.Sin(_yaw), 0, Mathf.Cos(_yaw)) * Mathf.Cos(pitch) * _distance + Vector3.Up * Mathf.Sin(pitch) * _distance;
         Camera.GlobalPosition = GlobalPosition + offset;
         Camera.LookAt(GlobalPosition, Vector3.Up);
-        Camera.Basis *= ShakeAt(GlobalPosition);
+        Camera.Basis *= ShakeAt(Camera.GlobalPosition);
     }
 
     // ---- the earth shaking (W4dCameraShake) -----------------------------------------------------
@@ -117,8 +117,7 @@ public partial class CameraRig : Node3D
     /// The ground shakes the view (W4dCameraShake), as after a nuke, a punch or a big building blowing up: a run of
     /// random turns of up to <paramref name="degrees"/> either way, each smaller than the last, over
     /// <paramref name="duration"/> seconds: the first degree 15° in 45 turns, the second 10° in 37, the third
-    /// 5.5° in 32. The original shook the view wherever it was; here it weakens with the distance from
-    /// <paramref name="epicentre"/>, gone at 600 m.
+    /// 5.5° in 32. It weakens with the camera's distance from <paramref name="epicentre"/> (see <see cref="ShakeAt"/>).
     /// </summary>
     public static void Shake(Vector3 epicentre, float degrees, float duration)
     {
@@ -135,13 +134,18 @@ public partial class CameraRig : Node3D
         (_shakeStart, _shakeTime, _epicentre) = (Time.GetTicksMsec() / 1000f, duration, epicentre);
     }
 
-    /// <summary>The turn the shaking gives a view looking at <paramref name="looking"/> now; none when it is over.</summary>
-    public static Basis ShakeAt(Vector3 looking)
+    /// <summary>
+    /// The turn the shaking gives a camera at <paramref name="camera"/> now; none when it is over. It weakens with
+    /// the camera's distance d from the epicentre as (1 - d/200)², and is gone 200 m away
+    /// (W4dSceneManager::shakeCurrentCamera).
+    /// </summary>
+    public static Basis ShakeAt(Vector3 camera)
     {
         var t = (Time.GetTicksMsec() / 1000f - _shakeStart) / Mathf.Max(_shakeTime, 0.01f);
         if (_shake.Length == 0 || t is < 0 or >= 1)
             return Basis.Identity;
-        var strength = 1 - Mathf.Clamp((looking.DistanceTo(_epicentre) - 150) / 450, 0, 1);
+        var near = 1 - Mathf.Min(camera.DistanceTo(_epicentre) / 200, 1);
+        var strength = near * near;
         var position = t * (_shake.Length - 1);
         var i = Math.Min((int)position, _shake.Length - 2);
         var turn = _shake[i].Slerp(_shake[i + 1], position - i);

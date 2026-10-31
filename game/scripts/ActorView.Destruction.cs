@@ -15,6 +15,19 @@ public partial class ActorView
         : "";
 
     /// <summary>
+    /// How hard the building blowing up shakes the earth, in degrees (MachPhysObjectExplosion::explode), or null:
+    /// it does from two extra fireballs on, one for every 9 m of its largest size. Three set the third degree (5.5°)
+    /// and five the second (10°); the rest leave the first (15°), with which the original's shake starts.
+    /// </summary>
+    public float? Quake => !IsBuilding ? null : (int)(Mathf.Max(Mathf.Max(_bounds.Size.X, _bounds.Size.Z), _bounds.Size.Y) / 9) switch
+    {
+        <= 1 => null,
+        3 => 5.5f,
+        5 => 10,
+        _ => 15,
+    };
+
+    /// <summary>
     /// The actor was destroyed and its view goes, under <paramref name="effects"/>: a building shrinks and swells
     /// (see <see cref="Blowup.Swell"/>), breaks into pieces (see <see cref="Blowup.Demolish"/>) and goes up with its
     /// burst wave, fireballs and smoke; a machine flies apart into its parts, in the remake's effects falling and

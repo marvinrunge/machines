@@ -840,9 +840,9 @@ public partial class Game : Node3D
                     if (_views.TryGetValue(e.Actor, out var dead))
                     {
                         _audio.Play(SoundTable.ExplosionSound(dead.IsBuilding, dead.Size, Random.Shared.Next(1, 7)), at);
-                        // A building blowing up shakes the earth, the bigger the harder (MachPhysObjectExplosion).
-                        if (dead.IsBuilding)
-                            CameraRig.Shake(at, dead.Size >= 20 ? 10 : 5.5f, 1.2f);
+                        // A big building blowing up shakes the earth for two seconds (MachPhysObjectExplosion).
+                        if (dead.Quake is { } degrees)
+                            CameraRig.Shake(at, degrees, 2);
                         if (dead.Race == Player)
                             _audio.Say(dead.Voice is { } voice ? $"VID_{voice}_DESTROYED" : "VID_POD_BUILDING_DESTROYED");
                     }
