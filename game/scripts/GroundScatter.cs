@@ -35,16 +35,17 @@ public partial class GroundScatter : Node3D
     /// The scatter for the ground's surfaces: those the ground detail sorted into layers, as their layer has it, and those
     /// painted from the material map, as the map has it where each triangle lies; null for none.
     /// </summary>
-    public static GroundScatter? Create(TerrainGeometry.Part[] ground, IReadOnlyDictionary<int, (string Layer, Color Colour, string Texture)> surfaces,
+    public static GroundScatter? Create(TerrainGeometry.Part[] ground,
+        IReadOnlyDictionary<int, (string Layer, Color Colour, string Texture, TerrainDetail.Picture? Picture)> surfaces,
         TerrainMaterials.Ground? painted, string planet, int seed)
     {
         // Scanned stones where the planet has them (Scenery), else coarse balls; and the bushes and dead trees between.
         var scans = Scenery.Stones(planet);
         var decoration = Scenery.Decoration(planet);
-        // What grows on a triangle, from its middle and the shade of its corners: grass tufts and stones per square
-        // metre, and their colours.
-        var work = new List<(int Surface, Func<Vector3, Color, (float Grass, float Stones, Color GrassColour, Color StoneColour)> Cover)>();
-        foreach (var (surface, (layer, colour, texture)) in surfaces)
+        // What grows at a point of a triangle, from where it lies, its place in the tile's picture and the shade of the
+        // triangle's corners: grass tufts and stones per square metre, and their colours.
+        var work = new List<(int Surface, Func<Vector3, Vector2, Color, (float Grass, float Stones, Color GrassColour, Color StoneColour)> Cover)>();
+        foreach (var (surface, (layer, colour, texture, picture)) in surfaces)
         {
             var (grassDensity, stoneDensity) = Density(layer);
             if (grassDensity + stoneDensity == 0 || texture.Contains("road") || texture.Contains("walk") || texture.Contains("strip"))
@@ -52,14 +53,24 @@ public partial class GroundScatter : Node3D
             if (painted is not null)
                 // On a painted planet the tiles it left (shores, tiles with see-through edges) follow its map too: by
                 // their own layer they stood out as rectangles thick with stones.
-                work.Add((surface, (middle, _) => painted.At(middle.X, middle.Z)));
+                work.Add((surface, (middle, _, _) => painted.At(middle.X, middle.Z)));
+            else if (picture is null)
+                // The tile's corners shade its colour as they shade its picture: their shade counts as it is (linear),
+                // and the colours here are sRGB.
+                work.Add((surface, (_, _, shade) => (grassDensity, stoneDensity, colour * shade.LinearToSrgb(), colour * shade.LinearToSrgb() * 0.85f)));
             else
-                // The tile's corners shade its colour as they shade its picture.
-                work.Add((surface, (_, shade) => (grassDensity, stoneDensity, colour * shade, colour * shade * 0.85f)));
+                // Each takes the colour of the picture where it stands, shaded so too; on a grass tile grass grows only
+                // where the picture is green (the tutorial's tiles hold paths, pads and roots round their lawns).
+                work.Add((surface, (_, uv, shade) =>
+                {
+                    var here = picture.At(uv);
+                    var lit = here * shade.LinearToSrgb();
+                    return (layer == "grass" ? grassDensity * TerrainDetail.Picture.Greenness(here) : grassDensity, stoneDensity, lit, lit * 0.85f);
+                }));
         }
         foreach (var surface in painted?.Surfaces ?? new HashSet<int>())
             if (!painted!.Roads.Contains(surface))
-                work.Add((surface, (middle, _) => painted.At(middle.X, middle.Z)));
+                work.Add((surface, (middle, _, _) => painted.At(middle.X, middle.Z)));
 
         // Each surface is scattered on its own, side by side, with dice of its own: the same each time.
         var grassOf = new Dictionary<Vector2I, List<(Transform3D, Color)>>[work.Count];
@@ -72,7 +83,7 @@ public partial class GroundScatter : Node3D
             var (grass, stones) = (grassOf[w] = [], stonesOf[w] = []);
             for (var d = 0; d < decoration.Length; d++)
                 plantsOf[w, d] = [];
-            var (vertices, indices, colours) = (ground[surface].Vertices, ground[surface].Indices, ground[surface].Colours);
+            var (vertices, indices, colours, uvs) = (ground[surface].Vertices, ground[surface].Indices, ground[surface].Colours, ground[surface].Uvs);
             for (var t = 0; t + 2 < indices.Length; t += 3)
             {
                 var (a, b, c) = (vertices[indices[t]], vertices[indices[t + 1]], vertices[indices[t + 2]]);
@@ -84,10 +95,20 @@ public partial class GroundScatter : Node3D
                 if (normal.Y < 0)
                     normal = -normal;
                 var shade = colours is null ? Colors.White : (colours[indices[t]] + colours[indices[t + 1]] + colours[indices[t + 2]]) / 3;
+                var (ua, ub, uc) = (uvs[indices[t]], uvs[indices[t + 1]], uvs[indices[t + 2]]);
+                var (ab, ac, d00, d01, d11) = (b - a, c - a, (b - a).Dot(b - a), (b - a).Dot(c - a), (c - a).Dot(c - a));
+                var denominator = d00 * d11 - d01 * d01;
+                // What grows at a point of the triangle, its place in the picture from its share of each corner.
+                (float Grass, float Stones, Color GrassColour, Color StoneColour) Cover(Vector3 at)
+                {
+                    var (d20, d21) = ((at - a).Dot(ab), (at - a).Dot(ac));
+                    var (v, w) = ((d11 * d20 - d01 * d21) / denominator, (d00 * d21 - d01 * d20) / denominator);
+                    return cover(at, ua * (1 - v - w) + ub * v + uc * w, shade);
+                }
                 // The most the triangle carries anywhere on it (a big one may cross a border); each point is then kept
                 // by what grows just there, so the cover thins out over the ground's soft edges instead of stopping at
                 // the triangle's.
-                var corners = new[] { cover(a, shade), cover(b, shade), cover(c, shade), cover((a + b + c) / 3, shade) };
+                var corners = new[] { Cover(a), Cover(b), Cover(c), Cover((a + b + c) / 3), Cover((a + b) / 2), Cover((b + c) / 2), Cover((c + a) / 2) };
                 var (grassMost, stonesMost) = (corners.Max(k => k.Grass), corners.Max(k => k.Stones));
                 for (var d = 0; d < decoration.Length; d++)
                 {
@@ -96,14 +117,14 @@ public partial class GroundScatter : Node3D
                     var most = corners.Max(Density);
                     Scatter(random, a, b, c, Count(random, area * most), plantsOf[w, d], (at, r) =>
                         new Transform3D(new Basis(Vector3.Up, (float)r.NextDouble() * Mathf.Tau).Scaled(Vector3.One * (0.8f + 0.5f * (float)r.NextDouble())), at - Vector3.Up * 0.1f),
-                        (at, r) => r.NextDouble() * most < Density(cover(at, shade)) ? Colors.White : null);
+                        (at, r) => r.NextDouble() * most < Density(Cover(at)) ? Colors.White : null);
                 }
                 var (grassCount, stoneCount) = (Count(random, area * grassMost), Count(random, area * stonesMost));
                 if (grassCount + stoneCount == 0)
                     continue;
                 Scatter(random, a, b, c, grassCount, grass, (at, r) =>
                     new Transform3D(new Basis(Vector3.Up, (float)r.NextDouble() * Mathf.Tau).Scaled(Vector3.One * (0.7f + 0.6f * (float)r.NextDouble())), at),
-                    (at, r) => cover(at, shade) is var here && r.NextDouble() * grassMost < here.Grass ? here.GrassColour.SrgbToLinear() : null);
+                    (at, r) => Cover(at) is var here && r.NextDouble() * grassMost < here.Grass ? here.GrassColour.SrgbToLinear() : null);
                 Scatter(random, a, b, c, stoneCount, stones, (at, r) =>
                 {
                     // Mostly pebbles, now and then a stone; lying along the ground, sunk a little into it.
@@ -115,7 +136,7 @@ public partial class GroundScatter : Node3D
                     var shape = scans.Length > 0 ? Vector3.One * size
                         : new Vector3(size, size * (0.5f + 0.3f * (float)r.NextDouble()), size * (0.8f + 0.4f * (float)r.NextDouble()));
                     return new Transform3D(basis.Scaled(shape), at - up * size * 0.15f);
-                }, (at, r) => cover(at, shade) is var here && r.NextDouble() * stonesMost < here.Stones ? here.StoneColour : null);
+                }, (at, r) => Cover(at) is var here && r.NextDouble() * stonesMost < here.Stones ? here.StoneColour : null);
             }
         });
         var (grass, stones) = (Merge(grassOf), Merge(stonesOf));
@@ -145,9 +166,13 @@ public partial class GroundScatter : Node3D
         else
         {
             var stoneMeshes = Enumerable.Range(0, 3).Select(i => Stone(new Random(seed + i))).ToArray();
+            // The rock's picture gives the grain; its own darkness is lifted out, so the stones keep the ground's colour
+            // (they came out nearly black).
+            var lift = 1 / TerrainDetail.LayerBrightness("rock");
             var stoneMaterial = new StandardMaterial3D
             {
                 AlbedoTexture = TerrainDetail.LayerAlbedo("rock"),
+                AlbedoColor = new Color(lift, lift, lift),
                 Uv1Triplanar = true,
                 Uv1Scale = Vector3.One * 0.7f,
                 VertexColorUseAsAlbedo = true,
@@ -372,6 +397,9 @@ public partial class GroundScatter : Node3D
             void fragment() {
                 vec4 blade = texture(blades, UV);
                 ALBEDO = blade.rgb * COLOR.rgb;
+                // Lit as the ground they stand on from either side: seen from behind, a blade's normal is turned
+                // round to face down, away from all light, and the tufts showed as black specks.
+                NORMAL = normalize((VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
                 ALPHA = blade.a;
                 ALPHA_SCISSOR_THRESHOLD = 0.3;
                 // Soft blade edges under MSAA (alpha to coverage), so the grass does not shimmer.

@@ -92,15 +92,15 @@ public static class TerrainDetail
     /// <summary>
     /// Gives the terrain's tiles the detail shader in place of their materials, keeping their pictures, vertex
     /// colours and tints. See-through tiles and water keep theirs.
-    /// Returns each detailed surface's layer and average colour, for what grows on it (GroundScatter).
+    /// Returns each detailed surface's layer, average colour and picture, for what grows on it (GroundScatter).
     /// </summary>
-    public static IReadOnlyDictionary<int, (string Layer, Color Colour, string Texture)> Apply(Mesh terrain)
+    public static IReadOnlyDictionary<int, (string Layer, Color Colour, string Texture, Picture? Picture)> Apply(Mesh terrain)
     {
-        var surfaces = new Dictionary<int, (string, Color, string)>();
+        var surfaces = new Dictionary<int, (string, Color, string, Picture?)>();
         if (Load() is not { } arrays)
             return surfaces;
         var materials = new Dictionary<Material, Material>();
-        var classified = new Dictionary<Material, (string, Color, string)>();
+        var classified = new Dictionary<Material, (string, Color, string, Picture?)>();
         for (var s = 0; s < terrain.GetSurfaceCount(); s++)
         {
             if (terrain.SurfaceGetMaterial(s) is not StandardMaterial3D original
@@ -125,7 +125,8 @@ public static class TerrainDetail
                 shader.SetShaderParameter("cliff_size", Layers[cliff].Size);
                 shader.SetShaderParameter("cliff_brightness", arrays.Brightness[cliff]);
                 materials[original] = detailed = shader;
-                classified[original] = (Layers[layer].Name, Average(picture) * original.AlbedoColor, original.GetMeta("texture", "").AsString());
+                classified[original] = (Layers[layer].Name, Average(picture) * original.AlbedoColor, original.GetMeta("texture", "").AsString(),
+                    Picture.Of(picture, original.AlbedoColor));
             }
             terrain.SurfaceSetMaterial(s, detailed);
             surfaces[s] = classified[original];
@@ -152,6 +153,9 @@ public static class TerrainDetail
         return Albedos[layer] = texture;
     }
 
+    /// <summary>A layer's average brightness (its colour map's, as sRGB), for what wears that map to keep its own colour.</summary>
+    public static float LayerBrightness(string layer) => Load()?.Brightness[Layer(layer)] ?? 0.5f;
+
     /// <summary>
     /// Which layer suits a tile: by the name of its picture first (the original's names say what they show: rok,
     /// sand, mud, snow, spflr ...), else by its average colour (green is grass, grey rock, pale snow, yellow sand,
@@ -162,6 +166,15 @@ public static class TerrainDetail
         var name = Path.GetFileNameWithoutExtension(texture).ToLowerInvariant();
         bool Has(params string[] parts) => parts.Any(name.Contains);
         if (Has("spflr", "spwal", "spgfl", "met", "floor", "duct", "beam", "walk", "strip", "pipe", "grate", "plate", "tower"))
+            return Layer("metal");
+        // The stations', cities' and factories' floors and fittings (midian, control, home, kidnap, guns ...): plates,
+        // panels, grids, tiles, containers, crates and cables, rust and chrome. By their colour they passed for soil
+        // and rock, and grew grass and stones.
+        if (Has("rust", "chrm", "grid", "catg", "centr", "glss", "rdrip", "spip", "dorway", "tiles", "spine", "cool", "redglo",
+                "flag", "bub0", "cont", "steel", "stpip", "pyram", "river", "case", "cran", "crate_", "crate1", "cross", "diag",
+                "flash", "keys", "lines", "mach", "scaf", "wires", "hull", "panel", "ionc", "spblack", "spdor", "spet", "spgen",
+                "split", "sppip", "gggg", "mstbor")
+            || name is "co_b" or "in_b" or "wal_b" or "top_b" or "back_b")
             return Layer("metal");
         if (Has("snow", "ice", "frost"))
             return Layer("snow");
@@ -188,6 +201,58 @@ public static class TerrainDetail
         if ((hue < 18 || hue > 340) && saturation > 0.45f)
             return Layer("laterite");
         return Layer("soil");
+    }
+
+    /// <summary>
+    /// A tile's picture made small (at most 128 pixels a side), for what grows on it to follow it: the tutorial's tiles
+    /// are whole pictures of lawns, paths, pads and roots, and grass by their average colour grew grey over all of it.
+    /// </summary>
+    public sealed class Picture
+    {
+        private const int Most = 128;
+        private readonly byte[] _pixels;
+        private readonly int _width, _height;
+        private readonly Color _tint;
+
+        private Picture(byte[] pixels, int width, int height, Color tint) => (_pixels, _width, _height, _tint) = (pixels, width, height, tint);
+
+        public static Picture? Of(Texture2D texture, Color tint)
+        {
+            if (texture.GetImage() is not { } image)
+                return null;
+            image = (Image)image.Duplicate();
+            if (image.IsCompressed())
+                image.Decompress();
+            image.ClearMipmaps();
+            image.Resize(Math.Min(image.GetWidth(), Most), Math.Min(image.GetHeight(), Most), Image.Interpolation.Lanczos);
+            image.Convert(Image.Format.Rgba8);
+            return new Picture(image.GetData(), image.GetWidth(), image.GetHeight(), tint);
+        }
+
+        /// <summary>The colour at a point of the picture (sRGB, tinted as the tile is), repeating as the tile does.</summary>
+        public Color At(Vector2 uv)
+        {
+            var (x, y) = ((uv.X - Mathf.Floor(uv.X)) * _width - 0.5f, (uv.Y - Mathf.Floor(uv.Y)) * _height - 0.5f);
+            var (x0, y0) = ((int)Mathf.Floor(x), (int)Mathf.Floor(y));
+            var (fx, fy) = (x - x0, y - y0);
+            Color Pixel(int px, int py)
+            {
+                var i = (((py % _height + _height) % _height) * _width + (px % _width + _width) % _width) * 4;
+                return new Color(_pixels[i] / 255f, _pixels[i + 1] / 255f, _pixels[i + 2] / 255f);
+            }
+            var top = Pixel(x0, y0).Lerp(Pixel(x0 + 1, y0), fx);
+            var bottom = Pixel(x0, y0 + 1).Lerp(Pixel(x0 + 1, y0 + 1), fx);
+            return top.Lerp(bottom, fy) * _tint;
+        }
+
+        /// <summary>How much a colour looks like grass, 0 to 1: green enough, not grey, not black (as Classify judges a tile).</summary>
+        public static float Greenness(Color colour)
+        {
+            colour.ToHsv(out var hue, out var saturation, out var value);
+            hue *= 360;
+            return Mathf.SmoothStep(55, 70, hue) * (1 - Mathf.SmoothStep(165, 180, hue)) * Mathf.SmoothStep(0.12f, 0.25f, saturation)
+                * Mathf.SmoothStep(0.06f, 0.15f, value);
+        }
     }
 
     private static Color Average(Texture2D picture)
