@@ -1127,6 +1127,10 @@ public partial class Game : Node3D
             return mine.Any(m => m.CanFight) ? "attack" : "select";
         if (actor is not null)
             return "select";
+        // An artefact (crates, consoles, doors) belongs to no race, which the original counted as neutral: armed
+        // machines over it attack (MachGuiIntelligentCursorOnActor::doProcessAggressor).
+        if (_hoveredArtefact is { } artefact && World.CanAttack(Player, artefact) && mine.Any(m => m.CanFight))
+            return "attack";
         if (mine.Count == 0)
             return "arrow";
         // Scavengers over wreckage (MachGuiIntelligentCursorOnActor's SCAVENGE_CURSOR).
@@ -1689,6 +1693,7 @@ public partial class Game : Node3D
         var mouse = PointedForScreenshot ?? GetViewport().GetMousePosition();
         var inWorld = _driven is null && (PointedForScreenshot is not null || GetViewport().GuiGetHoveredControl() is null);
         _hovered = inWorld ? ActorAt(mouse) : null;
+        _hoveredArtefact = inWorld && _hovered is null ? ArtefactAt(mouse) : null;
         _hoveredDebris = inWorld && _hovered is null ? DebrisAt(mouse) : null;
         var view = _hovered is not null ? _views.GetValueOrDefault(_hovered.Id) : null;
         if (view != _highlighted)
@@ -1701,7 +1706,7 @@ public partial class Game : Node3D
             view.Highlighted = !view.Selected;
         _hud.Panel.Prompt = !inWorld ? null
             : _hovered is not null ? _hud.Panel.PromptFor(_hovered)
-            : ArtefactAt(mouse) is { } artefact ? _hud.Panel.PromptFor(artefact)
+            : _hoveredArtefact is { } artefact ? _hud.Panel.PromptFor(artefact)
             : _hoveredDebris is { } wreck ? $"Debris   {wreck.Quantity} BMU"
             : SiteAt(mouse) is { } site ? ClassicPanel.DepositPrompt(site)
             : null;
@@ -1710,6 +1715,9 @@ public partial class Game : Node3D
 
     // The wreck the mouse points at this frame, when no actor is in front of it.
     private DebrisState? _hoveredDebris;
+
+    // The artefact the mouse points at this frame, when no actor is in front of it.
+    private Artefact? _hoveredArtefact;
 
     /// <summary>The selected scavengers (level-3 resource carriers), which gather wreckage.</summary>
     private List<int> SelectedScavengers() => SelectedMachines().Where(m => m.IsScavenger).Select(m => m.Id).ToList();
@@ -1873,6 +1881,15 @@ public partial class Game : Node3D
                 Order(new EnterLabCommand(Player, spies, target.Id));
             Order(new AttackCommand(Player, Ids(m => m.CanFight), target.Id));
             Order(new MoveCommand(Player, Ids(m => !m.CanFight && !capturers.Contains(m.Id) && !spies.Contains(m.Id)), target.Position));
+            Acknowledge(machines.Where(m => m.CanFight), "TARGET_ENEMY");
+            return;
+        }
+
+        // An artefact is neutral to every race, so the armed machines attack it, as the cursor showed.
+        if (target is null && ArtefactAt(screen) is { } artefact && World.CanAttack(Player, artefact) && machines.Any(m => m.CanFight))
+        {
+            Order(new AttackCommand(Player, Ids(m => m.CanFight), artefact.Id));
+            Order(new MoveCommand(Player, Ids(m => !m.CanFight), artefact.Position));
             Acknowledge(machines.Where(m => m.CanFight), "TARGET_ENEMY");
             return;
         }
