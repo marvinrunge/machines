@@ -16,6 +16,16 @@ public abstract class Actor
 
     public int Id { get; }
     public Race Race { get; set; }
+
+    /// <summary>
+    /// Another race whose colours, map dot and icon it wears: a scenario's DISPLAY AS block, passed on to what its
+    /// factories and constructors make (MachActor::displayMapAndIconRace). Changing sides ends it.
+    /// </summary>
+    public Race? DisplayAs { get; set; }
+
+    /// <summary>The race it looks like (see <see cref="DisplayAs"/>).</summary>
+    public Race ShownRace => DisplayAs ?? Race;
+
     public Vector2 Position { get; set; }
 
     /// <summary>Height above the ground plane, as placed by the scenario. Only the client uses it.</summary>

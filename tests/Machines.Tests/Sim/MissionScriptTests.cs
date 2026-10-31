@@ -372,6 +372,39 @@ public class MissionScriptTests
     }
 
     [Fact]
+    public void A_race_displayed_as_another_wears_its_colours_and_passes_them_on_until_it_changes_sides()
+    {
+        // home.scn's Green stands in a DISPLAY AS BLUE block; the script here turns all of Green over to Red later.
+        var world = Mission("home", edit: Script("TIMER late 300", "CHANGE_RACE ON late ORIGINAL_RACE GREEN TARGET_RACE RED AT 500 1000 RANGE 3000"));
+        var green = world.Actors.Where(a => a.Race == Race.Green).ToList();
+        Assert.NotEmpty(green);
+        Assert.All(green, a => Assert.Equal(Race.Blue, a.ShownRace));
+        Assert.All(world.Actors.Where(a => a.Race != Race.Green), a => Assert.Null(a.DisplayAs));
+
+        // What its constructors put up and its factories make wears the disguise too (MachLogConstructOperation,
+        // MachLogFactory::createNewMachine).
+        var constructor = world.Machines.First(m => m.Race == Race.Green && m.Spec.Type == "CONSTRUCTOR");
+        var plan = world.BuildingPlans[Race.Green][0];
+        world.Issue(new PlaceConstructionCommand(Race.Green, [constructor.Id], plan.Type, plan.SubType, plan.HardwareLevel,
+            new Vector2(plan.Position.X, plan.Position.Y), plan.Orientation));
+        world.Step();
+        Assert.Empty(world.Rejected);
+        Assert.Equal(Race.Blue, world.Constructions.MaxBy(c => c.Id)!.DisplayAs);
+
+        var factory = world.AddConstruction(Race.Green, constructor.Position + new Vector2(60, 0), "FACTORY", "CIVILIAN", 1, 0, complete: true);
+        factory.DisplayAs = Race.Blue;
+        world.Races[Race.Green].Bmu = 5000;
+        factory.ProductionQueue.Insert(0, new ResearchKey("CONSTRUCTOR", "DOZER", 1, null));
+        var built = Run(world, 120).First(e => e.Kind == GameEventKind.MachineBuilt && e.Other == factory.Id);
+        Assert.Equal(Race.Blue, world.Find<Machine>(built.Actor)!.ShownRace);
+
+        // Changing sides ends it: the turned actors look like what they now are (MachActor::race).
+        Run(world, 300 - world.Time + 1);
+        Assert.DoesNotContain(world.Actors, a => a.Race == Race.Green);
+        Assert.All(green.Where(a => !a.IsDead), a => Assert.Equal(Race.Red, a.ShownRace));
+    }
+
+    [Fact]
     public void The_script_goes_into_the_checksum()
     {
         var a = Mission("tut01", edit: Script("TIMER t 1", "SET_SCENARIO_FLAG NAME t"));

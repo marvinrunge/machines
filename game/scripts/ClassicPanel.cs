@@ -621,7 +621,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             return;
         var inner = new Rect2(adminRect.Position + Vector2.One * _scale, adminRect.Size - Vector2.One * 2 * _scale);
         if (commander is not null)
-            DrawBitmap(inner, MachineBitmap(commander.Key, Game.Look(commander.Race)), "Adm");
+            DrawBitmap(inner, MachineBitmap(commander.Key, Game.Look(commander.ShownRace)), "Adm");
         // No commander: the screen shows static, a new frame each time (nosquad1 to nosquad5).
         else if (ClassicGui.Bitmap($"misc/nosquad{Random.Shared.Next(1, 6)}.bmp") is { } noise)
             DrawTextureRect(noise, inner, false);
@@ -794,8 +794,9 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             }
             foreach (var actor in _mapMode == MapMode.ResourcesOnly ? [] : world.Actors.Where(a => a is not Machine { Inside: not null }))
             {
-                // A camouflaged spy shows in the colours of whoever looks at the map (MachContinentMap's CAMOUFLAGEDMACHINE).
-                var shownRace = actor is Machine { Camouflaged: true } ? Game.Player : actor.Race;
+                // A camouflaged spy shows in the colours of whoever looks at the map (MachContinentMap's CAMOUFLAGEDMACHINE),
+                // a disguised actor in those it wears.
+                var shownRace = actor is Machine { Camouflaged: true } ? Game.Player : actor.ShownRace;
                 var letter = RaceFolder(shownRace)[0];
                 var kind = actor is Machine ? "machpix" : actor is Construction c && c.IsType("POD") ? "podpix" : "conspix";
                 DrawPixel(ToMap(actor.Position), ClassicGui.Bitmap($"map/{letter}{kind}.bmp"), ClassicAssets.RaceColour(Game.Look(shownRace)));
@@ -887,8 +888,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     {
         var path = actor switch
         {
-            Machine m => MachineBitmap(m.Key, Game.Look(m.Race)),
-            Construction c => $"construc/{RaceFolder(Game.Look(c.Race))}/{ConstructionPrefix(c.Spec.Type, c.Spec.SubType)}{c.Stats.HardwareLevel}.bmp",
+            Machine m => MachineBitmap(m.Key, Game.Look(m.ShownRace)),
+            Construction c => $"construc/{RaceFolder(Game.Look(c.ShownRace))}/{ConstructionPrefix(c.Spec.Type, c.Spec.SubType)}{c.Stats.HardwareLevel}.bmp",
             _ => "",
         };
         var inner = new Rect2(rect.Position + Vector2.One * 2 * _scale, Vector2.One * IconSize * _scale);

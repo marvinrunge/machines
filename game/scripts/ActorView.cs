@@ -25,6 +25,10 @@ public partial class ActorView : Node3D
 
     /// <summary>The race the view was built for; a view is rebuilt when its actor changes sides.</summary>
     public Race Race { get; private set; }
+
+    /// <summary>The race whose colours it wears (<see cref="Actor.ShownRace"/>).</summary>
+    public Race Shown { get; private set; }
+
     public float Size { get; private set; } = 3;
 
     /// <summary>A building rather than a machine; it explodes with the construction sounds.</summary>
@@ -360,7 +364,7 @@ public partial class ActorView : Node3D
 
     public static ActorView Create(Actor actor, ClassicAssets assets, GameAudio audio)
     {
-        var view = new ActorView { ActorId = actor.Id, Race = actor.Race, Name = $"Actor{actor.Id}", IsBuilding = actor is Construction };
+        var view = new ActorView { ActorId = actor.Id, Race = actor.Race, Shown = actor.ShownRace, Name = $"Actor{actor.Id}", IsBuilding = actor is Construction };
         var (id, size) = ModelOf(actor);
         view.Size = Mathf.Max(size.X, size.Z);
         if (actor is Machine machine)
@@ -372,7 +376,7 @@ public partial class ActorView : Node3D
         }
 
         // Machines and buildings with an exported rig move their parts; everything else is one mesh.
-        if (assets.RigFor(id, Game.Look(actor.Race)) is { } rig)
+        if (assets.RigFor(id, Game.Look(actor.ShownRace)) is { } rig)
         {
             view._rigView = RigView.Create(rig);
             view._maxSpeed = actor is Machine rigged ? rigged.Stats.Speed : 0;
@@ -390,7 +394,7 @@ public partial class ActorView : Node3D
         }
         else
         {
-            var body = new MeshInstance3D { Mesh = assets.MeshFor(id, Game.Look(actor.Race), size), Name = "Body" };
+            var body = new MeshInstance3D { Mesh = assets.MeshFor(id, Game.Look(actor.ShownRace), size), Name = "Body" };
             if (!assets.HasClassicModels)
                 body.Position = new Vector3(0, size.Y / 2, 0);
             view.AddChild(body);

@@ -328,6 +328,7 @@ public sealed partial class GameWorld
     private void TakeOver(Construction building, Race race)
     {
         building.Race = race;
+        building.DisplayAs = null;
         building.ProductionQueue.Clear();
         building.ProductionSpent = 0;
         building.ResearchQueue.Clear();
@@ -347,6 +348,7 @@ public sealed partial class GameWorld
     {
         LeaveGarrison(machine);
         machine.Race = race;
+        machine.DisplayAs = null;
         machine.Squad = null;
         machine.SelfDestructAt = null;
         machine.Order = Order.Idle;

@@ -165,6 +165,9 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
     tasks done.
   - A won mission hands on the flags it set and, where the original kept them, its surviving machines (from
     commsat to sat); the missions after it read them.
+  - A race the mission disguises (DISPLAY AS) wears another's colours on its machines, buildings, map dots and
+    icons, as do the machines its factories make and the buildings its constructors put up, until it changes
+    sides.
   - After the mission comes its film of victory or defeat, then the debriefing: its picture, the closing text,
     spoken, with the tasks done and failed, and Restart, Statistics or Continue to the choice of mission.
   - Saved games and replays of a campaign mission bring back what it took over and play out the same.

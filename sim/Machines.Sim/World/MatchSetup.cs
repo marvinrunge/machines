@@ -61,6 +61,7 @@ public static class MatchSetup
                 var placed = world.AddConstruction(race, new Vector2(building.Position.X, building.Position.Y), building.Type, building.SubType,
                     building.HardwareLevel, building.Orientation, complete: true, building.WeaponCombo);
                 placed.Height = building.Position.Z;
+                placed.DisplayAs = building.DisplayAs;
                 placed.IonCannonGranted = building.ActivateIonCannon;
                 placed.Rebuild = building.Rebuild;
             }
@@ -70,6 +71,7 @@ public static class MatchSetup
                 var machine = world.AddMachine(race, new Vector2(unit.Position.X, unit.Position.Y), unit.Type, unit.SubType, unit.HardwareLevel, unit.WeaponCombo);
                 machine.Squad = unit.Squad;
                 machine.Height = unit.Position.Z;
+                machine.DisplayAs = unit.DisplayAs;
             }
 
             if (setup.AiScript is { } script)

@@ -419,7 +419,10 @@ public sealed partial class GameWorld
             return why;
 
         var site = AddConstruction(place.Race, place.Position, place.Type, place.SubType, place.HardwareLevel, place.Orientation, complete: false);
-        foreach (var constructor in Own<Machine>(place.Race, place.Constructors).Where(m => m.Spec.Type == "CONSTRUCTOR"))
+        var constructors = Own<Machine>(place.Race, place.Constructors).Where(m => m.Spec.Type == "CONSTRUCTOR").ToList();
+        // A disguised constructor's building wears the same disguise (MachLogConstructOperation).
+        site.DisplayAs = constructors.FirstOrDefault()?.DisplayAs;
+        foreach (var constructor in constructors)
             Send(constructor, new ConstructOrder(site.Id), site.Position);
         return null;
     }

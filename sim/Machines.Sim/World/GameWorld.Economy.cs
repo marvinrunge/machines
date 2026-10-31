@@ -94,6 +94,8 @@ public sealed partial class GameWorld
         var pad = factory.EntranceOutside is { } outside && PadClear(outside) ? outside : (Vector2?)null;
         var spawn = pad ?? FreePointNear(factory);
         var machine = AddMachine(factory.Race, spawn, key.Type, key.SubType, key.HardwareLevel, key.WeaponCombo);
+        // A disguised factory's machines wear the same disguise (MachLogFactory::createNewMachine).
+        machine.DisplayAs = factory.DisplayAs;
         // To the assembly point if one is set, else a little way out from the door.
         if (factory.AssemblyPoint is { } assembly)
         {

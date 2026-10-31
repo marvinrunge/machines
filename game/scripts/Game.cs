@@ -758,7 +758,7 @@ public partial class Game : Node3D
             Race? turned = null;
             if (_views.TryGetValue(actor.Id, out var view) && view.Race != actor.Race)
             {
-                turned = view.Race;
+                turned = view.Shown;
                 view.QueueFree();
                 _views.Remove(actor.Id);
                 _selection.Remove(actor.Id);
