@@ -27,6 +27,7 @@ public partial class MenuStage : Control
         TextureFilter = TextureFilterEnum.LinearWithMipmaps;
         MouseFilter = MouseFilterEnum.Stop;
         AddChild(new MenuBoard());
+        GameOptions.ShowGamma();
         if (GetParent() is Control parent)
             parent.Resized += Fit;
         else

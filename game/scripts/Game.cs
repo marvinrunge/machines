@@ -1570,6 +1570,7 @@ public partial class Game : Node3D
             _zenith = (_rig.Pitch, _rig.Distance);
             (_rig.Pitch, _rig.Distance) = (9, 28);
         }
+        _rig.Ground = !zenith;
     }
 
     /// <summary>Where the mouse ray meets the ground, in original ground coordinates.</summary>
@@ -2091,10 +2092,23 @@ public partial class Game : Node3D
         }
     }
 
-    private void LookUpDown(InputEventMouseMotion motion)
+    // The mouse looks down as it comes back, up with the options' Reverse F.P. Mouse (MachGuiFirstPerson).
+    private void LookUpDown(InputEventMouseMotion motion) => LookBy(motion.Relative.Y * (GameOptions.ReverseMouse ? 0.002f : -0.002f));
+
+    // Shift and the up arrow look down, Shift and the down arrow up, slowly with Ctrl too (MachGuiFirstPerson's
+    // LOOKDOWN and LOOKUP keys); the options' Reverse Up/Down Keys swaps the arrows.
+    private void LookWithKeys()
+    {
+        if (!Input.IsKeyPressed(Key.Shift) || Input.IsKeyPressed(Key.Up) == Input.IsKeyPressed(Key.Down))
+            return;
+        var step = Mathf.DegToRad(Input.IsKeyPressed(Key.Ctrl) ? 15 : 150) * (float)GetProcessDeltaTime();
+        LookBy(Input.IsKeyPressed(Key.Up) != GameOptions.ReverseKeys ? -step : step);
+    }
+
+    private void LookBy(float radians)
     {
         var limits = World.Data.Parm.General;
-        _lookPitch = Mathf.Clamp(_lookPitch - motion.Relative.Y * 0.002f,
+        _lookPitch = Mathf.Clamp(_lookPitch + radians,
             -Mathf.DegToRad(limits.FirstPersonLookMaxAngle), Mathf.DegToRad(-limits.FirstPersonLookMinAngle));
     }
 
@@ -2173,6 +2187,7 @@ public partial class Game : Node3D
     {
         if (_driven is not { } machine || !_views.TryGetValue(machine.Id, out var view))
             return;
+        LookWithKeys();
         // From the faceplate, as the original, turning with the upper body; the view stays level whatever the
         // machine leans or sways.
         if (machine.CanTurnUpperBody)

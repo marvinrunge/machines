@@ -249,6 +249,8 @@ for the campaign's current player, and with it `MACHINES_SCREENSHOT_MENU=briefin
 briefing or debriefing; the menu pages `campaign`, `missions` and `briefing` can be saved as above.
 `MACHINES_MISSION_RUNS=<report.txt> dotnet test --filter CampaignRunTests` plays every mission for ten minutes,
 the AI against a simple driver of the player's side, and writes how each went.
+`MACHINES_OPTIONS=gamma=1.8,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off` sets the original's
+options (see `GameOptions.cs`) for one run without saving them.
 
 | Control | Does |
 | --- | --- |

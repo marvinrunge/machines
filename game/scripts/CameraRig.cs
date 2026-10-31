@@ -29,6 +29,17 @@ public partial class CameraRig : Node3D
     /// <summary>Degrees down from the horizon; the original zenith camera uses 41.</summary>
     public float Pitch { get; set; } = 41f;
 
+    /// <summary>
+    /// Whether the rig is the ground camera, low over the ground looking ahead. Ctrl, Shift and the up or down arrow
+    /// tilt its view while Shift is held; let go of Shift and it levels again (PhysGroundFlyControl).
+    /// </summary>
+    public bool Ground { get; set; }
+
+    private const float TiltSpeed = 45f, MaxTilt = 70f;
+
+    // The ground camera's tilt, degrees up.
+    private float _tilt;
+
     public float Distance
     {
         get => _distance;
@@ -39,6 +50,7 @@ public partial class CameraRig : Node3D
     {
         Camera = new Camera3D { Far = 6000, Fov = 50 };
         AddChild(Camera);
+        GameOptions.ShowGamma();
         Place();
     }
 
@@ -53,10 +65,17 @@ public partial class CameraRig : Node3D
     {
         if (!Active)
             return;
+        // With Ctrl held the ground camera's arrows tilt rather than move. The up arrow tilts it down and the down
+        // arrow up, as a pilot's stick does, unless the options reverse them.
+        var tilting = Ground && Input.IsKeyPressed(Key.Ctrl);
+        if (!Ground || !Input.IsKeyPressed(Key.Shift))
+            _tilt = 0;
+        else if (tilting && Input.IsKeyPressed(Key.Up) != Input.IsKeyPressed(Key.Down))
+            _tilt = Mathf.Clamp(_tilt + (Input.IsKeyPressed(Key.Down) != GameOptions.ReverseKeys ? 1 : -1) * TiltSpeed * (float)delta, -MaxTilt, MaxTilt);
 
         var input = Vector2.Zero;
-        if (Input.IsKeyPressed(Key.W) || Input.IsKeyPressed(Key.Up)) input.Y -= 1;
-        if (Input.IsKeyPressed(Key.S) && !Input.IsKeyPressed(Key.Ctrl) || Input.IsKeyPressed(Key.Down)) input.Y += 1;
+        if (Input.IsKeyPressed(Key.W) || Input.IsKeyPressed(Key.Up) && !tilting) input.Y -= 1;
+        if (Input.IsKeyPressed(Key.S) && !Input.IsKeyPressed(Key.Ctrl) || Input.IsKeyPressed(Key.Down) && !tilting) input.Y += 1;
         if (Input.IsKeyPressed(Key.A) || Input.IsKeyPressed(Key.Left)) input.X -= 1;
         if (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right)) input.X += 1;
 
@@ -104,6 +123,7 @@ public partial class CameraRig : Node3D
         var offset = new Vector3(Mathf.Sin(_yaw), 0, Mathf.Cos(_yaw)) * Mathf.Cos(pitch) * _distance + Vector3.Up * Mathf.Sin(pitch) * _distance;
         Camera.GlobalPosition = GlobalPosition + offset;
         Camera.LookAt(GlobalPosition, Vector3.Up);
+        Camera.RotateObjectLocal(Vector3.Right, Mathf.DegToRad(_tilt));
         Camera.Basis *= ShakeAt(Camera.GlobalPosition);
     }
 

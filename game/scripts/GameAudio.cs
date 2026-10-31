@@ -180,6 +180,8 @@ public partial class GameAudio : Node
         player.UnitSize = Mathf.Max(4, sound.NearDistance);
         player.MaxDistance = Mathf.Max(sound.FarDistance, 50);
         player.AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance;
+        // Without the options' 3D Sound only the distance tells where a sound is, as the original's 2D sounds did.
+        player.PanningStrength = GameOptions.Sound3d ? 1 : 0;
     }
 
     // ---- voice mail -----------------------------------------------------------------------------

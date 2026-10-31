@@ -1,10 +1,12 @@
 using Godot;
+using Machines.Import.Text;
 
 namespace Machines.Game;
 
 /// <summary>
 /// The options (MachGuiCtxOptions), the same before a match and over one: the look, the music's and the sounds'
-/// volumes, the soundtrack's folder, window or full screen and the menus' size. Before a match it also imports the
+/// volumes, 3D sound, the soundtrack's folder, window or full screen and the menus' size, and the original's gamma,
+/// reversed keys and mouse and 2D selection box (<see cref="GameOptions"/>). Before a match it also imports the
 /// original models and terrain from the player's own copy of the game (<see cref="ClassicImport"/>). Every change
 /// takes at once and is kept in <c>user://settings.cfg</c>.
 /// </summary>
@@ -81,6 +83,7 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
 
         rows.AddChild(Setting("Music", Slider(Music.Volume, value => Music.Volume = value)));
         rows.AddChild(Setting("Sounds", Slider(GameAudio.SoundVolume, value => GameAudio.SoundVolume = value)));
+        rows.AddChild(Setting(Text(7098, "3D Sound"), Switch(GameOptions.Sound3d, on => GameOptions.Sound3d = on)));
 
         static string Tracks(string? folder) => Music.TrackCount(folder) is var count and > 0
             ? $"{count} tracks"
@@ -116,7 +119,12 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         };
         rows.AddChild(Setting("Menu size", size));
 
-        columns.AddChild(inGame ? Spring() : Import());
+        var right = Column(Gap);
+        right.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        if (!inGame)
+            right.AddChild(Import());
+        right.AddChild(Controls());
+        columns.AddChild(right);
 
         var backButton = Button("Back", Back);
         backButton.CustomMinimumSize = new Vector2(400, 76);
@@ -133,11 +141,58 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         _ => "Each part of the look as chosen under Customize.",
     };
 
-    private static HSlider Slider(float value, Action<float> changed)
+    private static HSlider Slider(float value, Action<float> changed, float lowest = 0, float highest = 1)
     {
-        var slider = new HSlider { MinValue = 0, MaxValue = 1, Step = 0.05, Value = value, CustomMinimumSize = new Vector2(0, 40) };
+        var slider = new HSlider { MinValue = lowest, MaxValue = highest, Step = 0.05, Value = value, CustomMinimumSize = new Vector2(0, 40) };
         slider.ValueChanged += v => changed((float)v);
         return slider;
+    }
+
+    private static ChipChoice Switch(bool on, Action<bool> changed)
+    {
+        var choice = new ChipChoice(["Off", "On"], on ? 1 : 0);
+        choice.ItemSelected += i => changed(i == 1);
+        return choice;
+    }
+
+    private static StringTable? _strings;
+
+    // A label of the original's options screen (machstrg.xml), or the fallback without it.
+    private static string Text(int id, string fallback)
+    {
+        var path = System.IO.Path.Combine(Paths.OriginalData, "machstrg.xml");
+        _strings ??= File.Exists(path) ? StringTableParser.Load(path) : new StringTable(new Dictionary<int, string>());
+        return _strings.Strings.TryGetValue(id, out var text) && !string.IsNullOrWhiteSpace(text) ? text.Trim() : fallback;
+    }
+
+    /// <summary>
+    /// The rest of the original's options (MachGuiCtxOptions): the gamma correction beside its calibration picture
+    /// (gammacal.bmp of the player's game copy), the up and down keys and the first-person mouse reversed, and the
+    /// 2D selection box.
+    /// </summary>
+    private static ChipPanel Controls()
+    {
+        var chip = new ChipPanel { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ShrinkBegin, Padding = 28 };
+        var rows = Column(20, MenuTheme.Label("CONTROLS AND PICTURE", 24, MenuTheme.Bright));
+        chip.AddChild(rows);
+
+        var gamma = Slider(GameOptions.Gamma, value => GameOptions.Gamma = value, GameOptions.GammaLowest, GameOptions.GammaHighest);
+        var picture = new ClassicAssets(Paths.Root).GameFolder is { } game
+            && System.IO.Path.Combine(game, "gui", "menu", "gammacal.bmp") is var file && File.Exists(file)
+            && ClassicAssets.DecodeBmp(File.ReadAllBytes(file)) is { } image
+            ? new TextureRect { Texture = ImageTexture.CreateFromImage(image), CustomMinimumSize = new Vector2(image.GetWidth(), image.GetHeight()) * 1.5f, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, TextureFilter = CanvasItem.TextureFilterEnum.Nearest }
+            : null;
+        rows.AddChild(Setting(Text(6991, "Gamma"), picture is null ? gamma : Line(18, gamma, picture), 260));
+        gamma.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        gamma.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+
+        rows.AddChild(Setting(Text(6995, "Reverse Up/Down Keys"), Switch(GameOptions.ReverseKeys, on => GameOptions.ReverseKeys = on), 260));
+        rows.AddChild(Setting(Text(6994, "Reverse F.P. Mouse"), Switch(GameOptions.ReverseMouse, on => GameOptions.ReverseMouse = on), 260));
+        rows.AddChild(Setting(Text(6996, "2D Selection box"), Switch(GameOptions.Selection2d, on => GameOptions.Selection2d = on), 260));
+        rows.AddChild(MenuTheme.Paragraph(
+            "The up and down keys look with Shift in first person, and tilt the ground camera with Ctrl and Shift. " +
+            "Unreversed, up looks down as a pilot's stick does.", 20, MenuTheme.Dim));
+        return chip;
     }
 
     /// <summary>

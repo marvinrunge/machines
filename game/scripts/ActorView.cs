@@ -466,11 +466,11 @@ public partial class ActorView : Node3D
         view._marker = new MeshInstance3D
         {
             Name = "Marker",
-            Mesh = MarkerBox(view._bounds),
             MaterialOverride = view._markerMaterial,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             Visible = false,
         };
+        view.BuildMarker();
         view.AddChild(view._marker);
         view._model = (Node?)view._rigView ?? view.GetNodeOrNull("Body");
 
@@ -587,11 +587,15 @@ public partial class ActorView : Node3D
 
     private void ShowMarker()
     {
+        if (_marker2d != GameOptions.Selection2d)
+            BuildMarker();
         _marker.Visible = _selected || _highlighted;
         // The original picked one of 20 shades, each standing for a twentieth of the hit points.
         var shade = (int)(20 * Mathf.Clamp(_healthShare, 0, 1) * 100 / 100.1f);
         var colour = _selected ? HealthColour(100f * shade / 19) : MarkerBlue;
-        if (_markerMaterial.AlbedoColor != colour)
+        if (_marker2d)
+            _marker2dMaterial!.SetShaderParameter("colour", colour with { A = 0.7f });
+        else if (_markerMaterial.AlbedoColor != colour)
             _markerMaterial.AlbedoColor = colour;
     }
 
@@ -772,9 +776,9 @@ public partial class ActorView : Node3D
 
         var hurt = actor.HitPoints < actor.MaxHitPoints || actor.Armour < actor.MaxArmour;
         _health.Visible = _armour.Visible = hurt || Selected;
-        // The marker of a selected actor takes the colour of its health.
+        // The marker of a selected actor takes the colour of its health, and the kind the options ask for.
         var share = actor.HitPoints / (float)Mathf.Max(1, actor.MaxHitPoints);
-        if (share != _healthShare)
+        if (share != _healthShare || _marker2d != GameOptions.Selection2d)
         {
             _healthShare = share;
             ShowMarker();
