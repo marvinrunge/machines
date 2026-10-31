@@ -681,7 +681,8 @@ public partial class Game : Node3D
             var spot = Enumerable.Range(0, 400).Select(i => centre + new NVector2(i % 20 - 10, i / 20 - 10) * 8)
                 .OrderBy(p => NVector2.Distance(p, centre))
                 .FirstOrDefault(p => World.WhyCannotPlace(Player, type, sub, level, p, 0) is null, centre);
-            Issue(new PlaceConstructionCommand(Player, constructors, type, sub, level, spot, 0));        }
+            Issue(new PlaceConstructionCommand(Player, constructors, type, sub, level, spot, 0));
+        }
         if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_SELECT") is { Length: > 0 } select)
         {
             // e.g. "CONSTRUCTOR" or "AGGRESSOR"; with MACHINES_SCREENSHOT_FIRSTPERSON=1 the first one is driven.

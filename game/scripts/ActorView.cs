@@ -176,10 +176,11 @@ public partial class ActorView : Node3D
                 continue;
             if (_remadeJets)
             {
-                var flowing = FxShaders.NewStreak(new Color(0.55f, 0.8f, 1f), 3, 0.3f, 5, head: 0, taper: 0.5f, flicker: 0.3f, white: 0.35f);
+                // Green, as the original's torch glows (its emissive 0, 1, 0).
+                var flowing = FxShaders.NewStreak(new Color(0.1f, 1f, 0.15f), 1.5f, 0.45f, 5, head: 0, taper: 0.5f, flicker: 0.3f, white: 0.1f);
                 flowing.SetInstanceShaderParameter("flow", 25f);
                 var shower = TorchSparks();
-                var glare = new OmniLight3D { LightColor = new Color(0.6f, 0.8f, 1), LightEnergy = 3, OmniRange = 10 };
+                var glare = new OmniLight3D { LightColor = new Color(0.5f, 1, 0.5f), LightEnergy = 3, OmniRange = 10 };
                 AddChild(flowing);
                 AddChild(shower);
                 AddChild(glare);
@@ -237,11 +238,14 @@ public partial class ActorView : Node3D
         }
     }
 
-    /// <summary>The torch's sparks in the remake's effects: a steady shower of hot streaks from the jet, falling as they cool.</summary>
+    /// <summary>
+    /// The torch's sparks in the remake's effects: a thick, steady shower of hot streaks in the torch's green from
+    /// the jet, falling as they cool.
+    /// </summary>
     private static GpuParticles3D TorchSparks() => new()
     {
-        Amount = 30,
-        Lifetime = 0.5f,
+        Amount = 70,
+        Lifetime = 0.6f,
         LocalCoords = false,
         CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
         DrawPass1 = FxShaders.SparkQuad.Value,
@@ -251,11 +255,11 @@ public partial class ActorView : Node3D
             Direction = Vector3.Up,
             Spread = 70,
             InitialVelocityMin = 3,
-            InitialVelocityMax = 7,
+            InitialVelocityMax = 8,
             Gravity = new Vector3(0, -12, 0),
-            ScaleMin = 0.2f,
-            ScaleMax = 0.4f,
-            ColorRamp = Effects.Ramp(new Color(2.6f, 2.8f, 3.2f, 1), new Color(2.4f, 1.6f, 0.7f, 1), new Color(1.2f, 0.5f, 0.15f, 0)),
+            ScaleMin = 0.3f,
+            ScaleMax = 0.6f,
+            ColorRamp = Effects.Ramp(new Color(0.7f, 2.6f, 0.7f, 1), new Color(0.15f, 2f, 0.25f, 1), new Color(0.05f, 0.8f, 0.1f, 0)),
         },
     };
 
