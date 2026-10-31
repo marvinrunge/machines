@@ -15,8 +15,15 @@ public sealed record Replay(MatchInfo Match, IReadOnlyList<Turn> Turns, long Tic
 
     public void Save(string path) => File.WriteAllBytes(path, JsonSerializer.SerializeToUtf8Bytes(this, NetJson.Options));
 
-    public static Replay Load(string path) =>
-        JsonSerializer.Deserialize<Replay>(File.ReadAllBytes(path), NetJson.Options) ?? throw new JsonException("empty replay");
+    public static Replay Load(string path)
+    {
+        var json = File.ReadAllBytes(path);
+        var replay = JsonSerializer.Deserialize<Replay>(json, NetJson.Options) ?? throw new JsonException("empty replay");
+        // Recorded before artefacts could be destroyed: they stay whole, so it plays back as it was played.
+        if (System.Text.Encoding.UTF8.GetString(json).Contains($"\"{nameof(MatchOptions.DestructibleArtefacts)}\"", StringComparison.Ordinal))
+            return replay;
+        return replay with { Match = replay.Match with { Options = replay.Match.Options with { DestructibleArtefacts = false } } };
+    }
 
     /// <summary>The world the match started from: the same map, settings, players and seed.</summary>
     public static GameWorld BuildWorld(GameData data, MatchInfo match) =>

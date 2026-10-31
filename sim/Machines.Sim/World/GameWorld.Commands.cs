@@ -25,8 +25,8 @@ public sealed partial class GameWorld
 
             case AttackCommand attack:
             {
-                var target = Find(attack.Target);
-                if (target is null || !AreEnemies(attack.Race, target.Race))
+                var target = FindTarget(attack.Target);
+                if (target is null || !CanAttack(attack.Race, target))
                     return "no enemy there";
                 foreach (var machine in Own<Machine>(attack.Race, attack.Machines).Where(m => m.CanFight))
                     Send(machine, new AttackOrder(target.Id), target.Position);

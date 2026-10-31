@@ -393,8 +393,8 @@ public partial class Game : Node3D
     /// <summary>Sun, sky and fog from the planet's .env file, following the game clock.</summary>
     /// <summary>
     /// The scenery and destructible objects the scenario sets on the planet (ARTEFACTS: trees, rocks, wrecks,
-    /// ruins), each at its place and turned as the scenario says, standing on the ground. They are drawn only; the
-    /// simulation does not know them yet.
+    /// ruins), each at its place and turned as the scenario says, standing on the ground. Each one's model is kept
+    /// by its place in the list (<see cref="_artefactModels"/>), so the active ones vanish when they are destroyed.
     /// </summary>
     private Node3D Artefacts(ArtefactSection section)
     {
@@ -402,30 +402,65 @@ public partial class Game : Node3D
         if (section.ModelsPath is not { } models)
             return root;
         Vector3 At(Vector2 position, float z) => new(position.X, HeightField.Current?.At(position.X, position.Y) ?? z, position.Y);
-        var placements = section.Placements.ToList();
+        var placements = section.Placements.Select((placement, index) => (Placement: placement, Index: index)).ToList();
         if (GraphicsSettings.Scenery)
         {
             // The remake's trees and rocks stand in for the original's (Scenery); the rest keeps its model.
             var (scenery, left) = Scenery.Place(placements, p =>
-                (p.TypeName, At(new Vector2(p.Position.X, p.Position.Y), p.Position.Z), p.Orientation, _assets.ArtefactMesh(models, p.TypeName)));
+                (p.Placement.TypeName, At(new Vector2(p.Placement.Position.X, p.Placement.Position.Y), p.Placement.Position.Z),
+                    p.Placement.Orientation, _assets.ArtefactMesh(models, p.Placement.TypeName)));
             root.AddChild(scenery);
+            // Scenery adds one model for each placement it took, in order.
+            foreach (var (taken, model) in placements.Except(left).Zip(scenery.GetChildren().OfType<Node3D>()))
+                _artefactModels[taken.Index] = model;
             placements = left;
         }
-        foreach (var placement in placements)
+        foreach (var (placement, index) in placements)
         {
             if (_assets.ArtefactMesh(models, placement.TypeName) is not { } mesh)
                 continue;
             var at = At(new Vector2(placement.Position.X, placement.Position.Y), placement.Position.Z);
-            root.AddChild(new MeshInstance3D
+            var model = new MeshInstance3D
             {
                 Name = placement.TypeName,
                 Mesh = mesh,
                 Transform = new Transform3D(new Basis(Vector3.Up, -Mathf.DegToRad(placement.Orientation)), at),
                 // The red moons' lava pools glow and creep in the remake, as the lava on the ground does.
                 MaterialOverride = GraphicsSettings.Scenery && placement.TypeName.Equals("lava", StringComparison.OrdinalIgnoreCase) ? Scenery.Lava() : null,
-            });
+            };
+            root.AddChild(model);
+            _artefactModels[index] = model;
         }
         return root;
+    }
+
+    // The artefacts' models by their place in the scenario's list (an artefact's id less Artefact.IdBase).
+    private readonly Dictionary<int, Node3D> _artefactModels = [];
+
+    /// <summary>
+    /// The standing artefact whose model the cursor's ray meets before the ground and anything else, if any: the
+    /// attack command can be aimed at it, and the prompt line names it.
+    /// </summary>
+    private Artefact? ArtefactAt(Vector2 screen)
+    {
+        if (Fog?.Blind == true)
+            return null;
+        var camera = GetViewport().GetCamera3D();
+        var (from, direction) = (camera.ProjectRayOrigin(screen), camera.ProjectRayNormal(screen));
+        var nearest = HeightField.Current?.Hit(from, direction) is { } ground ? from.DistanceTo(ground) + 1 : camera.Far;
+        Artefact? best = null;
+        foreach (var artefact in World.Artefacts)
+        {
+            if (!_artefactModels.TryGetValue(artefact.Placement, out var model) || model is not VisualInstance3D shape)
+                continue;
+            var box = shape.GlobalTransform * shape.GetAabb();
+            if (box.IntersectsSegment(from, from + direction * camera.Far) && from.DistanceTo(box.GetCenter()) < nearest)
+            {
+                nearest = from.DistanceTo(box.GetCenter());
+                best = artefact;
+            }
+        }
+        return best;
     }
 
     private void AddLighting()
@@ -490,16 +525,22 @@ public partial class Game : Node3D
             _hud.Banner("Defeat");
         else if (_waitingFor <= 1)
             _hud.Banner(null);
-        // Five seconds after the match is decided, the statistics (MachGuiCtxStatistics) come up over it.
+        // Five seconds after the match is decided, the statistics (MachGuiCtxStatistics) come up over it; after a
+        // campaign mission its film of victory or defeat, then its debriefing.
         if (World.Winner is not null || World.Races[Player].Defeated && !Watching)
         {
             var now = Time.GetTicksMsec() / 1000.0;
+            if (_decidedAt is null)
+                RecordCampaign();
             _decidedAt ??= now;
             if (!_statisticsShown && now - _decidedAt > 5 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT") is not { Length: > 0 })
             {
                 _statisticsShown = true;
                 CloseMenu();
-                OpenMenu(statistics: true);
+                if (Campaign.IsCampaign(MatchRequest.Current) && !Watching)
+                    ShowCampaignEnding();
+                else
+                    OpenMenu(statistics: true);
             }
         }
         if (!_musicEnded && !Watching && (World.Winner is not null || World.Races[Player].Defeated))
@@ -676,6 +717,16 @@ public partial class Game : Node3D
                     _headTarget = Mathf.DegToRad(head);
             }
         }
+        // MACHINES_SCREENSHOT_MENU=briefing or debrief (with MACHINES_CAMPAIGN): a campaign mission's briefing over the
+        // match after MACHINES_SCREENSHOT_AFTER less a second, or its debriefing.
+        if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU") is "briefing" or "debrief" && _menu is null
+            && _runTime >= (double.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_AFTER"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var menuAt) ? menuAt : 4) - 1)
+        {
+            var debrief = System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU") == "debrief";
+            OpenMenu(statistics: false, debriefing: debrief);
+            if (!debrief)
+                _menu?.ShowBriefing();
+        }
         _runTime += delta;
         var after = double.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_AFTER"),
             System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 4;
@@ -834,6 +885,15 @@ public partial class Game : Node3D
                     else if (weapon == "GORILLA_PUNCH")
                         CameraRig.Shake(at, 15, 0.6f);
                     break;
+                case GameEventKind.Destroyed when e.Actor >= Artefact.IdBase:
+                    // An artefact: its model goes in the explosion, which is as big as it was.
+                    if (_artefactModels.Remove(e.Actor - Artefact.IdBase, out var standing))
+                    {
+                        _effects.Destroyed(at, null);
+                        _audio.Play(SoundTable.ExplosionSound(true, standing is VisualInstance3D shape ? shape.GetAabb().Size.Length() : 4, Random.Shared.Next(1, 7)), at);
+                        standing.QueueFree();
+                    }
+                    break;
                 case GameEventKind.Destroyed:
                     _destroyed.Add(e.Actor);
                     _effects.Destroyed(at - Vector3.Up * 2, _views.GetValueOrDefault(e.Actor));
@@ -906,6 +966,18 @@ public partial class Game : Node3D
                 case GameEventKind.SiteDiscovered when e.Detail == Player.ToString():
                     _hud.Message("Mineral site found");
                     _audio.Say("VID_GEO_MINERAL_LOCATED");
+                    break;
+                case GameEventKind.VoiceMail when e.Other == (int)Player && e.Detail is { } mail:
+                    // The mission script's mails wait their turn rather than being dropped.
+                    _audio.Say(mail, queue: true);
+                    break;
+                case GameEventKind.Explosion:
+                    // The mission script's explosion (MachLogExplosionAction), as big as its SIZE; a big one shakes the view.
+                    var blastSize = float.TryParse(e.Detail, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsedSize) ? parsedSize : 10;
+                    _effects.Destroyed(at - Vector3.Up * 2, null);
+                    _audio.Play(SoundTable.ExplosionSound(true, blastSize, Random.Shared.Next(1, 7)), at);
+                    if (blastSize >= 20)
+                        CameraRig.Shake(at, Math.Min(15, blastSize / 4), 2);
                     break;
             }
         }
@@ -1166,8 +1238,9 @@ public partial class Game : Node3D
                     {
                         // Cleared first: a command taking more points sets itself up again.
                         _targeting = null;
+                        // The attack command can also be aimed at an artefact (MachGuiAttackCommand::cursorOnActor).
                         if (GroundAt(left.Position) is { } point)
-                            onClick(point, ActorAt(left.Position));
+                            onClick(point, ActorAt(left.Position) ?? (_targetingCursor == "attack" ? ArtefactAt(left.Position) : null));
                     }
                     else if (_placing is not null)
                         PlaceBuilding();
@@ -1330,7 +1403,7 @@ public partial class Game : Node3D
     /// <summary>Opens the menus over the match (Esc, F10, the return button); a game on this machine waits meanwhile.</summary>
     public void OpenMenu() => OpenMenu(statistics: false);
 
-    private void OpenMenu(bool statistics)
+    private void OpenMenu(bool statistics, bool debriefing = false)
     {
         if (_menu is not null && IsInstanceValid(_menu))
             return;
@@ -1339,7 +1412,7 @@ public partial class Game : Node3D
             Paused = true;
         var layer = new CanvasLayer { Layer = 10, Name = "Menus" };
         AddChild(layer);
-        _menu = new InGameMenu(this, statistics);
+        _menu = new InGameMenu(this, statistics, debriefing);
         _menu.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         layer.AddChild(_menu);
         _rig.Active = false;
@@ -1408,7 +1481,48 @@ public partial class Game : Node3D
         SaveReplay();
         if (Online)
             NetLink.Send(new LeaveRoom());
+        // From a campaign mission the menus open on the choice of mission.
+        if (Campaign.IsCampaign(MatchRequest.Current) && !Watching && !Online)
+            MenuScreens.StartPage = "missions";
         GetTree().ChangeSceneToFile("res://scenes/Menu.tscn");
+    }
+
+    /// <summary>
+    /// A campaign mission played to its end goes into the campaign player's progress (MachGuiStartupScreens's
+    /// contextVictory and contextDefeat): its score, and for a win the flags it set and the machines it saves.
+    /// </summary>
+    private void RecordCampaign()
+    {
+        if (!Campaign.IsCampaign(MatchRequest.Current) || Watching || Online || Campaign.Entry(MatchRequest.Current.Scenario) is not { } mission)
+            return;
+        var progress = CampaignProgress.Load();
+        if (progress.CurrentPlayer is not { } player)
+            return;
+        var won = World.Winner == Player;
+        player.Record(mission.Name, won, World.Races[Player].Score.Gross, World.Script?.FlagsSet ?? [],
+            won && mission.SaveMachines is { } race ? MissionScript.Survivors(World, race) : null);
+        try
+        {
+            progress.Save();
+        }
+        catch (IOException exception)
+        {
+            _hud.Message($"The campaign progress was not saved: {exception.Message}");
+        }
+    }
+
+    /// <summary>After a campaign mission: its film of victory or defeat when it has one (WIN, LOSE), then the debriefing.</summary>
+    private void ShowCampaignEnding()
+    {
+        var won = World.Winner == Player;
+        if (Campaign.Media(_assets.GameFolder, Campaign.Entry(MatchRequest.Current.Scenario)?.Media.GetValueOrDefault(won ? "WIN" : "LOSE")) is { } film)
+            FilmScreen.Play(GetTree(), film, () =>
+            {
+                if (IsInstanceValid(this))
+                    OpenMenu(statistics: false, debriefing: true);
+            });
+        else
+            OpenMenu(statistics: false, debriefing: true);
     }
 
     /// <summary>The scenario's briefing text from the game copy, when there is one.</summary>
@@ -1557,6 +1671,7 @@ public partial class Game : Node3D
             view.Highlighted = !view.Selected;
         _hud.Panel.Prompt = !inWorld ? null
             : _hovered is not null ? _hud.Panel.PromptFor(_hovered)
+            : ArtefactAt(mouse) is { } artefact ? _hud.Panel.PromptFor(artefact)
             : _hoveredDebris is { } wreck ? $"Debris   {wreck.Quantity} BMU"
             : SiteAt(mouse) is { } site ? ClassicPanel.DepositPrompt(site)
             : null;

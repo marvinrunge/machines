@@ -140,7 +140,35 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
 - **The planets' artefacts:** the trees, palms, rocks, ruins and other scenery the scenarios set on the
   planets (ARTEFACTS) stand where the original put them, from each planet's own models (`pdata/*.arb`). They
   stand in the way as in the original: machines go round the active ones (their boundaries, turned as they
-  stand) and cannot build on them, while scenery (DUMB) blocks nothing. They cannot be destroyed yet.
+  stand) and cannot build on them, while scenery (DUMB) blocks nothing. The active ones can be shot down as in
+  the original, with the hit points and armour their scenario gives them, and take the damage they pass on
+  (ONDESTROY) to the ones tied to them; recordings made before keep them whole, so they play back as played.
+- **Campaign:** **Campaign** in the main menu plays the original's 25 missions in its five star systems, from
+  the training camp to Midian Prime.
+  - Players as in the original, each with their own progress (`saves/campaign.json`): a won mission opens the
+    ones after it (AFTER), and each keeps its highest score.
+  - The choice of mission shows the systems, planets and missions open so far with their films and texts from
+    your game copy. The briefing has the speaker's face, the objective, spoken, with its tasks and, once the
+    mission has been played, its hints; Start plays the landing film when the mission has one.
+  - The missions' scripts run as the original ran them: twelve kinds of condition (timers, places reached, unit
+    and artefact counts, BMUs, research, shots fired, flags and their combinations) and ten kinds of action (won,
+    lost, voice mails, tasks, reinforcements, squadrons sent to attack, sides changed, explosions, flags, actions
+    enabled). Their voice mails wait their turn instead of being cut off. The briefing over the match marks the
+    tasks done.
+  - A won mission hands on the flags it set and, where the original kept them, its surviving machines (from
+    commsat to sat); the missions after it read them.
+  - After the mission comes its film of victory or defeat, then the debriefing: its picture, the closing text,
+    spoken, with the tasks done and failed, and Restart, Statistics or Continue to the choice of mission.
+  - Saved games and replays of a campaign mission bring back what it took over and play out the same.
+  - Checked by the tests: every mission loads with only kinds of condition and action the remake knows, and is
+    lost once the player has nothing left; tut01, home, desspy and deepspac are won by playing their objective,
+    home is lost with its control centre, deepspac's flags send suicide its waves, sat takes over commsat's
+    survivors, and finger's APC lands its troops. All 25 play ten minutes, the AI against a simple driver,
+    without a fault.
+- **Films:** the original's Smacker films play straight from your game copy (`SmackerView`, with the decoder in
+  `import/Machines.Import/Video`): the loading and intro films before the main menu the first time, and the
+  campaign's films in its menus and between its missions. `tools/film-upscale` makes HD versions of them from
+  your copy (`classic/films`, never committed), which every look but the classic one plays.
 - **Models in motion:** the machines' glowing eyes and turn-to-face sprites, glowing parts such as the
   plasma weapons' green, rotors and turbines that spin, hips that bob and the bee bomber's energy ball, all
   as the original moved them. Flyers and hover machines tip as they speed up, brake and turn; real
@@ -207,15 +235,20 @@ dotnet test Machines.sln
 ```
 
 Open `game/project.godot` in the Godot .NET editor and press Play. Godot builds `Machines.sln` from the
-repository root (`dotnet/project/solution_directory`). The game opens on the main menu: Skirmish leads to the
-maps (double click starts one) and settings, Options to the look (Customize to each part of it), volumes, window and the import from your game copy.
+repository root (`dotnet/project/solution_directory`). The game opens on the main menu: Campaign leads to the
+players, the choice of mission and its briefing, Skirmish to the maps (double click starts one) and settings,
+Options to the look (Customize to each part of it), volumes, window and the import from your game copy.
 
 For automated checks, `MACHINES_MAP=<scenario>,<planet>` skips the menu, `MACHINES_SCREENSHOT=<file.png>`
 saves a screenshot and quits (without fog of war unless `MACHINES_FOG=1`),
 `MACHINES_LOOK=<look>[,terrain=original|sharpened|painted,models=original|overhauled|hd,lighting=on|off,effects=on|off,weather=on|off,scenery=on|off]`
 picks the look for one run without saving it, and `MACHINES_SCREENSHOT_PLAY=punchA,3` plays an animation 3 s in (see `Game.cs` and
 `MenuScreens.cs` for the other `MACHINES_*` switches; `MACHINES_MENU_SCREENSHOT=<file.png>,<page>,<W>x<H>` saves a
-menu page at any window size).
+menu page at any window size). `MACHINES_CAMPAIGN=<mission>` plays a campaign mission
+for the campaign's current player, and with it `MACHINES_SCREENSHOT_MENU=briefing` or `debrief` shows its
+briefing or debriefing; the menu pages `campaign`, `missions` and `briefing` can be saved as above.
+`MACHINES_MISSION_RUNS=<report.txt> dotnet test --filter CampaignRunTests` plays every mission for ten minutes,
+the AI against a simple driver of the player's side, and writes how each went.
 
 | Control | Does |
 | --- | --- |

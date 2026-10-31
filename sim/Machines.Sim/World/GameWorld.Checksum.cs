@@ -44,6 +44,15 @@ public sealed partial class GameWorld
                 MixFloat(building.Built);
             }
         }
+        foreach (var artefact in _artefacts.Values.Where(a => a.HitPoints != a.MaxHitPoints || a.Armour != a.MaxArmour).OrderBy(a => a.Id))
+        {
+            Mix(artefact.Id);
+            Mix(artefact.HitPoints);
+            Mix(artefact.Armour);
+        }
+        Mix(_artefacts.Count);
+        if (Script is not null)
+            Mix(Script.Fingerprint());
         foreach (var mine in LandMines)
             Mix(mine.Id);
         foreach (var wreck in Debris)

@@ -59,6 +59,7 @@ public sealed partial class GameWorld
             Machine { Stats.Locomotion: Locomotion.Glider } => 10,
             Machine machine => MathF.Max(1.2f, machine.Radius * 0.6f),
             Construction building => MathF.Min(6, 1 + building.Radius * 0.3f),
+            Artefact artefact => MathF.Max(1, (artefact.Type.Height ?? 2) * 0.5f),
             _ => 1,
         };
         return new Vector3(actor.Position, ground + up);
@@ -77,7 +78,7 @@ public sealed partial class GameWorld
             }
             var target = machine.Order switch
             {
-                AttackOrder attack => Find(attack.Target),
+                AttackOrder attack => FindTarget(attack.Target),
                 _ => NearestEnemy(machine, machine.Weapons.Max(w => w.Spec.Range), clearShot: true),
             };
             if (target is null)
@@ -117,7 +118,7 @@ public sealed partial class GameWorld
     /// <summary>Applies damage with the original armour rule and remembers who did it, for the score.</summary>
     public void Damage(Actor target, int damage, Race? by)
     {
-        if (target.IsDead)
+        if (target.IsDead || target is Artefact && !Options.DestructibleArtefacts)
             return;
         target.Durability = ArmourModel.ApplyHit(target.Durability, damage);
         if (by is not null)
@@ -150,8 +151,9 @@ public sealed partial class GameWorld
                     FireAtPoint(shooter, weapon, point, accuracy);
                     continue;
                 }
-                if (target is null || target.IsDead || shooter.DistanceTo(target) > weapon.Spec.Range || !AreEnemies(shooter.Race, target.Race))
+                if (target is null || target.IsDead || shooter.DistanceTo(target) > weapon.Spec.Range || !CanAttack(shooter.Race, target))
                     continue;
+                NoteFiredAt(shooter.Race, target);
 
                 // A round that cannot fly through the ground (the punch lands where the shooter stands).
                 if (weapon.Spec.TypeName != "GORILLA_PUNCH" && !Flies(weapon) && Terrain is { } ground
@@ -164,7 +166,7 @@ public sealed partial class GameWorld
 
                 Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, target.Id, weapon.Spec.TypeName));
                 if (Flies(weapon))
-                    Launch(shooter, weapon, AimAt(shooter, target, accuracy), AimPoint(target).Z);
+                    Launch(shooter, weapon, AimAt(shooter, target, accuracy), AimPoint(target).Z, target as Artefact);
                 else if (weapon.IsArea)
                 {
                     // Area weapons go off where the target is and hit everyone the blast reaches, friend or foe,

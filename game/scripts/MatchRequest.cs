@@ -63,6 +63,9 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
             var replay = Replay.Load(recording);
             return FromMatch(replay.Match, clientId: -1) with { Replay = replay };
         }
+        // MACHINES_CAMPAIGN=<mission> plays a campaign mission (tut01, commsat ...) for the campaign's current player.
+        if (System.Environment.GetEnvironmentVariable("MACHINES_CAMPAIGN") is { Length: > 0 } mission && Campaign.Entry(mission) is { } entry)
+            return Campaign.Request(entry, CampaignProgress.Load().CurrentPlayer ?? new CampaignPlayer());
         var map = System.Environment.GetEnvironmentVariable("MACHINES_MAP");
         if (string.IsNullOrEmpty(map))
             return null;

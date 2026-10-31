@@ -345,7 +345,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                 bars.Add(new Bar("Attack", "Attack: click the target", () => game.BeginTargeting("Click what to attack; right click cancels", "attack",
                     (_, target) =>
                     {
-                        if (target is not null && world.AreEnemies(Game.Player, target.Race))
+                        if (target is not null && world.CanAttack(Game.Player, target))
                             game.Order(new AttackCommand(Game.Player, ids.Where(id => world.Find<Machine>(id)?.CanFight == true).ToList(), target.Id));
                     }), "commands/attack.bmp"));
             if (constructors.Count > 0)
@@ -1179,6 +1179,9 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     /// </summary>
     public string PromptFor(Actor actor)
     {
+        // An artefact: its name from the string table, with its hit and armour points (addPromptTextArtefactInfo).
+        if (actor is Artefact artefact)
+            return $"{ArtefactName(artefact)}   HP {artefact.HitPoints}  AP {artefact.Armour}";
         var name = actor switch
         {
             Machine m when m.Race == Game.Player => KeyName(m.Key),
@@ -1269,6 +1272,15 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
 
     private static string TypeName(string type, string? subType) => Title(subType is null ? type : $"{subType} {type}")
         .Replace("Missile Emplacement", "Emplacement");
+
+    // The original's string table (machstrg.xml), for the artefacts' names.
+    private static readonly Lazy<Machines.Import.Text.StringTable?> Strings = new(() =>
+        System.IO.Path.Combine(Paths.OriginalData, "machstrg.xml") is var path && System.IO.File.Exists(path)
+            ? Machines.Import.Text.StringTableParser.Load(path) : null);
+
+    private static string ArtefactName(Artefact artefact) =>
+        artefact.Type.StringId is { } id && Strings.Value?.Strings.GetValueOrDefault(id) is { Length: > 0 } text
+            ? text.Trim() : Title(artefact.Type.Name);
 
     private static string KeyName(ResearchKey key) =>
         $"{TypeName(key.Type, key.SubType)} L{key.HardwareLevel}" + (key.WeaponCombo is { } combo ? $" ({Title(combo)})" : "");

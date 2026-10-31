@@ -69,6 +69,11 @@ public sealed partial class GameWorld
     public IEnumerable<Machine> Machines => _actors.Values.OfType<Machine>();
     public IEnumerable<Construction> Constructions => _actors.Values.OfType<Construction>();
 
+    private readonly Dictionary<int, Artefact> _artefacts = [];
+
+    /// <summary>The active artefacts still standing, apart from the races' actors.</summary>
+    public IEnumerable<Artefact> Artefacts => _artefacts.Values;
+
     /// <summary>Events raised during the last <see cref="Step"/>.</summary>
     public IReadOnlyList<GameEvent> Events => _events;
 
@@ -85,6 +90,13 @@ public sealed partial class GameWorld
     public Actor? Find(int id) => _actors.GetValueOrDefault(id);
 
     public T? Find<T>(int id) where T : Actor => _actors.GetValueOrDefault(id) as T;
+
+    /// <summary>What can be shot at by its id: a race's actor or an artefact.</summary>
+    public Actor? FindTarget(int id) => _actors.GetValueOrDefault(id) ?? _artefacts.GetValueOrDefault(id);
+
+    /// <summary>Whether a race may shoot at the target: an enemy, or an artefact while artefacts can be destroyed.</summary>
+    public bool CanAttack(Race race, Actor target) =>
+        target is Artefact ? Options.DestructibleArtefacts : AreEnemies(race, target.Race);
 
     public void Issue(Command command) => _pending.Enqueue(command);
 
@@ -134,6 +146,7 @@ public sealed partial class GameWorld
         Timed("spies", UpdateSpies);
         Timed("dead", RemoveDead);
         Timed("debris", BurnOutDebris);
+        Timed("script", UpdateScript);
         Timed("victory", CheckVictory);
 
         Tick++;
@@ -212,6 +225,16 @@ public sealed partial class GameWorld
         if (type == "MINE")
             AssignMineralSite(construction, discover: complete);
         return construction;
+    }
+
+    /// <summary>Sets an active artefact on the planet; its boundary, if it has one, is blocked to machines and building.</summary>
+    public Artefact AddArtefact(int placement, Vector2 position, ArtefactType type, int subType, IReadOnlyList<Vector2> boundary)
+    {
+        var artefact = new Artefact(placement, position, type, subType, boundary);
+        _artefacts.Add(artefact.Id, artefact);
+        if (boundary.Count >= 3)
+            Nav.SetArea(boundary, present: true);
+        return artefact;
     }
 
     internal void Raise(GameEvent e) => _events.Add(e);
@@ -314,6 +337,28 @@ public sealed partial class GameWorld
             }
             _hitPointCarry.Remove(actor.Id);
         }
+        RemoveDeadArtefacts();
+    }
+
+    /// <summary>
+    /// Destroyed artefacts free their ground and leave wreckage worth their cost (MachLogArtefact::beDestroyed); the
+    /// ones linked to them lose hit points and armour, and may fall with them (MachLogArtefact::damageLinkedArtefact).
+    /// </summary>
+    private void RemoveDeadArtefacts()
+    {
+        while (_artefacts.Values.Where(a => a.IsDead).OrderBy(a => a.Id).FirstOrDefault() is { } artefact)
+        {
+            _artefacts.Remove(artefact.Id);
+            Raise(new GameEvent(GameEventKind.Destroyed, artefact.Id, artefact.Position, Detail: "ARTEFACT"));
+            if (artefact.Boundary.Count >= 3)
+                Nav.SetArea(artefact.Boundary, present: false);
+            DropDebris(artefact);
+            foreach (var (other, hitPoints, armour) in artefact.OnDestroy.Where(link => !link.Other.IsDead))
+            {
+                other.HitPoints = Math.Clamp(hitPoints >= 0 ? hitPoints : other.HitPoints + hitPoints, 0, other.HitPoints);
+                other.Armour = Math.Clamp(armour >= 0 ? armour : other.Armour + armour, 0, other.Armour);
+            }
+        }
     }
 
     /// <summary>Takes an actor off the map without it counting as destroyed (recycling).</summary>
@@ -327,6 +372,22 @@ public sealed partial class GameWorld
     {
         if (Winner is not null)
             return;
+
+        // A campaign mission is decided by its script alone; a loss counts before a win (MachInGameScreen::updateGameState).
+        if (Options.Victory == VictoryCondition.Scripted)
+        {
+            foreach (var state in Races.Values.Where(r => !r.Defeated && Script?.Lost.Contains(r.Race) == true).ToList())
+                Defeat(state);
+            foreach (var race in Script?.Won ?? [])
+            {
+                if (Races.TryGetValue(race, out var state) && !state.Defeated)
+                {
+                    Winner = race;
+                    break;
+                }
+            }
+            return;
+        }
 
         foreach (var state in Races.Values.Where(r => !r.Defeated))
         {

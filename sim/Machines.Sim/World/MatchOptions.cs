@@ -31,6 +31,8 @@ public enum VictoryCondition
     Pod,
     /// <summary>When the time is up, the highest score wins.</summary>
     Timer,
+    /// <summary>A campaign mission: its script alone says who won or lost (WON and LOST actions).</summary>
+    Scripted,
 }
 
 /// <summary>The skirmish menu's settings, as the original applied them when it created the match.</summary>
@@ -43,6 +45,15 @@ public sealed record MatchOptions
     public VictoryCondition Victory { get; init; } = VictoryCondition.Annihilation;
     /// <summary>Game length for <see cref="VictoryCondition.Timer"/>, in seconds.</summary>
     public int TimeLimit { get; init; } = 1800;
+
+    /// <summary>
+    /// Whether active artefacts can be shot and destroyed, as in the original. Recordings made before they could be
+    /// say false, so they play back as they were played.
+    /// </summary>
+    public bool DestructibleArtefacts { get; init; } = true;
+
+    /// <summary>For a campaign mission: what it takes over from the missions the player won before.</summary>
+    public CampaignCarry? Campaign { get; init; }
 
     /// <summary>The timer choices of the original menu: 5 minutes to 3 hours.</summary>
     public static readonly IReadOnlyList<int> TimeLimits = [300, 600, 900, 1800, 2700, 3600, 5400, 7200, 10800];
@@ -58,3 +69,20 @@ public sealed record MatchOptions
         _ => null,
     };
 }
+
+/// <summary>
+/// What a campaign mission takes over from the missions the player has won (MachGuiDatabaseHandler): the flags they
+/// set (<c>SCENARIO_FLAG name FROM scenario</c>) and the machines that survived them (<c>FROM_SCENARIO</c>).
+/// Part of the match options, so recordings and saved games bring a campaign mission back exactly.
+/// </summary>
+public sealed record CampaignCarry
+{
+    /// <summary>The flags each won scenario set (SET_SCENARIO_FLAG), by scenario name.</summary>
+    public Dictionary<string, List<string>> Flags { get; init; } = [];
+
+    /// <summary>The machines left at the end of each won scenario that saves them (SAVE_MACHINES), by scenario name.</summary>
+    public Dictionary<string, List<SurvivingMachine>> Survivors { get; init; } = [];
+}
+
+/// <summary>A machine that came through a campaign mission (MachLogProductionUnit as the database keeps it).</summary>
+public sealed record SurvivingMachine(Race Race, string Type, string? SubType, int HardwareLevel, string? WeaponCombo);

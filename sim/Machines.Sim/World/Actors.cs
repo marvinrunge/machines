@@ -314,6 +314,50 @@ public sealed class Construction : Actor
 }
 
 /// <summary>
+/// An active artefact (MachLogArtefact): a tree, rock, wreck, door or shield the scenario sets on the planet as ACTIVE.
+/// It stands in the way, can be shot at and destroyed, and leaves wreckage worth its cost. It belongs to no race, so
+/// it is kept apart from the races' actors and its <see cref="Actor.Race"/> means nothing; its id is
+/// <see cref="IdBase"/> plus its place in the scenario's list, clear of the actors' ids.
+/// </summary>
+public sealed class Artefact : Actor
+{
+    public const int IdBase = 1 << 24;
+
+    public Artefact(int placement, Vector2 position, ArtefactType type, int subType, IReadOnlyList<Vector2> boundary)
+        : base(IdBase + placement, Race.Red, position)
+    {
+        Type = type;
+        SubType = subType;
+        Placement = placement;
+        Boundary = boundary;
+        MaxHitPoints = HitPoints = Math.Max(1, type.HitPoints ?? 1);
+        MaxArmour = Armour = type.Armour ?? 0;
+        Radius = boundary.Count > 0 ? MathF.Max(1, boundary.Max(p => Vector2.Distance(p, position))) : 1;
+    }
+
+    public ArtefactType Type { get; }
+
+    /// <summary>Its type's place among the section's DUMB and ACTIVE types, counted from 0 as the original did.</summary>
+    public int SubType { get; }
+
+    /// <summary>Its line in the scenario's list of placements (what the view drew it from).</summary>
+    public int Placement { get; }
+
+    /// <summary>The ground it blocks, turned as it stands (empty for one without a boundary).</summary>
+    public IReadOnlyList<Vector2> Boundary { get; }
+
+    public override float Radius { get; }
+
+    public override int Cost => Type.Cost ?? 0;
+
+    /// <summary>
+    /// What its destruction does to others (ONDESTROY): their hit points and armour become the given values, or, where
+    /// the scenario gave them negative, drop by that much (MachLogArtefact::damageLinkedArtefact).
+    /// </summary>
+    public List<(Artefact Other, int HitPoints, int Armour)> OnDestroy { get; } = [];
+}
+
+/// <summary>
 /// The burning wreckage a destroyed machine or building leaves (MachLogDebris): BMUs that a scavenger can pick up
 /// for its race until it burns out. It belongs to no one's forces and cannot be hit.
 /// </summary>

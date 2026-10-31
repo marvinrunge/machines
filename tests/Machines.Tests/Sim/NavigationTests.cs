@@ -69,6 +69,36 @@ public class NavigationTests
     }
 
     [Fact]
+    public void A_building_across_a_gap_is_left_be_and_one_beside_is_driven_up_to()
+    {
+        // 400 × 200 m, split down the middle by a chasm 40 m wide (deepspac's islands lie in space like this).
+        var chasm = new Obstacle([new(180, -10), new(220, -10), new(220, 210), new(180, 210)], 0, Water: false, Low: false, LineNumber: 0);
+        var nav = new Machines.Sim.Navigation.NavGrid(400, 200, [chasm]);
+        var across = new Vector2(300, 100);
+        nav.SetBuilding((across - new Vector2(10, 10), across + new Vector2(10, 10)), present: true);
+        var beside = new Vector2(100, 100);
+        nav.SetBuilding((beside - new Vector2(10, 10), beside + new Vector2(10, 10)), present: true);
+
+        // Driving up to the chasm's edge it goes, and no further: the old straight line on into the gap had the
+        // machines plan again every tick.
+        var path = nav.FindPath(new Vector2(20, 100), across, crossesWater: false);
+        Assert.NotEmpty(path);
+        Assert.True(nav.IsFree(path[^1], crossesWater: false));
+        Assert.InRange(path[^1].X, 160, 180);
+        Assert.Empty(nav.FindPath(path[^1], across, crossesWater: false));
+
+        // Asked again and again, it costs no new search over the rings.
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        for (var i = 0; i < 1000; i++)
+            nav.FindPath(path[^1], across, crossesWater: false);
+        Assert.True(watch.ElapsedMilliseconds < 500, $"{watch.ElapsedMilliseconds} ms");
+
+        // Beside a building of its own side it drives right up to it, as before.
+        var edge = nav.NearestFreePoint(beside + new Vector2(14, 0), crossesWater: false)!.Value;
+        Assert.Equal(beside, Assert.Single(nav.FindPath(edge, beside, crossesWater: false)));
+    }
+
+    [Fact]
     public void A_machine_set_down_on_rock_walks_out_first()
     {
         var world = NewMatch("m_desert");

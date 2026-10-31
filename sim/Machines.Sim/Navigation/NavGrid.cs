@@ -56,7 +56,7 @@ public sealed class NavGrid
         for (var y = y0; y <= y1; y++)
             for (var x = x0; x <= x1; x++)
                 _buildings[y * Width + x] += present ? 1 : -1;
-        _regions[0] = _regions[1] = null;
+        ForgetRegions();
         ReleaseFields();
     }
 
@@ -83,7 +83,7 @@ public sealed class NavGrid
             var (x, y) = Cell(middle);
             _buildings[y * Width + x] += present ? 1 : -1;
         }
-        _regions[0] = _regions[1] = null;
+        ForgetRegions();
         ReleaseFields();
     }
 
@@ -133,9 +133,26 @@ public sealed class NavGrid
         return regions;
     }
 
+    private void ForgetRegions()
+    {
+        _regions[0] = _regions[1] = null;
+        _nearestIn.Clear();
+    }
+
+    // The answers of NearestIn until the regions change: machines sent at something out of reach (across a gap
+    // in space on deepspac) ask the same again every tick, and from far away the rings are many.
+    private readonly Dictionary<(int Cell, int Region, bool Water), (int X, int Y)?> _nearestIn = [];
+
     /// <summary>The cell nearest to <paramref name="cell"/> in a region, searching ring by ring.</summary>
-    private (int X, int Y)? NearestIn((int X, int Y) cell, int region, bool crossesWater) =>
-        Nearest(cell, (x, y) => Region(x, y, crossesWater) == region, Math.Max(Width, Depth));
+    private (int X, int Y)? NearestIn((int X, int Y) cell, int region, bool crossesWater)
+    {
+        var key = (Index(cell), region, crossesWater);
+        if (_nearestIn.TryGetValue(key, out var nearest))
+            return nearest;
+        if (_nearestIn.Count >= 4096)
+            _nearestIn.Clear();
+        return _nearestIn[key] = Nearest(cell, (x, y) => Region(x, y, crossesWater) == region, Math.Max(Width, Depth));
+    }
 
     /// <summary>The free cell nearest to <paramref name="cell"/>, at most 40 cells away.</summary>
     private (int X, int Y)? NearestFree((int X, int Y) cell, bool crossesWater) =>
@@ -156,10 +173,10 @@ public sealed class NavGrid
             var bestDistance = int.MaxValue;
             for (var dy = -r; dy <= r; dy++)
             {
-                for (var dx = -r; dx <= r; dx++)
+                // Only the ring itself: its top and bottom rows whole, of the rows between their two ends.
+                var step = Math.Abs(dy) == r ? 1 : 2 * r;
+                for (var dx = -r; dx <= r; dx += step)
                 {
-                    if (Math.Abs(dx) != r && Math.Abs(dy) != r)
-                        continue;
                     var (x, y) = (cell.X + dx, cell.Y + dy);
                     if (x < 0 || y < 0 || x >= Width || y >= Depth || !accept(x, y))
                         continue;
@@ -216,8 +233,10 @@ public sealed class NavGrid
         var goalReachable = Region(goalCell.X, goalCell.Y, crossesWater) == reachable;
         if (NearestIn(goalCell, reachable, crossesWater) is not { } to)
             return [];
+        // A blocked goal right beside it (a building to attack or work on) it drives up to; one across a gap it
+        // cannot cross it leaves be.
         if (from == to)
-            return goalReachable || !IsFree(goalCell.X, goalCell.Y, crossesWater) ? [goal] : [];
+            return goalReachable || !IsFree(goalCell.X, goalCell.Y, crossesWater) && Borders(to, goal, crossesWater) ? [goal] : [];
 
         // In the open, the search and straightening below end in the straight line anyway.
         if (goalReachable && LineOfSight(start, goal, crossesWater))
@@ -428,6 +447,23 @@ public sealed class NavGrid
         for (var i = 1; i <= steps; i++)
         {
             if (!IsFree(Vector2.Lerp(a, b, i / (float)steps), crossesWater))
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// True when only blocked cells lie between a cell and a point: the point is inside the building or rock the
+    /// cell borders, not somewhere beyond open ground.
+    /// </summary>
+    private bool Borders((int X, int Y) cell, Vector2 point, bool crossesWater)
+    {
+        var from = Centre(cell.X, cell.Y);
+        var steps = (int)(Vector2.Distance(from, point) / (CellSize * 0.5f)) + 1;
+        for (var i = 1; i <= steps; i++)
+        {
+            var (x, y) = Cell(Vector2.Lerp(from, point, i / (float)steps));
+            if ((x, y) != cell && IsFree(x, y, crossesWater))
                 return false;
         }
         return true;

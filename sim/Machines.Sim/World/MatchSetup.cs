@@ -14,18 +14,29 @@ public static class MatchSetup
         var scenario = data.LoadScenario(scenarioName);
         var world = new GameWorld(data, data.LoadPlanet(planetName), seed) { Options = options };
 
-        // Active artefacts (trees, rocks, wrecks the scenario names ACTIVE) stand in the way: their boundary, turned
-        // as they stand, is blocked to machines and building (MachLogArtefact::addObstaclePolygon). Scenery (DUMB)
-        // blocks nothing.
+        // Active artefacts (trees, rocks, wrecks, doors the scenario names ACTIVE) stand in the way: their boundary,
+        // turned as they stand, is blocked to machines and building (MachLogArtefact::addObstaclePolygon), and they
+        // can be destroyed. Scenery (DUMB) blocks nothing. ONDESTROY links name artefacts by their ID clause.
         if (scenario.Artefacts is { } artefacts)
         {
-            foreach (var placement in artefacts.Placements)
+            var tagged = new Dictionary<int, Artefact>();
+            for (var i = 0; i < artefacts.Placements.Count; i++)
             {
-                if (artefacts.Types.FirstOrDefault(t => t.Name == placement.TypeName) is not { Active: true, Boundary.Count: >= 3 } type)
+                var placement = artefacts.Placements[i];
+                var subType = artefacts.Types.ToList().FindIndex(t => t.Name == placement.TypeName);
+                if (subType < 0 || artefacts.Types[subType] is not { Active: true } type)
                     continue;
                 var (sin, cos) = (DetMath.Sin(placement.Orientation * MathF.PI / 180), DetMath.Cos(placement.Orientation * MathF.PI / 180));
                 var at = new Vector2(placement.Position.X, placement.Position.Y);
-                world.Nav.SetArea(type.Boundary.Select(p => at + new Vector2(p.X * cos - p.Y * sin, p.X * sin + p.Y * cos)).ToList(), present: true);
+                var boundary = type.Boundary.Select(p => at + new Vector2(p.X * cos - p.Y * sin, p.X * sin + p.Y * cos)).ToList();
+                var artefact = world.AddArtefact(i, at, type, subType, boundary);
+                if (placement.Id is { } tag)
+                    tagged[tag] = artefact;
+            }
+            foreach (var link in artefacts.OnDestroy)
+            {
+                if (tagged.TryGetValue(link.Id, out var dying) && tagged.TryGetValue(link.Damage, out var damaged))
+                    dying.OnDestroy.Add((damaged, link.HitPoints, link.Armour));
             }
         }
 
@@ -84,6 +95,10 @@ public static class MatchSetup
             world.Options = options with { Victory = VictoryCondition.Annihilation };
         foreach (var state in world.Races.Values)
             state.StartedWithPod = world.Constructions.Any(c => c.Race == state.Race && c.IsType("POD"));
+
+        // A campaign mission runs its script, which alone decides it.
+        if (options.Victory == VictoryCondition.Scripted)
+            world.Script = MissionScript.Compile(scenario, options.Campaign);
 
         return world;
     }

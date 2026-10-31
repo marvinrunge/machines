@@ -9,13 +9,15 @@ namespace Machines.Game;
 /// The original's menus over a running match (MachGuiCtxInGameOptions and the screens it leads to), on the same
 /// board as the menus before it (<see cref="MenuStage"/>): Continue goes back to the match; Briefing shows the
 /// scenario's text; Restart starts it again; Hot Keys lists the keys; Options are the main menu's; Save Game and Load
-/// Game keep and fetch matches; Exit Game leaves for the main menu. After a match its statistics come up here.
+/// Game keep and fetch matches; Exit Game leaves for the main menu. After a match its statistics come up here, after
+/// a campaign mission its debriefing; a campaign mission's briefing has its tasks and hints.
 /// The arrow keys move between buttons, Enter presses one, Esc goes back; no key reaches the match behind.
 /// </summary>
-public partial class InGameMenu(Game game, bool statistics = false) : Control
+public partial class InGameMenu(Game game, bool statistics = false, bool debriefing = false) : Control
 {
     private MenuStage _stage = null!;
     private StringTable? _strings;
+    private ClassicAssets _assets = null!;
 
     public override void _Ready()
     {
@@ -24,8 +26,11 @@ public partial class InGameMenu(Game game, bool statistics = false) : Control
         _strings = File.Exists(path) ? StringTableParser.Load(path) : null;
         _stage = new MenuStage();
         AddChild(_stage);
-        MenuSounds.Attach(_stage, new ClassicAssets(Paths.Root).GameFolder);
-        if (statistics)
+        _assets = new ClassicAssets(Paths.Root);
+        MenuSounds.Attach(_stage, _assets.GameFolder);
+        if (debriefing)
+            ShowDebriefing();
+        else if (statistics)
             ShowStatistics();
         else
             ShowMain();
@@ -100,7 +105,81 @@ public partial class InGameMenu(Game game, bool statistics = false) : Control
         MenuPage.Focus(resume);
     }));
 
-    private void ShowBriefing() => _stage.Show(new BuiltPage(() => ShowMain(), page =>
+    public void ShowBriefing()
+    {
+        if (Mission() is { } mission && _assets.ScenarioTexts(mission.Text) is { } texts)
+            ShowMissionBriefing(mission, texts, hints: false);
+        else
+            ShowScenarioBriefing();
+    }
+
+    /// <summary>The campaign mission being played, when it is one.</summary>
+    private static CatalogueScenario? Mission() =>
+        Campaign.IsCampaign(MatchRequest.Current) ? Campaign.Entry(MatchRequest.Current.Scenario) : null;
+
+    /// <summary>
+    /// A campaign mission's briefing over the match (MachGuiCtxBriefing): the objective with the tasks the script has
+    /// made known, those done marked, or once the mission has been played before its hints.
+    /// </summary>
+    private void ShowMissionBriefing(CatalogueScenario mission, ScenarioText texts, bool hints) => _stage.Show(new BuiltPage(() => ShowMain(), page =>
+    {
+        var chip = new ChipPanel { SizeFlagsVertical = SizeFlags.ExpandFill, Padding = 30 };
+        var view = Campaign.TextView(25);
+        view.Text = Campaign.Rich(hints ? texts.Hint : Campaign.Objectives(texts, game.World.Script, Text));
+        chip.AddChild(view);
+        var played = CampaignProgress.Load().CurrentPlayer?.Missions.GetValueOrDefault(mission.Name) is { Played: > 0 };
+        var toggle = Footer(hints ? Text(7316, "Objectives") : Text(7315, "Hints"), () => ShowMissionBriefing(mission, texts, !hints));
+        toggle.Disabled = !hints && (!played || texts.Hint.Length == 0);
+        var ok = Footer(Text(7302, "OK"), game.CloseMenu);
+        page.AddChild(MenuPage.Column(MenuPage.Gap, MenuPage.Heading(Text(7304, "Briefing")), chip,
+            MenuPage.Line(MenuPage.Gap, Footer(Text(7311, "Cancel"), () => ShowMain()), toggle, MenuPage.Spring(), ok)));
+        MenuPage.Focus(ok);
+    }));
+
+    /// <summary>
+    /// The debriefing after a campaign mission (MachGuiCtxDeBriefing): the mission's picture of its victory or defeat,
+    /// its closing text, spoken, with the tasks done and failed; then Restart, the statistics, or Continue to the
+    /// choice of mission.
+    /// </summary>
+    private void ShowDebriefing() => _stage.Show(new BuiltPage(null, page =>
+    {
+        var mission = Mission();
+        var texts = _assets.ScenarioTexts(mission?.Text);
+        var won = game.World.Winner == Game.Player;
+        var picture = new ChipPanel { Padding = 10, CustomMinimumSize = new Vector2(470, 414) };
+        // Without a picture of its own, the original's of the player's colour (vicr.bmp, defb.bmp and so on).
+        var file = Campaign.Media(_assets.GameFolder, mission?.Media.GetValueOrDefault(won ? "DEBRIEFING" : "DEBRIEFINGLOSE"))
+                   ?? Campaign.Media(_assets.GameFolder, $"flics/gui/v&d/{(won ? "vic" : "def")}{Game.Player.ToString()[0]}.bmp");
+        if (file is not null && ClassicAssets.DecodeBmp(File.ReadAllBytes(file)) is { } image)
+            picture.AddChild(new TextureRect
+            {
+                Texture = ImageTexture.CreateFromImage(image),
+                ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+            });
+        var restart = Footer(Text(7305, "Restart"), () =>
+            LoadingScreen.Show(game.GetTree(), LoadingScreen.MapName(MatchRequest.Current), "RESTART", game.Restart));
+        var go = Footer(Text(7312, "Continue"), game.ExitToMenus);
+        var left = MenuPage.Column(26, picture, restart, Footer(Text(7317, "Statistics"), ShowStatistics), MenuPage.Spring(across: false), go);
+        left.CustomMinimumSize = new Vector2(470, 0);
+
+        var chip = new ChipPanel { SizeFlagsHorizontal = SizeFlags.ExpandFill, Padding = 30 };
+        var view = Campaign.TextView(25);
+        view.Text = texts is null ? "" : Campaign.Rich((won ? texts.WinText : texts.LoseText) + Campaign.Tasks(texts, game.World.Script, ended: true, Text));
+        chip.AddChild(view);
+        var columns = MenuPage.Line(MenuPage.Gap, left, chip);
+        columns.SizeFlagsVertical = SizeFlags.ExpandFill;
+        var title = MenuTheme.Label((mission is null ? LoadingScreen.MapName(MatchRequest.Current) : Text(mission.StringId, mission.Name)).ToUpperInvariant(), 28, MenuTheme.Text);
+        title.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        page.AddChild(MenuPage.Column(MenuPage.Gap, MenuPage.Line(MenuPage.Gap, MenuPage.Heading(won ? "Victory" : "Defeat"), MenuPage.Spring(), title), columns));
+
+        if ((won ? texts?.WinVoiceMail : texts?.LoseVoiceMail) is { Length: > 0 } voice)
+            game.Audio.SayFile(voice);
+        page.TreeExiting += game.Audio.Hush;
+        MenuPage.Focus(go);
+    }));
+
+    private void ShowScenarioBriefing() => _stage.Show(new BuiltPage(() => ShowMain(), page =>
     {
         var chip = new ChipPanel { SizeFlagsVertical = SizeFlags.ExpandFill, Padding = 30 };
         var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
@@ -171,12 +250,12 @@ public partial class InGameMenu(Game game, bool statistics = false) : Control
 
     private void ShowLoad() => _stage.Show(FilesPage.Load(() => ShowMain(), path => FilesPage.OpenSaved(game.GetTree(), path)));
 
-    /// <summary>The statistics after a match (MachGuiCtxStatistics); OK leaves for the main menu.</summary>
+    /// <summary>The statistics after a match (MachGuiCtxStatistics); OK leaves for the main menu, or after a campaign mission goes back to its debriefing.</summary>
     private void ShowStatistics() => _stage.Show(new BuiltPage(() => ShowMain(), page =>
     {
         var chip = new ChipPanel { SizeFlagsVertical = SizeFlags.ExpandFill, Padding = 24 };
         chip.AddChild(new StatisticsChart(game, Text));
-        var ok = Footer(Text(7302, "OK"), game.ExitToMenus);
+        var ok = Footer(Text(7302, "OK"), Mission() is not null && !game.Watching ? ShowDebriefing : game.ExitToMenus);
         page.AddChild(MenuPage.Column(MenuPage.Gap, MenuPage.Heading(Text(7093, "Statistics")), chip,
             MenuPage.Line(MenuPage.Gap, MenuPage.Spring(), ok)));
         MenuPage.Focus(ok);

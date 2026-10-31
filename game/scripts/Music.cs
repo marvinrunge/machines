@@ -32,6 +32,9 @@ public partial class Music : Node
     /// <summary>The menus: the intro tune the first time, then the menu tune over and over.</summary>
     public static void Menu(Node from) => Want(from, (_introPlayed ? MenuTune : Intro, _introPlayed, false));
 
+    /// <summary>The intro film has played with its own sound (<see cref="StartupFilms"/>): the menus start with the menu tune.</summary>
+    public static void IntroFilmPlayed() => _introPlayed = true;
+
     /// <summary>A match on a scenario whose catalogue entry asks for <paramref name="scenarioMusic"/> (sceninfo's MUSIC).</summary>
     public static void Match(Node from, int? scenarioMusic) => Want(from, (scenarioMusic is { } m ? m - 1 : DefaultInGame, false, true));
 

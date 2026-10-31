@@ -96,7 +96,7 @@ public sealed partial class GameWorld
                 if (age < wave.Start)
                     continue;
                 var radius = wave.RadiusAt(age);
-                foreach (var actor in Actors.Where(a => !a.IsDead && !blast.Hit[w].Contains(a.Id)).ToList())
+                foreach (var actor in Actors.Concat(Artefacts).Where(a => !a.IsDead && !blast.Hit[w].Contains(a.Id)).ToList())
                 {
                     if (actor is Machine { Inside: not null })
                         continue;

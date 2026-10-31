@@ -278,8 +278,8 @@ public sealed partial class GameWorld
 
     private void UpdateAttack(Machine machine, AttackOrder attack)
     {
-        var target = Find(attack.Target);
-        if (target is null || target.IsDead || !AreEnemies(machine.Race, target.Race))
+        var target = FindTarget(attack.Target);
+        if (target is null || target.IsDead || !CanAttack(machine.Race, target))
         {
             // On an attack-move, the next enemy in sight is taken on at once, as the move would the next tick:
             // when a target falls, everyone who shot at it would otherwise plan the way on to its own place,

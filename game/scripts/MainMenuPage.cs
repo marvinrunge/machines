@@ -4,8 +4,8 @@ namespace Machines.Game;
 
 /// <summary>
 /// The main menu (MachGuiCtxMainMenu): the title on the left with Exit under it, as in the original, the menu's
-/// buttons down the right, and between them the big chip with a machine turning on its screen. The campaign comes when
-/// the remake can play it. Esc asks whether to quit.
+/// buttons down the right, and between them the big chip with a machine turning on its screen. Esc asks whether to
+/// quit.
 /// </summary>
 public partial class MainMenuPage(MenuScreens screens) : MenuPage(screens.Quit)
 {
@@ -51,9 +51,7 @@ public partial class MainMenuPage(MenuScreens screens) : MenuPage(screens.Quit)
         var right = new VBoxContainer { CustomMinimumSize = new Vector2(360, 0), Alignment = BoxContainer.AlignmentMode.Center };
         right.AddThemeConstantOverride("separation", 26);
         row.AddChild(right);
-        var campaign = Button("Campaign", () => { }, 84, 30);
-        campaign.Disabled = true;
-        campaign.TooltipText = "Comes when the remake can play the campaign.";
+        var campaign = Button("Campaign", screens.ShowCampaign, 84, 30);
         right.AddChild(campaign);
         var skirmish = Button("Skirmish", () => screens.ShowSkirmish(), 84, 30);
         right.AddChild(skirmish);

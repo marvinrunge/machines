@@ -41,6 +41,9 @@ public sealed class Projectile(int id, WeaponSpec weapon, int shooter, Race race
 
     public Vector2 Position { get; set; } = start;
     public float Travelled { get; set; }
+
+    /// <summary>The artefact it was fired at, which it strikes like an enemy in its way; null for anything else.</summary>
+    public Artefact? Artefact { get; init; }
 }
 
 public sealed partial class GameWorld
@@ -65,14 +68,14 @@ public sealed partial class GameWorld
     /// Sends a round from the shooter's middle towards a point <paramref name="aimHeight"/> up; it flies on past it
     /// until its range is spent.
     /// </summary>
-    private void Launch(Actor shooter, WeaponMount weapon, Vector2 towards, float aimHeight)
+    private void Launch(Actor shooter, WeaponMount weapon, Vector2 towards, float aimHeight, Artefact? artefact = null)
     {
         var offset = towards - shooter.Position;
         var direction = offset.LengthSquared() > 0.01f
             ? Vector2.Normalize(offset)
             : shooter is Machine machine ? new Vector2(DetMath.Cos(machine.Facing), DetMath.Sin(machine.Facing)) : Vector2.UnitX;
         _projectiles.Add(new Projectile(_nextProjectile++, weapon.Spec, shooter.Id, shooter.Race, shooter.Position, direction,
-            weapon.Mounting, weapon.Shots++, towards, AimPoint(shooter).Z, aimHeight));
+            weapon.Mounting, weapon.Shots++, towards, AimPoint(shooter).Z, aimHeight) { Artefact = artefact });
     }
 
     /// <summary>
@@ -169,6 +172,12 @@ public sealed partial class GameWorld
                     }
                 }
             }
+        }
+        if (projectile.Artefact is { IsDead: false } artefact)
+        {
+            var along = length > 0 ? Math.Clamp(Vector2.Dot(artefact.Position - from, segment) / (length * length), 0, 1) : 0;
+            if (along < firstAlong && Vector2.DistanceSquared(from + segment * along, artefact.Position) <= artefact.Radius * artefact.Radius)
+                first = artefact;
         }
         return first;
     }

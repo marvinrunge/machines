@@ -404,9 +404,13 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
 
         if (attack.DoCount is { } limit && state.AttacksDone >= limit)
             return;
-        if (world.Time < attack.DelayMinutes * 60)
+        // A mission script may call the squad in early (ACTIVATE_SQUADRONS sets the attack's initial delay to 0).
+        var activated = world.Script?.ActivatedSquadrons.Contains((Race, state.Squad.Number)) == true;
+        // Waiting, every member goes to the assembly point, unarmed ones too (optskatt.cpp moves all the squadron's
+        // idle machines): finger's APC drives to its drop-off so, where the script lands the troops it carries.
+        if (world.Time < attack.DelayMinutes * 60 && !activated)
         {
-            Gather(world, attack, fighters);
+            Gather(world, attack, members);
             return;
         }
 
@@ -415,14 +419,29 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
         if (attack.UseIonCannon || attack.UseNuke)
             Strike(world, attack);
 
-        // As in the original (optskatt.cpp), a missing MINIMUM is 0: attack with whoever is there.
-        if (fighters.Count < (attack.Minimum ?? 0) || fighters.Count == 0)
+        // As in the original (optskatt.cpp), a missing MINIMUM is 0: attack with whoever is there. The minimum
+        // counts the whole squadron.
+        if (members.Count < (attack.Minimum ?? 0) || fighters.Count == 0)
         {
-            Gather(world, attack, fighters);
+            Gather(world, attack, members);
             return;
         }
 
         var centre = fighters.Aggregate(Vector2.Zero, (sum, m) => sum + m.Position) / fighters.Count;
+
+        // OBJECT ARTIFACT POINT x y: the standing artefact nearest the point (MachLogRaces::findTargetClosestTo).
+        if (attack is { Target: AttackTarget.Object, ObjectType: "ARTIFACT" or "ARTEFACT" })
+        {
+            var from = attack.StartPoint ?? centre;
+            var artefact = world.Artefacts.Where(a => !a.IsDead && world.CanAttack(Race, a))
+                .MinBy(a => Vector2.DistanceSquared(a.Position, from));
+            if (artefact is null)
+                return;
+            world.Issue(new AttackCommand(Race, fighters.Select(m => m.Id).ToList(), artefact.Id));
+            state.Attacking = true;
+            return;
+        }
+
         var target = PickTarget(world, attack, centre);
         if (target is null)
             return;
@@ -431,13 +450,13 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
         state.Attacking = true;
     }
 
-    private void Gather(GameWorld world, AttackOperation attack, List<Machine> fighters)
+    private void Gather(GameWorld world, AttackOperation attack, List<Machine> members)
     {
         var points = setup.AggressorAssemblyPoints;
         if (points.Count == 0)
             return;
         var point = points[Math.Clamp(attack.AssemblyPoint ?? 0, 0, points.Count - 1)];
-        var idle = fighters.Where(m => m.Order is IdleOrder && Vector2.Distance(m.Position, point) > 25).Select(m => m.Id).ToList();
+        var idle = members.Where(m => m.Order is IdleOrder && Vector2.Distance(m.Position, point) > 25).Select(m => m.Id).ToList();
         if (idle.Count > 0)
             world.Issue(new MoveCommand(Race, idle, point));
     }

@@ -169,6 +169,12 @@ public enum GameEventKind
     MineExploded,
     /// <summary>A spy finished downloading research in an enemy lab (Actor: the spy, Other: the lab, Detail: the item).</summary>
     ResearchStolen,
+    /// <summary>The mission script sent a voice mail (Other: the race it is for, Detail: its VID, e.g. <c>VID_1O1A</c>).</summary>
+    VoiceMail,
+    /// <summary>The mission script set a task (Other: its number from 1, Detail: <c>COMPLETE</c> or <c>OPEN</c>).</summary>
+    TaskChanged,
+    /// <summary>The mission script set off an explosion (Detail: its SIZE in metres).</summary>
+    Explosion,
 }
 
 public sealed record GameEvent(GameEventKind Kind, int Actor, Vector2 Position, int? Other = null, string? Detail = null);

@@ -79,6 +79,7 @@ public partial class GameAudio : Node
                     audio._voiceMail[mail.Id] = mail;
         }
         audio._voice = new AudioStreamPlayer { Name = "VoiceMail", Bus = EffectsBus };
+        audio._voice.Finished += audio.SpeakNext;
         audio.AddChild(audio._voice);
         return audio;
     }
@@ -185,21 +186,57 @@ public partial class GameAudio : Node
 
     /// <summary>
     /// Speaks a report such as <c>VID_GRUNT_SELECTED</c>, picking one of its numbered variants. A report that
-    /// arrives while another is playing is dropped, as the original's voice-mail queue did for minor ones.
+    /// arrives while another is playing is dropped, as the original's voice-mail queue did for minor ones; with
+    /// <paramref name="queue"/> it waits its turn instead, as the mission scripts' mails did (MachLogVoiceMailManager
+    /// keeps every mail of the full-function kind).
     /// </summary>
-    public void Say(string id)
+    public void Say(string id, bool queue = false)
     {
-        if (_voice.Playing)
+        if (_voice.Playing && !queue)
             return;
         var variants = _voiceMail.Keys.Where(k => k == id || k.Length == id.Length + 1 && k.StartsWith(id, StringComparison.Ordinal) && char.IsDigit(k[^1])).ToList();
         if (variants.Count == 0)
             return;
         var mail = _voiceMail[variants[_random.RandiRange(0, variants.Count - 1)]];
-        if (Stream(mail.File) is not { } stream)
+        if (_voice.Playing)
+        {
+            _waiting.Enqueue(mail.File);
+            return;
+        }
+        Speak(mail.File, mail.Id);
+    }
+
+    /// <summary>Speaks a recording of the game copy, e.g. a briefing's <c>Sounds/menus/tut01ob1.wav</c>, in place of what is speaking.</summary>
+    public void SayFile(string file)
+    {
+        _waiting.Clear();
+        Speak(file, file);
+    }
+
+    /// <summary>Stops what is speaking and what waits to be spoken.</summary>
+    public void Hush()
+    {
+        _waiting.Clear();
+        if (IsInstanceValid(_voice))
+            _voice.Stop();
+    }
+
+    private readonly Queue<string> _waiting = [];
+
+    private void Speak(string file, string id)
+    {
+        if (!IsInsideTree() || Stream(file) is not { } stream)
             return;
         _voice.Stream = stream;
         _voice.Play();
-        Trace(mail.Id);
+        Trace(id);
+    }
+
+    /// <summary>The next mail waiting, once the voice is free.</summary>
+    private void SpeakNext()
+    {
+        if (_waiting.TryDequeue(out var file))
+            Speak(file, file);
     }
 
     /// <summary>A sound of the interface (MachGuiSoundManager), e.g. <c>gui/sounds/attackon.wav</c>: not placed, never muted.</summary>

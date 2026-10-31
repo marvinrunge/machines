@@ -41,6 +41,16 @@ public static class MenuSounds
     /// <summary>A control changed by the keyboard rather than pressed (a choice stepped with the arrows).</summary>
     public static void Click() => Play("click.wav");
 
+    /// <summary>Speaks a recording of the game copy, such as a briefing's objective (<c>Sounds/menus/tut01ob1.wav</c>).</summary>
+    public static void Speak(string file) => _audio?.SayFile(file);
+
+    /// <summary>Stops what <see cref="Speak"/> started.</summary>
+    public static void Hush()
+    {
+        if (_audio is not null && GodotObject.IsInstanceValid(_audio))
+            _audio.Hush();
+    }
+
     private static void Hook(Node node)
     {
         // The keyboard moving the focus to another control clicks with navkey.wav (MachGuiStartupScreens' keys).

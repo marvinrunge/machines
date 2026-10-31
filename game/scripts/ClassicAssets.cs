@@ -54,27 +54,24 @@ public sealed class ClassicAssets
         return File.Exists(path) ? LoadBmp(path) : null;
     }
 
-    /// <summary>
-    /// A menu description (<c>TEXT</c> in sceninfo.dat) from the game copy's <c>pdata</c> folder: the persisted
-    /// MachGuiDbTextData, whose first string after a 10-byte header is the text, length first.
-    /// </summary>
-    public string? MenuText(string? textFile)
+    /// <summary>A menu description (<c>TEXT</c> in sceninfo.dat): the campaign text of <see cref="ScenarioTexts"/>, without markup.</summary>
+    public string? MenuText(string? textFile) =>
+        ScenarioTexts(textFile) is { } texts && Machines.Import.Text.ScenarioText.Plain(texts.CampaignText) is { Length: > 0 } text ? text : null;
+
+    /// <summary>All the texts of a campaign entry (<c>TEXT</c> in sceninfo.dat) from the game copy's <c>pdata</c> folder.</summary>
+    public Machines.Import.Text.ScenarioText? ScenarioTexts(string? textFile)
     {
         if (_gameFolder is null || textFile is null)
             return null;
         var path = Path.Combine(_gameFolder, "pdata", Path.ChangeExtension(textFile, "bin"));
-        if (!File.Exists(path))
+        try
+        {
+            return File.Exists(path) ? Machines.Import.Text.ScenarioTextParser.Load(path) : null;
+        }
+        catch (InvalidDataException)
+        {
             return null;
-        var bytes = File.ReadAllBytes(path);
-        if (bytes.Length < 14)
-            return null;
-        var length = BitConverter.ToInt32(bytes, 10);
-        if (length <= 0 || 14 + length > bytes.Length)
-            return null;
-        var text = System.Text.Encoding.Latin1.GetString(bytes, 14, length);
-        // <w> marks a white heading line; lines holding only a no-break space are spacers.
-        var lines = text.Replace("<w>", "").Split('\n').Where(l => l.Trim(' ', ' ', '\r').Length > 0);
-        return string.Join("\n", lines).Trim();
+        }
     }
 
     /// <summary>

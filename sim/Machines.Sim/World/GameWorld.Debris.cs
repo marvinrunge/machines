@@ -20,7 +20,8 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// What a destroyed actor leaves (MachLogMobile::dropDebris, MachLogConstruction::dropDebris): a machine half
-    /// its cost, unless it flew; a building a fifth of its cost by how far it was built.
+    /// its cost, unless it flew; a building a fifth of its cost by how far it was built; an artefact its whole cost
+    /// (MachLogArtefact::dropDebris).
     /// </summary>
     private void DropDebris(Actor actor)
     {
@@ -28,6 +29,10 @@ public sealed partial class GameWorld
         (Vector2 Min, Vector2 Max) boundary;
         switch (actor)
         {
+            case Artefact artefact:
+                quantity = artefact.Cost;
+                boundary = (artefact.Position - new Vector2(artefact.Radius), artefact.Position + new Vector2(artefact.Radius));
+                break;
             case Machine { Stats.Locomotion: not Locomotion.Glider } machine:
                 quantity = machine.Stats.Cost / 2;
                 boundary = (machine.Position - new Vector2(machine.Radius), machine.Position + new Vector2(machine.Radius));

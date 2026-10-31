@@ -5,14 +5,15 @@ namespace Machines.Game;
 
 /// <summary>
 /// The menus before a match (Menu.tscn), in the original's look: the main menu and the pages it leads to, skirmish,
-/// multiplayer, saved games, replays and options, on a <see cref="MenuStage"/>.
+/// multiplayer, saved games, replays, options and the campaign, on a <see cref="MenuStage"/>.
 ///
 /// Automated runs skip them: MACHINES_MAP and MACHINES_SCREENSHOT start the match straight away, MACHINES_IMPORT
 /// imports from a game copy first, MACHINES_HD makes the HD textures and quits, MACHINES_MP opens the multiplayer page
 /// and drives the lobby (see <see cref="MultiplayerPage"/>), MACHINES_MENU_SELECT=&lt;scenario&gt;,&lt;planet&gt; picks a
 /// map and MACHINES_MENU_START=1 starts it from the skirmish page (MACHINES_LOADING_SCREENSHOT, see
 /// <see cref="LoadingScreen"/>). MACHINES_MENU_SCREENSHOT=&lt;png&gt;[,page[,WxH]] saves a page (main, skirmish, room,
-/// multiplayer, load, replays, options or quit), at that size if one is given, and quits.
+/// multiplayer, load, replays, options, graphics, campaign, missions, briefing or quit), at that size if one is
+/// given, and quits.
 /// </summary>
 public partial class MenuScreens : Control
 {
@@ -25,6 +26,9 @@ public partial class MenuScreens : Control
     private double _shotTime;
 
     public ClassicAssets Assets => _assets;
+
+    /// <summary>The page the menus open on next time instead of the main menu: after a campaign mission, its missions.</summary>
+    public static string? StartPage { get; set; }
 
     private static string? Setting(string name) => System.Environment.GetEnvironmentVariable(name) is { Length: > 0 } value ? value : null;
 
@@ -80,8 +84,19 @@ public partial class MenuScreens : Control
         _stage = new MenuStage();
         _host.AddChild(_stage);
         MenuSounds.Attach(_stage, _assets.GameFolder);
+        var page = shot.Length > 1 ? shot[1] : Setting("MACHINES_MP") is not null ? "multiplayer" : Setting("MACHINES_MENU_START") is not null ? "skirmish" : StartPage ?? "main";
+        StartPage = null;
+        // The first time, the original's loading and intro films play before the main menu (not in automated runs).
+        if (page == "main" && shot[0].Length == 0 && StartupFilms.Create(_assets.GameFolder, () => Begin(page)) is { } films)
+            _host.AddChild(films);
+        else
+            Begin(page);
+    }
+
+    private void Begin(string page)
+    {
         Music.Menu(this);
-        Open(shot.Length > 1 ? shot[1] : Setting("MACHINES_MP") is not null ? "multiplayer" : Setting("MACHINES_MENU_START") is not null ? "skirmish" : "main");
+        Open(page);
     }
 
     public override void _Process(double delta)
@@ -107,6 +122,9 @@ public partial class MenuScreens : Control
             case "replays": ShowReplays(); break;
             case "options": ShowOptions(); break;
             case "graphics": _stage.Show(new GraphicsPage(ShowOptions, inGame: false)); break;
+            case "campaign": ShowCampaign(); break;
+            case "missions": ShowMissions(); break;
+            case "briefing": ShowBriefing(Campaign.Entry(CampaignProgress.Load().CurrentPlayer?.LastScenario ?? "tut01") ?? Campaign.Catalogue.CampaignScenarios.First()); break;
             case "quit":
                 ShowMain();
                 Quit();
@@ -127,6 +145,20 @@ public partial class MenuScreens : Control
     public void ShowReplays() => _stage.Show(FilesPage.Replays(ShowMain, path => FilesPage.OpenReplay(GetTree(), path)));
 
     public void ShowOptions() => _stage.Show(new OptionsPage(ShowMain, inGame: false));
+
+    /// <summary>The campaign's players.</summary>
+    public void ShowCampaign() => _stage.Show(new CampaignPlayersPage(this));
+
+    /// <summary>The choice of mission for the campaign's current player, or the players when there is none.</summary>
+    public void ShowMissions()
+    {
+        if (CampaignProgress.Load().CurrentPlayer is null)
+            ShowCampaign();
+        else
+            _stage.Show(new CampaignMissionsPage(this));
+    }
+
+    public void ShowBriefing(Machines.Import.Model.CatalogueScenario mission) => _stage.Show(new CampaignBriefingPage(this, mission));
 
     public void Message(string text, params (string Text, Action? Act)[] buttons) => _stage.Message(text, buttons);
 
