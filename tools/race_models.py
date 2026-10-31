@@ -3,10 +3,10 @@ Meshy exports (tools/blender/meshy_rig.py) once tools/race-recolour.ps1 has pain
 
     python tools/race_models.py [classic folder]
 
-A Meshy part takes its race's colour map (albedo-<race>.jpg beside the red one); a node that kept the original's
-parts (the eye's glow, the Gorilla's fists) takes them from that race's own upgraded export, tinted and with the
-race's logos. The model's own parts follow the same way: Meshy maps swapped, the original's red tint (1, 0, 0)
-turned to the race's."""
+A Meshy part takes its race's colour map (albedo-<race>.jpg beside the red one), and the original's eyes on the eye
+box stay as they are (every race has the same); a node that kept the original's parts (the Gorilla's fists) takes
+them from that race's own upgraded export, tinted and with the race's logos. The model's own parts follow the same
+way: Meshy maps swapped, the original's red tint (1, 0, 0) turned to the race's."""
 import json
 import os
 import sys

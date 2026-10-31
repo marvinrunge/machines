@@ -17,11 +17,14 @@ Each piece goes the same way. The original's parts of that piece (the hull witho
 subtree, the eye box) in their rest pose are the target:
 - Fit: the Meshy model is laid onto the target by turning it about the vertical (Meshy faces its models either way),
   scaling and moving it, refined by iterative closest points in both directions; the best of four turns, as drawn
-  and mirrored, wins.
+  and mirrored, wins. A box fits as well backwards as forwards, so the eye box is not turned by its fit: its front
+  goes where the original's eyes look.
 - Cut: each Meshy triangle goes to the rig node whose original surface lies nearest; labels are smoothed over
   neighbouring triangles and stray islands join their surroundings.
 - Each node's triangles are stored in its own space, so the original's animations (legs, wheels, turning upper
   body, recoil) move them about the original pivots.
+The eye box keeps the original's eyes (the black picture with white circles, glowing by its emissive colour), laid
+onto the Meshy box's screen, and loses the original's glow sprite.
 The rig loses its tread scrolling: the Meshy textures are atlases, scrolling them would smear the whole model."""
 import copy
 import json
@@ -32,6 +35,7 @@ import sys
 
 import bpy
 from mathutils import Matrix, Vector, kdtree
+from mathutils.bvhtree import BVHTree
 
 MOUNTS = ("l_gun", "r_gun", "gun", "t_gun")
 SAMPLES = 9000
@@ -48,6 +52,11 @@ RESCUE_MIN = 3
 RESCUE_REACH = 0.08
 RESCUE_SLACK = 1.5
 RESCUE_KEEP = 25
+# Meshy built every eye box looking along +Y (Blender's axes after the GLB import), its top up; checked against the
+# in-game pictures (renders/meshy/low/compare).
+EYE_FRONT, EYE_UP = Vector((0, 1, 0)), Vector((0, 0, 1))
+# How far the original's eyes stand in front of the Meshy box's screen, metres: clear of it, and too little to see.
+EYE_LIFT = 0.004
 
 
 def matrix(v):
@@ -80,6 +89,125 @@ def hidden(part):
     """A clear part (the pod's turning helper, a gun mount's marker): nothing to see, so nothing to fit to."""
     d = part.get("diffuse", [1, 1, 1, 1])
     return len(d) > 3 and d[3] < 0.01
+
+
+def eyes(part):
+    """The eye box's eyes: the picture on its front that glows (black, its white circles lit by the emissive colour)."""
+    return max(part.get("emissive", [0, 0, 0])) > 0.5 and bool(part.get("texture"))
+
+
+def facing(parts):
+    """The parts' mean normal (their own space), from their stored normals or else their triangles."""
+    total = Vector()
+    for part in parts:
+        n, p = part.get("normals", []), part["positions"]
+        if len(n) == len(p):
+            total += sum((Vector(n[k:k + 3]) for k in range(0, len(n), 3)), Vector())
+        else:
+            for t in range(0, len(p) - 8, 9):
+                a, b, c = (Vector(p[t + k:t + k + 3]) for k in (0, 3, 6))
+                total += (b - a).cross(c - a)
+    return total.normalized() if total.length > 1e-9 else None
+
+
+def eye_turn(front):
+    """The turn that lays the Meshy eye box's front onto <front> (model space), its top as near up as that allows."""
+    up = Vector((0, 0, 1)) - front * front.z
+    up = up.normalized() if up.length > 1e-3 else Vector((1, 0, 0))
+    target = Matrix((front, up, front.cross(up))).transposed()
+    source = Matrix((EYE_FRONT, EYE_UP, EYE_FRONT.cross(EYE_UP))).transposed()
+    return (target @ source.transposed()).to_4x4()
+
+
+def triangles(part):
+    """The part's triangles as corner triples, by its indices."""
+    p = part["positions"]
+    corners = [Vector(p[3 * i:3 * i + 3]) for i in part.get("indices", range(len(p) // 3))]
+    return [corners[k:k + 3] for k in range(0, len(corners) - 2, 3)]
+
+
+PICTURES = {}
+
+
+def eye_picture(classic, texture):
+    """How bright the eye picture is at (u, v), v from the top, read from the HD textures (classic/hd/<texture>.png);
+    None without them."""
+    path = os.path.join(classic, "hd", os.path.splitext(texture)[0] + ".png")
+    if path not in PICTURES:
+        PICTURES[path] = None
+        if os.path.exists(path):
+            image = bpy.data.images.load(path, check_existing=True)
+            width, height = image.size
+            pixels = image.pixels[:]
+
+            def bright(u, v):
+                # Blender keeps the rows bottom up.
+                k = 4 * (min(height - 1, max(0, int((1 - v) * height))) * width + min(width - 1, max(0, int(u * width))))
+                return sum(pixels[k:k + 3]) / 3
+            PICTURES[path] = bright
+    return PICTURES[path]
+
+
+def onto_screen(eye_parts, meshy_part, classic):
+    """The original's eyes moved along their normal to stand EYE_LIFT in front of the Meshy box's screen: the
+    Meshy surface facing the same way within the eyes' outline (the middle of it, so a frame round the screen does
+    not count). Where the box still stands in front of their white circles (a frame's lip, a bulging screen), they
+    come forward to clear it; their black may hide behind it. All in the eye box node's own space. Returns the parts
+    and how far they moved."""
+    normal = facing(eye_parts)
+    if normal is None:
+        return eye_parts, 0.0
+    side = normal.orthogonal().normalized()
+    other = normal.cross(side)
+    corners = [Vector(p["positions"][k:k + 3]) for p in eye_parts for k in range(0, len(p["positions"]), 3)]
+    depth = sum(c.dot(normal) for c in corners) / len(corners)
+    us, vs = [c.dot(side) for c in corners], [c.dot(other) for c in corners]
+    (u0, u1), (v0, v1) = (min(us), max(us)), (min(vs), max(vs))
+    inset_u, inset_v = (u1 - u0) * 0.1, (v1 - v0) * 0.1
+    p, n = meshy_part["positions"], meshy_part["normals"]
+    found = []
+    for t in range(0, len(p) - 8, 9):
+        a, b, c = (Vector(p[t + k:t + k + 3]) for k in (0, 3, 6))
+        middle = (a + b + c) / 3
+        corner_normals = sum((Vector(n[t + k:t + k + 3]) for k in (0, 3, 6)), Vector())
+        if corner_normals.normalized().dot(normal) < 0.7:
+            continue
+        if u0 + inset_u <= middle.dot(side) <= u1 - inset_u and v0 + inset_v <= middle.dot(other) <= v1 - inset_v:
+            found.append((middle.dot(normal), ((b - a).cross(c - a)).length))
+    # The area-weighted median: the screen, not a knob on it. Without one the eyes stay where the original had them.
+    found.sort()
+    half, run, shift = sum(area for _, area in found) / 2, 0.0, 0.0
+    for screen, area in found:
+        run += area
+        if run >= half:
+            shift = screen + EYE_LIFT - depth
+            break
+    # Rays from the front onto points of the white circles (every point without the HD textures): the first Meshy
+    # surface they meet must stay behind the eyes.
+    box = triangles(meshy_part)
+    tree = BVHTree.FromPolygons([c for t in box for c in t], [(k, k + 1, k + 2) for k in range(0, 3 * len(box), 3)])
+    steps = 32
+    for part in eye_parts:
+        bright = eye_picture(classic, part["texture"])
+        uvs = part["uvs"]
+        uv = [Vector(uvs[2 * i:2 * i + 2]) for i in part.get("indices", range(len(uvs) // 2))]
+        for t, (a, b, c) in enumerate(triangles(part)):
+            ua, ub, uc = uv[3 * t:3 * t + 3]
+            # Edges too: some circles touch the picture's border.
+            for i in range(steps + 1):
+                for j in range(steps + 1 - i):
+                    s, r = i / steps, j / steps
+                    if bright and bright(*(ua + s * (ub - ua) + r * (uc - ua))) < 0.5:
+                        continue
+                    point = a + s * (b - a) + r * (c - a)
+                    hit = tree.ray_cast(point + normal * 10, -normal)[0]
+                    if hit is not None:
+                        shift = max(shift, (hit - point).dot(normal) + EYE_LIFT)
+    moved = []
+    for part in eye_parts:
+        q = part["positions"]
+        moved.append(dict(part, positions=[round(q[k] + normal[k % 3] * shift, 5) for k in range(len(q))]))
+    return moved, shift
 
 
 def pieces(rig):
@@ -182,9 +310,10 @@ def load_meshy(path, textures):
     return tris, maps
 
 
-def fit(source, target_points, mirror):
-    """Turn about z (four starts, and mirrored ones with <mirror>), scale and move the source points onto the target
-    points; returns (score, transform) with the score the mean distance both ways as a share of the target's size."""
+def fit(source, target_points, mirror, turn=None):
+    """Turn about z (four starts, and mirrored ones with <mirror>; or the one <turn> given), scale and move the
+    source points onto the target points; returns (score, transform) with the score the mean distance both ways as a
+    share of the target's size."""
     target = [p for p, _ in target_points]
     tree = kdtree.KDTree(len(target))
     for k, p in enumerate(target):
@@ -195,33 +324,35 @@ def fit(source, target_points, mirror):
     size = (hi - lo).length
     probe = random.Random(2).sample(target, min(2500, len(target)))
     best = None
-    for mirrored in (False, True) if mirror else (False,):
-        for quarter in range(4):
-            start = Matrix.Rotation(quarter * math.pi / 2, 4, "Z") @ (Matrix.Scale(-1, 4, Vector((0, 1, 0))) if mirrored else Matrix.Identity(4))
-            pts = [start @ p for p in source]
-            slo = Vector([min(p[k] for p in pts) for k in range(3)])
-            shi = Vector([max(p[k] for p in pts) for k in range(3)])
-            scale = size / max((shi - slo).length, 1e-6)
-            centre_s = Vector(((slo.x + shi.x) / 2, (slo.y + shi.y) / 2, slo.z))
-            centre_t = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))
-            current = Matrix.Translation(centre_t) @ Matrix.Scale(scale, 4) @ Matrix.Translation(-centre_s) @ start
-            score = 0.0
-            for _ in range(FIT_ROUNDS):
-                moved = [current @ p for p in source]
-                pairs = sorted(((m, tree.find(m)[0]) for m in moved), key=lambda q: (q[0] - q[1]).length)
-                pairs = pairs[:int(len(pairs) * FIT_KEEP)]
-                back = kdtree.KDTree(len(moved))
-                for k, p in enumerate(moved):
-                    back.insert(p, k)
-                back.balance()
-                reverse = sorted(((back.find(t)[0], t) for t in probe), key=lambda q: (q[0] - q[1]).length)
-                reverse = reverse[:int(len(reverse) * FIT_KEEP)]
-                pairs += reverse
-                score = sum((a - b).length for a, b in pairs) / len(pairs) / size
-                step = similarity_about_z(pairs)
-                current = step @ current
-            if best is None or score < best[0]:
-                best = (score, current, f"{quarter * 90}°{' mirrored' if mirrored else ''}")
+    starts = [(turn, "turned to the eyes")] if turn is not None else [
+        (Matrix.Rotation(quarter * math.pi / 2, 4, "Z") @ (Matrix.Scale(-1, 4, Vector((0, 1, 0))) if mirrored else Matrix.Identity(4)),
+         f"{quarter * 90}°{' mirrored' if mirrored else ''}")
+        for mirrored in ((False, True) if mirror else (False,)) for quarter in range(4)]
+    for start, how in starts:
+        pts = [start @ p for p in source]
+        slo = Vector([min(p[k] for p in pts) for k in range(3)])
+        shi = Vector([max(p[k] for p in pts) for k in range(3)])
+        scale = size / max((shi - slo).length, 1e-6)
+        centre_s = Vector(((slo.x + shi.x) / 2, (slo.y + shi.y) / 2, slo.z))
+        centre_t = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))
+        current = Matrix.Translation(centre_t) @ Matrix.Scale(scale, 4) @ Matrix.Translation(-centre_s) @ start
+        score = 0.0
+        for _ in range(FIT_ROUNDS):
+            moved = [current @ p for p in source]
+            pairs = sorted(((m, tree.find(m)[0]) for m in moved), key=lambda q: (q[0] - q[1]).length)
+            pairs = pairs[:int(len(pairs) * FIT_KEEP)]
+            back = kdtree.KDTree(len(moved))
+            for k, p in enumerate(moved):
+                back.insert(p, k)
+            back.balance()
+            reverse = sorted(((back.find(t)[0], t) for t in probe), key=lambda q: (q[0] - q[1]).length)
+            reverse = reverse[:int(len(reverse) * FIT_KEEP)]
+            pairs += reverse
+            score = sum((a - b).length for a, b in pairs) / len(pairs) / size
+            step = similarity_about_z(pairs)
+            current = step @ current
+        if best is None or score < best[0]:
+            best = (score, current, how)
     return best
 
 
@@ -357,10 +488,10 @@ def node_parts(tris, labels, transform, world, maps, classic):
     return parts
 
 
-def fit_piece(model_name, meshy, classic, nodes, world, group, report, mirror=False):
+def fit_piece(model_name, meshy, classic, nodes, world, group, report, mirror=False, turn=None):
     """Fits one Meshy model onto a group of nodes; returns {node: part}. Only weapons may be mirrored (a left and a
     right weapon are mirror images in the original); a hull or eye box mirrored would carry its emblems on the
-    wrong side, and Meshy built it from a picture seen the same way."""
+    wrong side, and Meshy built it from a picture seen the same way. A <turn> given starts the fit from it alone."""
     target = target_triangles(nodes, world, group)
     if not target:
         report.append(f"  {model_name}: the original has no surface here")
@@ -369,7 +500,7 @@ def fit_piece(model_name, meshy, classic, nodes, world, group, report, mirror=Fa
     tris, maps = load_meshy(os.path.join(meshy, model_name, "model.glb"),
                             os.path.join(classic, "meshy", "textures", model_name.replace("/", "-")))
     vertices = list({tuple(round(x, 5) for x in c[0]): c[0] for t in tris for c in t}.values())
-    score, transform, how = fit(vertices, points, mirror)
+    score, transform, how = fit(vertices, points, mirror, turn)
     moved = [[(transform @ c[0], c[1], c[2]) for c in t] for t in tris]
     labels = cut(moved, points)
     counts = {}
@@ -399,7 +530,10 @@ def build(export_id, entry, classic, meshy):
     for mount, name in entry.get("weapons", {}).items():
         new.update(fit_piece(name, meshy, classic, nodes, world, weapons[mount], report, mirror=True))
     if entry.get("faceplate") and faceplate:
-        new.update(fit_piece(entry["faceplate"], meshy, classic, nodes, world, faceplate, report))
+        # The eye box looks where the original's eyes look (in the rest pose: some bow their head).
+        look = facing([p for p in nodes[faceplate[0]]["parts"] if eyes(p)])
+        turn = eye_turn((world[faceplate[0]].to_3x3().normalized() @ look).normalized()) if look else None
+        new.update(fit_piece(entry["faceplate"], meshy, classic, nodes, world, faceplate, report, turn=turn))
     # Wheels turn about their node's y axis (the axle): each Meshy wheel is centred on it, or it would wobble, and
     # the rig rolls them by the Meshy wheels' own radius, or they would slip.
     wheels = rig.get("wheels")
@@ -420,12 +554,25 @@ def build(export_id, entry, classic, meshy):
         out["rig"]["wheels"]["radius"] = round(sum(radii) / len(radii), 4)
         report.append(f"  wheel radius {wheels['radius']} -> {out['rig']['wheels']['radius']}")
     replaced = set(hull) | {i for m in entry.get("weapons", {}) for i in weapons[m]} | (set(faceplate) if entry.get("faceplate") else set())
+    glows = []
     for i in replaced:
         node = out["rig"]["nodes"][i]
-        # The eye's glow (a sprite) stays; the shadow plate of flying machines too. Spinners (flat antennas) are in
-        # the Meshy model now.
-        node["parts"] = [p for p in node["parts"] if painted_shadow(p)] + ([new[i]] if i in new else [])
+        # The shadow plate of flying machines stays. Spinners (flat antennas) are in the Meshy model now.
+        kept = [p for p in node["parts"] if painted_shadow(p)]
+        if entry.get("faceplate") and i in faceplate and i in new:
+            # The original's eyes stay, on the Meshy box's screen; they glow by their emissive colour, so the glow
+            # sprite in front of them goes.
+            moved, shift = onto_screen([p for p in node["parts"] if eyes(p)], new[i], classic)
+            kept += moved
+            report.append(f"  eyes: {len(moved)} parts moved {shift:+.3f} onto the screen")
+            glows += [(s["texture"], world[i] @ Vector(s["centre"])) for s in node.get("sprites", [])]
+            node["sprites"] = []
+        node["parts"] = kept + ([new[i]] if i in new else [])
         node["spinners"] = []
+    # The model's own sprites (in the rest pose) lose the eye glows too.
+    if "sprites" in out:
+        out["sprites"] = [s for s in out["sprites"]
+                          if not any(s["texture"] == t and (Vector(s["centre"]) - c).length < 0.02 for t, c in glows)]
     out["rig"].pop("tracks", None)
     # The model's own parts (its mesh without the rig): every node's, in the rest pose.
     model_parts = []
