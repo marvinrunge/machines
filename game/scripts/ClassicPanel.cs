@@ -709,7 +709,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     /// </summary>
     private void DrawPrompt()
     {
-        var prompt = _hovered?.Prompt ?? Prompt ?? CommandPrompt;
+        // While a chat message is typed, the line is the chat's (MatchChat).
+        var prompt = MatchChat.Typing ? null : _hovered?.Prompt ?? Prompt ?? CommandPrompt;
         if (prompt != _promptShown)
             (_promptShown, _promptSince) = (prompt, Time.GetTicksMsec() / 1000.0);
         if (prompt is not { Length: > 0 })

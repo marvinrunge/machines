@@ -65,6 +65,13 @@ public partial class CameraRig : Node3D
     {
         if (!Active)
             return;
+        // Keys typed into a chat message are not the camera's; it holds still meanwhile.
+        if (MatchChat.Typing)
+        {
+            Place();
+            return;
+        }
+
         // With Ctrl held the ground camera's arrows tilt rather than move. The up arrow tilts it down and the down
         // arrow up, as a pilot's stick does, unless the options reverse them.
         var tilting = Ground && Input.IsKeyPressed(Key.Ctrl);

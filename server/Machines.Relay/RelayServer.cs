@@ -184,9 +184,14 @@ public sealed class RelayServer : IAsyncDisposable
                 Compare(room, report);
                 break;
 
-            case Chat chat when member.Room is { } room:
-                Broadcast(room, chat with { From = member.Name });
+            // To the others only, as the original's broker sent it; one for a single player reaches only that race's.
+            case Chat chat when member.Room is { } room && chat.Text.Trim() is { Length: > 0 } text:
+            {
+                var said = chat with { From = member.Name, Text = text.Length > Chat.MaxText ? text[..Chat.MaxText] : text };
+                foreach (var other in room.Members.Where(m => m != member && (chat.To is null || m.Slot == chat.To)))
+                    other.Connection.Send(said);
                 break;
+            }
         }
     }
 

@@ -26,6 +26,9 @@ public partial class Hud : CanvasLayer
     /// <summary>The first-person radar, with the driven machine's own health and armour.</summary>
     public Radar Radar { get; private set; } = null!;
 
+    /// <summary>The players' messages in a multiplayer match, and the line to type one in.</summary>
+    public MatchChat Chat { get; private set; } = null!;
+
     public Hud(Game game, Texture2D? map)
     {
         _game = game;
@@ -88,6 +91,8 @@ public partial class Hud : CanvasLayer
 
         _panel = new ClassicPanel(_game, _map) { Name = "ControlPanel" };
         root.AddChild(_panel);
+        Chat = new MatchChat(_game, _panel);
+        root.AddChild(Chat);
     }
 
     public void Message(string text)
@@ -120,7 +125,9 @@ public partial class Hud : CanvasLayer
         _figures.Text = $"Machines {world.Machines.Count(m => m.Race == Game.Player)}     Score {state.Score.Gross}     " +
                         (world.TimeLeft is { } timeLeft ? $"Time left {TimeSpan.FromSeconds(timeLeft):h\\:mm\\:ss}" : $"Time {TimeSpan.FromSeconds(world.Time):h\\:mm\\:ss}") +
                         (_game.Paused ? "     PAUSED" : "");
-        _messageLabel.Position = new Vector2(left, 34 + top);
+        // The players' chat first, the game's messages under it.
+        Chat.ListAt = new Vector2(left, 34 + top);
+        _messageLabel.Position = new Vector2(left, 34 + top + Chat.ListHeight);
         var now = Time.GetTicksMsec() / 1000.0;
         _messages.RemoveAll(m => m.Until < now);
         _messageLabel.Text = string.Join("\n", _messages.Select(m => m.Text));

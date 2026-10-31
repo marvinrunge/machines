@@ -727,6 +727,9 @@ public partial class Game : Node3D
             if (!debrief)
                 _menu?.ShowBriefing();
         }
+        // MACHINES_SCREENSHOT_CHAT=<said>|<typed> in a multiplayer match: says one to everyone, then types the other.
+        if (_runTime == 0 && Online && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_CHAT")?.Split('|') is [var said, var typed])
+            _hud.Chat.Automate(said, typed);
         _runTime += delta;
         var after = double.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_AFTER"),
             System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 4;
@@ -1312,6 +1315,10 @@ public partial class Game : Node3D
                 Paused = !Paused;
                 _hud.Message(Paused ? "Paused" : "Running");
                 break;
+            // F1 to F3 start a chat message to another player, F4 one to everyone (MachPromptText).
+            case >= Key.F1 and <= Key.F4 when Online && !key.ShiftPressed && !key.CtrlPressed:
+                _hud.Chat.Begin((int)(key.Keycode - Key.F1));
+                break;
             // F10 leads to the menus, as Esc does when there is nothing to cancel (MachInGameScreen's keys).
             case Key.F10:
                 OpenMenu();
@@ -1353,8 +1360,7 @@ public partial class Game : Node3D
                     _hud.Message($"{PlayerName(back.Race)} is back and takes over from the AI");
                     break;
                 case Chat chat:
-                    _hud.Message($"{chat.From}: {chat.Text}");
-                    _audio.PlayGui("gui/sounds/chatmsg.wav");
+                    _hud.Chat.Receive(chat);
                     break;
             }
         }

@@ -17,8 +17,13 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
     private static string _statusText = "Host runs the relay in this game (port 7777); the others connect to your computer's address. " +
                                         "Or connect to a relay someone else runs.";
 
-    private LineEdit _name = null!, _relay = null!;
+    // The room's chat (MachGuiCtxImReady's chat window), kept while the game runs as the page is.
+    private static readonly List<(string Text, bool Note)> ChatLines = [];
+    private static int? _chatRoom;
+
+    private LineEdit _name = null!, _relay = null!, _say = null!;
     private Label _status = null!, _roomTitle = null!;
+    private RichTextLabel _chat = null!;
     private ItemList _rooms = null!, _players = null!;
     private ChipChoice _colour = null!;
     private CheckButton _ready = null!;
@@ -72,7 +77,20 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
                 Button("Open a room", () => screens.ShowSkirmish(forRoom: true), 70, 26)));
 
         _roomTitle = MenuTheme.Paragraph("", 26, MenuTheme.Bright);
-        _players = new ItemList { SizeFlagsVertical = SizeFlags.ExpandFill, FocusMode = FocusModeEnum.None };
+        _players = new ItemList { AutoHeight = true, FocusMode = FocusModeEnum.None };
+        // Below the players, the chat: the lines said so far, set into the board as the fields are, and one to type in.
+        _chat = new RichTextLabel { SizeFlagsVertical = SizeFlags.ExpandFill, ScrollFollowing = true, FocusMode = FocusModeEnum.None };
+        _chat.AddThemeStyleboxOverride("normal", GetThemeStylebox("read_only", "LineEdit"));
+        _chat.AddThemeFontSizeOverride("normal_font_size", 22);
+        foreach (var line in ChatLines)
+            ShowChat(line);
+        _say = new LineEdit
+        {
+            PlaceholderText = "Chat message", MaxLength = Chat.MaxText, ContextMenuEnabled = false,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill, KeepEditingOnTextSubmit = true,
+        };
+        _say.TextSubmitted += _ => SendChat();
+        var send = Button("Send", SendChat, 70, 26);
         _colour = new ChipChoice(Colours.Select(c => c.ToString())) { CustomMinimumSize = new Vector2(220, 0) };
         _colour.ItemSelected += _ => SendPlayer();
         _ready = new CheckButton { Text = "Ready" };
@@ -83,7 +101,7 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
             NetLink.Send(new LeaveRoom());
             ShowLobby();
         }, 70, 26);
-        _room = Column(16, _roomTitle, _players,
+        _room = Column(16, _roomTitle, _players, _chat, Line(16, _say, send),
             Line(20, MenuTheme.Label("Colour", 22, MenuTheme.Text), _colour, _ready, Spring(), leave, _start));
         foreach (var view in new[] { _offline, _lobby, _room })
         {
@@ -145,7 +163,7 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
                     Leave();
                     return;
                 case Chat chat:
-                    Say($"{chat.From}: {chat.Text}");
+                    AddChat($"{chat.From} : {chat.Text}");
                     MenuSounds.Chat();
                     break;
             }
@@ -223,6 +241,21 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
             ShowLobby();
             return;
         }
+        // A new room starts a new chat, with the keyboard on its line; in the same one, comings and goings are noted.
+        if (state.Id != _chatRoom)
+        {
+            _chatRoom = state.Id;
+            ChatLines.Clear();
+            _chat.Clear();
+            Focus(_say);
+        }
+        else if (_state is { } before)
+        {
+            foreach (var player in state.Players.Where(p => before.Players.All(b => b.ClientId != p.ClientId)))
+                AddChat($"{player.Name} joined the room", note: true);
+            foreach (var player in before.Players.Where(b => state.Players.All(p => p.ClientId != b.ClientId)))
+                AddChat($"{player.Name} left the room", note: true);
+        }
         _state = state;
         (_offline.Visible, _lobby.Visible, _room.Visible) = (false, false, true);
         _roomTitle.Text = $"{state.Name}   ·   {state.Scenario} on {state.Planet}   ·   {state.Players.Count}/{state.Slots.Count} players" +
@@ -251,6 +284,45 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
         NetLink.Send(room.Started ? new RejoinMatch(room.Id) : new JoinRoom(room.Id));
     }
 
+    /// <summary>
+    /// Sends the line typed to the others in the room and shows it here too: the relay does not hand it back, as the
+    /// original's broker did not (MachGuiCtxImReady::doHandleKeyEvent).
+    /// </summary>
+    private void SendChat()
+    {
+        var text = _say.Text.Trim();
+        if (text.Length == 0)
+            return;
+        NetLink.Send(new Chat(NetLink.Name, text));
+        AddChat($"{NetLink.Name} : {text}");
+        MenuSounds.Chat();
+        _say.Clear();
+    }
+
+    /// <summary>A line in the room's chat; a note of the room's own (who came, who went) is dimmer.</summary>
+    private void AddChat(string text, bool note = false)
+    {
+        ChatLines.Add((text, note));
+        if (ChatLines.Count > 200)
+        {
+            ChatLines.RemoveRange(0, 100);
+            _chat.Clear();
+            foreach (var line in ChatLines)
+                ShowChat(line);
+        }
+        else
+            ShowChat((text, note));
+    }
+
+    private void ShowChat((string Text, bool Note) line)
+    {
+        if (_chat.GetParsedText().Length > 0)
+            _chat.Newline();
+        _chat.PushColor(line.Note ? MenuTheme.Dim : MenuTheme.Text);
+        _chat.AddText(line.Text);
+        _chat.Pop();
+    }
+
     private void SendPlayer() => NetLink.Send(new SetPlayer(Colours[_colour.Selected], _ready.ButtonPressed, TerrainPrint(_state?.Planet)));
 
     private static readonly Dictionary<string, long?> TerrainPrints = [];
@@ -271,6 +343,7 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
     /// For automated checks: MACHINES_MP=host,&lt;address&gt; opens a room on the map last picked (or
     /// MACHINES_MENU_SELECT's), readies and starts once a second player is ready; MACHINES_MP=serve,&lt;address&gt;
     /// does the same on a relay it hosts itself; MACHINES_MP=join,&lt;address&gt; joins the first room and readies.
+    /// Each says a line in the room's chat first; MACHINES_MP_SHOT=&lt;png&gt; saves the room once both are ready.
     /// </summary>
     private void Automate()
     {
@@ -292,8 +365,12 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
             {
                 if (SkirmishPage.LastRoom() is { } room)
                     NetLink.Send(room);
+                while (_state is not { Players.Count: >= 2 })
+                    await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
+                Type("Welcome! Start when you are ready.");
                 while (_state is not { Players.Count: >= 2 } || _state.Players.Any(p => p.ClientId != NetLink.ClientId && !p.Ready))
                     await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
+                await Shoot();
                 _ready.ButtonPressed = true;
                 while (_state is null || _state.Players.Any(p => !p.Ready))
                     await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
@@ -309,9 +386,25 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
                 NetLink.Send(new JoinRoom(_roomList.Rooms[0].Id));
                 while (_state is null)
                     await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
+                Type("Hello from the guest, all set here.");
                 _colour.Selected = 1;
                 _ready.ButtonPressed = true;
+                await Shoot();
             }
+        }
+
+        void Type(string text)
+        {
+            _say.Text = text;
+            SendChat();
+        }
+
+        async Task Shoot()
+        {
+            if (System.Environment.GetEnvironmentVariable("MACHINES_MP_SHOT") is not { Length: > 0 } shot)
+                return;
+            await ToSignal(GetTree().CreateTimer(0.5), SceneTreeTimer.SignalName.Timeout);
+            GetViewport().GetTexture().GetImage().SavePng(shot);
         }
     }
 }

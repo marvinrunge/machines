@@ -108,4 +108,16 @@ public sealed record MatchResumed(MatchInfo Match, Race Slot, long FromTick) : N
 /// <summary>A player is back: from <paramref name="FromTick"/> on, the AI hands their race back and everyone waits for their turns again.</summary>
 public sealed record PlayerReturned(Race Race, long FromTick) : NetMessage;
 
-public sealed record Chat(string From, string Text) : NetMessage;
+/// <summary>
+/// A chat message: in a room to everyone in it; in a match to everyone, or with <paramref name="To"/> only to whoever
+/// plays that race, as the original's F1–F3 sent one to a single opponent (MachGuiMessageBroker::sendInGameChatMessage).
+/// The relay fills in <paramref name="From"/> and passes it on to the others; the sender shows their own.
+/// </summary>
+public sealed record Chat(string From, string Text, Race? To = null) : NetMessage
+{
+    /// <summary>The longest text the relay passes on: the original's room chat (MAX_CHATMESSAGE_LEN less a name).</summary>
+    public const int MaxText = 486;
+
+    /// <summary>The longest text typed in a match (MAX_INGAMECHATMESSAGE_LEN less a name).</summary>
+    public const int MaxMatchText = 175;
+}
