@@ -1,4 +1,7 @@
 using Godot;
+using Machines.Import.Model;
+using Machines.Import.Parm;
+using Machines.Sim.Combat;
 using Machines.Sim.Presentation;
 
 namespace Machines.Game;
@@ -19,6 +22,9 @@ public partial class RigView : Node3D
 
     /// <summary>How far the upper body has turned from the hull, radians anticlockwise in the original's axes.</summary>
     public float UpperBody => _rig.UpperBody > 0 ? _upperBody : 0;
+
+    /// <summary>What it draws: its parts, cycles, actions and weapons.</summary>
+    public Rig Rig => _rig;
 
     private Rig _rig = null!;
     private Node3D[] _nodes = [];
@@ -95,6 +101,29 @@ public partial class RigView : Node3D
     private readonly Dictionary<int, Firing> _firing = [];
 
     /// <summary>
+    /// The weapon at <paramref name="mounting"/> fires one round and moves with it: back and forward by its RECOIL
+    /// distance and times, fitted into the round's share of the burst as MachPhysWeapon::recoil fitted them, or
+    /// the autocannon's barrels turn on.
+    /// </summary>
+    public void Fire(Mounting mounting, WeaponSpec weapon)
+    {
+        var recoil = weapon.Presentation.FirstOrDefault(l => l.Keyword == "RECOIL" && l.Args.Count >= 3)?.Args
+            .Select(a => float.Parse(a, System.Globalization.CultureInfo.InvariantCulture)).ToArray() ?? [0f, 0.05f, 0.15f];
+        var (distance, back, fore) = (recoil[0], recoil[1], recoil[2]);
+        var round = weapon.BurstDuration / Math.Max(1, weapon.BurstRounds);
+        // Rounds faster than the recoil cut its way forward short.
+        if (round - (back + fore) < 0.01f)
+            fore = Math.Max(round - back, 0.01f);
+        var side = mounting switch
+        {
+            Mounting.Left => "left",
+            Mounting.Right => "right",
+            _ => "top",
+        };
+        Fire(side, distance, back, fore, round, turn: weapon.TypeName == "AUTO_CANNON");
+    }
+
+    /// <summary>
     /// A round leaves the weapon mounted at <paramref name="mounting"/> (left, right or top). Its recoiling part
     /// slides <paramref name="distance"/> metres back along the barrel in <paramref name="back"/> seconds and
     /// forward in <paramref name="fore"/> (MachPhysWeapon::recoil); with <paramref name="turn"/> the autocannon's
@@ -108,7 +137,8 @@ public partial class RigView : Node3D
             if (weapon.Mounting != mounting || weapon.Node <= 0 || weapon.Node >= _nodes.Length)
                 continue;
             if (!_firing.TryGetValue(weapon.Node, out var firing))
-                _firing[weapon.Node] = firing = new Firing { Node = weapon.Node };            if (turn)
+                _firing[weapon.Node] = firing = new Firing { Node = weapon.Node };
+            if (turn)
             {
                 firing.Target += Mathf.Pi / 3;
                 firing.TurnRate = Mathf.Pi / 3 / Mathf.Max(round, 0.01f);
@@ -203,6 +233,26 @@ public partial class RigView : Node3D
 
     private readonly List<(int Node, Vector3 Open)> _doors = [];
     private float _doorOpening;
+
+    /// <summary>
+    /// The doors of a building's ENTRANCE lines (MachPhysConstructionData::addEntrance): across the way through,
+    /// at the door point, 6.9 m wide for a small door and 11.9 m for a large one.
+    /// </summary>
+    public void AddDoors(IEnumerable<ParmLine> geometry)
+    {
+        foreach (var entrance in geometry.Where(g => g.Keyword == "ENTRANCE" && g.Args.Count >= 8))
+        {
+            float F(int i) => float.Parse(entrance.Args[i], System.Globalization.CultureInfo.InvariantCulture);
+            var through = new Vector2(F(2) - F(0), F(3) - F(1));
+            if (through.LengthSquared() < 0.0001f)
+                continue;
+            var width = entrance.Args[7] == "LARGE_DOOR" ? 11.9f : 6.9f;
+            AddDoors(entrance.Args[6], new Vector2(through.Y, -through.X).Normalized() * width);
+        }
+    }
+
+    /// <summary>Whether the building has doors that open (see <see cref="AddDoors(IEnumerable{ParmLine})"/>).</summary>
+    public bool HasDoors => _doors.Count > 0;
 
     /// <summary>
     /// The doors of a building's entrance (MachPhysConstruction::setupEntrances): the part called

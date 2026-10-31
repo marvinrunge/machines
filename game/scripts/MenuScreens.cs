@@ -5,15 +5,15 @@ namespace Machines.Game;
 
 /// <summary>
 /// The menus before a match (Menu.tscn), in the original's look: the main menu and the pages it leads to, skirmish,
-/// multiplayer, saved games, replays, options and the campaign, on a <see cref="MenuStage"/>.
+/// multiplayer, saved games, replays, the model viewer and options, on a <see cref="MenuStage"/>.
 ///
 /// Automated runs skip them: MACHINES_MAP and MACHINES_SCREENSHOT start the match straight away, MACHINES_IMPORT
 /// imports from a game copy first, MACHINES_HD makes the HD textures and quits, MACHINES_MP opens the multiplayer page
 /// and drives the lobby (see <see cref="MultiplayerPage"/>), MACHINES_MENU_SELECT=&lt;scenario&gt;,&lt;planet&gt; picks a
 /// map and MACHINES_MENU_START=1 starts it from the skirmish page (MACHINES_LOADING_SCREENSHOT, see
 /// <see cref="LoadingScreen"/>). MACHINES_MENU_SCREENSHOT=&lt;png&gt;[,page[,WxH]] saves a page (main, skirmish, room,
-/// multiplayer, load, replays, options, graphics, campaign, missions, briefing or quit), at that size if one is
-/// given, and quits.
+/// multiplayer, load, replays, options, graphics, models, campaign, missions, briefing or quit), at that size if one
+/// is given, and quits.
 /// </summary>
 public partial class MenuScreens : Control
 {
@@ -122,6 +122,7 @@ public partial class MenuScreens : Control
             case "replays": ShowReplays(); break;
             case "options": ShowOptions(); break;
             case "graphics": _stage.Show(new GraphicsPage(ShowOptions, inGame: false)); break;
+            case "models": ShowModels(); break;
             case "campaign": ShowCampaign(); break;
             case "missions": ShowMissions(); break;
             case "briefing": ShowBriefing(Campaign.Entry(CampaignProgress.Load().CurrentPlayer?.LastScenario ?? "tut01") ?? Campaign.Catalogue.CampaignScenarios.First()); break;
@@ -145,6 +146,8 @@ public partial class MenuScreens : Control
     public void ShowReplays() => _stage.Show(FilesPage.Replays(ShowMain, path => FilesPage.OpenReplay(GetTree(), path)));
 
     public void ShowOptions() => _stage.Show(new OptionsPage(ShowMain, inGame: false));
+
+    public void ShowModels() => _stage.Show(new ModelsPage(ShowMain));
 
     /// <summary>The campaign's players.</summary>
     public void ShowCampaign() => _stage.Show(new CampaignPlayersPage(this));

@@ -84,30 +84,8 @@ public partial class ActorView : Node3D
         return at * new Vector3(offset[0], offset[2], offset[1]);
     }
 
-    /// <summary>
-    /// The weapon at <paramref name="mounting"/> fires one round and moves with it: back and forward by its RECOIL
-    /// distance and times, fitted into the round's share of the burst as MachPhysWeapon::recoil fitted them, or
-    /// the autocannon's barrels turn on.
-    /// </summary>
-    public void Fire(Machines.Sim.Combat.Mounting mounting, Machines.Import.Model.WeaponSpec weapon)
-    {
-        if (_rigView is null)
-            return;
-        var recoil = weapon.Presentation.FirstOrDefault(l => l.Keyword == "RECOIL" && l.Args.Count >= 3)?.Args
-            .Select(a => float.Parse(a, System.Globalization.CultureInfo.InvariantCulture)).ToArray() ?? [0f, 0.05f, 0.15f];
-        var (distance, back, fore) = (recoil[0], recoil[1], recoil[2]);
-        var round = weapon.BurstDuration / Math.Max(1, weapon.BurstRounds);
-        // Rounds faster than the recoil cut its way forward short.
-        if (round - (back + fore) < 0.01f)
-            fore = Math.Max(round - back, 0.01f);
-        var side = mounting switch
-        {
-            Machines.Sim.Combat.Mounting.Left => "left",
-            Machines.Sim.Combat.Mounting.Right => "right",
-            _ => "top",
-        };
-        _rigView.Fire(side, distance, back, fore, round, turn: weapon.TypeName == "AUTO_CANNON");
-    }
+    /// <summary>The weapon at <paramref name="mounting"/> fires one round and moves with it (see <see cref="RigView.Fire(Machines.Sim.Combat.Mounting, Machines.Import.Model.WeaponSpec)"/>).</summary>
+    public void Fire(Machines.Sim.Combat.Mounting mounting, Machines.Import.Model.WeaponSpec weapon) => _rigView?.Fire(mounting, weapon);
 
     /// <summary>A building's interior (see <see cref="RigView.ShowInterior"/>).</summary>
     public bool HasInterior => _rigView?.HasInterior ?? false;
@@ -153,23 +131,6 @@ public partial class ActorView : Node3D
         {
             if (_rigView is not null)
                 _rigView.DoorsOpen = value;
-        }
-    }
-
-    /// <summary>
-    /// The doors of a building's ENTRANCE lines (MachPhysConstructionData::addEntrance): across the way through,
-    /// at the door point, 6.9 m wide for a small door and 11.9 m for a large one.
-    /// </summary>
-    private static void AddDoors(RigView rig, Construction building)
-    {
-        foreach (var entrance in building.Stats.Geometry.Where(g => g.Keyword == "ENTRANCE" && g.Args.Count >= 8))
-        {
-            float F(int i) => float.Parse(entrance.Args[i], System.Globalization.CultureInfo.InvariantCulture);
-            var through = new Vector2(F(2) - F(0), F(3) - F(1));
-            if (through.LengthSquared() < 0.0001f)
-                continue;
-            var width = entrance.Args[7] == "LARGE_DOOR" ? 11.9f : 6.9f;
-            rig.AddDoors(entrance.Args[6], new Vector2(through.Y, -through.X).Normalized() * width);
         }
     }
 
@@ -420,7 +381,7 @@ public partial class ActorView : Node3D
                 view._rigView.TurnRate = Mathf.DegToRad(bodyRate);
             if (actor is Construction building)
             {
-                AddDoors(view._rigView, building);
+                view._rigView.AddDoors(building.Stats.Geometry);
                 // A tower's head turns at its MAX_ROTATION, degrees per second (MachPhysTurnerTracker).
                 if (building.Stats.MaxRotation is > 0 and var rate)
                     view._rigView.TurnRate = Mathf.DegToRad(rate);

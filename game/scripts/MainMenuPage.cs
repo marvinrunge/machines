@@ -58,6 +58,7 @@ public partial class MainMenuPage(MenuScreens screens) : MenuPage(screens.Quit)
         right.AddChild(Button("Multiplayer", screens.ShowMultiplayer, 84, 30));
         right.AddChild(Button("Load Game", screens.ShowLoad, 84, 30));
         right.AddChild(Button("Replays", screens.ShowReplays, 84, 30));
+        right.AddChild(Button("Models", screens.ShowModels, 84, 30));
         right.AddChild(Button("Options", screens.ShowOptions, 84, 30));
 
         SwitchOn();

@@ -17,9 +17,13 @@ public sealed class ClassicAssets
     private readonly Dictionary<string, Mesh> _meshes = [];
     private readonly Dictionary<string, Material> _materials = [];
     private readonly Dictionary<string, Rig?> _rigs = [];
+    private readonly ModelLook? _models;
 
-    public ClassicAssets(string repositoryFolder)
+    /// <param name="look">The models' look for these assets alone, whatever the player chose (the model viewer
+    /// shows each); null follows the chosen look.</param>
+    public ClassicAssets(string repositoryFolder, ModelLook? look = null)
     {
+        _models = look;
         var models = Path.Combine(repositoryFolder, "classic", "models");
         _modelFolder = Directory.Exists(models) ? models : null;
         var planets = Path.Combine(repositoryFolder, "classic", "planets");
@@ -157,24 +161,29 @@ public sealed class ClassicAssets
         return Upgraded && File.Exists(upgraded) ? upgraded : path;
     }
 
+    /// <summary>The file a machine or building is built from in these assets' look (see <see cref="ModelPath"/>), or null.</summary>
+    public string? ModelFile(string id, Race race) => ModelPath(id, race);
+
+    private ModelLook Models => _models ?? GraphicsSettings.Models;
+
     /// <summary>The HD models, or MACHINES_MODEL_SET=meshy with the overhauled ones (to compare from the command line).</summary>
-    private static bool MeshySet => GraphicsSettings.Models == ModelLook.Hd
-        || (GraphicsSettings.Models != ModelLook.Original && System.Environment.GetEnvironmentVariable("MACHINES_MODEL_SET") == "meshy");
+    private bool MeshySet => Models == ModelLook.Hd
+        || (Models != ModelLook.Original && System.Environment.GetEnvironmentVariable("MACHINES_MODEL_SET") == "meshy");
 
     /// <summary>
     /// The overhauled and HD models show the upgraded models and their bare metal; MACHINES_MODEL_UPGRADE=0 shows the
     /// classic ones in them, to compare.
     /// </summary>
-    private static bool Upgraded => GraphicsSettings.Models != ModelLook.Original && System.Environment.GetEnvironmentVariable("MACHINES_MODEL_UPGRADE") != "0";
+    private bool Upgraded => Models != ModelLook.Original && System.Environment.GetEnvironmentVariable("MACHINES_MODEL_UPGRADE") != "0";
 
     /// <summary>
     /// Whether a texture shows sharpened (<see cref="HdTextures"/>): the planet's pictures (its ground, scenery and sky,
     /// all under models/planet) as the ground is chosen, the machines', buildings' and effects' as the models are.
     /// </summary>
-    private static bool Sharp(string relative) =>
+    private bool Sharp(string relative) =>
         relative.Replace('\\', '/').StartsWith("models/planet/", StringComparison.OrdinalIgnoreCase)
             ? GraphicsSettings.Terrain != TerrainLook.Original
-            : GraphicsSettings.Models != ModelLook.Original;
+            : Models != ModelLook.Original;
 
     private static string? FindModel(string folder, string id)
     {

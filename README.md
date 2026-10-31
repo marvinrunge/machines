@@ -131,6 +131,14 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   every part at once: Classic all original, Overhauled the sharpened ground under the overhauled models, HD the
   painted ground under the remade ones, both with the rest of the remake. Any other mix is Custom, which comes
   back as it was left. Grass and stones grow on the painted ground alone, as they need its finer shape.
+- **Model viewer:** **Models** in the main menu shows every machine and building the game builds, one at a
+  time, to look the models over: in the original, overhauled or HD look (for that page alone) and each race's
+  colours, turned by dragging and zoomed with the mouse wheel, with Previous and Next stepping through them all.
+  It plays what the game plays: driving forwards or backwards and turning on the spot over a grid that moves
+  under the machine at its top speed, so legs, wheels and tracks can be seen keeping pace; the upper body or a
+  tower's head turning; a constructor building, a building working and its doors; the weapons' recoil in
+  bursts; and the one-off actions such as the Gorilla's punches. It says which model the look shows (the Meshy
+  remake, the upgraded original or the original) and its triangles.
 - **Maps of the remake looks:** the continent map, the skirmish page's preview and the loading screen show
   the planet as the chosen look draws it, taken from straight above without the machines, buildings, weather or
   the sun's shadow the first time a scenario is played (under the loading screen). Each mix of ground, trees and
@@ -237,14 +245,16 @@ dotnet test Machines.sln
 Open `game/project.godot` in the Godot .NET editor and press Play. Godot builds `Machines.sln` from the
 repository root (`dotnet/project/solution_directory`). The game opens on the main menu: Campaign leads to the
 players, the choice of mission and its briefing, Skirmish to the maps (double click starts one) and settings,
-Options to the look (Customize to each part of it), volumes, window and the import from your game copy.
+Models to the model viewer, Options to the look (Customize to each part of it), volumes, window and the import
+from your game copy.
 
 For automated checks, `MACHINES_MAP=<scenario>,<planet>` skips the menu, `MACHINES_SCREENSHOT=<file.png>`
 saves a screenshot and quits (without fog of war unless `MACHINES_FOG=1`),
 `MACHINES_LOOK=<look>[,terrain=original|sharpened|painted,models=original|overhauled|hd,lighting=on|off,effects=on|off,weather=on|off,scenery=on|off]`
 picks the look for one run without saving it, and `MACHINES_SCREENSHOT_PLAY=punchA,3` plays an animation 3 s in (see `Game.cs` and
 `MenuScreens.cs` for the other `MACHINES_*` switches; `MACHINES_MENU_SCREENSHOT=<file.png>,<page>,<W>x<H>` saves a
-menu page at any window size). `MACHINES_CAMPAIGN=<mission>` plays a campaign mission
+menu page at any window size, and on the `models` page `MACHINES_MODEL=<id>[,hd,blue,forward,work,fire,punchA,...]`
+picks a model and sets it going, see `ModelsPage.cs`). `MACHINES_CAMPAIGN=<mission>` plays a campaign mission
 for the campaign's current player, and with it `MACHINES_SCREENSHOT_MENU=briefing` or `debrief` shows its
 briefing or debriefing; the menu pages `campaign`, `missions` and `briefing` can be saved as above.
 `MACHINES_MISSION_RUNS=<report.txt> dotnet test --filter CampaignRunTests` plays every mission for ten minutes,

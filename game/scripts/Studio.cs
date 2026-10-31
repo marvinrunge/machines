@@ -41,7 +41,7 @@ public partial class Studio : Node
     private const float Fov = 20;
 
     /// <summary>The names the game shows for the types and subtypes of classic/models.txt.</summary>
-    private static readonly Dictionary<string, string> Names = new()
+    internal static readonly Dictionary<string, string> Names = new()
     {
         ["GRUNT"] = "Grunt", ["ASSASSIN"] = "Reaper", ["KNIGHT"] = "Knight", ["BALLISTA"] = "Ballista", ["NINJA"] = "Gorilla",
         ["BOSS"] = "Boss", ["OVERSEER"] = "Overseer", ["COMMANDER"] = "Commander", ["DOZER"] = "Dozer", ["BUILDER"] = "Builder",
@@ -738,7 +738,7 @@ public partial class Studio : Node
     private static string Slug(string name) => name.ToLowerInvariant().Replace(' ', '-');
 
     /// <summary>A weapon's name for people: HEAVY_BOLTER1 becomes "Heavy bolter 1".</summary>
-    private static string Title(string weapon)
+    internal static string Title(string weapon)
     {
         var words = weapon.ToLowerInvariant().Split('_');
         var text = string.Join(' ', words.Select(w => w.Length > 1 && char.IsDigit(w[^1]) && !char.IsDigit(w[0]) ? w.TrimEnd("0123456789".ToCharArray()) + " " + w[w.TrimEnd("0123456789".ToCharArray()).Length..] : w));
