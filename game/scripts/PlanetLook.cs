@@ -33,11 +33,17 @@ public partial class PlanetLook : Node
     private const float RemakeAmbient = 0.5f;
     private const float RemakeSun = 1.6f;
 
+    /// <summary>The remake's contrast, in a world with light in its sky (see Update).</summary>
+    private const float RemakeContrast = 1.12f;
+
     /// <summary>
     /// The volumetric fog's density by day, at most (it thickens towards dawn, dusk and night): a share of the light is
     /// lost over the planet's MAX VISIBILITY (<see cref="HazeReach"/> of e-foldings), but never less than the minimum.
     /// </summary>
     private const float HazeDensity = 0.004f, MinimumHaze = 0.0006f, HazeReach = 0.6f;
+
+    /// <summary>Haze darker than this (its colour's luminance) only swallows light and is left out.</summary>
+    private const float BlackHaze = 0.04f;
 
     public static PlanetLook Create(PlanetEnvironment env, string planet, Func<float> gameTime, Func<float> viewDistance,
         Func<string, ClassicAssets.SkySprite?> skySprite, (Mesh Mesh, Texture2D Texture, float Radius)? dome = null)
@@ -149,7 +155,7 @@ public partial class PlanetLook : Node
         _environment.TonemapExposure = 1.0f;
         _environment.AdjustmentEnabled = true;
         _environment.AdjustmentSaturation = 1.1f;
-        _environment.AdjustmentContrast = 1.12f;
+        _environment.AdjustmentContrast = RemakeContrast;
         _environment.GlowEnabled = true;
         _environment.GlowIntensity = 0.6f;
         _environment.GlowBloom = 0.04f;
@@ -421,8 +427,11 @@ public partial class PlanetLook : Node
             ambient = new Color(ambient.R + light.R, ambient.G + light.G, ambient.B + light.B);
         }
         // The remake darkens the ambient while the sun stands high, where shade then stands apart from sunlight; as it
-        // sinks the scene lives on its ambient, which goes back to the original's.
-        var high = _softShadows ? Mathf.Clamp(elevation / 35, 0, 1) : 0;
+        // sinks the scene lives on its ambient, which goes back to the original's. A sun fixed overhead is the stations'
+        // lamp (kidnap, sat, control): no day to set the shade against, and their walls, which it never reaches, live on
+        // the ambient too.
+        var lamp = _sunOrbit is { } still && still.MinElevation == still.MaxElevation;
+        var high = _softShadows && !lamp ? Mathf.Clamp(elevation / 35, 0, 1) : 0;
         var floor = direct * Mathf.Lerp(MinimumAmbient, RemakeMinimumAmbient, high);
         // The remake never lets a night go fully black: a little starlight stays.
         if (_softShadows)
@@ -514,15 +523,25 @@ public partial class PlanetLook : Node
                 // A low sun shines through more air: the haze thickens a little as it sinks, and shafts stand out. It is
                 // as thick as the planet's air is clear (thinner where the original sees farther), and lit in the
                 // sky's colour at the horizon where the original's fog is darker: many planets fade to black far off,
-                // and haze that dark would swallow the day.
+                // and haze that dark would swallow the day. Where both are black (the stations under a black sky:
+                // kidnap, guns, midian ...) there is no haze: it would only swallow the light (half of it on kidnap),
+                // and the depth fog already fades the distance to black.
                 var low = Mathf.Clamp(1 - elevation / 30, 0, 1);
                 var haze = new Color(Mathf.Max(fogColour.R, horizon.R), Mathf.Max(fogColour.G, horizon.G), Mathf.Max(fogColour.B, horizon.B));
                 _environment.VolumetricFogAlbedo = haze;
-                _environment.VolumetricFogDensity = Mathf.Clamp(HazeReach / Mathf.Max(f.MaxVisibility, 1), MinimumHaze, HazeDensity) * (1 + 0.5f * low)
-                    * (1 + 3 * Weather.Haze);
+                _environment.VolumetricFogDensity = haze.Luminance < BlackHaze ? 0
+                    : Mathf.Clamp(HazeReach / Mathf.Max(f.MaxVisibility, 1), MinimumHaze, HazeDensity) * (1 + 0.5f * low) * (1 + 3 * Weather.Haze);
                 // In a storm the haze hides the sky as it hides the hills, so no clear patch shows above them.
                 _environment.VolumetricFogSkyAffect = Weather.Haze;
             }
+        }
+        if (_softShadows)
+        {
+            // The remake's contrast turns about mid grey and takes the darkest tones to black. In a dark world (black
+            // sky and fog: the stations, space) the scene is mostly such tones and its walls went black (kidnap at
+            // half the original's light); there it keeps the original's.
+            var world = Mathf.Max(fogColour.Luminance, horizon.Luminance);
+            _environment.AdjustmentContrast = Mathf.Lerp(1, RemakeContrast, Mathf.Clamp(world / (2 * BlackHaze), 0, 1));
         }
         UpdateShadowReach();
     }
