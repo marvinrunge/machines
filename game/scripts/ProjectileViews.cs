@@ -61,6 +61,15 @@ public partial class ProjectileViews : Node3D
                 var to = AimHeight(projectile);
                 _climb[projectile.Id] = (from, (to - from) / Mathf.Max(1, System.Numerics.Vector2.Distance(projectile.Start, projectile.Aim)));
                 AddChild(shown.View);
+                // A pulse weapon puts out a ring with every round (MachPhysPulseWeapon::createPulseDisc).
+                if (projectile.Weapon.TypeName.StartsWith("PULSE") && muzzle != Vector3.Zero)
+                {
+                    var (mouth, along) = (Ground(projectile.Start) + muzzle, Direction(projectile) + Vector3.Up * _climb[projectile.Id].Item2);
+                    if (GraphicsSettings.Effects)
+                        _effects?.PulseRing(mouth, along);
+                    else
+                        Blowup.PulseDisc(mouth, along, _assets, this);
+                }
             }
             // Between ticks the round flies on at its speed, so it moves smoothly; the tick sets it right again.
             var ahead = _line[projectile.Id] + projectile.Direction * projectile.Weapon.ProjectileSpeed * (float)delta;
@@ -94,7 +103,20 @@ public partial class ProjectileViews : Node3D
                     GetTree().CreateTimer(trail.Lifetime + 0.2).Timeout += trail.QueueFree;
                 }
             }
-            view.QueueFree();
+            // The orb of treachery stops where it got to and opens out to 10 m across as it fades in half a second
+            // (MachPhysTreacheryOrb::suckRaceAt).
+            if (projectile.Weapon.TypeName == "ORB_OF_TREACHERY" && view is MeshInstance3D { MaterialOverride: StandardMaterial3D ring })
+            {
+                // The remake's ball of colour in it goes out at once.
+                foreach (var child in view.GetChildren())
+                    child.QueueFree();
+                var close = view.CreateTween().SetParallel();
+                close.TweenProperty(view, "scale", Vector3.One * 5, 0.5f);
+                close.TweenProperty(ring, "albedo_color:a", 0f, 0.5f);
+                close.Chain().TweenCallback(Callable.From(view.QueueFree));
+            }
+            else
+                view.QueueFree();
         }
         ShowMissilesInFlight((float)delta);
     }
@@ -206,7 +228,8 @@ public partial class ProjectileViews : Node3D
     /// <summary>
     /// The orb of treachery (MachPhysTreacheryOrb): a ring of the shooter's colour (MachPhysRadialDisc's ring_bt)
     /// that opens from nothing to 4 m across over 0.7 s, fading in, and flies on at half strength. It always faces
-    /// the camera; the original's disc faced along its flight, edge-on from above.
+    /// the camera; the original's disc faced along its flight, edge-on from above. It is laid over what is behind
+    /// it, as the original's was, not added to it: added, a red ring vanishes on red sand.
     /// </summary>
     private Node3D? Orb(Machines.Import.Model.Race race)
     {
@@ -217,7 +240,6 @@ public partial class ProjectileViews : Node3D
         {
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
             Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-            BlendMode = BaseMaterial3D.BlendModeEnum.Add,
             BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
             BillboardKeepScale = true,
             AlbedoTexture = ring,
@@ -245,22 +267,12 @@ public partial class ProjectileViews : Node3D
         return orb;
     }
 
-    /// <summary>The weapon's impact splat (plasplat, pulsplat), growing and fading in a third of a second.</summary>
+    /// <summary>The energy weapons' splat and aura where they hit (see <see cref="Blowup.Hit"/>; in the remake <see cref="Effects.EnergySplat"/>).</summary>
     private void Splat(Vector3 at, string weapon, Vector3 heading)
     {
         if (GraphicsSettings.Effects && _effects is not null && (weapon.Contains("PLASMA") || weapon.Contains("PULSE") || weapon == "WASP_LIGHT_STING"))
-        {
             _effects.EnergySplat(at, weapon, heading);
-            return;
-        }
-        var name = weapon.Contains("PLASMA") ? "splat" : weapon.Contains("PULSE") ? "pulsesplat" : null;
-        if (name is null || _assets.EffectMesh(name) is not { } mesh)
-            return;
-        var splat = new MeshInstance3D { Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
-        AddChild(splat);
-        splat.GlobalPosition = at;
-        var grow = CreateTween();
-        grow.TweenProperty(splat, "scale", Vector3.One * 2.5f, 0.33f).From(Vector3.One * 0.5f);
-        grow.TweenCallback(Callable.From(splat.QueueFree));
+        else if (!GraphicsSettings.Effects)
+            Blowup.Hit(weapon, at, _assets, this);
     }
 }

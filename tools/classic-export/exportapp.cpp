@@ -108,6 +108,10 @@
 #include "machphys/dblflame.hpp"
 #include "machphys/beam.hpp"
 #include "machphys/nukewave.hpp"
+#include "machphys/shockwav.hpp"
+#include "machphys/damagwav.hpp"
+#include "machphys/stlaura.hpp"
+#include "machphys/stlsplat.hpp"
 #include "machphys/mushtop.hpp"
 #include "machphys/mushshaf.hpp"
 #include "machphys/vsphere.hpp"
@@ -1190,16 +1194,16 @@ bool ExportApp::clientStartup()
 
     // The weapons' projectiles and impact splats, race-free, into fx/<name>.json. They live only in models.bin,
     // so each is made the way the game makes it (machphys: plasmbol, pulseblb, missile, stingl/m, plasplat,
-    // plasaura, pulsplat, pulsaura).
+    // plasaura, pulsplat, pulsaura, stlsplat, stlaura, shockwav, damagwav).
     static const char* effects[] = {
         "plaboltr", "plaboltc", "plabolt2", "pulboltr", "pulboltc",
         "mis1", "mis2", "mis3", "mis4", "mis5", "mis6", "mis7", "lmiss", "nmisea",
-        "stinglight", "stingmetal", "splat", "aura", "pulsesplat", "pulseaura", "torch", "sparks",
+        "stinglight", "stingmetal", "splat", "aura", "pulsesplat", "pulseaura", "stingsplat", "stingaura", "torch", "sparks",
         "punchcrack", "punchfire", "beecrack", "beefire", "beewave",
         "helix1", "helix2", "healcross", "healaura", "disc", "lightning", "lightbox",
         "loadunder", "loadover", "loadlight", "fire",
         "ionbeam", "ionflare", "ionouter", "ionwave", "nukewave", "mushtop", "mushshaft", "vsphere", "bsphere", "wsphere",
-        "lmine", "debris",
+        "lmine", "debris", "shockwave", "burstwave",
     };
     mkdir((out + "/fx").c_str());
     for (size_t e = 0; e < sizeof(effects) / sizeof(effects[0]); ++e)
@@ -1223,6 +1227,8 @@ bool ExportApp::clientStartup()
         else if (name == "aura") effect = _NEW(MachPhysPlasmaAura(root, at));
         else if (name == "pulsesplat") effect = _NEW(MachPhysPulseSplat(root, at));
         else if (name == "pulseaura") effect = _NEW(MachPhysPulseAura(root, at));
+        else if (name == "stingsplat") effect = _NEW(MachPhysLightStingSplat(root, at));
+        else if (name == "stingaura") effect = _NEW(MachPhysLightStingAura(root, at));
         // A constructor at work: the green beam from its jets (MachPhysJetRing, 5 m long) and their sparks.
         else if (name == "torch") effect = _NEW(MachPhysJetRing(root, at));
         else if (name == "sparks") effect = _NEW(MachPhysSparks(root, at));
@@ -1273,6 +1279,10 @@ bool ExportApp::clientStartup()
         // The wreck a destroyed machine or building leaves (MachPhysDebrisUnit, the debris exemplar in models.bin).
         else if (name == "debris")
             effect = _NEW(MachPhysDebrisUnit(root, W4dTransform3d(), MexAlignedBox2d(-2, -2, 2, 2), 10.0));
+        // The waves that run out from a destroyed machine (MachPhysShockWave, models/destroy/mach/shockwav.lod)
+        // and building (MachPhysBurstWave, models/destroy/construc/shockwav.lod), both 2 m round unscaled.
+        else if (name == "shockwave") effect = _NEW(MachPhysShockWave(root, at));
+        else if (name == "burstwave") effect = _NEW(MachPhysBurstWave(root, at));
         const W4dEntity* part = link != NULL ? link : effect;
         if (name == "punchcrack" or name == "punchfire" or name == "beecrack" or name == "beefire")
         {

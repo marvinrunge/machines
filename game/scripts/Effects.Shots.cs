@@ -127,6 +127,39 @@ public partial class Effects
             LaunchSmoke(at);
     }
 
+    /// <summary>
+    /// A pulse round leaves the muzzle: a ring of blue light across the line of fire opens from 1 to 5 m round in a
+    /// third of a second and fades (MachPhysPulseWeapon::createPulseDisc).
+    /// </summary>
+    public void PulseRing(Vector3 at, Vector3 direction)
+    {
+        if (direction.LengthSquared() < 0.0001f)
+            return;
+        var material = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            AlbedoTexture = Ring,
+            AlbedoColor = new Color(0.37f, 0.68f, 1f) * 2.2f,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            BlendMode = BaseMaterial3D.BlendModeEnum.Add,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            DepthDrawMode = BaseMaterial3D.DepthDrawModeEnum.Disabled,
+        };
+        var ring = new MeshInstance3D
+        {
+            Mesh = new QuadMesh { Size = Vector2.One * 2 },
+            MaterialOverride = material,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+        AddChild(ring);
+        ring.GlobalPosition = at;
+        ring.LookAt(at + direction, Mathf.Abs(direction.Normalized().Y) > 0.98f ? Vector3.Right : Vector3.Up);
+        var open = ring.CreateTween().SetParallel();
+        open.TweenProperty(ring, "scale", Vector3.One * 5, 0.33f).From(Vector3.One).SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Quad);
+        open.TweenProperty(material, "albedo_color:a", 0f, 0.33f).SetEase(Tween.EaseType.In).SetTrans(Tween.TransitionType.Quad);
+        open.Chain().TweenCallback(Callable.From(ring.QueueFree));
+    }
+
     /// <summary>A missile leaves its launcher in a puff of smoke.</summary>
     private void LaunchSmoke(Vector3 at) =>
         Burst(at, amount: 4, lifetime: 1.4f, texture: Particle("smoke_04"), new ParticleProcessMaterial

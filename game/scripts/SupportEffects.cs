@@ -189,7 +189,7 @@ public partial class SupportEffects : Node3D
         return new Aura
         {
             Root = root, Radial = radial, Central = top, Material = material, Size = size, Clearance = clearance, Started = _time,
-            Bright = GraphicsSettings.Effects ? 2.4f : 1,
+            Bright = GraphicsSettings.Effects ? 1.4f : 1,
         };
     }
 
@@ -207,7 +207,8 @@ public partial class SupportEffects : Node3D
             }
             aura.Central.Scale = Vector3.One * scale;
             var fade = Mathf.Clamp((cycle - phase * cycle) / 0.2f, 0, 1);
-            aura.Material.AlbedoColor = new Color(0.2f * aura.Bright, aura.Bright, 0.3f * aura.Bright, 0.8f * fade);
+            // Brighter in the remake, and greener with it so that its glow does not wash out to white.
+            aura.Material.AlbedoColor = new Color(0.2f / aura.Bright, aura.Bright, 0.3f / aura.Bright, 0.8f * fade);
         }
     }
 

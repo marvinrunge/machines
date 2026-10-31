@@ -17,6 +17,9 @@ game did:
   node of its own, listed under `weapons` with its mounting: the link named `recoil` or the whole weapon
   (MachPhysWeapon::recoil), or the autocannon's turning barrels (MachPhysBolter::fire). A building's interior
   (MachPhysConstruction::pInteriorDomain) is a node named `interior`, kept apart from the outside.
+- **Effects:** the projectiles, splats, auras, beams and blast shapes that only exist in `models.bin`, each
+  made the way the game makes it (`classic/models/fx/<name>.json`). An export older than the shock and burst
+  waves of a destruction lacks them; the client then leaves them out until you run the exporter again.
 - **Terrain:** each planet's surface from `pdata/<planet>.psb`, the engine's persisted planet with all its
   terrain tiles. The exporter writes the tiles as one model (`classic/planets/<planet>/terrain.json`) and the
   engine's `terrainHeight` sampled every 4 m (`heights.bin`: int32 columns, int32 rows, float32 spacing,

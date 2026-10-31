@@ -701,8 +701,10 @@ public partial class Game : Node3D
         foreach (var actor in World.Actors)
         {
             // Captured or turned actors are rebuilt in their new colours.
+            Race? turned = null;
             if (_views.TryGetValue(actor.Id, out var view) && view.Race != actor.Race)
             {
+                turned = view.Race;
                 view.QueueFree();
                 _views.Remove(actor.Id);
                 _selection.Remove(actor.Id);
@@ -713,6 +715,9 @@ public partial class Game : Node3D
                 view = ActorView.Create(actor, _assets, _audio);
                 _views[actor.Id] = view;
                 AddChild(view);
+                // A machine turned traitor flickers between its old and new colours.
+                if (turned is { } old && actor is Machine)
+                    view.Defect(old, actor, _assets);
                 // A building clears the grass and stones from the ground it stands on.
                 if (actor is Construction placed && GetNodeOrNull<GroundScatter>("Terrain/GroundScatter") is { } scatter)
                     scatter.ClearUnder(new Vector2(placed.Footprint.Min.X - 1, placed.Footprint.Min.Y - 1),
@@ -765,9 +770,9 @@ public partial class Game : Node3D
 
         foreach (var id in _views.Keys.Where(id => World.Find(id) is null).ToList())
         {
-            // A destroyed machine flies apart in the remake; anything else just goes.
-            if (GraphicsSettings.Effects && _destroyed.Remove(id))
-                _views[id].Shatter(_effects);
+            // A destroyed machine flies apart, a building swells and bursts; anything else just goes.
+            if (_destroyed.Remove(id))
+                _views[id].BlowUp(_effects, _assets);
             _views[id].QueueFree();
             _views.Remove(id);
             _selection.Remove(id);
@@ -831,10 +836,7 @@ public partial class Game : Node3D
                     break;
                 case GameEventKind.Destroyed:
                     _destroyed.Add(e.Actor);
-                    if (GraphicsSettings.Effects)
-                        _effects.Explosion(at - Vector3.Up * 2, _views.TryGetValue(e.Actor, out var gone) ? gone.Size : 4);
-                    else
-                        Flash(at);
+                    _effects.Destroyed(at - Vector3.Up * 2, _views.GetValueOrDefault(e.Actor));
                     if (_views.TryGetValue(e.Actor, out var dead))
                     {
                         _audio.Play(SoundTable.ExplosionSound(dead.IsBuilding, dead.Size, Random.Shared.Next(1, 7)), at);

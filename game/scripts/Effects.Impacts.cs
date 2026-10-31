@@ -112,27 +112,7 @@ public partial class Effects
         Light(at + Vector3.Up * 2 * scale, new Color(1, 0.6f, 0.25f), 7, 20 * scale, 0.7f);
         FlashOrb(centre, new Color(1, 0.75f, 0.45f), 3.5f * scale, 0.15f);
         ShockRing(at + Vector3.Up * 0.4f, 7 * scale, new Color(1, 0.65f, 0.3f), 0.35f);
-
-        Burst(centre, amount: (int)(7 * scale), lifetime: 1.3f, Flipbook("fireball"), new ParticleProcessMaterial
-        {
-            EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Sphere,
-            EmissionSphereRadius = 1.1f * scale,
-            Direction = Vector3.Up,
-            Spread = 180,
-            InitialVelocityMin = 1.5f * scale,
-            InitialVelocityMax = 4.5f * scale,
-            Gravity = new Vector3(0, 1.5f, 0),
-            DampingMin = 3,
-            DampingMax = 5,
-            ScaleMin = 4.5f * scale,
-            ScaleMax = 7f * scale,
-            ScaleCurve = Grow(0.55f),
-            AngleMin = -180,
-            AngleMax = 180,
-            AnimSpeedMin = 1,
-            AnimSpeedMax = 1,
-            ColorRamp = Ramp(new Color(2.6f, 2.4f, 2.2f, 1), new Color(1.6f, 1.5f, 1.4f, 1), new Color(1, 1, 1, 0)),
-        }, explosiveness: 0.85f);
+        Fireballs(centre, scale, (int)(7 * scale));
 
         Smoke(centre, amount: (int)(5 * scale), size: 9 * scale, lifetime: 4.5f);
         Sparks(centre, new Color(1, 0.55f, 0.2f), (int)(24 * scale), Vector3.Up, spread: 80, speed: 12 * Mathf.Sqrt(scale),
@@ -153,6 +133,29 @@ public partial class Effects
 
         Scorch(at, 3.5f * scale);
     }
+
+    /// <summary>Balls of fire swelling and cooling into smoke around <paramref name="centre"/>, about <paramref name="scale"/> times 6 m across.</summary>
+    private void Fireballs(Vector3 centre, float scale, int amount) =>
+        Burst(centre, amount, lifetime: 1.3f, Flipbook("fireball"), new ParticleProcessMaterial
+        {
+            EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Sphere,
+            EmissionSphereRadius = 1.1f * scale,
+            Direction = Vector3.Up,
+            Spread = 180,
+            InitialVelocityMin = 1.5f * scale,
+            InitialVelocityMax = 4.5f * scale,
+            Gravity = new Vector3(0, 1.5f, 0),
+            DampingMin = 3,
+            DampingMax = 5,
+            ScaleMin = 4.5f * scale,
+            ScaleMax = 7f * scale,
+            ScaleCurve = Grow(0.55f),
+            AngleMin = -180,
+            AngleMax = 180,
+            AnimSpeedMin = 1,
+            AnimSpeedMax = 1,
+            ColorRamp = Ramp(new Color(2.6f, 2.4f, 2.2f, 1), new Color(1.6f, 1.5f, 1.4f, 1), new Color(1, 1, 1, 0)),
+        }, explosiveness: 0.85f);
 
     /// <summary>Dark smoke rolling up (the billowing flipbook, darkened), <paramref name="size"/> metres across.</summary>
     private void Smoke(Vector3 at, int amount, float size, float lifetime) =>
