@@ -17,12 +17,17 @@ public sealed partial class GameWorld
     /// <summary>The distance within which friendly fighters add to a machine's local strength (localStrengthMaximumRadius).</summary>
     private const float LocalStrengthRadius = 100;
 
+    // Each actor's local strength, worked out once per check: nothing moves or is hurt while it runs, and finding
+    // the safest friend asks for every fighter's.
+    private readonly Dictionary<int, int> _localStrengths = [];
+
     /// <summary>Looked at once a second (MachActor::dealWithThreats); an evasion under way twice as often.</summary>
     private void UpdateEvasion()
     {
         if (Tick % 10 != 0)
             return;
         _threatsTo.Clear();
+        _localStrengths.Clear();
         foreach (var machine in Machines)
         {
             if (machine.IsDead || machine.Inside is not null)
@@ -163,6 +168,13 @@ public sealed partial class GameWorld
     /// fighting machines within 100 m, those beyond 50 m counting half; for anything else its own strength.
     /// </summary>
     private int LocalStrength(Actor actor)
+    {
+        if (_localStrengths.TryGetValue(actor.Id, out var known))
+            return known;
+        return _localStrengths[actor.Id] = MeasureLocalStrength(actor);
+    }
+
+    private int MeasureLocalStrength(Actor actor)
     {
         var own = MilitaryStrength(actor);
         if (actor is not Machine && !(actor is Construction tower && tower.IsType("MISSILE_EMPLACEMENT")))
