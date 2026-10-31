@@ -119,6 +119,27 @@ public sealed class ClassicAssets
         return mesh;
     }
 
+    /// <summary>
+    /// An effect from the original whose parts move as it plays (<c>classic/models/fx/&lt;name&gt;.json</c> with a
+    /// <c>rig</c>: the pieces a building breaks into), or null.
+    /// </summary>
+    public Rig? EffectRig(string name)
+    {
+        var key = $"fx/{name}";
+        if (_rigs.TryGetValue(key, out var cached))
+            return cached;
+        Rig? rig = null;
+        var path = _modelFolder is null ? null : Path.Combine(_modelFolder, "fx", name + ".json");
+        if (path is not null && File.Exists(path))
+        {
+            using var document = JsonDocument.Parse(File.ReadAllBytes(path));
+            if (document.RootElement.TryGetProperty("rig", out var element))
+                rig = Rig.Read(element, node => MeshFromParts(node));
+        }
+        _rigs[key] = rig;
+        return rig;
+    }
+
     private Mesh? LoadClassic(string id, Race race) => ModelPath(id, race) is { } path ? MeshFromJson(path, race) : null;
 
     private string? ModelPath(string id, Race race)

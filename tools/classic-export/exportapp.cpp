@@ -112,6 +112,7 @@
 #include "machphys/damagwav.hpp"
 #include "machphys/stlaura.hpp"
 #include "machphys/stlsplat.hpp"
+#include "machphys/objdemol.hpp"
 #include "machphys/mushtop.hpp"
 #include "machphys/mushshaf.hpp"
 #include "machphys/vsphere.hpp"
@@ -549,14 +550,14 @@ void writeTransform(std::ostream& out, const MexTransform3d& t)
 }
 
 // "name":{"duration":d,"tracks":[{"node":i,"samples":[[12 floats], ...]}]} — a link animation sampled 20 times a
-// second; each sample is the link's local transform at that time.
+// second (or as often as asked); each sample is the link's local transform at that time.
 void writeAnimation(std::ostream& out, const char* name, const W4dCompositePlanPtr& plan,
-                    const W4dComposite::W4dLinks& links, bool* first)
+                    const W4dComposite::W4dLinks& links, bool* first, int perSecond = 20)
 {
     if (not plan.isDefined())
         return;
     const PhysRelativeTime duration = plan->finishTime();
-    const int samples = std::max(2, int(duration * 20 + 0.5) + 1);
+    const int samples = std::max(2, int(duration * perSecond + 0.5) + 1);
     out << (*first ? "" : ",") << "\"" << name << "\":{\"duration\":" << duration << ",\"tracks\":[";
     *first = false;
     bool firstTrack = true;
@@ -773,6 +774,16 @@ void writeRig(std::ostream& out, W4dComposite& composite, std::set<std::string>*
         construction->isWorking(true);
         writeMotion("working");
     }
+    // The pieces of a building blowing up fly apart in their own cycle (MachPhysObjDemolish::startDemolition), which
+    // the game shows for under half a second, so it is sampled finer.
+    W4dCompositePlanPtr demolishing;
+    if (dynamic_cast<MachPhysObjDemolish*>(&composite) != NULL and composite.cycleAnims(&demolishing))
+    {
+        out << ",\"animations\":{";
+        bool first = true;
+        writeAnimation(out, "demolish", demolishing, links, &first, 60);
+        out << "}";
+    }
     if (machine == NULL)
     {
         out << "}";
@@ -848,6 +859,18 @@ const char* raceName(MachPhys::Race race)
     }
 }
 
+// After a list line's level come an optional subtype and an optional weapon combo (L_..., R_..., LR_..., T_..., LRT_...).
+void subtypeAndCombo(const std::vector<std::string>& words, std::string* sub, std::string* comboName)
+{
+    for (size_t i = 3; i < words.size(); ++i)
+    {
+        const std::string& w = words[i];
+        const bool isCombo = w.compare(0, 2, "L_") == 0 or w.compare(0, 2, "R_") == 0 or w.compare(0, 2, "T_") == 0
+            or w.compare(0, 3, "LR_") == 0 or w.compare(0, 4, "LRT_") == 0;
+        *(isCombo ? comboName : sub) = w;
+    }
+}
+
 // Builds the object for one list line, like the game would. Returns NULL for types it does not know.
 W4dEntity* build(W4dEntity* root, const std::vector<std::string>& words, MachPhys::Race race)
 {
@@ -860,15 +883,8 @@ W4dEntity* build(W4dEntity* root, const std::vector<std::string>& words, MachPhy
         return _NEW(MachPhysOreHolograph(root, W4dTransform3d(), race, 1, 1));
     const MachLog::ObjectType objectType = MachLogScenario::objectType(type);
 
-    // After the level come an optional subtype and an optional weapon combo (L_..., R_..., LR_..., T_..., LRT_...).
     std::string sub, comboName;
-    for (size_t i = 3; i < words.size(); ++i)
-    {
-        const std::string& w = words[i];
-        const bool isCombo = w.compare(0, 2, "L_") == 0 or w.compare(0, 2, "R_") == 0 or w.compare(0, 2, "T_") == 0
-            or w.compare(0, 3, "LR_") == 0 or w.compare(0, 4, "LRT_") == 0;
-        (isCombo ? comboName : sub) = w;
-    }
+    subtypeAndCombo(words, &sub, &comboName);
     const int subType = sub.empty() ? 0 : MachLogScenario::objectSubType(objectType, sub);
     const MachPhys::WeaponCombo combo = comboName.empty() ? MachPhys::N_WEAPON_COMBOS : MachLogScenario::weaponCombo(comboName);
 
@@ -1305,6 +1321,60 @@ bool ExportApp::clientStartup()
         writer.write(out + "/fx/" + name + ".json", name);
         textures.insert(writer.textures().begin(), writer.textures().end());
         std::cout << "fx " << name << ": " << writer.triangleCount() << " triangles" << std::endl;
+    }
+
+    // The pieces a building breaks into as it blows up (MachPhysObjDemolish, models/<building>/level<n>/demolish
+    // in models.bin) and the cycle they fly apart in. Most buildings have none of their own: the game falls back to
+    // the generic ones (models/destroy/demolish), made for the military factory and scaled to the building. So the
+    // generic pieces go to fx/demolish/generic.json and a building's own to fx/demolish/<type>_<level>[_<subtype>].json.
+    static const char* constructionTypes[] = {
+        "HARDWARE_LAB", "SMELTER", "FACTORY", "MISSILE_EMPLACEMENT", "GARRISON", "MINE", "BEACON", "POD",
+    };
+    mkdir((out + "/fx/demolish").c_str());
+    const auto writeDemolition = [&](const MachPhys::DemolitionType& type, const std::string& id) {
+        MachPhysObjDemolish* demolish = _NEW(MachPhysObjDemolish(root, MexTransform3d(), type));
+        if (type.objectType == MachPhys::NOT_CONSTRUCTION or not demolish->isGeneric_)
+        {
+            ModelWriter writer;
+            writer.addEntity(*demolish);
+            {
+                std::ofstream file((out + "/fx/demolish/" + id + ".json").c_str());
+                file << std::setprecision(6) << "{\"id\":\"" << id << "\",";
+                writer.writeParts(file);
+                file << ",\n";
+                writeRig(file, *demolish, &textures);
+                file << "}\n";
+            }
+            textures.insert(writer.textures().begin(), writer.textures().end());
+            std::cout << "demolish " << id << ": " << writer.triangleCount() << " triangles, " << demolish->links().size()
+                      << " pieces" << std::endl;
+        }
+        _DELETE(demolish);
+    };
+    MachPhys::DemolitionType generic;
+    generic.objectType = MachPhys::NOT_CONSTRUCTION;
+    writeDemolition(generic, "generic");
+    std::set<std::string> demolitions;
+    for (size_t m = 0; m < models.size(); ++m)
+    {
+        const std::vector<std::string>& words = models[m];
+        int constructionType = -1;
+        for (int c = 0; c < int(sizeof(constructionTypes) / sizeof(constructionTypes[0])); ++c)
+            if (words[0] == "CONSTRUCTION" and words[1] == constructionTypes[c])
+                constructionType = c;
+        if (constructionType < 0)
+            continue;
+        std::string sub, comboName;
+        subtypeAndCombo(words, &sub, &comboName);
+        const std::string id = words[1] + "_" + words[2] + (sub.empty() ? "" : "_" + sub);
+        if (not demolitions.insert(id).second)
+            continue;
+        MachPhys::DemolitionType type;
+        type.objectType = MachPhys::CONSTRUCTION;
+        type.constructionType = MachPhys::ConstructionType(constructionType);
+        type.subType = sub.empty() ? 0 : MachLogScenario::objectSubType(MachLogScenario::objectType(words[1]), sub);
+        type.level = atoi(words[2].c_str());
+        writeDemolition(type, id);
     }
 
     std::ofstream textureList((out + "/textures.txt").c_str());

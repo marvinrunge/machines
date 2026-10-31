@@ -5,7 +5,7 @@ namespace Machines.Game;
 /// <summary>
 /// Something blowing up as the original showed it, for the classic look: fireballs of the original's animated
 /// pictures (MachPhysFireball), a machine's parts flying off spinning (MachPhysMachineExplosion), a building
-/// shrinking and swelling (MachPhysObjectExplosion), the wave running out over the ground (MachPhysShockWave,
+/// shrinking and swelling (MachPhysObjectExplosion) and breaking into pieces (MachPhysObjDemolish), the wave running out over the ground (MachPhysShockWave,
 /// MachPhysBurstWave), a flash of light and a building's smoke rising for a long while (MachPhysSmokePlume).
 /// Every piece is a step of time; the node frees itself when the last is over.
 /// </summary>
@@ -178,6 +178,66 @@ public partial class Blowup : Node3D
         foreach (var mesh in model.FindChildren("*", nameof(MeshInstance3D), recursive: true, owned: false).OfType<MeshInstance3D>())
             mesh.MaterialOverlay = heat;
         holder.CreateTween().TweenProperty(heat, "albedo_color", new Color(1.6f, 0.55f, 0.12f), 0.2f).SetDelay(0.05f);
+    }
+
+    /// <summary>
+    /// A building breaks into pieces as it swells (MachPhysObjDemolish::startDemolition), shown from 0.15 s to 0.6 s
+    /// of its blowing up: they fly apart as their cycle moves them, unlit, glowing white to black over 0.22 s and
+    /// then fading out black. A building without pieces of its own (all but the level 1 mine) gets the generic ones,
+    /// made for the military factory and scaled to its size. In the remake's effects they glow red-hot instead.
+    /// </summary>
+    public static void Demolish(ActorView view, string id, ClassicAssets assets, Node parent, bool hot)
+    {
+        var own = id.Length > 0 ? assets.EffectRig("demolish/" + id) : null;
+        if ((own ?? assets.EffectRig("demolish/generic")) is not { } rig || !rig.Animations.TryGetValue("demolish", out var cycle))
+            return;
+        const float start = 0.15f, glowing = 0.22f, fading = 0.23f;
+        // MachPhysObjectExplosion::explode: the generic pieces scale by the building's largest size over the
+        // military factory's, 39.58 m.
+        var box = view.Bounds;
+        var scale = own is not null ? 1 : Mathf.Max(Mathf.Max(box.Size.X, box.Size.Z), box.Size.Y) / 39.58f;
+        var blowup = new Blowup { Name = "Demolition" };
+        parent.AddChild(blowup);
+        var holder = new Node3D { Visible = false };
+        blowup.AddChild(holder);
+        holder.GlobalTransform = view.GlobalTransform.ScaledLocal(Vector3.One * scale);
+
+        var heat = hot ? new Color(2, 1.1f, 0.45f) : Colors.White;
+        var material = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            DepthDrawMode = BaseMaterial3D.DepthDrawModeEnum.Always,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            AlbedoColor = heat,
+        };
+        var pieces = rig.Nodes.Select(node => node.Mesh is { } mesh
+                ? new MeshInstance3D { Mesh = mesh, MaterialOverride = material, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off }
+                : new Node3D())
+            .ToArray();
+        for (var i = 0; i < pieces.Length; i++)
+        {
+            pieces[i].Transform = rig.Nodes[i].Rest;
+            (rig.Nodes[i].Parent >= 0 ? pieces[rig.Nodes[i].Parent] : holder).AddChild(pieces[i]);
+        }
+        blowup._parts.Add(age =>
+        {
+            var t = age - start;
+            if (t < 0)
+                return true;
+            if (t >= glowing + fading)
+            {
+                holder.QueueFree();
+                return false;
+            }
+            holder.Visible = true;
+            // The cycle is a little shorter than the pieces are shown; they stay where it ends.
+            foreach (var track in cycle.Tracks)
+                if (track.Node < pieces.Length)
+                    pieces[track.Node].Transform = track.At(t / cycle.Duration);
+            material.AlbedoColor = t < glowing ? heat.Lerp(Colors.Black, t / glowing) : Colors.Black with { A = 1 - (t - glowing) / fading };
+            return true;
+        });
     }
 
     /// <summary>

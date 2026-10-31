@@ -7,11 +7,19 @@ namespace Machines.Game;
 // How a view goes when its actor is destroyed or turns traitor.
 public partial class ActorView
 {
+    // What a building breaks into when it blows up (see Blowup.Demolish): TYPE_LEVEL[_SUBTYPE]; "" for a machine.
+    private string _demolition = "";
+
+    private static string DemolitionOf(Actor actor) => actor is Construction c
+        ? string.Join('_', new[] { c.Spec.Type, c.Stats.HardwareLevel.ToString(), c.Spec.SubType }.OfType<string>())
+        : "";
+
     /// <summary>
     /// The actor was destroyed and its view goes, under <paramref name="effects"/>: a building shrinks and swells
-    /// (see <see cref="Blowup.Swell"/>) and goes up with its burst wave, fireballs and smoke; a machine flies apart
-    /// into its parts, in the remake's effects falling and bouncing (see <see cref="Shatter"/>), in the classic
-    /// look as the original blew them away (see <see cref="Blowup.Machine"/>).
+    /// (see <see cref="Blowup.Swell"/>), breaks into pieces (see <see cref="Blowup.Demolish"/>) and goes up with its
+    /// burst wave, fireballs and smoke; a machine flies apart into its parts, in the remake's effects falling and
+    /// bouncing (see <see cref="Shatter"/>), in the classic look as the original blew them away (see
+    /// <see cref="Blowup.Machine"/>).
     /// </summary>
     public void BlowUp(Effects effects, ClassicAssets assets)
     {
@@ -23,6 +31,7 @@ public partial class ActorView
                 Blowup.Building(this, assets, effects);
             if (_model is Node3D model)
                 Blowup.Swell(this, model, effects, glow: GraphicsSettings.Effects);
+            Blowup.Demolish(this, _demolition, assets, effects, hot: GraphicsSettings.Effects);
         }
         else if (GraphicsSettings.Effects)
             Shatter(effects);

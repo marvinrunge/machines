@@ -437,6 +437,7 @@ public partial class ActorView : Node3D
 
         if (actor is Construction works)
             view.AddChimneys(works);
+        view._demolition = DemolitionOf(actor);
 
         if (MeshBounds(view, Transform3D.Identity) is { } modelBounds)
             view._bounds = modelBounds;

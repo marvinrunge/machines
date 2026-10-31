@@ -1143,18 +1143,6 @@ public partial class Game : Node3D
         GetTree().CreateTimer(0.08).Timeout += beam.QueueFree;
     }
 
-    private void Flash(Vector3 at)
-    {
-        var flash = new MeshInstance3D
-        {
-            Mesh = new SphereMesh { Radius = 4, Height = 8 },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(1, 0.6f, 0.2f), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded },
-        };
-        _effects.AddChild(flash);
-        flash.GlobalPosition = at + Vector3.Up * 2;
-        GetTree().CreateTimer(0.3).Timeout += flash.QueueFree;
-    }
-
     // ---- input ----------------------------------------------------------------------------------
 
     public override void _UnhandledInput(InputEvent @event)
