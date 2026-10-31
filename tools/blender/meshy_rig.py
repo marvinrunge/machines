@@ -15,10 +15,16 @@ their neighbours and they are left empty, or they would turn pieces of wall.
 
 Each piece goes the same way. The original's parts of that piece (the hull without weapons and eye box, a weapon's
 subtree, the eye box) in their rest pose are the target:
-- Fit: the Meshy model is laid onto the target by turning it about the vertical (Meshy faces its models either way),
-  scaling and moving it, refined by iterative closest points in both directions; the best of four turns, as drawn
-  and mirrored, wins. A box fits as well backwards as forwards, so the eye box is not turned by its fit: its front
-  goes where the original's eyes look.
+- Fit: the original's axes are left-handed (the game reads them as x, z, y) and Blender's right-handed, so the Meshy
+  model is first mirrored across y; laid in by turns alone, it would show mirrored in the game (fins and emblems on
+  the wrong side, a pumpjack's head at the wrong end). It is then laid onto the target by turning it about the
+  vertical (Meshy faces its models either way), scaling and moving it, refined by iterative closest points in both
+  directions. A box fits as well backwards as forwards, so the turn is not left to the fit where it is known:
+  <meshy folder>/fronts.json names the way each Meshy model faces (found against the original's pictures), and that
+  front goes along the original's +X, as drawn or (weapons) mirrored. Where the original marks both sides of a weapon
+  and Meshy only one, fronts.json's "outward" names that side, and the weapon is laid (as drawn or mirrored) so it
+  faces away from the machine. The eye box's front goes where the original's eyes look. A model without a known
+  front takes the best of four turns, as drawn and mirrored.
 - Cut: each Meshy triangle goes to the rig node whose original surface lies nearest; labels are smoothed over
   neighbouring triangles and stray islands join their surroundings.
 - Each node's triangles are stored in its own space, so the original's animations (legs, wheels, turning upper
@@ -55,6 +61,8 @@ RESCUE_KEEP = 25
 # Meshy built every eye box looking along +Y (Blender's axes after the GLB import), its top up; checked against the
 # in-game pictures (renders/meshy/low/compare).
 EYE_FRONT, EYE_UP = Vector((0, 1, 0)), Vector((0, 0, 1))
+# Blender's right-handed axes into the original's left-handed ones.
+HANDED = Matrix.Scale(-1, 4, Vector((0, 1, 0)))
 # How far the original's eyes stand in front of the Meshy box's screen, metres: clear of it, and too little to see.
 EYE_LIFT = 0.004
 
@@ -111,12 +119,14 @@ def facing(parts):
 
 
 def eye_turn(front):
-    """The turn that lays the Meshy eye box's front onto <front> (model space), its top as near up as that allows."""
+    """The Meshy eye box into the original's axes (HANDED), its front turned onto <front> (model space) and its top as
+    near up as that allows."""
     up = Vector((0, 0, 1)) - front * front.z
     up = up.normalized() if up.length > 1e-3 else Vector((1, 0, 0))
     target = Matrix((front, up, front.cross(up))).transposed()
-    source = Matrix((EYE_FRONT, EYE_UP, EYE_FRONT.cross(EYE_UP))).transposed()
-    return (target @ source.transposed()).to_4x4()
+    eye_front = HANDED.to_3x3() @ EYE_FRONT
+    source = Matrix((eye_front, EYE_UP, eye_front.cross(EYE_UP))).transposed()
+    return (target @ source.transposed()).to_4x4() @ HANDED
 
 
 def triangles(part):
@@ -127,6 +137,10 @@ def triangles(part):
 
 
 PICTURES = {}
+# The way each Meshy model faces, by its name in the plan (<meshy folder>/fronts.json), and the side of some that
+# goes outward (the same azimuths).
+FRONTS = {}
+OUTWARD = {}
 
 
 def eye_picture(classic, texture):
@@ -310,10 +324,24 @@ def load_meshy(path, textures):
     return tris, maps
 
 
-def fit(source, target_points, mirror, turn=None):
-    """Turn about z (four starts, and mirrored ones with <mirror>; or the one <turn> given), scale and move the
-    source points onto the target points; returns (score, transform) with the score the mean distance both ways as a
-    share of the target's size."""
+def front_turns(front, flips):
+    """For each of <flips>, the turn about z that lays a Meshy model's front (fronts.json: the azimuth of a camera
+    looking at it, Blender axes, 0 = from -Y, 90 = from +X) along the original's +X."""
+    angle = math.radians(front)
+    facing = Vector((math.sin(angle), -math.cos(angle), 0))
+    turns = []
+    for flip, label in flips:
+        f = flip @ facing
+        turns.append((Matrix.Rotation(-math.atan2(f.y, f.x), 4, "Z") @ flip, f"front {front}°{label}"))
+    return turns
+
+
+def fit(source, target_points, mirror, turn=None, front=None, outward=None):
+    """Into the original's axes (HANDED; and, with <mirror>, the other way too), turn about z (the one <turn> given;
+    or onto the known <front>; or else four starts), scale and move the source points onto the target points; returns
+    (score, transform, how) with the score the mean distance both ways as a share of the target's size. With
+    <outward> (a side's azimuth, as fronts.json's) and a target off the middle, only the starts that turn that side
+    away from the middle are tried."""
     target = [p for p, _ in target_points]
     tree = kdtree.KDTree(len(target))
     for k, p in enumerate(target):
@@ -324,10 +352,13 @@ def fit(source, target_points, mirror, turn=None):
     size = (hi - lo).length
     probe = random.Random(2).sample(target, min(2500, len(target)))
     best = None
-    starts = [(turn, "turned to the eyes")] if turn is not None else [
-        (Matrix.Rotation(quarter * math.pi / 2, 4, "Z") @ (Matrix.Scale(-1, 4, Vector((0, 1, 0))) if mirrored else Matrix.Identity(4)),
-         f"{quarter * 90}°{' mirrored' if mirrored else ''}")
-        for mirrored in ((False, True) if mirror else (False,)) for quarter in range(4)]
+    flips = [(HANDED, "")] + ([(Matrix.Identity(4), " mirrored")] if mirror else [])
+    starts = [(turn, "turned to the eyes")] if turn is not None else front_turns(front, flips) if front is not None else [
+        (Matrix.Rotation(quarter * math.pi / 2, 4, "Z") @ flip, f"{quarter * 90}°{label}, no front known")
+        for flip, label in flips for quarter in range(4)]
+    if outward is not None and abs(lo.y + hi.y) > 1e-3:
+        side = Vector((math.sin(math.radians(outward)), -math.cos(math.radians(outward)), 0))
+        starts = [(s, how) for s, how in starts if (s.to_3x3() @ side).y * (lo.y + hi.y) > 0] or starts
     for start, how in starts:
         pts = [start @ p for p in source]
         slo = Vector([min(p[k] for p in pts) for k in range(3)])
@@ -352,8 +383,14 @@ def fit(source, target_points, mirror, turn=None):
             step = similarity_about_z(pairs)
             current = step @ current
         if best is None or score < best[0]:
-            best = (score, current, how)
+            best = (score, current, f"{how}, then {math.degrees(swing(current, start)):+.0f}°")
     return best
+
+
+def swing(transform, start):
+    """How far <transform> is turned about z beyond <start>, radians."""
+    m = transform.to_3x3() @ start.to_3x3().inverted()
+    return math.atan2(m[1][0], m[0][0])
 
 
 def similarity_about_z(pairs):
@@ -500,7 +537,7 @@ def fit_piece(model_name, meshy, classic, nodes, world, group, report, mirror=Fa
     tris, maps = load_meshy(os.path.join(meshy, model_name, "model.glb"),
                             os.path.join(classic, "meshy", "textures", model_name.replace("/", "-")))
     vertices = list({tuple(round(x, 5) for x in c[0]): c[0] for t in tris for c in t}.values())
-    score, transform, how = fit(vertices, points, mirror, turn)
+    score, transform, how = fit(vertices, points, mirror, turn, FRONTS.get(model_name), OUTWARD.get(model_name))
     moved = [[(transform @ c[0], c[1], c[2]) for c in t] for t in tris]
     labels = cut(moved, points)
     counts = {}
@@ -600,6 +637,11 @@ def main():
     classic, meshy, plan_path = argv[0], argv[1], argv[2]
     only = set(argv[3:])
     plan = json.load(open(plan_path, encoding="utf-8-sig"))
+    fronts = os.path.join(meshy, "fronts.json")
+    if os.path.exists(fronts):
+        known = json.load(open(fronts, encoding="utf-8-sig"))
+        FRONTS.update(known["fronts"])
+        OUTWARD.update(known.get("outward", {}))
     for export_id, entry in plan.items():
         if only and export_id not in only:
             continue
