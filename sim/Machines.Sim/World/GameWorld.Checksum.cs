@@ -5,7 +5,7 @@ public sealed partial class GameWorld
     /// <summary>
     /// A fingerprint of the world's state for lockstep: players exchange it every few ticks, and any difference
     /// means their simulations went apart (a desync). Covers every actor in id order (position, facing, hit
-    /// points, armour, order, race) and every race's bank, score and research, as exact bits (FNV-1a, 64 bit).
+    /// points, armour, order, race) and every race's bank, score, research and allies, as exact bits (FNV-1a, 64 bit).
     /// </summary>
     private long? _terrainFingerprint;
 
@@ -67,6 +67,7 @@ public sealed partial class GameWorld
             Mix(state.Score.Gross);
             Mix(state.Researched.Count);
             Mix(state.Defeated ? 1 : 0);
+            Mix(state.Allies.Aggregate(0, (bits, ally) => bits | 1 << (int)ally));
         }
         return hash;
     }

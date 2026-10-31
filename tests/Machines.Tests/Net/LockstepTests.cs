@@ -23,6 +23,7 @@ public class LockstepTests
             new ResearchCommand(Race.Green, 4, new ResearchKey("AGGRESSOR", "GRUNT", 2, "L_BOLTER")),
             new DriveCommand(Race.Yellow, 9, true, 0.3333333f, -1, new Vector2(12.5f, 1e-4f)),
             new StrikeCommand(Race.Red, 5, new Vector2(MathF.PI, MathF.E)),
+            new AllianceCommand(Race.Blue, Race.Green, Ally: true),
         ];
         var turn = new Turn(42, Race.Red, commands);
 
@@ -123,6 +124,98 @@ public class LockstepTests
         }
         Assert.Equal(resumed.World.Tick, second.World.Tick);
         Assert.Equal(resumed.World.Checksum(), second.World.Checksum());
+    }
+
+    [Fact]
+    public async Task An_alliance_reaches_both_worlds_and_a_replay_repeats_it()
+    {
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var a = await Player.Join(relay, "Anna", host: true);
+        await using var b = await Player.Join(relay, "Ben", host: false);
+        await Player.Start(a, b);
+        for (var frame = 0; frame < 20; frame++)
+            await Player.Frame(a, b);
+        Assert.True(a.Session.World.AreEnemies(a.Race, b.Race));
+        Assert.True(b.Session.World.AreEnemies(a.Race, b.Race));
+
+        async Task PlayUntil(Func<GameWorld, bool> done)
+        {
+            for (var frame = 0; frame < 300 && !(done(a.Session.World) && done(b.Session.World)); frame++)
+                await Player.Frame(a, b);
+            await Player.CatchUp(a, b);
+        }
+
+        // Anna takes Ben for an ally (Ctrl+F1): in both worlds she no longer fights him, he still fights her.
+        a.Session.Queue(new AllianceCommand(a.Race, b.Race, Ally: true));
+        await PlayUntil(world => !world.AreEnemies(a.Race, b.Race));
+        foreach (var world in new[] { a.Session.World, b.Session.World })
+        {
+            Assert.False(world.AreEnemies(a.Race, b.Race));
+            Assert.True(world.AreEnemies(b.Race, a.Race));
+        }
+
+        // Ben answers in kind: now neither fights the other.
+        b.Session.Queue(new AllianceCommand(b.Race, a.Race, Ally: true));
+        await PlayUntil(world => !world.AreEnemies(b.Race, a.Race));
+        foreach (var world in new[] { a.Session.World, b.Session.World })
+        {
+            Assert.False(world.AreEnemies(a.Race, b.Race));
+            Assert.False(world.AreEnemies(b.Race, a.Race));
+        }
+        for (var frame = 0; frame < 40; frame++)
+            await Player.Frame(a, b);
+        await Player.CatchUp(a, b);
+
+        Assert.Equal(a.Session.World.Tick, b.Session.World.Tick);
+        Assert.Equal(a.Session.World.Checksum(), b.Session.World.Checksum());
+        Assert.Null(a.Session.DesyncTick);
+        Assert.Null(b.Session.DesyncTick);
+
+        var replay = new Replay(a.Match, a.Session.Played, a.Session.World.Tick);
+        var playback = replay.Playback(Replay.BuildWorld(DataLoader.Value, replay.Match));
+        while (playback.World.Tick < replay.Ticks && playback.TryStep())
+        {
+        }
+        Assert.False(playback.World.AreEnemies(b.Race, a.Race));
+        Assert.Equal(a.Session.World.Checksum(), playback.World.Checksum());
+    }
+
+    [Fact]
+    public void An_alliance_is_one_sided_counts_in_the_checksum_and_is_news_only_when_it_changes()
+    {
+        var match = new MatchInfo("m_desert", "m_desert", new MatchOptions(), 11, 1,
+            [new MatchPlayer(0, "Anna", Race.Red, Race.Red, Ai: false), new MatchPlayer(1, "Ben", Race.Blue, Race.Blue, Ai: false)]);
+        var allied = Replay.BuildWorld(DataLoader.Value, match);
+        var apart = Replay.BuildWorld(DataLoader.Value, match);
+        bool Changed(GameWorld world, string detail) => world.Events.Any(e => e.Kind == GameEventKind.AllianceChanged
+            && e.Actor == (int)Race.Red && e.Other == (int)Race.Blue && e.Detail == detail);
+
+        allied.Issue(new AllianceCommand(Race.Red, Race.Blue, Ally: true));
+        allied.Step();
+        apart.Step();
+        Assert.True(Changed(allied, "ALLY"));
+        Assert.False(allied.AreEnemies(Race.Red, Race.Blue));
+        Assert.True(allied.AreEnemies(Race.Blue, Race.Red));
+        Assert.NotEqual(apart.Checksum(), allied.Checksum());
+
+        // Said again, nothing changes and nobody hears of it; called off, the worlds are alike again.
+        allied.Issue(new AllianceCommand(Race.Red, Race.Blue, Ally: true));
+        allied.Step();
+        apart.Step();
+        Assert.DoesNotContain(allied.Events, e => e.Kind == GameEventKind.AllianceChanged);
+        allied.Issue(new AllianceCommand(Race.Red, Race.Blue, Ally: false));
+        allied.Step();
+        apart.Step();
+        Assert.True(Changed(allied, "NEUTRAL"));
+        Assert.True(allied.AreEnemies(Race.Red, Race.Blue));
+        Assert.Equal(apart.Checksum(), allied.Checksum());
+
+        // Not with itself, nor with a race that is not in the match.
+        allied.Issue(new AllianceCommand(Race.Red, Race.Red, Ally: true));
+        allied.Issue(new AllianceCommand(Race.Red, Race.Green, Ally: true));
+        allied.Step();
+        Assert.Equal(2, allied.Rejected.Count);
+        Assert.Empty(allied.Races[Race.Red].Allies);
     }
 
     [Fact]

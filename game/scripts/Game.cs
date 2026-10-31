@@ -974,6 +974,13 @@ public partial class Game : Node3D
                     // The mission script's mails wait their turn rather than being dropped.
                     _audio.Say(mail, queue: true);
                     break;
+                // A change of alliance is news to the two players it is between (MachGuiDispositionChangeNotifiable).
+                case GameEventKind.AllianceChanged when e.Actor == (int)Player:
+                    _hud.Message($"{(e.Detail == "ALLY" ? "Allied with" : "No longer allied with")} {PlayerName((Race)e.Other!.Value)}");
+                    break;
+                case GameEventKind.AllianceChanged when e.Other == (int)Player:
+                    _hud.Message($"{PlayerName((Race)e.Actor)} {(e.Detail == "ALLY" ? "is now allied with you" : "is no longer allied with you")}");
+                    break;
                 case GameEventKind.Explosion:
                     // The mission script's explosion (MachLogExplosionAction), as big as its SIZE; a big one shakes the view.
                     var blastSize = float.TryParse(e.Detail, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsedSize) ? parsedSize : 10;
@@ -1319,6 +1326,10 @@ public partial class Game : Node3D
             case >= Key.F1 and <= Key.F4 when Online && !key.ShiftPressed && !key.CtrlPressed:
                 _hud.Chat.Begin((int)(key.Keycode - Key.F1));
                 break;
+            // With Ctrl, F1 to F3 make that other player an ally or no longer one (MachPromptText).
+            case >= Key.F1 and <= Key.F3 when Online && key.CtrlPressed:
+                ToggleAlliance((int)(key.Keycode - Key.F1));
+                break;
             // F10 leads to the menus, as Esc does when there is nothing to cancel (MachInGameScreen's keys).
             case Key.F10:
                 OpenMenu();
@@ -1337,6 +1348,17 @@ public partial class Game : Node3D
                 UseZenithCamera(false);
                 break;
         }
+    }
+
+    /// <summary>
+    /// Ctrl and F1 to F3 (MachPromptText::doHandleKeyEvent): the player takes that other human player for an ally,
+    /// or an ally no longer; nothing for a player who is not there. The others count as in the chat's F1 to F3.
+    /// </summary>
+    private void ToggleAlliance(int index)
+    {
+        if (MatchChat.Opponents().ElementAtOrDefault(index) is not { } opponent || !World.Races.TryGetValue(Player, out var own))
+            return;
+        Issue(new AllianceCommand(Player, opponent.Slot, !own.Allies.Contains(opponent.Slot)));
     }
 
     /// <summary>Hands the relay's messages to the session and tells the player what happened.</summary>

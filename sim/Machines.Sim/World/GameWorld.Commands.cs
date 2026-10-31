@@ -310,6 +310,16 @@ public sealed partial class GameWorld
                 return null;
             }
 
+            case AllianceCommand alliance:
+            {
+                if (alliance.Target == alliance.Race || !Races.ContainsKey(alliance.Target) || !Races.TryGetValue(alliance.Race, out var state))
+                    return "no such player";
+                // As in the original, the players hear of it only when it changes.
+                if (alliance.Ally ? state.Allies.Add(alliance.Target) : state.Allies.Remove(alliance.Target))
+                    Raise(new GameEvent(GameEventKind.AllianceChanged, (int)alliance.Race, Vector2.Zero, (int)alliance.Target, alliance.Ally ? "ALLY" : "NEUTRAL"));
+                return null;
+            }
+
             default:
                 return $"unknown command {command.GetType().Name}";
         }

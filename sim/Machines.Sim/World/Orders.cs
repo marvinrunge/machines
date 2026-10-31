@@ -111,6 +111,12 @@ public sealed class RaceState(Race race, Controller controller)
     public bool Defeated { get; set; }
     public bool StartedWithPod { get; set; }
 
+    /// <summary>
+    /// The races this one takes for allies (Ctrl and F1 to F3 in a network game, MachLogRaces::dispositionToRace):
+    /// it does not attack them. The disposition is one race's towards another, as in the original.
+    /// </summary>
+    public HashSet<Race> Allies { get; } = [];
+
     public Score Score { get; } = new();
 }
 
@@ -175,6 +181,11 @@ public enum GameEventKind
     TaskChanged,
     /// <summary>The mission script set off an explosion (Detail: its SIZE in metres).</summary>
     Explosion,
+    /// <summary>
+    /// A race took another for an ally or no longer (Actor: the race, as a number; Other: the race it is towards;
+    /// Detail: <c>ALLY</c> or <c>NEUTRAL</c>).
+    /// </summary>
+    AllianceChanged,
 }
 
 public sealed record GameEvent(GameEventKind Kind, int Actor, Vector2 Position, int? Other = null, string? Detail = null);

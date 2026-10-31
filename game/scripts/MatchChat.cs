@@ -106,7 +106,7 @@ public partial class MatchChat(Game game, ClassicPanel panel) : Control
     }
 
     /// <summary>The other human players, in the match's order, for F1 to F3 (MachGuiInGameChatMessages::opponentName).</summary>
-    private static IEnumerable<MatchPlayer> Opponents() =>
+    public static IEnumerable<MatchPlayer> Opponents() =>
         MatchRequest.Current.Network?.Players.Where(p => !p.Ai && p.Slot != Game.Player) ?? [];
 
     private static List<string> StandardMessages()

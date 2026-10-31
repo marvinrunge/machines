@@ -294,7 +294,8 @@ public sealed partial class GameWorld
         return taken;
     }
 
-    public bool AreEnemies(Race a, Race b) => a != b;
+    /// <summary>Whether race <paramref name="a"/> takes <paramref name="b"/> for an enemy: any other race it is not allied to.</summary>
+    public bool AreEnemies(Race a, Race b) => a != b && !(Races.TryGetValue(a, out var state) && state.Allies.Contains(b));
 
     // ---- removing the dead and ending the game --------------------------------------------------
 

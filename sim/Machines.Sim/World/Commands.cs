@@ -117,3 +117,10 @@ public sealed record CancelProductionCommand(Race Race, int Factory, int Index) 
 
 /// <summary>Takes an entry off a lab's research queue; the research done on it is kept.</summary>
 public sealed record CancelResearchCommand(Race Race, int Lab, int Index) : Command(Race);
+
+/// <summary>
+/// The race takes <paramref name="Target"/> for an ally, or with <paramref name="Ally"/> false no longer
+/// (Ctrl and F1 to F3 in a network game, MachPromptText::doHandleKeyEvent). Only the race's own disposition
+/// changes: the other's towards it stays as it was (MachLogRaces::dispositionToRace).
+/// </summary>
+public sealed record AllianceCommand(Race Race, Race Target, bool Ally) : Command(Race);
