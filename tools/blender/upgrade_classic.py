@@ -10,7 +10,8 @@ Per node:
 - Edges where the original shaded flat (its normals differ across the edge) and that fold by more than
   SHARP_ANGLE get a small bevel; its normals are hardened, so the faces stay flat and the bevel catches the light.
   Edges the original shaded smoothly stay smooth.
-- Cycles bakes ambient occlusion into the vertices (`ao`, one value per vertex, 1 is open).
+- Ambient occlusion goes into the vertices (`ao`, one value per vertex, 1 is open), measured with rays from just
+  above each corner (see occlusion).
 The eye box (the rig's faceplate) is left as the original's, flat antennas and all, and so are other antennas.
 The model's own parts (its mesh without the rig) are rebuilt from the nodes' in the rest pose."""
 import json
@@ -20,9 +21,9 @@ import sys
 
 import bmesh
 import numpy
-from mathutils import kdtree
 import bpy
 from mathutils import Matrix, Vector
+from mathutils.bvhtree import BVHTree
 
 SHARP_ANGLE = math.radians(28)
 # The bevel as a share of the model's size (its bounding box diagonal), within these limits in metres.
@@ -48,6 +49,10 @@ TIP_ANGLE = math.radians(150)
 # Occlusion: the distance rays look as a share of the model's size, and the samples per vertex.
 AO_SHARE = 0.2
 AO_SAMPLES = 128
+# How far above a corner its rays start, as a share of the model's size. Plates, arches and grilles often lie a few
+# centimetres over a large face (the pod's arches 6 cm over its dome); a corner under one is hidden, but its
+# darkness would spread over the whole face round it.
+AO_LIFT_SHARE = 0.002
 # How dark full occlusion gets; the game's own SSAO adds to it.
 AO_FLOOR = 0.12
 
@@ -286,9 +291,8 @@ def build_node(name, parts, world):
     smooth_normal = bm.loops.layers.float_vector.new("orig_normal")
     weight = bm.edges.layers.float.new("bevel_weight_edge")
     # Two-sided plates (wheels, fins) are two triangles back to back, often with a different look on each side
-    # (a wheel's hub outside, black inside). Welding would drop the second one, and the occlusion bake would find
-    # each side covered by the other, so the second side goes to an object of its own that stays out of the bake
-    # and takes its twin's occlusion.
+    # (a wheel's hub outside, black inside). Welding would drop the second one, so the second side goes to an
+    # object of its own; its occlusion is measured from its own side.
     tb = bmesh.new()
     twin_uv = tb.loops.layers.uv.new("uv")
     seen = set()
@@ -370,20 +374,6 @@ def build_node(name, parts, world):
     return ob, twin_ob, len(sharp)
 
 
-def share_occlusion(twin, ob):
-    """The twin faces take the occlusion of the nearest corners of the object they were split from."""
-    source = ob.data
-    ao = source.color_attributes["ao"]
-    tree = kdtree.KDTree(len(source.loops))
-    for loop in source.loops:
-        tree.insert(source.vertices[loop.vertex_index].co, loop.index)
-    tree.balance()
-    target = twin.data.color_attributes.new("ao", "FLOAT_COLOR", "CORNER")
-    for loop in twin.data.loops:
-        _, index, _ = tree.find(twin.data.vertices[loop.vertex_index].co)
-        target.data[loop.index].color = ao.data[index].color
-
-
 def bevel(ob, width):
     mod = ob.modifiers.new("bevel", "BEVEL")
     mod.width = width
@@ -403,24 +393,58 @@ def bevel(ob, width):
     bpy.data.meshes.remove(old)
 
 
-def bake_ao(objects, distance):
-    scene = bpy.context.scene
-    try:
-        scene.render.engine = "CYCLES"
-    except TypeError as error:
-        raise SystemExit(f"no Cycles: {error}")
-    scene.cycles.samples = AO_SAMPLES
-    scene.cycles.device = "CPU"
-    scene.world = scene.world or bpy.data.worlds.new("world")
-    scene.world.light_settings.distance = distance
-    bpy.ops.object.select_all(action="DESELECT")
+def hemisphere(count):
+    """Ray directions over a hemisphere round +z, spread evenly and weighted to the cosine as light falls."""
+    directions = []
+    for i in range(count):
+        u = (i + 0.5) / count
+        v, bit, k = 0.0, 0.5, i
+        while k:
+            v += bit * (k & 1)
+            bit, k = bit / 2, k >> 1
+        r, phi = math.sqrt(u), 2 * math.pi * v
+        directions.append(Vector((r * math.cos(phi), r * math.sin(phi), math.sqrt(1 - u))))
+    return directions
+
+
+def occlusion(objects, distance, lift):
+    """Ambient occlusion per corner: the share of rays from just above the corner (lift along its normal) that get
+    away without meeting the model within the distance. The far side of a face close to the start (the start lies
+    inside a plate laid over the corner) does not stop a ray."""
+    points, polygons = [], []
     for ob in objects:
-        attr = ob.data.color_attributes.new("ao", "FLOAT_COLOR", "CORNER")
-        ob.data.color_attributes.active_color = attr
-        ob.select_set(True)
-    bpy.context.view_layer.objects.active = objects[0]
-    scene.render.bake.target = "VERTEX_COLORS"
-    bpy.ops.object.bake(type="AO", target="VERTEX_COLORS")
+        base = len(points)
+        points += [ob.matrix_world @ v.co for v in ob.data.vertices]
+        polygons += [[base + i for i in p.vertices] for p in ob.data.polygons]
+    tree = BVHTree.FromPolygons(points, polygons)
+    directions = hemisphere(AO_SAMPLES)
+    for ob in objects:
+        mesh = ob.data
+        attr = mesh.color_attributes.new("ao", "FLOAT_COLOR", "CORNER")
+        rotate = ob.matrix_world.to_3x3().inverted().transposed()
+        measured = {}
+        for loop, normal in zip(mesh.loops, mesh.corner_normals):
+            n = (rotate @ normal.vector).normalized()
+            key = (loop.vertex_index, tuple(round(c, 3) for c in n))
+            if key not in measured:
+                # Each corner's rays are turned a little further round the normal, so neighbours do not share
+                # the same gaps.
+                frame = n.to_track_quat("Z", "Y").to_matrix() @ Matrix.Rotation(len(measured) * 2.39996, 3, "Z")
+                origin = ob.matrix_world @ mesh.vertices[loop.vertex_index].co + n * lift
+                escaped = 0
+                for local in directions:
+                    direction = frame @ local
+                    start, left = origin, distance
+                    while True:
+                        hit, face, _, travelled = tree.ray_cast(start, direction, left)
+                        if hit is None:
+                            escaped += 1
+                        elif face.dot(direction) > 0 and distance - left + travelled < 4 * lift:
+                            start, left = hit + direction * 1e-4, left - travelled - 1e-4
+                            continue
+                        break
+                measured[key] = escaped / len(directions)
+            attr.data[loop.index].color = (measured[key],) * 3 + (1,)
 
 
 def export_parts(ob, parts, space):
@@ -535,9 +559,7 @@ def upgrade(source, target):
     for ob in present:
         bevel(ob, width)
     lifted, lifted_part = max((bottom(ob) - z, ob.name) for ob, z in bottoms.items())
-    bake_ao(present, size * AO_SHARE)
-    for i, twin in twins.items():
-        share_occlusion(twin, objects[i])
+    occlusion(present + list(twins.values()), size * AO_SHARE, size * AO_LIFT_SHARE)
 
     # The nodes' own parts, in their own space.
     new_parts = {}
