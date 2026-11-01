@@ -158,7 +158,7 @@ public partial class CameraRig : Node3D
             float Turn() => angle * (float)(random.NextDouble() * 2 - 1);
             _shake[i + 1] = Quaternion.FromEuler(new Vector3(Turn(), Turn(), Turn()));
         }
-        (_shakeStart, _shakeTime, _epicentre) = (Time.GetTicksMsec() / 1000f, duration, epicentre);
+        (_shakeStart, _shakeTime, _epicentre) = ((float)FrameClock.Now, duration, epicentre);
     }
 
     /// <summary>
@@ -168,7 +168,7 @@ public partial class CameraRig : Node3D
     /// </summary>
     public static Basis ShakeAt(Vector3 camera)
     {
-        var t = (Time.GetTicksMsec() / 1000f - _shakeStart) / Mathf.Max(_shakeTime, 0.01f);
+        var t = ((float)FrameClock.Now - _shakeStart) / Mathf.Max(_shakeTime, 0.01f);
         if (_shake.Length == 0 || t is < 0 or >= 1)
             return Basis.Identity;
         var near = 1 - Mathf.Min(camera.DistanceTo(_epicentre) / 200, 1);

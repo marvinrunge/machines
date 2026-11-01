@@ -55,7 +55,8 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
     {
         var page = Column(Gap);
         AddChild(page);
-        page.AddChild(Heading("Options"));
+        // The import beside the heading: under the controls it pushed Back off the screen.
+        page.AddChild(inGame ? Heading("Options") : Line(Gap, Heading("Options"), Import()));
         var columns = Line(Gap);
         columns.SizeFlagsVertical = SizeFlags.ExpandFill;
         page.AddChild(columns);
@@ -119,12 +120,14 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         };
         rows.AddChild(Setting("Menu size", size));
 
-        var right = Column(Gap);
-        right.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        if (!inGame)
-            right.AddChild(Import());
-        right.AddChild(Controls());
-        columns.AddChild(right);
+        // Depth of field and the film look share a row: one more would push Back off the screen.
+        var blur = new ChipChoice(["Off", "Subtle", "Strong"], (int)GameOptions.DepthOfField);
+        blur.ItemSelected += i => GameOptions.DepthOfField = (GameOptions.Blur)i;
+        var film = Setting("Film look", Switch(GameOptions.FilmLook, on => GameOptions.FilmLook = on), 0);
+        rows.AddChild(Setting("Depth of field", Line(28, blur, film)));
+        blur.SizeFlagsHorizontal = film.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+
+        columns.AddChild(Controls());
 
         var backButton = Button("Back", Back);
         backButton.CustomMinimumSize = new Vector2(400, 76);
@@ -204,7 +207,7 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
     /// </summary>
     private ChipPanel Import()
     {
-        var chip = new ChipPanel { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ShrinkBegin, Padding = 28 };
+        var chip = new ChipPanel { SizeFlagsHorizontal = SizeFlags.ExpandFill, Padding = 8 };
         var status = MenuTheme.Paragraph(ClassicImport.Outdated
                 ? "Imported by an older version. Import again for the right lighting."
                 : ClassicImport.Imported && !HdTextures.Made
@@ -221,7 +224,9 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
             UseNativeDialog = true,
         };
         AddChild(dialog);
-        var button = Button(ClassicImport.Imported ? "Import again" : "Import", () => dialog.PopupCentered(new Vector2I(900, 600)));
+        var button = Button(ClassicImport.Imported ? "Import again" : "Import", () => dialog.PopupCentered(new Vector2I(900, 600)), 64, 22);
+        button.CustomMinimumSize = new Vector2(240, 64);
+        button.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         // The importer (tools/classic-export) runs on Windows and comes with the release, not with every checkout.
         button.Visible = ClassicImport.Available;
         dialog.DirSelected += folder =>
@@ -249,7 +254,10 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
                 }).CallDeferred();
             });
         };
-        chip.AddChild(Column(18, MenuTheme.Label("ORIGINAL MODELS AND TERRAIN", 24, MenuTheme.Bright), status, button));
+        var text = Column(6, MenuTheme.Label("ORIGINAL MODELS AND TERRAIN", 24, MenuTheme.Bright), status);
+        text.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        text.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        chip.AddChild(Line(18, text, button));
         return chip;
     }
 }

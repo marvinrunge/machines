@@ -37,6 +37,9 @@ public partial class ProjectileViews : Node3D
 
     private Effects? _effects;
 
+    /// <summary>The round of a projectile as it is shown, while it flies.</summary>
+    public Node3D? ViewOf(int projectile) => _shown.TryGetValue(projectile, out var shown) ? shown.View : null;
+
     /// <summary>Missiles (the multi-launchers' and the large missile) trail vapour and burst in fireballs (MachPhysMissile).</summary>
     private static bool IsMissile(string weapon) => weapon.StartsWith("MULTI_LAUNCHER") || weapon == "LARGE_MISSILE";
 

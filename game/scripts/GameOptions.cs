@@ -6,7 +6,8 @@ namespace Machines.Game;
 /// The switches of the original's options screen (MachGuiCtxOptions) beside the volumes and the look: the up and down
 /// keys reversed, the first-person mouse reversed, the 2D selection box, 3D sound and the gamma correction. They are
 /// kept in <c>user://settings.cfg</c> and take at once. MACHINES_OPTIONS sets them for one run (screenshots, checks),
-/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic</c>.
+/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic,dof=strong,film=on</c>.
+/// Depth of field and the film look are the remake's own.
 /// </summary>
 public static class GameOptions
 {
@@ -15,8 +16,38 @@ public static class GameOptions
     /// <summary>The gamma correction's range. The original's slider went from 0.1 to 5, where the screen is black or white.</summary>
     public const float GammaLowest = 0.5f, GammaHighest = 2f;
 
-    private static bool _read, _reverseKeys, _reverseMouse, _selection2d, _sound3d = true, _classicDriving;
+    private static bool _read, _reverseKeys, _reverseMouse, _selection2d, _sound3d = true, _classicDriving, _filmLook;
     private static float _gamma = 1;
+    private static Blur _depthOfField;
+
+    /// <summary>How far from what the camera looks at the picture blurs (<see cref="DepthOfField"/>).</summary>
+    public enum Blur { Off, Subtle, Strong }
+
+    /// <summary>
+    /// Depth of field: what lies nearer or further than what the camera looks at blurs, a little (Subtle) or much
+    /// (Strong); the strategy camera sharp around its focus on the ground, the first-person view in the distance.
+    /// Not in the original. Kept as <c>depth_of_field = off</c>, <c>subtle</c> or <c>strong</c>.
+    /// </summary>
+    public static Blur DepthOfField
+    {
+        get { Read(); return _depthOfField; }
+        set
+        {
+            Read();
+            _depthOfField = value;
+            var config = new ConfigFile();
+            config.Load(Settings);
+            config.SetValue("display", "depth_of_field", value.ToString().ToLowerInvariant());
+            config.Save(Settings);
+        }
+    }
+
+    /// <summary>Whether the match looks filmed: darker corners, fine grain and graded colours (<see cref="FilmLook"/>). Not in the original.</summary>
+    public static bool FilmLook
+    {
+        get { Read(); return _filmLook; }
+        set => Keep(ref _filmLook, value, "display", "film_look");
+    }
 
     /// <summary>
     /// Whether the up arrow looks up rather than down where the arrows look (Reverse Up/Down Keys): Shift and the arrows
@@ -102,6 +133,8 @@ public static class GameOptions
             _classicDriving = (string)config.GetValue("controls", "layout", "modern") == "classic";
             _sound3d = (bool)config.GetValue("audio", "sound_3d", true);
             _gamma = Mathf.Clamp((float)(double)config.GetValue("display", "gamma", 1.0), GammaLowest, GammaHighest);
+            _depthOfField = Enum.TryParse<Blur>((string)config.GetValue("display", "depth_of_field", "off"), true, out var blur) ? blur : Blur.Off;
+            _filmLook = (bool)config.GetValue("display", "film_look", false);
         }
         foreach (var part in (System.Environment.GetEnvironmentVariable("MACHINES_OPTIONS") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
@@ -114,6 +147,8 @@ public static class GameOptions
                 case "selection_2d": _selection2d = on; break;
                 case "sound_3d": _sound3d = on; break;
                 case "layout": _classicDriving = value == "classic"; break;
+                case "dof" when Enum.TryParse<Blur>(value, true, out var blur): _depthOfField = blur; break;
+                case "film": _filmLook = on; break;
                 case "gamma" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var gamma):
                     _gamma = Mathf.Clamp(gamma, GammaLowest, GammaHighest);
                     break;

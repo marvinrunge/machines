@@ -304,7 +304,8 @@ public partial class Game : Node3D
             AddChild(perf);
         var request = MatchRequest.Current;
         var data = Paths.Data;
-        _seed = request.Seed ?? (int)(Time.GetUnixTimeFromSystem() % int.MaxValue);
+        // A film plays the same battle each time it is recorded.
+        _seed = request.Seed ?? (Cinematic.Asked is not null ? 1 : (int)(Time.GetUnixTimeFromSystem() % int.MaxValue));
         World = MatchSetup.Create(data, request.Scenario, request.Planet, request.Starts.Players, _seed, request.Options);
 
         // Every match runs through lockstep: alone with one tick of input delay, online with the relay's, or
@@ -353,7 +354,8 @@ public partial class Game : Node3D
         AddChild(_effects);
         _support = SupportEffects.Create(_assets);
         AddChild(_support);
-        AddChild(ProjectileViews.Create(World, _assets, id => _views.GetValueOrDefault(id), _effects));
+        _projectiles = ProjectileViews.Create(World, _assets, id => _views.GetValueOrDefault(id), _effects);
+        AddChild(_projectiles);
 
         _rig = new CameraRig { Name = "CameraRig" };
         AddChild(_rig);
@@ -367,7 +369,9 @@ public partial class Game : Node3D
 
         _audio = GameAudio.Create(_assets.GameFolder);
         AddChild(_audio);
-        Music.Match(this, ScenarioMusic(request.Scenario));
+        // A film gets its music afterwards (tools/cinematic/render.sh).
+        if (Cinematic.Asked is null)
+            Music.Match(this, ScenarioMusic(request.Scenario));
 
         _hud = new Hud(this, map);
         AddChild(_hud);
@@ -379,7 +383,7 @@ public partial class Game : Node3D
         // The fog of war is the player's: a replay shows everything. Automated screenshots look anywhere, so
         // they leave it out unless MACHINES_FOG=1 asks for it.
         var screenshot = System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT") is { Length: > 0 };
-        if (!Watching && (!screenshot || System.Environment.GetEnvironmentVariable("MACHINES_FOG") == "1"))
+        if (!Watching && Cinematic.Asked is null && (!screenshot || System.Environment.GetEnvironmentVariable("MACHINES_FOG") == "1"))
         {
             // The original uncovered and tested its map image, one pixel at a time.
             Fog = new FogOfWar(World, Player, map is null ? 6 : surface.Width / map.GetWidth());
@@ -390,6 +394,38 @@ public partial class Game : Node3D
         _hud.Message(_assets.HasClassicModels
             ? "Classic models loaded from your game copy."
             : "No classic models found (see tools/classic-export); showing simple shapes.");
+
+        // A film hides the panel and films the match with its own camera; a match shows the film look the options ask for.
+        if (Cinematic.Asked is not null)
+        {
+            _hud.Visible = false;
+            AddChild(new Cinematic(World, id => _views.GetValueOrDefault(id), _projectiles.ViewOf, _rig));
+        }
+        else
+        {
+            _filmLook = new FilmLook();
+            AddChild(_filmLook);
+            _filmLook.Match();
+        }
+    }
+
+    private FilmLook? _filmLook;
+    private ProjectileViews _projectiles = null!;
+
+    /// <summary>
+    /// The options' film look and depth of field on the camera in use: the strategy camera sharp around the ground it
+    /// looks at, the first-person view sharp up to the middle distance.
+    /// </summary>
+    private void ShowFilmLook()
+    {
+        if (_filmLook is null)
+            return;
+        _filmLook.Visible = GameOptions.FilmLook;
+        var blur = (float)GameOptions.DepthOfField;
+        if (_driven is not null)
+            FilmLook.Focus(_firstPersonCamera, 45, blur, near: false);
+        else
+            FilmLook.Focus(_rig.Camera, _rig.Distance, blur);
     }
 
     /// <summary>Sun, sky and fog from the planet's .env file, following the game clock.</summary>
@@ -535,7 +571,7 @@ public partial class Game : Node3D
             if (_decidedAt is null)
                 RecordCampaign();
             _decidedAt ??= now;
-            if (!_statisticsShown && now - _decidedAt > 5 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT") is not { Length: > 0 })
+            if (!_statisticsShown && now - _decidedAt > 5 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT") is not { Length: > 0 } && Cinematic.Asked is null)
             {
                 _statisticsShown = true;
                 CloseMenu();
@@ -555,6 +591,7 @@ public partial class Game : Node3D
 
         UpdateGhost();
         UpdateFirstPersonCamera();
+        ShowFilmLook();
         ShowInteriors();
         ShowHealing();
         if (Fog is not null)
@@ -1720,7 +1757,8 @@ public partial class Game : Node3D
     private void UpdateHover()
     {
         var mouse = PointedForScreenshot ?? GetViewport().GetMousePosition();
-        var inWorld = _driven is null && (PointedForScreenshot is not null || GetViewport().GuiGetHoveredControl() is null);
+        // A film points at nothing, wherever the mouse is.
+        var inWorld = _driven is null && Cinematic.Asked is null && (PointedForScreenshot is not null || GetViewport().GuiGetHoveredControl() is null);
         _hovered = inWorld ? ActorAt(mouse) : null;
         _hoveredArtefact = inWorld && _hovered is null ? ArtefactAt(mouse) : null;
         _hoveredDebris = inWorld && _hovered is null ? DebrisAt(mouse) : null;

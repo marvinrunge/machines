@@ -133,6 +133,14 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   every part at once: Classic all original, Overhauled the sharpened ground under the overhauled models, HD the
   painted ground under the remade ones, both with the rest of the remake. Any other mix is Custom, which comes
   back as it was left. Grass and stones grow on the painted ground alone, as they need its finer shape.
+- **Depth of field and film look:** two options of the remake's own. Depth of field (off, subtle or strong)
+  blurs what lies nearer or further than the ground the strategy camera looks at, and the distance in first
+  person; the film look darkens the corners, adds a fine grain and grades the colours.
+- **Trailer:** `tools/cinematic/render.sh <out.mp4> [preview]` records a 30-second film of the remake
+  (`game/scripts/Cinematic.cs` on `data/maps/trailer.scn`): a camp building its turrets, a reaper horde storming
+  it, a long-range missile followed to its strike and the battle, cut on the beats of the original's intro
+  music, in 2560×1440 with motion blur. The game's sound is heard from the camera. It needs the soundtrack
+  folder set in the options and takes about an hour (a few minutes with `preview`, 1280×720).
 - **Model viewer:** **Models** in the main menu shows every machine and building the game builds, one at a
   time, to look the models over: in the original, overhauled or HD look (for that page alone) and each race's
   colours, turned by dragging and zoomed with the mouse wheel, with Previous and Next stepping through them all.
@@ -230,6 +238,7 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
 | `game/` | The Godot 4 client: terrain, units, RTS camera, selection and orders, build menus, HUD, minimap, first person |
 | `tools/classic-export` | Exports the original models from your own copy of the game (see its README) |
 | `tools/sim-bench` | The performance gate: four players with 200 machines each, timed tick by tick (`dotnet run -c Release --project tools/sim-bench`) |
+| `tools/cinematic` | Records the trailer as an MP4 (`render.sh`, needs the ffmpeg of `tools/film-upscale`) |
 | `data/original` | Original design data, copied unchanged (see `data/README.md`) |
 | `classic/` | Local-only (git-ignored): models and planet terrain exported from your game copy |
 | `references/` | Local-only (git-ignored): OpenMachines mod, fan Blender models, screenshots, manual scans |
@@ -264,8 +273,8 @@ for the campaign's current player, and with it `MACHINES_SCREENSHOT_MENU=briefin
 briefing or debriefing; the menu pages `campaign`, `missions` and `briefing` can be saved as above.
 `MACHINES_MISSION_RUNS=<report.txt> dotnet test --filter CampaignRunTests` plays every mission for ten minutes,
 the AI against a simple driver of the player's side, and writes how each went.
-`MACHINES_OPTIONS=gamma=1.8,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off` sets the original's
-options (see `GameOptions.cs`) for one run without saving them.
+`MACHINES_OPTIONS=gamma=1.8,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,dof=strong,film=on` sets
+the options (see `GameOptions.cs`) for one run without saving them.
 
 | Control | Does |
 | --- | --- |

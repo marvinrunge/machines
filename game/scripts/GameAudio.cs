@@ -13,13 +13,24 @@ namespace Machines.Game;
 /// </summary>
 public partial class GameAudio : Node
 {
-    /// <summary>One-shot sounds playing at once; more are dropped, as a sound card's voices ran out.</summary>
+    /// <summary>
+    /// One-shot sounds playing at once, as a sound card's voices. When all are busy a new sound takes the voice of
+    /// the least important one playing if its definition's priority is higher (explosions above weapons above
+    /// engines), and is dropped otherwise.
+    /// </summary>
     private const int Voices = 32;
+
+    /// <summary>
+    /// Heard as in a film: every sound from where it happens whatever the options say, and the engines, which in a
+    /// match sit under the battle and fade within a few metres, heard as loud as weapons and three times as far.
+    /// </summary>
+    public static bool Film { get; set; }
 
     private readonly Dictionary<string, SoundDefinition> _sounds = [];
     private readonly Dictionary<string, VoiceMailDefinition> _voiceMail = [];
     private readonly Dictionary<string, AudioStreamWav?> _streams = [];
     private readonly List<AudioStreamPlayer3D> _players = [];
+    private readonly Dictionary<AudioStreamPlayer3D, int> _priority = [];
     private readonly Dictionary<string, double> _lastPlayed = [];
     private readonly RandomNumberGenerator _random = new();
     private AudioStreamPlayer _voice = null!;
@@ -107,20 +118,28 @@ public partial class GameAudio : Node
         if (id is null || !_sounds.TryGetValue(id, out var sound) || Stream(sound.File) is not { } stream)
             return;
         // The same sound started within a few frames is heard once: a burst of 20 grunts firing is one bang.
-        var now = Time.GetTicksMsec() / 1000.0;
+        var now = FrameClock.Now;
         if (_lastPlayed.TryGetValue(id, out var last) && now - last < 0.06)
             return;
         _lastPlayed[id] = now;
 
         var player = _players.FirstOrDefault(p => !p.Playing);
+        if (player is null && _players.Count >= Voices)
+        {
+            // Every voice busy: the least important sound playing gives way to a more important one.
+            var least = _players.MinBy(p => _priority.GetValueOrDefault(p))!;
+            if (_priority.GetValueOrDefault(least) >= sound.Priority)
+                return;
+            least.Stop();
+            player = least;
+        }
         if (player is null)
         {
-            if (_players.Count >= Voices)
-                return;
             player = new AudioStreamPlayer3D { Bus = EffectsBus };
             AddChild(player);
             _players.Add(player);
         }
+        _priority[player] = sound.Priority;
         Configure(player, sound, stream);
         player.GlobalPosition = at;
         player.Play();
@@ -166,7 +185,16 @@ public partial class GameAudio : Node
             _moving = moving;
             Configure(Player, moving ? move : idle, moving ? moveStream : idleStream);
             // Engines sit under the battle: quieter than weapons.
-            Player.VolumeDb -= 6;
+            if (Film)
+            {
+                Player.VolumeDb += 6;
+                Player.MaxDb = 6;
+                Player.UnitSize *= 3;
+                Player.MaxDistance *= 2;
+                Player.AttenuationFilterDb = 0;
+            }
+            else
+                Player.VolumeDb -= 6;
             Player.Play();
             Trace(moving ? move.Id : idle.Id);
         }
@@ -181,7 +209,7 @@ public partial class GameAudio : Node
         player.MaxDistance = Mathf.Max(sound.FarDistance, 50);
         player.AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance;
         // Without the options' 3D Sound only the distance tells where a sound is, as the original's 2D sounds did.
-        player.PanningStrength = GameOptions.Sound3d ? 1 : 0;
+        player.PanningStrength = GameOptions.Sound3d || Film ? 1 : 0;
     }
 
     // ---- voice mail -----------------------------------------------------------------------------
@@ -248,7 +276,7 @@ public partial class GameAudio : Node
             return;
         // Several interface sounds may sound together (a panel click and the order it gives); the same one asked
         // for twice at once is heard once.
-        var now = Time.GetTicksMsec() / 1000.0;
+        var now = FrameClock.Now;
         if (_lastPlayed.TryGetValue(file, out var last) && now - last < 0.06)
             return;
         _lastPlayed[file] = now;

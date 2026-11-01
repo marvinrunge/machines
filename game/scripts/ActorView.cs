@@ -113,6 +113,9 @@ public partial class ActorView : Node3D
         set => _aim = value;
     }
 
+    /// <summary>Where the upper body turns whatever the machine attacks, as <see cref="UpperBodyAngle"/> (a film's direction); null leaves it to the target.</summary>
+    public float? Steered { get; set; }
+
     /// <summary>Where the upper body has turned to so far (it turns at its own rate), radians as <see cref="UpperBodyAngle"/>.</summary>
     public float UpperBodyNow => _rigView?.UpperBody ?? 0;
 
@@ -520,6 +523,9 @@ public partial class ActorView : Node3D
         Visible = false,
     };
 
+    /// <summary>Whether hurt and selected actors show their health and armour bars; a cinematic leaves them out.</summary>
+    public static bool Bars { get; set; } = true;
+
     public bool Selected
     {
         get => _selected;
@@ -713,7 +719,7 @@ public partial class ActorView : Node3D
             _ => 0,
         };
         var toTarget = aimAt is null ? 0 : MathF.Atan2(aimAt.Position.Y - actor.Position.Y, aimAt.Position.X - actor.Position.X) - facing;
-        _aim = aimAt is null ? 0 : Mathf.Wrap(toTarget, -Mathf.Pi, Mathf.Pi);
+        _aim = Steered ?? (aimAt is null ? 0 : Mathf.Wrap(toTarget, -Mathf.Pi, Mathf.Pi));
         _targetYaw = actor switch
         {
             Machine m => -m.Facing,
@@ -744,7 +750,7 @@ public partial class ActorView : Node3D
         }
 
         var hurt = actor.HitPoints < actor.MaxHitPoints || actor.Armour < actor.MaxArmour;
-        _health.Visible = _armour.Visible = hurt || Selected;
+        _health.Visible = _armour.Visible = Bars && (hurt || Selected);
         // The marker of a selected actor takes the colour of its health, and the kind the options ask for.
         var share = actor.HitPoints / (float)Mathf.Max(1, actor.MaxHitPoints);
         if (share != _healthShare || _marker2d != GameOptions.Selection2d)
