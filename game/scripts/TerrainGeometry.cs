@@ -648,7 +648,10 @@ public static class TerrainGeometry
         {
             // Turned round so that the edge to split runs from A to B; the order keeps its way round.
             Triangle[] turns = [t, new(t.Surface, t.B, t.C, t.A), new(t.Surface, t.C, t.A, t.B)];
-            var turn = Array.FindIndex(turns, r => splits.ContainsKey(Key(r.A.Id, r.B.Id)));
+            // Only an edge with a point to split at other than the triangle's own third corner: a corner lying on two
+            // of its edges at once (close by one of its ends) would otherwise give back the same triangle for ever
+            // (kidnap and sat never finished loading).
+            var turn = Array.FindIndex(turns, r => splits.TryGetValue(Key(r.A.Id, r.B.Id), out var on) && on.Exists(p => p.Id != r.C.Id));
             if (turn < 0)
             {
                 mended.Add(t);
