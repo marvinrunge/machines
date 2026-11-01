@@ -110,6 +110,31 @@ public sealed partial class GameWorld
                 return _start + _rate * MathF.Max(0, t);
             return t < _up + _cruise ? _peak : MathF.Max(0, _peak - _rate * (t - _up - _cruise));
         }
+
+        /// <summary>The time it has covered <paramref name="way"/> after (the inverse of <see cref="Covered"/>).</summary>
+        public float TimeAt(float way)
+        {
+            if (way <= 0)
+                return 0;
+            if (way >= Length)
+                return Duration;
+            if (_rate <= 0)
+                return way / _peak;
+            if (way < _upLength)
+                return (MathF.Sqrt(_start * _start + 2 * _rate * way) - _start) / _rate;
+            way -= _upLength;
+            if (way < _cruiseLength)
+                return _up + way / _peak;
+            way -= _cruiseLength;
+            return _up + _cruise + (_peak - MathF.Sqrt(MathF.Max(0, _peak * _peak - 2 * _rate * way))) / _rate;
+        }
+
+        /// <summary>
+        /// The share of the time from <paramref name="from"/> to <paramref name="to"/> it speeds up, and the share it
+        /// slows down.
+        /// </summary>
+        public (float SpeedingUp, float SlowingDown) Phases(float from, float to) =>
+            (MathF.Max(0, MathF.Min(to, _up) - from), MathF.Max(0, to - MathF.Max(from, _up + _cruise)));
     }
 
     /// <summary>How a machine is moving: its run of way between rest points and its turn on the spot.</summary>
@@ -122,6 +147,8 @@ public sealed partial class GameWorld
         public Ramp Run;
         public float RunStart, RunCovered;
         public Vector2 RunGoal;
+        // How far along the run each of its straight chunks ends.
+        public float[] ChunkEnds = [];
         public bool Turning;
         public Ramp Turn;
         public float TurnStart, TurnFrom, TurnBy, TurnTo;
@@ -148,6 +175,34 @@ public sealed partial class GameWorld
         if (!_motion.TryGetValue(machine.Id, out var motion))
             _motion[machine.Id] = motion = new Motion();
         return motion;
+    }
+
+    private readonly Dictionary<int, MachineMove> _moves = [];
+
+    /// <summary>The last move a machine began, for its view to animate; null before its first.</summary>
+    public MachineMove? MoveOf(int machine) => _moves.GetValueOrDefault(machine);
+
+    // A run as the original told the physical machine of it: one move per straight chunk (MachLogMachineMotionSequencer
+    // reserves a chunk for each point of the way), each speeding up and slowing down where the run's ramp does.
+    private void AnnounceRun(Machine machine, Motion motion)
+    {
+        var chunks = new MoveChunk[motion.ChunkEnds.Length];
+        var from = 0f;
+        for (var i = 0; i < chunks.Length; i++)
+        {
+            var to = i == chunks.Length - 1 ? motion.Run.Duration : motion.Run.TimeAt(motion.ChunkEnds[i]);
+            var (up, down) = motion.Run.Phases(from, to);
+            chunks[i] = new MoveChunk(from, to, up, down);
+            from = to;
+        }
+        _moves[machine.Id] = new MachineMove(MoveKind.Run, motion.RunStart, motion.Run.Duration, Chunks: chunks);
+    }
+
+    // A machine stopped in the middle of a move (MachLogMachineMotionSequencer::stopDead).
+    private void AnnounceStop(Machine machine, Motion motion)
+    {
+        if (motion.Driving && motion.Speed > 0 || motion.Turning && motion.TurnStart >= 0)
+            _moves[machine.Id] = new MachineMove(MoveKind.StopDead, Time);
     }
 
     /// <summary>How a machine's way may be changed when another is in it.</summary>
@@ -209,7 +264,10 @@ public sealed partial class GameWorld
             // Turning on the spot counts as headway: it is not stuck.
             _progress[machine.Id] = (machine.Position, Time);
             if (TurnOnTheSpot(machine, motion))
+            {
                 motion.RunStart = Time + Dt;
+                AnnounceRun(machine, motion);
+            }
             return index;
         }
         motion.MovedTick = Tick;
@@ -318,6 +376,7 @@ public sealed partial class GameWorld
 
         var end = index;
         var length = first.Length();
+        List<float> chunkEnds = [length];
         for (var k = index; k < path.Count - 1 && k - index + 1 < MostChunks; k++)
         {
             var inbound = path[k] - (k == index ? from : path[k - 1]);
@@ -325,11 +384,13 @@ public sealed partial class GameWorld
             if (MathF.Abs(AngleBetween(DetMath.Atan2(inbound.Y, inbound.X), DetMath.Atan2(outbound.Y, outbound.X))) > SharpCorner)
                 break;
             length += outbound.Length();
+            chunkEnds.Add(length);
             end = k + 1;
         }
 
         var top = machine.Stats.Speed * motion.SpeedShare * (machine.Order is LocateOrder ? 0.5f : 1);
         motion.Run = new Ramp(length, start, top, machine.Stats.Acceleration);
+        motion.ChunkEnds = [.. chunkEnds];
         motion.Driving = true;
         motion.RunGoal = path[end];
         motion.RunStart = Time;
@@ -338,6 +399,9 @@ public sealed partial class GameWorld
         motion.Turning = false;
         if (start == 0)
             StartTurn(machine, motion, heading);
+        // A run that first turns on the spot is told of once it has turned.
+        if (!motion.Turning)
+            AnnounceRun(machine, motion);
         return true;
     }
 
@@ -365,7 +429,10 @@ public sealed partial class GameWorld
     {
         motion.MovedTick = Tick;
         if (motion.TurnStart < 0)
+        {
             motion.TurnStart = Time;
+            _moves[machine.Id] = new MachineMove(MoveKind.Turn, Time, motion.Turn.Duration, motion.TurnBy);
+        }
         var t = Time + Dt - motion.TurnStart;
         if (t >= motion.Turn.Duration)
         {
@@ -385,6 +452,8 @@ public sealed partial class GameWorld
             return;
         var heading = DetMath.Atan2(offset.Y, offset.X);
         var motion = MotionOf(machine);
+        if (motion.Driving)
+            AnnounceStop(machine, motion);
         motion.Driving = false;
         motion.Speed = 0;
         if (motion.Turning && MathF.Abs(AngleBetween(motion.TurnTo, heading)) > within)
@@ -405,6 +474,7 @@ public sealed partial class GameWorld
     {
         if (_motion.TryGetValue(machine.Id, out var motion) && motion.MovedTick != Tick)
         {
+            AnnounceStop(machine, motion);
             motion.Speed = 0;
             motion.Side = 0;
             motion.Driving = false;
@@ -465,6 +535,7 @@ public sealed partial class GameWorld
     /// </summary>
     private int HeldUp(Machine machine, Motion motion, Machine blocker, List<Vector2> path, int index, Way way)
     {
+        AnnounceStop(machine, motion);
         StopDead(motion);
         motion.MovedTick = Tick;
         if (way == Way.Aside)
@@ -751,6 +822,10 @@ public sealed partial class GameWorld
     private void DriveAsTheOriginal(Machine machine, (float Forward, float Turn, float Strafe, bool Slow) input)
     {
         var motion = MotionOf(machine);
+        // Its parts take the posture of how it is driven, when that changes (updateLocomotionAnimations).
+        var state = input.Forward > 0 ? MoveKind.Forwards : input.Forward < 0 ? MoveKind.Backwards : MoveKind.Halted;
+        if (MoveOf(machine.Id)?.Kind != state)
+            _moves[machine.Id] = new MachineMove(state, Time);
         var general = Data.Parm.General;
         var limit = (input.Slow ? general.FirstPersonMaxSlowTurnRate : general.FirstPersonMaxFastTurnRate) * MathF.PI / 180;
         machine.Facing += input.Turn * MathF.Min(machine.Stats.RotationSpeed * MathF.PI / 180, limit) * Dt;

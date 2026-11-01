@@ -287,8 +287,50 @@ public partial class RigView : Node3D
     /// <summary>A part's place in the world as it stands now, by its name in the model, or null.</summary>
     public Transform3D? PartTransform(string name)
     {
-        var index = Array.FindIndex(_rig.Nodes, n => n.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        var index = Find(name);
         return index >= 0 && _nodes[index].IsInsideTree() ? _nodes[index].GlobalTransform : null;
+    }
+
+    /// <summary>The index of the part called <paramref name="name"/> in the model, or -1.</summary>
+    public int Find(string name) => Array.FindIndex(_rig.Nodes, n => n.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>A part's transform within its parent part, as it stands now; set, it stands so until moved again.</summary>
+    public Transform3D this[int part]
+    {
+        get => _nodes[part].Transform;
+        set => _nodes[part].Transform = value;
+    }
+
+    /// <summary>A part's transform within its parent part at rest.</summary>
+    public Transform3D Rest(int part) => _rig.Nodes[part].Rest;
+
+    /// <summary>Hangs a node from a part, to move with it.</summary>
+    public void Attach(int part, Node3D node) => _nodes[part].AddChild(node);
+
+    /// <summary>A part's transform within the whole machine (the model's own axes), as it stands now.</summary>
+    public Transform3D InMachine(int part)
+    {
+        var at = _nodes[part].Transform;
+        // Up through the parts it hangs from, as Create hung them.
+        for (var child = part; _rig.Nodes[child].Parent is var parent && parent >= 0 && parent < _nodes.Length && parent != child; child = parent)
+            at = _nodes[parent].Transform * at;
+        return at;
+    }
+
+    // Parts whose idle motion stands still for now, and how far behind the others each has fallen.
+    private readonly HashSet<int> _idleHeld = [];
+    private readonly Dictionary<int, float> _idleBehind = [];
+
+    /// <summary>
+    /// Stops a part's idle motion where it is, or lets it go on from there (a glider's bobbing while it moves,
+    /// MachPhysGlider::stopBobbing and startBobbing).
+    /// </summary>
+    public void HoldIdle(int part, bool held)
+    {
+        if (held)
+            _idleHeld.Add(part);
+        else
+            _idleHeld.Remove(part);
     }
 
     public Vector3? Eye => _rig.Faceplate >= 0 && _rig.Faceplate < _nodes.Length
@@ -330,9 +372,14 @@ public partial class RigView : Node3D
 
         // Parts that move by themselves; the walking cycles below take over the parts they move.
         _idleTime += delta;
+        foreach (var part in _idleHeld)
+            _idleBehind[part] = _idleBehind.GetValueOrDefault(part) + delta;
         foreach (var idle in _rig.Idle)
             if (idle.Track.Node < _nodes.Length && idle.Duration > 0)
-                _nodes[idle.Track.Node].Transform = idle.Track.At(_idleTime % idle.Duration / idle.Duration);
+            {
+                var time = _idleTime - _idleBehind.GetValueOrDefault(idle.Track.Node);
+                _nodes[idle.Track.Node].Transform = idle.Track.At(Mathf.PosMod(time, idle.Duration) / idle.Duration);
+            }
 
         // Doors slide open as machines come and shut behind them.
         if (_doors.Count > 0)

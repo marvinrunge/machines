@@ -858,6 +858,8 @@ public partial class Game : Node3D
                 Machine { Order: HealOrder heal } => World.Find(heal.Target),
                 _ => World.AimOf(actor.Id),
             });
+            if (actor is Machine)
+                view.Moving(World.MoveOf(actor.Id), World.Time);
             if (actor is Machine { DrivenByPlayer: true } driven)
                 view.UpperBodyAngle = driven.Id == _driven?.Id ? _headTarget : World.PlayerHeads.GetValueOrDefault(driven.Id);
             // In the remake tracks and wheels leave their marks on the ground behind them.

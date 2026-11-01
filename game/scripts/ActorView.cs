@@ -50,9 +50,6 @@ public partial class ActorView : Node3D
     // Ground contact (MachPhysLocomotionMethodImpl): wheeled, tracked and legged machines stand on the ground
     // at their front and back ends and lean with it; hovering and gliding ones keep level.
     private bool _followsGround;
-
-    // Hovering and gliding machines lean with their motion.
-    private bool _leans;
     private float _fore = 1, _aft = -1;
     private float _yaw;
 
@@ -413,7 +410,8 @@ public partial class ActorView : Node3D
 
         if (MeshBounds(view, Transform3D.Identity) is { } modelBounds)
             view._bounds = modelBounds;
-        view._leans = actor is Machine { Stats.Locomotion: Locomotion.Hover or Locomotion.Glider };
+        if (view._rigView is not null && actor is Machine floating)
+            view._locomotion = LocomotionView.For(floating, view._rigView);
         if (actor is Machine grounded && grounded.Stats.Locomotion is Locomotion.Wheels or Locomotion.Tracks or Locomotion.Spider)
         {
             // The original takes the ends from the machine's bounding box along its facing (x).
@@ -846,8 +844,13 @@ public partial class ActorView : Node3D
             var sideways = new Vector3(moved.X, 0, moved.Z).Dot(right) / (float)delta;
             var turnRate = -Mathf.AngleDifference(_lastYaw, _yaw) / (float)delta;
             _rigView.Animate((float)delta, speed, turnRate, _maxSpeed, _aim, sideways);
-            if (_leans)
-                Lean((float)delta, speed, turnRate, sideways);
+            if (_locomotion is not null)
+            {
+                // The world time on show: running on with the frames, never past the last tick less the lag of
+                // the view's chase after it, nor far behind.
+                _clock = Mathf.Clamp(_clock + (float)delta, _synced - ShownLag - 0.25f, _synced - ShownLag);
+                _locomotion.Animate(_clock);
+            }
         }
         _lastPosition = Position;
         _lastYaw = _yaw;
@@ -890,25 +893,23 @@ public partial class ActorView : Node3D
         Basis = new Basis(along, z.Cross(along), z).Scaled(Scale);
     }
 
-    // Hovering and gliding machines lean with their motion, as MachPhysGlider and MachPhysHoverBoots planned it:
-    // nose down while speeding up, up while braking (at most 20°), and into a turn (at most 30°), with a lag; in first
-    // person also into a start or stop sideways.
-    private float _speed, _side, _pitch, _roll;
+    // Hovering and gliding machines move their boots or body with each move as it begins (see LocomotionView), on
+    // a clock of the world time the view shows.
+    private LocomotionView? _locomotion;
+    private float _clock, _synced;
 
-    private void Lean(float delta, float speed, float turnRate, float sideways)
+    // How far the view's position runs behind the last tick it was given: half a tick between ticks, and its chase.
+    private const float ShownLag = 0.06f;
+
+    /// <summary>The machine's latest move and the world time, after each simulation tick.</summary>
+    public void Moving(MachineMove? move, float time)
     {
-        var acceleration = (speed - _speed) / delta;
-        var across = (sideways - _side) / delta;
-        _speed = Mathf.Lerp(_speed, speed, 1 - Mathf.Exp(-6 * delta));
-        _side = Mathf.Lerp(_side, sideways, 1 - Mathf.Exp(-6 * delta));
-        var pitchWanted = Mathf.Clamp(-acceleration * Mathf.DegToRad(2.5f), -Mathf.DegToRad(20), Mathf.DegToRad(20));
-        // Into a turn, and into a sideways start or stop as it is into speeding up or braking.
-        var rollWanted = Mathf.Clamp(turnRate * 0.6f + across * Mathf.DegToRad(2.5f), -Mathf.DegToRad(30), Mathf.DegToRad(30));
-        var follow = 1 - Mathf.Exp(-3 * delta);
-        _pitch = Mathf.Lerp(_pitch, pitchWanted, follow);
-        _roll = Mathf.Lerp(_roll, rollWanted, follow);
-        // The model's nose is +x and its right +z: pitching turns about z, rolling about x.
-        _rigView!.Basis = new Basis(Vector3.Back, _pitch) * new Basis(Vector3.Right, _roll);
+        if (_locomotion is null)
+            return;
+        if (_synced == 0)
+            _clock = time - ShownLag;
+        _synced = time;
+        _locomotion.Plan(move);
     }
 
     /// <summary>Blows the machine apart into its parts under <paramref name="parent"/> (see <see cref="Debris"/>); null for one without parts.</summary>

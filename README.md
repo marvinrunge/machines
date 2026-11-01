@@ -192,8 +192,10 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   your copy (`classic/films`, never committed), which every look but the classic one plays.
 - **Models in motion:** the machines' glowing eyes and turn-to-face sprites, glowing parts such as the
   plasma weapons' green, rotors and turbines that spin, hips that bob and the bee bomber's energy ball, all
-  as the original moved them. Flyers and hover machines tip as they speed up, brake and turn; real
-  shadows replace the flat shadow plates under flyers. In the remake look, destroyed machines burst into
+  as the original moved them. Hover machines keep their bodies level and swing their jets back as they speed
+  up, forward as they brake and against each other as they turn; flyers pitch their bodies at each straight
+  stretch, roll into turns and show their red thrust and orange brake lights, all planned when the move begins
+  as the original planned them; real shadows replace the flat shadow plates under flyers. In the remake look, destroyed machines burst into
   their parts, which fly, bounce and sink away. Buildings play their working animations as the original
   switched them on: factories while they produce, mines while they fill, smelters as ore arrives, beacons
   and pods all the time. Terrain tiles take the colours of their own vertices, so the dark squares at rock

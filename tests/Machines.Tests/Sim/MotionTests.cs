@@ -388,4 +388,59 @@ public class MotionTests
         Assert.Equal(grunt.Stats.Speed * Dt, Vector2.Distance(at, grunt.Position), 3);
         Assert.Equal(MathF.PI / 2, grunt.Facing, 3);
     }
+
+    [Fact]
+    public void The_view_is_told_of_a_turn_and_then_of_the_run_chunk_by_chunk()
+    {
+        var world = NewMatch();
+        var at = OpenGround(world);
+        var knight = world.AddMachine(Race.Red, at, "AGGRESSOR", "KNIGHT", 4, "LR_PLASMA_CANNON2_X2");
+        world.Step();
+        Assert.Null(world.MoveOf(knight.Id));
+
+        // North, then on through a gentle corner: a turn on the spot, then one run of two straight chunks.
+        var corner = at + new Vector2(0, 60);
+        SendAlong(knight, corner, corner + new Vector2(20, 60));
+        world.Step();
+        var turn = world.MoveOf(knight.Id)!;
+        Assert.Equal(MoveKind.Turn, turn.Kind);
+        Assert.Equal(MathF.PI / 2, turn.TurnBy, 3);
+        while (world.MoveOf(knight.Id) == turn)
+            world.Step();
+        Assert.InRange(world.Time - turn.Start, turn.Duration, turn.Duration + 2 * Dt);
+
+        var run = world.MoveOf(knight.Id)!;
+        Assert.Equal(MoveKind.Run, run.Kind);
+        var chunks = run.Chunks!;
+        Assert.Equal(2, chunks.Count);
+        Assert.Equal(0, chunks[0].Start);
+        Assert.Equal(chunks[0].End, chunks[1].Start);
+        Assert.Equal(run.Duration, chunks[1].End);
+        // It speeds up through the first chunk (60 m is more than it needs) and slows down only in the second.
+        Assert.True(chunks[0].SpeedingUp > 0 && chunks[0].SlowingDown == 0, $"{chunks[0]}");
+        Assert.True(chunks[1].SpeedingUp == 0 && chunks[1].SlowingDown > 0, $"{chunks[1]}");
+
+        // The first chunk ends as the machine passes the corner.
+        while (Vector2.Distance(knight.Position, at) < 60 - 1e-3f)
+            world.Step();
+        Assert.InRange(world.Time - run.Start, chunks[0].End, chunks[0].End + Dt);
+        Assert.Same(run, world.MoveOf(knight.Id));
+    }
+
+    [Fact]
+    public void A_machine_stopped_in_the_middle_of_a_run_tells_its_view_it_stopped_dead()
+    {
+        var world = NewMatch();
+        var at = OpenGround(world);
+        var grunt = world.AddMachine(Race.Red, at, "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+        world.Step();
+        SendAlong(grunt, at + new Vector2(80, 0));
+        Speeds(world, grunt, 1);
+        Assert.Equal(MoveKind.Run, world.MoveOf(grunt.Id)!.Kind);
+
+        world.Issue(new StopCommand(Race.Red, [grunt.Id]));
+        world.Step();
+        world.Step();
+        Assert.Equal(MoveKind.StopDead, world.MoveOf(grunt.Id)!.Kind);
+    }
 }
