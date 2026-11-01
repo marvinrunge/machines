@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Numerics;
 using Machines.Import.Model;
 
 namespace Machines.Import.Parm;
@@ -162,7 +163,12 @@ public static class ParmDataParser
         {
             TypeName = record.TypeName,
             Damage = values.Float("DAMAGE"),
-            Range = values.Float("RANGE"),
+            // The gorilla punch's RANGE 1 is "hard-coded into the class": it reaches as far as its shock wave runs,
+            // from the first of the blast's points to the 31st (MachLogCanAttack::getMaximumPunchWeaponRange,
+            // MachPhysPunchBlast::range), about 42 m.
+            Range = record.TypeName == "GORILLA_PUNCH"
+                ? Vector2.Distance(new Vector2(2.9f, 0.2f), new Vector2(42.8f, 13.4f))
+                : values.Float("RANGE"),
             ProjectileSpeed = values.Float("SPEED"),
             BurstRounds = rounds,
             BurstDuration = ParseFloat(burst.Args[1], burst),

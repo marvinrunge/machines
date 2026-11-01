@@ -133,6 +133,12 @@ public class ParmDataParserTests
     }
 
     [Fact]
+    public void The_gorilla_punch_reaches_as_far_as_its_shock_wave_not_the_files_one_metre()
+    {
+        Assert.InRange(Parm.Weapon("GORILLA_PUNCH").Range, 41.9f, 42.1f);
+    }
+
+    [Fact]
     public void Burst_timing_and_presentation_lines_are_kept()
     {
         var pulseCannon = Parm.Weapon("PULSE_CANNON");

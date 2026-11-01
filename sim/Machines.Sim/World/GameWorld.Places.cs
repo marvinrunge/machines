@@ -152,8 +152,8 @@ public sealed partial class GameWorld
     /// </summary>
     private void MoveCloserToAttack(Machine machine, Actor target)
     {
-        // The remake's punch reaches 1 m from the target's edge, which no place on a ring 5 m or more round its
-        // middle comes within: a gorilla goes straight for it as before.
+        // A gorilla always wants to come within reach of its punch (MachLogAttackOperation's "special clause for
+        // George"): it goes straight for the target.
         if (machine.Weapons.Any(w => w.Spec.TypeName == "GORILLA_PUNCH"))
         {
             Approach(machine, target.Position);
