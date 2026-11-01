@@ -28,6 +28,9 @@ public sealed record Replay(MatchInfo Match, IReadOnlyList<Turn> Turns, long Tic
         // Recorded before machines moved as in the original: they move as they did then.
         if (!Has(nameof(MatchOptions.OriginalMotion)))
             options = options with { OriginalMotion = false };
+        // Recorded before captured buildings brought their stores: they change hands as they did then.
+        if (!Has(nameof(MatchOptions.OriginalCapture)))
+            options = options with { OriginalCapture = false };
         return options == replay.Match.Options ? replay : replay with { Match = replay.Match with { Options = options } };
     }
 

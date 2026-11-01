@@ -81,4 +81,20 @@ public class CampaignReplayTests
         Assert.False(loaded.Match.Options.OriginalMotion);
         Assert.True(loaded.Match.Options.DestructibleArtefacts);
     }
+
+    [Fact]
+    public void A_recording_from_before_original_capture_changes_hands_as_it_did()
+    {
+        var match = new MatchInfo("m_desert", "m_desert", new MatchOptions(), 1, 1,
+            [new MatchPlayer(0, "Anna", Race.Red, Race.Red, Ai: false), new MatchPlayer(0, "AI", Race.Blue, Race.Blue, Ai: true)]);
+        var path = Path.Combine(Path.GetTempPath(), $"old-{Guid.NewGuid():N}{Replay.Extension}");
+        new Replay(match, [], 0).Save(path);
+        Assert.True(Replay.Load(path).Match.Options.OriginalCapture);
+
+        File.WriteAllText(path, File.ReadAllText(path).Replace("\"OriginalCapture\":true,", "").Replace(",\"OriginalCapture\":true", ""));
+        var loaded = Replay.Load(path);
+        File.Delete(path);
+        Assert.False(loaded.Match.Options.OriginalCapture);
+        Assert.True(loaded.Match.Options.OriginalMotion);
+    }
 }

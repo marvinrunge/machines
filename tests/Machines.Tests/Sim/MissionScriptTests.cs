@@ -322,6 +322,39 @@ public class MissionScriptTests
     }
 
     [Fact]
+    public void Dogbar_pays_for_the_attack_from_the_captured_mining_camp()
+    {
+        // Red starts with no BMUs and only four Dozers to build with; the briefing says to capture the mining camp
+        // in the west. Its smelter brings a share of Blue's BMUs, enough for a civilian factory and carriers.
+        var world = Mission("dogbar");
+        Assert.Equal(0f, world.Races[Race.Red].Bmu);
+        var camp = new Vector2(640, 1690);
+        foreach (var guard in world.Actors.Where(a => a.Race == Race.Blue && Vector2.Distance(a.Position, camp) < 300
+            && a is Machine { Spec.Type: not "RESOURCE_CARRIER" } or Construction { Spec.Type: "MISSILE_EMPLACEMENT" }).ToList())
+            guard.HitPoints = 0;
+        var dozers = world.Machines.Where(m => m.Race == Race.Red && m.IsType("CONSTRUCTOR")).ToList();
+        foreach (var (dozer, i) in dozers.Select((d, i) => (d, i)))
+            dozer.Position = camp + new Vector2(150 + i * 8, 0);
+        var smelter = world.Constructions.Single(c => c.Race == Race.Blue && c.IsType("SMELTER") && Vector2.Distance(c.Position, camp) < 300);
+        var carriers = world.Machines.Where(m => m.Race == Race.Blue && m.IsType("RESOURCE_CARRIER")).ToList();
+        Run(world, 1);
+        Assert.All(carriers, c => Assert.IsType<TransportOrder>(c.Order));
+
+        var blue = world.Races[Race.Blue].Bmu;
+        world.Issue(new CaptureCommand(Race.Red, dozers.Select(d => d.Id).ToList(), smelter.Id));
+        for (var i = 0; i < 300 && smelter.Race != Race.Red; i++)
+            Run(world, 1);
+
+        Assert.Equal(Race.Red, smelter.Race);
+        // A level 1 smelter is 1000 of Blue's 5500 BMUs of storage (pod 500, smelters 1000 and 4000).
+        Assert.InRange(world.Races[Race.Red].Bmu, blue * 1000 / 5500 * 0.8f, 1000);
+        Assert.Null(world.WhyCannotPlace(Race.Red, "FACTORY", "CIVILIAN", 1, camp + new Vector2(150, 120), 0));
+        // Blue's carriers no longer deliver to the captured smelter (the AI sends them to its pod instead).
+        Run(world, 1);
+        Assert.All(carriers, c => Assert.False(c.Order is TransportOrder t && t.Smelter == smelter.Id));
+    }
+
+    [Fact]
     public void Desspy_is_won_when_the_overseer_gets_home()
     {
         var world = Mission("desspy");

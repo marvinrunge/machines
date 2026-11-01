@@ -17,6 +17,7 @@ public sealed partial class GameWorld
     public const float EnemyDeconstructMultiplier = 1f;
     public const float EnemyCaptureMultiplier = 2f;
     public const float RecycleRefund = 0.5f;
+    public const float CancelRefund = 0.75f;
 
     /// <summary>A building is taken over once its hit points drop below this share (opcaptur.cpp).</summary>
     public const float CaptureRatio = 1f / 3f;
@@ -184,7 +185,12 @@ public sealed partial class GameWorld
         AddHitPoints(building, -removed);
         if (building.HitPoints < building.MaxHitPoints * CaptureRatio)
         {
+            // A captured factory stops, and its new owner gets back three quarters of what the machine it was
+            // building had cost so far (MachLogCaptureOperation, MachLogFactory::cancelAllProduction).
+            var refund = Options.OriginalCapture && building.ProductionQueue.Count > 0 ? building.ProductionSpent * CancelRefund : 0;
             TakeOver(building, constructor.Race);
+            if (refund > 0)
+                AddBmu(constructor.Race, refund);
             constructor.Order = Order.Idle;
         }
     }
@@ -335,10 +341,16 @@ public sealed partial class GameWorld
         return ClosestPointOutside(building, far);
     }
 
-    /// <summary>A building changes sides: production and research stop, and whoever was inside comes out.</summary>
+    /// <summary>
+    /// A building changes sides: a smelter or pod takes its share of the bank along, production and research stop,
+    /// and whoever was inside comes out.
+    /// </summary>
     private void TakeOver(Construction building, Race race)
     {
+        var stores = Options.OriginalCapture ? StoresLost(building) : 0;
         building.Race = race;
+        if (stores > 0)
+            AddBmu(race, stores);
         building.DisplayAs = null;
         building.ProductionQueue.Clear();
         building.ProductionSpent = 0;
@@ -352,6 +364,24 @@ public sealed partial class GameWorld
         building.Garrisoned.Clear();
         _turretTargets.Remove(building.Id);
         Raise(new GameEvent(GameEventKind.RaceChanged, building.Id, building.Position, Detail: race.ToString()));
+    }
+
+    /// <summary>
+    /// The BMUs a smelter or pod takes along when it changes sides (MachLogSmelter/MachLogPod::assignToDifferentRace):
+    /// its race's bank shrinks by the share of storage lost (MachLogRaces::reduceCapacityWithPenalty), and the
+    /// building carries what was lost, at most its own capacity.
+    /// </summary>
+    private float StoresLost(Construction building)
+    {
+        if (building.Spec.Type is not ("SMELTER" or "POD") || !Races.TryGetValue(building.Race, out var losing))
+            return 0;
+        var lost = building.Stats.Capacity ?? 0;
+        var capacity = BmuCapacity(building.Race);
+        if (lost <= 0 || capacity <= 0)
+            return 0;
+        var before = losing.Bmu;
+        losing.Bmu *= 1 - MathF.Min(1, (float)lost / capacity);
+        return MathF.Min(before - losing.Bmu, lost);
     }
 
     /// <summary>MachLogTreacheryOrb: a machine hit by the orb defects to the shooter's race.</summary>

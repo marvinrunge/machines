@@ -78,6 +78,109 @@ public class SupportTests
     }
 
     [Fact]
+    public void A_captured_smelter_brings_its_share_of_the_losers_bmus()
+    {
+        var world = NewMatch();
+        var smelter = world.AddConstruction(Race.Blue, Field, "SMELTER", null, 1, 0, complete: true);
+        var dozer = Dozer(world, Race.Red, Field + new Vector2(0, 40));
+        // Blue stores 1500 (pod 500, smelter 1000): the smelter is two thirds of it.
+        Assert.Equal(1500, world.BmuCapacity(Race.Blue));
+        world.Races[Race.Blue].Bmu = 1200;
+        world.Races[Race.Red].Bmu = 0;
+
+        world.Issue(new CaptureCommand(Race.Red, [dozer.Id], smelter.Id));
+        var (red, blue) = CaptureTick(world, smelter);
+
+        // Two thirds of Blue's bank go with it (about 800 of the 1200; both pods trickle a little meanwhile).
+        Assert.InRange(blue, 1200, 1215);
+        Assert.Equal(red + blue * 2 / 3, world.Races[Race.Red].Bmu, 0.1f);
+        Assert.Equal(blue / 3, world.Races[Race.Blue].Bmu, 0.1f);
+    }
+
+    /// <summary>Runs until the building is captured; the banks just before the tick it changed hands.</summary>
+    private static (float Red, float Blue) CaptureTick(GameWorld world, Construction building)
+    {
+        var banks = (0f, 0f);
+        for (var i = 0; i < 600 * GameWorld.TicksPerSecond && building.Race != Race.Red; i++)
+        {
+            banks = (world.Races[Race.Red].Bmu, world.Races[Race.Blue].Bmu);
+            world.Step();
+        }
+        Assert.Equal(Race.Red, building.Race);
+        return banks;
+    }
+
+    [Fact]
+    public void Without_original_capture_a_smelter_changes_hands_empty_and_carriers_keep_hauling()
+    {
+        var world = NewMatch();
+        world.Options = world.Options with { OriginalCapture = false };
+        var smelter = world.AddConstruction(Race.Blue, Field, "SMELTER", null, 1, 0, complete: true);
+        var mine = world.AddConstruction(Race.Blue, Field + new Vector2(150, 0), "MINE", null, 1, 0, complete: true);
+        var carrier = world.AddMachine(Race.Blue, Field + new Vector2(100, 60), "RESOURCE_CARRIER", null, 1, null);
+        var dozer = Dozer(world, Race.Red, Field + new Vector2(0, 40));
+        world.Races[Race.Blue].Bmu = 1200;
+        world.Races[Race.Red].Bmu = 0;
+
+        world.Issue(new TransportCommand(Race.Blue, [carrier.Id], mine.Id, smelter.Id));
+        world.Issue(new CaptureCommand(Race.Red, [dozer.Id], smelter.Id));
+        Run(world, 600, () => smelter.Race == Race.Red);
+        world.Step();
+
+        Assert.Equal(Race.Red, smelter.Race);
+        Assert.InRange(world.Races[Race.Red].Bmu, 0, 15);
+        Assert.IsType<TransportOrder>(carrier.Order);
+    }
+
+    [Fact]
+    public void Carriers_stop_hauling_for_a_mine_that_changed_sides()
+    {
+        var world = NewMatch();
+        var smelter = world.AddConstruction(Race.Blue, Field, "SMELTER", null, 1, 0, complete: true);
+        var mine = world.AddConstruction(Race.Blue, Field + new Vector2(150, 0), "MINE", null, 1, 0, complete: true);
+        var carrier = world.AddMachine(Race.Blue, Field + new Vector2(100, 60), "RESOURCE_CARRIER", null, 1, null);
+        var dozer = Dozer(world, Race.Red, mine.Position + new Vector2(0, 40));
+
+        world.Issue(new TransportCommand(Race.Blue, [carrier.Id], mine.Id, smelter.Id));
+        world.Issue(new CaptureCommand(Race.Red, [dozer.Id], mine.Id));
+        world.Step();
+        Assert.IsType<TransportOrder>(carrier.Order);
+        Run(world, 600, () => mine.Race == Race.Red);
+        world.Step();
+
+        Assert.Equal(Race.Red, mine.Race);
+        Assert.Same(Order.Idle, carrier.Order);
+    }
+
+    [Fact]
+    public void A_captured_factory_pays_back_three_quarters_of_the_machine_it_was_building()
+    {
+        var world = NewMatch();
+        var factory = world.AddConstruction(Race.Blue, Field, "FACTORY", "MILITARY", 1, 0, complete: true);
+        var dozer = Dozer(world, Race.Red, Field + new Vector2(0, 50));
+        var grunt = world.Data.ResearchTree.Items.First(i => i.Key.Type == "AGGRESSOR" && i.Key.SubType == "GRUNT").Key;
+        factory.ProductionQueue.Add(grunt);
+        factory.ProductionSpent = 20;
+        // An empty bank keeps the grunt from being finished; only Blue's pod trickle goes into it meanwhile.
+        world.Races[Race.Blue].Bmu = 0;
+        world.Races[Race.Red].Bmu = 0;
+
+        world.Issue(new CaptureCommand(Race.Red, [dozer.Id], factory.Id));
+        var spent = 0f;
+        var red = 0f;
+        for (var i = 0; i < 600 * GameWorld.TicksPerSecond && factory.Race != Race.Red; i++)
+        {
+            (spent, red) = (factory.ProductionSpent, world.Races[Race.Red].Bmu);
+            world.Step();
+        }
+
+        Assert.Equal(Race.Red, factory.Race);
+        Assert.Empty(factory.ProductionQueue);
+        Assert.InRange(spent, 20, 40);
+        Assert.Equal(red + spent * 0.75f, world.Races[Race.Red].Bmu, 0.1f);
+    }
+
+    [Fact]
     public void Deconstructing_your_own_building_pays_back_half()
     {
         var world = NewMatch();

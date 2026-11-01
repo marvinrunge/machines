@@ -403,7 +403,10 @@ public sealed partial class GameWorld
     {
         var mine = Find<Construction>(transport.Mine);
         var smelter = Find<Construction>(transport.Smelter);
-        if (mine is null || smelter is null)
+        // A mine or smelter that changed sides drops out of the route as if it were gone
+        // (MachLogResourceCarrier::beNotified, RACE_CHANGED).
+        if (mine is null || smelter is null
+            || Options.OriginalCapture && (mine.Race != carrier.Race || smelter.Race != carrier.Race))
         {
             carrier.Order = Order.Idle;
             return;

@@ -60,6 +60,14 @@ public sealed record MatchOptions
     /// </summary>
     public bool OriginalMotion { get; init; } = true;
 
+    /// <summary>
+    /// Whether a captured building changes hands as in the original (MachLogSmelter/MachLogPod::assignToDifferentRace,
+    /// MachLogCaptureOperation): a smelter or pod brings its share of the loser's BMUs, a factory pays back what was
+    /// spent on the machine it was building, and carriers stop serving a mine or smelter that changed sides
+    /// (MachLogResourceCarrier::beNotified). Recordings made before say false, so they play back as they were played.
+    /// </summary>
+    public bool OriginalCapture { get; init; } = true;
+
     /// <summary>For a campaign mission: what it takes over from the missions the player won before.</summary>
     public CampaignCarry? Campaign { get; init; }
 
