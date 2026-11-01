@@ -238,6 +238,9 @@ public partial class Game : Node3D
 
     public GameWorld World { get; private set; } = null!;
 
+    /// <summary>After each tick of the world, whatever the frame rate (a film gives its orders here).</summary>
+    public event Action? Ticked;
+
     /// <summary>The game's sounds (interface sounds included).</summary>
     public GameAudio Audio => _audio;
 
@@ -399,7 +402,9 @@ public partial class Game : Node3D
         if (Cinematic.Asked is not null)
         {
             _hud.Visible = false;
-            AddChild(new Cinematic(World, id => _views.GetValueOrDefault(id), _projectiles.ViewOf, _rig));
+            var film = new Cinematic(World, id => _views.GetValueOrDefault(id), _projectiles.ViewOf, _rig);
+            Ticked += film.OnTick;
+            AddChild(film);
         }
         else
         {
@@ -542,6 +547,7 @@ public partial class Game : Node3D
                     ShowEvents();
                     SyncBlasts();
                     SyncViews();
+                    Ticked?.Invoke();
                     // For automated checks: MACHINES_CHECKSUM_AT=<tick> prints the world's checksum at that tick.
                     if (System.Environment.GetEnvironmentVariable("MACHINES_CHECKSUM_AT") is { } at && long.TryParse(at, out var checkTick) && World.Tick == checkTick)
                         GD.Print($"checksum at tick {World.Tick}: {World.Checksum():x16}");

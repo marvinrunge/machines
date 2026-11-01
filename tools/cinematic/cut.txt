@@ -1,0 +1,41 @@
+// The two-minute trailer (tools/cinematic/cut.sh). First the music: a file of the soundtrack folder and the second
+// to start it at. Then the shots in order: the film (tools/cinematic/films.txt) and from and to, in seconds into its
+// footage (the takes and events of each film are in the <film>.log beside its footage).
+// Track 06 is quiet for half a minute and breaks loose at 30.6 s: the world and its armies until then, the battles
+// after, the nuclear missile at the end.
+music "Track 06.mp3" 0
+
+// The world: the green planet's lake and bases, the armies on the ice, the moon and the desert.
+build 0 6
+trailer 4 7.3
+build 9.5 14.5
+build 19 22
+ice2 0.3 4.3
+strike 0.3 3.8
+gorilla 0.5 4
+gorilla2 4 6.3
+
+// 30.6 s: the gorillas' fists come down.
+gorilla2 14.4 18.4
+ice2 6.8 11.3
+trailer 10.53 13.6
+gorilla2 11.2 14.2
+ice 7.5 11.5
+strike2 3 8
+gorilla 16.5 20.5
+ice 18.6 22.6
+trailer 18.03 21.69
+gorilla2 26 30
+ice2 19 23
+gorilla 26 29.5
+strike 9.6 15.6
+ice 30.8 34.8
+gorilla2 32.6 36
+
+// The silo's missile, its fall on the moon's army, and the title.
+strike 19.8 25
+strike2 20.5 23
+strike 25.8 32.8
+strike2 27.5 31.5
+strike 35.5 41
+trailer 25.4 30

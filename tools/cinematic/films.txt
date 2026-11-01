@@ -1,0 +1,10 @@
+// The films of game/scripts/Cinematic*.cs: name, map (MACHINES_MAP: scenario,planet), weather (MACHINES_WEATHER:
+// 0 calm to 1 a storm) and day time (MACHINES_CLOCK in seconds, or - for the scenario's own).
+trailer trailer,hilly 0 -
+gorilla trailer-desert,m_desert 0.3 -
+gorilla2 trailer-desert,m_desert 0.3 -
+build trailer-green,m_green 0 noon
+ice trailer-ice,micey 0.7 -
+ice2 trailer-ice,micey 0.7 -
+strike trailer-moon,m_moon 0 -
+strike2 trailer-moon,m_moon 0 -
