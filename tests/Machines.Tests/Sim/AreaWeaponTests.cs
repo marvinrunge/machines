@@ -88,6 +88,54 @@ public class AreaWeaponTests
     }
 
     [Fact]
+    public void A_gorilla_stops_to_punch_and_stands_until_it_has_stood_up_again()
+    {
+        var world = NewMatch();
+        var gorilla = world.AddMachine(Race.Red, Field, "AGGRESSOR", "NINJA", 5, "L_MULTI_LAUNCHER7_T_GORILLA_PUNCH_R_MULTI_LAUNCHER7");
+        var target = world.AddMachine(Race.Blue, Field + new Vector2(70, 0), "CONSTRUCTOR", "DOZER", 1, null);
+        target.DefCon = DefCon.High;
+
+        // It walks up to the target and punches as soon as it is within reach, on its way still.
+        world.Issue(new AttackCommand(Race.Red, [gorilla.Id], target.Id));
+        var steps = 0;
+        while (!world.Events.Any(e => e.Kind == GameEventKind.Fired && e.Detail == "GORILLA_PUNCH") && steps++ < 20 * GameWorld.TicksPerSecond)
+            world.Step();
+        Assert.True(world.Busy(gorilla));
+        var punchedAt = (world.Time, gorilla.Position, gorilla.Facing);
+
+        while (world.Time < punchedAt.Time + GameWorld.PunchBusy - 0.05f)
+        {
+            world.Step();
+            Assert.Equal(punchedAt.Position, gorilla.Position);
+            Assert.Equal(punchedAt.Facing, gorilla.Facing);
+        }
+        Run(world, 0.5f);
+        Assert.False(world.Busy(gorilla));
+    }
+
+    [Fact]
+    public void A_gorilla_on_its_way_somewhere_does_not_punch_what_it_passes()
+    {
+        var world = NewMatch();
+        var gorilla = world.AddMachine(Race.Red, Field, "AGGRESSOR", "NINJA", 5, "L_MULTI_LAUNCHER7_T_GORILLA_PUNCH_R_MULTI_LAUNCHER7");
+        // It keeps to its way rather than taking on what it meets.
+        gorilla.DefCon = DefCon.High;
+        var passed = world.AddMachine(Race.Blue, Field + new Vector2(30, 15), "CONSTRUCTOR", "DOZER", 1, null);
+        passed.DefCon = DefCon.High;
+
+        world.Issue(new MoveCommand(Race.Red, [gorilla.Id], Field + new Vector2(80, 0)));
+        var punches = 0;
+        for (var i = 0; i < 8 * GameWorld.TicksPerSecond; i++)
+        {
+            world.Step();
+            punches += world.Events.Count(e => e.Kind == GameEventKind.Fired && e.Detail == "GORILLA_PUNCH");
+        }
+
+        Assert.Equal(0, punches);
+        Assert.True(Vector2.Distance(gorilla.Position, Field) > 40);
+    }
+
+    [Fact]
     public void Researching_the_ion_cannon_arms_pods_which_charge_before_firing()
     {
         var world = NewMatch();

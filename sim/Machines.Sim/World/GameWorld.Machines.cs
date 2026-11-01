@@ -91,6 +91,13 @@ public sealed partial class GameWorld
 
     private void UpdateMachine(Machine machine)
     {
+        // A gorilla busy punching stands still and waits.
+        if (Busy(machine))
+        {
+            if (Options.OriginalMotion)
+                Settle(machine);
+            return;
+        }
         if (!Options.OriginalMotion)
         {
             UpdateOrder(machine);

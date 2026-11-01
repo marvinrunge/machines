@@ -172,7 +172,7 @@ public sealed partial class GameWorld
                     // Area weapons go off where the target is and hit everyone the blast reaches, friend or foe,
                     // as in the original. The punch goes off in front of the shooter once its fists come down.
                     if (weapon.Spec.TypeName == "GORILLA_PUNCH")
-                        ScheduleBlast(Time + Blast.PunchLanding, weapon.Spec, shooter.Position, shooter.Race, target.Position - shooter.Position);
+                        Punch(shooter, weapon.Spec, target.Position - shooter.Position);
                     else
                         StartBlast(weapon.Spec, target.Position, shooter.Race);
                 }
@@ -200,7 +200,7 @@ public sealed partial class GameWorld
             var triggered = aimPoint is not null
                 ? weapon.DealsDamage || weapon.IsTreachery
                 : weapon.FiresAt(target) && target is not null && !target.IsDead && shooter.DistanceTo(target) <= weapon.Spec.Range
-                    && (weapon.Spec.TypeName == "GORILLA_PUNCH" || ClearShot(shooter, target));
+                    && (weapon.Spec.TypeName == "GORILLA_PUNCH" ? PunchesHere(shooter) : ClearShot(shooter, target));
             if (triggered)
             {
                 weapon.RoundsLeft = Math.Max(1, weapon.Spec.BurstRounds);
@@ -238,7 +238,7 @@ public sealed partial class GameWorld
         else if (weapon.IsArea)
         {
             if (weapon.Spec.TypeName == "GORILLA_PUNCH")
-                ScheduleBlast(Time + Blast.PunchLanding, weapon.Spec, shooter.Position, shooter.Race, point - shooter.Position);
+                Punch(shooter, weapon.Spec, point - shooter.Position);
             else
                 StartBlast(weapon.Spec, point, shooter.Race);
         }
@@ -248,4 +248,30 @@ public sealed partial class GameWorld
             Raise(new GameEvent(GameEventKind.Hit, there.Id, there.Position, shooter.Id, weapon.Spec.TypeName));
         }
     }
+
+    /// <summary>How long a gorilla does nothing else once it punches (MachLogPunchWeapon::doFire's busy period).</summary>
+    public const float PunchBusy = 2.5f;
+
+    // Until when each machine that punched is busy with it (MachActor::busyUntil_).
+    private readonly Dictionary<int, float> _busyUntil = [];
+
+    /// <summary>
+    /// Whether a machine is busy punching: it stands where it stopped, neither moving nor turning nor taking up its
+    /// orders, driven in first person too (MachLogStrategy::update and MachGuiFirstPerson wait while it is busy).
+    /// </summary>
+    public bool Busy(Machine machine) => _busyUntil.TryGetValue(machine.Id, out var until) && Time < until;
+
+    // The gorilla stops to punch and stays busy until it has stood up again; its blast goes off in front of where it
+    // stood once its fists come down (MachLogCanAttack::attackWithPunch, MachPhysPunchWeapon::createPunchBlast).
+    private void Punch(Actor shooter, WeaponSpec punch, Vector2 toward)
+    {
+        if (shooter is Machine gorilla)
+            _busyUntil[gorilla.Id] = Time + PunchBusy;
+        ScheduleBlast(Time + Blast.PunchLanding, punch, shooter.Position, shooter.Race, toward);
+    }
+
+    // Only an attack punches (MachLogCanAttack::attack leaves the punch out, MachLogAttackOperation punches): a
+    // gorilla attacking or standing, not one on its way somewhere.
+    private static bool PunchesHere(Actor shooter) =>
+        shooter is not Machine { Order: not (AttackOrder or IdleOrder or StandGroundOrder) };
 }
