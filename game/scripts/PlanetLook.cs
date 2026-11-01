@@ -176,8 +176,8 @@ public partial class PlanetLook : Node
         _sun.DirectionalShadowBlendSplits = true;
         _softShadows = true;
 
-        // Smooth surfaces (the water) mirror what is around them.
-        _environment.SsrEnabled = true;
+        // Smooth surfaces (the water) mirror what is around them; on planets without water nothing would.
+        _environment.SsrEnabled = !TerrainMaterials.Dry(_planet);
         _environment.SsrMaxSteps = 48;
 
         // Light bounces between nearby surfaces: sunlit sand warms the shade beside it, a red hull tints the ground.

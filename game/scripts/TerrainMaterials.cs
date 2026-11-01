@@ -171,6 +171,13 @@ public static class TerrainMaterials
     /// </summary>
     private static readonly HashSet<string> Lava = ["m_moon", "dogbar"], Sulphur = ["m_moon"];
 
+    /// <summary>The families (by their first planet) with water on them; the others have nothing that mirrors.</summary>
+    private static readonly HashSet<string> Wet = ["m_green", "hilly"];
+
+    /// <summary>Whether a natural planet has no water (its family's tiles hold none); false for the other planets.</summary>
+    public static bool Dry(string planet) =>
+        Array.Find(Families, f => f.Planets.Contains(planet, StringComparer.OrdinalIgnoreCase)) is { } family && !Wet.Contains(family.Planets[0]);
+
     /// <summary>
     /// Lava (ambientCG's Lava001 and Lava004, CC0, fetched by tools/terrain-textures/fetch.sh into textures/ambientcg),
     /// for the ground and for the pools the scenarios set (<see cref="Scenery.Lava"/>): a dark crust seamed with glowing
@@ -1028,8 +1035,9 @@ public static class TerrainMaterials
             }
 
             // Seen from above, and from the two sides by how much the face looks each way, so slopes do not stretch it;
-            // the sides at two scales too. The relief and roughness read fewer copies than the colour: they show less.
-            Layer layer(float index, float size, vec3 p, vec3 n, float wobble, float mixer, float far) {
+            // the sides at two scales too. The relief and roughness read fewer copies than the colour: they show less, and
+            // not at all far off, where the relief has faded (near 0): a whole planet seen from high up reads only colour.
+            Layer layer(float index, float size, vec3 p, vec3 n, float wobble, float mixer, float far, float near) {
                 Layer l;
                 l.albedo = vec4(0.0);
                 l.bend = vec3(0.0);
@@ -1041,10 +1049,13 @@ public static class TerrainMaterials
                     l.albedo += top_colour(p.xz, size, index, mixer, far) * top;
                     vec3 a = vec3(p.xz / size, index);
                     vec3 b = vec3(mat2(vec2(0.8, 0.6), vec2(-0.6, 0.8)) * p.xz / (size * 3.7), index);
-                    vec3 t = mix(texture(layer_normal, a).xyz, texture(layer_normal, b).xyz, max(mixer * 0.5, far)) * 2.0 - 1.0;
-                    // The maps' x runs east, their y (OpenGL, up the picture) north, against the picture's rows.
-                    l.bend += vec3(t.x, 0.0, -t.y) * top;
-                    l.rough += texture(layer_rough, b).r * top;
+                    if (near > 0.01) {
+                        vec3 t = mix(texture(layer_normal, a).xyz, texture(layer_normal, b).xyz, max(mixer * 0.5, far)) * 2.0 - 1.0;
+                        // The maps' x runs east, their y (OpenGL, up the picture) north, against the picture's rows.
+                        l.bend += vec3(t.x, 0.0, -t.y) * top;
+                        l.rough += texture(layer_rough, b).r * top;
+                    } else
+                        l.rough += 0.9 * top;
                 }
                 if (top < 0.98) {
                     vec2 w = f.xz / max(f.x + f.z, 1e-4) * (1.0 - top);
@@ -1054,17 +1065,23 @@ public static class TerrainMaterials
                         vec3 sx = vec3(p.zy / size + vec2(0.0, wobble), index);
                         vec3 bx = vec3(p.zy / (size * 3.1) + vec2(0.37, wobble * 0.3), index);
                         l.albedo += mix(texture(layer_albedo, sx), texture(layer_albedo, bx), second) * w.x;
-                        vec3 tx = texture(layer_normal, sx).xyz * 2.0 - 1.0;
-                        l.bend += vec3(0.0, -tx.y, tx.x * sign(n.x)) * w.x;
-                        l.rough += texture(layer_rough, sx).r * w.x;
+                        if (near > 0.01) {
+                            vec3 tx = texture(layer_normal, sx).xyz * 2.0 - 1.0;
+                            l.bend += vec3(0.0, -tx.y, tx.x * sign(n.x)) * w.x;
+                            l.rough += texture(layer_rough, sx).r * w.x;
+                        } else
+                            l.rough += 0.9 * w.x;
                     }
                     if (w.y > 0.02) {
                         vec3 sz = vec3(p.xy / size + vec2(0.0, wobble), index);
                         vec3 bz = vec3(p.xy / (size * 3.1) + vec2(0.61, wobble * 0.3), index);
                         l.albedo += mix(texture(layer_albedo, sz), texture(layer_albedo, bz), second) * w.y;
-                        vec3 tz = texture(layer_normal, sz).xyz * 2.0 - 1.0;
-                        l.bend += vec3(tz.x * -sign(n.z), -tz.y, 0.0) * w.y;
-                        l.rough += texture(layer_rough, sz).r * w.y;
+                        if (near > 0.01) {
+                            vec3 tz = texture(layer_normal, sz).xyz * 2.0 - 1.0;
+                            l.bend += vec3(tz.x * -sign(n.z), -tz.y, 0.0) * w.y;
+                            l.rough += texture(layer_rough, sz).r * w.y;
+                        } else
+                            l.rough += 0.9 * w.y;
                     }
                 }
                 return l;
@@ -1075,7 +1092,7 @@ public static class TerrainMaterials
             // One material at a point: its three looks are scored by slow noise (patches of 20 to 60 m) and by what is
             // around (the foot of the rock, the open, the water, the slope); the best two are sampled, tinted each to
             // its share of the original's colour, and mixed by their heights where they are close.
-            Layer material(int s, vec3 p, vec3 n, float wobble, float mixer, float far, vec2 ctx, float slope) {
+            Layer material(int s, vec3 p, vec3 n, float wobble, float mixer, float far, float near, vec2 ctx, float slope) {
                 vec3 noise = vec3(texture(warp, p.xz / 400.0 + vec2(0.11, 0.37) * float(s)).r,
                     texture(warp, p.zx / 430.0 + vec2(0.53, 0.21) + vec2(0.17) * float(s)).r,
                     texture(warp, p.xz / 370.0 + vec2(0.77, 0.69) + vec2(0.29) * float(s)).r);
@@ -1085,12 +1102,12 @@ public static class TerrainMaterials
                 vec3 rest = score;
                 rest[first] = -1e3;
                 int second = rest.x >= rest.y && rest.x >= rest.z ? 0 : (rest.y >= rest.z ? 1 : 2);
-                Layer a = layer(variant_layer[s][first], variant_size[s][first], p, n, wobble, mixer, far);
+                Layer a = layer(variant_layer[s][first], variant_size[s][first], p, n, wobble, mixer, far, near);
                 a.albedo.rgb *= variant_tint[s * 3 + first];
                 float gap = score[first] - score[second];
                 if (gap > 0.25)
                     return a;
-                Layer b = layer(variant_layer[s][second], variant_size[s][second], p, n, wobble, mixer, far);
+                Layer b = layer(variant_layer[s][second], variant_size[s][second], p, n, wobble, mixer, far, near);
                 b.albedo.rgb *= variant_tint[s * 3 + second];
                 float wa = max(gap + a.albedo.a * 0.5 - b.albedo.a * 0.5 + 0.12, 0.0);
                 float wb = max(b.albedo.a * 0.5 - a.albedo.a * 0.5 - gap + 0.12, 0.0);
@@ -1116,6 +1133,8 @@ public static class TerrainMaterials
                 float mixer = clamp(0.5 + (texture(warp, world_pos.zx / 37.0 + 0.71).r - 0.5) * 1.6, 0.15, 0.85);
                 float dist = length(world_pos - CAMERA_POSITION_WORLD);
                 float far = smoothstep(40.0, 180.0, dist);
+                // The relief fades only far off (the far scale is larger, so it still reads there).
+                float near = 1.0 - smoothstep(300.0, 700.0, dist);
                 vec4 w = texture(material_map, at);
                 float keep = clamp(1.0 - dot(w, vec4(1.0)), 0.0, 1.0);
                 // Steep faces: only cliff materials; the share the others give up goes to the family's cliff material.
@@ -1132,19 +1151,19 @@ public static class TerrainMaterials
                 Layer l3 = l0;
                 vec4 score = vec4(-1.0);
                 if (w.x > 0.01) {
-                    l0 = material(0, world_pos, n, wobble, mixer, far, ctx, slope);
+                    l0 = material(0, world_pos, n, wobble, mixer, far, near, ctx, slope);
                     score.x = w.x + l0.albedo.a * 0.6;
                 }
                 if (w.y > 0.01) {
-                    l1 = material(1, world_pos, n, wobble, mixer, far, ctx, slope);
+                    l1 = material(1, world_pos, n, wobble, mixer, far, near, ctx, slope);
                     score.y = w.y + l1.albedo.a * 0.6;
                 }
                 if (w.z > 0.01) {
-                    l2 = material(2, world_pos, n, wobble, mixer, far, ctx, slope);
+                    l2 = material(2, world_pos, n, wobble, mixer, far, near, ctx, slope);
                     score.z = w.z + l2.albedo.a * 0.6;
                 }
                 if (w.w > 0.01) {
-                    l3 = material(3, world_pos, n, wobble, mixer, far, ctx, slope);
+                    l3 = material(3, world_pos, n, wobble, mixer, far, near, ctx, slope);
                     score.w = w.w + l3.albedo.a * 0.6;
                 }
                 // The shares weighed against the heights: the higher grains win where materials meet.
@@ -1222,8 +1241,6 @@ public static class TerrainMaterials
                 old *= tint * (vertex_colours ? COLOR.rgb : vec3(1.0));
                 ALBEDO = colour + old * bk;
                 EMISSION = glow * bk;
-                // The relief fades only far off (the far scale is larger, so it still reads there).
-                float near = 1.0 - smoothstep(300.0, 700.0, dist);
                 NORMAL = normalize((VIEW_MATRIX * vec4(normalize(n + bent * near), 0.0)).xyz);
                 ROUGHNESS = roughness + 0.92 * bk;
                 // Rain darkens the ground and makes it glisten, more where it lies flat and in its hollows.

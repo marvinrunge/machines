@@ -300,6 +300,8 @@ public partial class Game : Node3D
 
     public override void _Ready()
     {
+        if (PerfLog.Create() is { } perf)
+            AddChild(perf);
         var request = MatchRequest.Current;
         var data = Paths.Data;
         _seed = request.Seed ?? (int)(Time.GetUnixTimeFromSystem() % int.MaxValue);
