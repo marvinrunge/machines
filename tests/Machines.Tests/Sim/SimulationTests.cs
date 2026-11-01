@@ -329,7 +329,8 @@ public class SimulationTests
         Assert.False(stiff.CanTurnUpperBody);
 
         world.Issue(new AttackCommand(Race.Red, [twister.Id, stiff.Id], target.Id));
-        Run(world, seconds: 1);
+        // The Grunt 1 turns at its ROTATION_SPEED and ROTATION_ACCELERATION: 34 degrees take it 1.26 s.
+        Run(world, seconds: 2);
 
         // The Grunt 2 keeps its legs where they stood and turns its body on them; the Grunt 1 turns to face.
         Assert.Equal(0, twister.Facing);
@@ -644,7 +645,8 @@ public class SimulationTests
         var grunt = world.AddMachine(Race.Blue, at + new Vector2(25, 0), "AGGRESSOR", "GRUNT", 1, "L_BOLTER");
         world.Issue(new AttackCommand(Race.Blue, [grunt.Id], dozer.Id));
         var evaded = false;
-        Run(world, seconds: 6, onTick: () => evaded |= dozer.Order is EvadeOrder);
+        // The grunt turns round to fire (2.9 s), and the dozer turns round to run (3.8 s) before it speeds up.
+        Run(world, seconds: 12, onTick: () => evaded |= dozer.Order is EvadeOrder);
 
         // A dozer runs away (RUN_AWAY): 60 m on from its attacker, straight away from it.
         Assert.True(evaded);

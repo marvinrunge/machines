@@ -831,14 +831,17 @@ public partial class ActorView : Node3D
 
         if (_rigView is not null && delta > 0)
         {
-            // Speed along the hull's facing, from how the view itself moved this frame.
+            // Speed along the hull's facing and across it (to the model's right, its +z), from how the view itself
+            // moved this frame.
             var moved = Position - _lastPosition;
             var facing = new Vector3(Mathf.Cos(-_yaw), 0, Mathf.Sin(-_yaw));
+            var right = new Vector3(Mathf.Sin(_yaw), 0, Mathf.Cos(_yaw));
             var speed = new Vector3(moved.X, 0, moved.Z).Dot(facing) / (float)delta;
+            var sideways = new Vector3(moved.X, 0, moved.Z).Dot(right) / (float)delta;
             var turnRate = -Mathf.AngleDifference(_lastYaw, _yaw) / (float)delta;
-            _rigView.Animate((float)delta, speed, turnRate, _maxSpeed, _aim);
+            _rigView.Animate((float)delta, speed, turnRate, _maxSpeed, _aim, sideways);
             if (_leans)
-                Lean((float)delta, speed, turnRate);
+                Lean((float)delta, speed, turnRate, sideways);
         }
         _lastPosition = Position;
         _lastYaw = _yaw;
@@ -882,15 +885,19 @@ public partial class ActorView : Node3D
     }
 
     // Hovering and gliding machines lean with their motion, as MachPhysGlider and MachPhysHoverBoots planned it:
-    // nose down while speeding up, up while braking (at most 20°), and into a turn (at most 30°), with a lag.
-    private float _speed, _pitch, _roll;
+    // nose down while speeding up, up while braking (at most 20°), and into a turn (at most 30°), with a lag; in first
+    // person also into a start or stop sideways.
+    private float _speed, _side, _pitch, _roll;
 
-    private void Lean(float delta, float speed, float turnRate)
+    private void Lean(float delta, float speed, float turnRate, float sideways)
     {
         var acceleration = (speed - _speed) / delta;
+        var across = (sideways - _side) / delta;
         _speed = Mathf.Lerp(_speed, speed, 1 - Mathf.Exp(-6 * delta));
+        _side = Mathf.Lerp(_side, sideways, 1 - Mathf.Exp(-6 * delta));
         var pitchWanted = Mathf.Clamp(-acceleration * Mathf.DegToRad(2.5f), -Mathf.DegToRad(20), Mathf.DegToRad(20));
-        var rollWanted = Mathf.Clamp(turnRate * 0.6f, -Mathf.DegToRad(30), Mathf.DegToRad(30));
+        // Into a turn, and into a sideways start or stop as it is into speeding up or braking.
+        var rollWanted = Mathf.Clamp(turnRate * 0.6f + across * Mathf.DegToRad(2.5f), -Mathf.DegToRad(30), Mathf.DegToRad(30));
         var follow = 1 - Mathf.Exp(-3 * delta);
         _pitch = Mathf.Lerp(_pitch, pitchWanted, follow);
         _roll = Mathf.Lerp(_roll, rollWanted, follow);

@@ -29,12 +29,20 @@ public sealed partial class GameWorld
 
     private readonly Dictionary<int, float> _nextRepath = [];
 
-    /// <summary>First-person controls per machine: forward speed (-1..1) and turn rate (-1..1, positive = left).</summary>
-    public Dictionary<int, (float Forward, float Turn)> DriveInput { get; } = [];
+    /// <summary>
+    /// First-person controls per machine: forward speed and turn rate (-1..1, positive = left), sideways speed (-1..1,
+    /// positive = left) and whether it turns at the slow rate.
+    /// </summary>
+    public Dictionary<int, (float Forward, float Turn, float Strafe, bool Slow)> DriveInput { get; } = [];
 
     private void Drive(Machine machine)
     {
         DriveInput.TryGetValue(machine.Id, out var input);
+        if (Options.OriginalMotion)
+        {
+            DriveAsTheOriginal(machine, input);
+            return;
+        }
         // The original's first-person turn rate (degrees per second) from GENERAL_DATA.
         var turnRate = Data.Parm.General.FirstPersonMaxFastTurnRate * MathF.PI / 180;
         machine.Facing += input.Turn * turnRate * Dt;
@@ -42,8 +50,16 @@ public sealed partial class GameWorld
         var step = direction * (input.Forward * machine.Stats.Speed * Dt);
         if (step == Vector2.Zero)
             return;
-        // Blocked ahead, it slides along the obstacle as far as the way is open, on whichever of the grid's axes
-        // still lets it on (MachLog1stPersonMachineHandler::nextPositionOk slid along the polygon's edge).
+        SlideOn(machine, step);
+    }
+
+    /// <summary>
+    /// Moves a driven machine by a step; blocked ahead, it slides along the obstacle as far as the way is open, on
+    /// whichever of the grid's axes still lets it on (MachLog1stPersonMachineHandler::nextPositionOk slid along the
+    /// polygon's edge). False when it cannot move at all.
+    /// </summary>
+    private bool SlideOn(Machine machine, Vector2 step)
+    {
         var (along, across) = MathF.Abs(step.X) >= MathF.Abs(step.Y)
             ? (new Vector2(step.X, 0), new Vector2(0, step.Y))
             : (new Vector2(0, step.Y), new Vector2(step.X, 0));
@@ -52,9 +68,10 @@ public sealed partial class GameWorld
             if (CanDriveTo(machine, machine.Position + move))
             {
                 machine.Position += move;
-                return;
+                return true;
             }
         }
+        return false;
     }
 
     /// <summary>
@@ -73,6 +90,19 @@ public sealed partial class GameWorld
     }
 
     private void UpdateMachine(Machine machine)
+    {
+        if (!Options.OriginalMotion)
+        {
+            UpdateOrder(machine);
+            return;
+        }
+        // One asked to make way steps aside first, then goes on with its order.
+        if (!StepAside(machine))
+            UpdateOrder(machine);
+        Settle(machine);
+    }
+
+    private void UpdateOrder(Machine machine)
     {
         if (machine.DrivenByPlayer)
         {
@@ -211,21 +241,30 @@ public sealed partial class GameWorld
         if (machine.PathIndex >= machine.Path.Count)
             return false;
 
-        var target = machine.Path[machine.PathIndex];
-        var step = machine.Stats.Speed * Dt;
-        var offset = target - machine.Position;
-        var distance = offset.Length();
-
-        if (distance <= step)
+        if (Options.OriginalMotion)
         {
-            machine.Position = target;
-            machine.PathIndex++;
+            machine.PathIndex = Travel(machine, machine.Path, machine.PathIndex, Way.Order);
+            if (machine.Path.Count == 0)
+                return false;
         }
         else
         {
-            var direction = offset / distance;
-            machine.Position += direction * step;
-            machine.Facing = DetMath.Atan2(direction.Y, direction.X);
+            var target = machine.Path[machine.PathIndex];
+            var step = machine.Stats.Speed * Dt;
+            var offset = target - machine.Position;
+            var distance = offset.Length();
+
+            if (distance <= step)
+            {
+                machine.Position = target;
+                machine.PathIndex++;
+            }
+            else
+            {
+                var direction = offset / distance;
+                machine.Position += direction * step;
+                machine.Facing = DetMath.Atan2(direction.Y, direction.X);
+            }
         }
 
         // Plan again when the waypoint itself got blocked (usually by a new building), or when the machine
@@ -248,7 +287,9 @@ public sealed partial class GameWorld
             _progress[machine.Id] = (machine.Position, Time);
             return false;
         }
-        if (Time - last.Since < 3)
+        // With the original's motion a machine also waits for others in its way, and tries again; only a long wait
+        // (two machines each waiting for the other) has it look for a new way.
+        if (Time - last.Since < (Options.OriginalMotion ? StuckWaiting : 3))
             return false;
         _progress[machine.Id] = (machine.Position, Time);
         return true;
@@ -267,8 +308,13 @@ public sealed partial class GameWorld
         FollowPath(machine);
     }
 
-    private void Face(Machine machine, Vector2 point)
+    private void Face(Machine machine, Vector2 point, float within = FaceWithin)
     {
+        if (Options.OriginalMotion)
+        {
+            TurnToFace(machine, point, within);
+            return;
+        }
         var d = point - machine.Position;
         if (d.LengthSquared() > 0.01f)
             machine.Facing = DetMath.Atan2(d.Y, d.X);
@@ -309,7 +355,10 @@ public sealed partial class GameWorld
         }
         else if (!machine.DrivenByPlayer)
         {
-            Approach(machine, target.Position);
+            if (Options.OriginalMotion)
+                MoveCloserToAttack(machine, target);
+            else
+                Approach(machine, target.Position);
         }
     }
 
@@ -324,13 +373,18 @@ public sealed partial class GameWorld
             return;
         }
 
-        if (!InReach(machine, site))
+        if (Options.OriginalMotion)
+        {
+            if (!AtBuildPoint(machine, site))
+                return;
+        }
+        else if (!InReach(machine, site))
         {
             Approach(machine, ClosestPointOutside(site, machine.Position));
             return;
         }
 
-        Face(machine, site.Position);
+        Face(machine, site.Position, FaceBuildingWithin);
         // The original's rate: RATE_CONSTRUCTION BMUs per minute, paid from the bank as the work goes on.
         var rate = (machine.Stats.ConstructionRate ?? 100) / 60f * Dt;
         var wanted = MathF.Min(rate, site.Stats.Cost - site.Built);

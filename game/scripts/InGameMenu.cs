@@ -191,12 +191,20 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
         MenuPage.Focus(ok);
     }));
 
-    // The remake's keys, in the hot keys page's two lists.
-    private static readonly (string Action, string Keys)[] FirstPersonKeys =
-    [
-        ("Drive", "W A S D, arrows"), ("Look and aim", "Mouse"), ("Fire", "Left mouse button"),
-        ("Pick a weapon", "1 to 4"), ("Leave first person", "F, Esc"),
-    ];
+    // The remake's keys, in the hot keys page's two lists; first person's as the options' Classic F.P. Keys set them.
+    private static (string Action, string Keys)[] FirstPersonKeys => GameOptions.ClassicDriving
+        ?
+        [
+            ("Drive", "W S"), ("Turn", "A D, mouse"), ("Turn upper body", "Shift with A D or mouse, right mouse"),
+            ("Upper body forward", "C"), ("Look up and down", "Mouse, Shift with arrows"), ("Fire", "Left mouse button"),
+            ("Pick weapons", "Tab"), ("Leave first person", "F, Esc"),
+        ]
+        :
+        [
+            ("Drive", "W S"), ("Step sideways", "A D (legs, hover, flight)"), ("Turn", "Q E, A D, slowly with Ctrl"),
+            ("Turn upper body", "Mouse"), ("Upper body forward", "C"), ("Look up and down", "Mouse, Shift with arrows"),
+            ("Fire", "Left mouse button"), ("Pick weapons", "Tab"), ("Leave first person", "F, Esc"),
+        ];
 
     private static readonly (string Action, string Keys)[] GeneralKeys =
     [

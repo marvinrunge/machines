@@ -127,6 +127,15 @@ public sealed class Machine : Actor
     /// <summary>True while a player drives this machine in first person.</summary>
     public bool DrivenByPlayer { get; set; }
 
+    /// <summary>
+    /// The command it is carrying out, by number: machines sent by one command wait for one another rather than step
+    /// aside (MachLogMachineMotionSequencer::objectHasSameCommandId).
+    /// </summary>
+    public int CommandId { get; set; }
+
+    /// <summary>Whether it moves sideways when driven in first person: on legs, hover or glider (the remake's addition).</summary>
+    public bool CanStrafe => Stats.Locomotion is Locomotion.Spider or Locomotion.Hover or Locomotion.Glider;
+
     /// <summary>Fractional armour regrown but not yet added.</summary>
     public float ArmourRegen { get; set; }
 

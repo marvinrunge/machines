@@ -17,6 +17,9 @@ public sealed partial class GameWorld
     // The furthest an actor's edge lies from its filed position: the largest machine radius or building half-diagonal.
     private float _spatialReach;
 
+    // The largest machine radius filed this tick.
+    private float _machineReach;
+
     private void IndexActors()
     {
         if (_spatial.Length == 0)
@@ -30,6 +33,7 @@ public sealed partial class GameWorld
         foreach (var cell in _spatial)
             cell.Clear();
         _spatialReach = 0;
+        _machineReach = 0;
         foreach (var actor in _actors.Values)
         {
             if (actor.IsDead)
@@ -40,6 +44,8 @@ public sealed partial class GameWorld
                 ? Vector2.Distance(building.Footprint.Min, building.Footprint.Max) / 2 + Vector2.Distance(building.Position, (building.Footprint.Min + building.Footprint.Max) / 2)
                 : actor.Radius;
             _spatialReach = MathF.Max(_spatialReach, reach);
+            if (actor is Machine)
+                _machineReach = MathF.Max(_machineReach, reach);
         }
     }
 

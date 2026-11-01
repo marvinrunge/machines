@@ -65,4 +65,20 @@ public class CampaignReplayTests
         Assert.False(Replay.Load(path).Match.Options.DestructibleArtefacts);
         File.Delete(path);
     }
+
+    [Fact]
+    public void A_recording_from_before_original_motion_moves_as_it_did()
+    {
+        var match = new MatchInfo("m_desert", "m_desert", new MatchOptions(), 1, 1,
+            [new MatchPlayer(0, "Anna", Race.Red, Race.Red, Ai: false), new MatchPlayer(0, "AI", Race.Blue, Race.Blue, Ai: true)]);
+        var path = Path.Combine(Path.GetTempPath(), $"old-{Guid.NewGuid():N}{Replay.Extension}");
+        new Replay(match, [], 0).Save(path);
+        Assert.True(Replay.Load(path).Match.Options.OriginalMotion);
+
+        File.WriteAllText(path, File.ReadAllText(path).Replace("\"OriginalMotion\":true,", "").Replace(",\"OriginalMotion\":true", ""));
+        var loaded = Replay.Load(path);
+        File.Delete(path);
+        Assert.False(loaded.Match.Options.OriginalMotion);
+        Assert.True(loaded.Match.Options.DestructibleArtefacts);
+    }
 }

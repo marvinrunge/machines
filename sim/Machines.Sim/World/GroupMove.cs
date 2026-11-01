@@ -70,6 +70,24 @@ internal static class GroupMove
         }
     }
 
+    /// <summary>
+    /// Each machine's place in its clump, which it keeps on the way (MachLogGroupMoveInfo): its offset from the clump's
+    /// centroid, and the clump's radius, the distance of its furthest machine from the centroid
+    /// (MachLogGroupMoverUtility::calculateCentroidAndRadius).
+    /// </summary>
+    public static Dictionary<int, (Vector2 Offset, float Radius)> Formation(IReadOnlyList<Machine> machines)
+    {
+        var places = new Dictionary<int, (Vector2 Offset, float Radius)>();
+        foreach (var clump in Clumps(machines))
+        {
+            var centroid = clump.Aggregate(Vector2.Zero, (sum, m) => sum + m.Position) / clump.Count;
+            var radius = clump.Max(m => Vector2.Distance(centroid, m.Position));
+            foreach (var machine in clump)
+                places[machine.Id] = (machine.Position - centroid, radius);
+        }
+        return places;
+    }
+
     private static float Clearance(Machine machine) => MathF.Max(1, machine.Stats.LowClearance);
 
     /// <summary>MachLogGroupMoverUtility::createClumps: machines chained together by being within 20 m of each other.</summary>

@@ -19,10 +19,16 @@ public sealed record Replay(MatchInfo Match, IReadOnlyList<Turn> Turns, long Tic
     {
         var json = File.ReadAllBytes(path);
         var replay = JsonSerializer.Deserialize<Replay>(json, NetJson.Options) ?? throw new JsonException("empty replay");
+        var text = System.Text.Encoding.UTF8.GetString(json);
+        bool Has(string option) => text.Contains($"\"{option}\"", StringComparison.Ordinal);
+        var options = replay.Match.Options;
         // Recorded before artefacts could be destroyed: they stay whole, so it plays back as it was played.
-        if (System.Text.Encoding.UTF8.GetString(json).Contains($"\"{nameof(MatchOptions.DestructibleArtefacts)}\"", StringComparison.Ordinal))
-            return replay;
-        return replay with { Match = replay.Match with { Options = replay.Match.Options with { DestructibleArtefacts = false } } };
+        if (!Has(nameof(MatchOptions.DestructibleArtefacts)))
+            options = options with { DestructibleArtefacts = false };
+        // Recorded before machines moved as in the original: they move as they did then.
+        if (!Has(nameof(MatchOptions.OriginalMotion)))
+            options = options with { OriginalMotion = false };
+        return options == replay.Match.Options ? replay : replay with { Match = replay.Match with { Options = options } };
     }
 
     /// <summary>The world the match started from: the same map, settings, players and seed.</summary>

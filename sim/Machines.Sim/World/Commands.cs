@@ -95,16 +95,15 @@ public sealed record SquadronCommand(Race Race, int Squad, Command Order) : Comm
 public sealed record ScavengeCommand(Race Race, IReadOnlyList<int> Scavengers, IReadOnlyList<int> Debris) : Command(Race);
 
 /// <summary>
-/// First-person control of one machine, sent every tick while a player drives it: forward and turn input
-/// (−1 to 1) and the enemy under the crosshair to fire at. <paramref name="Driving"/> false hands it back.
+/// First-person driving, sent every tick while a player drives a machine: forward and turn input (−1 to 1, turn
+/// positive to the left), while the trigger is held the point the weapons fire at, which of the machine's weapons
+/// are selected to fire (a bit for each, in mounting order; Tab in the original), where its upper body is turned
+/// (radians anticlockwise from the hull, for the other players to see; the simulation does not read it), sideways
+/// input (−1 to 1, positive to the left; only machines on legs, hover or glider move sideways, the remake's
+/// addition) and whether it turns at the slow rate (Ctrl). <paramref name="Driving"/> false hands it back.
 /// </summary>
-/// <summary>
-/// First-person driving: speed and turn, while the trigger is held the point the weapons fire at, which of the
-/// machine's weapons are selected to fire (a bit for each, in mounting order; Tab in the original), and where its
-/// upper body is turned, radians anticlockwise from the hull (for the other players to see; the simulation does
-/// not read it).
-/// </summary>
-public sealed record DriveCommand(Race Race, int Machine, bool Driving, float Forward = 0, float Turn = 0, Vector2? Aim = null, int Weapons = -1, float Head = 0) : Command(Race);
+public sealed record DriveCommand(Race Race, int Machine, bool Driving, float Forward = 0, float Turn = 0, Vector2? Aim = null, int Weapons = -1,
+    float Head = 0, float Strafe = 0, bool Slow = false) : Command(Race);
 
 /// <summary>Why a command was refused, for the client to show.</summary>
 public sealed record CommandRejected(Command Command, string Reason);

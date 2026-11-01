@@ -6,7 +6,7 @@ namespace Machines.Game;
 /// The switches of the original's options screen (MachGuiCtxOptions) beside the volumes and the look: the up and down
 /// keys reversed, the first-person mouse reversed, the 2D selection box, 3D sound and the gamma correction. They are
 /// kept in <c>user://settings.cfg</c> and take at once. MACHINES_OPTIONS sets them for one run (screenshots, checks),
-/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off</c>.
+/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic</c>.
 /// </summary>
 public static class GameOptions
 {
@@ -15,7 +15,7 @@ public static class GameOptions
     /// <summary>The gamma correction's range. The original's slider went from 0.1 to 5, where the screen is black or white.</summary>
     public const float GammaLowest = 0.5f, GammaHighest = 2f;
 
-    private static bool _read, _reverseKeys, _reverseMouse, _selection2d, _sound3d = true;
+    private static bool _read, _reverseKeys, _reverseMouse, _selection2d, _sound3d = true, _classicDriving;
     private static float _gamma = 1;
 
     /// <summary>
@@ -34,6 +34,26 @@ public static class GameOptions
     {
         get { Read(); return _reverseMouse; }
         set => Keep(ref _reverseMouse, value, "controls", "reverse_mouse");
+    }
+
+    /// <summary>
+    /// Whether first person drives as the original did (Classic: A and D turn the machine, the mouse turns it too and
+    /// turns the upper body only with Shift or the right button) rather than as in a tank game (Modern, the default:
+    /// A and D step sideways where the machine can, Q and E turn it, the mouse always turns the upper body). Kept as
+    /// <c>layout = classic</c> or <c>modern</c>.
+    /// </summary>
+    public static bool ClassicDriving
+    {
+        get { Read(); return _classicDriving; }
+        set
+        {
+            Read();
+            _classicDriving = value;
+            var config = new ConfigFile();
+            config.Load(Settings);
+            config.SetValue("controls", "layout", value ? "classic" : "modern");
+            config.Save(Settings);
+        }
     }
 
     /// <summary>
@@ -79,6 +99,7 @@ public static class GameOptions
             _reverseKeys = (bool)config.GetValue("controls", "reverse_keys", false);
             _reverseMouse = (bool)config.GetValue("controls", "reverse_mouse", false);
             _selection2d = (bool)config.GetValue("controls", "selection_2d", false);
+            _classicDriving = (string)config.GetValue("controls", "layout", "modern") == "classic";
             _sound3d = (bool)config.GetValue("audio", "sound_3d", true);
             _gamma = Mathf.Clamp((float)(double)config.GetValue("display", "gamma", 1.0), GammaLowest, GammaHighest);
         }
@@ -92,6 +113,7 @@ public static class GameOptions
                 case "reverse_mouse": _reverseMouse = on; break;
                 case "selection_2d": _selection2d = on; break;
                 case "sound_3d": _sound3d = on; break;
+                case "layout": _classicDriving = value == "classic"; break;
                 case "gamma" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var gamma):
                     _gamma = Mathf.Clamp(gamma, GammaLowest, GammaHighest);
                     break;

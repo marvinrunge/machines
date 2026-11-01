@@ -52,6 +52,14 @@ public sealed record MatchOptions
     /// </summary>
     public bool DestructibleArtefacts { get; init; } = true;
 
+    /// <summary>
+    /// Whether machines move as in the original: they turn on the spot and speed up before they drive off, give way
+    /// to one another and keep their places in a group (MachLogMachineMotionSequencer, MachLogGroupMoveInfo), and a
+    /// machine driven in first person speeds up, coasts and slows on hills (MachPhys1stPersonDriver). Recordings
+    /// made before say false, so they play back as they were played.
+    /// </summary>
+    public bool OriginalMotion { get; init; } = true;
+
     /// <summary>For a campaign mission: what it takes over from the missions the player won before.</summary>
     public CampaignCarry? Campaign { get; init; }
 

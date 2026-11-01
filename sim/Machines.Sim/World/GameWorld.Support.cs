@@ -106,7 +106,10 @@ public sealed partial class GameWorld
 
         if (healer.DistanceTo(target) > charger.Spec.Range * 0.95f)
         {
-            Approach(healer, target.Position);
+            if (Options.OriginalMotion)
+                MoveCloserToHeal(healer, target, charger.Spec.Range);
+            else
+                Approach(healer, target.Position);
             return;
         }
         healer.Path.Clear();
@@ -133,11 +136,13 @@ public sealed partial class GameWorld
 
     private bool AtBuilding(Machine machine, Construction building)
     {
+        if (Options.OriginalMotion)
+            return AtBuildPoint(machine, building);
         if (InReach(machine, building))
         {
             machine.Path.Clear();
             machine.PathIndex = 0;
-            Face(machine, building.Position);
+            Face(machine, building.Position, FaceBuildingWithin);
             return true;
         }
         Approach(machine, ClosestPointOutside(building, machine.Position));
@@ -291,6 +296,12 @@ public sealed partial class GameWorld
     /// <summary>Walks straight at a point, through a door and all; true on arrival.</summary>
     private bool StepTowards(Machine machine, Vector2 point)
     {
+        if (Options.OriginalMotion)
+        {
+            _straightWay.Clear();
+            _straightWay.Add(point);
+            return Travel(machine, _straightWay, 0, Way.Straight) >= 1;
+        }
         var offset = point - machine.Position;
         var distance = offset.Length();
         var step = machine.Stats.Speed * Dt;

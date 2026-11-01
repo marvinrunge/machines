@@ -188,10 +188,13 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
 
         rows.AddChild(Setting(Text(6995, "Reverse Up/Down Keys"), Switch(GameOptions.ReverseKeys, on => GameOptions.ReverseKeys = on), 260));
         rows.AddChild(Setting(Text(6994, "Reverse F.P. Mouse"), Switch(GameOptions.ReverseMouse, on => GameOptions.ReverseMouse = on), 260));
+        rows.AddChild(Setting("Classic F.P. Keys", Switch(GameOptions.ClassicDriving, on => GameOptions.ClassicDriving = on), 260));
         rows.AddChild(Setting(Text(6996, "2D Selection box"), Switch(GameOptions.Selection2d, on => GameOptions.Selection2d = on), 260));
         rows.AddChild(MenuTheme.Paragraph(
             "The up and down keys look with Shift in first person, and tilt the ground camera with Ctrl and Shift. " +
-            "Unreversed, up looks down as a pilot's stick does.", 20, MenuTheme.Dim));
+            "Unreversed, up looks down as a pilot's stick does. " +
+            "First person drives as in a tank game: W and S drive, A and D step sideways (legs, hover, flight) or turn, " +
+            "Q and E turn, the mouse turns the upper body. Classic keys drive as the original did.", 20, MenuTheme.Dim));
         return chip;
     }
 

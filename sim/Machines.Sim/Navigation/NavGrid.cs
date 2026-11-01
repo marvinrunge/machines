@@ -48,6 +48,13 @@ public sealed class NavGrid
         return IsFree(x, y, crossesWater);
     }
 
+    /// <summary>Whether the ground itself is passable at a point, whatever building stands on it.</summary>
+    public bool IsGround(Vector2 p, bool crossesWater)
+    {
+        var (x, y) = Cell(p);
+        return _static[y * Width + x] switch { 0 => true, 2 => crossesWater, _ => false };
+    }
+
     /// <summary>Marks (or unmarks) a building footprint as blocked.</summary>
     public void SetBuilding((Vector2 Min, Vector2 Max) footprint, bool present)
     {

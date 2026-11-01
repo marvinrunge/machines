@@ -108,7 +108,9 @@ public sealed partial class GameWorld
 
         while (_pending.TryDequeue(out var command))
         {
+            _commandId = ++_commands;
             var reason = Apply(command);
+            _commandId = 0;
             if (reason is not null)
                 _rejected.Add(new CommandRejected(command, reason));
         }

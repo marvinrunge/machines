@@ -313,9 +313,10 @@ public partial class RigView : Node3D
     /// <paramref name="turnRate"/> radians per second (positive turns left), <paramref name="maxSpeed"/> the
     /// machine's top speed, and <paramref name="aim"/> the upper body's wanted angle relative to the body.
     /// </summary>
-    public void Animate(float delta, float speed, float turnRate, float maxSpeed, float aim)
+    public void Animate(float delta, float speed, float turnRate, float maxSpeed, float aim, float sideways = 0)
     {
-        var moving = Mathf.Abs(speed) > 0.3f;
+        // Legs walk whichever way the machine goes, sideways too in first person.
+        var moving = Mathf.Abs(speed) > 0.3f || Mathf.Abs(sideways) > 0.3f;
         var turning = !moving && Mathf.Abs(turnRate) > 0.3f;
 
         // A finished action gives its parts back: to rest, then to the cycles below.
@@ -371,7 +372,7 @@ public partial class RigView : Node3D
             if (_rig.Animations.TryGetValue(_cycle, out var animation) && animation.Duration > 0)
             {
                 // Legs keep pace with the ground: the walk cycle runs at the machine's share of its top speed.
-                var rate = moving ? Mathf.Clamp(Mathf.Abs(speed) / Mathf.Max(1, maxSpeed), 0.5f, 1.5f) : 1;
+                var rate = moving ? Mathf.Clamp(Mathf.Sqrt(speed * speed + sideways * sideways) / Mathf.Max(1, maxSpeed), 0.5f, 1.5f) : 1;
                 _phase = (_phase + delta * rate / animation.Duration) % 1;
                 foreach (var track in animation.Tracks)
                     if (track.Node < _nodes.Length)

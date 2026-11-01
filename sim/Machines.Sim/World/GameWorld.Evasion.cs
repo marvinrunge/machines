@@ -328,7 +328,24 @@ public sealed partial class GameWorld
             }
         }
         var edge = new Vector2(Planet.Surface.Width, Planet.Surface.Depth) - new Vector2(clearance + 1);
-        goal = FreeSpotNear(Vector2.Clamp(goal, new Vector2(clearance + 1), edge), clearance);
+        goal = Vector2.Clamp(goal, new Vector2(clearance + 1), edge);
+        if (Options.OriginalMotion)
+        {
+            // A free place from 1 m round it, 20 m further each time none is found (MachLogEvadeOperation).
+            var near = goal;
+            for (var radius = 1f; radius < 1000; radius += 20)
+            {
+                if (FreeSpace(near, near - machine.Position, radius, machine.Radius, out var free, asker: machine))
+                {
+                    goal = free;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            goal = FreeSpotNear(goal, clearance);
+        }
         machine.Order = evade with { Goal = kind, Refuge = refuge?.Id };
         machine.Path.Clear();
         machine.PathIndex = 0;

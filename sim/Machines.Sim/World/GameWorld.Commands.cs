@@ -14,22 +14,36 @@ public sealed partial class GameWorld
         switch (command)
         {
             case MoveCommand move:
-                foreach (var (machine, destination) in GroupMove.Destinations(Own<Machine>(move.Race, move.Machines).ToList(), move.Target, Nav))
-                    Send(machine, new MoveOrder(destination), destination, move.Target);
+            {
+                var group = Own<Machine>(move.Race, move.Machines).ToList();
+                var formation = GroupMove.Formation(group);
+                foreach (var (machine, destination) in GroupMove.Destinations(group, move.Target, Nav))
+                    Send(machine, new MoveOrder(destination), destination, move.Target, formation[machine.Id]);
                 return null;
+            }
 
             case AttackMoveCommand attackMove:
-                foreach (var (machine, destination) in GroupMove.Destinations(Own<Machine>(attackMove.Race, attackMove.Machines).Where(m => m.CanFight).ToList(), attackMove.Target, Nav))
-                    Send(machine, new AttackMoveOrder(destination), destination, attackMove.Target);
+            {
+                var group = Own<Machine>(attackMove.Race, attackMove.Machines).Where(m => m.CanFight).ToList();
+                var formation = GroupMove.Formation(group);
+                foreach (var (machine, destination) in GroupMove.Destinations(group, attackMove.Target, Nav))
+                    Send(machine, new AttackMoveOrder(destination), destination, attackMove.Target, formation[machine.Id]);
                 return null;
+            }
 
             case AttackCommand attack:
             {
                 var target = FindTarget(attack.Target);
                 if (target is null || !CanAttack(attack.Race, target))
                     return "no enemy there";
-                foreach (var machine in Own<Machine>(attack.Race, attack.Machines).Where(m => m.CanFight))
+                var attackers = Own<Machine>(attack.Race, attack.Machines).Where(m => m.CanFight).ToList();
+                var places = GroupMove.Formation(attackers);
+                foreach (var machine in attackers)
+                {
                     Send(machine, new AttackOrder(target.Id), target.Position);
+                    if (Options.OriginalMotion && attackers.Count > 1)
+                        _formation[machine.Id] = (machine.Order, places[machine.Id].Offset, places[machine.Id].Radius);
+                }
                 return null;
             }
 
@@ -266,7 +280,8 @@ public sealed partial class GameWorld
                     PlayerHeads.Remove(driven.Id);
                     return null;
                 }
-                DriveInput[driven.Id] = (Math.Clamp(drive.Forward, -1, 1), Math.Clamp(drive.Turn, -1, 1));
+                DriveInput[driven.Id] = (Math.Clamp(drive.Forward, -1, 1), Math.Clamp(drive.Turn, -1, 1),
+                    driven.CanStrafe ? Math.Clamp(drive.Strafe, -1, 1) : 0, drive.Slow);
                 PlayerWeapons[driven.Id] = drive.Weapons;
                 PlayerHeads[driven.Id] = drive.Head;
                 if (drive.Aim is { } aim)
@@ -330,18 +345,26 @@ public sealed partial class GameWorld
         ids.Select(Find<T>).OfType<T>().Where(a => a.Race == race && !a.IsDead
             && (a is not Machine { Inside: { } building } || Find<Construction>(building)?.Garrisoned.Contains(a.Id) == true));
 
+    // Commands numbered as they are applied: the one being applied, else 0 (orders the world gives of its own accord
+    // get a number each).
+    private int _commands, _commandId;
+
     /// <summary>Gives a machine a new order and plans its route.</summary>
-    internal void Send(Machine machine, Order order, Vector2? destination, Vector2? groupTarget = null)
+    internal void Send(Machine machine, Order order, Vector2? destination, Vector2? groupTarget = null, (Vector2 Offset, float Radius)? formation = null)
     {
         LeaveGarrison(machine);
         machine.Doorway = null;
         machine.Order = order;
         machine.OrderedAt = Time;
+        machine.CommandId = _commandId != 0 ? _commandId : ++_commands;
         machine.Path.Clear();
         machine.PathIndex = 0;
+        // With the original's motion an attacker, healer or constructor picks its own place at the target.
+        if (Options.OriginalMotion && order is AttackOrder or HealOrder or ConstructOrder or RepairOrder or CaptureOrder or DeconstructOrder)
+            return;
         if (destination is { } goal)
             machine.Path.AddRange(groupTarget is { } shared && shared != goal
-                ? PathVia(machine, shared, goal)
+                ? PathVia(machine, shared, goal, formation)
                 : Nav.FindPath(machine.Position, goal, CrossesWater(machine)));
     }
 
@@ -349,12 +372,15 @@ public sealed partial class GameWorld
     /// A group member's path: the search the group shares towards its target, with the last stretch bent to the
     /// member's own place around it.
     /// </summary>
-    private List<Vector2> PathVia(Machine machine, Vector2 shared, Vector2 goal)
+    private List<Vector2> PathVia(Machine machine, Vector2 shared, Vector2 goal, (Vector2 Offset, float Radius)? formation)
     {
         var crossesWater = CrossesWater(machine);
         var path = Nav.FindPath(machine.Position, shared, crossesWater);
         if (path.Count == 0)
             return Nav.FindPath(machine.Position, goal, crossesWater);
+        // With the original's motion each keeps its place in the group round the corners.
+        if (Options.OriginalMotion && formation is { } place)
+            KeepPlace(machine, path, place.Offset, place.Radius);
         var before = path.Count > 1 ? path[^2] : machine.Position;
         if (Nav.LineOfSight(before, goal, crossesWater))
             path[^1] = goal;

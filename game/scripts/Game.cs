@@ -717,7 +717,15 @@ public partial class Game : Node3D
                 if (looks.Length > 0 && float.TryParse(looks[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var look))
                     _lookPitch = Mathf.DegToRad(look);
                 if (looks.Length > 1 && float.TryParse(looks[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var head))
+                {
                     _headTarget = Mathf.DegToRad(head);
+                    if (_driven is { } aimed)
+                        _aimYaw = aimed.Facing + _headTarget;
+                }
+                // MACHINES_SCREENSHOT_KEYS=A,Q holds those keys down from the start, to drive for a picture.
+                foreach (var name in System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_KEYS")?.Split(',') ?? [])
+                    if (System.Enum.TryParse<Key>(name, ignoreCase: true, out var held))
+                        Input.ParseInputEvent(new InputEventKey { Keycode = held, PhysicalKeycode = held, Pressed = true });
             }
         }
         // MACHINES_SCREENSHOT_MENU=briefing or debrief (with MACHINES_CAMPAIGN): a campaign mission's briefing over the
@@ -729,6 +737,24 @@ public partial class Game : Node3D
             OpenMenu(statistics: false, debriefing: debrief);
             if (!debrief)
                 _menu?.ShowBriefing();
+        }
+        // MACHINES_SCREENSHOT_MOVE=x,y,at sends the selection to (x, y) that many seconds in; "attack,at" sends it at the
+        // nearest enemy instead, "build,at" to the nearest of the player's unfinished buildings.
+        if (!_moveSent && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MOVE")?.Split(',') is { Length: >= 2 } move
+            && double.TryParse(move[^1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var moveAt)
+            && _runTime >= moveAt)
+        {
+            _moveSent = true;
+            var movers = SelectedMachines().ToList();
+            var middle = movers.Count > 0 ? movers.Aggregate(NVector2.Zero, (sum, m) => sum + m.Position) / movers.Count : NVector2.Zero;
+            var ids = movers.Select(m => m.Id).ToList();
+            if (move[0] == "attack" && World.Actors.Where(a => !a.IsDead && World.AreEnemies(Player, a.Race)).MinBy(a => NVector2.Distance(a.Position, middle)) is { } enemy)
+                Issue(new AttackCommand(Player, ids, enemy.Id));
+            else if (move[0] == "build" && World.Constructions.Where(c => c.Race == Player && !c.Complete).MinBy(c => NVector2.Distance(c.Position, middle)) is { } site)
+                Issue(new ConstructCommand(Player, ids, site.Id));
+            else if (move.Length >= 3 && float.TryParse(move[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var x)
+                && float.TryParse(move[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var y))
+                Issue(new MoveCommand(Player, ids, new NVector2(x, y)));
         }
         // MACHINES_SCREENSHOT_CHAT=<said>|<typed> in a multiplayer match: says one to everyone, then types the other.
         if (_runTime == 0 && Online && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_CHAT")?.Split('|') is [var said, var typed])
@@ -752,6 +778,7 @@ public partial class Game : Node3D
     }
 
     private int _framesKept;
+    private bool _moveSent;
 
     private void SyncViews()
     {
@@ -2075,9 +2102,15 @@ public partial class Game : Node3D
         // The radar comes on, and a machine with weapons readies them (MachGuiFirstPerson).
         if (machine.Weapons.Count > 0)
             _audio.PlayGui("gui/sounds/weapchng.wav");
-        _hud.Message(machine.CanTurnUpperBody
-            ? "First person: W/S drive, A/D or mouse turn, Shift or right mouse turns the upper body (C centres it), left mouse fire, Tab weapons, F or Esc to leave"
-            : "First person: W/S drive, A/D or mouse turn, left mouse fire, Tab weapons, F or Esc to leave");
+        _aimYaw = machine.Facing;
+        var sideways = machine.CanStrafe ? "A/D step sideways" : "A/D turn";
+        _hud.Message((GameOptions.ClassicDriving, machine.CanTurnUpperBody) switch
+        {
+            (true, true) => "First person: W/S drive, A/D or mouse turn, Shift or right mouse turns the upper body (C centres it), left mouse fire, Tab weapons, F or Esc to leave",
+            (true, false) => "First person: W/S drive, A/D or mouse turn, left mouse fire, Tab weapons, F or Esc to leave",
+            (false, true) => $"First person: W/S drive, {sideways}, Q/E turn (Ctrl slowly), mouse turns the upper body (C centres it), left mouse fire, Tab weapons, F or Esc to leave",
+            (false, false) => $"First person: W/S drive, {sideways}, Q/E or mouse turn (Ctrl slowly), left mouse fire, Tab weapons, F or Esc to leave",
+        });
     }
 
     private void LeaveFirstPerson()
@@ -2104,11 +2137,19 @@ public partial class Game : Node3D
     // The right button turned the upper body; letting go of it brings the upper body back to the front.
     private bool _rightButtonTurnedHead;
 
+    // With the modern keys, where the driven machine's upper body points in the world, radians anticlockwise in the
+    // original's axes: the mouse turns it, and it keeps its heading while the hull turns under it.
+    private float _aimYaw;
+
+    /// <summary>With the modern keys the mouse always turns the upper body of a machine that has one.</summary>
+    private bool AimingHead => !GameOptions.ClassicDriving && _driven is { CanTurnUpperBody: true };
+
     /// <summary>
-    /// Whether the mouse and A/D turn the driven machine's upper body rather than the whole machine: with Shift or
-    /// the right button held, for a machine whose upper body turns (MachGuiFirstPerson::doUpdate).
+    /// With the classic keys, whether the mouse and A/D turn the driven machine's upper body rather than the whole
+    /// machine: with Shift or the right button held, for a machine whose upper body turns (MachGuiFirstPerson::doUpdate).
     /// </summary>
-    private bool TurningHead => _driven is { CanTurnUpperBody: true } && (Input.IsKeyPressed(Key.Shift) || Input.IsMouseButtonPressed(MouseButton.Right));
+    private bool TurningHead => GameOptions.ClassicDriving && _driven is { CanTurnUpperBody: true }
+        && (Input.IsKeyPressed(Key.Shift) || Input.IsMouseButtonPressed(MouseButton.Right));
 
     private void FirstPersonInput(InputEvent @event)
     {
@@ -2123,6 +2164,12 @@ public partial class Game : Node3D
             // C (the original's keypad 5) turns the upper body back to the front.
             case InputEventKey { Pressed: true, Echo: false, Keycode: Key.C or Key.Kp5 }:
                 _headTarget = 0;
+                if (_driven is { } centred)
+                    _aimYaw = centred.Facing;
+                break;
+            case InputEventMouseMotion motion when AimingHead:
+                _aimYaw = Mathf.Wrap(_aimYaw + motion.Relative.X * 0.004f, -Mathf.Pi, Mathf.Pi);
+                LookUpDown(motion);
                 break;
             case InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: false } when _rightButtonTurnedHead:
                 _rightButtonTurnedHead = false;
@@ -2190,8 +2237,21 @@ public partial class Game : Node3D
         var keys = (Input.IsKeyPressed(Key.A) ? 1f : 0f) - (Input.IsKeyPressed(Key.D) ? 1f : 0f);
         var turn = Mathf.Clamp(_mouseTurn, -1, 1);
         _mouseTurn *= 0.5f;
+        var strafe = 0f;
+        if (!GameOptions.ClassicDriving)
+        {
+            // Modern: Q and E turn; A and D step sideways where the machine can (legs, hover, flight), else turn too.
+            turn += (Input.IsKeyPressed(Key.Q) ? 1f : 0f) - (Input.IsKeyPressed(Key.E) ? 1f : 0f);
+            if (machine.CanStrafe)
+                strafe = keys;
+            else
+                turn += keys;
+            // The upper body keeps its heading in the world while the hull turns under it.
+            if (AimingHead)
+                _headTarget = Mathf.Wrap(_aimYaw - machine.Facing, -Mathf.Pi, Mathf.Pi);
+        }
         // With Shift (or the right button) held, A and D turn the upper body as the original's Shift and arrows did.
-        if (TurningHead)
+        else if (TurningHead)
             _headTarget = Mathf.Wrap(_headTarget - keys * Mathf.DegToRad(machine.Stats.BodyTurnRate ?? 180) * GameWorld.Dt, -Mathf.Pi, Mathf.Pi);
         else
             turn += keys;
@@ -2220,9 +2280,11 @@ public partial class Game : Node3D
                 : GroundAt(centre) is { } ground && NVector2.Distance(ground, machine.Position) > 2 ? ground
                 : ahead;
         }
-        // The simulation turns left (counter-clockwise in the original's axes) for a positive turn; the client
-        // shows the world with y and z swapped, which mirrors it, so on screen that is a turn to the right.
-        Issue(new DriveCommand(Player, machine.Id, Driving: true, forward, Mathf.Clamp(-turn, -1, 1), aimAt, SelectedWeapons(machine), _headTarget));
+        // The simulation turns left (counter-clockwise in the original's axes) for a positive turn, and steps left for a
+        // positive strafe; the client shows the world with y and z swapped, which mirrors it, so on screen both go
+        // right. Ctrl turns slowly (FIRST_PERSON_MAX_SLOW_TURN_RATE).
+        Issue(new DriveCommand(Player, machine.Id, Driving: true, forward, Mathf.Clamp(-turn, -1, 1), aimAt, SelectedWeapons(machine), _headTarget,
+            -strafe, Input.IsKeyPressed(Key.Ctrl)));
     }
 
     // When a selected weapon of the driven machine was last charged with the trigger held.

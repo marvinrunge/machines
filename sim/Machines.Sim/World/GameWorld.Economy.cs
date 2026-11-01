@@ -97,7 +97,22 @@ public sealed partial class GameWorld
         // A disguised factory's machines wear the same disguise (MachLogFactory::createNewMachine).
         machine.DisplayAs = factory.DisplayAs;
         // To the assembly point if one is set, else a little way out from the door.
-        if (factory.AssemblyPoint is { } assembly)
+        // With the original's motion: a free place from 5 m round the assembly point, else from 25 m out from the
+        // door, 20 m further each time none is found (MachLogFactory::moveToDeployPoint).
+        if (Options.OriginalMotion && (factory.AssemblyPoint ?? pad) is { } point)
+        {
+            var spot = point;
+            for (var radius = factory.AssemblyPoint is null ? 25f : 5f; radius < 1000; radius += 20)
+            {
+                if (FreeSpace(point, point - factory.Position, radius, machine.Radius, out var free, asker: machine))
+                {
+                    spot = free;
+                    break;
+                }
+            }
+            Send(machine, new MoveOrder(spot), spot);
+        }
+        else if (factory.AssemblyPoint is { } assembly)
         {
             var spot = FreeSpotNear(assembly, MathF.Max(1, machine.Stats.LowClearance));
             Send(machine, new MoveOrder(spot), spot);
