@@ -22,6 +22,7 @@ mkdir -p "$OUT"
 
 mkdir -p "$OUT/data"
 cp -r "$REPO/data/original" "$OUT/data/original"
+cp -r "$REPO/data/maps" "$OUT/data/maps"
 if [ -n "$EXPORTER" ]; then
     mkdir -p "$OUT/tools"
     cp -r "$EXPORTER" "$OUT/tools/classic-export"

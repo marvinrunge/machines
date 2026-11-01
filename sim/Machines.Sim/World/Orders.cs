@@ -112,8 +112,8 @@ public sealed class RaceState(Race race, Controller controller)
     public bool StartedWithPod { get; set; }
 
     /// <summary>
-    /// The races this one takes for allies (Ctrl and F1 to F3 in a network game, MachLogRaces::dispositionToRace):
-    /// it does not attack them. The disposition is one race's towards another, as in the original.
+    /// The races this one takes for allies (the scenario's ALLY lines, MachLogRaces::dispositionToRace): it does not
+    /// attack them. The disposition is one race's towards another, as in the original.
     /// </summary>
     public HashSet<Race> Allies { get; } = [];
 

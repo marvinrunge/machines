@@ -5,6 +5,11 @@ GPLv3 source release (`nightdivestudio/machines`, commit `2c857564ac9145fa8913ed
 The release was made with the permission of Night Dive Studios, who own the game. These files are GPLv3;
 see `../LICENSE.md`.
 
+`maps/` holds the remake's own maps, in the original's scenario format. A scenario there is loaded before one of
+the same name in `original/`, and `maps/maps.txt` lists them in the skirmish menu under "Test maps".
+`showcase.scn` puts every building and machine of every race on the desert, allied and still, for checking the
+models; `tools/showcase-map.py` writes it.
+
 | Copied from the release | To |
 | --- | --- |
 | `data/` (all text data, no shaders) | `original/` |

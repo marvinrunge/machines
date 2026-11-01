@@ -1,0 +1,2 @@
+// The remake's own maps for the skirmish menu: scenario, planet, title.
+showcase m_desert Showcase: every building and machine of every race

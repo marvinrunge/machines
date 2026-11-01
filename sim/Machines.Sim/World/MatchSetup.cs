@@ -48,6 +48,7 @@ public static class MatchSetup
         {
             var setup = scenario.Race(race) ?? throw new ArgumentException($"{scenarioName} has no {race} race");
             var state = new RaceState(race, controller) { Bmu = MatchOptions.BmuFor(options.StartingBmu) ?? setup.Bmu ?? 0 };
+            state.Allies.UnionWith(setup.Allies);
             world.Races[race] = state;
             world.BuildingPlans[race] = [];
 

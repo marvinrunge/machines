@@ -26,7 +26,15 @@ public sealed class GameData
         FactoryLists = FactoryBuildListParser.Load(Path.Combine(originalDataFolder, "factory.bld")),
     };
 
-    public Scenario LoadScenario(string name) => ScenarioParser.Load(Path.Combine(Folder, name + ".scn"));
+    /// <summary>The <c>data/maps</c> folder beside <see cref="Folder"/>: the remake's own maps, such as the showcase.</summary>
+    public string MapsFolder => Path.GetFullPath(Path.Combine(Folder, "..", "maps"));
+
+    /// <summary>A scenario of the remake's own (<see cref="MapsFolder"/>), or else the original's.</summary>
+    public Scenario LoadScenario(string name)
+    {
+        var own = Path.Combine(MapsFolder, name + ".scn");
+        return ScenarioParser.Load(File.Exists(own) ? own : Path.Combine(Folder, name + ".scn"));
+    }
 
     public AiScript LoadAiScript(string path) => AiScriptParser.Load(Path.Combine(Folder, Path.GetFileName(path)));
 
