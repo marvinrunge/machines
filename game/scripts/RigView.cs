@@ -289,7 +289,7 @@ public partial class RigView : Node3D
     /// its print is ready. Call it once the building stands where it stays; returns the rectangles printed, in world
     /// x and z.
     /// </summary>
-    public List<Rect2> PrintPads(Func<float, float, float> ground)
+    public List<Rect2> PrintPads(Func<float, float, float> ground, float reach = PadReach)
     {
         var printed = new List<Rect2>();
         if (!IsInsideTree() || _pads.Count + _padsToCome.Count > 0)
@@ -316,7 +316,7 @@ public partial class RigView : Node3D
                     (minX, maxX, minZ, maxZ) = (Mathf.Min(minX, point.X), Mathf.Max(maxX, point.X), Mathf.Min(minZ, point.Z), Mathf.Max(maxZ, point.Z));
                 }
             }
-            (low, high) = (low - PadReach, high + PadReach);
+            (low, high) = (low - reach, high + reach);
             var decal = new Decal
             {
                 Name = "Print",

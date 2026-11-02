@@ -222,7 +222,9 @@ public partial class Game : Node3D
     // Building placement
     private (string Type, string? SubType, int Level)? _placing;
     private int _placingOrientation;
-    private MeshInstance3D? _ghost;
+    private Node3D? _ghost;
+    private StandardMaterial3D? _ghostMaterial;
+    private bool _ghostPrinted;
 
     // A command waiting for the player to click its target: the ground point and the actor there, if any
     private Action<NVector2, Actor?>? _targeting;
@@ -2076,18 +2078,23 @@ public partial class Game : Node3D
         // The building itself, see-through, in green where it may stand and red where not.
         var spec = World.Data.Parm.Construction(subType is null ? type : $"{type} {subType}");
         var (id, size) = ActorView.ModelOf(new Construction(0, Player, NVector2.Zero, spec, spec.Level(level), 0));
-        _ghost = new MeshInstance3D
+        _ghostMaterial = new StandardMaterial3D
         {
-            Mesh = _assets.MeshFor(id, Look(Player), size),
-            MaterialOverride = new StandardMaterial3D
-            {
-                AlbedoColor = new Color(0.3f, 1, 0.3f, 0.4f),
-                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            },
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            AlbedoColor = new Color(0.3f, 1, 0.3f, 0.4f),
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
         };
+        // Built from its rig, its pads lie printed on the ground as the building's will (see UpdateGhost).
+        _ghost = _assets.RigFor(id, Look(Player)) is { } rig
+            ? RigView.Create(rig)
+            : new MeshInstance3D { Mesh = _assets.MeshFor(id, Look(Player), size) };
+        _ghostPrinted = false;
         AddChild(_ghost);
+        foreach (var mesh in _ghost.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>().Append(_ghost as MeshInstance3D).OfType<MeshInstance3D>())
+        {
+            mesh.MaterialOverride = _ghostMaterial;
+            mesh.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+        }
         _hud.Message("Left click to place, Space to turn, right click to cancel");
     }
 
@@ -2096,6 +2103,7 @@ public partial class Game : Node3D
         _placing = null;
         _ghost?.QueueFree();
         _ghost = null;
+        _ghostMaterial = null;
     }
 
     private void UpdateGhost()
@@ -2107,7 +2115,19 @@ public partial class Game : Node3D
         _ghost.Position = ActorView.World(at);
         _ghost.Rotation = new Vector3(0, -Mathf.DegToRad(_placingOrientation), 0);
         var ok = World.WhyCannotPlace(Player, p.Type, p.SubType, p.Level, at, _placingOrientation) is null;
-        ((StandardMaterial3D)_ghost.MaterialOverride).AlbedoColor = ok ? new Color(0.3f, 1, 0.3f, 0.4f) : new Color(1, 0.25f, 0.2f, 0.4f);
+        var tint = ok ? new Color(0.3f, 1, 0.3f, 0.4f) : new Color(1, 0.25f, 0.2f, 0.4f);
+        _ghostMaterial!.AlbedoColor = tint;
+        if (_ghost is RigView view)
+        {
+            // Printed once where it first stands, reaching far enough up and down to lie on the ground wherever the
+            // mouse takes it.
+            if (!_ghostPrinted && HeightField.Current is { } ground)
+            {
+                view.PrintPads(ground.At, reach: 12);
+                _ghostPrinted = true;
+            }
+            view.PadTint = tint;
+        }
     }
 
     private void PlaceBuilding()
