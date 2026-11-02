@@ -44,6 +44,12 @@ public sealed class Projectile(int id, WeaponSpec weapon, int shooter, Race race
 
     /// <summary>The artefact it was fired at, which it strikes like an enemy in its way; null for anything else.</summary>
     public Artefact? Artefact { get; init; }
+
+    /// <summary>
+    /// Whether it was fired in first person at the very point under the crosshair, so that <see cref="AimHeight"/> is
+    /// that point's height (a view flies it through the point) rather than a guess at the middle of what is there.
+    /// </summary>
+    public bool Sighted { get; init; }
 }
 
 public sealed partial class GameWorld
@@ -68,14 +74,14 @@ public sealed partial class GameWorld
     /// Sends a round from the shooter's middle towards a point <paramref name="aimHeight"/> up; it flies on past it
     /// until its range is spent.
     /// </summary>
-    private void Launch(Actor shooter, WeaponMount weapon, Vector2 towards, float aimHeight, Artefact? artefact = null)
+    private void Launch(Actor shooter, WeaponMount weapon, Vector2 towards, float aimHeight, Artefact? artefact = null, bool sighted = false)
     {
         var offset = towards - shooter.Position;
         var direction = offset.LengthSquared() > 0.01f
             ? Vector2.Normalize(offset)
             : shooter is Machine machine ? new Vector2(DetMath.Cos(machine.Facing), DetMath.Sin(machine.Facing)) : Vector2.UnitX;
         _projectiles.Add(new Projectile(_nextProjectile++, weapon.Spec, shooter.Id, shooter.Race, shooter.Position, direction,
-            weapon.Mounting, weapon.Shots++, towards, AimPoint(shooter).Z, aimHeight) { Artefact = artefact });
+            weapon.Mounting, weapon.Shots++, towards, AimPoint(shooter).Z, aimHeight) { Artefact = artefact, Sighted = sighted });
     }
 
     /// <summary>

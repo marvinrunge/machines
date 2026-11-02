@@ -100,10 +100,12 @@ public sealed record ScavengeCommand(Race Race, IReadOnlyList<int> Scavengers, I
 /// are selected to fire (a bit for each, in mounting order; Tab in the original), where its upper body is turned
 /// (radians anticlockwise from the hull, for the other players to see; the simulation does not read it), sideways
 /// input (−1 to 1, positive to the left; only machines on legs, hover or glider move sideways, the remake's
-/// addition) and whether it turns at the slow rate (Ctrl). <paramref name="Driving"/> false hands it back.
+/// addition), whether it turns at the slow rate (Ctrl) and how high the point aimed at lies: where the line of sight
+/// through the crosshair meets a model, the ground or its end, as the original fired (MachPhys1stPersonDriver::aimData);
+/// null aims at the middle of whatever stands at the point, as before. <paramref name="Driving"/> false hands it back.
 /// </summary>
 public sealed record DriveCommand(Race Race, int Machine, bool Driving, float Forward = 0, float Turn = 0, Vector2? Aim = null, int Weapons = -1,
-    float Head = 0, float Strafe = 0, bool Slow = false) : Command(Race);
+    float Head = 0, float Strafe = 0, bool Slow = false, float? AimHeight = null) : Command(Race);
 
 /// <summary>Why a command was refused, for the client to show.</summary>
 public sealed record CommandRejected(Command Command, string Reason);

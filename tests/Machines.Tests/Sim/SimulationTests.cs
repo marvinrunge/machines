@@ -499,6 +499,32 @@ public class SimulationTests
         Assert.DoesNotContain(world.Projectiles, p => p.Position.X > 830);
     }
 
+    [Fact]
+    public void A_driven_machine_fires_at_the_point_under_its_crosshair_not_the_middle_of_a_building()
+    {
+        var world = NewMatch(red: Controller.Player);
+        var at = OpenGround(world);
+        var garrison = world.AddConstruction(Race.Blue, at + new Vector2(40, 0), "GARRISON", null, 1, 0, complete: true);
+        var assassin = world.AddMachine(Race.Red, at, "AGGRESSOR", "ASSASSIN", 2, "L_PLASMA_RIFLE");
+        // The crosshair rests on the near wall, 3 m to the side of the middle and 6 m up.
+        var wall = Enumerable.Range(0, 400).Select(i => new Vector2(at.X + i * 0.1f, garrison.Position.Y + 3))
+            .First(p => garrison.DistanceFrom(p) <= 0);
+        Assert.True(Vector2.Distance(assassin.Position, wall) < assassin.Weapons[0].Spec.Range);
+        var hitPoints = garrison.HitPoints + garrison.Armour;
+        Projectile? round = null;
+        Run(world, seconds: 3, onTick: () =>
+        {
+            world.Issue(new DriveCommand(Race.Red, assassin.Id, Driving: true, Aim: wall, AimHeight: 6));
+            round ??= world.Projectiles.FirstOrDefault(p => p.Shooter == assassin.Id);
+        });
+
+        Assert.NotNull(round);
+        Assert.True(round.Sighted);
+        Assert.Equal(wall, round.Aim);
+        Assert.Equal(6, round.AimHeight);
+        Assert.True(garrison.HitPoints + garrison.Armour < hitPoints);
+    }
+
     /// <summary>A place with open ground 70 m round it.</summary>
     private static Vector2 OpenGround(GameWorld world) => Enumerable.Range(0, 400).Select(i => new Vector2(200 + i % 20 * 60, 200 + i / 20 * 60))
         .First(p => world.Nav.IsAreaFree((p - new Vector2(70, 70), p + new Vector2(70, 70))));

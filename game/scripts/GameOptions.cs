@@ -6,8 +6,8 @@ namespace Machines.Game;
 /// The switches of the original's options screen (MachGuiCtxOptions) beside the volumes and the look: the up and down
 /// keys reversed, the first-person mouse reversed, the 2D selection box, 3D sound and the gamma correction. They are
 /// kept in <c>user://settings.cfg</c> and take at once. MACHINES_OPTIONS sets them for one run (screenshots, checks),
-/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic,dof=strong,film=on</c>.
-/// Depth of field and the film look are the remake's own.
+/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic,dof=strong,film=on,mouse_speed=1.5</c>.
+/// Depth of field, the film look and the first-person mouse speed are the remake's own.
 /// </summary>
 public static class GameOptions
 {
@@ -16,8 +16,11 @@ public static class GameOptions
     /// <summary>The gamma correction's range. The original's slider went from 0.1 to 5, where the screen is black or white.</summary>
     public const float GammaLowest = 0.5f, GammaHighest = 2f;
 
+    /// <summary>The first-person mouse speed's range, times the standard speed.</summary>
+    public const float MouseSpeedLowest = 0.25f, MouseSpeedHighest = 2.5f;
+
     private static bool _read, _reverseKeys, _reverseMouse, _selection2d, _sound3d = true, _classicDriving, _filmLook;
-    private static float _gamma = 1;
+    private static float _gamma = 1, _mouseSpeed = 1;
     private static Blur _depthOfField;
 
     /// <summary>How far from what the camera looks at the picture blurs (<see cref="DepthOfField"/>).</summary>
@@ -68,10 +71,20 @@ public static class GameOptions
     }
 
     /// <summary>
+    /// How far the view turns in first person for a move of the mouse, times the standard speed (F.P. Mouse Speed, not
+    /// in the original). Kept as <c>mouse_speed</c>.
+    /// </summary>
+    public static float MouseSpeed
+    {
+        get { Read(); return _mouseSpeed; }
+        set => Keep(ref _mouseSpeed, Mathf.Clamp(value, MouseSpeedLowest, MouseSpeedHighest), "controls", "mouse_speed");
+    }
+
+    /// <summary>
     /// Whether first person drives as the original did (Classic: A and D turn the machine, the mouse turns it too and
     /// turns the upper body only with Shift or the right button) rather than as in a tank game (Modern, the default:
-    /// A and D step sideways where the machine can, Q and E turn it, the mouse always turns the upper body). Kept as
-    /// <c>layout = classic</c> or <c>modern</c>.
+    /// A and D step sideways where the machine can, Q and E turn it, the mouse looks round at once and the upper body,
+    /// or the machine without one, follows). Kept as <c>layout = classic</c> or <c>modern</c>.
     /// </summary>
     public static bool ClassicDriving
     {
@@ -133,6 +146,7 @@ public static class GameOptions
             _classicDriving = (string)config.GetValue("controls", "layout", "modern") == "classic";
             _sound3d = (bool)config.GetValue("audio", "sound_3d", true);
             _gamma = Mathf.Clamp((float)(double)config.GetValue("display", "gamma", 1.0), GammaLowest, GammaHighest);
+            _mouseSpeed = Mathf.Clamp((float)(double)config.GetValue("controls", "mouse_speed", 1.0), MouseSpeedLowest, MouseSpeedHighest);
             _depthOfField = Enum.TryParse<Blur>((string)config.GetValue("display", "depth_of_field", "off"), true, out var blur) ? blur : Blur.Off;
             _filmLook = (bool)config.GetValue("display", "film_look", false);
         }
@@ -151,6 +165,9 @@ public static class GameOptions
                 case "film": _filmLook = on; break;
                 case "gamma" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var gamma):
                     _gamma = Mathf.Clamp(gamma, GammaLowest, GammaHighest);
+                    break;
+                case "mouse_speed" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var speed):
+                    _mouseSpeed = Mathf.Clamp(speed, MouseSpeedLowest, MouseSpeedHighest);
                     break;
             }
         }

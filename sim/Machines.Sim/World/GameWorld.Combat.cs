@@ -20,10 +20,11 @@ public sealed partial class GameWorld
         _turretTargets.TryGetValue(id, out var target) || _machineAims.TryGetValue(id, out target) ? Find(target) : null;
 
     /// <summary>
-    /// Where a machine driven in first person is firing while the trigger is held: a point on the ground (or as
-    /// far as its weapons reach), whether or not anything stands there; set by the client.
+    /// Where a machine driven in first person is firing while the trigger is held: the point under the crosshair,
+    /// whether or not anything stands there, and how high it lies (null for the middle of what stands there, as
+    /// older clients aimed); set by the client.
     /// </summary>
-    public Dictionary<int, Vector2> PlayerAims { get; } = [];
+    public Dictionary<int, (Vector2 Point, float? Height)> PlayerAims { get; } = [];
 
     /// <summary>Which weapons of a machine driven in first person may fire: a bit for each, in mounting order.</summary>
     public Dictionary<int, int> PlayerWeapons { get; } = [];
@@ -73,7 +74,7 @@ public sealed partial class GameWorld
             {
                 var selected = PlayerWeapons.GetValueOrDefault(machine.Id, -1);
                 Fire(machine, machine.Weapons.Where((_, i) => (selected & (1 << i)) != 0).ToList(), null, machine.Stats.Accuracy ?? 100,
-                    PlayerAims.TryGetValue(machine.Id, out var point) ? point : null);
+                    PlayerAims.TryGetValue(machine.Id, out var sight) ? sight : null);
                 continue;
             }
             var target = machine.Order switch
@@ -131,7 +132,7 @@ public sealed partial class GameWorld
     /// strike; the others hit at once with the shooter's ACCURACY percent. Damage follows the original armour rule.
     /// A machine driven in first person fires at <paramref name="aimPoint"/> instead, at whatever is there or not.
     /// </summary>
-    private void Fire(Actor shooter, List<WeaponMount> weapons, Actor? target, int accuracy, Vector2? aimPoint = null)
+    private void Fire(Actor shooter, List<WeaponMount> weapons, Actor? target, int accuracy, (Vector2 Point, float? Height)? aimPoint = null)
     {
         foreach (var weapon in weapons)
         {
@@ -146,9 +147,9 @@ public sealed partial class GameWorld
                 if (weapon.RoundsLeft == 0)
                     weapon.Reload = weapon.Spec.ReloadTime;
 
-                if (aimPoint is { } point)
+                if (aimPoint is { } sight)
                 {
-                    FireAtPoint(shooter, weapon, point, accuracy);
+                    FireAtPoint(shooter, weapon, sight.Point, accuracy, sight.Height);
                     continue;
                 }
                 if (target is null || target.IsDead || shooter.DistanceTo(target) > weapon.Spec.Range || !CanAttack(shooter.Race, target))
@@ -211,20 +212,27 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// A round fired at a point in first person: flying rounds are launched at it and strike whatever they meet;
-    /// the others hit the enemy nearest the point if one stands within reach of it, and otherwise nothing.
+    /// the others hit the enemy nearest the point if one stands within reach of it, and otherwise nothing. With its
+    /// <paramref name="height"/> given the round goes for the point itself, as the original's did.
     /// </summary>
-    private void FireAtPoint(Actor shooter, WeaponMount weapon, Vector2 point, int accuracy)
+    private void FireAtPoint(Actor shooter, WeaponMount weapon, Vector2 point, int accuracy, float? height = null)
     {
         var offset = point - shooter.Position;
         if (offset.Length() > weapon.Spec.Range)
+        {
+            // Beyond the weapon's reach: as far along the line of sight as it reaches.
+            if (height is { } beyond)
+                height = AimPoint(shooter).Z + (beyond - AimPoint(shooter).Z) * weapon.Spec.Range / offset.Length();
             point = shooter.Position + Vector2.Normalize(offset) * weapon.Spec.Range;
+        }
         float Off(Actor a) => a is Construction building ? building.DistanceFrom(point) : MathF.Max(0, Vector2.Distance(a.Position, point) - a.Radius);
         var there = Actors.Where(a => !a.IsDead && AreEnemies(shooter.Race, a.Race) && a is not Machine { Inside: not null } && Off(a) <= 3)
             .OrderBy(Off).ThenBy(a => a.Id).FirstOrDefault();
-        // What the crosshair rests on: the enemy there, or the ground itself.
-        var aimHeight = there is not null ? AimPoint(there).Z : Terrain?.At(point) ?? 0;
+        // What the crosshair rests on: the point itself where its height is known, else the middle of the enemy
+        // there, or the ground (a little over it).
+        var aimHeight = height ?? (there is not null ? AimPoint(there).Z : Terrain?.At(point) ?? 0) + 0.5f;
         if (!Flies(weapon) && !weapon.IsArea && Terrain is { } ground
-            && ground.FirstBlocked(AimPoint(shooter), new Vector3(point, aimHeight + 0.5f), ends: 3) is { } share)
+            && ground.FirstBlocked(AimPoint(shooter), new Vector3(point, aimHeight), ends: 3) is { } share)
         {
             Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, null, weapon.Spec.TypeName));
             Raise(new GameEvent(GameEventKind.Impact, shooter.Id, Vector2.Lerp(shooter.Position, point, share), null, weapon.Spec.TypeName));
@@ -233,7 +241,7 @@ public sealed partial class GameWorld
         Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, there?.Id, weapon.Spec.TypeName));
         if (Flies(weapon))
         {
-            Launch(shooter, weapon, point, aimHeight + 0.5f);
+            Launch(shooter, weapon, point, aimHeight, sighted: height is not null);
         }
         else if (weapon.IsArea)
         {

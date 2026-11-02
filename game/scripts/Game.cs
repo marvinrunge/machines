@@ -938,6 +938,18 @@ public partial class Game : Node3D
                         var victimView = _views.GetValueOrDefault(struck);
                         _support.Lightning(MuzzleOf(e.Actor, charge) ?? at, victimView?.Centre ?? ActorView.World(shocked.Position) + Vector3.Up * 1.5f, victimView);
                     }
+                    // Fired in first person at the point under the crosshair: to that point, as far as the weapon
+                    // reaches along the line of sight (a hill in the way draws it with the Impact below).
+                    else if (World.PlayerAims.TryGetValue(e.Actor, out var sight) && sight.Height is { } sightHeight
+                             && World.Find(e.Actor) is { } sighting && !Blast.IsArea(e.Detail ?? "")
+                             && World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail) is { } sighted
+                             && !World.Events.Any(x => x.Kind == GameEventKind.Impact && x.Actor == e.Actor && x.Detail == e.Detail))
+                    {
+                        var muzzle = MuzzleOf(e.Actor, sighted) ?? at;
+                        var mark = new Vector3(sight.Point.X, sightHeight, sight.Point.Y);
+                        var reach = NVector2.Distance(sighting.Position, sight.Point);
+                        Shot(muzzle, reach > sighted.Range ? muzzle + (mark - muzzle) * (sighted.Range / reach) : mark, e.Detail ?? "");
+                    }
                     else if (e.Other is { } target && World.Find(target) is { } victim)
                     {
                         var weapon = World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail);
@@ -2149,13 +2161,14 @@ public partial class Game : Node3D
         if (machine.Weapons.Count > 0)
             _audio.PlayGui("gui/sounds/weapchng.wav");
         _aimYaw = machine.Facing;
+        _hullTurnsDue.Clear();
         var sideways = machine.CanStrafe ? "A/D step sideways" : "A/D turn";
         _hud.Message((GameOptions.ClassicDriving, machine.CanTurnUpperBody) switch
         {
             (true, true) => "First person: W/S drive, A/D or mouse turn, Shift or right mouse turns the upper body (C centres it), left mouse fire, Tab weapons, F or Esc to leave",
             (true, false) => "First person: W/S drive, A/D or mouse turn, left mouse fire, Tab weapons, F or Esc to leave",
-            (false, true) => $"First person: W/S drive, {sideways}, Q/E turn (Ctrl slowly), mouse turns the upper body (C centres it), left mouse fire, Tab weapons, F or Esc to leave",
-            (false, false) => $"First person: W/S drive, {sideways}, Q/E or mouse turn (Ctrl slowly), left mouse fire, Tab weapons, F or Esc to leave",
+            (false, true) => $"First person: W/S drive, {sideways}, Q/E turn (Ctrl slowly), the mouse looks and the upper body follows (C centres it), left mouse fire, Tab weapons, F or Esc to leave",
+            (false, false) => $"First person: W/S drive, {sideways}, Q/E turn (Ctrl slowly), the mouse looks and the machine follows, left mouse fire, Tab weapons, F or Esc to leave",
         });
     }
 
@@ -2183,12 +2196,44 @@ public partial class Game : Node3D
     // The right button turned the upper body; letting go of it brings the upper body back to the front.
     private bool _rightButtonTurnedHead;
 
-    // With the modern keys, where the driven machine's upper body points in the world, radians anticlockwise in the
-    // original's axes: the mouse turns it, and it keeps its heading while the hull turns under it.
+    // With the modern keys, where the view looks in the world, radians anticlockwise in the original's axes: the mouse
+    // turns it at once, and the machine follows, its upper body keeping that heading while the hull turns under it.
     private float _aimYaw;
 
-    /// <summary>With the modern keys the mouse always turns the upper body of a machine that has one.</summary>
-    private bool AimingHead => !GameOptions.ClassicDriving && _driven is { CanTurnUpperBody: true };
+    /// <summary>
+    /// With the modern keys the mouse turns the view at once, as in a tank game, and the machine follows it at its own
+    /// rate: the upper body of a machine that has one, else the whole hull.
+    /// </summary>
+    private bool FreeLook => !GameOptions.ClassicDriving && _driven is not null;
+
+    // Radians the view turns for a pixel the mouse moves: up and down, and with the modern keys sideways as well; the
+    // options' F.P. Mouse Speed scales it, and the classic keys' mouse turns too.
+    private static float LookPerPixel => 0.002f * GameOptions.MouseSpeed;
+
+    // The hull turns the driven machine has been told to make and has not made yet, by the tick that carries each out
+    // (radians anticlockwise in the original's axes): a hull following the view counts them, or it would overshoot.
+    private readonly Queue<(long Tick, float Turn)> _hullTurnsDue = new();
+
+    /// <summary>How fast the simulation turns the driven machine's hull, radians a second (GameWorld's driving).</summary>
+    private float HullTurnRate(Machine machine, bool slow)
+    {
+        var general = World.Data.Parm.General;
+        if (!World.Options.OriginalMotion)
+            return Mathf.DegToRad(general.FirstPersonMaxFastTurnRate);
+        return Mathf.DegToRad(MathF.Min(machine.Stats.RotationSpeed, slow ? general.FirstPersonMaxSlowTurnRate : general.FirstPersonMaxFastTurnRate));
+    }
+
+    /// <summary>
+    /// With the modern keys, how Q and E turn the hull, and A and D where the machine cannot step sideways: 1 for a
+    /// full turn to the left on screen, -1 to the right.
+    /// </summary>
+    private static float KeyTurn(Machine machine)
+    {
+        var turn = (Input.IsKeyPressed(Key.Q) ? 1f : 0f) - (Input.IsKeyPressed(Key.E) ? 1f : 0f);
+        if (!machine.CanStrafe)
+            turn += (Input.IsKeyPressed(Key.A) ? 1f : 0f) - (Input.IsKeyPressed(Key.D) ? 1f : 0f);
+        return Mathf.Clamp(turn, -1, 1);
+    }
 
     /// <summary>
     /// With the classic keys, whether the mouse and A/D turn the driven machine's upper body rather than the whole
@@ -2213,8 +2258,8 @@ public partial class Game : Node3D
                 if (_driven is { } centred)
                     _aimYaw = centred.Facing;
                 break;
-            case InputEventMouseMotion motion when AimingHead:
-                _aimYaw = Mathf.Wrap(_aimYaw + motion.Relative.X * 0.004f, -Mathf.Pi, Mathf.Pi);
+            case InputEventMouseMotion motion when FreeLook:
+                _aimYaw = Mathf.Wrap(_aimYaw + motion.Relative.X * LookPerPixel, -Mathf.Pi, Mathf.Pi);
                 LookUpDown(motion);
                 break;
             case InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: false } when _rightButtonTurnedHead:
@@ -2223,18 +2268,18 @@ public partial class Game : Node3D
                 break;
             case InputEventMouseMotion motion when TurningHead:
                 _rightButtonTurnedHead |= Input.IsMouseButtonPressed(MouseButton.Right);
-                _headTarget = Mathf.Wrap(_headTarget + motion.Relative.X * 0.004f, -Mathf.Pi, Mathf.Pi);
+                _headTarget = Mathf.Wrap(_headTarget + motion.Relative.X * 2 * LookPerPixel, -Mathf.Pi, Mathf.Pi);
                 LookUpDown(motion);
                 break;
             case InputEventMouseMotion motion:
-                _mouseTurn -= motion.Relative.X * 0.02f;
+                _mouseTurn -= motion.Relative.X * 10 * LookPerPixel;
                 LookUpDown(motion);
                 break;
         }
     }
 
     // The mouse looks down as it comes back, up with the options' Reverse F.P. Mouse (MachGuiFirstPerson).
-    private void LookUpDown(InputEventMouseMotion motion) => LookBy(motion.Relative.Y * (GameOptions.ReverseMouse ? 0.002f : -0.002f));
+    private void LookUpDown(InputEventMouseMotion motion) => LookBy(motion.Relative.Y * (GameOptions.ReverseMouse ? LookPerPixel : -LookPerPixel));
 
     // Shift and the up arrow look down, Shift and the down arrow up, slowly with Ctrl too (MachGuiFirstPerson's
     // LOOKDOWN and LOOKUP keys); the options' Reverse Up/Down Keys swaps the arrows.
@@ -2287,14 +2332,25 @@ public partial class Game : Node3D
         if (!GameOptions.ClassicDriving)
         {
             // Modern: Q and E turn; A and D step sideways where the machine can (legs, hover, flight), else turn too.
-            turn += (Input.IsKeyPressed(Key.Q) ? 1f : 0f) - (Input.IsKeyPressed(Key.E) ? 1f : 0f);
             if (machine.CanStrafe)
                 strafe = keys;
-            else
-                turn += keys;
-            // The upper body keeps its heading in the world while the hull turns under it.
-            if (AimingHead)
+            if (machine.CanTurnUpperBody)
+            {
+                // The upper body keeps the view's heading in the world while the hull turns under it.
+                turn = KeyTurn(machine);
                 _headTarget = Mathf.Wrap(_aimYaw - machine.Facing, -Mathf.Pi, Mathf.Pi);
+            }
+            else
+            {
+                // Without one the hull turns to where the view looks (the keys turn the view, frame by frame), as
+                // fast as it can, counting the turns already on their way so as to stop there.
+                while (_hullTurnsDue.TryPeek(out var due) && due.Tick < World.Tick)
+                    _hullTurnsDue.Dequeue();
+                var step = HullTurnRate(machine, Input.IsKeyPressed(Key.Ctrl)) * GameWorld.Dt;
+                var behind = Mathf.Wrap(_aimYaw - machine.Facing - _hullTurnsDue.Sum(due => due.Turn), -Mathf.Pi, Mathf.Pi);
+                turn = -Mathf.Clamp(behind / step, -1, 1);
+                _hullTurnsDue.Enqueue((World.Tick + _session.InputDelay, -turn * step));
+            }
         }
         // With Shift (or the right button) held, A and D turn the upper body as the original's Shift and arrows did.
         else if (TurningHead)
@@ -2302,10 +2358,11 @@ public partial class Game : Node3D
         else
             turn += keys;
 
-        // While the left button is held the weapons fire where the crosshair points: at the enemy under it, the
-        // ground it rests on, or straight ahead (where the upper body faces) as far as they reach, whether or not
-        // anything is there.
+        // While the left button is held the weapons fire at the very point under the crosshair, as the original's
+        // did (MachGuiFirstPerson, MachPhys1stPersonDriver::aimData): where the line of sight first meets a model or
+        // the ground within their reach, else its end in the air, whether or not anything is there.
         NVector2? aimAt = null;
+        float? aimHeight = null;
         if (Input.IsMouseButtonPressed(MouseButton.Left) && machine.CanFight)
         {
             // None of the selected weapons charged: the original's dud click, at most every 0.8 s (MachGuiFirstPerson).
@@ -2318,19 +2375,36 @@ public partial class Game : Node3D
                 _audio.PlayGui("gui/sounds/nowefire.wav");
                 _lastCouldFire = now;
             }
-            var range = machine.Weapons.Max(w => w.Spec.Range);
-            var centre = GetViewport().GetVisibleRect().Size / 2;
-            var looking = machine.Facing + HeadNow(machine);
-            var ahead = machine.Position + new NVector2(MathF.Cos(looking), MathF.Sin(looking)) * range;
-            aimAt = ActorAt(centre) is { } enemy && World.AreEnemies(Player, enemy.Race) ? enemy.Position
-                : GroundAt(centre) is { } ground && NVector2.Distance(ground, machine.Position) > 2 ? ground
-                : ahead;
+            var (sight, _) = SightAt(GetViewport().GetVisibleRect().Size / 2, machine.Weapons.Max(w => w.Spec.Range));
+            (aimAt, aimHeight) = (new NVector2(sight.X, sight.Z), sight.Y);
         }
         // The simulation turns left (counter-clockwise in the original's axes) for a positive turn, and steps left for a
         // positive strafe; the client shows the world with y and z swapped, which mirrors it, so on screen both go
         // right. Ctrl turns slowly (FIRST_PERSON_MAX_SLOW_TURN_RATE).
         Issue(new DriveCommand(Player, machine.Id, Driving: true, forward, Mathf.Clamp(-turn, -1, 1), aimAt, SelectedWeapons(machine), _headTarget,
-            -strafe, Input.IsKeyPressed(Key.Ctrl)));
+            -strafe, Input.IsKeyPressed(Key.Ctrl), aimHeight));
+    }
+
+    /// <summary>
+    /// Where the line of sight through a point of the screen first meets a model (not the driven machine's) or the
+    /// ground, at most <paramref name="range"/> metres from the camera, else where it ends in the air
+    /// (MachPhys1stPersonDriver::aimData); with the actor it met, if any. In the dark of the fog it meets no actor.
+    /// </summary>
+    private (Vector3 Point, Actor? Actor) SightAt(Vector2 screen, float range)
+    {
+        var camera = GetViewport().GetCamera3D();
+        var (from, direction) = (camera.ProjectRayOrigin(screen), camera.ProjectRayNormal(screen));
+        var nearest = HeightField.Current?.Hit(from, direction) is { } ground ? Mathf.Min(range, from.DistanceTo(ground)) : range;
+        ActorView? met = null;
+        if (Fog?.Blind != true)
+        {
+            foreach (var view in _views.Values)
+            {
+                if (view.ActorId != _driven?.Id && view.Hit(from, direction) is { } distance && distance < nearest)
+                    (nearest, met) = (distance, view);
+            }
+        }
+        return (from + direction * nearest, met is null ? null : World.Find(met.ActorId));
     }
 
     // When a selected weapon of the driven machine was last charged with the trigger held.
@@ -2344,13 +2418,20 @@ public partial class Game : Node3D
         if (_driven is not { } machine || !_views.TryGetValue(machine.Id, out var view))
             return;
         LookWithKeys();
+        // With the modern keys a machine without an upper body turns its view with the keys, smoothly, and the hull
+        // follows it at the same rate.
+        if (FreeLook && !machine.CanTurnUpperBody && (!Paused || Online))
+            _aimYaw = Mathf.Wrap(_aimYaw - KeyTurn(machine) * HullTurnRate(machine, Input.IsKeyPressed(Key.Ctrl)) * (float)GetProcessDeltaTime(),
+                -Mathf.Pi, Mathf.Pi);
         // From the faceplate, as the original, turning with the upper body; the view stays level whatever the
         // machine leans or sways.
         if (machine.CanTurnUpperBody)
             view.UpperBodyAngle = _headTarget;
         var head = HeadNow(machine);
         _firstPersonCamera.GlobalPosition = view.Eye;
-        _firstPersonCamera.GlobalRotation = new Vector3(_lookPitch, view.Yaw - head - Mathf.Pi / 2, 0);
+        // With the modern keys the view looks where the mouse turned it, not waiting for the machine to follow.
+        var yaw = FreeLook ? -_aimYaw : view.Yaw - head;
+        _firstPersonCamera.GlobalRotation = new Vector3(_lookPitch, yaw - Mathf.Pi / 2, 0);
         _firstPersonCamera.Basis *= CameraRig.ShakeAt(_firstPersonCamera.GlobalPosition);
 
         _hud.Weapons.Show(machine.Weapons, SelectedWeapons(machine));
@@ -2358,13 +2439,13 @@ public partial class Game : Node3D
         _hud.Radar.Head = head;
 
         // The crosshair shows what it rests on: an enemy to shoot or a friend to spare (ore and wrecks don't count).
-        var under = ActorAt(GetViewport().GetVisibleRect().Size / 2);
+        // It looks along the same line of sight the weapons fire along, as far as they reach.
         var reach = machine.Weapons.Select(w => w.Spec.Range).DefaultIfEmpty(0).Max();
-        var aimed = under is null || under.Id == machine.Id || machine.DistanceTo(under) > reach ? null : under;
+        var (_, aimed) = SightAt(GetViewport().GetVisibleRect().Size / 2, reach);
         _hud.Crosshair.Target = aimed is null ? null
             : (aimed.HitPoints / (float)Math.Max(1, aimed.MaxHitPoints), aimed.Armour / (float)Math.Max(1, aimed.MaxArmour));
         // The compass reads the heading as the original's azimuth: degrees anticlockwise from its x axis.
-        _hud.Crosshair.Heading = Mathf.RadToDeg(machine.Facing + head);
+        _hud.Crosshair.Heading = Mathf.RadToDeg(FreeLook ? _aimYaw : machine.Facing + head);
         _hud.Crosshair.Aim = aimed is null ? Crosshair.Sight.None
             : World.AreEnemies(Player, aimed.Race) ? Crosshair.Sight.Enemy
             : Crosshair.Sight.Friend;

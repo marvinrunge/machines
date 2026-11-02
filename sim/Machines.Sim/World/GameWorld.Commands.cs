@@ -287,7 +287,7 @@ public sealed partial class GameWorld
                 PlayerWeapons[driven.Id] = drive.Weapons;
                 PlayerHeads[driven.Id] = drive.Head;
                 if (drive.Aim is { } aim)
-                    PlayerAims[driven.Id] = aim;
+                    PlayerAims[driven.Id] = (aim, drive.AimHeight);
                 else
                     PlayerAims.Remove(driven.Id);
                 return null;

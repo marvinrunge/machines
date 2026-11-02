@@ -202,7 +202,7 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
         :
         [
             ("Drive", "W S"), ("Step sideways", "A D (legs, hover, flight)"), ("Turn", "Q E, A D, slowly with Ctrl"),
-            ("Turn upper body", "Mouse"), ("Upper body forward", "C"), ("Look up and down", "Mouse, Shift with arrows"),
+            ("Look round", "Mouse (the machine follows)"), ("Upper body forward", "C"), ("Look up and down", "Mouse, Shift with arrows"),
             ("Fire", "Left mouse button"), ("Pick weapons", "Tab"), ("Leave first person", "F, Esc"),
         ];
 
