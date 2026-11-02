@@ -251,21 +251,21 @@ public static class FxShaders
     }
 
     /// <summary>
-    /// A sphere of swirling energy (the vortex): bands winding about its axis and turning, glowing brightest at its
-    /// rim and white where the bands run there; a unit sphere (<see cref="SwirlSphere"/>) scaled by the node.
-    /// <c>fade</c> dims it.
+    /// The vortex as a black hole: a solid sphere, pitch black where it faces the camera, with thin white wisps
+    /// winding about its axis (the original's sphere is black with white streaks, models/texture4/wall_b) that light
+    /// up towards its edge, and a bright thread along the edge itself; a unit sphere (<see cref="HoleSphere"/>)
+    /// scaled by the node. <c>calm</c> stills the wisps, leaving it pure black as the original's last two seconds.
     /// </summary>
-    public static readonly Lazy<ShaderMaterial> Swirl = new(() => new ShaderMaterial
+    public static readonly Lazy<ShaderMaterial> Hole = new(() => new ShaderMaterial
     {
         Shader = new Shader
         {
             Code = """
                 shader_type spatial;
-                render_mode unshaded, blend_premul_alpha, cull_disabled, depth_draw_never, shadows_disabled, fog_disabled;
+                render_mode unshaded, cull_disabled, shadows_disabled;
 
-                instance uniform vec3 colour : source_color = vec3(0.55, 0.4, 1.0);
-                instance uniform float energy = 2.0;
-                instance uniform float fade = 1.0;
+                instance uniform float energy = 3.0;
+                instance uniform float calm = 0.0;
 
                 varying vec3 local;
 
@@ -276,20 +276,104 @@ public static class FxShaders
                 void fragment() {
                     float lat = asin(clamp(local.y, -1.0, 1.0));
                     float lon = atan(local.z, local.x);
-                    float bands = 0.5 + 0.5 * sin(lon * 3.0 + lat * 5.0 - TIME * 2.2 + 1.5 * sin(lat * 7.0 - TIME * 1.3));
-                    float fine = 0.5 + 0.5 * sin(lon * 11.0 - lat * 9.0 + TIME * 3.7);
-                    float rim = pow(1.0 - abs(dot(NORMAL, VIEW)), 2.5);
-                    float glow = (0.12 + 0.6 * bands * bands + 0.2 * fine * bands) * (0.4 + 0.6 * rim) + rim * 0.5;
-                    vec3 hot = mix(colour, vec3(1.0), 0.6 * bands * rim);
-                    ALBEDO = hot * glow * energy * fade;
-                    ALPHA = clamp(glow * fade * 0.8, 0.0, 1.0);
+                    float a = 0.5 + 0.5 * sin(lon * 4.0 + lat * 7.0 - TIME * 2.4 + 1.5 * sin(lat * 5.0 - TIME * 1.3));
+                    float b = 0.5 + 0.5 * sin(lon * 7.0 - lat * 5.0 + TIME * 3.1 + 2.0 * sin(lon * 3.0 + lat * 2.0 + TIME * 0.7));
+                    // Thin strands, none at the poles where they would all meet.
+                    float wisps = (pow(a, 24.0) + 0.7 * pow(b, 30.0)) * smoothstep(0.97, 0.75, abs(local.y));
+                    float edge = 1.0 - clamp(abs(dot(NORMAL, VIEW)), 0.0, 1.0);
+                    float glow = wisps * 1.5 * pow(edge, 1.8) * (1.0 - calm) + 1.4 * pow(edge, 10.0);
+                    ALBEDO = vec3(0.85, 0.9, 1.0) * glow * energy;
                 }
                 """,
         },
     });
 
-    /// <summary>The unit sphere (a metre across) that <see cref="Swirl"/> draws.</summary>
-    public static readonly Lazy<SphereMesh> SwirlSphere = new(() => new SphereMesh { Radius = 0.5f, Height = 1, RadialSegments = 48, Rings = 24 });
+    /// <summary>The unit sphere (a metre across) that <see cref="Hole"/> and <see cref="Shell"/> draw.</summary>
+    public static readonly Lazy<SphereMesh> HoleSphere = new(() => new SphereMesh { Radius = 0.5f, Height = 1, RadialSegments = 48, Rings = 24 });
+
+    /// <summary>
+    /// A shell of light about the vortex (the original's white sphere): bright along its edge and, but for a glow of
+    /// <c>fill</c>, clear where it faces the camera, so the black hole inside stays black; <c>fade</c> dims it.
+    /// </summary>
+    public static readonly Lazy<ShaderMaterial> Shell = new(() => new ShaderMaterial
+    {
+        Shader = new Shader
+        {
+            Code = """
+                shader_type spatial;
+                render_mode unshaded, blend_add, cull_back, depth_draw_never, shadows_disabled, fog_disabled;
+
+                instance uniform float energy = 2.0;
+                instance uniform float fill = 0.0;
+                instance uniform float fade = 1.0;
+
+                void fragment() {
+                    float edge = 1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+                    ALBEDO = vec3(0.9, 0.95, 1.0) * (pow(edge, 5.0) + fill) * energy * fade;
+                }
+                """,
+        },
+    });
+
+    /// <summary>
+    /// Space drawn in about a black hole: a disc facing the camera, its size the node's scale (a unit quad), that
+    /// shows what lies behind it pulled in towards the hole and turned about it, most just outside the hole (<c>hole</c>,
+    /// its radius as a share of the disc's) and not at all at the disc's edge. <c>pull</c> sets how much. What stands
+    /// in front of the hole stays as it is. It is drawn before the other see-through effects, which it would
+    /// otherwise hide.
+    /// </summary>
+    public static readonly Lazy<ShaderMaterial> Lens = new(() => new ShaderMaterial
+    {
+        RenderPriority = (int)Material.RenderPriorityMin,
+        Shader = new Shader
+        {
+            Code = """
+                shader_type spatial;
+                render_mode unshaded, blend_mix, cull_disabled, depth_test_disabled, depth_draw_never, shadows_disabled, fog_disabled;
+
+                uniform sampler2D screen : hint_screen_texture, filter_linear;
+                uniform sampler2D depth : hint_depth_texture, filter_nearest;
+                instance uniform float pull = 1.0;
+                instance uniform float hole = 0.4;
+
+                varying float centre;
+                varying float reach;
+
+                void vertex() {
+                    MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+                    MODELVIEW_MATRIX = MODELVIEW_MATRIX * mat4(
+                        vec4(length(MODEL_MATRIX[0].xyz), 0.0, 0.0, 0.0),
+                        vec4(0.0, length(MODEL_MATRIX[1].xyz), 0.0, 0.0),
+                        vec4(0.0, 0.0, length(MODEL_MATRIX[2].xyz), 0.0),
+                        vec4(0.0, 0.0, 0.0, 1.0));
+                    centre = -(VIEW_MATRIX * vec4(MODEL_MATRIX[3].xyz, 1.0)).z;
+                    reach = length(MODEL_MATRIX[0].xyz) * 0.5 * hole;
+                }
+
+                // 1 where the scene lies level with the hole or behind it, 0 a radius and more in front of it.
+                float behind(vec2 at, mat4 unproject, float middle, float radius) {
+                    vec4 seen = unproject * vec4(at * 2.0 - 1.0, texture(depth, at).r, 1.0);
+                    return smoothstep(middle - radius * 1.2, middle - radius * 0.2, -seen.z / seen.w);
+                }
+
+                void fragment() {
+                    vec2 p = UV * 2.0 - 1.0;
+                    float r = length(p);
+                    // 0 at the hole's edge, 1 at the disc's.
+                    float x = (r - hole) / (1.0 - hole);
+                    float strength = pull * smoothstep(0.0, 0.15, x) * pow(1.0 - clamp(x, 0.0, 1.0), 2.0);
+                    float turn = strength * 0.4;
+                    vec2 from = mat2(vec2(cos(turn), sin(turn)), vec2(-sin(turn), cos(turn))) * p * (1.0 + strength * 0.12);
+                    // From the disc's own measure to the screen's, which the disc faces square on.
+                    vec2 pixels = (from - p) * 0.5 / vec2(dFdx(UV.x), dFdy(UV.y));
+                    vec2 drawn = clamp(SCREEN_UV + pixels / VIEWPORT_SIZE, vec2(0.0), vec2(1.0));
+                    float kept = behind(SCREEN_UV, INV_PROJECTION_MATRIX, centre, reach) * behind(drawn, INV_PROJECTION_MATRIX, centre, reach);
+                    ALBEDO = texture(screen, mix(SCREEN_UV, drawn, kept)).rgb;
+                    ALPHA = x > 0.0 && x < 1.0 ? 1.0 : 0.0;
+                }
+                """,
+        },
+    });
 
     /// <summary>The quad that draws <see cref="Spark"/> particles.</summary>
     public static readonly Lazy<QuadMesh> SparkQuad = new(() => new QuadMesh { Size = Vector2.One, Material = Spark.Value });

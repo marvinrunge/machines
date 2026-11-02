@@ -139,44 +139,110 @@ public partial class GroundBlast : Node3D
         return view;
     }
 
+    private const float VortexTime = 10, VortexSplit = 8;
+
     /// <summary>
-    /// The vortex (MachPhysVortexBomb), over 10 s: a white sphere flares up for 2 s; the swirling vortex sphere
-    /// grows to the weapon's radius (EXTRAS, 40 m) and holds; in the last 2 s it turns pitch black and collapses to
-    /// nothing inside a white shell.
+    /// The vortex (MachPhysVortexBomb), over 10 s: a white sphere flares up for 2 s; the vortex sphere, black with
+    /// white streaks, grows to the weapon's radius (EXTRAS, 40 m) and holds while the ground round it darkens
+    /// (<see cref="Darkness"/>); in the last 2 s it turns pitch black and collapses to nothing inside a white shell.
+    /// The remake's effects draw it as a black hole (<see cref="RemadeVortex"/>).
     /// </summary>
     private static GroundBlast? Vortex(ClassicAssets assets, Blast blast, IReadOnlyList<float> extras)
     {
+        if (GraphicsSettings.Effects)
+            return RemadeVortex(blast, extras);
         if (assets.EffectMesh("vsphere") is not { } vortexMesh || assets.EffectMesh("bsphere") is not { } blackMesh
             || assets.EffectMesh("wsphere") is not { } whiteMesh)
             return null;
         var radius = extras.Count > 0 ? extras[0] : 40;
-        const float duration = 10, split = 8;
         var view = new GroundBlast { Name = "Vortex" };
         var at = ActorView.World(blast.Position);
-        // In the remake's effects the vortex is a sphere of swirling light drawing dust in.
-        var vortex = GraphicsSettings.Effects ? view.SwirlingVortex(at, split) : view.Piece(vortexMesh).View;
+        var (vortex, _) = view.Piece(vortexMesh);
         var (black, _) = view.Piece(blackMesh);
         var (white, whiteMaterial) = view.Piece(whiteMesh);
         var whiteClear = whiteMaterial.AlbedoColor.A;
         // The spheres are a metre across: twice the radius is their scale.
         view._parts.Add(age =>
         {
-            var grown = Mathf.SmoothStep(0, 1, Mathf.Clamp(age / 5, 0, 1));
-            var collapse = Mathf.Clamp((age - split) / (duration - split), 0, 1);
-            var size = 2 * radius * grown * (1 - collapse * collapse);
-            vortex.Visible = age < split;
+            var size = VortexSize(age, radius);
+            vortex.Visible = age < VortexSplit;
             vortex.Transform = new Transform3D(new Basis(Vector3.Up, age * 1.2f).Scaled(Vector3.One * Mathf.Max(size, 0.01f)), at);
-            black.Visible = age >= split && age < duration;
+            black.Visible = age >= VortexSplit && age < VortexTime;
             black.Transform = new Transform3D(Basis.FromScale(Vector3.One * Mathf.Max(size, 0.01f)), at);
             white.Visible = age < 2 || black.Visible;
-            var flare = age < 2 ? 2 * radius * 0.4f * Mathf.Clamp(age / 0.5f, 0, 1) : size * 1.04f;
-            white.Transform = new Transform3D(Basis.FromScale(Vector3.One * Mathf.Max(flare, 0.01f)), at);
-            Fade(whiteMaterial, age < 2 ? Fading(age, 1, 2) : 0.6f, whiteClear);
-            return age < duration;
+            white.Transform = new Transform3D(Basis.FromScale(Vector3.One * Mathf.Max(WhiteSize(age, radius), 0.01f)), at);
+            // Half clear round the collapse, as the original's alpha plan.
+            Fade(whiteMaterial, WhiteShown(age) * (age < 2 ? 1 : 0.5f), whiteClear);
+            return age < VortexTime;
         });
-        view.Flash(at + Vector3.Up * 10, new Color(0.8f, 0.7f, 1), 6, radius * 3, 0, 2);
-        view.Flash(at + Vector3.Up * 10, new Color(0.6f, 0.5f, 1), 3, radius * 3, split, duration - split);
+        view.Flash(at + Vector3.Up * 10, new Color(1, 1, 1), 6, radius * 3, 0, 2);
+        view.Darkness(at, radius);
         return view;
+    }
+
+    /// <summary>
+    /// How far across the vortex sphere is <paramref name="age"/> seconds in: growing to twice the radius in 5 s,
+    /// holding, and collapsing to nothing in the last 2 s.
+    /// </summary>
+    private static float VortexSize(float age, float radius)
+    {
+        var grown = Mathf.SmoothStep(0, 1, Mathf.Clamp(age / 5, 0, 1));
+        var collapse = Mathf.Clamp((age - VortexSplit) / (VortexTime - VortexSplit), 0, 1);
+        return 2 * radius * grown * (1 - collapse * collapse);
+    }
+
+    /// <summary>
+    /// How far across the vortex's white sphere is: flaring to 0.4 of the vortex's full size in half a second for the
+    /// first 2 s, and from the split running out from the vortex's edge 30 m further, slow, fast and slow again (the
+    /// original's scale plan).
+    /// </summary>
+    private static float WhiteSize(float age, float radius)
+    {
+        if (age < 2)
+            return 2 * radius * 0.4f * Mathf.Clamp(age / 0.5f, 0, 1);
+        var late = Mathf.Clamp((age - VortexSplit) / (VortexTime - VortexSplit), 0, 1);
+        return 2 * (radius + 0.5f + 30 * (late < 0.5f ? 2 * late * late : 1 - 2 * (1 - late) * (1 - late)));
+    }
+
+    /// <summary>How much of the white sphere shows: fading from 1 s to 2 s, and from 8.2 s to the end.</summary>
+    private static float WhiteShown(float age) => age < 2 ? Fading(age, 1, 2) : Fading(age, VortexSplit + 0.2f, VortexTime);
+
+    /// <summary>How far round the vortex the ground darkens, in its radii.</summary>
+    private const float GloomReach = 2.4f;
+
+    /// <summary>The vortex's darkness: black over the ground out to 1 / <see cref="GloomReach"/> of the way, fading to nothing at the edge.</summary>
+    private static readonly Texture2D Gloom = Effects.Generate(128, (x, y) =>
+    {
+        var d = Mathf.Clamp((1 - new Vector2(x, y).Length()) / (1 - 1 / GloomReach), 0, 1);
+        return new Color(0, 0, 0, Mathf.Pow(d, 0.8f));
+    });
+
+    /// <summary>
+    /// The darkness the vortex casts over the ground, standing for the original's second light, a negative one (its
+    /// colour in EXTRAS is below nought, -1.5 -2 -1), without the purple dusk that light left: from 2 s on it grows
+    /// with the sphere and deepens as the light did, is black when the sphere turns black (the light's peak) and
+    /// lifts by the end.
+    /// </summary>
+    private void Darkness(Vector3 at, float radius)
+    {
+        var gloom = new Decal
+        {
+            TextureAlbedo = Gloom,
+            UpperFade = 0.2f,
+            LowerFade = 0.2f,
+            CullMask = TerrainBuilder.GroundLayer,
+            Visible = false,
+        };
+        AddChild(gloom);
+        gloom.Position = at;
+        _parts.Add(age =>
+        {
+            gloom.Visible = age >= 2 && age < VortexTime;
+            var reach = (age < VortexSplit ? VortexSize(age, radius) : 2 * radius) * GloomReach;
+            gloom.Size = new Vector3(reach, 2 * radius, reach);
+            gloom.Modulate = new Color(1, 1, 1, age < VortexSplit ? 0.9f * (age - 2) / (VortexSplit - 2) : Fading(age, VortexSplit + 0.5f, VortexTime));
+            return age < VortexTime;
+        });
     }
 
     /// <summary>One punch's six cracks with their fire, from a point in a direction (as the Gorilla's, MachPhysPunchBlast), starting late.</summary>

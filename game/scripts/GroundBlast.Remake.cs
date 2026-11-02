@@ -8,7 +8,7 @@ namespace Machines.Game;
 /// fire along the cracks as walls of the rendered flames; the nuke as a ball of white fire, a mushroom of rendered
 /// fire and smoke whose stem and cap grow as the original's, and a shock wave of light with a wall of dust racing out
 /// over the ground; the ion cannon as columns of running light from the sky with sparks flying up round their foot;
-/// the vortex as a sphere of swirling light drawing dust in.
+/// the vortex as a black hole drawing space and dust in.
 /// </summary>
 public partial class GroundBlast
 {
@@ -279,20 +279,35 @@ public partial class GroundBlast
         return view;
     }
 
+    /// <summary>How far round the black hole space is drawn in, in its radii.</summary>
+    private const float LensReach = 2.2f;
+
     /// <summary>
-    /// The vortex's sphere of swirling light (<see cref="FxShaders.Swirl"/>), which the vortex sizes and turns as it
-    /// would the original's, and dust swirling in from round it until <paramref name="until"/>.
+    /// The vortex as a black hole, on the original's sizes and timing (see <see cref="Vortex"/>): a shell of white
+    /// light flares round it for 2 s; the hole, a solid black sphere with wisps of light winding round its edge
+    /// (<see cref="FxShaders.Hole"/>), grows to its radius with space drawn in about it (<see cref="FxShaders.Lens"/>)
+    /// and dust swirling in, while the ground round it darkens more and more (<see cref="Darkness"/>); in the last
+    /// 2 s its wisps die, it collapses to nothing as the ground goes black, and the shell of light runs out from it
+    /// 30 m further and fades.
     /// </summary>
-    private MeshInstance3D SwirlingVortex(Vector3 at, float until)
+    private static GroundBlast RemadeVortex(Blast blast, IReadOnlyList<float> extras)
     {
-        var sphere = new MeshInstance3D
+        var radius = extras.Count > 0 ? extras[0] : 40;
+        var view = new GroundBlast { Name = "Vortex" };
+        var at = ActorView.World(blast.Position);
+        MeshInstance3D Shown(Mesh mesh, Material look)
         {
-            Mesh = FxShaders.SwirlSphere.Value,
-            MaterialOverride = FxShaders.Swirl.Value,
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-            Visible = false,
-        };
-        AddChild(sphere);
+            var shown = new MeshInstance3D { Mesh = mesh, MaterialOverride = look, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Visible = false };
+            view.AddChild(shown);
+            return shown;
+        }
+        var hole = Shown(FxShaders.HoleSphere.Value, FxShaders.Hole.Value);
+        var shell = Shown(FxShaders.HoleSphere.Value, FxShaders.Shell.Value);
+        var lens = Shown(new QuadMesh { Size = Vector2.One }, FxShaders.Lens.Value);
+        // The hole's outline lies a little outside its radius, seen in perspective.
+        lens.SetInstanceShaderParameter("hole", 1.03f / LensReach);
+
+        // Dust from round it spiralling in, darkening as it falls.
         var inflow = new ParticleProcessMaterial
         {
             EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.SphereSurface,
@@ -308,16 +323,34 @@ public partial class GroundBlast
             AngleMax = 180,
             AnimSpeedMin = 1,
             AnimSpeedMax = 1,
-            ColorRamp = Effects.Ramp(Effects.DustTint with { A = 0 }, Effects.DustTint with { A = 0.6f }, Effects.DustTint.Darkened(0.2f) with { A = 0 }),
+            ColorRamp = Effects.Ramp(Effects.DustTint with { A = 0 }, Effects.DustTint.Darkened(0.3f) with { A = 0.6f },
+                Effects.DustTint.Darkened(0.8f) with { A = 0 }),
         };
-        var dust = Emitter(Effects.Flipbook("billow"), inflow, 60, 1.2f, at, 80);
-        _parts.Add(age =>
+        var dust = view.Emitter(Effects.Flipbook("billow"), inflow, 60, 1.2f, at, 80);
+
+        view._parts.Add(age =>
         {
-            inflow.EmissionSphereRadius = Mathf.Max(sphere.Scale.X * 0.75f, 1);
-            dust.Emitting = age > 0.5f && age < until;
-            return age < until + dust.Lifetime;
+            var size = Mathf.Max(VortexSize(age, radius), 0.01f);
+            hole.Visible = age < VortexTime;
+            hole.Transform = new Transform3D(new Basis(Vector3.Up, age * 1.2f).Scaled(Vector3.One * size), at);
+            hole.SetInstanceShaderParameter("calm", Mathf.Clamp((age - VortexSplit) / 0.3f, 0, 1));
+            lens.Visible = hole.Visible;
+            lens.Transform = new Transform3D(Basis.FromScale(Vector3.One * size * LensReach), at);
+            lens.SetInstanceShaderParameter("pull", size / (2 * radius));
+
+            // The shell glows through while it flares, and is only a ring of light about the hole as it collapses.
+            shell.Visible = age < 2 || age >= VortexSplit && age < VortexTime;
+            shell.Transform = new Transform3D(Basis.FromScale(Vector3.One * Mathf.Max(WhiteSize(age, radius), 0.01f)), at);
+            shell.SetInstanceShaderParameter("fade", WhiteShown(age));
+            shell.SetInstanceShaderParameter("fill", age < 2 ? 0.15f : 0);
+
+            inflow.EmissionSphereRadius = Mathf.Max(size * 0.75f, 1);
+            dust.Emitting = age > 0.5f && age < VortexSplit;
+            return age < VortexTime;
         });
-        return sphere;
+        view.Flash(at + Vector3.Up * 10, new Color(1, 1, 1), 6, radius * 3, 0, 2);
+        view.Darkness(at, radius);
+        return view;
     }
 
     /// <summary>
