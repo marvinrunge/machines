@@ -18,4 +18,4 @@ This build contains no art, sound, terrain or films from the original game; thos
 
 **Imported with an earlier version?** If the options say so, press **Import again** once.
 
-Known gaps: the overhauled models' rounded edges and baked shading are made with Blender and are not in this build; the Overhauled look shows the original models with sharpened textures. The HD look with newly made models is still in the making.
+Known gaps: the overhauled models' rounded edges and baked shading, and the new trees and rocks, are made with Blender and are not in this build; the Overhauled look shows the original models with sharpened textures, and the original's trees and rocks. The HD look with newly made models is still in the making.
