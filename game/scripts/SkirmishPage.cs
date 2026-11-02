@@ -20,7 +20,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
 
     // The last settings, kept while the game runs so returning to the menu shows them again.
     private static (string Scenario, string Planet)? _lastMap;
-    private static int _lastPlayers = 2, _lastColour, _lastStarts = 1, _lastBmu, _lastResources = 2, _lastTech, _lastVictory, _lastFill;
+    private static int _lastPlayers = 2, _lastColour, _lastStarts = 1, _lastBmu, _lastResources = 2, _lastTech, _lastVictory, _lastFill, _lastAi = (int)AiLevel.Normal;
 
     private readonly Dictionary<string, Texture2D?> _maps = [];
     private readonly List<CatalogueScenario> _entries = [];
@@ -85,6 +85,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
         rows.AddChild(Setting("Technology", Choice(["Map default", "Low", "Medium", "High"], _lastTech, i => _lastTech = i), 180));
         rows.AddChild(Setting("Victory", Choice(new[] { "Annihilation", "Destroy pod" }
             .Concat(MatchOptions.TimeLimits.Select(s => $"Timed: {FormatMinutes(s)}")), _lastVictory, i => _lastVictory = i), 180));
+        rows.AddChild(Setting("AI", Choice(["Easy", "Normal", "Hard"], _lastAi, i => _lastAi = i), 180));
         if (forRoom)
             rows.AddChild(Setting("Free slots", Choice(["Play the AI", "Stay empty"], _lastFill, i => _lastFill = i), 180));
 
@@ -264,6 +265,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
             TechLevel = (TechLevel)_lastTech,
             Victory = victory,
             TimeLimit = victory == VictoryCondition.Timer ? MatchOptions.TimeLimits[_lastVictory - 2] : 1800,
+            AiLevel = (AiLevel)_lastAi,
         };
     }
 

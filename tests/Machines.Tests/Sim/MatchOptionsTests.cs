@@ -104,4 +104,35 @@ public class MatchOptionsTests
         Assert.Equal(0, world.TimeLeft);
         Assert.Equal(Race.Blue, world.Winner);
     }
+
+    [Theory]
+    [InlineData(AiLevel.Easy, 2 / 3f)]
+    [InlineData(AiLevel.Normal, 1f)]
+    [InlineData(AiLevel.Hard, 1.5f)]
+    public void The_ai_level_scales_what_an_ai_earns_and_leaves_the_player_alone(AiLevel level, float worth)
+    {
+        var world = NewMatch(new MatchOptions { AiLevel = level });
+        Assert.Equal(worth, world.OreWorth(Race.Blue));
+        Assert.Equal(1f, world.OreWorth(Race.Red));
+    }
+
+    [Fact]
+    public void A_hard_ai_mines_half_as_much_again_as_a_normal_one()
+    {
+        float Mined(AiLevel level, Race race)
+        {
+            var world = NewMatch(new MatchOptions { AiLevel = level });
+            // Full stores take nothing in: both banks start empty.
+            foreach (var state in world.Races.Values)
+                state.Bmu = 0;
+            for (var i = 0; i < 120 * GameWorld.TicksPerSecond; i++)
+                world.Step();
+            return world.Races[race].Score.BmusMined;
+        }
+
+        var normal = Mined(AiLevel.Normal, Race.Blue);
+        Assert.True(normal > 0);
+        Assert.Equal(1.5f * normal, Mined(AiLevel.Hard, Race.Blue), 1.5f * normal * 0.05f);
+        Assert.Equal(Mined(AiLevel.Normal, Race.Red), Mined(AiLevel.Hard, Race.Red));
+    }
 }

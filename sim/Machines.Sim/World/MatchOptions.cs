@@ -35,6 +35,14 @@ public enum VictoryCondition
     Scripted,
 }
 
+/// <summary>How well the AIs play (<see cref="MatchOptions.AiLevel"/>).</summary>
+public enum AiLevel
+{
+    Easy,
+    Normal,
+    Hard,
+}
+
 /// <summary>The skirmish menu's settings, as the original applied them when it created the match.</summary>
 public sealed record MatchOptions
 {
@@ -84,8 +92,32 @@ public sealed record MatchOptions
     /// </summary>
     public bool RestrictConstruction { get; init; } = true;
 
+    /// <summary>
+    /// How well the AIs play; the original's played their scripts one way only. Easy ones think every other second,
+    /// get two thirds of the BMUs for their ore and their pods' trickle, and attack and patrol half as late again;
+    /// hard ones get half as much again and set out at three fifths of the scripts' delays. Normal plays the scripts
+    /// as they are, as every recording made before the choice did.
+    /// </summary>
+    public AiLevel AiLevel { get; init; } = AiLevel.Normal;
+
     /// <summary>For a campaign mission: what it takes over from the missions the player won before.</summary>
     public CampaignCarry? Campaign { get; init; }
+
+    /// <summary>The BMUs an AI race gets for each it would earn, at <paramref name="level"/>.</summary>
+    public static float AiIncome(AiLevel level) => level switch
+    {
+        AiLevel.Easy => 2 / 3f,
+        AiLevel.Hard => 1.5f,
+        _ => 1,
+    };
+
+    /// <summary>How much later than the script says an AI squad sets out, at <paramref name="level"/>.</summary>
+    public static float AiDelay(AiLevel level) => level switch
+    {
+        AiLevel.Easy => 1.5f,
+        AiLevel.Hard => 0.6f,
+        _ => 1,
+    };
 
     /// <summary>The timer choices of the original menu: 5 minutes to 3 hours.</summary>
     public static readonly IReadOnlyList<int> TimeLimits = [300, 600, 900, 1800, 2700, 3600, 5400, 7200, 10800];

@@ -472,8 +472,10 @@ public sealed partial class GameWorld
         {
             // Ore becomes BMUs at once; whatever does not fit in storage stays on board, and the carrier waits
             // with it until there is room (MachLogPutDownOperation).
-            var added = AddBmu(carrier.Race, carrier.Ore);
-            carrier.Ore -= (int)added;
+            // An AI's ore is worth more or less as its level says (MatchOptions.AiLevel).
+            var worth = OreWorth(carrier.Race);
+            var added = AddBmu(carrier.Race, carrier.Ore * worth);
+            carrier.Ore -= worth == 1 ? (int)added : Math.Min(carrier.Ore, (int)MathF.Round(added / worth));
             if (added > 0)
                 smelter.OreDroppedTick = Tick;
             if (carrier.Ore <= 0)

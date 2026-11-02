@@ -29,10 +29,15 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
         public int SearchStep { get; set; }
     }
 
+    // How often an easy AI has been asked to think: it does every other time (MatchOptions.AiLevel).
+    private long _asked;
+
     /// <summary>Called once a second.</summary>
     public void Think(GameWorld world)
     {
         if (world.Races[Race].Defeated)
+            return;
+        if (world.Options.AiLevel == AiLevel.Easy && _asked++ % 2 == 1)
             return;
 
         _busyLabs.Clear();
@@ -408,7 +413,7 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
         var activated = world.Script?.ActivatedSquadrons.Contains((Race, state.Squad.Number)) == true;
         // Waiting, every member goes to the assembly point, unarmed ones too (optskatt.cpp moves all the squadron's
         // idle machines): finger's APC drives to its drop-off so, where the script lands the troops it carries.
-        if (world.Time < attack.DelayMinutes * 60 && !activated)
+        if (world.Time < attack.DelayMinutes * 60 * MatchOptions.AiDelay(world.Options.AiLevel) && !activated)
         {
             Gather(world, attack, members);
             return;
@@ -476,7 +481,7 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
 
     private void Patrol(GameWorld world, PatrolOperation patrol, List<Machine> members)
     {
-        if (world.Time < patrol.DelayMinutes * 60)
+        if (world.Time < patrol.DelayMinutes * 60 * MatchOptions.AiDelay(world.Options.AiLevel))
             return;
         var idle = members.Where(m => m.Order is IdleOrder).Select(m => m.Id).ToList();
         if (idle.Count > 0)

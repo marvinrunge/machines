@@ -77,6 +77,11 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
         var planet = parts.Length > 1 ? parts[1] : scenario;
         var slots = Paths.Data.LoadScenario(scenario).Races.Select(r => r.Race).ToList();
         return new MatchRequest(scenario, planet, StartPositions.Assign(slots, slots.Count, slots.Min(), random: false, new Random(0)),
-            new MatchOptions { Resources = ResourceLevel.High });
+            new MatchOptions
+            {
+                Resources = ResourceLevel.High,
+                // MACHINES_AI=easy, normal or hard sets how well the AIs play.
+                AiLevel = Enum.TryParse<AiLevel>(System.Environment.GetEnvironmentVariable("MACHINES_AI"), true, out var level) ? level : AiLevel.Normal,
+            });
     }
 }

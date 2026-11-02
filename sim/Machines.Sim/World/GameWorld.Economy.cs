@@ -13,7 +13,7 @@ public sealed partial class GameWorld
             {
                 case "POD":
                     // The pod mines a trickle on its own: EXTRACTION_RATE per minute straight into the bank.
-                    AddBmu(building.Race, (building.Stats.ExtractionRate ?? 0) / 60f * Dt);
+                    AddBmu(building.Race, (building.Stats.ExtractionRate ?? 0) / 60f * Dt * OreWorth(building.Race));
                     break;
 
                 case "MINE":

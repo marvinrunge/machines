@@ -276,6 +276,13 @@ public sealed partial class GameWorld
         .Where(c => c.Race == race && c.Complete && c.Spec.Type is "SMELTER" or "POD")
         .Sum(c => c.Stats.Capacity ?? 0);
 
+    /// <summary>
+    /// The BMUs a race gets for each its ore or its pod would bring: an AI's as its level says
+    /// (<see cref="MatchOptions.AiLevel"/>), everyone else's one.
+    /// </summary>
+    public float OreWorth(Race race) =>
+        Races.TryGetValue(race, out var state) && state.Controller == Controller.Ai ? MatchOptions.AiIncome(Options.AiLevel) : 1;
+
     /// <summary>Adds BMUs up to the storage limit; returns how many were added (the original's smartAddBMUs).</summary>
     public float AddBmu(Race race, float amount)
     {
