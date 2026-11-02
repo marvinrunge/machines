@@ -79,7 +79,7 @@ public static class KeyMap
     /// <summary>The moves, which work on the ground and in first person alike.</summary>
     public static bool IsMove(Act act) => act <= Act.TurnRight;
 
-    public static string Title(Act act) => Entries[act].Name;
+    public static string Title(Act act) => Lang.T(Entries[act].Name);
 
     /// <summary>The action's key.</summary>
     public static Key Of(Act act) => Keys[act];

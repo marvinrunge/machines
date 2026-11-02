@@ -136,7 +136,7 @@ public partial class MenuMessage(string text, (string Text, Action? Act)[] butto
         row.AddThemeConstantOverride("separation", 28);
         foreach (var (name, act) in buttons)
         {
-            var button = new ChipButton(name.ToUpperInvariant()) { CustomMinimumSize = new Vector2(220, 74), FontSize = 26 };
+            var button = new ChipButton(Lang.T(name).ToUpperInvariant()) { CustomMinimumSize = new Vector2(220, 74), FontSize = 26 };
             button.Pressed += () =>
             {
                 close();
@@ -185,7 +185,7 @@ public abstract partial class MenuPage(Action? back) : MarginContainer
     /// <summary>A menu button: a chip with its name in capitals.</summary>
     public static ChipButton Button(string text, Action pressed, float height = 76, int fontSize = 28)
     {
-        var button = new ChipButton(text.ToUpperInvariant()) { CustomMinimumSize = new Vector2(0, height), FontSize = fontSize };
+        var button = new ChipButton(Lang.T(text).ToUpperInvariant()) { CustomMinimumSize = new Vector2(0, height), FontSize = fontSize };
         button.Pressed += pressed;
         return button;
     }
@@ -194,7 +194,7 @@ public abstract partial class MenuPage(Action? back) : MarginContainer
     public static ChipPanel Heading(string text)
     {
         var chip = new ChipPanel { Padding = 14, SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
-        var label = MenuTheme.Label(text.ToUpperInvariant(), 40, MenuTheme.Bright);
+        var label = MenuTheme.Label(Lang.T(text).ToUpperInvariant(), 40, MenuTheme.Bright);
         label.CustomMinimumSize = new Vector2(300, 0);
         chip.AddChild(label);
         return chip;

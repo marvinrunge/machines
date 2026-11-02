@@ -63,6 +63,24 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
         SwitchOn();
     }
 
+    /// <summary>
+    /// The step's heading, and on the first two the language beside it (at first the system's, see <see cref="Lang"/>);
+    /// another builds the page again in it.
+    /// </summary>
+    private Control Top(string heading)
+    {
+        if (step == Step.Music)
+            return Heading(heading);
+        var language = new ChipChoice(Lang.Names, Array.IndexOf(Lang.Codes, Lang.Code)) { CustomMinimumSize = new Vector2(300, 64) };
+        language.ItemSelected += i =>
+        {
+            Lang.Code = Lang.Codes[i];
+            screens.ShowSetup(step);
+        };
+        language.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        return Line(Gap, Heading(heading), Spring(), language);
+    }
+
     /// <summary>A chip with the step's text, as wide as the page.</summary>
     private static ChipPanel Words(params string[] paragraphs)
     {
@@ -73,7 +91,7 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
 
     private void ImportStep(VBoxContainer page)
     {
-        page.AddChild(Heading("Welcome"));
+        page.AddChild(Top("Welcome"));
         page.AddChild(Words(
             "Machines Remake rebuilds Machines: Wired for War (1999). It brings nothing of the original along: its models, " +
             "planets, sounds and films come from your own copy of the game (GOG or Steam).",
@@ -105,7 +123,7 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
 
     private void LookStep(VBoxContainer page)
     {
-        page.AddChild(Heading("Choose a look"));
+        page.AddChild(Top("Choose a look"));
         page.AddChild(MenuTheme.Paragraph(
             "Both play the same game. The options change the look at any time, and under Customize part by part; " +
             "a look with newly made HD models follows once they are finished.", 24, MenuTheme.Text));
@@ -145,11 +163,14 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
             GraphicsSettings.Look = look;
             screens.ShowSetup(Step.Music);
         });
+        // Room for three lines of text on both cards, so that their screens stay the same size in either language.
+        var words = MenuTheme.Paragraph(text, 22, MenuTheme.Text);
+        words.CustomMinimumSize = new Vector2(0, 116);
         var card = new ChipPanel { Padding = 22, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         card.AddChild(Column(18,
             display,
-            MenuTheme.Label(title.ToUpperInvariant(), 30, MenuTheme.Bright),
-            MenuTheme.Paragraph(text, 22, MenuTheme.Text),
+            MenuTheme.Label(Lang.T(title).ToUpperInvariant(), 30, MenuTheme.Bright),
+            words,
             button));
         cards.AddChild(card);
         return button;
@@ -157,14 +178,14 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
 
     private void MusicStep(VBoxContainer page)
     {
-        page.AddChild(Heading("Music"));
+        page.AddChild(Top("Music"));
         page.AddChild(Words(
             "The remake plays the original soundtrack from MP3s of your own, as the original played its CD: the intro, " +
             "the menu tune, each planet's own track and the victory and defeat tunes.",
             "Pick the folder that holds them (Track 00 - Intro.mp3 and the others). Without it the game plays without music."));
         static string Tracks(string? folder) => Music.TrackCount(folder) is var count and > 0
-            ? $"{count} tracks found."
-            : "No soundtrack picked yet.";
+            ? Lang.T("{0} tracks found.", count)
+            : Lang.T("No soundtrack picked yet.");
         var tracks = MenuTheme.Label(Tracks(Music.Folder), 24, MenuTheme.Bright);
         page.AddChild(tracks);
         page.AddChild(Spring(across: false));

@@ -76,10 +76,10 @@ public partial class MatchChat(Game game, ClassicPanel panel) : Control
         {
             if (Opponents().ElementAtOrDefault(key) is not { } opponent)
                 return;
-            (_to, _prefix) = (opponent.Slot, $"Send to {opponent.Name}: ");
+            (_to, _prefix) = (opponent.Slot, Lang.T("Send to {0}: ", opponent.Name));
         }
         else
-            (_to, _prefix) = (null, "Send to Everyone: ");
+            (_to, _prefix) = (null, Lang.T("Send to Everyone: "));
         (_key, _standard) = (key, 0);
         Typing = true;
     }

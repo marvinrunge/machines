@@ -44,7 +44,7 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
     }
 
     private string Text(int id, string fallback) =>
-        _strings is not null && _strings.Strings.TryGetValue(id, out var text) && !string.IsNullOrWhiteSpace(text) ? text.Trim() : fallback;
+        Lang.Original(_strings is not null && _strings.Strings.TryGetValue(id, out var text) && !string.IsNullOrWhiteSpace(text) ? text.Trim() : fallback, fallback);
 
     private ChipButton Button(int id, string fallback, Action pressed, bool enabled = true)
     {
@@ -198,22 +198,22 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
     private static (string Action, string Keys)[] FirstPersonKeys => GameOptions.ClassicDriving
         ?
         [
-            ("Drive", K(KeyMap.Act.Forward, KeyMap.Act.Back)), ("Turn", $"{K(KeyMap.Act.Left, KeyMap.Act.Right)}, mouse"),
-            ("Turn upper body", $"Shift with {K(KeyMap.Act.Left, KeyMap.Act.Right)} or mouse, right mouse"),
+            ("Drive", K(KeyMap.Act.Forward, KeyMap.Act.Back)), ("Turn", Lang.T("{0}, mouse", K(KeyMap.Act.Left, KeyMap.Act.Right))),
+            ("Turn upper body", Lang.T("Shift with {0} or mouse, right mouse", K(KeyMap.Act.Left, KeyMap.Act.Right))),
             ("Upper body forward", K(KeyMap.Act.CentreView)), ("Look up and down", "Mouse, Shift with arrows"), ("Fire", "Left mouse button"),
             ("Pick weapons", K(KeyMap.Act.Weapons)), ("Leave first person", $"{K(KeyMap.Act.FirstPerson)}, Esc"),
         ]
         :
         [
-            ("Drive", K(KeyMap.Act.Forward, KeyMap.Act.Back)), ("Step sideways", $"{K(KeyMap.Act.Left, KeyMap.Act.Right)} (legs, hover, flight)"),
-            ("Turn", $"{K(KeyMap.Act.TurnLeft, KeyMap.Act.TurnRight)}, {K(KeyMap.Act.Left, KeyMap.Act.Right)}, slowly with Ctrl"),
+            ("Drive", K(KeyMap.Act.Forward, KeyMap.Act.Back)), ("Step sideways", Lang.T("{0} (legs, hover, flight)", K(KeyMap.Act.Left, KeyMap.Act.Right))),
+            ("Turn", Lang.T("{0}, {1}, slowly with Ctrl", K(KeyMap.Act.TurnLeft, KeyMap.Act.TurnRight), K(KeyMap.Act.Left, KeyMap.Act.Right))),
             ("Look round", "Mouse (the machine follows)"), ("Upper body forward", K(KeyMap.Act.CentreView)), ("Look up and down", "Mouse, Shift with arrows"),
             ("Fire", "Left mouse button"), ("Pick weapons", K(KeyMap.Act.Weapons)), ("Leave first person", $"{K(KeyMap.Act.FirstPerson)}, Esc"),
         ];
 
     private static (string Action, string Keys)[] GeneralKeys =>
     [
-        ("Scroll", $"{K(KeyMap.Act.Forward, KeyMap.Act.Left, KeyMap.Act.Back, KeyMap.Act.Right)}, arrows, edges"),
+        ("Scroll", Lang.T("{0}, arrows, edges", K(KeyMap.Act.Forward, KeyMap.Act.Left, KeyMap.Act.Back, KeyMap.Act.Right))),
         ("Turn view", K(KeyMap.Act.TurnLeft, KeyMap.Act.TurnRight)), ("Zoom", "Mouse wheel"),
         ("Zenith view", K(KeyMap.Act.ZenithView)), ("Ground view", K(KeyMap.Act.GroundView)), ("1st person", K(KeyMap.Act.FirstPerson)),
         ("Select", "Left click, drag"), ("Order", "Right click"), ("Stop", "Ctrl S"),
@@ -258,7 +258,7 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
     {
         var why = game.SaveGame(name);
         if (why is null)
-            ShowMain($"Saved: {name}");
+            ShowMain(Lang.T("Saved: {0}", name));
         return why;
     }));
 
@@ -311,7 +311,7 @@ public partial class StatisticsChart(Game game, Func<int, string, string> text) 
         }
         var font = GetThemeDefaultFont();
         void Write(Vector2 at, string line, int size, Color colour, float width = -1, HorizontalAlignment align = HorizontalAlignment.Left) =>
-            DrawString(font, at + new Vector2(0, font.GetAscent(size)), line, align, width, size, colour);
+            DrawString(font, at + new Vector2(0, font.GetAscent(size)), Lang.T(line), align, width, size, colour);
 
         // Down the left the players and their scores; to the right four rows of five blocks.
         const float left = 250, heading = 34;
@@ -333,7 +333,7 @@ public partial class StatisticsChart(Game game, Func<int, string, string> text) 
         {
             var at = new Vector2(left + column * block.X, top);
             var width = block.X - 18;
-            DrawMultilineString(font, at + new Vector2(0, font.GetAscent(Small)), title, HorizontalAlignment.Left, width, Small, titleLines,
+            DrawMultilineString(font, at + new Vector2(0, font.GetAscent(Small)), Lang.T(title), HorizontalAlignment.Left, width, Small, titleLines,
                 colourOf is null ? MenuTheme.Text : MenuTheme.Bright);
             var barsTop = BarsTop(top, titleLines);
             var values = BarRaces.Select(value).ToList();
@@ -355,7 +355,7 @@ public partial class StatisticsChart(Game game, Func<int, string, string> text) 
         float Sum(Dictionary<Race, int>? counts) => counts?.Values.Sum() ?? 0;
 
         var rows = Enumerable.Range(0, 4).Select(r => r * (block.Y + heading) + heading).ToArray();
-        void Heading(int row, string words) => Write(new Vector2(left, rows[row] - heading), words.ToUpperInvariant(), Large, MenuTheme.Bright);
+        void Heading(int row, string words) => Write(new Vector2(left, rows[row] - heading), Lang.T(words).ToUpperInvariant(), Large, MenuTheme.Bright);
         Heading(0, text(7091, "General"));
         Block(0, rows[0], Title(7077, "Machine kills"), r => Sum(ScoreOf(r)?.MachinesDestroyed));
         Block(1, rows[0], Title(7078, "Construction kills"), r => Sum(ScoreOf(r)?.ConstructionsDestroyed));

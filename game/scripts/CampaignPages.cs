@@ -90,7 +90,7 @@ public partial class CampaignPlayersPage(MenuScreens screens) : MenuPage(screens
                 : $"{screens.Text(7025, "Scenario:")}  {screens.Text(last.StringId, last.Name)}\n" +
                   $"{screens.Text(7026, "Highest Score:")}  {player.Missions[last.Name].BestScore}") +
             $"\n\n{screens.Text(7075, "Scenarios Played:")}  {played} / {total}\n" +
-            $"Scenarios Won:  {player.Missions.Count(m => m.Value.Won)} / {total}\n" +
+            Lang.T("Scenarios Won:") + $"  {player.Missions.Count(m => m.Value.Won)} / {total}\n" +
             $"{screens.Text(7074, "Total Score:")}  {player.TotalScore}";
     }
 
@@ -123,7 +123,7 @@ public partial class CampaignPlayersPage(MenuScreens screens) : MenuPage(screens
     {
         if (Picked is not { } player)
             return;
-        Stage.Message($"Delete {player.Name} and how far they have come in the campaign?", ("Delete", () =>
+        Stage.Message(Lang.T("Delete {0} and how far they have come in the campaign?", player.Name), ("Delete", () =>
         {
             _progress.Players.Remove(player);
             if (_progress.Current == player.Name)
@@ -156,7 +156,7 @@ public partial class CampaignPlayersPage(MenuScreens screens) : MenuPage(screens
         }
         catch (IOException exception)
         {
-            Stage.Message($"The campaign progress cannot be saved: {exception.Message}");
+            Stage.Message(Lang.T("The campaign progress cannot be saved: {0}", exception.Message));
             return false;
         }
     }
@@ -405,7 +405,7 @@ public partial class CampaignBriefingPage(MenuScreens screens, CatalogueScenario
         MatchRequest.Current = Campaign.Request(mission, player);
         var tree = GetTree();
         var name = screens.Text(mission.StringId, mission.Name);
-        void Load() => LoadingScreen.Show(tree, name, $"{mission.Planet.ToUpperInvariant()}   ·   CAMPAIGN");
+        void Load() => LoadingScreen.Show(tree, name, $"{mission.Planet.ToUpperInvariant()}   ·   {Lang.T("CAMPAIGN")}");
         if (Campaign.Media(screens.Assets.GameFolder, mission.Media.GetValueOrDefault("ENTRY")) is { } film)
             FilmScreen.Play(tree, film, Load);
         else

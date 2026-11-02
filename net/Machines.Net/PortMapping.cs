@@ -53,7 +53,12 @@ public sealed class PortMapping
     public bool V6Open => _pinhole is not null;
 
     /// <summary>Why the others may not get in over the internet, or null when they can.</summary>
-    public string? Problem { get; private set; }
+    public string? Problem => ProblemText is null ? null : string.Format(ProblemText, ProblemValues);
+
+    /// <summary><see cref="Problem"/> in English with {0}, {1} ... for <see cref="ProblemValues"/>, for a translation of it.</summary>
+    public string? ProblemText { get; private set; }
+
+    public object?[] ProblemValues { get; private set; } = [];
 
     /// <summary>
     /// Finds the router and opens <paramref name="port"/> (TCP) to this computer on it. Never throws: what failed is
@@ -74,7 +79,8 @@ public sealed class PortMapping
             return new PortMapping(port, null, null, null)
             {
                 PublicV6 = v6,
-                Problem = $"The router did not answer (its UPnP may be off): forward port {port} on it by hand.",
+                ProblemText = "The router did not answer (its UPnP may be off): forward port {0} on it by hand.",
+                ProblemValues = [port],
             };
 
         return await OpenAtAsync(port, location, v6, cancel);
@@ -95,7 +101,7 @@ public sealed class PortMapping
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or System.Xml.XmlException or SocketException)
         {
-            return new PortMapping(port, null, null, null) { PublicV6 = v6, Problem = $"The router could not be asked ({exception.Message})." };
+            return new PortMapping(port, null, null, null) { PublicV6 = v6, ProblemText = "The router could not be asked ({0}).", ProblemValues = [exception.Message] };
         }
         return mapping;
     }
@@ -126,7 +132,7 @@ public sealed class PortMapping
     {
         if (_wan is null)
         {
-            Problem = "The router offers no port mappings.";
+            ProblemText = "The router offers no port mappings.";
         }
         else
         {
@@ -143,11 +149,11 @@ public sealed class PortMapping
                 (_, fault) = await CallAsync(_wan, _wanType!, "AddPortMapping", Arguments("0"), cancel);
             if (fault is not null)
             {
-                Problem = fault.Code switch
+                (ProblemText, ProblemValues) = fault.Code switch
                 {
-                    718 => $"Port {Port} on the router already leads to another computer.",
-                    606 => "The router does not let programs open ports: allow it for this computer (on a FRITZ!Box: \"Selbstständige Portfreigaben\").",
-                    _ => $"The router would not open the port ({fault.Code} {fault.Text}).",
+                    718 => ("Port {0} on the router already leads to another computer.", new object?[] { Port }),
+                    606 => ("The router does not let programs open ports: allow it for this computer (on a FRITZ!Box: \"Selbstständige Portfreigaben\").", Array.Empty<object?>()),
+                    _ => ("The router would not open the port ({0} {1}).", new object?[] { fault.Code, fault.Text }),
                 };
             }
             else
@@ -157,7 +163,7 @@ public sealed class PortMapping
                 PublicV4 = values.TryGetValue("NewExternalIPAddress", out var text) && IPAddress.TryParse(text, out var address) ? address : null;
                 if (PublicV4 is null || !IsPublic(PublicV4))
                 {
-                    Problem = "The router has no public IPv4 address of its own (the provider shares one): the others get in only over IPv6.";
+                    ProblemText = "The router has no public IPv4 address of its own (the provider shares one): the others get in only over IPv6.";
                     PublicV4 = null;
                 }
             }

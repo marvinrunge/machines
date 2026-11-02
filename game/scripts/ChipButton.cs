@@ -46,7 +46,7 @@ public partial class ChipButton : BaseButton
     }
 
     /// <summary>How wide the text needs the screen to be.</summary>
-    protected virtual float TextWidth(Font font) => font.GetStringSize(_text, HorizontalAlignment.Left, -1, FontSize).X;
+    protected virtual float TextWidth(Font font) => font.GetStringSize(Lang.T(_text), HorizontalAlignment.Left, -1, FontSize).X;
 
     public override Vector2 _GetMinimumSize()
     {
@@ -61,7 +61,7 @@ public partial class ChipButton : BaseButton
         var sink = GetDrawMode() == DrawMode.Pressed ? 2f : 0f;
         var colour = Disabled ? MenuTheme.Dim : MenuTheme.Text.Lerp(MenuTheme.OnLight, _light);
         var baseline = (Size.Y + font.GetAscent(FontSize) - font.GetDescent(FontSize)) / 2 + sink;
-        DrawString(font, new Vector2(0, baseline), _text, HorizontalAlignment.Center, Size.X, FontSize, colour);
+        DrawString(font, new Vector2(0, baseline), Lang.T(_text), HorizontalAlignment.Center, Size.X, FontSize, colour);
         DrawMore(colour, sink);
     }
 
@@ -136,7 +136,7 @@ public partial class ChipChoice : ChipButton
     public override void _Pressed() => Step(_clickedAt is { } x && x < Size.X / 2 ? -1 : 1);
 
     protected override float TextWidth(Font font) =>
-        _items.Select(item => font.GetStringSize(item, HorizontalAlignment.Left, -1, FontSize).X).DefaultIfEmpty(0).Max() + 2 * ArrowRoom;
+        _items.Select(item => font.GetStringSize(Lang.T(item), HorizontalAlignment.Left, -1, FontSize).X).DefaultIfEmpty(0).Max() + 2 * ArrowRoom;
 
     // The arrows stand in the room a button keeps either side of its name.
     public override Vector2 _GetMinimumSize() => base._GetMinimumSize() - new Vector2(2 * 26, 0);

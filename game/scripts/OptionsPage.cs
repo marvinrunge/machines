@@ -87,8 +87,8 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         rows.AddChild(Setting(Text(7098, "3D Sound"), Switch(GameOptions.Sound3d, on => GameOptions.Sound3d = on)));
 
         static string Tracks(string? folder) => Music.TrackCount(folder) is var count and > 0
-            ? $"{count} tracks"
-            : "Pick the folder with the soundtrack's MP3s";
+            ? Lang.T("{0} tracks", count)
+            : Lang.T("Pick the folder with the soundtrack's MP3s");
         var tracks = MenuTheme.Label(Tracks(Music.Folder), 20, MenuTheme.Dim);
         var music = new FileDialog
         {
@@ -110,7 +110,16 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
 
         var window = new ChipChoice(["Window", "Full screen"], FullScreen ? 1 : 0);
         window.ItemSelected += i => FullScreen = i == 1;
-        rows.AddChild(Setting("Display", window));
+        // The language shares the display's row, or Back would go off the screen; a new one builds the page again in it.
+        var language = new ChipChoice(Lang.Names, Array.IndexOf(Lang.Codes, Lang.Code));
+        language.ItemSelected += i =>
+        {
+            Lang.Code = Lang.Codes[i];
+            stage.Show(new OptionsPage(_back, inGame));
+        };
+        var languageRow = Setting("Language", language, 0);
+        rows.AddChild(Setting("Display", Line(28, window, languageRow)));
+        window.SizeFlagsHorizontal = languageRow.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 
         var size = new ChipChoice(Sizes.Select(s => $"{s * 100:0} %"), Math.Max(0, Array.FindIndex(Sizes, s => Mathf.IsEqualApprox(s, MenuTheme.UiScale))));
         size.ItemSelected += i =>
@@ -165,7 +174,7 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
     {
         var path = System.IO.Path.Combine(Paths.OriginalData, "machstrg.xml");
         _strings ??= File.Exists(path) ? StringTableParser.Load(path) : new StringTable(new Dictionary<int, string>());
-        return _strings.Strings.TryGetValue(id, out var text) && !string.IsNullOrWhiteSpace(text) ? text.Trim() : fallback;
+        return Lang.Original(_strings.Strings.TryGetValue(id, out var text) && !string.IsNullOrWhiteSpace(text) ? text.Trim() : fallback, fallback);
     }
 
     /// <summary>

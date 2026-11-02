@@ -36,6 +36,7 @@ public partial class MenuScreens : Control
     public override void _Ready()
     {
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        Lang.Apply();
         var shot = (Setting("MACHINES_MENU_SCREENSHOT") ?? "").Split(',', StringSplitOptions.TrimEntries);
         if (shot[0].Length == 0 && Setting("MACHINES_MP") is null && Setting("MACHINES_MENU_START") is null && (Setting("MACHINES_SCREENSHOT") ?? Setting("MACHINES_MAP")) is not null)
         {
@@ -179,5 +180,5 @@ public partial class MenuScreens : Control
 
     /// <summary>A text of the original's string table (machstrg.xml in the game copy), or the fallback without it.</summary>
     public string Text(int id, string fallback) =>
-        _strings is not null && _strings.Strings.TryGetValue(id, out var text) && !string.IsNullOrWhiteSpace(text) ? text.Trim() : fallback;
+        Lang.Original(_strings is not null && _strings.Strings.TryGetValue(id, out var text) && !string.IsNullOrWhiteSpace(text) ? text.Trim() : fallback, fallback);
 }

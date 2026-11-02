@@ -255,7 +255,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             else if (actor is Construction { Garrisoned.Count: > 0 } garrison && garrison.Race == Game.Player && garrison.IsType("GARRISON"))
                 _widgets.Add(new Widget(R(PanelWidth - 21, y, 20, 20), rect => DrawBitmap(rect, "misc/contents.bmp", "Out"),
                     () => game.Order(new StopCommand(Game.Player, garrison.Garrisoned.ToList())),
-                    $"Let the {garrison.Garrisoned.Count} machines inside out"));
+                    Lang.T("Let the {0} machines inside out", garrison.Garrisoned.Count)));
             return y + height;
         }
 
@@ -364,7 +364,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                 bars.Add(new Bar("Locate", "Locate: click where to search", () => game.BeginTargeting("Click where to search for minerals; right click cancels", "locat",
                     (point, _) => game.Order(new LocateCommand(Game.Player, locators, point))), "commands/locate.bmp"));
             if (spies.Any(s => s.Mines > 0))
-                bars.Add(new Bar("Lay mines", $"Lay land mines (Shift for more points): {spies.Sum(s => s.Mines)} carried", () => game.BeginWaypoints(
+                bars.Add(new Bar("Lay mines", Lang.T("Lay land mines (Shift for more points): {0} carried", spies.Sum(s => s.Mines)), () => game.BeginWaypoints(
                     "Click where to lay a mine, Shift for more; right click cancels", "landmin",
                     points => game.Order(new DropLandMinesCommand(Game.Player, spies.Where(s => s.Mines > 0).Select(s => s.Id).ToList(), points))),
                     "commands/dropmine.bmp"));
@@ -441,7 +441,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             // Its lights show which initiatives the selection has (defco1 low, defco2 normal, defco3 high DefCon).
             var (low, normal, high) = game.Initiative();
             var initiative = (low ? 1 : 0) + (normal ? 1 : 0) + (high ? 1 : 0) > 1 ? "mixed" : low ? "high" : normal ? "medium" : "low";
-            bars.Add(new Bar($"Initiative {initiative}", $"Machine initiative: {initiative} ({KeyMap.Name(KeyMap.Act.Initiative)} to change)", game.CycleInitiative,
+            bars.Add(new Bar(Lang.T("Initiative {0}", Lang.T(initiative)), Lang.T("Machine initiative: {0} ({1} to change)", Lang.T(initiative), KeyMap.Name(KeyMap.Act.Initiative)), game.CycleInitiative,
                 $"commands/defco{(low ? "1" : "")}{(normal ? "2" : "")}{(high ? "3" : "")}.bmp"));
         }
         // Camouflage hides a spy from the other players' machines; there are only those in a network game.
@@ -465,7 +465,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         var world = game.World;
         var all = selected.Select(a => a.Id).ToList();
         if (selected.Select(a => a.SelfDestructAt).FirstOrDefault(t => t is not null) is { } at)
-            return new Bar($"Destruct {Math.Max(0, at - world.Time):F0}", $"Self-destruct in {Math.Max(0, at - world.Time):F0} s: click to call it off",
+            return new Bar(Lang.T("Destruct {0:F0}", Math.Max(0, at - world.Time)), Lang.T("Self-destruct in {0:F0} s: click to call it off", Math.Max(0, at - world.Time)),
                 () => game.Order(new StopCommand(Game.Player, all)), (int)(Now * 4) % 2 == 1 ? "commands/selfdes8.bmp" : "commands/selfdes7.bmp");
         if (_coverOpenedAt is not { } opened)
             return new Bar("Self-destruct", "Self-destruct: click to open the cover", () => _coverOpenedAt = Now, "commands/selfdes1.bmp");
@@ -504,25 +504,25 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             {
                 foreach (var key in world.Data.FactoryOffer(building.Spec.SubType!, building.Stats.HardwareLevel).Where(state.Researched.Contains))
                     icons.Add((MachineBitmap(key, Game.Player), Short(key),
-                        $"Build {KeyName(key)}: {ResearchTree.FactoryPrice(world.Data.ResearchTree.Get(key), world.Data.Parm)} BMU",
+                        Lang.T("Build {0}: {1} BMU", KeyName(key), ResearchTree.FactoryPrice(world.Data.ResearchTree.Get(key), world.Data.Parm)),
                         () => game.Issue(new BuildMachineCommand(Game.Player, building.Id, key))));
                 if (building.ProductionQueue.Count > 0)
                     y = AddQueue(building, building.ProductionQueue, y,
                         key => building.ProductionSpent / Math.Max(1, ResearchTree.FactoryPrice(world.Data.ResearchTree.Get(key), world.Data.Parm)),
-                        "Building", index => game.Issue(new CancelProductionCommand(Game.Player, building.Id, index)));
+                        "Building {0}: {1:F0}%", index => game.Issue(new CancelProductionCommand(Game.Player, building.Id, index)));
             }
             else if (building.IsType("HARDWARE_LAB"))
             {
                 foreach (var item in world.Data.ResearchTree.Items.Where(i => world.WhyCannotResearch(Game.Player, i.Key, building) is null && !building.ResearchQueue.Contains(i.Key)))
                     icons.Add((MachineBitmap(item.Key, Game.Player), Short(item.Key),
-                        $"Research {KeyName(item.Key)}: {world.ResearchCost(Game.Player, item)} RU, {item.BuildingCost} BMU",
+                        Lang.T("Research {0}: {1} RU, {2} BMU", KeyName(item.Key), world.ResearchCost(Game.Player, item), item.BuildingCost),
                         () => game.Issue(new ResearchCommand(Game.Player, building.Id, item.Key))));
                 if (building.ResearchQueue.Count > 0)
                     y = AddQueue(building, building.ResearchQueue, y, key =>
                     {
                         state.ResearchProgress.TryGetValue(key, out var progress);
                         return progress / Math.Max(1, world.ResearchCost(Game.Player, world.Data.ResearchTree.Get(key)));
-                    }, "Researching", index => game.Issue(new CancelResearchCommand(Game.Player, building.Id, index)));
+                    }, "Researching {0}: {1:F0}%", index => game.Issue(new CancelResearchCommand(Game.Player, building.Id, index)));
             }
         }
         var menu = _buildMenu ? "build" : string.Join(',', selected.Select(a => a.Id));
@@ -593,8 +593,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                     else
                         game.SelectSquadron(squad);
                 },
-                (forming ? $"Form squadron {squad} from the selection" : $"Squadron {squad}: select it")
-                + $" ({members.Count} machines{(commander is null ? "" : ", led by its administrator")})"));
+                (forming ? Lang.T("Form squadron {0} from the selection", squad) : Lang.T("Squadron {0}: select it", squad))
+                + " " + (commander is null ? Lang.T("({0} machines)", members.Count) : Lang.T("({0} machines, led by its administrator)", members.Count))));
         }
     }
 
@@ -677,7 +677,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             _widgets.Add(new Widget(R(14 + i % columns * ButtonWidth, y + i / columns * ButtonWidth, ButtonWidth, ButtonWidth),
                 rect => DrawIcon(rect, MachineBitmap(key, Game.Player), Short(key), share),
                 () => cancel(index),
-                (i == 0 ? $"{doing} {KeyName(key)}: {share * 100:F0}%" : $"Queued: {KeyName(key)}") + " (click to cancel)"));
+                (i == 0 ? Lang.T(doing, KeyName(key), share * 100) : Lang.T("Queued: {0}", KeyName(key))) + Lang.T(" (click to cancel)")));
         }
         return y + (queue.Count + columns - 1) / columns * ButtonWidth + 4;
     }
@@ -919,7 +919,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
 
     /// <summary>A line of text with its top left at <paramref name="at"/>, cut short at <paramref name="width"/> pixels.</summary>
     private void DrawText(Vector2 at, string text, Color colour, float width = -1) =>
-        DrawString(Font, at + new Vector2(0, 7 * _scale), text, HorizontalAlignment.Left, width, FontSize, colour,
+        DrawString(Font, at + new Vector2(0, 7 * _scale), Lang.T(text), HorizontalAlignment.Left, width, FontSize, colour,
             TextServer.JustificationFlag.None, TextServer.Direction.Auto, TextServer.Orientation.Horizontal);
 
     // ---- input ----------------------------------------------------------------------------------
@@ -1078,7 +1078,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                     : $"navigate/{(button.Type is "POD" or "BEACON" or "MISSILE_EMPLACEMENT" or "FACTORY" or "HARDWARE_LAB" or "SMELTER" or "MINE" or "GARRISON" ? "construc" : "machines")}/{(actors.Count > 0 ? RaceFolder(Game.Player) : "grey")}/{button.Bitmap}.bmp";
                 var key = $"{r}/{button.Type}/{button.SubType}/{button.Bitmap}";
                 _widgets.Add(new Widget(R(x, top + r * 33, width, 33), rect => DrawNavButton(rect, bitmap, actors.Count, selected, all ? "All" : Short(button.Name)),
-                    () => NavClick(actors, selected, key), $"Select all {button.Name} (Ctrl adds, Alt looks at the next)"));
+                    () => NavClick(actors, selected, key), Lang.T("Select all {0} (Ctrl adds, Alt looks at the next)", Lang.T(button.Name))));
                 x += width;
             }
         }
@@ -1199,7 +1199,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         switch (actor)
         {
             case Machine { Spec.Type: "RESOURCE_CARRIER", IsScavenger: false } carrier:
-                parts.Add($"Ore {carrier.Ore}/{carrier.Stats.Capacity}");
+                parts.Add(Lang.T("Ore {0}/{1}", carrier.Ore, carrier.Stats.Capacity));
                 break;
             case Construction building:
                 if (building.IsType("MINE"))
@@ -1216,7 +1216,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     }
 
     /// <summary>The prompt line over a found deposit's ore hologram: the BMUs of ore still in it.</summary>
-    public static string DepositPrompt(MineralSiteState site) => $"Mineral Deposit   {site.Ore:F0} BMU";
+    public static string DepositPrompt(MineralSiteState site) => Lang.T("Mineral Deposit   {0:F0} BMU", site.Ore);
 
     /// <summary>The ore left in a mine's deposit (none once it has run dry or when it has no site).</summary>
     private float DepositOre(Construction mine) => mine.MineralSite is { } id ? game.World.Sites[id].Ore : 0;
@@ -1239,33 +1239,33 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                 if (m.Weapons.Count > 0)
                     lines.Add(string.Join(", ", m.Weapons.Select(w => Title(w.Spec.TypeName)).Distinct()));
                 if (m.Spec.Type == "RESOURCE_CARRIER" && !m.IsScavenger)
-                    lines.Add($"Ore {m.Ore}/{m.Stats.Capacity}");
+                    lines.Add(Lang.T("Ore {0}/{1}", m.Ore, m.Stats.Capacity));
                 if (m.IsType("APC"))
-                    lines.Add($"Carrying {world.CarriedVolume(m)}/{m.Stats.Capacity}");
+                    lines.Add(Lang.T("Carrying {0}/{1}", world.CarriedVolume(m), m.Stats.Capacity));
                 if (m.IsSpy)
-                    lines.Add($"Mines {m.Mines}/{m.Stats.MineCapacity ?? 0}");
+                    lines.Add(Lang.T("Mines {0}/{1}", m.Mines, m.Stats.MineCapacity ?? 0));
                 if (m.Squad is { } squad && m.Race == Game.Player)
-                    lines.Add($"Squadron {squad}");
+                    lines.Add(Lang.T("Squadron {0}", squad));
                 break;
             case Construction c:
                 lines.Add($"{TypeName(c.Spec.Type, c.Spec.SubType)} L{c.Stats.HardwareLevel}");
                 if (!c.Complete)
-                    lines.Add($"Built {c.Built:F0}/{c.Stats.Cost}");
+                    lines.Add(Lang.T("Built {0:F0}/{1}", c.Built, c.Stats.Cost));
                 if (c.IsType("MINE"))
                 {
-                    lines.Add($"Ore {c.Ore:F0}/{c.Stats.Capacity}");
+                    lines.Add(Lang.T("Ore {0:F0}/{1}", c.Ore, c.Stats.Capacity));
                     // The deposit's ore left, as the original's single icon showed it (MachGuiCorralSingleIcon).
-                    lines.Add($"Deposit {DepositOre(c):F0} BMU");
+                    lines.Add(Lang.T("Deposit {0:F0} BMU", DepositOre(c)));
                 }
                 if (c.IsType("GARRISON"))
-                    lines.Add($"Inside {c.Garrisoned.Count}/{GameWorld.GarrisonStations(c)}");
+                    lines.Add(Lang.T("Inside {0}/{1}", c.Garrisoned.Count, GameWorld.GarrisonStations(c)));
                 if (c.IsType("HARDWARE_LAB"))
-                    lines.Add($"Technicians {c.Technicians.Count}/{GameWorld.ResearchStations(c)}");
+                    lines.Add(Lang.T("Technicians {0}/{1}", c.Technicians.Count, GameWorld.ResearchStations(c)));
                 break;
         }
         lines.Add($"HP {actor.HitPoints}/{actor.MaxHitPoints}");
         if (actor.SelfDestructAt is { } at)
-            lines.Add($"Self-destruct {Math.Max(0, at - world.Time):F0} s");
+            lines.Add(Lang.T("Self-destruct {0:F0} s", Math.Max(0, at - world.Time)));
         return lines;
     }
 

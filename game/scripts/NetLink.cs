@@ -49,7 +49,7 @@ public static class NetLink
             }
             catch (System.Net.Sockets.SocketException exception)
             {
-                return $"cannot open port {port}: {exception.Message}";
+                return Lang.T("cannot open port {0}: {1}", port, exception.Message);
             }
         }
         return await ConnectAsync($"127.0.0.1:{HostedRelay.Port}", name);
@@ -78,7 +78,7 @@ public static class NetLink
         }
         catch (Exception exception) when (exception is System.Net.Sockets.SocketException or OperationCanceledException or IOException)
         {
-            return $"cannot reach {host}:{port} ({exception.Message})";
+            return Lang.T("cannot reach {0}:{1} ({2})", host, port, exception.Message);
         }
     }
 

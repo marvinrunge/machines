@@ -84,7 +84,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
         rows.AddChild(Setting("Resources", Choice(["Low", "Medium", "High"], _lastResources, i => _lastResources = i), 180));
         rows.AddChild(Setting("Technology", Choice(["Map default", "Low", "Medium", "High"], _lastTech, i => _lastTech = i), 180));
         rows.AddChild(Setting("Victory", Choice(new[] { "Annihilation", "Destroy pod" }
-            .Concat(MatchOptions.TimeLimits.Select(s => $"Timed: {FormatMinutes(s)}")), _lastVictory, i => _lastVictory = i), 180));
+            .Concat(MatchOptions.TimeLimits.Select(s => Lang.T("Timed: {0}", FormatMinutes(s)))), _lastVictory, i => _lastVictory = i), 180));
         rows.AddChild(Setting("AI", Choice(["Easy", "Normal", "Hard"], _lastAi, i => _lastAi = i), 180));
         if (forRoom)
             rows.AddChild(Setting("Free slots", Choice(["Play the AI", "Stay empty"], _lastFill, i => _lastFill = i), 180));
@@ -143,7 +143,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
 
         foreach (var (section, terrains) in new[] { ("Skirmish", catalogue.Skirmish), ("Multiplayer maps", catalogue.Multiplayer) })
         {
-            var sectionItem = Branch(root, section.ToUpperInvariant(), MenuTheme.Bright);
+            var sectionItem = Branch(root, Lang.T(section).ToUpperInvariant(), MenuTheme.Bright);
             foreach (var size in terrains.GroupBy(t => t.Size))
             {
                 var sizeItem = Branch(sectionItem, SizeNames[(int)size.Key], MenuTheme.Dim);
@@ -211,7 +211,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
         var maxPlayers = Math.Min(_selected.MaxPlayers ?? _slots.Count, _slots.Count);
 
         _title.Text = item.GetText(0);
-        _facts.Text = $"{_selected.Planet.ToUpperInvariant()}   ·   UP TO {maxPlayers} PLAYERS";
+        _facts.Text = $"{_selected.Planet.ToUpperInvariant()}   ·   {Lang.T("UP TO {0} PLAYERS", maxPlayers)}";
         if (!_maps.TryGetValue(_selected.Planet, out var map))
             _maps[_selected.Planet] = map = screens.Assets.PlanetMap(_selected.Planet);
         _preview.Texture = MiniMaps.For(_selected.Name) ?? map;
@@ -220,7 +220,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
 
         var counts = Enumerable.Range(Math.Min(2, maxPlayers), Math.Max(0, maxPlayers - Math.Min(2, maxPlayers) + 1)).ToList();
         _players.SetItems(counts.Select(n => n == 1 ? "1 (no opponent)" : n.ToString()), Math.Max(0, counts.IndexOf(Math.Clamp(_lastPlayers, counts.FirstOrDefault(), counts.LastOrDefault()))));
-        _bmu.SetItems(new[] { mapBmu is { } bmu ? $"Map default ({bmu})" : "Map default" }
+        _bmu.SetItems(new[] { mapBmu is { } bmu ? Lang.T("Map default ({0})", bmu) : "Map default" }
             .Concat(Enum.GetValues<StartingBmu>().Skip(1).Select(level => MatchOptions.BmuFor(level)!.Value.ToString())), _lastBmu);
 
         _start.Disabled = _slots.Count < (forRoom ? 2 : 1);
@@ -246,7 +246,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
         var players = int.TryParse(_players.Text.Split(' ')[0], out var n) ? n : 2;
         var starts = StartPositions.Assign(_slots, players, Colours[_lastColour], random: _lastStarts == 1, new Random());
         MatchRequest.Current = new MatchRequest(_selected.Name, _selected.Planet, starts, Options());
-        LoadingScreen.Show(GetTree(), _title.Text, $"{_selected.Planet.ToUpperInvariant()}   ·   {(players == 1 ? "NO OPPONENT" : $"{players} PLAYERS")}");
+        LoadingScreen.Show(GetTree(), _title.Text, $"{_selected.Planet.ToUpperInvariant()}   ·   {(players == 1 ? Lang.T("NO OPPONENT") : Lang.T("{0} PLAYERS", players))}");
     }
 
     /// <summary>The settings last chosen on the page.</summary>
@@ -270,7 +270,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
     }
 
     private static CreateRoom Room(string scenario, string planet, List<Race> slots) =>
-        new($"{NetLink.Name}'s game", scenario, planet, slots, Options(), FillWithAi: _lastFill == 0);
+        new(Lang.T("{0}'s game", NetLink.Name), scenario, planet, slots, Options(), FillWithAi: _lastFill == 0);
 
     /// <summary>
     /// A room on the map last picked (or MACHINES_MENU_SELECT's, or the first skirmish map) with the settings last

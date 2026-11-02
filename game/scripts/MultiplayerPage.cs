@@ -62,7 +62,7 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
         _copy = Button("Copy address", () =>
         {
             DisplayServer.ClipboardSet(_shareAddress ?? "");
-            _status.Text = $"{_statusText}\nCopied {_shareAddress}.";
+            _status.Text = _statusText + "\n" + Lang.T("Copied {0}.", _shareAddress);
         }, 60, 22);
         _copy.Visible = _shareAddress is not null && NetLink.HostedRelay is not null;
         login.AddChild(Column(14,
@@ -139,13 +139,13 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
         Automate();
     }
 
-    private void Say(string text) => _status.Text = _statusText = text;
+    private void Say(string text) => _status.Text = _statusText = Lang.T(text);
 
     /// <summary>Leaves for the match the relay started; what follows in the inbox is the match scene's to read.</summary>
     private void Leave()
     {
         _leaving = true;
-        LoadingScreen.Show(GetTree(), LoadingScreen.MapName(MatchRequest.Current), "MULTIPLAYER");
+        LoadingScreen.Show(GetTree(), LoadingScreen.MapName(MatchRequest.Current), Lang.T("MULTIPLAYER"));
     }
 
     public override void _Process(double delta)
@@ -160,7 +160,7 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
                     _roomList = list;
                     _rooms.Clear();
                     foreach (var room in list.Rooms)
-                        _rooms.AddItem($"{room.Name}   ·   {room.Scenario} on {room.Planet}   ·   {room.Players}/{room.MaxPlayers}{(room.Started ? "   ·   playing" : "")}");
+                        _rooms.AddItem(Lang.T("{0}   ·   {1} on {2}   ·   {3}/{4}", room.Name, room.Scenario, room.Planet, room.Players, room.MaxPlayers) + (room.Started ? "   ·   " + Lang.T("playing") : ""));
                     _join.Disabled = list.Rooms.Count == 0;
                     break;
                 case RoomState state:
@@ -208,7 +208,7 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
             Say(error);
             return;
         }
-        Say($"Connected as {NetLink.Name}.");
+        Say(Lang.T("Connected as {0}.", NetLink.Name));
         ShowLobby();
     }
 
@@ -227,18 +227,18 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
             return;
         }
         var relay = NetLink.HostedRelay!.Port;
-        var near = string.Join(" or ", System.Net.Dns.GetHostAddresses(System.Net.Dns.GetHostName())
+        var near = string.Join(Lang.T(" or "), System.Net.Dns.GetHostAddresses(System.Net.Dns.GetHostName())
             .Where(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && !System.Net.IPAddress.IsLoopback(a))
             .Select(a => NetLink.Join(a, relay)));
         _shareAddress = near.Split(' ')[0];
         ShowLobby();
         if (!_openPort)
         {
-            Say($"Hosting. On this network the others connect to {near}; over the internet to your public address, with port {relay} forwarded on the router.");
+            Say(Lang.T("Hosting. On this network the others connect to {0}; over the internet to your public address, with port {1} forwarded on the router.", near, relay));
             _copy.Visible = near.Length > 0;
             return;
         }
-        Say($"Hosting. Asking the router to open port {relay}…");
+        Say(Lang.T("Hosting. Asking the router to open port {0}…", relay));
         var mapping = await NetLink.OpenPortAsync(GetTree());
         if (!IsInstanceValid(this) || mapping is null)
             return;
@@ -247,12 +247,12 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
         if (mapping.PublicV4 is { } v4)
             far.Add(NetLink.Join(v4, relay));
         if (mapping.PublicV6 is { } v6)
-            far.Add(NetLink.Join(v6, relay) + (mapping.V6Open ? " (IPv6)" : " (IPv6, if the router's firewall lets it in)"));
+            far.Add(NetLink.Join(v6, relay) + (mapping.V6Open ? " (IPv6)" : Lang.T(" (IPv6, if the router's firewall lets it in)")));
         _shareAddress = far.Count > 0 ? far[0].Split(' ')[0] : _shareAddress;
-        Say("Hosting." +
-            (near.Length > 0 ? $" On this network: {near}." : "") +
-            (far.Count > 0 ? $" Over the internet: {string.Join(" or ", far)}." : "") +
-            (mapping.Problem is { } problem ? $" {problem}" : ""));
+        Say(Lang.T("Hosting.") +
+            (near.Length > 0 ? Lang.T(" On this network: {0}.", near) : "") +
+            (far.Count > 0 ? Lang.T(" Over the internet: {0}.", string.Join(Lang.T(" or "), far)) : "") +
+            (mapping.ProblemText is { } problem ? " " + Lang.T(problem, mapping.ProblemValues) : ""));
         _copy.Visible = _shareAddress is { Length: > 0 };
     }
 
@@ -291,20 +291,20 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
         else if (_state is { } before)
         {
             foreach (var player in state.Players.Where(p => before.Players.All(b => b.ClientId != p.ClientId)))
-                AddChat($"{player.Name} joined the room", note: true);
+                AddChat(Lang.T("{0} joined the room", player.Name), note: true);
             foreach (var player in before.Players.Where(b => state.Players.All(p => p.ClientId != b.ClientId)))
-                AddChat($"{player.Name} left the room", note: true);
+                AddChat(Lang.T("{0} left the room", player.Name), note: true);
         }
         _state = state;
         (_offline.Visible, _lobby.Visible, _room.Visible) = (false, false, true);
-        _roomTitle.Text = $"{state.Name}   ·   {state.Scenario} on {state.Planet}   ·   {state.Players.Count}/{state.Slots.Count} players" +
-                          (state.FillWithAi ? ", the rest AI" : "");
+        _roomTitle.Text = Lang.T("{0}   ·   {1} on {2}   ·   {3}/{4} players", state.Name, state.Scenario, state.Planet, state.Players.Count, state.Slots.Count) +
+                          (state.FillWithAi ? Lang.T(", the rest AI") : "");
         _players.Clear();
         foreach (var player in state.Players)
-            _players.AddItem($"{player.Name}   {player.Colour}{(player.ClientId == state.HostId ? "   (host)" : "")}{(player.Ready ? "   ready" : "")}");
+            _players.AddItem($"{player.Name}   {Lang.T(player.Colour.ToString())}{(player.ClientId == state.HostId ? "   " + Lang.T("(host)") : "")}{(player.Ready ? "   " + Lang.T("ready") : "")}");
         // The ground counts only when everyone has the same export of it (MatchInfo.Terrain).
         if (state.Players.Where(p => p.Ready).Select(p => p.Terrain).Distinct().Count() > 1)
-            _roomTitle.Text += "\nThe players' classic terrain exports differ: hills will not stop shots in this match";
+            _roomTitle.Text += "\n" + Lang.T("The players' classic terrain exports differ: hills will not stop shots in this match");
         _colour.Selected = Array.IndexOf(Colours, me.Colour);
         _ready.SetBlockSignals(true);
         _ready.ButtonPressed = me.Ready;

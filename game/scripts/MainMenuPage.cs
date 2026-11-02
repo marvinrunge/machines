@@ -26,8 +26,8 @@ public partial class MainMenuPage(MenuScreens screens) : MenuPage(screens.Quit)
         left.AddChild(Spring(across: false));
         var status = new ChipPanel { Padding = 16 };
         status.AddChild(MenuTheme.Label(
-            $"Look: {GraphicsSettings.Name(GraphicsSettings.Look)}\n" +
-            (ClassicImport.Imported ? "Models imported from your game copy" : "Models not imported yet"), 21, MenuTheme.Dim));
+            Lang.T("Look: {0}", Lang.T(GraphicsSettings.Name(GraphicsSettings.Look))) + "\n" +
+            Lang.T(ClassicImport.Imported ? "Models imported from your game copy" : "Models not imported yet"), 21, MenuTheme.Dim));
         left.AddChild(status);
         left.AddChild(Button("Exit", screens.Quit, 84, 30));
 

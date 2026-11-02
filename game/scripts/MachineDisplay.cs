@@ -78,7 +78,7 @@ public partial class MachineDisplay : MachineScreen
                 continue;
             Yaw = Mathf.DegToRad(-20);
             Place(RigView.Create(rig));
-            Caption = $"{name}  ·  {race}";
+            Caption = $"{name}  ·  {Lang.T(race.ToString())}";
         }
         Changed?.Invoke();
     }

@@ -97,7 +97,7 @@ public partial class Hud : CanvasLayer
 
     public void Message(string text)
     {
-        _messages.Add((text, Time.GetTicksMsec() / 1000.0 + 5));
+        _messages.Add((Lang.T(text), Time.GetTicksMsec() / 1000.0 + 5));
         if (_messages.Count > 5)
             _messages.RemoveAt(0);
     }
@@ -122,9 +122,11 @@ public partial class Hud : CanvasLayer
         // In first person the weapon panels take the top left; the text goes below them.
         var top = Weapons.Visible ? GetViewport().GetVisibleRect().Size.Y * 0.05f + 90 * Math.Max(1, (int)Math.Round(GetViewport().GetVisibleRect().Size.Y / 480f)) : 0;
         _figures.Position = new Vector2(left, 8 + top);
-        _figures.Text = $"Machines {world.Machines.Count(m => m.Race == Game.Player)}     Score {state.Score.Gross}     " +
-                        (world.TimeLeft is { } timeLeft ? $"Time left {TimeSpan.FromSeconds(timeLeft):h\\:mm\\:ss}" : $"Time {TimeSpan.FromSeconds(world.Time):h\\:mm\\:ss}") +
-                        (_game.Paused ? "     PAUSED" : "");
+        _figures.Text = Lang.T("Machines {0}     Score {1}     ", world.Machines.Count(m => m.Race == Game.Player), state.Score.Gross) +
+                        (world.TimeLeft is { } timeLeft
+                            ? Lang.T("Time left {0}", TimeSpan.FromSeconds(timeLeft).ToString(@"h\:mm\:ss"))
+                            : Lang.T("Time {0}", TimeSpan.FromSeconds(world.Time).ToString(@"h\:mm\:ss"))) +
+                        (_game.Paused ? "     " + Lang.T("PAUSED") : "");
         // The players' chat first, the game's messages under it.
         Chat.ListAt = new Vector2(left, 34 + top);
         _messageLabel.Position = new Vector2(left, 34 + top + Chat.ListHeight);

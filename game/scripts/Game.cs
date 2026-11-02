@@ -559,14 +559,14 @@ public partial class Game : Node3D
             if (_waitingFor > 1)
             {
                 var names = _session.Waiting().Select(race => MatchRequest.Current.Network?.Players.FirstOrDefault(p => p.Slot == race)?.Name ?? race.ToString());
-                _hud.Banner($"Waiting for {string.Join(", ", names)}");
+                _hud.Banner(Lang.T("Waiting for {0}", string.Join(", ", names)));
             }
         }
 
         if (_session.DesyncTick is { } desync)
-            _hud.Banner($"Out of sync since tick {desync}: the players' games differ");
+            _hud.Banner(Lang.T("Out of sync since tick {0}: the players' games differ", desync));
         else if (World.Winner is { } winner)
-            _hud.Banner(Watching ? $"{Look(winner)} wins" : winner == Player ? "Victory" : "Defeat");
+            _hud.Banner(Watching ? Lang.T("{0} wins", Lang.T(Look(winner).ToString())) : winner == Player ? "Victory" : "Defeat");
         else if (World.Races[Player].Defeated && !Watching)
             _hud.Banner("Defeat");
         else if (_waitingFor <= 1)
@@ -633,8 +633,8 @@ public partial class Game : Node3D
         _waitingFor = 0;
         SyncBlasts();
         SyncViews();
-        var resume = MatchRequest.Current.ResumeFrom is { } from && World.Tick < from ? $" of {from}" : "";
-        _hud.Banner($"Catching up: tick {World.Tick}{resume}");
+        var resume = MatchRequest.Current.ResumeFrom is { } from && World.Tick < from ? Lang.T(" of {0}", from) : "";
+        _hud.Banner(Lang.T("Catching up: tick {0}{1}", World.Tick, resume));
     }
 
     private double _runTime;
@@ -1000,23 +1000,23 @@ public partial class Game : Node3D
                     }
                     break;
                 case GameEventKind.MachineBuilt when World.Find<Machine>(e.Actor) is { } built && built.Race == Player:
-                    _hud.Message($"Machine ready: {e.Detail}");
+                    _hud.Message(Lang.T("Machine ready: {0}", e.Detail));
                     if (SoundTable.VoiceOf(built) is { } builtVoice)
                         _audio.Say($"VID_{builtVoice}_BUILT");
                     break;
                 case GameEventKind.ConstructionComplete when World.Find(e.Actor)?.Race == Player:
-                    _hud.Message($"Construction complete: {e.Detail}");
+                    _hud.Message(Lang.T("Construction complete: {0}", e.Detail));
                     _audio.Say("VID_DOZER_BUILDING_COMPLETE");
                     break;
                 case GameEventKind.ResearchComplete when World.Find(e.Actor)?.Race == Player:
-                    _hud.Message($"Research complete: {e.Detail}");
+                    _hud.Message(Lang.T("Research complete: {0}", e.Detail));
                     _audio.Say("VID_TECHNICIAN_RESEARCH_COMPLETE");
                     break;
                 case GameEventKind.Boarded when World.Find(e.Actor)?.Race == Player:
                     _audio.Say("VID_APC_UNIT_BOARDED");
                     break;
                 case GameEventKind.Deployed when World.Find(e.Actor)?.Race == Player:
-                    _hud.Message($"APC deployed {e.Detail} machines");
+                    _hud.Message(Lang.T("APC deployed {0} machines", e.Detail));
                     _audio.Say("VID_APC_DEPLOYMENT_COMPLETE");
                     break;
                 // A round the ground stopped: one that flies ends in its splat as it vanishes (ProjectileViews); a
@@ -1032,7 +1032,7 @@ public partial class Game : Node3D
                     break;
                 // A spy has stolen a piece of research (VID_SPY_RESEARCH_DOWNLOADED).
                 case GameEventKind.ResearchStolen when World.Find(e.Actor)?.Race == Player:
-                    _hud.Message($"Research stolen: {e.Detail}");
+                    _hud.Message(Lang.T("Research stolen: {0}", e.Detail));
                     _audio.Say("VID_SPY_RESEARCH_DOWNLOADED");
                     break;
                 // A spy drops a mine with a click (SID_MINE_DROP); one going off throws up a blast under the machine.
@@ -1065,10 +1065,10 @@ public partial class Game : Node3D
                     break;
                 // A change of alliance is news to the two players it is between (MachGuiDispositionChangeNotifiable).
                 case GameEventKind.AllianceChanged when e.Actor == (int)Player:
-                    _hud.Message($"{(e.Detail == "ALLY" ? "Allied with" : "No longer allied with")} {PlayerName((Race)e.Other!.Value)}");
+                    _hud.Message(Lang.T(e.Detail == "ALLY" ? "Allied with {0}" : "No longer allied with {0}", PlayerName((Race)e.Other!.Value)));
                     break;
                 case GameEventKind.AllianceChanged when e.Other == (int)Player:
-                    _hud.Message($"{PlayerName((Race)e.Actor)} {(e.Detail == "ALLY" ? "is now allied with you" : "is no longer allied with you")}");
+                    _hud.Message(Lang.T(e.Detail == "ALLY" ? "{0} is now allied with you" : "{0} is no longer allied with you", PlayerName((Race)e.Actor)));
                     break;
                 case GameEventKind.Explosion:
                     // The mission script's explosion (MachLogExplosionAction), as big as its SIZE; a big one shakes the view.
@@ -1468,10 +1468,10 @@ public partial class Game : Node3D
             {
                 // Rejoining, the match so far arrives too; only what happens from now on is news.
                 case PlayerLeft left when left.FromTick >= (MatchRequest.Current.ResumeFrom ?? 0):
-                    _hud.Message($"{PlayerName(left.Race)} left the match; the AI takes over");
+                    _hud.Message(Lang.T("{0} left the match; the AI takes over", PlayerName(left.Race)));
                     break;
                 case PlayerReturned back when back.Race != Player && back.FromTick >= (MatchRequest.Current.ResumeFrom ?? 0):
-                    _hud.Message($"{PlayerName(back.Race)} is back and takes over from the AI");
+                    _hud.Message(Lang.T("{0} is back and takes over from the AI", PlayerName(back.Race)));
                     break;
                 case Chat chat:
                     _hud.Chat.Receive(chat);
@@ -1498,11 +1498,11 @@ public partial class Game : Node3D
             var match = MatchRequest.Current.ToMatchInfo(_seed, _session.InputDelay, World.Terrain?.Fingerprint());
             var file = System.IO.Path.Combine(folder, $"{DateTime.Now:yyyy-MM-dd_HH-mm}_{match.Scenario}{Replay.Extension}");
             new Replay(match, _session.Played, World.Tick, _session.Presence).Save(file);
-            _hud.Message($"Replay saved: {System.IO.Path.GetFileName(file)}");
+            _hud.Message(Lang.T("Replay saved: {0}", System.IO.Path.GetFileName(file)));
         }
         catch (IOException exception)
         {
-            _hud.Message($"Replay not saved: {exception.Message}");
+            _hud.Message(Lang.T("Replay not saved: {0}", exception.Message));
         }
     }
 
@@ -1627,7 +1627,7 @@ public partial class Game : Node3D
         }
         catch (IOException exception)
         {
-            _hud.Message($"The campaign progress was not saved: {exception.Message}");
+            _hud.Message(Lang.T("The campaign progress was not saved: {0}", exception.Message));
         }
     }
 
@@ -1795,7 +1795,7 @@ public partial class Game : Node3D
         _hud.Panel.Prompt = !inWorld ? null
             : _hovered is not null ? _hud.Panel.PromptFor(_hovered)
             : _hoveredArtefact is { } artefact ? _hud.Panel.PromptFor(artefact)
-            : _hoveredDebris is { } wreck ? $"Debris   {wreck.Quantity} BMU"
+            : _hoveredDebris is { } wreck ? Lang.T("Debris   {0} BMU", wreck.Quantity)
             : SiteAt(mouse) is { } site ? ClassicPanel.DepositPrompt(site)
             : null;
         _hud.Panel.CommandPrompt = _targeting is not null ? _targetingMessage : null;
@@ -1853,7 +1853,7 @@ public partial class Game : Node3D
     public void FormSquadron(int squad)
     {
         Order(new FormSquadronCommand(Player, SelectedMachines().Select(m => m.Id).ToList(), squad));
-        _hud.Message($"Squadron {squad} formed");
+        _hud.Message(Lang.T("Squadron {0} formed", squad));
     }
 
     /// <summary>
@@ -2185,15 +2185,15 @@ public partial class Game : Node3D
         static string K(KeyMap.Act act) => KeyMap.Name(act);
         var (drive, sides, turn) = ($"{K(KeyMap.Act.Forward)}/{K(KeyMap.Act.Back)}", $"{K(KeyMap.Act.Left)}/{K(KeyMap.Act.Right)}",
             $"{K(KeyMap.Act.TurnLeft)}/{K(KeyMap.Act.TurnRight)}");
-        var sideways = machine.CanStrafe ? $"{sides} step sideways" : $"{sides} turn";
-        var tail = $"left mouse fire, {K(KeyMap.Act.Weapons)} weapons, {K(KeyMap.Act.FirstPerson)} or Esc to leave";
+        var sideways = Lang.T(machine.CanStrafe ? "{0} step sideways" : "{0} turn", sides);
+        var tail = Lang.T("left mouse fire, {0} weapons, {1} or Esc to leave", K(KeyMap.Act.Weapons), K(KeyMap.Act.FirstPerson));
         var centre = K(KeyMap.Act.CentreView);
         _hud.Message((GameOptions.ClassicDriving, machine.CanTurnUpperBody) switch
         {
-            (true, true) => $"First person: {drive} drive, {sides} or mouse turn, Shift or right mouse turns the upper body ({centre} centres it), {tail}",
-            (true, false) => $"First person: {drive} drive, {sides} or mouse turn, {tail}",
-            (false, true) => $"First person: {drive} drive, {sideways}, {turn} turn (Ctrl slowly), the mouse looks and the upper body follows ({centre} centres it), {tail}",
-            (false, false) => $"First person: {drive} drive, {sideways}, {turn} turn (Ctrl slowly), the mouse looks and the machine follows, {tail}",
+            (true, true) => Lang.T("First person: {0} drive, {1} or mouse turn, Shift or right mouse turns the upper body ({2} centres it), {3}", drive, sides, centre, tail),
+            (true, false) => Lang.T("First person: {0} drive, {1} or mouse turn, {2}", drive, sides, tail),
+            (false, true) => Lang.T("First person: {0} drive, {1}, {2} turn (Ctrl slowly), the mouse looks and the upper body follows ({3} centres it), {4}", drive, sideways, turn, centre, tail),
+            (false, false) => Lang.T("First person: {0} drive, {1}, {2} turn (Ctrl slowly), the mouse looks and the machine follows, {3}", drive, sideways, turn, tail),
         });
     }
 

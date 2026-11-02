@@ -78,7 +78,7 @@ public partial class KeysPage(Action back) : MenuPage(back)
         Refresh();
         _waiting = act;
         _buttons[act].Text = "?";
-        _status.Text = $"Press the key for {KeyMap.Title(act)}, Esc keeps {KeyMap.Name(act)}.";
+        _status.Text = Lang.T("Press the key for {0}, Esc keeps {1}.", KeyMap.Title(act), KeyMap.Name(act));
     }
 
     // The key waited for comes before the buttons and the menus' Esc see it.
@@ -91,18 +91,18 @@ public partial class KeysPage(Action back) : MenuPage(back)
         if (key.Keycode == Key.Escape)
             _status.Text = Hint;
         else if (key.Keycode is Key.None or Key.Unknown)
-            _status.Text = "That key cannot be used; pick another.";
+            _status.Text = Lang.T("That key cannot be used; pick another.");
         else if (KeyMap.Reserved(key.Keycode))
-            _status.Text = $"{KeyMap.Name(key.Keycode)} keeps its own use; pick another key.";
+            _status.Text = Lang.T("{0} keeps its own use; pick another key.", KeyMap.Name(key.Keycode));
         else
         {
             var old = KeyMap.Name(act);
             var swapped = KeyMap.Set(act, key.Keycode, out var clash);
             _status.Text = clash is (var holder, var blocker)
-                ? $"{KeyMap.Name(key.Keycode)} is {KeyMap.Title(holder)}'s, which cannot take {old} while {KeyMap.Title(blocker)} has it; change one of them first."
+                ? Lang.T("{0} is {1}'s, which cannot take {2} while {3} has it; change one of them first.", KeyMap.Name(key.Keycode), KeyMap.Title(holder), old, KeyMap.Title(blocker))
                 : swapped.Count > 0
-                    ? $"{KeyMap.Title(act)} is now on {KeyMap.Name(act)}; {string.Join(" and ", swapped.Select(KeyMap.Title))} took {old}."
-                    : $"{KeyMap.Title(act)} is now on {KeyMap.Name(act)}.";
+                    ? Lang.T("{0} is now on {1}; {2} took {3}.", KeyMap.Title(act), KeyMap.Name(act), string.Join(Lang.T(" and "), swapped.Select(KeyMap.Title)), old)
+                    : Lang.T("{0} is now on {1}.", KeyMap.Title(act), KeyMap.Name(act));
         }
         Refresh();
         _buttons[act].GrabFocus();

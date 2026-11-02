@@ -43,7 +43,7 @@ public partial class FilesPage : MenuPage
             var local = saved.Match.Players.FirstOrDefault(p => !p.Ai)?.Slot;
             MatchRequest.Current = MatchRequest.FromMatch(saved.Match, clientId: -1, local) with { Saved = saved };
             LoadingScreen.Show(tree, System.IO.Path.GetFileNameWithoutExtension(path).ToUpperInvariant(),
-                $"SAVED GAME   ·   {LoadingScreen.MapName(MatchRequest.Current)}");
+                $"{Lang.T("SAVED GAME")}   ·   {LoadingScreen.MapName(MatchRequest.Current)}");
             return null;
         }
         catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
@@ -60,7 +60,7 @@ public partial class FilesPage : MenuPage
             var replay = Replay.Load(path);
             MatchRequest.Current = MatchRequest.FromMatch(replay.Match, clientId: -1) with { Replay = replay };
             LoadingScreen.Show(tree, System.IO.Path.GetFileNameWithoutExtension(path).ToUpperInvariant(),
-                $"REPLAY   ·   {LoadingScreen.MapName(MatchRequest.Current)}");
+                $"{Lang.T("REPLAY")}   ·   {LoadingScreen.MapName(MatchRequest.Current)}");
             return null;
         }
         catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
@@ -178,7 +178,7 @@ public partial class FilesPage : MenuPage
     {
         if (PickedFile is not { } file)
             return;
-        Stage.Message($"Delete {System.IO.Path.GetFileNameWithoutExtension(file)}?", ("Delete", () =>
+        Stage.Message(Lang.T("Delete {0}?", System.IO.Path.GetFileNameWithoutExtension(file)), ("Delete", () =>
         {
             var at = _list.GetSelectedItems()[0];
             File.Delete(file);

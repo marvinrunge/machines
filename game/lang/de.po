@@ -1,0 +1,1952 @@
+# The German words of Machines Remake, keyed by the English ones (see game/scripts/Lang.cs).
+# The original's own words come from the player's game copy; those here translate its English.
+msgid ""
+msgstr ""
+"Project-Id-Version: Machines Remake\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+# Menus: main, pages, buttons
+
+msgid "Skirmish"
+msgstr "Gefecht"
+
+msgid "Multiplayer"
+msgstr "Mehrspieler"
+
+msgid "Campaign"
+msgstr "Kampagne"
+
+msgid "Options"
+msgstr "Optionen"
+
+msgid "Replays"
+msgstr "Aufnahmen"
+
+msgid "Models"
+msgstr "Modelle"
+
+msgid "Load"
+msgstr "Laden"
+
+msgid "Load Game"
+msgstr "Spiel laden"
+
+msgid "Load game"
+msgstr "Spiel laden"
+
+msgid "Save"
+msgstr "Speichern"
+
+msgid "Save Game"
+msgstr "Spiel speichern"
+
+msgid "Save game"
+msgstr "Spiel speichern"
+
+msgid "Exit"
+msgstr "Beenden"
+
+msgid "Exit Game"
+msgstr "Spiel beenden"
+
+msgid "Quit"
+msgstr "Beenden"
+
+msgid "Stay"
+msgstr "Bleiben"
+
+msgid "Leave Machines?"
+msgstr "Machines verlassen?"
+
+msgid "Back"
+msgstr "Zurück"
+
+msgid "Next"
+msgstr "Weiter"
+
+msgid "Previous"
+msgstr "Zurück"
+
+msgid "Continue"
+msgstr "Weiter"
+
+msgid "Cancel"
+msgstr "Abbrechen"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "Done."
+msgstr "Fertig."
+
+msgid "Finish"
+msgstr "Fertig"
+
+msgid "Later"
+msgstr "Später"
+
+msgid "Start"
+msgstr "Start"
+
+msgid "Restart"
+msgstr "Neustart"
+
+msgid "Start match"
+msgstr "Match starten"
+
+msgid "Start this match again from the beginning?"
+msgstr "Dieses Match von vorn beginnen?"
+
+msgid "Delete"
+msgstr "Löschen"
+
+msgid "Keep"
+msgstr "Behalten"
+
+msgid "New"
+msgstr "Neu"
+
+msgid "Refresh"
+msgstr "Aktualisieren"
+
+msgid "Statistics"
+msgstr "Statistik"
+
+msgid "Objectives"
+msgstr "Ziele"
+
+msgid "Hints"
+msgstr "Tipps"
+
+msgid "Welcome"
+msgstr "Willkommen"
+
+msgid "Welcome! Start when you are ready."
+msgstr "Willkommen! Starte, wenn du bereit bist."
+
+msgid "Language"
+msgstr "Sprache"
+
+msgid "Leave the match for the main menu?"
+msgstr "Das Match verlassen und ins Hauptmenü?"
+
+msgid "Leave the match for the main menu? What is not saved is lost."
+msgstr "Das Match verlassen und ins Hauptmenü? Was nicht gespeichert ist, geht verloren."
+
+msgid "Return to the menus (Esc)"
+msgstr "Zurück zu den Menüs (Esc)"
+
+msgid "Look: {0}"
+msgstr "Grafik: {0}"
+
+msgid "Models imported from your game copy"
+msgstr "Modelle aus deiner Spielkopie importiert"
+
+msgid "Models not imported yet"
+msgstr "Modelle noch nicht importiert"
+
+msgid "LOADING"
+msgstr "LADE"
+
+msgid "CAMPAIGN"
+msgstr "KAMPAGNE"
+
+msgid "MULTIPLAYER"
+msgstr "MEHRSPIELER"
+
+msgid "SAVED GAME"
+msgstr "SPIELSTAND"
+
+msgid "REPLAY"
+msgstr "AUFNAHME"
+
+msgid "RESTART"
+msgstr "NEUSTART"
+
+msgid "NO OPPONENT"
+msgstr "KEIN GEGNER"
+
+msgid "{0} PLAYERS"
+msgstr "{0} SPIELER"
+
+msgid "UP TO {0} PLAYERS"
+msgstr "BIS ZU {0} SPIELER"
+
+# First start
+
+msgid "Choose a look"
+msgstr "Wähle eine Grafik"
+
+msgid "Classic"
+msgstr "Klassisch"
+
+msgid "Overhauled"
+msgstr "Überarbeitet"
+
+msgid "Overhauled classic"
+msgstr "Überarbeitet"
+
+msgid "Overhauled · recommended"
+msgstr "Überarbeitet · empfohlen"
+
+msgid "Play classic"
+msgstr "Klassisch spielen"
+
+msgid "Play overhauled"
+msgstr "Überarbeitet spielen"
+
+msgid "Custom"
+msgstr "Eigene"
+
+msgid "Customize"
+msgstr "Anpassen"
+
+msgid "Import"
+msgstr "Importieren"
+
+msgid "Import again"
+msgstr "Erneut importieren"
+
+msgid "Pick folder"
+msgstr "Ordner wählen"
+
+msgid "Music"
+msgstr "Musik"
+
+msgid "No models imported"
+msgstr "Keine Modelle importiert"
+
+msgid "Machines Remake rebuilds Machines: Wired for War (1999). It brings nothing of the original along: its models, planets, sounds and films come from your own copy of the game (GOG or Steam)."
+msgstr "Machines Remake baut Machines: Wired for War (1999) neu. Es bringt nichts vom Original mit: Modelle, Planeten, Klänge und Filme kommen aus deiner eigenen Kopie des Spiels (GOG oder Steam)."
+
+msgid "Pick the folder Machines is installed in, the one that holds models.bin. The import takes a few minutes and makes the remake's sharper textures on your graphics card as it goes."
+msgstr "Wähle den Ordner, in dem Machines installiert ist, also den mit models.bin. Der Import dauert ein paar Minuten und erzeugt dabei auf deiner Grafikkarte die schärferen Texturen des Remakes."
+
+msgid "Without the import the machines show as simple shapes; the options can import later."
+msgstr "Ohne Import erscheinen die Maschinen als einfache Formen; in den Optionen kannst du später importieren."
+
+msgid "Pick the folder Machines is installed in (it holds models.bin)"
+msgstr "Wähle den Ordner, in dem Machines installiert ist (mit models.bin)"
+
+msgid "Both play the same game. The options change the look at any time, and under Customize part by part; a look with newly made HD models follows once they are finished."
+msgstr "Beide spielen dasselbe Spiel. Die Optionen ändern die Grafik jederzeit, unter Anpassen auch Teil für Teil; eine Grafik mit neu gemachten HD-Modellen folgt, sobald sie fertig sind."
+
+msgid "The original as it was in 1999: its models, its tiled ground, its light and its effects."
+msgstr "Das Original, wie es 1999 war: seine Modelle, sein gekachelter Boden, sein Licht und seine Effekte."
+
+msgid "The original sharpened: textures upscaled with relief, soft shadows and glow, photographed skies, new explosions and smoke, weather, trees and rocks."
+msgstr "Das Original geschärft: hochskalierte Texturen mit Relief, weiche Schatten und Glühen, fotografierte Himmel, neue Explosionen und Rauch, Wetter, Bäume und Felsen."
+
+msgid "The remake plays the original soundtrack from MP3s of your own, as the original played its CD: the intro, the menu tune, each planet's own track and the victory and defeat tunes."
+msgstr "Das Remake spielt den Original-Soundtrack aus deinen eigenen MP3s, so wie das Original seine CD abspielte: das Intro, die Menümelodie, das Stück jedes Planeten und die Melodien für Sieg und Niederlage."
+
+msgid "Pick the folder that holds them (Track 00 - Intro.mp3 and the others). Without it the game plays without music."
+msgstr "Wähle den Ordner, der sie enthält (Track 00 - Intro.mp3 und die anderen). Ohne ihn läuft das Spiel ohne Musik."
+
+msgid "Pick the folder with the soundtrack (Track 00 - Intro.mp3 ...)"
+msgstr "Wähle den Ordner mit dem Soundtrack (Track 00 - Intro.mp3 ...)"
+
+msgid "{0} tracks found."
+msgstr "{0} Stücke gefunden."
+
+msgid "No soundtrack picked yet."
+msgstr "Noch kein Soundtrack gewählt."
+
+msgid "No models"
+msgstr "Keine Modelle"
+
+# Options
+
+msgid "Display"
+msgstr "Anzeige"
+
+msgid "Window"
+msgstr "Fenster"
+
+msgid "Full screen"
+msgstr "Vollbild"
+
+msgid "Menu size"
+msgstr "Menügröße"
+
+msgid "Gamma"
+msgstr "Gamma"
+
+msgid "Look"
+msgstr "Grafik"
+
+msgid "Graphics"
+msgstr "Grafik"
+
+msgid "Sound"
+msgstr "Ton"
+
+msgid "Sounds"
+msgstr "Geräusche"
+
+msgid "3D Sound"
+msgstr "3D-Sound"
+
+msgid "Soundtrack"
+msgstr "Soundtrack"
+
+msgid "{0} tracks"
+msgstr "{0} Stücke"
+
+msgid "Pick the folder with the soundtrack's MP3s"
+msgstr "Wähle den Ordner mit den MP3s des Soundtracks"
+
+msgid "Change keys"
+msgstr "Tasten ändern"
+
+msgid "Keys"
+msgstr "Tasten"
+
+msgid "CONTROLS AND PICTURE"
+msgstr "STEUERUNG UND BILD"
+
+msgid "ORIGINAL MODELS AND TERRAIN"
+msgstr "ORIGINALMODELLE UND GELÄNDE"
+
+msgid "Classic F.P. Keys"
+msgstr "Klassische Ego-Tasten"
+
+msgid "F.P. Mouse Speed"
+msgstr "Ego-Mausgeschwindigkeit"
+
+msgid "Reverse F.P. Mouse"
+msgstr "Ego-Maus umkehren"
+
+msgid "Reverse Up/Down Keys"
+msgstr "Hoch/Runter umkehren"
+
+msgid "2D Selection box"
+msgstr "2D-Auswahlrahmen"
+
+msgid "Depth of field"
+msgstr "Tiefenschärfe"
+
+msgid "Film look"
+msgstr "Filmlook"
+
+msgid "Small"
+msgstr "Klein"
+
+msgid "Large"
+msgstr "Groß"
+
+msgid "Off"
+msgstr "Aus"
+
+msgid "On"
+msgstr "An"
+
+msgid "Low"
+msgstr "Niedrig"
+
+msgid "Medium"
+msgstr "Mittel"
+
+msgid "High"
+msgstr "Hoch"
+
+msgid "Classic models loaded from your game copy."
+msgstr "Klassische Modelle aus deiner Spielkopie geladen."
+
+msgid "Imported from your game copy."
+msgstr "Aus deiner Spielkopie importiert."
+
+msgid "Imported. Import again for the remake's sharper textures."
+msgstr "Importiert. Importiere erneut für die schärferen Texturen des Remakes."
+
+msgid "Imported by an older version. Import again for the right lighting."
+msgstr "Von einer älteren Version importiert. Importiere erneut für die richtige Beleuchtung."
+
+msgid "Not imported. You need your own copy of Machines: Wired for War."
+msgstr "Nicht importiert. Du brauchst deine eigene Kopie von Machines: Wired for War."
+
+msgid "That folder has no models.bin. Pick the folder Machines is installed in."
+msgstr "In diesem Ordner liegt keine models.bin. Wähle den Ordner, in dem Machines installiert ist."
+
+msgid "That folder has no pdata folder. Pick the folder Machines is installed in."
+msgstr "In diesem Ordner gibt es keinen Ordner pdata. Wähle den Ordner, in dem Machines installiert ist."
+
+msgid "Exporting machines and buildings…"
+msgstr "Exportiere Maschinen und Gebäude…"
+
+msgid "Sharpening textures: finding them…"
+msgstr "Schärfe Texturen: suche sie…"
+
+msgid "Sharpening textures: normal and roughness maps…"
+msgstr "Schärfe Texturen: Normal- und Rauheitskarten…"
+
+msgid "HD textures finished"
+msgstr "HD-Texturen fertig"
+
+msgid "No textures found to sharpen. Import the original models first."
+msgstr "Keine Texturen zum Schärfen gefunden. Importiere zuerst die Originalmodelle."
+
+msgid "The model export failed; see classic/models.log."
+msgstr "Der Modellexport ist fehlgeschlagen; siehe classic/models.log."
+
+msgid "The up and down keys look with Shift in first person, and tilt the ground camera with Ctrl and Shift; unreversed, up looks down as a pilot's stick does. First person drives as in a tank game; Classic keys drive as the original did."
+msgstr "Hoch und Runter sehen mit Umschalt in der Ego-Perspektive auf und ab und neigen mit Strg und Umschalt die Bodenkamera; nicht umgekehrt sieht Hoch nach unten, wie ein Steuerknüppel. Die Ego-Perspektive fährt wie ein Panzerspiel; die klassischen Tasten fahren wie im Original."
+
+# Graphics parts
+
+msgid "Lighting & sky"
+msgstr "Licht & Himmel"
+
+msgid "Machines & buildings"
+msgstr "Maschinen & Gebäude"
+
+msgid "Ground"
+msgstr "Boden"
+
+msgid "Effects"
+msgstr "Effekte"
+
+msgid "Weather"
+msgstr "Wetter"
+
+msgid "Trees & rocks"
+msgstr "Bäume & Felsen"
+
+msgid "Original"
+msgstr "Original"
+
+msgid "Sharpened"
+msgstr "Geschärft"
+
+msgid "Painted"
+msgstr "Gemalt"
+
+msgid "Remake"
+msgstr "Remake"
+
+msgid "Subtle"
+msgstr "Dezent"
+
+msgid "Strong"
+msgstr "Stark"
+
+msgid "Each part as chosen below."
+msgstr "Jeder Teil wie unten gewählt."
+
+msgid "Each part of the look as chosen under Customize."
+msgstr "Jeder Teil der Grafik wie unter Anpassen gewählt."
+
+msgid "Everything as the original had it."
+msgstr "Alles wie im Original."
+
+msgid "Explosions, machines flying apart, smoke, tracks, scorch marks and the light of fire."
+msgstr "Explosionen, zerberstende Maschinen, Rauch, Spuren, Brandflecken und der Schein des Feuers."
+
+msgid "No weather, as in the original."
+msgstr "Kein Wetter, wie im Original."
+
+msgid "Sand, snow, rain or ash as the planet has them, and storms now and then."
+msgstr "Sand, Schnee, Regen oder Asche, wie der Planet sie hat, und ab und zu Stürme."
+
+msgid "The new look shows from the next match."
+msgstr "Die neue Grafik gilt ab dem nächsten Match."
+
+msgid "The original sharpened, with the remake's lighting, effects, weather, trees and rocks."
+msgstr "Das Original geschärft, mit Licht, Effekten, Wetter, Bäumen und Felsen des Remakes."
+
+msgid "The original sharpened: its ground and models upscaled, with tone mapping, glow, soft shadows and the remake's effects."
+msgstr "Das Original geschärft: Boden und Modelle hochskaliert, mit Tone Mapping, Glühen, weichen Schatten und den Effekten des Remakes."
+
+msgid "The original's explosions and shots."
+msgstr "Die Explosionen und Schüsse des Originals."
+
+msgid "The original's ground and its pictures."
+msgstr "Der Boden des Originals und seine Bilder."
+
+msgid "The original's ground, its pictures upscaled with relief and roughness."
+msgstr "Der Boden des Originals, seine Bilder hochskaliert, mit Relief und Rauheit."
+
+msgid "The original's light."
+msgstr "Das Licht des Originals."
+
+msgid "The original's models and textures."
+msgstr "Die Modelle und Texturen des Originals."
+
+msgid "The original's models with rounded edges, baked shading, sharper textures and a little sheen."
+msgstr "Die Modelle des Originals mit gerundeten Kanten, eingebrannter Schattierung, schärferen Texturen und etwas Glanz."
+
+msgid "The original's models, ground, lighting and effects."
+msgstr "Modelle, Boden, Licht und Effekte des Originals."
+
+msgid "The original's trees and rocks."
+msgstr "Die Bäume und Felsen des Originals."
+
+msgid "The remade models on the painted ground, with the rest of the remake."
+msgstr "Die neu gemachten Modelle auf dem gemalten Boden, mit dem Rest des Remakes."
+
+msgid "Tone mapping, glow, ambient occlusion, soft shadows, photographed skies and lamps at night."
+msgstr "Tone Mapping, Glühen, Umgebungsverdeckung, weiche Schatten, fotografierte Himmel und Lampen bei Nacht."
+
+msgid "A finer shape that casts shadows; the natural planets painted with photographed ground."
+msgstr "Eine feinere Form, die Schatten wirft; die natürlichen Planeten mit fotografiertem Boden bemalt."
+
+msgid "Still in the making: the remade models on the painted ground, where they exist; the rest shows overhauled."
+msgstr "Noch in Arbeit: die neu gemachten Modelle auf dem gemalten Boden, wo es sie gibt; der Rest erscheint überarbeitet."
+
+msgid "The remade models in the original's rigs; those not remade yet show overhauled."
+msgstr "Die neu gemachten Modelle in den Gerüsten des Originals; noch nicht neu gemachte erscheinen überarbeitet."
+
+msgid "The remade trees and rocks; on the painted ground grass and stones grow too."
+msgstr "Die neu gemachten Bäume und Felsen; auf dem gemalten Boden wachsen auch Gras und Steine."
+
+msgid " Import the original again in the options to make them."
+msgstr " Importiere das Original in den Optionen erneut, um sie zu erstellen."
+
+# Keys page
+
+msgid "MOVING"
+msgstr "BEWEGUNG"
+
+msgid "COMMANDS"
+msgstr "BEFEHLE"
+
+msgid "Defaults"
+msgstr "Standard"
+
+msgid "Click a key to change it."
+msgstr "Klicke auf eine Taste, um sie zu ändern."
+
+msgid "Every key is back on its first."
+msgstr "Alle Tasten sind wieder wie am Anfang belegt."
+
+msgid "That key cannot be used; pick another."
+msgstr "Diese Taste geht nicht; wähle eine andere."
+
+msgid "Press the key for {0}, Esc keeps {1}."
+msgstr "Drücke die Taste für „{0}“, Esc behält {1}."
+
+msgid "{0} keeps its own use; pick another key."
+msgstr "{0} behält seine Aufgabe; wähle eine andere Taste."
+
+msgid "{0} is {1}'s, which cannot take {2} while {3} has it; change one of them first."
+msgstr "{0} gehört zu „{1}“, das {2} nicht nehmen kann, solange „{3}“ sie hat; ändere zuerst eine davon."
+
+msgid "{0} is now on {1}; {2} took {3}."
+msgstr "„{0}“ liegt jetzt auf {1}; {2} nahm {3}."
+
+msgid "{0} is now on {1}."
+msgstr "„{0}“ liegt jetzt auf {1}."
+
+msgid " and "
+msgstr " und "
+
+msgid "The moves scroll and turn the ground camera and drive in first person, where left and right step sideways or turn as the options' first-person keys say."
+msgstr "Die Bewegungen scrollen und drehen die Bodenkamera und fahren in der Ego-Perspektive; dort gehen Links und Rechts seitwärts oder drehen, wie es die Ego-Tasten in den Optionen festlegen."
+
+msgid "These keep their use: the arrows scroll too, and with Ctrl and Shift tilt the camera or, with Shift, look in first person; Ctrl or Shift with S stops; the numbers select a squadron and Ctrl with one forms it; F1 to F4 chat; Alt with the arrows moves the panel; Esc cancels or opens the menus. R turns a building and keypad 5 centres the upper body too while no action has them."
+msgstr "Diese behalten ihre Aufgabe: Die Pfeile scrollen auch, neigen mit Strg und Umschalt die Kamera und sehen mit Umschalt in der Ego-Perspektive umher; Strg oder Umschalt mit S hält an; die Ziffern wählen eine Staffel, Strg mit einer bildet sie; F1 bis F4 chatten; Alt mit den Pfeilen verschiebt die Leiste; Esc bricht ab oder öffnet die Menüs. R dreht ein Gebäude und Ziffernblock 5 richtet den Oberkörper aus, solange keine Aktion sie belegt."
+
+msgid "Forward"
+msgstr "Vorwärts"
+
+msgid "Backward"
+msgstr "Rückwärts"
+
+msgid "Left"
+msgstr "Links"
+
+msgid "Right"
+msgstr "Rechts"
+
+msgid "Turn left"
+msgstr "Links drehen"
+
+msgid "Turn right"
+msgstr "Rechts drehen"
+
+msgid "First person"
+msgstr "Ego-Perspektive"
+
+msgid "Next weapons"
+msgstr "Nächste Waffen"
+
+msgid "Upper body forward"
+msgstr "Oberkörper nach vorn"
+
+msgid "Turn building"
+msgstr "Gebäude drehen"
+
+msgid "Initiative"
+msgstr "Initiative"
+
+msgid "Assembly point"
+msgstr "Sammelpunkt"
+
+msgid "Pause"
+msgstr "Pause"
+
+msgid "Menus"
+msgstr "Menüs"
+
+msgid "Zenith view"
+msgstr "Zenitansicht"
+
+msgid "Ground view"
+msgstr "Bodenansicht"
+
+# Hot keys page
+
+msgid "Hot Keys"
+msgstr "Tastenkürzel"
+
+msgid "First Person Control"
+msgstr "Steuerung in der Ego-Perspektive"
+
+msgid "General Control"
+msgstr "Allgemeine Steuerung"
+
+msgid "Drive"
+msgstr "Fahren"
+
+msgid "Turn"
+msgstr "Drehen"
+
+msgid "Turn upper body"
+msgstr "Oberkörper drehen"
+
+msgid "Look up and down"
+msgstr "Auf und ab sehen"
+
+msgid "Look round"
+msgstr "Umsehen"
+
+msgid "Fire"
+msgstr "Feuern"
+
+msgid "Pick weapons"
+msgstr "Waffen wählen"
+
+msgid "Leave first person"
+msgstr "Ego-Perspektive verlassen"
+
+msgid "Step sideways"
+msgstr "Seitwärts"
+
+msgid "Scroll"
+msgstr "Scrollen"
+
+msgid "Turn view"
+msgstr "Ansicht drehen"
+
+msgid "Zoom"
+msgstr "Zoom"
+
+msgid "1st person"
+msgstr "Ego-Perspektive"
+
+msgid "Select"
+msgstr "Auswählen"
+
+msgid "Order"
+msgstr "Befehl"
+
+msgid "Stop"
+msgstr "Halt"
+
+msgid "Create squad 0-9"
+msgstr "Staffel 0-9 bilden"
+
+msgid "Select squad 0-9"
+msgstr "Staffel 0-9 wählen"
+
+msgid "Hide panel"
+msgstr "Leiste ausblenden"
+
+msgid "Show panel"
+msgstr "Leiste einblenden"
+
+msgid "Alt Left"
+msgstr "Alt Links"
+
+msgid "Alt Right"
+msgstr "Alt Rechts"
+
+msgid "Ctrl 0-9"
+msgstr "Strg 0-9"
+
+msgid "Ctrl S"
+msgstr "Strg S"
+
+msgid "Left click, drag"
+msgstr "Linksklick, Ziehen"
+
+msgid "Right click"
+msgstr "Rechtsklick"
+
+msgid "Left mouse button"
+msgstr "Linke Maustaste"
+
+msgid "Mouse wheel"
+msgstr "Mausrad"
+
+msgid "Mouse, Shift with arrows"
+msgstr "Maus, Umschalt mit Pfeilen"
+
+msgid "Mouse (the machine follows)"
+msgstr "Maus (die Maschine folgt)"
+
+msgid "{0}, mouse"
+msgstr "{0}, Maus"
+
+msgid "Shift with {0} or mouse, right mouse"
+msgstr "Umschalt mit {0} oder Maus, rechte Maustaste"
+
+msgid "{0} (legs, hover, flight)"
+msgstr "{0} (Beine, Schweben, Flug)"
+
+msgid "{0}, {1}, slowly with Ctrl"
+msgstr "{0}, {1}, langsam mit Strg"
+
+msgid "{0}, arrows, edges"
+msgstr "{0}, Pfeile, Ränder"
+
+msgid "Saved: {0}"
+msgstr "Gespeichert: {0}"
+
+# Skirmish
+
+msgid "Players"
+msgstr "Spieler"
+
+msgid "Player"
+msgstr "Spieler"
+
+msgid "Your colour"
+msgstr "Deine Farbe"
+
+msgid "Start positions"
+msgstr "Startpositionen"
+
+msgid "Fixed"
+msgstr "Fest"
+
+msgid "Random"
+msgstr "Zufällig"
+
+msgid "Resources"
+msgstr "Rohstoffe"
+
+msgid "Starting BMUs"
+msgstr "Start-BMU"
+
+msgid "Technology"
+msgstr "Technologie"
+
+msgid "Victory"
+msgstr "Sieg"
+
+msgid "Defeat"
+msgstr "Niederlage"
+
+msgid "AI"
+msgstr "KI"
+
+msgid "Easy"
+msgstr "Leicht"
+
+msgid "Normal"
+msgstr "Normal"
+
+msgid "Hard"
+msgstr "Schwer"
+
+msgid "Free slots"
+msgstr "Freie Plätze"
+
+msgid "Play the AI"
+msgstr "KI spielt"
+
+msgid "Stay empty"
+msgstr "Leer lassen"
+
+msgid "Annihilation"
+msgstr "Vernichtung"
+
+msgid "Destroy pod"
+msgstr "Pod zerstören"
+
+msgid "Timed: {0}"
+msgstr "Zeitlimit: {0}"
+
+msgid "Map default"
+msgstr "Wie die Karte"
+
+msgid "Map default ({0})"
+msgstr "Wie die Karte ({0})"
+
+msgid "1 (no opponent)"
+msgstr "1 (kein Gegner)"
+
+msgid "Scenarios"
+msgstr "Szenarien"
+
+msgid "Multiplayer maps"
+msgstr "Mehrspielerkarten"
+
+msgid "TEST MAPS"
+msgstr "TESTKARTEN"
+
+msgid "Map overviews and descriptions come from your own game copy (Options, Import)."
+msgstr "Kartenübersichten und Beschreibungen kommen aus deiner eigenen Spielkopie (Optionen, Importieren)."
+
+msgid "Red"
+msgstr "Rot"
+
+msgid "Blue"
+msgstr "Blau"
+
+msgid "Green"
+msgstr "Grün"
+
+msgid "Yellow"
+msgstr "Gelb"
+
+msgid "{0} wins"
+msgstr "{0} gewinnt"
+
+# Multiplayer
+
+msgid "YOUR NAME"
+msgstr "DEIN NAME"
+
+msgid "Your name"
+msgstr "Dein Name"
+
+msgid "RELAY"
+msgstr "RELAY"
+
+msgid "ROOMS"
+msgstr "RÄUME"
+
+msgid "Relay address"
+msgstr "Relay-Adresse"
+
+msgid "Connect"
+msgstr "Verbinden"
+
+msgid "Host"
+msgstr "Hosten"
+
+msgid "Join"
+msgstr "Beitreten"
+
+msgid "Leave"
+msgstr "Verlassen"
+
+msgid "Leave room"
+msgstr "Raum verlassen"
+
+msgid "Open a room"
+msgstr "Einen Raum öffnen"
+
+msgid "Open room"
+msgstr "Raum öffnen"
+
+msgid "New room"
+msgstr "Neuer Raum"
+
+msgid "Ready"
+msgstr "Bereit"
+
+msgid "Send"
+msgstr "Senden"
+
+msgid "Chat message"
+msgstr "Chatnachricht"
+
+msgid "Colour"
+msgstr "Farbe"
+
+msgid "Guest"
+msgstr "Gast"
+
+msgid "Copy address"
+msgstr "Adresse kopieren"
+
+msgid "Open the port on the router"
+msgstr "Port am Router öffnen"
+
+msgid "Connect to a relay, or host one,\nto see its rooms."
+msgstr "Verbinde dich mit einem Relay oder hoste eines,\num seine Räume zu sehen."
+
+msgid "Join a room, or rejoin a match you dropped out of"
+msgstr "Tritt einem Raum bei oder kehre in ein Match zurück, aus dem du gefallen bist"
+
+msgid "Host runs the relay in this game (port 7777) and asks the router to let the others in; they connect to the address it shows. Or connect to a relay someone else runs."
+msgstr "Hosten startet das Relay in diesem Spiel (Port 7777) und bittet den Router, die anderen hereinzulassen; sie verbinden sich mit der angezeigten Adresse. Oder verbinde dich mit dem Relay eines anderen."
+
+msgid "Connecting…"
+msgstr "Verbinde…"
+
+msgid "Starting the relay…"
+msgstr "Starte das Relay…"
+
+msgid "Connected as {0}."
+msgstr "Verbunden als {0}."
+
+msgid "Disconnected from the relay."
+msgstr "Vom Relay getrennt."
+
+msgid "Connection to the relay lost"
+msgstr "Verbindung zum Relay verloren"
+
+msgid "The connection to the relay is gone."
+msgstr "Die Verbindung zum Relay ist weg."
+
+msgid "the relay did not answer"
+msgstr "das Relay hat nicht geantwortet"
+
+msgid "cannot open port {0}: {1}"
+msgstr "Port {0} lässt sich nicht öffnen: {1}"
+
+msgid "cannot reach {0}:{1} ({2})"
+msgstr "{0}:{1} ist nicht erreichbar ({2})"
+
+msgid "Hosting."
+msgstr "Spiel wird gehostet."
+
+msgid "Hosting. Asking the router to open port {0}…"
+msgstr "Spiel wird gehostet. Bitte den Router, Port {0} zu öffnen…"
+
+msgid "Hosting. On this network the others connect to {0}; over the internet to your public address, with port {1} forwarded on the router."
+msgstr "Spiel wird gehostet. In diesem Netz verbinden sich die anderen mit {0}; über das Internet mit deiner öffentlichen Adresse, wenn Port {1} am Router weitergeleitet ist."
+
+msgid " On this network: {0}."
+msgstr " In diesem Netz: {0}."
+
+msgid " Over the internet: {0}."
+msgstr " Über das Internet: {0}."
+
+msgid " or "
+msgstr " oder "
+
+msgid " (IPv6, if the router's firewall lets it in)"
+msgstr " (IPv6, wenn die Firewall des Routers es durchlässt)"
+
+msgid "Copied {0}."
+msgstr "{0} kopiert."
+
+msgid "{0} joined the room"
+msgstr "{0} hat den Raum betreten"
+
+msgid "{0} left the room"
+msgstr "{0} hat den Raum verlassen"
+
+msgid "{0}   ·   {1} on {2}   ·   {3}/{4}"
+msgstr "{0}   ·   {1} auf {2}   ·   {3}/{4}"
+
+msgid "{0}   ·   {1} on {2}   ·   {3}/{4} players"
+msgstr "{0}   ·   {1} auf {2}   ·   {3}/{4} Spieler"
+
+msgid ", the rest AI"
+msgstr ", der Rest KI"
+
+msgid "playing"
+msgstr "läuft"
+
+msgid "(host)"
+msgstr "(Host)"
+
+msgid "ready"
+msgstr "bereit"
+
+msgid "{0}'s game"
+msgstr "Spiel von {0}"
+
+msgid "The players' classic terrain exports differ: hills will not stop shots in this match"
+msgstr "Die klassischen Geländeexporte der Spieler weichen ab: Hügel halten in diesem Match keine Schüsse auf"
+
+msgid "The router did not answer (its UPnP may be off): forward port {0} on it by hand."
+msgstr "Der Router hat nicht geantwortet (vielleicht ist UPnP aus): Leite Port {0} dort von Hand weiter."
+
+msgid "The router could not be asked ({0})."
+msgstr "Der Router ließ sich nicht fragen ({0})."
+
+msgid "The router offers no port mappings."
+msgstr "Der Router bietet keine Portfreigaben an."
+
+msgid "Port {0} on the router already leads to another computer."
+msgstr "Port {0} des Routers führt schon zu einem anderen Computer."
+
+msgid "The router does not let programs open ports: allow it for this computer (on a FRITZ!Box: \"Selbstständige Portfreigaben\")."
+msgstr "Der Router lässt Programme keine Ports öffnen: Erlaube es für diesen Computer (bei einer FRITZ!Box: „Selbstständige Portfreigaben“)."
+
+msgid "The router would not open the port ({0} {1})."
+msgstr "Der Router wollte den Port nicht öffnen ({0} {1})."
+
+msgid "The router has no public IPv4 address of its own (the provider shares one): the others get in only over IPv6."
+msgstr "Der Router hat keine eigene öffentliche IPv4-Adresse (der Anbieter teilt eine): Die anderen kommen nur über IPv6 herein."
+
+msgid "no such room"
+msgstr "diesen Raum gibt es nicht"
+
+msgid "that match has already started"
+msgstr "dieses Match läuft schon"
+
+msgid "that room is full"
+msgstr "dieser Raum ist voll"
+
+msgid "only the host starts the match"
+msgstr "nur der Host startet das Match"
+
+msgid "not everyone is ready"
+msgstr "noch nicht alle sind bereit"
+
+msgid "that match is not running"
+msgstr "dieses Match läuft nicht"
+
+msgid "a room needs a map with at least two start positions"
+msgstr "ein Raum braucht eine Karte mit mindestens zwei Startpositionen"
+
+msgid "Send to {0}: "
+msgstr "An {0}: "
+
+msgid "Send to Everyone: "
+msgstr "An alle: "
+
+# Saved games and replays
+
+msgid "Name of the save"
+msgstr "Name des Spielstands"
+
+msgid "New save game"
+msgstr "Neuer Spielstand"
+
+msgid "No saved games yet."
+msgstr "Noch keine Spielstände."
+
+msgid "No recorded matches yet: every match keeps one when it ends."
+msgstr "Noch keine Aufnahmen: Jedes Match hinterlässt eine, wenn es endet."
+
+msgid "Cannot load: "
+msgstr "Laden nicht möglich: "
+
+msgid "Not saved: "
+msgstr "Nicht gespeichert: "
+
+msgid "That replay cannot be read: "
+msgstr "Diese Aufnahme lässt sich nicht lesen: "
+
+msgid "Delete {0}?"
+msgstr "{0} löschen?"
+
+msgid "Watch"
+msgstr "Zuschauen"
+
+msgid "Play once"
+msgstr "Einmal spielen"
+
+msgid "This match was played on the classic export's ground, which this game copy lacks: it will not play out the same"
+msgstr "Dieses Match lief auf dem Boden des klassischen Exports, der dieser Spielkopie fehlt: Es wird nicht gleich ablaufen"
+
+# Campaign
+
+msgid "Select Player"
+msgstr "Spieler wählen"
+
+msgid "Name"
+msgstr "Name"
+
+msgid "Current Status"
+msgstr "Aktueller Stand"
+
+msgid "No Scenarios Played"
+msgstr "Keine Szenarien gespielt"
+
+msgid "Scenarios Won:"
+msgstr "Szenarien gewonnen:"
+
+msgid "[New Player Name]"
+msgstr "[Neuer Spielername]"
+
+msgid "To create a new player, type in the player's name, then press New."
+msgstr "Für einen neuen Spieler gib seinen Namen ein und drücke Neu."
+
+msgid "To continue to the next screen you must enter a [New Player Name] or select a previously-created player."
+msgstr "Um weiterzumachen, gib einen [Neuen Spielernamen] ein oder wähle einen schon angelegten Spieler."
+
+msgid "Open, Closed, Computer and Unavailable are not valid names. Please use a different name."
+msgstr "Open, Closed, Computer und Unavailable sind keine gültigen Namen. Bitte wähle einen anderen Namen."
+
+msgid "Type a name and press New to start the campaign."
+msgstr "Gib einen Namen ein und drücke Neu, um die Kampagne zu beginnen."
+
+msgid "Delete {0} and how far they have come in the campaign?"
+msgstr "{0} und den Fortschritt in der Kampagne löschen?"
+
+msgid "The campaign progress cannot be saved: {0}"
+msgstr "Der Kampagnenfortschritt lässt sich nicht speichern: {0}"
+
+msgid "The campaign progress was not saved: {0}"
+msgstr "Der Kampagnenfortschritt wurde nicht gespeichert: {0}"
+
+msgid "The campaign's films and texts come from your own game copy (Options, Import)."
+msgstr "Die Filme und Texte der Kampagne kommen aus deiner eigenen Spielkopie (Optionen, Importieren)."
+
+msgid "The briefing comes from your own game copy (Options, Import)."
+msgstr "Das Briefing kommt aus deiner eigenen Spielkopie (Optionen, Importieren)."
+
+msgid "No briefing for this scenario."
+msgstr "Kein Briefing für dieses Szenario."
+
+# Statistics
+
+msgid "BMUs mined"
+msgstr "BMU abgebaut"
+
+msgid "Construction kills"
+msgstr "Zerstörte Gebäude"
+
+msgid "Construction losses"
+msgstr "Verlorene Gebäude"
+
+msgid "Constructions built"
+msgstr "Gebaute Gebäude"
+
+msgid "Items researched"
+msgstr "Erforschte Technologien"
+
+msgid "Machine kills"
+msgstr "Zerstörte Maschinen"
+
+msgid "Machine losses"
+msgstr "Verlorene Maschinen"
+
+msgid "Machines built"
+msgstr "Gebaute Maschinen"
+
+msgid "Military machines built"
+msgstr "Gebaute Kampfmaschinen"
+
+msgid "Research points"
+msgstr "Forschungspunkte"
+
+# Model viewer
+
+msgid "Drag the model to turn it, the mouse wheel zooms."
+msgstr "Ziehe das Modell, um es zu drehen; das Mausrad zoomt."
+
+msgid "Import the original models first (Options)."
+msgstr "Importiere zuerst die Originalmodelle (Optionen)."
+
+msgid "No classic models found (see tools/classic-export); showing simple shapes."
+msgstr "Keine klassischen Modelle gefunden (siehe tools/classic-export); zeige einfache Formen."
+
+msgid "Not exported"
+msgstr "Nicht exportiert"
+
+msgid "Level {0}"
+msgstr "Stufe {0}"
+
+msgid "{0}, level {1}"
+msgstr "{0}, Stufe {1}"
+
+msgid "{0}, {1} triangles"
+msgstr "{0}, {1} Dreiecke"
+
+msgid "HD: no remake yet, shows {0}"
+msgstr "HD: noch kein Remake, zeigt {0}"
+
+msgid "Overhauled: not upgraded, shows {0}"
+msgstr "Überarbeitet: nicht aufgewertet, zeigt {0}"
+
+msgid "Top speed {0:0.#} m/s, turns {1:0} °/s"
+msgstr "Höchstgeschwindigkeit {0:0.#} m/s, dreht {1:0} °/s"
+
+msgid "the Meshy remake"
+msgstr "das Meshy-Remake"
+
+msgid "the original, upgraded"
+msgstr "das Original, aufgewertet"
+
+msgid "the original"
+msgstr "das Original"
+
+msgid "All"
+msgstr "Alle"
+
+msgid "Closed"
+msgstr "Geschlossen"
+
+msgid "Open"
+msgstr "Offen"
+
+msgid "Doors"
+msgstr "Türen"
+
+msgid "Motion"
+msgstr "Bewegung"
+
+msgid "Stand"
+msgstr "Stehen"
+
+msgid "Running"
+msgstr "Läuft weiter"
+
+msgid "Working"
+msgstr "Arbeiten"
+
+msgid "Upper body"
+msgstr "Oberkörper"
+
+msgid "BUILDINGS"
+msgstr "GEBÄUDE"
+
+# In the match: HUD and messages
+
+msgid "PAUSED"
+msgstr "ANGEHALTEN"
+
+msgid "Paused"
+msgstr "Angehalten"
+
+msgid "Machines {0}     Score {1}     "
+msgstr "Maschinen {0}     Punkte {1}     "
+
+msgid "Time left {0}"
+msgstr "Restzeit {0}"
+
+msgid "Time {0}"
+msgstr "Zeit {0}"
+
+msgid "A multiplayer match cannot be paused"
+msgstr "Ein Mehrspieler-Match lässt sich nicht anhalten"
+
+msgid "Waiting for {0}"
+msgstr "Warte auf {0}"
+
+msgid "Out of sync since tick {0}: the players' games differ"
+msgstr "Seit Tick {0} nicht mehr synchron: Die Spiele der Spieler weichen ab"
+
+msgid "Catching up: tick {0}{1}"
+msgstr "Hole auf: Tick {0}{1}"
+
+msgid " of {0}"
+msgstr " von {0}"
+
+msgid "Machine ready: {0}"
+msgstr "Maschine bereit: {0}"
+
+msgid "Construction complete: {0}"
+msgstr "Bau abgeschlossen: {0}"
+
+msgid "Research complete: {0}"
+msgstr "Forschung abgeschlossen: {0}"
+
+msgid "APC deployed {0} machines"
+msgstr "APC hat {0} Maschinen abgesetzt"
+
+msgid "Research stolen: {0}"
+msgstr "Forschung gestohlen: {0}"
+
+msgid "Allied with {0}"
+msgstr "Verbündet mit {0}"
+
+msgid "No longer allied with {0}"
+msgstr "Nicht mehr verbündet mit {0}"
+
+msgid "{0} is now allied with you"
+msgstr "{0} ist jetzt mit dir verbündet"
+
+msgid "{0} is no longer allied with you"
+msgstr "{0} ist nicht mehr mit dir verbündet"
+
+msgid "{0} left the match; the AI takes over"
+msgstr "{0} hat das Match verlassen; die KI übernimmt"
+
+msgid "{0} is back and takes over from the AI"
+msgstr "{0} ist zurück und übernimmt von der KI"
+
+msgid "Replay saved: {0}"
+msgstr "Aufnahme gespeichert: {0}"
+
+msgid "Replay not saved: {0}"
+msgstr "Aufnahme nicht gespeichert: {0}"
+
+msgid "Debris   {0} BMU"
+msgstr "Trümmer   {0} BMU"
+
+msgid "Squadron {0} formed"
+msgstr "Staffel {0} gebildet"
+
+msgid "Mineral site found"
+msgstr "Mineralvorkommen gefunden"
+
+msgid "Build a beacon to see the planet"
+msgstr "Baue ein Leuchtfeuer, um den Planeten zu sehen"
+
+msgid "Select one of your machines to drive it (F)"
+msgstr "Wähle eine deiner Maschinen, um sie zu steuern (F)"
+
+msgid "Left click to place, Space to turn, right click to cancel"
+msgstr "Linksklick platziert, Leertaste dreht, Rechtsklick bricht ab"
+
+msgid "Left click to look there, right click to send the selection"
+msgstr "Linksklick schaut dorthin, Rechtsklick schickt die Auswahl hin"
+
+msgid "First person: {0} drive, {1} or mouse turn, Shift or right mouse turns the upper body ({2} centres it), {3}"
+msgstr "Ego-Perspektive: {0} fahren, {1} oder Maus drehen, Umschalt oder rechte Maustaste dreht den Oberkörper ({2} richtet ihn aus), {3}"
+
+msgid "First person: {0} drive, {1} or mouse turn, {2}"
+msgstr "Ego-Perspektive: {0} fahren, {1} oder Maus drehen, {2}"
+
+msgid "First person: {0} drive, {1}, {2} turn (Ctrl slowly), the mouse looks and the upper body follows ({3} centres it), {4}"
+msgstr "Ego-Perspektive: {0} fahren, {1}, {2} drehen (Strg langsam), die Maus sieht umher und der Oberkörper folgt ({3} richtet ihn aus), {4}"
+
+msgid "First person: {0} drive, {1}, {2} turn (Ctrl slowly), the mouse looks and the machine follows, {3}"
+msgstr "Ego-Perspektive: {0} fahren, {1}, {2} drehen (Strg langsam), die Maus sieht umher und die Maschine folgt, {3}"
+
+msgid "{0} step sideways"
+msgstr "{0} seitwärts"
+
+msgid "{0} turn"
+msgstr "{0} drehen"
+
+msgid "left mouse fire, {0} weapons, {1} or Esc to leave"
+msgstr "linke Maustaste feuert, {0} Waffen, {1} oder Esc verlässt sie"
+
+# In the match: control panel
+
+msgid "Attack"
+msgstr "Angriff"
+
+msgid "Attack: click the target"
+msgstr "Angriff: klicke auf das Ziel"
+
+msgid "Move"
+msgstr "Bewegen"
+
+msgid "Move: click where to"
+msgstr "Bewegen: klicke auf das Ziel"
+
+msgid "Construct"
+msgstr "Bauen"
+
+msgid "Construct: pick a building below"
+msgstr "Bauen: wähle unten ein Gebäude"
+
+msgid "Deconstruct"
+msgstr "Zerlegen"
+
+msgid "Deconstruct: click a building"
+msgstr "Zerlegen: klicke auf ein Gebäude"
+
+msgid "Repair"
+msgstr "Reparieren"
+
+msgid "Repair: click a building"
+msgstr "Reparieren: klicke auf ein Gebäude"
+
+msgid "Capture"
+msgstr "Erobern"
+
+msgid "Capture: click an enemy building"
+msgstr "Erobern: klicke auf ein feindliches Gebäude"
+
+msgid "Heal"
+msgstr "Heilen"
+
+msgid "Heal: click a machine"
+msgstr "Heilen: klicke auf eine Maschine"
+
+msgid "Locate"
+msgstr "Orten"
+
+msgid "Locate: click where to search"
+msgstr "Orten: klicke, wo gesucht werden soll"
+
+msgid "Patrol"
+msgstr "Patrouille"
+
+msgid "Patrol (Shift for more points): it goes round them and back"
+msgstr "Patrouille (Umschalt für mehr Punkte): Sie fährt die Punkte ab und zurück"
+
+msgid "Transport"
+msgstr "Transport"
+
+msgid "Transport: click a mine, then a smelter or pod"
+msgstr "Transport: klicke auf eine Mine, dann auf eine Schmelze oder den Pod"
+
+msgid "Treachery"
+msgstr "Verrat"
+
+msgid "Treachery: click an enemy machine to turn it"
+msgstr "Verrat: klicke auf eine feindliche Maschine, um sie umzudrehen"
+
+msgid "Scavenge"
+msgstr "Ausschlachten"
+
+msgid "Scavenge: click the wreckage to gather"
+msgstr "Ausschlachten: klicke auf das Wrack"
+
+msgid "Deploy"
+msgstr "Absetzen"
+
+msgid "Deploy: click where to let them out"
+msgstr "Absetzen: klicke, wo sie aussteigen sollen"
+
+msgid "Stand ground"
+msgstr "Stellung halten"
+
+msgid "Stand ground: shoot from where it is, never move to"
+msgstr "Stellung halten: schießt von ihrem Platz, rückt nie vor"
+
+msgid "Camouflage"
+msgstr "Tarnung"
+
+msgid "Camouflage: the enemy's machines pass it over"
+msgstr "Tarnung: Die Maschinen des Feindes übersehen sie"
+
+msgid "Uncamouflage"
+msgstr "Tarnung aufheben"
+
+msgid "Recycle"
+msgstr "Recyceln"
+
+msgid "Recycle at the nearest smelter: half the price back"
+msgstr "In der nächsten Schmelze recyceln: der halbe Preis zurück"
+
+msgid "Lay mines"
+msgstr "Minen legen"
+
+msgid "Refill mines"
+msgstr "Minen auffüllen"
+
+msgid "Refill land mines at the nearest garrison"
+msgstr "Landminen in der nächsten Garnison auffüllen"
+
+msgid "Self-destruct"
+msgstr "Selbstzerstörung"
+
+msgid "Self-destruct: click again to blow up in five seconds"
+msgstr "Selbstzerstörung: noch einmal klicken, um in fünf Sekunden zu sprengen"
+
+msgid "Self-destruct: click to open the cover"
+msgstr "Selbstzerstörung: klicken, um die Abdeckung zu öffnen"
+
+msgid "Self-destruct in {0:F0} s: click to call it off"
+msgstr "Selbstzerstörung in {0:F0} s: klicken, um sie abzubrechen"
+
+msgid "Self-destruct {0:F0} s"
+msgstr "Selbstzerstörung {0:F0} s"
+
+msgid "Assembly point (B): click where new machines gather"
+msgstr "Sammelpunkt (B): klicke, wo sich neue Maschinen sammeln"
+
+msgid "Form squadron"
+msgstr "Staffel bilden"
+
+msgid "Form squadron: click one of the squadrons below (or Ctrl and its number)"
+msgstr "Staffel bilden: klicke unten auf eine Staffel (oder Strg und ihre Nummer)"
+
+msgid "Form squadron {0} from the selection"
+msgstr "Staffel {0} aus der Auswahl bilden"
+
+msgid "Squadron {0}"
+msgstr "Staffel {0}"
+
+msgid "Squadron {0}: select it"
+msgstr "Staffel {0}: auswählen"
+
+msgid "Squadrons: pick one (or its number; Ctrl and the number forms one)"
+msgstr "Staffeln: wähle eine (oder ihre Nummer; Strg und die Nummer bildet eine)"
+
+msgid "Fire the ion cannon"
+msgstr "Ionenkanone abfeuern"
+
+msgid "Launch the nuclear missile"
+msgstr "Atomrakete starten"
+
+msgid "Ion cannon"
+msgstr "Ionenkanone"
+
+msgid "Ion cannon strike"
+msgstr "Schlag der Ionenkanone"
+
+msgid "Nuclear detonation"
+msgstr "Atomexplosion"
+
+msgid "Nuke"
+msgstr "Atomrakete"
+
+msgid "Drive it in first person (F)"
+msgstr "In der Ego-Perspektive steuern (F)"
+
+msgid "Bring the control panel out (Alt and right arrow)"
+msgstr "Steuerleiste einblenden (Alt und Pfeil rechts)"
+
+msgid "Put the control panel away (Alt and left arrow)"
+msgstr "Steuerleiste ausblenden (Alt und Pfeil links)"
+
+msgid "Close the navigator (Esc)"
+msgstr "Navigator schließen (Esc)"
+
+msgid "Machine navigator"
+msgstr "Maschinen-Navigator"
+
+msgid "Construction navigator"
+msgstr "Gebäude-Navigator"
+
+msgid "Map shows everything"
+msgstr "Karte zeigt alles"
+
+msgid "Map shows machines and buildings"
+msgstr "Karte zeigt Maschinen und Gebäude"
+
+msgid "Map shows resources"
+msgstr "Karte zeigt Rohstoffe"
+
+msgid "Terrain on or off"
+msgstr "Gelände an oder aus"
+
+msgid "Zenith camera (2 on the number pad)"
+msgstr "Zenitkamera (2 auf dem Ziffernblock)"
+
+msgid "Ground camera (0 on the number pad)"
+msgstr "Bodenkamera (0 auf dem Ziffernblock)"
+
+msgid "Scroll up"
+msgstr "Nach oben"
+
+msgid "Scroll down"
+msgstr "Nach unten"
+
+msgid "First row"
+msgstr "Erste Reihe"
+
+msgid "Last row"
+msgstr "Letzte Reihe"
+
+msgid "Production"
+msgstr "Produktion"
+
+msgid "Building {0}: {1:F0}%"
+msgstr "Baut {0}: {1:F0} %"
+
+msgid "Researching {0}: {1:F0}%"
+msgstr "Erforscht {0}: {1:F0} %"
+
+msgid "Building"
+msgstr "Im Bau"
+
+msgid "Debris"
+msgstr "Trümmer"
+
+msgid "Artefacts"
+msgstr "Artefakte"
+
+msgid "N/A"
+msgstr "k. A."
+
+msgid " (click to cancel)"
+msgstr " (Klick bricht ab)"
+
+msgid "Ore {0}/{1}"
+msgstr "Erz {0}/{1}"
+
+msgid "Ore {0:F0}/{1}"
+msgstr "Erz {0:F0}/{1}"
+
+msgid "Build {0}: {1} BMU"
+msgstr "{0} bauen: {1} BMU"
+
+msgid "Research {0}: {1} RU, {2} BMU"
+msgstr "{0} erforschen: {1} RU, {2} BMU"
+
+msgid "({0} machines)"
+msgstr "({0} Maschinen)"
+
+msgid "({0} machines, led by its administrator)"
+msgstr "({0} Maschinen, geführt von ihrem Administrator)"
+
+msgid "Queued: {0}"
+msgstr "In der Warteschlange: {0}"
+
+msgid "Initiative {0}"
+msgstr "Initiative {0}"
+
+msgid "Machine initiative: {0} ({1} to change)"
+msgstr "Initiative der Maschinen: {0} ({1} ändert sie)"
+
+msgid "high"
+msgstr "hoch"
+
+msgid "medium"
+msgstr "mittel"
+
+msgid "low"
+msgstr "niedrig"
+
+msgid "mixed"
+msgstr "gemischt"
+
+msgid "Destruct {0:F0}"
+msgstr "Zerstörung {0:F0}"
+
+msgid "Select all {0} (Ctrl adds, Alt looks at the next)"
+msgstr "Alle {0} wählen (Strg fügt hinzu, Alt zeigt die nächste)"
+
+msgid "Mineral Deposit   {0:F0} BMU"
+msgstr "Mineralvorkommen   {0:F0} BMU"
+
+msgid "Carrying {0}/{1}"
+msgstr "Ladung {0}/{1}"
+
+msgid "Mines {0}/{1}"
+msgstr "Minen {0}/{1}"
+
+msgid "Built {0:F0}/{1}"
+msgstr "Gebaut {0:F0}/{1}"
+
+msgid "Deposit {0:F0} BMU"
+msgstr "Vorkommen {0:F0} BMU"
+
+msgid "Inside {0}/{1}"
+msgstr "Drinnen {0}/{1}"
+
+msgid "Technicians {0}/{1}"
+msgstr "Techniker {0}/{1}"
+
+msgid "Let the {0} machines inside out"
+msgstr "Die {0} Maschinen darin aussteigen lassen"
+
+msgid "Lay land mines (Shift for more points): {0} carried"
+msgstr "Landminen legen (Umschalt für mehr Punkte): {0} an Bord"
+
+msgid "Click the building to capture; right click cancels"
+msgstr "Klicke auf das Gebäude, das erobert werden soll; Rechtsklick bricht ab"
+
+msgid "Click the building to repair; right click cancels"
+msgstr "Klicke auf das Gebäude, das repariert werden soll; Rechtsklick bricht ab"
+
+msgid "Click the building to take apart; right click cancels"
+msgstr "Klicke auf das Gebäude, das zerlegt werden soll; Rechtsklick bricht ab"
+
+msgid "Click the enemy machine to turn; right click cancels"
+msgstr "Klicke auf die feindliche Maschine, die umgedreht werden soll; Rechtsklick bricht ab"
+
+msgid "Click the machine to heal; right click cancels"
+msgstr "Klicke auf die Maschine, die geheilt werden soll; Rechtsklick bricht ab"
+
+msgid "Click the mine to fetch ore from; right click cancels"
+msgstr "Klicke auf die Mine, aus der Erz geholt werden soll; Rechtsklick bricht ab"
+
+msgid "Click the smelter or pod to bring it to; right click cancels"
+msgstr "Klicke auf die Schmelze oder den Pod, wohin es soll; Rechtsklick bricht ab"
+
+msgid "Click the wreckage to gather; right click cancels"
+msgstr "Klicke auf das Wrack, das ausgeschlachtet werden soll; Rechtsklick bricht ab"
+
+msgid "Click what to attack; right click cancels"
+msgstr "Klicke auf das Angriffsziel; Rechtsklick bricht ab"
+
+msgid "Click where new machines gather; right click cancels"
+msgstr "Klicke, wo sich neue Maschinen sammeln sollen; Rechtsklick bricht ab"
+
+msgid "Click where to lay a mine, Shift for more; right click cancels"
+msgstr "Klicke, wo eine Mine liegen soll, Umschalt für mehr; Rechtsklick bricht ab"
+
+msgid "Click where to let them out; right click cancels"
+msgstr "Klicke, wo sie aussteigen sollen; Rechtsklick bricht ab"
+
+msgid "Click where to move; right click cancels"
+msgstr "Klicke auf das Ziel der Fahrt; Rechtsklick bricht ab"
+
+msgid "Click where to patrol, Shift for more points; right click cancels"
+msgstr "Klicke auf die Patrouillenpunkte, Umschalt für mehr; Rechtsklick bricht ab"
+
+msgid "Click where to search for minerals; right click cancels"
+msgstr "Klicke, wo nach Mineralien gesucht werden soll; Rechtsklick bricht ab"
+
+msgid "Left click the target; right click cancels"
+msgstr "Linksklick auf das Ziel; Rechtsklick bricht ab"
+
+msgid "pods and beacons"
+msgstr "Pods und Leuchtfeuer"
+
+msgid "pods"
+msgstr "Pods"
+
+msgid "beacons"
+msgstr "Leuchtfeuer"
+
+msgid "smelters and mines"
+msgstr "Schmelzen und Minen"
+
+msgid "smelters"
+msgstr "Schmelzen"
+
+msgid "mines"
+msgstr "Minen"
+
+msgid "factories"
+msgstr "Fabriken"
+
+msgid "civilian factories"
+msgstr "zivile Fabriken"
+
+msgid "military factories"
+msgstr "Militärfabriken"
+
+msgid "labs"
+msgstr "Labore"
+
+msgid "civilian labs"
+msgstr "zivile Labore"
+
+msgid "military labs"
+msgstr "Militärlabore"
+
+msgid "garrisons"
+msgstr "Garnisonen"
+
+msgid "missile emplacements"
+msgstr "Raketenstellungen"
+
+msgid "turrets"
+msgstr "Geschütztürme"
+
+msgid "sentries"
+msgstr "Wachtürme"
+
+msgid "launchers"
+msgstr "Raketenwerfer"
+
+msgid "administrators"
+msgstr "Administratoren"
+
+msgid "aggressors"
+msgstr "Angreifer"
+
+msgid "constructors"
+msgstr "Konstrukteure"
+
+msgid "technicians"
+msgstr "Techniker"
+
+msgid "locators"
+msgstr "Orter"
+
+msgid "geo locators"
+msgstr "Geo-Orter"
+
+msgid "spy locators"
+msgstr "Spionage-Orter"
+
+msgid "resource carriers"
+msgstr "Rohstofftransporter"
+
+msgid "carriers"
+msgstr "Transporter"
+
+msgid "lab techs"
+msgstr "Labortechniker"
+
+msgid "tech boys"
+msgstr "Techniker"
+
+msgid "brain boxes"
+msgstr "Brainboxen"
+
+# The sim's refusals
+
+msgid "nothing selected"
+msgstr "nichts ausgewählt"
+
+msgid "obstacles or uneven terrain"
+msgstr "Hindernisse oder unebenes Gelände"
+
+msgid "a patrol needs points"
+msgstr "eine Patrouille braucht Punkte"
+
+msgid "already being researched"
+msgstr "wird schon erforscht"
+
+msgid "already researched"
+msgstr "schon erforscht"
+
+msgid "mine too close to a smelter or pod"
+msgstr "Mine zu nah an einer Schmelze oder einem Pod"
+
+msgid "mine too far from a found mineral site"
+msgstr "Mine zu weit von einem gefundenen Mineralvorkommen"
+
+msgid "needs a Brainbox"
+msgstr "braucht eine Brainbox"
+
+msgid "needs a Technician"
+msgstr "braucht einen Technician"
+
+msgid "needs a civilian lab"
+msgstr "braucht ein ziviles Labor"
+
+msgid "needs a military lab"
+msgstr "braucht ein Militärlabor"
+
+msgid "needs an Engineer"
+msgstr "braucht einen Engineer"
+
+msgid "no APC selected"
+msgstr "kein APC ausgewählt"
+
+msgid "no constructor selected"
+msgstr "kein Konstrukteur ausgewählt"
+
+msgid "no enemy there"
+msgstr "dort ist kein Feind"
+
+msgid "no garrison to fetch mines from"
+msgstr "keine Garnison, aus der Minen kommen könnten"
+
+msgid "no healer selected"
+msgstr "kein Heiler ausgewählt"
+
+msgid "no place for the mines"
+msgstr "kein Platz für die Minen"
+
+msgid "no spy with mines selected"
+msgstr "kein Spion mit Minen ausgewählt"
+
+msgid "no such player"
+msgstr "diesen Spieler gibt es nicht"
+
+msgid "no wreckage there"
+msgstr "dort ist kein Wrack"
+
+msgid "not an order for a squadron"
+msgstr "kein Befehl für eine Staffel"
+
+msgid "not available in this scenario"
+msgstr "in diesem Szenario nicht verfügbar"
+
+msgid "not researched yet"
+msgstr "noch nicht erforscht"
+
+msgid "nothing that can board"
+msgstr "nichts, das einsteigen kann"
+
+msgid "nothing there"
+msgstr "dort ist nichts"
+
+msgid "nothing to build there"
+msgstr "dort ist nichts zu bauen"
+
+msgid "nothing to cancel there"
+msgstr "dort ist nichts abzubrechen"
+
+msgid "only buildings can be deconstructed"
+msgstr "nur Gebäude lassen sich zerlegen"
+
+msgid "only finished enemy buildings can be captured"
+msgstr "nur fertige feindliche Gebäude lassen sich erobern"
+
+msgid "only scavengers gather wreckage"
+msgstr "nur Plünderer sammeln Wracks"
+
+msgid "only spies get into enemy labs"
+msgstr "nur Spione kommen in feindliche Labore"
+
+msgid "only technicians work in labs"
+msgstr "nur Techniker arbeiten in Laboren"
+
+msgid "only your own finished buildings can be repaired"
+msgstr "nur eigene fertige Gebäude lassen sich reparieren"
+
+msgid "only your own machines can be healed"
+msgstr "nur eigene Maschinen lassen sich heilen"
+
+msgid "ore can only go to your smelter or pod"
+msgstr "Erz kann nur zu deiner Schmelze oder deinem Pod"
+
+msgid "recycling needs one of your smelters or pods"
+msgstr "Recyceln braucht eine deiner Schmelzen oder deinen Pod"
+
+msgid "smelter too close to a mine"
+msgstr "Schmelze zu nah an einer Mine"
+
+msgid "squadrons are numbered 0 to 9"
+msgstr "Staffeln haben die Nummern 0 bis 9"
+
+msgid "that building has no ion cannon or nuclear missile"
+msgstr "dieses Gebäude hat weder Ionenkanone noch Atomrakete"
+
+msgid "that is not a finished lab"
+msgstr "das ist kein fertiges Labor"
+
+msgid "that is not one of your APCs"
+msgstr "das ist keiner deiner APCs"
+
+msgid "that is not one of your finished buildings"
+msgstr "das ist keines deiner fertigen Gebäude"
+
+msgid "that is not one of your finished factories"
+msgstr "das ist keine deiner fertigen Fabriken"
+
+msgid "that is not one of your finished labs"
+msgstr "das ist keines deiner fertigen Labore"
+
+msgid "that is not one of your garrisons"
+msgstr "das ist keine deiner Garnisonen"
+
+msgid "that is not one of your mines"
+msgstr "das ist keine deiner Minen"
+
+msgid "that machine cannot be driven"
+msgstr "diese Maschine lässt sich nicht steuern"
+
+msgid "that squadron has no machines"
+msgstr "diese Staffel hat keine Maschinen"
+
+msgid "this factory cannot build that"
+msgstr "diese Fabrik kann das nicht bauen"
+
+msgid "too big for the garrison's doors"
+msgstr "zu groß für die Tore der Garnison"
+
+msgid "your constructors cannot build that yet"
+msgstr "deine Konstrukteure können das noch nicht bauen"
+
+# The original's own words (its string table), translated where the game copy is English
+
+msgid "General"
+msgstr "Allgemein"
+
+msgid "Scenario:"
+msgstr "Szenario:"
+
+msgid "Highest Score:"
+msgstr "Höchste Punktzahl:"
+
+msgid "Scenarios Played:"
+msgstr "Szenarien gespielt:"
+
+msgid "Total Score:"
+msgstr "Gesamtpunktzahl:"
+
+msgid "Kills"
+msgstr "Abschüsse"
+
+msgid "Destroyed machines belonging to"
+msgstr "Zerstörte Maschinen von"
+
+msgid "Destroyed constructions belonging to"
+msgstr "Zerstörte Gebäude von"
+
+msgid "Menu"
+msgstr "Menü"
+
+msgid "Top"
+msgstr "Oben"

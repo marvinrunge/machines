@@ -224,7 +224,7 @@ public partial class ModelsPage(Action back) : MenuPage(back)
                 foreach (var entry in kind)
                 {
                     var item = _tree.CreateItem(kindItem);
-                    item.SetText(0, entry.Weapons is null ? $"Level {entry.Level}" : $"{entry.Level} · {Weapons(entry.Weapons)}");
+                    item.SetText(0, entry.Weapons is null ? Lang.T("Level {0}", entry.Level) : $"{entry.Level} · {Weapons(entry.Weapons)}");
                     item.SetMetadata(0, _entries.IndexOf(entry));
                     item.SetTooltipText(0, entry.Id);
                     _items.Add(item);
@@ -408,24 +408,24 @@ public partial class ModelsPage(Action back) : MenuPage(back)
 
     private void Describe(Entry entry, ClassicAssets assets, Race race, RigView? view)
     {
-        _title.Text = $"{KindName(entry.Kind)}, level {entry.Level}";
+        _title.Text = Lang.T("{0}, level {1}", KindName(entry.Kind), entry.Level);
         var file = assets.ModelFile(entry.Id, race)?.Replace('\\', '/') ?? "";
-        var made = file.Contains("/meshy/") ? "the Meshy remake"
+        var made = Lang.T(file.Contains("/meshy/") ? "the Meshy remake"
             : file.Contains("/remake/") ? "the original, upgraded"
-            : "the original";
+            : "the original");
         var look = (ModelLook)_look.Selected;
         var shows = look switch
         {
-            ModelLook.Hd when !file.Contains("/meshy/") => $"HD: no remake yet, shows {made}",
-            ModelLook.Overhauled when !file.Contains("/remake/") => $"Overhauled: not upgraded, shows {made}",
-            _ => $"{Looks[(int)look]}: {made}",
+            ModelLook.Hd when !file.Contains("/meshy/") => Lang.T("HD: no remake yet, shows {0}", made),
+            ModelLook.Overhauled when !file.Contains("/remake/") => Lang.T("Overhauled: not upgraded, shows {0}", made),
+            _ => $"{Lang.T(Looks[(int)look])}: {made}",
         };
         var lines = new List<string>();
         if (entry.Weapons is { } weapons)
             lines.Add(Weapons(weapons));
-        lines.Add(view is null ? "Not exported" : $"{shows}, {Triangles(view).ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} triangles");
+        lines.Add(view is null ? Lang.T("Not exported") : Lang.T("{0}, {1} triangles", shows, Triangles(view).ToString("N0", System.Globalization.CultureInfo.InvariantCulture)));
         if (_machine is not null)
-            lines.Add($"Top speed {_machine.Speed:0.#} m/s, turns {_machine.RotationSpeed:0} °/s");
+            lines.Add(Lang.T("Top speed {0:0.#} m/s, turns {1:0} °/s", _machine.Speed, _machine.RotationSpeed));
         _facts.Text = string.Join('\n', lines);
     }
 
