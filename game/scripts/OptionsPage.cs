@@ -140,7 +140,7 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
     {
         Look.Classic => "The original's models, ground, lighting and effects.",
         Look.Overhauled => "The original sharpened: its ground and models upscaled, with tone mapping, glow, soft shadows and the remake's effects.",
-        Look.Hd => "The remade models on the painted ground, where they exist; the rest shows overhauled.",
+        Look.Hd => "Still in the making: the remade models on the painted ground, where they exist; the rest shows overhauled.",
         _ => "Each part of the look as chosen under Customize.",
     };
 
@@ -231,35 +231,40 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         button.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         // The importer (tools/classic-export) runs on Windows and comes with the release, not with every checkout.
         button.Visible = ClassicImport.Available;
-        dialog.DirSelected += folder =>
-        {
-            if (ClassicImport.WhyNot(folder) is { } why)
-            {
-                status.Text = why;
-                return;
-            }
-            button.Disabled = _importing = true;
-            Task.Run(() =>
-            {
-                var error = ClassicImport.Run(folder, line => Callable.From(() => status.Text = line).CallDeferred());
-                Callable.From(() =>
-                {
-                    _importing = false;
-                    if (error is null)
-                    {
-                        // The menus open again so previews and descriptions come from the imported copy.
-                        GetTree().ReloadCurrentScene();
-                        return;
-                    }
-                    status.Text = error;
-                    button.Disabled = false;
-                }).CallDeferred();
-            });
-        };
+        dialog.DirSelected += folder => RunImport(this, folder, status, busy => button.Disabled = _importing = busy);
         var text = Column(6, MenuTheme.Label("ORIGINAL MODELS AND TERRAIN", 24, MenuTheme.Bright), status);
         text.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         text.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         chip.AddChild(Line(18, text, button));
         return chip;
+    }
+
+    /// <summary>
+    /// Imports from the game copy in <paramref name="folder"/> off the main thread, telling its progress or why not in
+    /// <paramref name="status"/>; <paramref name="busy"/> hears when it starts and when it fails. Once it is done the
+    /// menus open again, so previews and descriptions come from the imported copy.
+    /// </summary>
+    public static void RunImport(Node owner, string folder, Label status, Action<bool> busy)
+    {
+        if (ClassicImport.WhyNot(folder) is { } why)
+        {
+            status.Text = why;
+            return;
+        }
+        busy(true);
+        Task.Run(() =>
+        {
+            var error = ClassicImport.Run(folder, line => Callable.From(() => status.Text = line).CallDeferred());
+            Callable.From(() =>
+            {
+                if (error is null)
+                {
+                    owner.GetTree().ReloadCurrentScene();
+                    return;
+                }
+                status.Text = error;
+                busy(false);
+            }).CallDeferred();
+        });
     }
 }

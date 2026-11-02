@@ -27,7 +27,7 @@ public partial class MachineDisplay : MachineScreen
     private const float Shown = 9;      // seconds per machine
 
     private readonly ClassicAssets _assets;
-    private int _next = (int)(GD.Randi() % Machines.Length);
+    private int _next;
     private double _shownFor;
 
     /// <summary>The machine on the screen now, for the caption under it.</summary>
@@ -35,7 +35,19 @@ public partial class MachineDisplay : MachineScreen
 
     public event Action? Changed;
 
-    public MachineDisplay(ClassicAssets assets) => _assets = assets;
+    /// <summary>
+    /// A display of the machines <paramref name="assets"/> build, beginning with the <paramref name="first"/>; by
+    /// chance without one. Two displays begun alike show the same machines together, as the first start's choice of
+    /// look does in each look.
+    /// </summary>
+    public MachineDisplay(ClassicAssets assets, int? first = null)
+    {
+        _assets = assets;
+        _next = first ?? (int)(GD.Randi() % Machines.Length);
+    }
+
+    /// <summary>A machine to begin with by chance, for displays shown side by side.</summary>
+    public static int AnyFirst() => (int)(GD.Randi() % Machines.Length);
 
     public override void _Ready()
     {

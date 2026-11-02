@@ -13,7 +13,8 @@ namespace Machines.Game;
 /// map and MACHINES_MENU_START=1 starts it from the skirmish page (MACHINES_LOADING_SCREENSHOT, see
 /// <see cref="LoadingScreen"/>). MACHINES_MENU_SCREENSHOT=&lt;png&gt;[,page[,WxH]] saves a page (main, skirmish, room,
 /// multiplayer, load, replays, options, graphics, models, campaign, missions, briefing or quit), at that size if one
-/// is given, and quits.
+/// is given, and quits. The first start's questions (setup, setup-import, setup-look, setup-music) come before the main menu until
+/// they are answered (<see cref="SetupPage"/>).
 /// </summary>
 public partial class MenuScreens : Control
 {
@@ -96,7 +97,8 @@ public partial class MenuScreens : Control
     private void Begin(string page)
     {
         Music.Menu(this);
-        Open(page);
+        // The first start asks its few questions before the main menu.
+        Open(page == "main" && _shotPath is null && !SetupPage.Done ? "setup" : page);
     }
 
     public override void _Process(double delta)
@@ -123,6 +125,10 @@ public partial class MenuScreens : Control
             case "options": ShowOptions(); break;
             case "graphics": _stage.Show(new GraphicsPage(ShowOptions, inGame: false)); break;
             case "models": ShowModels(); break;
+            case "setup": ShowSetup(SetupPage.First); break;
+            case "setup-import": ShowSetup(SetupPage.Step.Import); break;
+            case "setup-look": ShowSetup(SetupPage.Step.Look); break;
+            case "setup-music": ShowSetup(SetupPage.Step.Music); break;
             case "campaign": ShowCampaign(); break;
             case "missions": ShowMissions(); break;
             case "briefing": ShowBriefing(Campaign.Entry(CampaignProgress.Load().CurrentPlayer?.LastScenario ?? "tut01") ?? Campaign.Catalogue.CampaignScenarios.First()); break;
@@ -135,6 +141,9 @@ public partial class MenuScreens : Control
     }
 
     public void ShowMain() => _stage.Show(new MainMenuPage(this));
+
+    /// <summary>A question of the first start (see <see cref="SetupPage"/>).</summary>
+    public void ShowSetup(SetupPage.Step step) => _stage.Show(new SetupPage(this, step));
 
     /// <summary>The skirmish setup, or with <paramref name="forRoom"/> the setup of a multiplayer room to open.</summary>
     public void ShowSkirmish(bool forRoom = false) => _stage.Show(new SkirmishPage(this, forRoom));

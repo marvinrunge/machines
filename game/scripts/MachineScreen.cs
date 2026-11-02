@@ -33,6 +33,12 @@ public partial class MachineScreen : TextureRect
     /// <summary>How close the camera comes: 1 has the whole model in view, more comes closer.</summary>
     public float Zoom { get; set; } = 1;
 
+    /// <summary>
+    /// Lit as the original lit its machines, without the remake's tone mapping, glow and ambient occlusion (set before
+    /// the screen enters the tree).
+    /// </summary>
+    public bool Classic { get; init; }
+
     public override void _Ready()
     {
         SizeFlagsHorizontal = SizeFlagsVertical = SizeFlags.ExpandFill;
@@ -62,29 +68,30 @@ public partial class MachineScreen : TextureRect
         green.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         backdrop.AddChild(green);
         _viewport.AddChild(backdrop);
-        _viewport.AddChild(new WorldEnvironment
+        var environment = new Godot.Environment
         {
-            Environment = new Godot.Environment
-            {
-                BackgroundMode = Godot.Environment.BGMode.Canvas,
-                BackgroundCanvasMaxLayer = -1,
-                AmbientLightSource = Godot.Environment.AmbientSource.Color,
-                AmbientLightColor = new Color(0.62f, 0.7f, 0.64f),
-                AmbientLightEnergy = 0.7f,
-                TonemapMode = Godot.Environment.ToneMapper.Agx,
-                AdjustmentEnabled = true,
-                AdjustmentSaturation = 1.1f,
-                AdjustmentContrast = 1.12f,
-                GlowEnabled = true,
-                GlowIntensity = 0.6f,
-                GlowBloom = 0.04f,
-                GlowHdrThreshold = 1.1f,
-                SsaoEnabled = true,
-                SsaoRadius = 1.2f,
-                SsaoIntensity = 1.6f,
-            },
-        });
-        _viewport.AddChild(Light(Mathf.DegToRad(55), Mathf.DegToRad(48), 1.7f, true));
+            BackgroundMode = Godot.Environment.BGMode.Canvas,
+            BackgroundCanvasMaxLayer = -1,
+            AmbientLightSource = Godot.Environment.AmbientSource.Color,
+            AmbientLightColor = new Color(0.62f, 0.7f, 0.64f),
+            AmbientLightEnergy = 0.7f,
+        };
+        if (!Classic)
+        {
+            environment.TonemapMode = Godot.Environment.ToneMapper.Agx;
+            environment.AdjustmentEnabled = true;
+            environment.AdjustmentSaturation = 1.1f;
+            environment.AdjustmentContrast = 1.12f;
+            environment.GlowEnabled = true;
+            environment.GlowIntensity = 0.6f;
+            environment.GlowBloom = 0.04f;
+            environment.GlowHdrThreshold = 1.1f;
+            environment.SsaoEnabled = true;
+            environment.SsaoRadius = 1.2f;
+            environment.SsaoIntensity = 1.6f;
+        }
+        _viewport.AddChild(new WorldEnvironment { Environment = environment });
+        _viewport.AddChild(Light(Mathf.DegToRad(55), Mathf.DegToRad(48), 1.7f, !Classic));
         _viewport.AddChild(Light(Mathf.DegToRad(-80), Mathf.DegToRad(25), 0.5f, false));
         _viewport.AddChild(Light(Mathf.DegToRad(180), Mathf.DegToRad(30), 0.8f, false));   // a green rim from behind
     }
