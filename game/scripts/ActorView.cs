@@ -733,6 +733,8 @@ public partial class ActorView : Node3D
             _lastPosition = Position;
             _lastYaw = _yaw;
             _placed = true;
+            if (IsBuilding)
+                PrintPads();
         }
         ShowDamage(actor);
 
@@ -790,6 +792,8 @@ public partial class ActorView : Node3D
             _hologram = null;
             foreach (var mesh in model.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>().Append(model as MeshInstance3D).OfType<MeshInstance3D>())
                 mesh.MaterialOverride = null;
+            if (_rigView is not null)
+                _rigView.PadTint = Colors.White;
             return;
         }
         _band = Band(done);
@@ -819,6 +823,9 @@ public partial class ActorView : Node3D
             var half = _band.Frames / 2f;
             var frame = (int)(_hologramTime * 30) % _band.Frames;
             _hologram.AlbedoColor = new Color(0, 1, 0, _band.Peak * Mathf.Abs(frame - half) / half);
+            // The printed pads glow with it, green on the ground.
+            if (_rigView is not null)
+                _rigView.PadTint = new Color(0.3f, 1, 0.3f, _hologram.AlbedoColor.A);
         }
         var t = 1 - Mathf.Exp(-12 * (float)delta);
         Position = Position.Lerp(_target, t);
@@ -919,6 +926,20 @@ public partial class ActorView : Node3D
             return null;
         // Parts fly from the middle of the machine, not from its feet.
         return Debris.From(_rigView, GlobalPosition + Vector3.Up * Mathf.Max(1, Size * 0.3f), Size, parent);
+    }
+
+    /// <summary>
+    /// Lays the building's pads onto the ground where it stands, printed on it (see <see cref="RigView.PrintPads"/>),
+    /// and clears the grass and stones from under them as from under the building.
+    /// </summary>
+    private void PrintPads()
+    {
+        if (_rigView is null || HeightField.Current is not { } ground)
+            return;
+        var printed = _rigView.PrintPads(ground.At);
+        if (printed.Count > 0 && GetParent()?.GetNodeOrNull<GroundScatter>("Terrain/GroundScatter") is { } scatter)
+            foreach (var pad in printed)
+                scatter.ClearUnder(pad.Position, pad.End);
     }
 
     /// <summary>Original ground coordinates (x, y) to Godot (x, ground height, y).</summary>

@@ -275,6 +275,106 @@ public partial class RigView : Node3D
             _doors.Add((right, open));
     }
 
+    // The pads printed on the ground, each with the plate it stands in for, and those whose print is still being made.
+    private readonly List<(Decal Print, MeshInstance3D Plate)> _pads = [];
+    private readonly List<(Decal Print, MeshInstance3D Plate)> _padsToCome = [];
+
+    /// <summary>How far above and below the ground the grid gives a print reaches, metres: the ground drawn strays from it.</summary>
+    private const float PadReach = 2;
+
+    /// <summary>
+    /// Prints the pads onto the ground instead of standing them as flat plates (see <see cref="PadPrint"/>): each
+    /// pad's picture is cast straight down onto the ground layer over the rectangle it covers, as deep and as high as
+    /// the ground there goes (<paramref name="ground"/> gives its height at a world x and z). The plate stands until
+    /// its print is ready. Call it once the building stands where it stays; returns the rectangles printed, in world
+    /// x and z.
+    /// </summary>
+    public List<Rect2> PrintPads(Func<float, float, float> ground)
+    {
+        var printed = new List<Rect2>();
+        if (!IsInsideTree() || _pads.Count + _padsToCome.Count > 0)
+            return printed;
+        for (var i = 0; i < _nodes.Length; i++)
+        {
+            if (!PadPrint.IsPad(_rig.Nodes[i].Name) || _nodes[i].GetNodeOrNull<MeshInstance3D>("Mesh") is not { Mesh: { } mesh } plate)
+                continue;
+            // The ground under the pad, from its own height: a grid over its rectangle, a metre or so apart.
+            var at = _nodes[i].GlobalTransform;
+            var bounds = mesh.GetAabb();
+            var area = new Rect2(bounds.Position.X, bounds.Position.Z, bounds.Size.X, bounds.Size.Z);
+            if (area.Size.X < 0.1f || area.Size.Y < 0.1f)
+                continue;
+            float low = float.MaxValue, high = float.MinValue, minX = float.MaxValue, maxX = float.MinValue, minZ = float.MaxValue, maxZ = float.MinValue;
+            var steps = (X: Math.Max(2, (int)Mathf.Ceil(area.Size.X)), Z: Math.Max(2, (int)Mathf.Ceil(area.Size.Y)));
+            for (var sx = 0; sx <= steps.X; sx++)
+            {
+                for (var sz = 0; sz <= steps.Z; sz++)
+                {
+                    var point = at * new Vector3(area.Position.X + area.Size.X * sx / steps.X, 0, area.Position.Y + area.Size.Y * sz / steps.Z);
+                    var below = ground(point.X, point.Z) - point.Y;
+                    (low, high) = (Mathf.Min(low, below), Mathf.Max(high, below));
+                    (minX, maxX, minZ, maxZ) = (Mathf.Min(minX, point.X), Mathf.Max(maxX, point.X), Mathf.Min(minZ, point.Z), Mathf.Max(maxZ, point.Z));
+                }
+            }
+            (low, high) = (low - PadReach, high + PadReach);
+            var decal = new Decal
+            {
+                Name = "Print",
+                Position = new Vector3(area.GetCenter().X, (low + high) / 2, area.GetCenter().Y),
+                Size = new Vector3(area.Size.X, high - low, area.Size.Y),
+                // Evenly over all the ground in reach, slopes and steps too; only the ground takes it.
+                UpperFade = 0,
+                LowerFade = 0,
+                NormalFade = 0,
+                CullMask = TerrainBuilder.GroundLayer,
+                Visible = false,
+            };
+            _nodes[i].AddChild(decal);
+            _padsToCome.Add((decal, plate));
+            printed.Add(new Rect2(minX, minZ, maxX - minX, maxZ - minZ));
+        }
+        ShowPrintedPads();
+        return printed;
+    }
+
+    /// <summary>Swaps the plates whose prints have come for them (a print with nothing to show leaves its plate).</summary>
+    private void ShowPrintedPads()
+    {
+        for (var p = _padsToCome.Count - 1; p >= 0; p--)
+        {
+            var (decal, plate) = _padsToCome[p];
+            if (plate.Mesh is not { } mesh || !PadPrint.TryGet(mesh, out var print))
+                continue;
+            _padsToCome.RemoveAt(p);
+            if (print is null)
+            {
+                decal.QueueFree();
+                continue;
+            }
+            decal.TextureAlbedo = print.Texture;
+            var area = print.Area;
+            decal.Position = new Vector3(area.GetCenter().X, decal.Position.Y, area.GetCenter().Y);
+            decal.Size = new Vector3(area.Size.X, decal.Size.Y, area.Size.Y);
+            decal.Modulate = _padTint;
+            decal.Visible = true;
+            plate.Visible = false;
+            _pads.Add((decal, plate));
+        }
+    }
+
+    private Color _padTint = Colors.White;
+
+    /// <summary>The colour the printed pads are tinted with (an unfinished building's glowing green), white for none.</summary>
+    public Color PadTint
+    {
+        set
+        {
+            _padTint = value;
+            foreach (var (print, _) in _pads)
+                print.Modulate = value;
+        }
+    }
+
     /// <summary>Moves its own parts every frame, for things no actor view drives (an ore hologram).</summary>
     public bool RunsItself { get; set; }
 
@@ -282,6 +382,8 @@ public partial class RigView : Node3D
     {
         if (RunsItself)
             Animate((float)delta, 0, 0, 0, 0);
+        if (_padsToCome.Count > 0)
+            ShowPrintedPads();
     }
 
     /// <summary>A part's place in the world as it stands now, by its name in the model, or null.</summary>
