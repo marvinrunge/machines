@@ -3,6 +3,7 @@
 # the soundtrack's music under the game's sound, faded in from black and out at the end:
 #   tools/cinematic/cut.sh <folder> [list] [out.mp4]
 # The music comes from the soundtrack folder picked in the game's menu (music_folder in its settings.cfg), or MUSIC.
+# CRF and PRESET set the picture's x264 quality (default 20 and fast; 16 and slow for the finished trailer).
 set -e
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DIR="${1:?usage: cut.sh <folder> [list] [out.mp4]}"
@@ -39,6 +40,6 @@ ${CHAIN}concat=n=$N:v=1:a=1[v][game];\
 [game]volume=0.55[under];\
 [$N:a]atrim=0:$LENGTH,afade=out:st=$MUSIC_FADE:d=4[music];\
 [under][music]amix=inputs=2:duration=longest:normalize=0,alimiter=limit=0.95:level=disabled[sound]" \
-    -map "[picture]" -map "[sound]" -t "$LENGTH" -c:v libx264 -preset fast -crf 20 -c:a aac -b:a 192k \
+    -map "[picture]" -map "[sound]" -t "$LENGTH" -c:v libx264 -preset "${PRESET:-fast}" -crf "${CRF:-20}" -c:a aac -b:a 192k \
     -movflags +faststart "$OUT"
 echo "$OUT"

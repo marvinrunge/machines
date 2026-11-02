@@ -1,16 +1,17 @@
 #!/bin/bash
 # Records the footage of the remake's films (game/scripts/Cinematic*.cs, tools/cinematic/films.txt), one MP4 per film
 # with the game's sound and no music, for cutting into a trailer (tools/cinematic/cut.sh):
-#   tools/cinematic/shoot.sh <folder> [draft|preview|final] [film ...]
+#   tools/cinematic/shoot.sh <folder> [draft|preview|hd|final] [film ...]
 # draft (the default): 640x360 at 30 frames a second, straight from the movie writer (a minute or two a film);
-# preview: 1280x720, 60 frames a second blended in twos; final: 2560x1440, 120 frames a second blended in fours,
-# drawn at 1.5 times the size (about two minutes a second of film, 0.7 GB of frames a second on the way).
+# preview: 1280x720, 60 frames a second blended in twos; hd: 1920x1080 and final: 2560x1440, both 120 frames a second
+# blended in fours and drawn at 1.5 times the size (final about two minutes a second of film and 0.7 GB of frames a
+# second on the way, hd about half that).
 # The films give their orders on the world's ticks, so every quality shows the same battle.
 # GODOT: the console Godot .NET (default: winget's). Needs the ffmpeg of tools/film-upscale/fetch.sh, and the game
 # built (dotnet build game/Machines.csproj).
 set -e
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-OUT="${1:?usage: shoot.sh <folder> [draft|preview|final] [film ...]}"
+OUT="${1:?usage: shoot.sh <folder> [draft|preview|hd|final] [film ...]}"
 QUALITY="${2:-draft}"
 shift $(( $# < 2 ? $# : 2 ))
 FFMPEG="$ROOT/tools/film-upscale/bin/ffmpeg/ffmpeg.exe"
@@ -18,8 +19,9 @@ GODOT="${GODOT:-$LOCALAPPDATA/Microsoft/WinGet/Packages/GodotEngine.GodotEngine.
 case "$QUALITY" in
     draft) WIDTH=640 HEIGHT=360 FPS=30 BLEND=1 SCALE=1 ;;
     preview) WIDTH=1280 HEIGHT=720 FPS=60 BLEND=2 SCALE=1 ;;
+    hd) WIDTH=1920 HEIGHT=1080 FPS=120 BLEND=4 SCALE=1.5 ;;
     final) WIDTH=2560 HEIGHT=1440 FPS=120 BLEND=4 SCALE=1.5 ;;
-    *) echo "Quality is draft, preview or final, not '$QUALITY'."; exit 1 ;;
+    *) echo "Quality is draft, preview, hd or final, not '$QUALITY'."; exit 1 ;;
 esac
 FILMS=("$@")
 [ ${#FILMS[@]} -gt 0 ] || mapfile -t FILMS < <(grep -v '^//' "$ROOT/tools/cinematic/films.txt" | cut -d' ' -f1)

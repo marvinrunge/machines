@@ -22,7 +22,7 @@ trailer 10.53 13.6
 gorilla2 11.2 14.2
 ice 7.5 11.5
 strike2 3 8
-gorilla 16.5 20.5
+gorilla 19.6 23.6
 ice 18.6 22.6
 trailer 18.03 21.69
 gorilla2 26 30
@@ -30,7 +30,7 @@ ice2 19 23
 gorilla 26 29.5
 strike 9.6 15.6
 ice 30.8 34.8
-gorilla2 32.6 36
+gorilla2 33.4 36.8
 
 // The silo's missile, its fall on the moon's army, and the title.
 strike 19.8 25

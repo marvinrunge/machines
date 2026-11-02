@@ -51,6 +51,9 @@ public partial class Cinematic : Node
     private int _shot = -1;
     private float _step;
 
+    // Metres to the sharp zone as shown, following the take's own.
+    private float _focus;
+
     // The orders, by the tick after which they are given, and what is done after every tick.
     private readonly List<(int Tick, Action Do)> _cues = [];
     private readonly List<Action> _everyTick = [];
@@ -145,6 +148,9 @@ public partial class Cinematic : Node
         var scale = float.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_CINEMATIC_SCALE"), System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 1.5f;
         viewport.Scaling3DMode = Viewport.Scaling3DModeEnum.Bilinear;
         viewport.Scaling3DScale = scale;
+        // Multisampled, as the grass's blades are cut out for (alpha to coverage): without it they shimmered from frame
+        // to frame, and the depth of field spread the shimmer into flickering patches.
+        viewport.Msaa3D = Viewport.Msaa.Msaa4X;
         viewport.MeshLodThreshold = 0;
         RenderingServer.DirectionalShadowAtlasSetSize(8192, true);
         RenderingServer.DirectionalSoftShadowFilterSetQuality(RenderingServer.ShadowQuality.SoftUltra);
@@ -187,7 +193,8 @@ public partial class Cinematic : Node
         while (index < _shots.Length - 1 && _time >= start + _shots[index].Length)
             start += _shots[index++].Length;
         var shot = _shots[index];
-        if (index != _shot)
+        var cut = index != _shot;
+        if (cut)
         {
             // A cut: what was followed is picked up afresh.
             _shot = index;
@@ -208,7 +215,11 @@ public partial class Cinematic : Node
         _camera.LookAtFromPosition(frame.Eye, frame.Target, Vector3.Up);
         var shake = CameraRig.ShakeAt(frame.Eye).GetRotationQuaternion();
         _camera.Basis *= new Basis(Quaternion.Identity.Slerp(shake, _inside is null ? 0.5f : 1));
-        FilmLook.Focus(_camera, frame.Focus ?? frame.Eye.DistanceTo(frame.Target), frame.Blur);
+        // The focus follows its frame smoothly within a take: a followed machine's every jolt moved the sharp zone, and
+        // the blur behind it pulsed.
+        var focus = frame.Focus ?? frame.Eye.DistanceTo(frame.Target);
+        _focus = cut ? focus : Mathf.Lerp(_focus, focus, 1 - Mathf.Exp(-_step / 0.15f));
+        FilmLook.Focus(_camera, _focus, frame.Blur);
 
         // The weather and the shadows' reach follow what the camera looks at.
         _rig.Position = Ground(frame.Target.X, frame.Target.Z);

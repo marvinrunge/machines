@@ -14,6 +14,9 @@ public partial class GroundScatter : Node3D
 {
     private const float ChunkSize = 64;
 
+    // Metres from the camera over which a tuft of grass shrinks away, and how far each tuft's own distance differs.
+    private const float GrassFadeFrom = 200, GrassFadeTo = 250, GrassFadeJitter = 30;
+
     /// <summary>What a layer carries: grass tufts and stones per square metre.</summary>
     private static (float Grass, float Stones) Density(string layer) => layer switch
     {
@@ -148,8 +151,14 @@ public partial class GroundScatter : Node3D
         var tuft = Tuft();
         var grassMaterial = new ShaderMaterial { Shader = GrassShader.Value };
         grassMaterial.SetShaderParameter("blades", Blades.Value);
+        // Each tuft shrinks away by itself in the distance (the shader's fade_from to fade_to, give or take its own
+        // GrassFadeJitter), as whole 64 m pieces popped in at once; a piece is dropped only when none of it shows.
+        grassMaterial.SetShaderParameter("fade_from", GrassFadeFrom);
+        grassMaterial.SetShaderParameter("fade_to", GrassFadeTo);
+        grassMaterial.SetShaderParameter("fade_jitter", GrassFadeJitter);
+        var grassReach = GrassFadeTo + GrassFadeJitter / 2 + ChunkSize * 0.75f;
         foreach (var (chunk, items) in grass)
-            scatter.AddPiece(tuft, grassMaterial, items, 230, shadows: false);
+            scatter.AddPiece(tuft, grassMaterial, items, grassReach, shadows: false, fade: false);
         if (scans.Length > 0)
         {
             // The scans in their own pictures, taking a third of the ground's colour; each brought to a unit across first.
@@ -232,8 +241,12 @@ public partial class GroundScatter : Node3D
         }
     }
 
-    /// <summary>One chunk's instances of a mesh, in the material given or the mesh's own; null for none.</summary>
-    private MultiMeshInstance3D? AddPiece(Mesh mesh, Material? material, List<(Transform3D Transform, Color Colour)> items, float reach, bool shadows)
+    /// <summary>
+    /// One chunk's instances of a mesh, in the material given or the mesh's own, shown up to <paramref name="reach"/>
+    /// metres off and faded out over the last part of that unless the material fades them itself; null for none.
+    /// </summary>
+    private MultiMeshInstance3D? AddPiece(Mesh mesh, Material? material, List<(Transform3D Transform, Color Colour)> items, float reach, bool shadows,
+        bool fade = true)
     {
         if (items.Count == 0)
             return null;
@@ -262,8 +275,8 @@ public partial class GroundScatter : Node3D
             MaterialOverride = material,
             CastShadow = shadows ? GeometryInstance3D.ShadowCastingSetting.On : GeometryInstance3D.ShadowCastingSetting.Off,
             VisibilityRangeEnd = reach,
-            VisibilityRangeEndMargin = reach * 0.15f,
-            VisibilityRangeFadeMode = GeometryInstance3D.VisibilityRangeFadeModeEnum.Self,
+            VisibilityRangeEndMargin = fade ? reach * 0.15f : 0,
+            VisibilityRangeFadeMode = fade ? GeometryInstance3D.VisibilityRangeFadeModeEnum.Self : GeometryInstance3D.VisibilityRangeFadeModeEnum.Disabled,
         };
         AddChild(piece);
         _pieces.Add(piece);
@@ -383,9 +396,16 @@ public partial class GroundScatter : Node3D
             shader_type spatial;
             render_mode cull_disabled;
             uniform sampler2D blades : source_color, filter_linear_mipmap;
+            uniform float fade_from = 200.0;
+            uniform float fade_to = 250.0;
+            uniform float fade_jitter = 30.0;
             global uniform vec2 weather_wind;
             void vertex() {
                 vec3 world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+                // Far off the tuft shrinks into the ground, each a little nearer or further than its neighbours.
+                vec3 root = MODEL_MATRIX[3].xyz;
+                float own = fract(sin(dot(root.xz, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
+                VERTEX *= 1.0 - smoothstep(fade_from, fade_to, distance(root, CAMERA_POSITION_WORLD) + own * fade_jitter);
                 // Leaning with the weather's wind and swaying about it, harder as it blows.
                 float strength = length(weather_wind);
                 vec2 along = weather_wind / max(strength, 0.001);
