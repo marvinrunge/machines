@@ -31,11 +31,14 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
     public static MatchRequest Default => new("m_desert", "m_desert",
         StartPositions.Assign([Race.Red, Race.Blue], 2, Race.Red, random: false, new Random(0)), new MatchOptions());
 
-    /// <summary>A relay's match, from the point of view of the local client (or the first player, for replays).</summary>
+    /// <summary>
+    /// A relay's match, from the point of view of the local client (or the first player, for replays; the first of
+    /// all when only AIs played).
+    /// </summary>
     public static MatchRequest FromMatch(MatchInfo match, int clientId, Race? slot = null)
     {
         var local = match.Players.FirstOrDefault(p => !p.Ai && (slot is null ? p.ClientId == clientId : p.Slot == slot))
-                    ?? match.Players.First(p => !p.Ai);
+                    ?? match.Players.FirstOrDefault(p => !p.Ai) ?? match.Players[0];
         var starts = new StartPositions(local.Slot,
             match.Players.ToDictionary(p => p.Slot, p => p.Ai ? Controller.Ai : Controller.Player),
             match.Players.ToDictionary(p => p.Slot, p => p.Colour));
