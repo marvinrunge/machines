@@ -1,18 +1,21 @@
-An early **test build** of the Machines: Wired for War remake, for Windows 10/11 (64-bit).
+A **test build** of the Machines: Wired for War remake, for Windows 10/11 (64-bit).
 
 **Download** the `windows.zip` below, unzip it anywhere and run `Machines.exe`. `README.txt` in the zip lists the controls.
 
-**What's in it**
-- Skirmish against the original AI scripts on all 32 skirmish and multiplayer maps, with the original settings (players, colours, start positions, starting BMUs, resources, technology level, victory conditions).
-- The original rules and numbers: economy, construction, production, research, combat, area weapons, ion cannon and nukes, healing, repair, capture, recycling and garrisons.
-- First-person driving of any machine.
-- A control panel laid out like the original's, with its icons from your game copy: continent map (with a beacon), selection, command buttons, build, production and research.
-- Sound and animation from your own game copy, APC transport, and an AI that builds and rebuilds as the original did.
-- **Multiplayer** over the network: one player presses **Host** under **Multiplayer…**, the others connect to their address (port 7777), join the room and get ready. Free slots can play the AI; if someone drops out, the AI plays on for them until they rejoin. Every match is saved as a replay you can watch from the menu.
+**New in 0.4.0**
+- **The campaign:** the original's 25 missions in their five star systems, with players and their progress, the briefings, the missions' scripts, voice mails and films from your game copy, and the debriefings.
+- **First start:** the game asks for your game copy to import from, the look and the soundtrack's folder; each can be left for later.
+- **Two looks:** *Classic*, the original as it was in 1999, and *Overhauled* (the default): sharpened textures with relief, soft shadows and glow, photographed skies, new explosions and smoke, weather, trees and rocks. **Customize** in the options picks each part on its own.
+- **Music:** the original soundtrack from MP3s of your own, played as the original played its CD.
+- **Keys of your own:** **Change keys** in the options.
+- **AI level:** easy, normal or hard, for skirmishes and multiplayer rooms.
+- **Hosting over the internet:** **Host** asks the router to open the port (UPnP) and lets the others in over IPv6 too; **Copy address** gives the address to send.
+- **Deutsch:** the options and the first start switch the remake's own texts to German.
+- New menus in the original's circuit-board look, a loading screen, the model viewer, chat in rooms and matches, alliances, the original's options (gamma, reversed keys and mouse, 2D selection box, 3D sound), and many fixes towards the original's rules and motion.
 
-**Original models and terrain**
-This build contains no art, sound or terrain from the original game; those belong to Night Dive Studios. Without them, units are coloured shapes. If you own the game (GOG or Steam), press **Import from your game copy…** in the menu and pick its install folder. The import reads the models and terrain from your copy and keeps them next to the game.
+**Original models, sounds and films**
+This build contains no art, sound, terrain or films from the original game; those belong to Night Dive Studios. If you own the game (GOG or Steam), the first start (or **Import** in the options) reads them from your copy and keeps them next to the game. Without them, units are simple shapes.
 
-**Imported with an earlier version?** Press **Import again from your game copy…** once: the import now brings the original lighting normals (without them some ground tiles look dark) each machine's first-person eye, and the glowing eyes, lamps and other sprites of the models.
+**Imported with an earlier version?** If the options say so, press **Import again** once.
 
-Not in this build yet: campaign and music. Sound and voice reports come from your own copy with the import.
+Known gaps: the overhauled models' rounded edges and baked shading are made with Blender and are not in this build; the Overhauled look shows the original models with sharpened textures. The HD look with newly made models is still in the making.

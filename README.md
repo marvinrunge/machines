@@ -226,7 +226,23 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   at unknown ground darkens the view with static down to black, where nothing can be picked and the world
   is silent. A level 1 beacon's map shows only what you have uncovered; a level 3 beacon lifts the fog.
   It is your view only: the AI never had it, in the original either.
-- 195 tests. Every map runs AI-only for three minutes, and every map whose scripts give orders gets moving.
+- **First start:** the game asks its few questions before the main menu: the folder of your game copy to
+  import from, the look (Classic or Overhauled, the default, each shown on the same machines turning side by
+  side) and the soundtrack's folder. Each can be left for later; the options change every answer.
+- **Keys:** **Change keys** in the options moves the camera's and first person's moves and the commands
+  (initiative, assembly point, pause, menus, the views ...) to keys of the player's choice; a key already in
+  use swaps, and the hints, the hot keys page and the tooltips show the keys chosen (`[keys]` in
+  `user://settings.cfg`).
+- **How well the AI plays:** skirmishes and rooms choose easy, normal or hard. Easy AIs think every other
+  second, earn two thirds and set out later; hard ones earn half as much again and set out sooner; normal ones
+  play as before and as every older recording.
+- **German:** the options and the first start choose English or Deutsch (at first the system's). The German
+  is in `game/lang/de.po`, keyed by the English; the original's own texts come from your game copy, in its
+  language.
+- **Soak test:** a 30-minute match of four AIs on m_green in the overhauled look ran without an error at
+  108 fps on average (lowest 55, RTX 3060 laptop), 2.3 ms of render CPU and 3.9 ms of GPU a frame, its memory
+  level after the first minutes.
+- 508 tests. Every map runs AI-only for three minutes, and every map whose scripts give orders gets moving.
 
 ## Layout
 
@@ -276,7 +292,9 @@ briefing or debriefing; the menu pages `campaign`, `missions` and `briefing` can
 `MACHINES_MISSION_RUNS=<report.txt> dotnet test --filter CampaignRunTests` plays every mission for ten minutes,
 the AI against a simple driver of the player's side, and writes how each went.
 `MACHINES_OPTIONS=gamma=1.8,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,dof=strong,film=on` sets
-the options (see `GameOptions.cs`) for one run without saving them.
+the options (see `GameOptions.cs`) for one run without saving them, `MACHINES_LANG=de` or `en` the language,
+and `MACHINES_AI=easy`, `normal` or `hard` how well the AIs of a `MACHINES_MAP` run play. `MACHINES_PERF=<seconds>`
+logs what each second's frames cost for that long, then sums it up and ends the game (see `PerfLog.cs`).
 
 | Control | Does |
 | --- | --- |
@@ -288,15 +306,21 @@ the options (see `GameOptions.cs`) for one run without saving them.
 | Build buttons (constructors selected) | Place a building: R rotates, right click cancels, Shift keeps placing |
 | Factory / lab selected | Buttons to build machines or start research |
 | W A S D, edges, Q / E, wheel | Pan, rotate, zoom |
-| F | Drive the selected machine in first person: W/S drive, A/D or mouse turn, left mouse fires |
+| F | Drive the selected machine in first person: W/S drive, Q/E turn, A/D step sideways where the machine can, else turn (always turn with the options' classic keys), the mouse looks and the machine follows, left mouse fires |
 | Ctrl+S, P, Esc | Stop, pause (not online), clear selection |
 | F10 | The menus: continue, briefing, save, load, options, or leave the match (the replay is saved) |
+
+These are the first keys; **Change keys** in the options moves them.
 
 ## Multiplayer
 
 One player opens **Multiplayer** and presses **Host**: the game runs the relay on port 7777 and shows the
-addresses the others connect to. The others type that address and **Connect**. Over the internet, the host
-forwards TCP 7777 to their computer, or everyone joins a VPN such as Tailscale. A dedicated relay runs with
+addresses the others connect to, with **Copy address** for the one to give. The others type that address and
+**Connect**. Over the internet, **Open the port on the router** (on by default) asks the router by UPnP to
+forward TCP 7777 on its public IPv4 address and to let it in to this computer's IPv6 address, and takes both
+back when the game ends; where the router will not, or the provider shares one IPv4 address among many, the
+page says why, and the host forwards the port by hand, plays over IPv6 (`[address]:7777`) or everyone joins a
+VPN such as Tailscale. A dedicated relay runs with
 
 ```bash
 dotnet run --project server/Machines.Relay -- --port 7777
