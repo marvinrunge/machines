@@ -12,7 +12,7 @@ OUT="${3:-$DIR/cut.mp4}"
 FFMPEG="$ROOT/tools/film-upscale/bin/ffmpeg/ffmpeg.exe"
 FOLDER="${MUSIC:-$(sed -n 's/^music_folder="\([^"]*\)".*/\1/p' "$APPDATA/Godot/app_userdata/Machines Remake/settings.cfg" | head -1)}"
 
-INPUTS=() CHAIN="" N=0 LENGTH=0
+INPUTS=() CHAIN="" SHOTS="" N=0 LENGTH=0
 while read -r WORD REST; do
     case "$WORD" in
         ''|//*) continue ;;
@@ -22,8 +22,13 @@ while read -r WORD REST; do
             FROM="${REST##* }" ;;
         *)
             read -r START END <<< "$REST"
-            INPUTS+=(-ss "$START" -to "$END" -i "$DIR/$WORD.mp4")
-            CHAIN+="[$N:v][$N:a]"
+            # Each shot as many of the footage's frames (30 a second) as reach from where the list puts its cut to
+            # where it puts the next: rounding every shot by itself added up to the picture running behind the music.
+            FRAMES=$(awk "BEGIN { print int(($LENGTH + $END - $START) * 30 + 0.5) - int($LENGTH * 30 + 0.5) }")
+            SECONDS_=$(awk "BEGIN { printf \"%.6f\", $FRAMES / 30 }")
+            INPUTS+=(-ss "$START" -i "$DIR/$WORD.mp4")
+            CHAIN+="[$N:v]trim=end_frame=$FRAMES,setpts=PTS-STARTPTS[v$N];[$N:a]atrim=end=$SECONDS_,asetpts=PTS-STARTPTS[a$N];"
+            SHOTS+="[v$N][a$N]"
             N=$((N + 1))
             LENGTH=$(awk "BEGIN { print $LENGTH + $END - $START }") ;;
     esac
@@ -35,7 +40,7 @@ echo "$N shots, $LENGTH s, music: $TRACK from $FROM s"
 FADE=$(awk "BEGIN { print $LENGTH - 2 }")
 MUSIC_FADE=$(awk "BEGIN { print $LENGTH - 4 }")
 "$FFMPEG" -v error -y "${INPUTS[@]}" -ss "$FROM" -i "$FOLDER/$TRACK" -filter_complex "\
-${CHAIN}concat=n=$N:v=1:a=1[v][game];\
+${CHAIN}${SHOTS}concat=n=$N:v=1:a=1[v][game];\
 [v]fade=in:st=0:d=1,fade=out:st=$FADE:d=2,format=yuv420p[picture];\
 [game]volume=0.55[under];\
 [$N:a]atrim=0:$LENGTH,afade=out:st=$MUSIC_FADE:d=4[music];\

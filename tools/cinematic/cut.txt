@@ -1,41 +1,45 @@
-// The two-minute trailer (tools/cinematic/cut.sh). First the music: a file of the soundtrack folder and the second
-// to start it at. Then the shots in order: the film (tools/cinematic/films.txt) and from and to, in seconds into its
-// footage (the takes and events of each film are in the <film>.log beside its footage).
-// Track 06 is quiet for half a minute and breaks loose at 30.6 s: the world and its armies until then, the battles
-// after, the nuclear missile at the end.
-music "Track 06.mp3" 0
+// The trailer (tools/cinematic/cut.sh). First the music: a file of the soundtrack folder and the second to start it
+// at. Then the shots in order: the film (tools/cinematic/films.txt) and from and to, in seconds into its footage (the
+// takes and events of each film are in the <film>.log beside its footage).
+// Track 00, the intro's music, as the original's trailer had it, whole: 88.6 s. Its bars are 1.845 s (130 a minute)
+// and every cut falls on one of its beats. It knocks for 7.4 s (the world), drives until 42.9 s (the battles), drops
+// back until 57.68 s (the silo's missile), breaks loose again with the missile's blast, and dies away from 72.5 s
+// (the aftermath and the title).
+music "Track 00 - Intro.mp3" 0
 
-// The world: the green planet's lake and bases, the armies on the ice, the moon and the desert.
-build 0 6
-trailer 4 7.3
-build 9.5 14.5
-build 19 22
-ice2 0.3 4.3
-strike 0.3 3.8
-gorilla 0.5 4
-gorilla2 4 6.3
+// 0 s: the world: the green planet's lake, the armies on the ice and the moon.
+build 0.3 3.97
+ice2 0.5 2.36
+strike 0.3 2.13
 
-// 30.6 s: the gorillas' fists come down.
-gorilla2 14.4 18.4
-ice2 6.8 11.3
-trailer 10.53 13.6
-gorilla2 11.2 14.2
-ice 7.5 11.5
-strike2 3 8
-gorilla 19.6 23.6
-ice 18.6 22.6
-trailer 18.03 21.69
-gorilla2 26 30
-ice2 19 23
-gorilla 26 29.5
-strike 9.6 15.6
-ice 30.8 34.8
+// 7.36 s: the gorillas swing as the music starts driving, and the fists land on its beat at 9.0 s.
+gorilla2 14.45 18.05
+// The vortex opens at 12.3 s.
+ice2 6.8 10.49
+trailer 10.75 13.17
+strike2 3 6.69
+gorilla 19.6 23.29
+ice 18.6 22.29
+trailer 18.07 21.64
+gorilla2 25.85 29.67
+// The ion beam comes down at 36.46 s.
+strike 9.12 12.81
+ice2 19 22.69
+
+// 42.91 s: the music drops back: the slowed battle, the constructor at work, the silo's missile climbing.
+trailer 21.74 25.34
+build 9.5 13.28
+strike 19.8 23.5
+strike2 20.5 23.24
+
+// 57.68 s: the missile's blast as the music breaks loose again.
+strike 26.05 30.69
+strike2 27.5 31.19
+gorilla 26 29.69
+ice 30.8 34.5
+
+// 72.45 s: dying away: the last punches, the crater, the lake and the title.
 gorilla2 33.4 36.8
-
-// The silo's missile, its fall on the moon's army, and the title.
-strike 19.8 25
-strike2 20.5 23
-strike 25.8 32.8
-strike2 27.5 31.5
-strike 35.5 41
-trailer 25.4 30
+strike 36.1 40.54
+build 45.1 48.85
+trailer 25.44 30
