@@ -127,7 +127,7 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         rows.AddChild(Setting("Depth of field", Line(28, blur, film)));
         blur.SizeFlagsHorizontal = film.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 
-        columns.AddChild(Controls());
+        columns.AddChild(Controls(() => stage.Show(new KeysPage(() => stage.Show(new OptionsPage(_back, inGame))))));
 
         var backButton = Button("Back", Back);
         backButton.CustomMinimumSize = new Vector2(400, 76);
@@ -171,12 +171,17 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
     /// <summary>
     /// The rest of the original's options (MachGuiCtxOptions): the gamma correction beside its calibration picture
     /// (gammacal.bmp of the player's game copy), the up and down keys and the first-person mouse reversed, and the
-    /// 2D selection box.
+    /// 2D selection box; and beside its title the button to the <paramref name="keys"/> page.
     /// </summary>
-    private static ChipPanel Controls()
+    private static ChipPanel Controls(Action keys)
     {
         var chip = new ChipPanel { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ShrinkBegin, Padding = 28 };
-        var rows = Column(20, MenuTheme.Label("CONTROLS AND PICTURE", 24, MenuTheme.Bright));
+        var title = MenuTheme.Label("CONTROLS AND PICTURE", 24, MenuTheme.Bright);
+        title.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        title.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        var change = Button("Change keys", keys, 56, 22);
+        change.CustomMinimumSize = new Vector2(240, 56);
+        var rows = Column(20, Line(18, title, change));
         chip.AddChild(rows);
 
         var gamma = Slider(GameOptions.Gamma, value => GameOptions.Gamma = value, GameOptions.GammaLowest, GameOptions.GammaHighest);
@@ -195,11 +200,11 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
             Slider(GameOptions.MouseSpeed, value => GameOptions.MouseSpeed = value, GameOptions.MouseSpeedLowest, GameOptions.MouseSpeedHighest), 260));
         rows.AddChild(Setting("Classic F.P. Keys", Switch(GameOptions.ClassicDriving, on => GameOptions.ClassicDriving = on), 260));
         rows.AddChild(Setting(Text(6996, "2D Selection box"), Switch(GameOptions.Selection2d, on => GameOptions.Selection2d = on), 260));
+        // The keys themselves are on their own page.
         rows.AddChild(MenuTheme.Paragraph(
-            "The up and down keys look with Shift in first person, and tilt the ground camera with Ctrl and Shift. " +
-            "Unreversed, up looks down as a pilot's stick does. " +
-            "First person drives as in a tank game: W and S drive, A and D step sideways (legs, hover, flight) or turn, " +
-            "Q and E turn, the mouse looks round and the upper body, or the machine, follows. Classic keys drive as the original did.", 20, MenuTheme.Dim));
+            "The up and down keys look with Shift in first person, and tilt the ground camera with Ctrl and Shift; " +
+            "unreversed, up looks down as a pilot's stick does. First person drives as in a tank game; Classic keys " +
+            "drive as the original did.", 20, MenuTheme.Dim));
         return chip;
     }
 

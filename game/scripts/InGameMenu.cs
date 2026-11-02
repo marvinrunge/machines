@@ -191,29 +191,35 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
         MenuPage.Focus(ok);
     }));
 
+    // A key as the player chose it (KeyMap), or two side by side.
+    private static string K(params KeyMap.Act[] acts) => string.Join(" ", acts.Select(KeyMap.Name));
+
     // The remake's keys, in the hot keys page's two lists; first person's as the options' Classic F.P. Keys set them.
     private static (string Action, string Keys)[] FirstPersonKeys => GameOptions.ClassicDriving
         ?
         [
-            ("Drive", "W S"), ("Turn", "A D, mouse"), ("Turn upper body", "Shift with A D or mouse, right mouse"),
-            ("Upper body forward", "C"), ("Look up and down", "Mouse, Shift with arrows"), ("Fire", "Left mouse button"),
-            ("Pick weapons", "Tab"), ("Leave first person", "F, Esc"),
+            ("Drive", K(KeyMap.Act.Forward, KeyMap.Act.Back)), ("Turn", $"{K(KeyMap.Act.Left, KeyMap.Act.Right)}, mouse"),
+            ("Turn upper body", $"Shift with {K(KeyMap.Act.Left, KeyMap.Act.Right)} or mouse, right mouse"),
+            ("Upper body forward", K(KeyMap.Act.CentreView)), ("Look up and down", "Mouse, Shift with arrows"), ("Fire", "Left mouse button"),
+            ("Pick weapons", K(KeyMap.Act.Weapons)), ("Leave first person", $"{K(KeyMap.Act.FirstPerson)}, Esc"),
         ]
         :
         [
-            ("Drive", "W S"), ("Step sideways", "A D (legs, hover, flight)"), ("Turn", "Q E, A D, slowly with Ctrl"),
-            ("Look round", "Mouse (the machine follows)"), ("Upper body forward", "C"), ("Look up and down", "Mouse, Shift with arrows"),
-            ("Fire", "Left mouse button"), ("Pick weapons", "Tab"), ("Leave first person", "F, Esc"),
+            ("Drive", K(KeyMap.Act.Forward, KeyMap.Act.Back)), ("Step sideways", $"{K(KeyMap.Act.Left, KeyMap.Act.Right)} (legs, hover, flight)"),
+            ("Turn", $"{K(KeyMap.Act.TurnLeft, KeyMap.Act.TurnRight)}, {K(KeyMap.Act.Left, KeyMap.Act.Right)}, slowly with Ctrl"),
+            ("Look round", "Mouse (the machine follows)"), ("Upper body forward", K(KeyMap.Act.CentreView)), ("Look up and down", "Mouse, Shift with arrows"),
+            ("Fire", "Left mouse button"), ("Pick weapons", K(KeyMap.Act.Weapons)), ("Leave first person", $"{K(KeyMap.Act.FirstPerson)}, Esc"),
         ];
 
-    private static readonly (string Action, string Keys)[] GeneralKeys =
+    private static (string Action, string Keys)[] GeneralKeys =>
     [
-        ("Scroll", "W A S D, arrows, edges"), ("Turn view", "Q E"), ("Zoom", "Mouse wheel"),
-        ("Zenith view", "2 on number pad"), ("Ground view", "0 on number pad"), ("1st person", "F"),
+        ("Scroll", $"{K(KeyMap.Act.Forward, KeyMap.Act.Left, KeyMap.Act.Back, KeyMap.Act.Right)}, arrows, edges"),
+        ("Turn view", K(KeyMap.Act.TurnLeft, KeyMap.Act.TurnRight)), ("Zoom", "Mouse wheel"),
+        ("Zenith view", K(KeyMap.Act.ZenithView)), ("Ground view", K(KeyMap.Act.GroundView)), ("1st person", K(KeyMap.Act.FirstPerson)),
         ("Select", "Left click, drag"), ("Order", "Right click"), ("Stop", "Ctrl S"),
-        ("Initiative", "Tab"), ("Assembly point", "B"), ("Create squad 0-9", "Ctrl 0-9"),
-        ("Select squad 0-9", "0-9"), ("Turn building", "Space, R"), ("Pause", "P"),
-        ("Hide panel", "Alt Left"), ("Show panel", "Alt Right"), ("Menus", "Esc, F10"),
+        ("Initiative", K(KeyMap.Act.Initiative)), ("Assembly point", K(KeyMap.Act.AssemblyPoint)), ("Create squad 0-9", "Ctrl 0-9"),
+        ("Select squad 0-9", "0-9"), ("Turn building", K(KeyMap.Act.TurnBuilding)), ("Pause", K(KeyMap.Act.Pause)),
+        ("Hide panel", "Alt Left"), ("Show panel", "Alt Right"), ("Menus", $"Esc, {K(KeyMap.Act.Menu)}"),
     ];
 
     private void ShowHotkeys() => _stage.Show(new BuiltPage(() => ShowMain(), page =>

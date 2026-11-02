@@ -1375,6 +1375,7 @@ public partial class Game : Node3D
 
     private void OnKey(InputEventKey key)
     {
+        // The keys that keep their use (KeyMap.Reserved) first, then those the player may have moved.
         switch (key.Keycode)
         {
             // Esc cancels what is in hand (a building to place, a command's target, a navigator), and otherwise
@@ -1383,64 +1384,62 @@ public partial class Game : Node3D
                 if (_placing is not null) CancelPlacement();
                 else if (_targeting is not null) _targeting = null;
                 else if (!_hud.Panel.CloseNavigator()) OpenMenu();
-                break;
-            // Space turns the building a quarter, as in the original (MachGuiConstructCommand); R does too.
-            case Key.Space or Key.R when _placing is not null:
-                _placingOrientation = (_placingOrientation + 90) % 360;
-                break;
+                return;
             case Key.S when key.CtrlPressed || key.ShiftPressed:
                 Order(new StopCommand(Player, _selection.ToList()));
-                break;
-            case Key.F:
-                EnterFirstPerson();
-                break;
+                return;
             // Ctrl and a number forms the selection into that squadron, the number alone selects it
-            // (MachGuiSquadronBank); Tab steps the initiative (MachGuiDefconCommand).
+            // (MachGuiSquadronBank).
             case >= Key.Key0 and <= Key.Key9 when key.CtrlPressed:
                 FormSquadron((int)(key.Keycode - Key.Key0));
-                break;
+                return;
             case >= Key.Key0 and <= Key.Key9:
                 SelectSquadron((int)(key.Keycode - Key.Key0));
-                break;
-            case Key.Tab:
-                CycleInitiative();
-                break;
-            case Key.B:
-                BeginAssemblyPoint();
-                break;
-            case Key.P when Online:
-                _hud.Message("A multiplayer match cannot be paused");
-                break;
-            case Key.P:
-                Paused = !Paused;
-                _hud.Message(Paused ? "Paused" : "Running");
-                break;
+                return;
             // F1 to F3 start a chat message to another player, F4 one to everyone (MachPromptText).
             case >= Key.F1 and <= Key.F4 when Online && !key.ShiftPressed && !key.CtrlPressed:
                 _hud.Chat.Begin((int)(key.Keycode - Key.F1));
-                break;
+                return;
             // With Ctrl, F1 to F3 make that other player an ally or no longer one (MachPromptText).
             case >= Key.F1 and <= Key.F3 when Online && key.CtrlPressed:
                 ToggleAlliance((int)(key.Keycode - Key.F1));
-                break;
-            // F10 leads to the menus, as Esc does when there is nothing to cancel (MachInGameScreen's keys).
-            case Key.F10:
-                OpenMenu();
-                break;
+                return;
             // Alt and the left arrow puts the control panel away, Alt and the right arrow brings it out.
             case Key.Left when key.AltPressed:
                 _hud.Panel.SlideOut(false);
-                break;
+                return;
             case Key.Right when key.AltPressed:
                 _hud.Panel.SlideOut(true);
-                break;
-            case Key.Kp2:
-                UseZenithCamera(true);
-                break;
-            case Key.Kp0:
-                UseZenithCamera(false);
-                break;
+                return;
         }
+
+        // Space turns the building a quarter, as in the original (MachGuiConstructCommand); R does too.
+        if (_placing is not null && KeyMap.Is(key, KeyMap.Act.TurnBuilding))
+            _placingOrientation = (_placingOrientation + 90) % 360;
+        else if (KeyMap.Is(key, KeyMap.Act.FirstPerson))
+            EnterFirstPerson();
+        // Tab steps the initiative (MachGuiDefconCommand).
+        else if (KeyMap.Is(key, KeyMap.Act.Initiative))
+            CycleInitiative();
+        else if (KeyMap.Is(key, KeyMap.Act.AssemblyPoint))
+            BeginAssemblyPoint();
+        else if (KeyMap.Is(key, KeyMap.Act.Pause))
+        {
+            if (Online)
+                _hud.Message("A multiplayer match cannot be paused");
+            else
+            {
+                Paused = !Paused;
+                _hud.Message(Paused ? "Paused" : "Running");
+            }
+        }
+        // F10 leads to the menus, as Esc does when there is nothing to cancel (MachInGameScreen's keys).
+        else if (KeyMap.Is(key, KeyMap.Act.Menu))
+            OpenMenu();
+        else if (KeyMap.Is(key, KeyMap.Act.ZenithView))
+            UseZenithCamera(true);
+        else if (KeyMap.Is(key, KeyMap.Act.GroundView))
+            UseZenithCamera(false);
     }
 
     /// <summary>
@@ -2182,13 +2181,19 @@ public partial class Game : Node3D
             _audio.PlayGui("gui/sounds/weapchng.wav");
         _aimYaw = machine.Facing;
         _hullTurnsDue.Clear();
-        var sideways = machine.CanStrafe ? "A/D step sideways" : "A/D turn";
+        // The keys as the player chose them (KeyMap).
+        static string K(KeyMap.Act act) => KeyMap.Name(act);
+        var (drive, sides, turn) = ($"{K(KeyMap.Act.Forward)}/{K(KeyMap.Act.Back)}", $"{K(KeyMap.Act.Left)}/{K(KeyMap.Act.Right)}",
+            $"{K(KeyMap.Act.TurnLeft)}/{K(KeyMap.Act.TurnRight)}");
+        var sideways = machine.CanStrafe ? $"{sides} step sideways" : $"{sides} turn";
+        var tail = $"left mouse fire, {K(KeyMap.Act.Weapons)} weapons, {K(KeyMap.Act.FirstPerson)} or Esc to leave";
+        var centre = K(KeyMap.Act.CentreView);
         _hud.Message((GameOptions.ClassicDriving, machine.CanTurnUpperBody) switch
         {
-            (true, true) => "First person: W/S drive, A/D or mouse turn, Shift or right mouse turns the upper body (C centres it), left mouse fire, Tab weapons, F or Esc to leave",
-            (true, false) => "First person: W/S drive, A/D or mouse turn, left mouse fire, Tab weapons, F or Esc to leave",
-            (false, true) => $"First person: W/S drive, {sideways}, Q/E turn (Ctrl slowly), the mouse looks and the upper body follows (C centres it), left mouse fire, Tab weapons, F or Esc to leave",
-            (false, false) => $"First person: W/S drive, {sideways}, Q/E turn (Ctrl slowly), the mouse looks and the machine follows, left mouse fire, Tab weapons, F or Esc to leave",
+            (true, true) => $"First person: {drive} drive, {sides} or mouse turn, Shift or right mouse turns the upper body ({centre} centres it), {tail}",
+            (true, false) => $"First person: {drive} drive, {sides} or mouse turn, {tail}",
+            (false, true) => $"First person: {drive} drive, {sideways}, {turn} turn (Ctrl slowly), the mouse looks and the upper body follows ({centre} centres it), {tail}",
+            (false, false) => $"First person: {drive} drive, {sideways}, {turn} turn (Ctrl slowly), the mouse looks and the machine follows, {tail}",
         });
     }
 
@@ -2249,9 +2254,9 @@ public partial class Game : Node3D
     /// </summary>
     private static float KeyTurn(Machine machine)
     {
-        var turn = (Input.IsKeyPressed(Key.Q) ? 1f : 0f) - (Input.IsKeyPressed(Key.E) ? 1f : 0f);
+        var turn = (KeyMap.Held(KeyMap.Act.TurnLeft) ? 1f : 0f) - (KeyMap.Held(KeyMap.Act.TurnRight) ? 1f : 0f);
         if (!machine.CanStrafe)
-            turn += (Input.IsKeyPressed(Key.A) ? 1f : 0f) - (Input.IsKeyPressed(Key.D) ? 1f : 0f);
+            turn += (KeyMap.Held(KeyMap.Act.Left) ? 1f : 0f) - (KeyMap.Held(KeyMap.Act.Right) ? 1f : 0f);
         return Mathf.Clamp(turn, -1, 1);
     }
 
@@ -2266,14 +2271,14 @@ public partial class Game : Node3D
     {
         switch (@event)
         {
-            case InputEventKey { Pressed: true, Echo: false, Keycode: Key.F or Key.Escape }:
+            case InputEventKey { Pressed: true, Echo: false } key when key.Keycode == Key.Escape || KeyMap.Is(key, KeyMap.Act.FirstPerson):
                 LeaveFirstPerson();
                 break;
-            case InputEventKey { Pressed: true, Echo: false, Keycode: Key.Tab }:
+            case InputEventKey { Pressed: true, Echo: false } key when KeyMap.Is(key, KeyMap.Act.Weapons):
                 SelectNextWeapons();
                 break;
             // C (the original's keypad 5) turns the upper body back to the front.
-            case InputEventKey { Pressed: true, Echo: false, Keycode: Key.C or Key.Kp5 }:
+            case InputEventKey { Pressed: true, Echo: false } key when KeyMap.Is(key, KeyMap.Act.CentreView):
                 _headTarget = 0;
                 if (_driven is { } centred)
                     _aimYaw = centred.Facing;
@@ -2344,8 +2349,8 @@ public partial class Game : Node3D
     {
         if (_driven is not { } machine)
             return;
-        var forward = (Input.IsKeyPressed(Key.W) ? 1f : 0f) - (Input.IsKeyPressed(Key.S) ? 1f : 0f);
-        var keys = (Input.IsKeyPressed(Key.A) ? 1f : 0f) - (Input.IsKeyPressed(Key.D) ? 1f : 0f);
+        var forward = (KeyMap.Held(KeyMap.Act.Forward) ? 1f : 0f) - (KeyMap.Held(KeyMap.Act.Back) ? 1f : 0f);
+        var keys = (KeyMap.Held(KeyMap.Act.Left) ? 1f : 0f) - (KeyMap.Held(KeyMap.Act.Right) ? 1f : 0f);
         var turn = Mathf.Clamp(_mouseTurn, -1, 1);
         _mouseTurn *= 0.5f;
         var strafe = 0f;

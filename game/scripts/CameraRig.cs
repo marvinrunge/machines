@@ -80,11 +80,12 @@ public partial class CameraRig : Node3D
         else if (tilting && Input.IsKeyPressed(Key.Up) != Input.IsKeyPressed(Key.Down))
             _tilt = Mathf.Clamp(_tilt + (Input.IsKeyPressed(Key.Down) != GameOptions.ReverseKeys ? 1 : -1) * TiltSpeed * (float)delta, -MaxTilt, MaxTilt);
 
+        // The moves' keys as the player chose them (KeyMap), and the arrows; Ctrl and S stops rather than moves.
         var input = Vector2.Zero;
-        if (Input.IsKeyPressed(Key.W) || Input.IsKeyPressed(Key.Up) && !tilting) input.Y -= 1;
-        if (Input.IsKeyPressed(Key.S) && !Input.IsKeyPressed(Key.Ctrl) || Input.IsKeyPressed(Key.Down) && !tilting) input.Y += 1;
-        if (Input.IsKeyPressed(Key.A) || Input.IsKeyPressed(Key.Left)) input.X -= 1;
-        if (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right)) input.X += 1;
+        if (KeyMap.Held(KeyMap.Act.Forward) || Input.IsKeyPressed(Key.Up) && !tilting) input.Y -= 1;
+        if (KeyMap.Held(KeyMap.Act.Back) && !Input.IsKeyPressed(Key.Ctrl) || Input.IsKeyPressed(Key.Down) && !tilting) input.Y += 1;
+        if (KeyMap.Held(KeyMap.Act.Left) || Input.IsKeyPressed(Key.Left)) input.X -= 1;
+        if (KeyMap.Held(KeyMap.Act.Right) || Input.IsKeyPressed(Key.Right)) input.X += 1;
 
         var mouse = GetViewport().GetMousePosition();
         var size = GetViewport().GetVisibleRect().Size;
@@ -96,8 +97,8 @@ public partial class CameraRig : Node3D
             if (mouse.Y >= size.Y - EdgeMargin) input.Y += 1;
         }
 
-        if (Input.IsKeyPressed(Key.Q)) _yaw += 1.5f * (float)delta;
-        if (Input.IsKeyPressed(Key.E)) _yaw -= 1.5f * (float)delta;
+        if (KeyMap.Held(KeyMap.Act.TurnLeft)) _yaw += 1.5f * (float)delta;
+        if (KeyMap.Held(KeyMap.Act.TurnRight)) _yaw -= 1.5f * (float)delta;
 
         if (input != Vector2.Zero)
         {

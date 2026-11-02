@@ -441,7 +441,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             // Its lights show which initiatives the selection has (defco1 low, defco2 normal, defco3 high DefCon).
             var (low, normal, high) = game.Initiative();
             var initiative = (low ? 1 : 0) + (normal ? 1 : 0) + (high ? 1 : 0) > 1 ? "mixed" : low ? "high" : normal ? "medium" : "low";
-            bars.Add(new Bar($"Initiative {initiative}", $"Machine initiative: {initiative} (Tab to change)", game.CycleInitiative,
+            bars.Add(new Bar($"Initiative {initiative}", $"Machine initiative: {initiative} ({KeyMap.Name(KeyMap.Act.Initiative)} to change)", game.CycleInitiative,
                 $"commands/defco{(low ? "1" : "")}{(normal ? "2" : "")}{(high ? "3" : "")}.bmp"));
         }
         // Camouflage hides a spy from the other players' machines; there are only those in a network game.

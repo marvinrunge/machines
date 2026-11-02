@@ -12,7 +12,7 @@ namespace Machines.Game;
 /// and drives the lobby (see <see cref="MultiplayerPage"/>), MACHINES_MENU_SELECT=&lt;scenario&gt;,&lt;planet&gt; picks a
 /// map and MACHINES_MENU_START=1 starts it from the skirmish page (MACHINES_LOADING_SCREENSHOT, see
 /// <see cref="LoadingScreen"/>). MACHINES_MENU_SCREENSHOT=&lt;png&gt;[,page[,WxH]] saves a page (main, skirmish, room,
-/// multiplayer, load, replays, options, graphics, models, campaign, missions, briefing or quit), at that size if one
+/// multiplayer, load, replays, options, graphics, keys, models, campaign, missions, briefing or quit), at that size if one
 /// is given, and quits. The first start's questions (setup, setup-import, setup-look, setup-music) come before the main menu until
 /// they are answered (<see cref="SetupPage"/>).
 /// </summary>
@@ -124,6 +124,7 @@ public partial class MenuScreens : Control
             case "replays": ShowReplays(); break;
             case "options": ShowOptions(); break;
             case "graphics": _stage.Show(new GraphicsPage(ShowOptions, inGame: false)); break;
+            case "keys": _stage.Show(new KeysPage(ShowOptions)); break;
             case "models": ShowModels(); break;
             case "setup": ShowSetup(SetupPage.First); break;
             case "setup-import": ShowSetup(SetupPage.Step.Import); break;
