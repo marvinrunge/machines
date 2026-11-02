@@ -76,7 +76,8 @@ public sealed partial class GameWorld
         foreach (var actor in Actors.Where(a => a.SelfDestructAt is { } at && at <= Time && !a.IsDead).ToList())
         {
             actor.SelfDestructAt = null;
-            actor.LastHitBy = null;
+            // Its own doing (MachActor::update hits it with itself): nobody scores, and a smelter loses no stores.
+            actor.LastHitBy = actor.Race;
             actor.HitPoints = 0;
         }
 
@@ -215,7 +216,9 @@ public sealed partial class GameWorld
             bmu *= building.HitPoints / hitPoints;
             hitPoints = building.HitPoints;
         }
-        if (!own)
+        // The original blames whoever takes it down, its owner too (opdecons.cpp): a smelter or pod demolished by its
+        // own race loses no stores (see LoseStores).
+        if (!own || Options.OriginalBank)
             building.LastHitBy = constructor.Race;
         AddHitPoints(building, -hitPoints);
         AddBmu(constructor.Race, bmu * RecycleRefund);
@@ -382,6 +385,22 @@ public sealed partial class GameWorld
         var before = losing.Bmu;
         losing.Bmu *= 1 - MathF.Min(1, (float)lost / capacity);
         return MathF.Min(before - losing.Bmu, lost);
+    }
+
+    /// <summary>
+    /// A finished smelter or pod is destroyed and its race loses the storage (MachLogSmelter/MachLogPod::beHit): brought
+    /// down by an enemy, the bank shrinks by the share of storage lost, as when it is captured; by the race's own hand
+    /// (demolition, self-destruct, its own fire) the BMUs move to the other stores and only what no longer fits is lost
+    /// (MachLogRaces::reduceCapacityNoPenalty).
+    /// </summary>
+    private void LoseStores(Construction building)
+    {
+        if (!building.Complete || building.Spec.Type is not ("SMELTER" or "POD") || !Races.TryGetValue(building.Race, out var losing))
+            return;
+        if (building.LastHitBy != building.Race)
+            StoresLost(building);
+        else
+            losing.Bmu = MathF.Min(losing.Bmu, BmuCapacity(building.Race) - (building.Stats.Capacity ?? 0));
     }
 
     /// <summary>MachLogTreacheryOrb: a machine hit by the orb defects to the shooter's race.</summary>

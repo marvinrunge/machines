@@ -305,6 +305,8 @@ public sealed partial class GameWorld
     {
         foreach (var actor in _actors.Values.Where(a => a.IsDead).ToList())
         {
+            if (Options.OriginalBank && actor is Construction store)
+                LoseStores(store);
             _actors.Remove(actor.Id);
             Raise(new GameEvent(GameEventKind.Destroyed, actor.Id, actor.Position));
             DropDebris(actor);

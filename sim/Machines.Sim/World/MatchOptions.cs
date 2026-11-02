@@ -68,6 +68,22 @@ public sealed record MatchOptions
     /// </summary>
     public bool OriginalCapture { get; init; } = true;
 
+    /// <summary>
+    /// Whether the BMU bank keeps the original's rules: a finished smelter or pod an enemy destroys takes its share of
+    /// the bank with it, one its own race brings down leaves only what no longer fits (MachLogSmelter/MachLogPod::beHit,
+    /// MachLogRaces::reduceCapacityWithPenalty/NoPenalty), and a machine cancelled in the factory pays back three
+    /// quarters of what it had cost so far (MachLogFactory::cancelProductionUnit). Recordings made before say false,
+    /// so they play back as they were played.
+    /// </summary>
+    public bool OriginalBank { get; init; } = true;
+
+    /// <summary>
+    /// Whether the scenario's RESTRICT_CONSTRUCTION lines keep their building from a race, as in the original
+    /// (MachLogScenario::parseRestrictConstruction, MachLogConstructionItem::activationLocked): neither its
+    /// constructors' menu nor its AI offers it. Recordings made before say false, so they play back as they were played.
+    /// </summary>
+    public bool RestrictConstruction { get; init; } = true;
+
     /// <summary>For a campaign mission: what it takes over from the missions the player won before.</summary>
     public CampaignCarry? Campaign { get; init; }
 

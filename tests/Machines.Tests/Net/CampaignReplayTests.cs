@@ -97,4 +97,46 @@ public class CampaignReplayTests
         Assert.False(loaded.Match.Options.OriginalCapture);
         Assert.True(loaded.Match.Options.OriginalMotion);
     }
+
+    [Fact]
+    public void A_recording_from_before_the_original_bank_keeps_its_bmus_as_it_did()
+    {
+        var match = new MatchInfo("m_desert", "m_desert", new MatchOptions(), 1, 1,
+            [new MatchPlayer(0, "Anna", Race.Red, Race.Red, Ai: false), new MatchPlayer(0, "AI", Race.Blue, Race.Blue, Ai: true)]);
+        var path = Path.Combine(Path.GetTempPath(), $"old-{Guid.NewGuid():N}{Replay.Extension}");
+        new Replay(match, [], 0).Save(path);
+        Assert.True(Replay.Load(path).Match.Options.OriginalBank);
+
+        File.WriteAllText(path, File.ReadAllText(path).Replace("\"OriginalBank\":true,", "").Replace(",\"OriginalBank\":true", ""));
+        var loaded = Replay.Load(path);
+        File.Delete(path);
+        Assert.False(loaded.Match.Options.OriginalBank);
+        Assert.True(loaded.Match.Options.OriginalCapture);
+    }
+
+    [Fact]
+    public void A_recording_from_before_construction_restrictions_builds_as_it_did()
+    {
+        // Dogbar keeps the level 5 military factory from Red; a recording made before that held could build it.
+        var match = new MatchInfo("dogbar", "dogbar", new MatchOptions { Victory = VictoryCondition.Scripted }, 3, 1,
+            [new MatchPlayer(0, "Anna", Race.Red, Race.Red, Ai: false), new MatchPlayer(0, "AI", Race.Blue, Race.Blue, Ai: true)]);
+        var path = Path.Combine(Path.GetTempPath(), $"old-{Guid.NewGuid():N}{Replay.Extension}");
+        new Replay(match, [], 0).Save(path);
+        Assert.True(Replay.Load(path).Match.Options.RestrictConstruction);
+
+        File.WriteAllText(path, File.ReadAllText(path).Replace("\"RestrictConstruction\":true,", "").Replace(",\"RestrictConstruction\":true", ""));
+        var loaded = Replay.Load(path);
+        File.Delete(path);
+        Assert.False(loaded.Match.Options.RestrictConstruction);
+        Assert.True(loaded.Match.Options.OriginalCapture);
+
+        var factory = new ConstructionOrderEntry("FACTORY", "MILITARY", 5);
+        foreach (var (options, buildable) in new[] { (match.Options, false), (loaded.Match.Options, true) })
+        {
+            var world = Replay.BuildWorld(DataLoader.Value, match with { Options = options });
+            var dozer = world.Machines.First(m => m.Race == Race.Red && m.IsType("CONSTRUCTOR"));
+            world.AddMachine(Race.Red, dozer.Position + new Vector2(30, 0), "CONSTRUCTOR", "BEHEMOTH", 5, null);
+            Assert.Equal(buildable, world.Buildable(Race.Red).Contains(factory));
+        }
+    }
 }

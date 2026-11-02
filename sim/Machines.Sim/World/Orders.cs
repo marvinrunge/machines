@@ -108,6 +108,14 @@ public sealed class RaceState(Race race, Controller controller)
     public Dictionary<ResearchKey, float> ResearchProgress { get; } = [];
     public Dictionary<ResearchKey, int> ResearchCostOverrides { get; } = [];
 
+    /// <summary>
+    /// The buildings the scenario's RESTRICT_CONSTRUCTION lines keep from this race, whatever its constructors
+    /// could raise (MachLogConstructionItem::activationLocked). Only these entries: those after them in
+    /// <c>global.cst</c> stay open. <see cref="GameWorld.Buildable"/> leaves them out while
+    /// <see cref="MatchOptions.RestrictConstruction"/> holds.
+    /// </summary>
+    public HashSet<ConstructionOrderEntry> Locked { get; } = [];
+
     public bool Defeated { get; set; }
     public bool StartedWithPod { get; set; }
 

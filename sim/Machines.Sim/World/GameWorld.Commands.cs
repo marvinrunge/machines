@@ -140,7 +140,9 @@ public sealed partial class GameWorld
                 factory.ProductionQueue.RemoveAt(cancel.Index);
                 if (cancel.Index == 0)
                 {
-                    AddBmu(cancel.Race, factory.ProductionSpent);
+                    // Only the machine under way has cost anything; the original pays back three quarters of it
+                    // (MachLogFactory::cancelProductionUnit).
+                    AddBmu(cancel.Race, factory.ProductionSpent * (Options.OriginalBank ? CancelRefund : 1));
                     factory.ProductionSpent = 0;
                 }
                 return null;
@@ -395,7 +397,7 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// The buildings a race's constructors can raise: everything in <c>global.cst</c> up to the most advanced
-    /// entry of the best constructor the race owns.
+    /// entry of the best constructor the race owns, less the entries the scenario locks for the race.
     /// </summary>
     public IReadOnlyList<ConstructionOrderEntry> Buildable(Race race)
     {
@@ -404,7 +406,10 @@ public sealed partial class GameWorld
             .Select(m => Data.ConstructionOrder.IndexOf(m.Stats.MostAdvancedConstruction!))
             .DefaultIfEmpty(-1)
             .Max();
-        return Data.ConstructionOrder.Entries.Take(best + 1).ToList();
+        var entries = Data.ConstructionOrder.Entries.Take(best + 1);
+        if (Options.RestrictConstruction && Races.TryGetValue(race, out var state) && state.Locked.Count > 0)
+            entries = entries.Where(e => !state.Locked.Contains(e));
+        return entries.ToList();
     }
 
     /// <returns>null if the building may go there, otherwise why not.</returns>

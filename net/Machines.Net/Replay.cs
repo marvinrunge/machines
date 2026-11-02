@@ -31,6 +31,12 @@ public sealed record Replay(MatchInfo Match, IReadOnlyList<Turn> Turns, long Tic
         // Recorded before captured buildings brought their stores: they change hands as they did then.
         if (!Has(nameof(MatchOptions.OriginalCapture)))
             options = options with { OriginalCapture = false };
+        // Recorded before the scenarios' construction restrictions held: everything stays buildable as it was then.
+        if (!Has(nameof(MatchOptions.RestrictConstruction)))
+            options = options with { RestrictConstruction = false };
+        // Recorded before lost stores and cancelled machines cost BMUs: the bank keeps them as it did then.
+        if (!Has(nameof(MatchOptions.OriginalBank)))
+            options = options with { OriginalBank = false };
         return options == replay.Match.Options ? replay : replay with { Match = replay.Match with { Options = options } };
     }
 

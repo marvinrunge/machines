@@ -181,6 +181,74 @@ public class SupportTests
     }
 
     [Fact]
+    public void A_smelter_destroyed_by_the_enemy_takes_its_share_of_the_bank()
+    {
+        var world = NewMatch();
+        var smelter = world.AddConstruction(Race.Blue, Field, "SMELTER", null, 1, 0, complete: true);
+        // Blue stores 1500 (pod 500, smelter 1000): the smelter is two thirds of it.
+        world.Races[Race.Blue].Bmu = 1200;
+
+        world.Damage(smelter, 100_000, Race.Red);
+        world.Step();
+
+        Assert.Null(world.Find(smelter.Id));
+        Assert.Equal(500, world.BmuCapacity(Race.Blue));
+        // A third of the 1200 is left, give or take the pod trickle of one tick.
+        Assert.InRange(world.Races[Race.Blue].Bmu, 400, 401);
+    }
+
+    [Fact]
+    public void A_smelter_demolished_by_its_own_race_only_loses_what_no_longer_fits()
+    {
+        var world = NewMatch();
+        var smelter = world.AddConstruction(Race.Blue, Field, "SMELTER", null, 1, 0, complete: true);
+        var dozer = Dozer(world, Race.Blue, Field + new Vector2(0, 40));
+        world.Races[Race.Blue].Bmu = 1200;
+        // An enemy's earlier hit does not count: the owner's own dozer takes it down.
+        world.Damage(smelter, 10, Race.Red);
+
+        world.Issue(new DeconstructCommand(Race.Blue, [dozer.Id], smelter.Id));
+        Run(world, 600, () => world.Find(smelter.Id) is null);
+
+        Assert.Null(world.Find(smelter.Id));
+        Assert.Equal(500, world.Races[Race.Blue].Bmu, 0.01f);
+    }
+
+    [Fact]
+    public void Without_original_bank_a_destroyed_smelter_leaves_the_bank_alone()
+    {
+        var world = NewMatch();
+        world.Options = world.Options with { OriginalBank = false };
+        var smelter = world.AddConstruction(Race.Blue, Field, "SMELTER", null, 1, 0, complete: true);
+        world.Races[Race.Blue].Bmu = 1200;
+
+        world.Damage(smelter, 100_000, Race.Red);
+        world.Step();
+
+        Assert.Null(world.Find(smelter.Id));
+        Assert.InRange(world.Races[Race.Blue].Bmu, 1200, 1201);
+    }
+
+    [Fact]
+    public void Cancelling_the_machine_in_the_factory_pays_back_three_quarters()
+    {
+        var world = NewMatch();
+        var factory = world.AddConstruction(Race.Red, Field, "FACTORY", "MILITARY", 1, 0, complete: true);
+        var grunt = world.Data.ResearchTree.Items.First(i => i.Key.Type == "AGGRESSOR" && i.Key.SubType == "GRUNT").Key;
+        factory.ProductionQueue.Add(grunt);
+        factory.ProductionSpent = 40;
+        world.Races[Race.Red].Bmu = 0;
+
+        world.Issue(new CancelProductionCommand(Race.Red, factory.Id, 0));
+        world.Step();
+
+        Assert.Empty(factory.ProductionQueue);
+        Assert.Equal(0, factory.ProductionSpent);
+        // 30 of the 40 spent, give or take the pod trickle of one tick.
+        Assert.InRange(world.Races[Race.Red].Bmu, 30, 31);
+    }
+
+    [Fact]
     public void Deconstructing_your_own_building_pays_back_half()
     {
         var world = NewMatch();

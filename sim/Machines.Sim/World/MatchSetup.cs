@@ -93,6 +93,14 @@ public static class MatchSetup
             ApplyResearch(world, data.LoadResearch(file));
         }
 
+        // RESTRICT_CONSTRUCTION locks just the one entry for the races it names (MachLogScenario::parseRestrictConstruction);
+        // GameWorld.Buildable leaves it out while the option holds.
+        foreach (var restriction in scenario.ConstructionRestrictions)
+        {
+            foreach (var state in world.Races.Values.Where(s => Targets(restriction.Race, s)))
+                state.Locked.Add(new ConstructionOrderEntry(restriction.Type, restriction.SubType, restriction.HardwareLevel));
+        }
+
         // As in the original, a pod victory needs pods: without any, the match falls back to annihilation.
         if (options.Victory == VictoryCondition.Pod && !world.Constructions.Any(c => c.IsType("POD")))
             world.Options = options with { Victory = VictoryCondition.Annihilation };
@@ -113,21 +121,8 @@ public static class MatchSetup
             if (world.Data.ResearchTree.Find(entry.Key) is null)
                 continue; // known data defects (see data/README.md)
 
-            foreach (var state in world.Races.Values)
+            foreach (var state in world.Races.Values.Where(s => Targets(entry.Race, s)))
             {
-                var applies = entry.Race switch
-                {
-                    RaceTarget.Red => state.Race == Race.Red,
-                    RaceTarget.Blue => state.Race == Race.Blue,
-                    RaceTarget.Green => state.Race == Race.Green,
-                    RaceTarget.Yellow => state.Race == Race.Yellow,
-                    RaceTarget.Ai => state.Controller == Controller.Ai,
-                    RaceTarget.Pc => state.Controller == Controller.Player,
-                    _ => true,
-                };
-                if (!applies)
-                    continue;
-
                 state.Available.Add(entry.Key);
                 if (entry.Researched)
                     state.Researched.Add(entry.Key);
@@ -136,4 +131,19 @@ public static class MatchSetup
             }
         }
     }
+
+    /// <summary>
+    /// Whether a scenario line for <paramref name="target"/> applies to the race: a named race, the AI's races, the
+    /// players' races, or (without a race) all of them.
+    /// </summary>
+    private static bool Targets(RaceTarget target, RaceState state) => target switch
+    {
+        RaceTarget.Red => state.Race == Race.Red,
+        RaceTarget.Blue => state.Race == Race.Blue,
+        RaceTarget.Green => state.Race == Race.Green,
+        RaceTarget.Yellow => state.Race == Race.Yellow,
+        RaceTarget.Ai => state.Controller == Controller.Ai,
+        RaceTarget.Pc => state.Controller == Controller.Player,
+        _ => true,
+    };
 }

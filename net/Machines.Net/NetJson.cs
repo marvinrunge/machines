@@ -13,7 +13,7 @@ namespace Machines.Net;
 public static class NetJson
 {
     /// <summary>Bump when messages or commands change incompatibly; the relay refuses other versions.</summary>
-    public const int Protocol = 5;
+    public const int Protocol = 6;
 
     public static readonly JsonSerializerOptions Options = Create();
 
