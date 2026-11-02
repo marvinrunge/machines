@@ -30,9 +30,12 @@ public sealed class RelayServer : IAsyncDisposable
     public int Port => ((IPEndPoint)_listener.LocalEndpoint).Port;
 
     /// <param name="port">0 picks a free port (tests).</param>
+    /// <param name="address">Where to listen; without one, on every address, IPv6 as well as IPv4 where the computer has it.</param>
     public static RelayServer Start(int port, IPAddress? address = null)
     {
-        var listener = new TcpListener(address ?? IPAddress.Any, port);
+        var listener = new TcpListener(address ?? (Socket.OSSupportsIPv6 ? IPAddress.IPv6Any : IPAddress.Any), port);
+        if (address is null && Socket.OSSupportsIPv6)
+            listener.Server.DualMode = true;
         listener.Start();
         var server = new RelayServer(listener);
         server._accepting = server.AcceptLoop();

@@ -14,6 +14,27 @@ public static class NetLink
     /// <summary>The relay this game hosts for the others, if it hosts one.</summary>
     public static Machines.Relay.RelayServer? HostedRelay { get; private set; }
 
+    /// <summary>What the router opened to the hosted relay, once <see cref="OpenPortAsync"/> asked it.</summary>
+    public static PortMapping? Mapping { get; private set; }
+
+    /// <summary>
+    /// Asks the router to let the others in to the hosted relay over the internet (see <see cref="PortMapping"/>); a
+    /// node on the tree's root takes it back when the game ends.
+    /// </summary>
+    public static async Task<PortMapping?> OpenPortAsync(Godot.SceneTree tree)
+    {
+        if (HostedRelay is null)
+            return null;
+        if (Mapping is not null)
+            return Mapping;
+        var mapping = Mapping = await PortMapping.OpenAsync(HostedRelay.Port);
+        // It leaves the tree as the game ends, and takes the router's mapping back; the lease ends it otherwise.
+        var closer = new Godot.Node { Name = "PortCloser" };
+        closer.TreeExiting += () => Task.Run(() => mapping.CloseAsync()).Wait(TimeSpan.FromSeconds(3));
+        tree.Root.AddChild(closer);
+        return Mapping;
+    }
+
     /// <summary>
     /// Runs the relay inside this game on <paramref name="port"/> and connects to it; the other players connect
     /// to this computer's address. Returns why it failed, or null.
@@ -72,11 +93,20 @@ public static class NetLink
 
     public static void Send(NetMessage message) => Connection?.Send(message);
 
-    /// <summary>"host:port", the port defaulting to the relay's 7777.</summary>
-    private static (string Host, int Port) Split(string address)
+    /// <summary>"host:port", the port defaulting to the relay's 7777; an IPv6 address in brackets before a port ("[2001:db8::1]:7777").</summary>
+    public static (string Host, int Port) Split(string address)
     {
         var text = address.Trim();
+        if (text.StartsWith('[') && text.IndexOf(']') is var close and > 0)
+            return (text[1..close], text[(close + 1)..].TrimStart(':') is { Length: > 0 } after && int.TryParse(after, out var p) ? p : 7777);
+        // More than one colon without brackets: an IPv6 address alone.
+        if (text.Count(c => c == ':') > 1)
+            return (text, 7777);
         var colon = text.LastIndexOf(':');
         return colon > 0 && int.TryParse(text[(colon + 1)..], out var port) ? (text[..colon], port) : (text, 7777);
     }
+
+    /// <summary>An address and port as the others type it: an IPv6 address in brackets.</summary>
+    public static string Join(System.Net.IPAddress address, int port) =>
+        address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 ? $"[{address}]:{port}" : $"{address}:{port}";
 }

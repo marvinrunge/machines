@@ -14,8 +14,14 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
 
     // Kept while the game runs, so the page comes back as it was left.
     private static string _address = "127.0.0.1:7777";
-    private static string _statusText = "Host runs the relay in this game (port 7777); the others connect to your computer's address. " +
-                                        "Or connect to a relay someone else runs.";
+    private static string _statusText = "Host runs the relay in this game (port 7777) and asks the router to let the others in; " +
+                                        "they connect to the address it shows. Or connect to a relay someone else runs.";
+
+    // Whether hosting asks the router to open the port (UPnP, see PortMapping).
+    private static bool _openPort = true;
+
+    // The address to give the others, once hosting; Copy puts it on the clipboard.
+    private static string? _shareAddress;
 
     // The room's chat (MachGuiCtxImReady's chat window), kept while the game runs as the page is.
     private static readonly List<(string Text, bool Note)> ChatLines = [];
@@ -27,7 +33,7 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
     private ItemList _rooms = null!, _players = null!;
     private ChipChoice _colour = null!;
     private CheckButton _ready = null!;
-    private ChipButton _connect = null!, _host = null!, _start = null!, _join = null!;
+    private ChipButton _connect = null!, _host = null!, _start = null!, _join = null!, _copy = null!;
     private Control _offline = null!, _lobby = null!, _room = null!;
     private RoomList? _roomList;
     private RoomState? _state;
@@ -49,13 +55,24 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
         _connect = Button("Connect", () => _ = Connect(), 70, 26);
         _host = Button("Host", () => _ = Host(), 70, 26);
         _connect.SizeFlagsHorizontal = _host.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        var openPort = new CheckButton { Text = "Open the port on the router", ButtonPressed = _openPort };
+        openPort.AddThemeFontSizeOverride("font_size", 21);
+        openPort.Toggled += on => _openPort = on;
         _status = MenuTheme.Paragraph(_statusText, 21, MenuTheme.Dim);
+        _copy = Button("Copy address", () =>
+        {
+            DisplayServer.ClipboardSet(_shareAddress ?? "");
+            _status.Text = $"{_statusText}\nCopied {_shareAddress}.";
+        }, 60, 22);
+        _copy.Visible = _shareAddress is not null && NetLink.HostedRelay is not null;
         login.AddChild(Column(14,
             MenuTheme.Label("YOUR NAME", 20, MenuTheme.Dim), _name,
             MenuTheme.Label("RELAY", 20, MenuTheme.Dim), _relay,
             Line(16, _connect, _host),
+            openPort,
             Spring(across: false),
-            _status));
+            _status,
+            _copy));
         columns.AddChild(login);
 
         var rooms = new ChipPanel { SizeFlagsHorizontal = SizeFlags.ExpandFill, Padding = 22 };
@@ -209,12 +226,34 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
             Say(error);
             return;
         }
-        var addresses = System.Net.Dns.GetHostAddresses(System.Net.Dns.GetHostName())
+        var relay = NetLink.HostedRelay!.Port;
+        var near = string.Join(" or ", System.Net.Dns.GetHostAddresses(System.Net.Dns.GetHostName())
             .Where(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && !System.Net.IPAddress.IsLoopback(a))
-            .Select(a => $"{a}:{NetLink.HostedRelay!.Port}");
-        Say($"Hosting. The others connect to {string.Join(" or ", addresses)} " +
-            "(over the internet: your public address, with the port forwarded).");
+            .Select(a => NetLink.Join(a, relay)));
+        _shareAddress = near.Split(' ')[0];
         ShowLobby();
+        if (!_openPort)
+        {
+            Say($"Hosting. On this network the others connect to {near}; over the internet to your public address, with port {relay} forwarded on the router.");
+            _copy.Visible = near.Length > 0;
+            return;
+        }
+        Say($"Hosting. Asking the router to open port {relay}…");
+        var mapping = await NetLink.OpenPortAsync(GetTree());
+        if (!IsInstanceValid(this) || mapping is null)
+            return;
+        // The internet's address first: IPv4 where the router has a public one, else this computer's IPv6.
+        var far = new List<string>();
+        if (mapping.PublicV4 is { } v4)
+            far.Add(NetLink.Join(v4, relay));
+        if (mapping.PublicV6 is { } v6)
+            far.Add(NetLink.Join(v6, relay) + (mapping.V6Open ? " (IPv6)" : " (IPv6, if the router's firewall lets it in)"));
+        _shareAddress = far.Count > 0 ? far[0].Split(' ')[0] : _shareAddress;
+        Say("Hosting." +
+            (near.Length > 0 ? $" On this network: {near}." : "") +
+            (far.Count > 0 ? $" Over the internet: {string.Join(" or ", far)}." : "") +
+            (mapping.Problem is { } problem ? $" {problem}" : ""));
+        _copy.Visible = _shareAddress is { Length: > 0 };
     }
 
     private void ShowOffline()
@@ -354,6 +393,8 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
         var host = serve || parts[0] == "host";
         _relay.Text = parts.Length > 1 ? parts[1] : "127.0.0.1:7777";
         _name.Text = host ? "Host" : "Guest";
+        // Automated checks leave the router alone.
+        _openPort = false;
         _ = Run();
 
         async Task Run()
