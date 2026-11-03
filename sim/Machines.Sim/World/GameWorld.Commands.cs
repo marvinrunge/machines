@@ -264,8 +264,8 @@ public sealed partial class GameWorld
                 // machine.cpp: a machine fits through a building's door when its access size allows it.
                 var building = Find<Construction>(garrison.Garrison);
                 return OrderWork(garrison.Race, garrison.Machines, garrison.Garrison, m => building is null || FitsThrough(m, building),
-                    "too big for the garrison's doors",
-                    t => t is Construction { Complete: true } g && g.IsType("GARRISON") && g.Race == garrison.Race ? null : "that is not one of your garrisons",
+                    "too big for the building's doors",
+                    t => t is Construction { Complete: true, HasInterior: true } g && g.Race == garrison.Race ? null : "that is not one of your buildings to go into",
                     id => new EnterGarrisonOrder(id));
             }
 
@@ -276,6 +276,7 @@ public sealed partial class GameWorld
                 driven.DrivenByPlayer = drive.Driving;
                 if (!drive.Driving)
                 {
+                    LetGoInside(driven);
                     DriveInput.Remove(driven.Id);
                     PlayerAims.Remove(driven.Id);
                     PlayerWeapons.Remove(driven.Id);

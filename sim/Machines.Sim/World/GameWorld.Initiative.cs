@@ -106,7 +106,7 @@ public sealed partial class GameWorld
             return;
         spy.Doorway = null;
         spy.Inside = garrison.Id;
-        spy.Position = garrison.Position;
+        spy.Position = BayFor(spy, garrison);
         spy.Order = refill with { InsideSince = Time };
         garrison.Garrisoned.Add(spy.Id);
     }

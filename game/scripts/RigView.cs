@@ -72,16 +72,43 @@ public partial class RigView : Node3D
     public bool HasInterior => _interior > 0;
 
     /// <summary>
-    /// Shows the interior. The original drew a building's interior domain only while the camera was in it, so it
-    /// shows only while first person looks out from inside.
+    /// Shows the interior. The original drew a building's interior domain only while the camera was in it, and the
+    /// outside only while the camera was not, so from inside the shell only keeps the sun out.
     /// </summary>
     public bool ShowInterior
     {
         set
         {
-            if (HasInterior)
-                _nodes[_interior].Visible = value;
+            if (!HasInterior || _nodes[_interior].Visible == value)
+                return;
+            _nodes[_interior].Visible = value;
+            for (var i = 0; i < _nodes.Length; i++)
+                if (i != _interior && _nodes[i].GetNodeOrNull<MeshInstance3D>("Mesh") is { } mesh)
+                    mesh.CastShadow = value ? GeometryInstance3D.ShadowCastingSetting.ShadowsOnly : GeometryInstance3D.ShadowCastingSetting.On;
+            LightInterior(value);
         }
+    }
+
+    private OmniLight3D? _interiorLight;
+
+    /// <summary>With the sun kept out the interior has a lamp of its own, under the roof in its middle.</summary>
+    private void LightInterior(bool on)
+    {
+        if (_interiorLight is null && _nodes[_interior].GetNodeOrNull<MeshInstance3D>("Mesh") is { } mesh)
+        {
+            var bounds = mesh.GetAabb();
+            _interiorLight = new OmniLight3D
+            {
+                Position = bounds.GetCenter() + Vector3.Up * bounds.Size.Y * 0.3f,
+                OmniRange = bounds.Size.Length() * 0.75f,
+                OmniAttenuation = 0.6f,
+                LightEnergy = GraphicsSettings.Lighting ? 2.5f : 1.2f,
+                LightColor = new Color(1, 0.95f, 0.88f),
+            };
+            _nodes[_interior].AddChild(_interiorLight);
+        }
+        if (_interiorLight is not null)
+            _interiorLight.Visible = on;
     }
 
     /// <summary>Whether a point in the world lies within the interior's bounds.</summary>
@@ -222,7 +249,7 @@ public partial class RigView : Node3D
     /// Where first person looks out from: the centre front of the faceplate as it stands now (the original's
     /// camera attachment), or null when the export has none.
     /// </summary>
-    /// <summary>A building's working motion plays (MachPhysConstruction::isWorking).</summary>
+    /// <summary>A building's working motion plays (MachPhysConstruction::isWorking), a technician's research cycle.</summary>
     public bool Working { get; set; }
 
     /// <summary>A constructor building or repairing: its arms play the building cycle.</summary>
@@ -505,8 +532,10 @@ public partial class RigView : Node3D
 
         if (_rig.Animations.Count > 0)
         {
-            // A constructor at work plays its building cycle (MachPhysConstructor::startConstructing) instead.
+            // A constructor at work plays its building cycle (MachPhysConstructor::startConstructing) instead, a
+            // technician at work in a lab its research (MachPhysTechnician::research).
             var cycle = Constructing && _rig.Animations.ContainsKey("construct") ? "construct"
+                : Working && _rig.Animations.ContainsKey("research") ? "research"
                 : moving ? "walk" : turning ? (turnRate > 0 ? "turnLeft" : "turnRight") : "rest";
             if (cycle != _cycle)
             {

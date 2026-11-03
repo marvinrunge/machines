@@ -201,7 +201,7 @@ public partial class FogOfWar : CanvasLayer
                 continue;
             var scanner = actor switch
             {
-                Machine { Inside: not null } => 0,
+                Machine { Inside: not null, DrivenByPlayer: false } => 0,
                 Machine machine => Array.FindIndex(ScannerUpperLimit, limit => machine.Stats.ScannerRange <= limit) + 1,
                 Construction pod when pod.IsType("POD") => PodScanner,
                 // A building only uncovers once work on it has begun, so a laid-out site cannot scout.

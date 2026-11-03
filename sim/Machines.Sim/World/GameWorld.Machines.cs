@@ -76,15 +76,19 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// Whether a machine driven in first person may go on to <paramref name="next"/>: onto open ground on the planet,
-    /// or, while it stands on blocked ground (beside a building, or set down on rock), anywhere nearer to open ground.
+    /// through a building's door and over the floor behind it, or, while it stands on blocked ground (beside a
+    /// building, or set down on rock), anywhere nearer to open ground.
     /// </summary>
     private bool CanDriveTo(Machine machine, Vector2 next)
     {
         var water = CrossesWater(machine);
         if (!Nav.OnPlanet(next))
             return false;
-        if (Nav.IsFree(next, water))
+        if (Nav.IsFree(next, water) || WayInAt(machine, next) is not null)
             return true;
+        // Within a building the walls hold it.
+        if (WayInAt(machine, machine.Position) is not null)
+            return false;
         return !Nav.IsFree(machine.Position, water) && Nav.NearestFreePoint(machine.Position, water) is { } open
             && Vector2.DistanceSquared(next, open) < Vector2.DistanceSquared(machine.Position, open);
     }
@@ -114,6 +118,7 @@ public sealed partial class GameWorld
         if (machine.DrivenByPlayer)
         {
             Drive(machine);
+            CrossThreshold(machine);
             if (machine.Order is AttackOrder)
                 machine.Order = Order.Idle;
             return;
@@ -527,7 +532,7 @@ public sealed partial class GameWorld
             return;
         }
 
-        if (lab.Technicians.Count + lab.Garrisoned.Count >= ResearchStations(lab))
+        if (!HasFreeBay(lab))
         {
             technician.Order = Order.Idle;
             return;
@@ -537,7 +542,7 @@ public sealed partial class GameWorld
 
         technician.Doorway = null;
         technician.Inside = lab.Id;
-        technician.Position = lab.Position;
+        technician.Position = BayFor(technician, lab);
         technician.Order = Order.Idle;
         // A spy in another race's lab waits there, downloading, until it is ordered out.
         (technician.IsSpy && lab.Race != technician.Race ? lab.Garrisoned : lab.Technicians).Add(technician.Id);

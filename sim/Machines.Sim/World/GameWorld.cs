@@ -131,9 +131,10 @@ public sealed partial class GameWorld
         {
             foreach (var machine in Machines.ToList())
             {
-                if (!machine.IsDead && machine.Inside is null && Profile is null)
+                var moves = machine.Inside is null || machine.DrivenByPlayer;
+                if (!machine.IsDead && moves && Profile is null)
                     UpdateMachine(machine);
-                else if (!machine.IsDead && machine.Inside is null)
+                else if (!machine.IsDead && moves)
                     Timed("  " + machine.Order.GetType().Name, () => UpdateMachine(machine));
             }
         });

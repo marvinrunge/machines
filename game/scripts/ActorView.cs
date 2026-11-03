@@ -91,12 +91,23 @@ public partial class ActorView : Node3D
     /// <summary>A building's interior (see <see cref="RigView.ShowInterior"/>).</summary>
     public bool HasInterior => _rigView?.HasInterior ?? false;
 
-    /// <summary>Shows the interior while first person looks out from <paramref name="eye"/> inside it; null hides it.</summary>
-    public void ShowInteriorFrom(Vector3? eye)
+    /// <summary>
+    /// Shows the interior while first person looks out from <paramref name="eye"/> inside it, or drives
+    /// <paramref name="inside"/> the building; null hides it. True when it shows.
+    /// </summary>
+    public bool ShowInteriorFrom(Vector3? eye, bool inside)
     {
+        var shown = _rigView is not null && (inside || eye is { } point && _rigView.InInterior(point));
         if (_rigView is not null)
-            _rigView.ShowInterior = eye is { } point && _rigView.InInterior(point);
+            _rigView.ShowInterior = shown;
+        return shown;
     }
+
+    /// <summary>A machine in a building shows to first person looking round the same interior, and to no one else.</summary>
+    public bool SeenInside { get; set; }
+
+    /// <summary>The height of the floor a machine in a building stands on, in place of the ground; null out on the ground.</summary>
+    public float? Floor { get; set; }
 
     /// <summary>The model's bounds in the view's own space.</summary>
     public Aabb Bounds => _bounds;
@@ -742,7 +753,7 @@ public partial class ActorView : Node3D
         if (_engine is not null)
         {
             var moving = _target.DistanceSquaredTo(_lastTarget) > 0.0001f;
-            if (actor is Machine { Inside: not null })
+            if (actor is Machine { Inside: not null, DrivenByPlayer: false })
                 _engine.Player.Stop();
             else
                 _engine.Update(moving);
@@ -764,7 +775,7 @@ public partial class ActorView : Node3D
         // Unfinished buildings stand as a pulsing green hologram, more solid as the work goes on.
         Hologram(actor is Construction { Complete: false } site ? 100 * site.Built / Mathf.Max(1, site.Stats.Cost) : null);
 
-        Visible = actor is not Machine { Inside: not null };
+        Visible = actor is not Machine { Inside: not null } || SeenInside;
     }
 
     // A building under construction is drawn all in see-through glowing green whose opacity swings between
@@ -878,7 +889,9 @@ public partial class ActorView : Node3D
     private void Stand()
     {
         var yawOnly = new Basis(Vector3.Up, _yaw).Scaled(Scale);
-        if (!_followsGround || HeightField.Current is not { } ground)
+        if (Floor is { } floor)
+            Position = Position with { Y = floor };
+        if (Floor is not null || !_followsGround || HeightField.Current is not { } ground)
         {
             Basis = yawOnly;
             return;

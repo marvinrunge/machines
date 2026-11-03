@@ -1898,8 +1898,8 @@ msgstr "das ist keine deiner fertigen Fabriken"
 msgid "that is not one of your finished labs"
 msgstr "das ist keines deiner fertigen Labore"
 
-msgid "that is not one of your garrisons"
-msgstr "das ist keine deiner Garnisonen"
+msgid "that is not one of your buildings to go into"
+msgstr "in dieses Gebäude kannst du nicht hineinfahren"
 
 msgid "that is not one of your mines"
 msgstr "das ist keine deiner Minen"
@@ -1913,8 +1913,8 @@ msgstr "diese Staffel hat keine Maschinen"
 msgid "this factory cannot build that"
 msgstr "diese Fabrik kann das nicht bauen"
 
-msgid "too big for the garrison's doors"
-msgstr "zu groß für die Tore der Garnison"
+msgid "too big for the building's doors"
+msgstr "zu groß für die Tore des Gebäudes"
 
 msgid "your constructors cannot build that yet"
 msgstr "deine Konstrukteure können das noch nicht bauen"

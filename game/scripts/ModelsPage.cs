@@ -337,7 +337,7 @@ public partial class ModelsPage(Action back) : MenuPage(back)
         _motionRow.Visible = _machine is not null;
         _turretRow.Visible = view?.Rig.UpperBody > 0;
         _buildRow.Visible = animations.ContainsKey("construct");
-        _workRow.Visible = view?.Rig.Working.Length > 0;
+        _workRow.Visible = view?.Rig.Working.Length > 0 || animations.ContainsKey("research");
         _doorsRow.Visible = view?.HasDoors == true;
 
         // The weapons on mounts the model has, to fire one side or all.
@@ -389,7 +389,7 @@ public partial class ModelsPage(Action back) : MenuPage(back)
         _screen.TurnRate = _motion.Selected switch { 3 => turn, 4 => -turn, _ => 0 };
     }
 
-    /// <summary>A constructor builds, a building works and opens its doors as chosen.</summary>
+    /// <summary>A constructor builds, a building or technician works and a building opens its doors as chosen.</summary>
     private void Switch()
     {
         if (_view is null)

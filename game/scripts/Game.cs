@@ -690,6 +690,20 @@ public partial class Game : Node3D
                 spawned.HitPoints = 0;
             SyncViews();
         }
+        // e.g. "HARDWARE_LAB,CIVILIAN,1": a finished building of the player's where it fits nearest the camera, a lab with
+        // something to research and the player's technicians going in.
+        if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_BUILT")?.Split(',') is [var builtType, var builtSub, var builtLevel])
+        {
+            var (sub, level, centre) = (builtSub is "" or "-" ? null : builtSub, int.Parse(builtLevel), new NVector2(_rig.Position.X, _rig.Position.Z));
+            var spot = Enumerable.Range(0, 900).Select(i => centre + new NVector2(i % 30 - 15, i / 30 - 15) * 8)
+                .OrderBy(p => NVector2.Distance(p, centre)).First(p => Enumerable.Range(0, 25).All(j => World.Nav.IsFree(p + new NVector2(j % 5 - 2, j / 5 - 2) * 12, crossesWater: false)));
+            var built = World.AddConstruction(Player, spot, builtType, sub, level, 0, complete: true);
+            SyncViews();
+            if (built.IsType("HARDWARE_LAB") && World.Races[Player].Available.FirstOrDefault(k => World.WhyCannotResearch(Player, k, built) is null) is { } item)
+                Issue(new ResearchCommand(Player, built.Id, item));
+            if (built.IsType("HARDWARE_LAB"))
+                Issue(new EnterLabCommand(Player, World.Machines.Where(m => m.Race == Player && m.Spec.Type == "TECHNICIAN").Select(m => m.Id).ToList(), built.Id));
+        }
         // e.g. "punchA,3": every machine with that animation plays it once, 3 s in (after loading), to look at it.
         if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_PLAY")?.Split(',') is [var play, var playAt]
             && double.Parse(playAt, System.Globalization.CultureInfo.InvariantCulture) is var startAt
@@ -755,6 +769,16 @@ public partial class Game : Node3D
             if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_FIRSTPERSON") == "1")
             {
                 Select(_selection.Take(1).ToList());
+                // MACHINES_SCREENSHOT_DOOR=12 sets it down that many metres before the door of the nearest building
+                // it can go into, looking in, to drive through (with MACHINES_SCREENSHOT_KEYS=W).
+                if (float.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_DOOR"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var before)
+                    && SelectedMachines().FirstOrDefault() is { } walker
+                    && World.Constructions.Where(c => World.CanEnter(walker, c)).MinBy(c => NVector2.Distance(c.Position, walker.Position)) is { } door)
+                {
+                    var inward = NVector2.Normalize(door.EntranceInside!.Value - door.EntranceOutside!.Value);
+                    walker.Position = door.Door!.Value - inward * before;
+                    walker.Facing = MathF.Atan2(inward.Y, inward.X);
+                }
                 EnterFirstPerson();
                 // MACHINES_SCREENSHOT_LOOK=-20 tilts the view that many degrees (down when negative); "-20,60" also
                 // turns the upper body 60 degrees (to the right when positive).
@@ -784,7 +808,8 @@ public partial class Game : Node3D
                 _menu?.ShowBriefing();
         }
         // MACHINES_SCREENSHOT_MOVE=x,y,at sends the selection to (x, y) that many seconds in; "attack,at" sends it at the
-        // nearest enemy instead, "build,at" to the nearest of the player's unfinished buildings.
+        // nearest enemy instead, "build,at" to the nearest of the player's unfinished buildings, "enter,at" into the nearest
+        // building that has an inside.
         if (!_moveSent && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MOVE")?.Split(',') is { Length: >= 2 } move
             && double.TryParse(move[^1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var moveAt)
             && _runTime >= moveAt)
@@ -797,6 +822,9 @@ public partial class Game : Node3D
                 Issue(new AttackCommand(Player, ids, enemy.Id));
             else if (move[0] == "build" && World.Constructions.Where(c => c.Race == Player && !c.Complete).MinBy(c => NVector2.Distance(c.Position, middle)) is { } site)
                 Issue(new ConstructCommand(Player, ids, site.Id));
+            else if (move[0] == "enter" && World.Constructions.Where(c => c.Race == Player && c.HasInterior).MinBy(c => NVector2.Distance(c.Position, middle)) is { } lab)
+                foreach (var mover in movers)
+                    Issue(mover.Spec.Type == "TECHNICIAN" && lab.IsType("HARDWARE_LAB") ? new EnterLabCommand(Player, [mover.Id], lab.Id) : new EnterGarrisonCommand(Player, [mover.Id], lab.Id));
             else if (move.Length >= 3 && float.TryParse(move[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var x)
                 && float.TryParse(move[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var y))
                 Issue(new MoveCommand(Player, ids, new NVector2(x, y)));
@@ -887,11 +915,15 @@ public partial class Game : Node3D
             if (actor is Machine { Spec.Type: "CONSTRUCTOR" } constructor)
                 view.Construct(World.WorkedOn(constructor) is { } site ? ActorView.World((site.Footprint.Min + site.Footprint.Max) / 2) + Vector3.Up * 2 : null,
                     _assets.EffectMesh("torch"), _assets.EffectMesh("sparks"));
+            // Technicians in a lab research with their arms while it has work (MachLogHardwareLab's MachLogResearchAnimation).
+            if (actor is Machine { Spec.Type: "TECHNICIAN" } technician)
+                view.Working = technician.Inside is { } workplace && World.Find<Construction>(workplace) is { } lab
+                    && lab.Technicians.Contains(technician.Id) && World.IsWorking(lab);
             if (actor is Construction building)
             {
                 view.Working = World.IsWorking(building);
                 // The doors open for its own machines going through or waiting before them.
-                view.DoorsOpen = building.EntranceOutside is { } door && World.Machines.Any(m => m.Inside is null
+                view.DoorsOpen = building.EntranceOutside is { } door && World.Machines.Any(m => (m.Inside is null || m.DrivenByPlayer)
                     && (m.Doorway == building.Id || m.Race == building.Race && NVector2.DistanceSquared(m.Position, door) < 10 * 10));
             }
         }
@@ -1125,13 +1157,25 @@ public partial class Game : Node3D
         _support.ShowHealing(healing);
     }
 
-    /// <summary>Building interiors show only to first person looking out from inside them.</summary>
+    /// <summary>Building interiors, and the machines in them, show only to first person looking out from inside them.</summary>
     private void ShowInteriors()
     {
         Vector3? eye = _driven is not null ? _firstPersonCamera.GlobalPosition : null;
-        foreach (var view in _views.Values)
-            if (view.HasInterior)
-                view.ShowInteriorFrom(eye);
+        var seen = new HashSet<int>();
+        foreach (var (id, view) in _views)
+            if (view.HasInterior && view.ShowInteriorFrom(eye, _driven?.Inside == id))
+                seen.Add(id);
+        foreach (var machine in World.Machines)
+            if (_views.TryGetValue(machine.Id, out var inside))
+            {
+                inside.SeenInside = machine.Inside is { } building && seen.Contains(building);
+                inside.Floor = inside.SeenInside && _views.TryGetValue(machine.Inside!.Value, out var around) ? around.Position.Y : null;
+            }
+        // In there the planet is a world away (the original's interior domain): no ground comes up through the floor,
+        // no rain comes through the roof.
+        foreach (var outside in new[] { "Terrain", "Weather" })
+            if (GetNodeOrNull<Node3D>(outside) is { } planet)
+                planet.Visible = seen.Count == 0;
     }
 
     /// <summary>Waits for a left click on the target of the building's ion cannon or nuclear missile.</summary>
@@ -1213,6 +1257,9 @@ public partial class Game : Node3D
             return "enter";
         if (actor is not null && World.AreEnemies(Player, actor.Race))
             return mine.Any(m => m.CanFight) ? "attack" : "select";
+        // Over a building of its own, one that fits goes in.
+        if (actor is Construction { HasInterior: true } own && World.HasFreeBay(own) && mine.Any(m => World.CanEnter(m, own)))
+            return "enter";
         if (actor is not null)
             return "select";
         // An artefact (crates, consoles, doors) belongs to no race, which the original counted as neutral: armed
@@ -2012,11 +2059,6 @@ public partial class Game : Node3D
                 Order(new RepairCommand(Player, constructors, building.Id));
                 rest.ExceptWith(constructors);
             }
-            if (building.IsType("GARRISON") && building.Complete)
-            {
-                Order(new EnterGarrisonCommand(Player, rest.ToList(), building.Id));
-                rest.Clear();
-            }
             if (building.IsType("HARDWARE_LAB"))
             {
                 var technicians = Ids(m => m.Spec.Type == "TECHNICIAN");
@@ -2031,6 +2073,13 @@ public partial class Game : Node3D
                 if (store is not null)
                     Order(new TransportCommand(Player, carriers, building.Id, store.Id));
                 rest.ExceptWith(carriers);
+            }
+            // Whoever fits goes in, with a building that has a floor behind its door (MachGuiMoveCommand::applyEnterBuilding).
+            var entering = machines.Where(m => rest.Contains(m.Id) && World.CanEnter(m, building)).Select(m => m.Id).ToList();
+            if (entering.Count > 0)
+            {
+                Order(new EnterGarrisonCommand(Player, entering, building.Id));
+                rest.ExceptWith(entering);
             }
             if (rest.Count > 0)
                 Order(new MoveCommand(Player, rest.ToList(), building.Position));

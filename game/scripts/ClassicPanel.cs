@@ -252,7 +252,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             if (actor is Machine { Race: var r } driven && r == Game.Player && !game.Watching)
                 _widgets.Add(new Widget(R(PanelWidth - 21, y, 20, 20), rect => DrawBitmap(rect, $"misc/{RaceFolder(r)}/inhead.bmp", "1st"),
                     game.EnterFirstPerson, "Drive it in first person (F)"));
-            else if (actor is Construction { Garrisoned.Count: > 0 } garrison && garrison.Race == Game.Player && garrison.IsType("GARRISON"))
+            else if (actor is Construction { Garrisoned.Count: > 0 } garrison && garrison.Race == Game.Player
+                && garrison.Garrisoned.Any(id => game.World.Find<Machine>(id)?.Race == Game.Player))
                 _widgets.Add(new Widget(R(PanelWidth - 21, y, 20, 20), rect => DrawBitmap(rect, "misc/contents.bmp", "Out"),
                     () => game.Order(new StopCommand(Game.Player, garrison.Garrisoned.ToList())),
                     Lang.T("Let the {0} machines inside out", garrison.Garrisoned.Count)));
@@ -1257,8 +1258,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                     // The deposit's ore left, as the original's single icon showed it (MachGuiCorralSingleIcon).
                     lines.Add(Lang.T("Deposit {0:F0} BMU", DepositOre(c)));
                 }
-                if (c.IsType("GARRISON"))
-                    lines.Add(Lang.T("Inside {0}/{1}", c.Garrisoned.Count, GameWorld.GarrisonStations(c)));
+                if (c.HasInterior && !c.IsType("HARDWARE_LAB"))
+                    lines.Add(Lang.T("Inside {0}/{1}", c.Garrisoned.Count, c.Bays.Count));
                 if (c.IsType("HARDWARE_LAB"))
                     lines.Add(Lang.T("Technicians {0}/{1}", c.Technicians.Count, GameWorld.ResearchStations(c)));
                 break;

@@ -379,7 +379,7 @@ public sealed partial class GameWorld
                 return;
             machine.Doorway = null;
             machine.Inside = garrison.Id;
-            machine.Position = garrison.Position;
+            machine.Position = BayFor(machine, garrison);
             garrison.Garrisoned.Add(machine.Id);
             machine.Order = evade with { Goal = EvadeGoal.None, Refuge = null };
             return;

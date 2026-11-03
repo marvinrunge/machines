@@ -805,7 +805,10 @@ void writeRig(std::ostream& out, W4dComposite& composite, std::set<std::string>*
     // A constructor at work (MachPhysConstructor::startConstructing) plays its building cycle: the arms move.
     W4dCompositePlanPtr constructing;
     const bool constructs = dynamic_cast<MachPhysConstructor*>(machine) != NULL and machine->cycleAnims(&constructing);
-    if (legs != NULL or constructs)
+    // A technician at work in its lab (MachPhysTechnician::research) moves its arms and fingers.
+    W4dCompositePlanPtr researching;
+    const bool researches = dynamic_cast<MachPhysTechnician*>(machine) != NULL and machine->cycleAnims(&researching);
+    if (legs != NULL or constructs or researches)
     {
         out << ",\"animations\":{";
         bool first = true;
@@ -827,6 +830,8 @@ void writeRig(std::ostream& out, W4dComposite& composite, std::set<std::string>*
         }
         if (constructs)
             writeAnimation(out, "construct", constructing, links, &first);
+        if (researches)
+            writeAnimation(out, "research", researching, links, &first);
         out << "}";
     }
     if (MachPhysWheels* wheels = dynamic_cast<MachPhysWheels*>(&locomotion))

@@ -245,12 +245,12 @@ public sealed partial class GameWorld
     private void UpdateEnterGarrison(Machine machine, EnterGarrisonOrder enter)
     {
         var garrison = Find<Construction>(enter.Garrison);
-        if (garrison is null || !garrison.Complete || garrison.Race != machine.Race || !FitsThrough(machine, garrison))
+        if (garrison is null || garrison.Race != machine.Race || !CanEnter(machine, garrison))
         {
             machine.Order = Order.Idle;
             return;
         }
-        if (garrison.Garrisoned.Count >= GarrisonStations(garrison))
+        if (!HasFreeBay(garrison))
         {
             machine.Order = Order.Idle;
             return;
@@ -261,7 +261,7 @@ public sealed partial class GameWorld
         machine.Order = Order.Idle;
         machine.Doorway = null;
         machine.Inside = garrison.Id;
-        machine.Position = garrison.Position;
+        machine.Position = BayFor(machine, garrison);
         garrison.Garrisoned.Add(machine.Id);
     }
 

@@ -200,7 +200,40 @@ public sealed class Construction : Actor
             EntranceOutside = Rotate(new Vector2(F(0), F(1)), orientation) + position;
             if (entrance.Args.Count >= 4)
                 EntranceInside = Rotate(new Vector2(F(2), F(3)), orientation) + position;
+            if (entrance.Args.Count >= 8)
+                (Door, DoorWidth) = (Rotate(new Vector2(F(4), F(5)), orientation) + position, entrance.Args[7] == "LARGE_DOOR" ? 11.9f : 6.9f);
         }
+        if (stats.Geometry.FirstOrDefault(g => g.Keyword == "INTERIOR_BOUNDARY") is { Args.Count: 4 } interior)
+            Interior = Box(interior.Args, position, orientation);
+        InteriorObstacles = stats.Geometry.Where(g => g.Keyword == "INTERIOR_OBSTACLE" && g.Args.Count == 8)
+            .Select(g => Box([g.Args[0], g.Args[1], g.Args[4], g.Args[5]], position, orientation)).ToList();
+    }
+
+    /// <summary>The point of the door on the way through the entrance.</summary>
+    public Vector2? Door { get; }
+
+    /// <summary>The door's width: 6.9 m for a small door, 11.9 m for a large one (MachPhysConstructionData::addEntrance).</summary>
+    public float DoorWidth { get; }
+
+    /// <summary>The floor inside the building (<c>INTERIOR_BOUNDARY</c>), turned and placed with it; null for a building without one.</summary>
+    public (Vector2 Min, Vector2 Max)? Interior { get; }
+
+    /// <summary>What stands on that floor (<c>INTERIOR_OBSTACLE</c>).</summary>
+    public IReadOnlyList<(Vector2 Min, Vector2 Max)> InteriorObstacles { get; }
+
+    /// <summary>A building machines can go into: a door and a floor behind it (MachPhysConstruction::hasInterior).</summary>
+    public bool HasInterior => Interior is not null && Door is not null && EntranceOutside is not null && EntranceInside is not null;
+
+    /// <summary>The places inside for machines to stand: research bays in a lab, parking bays elsewhere.</summary>
+    public IReadOnlyList<Vector2> Bays => _bays ??= Pads("STATION");
+
+    private IReadOnlyList<Vector2>? _bays;
+
+    private static (Vector2, Vector2) Box(IReadOnlyList<string> corners, Vector2 position, int orientation)
+    {
+        float F(int i) => float.Parse(corners[i], System.Globalization.CultureInfo.InvariantCulture);
+        var (a, b) = (Rotate(new Vector2(F(0), F(1)), orientation) + position, Rotate(new Vector2(F(2), F(3)), orientation) + position);
+        return (Vector2.Min(a, b), Vector2.Max(a, b));
     }
 
     /// <summary>Where machines come out of the building: a factory's pad before its door.</summary>
