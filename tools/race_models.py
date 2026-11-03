@@ -5,7 +5,8 @@ Meshy exports (tools/blender/meshy_rig.py) once tools/race-recolour.ps1 has pain
 
 A Meshy part takes its race's colour map (albedo-<race>.jpg beside the red one), and the original's eyes on the eye
 box stay as they are (every race has the same); a node that kept the original's parts (the Gorilla's fists) takes
-them from that race's own upgraded export, tinted and with the race's logos. The model's own parts follow the same
+their tint and textures from that race's own upgraded export, with the race's logos (where they stand comes from the
+red export: tools/blender/meshy_rig.py may have moved a weapon onto its mount). The model's own parts follow the same
 way: Meshy maps swapped, the original's red tint (1, 0, 0) turned to the race's."""
 import json
 import os
@@ -15,7 +16,8 @@ RACES = {"blue": [0, 0.3, 1], "green": [0.817, 1, 0], "yellow": [1, 0.833, 0]}
 
 
 def recoloured(part, race):
-    if "maps" not in part:
+    # The tyres' maps (classic/remake) are the same for every race.
+    if "maps" not in part or part["maps"]["albedo"].startswith("remake/"):
         return part
     maps = dict(part["maps"])
     base, extension = os.path.splitext(maps["albedo"])
@@ -36,11 +38,12 @@ def main():
             rig = dict(model["rig"])
             nodes = []
             for i, node in enumerate(rig["nodes"]):
-                if any("maps" in p for p in node["parts"]) or original is None:
+                if any("maps" in p or "fx" in p for p in node["parts"]) or original is None:
                     nodes.append(dict(node, parts=[recoloured(p, race) for p in node["parts"]]))
                 else:
                     kept = original["rig"]["nodes"][i]
-                    nodes.append(dict(node, parts=kept["parts"], sprites=kept.get("sprites", []),
+                    parts = [dict(p, texture=k["texture"], diffuse=k["diffuse"]) for p, k in zip(node["parts"], kept["parts"])]
+                    nodes.append(dict(node, parts=parts, sprites=kept.get("sprites", []),
                                       spinners=kept.get("spinners", [])))
             rig["nodes"] = nodes
             out["rig"] = rig

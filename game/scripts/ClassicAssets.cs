@@ -630,9 +630,17 @@ public sealed class ClassicAssets
             var emissive = part.TryGetProperty("emissive", out var glow) ? glow.EnumerateArray().Select(e => e.GetSingle()).ToArray() : [0f, 0f, 0f];
             // Upgraded parts may say how rough they are (the tyres' rubber).
             float? roughness = part.TryGetProperty("roughness", out var given) ? given.GetSingle() : null;
-            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, maps is { } meshyMaps
+            // The HD Vortex and Bee Bomber carry a little of what they fire: a part may be drawn by an effect's shader.
+            Material? effect = part.TryGetProperty("fx", out var fx) ? fx.GetString() switch
+            {
+                "hole" => FxShaders.Hole.Value,
+                "shell" => FxShaders.Shell.Value,
+                "plasma" => FxShaders.PlasmaBall.Value,
+                _ => null,
+            } : null;
+            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, effect ?? (maps is { } meshyMaps
                 ? MeshyMaterial(meshyMaps, part.TryGetProperty("emissionEnergy", out var energy) ? energy.GetSingle() : 1)
-                : MaterialFor(part.GetProperty("texture").GetString() ?? "", diffuse, race, emissive, vertexColours, occluded, roughness));
+                : MaterialFor(part.GetProperty("texture").GetString() ?? "", diffuse, race, emissive, vertexColours, occluded, roughness)));
         }
         if (model.TryGetProperty("sprites", out var sprites))
             AddSprites(mesh, sprites, race);

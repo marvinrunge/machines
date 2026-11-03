@@ -288,6 +288,46 @@ public static class FxShaders
         },
     });
 
+    /// <summary>
+    /// The HD Bee Bomber's ball of plasma: a deep blue ball, white hot in its middle, with arcs crawling over it where
+    /// three waves cross nothing, and a rim of light.
+    /// </summary>
+    public static readonly Lazy<ShaderMaterial> PlasmaBall = new(() => new ShaderMaterial
+    {
+        Shader = new Shader
+        {
+            Code = """
+                shader_type spatial;
+                render_mode unshaded, cull_back, shadows_disabled;
+
+                instance uniform float energy = 1.6;
+
+                varying vec3 local;
+
+                void vertex() {
+                    local = normalize(VERTEX);
+                }
+
+                float arcs(vec3 p, float t) {
+                    float a = sin(p.x * 5.0 + t * 1.7 + 2.0 * sin(p.y * 4.0 - t * 1.3));
+                    float b = sin(p.y * 6.0 - t * 2.1 + 2.0 * sin(p.z * 5.0 + t * 0.9));
+                    float c = sin(p.z * 7.0 + t * 1.1 + 2.0 * sin(p.x * 3.0 + t * 1.7));
+                    return pow(1.0 - clamp(abs(a + b + c) * 1.4, 0.0, 1.0), 5.0);
+                }
+
+                void fragment() {
+                    float face = clamp(abs(dot(NORMAL, VIEW)), 0.0, 1.0);
+                    float edge = 1.0 - face;
+                    float veins = arcs(local, TIME) + 0.6 * arcs(local * 1.9 + 3.0, TIME * 1.4);
+                    float pulse = 0.85 + 0.15 * sin(TIME * 5.0);
+                    vec3 deep = vec3(0.01, 0.05, 0.3) * (0.5 + 1.5 * face);
+                    vec3 hot = vec3(0.45, 0.8, 1.0);
+                    ALBEDO = (deep + hot * (veins * 1.6 + pow(face, 6.0) * 0.4 + pow(edge, 3.0) * 1.1) * pulse) * energy;
+                }
+                """,
+        },
+    });
+
     /// <summary>The unit sphere (a metre across) that <see cref="Hole"/> and <see cref="Shell"/> draw.</summary>
     public static readonly Lazy<SphereMesh> HoleSphere = new(() => new SphereMesh { Radius = 0.5f, Height = 1, RadialSegments = 48, Rings = 24 });
 

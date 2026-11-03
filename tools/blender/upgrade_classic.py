@@ -25,16 +25,20 @@ import bpy
 from mathutils import Matrix, Vector
 from mathutils.bvhtree import BVHTree
 
+sys.path.insert(0, os.path.dirname(__file__))
+import tyre_texture
+from tyre_texture import TREAD_SHARE
+
 SHARP_ANGLE = math.radians(28)
 # The bevel as a share of the model's size (its bounding box diagonal), within these limits in metres.
 BEVEL_SHARE = 0.012
 BEVEL_MIN, BEVEL_MAX = 0.015, 0.25
 BEVEL_SEGMENTS = 2
-# Tyres: blocks round the tyre, the rows across it (shares of the tread's width), how deep the grooves are as a
-# share of the radius, and the rubber's colour and roughness.
+# Tyres: plain turned bodies of TYRE_SEGMENTS sides whose tread is a texture (tools/blender/tyre_texture.py), its tile
+# TREAD_LUGS times round; the rubber's colour and roughness (the maps bring their own, these stay for the look's rest).
+TYRE_SEGMENTS = 32
 TREAD_LUGS = 20
-TREAD_ROWS = (0, 0.3, 0.5, 0.7, 1)
-TREAD_DEPTH = 0.06
+TYRE_MAPS = {key: f"remake/textures/tyre/{key}.png" for key in ("albedo", "normal", "orm")}
 TYRE_COLOUR = [0.13, 0.13, 0.13, 1]
 TYRE_ROUGHNESS = 0.85
 # The HD textures (set by main), where see-through pictures are measured, and what was measured.
@@ -94,7 +98,7 @@ def lathe(spinner, tyre=False):
     shoulders from a rectangle, a cone from a triangle, closed by lids set in a little, so that the flat plates
     at the ends (a wheel's hub, a barrel's muzzle) stay in front. Its colour is the outline's picture three fifths of
     the way out from the middle, all round: the picture painted the shading in, and real light does that now.
-    A tyre (the spinner of a wheel) gets a tread of blocks and is dark grey, matt rubber rather than black.
+    A tyre (the spinner of a wheel) gets the tread's maps and is dark grey, matt rubber rather than black.
     """
     base, axis = Vector(spinner["base"]), Vector(spinner["axis"]).normalized()
     c = spinner["corners"]
@@ -149,7 +153,10 @@ def lathe(spinner, tyre=False):
     across = axis.orthogonal().normalized()
     other = axis.cross(across).normalized()
     tread = tyre and len(profile) == 6
-    segments = 2 * TREAD_LUGS if tread else 24 if widest > 0.5 else 12
+    if tread:
+        # A shoulder in one step: the normals are radial, so it shades round all the same.
+        profile = [profile[0], profile[2], profile[3], profile[5]]
+    segments = TYRE_SEGMENTS if tread else 24 if widest > 0.5 else 12
     positions, normals, uvs = [], [], []
 
     def direction(angle):
@@ -158,7 +165,12 @@ def lathe(spinner, tyre=False):
     def corner(a, r, angle, normal):
         positions.extend(base + axis * a + direction(angle) * r)
         normals.extend(normal)
-        uvs.extend(uv_at(a, r))
+        if not tread:
+            uvs.extend(uv_at(a, r))
+        elif profile[1][0] - 1e-6 <= a <= profile[2][0] + 1e-6 and r >= widest - 1e-6:
+            uvs.extend((TREAD_LUGS * angle / (2 * math.pi), TREAD_SHARE * (a - profile[1][0]) / (profile[2][0] - profile[1][0])))
+        else:
+            uvs.extend((0.5, (1 + TREAD_SHARE) / 2))
 
     def quad(points, normal=None):
         """Four (along, radius, angle) corners in order round the quad; radial normals unless one is given."""
@@ -167,38 +179,8 @@ def lathe(spinner, tyre=False):
 
     angles = [2 * math.pi * k / segments for k in range(segments + 1)]
     for index, ((a1, r1), (a2, r2)) in enumerate(zip(profile, profile[1:])):
-        if tread and index == 2:
-            continue
         for t1, t2 in zip(angles, angles[1:]):
             quad(((a1, r1, t1), (a2, r2, t1), (a2, r2, t2), (a1, r1, t2)))
-    if tread:
-        # The tread between the shoulders: rows of blocks across the tyre, those in the middle set half a block
-        # round from those at the edges, with grooves between them.
-        start, end = profile[2][0], profile[3][0]
-        rows = [start + (end - start) * f for f in TREAD_ROWS]
-        depth = widest * TREAD_DEPTH
-
-        def height(row, cell):
-            if row < 0 or row >= len(rows) - 1:
-                return widest
-            edge = row in (0, len(rows) - 2)
-            return widest if (cell % 2 == 0) == edge else widest - depth
-
-        for row, (a1, a2) in enumerate(zip(rows, rows[1:])):
-            for cell, (t1, t2) in enumerate(zip(angles, angles[1:])):
-                r = height(row, cell)
-                quad(((a1, r, t1), (a2, r, t1), (a2, r, t2), (a1, r, t2)))
-                # The block's side towards the next cell round, and towards the next row (or the shoulder).
-                beside = height(row, (cell + 1) % segments)
-                if beside != r:
-                    tangent = (other * math.cos(t2) - across * math.sin(t2)) * (1 if r > beside else -1)
-                    quad(((a1, widest - depth, t2), (a2, widest - depth, t2), (a2, widest, t2), (a1, widest, t2)), tangent)
-                # Each side across the tyre once: towards the next row, and for the first row towards the shoulder.
-                sides = [(a2, height(row + 1, cell), axis)] + ([(a1, height(-1, cell), -axis)] if row == 0 else [])
-                for boundary, neighbour, outward in sides:
-                    if neighbour != r:
-                        quad(((boundary, widest - depth, t1), (boundary, widest, t1), (boundary, widest, t2),
-                              (boundary, widest - depth, t2)), outward if r > neighbour else -outward)
     # Lids, set in by a little so the original's end plates stay in front of them.
     inset = length * 0.015
     for (a, r), facing in ((profile[0], -axis), (profile[-1], axis)):
@@ -212,6 +194,8 @@ def lathe(spinner, tyre=False):
                  positions=positions, normals=normals, uvs=uvs, indices=list(range(len(positions) // 3)))
     if tyre:
         solid["roughness"] = TYRE_ROUGHNESS
+        if tread:
+            solid["maps"] = TYRE_MAPS
         solid["tread"] = True
         # How far the tyre reaches out at its ends, where the wheel's flat side plates sit (see fit_plates).
         solid["rim"] = min(profile[0][1], profile[-1][1])
@@ -611,6 +595,7 @@ def main():
     classic = argv[0] if argv else os.path.join(os.path.dirname(__file__), "..", "..", "classic")
     only = set(argv[1:])
     global HD_FOLDER
+    tyre_texture.write(os.path.abspath(classic))
     HD_FOLDER = os.path.join(os.path.abspath(classic), "hd", "models", "texture4")
     for race in ("red", "blue", "green", "yellow"):
         folder = os.path.join(classic, "models", race)
