@@ -31,7 +31,10 @@ public sealed class ClassicAssets
         var gamePath = Path.Combine(repositoryFolder, "classic", "game_path.txt");
         if (File.Exists(gamePath))
         {
+            // A relative path starts at the game's own folder, so a game packed with its copy can move whole.
             var folder = File.ReadAllText(gamePath).Trim();
+            if (!Path.IsPathRooted(folder))
+                folder = Path.GetFullPath(Path.Combine(repositoryFolder, folder));
             _gameFolder = Directory.Exists(folder) ? folder : null;
         }
     }

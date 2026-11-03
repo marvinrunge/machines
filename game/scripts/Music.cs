@@ -8,8 +8,8 @@ namespace Machines.Game;
 /// tune over the menus, the scenario's own track (its <c>MUSIC</c> in sceninfo.dat) when a match begins and then
 /// the in-game tracks at random, and a short victory or defeat tune at the end. The tracks are the MP3s of the
 /// soundtrack the player owns, numbered as its release numbers them ("Track 01 - Menu.mp3" ...), which are the
-/// CD's track numbers less one. The folder is picked in the menu and kept in <c>user://settings.cfg</c>;
-/// without it the game has no music.
+/// CD's track numbers less one. The folder is picked in the menu and kept in <c>user://settings.cfg</c>; until
+/// one is picked, a <c>music</c> folder beside the game serves; without either the game has no music.
 /// </summary>
 public partial class Music : Node
 {
@@ -44,7 +44,8 @@ public partial class Music : Node
     /// <summary>The folder holding the soundtrack's MP3s, or null.</summary>
     public static string? Folder
     {
-        get => (string)Setting("music_folder", "") is { Length: > 0 } folder ? folder : null;
+        get => (string)Setting("music_folder", "") is { Length: > 0 } folder ? folder
+            : TrackCount(Beside) > 0 ? Beside : null;
         set
         {
             Store("music_folder", value ?? "");
@@ -68,6 +69,9 @@ public partial class Music : Node
                 _instance._player.VolumeDb = Mathf.LinearToDb(value);
         }
     }
+
+    /// <summary>The soundtrack packed beside the game, when no folder has been picked.</summary>
+    private static string Beside => System.IO.Path.Combine(Paths.Root, "music");
 
     /// <summary>How many tracks the folder holds (0 without one).</summary>
     public static int TrackCount(string? folder) => Tracks(folder).Count;

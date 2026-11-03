@@ -189,7 +189,8 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
 - **Films:** the original's Smacker films play straight from your game copy (`SmackerView`, with the decoder in
   `import/Machines.Import/Video`): the loading and intro films before the main menu the first time, and the
   campaign's films in its menus and between its missions. `tools/film-upscale` makes HD versions of them from
-  your copy (`classic/films`, never committed), which every look but the classic one plays.
+  your copy (`classic/films`, never committed), which every look but the classic one plays. A trailer of the
+  remake's own, `films/trailer.ogv` beside the game (Ogg Theora), plays after the intro film when it is there.
 - **Models in motion:** the machines' glowing eyes and turn-to-face sprites, glowing parts such as the
   plasma weapons' green, rotors and turbines that spin, hips that bob and the bee bomber's energy ball, all
   as the original moved them. Hover machines keep their bodies level and swing their jets back as they speed
@@ -203,7 +204,9 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   piling onto one point. The import format is now 5: start the import again after updating.
 - **Music:** the original soundtrack from your own MP3s (**Music folder…** in the menu, with a volume
   slider), played as the original played its CD: the intro and then the menu tune, each map's own track
-  when the match begins and then the in-game tracks at random, a victory or defeat tune at the end.
+  when the match begins and then the in-game tracks at random, a victory or defeat tune at the end. Until a
+  folder is picked, a `music` folder beside the game serves. `classic/game_path.txt` may name the game copy
+  relative to the game's folder, so a game packed with its copy and soundtrack runs wherever it is unpacked.
 - **Closer to the original:** its own mouse cursors, smoothly upscaled (Scale2x); the sun and moons on their
   real orbits, round the sky, with the planets' own pictures of them; barrels and pipes that turn to face
   the camera; turning ore holograms over found mineral sites; new machines come out on the factory pad,

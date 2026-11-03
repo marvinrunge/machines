@@ -7,6 +7,7 @@ namespace Machines.Game;
 /// picture (<c>gui/menu/wait.bmp</c>) with the short film played on it after loading (<c>flics/postload.smk</c>, at
 /// 32,129 of the 640×480 screen), then the intro film (<c>flics/animatic.smk</c>) on black. A click or Escape skips
 /// the film playing. Played straight from the player's own copy of the game; without it there is nothing to show.
+/// The remake's own trailer follows when it lies beside the game (<c>films/trailer.ogv</c>, Ogg Theora).
 /// </summary>
 public partial class StartupFilms : Control
 {
@@ -18,6 +19,11 @@ public partial class StartupFilms : Control
     private readonly Action _done;
     private Control? _frame;
     private SmackerView? _playing;
+    private TextureRect? _picture;
+    private VideoStreamPlayer? _trailer;
+    private bool _finished;
+
+    private static string TrailerFile => System.IO.Path.Combine(Paths.Root, "films", "trailer.ogv");
 
     private StartupFilms(string gameFolder, Action done)
     {
@@ -48,12 +54,31 @@ public partial class StartupFilms : Control
         LoadingFilm();
     }
 
+    public override void _Process(double delta)
+    {
+        if (_trailer is not null && _picture!.Texture != _trailer.GetVideoTexture())
+            _picture.Texture = _trailer.GetVideoTexture();
+    }
+
     public override void _GuiInput(InputEvent @event)
     {
         if (@event is InputEventMouseButton { Pressed: true })
         {
             AcceptEvent();
-            _playing?.Skip();
+            if (_trailer is not null)
+                Finish();
+            else
+                _playing?.Skip();
+        }
+    }
+
+    public override void _Input(InputEvent @event)
+    {
+        // The films skip themselves on Escape; the trailer is played here.
+        if (_trailer is not null && @event.IsActionPressed("ui_cancel"))
+        {
+            GetViewport().SetInputAsHandled();
+            Finish();
         }
     }
 
@@ -88,15 +113,48 @@ public partial class StartupFilms : Control
     {
         _frame?.QueueFree();
         _frame = null;
-        var view = Play(new SmackerView(System.IO.Path.Combine(_gameFolder, "flics", "animatic.smk")), () =>
-        {
-            QueueFree();
-            _done();
-        });
+        var view = Play(new SmackerView(System.IO.Path.Combine(_gameFolder, "flics", "animatic.smk")), Trailer);
         AddChild(view);
         view.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         // The film has its own sound: the menus start with the menu tune, not the intro's.
         Music.IntroFilmPlayed();
+    }
+
+    /// <summary>The remake's trailer, as wide as the window allows, when it is there.</summary>
+    private void Trailer()
+    {
+        if (!File.Exists(TrailerFile))
+        {
+            Finish();
+            return;
+        }
+        _picture = new TextureRect
+        {
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        AddChild(_picture);
+        _picture.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        _trailer = new VideoStreamPlayer
+        {
+            Stream = new VideoStreamTheora { File = TrailerFile },
+            Bus = GameAudio.EffectsBus,
+            Visible = false,
+        };
+        _trailer.Finished += Finish;
+        _picture.AddChild(_trailer);
+        _trailer.Play();
+    }
+
+    private void Finish()
+    {
+        if (_finished)
+            return;
+        _finished = true;
+        _trailer = null;
+        QueueFree();
+        _done();
     }
 
     private SmackerView Play(SmackerView view, Action next)
