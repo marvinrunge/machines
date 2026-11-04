@@ -95,6 +95,7 @@ public sealed partial class GameWorld
             // Strike weapons only charge here; they fire on command.
             foreach (var strike in turret.Weapons.Where(w => w.IsStrike && w.Reload > 0))
                 strike.Reload -= Dt;
+            UpdateDome(turret);
             if (turret.Weapons.All(w => w.IsStrike))
                 continue;
 

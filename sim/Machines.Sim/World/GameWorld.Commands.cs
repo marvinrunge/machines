@@ -324,7 +324,10 @@ public sealed partial class GameWorld
                     return "that building has no ion cannon or nuclear missile";
                 if (weapon.Reload > 0)
                     return $"{(weapon.Spec.TypeName == "NUCLEAR_MISSILE" ? "nuclear missile" : "ion cannon")} still charging ({weapon.ChargePercent:F0}%)";
-                LaunchStrike(launcher, weapon, strike.Target);
+                if (weapon.Spec.TypeName == "NUCLEAR_MISSILE")
+                    AimSilo(launcher, weapon, strike.Target);
+                else
+                    LaunchStrike(launcher, weapon, strike.Target);
                 return null;
             }
 

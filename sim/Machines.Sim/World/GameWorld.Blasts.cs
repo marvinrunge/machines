@@ -59,6 +59,61 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
+    /// The missile leaves along the silo's barrel, so a target out of its head's way is turned to first, and the
+    /// operation looks again half a second later (MachLogNukeAttackOperation, MachLogMissileEmplacement::inAngleRange).
+    /// </summary>
+    private void AimSilo(Construction silo, WeaponMount missile, Vector2 target)
+    {
+        if (silo.LaunchAt is not null)
+            return;
+        var way = target - silo.Position;
+        var turn = MathF.Atan2(way.Y, way.X) - silo.Orientation * MathF.PI / 180;
+        if (MathF.Abs(MathF.Sin(turn)) < 0.5f * MathF.Cos(turn))
+        {
+            LaunchStrike(silo, missile, target);
+            return;
+        }
+        var angle = MathF.Abs(MathF.IEEERemainder(turn, 2 * MathF.PI));
+        var rate = silo.Stats.MaxRotation is > 0 and var degrees ? degrees * MathF.PI / 180 : 2 * MathF.PI;
+        silo.StrikeAt = target;
+        silo.LaunchAt = Time + angle / rate + 0.5f;
+    }
+
+    /// <summary>
+    /// A silo opens its dome for a ready missile, which takes 3.5 s, and tells its race. A missile gone, it waits
+    /// 2.5 s for it to clear the tube, turns its head back and starts closing 2 s later (MachLogMissileEmplacement::update).
+    /// </summary>
+    private void UpdateDome(Construction silo)
+    {
+        if (silo.Weapons.FirstOrDefault(w => w.Spec.TypeName == "NUCLEAR_MISSILE") is not { } missile)
+            return;
+        if (silo.LaunchAt <= Time && silo.StrikeAt is { } target)
+        {
+            silo.LaunchAt = null;
+            LaunchStrike(silo, missile, target);
+        }
+        var ready = missile.Reload <= 0;
+        if (ready == silo.DomeOpen)
+            return;
+        if (silo.DomeChange is { } change)
+        {
+            if (Time < change)
+                return;
+            silo.DomeChange = null;
+            silo.DomeOpen = ready;
+            if (ready)
+                SendVoiceMail(silo.Race, "VID_POD_NUKE_READY");
+        }
+        else if (ready)
+            silo.DomeChange = Time + 3.5f;
+        else if (missile.Spec.ReloadTime - missile.Reload >= 2.5f)
+        {
+            silo.DomeChange = Time + 2;
+            silo.StrikeAt = null;
+        }
+    }
+
+    /// <summary>
     /// A pod mounts its ion cannon once its race has researched it, or when the scenario grants it; the
     /// cannon then charges for its RELOAD_TIME before the first shot (MachLogPod::activateIonCannon).
     /// </summary>

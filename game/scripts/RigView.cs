@@ -472,6 +472,12 @@ public partial class RigView : Node3D
     /// </summary>
     public bool Play(string name)
     {
+        // A silo's dome stays as its plan leaves it.
+        if (name is "opening" or "closing")
+        {
+            Dome(_domeOpen ?? false);
+            return Dome(name == "opening");
+        }
         if (!_rig.Animations.TryGetValue(name, out var animation) || animation.Duration <= 0)
             return false;
         _action = animation;
@@ -584,13 +590,14 @@ public partial class RigView : Node3D
         }
 
         MoveFiring(delta);
+        MoveDome(delta);
 
         if (_rig.UpperBody > 0 && _rig.UpperBody < _nodes.Length)
         {
             var step = Mathf.Clamp(Mathf.AngleDifference(_upperBody, aim), -TurnRate * delta, TurnRate * delta);
             _upperBody += step;
             // The original turns about its vertical z axis; with the axis swap that is Godot's y, reversed.
-            _nodes[_rig.UpperBody].Transform = _rig.Nodes[_rig.UpperBody].Rest * new Transform3D(new Basis(Vector3.Up, -_upperBody), Vector3.Zero);
+            _nodes[_rig.UpperBody].Transform = (_head ?? _rig.Nodes[_rig.UpperBody].Rest) * new Transform3D(new Basis(Vector3.Up, -_upperBody), Vector3.Zero);
         }
     }
 

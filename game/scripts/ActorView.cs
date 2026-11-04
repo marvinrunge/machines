@@ -69,13 +69,7 @@ public partial class ActorView : Node3D
     /// </summary>
     public Vector3? Muzzle(Machines.Sim.Combat.Mounting mounting, Machines.Import.Model.WeaponSpec weapon, int barrel)
     {
-        var part = mounting switch
-        {
-            Machines.Sim.Combat.Mounting.Right => "r_gun",
-            Machines.Sim.Combat.Mounting.Left => "l_gun",
-            _ => "gun",
-        };
-        if (_rigView?.PartTransform(part) is not { } at)
+        if (_rigView?.PartTransform(MountPart(mounting)) is not { } at)
             return null;
         var offsets = weapon.Presentation.Where(l => l.Keyword == "LAUNCH_OFFSET" && l.Args.Count >= 3)
             .Select(l => l.Args.Select(a => float.Parse(a, System.Globalization.CultureInfo.InvariantCulture)).ToArray())
@@ -84,6 +78,17 @@ public partial class ActorView : Node3D
         var offset = offsets.Count > 0 ? offsets[barrel % offsets.Count] : [0f, 0f, 0f];
         return at * new Vector3(offset[0], offset[2], offset[1]);
     }
+
+    /// <summary>The way a weapon's barrel points, the x axis of its mounting part; null without a rig.</summary>
+    public Vector3? BarrelAxis(Machines.Sim.Combat.Mounting mounting) =>
+        _rigView?.PartTransform(MountPart(mounting)) is { } at ? at.Basis.X.Normalized() : null;
+
+    private static string MountPart(Machines.Sim.Combat.Mounting mounting) => mounting switch
+    {
+        Machines.Sim.Combat.Mounting.Right => "r_gun",
+        Machines.Sim.Combat.Mounting.Left => "l_gun",
+        _ => "gun",
+    };
 
     /// <summary>The weapon at <paramref name="mounting"/> fires one round and moves with it (see <see cref="RigView.Fire(Machines.Sim.Combat.Mounting, Machines.Import.Model.WeaponSpec)"/>).</summary>
     public void Fire(Machines.Sim.Combat.Mounting mounting, Machines.Import.Model.WeaponSpec weapon) => _rigView?.Fire(mounting, weapon);
@@ -138,6 +143,9 @@ public partial class ActorView : Node3D
 
     /// <summary>Plays one of the machine's exported animations once; false without a rig or that animation.</summary>
     public bool Play(string animation) => _rigView?.Play(animation) ?? false;
+
+    /// <summary>A silo's dome stands open or shut (see <see cref="RigView.Dome"/>); true when it started to move, as only a silo's can.</summary>
+    public bool Dome(bool open) => _rigView?.Dome(open) ?? false;
 
     /// <summary>A building's doors open for machines coming in or out.</summary>
     public bool DoorsOpen
@@ -727,8 +735,10 @@ public partial class ActorView : Node3D
             Construction c => Mathf.DegToRad(c.Orientation),
             _ => 0,
         };
-        var toTarget = aimAt is null ? 0 : MathF.Atan2(aimAt.Position.Y - actor.Position.Y, aimAt.Position.X - actor.Position.X) - facing;
-        _aim = Steered ?? (aimAt is null ? 0 : Mathf.Wrap(toTarget, -Mathf.Pi, Mathf.Pi));
+        // A silo has no target but the place its missile went.
+        var aimed = actor is Construction { StrikeAt: { } strike } ? strike : aimAt?.Position;
+        var toTarget = aimed is not { } point ? 0 : MathF.Atan2(point.Y - actor.Position.Y, point.X - actor.Position.X) - facing;
+        _aim = Steered ?? (aimed is null ? 0 : Mathf.Wrap(toTarget, -Mathf.Pi, Mathf.Pi));
         _targetYaw = actor switch
         {
             Machine m => -m.Facing,

@@ -784,6 +784,16 @@ void writeRig(std::ostream& out, W4dComposite& composite, std::set<std::string>*
         writeAnimation(out, "demolish", demolishing, links, &first, 60);
         out << "}";
     }
+    // A silo's dome opens as its missile comes ready and closes after the launch (MachPhysMissileEmplacement::prepForLaunch).
+    W4dCompositePlanPtr opening, closing;
+    if (tower != NULL and composite.findCompositePlan("Opening", &opening) and composite.findCompositePlan("Closing", &closing))
+    {
+        out << ",\"animations\":{";
+        bool first = true;
+        writeAnimation(out, "opening", opening, links, &first);
+        writeAnimation(out, "closing", closing, links, &first);
+        out << "}";
+    }
     if (machine == NULL)
     {
         out << "}";

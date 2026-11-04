@@ -19,6 +19,9 @@ axis the upper body turns about, in place of what Meshy built there (the Reapers
 "still" names moving parts the Meshy model has no shape for (Mine 5's fans, under a flat panel): their surface goes to
 their neighbours and they are left empty, or they would turn pieces of wall.
 
+"inner" names the parts inside a closed Meshy shell that come out of it (the ICBM's head and barrel, raised through its
+dome): the Meshy model has no shape for them, so its surface goes to the other parts and these keep their Stage-1 parts.
+
 Wheels always stay the Stage-1 model's, and "upgraded" names other parts that do (the Behemoth's claws).
 
 What a plan may add for a machine Meshy served badly, each explained where it is done: "forged" and "mount" (forge, a
@@ -1766,6 +1769,7 @@ def build(export_id, entry, classic, meshy):
     hull, weapons, faceplate = pieces(rig)
     if entry.get("whole"):
         hull = [i for i, n in enumerate(nodes) if n["name"] != "interior" and i not in faceplate]
+    hull = [i for i in hull if nodes[i]["name"] not in entry.get("inner", [])]
     still = entry.get("still", [])
     report = [export_id]
     new = {}

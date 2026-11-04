@@ -375,7 +375,8 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
         foreach (var launcher in world.Constructions.Where(c => c.Race == Race && c.Complete))
         {
             var weapon = launcher.Weapons.FirstOrDefault(w => w.IsStrike && w.Reload <= 0);
-            if (weapon is null || (weapon.Spec.TypeName == "NUCLEAR_MISSILE" ? !attack.UseNuke : !attack.UseIonCannon))
+            // A silo launches once its dome is open (optskatt.cpp).
+            if (weapon is null || (weapon.Spec.TypeName == "NUCLEAR_MISSILE" ? !attack.UseNuke || !launcher.DomeOpen : !attack.UseIonCannon))
                 continue;
             if (MostValuableTarget(world) is { } target)
                 world.Issue(new StrikeCommand(Race, launcher.Id, target));

@@ -195,7 +195,7 @@ public class AreaWeaponTests
         Assert.Empty(world.MissilesInFlight);
 
         world.Issue(new StrikeCommand(Race.Red, silo.Id, Field));
-        world.Step();
+        Run(world, 1);
         var flight = Assert.Single(world.MissilesInFlight);
         Assert.Equal(silo.Id, flight.Launcher);
         Assert.Equal(silo.Position, flight.From);
@@ -208,5 +208,70 @@ public class AreaWeaponTests
         Run(world, 0.4f);
         Assert.Empty(world.MissilesInFlight);
         Assert.Contains(world.Blasts, b => b.Weapon == "NUCLEAR_MISSILE");
+    }
+
+    [Fact]
+    public void A_silo_opens_for_its_ready_missile_and_closes_after_the_launch()
+    {
+        var world = NewMatch();
+        var silo = world.AddConstruction(Race.Red, new Vector2(500, 300), "MISSILE_EMPLACEMENT", "ICBM", 5, 0, complete: true);
+        var missile = Assert.Single(silo.Weapons);
+        Run(world, 1);
+        Assert.False(silo.DomeRaised);
+
+        // Ready: it starts opening at once and counts as open 3.5 s later, when the race hears of it.
+        missile.Reload = 0;
+        world.Step();
+        Assert.True(silo.DomeRaised);
+        Assert.False(silo.DomeOpen);
+        var told = false;
+        for (var i = 0; i < 4 * GameWorld.TicksPerSecond; i++)
+        {
+            world.Step();
+            told |= world.Events.Any(e => e.Kind == GameEventKind.VoiceMail && e.Other == (int)Race.Red && e.Detail == "VID_POD_NUKE_READY");
+        }
+        Assert.True(told);
+        Assert.True(silo.DomeOpen);
+
+        // Launched: the head turns to the target first (59 degrees here), stays there for 2.5 s after the launch,
+        // and the dome starts closing 2 s after that.
+        world.Issue(new StrikeCommand(Race.Red, silo.Id, Field));
+        world.Step();
+        Assert.Equal(Field, silo.StrikeAt);
+        Assert.Empty(world.MissilesInFlight);
+        Run(world, 1);
+        Assert.Single(world.MissilesInFlight);
+        Run(world, 1.5f);
+        Assert.Equal(Field, silo.StrikeAt);
+        Assert.True(silo.DomeRaised);
+        Run(world, 1);
+        Assert.Null(silo.StrikeAt);
+        Assert.True(silo.DomeRaised);
+        Run(world, 2.2f);
+        Assert.False(silo.DomeRaised);
+        Assert.False(silo.DomeOpen);
+    }
+
+    [Fact]
+    public void A_silo_launches_at_once_at_a_target_ahead_of_its_head()
+    {
+        var world = NewMatch();
+        var silo = world.AddConstruction(Race.Red, new Vector2(500, 300), "MISSILE_EMPLACEMENT", "ICBM", 5, 0, complete: true);
+        Assert.Single(silo.Weapons).Reload = 0;
+
+        world.Issue(new StrikeCommand(Race.Red, silo.Id, new Vector2(900, 400)));
+        world.Step();
+        Assert.Single(world.MissilesInFlight);
+        Assert.Null(silo.StrikeAt);
+    }
+
+    [Fact]
+    public void A_silo_being_built_keeps_its_dome_shut()
+    {
+        var world = NewMatch();
+        var silo = world.AddConstruction(Race.Red, new Vector2(500, 300), "MISSILE_EMPLACEMENT", "ICBM", 5, 0, complete: false);
+        Assert.Single(silo.Weapons).Reload = 0;
+        Run(world, 5);
+        Assert.False(silo.DomeRaised);
     }
 }

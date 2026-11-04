@@ -6,7 +6,7 @@ namespace Machines.Game;
 
 /// <summary>
 /// Nuclear missiles in flight (<see cref="GameWorld.MissilesInFlight"/>) as the original flew them
-/// (MachPhysMissile::beLaunched): straight up out of the silo for EXTRAS[3] metres (350), on at that height until a
+/// (MachPhysMissile::beLaunched): along the silo's barrel for EXTRAS[3] metres (350), on at that height until a
 /// quarter of the whole way short of the target, then down onto it, turning over from the climb to the dive as it
 /// flies on. The original's flight took as long as that path; here the path is flown in the simulation's flight
 /// time, so the bomb goes off as the missile lands. In the remake's effects it burns and trails smoke as the
@@ -19,7 +19,7 @@ public partial class ProjectileViews
     private sealed class Nuke
     {
         public required Node3D View;
-        public required Vector3 Start, Top, Drop, End;
+        public required Vector3 Start, Top, Drop, End, Barrel;
         public float Shown;
     }
 
@@ -61,11 +61,14 @@ public partial class ProjectileViews
         if (GraphicsSettings.Effects)
         {
             RoundLooks.Exhaust(view, model);
+            // Its smoke stays behind in the world; a box as long as the trail keeps it from going out with the missile.
+            if (view.GetNodeOrNull<GpuParticles3D>("Trail") is { } trail)
+                trail.VisibilityAabb = new Aabb(-Vector3.One * 250, Vector3.One * 500);
             view.AddChild(new OmniLight3D { LightColor = new Color(1, 0.6f, 0.3f), LightEnergy = 3, OmniRange = 30, ShadowEnabled = false });
         }
         AddChild(view);
 
-        // It leaves the silo's muzzle (the missile stands in it, nose up) or, without one, just above the silo.
+        // It leaves the silo's muzzle (the missile lies in the barrel, nose out) or, without one, just above the silo.
         var silo = _world.Find<Construction>(flight.Launcher);
         var mount = silo?.Weapons.FirstOrDefault(w => w.Spec.TypeName == "NUCLEAR_MISSILE");
         var start = mount is not null && _viewOf(flight.Launcher)?.Muzzle(mount.Mounting, mount.Spec, 0) is { } muzzle
@@ -75,11 +78,12 @@ public partial class ProjectileViews
         var extras = spec is null ? [] : Blast.Extras(spec);
         var climb = extras.Count > 3 ? extras[3] : 350;
         var end = ActorView.World(flight.Target);
-        var top = start + Vector3.Up * climb;
+        var barrel = (mount is null ? null : _viewOf(flight.Launcher)?.BarrelAxis(mount.Mounting)) ?? Vector3.Up;
+        var top = start + barrel * climb;
         var over = end with { Y = top.Y };
         var back = top - over;
         var drop = over + (back.Length() > 0.01f ? back.Normalized() * Mathf.Min(start.DistanceTo(end) / 4, back.Length()) : Vector3.Zero);
-        return new Nuke { View = view, Start = start, Top = top, Drop = drop, End = end };
+        return new Nuke { View = view, Start = start, Top = top, Drop = drop, End = end, Barrel = barrel };
     }
 
     /// <summary>The missile <paramref name="done"/> of the way along its path, at an even speed, nose along its flight.</summary>
@@ -90,11 +94,11 @@ public partial class ProjectileViews
         var down = (nuke.End - nuke.Drop).Normalized();
         Vector3 at, forward;
         if (gone < climb)
-            (at, forward) = (nuke.Start.Lerp(nuke.Top, gone / climb), Vector3.Up);
+            (at, forward) = (nuke.Start.Lerp(nuke.Top, gone / climb), nuke.Barrel);
         else if (gone < climb + level)
         {
             var t = (gone - climb) / level;
-            (at, forward) = (nuke.Top.Lerp(nuke.Drop, t), Vector3.Up.Slerp(down, t));
+            (at, forward) = (nuke.Top.Lerp(nuke.Drop, t), nuke.Barrel.Slerp(down, t));
         }
         else
             (at, forward) = (nuke.Drop.Lerp(nuke.End, Mathf.Clamp((gone - climb - level) / Mathf.Max(dive, 0.01f), 0, 1)), down);

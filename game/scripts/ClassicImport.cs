@@ -26,9 +26,10 @@ public static class ClassicImport
     /// buildings' moving parts and how they work, and the vertices' own materials (terrain tiles shade their corners
     /// with them; without, whole corner tiles came out dark), 6 the weapons' parts that move as they fire (the
     /// recoil, the autocannon's barrels), buildings' interiors as parts of their own, towers' turning heads, the
-    /// support weapons' and loading effects' meshes, and each planet's artefacts (trees, rocks, ruins).
+    /// support weapons' and loading effects' meshes, and each planet's artefacts (trees, rocks, ruins), 7 the silo's
+    /// plans for opening and closing.
     /// </summary>
-    public const int Format = 6;
+    public const int Format = 7;
 
     private static string FormatFile => Path.Combine(Paths.Classic, "format.txt");
 

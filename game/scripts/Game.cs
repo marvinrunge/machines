@@ -922,6 +922,8 @@ public partial class Game : Node3D
             if (actor is Construction building)
             {
                 view.Working = World.IsWorking(building);
+                if (view.Dome(building.DomeRaised))
+                    _audio.Play(building.DomeRaised ? "SID_MISSDOMEOPEN" : "SID_MISSDOMECLOSE", ActorView.World(building.Position));
                 // The doors open for its own machines going through or waiting before them.
                 view.DoorsOpen = building.EntranceOutside is { } door && World.Machines.Any(m => (m.Inside is null || m.DrivenByPlayer)
                     && (m.Doorway == building.Id || m.Race == building.Race && NVector2.DistanceSquared(m.Position, door) < 10 * 10));

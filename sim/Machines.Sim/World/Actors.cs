@@ -275,6 +275,21 @@ public sealed class Construction : Actor
     /// <summary>A pod given its ion cannon by the scenario (<c>ACTIVATE_ION_CANNON</c>) rather than by research.</summary>
     public bool IonCannonGranted { get; set; }
 
+    /// <summary>A silo's dome counts as open (MachLogMissileEmplacement::domeOpen); the AI launches only then.</summary>
+    public bool DomeOpen { get; internal set; }
+
+    /// <summary>When a silo's dome, opening or about to close, changes over (MachLogMissileEmplacement's inTransition_).</summary>
+    public float? DomeChange { get; internal set; }
+
+    /// <summary>A silo stands open, from the moment its Opening plan starts until its Closing plan does.</summary>
+    public bool DomeRaised => DomeOpen || DomeChange is not null;
+
+    /// <summary>Where a silo's head turned to for a launch, until it turns back to close.</summary>
+    public Vector2? StrikeAt { get; internal set; }
+
+    /// <summary>When a silo's head has turned and its missile leaves for <see cref="StrikeAt"/>.</summary>
+    public float? LaunchAt { get; internal set; }
+
     /// <summary>The AI builds it again where it stood when it is destroyed (<c>REBUILD</c> in the scenario).</summary>
     public bool Rebuild { get; set; }
 

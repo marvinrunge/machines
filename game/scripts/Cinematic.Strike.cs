@@ -25,7 +25,10 @@ public partial class Cinematic
         _silo = Building(Race.Red, "MISSILE_EMPLACEMENT", 1879, 817, "ICBM");
         At(0.5f, () => _world.Issue(new MoveCommand(Race.Blue, _army, new NVector2(1560, 840))));
         At(10, () => Fire(_pod));
-        At(20.5f, () => Fire(_silo));
+        // In time for the dome to stand open.
+        At(14.5f, () => Charge(_silo));
+        // The head takes a second to turn to the army, so the missile leaves at 20.5 s.
+        At(19.5f, () => Fire(_silo));
         var silo = Ground(1879, 817);
         if (pass == 2)
             return
@@ -81,10 +84,10 @@ public partial class Cinematic
         }),
         new("silo", 8, u =>
         {
-            // Low north of the silo (the lab stands to its south-west), looking up as the missile climbs out of it.
+            // Low north of the silo (the lab stands to its south-west), looking up as the missile climbs out towards the army.
             var eye = Lift(silo + new Vector3(14, 0, -48), 2);
             var climb = Mathf.SmoothStep(0.3f, 0.6f, u);
-            return new Frame(eye, silo + new Vector3(-6 * climb, 6 + 150 * climb, -4 * climb), Mathf.Lerp(44, 58, climb), Blur: 0.8f);
+            return new Frame(eye, silo + new Vector3(-120 * climb, 6 + 80 * climb, -4 * climb), Mathf.Lerp(44, 58, climb), Blur: 0.8f);
         }),
         new("nuke", 10, u =>
         {
@@ -103,13 +106,19 @@ public partial class Cinematic
         ];
     }
 
+    private void Charge(int launcher)
+    {
+        if (_world.FindTarget(launcher) is Construction building)
+            foreach (var weapon in building.Weapons)
+                weapon.Reload = 0;
+    }
+
     // The pod's ion cannon or the silo's missile at the middle of the army, charged at once.
     private void Fire(int launcher)
     {
-        if (_world.FindTarget(launcher) is not Construction building || SimCentre(_army) is not { } army)
+        if (_world.FindTarget(launcher) is not Construction || SimCentre(_army) is not { } army)
             return;
-        foreach (var weapon in building.Weapons)
-            weapon.Reload = 0;
+        Charge(launcher);
         if (launcher == _silo)
             _aim = Ground(army.X, army.Y);
         _world.Issue(new StrikeCommand(Race.Red, launcher, army));
