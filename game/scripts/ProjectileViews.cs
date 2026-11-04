@@ -1,4 +1,5 @@
 using Godot;
+using Machines.Sim.Presentation;
 using Machines.Sim.World;
 
 namespace Machines.Game;
@@ -32,10 +33,15 @@ public partial class ProjectileViews : Node3D
     private GameWorld _world = null!;
     private ClassicAssets _assets = null!;
 
-    public static ProjectileViews Create(GameWorld world, ClassicAssets assets, Func<int, ActorView?> viewOf, Effects? effects = null) =>
-        new() { Name = "Projectiles", _world = world, _assets = assets, _viewOf = viewOf, _effects = effects };
+    public static ProjectileViews Create(GameWorld world, ClassicAssets assets, Func<int, ActorView?> viewOf, Effects? effects = null, GameAudio? audio = null) =>
+        new() { Name = "Projectiles", _world = world, _assets = assets, _viewOf = viewOf, _effects = effects, _audio = audio };
 
     private Effects? _effects;
+    private GameAudio? _audio;
+
+    /// <summary>Of a salvo only so many are heard flying, as a sound card's voices gave out.</summary>
+    private const int FlightVoices = 6;
+    private int _flying;
 
     /// <summary>The round of a projectile as it is shown, while it flies.</summary>
     public Node3D? ViewOf(int projectile) => _shown.TryGetValue(projectile, out var shown) ? shown.View : null;
@@ -64,6 +70,16 @@ public partial class ProjectileViews : Node3D
                 var to = AimHeight(projectile);
                 _climb[projectile.Id] = (from, (to - from) / Mathf.Max(1, System.Numerics.Vector2.Distance(projectile.Start, projectile.Aim)));
                 AddChild(shown.View);
+                // A missile flies with its own sound, to the one who launched it in first person only the launch.
+                if (_audio is not null && SoundTable.FlightSound(projectile.Weapon.TypeName) is { } flight && _flying < FlightVoices
+                    && _world.Find<Machine>(projectile.Shooter) is not { DrivenByPlayer: true })
+                {
+                    var sound = _audio.Loop("Flight");
+                    shown.View.AddChild(sound.Player);
+                    sound.Play(flight);
+                    _flying++;
+                    sound.Player.TreeExiting += () => _flying--;
+                }
                 // A pulse weapon puts out a ring with every round (MachPhysPulseWeapon::createPulseDisc).
                 if (projectile.Weapon.TypeName.StartsWith("PULSE") && muzzle != Vector3.Zero)
                 {

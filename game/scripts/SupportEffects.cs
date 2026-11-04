@@ -408,6 +408,32 @@ public partial class SupportEffects : Node3D
     /// rings round it, 1.05 times its size, grow to twice that over a second and fade out after their first two
     /// frames; a disc of light shrinks from its size to half over 12 frames; a light shines for 10.
     /// </summary>
+    /// <summary>
+    /// A scavenger takes up or drops what it gathered (MachPhysResourceCarrier::doScavenge): the scavenger's shape on it
+    /// for a second, flickering between 0.8 and 1.2 times its size (MachPhysScavenger::startScavenge).
+    /// </summary>
+    public void Scavenge(ActorView carrier)
+    {
+        if (_assets.EffectMesh("scavenge") is not { } mesh)
+        {
+            Loading(carrier);
+            return;
+        }
+        var view = new MeshInstance3D { Mesh = mesh, Name = "Scavenge", CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+        carrier.AddChild(view);
+        var sizes = Enumerable.Range(0, 5).Select(_ => 0.8f + 0.4f * Random.Shared.NextSingle()).ToArray();
+        _timed.Add(new Timed
+        {
+            Node = view,
+            Duration = 1,
+            Update = age =>
+            {
+                var at = Mathf.Min(age, 0.999f) * (sizes.Length - 1);
+                view.Scale = Vector3.One * Mathf.Lerp(sizes[(int)at], sizes[(int)at + 1], at - (int)at);
+            },
+        });
+    }
+
     public void Loading(ActorView carrier)
     {
         if (GraphicsSettings.Effects)

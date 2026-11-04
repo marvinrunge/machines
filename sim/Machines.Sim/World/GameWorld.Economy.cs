@@ -54,7 +54,15 @@ public sealed partial class GameWorld
         // (MachLogMine::mineralSiteIsExhausted, newMineralSiteAvailable); it looks once a second.
         if (mine.MineralSite is not { } siteId || Sites[siteId].Ore <= 0)
         {
-            if (Tick % TicksPerSecond != mine.Id % TicksPerSecond || !AssignMineralSite(mine))
+            if (Tick % TicksPerSecond != mine.Id % TicksPerSecond)
+                return;
+            var dry = mine.MineralSite;
+            var moved = AssignMineralSite(mine);
+            if (dry is { } exhausted)
+                ReportDryMine(mine, exhausted, moved);
+            else if (moved)
+                SendVoiceMail(mine.Race, "VID_POD_MINE_SWITCHED_SOURCE");
+            if (!moved)
                 return;
             siteId = mine.MineralSite!.Value;
         }
@@ -154,7 +162,7 @@ public sealed partial class GameWorld
         var bmu = cost == 0 ? 0 : item.BuildingCost * units / cost;
         if (bmu > state.Bmu)
             return;
-        state.Bmu -= bmu;
+        SpendBmu(lab.Race, bmu);
         state.Score.ResearchUnits += units;
         progress += units;
         state.ResearchProgress[key] = progress;
@@ -165,6 +173,8 @@ public sealed partial class GameWorld
             state.Score.ItemsResearched++;
             lab.ResearchQueue.RemoveAt(0);
             Raise(new GameEvent(GameEventKind.ResearchComplete, lab.Id, lab.Position, Detail: key.ToString()));
+            if (lab.ResearchQueue.Count > 0)
+                SendVoiceMail(lab.Race, "VID_TECHNICIAN_RESEARCHING_NEXT");
         }
     }
 

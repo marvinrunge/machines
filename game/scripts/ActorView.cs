@@ -150,12 +150,25 @@ public partial class ActorView : Node3D
     /// <summary>A building's doors open for machines coming in or out.</summary>
     public bool DoorsOpen
     {
+        get;
         set
         {
+            field = value;
             if (_rigView is not null)
                 _rigView.DoorsOpen = value;
         }
     }
+
+    private GameAudio.LoopSound? _hum, _burning;
+
+    /// <summary>What it plays over and over where it stands: a building's hum or work, a locator's scan.</summary>
+    public string? Hum
+    {
+        set => _hum?.Play(value);
+    }
+
+    /// <summary>A burning machine crackles for so many seconds (MachPhysMachineBurning).</summary>
+    public void Crackle(float seconds) => _burning?.PlayFor("SID_BURNING", seconds);
 
     // A constructor at work (MachPhysConstructor::startConstructing): per jet a torch beam reaching for the
     // building's centre, sparks, and a flickering light.
@@ -175,6 +188,8 @@ public partial class ActorView : Node3D
             return;
         _rigView.Constructing = target is not null;
         _constructAt = target;
+        // MachLogConstructor::constructing: the torches' sound takes the engine's place.
+        Hum = target is null ? null : "SID_CONSTRUCTING";
         if (target is null)
         {
             foreach (var jet in _jets)
@@ -324,21 +339,25 @@ public partial class ActorView : Node3D
 
     /// <summary>
     /// Smoke and fire as the damage mounts, at the original's thresholds: a machine smokes black from 65 % damage,
-    /// and from 90 % it smokes thickly and burns (MachPhysMachineDamage); a finished building smokes from 40 %,
-    /// burns from 50 % and smokes thickly from 75 % (MachPhysEntityDamage). The smoke trails behind what moves.
+    /// and from 90 % it smokes thickly and burns (MachPhysMachineDamage); a finished building shows
+    /// <see cref="BuildingDamage"/>. The smoke trails behind what moves.
     /// </summary>
     private void ShowDamage(Actor actor)
     {
         if (actor.MaxHitPoints <= 0 || actor is Construction { Complete: false } || actor is not (Machine or Construction))
             return;
         var damage = 100 * (1 - actor.HitPoints / (float)actor.MaxHitPoints);
-        var building = actor is Construction;
+        if (actor is Construction building)
+        {
+            ShowBuildingDamage(building, damage);
+            return;
+        }
         var size = Mathf.Clamp(Size * 0.5f, 1.5f, 6);
-        _damageSmoke = Emitter(_damageSmoke, damage >= (building ? 40 : 65),
+        _damageSmoke = Emitter(_damageSmoke, damage >= 65,
             () => Effects.Plume(4, 3, size * 3, size * 1.2f, new Color(0.08f, 0.08f, 0.08f, 0.85f)));
-        _thickSmoke = Emitter(_thickSmoke, damage >= (building ? 75 : 90),
+        _thickSmoke = Emitter(_thickSmoke, damage >= 90,
             () => Effects.Plume(6, 4, size * 4, size * 1.4f, new Color(0.14f, 0.07f, 0.05f, 0.8f)));
-        _damageFire = Emitter(_damageFire, damage >= (building ? 50 : 90), () =>
+        _damageFire = Emitter(_damageFire, damage >= 90, () =>
         {
             var fire = Effects.DamageFire(size * 0.8f, size);
             // In the remake the flames light what is around them.
@@ -400,12 +419,18 @@ public partial class ActorView : Node3D
             view._engine = audio.EngineFor(machine);
             if (view._engine is not null)
                 view.AddChild(view._engine.Player);
+            view._burning = audio.Loop("Burning");
+            view.AddChild(view._burning.Player);
         }
+        view._hum = audio.Loop("Hum");
+        view.AddChild(view._hum.Player);
 
         // Machines and buildings with an exported rig move their parts; everything else is one mesh.
         if (assets.RigFor(id, Game.Look(actor.ShownRace)) is { } rig)
         {
             view._rigView = RigView.Create(rig);
+            if (actor is Construction lab && lab.IsType("HARDWARE_LAB"))
+                view._rigView.RestingScreen = assets.Texture("models/texture4/static.bmp");
             view._maxSpeed = actor is Machine rigged ? rigged.Stats.Speed : 0;
             // A machine's upper body turns at its BODY_TURN_RATE, degrees per second (MachPhysTurnerTracker).
             if (actor is Machine { Stats.BodyTurnRate: > 0 and var bodyRate })
@@ -767,7 +792,7 @@ public partial class ActorView : Node3D
         if (_engine is not null)
         {
             var moving = _target.DistanceSquaredTo(_lastTarget) > 0.0001f;
-            if (actor is Machine { Inside: not null, DrivenByPlayer: false })
+            if (actor is Machine { Inside: not null, DrivenByPlayer: false } || _constructAt is not null)
                 _engine.Player.Stop();
             else
                 _engine.Update(moving);
@@ -838,9 +863,26 @@ public partial class ActorView : Node3D
             mesh.MaterialOverride = _hologram;
     }
 
+    /// <summary>A pod wears its other top from when it has the ion cannon.</summary>
+    public bool IonTop
+    {
+        set
+        {
+            if (_rigView is not null && _ionTop != value)
+                _rigView.IonTop = _ionTop = value;
+        }
+    }
+
+    private bool _ionTop;
+
+    /// <summary>A hit shakes the machine's head and body (MachPhysMachine::shake).</summary>
+    public void Shake() => _rigView?.Shake();
+
     public override void _Process(double delta)
     {
         UpdateJets(delta);
+        UpdateTeleport(delta);
+        UpdateScan(delta);
         if (_hologram is not null)
         {
             // Frame by frame, as the original counted them at about 30 a second: the peak, down to nothing and back.

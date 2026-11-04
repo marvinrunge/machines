@@ -1,6 +1,9 @@
+using System.Numerics;
 using Machines.Import.Audio;
+using Machines.Import.Model;
 using Machines.Sim;
 using Machines.Sim.Presentation;
+using Machines.Sim.World;
 
 namespace Machines.Tests.Sim;
 
@@ -24,6 +27,57 @@ public class SoundTableTests
             .ToList();
         Assert.Empty(silent);
     }
+
+    [Fact]
+    public void Every_building_hums_and_works_with_a_defined_sound()
+    {
+        var missing = DataLoader.Value.Parm.Constructions
+            .SelectMany(spec => spec.Levels.Select(level => (spec, level.HardwareLevel)))
+            .SelectMany(b => new[] { false, true }.Select(working => SoundTable.BuildingSound(b.spec.Type, b.spec.SubType, b.HardwareLevel, working)))
+            .OfType<string>()
+            .Where(id => !Sounds.Value.Contains(id))
+            .Distinct()
+            .ToList();
+        Assert.Empty(missing);
+    }
+
+    [Fact]
+    public void Every_building_has_defined_reports_of_being_hit_and_lost()
+    {
+        var missing = DataLoader.Value.Parm.Constructions
+            .SelectMany(spec => spec.Levels.Select(level => (spec, level.HardwareLevel)))
+            .SelectMany(b => new[]
+            {
+                SoundTable.BuildingHitReport(b.spec.Type, b.spec.SubType, critical: false, manned: false),
+                SoundTable.BuildingHitReport(b.spec.Type, b.spec.SubType, critical: true, manned: true),
+                SoundTable.BuildingLostReport(b.spec.Type, b.spec.SubType, b.HardwareLevel),
+            })
+            .OfType<string>()
+            .Where(id => !Reports.Value.Contains(id))
+            .Distinct()
+            .ToList();
+        Assert.Empty(missing);
+    }
+
+    [Fact]
+    public void Every_machine_reports_itself_built()
+    {
+        var world = MatchSetup.Create(DataLoader.Value, "m_desert", "m_desert",
+            new Dictionary<Race, Controller> { [Race.Red] = Controller.Player, [Race.Blue] = Controller.Player }, seed: 7);
+        var silent = DataLoader.Value.Parm.Machines
+            .SelectMany(spec => spec.Levels.Select(level => (spec, level.HardwareLevel)))
+            .Select(m => (m.spec.TypeName, m.HardwareLevel, Machine: world.AddMachine(Race.Red, new Vector2(800, 800), m.spec.Type, m.spec.SubType, m.HardwareLevel, null)))
+            .Where(m => SoundTable.BuiltReport(m.Machine) is not { } report || !Reports.Value.Contains(report) && !Reports.Value.Contains(report + "0"))
+            .Select(m => $"{m.TypeName} {m.HardwareLevel}")
+            .ToList();
+        Assert.Empty(silent);
+    }
+
+    [Theory]
+    [InlineData("MULTI_LAUNCHER1")]
+    [InlineData("NUCLEAR_MISSILE")]
+    public void Missiles_have_a_defined_sound_in_flight(string weapon) =>
+        Assert.Contains(SoundTable.FlightSound(weapon)!, Sounds.Value);
 
     [Fact]
     public void Every_machine_level_has_a_defined_engine_sound()

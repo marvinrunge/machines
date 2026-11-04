@@ -160,8 +160,9 @@ public partial class GameAudio : Node
     public EngineSound? EngineFor(Machine machine)
     {
         var (move, idle) = SoundTable.LocomotionSounds(machine.Spec.Type, machine.Spec.SubType, machine.Stats.HardwareLevel);
+        var flies = move == "SID_FLY_BLAST";
         var idleSound = idle is not null && _sounds.TryGetValue(idle, out var i) ? i : null;
-        var moveSound = move is not null && _sounds.TryGetValue(move, out var m) ? m : idleSound;
+        var moveSound = !flies && move is not null && _sounds.TryGetValue(move, out var m) ? m : idleSound;
         if (idleSound is null || moveSound is null)
             return null;
         var idleStream = Looping(idleSound.File);
@@ -169,19 +170,37 @@ public partial class GameAudio : Node
         if (idleStream is null || moveStream is null)
             return null;
         var player = new AudioStreamPlayer3D { Name = "Engine", Bus = EffectsBus };
-        return new EngineSound(player, idleSound, idleStream, moveSound, moveStream);
+        return new EngineSound(player, idleSound, idleStream, moveSound, moveStream)
+        {
+            OnThrust = flies ? MachineThrust(SoundTable.GliderSounds(machine.Spec.Type, machine.Stats.HardwareLevel)) : null,
+        };
     }
+
+    private Action<bool, Vector3> MachineThrust((string Blast, string Brake) sounds) =>
+        (moving, at) => Play(moving ? sounds.Blast : sounds.Brake, at);
 
     public sealed class EngineSound(AudioStreamPlayer3D player, SoundDefinition idle, AudioStreamWav idleStream, SoundDefinition move, AudioStreamWav moveStream)
     {
+        // A stop this short between the legs of a route is no landing.
+        private const double ThrustGap = 1;
+
         private bool? _moving;
+        private double _changed;
 
         public AudioStreamPlayer3D Player { get; } = player;
+
+        /// <summary>A flying machine's thrust as it sets off (true) or brakes (false).</summary>
+        public Action<bool, Vector3>? OnThrust { get; init; }
 
         public void Update(bool moving)
         {
             if (_moving == moving && Player.Playing)
                 return;
+            if (OnThrust is not null && _moving is not null && _moving != moving && FrameClock.Now - _changed > ThrustGap)
+            {
+                _changed = FrameClock.Now;
+                OnThrust(moving, Player.GlobalPosition);
+            }
             _moving = moving;
             Configure(Player, moving ? move : idle, moving ? moveStream : idleStream);
             // Engines sit under the battle: quieter than weapons.
@@ -197,6 +216,46 @@ public partial class GameAudio : Node
                 Player.VolumeDb -= 6;
             Player.Play();
             Trace(moving ? move.Id : idle.Id);
+        }
+    }
+
+    /// <summary>
+    /// A sound that runs on where its node stands, as W4dSoundManager's sounds on an entity did: a building's hum, a
+    /// constructor at work, a fire. Add <see cref="LoopSound.Player"/> to the node before playing.
+    /// </summary>
+    public LoopSound Loop(string name = "Loop") => new(this, new AudioStreamPlayer3D { Name = name, Bus = EffectsBus });
+
+    public sealed class LoopSound(GameAudio audio, AudioStreamPlayer3D player)
+    {
+        private string? _id;
+        private double _until;
+
+        public AudioStreamPlayer3D Player { get; } = player;
+
+        /// <summary>Plays this sound over and over, in place of the last; null stops it.</summary>
+        public void Play(string? id)
+        {
+            if (id == _id)
+                return;
+            _id = id;
+            Player.Stop();
+            if (id is null || !audio._sounds.TryGetValue(id, out var sound) || audio.Looping(sound.File) is not { } stream)
+                return;
+            Configure(Player, sound, stream);
+            Player.Play();
+            Trace(id);
+        }
+
+        /// <summary>As <see cref="Play"/> for so many seconds (W4dSoundManager::playForDuration); played again it lasts longer.</summary>
+        public void PlayFor(string id, float seconds)
+        {
+            Play(id);
+            _until = FrameClock.Now + seconds;
+            Player.GetTree().CreateTimer(seconds).Timeout += () =>
+            {
+                if (IsInstanceValid(Player) && FrameClock.Now >= _until - 0.05)
+                    Play(null);
+            };
         }
     }
 

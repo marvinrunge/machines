@@ -26,6 +26,9 @@ public sealed class Rig
     /// <summary>The part of each mounted weapon that moves as it fires: it recoils, or the autocannon's barrels turn.</summary>
     public RigWeapon[] Weapons { get; init; } = [];
 
+    /// <summary>The lamps of a building's interior.</summary>
+    public RigLight[] Lights { get; init; } = [];
+
     /// <summary>The faceplate part and the point on it first person looks out from (centre front), or -1.</summary>
     public int Faceplate { get; init; } = -1;
     public Vector3 Eye { get; init; }
@@ -67,6 +70,9 @@ public sealed class Rig
             Weapons = rig.TryGetProperty("weapons", out var weapons)
                 ? weapons.EnumerateArray().Select(w => new RigWeapon(w.GetProperty("node").GetInt32(), w.GetProperty("mounting").GetString() ?? "")).ToArray()
                 : [],
+            Lights = rig.TryGetProperty("lights", out var lights)
+                ? lights.EnumerateArray().Select(RigLight.Read).ToArray()
+                : [],
             Faceplate = rig.TryGetProperty("faceplate", out var f) ? f.GetInt32() : -1,
             Eye = rig.TryGetProperty("eye", out var e) && e.EnumerateArray().Select(x => x.GetSingle()).ToArray() is [var ex, var ey, var ez]
                 ? new Vector3(ex, ez, ey)   // original z up
@@ -92,6 +98,18 @@ public sealed class Rig
         var zb = Swap(v[6], v[7], v[8]);
         // C B C: the columns are C x, C z, C y.
         return new Transform3D(new Basis(xb, zb, yb), Swap(v[9], v[10], v[11]));
+    }
+}
+
+/// <summary>A lamp of a building's interior (W4dLightData).</summary>
+public sealed record RigLight(Vector3 Position, Color Colour, float Range)
+{
+    public static RigLight Read(JsonElement light)
+    {
+        float[] Numbers(string name) => light.GetProperty(name).EnumerateArray().Select(x => x.GetSingle()).ToArray();
+        var (at, colour) = (Numbers("position"), Numbers("colour"));
+        // Original axes, z up: y and z swap.
+        return new RigLight(new Vector3(at[0], at[2], at[1]), new Color(colour[0], colour[1], colour[2]), light.GetProperty("range").GetSingle());
     }
 }
 

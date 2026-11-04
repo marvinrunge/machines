@@ -1,5 +1,6 @@
 using System.Numerics;
 using Machines.Import.Model;
+using Machines.Sim.Presentation;
 
 namespace Machines.Sim.World;
 
@@ -79,6 +80,7 @@ public sealed partial class GameWorld
             // Its own doing (MachActor::update hits it with itself): nobody scores, and a smelter loses no stores.
             actor.LastHitBy = actor.Race;
             actor.HitPoints = 0;
+            actor.SelfDestructed = true;
         }
 
         // Garrisons repair everyone inside at their REPAIR_RATE hit points per minute.
@@ -121,6 +123,8 @@ public sealed partial class GameWorld
             Face(healer, target.Position);
         // MachLogSuperCharger: DAMAGE hit points per second while the beam holds.
         AddHitPoints(target, charger.Spec.Damage * Dt);
+        if (target.HitPoints >= target.MaxHitPoints && SoundTable.VoiceOf(healer) is { } voice)
+            SendVoiceMail(healer.Race, $"VID_{voice}_HEALING_COMPLETE");
     }
 
     /// <summary>Idle healers look after damaged machines nearby, as the original's administrators did.</summary>
@@ -166,6 +170,8 @@ public sealed partial class GameWorld
         // proportion to the building's cost.
         var bmu = SpendBmu(constructor.Race, (constructor.Stats.ConstructionRate ?? 0) / 60f * Dt);
         AddHitPoints(building, HitPointValue(building, bmu));
+        if (building.HitPoints >= building.MaxHitPoints)
+            ReportJobDone(constructor, "VID_DOZER_BUILDING_REPAIRED");
     }
 
     private void UpdateCapture(Machine constructor, CaptureOrder capture)
@@ -193,6 +199,7 @@ public sealed partial class GameWorld
             if (refund > 0)
                 AddBmu(constructor.Race, refund);
             constructor.Order = Order.Idle;
+            ReportJobDone(constructor, "VID_DOZER_BUILDING_CAPTURED");
         }
     }
 
@@ -223,7 +230,10 @@ public sealed partial class GameWorld
         AddHitPoints(building, -hitPoints);
         AddBmu(constructor.Race, bmu * RecycleRefund);
         if (building.IsDead)
+        {
             constructor.Order = Order.Idle;
+            ReportJobDone(constructor, "VID_DOZER_BUILDING_DECONSTRUCTED");
+        }
     }
 
     private void UpdateRecycle(Machine machine, RecycleOrder recycle)
@@ -407,6 +417,8 @@ public sealed partial class GameWorld
     private void Defect(Machine machine, Race race)
     {
         LeaveGarrison(machine);
+        if (machine.ShownRace != race && SoundTable.VoiceOf(machine) is { } voice)
+            SendVoiceMail(race, $"VID_{voice}_CHANGED_RACE");
         machine.Race = race;
         machine.DisplayAs = null;
         machine.Squad = null;

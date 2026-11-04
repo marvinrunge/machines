@@ -280,6 +280,58 @@ public partial class Blowup : Node3D
         });
     }
 
+    private const float BeamBlue = 0.75f, BeamWhite = 1.25f;
+    private static readonly Color Blue = new(0, 210 / 255f, 1);
+
+    /// <summary>The glow of a machine teleporting (pulsingBlue, pulsingWhite in machine.cpp), unlit.</summary>
+    public static StandardMaterial3D BeamMaterial() => new()
+    {
+        ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+        Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+        CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+    };
+
+    /// <summary>Colours the glow of a machine coming in, <paramref name="age"/> seconds on; false when it is over.</summary>
+    public static bool BeamIn(StandardMaterial3D beam, float age)
+    {
+        if (age < BeamBlue)
+            beam.AlbedoColor = Blue with { A = age / BeamBlue };
+        else
+        {
+            var white = age - BeamBlue;
+            beam.AlbedoColor = Colors.White with { A = white < 0.5f ? 1 - white / 0.5f : Mathf.Min(1, (white - 0.5f) / 0.5f) };
+        }
+        return age < BeamBlue + BeamWhite;
+    }
+
+    /// <summary>
+    /// A machine going into an APC (MachPhysMachine::doFadeOutAnimation): a white shape of it, which holds, fades away
+    /// and comes back for 1.25 s, then blue going to nothing for 0.75 s. The machine itself is gone already.
+    /// </summary>
+    public static void TeleportOut(Node3D view, Node3D model, Node parent)
+    {
+        var blowup = new Blowup { Name = "TeleportOut" };
+        parent.AddChild(blowup);
+        var beam = BeamMaterial();
+        var holder = new Node3D();
+        blowup.AddChild(holder);
+        holder.GlobalTransform = view.GlobalTransform;
+        foreach (var mesh in model.FindChildren("*", nameof(MeshInstance3D), recursive: true, owned: false).Append(model)
+            .OfType<MeshInstance3D>().Where(m => m.Mesh is not null && m.IsVisibleInTree()))
+        {
+            var shape = new MeshInstance3D { Mesh = mesh.Mesh, MaterialOverride = beam, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            holder.AddChild(shape);
+            shape.GlobalTransform = mesh.GlobalTransform;
+        }
+        blowup._parts.Add(age =>
+        {
+            beam.AlbedoColor = age < BeamWhite
+                ? Colors.White with { A = age < 0.25f ? 1 : age < 0.75f ? 1 - (age - 0.25f) / 0.5f : (age - 0.75f) / 0.5f }
+                : Blue with { A = 1 - (age - BeamWhite) / BeamBlue };
+            return age < BeamWhite + BeamBlue;
+        });
+    }
+
     /// <summary>
     /// An energy weapon's hit, a third of a second long: its splat playing its pictures as it grows to twice its
     /// size, the light sting's to four times (MachPhysPlasmaSplat, MachPhysPulseSplat, MachPhysLightStingSplat),

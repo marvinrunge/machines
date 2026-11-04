@@ -76,6 +76,8 @@ public sealed partial class GameWorld
             LandMines.Add(mine);
             spy.Mines--;
             Raise(new GameEvent(GameEventKind.MineLaid, spy.Id, spy.Position, mine.Id));
+            if (spy.Mines == 0)
+                SendVoiceMail(spy.Race, "VID_SPY_NO_MORE_MINES");
         }
         var rest = drop.Points.Skip(1).ToList();
         if (rest.Count == 0 || spy.Mines <= 0)
@@ -172,6 +174,7 @@ public sealed partial class GameWorld
                 if (stealable.Count == 0)
                     continue;
                 spy.Stealing = stealable[Random.Next(stealable.Count)].Key;
+                SendVoiceMail(spy.Race, "VID_SPY_NEW_DOWNLOAD");
             }
             var key = spy.Stealing;
             var item = Data.ResearchTree.Get(key);

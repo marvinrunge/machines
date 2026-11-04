@@ -209,10 +209,11 @@ public sealed class ClassicAssets
     /// Whether a texture shows sharpened (<see cref="HdTextures"/>): the planet's pictures (its ground, scenery and sky,
     /// all under models/planet) as the ground is chosen, the machines', buildings' and effects' as the models are.
     /// </summary>
+    // The labs' screens, 32 pixels of green blocks, came out of the enlargement as a green blur.
     private bool Sharp(string relative) =>
         relative.Replace('\\', '/').StartsWith("models/planet/", StringComparison.OrdinalIgnoreCase)
             ? GraphicsSettings.Terrain != TerrainLook.Original
-            : Models != ModelLook.Original;
+            : Models != ModelLook.Original && !relative.EndsWith("/scrn1.bmp", StringComparison.OrdinalIgnoreCase);
 
     private static string? FindModel(string folder, string id)
     {

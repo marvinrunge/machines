@@ -129,6 +129,8 @@ public sealed partial class GameWorld
         target.Durability = ArmourModel.ApplyHit(target.Durability, damage);
         if (by is not null)
             target.LastHitBy = by;
+        if (by is { } foe && foe != target.Race && !target.IsDead)
+            ReportHit(target);
     }
 
     /// <summary>

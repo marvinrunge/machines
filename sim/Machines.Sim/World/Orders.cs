@@ -103,6 +103,14 @@ public sealed class RaceState(Race race, Controller controller)
     /// <summary>BMUs in the bank. The original counts whole BMUs; fractions accumulate here between ticks.</summary>
     public float Bmu { get; set; }
 
+    /// <summary>The bank running low or full is told at most every two minutes (MachLogRaces::smartSubtractBMUs, smartAddBMUs).</summary>
+    public float NextLowBankMail { get; set; }
+
+    public float NextFullBankMail { get; set; }
+
+    /// <summary>The mineral sites this race has been told have run dry.</summary>
+    public HashSet<int> DrySitesTold { get; } = [];
+
     public HashSet<ResearchKey> Available { get; } = [];
     public HashSet<ResearchKey> Researched { get; } = [];
     public Dictionary<ResearchKey, float> ResearchProgress { get; } = [];

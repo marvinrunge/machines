@@ -15,6 +15,7 @@
 #include "world4d/internal/texdata.hpp"
 #include "world4d/internal/uvdata.hpp"
 #include "world4d/internal/animdata.hpp"
+#include "world4d/internal/lightdat.hpp"
 
 #include <cstdio>
 #include <fstream>
@@ -102,6 +103,9 @@
 #include "machphys/helix.hpp"
 #include "machphys/private/otherper.hpp"
 #include "machphys/lmine.hpp"
+#include "machphys/locator.hpp"
+#include "machphys/scavenge.hpp"
+#include "machphys/splat.hpp"
 #include "machphys/debrisun.hpp"
 #include "mathex/abox2d.hpp"
 #include "machphys/radidisc.hpp"
@@ -643,6 +647,10 @@ void writeAnimation(std::ostream& out, const char* name, const W4dCompositePlanP
 void writeRig(std::ostream& out, W4dComposite& composite, std::set<std::string>* textures)
 {
     MachPhysMachine* machine = dynamic_cast<MachPhysMachine*>(&composite);
+    // A pod's top for when it has the ion cannon (MachPhysPod::ionCannonResearched) stands in the rig with the other:
+    // the game shows one of them.
+    if (MachPhysPod* pod = dynamic_cast<MachPhysPod*>(&composite))
+        pod->pIonTop_->visible(true);
     const W4dComposite::W4dLinks& links = composite.links();
     std::vector<const W4dEntity*> nodes(1, &composite);
     nodes.insert(nodes.end(), links.begin(), links.end());
@@ -823,6 +831,32 @@ void writeRig(std::ostream& out, W4dComposite& composite, std::set<std::string>*
         construction->isWorking(true);
         writeMotion("working");
     }
+    // The lamps of a building's interior (W4dLightData in its .cdf): where each stands, its colour and reach. None of them
+    // has a plan of intensities.
+    if (interior != NULL)
+    {
+        W4dComposite& inside = *dynamic_cast<MachPhysConstruction*>(&composite)->pInteror();
+        const W4dEntityImpl& impl = inside.entityImpl();
+        if (impl.pAnimationLightDataPtrs_ != NULL)
+        {
+            out << ",\"lights\":[";
+            bool firstLight = true;
+            for (size_t i = 0; i < impl.pAnimationLightDataPtrs_->size(); ++i)
+            {
+                W4dLightData* light = dynamic_cast<W4dLightData*>(&*(*impl.pAnimationLightDataPtrs_)[i]);
+                if (light == NULL)
+                    continue;
+                MexPoint3d at = light->position_;
+                W4dLink* dummy = NULL;
+                if (inside.findLink(light->name(), &dummy))
+                    at = ModelWriter::relativeTransform(*dummy, &inside).position();
+                out << (firstLight ? "" : ",") << "{\"position\":[" << at.x() << "," << at.y() << "," << at.z() << "],\"colour\":["
+                    << light->colour_.r() << "," << light->colour_.g() << "," << light->colour_.b() << "],\"range\":" << light->maxRange_ << "}";
+                firstLight = false;
+            }
+            out << "]";
+        }
+    }
     // The pieces of a building blowing up fly apart in their own cycle (MachPhysObjDemolish::startDemolition), which
     // the game shows for under half a second, so it is sampled finer.
     W4dCompositePlanPtr demolishing;
@@ -867,7 +901,11 @@ void writeRig(std::ostream& out, W4dComposite& composite, std::set<std::string>*
     // A technician at work in its lab (MachPhysTechnician::research) moves its arms and fingers.
     W4dCompositePlanPtr researching;
     const bool researches = dynamic_cast<MachPhysTechnician*>(machine) != NULL and machine->cycleAnims(&researching);
-    if (legs != NULL or constructs or researches)
+    // A geo locator searching (MachPhysGeoLocator::move) plays its locating cycle over the walk.
+    W4dCompositePlanPtr locating;
+    const bool locates = dynamic_cast<MachPhysGeoLocator*>(machine) != NULL and machine->findCompositePlan("geo1_Anim1", &locating)
+        and machine->cycleAnims(&locating);
+    if (legs != NULL or constructs or researches or locates)
     {
         out << ",\"animations\":{";
         bool first = true;
@@ -891,6 +929,8 @@ void writeRig(std::ostream& out, W4dComposite& composite, std::set<std::string>*
             writeAnimation(out, "construct", constructing, links, &first);
         if (researches)
             writeAnimation(out, "research", researching, links, &first);
+        if (locates)
+            writeAnimation(out, "locate", locating, links, &first);
         out << "}";
     }
     if (MachPhysWheels* wheels = dynamic_cast<MachPhysWheels*>(&locomotion))
@@ -1283,7 +1323,7 @@ bool ExportApp::clientStartup()
         "helix1", "helix2", "healcross", "healaura", "disc", "lightning", "lightbox",
         "loadunder", "loadover", "loadlight", "fire",
         "ionbeam", "ionflare", "ionouter", "ionwave", "nukewave", "mushtop", "mushshaft", "vsphere", "bsphere", "wsphere",
-        "lmine", "debris", "shockwave", "burstwave",
+        "lmine", "debris", "shockwave", "burstwave", "groundsplat", "locator", "scavenge",
     };
     mkdir((out + "/fx").c_str());
     for (size_t e = 0; e < sizeof(effects) / sizeof(effects[0]); ++e)
@@ -1363,6 +1403,11 @@ bool ExportApp::clientStartup()
         // and building (MachPhysBurstWave, models/destroy/construc/shockwav.lod), both 2 m round unscaled.
         else if (name == "shockwave") effect = _NEW(MachPhysShockWave(root, at));
         else if (name == "burstwave") effect = _NEW(MachPhysBurstWave(root, at));
+        // The dark splat under a burning building (models/destroy/splat/splat.lod), the geo locator's disc
+        // (models/weapons/locate/radial.lod) and a scavenger's glow (models/weapons/scavenge/scavenge.lod).
+        else if (name == "groundsplat") effect = _NEW(MachPhysGroundSplat(root, at));
+        else if (name == "locator") effect = _NEW(MachPhysLocator(root, at));
+        else if (name == "scavenge") effect = _NEW(MachPhysScavenger(root, at));
         const W4dEntity* part = link != NULL ? link : effect;
         if (name == "punchcrack" or name == "punchfire" or name == "beecrack" or name == "beefire")
         {

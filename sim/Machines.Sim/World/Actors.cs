@@ -41,6 +41,12 @@ public abstract class Actor
     /// <summary>Destroyed by the ion beam itself: it goes up in a white glow, with no explosion.</summary>
     public bool Vaporised { get; set; }
 
+    /// <summary>When it last reported being hit.</summary>
+    public float? LastHitMail { get; set; }
+
+    /// <summary>Destroyed by its own charge.</summary>
+    public bool SelfDestructed { get; set; }
+
     /// <summary>Distance from the centre at which the actor's body ends; used for ranges and spacing.</summary>
     public abstract float Radius { get; }
 

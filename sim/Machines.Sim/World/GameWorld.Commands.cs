@@ -168,6 +168,8 @@ public sealed partial class GameWorld
                 if (Constructions.Any(c => c.Race == research.Race && c.ResearchQueue.Contains(research.Item)))
                     return "already being researched";
                 lab.ResearchQueue.Add(research.Item);
+                if (lab.ResearchQueue.Count == 1)
+                    AnnounceResearch(lab, Data.ResearchTree.Get(research.Item));
                 return null;
             }
 

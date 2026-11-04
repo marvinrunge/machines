@@ -3,6 +3,7 @@ using Machines.Import.Model;
 using Machines.Import.Planets;
 using Machines.Sim.Combat;
 using Machines.Sim.Navigation;
+using Machines.Sim.Presentation;
 
 namespace Machines.Sim.World;
 
@@ -284,6 +285,8 @@ public sealed partial class GameWorld
     public float OreWorth(Race race) =>
         Races.TryGetValue(race, out var state) && state.Controller == Controller.Ai ? MatchOptions.AiIncome(Options.AiLevel) : 1;
 
+    private const float LowBank = 100, BankMailGap = 120;
+
     /// <summary>Adds BMUs up to the storage limit; returns how many were added (the original's smartAddBMUs).</summary>
     public float AddBmu(Race race, float amount)
     {
@@ -292,6 +295,12 @@ public sealed partial class GameWorld
         var added = MathF.Min(amount, room);
         state.Bmu += added;
         state.Score.BmusMined += added;
+        if (state.Bmu >= BmuCapacity(race) && Time > state.NextFullBankMail)
+        {
+            state.NextFullBankMail = Time + BankMailGap;
+            var stores = Constructions.Any(c => c.Race == race && c.Complete && c.Spec.Type is "SMELTER" or "POD");
+            SendVoiceMail(race, stores ? "VID_POD_NEED_FURTHER_SMELTERS" : "VID_POD_NEED_AT_LEAST_ONE_SMELTER");
+        }
         return added;
     }
 
@@ -301,6 +310,11 @@ public sealed partial class GameWorld
         var state = Races[race];
         var taken = MathF.Min(amount, state.Bmu);
         state.Bmu -= taken;
+        if (state.Bmu < LowBank && Time > state.NextLowBankMail)
+        {
+            state.NextLowBankMail = Time + BankMailGap;
+            SendVoiceMail(race, state.Bmu < 1 ? "VID_POD_NO_BMUS_LEFT" : "VID_POD_BMUS_LOW");
+        }
         return taken;
     }
 
@@ -316,7 +330,11 @@ public sealed partial class GameWorld
             if (Options.OriginalBank && actor is Construction store)
                 LoseStores(store);
             _actors.Remove(actor.Id);
-            Raise(new GameEvent(GameEventKind.Destroyed, actor.Id, actor.Position, Detail: actor.Vaporised ? "ION_ORBITAL_CANNON" : null));
+            // MachLogConstruction::dealWithHitVoiceMail: told only of what an enemy took.
+            if (actor is Construction lost && lost.LastHitBy is { } taker && taker != lost.Race
+                && SoundTable.BuildingLostReport(lost.Spec.Type, lost.Spec.SubType, lost.Stats.HardwareLevel) is { } report)
+                SendVoiceMail(lost.Race, report);
+            Raise(new GameEvent(GameEventKind.Destroyed, actor.Id, actor.Position, Detail: actor.Vaporised ? "ION_ORBITAL_CANNON" : actor.SelfDestructed ? "SELF_DESTRUCT" : null));
             DropDebris(actor);
             if (actor.LastHitBy is { } killer && killer != actor.Race && Races.TryGetValue(killer, out var gaining)
                 && Races.TryGetValue(actor.Race, out var losing))

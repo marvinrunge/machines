@@ -411,6 +411,7 @@ public sealed partial class GameWorld
                 && Constructions.Count(c => c.Race == site.Race && c.Complete && c.Weapons.Any(w => w.Spec.TypeName == "NUCLEAR_MISSILE")) == 1)
                 WarnOfSuperweapon(site.Race, "VID_POD_ENEMY_NUKE_ONLINE");
             machine.Order = Order.Idle;
+            SendVoiceMail(machine.Race, "VID_DOZER_AWAITING_NEW_JOB");
         }
     }
 
@@ -424,6 +425,7 @@ public sealed partial class GameWorld
             || Options.OriginalCapture && (mine.Race != carrier.Race || smelter.Race != carrier.Race))
         {
             carrier.Order = Order.Idle;
+            ReportRouteLost(carrier);
             return;
         }
 
@@ -598,7 +600,10 @@ public sealed partial class GameWorld
             return;
         }
         if (next < 0 && !FollowPath(locator))
+        {
             locator.Order = Order.Idle;
+            SendVoiceMail(locator.Race, "VID_GEO_SEARCH_COMPLETE");
+        }
     }
 
     private void DiscoverSite(MineralSiteState site, Machine locator)

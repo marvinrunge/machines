@@ -29,7 +29,7 @@ public static class ClassicImport
     /// support weapons' and loading effects' meshes, and each planet's artefacts (trees, rocks, ruins), 7 the silo's
     /// plans for opening and closing.
     /// </summary>
-    public const int Format = 7;
+    public const int Format = 8;
 
     private static string FormatFile => Path.Combine(Paths.Classic, "format.txt");
 

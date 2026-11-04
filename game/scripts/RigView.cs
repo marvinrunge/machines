@@ -63,8 +63,28 @@ public partial class RigView : Node3D
         if (view._interior > 0)
             view._nodes[view._interior].Visible = false;
         view.OwnGlow();
+        view.OwnScreens();
+        view.IonTop = false;
         return view;
     }
+
+    /// <summary>A pod with the ion cannon wears its other top (MachPhysPod::ionCannonResearched).</summary>
+    public bool IonTop
+    {
+        set
+        {
+            if (Find("ion_top") is var ion and > 0 && Find("top") is var top and > 0 && _nodes[ion].GetNodeOrNull("Mesh") is not null)
+            {
+                _nodes[ion].Visible = value;
+                _nodes[top].Visible = !value;
+            }
+        }
+    }
+
+    /// <summary>A geo locator searching plays its locating cycle over the walk.</summary>
+    public bool Locating { get; set; }
+
+    private float _locateTime;
 
     private int _interior = -1;
 
@@ -91,9 +111,33 @@ public partial class RigView : Node3D
 
     private OmniLight3D? _interiorLight;
 
-    /// <summary>With the sun kept out the interior has a lamp of its own, under the roof in its middle.</summary>
+    // The interior's lamps from its model.
+    private readonly List<OmniLight3D> _lamps = [];
+
+    /// <summary>With the sun kept out the interior has the lamps its model names (W4dLightData), or one of its own under the roof in its middle.</summary>
     private void LightInterior(bool on)
     {
+        if (_rig.Lights.Length > 0)
+        {
+            if (on && _lamps.Count == 0)
+                foreach (var light in _rig.Lights)
+                {
+                    // The original's colours go up to 3, for vertex lighting that stops at white.
+                    var strength = Mathf.Max(light.Colour.R, Mathf.Max(light.Colour.G, light.Colour.B));
+                    var lamp = new OmniLight3D
+                    {
+                        Position = light.Position,
+                        LightColor = light.Colour / strength,
+                        OmniRange = light.Range,
+                        LightEnergy = Mathf.Sqrt(strength) * (GraphicsSettings.Lighting ? 1 : 0.3f),
+                    };
+                    _nodes[_interior].AddChild(lamp);
+                    _lamps.Add(lamp);
+                }
+            foreach (var lamp in _lamps)
+                lamp.Visible = on;
+            return;
+        }
         if (_interiorLight is null && _nodes[_interior].GetNodeOrNull<MeshInstance3D>("Mesh") is { } mesh)
         {
             var bounds = mesh.GetAabb();
@@ -216,6 +260,80 @@ public partial class RigView : Node3D
                     _glow.Add((own, own.AlbedoColor));
                 }
             }
+        }
+    }
+
+    // A lab's screens and its neon strips, with when each strip starts.
+    private readonly List<StandardMaterial3D> _screens = [];
+    private readonly List<(StandardMaterial3D Material, float Start)> _neons = [];
+    private bool _screensOn;
+    private const string ScreenTexture = "scrn1.bmp";
+    private const float ScreenScroll = 0.1f, NeonPeriod = 0.2f, NeonStagger = 0.25f;
+
+    private void OwnScreens()
+    {
+        foreach (var node in _nodes)
+        {
+            if (node.GetNodeOrNull<MeshInstance3D>("Mesh") is not { Mesh: { } mesh } instance)
+                continue;
+            var name = _rig.Nodes[Array.IndexOf(_nodes, node)].Name;
+            var neon = name.StartsWith("neon", StringComparison.OrdinalIgnoreCase) && int.TryParse(name[4..], out var n) ? n : 0;
+            for (var s = 0; s < mesh.GetSurfaceCount(); s++)
+            {
+                if (mesh.SurfaceGetMaterial(s) is not StandardMaterial3D shared)
+                    continue;
+                var screen = shared.GetMeta("texture", "").AsString().Equals(ScreenTexture, StringComparison.OrdinalIgnoreCase);
+                if (!screen && neon == 0)
+                    continue;
+                var own = (StandardMaterial3D)shared.Duplicate();
+                instance.SetSurfaceOverrideMaterial(s, own);
+                if (screen)
+                {
+                    _screens.Add(own);
+                    // Under the remake's lights a screen would be dull metal: it shines by itself.
+                    if (GraphicsSettings.Lighting)
+                        own.ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded;
+                }
+                else
+                    _neons.Add((own, (neon - 1) * NeonStagger));
+            }
+        }
+    }
+
+    /// <summary>What a lab's screens show at rest (STATIC.BMP in MachPhysHardwareLab::doWorking).</summary>
+    public Texture2D? RestingScreen
+    {
+        set
+        {
+            _restingScreen = value;
+            _workingScreen = _screens.FirstOrDefault()?.AlbedoTexture;
+            foreach (var screen in _screens)
+                screen.AlbedoTexture = value;
+        }
+    }
+
+    private Texture2D? _restingScreen, _workingScreen;
+
+    /// <summary>
+    /// While a lab works its screens run (MachPhysHardwareLab::doWorking: 0.1 of the picture a second) and its neon
+    /// strips pulse from black to white, each a quarter of a second after the last; at rest they stand still.
+    /// </summary>
+    private void ShowScreens(bool working, float time)
+    {
+        if (_screens.Count + _neons.Count == 0 || !working && !_screensOn)
+            return;
+        _screensOn = working;
+        foreach (var screen in _screens)
+        {
+            screen.Uv1Offset = working ? new Vector3(time * ScreenScroll % 1, 0, 0) : Vector3.Zero;
+            if (_restingScreen is not null)
+                screen.AlbedoTexture = working ? _workingScreen : _restingScreen;
+        }
+        foreach (var (neon, start) in _neons)
+        {
+            neon.EmissionEnabled = working;
+            neon.Emission = Colors.White;
+            neon.EmissionEnergyMultiplier = time < start ? 0 : 0.5f - 0.5f * Mathf.Cos(Mathf.Tau * (time - start) / NeonPeriod);
         }
     }
 
@@ -535,6 +653,7 @@ public partial class RigView : Node3D
                     _nodes[work.Track.Node].Transform = work.Track.At(_workTime % work.Duration / work.Duration);
         }
         Glow(Working, _workTime);
+        ShowScreens(Working, _workTime);
 
         if (_rig.Animations.Count > 0)
         {
@@ -562,6 +681,14 @@ public partial class RigView : Node3D
                     if (track.Node < _nodes.Length)
                         _nodes[track.Node].Transform = track.At(_phase);
             }
+        }
+
+        if (Locating && _rig.Animations.TryGetValue("locate", out var locate) && locate.Duration > 0)
+        {
+            _locateTime = (_locateTime + delta) % locate.Duration;
+            foreach (var track in locate.Tracks)
+                if (track.Node < _nodes.Length)
+                    _nodes[track.Node].Transform = track.At(_locateTime / locate.Duration);
         }
 
         if (_action is { } action)
@@ -598,6 +725,69 @@ public partial class RigView : Node3D
             _upperBody += step;
             // The original turns about its vertical z axis; with the axis swap that is Godot's y, reversed.
             _nodes[_rig.UpperBody].Transform = (_head ?? _rig.Nodes[_rig.UpperBody].Rest) * new Transform3D(new Basis(Vector3.Up, -_upperBody), Vector3.Zero);
+        }
+        MoveShake(delta);
+    }
+
+    // The positions a shake goes through and how far along it is.
+    private readonly List<(int Node, Quaternion[] Keys)> _shaking = [];
+    private float _shakeTime;
+    private const float ShakeTime = 0.5f, ShakeDamp = 0.8f, ShakeAngle = 45;
+    private const int ShakeKeys = 4;
+
+    /// <summary>
+    /// A hit shakes up to two of the head, neck and body for half a second, in positions of ever less angle that swing
+    /// to and fro (MachPhysMachine::shake). A part that has its own motion keeps it, as does one shaken already.
+    /// </summary>
+    public void Shake()
+    {
+        if (_shaking.Count > 0)
+            return;
+        var moved = _rig.Animations.TryGetValue(_cycle, out var cycle) ? cycle.Tracks.Select(t => t.Node).ToHashSet() : [];
+        var random = Random.Shared;
+        foreach (var part in new[] { "head", "neck", "body" }.Select(Find).Where(i => i > 0 && i < _nodes.Length).Take(2))
+        {
+            if (moved.Contains(part))
+                continue;
+            var keys = new Quaternion[ShakeKeys + 1];
+            var (angle, sign) = (ShakeAngle * ShakeDamp, 1f);
+            for (var k = 0; k < ShakeKeys; k++)
+            {
+                // The angle shared out at random over the three axes.
+                var x = random.NextSingle();
+                var y = random.NextSingle() * (1 - x);
+                var z = random.NextSingle() * (1 - x - y);
+                keys[k] = Quaternion.FromEuler(new Vector3(x, -z, y) * Mathf.DegToRad(angle) * sign);
+                sign = -sign;
+                angle *= ShakeDamp;
+            }
+            keys[ShakeKeys] = Quaternion.Identity;
+            _shaking.Add((part, keys));
+        }
+        _shakeTime = 0;
+    }
+
+    private void MoveShake(float delta)
+    {
+        if (_shaking.Count == 0)
+            return;
+        _shakeTime += delta;
+        var at = Mathf.Min(_shakeTime / ShakeTime, 1) * (ShakeKeys + 1);
+        var (key, between) = ((int)at, at - (int)at);
+        foreach (var (node, keys) in _shaking)
+        {
+            var from = key == 0 ? Quaternion.Identity : keys[Math.Min(key, ShakeKeys) - 1];
+            var turn = from.Slerp(keys[Math.Min(key, ShakeKeys)], between);
+            // The upper body is set every frame from where it aims, the others stand at rest.
+            var stands = node == _rig.UpperBody ? _nodes[node].Transform : _rig.Nodes[node].Rest;
+            _nodes[node].Transform = stands * new Transform3D(new Basis(turn), Vector3.Zero);
+        }
+        if (_shakeTime >= ShakeTime)
+        {
+            foreach (var (node, _) in _shaking)
+                if (node != _rig.UpperBody)
+                    _nodes[node].Transform = _rig.Nodes[node].Rest;
+            _shaking.Clear();
         }
     }
 

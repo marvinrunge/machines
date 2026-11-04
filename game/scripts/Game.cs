@@ -55,6 +55,9 @@ public partial class Game : Node3D
                 hologram.Name = $"Ore{site.Id}";
                 AddChild(hologram);
                 _holograms[site.Id] = hologram;
+                var hum = _audio.Loop("Hum");
+                hologram.AddChild(hum.Player);
+                hum.Play("SID_OREHOLO");
             }
             else if (!shown && _holograms.Remove(site.Id, out var gone))
             {
@@ -63,7 +66,7 @@ public partial class Game : Node3D
         }
     }
     // The wreckage on the ground, by wreck, with its fire.
-    private readonly Dictionary<int, (Node3D View, GpuParticles3D Fire)> _debris = [];
+    private readonly Dictionary<int, (Node3D View, GpuParticles3D Fire, GameAudio.LoopSound Crackle)> _debris = [];
 
     /// <summary>
     /// Wreckage shows as a heap of dark scrap over the ground it covers, as the original's debris units lay, on fire
@@ -111,9 +114,13 @@ public partial class Game : Node3D
             smoke.Position = middle + Vector3.Up;
             heap.AddChild(smoke);
             AddChild(heap);
-            _debris[wreck.Id] = (heap, fire);
+            var crackle = _audio.Loop("Crackle");
+            fire.AddChild(crackle.Player);
+            if (fire.Emitting)
+                crackle.Play("SID_FIRE");
+            _debris[wreck.Id] = (heap, fire, crackle);
         }
-        foreach (var (id, (view, fire)) in _debris.ToList())
+        foreach (var (id, (view, fire, crackle)) in _debris.ToList())
         {
             if (World.FindDebris(id) is not { } wreck)
             {
@@ -123,6 +130,7 @@ public partial class Game : Node3D
             else if (fire.Emitting && World.Time - wreck.CreatedAt >= GameWorld.DebrisBurnTime)
             {
                 fire.Emitting = false;
+                crackle.Play(null);
             }
         }
     }
@@ -176,7 +184,7 @@ public partial class Game : Node3D
         var (from, direction) = (camera.ProjectRayOrigin(screen), camera.ProjectRayNormal(screen));
         var nearest = HeightField.Current?.Hit(from, direction) is { } ground ? from.DistanceTo(ground) + 1 : camera.Far;
         DebrisState? best = null;
-        foreach (var (id, (view, _)) in _debris)
+        foreach (var (id, (view, _, _)) in _debris)
         {
             if (ActorView.PartsHit(view, from, direction) is { } distance && distance < nearest)
             {
@@ -269,7 +277,54 @@ public partial class Game : Node3D
             return;
         Issue(ThroughCommander(command));
         if (!Watching)
+        {
             _audio.PlayGui("gui/sounds/taskmach.wav");
+            Answer(command);
+        }
+    }
+
+    /// <summary>The first of the machines given an order answers as its command in the original did (machgui's cmd*.cpp).</summary>
+    private void Answer(Command command)
+    {
+        void First(IEnumerable<int> ids, string report)
+        {
+            if (ids.Select(World.Find<Machine>).OfType<Machine>().FirstOrDefault() is { } first && SoundTable.VoiceOf(first) is { } voice)
+                _audio.Say($"VID_{voice}_{report}");
+        }
+        void Plain(IReadOnlyList<int> ids, string mail)
+        {
+            if (ids.Count > 0)
+                _audio.Say(mail);
+        }
+        switch (command)
+        {
+            case MoveCommand c: First(c.Machines, "MOVING"); break;
+            case AttackMoveCommand c: First(c.Machines, "MOVING"); break;
+            case AttackCommand c: First(c.Machines, "TARGET_ENEMY"); break;
+            case HealCommand c: First(c.Machines, "HEAL_TARGET"); break;
+            case PatrolCommand c: First(c.Machines, "TASKED"); break;
+            case StandGroundCommand c: First(c.Machines, "TASKED"); break;
+            case RefillLandMinesCommand c: First(c.Spies, "TASKED"); break;
+            case RecycleCommand c: First(c.Machines, "RECYCLE"); break;
+            case SelfDestructCommand c: First(c.Actors, "SELF_DESTRUCT"); break;
+            case ConstructCommand c: Plain(c.Constructors, "VID_DOZER_MOVE_TO_SITE"); break;
+            case RepairCommand c: Plain(c.Constructors, "VID_DOZER_MOVE_TO_SITE"); break;
+            case CaptureCommand c: Plain(c.Constructors, "VID_DOZER_MOVE_TO_SITE"); break;
+            case DeconstructCommand c: Plain(c.Constructors, "VID_DOZER_MOVE_TO_SITE"); break;
+            case LocateCommand c: Plain(c.Locators, "VID_GEO_LOCATING"); break;
+            case DropLandMinesCommand c: Plain(c.Spies, "VID_SPY_TASKED_LAY_MINE"); break;
+            case DeployCommand c: Plain(c.Apcs, "VID_APC_MOVING_TO_DEPLOY_POINT"); break;
+            case ScavengeCommand c: Plain(c.Scavengers, "VID_RESOURCE_CARRIER_SCAVENGING"); break;
+            case EnterLabCommand c when c.Technicians.Select(World.Find<Machine>).Any(m => m?.IsSpy == true):
+                Plain(c.Technicians, "VID_SPY_TASKED_INFLITRATE");
+                break;
+            case EnterLabCommand c: First(c.Technicians, "MOVING"); break;
+            // A carrier already on a route only says it heard (MachGuiTransportCommand::doApply).
+            case TransportCommand c when c.Carriers.Select(World.Find<Machine>).FirstOrDefault()?.Order is TransportOrder:
+                First(c.Carriers, "TASKED");
+                break;
+            case TransportCommand c: Plain(c.Carriers, "VID_RESOURCE_CARRIER_TRANSPORTING"); break;
+        }
     }
 
     /// <summary>
@@ -360,7 +415,8 @@ public partial class Game : Node3D
         AddChild(_effects);
         _support = SupportEffects.Create(_assets);
         AddChild(_support);
-        _projectiles = ProjectileViews.Create(World, _assets, id => _views.GetValueOrDefault(id), _effects);
+        _audio = GameAudio.Create(_assets.GameFolder);
+        _projectiles = ProjectileViews.Create(World, _assets, id => _views.GetValueOrDefault(id), _effects, _audio);
         AddChild(_projectiles);
 
         _rig = new CameraRig { Name = "CameraRig" };
@@ -373,7 +429,6 @@ public partial class Game : Node3D
         _firstPersonCamera = new Camera3D { Far = 3000, Near = 0.1f, Fov = 70, Name = "FirstPersonCamera", CullMask = ~ActorView.DrivenLayer & 0xFFFFF };
         AddChild(_firstPersonCamera);
 
-        _audio = GameAudio.Create(_assets.GameFolder);
         AddChild(_audio);
         // A film gets its music afterwards (tools/cinematic/render.sh).
         if (Cinematic.Asked is null)
@@ -854,6 +909,11 @@ public partial class Game : Node3D
     private int _framesKept;
     private bool _moveSent;
 
+    private bool _viewsSynced;
+
+    // The machines in an APC, which teleport out when they leave it.
+    private readonly HashSet<int> _aboard = [];
+
     private void SyncViews()
     {
         foreach (var actor in World.Actors)
@@ -873,6 +933,10 @@ public partial class Game : Node3D
                 view = ActorView.Create(actor, _assets, _audio);
                 _views[actor.Id] = view;
                 AddChild(view);
+                view.SplatMesh = _assets.EffectMesh("groundsplat");
+                // A machine new to the world, from a factory or as reinforcements, teleports in.
+                if (_viewsSynced && turned is null && actor is Machine)
+                    view.TeleportIn();
                 // A machine turned traitor flickers between its old and new colours.
                 if (turned is { } old && actor is Machine)
                     view.Defect(old, actor, _assets);
@@ -905,11 +969,22 @@ public partial class Game : Node3D
                     _lastMark[rolling.Id] = here;
                 }
             }
+            if (actor is Machine { Inside: null } && _aboard.Remove(actor.Id))
+                view.TeleportIn();
+            // A geo locator scans the ground as it goes.
+            if (actor is Machine { Spec.Type: "GEO_LOCATOR" } locator)
+                view.Scan(locator.Order is LocateOrder ? _assets.EffectMesh("locator") : null, locator.Stats.ScannerRange);
             // A transporter loading or unloading ore glows with rings of light (MachPhysResourceCarrier::doLoading).
             if (actor is Machine carrier)
             {
                 if (_oreCarried.TryGetValue(carrier.Id, out var carried) && carried != carrier.Ore)
-                    _support.Loading(view);
+                {
+                    if (carrier.IsScavenger)
+                        _support.Scavenge(view);
+                    else
+                        _support.Loading(view);
+                    _audio.Play("SID_RESOURCE_PICKUP", view.Centre);
+                }
                 _oreCarried[carrier.Id] = carrier.Ore;
             }
             // Constructors at work reach out to the building with beams and sparks.
@@ -923,13 +998,19 @@ public partial class Game : Node3D
             if (actor is Construction building)
             {
                 view.Working = World.IsWorking(building);
+                view.IonTop = building.Weapons.Any(w => w.Spec.TypeName == "ION_ORBITAL_CANNON");
+                view.Hum = building.Complete ? SoundTable.BuildingSound(building.Spec.Type, building.Spec.SubType, building.Stats.HardwareLevel, World.IsWorking(building)) : null;
                 if (view.Dome(building.DomeRaised))
                     _audio.Play(building.DomeRaised ? "SID_MISSDOMEOPEN" : "SID_MISSDOMECLOSE", ActorView.World(building.Position));
                 // The doors open for its own machines going through or waiting before them.
-                view.DoorsOpen = building.EntranceOutside is { } door && World.Machines.Any(m => (m.Inside is null || m.DrivenByPlayer)
+                var doorsOpen = building.EntranceOutside is { } door && World.Machines.Any(m => (m.Inside is null || m.DrivenByPlayer)
                     && (m.Doorway == building.Id || m.Race == building.Race && NVector2.DistanceSquared(m.Position, door) < 10 * 10));
+                if (doorsOpen != view.DoorsOpen)
+                    _audio.Play("SID_DOOR", ActorView.World(building.EntranceOutside ?? building.Position));
+                view.DoorsOpen = doorsOpen;
             }
         }
+        _viewsSynced = true;
         SyncOreHolograms();
         SyncDebris();
         SyncLandMines();
@@ -962,6 +1043,8 @@ public partial class Game : Node3D
                     {
                         if (_views.TryGetValue(e.Actor, out var puncher))
                             puncher.Punch();
+                        if (World.Find(e.Actor)?.Race == Player)
+                            _audio.Say("VID_NINJA_SMASH");
                     }
                     // Flying rounds are drawn in flight (ProjectileViews); the others streak to their mark. Both
                     // flash at the weapon's muzzle.
@@ -994,13 +1077,21 @@ public partial class Game : Node3D
                         var weapon = World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail);
                         Shot(weapon is null ? at : MuzzleOf(e.Actor, weapon) ?? at, ActorView.World(victim.Position) + Vector3.Up * 1.5f, e.Detail ?? "");
                     }
-                    _audio.Play(SoundTable.FiringSound(e.Detail ?? ""), at);
+                    // The commander's launcher has a sound of its own (MachPhysMultiLauncher::newMissile).
+                    _audio.Play(e.Detail == "MULTI_LAUNCHER5" && World.Find<Machine>(e.Actor)?.IsType("ADMINISTRATOR", "COMMANDER") == true
+                        ? "SID_MLAUNCH8" : SoundTable.FiringSound(e.Detail ?? ""), at);
                     break;
                 case GameEventKind.Hit when e.Detail is { } weapon:
                     // A flamethrower sets the machine it hits alight.
                     if (weapon.StartsWith("FLAME_THROWER", StringComparison.Ordinal) && World.Find<Machine>(e.Actor) is not null
                         && _views.TryGetValue(e.Actor, out var burning))
+                    {
                         _support.Burn(burning);
+                        burning.Crackle(15);
+                    }
+                    // Bolts, plasma and lightning shake the machine they hit.
+                    if (SoundTable.ShakesMachine(weapon) && World.Find<Machine>(e.Actor) is not null && _views.TryGetValue(e.Actor, out var shaken))
+                        shaken.Shake();
                     // The machine being driven, hit, now and then crackles in the driver's ears (one hit in twenty).
                     if (e.Actor == _driven?.Id && Random.Shared.Next(20) == 0)
                         _audio.PlayGui("gui/sounds/machhit.wav");
@@ -1032,6 +1123,8 @@ public partial class Game : Node3D
                     (vaporised ? _vaporised : _destroyed).Add(e.Actor);
                     if (!vaporised)
                         _effects.Destroyed(at - Vector3.Up * 2, _views.GetValueOrDefault(e.Actor));
+                    if (e.Detail == "SELF_DESTRUCT" && _views.TryGetValue(e.Actor, out var charged) && !charged.IsBuilding)
+                        _audio.Play("SID_MACHINE_SELF_DESTRUCT", at);
                     if (_views.TryGetValue(e.Actor, out var dead))
                     {
                         if (!vaporised)
@@ -1039,14 +1132,14 @@ public partial class Game : Node3D
                         // A big building blowing up shakes the earth for two seconds (MachPhysObjectExplosion).
                         if (dead.Quake is { } degrees && !vaporised)
                             CameraRig.Shake(at, degrees, 2);
-                        if (dead.Race == Player)
-                            _audio.Say(dead.Voice is { } voice ? $"VID_{voice}_DESTROYED" : "VID_POD_BUILDING_DESTROYED");
+                        if (dead.Race == Player && dead.Voice is { } voice)
+                            _audio.Say($"VID_{voice}_DESTROYED");
                     }
                     break;
                 case GameEventKind.MachineBuilt when World.Find<Machine>(e.Actor) is { } built && built.Race == Player:
                     _hud.Message(Lang.T("Machine ready: {0}", e.Detail));
-                    if (SoundTable.VoiceOf(built) is { } builtVoice)
-                        _audio.Say($"VID_{builtVoice}_BUILT");
+                    if (SoundTable.BuiltReport(built) is { } builtReport)
+                        _audio.Say(builtReport);
                     break;
                 case GameEventKind.ConstructionComplete when World.Find(e.Actor)?.Race == Player:
                     _hud.Message(Lang.T("Construction complete: {0}", e.Detail));
@@ -1056,8 +1149,12 @@ public partial class Game : Node3D
                     _hud.Message(Lang.T("Research complete: {0}", e.Detail));
                     _audio.Say("VID_TECHNICIAN_RESEARCH_COMPLETE");
                     break;
-                case GameEventKind.Boarded when World.Find(e.Actor)?.Race == Player:
-                    _audio.Say("VID_APC_UNIT_BOARDED");
+                case GameEventKind.Boarded:
+                    _aboard.Add(e.Actor);
+                    _views.GetValueOrDefault(e.Actor)?.TeleportOut();
+                    _audio.Play("SID_ENTERED_APC", at);
+                    if (World.Find(e.Actor)?.Race == Player)
+                        _audio.Say("VID_APC_UNIT_BOARDED");
                     break;
                 case GameEventKind.Deployed when World.Find(e.Actor)?.Race == Player:
                     _hud.Message(Lang.T("APC deployed {0} machines", e.Detail));
@@ -1094,10 +1191,13 @@ public partial class Game : Node3D
                     CameraRig.Shake(blast, 4, 0.4f);
                     break;
                 }
-                // A scavenger loads the wreck with the carriers' rings of light (MachLogScavengeOperation's doLoading).
+                // A scavenger gathers the wreck (MachLogResourceCarrier::doLoading).
                 case GameEventKind.Scavenged:
                     if (_views.TryGetValue(e.Actor, out var scavenger))
-                        _support.Loading(scavenger);
+                    {
+                        _support.Scavenge(scavenger);
+                        _audio.Play("SID_RESOURCE_PICKUP", at);
+                    }
                     break;
                 case GameEventKind.SiteDiscovered when e.Detail == Player.ToString():
                     _hud.Message("Mineral site found");
@@ -2202,7 +2302,14 @@ public partial class Game : Node3D
             _hud.Message(why);
             return;
         }
+        // Nothing can be started on less than 5 BMUs (MachGuiConstructCommand::doApply).
+        if (World.Races[Player].Bmu < 5)
+        {
+            _audio.Say("VID_POD_INSUFFICIENT_BMUS");
+            return;
+        }
         Issue(new PlaceConstructionCommand(Player, constructors, p.Type, p.SubType, p.Level, ground, _placingOrientation));
+        _audio.Say("VID_DOZER_MOVE_TO_SITE");
         // With Shift held more sites follow, each with the waypoint click; the last one sets the constructors to
         // work with the command's own click (MachGuiConstructCommand, MachGuiCommand::apply).
         if (Input.IsKeyPressed(Key.Shift))
