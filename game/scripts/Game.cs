@@ -214,6 +214,7 @@ public partial class Game : Node3D
 
     // Actors destroyed this tick, whose views are blown apart rather than removed.
     private readonly HashSet<int> _destroyed = [];
+    private readonly HashSet<int> _vaporised = [];
     private GameAudio _audio = null!;
 
     // Drag selection
@@ -938,6 +939,8 @@ public partial class Game : Node3D
             // A destroyed machine flies apart, a building swells and bursts; anything else just goes.
             if (_destroyed.Remove(id))
                 _views[id].BlowUp(_effects, _assets);
+            else if (_vaporised.Remove(id))
+                _views[id].Vaporise();
             _views[id].QueueFree();
             _views.Remove(id);
             _selection.Remove(id);
@@ -1020,14 +1023,21 @@ public partial class Game : Node3D
                         standing.QueueFree();
                     }
                     break;
+                case GameEventKind.Recycled:
+                    _vaporised.Add(e.Actor);
+                    _audio.Play("SID_RECYCLE", at);
+                    break;
                 case GameEventKind.Destroyed:
-                    _destroyed.Add(e.Actor);
-                    _effects.Destroyed(at - Vector3.Up * 2, _views.GetValueOrDefault(e.Actor));
+                    var vaporised = e.Detail == "ION_ORBITAL_CANNON";
+                    (vaporised ? _vaporised : _destroyed).Add(e.Actor);
+                    if (!vaporised)
+                        _effects.Destroyed(at - Vector3.Up * 2, _views.GetValueOrDefault(e.Actor));
                     if (_views.TryGetValue(e.Actor, out var dead))
                     {
-                        _audio.Play(SoundTable.ExplosionSound(dead.IsBuilding, dead.Size, Random.Shared.Next(1, 7)), at);
+                        if (!vaporised)
+                            _audio.Play(SoundTable.ExplosionSound(dead.IsBuilding, dead.Size, Random.Shared.Next(1, 7)), at);
                         // A big building blowing up shakes the earth for two seconds (MachPhysObjectExplosion).
-                        if (dead.Quake is { } degrees)
+                        if (dead.Quake is { } degrees && !vaporised)
                             CameraRig.Shake(at, degrees, 2);
                         if (dead.Race == Player)
                             _audio.Say(dead.Voice is { } voice ? $"VID_{voice}_DESTROYED" : "VID_POD_BUILDING_DESTROYED");

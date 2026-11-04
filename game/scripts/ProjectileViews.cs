@@ -83,6 +83,8 @@ public partial class ProjectileViews : Node3D
             var (height, slope) = _climb[projectile.Id];
             var sideways = shown.Muzzle with { Y = 0 };
             Place(shown.View, _line[projectile.Id], projectile, sideways * Mathf.Clamp(1 - travelled / Converge, 0, 1), height + slope * travelled, slope);
+            if (shown.View is MeshInstance3D { Mesh: { } round })
+                TextureMotion.Show(round, _world.Time);
         }
 
         foreach (var id in _shown.Keys.Where(id => !live.Contains(id)).ToList())

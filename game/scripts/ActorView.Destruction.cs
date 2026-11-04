@@ -52,6 +52,13 @@ public partial class ActorView
             Blowup.Machine(this, _model as Node3D, assets, effects);
     }
 
+    /// <summary>The actor was destroyed by the ion beam or recycled, and its view goes: see <see cref="Blowup.Vaporise"/>.</summary>
+    public void Vaporise()
+    {
+        if (_model is Node3D model && GetParent() is { } parent)
+            Blowup.Vaporise(this, model, parent);
+    }
+
     /// <summary>
     /// The machine has just turned from <paramref name="from"/> to its actor's side: for two seconds it flickers
     /// between the two sides' colours, five times (MachPhysTreacheryWeapon::traitorAnimation).

@@ -183,12 +183,19 @@ public partial class GroundBlast
         return view;
     }
 
+    /// <summary>How the column's strength steps from frame to frame, after the shell's four textures.</summary>
+    private static readonly float[] IonFlicker = [1, 0.7f, 0.9f, 0.55f];
+
+    private const int IonRipples = 3;
+    private const float IonRippleTime = 1.5f;
+
     /// <summary>
-    /// The ion cannon over the original's timing: for 6 s a column of light with a white-hot core comes down from
-    /// 300 m, widening from nothing to its radius (EXTRAS, 30 m), energy running down it, the ground under it glowing
-    /// and sparks flying up round its foot; then the column draws in to a thread within a quarter second, a ring of
-    /// light runs out over the ground to the radius and back, a thread of light shoots up, and the ring of burning
-    /// cracks opens as the original's.
+    /// The ion cannon over the original's timing: for 6 s a flickering column of light with a white-hot core comes
+    /// down from 300 m, widening from nothing to its radius (EXTRAS, 30 m), energy running down it, the ground under
+    /// it glowing and sparks flying up round its foot, the original's wave and flare spreading from it
+    /// (<see cref="IonWave"/>) with rings of light running out to the wave; then the column draws in to a thread
+    /// within a quarter second, a ring of light runs out over the ground to the radius and back, a thread of light
+    /// shoots up, and the ring of burning cracks opens as the original's.
     /// </summary>
     private static GroundBlast RemadeIonCannon(ClassicAssets assets, Blast blast, IReadOnlyList<float> extras)
     {
@@ -236,20 +243,35 @@ public partial class GroundBlast
             ColorRamp = Effects.Ramp(new Color(2, 2.4f, 3), colour * 2, colour with { A = 0 }),
         };
         var sparks = view.Emitter(FxShaders.SparkQuad.Value, sparkLook, 80, 0.9f, at, 120);
+        view.IonWave(assets, at, radius, expansion, shrink, assets.EffectMesh("ionouter")?.SurfaceGetMaterial(0) as StandardMaterial3D ?? new StandardMaterial3D());
+        var ripples = Enumerable.Range(0, IonRipples).Select(_ => view.Glowing(new PlaneMesh { Size = Vector2.One * 2 }, Effects.Ring)).ToList();
 
         view._parts.Add(age =>
         {
             var width = Mathf.Lerp(0.01f, radius, Mathf.Clamp(age / expansion, 0, 1));
             var charging = age < expansion;
+            // The original's four textures flicker the shell a frame each; here its energy does.
+            var flicker = IonFlicker[(int)(age * 25) % IonFlicker.Length];
             core.Visible = charging;
+            core.SetInstanceShaderParameter("energy", 3 * flicker);
             core.SetInstanceShaderParameter("thickness", Mathf.Max(width * 0.6f, 0.3f));
             var drawn = Mathf.Clamp((age - expansion) / shrink, 0, 1);
             shell.Visible = age < expansion + shrink;
             shell.SetInstanceShaderParameter("thickness", Mathf.Lerp(width * 2, 0.5f, drawn));
-            shell.SetInstanceShaderParameter("energy", Mathf.Lerp(1.2f, 4, drawn));
+            shell.SetInstanceShaderParameter("energy", Mathf.Lerp(1.2f * flicker, 4, drawn));
             pool.Visible = charging;
             pool.Transform = new Transform3D(Basis.FromScale(new Vector3(width * 1.4f, 1, width * 1.4f)), at + Vector3.Up * 0.3f);
-            poolLook.AlbedoColor = colour with { A = 0.6f + 0.2f * Mathf.Sin(age * 31) };
+            poolLook.AlbedoColor = colour with { A = 0.7f * flicker };
+            // Rings of light run out to the wave one after another, dying as they reach it.
+            for (var i = 0; i < ripples.Count; i++)
+            {
+                var (ripple, rippleLook) = ripples[i];
+                var run = age / IonRippleTime - (float)i / ripples.Count;
+                ripple.Visible = charging && run >= 0;
+                run = Mathf.PosMod(run, 1);
+                ripple.Transform = new Transform3D(Basis.FromScale(new Vector3(3.35f * width * run, 1, 3.35f * width * run)), at + Vector3.Up * 0.6f);
+                rippleLook.AlbedoColor = new Color(0.8f, 1, 1.4f, (1 - run) * flicker);
+            }
             sparks.Emitting = charging && age > 0.3f;
             sparkLook.EmissionRingRadius = Mathf.Max(width, 0.5f);
 
@@ -265,7 +287,9 @@ public partial class GroundBlast
             return age < expansion + 3 * shrink + sparks.Lifetime;
         });
 
-        view.Flash(at + Vector3.Up * Extra(9, 2) * 30, new Color(Extra(1, 1.3f), Extra(2, 1.2f), Extra(3, 0.8f)), 3, radius * 4, 0, expansion);
+        // Twice the original's flicker, to go with the column's.
+        view.Flash(at + Vector3.Up * Extra(9, 2) * 30, new Color(Extra(1, 1.3f), Extra(2, 1.2f), Extra(3, 0.8f)), 3, radius * 4, 0, expansion + 0.3f,
+            age => IonLight(age, expansion, Extra(5, 0.3f), Extra(6, 1.5f), Extra(7, 7), Extra(8, 0.5f) * 2));
         view.Flash(at + Vector3.Up * 20, new Color(1.5f, 0.78f, 0), 4, radius * 4, expansion - 0.2f, 0.1f);
         if (assets.EffectMesh("punchcrack") is { } crack && assets.EffectMesh("punchfire") is { } fire)
         {

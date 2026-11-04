@@ -38,6 +38,9 @@ public abstract class Actor
 
     public bool IsDead => HitPoints <= 0;
 
+    /// <summary>Destroyed by the ion beam itself: it goes up in a white glow, with no explosion.</summary>
+    public bool Vaporised { get; set; }
+
     /// <summary>Distance from the centre at which the actor's body ends; used for ranges and spacing.</summary>
     public abstract float Radius { get; }
 

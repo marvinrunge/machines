@@ -316,7 +316,7 @@ public sealed partial class GameWorld
             if (Options.OriginalBank && actor is Construction store)
                 LoseStores(store);
             _actors.Remove(actor.Id);
-            Raise(new GameEvent(GameEventKind.Destroyed, actor.Id, actor.Position));
+            Raise(new GameEvent(GameEventKind.Destroyed, actor.Id, actor.Position, Detail: actor.Vaporised ? "ION_ORBITAL_CANNON" : null));
             DropDebris(actor);
             if (actor.LastHitBy is { } killer && killer != actor.Race && Races.TryGetValue(killer, out var gaining)
                 && Races.TryGetValue(actor.Race, out var losing))

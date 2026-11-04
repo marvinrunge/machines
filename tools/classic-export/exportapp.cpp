@@ -10,6 +10,11 @@
  */
 #include "exportapp.hpp"
 #include "afx/castfns.hpp"
+#include "world4d/internal/entityi.hpp"
+#include "world4d/internal/multitex.hpp"
+#include "world4d/internal/texdata.hpp"
+#include "world4d/internal/uvdata.hpp"
+#include "world4d/internal/animdata.hpp"
 
 #include <cstdio>
 #include <fstream>
@@ -253,13 +258,57 @@ public:
         return result;
     }
 
-    void write(const std::string& path, const std::string& id) const
+    void write(const std::string& path, const std::string& id, const W4dEntity* animated = NULL) const
     {
         std::ofstream out(path.c_str());
         out << std::setprecision(6);
         out << "{\"id\":\"" << id << "\",";
         writeParts(out);
+        if (animated != NULL)
+            writeMotions(out, animated->entityImpl());
         out << "}\n";
+    }
+
+    // ,"motions":[...] — the original's texture animations (ANIMATION_DATA in the .cdf) on the textures written here:
+    // each key texture with the speed it runs over the mesh (UV_TRANSLATE) or the frames it cycles through, each for
+    // so many rendered frames (CYCLE_TEXTURE).
+    void writeMotions(std::ostream& out, const W4dEntityImpl& impl) const
+    {
+        if (impl.pAnimationDataPtrs_ == NULL)
+            return;
+        out << ",\n\"motions\":[";
+        bool first = true;
+        for (size_t i = 0; i < impl.pAnimationDataPtrs_->size(); ++i)
+        {
+            W4dAnimationData* data = &*(*impl.pAnimationDataPtrs_)[i];
+            if (W4dUVTranslateData* scroll = dynamic_cast<W4dUVTranslateData*>(data))
+            {
+                const std::string texture = RenTexManager::instance().createTexture(data->name() + ".bmp").name();
+                if (textures_.count(texture) == 0)
+                    continue;
+                out << (first ? "" : ",") << "{\"texture\":\"" << texture << "\",\"scroll\":["
+                    << scroll->speedVec_.x() << "," << scroll->speedVec_.y() << "]}";
+                first = false;
+            }
+            else if (W4dCycleMultiTextureData* cycles = dynamic_cast<W4dCycleMultiTextureData*>(data))
+                for (size_t c = 0; c < cycles->cycleTextureDataVec_.size(); ++c)
+                {
+                    const W4dCycleTextureData& cycle = *cycles->cycleTextureDataVec_[c];
+                    const ctl_vector<RenTexture> frames = cycle.keyTextures();
+                    std::string key;
+                    for (size_t f = 0; f < frames.size(); ++f)
+                        if (textures_.count(frames[f].name()) != 0)
+                            key = frames[f].name();
+                    if (key.empty())
+                        continue;
+                    out << (first ? "" : ",") << "{\"texture\":\"" << key << "\",\"repeats\":" << cycle.nRepetations_ << ",\"frames\":[";
+                    for (size_t f = 0; f < frames.size(); ++f)
+                        out << (f ? "," : "") << "\"" << frames[f].name() << "\"";
+                    out << "]}";
+                    first = false;
+                }
+        }
+        out << "]";
     }
 
     // "parts":[...] — one entry per material.
@@ -1333,7 +1382,7 @@ bool ExportApp::clientStartup()
             effect->visible(true);
         ModelWriter writer;
         writer.addEntity(*part);
-        writer.write(out + "/fx/" + name + ".json", name);
+        writer.write(out + "/fx/" + name + ".json", name, effect);
         textures.insert(writer.textures().begin(), writer.textures().end());
         std::cout << "fx " << name << ": " << writer.triangleCount() << " triangles" << std::endl;
     }

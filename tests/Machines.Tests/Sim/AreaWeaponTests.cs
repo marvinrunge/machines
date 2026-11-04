@@ -160,6 +160,53 @@ public class AreaWeaponTests
     }
 
     [Fact]
+    public void What_the_ion_beam_kills_is_vaporised()
+    {
+        var world = NewMatch();
+        var target = world.AddMachine(Race.Blue, Field, "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+        world.StartBlast(Weapon("ION_ORBITAL_CANNON"), Field, Race.Red);
+        var gone = false;
+        for (var i = 0; i < 5 * GameWorld.TicksPerSecond; i++)
+        {
+            world.Step();
+            gone |= world.Events.Any(e => e.Kind == GameEventKind.Destroyed && e.Actor == target.Id && e.Detail == "ION_ORBITAL_CANNON");
+        }
+        Assert.True(gone);
+    }
+
+    private static bool Told(GameWorld world, Race race, string mail) =>
+        world.Events.Any(e => e.Kind == GameEventKind.VoiceMail && e.Other == (int)race && e.Detail == mail);
+
+    [Fact]
+    public void An_ion_cannon_reports_when_it_is_acquired_when_charged_and_when_it_fires()
+    {
+        var world = NewMatch();
+        var pod = world.Constructions.First(c => c.Race == Race.Red && c.IsType("POD"));
+        world.AddConstruction(Race.Blue, new Vector2(900, 900), "BEACON", null, 3, 0, complete: true);
+
+        world.Races[Race.Red].Researched.Add(GameWorld.IonCannonResearch);
+        world.Step();
+        Assert.True(Told(world, Race.Red, "VID_POD_ION_CANNON_ACQUIRED"));
+        Assert.True(Told(world, Race.Blue, "VID_POD_ENEMY_ION_CANNON_ONLINE"));
+
+        // Charged once, as it comes ready, and not again while it waits.
+        var cannon = Assert.Single(pod.Weapons);
+        cannon.Reload = 0.05f;
+        var charged = 0;
+        for (var i = 0; i < GameWorld.TicksPerSecond; i++)
+        {
+            world.Step();
+            charged += world.Events.Count(e => e.Kind == GameEventKind.VoiceMail && e.Other == (int)Race.Red && e.Detail == "VID_POD_ION_CANNON_CHARGED");
+        }
+        Assert.Equal(1, charged);
+
+        world.Issue(new StrikeCommand(Race.Red, pod.Id, Field));
+        world.Step();
+        Assert.True(Told(world, Race.Blue, "VID_POD_ENEMY_ION_CANNON"));
+        Assert.False(Told(world, Race.Red, "VID_POD_ENEMY_ION_CANNON"));
+    }
+
+    [Fact]
     public void A_nuclear_missile_flies_then_blasts_with_damage_falling_off()
     {
         var world = NewMatch();

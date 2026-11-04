@@ -118,9 +118,35 @@ public sealed class ClassicAssets
             if (original.RootElement.TryGetProperty("sprites", out var glows))
                 AddSprites(made, glows, null);
         }
+        if (mesh is ArrayMesh moving && path is not null && File.Exists(path))
+            AddMotions(moving, path);
         if (mesh is not null)
             _meshes[key] = mesh;
         return mesh;
+    }
+
+    /// <summary>Gives the surfaces of an effect whose textures the original animated materials of their own that say how, for <see cref="TextureMotion"/>.</summary>
+    private void AddMotions(ArrayMesh mesh, string path)
+    {
+        using var document = JsonDocument.Parse(File.ReadAllBytes(path));
+        if (!document.RootElement.TryGetProperty("motions", out var motions))
+            return;
+        foreach (var motion in motions.EnumerateArray())
+            for (var s = 0; s < mesh.GetSurfaceCount(); s++)
+            {
+                var name = Path.GetFileName(motion.GetProperty("texture").GetString() ?? "").ToLowerInvariant();
+                if (mesh.SurfaceGetMaterial(s) is not StandardMaterial3D shared || !shared.HasMeta("texture") || shared.GetMeta("texture").AsString() != name)
+                    continue;
+                var own = (StandardMaterial3D)shared.Duplicate();
+                if (motion.TryGetProperty("scroll", out var scroll))
+                    own.SetMeta("scroll", new Vector2(scroll[0].GetSingle(), scroll[1].GetSingle()));
+                if (motion.TryGetProperty("frames", out var frames))
+                {
+                    own.SetMeta("frames", new Godot.Collections.Array<Texture2D>(frames.EnumerateArray().Select(f => Texture(f.GetString() ?? "")).OfType<Texture2D>()));
+                    own.SetMeta("repeats", motion.GetProperty("repeats").GetInt32());
+                }
+                mesh.SurfaceSetMaterial(s, own);
+            }
     }
 
     /// <summary>

@@ -443,6 +443,7 @@ public partial class SupportEffects : Node3D
                 {
                     view.Scale = Vector3.One * Mathf.Lerp(1, 2 * a, t);
                     SetAlpha(materials, fade);
+                    materials.ForEach(m => TextureMotion.Show(m, age));
                 }
                 var lightT = Mathf.Clamp(age / (12 * frame), 0, 1);
                 light.View.Scale = Vector3.One * Mathf.Lerp(a, 0.5f, lightT);

@@ -243,7 +243,11 @@ public partial class ActorView : Node3D
                     ((GeometryInstance3D)torch).SetInstanceShaderParameter("reach", length);
                 }
                 else
+                {
                     torch.GlobalTransform = new Transform3D(new Basis(along * (length / 5), Vector3.Up, along.Cross(Vector3.Up)), from);
+                    if (torch is MeshInstance3D { Mesh: { } beam })
+                        TextureMotion.Show(beam, (float)_constructTime);
+                }
             }
             if (_remadeJets)
                 sparks.GlobalPosition = from;

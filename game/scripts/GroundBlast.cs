@@ -32,16 +32,16 @@ public partial class GroundBlast : Node3D
 
     /// <summary>
     /// The ion cannon (MachPhysIonBeam, MachPhysBeam): for 6 s its beam and outer shell, 300 m columns from the sky,
-    /// widen from nothing to its radius (EXTRAS, 30 m) in a white light; then the shell draws in to a thread
-    /// reaching up within a quarter second, the wave on the ground flares out to the radius and shoots up as a
-    /// thread too, an orange light flashes, and a ring of burning cracks 30 m round opens for 3 s.
+    /// widen from nothing to its radius (EXTRAS, 30 m), the shell turning and flickering through its textures, in a
+    /// flickering white light, while the wave and flare spread over the ground (<see cref="IonWave"/>); then the shell
+    /// draws in to a thread reaching up within a quarter second, an orange light flashes, and a ring of burning
+    /// cracks 30 m round opens for 3 s.
     /// </summary>
     private static GroundBlast? IonCannon(ClassicAssets assets, Blast blast, IReadOnlyList<float> extras)
     {
         if (GraphicsSettings.Effects)
             return RemadeIonCannon(assets, blast, extras);
-        if (assets.EffectMesh("ionbeam") is not { } beamMesh || assets.EffectMesh("ionouter") is not { } outerMesh
-            || assets.EffectMesh("ionwave") is not { } waveMesh)
+        if (assets.EffectMesh("ionbeam") is not { } beamMesh || assets.EffectMesh("ionouter") is not { } outerMesh)
             return null;
         float Extra(int i, float fallback) => i < extras.Count ? extras[i] : fallback;
         var radius = Extra(0, 30);
@@ -49,8 +49,8 @@ public partial class GroundBlast : Node3D
         var view = new GroundBlast { Name = "IonCannon" };
         var at = ActorView.World(blast.Position);
         var (beam, _) = view.Piece(beamMesh);
-        var (outer, _) = view.Piece(outerMesh);
-        var (wave, _) = view.Piece(waveMesh);
+        var (outer, outerLook) = view.Piece(outerMesh);
+        view.IonWave(assets, at, radius, expansion, shrink, outerLook);
         view._parts.Add(age =>
         {
             var width = Mathf.Lerp(0.01f, radius, Mathf.Clamp(age / expansion, 0, 1));
@@ -58,19 +58,13 @@ public partial class GroundBlast : Node3D
             beam.Transform = new Transform3D(Basis.FromScale(new Vector3(width, 1, width)), at);
             outer.Visible = age < expansion + shrink;
             var drawn = Mathf.Clamp((age - expansion) / shrink, 0, 1);
-            outer.Transform = new Transform3D(Basis.FromScale(new Vector3(Mathf.Lerp(width, 0.01f, drawn), Mathf.Lerp(1, 100, drawn), Mathf.Lerp(width, 0.01f, drawn))), at);
-            // The wave: nothing until the beam is full, out to the radius in a quarter second, in to a small
-            // ring and up as a thread in two more.
-            wave.Visible = age >= expansion && age < expansion + 3 * shrink;
-            var w = age < expansion + shrink
-                ? new Vector3(Mathf.Lerp(0.01f, radius, Mathf.Clamp((age - expansion) / shrink, 0, 1)), 1, 0)
-                : age < expansion + 2 * shrink
-                    ? new Vector3(Mathf.Lerp(radius, 0.2f * radius, (age - expansion - shrink) / shrink), Mathf.Lerp(1, 0.5f, (age - expansion - shrink) / shrink), 0)
-                    : new Vector3(Mathf.Lerp(0.2f * radius, 0.005f * radius, (age - expansion - 2 * shrink) / shrink), Mathf.Lerp(0.5f, 2000, (age - expansion - 2 * shrink) / shrink), 0);
-            wave.Transform = new Transform3D(Basis.FromScale(new Vector3(w.X, w.Y, w.X)), at);
-            return age < expansion + 3 * shrink;
+            // The "coil" plan turns the shell once in 5/6 s.
+            var turned = new Basis(Vector3.Up, -age * Mathf.Tau * 6 / 5);
+            outer.Transform = new Transform3D(turned * Basis.FromScale(new Vector3(Mathf.Lerp(width, 0.01f, drawn), Mathf.Lerp(1, 100, drawn), Mathf.Lerp(width, 0.01f, drawn))), at);
+            return age < expansion + shrink;
         });
-        view.Flash(at + Vector3.Up * Extra(9, 2) * 30, new Color(Extra(1, 1.3f), Extra(2, 1.2f), Extra(3, 0.8f)), 3, radius * 4, 0, expansion);
+        view.Flash(at + Vector3.Up * Extra(9, 2) * 30, new Color(Extra(1, 1.3f), Extra(2, 1.2f), Extra(3, 0.8f)), 3, radius * 4, 0, expansion + 0.3f,
+            age => IonLight(age, expansion, Extra(5, 0.3f), Extra(6, 1.5f), Extra(7, 7), Extra(8, 0.5f)));
         view.Flash(at + Vector3.Up * 20, new Color(1.5f, 0.78f, 0), 4, radius * 4, expansion - 0.2f, 0.1f);
         if (assets.EffectMesh("punchcrack") is { } crack && assets.EffectMesh("punchfire") is { } fire)
         {
@@ -82,6 +76,70 @@ public partial class GroundBlast : Node3D
                     fireTime: time * 2 / 3, fireFade: time / 3, fireHeight: 12, fireFalls: true);
         }
         return view;
+    }
+
+    /// <summary>
+    /// What spreads under the ion beam, in both looks (MachPhysBeam). Its wave, a wall of fire rolling up the mesh,
+    /// runs out with the beam for the whole 6 s, to 100 m round and 7.5 m high (the mesh, 3.35 m round, is scaled as
+    /// a whole), stands a quarter second longer, draws in to a speck in another and shoots up as a thread in a
+    /// third. Its flare, a ring flickering through the shell's textures and a glow round it, both facing the camera,
+    /// grows with the beam and goes out with it.
+    /// </summary>
+    private void IonWave(ClassicAssets assets, Vector3 at, float radius, float expansion, float shrink, StandardMaterial3D flickering)
+    {
+        if (assets.EffectMesh("ionwave") is { } waveMesh)
+        {
+            var (wave, look) = Piece(waveMesh);
+            look.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
+            Vector3 small = new(0.2f, 0.5f, 0.2f), thread = new(0.005f, 2000, 0.005f);
+            _parts.Add(age =>
+            {
+                var drawn = age - expansion - shrink;
+                var full = Vector3.One * Mathf.Lerp(0.01f, radius, Mathf.Clamp(age / expansion, 0, 1));
+                var scale = drawn < 0 ? full : drawn < shrink ? full.Lerp(small, drawn / shrink) : small.Lerp(thread, Mathf.Min(1, drawn / shrink - 1));
+                wave.Visible = age < expansion + 3 * shrink;
+                wave.Transform = new Transform3D(Basis.FromScale(scale), at);
+                return wave.Visible;
+            });
+        }
+        // The glow by its soft alpha map: added at full strength its own picture would white out all under it.
+        foreach (var (texture, size, strength, cycles) in new[] { ("flar2_ba", 11.96f, 0.4f, false), ("hov00_bt", 4.76f, 0.6f, true) })
+        {
+            if (assets.Texture($"models/texture4/{texture}.bmp") is not { } picture)
+                continue;
+            var (flare, look) = Glowing(new QuadMesh(), picture);
+            look.BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled;
+            look.BillboardKeepScale = true;
+            look.NoDepthTest = true;
+            look.AlbedoColor = new Color(1, 1, 1, strength);
+            if (cycles && flickering.HasMeta("frames"))
+            {
+                look.SetMeta("frames", flickering.GetMeta("frames"));
+                look.SetMeta("repeats", flickering.GetMeta("repeats"));
+            }
+            _parts.Add(age =>
+            {
+                var grown = Mathf.Lerp(0.01f, radius, Mathf.Clamp(age / expansion, 0, 1));
+                flare.Visible = age < expansion;
+                flare.Transform = new Transform3D(Basis.FromScale(Vector3.One * grown * size), at + Vector3.Up * grown * 0.72f);
+                TextureMotion.Show(look, age);
+                return flare.Visible;
+            });
+        }
+    }
+
+    /// <summary>
+    /// The strength of the ion beam's light (createIonInensityPlan): rising from <paramref name="from"/> to
+    /// <paramref name="to"/> over 70 % of the beam's life, with a flicker of <paramref name="flicker"/> from trough to
+    /// peak <paramref name="frequency"/> times a second on top, then dropping to nothing in 0.3 s when the beam ends.
+    /// </summary>
+    private static float IonLight(float age, float beam, float from, float to, float frequency, float flicker)
+    {
+        if (age >= beam)
+            return Mathf.Lerp(to, 0, Mathf.Min(1, (age - beam) / 0.3f));
+        var phase = age * frequency % 1;
+        var wave = phase < 0.25f ? phase * 4 : phase < 0.75f ? 2 - phase * 4 : phase * 4 - 4;
+        return Mathf.Max(0, Mathf.Lerp(from, to, Mathf.Min(1, age / (0.7f * beam))) + wave * flicker / 2);
     }
 
     /// <summary>
@@ -428,8 +486,8 @@ public partial class GroundBlast : Node3D
         });
     }
 
-    /// <summary>A light that is on from <paramref name="start"/> for <paramref name="time"/> seconds.</summary>
-    private void Flash(Vector3 at, Color colour, float energy, float range, float start, float time)
+    /// <summary>A light that is on from <paramref name="start"/> for <paramref name="time"/> seconds, its energy following <paramref name="strength"/> if given.</summary>
+    private void Flash(Vector3 at, Color colour, float energy, float range, float start, float time, Func<float, float>? strength = null)
     {
         // The original's colours go above 1 (the bee bomb's blue is 0, 0, 2): that much more energy.
         var strongest = Mathf.Max(1, Mathf.Max(colour.R, Mathf.Max(colour.G, colour.B)));
@@ -445,6 +503,8 @@ public partial class GroundBlast : Node3D
         _parts.Add(age =>
         {
             light.Visible = age >= start && age < start + time;
+            if (strength is not null)
+                light.LightEnergy = energy * strongest * strength(age - start);
             return age < start + time;
         });
     }
@@ -472,6 +532,12 @@ public partial class GroundBlast : Node3D
             Visible = false,
         };
         AddChild(view);
+        if (TextureMotion.Has(material))
+            _parts.Add(age =>
+            {
+                TextureMotion.Show(material, age);
+                return false;
+            });
         return (view, material);
     }
 

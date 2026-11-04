@@ -407,6 +407,9 @@ public sealed partial class GameWorld
             site.MakeComplete();
             Races[site.Race].Score.ConstructionsBuilt++;
             Raise(new GameEvent(GameEventKind.ConstructionComplete, site.Id, site.Position, machine.Id, site.TypeName));
+            if (site.Weapons.Any(w => w.Spec.TypeName == "NUCLEAR_MISSILE")
+                && Constructions.Count(c => c.Race == site.Race && c.Complete && c.Weapons.Any(w => w.Spec.TypeName == "NUCLEAR_MISSILE")) == 1)
+                WarnOfSuperweapon(site.Race, "VID_POD_ENEMY_NUKE_ONLINE");
             machine.Order = Order.Idle;
         }
     }

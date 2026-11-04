@@ -46,7 +46,10 @@ public sealed partial class GameWorld
     {
         weapon.Reload = weapon.Spec.ReloadTime;
         Raise(new GameEvent(GameEventKind.Fired, launcher.Id, launcher.Position, Detail: weapon.Spec.TypeName));
-        if (weapon.Spec.TypeName == "NUCLEAR_MISSILE")
+        var nuclear = weapon.Spec.TypeName == "NUCLEAR_MISSILE";
+        foreach (var other in Races.Keys.Where(r => r != launcher.Race))
+            SendVoiceMail(other, nuclear ? "VID_POD_ENEMY_NUKE_LAUNCH" : "VID_POD_ENEMY_ION_CANNON");
+        if (nuclear)
         {
             var flight = Vector2.Distance(launcher.Position, target) / MathF.Max(1, weapon.Spec.ProjectileSpeed);
             ScheduleBlast(Time + flight, weapon.Spec, target, launcher.Race);
@@ -115,7 +118,9 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// A pod mounts its ion cannon once its race has researched it, or when the scenario grants it; the
-    /// cannon then charges for its RELOAD_TIME before the first shot (MachLogPod::activateIonCannon).
+    /// cannon then charges for its RELOAD_TIME before the first shot (MachLogPod::activateIonCannon). Research
+    /// that gives a race its first cannon is reported to it, and to whoever watches from a level 3 beacon
+    /// (MachLogPod::ionCannonAcquiredForFirstTime, MachLogRaces::builtIonCannon).
     /// </summary>
     private void ArmPods()
     {
@@ -126,9 +131,22 @@ public sealed partial class GameWorld
             var spec = Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == "ION_ORBITAL_CANNON");
             if (spec is null)
                 continue;
+            if (!pod.IonCannonGranted && !Constructions.Any(c => c.Race == pod.Race && c.Weapons.Any(w => w.Spec == spec)))
+            {
+                SendVoiceMail(pod.Race, "VID_POD_ION_CANNON_ACQUIRED");
+                WarnOfSuperweapon(pod.Race, "VID_POD_ENEMY_ION_CANNON_ONLINE");
+            }
             pod.WeaponCombo = IonCannonResearch.WeaponCombo;
             pod.Weapons.Add(new WeaponMount(Mounting.Top, spec) { Reload = spec.ReloadTime });
         }
+    }
+
+    /// <summary>A race's first superweapon is seen from any other race's finished level 3 beacon (MachLogRaces::builtIonCannon, builtNuclearWeapon).</summary>
+    private void WarnOfSuperweapon(Race builder, string mail)
+    {
+        foreach (var other in Races.Keys.Where(r => r != builder))
+            if (Constructions.Any(c => c.Race == other && c.Complete && c.IsType("BEACON") && c.Stats.HardwareLevel == 3))
+                SendVoiceMail(other, mail);
     }
 
     private void UpdateBlasts()
@@ -165,6 +183,8 @@ public sealed partial class GameWorld
                         continue;
                     blast.Hit[w].Add(actor.Id);
                     Damage(actor, wave.DamageAt(distance), blast.By);
+                    // MachLogIonBeam::inflictDamageSecondWave: what the beam itself kills gets no explosion.
+                    actor.Vaporised = actor.IsDead && w == 0 && blast.Weapon == "ION_ORBITAL_CANNON";
                     Raise(new GameEvent(GameEventKind.Hit, actor.Id, actor.Position, Detail: blast.Weapon));
                 }
             }

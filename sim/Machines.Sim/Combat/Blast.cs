@@ -63,10 +63,11 @@ public sealed class Blast(string weapon, Vector2 position, Race? by, float start
             "BEE_BOMB" => [new BlastWave(1.5f, 2.5f, 1.55f, 15.5137f * 2.2f, damage)],
             // punch.cpp: a 40 m cone, 0.53 radians either side, out in 1.2 s (MachLogPunchBlast's "best guess").
             "GORILLA_PUNCH" => [new BlastWave(0f, 1.2f, 0f, Extra(0, 40), damage, ConeHalfAngle: 0.53f)],
-            // ionbeam.cpp: the beam (EXTRAS[0] = 30 m) burns through, then a wave three times wider flash-burns.
+            // ionbeam.cpp: the beam widens to EXTRAS[0] (30 m) in 6 s, and what it reaches burns; the wave round it, three
+            // times as wide, flash-burns from 12 m out, 3 m inside its edge. Both end 5.75 s in, 1.5 s before the blast.
             "ION_ORBITAL_CANNON" => [
-                new BlastWave(1f, 1f, 0f, Extra(0, 30), damage),
-                new BlastWave(2f, 2f, 12f, Extra(0, 30) * 3, 3)],
+                new BlastWave(0f, 5.75f, 0.01f, Extra(0, 30) * 5.75f / 6, damage),
+                new BlastWave(1f, 4.75f, 12f, Extra(0, 30) * 3 * 5.75f / 6 - 3, 3)],
             // nuclbomb.cpp: the fireball (30 m), the shock wave from EXTRAS[12] to EXTRAS[13] over EXTRAS[14]
             // seconds, full damage near the centre falling off to the half-way radius, and flash burns beyond.
             "NUCLEAR_MISSILE" => NuclearWaves(damage, Extra(6, 1f), Extra(12, 0.01f), Extra(13, 220), Extra(14, 3)),

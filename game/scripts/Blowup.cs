@@ -241,6 +241,46 @@ public partial class Blowup : Node3D
     }
 
     /// <summary>
+    /// What the ion beam destroys and what a smelter recycles (MachPhysIonWeapon::destroy): its shape, glowing white,
+    /// swells to three times its size while a copy shrinks to nothing inside it, both fading out over 1.5 s.
+    /// </summary>
+    public static void Vaporise(Node3D view, Node3D model, Node parent)
+    {
+        const float duration = 1.5f;
+        var blowup = new Blowup { Name = "Vaporise" };
+        parent.AddChild(blowup);
+        var glow = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+        };
+        var shown = model.FindChildren("*", nameof(MeshInstance3D), recursive: true, owned: false).Append(model)
+            .OfType<MeshInstance3D>().Where(m => m.Mesh is not null && m.IsVisibleInTree()).ToList();
+        var holders = new[] { (Node: new Node3D(), Last: 3f), (Node: new Node3D(), Last: 0.001f) };
+        foreach (var (holder, _) in holders)
+        {
+            blowup.AddChild(holder);
+            holder.GlobalTransform = view.GlobalTransform;
+            foreach (var mesh in shown)
+            {
+                var shape = new MeshInstance3D { Mesh = mesh.Mesh, MaterialOverride = glow, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+                holder.AddChild(shape);
+                shape.GlobalTransform = mesh.GlobalTransform;
+            }
+        }
+        var size = view.Scale;
+        blowup._parts.Add(age =>
+        {
+            var t = Mathf.Min(1, age / duration);
+            glow.AlbedoColor = new Color(1, 1, 1, 1 - t);
+            foreach (var (holder, last) in holders)
+                holder.Scale = size * Mathf.Lerp(1, last, t);
+            return t < 1;
+        });
+    }
+
+    /// <summary>
     /// An energy weapon's hit, a third of a second long: its splat playing its pictures as it grows to twice its
     /// size, the light sting's to four times (MachPhysPlasmaSplat, MachPhysPulseSplat, MachPhysLightStingSplat),
     /// and the flare of its aura swelling to twice its size, back and down to half (MachPhysPlasmaAura,
