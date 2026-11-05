@@ -76,24 +76,27 @@ public sealed class ClassicFont
         }
     }
 
-    /// <summary>A text broken into lines no wider than <paramref name="width"/>, at spaces (MachGuiMenuText::chopUpText).</summary>
+    /// <summary>A text broken into lines no wider than <paramref name="width"/>, at spaces and at its own line ends (MachGuiMenuText::chopUpText).</summary>
     public List<string> Chop(string text, int width)
     {
         var lines = new List<string>();
-        var line = "";
-        foreach (var word in text.Split(' '))
+        foreach (var paragraph in text.Split('\n'))
         {
-            var candidate = line.Length == 0 ? word : line + " " + word;
-            if (line.Length > 0 && Measure(candidate) > width)
+            var line = "";
+            foreach (var word in paragraph.Split(' '))
             {
-                lines.Add(line);
-                line = word;
+                var candidate = line.Length == 0 ? word : line + " " + word;
+                if (line.Length > 0 && Measure(candidate) > width)
+                {
+                    lines.Add(line);
+                    line = word;
+                }
+                else
+                    line = candidate;
             }
-            else
-                line = candidate;
+            if (line.Length > 0)
+                lines.Add(line);
         }
-        if (line.Length > 0)
-            lines.Add(line);
         return lines;
     }
 }

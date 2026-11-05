@@ -6,8 +6,8 @@ namespace Machines.Game;
 /// The switches of the original's options screen (MachGuiCtxOptions) beside the volumes and the look: the up and down
 /// keys reversed, the first-person mouse reversed, the 2D selection box, 3D sound and the gamma correction. They are
 /// kept in <c>user://settings.cfg</c> and take at once. MACHINES_OPTIONS sets them for one run (screenshots, checks),
-/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic,dof=strong,film=on,mouse_speed=1.5</c>.
-/// Depth of field, the film look and the first-person mouse speed are the remake's own.
+/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic,dof=strong,film=on,mouse_speed=1.5,classic_mouse=on,classic_keys=on</c>.
+/// Depth of field, the film look, the first-person mouse speed and the choice of mouse and keys are the remake's own.
 /// </summary>
 public static class GameOptions
 {
@@ -19,7 +19,7 @@ public static class GameOptions
     /// <summary>The first-person mouse speed's range, times the standard speed.</summary>
     public const float MouseSpeedLowest = 0.25f, MouseSpeedHighest = 2.5f;
 
-    private static bool _read, _reverseKeys, _reverseMouse, _selection2d, _sound3d = true, _classicDriving, _filmLook;
+    private static bool _read, _reverseKeys, _reverseMouse, _selection2d, _sound3d = true, _classicDriving, _filmLook, _classicMouse, _classicKeys, _transitions = true;
     private static float _gamma = 1, _mouseSpeed = 1;
     private static Blur _depthOfField;
 
@@ -43,6 +43,13 @@ public static class GameOptions
             config.SetValue("display", "depth_of_field", value.ToString().ToLowerInvariant());
             config.Save(Settings);
         }
+    }
+
+    /// <summary>Whether the original's films play between the menus' screens (Menu Transitions, see <see cref="MenuFilms"/>).</summary>
+    public static bool Transitions
+    {
+        get { Read(); return _transitions; }
+        set => Keep(ref _transitions, value, "display", "transitions");
     }
 
     /// <summary>Whether the match looks filmed: darker corners, fine grain and graded colours (<see cref="FilmLook"/>). Not in the original.</summary>
@@ -101,6 +108,29 @@ public static class GameOptions
     }
 
     /// <summary>
+    /// Whether the mouse works as the original's did (Classic Mouse): the left button selects and gives every order
+    /// through the intelligent cursor, a short click of the right one takes the selection away or puts a command back,
+    /// and dragging with it moves the camera. Otherwise, as in today's strategy games, the left button selects and the
+    /// right one gives the order. Kept as <c>classic_mouse</c>.
+    /// </summary>
+    public static bool ClassicMouse
+    {
+        get { Read(); return _classicMouse; }
+        set => Keep(ref _classicMouse, value, "controls", "classic_mouse");
+    }
+
+    /// <summary>
+    /// Whether the keys are the original's (Classic Keys): every command on its bare letter, the arrows and Page Up and
+    /// Page Down for the camera, the original's height limits for the zenith camera. Otherwise the remake's layout holds
+    /// (<see cref="KeyMap"/>), and only the command letters it leaves free work. Kept as <c>classic_keys</c>.
+    /// </summary>
+    public static bool ClassicKeys
+    {
+        get { Read(); return _classicKeys; }
+        set => Keep(ref _classicKeys, value, "controls", "classic_keys");
+    }
+
+    /// <summary>
     /// Whether what is selected or pointed at is marked by the corners of a frame facing the camera rather than by
     /// a wireframe box (2D Selection box, MachPhysMarker).
     /// </summary>
@@ -149,6 +179,9 @@ public static class GameOptions
             _mouseSpeed = Mathf.Clamp((float)(double)config.GetValue("controls", "mouse_speed", 1.0), MouseSpeedLowest, MouseSpeedHighest);
             _depthOfField = Enum.TryParse<Blur>((string)config.GetValue("display", "depth_of_field", "off"), true, out var blur) ? blur : Blur.Off;
             _filmLook = (bool)config.GetValue("display", "film_look", false);
+            _transitions = (bool)config.GetValue("display", "transitions", true);
+            _classicMouse = (bool)config.GetValue("controls", "classic_mouse", false);
+            _classicKeys = (bool)config.GetValue("controls", "classic_keys", false);
         }
         foreach (var part in (System.Environment.GetEnvironmentVariable("MACHINES_OPTIONS") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
@@ -163,6 +196,8 @@ public static class GameOptions
                 case "layout": _classicDriving = value == "classic"; break;
                 case "dof" when Enum.TryParse<Blur>(value, true, out var blur): _depthOfField = blur; break;
                 case "film": _filmLook = on; break;
+                case "classic_mouse": _classicMouse = on; break;
+                case "classic_keys": _classicKeys = on; break;
                 case "gamma" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var gamma):
                     _gamma = Mathf.Clamp(gamma, GammaLowest, GammaHighest);
                     break;

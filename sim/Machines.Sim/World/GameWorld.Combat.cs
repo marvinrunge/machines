@@ -9,6 +9,9 @@ public sealed partial class GameWorld
 {
     private readonly Dictionary<int, int> _turretTargets = [];
 
+    // What the player told missile emplacements to shoot at.
+    private readonly Dictionary<int, int> _turretOrders = [];
+
     /// <summary>What each machine fighting on its own last chose to fire at; for the view only.</summary>
     private readonly Dictionary<int, int> _machineAims = [];
 
@@ -42,11 +45,17 @@ public sealed partial class GameWorld
     public TerrainHeights? Terrain { get; set; }
 
     /// <summary>
-    /// Whether a shot from one actor at another clears the ground: the straight line between their middles
-    /// (MachLogCanAttack::IHaveClearWeaponPathToHim, testActorBehindCover); always so without terrain.
+    /// Whether a shot from one actor at another has a clear way: the straight line between their middles
+    /// (MachLogCanAttack::IHaveClearWeaponPathToHim, testActorBehindCover). The ground, buildings, artefacts and the shooter's own
+    /// and its allies' machines stand in the way; an enemy's machines do not, it is glad to hit those (MachLogAttackFilter).
     /// </summary>
-    public bool ClearShot(Actor shooter, Actor target) =>
-        Terrain is not { } ground || ground.FirstBlocked(AimPoint(shooter), AimPoint(target), ends: 3) is null;
+    public bool ClearShot(Actor shooter, Actor target)
+    {
+        var (from, to) = (AimPoint(shooter), AimPoint(target));
+        if (Terrain is { } ground && ground.FirstBlocked(from, to, ends: 3) is not null)
+            return false;
+        return FirstOnLine(from, to, actor => actor != shooter && actor != target && (actor is not Machine || !AreEnemies(shooter.Race, actor.Race))) is null;
+    }
 
     /// <summary>
     /// An actor's middle in the air, as the original aimed between its bounding box's corners: a little over a
@@ -66,27 +75,35 @@ public sealed partial class GameWorld
         return new Vector3(actor.Position, ground + up);
     }
 
+    /// <summary>What a machine is firing at: only an attack fires (MachLogAttackOperation), and one standing its ground at the nearest it can hit; nothing while it is busy.</summary>
+    private Actor? FiringAt(Machine machine) => Busy(machine) ? null : machine.Order switch
+    {
+        AttackOrder attack => FindTarget(attack.Target),
+        StandGroundOrder => NearestEnemy(machine, MaximumWeaponRange(machine), clearShot: true),
+        _ => null,
+    };
+
     private void UpdateCombat()
     {
+        UpdateDarkness();
         foreach (var machine in Machines.Where(m => m.CanFight && !m.IsDead && m.Inside is null).ToList())
         {
+            // MachLogCanAttack::diminishAlertnessAndInaccuracy.
+            GunneryOf(machine).Settle(Dt / 4);
             if (machine.DrivenByPlayer)
             {
                 var selected = PlayerWeapons.GetValueOrDefault(machine.Id, -1);
-                Fire(machine, machine.Weapons.Where((_, i) => (selected & (1 << i)) != 0).ToList(), null, machine.Stats.Accuracy ?? 100,
+                Fire(machine, machine.Weapons.Where((_, i) => (selected & (1 << i)) != 0).ToList(), null,
                     PlayerAims.TryGetValue(machine.Id, out var sight) ? sight : null);
                 continue;
             }
-            var target = machine.Order switch
-            {
-                AttackOrder attack => FindTarget(attack.Target),
-                _ => NearestEnemy(machine, machine.Weapons.Max(w => w.Spec.Range), clearShot: true),
-            };
+            var target = FiringAt(machine);
             if (target is null)
                 _machineAims.Remove(machine.Id);
             else
                 _machineAims[machine.Id] = target.Id;
-            Fire(machine, machine.Weapons, target, machine.Stats.Accuracy ?? 100);
+            TurnHead(machine, target);
+            Fire(machine, machine.Weapons, target);
         }
 
         ArmPods();
@@ -103,46 +120,92 @@ public sealed partial class GameWorld
             if (turret.Weapons.All(w => w.IsStrike))
                 continue;
 
-            // Turrets keep their target while it stays in range, then pick the nearest enemy.
+            // A tower told what to shoot at sticks to that; otherwise it looks for itself.
+            GunneryOf(turret).Settle(Dt / 4);
             var range = turret.Weapons.Where(w => !w.IsStrike).Max(w => w.Spec.Range);
-            var target = _turretTargets.TryGetValue(turret.Id, out var id) ? Find(id) : null;
-            if (target is null || target.IsDead || turret.DistanceTo(target) > range || !ClearShot(turret, target))
-            {
-                target = NearestEnemy(turret, range, clearShot: true);
-                if (target is null)
-                    _turretTargets.Remove(turret.Id);
-                else
-                    _turretTargets[turret.Id] = target.Id;
-            }
-            Fire(turret, turret.Weapons.Where(w => !w.IsStrike).ToList(), target, turret.Stats.Accuracy ?? 100);
+            var ordered = OrderedTarget(turret, range);
+            if (ordered is null)
+                LookOut(turret);
+            var target = ordered ?? TowerTarget(turret);
+            if (target is null)
+                _turretTargets.Remove(turret.Id);
+            else
+                _turretTargets[turret.Id] = target.Id;
+            TurnHead(turret, target);
+            Fire(turret, turret.Weapons.Where(w => !w.IsStrike).ToList(), target);
         }
 
         UpdateProjectiles();
+        UpdateSprays();
         UpdateBlasts();
     }
 
-    /// <summary>Applies damage with the original armour rule and remembers who did it, for the score.</summary>
-    public void Damage(Actor target, int damage, Race? by)
+    /// <summary>Whether an emplacement is firing at what it was told to.</summary>
+    public bool HasTurretOrder(Construction turret) => _turretOrders.ContainsKey(turret.Id);
+
+    /// <summary>Whether a building takes attack orders: the missile emplacements, all but the silo (MachGuiAttackCommand::canActorEverExecute).</summary>
+    public static bool TakesOrders(Construction building) => building.IsType("MISSILE_EMPLACEMENT") && building.Spec.SubType != "ICBM" && building.Complete;
+
+    /// <summary>How far a turret's scanner reaches past its weapons (MachLogStats's default for TURRET_SCANNER_RANGE_MULT).</summary>
+    private const float TurretScanner = 1.4f;
+
+    /// <summary>How close a sound launcher gives up on a target (MachLogMissileEmplacementAttackOperation::doIsFinished).</summary>
+    private const float LauncherMinimum = 25;
+
+    /// <summary>
+    /// What a missile emplacement was told to shoot at, for as long as its scanner sees it; it stands waiting while
+    /// the target is out of range (MachLogMissileEmplacementAttackOperation).
+    /// </summary>
+    private Actor? OrderedTarget(Construction turret, float range)
+    {
+        if (!_turretOrders.TryGetValue(turret.Id, out var id))
+            return null;
+        if (FindTarget(id) is { IsDead: false } target && CanAttack(turret.Race, target) && turret.DistanceTo(target) <= range * TurretScanner
+            && !(turret.Spec.SubType == "LAUNCHER" && turret.HitPoints > turret.MaxHitPoints * 0.25f && turret.DistanceTo(target) < LauncherMinimum))
+            return target;
+        _turretOrders.Remove(turret.Id);
+        return null;
+    }
+
+    /// <summary>
+    /// Applies damage with the original armour rule, remembers who did it, for the score, and lets the target react to
+    /// the <paramref name="shooter"/> where there is one.
+    /// </summary>
+    public void Damage(Actor target, int damage, Race? by, Actor? shooter = null)
     {
         if (target.IsDead || target is Artefact && !Options.DestructibleArtefacts)
             return;
+        var before = target.HitPoints;
         target.Durability = ArmourModel.ApplyHit(target.Durability, damage);
+        if (target is Machine { CanFight: true } shaken)
+            Shake(shaken, before - target.HitPoints);
         if (by is not null)
             target.LastHitBy = by;
         if (by is { } foe && foe != target.Race && !target.IsDead)
             ReportHit(target);
+        ReactToHit(target, shooter);
     }
 
     /// <summary>
-    /// Runs each weapon's burst and reload cycle: a burst of BURST rounds spread over its duration, then
-    /// RELOAD_TIME seconds. Flying rounds (see <see cref="Flies"/>) are launched and do their damage where they
-    /// strike; the others hit at once with the shooter's ACCURACY percent. Damage follows the original armour rule.
-    /// A machine driven in first person fires at <paramref name="aimPoint"/> instead, at whatever is there or not.
+    /// Runs each weapon's burst and reload cycle: RELOAD_TIME seconds from the start of one burst to the next, its rounds
+    /// spread over the burst's duration. A weapon opens fire at what lies in its reach and its arc, not behind cover, and
+    /// all the while a machine has that it goes on aiming. A machine driven in first person fires at
+    /// <paramref name="aimPoint"/> instead, at whatever is there or not.
     /// </summary>
-    private void Fire(Actor shooter, List<WeaponMount> weapons, Actor? target, int accuracy, (Vector2 Point, float? Height)? aimPoint = null)
+    private void Fire(Actor shooter, List<WeaponMount> weapons, Actor? target, (Vector2 Point, float? Height)? aimPoint = null)
     {
+        var inSights = aimPoint is null && target is { IsDead: false } && CanAttack(shooter.Race, target) && CanFireAt(shooter, target)
+            && weapons.Any(w => w.FiresAt(target) && InReach(shooter, w, target) && InArc(shooter, w, target)) && ClearShot(shooter, target);
+        if (inSights && shooter is Machine)
+        {
+            Steady(shooter, target!);
+            GunneryOf(shooter).LastAimed = Time;
+        }
+        FireData? aim = null;
         foreach (var weapon in weapons)
         {
+            if (weapon.Reload > 0)
+                weapon.Reload -= Dt;
             if (weapon.RoundsLeft > 0)
             {
                 weapon.RoundTimer -= Dt;
@@ -151,78 +214,60 @@ public sealed partial class GameWorld
 
                 weapon.RoundsLeft--;
                 weapon.RoundTimer = weapon.Spec.BurstDuration / Math.Max(1, weapon.Spec.BurstRounds);
-                if (weapon.RoundsLeft == 0)
-                    weapon.Reload = weapon.Spec.ReloadTime;
-
                 if (aimPoint is { } sight)
-                {
-                    FireAtPoint(shooter, weapon, sight.Point, accuracy, sight.Height);
-                    continue;
-                }
-                if (target is null || target.IsDead || shooter.DistanceTo(target) > weapon.Spec.Range || !CanAttack(shooter.Race, target))
-                    continue;
-                NoteFiredAt(shooter.Race, target);
-
-                // A round that cannot fly through the ground (the punch lands where the shooter stands).
-                if (weapon.Spec.TypeName != "GORILLA_PUNCH" && !Flies(weapon) && Terrain is { } ground
-                    && ground.FirstBlocked(AimPoint(shooter), AimPoint(target), ends: 3) is { } share)
-                {
-                    Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, null, weapon.Spec.TypeName));
-                    Raise(new GameEvent(GameEventKind.Impact, shooter.Id, Vector2.Lerp(shooter.Position, target.Position, share), null, weapon.Spec.TypeName));
-                    continue;
-                }
-
-                Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, target.Id, weapon.Spec.TypeName));
-                if (Flies(weapon))
-                    Launch(shooter, weapon, AimAt(shooter, target, accuracy), AimPoint(target).Z, target as Artefact);
-                else if (weapon.IsArea)
-                {
-                    // Area weapons go off where the target is and hit everyone the blast reaches, friend or foe,
-                    // as in the original. The punch goes off in front of the shooter once its fists come down.
-                    if (weapon.Spec.TypeName == "GORILLA_PUNCH")
-                        Punch(shooter, weapon.Spec, target.Position - shooter.Position);
-                    else
-                        StartBlast(weapon.Spec, target.Position, shooter.Race);
-                }
-                else if (weapon.IsTreachery)
-                {
-                    if (target is Machine traitor && Random.Next(100) < accuracy)
-                        Defect(traitor, shooter.Race);
-                }
-                else if (Random.Next(100) < accuracy)
-                {
-                    var damage = (int)MathF.Round(weapon.Spec.Damage);
-                    Damage(target, damage, shooter.Race);
-                    Raise(new GameEvent(GameEventKind.Hit, target.Id, target.Position, shooter.Id, weapon.Spec.TypeName));
-                }
+                    FireAtPoint(shooter, weapon, sight.Point, sight.Height);
+                else if (target is { IsDead: false } && shooter.DistanceTo(target) <= weapon.Spec.Range && CanAttack(shooter.Race, target))
+                    FireRound(shooter, weapon, target);
                 continue;
             }
-
             if (weapon.Reload > 0)
-            {
-                weapon.Reload -= Dt;
                 continue;
-            }
 
-            // A weapon opens fire only with a clear line to its target (the attack operation's behindCover test).
             var triggered = aimPoint is not null
                 ? weapon.DealsDamage || weapon.IsTreachery
-                : weapon.FiresAt(target) && target is not null && !target.IsDead && shooter.DistanceTo(target) <= weapon.Spec.Range
-                    && (weapon.Spec.TypeName == "GORILLA_PUNCH" ? PunchesHere(shooter) : ClearShot(shooter, target));
+                : weapon.FiresAt(target) && target is { IsDead: false } && (weapon.Spec.TypeName == "GORILLA_PUNCH"
+                    ? shooter.DistanceTo(target) <= weapon.Spec.Range && CanFireAt(shooter, target) && PunchesHere(shooter)
+                    : inSights && InReach(shooter, weapon, target) && InArc(shooter, weapon, target));
             if (triggered)
             {
-                weapon.RoundsLeft = Math.Max(1, weapon.Spec.BurstRounds);
+                // Fired at a point, a weapon gives its full burst and its rounds go where they are sent.
+                weapon.Burst = aimPoint is not null ? new FireData(0.9999f) : aim ??= TakeAim(shooter, target!);
+                weapon.RoundsLeft = RoundsIn(weapon.Spec, weapon.Burst);
                 weapon.RoundTimer = 0;
+                weapon.Reload = weapon.Spec.ReloadTime;
             }
         }
     }
 
+    /// <summary>A round fired at a target: what becomes of it depends on the weapon (each MachLogWeapon's doFire).</summary>
+    private void FireRound(Actor shooter, WeaponMount weapon, Actor target)
+    {
+        NoteFiredAt(shooter.Race, target);
+        Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, target.Id, weapon.Spec.TypeName));
+        if (Flies(weapon))
+        {
+            var aimed = Aimed(shooter, weapon, target);
+            Launch(shooter, weapon, new Vector2(aimed.X, aimed.Y), aimed.Z);
+        }
+        // The punch goes off in front of the shooter once its fists come down.
+        else if (weapon.Spec.TypeName == "GORILLA_PUNCH")
+            Punch(shooter, weapon.Spec, target.Position - shooter.Position);
+        else if (weapon.Spec.TypeName == "VORTEX")
+            FireVortex(shooter, weapon.Spec, target);
+        // Area weapons go off where the target is and hit everyone the blast reaches, friend or foe, as in the original.
+        else if (weapon.IsArea)
+            StartBlast(weapon.Spec, target.Position, shooter.Race);
+        else if (Sprays(weapon.Spec))
+            Spray(shooter, weapon.Spec, Aimed(shooter, weapon, target));
+        else
+            Bolt(shooter, weapon, target);
+    }
+
     /// <summary>
-    /// A round fired at a point in first person: flying rounds are launched at it and strike whatever they meet;
-    /// the others hit the enemy nearest the point if one stands within reach of it, and otherwise nothing. With its
-    /// <paramref name="height"/> given the round goes for the point itself, as the original's did.
+    /// A round fired at a point in first person: it goes for the point, or with no <paramref name="height"/> given (as older
+    /// clients aimed) for the enemy that stands within reach of it, and does there what it does, to whatever is there or to nothing.
     /// </summary>
-    private void FireAtPoint(Actor shooter, WeaponMount weapon, Vector2 point, int accuracy, float? height = null)
+    private void FireAtPoint(Actor shooter, WeaponMount weapon, Vector2 point, float? height = null)
     {
         var offset = point - shooter.Position;
         if (offset.Length() > weapon.Spec.Range)
@@ -235,6 +280,8 @@ public sealed partial class GameWorld
         float Off(Actor a) => a is Construction building ? building.DistanceFrom(point) : MathF.Max(0, Vector2.Distance(a.Position, point) - a.Radius);
         var there = Actors.Where(a => !a.IsDead && AreEnemies(shooter.Race, a.Race) && a is not Machine { Inside: not null } && Off(a) <= 3)
             .OrderBy(Off).ThenBy(a => a.Id).FirstOrDefault();
+        if (height is null && there is not null)
+            point = there.Position;
         // What the crosshair rests on: the point itself where its height is known, else the middle of the enemy
         // there, or the ground (a little over it).
         var aimHeight = height ?? (there is not null ? AimPoint(there).Z : Terrain?.At(point) ?? 0) + 0.5f;
@@ -247,21 +294,17 @@ public sealed partial class GameWorld
         }
         Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, there?.Id, weapon.Spec.TypeName));
         if (Flies(weapon))
-        {
             Launch(shooter, weapon, point, aimHeight, sighted: height is not null);
-        }
+        else if (weapon.Spec.TypeName == "GORILLA_PUNCH")
+            Punch(shooter, weapon.Spec, point - shooter.Position);
+        else if (weapon.Spec.TypeName == "VORTEX")
+            Vortex(shooter, weapon.Spec, point);
         else if (weapon.IsArea)
-        {
-            if (weapon.Spec.TypeName == "GORILLA_PUNCH")
-                Punch(shooter, weapon.Spec, point - shooter.Position);
-            else
-                StartBlast(weapon.Spec, point, shooter.Race);
-        }
-        else if (there is not null && Random.Next(100) < accuracy)
-        {
-            Damage(there, (int)MathF.Round(weapon.Spec.Damage), shooter.Race);
-            Raise(new GameEvent(GameEventKind.Hit, there.Id, there.Position, shooter.Id, weapon.Spec.TypeName));
-        }
+            StartBlast(weapon.Spec, point, shooter.Race);
+        else if (Sprays(weapon.Spec))
+            Spray(shooter, weapon.Spec, new Vector3(point, aimHeight));
+        else
+            Burst(InWorld(new Vector3(point, aimHeight)), weapon.Spec, shooter.Id, shooter.Race);
     }
 
     /// <summary>How long a gorilla does nothing else once it punches (MachLogPunchWeapon::doFire's busy period).</summary>

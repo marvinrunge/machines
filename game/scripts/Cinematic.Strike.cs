@@ -120,7 +120,10 @@ public partial class Cinematic
             return;
         Charge(launcher);
         if (launcher == _silo)
+        {
             _aim = Ground(army.X, army.Y);
+            _world.Races[Race.Red].Bmu += GameWorld.NukeLaunchCost;
+        }
         _world.Issue(new StrikeCommand(Race.Red, launcher, army));
     }
 }

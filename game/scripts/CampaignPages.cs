@@ -1,4 +1,5 @@
 using Godot;
+using Machines.Net;
 using Machines.Import.Model;
 using Machines.Import.Text;
 
@@ -123,8 +124,10 @@ public partial class CampaignPlayersPage(MenuScreens screens) : MenuPage(screens
     {
         if (Picked is not { } player)
             return;
-        Stage.Message(Lang.T("Delete {0} and how far they have come in the campaign?", player.Name), ("Delete", () =>
+        Stage.Message(Lang.T("Delete {0}, how far they have come in the campaign and their saved games?", player.Name), ("Delete", () =>
         {
+            foreach (var save in Replay.CampaignSaves(Game.SaveFolder, Game.SaveExtension, player.Name))
+                File.Delete(save);
             _progress.Players.Remove(player);
             if (_progress.Current == player.Name)
                 _progress.Current = null;

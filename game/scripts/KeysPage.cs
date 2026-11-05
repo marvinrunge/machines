@@ -29,8 +29,9 @@ public partial class KeysPage(Action back) : MenuPage(back)
             "The moves scroll and turn the ground camera and drive in first person, where left and right step sideways or turn as the options' first-person keys say."));
         columns.AddChild(List("COMMANDS", KeyMap.All.Where(act => !KeyMap.IsMove(act) && act is not (KeyMap.Act.FirstPerson or KeyMap.Act.Weapons or KeyMap.Act.CentreView)),
             "These keep their use: the arrows scroll too, and with Ctrl and Shift tilt the camera or, with Shift, look in first person; " +
-            "Ctrl or Shift with S stops; the numbers select a squadron and Ctrl with one forms it; F1 to F4 chat; Alt with the arrows moves the panel; " +
-            "Esc cancels or opens the menus. R turns a building and keypad 5 centres the upper body too while no action has them."));
+            "Ctrl with S stops, Shift with A or S selects all machines or buildings, Alt with them looks at the next; the numbers select a squadron and Ctrl with one forms it; F1 to F4 chat; Alt with the arrows moves the panel; " +
+            "Esc cancels or opens the menus. R turns a building, keypad 5 centres the upper body, keypad 1 goes into first person and " +
+            "Pause pauses too while no action has them. While the options' Classic Keys are on, the original's keys stand in for these."));
 
         _status = MenuTheme.Label(Hint, 24, MenuTheme.Bright);
         page.AddChild(_status);
@@ -78,7 +79,7 @@ public partial class KeysPage(Action back) : MenuPage(back)
         Refresh();
         _waiting = act;
         _buttons[act].Text = "?";
-        _status.Text = Lang.T("Press the key for {0}, Esc keeps {1}.", KeyMap.Title(act), KeyMap.Name(act));
+        _status.Text = Lang.T("Press the key for {0}, Esc keeps {1}.", KeyMap.Title(act), KeyMap.ChosenName(act));
     }
 
     // The key waited for comes before the buttons and the menus' Esc see it.
@@ -96,13 +97,13 @@ public partial class KeysPage(Action back) : MenuPage(back)
             _status.Text = Lang.T("{0} keeps its own use; pick another key.", KeyMap.Name(key.Keycode));
         else
         {
-            var old = KeyMap.Name(act);
+            var old = KeyMap.ChosenName(act);
             var swapped = KeyMap.Set(act, key.Keycode, out var clash);
             _status.Text = clash is (var holder, var blocker)
                 ? Lang.T("{0} is {1}'s, which cannot take {2} while {3} has it; change one of them first.", KeyMap.Name(key.Keycode), KeyMap.Title(holder), old, KeyMap.Title(blocker))
                 : swapped.Count > 0
-                    ? Lang.T("{0} is now on {1}; {2} took {3}.", KeyMap.Title(act), KeyMap.Name(act), string.Join(Lang.T(" and "), swapped.Select(KeyMap.Title)), old)
-                    : Lang.T("{0} is now on {1}.", KeyMap.Title(act), KeyMap.Name(act));
+                    ? Lang.T("{0} is now on {1}; {2} took {3}.", KeyMap.Title(act), KeyMap.ChosenName(act), string.Join(Lang.T(" and "), swapped.Select(KeyMap.Title)), old)
+                    : Lang.T("{0} is now on {1}.", KeyMap.Title(act), KeyMap.ChosenName(act));
         }
         Refresh();
         _buttons[act].GrabFocus();
@@ -111,6 +112,6 @@ public partial class KeysPage(Action back) : MenuPage(back)
     private void Refresh()
     {
         foreach (var (act, button) in _buttons)
-            button.Text = KeyMap.Name(act).ToUpperInvariant();
+            button.Text = KeyMap.ChosenName(act).ToUpperInvariant();
     }
 }

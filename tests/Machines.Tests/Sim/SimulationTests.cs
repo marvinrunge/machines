@@ -574,7 +574,7 @@ public class SimulationTests
             (dozer.HitPoints, dozer.Armour) = (3, 0);
             world.Issue(new MoveCommand(Race.Red, [grunt.Id], destination));
             var attacked = false;
-            Run(world, seconds: 40, onTick: () => attacked |= grunt.Order is AttackOrder { Resume: true });
+            Run(world, seconds: 40, onTick: () => attacked |= grunt.Order is AttackOrder { Back.Order: MoveOrder });
 
             if (defCon == DefCon.High)
             {

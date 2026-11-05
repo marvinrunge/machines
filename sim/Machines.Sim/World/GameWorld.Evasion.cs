@@ -52,7 +52,16 @@ public sealed partial class GameWorld
                     ContinueEvading(machine, evade);
             }
             else if (Tick % 20 == machine.Id % 2 * 10 && _threatsTo.ContainsKey(machine.Id))
+            {
+                if (machine.Inside is null || Find<Machine>(machine.Inside.Value) is null)
+                    DealWithThreats(machine, StrongThreats(machine));
                 ConsiderEvading(machine);
+            }
+        }
+        if (Tick % 20 == 0)
+        {
+            foreach (var building in Constructions.Where(c => !c.IsDead && _threatsTo.ContainsKey(c.Id)).ToList())
+                DealWithThreats(building, StrongThreats(building));
         }
     }
 
@@ -73,7 +82,7 @@ public sealed partial class GameWorld
         var evading = machine.Order is EvadeOrder;
         if (machine.Inside is not null && !evading)
             return [];
-        var range = machine.Stats.ScannerRange * (evading ? 1.7f : 1);
+        var range = ScannerReach(machine) * (evading ? 1.7f : 1);
         if (evading)
         {
             // Evading, it watches every enemy machine in range, not only those that have it in their sights.
@@ -113,7 +122,7 @@ public sealed partial class GameWorld
 
         // At normal DefCon a machine heading somewhere out of all their scanner ranges carries on.
         if (machine.DefCon == DefCon.Normal && machine.PathIndex < machine.Path.Count
-            && threats.All(t => Vector2.Distance(t.Position, machine.Path[^1]) > t.Stats.ScannerRange))
+            && threats.All(t => Vector2.Distance(t.Position, machine.Path[^1]) > ScannerReach(t)))
             return;
         if (NotAfraid(machine, threats) || WontFindAnywhereSafer(machine, plan))
             return;
@@ -133,13 +142,21 @@ public sealed partial class GameWorld
         Time - machine.OrderedAt < Data.Parm.General.VirtualDefconInterval && machine.Order is not IdleOrder ? DefCon.High : machine.DefCon;
 
     /// <summary>
-    /// MachLogMachine::notAfraidOfStrongThreats: a machine fears an attacker that is over 70% as strong as it and
-    /// its fighters around it together, or that is not itself outgunned by what is attacking it.
+    /// MachLogMachine::notAfraidOfStrongThreats: whether it fears none of them.
     /// </summary>
-    private bool NotAfraid(Machine machine, List<Machine> threats)
+    private bool NotAfraid(Machine machine, List<Machine> threats) => !threats.Any(threat => Fears(machine, threat));
+
+    /// <summary>
+    /// A fighter fears an attacker that can hit it where it cannot hit back, or one over twice as strong as it and the
+    /// fighters around it together (MachLogAggressor::fearsThisActor, MachLogAdministrator::fearsThisActor). Any other
+    /// machine fears one over 70% as strong as that, or one not itself outgunned (MachLogMachine::fearsThisActor).
+    /// </summary>
+    private bool Fears(Machine machine, Machine threat)
     {
         var local = LocalStrength(machine);
-        return threats.All(threat => MilitaryStrength(threat) <= local * 0.7f && OutGunned(threat));
+        if (machine.Spec.Type is "AGGRESSOR" or "ADMINISTRATOR")
+            return CanFireAt(threat, machine) && !CanFireAt(machine, threat) || MilitaryStrength(threat) > local * 2;
+        return MilitaryStrength(threat) > local * 0.7f || !OutGunned(threat);
     }
 
     /// <summary>MachActor::isOutGunned: what is attacking it is worth over 1.3 times its own strength.</summary>
@@ -167,7 +184,7 @@ public sealed partial class GameWorld
     /// MachActor::updateLocalStrengthEstimate: a machine's or a tower's own strength and that of the friendly
     /// fighting machines within 100 m, those beyond 50 m counting half; for anything else its own strength.
     /// </summary>
-    private int LocalStrength(Actor actor)
+    internal int LocalStrength(Actor actor)
     {
         if (_localStrengths.TryGetValue(actor.Id, out var known))
             return known;

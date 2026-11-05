@@ -41,6 +41,9 @@ public abstract class Actor
     /// <summary>Destroyed by the ion beam itself: it goes up in a white glow, with no explosion.</summary>
     public bool Vaporised { get; set; }
 
+    /// <summary>The vortex killed it: its model is drawn out to nothing, without an explosion (MachLogVortexBomb).</summary>
+    public bool Swallowed { get; set; }
+
     /// <summary>When it last reported being hit.</summary>
     public float? LastHitMail { get; set; }
 
@@ -58,6 +61,9 @@ public abstract class Actor
 
     /// <summary>Game time at which a started self-destruct goes off.</summary>
     public float? SelfDestructAt { get; set; }
+
+    /// <summary>How ready it is to fight (see <see cref="Machines.Sim.World.Alert"/>).</summary>
+    public Alert Alert { get; } = new();
 
     public Durability Durability
     {
@@ -77,6 +83,7 @@ public sealed class Machine : Actor
     public Machine(int id, Race race, Vector2 position, MachineSpec spec, MachineLevel stats, string? weaponCombo)
         : base(id, race, position)
     {
+        BuiltFor = race;
         Spec = spec;
         Stats = stats;
         WeaponCombo = weaponCombo;
@@ -162,10 +169,43 @@ public sealed class Machine : Actor
     /// <summary>The level-3 resource carrier, which gathers wreckage instead of carrying ore (MachLogResourceCarrier::isScavenger).</summary>
     public bool IsScavenger => Spec.Type == "RESOURCE_CARRIER" && Stats.HardwareLevel == 3;
 
+    /// <summary>The race it was made for, whatever treachery has done since (MachLogMachine::logOriginalRace).</summary>
+    public Race BuiltFor { get; }
+
+    /// <summary>The squadron it left when it changed sides, for when it comes back.</summary>
+    public int? OldSquad { get; set; }
+
     public override float Radius => MathF.Max(1.5f, Stats.HighClearance);
     public override int Cost => Stats.Cost;
 
     public bool IsType(string type, string? subType = null) => Spec.Type == type && (subType is null || Spec.SubType == subType);
+}
+
+/// <summary>How ready an actor is for trouble (MachLogCanAttack's alertness, MachActor's times for its calls for help).</summary>
+public sealed class Alert
+{
+    /// <summary>Its alertness: a look comes to something this many times in a hundred, and the higher it is the sooner the next look. It is born totally alert.</summary>
+    public int Level { get; set; } = 100;
+
+    /// <summary>When its alertness last fell.</summary>
+    public float DiminishedAt { get; set; }
+
+    /// <summary>When it next looks about.</summary>
+    public float NextLook { get; set; }
+
+    /// <summary>Before this time it looks for no new target (MachLogCanAttack::suppressAttackingUrges).</summary>
+    public float NoChecksBefore { get; set; }
+
+    /// <summary>Before this time a hit by another than its target does not make it think again.</summary>
+    public float NextHitByTest { get; set; }
+
+    /// <summary>Before this time it does not call for help again.</summary>
+    public float NextSos { get; set; }
+
+    /// <summary>The same against a player driving the shooter.</summary>
+    public float NextFirstPersonSos { get; set; }
+
+    public void Raise(int minimum) => Level = Math.Max(Level, minimum);
 }
 
 /// <summary>

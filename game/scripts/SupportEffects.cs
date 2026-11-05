@@ -36,6 +36,8 @@ public partial class SupportEffects : Node3D
         public required MeshInstance3D Right { get; init; }
         /// <summary>The original helices' material; null for the remake's bands of light.</summary>
         public StandardMaterial3D? Material { get; init; }
+        /// <summary>The charger's green light (MachPhysSuperCharger::lighting); null for the remake's bands of light.</summary>
+        public OmniLight3D? Lamp { get; init; }
         public Vector3 From, To;
         public bool Seen;
     }
@@ -82,6 +84,7 @@ public partial class SupportEffects : Node3D
         foreach (var (healer, beam) in _beams.Where(b => !b.Value.Seen).ToList())
         {
             beam.Root.QueueFree();
+            beam.Lamp?.QueueFree();
             _beams.Remove(healer);
         }
         foreach (var (patient, aura) in _auras.Where(a => !a.Value.Seen || !IsInstanceValid(a.Key)).ToList())
@@ -119,7 +122,9 @@ public partial class SupportEffects : Node3D
         if (GraphicsSettings.Effects)
             root.AddChild(new OmniLight3D { LightColor = new Color(0.3f, 1, 0.4f), LightEnergy = 1.5f, OmniRange = 8 });
         AddChild(root);
-        return new Beam { Root = root, Left = leftView, Right = rightView, Material = material };
+        var lamp = new OmniLight3D { LightColor = new Color(0, 1, 0), LightEnergy = 2, OmniRange = 3, ShadowEnabled = false };
+        AddChild(lamp);
+        return new Beam { Root = root, Left = leftView, Right = rightView, Material = material, Lamp = lamp };
     }
 
     /// <summary>
@@ -132,6 +137,12 @@ public partial class SupportEffects : Node3D
         var alpha = 0.2f + 0.6f * Mathf.Abs(1 - 2 * (_time % 1));
         foreach (var beam in _beams.Values)
         {
+            // On for the last 0.7 s of every second.
+            if (beam.Lamp is { } lamp)
+            {
+                lamp.GlobalPosition = beam.From;
+                lamp.Visible = _time % 1 >= 0.3f;
+            }
             var reach = beam.To - beam.From;
             var length = reach.Length();
             if (length < 0.1f)
@@ -248,6 +259,9 @@ public partial class SupportEffects : Node3D
     /// </summary>
     public void Lightning(Vector3 from, Vector3 to, ActorView? victim)
     {
+        // A building twelve metres round or more takes no halo (MachPhysElectroCharger::applyVictimAnimation).
+        if (victim is { IsBuilding: true } && victim.Bounds.Size.X + victim.Bounds.Size.Z >= 12)
+            victim = null;
         if (GraphicsSettings.Effects)
         {
             Bolt(from, to);

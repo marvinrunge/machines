@@ -20,6 +20,16 @@ public class AiScriptTests
     private static IEnumerable<(string File, T Item)> Each<T>(Func<AiScript, IEnumerable<T>> select) =>
         Scripts.OrderBy(s => s.Key).SelectMany(s => select(s.Value).Select(item => (s.Key, item)));
 
+    [Theory]
+    [InlineData("AI ATTACK DELAY 1 NO_CLUSTER_CHECK MINIMUM 2", false)]
+    [InlineData("AI ATTACK DELAY 1 MINIMUM 2 NO_CLUSTER_CHECK", true)]
+    public void A_minimum_after_no_cluster_check_brings_the_check_back(string line, bool noCheck)
+    {
+        var script = AiScriptParser.Parse($"PRODUCTION LIST\nEND PRODUCTION LIST\nSQUAD\n{line}\nEND SQUAD\n");
+
+        Assert.Equal(noCheck, script.Squads.Single().Operations.OfType<AttackOperation>().Single().NoClusterCheck);
+    }
+
     [Fact]
     public void Every_shipped_script_parses()
     {

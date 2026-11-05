@@ -242,10 +242,21 @@ public class MissionScriptTests
     }
 
     [Fact]
+    public void Activating_a_squadron_starts_the_block_its_script_calls_by_that_number()
+    {
+        // home.spl's block marked "SQUAD 10" is its tenth, the machines of home.scn's SQUAD 9: squadrons count from 1.
+        var world = Mission("home", edit: Script("TIMER now 1", "ACTIVATE_SQUADRONS ON now RACE BLUE SQUADRONS 10"));
+
+        Run(world, 2);
+
+        Assert.Equal([(Race.Blue, 9)], world.Script!.ActivatedSquadrons);
+    }
+
+    [Fact]
     public void Reinforcements_appear_at_their_point_and_join_their_squad()
     {
         var world = Mission("tut01", edit: Script("TIMER now 1",
-            "REINFORCEMENTS ON now RACE BLUE\nMACHINE AGGRESSOR 3 KNIGHT LR_HEAVY_BOLTER2_X2\nMACHINE AGGRESSOR 3 KNIGHT LR_HEAVY_BOLTER2_X2\nPOINT 440 400\nASSIGN 4\nEND"));
+            "REINFORCEMENTS ON now RACE BLUE\nMACHINE AGGRESSOR 3 KNIGHT LR_HEAVY_BOLTER2_X2\nMACHINE AGGRESSOR 3 KNIGHT LR_HEAVY_BOLTER2_X2\nPOINT 440 400\nASSIGN 5\nEND"));
         var events = Run(world, 2);
         var knights = world.Machines.Where(m => m.Race == Race.Blue && m.Spec.SubType == "KNIGHT").ToList();
         Assert.Equal(2, knights.Count);

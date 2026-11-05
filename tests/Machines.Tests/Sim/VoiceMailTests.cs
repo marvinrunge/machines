@@ -1,6 +1,7 @@
 using System.Numerics;
 using Machines.Import.Model;
 using Machines.Sim;
+using Machines.Sim.Combat;
 using Machines.Sim.World;
 
 namespace Machines.Tests.Sim;
@@ -100,5 +101,147 @@ public class VoiceMailTests
         pod = world.Constructions.First(c => c.Race == Race.Red && c.IsType("POD"));
         world.Damage(pod, 100000, Race.Red);
         Assert.Equal(0, RunCounting(world, 1, "VID_POD_POD_DESTROYED"));
+    }
+
+    private static (Construction Silo, WeaponMount Missile) ReadySilo(GameWorld world)
+    {
+        var silo = world.AddConstruction(Race.Red, new Vector2(500, 300), "MISSILE_EMPLACEMENT", "ICBM", 5, 0, complete: true);
+        var missile = Assert.Single(silo.Weapons);
+        missile.Reload = 0;
+        return (silo, missile);
+    }
+
+    [Fact]
+    public void A_players_launch_costs_500_BMUs()
+    {
+        var world = NewMatch();
+        var (silo, _) = ReadySilo(world);
+        world.Races[Race.Red].Bmu = 800;
+        world.Issue(new StrikeCommand(Race.Red, silo.Id, new Vector2(800, 800)));
+        world.Step();
+        Assert.Equal(300, world.Races[Race.Red].Bmu, 0);
+    }
+
+    [Fact]
+    public void Without_the_BMUs_the_pod_says_so_and_nothing_flies()
+    {
+        var world = NewMatch();
+        var (silo, missile) = ReadySilo(world);
+        world.Races[Race.Red].Bmu = 499;
+        world.Issue(new StrikeCommand(Race.Red, silo.Id, new Vector2(800, 800)));
+        Assert.Equal(1, RunCounting(world, 1, "VID_POD_INSUFFICIENT_CASH_FOR_NUKE"));
+        Assert.Equal(0, missile.Reload);
+        Assert.Null(silo.LaunchAt);
+    }
+
+    [Fact]
+    public void The_AI_launches_for_nothing()
+    {
+        var world = NewMatch();
+        var (silo, missile) = ReadySilo(world);
+        world.Races[Race.Red].Controller = Controller.Ai;
+        world.Races[Race.Red].Bmu = 0;
+        world.Issue(new StrikeCommand(Race.Red, silo.Id, new Vector2(500, 900)));
+        world.Step();
+        Assert.True(missile.Reload > 0 || silo.LaunchAt is not null);
+    }
+
+    [Fact]
+    public void A_better_constructor_opens_new_constructions_once_and_they_stay_open()
+    {
+        var world = NewMatch();
+        Assert.Equal(0, RunCounting(world, 2, "VID_POD_NEW_CONSTRUCTIONS"));
+        foreach (var dozer in world.Machines.Where(m => m.Race == Race.Red && m.Stats.MostAdvancedConstruction is not null).ToList())
+            world.Damage(dozer, 100000, Race.Blue);
+        var at = FormationTests.FreePointNear(world, new Vector2(800, 800));
+        var was = world.Buildable(Race.Red).Count;
+        var behemoth = world.AddMachine(Race.Red, at, "CONSTRUCTOR", "BEHEMOTH", 5, null);
+        Assert.Equal(1, RunCounting(world, 3, "VID_POD_NEW_CONSTRUCTIONS"));
+        var opened = world.Buildable(Race.Red).Count;
+        Assert.True(opened > was);
+
+        world.Damage(behemoth, 100000, Race.Blue);
+        Assert.Equal(0, RunCounting(world, 2, "VID_POD_NEW_CONSTRUCTIONS"));
+        Assert.Equal(opened, world.Buildable(Race.Red).Count);
+    }
+
+    private static (Machine Carrier, Construction Mine, Construction Smelter) Route(GameWorld world)
+    {
+        var at = new Vector2(800, 800);
+        var smelter = world.AddConstruction(Race.Red, at, "SMELTER", null, 1, 0, complete: true);
+        var mine = world.AddConstruction(Race.Red, at + new Vector2(150, 0), "MINE", null, 1, 0, complete: true);
+        mine.Ore = 50;
+        var carrier = world.AddMachine(Race.Red, at + new Vector2(100, 60), "RESOURCE_CARRIER", null, 1, null);
+        world.Issue(new TransportCommand(Race.Red, [carrier.Id], mine.Id, smelter.Id));
+        world.Step();
+        return (carrier, mine, smelter);
+    }
+
+    [Fact]
+    public void A_carrier_that_lost_its_smelter_takes_the_next_and_says_so()
+    {
+        var world = NewMatch();
+        var (carrier, _, smelter) = Route(world);
+        world.Damage(smelter, 100000, Race.Blue);
+
+        Assert.Equal(1, RunCounting(world, 2, "VID_RESOURCE_CARRIER_ALTERNATIVE_DESTINATION"));
+        var order = Assert.IsType<TransportOrder>(carrier.Order);
+        Assert.Equal("POD", world.Find<Construction>(order.Smelter)!.Spec.Type);
+    }
+
+    [Fact]
+    public void A_carrier_with_nowhere_left_reports_its_route_lost()
+    {
+        var world = NewMatch();
+        var (carrier, _, smelter) = Route(world);
+        foreach (var other in world.Constructions.Where(c => c.Race == Race.Red && c.Spec.Type is "POD").ToList())
+            world.Damage(other, 100000, Race.Blue);
+        world.Damage(smelter, 100000, Race.Blue);
+
+        // It keeps its suppliers and goes on fetching, for a smelter to be finished (MachLogResourceCarrier::mayHaveLostRouteElement).
+        Assert.Equal(1, RunCounting(world, 2, "VID_RESOURCE_CARRIER_ROUTE_FAILURE"));
+        Assert.Equal(0, Assert.IsType<TransportOrder>(carrier.Order).Smelter);
+    }
+
+    [Fact]
+    public void A_machines_report_names_it_so_its_death_can_cut_it_off()
+    {
+        var world = NewMatch();
+        var grunt = Grunt(world, FormationTests.FreePointNear(world, new Vector2(800, 800)));
+        world.Step();
+        world.Damage(grunt, 1, Race.Blue);
+        Assert.Contains(world.Events, e => e.Kind == GameEventKind.VoiceMail && e.Detail == "VID_GRUNT_DAMAGED" && e.Actor == grunt.Id);
+    }
+
+    [Fact]
+    public void A_mine_that_runs_dry_with_nowhere_to_go_says_so_once()
+    {
+        var world = NewMatch();
+        foreach (var other in world.Sites)
+            other.Ore = 0;
+        var site = world.Sites.First();
+        var mine = world.AddConstruction(Race.Red, site.Position, "MINE", null, 1, 0, complete: true);
+        mine.MineralSite = site.Id;
+
+        var exhausted = 0;
+        var inoperable = RunCounting(world, 4, "VID_POD_MINE_INOPERABLE", () => exhausted += Mails(world, "VID_POD_MINERALS_EXHAUSTED"));
+        Assert.Equal(1, exhausted);
+        Assert.Equal(1, inoperable);
+    }
+
+    [Fact]
+    public void Running_low_on_BMUs_is_told_and_running_out_too()
+    {
+        var world = NewMatch();
+        world.Step();
+        world.Races[Race.Red].Bmu = 60;
+        world.SpendBmu(Race.Red, 30);
+        Assert.Equal(1, Mails(world, "VID_POD_BMUS_LOW"));
+
+        world = NewMatch();
+        world.Step();
+        world.Races[Race.Red].Bmu = 30;
+        world.SpendBmu(Race.Red, 30);
+        Assert.Equal(1, Mails(world, "VID_POD_NO_BMUS_LEFT"));
     }
 }

@@ -13,11 +13,29 @@ public sealed record IdleOrder : Order;
 
 public sealed record MoveOrder(Vector2 Target) : Order;
 
+/// <summary>Stay with a machine for as long as it lives (MachLogFollowOperation).</summary>
+public sealed record FollowOrder(int Target) : Order;
+
 /// <summary>
-/// Attack one target until it dies, then continue to <paramref name="Then"/> if given: fighting on the way, or with
-/// <paramref name="Resume"/> just moving on (a machine that broke off its move for the fight).
+/// Attack one target until it dies, then continue to <paramref name="Then"/> if given, fighting on the way, or take up
+/// again <paramref name="Back"/>, what the fight broke off.
 /// </summary>
-public sealed record AttackOrder(int Target, Vector2? Then = null, bool Resume = false) : Order;
+public sealed record AttackOrder(int Target, Vector2? Then = null, Interrupted? Back = null) : Order;
+
+/// <summary>
+/// What a fight put aside (MachLogCounterattackOperation's cached operation): the order, with the end of its way. One
+/// that <paramref name="Chases"/> gives up a target it cannot catch: <paramref name="TargetLastNotEvading"/> is when
+/// the target was last not running from it, and at <paramref name="NextClosingCheck"/> it looks whether it has closed on
+/// the <paramref name="BeyondRange"/> metres it was beyond its weapons' reach at the last look.
+/// </summary>
+public sealed record Interrupted(Order Order, Vector2? To, bool Chases, float TargetLastNotEvading = 0, float NextClosingCheck = 0, float BeyondRange = 0);
+
+/// <summary>
+/// Back to where it stood before a fight of its own: from <paramref name="Until"/>, the end of its
+/// <paramref name="Pause"/>, it drives to <paramref name="To"/> and turns to <paramref name="Facing"/>
+/// (MachLogMoveAndTurnOperation).
+/// </summary>
+public sealed record ReturnOrder(Vector2 To, Vector2 Facing, float Pause, float Until = 0, bool Moving = false) : Order;
 
 /// <summary>Stay put and shoot at what comes into range, never moving to it (MachLogStandGroundOperation).</summary>
 public sealed record StandGroundOrder : Order;
@@ -51,9 +69,10 @@ public sealed record LocateOrder(Vector2 Target, IReadOnlyList<int> Sites) : Ord
 /// <summary>
 /// Shuttle ore from a mine to a smelter or pod, forever: with <paramref name="Delivering"/> on the way to drop
 /// what it carries, else on the way to load; until <paramref name="WaitUntil"/> it stands on the pad loading or
-/// dropping (MachLogTransportOperation).
+/// dropping (MachLogTransportOperation). With <paramref name="Round"/> it calls at each of those mines in turn, on to
+/// the smelter once it is full or has been to the last (MachLogResourceCarrier's suppliers).
 /// </summary>
-public sealed record TransportOrder(int Mine, int Smelter, bool Delivering = false, float WaitUntil = 0) : Order;
+public sealed record TransportOrder(int Mine, int Smelter, bool Delivering = false, float WaitUntil = 0, IReadOnlyList<int>? Round = null, bool Assigned = true) : Order;
 
 /// <summary>Walk into a lab and work there as a researcher.</summary>
 public sealed record EnterLabOrder(int Lab) : Order;
@@ -83,10 +102,10 @@ public sealed record EnterGarrisonOrder(int Garrison) : Order;
 public sealed record BoardOrder(int Apc) : Order;
 
 /// <summary>For a scavenger: drive onto each wreck in turn and gather its BMUs (MachLogScavengeOperation).</summary>
-public sealed record ScavengeOrder(IReadOnlyList<int> Debris) : Order;
+public sealed record ScavengeOrder(IReadOnlyList<int> Debris, Interrupted? Back = null) : Order;
 
 /// <summary>For an APC: drive to a point and let everyone out there.</summary>
-public sealed record DeployOrder(Vector2 Target) : Order;
+public sealed record DeployOrder(Vector2 Target, float NextOut = 0, int Out = 0) : Order;
 
 public enum Controller
 {
@@ -124,8 +143,17 @@ public sealed class RaceState(Race race, Controller controller)
     /// </summary>
     public HashSet<ConstructionOrderEntry> Locked { get; } = [];
 
+    /// <summary>How far down <c>global.cst</c> the race's constructors have reached; what they opened stays open without them.</summary>
+    public int ConstructionsReached { get; set; } = -1;
+
     public bool Defeated { get; set; }
     public bool StartedWithPod { get; set; }
+
+    /// <summary>The level of beacon the scenario's VIRTUAL_BEACON gives the race without building one; 0 for none.</summary>
+    public int VirtualBeacon { get; set; }
+
+    /// <summary>False for a race the scenario gives SCORE OFF: the statistics leave it out (MachLogRaces::removeNotDisplayedScores).</summary>
+    public bool ScoreDisplayed { get; set; } = true;
 
     /// <summary>
     /// The races this one takes for allies (the scenario's ALLY lines, MachLogRaces::dispositionToRace): it does not

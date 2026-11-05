@@ -18,6 +18,8 @@ namespace Machines.Net;
 [JsonDerivedType(typeof(JoinRoom), "joinRoom")]
 [JsonDerivedType(typeof(LeaveRoom), "leaveRoom")]
 [JsonDerivedType(typeof(SetPlayer), "setPlayer")]
+[JsonDerivedType(typeof(SetSeat), "setSeat")]
+[JsonDerivedType(typeof(ChangeRoom), "changeRoom")]
 [JsonDerivedType(typeof(RoomState), "roomState")]
 [JsonDerivedType(typeof(StartMatch), "startMatch")]
 [JsonDerivedType(typeof(MatchStarted), "matchStarted")]
@@ -47,7 +49,8 @@ public sealed record RoomSummary(int Id, string Name, string Scenario, string Pl
 
 /// <summary>
 /// Opens a room on a map. <paramref name="Slots"/> are the map's start positions (its scenario races); players
-/// take them in the order they join, and with <paramref name="FillWithAi"/> the rest play the original AI.
+/// take them in the order they join, and with <paramref name="FillWithAi"/> those still open at the start play the
+/// original AI.
 /// </summary>
 public sealed record CreateRoom(string Name, string Scenario, string Planet, IReadOnlyList<Race> Slots, MatchOptions Options, bool FillWithAi) : NetMessage;
 
@@ -61,10 +64,36 @@ public sealed record LeaveRoom : NetMessage;
 /// </summary>
 public sealed record SetPlayer(Race Colour, bool Ready, long? Terrain = null) : NetMessage;
 
+/// <summary>What a start position nobody sits at is for (the slot's drop-down in the room, MachGuiPlayerListItem).</summary>
+public enum SeatUse
+{
+    /// <summary>Waiting for a player.</summary>
+    Open,
+    /// <summary>Nobody plays there.</summary>
+    Closed,
+    /// <summary>The AI plays there, whoever comes.</summary>
+    Computer,
+}
+
+/// <summary>
+/// The host's choice for a start position of the room: <paramref name="Seat"/> is its place in the room's list. A player
+/// sitting there is taken out of the room; the host cannot take themself out.
+/// </summary>
+public sealed record SetSeat(int Seat, SeatUse Use) : NetMessage;
+
+/// <summary>
+/// The host changes the room's map and settings (MachGuiCtxSettings). Everyone has to get ready again; players the new
+/// map has no room for are taken out of the room, the host last.
+/// </summary>
+public sealed record ChangeRoom(string Scenario, string Planet, IReadOnlyList<Race> Slots, MatchOptions Options, bool FillWithAi) : NetMessage;
+
 public sealed record RoomState(int Id, string Name, string Scenario, string Planet, IReadOnlyList<Race> Slots, MatchOptions Options,
-    bool FillWithAi, int HostId, IReadOnlyList<LobbyPlayer> Players) : NetMessage;
+    bool FillWithAi, int HostId, IReadOnlyList<LobbyPlayer> Players, IReadOnlyList<RoomSeat> Seats) : NetMessage;
 
 public sealed record LobbyPlayer(int ClientId, string Name, Race Colour, bool Ready, long? Terrain = null);
+
+/// <summary>A start position of the room: the player sitting there, or what it is for.</summary>
+public sealed record RoomSeat(int? ClientId, SeatUse Use);
 
 /// <summary>The host starts the match once everyone is ready.</summary>
 public sealed record StartMatch : NetMessage;

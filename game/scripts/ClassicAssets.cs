@@ -102,6 +102,23 @@ public sealed class ClassicAssets
     /// tools/blender/fx_models.py) where they have been made. A remake brings the original's glows (a missile's exhaust
     /// flare) only while the remake's effects are off: those draw their own.
     /// </summary>
+    public IReadOnlyList<RigLight> EffectLights(string name)
+    {
+        if (_effectLights.TryGetValue(name, out var known))
+            return known;
+        var path = _modelFolder is null ? null : Path.Combine(_modelFolder, "fx", name + ".json");
+        List<RigLight> lights = [];
+        if (path is not null && File.Exists(path))
+        {
+            using var effect = JsonDocument.Parse(File.ReadAllBytes(path));
+            if (effect.RootElement.TryGetProperty("lights", out var list))
+                lights.AddRange(list.EnumerateArray().Select(RigLight.Read));
+        }
+        return _effectLights[name] = lights;
+    }
+
+    private readonly Dictionary<string, IReadOnlyList<RigLight>> _effectLights = [];
+
     public Mesh? EffectMesh(string name)
     {
         var remade = _modelFolder is null || !Upgraded ? null : Path.Combine(_modelFolder, "..", "remake", "fx", name + ".json");
@@ -279,6 +296,20 @@ public sealed class ClassicAssets
         return (mesh, texture, radius);
     }
 
+    /// <summary>The planet's skyline (EnvSkyline), a ring of hills round the camera before the sky, and how far out it lies; null where it has none.</summary>
+    public (Mesh Mesh, float Radius)? PlanetSkyline(string planet)
+    {
+        var path = _planetFolder is null ? null : Path.Combine(_planetFolder, planet, "sky", "skyline.json");
+        if (path is null || !File.Exists(path))
+            return null;
+        using var document = JsonDocument.Parse(File.ReadAllBytes(path));
+        if (MeshFromParts(document.RootElement) is not { } mesh)
+            return null;
+        var radius = document.RootElement.GetProperty("parts").EnumerateArray().SelectMany(p => p.GetProperty("positions").EnumerateArray())
+            .Select(e => Mathf.Abs(e.GetSingle())).DefaultIfEmpty(1).Max();
+        return (mesh, radius);
+    }
+
     /// <summary>
     /// A scenery or destructible object's model, from the artefact models a scenario names (<c>MODELS
     /// models/planet/1o2/1o2.arf</c>, exported to <c>classic/planets/1o2/artefacts/&lt;name&gt;.json</c>), or null.
@@ -289,15 +320,61 @@ public sealed class ClassicAssets
         var key = $"artefact/{folder}/{name}".ToLowerInvariant();
         if (_meshes.TryGetValue(key, out var cached))
             return cached;
-        var planets = _planetFolder is null ? null : new DirectoryInfo(_planetFolder);
-        // The planet folders keep the game's spelling (CommSat), the scenarios do not always.
-        var planet = planets?.EnumerateDirectories().FirstOrDefault(d => d.Name.Equals(folder, StringComparison.OrdinalIgnoreCase));
-        var path = planet is null ? null : Path.Combine(planet.FullName, "artefacts", name + ".json");
-        var mesh = path is not null && File.Exists(path) ? MeshFromJson(path) : null;
+        var path = ArtefactPath(folder, name);
+        var mesh = path is not null ? MeshFromJson(path) : null;
         if (mesh is not null)
             _meshes[key] = mesh;
         return mesh;
     }
+
+    private string? ArtefactPath(string folder, string name)
+    {
+        var planets = _planetFolder is null ? null : new DirectoryInfo(_planetFolder);
+        // The planet folders keep the game's spelling (CommSat), the scenarios do not always.
+        var planet = planets?.EnumerateDirectories().FirstOrDefault(d => d.Name.Equals(folder, StringComparison.OrdinalIgnoreCase));
+        var path = planet is null ? null : Path.Combine(planet.FullName, "artefacts", name + ".json");
+        return path is not null && File.Exists(path) ? path : null;
+    }
+
+    /// <summary>The plate painted on the ground under a machine or building as its shadow (see <see cref="IsPaintedShadow"/>), or null.</summary>
+    public Mesh? PaintedShadow(string id, Race race) => ModelPath(id, race) is { } path ? Plate(path) : null;
+
+    /// <summary>As <see cref="PaintedShadow"/> under an artefact.</summary>
+    public Mesh? ArtefactShadow(string modelsFile, string name) =>
+        ArtefactPath(Path.GetFileNameWithoutExtension(modelsFile.Replace('\\', '/')), name) is { } path ? Plate(path) : null;
+
+    private Mesh? Plate(string path)
+    {
+        if (_plates.TryGetValue(path, out var cached))
+            return cached;
+        using var document = JsonDocument.Parse(File.ReadAllBytes(path));
+        var vertices = new List<Vector3>();
+        var indices = new List<int>();
+        foreach (var part in document.RootElement.GetProperty("parts").EnumerateArray())
+        {
+            var positions = part.GetProperty("positions").EnumerateArray().Select(e => e.GetSingle()).ToArray();
+            var diffuse = part.GetProperty("diffuse").EnumerateArray().Select(e => e.GetSingle()).ToArray();
+            if (positions.Length == 0 || !IsPaintedShadow(part, diffuse, positions))
+                continue;
+            var first = vertices.Count;
+            for (var i = 0; i < positions.Length; i += 3)
+                vertices.Add(new Vector3(positions[i], positions[i + 2] + GroundPlateLift, positions[i + 1]));
+            indices.AddRange(part.GetProperty("indices").EnumerateArray().Select(e => first + e.GetInt32()));
+        }
+        ArrayMesh? mesh = null;
+        if (vertices.Count > 0)
+        {
+            var arrays = new Godot.Collections.Array();
+            arrays.Resize((int)Mesh.ArrayType.Max);
+            arrays[(int)Mesh.ArrayType.Vertex] = vertices.ToArray();
+            arrays[(int)Mesh.ArrayType.Index] = indices.ToArray();
+            mesh = new ArrayMesh();
+            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+        }
+        return _plates[path] = mesh;
+    }
+
+    private readonly Dictionary<string, Mesh?> _plates = [];
 
     /// <summary>The terrain heights the original engine reported for the planet (<c>heights.bin</c>), if exported.</summary>
     public byte[]? PlanetHeights(string planet)
@@ -724,8 +801,8 @@ public sealed class ClassicAssets
     }
 
     /// <summary>
-    /// The flat, half-clear black plate the original laid under flying machines as their shadow. Real shadows
-    /// replace it, so it is left out.
+    /// The flat, half-clear black plate the original laid under its models as their shadow (W4dShadow). It is left out
+    /// of the model: the real shadows replace it, and in the classic look it is drawn by itself (see <see cref="PaintedShadow"/>).
     /// </summary>
     private static bool IsPaintedShadow(JsonElement part, float[] diffuse, float[] positions)
     {

@@ -50,8 +50,8 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
     tick of their first missing turn. Reconnecting under the same name and pressing **Join** on the running
     match rebuilds it from the relay's log, catches up in fast-forward and takes the race back from the AI.
     Replays record who left and came back.
-  - Performance gate: four players with 200 armed machines each fighting on m_green run at 2.0 ms per tick
-    on average (p99 13 ms; the budget is 50 ms), measured with `tools/sim-bench`. Path searches share work
+  - Performance gate: four players with 200 armed machines each fighting on m_green run at 3.0 ms per tick
+    on average (p99 15 ms; the budget is 50 ms), measured with `tools/sim-bench`. Path searches share work
     for group orders, know which areas are cut off, and enemies are found through a spatial grid; a machine
     on an attack-move whose target falls takes on the next enemy at once instead of planning its way on.
     It was 1.5 ms before the original's evasion and its attackers moving closer to targets behind cover
@@ -301,19 +301,29 @@ logs what each second's frames cost for that long, then sums it up and ends the 
 
 | Control | Does |
 | --- | --- |
-| Left click / drag | Select (Shift adds) |
+| Left click / drag | Select (Ctrl or Shift adds; Ctrl and a click takes one out); with a command in hand, its target |
 | Right click | Move; attack an enemy; build an unfinished site, repair a damaged building or capture an enemy one (constructors); heal a damaged machine (administrators with superchargers); haul from a mine (transporters); enter a lab (technicians), a garrison or one of your APCs; locate (locators) |
 | Buttons (machines selected) | Recycle at the nearest smelter or pod; self-destruct (or cancel it); deconstruct a building (constructors); deploy an APC's passengers at a point |
 | Buttons (pod or nuclear silo selected) | Fire the ion cannon or launch the missile once charged, then left click the target |
 | Ctrl + right click | Attack-move |
+| Shift + a target | More points or targets, one after the other |
 | Build buttons (constructors selected) | Place a building: R rotates, right click cancels, Shift keeps placing |
 | Factory / lab selected | Buttons to build machines or start research |
 | W A S D, edges, Q / E, wheel | Pan, rotate, zoom |
 | F | Drive the selected machine in first person: W/S drive, Q/E turn, A/D step sideways where the machine can, else turn (always turn with the options' classic keys), the mouse looks and the machine follows, left mouse fires |
-| Ctrl+S, P, Esc | Stop, pause (not online), clear selection |
+| Ctrl+S, P, Esc | Stop, pause (not online), give up what is in hand or open the menus |
 | F10 | The menus: continue, briefing, save, load, options, or leave the match (the replay is saved) |
+| The commands' letters | C construct, R repair, U capture, L locate, G refill, T transport, K pick up, Y scavenge, J treachery, H heal, I ion cannon, N nuke, O camouflage, M move, Shift+M lay mines |
+| Shift+A / Shift+S, Alt+A / Alt+S | Select all machines or buildings (Ctrl keeps the selection), look at the next |
+| Shift+Z / Shift+X | Select what is on screen of the machines or buildings |
+| Ctrl+F5 to F8, F5 to F8 | Keep the camera's place, go back to it; Shift+H the start, Ctrl+Shift+H the last place |
+| Backspace, Ctrl+Shift+Backspace | Cancel what is marked in a queue (a click marks); self-destruct |
+| Space, 0 and 2 on the pad, right double click | In first person: fire; back to the ground or zenith camera; leave |
 
-These are the first keys; **Change keys** in the options moves them.
+These are the first keys; **Change keys** in the options moves them. **Classic Mouse** in the options gives every order
+with the left button as the original did, a short right click deselects and a right drag moves the camera. **Classic Keys**
+puts the original's layout on: the arrows, Delete, End, Page Up and Page Down move the camera, and S A D Q E P F W are commands
+as well.
 
 ## Multiplayer
 

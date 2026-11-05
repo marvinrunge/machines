@@ -40,6 +40,29 @@ public sealed record Replay(MatchInfo Match, IReadOnlyList<Turn> Turns, long Tic
         return options == replay.Match.Options ? replay : replay with { Match = replay.Match with { Options = options } };
     }
 
+    /// <summary>
+    /// The saved games in a folder that belong to a campaign player, which go when the player does. Files that do not
+    /// read and saves from before they named their player stay.
+    /// </summary>
+    public static List<string> CampaignSaves(string folder, string extension, string player)
+    {
+        var saves = new List<string>();
+        if (!Directory.Exists(folder))
+            return saves;
+        foreach (var file in Directory.EnumerateFiles(folder, "*" + extension))
+        {
+            try
+            {
+                if (Load(file).Match.Options.Campaign?.Player == player)
+                    saves.Add(file);
+            }
+            catch (Exception e) when (e is JsonException or IOException)
+            {
+            }
+        }
+        return saves;
+    }
+
     /// <summary>The world the match started from: the same map, settings, players and seed.</summary>
     public static GameWorld BuildWorld(GameData data, MatchInfo match) =>
         MatchSetup.Create(data, match.Scenario, match.Planet,

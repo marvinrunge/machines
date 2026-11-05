@@ -1,5 +1,6 @@
 using Godot;
 using Machines.Import.Text;
+using Machines.Net;
 
 namespace Machines.Game;
 
@@ -14,10 +15,14 @@ namespace Machines.Game;
 /// <see cref="LoadingScreen"/>). MACHINES_MENU_SCREENSHOT=&lt;png&gt;[,page[,WxH]] saves a page (main, skirmish, room,
 /// multiplayer, load, replays, options, graphics, keys, models, campaign, missions, briefing or quit), at that size if one
 /// is given, and quits. The first start's questions (setup, setup-import, setup-look, setup-music) come before the main menu until
-/// they are answered (<see cref="SetupPage"/>).
+/// they are answered (<see cref="SetupPage"/>). MACHINES_MENU_GO=&lt;page&gt; skips the first films and goes from the main
+/// menu to that page as a click would, with the films of the way (main stays there, to wait for the logos).
 /// </summary>
 public partial class MenuScreens : Control
 {
+    /// <summary>How long the main menu stays before the logos and the intro come back (MachGuiStartupScreens::updateContext).</summary>
+    private const double IdleSeconds = 300;
+
     private ClassicAssets _assets = null!;
     private StringTable? _strings;
     private Control _host = null!;
@@ -25,10 +30,13 @@ public partial class MenuScreens : Control
     private SubViewport? _shot;
     private string? _shotPath;
     private double _shotTime;
+    private string _screen = MenuFilms.Main;
+    private bool _begun, _idleFilms;
+    private double _idle;
 
     public ClassicAssets Assets => _assets;
 
-    /// <summary>The page the menus open on next time instead of the main menu: after a campaign mission, its missions.</summary>
+    /// <summary>The page the menus open on next time instead of the main menu: after a match, where it was set up.</summary>
     public static string? StartPage { get; set; }
 
     private static string? Setting(string name) => System.Environment.GetEnvironmentVariable(name) is { Length: > 0 } value ? value : null;
@@ -89,7 +97,7 @@ public partial class MenuScreens : Control
         var page = shot.Length > 1 ? shot[1] : Setting("MACHINES_MP") is not null ? "multiplayer" : Setting("MACHINES_MENU_START") is not null ? "skirmish" : StartPage ?? "main";
         StartPage = null;
         // The first time, the original's loading and intro films play before the main menu (not in automated runs).
-        if (page == "main" && shot[0].Length == 0 && StartupFilms.Create(_assets.GameFolder, () => Begin(page)) is { } films)
+        if (page == "main" && shot[0].Length == 0 && Setting("MACHINES_MENU_GO") is null && StartupFilms.Create(_assets.GameFolder, () => Begin(page)) is { } films)
             _host.AddChild(films);
         else
             Begin(page);
@@ -100,18 +108,64 @@ public partial class MenuScreens : Control
         Music.Menu(this);
         // The first start asks its few questions before the main menu.
         Open(page == "main" && _shotPath is null && !SetupPage.Done ? "setup" : page);
+        _begun = true;
+        if (Setting("MACHINES_MENU_GO") is { } go)
+            Callable.From(() => Open(go)).CallDeferred();
     }
 
     public override void _Process(double delta)
     {
         if (_shotPath is null)
+        {
+            WatchIdle(delta);
             return;
+        }
         _shotTime += delta;
         if (_shotTime < 3)
             return;
         (_shot?.GetTexture() ?? GetViewport().GetTexture()).GetImage().SavePng(_shotPath);
         GetTree().Quit();
     }
+
+    /// <summary>
+    /// The main menu left for five minutes goes back to the logos and the intro, then returns. As in the original the
+    /// time runs from coming to the screen: neither the mouse nor the keys put it off.
+    /// </summary>
+    private void WatchIdle(double delta)
+    {
+        if (_idleFilms)
+            return;
+        _idle = _stage?.Page is MainMenuPage && !MenuFilms.Playing ? _idle + delta : 0;
+        if (_idle < IdleSeconds || StartupFilms.Logos(_assets.GameFolder, EndIdleFilms) is not { } films)
+            return;
+        _idleFilms = true;
+        GetViewport().GuiReleaseFocus();
+        _host.AddChild(films);
+    }
+
+    private void EndIdleFilms()
+    {
+        (_idleFilms, _idle) = (false, 0);
+        Music.Menu(this);
+        ShowMain();
+    }
+
+    /// <summary>Moves to a page, with the original's films of the way from the screen before.</summary>
+    private void Go(string screen, Func<Control> page)
+    {
+        if (MenuFilms.Playing)
+            return;
+        var from = _begun ? _screen : screen;
+        _screen = screen;
+        MenuFilms.Between(GetTree(), _assets.GameFolder, from, screen, () =>
+        {
+            if (IsInstanceValid(this))
+                _stage.Show(page());
+        });
+    }
+
+    /// <summary>Which of the original's screens the page on show now stands for: the multiplayer page is both the rooms and a room.</summary>
+    public void At(string screen) => _screen = screen;
 
     /// <summary>Opens a page by its name (see MACHINES_MENU_SCREENSHOT).</summary>
     private void Open(string page)
@@ -142,26 +196,33 @@ public partial class MenuScreens : Control
         }
     }
 
-    public void ShowMain() => _stage.Show(new MainMenuPage(this));
+    public void ShowMain() => Go(MenuFilms.Main, () => new MainMenuPage(this));
 
     /// <summary>A question of the first start (see <see cref="SetupPage"/>).</summary>
     public void ShowSetup(SetupPage.Step step) => _stage.Show(new SetupPage(this, step));
 
-    /// <summary>The skirmish setup, or with <paramref name="forRoom"/> the setup of a multiplayer room to open.</summary>
-    public void ShowSkirmish(bool forRoom = false) => _stage.Show(new SkirmishPage(this, forRoom));
+    /// <summary>
+    /// The skirmish setup, or with <paramref name="forRoom"/> the setup of a multiplayer room to open, or of the
+    /// <paramref name="room"/> the host is in.
+    /// </summary>
+    public void ShowSkirmish(bool forRoom = false, RoomState? room = null) =>
+        Go(room is not null ? MenuFilms.Settings : forRoom ? MenuFilms.Join : MenuFilms.Skirmish, () => new SkirmishPage(this, forRoom, room));
 
-    public void ShowMultiplayer() => _stage.Show(new MultiplayerPage(this));
+    public void ShowMultiplayer() => Go(MenuFilms.Multiplayer, () => new MultiplayerPage(this));
 
-    public void ShowLoad() => _stage.Show(FilesPage.Load(ShowMain, path => FilesPage.OpenSaved(GetTree(), path)));
+    /// <summary>The multiplayer page, on its way back to the room the player is in.</summary>
+    public void ShowRoom() => Go(MenuFilms.Room, () => new MultiplayerPage(this));
+
+    public void ShowLoad() => Go(MenuFilms.Load, () => FilesPage.Load(ShowMain, path => FilesPage.OpenSaved(GetTree(), path)));
 
     public void ShowReplays() => _stage.Show(FilesPage.Replays(ShowMain, path => FilesPage.OpenReplay(GetTree(), path)));
 
-    public void ShowOptions() => _stage.Show(new OptionsPage(ShowMain, inGame: false));
+    public void ShowOptions() => Go(MenuFilms.Options, () => new OptionsPage(ShowMain, inGame: false));
 
     public void ShowModels() => _stage.Show(new ModelsPage(ShowMain));
 
     /// <summary>The campaign's players.</summary>
-    public void ShowCampaign() => _stage.Show(new CampaignPlayersPage(this));
+    public void ShowCampaign() => Go(MenuFilms.CampaignPlayers, () => new CampaignPlayersPage(this));
 
     /// <summary>The choice of mission for the campaign's current player, or the players when there is none.</summary>
     public void ShowMissions()
@@ -169,10 +230,10 @@ public partial class MenuScreens : Control
         if (CampaignProgress.Load().CurrentPlayer is null)
             ShowCampaign();
         else
-            _stage.Show(new CampaignMissionsPage(this));
+            Go(MenuFilms.Scenario, () => new CampaignMissionsPage(this));
     }
 
-    public void ShowBriefing(Machines.Import.Model.CatalogueScenario mission) => _stage.Show(new CampaignBriefingPage(this, mission));
+    public void ShowBriefing(Machines.Import.Model.CatalogueScenario mission) => Go(MenuFilms.Briefing, () => new CampaignBriefingPage(this, mission));
 
     public void Message(string text, params (string Text, Action? Act)[] buttons) => _stage.Message(text, buttons);
 

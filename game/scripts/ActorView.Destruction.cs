@@ -41,10 +41,10 @@ public partial class ActorView
             if (GraphicsSettings.Effects)
                 effects.BuildingDown(GlobalTransform, _bounds);
             else
-                Blowup.Building(this, assets, effects);
+                Blowup.Building(GlobalTransform, _bounds, assets, effects);
             if (_model is Node3D model)
                 Blowup.Swell(this, model, effects, glow: GraphicsSettings.Effects);
-            Blowup.Demolish(this, _demolition, assets, effects, hot: GraphicsSettings.Effects);
+            Blowup.Demolish(GlobalTransform, _bounds, _demolition, assets, effects, hot: GraphicsSettings.Effects);
         }
         else if (GraphicsSettings.Effects)
             Shatter(effects);
@@ -57,6 +57,13 @@ public partial class ActorView
     {
         if (_model is Node3D model && GetParent() is { } parent)
             Blowup.Vaporise(this, model, parent);
+    }
+
+    /// <summary>The actor was destroyed by the vortex, and its view goes: see <see cref="Blowup.Swallow"/>.</summary>
+    public void Swallow()
+    {
+        if (_model is Node3D model && GetParent() is { } parent)
+            Blowup.Swallow(this, model, parent);
     }
 
     /// <summary>

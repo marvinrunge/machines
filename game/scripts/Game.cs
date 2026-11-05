@@ -195,11 +195,6 @@ public partial class Game : Node3D
         return best;
     }
 
-    /// <summary>The wreck lying at a ground point (within its heap), if any.</summary>
-    public DebrisState? DebrisNear(NVector2 point) => World.Debris
-        .Where(d => NVector2.Distance(d.Position, point) <= MathF.Max(3, (d.Boundary.Max - d.Boundary.Min).Length() * 0.3f))
-        .MinBy(d => NVector2.Distance(d.Position, point));
-
     private readonly List<int> _selection = [];
     private double _accumulator;
 
@@ -223,7 +218,10 @@ public partial class Game : Node3D
     // Actors destroyed this tick, whose views are blown apart rather than removed.
     private readonly HashSet<int> _destroyed = [];
     private readonly HashSet<int> _vaporised = [];
+    private readonly HashSet<int> _swallowed = [];
     private GameAudio _audio = null!;
+    private PlanetLook _planetLook = null!;
+    private FirstPersonScreen _screen = null!;
 
     // Drag selection
     private Vector2? _dragStart;
@@ -234,9 +232,6 @@ public partial class Game : Node3D
     private Node3D? _ghost;
     private StandardMaterial3D? _ghostMaterial;
     private bool _ghostPrinted;
-
-    // A command waiting for the player to click its target: the ground point and the actor there, if any
-    private Action<NVector2, Actor?>? _targeting;
 
     // Area weapons going off, drawn as growing spheres
     private readonly Dictionary<Blast, MeshInstance3D> _blastViews = [];
@@ -271,7 +266,8 @@ public partial class Game : Node3D
     /// Gives machines (or buildings) an order the player has finished choosing, with the original's click for it:
     /// MachGuiCommand::apply played taskmach.wav each time a command went out.
     /// </summary>
-    public void Order(Command command)
+    /// <param name="answer">The report that answers it, in place of what its kind of command answers.</param>
+    public void Order(Command command, string? answer = null)
     {
         if (RefusesOrders())
             return;
@@ -279,7 +275,10 @@ public partial class Game : Node3D
         if (!Watching)
         {
             _audio.PlayGui("gui/sounds/taskmach.wav");
-            Answer(command);
+            if (answer is not null)
+                _audio.Say(answer);
+            else
+                Answer(command);
         }
     }
 
@@ -289,7 +288,7 @@ public partial class Game : Node3D
         void First(IEnumerable<int> ids, string report)
         {
             if (ids.Select(World.Find<Machine>).OfType<Machine>().FirstOrDefault() is { } first && SoundTable.VoiceOf(first) is { } voice)
-                _audio.Say($"VID_{voice}_{report}");
+                _audio.Say($"VID_{voice}_{report}", speaker: first.Id);
         }
         void Plain(IReadOnlyList<int> ids, string mail)
         {
@@ -299,6 +298,7 @@ public partial class Game : Node3D
         switch (command)
         {
             case MoveCommand c: First(c.Machines, "MOVING"); break;
+            case FollowCommand c: First(c.Machines, "MOVING"); break;
             case AttackMoveCommand c: First(c.Machines, "MOVING"); break;
             case AttackCommand c: First(c.Machines, "TARGET_ENEMY"); break;
             case HealCommand c: First(c.Machines, "HEAL_TARGET"); break;
@@ -424,16 +424,24 @@ public partial class Game : Node3D
         var start = data.LoadScenario(request.Scenario).Race(Player)?.Camera;
         _rig.Setup(start is null ? new Vector3(400, 0, 400) : new Vector3(start.Position.X, 0, start.Position.Y),
             new Vector2(World.Planet.Surface.Width, World.Planet.Surface.Depth));
+        // A scenario may start in the ground camera (MachCameras::initialise).
+        if (start?.Type == "GROUND")
+            UseZenithCamera(false);
+        _startView = _rig.Snapshot;
 
         // The machine being driven sits on its own render layer, which this camera leaves out.
         _firstPersonCamera = new Camera3D { Far = 3000, Near = 0.1f, Fov = 70, Name = "FirstPersonCamera", CullMask = ~ActorView.DrivenLayer & 0xFFFFF };
         AddChild(_firstPersonCamera);
 
         AddChild(_audio);
+        if (data.LoadScenario(request.Scenario).Artefacts is { } humming)
+            ArtefactHums(humming);
         // A film gets its music afterwards (tools/cinematic/render.sh).
         if (Cinematic.Asked is null)
             Music.Match(this, ScenarioMusic(request.Scenario));
 
+        _screen = FirstPersonScreen.Create(_planetLook, _assets.Texture("models/texture4/static.bmp"));
+        AddChild(_screen);
         _hud = new Hud(this, map);
         AddChild(_hud);
         if (groundMissing)
@@ -444,7 +452,7 @@ public partial class Game : Node3D
         // The fog of war is the player's: a replay shows everything. Automated screenshots look anywhere, so
         // they leave it out unless MACHINES_FOG=1 asks for it.
         var screenshot = System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT") is { Length: > 0 };
-        if (!Watching && Cinematic.Asked is null && (!screenshot || System.Environment.GetEnvironmentVariable("MACHINES_FOG") == "1"))
+        if (!Watching && Cinematic.Asked is null && World.Options.FogOfWar && (!screenshot || System.Environment.GetEnvironmentVariable("MACHINES_FOG") == "1"))
         {
             // The original uncovered and tested its map image, one pixel at a time.
             Fog = new FogOfWar(World, Player, map is null ? 6 : surface.Width / map.GetWidth());
@@ -529,6 +537,8 @@ public partial class Game : Node3D
                 // The red moons' lava pools glow and creep in the remake, as the lava on the ground does.
                 MaterialOverride = GraphicsSettings.Scenery && placement.TypeName.Equals("lava", StringComparison.OrdinalIgnoreCase) ? Scenery.Lava() : null,
             };
+            if (PlanetLook.PaintedShadows && _assets.ArtefactShadow(models, placement.TypeName) is { } plate)
+                model.AddChild(new MeshInstance3D { Mesh = plate, Name = "Shadow", MaterialOverride = PlanetLook.ShadowPlate, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
             root.AddChild(model);
             _artefactModels[index] = model;
         }
@@ -537,6 +547,58 @@ public partial class Game : Node3D
 
     // The artefacts' models by their place in the scenario's list (an artefact's id less Artefact.IdBase).
     private readonly Dictionary<int, Node3D> _artefactModels = [];
+    private readonly Dictionary<int, ArtefactDamage> _artefactDamage = [];
+
+    /// <summary>The machinery among the artefacts hums for as long as it stands (MachLogArtefacts::newPhysArtefact).</summary>
+    private void ArtefactHums(ArtefactSection section)
+    {
+        foreach (var (index, model) in _artefactModels)
+        {
+            if (section.Placements[index].TypeName.ToLowerInvariant() is not ("cmain" or "tile22" or "control" or "cool1" or "power" or "contrl" or "shield" or "cdom"))
+                continue;
+            var hum = _audio.Loop("Hum");
+            model.AddChild(hum.Player);
+            hum.Play("SID_" + section.Placements[index].TypeName.ToUpperInvariant());
+        }
+    }
+
+    /// <summary>What is hit and left standing shows it, once the game has its picture of it (MachPhysArtefact::damageLevel).</summary>
+    private void SyncArtefacts()
+    {
+        foreach (var artefact in World.Artefacts)
+        {
+            if (artefact.HitPoints >= artefact.MaxHitPoints || artefact.IsDead || !_artefactModels.TryGetValue(artefact.Placement, out var model))
+                continue;
+            if (!_artefactDamage.TryGetValue(artefact.Placement, out var damage))
+                _artefactDamage[artefact.Placement] = damage = ArtefactDamage.Create(model, ArtefactBox(model), _assets.EffectMesh("groundsplat"));
+            damage.Show(100 * (1 - artefact.HitPoints / (float)artefact.MaxHitPoints));
+        }
+    }
+
+    private static Aabb ArtefactBox(Node3D model) => model is MeshInstance3D { Mesh: { } mesh } ? mesh.GetAabb()
+        : ActorView.MeshBounds(model, Transform3D.Identity) ?? new Aabb(-Vector3.One, Vector3.One * 2);
+
+    /// <summary>
+    /// An artefact blows up, in the classic look as a building without pieces of its own does
+    /// (MachPhysArtefact::destroy, MachPhysObjectExplosion::explode).
+    /// </summary>
+    private void BlowUpArtefact(int placement, Node3D model, Vector3 at)
+    {
+        if (_artefactDamage.Remove(placement, out var damage))
+            damage.QueueFree();
+        var box = ArtefactBox(model);
+        _audio.Play(SoundTable.ExplosionSound(true, box.Size.Length(), Random.Shared.Next(1, 7)), at);
+        if (GraphicsSettings.Effects)
+        {
+            _effects.Destroyed(at, null);
+            model.QueueFree();
+            return;
+        }
+        var place = model.GlobalTransform;
+        Blowup.Building(place, box, _assets, _effects);
+        Blowup.Swell(model, model, _effects, glow: false);
+        Blowup.Demolish(place, box, "", _assets, _effects, hot: false);
+    }
 
     /// <summary>
     /// The standing artefact whose model the cursor's ray meets before the ground and anything else, if any: the
@@ -571,8 +633,9 @@ public partial class Game : Node3D
         var clock = float.TryParse(setting, System.Globalization.CultureInfo.InvariantCulture, out var c) ? c
             : setting == "noon" ? PlanetLook.Noon(World.Planet.Environment) : 0;
         var planet = MatchRequest.Current.Planet;
-        AddChild(PlanetLook.Create(World.Planet.Environment, planet, () => World.Time + clock, () => _driven is not null ? 0 : _rig?.Distance ?? 160,
-            satellite => _assets.PlanetSky(planet, satellite), _assets.PlanetSkyDome(planet)));
+        _planetLook = PlanetLook.Create(World.Planet.Environment, planet, () => World.Time + clock, () => _driven is not null ? 0 : _rig?.Distance ?? 160,
+            satellite => _assets.PlanetSky(planet, satellite), _assets.PlanetSkyDome(planet), _assets.PlanetSkyline(planet));
+        AddChild(_planetLook);
     }
 
     // ---- simulation loop ------------------------------------------------------------------------
@@ -584,7 +647,7 @@ public partial class Game : Node3D
         {
             CatchUp();
         }
-        else if ((!Paused || Online) && World.Winner is null)
+        else if ((!Paused || Online) && (World.Winner is null ? !MatchOver || Online : !Watching && !MatchOver))
         {
             _accumulator += Math.Min(delta, 0.25);
             while (_accumulator >= GameWorld.Dt)
@@ -621,34 +684,49 @@ public partial class Game : Node3D
 
         if (_session.DesyncTick is { } desync)
             _hud.Banner(Lang.T("Out of sync since tick {0}: the players' games differ", desync));
-        else if (World.Winner is { } winner)
-            _hud.Banner(Watching ? Lang.T("{0} wins", Lang.T(Look(winner).ToString())) : winner == Player ? "Victory" : "Defeat");
-        else if (World.Races[Player].Defeated && !Watching)
-            _hud.Banner("Defeat");
+        else if (World.Winner is { } winner && Watching)
+            _hud.Banner(Lang.T("{0} wins", Lang.T(Look(winner).ToString())));
+        else if (MatchOver && ClassicGui.Bitmap(EndPicture) is null)
+            _hud.Banner(World.Winner == Player ? "Victory" : "Defeat");
         else if (_waitingFor <= 1)
             _hud.Banner(null);
-        // Five seconds after the match is decided, the statistics (MachGuiCtxStatistics) come up over it; after a
-        // campaign mission its film of victory or defeat, then its debriefing.
+        _hud.Picture(MatchOver ? EndPicture : Paused && !Online && _menu is null ? "misc/paused.bmp" : null);
+        // Once the match is decided every sound stops; two seconds on the world stands still under the picture of how
+        // it ended, and after 19 seconds won, 14 lost or 5 in training, or at Esc or Space, the statistics
+        // (MachGuiCtxStatistics) come up over it (MachInGameScreen::gameState); after a campaign mission its film of
+        // victory or defeat, then its debriefing.
         if (World.Winner is not null || World.Races[Player].Defeated && !Watching)
         {
             var now = Time.GetTicksMsec() / 1000.0;
             if (_decidedAt is null)
+            {
                 RecordCampaign();
+                foreach (var sound in FindChildren("*", nameof(AudioStreamPlayer3D), true, false).OfType<AudioStreamPlayer3D>())
+                    sound.Stop();
+                _audio.Hush();
+            }
             _decidedAt ??= now;
-            if (!_statisticsShown && now - _decidedAt > 5 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT") is not { Length: > 0 } && Cinematic.Asked is null)
+            var wait = Watching || Training ? 5 : World.Winner == Player ? 19 : 14;
+            // The cursor is gone while the world stands still (MachInGameScreen::update).
+            if (MatchOver && !_statisticsShown && _driven is null)
+                Input.MouseMode = Input.MouseModeEnum.Hidden;
+            if (!_statisticsShown && (now - _decidedAt > wait || _endSkipped) && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT") is not { Length: > 0 } && Cinematic.Asked is null)
             {
                 _statisticsShown = true;
+                Input.MouseMode = Input.MouseModeEnum.Visible;
                 CloseMenu();
                 if (Campaign.IsCampaign(MatchRequest.Current) && !Watching)
                     ShowCampaignEnding();
                 else
-                    OpenMenu(statistics: true);
+                    OpenMenu(statistics: Watching, debriefing: !Watching);
             }
         }
-        if (!_musicEnded && !Watching && (World.Winner is not null || World.Races[Player].Defeated))
+        // The tunes of victory and defeat come with the picture; a training mission ends without (MachGuiStartupScreens).
+        if (!_musicEnded && MatchOver)
         {
             _musicEnded = true;
-            Music.End(this, World.Winner == Player);
+            if (!Training)
+                Music.End(this, World.Winner == Player);
         }
         if (World.Winner is not null)
             SaveReplay();
@@ -664,6 +742,7 @@ public partial class Game : Node3D
             _audio.Muted = Fog.Blind;
         }
         UpdateHover();
+        UpdateBand();
         _cursor.Kind = CursorKind();
         _hud.Refresh();
         TakeScreenshotIfAsked(delta);
@@ -720,6 +799,15 @@ public partial class Game : Node3D
                     _rig.Yaw = Mathf.DegToRad(float.Parse(parts[4], System.Globalization.CultureInfo.InvariantCulture));
             }
         }
+        // MACHINES_SCREENSHOT_ARTEFACT=0.1: every artefact down to that share of its hit points, the camera on the nearest.
+        if (_runTime == 0 && float.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_ARTEFACT"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var artefactShare))
+        {
+            foreach (var artefact in World.Artefacts)
+                artefact.HitPoints = (int)(artefact.MaxHitPoints * artefactShare);
+            var (camera, standing) = (new NVector2(_rig.Position.X, _rig.Position.Z), World.Artefacts.Where(a => !a.IsDead));
+            if (standing.MinBy(a => NVector2.Distance(a.Position, camera)) is { } nearest)
+                _rig.Position = ActorView.World(nearest.Position);
+        }
         if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_BLAST") is { Length: > 0 } blastAt)
         {
             // e.g. "NUCLEAR_MISSILE,800,800": sets the weapon off there at once; "BEE_BOMB,-,-" where the camera looks.
@@ -746,6 +834,10 @@ public partial class Game : Node3D
                 spawned.HitPoints = 0;
             SyncViews();
         }
+        // MACHINES_SCREENSHOT_HURT=0.08: every machine down to that share of its hit points.
+        if (_runTime == 0 && float.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_HURT"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var hurtShare))
+            foreach (var machine in World.Machines)
+                machine.HitPoints = Math.Max(1, (int)(machine.MaxHitPoints * hurtShare));
         // e.g. "HARDWARE_LAB,CIVILIAN,1": a finished building of the player's where it fits nearest the camera, a lab with
         // something to research and the player's technicians going in.
         if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_BUILT")?.Split(',') is [var builtType, var builtSub, var builtLevel])
@@ -768,6 +860,7 @@ public partial class Game : Node3D
             foreach (var view in _views.Values)
                 view.Play(play);
         }
+        PlayScriptedInput();
         // e.g. "MINE,-,1": the player is placing that building, at MACHINES_SCREENSHOT_POINT.
         if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_GHOST")?.Split(',') is [var ghostType, var ghostSub, var ghostLevel])
             BeginPlacement(ghostType, ghostSub is "" or "-" ? null : ghostSub, int.Parse(ghostLevel));
@@ -819,9 +912,14 @@ public partial class Game : Node3D
                 _hud.Panel.OpenSelfDestructCover();
             if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU") is "navm" or "navc")
                 _hud.Panel.OpenNavigator(machines: System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU") == "navm");
-            // MACHINES_SCREENSHOT_MENU=menus or stats: the in-game menus, or the statistics.
-            if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU") is "menus" or "stats")
+            // MACHINES_SCREENSHOT_MENU=menus or stats: the in-game menus, or the statistics; hotkeys: the hot keys page.
+            if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU") is "menus" or "stats" or "hotkeys")
                 OpenMenu(statistics: System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU") == "stats");
+            if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU") == "hotkeys")
+                _menu!.ShowHotkeys();
+            // MACHINES_SCREENSHOT_MENU=defeat: the player's race has lost, to look at the end of a match.
+            if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU") == "defeat")
+                World.Races[Player].Defeated = true;
             if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_FIRSTPERSON") == "1")
             {
                 Select(_selection.Take(1).ToList());
@@ -836,6 +934,9 @@ public partial class Game : Node3D
                     walker.Facing = MathF.Atan2(inward.Y, inward.X);
                 }
                 EnterFirstPerson();
+                // MACHINES_SCREENSHOT_GOGGLES=1 puts the night vision goggles on.
+                if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_GOGGLES") == "1")
+                    _screen.ToggleGoggles();
                 // MACHINES_SCREENSHOT_LOOK=-20 tilts the view that many degrees (down when negative); "-20,60" also
                 // turns the upper body 60 degrees (to the right when positive).
                 var looks = System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_LOOK")?.Split(',') ?? [];
@@ -878,6 +979,8 @@ public partial class Game : Node3D
                 Issue(new AttackCommand(Player, ids, enemy.Id));
             else if (move[0] == "build" && World.Constructions.Where(c => c.Race == Player && !c.Complete).MinBy(c => NVector2.Distance(c.Position, middle)) is { } site)
                 Issue(new ConstructCommand(Player, ids, site.Id));
+            else if (move[0] == "board" && World.Machines.Where(m => m.Race == Player && m.Spec.Type == "APC").MinBy(m => NVector2.Distance(m.Position, middle)) is { } apc)
+                Issue(new BoardCommand(Player, ids, apc.Id));
             else if (move[0] == "enter" && World.Constructions.Where(c => c.Race == Player && c.HasInterior).MinBy(c => NVector2.Distance(c.Position, middle)) is { } lab)
                 foreach (var mover in movers)
                     Issue(mover.Spec.Type == "TECHNICIAN" && lab.IsType("HARDWARE_LAB") ? new EnterLabCommand(Player, [mover.Id], lab.Id) : new EnterGarrisonCommand(Player, [mover.Id], lab.Id));
@@ -934,6 +1037,7 @@ public partial class Game : Node3D
                 _views[actor.Id] = view;
                 AddChild(view);
                 view.SplatMesh = _assets.EffectMesh("groundsplat");
+                view.FirePictures = _support.FirePictures;
                 // A machine new to the world, from a factory or as reinforcements, teleports in.
                 if (_viewsSynced && turned is null && actor is Machine)
                     view.TeleportIn();
@@ -990,7 +1094,7 @@ public partial class Game : Node3D
             // Constructors at work reach out to the building with beams and sparks.
             if (actor is Machine { Spec.Type: "CONSTRUCTOR" } constructor)
                 view.Construct(World.WorkedOn(constructor) is { } site ? ActorView.World((site.Footprint.Min + site.Footprint.Max) / 2) + Vector3.Up * 2 : null,
-                    _assets.EffectMesh("torch"), _assets.EffectMesh("sparks"));
+                    _assets.EffectMesh("torch"), _assets.EffectMesh("sparks"), _assets.EffectMesh("groundlight"));
             // Technicians in a lab research with their arms while it has work (MachLogHardwareLab's MachLogResearchAnimation).
             if (actor is Machine { Spec.Type: "TECHNICIAN" } technician)
                 view.Working = technician.Inside is { } workplace && World.Find<Construction>(workplace) is { } lab
@@ -1022,12 +1126,17 @@ public partial class Game : Node3D
                 _views[id].BlowUp(_effects, _assets);
             else if (_vaporised.Remove(id))
                 _views[id].Vaporise();
+            else if (_swallowed.Remove(id))
+                _views[id].Swallow();
             _views[id].QueueFree();
             _views.Remove(id);
             _selection.Remove(id);
             if (_driven?.Id == id)
-                LeaveFirstPerson();
+                _screen.Die(LeaveFirstPerson);
         }
+        if (_driven is { } lost && lost.Race != Player)
+            _screen.Die(LeaveFirstPerson);
+        SyncArtefacts();
     }
 
     private void ShowEvents()
@@ -1051,14 +1160,18 @@ public partial class Game : Node3D
                     else if (World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail) is { } spec && GameWorld.Flies(spec))
                     {
                         var muzzle = MuzzleOf(e.Actor, spec) ?? at;
-                        _effects.Shot(muzzle, muzzle, e.Detail ?? "", spec.ProjectileSpeed);
+                        _effects.Shot(muzzle, muzzle, e.Detail ?? "", spec.ProjectileSpeed, spec);
                     }
                     // The electric charger strikes with lightning, and a halo runs over its victim.
                     else if (e.Detail == "ELECTRIC_CHARGE" && e.Other is { } struck && World.Find(struck) is { } shocked
                              && World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail) is { } charge)
                     {
                         var victimView = _views.GetValueOrDefault(struck);
-                        _support.Lightning(MuzzleOf(e.Actor, charge) ?? at, victimView?.Centre ?? ActorView.World(shocked.Position) + Vector3.Up * 1.5f, victimView);
+                        var (muzzle, aim) = (MuzzleOf(e.Actor, charge) ?? at, victimView?.Centre ?? ActorView.World(shocked.Position) + Vector3.Up * 1.5f);
+                        _support.Lightning(muzzle, aim, victimView);
+                        _effects.ChargerFires(muzzle, aim, Blast.Extras(charge)[2]);
+                        if (victimView is not null)
+                            _effects.FaceplateSmoke(victimView, Blast.Extras(charge)[1]);
                     }
                     // Fired in first person at the point under the crosshair: to that point, as far as the weapon
                     // reaches along the line of sight (a hill in the way draws it with the Impact below).
@@ -1082,6 +1195,7 @@ public partial class Game : Node3D
                         ? "SID_MLAUNCH8" : SoundTable.FiringSound(e.Detail ?? ""), at);
                     break;
                 case GameEventKind.Hit when e.Detail is { } weapon:
+                    _hud.Panel.Hit(e.Actor);
                     // A flamethrower sets the machine it hits alight.
                     if (weapon.StartsWith("FLAME_THROWER", StringComparison.Ordinal) && World.Find<Machine>(e.Actor) is not null
                         && _views.TryGetValue(e.Actor, out var burning))
@@ -1089,11 +1203,18 @@ public partial class Game : Node3D
                         _support.Burn(burning);
                         burning.Crackle(15);
                     }
+                    // In the classic look a bolt strikes sparks on what it hits, as does the vortex on what it does not
+                    // kill; the remake's effects have the tracer's.
+                    if (!GraphicsSettings.Effects && (weapon.Contains("BOLTER") || weapon == "AUTO_CANNON" || weapon == "VORTEX" && World.Find(e.Actor) is { IsDead: false })
+                        && _views.TryGetValue(e.Actor, out var sparking))
+                        _support.BoltSparks(sparking, weapon == "VORTEX" ? VortexCentre(sparking) : e.Other is { } from && _views.TryGetValue(from, out var shooter) ? shooter.Centre : sparking.Centre);
+                    if (!GraphicsSettings.Effects)
+                        ClassicVictim(e, weapon);
                     // Bolts, plasma and lightning shake the machine they hit.
                     if (SoundTable.ShakesMachine(weapon) && World.Find<Machine>(e.Actor) is not null && _views.TryGetValue(e.Actor, out var shaken))
                         shaken.Shake();
                     // The machine being driven, hit, now and then crackles in the driver's ears (one hit in twenty).
-                    if (e.Actor == _driven?.Id && Random.Shared.Next(20) == 0)
+                    if (e.Actor == _driven?.Id && _screen.Hit(_driven.Stats.NightVision))
                         _audio.PlayGui("gui/sounds/machhit.wav");
                     _audio.Play(SoundTable.HitSound(weapon, Random.Shared.Next(1, 5)), at);
                     break;
@@ -1108,32 +1229,28 @@ public partial class Game : Node3D
                 case GameEventKind.Destroyed when e.Actor >= Artefact.IdBase:
                     // An artefact: its model goes in the explosion, which is as big as it was.
                     if (_artefactModels.Remove(e.Actor - Artefact.IdBase, out var standing))
-                    {
-                        _effects.Destroyed(at, null);
-                        _audio.Play(SoundTable.ExplosionSound(true, standing is VisualInstance3D shape ? shape.GetAabb().Size.Length() : 4, Random.Shared.Next(1, 7)), at);
-                        standing.QueueFree();
-                    }
+                        BlowUpArtefact(e.Actor - Artefact.IdBase, standing, at);
                     break;
                 case GameEventKind.Recycled:
                     _vaporised.Add(e.Actor);
                     _audio.Play("SID_RECYCLE", at);
                     break;
                 case GameEventKind.Destroyed:
+                    _audio.SpeakerLost(e.Actor);
                     var vaporised = e.Detail == "ION_ORBITAL_CANNON";
-                    (vaporised ? _vaporised : _destroyed).Add(e.Actor);
-                    if (!vaporised)
+                    var swallowed = e.Detail == "VORTEX";
+                    (vaporised ? _vaporised : swallowed ? _swallowed : _destroyed).Add(e.Actor);
+                    if (!vaporised && !swallowed)
                         _effects.Destroyed(at - Vector3.Up * 2, _views.GetValueOrDefault(e.Actor));
                     if (e.Detail == "SELF_DESTRUCT" && _views.TryGetValue(e.Actor, out var charged) && !charged.IsBuilding)
                         _audio.Play("SID_MACHINE_SELF_DESTRUCT", at);
                     if (_views.TryGetValue(e.Actor, out var dead))
                     {
-                        if (!vaporised)
+                        if (!vaporised && !swallowed)
                             _audio.Play(SoundTable.ExplosionSound(dead.IsBuilding, dead.Size, Random.Shared.Next(1, 7)), at);
                         // A big building blowing up shakes the earth for two seconds (MachPhysObjectExplosion).
-                        if (dead.Quake is { } degrees && !vaporised)
+                        if (dead.Quake is { } degrees && !vaporised && !swallowed)
                             CameraRig.Shake(at, degrees, 2);
-                        if (dead.Race == Player && dead.Voice is { } voice)
-                            _audio.Say($"VID_{voice}_DESTROYED");
                     }
                     break;
                 case GameEventKind.MachineBuilt when World.Find<Machine>(e.Actor) is { } built && built.Race == Player:
@@ -1176,9 +1293,11 @@ public partial class Game : Node3D
                     _hud.Message(Lang.T("Research stolen: {0}", e.Detail));
                     _audio.Say("VID_SPY_RESEARCH_DOWNLOADED");
                     break;
-                // A spy drops a mine with a click (SID_MINE_DROP); one going off throws up a blast under the machine.
+                // A spy drops a mine with a click (SID_MINE_DROP) and it arms itself (SID_LMINE_DEPLOY, MachPhysLandMine); one
+                // going off throws up a blast under the machine.
                 case GameEventKind.MineLaid:
                     _audio.Play("SID_MINE_DROP", at);
+                    _audio.Play("SID_LMINE_DEPLOY", at);
                     break;
                 case GameEventKind.MineExploded:
                 {
@@ -1205,7 +1324,7 @@ public partial class Game : Node3D
                     break;
                 case GameEventKind.VoiceMail when e.Other == (int)Player && e.Detail is { } mail:
                     // The mission script's mails wait their turn rather than being dropped.
-                    _audio.Say(mail, queue: true);
+                    _audio.Say(mail, queue: true, speaker: e.Actor);
                     break;
                 // A change of alliance is news to the two players it is between (MachGuiDispositionChangeNotifiable).
                 case GameEventKind.AllianceChanged when e.Actor == (int)Player:
@@ -1213,6 +1332,11 @@ public partial class Game : Node3D
                     break;
                 case GameEventKind.AllianceChanged when e.Other == (int)Player:
                     _hud.Message(Lang.T(e.Detail == "ALLY" ? "{0} is now allied with you" : "{0} is no longer allied with you", PlayerName((Race)e.Actor)));
+                    break;
+                // With Broadcast Alliances on, a network game hears of the others' too, but never of computers among themselves.
+                case GameEventKind.AllianceChanged when Online && World.Options.BroadcastAlliances
+                                                        && (World.Races[(Race)e.Actor].Controller != Controller.Ai || World.Races[(Race)e.Other!.Value].Controller != Controller.Ai):
+                    _hud.Message(Lang.T(e.Detail == "ALLY" ? "{0} is now allied with {1}" : "{0} is no longer allied with {1}", PlayerName((Race)e.Actor), PlayerName((Race)e.Other!.Value)));
                     break;
                 case GameEventKind.Explosion:
                     // The mission script's explosion (MachLogExplosionAction), as big as its SIZE; a big one shakes the view.
@@ -1290,102 +1414,6 @@ public partial class Game : Node3D
                 planet.Visible = seen.Count == 0;
     }
 
-    /// <summary>Waits for a left click on the target of the building's ion cannon or nuclear missile.</summary>
-    public void BeginStrike(int launcher) =>
-        BeginTargeting("Left click the target; right click cancels", "attack", (point, _) => Order(new StrikeCommand(Player, launcher, point)));
-
-    /// <summary>
-    /// The next left click picks the target for <paramref name="onClick"/>; a right click cancels. Meanwhile the
-    /// mouse shows <paramref name="cursor"/> (see <see cref="ClassicCursor"/>).
-    /// </summary>
-    public void BeginTargeting(string message, string cursor, Action<NVector2, Actor?> onClick)
-    {
-        CancelPlacement();
-        _targeting = onClick;
-        _targetingCursor = cursor;
-        _targetingMessage = message;
-    }
-
-    // What the command waiting for its target asks for, on the prompt line (the original's command prompt).
-    private string _targetingMessage = "";
-
-    /// <summary>
-    /// Left clicks pick points for <paramref name="onDone"/>: with Shift held each adds one more, with the waypoint
-    /// click, and the first without Shift is the last (MachGuiPatrolCommand, MachGuiDropLandMineCommand).
-    /// </summary>
-    public void BeginWaypoints(string message, string cursor, Action<List<NVector2>> onDone)
-    {
-        var points = new List<NVector2>();
-        void Next(NVector2 point, Actor? _)
-        {
-            points.Add(point);
-            if (Input.IsKeyPressed(Key.Shift))
-            {
-                _audio.PlayGui("gui/sounds/waypoint.wav");
-                BeginTargeting(message, cursor, Next);
-            }
-            else
-                onDone(points);
-        }
-        BeginTargeting(message, cursor, Next);
-    }
-
-    /// <summary>The next left click sets the selected factories' assembly point (MachGuiAssemblyPointCommand).</summary>
-    public void BeginAssemblyPoint()
-    {
-        var factories = _selection.Select(World.Find<Construction>).OfType<Construction>()
-            .Where(c => c.Race == Player && c.Complete && c.IsType("FACTORY")).Select(c => c.Id).ToList();
-        if (factories.Count > 0)
-            BeginTargeting("Click where new machines gather; right click cancels", "assembl",
-                (point, _) => Order(new AssemblyPointCommand(Player, factories, point)));
-    }
-
-    private string _targetingCursor = "move";
-    private ClassicCursor _cursor = null!;
-
-    /// <summary>
-    /// The cursor for what lies under the mouse, as MachGuiCommand's cursorOnActor and cursorOnTerrain chose it: the
-    /// arrow over the panel, edge arrows while scrolling, the targeting mode's own, attack over an enemy, select
-    /// over your own, move over open ground when machines are selected.
-    /// </summary>
-    private string CursorKind()
-    {
-        var mouse = GetViewport().GetMousePosition();
-        var size = GetViewport().GetVisibleRect().Size;
-        if (GetViewport().GuiGetHoveredControl() is not null || _placing is not null || _driven is not null)
-            return "arrow";
-        const float edge = 6;
-        var vertical = mouse.Y <= edge ? "n" : mouse.Y >= size.Y - edge ? "s" : "";
-        var horizontal = mouse.X <= edge ? "w" : mouse.X >= size.X - edge ? "e" : "";
-        if (vertical.Length + horizontal.Length > 0 && _rig.EdgePan)
-            return "scrl" + vertical + horizontal;
-        if (_targeting is not null)
-            return _targetingCursor;
-        var actor = _hovered;
-        var mine = SelectedMachines().Where(m => m.Race == Player).ToList();
-        // Spies over an enemy lab go in (MachGuiIntelligentCursorOnActor's ENTER_BUILDING_CURSOR).
-        if (actor is Construction { Complete: true } lab && lab.IsType("HARDWARE_LAB") && World.AreEnemies(Player, lab.Race)
-            && mine.Count > 0 && mine.All(m => m.IsSpy))
-            return "enter";
-        if (actor is not null && World.AreEnemies(Player, actor.Race))
-            return mine.Any(m => m.CanFight) ? "attack" : "select";
-        // Over a building of its own, one that fits goes in.
-        if (actor is Construction { HasInterior: true } own && World.HasFreeBay(own) && mine.Any(m => World.CanEnter(m, own)))
-            return "enter";
-        if (actor is not null)
-            return "select";
-        // An artefact (crates, consoles, doors) belongs to no race, which the original counted as neutral: armed
-        // machines over it attack (MachGuiIntelligentCursorOnActor::doProcessAggressor).
-        if (_hoveredArtefact is { } artefact && World.CanAttack(Player, artefact) && mine.Any(m => m.CanFight))
-            return "attack";
-        if (mine.Count == 0)
-            return "arrow";
-        // Scavengers over wreckage (MachGuiIntelligentCursorOnActor's SCAVENGE_CURSOR).
-        if (_hoveredDebris is not null && mine.Any(m => m.IsScavenger))
-            return "scav";
-        return GroundAt(mouse) is { } ground && World.Nav.IsFree(ground, mine.Any(GameWorld.CrossesWater)) ? "move" : "noentry";
-    }
-
     private void SyncBlasts()
     {
         _groundBlasts.RemoveWhere(b => !World.Blasts.Contains(b));
@@ -1449,157 +1477,40 @@ public partial class Game : Node3D
     }
 
     /// <summary>A shot: the remake's flying bolt at the weapon's speed, or the classic short beam.</summary>
-    private void Shot(Vector3 from, Vector3 to, string weapon)
+    // Where the vortex nearest a victim is, whose line to it the sparks stand on.
+    private Vector3 VortexCentre(ActorView victim) =>
+        World.Blasts.Where(b => b.Weapon == "VORTEX").Select(b => ActorView.World(b.Position)).OrderBy(c => c.DistanceSquaredTo(victim.Centre))
+            .Cast<Vector3?>().FirstOrDefault() ?? victim.Centre;
+
+    // What the classic look's weapons do to what they hit besides: a pulse bolt lights it up for a moment
+    // (MachPhysPulseWeapon::applyVictimAnimation), and a bolt strikes sparks on an artefact as on anything else.
+    private void ClassicVictim(GameEvent e, string weapon)
     {
-        if (GraphicsSettings.Effects)
-            _effects.Shot(from, to, weapon, World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == weapon)?.ProjectileSpeed ?? 80);
-        else
-            Tracer(from, to, weapon);
+        var artefact = e.Actor >= Artefact.IdBase ? _artefactModels.GetValueOrDefault(e.Actor - Artefact.IdBase) : null;
+        if (weapon.Contains("PULSE") && artefact is not null)
+            _support.LightUp(artefact, ArtefactDamage.Meshes(artefact));
+        else if (weapon.Contains("PULSE") && _views.TryGetValue(e.Actor, out var victim))
+            _support.LightUp(victim, victim.Shape());
+        if (artefact is not null && (weapon.Contains("BOLTER") || weapon == "AUTO_CANNON"))
+        {
+            var (box, shooter) = (ArtefactBox(artefact), e.Other is { } from ? _views.GetValueOrDefault(from) : null);
+            var centre = artefact.GlobalTransform * box.GetCenter();
+            _support.BoltSparks(centre, box.Size, shooter?.Centre ?? centre);
+        }
     }
 
-    private void Tracer(Vector3 from, Vector3 to, string weapon)
+    private void Shot(Vector3 from, Vector3 to, string weapon)
     {
-        var length = from.DistanceTo(to);
-        if (length < 0.5f)
+        var spec = World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == weapon);
+        _effects.Shot(from, to, weapon, spec?.ProjectileSpeed ?? 80, spec);
+        if (GraphicsSettings.Effects)
             return;
-        var colour = weapon.Contains("PLASMA") ? new Color(0.3f, 1, 0.4f)
-            : weapon.Contains("FLAME") ? new Color(1, 0.5f, 0.1f)
-            : weapon.Contains("ELECTRIC") ? new Color(0.5f, 0.7f, 1)
-            : new Color(1, 0.9f, 0.4f);
-        var beam = new MeshInstance3D
-        {
-            Mesh = new BoxMesh { Size = new Vector3(0.25f, 0.25f, length) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = colour, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded },
-        };
-        _effects.AddChild(beam);
-        beam.GlobalPosition = (from + to) / 2;
-        beam.LookAt(to, Vector3.Up);
-        GetTree().CreateTimer(0.08).Timeout += beam.QueueFree;
+        _support.BolterFlash(from, (to - from).Normalized(), weapon, spec is null ? 0.1f : Effects.RoundLit(spec));
+        if (spec is not null && weapon.StartsWith("FLAME_THROWER", StringComparison.Ordinal))
+            _support.FlameBalls(from, to, spec);
     }
 
     // ---- input ----------------------------------------------------------------------------------
-
-    public override void _UnhandledInput(InputEvent @event)
-    {
-        if (_driven is not null)
-        {
-            FirstPersonInput(@event);
-            return;
-        }
-
-        switch (@event)
-        {
-            case InputEventKey { Pressed: true, Echo: false } key:
-                OnKey(key);
-                break;
-
-            case InputEventMouseButton { ButtonIndex: MouseButton.Left } left:
-                if (left.Pressed)
-                {
-                    if (_targeting is { } onClick)
-                    {
-                        // Cleared first: a command taking more points sets itself up again.
-                        _targeting = null;
-                        // The attack command can also be aimed at an artefact (MachGuiAttackCommand::cursorOnActor).
-                        if (GroundAt(left.Position) is { } point)
-                            onClick(point, ActorAt(left.Position) ?? (_targetingCursor == "attack" ? ArtefactAt(left.Position) : null));
-                    }
-                    else if (_placing is not null)
-                        PlaceBuilding();
-                    else
-                        _dragStart = left.Position;
-                }
-                else if (_dragStart is { } start)
-                {
-                    SelectArea(start, left.Position, left.ShiftPressed);
-                    _dragStart = null;
-                    _hud.DragRect = null;
-                }
-                break;
-
-            case InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: true } right:
-                if (_targeting is not null)
-                    _targeting = null;
-                else if (_placing is not null)
-                    CancelPlacement();
-                else
-                    OrderAt(right.Position);
-                break;
-
-            case InputEventMouseMotion motion when _dragStart is { } from:
-                _hud.DragRect = new Rect2(from, motion.Position - from).Abs();
-                break;
-        }
-    }
-
-    private void OnKey(InputEventKey key)
-    {
-        // The keys that keep their use (KeyMap.Reserved) first, then those the player may have moved.
-        switch (key.Keycode)
-        {
-            // Esc cancels what is in hand (a building to place, a command's target, a navigator), and otherwise
-            // leads to the menus as in the original.
-            case Key.Escape:
-                if (_placing is not null) CancelPlacement();
-                else if (_targeting is not null) _targeting = null;
-                else if (!_hud.Panel.CloseNavigator()) OpenMenu();
-                return;
-            case Key.S when key.CtrlPressed || key.ShiftPressed:
-                Order(new StopCommand(Player, _selection.ToList()));
-                return;
-            // Ctrl and a number forms the selection into that squadron, the number alone selects it
-            // (MachGuiSquadronBank).
-            case >= Key.Key0 and <= Key.Key9 when key.CtrlPressed:
-                FormSquadron((int)(key.Keycode - Key.Key0));
-                return;
-            case >= Key.Key0 and <= Key.Key9:
-                SelectSquadron((int)(key.Keycode - Key.Key0));
-                return;
-            // F1 to F3 start a chat message to another player, F4 one to everyone (MachPromptText).
-            case >= Key.F1 and <= Key.F4 when Online && !key.ShiftPressed && !key.CtrlPressed:
-                _hud.Chat.Begin((int)(key.Keycode - Key.F1));
-                return;
-            // With Ctrl, F1 to F3 make that other player an ally or no longer one (MachPromptText).
-            case >= Key.F1 and <= Key.F3 when Online && key.CtrlPressed:
-                ToggleAlliance((int)(key.Keycode - Key.F1));
-                return;
-            // Alt and the left arrow puts the control panel away, Alt and the right arrow brings it out.
-            case Key.Left when key.AltPressed:
-                _hud.Panel.SlideOut(false);
-                return;
-            case Key.Right when key.AltPressed:
-                _hud.Panel.SlideOut(true);
-                return;
-        }
-
-        // Space turns the building a quarter, as in the original (MachGuiConstructCommand); R does too.
-        if (_placing is not null && KeyMap.Is(key, KeyMap.Act.TurnBuilding))
-            _placingOrientation = (_placingOrientation + 90) % 360;
-        else if (KeyMap.Is(key, KeyMap.Act.FirstPerson))
-            EnterFirstPerson();
-        // Tab steps the initiative (MachGuiDefconCommand).
-        else if (KeyMap.Is(key, KeyMap.Act.Initiative))
-            CycleInitiative();
-        else if (KeyMap.Is(key, KeyMap.Act.AssemblyPoint))
-            BeginAssemblyPoint();
-        else if (KeyMap.Is(key, KeyMap.Act.Pause))
-        {
-            if (Online)
-                _hud.Message("A multiplayer match cannot be paused");
-            else
-            {
-                Paused = !Paused;
-                _hud.Message(Paused ? "Paused" : "Running");
-            }
-        }
-        // F10 leads to the menus, as Esc does when there is nothing to cancel (MachInGameScreen's keys).
-        else if (KeyMap.Is(key, KeyMap.Act.Menu))
-            OpenMenu();
-        else if (KeyMap.Is(key, KeyMap.Act.ZenithView))
-            UseZenithCamera(true);
-        else if (KeyMap.Is(key, KeyMap.Act.GroundView))
-            UseZenithCamera(false);
-    }
 
     /// <summary>
     /// Ctrl and F1 to F3 (MachPromptText::doHandleKeyEvent): the player takes that other human player for an ally,
@@ -1678,6 +1589,19 @@ public partial class Game : Node3D
     // When the match was decided, and whether its statistics have come up.
     private double? _decidedAt;
     private bool _statisticsShown;
+
+    // Esc or Space cut the wait for the statistics short.
+    private bool _endSkipped;
+
+    /// <summary>The game stands still two seconds after it was decided (MachInGameScreen::actualGameState).</summary>
+    public bool MatchOver => _decidedAt is { } at && !Watching && Time.GetTicksMsec() / 1000.0 - at > 2;
+
+    /// <summary>A mission of the campaign's first system (MachGuiDbScenario::isTrainingScenario).</summary>
+    private static bool Training => Campaign.IsCampaign(MatchRequest.Current) && Campaign.Catalogue.Campaign.FirstOrDefault() is { } system
+        && system.Planets.SelectMany(p => p.Scenarios).Any(s => s.Name.Equals(MatchRequest.Current.Scenario, StringComparison.OrdinalIgnoreCase));
+
+    // How it ended, in the bitmap of MachWorldViewWindow::doDisplay.
+    private string EndPicture => World.Winner == Player ? Training ? "misc/complete.bmp" : "misc/victory.bmp" : Training ? "misc/failed.bmp" : "misc/defeat.bmp";
 
     /// <summary>Opens the menus over the match (Esc, F10, the return button); a game on this machine waits meanwhile.</summary>
     public void OpenMenu() => OpenMenu(statistics: false);
@@ -1760,9 +1684,9 @@ public partial class Game : Node3D
         SaveReplay();
         if (Online)
             NetLink.Send(new LeaveRoom());
-        // From a campaign mission the menus open on the choice of mission.
-        if (Campaign.IsCampaign(MatchRequest.Current) && !Watching && !Online)
-            MenuScreens.StartPage = "missions";
+        // The menus open where the match was set up: the choice of mission, the skirmish setup or the rooms.
+        if (!Watching)
+            MenuScreens.StartPage = Online ? "multiplayer" : Campaign.IsCampaign(MatchRequest.Current) ? "missions" : "skirmish";
         GetTree().ChangeSceneToFile("res://scenes/Menu.tscn");
     }
 
@@ -1839,6 +1763,9 @@ public partial class Game : Node3D
     {
         if (zenith == ZenithCamera)
             return;
+        // A box being drawn goes with the camera it was drawn in.
+        if (_banding)
+            EndBand();
         if (zenith && _zenith is { } before)
         {
             (_rig.Pitch, _rig.Distance) = before;
@@ -1921,7 +1848,7 @@ public partial class Game : Node3D
     }
 
     // For automated checks: MACHINES_SCREENSHOT_POINT=x,y (screen pixels) stands in for the mouse when hovering.
-    private static readonly Vector2? PointedForScreenshot =
+    internal static readonly Vector2? PointedForScreenshot =
         System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_POINT")?.Split(',') is [var x, var y]
             ? new Vector2(float.Parse(x, System.Globalization.CultureInfo.InvariantCulture), float.Parse(y, System.Globalization.CultureInfo.InvariantCulture))
             : null;
@@ -1939,9 +1866,12 @@ public partial class Game : Node3D
         var mouse = PointedForScreenshot ?? GetViewport().GetMousePosition();
         // A film points at nothing, wherever the mouse is.
         var inWorld = _driven is null && Cinematic.Asked is null && (PointedForScreenshot is not null || GetViewport().GuiGetHoveredControl() is null);
-        _hovered = inWorld ? ActorAt(mouse) : null;
+        var onMap = _driven is null ? _hud.Panel.PointedOnMap : null;
+        _hovered = onMap is { } map ? map.Actor : inWorld ? ActorAt(mouse) : null;
         _hoveredArtefact = inWorld && _hovered is null ? ArtefactAt(mouse) : null;
-        _hoveredDebris = inWorld && _hovered is null ? DebrisAt(mouse) : null;
+        _hoveredDebris = onMap?.Wreck ?? (inWorld && _hovered is null ? DebrisAt(mouse) : null);
+        var deposit = inWorld && _hovered is null && _hoveredArtefact is null && _hoveredDebris is null ? SiteAt(mouse) : null;
+        _pointed = onMap ?? new Pointed(_hovered ?? _hoveredArtefact, _hoveredDebris, inWorld ? GroundAt(mouse) : null, deposit is not null);
         var view = _hovered is not null ? _views.GetValueOrDefault(_hovered.Id) : null;
         if (view != _highlighted)
         {
@@ -1951,13 +1881,15 @@ public partial class Game : Node3D
         }
         if (view is not null)
             view.Highlighted = !view.Selected;
-        _hud.Panel.Prompt = !inWorld ? null
+        _hud.Panel.Prompt = !inWorld && onMap is null ? null
             : _hovered is not null ? _hud.Panel.PromptFor(_hovered)
             : _hoveredArtefact is { } artefact ? _hud.Panel.PromptFor(artefact)
             : _hoveredDebris is { } wreck ? Lang.T("Debris   {0} BMU", wreck.Quantity)
-            : SiteAt(mouse) is { } site ? ClassicPanel.DepositPrompt(site)
+            : deposit is { } site ? ClassicPanel.DepositPrompt(site)
             : null;
-        _hud.Panel.CommandPrompt = _targeting is not null ? _targetingMessage : null;
+        // Pointed at with nothing selected, an actor shows in the single icon (MachInGameScreen::highlightActor).
+        _hud.Panel.Highlighted = _hovered;
+        _hud.Panel.CommandPrompt = _inHand is { } hand ? Lang.T(hand.Message) : _placing is not null ? PlacementPrompt() : null;
     }
 
     // The wreck the mouse points at this frame, when no actor is in front of it.
@@ -1968,26 +1900,6 @@ public partial class Game : Node3D
 
     /// <summary>The selected scavengers (level-3 resource carriers), which gather wreckage.</summary>
     private List<int> SelectedScavengers() => SelectedMachines().Where(m => m.IsScavenger).Select(m => m.Id).ToList();
-
-    private void SelectArea(Vector2 from, Vector2 to, bool add)
-    {
-        var rect = new Rect2(from, to - from).Abs();
-        var camera = GetViewport().GetCamera3D();
-        List<int> picked;
-        if (rect.Size.Length() < 6)
-        {
-            picked = ActorAt(to) is { } actor ? [actor.Id] : [];
-        }
-        else
-        {
-            picked = World.Machines
-                .Where(m => m.Race == Player && m.Inside is null && !camera.IsPositionBehind(ActorView.World(m.Position)))
-                .Where(m => rect.HasPoint(camera.UnprojectPosition(ActorView.World(m.Position))))
-                .Select(m => m.Id)
-                .ToList();
-        }
-        Select(add ? _selection.Union(picked).ToList() : picked);
-    }
 
     /// <summary>Moves the strategy camera over a ground point.</summary>
     public void LookAt(NVector2 point) => _rig.Position = new Vector3(point.X, 0, point.Y);
@@ -2013,6 +1925,8 @@ public partial class Game : Node3D
     {
         Order(new FormSquadronCommand(Player, SelectedMachines().Select(m => m.Id).ToList(), squad));
         _hud.Message(Lang.T("Squadron {0} formed", squad));
+        // Orders go through its commander from now on (MachGuiFormSquadronCommand: applyCommandToSquadron).
+        _squadronSelected = squad;
     }
 
     /// <summary>
@@ -2036,7 +1950,7 @@ public partial class Game : Node3D
         _squadronSelected is { } squad && World.CommanderOf(Player, squad) is not null && command is MoveCommand or AttackCommand
             or AttackMoveCommand or StopCommand or ConstructCommand or LocateCommand or PatrolCommand or HealCommand or RepairCommand
             or CaptureCommand or DeconstructCommand or RecycleCommand or StandGroundCommand or DefConCommand
-            or DropLandMinesCommand or RefillLandMinesCommand or CamouflageCommand
+            or DropLandMinesCommand or RefillLandMinesCommand or CamouflageCommand or FollowCommand or SeriesCommand
             ? new SquadronCommand(Player, squad, command)
             : command;
 
@@ -2095,6 +2009,18 @@ public partial class Game : Node3D
     /// </summary>
     private void OrderAt(Vector2 screen)
     {
+        // With Alt held, or nothing but buildings selected, it does what the cursor shows.
+        var (ctrl, alt) = (Input.IsKeyPressed(Key.Ctrl), Input.IsKeyPressed(Key.Alt));
+        if (alt || !SelectedMachines().Any())
+        {
+            var at = PointedAt(screen);
+            if (AimAt(at, ctrl, alt) is var aim && aim is not (Aim.Select or Aim.Menu or Aim.Invalid) && (!alt || aim is Aim.Move or Aim.Follow or Aim.Recycle
+                or Aim.Deconstruct or Aim.Treachery or Aim.Deploy or Aim.AssemblyPoint or Aim.EnterBuilding or Aim.Attack))
+            {
+                Carry(aim, at, ctrl, shift: false);
+                return;
+            }
+        }
         var squadron = _squadronSelected;
         _squadronSelected = null;
         try
@@ -2261,6 +2187,10 @@ public partial class Game : Node3D
     private void CancelPlacement()
     {
         _placing = null;
+        _placingAt = null;
+        _placingWhy = null;
+        _placedAt.Clear();
+        _joined.Clear();
         _ghost?.QueueFree();
         _ghost = null;
         _ghostMaterial = null;
@@ -2270,11 +2200,23 @@ public partial class Game : Node3D
     {
         if (_placing is not { } p || _ghost is null || GroundAt(PointedForScreenshot ?? GetViewport().GetMousePosition()) is not { } at)
             return;
+        // With Ctrl held the building stays where it is and turns to face the mouse (MachGuiConstructCommand).
+        if (Input.IsKeyPressed(Key.Ctrl) && _placingAt is { } held)
+        {
+            var away = at - held;
+            if (away != NVector2.Zero)
+                _placingOrientation = 90 * (Math.Abs(away.X) >= Math.Abs(away.Y) ? away.X >= 0 ? 0 : 2 : away.Y >= 0 ? 1 : 3);
+            at = held;
+        }
+        _placingAt = at;
         // Placed and turned as the building's own view will be (ActorView). A mine goes where the mouse is, as
         // anything else: anywhere near a found site will do (MachGuiConstructCommand never moved it onto the site).
         _ghost.Position = ActorView.World(at);
         _ghost.Rotation = new Vector3(0, -Mathf.DegToRad(_placingOrientation), 0);
-        var ok = World.WhyCannotPlace(Player, p.Type, p.SubType, p.Level, at, _placingOrientation) is null;
+        _placingWhy = WhyNotHere(p, at);
+        var ok = _placingWhy is null;
+        // Where it cannot stand it flashes, four times a second.
+        _ghost.Visible = ok || (int)(Time.GetTicksMsec() / 250) % 2 == 1;
         var tint = ok ? new Color(0.3f, 1, 0.3f, 0.4f) : new Color(1, 0.25f, 0.2f, 0.4f);
         _ghostMaterial!.AlbedoColor = tint;
         if (_ghost is RigView view)
@@ -2290,46 +2232,105 @@ public partial class Game : Node3D
         }
     }
 
-    private void PlaceBuilding()
+    // Where the building to place stands now, and why it cannot; the sites picked with Shift so far, new and joined.
+    private NVector2? _placingAt;
+    private string? _placingWhy;
+    private readonly List<NVector2> _placedAt = [];
+    private readonly List<int> _joined = [];
+
+    /// <summary>The cursor while placing: the arrow where it may stand, no entry where not, join over the player's own unfinished site.</summary>
+    private string PlacingCursor() =>
+        _pointed.Actor is Construction { Complete: false } site && site.Race == Player ? "jconst" : _placingWhy is null ? "arrow" : "noentry";
+
+    private const string TooManyUnits = "max units", InTheFog = "fog of war";
+
+    // MachGuiConstructCommand::isValidPosition, which asks for the race's limit first and the fog last.
+    private string? WhyNotHere((string Type, string? SubType, int Level) p, NVector2 at) => World.MaxUnitsExist(Player) ? TooManyUnits
+        : World.WhyCannotPlace(Player, p.Type, p.SubType, p.Level, at, _placingOrientation) ?? (Fog?.Blind == true ? InTheFog : null);
+
+    /// <summary>What the prompt line says while placing: how to, or as the original's Info lines why not here.</summary>
+    private string PlacementPrompt() => _placingWhy switch
     {
-        if (_placing is not { } p || GroundAt(GetViewport().GetMousePosition()) is not { } ground)
+        null => ClassicPanel.Text(15, "Click on location. Hold ctrl key down to change orientation."),
+        TooManyUnits => ClassicPanel.Text(67, "Info : Max units already exist"),
+        InTheFog => ClassicPanel.Text(61, "Info : Can't construct in Fog of War"),
+        var why when why.Contains("BMU") => ClassicPanel.Text(66, "Info : 5 Bmus required to place construction"),
+        var why when why.StartsWith("mine", StringComparison.Ordinal) => ClassicPanel.Text(55, "Info : Mine not on mineral site or too close to Smelter or Pod"),
+        var why when why.StartsWith("smelter", StringComparison.Ordinal) => ClassicPanel.Text(56, "Info : Smelter too close to mine"),
+        var why when why.Contains("obstacles") => ClassicPanel.Text(58, "Info : Obstacles"),
+        var why => Lang.T(why),
+    };
+
+    /// <summary>
+    /// A pick while placing: the site stands at once, or an unfinished site of the player's joins the list. With Shift
+    /// more follow, each with the waypoint click; the last sets the constructors to work on them in turn with the
+    /// command's own click (MachGuiConstructCommand, MachGuiCommand::apply).
+    /// </summary>
+    private void PlaceBuilding(Pointed at, bool shift)
+    {
+        if (_placing is not { } p || RefusesOrders())
             return;
-        var constructors = SelectedMachines().Where(m => m.Spec.Type == "CONSTRUCTOR").Select(m => m.Id).ToList();
-        // A site that can't stand there gets the original's refusal click (MachGuiConstructCommand).
-        if (World.WhyCannotPlace(Player, p.Type, p.SubType, p.Level, ground, _placingOrientation) is { } why)
-        {
-            _audio.PlayGui("gui/sounds/clickbad.wav");
-            _hud.Message(why);
+        var constructors = Movers().Where(m => m.Spec.Type == "CONSTRUCTOR").Select(m => m.Id).ToList();
+        PlaceConstructionCommand? placed = null;
+        var spot = _placingAt ?? at.Ground;
+        if (at.Actor is Construction { Complete: false } site && site.Race == Player)
+            _joined.Add(site.Id);
+        else if (spot is not { } ground)
             return;
-        }
-        // Nothing can be started on less than 5 BMUs (MachGuiConstructCommand::doApply).
-        if (World.Races[Player].Bmu < 5)
-        {
-            _audio.Say("VID_POD_INSUFFICIENT_BMUS");
-            return;
-        }
-        Issue(new PlaceConstructionCommand(Player, constructors, p.Type, p.SubType, p.Level, ground, _placingOrientation));
-        _audio.Say("VID_DOZER_MOVE_TO_SITE");
-        // With Shift held more sites follow, each with the waypoint click; the last one sets the constructors to
-        // work with the command's own click (MachGuiConstructCommand, MachGuiCommand::apply).
-        if (Input.IsKeyPressed(Key.Shift))
-            _audio.PlayGui("gui/sounds/waypoint.wav");
         else
         {
-            _audio.PlayGui("gui/sounds/taskmach.wav");
-            CancelPlacement();
+            // Nothing can be started on less than 5 BMUs (MachGuiConstructCommand::doApply).
+            if (World.Races[Player].Bmu < GameWorld.MinimumBmuToPlace)
+            {
+                _audio.Say("VID_POD_INSUFFICIENT_BMUS");
+                return;
+            }
+            // A site that can't stand there gets the original's refusal click.
+            if (WhyNotHere(p, ground) is not null)
+            {
+                _audio.PlayGui("gui/sounds/clickbad.wav");
+                return;
+            }
+            placed = new PlaceConstructionCommand(Player, [], p.Type, p.SubType, p.Level, ground, _placingOrientation);
+            if (shift)
+            {
+                Issue(placed);
+                _placedAt.Add(ground);
+            }
         }
+        if (shift)
+        {
+            Waypoint();
+            return;
+        }
+        // The sites picked with Shift by their places, those that have come to stand.
+        var sites = World.Constructions.Where(c => c.Race == Player && !c.Complete && _placedAt.Any(point => NVector2.Distance(point, c.Position) < 1)).Select(c => c.Id);
+        var steps = _joined.Concat(sites).Distinct().Select(id => (Command)new ConstructCommand(Player, [], id)).ToList();
+        if (placed is not null)
+            steps.Add(placed);
+        Issue(steps is [PlaceConstructionCommand one] ? one with { Constructors = constructors } : new SeriesCommand(Player, constructors, steps));
+        _audio.Say("VID_DOZER_MOVE_TO_SITE");
+        _audio.PlayGui("gui/sounds/taskmach.wav");
+        CancelPlacement();
     }
 
     // ---- first person ---------------------------------------------------------------------------
 
     public void EnterFirstPerson()
     {
-        if (SelectedMachines().FirstOrDefault() is not { } machine)
+        // MachGuiFirstPerson::okayToSwitchTo1stPerson: one machine of the player's, not in an APC, while the match allows it.
+        if (World.Options.DisableFirstPerson)
+        {
+            _hud.Message("First person is switched off in this match");
+            return;
+        }
+        if (_selection.Count != 1 || SelectedMachines().FirstOrDefault() is not { } machine || machine.Inside is { } inside && World.Find<Machine>(inside) is not null)
         {
             _hud.Message("Select one of your machines to drive it (F)");
             return;
         }
+        _firstPersonFromGround = !ZenithCamera;
+        _lastRightClick = 0;
         _driven = machine;
         if (_views.TryGetValue(machine.Id, out var view))
             view.SetDriven(true);
@@ -2344,6 +2345,7 @@ public partial class Game : Node3D
         // A panel button keeping the focus would take Tab for moving the focus on.
         GetViewport().GuiReleaseFocus();
         _hud.FirstPerson = true;
+        _screen.Enter();
         // The radar comes on, and a machine with weapons readies them (MachGuiFirstPerson).
         if (machine.Weapons.Count > 0)
             _audio.PlayGui("gui/sounds/weapchng.wav");
@@ -2365,10 +2367,20 @@ public partial class Game : Node3D
         });
     }
 
-    private void LeaveFirstPerson()
+    // Which camera first person came from, and goes back to unless told otherwise.
+    private bool _firstPersonFromGround;
+
+    // When the right button last came up, for its double click.
+    private double _lastRightClick;
+
+    private void LeaveFirstPerson() => LeaveFirstPerson(_firstPersonFromGround);
+
+    /// <summary>Out of first person to the given camera, over the machine (MachGuiFirstPerson::detachCamera).</summary>
+    private void LeaveFirstPerson(bool ground)
     {
         if (_driven is { } machine && World.Find(machine.Id) is not null)
             Issue(new DriveCommand(Player, machine.Id, Driving: false));
+        var left = _driven;
         if (_driven is { } was && _views.TryGetValue(was.Id, out var view))
             view.SetDriven(false);
         _driven = null;
@@ -2378,6 +2390,10 @@ public partial class Game : Node3D
         _rig.Camera.Current = true;
         Input.MouseMode = Input.MouseModeEnum.Visible;
         _hud.FirstPerson = false;
+        _screen.Leave();
+        UseZenithCamera(!ground);
+        if (left is not null && World.Find(left.Id) is { IsDead: false } still)
+            LookAtActor(still);
     }
 
     private float _mouseTurn;
@@ -2423,10 +2439,20 @@ public partial class Game : Node3D
     private static float KeyTurn(Machine machine)
     {
         var turn = (KeyMap.Held(KeyMap.Act.TurnLeft) ? 1f : 0f) - (KeyMap.Held(KeyMap.Act.TurnRight) ? 1f : 0f);
-        if (!machine.CanStrafe)
+        if (!Input.IsKeyPressed(Key.Shift))
+            turn += ArrowTurn();
+        if (!machine.CanStrafe && !GameOptions.ClassicKeys)
             turn += (KeyMap.Held(KeyMap.Act.Left) ? 1f : 0f) - (KeyMap.Held(KeyMap.Act.Right) ? 1f : 0f);
         return Mathf.Clamp(turn, -1, 1);
     }
+
+    /// <summary>The left and right arrows, on the keyboard or the number pad: they turn the machine, with Shift its upper body (MachGuiFirstPerson's keys).</summary>
+    private static float ArrowTurn() =>
+        (Input.IsKeyPressed(Key.Left) || Input.IsKeyPressed(Key.Kp4) ? 1f : 0f) - (Input.IsKeyPressed(Key.Right) || Input.IsKeyPressed(Key.Kp6) ? 1f : 0f);
+
+    /// <summary>How fast the keys turn the upper body, radians a second: a tenth of that with Ctrl.</summary>
+    private static float HeadKeySpeed(Machine machine) =>
+        Mathf.DegToRad(machine.Stats.BodyTurnRate ?? 180) * (Input.IsKeyPressed(Key.Ctrl) ? 0.1f : 1);
 
     /// <summary>
     /// With the classic keys, whether the mouse and A/D turn the driven machine's upper body rather than the whole
@@ -2437,13 +2463,35 @@ public partial class Game : Node3D
 
     private void FirstPersonInput(InputEvent @event)
     {
+        if (_screen.Lost)
+            return;
         switch (@event)
         {
-            case InputEventKey { Pressed: true, Echo: false } key when key.Keycode == Key.Escape || KeyMap.Is(key, KeyMap.Act.FirstPerson):
+            case InputEventKey { Pressed: true, Echo: false } key when key.Keycode == Key.Escape || KeyMap.Is(key, KeyMap.Act.FirstPerson) || MatchOver && key.Keycode == Key.Space:
                 LeaveFirstPerson();
+                break;
+            case InputEventKey { Pressed: true } when MatchOver:
+                break;
+            // 0 and 2 on the number pad leave for the ground and the zenith camera.
+            case InputEventKey { Pressed: true, Echo: false, Keycode: Key.Kp0 }:
+                LeaveFirstPerson(ground: true);
+                break;
+            case InputEventKey { Pressed: true, Echo: false, Keycode: Key.Kp2 }:
+                LeaveFirstPerson(ground: false);
+                break;
+            case InputEventKey { Pressed: true, Echo: false } key when KeyMap.Is(key, KeyMap.Act.Menu) && !KeyMap.Taken(key.Keycode, firstPerson: true):
+                LeaveFirstPerson();
+                OpenMenu();
+                break;
+            case InputEventKey { Pressed: true, Echo: false } key when KeyMap.Is(key, KeyMap.Act.Pause) && !KeyMap.Taken(key.Keycode, firstPerson: true):
+                TogglePause();
                 break;
             case InputEventKey { Pressed: true, Echo: false } key when KeyMap.Is(key, KeyMap.Act.Weapons):
                 SelectNextWeapons();
+                break;
+            // N switches the goggles of a machine that has them.
+            case InputEventKey { Pressed: true, Echo: false, Keycode: Key.N } when _driven is { Stats.NightVision: true }:
+                _screen.ToggleGoggles();
                 break;
             // C (the original's keypad 5) turns the upper body back to the front.
             case InputEventKey { Pressed: true, Echo: false } key when KeyMap.Is(key, KeyMap.Act.CentreView):
@@ -2455,9 +2503,20 @@ public partial class Game : Node3D
                 _aimYaw = Mathf.Wrap(_aimYaw + motion.Relative.X * LookPerPixel, -Mathf.Pi, Mathf.Pi);
                 LookUpDown(motion);
                 break;
-            case InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: false } when _rightButtonTurnedHead:
-                _rightButtonTurnedHead = false;
-                _headTarget = 0;
+            // The right button clicked twice within half a second leaves (MachGuiFirstPerson::doHandleRightClickEvent).
+            case InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: false }:
+                var clicked = Time.GetTicksMsec() / 1000.0;
+                if (clicked - _lastRightClick < 0.5)
+                {
+                    LeaveFirstPerson();
+                    break;
+                }
+                _lastRightClick = clicked;
+                if (_rightButtonTurnedHead)
+                {
+                    _rightButtonTurnedHead = false;
+                    _headTarget = 0;
+                }
                 break;
             case InputEventMouseMotion motion when TurningHead:
                 _rightButtonTurnedHead |= Input.IsMouseButtonPressed(MouseButton.Right);
@@ -2515,10 +2574,16 @@ public partial class Game : Node3D
 
     private void UpdateDriving()
     {
-        if (_driven is not { } machine)
+        if (_driven is not { } machine || _screen.Lost)
             return;
-        var forward = (KeyMap.Held(KeyMap.Act.Forward) ? 1f : 0f) - (KeyMap.Held(KeyMap.Act.Back) ? 1f : 0f);
-        var keys = (KeyMap.Held(KeyMap.Act.Left) ? 1f : 0f) - (KeyMap.Held(KeyMap.Act.Right) ? 1f : 0f);
+        // The arrows drive and turn whatever the moves' keys are, and the up arrow on the number pad too; the one down
+        // there leaves (MachGuiFirstPerson's keys). With Shift they turn the upper body and look instead.
+        var shift = Input.IsKeyPressed(Key.Shift);
+        var moves = !GameOptions.ClassicKeys;
+        var forward = (moves && KeyMap.Held(KeyMap.Act.Forward) || !shift && (Input.IsKeyPressed(Key.Up) || Input.IsKeyPressed(Key.Kp8)) ? 1f : 0f)
+            - (moves && KeyMap.Held(KeyMap.Act.Back) || !shift && Input.IsKeyPressed(Key.Down) ? 1f : 0f);
+        var keys = moves ? (KeyMap.Held(KeyMap.Act.Left) ? 1f : 0f) - (KeyMap.Held(KeyMap.Act.Right) ? 1f : 0f) : 0;
+        var arrows = ArrowTurn();
         var turn = Mathf.Clamp(_mouseTurn, -1, 1);
         _mouseTurn *= 0.5f;
         var strafe = 0f;
@@ -2531,6 +2596,8 @@ public partial class Game : Node3D
             {
                 // The upper body keeps the view's heading in the world while the hull turns under it.
                 turn = KeyTurn(machine);
+                if (shift)
+                    _aimYaw = Mathf.Wrap(_aimYaw - arrows * HeadKeySpeed(machine) * GameWorld.Dt, -Mathf.Pi, Mathf.Pi);
                 _headTarget = Mathf.Wrap(_aimYaw - machine.Facing, -Mathf.Pi, Mathf.Pi);
             }
             else
@@ -2547,16 +2614,16 @@ public partial class Game : Node3D
         }
         // With Shift (or the right button) held, A and D turn the upper body as the original's Shift and arrows did.
         else if (TurningHead)
-            _headTarget = Mathf.Wrap(_headTarget - keys * Mathf.DegToRad(machine.Stats.BodyTurnRate ?? 180) * GameWorld.Dt, -Mathf.Pi, Mathf.Pi);
+            _headTarget = Mathf.Wrap(_headTarget - (keys + arrows) * HeadKeySpeed(machine) * GameWorld.Dt, -Mathf.Pi, Mathf.Pi);
         else
-            turn += keys;
+            turn += keys + (shift ? 0 : arrows);
 
-        // While the left button is held the weapons fire at the very point under the crosshair, as the original's
+        // While the left button or Space is held the weapons fire at the very point under the crosshair, as the original's
         // did (MachGuiFirstPerson, MachPhys1stPersonDriver::aimData): where the line of sight first meets a model or
         // the ground within their reach, else its end in the air, whether or not anything is there.
         NVector2? aimAt = null;
         float? aimHeight = null;
-        if (Input.IsMouseButtonPressed(MouseButton.Left) && machine.CanFight)
+        if ((Input.IsMouseButtonPressed(MouseButton.Left) || Input.IsKeyPressed(Key.Space) && !KeyMap.Taken(Key.Space, firstPerson: true)) && machine.CanFight)
         {
             // None of the selected weapons charged: the original's dud click, at most every 0.8 s (MachGuiFirstPerson).
             var selected = SelectedWeapons(machine);
@@ -2634,13 +2701,34 @@ public partial class Game : Node3D
         // The crosshair shows what it rests on: an enemy to shoot or a friend to spare (ore and wrecks don't count).
         // It looks along the same line of sight the weapons fire along, as far as they reach.
         var reach = machine.Weapons.Select(w => w.Spec.Range).DefaultIfEmpty(0).Max();
-        var (_, aimed) = SightAt(GetViewport().GetVisibleRect().Size / 2, reach);
+        var (sighted, aimed) = SightAt(GetViewport().GetVisibleRect().Size / 2, reach);
         _hud.Crosshair.Target = aimed is null ? null
             : (aimed.HitPoints / (float)Math.Max(1, aimed.MaxHitPoints), aimed.Armour / (float)Math.Max(1, aimed.MaxArmour));
         // The compass reads the heading as the original's azimuth: degrees anticlockwise from its x axis.
         _hud.Crosshair.Heading = Mathf.RadToDeg(FreeLook ? _aimYaw : machine.Facing + head);
         _hud.Crosshair.Aim = aimed is null ? Crosshair.Sight.None
-            : World.AreEnemies(Player, aimed.Race) ? Crosshair.Sight.Enemy
-            : Crosshair.Sight.Friend;
+            : !World.AreEnemies(Player, aimed.Race) ? Crosshair.Sight.Friend
+            : WeaponsBear(machine, view.Eye, sighted) ? Crosshair.Sight.Enemy
+            : Crosshair.Sight.Miss;
+    }
+
+    /// <summary>
+    /// Whether a selected weapon can tilt to the point: within 95% of its DEVIATION_ANGLES either way of where the upper
+    /// body faces (MachPhys1stPersonDriver::targetPointAnglesValid); 10 degrees for a weapon without them.
+    /// </summary>
+    private bool WeaponsBear(Machine machine, Vector3 from, Vector3 point)
+    {
+        var heading = machine.Facing + HeadNow(machine);
+        var ahead = new Vector3(Mathf.Cos(heading), 0, Mathf.Sin(heading));
+        var to = point - from;
+        var along = to.Dot(ahead);
+        var across = (to - ahead * along - Vector3.Up * to.Y).Length();
+        var selected = SelectedWeapons(machine);
+        return machine.Weapons.Where((_, i) => (selected & (1 << i)) != 0).Any(weapon =>
+        {
+            var angles = weapon.Spec.Presentation.FirstOrDefault(line => line.Keyword == "DEVIATION_ANGLES")?.Args;
+            float Tan(int i) => Mathf.Tan(Mathf.DegToRad(angles is { Count: > 1 } && float.TryParse(angles[i], System.Globalization.CultureInfo.InvariantCulture, out var degrees) ? degrees : 10));
+            return across <= 0.95f * along * Tan(0) && Math.Abs(to.Y) <= 0.95f * along * Tan(1);
+        });
     }
 }

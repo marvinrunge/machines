@@ -1,4 +1,5 @@
 using Godot;
+using Machines.Import.Model;
 
 namespace Machines.Game;
 
@@ -22,11 +23,11 @@ public partial class Effects
     /// A shot from <paramref name="from"/> to <paramref name="to"/> at <paramref name="speed"/> m/s, or only its
     /// muzzle flash when the two are the same (rounds that fly are drawn by <see cref="ProjectileViews"/>).
     /// </summary>
-    public void Shot(Vector3 from, Vector3 to, string weapon, float speed)
+    public void Shot(Vector3 from, Vector3 to, string weapon, float speed, WeaponSpec? spec = null)
     {
         if (!GraphicsSettings.Effects)
         {
-            ClassicShot(from, to, weapon, speed);
+            ClassicShot(from, weapon, spec);
             return;
         }
         var towards = to - from;
@@ -41,49 +42,46 @@ public partial class Effects
             Tracer(from, to, weapon, speed);
     }
 
-    /// <summary>The classic look's shot: a glow at the muzzle and a glowing bar flying to the mark.</summary>
-    private void ClassicShot(Vector3 from, Vector3 to, string weapon, float speed)
+    /// <summary>
+    /// What the classic look shows at the muzzle: grey smoke from bolters (MachPhysBolter::fire) and flamethrowers
+    /// (MachPhysFlameThrower::fire), and the weapon's own light.
+    /// </summary>
+    private void ClassicShot(Vector3 at, string weapon, WeaponSpec? spec)
     {
-        var colour = WeaponColour(weapon);
-        Glow(from, colour * 4, 1.2f, 0.06f);
-        Light(from, colour, 2.5f, 8, 0.08f);
-        if (Smokes(weapon))
-            FiringSmoke(from);
-
-        var distance = from.DistanceTo(to);
-        if (distance < 0.5f)
-            return;
-        var flight = Mathf.Clamp(distance / Mathf.Max(speed, 1), 0.04f, 0.6f);
-        var bolt = new MeshInstance3D
-        {
-            Mesh = new BoxMesh { Size = new Vector3(0.18f, 0.18f, Mathf.Min(3f, distance * 0.3f)) },
-            MaterialOverride = Emissive(colour, 5),
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-        };
-        AddChild(bolt);
-        bolt.GlobalPosition = from;
-        bolt.LookAt(to, Vector3.Up);
-        var tween = bolt.CreateTween();
-        tween.TweenProperty(bolt, "global_position", to, flight);
-        tween.TweenCallback(Callable.From(() =>
-        {
-            ClassicSparks(to, colour, 10);
-            bolt.QueueFree();
-        }));
+        var grey = new Color(0.78f, 0.78f, 0.78f);
+        if (weapon.StartsWith("FLAME_THROWER", StringComparison.Ordinal))
+            Wisps(at, 3, 1.5f, 1.7f, grey);
+        else if (weapon.Contains("BOLTER") || weapon == "AUTO_CANNON")
+            Wisps(at, 3, weapon == "AUTO_CANNON" ? 6 : 1.8f, 0.9f, grey);
+        else if (Smokes(weapon))
+            FiringSmoke(at);
+        if (MuzzleLight(weapon, spec) is { } lit)
+            SteadyLight(at, lit.Colour, lit.Range, spec is null ? 0.1f : RoundLit(spec));
     }
 
-    private void ClassicSparks(Vector3 at, Color colour, int amount) =>
-        Burst(at, amount, 0.35f, Soft, new ParticleProcessMaterial
+    /// <summary>How long a weapon's light stays on with each round: three quarters of the round's time (MachPhysWeapon::lighting).</summary>
+    public static float RoundLit(WeaponSpec spec) => 0.75f * spec.BurstDuration / Math.Max(1, spec.BurstRounds);
+
+    // The light each weapon's fire puts on its machine (MachPhysWeapon::lighting), bolters and pulse weapons as strong
+    // as their EXTRAS say. Plasma weapons, multi launchers and the punch have none: their rounds carry theirs.
+    private static (Color Colour, float Range)? MuzzleLight(string weapon, WeaponSpec? spec)
+    {
+        var strength = spec is not null && Machines.Sim.Combat.Blast.Extras(spec) is [var first, ..] ? first : 1;
+        return weapon switch
         {
-            Direction = Vector3.Up,
-            Spread = 180,
-            InitialVelocityMin = 4,
-            InitialVelocityMax = 9,
-            Gravity = new Vector3(0, -15, 0),
-            ScaleMin = 0.15f,
-            ScaleMax = 0.35f,
-            ColorRamp = Ramp(colour * 5, colour * 3, new Color(colour, 0)),
-        }, additive: true);
+            "BOLTER" or "AUTO_CANNON" or "HEAVY_BOLTER1" or "HEAVY_BOLTER2" => (new Color(strength, strength, strength * 0.87f), 3),
+            "FLAME_THROWER1" or "FLAME_THROWER2" => (new Color(1, 1, 165 / 255f), 5),
+            "ELECTRIC_CHARGE" => (new Color(82 / 255f, 220 / 255f, 1), 4),
+            "LARGE_MISSILE" or "NUCLEAR_MISSILE" => (new Color(0.784f, 0.784f, 0.784f), 5),
+            "PULSE_RIFLE" or "PULSE_CANNON" => (new Color(strength * 42 / 255, strength * 97 / 255, strength * 209 / 255), 3),
+            "WASP_LIGHT_STING" => (new Color(10.2f, 8, 2), 3),
+            "WASP_METAL_STING" => (new Color(5.1f, 1, 1), 3),
+            "BEE_BOMB" => (new Color(1, 5.1f, 1), 1.5f),
+            "VIRUS" => (new Color(1.5f, 1.5f, 0), 5),
+            "ORB_OF_TREACHERY" => (new Color(1.5f, 1.5f, 0.5f), 8),
+            _ => null,
+        };
+    }
 
     /// <summary>How big a weapon's muzzle flash is: the bolter's small (bolter.cpp's 0.8), the heavy bolter's large (1.5).</summary>
     private static float FlashSize(string weapon) => weapon switch

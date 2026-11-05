@@ -8,45 +8,26 @@ public sealed partial class GameWorld
     // ---- initiative (MachLog::DefCon) -----------------------------------------------------------
 
     /// <summary>
-    /// The enemy a machine would take on of its own accord, within its scanner range (MachLogCanAttack's
+    /// The enemy a machine would take on of its own accord, within its scanner range and 150 m (MachLogCanAttack's
     /// checkAndAttackCloserTarget): at low DefCon the nearest of all; otherwise only one it can shoot from where it
-    /// stands, or an armed one that has it in its own reach (acceptableAggressiveTargetForHigherDefconsMachine).
+    /// stands, or, at normal DefCon, an armed one that has it in its reach and in its sights
+    /// (acceptableAggressiveTargetForHigherDefconsMachine).
     /// </summary>
-    private Actor? InitiativeTarget(Machine machine) => machine.DefCon == DefCon.Low
-        ? NearestEnemy(machine, machine.Stats.ScannerRange)
-        : NearestEnemy(machine, machine.Stats.ScannerRange, accept: enemy => WorthTakingOn(machine, enemy));
+    private Actor? InitiativeTarget(Machine machine)
+    {
+        var range = MathF.Min(ScannerReach(machine), MaximumEngagementDistance);
+        return VirtualDefCon(machine) == DefCon.Low
+            ? NearestEnemy(machine, range)
+            : NearestEnemy(machine, range, accept: enemy => WorthTakingOn(machine, enemy));
+    }
 
     private bool WorthTakingOn(Machine machine, Actor enemy)
     {
-        var distance = machine.DistanceTo(enemy);
-        if (distance <= machine.Weapons.Where(w => w.DealsDamage).Select(w => w.Spec.Range).DefaultIfEmpty(0).Max() && ClearShot(machine, enemy))
+        if (machine.DistanceTo(enemy) <= machine.Weapons.Where(w => w.DealsDamage).Select(w => w.Spec.Range).DefaultIfEmpty(0).Max() && ClearShot(machine, enemy))
             return true;
-        var reach = enemy switch
-        {
-            Machine { CanFight: true } armed => armed.Weapons.Where(w => w.DealsDamage).Select(w => w.Spec.Range).DefaultIfEmpty(0).Max(),
-            Construction tower => tower.Weapons.Where(w => w.DealsDamage).Select(w => w.Spec.Range).DefaultIfEmpty(0).Max(),
-            _ => 0,
-        };
-        return enemy.DistanceTo(machine) <= reach && ClearShot(enemy, machine);
-    }
-
-    /// <summary>
-    /// A machine on the move breaks off to fight, then goes on, when its initiative allows: never at high DefCon,
-    /// and not in the first VIRTUAL_DEFCON_INTERVAL seconds after its order, while it counts as high
-    /// (MachLogMachine::virtualDefCon).
-    /// </summary>
-    private void TakeInitiative(Machine machine, Vector2 destination)
-    {
-        if (!machine.CanFight || machine.DrivenByPlayer || machine.DefCon == DefCon.High || Tick % 10 != machine.Id % 10
-            || Time - machine.OrderedAt < Data.Parm.General.VirtualDefconInterval)
-            return;
-        if (InitiativeTarget(machine) is { } enemy)
-        {
-            var orderedAt = machine.OrderedAt;
-            Send(machine, new AttackOrder(enemy.Id, destination, Resume: true), enemy.Position);
-            // The fight is its own idea, not a new order.
-            machine.OrderedAt = orderedAt;
-        }
+        if (VirtualDefCon(machine) != DefCon.Normal || !_threatsTo.TryGetValue(machine.Id, out var threats) || !threats.Contains(enemy))
+            return false;
+        return enemy.DistanceTo(machine) <= MaximumWeaponRange(enemy) && ClearShot(enemy, machine);
     }
 
     // ---- land mines -----------------------------------------------------------------------------

@@ -11,16 +11,18 @@ namespace Machines.Game;
 /// and the remake's own test maps in a tree, the picked one's overview and description, and the original settings,
 /// players, colour, start positions, starting BMUs, mineral resources, technology level and victory condition.
 /// For a multiplayer room (<see cref="MultiplayerPage"/>) the same page sets the room up instead: the players come
-/// to it, so it asks only whether free slots play the AI.
+/// to it, so it asks whether free slots play the AI and what only a network game has, Broadcast Alliances and Disable
+/// First Person. With a <paramref name="room"/> it is that room's settings (MachGuiCtxSettings), which its host changes.
 /// </summary>
-public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : MenuPage(forRoom ? screens.ShowMultiplayer : screens.ShowMain)
+public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, RoomState? room = null)
+    : MenuPage(room is not null ? screens.ShowRoom : forRoom ? screens.ShowMultiplayer : screens.ShowMain)
 {
     private static readonly string[] SizeNames = ["Small", "Medium", "Large"];
     private static readonly Race[] Colours = [Race.Red, Race.Blue, Race.Green, Race.Yellow];
 
     // The last settings, kept while the game runs so returning to the menu shows them again.
     private static (string Scenario, string Planet)? _lastMap;
-    private static int _lastPlayers = 2, _lastColour, _lastStarts = 1, _lastBmu, _lastResources = 2, _lastTech, _lastVictory, _lastFill, _lastAi = (int)AiLevel.Normal;
+    private static int _lastPlayers = 2, _lastColour, _lastStarts = 1, _lastBmu, _lastResources = 2, _lastTech, _lastVictory, _lastFill, _lastAi = (int)AiLevel.Normal, _lastFog, _lastBroadcast, _lastNoFirstPerson;
 
     private readonly Dictionary<string, Texture2D?> _maps = [];
     private readonly List<CatalogueScenario> _entries = [];
@@ -36,9 +38,11 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
 
     protected override void Build()
     {
+        if (room is not null)
+            Adopt(room);
         var page = Column(Gap);
         AddChild(page);
-        page.AddChild(Heading(forRoom ? "New room" : "Skirmish"));
+        page.AddChild(Heading(room is not null ? "Settings" : forRoom ? "New room" : "Skirmish"));
 
         var columns = Line(Gap);
         columns.SizeFlagsVertical = SizeFlags.ExpandFill;
@@ -83,18 +87,23 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
         rows.AddChild(Setting("Starting BMUs", _bmu, 180));
         rows.AddChild(Setting("Resources", Choice(["Low", "Medium", "High"], _lastResources, i => _lastResources = i), 180));
         rows.AddChild(Setting("Technology", Choice(["Map default", "Low", "Medium", "High"], _lastTech, i => _lastTech = i), 180));
-        rows.AddChild(Setting("Victory", Choice(new[] { "Annihilation", "Destroy pod" }
+        rows.AddChild(Setting("Victory", Choice(new[] { "Default", "Annihilation", "Destroy pod" }
             .Concat(MatchOptions.TimeLimits.Select(s => Lang.T("Timed: {0}", FormatMinutes(s)))), _lastVictory, i => _lastVictory = i), 180));
         rows.AddChild(Setting("AI", Choice(["Easy", "Normal", "Hard"], _lastAi, i => _lastAi = i), 180));
+        rows.AddChild(Setting("Fog of war", Choice(["On", "Off"], _lastFog, i => _lastFog = i), 180));
         if (forRoom)
+        {
             rows.AddChild(Setting("Free slots", Choice(["Play the AI", "Stay empty"], _lastFill, i => _lastFill = i), 180));
+            rows.AddChild(Setting("Broadcast alliances", Choice(["Off", "On"], _lastBroadcast, i => _lastBroadcast = i), 180));
+            rows.AddChild(Setting("Disable first person", Choice(["Off", "On"], _lastNoFirstPerson, i => _lastNoFirstPerson = i), 180));
+        }
 
         var footer = Line(Gap);
         var back = Button("Back", Back);
         back.CustomMinimumSize = new Vector2(340, 76);
         footer.AddChild(back);
         footer.AddChild(Spring());
-        _start = Button(forRoom ? "Open room" : "Start", Start, 76, 30);
+        _start = Button(room is not null ? "OK" : forRoom ? "Open room" : "Start", Start, 76, 30);
         _start.CustomMinimumSize = new Vector2(480, 76);
         footer.AddChild(_start);
         page.AddChild(footer);
@@ -223,8 +232,11 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
         _bmu.SetItems(new[] { mapBmu is { } bmu ? Lang.T("Map default ({0})", bmu) : "Map default" }
             .Concat(Enum.GetValues<StartingBmu>().Skip(1).Select(level => MatchOptions.BmuFor(level)!.Value.ToString())), _lastBmu);
 
-        _start.Disabled = _slots.Count < (forRoom ? 2 : 1);
+        _start.Disabled = forRoom ? RoomSlots.Count < 2 : _slots.Count < 1;
     }
+
+    /// <summary>The start positions a room on the picked map has: those past the map's players are not for anyone.</summary>
+    private List<Race> RoomSlots => _slots.Take(_selected?.MaxPlayers ?? _slots.Count).ToList();
 
     // ---- starting -------------------------------------------------------------------------------
 
@@ -239,23 +251,27 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
                 screens.Message("The connection to the relay is gone.", ("OK", screens.ShowMultiplayer));
                 return;
             }
-            NetLink.Send(Room(_selected.Name, _selected.Planet, _slots));
-            screens.ShowMultiplayer();
+            if (room is null)
+                NetLink.Send(Room(_selected.Name, _selected.Planet, RoomSlots));
+            else
+                NetLink.Send(new ChangeRoom(_selected.Name, _selected.Planet, RoomSlots, Options(network: true), FillWithAi: _lastFill == 0));
+            screens.ShowRoom();
             return;
         }
         var players = int.TryParse(_players.Text.Split(' ')[0], out var n) ? n : 2;
         var starts = StartPositions.Assign(_slots, players, Colours[_lastColour], random: _lastStarts == 1, new Random());
-        MatchRequest.Current = new MatchRequest(_selected.Name, _selected.Planet, starts, Options());
+        MatchRequest.Current = new MatchRequest(_selected.Name, _selected.Planet, starts, Options(network: false));
         LoadingScreen.Show(GetTree(), _title.Text, $"{_selected.Planet.ToUpperInvariant()}   ·   {(players == 1 ? Lang.T("NO OPPONENT") : Lang.T("{0} PLAYERS", players))}");
     }
 
-    /// <summary>The settings last chosen on the page.</summary>
-    private static MatchOptions Options()
+    /// <summary>The settings last chosen on the page; only a <paramref name="network"/> game has the last two.</summary>
+    private static MatchOptions Options(bool network)
     {
         var victory = _lastVictory switch
         {
-            0 => VictoryCondition.Annihilation,
-            1 => VictoryCondition.Pod,
+            0 => VictoryCondition.Default,
+            1 => VictoryCondition.Annihilation,
+            2 => VictoryCondition.Pod,
             _ => VictoryCondition.Timer,
         };
         return new MatchOptions
@@ -264,13 +280,59 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false) : M
             Resources = ResourceLevel.Low + _lastResources,
             TechLevel = (TechLevel)_lastTech,
             Victory = victory,
-            TimeLimit = victory == VictoryCondition.Timer ? MatchOptions.TimeLimits[_lastVictory - 2] : 1800,
+            TimeLimit = victory == VictoryCondition.Timer ? MatchOptions.TimeLimits[_lastVictory - 3] : 1800,
             AiLevel = (AiLevel)_lastAi,
+            FogOfWar = _lastFog == 0,
+            BroadcastAlliances = network && _lastBroadcast == 1,
+            DisableFirstPerson = network && _lastNoFirstPerson == 1,
         };
     }
 
+    /// <summary>The page shows the settings of the room it changes.</summary>
+    private static void Adopt(RoomState room)
+    {
+        var options = room.Options;
+        _lastMap = (room.Scenario, room.Planet);
+        (_lastBmu, _lastTech, _lastAi) = ((int)options.StartingBmu, (int)options.TechLevel, (int)options.AiLevel);
+        _lastResources = Math.Max(0, options.Resources - ResourceLevel.Low);
+        _lastVictory = options.Victory switch
+        {
+            VictoryCondition.Annihilation => 1,
+            VictoryCondition.Pod => 2,
+            VictoryCondition.Timer => 3 + Math.Max(0, MatchOptions.TimeLimits.ToList().IndexOf(options.TimeLimit)),
+            _ => 0,
+        };
+        _lastFill = room.FillWithAi ? 0 : 1;
+        _lastFog = options.FogOfWar ? 0 : 1;
+        _lastBroadcast = options.BroadcastAlliances ? 1 : 0;
+        _lastNoFirstPerson = options.DisableFirstPerson ? 1 : 0;
+    }
+
+    /// <summary>A room's settings in a line, for all in it to read (the ready room's list, MachGuiCtxImReady).</summary>
+    public static string Summary(MatchOptions options)
+    {
+        static string Item(string name, string value) => $"{Lang.T(name)}: {Lang.T(value)}";
+        static string Switch(string name, bool on) => Item(name, on ? "On" : "Off");
+        var victory = options.Victory switch
+        {
+            VictoryCondition.Annihilation => "Annihilation",
+            VictoryCondition.Pod => "Destroy pod",
+            VictoryCondition.Timer => Lang.T("Timed: {0}", FormatMinutes(options.TimeLimit)),
+            _ => "Default",
+        };
+        return string.Join("   ·   ",
+            Item("Starting BMUs", MatchOptions.BmuFor(options.StartingBmu)?.ToString() ?? "Map default"),
+            Item("Resources", options.Resources == ResourceLevel.Default ? "Map default" : options.Resources.ToString()),
+            Item("Technology", options.TechLevel == TechLevel.Default ? "Map default" : options.TechLevel.ToString()),
+            Item("Victory", victory),
+            Item("AI", options.AiLevel.ToString()),
+            Switch("Fog of war", options.FogOfWar),
+            Switch("Broadcast alliances", options.BroadcastAlliances),
+            Switch("Disable first person", options.DisableFirstPerson));
+    }
+
     private static CreateRoom Room(string scenario, string planet, List<Race> slots) =>
-        new(Lang.T("{0}'s game", NetLink.Name), scenario, planet, slots, Options(), FillWithAi: _lastFill == 0);
+        new(Lang.T("{0}'s game", NetLink.Name), scenario, planet, slots, Options(network: true), FillWithAi: _lastFill == 0);
 
     /// <summary>
     /// A room on the map last picked (or MACHINES_MENU_SELECT's, or the first skirmish map) with the settings last

@@ -112,11 +112,17 @@ public partial class ProjectileViews : Node3D
             // Struck short of its range: the weapon's splat where it hit.
             if (projectile.Travelled < projectile.Weapon.Range - 0.5f)
                 Splat(view.GlobalPosition, projectile.Weapon.TypeName, view.GlobalBasis.X);
+            // A missile or metal sting bursts wherever its flight ends.
+            if (Blowup.BlastStrength(projectile.Weapon.TypeName) is > 0 and var strength)
+            {
+                if (!GraphicsSettings.Effects)
+                    Blowup.Burst(projectile.Weapon.TypeName, _effects?.BurstPoint(view.GlobalPosition, view.GlobalBasis.X) ?? view.GlobalPosition, _assets, this);
+                else if (IsMissile(projectile.Weapon.TypeName))
+                    _effects?.MissileHit(view.GlobalPosition, view.GlobalBasis.X, strength);
+            }
             if (IsMissile(projectile.Weapon.TypeName))
             {
-                // A missile bursts wherever its flight ends, and its trail drifts on and thins out behind it.
-                if (GraphicsSettings.Effects)
-                    _effects?.MissileHit(view.GlobalPosition, view.GlobalBasis.X);
+                // Its trail drifts on and thins out behind it.
                 if (view.GetNodeOrNull<GpuParticles3D>("Trail") is { } trail)
                 {
                     trail.Reparent(this);
@@ -213,6 +219,21 @@ public partial class ProjectileViews : Node3D
                 LightColor = colour,
                 LightEnergy = 2f,
                 OmniRange = 9,
+                ShadowEnabled = false,
+            });
+            view.TreeExiting += () => _litRounds--;
+        }
+        // In the classic look a round carries the lights of its model (MachPhysPlasmaBolt::CreateLights).
+        if (!GraphicsSettings.Effects && _litRounds < MostLitRounds && Models.TryGetValue(name, out var round) && _assets.EffectLights(round) is [var lit, ..])
+        {
+            _litRounds++;
+            var strength = Mathf.Max(lit.Colour.R, Mathf.Max(lit.Colour.G, lit.Colour.B));
+            view.AddChild(new OmniLight3D
+            {
+                LightColor = new Color(lit.Colour.R / strength, lit.Colour.G / strength, lit.Colour.B / strength),
+                LightEnergy = Mathf.Sqrt(strength),
+                OmniRange = lit.Range,
+                Position = lit.Position,
                 ShadowEnabled = false,
             });
             view.TreeExiting += () => _litRounds--;

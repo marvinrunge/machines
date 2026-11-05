@@ -127,7 +127,10 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
             MenuTheme.UiScale = Sizes[i];
             Stage.Fit();
         };
-        rows.AddChild(Setting("Menu size", size));
+        // The menus' size and their films share a row: one more would push Back off the screen.
+        var transitions = Setting(Text(7099, "Menu Transitions"), Switch(GameOptions.Transitions, on => GameOptions.Transitions = on), 0);
+        rows.AddChild(Setting("Menu size", Line(28, size, transitions)));
+        size.SizeFlagsHorizontal = transitions.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 
         // Depth of field and the film look share a row: one more would push Back off the screen.
         var blur = new ChipChoice(["Off", "Subtle", "Strong"], (int)GameOptions.DepthOfField);
@@ -209,11 +212,11 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
             Slider(GameOptions.MouseSpeed, value => GameOptions.MouseSpeed = value, GameOptions.MouseSpeedLowest, GameOptions.MouseSpeedHighest), 260));
         rows.AddChild(Setting("Classic F.P. Keys", Switch(GameOptions.ClassicDriving, on => GameOptions.ClassicDriving = on), 260));
         rows.AddChild(Setting(Text(6996, "2D Selection box"), Switch(GameOptions.Selection2d, on => GameOptions.Selection2d = on), 260));
+        // Side by side, or Back would leave the screen.
+        var classicKeys = Setting("Classic Keys", Switch(GameOptions.ClassicKeys, on => GameOptions.ClassicKeys = on), 0);
+        rows.AddChild(Setting("Classic Mouse", Line(28, Switch(GameOptions.ClassicMouse, on => GameOptions.ClassicMouse = on), classicKeys), 260));
         // The keys themselves are on their own page.
-        rows.AddChild(MenuTheme.Paragraph(
-            "The up and down keys look with Shift in first person, and tilt the ground camera with Ctrl and Shift; " +
-            "unreversed, up looks down as a pilot's stick does. First person drives as in a tank game; Classic keys " +
-            "drive as the original did.", 20, MenuTheme.Dim));
+        rows.AddChild(MenuTheme.Paragraph("Classic F.P. Keys drive as the original did, Classic Mouse gives orders with the left button, Classic Keys puts commands on their letters.", 20, MenuTheme.Dim));
         return chip;
     }
 

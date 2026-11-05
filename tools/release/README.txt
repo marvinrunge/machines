@@ -47,7 +47,13 @@ CONTROLS
                          sideways or turn, the mouse looks and the machine follows, left mouse fires
   P                      pause (not online)
   F10 or Esc             the menus: continue, briefing, save, load, options, hot keys, leave
+  N                      night vision in first person, on machines that have it
+  F5 to F8               go to a camera place, with Ctrl keep one
+  Alt                    with a click: Follow a machine, recycle, the other order
   These are the first keys: "Change keys" in the options moves them.
+  The options' Classic Mouse gives every order with the left button, and the right one deselects and
+  moves the camera. Classic Keys puts every command on its letter and the camera on the arrows. The hot
+  keys page in the menus lists them all.
 
 FEEDBACK
   Note what you did, what you expected and what happened; a screenshot helps.

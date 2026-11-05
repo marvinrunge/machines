@@ -10,7 +10,8 @@ namespace Machines.Game;
 /// </summary>
 public partial class Crosshair : Control
 {
-    public enum Sight { None, Enemy, Friend }
+    /// <summary>What lies under the sight: an enemy the weapons can reach or cannot tilt to (Miss), or a friend.</summary>
+    public enum Sight { None, Enemy, Friend, Miss }
 
     // Frames and seconds per frame, from the .anm files; the start animation holds on its last frame.
     private static readonly Dictionary<string, (int Frames, float Seconds)> Animations = new()
@@ -43,7 +44,7 @@ public partial class Crosshair : Control
     {
         set
         {
-            if (value != _sight && value != Sight.None)
+            if (value != _sight && value is Sight.Enemy or Sight.Friend)
                 _audio?.PlayGui(value == Sight.Enemy ? "gui/sounds/attackon.wav" : "gui/sounds/friendon.wav");
             _sight = value;
         }
@@ -99,7 +100,7 @@ public partial class Crosshair : Control
     {
         if (_sight == Sight.Enemy)
             return ("targv", Loop("targv", _time));
-        if (_sight == Sight.Friend)
+        if (_sight is Sight.Friend or Sight.Miss)
             return ("targnv", Loop("targnv", _time));
         var (frames, seconds) = Animations["ping"];
         var opening = (int)((_time - _started) / seconds);

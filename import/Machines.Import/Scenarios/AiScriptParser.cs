@@ -191,7 +191,7 @@ public static class AiScriptParser
                     case "RESEARCH": attack = attack with { Target = AttackTarget.Research }; break;
                     case "NO_CLUSTER_CHECK": attack = attack with { NoClusterCheck = true }; break;
                     case "POINT" when HasValue(2): attack = attack with { StartPoint = new Vector2(Float(line, i + 1), Float(line, i + 2)) }; i += 2; break;
-                    case "MINIMUM" when HasValue(1): attack = attack with { Minimum = Int(line, ++i) }; break;
+                    case "MINIMUM" when HasValue(1): attack = attack with { Minimum = Int(line, ++i), NoClusterCheck = false }; break;
                     case "ASSEMBLY" when HasValue(1): attack = attack with { AssemblyPoint = Int(line, ++i) }; break;
                     case "DO" when HasValue(1): attack = attack with { DoCount = Int(line, ++i) }; break;
                     case "OBJECT" when HasValue(1): attack = attack with { Target = AttackTarget.Object, ObjectType = NormaliseObjectType(args[++i]) }; break;

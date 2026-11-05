@@ -63,7 +63,7 @@ public sealed record AttackOperation : SquadOperation
     public bool UseIonCannon { get; init; }
     /// <summary>Index of the race's aggressor assembly point to gather at.</summary>
     public int? AssemblyPoint { get; init; }
-    /// <summary>How many times to repeat the attack.</summary>
+    /// <summary>How many looks at the attack before the squad stops being rebuilt; what is left of it fights on.</summary>
     public int? DoCount { get; init; }
     public bool NoClusterCheck { get; init; }
 }

@@ -92,7 +92,7 @@ public sealed partial class GameWorld
         var price = ResearchTree.FactoryPrice(item, Data.Parm);
         var wanted = MathF.Min((factory.Stats.BuildRate ?? 75) / 60f * Dt, price - factory.ProductionSpent);
         factory.ProductionSpent += SpendBmu(factory.Race, wanted);
-        if (factory.ProductionSpent < price)
+        if (factory.ProductionSpent < price || MaxUnitsExist(factory.Race) || PadBlocked(factory))
             return;
 
         factory.ProductionQueue.RemoveAt(0);
@@ -104,6 +104,8 @@ public sealed partial class GameWorld
         var machine = AddMachine(factory.Race, spawn, key.Type, key.SubType, key.HardwareLevel, key.WeaponCombo);
         // A disguised factory's machines wear the same disguise (MachLogFactory::createNewMachine).
         machine.DisplayAs = factory.DisplayAs;
+        // It comes into the world pumped and alert (MachLogMachine::teleportIntoWorld).
+        machine.Alert.Raise(FullAlert);
         // To the assembly point if one is set, else a little way out from the door.
         // With the original's motion: a free place from 5 m round the assembly point, else from 25 m out from the
         // door, 20 m further each time none is found (MachLogFactory::moveToDeployPoint).
@@ -138,6 +140,47 @@ public sealed partial class GameWorld
         Raise(new GameEvent(GameEventKind.MachineBuilt, machine.Id, spawn, factory.Id, key.ToString()));
     }
 
+    /// <summary>
+    /// A machine on the pad holds the finished one inside; every five seconds, one of the race's standing idle there is
+    /// sent aside, to a free place from 15 m round the pad (MachLogFactory::update, moveToDeployPoint with BLOCKING_MACHINE).
+    /// </summary>
+    private bool PadBlocked(Construction factory)
+    {
+        if (factory.EntranceOutside is not { } pad)
+            return false;
+        var blocker = Machines.FirstOrDefault(m => m.Inside is null && !m.IsDead && Vector2.DistanceSquared(m.Position, pad) < 5 * 5);
+        if (blocker is null)
+            return false;
+        if (Tick % (5 * TicksPerSecond) == factory.Id % (5 * TicksPerSecond) && blocker.Race == factory.Race
+            && blocker.Order is IdleOrder && !blocker.DrivenByPlayer)
+        {
+            var spot = pad;
+            for (var radius = 15f; radius < 1000; radius += 20)
+            {
+                if (FreeSpace(pad, pad - factory.Position, radius, blocker.Stats.HighClearance, out var free, asker: blocker))
+                {
+                    spot = free;
+                    break;
+                }
+            }
+            var orderedAt = blocker.OrderedAt;
+            Send(blocker, new MoveOrder(spot), spot);
+            blocker.OrderedAt = orderedAt;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// A lab's research units a minute (RESEARCH_RATE), summed over the technicians inside: in full for those at a
+    /// station, a fifth for any beyond them, and a lab adds 5% for each level above the first (MachLogHardwareLab::totalResearchRate).
+    /// </summary>
+    public float TotalResearchRate(Construction lab)
+    {
+        var rates = lab.Technicians.Select(Find<Machine>).OfType<Machine>().OrderBy(t => t.Id).Select(t => t.Stats.ResearchRate ?? 0).ToList();
+        var stations = ResearchStations(lab);
+        return (rates.Take(stations).Sum() + rates.Skip(stations).Sum() / 5f) * (1 + (lab.Stats.HardwareLevel - 1) * 0.05f);
+    }
+
     private void UpdateLab(Construction lab)
     {
         // Technicians who died inside are gone.
@@ -152,8 +195,7 @@ public sealed partial class GameWorld
         var item = Data.ResearchTree.Get(key);
         var cost = ResearchCost(lab.Race, item);
 
-        // RESEARCH_RATE research units per minute, summed over the technicians inside.
-        var units = lab.Technicians.Select(Find<Machine>).OfType<Machine>().Sum(t => t.Stats.ResearchRate ?? 0) / 60f * Dt;
+        var units = TotalResearchRate(lab) / 60f * Dt;
         state.ResearchProgress.TryGetValue(key, out var progress);
         units = MathF.Min(units, MathF.Max(0, cost - progress));
 
@@ -200,7 +242,7 @@ public sealed partial class GameWorld
     /// The nearest place to <paramref name="point"/> that no machine stands on or is heading for
     /// (MachLogSpacialManipulation::getNearestFreeSpacePoint), searched ring by ring.
     /// </summary>
-    private Vector2 FreeSpotNear(Vector2 point, float clearance)
+    internal Vector2 FreeSpotNear(Vector2 point, float clearance)
     {
         var taken = Machines.Where(m => m.Inside is null)
             .SelectMany(m => m.Path.Count > 0 ? new[] { m.Position, m.Path[^1] } : [m.Position])

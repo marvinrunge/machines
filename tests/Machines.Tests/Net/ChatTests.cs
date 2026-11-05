@@ -72,7 +72,7 @@ public class ChatTests
         Assert.Equal(new Chat("Anna", "Hi", Race.Green), NetJson.Decode(NetJson.Encode(new Chat("Anna", "Hi", Race.Green))));
     }
 
-    private sealed class Client : IAsyncDisposable
+    internal sealed class Client : IAsyncDisposable
     {
         public required Connection Connection { get; init; }
         public int Id { get; private set; }

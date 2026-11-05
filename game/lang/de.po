@@ -130,11 +130,11 @@ msgstr "Willkommen! Starte, wenn du bereit bist."
 msgid "Language"
 msgstr "Sprache"
 
-msgid "Leave the match for the main menu?"
-msgstr "Das Match verlassen und ins Hauptmenü?"
+msgid "Leave the match?"
+msgstr "Das Match verlassen?"
 
-msgid "Leave the match for the main menu? What is not saved is lost."
-msgstr "Das Match verlassen und ins Hauptmenü? Was nicht gespeichert ist, geht verloren."
+msgid "Leave the match? What is not saved is lost."
+msgstr "Das Match verlassen? Was nicht gespeichert ist, geht verloren."
 
 msgid "Return to the menus (Esc)"
 msgstr "Zurück zu den Menüs (Esc)"
@@ -392,8 +392,8 @@ msgstr "Keine Texturen zum Schärfen gefunden. Importiere zuerst die Originalmod
 msgid "The model export failed; see classic/models.log."
 msgstr "Der Modellexport ist fehlgeschlagen; siehe classic/models.log."
 
-msgid "The up and down keys look with Shift in first person, and tilt the ground camera with Ctrl and Shift; unreversed, up looks down as a pilot's stick does. First person drives as in a tank game; Classic keys drive as the original did."
-msgstr "Hoch und Runter sehen mit Umschalt in der Ego-Perspektive auf und ab und neigen mit Strg und Umschalt die Bodenkamera; nicht umgekehrt sieht Hoch nach unten, wie ein Steuerknüppel. Die Ego-Perspektive fährt wie ein Panzerspiel; die klassischen Tasten fahren wie im Original."
+msgid "Classic F.P. Keys drive as the original did, Classic Mouse gives orders with the left button, Classic Keys puts commands on their letters."
+msgstr "Klassische Ego-Tasten fahren wie im Original, die klassische Maus befiehlt mit links, die klassischen Tasten legen Befehle auf ihre Buchstaben."
 
 # Graphics parts
 
@@ -546,8 +546,8 @@ msgstr " und "
 msgid "The moves scroll and turn the ground camera and drive in first person, where left and right step sideways or turn as the options' first-person keys say."
 msgstr "Die Bewegungen scrollen und drehen die Bodenkamera und fahren in der Ego-Perspektive; dort gehen Links und Rechts seitwärts oder drehen, wie es die Ego-Tasten in den Optionen festlegen."
 
-msgid "These keep their use: the arrows scroll too, and with Ctrl and Shift tilt the camera or, with Shift, look in first person; Ctrl or Shift with S stops; the numbers select a squadron and Ctrl with one forms it; F1 to F4 chat; Alt with the arrows moves the panel; Esc cancels or opens the menus. R turns a building and keypad 5 centres the upper body too while no action has them."
-msgstr "Diese behalten ihre Aufgabe: Die Pfeile scrollen auch, neigen mit Strg und Umschalt die Kamera und sehen mit Umschalt in der Ego-Perspektive umher; Strg oder Umschalt mit S hält an; die Ziffern wählen eine Staffel, Strg mit einer bildet sie; F1 bis F4 chatten; Alt mit den Pfeilen verschiebt die Leiste; Esc bricht ab oder öffnet die Menüs. R dreht ein Gebäude und Ziffernblock 5 richtet den Oberkörper aus, solange keine Aktion sie belegt."
+msgid "These keep their use: the arrows scroll too, and with Ctrl and Shift tilt the camera or, with Shift, look in first person; Ctrl with S stops, Shift with A or S selects all machines or buildings, Alt with them looks at the next; the numbers select a squadron and Ctrl with one forms it; F1 to F4 chat; Alt with the arrows moves the panel; Esc cancels or opens the menus. R turns a building, keypad 5 centres the upper body, keypad 1 goes into first person and Pause pauses too while no action has them. While the options' Classic Keys are on, the original's keys stand in for these."
+msgstr "Diese behalten ihre Aufgabe: Die Pfeile scrollen auch, neigen mit Strg und Umschalt die Kamera und sehen mit Umschalt in der Ego-Perspektive umher; Strg mit S hält an, Umschalt mit A oder S wählt alle Maschinen oder Gebäude, Alt damit zeigt die nächsten; die Ziffern wählen eine Staffel, Strg mit einer bildet sie; F1 bis F4 chatten; Alt mit den Pfeilen verschiebt die Leiste; Esc bricht ab oder öffnet die Menüs. R dreht ein Gebäude, Ziffernblock 5 richtet den Oberkörper aus, Ziffernblock 1 geht in die Ego-Perspektive und Pause hält an, solange keine Aktion sie belegt. Mit den klassischen Tasten der Optionen treten die Tasten des Originals an ihre Stelle."
 
 msgid "Forward"
 msgstr "Vorwärts"
@@ -560,6 +560,12 @@ msgstr "Links"
 
 msgid "Right"
 msgstr "Rechts"
+
+msgid "Up"
+msgstr "Hoch"
+
+msgid "Down"
+msgstr "Runter"
 
 msgid "Turn left"
 msgstr "Links drehen"
@@ -1084,8 +1090,8 @@ msgstr "Open, Closed, Computer und Unavailable sind keine gültigen Namen. Bitte
 msgid "Type a name and press New to start the campaign."
 msgstr "Gib einen Namen ein und drücke Neu, um die Kampagne zu beginnen."
 
-msgid "Delete {0} and how far they have come in the campaign?"
-msgstr "{0} und den Fortschritt in der Kampagne löschen?"
+msgid "Delete {0}, how far they have come in the campaign and their saved games?"
+msgstr "{0}, den Fortschritt in der Kampagne und die Spielstände löschen?"
 
 msgid "The campaign progress cannot be saved: {0}"
 msgstr "Der Kampagnenfortschritt lässt sich nicht speichern: {0}"
@@ -1950,3 +1956,335 @@ msgstr "Menü"
 
 msgid "Top"
 msgstr "Oben"
+
+msgid "Default"
+msgstr "Standard"
+
+msgid "Fog of war"
+msgstr "Kriegsnebel"
+
+msgid "Broadcast alliances"
+msgstr "Bündnisse bekanntgeben"
+
+msgid "Disable first person"
+msgstr "Ego-Perspektive sperren"
+
+msgid "Settings"
+msgstr "Einstellungen"
+
+msgid "Computer"
+msgstr "Computer"
+
+msgid "Menu Transitions"
+msgstr "Menü-Übergänge"
+
+msgid "{0} is now allied with {1}"
+msgstr "{0} ist jetzt mit {1} verbündet"
+
+msgid "{0} is no longer allied with {1}"
+msgstr "{0} ist nicht mehr mit {1} verbündet"
+
+msgid "The host took you out of the room."
+msgstr "Der Host hat dich aus dem Raum genommen."
+
+msgid "Take {0} out of the room?"
+msgstr "{0} aus dem Raum nehmen?"
+
+msgid "Take out"
+msgstr "Herausnehmen"
+
+msgid "only the host changes the seats"
+msgstr "nur der Host ändert die Plätze"
+
+msgid "only the host changes the room"
+msgstr "nur der Host ändert den Raum"
+
+# The original's controls: orders, placing, prompts, single icon and hot keys
+
+msgid "Classic Keys"
+msgstr "Klassische Tasten"
+
+msgid "Classic Mouse"
+msgstr "Klassische Maus"
+
+msgid "First person is switched off in this match"
+msgstr "Die Ego-Perspektive ist in diesem Match abgeschaltet"
+
+msgid "Click where to move, Shift for more points; right click cancels"
+msgstr "Klicke auf das Ziel der Fahrt, Umschalt für mehr Punkte; Rechtsklick bricht ab"
+
+msgid "Click the building to repair, Shift for more; right click cancels"
+msgstr "Klicke auf das Gebäude, das repariert werden soll, Umschalt für mehr; Rechtsklick bricht ab"
+
+msgid "Click the building to capture, Shift for more; right click cancels"
+msgstr "Klicke auf das Gebäude, das erobert werden soll, Umschalt für mehr; Rechtsklick bricht ab"
+
+msgid "Click the building to take apart, Shift for more; right click cancels"
+msgstr "Klicke auf das Gebäude, das zerlegt werden soll, Umschalt für mehr; Rechtsklick bricht ab"
+
+msgid "Click the smelter or pod to recycle at; right click cancels"
+msgstr "Klicke auf die Schmelze oder den Pod zum Recyceln; Rechtsklick bricht ab"
+
+msgid "Click where to search for minerals, Shift for more; right click cancels"
+msgstr "Klicke, wo nach Mineralien gesucht werden soll, Umschalt für mehr; Rechtsklick bricht ab"
+
+msgid "Click the wreckage to gather, Shift for more; right click cancels"
+msgstr "Klicke auf das Wrack, das ausgeschlachtet werden soll, Umschalt für mehr; Rechtsklick bricht ab"
+
+msgid "Click the mines to fetch from, then the smelter or pod to bring it to; right click cancels"
+msgstr "Klicke auf die Minen, aus denen Erz geholt werden soll, dann auf die Schmelze oder den Pod; Rechtsklick bricht ab"
+
+msgid "Click where to fetch ore from, Shift adds it to the round; right click cancels"
+msgstr "Klicke, wo Erz geholt werden soll, Umschalt nimmt es in die Runde auf; Rechtsklick bricht ab"
+
+msgid "Left click acts there, hold the right button to move the view"
+msgstr "Linksklick wirkt dort, die rechte Taste gehalten bewegt die Ansicht"
+
+msgid "Move: click where to, Shift for points on the way"
+msgstr "Bewegen: klicke auf das Ziel, Umschalt für Punkte unterwegs"
+
+msgid "Recycle: click a smelter or pod, half the price back"
+msgstr "Recyceln: klicke auf eine Schmelze oder den Pod, der halbe Preis zurück"
+
+msgid "Transport: click the mines, then a smelter or pod"
+msgstr "Transport: klicke auf die Minen, dann auf eine Schmelze oder den Pod"
+
+msgid "Pick up"
+msgstr "Aufnehmen"
+
+msgid "Pick up: click where to fetch ore from"
+msgstr "Aufnehmen: klicke, wo Erz geholt werden soll"
+
+msgid "Select construction to build"
+msgstr "Wähle das Gebäude, das gebaut werden soll"
+
+msgid "Select machine to build"
+msgstr "Wähle die Maschine, die gebaut werden soll"
+
+msgid "Select new machine type to research"
+msgstr "Wähle den neuen Maschinentyp, der erforscht werden soll"
+
+msgid "Click on location. Hold ctrl key down to change orientation."
+msgstr "Klicke auf den Bauplatz. Halte Strg gedrückt, um die Ausrichtung zu ändern."
+
+msgid "Info : Mine not on mineral site or too close to Smelter or Pod"
+msgstr "Info: Mine nicht auf einem Mineralvorkommen oder zu nah an Schmelze oder Pod"
+
+msgid "Info : Smelter too close to mine"
+msgstr "Info: Schmelze zu nah an einer Mine"
+
+msgid "Info : Obstacles"
+msgstr "Info: Hindernisse"
+
+msgid "Info : Can't construct in Fog of War"
+msgstr "Info: Im Kriegsnebel kann nicht gebaut werden"
+
+msgid "Info : 5 Bmus required to place construction"
+msgstr "Info: 5 BMUs nötig, um ein Gebäude zu setzen"
+
+msgid "Info : Max units already exist"
+msgstr "Info: Die Höchstzahl an Einheiten ist erreicht"
+
+msgid "Max units already exist"
+msgstr "Die Höchstzahl an Einheiten ist erreicht"
+
+msgid "Construct %1"
+msgstr "%1 bauen"
+
+msgid "Build %1"
+msgstr "%1 bauen"
+
+msgid "Research %1"
+msgstr "%1 erforschen"
+
+msgid "COST %1"
+msgstr "KOSTEN %1 BMU"
+
+msgid "COST %1 RP %2"
+msgstr "KOSTEN %1 BMU, %2 FP"
+
+msgid "Constructed %1%%"
+msgstr "Gebaut zu %1%%"
+
+msgid "Built %1%%"
+msgstr "Gebaut zu %1%%"
+
+msgid "Researched %1%%"
+msgstr "Erforscht zu %1%%"
+
+msgid "Armor %1/%2"
+msgstr "Panzerung %1/%2"
+
+msgid "Weapon Range"
+msgstr "Waffenreichweite"
+
+msgid "Capacity"
+msgstr "Kapazität"
+
+msgid "Research Points"
+msgstr "Forschungspunkte"
+
+msgid "Mines"
+msgstr "Minen"
+
+msgid "Locate Range"
+msgstr "Suchreichweite"
+
+msgid "Construct Rate"
+msgstr "Baurate"
+
+msgid "Remaining BMUs"
+msgstr "Verbleibende BMUs"
+
+msgid "Build Rate"
+msgstr "Fertigungsrate"
+
+msgid "Moving"
+msgstr "Fährt"
+
+msgid "Attacking"
+msgstr "Greift an"
+
+msgid "Following"
+msgstr "Folgt"
+
+msgid "Seek and Destroy"
+msgstr "Suchen und Zerstören"
+
+msgid "Constructing"
+msgstr "Baut"
+
+msgid "Healing"
+msgstr "Heilt"
+
+msgid "Locating"
+msgstr "Sucht Mineralien"
+
+msgid "Capturing"
+msgstr "Erobert"
+
+msgid "Deploying"
+msgstr "Lädt aus"
+
+msgid "Entering APC"
+msgstr "Steigt in den APC"
+
+msgid "Moving to Lab"
+msgstr "Fährt ins Labor"
+
+msgid "Laying Mines"
+msgstr "Legt Minen"
+
+msgid "Restocking Mines"
+msgstr "Holt Minen"
+
+msgid "Repairing"
+msgstr "Repariert"
+
+msgid "Transporting"
+msgstr "Transportiert"
+
+msgid "Patrolling"
+msgstr "Patrouilliert"
+
+msgid "Entering Building"
+msgstr "Fährt ins Gebäude"
+
+msgid "Deconstructing"
+msgstr "Zerlegt"
+
+msgid "Recycling"
+msgstr "Recycelt"
+
+msgid "Standing Ground"
+msgstr "Hält die Stellung"
+
+msgid "Evading"
+msgstr "Weicht aus"
+
+msgid "Scavenging"
+msgstr "Schlachtet aus"
+
+msgid "{0}, arrows"
+msgstr "{0}, Pfeile"
+
+msgid "Left mouse button, Space"
+msgstr "Linke Maustaste, Leertaste"
+
+msgid "{0}, Esc, Num 0, Num 2"
+msgstr "{0}, Esc, Num 0, Num 2"
+
+msgid "Leave with the mouse"
+msgstr "Mit der Maus verlassen"
+
+msgid "Right double click"
+msgstr "Rechter Doppelklick"
+
+msgid "Up and down arrows"
+msgstr "Pfeile hoch und runter"
+
+msgid "Arrows, Del, End, edges"
+msgstr "Pfeile, Entf, Ende, Ränder"
+
+msgid "Shift with arrows"
+msgstr "Umschalt mit Pfeilen"
+
+msgid "PgUp, PgDn, mouse wheel"
+msgstr "Bild auf, Bild ab, Mausrad"
+
+msgid "Left click"
+msgstr "Linksklick"
+
+msgid "Deselect"
+msgstr "Abwählen"
+
+msgid "Move the view"
+msgstr "Ansicht bewegen"
+
+msgid "Right drag"
+msgstr "Ziehen mit rechts"
+
+msgid "Select all"
+msgstr "Alle wählen"
+
+msgid "Shift A, Shift S"
+msgstr "Umschalt A, Umschalt S"
+
+msgid "Select on screen"
+msgstr "Sichtbare wählen"
+
+msgid "Shift Z, Shift X"
+msgstr "Umschalt Z, Umschalt X"
+
+msgid "Look at the next"
+msgstr "Nächste ansehen"
+
+msgid "Keep camera place"
+msgstr "Kameraplatz merken"
+
+msgid "Ctrl F5-F8"
+msgstr "Strg F5-F8"
+
+msgid "Go to camera place"
+msgstr "Zum Kameraplatz"
+
+msgid "Start, last place"
+msgstr "Start, letzter Platz"
+
+msgid "Shift H, Ctrl Shift H"
+msgstr "Umschalt H, Strg Umschalt H"
+
+msgid "Cancel what is marked"
+msgstr "Markiertes abbrechen"
+
+msgid "Backspace"
+msgstr "Rücktaste"
+
+msgid "Ctrl Shift Backspace"
+msgstr "Strg Umschalt Rücktaste"
+
+msgid "Shift M"
+msgstr "Umschalt M"
+
+msgid "Commands"
+msgstr "Befehle"

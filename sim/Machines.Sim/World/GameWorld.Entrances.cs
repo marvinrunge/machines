@@ -13,9 +13,10 @@ public sealed partial class GameWorld
     public bool CanEnter(Machine machine, Construction building) =>
         building.HasInterior && building.Complete && !building.IsDead && !AreEnemies(machine.Race, building.Race) && FitsThrough(machine, building);
 
-    /// <summary>Whether a building has room for one more: a bay no one holds. A machine driven round it holds none.</summary>
+    /// <summary>Whether a building has room for one more: a bay no one holds. A machine driven round it holds none, nor does one of another race (MachGuiMoveCommand::applyEnterBuilding).</summary>
     public bool HasFreeBay(Construction building) =>
-        building.Technicians.Count + building.Garrisoned.Count(id => Find<Machine>(id) is not { DrivenByPlayer: true }) < Math.Max(1, building.Bays.Count);
+        building.Technicians.Count + building.Garrisoned.Select(Find<Machine>).Count(m => m is null || m.Race == building.Race && !m.DrivenByPlayer)
+            < Math.Max(1, building.Bays.Count);
 
     /// <summary>Where a machine going into a building comes to stand: the first bay free, or the middle of the building.</summary>
     private Vector2 BayFor(Machine machine, Construction building)

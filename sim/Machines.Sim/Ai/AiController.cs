@@ -6,15 +6,15 @@ namespace Machines.Sim.Ai;
 
 /// <summary>
 /// Plays one race from its original <c>.spl</c> script: squads ask for machines, the factories build them,
-/// and each squad carries out its operation (locate, construct, attack, patrol).
+/// and each squad carries out its operation (locate, construct, attack, drop mines, patrol).
 /// </summary>
 /// <remarks>
 /// The operations follow the script's parameters. Construction follows MachLogAIController: a prioritised list of
 /// the scenario's plans, mines on found sites and destroyed REBUILD buildings. Without the original's free
-/// BMUs the AI saves up before building and puts mines first when its bank runs dry. Staffing labs and which
-/// carriers serve which mine use simple rules here.
+/// BMUs the AI saves up before building and puts mines first when its bank runs dry. Which carriers serve which
+/// mine is a simple rule here. A squad's attack is in AiController.Attack.cs.
 /// </remarks>
-public sealed class AiController(Race race, AiScript script, RaceSetup setup)
+public sealed partial class AiController(Race race, AiScript script, RaceSetup setup)
 {
     private readonly Dictionary<int, SquadState> _squads = script.Squads.ToDictionary(s => s.Number, s => new SquadState(s));
 
@@ -24,9 +24,25 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
     private sealed class SquadState(AiSquad squad)
     {
         public AiSquad Squad { get; } = squad;
-        public int AttacksDone { get; set; }
-        public bool Attacking { get; set; }
         public int SearchStep { get; set; }
+
+        /// <summary>When its attack or its mining is next looked at (the operation's update intervals).</summary>
+        public float NextUpdate { get; set; }
+
+        /// <summary>Set loose on the enemy (RAMPAGING); otherwise it is assembling.</summary>
+        public bool Rampaging { get; set; }
+
+        /// <summary>The machines that were there when it was set loose (MachLogMachine::rampaging, which nothing clears).</summary>
+        public HashSet<int> Rampagers { get; } = [];
+
+        /// <summary>Which of the race's assembly points it gathers at; one it does not have is replaced once it needs it.</summary>
+        public int AssemblyPoint { get; set; } = squad.Operations.OfType<AttackOperation>().FirstOrDefault()?.AssemblyPoint ?? 0;
+
+        /// <summary>The attack's DO: how many more looks at the attack before the squad stops being rebuilt; -1 for no limit.</summary>
+        public int DoLeft { get; set; } = squad.Operations.OfType<AttackOperation>().FirstOrDefault()?.DoCount ?? -1;
+
+        /// <summary>The squad wants no more machines (MachLogSquadron::removeAllDesiredMachines): what it loses stays lost.</summary>
+        public bool Abandoned { get; set; }
     }
 
     // How often an easy AI has been asked to think: it does every other time (MatchOptions.AiLevel).
@@ -40,13 +56,15 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
         if (world.Options.AiLevel == AiLevel.Easy && _asked++ % 2 == 1)
             return;
 
-        _busyLabs.Clear();
         var mine = world.Machines.Where(m => m.Race == Race && !m.IsDead).ToList();
         AssignToSquads(mine);
+        SetDefCons(mine);
         StaffLabs(world, mine);
+        Research(world);
         Garrison(world, mine);
         Produce(world, mine);
         PlanConstructions(world);
+        UpdateAllies(world);
 
         foreach (var state in _squads.Values)
         {
@@ -59,6 +77,7 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
                     case LocateOperation locate: Locate(world, state, locate, members); break;
                     case ConstructOperation: Construct(world, members); break;
                     case AttackOperation attack: Attack(world, state, attack, members); break;
+                    case DropMinesOperation drop: DropMines(world, state, drop, members); break;
                     case PatrolOperation patrol: Patrol(world, patrol, members); break;
                 }
             }
@@ -76,7 +95,7 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
             s => machines.Count(m => m.Squad == s.Squad.Number && s.Squad.Members.Any(o => Matches(o.Machine, m))));
         foreach (var machine in machines.Where(m => m.Squad is null || !_squads.ContainsKey(m.Squad.Value)))
         {
-            foreach (var state in _squads.Values)
+            foreach (var state in _squads.Values.Where(s => !s.Abandoned))
             {
                 var wanted = state.Squad.Members.Where(o => Matches(o.Machine, machine)).Sum(o => o.Count);
                 if (wanted > have[state.Squad.Number])
@@ -86,6 +105,17 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
                     break;
                 }
             }
+        }
+    }
+
+    /// <summary>A squad's DEFCON line holds for every machine that joins it (MachLogSquadron::autoSetDefCon, addToControl).</summary>
+    private void SetDefCons(List<Machine> machines)
+    {
+        foreach (var state in _squads.Values.Where(s => s.Squad.Defcon is not null))
+        {
+            var level = state.Squad.Defcon switch { "LOW" => DefCon.Low, "HIGH" => DefCon.High, _ => DefCon.Normal };
+            foreach (var machine in machines.Where(m => m.Squad == state.Squad.Number))
+                machine.DefCon = level;
         }
     }
 
@@ -107,25 +137,27 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
         for (var i = technicians; i < labs.Count; i++)
             wants.Add(technician);
 
-        foreach (var squad in _squads.Values.OrderBy(s => s.Squad.Number))
+        // Each squad sees to its own places (MachLogSquadron::update); what is on order goes to the first that needs it.
+        var onOrder = queued.GroupBy(k => k).ToDictionary(g => g.Key, g => g.Count());
+        foreach (var squad in _squads.Values.Where(s => !s.Abandoned).OrderBy(s => s.Squad.Number))
         {
-            foreach (var order in squad.Squad.Members.OrderBy(o => o.Priority))
+            foreach (var places in squad.Squad.Members.OrderBy(o => o.Priority).GroupBy(o => o.Machine))
             {
-                var have = machines.Count(m => Matches(order.Machine, m)) + queued.Count(k => k == order.Machine);
-                var wanted = _squads.Values.Where(s => s.Squad.Number <= squad.Squad.Number)
-                    .SelectMany(s => s.Squad.Members).Where(o => o.Machine == order.Machine).Sum(o => o.Count);
-                for (var i = have; i < wanted; i++)
-                    wants.Add(order.Machine);
+                var have = machines.Count(m => m.Squad == squad.Squad.Number && Matches(places.Key, m));
+                for (var i = have; i < places.Sum(o => o.Count); i++)
+                {
+                    if (onOrder.GetValueOrDefault(places.Key) > 0)
+                        onOrder[places.Key]--;
+                    else
+                        wants.Add(places.Key);
+                }
             }
         }
 
         foreach (var key in wants.Distinct())
         {
             if (!state.Researched.Contains(key))
-            {
-                ResearchTowards(world, key, labs);
                 continue;
-            }
 
             var factory = factories
                 .Where(f => f.ProductionQueue.Count < 2 && world.Data.FactoryOffer(f.Spec.SubType!, f.Stats.HardwareLevel).Contains(key))
@@ -138,27 +170,28 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
         }
     }
 
-    /// <summary>Researches the item, or the first unresearched step on the way to it.</summary>
-    private void ResearchTowards(GameWorld world, ResearchKey key, List<Construction> labs)
+    /// <summary>
+    /// Every lab with a technician in it takes on all that is open to it, whatever the squads want
+    /// (MachLogAIController::handleIdleTechnician, MachLogHardwareLab::update). The remake's labs do not share an
+    /// item, so each goes to the lab with the least to do.
+    /// </summary>
+    private void Research(GameWorld world)
     {
         var state = world.Races[Race];
-        var item = world.Data.ResearchTree.Find(key);
-        while (item?.Parent is { } parent && !state.Researched.Contains(parent))
-            item = world.Data.ResearchTree.Find(parent);
-        if (item is null || labs.Any(l => l.ResearchQueue.Contains(item.Key)))
+        var labs = world.Constructions.Where(c => c.Race == Race && c.Complete && c.IsType("HARDWARE_LAB") && c.Technicians.Count > 0).ToList();
+        if (labs.Count == 0)
             return;
-
-        var lab = labs.FirstOrDefault(l => l.ResearchQueue.Count == 0 && !_busyLabs.Contains(l.Id) && l.Technicians.Count > 0
-            && world.WhyCannotResearch(Race, item.Key, l) is null);
-        if (lab is not null)
+        var load = labs.ToDictionary(l => l.Id, l => l.ResearchQueue.Count);
+        var queued = labs.SelectMany(l => l.ResearchQueue).ToHashSet();
+        foreach (var item in world.Data.ResearchTree.Items.Where(i => state.Available.Contains(i.Key) && !queued.Contains(i.Key)))
         {
+            var lab = labs.Where(l => world.WhyCannotResearch(Race, item.Key, l) is null).MinBy(l => load[l.Id]);
+            if (lab is null)
+                continue;
             world.Issue(new ResearchCommand(Race, lab.Id, item.Key));
-            _busyLabs.Add(lab.Id);
+            load[lab.Id]++;
         }
     }
-
-    /// <summary>Labs given research this second; the command only reaches the lab on the next tick.</summary>
-    private readonly HashSet<int> _busyLabs = [];
 
     private void StaffLabs(GameWorld world, List<Machine> machines)
     {
@@ -370,116 +403,6 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
         }
     }
 
-    private void Strike(GameWorld world, AttackOperation attack)
-    {
-        foreach (var launcher in world.Constructions.Where(c => c.Race == Race && c.Complete))
-        {
-            var weapon = launcher.Weapons.FirstOrDefault(w => w.IsStrike && w.Reload <= 0);
-            // A silo launches once its dome is open (optskatt.cpp).
-            if (weapon is null || (weapon.Spec.TypeName == "NUCLEAR_MISSILE" ? !attack.UseNuke || !launcher.DomeOpen : !attack.UseIonCannon))
-                continue;
-            if (MostValuableTarget(world) is { } target)
-                world.Issue(new StrikeCommand(Race, launcher.Id, target));
-        }
-    }
-
-    /// <summary>
-    /// Where a strike does the most harm: the enemy actor with the most enemy BMUs within 30 m of it
-    /// (a simpler stand-in for MachLogRaces::findMostValuableTarget).
-    /// </summary>
-    private Vector2? MostValuableTarget(GameWorld world)
-    {
-        var enemies = world.Actors.Where(a => world.AreEnemies(Race, a.Race) && !a.IsDead).ToList();
-        return enemies.Count == 0
-            ? null
-            : enemies.MaxBy(a => enemies.Where(b => Vector2.DistanceSquared(a.Position, b.Position) <= 900).Sum(b => b.Cost))!.Position;
-    }
-
-    private void Attack(GameWorld world, SquadState state, AttackOperation attack, List<Machine> members)
-    {
-        var fighters = members.Where(m => m.CanFight).ToList();
-        if (state.Attacking)
-        {
-            if (fighters.Count == 0 || fighters.All(m => m.Order is IdleOrder))
-            {
-                state.Attacking = false;
-                state.AttacksDone++;
-            }
-            return;
-        }
-
-        if (attack.DoCount is { } limit && state.AttacksDone >= limit)
-            return;
-        // A mission script may call the squad in early (ACTIVATE_SQUADRONS sets the attack's initial delay to 0).
-        var activated = world.Script?.ActivatedSquadrons.Contains((Race, state.Squad.Number)) == true;
-        // Waiting, every member goes to the assembly point, unarmed ones too (optskatt.cpp moves all the squadron's
-        // idle machines): finger's APC drives to its drop-off so, where the script lands the troops it carries.
-        if (world.Time < attack.DelayMinutes * 60 * MatchOptions.AiDelay(world.Options.AiLevel) && !activated)
-        {
-            Gather(world, attack, members);
-            return;
-        }
-
-        // optskatt.cpp: squads told to use the ion cannon or nukes fire every charged one at the most
-        // valuable target, whether or not the squad itself is ready.
-        if (attack.UseIonCannon || attack.UseNuke)
-            Strike(world, attack);
-
-        // As in the original (optskatt.cpp), a missing MINIMUM is 0: attack with whoever is there. The minimum
-        // counts the whole squadron.
-        if (members.Count < (attack.Minimum ?? 0) || fighters.Count == 0)
-        {
-            Gather(world, attack, members);
-            return;
-        }
-
-        var centre = fighters.Aggregate(Vector2.Zero, (sum, m) => sum + m.Position) / fighters.Count;
-
-        // OBJECT ARTIFACT POINT x y: the standing artefact nearest the point (MachLogRaces::findTargetClosestTo).
-        if (attack is { Target: AttackTarget.Object, ObjectType: "ARTIFACT" or "ARTEFACT" })
-        {
-            var from = attack.StartPoint ?? centre;
-            var artefact = world.Artefacts.Where(a => !a.IsDead && world.CanAttack(Race, a))
-                .MinBy(a => Vector2.DistanceSquared(a.Position, from));
-            if (artefact is null)
-                return;
-            world.Issue(new AttackCommand(Race, fighters.Select(m => m.Id).ToList(), artefact.Id));
-            state.Attacking = true;
-            return;
-        }
-
-        var target = PickTarget(world, attack, centre);
-        if (target is null)
-            return;
-
-        world.Issue(new AttackMoveCommand(Race, fighters.Select(m => m.Id).ToList(), target.Position));
-        state.Attacking = true;
-    }
-
-    private void Gather(GameWorld world, AttackOperation attack, List<Machine> members)
-    {
-        var points = setup.AggressorAssemblyPoints;
-        if (points.Count == 0)
-            return;
-        var point = points[Math.Clamp(attack.AssemblyPoint ?? 0, 0, points.Count - 1)];
-        var idle = members.Where(m => m.Order is IdleOrder && Vector2.Distance(m.Position, point) > 25).Select(m => m.Id).ToList();
-        if (idle.Count > 0)
-            world.Issue(new MoveCommand(Race, idle, point));
-    }
-
-    private Actor? PickTarget(GameWorld world, AttackOperation attack, Vector2 from)
-    {
-        IEnumerable<Actor> enemies = world.Actors.Where(a => !a.IsDead && world.AreEnemies(Race, a.Race) && a is not Machine { Inside: not null });
-        var preferred = attack.Target switch
-        {
-            AttackTarget.Resource => enemies.Where(a => a is Construction { Spec.Type: "MINE" or "SMELTER" } or Machine { Spec.Type: "RESOURCE_CARRIER" }),
-            AttackTarget.Research => enemies.Where(a => a is Construction { Spec.Type: "HARDWARE_LAB" }),
-            AttackTarget.Object => enemies.Where(a => a is Construction c && c.Spec.Type == attack.ObjectType || a is Machine m && m.Spec.Type == attack.ObjectType),
-            _ => enemies.Where(a => a is Construction),
-        };
-        return preferred.MinBy(a => Vector2.Distance(a.Position, from)) ?? enemies.MinBy(a => Vector2.Distance(a.Position, from));
-    }
-
     private void Patrol(GameWorld world, PatrolOperation patrol, List<Machine> members)
     {
         if (world.Time < patrol.DelayMinutes * 60 * MatchOptions.AiDelay(world.Options.AiLevel))
@@ -487,6 +410,36 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
         var idle = members.Where(m => m.Order is IdleOrder).Select(m => m.Id).ToList();
         if (idle.Count > 0)
             world.Issue(new PatrolCommand(Race, idle, patrol.Path));
+    }
+
+    /// <summary>
+    /// The squad's spies lay out all their mines round the script's point, the pod or themselves, somewhere between
+    /// the two ranges from it, and fetch more once they have none (MachLogTaskDropLandMineOperation).
+    /// </summary>
+    private void DropMines(GameWorld world, SquadState state, DropMinesOperation drop, List<Machine> members)
+    {
+        if (world.Time < state.NextUpdate)
+            return;
+        var spies = members.Where(m => m.Spec.Type == "SPY_LOCATOR").ToList();
+        state.NextUpdate = world.Time + (spies.Count == 0 ? 20 : 60);
+        foreach (var spy in spies.Where(s => s.Order is IdleOrder))
+        {
+            if (spy.Mines == 0)
+            {
+                world.Issue(new RefillLandMinesCommand(Race, [spy.Id]));
+                continue;
+            }
+            var start = drop.Start ?? Pod(world)?.Position ?? spy.Position;
+            var points = new List<Vector2>();
+            for (var i = 0; i < spy.Mines; i++)
+            {
+                var range = drop.MinRange + (float)world.Random.NextDouble() * (drop.MaxRange - drop.MinRange);
+                var x = (float)world.Random.NextDouble() * 2 - 1;
+                var y = MathF.Sqrt(1 - x * x) * (world.Random.Next(10) < 5 ? -1 : 1);
+                points.Add(world.FreeSpotNear(start + new Vector2(x, y) * range, spy.Stats.HighClearance * 1.5f));
+            }
+            world.Issue(new DropLandMinesCommand(Race, [spy.Id], points));
+        }
     }
 
     private void Transport(GameWorld world, List<Machine> carriers)
@@ -507,4 +460,44 @@ public sealed class AiController(Race race, AiScript script, RaceSetup setup)
 
     private Construction? Pod(GameWorld world) =>
         world.Constructions.FirstOrDefault(c => c.Race == Race && c.IsType("POD"));
+
+    // ---- alliances between computers ------------------------------------------------------------
+
+    private const float AllyUpdateInterval = 240;
+    private float _nextAllyUpdate = AllyUpdateInterval;
+
+    /// <summary>
+    /// In a skirmish or network game, about every four minutes, a computer that is not winning makes up its mind about
+    /// the computers after it in the list: never with people, never with the winner, and only with three races or
+    /// more left. The further the winner is ahead of the two of them, the likelier they are to stand together until
+    /// the next time (MachLogAIController::update).
+    /// </summary>
+    private void UpdateAllies(GameWorld world)
+    {
+        if (world.Options.Victory == VictoryCondition.Scripted || world.Time < _nextAllyUpdate || !Stands(world, Race))
+            return;
+        _nextAllyUpdate += AllyUpdateInterval + world.Random.Next(120) - 60;
+
+        var standing = world.Races.Keys.Order().Where(r => Stands(world, r)).ToList();
+        var computers = standing.Where(r => world.Races[r].Controller == Controller.Ai).ToList();
+        var highest = standing.Max(r => world.Races[r].Score.Gross);
+        var winner = standing.First(r => world.Races[r].Score.Gross == highest);
+        if (winner == Race || standing.Count <= 2 || computers.Count <= 1)
+            return;
+        foreach (var other in computers.Skip(computers.IndexOf(Race) + 1))
+        {
+            var score = world.Races[other].Score.Gross;
+            var allies = false;
+            if (score != highest)
+            {
+                var ours = Math.Max(1, score + world.Races[Race].Score.Gross);
+                var twiceWinning = Math.Max(1, highest * 2);
+                allies = world.Random.Next(ours + twiceWinning) < twiceWinning;
+            }
+            world.Issue(new AllianceCommand(Race, other, allies));
+            world.Issue(new AllianceCommand(other, Race, allies));
+        }
+    }
+
+    private static bool Stands(GameWorld world, Race race) => world.Actors.Any(a => a.Race == race && !a.IsDead);
 }

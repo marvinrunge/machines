@@ -105,11 +105,13 @@ public sealed partial class GameWorld
         if (!Options.OriginalMotion)
         {
             UpdateOrder(machine);
+            NextInSeries(machine);
             return;
         }
         // One asked to make way steps aside first, then goes on with its order.
         if (!StepAside(machine))
             UpdateOrder(machine);
+        NextInSeries(machine);
         Settle(machine);
     }
 
@@ -126,11 +128,9 @@ public sealed partial class GameWorld
 
         switch (machine.Order)
         {
-            case MoveOrder move:
+            case MoveOrder:
                 if (!FollowPath(machine))
                     machine.Order = Order.Idle;
-                else
-                    TakeInitiative(machine, move.Target);
                 break;
 
             case StandGroundOrder:
@@ -152,12 +152,16 @@ public sealed partial class GameWorld
             case AttackMoveOrder attackMove:
                 if (!FollowPath(machine))
                     machine.Order = Order.Idle;
-                else if (NearestEnemy(machine, machine.Stats.ScannerRange) is { } enemy)
+                else if (NearestEnemy(machine, ScannerReach(machine)) is { } enemy)
                     Send(machine, new AttackOrder(enemy.Id, attackMove.Target), enemy.Position);
                 break;
 
             case AttackOrder attack:
                 UpdateAttack(machine, attack);
+                break;
+
+            case FollowOrder follow:
+                UpdateFollow(machine, follow);
                 break;
 
             case ConstructOrder construct:
@@ -182,10 +186,19 @@ public sealed partial class GameWorld
                     var next = (patrol.Next + 1) % patrol.Points.Count;
                     Send(machine, patrol with { Next = next }, patrol.Points[next]);
                 }
-                else if (machine.CanFight && NearestEnemy(machine, machine.Stats.ScannerRange) is { } enemy)
+                else if (machine.CanFight && NearestEnemy(machine, ScannerReach(machine)) is { } enemy)
                 {
-                    Send(machine, new AttackOrder(enemy.Id, patrol.Points[patrol.Next]), enemy.Position);
+                    // The fight is part of the patrol, which goes on after it (MachLogPatrolOperation's sub-operation);
+                    // an administrator sets its idle squadron on the enemy too.
+                    Send(machine, new AttackOrder(enemy.Id, Back: new Interrupted(patrol, patrol.Points[patrol.Next], Chases: false)), enemy.Position);
+                    if (machine.Spec.Type == "ADMINISTRATOR" && machine.Squad is { } squad)
+                        foreach (var fighter in Machines.Where(m => m.Race == machine.Race && m.Squad == squad && m.CanFight && m.Order is IdleOrder && !m.IsDead).ToList())
+                            Send(fighter, new AttackOrder(enemy.Id), enemy.Position);
                 }
+                break;
+
+            case ReturnOrder going:
+                UpdateReturn(machine, going);
                 break;
 
             case HealOrder heal:
@@ -217,11 +230,11 @@ public sealed partial class GameWorld
                 break;
 
             case DeployOrder deploy:
-                if (!FollowPath(machine))
-                {
-                    Unload(machine);
-                    machine.Order = Order.Idle;
-                }
+                UpdateDeploy(machine, deploy);
+                break;
+
+            case IdleOrder when _rearTo.Remove(machine.Id, out var rear):
+                Face(machine, machine.Position * 2 - rear, MathF.PI - ApcEntryAngle - 0.05f);
                 break;
 
             case IdleOrder when machine.CanHeal && !machine.DrivenByPlayer:
@@ -232,16 +245,6 @@ public sealed partial class GameWorld
                 UpdateScavenge(machine, scavenge);
                 break;
 
-            case IdleOrder when machine.IsScavenger:
-                SeekDebris(machine);
-                break;
-
-            default:
-                // Idle fighters take on what their initiative lets them.
-                if (machine.CanFight && !machine.DrivenByPlayer && Tick % 10 == machine.Id % 10
-                    && InitiativeTarget(machine) is { } threat)
-                    Send(machine, new AttackOrder(threat.Id), threat.Position);
-                break;
         }
     }
 
@@ -337,15 +340,17 @@ public sealed partial class GameWorld
     private void UpdateAttack(Machine machine, AttackOrder attack)
     {
         var target = FindTarget(attack.Target);
-        if (target is null || target.IsDead || !CanAttack(machine.Race, target))
+        if (target is null || target.IsDead || !CanAttack(machine.Race, target) || !CanFireAt(machine, target))
         {
+            // Ready at once for the next target (MachLogAttackOperation::beNotified).
+            machine.Alert.NoChecksBefore = Time;
             // On an attack-move, the next enemy in sight is taken on at once, as the move would the next tick:
             // when a target falls, everyone who shot at it would otherwise plan the way on to its own place,
             // only to drop it again.
-            // One that broke off a move for the fight goes on with its move.
-            if (attack is { Resume: true, Then: { } resume })
-                Send(machine, new MoveOrder(resume), resume);
-            else if (attack.Then is { } then && NearestEnemy(machine, machine.Stats.ScannerRange) is { } next)
+            // One that broke off something for the fight takes that up again.
+            if (attack.Back is { } back)
+                TakeUpAgain(machine, back);
+            else if (attack.Then is { } then && NearestEnemy(machine, ScannerReach(machine)) is { } next)
                 Send(machine, new AttackOrder(next.Id, then), next.Position);
             else if (attack.Then is { } on)
                 Send(machine, new AttackMoveOrder(on), on);
@@ -354,9 +359,17 @@ public sealed partial class GameWorld
             return;
         }
 
+        if (ChaseOver(machine, attack, target))
+        {
+            TakeUpAgain(machine, attack.Back!);
+            return;
+        }
+
         var range = machine.Weapons.Where(w => w.DealsDamage || w.IsTreachery).Select(w => w.Spec.Range).DefaultIfEmpty(0).Min();
-        // In range but hidden behind a hill, it moves closer (MachLogAttackOperation's MOVE_CLOSER for a target behind cover).
-        if (machine.DistanceTo(target) <= range * 0.95f && ClearShot(machine, target))
+        // In range but behind cover, or too high or low for its weapons to tilt to, it moves closer (MachLogAttackOperation's
+        // MOVE_CLOSER; friendly cover comes to the same, as the disposition set for that goes to a variable of its own).
+        if (machine.DistanceTo(target) <= range * FiringRangeShare && ClearShot(machine, target)
+            && machine.Weapons.Any(w => w.FiresAt(target) && WithinTilt(machine, w, target)))
         {
             machine.Path.Clear();
             machine.PathIndex = 0;
@@ -371,6 +384,29 @@ public sealed partial class GameWorld
                 MoveCloserToAttack(machine, target);
             else
                 Approach(machine, target.Position);
+        }
+    }
+
+    /// <summary>
+    /// It keeps two clearances off the machine it follows, on the line between them, and stands when that is close
+    /// enough (MachLogMachineMotionSequencer with no follow offset); with the machine gone, the order ends.
+    /// </summary>
+    private void UpdateFollow(Machine machine, FollowOrder follow)
+    {
+        if (Find<Machine>(follow.Target) is not { IsDead: false, Inside: null } leader)
+        {
+            machine.Order = Order.Idle;
+            return;
+        }
+        var gap = 2 * (machine.Stats.HighClearance + leader.Stats.HighClearance);
+        var way = leader.Position - machine.Position;
+        var distance = way.Length();
+        if (distance > gap)
+            Approach(machine, leader.Position - way / distance * gap);
+        else
+        {
+            machine.Path.Clear();
+            machine.PathIndex = 0;
         }
     }
 
@@ -411,122 +447,9 @@ public sealed partial class GameWorld
                 && Constructions.Count(c => c.Race == site.Race && c.Complete && c.Weapons.Any(w => w.Spec.TypeName == "NUCLEAR_MISSILE")) == 1)
                 WarnOfSuperweapon(site.Race, "VID_POD_ENEMY_NUKE_ONLINE");
             machine.Order = Order.Idle;
-            SendVoiceMail(machine.Race, "VID_DOZER_AWAITING_NEW_JOB");
+            ReportAwaitingJob(machine);
         }
     }
-
-    private void UpdateTransport(Machine carrier, TransportOrder transport)
-    {
-        var mine = Find<Construction>(transport.Mine);
-        var smelter = Find<Construction>(transport.Smelter);
-        // A mine or smelter that changed sides drops out of the route as if it were gone
-        // (MachLogResourceCarrier::beNotified, RACE_CHANGED).
-        if (mine is null || smelter is null
-            || Options.OriginalCapture && (mine.Race != carrier.Race || smelter.Race != carrier.Race))
-        {
-            carrier.Order = Order.Idle;
-            ReportRouteLost(carrier);
-            return;
-        }
-
-        // Loading or dropping, it stands on the pad as long as the rings of light play (MachPhysResourceLoading).
-        if (Time < transport.WaitUntil)
-            return;
-        var capacity = carrier.Stats.Capacity ?? 0;
-        var delivering = transport.Delivering;
-        var stop = delivering ? smelter : mine;
-
-        // It drives right onto one of the building's pads, loading or dropping once it stands within one and a
-        // half times its clearance of it (MachLogPickUpOperation, MachLogPutDownOperation); a building without pads
-        // is served from its edge.
-        var pads = delivering ? stop.PutDownPads : stop.PickUpPads;
-        if (pads.Count > 0)
-        {
-            var pad = PadFor(carrier, stop, pads);
-            var reach = MathF.Max(1, carrier.Stats.HighClearance * 1.5f);
-            var distance = Vector2.Distance(carrier.Position, pad);
-            if (distance > 0.05f)
-            {
-                // The grid blocks the cells round a building; a pad lying in one is driven onto straight.
-                if (!Nav.IsFree(pad, CrossesWater(carrier)) && distance < Navigation.NavGrid.CellSize * 2.5f)
-                {
-                    carrier.Path.Clear();
-                    carrier.PathIndex = 0;
-                    StepTowards(carrier, pad);
-                    return;
-                }
-                // It drives the whole way onto the pad's point (MachLogMoveToOperation); one held up short of it
-                // still loads within its reach.
-                if (distance > reach)
-                {
-                    Approach(carrier, pad);
-                    return;
-                }
-                if (carrier.PathIndex < carrier.Path.Count)
-                {
-                    FollowPath(carrier);
-                    return;
-                }
-            }
-        }
-        else if (!InReach(carrier, stop))
-        {
-            Approach(carrier, ClosestPointOutside(stop, carrier.Position));
-            return;
-        }
-
-        if (!stop.Complete)
-            return;
-
-        if (delivering)
-        {
-            // Ore becomes BMUs at once; whatever does not fit in storage stays on board, and the carrier waits
-            // with it until there is room (MachLogPutDownOperation).
-            // An AI's ore is worth more or less as its level says (MatchOptions.AiLevel).
-            var worth = OreWorth(carrier.Race);
-            var added = AddBmu(carrier.Race, carrier.Ore * worth);
-            carrier.Ore -= worth == 1 ? (int)added : Math.Min(carrier.Ore, (int)MathF.Round(added / worth));
-            if (added > 0)
-                smelter.OreDroppedTick = Tick;
-            if (carrier.Ore <= 0)
-                carrier.Order = transport with { Delivering = false, WaitUntil = Time + LoadingTime };
-        }
-        else if (mine.Ore >= 1)
-        {
-            // It takes what the mine has ready, up to its capacity, and is off with it; at an empty mine it waits
-            // (MachLogPickUpOperation).
-            var load = (int)MathF.Min(capacity - carrier.Ore, mine.Ore);
-            carrier.Ore += load;
-            mine.Ore -= load;
-            if (carrier.Ore > 0)
-                carrier.Order = transport with { Delivering = true, WaitUntil = Time + LoadingTime };
-        }
-        carrier.Path.Clear();
-        carrier.PathIndex = 0;
-    }
-
-    /// <summary>Seconds a carrier stands on a pad loading or dropping ore: 22 frames at 22 a second (MachPhysResourceLoading).</summary>
-    public const float LoadingTime = 1;
-
-    // The pad each carrier is heading for, and at which building.
-    private readonly Dictionary<int, (int Stop, Vector2 Pad)> _carrierPads = [];
-
-    /// <summary>
-    /// The pad a carrier heads for at a building: the one it chose on the way there, else the nearest that no
-    /// other carrier is heading for, else the nearest (MachLogPickUpOperation chose the nearest free one).
-    /// </summary>
-    private Vector2 PadFor(Machine carrier, Construction stop, IReadOnlyList<Vector2> pads)
-    {
-        if (_carrierPads.TryGetValue(carrier.Id, out var chosen) && chosen.Stop == stop.Id)
-            return chosen.Pad;
-        bool Taken(Vector2 pad) => _carrierPads.Any(p => p.Key != carrier.Id && p.Value.Stop == stop.Id && p.Value.Pad == pad
-            && Find<Machine>(p.Key) is { Order: TransportOrder });
-        var byDistance = pads.OrderBy(p => Vector2.DistanceSquared(p, carrier.Position)).ToList();
-        var pad = byDistance.FirstOrDefault(p => !Taken(p), byDistance[0]);
-        _carrierPads[carrier.Id] = (stop.Id, pad);
-        return pad;
-    }
-
 
     private void UpdateEnterLab(Machine technician, EnterLabOrder enter)
     {
@@ -537,7 +460,8 @@ public sealed partial class GameWorld
             return;
         }
 
-        if (!HasFreeBay(lab))
+        // Only its own race's stations hold a machine up; a spy slips into another race's lab however full it is.
+        if (lab.Race == technician.Race && !HasFreeBay(lab))
         {
             technician.Order = Order.Idle;
             return;
@@ -602,7 +526,7 @@ public sealed partial class GameWorld
         if (next < 0 && !FollowPath(locator))
         {
             locator.Order = Order.Idle;
-            SendVoiceMail(locator.Race, "VID_GEO_SEARCH_COMPLETE");
+            SendVoiceMail(locator.Race, "VID_GEO_SEARCH_COMPLETE", locator.Id);
         }
     }
 

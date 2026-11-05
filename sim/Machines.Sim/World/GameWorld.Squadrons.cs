@@ -95,6 +95,8 @@ public sealed partial class GameWorld
     private static Command Retarget(Command order, IReadOnlyList<int> ids) => order switch
     {
         MoveCommand c => c with { Machines = ids },
+        FollowCommand c => c with { Machines = ids },
+        SeriesCommand c => c with { Machines = ids },
         AttackCommand c => c with { Machines = ids },
         AttackMoveCommand c => c with { Machines = ids },
         StopCommand c => c with { Machines = ids },
@@ -108,6 +110,9 @@ public sealed partial class GameWorld
         DeconstructCommand c => c with { Constructors = ids },
         RecycleCommand c => c with { Machines = ids },
         StandGroundCommand c => c with { Machines = ids },
+        BoardCommand c => c with { Machines = ids },
+        EnterGarrisonCommand c => c with { Machines = ids },
+        EnterLabCommand c => c with { Technicians = ids },
         DefConCommand c => c with { Machines = ids },
         DropLandMinesCommand c => c with { Spies = ids },
         RefillLandMinesCommand c => c with { Spies = ids },

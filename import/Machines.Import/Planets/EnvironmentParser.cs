@@ -65,7 +65,7 @@ public static class EnvironmentParser
                     block.RequireNoRows();
                     if (fog is not null)
                         throw new ParmFormatException("fog is defined twice", block.LineNumber);
-                    fog = new Fog(block.Number("max visibility"), block.Text("colour table"), block.OptionalText("controller"));
+                    fog = new Fog(block.Number("max visibility"), block.Text("colour table"), block.OptionalText("controller"), block.OptionalNumber("zenith multiplier") ?? 1);
                     break;
 
                 case "dynamic sky" or "uniform sky" or "stars" or "skyline" or "nvg" or "day phase":

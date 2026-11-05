@@ -17,6 +17,9 @@ public sealed class WeaponMount(Mounting mounting, WeaponSpec spec)
     /// <summary>Seconds until the next round of the burst.</summary>
     public float RoundTimer { get; set; }
 
+    /// <summary>How the burst under way goes.</summary>
+    public FireData Burst { get; set; }
+
     /// <summary>Rounds fired so far; their barrels take turns.</summary>
     public int Shots { get; set; }
 

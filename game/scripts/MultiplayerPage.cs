@@ -6,7 +6,9 @@ namespace Machines.Game;
 
 /// <summary>
 /// The multiplayer page: connect to a relay or host one, then open a room (set up on the skirmish page) or join one,
-/// pick a colour, get ready, and the host starts. The relay then hands every player the same match.
+/// pick a colour, get ready, and the host starts. The relay then hands every player the same match. The room lists its
+/// start positions and its settings; its host says what each free position is for, takes players out and changes the
+/// settings (MachGuiCtxImReady).
 /// </summary>
 public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.ShowMain)
 {
@@ -28,12 +30,13 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
     private static int? _chatRoom;
 
     private LineEdit _name = null!, _relay = null!, _say = null!;
-    private Label _status = null!, _roomTitle = null!;
+    private Label _status = null!, _roomTitle = null!, _settings = null!;
     private RichTextLabel _chat = null!;
-    private ItemList _rooms = null!, _players = null!;
+    private ItemList _rooms = null!;
+    private VBoxContainer _seats = null!;
     private ChipChoice _colour = null!;
     private CheckButton _ready = null!;
-    private ChipButton _connect = null!, _host = null!, _start = null!, _join = null!, _copy = null!;
+    private ChipButton _connect = null!, _host = null!, _start = null!, _change = null!, _join = null!, _copy = null!;
     private Control _offline = null!, _lobby = null!, _room = null!;
     private RoomList? _roomList;
     private RoomState? _state;
@@ -94,7 +97,8 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
                 Button("Open a room", () => screens.ShowSkirmish(forRoom: true), 70, 26)));
 
         _roomTitle = MenuTheme.Paragraph("", 26, MenuTheme.Bright);
-        _players = new ItemList { AutoHeight = true, FocusMode = FocusModeEnum.None };
+        _seats = Column(6);
+        _settings = MenuTheme.Paragraph("", 20, MenuTheme.Dim);
         // Below the players, the chat: the lines said so far, set into the board as the fields are, and one to type in.
         _chat = new RichTextLabel { SizeFlagsVertical = SizeFlags.ExpandFill, ScrollFollowing = true, FocusMode = FocusModeEnum.None };
         _chat.AddThemeStyleboxOverride("normal", GetThemeStylebox("read_only", "LineEdit"));
@@ -113,12 +117,14 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
         _ready = new CheckButton { Text = "Ready" };
         _ready.Toggled += _ => SendPlayer();
         _start = Button("Start match", () => NetLink.Send(new StartMatch()), 70, 26);
+        _change = Button("Settings", () => screens.ShowSkirmish(forRoom: true, room: _state), 70, 26);
         var leave = Button("Leave room", () =>
         {
             NetLink.Send(new LeaveRoom());
             ShowLobby();
         }, 70, 26);
-        _room = Column(16, _roomTitle, _players, _chat, Line(16, _say, send),
+        _settings.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _room = Column(16, _roomTitle, _seats, Line(16, _settings, _change), _chat, Line(16, _say, send),
             Line(20, MenuTheme.Label("Colour", 22, MenuTheme.Text), _colour, _ready, Spring(), leave, _start));
         foreach (var view in new[] { _offline, _lobby, _room })
         {
@@ -259,6 +265,7 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
     private void ShowOffline()
     {
         _state = null;
+        screens.At(MenuFilms.Multiplayer);
         (_offline.Visible, _lobby.Visible, _room.Visible) = (true, false, false);
         _connect.Disabled = _host.Disabled = false;
     }
@@ -266,6 +273,7 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
     private void ShowLobby()
     {
         _state = null;
+        screens.At(MenuFilms.Multiplayer);
         (_offline.Visible, _lobby.Visible, _room.Visible) = (false, true, false);
         _connect.Disabled = _host.Disabled = true;
         _join.Disabled = _roomList is not { Rooms.Count: > 0 };
@@ -296,12 +304,13 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
                 AddChat(Lang.T("{0} left the room", player.Name), note: true);
         }
         _state = state;
+        screens.At(MenuFilms.Room);
         (_offline.Visible, _lobby.Visible, _room.Visible) = (false, false, true);
-        _roomTitle.Text = Lang.T("{0}   ·   {1} on {2}   ·   {3}/{4} players", state.Name, state.Scenario, state.Planet, state.Players.Count, state.Slots.Count) +
+        _roomTitle.Text = Lang.T("{0}   ·   {1} on {2}   ·   {3}/{4} players", state.Name, state.Scenario, state.Planet, state.Players.Count,
+                              state.Seats.Count(s => s.ClientId is not null || s.Use == SeatUse.Open)) +
                           (state.FillWithAi ? Lang.T(", the rest AI") : "");
-        _players.Clear();
-        foreach (var player in state.Players)
-            _players.AddItem($"{player.Name}   {Lang.T(player.Colour.ToString())}{(player.ClientId == state.HostId ? "   " + Lang.T("(host)") : "")}{(player.Ready ? "   " + Lang.T("ready") : "")}");
+        ShowSeats(state);
+        _settings.Text = SkirmishPage.Summary(state.Options);
         // The ground counts only when everyone has the same export of it (MatchInfo.Terrain).
         if (state.Players.Where(p => p.Ready).Select(p => p.Terrain).Distinct().Count() > 1)
             _roomTitle.Text += "\n" + Lang.T("The players' classic terrain exports differ: hills will not stop shots in this match");
@@ -309,8 +318,56 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
         _ready.SetBlockSignals(true);
         _ready.ButtonPressed = me.Ready;
         _ready.SetBlockSignals(false);
-        _start.Visible = state.HostId == NetLink.ClientId;
+        _start.Visible = _change.Visible = state.HostId == NetLink.ClientId;
         _start.Disabled = state.Players.Any(p => !p.Ready);
+    }
+
+    /// <summary>A line for each start position: who sits there or what it is for, and the host's choice for it.</summary>
+    private void ShowSeats(RoomState state)
+    {
+        foreach (var row in _seats.GetChildren())
+        {
+            _seats.RemoveChild(row);
+            row.QueueFree();
+        }
+        for (var i = 0; i < state.Seats.Count; i++)
+        {
+            var seat = state.Seats[i];
+            var player = state.Players.FirstOrDefault(p => p.ClientId == seat.ClientId);
+            var text = player is null ? Lang.T(seat.Use.ToString())
+                : $"{player.Name}   {Lang.T(player.Colour.ToString())}{(player.ClientId == state.HostId ? "   " + Lang.T("(host)") : "")}{(player.Ready ? "   " + Lang.T("ready") : "")}";
+            var line = MenuTheme.Label(text, 22, player is null ? MenuTheme.Dim : MenuTheme.Text);
+            line.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            var row = Line(16, line);
+            if (state.HostId == NetLink.ClientId && player?.ClientId != NetLink.ClientId)
+                row.AddChild(SeatChoice(i, seat.Use, player));
+            _seats.AddChild(row);
+        }
+    }
+
+    /// <summary>
+    /// The host's choice for a start position (MachGuiPlayerListItem): Open, Closed or Computer, and at a player's seat
+    /// their name first; choosing anything else takes them out of the room, once the host has confirmed it.
+    /// </summary>
+    private ChipChoice SeatChoice(int seat, SeatUse use, LobbyPlayer? player)
+    {
+        var uses = Enum.GetValues<SeatUse>();
+        var names = uses.Select(u => u.ToString());
+        var choice = new ChipChoice(player is null ? names : names.Prepend(player.Name), player is null ? (int)use : 0) { CustomMinimumSize = new Vector2(220, 0) };
+        choice.ItemSelected += i =>
+        {
+            if (player is null)
+                NetLink.Send(new SetSeat(seat, uses[i]));
+            else if (i > 0)
+                screens.Message(Lang.T("Take {0} out of the room?", player.Name),
+                    ("Take out", () => NetLink.Send(new SetSeat(seat, uses[i - 1]))),
+                    ("Keep", () =>
+                    {
+                        if (IsInstanceValid(choice))
+                            choice.Selected = 0;
+                    }));
+        };
+        return choice;
     }
 
     private void Join()

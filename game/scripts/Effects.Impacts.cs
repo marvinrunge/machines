@@ -33,19 +33,22 @@ public partial class Effects
 
     /// <summary>
     /// A missile flying along <paramref name="heading"/> ends its flight at <paramref name="at"/> (in the remake's
-    /// effects): it bursts just in front of the hull of what it struck, or there.
+    /// effects): it bursts at <see cref="BurstPoint"/>, as big as its <paramref name="strength"/>.
     /// </summary>
-    public void MissileHit(Vector3 at, Vector3 heading) =>
-        MissileBurst((Hull(at - heading.Normalized() * 15, at) ?? at) - heading.Normalized() * 0.8f);
+    public void MissileHit(Vector3 at, Vector3 heading, float strength) => MissileBurst(BurstPoint(at, heading), strength);
+
+    /// <summary>Where a round ending its flight at <paramref name="at"/> bursts: just in front of the hull of what it struck, or there.</summary>
+    public Vector3 BurstPoint(Vector3 at, Vector3 heading) => (Hull(at - heading.Normalized() * 15, at) ?? at) - heading.Normalized() * 0.8f;
 
     /// <summary>
     /// MachPhysTrailedProjectile's explosion: three balls of fire 2.5 to 4.5 m across within a metre of the point, a
-    /// flash, smoke, sparks and a small scorch.
+    /// flash, smoke, sparks and a small scorch, for a missile of strength 3 (see <see cref="Blowup.BlastStrength"/>).
     /// </summary>
-    private void MissileBurst(Vector3 at)
+    private void MissileBurst(Vector3 at, float strength = 3)
     {
-        Light(at + Vector3.Up, new Color(1, 0.6f, 0.25f), 4, 12, 0.35f);
-        FlashOrb(at + Vector3.Up * 0.5f, new Color(1, 0.7f, 0.35f), 3, 0.12f);
+        var scale = strength / 3;
+        Light(at + Vector3.Up, new Color(1, 0.6f, 0.25f), 4, 12 * scale, 0.35f);
+        FlashOrb(at + Vector3.Up * 0.5f, new Color(1, 0.7f, 0.35f), 3 * scale, 0.12f);
         Burst(at + Vector3.Up * 0.5f, amount: 3, lifetime: 0.9f, Flipbook("fireball"), new ParticleProcessMaterial
         {
             EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Sphere,
@@ -55,8 +58,8 @@ public partial class Effects
             InitialVelocityMin = 0.5f,
             InitialVelocityMax = 1.5f,
             Gravity = new Vector3(0, 1.5f, 0),
-            ScaleMin = 2.5f,
-            ScaleMax = 4.5f,
+            ScaleMin = 2.5f * scale,
+            ScaleMax = 4.5f * scale,
             ScaleCurve = Grow(0.6f),
             AngleMin = -180,
             AngleMax = 180,
@@ -64,9 +67,9 @@ public partial class Effects
             AnimSpeedMax = 1,
             ColorRamp = Ramp(new Color(2.4f, 2.2f, 2f, 1), new Color(1.5f, 1.4f, 1.3f, 1), new Color(1, 1, 1, 0)),
         }, explosiveness: 0.8f);
-        Smoke(at + Vector3.Up, amount: 3, size: 4, lifetime: 2.5f);
+        Smoke(at + Vector3.Up, amount: 3, size: 4 * scale, lifetime: 2.5f);
         Sparks(at, new Color(1, 0.6f, 0.25f), 12, Vector3.Up, spread: 70, speed: 9, lifetime: 0.7f, size: 0.5f);
-        Scorch(at, 2.5f);
+        Scorch(at, 2.5f * scale);
     }
 
     /// <summary>The classic look's impact: three soft glows, a little smoke and a scorch.</summary>

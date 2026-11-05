@@ -33,6 +33,11 @@ public enum VictoryCondition
     Timer,
     /// <summary>A campaign mission: its script alone says who won or lost (WON and LOST actions).</summary>
     Scripted,
+    /// <summary>
+    /// The menu's Default (VICTORY_DEFAULT): a scenario's own CONDITIONS decide it as they do a campaign mission, and
+    /// without any it is <see cref="Annihilation"/> (MachLogScenario::load).
+    /// </summary>
+    Default,
 }
 
 /// <summary>How well the AIs play (<see cref="MatchOptions.AiLevel"/>).</summary>
@@ -53,6 +58,15 @@ public sealed record MatchOptions
     public VictoryCondition Victory { get; init; } = VictoryCondition.Annihilation;
     /// <summary>Game length for <see cref="VictoryCondition.Timer"/>, in seconds.</summary>
     public int TimeLimit { get; init; } = 1800;
+
+    /// <summary>Whether what the player has not seen stays dark (MachContinentMap::fogOfWarOn). Only the clients read it.</summary>
+    public bool FogOfWar { get; init; } = true;
+
+    /// <summary>In a network game, whether everyone hears of every alliance, not just the two players it is between (MachGuiDispositionChangeNotifiable).</summary>
+    public bool BroadcastAlliances { get; init; }
+
+    /// <summary>In a network game, whether nobody may drive a machine in first person (MachInGameScreen::isFirstPersonDisabled).</summary>
+    public bool DisableFirstPerson { get; init; }
 
     /// <summary>
     /// Whether active artefacts can be shot and destroyed, as in the original. Recordings made before they could be
@@ -141,6 +155,9 @@ public sealed record MatchOptions
 /// </summary>
 public sealed record CampaignCarry
 {
+    /// <summary>The campaign player the mission is played for; their saved games go with them (MachGuiDatabaseHandler::deletePlayer).</summary>
+    public string? Player { get; init; }
+
     /// <summary>The flags each won scenario set (SET_SCENARIO_FLAG), by scenario name.</summary>
     public Dictionary<string, List<string>> Flags { get; init; } = [];
 

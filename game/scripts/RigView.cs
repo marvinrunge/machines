@@ -584,6 +584,42 @@ public partial class RigView : Node3D
         ? _nodes[_rig.Faceplate].GlobalTransform * _rig.Eye
         : null;
 
+    /// <summary>The middle of the faceplate's top and its width; a look without the plate as a mesh of its own gives the eye and a usual width.</summary>
+    public (Vector3 Top, float Width)? FaceplateTop
+    {
+        get
+        {
+            if (Eye is not { } eye)
+                return null;
+            if (_nodes[_rig.Faceplate].GetNodeOrNull<MeshInstance3D>("Mesh") is not { } plate)
+                return (eye, 0.5f);
+            var box = plate.GetAabb();
+            var size = box.Size * plate.GlobalBasis.Scale;
+            return (plate.GlobalTransform * (box.GetCenter() + Vector3.Up * box.Size.Y / 2), Mathf.Clamp(Mathf.Max(size.X, size.Z), 0.25f, 1.5f));
+        }
+    }
+
+    /// <summary>
+    /// The part whose mesh reaches highest in its own space, a faceplate apart, with that mesh's box
+    /// (MachPhysMachineDamage::update looks for it to set the flames on).
+    /// </summary>
+    public (Node3D Part, Aabb Box)? TopPart()
+    {
+        (Node3D Part, Aabb Box)? top = null;
+        for (var i = 0; i < _nodes.Length; i++)
+            if (_rig.Nodes[i] is { Mesh: { } mesh, Name: not ("faceplate" or "fplat") } && (top is null || mesh.GetAabb().End.Y > top.Value.Box.End.Y))
+                top = (_nodes[i], mesh.GetAabb());
+        return top;
+    }
+
+    /// <summary>What turns a thing lying on the view's own axes as the upper body has turned, about the head's place.</summary>
+    public Transform3D TurnedAboutHead()
+    {
+        var pivot = _rig.UpperBody > 0 && _rig.UpperBody < _nodes.Length ? _rig.Nodes[_rig.UpperBody].Rest.Origin with { Y = 0 } : Vector3.Zero;
+        var turned = new Basis(Vector3.Up, -_upperBody);
+        return new Transform3D(turned, pivot - turned * pivot);
+    }
+
     /// <summary>
     /// Plays the animation <paramref name="name"/> once from its start, over the cycles (a machine's
     /// <c>plan</c> in the original); false when the export has none of that name.
@@ -601,6 +637,19 @@ public partial class RigView : Node3D
         _action = animation;
         _actionTime = 0;
         return true;
+    }
+
+    // Legs that have them set off and come to a stop by a plan of their own, played once each (MachPhysSpiderLegs::moveAnimations).
+    private string Stepping(string cycle)
+    {
+        var walking = cycle == "walk";
+        if (_cycle == "startWalking" && walking || _cycle == "stopWalking" && !walking)
+            return _phase < 1 ? _cycle : cycle;
+        if (walking && _cycle != "walk" && _rig.Animations.ContainsKey("startWalking"))
+            return "startWalking";
+        if (!walking && _cycle is "walk" or "startWalking" && cycle is "rest" or "turnLeft" or "turnRight" && _rig.Animations.ContainsKey("stopWalking"))
+            return "stopWalking";
+        return cycle;
     }
 
     /// <summary>
@@ -662,6 +711,7 @@ public partial class RigView : Node3D
             var cycle = Constructing && _rig.Animations.ContainsKey("construct") ? "construct"
                 : Working && _rig.Animations.ContainsKey("research") ? "research"
                 : moving ? "walk" : turning ? (turnRate > 0 ? "turnLeft" : "turnRight") : "rest";
+            cycle = Stepping(cycle);
             if (cycle != _cycle)
             {
                 // Parts the new cycle leaves alone go back to rest (the arms after building).
@@ -675,8 +725,9 @@ public partial class RigView : Node3D
             if (_rig.Animations.TryGetValue(_cycle, out var animation) && animation.Duration > 0)
             {
                 // Legs keep pace with the ground: the walk cycle runs at the machine's share of its top speed.
-                var rate = moving ? Mathf.Clamp(Mathf.Sqrt(speed * speed + sideways * sideways) / Mathf.Max(1, maxSpeed), 0.5f, 1.5f) : 1;
-                _phase = (_phase + delta * rate / animation.Duration) % 1;
+                var rate = moving && _cycle == "walk" ? Mathf.Clamp(Mathf.Sqrt(speed * speed + sideways * sideways) / Mathf.Max(1, maxSpeed), 0.5f, 1.5f) : 1;
+                _phase += delta * rate / animation.Duration;
+                _phase = _cycle is "startWalking" or "stopWalking" ? Mathf.Min(_phase, 1) : _phase % 1;
                 foreach (var track in animation.Tracks)
                     if (track.Node < _nodes.Length)
                         _nodes[track.Node].Transform = track.At(_phase);

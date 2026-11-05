@@ -12,6 +12,31 @@ public class CampaignReplayTests
     private static readonly Lazy<GameData> DataLoader = new(() => GameData.Load(RepoPaths.OriginalDataFolder()));
 
     [Fact]
+    public void A_campaign_players_saved_games_are_found_and_no_others()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"saves-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        try
+        {
+            void Save(string name, CampaignCarry? carry) => new Replay(new MatchInfo("sat", "sat",
+                new MatchOptions { Victory = VictoryCondition.Scripted, Campaign = carry }, 4, 1, []), [], 0).Save(Path.Combine(folder, name));
+            Save("anna.msave", new CampaignCarry { Player = "Anna" });
+            Save("ben.msave", new CampaignCarry { Player = "Ben" });
+            Save("old.msave", new CampaignCarry());
+            Save("skirmish.msave", null);
+            File.WriteAllText(Path.Combine(folder, "broken.msave"), "not a save");
+
+            var saves = Replay.CampaignSaves(folder, ".msave", "Anna");
+
+            Assert.Equal("anna.msave", Path.GetFileName(Assert.Single(saves)));
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
     public void A_saved_campaign_mission_comes_back_with_what_it_carried_over()
     {
         var carry = new CampaignCarry
@@ -27,15 +52,18 @@ public class CampaignReplayTests
         ]);
         var straight = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), Race.Red, [Race.Red], match.InputDelay);
         var rng = new Random(9);
+        // It came, though the walks it is sent on may well take it to its end among the enemy's guns.
+        var carried = false;
         for (var i = 0; i < 400; i++)
         {
             if (rng.Next(20) == 0 && straight.World.Machines.Where(m => m.Race == Race.Red).ToList() is { Count: > 0 } own)
                 straight.Queue(new MoveCommand(Race.Red, [own[rng.Next(own.Count)].Id], new Vector2(300 + rng.Next(300), 100 + rng.Next(300))));
             straight.Pump();
             Assert.True(straight.TryStep());
+            carried |= straight.World.Machines.Any(m => m.Race == Race.Red && m.Spec.SubType == "KNIGHT");
         }
         Assert.NotNull(straight.World.Script);
-        Assert.Contains(straight.World.Machines, m => m.Race == Race.Red && m.Spec.SubType == "KNIGHT");
+        Assert.True(carried);
 
         var path = Path.Combine(Path.GetTempPath(), $"campaign-{Guid.NewGuid():N}.msave");
         new Replay(match, straight.Played, straight.World.Tick).Save(path);

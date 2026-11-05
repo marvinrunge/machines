@@ -35,6 +35,23 @@ public partial class Music : Node
     /// <summary>The intro film has played with its own sound (<see cref="StartupFilms"/>): the menus start with the menu tune.</summary>
     public static void IntroFilmPlayed() => _introPlayed = true;
 
+    /// <summary>A film with its own sound is to play over the menus: the tune fades out until <see cref="Menu"/> asks for it again.</summary>
+    public static void Silence()
+    {
+        if (_instance is null || !IsInstanceValid(_instance) || !_instance._player.Playing)
+            return;
+        var music = _instance;
+        (music._wanted, music._playing) = (null, null);
+        music._fade?.Kill();
+        music._fade = music.CreateTween();
+        music._fade.TweenProperty(music._player, "volume_db", -40f, FadeSeconds);
+        music._fade.TweenCallback(Callable.From(() =>
+        {
+            music._fade = null;
+            music._player.Stop();
+        }));
+    }
+
     /// <summary>A match on a scenario whose catalogue entry asks for <paramref name="scenarioMusic"/> (sceninfo's MUSIC).</summary>
     public static void Match(Node from, int? scenarioMusic) => Want(from, (scenarioMusic is { } m ? m - 1 : DefaultInGame, false, true));
 

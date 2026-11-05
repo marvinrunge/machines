@@ -18,9 +18,25 @@ public sealed partial class GameWorld
                 var group = Own<Machine>(move.Race, move.Machines).ToList();
                 var formation = GroupMove.Formation(group);
                 foreach (var (machine, destination) in GroupMove.Destinations(group, move.Target, Nav))
+                {
                     Send(machine, new MoveOrder(destination), destination, move.Target, formation[machine.Id]);
+                    if (move.Via is { Count: > 0 } via)
+                        RouteThrough(machine, via, destination);
+                }
                 return null;
             }
+
+            case FollowCommand follow:
+            {
+                if (Find<Machine>(follow.Target) is not { IsDead: false } leader)
+                    return "nothing to follow there";
+                foreach (var machine in Own<Machine>(follow.Race, follow.Machines).Where(m => m.Id != leader.Id))
+                    Send(machine, new FollowOrder(leader.Id), leader.Position);
+                return null;
+            }
+
+            case SeriesCommand series:
+                return ApplySeries(series);
 
             case AttackMoveCommand attackMove:
             {
@@ -36,6 +52,8 @@ public sealed partial class GameWorld
                 var target = FindTarget(attack.Target);
                 if (target is null || !CanAttack(attack.Race, target))
                     return "no enemy there";
+                foreach (var turret in Own<Construction>(attack.Race, attack.Machines).Where(TakesOrders))
+                    _turretOrders[turret.Id] = target.Id;
                 var attackers = Own<Machine>(attack.Race, attack.Machines).Where(m => m.CanFight).ToList();
                 var places = GroupMove.Formation(attackers);
                 foreach (var machine in attackers)
@@ -51,6 +69,7 @@ public sealed partial class GameWorld
                 foreach (var actor in Own<Actor>(stop.Race, stop.Machines))
                 {
                     actor.SelfDestructAt = null;
+                    _turretOrders.Remove(actor.Id);
                     if (actor is Machine machine)
                         Send(machine, Order.Idle, null);
                 }
@@ -91,16 +110,19 @@ public sealed partial class GameWorld
 
             case TransportCommand transport:
             {
-                var mine = Find<Construction>(transport.Mine);
+                var supplier = Find<Construction>(transport.Mine);
                 var smelter = Find<Construction>(transport.Smelter);
-                if (mine is null || mine.Race != transport.Race || !mine.IsType("MINE"))
-                    return "that is not one of your mines";
-                if (smelter is null || smelter.Race != transport.Race || smelter.Spec.Type is not ("SMELTER" or "POD"))
+                if (supplier is null || !Supplies(supplier, transport.Race))
+                    return "ore comes from a mine or another race's smelter";
+                if (transport.Smelter != 0 && (smelter is null || smelter.Race != transport.Race || smelter.Spec.Type is not ("SMELTER" or "POD")))
                     return "ore can only go to your smelter or pod";
+                var stops = (transport.More ?? []).Prepend(supplier.Id).Distinct()
+                    .Where(id => Find<Construction>(id) is { } stop && Supplies(stop, transport.Race)).ToList();
+                // The AI's carriers only have suppliers set and find the smelter themselves (assignResourceCarrierTask).
+                var named = Races[transport.Race].Controller == Controller.Ai ? null : smelter;
                 // Scavengers gather wreckage, not ore (MachLogResourceCarrier::isNormalResourceCarrier).
                 foreach (var carrier in Own<Machine>(transport.Race, transport.Carriers).Where(m => m.Spec.Type == "RESOURCE_CARRIER" && !m.IsScavenger))
-                    // A carrier with ore on board drops it first (MachLogResourceCarrier::START_WITH_PUTDOWN).
-                    Send(carrier, new TransportOrder(mine.Id, smelter.Id, Delivering: carrier.Ore > 0), carrier.Ore > 0 ? smelter.Position : mine.Position);
+                    GiveRound(carrier, stops, named, transport.Adding);
                 return null;
             }
 
@@ -175,16 +197,16 @@ public sealed partial class GameWorld
 
             case HealCommand heal:
                 return OrderWork(heal.Race, heal.Machines, heal.Target, m => m.Weapons.Any(w => w.IsHealer), "no healer selected",
-                    t => t is Machine && t.Race == heal.Race ? null : "only your own machines can be healed", id => new HealOrder(id));
+                    t => t is Machine ? null : "only machines can be healed", id => new HealOrder(id));
 
             case RepairCommand repair:
                 return OrderWork(repair.Race, repair.Constructors, repair.Building, IsConstructor, "no constructor selected",
-                    t => t is Construction { Complete: true } && t.Race == repair.Race ? null : "only your own finished buildings can be repaired",
+                    t => t is Construction { Complete: true } ? null : "only finished buildings can be repaired",
                     id => new RepairOrder(id));
 
             case CaptureCommand capture:
                 return OrderWork(capture.Race, capture.Constructors, capture.Building, IsConstructor, "no constructor selected",
-                    t => t is Construction { Complete: true } && AreEnemies(capture.Race, t.Race) ? null : "only finished enemy buildings can be captured",
+                    t => t is Construction { Complete: true } && t.Race != capture.Race ? null : "only finished buildings of other races can be captured",
                     id => new CaptureOrder(id));
 
             case DeconstructCommand deconstruct:
@@ -267,14 +289,15 @@ public sealed partial class GameWorld
                 var building = Find<Construction>(garrison.Garrison);
                 return OrderWork(garrison.Race, garrison.Machines, garrison.Garrison, m => building is null || FitsThrough(m, building),
                     "too big for the building's doors",
-                    t => t is Construction { Complete: true, HasInterior: true } g && g.Race == garrison.Race ? null : "that is not one of your buildings to go into",
+                    t => t is Construction { Complete: true, HasInterior: true } g && !AreEnemies(garrison.Race, g.Race) ? null : "that is not one of your or your allies' buildings to go into",
                     id => new EnterGarrisonOrder(id));
             }
 
             case DriveCommand drive:
             {
+                // One lost with its last orders still on their way: the view is already leaving it.
                 if (Own<Machine>(drive.Race, [drive.Machine]).FirstOrDefault() is not { } driven)
-                    return "that machine cannot be driven";
+                    return null;
                 driven.DrivenByPlayer = drive.Driving;
                 if (!drive.Driving)
                 {
@@ -327,7 +350,19 @@ public sealed partial class GameWorld
                 if (weapon.Reload > 0)
                     return $"{(weapon.Spec.TypeName == "NUCLEAR_MISSILE" ? "nuclear missile" : "ion cannon")} still charging ({weapon.ChargePercent:F0}%)";
                 if (weapon.Spec.TypeName == "NUCLEAR_MISSILE")
+                {
+                    // A player's launch costs BMUs (MachGuiNukeAttackCommand), the AI's nothing.
+                    if (Races[strike.Race].Controller == Controller.Player && launcher.LaunchAt is null)
+                    {
+                        if (Races[strike.Race].Bmu < NukeLaunchCost)
+                        {
+                            SendVoiceMail(strike.Race, "VID_POD_INSUFFICIENT_CASH_FOR_NUKE");
+                            return $"{NukeLaunchCost} BMUs required to launch";
+                        }
+                        SpendBmu(strike.Race, NukeLaunchCost);
+                    }
                     AimSilo(launcher, weapon, strike.Target);
+                }
                 else
                     LaunchStrike(launcher, weapon, strike.Target);
                 return null;
@@ -365,6 +400,15 @@ public sealed partial class GameWorld
         machine.Order = order;
         machine.OrderedAt = Time;
         machine.CommandId = _commandId != 0 ? _commandId : ++_commands;
+        // The first to go for a target has probably just spotted it, and warns its friends (MachLogAttackOperation).
+        if (order is AttackOrder attack && !_threatsTo.ContainsKey(attack.Target))
+            CaveeCall(machine);
+        // A new order from the player takes the rest of a series away; what the machine takes on by itself does not.
+        if (_commandId != 0)
+        {
+            _series.Remove(machine.Id);
+            ManualCommand(machine);
+        }
         machine.Path.Clear();
         machine.PathIndex = 0;
         // With the original's motion an attacker, healer or constructor picks its own place at the target.
@@ -403,20 +447,25 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// The buildings a race's constructors can raise: everything in <c>global.cst</c> up to the most advanced
-    /// entry of the best constructor the race owns, less the entries the scenario locks for the race.
+    /// entry of the best constructor the race owns or has owned (MachLogConstructionItem::activated), less the
+    /// entries the scenario locks for the race.
     /// </summary>
     public IReadOnlyList<ConstructionOrderEntry> Buildable(Race race)
     {
-        var best = Machines
-            .Where(m => m.Race == race && m.Stats.MostAdvancedConstruction is not null)
-            .Select(m => Data.ConstructionOrder.IndexOf(m.Stats.MostAdvancedConstruction!))
-            .DefaultIfEmpty(-1)
-            .Max();
+        Races.TryGetValue(race, out var state);
+        var best = Math.Max(BestConstructor(race), state?.ConstructionsReached ?? -1);
         var entries = Data.ConstructionOrder.Entries.Take(best + 1);
-        if (Options.RestrictConstruction && Races.TryGetValue(race, out var state) && state.Locked.Count > 0)
+        if (Options.RestrictConstruction && state?.Locked.Count > 0)
             entries = entries.Where(e => !state.Locked.Contains(e));
         return entries.ToList();
     }
+
+    /// <summary>The place in <c>global.cst</c> of the most advanced entry the race's constructors reach, or -1.</summary>
+    internal int BestConstructor(Race race) => Machines
+        .Where(m => m.Race == race && m.Stats.MostAdvancedConstruction is not null)
+        .Select(m => Data.ConstructionOrder.IndexOf(m.Stats.MostAdvancedConstruction!))
+        .DefaultIfEmpty(-1)
+        .Max();
 
     /// <returns>null if the building may go there, otherwise why not.</returns>
     public string? WhyCannotPlace(Race race, string type, string? subType, int level, Vector2 position, int orientation)
@@ -427,6 +476,9 @@ public sealed partial class GameWorld
             return $"{MinimumBmuToPlace} BMUs required to place a construction";
 
         var spec = Data.Parm.Construction(subType is null ? type : $"{type} {subType}");
+        // The player cannot place another at the limit; the AI's own building goes by its plans (MachGuiConstructCommand::isValidPosition).
+        if (Races[race].Controller != Controller.Ai && MaxUnitsExist(race))
+            return "too many units";
         var probe = new Construction(0, race, position, spec, spec.Level(level), orientation);
         if (!Nav.IsAreaFree(probe.Footprint))
             return "obstacles or uneven terrain";
@@ -449,13 +501,16 @@ public sealed partial class GameWorld
     private static bool TooClose(Construction smelter, Vector2 point) =>
         smelter.Stats.MineDistance is { } squared && Vector2.DistanceSquared(smelter.Position, point) < squared;
 
-    private string? Place(PlaceConstructionCommand place)
+    private string? Place(PlaceConstructionCommand place) => Place(place, out _);
+
+    private string? Place(PlaceConstructionCommand place, out Construction? placed)
     {
+        placed = null;
         var why = WhyCannotPlace(place.Race, place.Type, place.SubType, place.HardwareLevel, place.Position, place.Orientation);
         if (why is not null)
             return why;
 
-        var site = AddConstruction(place.Race, place.Position, place.Type, place.SubType, place.HardwareLevel, place.Orientation, complete: false);
+        var site = placed = AddConstruction(place.Race, place.Position, place.Type, place.SubType, place.HardwareLevel, place.Orientation, complete: false);
         var constructors = Own<Machine>(place.Race, place.Constructors).Where(m => m.Spec.Type == "CONSTRUCTOR").ToList();
         // A disguised constructor's building wears the same disguise (MachLogConstructOperation).
         site.DisplayAs = constructors.FirstOrDefault()?.DisplayAs;

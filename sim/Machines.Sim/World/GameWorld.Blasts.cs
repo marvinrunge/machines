@@ -38,6 +38,9 @@ public sealed partial class GameWorld
     internal void ScheduleBlast(float at, WeaponSpec weapon, Vector2 position, Race by, Vector2 direction = default) =>
         _incoming.Add((at, weapon, position, by, direction));
 
+    /// <summary>What a player's nuclear missile costs to launch (MachPhysGeneralData::nukeLaunchCost).</summary>
+    public const int NukeLaunchCost = 500;
+
     /// <summary>
     /// Fires an ion cannon or nuclear missile. The ion beam comes down at once; the missile flies at its
     /// SPEED and its bomb goes off on arrival.
@@ -145,7 +148,7 @@ public sealed partial class GameWorld
     private void WarnOfSuperweapon(Race builder, string mail)
     {
         foreach (var other in Races.Keys.Where(r => r != builder))
-            if (Constructions.Any(c => c.Race == other && c.Complete && c.IsType("BEACON") && c.Stats.HardwareLevel == 3))
+            if (BeaconLevel(other) == 3)
                 SendVoiceMail(other, mail);
     }
 
@@ -173,6 +176,9 @@ public sealed partial class GameWorld
                 {
                     if (actor is Machine { Inside: not null })
                         continue;
+                    // A fist does not reach what flies (MachLogPunchBlast's CANT_HIT_AIR_UNITS).
+                    if (blast.Weapon == "GORILLA_PUNCH" && actor is Machine { Stats.Locomotion: Locomotion.Glider })
+                        continue;
                     var offset = actor.Position - blast.Position;
                     var distance = MathF.Max(0, offset.Length() - actor.Radius);
                     if (distance > radius)
@@ -185,7 +191,16 @@ public sealed partial class GameWorld
                     Damage(actor, wave.DamageAt(distance), blast.By);
                     // MachLogIonBeam::inflictDamageSecondWave: what the beam itself kills gets no explosion.
                     actor.Vaporised = actor.IsDead && w == 0 && blast.Weapon == "ION_ORBITAL_CANNON";
+                    actor.Swallowed = actor.IsDead && blast.Weapon == "VORTEX";
                     Raise(new GameEvent(GameEventKind.Hit, actor.Id, actor.Position, Detail: blast.Weapon));
+                }
+                // Land mines go up with their middle within the wave (MachLogExpandingBlast::buildVictimList).
+                foreach (var mine in LandMines.Where(m => Vector2.Distance(m.Position, blast.Position) <= radius).ToList())
+                {
+                    var way = mine.Position - blast.Position;
+                    if (wave.ConeHalfAngle is not { } half || way.LengthSquared() >= 1e-4f
+                        && DetMath.Acos(Math.Clamp(Vector2.Dot(Vector2.Normalize(way), blast.Direction), -1, 1)) <= half)
+                        BlowUp(mine);
                 }
             }
         }

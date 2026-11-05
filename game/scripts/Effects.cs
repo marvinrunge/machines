@@ -38,6 +38,47 @@ public partial class Effects : Node3D
             ColorRamp = Ramp(new Color(0.55f, 0.55f, 0.55f, 0), new Color(0.5f, 0.5f, 0.5f, 0.45f), new Color(0.55f, 0.55f, 0.55f, 0)),
         }, additive: false);
 
+    /// <summary>Wisps of a colour, <paramref name="size"/> metres across, doubling as they fade (MachPhysSmokeCloud).</summary>
+    private void Wisps(Vector3 at, int amount, float size, float rise, Color colour, float strength = 0.5f) =>
+        Burst(at, amount, lifetime: 1.2f, texture: Soft, new ParticleProcessMaterial
+        {
+            Direction = Vector3.Up,
+            Spread = 15,
+            InitialVelocityMin = rise * 0.7f,
+            InitialVelocityMax = rise * 1.3f,
+            Gravity = Vector3.Zero,
+            DampingMin = 0.5f,
+            DampingMax = 1,
+            ScaleMin = size * 0.9f,
+            ScaleMax = size * 1.1f,
+            ScaleCurve = Grow(0.5f),
+            ColorRamp = Ramp(new Color(colour, 0), new Color(colour, strength), new Color(colour, 0)),
+        }, additive: false);
+
+    /// <summary>
+    /// The electric charger fires (MachPhysElectroCharger::fire, createElectro): white smoke and a white flash at its
+    /// muzzle, a blue light on the machine through the burst, and purple smoke at four points along the bolt.
+    /// </summary>
+    public void ChargerFires(Vector3 from, Vector3 to, float flashSize)
+    {
+        Wisps(from, 3, 1.5f, 1.7f, Colors.White);
+        Glow(from, Colors.White * 4, flashSize, 0.25f);
+        Light(from, new Color(0.32f, 0.86f, 1f), 3, 4, 0.35f);
+        for (var i = 0; i < 4; i++)
+            Wisps(from.Lerp(to, i / 3f), 1, 5.5f, 0, new Color(0.72f, 0.24f, 0.77f), 0.35f);
+    }
+
+    /// <summary>When the lightning has run its <paramref name="delay"/> over a machine, black smoke comes from its faceplate (MachPhysElectroCharger::applyVictimAnimation).</summary>
+    public void FaceplateSmoke(ActorView victim, float delay)
+    {
+        if (!victim.IsBuilding)
+            GetTree().CreateTimer(delay).Timeout += () =>
+            {
+                if (IsInstanceValid(this) && IsInstanceValid(victim) && victim.FaceplateTop is { } plate)
+                    Wisps(plate.Top, 3, plate.Width * 4, 0, Colors.Black);
+            };
+    }
+
     /// <summary>An area weapon goes off: a big flash and a scorch the size of its reach.</summary>
     public void Blast(Vector3 at, float radius, Color colour)
     {
@@ -226,6 +267,52 @@ public partial class Effects : Node3D
     }
 
     /// <summary>
+    /// Black puffs (MachPhysSmokeCloud): every <paramref name="period"/> seconds so many at once, <paramref name="size"/>
+    /// metres across, doubling as they rise <paramref name="rise"/> metres and fade in their second; set it emitting.
+    /// </summary>
+    public static GpuParticles3D Puffs(int wisps, float period, float rise, float size)
+    {
+        var life = 1 / period;
+        var swell = new Curve();
+        swell.AddPoint(new Vector2(0, 0.5f));
+        swell.AddPoint(new Vector2(life, 1));
+        swell.AddPoint(new Vector2(1, 1));
+        var black = new Color(0.02f, 0.02f, 0.02f);
+        return new GpuParticles3D
+        {
+            Amount = wisps,
+            Lifetime = period,
+            Explosiveness = 1,
+            Emitting = false,
+            LocalCoords = false,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            VisibilityAabb = new Aabb(new Vector3(-size * 2, -size * 2, -size * 2), new Vector3(size * 4, rise + size * 4, size * 4)),
+            DrawPass1 = Billboard(Soft, additive: false),
+            ProcessMaterial = new ParticleProcessMaterial
+            {
+                Direction = Vector3.Up,
+                Spread = 0,
+                InitialVelocityMin = rise,
+                InitialVelocityMax = rise,
+                Gravity = Vector3.Zero,
+                ScaleMin = size * 2,
+                ScaleMax = size * 2,
+                ScaleCurve = new CurveTexture { Curve = swell },
+                AngleMin = 0,
+                AngleMax = 360,
+                ColorRamp = new GradientTexture1D
+                {
+                    Gradient = new Gradient
+                    {
+                        Offsets = [0, life * 0.3f, life, 1],
+                        Colors = [new Color(black, 0.8f), new Color(black, 0.8f), new Color(black, 0), new Color(black, 0)],
+                    },
+                },
+            },
+        };
+    }
+
+    /// <summary>
     /// The vapour a missile leaves behind it (MachPhysVapourTrail: sixteen puffs of about 1.5 m), white turning
     /// grey as the puffs swell and thin out; set it emitting at the missile's tail.
     /// </summary>
@@ -400,6 +487,31 @@ public partial class Effects : Node3D
         light.GlobalPosition = at;
         var tween = light.CreateTween();
         tween.TweenProperty(light, "light_energy", 0f, duration);
+        tween.TweenCallback(Callable.From(() =>
+        {
+            _lights--;
+            light.QueueFree();
+        }));
+    }
+
+    // A light that stays as it is until it goes out, a colour over 1 being its strength, as the original's are.
+    private void SteadyLight(Vector3 at, Color colour, float range, float duration)
+    {
+        if (_lights >= MaxLights)
+            return;
+        _lights++;
+        var strength = Mathf.Max(1, Mathf.Max(colour.R, Mathf.Max(colour.G, colour.B)));
+        var light = new OmniLight3D
+        {
+            LightColor = new Color(colour.R / strength, colour.G / strength, colour.B / strength),
+            LightEnergy = 2 * Mathf.Sqrt(strength),
+            OmniRange = range,
+            ShadowEnabled = false,
+        };
+        AddChild(light);
+        light.GlobalPosition = at;
+        var tween = light.CreateTween();
+        tween.TweenInterval(duration);
         tween.TweenCallback(Callable.From(() =>
         {
             _lights--;

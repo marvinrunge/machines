@@ -16,6 +16,7 @@ public partial class Hud : CanvasLayer
     private Label _figures = null!;
     private Label _messageLabel = null!;
     private Label _banner = null!;
+    private TextureRect _picture = null!;
     private Control _dragBox = null!;
     /// <summary>The first-person crosshair.</summary>
     public Crosshair Crosshair { get; private set; } = null!;
@@ -70,6 +71,9 @@ public partial class Hud : CanvasLayer
         _banner.SetAnchorsPreset(Control.LayoutPreset.Center);
         root.AddChild(_banner);
 
+        _picture = new TextureRect { Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, TextureFilter = CanvasItem.TextureFilterEnum.Nearest };
+        root.AddChild(_picture);
+
         _dragBox = new DragBox(this) { MouseFilter = Control.MouseFilterEnum.Ignore };
         _dragBox.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         root.AddChild(_dragBox);
@@ -107,6 +111,24 @@ public partial class Hud : CanvasLayer
     {
         _banner.Text = text ?? "";
         _banner.Visible = text is not null;
+    }
+
+    /// <summary>
+    /// A bitmap of the original's in the middle of the view beside the panel (MachWorldViewWindow::doDisplay): paused,
+    /// victory, defeat; null hides it.
+    /// </summary>
+    public void Picture(string? bitmap)
+    {
+        var texture = bitmap is null ? null : ClassicGui.Bitmap(bitmap);
+        _picture.Visible = texture is not null;
+        if (texture is null)
+            return;
+        _picture.Texture = texture;
+        var scale = _panel.PixelScale;
+        var view = GetViewport().GetVisibleRect().Size;
+        var left = _panel.Visible ? _panel.ScreenWidth : 0;
+        _picture.Size = texture.GetSize() * scale;
+        _picture.Position = new Vector2(left + (view.X - left - _picture.Size.X) / 2, (view.Y - _picture.Size.Y) / 2);
     }
 
     /// <summary>Called every frame.</summary>

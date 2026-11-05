@@ -95,7 +95,8 @@ public class TransportTests
         Run(world, 20, () => grunt.Inside is not null);
 
         apc.HitPoints = apc.MaxHitPoints / 20;
-        world.Step();
+        world.Damage(apc, 1, Race.Blue);
+        Run(world, 1.1f);
 
         Assert.Null(grunt.Inside);
         Assert.Empty(apc.Passengers);

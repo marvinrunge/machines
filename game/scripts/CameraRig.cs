@@ -5,6 +5,8 @@ namespace Machines.Game;
 /// <summary>
 /// RTS camera: WASD or arrow keys (or the screen edge) pan, Q/E rotate, the mouse wheel zooms.
 /// Starts in the original's zenith-style view (41 degrees down, from the scenario's CAMERA_POS).
+/// With the options' Classic Keys it takes the original's keys (PhysZenithFlyControl, PhysGroundFlyControl) and the
+/// heights of zenith.dat, and with the Classic Mouse a drag of the right button moves it (<see cref="Drag"/>).
 /// </summary>
 public partial class CameraRig : Node3D
 {
@@ -37,6 +39,50 @@ public partial class CameraRig : Node3D
 
     private const float TiltSpeed = 45f, MaxTilt = 70f;
 
+    /// <summary>
+    /// How near and far the zenith camera may be with the Classic Keys: MIN_HEIGHT 25 and MAX_HEIGHT 85 of zenith.dat,
+    /// over the ground at its ELEVATION of 41 degrees.
+    /// </summary>
+    private const float ZenithNearest = 38, ZenithFurthest = 130;
+
+    private const float ClimbSpeed = 15f, MaxRise = 40f;
+
+    // How far the ground camera has climbed over the ground.
+    private float _rise;
+
+    /// <summary>Which way the right button is being dragged, along one axis (MachCameras::scroll), or nothing.</summary>
+    public Vector2I Drag { get; set; }
+
+    /// <summary>True while it holds still: the ground camera while a box is drawn.</summary>
+    public bool Frozen { get; set; }
+
+    /// <summary>A place of the camera, as Ctrl and F5 to F8 keep it (MachCameras::saveCamera).</summary>
+    public readonly record struct View(Vector3 Position, float Yaw, float Pitch, float Distance, bool Ground);
+
+    /// <summary>The camera's place now.</summary>
+    public View Snapshot => new(Position, _yaw, Pitch, _distance, Ground);
+
+    /// <summary>Where the keys last moved the camera to.</summary>
+    public View? LastView { get; private set; }
+
+    /// <summary>Goes to a place kept.</summary>
+    public void Show(View view)
+    {
+        (Position, _yaw, Pitch, _distance) = (view.Position, view.Yaw, view.Pitch, view.Distance);
+        Place();
+    }
+
+    /// <summary>
+    /// The ground camera goes behind the focus, which faces <paramref name="facing"/> (radians anticlockwise in the
+    /// original's axes), <paramref name="back"/> metres off.
+    /// </summary>
+    public void LookAlong(float facing, float back)
+    {
+        _yaw = Mathf.Atan2(-Mathf.Cos(facing), -Mathf.Sin(facing));
+        _distance = back / Mathf.Cos(Mathf.DegToRad(Pitch));
+        Place();
+    }
+
     // The ground camera's tilt, degrees up.
     private float _tilt;
 
@@ -66,26 +112,67 @@ public partial class CameraRig : Node3D
         if (!Active)
             return;
         // Keys typed into a chat message are not the camera's; it holds still meanwhile.
-        if (MatchChat.Typing)
+        if (MatchChat.Typing || Frozen)
         {
             Place();
             return;
         }
 
-        // With Ctrl held the ground camera's arrows tilt rather than move. The up arrow tilts it down and the down
-        // arrow up, as a pilot's stick does, unless the options reverse them.
-        var tilting = Ground && Input.IsKeyPressed(Key.Ctrl);
-        if (!Ground || !Input.IsKeyPressed(Key.Shift))
-            _tilt = 0;
-        else if (tilting && Input.IsKeyPressed(Key.Up) != Input.IsKeyPressed(Key.Down))
-            _tilt = Mathf.Clamp(_tilt + (Input.IsKeyPressed(Key.Down) != GameOptions.ReverseKeys ? 1 : -1) * TiltSpeed * (float)delta, -MaxTilt, MaxTilt);
+        var classic = GameOptions.ClassicKeys;
+        var (ctrl, shift) = (Input.IsKeyPressed(Key.Ctrl), Input.IsKeyPressed(Key.Shift));
+        var (up, down) = (Input.IsKeyPressed(Key.Up), Input.IsKeyPressed(Key.Down));
 
-        // The moves' keys as the player chose them (KeyMap), and the arrows; Ctrl and S stops rather than moves.
+        // With Ctrl held the ground camera's arrows tilt rather than move, with the Classic Keys with Shift alone. The
+        // up arrow tilts it down and the down arrow up, as a pilot's stick does, unless the options reverse them.
+        var tilting = Ground && (classic ? shift : ctrl);
+        if (!Ground || !shift)
+            _tilt = 0;
+        else if (tilting && up != down)
+            _tilt = Mathf.Clamp(_tilt + (down != GameOptions.ReverseKeys ? 1 : -1) * TiltSpeed * (float)delta, -MaxTilt, MaxTilt);
+
         var input = Vector2.Zero;
-        if (KeyMap.Held(KeyMap.Act.Forward) || Input.IsKeyPressed(Key.Up) && !tilting) input.Y -= 1;
-        if (KeyMap.Held(KeyMap.Act.Back) && !Input.IsKeyPressed(Key.Ctrl) || Input.IsKeyPressed(Key.Down) && !tilting) input.Y += 1;
-        if (KeyMap.Held(KeyMap.Act.Left) || Input.IsKeyPressed(Key.Left)) input.X -= 1;
-        if (KeyMap.Held(KeyMap.Act.Right) || Input.IsKeyPressed(Key.Right)) input.X += 1;
+        var (turn, climb) = (0f, 0f);
+        if (classic)
+        {
+            var sideways = (Input.IsKeyPressed(Key.Right) ? 1 : 0) - (Input.IsKeyPressed(Key.Left) ? 1 : 0);
+            if (!tilting)
+                input.Y = (down ? 1 : 0) - (up ? 1 : 0);
+            // The zenith camera's arrows slide it, and turn it with Shift; the ground camera's turn it, and Delete
+            // and End slide it.
+            if (Ground || shift)
+                turn = -sideways;
+            else
+                input.X = sideways;
+            if (Ground)
+                input.X += (Input.IsKeyPressed(Key.End) ? 1 : 0) - (Input.IsKeyPressed(Key.Delete) ? 1 : 0);
+            climb = (Input.IsKeyPressed(Key.Pageup) || Input.IsKeyPressed(Key.KpAdd) ? 1 : 0) - (Input.IsKeyPressed(Key.Pagedown) || Input.IsKeyPressed(Key.KpSubtract) ? 1 : 0);
+        }
+        else
+        {
+            // The moves' keys as the player chose them (KeyMap), and the arrows; Ctrl and S stops rather than moves.
+            if (KeyMap.Held(KeyMap.Act.Forward) || up && !tilting) input.Y -= 1;
+            if (KeyMap.Held(KeyMap.Act.Back) && !ctrl || down && !tilting) input.Y += 1;
+            if (KeyMap.Held(KeyMap.Act.Left) || Input.IsKeyPressed(Key.Left)) input.X -= 1;
+            if (KeyMap.Held(KeyMap.Act.Right) || Input.IsKeyPressed(Key.Right)) input.X += 1;
+            if (KeyMap.Held(KeyMap.Act.TurnLeft)) turn += 1;
+            if (KeyMap.Held(KeyMap.Act.TurnRight)) turn -= 1;
+        }
+        var keyed = input != Vector2.Zero || turn != 0 || climb != 0;
+        // Ctrl moves the camera at a quarter of the speed.
+        var gear = classic && ctrl ? 0.25f : 1;
+
+        // The right button dragged sideways turns the zenith camera and slides the ground camera, up and down brings
+        // the zenith camera down and up and raises and lowers the ground camera.
+        if (Ground)
+        {
+            input.X += Drag.X;
+            climb -= Drag.Y;
+        }
+        else
+        {
+            turn -= Drag.X;
+            climb += Drag.Y;
+        }
 
         var mouse = GetViewport().GetMousePosition();
         var size = GetViewport().GetVisibleRect().Size;
@@ -97,12 +184,17 @@ public partial class CameraRig : Node3D
             if (mouse.Y >= size.Y - EdgeMargin) input.Y += 1;
         }
 
-        if (KeyMap.Held(KeyMap.Act.TurnLeft)) _yaw += 1.5f * (float)delta;
-        if (KeyMap.Held(KeyMap.Act.TurnRight)) _yaw -= 1.5f * (float)delta;
+        _yaw += turn * 1.5f * gear * (float)delta;
+        if (Ground)
+            _rise = Mathf.Clamp(_rise + climb * ClimbSpeed * gear * (float)delta, 0, MaxRise);
+        else
+            _distance *= 1 + climb * gear * (float)delta;
+        if (classic && !Ground)
+            _distance = Mathf.Clamp(_distance, ZenithNearest, ZenithFurthest);
 
         if (input != Vector2.Zero)
         {
-            var speed = PanSpeed * (_distance / 160f) * (float)delta;
+            var speed = PanSpeed * (_distance / 160f) * gear * (float)delta;
             var forward = new Vector3(-Mathf.Sin(_yaw), 0, -Mathf.Cos(_yaw));
             var right = new Vector3(Mathf.Cos(_yaw), 0, -Mathf.Sin(_yaw));
             Position += (right * input.X - forward * input.Y) * speed;
@@ -111,6 +203,8 @@ public partial class CameraRig : Node3D
         // The focus follows the ground, so the view keeps its distance on plateaus.
         Position = new Vector3(Position.X, HeightField.Current?.At(Position.X, Position.Z) ?? 0, Position.Z);
         Place();
+        if (keyed)
+            LastView = Snapshot;
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -118,9 +212,9 @@ public partial class CameraRig : Node3D
         if (!Active || @event is not InputEventMouseButton { Pressed: true } wheel)
             return;
         if (wheel.ButtonIndex == MouseButton.WheelUp)
-            _distance = Mathf.Max(40, _distance * 0.9f);
+            _distance = Mathf.Max(GameOptions.ClassicKeys && !Ground ? ZenithNearest : 40, _distance * 0.9f);
         else if (wheel.ButtonIndex == MouseButton.WheelDown)
-            _distance = Mathf.Min(700, _distance * 1.1f);
+            _distance = Mathf.Min(GameOptions.ClassicKeys && !Ground ? ZenithFurthest : 700, _distance * 1.1f);
     }
 
     private void Place()
@@ -129,8 +223,9 @@ public partial class CameraRig : Node3D
             return;
         var pitch = Mathf.DegToRad(Pitch);
         var offset = new Vector3(Mathf.Sin(_yaw), 0, Mathf.Cos(_yaw)) * Mathf.Cos(pitch) * _distance + Vector3.Up * Mathf.Sin(pitch) * _distance;
-        Camera.GlobalPosition = GlobalPosition + offset;
-        Camera.LookAt(GlobalPosition, Vector3.Up);
+        var focus = GlobalPosition + (Ground ? Vector3.Up * _rise : Vector3.Zero);
+        Camera.GlobalPosition = focus + offset;
+        Camera.LookAt(focus, Vector3.Up);
         Camera.RotateObjectLocal(Vector3.Right, Mathf.DegToRad(_tilt));
         Camera.Basis *= ShakeAt(Camera.GlobalPosition);
     }

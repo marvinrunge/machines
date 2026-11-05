@@ -27,9 +27,10 @@ public static class ClassicImport
     /// with them; without, whole corner tiles came out dark), 6 the weapons' parts that move as they fire (the
     /// recoil, the autocannon's barrels), buildings' interiors as parts of their own, towers' turning heads, the
     /// support weapons' and loading effects' meshes, and each planet's artefacts (trees, rocks, ruins), 7 the silo's
-    /// plans for opening and closing.
+    /// plans for opening and closing, 8 the pod's ion top, the locator's cycle, rig lights and more effects, 9 the
+    /// bolters' muzzle flashes, 10 the light patch on the ground and the lights the rounds carry.
     /// </summary>
-    public const int Format = 8;
+    public const int Format = 10;
 
     private static string FormatFile => Path.Combine(Paths.Classic, "format.txt");
 

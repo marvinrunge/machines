@@ -9,8 +9,9 @@ namespace Machines.Game;
 /// The original's menus over a running match (MachGuiCtxInGameOptions and the screens it leads to), on the same
 /// board as the menus before it (<see cref="MenuStage"/>): Continue goes back to the match; Briefing shows the
 /// scenario's text; Restart starts it again; Hot Keys lists the keys; Options are the main menu's; Save Game and Load
-/// Game keep and fetch matches; Exit Game leaves for the main menu. After a match its statistics come up here, after
-/// a campaign mission its debriefing; a campaign mission's briefing has its tasks and hints.
+/// Game keep and fetch matches; Exit Game leaves for where the match was set up. After a match its debriefing comes up
+/// here, with its statistics behind it; after a replay the statistics alone. A campaign mission's briefing has its tasks
+/// and hints. The original's films play between the pages (<see cref="MenuFilms"/>).
 /// The arrow keys move between buttons, Enter presses one, Esc goes back; no key reaches the match behind.
 /// </summary>
 public partial class InGameMenu(Game game, bool statistics = false, bool debriefing = false) : Control
@@ -18,6 +19,7 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
     private MenuStage _stage = null!;
     private StringTable? _strings;
     private ClassicAssets _assets = null!;
+    private string _screen = debriefing ? MenuFilms.Debriefing : statistics ? MenuFilms.Statistics : MenuFilms.InGame;
 
     public override void _Ready()
     {
@@ -43,6 +45,23 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
             GetViewport().SetInputAsHandled();
     }
 
+    /// <summary>Moves to a page, with the original's films of the way there.</summary>
+    private void Go(string screen, Action show)
+    {
+        if (MenuFilms.Playing)
+            return;
+        var from = _screen;
+        _screen = screen;
+        MenuFilms.Between(game.GetTree(), _assets.GameFolder, from, screen, () =>
+        {
+            if (IsInstanceValid(this))
+                show();
+        });
+    }
+
+    /// <summary>Out of the match to where it was set up: its campaign's missions, the skirmish setup or the rooms; a replay goes straight.</summary>
+    private void Leave() => Go(game.Watching ? _screen : game.Online ? MenuFilms.Join : Mission() is not null ? MenuFilms.Scenario : MenuFilms.Skirmish, game.ExitToMenus);
+
     private string Text(int id, string fallback) =>
         Lang.Original(_strings is not null && _strings.Strings.TryGetValue(id, out var text) && !string.IsNullOrWhiteSpace(text) ? text.Trim() : fallback, fallback);
 
@@ -64,7 +83,7 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
     // ---- the pages (ctxingam, ctxbrief, ctxhotky, ctxoptns, ctxsave, ctxload, ctxstats) -------------
 
     /// <summary>The menu's own page: its eight buttons in two columns, as in the original, and a note under them.</summary>
-    private void ShowMain(string? note = null) => _stage.Show(new BuiltPage(game.CloseMenu, page =>
+    private void ShowMain(string? note = null) => Go(MenuFilms.InGame, () => _stage.Show(new BuiltPage(game.CloseMenu, page =>
     {
         var column = MenuPage.Column(MenuPage.Gap);
         page.AddChild(column);
@@ -89,8 +108,8 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
             Button(7310, "Load Game", ShowLoad, !game.Online),
             Button(7306, "Hot Keys", ShowHotkeys),
             Button(7303, "Exit Game", () => _stage.Message(
-                game.Online ? "Leave the match for the main menu?" : "Leave the match for the main menu? What is not saved is lost.",
-                ("Leave", game.ExitToMenus), ("Stay", null))),
+                game.Online ? "Leave the match?" : "Leave the match? What is not saved is lost.",
+                ("Leave", Leave), ("Stay", null))),
         })
             grid.AddChild(button);
         centre.AddChild(grid);
@@ -103,19 +122,23 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
             column.AddChild(chip);
         }
         MenuPage.Focus(resume);
-    }));
+    })));
 
-    public void ShowBriefing()
+    public void ShowBriefing() => Go(MenuFilms.Briefing, () =>
     {
         if (Mission() is { } mission && _assets.ScenarioTexts(mission.Text) is { } texts)
             ShowMissionBriefing(mission, texts, hints: false);
         else
             ShowScenarioBriefing();
-    }
+    });
 
     /// <summary>The campaign mission being played, when it is one.</summary>
     private static CatalogueScenario? Mission() =>
         Campaign.IsCampaign(MatchRequest.Current) ? Campaign.Entry(MatchRequest.Current.Scenario) : null;
+
+    /// <summary>The scenario being played in the catalogue, campaign mission or not.</summary>
+    private static CatalogueScenario? Scenario() =>
+        Campaign.Catalogue.AllScenarios.FirstOrDefault(s => s.Name.Equals(MatchRequest.Current.Scenario, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// A campaign mission's briefing over the match (MachGuiCtxBriefing): the objective with the tasks the script has
@@ -137,13 +160,13 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
     }));
 
     /// <summary>
-    /// The debriefing after a campaign mission (MachGuiCtxDeBriefing): the mission's picture of its victory or defeat,
-    /// its closing text, spoken, with the tasks done and failed; then Restart, the statistics, or Continue to the
-    /// choice of mission.
+    /// The debriefing after a match (MachGuiCtxDeBriefing): the scenario's picture of its victory or defeat, its closing
+    /// text, spoken, with the tasks done and failed; then Restart, which a network game cannot, the statistics, or
+    /// Continue to where the match was set up.
     /// </summary>
-    private void ShowDebriefing() => _stage.Show(new BuiltPage(null, page =>
+    private void ShowDebriefing() => Go(MenuFilms.Debriefing, () => _stage.Show(new BuiltPage(null, page =>
     {
-        var mission = Mission();
+        var mission = Scenario();
         var texts = _assets.ScenarioTexts(mission?.Text);
         var won = game.World.Winner == Game.Player;
         var picture = new ChipPanel { Padding = 10, CustomMinimumSize = new Vector2(470, 414) };
@@ -159,7 +182,8 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
             });
         var restart = Footer(Text(7305, "Restart"), () =>
             LoadingScreen.Show(game.GetTree(), LoadingScreen.MapName(MatchRequest.Current), "RESTART", game.Restart));
-        var go = Footer(Text(7312, "Continue"), game.ExitToMenus);
+        restart.Disabled = game.Online;
+        var go = Footer(Text(7312, "Continue"), Leave);
         var left = MenuPage.Column(26, picture, restart, Footer(Text(7317, "Statistics"), ShowStatistics), MenuPage.Spring(across: false), go);
         left.CustomMinimumSize = new Vector2(470, 0);
 
@@ -177,7 +201,7 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
             game.Audio.SayFile(voice);
         page.TreeExiting += game.Audio.Hush;
         MenuPage.Focus(go);
-    }));
+    })));
 
     private void ShowScenarioBriefing() => _stage.Show(new BuiltPage(() => ShowMain(), page =>
     {
@@ -195,48 +219,66 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
     private static string K(params KeyMap.Act[] acts) => string.Join(" ", acts.Select(KeyMap.Name));
 
     // The remake's keys, in the hot keys page's two lists; first person's as the options' Classic F.P. Keys set them.
-    private static (string Action, string Keys)[] FirstPersonKeys => GameOptions.ClassicDriving
+    private static (string Action, string Keys)[] FirstPersonKeys => GameOptions.ClassicDriving || GameOptions.ClassicKeys
         ?
         [
-            ("Drive", K(KeyMap.Act.Forward, KeyMap.Act.Back)), ("Turn", Lang.T("{0}, mouse", K(KeyMap.Act.Left, KeyMap.Act.Right))),
+            ("Drive", DriveKeys), ("Turn", Lang.T("{0}, mouse", K(KeyMap.Act.Left, KeyMap.Act.Right))),
             ("Turn upper body", Lang.T("Shift with {0} or mouse, right mouse", K(KeyMap.Act.Left, KeyMap.Act.Right))),
-            ("Upper body forward", K(KeyMap.Act.CentreView)), ("Look up and down", "Mouse, Shift with arrows"), ("Fire", "Left mouse button"),
-            ("Pick weapons", K(KeyMap.Act.Weapons)), ("Leave first person", $"{K(KeyMap.Act.FirstPerson)}, Esc"),
+            ("Upper body forward", K(KeyMap.Act.CentreView)), ("Look up and down", "Mouse, Shift with arrows"), ("Fire", "Left mouse button, Space"),
+            ("Pick weapons", K(KeyMap.Act.Weapons)), ("Leave first person", LeaveKeys), ("Leave with the mouse", "Right double click"),
         ]
         :
         [
-            ("Drive", K(KeyMap.Act.Forward, KeyMap.Act.Back)), ("Step sideways", Lang.T("{0} (legs, hover, flight)", K(KeyMap.Act.Left, KeyMap.Act.Right))),
+            ("Drive", DriveKeys), ("Step sideways", Lang.T("{0} (legs, hover, flight)", K(KeyMap.Act.Left, KeyMap.Act.Right))),
             ("Turn", Lang.T("{0}, {1}, slowly with Ctrl", K(KeyMap.Act.TurnLeft, KeyMap.Act.TurnRight), K(KeyMap.Act.Left, KeyMap.Act.Right))),
             ("Look round", "Mouse (the machine follows)"), ("Upper body forward", K(KeyMap.Act.CentreView)), ("Look up and down", "Mouse, Shift with arrows"),
-            ("Fire", "Left mouse button"), ("Pick weapons", K(KeyMap.Act.Weapons)), ("Leave first person", $"{K(KeyMap.Act.FirstPerson)}, Esc"),
+            ("Fire", "Left mouse button, Space"), ("Pick weapons", K(KeyMap.Act.Weapons)), ("Leave first person", LeaveKeys), ("Leave with the mouse", "Right double click"),
         ];
+
+    private static string DriveKeys => GameOptions.ClassicKeys ? "Up and down arrows" : Lang.T("{0}, arrows", K(KeyMap.Act.Forward, KeyMap.Act.Back));
+
+    private static string LeaveKeys => Lang.T("{0}, Esc, Num 0, Num 2", K(KeyMap.Act.FirstPerson));
 
     private static (string Action, string Keys)[] GeneralKeys =>
     [
-        ("Scroll", Lang.T("{0}, arrows, edges", K(KeyMap.Act.Forward, KeyMap.Act.Left, KeyMap.Act.Back, KeyMap.Act.Right))),
-        ("Turn view", K(KeyMap.Act.TurnLeft, KeyMap.Act.TurnRight)), ("Zoom", "Mouse wheel"),
+        ("Scroll", GameOptions.ClassicKeys ? "Arrows, Del, End, edges" : Lang.T("{0}, arrows, edges", K(KeyMap.Act.Forward, KeyMap.Act.Left, KeyMap.Act.Back, KeyMap.Act.Right))),
+        ("Turn view", GameOptions.ClassicKeys ? "Shift with arrows" : K(KeyMap.Act.TurnLeft, KeyMap.Act.TurnRight)),
+        ("Zoom", GameOptions.ClassicKeys ? "PgUp, PgDn, mouse wheel" : "Mouse wheel"),
         ("Zenith view", K(KeyMap.Act.ZenithView)), ("Ground view", K(KeyMap.Act.GroundView)), ("1st person", K(KeyMap.Act.FirstPerson)),
-        ("Select", "Left click, drag"), ("Order", "Right click"), ("Stop", "Ctrl S"),
-        ("Initiative", K(KeyMap.Act.Initiative)), ("Assembly point", K(KeyMap.Act.AssemblyPoint)), ("Create squad 0-9", "Ctrl 0-9"),
-        ("Select squad 0-9", "0-9"), ("Turn building", K(KeyMap.Act.TurnBuilding)), ("Pause", K(KeyMap.Act.Pause)),
+        ("Select", "Left click, drag"), ("Order", GameOptions.ClassicMouse ? "Left click" : "Right click"),
+        .. GameOptions.ClassicMouse ? new[] { ("Deselect", "Right click"), ("Move the view", "Right drag") } : [],
+        ("Select all", "Shift A, Shift S"), ("Select on screen", "Shift Z, Shift X"), ("Look at the next", "Alt A, Alt S"),
+        ("Keep camera place", "Ctrl F5-F8"), ("Go to camera place", "F5-F8"), ("Start, last place", "Shift H, Ctrl Shift H"),
+        ("Stop", "Ctrl S"), ("Initiative", K(KeyMap.Act.Initiative)), ("Assembly point", K(KeyMap.Act.AssemblyPoint)), ("Create squad 0-9", "Ctrl 0-9"),
+        ("Select squad 0-9", "0-9"), ("Turn building", K(KeyMap.Act.TurnBuilding)), ("Cancel what is marked", "Backspace"),
+        ("Self-destruct", "Ctrl Shift Backspace"), ("Pause", K(KeyMap.Act.Pause)),
         ("Hide panel", "Alt Left"), ("Show panel", "Alt Right"), ("Menus", $"Esc, {K(KeyMap.Act.Menu)}"),
     ];
 
-    private void ShowHotkeys() => _stage.Show(new BuiltPage(() => ShowMain(), page =>
+    // The commands' letters, as far as the layout leaves them free; the rest stay on the panel.
+    private static (string Action, string Keys)[] CommandKeys => new (string Action, Key Key)[]
     {
-        ChipPanel List(int heading, string fallback, (string Action, string Keys)[] keys, int split)
+        ("Move", Key.M), ("Stop", Key.S), ("Attack", Key.A), ("Construct", Key.C), ("Repair", Key.R), ("Capture", Key.U), ("Deconstruct", Key.D),
+        ("Recycle", Key.Q), ("Locate", Key.L), ("Refill mines", Key.G), ("Deploy", Key.E), ("Patrol", Key.P), ("Transport", Key.T), ("Pick up", Key.K),
+        ("Scavenge", Key.Y), ("Treachery", Key.J), ("Form squadron", Key.F), ("Heal", Key.H), ("Stand ground", Key.W), ("Ion cannon", Key.I),
+        ("Nuke", Key.N), ("Camouflage", Key.O),
+    }.Where(command => !KeyMap.Taken(command.Key, firstPerson: false)).Select(command => (command.Action, KeyMap.Name(command.Key))).Append(("Lay mines", "Shift M")).ToArray();
+
+    internal void ShowHotkeys() => Go(MenuFilms.HotKeys, () => _stage.Show(new BuiltPage(() => ShowMain(), page =>
+    {
+        ChipPanel List(int heading, string fallback, (string Action, string Keys)[] keys, int across)
         {
             var chip = new ChipPanel { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ShrinkBegin, Padding = 26 };
-            var columns = MenuPage.Line(56);
-            foreach (var part in keys.Chunk(split))
+            var columns = MenuPage.Line(36);
+            foreach (var part in keys.Chunk((keys.Length + across - 1) / across))
             {
                 var grid = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
                 grid.AddThemeConstantOverride("h_separation", 28);
                 grid.AddThemeConstantOverride("v_separation", 8);
                 foreach (var (action, key) in part)
                 {
-                    grid.AddChild(MenuTheme.Label(action, 22, MenuTheme.Text));
-                    grid.AddChild(MenuTheme.Label(key, 22, MenuTheme.Bright));
+                    grid.AddChild(MenuTheme.Label(action, 20, MenuTheme.Text));
+                    grid.AddChild(MenuTheme.Label(key, 20, MenuTheme.Bright));
                 }
                 columns.AddChild(grid);
             }
@@ -244,43 +286,45 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
             return chip;
         }
         var back = Footer(Text(7312, "Continue"), () => ShowMain());
-        page.AddChild(MenuPage.Column(MenuPage.Gap, MenuPage.Heading(Text(7306, "Hot Keys")),
-            List(7064, "First Person Control", FirstPersonKeys, 3),
-            List(7065, "General Control", GeneralKeys, 6),
-            MenuPage.Spring(across: false),
-            MenuPage.Line(MenuPage.Gap, back)));
+        var lists = MenuPage.Column(MenuPage.Gap, List(7064, "First Person Control", FirstPersonKeys, 3),
+            List(7065, "General Control", GeneralKeys, 3), List(0, "Commands", CommandKeys, 4));
+        lists.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsVertical = SizeFlags.ExpandFill };
+        scroll.AddChild(lists);
+        page.AddChild(MenuPage.Column(MenuPage.Gap, MenuPage.Heading(Text(7306, "Hot Keys")), scroll, MenuPage.Line(MenuPage.Gap, back)));
         MenuPage.Focus(back);
-    }));
+    })));
 
-    private void ShowOptions() => _stage.Show(new OptionsPage(() => ShowMain(), inGame: true));
+    private void ShowOptions() => Go(MenuFilms.Options, () => _stage.Show(new OptionsPage(() => ShowMain(), inGame: true)));
 
-    private void ShowSave() => _stage.Show(FilesPage.Save(() => ShowMain(), name =>
+    private void ShowSave() => Go(MenuFilms.Save, () => _stage.Show(FilesPage.Save(() => ShowMain(), name =>
     {
         var why = game.SaveGame(name);
         if (why is null)
             ShowMain(Lang.T("Saved: {0}", name));
         return why;
-    }));
+    })));
 
-    private void ShowLoad() => _stage.Show(FilesPage.Load(() => ShowMain(), path => FilesPage.OpenSaved(game.GetTree(), path)));
+    private void ShowLoad() => Go(MenuFilms.Load, () => _stage.Show(FilesPage.Load(() => ShowMain(), path => FilesPage.OpenSaved(game.GetTree(), path))));
 
-    /// <summary>The statistics after a match (MachGuiCtxStatistics); OK leaves for the main menu, or after a campaign mission goes back to its debriefing.</summary>
-    private void ShowStatistics() => _stage.Show(new BuiltPage(() => ShowMain(), page =>
+    /// <summary>The statistics after a match (MachGuiCtxStatistics); OK and Esc go back to its debriefing, after a replay OK leaves for the menus.</summary>
+    private void ShowStatistics() => Go(MenuFilms.Statistics, () => _stage.Show(new BuiltPage(game.Watching ? () => ShowMain() : ShowDebriefing, page =>
     {
         var chip = new ChipPanel { SizeFlagsVertical = SizeFlags.ExpandFill, Padding = 24 };
         chip.AddChild(new StatisticsChart(game, Text));
-        var ok = Footer(Text(7302, "OK"), Mission() is not null && !game.Watching ? ShowDebriefing : game.ExitToMenus);
+        var ok = Footer(Text(7302, "OK"), game.Watching ? game.ExitToMenus : ShowDebriefing);
         page.AddChild(MenuPage.Column(MenuPage.Gap, MenuPage.Heading(Text(7093, "Statistics")), chip,
             MenuPage.Line(MenuPage.Gap, MenuPage.Spring(), ok)));
         MenuPage.Focus(ok);
-    }));
+    })));
 }
 
 /// <summary>
 /// The statistics after a match: each player's score, then blocks of four bars, red, blue, green and yellow, that
 /// grow to their figures over two seconds with stats.wav: machines and buildings destroyed and lost and BMUs mined;
 /// machines, fighting machines and buildings built, items researched and research points; and who destroyed whose
-/// machines and buildings. The blocks share out whatever room the chip has.
+/// machines and buildings. The blocks share out whatever room the chip has. A race the scenario gives SCORE OFF stands
+/// as absent, though what the others did to it still counts (MachLogRaces::removeNotDisplayedScores).
 /// </summary>
 public partial class StatisticsChart(Game game, Func<int, string, string> text) : Control
 {
@@ -292,9 +336,11 @@ public partial class StatisticsChart(Game game, Func<int, string, string> text) 
 
     public override void _Process(double delta) => QueueRedraw();
 
-    private Score? ScoreOf(Race race) => game.World.Races.TryGetValue(race, out var state) ? state.Score : null;
+    private bool Shown(Race race) => game.World.Races.TryGetValue(race, out var state) && state.ScoreDisplayed;
 
-    private string NameOf(Race race) => !game.World.Races.ContainsKey(race) ? text(7097, "N/A")
+    private Score? ScoreOf(Race race) => Shown(race) ? game.World.Races[race].Score : null;
+
+    private string NameOf(Race race) => !Shown(race) ? text(7097, "N/A")
         : race == Game.Player ? text(7095, "Player")
         : MatchRequest.Current.Network?.Players.FirstOrDefault(p => p.Slot == race && !p.Ai)?.Name ?? text(7096, "Computer");
 
@@ -319,7 +365,7 @@ public partial class StatisticsChart(Game game, Func<int, string, string> text) 
         var y = 0f;
         Write(new Vector2(0, y), text(7087, "Players").ToUpperInvariant(), Large, MenuTheme.Bright);
         y += heading + 6;
-        foreach (var race in BarRaces.Where(game.World.Races.ContainsKey))
+        foreach (var race in BarRaces.Where(Shown))
         {
             DrawRect(new Rect2(0, y + 6, 12, 12), ClassicAssets.RaceColour(race));
             Write(new Vector2(22, y), NameOf(race), Large, MenuTheme.Text, left - 40);

@@ -91,23 +91,27 @@ public static class SoundTable
         _ => null,
     };
 
-    /// <summary>The sound where a round lands, when the weapon has one; missiles use one of four explosions (1 to 4).</summary>
+    /// <summary>
+    /// The sound where a round lands, when the weapon has one. Missiles use one of four explosions (1 to 4): the two
+    /// small, or the two big for those of the highest damage (MachPhysMissile::beDestroyedAt). What the vortex only
+    /// shakes sparks as under a bolter (MachPhysWeaponUtility::victimAnimation).
+    /// </summary>
     public static string? HitSound(string weapon, int variant) => weapon switch
     {
-        "BOLTER" or "HEAVY_BOLTER1" or "HEAVY_BOLTER2" or "AUTO_CANNON" => "SID_BOLTER_HIT",
+        "BOLTER" or "HEAVY_BOLTER1" or "HEAVY_BOLTER2" or "AUTO_CANNON" or "VORTEX" => "SID_BOLTER_HIT",
         "PULSE_RIFLE" or "PULSE_CANNON" => "SID_PUCHIT",
         "PLASMA_RIFLE" => "SID_PLRHIT",
         "PLASMA_CANNON1" or "PLASMA_CANNON2" => "SID_PLCHIT",
         // MachPhysLightSting, MachPhysMetalSting: one of the first two missile explosions.
         "WASP_LIGHT_STING" or "WASP_METAL_STING" => $"SID_XPLODE{variant % 2 + 1}_MISSILE",
-        _ when weapon.StartsWith("MULTI_LAUNCHER", StringComparison.Ordinal) || weapon == "LARGE_MISSILE"
-            => $"SID_XPLODE{Math.Clamp(variant, 1, 4)}_MISSILE",
+        "MULTI_LAUNCHER2" or "MULTI_LAUNCHER6" or "LARGE_MISSILE" => $"SID_XPLODE{variant % 2 + 3}_MISSILE",
+        _ when weapon.StartsWith("MULTI_LAUNCHER", StringComparison.Ordinal) => $"SID_XPLODE{variant % 2 + 1}_MISSILE",
         _ => null,
     };
 
-    /// <summary>Whether a machine this weapon hits shakes (MachPhysBolter, MachPhysPlasmaWeapon, MachPhysElectroCharger).</summary>
+    /// <summary>Whether a machine this weapon hits shakes (MachPhysBolter, the vortex as a bolter, MachPhysPlasmaWeapon, MachPhysElectroCharger).</summary>
     public static bool ShakesMachine(string weapon) => weapon is "BOLTER" or "HEAVY_BOLTER1" or "HEAVY_BOLTER2" or "AUTO_CANNON"
-        or "PLASMA_RIFLE" or "PLASMA_CANNON1" or "PLASMA_CANNON2" or "ELECTRIC_CHARGE";
+        or "PLASMA_RIFLE" or "PLASMA_CANNON1" or "PLASMA_CANNON2" or "ELECTRIC_CHARGE" or "VORTEX";
 
     /// <summary>The sound of an area weapon going off.</summary>
     public static string? BlastSound(string weapon) => weapon switch

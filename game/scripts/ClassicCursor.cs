@@ -5,7 +5,8 @@ namespace Machines.Game;
 /// <summary>
 /// The original's mouse cursors (MachInGameCursors2d): bitmaps from <c>gui/cursor/large</c> of the player's game
 /// copy, animated at ten frames a second, magenta cut out, held at their centre (the arrow and the edge
-/// arrows at their points), and scaled up as the control panel is. Without a game copy the system cursor stays.
+/// arrows at their points), and scaled up as the control panel is. Without a game copy the system cursor stays. Over
+/// the continent map the three it has small ones of are smaller (<c>gui/cursor/small</c>).
 /// </summary>
 public partial class ClassicCursor : Node
 {
@@ -32,9 +33,11 @@ public partial class ClassicCursor : Node
         ["deploy"] = (2, null),
         ["assembl"] = (4, null),
         ["pickup"] = (2, null),
-        ["scav"] = (10, null),
+        ["scav"] = (10, new Vector2I(8, 15)),
         ["landmin"] = (2, null),
-        ["treach"] = (5, null),
+        ["treach"] = (5, new Vector2I(4, 4)),
+        ["ioncan"] = (10, new Vector2I(27, 38)),
+        ["nukattk"] = (5, null),
         ["putdn"] = (2, null),
         ["scrln"] = (1, new Vector2I(6, 0)),
         ["scrls"] = (1, new Vector2I(6, 13)),
@@ -46,12 +49,17 @@ public partial class ClassicCursor : Node
         ["scrlsw"] = (1, new Vector2I(0, 14)),
     };
 
+    private static readonly HashSet<string> SmallOnes = ["select", "noentry", "move"];
+
     private readonly Dictionary<(string, int, int), (Texture2D Texture, Vector2 Hotspot)?> _frames = [];
     private (string Kind, int Frame, int Scale) _shown;
     private double _time;
 
     /// <summary>Which cursor shows, by its file name (<c>move</c>, <c>attack</c>, ...).</summary>
     public string Kind { get; set; } = "arrow";
+
+    /// <summary>Whether the small cursors show, over the map.</summary>
+    public bool Small { get; set; }
 
     public override void _Process(double delta)
     {
@@ -61,10 +69,11 @@ public partial class ClassicCursor : Node
         var frame = (int)(_time * 10) % cursor.Frames;
         // The original ran at 640 by 480; its cursors grow with the screen as the panel does.
         var scale = Math.Max(1, (int)Math.Round(GetViewport().GetVisibleRect().Size.Y / 480f));
-        if (_shown == (Kind, frame, scale))
+        var folder = (Small && SmallOnes.Contains(Kind) ? "small/" : "large/") + Kind;
+        if (_shown == (folder, frame, scale))
             return;
-        _shown = (Kind, frame, scale);
-        if (Frame(Kind, frame, scale, cursor) is { } shown)
+        _shown = (folder, frame, scale);
+        if (Frame(folder, frame, scale, cursor) is { } shown)
             Input.SetCustomMouseCursor(shown.Texture, Input.CursorShape.Arrow, shown.Hotspot);
     }
 
@@ -97,7 +106,7 @@ public partial class ClassicCursor : Node
     {
         if (_frames.TryGetValue((kind, frame, scale), out var cached))
             return cached;
-        var name = cursor.Frames > 1 ? $"cursor/large/{kind}{frame + 1}.bmp" : $"cursor/large/{kind}.bmp";
+        var name = cursor.Frames > 1 ? $"cursor/{kind}{frame + 1}.bmp" : $"cursor/{kind}.bmp";
         (Texture2D, Vector2)? result = null;
         if (ClassicGui.Bitmap(name)?.GetImage() is { } image)
         {

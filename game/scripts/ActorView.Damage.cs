@@ -60,7 +60,7 @@ public partial class ActorView
     /// The dark patch under a burning building: the original's 32 pixels, keyed black, or in the remake's effects
     /// those pixels smoothed into scorched ground.
     /// </summary>
-    private static Material? SplatMaterial(Mesh mesh)
+    public static Material? SplatMaterial(Mesh mesh)
     {
         if (SplatMaterials.TryGetValue(GraphicsSettings.Effects, out var made))
             return made;
@@ -129,6 +129,14 @@ public partial class ActorView
         if (step == _darkness || _rigView is null && GetNodeOrNull("Body") is null)
             return;
         _darkness = step;
+        var veil = Darkening(step);
+        foreach (var mesh in Shape())
+            mesh.MaterialOverlay = veil;
+    }
+
+    /// <summary>The veil of a step of darkening, none at the first.</summary>
+    public static Material? Darkening(int step)
+    {
         if (!Darkenings.TryGetValue(step, out var veil) && step > 0)
             Darkenings[step] = veil = new StandardMaterial3D
             {
@@ -136,15 +144,109 @@ public partial class ActorView
                 Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
                 AlbedoColor = new Color(0, 0, 0, step / 20f),
             };
-        foreach (var mesh in Shape())
-            mesh.MaterialOverlay = step > 0 ? veil : null;
+        return step > 0 ? veil : null;
+    }
+
+    // ---- a machine burning ----------------------------------------------------------------------
+
+    // The two flames on the highest part of a machine, each with the offset of its pictures; they burn a minute from
+    // the last change to its health.
+    private readonly List<(MeshInstance3D Flame, StandardMaterial3D Material, int Offset)> _topFlames = [];
+    private float _flamesLeft, _flamesFrame, _burnedAt = -1;
+    private static int _nextFlame;
+
+    /// <summary>The sixteen pictures of fire, from the game's effects.</summary>
+    public Texture2D[] FirePictures { get; set; } = [];
+
+    // From 90 % damage each hit lights it for a minute, with its sound (MachPhysDoublesidedFlame::startFlame).
+    private void BurnOn(float damage, float hitPoints)
+    {
+        if (damage < 90)
+        {
+            _burnedAt = -1;
+            _flamesLeft = 0;
+            foreach (var (flame, _, _) in _topFlames)
+                flame.Visible = false;
+            return;
+        }
+        if (hitPoints == _burnedAt)
+            return;
+        _burnedAt = hitPoints;
+        Crackle(60);
+        if (GraphicsSettings.Effects)
+            return;
+        if (_topFlames.Count == 0)
+            LightTopFlames();
+        _flamesLeft = 60;
+        foreach (var (flame, _, _) in _topFlames)
+            flame.Visible = true;
+    }
+
+    // Two crossed flames, as wide as the part each way and twice as high, stand on the part that reaches highest in
+    // its own space, a faceplate apart (MachPhysMachineDamage::update).
+    private void LightTopFlames()
+    {
+        if (FirePictures.Length == 0 || _rigView?.TopPart() is not { } top)
+            return;
+        var height = 2 * top.Box.Size.Y;
+        foreach (var (width, turn) in new[] { (top.Box.Size.Z, Mathf.Pi / 2), (top.Box.Size.X, 0f) })
+        {
+            var material = new StandardMaterial3D
+            {
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                BlendMode = BaseMaterial3D.BlendModeEnum.Add,
+                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+                AlbedoTexture = FirePictures[0],
+            };
+            var flame = new MeshInstance3D
+            {
+                Name = "TopFlame",
+                Mesh = new QuadMesh { Size = new Vector2(width, height) },
+                MaterialOverride = material,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                Position = Vector3.Up * height * 0.48f,
+                Rotation = Vector3.Up * turn,
+            };
+            top.Part.AddChild(flame);
+            _topFlames.Add((flame, material, _nextFlame));
+            _nextFlame = (_nextFlame + 5) % 16;
+        }
+    }
+
+    // The flames show a picture a frame, as the original's, and go out after their minute.
+    private void UpdateFlames(double delta)
+    {
+        if (_flamesLeft <= 0)
+            return;
+        _flamesLeft -= (float)delta;
+        _flamesFrame += (float)delta * 30;
+        foreach (var (flame, material, offset) in _topFlames)
+        {
+            flame.Visible = _flamesLeft > 0;
+            material.AlbedoTexture = FirePictures[((int)_flamesFrame + offset) % FirePictures.Length];
+        }
+    }
+
+    /// <summary>
+    /// The classic look's smoke on a machine: black puffs as wide as it, doubling in a second as they rise a little from
+    /// near its top, one every five seconds from 65 % damage, three together every six, rising farther, from 90 %
+    /// (MachPhysMachineDamage::update).
+    /// </summary>
+    private void ShowClassicDamage(float damage)
+    {
+        var wisp = Mathf.Max(_bounds.Size.X, _bounds.Size.Z);
+        var height = _bounds.Size.Y;
+        _damageSmoke = Emitter(_damageSmoke, damage is >= 65 and < 90, () => Effects.Puffs(1, 5, height * 0.1f, wisp));
+        _thickSmoke = Emitter(_thickSmoke, damage >= 90, () => Effects.Puffs(3, 6, height * 0.6f, wisp));
     }
 
     // Every mesh of the model itself, not of what is shown on it.
-    private IEnumerable<MeshInstance3D> Shape()
+    public IEnumerable<MeshInstance3D> Shape()
     {
         var model = (Node?)_rigView ?? GetNodeOrNull("Body");
-        return model is null ? [] : model.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>().Append(model as MeshInstance3D).OfType<MeshInstance3D>();
+        return model is null ? [] : model.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>().Append(model as MeshInstance3D).OfType<MeshInstance3D>()
+            .Where(mesh => _topFlames.All(burning => burning.Item1 != mesh));
     }
 
     // ---- teleporting ----------------------------------------------------------------------------

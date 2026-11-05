@@ -27,7 +27,7 @@ public sealed partial class GameWorld
         switch (target)
         {
             case Machine machine when SoundTable.VoiceOf(machine) is { } voice && TimeToReportHit(machine, ratio, NearDeathRatio, NearDeathMailGap, MachineHitMailGap):
-                SendVoiceMail(machine.Race, $"VID_{voice}_{(ratio <= NearDeathRatio ? "NEAR_DEATH" : "DAMAGED")}");
+                SendVoiceMail(machine.Race, $"VID_{voice}_{(ratio <= NearDeathRatio ? "NEAR_DEATH" : "DAMAGED")}", machine.Id);
                 break;
             case Construction building when TimeToReportHit(building, ratio, CriticalRatio, CriticalMailGap, BuildingHitMailGap):
                 var manned = building.Technicians.Count + building.Garrisoned.Count > 0;
@@ -59,8 +59,15 @@ public sealed partial class GameWorld
     /// <summary>A constructor's job is done and it reports so, and that it waits for another.</summary>
     private void ReportJobDone(Machine constructor, string report)
     {
-        SendVoiceMail(constructor.Race, report);
-        SendVoiceMail(constructor.Race, "VID_DOZER_AWAITING_NEW_JOB");
+        SendVoiceMail(constructor.Race, report, constructor.Id);
+        ReportAwaitingJob(constructor);
+    }
+
+    /// <summary>A constructor with no more sites in its series waits for another job, and says so (MachLogConstructOperation::doUpdate).</summary>
+    private void ReportAwaitingJob(Machine constructor)
+    {
+        if (!_series.ContainsKey(constructor.Id))
+            SendVoiceMail(constructor.Race, "VID_DOZER_AWAITING_NEW_JOB", constructor.Id);
     }
 
     /// <summary>
@@ -77,7 +84,28 @@ public sealed partial class GameWorld
     }
 
     /// <summary>The route's end has gone or changed sides (MachLogResourceCarrier::giveTransportRouteFailureVoicemail).</summary>
-    private void ReportRouteLost(Machine carrier) => SendVoiceMail(carrier.Race, "VID_RESOURCE_CARRIER_ROUTE_FAILURE");
+    private void ReportRouteLost(Machine carrier) => SendVoiceMail(carrier.Race, "VID_RESOURCE_CARRIER_ROUTE_FAILURE", carrier.Id);
+
+    /// <summary>The route's smelter is lost and another took its place (MachLogResourceCarrier::giveAlternativeDestinationVoicemail).</summary>
+    private void ReportNewDestination(Machine carrier) => SendVoiceMail(carrier.Race, "VID_RESOURCE_CARRIER_ALTERNATIVE_DESTINATION", carrier.Id);
+
+    /// <summary>
+    /// A constructor better than any before it opens the list of buildings further, for good, and its race hears of
+    /// it unless all it opened is locked (MachLogConstructionTree::updateAvailableConstructions).
+    /// </summary>
+    private void ReportNewConstructions()
+    {
+        foreach (var state in Races.Values)
+        {
+            var best = BestConstructor(state.Race);
+            if (best <= state.ConstructionsReached)
+                continue;
+            var opened = Data.ConstructionOrder.Entries.Skip(state.ConstructionsReached + 1).Take(best - state.ConstructionsReached);
+            if (opened.Any(e => !Options.RestrictConstruction || !state.Locked.Contains(e)))
+                SendVoiceMail(state.Race, "VID_POD_NEW_CONSTRUCTIONS");
+            state.ConstructionsReached = best;
+        }
+    }
 
     /// <summary>A mine's deposit ran out: told once per deposit, and whether the mine found another (MachLogMineralSite, MachLogMine).</summary>
     private void ReportDryMine(Construction mine, int site, bool moved)

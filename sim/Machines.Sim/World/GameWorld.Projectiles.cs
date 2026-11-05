@@ -6,8 +6,8 @@ namespace Machines.Sim.World;
 
 /// <summary>
 /// A round in flight (MachLogLinearProjectile): it flies straight at its weapon's SPEED from where it was fired
-/// and strikes the first enemy in its way, the ground where a hill rises into its path, or is spent once it has
-/// flown its weapon's RANGE.
+/// and bursts on the first thing in its way, friend or foe, on the ground where a hill rises into its path, or in the
+/// air once it has flown its weapon's RANGE.
 /// </summary>
 public sealed class Projectile(int id, WeaponSpec weapon, int shooter, Race race, Vector2 start, Vector2 direction, Mounting mounting = Mounting.Top, int barrel = 0, Vector2? aim = null,
     float startHeight = 0, float aimHeight = 0)
@@ -42,9 +42,6 @@ public sealed class Projectile(int id, WeaponSpec weapon, int shooter, Race race
     public Vector2 Position { get; set; } = start;
     public float Travelled { get; set; }
 
-    /// <summary>The artefact it was fired at, which it strikes like an enemy in its way; null for anything else.</summary>
-    public Artefact? Artefact { get; init; }
-
     /// <summary>
     /// Whether it was fired in first person at the very point under the crosshair, so that <see cref="AimHeight"/> is
     /// that point's height (a view flies it through the point) rather than a guess at the middle of what is there.
@@ -74,28 +71,14 @@ public sealed partial class GameWorld
     /// Sends a round from the shooter's middle towards a point <paramref name="aimHeight"/> up; it flies on past it
     /// until its range is spent.
     /// </summary>
-    private void Launch(Actor shooter, WeaponMount weapon, Vector2 towards, float aimHeight, Artefact? artefact = null, bool sighted = false)
+    private void Launch(Actor shooter, WeaponMount weapon, Vector2 towards, float aimHeight, bool sighted = false)
     {
         var offset = towards - shooter.Position;
         var direction = offset.LengthSquared() > 0.01f
             ? Vector2.Normalize(offset)
             : shooter is Machine machine ? new Vector2(DetMath.Cos(machine.Facing), DetMath.Sin(machine.Facing)) : Vector2.UnitX;
         _projectiles.Add(new Projectile(_nextProjectile++, weapon.Spec, shooter.Id, shooter.Race, shooter.Position, direction,
-            weapon.Mounting, weapon.Shots++, towards, AimPoint(shooter).Z, aimHeight) { Artefact = artefact, Sighted = sighted });
-    }
-
-    /// <summary>
-    /// Where a round aimed at a target goes: at the target as it stands now when the shooter's ACCURACY roll
-    /// succeeds, otherwise past it to one side. A target that moves meanwhile may still get out of the way.
-    /// </summary>
-    private Vector2 AimAt(Actor shooter, Actor target, int accuracy)
-    {
-        if (Random.Next(100) < accuracy)
-            return target.Position;
-        var line = target.Position - shooter.Position;
-        var side = line.LengthSquared() > 0.01f ? Vector2.Normalize(new Vector2(-line.Y, line.X)) : Vector2.UnitY;
-        var wide = target.Radius + 1.5f + Random.Next(30) / 10f;
-        return target.Position + side * (Random.Next(2) == 0 ? wide : -wide);
+            weapon.Mounting, weapon.Shots++, towards, AimPoint(shooter).Z, aimHeight) { Sighted = sighted });
     }
 
     private void UpdateProjectiles()
@@ -106,85 +89,60 @@ public sealed partial class GameWorld
             var step = MathF.Min(projectile.Weapon.ProjectileSpeed * Dt, projectile.Weapon.Range - projectile.Travelled);
             var from = projectile.Position;
             var to = from + projectile.Direction * step;
-            // A hill rising into its way stops it there (MachLogLinearProjectile's ON_TERRAIN strike); an enemy
+            var (fromHeight, toHeight) = (projectile.HeightAfter(projectile.Travelled), projectile.HeightAfter(projectile.Travelled + step));
+            // A hill rising into its way stops it there (MachLogLinearProjectile's ON_TERRAIN strike); anything
             // before that point is struck first.
-            var grounded = Terrain?.FirstBlocked(new Vector3(from, projectile.HeightAfter(projectile.Travelled)),
-                new Vector3(to, projectile.HeightAfter(projectile.Travelled + step)), step: 1.5f, ends: 0);
+            var grounded = Terrain?.FirstBlocked(new Vector3(from, fromHeight), new Vector3(to, toHeight), step: 1.5f, ends: 0);
             if (grounded is { } share)
-                to = Vector2.Lerp(from, to, share);
-            if (FirstInTheWay(projectile, from, to) is { } struck)
+                (to, toHeight) = (Vector2.Lerp(from, to, share), fromHeight + (toHeight - fromHeight) * share);
+            var (start, end) = (new Vector3(from, fromHeight), new Vector3(to, toHeight));
+            if (FirstOnLine(start, end, actor => actor.Id != projectile.Shooter) is { } struck)
             {
-                Strike(projectile, struck);
+                End(projectile, Vector3.Lerp(start, end, struck.Along));
                 spent.Add(projectile);
                 continue;
             }
             if (grounded is not null)
             {
                 Raise(new GameEvent(GameEventKind.Impact, projectile.Shooter, to, null, projectile.Weapon.TypeName));
+                End(projectile, end);
                 spent.Add(projectile);
                 continue;
             }
             projectile.Position = to;
             projectile.Travelled += step;
             if (projectile.Travelled >= projectile.Weapon.Range - 0.01f)
+            {
+                End(projectile, end);
                 spent.Add(projectile);
+            }
         }
         foreach (var projectile in spent)
             _projectiles.Remove(projectile);
     }
 
-    private void Strike(Projectile projectile, Actor struck)
+    /// <summary>The end of a round's flight, wherever that is: it bursts (<see cref="Burst"/>), and the orb of treachery does its work.</summary>
+    private void End(Projectile projectile, Vector3 point)
     {
         if (projectile.Weapon.TypeName == "ORB_OF_TREACHERY")
-        {
-            if (struck is Machine traitor)
-                Defect(traitor, projectile.Race);
-        }
+            Treachery(projectile, point);
         else
-        {
-            Damage(struck, (int)MathF.Round(projectile.Weapon.Damage), projectile.Race);
-        }
-        Raise(new GameEvent(GameEventKind.Hit, struck.Id, struck.Position, projectile.Shooter, projectile.Weapon.TypeName));
+            Burst(InWorld(point), projectile.Weapon, projectile.Shooter, projectile.Race);
     }
 
-    /// <summary>The enemy a round meets first on its way from one point to the next this tick, if any.</summary>
-    private Actor? FirstInTheWay(Projectile projectile, Vector2 from, Vector2 to)
+    /// <summary>The first machine of any other race within a metre of where the orb ends changes sides, an ally's too (MachLogTreacheryOrb::doBeDestroyed).</summary>
+    private void Treachery(Projectile orb, Vector3 point)
     {
-        var reach = _spatialReach + SpatialSlack;
-        var (x0, y0) = SpatialCellOf(Vector2.Min(from, to) - new Vector2(reach));
-        var (x1, y1) = SpatialCellOf(Vector2.Max(from, to) + new Vector2(reach));
-        var segment = to - from;
-        var length = segment.Length();
-        Actor? first = null;
-        var firstAlong = float.MaxValue;
-        for (var y = y0; y <= y1; y++)
+        foreach (var actor in FiledNear(new Vector2(point.X, point.Y), 1 + _spatialReach).ToList())
         {
-            for (var x = x0; x <= x1; x++)
-            {
-                foreach (var actor in _spatial[y * _spatialX + x])
-                {
-                    if (actor.IsDead || actor.Id == projectile.Shooter || !AreEnemies(projectile.Race, actor.Race) || actor is Machine { Inside: not null })
-                        continue;
-                    // How far along the way the actor is met: machines by their radius, buildings by their footprint.
-                    var along = length > 0 ? Math.Clamp(Vector2.Dot(actor.Position - from, segment) / (length * length), 0, 1) : 0;
-                    var closest = from + segment * along;
-                    var met = actor is Construction building
-                        ? building.DistanceFrom(closest) <= 0 || building.DistanceFrom(to) <= 0
-                        : Vector2.DistanceSquared(closest, actor.Position) <= actor.Radius * actor.Radius;
-                    if (met && (along < firstAlong || along == firstAlong && actor.Id < first!.Id))
-                    {
-                        first = actor;
-                        firstAlong = along;
-                    }
-                }
-            }
+            if (actor is not Machine { IsDead: false, Inside: null } traitor || traitor.Race == orb.Race)
+                continue;
+            var (min, max) = BoxOf(traitor);
+            if (Vector3.DistanceSquared(point, Vector3.Clamp(point, min, max)) >= 1)
+                continue;
+            Defect(traitor, orb.Race);
+            Raise(new GameEvent(GameEventKind.Hit, traitor.Id, traitor.Position, orb.Shooter, orb.Weapon.TypeName));
+            return;
         }
-        if (projectile.Artefact is { IsDead: false } artefact)
-        {
-            var along = length > 0 ? Math.Clamp(Vector2.Dot(artefact.Position - from, segment) / (length * length), 0, 1) : 0;
-            if (along < firstAlong && Vector2.DistanceSquared(from + segment * along, artefact.Position) <= artefact.Radius * artefact.Radius)
-                first = artefact;
-        }
-        return first;
     }
 }

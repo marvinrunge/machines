@@ -277,9 +277,9 @@ public partial class GameAudio : Node
     /// Speaks a report such as <c>VID_GRUNT_SELECTED</c>, picking one of its numbered variants. A report that
     /// arrives while another is playing is dropped, as the original's voice-mail queue did for minor ones; with
     /// <paramref name="queue"/> it waits its turn instead, as the mission scripts' mails did (MachLogVoiceMailManager
-    /// keeps every mail of the full-function kind).
+    /// keeps every mail of the full-function kind). <paramref name="speaker"/> is the machine reporting, if one is.
     /// </summary>
-    public void Say(string id, bool queue = false)
+    public void Say(string id, bool queue = false, int speaker = 0)
     {
         if (_voice.Playing && !queue)
             return;
@@ -289,10 +289,30 @@ public partial class GameAudio : Node
         var mail = _voiceMail[variants[_random.RandiRange(0, variants.Count - 1)]];
         if (_voice.Playing)
         {
-            _waiting.Enqueue(mail.File);
+            _waiting.Enqueue((mail.File, speaker));
             return;
         }
+        _speaker = speaker;
         Speak(mail.File, mail.Id);
+    }
+
+    /// <summary>
+    /// A machine died: what it still had to say is dropped, and if it was speaking a burst of static cuts it off
+    /// (MachLogVoiceMailManager::postDeathMail).
+    /// </summary>
+    public void SpeakerLost(int actor)
+    {
+        if (_waiting.Any(w => w.Speaker == actor))
+            _waiting = new(_waiting.Where(w => w.Speaker != actor));
+        if (actor != _speaker || !_voice.Playing)
+            return;
+        _speaker = 0;
+        _voice.Stop();
+        var noise = $"VID_INTERFERENCE_{Math.Min(5, _random.RandiRange(0, 6))}";
+        if (_voiceMail.TryGetValue(noise, out var mail))
+            Speak(mail.File, mail.Id);
+        else
+            SpeakNext();
     }
 
     /// <summary>Speaks a recording of the game copy, e.g. a briefing's <c>Sounds/menus/tut01ob1.wav</c>, in place of what is speaking.</summary>
@@ -310,7 +330,8 @@ public partial class GameAudio : Node
             _voice.Stop();
     }
 
-    private readonly Queue<string> _waiting = [];
+    private Queue<(string File, int Speaker)> _waiting = [];
+    private int _speaker;
 
     private void Speak(string file, string id)
     {
@@ -324,8 +345,12 @@ public partial class GameAudio : Node
     /// <summary>The next mail waiting, once the voice is free.</summary>
     private void SpeakNext()
     {
-        if (_waiting.TryDequeue(out var file))
-            Speak(file, file);
+        _speaker = 0;
+        if (_waiting.TryDequeue(out var next))
+        {
+            _speaker = next.Speaker;
+            Speak(next.File, next.File);
+        }
     }
 
     /// <summary>A sound of the interface (MachGuiSoundManager), e.g. <c>gui/sounds/attackon.wav</c>: not placed, never muted.</summary>

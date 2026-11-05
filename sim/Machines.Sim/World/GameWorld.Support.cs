@@ -55,8 +55,8 @@ public sealed partial class GameWorld
                 ? Find<Construction>(id)
                 : Constructions.Where(c => c.Race == recycle.Race && c.Complete && c.Spec.Type is "SMELTER" or "POD")
                     .MinBy(c => Vector2.DistanceSquared(c.Position, machine.Position));
-            if (smelter is null || smelter.Race != recycle.Race || smelter.Spec.Type is not ("SMELTER" or "POD"))
-                return "recycling needs one of your smelters or pods";
+            if (smelter is null || !smelter.Complete || smelter.Spec.Type is not ("SMELTER" or "POD"))
+                return "recycling needs a finished smelter or pod";
             Send(machine, new RecycleOrder(smelter.Id), ClosestPointOutside(smelter, machine.Position));
         }
         return null;
@@ -77,6 +77,7 @@ public sealed partial class GameWorld
         foreach (var actor in Actors.Where(a => a.SelfDestructAt is { } at && at <= Time && !a.IsDead).ToList())
         {
             actor.SelfDestructAt = null;
+            LastShot(actor);
             // Its own doing (MachActor::update hits it with itself): nobody scores, and a smelter loses no stores.
             actor.LastHitBy = actor.Race;
             actor.HitPoints = 0;
@@ -89,7 +90,9 @@ public sealed partial class GameWorld
             garrison.Garrisoned.RemoveAll(id => Find<Machine>(id) is null);
             foreach (var machine in garrison.Garrisoned.Select(Find<Machine>).OfType<Machine>())
             {
-                AddHitPoints(machine, (garrison.Stats.RepairRate ?? 0) / 60f * Dt);
+                // Those of its race and its allies (MachLogGarrison::healAll).
+                if (!AreEnemies(garrison.Race, machine.Race))
+                    AddHitPoints(machine, (garrison.Stats.RepairRate ?? 0) / 60f * Dt);
                 // A spy of its own gets a full load of land mines (MachLogGarrison::update).
                 if (machine.IsSpy && machine.Race == garrison.Race)
                     machine.Mines = machine.Stats.MineCapacity ?? 0;
@@ -101,8 +104,7 @@ public sealed partial class GameWorld
     {
         var target = Find<Machine>(heal.Target);
         var charger = healer.Weapons.FirstOrDefault(w => w.IsHealer);
-        if (target is null || target.IsDead || target.Race != healer.Race || target.Inside is not null || charger is null
-            || target.HitPoints >= target.MaxHitPoints)
+        if (target is null || target.IsDead || target.Inside is not null || charger is null || target.HitPoints >= target.MaxHitPoints)
         {
             healer.Order = Order.Idle;
             return;
@@ -124,7 +126,7 @@ public sealed partial class GameWorld
         // MachLogSuperCharger: DAMAGE hit points per second while the beam holds.
         AddHitPoints(target, charger.Spec.Damage * Dt);
         if (target.HitPoints >= target.MaxHitPoints && SoundTable.VoiceOf(healer) is { } voice)
-            SendVoiceMail(healer.Race, $"VID_{voice}_HEALING_COMPLETE");
+            SendVoiceMail(healer.Race, $"VID_{voice}_HEALING_COMPLETE", healer.Id);
     }
 
     /// <summary>Idle healers look after damaged machines nearby, as the original's administrators did.</summary>
@@ -158,7 +160,7 @@ public sealed partial class GameWorld
     private void UpdateRepair(Machine constructor, RepairOrder repair)
     {
         var building = Find<Construction>(repair.Building);
-        if (building is null || building.Race != constructor.Race || building.HitPoints >= building.MaxHitPoints)
+        if (building is null || building.HitPoints >= building.MaxHitPoints)
         {
             constructor.Order = Order.Idle;
             return;
@@ -177,7 +179,7 @@ public sealed partial class GameWorld
     private void UpdateCapture(Machine constructor, CaptureOrder capture)
     {
         var building = Find<Construction>(capture.Building);
-        if (building is null || !AreEnemies(constructor.Race, building.Race))
+        if (building is null || building.Race == constructor.Race)
         {
             constructor.Order = Order.Idle;
             return;
@@ -239,7 +241,7 @@ public sealed partial class GameWorld
     private void UpdateRecycle(Machine machine, RecycleOrder recycle)
     {
         var smelter = Find<Construction>(recycle.Smelter);
-        if (smelter is null || smelter.Race != machine.Race || !smelter.Complete)
+        if (smelter is null || !smelter.Complete)
         {
             machine.Order = Order.Idle;
             return;
@@ -247,7 +249,10 @@ public sealed partial class GameWorld
         if (!AtBuilding(machine, smelter))
             return;
 
-        AddBmu(machine.Race, RecycleValue(machine));
+        // What it is worth goes to the race of the smelter, whoever's that is (MachLogRecycleOperation::doUpdate).
+        AddBmu(smelter.Race, RecycleValue(machine));
+        if (smelter.IsType("SMELTER"))
+            smelter.OreDroppedTick = Tick;
         Raise(new GameEvent(GameEventKind.Recycled, machine.Id, machine.Position, smelter.Id, machine.Spec.TypeName));
         RemoveQuietly(machine);
     }
@@ -255,12 +260,12 @@ public sealed partial class GameWorld
     private void UpdateEnterGarrison(Machine machine, EnterGarrisonOrder enter)
     {
         var garrison = Find<Construction>(enter.Garrison);
-        if (garrison is null || garrison.Race != machine.Race || !CanEnter(machine, garrison))
+        if (garrison is null || !CanEnter(machine, garrison))
         {
             machine.Order = Order.Idle;
             return;
         }
-        if (!HasFreeBay(garrison))
+        if (garrison.Race == machine.Race && !HasFreeBay(garrison))
         {
             machine.Order = Order.Idle;
             return;
@@ -364,6 +369,11 @@ public sealed partial class GameWorld
         building.Race = race;
         if (stores > 0)
             AddBmu(race, stores);
+        if (Options.OriginalCapture)
+            DropFromRoutes(building);
+        // Nobody goes on repairing an opponent's base (MachLogRepairOperation::clientSpecificNotification).
+        foreach (var constructor in Machines.Where(m => m.Order is RepairOrder repair && repair.Building == building.Id && AreEnemies(m.Race, race)))
+            constructor.Order = Order.Idle;
         building.DisplayAs = null;
         building.ProductionQueue.Clear();
         building.ProductionSpent = 0;
@@ -418,10 +428,17 @@ public sealed partial class GameWorld
     {
         LeaveGarrison(machine);
         if (machine.ShownRace != race && SoundTable.VoiceOf(machine) is { } voice)
-            SendVoiceMail(race, $"VID_{voice}_CHANGED_RACE");
+            SendVoiceMail(race, $"VID_{voice}_CHANGED_RACE", machine.Id);
+        // Back with the race it was built for it regains its squadron (MachLogMachine::assignToDifferentRace).
+        if (race == machine.BuiltFor)
+            (machine.Squad, machine.OldSquad) = (machine.OldSquad, null);
+        else
+            (machine.Squad, machine.OldSquad) = (null, machine.Squad);
+        // Healers of its old side let it go (MachLogHealOperation::beNotified).
+        foreach (var healer in Machines.Where(m => m.Order is HealOrder heal && heal.Target == machine.Id && m.Race != race))
+            healer.Order = Order.Idle;
         machine.Race = race;
         machine.DisplayAs = null;
-        machine.Squad = null;
         machine.SelfDestructAt = null;
         machine.Order = Order.Idle;
         machine.Path.Clear();

@@ -47,7 +47,12 @@ public static class MatchSetup
         foreach (var (race, controller) in players)
         {
             var setup = scenario.Race(race) ?? throw new ArgumentException($"{scenarioName} has no {race} race");
-            var state = new RaceState(race, controller) { Bmu = MatchOptions.BmuFor(options.StartingBmu) ?? setup.Bmu ?? 0 };
+            var state = new RaceState(race, controller)
+            {
+                Bmu = MatchOptions.BmuFor(options.StartingBmu) ?? setup.Bmu ?? 0,
+                VirtualBeacon = setup.VirtualBeacon switch { "LEVEL_1_BEACON" => 1, "LEVEL_3_BEACON" => 3, _ => 0 },
+                ScoreDisplayed = setup.ScoreDisplayed,
+            };
             state.Allies.UnionWith(setup.Allies);
             world.Races[race] = state;
             world.BuildingPlans[race] = [];
@@ -105,11 +110,20 @@ public static class MatchSetup
         if (options.Victory == VictoryCondition.Pod && !world.Constructions.Any(c => c.IsType("POD")))
             world.Options = options with { Victory = VictoryCondition.Annihilation };
         foreach (var state in world.Races.Values)
+        {
             state.StartedWithPod = world.Constructions.Any(c => c.Race == state.Race && c.IsType("POD"));
+            state.ConstructionsReached = world.BestConstructor(state.Race);
+        }
 
-        // A campaign mission runs its script, which alone decides it.
-        if (options.Victory == VictoryCondition.Scripted)
-            world.Script = MissionScript.Compile(scenario, options.Campaign);
+        // A campaign mission runs its script, which alone decides it; so does Default, if the scenario has one.
+        if (options.Victory is VictoryCondition.Scripted or VictoryCondition.Default)
+        {
+            var script = MissionScript.Compile(scenario, options.Campaign);
+            if (options.Victory == VictoryCondition.Default && script.ActionsLeft == 0)
+                world.Options = options with { Victory = VictoryCondition.Annihilation };
+            else
+                world.Script = script;
+        }
 
         return world;
     }

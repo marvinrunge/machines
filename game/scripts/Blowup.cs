@@ -118,13 +118,11 @@ public partial class Blowup : Node3D
     /// to six times its size, more fireballs over a big one, a flash of light, and a few puffs of smoke rising
     /// to its size for half a minute. The building itself shrinks and swells (see <see cref="Swell"/>).
     /// </summary>
-    public static void Building(ActorView view, ClassicAssets assets, Node parent)
+    public static void Building(Transform3D place, Aabb box, ClassicAssets assets, Node parent)
     {
         var blowup = new Blowup { Name = "Blowup" };
         parent.AddChild(blowup);
         var frames = Frames(assets);
-        var place = view.GlobalTransform;
-        var box = view.Bounds;
         var (sizeX, sizeZ, top) = (box.Size.X, box.Size.Z, box.End.Y);
         var dimension = Mathf.Max(Mathf.Max(sizeX, sizeZ), box.Size.Y);
         const float start = 0.1f;
@@ -133,7 +131,7 @@ public partial class Blowup : Node3D
         var (from, to) = (Mathf.Min(sizeX, sizeZ) * 0.6f, Mathf.Max(sizeX, sizeZ) * 1.8f * 2);
         if (from < 7)
             (from, to) = (7, 7 * to / Mathf.Max(from, 0.01f));
-        blowup.Wave(assets, "burstwave", view.GlobalPosition, from, to, start, 1, flat: 1);
+        blowup.Wave(assets, "burstwave", place.Origin, from, to, start, 1, flat: 1);
 
         var size = box.Size.Length();
         var middle = new Vector3(box.GetCenter().X, 0, box.GetCenter().Z);
@@ -186,7 +184,7 @@ public partial class Blowup : Node3D
     /// then fading out black. A building without pieces of its own (all but the level 1 mine) gets the generic ones,
     /// made for the military factory and scaled to its size. In the remake's effects they glow red-hot instead.
     /// </summary>
-    public static void Demolish(ActorView view, string id, ClassicAssets assets, Node parent, bool hot)
+    public static void Demolish(Transform3D place, Aabb box, string id, ClassicAssets assets, Node parent, bool hot)
     {
         var own = id.Length > 0 ? assets.EffectRig("demolish/" + id) : null;
         if ((own ?? assets.EffectRig("demolish/generic")) is not { } rig || !rig.Animations.TryGetValue("demolish", out var cycle))
@@ -194,13 +192,12 @@ public partial class Blowup : Node3D
         const float start = 0.15f, glowing = 0.22f, fading = 0.23f;
         // MachPhysObjectExplosion::explode: the generic pieces scale by the building's largest size over the
         // military factory's, 39.58 m.
-        var box = view.Bounds;
         var scale = own is not null ? 1 : Mathf.Max(Mathf.Max(box.Size.X, box.Size.Z), box.Size.Y) / 39.58f;
         var blowup = new Blowup { Name = "Demolition" };
         parent.AddChild(blowup);
         var holder = new Node3D { Visible = false };
         blowup.AddChild(holder);
-        holder.GlobalTransform = view.GlobalTransform.ScaledLocal(Vector3.One * scale);
+        holder.GlobalTransform = place.ScaledLocal(Vector3.One * scale);
 
         var heat = hot ? new Color(2, 1.1f, 0.45f) : Colors.White;
         var material = new StandardMaterial3D
@@ -277,6 +274,35 @@ public partial class Blowup : Node3D
             foreach (var (holder, last) in holders)
                 holder.Scale = size * Mathf.Lerp(1, last, t);
             return t < 1;
+        });
+    }
+
+    /// <summary>
+    /// What the vortex destroys (MachPhysVortexWeapon::destroy): its shape draws out to a thin column, an eighth as wide
+    /// and twenty times as high by half a second, and is gone at 0.3 s, when the original let go of the model
+    /// (MachLogMachine::beHitWithoutAnimation). The light the original adds here is over before it comes on.
+    /// </summary>
+    public static void Swallow(Node3D view, Node3D model, Node parent)
+    {
+        const float stretch = 0.5f, gone = 0.3f;
+        var blowup = new Blowup { Name = "Swallow" };
+        parent.AddChild(blowup);
+        var holder = new Node3D();
+        blowup.AddChild(holder);
+        holder.GlobalTransform = view.GlobalTransform;
+        foreach (var mesh in model.FindChildren("*", nameof(MeshInstance3D), recursive: true, owned: false).Append(model)
+            .OfType<MeshInstance3D>().Where(m => m.Mesh is not null && m.IsVisibleInTree()))
+        {
+            var shape = new MeshInstance3D { Mesh = mesh.Mesh, MaterialOverride = mesh.MaterialOverride, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            holder.AddChild(shape);
+            shape.GlobalTransform = mesh.GlobalTransform;
+        }
+        var size = view.Scale;
+        blowup._parts.Add(age =>
+        {
+            var t = age / stretch;
+            holder.Scale = size * new Vector3(Mathf.Lerp(1, 0.125f, t), Mathf.Lerp(1, 20, t), Mathf.Lerp(1, 0.125f, t));
+            return age < gone;
         });
     }
 
@@ -357,6 +383,43 @@ public partial class Blowup : Node3D
         if (assets.Texture("models/texture4/flar2_bt.bmp") is { } flare)
             blowup.Picture([flare], at, auraSize, 0, duration, auraSize * 2, 0,
                 scale: t => t < 1 / 3f ? 1 + t * 3 : t < 2 / 3f ? 2 - (t * 3 - 1) : 1 - (t * 3 - 2) / 2);
+    }
+
+    /// <summary>
+    /// How strong the blast of a round is, or 0 if it has none: a missile's by its level, which goes with its damage
+    /// (MachPhysMissile::beDestroyedAt, the launchers' levels in MachPhysMultiLauncher), the metal sting's fixed
+    /// (MachPhysMetalSting::beDestroyedAt).
+    /// </summary>
+    public static float BlastStrength(string weapon) => weapon switch
+    {
+        "MULTI_LAUNCHER1" => 3.5f,
+        "MULTI_LAUNCHER2" or "LARGE_MISSILE" => 6,
+        "MULTI_LAUNCHER3" or "MULTI_LAUNCHER7" => 2,
+        "MULTI_LAUNCHER4" or "MULTI_LAUNCHER5" or "WASP_METAL_STING" => 3,
+        "MULTI_LAUNCHER6" => 4,
+        _ => 0,
+    };
+
+    /// <summary>
+    /// A missile or metal sting bursts (MachPhysTrailedProjectile::explosion): three fireballs, each two to four times
+    /// its strength across, within half a metre of the point and up to 0.2 s, 0.4 s apart, and a light dying away over
+    /// 0.6 s, red from the sting, whose reach grows with the strength.
+    /// </summary>
+    public static void Burst(string weapon, Vector3 at, ClassicAssets assets, Node parent)
+    {
+        var strength = BlastStrength(weapon);
+        if (strength <= 0)
+            return;
+        var blowup = new Blowup { Name = "Burst" };
+        parent.AddChild(blowup);
+        var frames = Frames(assets);
+        for (var i = 0; i < 3; i++)
+        {
+            var offset = new Vector3(Random(-0.5f, 0.5f), Random(-0.5f, 0.5f), Random(-0.5f, 0.5f));
+            blowup.Fireball(frames, at + offset, strength * Random(2, 4), i * Random(0, 0.2f), 0.5f, Random(0, Mathf.Tau));
+        }
+        var (colour, energy) = weapon == "WASP_METAL_STING" ? (new Color(1, 0.2f, 0.2f), 5.1f) : (new Color(1, 0.52f, 0.11f), 2.7f);
+        blowup.Light(at, colour, energy, (8 + strength) * 2.5f, 0, 0.6f);
     }
 
     /// <summary>

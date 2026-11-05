@@ -101,7 +101,9 @@
 #include "machphys/weapon.hpp"
 #include "machphys/bolter.hpp"
 #include "machphys/helix.hpp"
+#include "machphys/light.hpp"
 #include "machphys/private/otherper.hpp"
+#include "machphys/private/weapper.hpp"
 #include "machphys/lmine.hpp"
 #include "machphys/locator.hpp"
 #include "machphys/scavenge.hpp"
@@ -269,8 +271,31 @@ public:
         out << "{\"id\":\"" << id << "\",";
         writeParts(out);
         if (animated != NULL)
+        {
             writeMotions(out, animated->entityImpl());
+            writeLights(out, animated->entityImpl());
+        }
         out << "}\n";
+    }
+
+    // ,"lights":[...] — the lights an effect carries (LIGHT in the .cdf): the game copies a round's to one round in each
+    // stretch of a burst (MachPhysPlasmaBolt::CreateLights).
+    void writeLights(std::ostream& out, const W4dEntityImpl& impl) const
+    {
+        if (impl.pAnimationLightDataPtrs_ == NULL)
+            return;
+        out << ",\n\"lights\":[";
+        bool first = true;
+        for (size_t i = 0; i < impl.pAnimationLightDataPtrs_->size(); ++i)
+        {
+            const W4dLightData* light = dynamic_cast<W4dLightData*>(&*(*impl.pAnimationLightDataPtrs_)[i]);
+            if (light == NULL)
+                continue;
+            out << (first ? "" : ",") << "{\"position\":[" << light->position_.x() << "," << light->position_.y() << "," << light->position_.z()
+                << "],\"colour\":[" << light->colour_.r() << "," << light->colour_.g() << "," << light->colour_.b() << "],\"range\":" << light->maxRange_ << "}";
+            first = false;
+        }
+        out << "]";
     }
 
     // ,"motions":[...] — the original's texture animations (ANIMATION_DATA in the .cdf) on the textures written here:
@@ -1324,6 +1349,7 @@ bool ExportApp::clientStartup()
         "loadunder", "loadover", "loadlight", "fire",
         "ionbeam", "ionflare", "ionouter", "ionwave", "nukewave", "mushtop", "mushshaft", "vsphere", "bsphere", "wsphere",
         "lmine", "debris", "shockwave", "burstwave", "groundsplat", "locator", "scavenge",
+        "boltflash", "heavyflash", "autoflash", "groundlight",
     };
     mkdir((out + "/fx").c_str());
     for (size_t e = 0; e < sizeof(effects) / sizeof(effects[0]); ++e)
@@ -1408,6 +1434,12 @@ bool ExportApp::clientStartup()
         else if (name == "groundsplat") effect = _NEW(MachPhysGroundSplat(root, at));
         else if (name == "locator") effect = _NEW(MachPhysLocator(root, at));
         else if (name == "scavenge") effect = _NEW(MachPhysScavenger(root, at));
+        // The flashes at a bolter's muzzle (models/weapons/flash/bolter.lod, heavy.lod, auto.lod), exemplars in models.bin.
+        else if (name == "boltflash" or name == "heavyflash" or name == "autoflash")
+            effect = _NEW(W4dGeneric(MachPhysWeaponPersistence::instance().bolterFlashExemplar(name == "boltflash" ? MachPhys::BOLTER
+                : name == "heavyflash" ? MachPhys::HEAVY_BOLTER1 : MachPhys::AUTO_CANNON), root, W4dTransform3d()));
+        // The patch of light on the ground under a bolter firing or a constructor's torch (MachPhysLight).
+        else if (name == "groundlight") effect = _NEW(MachPhysLight(root, MexTransform3d()));
         const W4dEntity* part = link != NULL ? link : effect;
         if (name == "punchcrack" or name == "punchfire" or name == "beecrack" or name == "beefire")
         {

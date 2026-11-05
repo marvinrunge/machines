@@ -6,8 +6,20 @@ namespace Machines.Sim.World;
 /// <summary>A player's or AI's instruction. Commands are queued and applied at the start of the next tick.</summary>
 public abstract record Command(Race Race);
 
-public sealed record MoveCommand(Race Race, IReadOnlyList<int> Machines, Vector2 Target) : Command(Race);
+/// <summary>Machines drive to a point, through <paramref name="Via"/> first when given (points picked with Shift, MachGuiMoveCommand).</summary>
+public sealed record MoveCommand(Race Race, IReadOnlyList<int> Machines, Vector2 Target, IReadOnlyList<Vector2>? Via = null) : Command(Race);
 
+/// <summary>Machines go after another and stay with it for as long as it lives (MachLogFollowOperation).</summary>
+public sealed record FollowCommand(Race Race, IReadOnlyList<int> Machines, int Target) : Command(Race);
+
+/// <summary>
+/// What was picked with Shift held: each machine carries out one step after the other. Any other order to a machine
+/// takes the rest of its steps away. A site among the steps stands at once, only the work on it waits its turn
+/// (MachGuiConstructCommand::placeConstruction).
+/// </summary>
+public sealed record SeriesCommand(Race Race, IReadOnlyList<int> Machines, IReadOnlyList<Command> Steps) : Command(Race);
+
+/// <summary>Machines attack a target, as do missile emplacements among the ids (MachGuiAttackCommand).</summary>
 public sealed record AttackCommand(Race Race, IReadOnlyList<int> Machines, int Target) : Command(Race);
 
 public sealed record AttackMoveCommand(Race Race, IReadOnlyList<int> Machines, Vector2 Target) : Command(Race);
@@ -29,7 +41,12 @@ public sealed record ConstructCommand(Race Race, IReadOnlyList<int> Constructors
 
 public sealed record LocateCommand(Race Race, IReadOnlyList<int> Locators, Vector2 Target) : Command(Race);
 
-public sealed record TransportCommand(Race Race, IReadOnlyList<int> Carriers, int Mine, int Smelter) : Command(Race);
+/// <summary>
+/// Carriers fetch from the supplier, a mine or another race's smelter or pod, and from <paramref name="More"/> when
+/// given (picked with Shift), and bring it to a smelter or pod; with <paramref name="Smelter"/> 0 they find their own
+/// (MachGuiPickUpCommand). <paramref name="Adding"/> adds to the suppliers a carrier has.
+/// </summary>
+public sealed record TransportCommand(Race Race, IReadOnlyList<int> Carriers, int Mine, int Smelter, IReadOnlyList<int>? More = null, bool Adding = false) : Command(Race);
 
 public sealed record EnterLabCommand(Race Race, IReadOnlyList<int> Technicians, int Lab) : Command(Race);
 

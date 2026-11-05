@@ -426,7 +426,7 @@ public sealed class MissionScript
                 return (script, _) =>
                 {
                     foreach (var squad in squads)
-                        script.ActivatedSquadrons.Add((race, squad));
+                        script.ActivatedSquadrons.Add((race, squad - 1)); // by squadron id, which counts from 1 (MachLogRaces::race)
                 };
             }
             case "CHANGE_RACE":
@@ -471,7 +471,7 @@ public sealed class MissionScript
                     point = new Vector2(Float(0), Float(1));
                     break;
                 case "ASSIGN":
-                    squad = Int(0);
+                    squad = Int(0) - 1; // by squadron id, which counts from 1
                     break;
                 case "FROM_SCENARIO" when words.Count >= 1:
                     units.AddRange(FromScenario(race, words, carry));

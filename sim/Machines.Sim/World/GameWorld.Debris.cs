@@ -8,8 +8,8 @@ public sealed partial class GameWorld
     /// <summary>Seconds wreckage burns (MachLogDebris's BURN_TIME); with a scavenger about it lasts longer.</summary>
     public const float DebrisBurnTime = 60;
 
-    /// <summary>How far an idle scavenger looks for wreckage to gather (MachLogResourceCarrier::update, DEFCON normal).</summary>
-    public const float ScavengingRange = 80;
+    /// <summary>How far a scavenger looks for wreckage to gather (MachLogResourceCarrier::update, DEFCON normal), and at low DefCon.</summary>
+    public const float ScavengingRange = 80, LowDefConScavengingRange = 140;
 
     private int _nextDebrisId = 1;
 
@@ -65,7 +65,10 @@ public sealed partial class GameWorld
         var wreck = scavenge.Debris.Select(FindDebris).FirstOrDefault(d => d is not null);
         if (wreck is null)
         {
-            scavenger.Order = Order.Idle;
+            if (scavenge.Back is { } back)
+                TakeUpAgain(scavenger, back);
+            else
+                scavenger.Order = Order.Idle;
             return;
         }
         if (Vector2.DistanceSquared(scavenger.Position, wreck.Position) > 4)
@@ -81,18 +84,28 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// An idle scavenger looks about every second and a half for the nearest wreck within 80 m it can stand on, and
-    /// goes to gather it (MachLogResourceCarrier::update, MachLogAutoScavengeOperation).
+    /// A scavenger looks about every second and a half, whatever it is doing, unless its virtual DefCon is high or it is
+    /// evading, standing its ground or gathering already: the nearest wreck within 80 m, 140 m at low DefCon, that it can
+    /// stand on draws it off, and it takes up what it was doing afterwards, an idle one going back to where it stood
+    /// (MachLogResourceCarrier::update, MachLogStrategy::changeToScavengeMode, MachLogAutoScavengeOperation).
     /// </summary>
     private void SeekDebris(Machine scavenger)
     {
-        if (Debris.Count == 0 || Tick % 30 != scavenger.Id % 30)
+        if (Debris.Count == 0 || Tick % 30 != scavenger.Id % 30 || scavenger.Inside is not null || scavenger.DrivenByPlayer
+            || scavenger.Order is EvadeOrder or StandGroundOrder or ScavengeOrder or EnterGarrisonOrder || VirtualDefCon(scavenger) == DefCon.High)
             return;
+        var range = scavenger.DefCon == DefCon.Low ? LowDefConScavengingRange : ScavengingRange;
         var water = CrossesWater(scavenger);
         var wreck = Debris
-            .Where(d => Vector2.DistanceSquared(d.Position, scavenger.Position) < ScavengingRange * ScavengingRange && Nav.IsFree(d.Position, water))
+            .Where(d => Vector2.DistanceSquared(d.Position, scavenger.Position) < range * range && Nav.IsFree(d.Position, water))
             .MinBy(d => Vector2.DistanceSquared(d.Position, scavenger.Position));
-        if (wreck is not null)
-            Send(scavenger, new ScavengeOrder([wreck.Id]), wreck.Position);
+        if (wreck is null)
+            return;
+        var back = scavenger.Order is IdleOrder
+            ? new Interrupted(new MoveOrder(scavenger.Position), scavenger.Position, false)
+            : new Interrupted(scavenger.Order, scavenger.PathIndex < scavenger.Path.Count ? scavenger.Path[^1] : null, false);
+        var orderedAt = scavenger.OrderedAt;
+        Send(scavenger, new ScavengeOrder([wreck.Id], back), wreck.Position);
+        scavenger.OrderedAt = orderedAt;
     }
 }

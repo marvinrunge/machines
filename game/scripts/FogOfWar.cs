@@ -57,12 +57,8 @@ public partial class FogOfWar : CanvasLayer
         Layer = 0;
     }
 
-    /// <summary>The player's best standing beacon: 0 for none, 1 shows the uncovered map, 3 lifts the fog.</summary>
-    public int Beacon => _world.Constructions
-        .Where(c => c.Race == _player && c.Complete && c.IsType("BEACON"))
-        .Select(c => c.Stats.HardwareLevel)
-        .DefaultIfEmpty(0)
-        .Max();
+    /// <summary>The player's best beacon: 0 for none, 1 shows the uncovered map, 3 lifts the fog.</summary>
+    public int Beacon => _world.BeaconLevel(_player);
 
     /// <summary>The view has gone dark: nothing can be picked there and the world is silent.</summary>
     public bool Blind => _light <= 0.001f;
@@ -188,6 +184,9 @@ public partial class FogOfWar : CanvasLayer
         }
         return Level.Full;
     }
+
+    /// <summary>Whether the map has been uncovered at a point of the planet.</summary>
+    public bool UncoveredAt(NVector2 at) => Uncovered((int)(at.X / _cellSize), (int)(at.Y / _cellSize));
 
     // Beyond the planet's edge counts as known, as the original cleared the unused parts of its map.
     private bool Uncovered(int x, int y) => x < 0 || y < 0 || x >= _width || y >= _depth || _uncovered[y * _width + x];

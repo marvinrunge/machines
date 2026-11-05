@@ -115,6 +115,9 @@ public sealed class RelayServer : IAsyncDisposable
         {
             case ListRooms:
                 member.Connection.Send(new RoomList(_rooms.Values.Select(r => r.Summary()).ToList()));
+                // Who comes back to the room from setting it up finds it as it is.
+                if (member.Room is { Match: null } waiting)
+                    member.Connection.Send(waiting.State());
                 break;
 
             case CreateRoom create:
@@ -136,7 +139,7 @@ public sealed class RelayServer : IAsyncDisposable
                     member.Connection.Send(new Refused("no such room"));
                 else if (target.Match is not null)
                     member.Connection.Send(new Refused("that match has already started"));
-                else if (target.Members.Count >= target.Setup.Slots.Count)
+                else if (!target.Seats.Any(s => s.IsFree))
                     member.Connection.Send(new Refused("that room is full"));
                 else
                 {
@@ -159,6 +162,32 @@ public sealed class RelayServer : IAsyncDisposable
                 member.Ready = set.Ready;
                 member.Terrain = set.Terrain;
                 Broadcast(room, room.State());
+                break;
+
+            case SetSeat seat when member.Room is { Match: null } room:
+                if (room.HostId != member.Id)
+                    member.Connection.Send(new Refused("only the host changes the seats"));
+                else if (seat.Seat >= 0 && seat.Seat < room.Seats.Count && room.Seats[seat.Seat].Player != member)
+                {
+                    room.Seats[seat.Seat].Use = seat.Use;
+                    if (room.Seats[seat.Seat].Player is { } sitting)
+                        TakeOut(sitting, room);
+                    else
+                        Broadcast(room, room.State());
+                }
+                break;
+
+            case ChangeRoom change when member.Room is { Match: null } room:
+                if (room.HostId != member.Id)
+                    member.Connection.Send(new Refused("only the host changes the room"));
+                else if (change.Slots.Count < 2)
+                    member.Connection.Send(new Refused("a room needs a map with at least two start positions"));
+                else
+                {
+                    foreach (var removed in room.Change(change))
+                        TakeOut(removed, room);
+                    Broadcast(room, room.State());
+                }
                 break;
 
             case StartMatch when member.Room is { Match: null } room:
@@ -204,7 +233,16 @@ public sealed class RelayServer : IAsyncDisposable
         member.Ready = false;
         member.Colour = Enum.GetValues<Race>().First(c => room.Members.All(m => m.Colour != c));
         room.Members.Add(member);
+        room.Seats.First(s => s.IsFree).Player = member;
         Broadcast(room, room.State());
+    }
+
+    /// <summary>The host took a player out of the room: they are back in the lobby and told why.</summary>
+    private void TakeOut(Member member, Room room)
+    {
+        Leave(member);
+        member.Connection.Send(room.State());
+        member.Connection.Send(new Refused("The host took you out of the room."));
     }
 
     private void Leave(Member member)
@@ -213,6 +251,8 @@ public sealed class RelayServer : IAsyncDisposable
             return;
         member.Room = null;
         room.Members.Remove(member);
+        foreach (var seat in room.Seats.Where(s => s.Player == member))
+            seat.Player = null;
         if (room.Members.Count == 0)
         {
             _rooms.Remove(room.Id);
@@ -281,21 +321,19 @@ public sealed class RelayServer : IAsyncDisposable
     {
         var players = new List<MatchPlayer>();
         var slots = room.Setup.Slots.OrderBy(s => s).ToList();
-        for (var i = 0; i < room.Members.Count; i++)
+        var seats = room.Seats.Zip(slots).ToList();
+        foreach (var (seat, slot) in seats.Where(s => s.First.Player is not null))
         {
-            var member = room.Members[i];
-            member.Slot = slots[i];
-            players.Add(new MatchPlayer(member.Id, member.Name, slots[i], member.Colour, Ai: false));
+            var member = seat.Player!;
+            member.Slot = slot;
+            players.Add(new MatchPlayer(member.Id, member.Name, slot, member.Colour, Ai: false));
         }
-        if (room.Setup.FillWithAi)
+        var colours = Enum.GetValues<Race>().Where(c => players.All(p => p.Colour != c)).ToList();
+        foreach (var (_, slot) in seats.Where(s => s.First.Player is null && (s.First.Use == SeatUse.Computer || s.First.Use == SeatUse.Open && room.Setup.FillWithAi)))
         {
-            var colours = Enum.GetValues<Race>().Where(c => players.All(p => p.Colour != c)).ToList();
-            foreach (var slot in slots.Skip(room.Members.Count))
-            {
-                var colour = colours.Contains(slot) ? slot : colours[0];
-                colours.Remove(colour);
-                players.Add(new MatchPlayer(0, "AI", slot, colour, Ai: true));
-            }
+            var colour = colours.Contains(slot) ? slot : colours[0];
+            colours.Remove(colour);
+            players.Add(new MatchPlayer(0, "AI", slot, colour, Ai: true));
         }
         // The ground goes into the match only when every player has the same (MatchInfo.Terrain).
         var terrain = room.Members.Select(m => m.Terrain).Distinct().ToList() is [{ } same] ? same : (long?)null;
@@ -365,12 +403,21 @@ public sealed class RelayServer : IAsyncDisposable
         public Race? Slot { get; set; }
     }
 
+    /// <summary>A start position of a room, in the order of the map's races.</summary>
+    private sealed class Seat
+    {
+        public Member? Player { get; set; }
+        public SeatUse Use { get; set; }
+        public bool IsFree => Player is null && Use == SeatUse.Open;
+    }
+
     private sealed class Room(int id, CreateRoom setup, int hostId)
     {
         public int Id { get; } = id;
-        public CreateRoom Setup { get; } = setup;
+        public CreateRoom Setup { get; private set; } = setup;
         public int HostId { get; set; } = hostId;
         public List<Member> Members { get; } = [];
+        public List<Seat> Seats { get; private set; } = setup.Slots.Select(_ => new Seat()).ToList();
         public MatchInfo? Match { get; set; }
         public Dictionary<Race, long> LastTurn { get; } = [];
         public HashSet<Race> Left { get; } = [];
@@ -386,9 +433,25 @@ public sealed class RelayServer : IAsyncDisposable
         /// <summary>The first tick a returning player's turns count from.</summary>
         public Dictionary<Race, long> FirstTurn { get; } = [];
 
-        public RoomSummary Summary() => new(Id, Setup.Name, Setup.Scenario, Setup.Planet, Members.Count, Setup.Slots.Count, Match is not null);
+        public RoomSummary Summary() => new(Id, Setup.Name, Setup.Scenario, Setup.Planet, Members.Count,
+            Seats.Count(s => s.Player is not null || s.Use == SeatUse.Open), Match is not null);
 
         public RoomState State() => new(Id, Setup.Name, Setup.Scenario, Setup.Planet, Setup.Slots, Setup.Options, Setup.FillWithAi, HostId,
-            Members.Select(m => new LobbyPlayer(m.Id, m.Name, m.Colour, m.Ready, m.Terrain)).ToList());
+            Members.Select(m => new LobbyPlayer(m.Id, m.Name, m.Colour, m.Ready, m.Terrain)).ToList(),
+            Seats.Select(s => new RoomSeat(s.Player?.Id, s.Use)).ToList());
+
+        /// <summary>The room on a new map, its players at the new seats, the host first; returns those it has no seat for.</summary>
+        public List<Member> Change(ChangeRoom change)
+        {
+            Setup = Setup with { Scenario = change.Scenario, Planet = change.Planet, Slots = change.Slots, Options = change.Options, FillWithAi = change.FillWithAi };
+            var people = Seats.Where(s => s.Player is not null).Select(s => s.Player!).OrderByDescending(m => m.Id == HostId).ToList();
+            var uses = Seats.Where(s => s.Player is null).Select(s => s.Use).ToList();
+            Seats = change.Slots.Select((_, i) => i < people.Count
+                ? new Seat { Player = people[i] }
+                : new Seat { Use = i - people.Count < uses.Count ? uses[i - people.Count] : SeatUse.Open }).ToList();
+            foreach (var member in Members)
+                (member.Ready, member.Terrain) = (false, null);
+            return people.Skip(change.Slots.Count).ToList();
+        }
     }
 }

@@ -23,8 +23,8 @@ public partial class PlanetLook : Node
     private string? _uniformSky;
 
     /// <summary>
-    /// The original drew no shadows and could light with a black ambient; the remake casts shadows, so it
-    /// never lets the ambient fall below this share of the sunlight.
+    /// The original's only shadows were plates painted under the models, and it could light with a black ambient; the
+    /// sun here casts shadows, so the ambient never falls below this share of the sunlight.
     /// </summary>
     private const float MinimumAmbient = 0.5f;
 
@@ -45,8 +45,66 @@ public partial class PlanetLook : Node
     /// <summary>Haze darker than this (its colour's luminance) only swallows light and is left out.</summary>
     private const float BlackHaze = 0.04f;
 
+    /// <summary>The classic look's shadows are the original's: the plates under the models, not the sun's.</summary>
+    public static bool PaintedShadows => !GraphicsSettings.Lighting && GraphicsSettings.Models == ModelLook.Original;
+
+    private static readonly Lazy<ShaderMaterial> Plate = new(() => new ShaderMaterial
+    {
+        // A little before the ground along the line of sight, as the original's plates were marked coplanar with it.
+        Shader = new Shader
+        {
+            Code = """
+                shader_type spatial;
+                render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+                uniform float strength = 0.5;
+                void vertex() {
+                    vec4 seen = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
+                    seen.xyz *= max(0.0, 1.0 - 0.5 / max(length(seen.xyz), 0.5));
+                    POSITION = PROJECTION_MATRIX * seen;
+                }
+                void fragment() {
+                    ALBEDO = vec3(0.0);
+                    ALPHA = strength;
+                }
+                """,
+        },
+        RenderPriority = -1,
+    });
+
+    /// <summary>The material of the plates, as dark as the sun is stronger than the ambient light (W4dShadow::setLight).</summary>
+    public static ShaderMaterial ShadowPlate => Plate.Value;
+
+    /// <summary>The goggles are on (EnvPlanetEnvironment::nvgOn): see <see cref="FirstPersonScreen"/>.</summary>
+    public bool NightVision { get; set; }
+
+    // The planet's goggles, with the original's values where its .env does not say.
+    private Color _nvgFilter = new(0, 1, 0), _nvgFog = new(0, 0.6f, 0.1f), _nvgSky = new(0, 0.9f, 0.3f), _nvgSkyline = new(0, 0.6f, 0.1f);
+    private float _nvgFogMultiplier = 1.5f, _nvgLightMultiplier = 7;
+
+    /// <summary>The colour the goggles let through.</summary>
+    public Color NightVisionFilter => _nvgFilter;
+
+    private void ReadGoggles()
+    {
+        if (_env.OtherBlocks.FirstOrDefault(b => b.Kind == "nvg") is not { } goggles)
+            return;
+        foreach (var (key, value) in goggles.Properties)
+        {
+            var colour = value.Tuple is { Count: >= 3 } c ? new Color(c[0], c[1], c[2]) : Colors.Black;
+            switch (key)
+            {
+                case "filter colour": _nvgFilter = colour; break;
+                case "fog colour": _nvgFog = colour; break;
+                case "sky colour": _nvgSky = colour; break;
+                case "skyline colour": _nvgSkyline = colour; break;
+                case "fog multiplier": _nvgFogMultiplier = value.Number ?? _nvgFogMultiplier; break;
+                case "light multiplier": _nvgLightMultiplier = value.Number ?? _nvgLightMultiplier; break;
+            }
+        }
+    }
+
     public static PlanetLook Create(PlanetEnvironment env, string planet, Func<float> gameTime, Func<float> viewDistance,
-        Func<string, ClassicAssets.SkySprite?> skySprite, (Mesh Mesh, Texture2D Texture, float Radius)? dome = null)
+        Func<string, ClassicAssets.SkySprite?> skySprite, (Mesh Mesh, Texture2D Texture, float Radius)? dome = null, (Mesh Mesh, float Radius)? skyline = null)
     {
         var look = new PlanetLook { Name = "PlanetLook", _env = env, _planet = planet, _gameTime = gameTime, _viewDistance = viewDistance };
         look._sunSatellite = env.Satellites.FirstOrDefault(s => s.Name == "sun") ?? env.Satellites.FirstOrDefault();
@@ -68,7 +126,8 @@ public partial class PlanetLook : Node
         look._uniformSky = env.OtherBlocks.FirstOrDefault(b => b.Kind == "uniform sky")?.Properties
             .FirstOrDefault(p => p.Key == "colour table").Value?.Text;
 
-        look._sun = new DirectionalLight3D { ShadowEnabled = true, Name = "Sun" };
+        look.ReadGoggles();
+        look._sun = new DirectionalLight3D { ShadowEnabled = !PaintedShadows, Name = "Sun" };
         look._sky = new ProceduralSkyMaterial { SunAngleMax = 8, GroundCurve = 0.02f };
         look._environment = new Godot.Environment
         {
@@ -106,6 +165,7 @@ public partial class PlanetLook : Node
                 BillboardKeepScale = true,
                 DisableFog = true,
                 DisableReceiveShadows = true,
+                RenderPriority = -9,
             };
             var quad = new MeshInstance3D
             {
@@ -134,6 +194,24 @@ public partial class PlanetLook : Node
             };
             look._domeRadius = sky.Radius;
             look.AddChild(look._domeView);
+        }
+
+        // The hills on the horizon, before the sky, its satellites and stars, in the colour of the hour; the photographed
+        // sky has its own horizon.
+        if (skyline is { } hills && look._photo is null
+            && env.OtherBlocks.FirstOrDefault(b => b.Kind == "skyline")?.Properties.FirstOrDefault(p => p.Key == "colour table").Value?.Text is { } skylineTable)
+        {
+            look._skylineTable = skylineTable;
+            look._skyline = new ShaderMaterial { Shader = SkylineShader.Value, RenderPriority = -8 };
+            look._skylineView = new MeshInstance3D
+            {
+                Mesh = hills.Mesh,
+                MaterialOverride = look._skyline,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                Name = "Skyline",
+            };
+            look._skylineRadius = hills.Radius;
+            look.AddChild(look._skylineView);
         }
 
         if (GraphicsSettings.Lighting)
@@ -220,6 +298,24 @@ public partial class PlanetLook : Node
     private MeshInstance3D? _domeView;
     private float _domeRadius = 1;
     private const int MostBands = 8;
+
+    private ShaderMaterial? _skyline;
+    private MeshInstance3D? _skylineView;
+    private string? _skylineTable;
+    private float _skylineRadius = 1;
+
+    private static readonly Lazy<Shader> SkylineShader = new(() => new Shader
+    {
+        Code = """
+            shader_type spatial;
+            render_mode unshaded, depth_draw_never, cull_disabled, fog_disabled, shadows_disabled;
+            uniform vec3 colour = vec3(0.0);
+            void fragment() {
+                ALBEDO = colour;
+                ALPHA = 1.0;
+            }
+            """,
+    });
 
     /// <summary>
     /// The sky dome: each vertex takes the colour of the bands for its height above the horizon, as the
@@ -412,7 +508,8 @@ public partial class PlanetLook : Node
             _sun.Basis = Basis.LookingAt(shining, Vector3.Up);
         }
         var direct = Table(_sunSatellite?.DirectionalColourTable, elevation, Colors.White);
-        _sun.LightColor = direct;
+        // The goggles turn every light into their own colour, as bright as its strongest part (EnvNVGLightTransform).
+        _sun.LightColor = NightVision ? _nvgFilter * direct.V : direct;
         // The remake's sun is stronger and its ambient weaker (below): lit sides and shade stand apart.
         _sun.LightEnergy = elevation > 0 ? (_softShadows ? RemakeSun : 1.1f) : 0.15f;
         // A storm's thick air dims the sun (Weather).
@@ -439,10 +536,25 @@ public partial class PlanetLook : Node
         _environment.AmbientLightColor = new Color(Mathf.Max(ambient.R, floor.R), Mathf.Max(ambient.G, floor.G), Mathf.Max(ambient.B, floor.B));
         // Bounced light (SSIL) brings back some of what the darker ambient takes away, where it really bounces.
         _environment.AmbientLightEnergy = Mathf.Lerp(1, RemakeAmbient, high);
+        if (PaintedShadows)
+            ShadowPlate.SetShaderParameter("strength", Mathf.Clamp(direct.V - ambient.V, 0.2f, 0.75f));
+
+        Night = Mathf.Clamp((4 - elevation) / 6, 0, 1);
+        if (NightVision)
+        {
+            // The goggles multiply the ambient light; by day it is blinding, whatever the planet's (planet.cpp, accumulateAmbient).
+            var strong = new Color(ambient.R, ambient.G, ambient.B) * _nvgLightMultiplier;
+            _environment.AmbientLightColor = new Color(1.5f, 1.5f, 1.5f).Lerp(strong, Night);
+            _environment.AmbientLightEnergy = 1;
+        }
 
         var fogColour = _env.Fog is { } fog ? Table(fog.ColourTable, elevation, new Color(0.6f, 0.6f, 0.65f)) : new Color(0.6f, 0.6f, 0.65f);
+        // The table's alpha says how far the fog lets one see (EnvPlanetEnvironment::update).
+        var clearAir = fogColour.A;
         // A storm fills the air with sand, snow or rain: the fog takes its colour (Weather).
         fogColour = fogColour.Lerp((Weather.HazeColour * Mathf.Clamp(direct.Luminance * 1.2f, 0.25f, 1)) with { A = 1 }, Weather.Haze);
+        if (NightVision)
+            fogColour = _nvgFog;
         Color horizon, top;
         if (_skyTables is { } sky)
         {
@@ -453,6 +565,8 @@ public partial class PlanetLook : Node
         {
             horizon = top = Table(_uniformSky, elevation, fogColour);
         }
+        if (NightVision)
+            horizon = top = _nvgSky;
         _sky.SkyHorizonColor = horizon;
         _sky.SkyTopColor = top;
         if (_dome is not null)
@@ -463,7 +577,7 @@ public partial class PlanetLook : Node
             var heights = new float[MostBands];
             for (var i = 0; i < count; i++)
             {
-                var c = Table(_bands[i].Table, elevation, horizon);
+                var c = NightVision ? _nvgSky : Table(_bands[i].Table, elevation, horizon);
                 colours[i] = new Vector3(c.R, c.G, c.B);
                 heights[i] = _bands[i].Elevation;
             }
@@ -473,8 +587,12 @@ public partial class PlanetLook : Node
             _sky.SkyHorizonColor = Colors.Black;
             _sky.SkyTopColor = Colors.Black;
         }
+        if (_skyline is not null)
+        {
+            var hills = NightVision ? _nvgSkyline : Table(_skylineTable, elevation, Colors.Black);
+            _skyline.SetShaderParameter("colour", new Vector3(hills.R, hills.G, hills.B));
+        }
 
-        Night = Mathf.Clamp((4 - elevation) / 6, 0, 1);
         if (_sky.SkyCover is not null)
         {
             // Stars by night, and all day where the sky stays dark (moons and space have hardly any air).
@@ -512,10 +630,13 @@ public partial class PlanetLook : Node
             // here sits further back, so the fog starts beyond what it looks at.
             var view = _viewDistance();
             _environment.FogLightColor = new Color(fogColour.R, fogColour.G, fogColour.B);
+            // The goggles see farther, and the zenith view, which the strategy camera is, through a fog cut thinner by the
+            // planet's multiplier so as not to hide the ground (MachCameras::reduceFog).
+            var visibility = Mathf.Max(f.MaxVisibility * clearAir, 1) * (NightVision ? _nvgFogMultiplier : 1) * (view > 0 ? f.ZenithMultiplier : 1);
             // In a storm the fog closes in: at its height one sees only a hundred metres or so past what the camera looks at.
-            _environment.FogDepthBegin = Mathf.Lerp(view + f.MaxVisibility * 0.25f, view * 0.3f, Weather.Haze);
-            _environment.FogDepthEnd = Mathf.Lerp(view + f.MaxVisibility * 1.5f, view + 140, Weather.Haze);
-            _environment.FogDensity = Mathf.Lerp(Mathf.Clamp(fogColour.A, 0.5f, 1f), 0.95f, Weather.Haze);
+            _environment.FogDepthBegin = Mathf.Lerp(view + visibility * 0.25f, view * 0.3f, Weather.Haze);
+            _environment.FogDepthEnd = Mathf.Lerp(view + visibility * 1.5f, view + 140, Weather.Haze);
+            _environment.FogDensity = Mathf.Lerp(1, 0.95f, Weather.Haze);
             // The storm hides the sky too, so the clear sky does not show above the hills.
             _environment.FogSkyAffect = Mathf.Lerp(0.6f, 1, Weather.Haze);
             if (_environment.VolumetricFogEnabled)
@@ -559,6 +680,11 @@ public partial class PlanetLook : Node
         {
             _domeView.GlobalPosition = camera.GlobalPosition;
             _domeView.Scale = Vector3.One * (camera.Far * 0.8f / _domeRadius);
+        }
+        if (_skylineView is not null)
+        {
+            _skylineView.GlobalPosition = camera.GlobalPosition;
+            _skylineView.Scale = Vector3.One * (camera.Far * 0.78f / _skylineRadius);
         }
         if (_sprites.Count == 0)
             return;

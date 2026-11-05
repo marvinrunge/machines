@@ -99,7 +99,7 @@ public sealed partial class GameWorld
                     if (distance > range)
                         continue;
                     var rank = (Unarmed: actor is Machine { CanFight: true } ? 0 : 1, Distance: distance, actor.Id);
-                    if (rank.CompareTo(bestRank) < 0 && (accept is null || accept(actor)) && (!clearShot || ClearShot(from, actor)))
+                    if (rank.CompareTo(bestRank) < 0 && CanFireAt(from, actor) && (accept is null || accept(actor)) && (!clearShot || ClearShot(from, actor)))
                     {
                         best = actor;
                         bestRank = rank;

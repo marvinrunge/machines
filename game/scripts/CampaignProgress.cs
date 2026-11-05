@@ -71,7 +71,7 @@ public sealed class CampaignPlayer
     /// <summary>What the next mission takes over: the flags and machines of the missions won.</summary>
     public CampaignCarry Carry()
     {
-        var carry = new CampaignCarry();
+        var carry = new CampaignCarry { Player = Name };
         foreach (var (scenario, record) in Missions.Where(m => m.Value.Won))
         {
             carry.Flags[scenario] = [.. record.Flags];

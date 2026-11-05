@@ -34,9 +34,6 @@ public partial class ActorView : Node3D
     /// <summary>A building rather than a machine; it explodes with the construction sounds.</summary>
     public bool IsBuilding { get; private set; }
 
-    /// <summary>The machine's voice-mail name (GRUNT, DOZER ...), kept for its last report after it is gone.</summary>
-    public string? Voice { get; private set; }
-
     private GameAudio.EngineSound? _engine;
     private Vector3 _lastTarget;
 
@@ -135,6 +132,9 @@ public partial class ActorView : Node3D
     /// <summary>The middle of the model, where rounds fired at it fly to (high up for a flyer).</summary>
     public Vector3 Centre => GlobalTransform * _bounds.GetCenter();
 
+    /// <summary>The top of its faceplate and the plate's width, if it has one.</summary>
+    public (Vector3 Top, float Width)? FaceplateTop => _rigView?.FaceplateTop;
+
     public Vector3 Eye => _rigView?.Eye
         ?? GlobalTransform * new Vector3(_bounds.End.X, _bounds.Position.Y + _bounds.Size.Y * 0.8f, _bounds.GetCenter().Z);
 
@@ -172,7 +172,10 @@ public partial class ActorView : Node3D
 
     // A constructor at work (MachPhysConstructor::startConstructing): per jet a torch beam reaching for the
     // building's centre, sparks, and a flickering light.
-    private readonly List<(string Jet, Node3D Torch, Node3D Sparks, OmniLight3D Light)> _jets = [];
+    private readonly List<(string Jet, Node3D Torch, Node3D Sparks, OmniLight3D Light, MeshInstance3D? Patch)> _jets = [];
+
+    /// <summary>How far a patch of light lies above the ground, "plus the z-buffer resolution" (MachPhysWeapon::lighting).</summary>
+    public const float GroundLightHeight = 0.066f;
     // In the remake's effects the torch is a flowing beam of light and the sparks fly as particles.
     private bool _remadeJets;
     private Vector3? _constructAt;
@@ -182,7 +185,7 @@ public partial class ActorView : Node3D
     /// A constructor builds or repairs at <paramref name="target"/> (the building's centre), or stops (null):
     /// its arms play the building cycle and its jets reach out with the original's torch beam and sparks.
     /// </summary>
-    public void Construct(Vector3? target, Mesh? torch, Mesh? sparks)
+    public void Construct(Vector3? target, Mesh? torch, Mesh? sparks, Mesh? groundLight)
     {
         if (_rigView is null)
             return;
@@ -197,6 +200,7 @@ public partial class ActorView : Node3D
                 jet.Torch.QueueFree();
                 jet.Sparks.QueueFree();
                 jet.Light.QueueFree();
+                jet.Patch?.QueueFree();
             }
             _jets.Clear();
             return;
@@ -218,7 +222,7 @@ public partial class ActorView : Node3D
                 AddChild(flowing);
                 AddChild(shower);
                 AddChild(glare);
-                _jets.Add((jet, flowing, shower, glare));
+                _jets.Add((jet, flowing, shower, glare, null));
                 continue;
             }
             var beam = new MeshInstance3D { Mesh = torch ?? new BoxMesh { Size = new Vector3(5, 0.15f, 0.15f) }, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
@@ -228,7 +232,11 @@ public partial class ActorView : Node3D
             AddChild(beam);
             AddChild(spray);
             AddChild(light);
-            _jets.Add((jet, beam, spray, light));
+            // Its patch on the ground, kept under the jet and level (MachPhysConstructor's light shadows).
+            var patch = groundLight is null ? null : new MeshInstance3D { Mesh = groundLight, TopLevel = true, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            if (patch is not null)
+                AddChild(patch);
+            _jets.Add((jet, beam, spray, light, patch));
         }
     }
 
@@ -237,10 +245,11 @@ public partial class ActorView : Node3D
         if (_constructAt is not { } target || _rigView is null)
             return;
         _constructTime += delta;
-        // The light's flicker (on, off at 0.3 s, on at 0.5 s ... over 1.1 s).
+        // The lights' flicker over 1.1 s, the left jet's (on, off at 0.3 s, on at 0.5 s ...) and the right's.
         var t = _constructTime % 1.1;
-        var lit = t < 0.3 || t is >= 0.5 and < 0.6 || t is >= 0.8 and < 0.9;
-        foreach (var (jet, torch, sparks, light) in _jets)
+        var leftLit = t < 0.3 || t is >= 0.5 and < 0.6 || t is >= 0.8 and < 0.9;
+        var rightLit = t < 0.1 || t is >= 0.2 and < 0.5 || t is >= 0.8 and < 0.9;
+        foreach (var (jet, torch, sparks, light, patch) in _jets)
         {
             if (_rigView.PartTransform(jet) is not { } at)
                 continue;
@@ -271,8 +280,14 @@ public partial class ActorView : Node3D
                 sparks.GlobalTransform = new Transform3D(new Basis(Vector3.Up, (float)GD.RandRange(0, Mathf.Tau)), from);
                 sparks.Visible = GD.Randf() < 0.8f;
             }
+            var lit = _remadeJets || jet == "l_jet" ? leftLit : rightLit;
             light.GlobalPosition = from;
             light.Visible = lit;
+            if (patch is not null && HeightField.Current is { } ground)
+            {
+                patch.GlobalPosition = new Vector3(from.X, ground.At(from.X, from.Z) + GroundLightHeight, from.Z);
+                patch.Visible = lit;
+            }
         }
     }
 
@@ -337,10 +352,15 @@ public partial class ActorView : Node3D
 
     private GpuParticles3D? _damageSmoke, _thickSmoke, _damageFire;
 
+    // The classic look's painted shadow, and whether it turns with the head.
+    private MeshInstance3D? _plate;
+    private bool _plateTurns;
+
     /// <summary>
     /// Smoke and fire as the damage mounts, at the original's thresholds: a machine smokes black from 65 % damage,
-    /// and from 90 % it smokes thickly and burns (MachPhysMachineDamage); a finished building shows
-    /// <see cref="BuildingDamage"/>. The smoke trails behind what moves.
+    /// and from 90 % it smokes thickly and burns (MachPhysMachineDamage), in the classic look as
+    /// <see cref="ShowClassicDamage"/>; a finished building shows <see cref="BuildingDamage"/>. The smoke trails behind
+    /// what moves.
     /// </summary>
     private void ShowDamage(Actor actor)
     {
@@ -350,6 +370,12 @@ public partial class ActorView : Node3D
         if (actor is Construction building)
         {
             ShowBuildingDamage(building, damage);
+            return;
+        }
+        BurnOn(damage, actor.HitPoints);
+        if (!GraphicsSettings.Effects)
+        {
+            ShowClassicDamage(damage);
             return;
         }
         var size = Mathf.Clamp(Size * 0.5f, 1.5f, 6);
@@ -396,7 +422,16 @@ public partial class ActorView : Node3D
     public const uint DrivenLayer = 2;
 
     /// <summary>Hides the model from the first-person camera (it still casts its shadow and shows elsewhere).</summary>
-    public void SetDriven(bool driven) => SetLayers(this, driven ? DrivenLayer : 1);
+    public void SetDriven(bool driven)
+    {
+        SetLayers(this, driven ? DrivenLayer : 1);
+        if (driven || _inHead)
+            Hum = driven ? "SID_INHEAD" : null;
+        _inHead = driven;
+    }
+
+    // Embodied, it idles to the sound of its cabin until it first moves (MachGuiFirstPerson::embodyActor).
+    private bool _inHead;
 
     private static void SetLayers(Node node, uint layers)
     {
@@ -415,7 +450,6 @@ public partial class ActorView : Node3D
         view.Size = Mathf.Max(size.X, size.Z);
         if (actor is Machine machine)
         {
-            view.Voice = SoundTable.VoiceOf(machine);
             view._engine = audio.EngineFor(machine);
             if (view._engine is not null)
                 view.AddChild(view._engine.Player);
@@ -491,6 +525,13 @@ public partial class ActorView : Node3D
         view.BuildMarker();
         view.AddChild(view._marker);
         view._model = (Node?)view._rigView ?? view.GetNodeOrNull("Body");
+        if (PlanetLook.PaintedShadows && assets.PaintedShadow(id, Game.Look(actor.ShownRace)) is { } plate)
+        {
+            view._plate = new MeshInstance3D { Mesh = plate, Name = "Shadow", MaterialOverride = PlanetLook.ShadowPlate, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            view.AddChild(view._plate);
+            // These towers' shadows turn with their heads (MachPhysMissileEmplacement).
+            view._plateTurns = actor is Construction { Stats.HardwareLevel: var level, Spec: { Type: "MISSILE_EMPLACEMENT", SubType: var kind } } && (kind == "TURRET" && level != 1 || kind == "SENTRY" && level == 3);
+        }
 
         // At night buildings light their surroundings and machines switch on headlights.
         if (GraphicsSettings.Lighting)
@@ -543,7 +584,7 @@ public partial class ActorView : Node3D
     }
 
     /// <summary>The bounding box of every mesh under <paramref name="node"/>, in the view's own space.</summary>
-    private static Aabb? MeshBounds(Node node, Transform3D toView)
+    public static Aabb? MeshBounds(Node node, Transform3D toView)
     {
         Aabb? bounds = null;
         foreach (var child in node.GetChildren())
@@ -792,7 +833,12 @@ public partial class ActorView : Node3D
         if (_engine is not null)
         {
             var moving = _target.DistanceSquaredTo(_lastTarget) > 0.0001f;
-            if (actor is Machine { Inside: not null, DrivenByPlayer: false } || _constructAt is not null)
+            if (_inHead && moving)
+            {
+                _inHead = false;
+                Hum = null;
+            }
+            if (actor is Machine { Inside: not null, DrivenByPlayer: false } || _constructAt is not null || _inHead)
                 _engine.Player.Stop();
             else
                 _engine.Update(moving);
@@ -817,17 +863,18 @@ public partial class ActorView : Node3D
         Visible = actor is not Machine { Inside: not null } || SeenInside;
     }
 
-    // A building under construction is drawn all in see-through glowing green whose opacity swings between
-    // nothing and a peak (MachPhysConstruction::doPercentageComplete, W4dSolidFadedAlphaPlan): ten bands of
-    // progress, each with its frame cycle and peak.
+    // A building under construction is drawn all in see-through glowing green whose opacity swings between a least
+    // and a peak, and from 40 % it shows itself for some frames of each cycle (MachPhysConstruction::doPercentageComplete,
+    // W4dSolidFadedAlphaPlan): ten bands of progress, each with its faded and solid frames, least and peak.
     private StandardMaterial3D? _hologram;
-    private (int Frames, float Peak) _band;
+    private (int Faded, int Solid, float Least, float Peak) _band;
     private double _hologramTime;
+    private bool _hologramShown;
 
-    private static (int Frames, float Peak) Band(float percent) => percent switch
+    private static (int Faded, int Solid, float Least, float Peak) Band(float percent) => percent switch
     {
-        < 10 => (40, 0.25f), < 20 => (40, 0.4f), < 30 => (40, 0.55f), < 40 => (40, 0.85f), < 50 => (40, 0.55f),
-        < 80 => (40, 1f), < 90 => (30, 1f), _ => (2, 1f),
+        < 10 => (40, 0, 0, 0.25f), < 20 => (40, 0, 0, 0.4f), < 30 => (40, 0, 0, 0.55f), < 40 => (40, 0, 0, 0.85f), < 50 => (40, 3, 0, 0.55f),
+        < 60 => (40, 5, 0.1f, 1), < 70 => (40, 10, 0.2f, 1), < 80 => (40, 20, 0.3f, 1), < 90 => (30, 30, 0.4f, 1), _ => (2, 2, 0.5f, 1),
     };
 
     private void Hologram(float? percent)
@@ -840,8 +887,7 @@ public partial class ActorView : Node3D
             if (_hologram is null)
                 return;
             _hologram = null;
-            foreach (var mesh in model.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>().Append(model as MeshInstance3D).OfType<MeshInstance3D>())
-                mesh.MaterialOverride = null;
+            ShowHologram(false);
             if (_rigView is not null)
                 _rigView.PadTint = Colors.White;
             return;
@@ -859,8 +905,15 @@ public partial class ActorView : Node3D
             EmissionEnergyMultiplier = 1.2f,
             CullMode = BaseMaterial3D.CullModeEnum.Disabled,
         };
-        foreach (var mesh in model.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>().Append(model as MeshInstance3D).OfType<MeshInstance3D>())
-            mesh.MaterialOverride = _hologram;
+        ShowHologram(true);
+    }
+
+    // Between the green and the building itself.
+    private void ShowHologram(bool shown)
+    {
+        _hologramShown = shown;
+        foreach (var mesh in Shape())
+            mesh.MaterialOverride = shown ? _hologram : null;
     }
 
     /// <summary>A pod wears its other top from when it has the ion cannon.</summary>
@@ -883,17 +936,23 @@ public partial class ActorView : Node3D
         UpdateJets(delta);
         UpdateTeleport(delta);
         UpdateScan(delta);
+        UpdateFlames(delta);
         if (_hologram is not null)
         {
-            // Frame by frame, as the original counted them at about 30 a second: the peak, down to nothing and back.
+            // Frame by frame, as the original counted them at about 30 a second: the peak, down to the least and back,
+            // then the solid frames.
             _hologramTime += delta;
-            var half = _band.Frames / 2f;
-            var frame = (int)(_hologramTime * 30) % _band.Frames;
-            _hologram.AlbedoColor = new Color(0, 1, 0, _band.Peak * Mathf.Abs(frame - half) / half);
+            var half = _band.Faded / 2f;
+            var frame = (int)(_hologramTime * 30) % (_band.Faded + _band.Solid);
+            if (frame < _band.Faded != _hologramShown)
+                ShowHologram(frame < _band.Faded);
+            _hologram.AlbedoColor = new Color(0, 1, 0, _band.Least + (_band.Peak - _band.Least) * Mathf.Abs(frame - half) / half);
             // The printed pads glow with it, green on the ground.
             if (_rigView is not null)
-                _rigView.PadTint = new Color(0.3f, 1, 0.3f, _hologram.AlbedoColor.A);
+                _rigView.PadTint = _hologramShown ? new Color(0.3f, 1, 0.3f, _hologram.AlbedoColor.A) : Colors.White;
         }
+        if (_plateTurns && _rigView is { } turning)
+            _plate!.Transform = turning.TurnedAboutHead();
         var t = 1 - Mathf.Exp(-12 * (float)delta);
         Position = Position.Lerp(_target, t);
         _yaw = Mathf.LerpAngle(_yaw, _targetYaw, t);

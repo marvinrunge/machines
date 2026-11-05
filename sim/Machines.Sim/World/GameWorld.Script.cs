@@ -22,8 +22,9 @@ public sealed partial class GameWorld
 
     private void UpdateScript() => Script?.Update(this);
 
-    internal void SendVoiceMail(Race race, string vid) =>
-        Raise(new GameEvent(GameEventKind.VoiceMail, 0, Vector2.Zero, (int)race, vid));
+    /// <param name="speaker">The machine that reports, whose death cuts it off (MachLogVoiceMailManager::postDeathMail); 0 for none.</param>
+    internal void SendVoiceMail(Race race, string vid, int speaker = 0) =>
+        Raise(new GameEvent(GameEventKind.VoiceMail, speaker, Vector2.Zero, (int)race, vid));
 
     internal void TaskChanged(int number, bool complete) =>
         Raise(new GameEvent(GameEventKind.TaskChanged, 0, Vector2.Zero, number, complete ? "COMPLETE" : "OPEN"));

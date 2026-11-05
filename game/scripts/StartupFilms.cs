@@ -8,26 +8,32 @@ namespace Machines.Game;
 /// 32,129 of the 640×480 screen), then the intro film (<c>flics/animatic.smk</c>) on black. A click or Escape skips
 /// the film playing. Played straight from the player's own copy of the game; without it there is nothing to show.
 /// The remake's own trailer follows when it lies beside the game (<c>films/trailer.ogv</c>, Ogg Theora).
+/// The main menu left alone brings the logos back, five seconds each, with the intro film after them (<see cref="Logos"/>).
 /// </summary>
 public partial class StartupFilms : Control
 {
     private static readonly Vector2 Screen = new(640, 480);
 
+    private const double LogoSeconds = 5;
+
     private static bool _played;
 
     private readonly string _gameFolder;
     private readonly Action _done;
+    private readonly bool _logos;
     private Control? _frame;
     private SmackerView? _playing;
     private TextureRect? _picture;
     private VideoStreamPlayer? _trailer;
+    private Action? _afterLogo;
+    private double _logoLeft;
     private bool _finished;
 
     private static string TrailerFile => System.IO.Path.Combine(Paths.Root, "films", "trailer.ogv");
 
-    private StartupFilms(string gameFolder, Action done)
+    private StartupFilms(string gameFolder, Action done, bool logos = false)
     {
-        (_gameFolder, _done) = (gameFolder, done);
+        (_gameFolder, _done, _logos) = (gameFolder, done, logos);
         MouseFilter = MouseFilterEnum.Stop;
     }
 
@@ -44,6 +50,10 @@ public partial class StartupFilms : Control
         return new StartupFilms(gameFolder, done);
     }
 
+    /// <summary>The logos and the intro film, for the main menu left alone; null when the game copy has no intro.</summary>
+    public static StartupFilms? Logos(string? gameFolder, Action done) =>
+        gameFolder is null || !File.Exists(System.IO.Path.Combine(gameFolder, "flics", "animatic.smk")) ? null : new StartupFilms(gameFolder, done, logos: true);
+
     public override void _Ready()
     {
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
@@ -51,11 +61,19 @@ public partial class StartupFilms : Control
         AddChild(black);
         black.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         Resized += Fit;
-        LoadingFilm();
+        if (_logos)
+        {
+            Input.MouseMode = Input.MouseModeEnum.Hidden;
+            Logo("acclaim.bmp", () => Logo("charlogo.bmp", IntroFilm));
+        }
+        else
+            LoadingFilm();
     }
 
     public override void _Process(double delta)
     {
+        if (_afterLogo is not null && (_logoLeft -= delta) <= 0)
+            EndLogo();
         if (_trailer is not null && _picture!.Texture != _trailer.GetVideoTexture())
             _picture.Texture = _trailer.GetVideoTexture();
     }
@@ -65,7 +83,9 @@ public partial class StartupFilms : Control
         if (@event is InputEventMouseButton { Pressed: true })
         {
             AcceptEvent();
-            if (_trailer is not null)
+            if (_afterLogo is not null)
+                EndLogo();
+            else if (_trailer is not null)
                 Finish();
             else
                 _playing?.Skip();
@@ -74,12 +94,46 @@ public partial class StartupFilms : Control
 
     public override void _Input(InputEvent @event)
     {
-        // The films skip themselves on Escape; the trailer is played here.
-        if (_trailer is not null && @event.IsActionPressed("ui_cancel"))
+        // The films skip themselves on Escape; the logos and the trailer are shown here.
+        if (_afterLogo is not null && @event.IsActionPressed("ui_cancel"))
+        {
+            GetViewport().SetInputAsHandled();
+            EndLogo();
+        }
+        else if (_trailer is not null && @event.IsActionPressed("ui_cancel"))
         {
             GetViewport().SetInputAsHandled();
             Finish();
         }
+    }
+
+    /// <summary>A logo of <c>gui/menu</c> on the whole screen, over the menu tune; without the picture what follows comes at once.</summary>
+    private void Logo(string name, Action next)
+    {
+        _frame?.QueueFree();
+        _frame = null;
+        if (Campaign.Media(_gameFolder, $"gui/menu/{name}") is not { } file || ClassicAssets.DecodeBmp(File.ReadAllBytes(file)) is not { } image)
+        {
+            next();
+            return;
+        }
+        _frame = new Control { Size = Screen, MouseFilter = MouseFilterEnum.Ignore };
+        AddChild(_frame);
+        _frame.AddChild(new TextureRect
+        {
+            Texture = ImageTexture.CreateFromImage(image),
+            Size = Screen,
+            MouseFilter = MouseFilterEnum.Ignore,
+        });
+        Fit();
+        (_afterLogo, _logoLeft) = (next, LogoSeconds);
+    }
+
+    private void EndLogo()
+    {
+        var next = _afterLogo!;
+        _afterLogo = null;
+        next();
     }
 
     /// <summary>The loading picture, with the film after loading played on it.</summary>
@@ -113,11 +167,13 @@ public partial class StartupFilms : Control
     {
         _frame?.QueueFree();
         _frame = null;
-        var view = Play(new SmackerView(System.IO.Path.Combine(_gameFolder, "flics", "animatic.smk")), Trailer);
+        var view = Play(new SmackerView(System.IO.Path.Combine(_gameFolder, "flics", "animatic.smk")), _logos ? Finish : Trailer);
         AddChild(view);
         view.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         // The film has its own sound: the menus start with the menu tune, not the intro's.
         Music.IntroFilmPlayed();
+        if (_logos)
+            Music.Silence();
     }
 
     /// <summary>The remake's trailer, as wide as the window allows, when it is there.</summary>
@@ -153,6 +209,8 @@ public partial class StartupFilms : Control
             return;
         _finished = true;
         _trailer = null;
+        if (_logos)
+            Input.MouseMode = Input.MouseModeEnum.Visible;
         QueueFree();
         _done();
     }

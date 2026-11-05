@@ -75,7 +75,7 @@ public sealed record Satellite(
     string? DirectionalColourTable,
     string? AmbientColourTable);
 
-public sealed record Fog(float MaxVisibility, string ColourTable, string? Controller);
+public sealed record Fog(float MaxVisibility, string ColourTable, string? Controller, float ZenithMultiplier = 1);
 
 /// <summary>
 /// A block the importer keeps as written: <c>dynamic sky</c>, <c>uniform sky</c>, <c>stars</c>,

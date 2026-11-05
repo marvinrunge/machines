@@ -95,6 +95,16 @@ public sealed partial class GameWorld
     /// <summary>What can be shot at by its id: a race's actor or an artefact.</summary>
     public Actor? FindTarget(int id) => _actors.GetValueOrDefault(id) ?? _artefacts.GetValueOrDefault(id);
 
+    /// <summary>
+    /// What the race's beacons give it: 0 for none, 1 shows the uncovered map, 3 lifts the fog. A scenario's
+    /// VIRTUAL_BEACON counts as one that stands (MachLogRaces::beaconType).
+    /// </summary>
+    public int BeaconLevel(Race race) => Constructions
+        .Where(c => c.Race == race && c.Complete && c.IsType("BEACON"))
+        .Select(c => c.Stats.HardwareLevel)
+        .Append(Races.TryGetValue(race, out var state) ? state.VirtualBeacon : 0)
+        .Max();
+
     /// <summary>Whether a race may shoot at the target: an enemy, or an artefact while artefacts can be destroyed.</summary>
     public bool CanAttack(Race race, Actor target) =>
         target is Artefact ? Options.DestructibleArtefacts : AreEnemies(race, target.Race);
@@ -126,6 +136,7 @@ public sealed partial class GameWorld
                 foreach (var ai in AiControllers)
                     ai.Think(this);
             });
+            ReportNewConstructions();
         }
 
         Timed("machines", () =>
@@ -145,6 +156,7 @@ public sealed partial class GameWorld
         Timed("transport", UpdateTransport);
         Timed("combat", UpdateCombat);
         Timed("evasion", UpdateEvasion);
+        Timed("reactions", UpdateReactions);
         Timed("squadrons", UpdateSquadAttacks);
         Timed("mines", UpdateLandMines);
         Timed("spies", UpdateSpies);
@@ -177,6 +189,8 @@ public sealed partial class GameWorld
     {
         var spec = Data.Parm.Machine(subType is null ? type : $"{type} {subType}");
         var machine = new Machine(_nextId++, race, position, spec, spec.Level(level), weaponCombo);
+        // Not all at the same moment.
+        machine.Alert.NextLook = Time + machine.Id % 10 * Dt;
         // The AI's machines take the initiative, players' wait for a reason (MachLogScenario: DEFCON_LOW, DEFCON_NORMAL).
         if (Races.TryGetValue(race, out var owner) && owner.Controller == Controller.Ai)
             machine.DefCon = DefCon.Low;
@@ -304,6 +318,14 @@ public sealed partial class GameWorld
         return added;
     }
 
+    /// <summary>How many machines and buildings a race may have, and how many more in a campaign (MachPhysGeneralData).</summary>
+    public const int MaxUnitsPerRace = 400, CampaignExtraUnitsPerRace = 40;
+
+    /// <summary>MachLogRaces::maxUnitsExist: at the limit a factory holds its finished machine and no building can be placed.</summary>
+    public bool MaxUnitsExist(Race race) =>
+        Machines.Count(m => m.Race == race) + Constructions.Count(c => c.Race == race)
+            >= MaxUnitsPerRace + (Options.Campaign is not null ? CampaignExtraUnitsPerRace : 0);
+
     /// <summary>Takes up to the given BMUs from the bank; returns how many were taken.</summary>
     public float SpendBmu(Race race, float amount)
     {
@@ -329,12 +351,14 @@ public sealed partial class GameWorld
         {
             if (Options.OriginalBank && actor is Construction store)
                 LoseStores(store);
+            if (actor.SelfDestructAt is not null)
+                LastShot(actor);
             _actors.Remove(actor.Id);
             // MachLogConstruction::dealWithHitVoiceMail: told only of what an enemy took.
             if (actor is Construction lost && lost.LastHitBy is { } taker && taker != lost.Race
                 && SoundTable.BuildingLostReport(lost.Spec.Type, lost.Spec.SubType, lost.Stats.HardwareLevel) is { } report)
                 SendVoiceMail(lost.Race, report);
-            Raise(new GameEvent(GameEventKind.Destroyed, actor.Id, actor.Position, Detail: actor.Vaporised ? "ION_ORBITAL_CANNON" : actor.SelfDestructed ? "SELF_DESTRUCT" : null));
+            Raise(new GameEvent(GameEventKind.Destroyed, actor.Id, actor.Position, Detail: actor.Vaporised ? "ION_ORBITAL_CANNON" : actor.Swallowed ? "VORTEX" : actor.SelfDestructed ? "SELF_DESTRUCT" : null));
             DropDebris(actor);
             if (actor.LastHitBy is { } killer && killer != actor.Race && Races.TryGetValue(killer, out var gaining)
                 && Races.TryGetValue(actor.Race, out var losing))
@@ -404,8 +428,8 @@ public sealed partial class GameWorld
         if (Winner is not null)
             return;
 
-        // A campaign mission is decided by its script alone; a loss counts before a win (MachInGameScreen::updateGameState).
-        if (Options.Victory == VictoryCondition.Scripted)
+        // A match run by its script is decided by it alone; a loss counts before a win (MachInGameScreen::updateGameState).
+        if (Options.Victory is VictoryCondition.Scripted or VictoryCondition.Default)
         {
             foreach (var state in Races.Values.Where(r => !r.Defeated && Script?.Lost.Contains(r.Race) == true).ToList())
                 Defeat(state);
