@@ -13,7 +13,9 @@ This release goes through the original's source line by line and closes what sti
 - **Two new options:** **Classic Mouse** (the left button does everything, the right one deselects and moves the camera) and **Classic Keys** (a letter for every command, the camera on the arrows). Both are off at first, so the controls stay as they were.
 - **Controls for both:** cursors that show what a click will do, Alt commands, Follow, Shift for series of orders, camera places on F5 to F8, orders for missile emplacements, and a map that shows who is under attack.
 - **Skirmish and multiplayer:** a debriefing with Restart after every match, the Default victory, the fog of war setting, Broadcast Alliances and Disable First Person. Hosts can change a room's settings and take players out.
-- **Pictures and sound:** missiles explode in the Classic look and the vortex pulls its victims into a column. First person has its black bars, static and night vision (N). Artefacts hum, burn and blow up. Back are the skyline on the day and night planets, the Classic look's painted shadows and the menu films. Buildings hum and work audibly, and the nuclear silo opens and closes.
+- **Into buildings:** machines drive in through the door again, in first person or sent into a lab, smelter, pod or garrison, and you see the interior from inside. Technicians work in the labs, the screens run and the neon pulses.
+- **The ion cannon and the nuke:** the beam, its wave of fire and its flicker are the original's, its victims go up in a white glow, and the silo's dome opens for the missile, which leaves along the barrel.
+- **Pictures and sound:** missiles explode in the Classic look and the vortex pulls its victims into a column. First person has its black bars, static and night vision (N). Artefacts hum, burn and blow up. Back are the skyline on the day and night planets, the Classic look's painted shadows and the menu films. Buildings hum and work audibly, damaged ones smoke and burn, and new reports and voice mails are in.
 
 **Earlier saves and replays** play differently under the new rules, and everyone online needs 0.5.0.
 
