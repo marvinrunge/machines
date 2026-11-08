@@ -6,7 +6,10 @@ campaign, and skirmish against the original AI on all 32 skirmish and multiplaye
 friends.
 
 START
-  Unzip anywhere and run Machines.exe. Windows 10 or 11, 64-bit.
+  Run Machines-Remake-{{VERSION}}-setup.exe, or unzip the zip anywhere and run Machines.exe. Windows 10
+  or 11, 64-bit. The setup installs for you alone into your own programs folder, needs no administrator
+  rights, and puts the game in the start menu; uninstall it in Windows' list of apps. Windows may warn
+  about an unknown publisher: "More info", then "Run anyway".
   The first start asks three things, each of which can be left for later and changed in the options:
   your game copy to import from, the look (Classic or Overhauled) and the folder with the soundtrack.
   The language (English or Deutsch) is chosen there and in the options too.
@@ -15,8 +18,10 @@ ORIGINAL MODELS, SOUNDS AND FILMS
   This build contains no art, sound, terrain or films from the original game; those belong to Night
   Dive Studios. Without them, units are coloured shapes and the ground is simple stand-in terrain.
 
-  If you own Machines: Wired for War (for example from GOG or Steam), pick the folder the game is
-  installed in (the one with models.bin) at the first start, or press "Import" in the options. The
+  If you own Machines: Wired for War (for example from GOG or Steam), the first start looks for it in
+  Steam's libraries, GOG's games and the usual folders and offers the copy it finds: press "Import".
+  Otherwise pick the folder the game is installed in (the one with models.bin), at the first start or
+  with "Import" in the options. The
   import takes a few minutes; it reads the models and terrain from your copy with the original engine
   code, sharpens the textures on your graphics card and stores them in the "classic" folder next to
   Machines.exe. Sounds, texts and the campaign's films come straight from your copy.

@@ -1,6 +1,11 @@
 A **test build** of the Machines: Wired for War remake, for Windows 10/11 (64-bit).
 
-**Download** the `windows.zip` below, unzip it anywhere and run `Machines.exe`. `README.txt` in the zip lists the controls.
+**Download** the `setup.exe` below and run it, or the `windows.zip`, unzip it anywhere and run `Machines.exe`. `README.txt` lists the controls.
+
+**New in 0.6.1: the installer**
+- **`Machines-Remake-0.6.1-setup.exe`** installs the game for you alone, without administrator rights, into your own programs folder, with a start menu entry and an uninstaller. An update keeps your import, saves and replays; the uninstaller asks before it removes the import. Windows may warn about an unknown publisher: **More info**, then **Run anyway**.
+- **The first start finds your copy** of Machines: Wired for War in Steam's libraries, GOG's games and the usual folders, and imports it with one button. Without one found, pick its folder as before.
+- The game itself plays as in 0.6.0, and 0.6.0 and 0.6.1 play together online.
 
 **New in 0.6.0: Wired**
 **Wired** on the main menu is a survival mode for one player, the remake's own addition: the original has nothing like it. Matches, skirmish and the campaign play as in 0.5.0.
@@ -11,10 +16,10 @@ A **test build** of the Machines: Wired for War remake, for Windows 10/11 (64-bi
 - **The end of a run** shows the score, the waves, the kills, the hero as it stood and the records of that arena and difficulty, with Again, Hangar and Menu. What a run opens is a choice, never a stronger hero: more chassis to start from (Reaper and Overseer from wave 10, the Gorilla at 30), chips, two more arenas and Hardcore.
 - **Mouse button per weapon** in the options (off at first) gives every other match the same triggers in first person.
 
-**Everyone online needs 0.6.0.**
+**Everyone online needs 0.6.0 or 0.6.1.**
 
 **Original models, sounds and films**
-This build contains no art, sound, terrain or films from the original game; those belong to Night Dive Studios. If you own the game (GOG or Steam), the first start (or **Import** in the options) reads them from your copy and keeps them next to the game. Without them, units are simple shapes.
+This build contains no art, sound, terrain or films from the original game; those belong to Night Dive Studios. If you own the game (GOG or Steam), the first start finds your copy (or **Import** in the options reads it from a folder you pick) and keeps them next to the game. Without them, units are simple shapes.
 
 **Imported with an earlier version?** If the options say so, press **Import again** once.
 

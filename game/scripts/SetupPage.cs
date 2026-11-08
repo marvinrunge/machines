@@ -89,14 +89,24 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
         return chip;
     }
 
+    /// <summary>
+    /// The import, from the copy <see cref="GameLocator"/> found on this computer with one button, or from a folder
+    /// the player picks (where none was found, or another).
+    /// </summary>
     private void ImportStep(VBoxContainer page)
     {
+        var found = GameLocator.Find().FirstOrDefault();
         page.AddChild(Top("Welcome"));
         page.AddChild(Words(
             "Machines Remake rebuilds Machines: Wired for War (1999). It brings nothing of the original along: its models, " +
             "planets, sounds and films come from your own copy of the game (GOG or Steam).",
-            "Pick the folder Machines is installed in, the one that holds models.bin. The import takes a few minutes and " +
-            "makes the remake's sharper textures on your graphics card as it goes."));
+            found is null
+                ? "Pick the folder Machines is installed in, the one that holds models.bin. The import takes a few minutes and " +
+                  "makes the remake's sharper textures on your graphics card as it goes."
+                : "Your copy was found on this computer. The import takes a few minutes and makes the remake's sharper " +
+                  "textures on your graphics card as it goes."));
+        if (found is not null)
+            page.AddChild(MenuTheme.Label(found, 24, MenuTheme.Bright));
         var status = MenuTheme.Paragraph("Without the import the machines show as simple shapes; the options can import later.", 22, MenuTheme.Text);
         page.AddChild(status);
         page.AddChild(Spring(across: false));
@@ -109,16 +119,24 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
             UseNativeDialog = true,
         };
         AddChild(dialog);
-        var import = Button("Import", () => dialog.PopupCentered(new Vector2I(900, 600)));
-        var later = Button("Later", () => screens.ShowSetup(Step.Look));
-        dialog.DirSelected += folder => OptionsPage.RunImport(this, folder, status, busy =>
+        var buttons = new List<ChipButton>();
+        void Import(string folder) => OptionsPage.RunImport(this, folder, status, busy =>
         {
-            import.Disabled = later.Disabled = _importing = busy;
+            foreach (var button in buttons)
+                button.Disabled = busy;
+            _importing = busy;
             status.AddThemeColorOverride("font_color", busy ? MenuTheme.Text : MenuTheme.Bright);
         });
-        import.CustomMinimumSize = later.CustomMinimumSize = new Vector2(400, 76);
-        page.AddChild(Line(Gap, import, later));
-        Focus(import);
+        dialog.DirSelected += Import;
+        var pick = Button(found is null ? "Import" : "Other folder", () => dialog.PopupCentered(new Vector2I(900, 600)));
+        if (found is not null)
+            buttons.Add(Button("Import", () => Import(found)));
+        buttons.Add(pick);
+        buttons.Add(Button("Later", () => screens.ShowSetup(Step.Look)));
+        foreach (var button in buttons)
+            button.CustomMinimumSize = new Vector2(found is null ? 400 : 320, 76);
+        page.AddChild(Line(Gap, [.. buttons]));
+        Focus(buttons[0]);
     }
 
     private void LookStep(VBoxContainer page)

@@ -225,6 +225,12 @@ msgstr "Machines Remake baut Machines: Wired for War (1999) neu. Es bringt nicht
 msgid "Pick the folder Machines is installed in, the one that holds models.bin. The import takes a few minutes and makes the remake's sharper textures on your graphics card as it goes."
 msgstr "Wähle den Ordner, in dem Machines installiert ist, also den mit models.bin. Der Import dauert ein paar Minuten und erzeugt dabei auf deiner Grafikkarte die schärferen Texturen des Remakes."
 
+msgid "Your copy was found on this computer. The import takes a few minutes and makes the remake's sharper textures on your graphics card as it goes."
+msgstr "Deine Kopie wurde auf diesem Computer gefunden. Der Import dauert ein paar Minuten und erzeugt dabei auf deiner Grafikkarte die schärferen Texturen des Remakes."
+
+msgid "Other folder"
+msgstr "Anderer Ordner"
+
 msgid "Without the import the machines show as simple shapes; the options can import later."
 msgstr "Ohne Import erscheinen die Maschinen als einfache Formen; in den Optionen kannst du später importieren."
 

@@ -249,6 +249,9 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
             Title = "Pick the folder Machines is installed in (it holds models.bin)",
             UseNativeDialog = true,
         };
+        // The picker opens at the copy found on this computer, if there is one.
+        if (ClassicImport.Available && GameLocator.Find().FirstOrDefault() is { } found)
+            dialog.CurrentDir = found;
         AddChild(dialog);
         var button = Button(ClassicImport.Imported ? "Import again" : "Import", () => dialog.PopupCentered(new Vector2I(900, 600)), 64, 22);
         button.CustomMinimumSize = new Vector2(240, 64);

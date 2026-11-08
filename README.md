@@ -229,8 +229,9 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   at unknown ground darkens the view with static down to black, where nothing can be picked and the world
   is silent. A level 1 beacon's map shows only what you have uncovered; a level 3 beacon lifts the fog.
   It is your view only: the AI never had it, in the original either.
-- **First start:** the game asks its few questions before the main menu: the folder of your game copy to
-  import from, the look (Classic or Overhauled, the default, each shown on the same machines turning side by
+- **First start:** the game asks its few questions before the main menu: the game copy to import from
+  (`GameLocator` finds it in Steam's libraries, GOG's games, Windows' list of programs and the usual folders,
+  and offers it with one button; otherwise the player picks its folder), the look (Classic or Overhauled, the default, each shown on the same machines turning side by
   side) and the soundtrack's folder. Each can be left for later; the options change every answer.
 - **Keys:** **Change keys** in the options moves the camera's and first person's moves and the commands
   (initiative, assembly point, pause, menus, the views ...) to keys of the player's choice; a key already in
@@ -385,7 +386,13 @@ The zip holds the game, `data/original` and the exporter with its DLLs, but noth
 Players who own it press **Import from your game copy…** in the menu; the import writes `classic/` next
 to `Machines.exe`, as `tools/classic-export/run.sh` does in the repository.
 
-A local build needs the Godot 4.7.2 .NET export templates:
+Beside the zip comes `Machines-Remake-<version>-setup.exe`, an Inno Setup installer of the same folder
+(`tools/release/setup.iss`). It installs per user without administrator rights into
+`%LOCALAPPDATA%\Programs\Machines Remake`, since the game writes its import, saves and replays next to
+`Machines.exe`, adds the start menu entry and an uninstaller that asks before it removes the import.
+
+A local build needs the Godot 4.7.2 .NET export templates, and for the installer Inno Setup 6
+(`winget install JRSoftware.InnoSetup`; without it the build makes the zip alone):
 
 ```bash
 tools/release/build-windows.sh <Godot console exe> 0.1.0 <folder made by tools/classic-export/package.sh>

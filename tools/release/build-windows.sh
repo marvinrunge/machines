@@ -50,3 +50,16 @@ sed "s/{{VERSION}}/$VERSION/g" "$REPO/tools/release/README.txt" > "$OUT/README.t
 # Windows' own tar (bsdtar) writes standard zips; PowerShell 5's Compress-Archive writes backslash paths.
 (cd "$REPO/build" && /c/Windows/System32/tar.exe -a -c -f "$NAME.zip" "$(basename "$OUT")")
 echo "built $REPO/build/$NAME.zip"
+
+# The installer around the same folder (tools/release/setup.iss), where Inno Setup 6 is installed (ISCC names it).
+ISCC="${ISCC:-}"
+for candidate in "$LOCALAPPDATA/Programs/Inno Setup 6/ISCC.exe" "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" "/c/Program Files/Inno Setup 6/ISCC.exe"; do
+    [ -z "$ISCC" ] && [ -f "$candidate" ] && ISCC="$candidate"
+done
+if [ -n "$ISCC" ]; then
+    rm -f "$REPO/build/Machines-Remake-$VERSION-setup.exe"
+    "$ISCC" -Q "-DVersion=$VERSION" "-DSource=$(cygpath -w "$OUT")" "-O$(cygpath -w "$REPO/build")" "$(cygpath -w "$REPO/tools/release/setup.iss")"
+    echo "built $REPO/build/Machines-Remake-$VERSION-setup.exe"
+else
+    echo "Inno Setup 6 is missing (winget install JRSoftware.InnoSetup): no installer"
+fi

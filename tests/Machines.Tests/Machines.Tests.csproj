@@ -37,6 +37,7 @@
     <Compile Include="..\..\game\scripts\HangarGlyphs.cs" Link="Sim\HangarGlyphs.cs" />
     <Compile Include="..\..\game\scripts\WiredReadout.cs" Link="Sim\WiredReadout.cs" />
     <Compile Include="..\..\game\scripts\WeaponTriggers.cs" Link="Sim\WeaponTriggers.cs" />
+    <Compile Include="..\..\game\scripts\GameLocator.cs" Link="Import\GameLocator.cs" />
   </ItemGroup>
 
 </Project>
