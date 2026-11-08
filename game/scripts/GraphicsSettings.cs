@@ -13,8 +13,8 @@ public enum Look
     /// </summary>
     Overhauled,
     /// <summary>
-    /// The remade models (the Meshy remakes in the original rigs) and the painted ground, with the rest of the remake;
-    /// whatever has no remade model yet (buildings) shows overhauled.
+    /// The remade models (rebuilt in Blender or the Meshy remakes, in the original rigs) and the painted ground, with
+    /// the rest of the remake; whatever has no remade model yet (buildings) shows overhauled.
     /// </summary>
     Hd,
     /// <summary>The parts chosen one by one, as no look has them.</summary>
@@ -39,7 +39,7 @@ public enum ModelLook
     Original,
     /// <summary>The original's models with rounded edges, baked occlusion, HD textures, bare metal and a little sheen.</summary>
     Overhauled,
-    /// <summary>The Meshy remakes in the original rigs, overhauled where there is none.</summary>
+    /// <summary>The machines rebuilt in Blender or the Meshy remakes, in the original rigs; overhauled where there is none.</summary>
     Hd,
 }
 

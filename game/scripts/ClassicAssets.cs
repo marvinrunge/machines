@@ -209,8 +209,12 @@ public sealed class ClassicAssets
         var colour = race.ToString().ToLowerInvariant();
         if (FindModel(Path.Combine(_modelFolder, colour), id) is not { } path)
             return null;
-        // The HD look shows the Meshy remakes fitted into the original rigs (tools/blender/meshy_rig.py) where they
-        // have been made.
+        // The HD look shows the machines rebuilt in Blender from the overhauled parts where they have been built
+        // (renders/hd-plan/probe/tools/export_game.py writes classic/built; tools/blender/HD-MODELS.md keeps the list),
+        // otherwise the Meshy remakes fitted into the original rigs (tools/blender/meshy_rig.py) where they have been made.
+        var built = Path.Combine(_modelFolder, "..", "built", "models", colour, Path.GetFileName(path));
+        if (MeshySet && File.Exists(built))
+            return built;
         var meshy = Path.Combine(_modelFolder, "..", "meshy", "models", colour, Path.GetFileName(path));
         if (MeshySet && File.Exists(meshy))
             return meshy;

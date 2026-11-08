@@ -107,6 +107,7 @@ runs steps 1 to 6 (and the check in 7) in an empty Blender file, and it is run a
 - `tools/blender/`: the scripts (run through the Blender MCP or `blender -b -P`).
 - `art/<machine>/` (Git LFS): the source `.blend`, the raw Meshy download, and full-size textures.
 - The exported `.glb` files sit with the game's assets.
+- `HD-MODELS.md`: which HD models are rebuilt in Blender and which are left.
 
 ## New Meshy models
 

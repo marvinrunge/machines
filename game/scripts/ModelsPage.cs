@@ -410,13 +410,14 @@ public partial class ModelsPage(Action back) : MenuPage(back)
     {
         _title.Text = Lang.T("{0}, level {1}", KindName(entry.Kind), entry.Level);
         var file = assets.ModelFile(entry.Id, race)?.Replace('\\', '/') ?? "";
-        var made = Lang.T(file.Contains("/meshy/") ? "the Meshy remake"
+        var made = Lang.T(file.Contains("/built/") ? "the Blender remake"
+            : file.Contains("/meshy/") ? "the Meshy remake"
             : file.Contains("/remake/") ? "the original, upgraded"
             : "the original");
         var look = (ModelLook)_look.Selected;
         var shows = look switch
         {
-            ModelLook.Hd when !file.Contains("/meshy/") => Lang.T("HD: no remake yet, shows {0}", made),
+            ModelLook.Hd when !file.Contains("/meshy/") && !file.Contains("/built/") => Lang.T("HD: no remake yet, shows {0}", made),
             ModelLook.Overhauled when !file.Contains("/remake/") => Lang.T("Overhauled: not upgraded, shows {0}", made),
             _ => $"{Lang.T(Looks[(int)look])}: {made}",
         };

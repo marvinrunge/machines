@@ -26,7 +26,7 @@ public class HeroRigTests
     {
         ["Classic"] = ["models"],
         ["Overhauled"] = [Path.Combine("remake", "models"), "models"],
-        ["Hd"] = [Path.Combine("meshy", "models"), Path.Combine("remake", "models"), "models"],
+        ["Hd"] = [Path.Combine("built", "models"), Path.Combine("meshy", "models"), Path.Combine("remake", "models"), "models"],
     };
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string, string), RigShape[]> Shapes = new();

@@ -1181,6 +1181,9 @@ msgstr "Höchstgeschwindigkeit {0:0.#} m/s, dreht {1:0} °/s"
 msgid "the Meshy remake"
 msgstr "das Meshy-Remake"
 
+msgid "the Blender remake"
+msgstr "das Blender-Remake"
+
 msgid "the original, upgraded"
 msgstr "das Original, aufgewertet"
 

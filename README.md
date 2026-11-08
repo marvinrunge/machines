@@ -147,8 +147,8 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   It plays what the game plays: driving forwards or backwards and turning on the spot over a grid that moves
   under the machine at its top speed, so legs, wheels and tracks can be seen keeping pace; the upper body or a
   tower's head turning; a constructor building, a building working and its doors; the weapons' recoil in
-  bursts; and the one-off actions such as the Gorilla's punches. It says which model the look shows (the Meshy
-  remake, the upgraded original or the original) and its triangles.
+  bursts; and the one-off actions such as the Gorilla's punches. It says which model the look shows (the Blender
+  remake, the Meshy remake, the upgraded original or the original) and its triangles.
 - **Maps of the remake looks:** the continent map, the skirmish page's preview and the loading screen show
   the planet as the chosen look draws it, taken from straight above without the machines, buildings, weather or
   the sun's shadow the first time a scenario is played (under the loading screen). Each mix of ground, trees and
