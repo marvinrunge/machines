@@ -9,7 +9,7 @@ namespace Machines.Game;
 /// </summary>
 public partial class MachineScreen : TextureRect
 {
-    private const float Fov = 26;
+    protected const float Fov = 26;
 
     // The camera looks from the front, turned towards the machine's left.
     private static readonly float Azimuth = 0.5f;
@@ -22,7 +22,22 @@ public partial class MachineScreen : TextureRect
     protected Node3D? Turntable { get; private set; }
 
     /// <summary>The radius of the model's bounding sphere, metres.</summary>
-    protected float Radius { get; private set; } = 1;
+    protected float Radius { get; set; } = 1;
+
+    /// <summary>The point the camera looks at.</summary>
+    protected Vector3 Target
+    {
+        get => _target;
+        set => _target = value;
+    }
+
+    /// <summary>How far off the camera stands at a zoom of 1, for a screen that works that out itself; otherwise it goes by <see cref="Radius"/>.</summary>
+    protected float? Distance { get; set; }
+
+    /// <summary>The small world the model stands in.</summary>
+    protected SubViewport Scene => _viewport;
+
+    protected Camera3D Camera => _camera;
 
     /// <summary>How far the turntable has turned, radians.</summary>
     public float Yaw { get; set; }
@@ -119,6 +134,19 @@ public partial class MachineScreen : TextureRect
         var turntable = new Node3D();
         turntable.AddChild(view);
         _viewport.AddChild(turntable);
+        var box = Extent(view);
+        var centre = box.GetCenter();
+        view.Position = new Vector3(-centre.X, -box.Position.Y, -centre.Z);
+        Radius = Math.Max(box.Size.Length() / 2, 0.5f);
+        _target = new Vector3(0, box.Size.Y * 0.45f, 0);
+        Turntable = turntable;
+        Turntable.Rotation = new Vector3(0, Yaw, 0);
+        Aim();
+    }
+
+    /// <summary>The box the model takes up, as far as the turntable and the camera go by it.</summary>
+    protected virtual Aabb Extent(Node3D view)
+    {
         var box = new Aabb();
         var first = true;
         foreach (var mesh in view.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>())
@@ -127,13 +155,7 @@ public partial class MachineScreen : TextureRect
             box = first ? part : box.Merge(part);
             first = false;
         }
-        var centre = box.GetCenter();
-        view.Position = new Vector3(-centre.X, -box.Position.Y, -centre.Z);
-        Radius = Math.Max(box.Size.Length() / 2, 0.5f);
-        _target = new Vector3(0, box.Size.Y * 0.45f, 0);
-        Turntable = turntable;
-        Turntable.Rotation = new Vector3(0, Yaw, 0);
-        Aim();
+        return box;
     }
 
     /// <summary>Backs the camera off far enough for the model's whole sphere, across the screen's narrower side.</summary>
@@ -144,7 +166,7 @@ public partial class MachineScreen : TextureRect
         var half = Mathf.DegToRad(Fov / 2);
         var narrow = Math.Min(half, Mathf.Atan(Mathf.Tan(half) * aspect));
         var direction = new Vector3(Mathf.Cos(Elevation) * Mathf.Cos(Azimuth), Mathf.Sin(Elevation), Mathf.Cos(Elevation) * Mathf.Sin(Azimuth));
-        _camera.Position = _target + direction * (Radius / Mathf.Sin(narrow) * 0.95f / Zoom);
+        _camera.Position = _target + direction * ((Distance ?? Radius / Mathf.Sin(narrow) * 0.95f) / Zoom);
         _camera.LookAt(_target, Vector3.Up);
     }
 

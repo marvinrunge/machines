@@ -1,5 +1,6 @@
 using System.Numerics;
 using Machines.Import.Model;
+using Machines.Sim.Survival;
 
 namespace Machines.Sim.World;
 
@@ -119,10 +120,12 @@ public sealed record ScavengeCommand(Race Race, IReadOnlyList<int> Scavengers, I
 /// input (−1 to 1, positive to the left; only machines on legs, hover or glider move sideways, the remake's
 /// addition), whether it turns at the slow rate (Ctrl) and how high the point aimed at lies: where the line of sight
 /// through the crosshair meets a model, the ground or its end, as the original fired (MachPhys1stPersonDriver::aimData);
-/// null aims at the middle of whatever stands at the point, as before. <paramref name="Driving"/> false hands it back.
+/// null aims at the middle of whatever stands at the point, as before. <paramref name="Buttons"/> says the bits of
+/// <paramref name="Weapons"/> are triggers held, a button for each weapon, and not a selection: the others go on
+/// reloading (the remake's addition). <paramref name="Driving"/> false hands it back.
 /// </summary>
 public sealed record DriveCommand(Race Race, int Machine, bool Driving, float Forward = 0, float Turn = 0, Vector2? Aim = null, int Weapons = -1,
-    float Head = 0, float Strafe = 0, bool Slow = false, float? AimHeight = null) : Command(Race);
+    float Head = 0, float Strafe = 0, bool Slow = false, float? AimHeight = null, bool Buttons = false) : Command(Race);
 
 /// <summary>Why a command was refused, for the client to show.</summary>
 public sealed record CommandRejected(Command Command, string Reason);
@@ -142,3 +145,57 @@ public sealed record CancelResearchCommand(Race Race, int Lab, int Index) : Comm
 /// changes: the other's towards it stays as it was (MachLogRaces::dispositionToRace).
 /// </summary>
 public sealed record AllianceCommand(Race Race, Race Target, bool Ally) : Command(Race);
+
+/// <summary>
+/// What a player does with the hero of a Wired run, the remake's own survival mode: all of it goes through lockstep like
+/// any other order. Except where it says otherwise, only with the hangar open, that is at the pod between waves.
+/// </summary>
+public abstract record WiredCommand(Race Race) : Command(Race);
+
+/// <summary>Opens the hangar, which stops the countdown to the next wave, or closes it. The hero must be at the pod between waves.</summary>
+public sealed record WiredHangarCommand(Race Race, bool Open) : WiredCommand(Race);
+
+/// <summary>
+/// Buys a chassis of the tree or one of the shop's offers, by its catalogue id, into the inventory, or with a
+/// <paramref name="Slot"/> straight onto the hero: all at once or not at all, so that nothing bought is left lying when the hangar closes.
+/// </summary>
+public sealed record WiredBuyCommand(Race Race, string Item, WiredSlot? Slot = null) : WiredCommand(Race);
+
+/// <summary>Sells an item out of the inventory for half of what went into it.</summary>
+public sealed record WiredSellCommand(Race Race, int Item) : WiredCommand(Race);
+
+/// <summary>Puts an owned weapon, module or ability into a slot; what sat there goes back into the inventory.</summary>
+public sealed record WiredEquipCommand(Race Race, int Item, WiredSlot Slot) : WiredCommand(Race);
+
+/// <summary>Takes a worn item off, back into the inventory.</summary>
+public sealed record WiredUnequipCommand(Race Race, int Item) : WiredCommand(Race);
+
+/// <summary>Changes to an owned chassis. Weapons and modules stay on where they still fit; the rest and the old chassis go into the inventory.</summary>
+public sealed record WiredChassisCommand(Race Race, int Item) : WiredCommand(Race);
+
+/// <summary>Raises a weapon or module by one Mk, worn or not.</summary>
+public sealed record WiredUpgradeCommand(Race Race, int Item) : WiredCommand(Race);
+
+/// <summary>Pays for a new shop offer, once per intermission.</summary>
+public sealed record WiredRerollCommand(Race Race) : WiredCommand(Race);
+
+/// <summary>Mends the pod for up to <paramref name="Bmu"/> BMUs; 0 for as much as it needs and the bank allows.</summary>
+public sealed record WiredPodRepairCommand(Race Race, int Bmu = 0) : WiredCommand(Race);
+
+/// <summary>Ends the wait for the next wave at once, with a bonus for the time saved. Needs no open hangar.</summary>
+public sealed record WiredReadyCommand(Race Race) : WiredCommand(Race);
+
+/// <summary>Places an owned chip in a socket of the board; with no <paramref name="Item"/> it pulls what is there.</summary>
+public sealed record WiredChipCommand(Race Race, int? Item, int Socket) : WiredCommand(Race);
+
+/// <summary>Takes one of the chips a boss left to choose from, by its place, with the hangar open into <paramref name="Socket"/> if one is named. Needs no open hangar.</summary>
+public sealed record WiredChipChoiceCommand(Race Race, int Choice, int? Socket = null) : WiredCommand(Race);
+
+/// <summary>Buys an escort, which comes out at the pod and follows the hero.</summary>
+public sealed record WiredSquadBuyCommand(Race Race, ResearchKey Machine) : WiredCommand(Race);
+
+/// <summary>Uses the ability in a slot at the point under the crosshair. Needs no open hangar.</summary>
+public sealed record WiredAbilityCommand(Race Race, int Slot, Vector2 Aim) : WiredCommand(Race);
+
+/// <summary>Fires the hero's thrusters that way; with no direction, straight ahead. Needs no open hangar.</summary>
+public sealed record WiredDashCommand(Race Race, Vector2 Direction = default) : WiredCommand(Race);

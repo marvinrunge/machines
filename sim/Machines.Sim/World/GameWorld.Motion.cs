@@ -1,5 +1,6 @@
 using System.Numerics;
 using Machines.Import.Model;
+using Machines.Sim.Survival;
 
 namespace Machines.Sim.World;
 
@@ -389,6 +390,8 @@ public sealed partial class GameWorld
         }
 
         var top = machine.Stats.Speed * motion.SpeedShare * (machine.Order is LocateOrder ? 0.5f : 1);
+        if (Wired is not null)
+            top *= WiredChips.Pace(this, machine);
         motion.Run = new Ramp(length, start, top, machine.Stats.Acceleration);
         motion.ChunkEnds = [.. chunkEnds];
         motion.Driving = true;
@@ -813,6 +816,19 @@ public sealed partial class GameWorld
     private const float SteepSlope = 0.1f;
 
     /// <summary>
+    /// How fast a driven hull turns, degrees a second: at its ROTATION_SPEED, capped at the first-person rate (the slow
+    /// one with Ctrl). A Wired hero's build has its say in that cap.
+    /// </summary>
+    public float DrivenTurnRate(Machine machine, bool slow)
+    {
+        var general = Data.Parm.General;
+        var limit = slow ? general.FirstPersonMaxSlowTurnRate : general.FirstPersonMaxFastTurnRate;
+        return Wired?.Heroes.GetValueOrDefault(machine.Race) is { } state && state.Hero == machine.Id
+            ? state.Build(Data).DrivenTurnRate(limit)
+            : MathF.Min(machine.Stats.RotationSpeed, limit);
+    }
+
+    /// <summary>
     /// First-person driving as the original's driver did it (MachPhys1stPersonMachineDriver::nextPosition): it turns at
     /// its ROTATION_SPEED, capped at the first-person rate (the slow one with Ctrl); it speeds up and slows down at its
     /// ACCELERATION, coasts to a halt when let go, goes a quarter of its SPEED in reverse, and a fifth slower up a slope
@@ -826,9 +842,7 @@ public sealed partial class GameWorld
         var state = input.Forward > 0 ? MoveKind.Forwards : input.Forward < 0 ? MoveKind.Backwards : MoveKind.Halted;
         if (MoveOf(machine.Id)?.Kind != state)
             _moves[machine.Id] = new MachineMove(state, Time);
-        var general = Data.Parm.General;
-        var limit = (input.Slow ? general.FirstPersonMaxSlowTurnRate : general.FirstPersonMaxFastTurnRate) * MathF.PI / 180;
-        machine.Facing += input.Turn * MathF.Min(machine.Stats.RotationSpeed * MathF.PI / 180, limit) * Dt;
+        machine.Facing += input.Turn * (DrivenTurnRate(machine, input.Slow) * MathF.PI / 180) * Dt;
 
         var ahead = new Vector2(DetMath.Cos(machine.Facing), DetMath.Sin(machine.Facing));
         var left = new Vector2(-ahead.Y, ahead.X);

@@ -13,7 +13,9 @@ public sealed partial class GameWorld
             {
                 case "POD":
                     // The pod mines a trickle on its own: EXTRACTION_RATE per minute straight into the bank.
-                    AddBmu(building.Race, (building.Stats.ExtractionRate ?? 0) / 60f * Dt * OreWorth(building.Race));
+                    // Not in Wired, where wrecks are all there is to earn.
+                    if (Wired is null)
+                        AddBmu(building.Race, (building.Stats.ExtractionRate ?? 0) / 60f * Dt * OreWorth(building.Race));
                     break;
 
                 case "MINE":
@@ -257,7 +259,10 @@ public sealed partial class GameWorld
             for (var step = 0; step < steps; step++)
             {
                 var angle = step * MathF.Tau / steps;
-                var candidate = point + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * distance;
+                // Wired sends nearly every enemy through here, so a run takes the same bits everywhere; other matches
+                // keep the ones their recordings were made with.
+                var way = Wired is null ? new Vector2(MathF.Cos(angle), MathF.Sin(angle)) : new Vector2(DetMath.Cos(angle), DetMath.Sin(angle));
+                var candidate = point + way * distance;
                 if (Free(candidate))
                     return candidate;
             }

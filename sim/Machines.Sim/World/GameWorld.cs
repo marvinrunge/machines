@@ -163,6 +163,8 @@ public sealed partial class GameWorld
         Timed("dead", RemoveDead);
         Timed("debris", BurnOutDebris);
         Timed("script", UpdateScript);
+        if (Wired is not null)
+            Timed("wired", UpdateWired);
         Timed("victory", CheckVictory);
 
         Tick++;
@@ -288,7 +290,7 @@ public sealed partial class GameWorld
     /// The BMU storage limit: the pod's capacity plus every finished smelter's. A race may hold more than this
     /// at the start (the original allows it); income stops at the limit.
     /// </summary>
-    public int BmuCapacity(Race race) => Constructions
+    public int BmuCapacity(Race race) => Wired is not null ? int.MaxValue : Constructions
         .Where(c => c.Race == race && c.Complete && c.Spec.Type is "SMELTER" or "POD")
         .Sum(c => c.Stats.Capacity ?? 0);
 
@@ -427,6 +429,12 @@ public sealed partial class GameWorld
     {
         if (Winner is not null)
             return;
+
+        if (Options.Victory == VictoryCondition.Wired)
+        {
+            CheckWiredEnd();
+            return;
+        }
 
         // A match run by its script is decided by it alone; a loss counts before a win (MachInGameScreen::updateGameState).
         if (Options.Victory is VictoryCondition.Scripted or VictoryCondition.Default)

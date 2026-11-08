@@ -1,4 +1,5 @@
 using System.Numerics;
+using Machines.Sim.Survival;
 
 namespace Machines.Sim.World;
 
@@ -266,6 +267,8 @@ public sealed partial class GameWorld
         {
             var target = machine.Path[machine.PathIndex];
             var step = machine.Stats.Speed * Dt;
+            if (Wired is not null)
+                step *= WiredChips.Pace(this, machine);
             var offset = target - machine.Position;
             var distance = offset.Length();
 
@@ -340,7 +343,7 @@ public sealed partial class GameWorld
     private void UpdateAttack(Machine machine, AttackOrder attack)
     {
         var target = FindTarget(attack.Target);
-        if (target is null || target.IsDead || !CanAttack(machine.Race, target) || !CanFireAt(machine, target))
+        if (target is null || target.IsDead || !CanAttack(machine.Race, target) || !CanFireAt(machine, target) || Indoors(target))
         {
             // Ready at once for the next target (MachLogAttackOperation::beNotified).
             machine.Alert.NoChecksBefore = Time;
@@ -389,13 +392,20 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// It keeps two clearances off the machine it follows, on the line between them, and stands when that is close
-    /// enough (MachLogMachineMotionSequencer with no follow offset); with the machine gone, the order ends.
+    /// enough (MachLogMachineMotionSequencer with no follow offset); with the machine gone, the order ends, unless it
+    /// is a Wired escort that waits for its hero.
     /// </summary>
     private void UpdateFollow(Machine machine, FollowOrder follow)
     {
         if (Find<Machine>(follow.Target) is not { IsDead: false, Inside: null } leader)
         {
-            machine.Order = Order.Idle;
+            if (Wired is not null && WaitsForHero(machine, follow))
+            {
+                machine.Path.Clear();
+                machine.PathIndex = 0;
+            }
+            else
+                machine.Order = Order.Idle;
             return;
         }
         var gap = 2 * (machine.Stats.HighClearance + leader.Stats.HighClearance);

@@ -34,6 +34,9 @@ public sealed partial class GameWorld
 
     private int _nextMineId = 1;
 
+    /// <summary>What a mine's blast goes by, as a weapon's name: a mine has no weapon of its own.</summary>
+    public const string LandMineBlast = "LAND_MINE";
+
     /// <summary>The land mines on the ground, in the order they were laid.</summary>
     public List<LandMineState> LandMines { get; } = [];
 
@@ -113,7 +116,7 @@ public sealed partial class GameWorld
             if (victim is null)
                 continue;
             LandMines.Remove(mine);
-            Damage(victim, 80, mine.Race);
+            Damage(victim, 80, mine.Race, weapon: LandMineBlast);
             Raise(new GameEvent(GameEventKind.MineExploded, victim.Id, mine.Position, mine.Id));
         }
     }

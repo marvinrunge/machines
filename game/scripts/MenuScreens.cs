@@ -17,9 +17,13 @@ namespace Machines.Game;
 /// is given, and quits. The first start's questions (setup, setup-import, setup-look, setup-music) come before the main menu until
 /// they are answered (<see cref="SetupPage"/>). MACHINES_MENU_GO=&lt;page&gt; skips the first films and goes from the main
 /// menu to that page as a click would, with the films of the way (main stays there, to wait for the logos).
+/// MACHINES_WIRED_DRIVE plays a whole Wired run from the main menu on (see <see cref="WiredDriver"/>).
 /// </summary>
 public partial class MenuScreens : Control
 {
+    // MACHINES_MENU_GO goes to its page once: later visits to the menus are where the game sends them.
+    private static bool _wentAhead;
+
     /// <summary>How long the main menu stays before the logos and the intro come back (MachGuiStartupScreens::updateContext).</summary>
     private const double IdleSeconds = 300;
 
@@ -45,6 +49,8 @@ public partial class MenuScreens : Control
     {
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         Lang.Apply();
+        // For automated checks: MACHINES_WIRED_DRIVE plays a whole run from here (see WiredDriver).
+        WiredDriver.Attend(GetTree());
         var shot = (Setting("MACHINES_MENU_SCREENSHOT") ?? "").Split(',', StringSplitOptions.TrimEntries);
         if (shot[0].Length == 0 && Setting("MACHINES_MP") is null && Setting("MACHINES_MENU_START") is null && (Setting("MACHINES_SCREENSHOT") ?? Setting("MACHINES_MAP")) is not null)
         {
@@ -66,6 +72,12 @@ public partial class MenuScreens : Control
         if (Setting("MACHINES_MINIMAPS") is { } minimaps)
         {
             MiniMaps.TakeAll(GetTree(), again: minimaps == "all");
+            return;
+        }
+        // MACHINES_HERO_SHOT=<png>,<what> photographs Wired heroes (see HeroStudio) and quits.
+        if (Setting("MACHINES_HERO_SHOT")?.Split(',', StringSplitOptions.TrimEntries) is [var heroShot, .. var heroes])
+        {
+            AddChild(new HeroStudio(heroShot, heroes));
             return;
         }
 
@@ -109,8 +121,11 @@ public partial class MenuScreens : Control
         // The first start asks its few questions before the main menu.
         Open(page == "main" && _shotPath is null && !SetupPage.Done ? "setup" : page);
         _begun = true;
-        if (Setting("MACHINES_MENU_GO") is { } go)
+        if (!_wentAhead && Setting("MACHINES_MENU_GO") is { } go)
+        {
+            _wentAhead = true;
             Callable.From(() => Open(go)).CallDeferred();
+        }
     }
 
     public override void _Process(double delta)
@@ -180,7 +195,9 @@ public partial class MenuScreens : Control
             case "options": ShowOptions(); break;
             case "graphics": _stage.Show(new GraphicsPage(ShowOptions, inGame: false)); break;
             case "keys": _stage.Show(new KeysPage(ShowOptions)); break;
+            case "keys-run": _stage.Show(new KeysPage(ShowOptions, run: true)); break;
             case "models": ShowModels(); break;
+            case "hangar": ShowHangar(); break;
             case "setup": ShowSetup(SetupPage.First); break;
             case "setup-import": ShowSetup(SetupPage.Step.Import); break;
             case "setup-look": ShowSetup(SetupPage.Step.Look); break;
@@ -220,6 +237,9 @@ public partial class MenuScreens : Control
     public void ShowOptions() => Go(MenuFilms.Options, () => new OptionsPage(ShowMain, inGame: false));
 
     public void ShowModels() => _stage.Show(new ModelsPage(ShowMain));
+
+    /// <summary>Wired: hero creation, in the hangar.</summary>
+    public void ShowHangar() => _stage.Show(HangarCreation.Page(this));
 
     /// <summary>The campaign's players.</summary>
     public void ShowCampaign() => Go(MenuFilms.CampaignPlayers, () => new CampaignPlayersPage(this));

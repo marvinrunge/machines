@@ -30,7 +30,9 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
         AddChild(_stage);
         _assets = new ClassicAssets(Paths.Root);
         MenuSounds.Attach(_stage, _assets.GameFolder);
-        if (debriefing)
+        if (game.World.Wired is { Phase: Machines.Sim.Survival.WiredPhase.Ended } && (debriefing || statistics))
+            _stage.Show(new WiredEndScreen(game, _assets));
+        else if (debriefing)
             ShowDebriefing();
         else if (statistics)
             ShowStatistics();
@@ -219,19 +221,35 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
     private static string K(params KeyMap.Act[] acts) => string.Join(" ", acts.Select(KeyMap.Name));
 
     // The remake's keys, in the hot keys page's two lists; first person's as the options' Classic F.P. Keys set them.
-    private static (string Action, string Keys)[] FirstPersonKeys => GameOptions.ClassicDriving || GameOptions.ClassicKeys
+    private (string Action, string Keys)[] FirstPersonKeys => GameOptions.ClassicDriving || GameOptions.ClassicKeys
         ?
         [
             ("Drive", DriveKeys), ("Turn", Lang.T("{0}, mouse", K(KeyMap.Act.Left, KeyMap.Act.Right))),
-            ("Turn upper body", Lang.T("Shift with {0} or mouse, right mouse", K(KeyMap.Act.Left, KeyMap.Act.Right))),
-            ("Upper body forward", K(KeyMap.Act.CentreView)), ("Look up and down", "Mouse, Shift with arrows"), ("Fire", "Left mouse button, Space"),
-            ("Pick weapons", K(KeyMap.Act.Weapons)), ("Leave first person", LeaveKeys), ("Leave with the mouse", "Right double click"),
+            ("Turn upper body", game.WeaponButtons ? Lang.T("Shift with {0} or mouse", K(KeyMap.Act.Left, KeyMap.Act.Right)) : Lang.T("Shift with {0} or mouse, right mouse", K(KeyMap.Act.Left, KeyMap.Act.Right))),
+            ("Upper body forward", K(KeyMap.Act.CentreView)), ("Look up and down", "Mouse, Shift with arrows"), .. FiringKeys,
         ]
         :
         [
             ("Drive", DriveKeys), ("Step sideways", Lang.T("{0} (legs, hover, flight)", K(KeyMap.Act.Left, KeyMap.Act.Right))),
             ("Turn", Lang.T("{0}, {1}, slowly with Ctrl", K(KeyMap.Act.TurnLeft, KeyMap.Act.TurnRight), K(KeyMap.Act.Left, KeyMap.Act.Right))),
             ("Look round", "Mouse (the machine follows)"), ("Upper body forward", K(KeyMap.Act.CentreView)), ("Look up and down", "Mouse, Shift with arrows"),
+            .. FiringKeys,
+        ];
+
+    // How first person fires and is left, as the options' Mouse button per weapon has it, and in a run what its driver has besides.
+    private (string Action, string Keys)[] FiringKeys => game.WeaponButtons
+        ?
+        [
+            ("Fire left, right, top", string.Join(", ", KeyMap.Name(KeyMap.Act.FireLeft), KeyMap.Name(KeyMap.Act.FireRight), KeyMap.Name(KeyMap.Act.FireTop))),
+            .. game.World.Wired is null ? new[] { ("Fire all", "Space") } :
+            [
+                ("Squad: follow, attack, hold, back", K(KeyMap.Act.SquadFollow, KeyMap.Act.SquadAttack, KeyMap.Act.SquadHold, KeyMap.Act.SquadBack)),
+                ("Abilities, dash", K(KeyMap.Act.Ability1, KeyMap.Act.Ability2, KeyMap.Act.Dash)), ("Hangar", K(KeyMap.Act.Hangar)),
+            ],
+            ("Leave first person", LeaveKeys),
+        ]
+        :
+        [
             ("Fire", "Left mouse button, Space"), ("Pick weapons", K(KeyMap.Act.Weapons)), ("Leave first person", LeaveKeys), ("Leave with the mouse", "Right double click"),
         ];
 

@@ -60,6 +60,8 @@ public sealed partial class GameWorld
             Mix(wreck.Id);
             Mix(wreck.Quantity);
         }
+        if (Wired is not null)
+            Mix(WiredFingerprint());
         foreach (var state in Races.Values.OrderBy(r => r.Race))
         {
             Mix((int)state.Race);

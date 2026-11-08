@@ -184,7 +184,7 @@ public sealed partial class GameWorld
     /// nothing will come back to where it stands now, looking the way the enemy came from, after a pause that is
     /// shorter the worse it was hurt, so a group wheels back one by one. One already in a fight just turns to the new target.
     /// </summary>
-    private void Counterattack(Machine machine, Actor target)
+    internal void Counterattack(Machine machine, Actor target)
     {
         var orderedAt = machine.OrderedAt;
         if (machine.Order is AttackOrder { Back: not null } fight)

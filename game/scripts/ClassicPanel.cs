@@ -228,7 +228,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
 
         var x = 136;
         _widgets.Add(new Widget(R(x, 0, 20, 20), rect => DrawBitmap(rect, "navigate/bmus.bmp", "BMU"), () => _showBmus = !_showBmus,
-            $"BMUs {world.Races[Game.Player].Bmu:F0} of {world.BmuCapacity(Game.Player)}"));
+            world.Wired is null ? $"BMUs {world.Races[Game.Player].Bmu:F0} of {world.BmuCapacity(Game.Player)}" : $"{world.Races[Game.Player].Bmu:F0} BMU"));
         var race = RaceFolder(Game.Player);
         _widgets.Add(new Widget(R(x, 19, 20, 29), rect => DrawBitmap(rect, $"navigate/{race}/machines.bmp", "M"),
             () => _navigator = _navigator == NavigatorKind.Machines ? NavigatorKind.None : NavigatorKind.Machines,
@@ -410,7 +410,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                 bars.Add(new Bar("Capture", "Capture: click an enemy building", game.BeginCapture, "commands/capture.bmp", Hot: Key.U));
                 bars.Add(new Bar("Deconstruct", "Deconstruct: click a building", game.BeginDeconstruct, "commands/deconst.bmp", Hot: Key.D));
             }
-            bars.Add(new Bar("Recycle", "Recycle: click a smelter or pod, half the price back", game.BeginRecycle, "commands/recycle.bmp", Hot: Key.Q));
+            if (game.World.Wired is null) // nothing is recycled in a run
+                bars.Add(new Bar("Recycle", "Recycle: click a smelter or pod, half the price back", game.BeginRecycle, "commands/recycle.bmp", Hot: Key.Q));
             if (machines.Any(m => m.Spec.Type == "GEO_LOCATOR"))
                 bars.Add(new Bar("Locate", "Locate: click where to search", game.BeginLocate, "commands/locate.bmp", Hot: Key.L));
             if (spies.Any(s => s.Mines > 0))
@@ -661,7 +662,9 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         if (members == 0)
             return;
         var inner = new Rect2(adminRect.Position + Vector2.One * _scale, adminRect.Size - Vector2.One * 2 * _scale);
-        if (commander is not null)
+        if (commander is not null && game.HeroPicture(commander) is { } hero)
+            DrawTextureRect(hero, inner, false);
+        else if (commander is not null)
             DrawBitmap(inner, MachineBitmap(commander.Key, Game.Look(commander.ShownRace)), "Adm");
         // No commander: the screen shows static, a new frame each time (nosquad1 to nosquad5).
         else if (ClassicGui.Bitmap($"misc/nosquad{Random.Shared.Next(1, 6)}.bmp") is { } noise)
@@ -889,7 +892,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         if (_showBmus)
         {
             var state = world.Races[Game.Player];
-            var text = $"{state.Bmu:F0} / {world.BmuCapacity(Game.Player)} BMU";
+            // A run has no ceiling to the bank.
+            var text = world.Wired is null ? $"{state.Bmu:F0} / {world.BmuCapacity(Game.Player)} BMU" : $"{state.Bmu:F0} BMU";
             DrawRect(new Rect2(rect.Position, new Vector2(Font.GetStringSize(text, HorizontalAlignment.Left, -1, FontSize).X + 4 * _scale, 9 * _scale)), new Color(0, 0, 0, 0.6f));
             DrawText(rect.Position + new Vector2(2, 1) * _scale, text, Accent);
         }
@@ -1002,7 +1006,10 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             _ => "",
         };
         var inner = new Rect2(rect.Position + Vector2.One * 2 * _scale, Vector2.One * IconSize * _scale);
-        DrawBitmap(inner, path, actor is Machine m2 ? Short(m2.Key) : "Bld");
+        if (game.HeroPicture(actor) is { } hero)
+            DrawTextureRect(hero, inner, false);
+        else
+            DrawBitmap(inner, path, actor is Machine m2 ? Short(m2.Key) : "Bld");
         // The health bar under the picture (MachGuiHealthBar): hit points above, armour below.
         var bar = new Rect2(inner.Position.X, inner.End.Y + 1 * _scale, inner.Size.X, (HealthBarHeight - 1) * _scale);
         DrawRect(bar, Colors.Black);

@@ -1,4 +1,5 @@
 using Machines.Import.Model;
+using Machines.Sim.Survival;
 
 namespace Machines.Sim.World;
 
@@ -38,6 +39,8 @@ public enum VictoryCondition
     /// without any it is <see cref="Annihilation"/> (MachLogScenario::load).
     /// </summary>
     Default,
+    /// <summary>The remake's survival mode: nobody wins, the run ends when the pod is gone or the hero out of bodies.</summary>
+    Wired,
 }
 
 /// <summary>How well the AIs play (<see cref="MatchOptions.AiLevel"/>).</summary>
@@ -116,6 +119,9 @@ public sealed record MatchOptions
 
     /// <summary>For a campaign mission: what it takes over from the missions the player won before.</summary>
     public CampaignCarry? Campaign { get; init; }
+
+    /// <summary>For a run of the survival mode Wired, the remake's own addition; null in every other match.</summary>
+    public WiredOptions? Wired { get; init; }
 
     /// <summary>The BMUs an AI race gets for each it would earn, at <paramref name="level"/>.</summary>
     public static float AiIncome(AiLevel level) => level switch

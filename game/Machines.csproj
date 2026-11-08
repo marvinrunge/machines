@@ -13,4 +13,10 @@
     <ProjectReference Include="..\server\Machines.Relay\Machines.Relay.csproj" />
   </ItemGroup>
 
+  <!-- The balance bench's bot decides for the run driver (WiredDriver, MACHINES_WIRED_DRIVE). -->
+  <ItemGroup>
+    <Compile Include="..\tools\wired-bench\Bot.cs" Link="scripts\Bench\Bot.cs" />
+    <Compile Include="..\tools\wired-bench\Strategy.cs" Link="scripts\Bench\Strategy.cs" />
+  </ItemGroup>
+
 </Project>

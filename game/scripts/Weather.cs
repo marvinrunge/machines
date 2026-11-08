@@ -235,7 +235,7 @@ public partial class Weather : Node3D
             _drift.AmountRatio = Mathf.Clamp(drift, 0.05f, 1);
             _driftMaterial.SetShaderParameter("wind", Wind);
             _driftMaterial.SetShaderParameter("area", Mathf.Clamp(distance * 0.8f, 40, 260));
-            _driftMaterial.SetShaderParameter("strength", Mathf.Clamp(drift, 0, 1));
+            _driftMaterial.SetShaderParameter("strength", Mathf.Clamp(drift, 0, 1) * (1 - 0.9f * PlanetLook.ForcedDark));
             _driftMaterial.SetShaderParameter("size", Mathf.Sqrt(seen));
         }
         if (_embers is not null)

@@ -19,6 +19,9 @@ public partial class Crosshair : Control
         ["ping"] = (7, 0.1f), ["targ"] = (8, 0.1f), ["targv"] = (2, 0.5f), ["targnv"] = (2, 0.5f),
     };
 
+    // The eight ways an outline lies round a bitmap.
+    private static readonly Vector2[] Round = [new(-1, -1), new(0, -1), new(1, -1), new(-1, 0), new(1, 0), new(-1, 1), new(0, 1), new(1, 1)];
+
     private readonly Dictionary<(string, int, int), Texture2D?> _frames = [];
     private GameAudio? _audio;
     private double _time, _started;
@@ -42,6 +45,7 @@ public partial class Crosshair : Control
     /// <summary>What lies under the crosshair; an enemy or a friend coming into it plays its sound.</summary>
     public Sight Aim
     {
+        get => _sight;
         set
         {
             if (value != _sight && value is Sight.Enemy or Sight.Friend)
@@ -56,9 +60,24 @@ public partial class Crosshair : Control
     /// <summary>The driven machine's heading in degrees, for the compass under the sight.</summary>
     public float Heading { get; set; }
 
+    /// <summary>In a Wired run, how far rounds can stray from the sight, in degrees: four marks stand that far out.</summary>
+    public float? Spread { get; set; }
+
+    /// <summary>
+    /// Whether the bitmaps stand on a dark edge: the goggles of a run lay green over the view, on which the green of the sight
+    /// and the compass are lost. In any other match they are shown as ever.
+    /// </summary>
+    public bool Outlined { get; set; }
+
+    // What the marks show, following the spread; the driver's camera sees this many degrees from top to bottom.
+    private float _spreadShown;
+    private const float FieldOfView = 70;
+
     public override void _Process(double delta)
     {
         _time += delta;
+        if (Spread is { } spread)
+            _spreadShown = Mathf.Lerp(_spreadShown, spread, 1 - Mathf.Exp(-(float)delta * 12));
         if (Visible)
             QueueRedraw();
     }
@@ -69,6 +88,8 @@ public partial class Crosshair : Control
         var scale = Math.Max(1, (int)Math.Round(size.Y / 480f));
         var (name, frame) = Current();
         var centre = (size / 2).Floor();
+        if (Spread is not null)
+            DrawSpread(centre, size.Y);
 
         // MachGuiFirstPerson::displayHealthArmour: two upright bars beside the sight, filled from the bottom.
         if (Target is { } target)
@@ -82,18 +103,39 @@ public partial class Crosshair : Control
         if (name != "ping" && Bitmap("compass", scale) is { } compass)
         {
             var start = 38 + Mathf.PosMod(Heading, 360) / 360 * 160 - 24;
-            DrawTextureRectRegion(compass, new Rect2(centre + new Vector2(-24, 26) * scale, new Vector2(48, compass.GetHeight() / (float)scale) * scale),
-                new Rect2(new Vector2(start, 0) * scale, new Vector2(48 * scale, compass.GetHeight())));
+            var strip = new Rect2(centre + new Vector2(-24, 26) * scale, new Vector2(48, compass.GetHeight() / (float)scale) * scale);
+            var from = new Rect2(new Vector2(start, 0) * scale, new Vector2(48 * scale, compass.GetHeight()));
+            if (Outlined)
+                DrawRect(strip.Grow(scale), new Color(0, 0, 0, 0.6f));
+            DrawTextureRectRegion(compass, strip, from);
         }
 
         if (Frame(name, frame, scale) is { } texture)
-            DrawTexture(texture, (size - texture.GetSize()) / 2);
+        {
+            var at = (size - texture.GetSize()) / 2;
+            if (Outlined)
+            {
+                foreach (var way in Round)
+                    DrawTexture(texture, at + way * scale, new Color(0, 0, 0, 0.85f));
+            }
+            DrawTexture(texture, at);
+        }
         else
         {
             var colour = _sight == Sight.Enemy ? new Color(1, 0.4f, 0.2f) : new Color(0.4f, 1, 0.3f);
             DrawLine(centre - new Vector2(12, 0), centre + new Vector2(12, 0), colour, 2);
             DrawLine(centre - new Vector2(0, 12), centre + new Vector2(0, 12), colour, 2);
         }
+    }
+
+    /// <summary>The marks at the edge of the cone a round flies in, on the screen as the driver's camera shows it.</summary>
+    private void DrawSpread(Vector2 centre, float height)
+    {
+        var radius = Mathf.Tan(Mathf.DegToRad(_spreadShown)) / Mathf.Tan(Mathf.DegToRad(FieldOfView / 2)) * height / 2;
+        var (length, line) = (height * 0.012f, Mathf.Max(height / 540, 1));
+        var colour = _sight == Sight.Enemy ? new Color(1, 0.5f, 0.3f, 0.9f) : new Color(0.55f, 1, 0.45f, 0.75f);
+        foreach (var way in new[] { Vector2.Up, Vector2.Right, Vector2.Down, Vector2.Left })
+            DrawLine(centre + way * radius, centre + way * (radius + length), colour, line);
     }
 
     private (string Name, int Frame) Current()

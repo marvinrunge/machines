@@ -48,18 +48,23 @@ public partial class MainMenuPage(MenuScreens screens) : MenuPage(screens.Quit)
         display.AddChild(layers);
         row.AddChild(display);
 
+        // Eight buttons of this size stand as high as the seven before them did, so the page still fits at a large interface size.
         var right = new VBoxContainer { CustomMinimumSize = new Vector2(360, 0), Alignment = BoxContainer.AlignmentMode.Center };
-        right.AddThemeConstantOverride("separation", 26);
+        right.AddThemeConstantOverride("separation", 20);
         row.AddChild(right);
-        var campaign = Button("Campaign", screens.ShowCampaign, 84, 30);
+        var campaign = Button("Campaign", screens.ShowCampaign, 76, 30);
         right.AddChild(campaign);
-        var skirmish = Button("Skirmish", () => screens.ShowSkirmish(), 84, 30);
+        var skirmish = Button("Skirmish", () => screens.ShowSkirmish(), 76, 30);
         right.AddChild(skirmish);
-        right.AddChild(Button("Multiplayer", screens.ShowMultiplayer, 84, 30));
-        right.AddChild(Button("Load Game", screens.ShowLoad, 84, 30));
-        right.AddChild(Button("Replays", screens.ShowReplays, 84, 30));
-        right.AddChild(Button("Models", screens.ShowModels, 84, 30));
-        right.AddChild(Button("Options", screens.ShowOptions, 84, 30));
+        var wired = Button("Wired", screens.ShowHangar, 76, 30);
+        if (WiredProfile.Load().Fresh.Count is > 0 and var fresh)
+            wired.Tag = Lang.T("{0} new", fresh);
+        right.AddChild(wired);
+        right.AddChild(Button("Multiplayer", screens.ShowMultiplayer, 76, 30));
+        right.AddChild(Button("Load Game", screens.ShowLoad, 76, 30));
+        right.AddChild(Button("Replays", screens.ShowReplays, 76, 30));
+        right.AddChild(Button("Models", screens.ShowModels, 76, 30));
+        right.AddChild(Button("Options", screens.ShowOptions, 76, 30));
 
         SwitchOn();
         Focus(skirmish);

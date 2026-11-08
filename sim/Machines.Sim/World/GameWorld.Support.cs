@@ -46,6 +46,9 @@ public sealed partial class GameWorld
 
     private string? Recycle(RecycleCommand recycle)
     {
+        // The waves are a Wired run's only source of BMUs, and what the hero bought stays bought.
+        if (Wired is not null)
+            return "nothing is recycled in a run";
         var machines = Own<Machine>(recycle.Race, recycle.Machines).ToList();
         if (machines.Count == 0)
             return "nothing selected";
@@ -443,6 +446,12 @@ public sealed partial class GameWorld
         machine.Order = Order.Idle;
         machine.Path.Clear();
         machine.PathIndex = 0;
+        // In a run it leaves its driver's hands, or the player would go on driving what now belongs to the other side.
+        if (Wired is not null)
+        {
+            machine.DrivenByPlayer = false;
+            ForgetDriver(machine);
+        }
         Raise(new GameEvent(GameEventKind.RaceChanged, machine.Id, machine.Position, Detail: race.ToString()));
     }
 
@@ -451,7 +460,7 @@ public sealed partial class GameWorld
         building.Stats.Cost <= 0 ? 0 : bmu / building.Stats.Cost * building.MaxHitPoints;
 
     /// <summary>Adds (or removes) hit points, keeping fractions until they make a whole point.</summary>
-    private void AddHitPoints(Actor actor, float amount)
+    internal void AddHitPoints(Actor actor, float amount)
     {
         _hitPointCarry.TryGetValue(actor.Id, out var carry);
         carry += amount;

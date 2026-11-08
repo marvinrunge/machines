@@ -22,6 +22,9 @@ public partial class Radar : Control
     private static readonly Vector2 HealthAt = new(216, 111), ArmourAt = new(234, 111);
     private const float ScannerRadius = 55;
 
+    // The original's machine pictures are this many of its pixels square.
+    private const int PictureSize = 50;
+
     private Game _game = null!;
     private GameAudio? _audio;
     private double _time, _started;
@@ -36,6 +39,12 @@ public partial class Radar : Control
         TextureFilter = TextureFilterEnum.Nearest,
         Visible = false,
     };
+
+    /// <summary>How wide the radar's corner is on the screen.</summary>
+    public float ScreenWidth => (ClassicGui.Bitmap("fstpersn/radar/rmmap.bmp")?.GetWidth() ?? 0) * Math.Max(1, (int)Math.Round(GetViewportRect().Size.Y / 480f));
+
+    /// <summary>How high the radar's backdrop stands on the screen.</summary>
+    public float ScreenHeight => (ClassicGui.Bitmap("fstpersn/radar/rmmap.bmp")?.GetHeight() ?? 0) * Math.Max(1, (int)Math.Round(GetViewportRect().Size.Y / 480f));
 
     /// <summary>The machine being driven, whose surroundings the radar shows.</summary>
     public Machine? Driven { get; set; }
@@ -86,23 +95,27 @@ public partial class Radar : Control
         // Blips: each actor's place relative to the machine, turned so that ahead is up (the original turns by its
         // azimuth and a quarter more), within the scanner range drawn to the scanner's radius.
         var world = _game.World;
-        var range = Math.Max(machine.Stats.ScannerRange, 1);
+        var range = (float)Math.Max(machine.Stats.ScannerRange, 1);
         var reach = ScannerRadius / range;
+        // In a Wired run the dark takes away what the scanners no longer reach, at the same scale.
+        if (world.Wired is not null)
+            range = MathF.Max(world.ScannerReach(machine), 1);
         var turn = machine.Facing + Head + MathF.PI / 2;
         var (cos, sin) = (MathF.Cos(turn), MathF.Sin(turn));
-        Vector2? OnRadar(NVector2 position)
+        Vector2 Spot(NVector2 position)
         {
             var d = position - machine.Position;
-            if (d.LengthSquared() >= range * range)
-                return null;
             return corner + (ScannerCentre + new Vector2(d.X * cos + d.Y * sin, -d.X * sin + d.Y * cos) * reach) * scale;
         }
+        Vector2? OnRadar(NVector2 position) => (position - machine.Position).LengthSquared() >= range * range ? null : Spot(position);
         foreach (var site in world.Sites.Where(s => s.DiscoveredBy.Count > 0 && s.Ore > 0))
             if (OnRadar(site.Position) is { } at)
                 Blit("fstpersn/radar/blips/ore.bmp", at, scale);
         foreach (var wreck in world.Debris)
             if (OnRadar(wreck.Position) is { } at)
                 Blit("fstpersn/radar/blips/debris.bmp", at, scale);
+        if (world.Wired is { } run)
+            ShowRun(run, world, OnRadar, Spot, corner + ScannerCentre * scale, range * reach * scale, reach, scale);
         foreach (var actor in world.Actors)
         {
             if (actor.Id == machine.Id || actor is Machine { Inside: not null } || OnRadar(actor.Position) is not { } at)
@@ -119,10 +132,13 @@ public partial class Radar : Control
         }
         Blit("fstpersn/radar/dome.bmp", corner + DomeAt * scale, scale);
 
-        // The machine's own picture, and its health and armour.
+        // The machine's own picture, and its health and armour; a hero of a run is photographed, as no bitmap shows it.
         var key = machine.Key;
-        Blit($"fstpersn/machines/{ClassicPanel.MachinePrefix(key.Type, key.SubType)}{key.HardwareLevel}{ClassicPanel.WeaponSuffix(key.WeaponCombo)}.bmp",
-            corner + IconAt * scale, scale);
+        if (_game.HeroPicture(machine) is { } photo)
+            DrawTextureRect(photo, new Rect2(corner + IconAt * scale, new Vector2(PictureSize, PictureSize) * scale), false);
+        else
+            Blit($"fstpersn/machines/{ClassicPanel.MachinePrefix(key.Type, key.SubType)}{key.HardwareLevel}{ClassicPanel.WeaponSuffix(key.WeaponCombo)}.bmp",
+                corner + IconAt * scale, scale);
         var health = machine.HitPoints / (float)Math.Max(1, machine.MaxHitPoints);
         var armour = machine.Armour / (float)Math.Max(1, machine.MaxArmour);
         Bar("rhealth", health, corner + HealthAt * scale, scale);
@@ -130,6 +146,44 @@ public partial class Radar : Control
         if (_healthy && health <= 0.2f)
             _audio?.PlayGui("gui/sounds/hpcritic.wav");
         _healthy = health > 0.2f;
+    }
+
+    /// <summary>What a Wired run adds: its crates, as a green diamond, and the coming ion strikes' circles.</summary>
+    private void ShowRun(Machines.Sim.Survival.WiredRun run, GameWorld world, Func<NVector2, Vector2?> onRadar, Func<NVector2, Vector2> spot,
+        Vector2 disc, float discRadius, float reach, int scale)
+    {
+        foreach (var crate in world.WiredPickups)
+        {
+            if (onRadar(crate.Position) is not { } at)
+                continue;
+            var r = 2.5f * scale;
+            DrawColoredPolygon([at + new Vector2(0, -r), at + new Vector2(r, 0), at + new Vector2(0, r), at + new Vector2(-r, 0)], new Color(0.4f, 1, 0.65f));
+        }
+        // A circle counts as far as it lies in reach, though its middle may not.
+        foreach (var strike in run.Strikes)
+            Ring(spot(strike.Position), strike.Radius * reach * scale, disc, discRadius, new Color(1, 0.25f, 0.12f, 0.7f + 0.3f * Mathf.Sin((float)_time * 12)), scale);
+    }
+
+    /// <summary>A circle, as much of it as lies on the scanner's disc.</summary>
+    private void Ring(Vector2 at, float radius, Vector2 disc, float discRadius, Color colour, float width)
+    {
+        const int Steps = 64;
+        var line = new List<Vector2>();
+        void Draw()
+        {
+            if (line.Count > 1)
+                DrawPolyline([.. line], colour, width, true);
+            line.Clear();
+        }
+        for (var i = 0; i <= Steps; i++)
+        {
+            var point = at + Vector2.FromAngle(i * Mathf.Tau / Steps) * radius;
+            if (point.DistanceTo(disc) <= discRadius)
+                line.Add(point);
+            else
+                Draw();
+        }
+        Draw();
     }
 
     private void Blit(string path, Vector2 at, int scale)

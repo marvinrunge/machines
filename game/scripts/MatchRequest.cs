@@ -66,6 +66,12 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
             var replay = Replay.Load(recording);
             return FromMatch(replay.Match, clientId: -1) with { Replay = replay };
         }
+        // MACHINES_SAVED=<file> goes on with a saved game.
+        if (System.Environment.GetEnvironmentVariable("MACHINES_SAVED") is { Length: > 0 } file)
+        {
+            var saved = Replay.Load(file);
+            return FromMatch(saved.Match, clientId: -1, saved.Match.Players.FirstOrDefault(p => !p.Ai)?.Slot) with { Saved = saved };
+        }
         // MACHINES_CAMPAIGN=<mission> plays a campaign mission (tut01, commsat ...) for the campaign's current player.
         if (System.Environment.GetEnvironmentVariable("MACHINES_CAMPAIGN") is { Length: > 0 } mission && Campaign.Entry(mission) is { } entry)
             return Campaign.Request(entry, CampaignProgress.Load().CurrentPlayer ?? new CampaignPlayer());
@@ -82,6 +88,8 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
                 Resources = ResourceLevel.High,
                 // MACHINES_AI=easy, normal or hard sets how well the AIs play.
                 AiLevel = Enum.TryParse<AiLevel>(System.Environment.GetEnvironmentVariable("MACHINES_AI"), true, out var level) ? level : AiLevel.Normal,
+                // MACHINES_WIRED=1 makes it a run of Wired, the remake's own survival mode.
+                Wired = System.Environment.GetEnvironmentVariable("MACHINES_WIRED") == "1" ? new Machines.Sim.Survival.WiredOptions { Arena = scenario } : null,
             });
     }
 }

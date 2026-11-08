@@ -30,6 +30,9 @@ public partial class Hud : CanvasLayer
     /// <summary>The players' messages in a multiplayer match, and the line to type one in.</summary>
     public MatchChat Chat { get; private set; } = null!;
 
+    /// <summary>The screen of a Wired run; null in any other match.</summary>
+    public WiredHud? Wired { get; private set; }
+
     public Hud(Game game, Texture2D? map)
     {
         _game = game;
@@ -47,6 +50,7 @@ public partial class Hud : CanvasLayer
     {
         set
         {
+            _firstPerson = value;
             Crosshair.Visible = value;
             if (value)
             {
@@ -58,6 +62,17 @@ public partial class Hud : CanvasLayer
             Radar.Visible = value;
             _panel.Visible = !value;
         }
+    }
+
+    // In first person, with the hero down too, when the sight and the guns are gone from it.
+    private bool _firstPerson;
+
+    /// <summary>The hero is down with the view still on it: there is nothing to sight, fire or scan with until the next body.</summary>
+    public void HeroDown()
+    {
+        Crosshair.Visible = false;
+        Weapons.Visible = false;
+        Radar.Driven = null;
     }
 
     public override void _Ready()
@@ -88,9 +103,20 @@ public partial class Hud : CanvasLayer
         Radar.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         root.AddChild(Radar);
 
-        _figures = new Label { Modulate = new Color(1, 1, 1, 0.85f) };
+        if (_game.World.Wired is not null)
+        {
+            Wired = new WiredHud(_game, this);
+            root.AddChild(Wired);
+        }
+        _figures = new Label { Modulate = new Color(1, 1, 1, 0.85f), Visible = Wired is null };
         root.AddChild(_figures);
         _messageLabel = new Label();
+        // Over a moving view, on whatever ground, without the plates' backing.
+        if (Wired is not null)
+        {
+            _messageLabel.AddThemeConstantOverride("outline_size", 6);
+            _messageLabel.AddThemeColorOverride("font_outline_color", Colors.Black);
+        }
         root.AddChild(_messageLabel);
 
         _panel = new ClassicPanel(_game, _map) { Name = "ControlPanel" };
@@ -142,7 +168,14 @@ public partial class Hud : CanvasLayer
         // (the camera tab beside the panel stays at its full width, 30 of the original's pixels wide)
         var left = (_panel.Visible ? Math.Max(_panel.ScreenWidth, (ClassicPanel.PanelWidth + 30) * _panel.PixelScale) : 0) + 12;
         // In first person the weapon panels take the top left; the text goes below them.
-        var top = Weapons.Visible ? GetViewport().GetVisibleRect().Size.Y * 0.05f + 90 * Math.Max(1, (int)Math.Round(GetViewport().GetVisibleRect().Size.Y / 480f)) : 0;
+        var top = Weapons.Visible ? Math.Max(Weapons.Bottom, GetViewport().GetVisibleRect().Size.Y * 0.05f + 90 * Math.Max(1, (int)Math.Round(GetViewport().GetVisibleRect().Size.Y / 480f))) : 0;
+        if (Wired is { } run)
+        {
+            run.Left = left - 12;
+            run.Driving = _firstPerson;
+            // The run's plates take the top: the chat and the messages start below the wave's plate and the bosses' bars.
+            top = Math.Max(top, run.Hanging - 34);
+        }
         _figures.Position = new Vector2(left, 8 + top);
         _figures.Text = Lang.T("Machines {0}     Score {1}     ", world.Machines.Count(m => m.Race == Game.Player), state.Score.Gross) +
                         (world.TimeLeft is { } timeLeft

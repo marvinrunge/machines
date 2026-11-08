@@ -16,8 +16,9 @@ public partial class SupportEffects
     /// <summary>
     /// The flash at a bolter's muzzle for a tenth of a second (MachPhysBolter::fire), the bolter's smaller, the heavy
     /// one's longer, and the patch of light on the ground under it for as long as its light is on (<paramref name="lit"/>).
+    /// Off the map, as on the hangar's turntable, there is no <paramref name="ground"/> to light.
     /// </summary>
-    public void BolterFlash(Vector3 at, Vector3 along, string weapon, float lit)
+    public void BolterFlash(Vector3 at, Vector3 along, string weapon, float lit, bool ground = true)
     {
         var (name, scale) = weapon switch
         {
@@ -34,11 +35,11 @@ public partial class SupportEffects
         AddChild(flash);
         flash.GlobalTransform = new Transform3D(new Basis(along * scale.X, side.Cross(along) * scale.Y, side * scale.Z), at);
         _timed.Add(new Timed { Node = flash, Duration = FlashTime, Update = _ => { } });
-        if (_assets.EffectMesh("groundlight") is { } glow && HeightField.Current is { } ground)
+        if (ground && _assets.EffectMesh("groundlight") is { } glow && HeightField.Current is { } field)
         {
             var patch = new MeshInstance3D { Mesh = glow, Name = "GroundLight", CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
             AddChild(patch);
-            patch.GlobalPosition = new Vector3(at.X, ground.At(at.X, at.Z) + ActorView.GroundLightHeight, at.Z);
+            patch.GlobalPosition = new Vector3(at.X, field.At(at.X, at.Z) + ActorView.GroundLightHeight, at.Z);
             _timed.Add(new Timed { Node = patch, Duration = lit, Update = _ => { } });
         }
     }

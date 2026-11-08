@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Numerics;
 using Machines.Import.Model;
 using Machines.Sim.Combat;
+using Machines.Sim.Survival;
 
 namespace Machines.Sim.World;
 
@@ -41,7 +42,7 @@ public sealed partial class GameWorld
     }
 
     /// <summary>What a machine loses from an aim taken afresh in the dark and at flyers, and gains within 100 m of its squad's commander.</summary>
-    private float AimPenalty(Actor shooter, Actor target)
+    private float AimPenalty(Actor shooter, Actor? target)
     {
         if (shooter is not Machine machine)
             return 0;
@@ -51,6 +52,8 @@ public sealed partial class GameWorld
         if (machine.Spec.Type != "ADMINISTRATOR" && machine.Squad is { } squad && CommanderOf(machine.Race, squad) is { } commander
             && Vector2.DistanceSquared(machine.Position, commander.Position) <= 100 * 100)
             penalty -= 20;
+        if (Wired is not null)
+            penalty -= WiredChips.SquadAim(this, machine);
         return penalty;
     }
 
@@ -354,7 +357,7 @@ public sealed partial class GameWorld
     private void Burst(Vector3 point, WeaponSpec weapon, int shooter, Race race)
     {
         var (radius, fallsOff) = BurstOf(weapon.TypeName);
-        var damage = (int)MathF.Round(weapon.Damage);
+        var damage = WholeDamage(weapon.Damage);
         var by = Find(shooter);
         var spares = Sprays(weapon);
         var flat = new Vector2(point.X, point.Y);
@@ -371,7 +374,7 @@ public sealed partial class GameWorld
             var hit = damage;
             if (actor is Machine && fallsOff && off > 1e-4f && Vector3.Distance(point, new Vector3(actor.Position, min.Z)) is > 1 and var distance)
                 hit = Math.Max(1, (int)(damage - distance * damage / radius));
-            Damage(actor, hit, race, by);
+            Damage(actor, hit, race, by, WeaponOf(weapon));
             Raise(new GameEvent(GameEventKind.Hit, actor.Id, actor.Position, shooter, weapon.TypeName));
         }
 
@@ -481,7 +484,12 @@ public sealed partial class GameWorld
     private void FireVortex(Actor shooter, WeaponSpec vortex, Actor target)
     {
         var mark = Predicted(target, 1.3f);
-        var point = new Vector2(mark.X, mark.Y);
+        Vortex(shooter, vortex, VortexPoint(shooter, vortex, new Vector2(mark.X, mark.Y)));
+    }
+
+    /// <summary>A point for a vortex, moved out if need be so that it does not reach the shooter.</summary>
+    private Vector2 VortexPoint(Actor shooter, WeaponSpec vortex, Vector2 point)
+    {
         var safe = Blast.Extras(vortex)[0] + 6;
         var way = point - shooter.Position;
         if (way.LengthSquared() <= safe * safe)
@@ -490,7 +498,7 @@ public sealed partial class GameWorld
             point = shooter.Position + (way.LengthSquared() > 1e-4f ? Vector2.Normalize(way) : new Vector2(DetMath.Cos(heading), DetMath.Sin(heading))) * safe;
         }
         var safely = InWorld(new Vector3(point, 0));
-        Vortex(shooter, vortex, new Vector2(safely.X, safely.Y));
+        return new Vector2(safely.X, safely.Y);
     }
 
     private void Vortex(Actor shooter, WeaponSpec vortex, Vector2 point)

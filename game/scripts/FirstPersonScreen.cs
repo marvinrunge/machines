@@ -47,12 +47,12 @@ public partial class FirstPersonScreen : CanvasLayer
     private bool _noise;
 
     private float _age, _level, _left;
-    private bool _starting, _flickering, _goggles;
+    private bool _starting, _flickering, _goggles, _held;
     private float? _dying;
     private Action? _gone;
 
     /// <summary>The machine is lost and the view is about to go: the controls no longer do anything.</summary>
-    public bool Lost => _dying is not null;
+    public bool Lost => _dying is not null || _held;
 
     public static FirstPersonScreen Create(PlanetLook look, Texture2D? noise)
     {
@@ -71,7 +71,7 @@ public partial class FirstPersonScreen : CanvasLayer
     public void Enter()
     {
         (_age, _level, _left, _dying, _gone) = (0, 0, 0, null, null);
-        (_starting, _flickering, _goggles) = (true, false, false);
+        (_starting, _flickering, _goggles, _held) = (true, false, false, false);
         _look.NightVision = false;
         Visible = true;
         SetProcess(true);
@@ -81,9 +81,13 @@ public partial class FirstPersonScreen : CanvasLayer
     public void Leave()
     {
         _look.NightVision = false;
+        _held = false;
         Visible = false;
         SetProcess(false);
     }
+
+    /// <summary>Whether the view is under the goggles' colour.</summary>
+    public bool Goggles => _look.NightVision;
 
     /// <summary>The N key on a machine that has goggles.</summary>
     public void ToggleGoggles() => _look.NightVision = _goggles = !_look.NightVision;
@@ -122,11 +126,23 @@ public partial class FirstPersonScreen : CanvasLayer
         _gone = gone;
     }
 
+    /// <summary>
+    /// A Wired hero's death: where <see cref="Die"/> ended the static stays, with the world dimly behind it, until a new body
+    /// is entered or the view is left.
+    /// </summary>
+    public void Hold()
+    {
+        (_dying, _gone, _held) = (null, null, true);
+        _look.NightVision = false;
+    }
+
     public override void _Process(double delta)
     {
         var step = (float)delta;
         _age += step;
-        if (_dying is { } dying)
+        if (_held)
+            _level = 0.84f + 0.06f * Mathf.Sin(_age * 7);
+        else if (_dying is { } dying)
         {
             _dying = dying + step;
             _level = Mathf.Min(dying + step + 0.1f, 1);

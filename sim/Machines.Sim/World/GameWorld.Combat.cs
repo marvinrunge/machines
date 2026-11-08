@@ -33,6 +33,12 @@ public sealed partial class GameWorld
     public Dictionary<int, int> PlayerWeapons { get; } = [];
 
     /// <summary>
+    /// Machines driven with a button for each weapon: <see cref="PlayerWeapons"/> then says only which triggers are held,
+    /// and the others go on reloading. In a Wired run that holds for every machine, with or without this.
+    /// </summary>
+    public HashSet<int> PlayerButtons { get; } = [];
+
+    /// <summary>
     /// Where the upper body of a machine driven in first person is turned, radians anticlockwise from its hull; for
     /// the view only.
     /// </summary>
@@ -93,8 +99,11 @@ public sealed partial class GameWorld
             if (machine.DrivenByPlayer)
             {
                 var selected = PlayerWeapons.GetValueOrDefault(machine.Id, -1);
-                Fire(machine, machine.Weapons.Where((_, i) => (selected & (1 << i)) != 0).ToList(), null,
-                    PlayerAims.TryGetValue(machine.Id, out var sight) ? sight : null);
+                (Vector2 Point, float? Height)? sight = PlayerAims.TryGetValue(machine.Id, out var aim) ? aim : null;
+                if (Wired is not null || PlayerButtons.Contains(machine.Id))
+                    Fire(machine, machine.Weapons, null, sight, selected);
+                else
+                    Fire(machine, machine.Weapons.Where((_, i) => (selected & (1 << i)) != 0).ToList(), null, sight);
                 continue;
             }
             var target = FiringAt(machine);
@@ -169,14 +178,24 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// Applies damage with the original armour rule, remembers who did it, for the score, and lets the target react to
-    /// the <paramref name="shooter"/> where there is one.
+    /// the <paramref name="shooter"/> where there is one. A blast has none to react to; <paramref name="blaster"/> is the
+    /// machine that set it off, for a run's chips and statistics.
     /// </summary>
-    public void Damage(Actor target, int damage, Race? by, Actor? shooter = null)
+    public void Damage(Actor target, int damage, Race? by, Actor? shooter = null, string? weapon = null, int? blaster = null)
     {
         if (target.IsDead || target is Artefact && !Options.DestructibleArtefacts)
             return;
+        var dealer = shooter ?? (Wired is not null && blaster is { } id ? Find(id) : null);
+        if (Wired is not null && !WiredHit(target, ref damage, dealer, weapon))
+            return;
         var before = target.HitPoints;
+        var armour = target.Armour;
         target.Durability = ArmourModel.ApplyHit(target.Durability, damage);
+        if (Wired is not null)
+        {
+            WiredStruck(target, armour, shooter, weapon);
+            NoteDamage(target, before + armour - Math.Max(0, target.HitPoints) - target.Armour, by, dealer, weapon);
+        }
         if (target is Machine { CanFight: true } shaken)
             Shake(shaken, before - target.HitPoints);
         if (by is not null)
@@ -190,9 +209,10 @@ public sealed partial class GameWorld
     /// Runs each weapon's burst and reload cycle: RELOAD_TIME seconds from the start of one burst to the next, its rounds
     /// spread over the burst's duration. A weapon opens fire at what lies in its reach and its arc, not behind cover, and
     /// all the while a machine has that it goes on aiming. A machine driven in first person fires at
-    /// <paramref name="aimPoint"/> instead, at whatever is there or not.
+    /// <paramref name="aimPoint"/> instead, at whatever is there or not. Only weapons with their bit in
+    /// <paramref name="triggers"/> open fire; the others reload and finish their bursts all the same.
     /// </summary>
-    private void Fire(Actor shooter, List<WeaponMount> weapons, Actor? target, (Vector2 Point, float? Height)? aimPoint = null)
+    private void Fire(Actor shooter, List<WeaponMount> weapons, Actor? target, (Vector2 Point, float? Height)? aimPoint = null, int triggers = -1)
     {
         var inSights = aimPoint is null && target is { IsDead: false } && CanAttack(shooter.Race, target) && CanFireAt(shooter, target)
             && weapons.Any(w => w.FiresAt(target) && InReach(shooter, w, target) && InArc(shooter, w, target)) && ClearShot(shooter, target);
@@ -202,8 +222,9 @@ public sealed partial class GameWorld
             GunneryOf(shooter).LastAimed = Time;
         }
         FireData? aim = null;
-        foreach (var weapon in weapons)
+        for (var i = 0; i < weapons.Count; i++)
         {
+            var weapon = weapons[i];
             if (weapon.Reload > 0)
                 weapon.Reload -= Dt;
             if (weapon.RoundsLeft > 0)
@@ -220,7 +241,7 @@ public sealed partial class GameWorld
                     FireRound(shooter, weapon, target);
                 continue;
             }
-            if (weapon.Reload > 0)
+            if (weapon.Reload > 0 || (triggers & (1 << i)) == 0)
                 continue;
 
             var triggered = aimPoint is not null
@@ -230,7 +251,7 @@ public sealed partial class GameWorld
                     : inSights && InReach(shooter, weapon, target) && InArc(shooter, weapon, target));
             if (triggered)
             {
-                // Fired at a point, a weapon gives its full burst and its rounds go where they are sent.
+                // Fired at a point, a weapon gives its full burst and its rounds go where they are sent, in a Wired run about there.
                 weapon.Burst = aimPoint is not null ? new FireData(0.9999f) : aim ??= TakeAim(shooter, target!);
                 weapon.RoundsLeft = RoundsIn(weapon.Spec, weapon.Burst);
                 weapon.RoundTimer = 0;
@@ -256,7 +277,7 @@ public sealed partial class GameWorld
             FireVortex(shooter, weapon.Spec, target);
         // Area weapons go off where the target is and hit everyone the blast reaches, friend or foe, as in the original.
         else if (weapon.IsArea)
-            StartBlast(weapon.Spec, target.Position, shooter.Race);
+            StartBlast(weapon.Spec, target.Position, shooter.Race, shooter: shooter.Id);
         else if (Sprays(weapon.Spec))
             Spray(shooter, weapon.Spec, Aimed(shooter, weapon, target));
         else
@@ -285,6 +306,13 @@ public sealed partial class GameWorld
         // What the crosshair rests on: the point itself where its height is known, else the middle of the enemy
         // there, or the ground (a little over it).
         var aimHeight = height ?? (there is not null ? AimPoint(there).Z : Terrain?.At(point) ?? 0) + 0.5f;
+        // In a Wired run the round strays from there; an area weapon goes off where it is sent, as a machine's on orders does.
+        Vector3? strayed = null;
+        if (Wired is not null && !weapon.IsArea && shooter is Machine driven)
+        {
+            (point, aimHeight) = Strayed(driven, point, aimHeight);
+            strayed = new Vector3(point, aimHeight);
+        }
         if (!Flies(weapon) && !weapon.IsArea && Terrain is { } ground
             && ground.FirstBlocked(AimPoint(shooter), new Vector3(point, aimHeight), ends: 3) is { } share)
         {
@@ -292,7 +320,7 @@ public sealed partial class GameWorld
             Raise(new GameEvent(GameEventKind.Impact, shooter.Id, Vector2.Lerp(shooter.Position, point, share), null, weapon.Spec.TypeName));
             return;
         }
-        Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, there?.Id, weapon.Spec.TypeName));
+        Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, there?.Id, weapon.Spec.TypeName, strayed));
         if (Flies(weapon))
             Launch(shooter, weapon, point, aimHeight, sighted: height is not null);
         else if (weapon.Spec.TypeName == "GORILLA_PUNCH")
@@ -300,7 +328,7 @@ public sealed partial class GameWorld
         else if (weapon.Spec.TypeName == "VORTEX")
             Vortex(shooter, weapon.Spec, point);
         else if (weapon.IsArea)
-            StartBlast(weapon.Spec, point, shooter.Race);
+            StartBlast(weapon.Spec, point, shooter.Race, shooter: shooter.Id);
         else if (Sprays(weapon.Spec))
             Spray(shooter, weapon.Spec, new Vector3(point, aimHeight));
         else
@@ -325,7 +353,7 @@ public sealed partial class GameWorld
     {
         if (shooter is Machine gorilla)
             _busyUntil[gorilla.Id] = Time + PunchBusy;
-        ScheduleBlast(Time + Blast.PunchLanding, punch, shooter.Position, shooter.Race, toward);
+        ScheduleBlast(Time + Blast.PunchLanding, punch, shooter.Position, shooter.Race, toward, shooter.Id);
     }
 
     // Only an attack punches (MachLogCanAttack::attack leaves the punch out, MachLogAttackOperation punches): a

@@ -21,7 +21,11 @@ public partial class RigView : Node3D
     public float TurnRate { get; set; } = 2.5f;
 
     /// <summary>How far the upper body has turned from the hull, radians anticlockwise in the original's axes.</summary>
-    public float UpperBody => _rig.UpperBody > 0 ? _upperBody : 0;
+    public float UpperBody
+    {
+        get => _rig.UpperBody > 0 ? _upperBody : 0;
+        set => _upperBody = value;
+    }
 
     /// <summary>What it draws: its parts, cycles, actions and weapons.</summary>
     public Rig Rig => _rig;

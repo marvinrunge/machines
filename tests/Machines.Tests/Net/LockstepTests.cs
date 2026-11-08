@@ -22,6 +22,7 @@ public class LockstepTests
             new PlaceConstructionCommand(Race.Blue, [7], "MISSILE_EMPLACEMENT", "TURRET", 2, new Vector2(-1.5e-3f, 1e7f), 270),
             new ResearchCommand(Race.Green, 4, new ResearchKey("AGGRESSOR", "GRUNT", 2, "L_BOLTER")),
             new DriveCommand(Race.Yellow, 9, true, 0.3333333f, -1, new Vector2(12.5f, 1e-4f)),
+            new DriveCommand(Race.Yellow, 9, true, 0, 0, new Vector2(1, 2), Weapons: 5, Buttons: true),
             new StrikeCommand(Race.Red, 5, new Vector2(MathF.PI, MathF.E)),
             new AllianceCommand(Race.Blue, Race.Green, Ally: true),
         ];
@@ -35,6 +36,9 @@ public class LockstepTests
             Assert.Equal(NetJson.Encode(new Turn(0, Race.Red, [commands[i]])), NetJson.Encode(new Turn(0, Race.Red, [back.Commands[i]])));
         var move = (MoveCommand)back.Commands[0];
         Assert.Equal(BitConverter.SingleToInt32Bits(0.1f + 0.2f), BitConverter.SingleToInt32Bits(move.Target.Y));
+        var triggers = (DriveCommand)back.Commands[4];
+        Assert.Equal(5, triggers.Weapons);
+        Assert.True(triggers.Buttons);
     }
 
     [Fact]

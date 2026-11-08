@@ -57,11 +57,12 @@ public partial class ArtefactDamage : Node3D
         var splat = damage >= BuildingDamage.Splat;
         if (splat && _splat is null && _splatMesh is { } mesh)
         {
+            var scale = ActorView.SplatScale(mesh);
             _splat = new MeshInstance3D
             {
                 Mesh = mesh,
                 Name = "Splat",
-                Scale = new Vector3(size.X * 0.13f, 1, size.Z * 0.13f),
+                Scale = new Vector3(size.X * scale.X, 1, size.Z * scale.Y),
                 Position = new Vector3(centre.X, ground + 0.1f, centre.Z),
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
                 MaterialOverride = ActorView.SplatMaterial(mesh),

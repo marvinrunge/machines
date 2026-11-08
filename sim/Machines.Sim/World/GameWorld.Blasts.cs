@@ -6,7 +6,7 @@ namespace Machines.Sim.World;
 
 public sealed partial class GameWorld
 {
-    private readonly List<(float At, WeaponSpec Weapon, Vector2 Target, Race By, Vector2 Direction)> _incoming = [];
+    private readonly List<(float At, WeaponSpec Weapon, Vector2 Target, Race By, Vector2 Direction, int? Shooter)> _incoming = [];
 
     /// <summary>Area weapons going off now.</summary>
     public List<Blast> Blasts { get; } = [];
@@ -25,18 +25,18 @@ public sealed partial class GameWorld
     /// <summary>The research item that gives every pod of a race its ion cannon.</summary>
     public static readonly ResearchKey IonCannonResearch = new("POD", null, 1, "T_ION_ORBITAL_CANNON");
 
-    public Blast StartBlast(WeaponSpec weapon, Vector2 position, Race? by, Vector2 direction = default)
+    public Blast StartBlast(WeaponSpec weapon, Vector2 position, Race? by, Vector2 direction = default, int? shooter = null)
     {
         var blast = new Blast(weapon.TypeName, position, by, Time, Blast.WavesFor(weapon),
-            direction == default ? default : Vector2.Normalize(direction));
+            direction == default ? default : Vector2.Normalize(direction), shooter);
         Blasts.Add(blast);
         Raise(new GameEvent(GameEventKind.Blast, 0, position, Detail: weapon.TypeName));
         return blast;
     }
 
     /// <summary>A blast that goes off later, at the time <paramref name="at"/>: a missile landing, a punch coming down.</summary>
-    internal void ScheduleBlast(float at, WeaponSpec weapon, Vector2 position, Race by, Vector2 direction = default) =>
-        _incoming.Add((at, weapon, position, by, direction));
+    internal void ScheduleBlast(float at, WeaponSpec weapon, Vector2 position, Race by, Vector2 direction = default, int? shooter = null) =>
+        _incoming.Add((at, weapon, position, by, direction, shooter));
 
     /// <summary>What a player's nuclear missile costs to launch (MachPhysGeneralData::nukeLaunchCost).</summary>
     public const int NukeLaunchCost = 500;
@@ -158,7 +158,7 @@ public sealed partial class GameWorld
         {
             if (_incoming[i].At > Time)
                 continue;
-            StartBlast(_incoming[i].Weapon, _incoming[i].Target, _incoming[i].By, _incoming[i].Direction);
+            StartBlast(_incoming[i].Weapon, _incoming[i].Target, _incoming[i].By, _incoming[i].Direction, _incoming[i].Shooter);
             _incoming.RemoveAt(i);
         }
         _missiles.RemoveAll(m => m.Lands <= Time);
@@ -176,8 +176,11 @@ public sealed partial class GameWorld
                 {
                     if (actor is Machine { Inside: not null })
                         continue;
-                    // A fist does not reach what flies (MachLogPunchBlast's CANT_HIT_AIR_UNITS).
-                    if (blast.Weapon == "GORILLA_PUNCH" && actor is Machine { Stats.Locomotion: Locomotion.Glider })
+                    // A fist does not reach what flies (MachLogPunchBlast's CANT_HIT_AIR_UNITS). Nor does a bee bomb
+                    // (MachLogBeeBombExplosion says the same), or its ring would catch the bee at any range it can throw;
+                    // only a Wired run goes by that, so that other matches and their replays stay as they are.
+                    if ((blast.Weapon == "GORILLA_PUNCH" || Wired is not null && blast.Weapon == "BEE_BOMB")
+                        && actor is Machine { Stats.Locomotion: Locomotion.Glider })
                         continue;
                     var offset = actor.Position - blast.Position;
                     var distance = MathF.Max(0, offset.Length() - actor.Radius);
@@ -188,7 +191,7 @@ public sealed partial class GameWorld
                         || DetMath.Acos(Math.Clamp(Vector2.Dot(Vector2.Normalize(offset), blast.Direction), -1, 1)) > cone))
                         continue;
                     blast.Hit[w].Add(actor.Id);
-                    Damage(actor, wave.DamageAt(distance), blast.By);
+                    Damage(actor, wave.DamageAt(distance), blast.By, weapon: blast.Weapon, blaster: blast.Shooter);
                     // MachLogIonBeam::inflictDamageSecondWave: what the beam itself kills gets no explosion.
                     actor.Vaporised = actor.IsDead && w == 0 && blast.Weapon == "ION_ORBITAL_CANNON";
                     actor.Swallowed = actor.IsDead && blast.Weapon == "VORTEX";

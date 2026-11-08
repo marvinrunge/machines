@@ -19,6 +19,19 @@ public sealed class ClassicAssets
     private readonly Dictionary<string, Rig?> _rigs = [];
     private readonly ModelLook? _models;
 
+    /// <summary>The Wired heroes' models put together so far, by what they wear (see <see cref="HeroRig"/>).</summary>
+    public Dictionary<string, Rig?> HeroRigs { get; } = [];
+
+    /// <summary>What seating a hero's weapons has read of a rig, and of a chassis' rig its solid (see <see cref="HeroSeat"/>).</summary>
+    public Dictionary<Rig, RigShape[]> HeroShapes { get; } = [];
+    public Dictionary<Rig, HeroSolid> HeroSolids { get; } = [];
+
+    /// <summary>Where the hangar's traces end on each hero, kept with its rig.</summary>
+    public Dictionary<Rig, HullSpot[]> HeroSpots { get; } = [];
+
+    /// <summary>The meshes made for heroes, by what they were made from: a weapon turned over, a body with its shoulder (see <see cref="HeroRig"/>).</summary>
+    public Dictionary<Mesh, Mesh> HeroMeshes { get; } = [];
+
     /// <param name="look">The models' look for these assets alone, whatever the player chose (the model viewer
     /// shows each); null follows the chosen look.</param>
     public ClassicAssets(string repositoryFolder, ModelLook? look = null)

@@ -10,6 +10,7 @@ namespace Machines.Game;
 public partial class ChipButton : BaseButton
 {
     private string _text = "";
+    private string? _tag;
     private float _light;
 
     public ChipButton(string text = "")
@@ -32,6 +33,17 @@ public partial class ChipButton : BaseButton
     }
 
     public int FontSize { get; set; } = 30;
+
+    /// <summary>A small gold plate on its right, for something new behind it.</summary>
+    public string? Tag
+    {
+        get => _tag;
+        set
+        {
+            _tag = value;
+            QueueRedraw();
+        }
+    }
 
     /// <summary>Menu pixels per pixel of the chip texture: buttons have finer pins than panels.</summary>
     public float ArtScale { get; set; } = 0.42f;
@@ -59,11 +71,16 @@ public partial class ChipButton : BaseButton
         ChipArt.Draw(this, new Rect2(Vector2.Zero, Size), ArtScale, _light, dim: Disabled);
         var font = GetThemeDefaultFont();
         var sink = GetDrawMode() == DrawMode.Pressed ? 2f : 0f;
-        var colour = Disabled ? MenuTheme.Dim : MenuTheme.Text.Lerp(MenuTheme.OnLight, _light);
+        var colour = TextColour(Disabled ? MenuTheme.Dim : MenuTheme.Text.Lerp(MenuTheme.OnLight, _light));
         var baseline = (Size.Y + font.GetAscent(FontSize) - font.GetDescent(FontSize)) / 2 + sink;
         DrawString(font, new Vector2(0, baseline), Lang.T(_text), HorizontalAlignment.Center, Size.X, FontSize, colour);
         DrawMore(colour, sink);
+        if (_tag is { } tag)
+            HangarText.Tag(this, new Vector2(Size.X - 14, 2), tag);
     }
+
+    /// <summary>The colour of its name, for a kind of button that has its own say in that.</summary>
+    protected virtual Color TextColour(Color colour) => colour;
 
     /// <summary>What a kind of button draws on its screen besides its name, in the name's colour.</summary>
     protected virtual void DrawMore(Color colour, float sink)
@@ -85,6 +102,9 @@ public partial class ChipChoice : ChipButton
     private float? _clickedAt;
 
     public event Action<int>? ItemSelected;
+
+    /// <summary>Which choices can be seen but not had yet: their name goes dark and carries a padlock.</summary>
+    public Func<int, bool>? Closed { get; set; }
 
     public ChipChoice(IEnumerable<string> items, int selected = 0)
     {
@@ -141,6 +161,8 @@ public partial class ChipChoice : ChipButton
     // The arrows stand in the room a button keeps either side of its name.
     public override Vector2 _GetMinimumSize() => base._GetMinimumSize() - new Vector2(2 * 26, 0);
 
+    protected override Color TextColour(Color colour) => Closed?.Invoke(_selected) == true && !IsHovered() && !HasFocus() ? MenuTheme.Dim.Lightened(0.15f) : colour;
+
     protected override void DrawMore(Color colour, float sink)
     {
         if (_items.Length < 2)
@@ -151,5 +173,14 @@ public partial class ChipChoice : ChipButton
         DrawColoredPolygon([new(inset, middle), new(inset + half * 1.3f, middle - half), new(inset + half * 1.3f, middle + half)], colour);
         var right = Size.X - inset;
         DrawColoredPolygon([new(right, middle), new(right - half * 1.3f, middle - half), new(right - half * 1.3f, middle + half)], colour);
+        if (Closed?.Invoke(_selected) == true)
+            DrawPadlock(new Vector2(inset + half * 1.3f + 16, middle));
+    }
+
+    private void DrawPadlock(Vector2 at)
+    {
+        var colour = HangarPage.Red;
+        DrawRect(new Rect2(at + new Vector2(-7, -2), new Vector2(14, 11)), colour);
+        DrawArc(at + new Vector2(0, -3), 5, Mathf.Pi, Mathf.Tau, 12, colour, 2.5f);
     }
 }

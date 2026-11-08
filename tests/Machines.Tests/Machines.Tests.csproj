@@ -23,4 +23,20 @@
     <ProjectReference Include="..\..\server\Machines.Relay\Machines.Relay.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Godot-free on purpose, so what a hero's model is made of, its making and the profile can be tested here. -->
+    <Compile Include="..\..\game\scripts\HeroParts.cs" Link="Sim\HeroParts.cs" />
+    <Compile Include="..\..\game\scripts\HeroSeat.cs" Link="Sim\HeroSeat.cs" />
+    <Compile Include="..\..\game\scripts\HeroDraft.cs" Link="Sim\HeroDraft.cs" />
+    <Compile Include="..\..\game\scripts\WiredProfile.cs" Link="Sim\WiredProfile.cs" />
+    <Compile Include="..\..\game\scripts\WiredReport.cs" Link="Sim\WiredReport.cs" />
+    <Compile Include="..\..\game\scripts\HangarShop.cs" Link="Sim\HangarShop.cs" />
+    <Compile Include="..\..\game\scripts\HangarWatch.cs" Link="Sim\HangarWatch.cs" />
+    <Compile Include="..\..\game\scripts\HangarFrame.cs" Link="Sim\HangarFrame.cs" />
+    <Compile Include="..\..\game\scripts\HeroHull.cs" Link="Sim\HeroHull.cs" />
+    <Compile Include="..\..\game\scripts\HangarGlyphs.cs" Link="Sim\HangarGlyphs.cs" />
+    <Compile Include="..\..\game\scripts\WiredReadout.cs" Link="Sim\WiredReadout.cs" />
+    <Compile Include="..\..\game\scripts\WeaponTriggers.cs" Link="Sim\WeaponTriggers.cs" />
+  </ItemGroup>
+
 </Project>

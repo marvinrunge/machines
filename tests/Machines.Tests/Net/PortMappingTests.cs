@@ -55,6 +55,9 @@ public class PortMappingTests
             while (!Encoding.ASCII.GetString(buffer.ToArray()).EndsWith("\r\n\r\n") && await stream.ReadAsync(one, _stop.Token) > 0)
                 buffer.Add(one[0]);
             var head = Encoding.ASCII.GetString(buffer.ToArray());
+            // A connection the client gave up on before it asked anything (a slow CI runner): nothing to answer.
+            if (!head.EndsWith("\r\n\r\n"))
+                return;
             var length = head.Split("\r\n").Where(l => l.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase))
                 .Select(l => int.Parse(l[15..].Trim())).FirstOrDefault();
             var body = new byte[length];

@@ -30,6 +30,11 @@ public partial class Game
 
     public override void _UnhandledInput(InputEvent @event)
     {
+        if (_heroDown)
+        {
+            DownInput(@event);
+            return;
+        }
         if (_driven is not null)
         {
             FirstPersonInput(@event);
@@ -232,35 +237,57 @@ public partial class Game
     private Queue<string[]>? _scriptedInput;
 
     /// <summary>
-    /// For automated checks: MACHINES_SCREENSHOT_INPUT=2:L:own;3:R:400,300;4:R:enemy;5:L:ground;6:K:M;7:Lp:own;8:Lr:own
-    /// plays clicks (L, R, or p and r for press and release) on a screen point, the player's first machine, the first
-    /// enemy or the ground before the panel, and keys (K), at the seconds given, without touching the real mouse, and logs
-    /// what stands selected and ordered after each.
+    /// For automated checks: MACHINES_SCREENSHOT_INPUT=2:L:own;3:R:400,300;4:M:400,300;5:L:ground;6:K:M;7:Lp:own;8:Lr:own;9:Kp:J;10:Kr:J
+    /// plays clicks (L, R, M for the middle button, with p and r for press and release alone) on a screen point, the player's
+    /// first machine, the first enemy or the ground before the panel, and keys (K, with p and r likewise), at the seconds
+    /// given, without touching the real mouse, and logs what stands selected and ordered after each. In first person, where
+    /// what counts is what is held, they go through Input; and every shot of the driven machine is logged by the triggers it answered.
     /// </summary>
     private void PlayScriptedInput()
     {
-        _scriptedInput ??= new((System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_INPUT") ?? "")
-            .Split(';', StringSplitOptions.RemoveEmptyEntries).Select(step => step.Split(':')));
+        if (_scriptedInput is null)
+        {
+            _scriptedInput = new((System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_INPUT") ?? "")
+                .Split(';', StringSplitOptions.RemoveEmptyEntries).Select(step => step.Split(':')));
+            if (_scriptedInput.Count > 0)
+                Ticked += LogShots;
+        }
         while (_scriptedInput.TryPeek(out var step) && _runTime >= double.Parse(step[0], System.Globalization.CultureInfo.InvariantCulture))
         {
             _scriptedInput.Dequeue();
-            if (step[1] == "K")
+            void Play(InputEvent @event)
+            {
+                if (_driven is null)
+                    _UnhandledInput(@event);
+                else
+                    Input.ParseInputEvent(@event);
+            }
+            if (step[1][0] == 'K')
             {
                 var key = Enum.Parse<Key>(step[2], ignoreCase: true);
-                _UnhandledInput(new InputEventKey { Keycode = key, PhysicalKeycode = key, Pressed = true });
+                if (step[1].Length == 1 || step[1][1] == 'p')
+                    Play(new InputEventKey { Keycode = key, PhysicalKeycode = key, Pressed = true });
+                if (step[1].Length == 2 && step[1][1] == 'r' || step[1].Length == 1 && _driven is not null)
+                    Play(new InputEventKey { Keycode = key, PhysicalKeycode = key, Pressed = false });
             }
             else
             {
                 var at = ScriptedPoint(step[2]);
-                var button = step[1][0] == 'L' ? MouseButton.Left : MouseButton.Right;
+                var button = step[1][0] switch { 'L' => MouseButton.Left, 'M' => MouseButton.Middle, _ => MouseButton.Right };
                 if (step[1].Length == 1 || step[1][1] == 'p')
-                    _UnhandledInput(new InputEventMouseButton { ButtonIndex = button, Pressed = true, Position = at });
+                    Play(new InputEventMouseButton { ButtonIndex = button, Pressed = true, Position = at });
                 if (step[1].Length == 1 || step[1][1] == 'r')
-                    _UnhandledInput(new InputEventMouseButton { ButtonIndex = button, Pressed = false, Position = at });
+                    Play(new InputEventMouseButton { ButtonIndex = button, Pressed = false, Position = at });
             }
             var lead = _selection.Select(id => World.Find<Machine>(id)).FirstOrDefault(m => m is not null);
-            GD.Print($"input {string.Join(":", step)}: selected {_selection.Count}, order {lead?.Order.GetType().Name}, hand {_inHand is not null}, placing {_placing is not null}");
+            GD.Print($"input {string.Join(":", step)}: selected {_selection.Count}, order {lead?.Order.GetType().Name}, hand {_inHand is not null}, placing {_placing is not null}, driving {_driven is not null}");
         }
+    }
+
+    private void LogShots()
+    {
+        foreach (var shot in World.Events.Where(e => e.Kind == GameEventKind.Fired && e.Actor == _driven?.Id))
+            GD.Print($"input: {Time.GetTicksMsec() / 1000.0:0.00} s fired {shot.Detail}, weapons mask {World.PlayerWeapons.GetValueOrDefault(shot.Actor)}, reloading [{string.Join(", ", _driven!.Weapons.Where(w => w.Reload > 0).Select(w => w.Mounting))}]");
     }
 
     private Vector2 ScriptedPoint(string point)

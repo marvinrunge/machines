@@ -135,7 +135,7 @@ public sealed partial class GameWorld
     {
         foreach (var actor in FiledNear(new Vector2(point.X, point.Y), 1 + _spatialReach).ToList())
         {
-            if (actor is not Machine { IsDead: false, Inside: null } traitor || traitor.Race == orb.Race)
+            if (actor is not Machine { IsDead: false, Inside: null } traitor || traitor.Race == orb.Race || IsWiredHero(traitor) || IsWiredBoss(traitor))
                 continue;
             var (min, max) = BoxOf(traitor);
             if (Vector3.DistanceSquared(point, Vector3.Clamp(point, min, max)) >= 1)

@@ -29,7 +29,7 @@ public sealed record BlastWave(
 }
 
 /// <summary>An area weapon going off: the original's vortex, bee bomb, punch, ion beam and nuclear bomb.</summary>
-public sealed class Blast(string weapon, Vector2 position, Race? by, float startTime, IReadOnlyList<BlastWave> waves, Vector2 direction = default)
+public sealed class Blast(string weapon, Vector2 position, Race? by, float startTime, IReadOnlyList<BlastWave> waves, Vector2 direction = default, int? shooter = null)
 {
     public string Weapon { get; } = weapon;
     public Vector2 Position { get; } = position;
@@ -37,6 +37,8 @@ public sealed class Blast(string weapon, Vector2 position, Race? by, float start
     public float StartTime { get; } = startTime;
     public IReadOnlyList<BlastWave> Waves { get; } = waves;
     public Vector2 Direction { get; } = direction;
+    /// <summary>The machine that set it off with a weapon of its own, if one did; a run's chips and statistics go by it.</summary>
+    public int? Shooter { get; } = shooter;
 
     /// <summary>Actors each wave has already hit.</summary>
     public List<HashSet<int>> Hit { get; } = waves.Select(_ => new HashSet<int>()).ToList();

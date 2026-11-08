@@ -325,6 +325,36 @@ with the left button as the original did, a short right click deselects and a ri
 puts the original's layout on: the arrows, Delete, End, Page Up and Page Down move the camera, and S A D Q E P F W are commands
 as well.
 
+## Wired
+
+**Wired** (Deutsch: *Wired – Überleben*) on the main menu is a survival mode for one player, and the remake's own addition:
+the original has nothing like it. You make a hero in the hangar from a chassis, weapons, modules and abilities with 150 BMUs
+(110 on Hard, 80 on Hardcore), choose an arena and a difficulty, and drive that hero in first person to keep your pod alive
+against endless waves. Destroyed machines leave wrecks full of BMUs to drive over. Between waves the pod's hangar buys, sells,
+swaps and upgrades, every fifth wave is a boss, and a boss pays with one of three chips. A run ends when the pod falls or the
+hero has no spare body left (2 on Normal, 1 on Hard, none on Hardcore).
+
+| Control | Does |
+| --- | --- |
+| Left, right and wheel click | Fire the left, right and top weapon; held ones fire together; a lone gun fires by left too |
+| W A S D, Q / E, mouse | Drive, turn and look, as in first person everywhere |
+| Space | Dash |
+| G, H | The two abilities |
+| I | The hangar, at the pod between waves |
+| F | Back into the hero, whatever is selected |
+| Z, X, V, T | The squad: follow, attack my target, hold, back to the pod |
+
+**Keys of Wired** in the options moves all of these, and a trigger may lie on a key or a mouse button. **Mouse button per
+weapon** in the options gives every other match the same triggers in first person (`weapon_buttons=on`; off at first, where
+the left button and Tab stay as in the original, and always on in a run).
+
+The end of a run shows the score, the waves, the kills, the hero as it stood, the records of that arena and difficulty, what
+was opened and what is next, with **Again**, **Hangar** and **Menu**. The score is the value of the machines destroyed, 150
+for a wave, 500 for a boss and half of the BMUs earned, times 1.5 on Hard and 2 on Hardcore. What a run opens is a choice and
+never a stronger hero: start chassis from wave 10 (Reaper, Overseer with a squad of three) to 30 (Gorilla), chips by
+milestones, the third and fourth arena at wave 10 and 20, and Hardcore at wave 15 on Hard. All that is kept in
+`user://wired.json`. A run is saved and recorded like any match, and its recording plays back whatever the profile holds.
+
 ## Multiplayer
 
 One player opens **Multiplayer** and presses **Host**: the game runs the relay on port 7777 and shows the
@@ -341,7 +371,9 @@ dotnet run --project server/Machines.Relay -- --port 7777
 
 For automated checks, `MACHINES_MP=host,<address>` (or `serve` to host the relay in the game, `join` to join
 the first room) drives the lobby, and `MACHINES_CHECKSUM_AT=<tick>` prints the world checksum at that tick.
-`MACHINES_REPLAY=<file.mreplay>` watches a replay.
+`MACHINES_REPLAY=<file.mreplay>` watches a replay. `MACHINES_WIRED_DRIVE=<folder>[,<option>...]` plays a whole Wired run
+from the main menu with the real keys and mouse, logging the world's checksum every 100 ticks, and over a replay prints the
+same lines for comparison (options in `game/scripts/WiredDriver.cs`).
 
 ## Releases
 

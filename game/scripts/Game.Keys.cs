@@ -122,6 +122,8 @@ public partial class Game
             UseZenithCamera(true);
         else if (KeyMap.Is(key, KeyMap.Act.GroundView))
             UseZenithCamera(false);
+        else if (World.Wired is not null && KeyMap.Is(key, KeyMap.Act.Hangar))
+            OpenHangar();
         // A bare letter the layout leaves free is the command that has it, when the panel shows that command.
         else if (!ctrl && !shift && !alt && !KeyMap.Taken(key.Keycode, firstPerson: false))
             _hud.Panel.Press(key.Keycode);

@@ -169,6 +169,15 @@ public sealed class NavGrid
     public Vector2? NearestFreePoint(Vector2 p, bool crossesWater) =>
         NearestFree(Cell(p), crossesWater) is { } cell ? Centre(cell.X, cell.Y) : null;
 
+    /// <summary>A point itself if it lies in a region, or else the middle of the region's nearest cell; null if there is none.</summary>
+    public Vector2? NearestPointIn(Vector2 p, int region, bool crossesWater)
+    {
+        var cell = Cell(p);
+        if (Region(cell.X, cell.Y, crossesWater) == region)
+            return p;
+        return NearestIn(cell, region, crossesWater) is { } near ? Centre(near.X, near.Y) : null;
+    }
+
     /// <summary>Whether a point lies on the planet.</summary>
     public bool OnPlanet(Vector2 p) => p.X >= 0 && p.Y >= 0 && p.X < Width * CellSize && p.Y < Depth * CellSize;
 

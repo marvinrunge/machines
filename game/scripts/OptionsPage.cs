@@ -89,7 +89,12 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         static string Tracks(string? folder) => Music.TrackCount(folder) is var count and > 0
             ? Lang.T("{0} tracks", count)
             : Lang.T("Pick the folder with the soundtrack's MP3s");
+        // Two lines at most: on one it pushed the other column off the screen until a folder was picked, on three the page.
         var tracks = MenuTheme.Label(Tracks(Music.Folder), 20, MenuTheme.Dim);
+        tracks.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        tracks.MaxLinesVisible = 2;
+        tracks.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+        tracks.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         var music = new FileDialog
         {
             FileMode = FileDialog.FileModeEnum.OpenDir,
@@ -206,17 +211,19 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         gamma.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         gamma.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 
-        rows.AddChild(Setting(Text(6995, "Reverse Up/Down Keys"), Switch(GameOptions.ReverseKeys, on => GameOptions.ReverseKeys = on), 260));
-        rows.AddChild(Setting(Text(6994, "Reverse F.P. Mouse"), Switch(GameOptions.ReverseMouse, on => GameOptions.ReverseMouse = on), 260));
+        // Side by side, or Back would leave the screen.
+        var reverseMouse = Setting(Text(6994, "Reverse F.P. Mouse"), Switch(GameOptions.ReverseMouse, on => GameOptions.ReverseMouse = on), 0);
+        rows.AddChild(Setting(Text(6995, "Reverse Up/Down Keys"), Line(28, Switch(GameOptions.ReverseKeys, on => GameOptions.ReverseKeys = on), reverseMouse), 260));
         rows.AddChild(Setting("F.P. Mouse Speed",
             Slider(GameOptions.MouseSpeed, value => GameOptions.MouseSpeed = value, GameOptions.MouseSpeedLowest, GameOptions.MouseSpeedHighest), 260));
-        rows.AddChild(Setting("Classic F.P. Keys", Switch(GameOptions.ClassicDriving, on => GameOptions.ClassicDriving = on), 260));
+        var weaponButtons = Setting("Mouse button per weapon", Switch(GameOptions.WeaponButtons, on => GameOptions.WeaponButtons = on), 0);
+        rows.AddChild(Setting("Classic F.P. Keys", Line(28, Switch(GameOptions.ClassicDriving, on => GameOptions.ClassicDriving = on), weaponButtons), 260));
         rows.AddChild(Setting(Text(6996, "2D Selection box"), Switch(GameOptions.Selection2d, on => GameOptions.Selection2d = on), 260));
-        // Side by side, or Back would leave the screen.
         var classicKeys = Setting("Classic Keys", Switch(GameOptions.ClassicKeys, on => GameOptions.ClassicKeys = on), 0);
         rows.AddChild(Setting("Classic Mouse", Line(28, Switch(GameOptions.ClassicMouse, on => GameOptions.ClassicMouse = on), classicKeys), 260));
         // The keys themselves are on their own page.
         rows.AddChild(MenuTheme.Paragraph("Classic F.P. Keys drive as the original did, Classic Mouse gives orders with the left button, Classic Keys puts commands on their letters.", 20, MenuTheme.Dim));
+        rows.AddChild(MenuTheme.Paragraph("Mouse button per weapon: left, right and the wheel each fire a weapon; always on in Wired.", 20, MenuTheme.Dim));
         return chip;
     }
 

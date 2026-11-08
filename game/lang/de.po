@@ -531,6 +531,12 @@ msgstr "Drücke die Taste für „{0}“, Esc behält {1}."
 msgid "{0} keeps its own use; pick another key."
 msgstr "{0} behält seine Aufgabe; wähle eine andere Taste."
 
+msgid "Your own keys stand where a run's were: {0}."
+msgstr "Deine eigenen Tasten liegen, wo die eines Laufs lagen: {0}."
+
+msgid "{0} is on {1}"
+msgstr "{0} liegt auf {1}"
+
 msgid "{0} is {1}'s, which cannot take {2} while {3} has it; change one of them first."
 msgstr "{0} gehört zu „{1}“, das {2} nicht nehmen kann, solange „{3}“ sie hat; ändere zuerst eine davon."
 
@@ -1479,6 +1485,9 @@ msgstr "Atomrakete starten"
 msgid "Ion cannon"
 msgstr "Ionenkanone"
 
+msgid "Ion orbital cannon"
+msgstr "Orbitale Ionenkanone"
+
 msgid "Ion cannon strike"
 msgstr "Schlag der Ionenkanone"
 
@@ -1837,6 +1846,9 @@ msgstr "kein Befehl für eine Staffel"
 
 msgid "not available in this scenario"
 msgstr "in diesem Szenario nicht verfügbar"
+
+msgid "not from inside the pod"
+msgstr "nicht aus dem Pod heraus"
 
 msgid "not researched yet"
 msgstr "noch nicht erforscht"
@@ -2288,3 +2300,1288 @@ msgstr "Umschalt M"
 
 msgid "Commands"
 msgstr "Befehle"
+
+# Wired: the hangar and hero creation
+
+msgid "Wired"
+msgstr "Wired – Überleben"
+
+msgid "Hangar"
+msgstr "Hangar"
+
+msgid "Done"
+msgstr "Fertig"
+
+msgid "Hardcore"
+msgstr "Hardcore"
+
+msgid "Light"
+msgstr "Leicht"
+
+msgid "Heavy"
+msgstr "Schwer"
+
+msgid "Slots {0} + {1}"
+msgstr "Slots {0} + {1}"
+
+msgid "Load {0} · Power {1}"
+msgstr "Last {0} · Energie {1}"
+
+msgid "Weapons: {0} · Modules: {1} · Carries {2} · Supplies {3}"
+msgstr "Waffen: {0} · Module: {1} · Trägt {2} · Liefert {3}"
+
+msgid "No fit"
+msgstr "Passt nicht"
+
+msgid "Part of the chassis"
+msgstr "Teil des Chassis"
+
+msgid "No slot"
+msgstr "Kein Slot"
+
+msgid "Empty"
+msgstr "Leer"
+
+msgid "Name your hero"
+msgstr "Name deines Helden"
+
+msgid "Record: wave {0}, {1} points"
+msgstr "Rekord: Welle {0}, {1} Punkte"
+
+msgid "No record yet"
+msgstr "Noch kein Rekord"
+
+msgid "Difficulty"
+msgstr "Schwierigkeit"
+
+msgid "Arena"
+msgstr "Arena"
+
+msgid "Start the mission"
+msgstr "Einsatz starten"
+
+msgid "Hero"
+msgstr "Held"
+
+msgid "Right click takes off."
+msgstr "Rechtsklick nimmt ab."
+
+msgid "Right click takes off, or gives a spare back."
+msgstr "Rechtsklick nimmt ab oder gibt Ersatz zurück."
+
+msgid "Won in a run"
+msgstr "Im Einsatz zu gewinnen"
+
+msgid "From wave {0} in the shop"
+msgstr "Ab Welle {0} im Laden"
+
+msgid "After {0}"
+msgstr "Nach {0}"
+
+msgid "Clear wave {0} with a squad of {1}"
+msgstr "Welle {0} mit {1} im Trupp schaffen"
+
+msgid "Clear wave {0} on Hard"
+msgstr "Welle {0} auf Schwer schaffen"
+
+msgid "Clear wave {0}"
+msgstr "Welle {0} schaffen"
+
+msgid "Locked"
+msgstr "Gesperrt"
+
+msgid "{0} waves in all"
+msgstr "{0} Wellen insgesamt"
+
+msgid "{0} kills in all"
+msgstr "{0} Abschüsse insgesamt"
+
+msgid "{0} bosses killed"
+msgstr "{0} Bosse erledigt"
+
+msgid "{0} wrecks collected"
+msgstr "{0} Wracks gesammelt"
+
+msgid "{0} crates collected"
+msgstr "{0} Kisten gesammelt"
+
+msgid "{0} waves without a death"
+msgstr "{0} Wellen ohne Verlust"
+
+msgid "Weapons"
+msgstr "Waffen"
+
+msgid "Modules"
+msgstr "Module"
+
+msgid "Abilities"
+msgstr "Fähigkeiten"
+
+msgid "Chips"
+msgstr "Chips"
+
+msgid "Chassis"
+msgstr "Chassis"
+
+msgid "Drag to turn, wheel to zoom."
+msgstr "Ziehen dreht, Mausrad zoomt."
+
+msgid "Test fire"
+msgstr "Probeschuss"
+
+msgid "Module {0}"
+msgstr "Modul {0}"
+
+msgid "Ability {0}"
+msgstr "Fähigkeit {0}"
+
+msgid "New slot"
+msgstr "Neuer Slot"
+
+msgid "Moves here"
+msgstr "Rückt hierher"
+
+msgid "Slot goes"
+msgstr "Slot entfällt"
+
+msgid "Moves"
+msgstr "Rückt um"
+
+msgid "Falls off"
+msgstr "Fällt ab"
+
+msgid "Stays empty"
+msgstr "Bleibt leer"
+
+msgid "Stays on"
+msgstr "Bleibt dran"
+
+msgid "Comes off"
+msgstr "Kommt ab"
+
+msgid "Replaces"
+msgstr "Ersetzt"
+
+msgid "Click: test fire. Right click: take off."
+msgstr "Klick: Probeschuss. Rechtsklick: abnehmen."
+
+msgid "Stays on: {0} · Falls off: {1} · Empty slots: {2}"
+msgstr "Bleibt dran: {0} · Fällt ab: {1} · Leere Slots: {2}"
+
+msgid "Hit points"
+msgstr "Trefferpunkte"
+
+msgid "Armour"
+msgstr "Panzerung"
+
+msgid "Speed"
+msgstr "Tempo"
+
+msgid "Accuracy"
+msgstr "Präzision"
+
+msgid "Scanner"
+msgstr "Scanner"
+
+msgid "Damage/s"
+msgstr "Schaden/s"
+
+msgid "Range"
+msgstr "Reichweite"
+
+msgid "Power"
+msgstr "Energie"
+
+msgctxt "hangar"
+msgid "Load"
+msgstr "Last"
+
+msgctxt "hangar"
+msgid "Turn"
+msgstr "Drehrate"
+
+msgctxt "hangar"
+msgid "Repair"
+msgstr "Reparatur"
+
+msgctxt "hangar"
+msgid "Drive"
+msgstr "Antrieb"
+
+msgid "this chassis has no such slot"
+msgstr "dieses Chassis hat keinen solchen Slot"
+
+msgid "that does not go into this slot"
+msgstr "das passt nicht in diesen Slot"
+
+msgid "that weapon is part of the chassis"
+msgstr "diese Waffe gehört zum Chassis"
+
+msgid "the weapon is too big for this slot"
+msgstr "die Waffe ist zu groß für diesen Slot"
+
+msgid "that fits only the top slot of a glider"
+msgstr "das passt nur in den oberen Slot eines Gleiters"
+
+msgid "too heavy for this chassis"
+msgstr "zu schwer für dieses Chassis"
+
+msgid "no room in the inventory"
+msgstr "kein Platz im Inventar"
+
+msgid "you do not own that"
+msgstr "das gehört dir nicht"
+
+msgid "that is not on the hero"
+msgstr "das trägt der Held nicht"
+
+msgid "you own no such chassis"
+msgstr "du besitzt dieses Chassis nicht"
+
+msgid "the hero is on that chassis"
+msgstr "der Held fährt schon auf diesem Chassis"
+
+msgid "the hangar opens only between waves"
+msgstr "der Hangar öffnet nur zwischen den Wellen"
+
+msgid "the hero is down"
+msgstr "der Held ist gefallen"
+
+msgid "the pod is gone"
+msgstr "der Pod ist zerstört"
+
+msgid "too far from the pod"
+msgstr "zu weit vom Pod entfernt"
+
+msgid "not enough BMUs"
+msgstr "nicht genug BMUs"
+
+msgid "Too heavy for this chassis"
+msgstr "Zu schwer für dieses Chassis"
+
+msgid "Overloaded: slower"
+msgstr "Überladen: langsamer"
+
+msgid "Not enough power: slower reloads"
+msgstr "Zu wenig Energie: langsameres Nachladen"
+
+msgid "No weapon"
+msgstr "Keine Waffe"
+
+msgid "Empty weapon slot"
+msgstr "Leerer Waffenslot"
+
+msgid "Bolter"
+msgstr "Bolter"
+
+msgid "Auto cannon"
+msgstr "Autokanone"
+
+msgid "Electric charge"
+msgstr "Elektroladung"
+
+msgid "Flame thrower 2"
+msgstr "Flammenwerfer 2"
+
+msgid "Pulse rifle"
+msgstr "Impulsgewehr"
+
+msgid "Plasma rifle"
+msgstr "Plasmagewehr"
+
+msgid "Heavy bolter 1"
+msgstr "Schwerer Bolter 1"
+
+msgid "Heavy bolter 2"
+msgstr "Schwerer Bolter 2"
+
+msgid "Plasma cannon 1"
+msgstr "Plasmakanone 1"
+
+msgid "Plasma cannon 2"
+msgstr "Plasmakanone 2"
+
+msgid "Pulse cannon"
+msgstr "Impulskanone"
+
+msgid "Multi launcher 1"
+msgstr "Mehrfachwerfer 1"
+
+msgid "Multi launcher 2"
+msgstr "Mehrfachwerfer 2"
+
+msgid "Multi launcher 3"
+msgstr "Mehrfachwerfer 3"
+
+msgid "Multi launcher 4"
+msgstr "Mehrfachwerfer 4"
+
+msgid "Multi launcher 5"
+msgstr "Mehrfachwerfer 5"
+
+msgid "Multi launcher 7"
+msgstr "Mehrfachwerfer 7"
+
+msgid "Wasp light sting"
+msgstr "Wespen-Leichtstachel"
+
+msgid "Wasp metal sting"
+msgstr "Wespen-Metallstachel"
+
+msgid "Bee bomb"
+msgstr "Bienenbombe"
+
+msgid "Gorilla punch"
+msgstr "Gorilla-Schlag"
+
+msgid "Armour plates"
+msgstr "Panzerplatten"
+
+msgid "Reinforced frame"
+msgstr "Verstärkter Rahmen"
+
+msgid "Repair system"
+msgstr "Reparatursystem"
+
+msgid "Gyro"
+msgstr "Gyro"
+
+msgid "Thrusters"
+msgstr "Schubdüsen"
+
+msgid "Targeting computer"
+msgstr "Zielcomputer"
+
+msgid "Night vision"
+msgstr "Nachtsicht"
+
+msgid "Reactor"
+msgstr "Reaktor"
+
+msgid "Cooler"
+msgstr "Kühler"
+
+msgid "Scrap collector"
+msgstr "Schrottsammler"
+
+msgid "Vortex"
+msgstr "Vortex"
+
+msgid "Discharge"
+msgstr "Entladung"
+
+msgid "Supercharge"
+msgstr "Supercharge"
+
+msgid "Minefield"
+msgstr "Minenfeld"
+
+msgid "Ion call"
+msgstr "Ionenruf"
+
+msgid "Overload"
+msgstr "Überladung"
+
+msgid "Marksman"
+msgstr "Scharfschütze"
+
+msgid "Sustained fire"
+msgstr "Dauerfeuer"
+
+msgid "Revenge"
+msgstr "Rache"
+
+msgid "Shrapnel"
+msgstr "Splitter"
+
+msgid "Glowing barrels"
+msgstr "Glühende Läufe"
+
+msgid "Emergency repair"
+msgstr "Notreparatur"
+
+msgid "Reactive armour"
+msgstr "Reaktive Panzerung"
+
+msgid "Nano healing"
+msgstr "Nano-Heilung"
+
+msgid "Toughness"
+msgstr "Zähigkeit"
+
+msgid "Last bastion"
+msgstr "Letzte Bastion"
+
+msgid "Damper"
+msgstr "Dämpfer"
+
+msgid "Scrap magnet"
+msgstr "Schrottmagnet"
+
+msgid "Recycler"
+msgstr "Recycler"
+
+msgid "Trader"
+msgstr "Händler"
+
+msgid "Treasure trove"
+msgstr "Fundgrube"
+
+msgid "Gold vein"
+msgstr "Goldader"
+
+msgid "Savings bank"
+msgstr "Sparkasse"
+
+msgid "Radio booster"
+msgstr "Funkverstärker"
+
+msgid "Squad tactics"
+msgstr "Trupp-Taktik"
+
+msgid "Rally call"
+msgstr "Sammelruf"
+
+msgid "Field workshop"
+msgstr "Feldwerkstatt"
+
+msgid "Veterans"
+msgstr "Veteranen"
+
+msgid "Covering fire"
+msgstr "Rückendeckung"
+
+msgid "Offensive"
+msgstr "Offensiv"
+
+msgid "Defensive"
+msgstr "Defensiv"
+
+msgid "Salvage"
+msgstr "Bergung"
+
+msgid "Command"
+msgstr "Kommando"
+
+# Wired: the shop, the chip board and the hangar in a match
+
+msgid "Inventory"
+msgstr "Inventar"
+
+msgid "Shop"
+msgstr "Laden"
+
+msgid "Path"
+msgstr "Weg"
+
+msgid "Tree"
+msgstr "Baum"
+
+msgid "Offer"
+msgstr "Angebot"
+
+msgid "Mk"
+msgstr "Mk"
+
+msgid "Squad"
+msgstr "Trupp"
+
+msgid "Pod"
+msgstr "Pod"
+
+msgid "Mk upgrades"
+msgstr "Mk-Upgrades"
+
+msgid "Pod repair"
+msgstr "Pod-Reparatur"
+
+msgid "Buy"
+msgstr "Kaufen"
+
+msgid "Sell"
+msgstr "Verkaufen"
+
+msgid "Take"
+msgstr "Nehmen"
+
+msgid "Worn"
+msgstr "Angelegt"
+
+msgid "Owned"
+msgstr "Im Besitz"
+
+msgid "Sold"
+msgstr "Verkauft"
+
+msgid "Linked"
+msgstr "Verbunden"
+
+msgid "Socket {0}"
+msgstr "Sockel {0}"
+
+msgid "Reroll {0} BMU"
+msgstr "Neu würfeln {0} BMU"
+
+msgid "Squad {0} / {1}"
+msgstr "Trupp {0} / {1}"
+
+msgid "Nobody yet."
+msgstr "Noch niemand."
+
+msgid "Repair for {0} BMU"
+msgstr "Für {0} BMU reparieren"
+
+msgid "Repair it all"
+msgstr "Alles reparieren"
+
+msgid "What the pod loses in a wave stays lost until it is paid for: it does not mend by itself."
+msgstr "Was der Pod in einer Welle verliert, bleibt verloren, bis es bezahlt ist: Er repariert sich nicht von selbst."
+
+msgid "{0} / {1} hit points · all of it {2} BMU"
+msgstr "{0} / {1} Trefferpunkte · alles für {2} BMU"
+
+msgid "Right click takes off, or sells a spare."
+msgstr "Rechtsklick nimmt ab oder verkauft Ersatz."
+
+msgid "Next: wave {0}"
+msgstr "Als Nächstes: Welle {0}"
+
+msgid "The wave is on its way"
+msgstr "Die Welle ist unterwegs"
+
+msgid "{0} s, held · Ready pays {1} BMU"
+msgstr "{0} s, angehalten · Bereit bringt {1} BMU"
+
+msgid "{0} s, held while the hangar is open"
+msgstr "{0} s, angehalten, solange der Hangar offen ist"
+
+msgid "Boss: {0}"
+msgstr "Boss: {0}"
+
+msgid "Night"
+msgstr "Nacht"
+
+msgid "Storm"
+msgstr "Sturm"
+
+msgid "Spies"
+msgstr "Spione"
+
+msgid "Treason"
+msgstr "Verrat"
+
+msgid "Air raid"
+msgstr "Luftangriff"
+
+msgid "Siege"
+msgstr "Belagerung"
+
+msgid "Ion storm"
+msgstr "Ionensturm"
+
+msgid "Choose a chip"
+msgstr "Wähle einen Chip"
+
+msgid "needs {0} first"
+msgstr "braucht zuerst {0}"
+
+msgid "or"
+msgstr "oder"
+
+msgid "Chassis or weapon?"
+msgstr "Chassis oder Waffe?"
+
+msgid "Tree climbed"
+msgstr "Baum erklommen"
+
+msgid "No weapon on offer"
+msgstr "Keine Waffe im Angebot"
+
+msgid "{0} damage/s"
+msgstr "{0} Schaden/s"
+
+msgid "in the best slot"
+msgstr "im besten Slot"
+
+msgid "Both: {0} BMU, {1} left"
+msgstr "Beides: {0} BMU, {1} bleiben"
+
+msgid "Both: {0} BMU, {1} short"
+msgstr "Beides: {0} BMU, {1} fehlen"
+
+msgid "Wave {0} finds {1} BMU in the bank"
+msgstr "Zu Welle {0} liegen {1} BMU in der Kasse"
+
+msgid "{0} leaves {1} BMU for wave {2}"
+msgstr "{0} lässt {1} BMU für Welle {2}"
+
+msgid "{0} is {1} BMU short"
+msgstr "Für {0} fehlen {1} BMU"
+
+msgid "Clearing it brings {0} BMU on top of its wrecks"
+msgstr "Sie zu schlagen bringt {0} BMU, die Wracks kommen dazu"
+
+msgid "{0} slot"
+msgstr "{0} Slot"
+
+msgid "{0} slots"
+msgstr "{0} Slots"
+
+msgid "{0} module"
+msgstr "{0} Modul"
+
+msgid "{0} modules"
+msgstr "{0} Module"
+
+msgid "{0} only {1}"
+msgstr "{0} nur {1}"
+
+msgid "{0} falls off"
+msgstr "{0} fällt ab"
+
+msgid "{0} fall off"
+msgstr "{0} fallen ab"
+
+msgid "{0} hit point"
+msgstr "{0} Trefferpunkt"
+
+msgid "{0} hit points"
+msgstr "{0} Trefferpunkte"
+
+msgid "{0} armour"
+msgstr "{0} Panzerung"
+
+msgid "{0} load"
+msgstr "{0} Last"
+
+msgid "{0} power"
+msgstr "{0} Energie"
+
+msgid "No change"
+msgstr "Keine Änderung"
+
+msgid "Inventory full: sell something first"
+msgstr "Inventar voll: erst etwas verkaufen"
+
+msgid "Inventory full"
+msgstr "Inventar voll"
+
+msgid "Inventory {0} / {1}"
+msgstr "Inventar {0} / {1}"
+
+msgid "that needs a medium slot"
+msgstr "das braucht einen mittleren Slot"
+
+msgid "that needs a heavy slot"
+msgstr "das braucht einen schweren Slot"
+
+msgid "that came free and sells for nothing"
+msgstr "das gab es umsonst, es bringt nichts ein"
+
+msgid "that is done in the inventory"
+msgstr "das geht nur im Inventar"
+
+msgid "The run is not in the profile yet: the file cannot be written just now."
+msgstr "Der Lauf steht noch nicht im Profil: die Datei lässt sich gerade nicht schreiben."
+
+msgid "The run is in the profile."
+msgstr "Der Lauf steht im Profil."
+
+msgid "Below {0} % hit points the reloads run {1} % faster."
+msgstr "Unter {0} % Trefferpunkten lädt alles {1} % schneller nach."
+
+msgid "{0} % more range."
+msgstr "{0} % mehr Reichweite."
+
+msgid "Each second of unbroken fire adds {0} % damage, up to {1} %."
+msgstr "Jede Sekunde Dauerfeuer bringt {0} % Schaden, bis zu {1} %."
+
+msgid "{0} % more damage for {1} s once the armour is shot away."
+msgstr "{0} % mehr Schaden für {1} s, sobald die Panzerung weggeschossen ist."
+
+msgid "Kills explode for {0} % of the victim's hit points within {1} m."
+msgstr "Abschüsse explodieren mit {0} % der Trefferpunkte des Opfers im Umkreis von {1} m."
+
+msgid "{0} % more damage; each weapon draws {1} power more."
+msgstr "{0} % mehr Schaden; jede Waffe zieht {1} Energie mehr."
+
+msgid "Once a wave a killing hit leaves 1 hit point and {0} s of safety."
+msgstr "Einmal pro Welle lässt ein tödlicher Treffer 1 Trefferpunkt und {0} s Schutz."
+
+msgid "A hit takes {0} % off the next."
+msgstr "Ein Treffer nimmt dem nächsten {0} %."
+
+msgid "{0} hit points every {1} s out of fire."
+msgstr "{0} Trefferpunkte alle {1} s außerhalb des Feuers."
+
+msgid "{0} % more armour."
+msgstr "{0} % mehr Panzerung."
+
+msgid "Armour counts {0} % more within {1} m of the pod."
+msgstr "Panzerung zählt {0} % mehr im Umkreis von {1} m um den Pod."
+
+msgid "Blasts do {0} % less."
+msgstr "Explosionen richten {0} % weniger an."
+
+msgid "Wrecks come from {0} m away."
+msgstr "Wracks kommen aus {0} m Entfernung."
+
+msgid "Selling brings {0} % of what was paid."
+msgstr "Verkaufen bringt {0} % des Kaufpreises."
+
+msgid "The shop is {0} % cheaper."
+msgstr "Der Laden ist {0} % billiger."
+
+msgid "Elites leave crates {0} % more often."
+msgstr "Elite-Gegner lassen {0} % öfter Kisten fallen."
+
+msgid "{0} BMUs more for a wave, and {0} more for every {1} waves behind it."
+msgstr "{0} BMU mehr pro Welle, und {0} mehr für je {1} überstandene Wellen."
+
+msgid "{0} % of the bank stays through a death."
+msgstr "{0} % der Kasse überstehen einen Tod."
+
+msgid "The squad aims {0} points better within {1} m of the hero."
+msgstr "Der Trupp zielt {0} Punkte besser im Umkreis von {1} m um den Helden."
+
+msgid "{0} escorts more, as far as the largest squad."
+msgstr "{0} Begleiter mehr, bis zum größten Trupp."
+
+msgid "The squad runs {0} % faster while it follows."
+msgstr "Der Trupp läuft {0} % schneller, solange er folgt."
+
+msgid "The squad mends {0} % of its hit points a second within {1} m of the hero."
+msgstr "Der Trupp repariert {0} % seiner Trefferpunkte pro Sekunde im Umkreis von {1} m um den Helden."
+
+msgid "Escorts come {0} hardware levels better where there are any."
+msgstr "Begleiter kommen {0} Hardware-Stufen besser, wo es welche gibt."
+
+msgid "The squad turns on what hits the hero."
+msgstr "Der Trupp wendet sich gegen das, was den Helden trifft."
+
+msgid "A dash, every {0} s."
+msgstr "Ein Sprint, alle {0} s."
+
+msgid "Wrecks bring {0} % more."
+msgstr "Wracks bringen {0} % mehr."
+
+msgid "Sees in the dark: night waves take nothing from its aim."
+msgstr "Sieht im Dunkeln: Nachtwellen nehmen ihm nichts von der Präzision."
+
+msgid "Reloads {0} % faster."
+msgstr "Lädt {0} % schneller nach."
+
+msgid "every {0} waves"
+msgstr "alle {0} Wellen"
+
+msgid "every {0} s"
+msgstr "alle {0} s"
+
+msgid "Opens a vortex where it is aimed"
+msgstr "Öffnet einen Wirbel, wohin es zielt"
+
+msgid "Throws an orb that turns the machine it hits"
+msgstr "Wirft eine Kugel, die die getroffene Maschine überlaufen lässt"
+
+msgid "Lightning strikes what stands within {0} m"
+msgstr "Blitze treffen, was im Umkreis von {0} m steht"
+
+msgid "The hero and the escorts near it get hit points back"
+msgstr "Der Held und die Begleiter in der Nähe bekommen Trefferpunkte zurück"
+
+msgid "Lays a row of mines ahead of the hero"
+msgstr "Legt eine Reihe Minen vor dem Helden"
+
+msgid "Calls the ion cannon down on where it is aimed"
+msgstr "Ruft die Ionenkanone dorthin, wohin es zielt"
+
+msgid "that is not for sale"
+msgstr "das steht nicht zum Verkauf"
+
+msgid "you own that chassis already"
+msgstr "dieses Chassis gehört dir schon"
+
+msgid "that is not on offer"
+msgstr "das ist nicht im Angebot"
+
+msgid "the inventory is full"
+msgstr "das Inventar ist voll"
+
+msgid "only one reroll per intermission"
+msgstr "nur einmal neu würfeln pro Pause"
+
+msgid "the pod needs no repair"
+msgstr "der Pod braucht keine Reparatur"
+
+msgid "that is not on offer yet"
+msgstr "das gibt es noch nicht"
+
+msgid "the squad is full"
+msgstr "der Trupp ist voll"
+
+msgid "the hangar is closed"
+msgstr "der Hangar ist zu"
+
+msgid "there is no wave to wait for"
+msgstr "es gibt keine Welle, auf die zu warten wäre"
+
+msgid "take it off first"
+msgstr "nimm es zuerst ab"
+
+msgid "no such socket"
+msgstr "diesen Sockel gibt es nicht"
+
+msgid "that socket is empty"
+msgstr "dieser Sockel ist leer"
+
+msgid "no such chip to choose"
+msgstr "diesen Chip gibt es nicht zur Wahl"
+
+msgid "no such ability slot"
+msgstr "diesen Fähigkeitsslot gibt es nicht"
+
+msgid "no ability in this slot"
+msgstr "keine Fähigkeit in diesem Slot"
+
+msgid "that is not ready yet"
+msgstr "das ist noch nicht bereit"
+
+msgid "that is out of reach"
+msgstr "das ist außer Reichweite"
+
+msgid "nothing there to turn"
+msgstr "dort gibt es nichts umzudrehen"
+
+msgid "too many mines on the ground"
+msgstr "es liegen schon zu viele Minen"
+
+msgid "the hero has no thrusters"
+msgstr "der Held hat keine Schubdüsen"
+
+msgid "The Crusher"
+msgstr "Der Zermalmer"
+
+msgid "Ironfist"
+msgstr "Eisenfaust"
+
+msgid "The Traitor"
+msgstr "Der Verräter"
+
+msgid "Primus"
+msgstr "Primus"
+
+msgid "The Twins"
+msgstr "Die Zwillinge"
+
+msgid "The Queen"
+msgstr "Königin"
+
+msgid "not while the game is paused"
+msgstr "nicht, solange das Spiel angehalten ist"
+
+msgid "Too dear at this difficulty, it went back: {0}"
+msgstr "Auf dieser Stufe zu teuer, zurückgegeben: {0}"
+
+msgid "Opened: {0}"
+msgstr "Freigeschaltet: {0}"
+
+msgid "a new arena"
+msgstr "eine neue Arena"
+
+msgid "that has no higher Mk"
+msgstr "davon gibt es kein höheres Mk"
+
+msgid "The spare goes up a Mk where it lies: the hero stays as it is."
+msgstr "Das Ersatzteil steigt ein Mk auf, wo es liegt: Am Helden ändert sich nichts."
+
+msgid "No spare weapons."
+msgstr "Keine Ersatzwaffen."
+
+msgid "No spare modules."
+msgstr "Keine Ersatzmodule."
+
+msgid "No spare abilities."
+msgstr "Keine Ersatzfähigkeiten."
+
+msgid "No spare chips."
+msgstr "Keine Ersatzchips."
+
+msgid "No other chassis."
+msgstr "Kein anderes Chassis."
+
+msgid "Nothing here yet."
+msgstr "Hier ist noch nichts."
+
+msgid "What you buy in the shop or take off the hero waits here."
+msgstr "Was du im Laden kaufst oder dem Helden abnimmst, wartet hier."
+
+msgid "Chips come from bosses and crates."
+msgstr "Chips gibt es von Bossen und aus Kisten."
+
+msgid "The tree in the shop leads on from what the hero is on."
+msgstr "Der Baum im Laden führt vom Chassis des Helden aus weiter."
+
+msgid "What the hero owns can go up a Mk here."
+msgstr "Was der Held besitzt, kann hier ein Mk aufsteigen."
+
+msgid "{0} hit point every {1} s out of fire."
+msgstr "{0} Trefferpunkt alle {1} s außerhalb des Feuers."
+
+msgid "{0} escort more, as far as the largest squad."
+msgstr "{0} Begleiter mehr, bis zum größten Trupp."
+
+msgid "Escorts come {0} hardware level better where there are any."
+msgstr "Begleiter kommen {0} Hardware-Stufe besser, wo es welche gibt."
+
+msgid "Next wave {0}"
+msgstr "Nächste Welle {0}"
+
+msgid "Wave {0}"
+msgstr "Welle {0}"
+
+msgid "enemies left"
+msgstr "Gegner übrig"
+
+msgid "No spare body"
+msgstr "Kein Ersatzkörper"
+
+msgid "Spare bodies"
+msgstr "Ersatzkörper"
+
+msgid "Score {0}"
+msgstr "Punkte {0}"
+
+msgid "gone"
+msgstr "zerstört"
+
+msgid "Under attack"
+msgstr "Unter Beschuss"
+
+msgid "{0} m away"
+msgstr "{0} m entfernt"
+
+msgid "{0} W"
+msgstr "{0} W"
+
+msgid "Squad {0}/{1}"
+msgstr "Trupp {0}/{1}"
+
+msgid "Night: the scanners reach half as far and aim suffers"
+msgstr "Nacht: Die Scanner reichen halb so weit, das Zielen leidet"
+
+msgid "Storm: twice as many, fast and light"
+msgstr "Sturm: doppelt so viele, schnell und leicht"
+
+msgid "Spies: mines round the pod and on the way"
+msgstr "Spione: Minen rund um den Pod und auf dem Weg"
+
+msgid "Treason: a commander comes for your squad"
+msgstr "Verrat: Ein Kommandant will deinen Trupp umdrehen"
+
+msgid "Air raid: they come by air only"
+msgstr "Luftangriff: Sie kommen nur aus der Luft"
+
+msgid "Siege: Ballistas shell the pod from afar, go out to them"
+msgstr "Belagerung: Ballisten beschießen den Pod von weit her, geh zu ihnen raus"
+
+msgid "Ion storm: get out of the warning circles"
+msgstr "Ionenschlag: Raus aus den Warnkreisen"
+
+msgid "Wave {0} cleared"
+msgstr "Welle {0} geschafft"
+
+msgid "Bonus {0} BMU"
+msgstr "Bonus {0} BMU"
+
+msgid "Boss on the field"
+msgstr "Boss auf dem Feld"
+
+msgid "Below half: a call for help"
+msgstr "Unter der Hälfte: Ruf nach Verstärkung"
+
+msgid "Boss down"
+msgstr "Boss erledigt"
+
+msgid "Choose a chip in the hangar"
+msgstr "Wähle im Hangar einen Chip"
+
+msgid "Out!"
+msgstr "Raus!"
+
+msgid "Open hangar ({0})"
+msgstr "Hangar öffnen ({0})"
+
+msgid "A chip is waiting to be chosen"
+msgstr "Ein Chip wartet auf die Wahl"
+
+msgid "Back to the pod for the hangar"
+msgstr "Zurück zum Pod für den Hangar"
+
+msgid "Ion strike in {0} s: get out of the circle"
+msgstr "Ionenschlag in {0} s: Raus aus dem Kreis"
+
+msgid "Ion strike in {0} s"
+msgstr "Ionenschlag in {0} s"
+
+msgid "Body lost"
+msgstr "Körper verloren"
+
+msgid "The next body stands at the pod"
+msgstr "Der nächste Körper steht am Pod"
+
+msgid "Spare bodies left: {0}"
+msgstr "Ersatzkörper übrig: {0}"
+
+msgid "Left weapon"
+msgstr "Linke Waffe"
+
+msgid "Right weapon"
+msgstr "Rechte Waffe"
+
+msgid "Top weapon"
+msgstr "Obere Waffe"
+
+msgid "Squad: follow"
+msgstr "Trupp: folgen"
+
+msgid "Squad: attack my target"
+msgstr "Trupp: mein Ziel angreifen"
+
+msgid "Squad: hold"
+msgstr "Trupp: halten"
+
+msgid "Squad: back to the pod"
+msgstr "Trupp: zurück zum Pod"
+
+msgid "Ability 1"
+msgstr "Fähigkeit 1"
+
+msgid "Ability 2"
+msgstr "Fähigkeit 2"
+
+msgid "Dash"
+msgstr "Sprint"
+
+msgid "Left mouse"
+msgstr "Linke Maus"
+
+msgid "Right mouse"
+msgstr "Rechte Maus"
+
+msgid "Wheel click"
+msgstr "Radklick"
+
+msgid "Mouse {0}"
+msgstr "Maustaste {0}"
+
+msgid "Mouse button per weapon"
+msgstr "Maustaste je Waffe"
+
+msgid "Mouse button per weapon: left, right and the wheel each fire a weapon; always on in Wired."
+msgstr "Maustaste je Waffe: Links, rechts und Rad feuern je eine Waffe; in Wired immer an."
+
+msgid "Keys of Wired"
+msgstr "Tasten von Wired"
+
+msgid "WEAPONS"
+msgstr "WAFFEN"
+
+msgid "WIRED"
+msgstr "WIRED"
+
+msgid "One trigger for each weapon in first person, with the options' Mouse button per weapon and always in Wired. Held ones fire together. A key or a mouse button will do; while these are on the mouse, the right button neither turns the upper body nor leaves by a double click."
+msgstr "Ein Abzug für jede Waffe in der Ego-Perspektive, mit „Maustaste je Waffe“ aus den Optionen und in Wired immer. Gehaltene feuern zusammen. Eine Taste oder Maustaste ist recht; solange sie gelten, dreht die rechte Taste weder den Oberkörper, noch verlässt ein Doppelklick die Maschine."
+
+msgid "These work in the hero, in first person; the hangar also from above, at the pod between the waves. The options' Classic Keys leave them as they are."
+msgstr "Sie gelten im Helden, in der Ego-Perspektive; der Hangar auch von oben, am Pod zwischen den Wellen. Die „Klassischen Tasten“ der Optionen lassen sie, wie sie sind."
+
+msgid "Press the key or mouse button for {0}, Esc keeps {1}."
+msgstr "Drücke die Taste oder Maustaste für „{0}“, Esc behält {1}."
+
+msgid "{0}, {1} and {2} each fire a weapon, {3} or Esc to leave"
+msgstr "{0}, {1} und {2} feuern je eine Waffe, {3} oder Esc zum Verlassen"
+
+msgid "First person: {0} drive, {1} or mouse turn, Shift turns the upper body ({2} centres it), {3}"
+msgstr "Ego-Perspektive: {0} fahren, {1} oder Maus drehen, Umschalt dreht den Oberkörper ({2} richtet ihn aus), {3}"
+
+msgid "nothing in the sight to attack"
+msgstr "nichts im Visier zum Angreifen"
+
+msgid "there is no squad to order"
+msgstr "es gibt keinen Trupp für Befehle"
+
+msgid "Shift with {0} or mouse"
+msgstr "Umschalt mit {0} oder Maus"
+
+msgid "Fire left, right, top"
+msgstr "Feuer links, rechts, oben"
+
+msgid "Fire all"
+msgstr "Alle feuern"
+
+msgid "Squad: follow, attack, hold, back"
+msgstr "Trupp: folgen, angreifen, halten, zurück"
+
+msgid "Abilities, dash"
+msgstr "Fähigkeiten, Sprint"
+
+# Wired: the end of a run, records and what they open
+
+msgid "New: {0} and {1} more"
+msgstr "Neu: {0} und {1} weitere"
+
+msgid "New: {0}"
+msgstr "Neu: {0}"
+
+msgid "{0} new"
+msgstr "{0} neu"
+
+msgid "{0} boss killed"
+msgstr "{0} Boss erledigt"
+
+msgid "New difficulty"
+msgstr "Neue Schwierigkeit"
+
+msgid "No spare bodies, double the score."
+msgstr "Keine Ersatzkörper, doppelte Punkte."
+
+msgid "New arena"
+msgstr "Neue Arena"
+
+msgid "Yours to choose for the next run."
+msgstr "Steht für den nächsten Lauf bereit."
+
+msgid "New chassis"
+msgstr "Neues Chassis"
+
+msgid "A hero can start on it now."
+msgstr "Ein Held kann jetzt damit beginnen."
+
+msgid "New chip"
+msgstr "Neuer Chip"
+
+msgid "The pod has fallen"
+msgstr "Der Pod ist gefallen"
+
+msgid "No spare bodies left"
+msgstr "Keine Ersatzkörper mehr"
+
+msgid "Run over"
+msgstr "Lauf beendet"
+
+msgid "Score"
+msgstr "Punkte"
+
+msgid "Waves"
+msgstr "Wellen"
+
+msgid "Weapon"
+msgstr "Waffe"
+
+msgid "Rounds"
+msgstr "Schüsse"
+
+msgid "Damage"
+msgstr "Schaden"
+
+msgid "Machines destroyed"
+msgstr "Maschinen zerstört"
+
+msgid "Waves cleared"
+msgstr "Wellen geschafft"
+
+msgid "Bosses destroyed"
+msgstr "Bosse zerstört"
+
+msgid "BMUs earned"
+msgstr "BMU verdient"
+
+msgid "Unlocked"
+msgstr "Freigeschaltet"
+
+msgid "Nothing new this run"
+msgstr "Diesmal nichts Neues"
+
+msgid "Records"
+msgstr "Rekorde"
+
+msgid "This run"
+msgstr "Dieser Lauf"
+
+msgid "Best so far"
+msgstr "Bisher"
+
+msgid "Again"
+msgstr "Nochmal"
+
+msgid "A recording changes no records."
+msgstr "Eine Aufzeichnung ändert keine Rekorde."
+
+msgid "This run has been counted."
+msgstr "Dieser Lauf wurde schon gezählt."
+
+msgid "The first record on this arena at this difficulty."
+msgstr "Der erste Rekord auf dieser Arena und Schwierigkeit."
+
+msgid "{0} points above your best."
+msgstr "{0} Punkte über deinem Rekord."
+
+msgid "{0} points short of your best."
+msgstr "{0} Punkte unter deinem Rekord."
+
+msgid "Level with your best."
+msgstr "Gleichauf mit deinem Rekord."
+
+msgid "Not a point on the board."
+msgstr "Kein einziger Punkt."
+
+msgid "New record"
+msgstr "Neuer Rekord"
+
+msgid "First record"
+msgstr "Erster Rekord"
+
+msgid "Everything is open"
+msgstr "Alles ist offen"
+
+msgid "Next to open"
+msgstr "Als Nächstes"
+
+msgid "Damage dealt"
+msgstr "Schaden ausgeteilt"
+
+msgid "Damage taken"
+msgstr "Schaden eingesteckt"
+
+msgid "Wrecks collected"
+msgstr "Wracks gesammelt"
+
+msgid "Crates collected"
+msgstr "Kisten gesammelt"
+
+msgid "Bodies lost"
+msgstr "Körper verloren"
+
+msgid "Largest squad"
+msgstr "Größter Trupp"
+
+msgid "Waves without a death"
+msgstr "Wellen ohne Verlust"
+
+# The arenas of Wired: the skirmish pages stay with the original's names.
+
+msgctxt "arena"
+msgid "Canyon Attack"
+msgstr "Canyon-Angriff"
+
+msgctxt "arena"
+msgid "Oasis"
+msgstr "Oase"
+
+msgctxt "arena"
+msgid "Lunar Desert"
+msgstr "Mondwüste"
+
+msgctxt "arena"
+msgid "Island Skirmish"
+msgstr "Inselgefecht"

@@ -228,7 +228,7 @@ public partial class Game
                 return CanGoIn(garrison) ? Aim.EnterBuilding : Aim.Select;
             if (alt && !ctrl && machine)
             {
-                if (own && at.Actor is Construction { Complete: true, Spec.Type: "SMELTER" or "POD" })
+                if (own && World.Wired is null && at.Actor is Construction { Complete: true, Spec.Type: "SMELTER" or "POD" })
                     return Aim.Recycle;
                 if (at.Actor is Machine)
                     return Aim.Follow;

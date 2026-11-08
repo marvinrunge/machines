@@ -40,12 +40,12 @@ public partial class ActorView
         var splat = damage >= BuildingDamage.Splat;
         if (splat && _splat is null && SplatMesh is { } mesh)
         {
-            var scale = 1.3f / 10;
+            var scale = SplatScale(mesh);
             _splat = new MeshInstance3D
             {
                 Mesh = mesh,
                 Name = "Splat",
-                Scale = new Vector3(size.X * scale, 1, size.Z * scale),
+                Scale = new Vector3(size.X * scale.X, 1, size.Z * scale.Y),
                 Position = Vector3.Up * 0.1f,
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
                 MaterialOverride = SplatMaterial(mesh),

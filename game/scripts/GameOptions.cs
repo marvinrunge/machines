@@ -6,8 +6,8 @@ namespace Machines.Game;
 /// The switches of the original's options screen (MachGuiCtxOptions) beside the volumes and the look: the up and down
 /// keys reversed, the first-person mouse reversed, the 2D selection box, 3D sound and the gamma correction. They are
 /// kept in <c>user://settings.cfg</c> and take at once. MACHINES_OPTIONS sets them for one run (screenshots, checks),
-/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic,dof=strong,film=on,mouse_speed=1.5,classic_mouse=on,classic_keys=on</c>.
-/// Depth of field, the film look, the first-person mouse speed and the choice of mouse and keys are the remake's own.
+/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic,dof=strong,film=on,mouse_speed=1.5,classic_mouse=on,classic_keys=on,weapon_buttons=on</c>.
+/// Depth of field, the film look, the first-person mouse speed, the choice of mouse and keys and the triggers of the weapons are the remake's own.
 /// </summary>
 public static class GameOptions
 {
@@ -19,7 +19,7 @@ public static class GameOptions
     /// <summary>The first-person mouse speed's range, times the standard speed.</summary>
     public const float MouseSpeedLowest = 0.25f, MouseSpeedHighest = 2.5f;
 
-    private static bool _read, _reverseKeys, _reverseMouse, _selection2d, _sound3d = true, _classicDriving, _filmLook, _classicMouse, _classicKeys, _transitions = true;
+    private static bool _read, _reverseKeys, _reverseMouse, _selection2d, _sound3d = true, _classicDriving, _filmLook, _classicMouse, _classicKeys, _weaponButtons, _transitions = true;
     private static float _gamma = 1, _mouseSpeed = 1;
     private static Blur _depthOfField;
 
@@ -131,6 +131,19 @@ public static class GameOptions
     }
 
     /// <summary>
+    /// Whether each weapon has its own trigger in first person (Mouse button per weapon): the left mouse button fires the
+    /// left weapon, the right one the right weapon, the wheel the top one, and held ones fire together. The right button then
+    /// no longer turns the upper body or leaves by a double click, and Tab no longer selects. Off at first, as the
+    /// original's left button and Tab stay the default; a run of Wired always has it (<see cref="Game.WeaponButtons"/>).
+    /// Kept as <c>weapon_buttons</c>.
+    /// </summary>
+    public static bool WeaponButtons
+    {
+        get { Read(); return _weaponButtons; }
+        set => Keep(ref _weaponButtons, value, "controls", "weapon_buttons");
+    }
+
+    /// <summary>
     /// Whether what is selected or pointed at is marked by the corners of a frame facing the camera rather than by
     /// a wireframe box (2D Selection box, MachPhysMarker).
     /// </summary>
@@ -182,6 +195,7 @@ public static class GameOptions
             _transitions = (bool)config.GetValue("display", "transitions", true);
             _classicMouse = (bool)config.GetValue("controls", "classic_mouse", false);
             _classicKeys = (bool)config.GetValue("controls", "classic_keys", false);
+            _weaponButtons = (bool)config.GetValue("controls", "weapon_buttons", false);
         }
         foreach (var part in (System.Environment.GetEnvironmentVariable("MACHINES_OPTIONS") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
@@ -198,6 +212,7 @@ public static class GameOptions
                 case "film": _filmLook = on; break;
                 case "classic_mouse": _classicMouse = on; break;
                 case "classic_keys": _classicKeys = on; break;
+                case "weapon_buttons": _weaponButtons = on; break;
                 case "gamma" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var gamma):
                     _gamma = Mathf.Clamp(gamma, GammaLowest, GammaHighest);
                     break;

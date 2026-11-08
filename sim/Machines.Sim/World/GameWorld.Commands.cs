@@ -305,12 +305,17 @@ public sealed partial class GameWorld
                     DriveInput.Remove(driven.Id);
                     PlayerAims.Remove(driven.Id);
                     PlayerWeapons.Remove(driven.Id);
+                    PlayerButtons.Remove(driven.Id);
                     PlayerHeads.Remove(driven.Id);
                     return null;
                 }
                 DriveInput[driven.Id] = (Math.Clamp(drive.Forward, -1, 1), Math.Clamp(drive.Turn, -1, 1),
                     driven.CanStrafe ? Math.Clamp(drive.Strafe, -1, 1) : 0, drive.Slow);
                 PlayerWeapons[driven.Id] = drive.Weapons;
+                if (drive.Buttons)
+                    PlayerButtons.Add(driven.Id);
+                else
+                    PlayerButtons.Remove(driven.Id);
                 PlayerHeads[driven.Id] = drive.Head;
                 if (drive.Aim is { } aim)
                     PlayerAims[driven.Id] = (aim, drive.AimHeight);
@@ -377,6 +382,9 @@ public sealed partial class GameWorld
                     Raise(new GameEvent(GameEventKind.AllianceChanged, (int)alliance.Race, Vector2.Zero, (int)alliance.Target, alliance.Ally ? "ALLY" : "NEUTRAL"));
                 return null;
             }
+
+            case WiredCommand wired:
+                return ApplyWired(wired);
 
             default:
                 return $"unknown command {command.GetType().Name}";

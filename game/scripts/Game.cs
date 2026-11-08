@@ -368,6 +368,7 @@ public partial class Game : Node3D
         // A film plays the same battle each time it is recorded.
         _seed = request.Seed ?? (Cinematic.Asked is not null ? 1 : (int)(Time.GetUnixTimeFromSystem() % int.MaxValue));
         World = MatchSetup.Create(data, request.Scenario, request.Planet, request.Starts.Players, _seed, request.Options);
+        GiftForChecks();
 
         // Every match runs through lockstep: alone with one tick of input delay, online with the relay's, or
         // played back from a replay.
@@ -399,6 +400,9 @@ public partial class Game : Node3D
             while (World.Tick < saved.Ticks && _session.TryStep())
             {
             }
+            _wiredCounted = World.Wired is { Phase: Machines.Sim.Survival.WiredPhase.Ended };
+            if (_scriptLoaded)
+                GD.Print($"hangar: caught up with the save at tick {World.Tick}, checksum {World.Checksum():x16}");
         }
         // The ground's and the grass's shaders read the weather's values (wind, wetness): they must exist first.
         Weather.EnsureGlobals();
@@ -444,6 +448,7 @@ public partial class Game : Node3D
         AddChild(_screen);
         _hud = new Hud(this, map);
         AddChild(_hud);
+        SetUpRun();
         if (groundMissing)
             _hud.Message("This match was played on the classic export's ground, which this game copy lacks: it will not play out the same");
         _cursor = new ClassicCursor { Name = "Cursor" };
@@ -460,9 +465,10 @@ public partial class Game : Node3D
         }
 
         SyncViews();
-        _hud.Message(_assets.HasClassicModels
-            ? "Classic models loaded from your game copy."
-            : "No classic models found (see tools/classic-export); showing simple shapes.");
+        if (World.Wired is null || !_assets.HasClassicModels)
+            _hud.Message(_assets.HasClassicModels
+                ? "Classic models loaded from your game copy."
+                : "No classic models found (see tools/classic-export); showing simple shapes.");
 
         // A film hides the panel and films the match with its own camera; a match shows the film look the options ask for.
         if (Cinematic.Asked is not null)
@@ -664,13 +670,19 @@ public partial class Game : Node3D
                 {
                     stepped++;
                     foreach (var rejected in World.Rejected.Where(r => r.Command.Race == Player))
-                        _hud.Message(rejected.Reason);
+                    {
+                        if (rejected.Command is WiredCommand)
+                            WiredRefused(rejected.Command, rejected.Reason);
+                        else
+                            _hud.Message(rejected.Reason);
+                    }
                     ShowEvents();
+                    ShowRunEvents();
                     SyncBlasts();
                     SyncViews();
                     Ticked?.Invoke();
                     // For automated checks: MACHINES_CHECKSUM_AT=<tick> prints the world's checksum at that tick.
-                    if (System.Environment.GetEnvironmentVariable("MACHINES_CHECKSUM_AT") is { } at && long.TryParse(at, out var checkTick) && World.Tick == checkTick)
+                    if (System.Environment.GetEnvironmentVariable("MACHINES_CHECKSUM_AT") is { } at && at.Split(',').Contains(World.Tick.ToString()))
                         GD.Print($"checksum at tick {World.Tick}: {World.Checksum():x16}");
                 }
                 _waitingFor = stepped > 0 ? 0 : _waitingFor + GameWorld.Dt;
@@ -686,27 +698,30 @@ public partial class Game : Node3D
             _hud.Banner(Lang.T("Out of sync since tick {0}: the players' games differ", desync));
         else if (World.Winner is { } winner && Watching)
             _hud.Banner(Lang.T("{0} wins", Lang.T(Look(winner).ToString())));
-        else if (MatchOver && ClassicGui.Bitmap(EndPicture) is null)
+        else if (MatchOver && World.Wired is null && ClassicGui.Bitmap(EndPicture) is null)
             _hud.Banner(World.Winner == Player ? "Victory" : "Defeat");
         else if (_waitingFor <= 1)
             _hud.Banner(null);
-        _hud.Picture(MatchOver ? EndPicture : Paused && !Online && _menu is null ? "misc/paused.bmp" : null);
+        // A run ends on its own screen, and misc/defeat.bmp has its word in English.
+        _hud.Picture(MatchOver && World.Wired is null ? EndPicture : Paused && !Online && _menu is null ? "misc/paused.bmp" : null);
         // Once the match is decided every sound stops; two seconds on the world stands still under the picture of how
         // it ended, and after 19 seconds won, 14 lost or 5 in training, or at Esc or Space, the statistics
         // (MachGuiCtxStatistics) come up over it (MachInGameScreen::gameState); after a campaign mission its film of
         // victory or defeat, then its debriefing.
-        if (World.Winner is not null || World.Races[Player].Defeated && !Watching)
+        if (World.Winner is not null || World.Races[Player].Defeated && !Watching || World.Wired is { Phase: Machines.Sim.Survival.WiredPhase.Ended })
         {
             var now = Time.GetTicksMsec() / 1000.0;
             if (_decidedAt is null)
             {
                 RecordCampaign();
+                RecordWired();
                 foreach (var sound in FindChildren("*", nameof(AudioStreamPlayer3D), true, false).OfType<AudioStreamPlayer3D>())
                     sound.Stop();
                 _audio.Hush();
             }
             _decidedAt ??= now;
-            var wait = Watching || Training ? 5 : World.Winner == Player ? 19 : 14;
+            RetryWired(now);
+            var wait = World.Wired is not null ? WiredHold : Watching || Training ? 5 : World.Winner == Player ? 19 : 14;
             // The cursor is gone while the world stands still (MachInGameScreen::update).
             if (MatchOver && !_statisticsShown && _driven is null)
                 Input.MouseMode = Input.MouseModeEnum.Hidden;
@@ -714,6 +729,9 @@ public partial class Game : Node3D
             {
                 _statisticsShown = true;
                 Input.MouseMode = Input.MouseModeEnum.Visible;
+                // A run has no winner, so nothing below keeps its recording.
+                if (World.Wired is not null)
+                    SaveReplay();
                 CloseMenu();
                 if (Campaign.IsCampaign(MatchRequest.Current) && !Watching)
                     ShowCampaignEnding();
@@ -731,6 +749,7 @@ public partial class Game : Node3D
         if (World.Winner is not null)
             SaveReplay();
 
+        FollowRun(delta);
         UpdateGhost();
         UpdateFirstPersonCamera();
         ShowFilmLook();
@@ -780,10 +799,13 @@ public partial class Game : Node3D
     /// </summary>
     private void TakeScreenshotIfAsked(double delta)
     {
+        FollowHangar();
+        ScriptHangar();
         var path = System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT");
         if (string.IsNullOrEmpty(path))
             return;
         _rig.EdgePan = false;
+        ScriptRefit();
         if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_FOCUS") is { } focus)
         {
             // "-,-,pitch,distance" keeps the camera where it starts.
@@ -1033,7 +1055,7 @@ public partial class Game : Node3D
             }
             if (view is null)
             {
-                view = ActorView.Create(actor, _assets, _audio);
+                view = ActorView.Create(actor, _assets, _audio, HeroOf(actor));
                 _views[actor.Id] = view;
                 AddChild(view);
                 view.SplatMesh = _assets.EffectMesh("groundsplat");
@@ -1049,6 +1071,8 @@ public partial class Game : Node3D
                     scatter.ClearUnder(new Vector2(placed.Footprint.Min.X - 1, placed.Footprint.Min.Y - 1),
                         new Vector2(placed.Footprint.Max.X + 1, placed.Footprint.Max.Y + 1));
             }
+            if (actor is Machine machine)
+                ShowRefit(view, machine);
             // Upper bodies and towers' heads turn to what they attack, ordered or of their own choice, and to
             // whom they heal; one driven in first person turns where its driver looks.
             view.Sync(actor, actor switch
@@ -1132,10 +1156,10 @@ public partial class Game : Node3D
             _views.Remove(id);
             _selection.Remove(id);
             if (_driven?.Id == id)
-                _screen.Die(LeaveFirstPerson);
+                _screen.Die(DriverLost);
         }
         if (_driven is { } lost && lost.Race != Player)
-            _screen.Die(LeaveFirstPerson);
+            _screen.Die(DriverLost);
         SyncArtefacts();
     }
 
@@ -1172,6 +1196,15 @@ public partial class Game : Node3D
                         _effects.ChargerFires(muzzle, aim, Blast.Extras(charge)[2]);
                         if (victimView is not null)
                             _effects.FaceplateSmoke(victimView, Blast.Extras(charge)[1]);
+                    }
+                    // In a Wired run a round from first person strays, and the simulation says where it went.
+                    else if (e.Mark is { } strayed && World.Find(e.Actor) is { } straying
+                             && World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail) is { } stray)
+                    {
+                        var muzzle = MuzzleOf(e.Actor, stray) ?? at;
+                        var mark = new Vector3(strayed.X, strayed.Z, strayed.Y) + _sightLift;
+                        var reach = NVector2.Distance(straying.Position, new NVector2(strayed.X, strayed.Y));
+                        Shot(muzzle, reach > stray.Range ? muzzle + (mark - muzzle) * (stray.Range / reach) : mark, e.Detail ?? "");
                     }
                     // Fired in first person at the point under the crosshair: to that point, as far as the weapon
                     // reaches along the line of sight (a hill in the way draws it with the Impact below).
@@ -1254,7 +1287,9 @@ public partial class Game : Node3D
                     }
                     break;
                 case GameEventKind.MachineBuilt when World.Find<Machine>(e.Actor) is { } built && built.Race == Player:
-                    _hud.Message(Lang.T("Machine ready: {0}", e.Detail));
+                    // In a Wired run the squad strip shows who has come.
+                    if (World.Wired is null)
+                        _hud.Message(Lang.T("Machine ready: {0}", e.Detail));
                     if (SoundTable.BuiltReport(built) is { } builtReport)
                         _audio.Say(builtReport);
                     break;
@@ -1365,6 +1400,8 @@ public partial class Game : Node3D
             .Where(w => w.Spec.TypeName == weapon.TypeName).ToList();
         if (mounts.Count == 0)
             return null;
+        if (HeroOf(actor) is not null)
+            mounts = HeroGuns.Firing(mounts);
         var shot = _shotsShown.GetValueOrDefault((shooter, weapon.TypeName));
         _shotsShown[(shooter, weapon.TypeName)] = shot + 1;
         // The weapon the round leaves recoils with it.
@@ -1634,7 +1671,7 @@ public partial class Game : Node3D
     }
 
     /// <summary>Whether this match can be saved, restarted or swapped for a saved one: a game on this machine.</summary>
-    public bool CanSave => !Online && !Watching && World.Winner is null;
+    public bool CanSave => !Online && !Watching && World.Winner is null && World.Wired is not { Phase: Machines.Sim.Survival.WiredPhase.Ended };
 
     /// <summary>The match so far, saved under <paramref name="name"/>; null when it went well, otherwise why not.</summary>
     public string? SaveGame(string name)
@@ -1679,14 +1716,17 @@ public partial class Game : Node3D
     }
 
     /// <summary>Back to the main menu (the Exit Game button, F10 used to), keeping a replay of the match.</summary>
-    public void ExitToMenus()
+    public void ExitToMenus() => ExitToMenus(home: false);
+
+    /// <summary>The same, and with <paramref name="home"/> to the main page itself rather than where the match was set up.</summary>
+    public void ExitToMenus(bool home)
     {
         SaveReplay();
         if (Online)
             NetLink.Send(new LeaveRoom());
         // The menus open where the match was set up: the choice of mission, the skirmish setup or the rooms.
-        if (!Watching)
-            MenuScreens.StartPage = Online ? "multiplayer" : Campaign.IsCampaign(MatchRequest.Current) ? "missions" : "skirmish";
+        if (!Watching && !home)
+            MenuScreens.StartPage = Online ? "multiplayer" : World.Wired is not null ? "hangar" : Campaign.IsCampaign(MatchRequest.Current) ? "missions" : "skirmish";
         GetTree().ChangeSceneToFile("res://scenes/Menu.tscn");
     }
 
@@ -2324,10 +2364,20 @@ public partial class Game : Node3D
             _hud.Message("First person is switched off in this match");
             return;
         }
+        // In a run first person is the hero's, whatever stands selected.
+        if (World.Wired is not null && !Watching && !IntoTheHero())
+            return;
         if (_selection.Count != 1 || SelectedMachines().FirstOrDefault() is not { } machine || machine.Inside is { } inside && World.Find<Machine>(inside) is not null)
         {
             _hud.Message("Select one of your machines to drive it (F)");
             return;
+        }
+        // What the mouse was doing on the field ends here in a run, where its buttons are triggers from now on.
+        if (World.Wired is not null)
+        {
+            EndBand();
+            _rightPress = null;
+            _rig.Drag = Vector2I.Zero;
         }
         _firstPersonFromGround = !ZenithCamera;
         _lastRightClick = 0;
@@ -2356,10 +2406,16 @@ public partial class Game : Node3D
         var (drive, sides, turn) = ($"{K(KeyMap.Act.Forward)}/{K(KeyMap.Act.Back)}", $"{K(KeyMap.Act.Left)}/{K(KeyMap.Act.Right)}",
             $"{K(KeyMap.Act.TurnLeft)}/{K(KeyMap.Act.TurnRight)}");
         var sideways = Lang.T(machine.CanStrafe ? "{0} step sideways" : "{0} turn", sides);
-        var tail = Lang.T("left mouse fire, {0} weapons, {1} or Esc to leave", K(KeyMap.Act.Weapons), K(KeyMap.Act.FirstPerson));
+        var tail = WeaponButtons
+            ? Lang.T("{0}, {1} and {2} each fire a weapon, {3} or Esc to leave", K(KeyMap.Act.FireLeft), K(KeyMap.Act.FireRight), K(KeyMap.Act.FireTop), K(KeyMap.Act.FirstPerson))
+            : Lang.T("left mouse fire, {0} weapons, {1} or Esc to leave", K(KeyMap.Act.Weapons), K(KeyMap.Act.FirstPerson));
         var centre = K(KeyMap.Act.CentreView);
+        // A run has the driver in the hero from its first moment and again after every death, and its HUD has its own say.
+        if (World.Wired is not null)
+            return;
         _hud.Message((GameOptions.ClassicDriving, machine.CanTurnUpperBody) switch
         {
+            (true, true) when WeaponButtons => Lang.T("First person: {0} drive, {1} or mouse turn, Shift turns the upper body ({2} centres it), {3}", drive, sides, centre, tail),
             (true, true) => Lang.T("First person: {0} drive, {1} or mouse turn, Shift or right mouse turns the upper body ({2} centres it), {3}", drive, sides, centre, tail),
             (true, false) => Lang.T("First person: {0} drive, {1} or mouse turn, {2}", drive, sides, tail),
             (false, true) => Lang.T("First person: {0} drive, {1}, {2} turn (Ctrl slowly), the mouse looks and the upper body follows ({3} centres it), {4}", drive, sideways, turn, centre, tail),
@@ -2384,6 +2440,7 @@ public partial class Game : Node3D
         if (_driven is { } was && _views.TryGetValue(was.Id, out var view))
             view.SetDriven(false);
         _driven = null;
+        _hands.LetGo();
         _headTarget = 0;
         _rightButtonTurnedHead = false;
         _rig.Active = true;
@@ -2424,13 +2481,8 @@ public partial class Game : Node3D
     private readonly Queue<(long Tick, float Turn)> _hullTurnsDue = new();
 
     /// <summary>How fast the simulation turns the driven machine's hull, radians a second (GameWorld's driving).</summary>
-    private float HullTurnRate(Machine machine, bool slow)
-    {
-        var general = World.Data.Parm.General;
-        if (!World.Options.OriginalMotion)
-            return Mathf.DegToRad(general.FirstPersonMaxFastTurnRate);
-        return Mathf.DegToRad(MathF.Min(machine.Stats.RotationSpeed, slow ? general.FirstPersonMaxSlowTurnRate : general.FirstPersonMaxFastTurnRate));
-    }
+    private float HullTurnRate(Machine machine, bool slow) =>
+        Mathf.DegToRad(World.Options.OriginalMotion ? World.DrivenTurnRate(machine, slow) : World.Data.Parm.General.FirstPersonMaxFastTurnRate);
 
     /// <summary>
     /// With the modern keys, how Q and E turn the hull, and A and D where the machine cannot step sideways: 1 for a
@@ -2457,9 +2509,10 @@ public partial class Game : Node3D
     /// <summary>
     /// With the classic keys, whether the mouse and A/D turn the driven machine's upper body rather than the whole
     /// machine: with Shift or the right button held, for a machine whose upper body turns (MachGuiFirstPerson::doUpdate).
+    /// The right button is a trigger while each weapon has its own.
     /// </summary>
     private bool TurningHead => GameOptions.ClassicDriving && _driven is { CanTurnUpperBody: true }
-        && (Input.IsKeyPressed(Key.Shift) || Input.IsMouseButtonPressed(MouseButton.Right));
+        && (Input.IsKeyPressed(Key.Shift) || !WeaponButtons && Input.IsMouseButtonPressed(MouseButton.Right));
 
     private void FirstPersonInput(InputEvent @event)
     {
@@ -2479,14 +2532,14 @@ public partial class Game : Node3D
             case InputEventKey { Pressed: true, Echo: false, Keycode: Key.Kp2 }:
                 LeaveFirstPerson(ground: false);
                 break;
-            case InputEventKey { Pressed: true, Echo: false } key when KeyMap.Is(key, KeyMap.Act.Menu) && !KeyMap.Taken(key.Keycode, firstPerson: true):
+            case InputEventKey { Pressed: true, Echo: false } key when KeyMap.Is(key, KeyMap.Act.Menu) && !TakenInFirstPerson(key.Keycode):
                 LeaveFirstPerson();
                 OpenMenu();
                 break;
-            case InputEventKey { Pressed: true, Echo: false } key when KeyMap.Is(key, KeyMap.Act.Pause) && !KeyMap.Taken(key.Keycode, firstPerson: true):
+            case InputEventKey { Pressed: true, Echo: false } key when KeyMap.Is(key, KeyMap.Act.Pause) && !TakenInFirstPerson(key.Keycode):
                 TogglePause();
                 break;
-            case InputEventKey { Pressed: true, Echo: false } key when KeyMap.Is(key, KeyMap.Act.Weapons):
+            case InputEventKey { Pressed: true, Echo: false } key when KeyMap.Is(key, KeyMap.Act.Weapons) && !WeaponButtons:
                 SelectNextWeapons();
                 break;
             // N switches the goggles of a machine that has them.
@@ -2504,7 +2557,7 @@ public partial class Game : Node3D
                 LookUpDown(motion);
                 break;
             // The right button clicked twice within half a second leaves (MachGuiFirstPerson::doHandleRightClickEvent).
-            case InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: false }:
+            case InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: false } when !WeaponButtons:
                 var clicked = Time.GetTicksMsec() / 1000.0;
                 if (clicked - _lastRightClick < 0.5)
                 {
@@ -2527,6 +2580,9 @@ public partial class Game : Node3D
                 _mouseTurn -= motion.Relative.X * 10 * LookPerPixel;
                 LookUpDown(motion);
                 break;
+            default:
+                RunInput(@event);
+                break;
         }
     }
 
@@ -2537,7 +2593,7 @@ public partial class Game : Node3D
     // LOOKDOWN and LOOKUP keys); the options' Reverse Up/Down Keys swaps the arrows.
     private void LookWithKeys()
     {
-        if (!Input.IsKeyPressed(Key.Shift) || Input.IsKeyPressed(Key.Up) == Input.IsKeyPressed(Key.Down))
+        if (!Input.IsKeyPressed(Key.Shift) || Input.IsKeyPressed(Key.Up) == Input.IsKeyPressed(Key.Down) || HangarOpen)
             return;
         var step = Mathf.DegToRad(Input.IsKeyPressed(Key.Ctrl) ? 15 : 150) * (float)GetProcessDeltaTime();
         LookBy(Input.IsKeyPressed(Key.Up) != GameOptions.ReverseKeys ? -step : step);
@@ -2554,9 +2610,9 @@ public partial class Game : Node3D
     // of them when it equals their number.
     private int _weaponSelect = int.MaxValue;
 
-    /// <summary>The selected weapons as one bit each, in mounting order.</summary>
+    /// <summary>The selected weapons as one bit each, in mounting order: all of them where each has its own trigger.</summary>
     private int SelectedWeapons(Machine machine) =>
-        _weaponSelect >= machine.Weapons.Count ? -1 : 1 << _weaponSelect;
+        WeaponButtons || _weaponSelect >= machine.Weapons.Count ? -1 : 1 << _weaponSelect;
 
     /// <summary>Tab: the next single weapon, then all of them together (the Ninja skips its punch alone).</summary>
     private void SelectNextWeapons()
@@ -2572,16 +2628,30 @@ public partial class Game : Node3D
             _weaponSelect++;
     }
 
+    /// <summary>What the keys held say of going ahead (1), back (-1) or neither.</summary>
+    private static float ForwardKeys()
+    {
+        var shift = Input.IsKeyPressed(Key.Shift);
+        var moves = !GameOptions.ClassicKeys;
+        return (moves && KeyMap.Held(KeyMap.Act.Forward) || !shift && (Input.IsKeyPressed(Key.Up) || Input.IsKeyPressed(Key.Kp8)) ? 1f : 0f)
+            - (moves && KeyMap.Held(KeyMap.Act.Back) || !shift && Input.IsKeyPressed(Key.Down) ? 1f : 0f);
+    }
+
     private void UpdateDriving()
     {
         if (_driven is not { } machine || _screen.Lost)
             return;
+        // Behind the hangar's screen the hero stands: its keys and buttons are the screen's.
+        if (HangarOpen)
+        {
+            Issue(new DriveCommand(Player, machine.Id, Driving: true, Weapons: SelectedWeapons(machine), Head: _headTarget));
+            return;
+        }
         // The arrows drive and turn whatever the moves' keys are, and the up arrow on the number pad too; the one down
         // there leaves (MachGuiFirstPerson's keys). With Shift they turn the upper body and look instead.
         var shift = Input.IsKeyPressed(Key.Shift);
         var moves = !GameOptions.ClassicKeys;
-        var forward = (moves && KeyMap.Held(KeyMap.Act.Forward) || !shift && (Input.IsKeyPressed(Key.Up) || Input.IsKeyPressed(Key.Kp8)) ? 1f : 0f)
-            - (moves && KeyMap.Held(KeyMap.Act.Back) || !shift && Input.IsKeyPressed(Key.Down) ? 1f : 0f);
+        var forward = ForwardKeys();
         var keys = moves ? (KeyMap.Held(KeyMap.Act.Left) ? 1f : 0f) - (KeyMap.Held(KeyMap.Act.Right) ? 1f : 0f) : 0;
         var arrows = ArrowTurn();
         var turn = Mathf.Clamp(_mouseTurn, -1, 1);
@@ -2620,29 +2690,42 @@ public partial class Game : Node3D
 
         // While the left button or Space is held the weapons fire at the very point under the crosshair, as the original's
         // did (MachGuiFirstPerson, MachPhys1stPersonDriver::aimData): where the line of sight first meets a model or
-        // the ground within their reach, else its end in the air, whether or not anything is there.
+        // the ground within their reach, else its end in the air, whether or not anything is there. With a trigger for
+        // each weapon those held fire, and the others keep reloading; the aim goes on until a burst begun is out, however
+        // short the click that began it was.
         NVector2? aimAt = null;
         float? aimHeight = null;
-        if ((Input.IsMouseButtonPressed(MouseButton.Left) || Input.IsKeyPressed(Key.Space) && !KeyMap.Taken(Key.Space, firstPerson: true)) && machine.CanFight)
+        var buttons = WeaponButtons;
+        var selected = buttons ? HeldWeapons(machine) : SelectedWeapons(machine);
+        var firing = buttons ? selected != 0 : Input.IsMouseButtonPressed(MouseButton.Left) || SpaceFires;
+        if ((firing || buttons && machine.Weapons.Any(w => w.RoundsLeft > 0)) && machine.CanFight)
         {
             // None of the selected weapons charged: the original's dud click, at most every 0.8 s (MachGuiFirstPerson).
-            var selected = SelectedWeapons(machine);
             var now = Time.GetTicksMsec() / 1000.0;
-            if (machine.Weapons.Where((_, i) => (selected & (1 << i)) != 0).Any(w => (w.DealsDamage || w.IsTreachery) && w.ChargePercent >= 100))
+            if (!firing || machine.Weapons.Where((_, i) => (selected & (1 << i)) != 0).Any(w => (w.DealsDamage || w.IsTreachery) && w.ChargePercent >= 100))
                 _lastCouldFire = now;
             else if (now - _lastCouldFire > 0.8)
             {
                 _audio.PlayGui("gui/sounds/nowefire.wav");
                 _lastCouldFire = now;
             }
-            var (sight, _) = SightAt(GetViewport().GetVisibleRect().Size / 2, machine.Weapons.Max(w => w.Spec.Range));
+            var (sight, met) = SightAt(GetViewport().GetVisibleRect().Size / 2, machine.Weapons.Max(w => w.Spec.Range));
             (aimAt, aimHeight) = (new NVector2(sight.X, sight.Z), sight.Y);
+            _sightLift = Vector3.Zero;
+            // In a run the sight on a model means what stops rounds of it; the picture still shows them going where the eye looks.
+            if (World.Wired is not null && met is not null)
+            {
+                var (point, height) = World.AimInside(met, aimAt.Value, sight.Y);
+                (aimAt, aimHeight) = (point, height);
+                _sightLift = sight - new Vector3(point.X, height, point.Y);
+            }
+            _projectiles.SightLift = _sightLift.Y;
         }
         // The simulation turns left (counter-clockwise in the original's axes) for a positive turn, and steps left for a
         // positive strafe; the client shows the world with y and z swapped, which mirrors it, so on screen both go
         // right. Ctrl turns slowly (FIRST_PERSON_MAX_SLOW_TURN_RATE).
-        Issue(new DriveCommand(Player, machine.Id, Driving: true, forward, Mathf.Clamp(-turn, -1, 1), aimAt, SelectedWeapons(machine), _headTarget,
-            -strafe, Input.IsKeyPressed(Key.Ctrl), aimHeight));
+        Issue(new DriveCommand(Player, machine.Id, Driving: true, forward, Mathf.Clamp(-turn, -1, 1), aimAt, selected, _headTarget,
+            -strafe, Input.IsKeyPressed(Key.Ctrl), aimHeight, buttons));
     }
 
     /// <summary>
@@ -2670,6 +2753,9 @@ public partial class Game : Node3D
     // When a selected weapon of the driven machine was last charged with the trigger held.
     private double _lastCouldFire;
 
+    // How far from where a run's rounds were sent the sight really rests, on the picture of what it met.
+    private Vector3 _sightLift;
+
     /// <summary>Where the driven machine's upper body has turned to so far, radians anticlockwise from its hull.</summary>
     private float HeadNow(Machine machine) => machine.CanTurnUpperBody && _views.TryGetValue(machine.Id, out var view) ? view.UpperBodyNow : 0;
 
@@ -2680,7 +2766,7 @@ public partial class Game : Node3D
         LookWithKeys();
         // With the modern keys a machine without an upper body turns its view with the keys, smoothly, and the hull
         // follows it at the same rate.
-        if (FreeLook && !machine.CanTurnUpperBody && (!Paused || Online))
+        if (FreeLook && !machine.CanTurnUpperBody && (!Paused || Online) && !HangarOpen)
             _aimYaw = Mathf.Wrap(_aimYaw - KeyTurn(machine) * HullTurnRate(machine, Input.IsKeyPressed(Key.Ctrl)) * (float)GetProcessDeltaTime(),
                 -Mathf.Pi, Mathf.Pi);
         // From the faceplate, as the original, turning with the upper body; the view stays level whatever the
@@ -2695,8 +2781,16 @@ public partial class Game : Node3D
         _firstPersonCamera.Basis *= CameraRig.ShakeAt(_firstPersonCamera.GlobalPosition);
 
         _hud.Weapons.Show(machine.Weapons, SelectedWeapons(machine));
+        _hud.Weapons.Held = ActHeld;
+        _hud.Weapons.ShowTriggers(WeaponButtons ? GunPlaces(machine) : null);
         _hud.Radar.Driven = machine;
         _hud.Radar.Head = head;
+        // In a run the sight opens as far as its rounds stray.
+        if (World.Wired is not null)
+        {
+            _hud.Crosshair.Spread = World.AimSpread(machine);
+            _hud.Crosshair.Outlined = _screen.Goggles;
+        }
 
         // The crosshair shows what it rests on: an enemy to shoot or a friend to spare (ore and wrecks don't count).
         // It looks along the same line of sight the weapons fire along, as far as they reach.

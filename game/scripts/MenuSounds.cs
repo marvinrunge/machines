@@ -38,6 +38,12 @@ public static class MenuSounds
     /// <summary>A chat message has come in (MachGuiMessageBroker, chatmsg.wav).</summary>
     public static void Chat() => Play("chatmsg.wav");
 
+    /// <summary>A sound of the interface by its file, for controls that are no buttons (the hangar's cards).</summary>
+    public static void Gui(string sound) => Play(sound);
+
+    /// <summary>A sound effect of the game, heard flat: the guns and the workshop of the hangar.</summary>
+    public static void Effect(string? id) => _audio?.PlayFlat(id);
+
     /// <summary>A control changed by the keyboard rather than pressed (a choice stepped with the arrows).</summary>
     public static void Click() => Play("click.wav");
 

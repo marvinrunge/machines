@@ -230,6 +230,61 @@ public enum GameEventKind
     /// Detail: <c>ALLY</c> or <c>NEUTRAL</c>).
     /// </summary>
     AllianceChanged,
+
+    /// <summary>A wave of a Wired run began (Other: the wave; Detail: its boss's name, if it has one).</summary>
+    WiredWaveStarted,
+
+    /// <summary>The last enemy of a wave is gone (Other: the wave; Detail: the BMUs of the bonus).</summary>
+    WiredWaveCleared,
+
+    /// <summary>A boss arrived (Actor: the boss; Detail: its name).</summary>
+    WiredBossAppeared,
+
+    /// <summary>A boss fell below half its hit points and called for help (Actor: the boss; Detail: its name).</summary>
+    WiredBossBelowHalf,
+
+    /// <summary>The hero took up a wreck (Actor: the hero; Position: the wreck's; Other: the wreck's id; Detail: the BMUs).</summary>
+    WiredWreckCollected,
+
+    /// <summary>The hero took up a crate (Actor: the hero; Position: the crate's; Other: the crate's id; Detail: the catalogue id of its content).</summary>
+    WiredCrateCollected,
+
+    /// <summary>The hero fell (Actor: the machine it was; Other: its race; Detail: the spare bodies left).</summary>
+    WiredHeroDied,
+
+    /// <summary>The hero stands at the pod again (Actor: its new machine; Other: its race; Detail: the spare bodies left).</summary>
+    WiredHeroRespawned,
+
+    /// <summary>A Wired run is over (Detail: the name of its <c>WiredEnding</c>).</summary>
+    WiredRunEnded,
+
+    /// <summary>A hero has chips to choose from after a boss (Other: its race).</summary>
+    WiredChipChoiceReady,
+
+    /// <summary>A machine that hung was set down nearer the pod (Actor: the machine; Position: where it stands now).</summary>
+    WiredFoePulled,
+
+    /// <summary>The hero used an ability (Actor: the hero; Position: where it was aimed; Other: its slot; Detail: its catalogue id).</summary>
+    WiredAbilityUsed,
+
+    /// <summary>The hero's thrusters fired (Actor: the hero; Position: where it stood).</summary>
+    WiredDashed,
+
+    /// <summary>A special wave began (Other: the wave; Detail: the name of its <c>WiredSpecial</c>).</summary>
+    WiredSpecialWave,
+
+    /// <summary>An ion strike was announced (Position: where it comes down; see <c>WiredRun.Strikes</c> for when and how wide).</summary>
+    WiredIonWarning,
+
+    /// <summary>A machine the hero had turned went back (Actor: the machine; Position: where it stands).</summary>
+    WiredFoeWentBack,
+
+    /// <summary>A chip kept the hero from falling (Actor: the hero; Position: where it stands; Detail: the chip).</summary>
+    WiredHeroSaved,
+
+    /// <summary>A destroyed machine burst into shrapnel (Actor: the machine; Position: where it stood).</summary>
+    WiredShrapnel,
 }
 
-public sealed record GameEvent(GameEventKind Kind, int Actor, Vector2 Position, int? Other = null, string? Detail = null);
+/// <param name="Mark">Where a round fired in first person really went, height and all, when that is not under the crosshair (a Wired run).</param>
+public sealed record GameEvent(GameEventKind Kind, int Actor, Vector2 Position, int? Other = null, string? Detail = null, Vector3? Mark = null);

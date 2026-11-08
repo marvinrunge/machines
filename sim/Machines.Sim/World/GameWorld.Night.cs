@@ -17,10 +17,16 @@ public sealed partial class GameWorld
     /// <summary>How dark it is, from 0 by day to 1 at night; it is worked out once a second.</summary>
     public float Darkness { get; set; }
 
+    /// <summary>
+    /// A darkness that holds whatever the sky says, for a night wave of a Wired run; null otherwise, as in every other
+    /// match. The view darkens its sky by this.
+    /// </summary>
+    public float? ForcedDarkness { get; set; }
+
     private void UpdateDarkness()
     {
         if (Tick % TicksPerSecond == 0)
-            Darkness = DarknessAt(Planet.Environment, Time);
+            Darkness = ForcedDarkness ?? DarknessAt(Planet.Environment, Time);
     }
 
     /// <summary>W4dEnvironment::darkness at a game time. A world without any satellites (only a test has one) knows no night.</summary>

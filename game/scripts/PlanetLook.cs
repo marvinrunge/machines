@@ -402,6 +402,24 @@ public partial class PlanetLook : Node
     /// <summary>How dark it is, from 0 by day to 1 at night, by the sun's height; lamps follow it.</summary>
     public static float Night { get; private set; }
 
+    /// <summary>
+    /// How far a wave of a Wired run has forced the night on, 0 to 1. The sun of many a planet never sets and its tables know
+    /// no night, so the sun sinks here for the look of it, and its light and the sky go over to the night's colours below.
+    /// </summary>
+    public float ForcedNight { get; set; }
+
+    /// <summary><see cref="ForcedNight"/> as of the last frame, for what glows by itself and has to fade with the day.</summary>
+    public static float ForcedDark { get; private set; }
+
+    // How high the light of a forced night stands, in degrees, and how strong it is.
+    private const float MoonHeight = 32, MoonEnergy = 0.5f, RemakeMoon = 1.6f;
+
+    private static readonly Color Moonlight = new(0.3f, 0.36f, 0.55f), StarLight = new(0.075f, 0.09f, 0.15f);
+    private static readonly Color NightHorizon = new(0.045f, 0.06f, 0.11f), NightTop = new(0.008f, 0.012f, 0.035f), NightFog = new(0.02f, 0.03f, 0.055f), NightHills = new(0.01f, 0.015f, 0.03f);
+
+    /// <summary>A colour of the day as the forced night has it by now.</summary>
+    private Color Forced(Color day, Color night) => ForcedNight > 0 ? day.Lerp(night with { A = day.A }, ForcedNight) : day;
+
     /// <summary>The sun's height above the horizon now, degrees (morning mist follows it; see Weather).</summary>
     public static float SunElevation { get; private set; } = 60;
 
@@ -491,14 +509,17 @@ public partial class PlanetLook : Node
     private void Update()
     {
         var elevation = _sunOrbit is { } orbit ? Elevation(orbit, _gameTime()) : 60;
+        if (ForcedNight > 0)
+            elevation = Mathf.Lerp(elevation, -14, ForcedNight);
         SunElevation = elevation;
+        ForcedDark = ForcedNight;
 
         // The light shines from the sun's position towards the ground; it never comes from below the horizon.
         var towardsSun = _sunOrbit is { } sunOrbit ? Direction(sunOrbit, _gameTime()) : new Vector3(0, 1, 0.6f).Normalized();
         var level = new Vector3(towardsSun.X, 0, towardsSun.Z).Normalized();
         if (level == Vector3.Zero)
             level = Vector3.Back;
-        var lit = Mathf.DegToRad(Mathf.Clamp(elevation, 1, 89));
+        var lit = Mathf.DegToRad(Mathf.Lerp(Mathf.Clamp(elevation, 1, 89), MoonHeight, ForcedNight));
         // Turned in small steps, not every frame: each turn makes every shadow edge snap anew to the shadow map, and a
         // sun creeping on frame by frame made them shimmer.
         var shining = -(level * Mathf.Cos(lit) + Vector3.Up * Mathf.Sin(lit));
@@ -507,11 +528,12 @@ public partial class PlanetLook : Node
             _sunSet = shining;
             _sun.Basis = Basis.LookingAt(shining, Vector3.Up);
         }
-        var direct = Table(_sunSatellite?.DirectionalColourTable, elevation, Colors.White);
+        var direct = Forced(Table(_sunSatellite?.DirectionalColourTable, elevation, Colors.White), Moonlight);
         // The goggles turn every light into their own colour, as bright as its strongest part (EnvNVGLightTransform).
         _sun.LightColor = NightVision ? _nvgFilter * direct.V : direct;
         // The remake's sun is stronger and its ambient weaker (below): lit sides and shade stand apart.
         _sun.LightEnergy = elevation > 0 ? (_softShadows ? RemakeSun : 1.1f) : 0.15f;
+        _sun.LightEnergy = Mathf.Lerp(_sun.LightEnergy, _softShadows ? RemakeMoon : MoonEnergy, ForcedNight);
         // A storm's thick air dims the sun (Weather).
         _sun.LightEnergy *= 1 - 0.35f * Weather.Haze;
         // Every satellite adds its ambient light by its own height in the sky: the sun by day, the moon by night.
@@ -523,6 +545,7 @@ public partial class PlanetLook : Node
             var light = Table(satellite.AmbientColourTable, Elevation(satelliteOrbit, _gameTime()), Colors.Black);
             ambient = new Color(ambient.R + light.R, ambient.G + light.G, ambient.B + light.B);
         }
+        ambient = Forced(ambient, StarLight);
         // The remake darkens the ambient while the sun stands high, where shade then stands apart from sunlight; as it
         // sinks the scene lives on its ambient, which goes back to the original's. A sun fixed overhead is the stations'
         // lamp (kidnap, sat, control): no day to set the shade against, and their walls, which it never reaches, live on
@@ -548,7 +571,7 @@ public partial class PlanetLook : Node
             _environment.AmbientLightEnergy = 1;
         }
 
-        var fogColour = _env.Fog is { } fog ? Table(fog.ColourTable, elevation, new Color(0.6f, 0.6f, 0.65f)) : new Color(0.6f, 0.6f, 0.65f);
+        var fogColour = Forced(_env.Fog is { } fog ? Table(fog.ColourTable, elevation, new Color(0.6f, 0.6f, 0.65f)) : new Color(0.6f, 0.6f, 0.65f), NightFog);
         // The table's alpha says how far the fog lets one see (EnvPlanetEnvironment::update).
         var clearAir = fogColour.A;
         // A storm fills the air with sand, snow or rain: the fog takes its colour (Weather).
@@ -565,6 +588,7 @@ public partial class PlanetLook : Node
         {
             horizon = top = Table(_uniformSky, elevation, fogColour);
         }
+        (horizon, top) = (Forced(horizon, NightHorizon), Forced(top, NightTop));
         if (NightVision)
             horizon = top = _nvgSky;
         _sky.SkyHorizonColor = horizon;
@@ -577,7 +601,7 @@ public partial class PlanetLook : Node
             var heights = new float[MostBands];
             for (var i = 0; i < count; i++)
             {
-                var c = NightVision ? _nvgSky : Table(_bands[i].Table, elevation, horizon);
+                var c = NightVision ? _nvgSky : Forced(Table(_bands[i].Table, elevation, horizon), NightHorizon.Lerp(NightTop, i / (float)Mathf.Max(count - 1, 1)));
                 colours[i] = new Vector3(c.R, c.G, c.B);
                 heights[i] = _bands[i].Elevation;
             }
@@ -589,7 +613,7 @@ public partial class PlanetLook : Node
         }
         if (_skyline is not null)
         {
-            var hills = NightVision ? _nvgSkyline : Table(_skylineTable, elevation, Colors.Black);
+            var hills = NightVision ? _nvgSkyline : Forced(Table(_skylineTable, elevation, Colors.Black), NightHills);
             _skyline.SetShaderParameter("colour", new Vector3(hills.R, hills.G, hills.B));
         }
 
@@ -603,8 +627,8 @@ public partial class PlanetLook : Node
         {
             // The photographed sky takes the colours the original's dome bands have now, a little above the horizon (the
             // lowest band often lies under it, black) and overhead.
-            var horizonBand = _bands.Count > 0 ? BandAt(5, elevation, horizon) : horizon;
-            var topBand = _bands.Count > 0 ? BandAt(60, elevation, top) : top;
+            var horizonBand = Forced(_bands.Count > 0 ? BandAt(5, elevation, horizon) : horizon, NightHorizon);
+            var topBand = Forced(_bands.Count > 0 ? BandAt(60, elevation, top) : top, NightTop);
             _photo.Update(elevation, horizonBand, topBand, towardsSun, direct, _sun.SkyMode != DirectionalLight3D.SkyModeEnum.LightOnly, Night, _gameTime());
             _photo.SetGround(fogColour);
         }
@@ -618,7 +642,7 @@ public partial class PlanetLook : Node
             var towards = -Direction(discOrbit, _gameTime());
             disc.Basis = Basis.LookingAt(towards, Mathf.Abs(towards.Y) > 0.999f ? Vector3.Forward : Vector3.Up);
             disc.LightColor = new Color(colour.R, colour.G, colour.B);
-            disc.LightEnergy = height > 0 ? colour.A * 1.5f : 0;
+            disc.LightEnergy = height > 0 ? colour.A * 1.5f * (1 - ForcedNight) : 0;
         }
         PlaceSprites();
         _sky.GroundHorizonColor = fogColour;
@@ -694,7 +718,7 @@ public partial class PlanetLook : Node
             var orbit = _env.Orbits[satellite.Orbit];
             var height = Elevation(orbit, _gameTime());
             var colour = Table(satellite.MeshColourTable, height, Colors.White);
-            quad.Visible = height > -10 && colour.A > 0.01f;
+            quad.Visible = height > -10 && colour.A > 0.01f && !(ForcedNight > 0.3f && satellite == _sunSatellite);
             quad.GlobalPosition = camera.GlobalPosition + Direction(orbit, _gameTime()) * distance;
             quad.Scale = Vector3.One * (2 * sprite.HalfSize / Mathf.Max(1, orbit.Radius) * distance);
             // The table colours the picture as the original's material plan did; black would hide it.

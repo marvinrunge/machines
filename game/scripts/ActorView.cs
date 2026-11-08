@@ -1,6 +1,7 @@
 using Godot;
 using Machines.Import.Model;
 using Machines.Sim.Presentation;
+using Machines.Sim.Survival;
 using Machines.Sim.World;
 
 namespace Machines.Game;
@@ -427,8 +428,11 @@ public partial class ActorView : Node3D
         SetLayers(this, driven ? DrivenLayer : 1);
         if (driven || _inHead)
             Hum = driven ? "SID_INHEAD" : null;
-        _inHead = driven;
+        _inHead = _driven = driven;
     }
+
+    // Whether the player sits in it, from first to last.
+    private bool _driven;
 
     // Embodied, it idles to the sound of its cabin until it first moves (MachGuiFirstPerson::embodyActor).
     private bool _inHead;
@@ -443,7 +447,8 @@ public partial class ActorView : Node3D
         }
     }
 
-    public static ActorView Create(Actor actor, ClassicAssets assets, GameAudio audio)
+    /// <param name="hero">What a Wired hero wears; its model is put together from that, not found by its name.</param>
+    public static ActorView Create(Actor actor, ClassicAssets assets, GameAudio audio, HeroLoadout? hero = null)
     {
         var view = new ActorView { ActorId = actor.Id, Race = actor.Race, Shown = actor.ShownRace, Name = $"Actor{actor.Id}", IsBuilding = actor is Construction };
         var (id, size) = ModelOf(actor);
@@ -455,12 +460,13 @@ public partial class ActorView : Node3D
                 view.AddChild(view._engine.Player);
             view._burning = audio.Loop("Burning");
             view.AddChild(view._burning.Player);
+            view._refits = machine.Refits;
         }
         view._hum = audio.Loop("Hum");
         view.AddChild(view._hum.Player);
 
         // Machines and buildings with an exported rig move their parts; everything else is one mesh.
-        if (assets.RigFor(id, Game.Look(actor.ShownRace)) is { } rig)
+        if ((hero is not null ? HeroRig.Compose(assets, Game.Look(actor.ShownRace), hero) : assets.RigFor(id, Game.Look(actor.ShownRace))) is { } rig)
         {
             view._rigView = RigView.Create(rig);
             if (actor is Construction lab && lab.IsType("HARDWARE_LAB"))
@@ -490,19 +496,7 @@ public partial class ActorView : Node3D
             view.AddChimneys(works);
         view._demolition = DemolitionOf(actor);
 
-        if (MeshBounds(view, Transform3D.Identity) is { } modelBounds)
-            view._bounds = modelBounds;
-        if (view._rigView is not null && actor is Machine floating)
-            view._locomotion = LocomotionView.For(floating, view._rigView);
-        if (actor is Machine grounded && grounded.Stats.Locomotion is Locomotion.Wheels or Locomotion.Tracks or Locomotion.Spider)
-        {
-            // The original takes the ends from the machine's bounding box along its facing (x).
-            var bounds = MeshBounds(view, Transform3D.Identity);
-            view._followsGround = true;
-            (view._fore, view._aft) = bounds is { } b && b.End.X > 0.01f && b.Position.X < -0.01f
-                ? (b.End.X, b.Position.X)
-                : (grounded.Radius, -grounded.Radius);
-        }
+        view.Measure(actor, view, Transform3D.Identity);
 
         // Selected or pointed at, the model stands in a wireframe box, as the original marked it (MachPhysMarker).
         view._markerMaterial = new StandardMaterial3D
@@ -583,6 +577,22 @@ public partial class ActorView : Node3D
         return view;
     }
 
+    /// <summary>What follows from the model under <paramref name="model"/>: its bounds, its legs, and where it meets the ground.</summary>
+    private void Measure(Actor actor, Node model, Transform3D toView)
+    {
+        var bounds = MeshBounds(model, toView);
+        if (bounds is { } modelBounds)
+            _bounds = modelBounds;
+        if (_rigView is not null && actor is Machine floating)
+            _locomotion = LocomotionView.For(floating, _rigView);
+        _followsGround = actor is Machine { Stats.Locomotion: Locomotion.Wheels or Locomotion.Tracks or Locomotion.Spider };
+        // The original takes the ends from the machine's bounding box along its facing (x).
+        if (_followsGround)
+            (_fore, _aft) = bounds is { } b && b.End.X > 0.01f && b.Position.X < -0.01f
+                ? (b.End.X, b.Position.X)
+                : (actor.Radius, -actor.Radius);
+    }
+
     /// <summary>The bounding box of every mesh under <paramref name="node"/>, in the view's own space.</summary>
     public static Aabb? MeshBounds(Node node, Transform3D toView)
     {
@@ -612,6 +622,18 @@ public partial class ActorView : Node3D
 
     /// <summary>Whether hurt and selected actors show their health and armour bars; a cinematic leaves them out.</summary>
     public static bool Bars { get; set; } = true;
+
+    /// <summary>A run's driver is looking out, where the bars over the actors stand as slabs in the view: the sight and the plates say it all.</summary>
+    public static bool Driver { get; set; }
+
+    /// <summary>Whether the match is a Wired run.</summary>
+    public static bool Run { get; set; }
+
+    /// <summary>
+    /// How far the ground splat stretches for each metre of what it lies under. The original's 1.3/10 makes its 21 metres of
+    /// mesh almost three times the building's size; round a run's huge pod that is a black lake, so there it is 1.3 times.
+    /// </summary>
+    public static Vector2 SplatScale(Mesh mesh) => Run ? new Vector2(1.3f / mesh.GetAabb().Size.X, 1.3f / mesh.GetAabb().Size.Z) : new Vector2(1.3f / 10, 1.3f / 10);
 
     public bool Selected
     {
@@ -846,7 +868,7 @@ public partial class ActorView : Node3D
         }
 
         var hurt = actor.HitPoints < actor.MaxHitPoints || actor.Armour < actor.MaxArmour;
-        _health.Visible = _armour.Visible = Bars && (hurt || Selected);
+        _health.Visible = _armour.Visible = Bars && !Driver && (hurt || Selected);
         // The marker of a selected actor takes the colour of its health, and the kind the options ask for.
         var share = actor.HitPoints / (float)Mathf.Max(1, actor.MaxHitPoints);
         if (share != _healthShare || _marker2d != GameOptions.Selection2d)

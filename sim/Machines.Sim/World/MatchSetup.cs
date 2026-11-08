@@ -1,5 +1,6 @@
 using System.Numerics;
 using Machines.Import.Model;
+using Machines.Sim.Survival;
 
 namespace Machines.Sim.World;
 
@@ -11,6 +12,10 @@ public static class MatchSetup
         int seed = 1, MatchOptions? options = null)
     {
         options ??= new MatchOptions();
+        // A Wired run keeps of the scenario only the ground, its artefacts and each player's pod.
+        if (options.Wired is not null || options.Victory == VictoryCondition.Wired)
+            options = options with { Wired = options.Wired ?? new WiredOptions(), Victory = VictoryCondition.Wired };
+        var wired = options.Wired is not null;
         var scenario = data.LoadScenario(scenarioName);
         var world = new GameWorld(data, data.LoadPlanet(planetName), seed) { Options = options };
 
@@ -53,11 +58,12 @@ public static class MatchSetup
                 VirtualBeacon = setup.VirtualBeacon switch { "LEVEL_1_BEACON" => 1, "LEVEL_3_BEACON" => 3, _ => 0 },
                 ScoreDisplayed = setup.ScoreDisplayed,
             };
-            state.Allies.UnionWith(setup.Allies);
+            if (!wired)
+                state.Allies.UnionWith(setup.Allies);
             world.Races[race] = state;
             world.BuildingPlans[race] = [];
 
-            foreach (var building in setup.Constructions)
+            foreach (var building in wired ? WiredBuildings(setup, controller) : setup.Constructions)
             {
                 if (building.NotBuilt)
                 {
@@ -68,11 +74,11 @@ public static class MatchSetup
                     building.HardwareLevel, building.Orientation, complete: true, building.WeaponCombo);
                 placed.Height = building.Position.Z;
                 placed.DisplayAs = building.DisplayAs;
-                placed.IonCannonGranted = building.ActivateIonCannon;
+                placed.IonCannonGranted = building.ActivateIonCannon && !wired;
                 placed.Rebuild = building.Rebuild;
             }
 
-            foreach (var unit in setup.Machines)
+            foreach (var unit in wired ? [] : setup.Machines)
             {
                 var machine = world.AddMachine(race, new Vector2(unit.Position.X, unit.Position.Y), unit.Type, unit.SubType, unit.HardwareLevel, unit.WeaponCombo);
                 machine.Squad = unit.Squad;
@@ -80,13 +86,13 @@ public static class MatchSetup
                 machine.DisplayAs = unit.DisplayAs;
             }
 
-            if (setup.AiScript is { } script)
+            if (setup.AiScript is { } script && !wired)
                 world.StandIns[race] = () => new Ai.AiController(race, data.LoadAiScript(script), setup);
             if (controller == Controller.Ai && world.StandIns.TryGetValue(race, out var standIn))
                 world.AiControllers.Add(standIn());
         }
 
-        if (scenario.Research is { } research)
+        if (scenario.Research is { } research && !wired)
         {
             var file = options.TechLevel switch
             {
@@ -125,8 +131,21 @@ public static class MatchSetup
                 world.Script = script;
         }
 
+        if (options.Wired is { } run)
+        {
+            // Where the others would have started, the waves may arrive.
+            var starts = Enum.GetValues<Race>().Where(r => !players.TryGetValue(r, out var controller) || controller != Controller.Player)
+                .Select(scenario.Race).OfType<RaceSetup>()
+                .SelectMany(setup => setup.Constructions.Where(b => b.Type == "POD").Select(b => b.Position).Concat(setup.Machines.Select(m => m.Position)).Take(1))
+                .Select(p => new Vector2(p.X, p.Y));
+            world.StartWired(run, starts);
+        }
         return world;
     }
+
+    /// <summary>What of a race's buildings stands in a Wired run: a player's first pod, and nothing of the others.</summary>
+    private static IEnumerable<ScenarioConstruction> WiredBuildings(RaceSetup setup, Controller controller) =>
+        controller == Controller.Player ? setup.Constructions.Where(b => b.Type == "POD" && !b.NotBuilt).Take(1) : [];
 
     private static void ApplyResearch(GameWorld world, ScenarioResearch research)
     {

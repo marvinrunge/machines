@@ -378,6 +378,13 @@ public partial class GameAudio : Node
         Trace(file);
     }
 
+    /// <summary>A sound effect by its id, not placed, for a screen with no world to hear it in (the hangar's guns on their turntable).</summary>
+    public void PlayFlat(string? id)
+    {
+        if (id is not null && _sounds.TryGetValue(id, out var sound))
+            PlayGui(sound.File);
+    }
+
     private const int GuiVoices = 4;
     private readonly List<AudioStreamPlayer> _gui = [];
 

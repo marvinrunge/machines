@@ -21,21 +21,25 @@ public sealed partial class GameWorld
     /// <summary>
     /// What a destroyed actor leaves (MachLogMobile::dropDebris, MachLogConstruction::dropDebris): a machine half
     /// its cost, unless it flew; a building a fifth of its cost by how far it was built; an artefact its whole cost
-    /// (MachLogArtefact::dropDebris).
+    /// (MachLogArtefact::dropDebris). In a Wired run flyers leave wrecks too, and what flew or hovered comes down where
+    /// the hero can drive to it; artefacts and bought escorts leave none: the waves are to be the only source of BMUs.
     /// </summary>
     private void DropDebris(Actor actor)
     {
         int quantity;
         (Vector2 Min, Vector2 Max) boundary;
+        var position = actor.Position;
         switch (actor)
         {
-            case Artefact artefact:
+            case Artefact artefact when Wired is null:
                 quantity = artefact.Cost;
                 boundary = (artefact.Position - new Vector2(artefact.Radius), artefact.Position + new Vector2(artefact.Radius));
                 break;
-            case Machine { Stats.Locomotion: not Locomotion.Glider } machine:
-                quantity = machine.Stats.Cost / 2;
-                boundary = (machine.Position - new Vector2(machine.Radius), machine.Position + new Vector2(machine.Radius));
+            case Machine machine when (machine.Stats.Locomotion != Locomotion.Glider || Wired is not null) && !IsWiredEscort(machine):
+                quantity = Wired is null ? machine.Stats.Cost / 2 : (int)(machine.Stats.Cost * WiredWorth(machine) / 2);
+                if (Wired is not null && CrossesWater(machine))
+                    position = OnFreeGround(position);
+                boundary = (position - new Vector2(machine.Radius), position + new Vector2(machine.Radius));
                 break;
             case Construction building:
                 var percentComplete = (int)(100 * building.Built / Math.Max(1, building.Stats.Cost));
@@ -50,7 +54,7 @@ public sealed partial class GameWorld
         // It burns out after a minute, or, while any race has a scavenger, two seconds more per BMU
         // (MachLogDebris::setLifeTime).
         var lifetime = Machines.Any(m => m.IsScavenger) ? DebrisBurnTime + quantity * 2 : DebrisBurnTime;
-        Debris.Add(new DebrisState(_nextDebrisId++, actor.Race, actor.Position, quantity, boundary, Time, Time + lifetime));
+        Debris.Add(new DebrisState(_nextDebrisId++, actor.Race, position, quantity, boundary, Time, Time + lifetime));
     }
 
     /// <summary>Wreckage that has burnt out is gone.</summary>

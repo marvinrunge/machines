@@ -91,10 +91,31 @@ public sealed class Machine : Actor
         MaxArmour = Armour = stats.Armour;
     }
 
-    public MachineSpec Spec { get; }
-    public MachineLevel Stats { get; }
-    public string? WeaponCombo { get; }
+    public MachineSpec Spec { get; private set; }
+    public MachineLevel Stats { get; private set; }
+    public string? WeaponCombo { get; private set; }
     public List<WeaponMount> Weapons { get; } = [];
+
+    /// <summary>How often it was refitted: a Wired hero's rig is rebuilt by the view when this changes.</summary>
+    public int Refits { get; private set; }
+
+    /// <summary>
+    /// Makes it another machine, the only way a machine ever changes: a Wired hero in the hangar (the remake's own
+    /// addition). Its hit points and armour keep their share of the new maximum, rounded up so that a refit never kills it.
+    /// </summary>
+    internal void Refit(MachineSpec spec, MachineLevel stats, string? weaponCombo, IEnumerable<WeaponMount> weapons)
+    {
+        var (hitPoints, armour) = (Share(HitPoints, MaxHitPoints, stats.HitPoints), Share(Armour, MaxArmour, stats.Armour));
+        (Spec, Stats, WeaponCombo) = (spec, stats, weaponCombo);
+        (MaxHitPoints, MaxArmour) = (stats.HitPoints, stats.Armour);
+        (HitPoints, Armour) = (hitPoints, armour);
+        Weapons.Clear();
+        Weapons.AddRange(weapons);
+        Refits++;
+    }
+
+    private static int Share(int value, int most, int newMost) =>
+        most <= 0 ? newMost : (int)((value * (long)newMost + most - 1) / most);
 
     public ResearchKey Key => new(Spec.Type, Spec.SubType, Stats.HardwareLevel, WeaponCombo);
 
