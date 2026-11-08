@@ -55,6 +55,16 @@ CONTROLS
   moves the camera. Classic Keys puts every command on its letter and the camera on the arrows. The hot
   keys page in the menus lists them all.
 
+WIRED (survival for one player, on the main menu)
+  Left, right, wheel click   fire the left, right and top weapon
+  W A S D, Q / E, mouse      drive, turn and look
+  Space                      dash
+  G, H                       the two abilities
+  I                          the hangar, at the pod between waves
+  F                          back into the hero
+  Z, X, V, T                 the squad: follow, attack my target, hold, back to the pod
+  "Keys of Wired" in the options moves them.
+
 FEEDBACK
   Note what you did, what you expected and what happened; a screenshot helps.
 

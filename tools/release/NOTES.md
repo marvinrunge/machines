@@ -2,22 +2,16 @@ A **test build** of the Machines: Wired for War remake, for Windows 10/11 (64-bi
 
 **Download** the `windows.zip` below, unzip it anywhere and run `Machines.exe`. `README.txt` in the zip lists the controls.
 
-**New in 0.5.0**
-This release goes through the original's source line by line and closes what still differed. The rules changed a lot, so matches play differently from 0.4.0.
-- **Combat as in the original:** rounds burst where they stop and hurt everything around them, your own side too, and stop at the first thing on their line. Machines settle in on a target, shoot worse after a hit, are helped by a commander, and fire only inside their weapons' arcs and when their orders allow it. Burst weapons fire at the original's rate. SAM and SSM turrets, short-range weapons, the Bee Bomber and the punch keep to their targets. Land mines can be shot, and self-destructing Eradicators and silos take a last shot.
-- **Machines that react:** they call for help and answer it, hit back from up to 150 m, give up a chase and go back, and fighters stand their ground longer. Patrols go on after a fight.
-- **Night counts:** on the day and night planets darkness halves the scanners and spoils the aim, unless a machine has night vision.
-- **Carriers and research:** carriers run routes over several stops, raid enemy smelters and leave dry mines alone. Labs pay out as the original's did, and a race can have 400 units, 440 in a campaign. Allies can be healed, repaired and sheltered.
-- **The AI:** mission scripts start the right squads (they were off by one in 11 scenarios), squads gather before they attack, the AI researches everything, picks its targets as the original did, lays mines and forms alliances against the leader.
-- **Bolters and flamethrowers:** the Classic look's beam is gone. Bolters show their muzzle flash and strike sparks, and flamethrowers throw balls of fire.
-- **Two new options:** **Classic Mouse** (the left button does everything, the right one deselects and moves the camera) and **Classic Keys** (a letter for every command, the camera on the arrows). Both are off at first, so the controls stay as they were.
-- **Controls for both:** cursors that show what a click will do, Alt commands, Follow, Shift for series of orders, camera places on F5 to F8, orders for missile emplacements, and a map that shows who is under attack.
-- **Skirmish and multiplayer:** a debriefing with Restart after every match, the Default victory, the fog of war setting, Broadcast Alliances and Disable First Person. Hosts can change a room's settings and take players out.
-- **Into buildings:** machines drive in through the door again, in first person or sent into a lab, smelter, pod or garrison, and you see the interior from inside. Technicians work in the labs, the screens run and the neon pulses.
-- **The ion cannon and the nuke:** the beam, its wave of fire and its flicker are the original's, its victims go up in a white glow, and the silo's dome opens for the missile, which leaves along the barrel.
-- **Pictures and sound:** missiles explode in the Classic look and the vortex pulls its victims into a column. First person has its black bars, static and night vision (N). Artefacts hum, burn and blow up. Back are the skyline on the day and night planets, the Classic look's painted shadows and the menu films. Buildings hum and work audibly, damaged ones smoke and burn, and new reports and voice mails are in.
+**New in 0.6.0: Wired**
+**Wired** on the main menu is a survival mode for one player, the remake's own addition: the original has nothing like it. Matches, skirmish and the campaign play as in 0.5.0.
+- **Your own hero:** build a machine in the hangar from a chassis, weapons, modules and two abilities with 150 BMUs (110 on Hard, 80 on Hardcore), choose an arena and a difficulty, and drive it in first person to keep your pod alive against endless waves.
+- **The waves:** the first ones come as a crowd of weaker machines close to the pod, later ones come from further out and hit harder. Every fifth wave is a boss, and a boss pays with one of three chips. Destroyed machines leave wrecks full of BMUs to drive over.
+- **Between waves** the pod's hangar buys, sells, swaps and upgrades parts. A squad can follow you, attack your target, hold or go back to the pod.
+- **Controls:** each weapon on its own mouse button (left, right, wheel), W A S D and the mouse to drive and look, Space to dash, G and H for the abilities, I for the hangar, F back into the hero, Z, X, V and T for the squad. **Keys of Wired** in the options moves all of them.
+- **The end of a run** shows the score, the waves, the kills, the hero as it stood and the records of that arena and difficulty, with Again, Hangar and Menu. What a run opens is a choice, never a stronger hero: more chassis to start from (Reaper and Overseer from wave 10, the Gorilla at 30), chips, two more arenas and Hardcore.
+- **Mouse button per weapon** in the options (off at first) gives every other match the same triggers in first person.
 
-**Earlier saves and replays** play differently under the new rules, and everyone online needs 0.5.0.
+**Everyone online needs 0.6.0.**
 
 **Original models, sounds and films**
 This build contains no art, sound, terrain or films from the original game; those belong to Night Dive Studios. If you own the game (GOG or Steam), the first start (or **Import** in the options) reads them from your copy and keeps them next to the game. Without them, units are simple shapes.
