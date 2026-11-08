@@ -109,7 +109,11 @@ jobs:
       - name: Build the release zip and installer
         run: |
           godot_exe="$(pwd)/godot/Godot_v${GODOT_VERSION}-stable_mono_win64/Godot_v${GODOT_VERSION}-stable_mono_win64_console.exe"
-          tools/release/build-windows.sh "$godot_exe" "${{ steps.version.outputs.version }}" "$(pwd)/exporter-package"
+          # A failure's last lines become an annotation, which the run's page and the API show without signing in.
+          tools/release/build-windows.sh "$godot_exe" "${{ steps.version.outputs.version }}" "$(pwd)/exporter-package" 2>&1 | tee build.log || {
+            echo "::error title=build-windows.sh failed::$(tail -n 40 build.log | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/\r//g' -e 's/%/%25/g' | cut -c1-200 | sed ':a;N;$!ba;s/\n/%0A/g')"
+            exit 1
+          }
           [ -f "build/Machines-Remake-${{ steps.version.outputs.version }}-setup.exe" ]
       - uses: actions/upload-artifact@v4
         with:
