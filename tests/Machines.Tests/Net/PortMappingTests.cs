@@ -5,7 +5,11 @@ using Machines.Net;
 
 namespace Machines.Tests.Net;
 
-/// <summary>Opening the hosted relay's port on a router (UPnP), against a router made up for the test.</summary>
+/// <summary>
+/// Opening the hosted relay's port on a router (UPnP), against a router made up for the test. Each request has four
+/// seconds, so these run alone: beside the heavy tests a CI runner's threads came to the router too late now and then.
+/// </summary>
+[Collection(nameof(PortMappingTests))]
 public class PortMappingTests
 {
     /// <summary>
@@ -49,22 +53,29 @@ public class PortMappingTests
 
         private async Task Handle(NetworkStream stream)
         {
-            // Headers up to the blank line, then as much body as they say.
-            var buffer = new List<byte>();
-            var one = new byte[1];
-            while (!Encoding.ASCII.GetString(buffer.ToArray()).EndsWith("\r\n\r\n") && await stream.ReadAsync(one, _stop.Token) > 0)
-                buffer.Add(one[0]);
-            var head = Encoding.ASCII.GetString(buffer.ToArray());
-            // A connection the client gave up on before it asked anything (a slow CI runner): nothing to answer.
-            if (!head.EndsWith("\r\n\r\n"))
-                return;
+            // Headers up to the blank line, then as much body as they say, read as it comes rather than byte by byte.
+            var received = new List<byte>();
+            var chunk = new byte[4096];
+            async Task<bool> More()
+            {
+                var read = await stream.ReadAsync(chunk, _stop.Token);
+                received.AddRange(chunk.AsSpan(0, read).ToArray());
+                return read > 0;
+            }
+            int end;
+            while ((end = Encoding.ASCII.GetString(received.ToArray()).IndexOf("\r\n\r\n", StringComparison.Ordinal)) < 0)
+                // A connection the client gave up on before it asked anything (a slow CI runner): nothing to answer.
+                if (!await More())
+                    return;
+            var head = Encoding.ASCII.GetString(received.ToArray(), 0, end + 4);
             var length = head.Split("\r\n").Where(l => l.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase))
                 .Select(l => int.Parse(l[15..].Trim())).FirstOrDefault();
-            var body = new byte[length];
-            for (var read = 0; read < length;)
-                read += await stream.ReadAsync(body.AsMemory(read), _stop.Token);
+            while (received.Count < head.Length + length)
+                if (!await More())
+                    return;
+            var body = Encoding.UTF8.GetString(received.ToArray(), head.Length, length);
 
-            var (status, text) = head.StartsWith("GET") ? ("200 OK", Description()) : Act(head, Encoding.UTF8.GetString(body));
+            var (status, text) = head.StartsWith("GET") ? ("200 OK", Description()) : Act(head, body);
             var bytes = Encoding.UTF8.GetBytes(text);
             await stream.WriteAsync(Encoding.ASCII.GetBytes(
                 $"HTTP/1.1 {status}\r\nContent-Type: text/xml\r\nContent-Length: {bytes.Length}\r\nConnection: close\r\n\r\n"), _stop.Token);
@@ -222,3 +233,6 @@ public class PortMappingTests
         Assert.Null(PortMapping.Location(answer.Replace("InternetGatewayDevice", "MediaServer")));
     }
 }
+
+[CollectionDefinition(nameof(PortMappingTests), DisableParallelization = true)]
+public class PortMappingCollection;
