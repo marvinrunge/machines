@@ -8,9 +8,9 @@ namespace Machines.Game;
 /// drifts and blizzards; on the green planets, hills and forts rain showers that wet the ground, and morning mist; on
 /// Gracko and the red moons ash and embers; on the airless grey moons shooting stars. Light weather comes and goes
 /// almost all the time, a storm every ten to fifteen minutes. When is drawn from the match's seed, so every player
-/// (and a replay) sees the same weather. The wind blows the grass and the drifts; its sound and the rain's are made
-/// here, from noise. Storms roll billows of sand, snow or ash over the ground. The particles' pictures are Kenney's
-/// (game/assets/particles, CC0).
+/// (and a replay) sees the same weather. The wind blows the grass and the drifts; its sound is made here, from noise,
+/// the rain's are two recordings that loop (game/assets/sounds). Storms roll billows of sand, snow or ash over the
+/// ground. The particles' pictures are Kenney's (game/assets/particles, CC0).
 /// </summary>
 public partial class Weather : Node3D
 {
@@ -58,6 +58,7 @@ public partial class Weather : Node3D
     private FogMaterial? _mistMaterial;
     private readonly List<(MeshInstance3D Mesh, ShaderMaterial Material, Vector3 At, float Born, float Life)> _devils = [];
     private AudioStreamPlayer? _windSound, _rainSound;
+    private bool _raining;
 
     /// <summary>For automated checks: MACHINES_WEATHER=&lt;0..1&gt; holds a storm that strong.</summary>
     private float? _forced;
@@ -187,7 +188,7 @@ public partial class Weather : Node3D
             // The airless moons are silent.
             _windSound = Loop(WindSound.Value, "Wind");
             if (_kind == Kind.Green)
-                _rainSound = Loop(RainSound.Value, "Rain");
+                _rainSound = Loop(Rain(_phases[2] < Mathf.Pi ? 1 : 2), "Rain");
         }
     }
 
@@ -288,7 +289,17 @@ public partial class Weather : Node3D
         if (_windSound is not null)
             _windSound.VolumeDb = Mathf.LinearToDb(0.04f + 0.08f * light + 0.5f * Haze + 0.15f * storm);
         if (_rainSound is not null)
-            _rainSound.VolumeDb = Mathf.LinearToDb(Mathf.Max(0.0001f, 0.6f * Mathf.Clamp(fall, 0, 1)));
+        {
+            // One recording a shower: once a shower has died away, the next takes the other.
+            var rain = Mathf.Clamp(fall, 0, 1);
+            if (_raining && rain <= 0)
+            {
+                _rainSound.Stream = Rain(_rainSound.Stream == Rain(1) ? 2 : 1);
+                _rainSound.Play();
+            }
+            _raining = rain > 0;
+            _rainSound.VolumeDb = Mathf.LinearToDb(Mathf.Max(0.0001f, rain));
+        }
     }
 
     /// <summary>Puts an emitter's box over a point, as wide as the view, and sets how much of it falls.</summary>
@@ -641,7 +652,7 @@ public partial class Weather : Node3D
 
     // ---- sounds ---------------------------------------------------------------------------------
 
-    private AudioStreamPlayer Loop(AudioStreamWav stream, string name)
+    private AudioStreamPlayer Loop(AudioStream stream, string name)
     {
         var player = new AudioStreamPlayer { Stream = stream, Name = name, VolumeDb = -60, Autoplay = true };
         AddChild(player);
@@ -661,20 +672,16 @@ public partial class Weather : Node3D
         return state[2] * 3.2f * gust;
     }));
 
-    /// <summary>Rain: hissing noise and the patter of drops, looped over seven seconds.</summary>
-    private static readonly Lazy<AudioStreamWav> RainSound = new(() => Synth(7, (random, i, state) =>
+    /// <summary>
+    /// Rain: one of two recordings of twenty seconds that loop without a seam, made Ogg from MP3s and brought to the
+    /// same loudness (-24 LUFS).
+    /// </summary>
+    private static AudioStream Rain(int which)
     {
-        var white = (float)random.NextDouble() * 2 - 1;
-        // High-passed hiss: the noise less its slow part.
-        state[0] += (white - state[0]) * 0.05f;
-        var hiss = (white - state[0]) * 0.18f;
-        // Drops: now and then a short ping that dies away.
-        if (random.NextDouble() < 90.0 / Rate)
-            (state[1], state[2]) = (0.2f + (float)random.NextDouble() * 0.35f, 2000 + (float)random.NextDouble() * 3000);
-        state[1] *= 0.995f;
-        var drop = state[1] * Mathf.Sin(i * Mathf.Tau * state[2] / Rate);
-        return hiss + drop * 0.4f;
-    }));
+        var stream = GD.Load<AudioStreamOggVorbis>($"res://assets/sounds/rain-{which}.ogg");
+        stream.Loop = true;
+        return stream;
+    }
 
     /// <summary>Some seconds of sound from a sample function, the end blended into the start so it loops without a seam.</summary>
     private static AudioStreamWav Synth(float seconds, Func<Random, int, float[], float> sample)
