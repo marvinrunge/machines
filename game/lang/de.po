@@ -3594,3 +3594,9 @@ msgstr "Mondwüste"
 msgctxt "arena"
 msgid "Island Skirmish"
 msgstr "Inselgefecht"
+
+msgid "Map"
+msgstr "Karte"
+
+msgid "Machines and buildings"
+msgstr "Maschinen und Gebäude"

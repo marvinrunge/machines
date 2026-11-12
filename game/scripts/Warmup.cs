@@ -44,7 +44,6 @@ public partial class Warmup : Node3D
     private IEnumerator<bool> _steps = null!;
     private readonly Stopwatch _clock = new();
     private readonly List<string> _report = [];
-    private CanvasLayer? _cover;
     private bool _muted;
 
     /// <summary>Whether everything is ready and the match may begin.</summary>
@@ -73,18 +72,9 @@ public partial class Warmup : Node3D
     {
         _clock.Start();
         _steps = Steps().GetEnumerator();
-        // Started without the loading screen (a restart, a saved game, an automated run): a board of its own hides it.
+        // Started without the loading screen (an automated run): it comes up now, over the match it waits for.
         if (!LoadingScreen.Busy)
-        {
-            _cover = new CanvasLayer { Layer = 99, Name = "WarmupCover" };
-            var board = new ColorRect { Color = new Color(0.02f, 0.03f, 0.03f) };
-            board.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-            _cover.AddChild(board);
-            var label = MenuTheme.Label("LOADING", 28, MenuTheme.Dim, HorizontalAlignment.Center);
-            label.SetAnchorsPreset(Control.LayoutPreset.Center);
-            board.AddChild(label);
-            AddChild(_cover);
-        }
+            LoadingScreen.Show(GetTree(), LoadingScreen.MapName(MatchRequest.Current), "", () => { });
         // What is put up makes its sounds into the muted effects.
         var bus = AudioServer.GetBusIndex(GameAudio.EffectsBus);
         _muted = AudioServer.IsBusMute(bus);
@@ -96,6 +86,7 @@ public partial class Warmup : Node3D
         if (Done)
         {
             // The match's first frames run their code the first time (the panels, the views' first ticks): still hidden.
+            Report("Ready", 0.97f + 0.03f * _settled / SettleFrames);
             if (++_settled >= SettleFrames)
                 Reveal();
             return;
@@ -125,7 +116,6 @@ public partial class Warmup : Node3D
     private void Reveal()
     {
         Shown = true;
-        _cover?.QueueFree();
         GD.Print($"warm-up: {string.Join(", ", _report)}; {_clock.Elapsed.TotalSeconds:F1} s in all");
         if (HitchLog.On)
             GD.Print($"warm-up loaded: {HitchLog.LoadedBefore()}");
@@ -136,19 +126,24 @@ public partial class Warmup : Node3D
     private void Note(string what, long since) =>
         _report.Add($"{what} {Stopwatch.GetElapsedTime(since).TotalSeconds:F1} s");
 
+    /// <summary>Tells the loading screen's bar what is loading and how far the whole has come (0 to 1).</summary>
+    private static void Report(string step, float done) => (LoadingScreen.Step, LoadingScreen.Progress) = (step, done);
+
     // Each step yields whether it waits for a frame to be drawn.
     private IEnumerable<bool> Steps()
     {
         var rehearsal = Rehearse(_world.Data, MatchRequest.Current);
         var since = Stopwatch.GetTimestamp();
-        foreach (var file in _audio.Files())
+        var sounds = _audio.Files().ToList();
+        var particles = Effects.ParticleNames().ToList();
+        var files = sounds.Count + particles.Count;
+        for (var i = 0; i < files; i++)
         {
-            _audio.Preload(file);
-            yield return false;
-        }
-        foreach (var name in Effects.ParticleNames())
-        {
-            Effects.Particle(name);
+            Report("Sounds", 0.08f * i / files);
+            if (i < sounds.Count)
+                _audio.Preload(sounds[i]);
+            else
+                Effects.Particle(particles[i - sounds.Count]);
             yield return false;
         }
         Note("sounds", since);
@@ -168,6 +163,7 @@ public partial class Warmup : Node3D
 
         since = Stopwatch.GetTimestamp();
         var compiled = HitchLog.Compiled();
+        Report("Effects", 0.56f);
         foreach (var step in Shots(world, stage, at, views))
             yield return step;
         foreach (var screen in _screens)
@@ -179,12 +175,15 @@ public partial class Warmup : Node3D
         var last = HitchLog.Compiled();
         while (shown.Elapsed.TotalSeconds < GiveUpAfter && (quiet < QuietFrames || shown.Elapsed.TotalSeconds < ShownAtLeast))
         {
+            // How long Godot takes is not known beforehand: the bar comes nearer its end the longer it goes on.
+            Report("Graphics", 0.62f + 0.33f * (1 - Mathf.Exp(-(float)shown.Elapsed.TotalSeconds / 1.5f)));
             yield return true;
             var now = HitchLog.Compiled();
             quiet = now == last ? quiet + 1 : 0;
             last = now;
         }
         Note($"drawn, {HitchLog.Compiled() - compiled} pipelines", since);
+        Report("Ready", 0.96f);
         while (!rehearsal.IsCompleted)
             yield return true;
         _report.Add($"rehearsed {rehearsal.Result:F1} s");
@@ -237,6 +236,7 @@ public partial class Warmup : Node3D
         // Loaded on every core, while the loading screen goes on drawing.
         var shadows = PlanetLook.PaintedShadows;
         var effects = _assets.EffectNames().ToList();
+        var loaded = 0;
         var loading = Task.Run(() =>
         {
             Parallel.ForEach(effects, name => Load(() =>
@@ -252,11 +252,15 @@ public partial class Warmup : Node3D
                     _assets.MeshFor(model.Id, model.Look, model.Size);
                 if (shadows)
                     _assets.PaintedShadow(model.Id, model.Look);
+                Interlocked.Increment(ref loaded);
             }));
         });
         var since = Stopwatch.GetTimestamp();
         while (!loading.IsCompleted)
+        {
+            Report("Models", 0.08f + 0.37f * Volatile.Read(ref loaded) / Math.Max(1, models.Count));
             yield return true;
+        }
         foreach (var name in effects)
             _assets.EffectLights(name);
         Note($"{models.Count} models loaded", since);
@@ -265,6 +269,7 @@ public partial class Warmup : Node3D
         // Then put up as the match shows them.
         foreach (var actor in actors)
         {
+            Report("Machines and buildings", 0.45f + 0.11f * views.Count / actors.Count);
             views.Add((actor, Show(stage, actor)));
             yield return false;
         }
