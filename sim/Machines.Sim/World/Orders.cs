@@ -284,6 +284,9 @@ public enum GameEventKind
 
     /// <summary>A destroyed machine burst into shrapnel (Actor: the machine; Position: where it stood).</summary>
     WiredShrapnel,
+
+    /// <summary>The wrecks left lying were swept up as a wave began, at a share of their worth (Other: the hero's race; Detail: the BMUs).</summary>
+    WiredWrecksSwept,
 }
 
 /// <param name="Mark">Where a round fired in first person really went, height and all, when that is not under the crosshair (a Wired run).</param>

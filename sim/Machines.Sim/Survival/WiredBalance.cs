@@ -90,6 +90,9 @@ public static class WiredBalance
     /// <summary>How near the hero comes to a wreck to collect it, in metres, and what a glider's reach is in shares of that.</summary>
     public const float PickupReach = 3, GliderPickup = 1.5f;
 
+    /// <summary>The share of their worth that wrecks still lying bring when the next wave sweeps them up.</summary>
+    public const float SweepShare = 0.5f;
+
     /// <summary>The share of what was paid that selling brings.</summary>
     public const int SellPercent = 50;
 
@@ -151,8 +154,12 @@ public static class WiredBalance
 
     // ---- waves ------------------------------------------------------------------------------------
 
-    /// <summary>Seconds before the first wave and between waves.</summary>
-    public const float PrepareTime = 45, IntermissionTime = 30;
+    /// <summary>
+    /// Seconds before the first wave and between waves. Hardly any before the first, a moment to look round after the
+    /// loading screen: the hero was fitted out in the hangar of the creation, and the first group takes half a minute to
+    /// get there anyway.
+    /// </summary>
+    public const float PrepareTime = 5, IntermissionTime = 30;
 
     /// <summary>What "Ready" pays for each second of an intermission saved.</summary>
     public const int ReadyBonus = 2;
@@ -289,10 +296,14 @@ public static class WiredBalance
     public const int RingPoints = 12;
 
     /// <summary>
-    /// How far from the pod a wave's groups arrive: near at first, from further with each wave, from everywhere by wave 8.
+    /// How far a wave's groups walk to the pod at most: near at first, from further with each wave, up to a ceiling.
     /// Growing by 80 m a wave the bench's runs ended a wave or two sooner; by 200 m they end about where they did.
+    /// It goes by the way, not the straight line: on Oasis a place 480 m off across the river is a 1.7 km walk round it.
     /// </summary>
-    public static float SpawnReach(int wave) => 400 + 200 * Math.Max(0, wave - 1);
+    public static float SpawnReach(int wave) => MathF.Min(400 + 200 * Math.Max(0, wave - 1), MostSpawnReach);
+
+    /// <summary>The longest walk a group is given, from wave 5 on: further off, the wait for it is what the player gets.</summary>
+    public const float MostSpawnReach = 1200;
 
     /// <summary>The fewest places a group chooses from, the nearest ones when the reach holds fewer.</summary>
     public const int FewestSpawnChoices = 3;

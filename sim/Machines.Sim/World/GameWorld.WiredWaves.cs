@@ -54,7 +54,10 @@ public sealed partial class GameWorld
                 && Vector2.Distance(point, goal) is var straight && straight >= WiredBalance.SpawnDistance
                 && run.SpawnPoints.All(p => Vector2.Distance(p, point) >= WiredBalance.SpawnGap)
                 && WayLength(point, goal) is { } way && way <= detour * straight)
+            {
                 run.SpawnPoints.Add(point);
+                run.SpawnWays[point] = way;
+            }
         }
     }
 
@@ -71,16 +74,20 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>Where a group arrives: in the first waves near the pod, so that the fight comes soon, later from ever further.</summary>
+    /// <summary>
+    /// Where a group arrives: in the first waves near the pod, so that the fight comes soon, later from further, never from
+    /// too far. Near and far by the way there, so that nothing arrives across a river it has to walk round.
+    /// </summary>
     private Vector2 SpawnPointFor(WiredRun run)
     {
         if (AttackedPod(run) is not { } pod)
             return run.SpawnPoints[Random.Next(run.SpawnPoints.Count)];
         var goal = Doorstep(pod);
+        float Way(Vector2 p) => run.SpawnWays.TryGetValue(p, out var way) ? way : Vector2.Distance(p, goal);
         var reach = WiredBalance.SpawnReach(run.Wave);
-        var choice = run.SpawnPoints.Where(p => Vector2.Distance(p, goal) <= reach).ToList();
+        var choice = run.SpawnPoints.Where(p => Way(p) <= reach).ToList();
         if (choice.Count < WiredBalance.FewestSpawnChoices)
-            choice = run.SpawnPoints.OrderBy(p => Vector2.DistanceSquared(p, goal)).Take(WiredBalance.FewestSpawnChoices).ToList();
+            choice = run.SpawnPoints.OrderBy(Way).Take(WiredBalance.FewestSpawnChoices).ToList();
         return choice[Random.Next(choice.Count)];
     }
 
@@ -120,6 +127,7 @@ public sealed partial class GameWorld
     private void BeginWave()
     {
         var run = Wired!;
+        SweepWrecks(run);
         run.Phase = WiredPhase.Wave;
         run.Wave++;
         foreach (var state in run.Heroes.Values)
@@ -134,6 +142,26 @@ public sealed partial class GameWorld
         Raise(new GameEvent(GameEventKind.WiredWaveStarted, 0, Vector2.Zero, run.Wave, plan.Boss?.Name));
         BeginSpecial(run);
         run.MostEnemies = run.EnemiesLeft;
+    }
+
+    /// <summary>
+    /// The wrecks still lying as a wave begins are swept up for the heroes, at a share of what driving over them pays:
+    /// collecting them is still worth the while, and one overlooked costs only that share.
+    /// </summary>
+    private void SweepWrecks(WiredRun run)
+    {
+        if (Debris.Count == 0 || run.Heroes.Count == 0)
+            return;
+        var worth = Debris.Sum(d => d.Quantity);
+        Debris.Clear();
+        foreach (var state in run.Heroes.Values)
+        {
+            var bmu = (int)(worth * state.Build(Data).WreckShare * WiredBalance.SweepShare / run.Heroes.Count);
+            if (bmu <= 0)
+                continue;
+            Earn(state, bmu);
+            Raise(new GameEvent(GameEventKind.WiredWrecksSwept, 0, Vector2.Zero, (int)state.Race, bmu.ToString()));
+        }
     }
 
     /// <summary>A tick of the wave: groups arrive, the fallen are counted, the machines are looked over now and then, and it ends when none is left.</summary>

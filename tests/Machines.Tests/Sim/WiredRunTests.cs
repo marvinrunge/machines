@@ -338,6 +338,37 @@ public class WiredRunTests
         Assert.All(world.Wired.Foes, foe => Assert.InRange(Vector2.Distance(foe.Machine.Position, door), WiredBalance.SpawnDistance - 30, WiredBalance.SpawnReach(1) + 30));
     }
 
+    [Theory]
+    [MemberData(nameof(Arenas))]
+    public void No_wave_walks_further_than_its_reach_even_where_a_river_lies_between(string arena)
+    {
+        var world = NewRun(arena: arena);
+        var run = world.Wired!;
+        var door = Pod(world).EntranceOutside!.Value;
+        float Way(Vector2 from)
+        {
+            var path = world.Nav.FindPath(from, door, crossesWater: false, int.MaxValue);
+            var (length, at) = (0f, from);
+            foreach (var point in path)
+                (length, at) = (length + Vector2.Distance(at, point), point);
+            return length;
+        }
+        Assert.All(run.SpawnPoints, p => Assert.InRange(run.SpawnWays[p], 0.97f * Way(p), 1.03f * Way(p)));
+        var nearest = run.SpawnPoints.Select(Way).Order().ElementAt(WiredBalance.FewestSpawnChoices - 1);
+
+        for (var wave = 1; wave <= 12; wave++)
+        {
+            run.Foes.Clear();
+            run.Wave = wave - 1;
+            run.Countdown = 0;
+            run.Phase = WiredPhase.Intermission;
+            world.Step();
+            world.Step();
+            var reach = MathF.Max(WiredBalance.SpawnReach(wave), nearest);
+            Assert.All(run.Foes, foe => Assert.True(Way(foe.Machine.Position) <= reach + 60, $"wave {wave}: {Way(foe.Machine.Position):0} m to walk"));
+        }
+    }
+
     [Fact]
     public void A_wave_arrives_group_by_group()
     {
@@ -507,6 +538,7 @@ public class WiredRunTests
         var world = AtWave(1);
         var run = world.Wired!;
         ClearWave(world);
+        world.Debris.Clear();
         Hero(world).Position = Pod(world).EntranceOutside!.Value;
         Assert.Null(Do(world, new WiredHangarCommand(Race.Red, true)));
         var left = run.Countdown;
@@ -754,19 +786,29 @@ public class WiredRunTests
     }
 
     [Fact]
-    public void A_wreck_out_of_reach_stays_and_burns_out()
+    public void A_wreck_out_of_reach_lies_until_the_next_wave_sweeps_it_up_at_half()
     {
         var world = NewRun();
+        world.Wired!.Countdown = 1000;
         var wreck = Wreck(world);
         var bank = Bank(world);
 
         Hero(world).Position = wreck.Position + new Vector2(0, Hero(world).Radius + WiredBalance.PickupReach + 0.2f);
-        Run(world, 1);
+        Run(world, GameWorld.DebrisBurnTime + 5);
 
+        // It does not burn out as wrecks do outside a run.
         Assert.Contains(wreck, world.Debris);
         Assert.Equal(bank, Bank(world));
-        Run(world, GameWorld.DebrisBurnTime);
-        Assert.DoesNotContain(wreck, world.Debris);
+
+        world.Wired.Countdown = 0;
+        var events = Run(world, 0.05f);
+
+        Assert.Equal(WiredPhase.Wave, world.Wired.Phase);
+        Assert.Empty(world.Debris);
+        Assert.Equal(bank + 8, Bank(world));
+        var swept = Assert.Single(events, e => e.Kind == GameEventKind.WiredWrecksSwept);
+        Assert.Equal(((int)Race.Red, "8"), (swept.Other, swept.Detail));
+        Assert.Equal((0, 8), (Red(world).Stats.WrecksCollected, Red(world).Stats.BmusEarned));
     }
 
     [Fact]
@@ -1297,6 +1339,7 @@ public class WiredRunTests
     public void Between_waves_the_hero_and_its_escorts_mend_near_the_pod()
     {
         var world = NewRun();
+        world.Wired!.Countdown = 1000;
         world.Races[Race.Red].Bmu = 1000;
         Assert.Null(Do(world, new WiredHangarCommand(Race.Red, true)));
         Assert.Null(Do(world, new WiredSquadBuyCommand(Race.Red, new ResearchKey("AGGRESSOR", "GRUNT", 1, "R_BOLTER"))));
@@ -1459,12 +1502,12 @@ public class WiredRunTests
         var door = hero.Position;
         var aside = FreeAt(world, door + (door - pod.Position) * 0.5f);
         world.Issue(new MoveCommand(Race.Red, [hero.Id], aside));
-        Run(world, 12);
+        // The first wave begins meanwhile.
+        var events = Run(world, 12);
         Assert.True(Vector2.Distance(hero.Position, aside) < 10, $"{hero.Position} short of {aside}");
         // Back at the door, where it covers the pod: aside, the first waves' weak machines nibble at the pod's far side out of its reach.
         world.Issue(new MoveCommand(Race.Red, [hero.Id], door));
 
-        var events = new List<GameEvent>();
         var podHit = false;
         for (var i = 0; i < 20 * 1800 && run.Phase != WiredPhase.Ended; i++)
         {
@@ -1504,6 +1547,7 @@ public class WiredRunTests
         var world = AtWave(1);
         var run = world.Wired!;
         ClearWave(world);
+        world.Debris.Clear();
         Hero(world).Position = Pod(world).EntranceOutside!.Value;
         Assert.Null(Do(world, new WiredHangarCommand(Race.Red, true)));
 
@@ -1520,6 +1564,8 @@ public class WiredRunTests
         var world = AtWave(1);
         ClearWave(world);
         Hero(world).Position = Pod(world).EntranceOutside!.Value;
+        // The next wave would sweep up the wrecks, and what they bring would blur what Ready pays.
+        world.Debris.Clear();
         return world;
     }
 
@@ -1611,6 +1657,7 @@ public class WiredRunTests
         var world = AfterWave();
         Assert.Null(Do(world, new WiredReadyCommand(Race.Red)));
         ClearWave(world);
+        world.Debris.Clear();
         var earned = Red(world).Stats.BmusEarned;
 
         Assert.Null(Do(world, new WiredReadyCommand(Race.Red)));
@@ -1640,6 +1687,8 @@ public class WiredRunTests
     public void Escorts_wait_for_a_hero_in_the_pod_and_go_on_following_it_when_it_comes_out()
     {
         var world = NewRun();
+        // No wave meanwhile: its machines would draw the escorts off.
+        world.Wired!.Countdown = 1000;
         var (hero, pod) = (Hero(world), Pod(world));
         var before = BoughtEscort(world);
         Assert.Null(Do(world, new EnterGarrisonCommand(Race.Red, [hero.Id], pod.Id)));

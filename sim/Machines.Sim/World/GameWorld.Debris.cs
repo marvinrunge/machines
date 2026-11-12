@@ -52,8 +52,9 @@ public sealed partial class GameWorld
         if (quantity <= 0)
             return;
         // It burns out after a minute, or, while any race has a scavenger, two seconds more per BMU
-        // (MachLogDebris::setLifeTime).
-        var lifetime = Machines.Any(m => m.IsScavenger) ? DebrisBurnTime + quantity * 2 : DebrisBurnTime;
+        // (MachLogDebris::setLifeTime). In a Wired run it lies until the next wave begins and sweeps it up (SweepWrecks):
+        // the hero is fighting meanwhile, not watching a clock on each wreck.
+        var lifetime = Wired is not null ? float.PositiveInfinity : Machines.Any(m => m.IsScavenger) ? DebrisBurnTime + quantity * 2 : DebrisBurnTime;
         Debris.Add(new DebrisState(_nextDebrisId++, actor.Race, position, quantity, boundary, Time, Time + lifetime));
     }
 

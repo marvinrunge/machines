@@ -134,12 +134,12 @@ public partial class WiredMarks : Node3D
     private void ShowGlints(GameWorld world, Vector3? hero)
     {
         var count = 0;
+        // Wrecks about to be swept up at half by the next wave glint in a hurry.
+        var going = world.Wired is { Waiting: true, Countdown: < 10 };
         foreach (var wreck in world.Debris)
         {
             if (count == MostGlints)
                 break;
-            // A wreck about to go glints in a hurry.
-            var going = wreck.ExpiresAt - world.Time < 10;
             var twinkle = 0.72f + 0.28f * MathF.Sin((float)_time * (going ? 16 : 3.5f) + wreck.Id * 1.7f);
             Glint(count++, ActorView.World(wreck.Position) + Vector3.Up * 2.4f, Wreck, twinkle, 1 + 0.25f * twinkle);
         }

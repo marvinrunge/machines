@@ -79,6 +79,9 @@ public sealed class WiredRun(WiredOptions options)
     /// <summary>Where groups may arrive: places a path to the pod was found from.</summary>
     public List<Vector2> SpawnPoints { get; } = [];
 
+    /// <summary>How far a ground machine walks from each spawn point to the pod. It follows from the map, so the fingerprint leaves it out.</summary>
+    public Dictionary<Vector2, float> SpawnWays { get; } = [];
+
     /// <summary>When the intermission under way would end with the hangar left shut: Ready pays for the seconds up to then, and not for those an open hangar holds.</summary>
     public float IntermissionEnds { get; set; }
 

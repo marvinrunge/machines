@@ -249,6 +249,10 @@ public partial class Game
                     hud.Float(at + Vector3.Up * 2, $"+{e.Detail} BMU");
                     _marks!.Fly(at + Vector3.Up);
                     break;
+                case GameEventKind.WiredWrecksSwept when e.Other == (int)Player:
+                    _audio.PlayGui("gui/sounds/stats.wav");
+                    _hud.Message(Lang.T("Wrecks left lying swept up at half: +{0} BMU", e.Detail ?? "0"));
+                    break;
                 case GameEventKind.WiredCrateCollected when e.Actor == World.HeroOf(Player)?.Id && e.Detail is { } crate:
                     _audio.Play("SID_RESOURCE_PICKUP", at);
                     _audio.PlayGui("gui/sounds/stats.wav");

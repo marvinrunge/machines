@@ -107,6 +107,12 @@ public sealed record WiredReadout
 
     public required bool InStrike { get; init; }
 
+    /// <summary>What the wrecks on the ground would pay the hero who drives over them all.</summary>
+    public int Grounded { get; init; }
+
+    /// <summary>The seconds until the next wave sweeps the wrecks up at a share, while the wait for it counts down and wrecks lie.</summary>
+    public int? SweepIn { get; init; }
+
     /// <summary>The figures for a race's hero; null without a run.</summary>
     public static WiredReadout? Of(GameWorld world, Race race)
     {
@@ -148,6 +154,8 @@ public sealed record WiredReadout
             ChipChoice = state.ChipChoice.Count > 0,
             StrikeIn = strike is null ? null : MathF.Max(0, strike.At - now),
             InStrike = hero is { Inside: null } && run.Strikes.Any(s => Vector2.Distance(hero.Position, s.Position) <= s.Radius),
+            Grounded = (int)(world.Debris.Sum(d => d.Quantity) * state.Build(world.Data).WreckShare),
+            SweepIn = run.Waiting && world.Debris.Count > 0 && !state.HangarOpen ? (int)MathF.Ceiling(run.Countdown) : null,
         };
     }
 

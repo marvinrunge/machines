@@ -209,6 +209,27 @@ public partial class WiredHud : Control
         var colour = fall > 0 ? Danger : MenuTheme.Bright.Lerp(Colors.White, rise * 0.8f);
         Say(new Vector2(right, box.Position.Y + 24 * _u), $"{Thousands(Mathf.RoundToInt(_bank))} BMU", 24 + rise * 2, colour, 1);
         Say(new Vector2(right, box.Position.Y + 39 * _u), Lang.T("Score {0}", Thousands(now.Score)), 14, MenuTheme.Dim, 1);
+        DrawGrounded(now, box);
+    }
+
+    /// <summary>
+    /// What still lies on the ground to be driven over, under the bank: before the next wave sweeps it up at half, the
+    /// seconds left beat in it.
+    /// </summary>
+    private void DrawGrounded(WiredReadout now, Rect2 bank)
+    {
+        if (now.Grounded <= 0)
+            return;
+        var soon = now.SweepIn is <= 10;
+        var beat = soon ? 1 - (float)(_time % 1) : 0;
+        var text = now.SweepIn is { } seconds
+            ? Lang.T("{0} BMU on the ground, half of it in {1} s", Thousands(now.Grounded), seconds)
+            : Lang.T("{0} BMU on the ground", Thousands(now.Grounded));
+        var size = 15f;
+        var width = Width(text, size) + 24 * _u;
+        var box = new Rect2(new Vector2(bank.End.X - width, bank.End.Y + 4 * _u), new Vector2(width, 24 * _u));
+        Plate(box, Plating, soon ? Warning.Lerp(Colors.White, beat * 0.4f) : MenuTheme.Edge, 6);
+        Say(new Vector2(box.End.X - 12 * _u, box.Position.Y + 17 * _u), text, size, soon ? Warning : Gold, 1);
     }
 
     /// <summary>The plate hanging from the top bar: what comes next and when between waves, what is left of it during one.</summary>
