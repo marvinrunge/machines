@@ -363,6 +363,8 @@ public partial class Game : Node3D
     {
         if (PerfLog.Create() is { } perf)
             AddChild(perf);
+        if (HitchLog.Create() is { } hitches)
+            AddChild(hitches);
         var request = MatchRequest.Current;
         var data = Paths.Data;
         // A film plays the same battle each time it is recorded.
@@ -484,7 +486,22 @@ public partial class Game : Node3D
             AddChild(_filmLook);
             _filmLook.Match();
         }
+
+        // Everything the match may show is loaded and drawn once before it begins, so nothing stutters the first time.
+        _warmup = Warmup.Create(World, _assets, _audio, _rig.Position, _screen);
+        if (_warmup is not null)
+            AddChild(_warmup);
+        else
+            HitchLog.Playing = true;
     }
+
+    private Warmup? _warmup;
+
+    /// <summary>Whether the match is still being readied (<see cref="Warmup"/>): it stands still meanwhile, behind the loading screen.</summary>
+    public bool Warming => _warmup is { Done: false };
+
+    /// <summary>Whether the match is still hidden: while it is readied and its first frames (<see cref="Warmup"/>).</summary>
+    public bool Hidden => _warmup is { Shown: false };
 
     private FilmLook? _filmLook;
     private ProjectileViews _projectiles = null!;
@@ -649,6 +666,8 @@ public partial class Game : Node3D
     public override void _Process(double delta)
     {
         ReadNetwork();
+        if (Warming)
+            return;
         if (Online && World.Winner is null && _session.Ready(CatchUpLead) >= CatchUpLead)
         {
             CatchUp();
@@ -1468,28 +1487,7 @@ public partial class Game : Node3D
                     _effects.Scorch(ActorView.World(blast.Position), blast.Weapon == "NUCLEAR_MISSILE" ? 120 : 50);
                 continue;
             }
-            var colour = blast.Weapon switch
-            {
-                "VORTEX" => new Color(0.1f, 0.05f, 0.2f, 0.75f),
-                "ION_ORBITAL_CANNON" => new Color(0.55f, 0.75f, 1f, 0.45f),
-                "NUCLEAR_MISSILE" => new Color(1f, 0.55f, 0.15f, 0.45f),
-                "BEE_BOMB" => new Color(1f, 0.85f, 0.2f, 0.4f),
-                _ => new Color(0.8f, 0.7f, 0.5f, 0.35f),
-            };
-            var view = new MeshInstance3D
-            {
-                Mesh = new SphereMesh { Radius = 1, Height = 2 },
-                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-                MaterialOverride = new StandardMaterial3D
-                {
-                    // The remake's dome glows (added light, seen through); the classic one is a tinted shell.
-                    AlbedoColor = GraphicsSettings.Effects && blast.Weapon != "VORTEX" ? new Color(colour.R, colour.G, colour.B, colour.A * 0.6f) : colour,
-                    BlendMode = GraphicsSettings.Effects && blast.Weapon != "VORTEX" ? BaseMaterial3D.BlendModeEnum.Add : BaseMaterial3D.BlendModeEnum.Mix,
-                    Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-                    ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-                    CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-                },
-            };
+            var (view, colour) = BlastDome(blast.Weapon);
             _effects.AddChild(view);
             view.GlobalPosition = ActorView.World(blast.Position);
             _blastViews[blast] = view;
@@ -1511,6 +1509,34 @@ public partial class Game : Node3D
             // Domes, flattened a little: the original's spheres and rings hug the ground.
             view.Scale = new Vector3(radius, radius * 0.6f, radius);
         }
+    }
+
+    /// <summary>The dome of a blast that tears no ground open, 1 m across, in the weapon's colour.</summary>
+    public static (MeshInstance3D View, Color Colour) BlastDome(string weapon)
+    {
+        var colour = weapon switch
+        {
+            "VORTEX" => new Color(0.1f, 0.05f, 0.2f, 0.75f),
+            "ION_ORBITAL_CANNON" => new Color(0.55f, 0.75f, 1f, 0.45f),
+            "NUCLEAR_MISSILE" => new Color(1f, 0.55f, 0.15f, 0.45f),
+            "BEE_BOMB" => new Color(1f, 0.85f, 0.2f, 0.4f),
+            _ => new Color(0.8f, 0.7f, 0.5f, 0.35f),
+        };
+        var view = new MeshInstance3D
+        {
+            Mesh = new SphereMesh { Radius = 1, Height = 2 },
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            MaterialOverride = new StandardMaterial3D
+            {
+                // The remake's dome glows (added light, seen through); the classic one is a tinted shell.
+                AlbedoColor = GraphicsSettings.Effects && weapon != "VORTEX" ? new Color(colour.R, colour.G, colour.B, colour.A * 0.6f) : colour,
+                BlendMode = GraphicsSettings.Effects && weapon != "VORTEX" ? BaseMaterial3D.BlendModeEnum.Add : BaseMaterial3D.BlendModeEnum.Mix,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            },
+        };
+        return (view, colour);
     }
 
     /// <summary>A shot: the remake's flying bolt at the weapon's speed, or the classic short beam.</summary>

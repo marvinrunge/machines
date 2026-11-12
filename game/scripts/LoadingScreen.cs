@@ -81,7 +81,7 @@ public partial class LoadingScreen : CanvasLayer
         var scene = GetTree().CurrentScene;
         var arrived = scene is not null && scene != _from;
         _shown = arrived ? _shown + 1 : 0;
-        if (_fading || (arrived ? _shown < ShownFrames : _frames < GiveUpFrames))
+        if (_fading || (arrived ? _shown < ShownFrames : _frames < GiveUpFrames) || scene is Game { Hidden: true })
             return;
         if (scene is Game game && !_mapped && MiniMaps.Missing(MatchRequest.Current.Scenario))
         {

@@ -30,6 +30,9 @@ public partial class Game
 
     public override void _UnhandledInput(InputEvent @event)
     {
+        // The match is not shown yet.
+        if (Hidden)
+            return;
         if (_heroDown)
         {
             DownInput(@event);

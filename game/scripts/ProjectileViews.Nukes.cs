@@ -55,17 +55,8 @@ public partial class ProjectileViews
 
     private Nuke? NewNuke(GameWorld.MissileFlight flight)
     {
-        if (_assets.EffectMesh("nmisea") is not { } model)
+        if (NukeView() is not { } view)
             return null;
-        var view = new MeshInstance3D { Mesh = model, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
-        if (GraphicsSettings.Effects)
-        {
-            RoundLooks.Exhaust(view, model);
-            // Its smoke stays behind in the world; a box as long as the trail keeps it from going out with the missile.
-            if (view.GetNodeOrNull<GpuParticles3D>("Trail") is { } trail)
-                trail.VisibilityAabb = new Aabb(-Vector3.One * 250, Vector3.One * 500);
-            view.AddChild(new OmniLight3D { LightColor = new Color(1, 0.6f, 0.3f), LightEnergy = 3, OmniRange = 30, ShadowEnabled = false });
-        }
         AddChild(view);
 
         // It leaves the silo's muzzle (the missile lies in the barrel, nose out) or, without one, just above the silo.
@@ -84,6 +75,23 @@ public partial class ProjectileViews
         var back = top - over;
         var drop = over + (back.Length() > 0.01f ? back.Normalized() * Mathf.Min(start.DistanceTo(end) / 4, back.Length()) : Vector3.Zero);
         return new Nuke { View = view, Start = start, Top = top, Drop = drop, End = end, Barrel = barrel };
+    }
+
+    /// <summary>The nuclear missile as it flies: the original's model, in the remake's effects with its flame, smoke and light.</summary>
+    private MeshInstance3D? NukeView()
+    {
+        if (_assets.EffectMesh("nmisea") is not { } model)
+            return null;
+        var view = new MeshInstance3D { Mesh = model, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+        if (GraphicsSettings.Effects)
+        {
+            RoundLooks.Exhaust(view, model);
+            // Its smoke stays behind in the world; a box as long as the trail keeps it from going out with the missile.
+            if (view.GetNodeOrNull<GpuParticles3D>("Trail") is { } trail)
+                trail.VisibilityAabb = new Aabb(-Vector3.One * 250, Vector3.One * 500);
+            view.AddChild(new OmniLight3D { LightColor = new Color(1, 0.6f, 0.3f), LightEnergy = 3, OmniRange = 30, ShadowEnabled = false });
+        }
+        return view;
     }
 
     /// <summary>The missile <paramref name="done"/> of the way along its path, at an even speed, nose along its flight.</summary>

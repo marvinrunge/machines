@@ -269,9 +269,17 @@ public static class HeroRig
     private static ShaderMaterial Matt(ShaderMaterial material)
     {
         var matt = (ShaderMaterial)material.Duplicate();
-        matt.Shader = new Shader { Code = material.Shader.Code.Replace("render_mode cull_disabled;", "render_mode cull_disabled, specular_disabled;") };
+        // One shader for every spinner of that shader: a new one each time had Godot compile it anew for each hero.
+        lock (MattShaders)
+        {
+            if (!MattShaders.TryGetValue(material.Shader, out var shader))
+                MattShaders[material.Shader] = shader = new Shader { Code = material.Shader.Code.Replace("render_mode cull_disabled;", "render_mode cull_disabled, specular_disabled;") };
+            matt.Shader = shader;
+        }
         return matt;
     }
+
+    private static readonly Dictionary<Shader, Shader> MattShaders = [];
 
     /// <summary>A body as it is, and its shoulder once more on the other side; kept by what it came from.</summary>
     private static Mesh? WithShoulder(ClassicAssets assets, Mesh? mesh, HeroShoulder shoulder)

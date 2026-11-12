@@ -191,6 +191,37 @@ public partial class ProjectileViews : Node3D
     private const int MostLitRounds = 8;
     private int _litRounds;
 
+    /// <summary>
+    /// For the warm-up (see <see cref="Warmup"/>): a round of every weapon that flies as it looks in flight, the nuke
+    /// in flight, and what each does where its flight ends, all at <paramref name="at"/>.
+    /// </summary>
+    public void ShowEach(IEnumerable<Machines.Import.Model.WeaponSpec> weapons, Machines.Import.Model.Race race, Vector3 at)
+    {
+        var id = 0;
+        foreach (var weapon in weapons.Where(GameWorld.Flies))
+        {
+            var name = weapon.TypeName;
+            var view = NewView(new Projectile(--id, weapon, 0, race, default, new System.Numerics.Vector2(1, 0)));
+            AddChild(view);
+            view.GlobalPosition = at;
+            if (name.StartsWith("PULSE") && GraphicsSettings.Effects)
+                _effects?.PulseRing(at, Vector3.Right);
+            else if (name.StartsWith("PULSE"))
+                Blowup.PulseDisc(at, Vector3.Right, _assets, this);
+            Splat(at, name, Vector3.Right);
+            var strength = Blowup.BlastStrength(name);
+            if (strength > 0 && !GraphicsSettings.Effects)
+                Blowup.Burst(name, at, _assets, this);
+            else if (strength > 0 && IsMissile(name))
+                _effects?.MissileHit(at, Vector3.Right, strength);
+        }
+        if (NukeView() is { } nuke)
+        {
+            AddChild(nuke);
+            nuke.GlobalPosition = at;
+        }
+    }
+
     private Node3D NewView(Projectile projectile)
     {
         var view = Shape(projectile);

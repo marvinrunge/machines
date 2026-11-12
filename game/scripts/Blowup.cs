@@ -24,6 +24,9 @@ public partial class Blowup : Node3D
     private readonly List<Func<float, bool>> _parts = [];
     private float _age;
 
+    /// <summary>For the warm-up (see <see cref="Warmup"/>): the blow-up as it stands <paramref name="seconds"/> on, to go on from there.</summary>
+    public void Skip(float seconds) => _Process(seconds);
+
     public override void _Process(double delta)
     {
         _age += (float)delta;

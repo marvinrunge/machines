@@ -676,12 +676,15 @@ public partial class Weather : Node3D
     /// Rain: one of two recordings of twenty seconds that loop without a seam, made Ogg from MP3s and brought to the
     /// same loudness (-24 LUFS).
     /// </summary>
-    private static AudioStream Rain(int which)
+    private static AudioStream Rain(int which) => Rains[which - 1].Value;
+
+    // Loaded once and kept: loaded at a shower's change, the recording no one held any longer came from the disk again.
+    private static readonly Lazy<AudioStream>[] Rains = [.. new[] { 1, 2 }.Select(which => new Lazy<AudioStream>(() =>
     {
         var stream = GD.Load<AudioStreamOggVorbis>($"res://assets/sounds/rain-{which}.ogg");
         stream.Loop = true;
         return stream;
-    }
+    }))];
 
     /// <summary>Some seconds of sound from a sample function, the end blended into the start so it loops without a seam.</summary>
     private static AudioStreamWav Synth(float seconds, Func<Random, int, float[], float> sample)

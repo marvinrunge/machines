@@ -14,9 +14,9 @@ public sealed class ClassicAssets
     private readonly string? _modelFolder;
     private readonly string? _planetFolder;
     private readonly string? _gameFolder;
-    private readonly Dictionary<string, Mesh> _meshes = [];
-    private readonly Dictionary<string, Material> _materials = [];
-    private readonly Dictionary<string, Rig?> _rigs = [];
+    private readonly Dictionary<string, Lazy<Mesh?>> _meshes = [];
+    private readonly Dictionary<string, Lazy<Material>> _materials = [];
+    private readonly Dictionary<string, Lazy<Rig?>> _rigs = [];
     private readonly ModelLook? _models;
 
     /// <summary>The Wired heroes' models put together so far, by what they wear (see <see cref="HeroRig"/>).</summary>
@@ -101,12 +101,27 @@ public sealed class ClassicAssets
     public Mesh MeshFor(string id, Race race, Vector3 fallbackSize)
     {
         var key = $"{race}/{id}";
-        if (_meshes.TryGetValue(key, out var cached))
-            return cached;
+        return Cached(_meshes, key, () =>
+        {
+            var start = HitchLog.Start;
+            var mesh = LoadClassic(id, race) ?? Shape(fallbackSize, race);
+            HitchLog.Loaded($"model {key}", start);
+            return mesh;
+        })!;
+    }
 
-        var mesh = LoadClassic(id, race) ?? Shape(fallbackSize, race);
-        _meshes[key] = mesh;
-        return mesh;
+    /// <summary>
+    /// The value <paramref name="cache"/> keeps for <paramref name="key"/>, made by <paramref name="make"/> the first
+    /// time it is asked for. The warm-up (<see cref="Warmup"/>) loads on several threads at once: a value two of them
+    /// ask for is made once, and the second waits for it.
+    /// </summary>
+    private static T Cached<T>(Dictionary<string, Lazy<T>> cache, string key, Func<T> make)
+    {
+        Lazy<T>? value;
+        lock (cache)
+            if (!cache.TryGetValue(key, out value))
+                cache[key] = value = new Lazy<T>(make);
+        return value.Value;
     }
 
     /// <summary>
@@ -138,21 +153,23 @@ public sealed class ClassicAssets
         if (remade is not null && !File.Exists(remade))
             remade = null;
         var key = $"fx/{name}|{remade is not null}|{GraphicsSettings.Effects}";
-        if (_meshes.TryGetValue(key, out var cached))
-            return cached;
-        var path = _modelFolder is null ? null : Path.Combine(_modelFolder, "fx", name + ".json");
-        var mesh = remade is not null ? MeshFromJson(remade) : path is not null && File.Exists(path) ? MeshFromJson(path) : null;
-        if (remade is not null && !GraphicsSettings.Effects && mesh is ArrayMesh made && path is not null && File.Exists(path))
+        return Cached(_meshes, key, () =>
         {
-            using var original = JsonDocument.Parse(File.ReadAllBytes(path));
-            if (original.RootElement.TryGetProperty("sprites", out var glows))
-                AddSprites(made, glows, null);
-        }
-        if (mesh is ArrayMesh moving && path is not null && File.Exists(path))
-            AddMotions(moving, path);
-        if (mesh is not null)
-            _meshes[key] = mesh;
-        return mesh;
+            var start = HitchLog.Start;
+            var path = _modelFolder is null ? null : Path.Combine(_modelFolder, "fx", name + ".json");
+            var mesh = remade is not null ? MeshFromJson(remade) : path is not null && File.Exists(path) ? MeshFromJson(path) : null;
+            if (remade is not null && !GraphicsSettings.Effects && mesh is ArrayMesh made && path is not null && File.Exists(path))
+            {
+                using var original = JsonDocument.Parse(File.ReadAllBytes(path));
+                if (original.RootElement.TryGetProperty("sprites", out var glows))
+                    AddSprites(made, glows, null);
+            }
+            if (mesh is ArrayMesh moving && path is not null && File.Exists(path))
+                AddMotions(moving, path);
+            if (mesh is not null)
+                HitchLog.Loaded($"effect {name}", start);
+            return mesh;
+        });
     }
 
     /// <summary>Gives the surfaces of an effect whose textures the original animated materials of their own that say how, for <see cref="TextureMotion"/>.</summary>
@@ -185,19 +202,21 @@ public sealed class ClassicAssets
     /// </summary>
     public Rig? EffectRig(string name)
     {
-        var key = $"fx/{name}";
-        if (_rigs.TryGetValue(key, out var cached))
-            return cached;
-        Rig? rig = null;
-        var path = _modelFolder is null ? null : Path.Combine(_modelFolder, "fx", name + ".json");
-        if (path is not null && File.Exists(path))
+        return Cached(_rigs, $"fx/{name}", () =>
         {
-            using var document = JsonDocument.Parse(File.ReadAllBytes(path));
-            if (document.RootElement.TryGetProperty("rig", out var element))
-                rig = Rig.Read(element, node => MeshFromParts(node));
-        }
-        _rigs[key] = rig;
-        return rig;
+            var start = HitchLog.Start;
+            Rig? rig = null;
+            var path = _modelFolder is null ? null : Path.Combine(_modelFolder, "fx", name + ".json");
+            if (path is not null && File.Exists(path))
+            {
+                using var document = JsonDocument.Parse(File.ReadAllBytes(path));
+                if (document.RootElement.TryGetProperty("rig", out var element))
+                    rig = Rig.Read(element, node => MeshFromParts(node));
+            }
+            if (rig is not null)
+                HitchLog.Loaded($"effect {name}", start);
+            return rig;
+        });
     }
 
     private Mesh? LoadClassic(string id, Race race) => ModelPath(id, race) is { } path ? MeshFromJson(path, race) : null;
@@ -248,6 +267,19 @@ public sealed class ClassicAssets
         relative.Replace('\\', '/').StartsWith("models/planet/", StringComparison.OrdinalIgnoreCase)
             ? GraphicsSettings.Terrain != TerrainLook.Original
             : Models != ModelLook.Original && !relative.EndsWith("/scrn1.bmp", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The ids of every machine and building exported in a race's colour (for <see cref="Warmup"/>).</summary>
+    public IEnumerable<string> ModelIds(Race race) =>
+        _modelFolder is not null && Path.Combine(_modelFolder, race.ToString().ToLowerInvariant()) is var folder && Directory.Exists(folder)
+            ? Directory.GetFiles(folder, "*.json").Select(Path.GetFileNameWithoutExtension).OfType<string>()
+            : [];
+
+    /// <summary>The names of every effect of the original (<c>classic/models/fx</c>, e.g. <c>mis1</c>, <c>demolish/generic</c>; for <see cref="Warmup"/>).</summary>
+    public IEnumerable<string> EffectNames() =>
+        _modelFolder is not null && Path.Combine(_modelFolder, "fx") is var folder && Directory.Exists(folder)
+            ? Directory.GetFiles(folder, "*.json", SearchOption.AllDirectories)
+                .Select(f => Path.ChangeExtension(Path.GetRelativePath(folder, f), null).Replace('\\', '/'))
+            : [];
 
     private static string? FindModel(string folder, string id)
     {
@@ -334,14 +366,8 @@ public sealed class ClassicAssets
     public Mesh? ArtefactMesh(string modelsFile, string name)
     {
         var folder = Path.GetFileNameWithoutExtension(modelsFile.Replace('\\', '/'));
-        var key = $"artefact/{folder}/{name}".ToLowerInvariant();
-        if (_meshes.TryGetValue(key, out var cached))
-            return cached;
-        var path = ArtefactPath(folder, name);
-        var mesh = path is not null ? MeshFromJson(path) : null;
-        if (mesh is not null)
-            _meshes[key] = mesh;
-        return mesh;
+        return Cached(_meshes, $"artefact/{folder}/{name}".ToLowerInvariant(),
+            () => ArtefactPath(folder, name) is { } path ? MeshFromJson(path) : null);
     }
 
     private string? ArtefactPath(string folder, string name)
@@ -360,10 +386,11 @@ public sealed class ClassicAssets
     public Mesh? ArtefactShadow(string modelsFile, string name) =>
         ArtefactPath(Path.GetFileNameWithoutExtension(modelsFile.Replace('\\', '/')), name) is { } path ? Plate(path) : null;
 
-    private Mesh? Plate(string path)
+    private Mesh? Plate(string path) => Cached(_plates, path, () => MakePlate(path));
+
+    private static Mesh? MakePlate(string path)
     {
-        if (_plates.TryGetValue(path, out var cached))
-            return cached;
+        var start = HitchLog.Start;
         using var document = JsonDocument.Parse(File.ReadAllBytes(path));
         var vertices = new List<Vector3>();
         var indices = new List<int>();
@@ -388,10 +415,11 @@ public sealed class ClassicAssets
             mesh = new ArrayMesh();
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
         }
-        return _plates[path] = mesh;
+        HitchLog.Loaded($"shadow {Path.GetFileNameWithoutExtension(path)}", start);
+        return mesh;
     }
 
-    private readonly Dictionary<string, Mesh?> _plates = [];
+    private readonly Dictionary<string, Lazy<Mesh?>> _plates = [];
 
     /// <summary>The terrain heights the original engine reported for the planet (<c>heights.bin</c>), if exported.</summary>
     public byte[]? PlanetHeights(string planet)
@@ -413,17 +441,19 @@ public sealed class ClassicAssets
     public Rig? RigFor(string id, Race race)
     {
         var key = $"{race}/{id}";
-        if (_rigs.TryGetValue(key, out var cached))
-            return cached;
-        Rig? rig = null;
-        if (ModelPath(id, race) is { } path)
+        return Cached(_rigs, key, () =>
         {
-            using var document = JsonDocument.Parse(File.ReadAllBytes(path));
-            if (document.RootElement.TryGetProperty("rig", out var element))
-                rig = Rig.Read(element, node => MeshFromParts(node, race));
-        }
-        _rigs[key] = rig;
-        return rig;
+            var start = HitchLog.Start;
+            Rig? rig = null;
+            if (ModelPath(id, race) is { } path)
+            {
+                using var document = JsonDocument.Parse(File.ReadAllBytes(path));
+                if (document.RootElement.TryGetProperty("rig", out var element))
+                    rig = Rig.Read(element, node => MeshFromParts(node, race));
+            }
+            HitchLog.Loaded($"rig {key}", start);
+            return rig;
+        });
     }
 
     /// <summary>
@@ -781,21 +811,24 @@ public sealed class ClassicAssets
             ? Path.Combine(_modelFolder, "..", p.GetString() ?? "")
             : null;
         var albedo = MapPath("albedo") ?? "";
-        if (_materials.TryGetValue("meshy|" + albedo, out var cached))
-            return cached;
+        return Cached(_materials, "meshy|" + albedo, () => MakeMeshyMaterial(albedo, MapPath, emissionEnergy));
+    }
+
+    private Material MakeMeshyMaterial(string albedo, Func<string, string?> mapPath, float emissionEnergy)
+    {
         var material = new StandardMaterial3D
         {
             AlbedoTexture = LoadPng(albedo, Image.CompressSource.Srgb),
             TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
             CullMode = BaseMaterial3D.CullModeEnum.Disabled,
         };
-        if (MapPath("normal") is { } normalPath && LoadPng(normalPath, Image.CompressSource.Normal) is { } normal)
+        if (mapPath("normal") is { } normalPath && LoadPng(normalPath, Image.CompressSource.Normal) is { } normal)
         {
             material.NormalEnabled = true;
             material.NormalTexture = normal;
             material.NormalScale = ModelNormalScale;
         }
-        if (MapPath("orm") is { } ormPath && LoadPng(ormPath, Image.CompressSource.Generic) is { } orm)
+        if (mapPath("orm") is { } ormPath && LoadPng(ormPath, Image.CompressSource.Generic) is { } orm)
         {
             material.RoughnessTexture = orm;
             material.RoughnessTextureChannel = BaseMaterial3D.TextureChannel.Green;
@@ -804,7 +837,7 @@ public sealed class ClassicAssets
             material.MetallicTextureChannel = BaseMaterial3D.TextureChannel.Blue;
             material.Metallic = 1;
         }
-        if (MapPath("emission") is { } emissionPath && LoadPng(emissionPath, Image.CompressSource.Srgb) is { } emission)
+        if (mapPath("emission") is { } emissionPath && LoadPng(emissionPath, Image.CompressSource.Srgb) is { } emission)
         {
             material.EmissionEnabled = true;
             material.EmissionTexture = emission;
@@ -813,7 +846,6 @@ public sealed class ClassicAssets
             material.Emission = Colors.White;
             material.EmissionEnergyMultiplier = emissionEnergy;
         }
-        _materials["meshy|" + albedo] = material;
         return material;
     }
 
@@ -845,9 +877,11 @@ public sealed class ClassicAssets
             texture = RaceTexture(texture, r);
         emissive ??= [0, 0, 0];
         var key = $"{texture}|{string.Join(',', diffuse)}|{string.Join(',', emissive)}|{race is not null}|{vertexColours}|{occluded}|{roughness}|{GraphicsSettings.Parts.GetHashCode()}";
-        if (_materials.TryGetValue(key, out var cached))
-            return cached;
+        return Cached(_materials, key, () => MakeMaterial(texture, diffuse, race, emissive, vertexColours, occluded, roughness));
+    }
 
+    private Material MakeMaterial(string texture, float[] diffuse, Race? race, float[] emissive, bool vertexColours, bool occluded, float? roughness)
+    {
         // As the original renderer did, the texture is tinted by the material's colour: the race colour of a
         // machine sits in the diffuse colour of its grey textures.
         var sharp = Sharp(texture);
@@ -903,7 +937,7 @@ public sealed class ClassicAssets
             material.Roughness = 1;
             // Bare metal where the texture is grey and light (HdTextures.MakeMetalMap). A texture tinted by a
             // colour (the race's paint on grey) is paint, however grey the picture.
-            if (race is not null && Upgraded && HdTextures.MakeMetalMap(texture)
+            if (race is not null && Upgraded && MakeMetalMap(texture)
                 && LoadPng(HdTextures.MetalPath(texture), Image.CompressSource.Generic) is { } metal)
             {
                 var tint = new Color(diffuse[0], diffuse[1], diffuse[2]);
@@ -937,10 +971,8 @@ public sealed class ClassicAssets
             moving.SetShaderParameter("albedo_tex", water);
             moving.SetShaderParameter("tint", new Vector3(diffuse[0], diffuse[1], diffuse[2]));
             moving.SetShaderParameter("flow", name.StartsWith("watr") ? Vector2.Zero : new Vector2(0, 0.35f));
-            _materials[key] = moving;
             return moving;
         }
-        _materials[key] = material;
         return material;
     }
 
@@ -985,38 +1017,59 @@ public sealed class ClassicAssets
         return ImageTexture.CreateFromImage(image);
     }
 
-    private readonly Dictionary<string, Texture2D?> _textures = [];
+    private readonly Dictionary<string, Lazy<Texture2D?>> _textures = [];
 
     /// <summary>An original texture by its path in the game folder, loaded once (sharpened as chosen), or null.</summary>
-    public Texture2D? Texture(string relative)
+    public Texture2D? Texture(string relative) => Cached(_textures, $"{relative}|{Sharp(relative)}", () =>
     {
-        var key = $"{relative}|{Sharp(relative)}";
-        if (!_textures.TryGetValue(key, out var texture))
-            _textures[key] = texture = LoadTexture(relative).Texture;
+        var start = HitchLog.Start;
+        var texture = LoadTexture(relative).Texture;
+        HitchLog.Loaded($"texture {relative}", start);
         return texture;
-    }
+    });
 
-    private readonly Dictionary<string, Texture2D?> _pngs = [];
+    private readonly Dictionary<string, Lazy<Texture2D?>> _pngs = [];
 
     /// <summary>
     /// A texture made by <see cref="HdTextures"/>, with mipmaps and compressed for the GPU (they are sixteen times
-    /// the original's size); loaded once. Null when it has not been made.
+    /// the original's size); loaded once. Null when it has not been made. Compressing is nine tenths of the time a
+    /// match takes to load its models, so the compressed texture is kept beside the picture (<c>.png.dds</c>) and
+    /// read from there while the picture is not newer.
     /// </summary>
-    private Texture2D? LoadPng(string path, Image.CompressSource source)
+    private Texture2D? LoadPng(string path, Image.CompressSource source) => Cached(_pngs, path, () =>
     {
-        if (_pngs.TryGetValue(path, out var cached))
-            return cached;
-        Texture2D? texture = null;
-        if (File.Exists(path) && Image.LoadFromFile(path) is { } image && !image.IsEmpty())
+        if (!File.Exists(path))
+            return null;
+        var kept = path + ".dds";
+        if (File.Exists(kept) && File.GetLastWriteTimeUtc(kept) >= File.GetLastWriteTimeUtc(path)
+            && new Image() is var compressed && compressed.LoadDdsFromBuffer(File.ReadAllBytes(kept)) == Error.Ok && !compressed.IsEmpty())
+            return ImageTexture.CreateFromImage(compressed);
+        if (Image.LoadFromFile(path) is not { } image || image.IsEmpty())
+            return null;
+        image.GenerateMipmaps();
+        // Builds without a compressor (export templates may lack one) keep the image as it is, and nothing is kept.
+        image.Compress(Image.CompressMode.S3Tc, source);
+        if (image.IsCompressed() && image.SaveDdsToBuffer() is { Length: > 0 } dds)
         {
-            image.GenerateMipmaps();
-            // Builds without a compressor (export templates may lack one) keep the image as it is.
-            image.Compress(Image.CompressMode.S3Tc, source);
-            texture = ImageTexture.CreateFromImage(image);
+            // Written whole or not at all: a match left half way must not leave a broken texture behind.
+            var writing = $"{kept}.{System.Environment.CurrentManagedThreadId}";
+            File.WriteAllBytes(writing, dds);
+            File.Move(writing, kept, overwrite: true);
         }
-        _pngs[path] = texture;
-        return texture;
+        return ImageTexture.CreateFromImage(image);
+    });
+
+    /// <summary>
+    /// <see cref="HdTextures.MakeMetalMap"/> one texture at a time: the map is written the first time it is asked for,
+    /// and the warm-up asks on several threads.
+    /// </summary>
+    private static bool MakeMetalMap(string texture)
+    {
+        lock (MetalMaps)
+            return HdTextures.MakeMetalMap(texture);
     }
+
+    private static readonly object MetalMaps = new();
 
     /// <summary>How a texture lets things through: not at all, cut out by a key colour, or softly by an alpha map.</summary>
     private enum Clearness { Opaque, Keyed, Soft }

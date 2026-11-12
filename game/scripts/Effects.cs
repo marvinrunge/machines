@@ -175,6 +175,7 @@ public partial class Effects : Node3D
         {
             if (Particles.TryGetValue(name, out var cached))
                 return cached;
+            var start = HitchLog.Start;
             // "flipbooks/billow" names one of the animated sheets rendered in Blender (tools/blender/flipbooks.py).
             var path = $"res://assets/particles/{name}.png";
             Texture2D texture = Soft;
@@ -185,11 +186,25 @@ public partial class Effects : Node3D
                 image.GenerateMipmaps();
                 texture = ImageTexture.CreateFromImage(image);
             }
+            HitchLog.Loaded($"particle {name}", start);
             return Particles[name] = texture;
         }
     }
 
     private static readonly Dictionary<string, Texture2D> Particles = [];
+
+    /// <summary>The names of every particle picture (see <see cref="Particle"/>), for <see cref="Warmup"/>.</summary>
+    public static IEnumerable<string> ParticleNames(string folder = "")
+    {
+        foreach (var entry in ResourceLoader.ListDirectory($"res://assets/particles/{folder}"))
+        {
+            if (entry.EndsWith('/'))
+                foreach (var inner in ParticleNames(folder + entry))
+                    yield return inner;
+            else if (entry.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                yield return folder + entry[..^4];
+        }
+    }
 
     /// <summary>The colour of the dust machines kick up: the planet's ground (sand by default; see Weather).</summary>
     public static Color DustTint { get; set; } = new(0.72f, 0.62f, 0.48f);

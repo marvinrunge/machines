@@ -390,10 +390,28 @@ public partial class GameAudio : Node
 
     // ---- loading ------------------------------------------------------------------------------
 
+    /// <summary>
+    /// Every recording a match may play: the sound definitions', the voice mails' and the panel's (for
+    /// <see cref="Warmup"/>, which loads them beforehand with <see cref="Preload"/>).
+    /// </summary>
+    public IEnumerable<string> Files()
+    {
+        var files = _sounds.Values.Select(s => s.File).Concat(_voiceMail.Values.Select(m => m.File));
+        if (_gameFolder is not null && System.IO.Path.Combine(_gameFolder, "gui", "sounds") is var gui && Directory.Exists(gui))
+            files = files.Concat(Directory.GetFiles(gui, "*.wav").Select(f => "gui/sounds/" + System.IO.Path.GetFileName(f)));
+        return files.Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Loads a recording now, so that it plays at once when its time comes.</summary>
+    public void Preload(string file) => Stream(file);
+
     private AudioStreamWav? Stream(string file)
     {
-        if (_streams.TryGetValue(file, out var cached))
+        // The definitions and the code spell the same file in different ways (Sounds\Bolter.wav, gui/sounds/waypoint.wav).
+        var key = file.Replace('\\', '/').ToLowerInvariant();
+        if (_streams.TryGetValue(key, out var cached))
             return cached;
+        var start = HitchLog.Start;
         AudioStreamWav? stream = null;
         if (_gameFolder is not null)
         {
@@ -406,7 +424,8 @@ public partial class GameAudio : Node
             if (stream is null)
                 GD.PushWarning($"sound not loaded: {path}");
         }
-        _streams[file] = stream;
+        _streams[key] = stream;
+        HitchLog.Loaded($"sound {key}", start);
         return stream;
     }
 

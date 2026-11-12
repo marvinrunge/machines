@@ -318,6 +318,9 @@ public partial class GroundBlast : Node3D
             }
     }
 
+    /// <summary>For the warm-up (see <see cref="Warmup"/>): the blast as it stands <paramref name="seconds"/> on, to go on from there.</summary>
+    public void Skip(float seconds) => _Process(seconds);
+
     public override void _Process(double delta)
     {
         _age += (float)delta;
