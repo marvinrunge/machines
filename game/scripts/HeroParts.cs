@@ -105,8 +105,11 @@ public static class HeroDonors
     // TYPE_LEVEL_SUBTYPE, the part of a model's name before its weapons.
     private static string Machine(string model) => string.Join('_', model.Split('_').Take(3));
 
-    /// <summary>Whether a chassis' mounts lie inside its body: the Ballista 4 sinks its great launchers into its dome, anything smaller would vanish.</summary>
-    public static bool Sinks(string chassis) => chassis == "ballista4";
+    /// <summary>
+    /// Whether a chassis' mounts lie inside its body: the Ballista 4 sinks its great launchers into its dome, anything smaller
+    /// would vanish; the Titan's launcher stands in its ring, and a launcher on a stem would stand over the ring's top.
+    /// </summary>
+    public static bool Sinks(string chassis) => chassis is "ballista4" or "titan6";
 
     /// <summary>Whether a chassis' mount hangs under its body: the Bee's holds a bomb, anything else rides on its back, where it shows.</summary>
     public static bool Rides(string chassis) => chassis == "boss2";
@@ -136,10 +139,12 @@ public static class HeroDonors
         ("ballista5", "FLAME_THROWER2") => 1.4f,
         ("commander6", "FLAME_THROWER2") => 0.9f,
         // The Spy 3's head is short and pointed: a long light weapon on its top comes smaller, as far as it takes to stand on
-        // the head's middle in every look rather than hang off it to the front and back or step aside over a leg.
-        ("spy3", "AUTO_CANNON") => 0.65f,
-        ("spy3", "ELECTRIC_CHARGE") => 0.5f,
-        ("spy3", "PLASMA_RIFLE" or "PULSE_RIFLE") => 0.45f,
+        // its mount over the head's right half (clear of the antenna) in every look rather than hang off the machine to the
+        // front and back or step aside.
+        ("spy3", "AUTO_CANNON") => 0.85f,
+        ("spy3", "ELECTRIC_CHARGE") => 0.65f,
+        ("spy3", "PLASMA_RIFLE") => 0.6f,
+        ("spy3", "PULSE_RIFLE") => 0.55f,
         ("spy3", "FLAME_THROWER2") => 0.4f,
         _ => 1,
     };

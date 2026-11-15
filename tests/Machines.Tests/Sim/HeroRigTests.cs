@@ -325,8 +325,9 @@ public class HeroRigTests
         Assert.Equal(1, HeroDonors.Scale("ballista4", "MULTI_LAUNCHER2"));
         Assert.Equal(0.75f, HeroDonors.Scale("ballista3", "FLAME_THROWER2"));
         Assert.Equal(1, HeroDonors.Scale("knight5", "FLAME_THROWER2"));
-        // The Spy 3's short head takes its long light weapons smaller; the Bolter stands on it as it is.
-        Assert.Equal([0.65f, 0.5f, 0.4f, 0.45f, 0.45f, 1], new[] { "AUTO_CANNON", "ELECTRIC_CHARGE", "FLAME_THROWER2", "PULSE_RIFLE", "PLASMA_RIFLE", "BOLTER" }.Select(w => HeroDonors.Scale("spy3", w)));
+        // The Spy 3's short head takes its long light weapons smaller, though less so over the hover pod beside the antenna;
+        // the Bolter stands on it as it is.
+        Assert.Equal([0.85f, 0.65f, 0.4f, 0.55f, 0.6f, 1], new[] { "AUTO_CANNON", "ELECTRIC_CHARGE", "FLAME_THROWER2", "PULSE_RIFLE", "PLASMA_RIFLE", "BOLTER" }.Select(w => HeroDonors.Scale("spy3", w)));
         Assert.All(HeroDonors.Chassis.Keys.Where(c => c != "spy3"), chassis => Assert.All(HeroDonors.Weapons.Where(w => w is not "MULTI_LAUNCHER2" and not "FLAME_THROWER2"), weapon => Assert.Equal(1, HeroDonors.Scale(chassis, weapon))));
         Assert.Equal(new MountBox(-1, 1, -2, 2, -3, 3), new MountBox(-2, 2, -4, 4, -6, 6) * 0.5f);
     }

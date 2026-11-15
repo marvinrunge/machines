@@ -28,6 +28,18 @@ module.exports = h => {
         mount(m, parent, "gun", [x, 0, surfaceZ(m, x, 0, [parent])]);
     };
 
+    /**
+     * Mount `name`'s origin moved to the model-space point `at`, what hangs from it staying where it is: a hero's weapon
+     * goes where the mount is, a machine's own weapon is not moved by it.
+     */
+    const shiftMount = (m, name, at) => {
+        const [[n, index]] = nodes(m, name);
+        const below = m.rig.nodes.map((c, i) => [c, i]).filter(([c, i]) => c.parent === index && i !== index).map(([c, i]) => [c, world(m, i).slice(9)]);
+        n.transform = [...n.transform.slice(0, 9), ...toNode(m, m.rig.nodes[n.parent].name, at)];
+        for (const [c, was] of below)
+            c.transform = [...c.transform.slice(0, 9), ...toNode(m, name, was)];
+    };
+
     /** A flat plate through the four points `q` (going round), `th` thick, on node `name` (model space with inModel). */
     const plate = (m, name, q, th, tex) => {
         const n = unit(cross(sub(q[1], q[0]), sub(q[3], q[0])));
@@ -531,9 +543,10 @@ module.exports = h => {
                         box(m, "head", [0.15, s * 0.58, 1.95], [0.62, s * 1.08, 2.42], steel, ALL);
                     }
                 });
-                // the weapons' mounts on the boxes' tops, bare until a weapon is fitted
+                // the weapons' mounts in the boxes, bare until a weapon is fitted: the roof leaves 0.37 over the boxes'
+                // tops, less than a weapon stands tall, so a weapon sits down into its box, and a light one clears the roof
                 for (const [gun, s] of [["l_gun", -1], ["r_gun", 1]])
-                    mount(m, "head", gun, [0.385, s * 0.83, 2.42]);
+                    mount(m, "head", gun, [0.385, s * 0.83, 2.29]);
                 scale(m, 2.4);
                 return m;
             },
@@ -554,6 +567,8 @@ module.exports = h => {
                 const all = points(m, "mult2.cdf");
                 const lo = [0, 1, 2].map(i => Math.min(...all.map(p => p[i]))), hi = [0, 1, 2].map(i => Math.max(...all.map(p => p[i])));
                 move(m, "gun", [c[0] - (lo[0] + hi[0]) / 2, c[1] - (lo[1] + hi[1]) / 2, top - 0.25 - lo[2]]);
+                // the mount itself in the ring's middle on its top, where a hero's weapon goes; the launcher stays
+                shiftMount(m, "gun", [c[0], c[1], top]);
                 return m;
             },
         },
@@ -576,16 +591,18 @@ module.exports = h => {
             line: "MACHINE CONSTRUCTOR 4 BEHEMOTH WIRED",
             make: colour => { const m = load(colour, "CONSTRUCTOR_4_BEHEMOTH"); roofMount(m, "hip", 2.6); return m; },
         },
-        // Spy 3: a top mount over the head, raised to the tip of the short spike on its top, which a weapon would
-        // otherwise pierce. The tall antenna rises on the head's left, its inner edge from y -0.45 at z 2.2 to -0.38 at
-        // its tip (z 4.06): a weapon on the centre line reaching further than about 0.38 m to that side stands into it.
+        // Spy 3: a top mount over the head's right half, raised to the tip of the short spike on its top (y 0.08 to
+        // 0.28), which a weapon would otherwise pierce. The tall antenna rises on the head's left, its inner edge from
+        // y -0.45 at z 2.2 to -0.38 at its tip (z 4.06): on the centre line a weapon reaching further than about 0.38 m
+        // to that side stood into it. Over the right hover pod, which reaches further fore and aft than the head, a
+        // weapon may also be longer before it hangs off the machine.
         spy3: {
             line: "MACHINE SPY_LOCATOR 3 WIRED",
             make: colour => {
                 const m = load(colour, "SPY_LOCATOR_3");
                 const [lo, hi] = boxOf(m, "head");
                 const tip = Math.max(...points(m, "head").filter(p => Math.abs(p[1]) < 0.3).map(p => p[2]));
-                mount(m, "head", "gun", [(lo[0] + hi[0]) / 2, 0, tip]);
+                mount(m, "head", "gun", [(lo[0] + hi[0]) / 2, 0.4, tip]);
                 return m;
             },
         },
