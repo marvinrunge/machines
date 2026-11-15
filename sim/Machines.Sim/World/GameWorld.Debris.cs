@@ -1,5 +1,6 @@
 using System.Numerics;
 using Machines.Import.Model;
+using Machines.Sim.Survival;
 
 namespace Machines.Sim.World;
 
@@ -22,7 +23,8 @@ public sealed partial class GameWorld
     /// What a destroyed actor leaves (MachLogMobile::dropDebris, MachLogConstruction::dropDebris): a machine half
     /// its cost, unless it flew; a building a fifth of its cost by how far it was built; an artefact its whole cost
     /// (MachLogArtefact::dropDebris). In a Wired run flyers leave wrecks too, and what flew or hovered comes down where
-    /// the hero can drive to it; artefacts and bought escorts leave none: the waves are to be the only source of BMUs.
+    /// the hero can drive to it; artefacts, bought escorts and towers leave none: the waves are to be the only source of
+    /// BMUs, and a tower's way back is to be pulled down.
     /// </summary>
     private void DropDebris(Actor actor)
     {
@@ -41,7 +43,7 @@ public sealed partial class GameWorld
                     position = OnFreeGround(position);
                 boundary = (position - new Vector2(machine.Radius), position + new Vector2(machine.Radius));
                 break;
-            case Construction building:
+            case Construction building when Wired is null || !building.IsType(WiredTower.Type):
                 var percentComplete = (int)(100 * building.Built / Math.Max(1, building.Stats.Cost));
                 quantity = (int)(building.Stats.Cost * percentComplete / 100f / 5);
                 boundary = building.Footprint;
