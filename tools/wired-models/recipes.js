@@ -543,10 +543,12 @@ module.exports = h => {
                         box(m, "head", [0.15, s * 0.58, 1.95], [0.62, s * 1.08, 2.42], steel, ALL);
                     }
                 });
-                // the weapons' mounts in the boxes, bare until a weapon is fitted: the roof leaves 0.37 over the boxes'
-                // tops, less than a weapon stands tall, so a weapon sits down into its box, and a light one clears the roof
+                // the weapons' mounts low at the boxes' outer faces, bare until a weapon is fitted (the user: "Waffen
+                // weiter unten"): a weapon hangs beside its box, held against its outer face, and under the wide roof even
+                // the tallest (Multi Launcher 3) leaves 0.2 to spare. In the boxes, at their tops, the medium weapons stood
+                // through the roof's edge, and lower down in them they sank into the boxes.
                 for (const [gun, s] of [["l_gun", -1], ["r_gun", 1]])
-                    mount(m, "head", gun, [0.385, s * 0.83, 2.29]);
+                    mount(m, "head", gun, [0.385, s * 1.17, 1.75]);
                 scale(m, 2.4);
                 return m;
             },

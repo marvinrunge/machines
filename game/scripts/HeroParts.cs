@@ -140,8 +140,20 @@ public static class HeroDonors
         [("ballista5", "FLAME_THROWER2")] = HeroCopyWay.Beside,
     };
 
+    /// <summary>
+    /// The same for every weapon of a chassis, where no entry of <see cref="CopyWays"/> names it. The Phantom's side guns hang
+    /// low beside its mount boxes, under its wide roof (the user: "Waffen weiter unten"), which leaves no room for a second
+    /// copy on top of the first: of a Multi Launcher 3 two stand 4.8 m tall, the roof 2.4 m over the mounts. So its batteries
+    /// of two stand side by side, the second beside the first away from the body.
+    /// </summary>
+    private static readonly Dictionary<string, HeroCopyWay> ChassisCopyWays = new()
+    {
+        ["phantom6"] = HeroCopyWay.Out,
+    };
+
     /// <summary>The way a battery's further copies of <paramref name="weapon"/> have to go on <paramref name="chassis"/>, or null to try them in turn.</summary>
-    public static HeroCopyWay? CopyWay(string chassis, string weapon) => CopyWays.TryGetValue((chassis, weapon), out var way) ? way : null;
+    public static HeroCopyWay? CopyWay(string chassis, string weapon) =>
+        CopyWays.TryGetValue((chassis, weapon), out var way) ? way : ChassisCopyWays.TryGetValue(chassis, out var all) ? all : null;
 
     /// <summary>
     /// The size a weapon is shown at: the Ballista 4's great launcher comes smaller on anything lesser than itself,
@@ -164,6 +176,9 @@ public static class HeroDonors
         ("spy3", "PLASMA_RIFLE") => 0.6f,
         ("spy3", "PULSE_RIFLE") => 0.55f,
         ("spy3", "FLAME_THROWER2") => 0.4f,
+        // The Phantom's battery of two flame throwers stands side by side (ChassisCopyWays): at full size the outer one leaned on
+        // nothing but the tank of the inner and climbed into the roof to be held.
+        ("phantom6", "FLAME_THROWER2") => 0.7f,
         _ => 1,
     };
 
