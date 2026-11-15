@@ -7,8 +7,8 @@ namespace Machines.Sim.World;
 
 /// <summary>
 /// What a Wired hero can do besides shooting, the remake's own addition: the abilities in its two slots and the dash of its
-/// thrusters. They go through the same blasts, orbs, sprays and mines as the machines that carry those weapons do, so
-/// that they look, sound and hurt alike, friends too. A machine turned by an ability goes back after a while (GameWorld.WiredWaves counts it).
+/// thrusters or of its chassis. They go through the same blasts, orbs, sprays and mines as the machines that carry those
+/// weapons do, so that they look, sound and hurt alike, friends too. A machine turned by an ability goes back after a while (GameWorld.WiredWaves counts it).
 /// </summary>
 public sealed partial class GameWorld
 {
@@ -163,7 +163,11 @@ public sealed partial class GameWorld
 
     // ---- the dash ---------------------------------------------------------------------------------
 
-    private string? Dash(WiredState state, Vector2 direction)
+    /// <returns>
+    /// null if the hero can dash now, otherwise why not. The HUD asks the same. A chassis with a dash of its own (Old Iron,
+    /// the Hornet) always has one, so only a hero with neither hears of thrusters.
+    /// </returns>
+    public string? WhyNoDash(WiredState state)
     {
         if (HeroOf(state.Race) is not { } hero)
             return "the hero is down";
@@ -171,13 +175,24 @@ public sealed partial class GameWorld
             return "not from inside the pod";
         if (Battle is { } battle && battle.InOpening(Time))
             return "the battle has not begun yet";
-        if (state.Build(Data).DashCooldown is not { } cooldown)
+        if (state.Build(Data).DashCooldown is null)
             return "the hero has no thrusters";
-        if (Time < state.DashReadyAt)
-            return "that is not ready yet";
+        if (AnchorPhaseOf(hero) != AnchorPhase.Free)
+            return "the Colossus is anchored";
+        return Time < state.DashReadyAt ? "that is not ready yet" : null;
+    }
+
+    private string? Dash(WiredState state, Vector2 direction)
+    {
+        if (WhyNoDash(state) is { } why)
+            return why;
+        var hero = HeroOf(state.Race)!;
         state.DashWay = direction.LengthSquared() > 1e-4f ? Vector2.Normalize(direction) : new Vector2(DetMath.Cos(hero.Facing), DetMath.Sin(hero.Facing));
-        state.DashReadyAt = Time + cooldown;
+        state.DashReadyAt = Time + state.Build(Data).DashCooldown!.Value;
         state.DashUntil = Time + WiredBalance.DashTime;
+        // Old Iron rams whatever this dash meets, each once.
+        if ((BodySpecial(hero) & ChassisSpecial.Plough) != 0)
+            BodyOf(hero).Rammed.Clear();
         // Driven, it simply goes on from where it lands; on orders its run would pull it back onto the way it was on.
         if (!hero.DrivenByPlayer)
             StartAfresh(hero);
@@ -185,10 +200,16 @@ public sealed partial class GameWorld
         return null;
     }
 
-    /// <summary>While a dash lasts the thrusters throw the hero along, sliding along what is in the way.</summary>
+    /// <summary>
+    /// While a dash lasts the thrusters throw the hero along, sliding along what is in the way, and an Old Iron rams what
+    /// it meets. Tracks that lock hold it where it stands.
+    /// </summary>
     private void UpdateDash(WiredState state, Machine hero)
     {
-        if (Time < state.DashUntil)
-            SlideOn(hero, state.DashWay * (WiredBalance.DashSpeed * Dt));
+        if (Time >= state.DashUntil || Rooted(hero))
+            return;
+        SlideOn(hero, state.DashWay * (WiredBalance.DashSpeed * Dt));
+        if ((BodySpecial(hero) & ChassisSpecial.Plough) != 0)
+            Ram(hero, BodyOf(hero), state.DashWay);
     }
 }
