@@ -83,6 +83,65 @@ public class WeaponTriggersTests
         Assert.Equal([Mounting.Top], WeaponTriggers.Of(Mounting.Top, 3));
     }
 
+    // ---- batteries: copies of one weapon on one mounting, next to each other in the list -------------
+
+    /// <summary>A Wired hero's guns as its build lists them: each mounting's copies in a row, copy 0 first.</summary>
+    private static IReadOnlyList<WeaponMount> Batteries(params (Mounting Mounting, int Copies)[] batteries) =>
+        batteries.SelectMany(b => Enumerable.Range(0, b.Copies).Select(copy => (b.Mounting, Copy: copy)))
+            .Select(g => new WeaponMount(g.Mounting, new WeaponSpec { TypeName = "TEST", Damage = 1, Range = 1, ProjectileSpeed = 1, BurstRounds = 1, BurstDuration = 1, ReloadTime = 1, Presentation = [] }) { Copy = g.Copy })
+            .ToList();
+
+    [Fact]
+    public void A_battery_counts_as_one_gun_for_the_lone_gun_rule()
+    {
+        Assert.Equal(1, WeaponTriggers.Places(Batteries((Mounting.Right, 3))));
+        Assert.Equal(2, WeaponTriggers.Places(Batteries((Mounting.Left, 2), (Mounting.Right, 1))));
+        Assert.Equal(0, WeaponTriggers.Places([]));
+    }
+
+    [Fact]
+    public void A_right_battery_alone_fires_with_the_left_trigger_too()
+    {
+        var guns = Batteries((Mounting.Right, 3));
+
+        Assert.Equal(0b111, Mask(guns, Mounting.Left));
+        Assert.Equal(0b111, Mask(guns, Mounting.Right));
+        Assert.Equal(0, Mask(guns, Mounting.Top));
+    }
+
+    [Fact]
+    public void A_left_battery_and_a_right_single_keep_their_own_triggers()
+    {
+        var guns = Batteries((Mounting.Left, 2), (Mounting.Right, 1));
+
+        Assert.Equal(0b011, Mask(guns, Mounting.Left));
+        Assert.Equal(0b100, Mask(guns, Mounting.Right));
+        Assert.Equal(0, Mask(guns, Mounting.Top));
+    }
+
+    [Fact]
+    public void A_trigger_sets_the_bit_of_every_copy_of_its_mounting()
+    {
+        // The user's Harvester: three on each side, a light gun on top.
+        var guns = Batteries((Mounting.Left, 3), (Mounting.Right, 3), (Mounting.Top, 1));
+
+        Assert.Equal(0b0000111, Mask(guns, Mounting.Left));
+        Assert.Equal(0b0111000, Mask(guns, Mounting.Right));
+        Assert.Equal(0b1000000, Mask(guns, Mounting.Top));
+        Assert.Equal(0b1111111, Mask(guns, Mounting.Left, Mounting.Right, Mounting.Top));
+    }
+
+    [Fact]
+    public void A_press_of_the_left_trigger_is_served_by_any_copy_of_a_lone_battery()
+    {
+        var (hands, guns) = (new TriggerHands(), Batteries((Mounting.Right, 2)));
+        hands.Press(Mounting.Left, 10);
+        Assert.Equal(0b11, hands.Mask(guns, Up, 10.05));
+
+        guns[1].RoundsLeft = 1;
+        Assert.Equal(0, hands.Mask(guns, Up, 10.1));
+    }
+
     // ---- the hands on the triggers -----------------------------------------------------------------
 
     private static bool Up(Mounting _) => false;

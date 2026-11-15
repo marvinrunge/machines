@@ -7,6 +7,12 @@ public sealed class WeaponMount(Mounting mounting, WeaponSpec spec)
 {
     public Mounting Mounting { get; } = mounting;
 
+    /// <summary>
+    /// Where it stands in a Wired hero's battery on its mounting: 0 for the first copy, and for every other weapon of the
+    /// game. A machine's copies stand next to each other in its weapons, in order.
+    /// </summary>
+    public int Copy { get; init; }
+
     /// <summary>The weapon as the mount was made with it; a copy of the mount copies this, never <see cref="Spec"/>.</summary>
     public WeaponSpec Base { get; } = spec;
 

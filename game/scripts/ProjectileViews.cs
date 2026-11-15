@@ -58,7 +58,7 @@ public partial class ProjectileViews : Node3D
             if (!_shown.TryGetValue(projectile.Id, out var shown))
             {
                 // It leaves the weapon's muzzle and comes onto its line of flight as it goes.
-                var muzzle = _viewOf(projectile.Shooter)?.Muzzle(projectile.Mounting, projectile.Weapon, projectile.Barrel) is { } at
+                var muzzle = _viewOf(projectile.Shooter)?.Muzzle(projectile.Mounting, projectile.Weapon, projectile.Barrel, projectile.Copy) is { } at
                     ? at - Ground(projectile.Start)
                     : Vector3.Zero;
                 shown = (projectile, NewView(projectile), muzzle);

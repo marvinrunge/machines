@@ -131,9 +131,11 @@ public sealed record ChassisGain(int WeaponSlots, int ModuleSlots, int HitPoints
 /// <summary>
 /// The decision the hangar is there for, side by side: the next chassis or the next weapon, what each costs and brings, and
 /// how far the bank goes. Either may be missing where nothing of the kind is to be had. <paramref name="Full"/> says the
-/// inventory takes nothing more, whatever the bank says.
+/// inventory takes nothing more, whatever the bank says. The weapon is of one of two kinds: one of the offer for a slot, or,
+/// with <paramref name="CopyOnto"/>, a further copy of a worn weapon onto its battery on that slot, sold at its full price
+/// whether or not it is on offer.
 /// </summary>
-public sealed record ShopChoice(WiredChassis? Chassis, int ChassisPrice, ChassisGain? Step, string? Weapon, int WeaponPrice, float WeaponGain, int Bank, bool Full)
+public sealed record ShopChoice(WiredChassis? Chassis, int ChassisPrice, ChassisGain? Step, string? Weapon, int WeaponPrice, float WeaponGain, int Bank, bool Full, WiredSlot? CopyOnto = null)
 {
     public bool ChassisAffordable => Chassis is not null && ChassisPrice <= Bank;
 
@@ -145,6 +147,13 @@ public sealed record ShopChoice(WiredChassis? Chassis, int ChassisPrice, Chassis
     /// <summary>What is left of the bank with both bought; below 0 it is what is missing.</summary>
     public int LeftWithBoth => Bank - Both;
 }
+
+/// <summary>
+/// A way for a weapon to go onto the hero: into <paramref name="Slot"/>, what sat there coming off, or with
+/// <paramref name="Copy"/> as a further copy onto the battery of that weapon there; <paramref name="Gain"/> is what it adds to
+/// the hero's damage per second.
+/// </summary>
+public sealed record WeaponWay(WiredSlot Slot, bool Copy, float Gain);
 
 /// <summary>
 /// The shop of a run as the hangar asks about it. All of it reads the world and changes nothing: what is for sale and at
@@ -209,13 +218,39 @@ public sealed class HangarShop(GameWorld world, WiredState state)
             after.LoadCapacity - before.LoadCapacity, after.PowerSupply - before.PowerSupply, staying, worn.Count - staying, empty, resized);
     }
 
-    /// <summary>What a weapon on offer adds to the hero's damage per second in the best slot it fits, or null if it fits none.</summary>
-    public float? WeaponGain(string weapon)
+    /// <summary>
+    /// What a weapon adds to the hero's damage per second where it adds the most (<see cref="BestWay"/>), or null if it can
+    /// go nowhere: into a slot it fits if it is on offer, or as a further copy onto a battery of it with room.
+    /// </summary>
+    public float? WeaponGain(string weapon) => BestWay(weapon)?.Gain;
+
+    /// <summary>The way a weapon adds the most damage per second, a put before a copy where they add the same; null for none.</summary>
+    public WeaponWay? BestWay(string weapon) => Ways(weapon).MaxBy(w => w.Gain);
+
+    /// <summary>
+    /// Every way a weapon can go onto the hero now: into each slot it fits, what sat there coming off, if it is on offer;
+    /// and, on offer or not (Q7), as a further copy onto each battery of it that has room for one more and whose load the
+    /// hero carries.
+    /// </summary>
+    public IEnumerable<WeaponWay> Ways(string weapon)
     {
+        if (WiredCatalogue.FindWeapon(weapon) is null)
+            yield break;
         var now = state.Loadout;
-        var item = new WiredItem(0, WiredKind.Weapon, weapon);
-        var fits = now.ChassisEntry.Slots.Select(s => WiredSlot.Weapon(s.Mounting)).Where(s => now.WhyNotFit(item, s) is null).ToList();
-        return fits.Count == 0 ? null : fits.Max(s => Build(now.With(s, item)).DamagePerSecond) - Build(now).DamagePerSecond;
+        var item = new WiredItem(-1, WiredKind.Weapon, weapon);
+        var slots = now.ChassisEntry.Slots.Select(s => WiredSlot.Weapon(s.Mounting)).ToList();
+        var before = Build(now).DamagePerSecond;
+        if (state.Offer.Contains(weapon))
+        {
+            foreach (var slot in slots.Where(s => now.WhyNotFit(item, s) is null))
+                yield return new WeaponWay(slot, false, Build(now.With(slot, item)).DamagePerSecond - before);
+        }
+        foreach (var slot in slots.Where(s => now.At(s)?.Catalogue == weapon && now.WhyNotAdd(item, s) is null))
+        {
+            var then = now.Adding(slot, item);
+            if (state.WhyNotWear(world.Data, then) is null)
+                yield return new WeaponWay(slot, true, Build(then).DamagePerSecond - before);
+        }
     }
 
     /// <summary>The cheapest chassis that is next on the way, one that loses nothing if there is any, or null when the tree is climbed.</summary>
@@ -225,10 +260,14 @@ public sealed class HangarShop(GameWorld world, WiredState state)
         return open.Where(c => Gain(c) is { WeaponSlots: >= 0, ModuleSlots: >= 0, HitPoints: >= 0 }).MinBy(c => c.Price) ?? open.MinBy(c => c.Price);
     }
 
-    /// <summary>What the offer holds for the guns as they stand: the most damage the bank covers, else the cheapest that fits.</summary>
+    /// <summary>
+    /// What the offer, and a further copy of each worn weapon with room on its battery, hold for the guns as they stand: the
+    /// most damage the bank covers, else the cheapest that goes on; the offer first where they bring the same.
+    /// </summary>
     public string? NextWeapon()
     {
-        var fitting = state.Offer.OfType<string>().Where(id => WiredCatalogue.FindWeapon(id) is not null)
+        var worn = Enum.GetValues<Mounting>().Select(m => state.Loadout.Weapon(m)?.Catalogue).OfType<string>();
+        var fitting = state.Offer.OfType<string>().Concat(worn).Distinct().Where(id => WiredCatalogue.FindWeapon(id) is not null)
             .Select(id => (Id: id, Gain: WeaponGain(id), Price: Price(id))).Where(o => o.Gain is not null).ToList();
         var within = fitting.Where(o => o.Price <= Bank).ToList();
         return within.Count > 0 ? within.MaxBy(o => o.Gain).Id : fitting.Count > 0 ? fitting.MinBy(o => o.Price).Id : null;
@@ -240,10 +279,11 @@ public sealed class HangarShop(GameWorld world, WiredState state)
         var (bank, entry) = (Bank, chassis is null ? null : WiredCatalogue.FindChassis(chassis));
         if (entry is null || Step(entry) is not (ChassisStep.ForSale or ChassisStep.TooDear))
             entry = NextChassis();
-        if (weapon is null || !state.Offer.Contains(weapon) || WeaponGain(weapon) is null)
+        if (weapon is null || BestWay(weapon) is null)
             weapon = NextWeapon();
+        var way = weapon is null ? null : BestWay(weapon);
         return new ShopChoice(entry, entry is null ? 0 : Price(entry.Id), entry is null ? null : Gain(entry),
-            weapon, weapon is null ? 0 : Price(weapon), weapon is null ? 0 : WeaponGain(weapon) ?? 0, bank, Full);
+            weapon, weapon is null ? 0 : Price(weapon), way?.Gain ?? 0, bank, Full, way is { Copy: true } ? way.Slot : null);
     }
 
     /// <summary>The escorts for sale for the wave, the newest first.</summary>

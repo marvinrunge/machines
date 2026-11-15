@@ -58,11 +58,14 @@ public class HeroRigTests
         return new HeroWorn(side, weapon, donor, rig, RigGraft.MountOf(rig.Select(p => new RigPart(p.Parent, p.Name)).ToArray(), donor.Mount));
     }
 
-    private static (RigShape[] Body, HeroSolid Solid) Chassis(string look, string chassis)
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string, string), Lazy<(RigShape[], HeroSolid)>> Bodies = new();
+
+    // Made once for each look: a body's solid takes a while.
+    private static (RigShape[] Body, HeroSolid Solid) Chassis(string look, string chassis) => Bodies.GetOrAdd((look, chassis), _ => new(() =>
     {
         var body = Shape(look, HeroDonors.Chassis[chassis]);
         return (body, HeroSeat.Solid(chassis, body));
-    }
+    })).Value;
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, RigPart[]> Rigs = new();
 
@@ -164,6 +167,103 @@ public class HeroRigTests
 
         Assert.Equal("barrels", graft.Nodes[graft.Weapon(Mounting.Left, 3)].Name);
         Assert.Equal(-1, graft.Mount(Mounting.Top));
+    }
+
+    [Fact]
+    public void A_batterys_further_copies_stand_on_mounts_of_their_own_beside_the_slots()
+    {
+        var graft = new RigGraft(Walker, new Dictionary<Mounting, RigGraft.Source?> { [Mounting.Left] = new(Gun, 2) }, new Dictionary<Mounting, int> { [Mounting.Left] = 3 });
+
+        Assert.Equal(["root", "hip", "l_gun", "head", "barrel", "tip", "l_gun2", "barrel", "tip", "l_gun3", "barrel", "tip"], graft.Nodes.Select(n => n.Name));
+        Assert.Equal([2, 6, 9], Enumerable.Range(0, 3).Select(copy => graft.Mount(Mounting.Left, copy)));
+        Assert.Equal(-1, graft.Mount(Mounting.Left, 3));
+        foreach (var copy in new[] { 1, 2 })
+        {
+            var mount = graft.Nodes[graft.Mount(Mounting.Left, copy)];
+            // Beside the slot's mount, resting where it rests, with the donor's mount's mesh.
+            Assert.Equal((1, 2, Mounting.Left, 2, copy, true), (mount.Parent, mount.Chassis, mount.Weapon!.Value, mount.Donor, mount.Copy, mount.Stripped));
+            Assert.Equal(graft.Mount(Mounting.Left, copy), graft.Weapon(Mounting.Left, copy, 2));
+            Assert.Equal(graft.Mount(Mounting.Left, copy), graft.Nodes[graft.Weapon(Mounting.Left, copy, 3)].Parent);
+            Assert.Equal(copy, graft.Nodes[graft.Weapon(Mounting.Left, copy, 4)].Copy);
+        }
+        Assert.Equal(4, graft.Weapon(Mounting.Left, 3));
+        Assert.Equal(-1, graft.Weapon(Mounting.Left, 3, 3));
+        // What looks for a mount by its name finds the first copy.
+        Assert.Equal(graft.Mount(Mounting.Left), RigGraft.MountOf(graft.Nodes.Select(n => new RigPart(n.Parent, n.Name)).ToArray(), Mounting.Left));
+        Sound(graft);
+    }
+
+    [Fact]
+    public void A_battery_on_a_mount_the_chassis_lacks_mirrors_the_other_copy_for_copy()
+    {
+        var graft = new RigGraft(Walker, new Dictionary<Mounting, RigGraft.Source?> { [Mounting.Left] = null, [Mounting.Right] = new(Gun, 2) },
+            new Dictionary<Mounting, int> { [Mounting.Right] = 2 });
+
+        var (first, second) = (graft.Nodes[graft.Mount(Mounting.Right)], graft.Nodes[graft.Mount(Mounting.Right, 1)]);
+        Assert.Equal(("r_gun", -1, 2, 1), (first.Name, first.Chassis, first.Opposite, first.Parent));
+        Assert.Equal(("r_gun2", -1, 2, 1), (second.Name, second.Chassis, second.Opposite, second.Parent));
+        Assert.Equal(["gun2", "gun3"], new[] { 1, 2 }.Select(copy => RigGraft.CopyMount(Mounting.Top, copy)));
+        Sound(graft);
+    }
+
+    [Fact]
+    public void A_batterys_further_copies_are_never_taken_for_the_body()
+    {
+        var rig = new[] { "root", "hip", "l_gun2", "r_gun3", "gun2" }.Select((name, i) => new RigShape(i == 0 ? -1 : i == 1 ? 0 : 1, name, Matrix4x4.Identity,
+            i == 0 ? [] : [i == 1 ? Box(new Vector3(-0.5f), new Vector3(0.5f)) : Box(new Vector3(-3), new Vector3(3))])).ToArray();
+
+        Assert.Equal(1, HeroHull.Body(rig, -1));
+    }
+
+    [Fact]
+    public void Every_battery_has_its_copies_on_the_real_rigs()
+    {
+        if (!Exported)
+            return;
+        foreach (var chassis in WiredCatalogue.Chassis)
+        {
+            var parts = Rig(HeroDonors.Chassis[chassis.Id]);
+            foreach (var weapon in WiredCatalogue.Weapons.Where(w => !w.Single))
+            {
+                var slots = new Dictionary<Mounting, RigGraft.Source?>();
+                var copies = new Dictionary<Mounting, int>();
+                foreach (var slot in chassis.Slots.Where(s => s.Fixed is null))
+                {
+                    var donor = HeroDonors.For(weapon.Id, slot.Mounting)!;
+                    var rig = Rig(donor.Model);
+                    var fits = WiredCatalogue.WhyNotFit(chassis, slot.Mounting, weapon) is null;
+                    slots[slot.Mounting] = fits ? new(rig, RigGraft.MountOf(rig, donor.Mount)) : null;
+                    copies[slot.Mounting] = WiredCatalogue.MostCopies(chassis, slot.Mounting);
+                }
+                var graft = new RigGraft(parts, slots, copies);
+                Sound(graft);
+                var named = graft.Nodes.Select(n => new RigPart(n.Parent, n.Name)).ToArray();
+                foreach (var (side, source) in slots.Where(s => s.Value is not null))
+                {
+                    Assert.Equal(graft.Mount(side), RigGraft.MountOf(named, side));
+                    for (var copy = 1; copy < copies[side]; copy++)
+                    {
+                        var mount = graft.Mount(side, copy);
+                        Assert.True(mount >= 0, $"{chassis.Id} lost copy {copy} of {weapon.Id} on {side}");
+                        Assert.Equal(graft.Nodes[graft.Mount(side)].Parent, graft.Nodes[mount].Parent);
+                        Assert.Matches("^(l_gun|r_gun|gun)[23]$", graft.Nodes[mount].Name);
+                        foreach (var part in RigGraft.Carried(source!.Parts, source.Mount))
+                            Assert.True(graft.Weapon(side, copy, part) >= 0, $"copy {copy} of {weapon.Id} lost {source.Parts[part].Name} on {chassis.Id}");
+                    }
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void A_launchers_further_copies_stand_footless_even_on_its_own_machine()
+    {
+        var home = new HeroWorn(Mounting.Left, "MULTI_LAUNCHER2", HeroDonors.For("MULTI_LAUNCHER2", Mounting.Left)!, [], 0);
+
+        Assert.False(HeroDonors.Footless("ballista4", home));
+        Assert.True(HeroDonors.Footless("ballista4", home with { Copy = 1 }));
+        Assert.True(HeroDonors.Footless("knight4", home));
+        Assert.False(HeroDonors.Footless("ballista4", new HeroWorn(Mounting.Left, "PLASMA_CANNON2", HeroDonors.For("PLASMA_CANNON2", Mounting.Left)!, [], 0, 2)));
     }
 
     [Fact]
@@ -540,6 +640,109 @@ public class HeroRigTests
                 }
         });
         Assert.True(wrong.IsEmpty, string.Join('\n', wrong.Order()));
+    }
+
+    // A battery as HeroRig puts it on: the slot's weapon once for every copy.
+    private static List<HeroWorn> Battery(string look, string weapon, Mounting side, int count) =>
+        Enumerable.Range(0, count).Select(copy => Wearing(look, weapon, side) with { Copy = copy }).ToList();
+
+    [Fact]
+    public void In_every_look_every_battery_stands_well()
+    {
+        if (!Exported)
+            return;
+        var wrong = new System.Collections.Concurrent.ConcurrentBag<string>();
+        var batteries = Looks.Keys.SelectMany(look => WiredCatalogue.Chassis.SelectMany(chassis => chassis.Slots
+            .Where(s => WiredCatalogue.MostCopies(chassis, s.Mounting) > 1)
+            .SelectMany(slot => WiredCatalogue.Weapons.Where(w => !w.Single && WiredCatalogue.WhyNotFit(chassis, slot.Mounting, w) is null).Select(w => (look, chassis, slot.Mounting, w.Id)))));
+        Parallel.ForEach(batteries, each =>
+        {
+            var (look, chassis, side, weapon) = each;
+            var (body, solid) = Chassis(look, chassis.Id);
+            var battery = Battery(look, weapon, side, WiredCatalogue.MostCopies(chassis, side));
+            Stands(look, chassis.Id, body, solid, battery, wrong);
+            // Both sides full: the right battery follows the left, so it is looked at with it.
+            if (side == Mounting.Left && chassis.Slot(Mounting.Right) is not null && WiredCatalogue.WhyNotFit(chassis, Mounting.Right, WiredCatalogue.FindWeapon(weapon)!) is null)
+                Stands(look, chassis.Id, body, solid, [.. battery, .. Battery(look, weapon, Mounting.Right, WiredCatalogue.MostCopies(chassis, Mounting.Right))], wrong);
+        });
+        Assert.True(wrong.IsEmpty, string.Join('\n', wrong.Order()));
+    }
+
+    // Whether every copy of the batteries worn stands well, held by the body and the copies before it, out of every weapon
+    // seated before it; the first copies as they stand without the others.
+    private static void Stands(string look, string chassis, RigShape[] body, HeroSolid solid, List<HeroWorn> worn, System.Collections.Concurrent.ConcurrentBag<string> wrong)
+    {
+        var firsts = worn.Where(w => w.Copy == 0).ToList();
+        var single = HeroSeat.Seats(chassis, body, solid, firsts);
+        var seats = HeroSeat.CopySeats(chassis, body, solid, worn, HeroSeat.Seats(chassis, body, solid, worn));
+        var what = string.Join(" + ", worn.GroupBy(w => w.Side).Select(g => $"{g.Key} {g.Count()}x {g.First().Weapon}"));
+        foreach (var first in firsts)
+            if (seats[(first.Side, 0)] != single[first.Side])
+                wrong.Add($"{look} {chassis} {what}: the first copy on {first.Side} moved");
+        var seated = firsts.Select(w => HeroSeat.Solid(chassis, body, w, single[w.Side])).ToList();
+        foreach (var copy in worn.Where(w => w.Copy > 0).OrderBy(w => w.Side).ThenBy(w => w.Copy))
+        {
+            var held = solid.With(worn.Where(w => w.Side == copy.Side && w.Copy < copy.Copy).Select(w => HeroSeat.Solid(chassis, body, w, seats[(w.Side, w.Copy)])));
+            var seat = seats[(copy.Side, copy.Copy)];
+            var stand = HeroSeat.Measure(chassis, body, held, copy, seat, seated);
+            // A copy touches the one it stands by, so it shares a little of its skin cells with it, as a pair's twin does.
+            if (!Well(stand, HeroSeat.Wanted(chassis, copy)) || stand.Crowded > HeroSeat.MostCrowded + 0.02f)
+                wrong.Add($"{look} {chassis} {what}: copy {copy.Copy} on {copy.Side} {stand}");
+            seated.Add(HeroSeat.Solid(chassis, body, copy, seat));
+        }
+    }
+
+    [Theory]
+    [InlineData("reaper5", "PLASMA_CANNON2")]
+    [InlineData("knight4", "HEAVY_BOLTER1")]
+    [InlineData("reaper3", "PLASMA_RIFLE")]
+    [InlineData("ballista4", "MULTI_LAUNCHER2")]
+    [InlineData("phantom6", "BOLTER")]
+    public void A_pair_of_batteries_stands_alike_copy_for_copy(string chassis, string weapon)
+    {
+        if (!Exported)
+            return;
+        foreach (var look in Looks.Keys)
+        {
+            var (body, solid) = Chassis(look, chassis);
+            var entry = WiredCatalogue.FindChassis(chassis)!;
+            List<HeroWorn> worn = [.. Battery(look, weapon, Mounting.Left, WiredCatalogue.MostCopies(entry, Mounting.Left)),
+                .. Battery(look, weapon, Mounting.Right, WiredCatalogue.MostCopies(entry, Mounting.Right))];
+            var seats = HeroSeat.CopySeats(chassis, body, solid, worn, HeroSeat.Seats(chassis, body, solid, worn));
+            foreach (var copy in worn.Where(w => w.Side == Mounting.Left && w.Copy > 0))
+            {
+                var pair = worn.Single(w => w.Side == Mounting.Right && w.Copy == copy.Copy);
+                var left = Vector3.Transform(HeroSeat.Middle(chassis, copy), seats[(Mounting.Left, copy.Copy)] * HeroSeat.MountPlace(body, Mounting.Left));
+                var right = Vector3.Transform(HeroSeat.Middle(chassis, pair), seats[(Mounting.Right, copy.Copy)] * HeroSeat.MountPlace(body, Mounting.Right));
+
+                Assert.True(Vector3.Distance(left, right with { Z = -right.Z }) <= 0.45f, $"{look} copy {copy.Copy}: {left} and {right}");
+            }
+        }
+    }
+
+    [Fact]
+    public void A_battery_forced_beside_on_a_side_stands_on_the_right_as_the_mirror_of_one_on_the_left()
+    {
+        // Beside on a side slot: the second copy toward the body, the third away from it, on either side. Each battery alone,
+        // so the right one does not follow the left (Across) but starts by the rule itself.
+        if (!Exported)
+            return;
+        const string chassis = "ballista5", weapon = "FLAME_THROWER2";
+        Assert.Equal(HeroCopyWay.Beside, HeroDonors.CopyWay(chassis, weapon));
+        var most = WiredCatalogue.MostCopies(WiredCatalogue.FindChassis(chassis)!, Mounting.Left);
+        foreach (var look in Looks.Keys)
+        {
+            var (body, solid) = Chassis(look, chassis);
+            Vector3[] Middles(Mounting side)
+            {
+                var worn = Battery(look, weapon, side, most);
+                var seats = HeroSeat.CopySeats(chassis, body, solid, worn, HeroSeat.Seats(chassis, body, solid, worn));
+                return worn.Select(w => Vector3.Transform(HeroSeat.Middle(chassis, w), seats[(side, w.Copy)] * HeroSeat.MountPlace(body, side))).ToArray();
+            }
+            var (left, right) = (Middles(Mounting.Left), Middles(Mounting.Right));
+            for (var copy = 0; copy < most; copy++)
+                Assert.True(Vector3.Distance(left[copy], right[copy] with { Z = -right[copy].Z }) <= 0.45f, $"{look} copy {copy}: {left[copy]} and {right[copy]}");
+        }
     }
 
     // A seat lies on a grid and is measured by sample, so a hair over will do.

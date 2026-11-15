@@ -44,8 +44,9 @@ public sealed record BattleOffer(string Item, WiredKind Kind, int Mk, int? Price
 /// The hero being put together in the pod, before a battle: the chassis worn and what it wears, out of what the account owns,
 /// and the battle chosen (map, lives, victory). Each change makes the hero anew with <see cref="WiredState.ForBattle"/>, as the
 /// battle will, so the screen shows what will fight. Owned items are the account's, not the hero's: one owned may go on any
-/// number of slots and on every chassis that may take it, at the highest Mk owned that the chassis' tier allows. Free of
-/// Godot, so the tests can compile it. Battle is the remake's own addition.
+/// number of slots and on every chassis that may take it, at the highest Mk owned that the chassis' tier allows, and fills a
+/// battery for nothing (Q8): put onto a slot that carries the same weapon, it joins the battery there as one copy more. Free
+/// of Godot, so the tests can compile it. Battle is the remake's own addition.
 /// </summary>
 public sealed class BattleDraft
 {
@@ -131,7 +132,7 @@ public sealed class BattleDraft
 
     public HeroLoadout Loadout => _state.Loadout;
 
-    /// <summary>What the hero wears, each at the Mk it goes on at.</summary>
+    /// <summary>What the hero wears, each at the Mk it goes on at, a battery as one entry with its count.</summary>
     public IReadOnlyList<BattleItem> Items => _items;
 
     /// <summary>The hero as a battle takes it, playing <paramref name="race"/>.</summary>
@@ -183,58 +184,94 @@ public sealed class BattleDraft
 
     /// <returns>
     /// null if an owned item can go into the slot, otherwise why not; with <paramref name="buying"/> whether it could once
-    /// bought, at Mk I.
+    /// bought, at Mk I. Onto a slot that carries the same weapon it is asked as one copy more for the battery there, unless
+    /// it is to <paramref name="replace"/> it.
     /// </returns>
-    public BattleWhy? WhyNotPut(string item, WiredSlot slot, bool buying = false)
+    public BattleWhy? WhyNotPut(string item, WiredSlot slot, bool buying = false, bool replace = false)
     {
         if (WhyNotOnTier(item) is { } tier)
             return tier;
         if (!buying && !_account.Owned(item))
             return new BattleWhy("you do not own that");
         var made = new WiredItem(-1, WiredCatalogue.KindOf(item)!.Value, item, Math.Max(1, MkFor(item)));
-        return Fits(made, slot, _state.Loadout);
+        return Fits(made, slot, _state.Loadout, replace);
     }
 
-    /// <returns>null if what the hero wears can move to the slot, otherwise why not.</returns>
-    public BattleWhy? WhyNotMove(int made, WiredSlot slot) =>
-        _made.Find(i => i.Id == made) is { } item ? Fits(item, slot, _state.Loadout) : new BattleWhy("you do not own that");
+    /// <returns>null if what the hero wears, of a battery one copy, can move to the slot, otherwise why not.</returns>
+    public BattleWhy? WhyNotMove(int made, WiredSlot slot, bool replace = false) =>
+        _made.Find(i => i.Id == made) is { } item ? Fits(item, slot, _state.Loadout, replace) : new BattleWhy("you do not own that");
 
     /// <summary>Whether the hero wears this one of its items (by its id in <see cref="State"/>).</summary>
     public bool Wears(int made) => _made.Any(i => i.Id == made);
 
-    /// <summary>Puts an owned item into a slot; what sat there comes off.</summary>
+    /// <summary>
+    /// Puts an owned item into a slot. Onto a slot that carries the same weapon it joins the battery there for nothing;
+    /// otherwise, or with <paramref name="replace"/>, what sat there comes off, a whole battery.
+    /// </summary>
     /// <returns>null if done, otherwise why not.</returns>
-    public BattleWhy? Put(string item, WiredSlot slot)
+    public BattleWhy? Put(string item, WiredSlot slot, bool replace = false)
     {
-        if (WhyNotPut(item, slot) is { } why)
+        if (WhyNotPut(item, slot, replace: replace) is { } why)
             return why;
-        Empty(slot);
-        _items.Add(new BattleItem(item, slot, MkFor(item)));
-        Settle();
-        return null;
-    }
-
-    /// <summary>Moves what the hero wears to another slot; what sat there comes off.</summary>
-    /// <returns>null if done, otherwise why not.</returns>
-    public BattleWhy? Move(int made, WiredSlot slot)
-    {
-        if (WhyNotMove(made, slot) is { } why)
-            return why;
-        if (_state.Loadout.At(slot) is { } sitting && sitting.Id != made)
+        if (!replace && Battery(item, slot) is >= 0 and var battery)
+            _items[battery] = _items[battery] with { Count = _items[battery].Count + 1 };
+        else
+        {
             Empty(slot);
-        var at = _made.FindIndex(i => i.Id == made);
-        _items[at] = _items[at] with { Slot = slot };
+            _items.Add(new BattleItem(item, slot, MkFor(item)));
+        }
         Settle();
         return null;
     }
 
-    /// <summary>Takes something off the hero; the account still owns it.</summary>
+    /// <summary>
+    /// Moves what the hero wears to another slot, of a battery one copy. Onto a slot that carries the same weapon it joins
+    /// the battery there; otherwise, or with <paramref name="replace"/>, what sat there comes off.
+    /// </summary>
+    /// <returns>null if done, otherwise why not.</returns>
+    public BattleWhy? Move(int made, WiredSlot slot, bool replace = false)
+    {
+        if (WhyNotMove(made, slot, replace) is { } why)
+            return why;
+        var at = EntryOf(made);
+        var moving = _items[at];
+        var items = _items.ToList();
+        if (moving.Slot == slot)
+        {
+            // Onto its own battery: it stays as it is, or stands alone there.
+            if (replace)
+                items[at] = moving with { Count = 1 };
+        }
+        else if (!replace && Battery(moving.Catalogue, slot) is >= 0 and var battery)
+        {
+            items[battery] = items[battery] with { Count = items[battery].Count + 1 };
+            Lessen(items, at);
+        }
+        else
+        {
+            var sitting = items.FindIndex(e => e.Slot == slot);
+            if (moving.Count == 1)
+                items[at] = moving with { Slot = slot };
+            else
+            {
+                items[at] = moving with { Count = moving.Count - 1 };
+                items.Add(moving with { Slot = slot, Count = 1 });
+            }
+            if (sitting >= 0)
+                items.RemoveAt(sitting);
+        }
+        _items = items;
+        Settle();
+        return null;
+    }
+
+    /// <summary>Takes something off the hero, of a battery one copy; the account still owns it.</summary>
     public void TakeOff(int made)
     {
-        var at = _made.FindIndex(i => i.Id == made);
+        var at = EntryOf(made);
         if (at < 0)
             return;
-        _items.RemoveAt(at);
+        Lessen(_items, at);
         Settle();
     }
 
@@ -252,36 +289,87 @@ public sealed class BattleDraft
 
     /// <summary>
     /// Changes to another owned chassis: what is worn moves as it would in the hangar (<see cref="HeroLoadout.OnChassis"/>),
-    /// each item at the Mk the new tier allows; what does not fit or may not go on that tier comes off.
+    /// each item at the Mk the new tier allows, a battery cut to what its new slot carries; what does not fit or may not go
+    /// on that tier comes off.
     /// </summary>
     public BattleWhy? Wear(string chassis)
     {
         if (WhyNotWear(chassis) is { } why)
             return why;
         var moved = _state.Loadout.OnChassis(new WiredItem(-1, WiredKind.Chassis, chassis));
-        _items = _items.Select((entry, at) => entry with { Slot = moved.SlotOf(_made[at].Id) }).Where(e => e.Slot is not null).ToList();
+        var (items, made) = (new List<BattleItem>(), 0);
+        foreach (var entry in _items)
+        {
+            var copies = _made.Skip(made).Take(entry.Count).ToList();
+            made += entry.Count;
+            if (copies.Count > 0 && moved.SlotOf(copies[0].Id) is { } slot)
+                items.Add(entry with { Slot = slot, Count = copies.Count(copy => moved.Holds(copy.Id)) });
+        }
+        _items = items;
         Chassis = chassis;
         Settle();
         return null;
     }
 
-    private BattleWhy? Fits(WiredItem item, WiredSlot slot, HeroLoadout loadout)
+    /// <summary>
+    /// Whether an item can go into a slot of a loadout and the hero still carry it. Onto a slot that carries the same weapon
+    /// it is asked as a further copy of the battery there, unless it is to <paramref name="replace"/> what sits there.
+    /// </summary>
+    private BattleWhy? Fits(WiredItem item, WiredSlot slot, HeroLoadout loadout, bool replace = false)
     {
-        if (loadout.WhyNotFit(item, slot) is { } misfit)
-            return new BattleWhy(misfit);
-        var then = loadout.With(slot, item);
+        HeroLoadout then;
+        if (!replace && Joins(loadout, item, slot))
+        {
+            if (loadout.WhyNotAdd(item, slot) is { } full)
+                return new BattleWhy(full);
+            then = loadout.Adding(slot, item);
+        }
+        else
+        {
+            if (loadout.WhyNotFit(item, slot) is { } misfit)
+                return new BattleWhy(misfit);
+            then = loadout.With(slot, item);
+        }
         return HeroBuild.Resolve(_data, then).LoadShare > WiredBalance.MostLoad ? new BattleWhy("too heavy for this chassis") : null;
     }
 
-    /// <summary>What sits in a slot comes off.</summary>
-    private void Empty(WiredSlot slot)
+    /// <summary>Whether an item put into a slot joins the battery there: a weapon onto a weapon slot that carries the same weapon, the item itself not counted.</summary>
+    private static bool Joins(HeroLoadout loadout, WiredItem item, WiredSlot slot) =>
+        item.Kind == WiredKind.Weapon && slot.Kind == WiredSlotKind.Weapon && loadout.Without(item.Id).At(slot)?.Catalogue == item.Catalogue;
+
+    /// <summary>
+    /// The entry of a slot's battery of a weapon; -1 where the slot carries another or none, and for anything that is no
+    /// weapon or no weapon slot: a module or ability put onto its own slot stands there alone again, as <see cref="Joins"/> says.
+    /// </summary>
+    private int Battery(string catalogue, WiredSlot slot) =>
+        slot.Kind == WiredSlotKind.Weapon && WiredCatalogue.KindOf(catalogue) == WiredKind.Weapon
+            ? _items.FindIndex(e => e.Slot == slot && e.Catalogue == catalogue)
+            : -1;
+
+    /// <summary>The entry a worn item comes from: each entry made its copies one after another; -1 for none.</summary>
+    private int EntryOf(int made)
     {
-        if (_state.Loadout.At(slot) is { } sitting && _made.FindIndex(i => i.Id == sitting.Id) is >= 0 and var at)
+        var at = _made.FindIndex(i => i.Id == made);
+        for (var entry = 0; at >= 0 && entry < _items.Count; entry++)
         {
-            _items.RemoveAt(at);
-            _made.RemoveAt(at);
+            if (at < _items[entry].Count)
+                return entry;
+            at -= _items[entry].Count;
         }
+        return -1;
     }
+
+    /// <summary>One copy of an entry comes off: the entry goes with its last.</summary>
+    private static void Lessen(List<BattleItem> items, int at)
+    {
+        if (items[at].Count > 1)
+            items[at] = items[at] with { Count = items[at].Count - 1 };
+        else
+            items.RemoveAt(at);
+    }
+
+    /// <summary>What sits in a slot comes off, a whole battery.</summary>
+    private void Empty(WiredSlot slot) => _items.RemoveAll(e => e.Slot == slot);
 
     /// <summary>The weapon slot a chassis' first weapon goes to.</summary>
     private static WiredSlot? FirstWeaponSlot(string chassis) => WiredCatalogue.FindChassis(chassis)?.Slots.Where(s => s.Fixed is null)
@@ -289,21 +377,35 @@ public sealed class BattleDraft
 
     /// <summary>
     /// Makes the hero anew: only what is owned and may go on this tier, each at the Mk it goes on at, in a slot it fits and
-    /// not one taken already, and nothing beyond what the chassis carries. What falls out the list no longer holds.
+    /// not one taken already, a battery's copies as far as the slot carries them (<see cref="WiredCatalogue.Copies"/>: only
+    /// a weapon on a weapon slot has more than one, as <see cref="WiredState.ForBattle"/> makes them), and nothing beyond
+    /// what the chassis carries. What falls out the list no longer holds.
     /// </summary>
     private void Settle()
     {
         var kept = new List<BattleItem>();
+        var chassis = WiredCatalogue.FindChassis(Chassis)!;
         var loadout = HeroLoadout.Bare(new WiredItem(0, WiredKind.Chassis, Chassis));
+        var next = -1;
         foreach (var entry in _items)
         {
             if (entry.Slot is not { } slot || WiredCatalogue.KindOf(entry.Catalogue) is not (WiredKind.Weapon or WiredKind.Module or WiredKind.Ability) || MkFor(entry.Catalogue) < 1)
                 continue;
-            var item = new WiredItem(-1 - kept.Count, WiredCatalogue.KindOf(entry.Catalogue)!.Value, entry.Catalogue, MkFor(entry.Catalogue));
+            var (kind, mk) = (WiredCatalogue.KindOf(entry.Catalogue)!.Value, MkFor(entry.Catalogue));
+            var item = new WiredItem(next--, kind, entry.Catalogue, mk);
             if (loadout.At(slot) is not null || Fits(item, slot, loadout) is not null)
                 continue;
             loadout = loadout.With(slot, item);
-            kept.Add(entry with { Mk = item.Mk });
+            var most = WiredCatalogue.Copies(chassis, slot, entry.Catalogue, entry.Count);
+            var count = 1;
+            for (; count < most; count++)
+            {
+                var copy = new WiredItem(next--, kind, entry.Catalogue, mk);
+                if (Fits(copy, slot, loadout) is not null)
+                    break;
+                loadout = loadout.Adding(slot, copy);
+            }
+            kept.Add(entry with { Mk = mk, Count = count });
         }
         _state = WiredState.ForBattle(_data, Maker, new BattleHero(Maker, Name, Chassis, kept), 1);
         _items = kept;

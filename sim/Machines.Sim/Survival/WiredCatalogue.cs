@@ -76,9 +76,10 @@ public sealed record WiredChassis(string Id, string Type, string? SubType, int L
 
 /// <summary>
 /// A real weapon (<see cref="WeaponSpec"/>, by its name in parmdata) as an item; size, load, power and price are Wired's own.
-/// <paramref name="FromWave"/> is the first wave the shop offers it for.
+/// <paramref name="FromWave"/> is the first wave the shop offers it for. <paramref name="Single"/> keeps it from forming a
+/// battery: it never comes more than once on a slot.
 /// </summary>
-public sealed record WiredWeapon(string Id, SlotSize Size, int Load, int Power, int Price, int FromWave, bool GliderOnly = false);
+public sealed record WiredWeapon(string Id, SlotSize Size, int Load, int Power, int Price, int FromWave, bool GliderOnly = false, bool Single = false);
 
 /// <summary>What a module does for each Mk: shares of the chassis' values, and whole points.</summary>
 public sealed record ModuleEffect
@@ -200,9 +201,11 @@ public static class WiredCatalogue
         new("MULTI_LAUNCHER1", H, 9, 5, 750, 10),
         new("MULTI_LAUNCHER7", H, 10, 6, 1000, 12),
         new("MULTI_LAUNCHER2", H, 12, 7, 1200, 14),
-        new("WASP_LIGHT_STING", L, 2, 2, 200, 6, GliderOnly: true),
-        new("WASP_METAL_STING", M, 4, 3, 450, 9, GliderOnly: true),
-        new("BEE_BOMB", H, 7, 5, 800, 12, GliderOnly: true),
+        // The glider's own body weapons have barrels enough and no room on its top to stack, and three of the bomb's
+        // blasts, which go off at the target without straying and hit friend and foe, would tame nothing: no batteries.
+        new("WASP_LIGHT_STING", L, 2, 2, 200, 6, GliderOnly: true, Single: true),
+        new("WASP_METAL_STING", M, 4, 3, 450, 9, GliderOnly: true, Single: true),
+        new("BEE_BOMB", H, 7, 5, 800, 12, GliderOnly: true, Single: true),
     ];
 
     public static readonly IReadOnlyList<WiredModule> Modules =
@@ -297,5 +300,48 @@ public static class WiredCatalogue
         if (weapon.GliderOnly && !(chassis.Glider && mounting == Mounting.Top))
             return "that fits only the top slot of a glider";
         return weapon.Size > slot.Size ? "the weapon is too big for this slot" : null;
+    }
+
+    /// <summary>The copies of one weapon a mounting of the chassis carries as a battery, by the slot's size; 0 for a missing or fixed slot.</summary>
+    public static int MostCopies(WiredChassis chassis, Mounting mounting) =>
+        chassis.Slot(mounting) is { Fixed: null } slot ? WiredBalance.MostCopies[(int)slot.Size] : 0;
+
+    /// <returns>
+    /// null if <paramref name="count"/> copies of the weapon may stand as a battery on that mounting of the chassis, otherwise
+    /// why not: what <see cref="WhyNotFit"/> says, then a weapon that forms none, then the slot's size. One copy is a
+    /// single weapon, as before batteries.
+    /// </returns>
+    public static string? WhyNotCopies(WiredChassis chassis, Mounting mounting, WiredWeapon weapon, int count)
+    {
+        if (WhyNotFit(chassis, mounting, weapon) is { } why)
+            return why;
+        if (count <= 1)
+            return null;
+        if (weapon.Single)
+            return "that weapon cannot form a battery";
+        return count > MostCopies(chassis, mounting) ? Full(chassis.Slot(mounting)!.Size) : null;
+    }
+
+    /// <summary>What a slot of a size says to one copy more than it carries.</summary>
+    public static string Full(SlotSize size) => size switch
+    {
+        SlotSize.Light => "a light slot carries one weapon",
+        SlotSize.Medium => "a medium slot carries two at most",
+        _ => "a heavy slot carries three at most",
+    };
+
+    /// <summary>
+    /// A number of copies of an item made to stand on a slot of the chassis: from 1 to as many as <see cref="WhyNotCopies"/>
+    /// lets the slot carry, and 1 for anything that is no weapon on a weapon slot, or no weapon that fits it. A battery saved
+    /// or sent with a bad count still makes a hero.
+    /// </summary>
+    public static int Copies(WiredChassis chassis, WiredSlot? slot, string catalogue, int count)
+    {
+        if (slot is not { Kind: WiredSlotKind.Weapon, Index: >= 0 and <= (int)Mounting.Top } at || FindWeapon(catalogue) is not { } weapon)
+            return 1;
+        count = Math.Min(count, WiredBalance.MostCopies[^1]);
+        while (count > 1 && WhyNotCopies(chassis, (Mounting)at.Index, weapon, count) is not null)
+            count--;
+        return Math.Max(1, count);
     }
 }

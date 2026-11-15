@@ -13,8 +13,8 @@ namespace Machines.Game;
 /// </summary>
 public sealed record RigShape(int Parent, string Name, Matrix4x4 Rest, Vector3[][] Surfaces);
 
-/// <summary>A weapon going on a chassis: the slot, the rig it comes from and its mount there.</summary>
-public sealed record HeroWorn(Mounting Side, string Weapon, HeroDonor Donor, IReadOnlyList<RigShape> Rig, int Mount);
+/// <summary>A weapon going on a chassis: the slot, the rig it comes from and its mount there, and which copy of the slot's battery it is.</summary>
+public sealed record HeroWorn(Mounting Side, string Weapon, HeroDonor Donor, IReadOnlyList<RigShape> Rig, int Mount, int Copy = 0);
 
 /// <summary>What of a part's mesh a chassis shows on its other side too, each surface's triangles by number (see <see cref="HeroSeat.Shoulder"/>).</summary>
 public sealed record HeroShoulder(int Part, int[][] Triangles);
@@ -50,6 +50,21 @@ public sealed class HeroSolid
     private readonly bool[] _inside;
     private readonly bool[] _column;
     private readonly byte[] _gap;
+
+    /// <summary>The solids that make one with this one (see <see cref="With"/>).</summary>
+    private readonly HeroSolid[] _with = [];
+
+    private HeroSolid(HeroSolid solid, HeroSolid[] with)
+    {
+        (_origin, _wide, _high, _deep, _inside, _column, _gap) = (solid._origin, solid._wide, solid._high, solid._deep, solid._inside, solid._column, solid._gap);
+        _with = [.. solid._with, .. with];
+    }
+
+    /// <summary>
+    /// This solid and <paramref name="more"/> as one: what either holds or covers, and the nearer of their skins. A battery's
+    /// copy stands against the body and the copies before it so.
+    /// </summary>
+    public HeroSolid With(IEnumerable<HeroSolid> more) => new(this, more.ToArray());
 
     public HeroSolid(IEnumerable<Vector3[]> surfaces)
     {
@@ -121,18 +136,62 @@ public sealed class HeroSolid
     }
 
     /// <summary>Whether a point lies in the body or on its skin.</summary>
-    public bool Holds(Vector3 point) => Index(point) is >= 0 and var at && _inside[at];
+    public bool Holds(Vector3 point)
+    {
+        if (Index(point) is >= 0 and var at && _inside[at])
+            return true;
+        foreach (var other in _with)
+            if (other.Holds(point))
+                return true;
+        return false;
+    }
 
     /// <summary>Whether the body lies straight above or below a point.</summary>
     public bool Covers(Vector3 point)
     {
         var cell = (point - _origin) / Cell;
         var (x, z) = ((int)MathF.Floor(cell.X), (int)MathF.Floor(cell.Z));
-        return x >= 0 && z >= 0 && x < _wide && z < _deep && _column[x * _deep + z];
+        if (x >= 0 && z >= 0 && x < _wide && z < _deep && _column[x * _deep + z])
+            return true;
+        foreach (var other in _with)
+            if (other.Covers(point))
+                return true;
+        return false;
+    }
+
+    /// <summary>What <see cref="Holds"/>, <see cref="Gap"/> and <see cref="Covers"/> say of a point, looked up at once.</summary>
+    public (bool Holds, float Gap, bool Covers) Probe(Vector3 point)
+    {
+        var cell = (point - _origin) / Cell;
+        var (x, y, z) = ((int)MathF.Floor(cell.X), (int)MathF.Floor(cell.Y), (int)MathF.Floor(cell.Z));
+        var (holds, gap, covers) = (false, float.PositiveInfinity, false);
+        if (x >= 0 && z >= 0 && x < _wide && z < _deep)
+        {
+            covers = _column[x * _deep + z];
+            if (y >= 0 && y < _high)
+            {
+                var at = (x * _high + y) * _deep + z;
+                holds = _inside[at];
+                if (_gap[at] != Unknown)
+                    gap = _gap[at] * Cell;
+            }
+        }
+        foreach (var other in _with)
+        {
+            var (otherHolds, otherGap, otherCovers) = other.Probe(point);
+            (holds, gap, covers) = (holds || otherHolds, MathF.Min(gap, otherGap), covers || otherCovers);
+        }
+        return (holds, gap, covers);
     }
 
     /// <summary>How far a point lies from the skin; out in the open it does not matter how far.</summary>
-    public float Gap(Vector3 point) => Index(point) is >= 0 and var at && _gap[at] != Unknown ? _gap[at] * Cell : float.PositiveInfinity;
+    public float Gap(Vector3 point)
+    {
+        var gap = Index(point) is >= 0 and var at && _gap[at] != Unknown ? _gap[at] * Cell : float.PositiveInfinity;
+        foreach (var other in _with)
+            gap = MathF.Min(gap, other.Gap(point));
+        return gap;
+    }
 
     /// <summary>How far along <paramref name="axis"/> from a point the body ends, seen from that side; null if nothing is there.</summary>
     public float? Skin(Vector3 point, Vector3 axis)
@@ -285,13 +344,14 @@ public static class HeroSeat
 
     /// <summary>
     /// Where each weapon sits: what comes between its mount's rest and its own parts, for row vectors. They are seated
-    /// left, right, top, and a right weapon starts from where the left one of its kind stands.
+    /// left, right, top, and a right weapon starts from where the left one of its kind stands. Of a battery only the first
+    /// copy is seated here, as a single weapon (see <see cref="CopySeats"/>).
     /// </summary>
     public static Dictionary<Mounting, Matrix4x4> Seats(string chassis, IReadOnlyList<RigShape> body, HeroSolid solid, IEnumerable<HeroWorn> worn)
     {
         var seats = new Dictionary<Mounting, Matrix4x4>();
         var seated = new List<HeroSolid>();
-        var all = worn.OrderBy(w => w.Side).ToList();
+        var all = worn.Where(w => w.Copy == 0).OrderBy(w => w.Side).ToList();
         foreach (var weapon in all)
         {
             var twin = weapon.Side == Mounting.Right && Twinned(chassis, weapon.Side) ? all.Find(w => w.Side == Mounting.Left && w.Weapon == weapon.Weapon) : null;
@@ -300,6 +360,124 @@ public static class HeroSeat
             seated.Add(Solid(chassis, body, weapon, seat));
         }
         return seats;
+    }
+
+    /// <summary>
+    /// Where every copy of every battery sits, the first copies as <see cref="Seats"/> has them (<paramref name="seats"/>), and
+    /// the further ones after all of those, left, right, top, each after the copy before it. A further copy is seated as a
+    /// single weapon that starts against the copy it stands by, moved by its own size: on a side slot on top of the copy
+    /// before it, else beside that one away from the body; on a top slot beside the first copy, the second to its right and
+    /// the third to its left, else on top of the copy before it; on the Bee's back always on top (<see cref="HeroDonors.CopyWay"/>
+    /// may name the way). There <see cref="Fit"/> moves it as it moves a single weapon, against the body and the battery's
+    /// earlier copies, which hold it as the body does, and clear of every weapon seated before it, first only round where it
+    /// starts. The first way it stands well in so near wins; else the way on top, fitted as far as a single weapon goes, or as
+    /// it stood near if that was less wrong. A right battery of the left one's weapon and size starts across from it copy for
+    /// copy, as a pair of single weapons does. A copy's seat does not depend on the copies after it.
+    /// </summary>
+    public static Dictionary<(Mounting Side, int Copy), Matrix4x4> CopySeats(string chassis, IReadOnlyList<RigShape> body, HeroSolid solid,
+        IEnumerable<HeroWorn> worn, IReadOnlyDictionary<Mounting, Matrix4x4> seats)
+    {
+        var all = worn.OrderBy(w => w.Side).ThenBy(w => w.Copy).ToList();
+        var placed = new Dictionary<(Mounting Side, int Copy), Matrix4x4>();
+        var seated = new List<HeroSolid>();
+        var batteries = new Dictionary<Mounting, List<HeroSolid>>();
+        var mirrors = new Dictionary<Mounting, List<HeroSolid>>();
+        foreach (var first in all.Where(w => w.Copy == 0 && seats.ContainsKey(w.Side)))
+        {
+            var seat = placed[(first.Side, 0)] = seats[first.Side];
+            var made = Solid(chassis, body, first, seat);
+            seated.Add(made);
+            batteries[first.Side] = [made];
+        }
+
+        var copies = all.Where(w => w.Copy > 0).ToList();
+        foreach (var copy in copies)
+        {
+            var side = copy.Side;
+            if (!placed.TryGetValue((side, copy.Copy - 1), out var before))
+                continue;
+            // What holds it: the body and the battery's earlier copies; for the twin's look at the other side, their mirror.
+            var held = solid.With(batteries[side]);
+            HeroSolid? across = null;
+            if (Twinned(chassis, side))
+            {
+                if (!mirrors.TryGetValue(side, out var mirrored))
+                    mirrors[side] = mirrored = [Mirror(chassis, body, all.Find(w => w.Side == side && w.Copy == 0)!, placed[(side, 0)])];
+                across = solid.With(mirrored);
+            }
+
+            var twin = side == Mounting.Right && Twinned(chassis, side) && copies.Count(w => w.Side == Mounting.Left) == copies.Count(w => w.Side == Mounting.Right)
+                ? all.Find(w => w.Side == Mounting.Left && w.Copy == copy.Copy && w.Weapon == copy.Weapon) : null;
+            Matrix4x4 chosen;
+            if (twin is not null && placed.TryGetValue((Mounting.Left, copy.Copy), out var pair))
+                chosen = Copied(chassis, body, held, across, seated, copy, Across(chassis, body, copy, twin, pair), near: true).Seat;
+            else
+            {
+                var box = MountBox.Of(Shape(chassis, copy).SelectMany(s => s).ToList())!.Value * HeroDonors.Scale(chassis, copy.Weapon);
+                var (high, wide) = (box.MaxY - box.MinY, box.MaxZ - box.MinZ);
+                // Beside the first copy, across the machine: on the top slot the second to its right (+z) and the third to its
+                // left; on a side slot (only where HeroDonors.CopyWay names the way) the second toward the body and the third
+                // away from it, so that a right battery stands as the mirror of a left one.
+                var toward = side == Mounting.Right ? -wide : wide;
+                Matrix4x4 Start(HeroCopyWay way) => way switch
+                {
+                    HeroCopyWay.Up => before * Matrix4x4.CreateTranslation(0, high, 0),
+                    HeroCopyWay.Out => before * Matrix4x4.CreateTranslation(0, 0, side == Mounting.Left ? -wide : wide),
+                    _ => placed[(side, 0)] * Matrix4x4.CreateTranslation(0, 0, copy.Copy % 2 == 1 ? toward : -toward),
+                };
+                HeroCopyWay[] ways = HeroDonors.CopyWay(chassis, copy.Weapon) is { } forced ? [forced]
+                    : HeroDonors.Rides(chassis) ? [HeroCopyWay.Up]
+                    : side == Mounting.Top ? [HeroCopyWay.Beside, HeroCopyWay.Up] : [HeroCopyWay.Up, HeroCopyWay.Out];
+                (Matrix4x4 Seat, float Wrong)? found = null;
+                (Matrix4x4 Seat, float Wrong, HeroCopyWay Way)? up = null, first = null;
+                foreach (var way in ways)
+                {
+                    var tried = Copied(chassis, body, held, across, seated, copy, Start(way), near: true);
+                    if (tried.Wrong <= 0)
+                    {
+                        found = tried;
+                        break;
+                    }
+                    first ??= (tried.Seat, tried.Wrong, way);
+                    if (way == HeroCopyWay.Up)
+                        up = (tried.Seat, tried.Wrong, way);
+                }
+                // Standing well nowhere near: the way on top fitted as far as a single weapon goes, if it stands better there.
+                if (found is null && (up ?? first) is { } fallback)
+                {
+                    var far = Copied(chassis, body, held, across, seated, copy, Start(fallback.Way), near: false);
+                    found = far.Wrong < fallback.Wrong ? far : (fallback.Seat, fallback.Wrong);
+                }
+                chosen = found!.Value.Seat;
+            }
+
+            placed[(side, copy.Copy)] = chosen;
+            var made = Solid(chassis, body, copy, chosen);
+            seated.Add(made);
+            batteries[side].Add(made);
+            if (mirrors.TryGetValue(side, out var turned))
+                turned.Add(Mirror(chassis, body, copy, chosen));
+        }
+        return placed;
+    }
+
+    /// <summary>A battery's copy fitted from where it starts, only round there if <paramref name="near"/>: its seat, and how wrong it stands there (0 for well).</summary>
+    private static (Matrix4x4 Seat, float Wrong) Copied(string chassis, IReadOnlyList<RigShape> body, HeroSolid held, HeroSolid? across, List<HeroSolid> seated,
+        HeroWorn worn, Matrix4x4 start, bool near)
+    {
+        var mount = MountPlace(body, worn.Side);
+        Matrix4x4.Invert(mount, out var back);
+        var shape = Shape(chassis, worn).ToList();
+        var points = Points(shape, MountBox.Of(shape.SelectMany(s => s).ToList())!.Value, start * mount);
+        var (move, wrong) = Fitting(held, seated, points, Wanted(chassis, worn), Twinned(chassis, worn.Side), worn.Side == Mounting.Right, across, near);
+        return (start * mount * Matrix4x4.CreateTranslation(move) * back, wrong);
+    }
+
+    /// <summary>A seated weapon as a solid on the chassis' other side, in the chassis' axes.</summary>
+    private static HeroSolid Mirror(string chassis, IReadOnlyList<RigShape> body, HeroWorn worn, Matrix4x4 seat)
+    {
+        var place = seat * MountPlace(body, worn.Side) * Turned;
+        return new HeroSolid(Shape(chassis, worn).Select(s => s.Select(c => Vector3.Transform(c, place)).ToArray()));
     }
 
     /// <summary>The seat that stands a weapon across from its twin, the middle of one where the other's would be mirrored.</summary>
@@ -492,24 +670,56 @@ public static class HeroSeat
     // The same for a weapon on the centre line, which leaves it only if there is no other way.
     private static readonly Lazy<Vector3[]> MovesOnTop = new(() => Moves.Value.OrderBy(m => m.Z != 0).ToArray());
 
+    // A battery's copy starts against the copy it stands by, so it looks this far round that place first, in cells along, up
+    // and across: a way it cannot stand well in so near is not its way.
+    private const int NearAlong = 10, NearUp = 10, NearAcross = 6;
+
+    private static bool Near(Vector3 move) =>
+        MathF.Round(MathF.Abs(move.X) / HeroSolid.Cell) <= NearAlong && MathF.Round(MathF.Abs(move.Y) / HeroSolid.Cell) <= NearUp && MathF.Round(MathF.Abs(move.Z) / HeroSolid.Cell) <= NearAcross;
+
+    private static readonly Lazy<Vector3[]> MovesNear = new(() => Moves.Value.Where(Near).ToArray());
+    private static readonly Lazy<Vector3[]> MovesNearOnTop = new(() => MovesOnTop.Value.Where(Near).ToArray());
+
     /// <summary>How a weapon stands, moved so far.</summary>
-    public static HeroStand Stand(HeroSolid body, IReadOnlyList<HeroSolid> others, HeroPoints points, Vector3 move)
+    public static HeroStand Stand(HeroSolid body, IReadOnlyList<HeroSolid> others, HeroPoints points, Vector3 move) =>
+        Standing(body, others, points, move, default, float.MaxValue)!.Value;
+
+    /// <summary>
+    /// <see cref="Stand"/>, given up (null) as soon as the points not yet looked at can no longer make the weapon stand less
+    /// wrong for <paramref name="wanted"/> than <paramref name="bound"/>: most of <see cref="Fit"/>'s tries end early so, and
+    /// the one it keeps is the same.
+    /// </summary>
+    private static HeroStand? Standing(HeroSolid body, IReadOnlyList<HeroSolid> others, HeroPoints points, Vector3 move, (float Held, float Over) wanted, float bound)
     {
         var (buried, held, crowded, over, blocked) = (0, 0, 0, 0, 0);
-        foreach (var point in points.All)
+        var all = (float)Math.Max(1, points.All.Count);
+        for (var k = 0; k < points.All.Count; k++)
         {
-            var at = point + move;
-            buried += body.Holds(at) ? 1 : 0;
-            held += body.Gap(at) <= Touching ? 1 : 0;
-            over += body.Covers(at) ? 1 : 0;
+            var at = points.All[k] + move;
+            var (holds, gap, covers) = body.Probe(at);
+            buried += holds ? 1 : 0;
+            held += gap <= Touching ? 1 : 0;
+            over += covers ? 1 : 0;
             foreach (var other in others)
                 crowded += other.Holds(at) ? 1 : 0;
+            // The least it can come to: every point left held and over, none buried or crowded, the muzzle clear.
+            if ((k & 15) == 15 && bound < float.MaxValue)
+            {
+                var left = points.All.Count - 1 - k;
+                if (MathF.Max(0, buried / all - MostBuried) + MathF.Max(0, wanted.Held - (held + left) / all) + 2 * MathF.Max(0, crowded / all - MostCrowded)
+                    + MathF.Max(0, wanted.Over - (over + left) / all) >= bound)
+                    return null;
+            }
         }
         foreach (var point in points.Muzzle)
             blocked += body.Holds(point + move) ? 1 : 0;
-        var all = (float)Math.Max(1, points.All.Count);
         return new HeroStand(buried / all, held / all, crowded / all, over / all, blocked / (float)Math.Max(1, points.Muzzle.Count));
     }
+
+    /// <summary>How wrong a weapon stands for what it has to come up to, 0 for well (see <see cref="Fit"/>).</summary>
+    private static float Wrongness(HeroStand stand, (float Held, float Over) wanted) =>
+        MathF.Max(0, stand.Buried - MostBuried) + MathF.Max(0, wanted.Held - stand.Held) + 2 * MathF.Max(0, stand.Crowded - MostCrowded)
+        + MathF.Max(0, wanted.Over - stand.Over) + MathF.Max(0, stand.Blocked - MostBlocked);
 
     /// <summary>
     /// The shortest move, in the chassis' axes, that leaves a weapon neither buried in the body nor standing off it, with
@@ -517,25 +727,36 @@ public static class HeroSeat
     /// With <paramref name="twins"/> it has to stand as well on the chassis' other side and keep to its own half, so that a
     /// pair can stand alike; <paramref name="right"/> takes the moves mirrored, for the same reason.
     /// </summary>
-    public static Vector3 Fit(HeroSolid body, IReadOnlyList<HeroSolid> others, HeroPoints points, (float Held, float Over) wanted, bool twins = false, bool right = false)
-    {
-        float Wrong(HeroStand stand) => MathF.Max(0, stand.Buried - MostBuried) + MathF.Max(0, wanted.Held - stand.Held) + 2 * MathF.Max(0, stand.Crowded - MostCrowded)
-            + MathF.Max(0, wanted.Over - stand.Over) + MathF.Max(0, stand.Blocked - MostBlocked);
+    public static Vector3 Fit(HeroSolid body, IReadOnlyList<HeroSolid> others, HeroPoints points, (float Held, float Over) wanted, bool twins = false, bool right = false) =>
+        Fitting(body, others, points, wanted, twins, right, null, near: false).Move;
 
-        var across = points.Across;
+    /// <summary>
+    /// <see cref="Fit"/>, and how wrong the weapon stands after the move, 0 for well. <paramref name="across"/> is what the
+    /// twin stands against on the other side, where that is not the body itself: a battery's copies, mirrored.
+    /// <paramref name="near"/> looks only round where it starts, as a battery's copy does.
+    /// </summary>
+    private static (Vector3 Move, float Wrong) Fitting(HeroSolid body, IReadOnlyList<HeroSolid> others, HeroPoints points, (float Held, float Over) wanted, bool twins, bool right,
+        HeroSolid? across, bool near)
+    {
+        float Wrong(HeroStand stand) => Wrongness(stand, wanted);
+
+        var mirrored = points.Across;
         var (best, least) = (Vector3.Zero, float.MaxValue);
-        foreach (var way in wanted.Over > 0 ? MovesOnTop.Value : Moves.Value)
+        foreach (var way in (wanted.Over > 0, near) switch { (true, true) => MovesNearOnTop.Value, (true, false) => MovesOnTop.Value, (false, true) => MovesNear.Value, _ => Moves.Value })
         {
             var move = right ? way with { Z = -way.Z } : way;
-            var wrong = Wrong(Stand(body, others, points, move));
+            // A try that cannot beat the best so far is given up half way.
+            if (Standing(body, others, points, move, wanted, least) is not { } stand)
+                continue;
+            var wrong = Wrong(stand);
             if (twins && wrong < least)
-                wrong += Wrong(Stand(body, [], across, move with { Z = -move.Z })) + 2 * MathF.Max(0, Past(points, move, right) - MostCrowded);
+                wrong += Wrong(Stand(across ?? body, [], mirrored, move with { Z = -move.Z })) + 2 * MathF.Max(0, Past(points, move, right) - MostCrowded);
             if (wrong <= 0)
-                return move;
+                return (move, 0);
             if (wrong < least)
                 (best, least) = (move, wrong);
         }
-        return best;
+        return (best, least);
     }
 
     // The share of a weapon that lies past the centre line, in its twin's half.

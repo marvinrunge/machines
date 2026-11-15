@@ -12,7 +12,9 @@ namespace Machines.Game;
 /// <item><c>sheet</c>: every chassis bare and with light, medium and heavy weapons, as far as its slots allow;</item>
 /// <item><c>steps</c>: the way from a Grunt with a Bolter to a fully armed Knight, as the hangar goes it;</item>
 /// <item><c>all,&lt;chassis&gt;</c>: every weapon its slots take, on all of them at once;</item>
-/// <item><c>&lt;chassis&gt;,&lt;left&gt;,&lt;right&gt;,&lt;top&gt;</c>: that hero alone, - for an empty slot.</item>
+/// <item><c>batteries</c>: every chassis with the fullest battery of a light, a medium and a heavy weapon on each slot, as
+/// far as its slots take them;</item>
+/// <item><c>&lt;chassis&gt;,&lt;left&gt;,&lt;right&gt;,&lt;top&gt;</c>: that hero alone, - for an empty slot, <c>WEAPON*3</c> for a battery of three.</item>
 /// </list>
 /// MACHINES_HERO_RACE=blue wears that race's colours; MACHINES_HERO_TURN=&lt;degrees&gt; walks the camera round it and
 /// MACHINES_HERO_RISE=&lt;degrees&gt; sets its height, below the ground for what hangs under a flyer.
@@ -49,6 +51,7 @@ public partial class HeroStudio(string path, string[] what) : Node
         await (what switch
         {
             ["sheet"] => Sheet(),
+            ["batteries"] => Batteries(),
             ["steps"] => Steps(),
             ["all", var chassis] => All(chassis),
             [var chassis, .. var weapons] => One(chassis, weapons),
@@ -258,13 +261,57 @@ public partial class HeroStudio(string path, string[] what) : Node
         await Save(new Vector2I(columns * Cell, (cells.Count + columns - 1) / columns * (Cell + Caption)), content);
     }
 
-    private Rig? Hero(WiredChassis chassis, params string?[] weapons) => HeroRig.Compose(_assets, _race, chassis.Id, weapons);
+    private Rig? Hero(WiredChassis chassis, string?[] weapons, int[]? counts = null) => HeroRig.Compose(_assets, _race, chassis.Id, weapons, counts);
 
-    private static string Words(WiredChassis chassis, IReadOnlyList<string?> weapons)
+    private static string Words(WiredChassis chassis, IReadOnlyList<string?> weapons, IReadOnlyList<int>? counts = null)
     {
+        string Copies(Mounting mounting) => counts is not null && counts[(int)mounting] > 1 ? $"{counts[(int)mounting]}× " : "";
         var worn = chassis.Slots.Where(s => s.Fixed is null && weapons[(int)s.Mounting] is not null)
-            .Select(s => $"{s.Mounting.ToString()[0]} {Studio.Title(weapons[(int)s.Mounting]!)}").ToList();
+            .Select(s => $"{s.Mounting.ToString()[0]} {Copies(s.Mounting)}{Studio.Title(weapons[(int)s.Mounting]!)}").ToList();
         return $"{chassis.Id}: {(worn.Count > 0 ? string.Join(", ", worn) : "bare")}";
+    }
+
+    /// <summary>A weapon as the command line names it, <c>PLASMA_CANNON2*3</c> for a battery of three, and how many; - for none.</summary>
+    private static (string? Weapon, int Count) Named(string word)
+    {
+        if (word is "-" or "")
+            return (null, 0);
+        var star = word.IndexOf('*');
+        return star < 0 ? (word, 1) : (word[..star], int.TryParse(word[(star + 1)..], out var count) ? Math.Max(1, count) : 1);
+    }
+
+    /// <summary>
+    /// The fullest batteries of a size: on each slot as many copies as it carries of a weapon of <paramref name="wanted"/>
+    /// size, the slot's own when it is smaller, that forms a battery; the same on either side, another on top.
+    /// </summary>
+    private static (string?[] Weapons, int[] Counts) Batteried(WiredChassis chassis, int index, SlotSize wanted)
+    {
+        var (weapons, counts) = (new string?[3], new int[3]);
+        foreach (var slot in chassis.Slots.Where(s => s.Fixed is null))
+        {
+            var size = wanted < slot.Size ? wanted : slot.Size;
+            var list = size switch { SlotSize.Light => Lights, SlotSize.Medium => Mediums, _ => Heavies };
+            var first = index + (slot.Mounting == Mounting.Top ? 2 : 0);
+            weapons[(int)slot.Mounting] = Enumerable.Range(0, list.Length).Select(k => list[(first + k) % list.Length])
+                .First(w => WiredCatalogue.FindWeapon(w) is { Single: false } weapon && WiredCatalogue.WhyNotFit(chassis, slot.Mounting, weapon) is null);
+            counts[(int)slot.Mounting] = WiredCatalogue.MostCopies(chassis, slot.Mounting);
+        }
+        return (weapons, counts);
+    }
+
+    private async Task Batteries()
+    {
+        var cells = new List<(string, Rig?)>();
+        foreach (var (chassis, index) in WiredCatalogue.Chassis.Select((c, i) => (c, i)))
+        {
+            var most = chassis.Slots.Where(s => s.Fixed is null).Max(s => s.Size);
+            foreach (var size in Enum.GetValues<SlotSize>().Where(s => s <= most))
+            {
+                var (weapons, counts) = Batteried(chassis, index, size);
+                cells.Add((Words(chassis, weapons, counts), Hero(chassis, weapons, counts)));
+            }
+        }
+        await Grid(cells, Columns);
     }
 
     /// <summary>The best of <paramref name="wanted"/> the slot takes, the smaller sizes when it is too small; the list turns with the chassis.</summary>
@@ -292,7 +339,7 @@ public partial class HeroStudio(string path, string[] what) : Node
         foreach (var (chassis, index) in WiredCatalogue.Chassis.Select((c, i) => (c, i)))
         {
             var most = chassis.Slots.Where(s => s.Fixed is null).Max(s => s.Size);
-            cells.Add((Words(chassis, new string?[3]), Hero(chassis, null, null, null)));
+            cells.Add((Words(chassis, new string?[3]), Hero(chassis, new string?[3])));
             foreach (var size in Enum.GetValues<SlotSize>().Where(s => s <= most))
             {
                 var weapons = Armed(chassis, index, size);
@@ -320,8 +367,8 @@ public partial class HeroStudio(string path, string[] what) : Node
     private async Task One(string id, string[] weapons)
     {
         var chassis = WiredCatalogue.FindChassis(id) ?? throw new KeyNotFoundException(id);
-        var worn = Enumerable.Range(0, 3).Select(i => i < weapons.Length && weapons[i] != "-" ? weapons[i] : null).ToArray();
-        (await Photograph(Hero(chassis, worn), new Vector2I(1024, 1024))).SavePng(path);
+        var worn = Enumerable.Range(0, 3).Select(i => i < weapons.Length ? Named(weapons[i]) : (Weapon: null, Count: 0)).ToArray();
+        (await Photograph(Hero(chassis, worn.Select(w => w.Weapon).ToArray(), worn.Select(w => w.Count).ToArray()), new Vector2I(1024, 1024))).SavePng(path);
     }
 
     /// <summary>

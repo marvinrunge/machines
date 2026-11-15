@@ -35,13 +35,14 @@ public partial class Game
 
     /// <summary>
     /// The places a machine has for guns, by its mountings, with what fires each: a hero's chassis has them whether it wears
-    /// a gun there or not, any other machine has those of its weapons.
+    /// a gun there or not, any other machine has those of its weapons. A battery is one place, shown by its first copy.
     /// </summary>
     private IReadOnlyList<WeaponDisplay.GunPlace> GunPlaces(Machine machine)
     {
         var mountings = HeroOf(machine)?.ChassisEntry.Slots.Select(slot => slot.Mounting).ToList() ?? machine.Weapons.Select(w => w.Mounting).Distinct().ToList();
+        var places = WeaponTriggers.Places(machine.Weapons);
         return mountings.Select(mounting => machine.Weapons.FirstOrDefault(w => w.Mounting == mounting) is { } weapon
-            ? new WeaponDisplay.GunPlace(mounting, weapon, WeaponTriggers.Of(mounting, machine.Weapons.Count).Select(Trigger).ToList())
+            ? new WeaponDisplay.GunPlace(mounting, weapon, WeaponTriggers.Of(mounting, places).Select(Trigger).ToList())
             : new WeaponDisplay.GunPlace(mounting, null, [])).ToList();
     }
 

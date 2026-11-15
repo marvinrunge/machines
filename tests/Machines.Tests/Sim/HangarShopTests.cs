@@ -382,8 +382,122 @@ public class HangarShopTests
             world.WhyNoEscort(state, key);
         world.WhyNoReroll(state);
         world.WhyNoPodRepair(state);
+        AskAboutCopies(world, state, shop);
 
         Assert.Equal(before, world.Checksum());
+    }
+
+    /// <summary>All that the hangar may ask about a further copy of every weapon onto every slot.</summary>
+    private static void AskAboutCopies(GameWorld world, WiredState state, HangarShop shop)
+    {
+        foreach (var weapon in WiredCatalogue.Weapons)
+        {
+            var copy = new WiredItem(-1, WiredKind.Weapon, weapon.Id);
+            foreach (var mounting in Enum.GetValues<Mounting>())
+            {
+                var slot = WiredSlot.Weapon(mounting);
+                state.Loadout.WhyNotAdd(copy, slot);
+                world.WhyCannotBuy(state, weapon.Id, slot);
+                foreach (var worn in state.Loadout.Battery(mounting))
+                    state.Loadout.WhyNotAdd(worn, slot);
+            }
+            shop.Ways(weapon.Id).ToList();
+            shop.WeaponGain(weapon.Id);
+            shop.Choice(null, weapon.Id);
+        }
+        shop.NextWeapon();
+    }
+
+    /// <summary>The Reaper of <see cref="OnTheReaper"/> with a bolter on its medium left slot, whose battery has room for one more.</summary>
+    private static WiredState WithRoomForACopy(GameWorld world)
+    {
+        var state = Red(world);
+        OnTheReaper(world);
+        state.Offer.Add("BOLTER");
+        Assert.Null(Do(world, new WiredBuyCommand(Race.Red, "BOLTER", WiredSlot.Weapon(Mounting.Left))));
+        state.Offer.Clear();
+        return state;
+    }
+
+    [Fact]
+    public void A_further_copy_of_a_worn_weapon_is_a_candidate_of_the_next_weapon_though_not_on_offer()
+    {
+        var world = InHangar();
+        var state = WithRoomForACopy(world);
+        var shop = Shop(world);
+        var left = WiredSlot.Weapon(Mounting.Left);
+
+        Assert.Equal("BOLTER", shop.NextWeapon());
+        var way = shop.BestWay("BOLTER")!;
+        Assert.Equal((left, true), (way.Slot, way.Copy));
+        Assert.True(way.Gain > 0);
+
+        var choice = shop.Choice(null, null);
+        Assert.Equal("BOLTER", choice.Weapon);
+        Assert.Equal(left, choice.CopyOnto);
+        Assert.Equal(shop.Price("BOLTER"), choice.WeaponPrice);
+        Assert.Equal(way.Gain, choice.WeaponGain);
+
+        // Bought as the shop advises it, the battery is full, and off the offer nothing goes onto the empty right slot.
+        Assert.Null(Do(world, new WiredBuyCommand(Race.Red, "BOLTER", left, Add: true)));
+        Assert.Equal(2, state.Loadout.Battery(Mounting.Left).Count);
+        Assert.Null(shop.NextWeapon());
+        Assert.Empty(shop.Ways("BOLTER"));
+    }
+
+    [Fact]
+    public void A_weapon_on_offer_is_still_advised_for_a_slot_and_a_copy_not_on_offer_only_onto_its_battery()
+    {
+        var world = InHangar();
+        var state = WithRoomForACopy(world);
+        var shop = Shop(world);
+
+        // Off the offer the bolter goes nowhere but onto its battery.
+        Assert.All(shop.Ways("BOLTER"), w => Assert.True(w.Copy));
+        Assert.Null(shop.BestWay("FLAME_THROWER2"));
+
+        // On offer it may go into every slot it fits as well; the put is named first where both bring the same.
+        state.Offer.Add("BOLTER");
+        var ways = shop.Ways("BOLTER").ToList();
+        Assert.Contains(ways, w => !w.Copy && w.Slot == WiredSlot.Weapon(Mounting.Right));
+        Assert.Contains(ways, w => w.Copy && w.Slot == WiredSlot.Weapon(Mounting.Left));
+        Assert.Equal(ways.Max(w => w.Gain), shop.WeaponGain("BOLTER"));
+    }
+
+    [Fact]
+    public void A_copy_the_hero_cannot_carry_is_not_advised()
+    {
+        var world = InHangar();
+        var state = Red(world);
+        state.Loadout = HeroLoadout.Bare(new WiredItem(-1, WiredKind.Chassis, "reaper5"))
+            .With(WiredSlot.Weapon(Mounting.Left), state.Add(WiredKind.Weapon, "PLASMA_CANNON2", 0))
+            .Adding(WiredSlot.Weapon(Mounting.Left), state.Add(WiredKind.Weapon, "PLASMA_CANNON2", 0))
+            .With(WiredSlot.Weapon(Mounting.Right), state.Add(WiredKind.Weapon, "PLASMA_CANNON2", 0))
+            .Adding(WiredSlot.Weapon(Mounting.Right), state.Add(WiredKind.Weapon, "PLASMA_CANNON2", 0))
+            .Adding(WiredSlot.Weapon(Mounting.Right), state.Add(WiredKind.Weapon, "PLASMA_CANNON2", 0))
+            .With(WiredSlot.Weapon(Mounting.Top), state.Add(WiredKind.Weapon, "BOLTER", 0));
+        state.Offer.Clear();
+        var shop = Shop(world);
+
+        // Five plasma cannons and a bolter weigh 42 of 32 at most 48: a sixth cannon would make 50.
+        Assert.Equal("too heavy for this chassis", state.WhyNotWear(world.Data, state.Loadout.Adding(WiredSlot.Weapon(Mounting.Left), new WiredItem(-1, WiredKind.Weapon, "PLASMA_CANNON2"))));
+        Assert.Empty(shop.Ways("PLASMA_CANNON2"));
+        Assert.Null(shop.NextWeapon());
+    }
+
+    [Fact]
+    public void Asking_about_copies_with_a_battery_on_changes_nothing_in_the_world()
+    {
+        var world = InHangar();
+        var state = WithRoomForACopy(world);
+        state.Offer.Add("AUTO_CANNON");
+        var (before, fingerprint, bank) = (world.Checksum(), state.Loadout, world.Races[Race.Red].Bmu);
+
+        AskAboutCopies(world, state, Shop(world));
+
+        Assert.Equal(before, world.Checksum());
+        Assert.Same(fingerprint, state.Loadout);
+        Assert.Equal(bank, world.Races[Race.Red].Bmu);
     }
 
     /// <summary>All that the hangar and the HUD may ask about the special of the chassis the hero wears, every frame.</summary>

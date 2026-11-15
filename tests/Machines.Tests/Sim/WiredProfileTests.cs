@@ -358,4 +358,40 @@ public class WiredProfileTests
     {
         Assert.Empty(WiredProfile.Load(Path.Combine(Path.GetTempPath(), $"wired-{Guid.NewGuid():N}.json")).Unlocks);
     }
+
+    [Fact]
+    public void A_kept_hero_from_before_batteries_has_one_copy_of_each_and_a_count_out_of_reach_is_mended()
+    {
+        // Reaper 3: medium slots left and right. A count of 0 is one copy, 9 what the slot carries, and anything that is no
+        // weapon on a weapon slot comes once, whatever it says.
+        const string Json = """
+            { "LastHero": { "Chassis": "reaper3", "Items": [
+                { "Catalogue": "BOLTER", "Slot": { "Kind": "Weapon", "Index": 1 } },
+                { "Catalogue": "FLAME_THROWER2", "Slot": { "Kind": "Weapon", "Index": 0 }, "Count": 0 },
+                { "Catalogue": "AUTO_CANNON", "Slot": { "Kind": "Weapon", "Index": 0 }, "Count": 9 },
+                { "Catalogue": "plates", "Slot": { "Kind": "Module", "Index": 0 }, "Count": 3 },
+                { "Catalogue": "AUTO_CANNON", "Count": 2 },
+                { "Catalogue": "BOLTER", "Slot": { "Kind": "Weapon", "Index": 1 }, "Count": -4 } ] } }
+            """;
+        InAFolder(path =>
+        {
+            File.WriteAllText(path, Json);
+
+            var items = WiredProfile.Load(path).LastHero!.Items;
+
+            Assert.Equal([1, 1, 2, 1, 1, 1], items.Select(i => i.Count));
+        });
+    }
+
+    [Fact]
+    public void A_kept_battery_comes_back_as_it_was_kept()
+    {
+        InAFolder(path =>
+        {
+            var left = WiredSlot.Weapon(Mounting.Left);
+            new WiredProfile { LastHero = new WiredHeroSheet { Chassis = "reaper2", Items = [new WiredStartItem("BOLTER", left, 2)] } }.Save(path);
+
+            Assert.Equal(new WiredStartItem("BOLTER", left, 2), WiredProfile.Load(path).LastHero!.Items.Single());
+        });
+    }
 }

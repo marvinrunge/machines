@@ -9,8 +9,9 @@ namespace Machines.Game;
 /// A hero being made in the hangar, before any run: the choices so far, as the <see cref="WiredOptions"/> they will become.
 /// Each change makes the hero anew with <see cref="WiredState.Create"/>, so what the screen shows is what the run will
 /// start with and nothing here works out prices or fits on its own. Nothing is lost by changing one's mind: what comes
-/// off stays owned, and only giving a thing back returns its price. Free of Godot, so the tests can compile it. Wired is
-/// the remake's own addition.
+/// off stays owned, and only giving a thing back returns its price. A weapon put onto a slot that carries the same weapon
+/// joins the battery there, each copy bought at its full price, unless the put replaces. Free of Godot, so the tests can
+/// compile it. Wired is the remake's own addition.
 /// </summary>
 public sealed class HeroDraft
 {
@@ -20,8 +21,10 @@ public sealed class HeroDraft
     private readonly GameData _data;
     private readonly WiredProfile _profile;
 
-    // What was bought, the free weapon first, and in the same order what each came to in the state made from it.
-    private List<WiredStartItem> _items = [];
+    // What was bought, one copy at a time and in the order bought, the free weapon first, each with the slot it goes into:
+    // a battery's copies stand next to each other, so that they come to one entry of the options (Entries). In the same
+    // order, what each came to in the state made from it.
+    private List<WiredStartItem> _goods = [];
     private List<WiredItem> _made = [];
     private WiredState _state = null!;
     private int _bank;
@@ -31,6 +34,7 @@ public sealed class HeroDraft
     {
         (_data, _profile) = (data, profile);
         Arena = WiredProfile.Arenas[0].Scenario;
+        var items = new List<WiredStartItem>();
         if (profile.LastHero is { } last)
         {
             Name = last.Name;
@@ -38,14 +42,17 @@ public sealed class HeroDraft
             Chassis = profile.CanStartOn(last.Chassis) ? last.Chassis : WiredBalance.StartChassis;
             Difficulty = profile.CanPlay(last.Difficulty) ? last.Difficulty : WiredDifficulty.Normal;
             Arena = profile.CanPlay(last.Arena) ? last.Arena : Arena;
-            _items = last.Items.ToList();
+            items = last.Items.ToList();
         }
         // The free weapon leads the list and says where it goes (see WiredOptions.Items).
-        var free = _items.FindIndex(i => i.Catalogue == WiredBalance.StartWeapon);
-        var leader = free >= 0 ? _items[free] : new WiredStartItem(WiredBalance.StartWeapon, FirstWeaponSlot());
+        var free = items.FindIndex(i => i.Catalogue == WiredBalance.StartWeapon);
+        var leader = free >= 0 ? items[free] : new WiredStartItem(WiredBalance.StartWeapon, FirstWeaponSlot());
         if (free >= 0)
-            _items.RemoveAt(free);
-        _items.Insert(0, leader);
+            items.RemoveAt(free);
+        items.Insert(0, leader);
+        // Each entry as the copies it comes to: no more than its slot carries, as the run makes it.
+        var chassis = WiredCatalogue.FindChassis(Chassis) ?? WiredCatalogue.Chassis[0];
+        _goods = items.SelectMany(entry => Enumerable.Repeat(entry with { Count = 1 }, WiredCatalogue.Copies(chassis, entry.Slot, entry.Catalogue, entry.Count))).ToList();
         Settle();
     }
 
@@ -75,7 +82,7 @@ public sealed class HeroDraft
         HeroName = Name,
         Arena = Arena,
         Chassis = Chassis,
-        Items = _items.ToList(),
+        Items = Entries(),
         ChipPool = _profile.ChipPool,
     };
 
@@ -87,7 +94,7 @@ public sealed class HeroDraft
         Chassis = Chassis,
         Difficulty = Difficulty,
         Arena = Arena,
-        Items = _items.ToList(),
+        Items = Entries(),
     };
 
     /// <summary>What a catalogue entry costs at this difficulty.</summary>
@@ -96,49 +103,89 @@ public sealed class HeroDraft
     /// <summary>What can be bought at the start, of one kind. The waves bring the rest to the shop.</summary>
     public IEnumerable<string> ForSale(WiredKind kind) => WiredCatalogue.ForSale(1).Where(id => WiredCatalogue.KindOf(id) == kind);
 
-    /// <returns>null if an item bought now could go into the slot, or stay in the inventory without one; otherwise why not.</returns>
-    public string? WhyNotBuy(string catalogue, WiredSlot? slot)
+    /// <returns>
+    /// null if an item bought now could go into the slot, or stay in the inventory without one; otherwise why not. Onto a
+    /// slot that carries the same weapon it would join the battery there, unless it is to <paramref name="replace"/> it.
+    /// </returns>
+    public string? WhyNotBuy(string catalogue, WiredSlot? slot, bool replace = false)
     {
-        var fit = slot is null ? null : WhyNotHold(new WiredItem(-1, WiredCatalogue.KindOf(catalogue)!.Value, catalogue), slot);
+        var fit = slot is null ? null : WhyNotHold(Probe(catalogue), slot, replace);
         return fit ?? (Price(catalogue) > _bank ? "not enough BMUs" : null);
     }
 
-    /// <returns>null if the slot can hold the item, otherwise why not.</returns>
-    public string? WhyNotHold(WiredItem item, WiredSlot slot) =>
-        _state.Loadout.WhyNotFit(item, slot) ?? _state.WhyNotWear(_data, _state.Loadout.With(slot, item));
-
-    /// <summary>Buys something and puts it into a slot, or with none into the inventory. What sat there comes off.</summary>
-    /// <returns>null if done, otherwise why not.</returns>
-    public string? Buy(string catalogue, WiredSlot? slot)
+    /// <returns>
+    /// null if the slot can hold the item, otherwise why not. Where the item <see cref="Joins"/> the battery on the slot it is
+    /// asked as a further copy (the slot's size, a weapon that forms none); with <paramref name="replace"/> what sits there
+    /// comes off first.
+    /// </returns>
+    public string? WhyNotHold(WiredItem item, WiredSlot slot, bool replace = false)
     {
-        if (WhyNotBuy(catalogue, slot) is { } why)
+        var loadout = _state.Loadout;
+        if (!replace && Joins(item, slot))
+            return loadout.WhyNotAdd(item, slot) ?? _state.WhyNotWear(_data, loadout.Adding(slot, item));
+        return loadout.WhyNotFit(item, slot) ?? _state.WhyNotWear(_data, loadout.With(slot, item));
+    }
+
+    /// <summary>
+    /// Whether an item put into a slot joins the battery there rather than replacing it: a weapon onto a weapon slot that
+    /// carries the same weapon, the item itself not counted.
+    /// </summary>
+    public bool Joins(WiredItem item, WiredSlot slot) =>
+        item.Kind == WiredKind.Weapon && slot.Kind == WiredSlotKind.Weapon && _state.Loadout.Without(item.Id).At(slot)?.Catalogue == item.Catalogue;
+
+    /// <summary>
+    /// Buys something and puts it into a slot, or with none into the inventory. Onto a slot that carries the same weapon it
+    /// joins the battery as its last copy, paid for as any; otherwise, or with <paramref name="replace"/>, what sat there
+    /// comes off, a whole battery.
+    /// </summary>
+    /// <returns>null if done, otherwise why not.</returns>
+    public string? Buy(string catalogue, WiredSlot? slot, bool replace = false)
+    {
+        if (WhyNotBuy(catalogue, slot, replace) is { } why)
             return why;
-        Empty(slot);
-        _items.Add(new WiredStartItem(catalogue, slot));
+        var good = new WiredStartItem(catalogue, slot);
+        if (slot is not null && !replace && Joins(Probe(catalogue), slot))
+            _goods.Insert(OnSlot(slot)[^1] + 1, good);
+        else
+        {
+            Empty(slot);
+            _goods.Add(good);
+        }
         Settle();
         return null;
     }
 
-    /// <summary>Puts something owned into a slot, from the inventory or another slot. What sat there comes off.</summary>
+    /// <summary>
+    /// Puts something owned into a slot, from the inventory or another slot. Onto a slot that carries the same weapon it
+    /// joins the battery; otherwise, or with <paramref name="replace"/>, what sat there comes off, a whole battery. Of a
+    /// battery elsewhere one copy moves.
+    /// </summary>
     /// <returns>null if done, otherwise why not.</returns>
-    public string? Put(int item, WiredSlot slot)
+    public string? Put(int item, WiredSlot slot, bool replace = false)
     {
         var at = IndexOf(item);
         if (at < 0)
             return "you do not own that";
-        if (WhyNotHold(_made[at], slot) is { } why)
+        if (WhyNotHold(_made[at], slot, replace) is { } why)
             return why;
-        Empty(slot);
-        _items[at] = _items[at] with { Slot = slot };
+        if (!replace && Joins(_made[at], slot))
+            Join(at, slot);
+        else
+        {
+            // The copies of one weapon are all alike: the last of a battery leaves it, so that the others stay together.
+            var moving = Run(at)[^1];
+            Empty(slot);
+            _goods[moving] = _goods[moving] with { Slot = slot };
+        }
         Settle();
         return null;
     }
 
-    /// <summary>Takes something off the hero; it stays owned.</summary>
+    /// <summary>Takes something off the hero, of a battery one copy; it stays owned.</summary>
     public void TakeOff(int item)
     {
-        if (IndexOf(item) is >= 0 and var at)
-            _items[at] = _items[at] with { Slot = null };
+        if (IndexOf(item) is >= 0 and var at && Run(at)[^1] is var last)
+            _goods[last] = _goods[last] with { Slot = null };
         Settle();
     }
 
@@ -149,59 +196,106 @@ public sealed class HeroDraft
         var at = IndexOf(item);
         if (at <= 0)
             return false;
-        _items.RemoveAt(at);
+        _goods.RemoveAt(at);
         Settle();
         return true;
     }
 
-    /// <summary>Starts on another chassis: what is worn moves as it would in the hangar (<see cref="HeroLoadout.OnChassis"/>), and what does not fit stays owned.</summary>
+    /// <summary>
+    /// Starts on another chassis: what is worn moves as it would in the hangar (<see cref="HeroLoadout.OnChassis"/>), a
+    /// battery cut to what its new slot carries, and what does not fit stays owned.
+    /// </summary>
     public void Wear(string chassis)
     {
         var moved = _state.Loadout.OnChassis(new WiredItem(-1, WiredKind.Chassis, chassis));
-        _items = _items.Select((entry, at) => entry with { Slot = moved.SlotOf(_made[at].Id) }).ToList();
+        _goods = _goods.Select((good, at) => good with { Slot = moved.SlotOf(_made[at].Id) }).ToList();
         Chassis = chassis;
         Settle();
     }
 
     /// <summary>Another difficulty means another capital and other prices: what can no longer be paid goes back, the last bought first.</summary>
-    /// <returns>What went back, by catalogue id, for the screen to say so.</returns>
+    /// <returns>What went back, by catalogue id and a copy at a time, for the screen to say so.</returns>
     public IReadOnlyList<string> Choose(WiredDifficulty difficulty)
     {
-        var gone = _items.Select(i => i.Catalogue).ToList();
+        var gone = _goods.Select(i => i.Catalogue).ToList();
         Difficulty = difficulty;
         Settle();
-        foreach (var item in _items)
-            gone.Remove(item.Catalogue);
+        foreach (var good in _goods)
+            gone.Remove(good.Catalogue);
         return gone;
     }
 
     private int IndexOf(int item) => _made.FindIndex(i => i.Id == item);
 
-    /// <summary>What sits in a slot comes off.</summary>
+    private static WiredItem Probe(string catalogue) => new(-1, WiredCatalogue.KindOf(catalogue)!.Value, catalogue);
+
+    /// <summary>The goods in a slot, in order: a battery's copies, which stand next to each other.</summary>
+    private List<int> OnSlot(WiredSlot slot) => Enumerable.Range(0, _goods.Count).Where(at => _goods[at].Slot == slot).ToList();
+
+    /// <summary>The goods that stand with one in its slot, itself included; just itself in the inventory.</summary>
+    private List<int> Run(int at) => _goods[at].Slot is { } slot ? OnSlot(slot) : [at];
+
+    /// <summary>
+    /// A good joins the battery on a slot: of a battery elsewhere its last copy, all of a kind. The copies come together
+    /// where the earlier of the two stood, so that the free weapon stays first.
+    /// </summary>
+    private void Join(int at, WiredSlot slot)
+    {
+        var moving = Run(at)[^1];
+        if (_goods[moving].Slot == slot)
+            return;
+        var battery = OnSlot(slot);
+        List<int> joined = moving < battery[0] ? [moving, .. battery] : [.. battery, moving];
+        var rest = Enumerable.Range(0, _goods.Count).Where(i => !joined.Contains(i)).ToList();
+        var goods = rest.Select(i => _goods[i]).ToList();
+        goods.InsertRange(rest.Count(i => i < joined.Min()), joined.Select(i => _goods[i] with { Slot = slot }));
+        _goods = goods;
+    }
+
+    /// <summary>What sits in a slot comes off, a battery's every copy.</summary>
     private void Empty(WiredSlot? slot)
     {
-        if (slot is not null && _state.Loadout.At(slot) is { } sitting && IndexOf(sitting.Id) is >= 0 and var at)
-            _items[at] = _items[at] with { Slot = null };
+        if (slot is null)
+            return;
+        foreach (var at in OnSlot(slot))
+            _goods[at] = _goods[at] with { Slot = null };
+    }
+
+    /// <summary>The goods as the options take them: a battery's copies, next to each other on one weapon slot, as one entry with their count.</summary>
+    private List<WiredStartItem> Entries()
+    {
+        var entries = new List<WiredStartItem>();
+        foreach (var good in _goods)
+        {
+            if (good.Slot is { Kind: WiredSlotKind.Weapon } && entries.Count > 0 && entries[^1] is var last && last.Slot == good.Slot && last.Catalogue == good.Catalogue)
+                entries[^1] = last with { Count = last.Count + 1 };
+            else
+                entries.Add(good with { Count = 1 });
+        }
+        return entries;
     }
 
     /// <summary>The weapon slot a new hero's free weapon goes to.</summary>
     private WiredSlot? FirstWeaponSlot() => WiredCatalogue.FindChassis(Chassis)?.Slots.Where(s => s.Fixed is null)
         .Select(s => WiredSlot.Weapon(s.Mounting)).FirstOrDefault();
 
-    /// <summary>Makes the hero anew. Whatever the capital no longer covers or the hero no longer wears, the list says so afterwards.</summary>
+    /// <summary>
+    /// Makes the hero anew. Whatever the capital no longer covers or the hero no longer wears, the list says so afterwards: a
+    /// copy left in the inventory stands there on its own.
+    /// </summary>
     private void Settle()
     {
         _state = WiredState.Create(_data, Maker, Options, out _bank);
-        var goods = new Queue<WiredItem>(_state.Items.Where(i => i.Kind != WiredKind.Chassis));
-        var (items, made) = (new List<WiredStartItem>(), new List<WiredItem>());
-        foreach (var entry in _items)
+        var made = new Queue<WiredItem>(_state.Items.Where(i => i.Kind != WiredKind.Chassis));
+        var (goods, items) = (new List<WiredStartItem>(), new List<WiredItem>());
+        foreach (var good in _goods)
         {
-            if (!goods.TryPeek(out var good) || good.Catalogue != entry.Catalogue)
+            if (!made.TryPeek(out var item) || item.Catalogue != good.Catalogue)
                 continue;
-            goods.Dequeue();
-            items.Add(entry with { Slot = _state.Loadout.SlotOf(good.Id) });
-            made.Add(good);
+            made.Dequeue();
+            goods.Add(good with { Slot = _state.Loadout.SlotOf(item.Id) });
+            items.Add(item);
         }
-        (_items, _made) = (items, made);
+        (_goods, _made) = (goods, items);
     }
 }

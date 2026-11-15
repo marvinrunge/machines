@@ -63,11 +63,12 @@ public partial class ActorView : Node3D
     /// </summary>
     /// <summary>
     /// Where a weapon's round leaves it (MachPhysWeapon::launchTransform): its mounting part (r_gun, l_gun or
-    /// gun, MachPhysCanAttack) moved out by the weapon's LAUNCH_OFFSET for that barrel; null without a rig.
+    /// gun, MachPhysCanAttack) moved out by the weapon's LAUNCH_OFFSET for that barrel; null without a rig. A Wired hero's
+    /// further <paramref name="copy"/> of a battery has a mount of its own (see <see cref="Rig.Guns"/>).
     /// </summary>
-    public Vector3? Muzzle(Machines.Sim.Combat.Mounting mounting, Machines.Import.Model.WeaponSpec weapon, int barrel)
+    public Vector3? Muzzle(Machines.Sim.Combat.Mounting mounting, Machines.Import.Model.WeaponSpec weapon, int barrel, int copy = 0)
     {
-        if (_rigView?.PartTransform(MountPart(mounting)) is not { } at)
+        if (MountTransform(mounting, copy) is not { } at)
             return null;
         var offsets = weapon.Presentation.Where(l => l.Keyword == "LAUNCH_OFFSET" && l.Args.Count >= 3)
             .Select(l => l.Args.Select(a => float.Parse(a, System.Globalization.CultureInfo.InvariantCulture)).ToArray())
@@ -78,8 +79,8 @@ public partial class ActorView : Node3D
     }
 
     /// <summary>The way a weapon's barrel points, the x axis of its mounting part; null without a rig.</summary>
-    public Vector3? BarrelAxis(Machines.Sim.Combat.Mounting mounting) =>
-        _rigView?.PartTransform(MountPart(mounting)) is { } at ? at.Basis.X.Normalized() : null;
+    public Vector3? BarrelAxis(Machines.Sim.Combat.Mounting mounting, int copy = 0) =>
+        MountTransform(mounting, copy) is { } at ? at.Basis.X.Normalized() : null;
 
     private static string MountPart(Machines.Sim.Combat.Mounting mounting) => mounting switch
     {
@@ -88,8 +89,22 @@ public partial class ActorView : Node3D
         _ => "gun",
     };
 
-    /// <summary>The weapon at <paramref name="mounting"/> fires one round and moves with it (see <see cref="RigView.Fire(Machines.Sim.Combat.Mounting, Machines.Import.Model.WeaponSpec)"/>).</summary>
-    public void Fire(Machines.Sim.Combat.Mounting mounting, Machines.Import.Model.WeaponSpec weapon) => _rigView?.Fire(mounting, weapon);
+    /// <summary>
+    /// The mount of a weapon as it stands now: a battery's further copy's own, which only a Wired hero's rig has, else the
+    /// mount by its name. A rig that has not caught up with a refit yet has the first copy's.
+    /// </summary>
+    private Transform3D? MountTransform(Machines.Sim.Combat.Mounting mounting, int copy) =>
+        Gun(mounting, copy) is { } gun ? _rigView!.PartTransform(gun.Mount) : _rigView?.PartTransform(MountPart(mounting));
+
+    private RigGun? Gun(Machines.Sim.Combat.Mounting mounting, int copy) =>
+        copy > 0 ? _rigView?.Rig.Guns.FirstOrDefault(g => g.Mounting == mounting && g.Copy == copy) : null;
+
+    /// <summary>
+    /// The weapon at <paramref name="mounting"/> fires one round and moves with it (see <see cref="RigView.Fire(Machines.Sim.Combat.Mounting, Machines.Import.Model.WeaponSpec, int?)"/>):
+    /// with <paramref name="copy"/> only that copy of a hero's battery, the first where the rig has no such copy yet.
+    /// </summary>
+    public void Fire(Machines.Sim.Combat.Mounting mounting, Machines.Import.Model.WeaponSpec weapon, int? copy = null) =>
+        _rigView?.Fire(mounting, weapon, copy is > 0 && Gun(mounting, copy.Value) is null ? 0 : copy);
 
     /// <summary>A building's interior (see <see cref="RigView.ShowInterior"/>).</summary>
     public bool HasInterior => _rigView?.HasInterior ?? false;

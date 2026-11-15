@@ -278,6 +278,37 @@ public class BattleAccountTests
     });
 
     [Fact]
+    public void A_kept_hero_from_before_batteries_has_one_copy_of_each_and_a_count_out_of_reach_is_mended() => InAFolder(path =>
+    {
+        // Reaper 3: medium slots left and right. A count of 0 is one copy, 9 what the slot carries, and a module, or a
+        // weapon kept without a slot, comes once whatever it says.
+        File.WriteAllText(path, """
+            { "Battle": { "LastHero": { "Chassis": "reaper3", "Items": [
+                { "Catalogue": "BOLTER", "Slot": { "Kind": "Weapon", "Index": 1 }, "Mk": 1 },
+                { "Catalogue": "FLAME_THROWER2", "Slot": { "Kind": "Weapon", "Index": 0 }, "Mk": 2, "Count": 0 },
+                { "Catalogue": "AUTO_CANNON", "Slot": { "Kind": "Weapon", "Index": 0 }, "Mk": 1, "Count": 9 },
+                { "Catalogue": "plates", "Slot": { "Kind": "Module", "Index": 0 }, "Count": 3 },
+                { "Catalogue": "AUTO_CANNON", "Slot": null, "Count": 2 } ] } } }
+            """);
+
+        var hero = new LocalBattleAccount(WiredProfile.Load(path)).LastHero!;
+
+        Assert.Equal([1, 1, 2, 1, 1], hero.Items.Select(i => i.Count));
+        Assert.Equal([1, 2, 1, 1, 1], hero.Items.Select(i => i.Mk));
+    });
+
+    [Fact]
+    public void A_kept_battery_comes_back_as_it_was_kept() => InAFolder(path =>
+    {
+        var account = new LocalBattleAccount(new WiredProfile(), path);
+        var right = WiredSlot.Weapon(Mounting.Right);
+        account.LastHero = new BattleHeroSheet { Chassis = "reaper3", Items = [new BattleItem("BOLTER", right, 1, 2)] };
+        Assert.True(account.Save());
+
+        Assert.Equal(new BattleItem("BOLTER", right, 1, 2), new LocalBattleAccount(WiredProfile.Load(path)).LastHero!.Items.Single());
+    });
+
+    [Fact]
     public void Research_and_purchases_are_taken_back_when_the_file_is_held() => InAFolder(path =>
     {
         var profile = new WiredProfile();

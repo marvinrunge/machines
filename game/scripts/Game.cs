@@ -1218,7 +1218,7 @@ public partial class Game : Node3D
                     // flash at the weapon's muzzle.
                     else if (World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail) is { } spec && GameWorld.Flies(spec))
                     {
-                        var muzzle = MuzzleOf(e.Actor, spec) ?? at;
+                        var muzzle = MuzzleOf(e.Actor, spec, e.Gun) ?? at;
                         _effects.Shot(muzzle, muzzle, e.Detail ?? "", spec.ProjectileSpeed, spec);
                     }
                     // The electric charger strikes with lightning, and a halo runs over its victim.
@@ -1226,7 +1226,7 @@ public partial class Game : Node3D
                              && World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail) is { } charge)
                     {
                         var victimView = _views.GetValueOrDefault(struck);
-                        var (muzzle, aim) = (MuzzleOf(e.Actor, charge) ?? at, victimView?.Centre ?? ActorView.World(shocked.Position) + Vector3.Up * 1.5f);
+                        var (muzzle, aim) = (MuzzleOf(e.Actor, charge, e.Gun) ?? at, victimView?.Centre ?? ActorView.World(shocked.Position) + Vector3.Up * 1.5f);
                         _support.Lightning(muzzle, aim, victimView);
                         _effects.ChargerFires(muzzle, aim, Blast.Extras(charge)[2]);
                         if (victimView is not null)
@@ -1236,7 +1236,7 @@ public partial class Game : Node3D
                     else if (e.Mark is { } strayed && World.Find(e.Actor) is { } straying
                              && World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail) is { } stray)
                     {
-                        var muzzle = MuzzleOf(e.Actor, stray) ?? at;
+                        var muzzle = MuzzleOf(e.Actor, stray, e.Gun) ?? at;
                         var mark = new Vector3(strayed.X, strayed.Z, strayed.Y) + _sightLift;
                         var reach = NVector2.Distance(straying.Position, new NVector2(strayed.X, strayed.Y));
                         Shot(muzzle, reach > stray.Range ? muzzle + (mark - muzzle) * (stray.Range / reach) : mark, e.Detail ?? "");
@@ -1248,7 +1248,7 @@ public partial class Game : Node3D
                              && World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail) is { } sighted
                              && !World.Events.Any(x => x.Kind == GameEventKind.Impact && x.Actor == e.Actor && x.Detail == e.Detail))
                     {
-                        var muzzle = MuzzleOf(e.Actor, sighted) ?? at;
+                        var muzzle = MuzzleOf(e.Actor, sighted, e.Gun) ?? at;
                         var mark = new Vector3(sight.Point.X, sightHeight, sight.Point.Y);
                         var reach = NVector2.Distance(sighting.Position, sight.Point);
                         Shot(muzzle, reach > sighted.Range ? muzzle + (mark - muzzle) * (sighted.Range / reach) : mark, e.Detail ?? "");
@@ -1256,7 +1256,7 @@ public partial class Game : Node3D
                     else if (e.Other is { } target && World.Find(target) is { } victim)
                     {
                         var weapon = World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail);
-                        Shot(weapon is null ? at : MuzzleOf(e.Actor, weapon) ?? at, ActorView.World(victim.Position) + Vector3.Up * 1.5f, e.Detail ?? "");
+                        Shot(weapon is null ? at : MuzzleOf(e.Actor, weapon, e.Gun) ?? at, ActorView.World(victim.Position) + Vector3.Up * 1.5f, e.Detail ?? "");
                     }
                     // The commander's launcher has a sound of its own (MachPhysMultiLauncher::newMissile).
                     _audio.Play(e.Detail == "MULTI_LAUNCHER5" && World.Find<Machine>(e.Actor)?.IsType("ADMINISTRATOR", "COMMANDER") == true
@@ -1353,7 +1353,7 @@ public partial class Game : Node3D
                     if (World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == weapon) is { } stopped && !GameWorld.Flies(stopped))
                     {
                         var ground = ActorView.World(e.Position) + Vector3.Up * 0.5f;
-                        Shot(MuzzleOf(e.Actor, stopped) ?? ground, ground, weapon);
+                        Shot(MuzzleOf(e.Actor, stopped, GunOfImpact(e)) ?? ground, ground, weapon);
                         _effects.Impact(ground);
                         _audio.Play(SoundTable.HitSound(weapon, Random.Shared.Next(1, 5)), ground);
                     }
@@ -1423,16 +1423,38 @@ public partial class Game : Node3D
     // Shots fired by each shooter's weapons so far, so that twin weapons and barrels take turns.
     private readonly Dictionary<(int, string), int> _shotsShown = [];
 
+    // Rounds each gun of a shooter fired so far, by its place among the shooter's weapons, so that its barrels take turns.
+    private readonly Dictionary<(int Shooter, int Gun), int> _gunShots = [];
+
+    /// <summary>The gun of a round the ground stopped: that of the shot raised just before its impact, or -1.</summary>
+    private int GunOfImpact(GameEvent impact)
+    {
+        var events = World.Events;
+        for (var i = 1; i < events.Count; i++)
+            if (ReferenceEquals(events[i], impact))
+                return events[i - 1] is { Kind: GameEventKind.Fired } fired && fired.Actor == impact.Actor && fired.Detail == impact.Detail ? fired.Gun : -1;
+        return -1;
+    }
+
     /// <summary>
-    /// The muzzle a shooter's weapon of this kind fires from now, its twins and barrels in turn; that weapon
-    /// recoils.
+    /// The muzzle a shooter's weapon of this kind fires from now; that weapon recoils. A round that says which of the
+    /// machine's weapons fired it (<see cref="GameEvent.Gun"/>) leaves that one, a copy of a hero's battery from its own
+    /// mount, its barrels in turn. Without that, the twins of the kind and their barrels take turns.
     /// </summary>
-    private Vector3? MuzzleOf(int shooter, Machines.Import.Model.WeaponSpec weapon)
+    private Vector3? MuzzleOf(int shooter, Machines.Import.Model.WeaponSpec weapon, int gun = -1)
     {
         if (World.Find(shooter) is not { } actor || !_views.TryGetValue(shooter, out var view))
             return null;
-        var mounts = (actor switch { Machine m => m.Weapons, Construction c => c.Weapons, _ => [] })
-            .Where(w => w.Spec.TypeName == weapon.TypeName).ToList();
+        var all = actor switch { Machine m => m.Weapons, Construction c => c.Weapons, _ => [] };
+        if (gun >= 0 && gun < all.Count && all[gun].Spec.TypeName == weapon.TypeName)
+        {
+            var fired = all[gun];
+            var round = _gunShots.GetValueOrDefault((shooter, gun));
+            _gunShots[(shooter, gun)] = round + 1;
+            view.Fire(fired.Mounting, weapon, HeroOf(actor) is not null ? fired.Copy : null);
+            return view.Muzzle(fired.Mounting, weapon, round, fired.Copy);
+        }
+        var mounts = all.Where(w => w.Spec.TypeName == weapon.TypeName).ToList();
         if (mounts.Count == 0)
             return null;
         if (HeroOf(actor) is not null)

@@ -463,7 +463,8 @@ public sealed class WiredState
     /// <summary>
     /// A new hero by the options, and in <paramref name="bank"/> what is left of its capital. The hangar at hero creation
     /// calls this as well, to see what the choices so far come to. Pure: bad entries in the options, an unknown id or
-    /// what the capital does not cover, are passed over, so that any options make a hero.
+    /// what the capital does not cover, are passed over, so that any options make a hero. An entry's count of copies is
+    /// cut to what its slot carries; each copy is bought as a weapon of its own, and the further ones join the first.
     /// </summary>
     public static WiredState Create(GameData data, Race race, WiredOptions options, out int bank)
     {
@@ -486,34 +487,62 @@ public sealed class WiredState
         if (place is not null && state.Loadout.WhyNotFit(bolter, place) is null)
             state.Loadout = state.Loadout.With(place, bolter);
 
-        foreach (var entry in options.Items.Where((_, at) => at != free))
+        for (var at = 0; at < options.Items.Count; at++)
         {
+            var entry = options.Items[at];
             var kind = WiredCatalogue.KindOf(entry.Catalogue);
             if (kind is not (WiredKind.Weapon or WiredKind.Module or WiredKind.Ability))
                 continue;
-            var cost = WiredBalance.Priced(WiredCatalogue.Price(entry.Catalogue), options.Difficulty);
-            if (cost > bank || state.Inventory.Count() >= WiredBalance.InventoryLimit)
-                continue;
-            bank -= cost;
-            var item = state.Add(kind.Value, entry.Catalogue, cost);
-            if (entry.Slot is { } slot && state.Loadout.WhyNotFit(item, slot) is null)
+            // The free BOLTER's first copy is the one above; its further copies are paid for as any.
+            if (at != free)
             {
-                var worn = state.Loadout.With(slot, item);
-                if (state.WhyNotWear(data, worn) is null)
-                    state.Loadout = worn;
+                var cost = WiredBalance.Priced(WiredCatalogue.Price(entry.Catalogue), options.Difficulty);
+                if (cost > bank || state.Inventory.Count() >= WiredBalance.InventoryLimit)
+                    continue;
+                bank -= cost;
+                var item = state.Add(kind.Value, entry.Catalogue, cost);
+                if (entry.Slot is { } slot && state.Loadout.WhyNotFit(item, slot) is null)
+                {
+                    var worn = state.Loadout.With(slot, item);
+                    if (state.WhyNotWear(data, worn) is null)
+                        state.Loadout = worn;
+                }
             }
+            for (var copy = 1; copy < WiredCatalogue.Copies(chassis, entry.Slot, entry.Catalogue, entry.Count); copy++)
+                bank = state.BuyCopy(data, kind.Value, entry.Catalogue, entry.Slot, bank);
         }
         return state;
     }
 
     /// <summary>
+    /// A further copy of a weapon bought at creation, at the full price, if the capital covers it and the inventory has
+    /// room; it joins the battery on the slot where it may, else it stays in the inventory.
+    /// </summary>
+    /// <returns>What is left of the capital.</returns>
+    private int BuyCopy(GameData data, WiredKind kind, string catalogue, WiredSlot? slot, int bank)
+    {
+        var cost = WiredBalance.Priced(WiredCatalogue.Price(catalogue), Difficulty);
+        if (cost > bank || Inventory.Count() >= WiredBalance.InventoryLimit)
+            return bank;
+        var item = Add(kind, catalogue, cost);
+        if (slot is not null && Loadout.WhyNotAdd(item, slot) is null)
+        {
+            var worn = Loadout.Adding(slot, item);
+            if (WhyNotWear(data, worn) is null)
+                Loadout = worn;
+        }
+        return bank - cost;
+    }
+
+    /// <summary>
     /// A hero for a battle: the chassis and the items of <paramref name="hero"/>, each at its Mk, nothing paid, and
-    /// <paramref name="lives"/> bodies. The hero must have been checked (<see cref="BattleBots.Resolved"/>); what does not
-    /// fit a slot all the same stays in the inventory.
+    /// <paramref name="lives"/> bodies; a battery's copies all at its entry's Mk. The hero must have been checked
+    /// (<see cref="BattleBots.Resolved"/>); what does not fit a slot all the same stays in the inventory.
     /// </summary>
     public static WiredState ForBattle(GameData data, Race race, BattleHero hero, int lives)
     {
         var state = new WiredState(race, WiredDifficulty.Normal, hero.Chassis) { SpareBodies = Math.Max(0, lives - 1) };
+        var chassis = WiredCatalogue.FindChassis(hero.Chassis);
         foreach (var entry in hero.Items)
         {
             if (WiredCatalogue.KindOf(entry.Catalogue) is not { } kind || kind is not (WiredKind.Weapon or WiredKind.Module or WiredKind.Ability))
@@ -521,6 +550,14 @@ public sealed class WiredState
             var item = state.Add(kind, entry.Catalogue, 0, Math.Max(1, entry.Mk));
             if (entry.Slot is { } slot && state.Loadout.At(slot) is null && state.Loadout.WhyNotFit(item, slot) is null)
                 state.Loadout = state.Loadout.With(slot, item);
+            var copies = chassis is null ? 1 : WiredCatalogue.Copies(chassis, entry.Slot, entry.Catalogue, entry.Count);
+            for (var copy = 1; copy < copies; copy++)
+            {
+                // Copies stand only on a weapon slot (WiredCatalogue.Copies).
+                var more = state.Add(kind, entry.Catalogue, 0, Math.Max(1, entry.Mk));
+                if (state.Loadout.WhyNotAdd(more, entry.Slot!) is null)
+                    state.Loadout = state.Loadout.Adding(entry.Slot!, more);
+            }
         }
         return state;
     }
@@ -588,6 +625,17 @@ public sealed class WiredState
             {
                 hash.Mix(BitConverter.SingleToInt32Bits(at.X));
                 hash.Mix(BitConverter.SingleToInt32Bits(at.Y));
+            }
+        }
+        // The batteries' further copies, by mounting, only while there are any: a hero without one keeps its fingerprint.
+        if (Loadout.Copies.Any(c => c.Count > 0))
+        {
+            hash.Mix(4);
+            foreach (var copies in Loadout.Copies)
+            {
+                hash.Mix(copies.Count);
+                foreach (var copy in copies)
+                    hash.Mix(copy.Id);
             }
         }
     }

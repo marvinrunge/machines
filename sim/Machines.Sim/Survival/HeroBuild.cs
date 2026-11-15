@@ -6,7 +6,8 @@ namespace Machines.Sim.Survival;
 
 /// <summary>A weapon as a hero carries it: a copy of the real one with its Mk and the hero's reload, never the shared spec.</summary>
 /// <param name="Item">The item behind it; null for a weapon that is part of the chassis.</param>
-public sealed record HeroWeapon(Mounting Mounting, WeaponSpec Spec, WiredItem? Item, float DamagePerSecond);
+/// <param name="Copy">Where it stands in its mounting's battery: 0 for the first copy and every single weapon.</param>
+public sealed record HeroWeapon(Mounting Mounting, WeaponSpec Spec, WiredItem? Item, float DamagePerSecond, int Copy = 0);
 
 /// <summary>
 /// What a <see cref="HeroLoadout"/> comes to: the machine it makes and how its two budgets stand. Worked out by
@@ -21,7 +22,7 @@ public sealed record HeroBuild
     /// <summary>The chassis' data with the hero's toughness, the modules and overload worked in; this hero's own copy.</summary>
     public required MachineLevel Stats { get; init; }
 
-    /// <summary>The weapons on the machine: left, right, top, leaving out empty slots.</summary>
+    /// <summary>The weapons on the machine: left, right, top, leaving out empty slots, a battery's copies next to each other in order.</summary>
     public required IReadOnlyList<HeroWeapon> Weapons { get; init; }
 
     /// <summary>The combo that names the weapons (<see cref="WeaponCombos.Split"/> reads it), or null for none.</summary>
@@ -111,8 +112,9 @@ public sealed record HeroBuild
             draw += WiredCatalogue.FindAbility(item.Catalogue)?.Power ?? 0;
         var chips = WiredChips.Building(loadout);
 
-        // Load and power of the guns come first, as the reloads depend on the sum of everything.
-        var mounted = new List<(Mounting Mounting, WeaponSpec Spec, WiredItem? Item)>();
+        // Load and power of the guns come first, as the reloads depend on the sum of everything. Each copy of a battery
+        // weighs and draws as a single weapon does.
+        var mounted = new List<(Mounting Mounting, WeaponSpec Spec, WiredItem? Item, int Copy)>();
         foreach (var mounting in Enum.GetValues<Mounting>())
         {
             if (chassis.Slot(mounting) is not { } slot)
@@ -120,19 +122,24 @@ public sealed record HeroBuild
             if (slot.Fixed is { } part)
             {
                 draw += chips.PowerPerWeapon;
-                mounted.Add((mounting, data.Parm.Weapon(part), null));
+                mounted.Add((mounting, data.Parm.Weapon(part), null, 0));
+                continue;
             }
-            else if (loadout.Weapon(mounting) is { } item && WiredCatalogue.FindWeapon(item.Catalogue) is { } weapon)
+            var battery = loadout.Battery(mounting);
+            for (var copy = 0; copy < battery.Count; copy++)
             {
+                if (WiredCatalogue.FindWeapon(battery[copy].Catalogue) is not { } weapon)
+                    continue;
                 load += weapon.Load;
                 draw += weapon.Power + chips.PowerPerWeapon;
-                mounted.Add((mounting, data.Parm.Weapon(weapon.Id), item));
+                mounted.Add((mounting, data.Parm.Weapon(weapon.Id), battery[copy], copy));
             }
         }
+        var extraBarrels = mounted.Count(w => w.Copy > 0);
 
         var powerShare = draw <= supply ? 1 : supply / (float)draw;
         var coolers = MathF.Max(WiredBalance.LeastReload, 1 - reload);
-        var weapons = mounted.Select(w => Carried(w.Mounting, w.Spec, w.Item, coolers / powerShare, chips)).ToList();
+        var weapons = mounted.Select(w => Carried(w.Mounting, w.Spec, w.Item, coolers / powerShare, chips, w.Copy)).ToList();
 
         var overload = capacity <= 0 ? 0 : MathF.Max(0, load / (float)capacity - 1);
         var burden = MathF.Max(0, 1 - overload * WiredBalance.OverloadCost);
@@ -149,7 +156,7 @@ public sealed record HeroBuild
             RotationAcceleration = level.RotationAcceleration * rotate,
             BodyTurnRate = level.BodyTurnRate * rotate,
             // Constructors and spies have no accuracy in the data, which the original's machines read as perfect aim.
-            Accuracy = Math.Min(100, (level.Accuracy ?? WiredBalance.NoAccuracy) + accuracy),
+            Accuracy = BatteryAccuracy(Math.Min(100, (level.Accuracy ?? WiredBalance.NoAccuracy) + accuracy), extraBarrels, WiredBalance.BatteryAimLoss),
             ScannerRange = (int)MathF.Round(level.ScannerRange * (1 + scanner)),
             NightVision = nightVision,
             NumberOfWeapons = weapons.Count,
@@ -188,8 +195,15 @@ public sealed record HeroBuild
         };
     }
 
+    /// <summary>
+    /// The hero's accuracy with its batteries: <paramref name="loss"/> points off for each barrel beyond the first of every
+    /// battery, never below 0; with none to take off, the accuracy as it is.
+    /// </summary>
+    public static int BatteryAccuracy(int accuracy, int extraBarrels, int loss) =>
+        extraBarrels * loss <= 0 ? accuracy : Math.Max(0, accuracy - extraBarrels * loss);
+
     /// <summary>A weapon with its Mk (+20 % damage and -8 % reload each), the hero's reload and what the chips add worked in.</summary>
-    private static HeroWeapon Carried(Mounting mounting, WeaponSpec real, WiredItem? item, float reloadShare, ChipBuild chips)
+    private static HeroWeapon Carried(Mounting mounting, WeaponSpec real, WiredItem? item, float reloadShare, ChipBuild chips, int copy)
     {
         var steps = (item?.Mk ?? 1) - 1;
         var spec = real with
@@ -198,7 +212,7 @@ public sealed record HeroBuild
             Range = real.Range * (1 + chips.Range),
             ReloadTime = real.ReloadTime * (1 - WiredBalance.ReloadPerMk * steps) * reloadShare,
         };
-        return new HeroWeapon(mounting, spec, item, DamageRate(spec));
+        return new HeroWeapon(mounting, spec, item, DamageRate(spec), copy);
     }
 
     /// <summary>
@@ -217,7 +231,10 @@ public sealed record HeroBuild
     /// <summary>What a product of floats may be over a whole number of ticks and still be that number.</summary>
     private const float TickSlack = 0.001f;
 
-    /// <summary>Names the weapons as a combo does, each on its mounting: <c>L_BOLTER_R_PLASMA_RIFLE</c>.</summary>
+    /// <summary>
+    /// Names the weapons as a combo does, each on its mounting: <c>L_BOLTER_R_PLASMA_RIFLE</c>. A battery names its mounting
+    /// for every copy, <c>L_BOLTER_L_BOLTER_R_BOLTER</c>, which <see cref="WeaponCombos.Split"/> reads back copy for copy.
+    /// </summary>
     private static string? Combo(IReadOnlyList<HeroWeapon> weapons) => weapons.Count == 0
         ? null
         : string.Join('_', weapons.Select(w => $"{w.Mounting.ToString()[0]}_{w.Spec.TypeName}"));

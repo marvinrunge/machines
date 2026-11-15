@@ -72,11 +72,15 @@ public sealed partial class GameWorld
     {
         var hero = new Machine(_nextId++, race, position, build.Spec, build.Stats, build.WeaponCombo);
         hero.Alert.NextLook = Time + hero.Id % 10 * Dt;
-        hero.Weapons.AddRange(build.Weapons.Select(w => new WeaponMount(w.Mounting, w.Spec)));
+        hero.Weapons.AddRange(Mounts(build));
         hero.Mines = MineCarrier(build) ? build.Stats.MineCapacity ?? 0 : 0;
         _actors.Add(hero.Id, hero);
         return hero;
     }
+
+    /// <summary>A hero's own mounts for its weapons, each copy of a battery knowing its place, next to each other as the build has them.</summary>
+    private static IEnumerable<WeaponMount> Mounts(HeroBuild build) =>
+        build.Weapons.Select(w => new WeaponMount(w.Mounting, w.Spec) { Copy = w.Copy });
 
     /// <summary>
     /// A tick of the run: its heroes first, then the wave under way, then the clock. A hangar closes when its hero leaves,
@@ -491,7 +495,7 @@ public sealed partial class GameWorld
         if (build.Spec == hero.Spec && build.Stats == hero.Stats && build.WeaponCombo == hero.WeaponCombo
             && build.Weapons.Select(w => w.Spec).SequenceEqual(hero.Weapons.Select(w => w.Base)))
             return;
-        hero.Refit(build.Spec, build.Stats, build.WeaponCombo, build.Weapons.Select(w => new WeaponMount(w.Mounting, w.Spec)));
+        hero.Refit(build.Spec, build.Stats, build.WeaponCombo, Mounts(build));
         StartAfresh(hero);
         if (otherChassis)
             RefillMines(state);
@@ -577,8 +581,11 @@ public sealed partial class GameWorld
         return hero.DistanceTo(pod) > WiredBalance.PodReach ? "too far from the pod" : null;
     }
 
-    /// <returns>null if the item can be bought now, otherwise why not.</returns>
-    public string? WhyCannotBuy(WiredState state, string id)
+    /// <returns>
+    /// null if the item can be bought now, otherwise why not. Bought as a further copy <paramref name="copyOnto"/> a slot
+    /// that carries that weapon already, it need not be on offer.
+    /// </returns>
+    public string? WhyCannotBuy(WiredState state, string id, WiredSlot? copyOnto = null)
     {
         var kind = WiredCatalogue.KindOf(id);
         if (kind is null or WiredKind.Chip)
@@ -592,10 +599,14 @@ public sealed partial class GameWorld
             if (TooEarly(chassis))
                 return $"opens at wave {chassis.FromWave}";
         }
-        else if (!state.Offer.Contains(id))
+        else if (!state.Offer.Contains(id) && !IsCopy(state, id, copyOnto))
             return "that is not on offer";
         return WhyNoRoom(state) ?? (Races[state.Race].Bmu < state.Priced(WiredCatalogue.Price(id)) ? "not enough BMUs" : null);
     }
+
+    /// <summary>Whether buying a weapon onto a slot makes it a further copy of the weapon there: the slot carries that weapon already.</summary>
+    private static bool IsCopy(WiredState state, string id, WiredSlot? slot) =>
+        slot is { Kind: WiredSlotKind.Weapon } weapon && state.Loadout.At(weapon)?.Catalogue == id;
 
     /// <summary>Whether a run has not yet come to the wave whose shop sells a chassis; a battle sells them all.</summary>
     public bool TooEarly(WiredChassis chassis) => Battle is null && Wired is { } run && run.ShopWave < chassis.FromWave;
@@ -669,9 +680,9 @@ public sealed partial class GameWorld
             WiredTowerCommand tower => PlaceTower(state, tower),
             WiredScrapTowerCommand scrap => ScrapTower(state, scrap.Tower),
             _ when !state.HangarOpen => "the hangar is closed",
-            WiredBuyCommand buy => Buy(state, buy.Item, buy.Slot),
+            WiredBuyCommand buy => Buy(state, buy.Item, buy.Slot, buy.Add),
             WiredSellCommand sell => Sell(state, sell.Item),
-            WiredEquipCommand equip => Equip(state, equip.Item, equip.Slot),
+            WiredEquipCommand equip => Equip(state, equip.Item, equip.Slot, equip.Add),
             WiredUnequipCommand unequip => Unequip(state, unequip.Item),
             WiredChassisCommand chassis => ChangeChassis(state, chassis.Item),
             WiredUpgradeCommand upgrade => Upgrade(state, upgrade.Item),
@@ -710,22 +721,28 @@ public sealed partial class GameWorld
         return null;
     }
 
-    private string? Buy(WiredState state, string id, WiredSlot? slot)
+    /// <summary>
+    /// Buys an item, with a slot onto the hero; with <paramref name="add"/> into the battery there. A further copy of the
+    /// weapon a slot carries is no offer taken: it costs its full price and the offer stays.
+    /// </summary>
+    private string? Buy(WiredState state, string id, WiredSlot? slot, bool add)
     {
-        if (WhyCannotBuy(state, id) is { } why)
+        var copy = add && IsCopy(state, id, slot);
+        if (WhyCannotBuy(state, id, copy ? slot : null) is { } why)
             return why;
         var kind = WiredCatalogue.KindOf(id)!.Value;
         // What cannot go onto the slot is not paid for.
-        if (slot is not null && WhyNotOnto(state, new WiredItem(-1, kind, id), slot) is { } misfit)
+        var probe = new WiredItem(-1, kind, id);
+        if (slot is not null && (add ? WhyNotAdding(state, probe, slot) : WhyNotOnto(state, probe, slot)) is { } misfit)
             return misfit;
         var price = state.Priced(WiredCatalogue.Price(id));
         Charge(state, price);
         var item = state.Add(kind, id, price);
         // An offer goes when it is taken; the chassis tree stays as it is.
-        var offer = state.Offer.IndexOf(id);
+        var offer = copy ? -1 : state.Offer.IndexOf(id);
         if (offer >= 0)
             state.Offer[offer] = null;
-        return slot is null ? null : TryWear(state, item, slot);
+        return slot is null ? null : add ? TryAdd(state, item, slot) : TryWear(state, item, slot);
     }
 
     private string? Sell(WiredState state, int id)
@@ -739,13 +756,13 @@ public sealed partial class GameWorld
         return null;
     }
 
-    private string? Equip(WiredState state, int id, WiredSlot slot)
+    private string? Equip(WiredState state, int id, WiredSlot slot, bool add)
     {
         if (state.Item(id) is not { } item)
             return "you do not own that";
         if (item.Kind is WiredKind.Chip or WiredKind.Chassis)
             return "that does not go into this slot";
-        return TryWear(state, item, slot);
+        return add ? TryAdd(state, item, slot) : TryWear(state, item, slot);
     }
 
     private string? PlaceChip(WiredState state, int? id, int socket)
@@ -770,11 +787,28 @@ public sealed partial class GameWorld
     private string? WhyNotOnto(WiredState state, WiredItem? item, WiredSlot slot) =>
         (item is null ? null : state.Loadout.WhyNotFit(item, slot)) ?? state.WhyNotWear(Data, state.Loadout.With(slot, item));
 
+    private string? TryAdd(WiredState state, WiredItem item, WiredSlot slot)
+    {
+        if (WhyNotAdding(state, item, slot) is { } why)
+            return why;
+        Wear(state, state.Loadout.Adding(slot, item));
+        return null;
+    }
+
+    /// <returns>null if the weapon can join the battery on the slot, as its last copy, otherwise why not.</returns>
+    private string? WhyNotAdding(WiredState state, WiredItem item, WiredSlot slot) =>
+        state.Loadout.WhyNotAdd(item, slot) ?? state.WhyNotWear(Data, state.Loadout.Adding(slot, item));
+
+    /// <summary>Takes one worn item off; of a battery only that copy, and the others close up.</summary>
     private string? Unequip(WiredState state, int id)
     {
-        if (state.Item(id) is null || state.Loadout.SlotOf(id) is not { } slot)
+        if (state.Item(id) is null || state.Loadout.SlotOf(id) is null)
             return "that is not on the hero";
-        return TryWear(state, null, slot);
+        var loadout = state.Loadout.Without(id);
+        if (state.WhyNotWear(Data, loadout) is { } why)
+            return why;
+        Wear(state, loadout);
+        return null;
     }
 
     private string? ChangeChassis(WiredState state, int id)

@@ -30,6 +30,9 @@ public sealed class Projectile(int id, WeaponSpec weapon, int shooter, Race race
     /// <summary>Which of the shooter's weapons fired it, and from which of its barrels (LAUNCH_OFFSET, in turn).</summary>
     public Mounting Mounting { get; } = mounting;
     public int Barrel { get; } = barrel;
+
+    /// <summary>Which copy of a Wired hero's battery on that mounting fired it: 0 for the first, and for every other weapon.</summary>
+    public int Copy { get; init; }
     public Race Race { get; } = race;
     public Vector2 Start { get; } = start;
 
@@ -78,7 +81,7 @@ public sealed partial class GameWorld
             ? Vector2.Normalize(offset)
             : shooter is Machine machine ? new Vector2(DetMath.Cos(machine.Facing), DetMath.Sin(machine.Facing)) : Vector2.UnitX;
         _projectiles.Add(new Projectile(_nextProjectile++, weapon.Spec, shooter.Id, shooter.Race, shooter.Position, direction,
-            weapon.Mounting, weapon.Shots++, towards, AimPoint(shooter).Z, aimHeight) { Sighted = sighted });
+            weapon.Mounting, weapon.Shots++, towards, AimPoint(shooter).Z, aimHeight) { Sighted = sighted, Copy = weapon.Copy });
     }
 
     private void UpdateProjectiles()

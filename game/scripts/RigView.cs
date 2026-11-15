@@ -178,9 +178,10 @@ public partial class RigView : Node3D
     /// <summary>
     /// The weapon at <paramref name="mounting"/> fires one round and moves with it: back and forward by its RECOIL
     /// distance and times, fitted into the round's share of the burst as MachPhysWeapon::recoil fitted them, or
-    /// the autocannon's barrels turn on.
+    /// the autocannon's barrels turn on. <paramref name="copy"/> names the copy of a Wired hero's battery that fired; null
+    /// moves every weapon of the side, as for any other machine.
     /// </summary>
-    public void Fire(Mounting mounting, WeaponSpec weapon)
+    public void Fire(Mounting mounting, WeaponSpec weapon, int? copy = null)
     {
         var recoil = weapon.Presentation.FirstOrDefault(l => l.Keyword == "RECOIL" && l.Args.Count >= 3)?.Args
             .Select(a => float.Parse(a, System.Globalization.CultureInfo.InvariantCulture)).ToArray() ?? [0f, 0.05f, 0.15f];
@@ -195,7 +196,7 @@ public partial class RigView : Node3D
             Mounting.Right => "right",
             _ => "top",
         };
-        Fire(side, distance, back, fore, round, turn: weapon.TypeName == "AUTO_CANNON");
+        Fire(side, distance, back, fore, round, turn: weapon.TypeName == "AUTO_CANNON", copy);
     }
 
     /// <summary>
@@ -203,13 +204,13 @@ public partial class RigView : Node3D
     /// slides <paramref name="distance"/> metres back along the barrel in <paramref name="back"/> seconds and
     /// forward in <paramref name="fore"/> (MachPhysWeapon::recoil); with <paramref name="turn"/> the autocannon's
     /// six barrels turn on by one instead, 60 degrees over the round's <paramref name="round"/> seconds
-    /// (MachPhysBolter::fire).
+    /// (MachPhysBolter::fire). With <paramref name="copy"/> only that copy of a battery moves.
     /// </summary>
-    public void Fire(string mounting, float distance, float back, float fore, float round, bool turn)
+    public void Fire(string mounting, float distance, float back, float fore, float round, bool turn, int? copy = null)
     {
         foreach (var weapon in _rig.Weapons)
         {
-            if (weapon.Mounting != mounting || weapon.Node <= 0 || weapon.Node >= _nodes.Length)
+            if (weapon.Mounting != mounting || copy is { } only && weapon.Copy != only || weapon.Node <= 0 || weapon.Node >= _nodes.Length)
                 continue;
             if (!_firing.TryGetValue(weapon.Node, out var firing))
                 _firing[weapon.Node] = firing = new Firing { Node = weapon.Node };
@@ -541,6 +542,10 @@ public partial class RigView : Node3D
         var index = Find(name);
         return index >= 0 && _nodes[index].IsInsideTree() ? _nodes[index].GlobalTransform : null;
     }
+
+    /// <summary>A part's place in the world as it stands now, by its index in the model, or null.</summary>
+    public Transform3D? PartTransform(int part) =>
+        part >= 0 && part < _nodes.Length && _nodes[part].IsInsideTree() ? _nodes[part].GlobalTransform : null;
 
     /// <summary>The index of the part called <paramref name="name"/> in the model, or -1.</summary>
     public int Find(string name) => Array.FindIndex(_rig.Nodes, n => n.Name.Equals(name, StringComparison.OrdinalIgnoreCase));

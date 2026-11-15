@@ -181,6 +181,11 @@ public static class BattleBots
             };
             if (entry.Mk < 1 || entry.Mk > most)
                 return $"{entry.Catalogue} cannot be Mk {entry.Mk} on this tier";
+            // A battery is one entry with a count, all of it at the entry's Mk: owning a weapon fills it (no credits per copy).
+            if (entry.Count < 1)
+                return $"{entry.Catalogue} cannot come {entry.Count} times";
+            if (entry.Count > 1 && (kind != WiredKind.Weapon || entry.Slot is not { Kind: WiredSlotKind.Weapon }))
+                return "a battery needs a weapon slot";
             if (entry.Slot is not { } slot)
                 continue;
             var item = new WiredItem(next++, kind.Value, entry.Catalogue, entry.Mk);
@@ -188,12 +193,16 @@ public static class BattleBots
                 return "two items in one slot";
             if (loadout.WhyNotFit(item, slot) is { } why)
                 return why;
+            if (entry.Count > 1 && WiredCatalogue.WhyNotCopies(chassis, (Mounting)slot.Index, WiredCatalogue.FindWeapon(entry.Catalogue)!, entry.Count) is { } many)
+                return many;
             loadout = loadout.With(slot, item);
+            for (var copy = 1; copy < entry.Count; copy++)
+                loadout = loadout.Adding(slot, new WiredItem(next++, kind.Value, entry.Catalogue, entry.Mk));
         }
         return LoadShare(loadout) > WiredBalance.MostLoad ? "too heavy for this chassis" : null;
     }
 
-    /// <summary>Load against capacity, as <see cref="HeroBuild"/> works it out, without the game data.</summary>
+    /// <summary>Load against capacity, as <see cref="HeroBuild"/> works it out, without the game data: each copy of a battery weighs as a weapon.</summary>
     private static float LoadShare(HeroLoadout loadout)
     {
         var chassis = loadout.ChassisEntry;
@@ -203,8 +212,11 @@ public static class BattleBots
             if (WiredCatalogue.FindModule(item.Catalogue) is { } module)
                 (load, capacity) = (load + module.Load, capacity + module.Effect.Capacity * item.Mk);
         }
-        foreach (var item in loadout.Weapons.OfType<WiredItem>())
-            load += WiredCatalogue.FindWeapon(item.Catalogue)?.Load ?? 0;
+        foreach (var mounting in Enum.GetValues<Mounting>())
+        {
+            foreach (var item in loadout.Battery(mounting))
+                load += WiredCatalogue.FindWeapon(item.Catalogue)?.Load ?? 0;
+        }
         return capacity <= 0 ? 0 : load / (float)capacity;
     }
 

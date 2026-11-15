@@ -132,7 +132,8 @@ public class BattleDraftTests
         Assert.Null(draft.Wear("grunt3"));
 
         Assert.Null(draft.Put("BOLTER", Left));
-        Assert.Null(draft.Put("BOLTER", Right));
+        // The right slot carries the bolter already: without replacing it, that would be a second copy (a battery).
+        Assert.Null(draft.Put("BOLTER", Right, replace: true));
         Assert.Equal(["BOLTER/1", "BOLTER/1"], Worn(draft));
 
         Assert.Equal("you do not own that", draft.Put("AUTO_CANNON", Left)!.Words);
@@ -441,4 +442,189 @@ public class BattleDraftTests
     [InlineData(8, "VIII")]
     [InlineData(12, "12")]
     public void Tiers_are_written_in_roman(int tier, string written) => Assert.Equal(written, BattleDraft.Roman(tier));
+
+    // ---- batteries -----------------------------------------------------------------------------------
+
+    private static string[] Battery(BattleDraft draft, Mounting mounting) => draft.Loadout.Battery(mounting).Select(i => $"{i.Catalogue}/{i.Mk}").ToArray();
+
+    /// <summary>A Reaper 3 with the bolter on its medium right slot and nothing else, owning what <paramref name="setup"/> adds.</summary>
+    private static (BattleDraft Draft, LocalBattleAccount Account) OnTheReaper(Action<BattleProfile>? setup = null)
+    {
+        var (draft, account) = NewDraft(book =>
+        {
+            Owns(book, "reaper3");
+            setup?.Invoke(book);
+        });
+        Assert.Null(draft.Wear("reaper3"));
+        Assert.Equal(["BOLTER/1"], Battery(draft, Mounting.Right));
+        return (draft, account);
+    }
+
+    [Fact]
+    public void An_owned_weapon_put_onto_its_slot_joins_the_battery_for_nothing_up_to_what_the_slot_carries()
+    {
+        var (draft, account) = OnTheReaper(book => book.Credits = 500);
+
+        Assert.Null(draft.Put("BOLTER", Right));
+
+        Assert.Equal(["BOLTER/1", "BOLTER/1"], Battery(draft, Mounting.Right));
+        Assert.Equal(new BattleItem("BOLTER", Right, 1, 2), draft.Items.Single());
+        Assert.Equal(500, account.Credits);
+        Assert.Null(draft.WhyNotFight());
+
+        Assert.Equal("a medium slot carries two at most", draft.WhyNotPut("BOLTER", Right)!.Words);
+        Assert.Equal("a medium slot carries two at most", draft.Put("BOLTER", Right)!.Words);
+        Assert.Single(draft.Items);
+    }
+
+    [Fact]
+    public void Replacing_a_battery_leaves_the_one_put_there_alone()
+    {
+        var (draft, _) = OnTheReaper(book => Owns(book, "AUTO_CANNON"));
+        draft.Put("BOLTER", Right);
+
+        Assert.Null(draft.Put("BOLTER", Right, replace: true));
+        Assert.Equal(["BOLTER/1"], Battery(draft, Mounting.Right));
+
+        draft.Put("BOLTER", Right);
+        Assert.Null(draft.Put("AUTO_CANNON", Right));
+        Assert.Equal(["AUTO_CANNON/1"], Battery(draft, Mounting.Right));
+        Assert.Equal(new BattleItem("AUTO_CANNON", Right, 1), draft.Items.Single());
+    }
+
+    [Fact]
+    public void A_weapon_that_forms_no_battery_is_refused_a_second_time_on_its_slot()
+    {
+        var (draft, _) = NewDraft(book =>
+        {
+            Owns(book, "boss2");
+            Owns(book, "BEE_BOMB");
+        });
+        Assert.Null(draft.Wear("boss2"));
+        var top = WiredSlot.Weapon(Mounting.Top);
+        Assert.Null(draft.Put("BEE_BOMB", top));
+
+        Assert.Equal("that weapon cannot form a battery", draft.Put("BEE_BOMB", top)!.Words);
+        Assert.Null(draft.Put("BEE_BOMB", top, replace: true));
+        Assert.Equal(["BEE_BOMB/1"], Battery(draft, Mounting.Top));
+    }
+
+    [Fact]
+    public void Taking_off_takes_one_copy()
+    {
+        var (draft, _) = OnTheReaper();
+        draft.Put("BOLTER", Right);
+
+        draft.TakeOff(draft.Loadout.Weapon(Mounting.Right)!.Id);
+
+        Assert.Equal(["BOLTER/1"], Battery(draft, Mounting.Right));
+        Assert.Equal(1, draft.Items.Single().Count);
+    }
+
+    [Fact]
+    public void A_copy_moves_off_its_battery_alone_and_joins_another_of_its_weapon()
+    {
+        var (draft, _) = OnTheReaper();
+        draft.Put("BOLTER", Right);
+
+        Assert.Null(draft.Move(draft.Loadout.Battery(Mounting.Right)[1].Id, Left));
+        Assert.Equal(["BOLTER/1"], Battery(draft, Mounting.Left));
+        Assert.Equal(["BOLTER/1"], Battery(draft, Mounting.Right));
+
+        Assert.Null(draft.Move(draft.Loadout.Weapon(Mounting.Left)!.Id, Right));
+        Assert.Equal(["BOLTER/1", "BOLTER/1"], Battery(draft, Mounting.Right));
+        Assert.Empty(Battery(draft, Mounting.Left));
+        Assert.Equal(new BattleItem("BOLTER", Right, 1, 2), draft.Items.Single());
+    }
+
+    [Fact]
+    public void A_battery_moves_with_its_chassis_cut_to_what_its_new_slot_carries()
+    {
+        var (draft, _) = OnTheReaper(book => Owns(book, "grunt2"));
+        draft.Put("BOLTER", Right);
+
+        // grunt2 has a light left slot only.
+        Assert.Null(draft.Wear("grunt2"));
+
+        Assert.Equal(["BOLTER/1"], Battery(draft, Mounting.Left));
+        Assert.Equal(new BattleItem("BOLTER", Left, 1), draft.Items.Single());
+    }
+
+    [Fact]
+    public void The_users_harvester_takes_six_plasma_cannons_at_the_mk_owned_and_not_one_weapon_more()
+    {
+        var (draft, _) = NewDraft(book =>
+        {
+            Owns(book, "reaper5");
+            Owns(book, "PLASMA_CANNON2", 2);
+        });
+        Assert.Null(draft.Wear("reaper5"));
+
+        foreach (var side in new[] { Left, Right })
+        {
+            for (var copy = 0; copy < 3; copy++)
+                Assert.Null(draft.Put("PLASMA_CANNON2", side));
+        }
+
+        // 6 × 8 load on a chassis that carries 32: exactly the most there may be.
+        Assert.Equal(WiredBalance.MostLoad, HeroBuild.Resolve(Data, draft.Loadout).LoadShare);
+        Assert.Equal("too heavy for this chassis", draft.Put("BOLTER", WiredSlot.Weapon(Mounting.Top))!.Words);
+        Assert.Equal(Enumerable.Repeat("PLASMA_CANNON2/2", 3), Battery(draft, Mounting.Left));
+        Assert.Equal(Enumerable.Repeat("PLASMA_CANNON2/2", 3), Battery(draft, Mounting.Right));
+        Assert.Equal([new BattleItem("PLASMA_CANNON2", Left, 2, 3), new BattleItem("PLASMA_CANNON2", Right, 2, 3)], draft.Items.OrderBy(i => i.Slot!.Index));
+        Assert.Null(draft.WhyNotFight());
+    }
+
+    [Fact]
+    public void The_last_hero_comes_back_with_its_batteries_cut_to_what_the_slot_carries()
+    {
+        var profile = new WiredProfile();
+        Owns(profile.Battle, "reaper3");
+        profile.Battle.LastHero = new BattleHeroSheet
+        {
+            Chassis = "reaper3",
+            Items = [new BattleItem("BOLTER", Right, 1, 9), new BattleItem("BOLTER", Left, 1, 0)],
+        };
+
+        var draft = new BattleDraft(Data, new LocalBattleAccount(profile));
+
+        Assert.Equal(["BOLTER/1", "BOLTER/1"], Battery(draft, Mounting.Right));
+        Assert.Equal(["BOLTER/1"], Battery(draft, Mounting.Left));
+        Assert.Equal([new BattleItem("BOLTER", Right, 1, 2), new BattleItem("BOLTER", Left, 1)], draft.Items);
+    }
+
+    [Fact]
+    public void Only_a_weapon_on_a_weapon_slot_forms_a_battery_a_module_or_ability_put_onto_its_own_slot_stands_there_alone()
+    {
+        var profile = new WiredProfile();
+        foreach (var id in new[] { "knight4", "plates", "cooler", "discharge" })
+            Owns(profile.Battle, id);
+        var (first, second, ability) = (WiredSlot.Module(0), WiredSlot.Module(1), WiredSlot.Ability(0));
+        // A sheet saved with a counted module comes back with it once.
+        profile.Battle.LastHero = new BattleHeroSheet { Chassis = "knight4", Items = [new BattleItem("plates", first, 1, 2)] };
+        var draft = new BattleDraft(Data, new LocalBattleAccount(profile));
+        Assert.Equal([new BattleItem("plates", first, 1)], draft.Items);
+
+        // Put again onto its own slot it stands there alone, as before batteries, and the hero still fights.
+        Assert.Null(draft.Put("discharge", ability));
+        Assert.Null(draft.Put("plates", first));
+        Assert.Null(draft.Put("discharge", ability));
+        Assert.Equal([new BattleItem("plates", first, 1), new BattleItem("discharge", ability, 1)], draft.Items.OrderBy(i => i.Slot!.Kind));
+        Assert.Null(draft.WhyNotFight());
+
+        // Each worn item is still its own entry: taking off the cooler takes off the cooler.
+        Assert.Null(draft.Put("cooler", second));
+        draft.TakeOff(draft.Loadout.At(second)!.Id);
+        Assert.Null(draft.Loadout.At(second));
+        Assert.Equal("plates", draft.Loadout.At(first)?.Catalogue);
+
+        // A worn plate moved onto the slot of another plate takes its place.
+        Assert.Null(draft.Put("plates", second));
+        Assert.Null(draft.Move(draft.Loadout.At(second)!.Id, first));
+        Assert.Equal("plates", draft.Loadout.At(first)?.Catalogue);
+        Assert.Null(draft.Loadout.At(second));
+        Assert.Single(draft.Items, i => i.Catalogue == "plates");
+        Assert.All(draft.Items, i => Assert.Equal(1, i.Count));
+        Assert.Null(draft.WhyNotFight());
+    }
 }

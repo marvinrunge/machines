@@ -417,4 +417,18 @@ public static class WiredBalance
 
     /// <summary>The Phantom: the seconds without firing after which it is hidden, and how near an enemy must come to see it all the same.</summary>
     public const float ShadowQuiet = 3, ShadowReach = 25;
+
+    // ---- batteries --------------------------------------------------------------------------------
+
+    /// <summary>The copies of one weapon a slot carries as a battery, by its <see cref="SlotSize"/>: whatever the weapon's own size.</summary>
+    public static readonly IReadOnlyList<int> MostCopies = [1, 2, 3];
+
+    /// <summary>
+    /// The seconds from one copy's first round to the next one's, when a battery's copies open fire together: two ticks,
+    /// so that a salvo leaves barrel after barrel.
+    /// </summary>
+    public const float BatteryStagger = 0.1f;
+
+    /// <summary>The points of accuracy the hero loses for each barrel beyond the first of every battery: a knob for the balance, none for now.</summary>
+    public const int BatteryAimLoss = 0;
 }

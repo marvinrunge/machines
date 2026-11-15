@@ -332,4 +332,8 @@ public enum GameEventKind
 }
 
 /// <param name="Mark">Where a round fired in first person really went, height and all, when that is not under the crosshair (a Wired run).</param>
-public sealed record GameEvent(GameEventKind Kind, int Actor, Vector2 Position, int? Other = null, string? Detail = null, Vector3? Mark = null);
+/// <param name="Gun">
+/// For <see cref="GameEventKind.Fired"/>, which of the shooter's weapons fired: its place in the machine's weapons of that
+/// tick, so that a view fires a battery from the right barrel; -1 for any other event and for actors that are no machine.
+/// </param>
+public sealed record GameEvent(GameEventKind Kind, int Actor, Vector2 Position, int? Other = null, string? Detail = null, Vector3? Mark = null, int Gun = -1);

@@ -12,7 +12,8 @@ namespace Machines.Game;
 /// A Wired hero's model, put together from the game's own rigs: the chassis' rig with its weapons taken off and the
 /// parts of the weapons it wears hung on its mounts (see <see cref="RigGraft"/>). It comes in the look and colours of
 /// <see cref="ClassicAssets.RigFor"/>, and moves as any machine, its weapons recoiling on their sides. An empty slot shows
-/// the bare mount. What stands turned over is turned over in its mesh, never by a part's transform: materials draw both
+/// the bare mount. A battery's further copies are copies of the same weapon's parts, each on a mount of its own beside the
+/// slot's and seated as a single weapon is (<see cref="HeroSeat.CopySeats"/>); nothing is made for them. What stands turned over is turned over in its mesh, never by a part's transform: materials draw both
 /// sides, so a part with its scale turned over would be lit as if from inside. Wired is the remake's own addition.
 /// </summary>
 public static class HeroRig
@@ -24,25 +25,40 @@ public static class HeroRig
 
     private static readonly Lazy<StandardMaterial3D> Rubber = new(() => new StandardMaterial3D { AlbedoColor = new Color(0.1f, 0.1f, 0.105f), Roughness = 0.85f, MetallicSpecular = 0.25f });
 
-    /// <summary>The model of what <paramref name="loadout"/> wears, or null without the chassis' export.</summary>
+    /// <summary>The model of what <paramref name="loadout"/> wears, its batteries and all, or null without the chassis' export.</summary>
     public static Rig? Compose(ClassicAssets assets, Race race, HeroLoadout loadout) =>
-        Compose(assets, race, loadout.Chassis.Catalogue, loadout.Weapons.Select(w => w?.Catalogue).ToArray());
+        Compose(assets, race, loadout.Chassis.Catalogue, loadout.Weapons.Select(w => w?.Catalogue).ToArray(), Counts(loadout));
+
+    /// <summary>How many copies each slot's battery has, by <see cref="Mounting"/>: 0 for an empty slot, 1 for a single weapon.</summary>
+    public static int[] Counts(HeroLoadout loadout) => Enum.GetValues<Mounting>().Select(m => loadout.Battery(m).Count).ToArray();
+
+    /// <summary>A weapon with the number of copies of its battery as the rigs are kept by: <c>PLASMA_CANNON2*3</c>, a single weapon as it is.</summary>
+    public static string? Named(string? weapon, int count) => weapon is null || count <= 1 ? weapon : $"{weapon}*{count}";
+
+    /// <summary>What a hero wears, as its rig and its picture are kept by.</summary>
+    public static string Worn(Race race, string chassis, IReadOnlyList<string?> weapons, IReadOnlyList<int>? counts = null) =>
+        $"{race}/{chassis}/{string.Join('/', weapons.Select((w, i) => Named(w, Count(counts, i))))}";
+
+    private static int Count(IReadOnlyList<int>? counts, int mounting) => counts is not null && mounting < counts.Count ? counts[mounting] : 1;
 
     /// <summary>
     /// The model of a chassis with <paramref name="weapons"/> on its mounts, by <see cref="Mounting"/>: left, right, top,
-    /// null for empty. A weapon its chassis cannot take still shows, for a preview. Rigs are kept by what they wear.
+    /// null for empty, each as many times as <paramref name="counts"/> says (once where it says nothing). A weapon its
+    /// chassis cannot take still shows, for a preview. Rigs are kept by what they wear.
     /// </summary>
-    public static Rig? Compose(ClassicAssets assets, Race race, string chassis, IReadOnlyList<string?> weapons)
+    public static Rig? Compose(ClassicAssets assets, Race race, string chassis, IReadOnlyList<string?> weapons, IReadOnlyList<int>? counts = null)
     {
-        var key = $"{race}/{chassis}/{string.Join('/', weapons)}";
+        var key = Worn(race, chassis, weapons, counts);
         if (assets.HeroRigs.TryGetValue(key, out var kept))
             return kept;
-        var rig = Build(assets, race, chassis, weapons);
+        var start = HitchLog.Start;
+        var rig = Build(assets, race, chassis, weapons, counts);
+        HitchLog.Loaded($"hero {key}", start);
         assets.HeroRigs[key] = rig;
         return rig;
     }
 
-    private static Rig? Build(ClassicAssets assets, Race race, string chassis, IReadOnlyList<string?> weapons)
+    private static Rig? Build(ClassicAssets assets, Race race, string chassis, IReadOnlyList<string?> weapons, IReadOnlyList<int>? counts)
     {
         if (WiredCatalogue.FindChassis(chassis) is not { } entry || !HeroDonors.Chassis.TryGetValue(chassis, out var model)
             || assets.RigFor(model, race) is not { } body)
@@ -71,15 +87,20 @@ public static class HeroRig
             slots[slot.Mounting] = new RigGraft.Source(parts, mount);
         }
 
-        var graft = new RigGraft(Parts(body), slots);
+        // A battery's copies, each a copy of the same weapon's rig on a mount of its own (see RigGraft).
+        var copies = donors.Keys.ToDictionary(side => side, side => Math.Clamp(Count(counts, (int)side), 1, WiredBalance.MostCopies[^1]));
+        var graft = new RigGraft(Parts(body), slots, copies);
         var shapes = Shapes(assets, body);
         if (!assets.HeroSolids.TryGetValue(body, out var solid))
             assets.HeroSolids[body] = solid = HeroSeat.Solid(chassis, shapes);
-        var worn = donors.ToDictionary(d => d.Key, d => new HeroWorn(d.Key, weapons[(int)d.Key]!, d.Value.Donor, Shapes(assets, d.Value.Rig), slots[d.Key]!.Mount));
-        var seats = HeroSeat.Seats(chassis, shapes, solid, worn.Values).ToDictionary(s => s.Key, s => Place(HeroSeat.Upright(worn[s.Key], s.Value)));
+        var worn = donors.SelectMany(d => Enumerable.Range(0, copies[d.Key]).Select(copy =>
+            new HeroWorn(d.Key, weapons[(int)d.Key]!, d.Value.Donor, Shapes(assets, d.Value.Rig), slots[d.Key]!.Mount, copy))).ToDictionary(w => (w.Side, w.Copy));
+        var firsts = HeroSeat.Seats(chassis, shapes, solid, worn.Values);
+        var seats = (worn.Count > donors.Count ? HeroSeat.CopySeats(chassis, shapes, solid, worn.Values, firsts) : firsts.ToDictionary(s => (s.Key, 0), s => s.Value))
+            .ToDictionary(s => s.Key, s => Place(HeroSeat.Upright(worn[s.Key], s.Value)));
         var nodes = graft.Nodes.Select(n => Node(n, graft, body, chassis, donors, worn, seats)).ToArray();
         for (var i = 0; i < nodes.Length; i++)
-            if (graft.Nodes[i].Weapon is { } side && worn[side].Donor.Mirrored)
+            if (graft.Nodes[i].Weapon is { } side && worn[(side, graft.Nodes[i].Copy)].Donor.Mirrored)
                 nodes[i] = nodes[i] with { Mesh = TurnedOver(assets, nodes[i].Mesh) };
         foreach (var wheel in body.Wheels is { } rolling ? Kept(graft, rolling.Left).Concat(Kept(graft, rolling.Right)) : [])
             nodes[wheel] = nodes[wheel] with { Mesh = Hubbed(assets, nodes[wheel].Mesh) };
@@ -89,11 +110,13 @@ public static class HeroRig
         {
             Nodes = nodes,
             UpperBody = graft.Chassis(body.UpperBody),
-            Animations = Animations(graft, body, donors),
+            Animations = Animations(graft, body, donors, copies),
             Wheels = body.Wheels is { } wheels ? wheels with { Left = Kept(graft, wheels.Left), Right = Kept(graft, wheels.Right) } : null,
             Tracks = body.Tracks is { } tracks ? tracks with { Left = graft.Chassis(tracks.Left), Right = graft.Chassis(tracks.Right) } : null,
-            Idle = Idle(graft, body, donors),
-            Weapons = RecoilOf(graft, body, donors),
+            Idle = Idle(graft, body, donors, copies),
+            Weapons = RecoilOf(graft, body, donors, copies),
+            Guns = copies.OrderBy(c => c.Key).SelectMany(c => Enumerable.Range(0, c.Value).Select(copy => new RigGun(c.Key, copy, graft.Mount(c.Key, copy))))
+                .Where(g => g.Mount >= 0).ToArray(),
             Faceplate = graft.Chassis(body.Faceplate),
             Eye = body.Eye,
         };
@@ -146,26 +169,27 @@ public static class HeroRig
         new(new Basis(new Vector3(m.M11, m.M12, m.M13), new Vector3(m.M21, m.M22, m.M23), new Vector3(m.M31, m.M32, m.M33)), new Vector3(m.M41, m.M42, m.M43));
 
     private static RigNode Node(RigGraft.Node node, RigGraft graft, Rig body, string chassis, Dictionary<Mounting, (Rig Rig, HeroDonor Donor)> donors,
-        Dictionary<Mounting, HeroWorn> worn, Dictionary<Mounting, Transform3D> seats)
+        Dictionary<(Mounting, int), HeroWorn> worn, Dictionary<(Mounting, int), Transform3D> seats)
     {
         var from = node.Weapon is { } side ? donors[side] : default;
         var mesh = node.Donor >= 0 ? Weapon(node, from.Rig.Nodes[node.Donor].Mesh, chassis, worn) : node.Chassis >= 0 && !node.Stripped ? body.Nodes[node.Chassis].Mesh : null;
-        // A weapon's part keeps its place on the weapon; a mount stands where the chassis has it, or the mirror of the one it has.
+        // A weapon's part keeps its place on the weapon; a mount stands where the chassis has it, or the mirror of the one it has,
+        // and so does a battery's further copy's mount.
         if (node.Chassis < 0 && node.Opposite < 0)
             return new RigNode(node.Parent, from.Rig.Nodes[node.Donor].Rest, mesh, node.Name);
         var rest = node.Chassis >= 0 ? body.Nodes[node.Chassis].Rest : Mirror(body.Nodes[node.Opposite].Rest);
         // What is left of the chassis on a mount stays where the chassis has it, wherever its weapon sits.
-        if (node.Weapon is null && node.Parent >= 0 && graft.Nodes[node.Parent].Weapon is { } under)
-            rest = seats[under].AffineInverse() * rest;
+        if (node.Weapon is null && node.Parent >= 0 && graft.Nodes[node.Parent] is { Weapon: { } under } mount)
+            rest = seats[(under, mount.Copy)].AffineInverse() * rest;
         if (node.Weapon is { } seated)
-            rest *= seats[seated];
+            rest *= seats[(seated, node.Copy)];
         return new RigNode(node.Parent, rest, mesh, node.Name);
     }
 
     /// <summary>A part of a weapon's mesh: without the foot where the weapon does not stand on it (see <see cref="HeroDonors.Footless"/>).</summary>
-    private static Mesh? Weapon(RigGraft.Node node, Mesh? mesh, string chassis, Dictionary<Mounting, HeroWorn> worn)
+    private static Mesh? Weapon(RigGraft.Node node, Mesh? mesh, string chassis, Dictionary<(Mounting, int), HeroWorn> worn)
     {
-        var weapon = worn[node.Weapon!.Value];
+        var weapon = worn[(node.Weapon!.Value, node.Copy)];
         if (mesh is not ArrayMesh whole || !HeroDonors.Footless(chassis, weapon))
             return mesh;
         if (node.Donor == weapon.Mount)
@@ -320,16 +344,21 @@ public static class HeroRig
     private static Transform3D Mirror(Transform3D rest) =>
         new(Across * rest.Basis * Across, new Vector3(rest.Origin.X, rest.Origin.Y, -rest.Origin.Z));
 
-    private static Dictionary<string, RigAnimation> Animations(RigGraft graft, Rig body, Dictionary<Mounting, (Rig Rig, HeroDonor Donor)> donors)
+    // Every copy of each donor's weapon: its side, which copy, and the donor.
+    private static IEnumerable<(Mounting Side, int Copy, Rig Rig, HeroDonor Donor)> Copies(Dictionary<Mounting, (Rig Rig, HeroDonor Donor)> donors,
+        Dictionary<Mounting, int> copies) =>
+        donors.SelectMany(d => Enumerable.Range(0, copies[d.Key]).Select(copy => (d.Key, copy, d.Value.Rig, d.Value.Donor)));
+
+    private static Dictionary<string, RigAnimation> Animations(RigGraft graft, Rig body, Dictionary<Mounting, (Rig Rig, HeroDonor Donor)> donors, Dictionary<Mounting, int> copies)
     {
         var tracks = body.Animations.ToDictionary(a => a.Key, a => (a.Value.Duration,
             Tracks: a.Value.Tracks.Select(t => t with { Node = graft.Chassis(t.Node) }).Where(t => t.Node >= 0).ToList()));
-        // A weapon's own parts bring what they do in the cycles of the machine they came from.
-        foreach (var (side, (rig, _)) in donors)
+        // A weapon's own parts bring what they do in the cycles of the machine they came from, every copy of a battery alike.
+        foreach (var (side, copy, rig, _) in Copies(donors, copies))
         {
             foreach (var (name, animation) in rig.Animations)
             {
-                var moved = animation.Tracks.Select(t => t with { Node = graft.Weapon(side, t.Node) }).Where(t => t.Node >= 0).ToList();
+                var moved = animation.Tracks.Select(t => t with { Node = graft.Weapon(side, copy, t.Node) }).Where(t => t.Node >= 0).ToList();
                 if (moved.Count == 0)
                     continue;
                 if (!tracks.TryGetValue(name, out var own))
@@ -340,16 +369,19 @@ public static class HeroRig
         return tracks.ToDictionary(t => t.Key, t => new RigAnimation(t.Value.Duration, t.Value.Tracks.ToArray()));
     }
 
-    private static RigIdle[] Idle(RigGraft graft, Rig body, Dictionary<Mounting, (Rig Rig, HeroDonor Donor)> donors) =>
+    private static RigIdle[] Idle(RigGraft graft, Rig body, Dictionary<Mounting, (Rig Rig, HeroDonor Donor)> donors, Dictionary<Mounting, int> copies) =>
         body.Idle.Select(i => i with { Track = i.Track with { Node = graft.Chassis(i.Track.Node) } })
-            .Concat(donors.SelectMany(d => d.Value.Rig.Idle.Select(i => i with { Track = i.Track with { Node = graft.Weapon(d.Key, i.Track.Node) } })))
+            .Concat(Copies(donors, copies).SelectMany(d => d.Rig.Idle.Select(i => i with { Track = i.Track with { Node = graft.Weapon(d.Side, d.Copy, i.Track.Node) } })))
             .Where(i => i.Track.Node >= 0).ToArray();
 
-    /// <summary>What recoils: the chassis' fixed weapons, and of each donor what moved on the mount it came from, now on the side it went to.</summary>
-    private static RigWeapon[] RecoilOf(RigGraft graft, Rig body, Dictionary<Mounting, (Rig Rig, HeroDonor Donor)> donors) =>
+    /// <summary>
+    /// What recoils: the chassis' fixed weapons, and of each donor what moved on the mount it came from, now on the side it
+    /// went to, for every copy of a battery on its own.
+    /// </summary>
+    private static RigWeapon[] RecoilOf(RigGraft graft, Rig body, Dictionary<Mounting, (Rig Rig, HeroDonor Donor)> donors, Dictionary<Mounting, int> copies) =>
         body.Weapons.Select(w => w with { Node = graft.Chassis(w.Node) })
-            .Concat(donors.SelectMany(d => d.Value.Rig.Weapons.Where(w => w.Mounting == Side(d.Value.Donor.Mount))
-                .Select(w => new RigWeapon(graft.Weapon(d.Key, w.Node), Side(d.Key)))))
+            .Concat(Copies(donors, copies).SelectMany(d => d.Rig.Weapons.Where(w => w.Mounting == Side(d.Donor.Mount))
+                .Select(w => new RigWeapon(graft.Weapon(d.Side, d.Copy, w.Node), Side(d.Side), d.Copy))))
             .Where(w => w.Node >= 0).ToArray();
 
     private static string Side(Mounting mounting) => mounting switch

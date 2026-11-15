@@ -280,6 +280,34 @@ public class BattleSetupTests
     }
 
     [Fact]
+    public void A_battery_is_one_entry_of_a_heros_items_and_the_hero_plays_with_every_copy()
+    {
+        var tier = BattleCatalogue.Tier("reaper3");
+        var hero = new BattleHero(Race.Red, "Ace", "reaper3", [new BattleItem("HEAVY_BOLTER1", WiredSlot.Weapon(Mounting.Left), 1, 2)]);
+        Assert.Null(BattleBots.WhyNot(hero, tier));
+        // The cap on items counts entries, not copies.
+        var chassis = WiredCatalogue.FindChassis("reaper3")!;
+        var room = chassis.Slots.Count + chassis.Modules + WiredBalance.AbilitySlots - hero.Items.Count;
+        Assert.Null(BattleBots.WhyNot(hero with { Items = [.. hero.Items, .. Enumerable.Repeat(new BattleItem("plates", null), room)] }, tier));
+        Assert.Equal("more items than the chassis wears",
+            BattleBots.WhyNot(hero with { Items = [.. hero.Items, .. Enumerable.Repeat(new BattleItem("plates", null), room + 1)] }, tier));
+
+        var world = Battles.Begun(new BattleOptions
+        {
+            Tier = tier,
+            Heroes = BattleBots.Compose(new BattleOptions { Tier = tier, TeamA = [Race.Red, Race.Blue], TeamB = [Race.Green, Race.Yellow] }, [hero]).Heroes,
+        });
+        var state = world.Wired!.Heroes[Race.Red];
+        Assert.Equal(["HEAVY_BOLTER1", "HEAVY_BOLTER1"], state.Loadout.Battery(Mounting.Left).Select(i => i.Catalogue));
+        var red = Battles.Hero(world, Race.Red);
+        Assert.Equal([0, 1], red.Weapons.Select(w => w.Copy));
+
+        Assert.Null(Battles.Do(world, new DriveCommand(Race.Red, red.Id, Driving: true, Aim: red.Position + new Vector2(30, 0), Weapons: -1, Buttons: true)));
+        var fired = Battles.Run(world, 2).Where(e => e.Kind == GameEventKind.Fired && e.Actor == red.Id).Select(e => e.Gun).ToHashSet();
+        Assert.Equal([0, 1], fired.Order());
+    }
+
+    [Fact]
     public void Alliances_cannot_change_in_a_battle()
     {
         var world = Battles.Begun();

@@ -1,7 +1,10 @@
 namespace Machines.Sim.Survival;
 
-/// <summary>Something a hero bought at creation, and where it goes; with no slot it stays in the inventory.</summary>
-public sealed record WiredStartItem(string Catalogue, WiredSlot? Slot = null);
+/// <summary>
+/// Something a hero bought at creation, and where it goes; with no slot it stays in the inventory. A weapon may come as a
+/// battery of <paramref name="Count"/> copies on its slot, each bought on its own; a record from before batteries has one.
+/// </summary>
+public sealed record WiredStartItem(string Catalogue, WiredSlot? Slot = null, int Count = 1);
 
 /// <summary>
 /// The settings of a Wired run, part of the match options, so that a recording plays the same whatever the player's

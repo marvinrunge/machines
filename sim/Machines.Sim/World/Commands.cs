@@ -158,16 +158,21 @@ public sealed record WiredHangarCommand(Race Race, bool Open) : WiredCommand(Rac
 /// <summary>
 /// Buys a chassis of the tree or one of the shop's offers, by its catalogue id, into the inventory, or with a
 /// <paramref name="Slot"/> straight onto the hero: all at once or not at all, so that nothing bought is left lying when the hangar closes.
+/// With <paramref name="Add"/> it joins the battery on that slot instead of replacing it; a further copy of the weapon a slot
+/// carries is sold at its full price whether or not it is on offer, and leaves the offer as it is.
 /// </summary>
-public sealed record WiredBuyCommand(Race Race, string Item, WiredSlot? Slot = null) : WiredCommand(Race);
+public sealed record WiredBuyCommand(Race Race, string Item, WiredSlot? Slot = null, bool Add = false) : WiredCommand(Race);
 
 /// <summary>Sells an item out of the inventory for half of what went into it.</summary>
 public sealed record WiredSellCommand(Race Race, int Item) : WiredCommand(Race);
 
-/// <summary>Puts an owned weapon, module or ability into a slot; what sat there goes back into the inventory.</summary>
-public sealed record WiredEquipCommand(Race Race, int Item, WiredSlot Slot) : WiredCommand(Race);
+/// <summary>
+/// Puts an owned weapon, module or ability into a slot; what sat there, a whole battery, goes back into the inventory. With
+/// <paramref name="Add"/> a weapon joins the battery on its slot instead, as its last copy.
+/// </summary>
+public sealed record WiredEquipCommand(Race Race, int Item, WiredSlot Slot, bool Add = false) : WiredCommand(Race);
 
-/// <summary>Takes a worn item off, back into the inventory.</summary>
+/// <summary>Takes a worn item off, back into the inventory: one copy of a battery, whose later copies close up.</summary>
 public sealed record WiredUnequipCommand(Race Race, int Item) : WiredCommand(Race);
 
 /// <summary>Changes to an owned chassis. Weapons and modules stay on where they still fit; the rest and the old chassis go into the inventory.</summary>

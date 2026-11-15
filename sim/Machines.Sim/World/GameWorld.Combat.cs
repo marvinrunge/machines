@@ -2,6 +2,7 @@ using System.Numerics;
 using Machines.Import.Model;
 using Machines.Sim.Combat;
 using Machines.Sim.Navigation;
+using Machines.Sim.Survival;
 
 namespace Machines.Sim.World;
 
@@ -218,7 +219,9 @@ public sealed partial class GameWorld
     /// spread over the burst's duration. A weapon opens fire at what lies in its reach and its arc, not behind cover, and
     /// all the while a machine has that it goes on aiming. A machine driven in first person fires at
     /// <paramref name="aimPoint"/> instead, at whatever is there or not. Only weapons with their bit in
-    /// <paramref name="triggers"/> open fire; the others reload and finish their bursts all the same.
+    /// <paramref name="triggers"/> open fire; the others reload and finish their bursts all the same. The copies of a
+    /// Wired hero's battery that open fire with the copy before them follow it as a salvo, each first round
+    /// <see cref="WiredBalance.BatteryStagger"/> after the one before; every other weapon starts at once, as it always did.
     /// </summary>
     private void Fire(Actor shooter, List<WeaponMount> weapons, Actor? target, (Vector2 Point, float? Height)? aimPoint = null, int triggers = -1)
     {
@@ -230,9 +233,13 @@ public sealed partial class GameWorld
             GunneryOf(shooter).LastAimed = Time;
         }
         FireData? aim = null;
+        // How far along a salvo the copy under way is, and whether the weapon before it opened fire in this tick.
+        var (chain, before) = (0, false);
         for (var i = 0; i < weapons.Count; i++)
         {
             var weapon = weapons[i];
+            var follows = before && weapon.Copy > 0;
+            before = false;
             if (weapon.Reload > 0)
                 weapon.Reload -= Dt;
             if (weapon.RoundsLeft > 0)
@@ -262,8 +269,11 @@ public sealed partial class GameWorld
                 // Fired at a point, a weapon gives its full burst and its rounds go where they are sent, in a Wired run about there.
                 weapon.Burst = aimPoint is not null ? new FireData(0.9999f) : aim ??= TakeAim(shooter, target!);
                 weapon.RoundsLeft = RoundsIn(weapon.Spec, weapon.Burst);
-                weapon.RoundTimer = 0;
+                // A chained copy waits whole ticks, and half a tick more so that no sum of floats lands on a tick's edge.
+                chain = follows ? chain + 1 : 0;
+                weapon.RoundTimer = chain == 0 ? 0 : chain * WiredBalance.BatteryStagger + Dt / 2;
                 weapon.Reload = weapon.Spec.ReloadTime;
+                before = true;
             }
         }
     }
@@ -272,7 +282,7 @@ public sealed partial class GameWorld
     private void FireRound(Actor shooter, WeaponMount weapon, Actor target)
     {
         NoteFiredAt(shooter.Race, target);
-        Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, target.Id, weapon.Spec.TypeName));
+        Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, target.Id, weapon.Spec.TypeName, Gun: GunOf(shooter, weapon)));
         if (Flies(weapon))
         {
             var aimed = Aimed(shooter, weapon, target);
@@ -324,11 +334,11 @@ public sealed partial class GameWorld
         if (!Flies(weapon) && !weapon.IsArea && Terrain is { } ground
             && ground.FirstBlocked(AimPoint(shooter), new Vector3(point, aimHeight), ends: 3) is { } share)
         {
-            Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, null, weapon.Spec.TypeName));
+            Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, null, weapon.Spec.TypeName, Gun: GunOf(shooter, weapon)));
             Raise(new GameEvent(GameEventKind.Impact, shooter.Id, Vector2.Lerp(shooter.Position, point, share), null, weapon.Spec.TypeName));
             return;
         }
-        Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, there?.Id, weapon.Spec.TypeName, strayed));
+        Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, there?.Id, weapon.Spec.TypeName, strayed, GunOf(shooter, weapon)));
         if (Flies(weapon))
             Launch(shooter, weapon, point, aimHeight, sighted: height is not null);
         else if (weapon.Spec.TypeName == "GORILLA_PUNCH")
@@ -342,6 +352,9 @@ public sealed partial class GameWorld
         else
             Burst(InWorld(new Vector3(point, aimHeight)), weapon.Spec, shooter.Id, shooter.Race);
     }
+
+    /// <summary>Which of a machine's weapons fired, by its place among them, for the view; -1 for an actor that is no machine.</summary>
+    private static int GunOf(Actor shooter, WeaponMount weapon) => shooter is Machine machine ? machine.Weapons.IndexOf(weapon) : -1;
 
     /// <summary>How long a gorilla does nothing else once it punches (MachLogPunchWeapon::doFire's busy period).</summary>
     public const float PunchBusy = 2.5f;

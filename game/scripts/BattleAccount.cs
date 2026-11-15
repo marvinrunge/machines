@@ -97,16 +97,21 @@ public sealed class BattleProfile
         Owned[WiredBalance.StartChassis] = 1;
         Owned[WiredBalance.StartWeapon] = Math.Max(1, Owned.GetValueOrDefault(WiredBalance.StartWeapon));
         if (LastHero is { } hero)
+        {
+            var chassis = hero.Chassis ?? WiredBalance.StartChassis;
             LastHero = hero with
             {
                 Name = BattleDraft.ShortName(hero.Name ?? ""),
                 Colour = Enum.IsDefined(hero.Colour) ? hero.Colour : Race.Red,
-                Chassis = hero.Chassis ?? WiredBalance.StartChassis,
-                Items = (hero.Items ?? []).Where(i => i?.Catalogue is not null).ToList(),
+                Chassis = chassis,
+                // A battery's count from 1 to what its slot carries; an entry from before batteries has one.
+                Items = (hero.Items ?? []).Where(i => i?.Catalogue is not null)
+                    .Select(i => i with { Count = WiredProfile.Copies(chassis, i.Slot, i.Catalogue, i.Count) }).ToList(),
                 Map = hero.Map ?? "",
                 Lives = Math.Clamp(hero.Lives, 1, 5),
                 Win = Enum.IsDefined(hero.Win) ? hero.Win : BattleWin.Both,
             };
+        }
         return this;
     }
 
