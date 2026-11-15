@@ -45,7 +45,7 @@ public static class GameOptions
         }
     }
 
-    /// <summary>Whether the original's films play between the menus' screens (Menu Transitions, see <see cref="MenuFilms"/>).</summary>
+    /// <summary>Whether a transition leads between the menus' screens (Menu Transitions, see <see cref="MenuTransition"/>).</summary>
     public static bool Transitions
     {
         get { Read(); return _transitions; }

@@ -10,6 +10,7 @@ uniform vec2 size = vec2(1920.0, 1080.0);   // the board's size in menu pixels
 uniform float tile = 1365.0;                // one tile's size in menu pixels
 uniform vec3 tint : source_color = vec3(1.0);
 uniform vec3 pulse : source_color = vec3(0.55, 1.0, 0.3);
+uniform float surge = -1.0;                 // how far a surge along every trace has come (0 their start, 1 their end); below 0 none
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -47,6 +48,13 @@ void fragment() {
 	float behind = head - trace.g;
 	float light = fires * trace.r * smoothstep(-0.012, 0.0, behind) * exp(-max(behind, 0.0) * 12.0);
 	colour += pulse * light * 1.4;
+
+	// Between two screens a surge runs along all traces at once, a short glow behind it, fading as it ends.
+	if (surge > -0.5) {
+		float after = surge - trace.g;
+		float lit = trace.r * smoothstep(-0.02, 0.0, after) * exp(-max(after, 0.0) * 7.0);
+		colour += pulse * lit * 2.2 * (1.0 - smoothstep(1.0, 1.3, surge));
+	}
 
 	float soot = fbm(px / 430.0 + vec2(TIME * 0.004, 0.0));
 	colour *= mix(0.5, 1.06, smoothstep(0.22, 0.78, soot));

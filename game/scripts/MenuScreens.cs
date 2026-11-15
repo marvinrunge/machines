@@ -16,8 +16,8 @@ namespace Machines.Game;
 /// room-battle, multiplayer, load, replays, options, graphics, keys, models, pod, pod-path, pod-modules, pod-chassis, pod-room,
 /// campaign, missions, briefing or quit), at that size if one
 /// is given, and quits. The first start's questions (setup, setup-import, setup-look, setup-music) come before the main menu until
-/// they are answered (<see cref="SetupPage"/>). MACHINES_MENU_GO=&lt;page&gt; skips the first films and goes from the main
-/// menu to that page as a click would, with the films of the way (main stays there, to wait for the logos).
+/// they are answered (<see cref="SetupPage"/>). MACHINES_MENU_GO=&lt;page&gt;[,seconds] skips the first films and goes from the main
+/// menu to that page as a click would (after that many seconds), with the transition (main stays there, to wait for the logos).
 /// MACHINES_WIRED_DRIVE plays a whole Wired run from the main menu on (see <see cref="WiredDriver"/>), MACHINES_BATTLE_DRIVE a
 /// whole battle (see <see cref="BattleDriver"/>).
 /// </summary>
@@ -36,7 +36,7 @@ public partial class MenuScreens : Control
     private SubViewport? _shot;
     private string? _shotPath;
     private double _shotTime;
-    private string _screen = MenuFilms.Main;
+    private string _screen = MenuTransition.Main;
     private bool _begun, _idleFilms;
     private double _idle;
 
@@ -124,10 +124,13 @@ public partial class MenuScreens : Control
         // The first start asks its few questions before the main menu.
         Open(page == "main" && _shotPath is null && !SetupPage.Done ? "setup" : page);
         _begun = true;
-        if (!_wentAhead && Setting("MACHINES_MENU_GO") is { } go)
+        if (!_wentAhead && Setting("MACHINES_MENU_GO")?.Split(',', StringSplitOptions.TrimEntries) is [var go, .. var after])
         {
             _wentAhead = true;
-            Callable.From(() => Open(go)).CallDeferred();
+            if (after is [var seconds] && double.TryParse(seconds, System.Globalization.CultureInfo.InvariantCulture, out var wait))
+                GetTree().CreateTimer(wait).Timeout += () => Open(go);
+            else
+                Callable.From(() => Open(go)).CallDeferred();
         }
     }
 
@@ -153,7 +156,7 @@ public partial class MenuScreens : Control
     {
         if (_idleFilms)
             return;
-        _idle = _stage?.Page is MainMenuPage && !MenuFilms.Playing ? _idle + delta : 0;
+        _idle = _stage?.Page is MainMenuPage && !MenuTransition.Playing ? _idle + delta : 0;
         if (_idle < IdleSeconds || StartupFilms.Logos(_assets.GameFolder, EndIdleFilms) is not { } films)
             return;
         _idleFilms = true;
@@ -168,14 +171,14 @@ public partial class MenuScreens : Control
         ShowMain();
     }
 
-    /// <summary>Moves to a page, with the original's films of the way from the screen before.</summary>
+    /// <summary>Moves to a page, with the transition from the screen before (see <see cref="MenuTransition"/>).</summary>
     private void Go(string screen, Func<Control> page)
     {
-        if (MenuFilms.Playing)
+        if (MenuTransition.Playing)
             return;
         var from = _begun ? _screen : screen;
         _screen = screen;
-        MenuFilms.Between(GetTree(), _assets.GameFolder, from, screen, () =>
+        MenuTransition.Between(_stage, from, screen, () =>
         {
             if (IsInstanceValid(this))
                 _stage.Show(page());
@@ -225,7 +228,7 @@ public partial class MenuScreens : Control
         }
     }
 
-    public void ShowMain() => Go(MenuFilms.Main, () => new MainMenuPage(this));
+    public void ShowMain() => Go(MenuTransition.Main, () => new MainMenuPage(this));
 
     /// <summary>A question of the first start (see <see cref="SetupPage"/>).</summary>
     public void ShowSetup(SetupPage.Step step) => _stage.Show(new SetupPage(this, step));
@@ -235,21 +238,21 @@ public partial class MenuScreens : Control
     /// <paramref name="room"/> the host is in.
     /// </summary>
     public void ShowSkirmish(bool forRoom = false, RoomState? room = null) =>
-        Go(room is not null ? MenuFilms.Settings : forRoom ? MenuFilms.Join : MenuFilms.Skirmish, () => new SkirmishPage(this, forRoom, room));
+        Go(room is not null ? MenuTransition.Settings : forRoom ? MenuTransition.Join : MenuTransition.Skirmish, () => new SkirmishPage(this, forRoom, room));
 
-    public void ShowMultiplayer() => Go(MenuFilms.Multiplayer, () => new MultiplayerPage(this));
+    public void ShowMultiplayer() => Go(MenuTransition.Multiplayer, () => new MultiplayerPage(this));
 
     /// <summary>The multiplayer page, whose Back goes to <paramref name="back"/> instead of the main menu (the pod, for one).</summary>
-    public void ShowMultiplayer(Action back) => Go(MenuFilms.Multiplayer, () => new MultiplayerPage(this, back));
+    public void ShowMultiplayer(Action back) => Go(MenuTransition.Multiplayer, () => new MultiplayerPage(this, back));
 
     /// <summary>The multiplayer page, on its way back to the room the player is in.</summary>
-    public void ShowRoom() => Go(MenuFilms.Room, () => new MultiplayerPage(this));
+    public void ShowRoom() => Go(MenuTransition.Room, () => new MultiplayerPage(this));
 
-    public void ShowLoad() => Go(MenuFilms.Load, () => FilesPage.Load(ShowMain, path => FilesPage.OpenSaved(GetTree(), path)));
+    public void ShowLoad() => Go(MenuTransition.Load, () => FilesPage.Load(ShowMain, path => FilesPage.OpenSaved(GetTree(), path)));
 
     public void ShowReplays() => _stage.Show(FilesPage.Replays(ShowMain, path => FilesPage.OpenReplay(GetTree(), path)));
 
-    public void ShowOptions() => Go(MenuFilms.Options, () => new OptionsPage(ShowMain, inGame: false));
+    public void ShowOptions() => Go(MenuTransition.Options, () => new OptionsPage(ShowMain, inGame: false));
 
     public void ShowModels() => _stage.Show(new ModelsPage(ShowMain));
 
@@ -266,7 +269,7 @@ public partial class MenuScreens : Control
     public void ShowPod(RoomState room) => _stage.Show(BattlePod.Page(this, HangarShelf.Weapons, room));
 
     /// <summary>The campaign's players.</summary>
-    public void ShowCampaign() => Go(MenuFilms.CampaignPlayers, () => new CampaignPlayersPage(this));
+    public void ShowCampaign() => Go(MenuTransition.CampaignPlayers, () => new CampaignPlayersPage(this));
 
     /// <summary>The choice of mission for the campaign's current player, or the players when there is none.</summary>
     public void ShowMissions()
@@ -274,10 +277,10 @@ public partial class MenuScreens : Control
         if (CampaignProgress.Load().CurrentPlayer is null)
             ShowCampaign();
         else
-            Go(MenuFilms.Scenario, () => new CampaignMissionsPage(this));
+            Go(MenuTransition.Scenario, () => new CampaignMissionsPage(this));
     }
 
-    public void ShowBriefing(Machines.Import.Model.CatalogueScenario mission) => Go(MenuFilms.Briefing, () => new CampaignBriefingPage(this, mission));
+    public void ShowBriefing(Machines.Import.Model.CatalogueScenario mission) => Go(MenuTransition.Briefing, () => new CampaignBriefingPage(this, mission));
 
     public void Message(string text, params (string Text, Action? Act)[] buttons) => _stage.Message(text, buttons);
 

@@ -431,6 +431,8 @@ public partial class Game : Node3D
         var start = data.LoadScenario(request.Scenario).Race(Player)?.Camera;
         _rig.Setup(start is null ? new Vector3(400, 0, 400) : new Vector3(start.Position.X, 0, start.Position.Y),
             new Vector2(World.Planet.Surface.Width, World.Planet.Surface.Depth));
+        // In a match of the original's kind the zenith camera keeps to its heights and its view to the planet.
+        _rig.Confined = World.Wired is null && World.Battle is null && Cinematic.Asked is null;
         // A scenario may start in the ground camera (MachCameras::initialise).
         if (start?.Type == "GROUND")
             UseZenithCamera(false);
@@ -1842,6 +1844,9 @@ public partial class Game : Node3D
 
     /// <summary>Whether the zenith camera (looking down from high up) is in use rather than the ground camera.</summary>
     public bool ZenithCamera => _zenith is null;
+
+    /// <summary>The height of the ground the camera looks at, under the middle of the view.</summary>
+    public float ViewLevel => _rig.Position.Y;
 
     /// <summary>
     /// Switches between the zenith camera and the ground camera, low over the ground looking ahead

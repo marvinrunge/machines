@@ -6,7 +6,8 @@ namespace Machines.Game;
 /// The circuit board the menus lie on (tools/blender/menu-art.py): the rendered tile repeated over the whole window
 /// with its signal pulses (game/assets/menu/menu_board.gdshader), and the parts that sit on it, a fan turning in the
 /// corner, cables coming in from the edge, capacitors and a coil. The parts hold to the window's edges, so whatever
-/// its shape they stay in view and the panels lie on the board between them.
+/// its shape they stay in view and the panels lie on the board between them. Between two screens a surge runs along
+/// all its traces at once (<see cref="Surge"/>, <see cref="MenuTransition"/>).
 /// </summary>
 public partial class MenuBoard : Control
 {
@@ -19,6 +20,10 @@ public partial class MenuBoard : Control
     private readonly List<(Control Part, Vector2 Anchor, Vector2 Align, Vector2 Offset)> _parts = [];
     private ShaderMaterial _board = null!;
     private Control? _blades;
+    private double _surge = -1;
+
+    /// <summary>How long a surge takes to run from the traces' start to their end, in seconds.</summary>
+    private const double SurgeSeconds = 0.7;
 
     public override void _Ready()
     {
@@ -50,7 +55,18 @@ public partial class MenuBoard : Control
     {
         if (_blades is not null)
             _blades.Rotation += (float)delta * 5;
+        if (_surge < 0)
+            return;
+        _surge += delta;
+        var share = _surge / SurgeSeconds;
+        // The head runs from a little before the traces' start to a little past their end, so it comes in and leaves whole.
+        _board.SetShaderParameter("surge", share >= 1 ? -1f : (float)(share * 1.5 - 0.2));
+        if (share >= 1)
+            _surge = -1;
     }
+
+    /// <summary>A signal runs along every trace of the board at once, from their start to their end.</summary>
+    public void Surge() => _surge = 0;
 
     private Control Part(string name, Vector2 anchor, Vector2 align, Vector2 offset)
     {

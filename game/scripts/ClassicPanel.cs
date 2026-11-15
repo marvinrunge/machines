@@ -909,7 +909,9 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
 
     /// <summary>
     /// What the camera sees (MachContinentMap::drawCameraPos): from the zenith the window's corners on the ground, from
-    /// the ground a line of 10 pixels along its heading.
+    /// the ground a line of 10 pixels along its heading. The original cast the corners onto the level 0, where its
+    /// planets mostly lie; the remake's lie higher, which drew the frame far too big, so they are cast onto the level of
+    /// the ground the camera looks at. What lies off the map is cut off, as the original's map bitmap cut it.
     /// </summary>
     private void DrawView(Camera3D camera, Vector2 at, Rect2 rect)
     {
@@ -921,14 +923,16 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             return;
         }
         var window = GetViewportRect().Size;
-        var ground = new Plane(Vector3.Up, 0);
+        var ground = new Plane(Vector3.Up, game.ViewLevel);
         var corners = new[] { new Vector2(ScreenWidth, 0), new Vector2(window.X, 0), window, new Vector2(ScreenWidth, window.Y) }
             .Select(corner => ground.IntersectsRay(camera.ProjectRayOrigin(corner), camera.ProjectRayNormal(corner))).ToList();
         if (corners.Any(corner => corner is null))
             return;
-        var line = corners.Select(corner => MapPoint(rect, new NVector2(corner!.Value.X, corner.Value.Z)).Clamp(rect.Position, rect.End)).ToList();
+        var line = corners.Select(corner => MapPoint(rect, new NVector2(corner!.Value.X, corner.Value.Z))).ToList();
         line.Add(line[0]);
-        DrawPolyline(line.ToArray(), LightGrey, _scale);
+        var map = new[] { rect.Position, new Vector2(rect.End.X, rect.Position.Y), rect.End, new Vector2(rect.Position.X, rect.End.Y) };
+        foreach (var piece in Geometry2D.IntersectPolylineWithPolygon(line.ToArray(), map))
+            DrawPolyline(piece, LightGrey, _scale);
     }
 
     private Vector2 MapPoint(Rect2 rect, NVector2 p) =>

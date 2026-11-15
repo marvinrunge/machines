@@ -45,6 +45,13 @@ public partial class CameraRig : Node3D
     /// </summary>
     private const float ZenithNearest = 38, ZenithFurthest = 130;
 
+    /// <summary>
+    /// Whether the zenith camera keeps to the original's rules, in a match of the original's kind: the heights of zenith.dat
+    /// whatever the keys, and its view inside the planet, the focus held back so that what the window shows of the ground
+    /// stays on the map (MachLogZenithCameraMotionConstraint::move and footprint). Wired, battles and films leave it off.
+    /// </summary>
+    public bool Confined { get; set; }
+
     private const float ClimbSpeed = 15f, MaxRise = 40f;
 
     // How far the ground camera has climbed over the ground.
@@ -189,7 +196,7 @@ public partial class CameraRig : Node3D
             _rise = Mathf.Clamp(_rise + climb * ClimbSpeed * gear * (float)delta, 0, MaxRise);
         else
             _distance *= 1 + climb * gear * (float)delta;
-        if (classic && !Ground)
+        if ((classic || Confined) && !Ground)
             _distance = Mathf.Clamp(_distance, ZenithNearest, ZenithFurthest);
 
         if (input != Vector2.Zero)
@@ -200,6 +207,9 @@ public partial class CameraRig : Node3D
             Position += (right * input.X - forward * input.Y) * speed;
             Position = new Vector3(Mathf.Clamp(Position.X, 0, _bounds.X), 0, Mathf.Clamp(Position.Z, 0, _bounds.Y));
         }
+        // Turning and zooming change what the window shows as well: the focus is held back every frame.
+        if (Confined && !Ground)
+            Position = Confine(Position);
         // The focus follows the ground, so the view keeps its distance on plateaus.
         Position = new Vector3(Position.X, HeightField.Current?.At(Position.X, Position.Z) ?? 0, Position.Z);
         Place();
@@ -211,10 +221,45 @@ public partial class CameraRig : Node3D
     {
         if (!Active || @event is not InputEventMouseButton { Pressed: true } wheel)
             return;
+        var zenith = (GameOptions.ClassicKeys || Confined) && !Ground;
         if (wheel.ButtonIndex == MouseButton.WheelUp)
-            _distance = Mathf.Max(GameOptions.ClassicKeys && !Ground ? ZenithNearest : 40, _distance * 0.9f);
+            _distance = Mathf.Max(zenith ? ZenithNearest : 40, _distance * 0.9f);
         else if (wheel.ButtonIndex == MouseButton.WheelDown)
-            _distance = Mathf.Min(GameOptions.ClassicKeys && !Ground ? ZenithFurthest : 700, _distance * 1.1f);
+            _distance = Mathf.Min(zenith ? ZenithFurthest : 700, _distance * 1.1f);
+    }
+
+    /// <summary>
+    /// The focus held back so that the ground the window shows lies on the planet: the corners of the window cast from
+    /// the camera onto the level of the focus give the view's extent around it, which must stay inside the planet's
+    /// edges (MachLogZenithCameraMotionConstraint::footprint). Where the planet is narrower than the view, the focus
+    /// keeps to its middle.
+    /// </summary>
+    private Vector3 Confine(Vector3 focus)
+    {
+        var (low, high) = Footprint();
+        float Keep(float value, float min, float max, float size) => min > max ? size / 2 : Mathf.Clamp(value, min, max);
+        return new Vector3(Keep(focus.X, -low.X, _bounds.X - high.X, _bounds.X), focus.Y, Keep(focus.Z, -low.Y, _bounds.Y - high.Y, _bounds.Y));
+    }
+
+    /// <summary>How far the ground the window shows reaches from the focus along the planet's axes, at the focus's level.</summary>
+    private (Vector2 Low, Vector2 High) Footprint()
+    {
+        var pitch = Mathf.DegToRad(Pitch);
+        var eye = new Vector3(Mathf.Sin(_yaw), 0, Mathf.Cos(_yaw)) * Mathf.Cos(pitch) * _distance + Vector3.Up * Mathf.Sin(pitch) * _distance;
+        var basis = Basis.LookingAt(-eye, Vector3.Up);
+        var window = GetViewport()?.GetVisibleRect().Size ?? new Vector2(16, 9);
+        var halfHigh = Mathf.Tan(Mathf.DegToRad((Camera?.Fov ?? 50) / 2));
+        var halfWide = halfHigh * window.X / Mathf.Max(window.Y, 1);
+        var (low, high) = (new Vector2(eye.X, eye.Z), new Vector2(eye.X, eye.Z));
+        foreach (var (x, y) in new[] { (-1, 1), (1, 1), (1, -1), (-1, -1) })
+        {
+            var ray = basis * new Vector3(x * halfWide, y * halfHigh, -1);
+            // A corner above the horizon would see the ground nowhere: it is taken as just below it.
+            var down = Mathf.Min(ray.Y, -0.05f * ray.Length());
+            var hit = new Vector2(eye.X + ray.X * -eye.Y / down, eye.Z + ray.Z * -eye.Y / down);
+            (low, high) = (low.Min(hit), high.Max(hit));
+        }
+        return (low, high);
     }
 
     private void Place()

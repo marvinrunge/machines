@@ -62,4 +62,13 @@ public partial class ChipPanel : Container
         foreach (var (level, time) in new[] { (0.55f, 0.05), (0.1f, 0.06), (0.8f, 0.04), (0.35f, 0.07), (1f, 0.12) })
             tween.TweenProperty(this, "Power", level, time);
     }
+
+    /// <summary>Switches the screen off after the delay, flickering out.</summary>
+    public void SwitchOff(double delay)
+    {
+        var tween = CreateTween();
+        tween.TweenInterval(delay);
+        foreach (var (level, time) in new[] { (0.35f, 0.03), (0.8f, 0.03), (0.15f, 0.04), (0f, 0.05) })
+            tween.TweenProperty(this, "Power", level, time);
+    }
 }

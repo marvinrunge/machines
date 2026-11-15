@@ -316,7 +316,7 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
     private void ShowOffline()
     {
         (_state, _known) = (null, null);
-        screens.At(MenuFilms.Multiplayer);
+        screens.At(MenuTransition.Multiplayer);
         (_offline.Visible, _lobby.Visible, _room.Visible) = (true, false, false);
         _connect.Disabled = _host.Disabled = false;
     }
@@ -324,7 +324,7 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
     private void ShowLobby()
     {
         (_state, _known) = (null, null);
-        screens.At(MenuFilms.Multiplayer);
+        screens.At(MenuTransition.Multiplayer);
         (_offline.Visible, _lobby.Visible, _room.Visible) = (false, true, false);
         _connect.Disabled = _host.Disabled = true;
         _join.Disabled = _roomList is not { Rooms.Count: > 0 };
@@ -355,7 +355,7 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
                 AddChat(Lang.T("{0} left the room", player.Name), note: true);
         }
         (_state, _known) = (state, state);
-        screens.At(MenuFilms.Room);
+        screens.At(MenuTransition.Room);
         (_offline.Visible, _lobby.Visible, _room.Visible) = (false, false, true);
         var battle = state.Options.Battle;
         _roomTitle.Text = battle is not null && BattleCatalogue.Map(state.Scenario) is { } map

@@ -132,7 +132,7 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
             MenuTheme.UiScale = Sizes[i];
             Stage.Fit();
         };
-        // The menus' size and their films share a row: one more would push Back off the screen.
+        // The menus' size and their transitions share a row: one more would push Back off the screen.
         var transitions = Setting(Text(7099, "Menu Transitions"), Switch(GameOptions.Transitions, on => GameOptions.Transitions = on), 0);
         rows.AddChild(Setting("Menu size", Line(28, size, transitions)));
         size.SizeFlagsHorizontal = transitions.SizeFlagsHorizontal = SizeFlags.ExpandFill;

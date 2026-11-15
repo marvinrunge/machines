@@ -21,12 +21,14 @@ public partial class MenuStage : Control
 
     public Control? Page => _page;
 
+    public MenuBoard? Board { get; private set; }
+
     public override void _Ready()
     {
         Theme = _theme = MenuTheme.Build();
         TextureFilter = TextureFilterEnum.LinearWithMipmaps;
         MouseFilter = MouseFilterEnum.Stop;
-        AddChild(new MenuBoard());
+        AddChild(Board = new MenuBoard());
         GameOptions.ShowGamma();
         if (GetParent() is Control parent)
             parent.Resized += Fit;
@@ -62,6 +64,24 @@ public partial class MenuStage : Control
         _page?.QueueFree();
         _page = page;
         AddChild(page);
+    }
+
+    /// <summary>
+    /// The page on show switches off within <paramref name="seconds"/>: it takes no more clicks, its chips flicker out
+    /// one after the other, the last first, and what lies on them fades with them.
+    /// </summary>
+    public void SwitchOff(double seconds)
+    {
+        if (_page is null || !IsInstanceValid(_page))
+            return;
+        CloseMessage();
+        _page.FocusBehaviorRecursive = FocusBehaviorRecursiveEnum.Disabled;
+        _page.MouseBehaviorRecursive = MouseBehaviorRecursiveEnum.Disabled;
+        var chips = _page.FindChildren("*", "", true, false).OfType<ChipPanel>().Reverse().ToArray();
+        var step = chips.Length > 1 ? (seconds - 0.15) * 0.6 / (chips.Length - 1) : 0;
+        for (var i = 0; i < chips.Length; i++)
+            chips[i].SwitchOff(i * step);
+        _page.CreateTween().TweenProperty(_page, "modulate:a", 0f, seconds).SetEase(Tween.EaseType.In).SetTrans(Tween.TransitionType.Quad);
     }
 
     /// <summary>

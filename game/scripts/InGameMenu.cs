@@ -11,7 +11,7 @@ namespace Machines.Game;
 /// scenario's text; Restart starts it again; Hot Keys lists the keys; Options are the main menu's; Save Game and Load
 /// Game keep and fetch matches; Exit Game leaves for where the match was set up. After a match its debriefing comes up
 /// here, with its statistics behind it; after a replay the statistics alone. A campaign mission's briefing has its tasks
-/// and hints. The original's films play between the pages (<see cref="MenuFilms"/>).
+/// and hints. A transition leads from page to page (<see cref="MenuTransition"/>).
 /// The arrow keys move between buttons, Enter presses one, Esc goes back; no key reaches the match behind.
 /// </summary>
 public partial class InGameMenu(Game game, bool statistics = false, bool debriefing = false) : Control
@@ -19,7 +19,7 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
     private MenuStage _stage = null!;
     private StringTable? _strings;
     private ClassicAssets _assets = null!;
-    private string _screen = debriefing ? MenuFilms.Debriefing : statistics ? MenuFilms.Statistics : MenuFilms.InGame;
+    private string _screen = debriefing ? MenuTransition.Debriefing : statistics ? MenuTransition.Statistics : MenuTransition.InGame;
 
     public override void _Ready()
     {
@@ -49,14 +49,14 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
             GetViewport().SetInputAsHandled();
     }
 
-    /// <summary>Moves to a page, with the original's films of the way there.</summary>
+    /// <summary>Moves to a page, with the transition there.</summary>
     private void Go(string screen, Action show)
     {
-        if (MenuFilms.Playing)
+        if (MenuTransition.Playing)
             return;
         var from = _screen;
         _screen = screen;
-        MenuFilms.Between(game.GetTree(), _assets.GameFolder, from, screen, () =>
+        MenuTransition.Between(_stage, from, screen, () =>
         {
             if (IsInstanceValid(this))
                 show();
@@ -64,7 +64,7 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
     }
 
     /// <summary>Out of the match to where it was set up: its campaign's missions, the skirmish setup or the rooms; a replay goes straight.</summary>
-    private void Leave() => Go(game.Watching ? _screen : game.Online ? MenuFilms.Join : Mission() is not null ? MenuFilms.Scenario : MenuFilms.Skirmish, game.ExitToMenus);
+    private void Leave() => Go(game.Watching ? _screen : game.Online ? MenuTransition.Join : Mission() is not null ? MenuTransition.Scenario : MenuTransition.Skirmish, game.ExitToMenus);
 
     private string Text(int id, string fallback) =>
         Lang.Original(_strings is not null && _strings.Strings.TryGetValue(id, out var text) && !string.IsNullOrWhiteSpace(text) ? text.Trim() : fallback, fallback);
@@ -87,7 +87,7 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
     // ---- the pages (ctxingam, ctxbrief, ctxhotky, ctxoptns, ctxsave, ctxload, ctxstats) -------------
 
     /// <summary>The menu's own page: its eight buttons in two columns, as in the original, and a note under them.</summary>
-    private void ShowMain(string? note = null) => Go(MenuFilms.InGame, () => _stage.Show(new BuiltPage(game.CloseMenu, page =>
+    private void ShowMain(string? note = null) => Go(MenuTransition.InGame, () => _stage.Show(new BuiltPage(game.CloseMenu, page =>
     {
         var column = MenuPage.Column(MenuPage.Gap);
         page.AddChild(column);
@@ -130,7 +130,7 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
         MenuPage.Focus(resume);
     })));
 
-    public void ShowBriefing() => Go(MenuFilms.Briefing, () =>
+    public void ShowBriefing() => Go(MenuTransition.Briefing, () =>
     {
         if (Mission() is { } mission && _assets.ScenarioTexts(mission.Text) is { } texts)
             ShowMissionBriefing(mission, texts, hints: false);
@@ -170,7 +170,7 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
     /// text, spoken, with the tasks done and failed; then Restart, which a network game cannot, the statistics, or
     /// Continue to where the match was set up.
     /// </summary>
-    private void ShowDebriefing() => Go(MenuFilms.Debriefing, () => _stage.Show(new BuiltPage(null, page =>
+    private void ShowDebriefing() => Go(MenuTransition.Debriefing, () => _stage.Show(new BuiltPage(null, page =>
     {
         var mission = Scenario();
         var texts = _assets.ScenarioTexts(mission?.Text);
@@ -292,7 +292,7 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
         ("Nuke", Key.N), ("Camouflage", Key.O),
     }.Where(command => !KeyMap.Taken(command.Key, firstPerson: false)).Select(command => (command.Action, KeyMap.Name(command.Key))).Append(("Lay mines", "Shift M")).ToArray();
 
-    internal void ShowHotkeys() => Go(MenuFilms.HotKeys, () => _stage.Show(new BuiltPage(() => ShowMain(), page =>
+    internal void ShowHotkeys() => Go(MenuTransition.HotKeys, () => _stage.Show(new BuiltPage(() => ShowMain(), page =>
     {
         ChipPanel List(int heading, string fallback, (string Action, string Keys)[] keys, int across)
         {
@@ -323,9 +323,9 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
         MenuPage.Focus(back);
     })));
 
-    private void ShowOptions() => Go(MenuFilms.Options, () => _stage.Show(new OptionsPage(() => ShowMain(), inGame: true)));
+    private void ShowOptions() => Go(MenuTransition.Options, () => _stage.Show(new OptionsPage(() => ShowMain(), inGame: true)));
 
-    private void ShowSave() => Go(MenuFilms.Save, () => _stage.Show(FilesPage.Save(() => ShowMain(), name =>
+    private void ShowSave() => Go(MenuTransition.Save, () => _stage.Show(FilesPage.Save(() => ShowMain(), name =>
     {
         var why = game.SaveGame(name);
         if (why is null)
@@ -333,10 +333,10 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
         return why;
     })));
 
-    private void ShowLoad() => Go(MenuFilms.Load, () => _stage.Show(FilesPage.Load(() => ShowMain(), path => FilesPage.OpenSaved(game.GetTree(), path))));
+    private void ShowLoad() => Go(MenuTransition.Load, () => _stage.Show(FilesPage.Load(() => ShowMain(), path => FilesPage.OpenSaved(game.GetTree(), path))));
 
     /// <summary>The statistics after a match (MachGuiCtxStatistics); OK and Esc go back to its debriefing, after a replay OK leaves for the menus.</summary>
-    private void ShowStatistics() => Go(MenuFilms.Statistics, () => _stage.Show(new BuiltPage(game.Watching ? () => ShowMain() : ShowDebriefing, page =>
+    private void ShowStatistics() => Go(MenuTransition.Statistics, () => _stage.Show(new BuiltPage(game.Watching ? () => ShowMain() : ShowDebriefing, page =>
     {
         var chip = new ChipPanel { SizeFlagsVertical = SizeFlags.ExpandFill, Padding = 24 };
         chip.AddChild(new StatisticsChart(game, Text));

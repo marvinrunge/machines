@@ -117,7 +117,7 @@ public partial class WiredDriver(string folder, WiredDriver.Plan plan) : Node
     private async Task Menu()
     {
         await Until(() => Find<MainMenuPage>(), 60);
-        await Until(() => !MenuFilms.Playing, 30);
+        await Until(() => !MenuTransition.Playing, 30);
         // The page may be put up again in its first moments: the one there after them is the one to press.
         await Wait(1.5);
         var menu = await Until(() => Find<MainMenuPage>() is { } page && IsInstanceValid(page) ? page : null, 30) ?? throw new InvalidOperationException("no main menu came");
