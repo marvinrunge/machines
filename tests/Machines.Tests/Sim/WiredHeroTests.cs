@@ -205,7 +205,7 @@ public class WiredHeroTests
         var limit = WiredCatalogue.Chassis.Where(c => Heaviest(c) >= WiredBalance.MostLoad).Select(c => c.Id);
 
         Assert.Equal(WiredBalance.MostLoad, WiredCatalogue.Chassis.Max(Heaviest));
-        Assert.Equal(["grunt3", "overseer2", "overseer3", "commander5", "boss2"], limit);
+        Assert.Equal(["grunt3", "overseer2", "overseer3", "commander5", "boss2", "widow6", "commander6"], limit);
     }
 
     [Fact]
@@ -529,7 +529,7 @@ public class WiredHeroTests
     [Fact]
     public void Every_chassis_resolves_against_the_real_data_on_the_machine_it_names()
     {
-        Assert.Equal(17, WiredCatalogue.Chassis.Count);
+        Assert.Equal(25, WiredCatalogue.Chassis.Count);
         foreach (var chassis in WiredCatalogue.Chassis)
         {
             var level = Data.Parm.Machine(chassis.TypeName).Level(chassis.Level);

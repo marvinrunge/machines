@@ -12,7 +12,8 @@ public static partial class HangarText
     public static string Name(string catalogue)
     {
         if (WiredCatalogue.FindChassis(catalogue) is { } chassis)
-            return $"{Lang.T(Studio.Names.GetValueOrDefault(chassis.SubType, chassis.SubType))} {chassis.Level}";
+            return WiredMachines.Find(chassis.TypeName, chassis.Level) is { } own ? Lang.T(own.Name)
+                : $"{Lang.T(Studio.Names.GetValueOrDefault(chassis.SubType, chassis.SubType))} {chassis.Level}";
         if (WiredCatalogue.FindWeapon(catalogue) is not null)
             return Lang.T(Studio.Title(catalogue));
         if (WiredCatalogue.FindModule(catalogue) is { } module)
@@ -88,6 +89,7 @@ public static partial class HangarText
     {
         var text = why.StartsWith("needs ") && why.EndsWith(" first")
             ? Lang.T("needs {0} first", string.Join($" {Lang.T("or")} ", why[6..^6].Split(" or ").Select(Name)))
+            : why.StartsWith("opens at wave ") ? Lang.T("opens at wave {0}", why[14..])
             : Lang.T(why);
         return text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
     }

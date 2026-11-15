@@ -184,10 +184,9 @@ public partial class ModelsPage(Action back) : MenuPage(back)
     /// </summary>
     private static IEnumerable<Entry> ReadEntries()
     {
-        var path = System.IO.Path.Combine(Paths.Classic, "models.txt");
-        if (!File.Exists(path))
-            yield break;
-        foreach (var line in File.ReadLines(path))
+        // Wired's own machines (classic/wired/models.txt, see ClassicAssets.Wired) follow the original's, in the same words.
+        var lists = new[] { System.IO.Path.Combine(Paths.Classic, "models.txt"), System.IO.Path.Combine(Paths.Classic, "wired", "models.txt") };
+        foreach (var line in lists.Where(File.Exists).SelectMany(File.ReadLines))
         {
             var words = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (words.Length < 3 || words[0] is not ("MACHINE" or "CONSTRUCTION") || !int.TryParse(words[2], out var level))

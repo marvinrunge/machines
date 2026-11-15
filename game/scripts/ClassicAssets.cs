@@ -226,7 +226,7 @@ public sealed class ClassicAssets
         if (_modelFolder is null)
             return null;
         var colour = race.ToString().ToLowerInvariant();
-        if (FindModel(Path.Combine(_modelFolder, colour), id) is not { } path)
+        if ((Wired(colour, id) ?? FindModel(Path.Combine(_modelFolder, colour), id)) is not { } path)
             return null;
         // The HD look shows the machines rebuilt in Blender from the overhauled parts where they have been built
         // (renders/hd-plan/probe/tools/export_game.py writes classic/built; tools/blender/HD-MODELS.md keeps the list),
@@ -280,6 +280,32 @@ public sealed class ClassicAssets
             ? Directory.GetFiles(folder, "*.json", SearchOption.AllDirectories)
                 .Select(f => Path.ChangeExtension(Path.GetRelativePath(folder, f), null).Replace('\\', '/'))
             : [];
+
+    /// <summary>
+    /// A machine of Wired's own (classic/wired/models/&lt;colour&gt;, listed in classic/wired/models.txt), put together
+    /// from the original's parts and textures by tools/wired-models; never part of the original. Only by its exact id.
+    /// </summary>
+    private string? Wired(string colour, string id)
+    {
+        var path = Path.Combine(_modelFolder!, "..", "wired", "models", colour, id + ".json");
+        return File.Exists(path) ? path : null;
+    }
+
+    /// <summary>
+    /// A machine of Wired's own (<c>TYPE_LEVEL_SUBTYPE_COMBO</c>) carrying weapons its one model does not show: put together
+    /// from that model and the weapons' as a hero is (<see cref="HeroRig"/>). Null for anything else, its model included.
+    /// </summary>
+    private Rig? WiredRig(string id, Race race)
+    {
+        var words = id.Split('_');
+        if (words.Length < 4 || !int.TryParse(words[1], out var level) || HeroDonors.WiredChassis(words[0], words[2], level) is not { } chassis
+            || HeroDonors.Chassis.GetValueOrDefault(chassis) == id)
+            return null;
+        var weapons = new string?[3];
+        foreach (var (mounting, weapon) in Machines.Sim.Combat.WeaponCombos.Split(string.Join('_', words[3..])))
+            weapons[(int)mounting] = weapon;
+        return HeroRig.Compose(this, race, chassis, weapons);
+    }
 
     private static string? FindModel(string folder, string id)
     {
@@ -440,6 +466,8 @@ public sealed class ClassicAssets
     /// </summary>
     public Rig? RigFor(string id, Race race)
     {
+        if (WiredRig(id, race) is { } composed)
+            return composed;
         var key = $"{race}/{id}";
         return Cached(_rigs, key, () =>
         {
@@ -1084,7 +1112,10 @@ public sealed class ClassicAssets
     {
         if (_gameFolder is null || relative.Length == 0)
             return (null, Clearness.Opaque);
-        var path = Path.Combine(_gameFolder, relative);
+        // Textures painted for Wired's own machines (tools/wired-models) lie in classic/wired, not in the game folder.
+        var path = relative.StartsWith("wired/") && _modelFolder is not null
+            ? Path.Combine(_modelFolder, "..", relative)
+            : Path.Combine(_gameFolder, relative);
         var name = Path.GetFileName(relative).ToLowerInvariant();
         var transparent = name.EndsWith("_t.bmp") || name.EndsWith("_bt.bmp");
         string Sibling(char letter) => path[..^5] + letter + path[^4..];

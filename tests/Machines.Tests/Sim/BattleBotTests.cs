@@ -181,8 +181,10 @@ public class BattleBotTests
         var run = world.Battle!;
         var mate = Battles.Hero(world, run.Teams[0].Order().Last());
         var (start, door) = (mate.Position, world.BattlePod(0)!.EntranceOutside!.Value);
+        // A mate set down in the way of the door moves out of it; one already clear of it (a narrow machine) may stay.
+        var inTheWay = Vector2.Distance(start, door) < 2 * mate.Radius;
         Battles.Run(world, BattleBalance.Opening + 30);
-        Assert.True(Vector2.Distance(mate.Position, start) > 5, $"{map}: the mate moved {Vector2.Distance(mate.Position, start)} m");
+        Assert.True(!inTheWay || Vector2.Distance(mate.Position, start) > 5, $"{map}: the mate moved {Vector2.Distance(mate.Position, start)} m");
         Assert.IsType<StandGroundOrder>(mate.Order);
         Assert.True(Vector2.Distance(mate.Position, door) >= 2 * mate.Radius, $"{map}: the guard stands {Vector2.Distance(mate.Position, door)} m from the door");
         Assert.True(Vector2.Distance(mate.Position, world.BattlePod(0)!.Position) <= BattleBalance.CaptureRadius + 10);

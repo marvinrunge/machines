@@ -356,8 +356,11 @@ public static class HeroSeat
         if (across)
             own = RigGraft.MountOf(parts, Opposite(side));
         var shape = Shape(chassis, worn).ToList();
-        if (own < 0 || RoomOf(body, own) is not { } room || MountBox.Of(shape.SelectMany(s => s).ToList()) is not { } box)
+        if (own < 0 || MountBox.Of(shape.SelectMany(s => s).ToList()) is not { } box)
             return fitted;
+        // An empty mount, as Wired's own machines have on top (tools/wired-models): the weapon stands on it, its middle over it.
+        var found = RoomOf(body, own);
+        var (empty, room) = (found is null, found ?? default);
 
         var mount = MountPlace(body, side);
         Matrix4x4.Invert(mount, out var back);
@@ -374,8 +377,8 @@ public static class HeroSeat
         else
         {
             var sinks = HeroDonors.Sinks(chassis);
-            var (x, y, z) = Between(across ? room.Across : room, turned, side, sinks || side == Mounting.Top || !HeroDonors.Leans(worn.Weapon),
-                sinks ? solid.Skin(mount.Translation, Up(mount)) - Embedded : null);
+            var (x, y, z) = Between(across ? room.Across : room, turned, side, sinks || empty || side == Mounting.Top || !HeroDonors.Leans(worn.Weapon),
+                sinks ? solid.Skin(mount.Translation, Up(mount)) - Embedded : empty ? -Embedded : null);
             seat = fitted * Matrix4x4.CreateTranslation(x, y, z);
         }
 

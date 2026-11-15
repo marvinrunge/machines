@@ -21,12 +21,14 @@ public class HeroRigTests
 
     private static bool Exported => Directory.Exists(Models);
 
-    // Where each look finds a rig, the first asked first (ClassicAssets).
+    private static readonly string Wired = Path.Combine("wired", "models");
+
+    // Where each look finds a rig, the first asked first (ClassicAssets): Wired's own machines lie in classic/wired in every look.
     private static readonly Dictionary<string, string[]> Looks = new()
     {
-        ["Classic"] = ["models"],
-        ["Overhauled"] = [Path.Combine("remake", "models"), "models"],
-        ["Hd"] = [Path.Combine("built", "models"), Path.Combine("meshy", "models"), Path.Combine("remake", "models"), "models"],
+        ["Classic"] = [Wired, "models"],
+        ["Overhauled"] = [Wired, Path.Combine("remake", "models"), "models"],
+        ["Hd"] = [Wired, Path.Combine("built", "models"), Path.Combine("meshy", "models"), Path.Combine("remake", "models"), "models"],
     };
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string, string), RigShape[]> Shapes = new();
@@ -67,7 +69,7 @@ public class HeroRigTests
     // Read once: the exports hold every vertex.
     private static RigPart[] Rig(string model) => Rigs.GetOrAdd(model, _ =>
     {
-        using var file = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(Models, model + ".json")));
+        using var file = JsonDocument.Parse(File.ReadAllBytes(Looks["Classic"].Select(folder => Path.Combine(Exports, folder, "red", model + ".json")).First(File.Exists)));
         return file.RootElement.GetProperty("rig").GetProperty("nodes").EnumerateArray()
             .Select(n => new RigPart(n.GetProperty("parent").GetInt32(), n.GetProperty("name").GetString() ?? "")).ToArray();
     });
@@ -725,7 +727,7 @@ public class HeroRigTests
         foreach (var weapon in HeroDonors.Weapons.Where(HeroDonors.Leans))
         {
             var donor = HeroDonors.For(weapon, Mounting.Right)!;
-            using var file = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(Models, donor.Model + ".json")));
+            using var file = JsonDocument.Parse(File.ReadAllBytes(Looks["Classic"].Select(folder => Path.Combine(Exports, folder, "red", donor.Model + ".json")).First(File.Exists)));
             var rig = file.RootElement.GetProperty("rig");
             var parts = Rig(donor.Model);
             var mount = RigGraft.MountOf(parts, donor.Mount);

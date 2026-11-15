@@ -45,27 +45,35 @@ public enum ChassisLine
 /// </summary>
 public static class ChassisTree
 {
-    public const int Columns = 5, Rows = 8;
+    public const int Columns = 9, Rows = 8;
 
     private static readonly Dictionary<string, (int Column, int Row)> Places = new()
     {
-        ["grunt1"] = (2, 0),
-        ["grunt2"] = (2, 1),
+        ["grunt1"] = (3, 0),
+        ["grunt2"] = (3, 1),
         ["reaper2"] = (1, 2),
-        ["grunt3"] = (2, 2),
-        ["overseer2"] = (4, 2),
+        ["grunt3"] = (3, 2),
+        ["overseer2"] = (6, 2),
         ["reaper3"] = (1, 3),
-        ["overseer3"] = (4, 3),
+        ["overseer3"] = (6, 3),
         ["ballista3"] = (0, 4),
-        ["knight3"] = (2, 4),
-        ["boss1"] = (4, 4),
+        ["knight3"] = (4, 4),
+        ["boss1"] = (7, 4),
         ["ballista4"] = (0, 5),
-        ["knight4"] = (2, 5),
-        ["commander4"] = (3, 5),
-        ["boss2"] = (4, 5),
-        ["knight5"] = (2, 6),
-        ["commander5"] = (3, 6),
-        ["gorilla5"] = (1, 7),
+        ["reaper4"] = (1, 5),
+        ["grunt4"] = (3, 5),
+        ["knight4"] = (4, 5),
+        ["commander4"] = (5, 5),
+        ["boss3"] = (7, 5),
+        ["boss2"] = (8, 5),
+        ["knight5"] = (4, 6),
+        ["commander5"] = (5, 6),
+        ["ballista5"] = (0, 7),
+        ["reaper5"] = (1, 7),
+        ["widow6"] = (2, 7),
+        ["grunt5"] = (3, 7),
+        ["gorilla5"] = (4, 7),
+        ["commander6"] = (5, 7),
     };
 
     public static (int Column, int Row) Place(string chassis) => Places[chassis];
@@ -165,7 +173,7 @@ public sealed class HangarShop(GameWorld world, WiredState state)
             return ChassisStep.Worn;
         if (state.Items.Any(i => i.Catalogue == chassis.Id))
             return ChassisStep.Owned;
-        if (chassis.Needs.Count > 0 && !chassis.Needs.Any(state.Reached.Contains))
+        if (chassis.Needs.Count > 0 && !chassis.Needs.Any(state.Reached.Contains) || world.TooEarly(chassis))
             return ChassisStep.Closed;
         return Bank >= Price(chassis.Id) ? ChassisStep.ForSale : ChassisStep.TooDear;
     }

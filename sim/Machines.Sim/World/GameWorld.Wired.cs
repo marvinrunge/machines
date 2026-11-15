@@ -575,11 +575,16 @@ public sealed partial class GameWorld
                 return "you own that chassis already";
             if (chassis.Needs.Count > 0 && !chassis.Needs.Any(state.Reached.Contains))
                 return $"needs {string.Join(" or ", chassis.Needs)} first";
+            if (TooEarly(chassis))
+                return $"opens at wave {chassis.FromWave}";
         }
         else if (!state.Offer.Contains(id))
             return "that is not on offer";
         return WhyNoRoom(state) ?? (Races[state.Race].Bmu < state.Priced(WiredCatalogue.Price(id)) ? "not enough BMUs" : null);
     }
+
+    /// <summary>Whether a run has not yet come to the wave whose shop sells a chassis; a battle sells them all.</summary>
+    public bool TooEarly(WiredChassis chassis) => Battle is null && Wired is { } run && run.ShopWave < chassis.FromWave;
 
     /// <returns>null if the inventory takes one more, otherwise why not.</returns>
     public string? WhyNoRoom(WiredState state) => state.Inventory.Count() >= WiredBalance.InventoryLimit ? "the inventory is full" : null;

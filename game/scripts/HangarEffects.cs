@@ -21,7 +21,7 @@ public static partial class HangarText
     public static Color? Family(WiredItem item) => item.Kind == WiredKind.Chip && WiredChips.Find(item.Catalogue) is { } chip ? FamilyColour(chip.Family) : null;
 
     /// <summary>A machine's name, with its level.</summary>
-    public static string Machine(ResearchKey key) =>
+    public static string Machine(ResearchKey key) => WiredMachines.Find(key.TypeName, key.HardwareLevel) is { } own ? Lang.T(own.Name) :
         $"{Lang.T(Studio.Names.GetValueOrDefault(key.SubType ?? key.Type, key.SubType ?? key.Type))} {key.HardwareLevel}";
 
     /// <summary>What a machine carries, each kind of weapon once.</summary>

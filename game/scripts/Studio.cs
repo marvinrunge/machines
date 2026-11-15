@@ -20,7 +20,7 @@ namespace Machines.Game;
 /// colours and markings.</item>
 /// </list>
 /// Per type: <c>-weapons.png</c>, every weapon its exports carry, at one scale so sizes compare, and
-/// <c>-overview.png</c>, its levels side by side. For all: <c>&lt;out&gt;/faceplates.png</c>, every distinct eye box
+/// <c>-overview.png</c>, its levels side by side, and <c>-scale.png</c>, the same at one scale. For all: <c>&lt;out&gt;/faceplates.png</c>, every distinct eye box
 /// once with its eyes dark, at one scale. The three pictures of a hull share one camera and line up pixel for pixel.
 /// A building is photographed like a hull, its weapons kept on (an emplacement carries one set for good).
 /// Smaller JPEGs of the pictures go to &lt;out&gt;/web, for the gallery page.
@@ -103,6 +103,15 @@ public partial class Studio : Node
         _assets = new ClassicAssets(Paths.Root);
         BuildStage();
 
+        // MACHINES_STUDIO_WALK=<model id>[,<frames>]: the machine walking on the spot instead, a picture a frame.
+        if (System.Environment.GetEnvironmentVariable("MACHINES_STUDIO_WALK") is { Length: > 0 } walk)
+        {
+            var words = walk.Split(',', StringSplitOptions.TrimEntries);
+            await FilmWalk(words[0], words.Length > 1 ? int.Parse(words[1]) : 60, output);
+            GetTree().Quit();
+            return;
+        }
+
         var exports = ReadExports().Where(e => wanted.Count == 0 ? !e.Building : wanted.Contains(e.Kind) || (e.Building && wanted.Contains("BUILDINGS"))).ToList();
         foreach (var kind in exports.Select(e => e.Kind).Distinct())
             await Photograph(kind, exports.Where(e => e.Kind == kind).ToList(), output);
@@ -133,7 +142,10 @@ public partial class Studio : Node
             };
             yield return new Export(string.Join('_', words.Skip(1)), kind, int.Parse(words[2]), null, true);
         }
-        foreach (var line in File.ReadLines(path).Where(l => l.StartsWith("MACHINE ")))
+        // Wired's own machines (classic/wired/models.txt, see ClassicAssets.Wired) after the original's, with MACHINES_STUDIO_WIRED=1.
+        var wired = Path.Combine(Paths.Classic, "wired", "models.txt");
+        var lists = System.Environment.GetEnvironmentVariable("MACHINES_STUDIO_WIRED") == "1" && File.Exists(wired) ? new[] { path, wired } : [path];
+        foreach (var line in lists.SelectMany(File.ReadLines).Where(l => l.StartsWith("MACHINE ")))
         {
             var words = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             var withSub = words[1] is "AGGRESSOR" or "ADMINISTRATOR" or "CONSTRUCTOR" or "TECHNICIAN";
@@ -325,6 +337,31 @@ public partial class Studio : Node
         }
     }
 
+    /// <summary>
+    /// The machine <paramref name="id"/> walking on the spot at 4 m/s, <paramref name="frames"/> pictures at 30 a
+    /// second as walk-&lt;id&gt;-NNN.png, from the studio's camera framed on it at rest with room for its steps.
+    /// </summary>
+    private async Task FilmWalk(string id, int frames, string output)
+    {
+        if (Build(new Export(id, "walk", 0, null)) is not { } unit)
+        {
+            GD.PrintErr($"Studio: no rig for {id}");
+            return;
+        }
+        Directory.CreateDirectory(output);
+        unit.View.Visible = true;
+        Show(unit, _ => true);
+        var (centre, distance) = Frame(Points(unit, _ => true));
+        Aim(centre, distance * 1.15f);
+        const float PerSecond = 30, Speed = 4;
+        for (var f = 0; f < frames; f++)
+        {
+            unit.View.Animate(1 / PerSecond, Speed, 0, Speed, 0);
+            Save(await Shoot(720), Path.Combine(output, $"walk-{id}-{f:D3}.png"));
+        }
+        unit.View.QueueFree();
+    }
+
     private async Task Photograph(string kind, List<Export> exports, string output)
     {
         var name = Names.GetValueOrDefault(kind, kind);
@@ -376,6 +413,8 @@ public partial class Studio : Node
         if (weapons.Count > 0)
             Save(await Compose(await WeaponPictures(weapons), CellSize, LabelHeight, 38), Path.Combine(folder, $"{Slug(name)}-weapons.png"));
         Save(await Compose(overview, OverviewSize, 56, 30), Path.Combine(folder, $"{Slug(name)}-overview.png"));
+        var lineup = units.GroupBy(u => u.Export.Level).Select(l => ($"{name} {l.Key}", l.First())).ToList();
+        Save(await Compose(await ScalePictures(lineup), OverviewSize, 56, 30), Path.Combine(folder, $"{Slug(name)}-scale.png"));
 
         foreach (var unit in units)
             unit.View.QueueFree();
@@ -402,6 +441,26 @@ public partial class Studio : Node
             unit.View.QueueFree();
         }
         Save(await Compose(cells, CellSize, LabelHeight, 38), stem + "-races.png");
+    }
+
+    /// <summary>Each level whole, all at the scale the largest needs and from the same height, so their sizes compare.</summary>
+    private async Task<List<(string Label, Image Picture)>> ScalePictures(List<(string Label, Unit Unit)> levels)
+    {
+        var frames = levels.Select(l => Frame(Points(l.Unit, _ => true))).ToList();
+        var distance = frames.Max(f => f.Distance);
+        var height = frames.Max(f => f.Centre.Y);
+        var pictures = new List<(string, Image)>();
+        foreach (var ((label, unit), frame) in levels.Zip(frames))
+        {
+            unit.View.Visible = true;
+            Show(unit, _ => true);
+            Aim(frame.Centre with { Y = height }, distance);
+            var picture = (await Shoot(CellSize)).OnWhite();
+            picture.Resize(OverviewSize, OverviewSize, Image.Interpolation.Lanczos);
+            pictures.Add((label, picture));
+            unit.View.Visible = false;
+        }
+        return pictures;
     }
 
     /// <summary>Every weapon on its own, all at the scale the largest needs, so their sizes compare.</summary>

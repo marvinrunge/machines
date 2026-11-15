@@ -2894,6 +2894,9 @@ msgstr "Wähle einen Chip"
 msgid "needs {0} first"
 msgstr "braucht zuerst {0}"
 
+msgid "opens at wave {0}"
+msgstr "ab Welle {0}"
+
 msgid "or"
 msgstr "oder"
 

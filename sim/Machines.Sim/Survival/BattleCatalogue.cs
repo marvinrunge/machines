@@ -34,6 +34,15 @@ public static class BattleCatalogue
         ["ballista4"] = 7,
         ["boss2"] = 7,
         ["gorilla5"] = 8,
+        // Wired's own machines, by the rows of the tree they stand in.
+        ["grunt4"] = 6,
+        ["reaper4"] = 6,
+        ["boss3"] = 6,
+        ["grunt5"] = 8,
+        ["reaper5"] = 8,
+        ["widow6"] = 8,
+        ["ballista5"] = 8,
+        ["commander6"] = 8,
     };
 
     /// <summary>The tier of a chassis, or 0 for one without a row.</summary>

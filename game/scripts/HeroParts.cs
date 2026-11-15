@@ -38,7 +38,22 @@ public static class HeroDonors
         ["boss1"] = "ADMINISTRATOR_1_BOSS_T_WASP_LIGHT_STING",
         ["boss2"] = "ADMINISTRATOR_2_BOSS_T_BEE_BOMB",
         ["gorilla5"] = "AGGRESSOR_5_NINJA_L_MULTI_LAUNCHER7_T_GORILLA_PUNCH_R_MULTI_LAUNCHER7",
+        // Wired's own, from classic/wired (tools/wired-models): only the classic look has them, the others show it too.
+        ["grunt4"] = "AGGRESSOR_4_GRUNT_LR_HEAVY_BOLTER1_X2",
+        ["grunt5"] = "AGGRESSOR_5_GRUNT_LR_HEAVY_BOLTER1_X2",
+        ["reaper4"] = "AGGRESSOR_4_ASSASSIN_LR_PLASMA_RIFLE_X2",
+        ["reaper5"] = "AGGRESSOR_5_ASSASSIN_LR_PLASMA_RIFLE_X2",
+        ["widow6"] = "AGGRESSOR_6_ASSASSIN_LR_PLASMA_RIFLE_X2",
+        ["ballista5"] = "AGGRESSOR_5_BALLISTA_LRT_MULTI_LAUNCHER2_X3",
+        ["boss3"] = "ADMINISTRATOR_3_BOSS_T_WASP_LIGHT_STING",
+        ["commander6"] = "ADMINISTRATOR_6_COMMANDER_LR_PULSE_CANNON_X2",
     };
+
+    /// <summary>The chassis of the catalogue a machine of Wired's own is, by its type and level; null for the original's.</summary>
+    public static string? WiredChassis(string type, string? subType, int level) =>
+        Machines.Sim.Survival.WiredMachines.IsWired(subType is null ? type : $"{type} {subType}", level)
+            ? Machines.Sim.Survival.WiredCatalogue.Chassis.FirstOrDefault(c => c.Type == type && c.SubType == subType && c.Level == level)?.Id
+            : null;
 
     private const Mounting L = Mounting.Left, R = Mounting.Right, T = Mounting.Top;
 
@@ -109,6 +124,9 @@ public static class HeroDonors
         ("knight4" or "knight5" or "commander5", "MULTI_LAUNCHER2") => 0.6f,
         ("commander4", "MULTI_LAUNCHER2") => 0.5f,
         ("ballista3", "FLAME_THROWER2") => 0.75f,
+        // Wired's own: the Colossus' sides are tall enough for a bigger tank to lean on, the Marshal's crown leaves less room.
+        ("ballista5", "FLAME_THROWER2") => 1.4f,
+        ("commander6", "FLAME_THROWER2") => 0.9f,
         _ => 1,
     };
 

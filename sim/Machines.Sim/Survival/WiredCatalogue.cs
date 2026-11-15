@@ -19,8 +19,9 @@ public sealed record ChassisSlot(Mounting Mounting, SlotSize Size, string? Fixed
 /// scanner and locomotion (<see cref="MachineSpec.Level"/>); slots, load, power, price and the way there are Wired's own.
 /// </summary>
 /// <param name="Needs">Having owned any one of these opens it up; none for the first.</param>
+/// <param name="FromWave">The first wave whose shop sells it in a run; Wired's own machines (<see cref="WiredMachines"/>) wait.</param>
 public sealed record WiredChassis(string Id, string Type, string SubType, int Level, IReadOnlyList<ChassisSlot> Slots, int Modules,
-    int Load, int Power, int Price, IReadOnlyList<string> Needs)
+    int Load, int Power, int Price, IReadOnlyList<string> Needs, int FromWave = 0)
 {
     public string TypeName => $"{Type} {SubType}";
 
@@ -98,6 +99,16 @@ public static class WiredCatalogue
         new("boss1", "ADMINISTRATOR", "BOSS", 1, [Top(L)], 2, 8, 14, 700, ["overseer3"]),
         new("boss2", "ADMINISTRATOR", "BOSS", 2, [Top(H)], 3, 14, 20, 1400, ["boss1"]),
         new("gorilla5", "AGGRESSOR", "NINJA", 5, [Left(H), Right(H), new ChassisSlot(Mounting.Top, H, "GORILLA_PUNCH")], 4, 44, 30, 3200, ["knight5", "ballista4"]),
+        // Wired's own machines (WiredMachines), sidegrades at the ends of the lines: Sarge, Old Iron, Thresher, Harvester,
+        // Widow, Colossus, Hornet and Marshal. Their values are the concept's, a start for balancing.
+        new("grunt4", "AGGRESSOR", "GRUNT", 4, [Left(M), Right(M), Top(L)], 3, 20, 13, 850, ["grunt3"], 12),
+        new("grunt5", "AGGRESSOR", "GRUNT", 5, [Left(H), Right(M), Top(M)], 4, 34, 20, 2400, ["grunt4"], 20),
+        new("reaper4", "AGGRESSOR", "ASSASSIN", 4, [Left(H), Right(M)], 3, 24, 16, 1250, ["reaper3"], 12),
+        new("reaper5", "AGGRESSOR", "ASSASSIN", 5, [Left(H), Right(H), Top(L)], 3, 32, 22, 3000, ["reaper4"], 20),
+        new("widow6", "AGGRESSOR", "ASSASSIN", 6, [Left(H), Right(M)], 3, 18, 24, 2700, ["reaper3"], 20),
+        new("ballista5", "AGGRESSOR", "BALLISTA", 5, [Left(H), Right(H), Top(H)], 3, 52, 30, 3600, ["ballista4"], 20),
+        new("boss3", "ADMINISTRATOR", "BOSS", 3, [Left(L), Right(L), Top(M)], 2, 14, 20, 1700, ["boss1"], 14),
+        new("commander6", "ADMINISTRATOR", "COMMANDER", 6, [Left(H), Right(H), Top(M)], 6, 32, 44, 3300, ["commander5"], 20),
     ];
 
     public static readonly IReadOnlyList<WiredWeapon> Weapons =
@@ -168,6 +179,15 @@ public static class WiredCatalogue
         new(26, "AGGRESSOR", "BALLISTA", 4, ["LR_MULTI_LAUNCHER2_X2"]),
         new(30, "AGGRESSOR", "KNIGHT", 5, ["LRT_MULTI_LAUNCHER4_X3", "LRT_PLASMA_CANNON2_X3"]),
         new(36, "AGGRESSOR", "NINJA", 5, ["L_MULTI_LAUNCHER7_T_GORILLA_PUNCH_R_MULTI_LAUNCHER7"]),
+        // Wired's own machines come only after the Gorilla, so that the runs the balance aims at (to wave 20) never meet
+        // them. No export has them with these weapons: the view puts them together as it does a hero (HeroRig).
+        new(38, "AGGRESSOR", "GRUNT", 4, ["LR_HEAVY_BOLTER2_X2_T_AUTO_CANNON"]),
+        new(38, "AGGRESSOR", "ASSASSIN", 4, ["L_PLASMA_CANNON2_R_PLASMA_CANNON1"]),
+        new(42, "ADMINISTRATOR", "BOSS", 3, ["LR_PULSE_RIFLE_X2_T_WASP_METAL_STING"]),
+        new(42, "AGGRESSOR", "ASSASSIN", 6, ["L_MULTI_LAUNCHER1_R_PULSE_CANNON"]),
+        new(46, "AGGRESSOR", "GRUNT", 5, ["L_PLASMA_CANNON2_R_HEAVY_BOLTER2_T_MULTI_LAUNCHER3"]),
+        new(46, "AGGRESSOR", "ASSASSIN", 5, ["LR_PLASMA_CANNON2_X2_T_PULSE_RIFLE"]),
+        new(50, "AGGRESSOR", "BALLISTA", 5, ["LRT_MULTI_LAUNCHER2_X3"]),
     ];
 
     public static WiredChassis? FindChassis(string id) => Chassis.FirstOrDefault(c => c.Id == id);
