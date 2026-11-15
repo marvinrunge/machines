@@ -207,6 +207,47 @@ function solid(m, name, corners, texture, uv) {
     node(m, name).parts.push(part);
 }
 
+/**
+ * Faces with texture coordinates of their own, as one part wearing `texture` on node `name`: each face is
+ * [corners, uvs], four corners going round (two may meet, for a point) and an [u, v] for each. Each faces away from
+ * `centre` (default the middle of all corners), so a convex solid may list its corners either way round.
+ */
+function faces(m, name, list, texture, centre) {
+    if (m.space === name)
+        list = list.map(([q, uv]) => [q.map(c => toNode(m, name, c)), uv]);
+    const all = list.flatMap(([q]) => q);
+    centre ??= [0, 1, 2].map(i => all.reduce((s, c) => s + c[i], 0) / all.length);
+    const part = { ...material(m, texture), positions: [], normals: [], uvs: [], indices: [] };
+    for (let [q, uv] of list) {
+        // Newell's normal, which a quad two of whose corners meet still has
+        let n = [0, 0, 0];
+        q.forEach((a, i) => {
+            const b = q[(i + 1) % q.length];
+            n = [n[0] + (a[1] - b[1]) * (a[2] + b[2]), n[1] + (a[2] - b[2]) * (a[0] + b[0]), n[2] + (a[0] - b[0]) * (a[1] + b[1])];
+        });
+        n = normalise(n);
+        const mid = [0, 1, 2].map(i => q.reduce((s, c) => s + c[i], 0) / q.length);
+        if (n.reduce((s, v, i) => s + v * (mid[i] - centre[i]), 0) < 0) {
+            q = [...q].reverse();
+            uv = [...uv].reverse();
+            n = n.map(v => -v);
+        }
+        for (const t of [[0, 1, 2], [0, 2, 3]]) {
+            const [a, b, c] = t.map(k => q[k]), ab = b.map((v, i) => v - a[i]), ac = c.map((v, i) => v - a[i]);
+            // a corner where two meet leaves one of the two triangles without area
+            if (Math.hypot(ab[1] * ac[2] - ab[2] * ac[1], ab[2] * ac[0] - ab[0] * ac[2], ab[0] * ac[1] - ab[1] * ac[0]) < 1e-9)
+                continue;
+            for (const k of t) {
+                part.indices.push(part.positions.length / 3);
+                part.positions.push(...q[k]);
+                part.normals.push(...n);
+                part.uvs.push(...uv[k]);
+            }
+        }
+    }
+    node(m, name).parts.push(part);
+}
+
 /** A model-space point (at rest) in the space of node `name`; its transforms are rigid. */
 function toNode(m, name, p) {
     const w = world(m, nodes(m, name)[0][1]);
@@ -466,7 +507,7 @@ function write(m, colour, words) {
 // ---- the machines ----------------------------------------------------------------------------------------------
 
 const RECIPES = require("./recipes")({ load, scale, stretch, spread, scaleShapes, middle, nodes, world, ground, inModel,
-    solid, box, shell, ring, ball, spire, beam, mount, arm, texture, toNode, boxOf, surfaceZ, cloneLeg, move, points, boxUnder, tilt });
+    solid, faces, box, shell, ring, ball, spire, beam, mount, arm, texture, toNode, boxOf, surfaceZ, cloneLeg, move, points, boxUnder, tilt });
 
 // ---- running ---------------------------------------------------------------------------------------------------
 

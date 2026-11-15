@@ -41,39 +41,47 @@ public enum ChassisLine
 /// <summary>
 /// The chassis on the shop's tree: where each stands and which lines run between them, the catalogue's <c>Needs</c>. Any one
 /// line into a chassis opens it. The grunts run down the middle, the Ballistas down the left and the administrators
-/// down the right, and all come together in the Gorilla. Free of Godot, so the tests can compile it.
+/// down the right, and all come together in the Gorilla; the constructors stand at the far left, the spies at the far
+/// right. Free of Godot, so the tests can compile it.
 /// </summary>
 public static class ChassisTree
 {
-    public const int Columns = 9, Rows = 8;
+    public const int Columns = 11, Rows = 8;
 
     private static readonly Dictionary<string, (int Column, int Row)> Places = new()
     {
-        ["grunt1"] = (3, 0),
-        ["grunt2"] = (3, 1),
-        ["reaper2"] = (1, 2),
-        ["grunt3"] = (3, 2),
-        ["overseer2"] = (6, 2),
-        ["reaper3"] = (1, 3),
-        ["overseer3"] = (6, 3),
-        ["ballista3"] = (0, 4),
-        ["knight3"] = (4, 4),
-        ["boss1"] = (7, 4),
-        ["ballista4"] = (0, 5),
-        ["reaper4"] = (1, 5),
-        ["grunt4"] = (3, 5),
-        ["knight4"] = (4, 5),
-        ["commander4"] = (5, 5),
-        ["boss3"] = (7, 5),
-        ["boss2"] = (8, 5),
-        ["knight5"] = (4, 6),
-        ["commander5"] = (5, 6),
-        ["ballista5"] = (0, 7),
-        ["reaper5"] = (1, 7),
-        ["widow6"] = (2, 7),
-        ["grunt5"] = (3, 7),
-        ["gorilla5"] = (4, 7),
-        ["commander6"] = (5, 7),
+        ["grunt1"] = (4, 0),
+        ["grunt2"] = (4, 1),
+        ["dozer1"] = (0, 2),
+        ["reaper2"] = (2, 2),
+        ["grunt3"] = (4, 2),
+        ["overseer2"] = (7, 2),
+        ["builder3"] = (0, 3),
+        ["reaper3"] = (2, 3),
+        ["overseer3"] = (7, 3),
+        ["spy3"] = (10, 3),
+        ["ballista3"] = (1, 4),
+        ["knight3"] = (5, 4),
+        ["boss1"] = (8, 4),
+        ["behemoth4"] = (0, 5),
+        ["ballista4"] = (1, 5),
+        ["reaper4"] = (2, 5),
+        ["grunt4"] = (4, 5),
+        ["knight4"] = (5, 5),
+        ["commander4"] = (6, 5),
+        ["boss3"] = (8, 5),
+        ["boss2"] = (9, 5),
+        ["spy5"] = (10, 5),
+        ["knight5"] = (5, 6),
+        ["commander5"] = (6, 6),
+        ["titan6"] = (0, 7),
+        ["ballista5"] = (1, 7),
+        ["reaper5"] = (2, 7),
+        ["widow6"] = (3, 7),
+        ["grunt5"] = (4, 7),
+        ["gorilla5"] = (5, 7),
+        ["commander6"] = (6, 7),
+        ["phantom6"] = (10, 7),
     };
 
     public static (int Column, int Row) Place(string chassis) => Places[chassis];
@@ -154,7 +162,7 @@ public sealed class HangarShop(GameWorld world, WiredState state)
 
     public int SquadSize => world.Escorts(state.Race).Count();
 
-    public int SquadLimit => WiredBalance.SquadLimit(Wave, WiredChips.SquadExtra(state));
+    public int SquadLimit => world.SquadLimit(state);
 
     /// <summary>What lies in the inventory, against <see cref="WiredBalance.InventoryLimit"/>.</summary>
     public int Spares => state.Inventory.Count();

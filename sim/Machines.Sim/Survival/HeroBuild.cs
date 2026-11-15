@@ -47,7 +47,7 @@ public sealed record HeroBuild
     /// <summary>How near it must come to a wreck to collect it.</summary>
     public required float PickupReach { get; init; }
 
-    /// <summary>The cooldown of its dash in seconds; null without thrusters.</summary>
+    /// <summary>The cooldown of its dash in seconds: of the thrusters or the chassis' own, the shorter; null without either.</summary>
     public required float? DashCooldown { get; init; }
 
     /// <summary>What a player should know about it, in plain words for the hangar.</summary>
@@ -104,6 +104,9 @@ public sealed record HeroBuild
                 dash = dash is { } other ? MathF.Min(other, cooldown) : cooldown;
             }
         }
+        // A dash built into the chassis: thrusters can only make it come round sooner.
+        if (chassis.Dash is { } builtIn)
+            dash = dash is { } thrusters ? MathF.Min(thrusters, builtIn) : builtIn;
         foreach (var item in loadout.Abilities.OfType<WiredItem>())
             draw += WiredCatalogue.FindAbility(item.Catalogue)?.Power ?? 0;
         var chips = WiredChips.Building(loadout);
@@ -145,7 +148,8 @@ public sealed record HeroBuild
             RotationSpeed = level.RotationSpeed * rotate,
             RotationAcceleration = level.RotationAcceleration * rotate,
             BodyTurnRate = level.BodyTurnRate * rotate,
-            Accuracy = Math.Min(100, (level.Accuracy ?? 100) + accuracy),
+            // Constructors and spies have no accuracy in the data, which the original's machines read as perfect aim.
+            Accuracy = Math.Min(100, (level.Accuracy ?? WiredBalance.NoAccuracy) + accuracy),
             ScannerRange = (int)MathF.Round(level.ScannerRange * (1 + scanner)),
             NightVision = nightVision,
             NumberOfWeapons = weapons.Count,

@@ -31,7 +31,7 @@ public class WiredReplayTests
     ]);
 
     [Fact]
-    public void The_protocol_went_up_for_the_new_commands() => Assert.Equal(11, NetJson.Protocol);
+    public void The_protocol_went_up_for_the_new_commands() => Assert.Equal(12, NetJson.Protocol);
 
     [Fact]
     public void Every_wired_command_comes_through_the_wire_as_it_went_in()
@@ -56,6 +56,10 @@ public class WiredReplayTests
             new WiredSquadBuyCommand(Race.Red, new ResearchKey("AGGRESSOR", "GRUNT", 1, "R_BOLTER")),
             new WiredAbilityCommand(Race.Red, 1, new Vector2(120, 80.5f)),
             new WiredDashCommand(Race.Red, new Vector2(0, -1)),
+            new WiredSpecialCommand(Race.Red),
+            new WiredSpecialCommand(Race.Red, false),
+            new WiredTowerCommand(Race.Red, "turret2", new Vector2(310.25f, 92), 3),
+            new WiredScrapTowerCommand(Race.Red, 41),
         ];
 
         // Each sealed kind of command is in the list above.

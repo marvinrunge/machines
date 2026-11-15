@@ -147,7 +147,7 @@ public sealed record WiredReadout
                 ? new DashReadout(MathF.Max(0, state.DashReadyAt - now), 1 - Share(state.DashReadyAt - now, cooldown), now < state.DashUntil)
                 : null,
             Squad = escorts,
-            SquadLimit = WiredBalance.SquadLimit(run.ShopWave, WiredChips.SquadExtra(state)),
+            SquadLimit = world.SquadLimit(state),
             Chips = BoardOf(world, state),
             HangarHere = world.WhyNoHangar(state) is null,
             PodDistance = hero is not null && pod is not null ? hero.DistanceTo(pod) : null,

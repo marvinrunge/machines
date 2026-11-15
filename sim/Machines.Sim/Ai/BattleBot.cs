@@ -66,8 +66,9 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
         if (team < 0)
             return;
         var ownPod = world.BattlePod(team);
-        var enemies = Enemies(run, team);
-        if (world.HeroOf(side) is not { Inside: null } hero)
+        var own = world.HeroOf(side);
+        var enemies = Enemies(run, team, own);
+        if (own is not { Inside: null } hero)
         {
             NoteQuiet(ownPod, enemies);
             return;
@@ -84,9 +85,9 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
         Attack(run, team, hero, enemies);
     }
 
-    /// <summary>The enemy heroes standing outside, in race order.</summary>
-    private List<Machine> Enemies(BattleRun run, int team) =>
-        run.Teams[1 - team].Order().Select(world.HeroOf).OfType<Machine>().Where(m => m.Inside is null).ToList();
+    /// <summary>The enemy heroes standing outside, in race order, leaving out those hidden in their shadow from the bot's own hero.</summary>
+    private List<Machine> Enemies(BattleRun run, int team, Machine? own) =>
+        run.Teams[1 - team].Order().Select(world.HeroOf).OfType<Machine>().Where(m => m.Inside is null && (own is null || !world.Shadowed(own, m))).ToList();
 
     /// <summary>Keeps the time since an enemy was last near the own pod.</summary>
     private void NoteQuiet(Construction? ownPod, List<Machine> enemies)

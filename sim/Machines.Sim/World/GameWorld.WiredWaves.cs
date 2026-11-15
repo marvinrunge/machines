@@ -131,7 +131,10 @@ public sealed partial class GameWorld
         run.Phase = WiredPhase.Wave;
         run.Wave++;
         foreach (var state in run.Heroes.Values)
+        {
             state.HangarOpen = false;
+            RefillMines(state);
+        }
         var plan = WiredDirector.Plan(Data, run.Wave, run.Options.Difficulty, Random, run.NextSpecial);
         run.Boss = plan.Boss;
         run.WaveStarted = run.LastGroupAt = Time;
@@ -241,7 +244,7 @@ public sealed partial class GameWorld
         if (plan is { HitPoints: 1, Damage: 1 })
             return;
         var stats = machine.Stats with { HitPoints = Math.Max(1, (int)(machine.Stats.HitPoints * plan.HitPoints)) };
-        var weapons = machine.Weapons.Select(w => new WeaponMount(w.Mounting, w.Spec with { Damage = w.Spec.Damage * plan.Damage })).ToList();
+        var weapons = machine.Weapons.Select(w => new WeaponMount(w.Mounting, w.Base with { Damage = w.Base.Damage * plan.Damage })).ToList();
         machine.Refit(machine.Spec, stats, machine.WeaponCombo, weapons);
     }
 
@@ -263,7 +266,8 @@ public sealed partial class GameWorld
                 continue;
             if (foe.Plan.Healer && boss is not null)
                 Send(foe.Machine, boss.HitPoints < boss.MaxHitPoints ? new HealOrder(boss.Id) : new FollowOrder(boss.Id), boss.Position);
-            else if (foe.HuntsHero && hero is not null)
+            // A hunter that cannot see its quarry in the shadow marches on the pod instead.
+            else if (foe.HuntsHero && hero is not null && !Shadowed(foe.Machine, hero))
                 Send(foe.Machine, new AttackOrder(hero.Id, Then: goal), hero.Position);
             else
                 marching.Add(foe.Machine.Id);
@@ -336,7 +340,7 @@ public sealed partial class GameWorld
         var boss = run.Bosses.FirstOrDefault()?.Machine;
         var pod = AttackedPod(run);
         GiveOrders(run, run.Foes.Where(foe => foe.Machine.Order is IdleOrder or ReturnOrder
-            || foe.HuntsHero && hero is not null && (foe.Machine.Order is AttackMoveOrder || foe.Machine.Order is AttackOrder attack && attack.Target == pod?.Id)
+            || foe.HuntsHero && hero is not null && !Shadowed(foe.Machine, hero) && (foe.Machine.Order is AttackMoveOrder || foe.Machine.Order is AttackOrder attack && attack.Target == pod?.Id)
             || foe.Plan.Healer && boss is not null && boss.HitPoints < boss.MaxHitPoints && foe.Machine.Order is not HealOrder
             || WantsNextEscort(run, foe)).ToList());
         if (pod is null)

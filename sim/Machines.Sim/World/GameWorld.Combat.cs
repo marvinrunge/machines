@@ -199,6 +199,7 @@ public sealed partial class GameWorld
         if (Wired is not null)
         {
             WiredStruck(target, armour, shooter, weapon);
+            AfterHit(target, before, dealer);
             NoteDamage(target, before + armour - Math.Max(0, target.HitPoints) - target.Armour, by, dealer, weapon);
         }
         if (Battle is not null)

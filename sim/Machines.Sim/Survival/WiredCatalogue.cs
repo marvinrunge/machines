@@ -15,15 +15,58 @@ public enum SlotSize
 public sealed record ChassisSlot(Mounting Mounting, SlotSize Size, string? Fixed = null);
 
 /// <summary>
+/// What a chassis can do besides carrying weapons, Wired's own. The body's (<see cref="WiredMachines.BodySpecials"/>:
+/// plough, harvest, lurk, anchor) belong to the machine type and level and go for every machine of it in a Wired match;
+/// the others are the hero's, from the chassis it wears.
+/// </summary>
+[Flags]
+public enum ChassisSpecial
+{
+    None = 0,
+
+    /// <summary>Old Iron: hits from the front cost less, and its dash rams.</summary>
+    Plough = 1,
+
+    /// <summary>Harvester: a kill near it gives armour back and brings in the wrecks there.</summary>
+    Harvest = 2,
+
+    /// <summary>Widow: standing still, its first shot flies further and hurts more.</summary>
+    Lurk = 4,
+
+    /// <summary>Colossus: it anchors its tracks for range, reload and armour.</summary>
+    Anchor = 8,
+
+    /// <summary>Hornet: a dash without thrusters.</summary>
+    Afterburner = 16,
+
+    /// <summary>Marshal: a bigger squad that aims and mends better near it, and calls it in.</summary>
+    Field = 32,
+
+    /// <summary>The constructors: they raise towers.</summary>
+    Towers = 64,
+
+    /// <summary>The spies: they lay mines.</summary>
+    Mines = 128,
+
+    /// <summary>Phantom: quiet, it cannot be locked on from afar.</summary>
+    Shadow = 256,
+}
+
+/// <summary>
 /// A machine as the hero's body. The real game data supplies its hit points, armour, repair, speed, turn, accuracy,
 /// scanner and locomotion (<see cref="MachineSpec.Level"/>); slots, load, power, price and the way there are Wired's own.
 /// </summary>
+/// <param name="SubType">None for a type without subtypes, the spies.</param>
 /// <param name="Needs">Having owned any one of these opens it up; none for the first.</param>
-/// <param name="FromWave">The first wave whose shop sells it in a run; Wired's own machines (<see cref="WiredMachines"/>) wait.</param>
-public sealed record WiredChassis(string Id, string Type, string SubType, int Level, IReadOnlyList<ChassisSlot> Slots, int Modules,
-    int Load, int Power, int Price, IReadOnlyList<string> Needs, int FromWave = 0)
+/// <param name="FromWave">The first wave whose shop sells it in a run; chassis new to Wired wait.</param>
+/// <param name="Dash">The cooldown of a dash built into the chassis, in seconds; thrusters may make it shorter.</param>
+/// <param name="Special">What it can do besides carrying weapons.</param>
+/// <param name="Towers">The most towers a constructor stands at once.</param>
+public sealed record WiredChassis(string Id, string Type, string? SubType, int Level, IReadOnlyList<ChassisSlot> Slots, int Modules,
+    int Load, int Power, int Price, IReadOnlyList<string> Needs, int FromWave = 0, float? Dash = null,
+    ChassisSpecial Special = ChassisSpecial.None, int Towers = 0)
 {
-    public string TypeName => $"{Type} {SubType}";
+    public string TypeName => SubType is null ? Type : $"{Type} {SubType}";
 
     /// <summary>A glider: only its top slot takes the stings and bombs.</summary>
     public bool Glider => SubType == "BOSS";
@@ -64,6 +107,13 @@ public sealed record WiredModule(string Id, string Name, int Load, int Power, IR
 /// </summary>
 public sealed record WiredAbility(string Id, string Name, string? Based, float Cooldown, int CooldownWaves, float Reach, int Power, int Price, int FromWave);
 
+/// <summary>A tower a constructor hero raises: a MISSILE_EMPLACEMENT of the original's, by its subtype and level.</summary>
+public sealed record WiredTower(string Id, string SubType, int Level)
+{
+    /// <summary>The construction every tower is.</summary>
+    public const string Type = "MISSILE_EMPLACEMENT";
+}
+
 /// <summary>A type of machine the waves bring in and the hangar sells as an escort, from <paramref name="Wave"/> on.</summary>
 public sealed record WiredTier(int Wave, string Type, string SubType, int Level, IReadOnlyList<string> Combos)
 {
@@ -102,13 +152,33 @@ public static class WiredCatalogue
         // Wired's own machines (WiredMachines), sidegrades at the ends of the lines: Sarge, Old Iron, Thresher, Harvester,
         // Widow, Colossus, Hornet and Marshal. Their values are the concept's, a start for balancing.
         new("grunt4", "AGGRESSOR", "GRUNT", 4, [Left(M), Right(M), Top(L)], 3, 20, 13, 850, ["grunt3"], 12),
-        new("grunt5", "AGGRESSOR", "GRUNT", 5, [Left(H), Right(M), Top(M)], 4, 34, 20, 2400, ["grunt4"], 20),
+        new("grunt5", "AGGRESSOR", "GRUNT", 5, [Left(H), Right(M), Top(M)], 4, 34, 20, 2400, ["grunt4"], 20, Dash: 10, Special: ChassisSpecial.Plough),
         new("reaper4", "AGGRESSOR", "ASSASSIN", 4, [Left(H), Right(M)], 3, 24, 16, 1250, ["reaper3"], 12),
-        new("reaper5", "AGGRESSOR", "ASSASSIN", 5, [Left(H), Right(H), Top(L)], 3, 32, 22, 3000, ["reaper4"], 20),
-        new("widow6", "AGGRESSOR", "ASSASSIN", 6, [Left(H), Right(M)], 3, 18, 24, 2700, ["reaper3"], 20),
-        new("ballista5", "AGGRESSOR", "BALLISTA", 5, [Left(H), Right(H), Top(H)], 3, 52, 30, 3600, ["ballista4"], 20),
-        new("boss3", "ADMINISTRATOR", "BOSS", 3, [Left(L), Right(L), Top(M)], 2, 14, 20, 1700, ["boss1"], 14),
-        new("commander6", "ADMINISTRATOR", "COMMANDER", 6, [Left(H), Right(H), Top(M)], 6, 32, 44, 3300, ["commander5"], 20),
+        new("reaper5", "AGGRESSOR", "ASSASSIN", 5, [Left(H), Right(H), Top(L)], 3, 32, 22, 3000, ["reaper4"], 20, Special: ChassisSpecial.Harvest),
+        new("widow6", "AGGRESSOR", "ASSASSIN", 6, [Left(H), Right(M)], 3, 18, 24, 2700, ["reaper3"], 20, Special: ChassisSpecial.Lurk),
+        new("ballista5", "AGGRESSOR", "BALLISTA", 5, [Left(H), Right(H), Top(H)], 3, 52, 30, 3600, ["ballista4"], 20, Special: ChassisSpecial.Anchor),
+        new("boss3", "ADMINISTRATOR", "BOSS", 3, [Left(L), Right(L), Top(M)], 2, 14, 20, 1700, ["boss1"], 14, Dash: 8, Special: ChassisSpecial.Afterburner),
+        new("commander6", "ADMINISTRATOR", "COMMANDER", 6, [Left(H), Right(H), Top(M)], 6, 32, 44, 3300, ["commander5"], 20, Special: ChassisSpecial.Field),
+        // The constructor line, which raises towers, and the spy line, which lays mines: the original's machines new to Wired
+        // as chassis, with Wired's own Titan (Behemoth 6) and Phantom (Spy Locator 6) at their ends.
+        new("dozer1", "CONSTRUCTOR", "DOZER", 1, [Top(L)], 2, 8, 8, 420, ["grunt2"], 6, Special: ChassisSpecial.Towers, Towers: 2),
+        new("builder3", "CONSTRUCTOR", "BUILDER", 3, [Top(L)], 2, 12, 10, 700, ["dozer1"], 9, Special: ChassisSpecial.Towers, Towers: 4),
+        new("behemoth4", "CONSTRUCTOR", "BEHEMOTH", 4, [Top(M)], 3, 18, 12, 1100, ["builder3"], 12, Special: ChassisSpecial.Towers, Towers: 6),
+        new("titan6", "CONSTRUCTOR", "BEHEMOTH", 6, [Top(H)], 4, 28, 18, 2600, ["behemoth4"], 20, Special: ChassisSpecial.Towers, Towers: 8),
+        new("spy3", "SPY_LOCATOR", null, 3, [Top(L)], 3, 8, 12, 420, ["overseer2"], 6, Special: ChassisSpecial.Mines),
+        new("spy5", "SPY_LOCATOR", null, 5, [Left(L), Right(L)], 3, 10, 16, 1000, ["spy3"], 12, Special: ChassisSpecial.Mines),
+        new("phantom6", "SPY_LOCATOR", null, 6, [Left(M), Right(M)], 4, 16, 26, 2600, ["spy5"], 20, Special: ChassisSpecial.Mines | ChassisSpecial.Shadow),
+    ];
+
+    /// <summary>The towers a constructor hero may raise, smallest first; which of them a chassis builds goes by its machine's data.</summary>
+    public static readonly IReadOnlyList<WiredTower> Towers =
+    [
+        new("turret1", "TURRET", 1),
+        new("turret2", "TURRET", 2),
+        new("turret3", "TURRET", 3),
+        new("sentry3", "SENTRY", 3),
+        new("sentry4", "SENTRY", 4),
+        new("launcher4", "LAUNCHER", 4),
     ];
 
     public static readonly IReadOnlyList<WiredWeapon> Weapons =
@@ -194,6 +264,7 @@ public static class WiredCatalogue
     public static WiredWeapon? FindWeapon(string id) => Weapons.FirstOrDefault(w => w.Id == id);
     public static WiredModule? FindModule(string id) => Modules.FirstOrDefault(m => m.Id == id);
     public static WiredAbility? FindAbility(string id) => Abilities.FirstOrDefault(a => a.Id == id);
+    public static WiredTower? FindTower(string id) => Towers.FirstOrDefault(t => t.Id == id);
 
     /// <summary>What a catalogue id is, or null for none.</summary>
     public static WiredKind? KindOf(string id) =>

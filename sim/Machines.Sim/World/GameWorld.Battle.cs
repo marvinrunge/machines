@@ -267,6 +267,9 @@ public sealed partial class GameWorld
                 LoseShare(run, race, hero, hero is null ? "down" : "left");
                 continue;
             }
+            // In the other team's circle a hero is seen, shadow or not: no pod is taken unseen.
+            if (Wired?.Heroes.GetValueOrDefault(race) is { } state)
+                Reveal(state);
             if (run.Options.Win == BattleWin.Wipe)
                 continue;
             run.Shares[race] = BattleRun.Gained(run.Shares.GetValueOrDefault(race));

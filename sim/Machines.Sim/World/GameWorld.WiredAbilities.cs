@@ -80,6 +80,9 @@ public sealed partial class GameWorld
                 LayMinefield(hero, aim);
                 break;
         }
+        // What hurts gives the hero away: a Phantom's shadow starts over.
+        if (ability.Id is "vortex" or "discharge" or "ionstrike")
+            Reveal(state);
         if (Battle is not null && ability.Id == "ionstrike")
             state.AbilityReadyAt[item.Id] = Time + BattleBalance.IonCooldown;
         else if (ability.CooldownWaves > 0)

@@ -302,6 +302,33 @@ public enum GameEventKind
 
     /// <summary>A hero fell in a battle (Actor: the machine it was; Position: where; Other: the race that dealt the last hit, if an enemy did; Detail: the fallen hero's race).</summary>
     BattleHeroKilled,
+
+    /// <summary>An Old Iron's dash rammed a machine (Actor: the machine rammed; Position: where).</summary>
+    WiredRammed,
+
+    /// <summary>A Harvester's kill gave it armour back (Actor: the Harvester; Position: where it stands; Detail: the armour gained).</summary>
+    WiredHarvest,
+
+    /// <summary>A Colossus began to lock its tracks (Actor: the machine; Position: where it stands).</summary>
+    WiredAnchoring,
+
+    /// <summary>A Colossus' tracks are locked (Actor: the machine; Position: where it stands).</summary>
+    WiredAnchored,
+
+    /// <summary>A Colossus began to release its tracks (Actor: the machine; Position: where it stands).</summary>
+    WiredReleasing,
+
+    /// <summary>A Colossus' tracks are free again (Actor: the machine; Position: where it stands).</summary>
+    WiredReleased,
+
+    /// <summary>A Marshal's rally called an escort in (Actor: the escort; Position: where it stood before).</summary>
+    WiredSquadRallied,
+
+    /// <summary>A constructor hero placed a tower (Actor: the site; Position: where; Detail: the tower's catalogue id).</summary>
+    WiredTowerPlaced,
+
+    /// <summary>A tower was pulled down for part of its price (Actor: the tower; Position: where it stood; Detail: the BMUs back).</summary>
+    WiredTowerScrapped,
 }
 
 /// <param name="Mark">Where a round fired in first person really went, height and all, when that is not under the crosshair (a Wired run).</param>

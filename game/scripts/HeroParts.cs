@@ -47,6 +47,14 @@ public static class HeroDonors
         ["ballista5"] = "AGGRESSOR_5_BALLISTA_LRT_MULTI_LAUNCHER2_X3",
         ["boss3"] = "ADMINISTRATOR_3_BOSS_T_WASP_LIGHT_STING",
         ["commander6"] = "ADMINISTRATOR_6_COMMANDER_LR_PULSE_CANNON_X2",
+        // The constructors and spies: the original's own with weapon mounts (tools/wired-models), and Titan and Phantom.
+        ["dozer1"] = "CONSTRUCTOR_1_DOZER_WIRED",
+        ["builder3"] = "CONSTRUCTOR_3_BUILDER_WIRED",
+        ["behemoth4"] = "CONSTRUCTOR_4_BEHEMOTH_WIRED",
+        ["titan6"] = "CONSTRUCTOR_6_BEHEMOTH",
+        ["spy3"] = "SPY_LOCATOR_3_WIRED",
+        ["spy5"] = "SPY_LOCATOR_5_WIRED",
+        ["phantom6"] = "SPY_LOCATOR_6",
     };
 
     /// <summary>The chassis of the catalogue a machine of Wired's own is, by its type and level; null for the original's.</summary>
@@ -127,6 +135,12 @@ public static class HeroDonors
         // Wired's own: the Colossus' sides are tall enough for a bigger tank to lean on, the Marshal's crown leaves less room.
         ("ballista5", "FLAME_THROWER2") => 1.4f,
         ("commander6", "FLAME_THROWER2") => 0.9f,
+        // The Spy 3's head is short and pointed: a long light weapon on its top comes smaller, as far as it takes to stand on
+        // the head's middle in every look rather than hang off it to the front and back or step aside over a leg.
+        ("spy3", "AUTO_CANNON") => 0.65f,
+        ("spy3", "ELECTRIC_CHARGE") => 0.5f,
+        ("spy3", "PLASMA_RIFLE" or "PULSE_RIFLE") => 0.45f,
+        ("spy3", "FLAME_THROWER2") => 0.4f,
         _ => 1,
     };
 

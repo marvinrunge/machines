@@ -6,7 +6,15 @@ namespace Machines.Sim.Combat;
 public sealed class WeaponMount(Mounting mounting, WeaponSpec spec)
 {
     public Mounting Mounting { get; } = mounting;
-    public WeaponSpec Spec { get; } = spec;
+
+    /// <summary>The weapon as the mount was made with it; a copy of the mount copies this, never <see cref="Spec"/>.</summary>
+    public WeaponSpec Base { get; } = spec;
+
+    /// <summary>The weapon as it fires now: <see cref="Base"/>, or a tuned copy of it while a Wired machine's special works on it.</summary>
+    public WeaponSpec Spec { get; private set; } = spec;
+
+    /// <summary>Fires as <paramref name="tuned"/> from now on, or as <see cref="Base"/> again with null.</summary>
+    internal void Tune(WeaponSpec? tuned) => Spec = tuned ?? Base;
 
     /// <summary>Seconds until the next burst may start.</summary>
     public float Reload { get; set; }

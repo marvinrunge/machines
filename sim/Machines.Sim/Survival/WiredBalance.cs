@@ -369,6 +369,52 @@ public static class WiredBalance
     /// <summary>The waves that allow one escort more.</summary>
     public static readonly IReadOnlyList<int> SquadGrowsAt = [5, 10, 15];
 
-    /// <summary>The escorts allowed when <paramref name="wave"/> is the wave coming or under way, with what chips add: never more than the largest squad.</summary>
-    public static int SquadLimit(int wave, int extra = 0) => Math.Min(LargestSquad, SmallestSquad + SquadGrowsAt.Count(w => wave >= w) + extra);
+    /// <summary>
+    /// The escorts allowed when <paramref name="wave"/> is the wave coming or under way, with what chips add: never more than
+    /// the largest squad. What the chassis adds (<paramref name="chassis"/>, the Marshal's) comes on top of that.
+    /// </summary>
+    public static int SquadLimit(int wave, int extra = 0, int chassis = 0) =>
+        Math.Min(LargestSquad, SmallestSquad + SquadGrowsAt.Count(w => wave >= w) + extra) + chassis;
+
+    // ---- the chassis' specials --------------------------------------------------------------------
+
+    /// <summary>The hero's accuracy on a chassis whose machine has none in the data: the constructors and the spies.</summary>
+    public const int NoAccuracy = 60;
+
+    /// <summary>Old Iron's plough: the share of a hit from the front that it takes, and the cosine of the front's half-arc (60°).</summary>
+    public const float PloughShare = 0.65f, PloughCos = 0.5f;
+
+    /// <summary>Old Iron's ram: what it deals each machine it meets in a dash, how far beyond the overlap it pushes it, and the margin of a meeting.</summary>
+    public const int RamDamage = 60;
+
+    public const float RamPush = 2, RamMargin = 0.5f;
+
+    /// <summary>How near its target must be for a machine of the waves, an escort or a bot on an Old Iron to dash at it.</summary>
+    public const float RamReach = 16;
+
+    /// <summary>The Harvester's kills: how near they must fall, and the share of its armour each gives back.</summary>
+    public const float HarvestReach = 15, HarvestArmour = 0.06f;
+
+    /// <summary>The Widow's lurk: seconds standing still, how far it may drift and still stand, and what its weapons' range and damage are multiplied by.</summary>
+    public const float LurkStill = 1.5f, LurkDrift = 0.25f, LurkRange = 1.3f, LurkDamage = 1.4f;
+
+    /// <summary>
+    /// The Colossus' anchor: seconds to lock or release the tracks, what anchored multiplies range and reload by and divides
+    /// damage taken by, and how long a machine of the waves stays anchored with nothing in reach.
+    /// </summary>
+    public const float AnchorTime = 2, AnchorRange = 1.4f, AnchorReload = 0.75f, AnchorArmour = 1.5f, AnchorIdle = 6;
+
+    /// <summary>The Marshal: how near the squad must be, the accuracy and share of repair it gives, the escorts it adds, and the seconds between rallies.</summary>
+    public const float FieldReach = 30, FieldAim = 15, FieldRepair = 0.3f, RallyCooldown = 40;
+
+    public const int FieldSquad = 2;
+
+    /// <summary>Towers: how far from the hero one is placed at most, how much faster than the original a hero builds, and how far from the pod's door none may stand.</summary>
+    public const float TowerReach = 30, TowerBuildSpeed = 4, PodKeepOut = 12;
+
+    /// <summary>The seconds between two mines a spy hero lays.</summary>
+    public const float MineLayGap = 1;
+
+    /// <summary>The Phantom: the seconds without firing after which it is hidden, and how near an enemy must come to see it all the same.</summary>
+    public const float ShadowQuiet = 3, ShadowReach = 25;
 }

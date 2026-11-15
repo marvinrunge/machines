@@ -29,13 +29,29 @@ public static class WiredMachines
         new("AGGRESSOR BALLISTA", 5, 4, 420, 260, 2.4f, 4.5f, 60, 65, 200, 650, 1.25f, "Colossus"),
         new("ADMINISTRATOR BOSS", 3, 1, 120, 90, 0.4f, 20, 300, 60, 180, 300, 1.4f, "Hornet"),
         new("ADMINISTRATOR COMMANDER", 6, 5, 210, 130, 1.4f, 16, 360, 85, 170, 600, 1.25f, "Marshal"),
+        // The ends of the constructor and the spy lines; the Titan builds as the Behemoth 5 it comes from.
+        new("CONSTRUCTOR BEHEMOTH", 6, 5, 300, 100, 1.0f, 9, 30, 60, 180, 500, 1.0f, "Titan"),
+        new("SPY_LOCATOR", 6, 5, 120, 60, 1.0f, 20, 720, 75, 280, 400, 2.4f, "Phantom"),
     ];
+
+    /// <summary>The specials that belong to a machine's body and go for every machine of its type and level, not for the hero alone.</summary>
+    public const ChassisSpecial BodySpecials = ChassisSpecial.Plough | ChassisSpecial.Harvest | ChassisSpecial.Lurk | ChassisSpecial.Anchor;
 
     /// <summary>Whether a type and level is one of Wired's own, not the original's.</summary>
     public static bool IsWired(string typeName, int level) => Find(typeName, level) is not null;
 
     /// <summary>Wired's own level of a type, or null for one of the original's.</summary>
     public static WiredLevel? Find(string typeName, int level) => Levels.FirstOrDefault(l => l.TypeName == typeName && l.Level == level);
+
+    private static readonly Lazy<Dictionary<(string TypeName, int Level), ChassisSpecial>> Bodies = new(() => WiredCatalogue.Chassis
+        .Where(c => IsWired(c.TypeName, c.Level) && (c.Special & BodySpecials) != ChassisSpecial.None)
+        .ToDictionary(c => (c.TypeName, c.Level), c => c.Special & BodySpecials));
+
+    /// <summary>
+    /// The body's special of a machine type and level: that of the catalogue's chassis of Wired's own level, and none for
+    /// any level of the original's, so that the original's machines never have one.
+    /// </summary>
+    public static ChassisSpecial SpecialOf(string typeName, int level) => Bodies.Value.GetValueOrDefault((typeName, level));
 
     /// <summary>The original's data with Wired's levels added to their types; a level the data has already stays as it is.</summary>
     public static ParmData Extend(ParmData parm) => parm with

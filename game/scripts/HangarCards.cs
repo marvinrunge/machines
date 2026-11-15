@@ -13,7 +13,7 @@ public static partial class HangarText
     {
         if (WiredCatalogue.FindChassis(catalogue) is { } chassis)
             return WiredMachines.Find(chassis.TypeName, chassis.Level) is { } own ? Lang.T(own.Name)
-                : $"{Lang.T(Studio.Names.GetValueOrDefault(chassis.SubType, chassis.SubType))} {chassis.Level}";
+                : $"{Lang.T(Studio.Names.GetValueOrDefault(chassis.SubType ?? chassis.Type, chassis.SubType ?? chassis.Type))} {chassis.Level}";
         if (WiredCatalogue.FindWeapon(catalogue) is not null)
             return Lang.T(Studio.Title(catalogue));
         if (WiredCatalogue.FindModule(catalogue) is { } module)

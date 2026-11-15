@@ -73,6 +73,7 @@ public sealed partial class GameWorld
         var hero = new Machine(_nextId++, race, position, build.Spec, build.Stats, build.WeaponCombo);
         hero.Alert.NextLook = Time + hero.Id % 10 * Dt;
         hero.Weapons.AddRange(build.Weapons.Select(w => new WeaponMount(w.Mounting, w.Spec)));
+        hero.Mines = MineCarrier(build) ? build.Stats.MineCapacity ?? 0 : 0;
         _actors.Add(hero.Id, hero);
         return hero;
     }
@@ -87,6 +88,7 @@ public sealed partial class GameWorld
         if (run.Phase == WiredPhase.Ended)
             return;
         NoteShots(run);
+        UpdateBodies(run);
         foreach (var hero in run.Heroes.Values)
             UpdateHero(run, hero);
         if (run.Phase == WiredPhase.Wave)
@@ -154,6 +156,9 @@ public sealed partial class GameWorld
             hash = hash * 31 + hero.MaxArmour;
             hash = hash * 31 + BitConverter.SingleToInt32Bits(hero.Stats.Speed);
             hash = hash * 31 + hero.Weapons.Count;
+            // A spy hero's mines; nothing for a hero without any, so that such a run keeps its checksum.
+            if (hero.Mines != 0)
+                hash = hash * 31 + hero.Mines;
         }
         foreach (var crate in WiredPickups)
         {
@@ -187,7 +192,10 @@ public sealed partial class GameWorld
         {
             UpdateDash(state, hero);
             if (Battle is null)
+            {
+                UpdateTowerWork(state, hero);
                 Collect(state, hero);
+            }
         }
         if (run.BetweenWaves && WiredPod(state.Race) is { } home)
             MendAt(home, state);
@@ -369,6 +377,8 @@ public sealed partial class GameWorld
                 return false;
             share *= WiredChips.Taking(this, hit, taking, new ChipHit(target, shooter, weapon, target.Armour));
         }
+        // What the body of Wired's own machines makes of a hit, hero or not; exactly 1 for any other.
+        share *= BodyShare(target, shooter);
         if (share != 1 && damage > 0)
             damage = Math.Max(1, WholeDamage(damage * share));
         return true;
@@ -472,15 +482,19 @@ public sealed partial class GameWorld
     /// </summary>
     private void Wear(WiredState state, HeroLoadout loadout)
     {
+        var otherChassis = state.Loadout.Chassis.Catalogue != loadout.Chassis.Catalogue;
         state.Loadout = loadout;
         if (HeroOf(state.Race) is not { } hero)
             return;
         var build = HeroBuild.Resolve(Data, loadout);
+        // The weapons as made, not as a special has tuned them for now, or a tuned hero would be refitted every time.
         if (build.Spec == hero.Spec && build.Stats == hero.Stats && build.WeaponCombo == hero.WeaponCombo
-            && build.Weapons.Select(w => w.Spec).SequenceEqual(hero.Weapons.Select(w => w.Spec)))
+            && build.Weapons.Select(w => w.Spec).SequenceEqual(hero.Weapons.Select(w => w.Base)))
             return;
         hero.Refit(build.Spec, build.Stats, build.WeaponCombo, build.Weapons.Select(w => new WeaponMount(w.Mounting, w.Spec)));
         StartAfresh(hero);
+        if (otherChassis)
+            RefillMines(state);
     }
 
     /// <summary>Takes from a machine all the world has noted on its way, its aim and its driver: it stands and takes new orders.</summary>
@@ -625,7 +639,7 @@ public sealed partial class GameWorld
         var wave = Wired!.ShopWave;
         if (!WiredCatalogue.Tiers.Any(t => t.Wave <= wave && t.Offers(key)))
             return "that is not on offer yet";
-        if (Escorts(state.Race).Count() >= WiredBalance.SquadLimit(wave, WiredChips.SquadExtra(state)))
+        if (Escorts(state.Race).Count() >= SquadLimit(state))
             return "the squad is full";
         if (WiredPod(state.Race) is null)
             return "the pod is gone";
@@ -642,7 +656,7 @@ public sealed partial class GameWorld
     {
         if (Wired?.Heroes.GetValueOrDefault(command.Race) is not { } state)
             return "this is not a Wired match";
-        if (Battle is not null && command is not (WiredAbilityCommand or WiredDashCommand))
+        if (Battle is not null && command is not (WiredAbilityCommand or WiredDashCommand or WiredSpecialCommand or WiredTowerCommand or WiredScrapTowerCommand))
             return "there is no hangar in a battle";
         return command switch
         {
@@ -651,6 +665,9 @@ public sealed partial class GameWorld
             WiredChipChoiceCommand choice => ChooseChip(state, choice.Choice, choice.Socket),
             WiredAbilityCommand ability => UseAbility(state, ability.Slot, ability.Aim),
             WiredDashCommand dash => Dash(state, dash.Direction),
+            WiredSpecialCommand special => UseSpecial(state, special.On),
+            WiredTowerCommand tower => PlaceTower(state, tower),
+            WiredScrapTowerCommand scrap => ScrapTower(state, scrap.Tower),
             _ when !state.HangarOpen => "the hangar is closed",
             WiredBuyCommand buy => Buy(state, buy.Item, buy.Slot),
             WiredSellCommand sell => Sell(state, sell.Item),

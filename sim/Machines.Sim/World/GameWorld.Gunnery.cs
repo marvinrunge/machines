@@ -53,7 +53,10 @@ public sealed partial class GameWorld
             && Vector2.DistanceSquared(machine.Position, commander.Position) <= 100 * 100)
             penalty -= 20;
         if (Wired is not null)
+        {
             penalty -= WiredChips.SquadAim(this, machine);
+            penalty -= FieldAim(machine);
+        }
         return penalty;
     }
 

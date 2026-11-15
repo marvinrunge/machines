@@ -43,6 +43,14 @@ public static class BattleCatalogue
         ["widow6"] = 8,
         ["ballista5"] = 8,
         ["commander6"] = 8,
+        // The constructors and spies, by their rows too.
+        ["dozer1"] = 3,
+        ["builder3"] = 4,
+        ["behemoth4"] = 6,
+        ["titan6"] = 8,
+        ["spy3"] = 4,
+        ["spy5"] = 6,
+        ["phantom6"] = 8,
     };
 
     /// <summary>The tier of a chassis, or 0 for one without a row.</summary>

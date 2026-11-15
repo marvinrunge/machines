@@ -39,6 +39,9 @@ public sealed partial class GameWorld
     private void Drive(Machine machine)
     {
         DriveInput.TryGetValue(machine.Id, out var input);
+        // Anchored tracks go neither forward nor sideways; the hull still turns.
+        if (Wired is not null && Rooted(machine))
+            input = (0, input.Turn, 0, input.Slow);
         if (Options.OriginalMotion)
         {
             DriveAsTheOriginal(machine, input);
@@ -99,6 +102,14 @@ public sealed partial class GameWorld
         // A gorilla busy punching stands still and waits.
         if (Busy(machine))
         {
+            if (Options.OriginalMotion)
+                Settle(machine);
+            return;
+        }
+        // An anchored Colossus without a driver keeps its orders for later and only turns to what it fights.
+        if (Wired is not null && !machine.DrivenByPlayer && Rooted(machine))
+        {
+            HoldRooted(machine);
             if (Options.OriginalMotion)
                 Settle(machine);
             return;
@@ -343,7 +354,8 @@ public sealed partial class GameWorld
     private void UpdateAttack(Machine machine, AttackOrder attack)
     {
         var target = FindTarget(attack.Target);
-        if (target is null || target.IsDead || !CanAttack(machine.Race, target) || !CanFireAt(machine, target) || Indoors(target))
+        if (target is null || target.IsDead || !CanAttack(machine.Race, target) || !CanFireAt(machine, target) || Indoors(target)
+            || Wired is not null && Shadowed(machine, target))
         {
             // Ready at once for the next target (MachLogAttackOperation::beNotified).
             machine.Alert.NoChecksBefore = Time;

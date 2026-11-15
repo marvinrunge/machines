@@ -44,7 +44,7 @@ module.exports = {
     "colossus_dome_b.bmp": () => colossusHull(true),
     /** Colossus's rounded back: the same paint without the emblem. */
     "colossus_back_b.bmp": () => colossusHull(false),
-    /** Harvester's leg armour: thick red plates, dark seams, rivets, a vent. */
+    /** Harvester's armour round its gun mounts: thick red plates, dark seams, rivets, a vent. */
     "leg_armour_b.bmp": () => {
         const red = paint.shade(gruntRed(), 0.95);
         const img = paint.picture(64, 64, red);

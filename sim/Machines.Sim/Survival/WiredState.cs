@@ -108,6 +108,9 @@ public sealed class WiredRun(WiredOptions options)
     /// <summary>The ion strikes announced and still to come down, the next first.</summary>
     public List<WiredStrike> Strikes { get; } = [];
 
+    /// <summary>What is kept in mind about each living machine with a special of its body, by actor id.</summary>
+    public SortedDictionary<int, WiredBody> Bodies { get; } = [];
+
     /// <summary>When an ion storm next announces a strike.</summary>
     public float NextStrike { get; set; }
 
@@ -192,6 +195,12 @@ public sealed class WiredRun(WiredOptions options)
         }
         foreach (var hero in Heroes.Values)
             hero.MixInto(hash);
+        // Only while there is any, so that a run without them keeps its fingerprint.
+        foreach (var (id, body) in Bodies)
+        {
+            hash.Mix(id);
+            body.MixInto(hash);
+        }
         return hash.Value;
     }
 }
@@ -309,6 +318,21 @@ public sealed class WiredState
 
     /// <summary>When it last called on the squad to cover it.</summary>
     public float CoverCalledAt { get; set; } = float.NegativeInfinity;
+
+    /// <summary>When a Marshal's rally can call the squad in again.</summary>
+    public float RallyReadyAt { get; set; } = float.NegativeInfinity;
+
+    /// <summary>
+    /// When it last gave itself away by a damaging ability or at an enemy pod, for a Phantom's shadow: set only while it
+    /// wears a chassis with one (GameWorld.Reveal), so that any other hero keeps its fingerprint.
+    /// </summary>
+    public float RevealedAt { get; set; } = float.NegativeInfinity;
+
+    /// <summary>When it last laid a mine.</summary>
+    public float MineLaidAt { get; set; } = float.NegativeInfinity;
+
+    /// <summary>Where a Harvester's kills fell since it last looked for the wrecks there.</summary>
+    public List<Vector2> Harvests { get; } = [];
 
     /// <summary>What it owns and does not wear.</summary>
     public IEnumerable<WiredItem> Inventory => Items.Where(i => !Loadout.Holds(i.Id));
@@ -553,5 +577,27 @@ public sealed class WiredState
             hash.Mix(chip);
         foreach (var reached in Reached.Order(StringComparer.Ordinal))
             hash.Mix(reached);
+        // What the chassis' specials keep, only while it is set: a hero who never used one keeps its fingerprint.
+        MixSet(hash, 1, RallyReadyAt);
+        MixSet(hash, 2, RevealedAt);
+        MixSet(hash, 3, MineLaidAt);
+        if (Harvests.Count > 0)
+        {
+            hash.Mix(Harvests.Count);
+            foreach (var at in Harvests)
+            {
+                hash.Mix(BitConverter.SingleToInt32Bits(at.X));
+                hash.Mix(BitConverter.SingleToInt32Bits(at.Y));
+            }
+        }
+    }
+
+    /// <summary>Mixes a time with a tag of its own, unless it is still at its start, minus infinity.</summary>
+    private static void MixSet(WiredHash hash, int tag, float time)
+    {
+        if (float.IsNegativeInfinity(time))
+            return;
+        hash.Mix(tag);
+        hash.Mix(BitConverter.SingleToInt32Bits(time));
     }
 }

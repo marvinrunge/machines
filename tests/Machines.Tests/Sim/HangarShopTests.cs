@@ -1,3 +1,4 @@
+using System.Numerics;
 using Machines.Game;
 using Machines.Import.Model;
 using Machines.Sim;
@@ -244,9 +245,25 @@ public class HangarShopTests
         var places = WiredCatalogue.Chassis.Select(c => ChassisTree.Place(c.Id)).ToList();
 
         Assert.Equal(places.Count, places.Distinct().Count());
+        Assert.Equal((11, 8), (ChassisTree.Columns, ChassisTree.Rows));
         Assert.All(places, p => Assert.InRange(p.Column, 0, ChassisTree.Columns - 1));
         Assert.All(places, p => Assert.InRange(p.Row, 0, ChassisTree.Rows - 1));
+        Assert.Equal(0, places.Min(p => p.Column));
+        Assert.Equal(10, places.Max(p => p.Column));
     }
+
+    [Theory]
+    [InlineData("grunt1", 4, 0)]
+    [InlineData("gorilla5", 5, 7)]
+    [InlineData("dozer1", 0, 2)]
+    [InlineData("builder3", 0, 3)]
+    [InlineData("behemoth4", 0, 5)]
+    [InlineData("titan6", 0, 7)]
+    [InlineData("spy3", 10, 3)]
+    [InlineData("spy5", 10, 5)]
+    [InlineData("phantom6", 10, 7)]
+    public void The_constructors_stand_at_the_far_left_and_the_spies_at_the_far_right(string chassis, int column, int row) =>
+        Assert.Equal((column, row), ChassisTree.Place(chassis));
 
     [Fact]
     public void The_lines_of_the_tree_are_the_catalogues_needs_and_run_downwards()
@@ -367,6 +384,70 @@ public class HangarShopTests
         world.WhyNoPodRepair(state);
 
         Assert.Equal(before, world.Checksum());
+    }
+
+    /// <summary>All that the hangar and the HUD may ask about the special of the chassis the hero wears, every frame.</summary>
+    private static void AskAboutTheSpecial(GameWorld world, WiredState state, WiredChassis chassis, Machine foe)
+    {
+        var hero = world.HeroOf(Race.Red);
+        var at = hero?.Position ?? world.WiredPod(Race.Red)!.Position;
+        foreach (var on in new[] { true, false })
+        {
+            world.WhyNoSpecial(state, on);
+            world.WhyNoAnchor(state, on);
+        }
+        world.SpecialView(Race.Red);
+        world.SpecialView(Race.Blue);
+        world.SquadLimit(state);
+        world.WhyNoRally(state);
+        world.WhyNoMine(state);
+        foreach (var tower in WiredCatalogue.Towers)
+        {
+            foreach (var orientation in new[] { 0, 45, 90 })
+                world.WhyNoTower(state, tower.Id, at + new Vector2(20, 0), orientation);
+        }
+        world.WhyNoTower(state, "nothing", at, 0);
+        world.TowersFor(chassis);
+        world.TowersOf(Race.Red);
+        world.MostTowers(state);
+        world.WhyNoScrap(state, world.WiredPod(Race.Red)!.Id);
+        world.WhyNoScrap(state, 0);
+        if (hero is not null)
+        {
+            world.AnchorPhaseOf(hero);
+            world.Shadowed(foe, hero);
+            world.Shadowed(hero, foe);
+        }
+    }
+
+    [Fact]
+    public void Asking_about_the_special_of_any_chassis_changes_nothing_in_the_world()
+    {
+        var world = InHangar();
+        var state = Red(world);
+        // Far off, so that it does nothing between the questions.
+        var far = world.Nav.NearestFreePoint(world.WiredPod(Race.Red)!.Position + new Vector2(300, 0), crossesWater: false)!.Value;
+        var foe = world.AddMachine(Race.Blue, far, "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+        world.Step();
+
+        foreach (var chassis in WiredCatalogue.Chassis)
+        {
+            if (!state.HangarOpen)
+                Assert.Null(Do(world, new WiredHangarCommand(Race.Red, true)));
+            if (state.Loadout.Chassis.Catalogue != chassis.Id)
+                Assert.Null(Do(world, new WiredChassisCommand(Race.Red, state.Add(WiredKind.Chassis, chassis.Id, 0).Id)));
+            // In the hangar and out on the field, where the questions get past the hero's whereabouts.
+            foreach (var open in new[] { true, false })
+            {
+                if (state.HangarOpen != open)
+                    Assert.Null(Do(world, new WiredHangarCommand(Race.Red, open)));
+                var before = world.Checksum();
+
+                AskAboutTheSpecial(world, state, chassis, foe);
+
+                Assert.True(before == world.Checksum(), $"{chassis.Id}, hangar {(open ? "open" : "closed")}: asking changed the world");
+            }
+        }
     }
 
     [Fact]

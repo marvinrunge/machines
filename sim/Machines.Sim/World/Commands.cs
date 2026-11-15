@@ -199,3 +199,16 @@ public sealed record WiredAbilityCommand(Race Race, int Slot, Vector2 Aim) : Wir
 
 /// <summary>Fires the hero's thrusters that way; with no direction, straight ahead. Needs no open hangar.</summary>
 public sealed record WiredDashCommand(Race Race, Vector2 Direction = default) : WiredCommand(Race);
+
+/// <summary>
+/// Uses the special of the hero's chassis: a Colossus anchors with <paramref name="On"/> and is released without it, a
+/// Marshal calls in its squad, a spy lays a mine. Saying what is wanted rather than switching keeps a command sent twice
+/// harmless. Needs no open hangar.
+/// </summary>
+public sealed record WiredSpecialCommand(Race Race, bool On = true) : WiredCommand(Race);
+
+/// <summary>A constructor hero places a tower of the catalogue (<c>WiredCatalogue.Towers</c>) near it, turned by <paramref name="Orientation"/> degrees, and pays for it. Needs no open hangar.</summary>
+public sealed record WiredTowerCommand(Race Race, string Tower, Vector2 Position, int Orientation) : WiredCommand(Race);
+
+/// <summary>Pulls down one of the race's towers near the hero, for part of its price. Needs no open hangar.</summary>
+public sealed record WiredScrapTowerCommand(Race Race, int Tower) : WiredCommand(Race);

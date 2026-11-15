@@ -448,10 +448,11 @@ public class WiredContentTests
     // ---- the dash ---------------------------------------------------------------------------------
 
     [Fact]
-    public void Only_thrusters_dash()
+    public void Only_thrusters_dash_a_chassis_without_a_dash_of_its_own()
     {
         var world = Quiet();
 
+        Assert.Null(WiredCatalogue.FindChassis(Red(world).Loadout.Chassis.Catalogue)!.Dash);
         Assert.Equal("the hero has no thrusters", Do(world, new WiredDashCommand(Race.Red, Vector2.UnitX)));
     }
 

@@ -205,7 +205,7 @@ public class WiredHeroTests
         var limit = WiredCatalogue.Chassis.Where(c => Heaviest(c) >= WiredBalance.MostLoad).Select(c => c.Id);
 
         Assert.Equal(WiredBalance.MostLoad, WiredCatalogue.Chassis.Max(Heaviest));
-        Assert.Equal(["grunt3", "overseer2", "overseer3", "commander5", "boss2", "widow6", "commander6"], limit);
+        Assert.Equal(["grunt3", "overseer2", "overseer3", "commander5", "boss2", "widow6", "commander6", "spy3", "spy5", "phantom6"], limit);
     }
 
     [Fact]
@@ -529,7 +529,8 @@ public class WiredHeroTests
     [Fact]
     public void Every_chassis_resolves_against_the_real_data_on_the_machine_it_names()
     {
-        Assert.Equal(25, WiredCatalogue.Chassis.Count);
+        Assert.Equal(32, WiredCatalogue.Chassis.Count);
+        Assert.Contains(WiredCatalogue.Chassis, c => c.Type == "SPY_LOCATOR" && c.SubType is null);
         foreach (var chassis in WiredCatalogue.Chassis)
         {
             var level = Data.Parm.Machine(chassis.TypeName).Level(chassis.Level);
@@ -576,8 +577,11 @@ public class WiredHeroTests
             .Concat(WiredCatalogue.Modules.Select(m => m.Id))
             .Concat(WiredCatalogue.Abilities.Select(a => a.Id))
             .Concat(WiredChips.All.Select(c => c.Id)).ToList();
-        Assert.Equal(ids.Count, ids.Distinct().Count());
+        var towers = WiredCatalogue.Towers.Select(t => t.Id).ToList();
+        Assert.Equal(ids.Count + towers.Count, ids.Concat(towers).Distinct().Count());
         Assert.All(ids, id => Assert.NotNull(WiredCatalogue.KindOf(id)));
+        Assert.All(WiredCatalogue.Towers, t => Assert.True(Data.Parm.Construction($"{WiredTower.Type} {t.SubType}").Level(t.Level).Cost > 0, t.Id));
+        Assert.All(towers, id => Assert.Equal(id, WiredCatalogue.FindTower(id)?.Id));
 
         Assert.Equal(12, WiredCatalogue.Modules.Count);
         Assert.Equal(6, WiredCatalogue.Abilities.Count);
@@ -1246,13 +1250,17 @@ public class WiredHeroTests
     }
 
     [Theory]
-    [InlineData(1, 3)]
-    [InlineData(4, 3)]
-    [InlineData(5, 4)]
-    [InlineData(10, 5)]
-    [InlineData(15, 6)]
-    [InlineData(40, 6)]
-    public void The_squad_grows_with_the_waves(int wave, int size) => Assert.Equal(size, WiredBalance.SquadLimit(wave));
+    [InlineData(1, 0, 0, 3)]
+    [InlineData(4, 0, 0, 3)]
+    [InlineData(5, 0, 0, 4)]
+    [InlineData(10, 0, 0, 5)]
+    [InlineData(15, 0, 0, 6)]
+    [InlineData(40, 0, 0, 6)]
+    // The Marshal's field comes on top of the largest squad, tactics or not.
+    [InlineData(20, 0, WiredBalance.FieldSquad, 8)]
+    [InlineData(20, 1, WiredBalance.FieldSquad, 8)]
+    public void The_squad_grows_with_the_waves(int wave, int extra, int chassis, int size) =>
+        Assert.Equal(size, WiredBalance.SquadLimit(wave, extra, chassis));
 
     [Fact]
     public void The_hero_in_squad_one_is_no_escort()

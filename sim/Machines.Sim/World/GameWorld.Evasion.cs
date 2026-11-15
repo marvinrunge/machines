@@ -101,6 +101,9 @@ public sealed partial class GameWorld
         var plan = Data.Parm.EvasionStrategies.FirstOrDefault(e => e.Name == machine.Stats.Evasion);
         if (plan is null || plan.GarrisonsPriority == -2 || machine.Order is StandGroundOrder || VirtualDefCon(machine) == DefCon.High)
             return;
+        // A Wired hero on a constructor or a spy fights as any other hero: their plans would only have it run away.
+        if (Wired is not null && machine.Spec.Type is "CONSTRUCTOR" or "SPY_LOCATOR" && IsWiredHero(machine))
+            return;
         if (machine.Inside is { } inside && Find<Construction>(inside) is { } building && building.IsType("GARRISON")
             && building.Race == machine.Race && machine.HitPoints < 0.2f * machine.MaxHitPoints)
             return;
@@ -165,12 +168,18 @@ public sealed partial class GameWorld
         > MilitaryStrength(actor) * 1.3f;
 
     /// <summary>
-    /// MachActor::militaryStrength: a fighting machine or a tower is worth its cost by the share of its hit points
-    /// left, a garrison its hit points times its level over 20, a pod over 30; the rest nothing.
+    /// Whether a machine is one of the fighting kind, an aggressor or an administrator, as the original counts them
+    /// for strength, threats and help. A Wired hero is one whatever its type: a constructor or a spy is worn to fight.
     /// </summary>
-    private static int MilitaryStrength(Actor actor) => actor switch
+    private bool IsFighter(Machine machine) => machine.Spec.Type is "AGGRESSOR" or "ADMINISTRATOR" || Wired is not null && IsWiredHero(machine);
+
+    /// <summary>
+    /// MachActor::militaryStrength: a fighting machine (<see cref="IsFighter"/>) or a tower is worth its cost by the share
+    /// of its hit points left, a garrison its hit points times its level over 20, a pod over 30; the rest nothing.
+    /// </summary>
+    private int MilitaryStrength(Actor actor) => actor switch
     {
-        Machine machine when machine.Spec.Type is "AGGRESSOR" or "ADMINISTRATOR" => (int)(HitPointShare(machine) * machine.Cost),
+        Machine machine when IsFighter(machine) => (int)(HitPointShare(machine) * machine.Cost),
         Construction { Complete: false } => 0,
         Construction garrison when garrison.IsType("GARRISON") => garrison.HitPoints * garrison.Stats.HardwareLevel / 20,
         Construction pod when pod.IsType("POD") => pod.HitPoints * pod.Stats.HardwareLevel / 30,
@@ -200,7 +209,7 @@ public sealed partial class GameWorld
         foreach (var near in FiledNear(actor.Position, LocalStrengthRadius))
         {
             if (near is not Machine friend || friend == actor || friend.IsDead || friend.Inside is not null || AreEnemies(actor.Race, friend.Race)
-                || friend.Spec.Type is not ("AGGRESSOR" or "ADMINISTRATOR"))
+                || !IsFighter(friend))
                 continue;
             var distance = Vector2.Distance(friend.Position, actor.Position);
             if (distance <= LocalStrengthRadius)
@@ -259,7 +268,7 @@ public sealed partial class GameWorld
     {
         IEnumerable<Actor> candidates = towers
             ? Constructions.Where(c => c.IsType("MISSILE_EMPLACEMENT") && c.Complete)
-            : Machines.Where(m => m.Spec.Type is "AGGRESSOR" or "ADMINISTRATOR" && m.Inside is null && m.Order is not EvadeOrder);
+            : Machines.Where(m => IsFighter(m) && m.Inside is null && m.Order is not EvadeOrder);
         Actor? best = null;
         var bestStrength = 0;
         foreach (var candidate in candidates)

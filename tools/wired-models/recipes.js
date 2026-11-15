@@ -6,8 +6,8 @@
 "use strict";
 
 module.exports = h => {
-    const { load, scale, stretch, spread, scaleShapes, middle, nodes, world, ground, inModel, solid, box, shell, ring,
-        ball, spire, beam, mount, arm, texture, boxOf, surfaceZ, cloneLeg, move, points, boxUnder, tilt } = h;
+    const { load, scale, stretch, spread, scaleShapes, middle, nodes, world, ground, inModel, solid, faces, box, shell, ring,
+        ball, spire, beam, mount, arm, texture, toNode, boxOf, surfaceZ, cloneLeg, move, points, boxUnder, tilt } = h;
     const ALL = [0, 0, 1, 1];
     const LEGS = ["l1t", "l2t", "r1t", "r2t", "l1s", "l2s", "r1s", "r2s"];
     const SHINS = ["l1s", "l2s", "r1s", "r2s"], THIGHS = ["l1t", "l2t", "r1t", "r2t"];
@@ -97,9 +97,9 @@ module.exports = h => {
 
     /**
      * The Thresher's shape before its size: Reaper 3's four legs a fifth longer and `thick` times as thick, a wider
-     * body, knee shields.
+     * body, knee shields (unless `armour` makes the legs anew, which then grow their own).
      */
-    const thresher = (colour, armour, thick = 1.6) => {
+    const thresher = (colour, armour, thick = 1.6, shields = !armour) => {
         const m = load(colour, REAPER);
         // each leg's piece starts at its joint (x = 0) and runs along -x
         for (const [n] of nodes(m, LEGS)) {
@@ -115,32 +115,180 @@ module.exports = h => {
         if (armour)
             armour(m);
         const knee = texture("knee_b.bmp");
-        for (const shin of SHINS)
+        for (const shin of shields ? SHINS : [])
             kneeShield(m, shin, knee);
         return m;
     };
 
     /**
-     * Harvester's legs: a sleeve and a hump on each thigh; each shin a block from the knee ending in a pointed foot,
-     * in place of the Reaper's cone.
+     * Node `name`'s own piece taken off it to be made again: its triangles, each three [corner, uv] in node space
+     * (a corner shared by several triangles is one array, so corners compare with ===), its corners, and the part's
+     * material. A loose triangle that shares no corner with the rest is left out: each of the Reaper's leg pieces has
+     * a thin fin, which the thick leg swallows.
+     */
+    const takePiece = (m, name) => {
+        const [[n]] = nodes(m, name);
+        const parts = n.parts.filter(p => p.texture);
+        n.parts = n.parts.filter(p => !p.texture);
+        const same = new Map(), key = c => c.map(v => v.toFixed(3)).join();
+        const tris = parts.flatMap(p => [...Array(p.indices.length / 3).keys()].map(t => [0, 1, 2].map(j => {
+            const k = p.indices[t * 3 + j], c = p.positions.slice(k * 3, k * 3 + 3);
+            if (!same.has(key(c)))
+                same.set(key(c), c);
+            return [same.get(key(c)), p.uvs.slice(k * 2, k * 2 + 2)];
+        })));
+        const uses = c => tris.filter(t => t.some(([d]) => d === c)).length;
+        const piece = tris.filter(t => t.some(([c]) => uses(c) > 1));
+        const { texture: tex, diffuse, ambient, emissive } = parts[0];
+        return { tris: piece, corners: [...new Set(piece.flat().map(([c]) => c))], material: { texture: tex, diffuse, ambient, emissive } };
+    };
+
+    /** Faces (as `faces` takes them) given to node `name` as one part in `material`, a taken piece's. */
+    const givePiece = (m, name, list, material) => {
+        faces(m, name, list, material.texture.split("/").pop());
+        Object.assign(nodes(m, name)[0][0].parts.at(-1), material);
+    };
+
+    /** A triangle as `faces` takes it: its last corner twice. */
+    const tri3 = (q, uv) => [[...q, q[2]], [...uv, uv[2]]];
+
+    /**
+     * A Reaper's shin made thick from its own piece, which is a point (the foot) under a top of three corners, two
+     * wide apart outside (+z) and one inside where its two inner faces meet in a ridge. The ridge is opened into an
+     * inner face `narrow` times as wide as the outside, the section `depth` times as deep about its middle, the top
+     * raised to `top` (node x: the piece's fin reached that high), and the section kept down to `foot` (along the
+     * ridge towards the point), `taper` times as wide there, from where the faces run to the Reaper's own foot point.
+     * With a `guard` ({ rise, half, lean }) the outside goes on up past the top into a guard over the knee: its top
+     * edge `rise` higher, `half` times as wide and leaning back `lean`, from where the top slopes down to the inside.
+     * Each face is one of the Reaper's with its corners' texture coordinates; down to `foot` a face's patch moves
+     * along with it (so the texture keeps its width there instead of narrowing as on the Reaper's cone), the guard
+     * carries on the patch of the face it grows out of, and the inner face takes the outside's patch at its width.
+     */
+    const thickShin = (m, s, depth, top, foot, { narrow = 0.5, taper = 1, guard } = {}) => {
+        const { tris, corners, material } = takePiece(m, s);
+        const tip = corners.reduce((a, b) => (b[0] < a[0] ? b : a));
+        const [o1, o2, inner] = corners.filter(c => c !== tip).sort((a, b) => b[2] - a[2]);
+        const [left, right] = o1[1] > o2[1] ? [o1, o2] : [o2, o1];
+        const yc = (left[1] + right[1]) / 2, w = (left[1] - right[1]) / 2, zc = (left[2] + inner[2]) / 2;
+        // a corner of the top in its new place; the inner one opened into an edge, side +1 its left end
+        const at = (c, side = 0) => [c[0] + top - inner[0], c === inner ? yc + side * w * narrow : c[1], zc + (c[2] - zc) * depth];
+        // the same section where the foot begins, moved along the ridge towards the point and `taper` times as wide
+        const f = (top - foot) / (top - tip[0]), down = sub(tip, at(inner)).map(v => v * f);
+        const low = (c, side) => { const p = add(at(c, side), down); p[1] = yc + down[1] + (at(c, side)[1] - yc) * taper; return p; };
+        // an outside corner of the guard's top edge, and a face's patch carried on up to it from the top
+        const rise = guard ? guard.rise : 0;
+        const high = c => { const p = at(c); return [p[0] + rise, yc + (p[1] - yc) * guard.half, p[2] - guard.lean]; };
+        const climb = (uv, shift) => sub(uv, shift.map(v => v * rise / (top - foot)));
+        const list = [];
+        let topUv, outside;
+        for (const t of tris) {
+            const upper = t.filter(([c]) => c !== tip), uv = c => upper.find(([d]) => d === c)[1];
+            if (upper.length === 3) {
+                const half = sub(uv(left), uv(right)).map(v => v * narrow / 2);
+                topUv = [uv(left), uv(right), sub(uv(inner), half), add(uv(inner), half)];
+                continue;
+            }
+            const side = upper.some(([c]) => c === right) ? -1 : 1, tipUv = t.find(([c]) => c === tip)[1];
+            const shift = sub(tipUv, add(upper[0][1], upper[1][1]).map(v => v / 2)).map(v => v * f);
+            const [[a, ua], [b, ub]] = upper;
+            list.push([[at(a, side), at(b, side), low(b, side), low(a, side)], [ua, ub, add(ub, shift), add(ua, shift)]]);
+            list.push(tri3([low(a, side), low(b, side), tip], [add(ua, shift), add(ub, shift), tipUv]));
+            if (!upper.some(([c]) => c === inner))
+                outside = { l: uv(left), r: uv(right), shift, tipUv };
+            else if (guard) {
+                // the inner face's side of the guard, from its outside corner up to the guard's top edge
+                const o = side > 0 ? left : right;
+                list.push(tri3([at(o), high(o), at(inner, side)], [uv(o), climb(uv(o), shift), uv(inner)]));
+            }
+        }
+        const [tl, tr] = guard ? [high(left), high(right)] : [at(left), at(right)];
+        list.push([[tl, tr, at(inner, -1), at(inner, 1)], topUv]);
+        const { l, r, shift, tipUv } = outside, mid = add(l, r).map(v => v / 2);
+        // the outside's patch about its middle, `k` times as wide
+        const across = (k, by = [0, 0]) => [add(add(mid, sub(l, mid).map(v => v * k)), by), add(add(mid, sub(r, mid).map(v => v * k)), by)];
+        if (guard) {
+            const [gl, gr] = across(guard.half, climb([0, 0], shift));
+            list.push([[tl, tr, at(right), at(left)], [gl, gr, r, l]]);
+        }
+        const [il, ir] = across(narrow), [fl, fr] = across(narrow, shift);
+        list.push([[at(inner, 1), at(inner, -1), low(inner, -1), low(inner, 1)], [il, ir, fr, fl]]);
+        list.push(tri3([low(inner, 1), low(inner, -1), tip], [fl, fr, tipUv]));
+        givePiece(m, s, list, material);
+    };
+
+    /**
+     * A Reaper's thigh made thick from its own piece, which is wedge-shaped: at the knee's end two corners wide apart
+     * on top and one underneath, from where its top runs to a point and its underside to a ridge towards the hip. It
+     * becomes a block from `hip` to `knee` (node x): the top's point and the ridge's two ends opened into edges, the
+     * top as wide as at the knee's end (`widen` times), the underside `narrow` times that at the hip and `wide` times
+     * at the knee (so it covers the shin's top there), the section `depth` times as deep about its middle. Each face is
+     * one of the Reaper's with its corners' texture coordinates; the top's patch runs on along the longer block at the
+     * Reaper's size (its arcs repeat instead of stretching), the new underside takes the top's patch as wide as it is,
+     * the new end at the hip the knee end's patch.
+     */
+    const thickThigh = (m, t, knee, hip, depth, widen, narrow = 0.5, wide = narrow) => {
+        const { tris, corners, material } = takePiece(m, t);
+        const byX = corners.slice().sort((a, b) => a[0] - b[0]);
+        const end = byX.slice(0, 3).sort((a, b) => b[2] - a[2]), [inTop, inLow] = byX.slice(3).sort((a, b) => b[2] - a[2]);
+        const [left, right] = end[0][1] > end[1][1] ? [end[0], end[1]] : [end[1], end[0]], under = end[2];
+        const yc = (left[1] + right[1]) / 2, w = (left[1] - right[1]) / 2 * widen;
+        const zc = (left[2] + under[2]) / 2, half = (left[2] - under[2]) / 2 * depth;
+        // a corner in its new place; the top's point and the ridge's ends opened into edges, side +1 their left ends
+        const place = (c, side = 0) => {
+            const top = c === left || c === right || c === inTop;
+            const y = c === left ? yc + w : c === right ? yc - w : yc + side * w * (top ? 1 : c === under ? wide : narrow);
+            return [c === inTop || c === inLow ? hip : knee, y, zc + (top ? half : -half)];
+        };
+        // the top's patch at the knee's end (its middle and half its width) and at the hip's end, as far on as the
+        // block is longer than the Reaper's top
+        const run = (hip - knee) / (inTop[0] - left[0]);
+        let kneeEnd, mid, d, far;
+        const list = [];
+        for (const tri of tris) {
+            const has = c => tri.some(([d]) => d === c), uv = c => tri.find(([d]) => d === c)[1];
+            if (has(left) && has(right)) {
+                // the top or the knee's end: its third corner opened into an edge as wide as the face is there
+                const [r] = tri.map(([c]) => c).filter(c => c !== left && c !== right);
+                const across = sub(uv(left), uv(right)).map(v => v / 2);
+                if (r === inTop) {
+                    mid = add(uv(left), uv(right)).map(v => v / 2);
+                    d = across;
+                    far = add(mid, sub(uv(inTop), mid).map(v => v * run));
+                    list.push([[place(left), place(right), place(r, -1), place(r, 1)], [uv(left), uv(right), sub(far, d), add(far, d)]]);
+                } else {
+                    const e = across.map(v => v * wide);
+                    kneeEnd = [uv(left), uv(right), sub(uv(r), e), add(uv(r), e)];
+                    list.push([[place(left), place(right), place(r, -1), place(r, 1)], kneeEnd]);
+                }
+                continue;
+            }
+            const side = has(left) ? 1 : -1;
+            list.push(tri3(tri.map(([c]) => place(c, side)), tri.map(([, u]) => u)));
+        }
+        const by = k => d.map(v => v * k);
+        list.push([[place(under, 1), place(under, -1), place(inLow, -1), place(inLow, 1)],
+            [add(mid, by(wide)), sub(mid, by(wide)), sub(far, by(narrow)), add(far, by(narrow))]]);
+        list.push([[place(inTop, 1), place(inTop, -1), place(inLow, -1), place(inLow, 1)], kneeEnd]);
+        givePiece(m, t, list, material);
+    };
+
+    /**
+     * Harvester's legs: the Reaper's own leg pieces made thick, each one block in the Reaper's leg texture laid as on
+     * its legs. Each thigh from inside the hip to the knee, wide on top and half as wide underneath towards the hip;
+     * each shin from the knee to the Reaper's foot point, wide outside and half as wide inside, narrowing a quarter
+     * down to where its foot begins, its outside rising past the knee into a guard as the Thresher's knee shield.
      */
     const legArmour = m => {
-        const tex = texture("leg_armour_b.bmp");
-        for (const t of THIGHS) {
-            const [lo, hi] = boxOf(m, t, true);
-            box(m, t, [lo[0] + 0.5, lo[1] - 0.03, lo[2] - 0.02], [hi[0] - 0.4, hi[1] + 0.03, hi[2] + 0.05], tex, ALL);
-            box(m, t, [lo[0] + 1.0, lo[1] + 0.12, hi[2] + 0.05], [hi[0] - 0.95, hi[1] - 0.12, hi[2] + 0.15], tex, ALL);
-        }
-        for (const s of SHINS) {
-            const [lo, hi] = boxOf(m, s, true);
-            const [[n]] = nodes(m, s);
-            n.parts = n.parts.filter(p => !p.texture);
-            const y0 = lo[1], y1 = hi[1], z0 = lo[2], z1 = hi[2], x = -1.1;
-            box(m, s, [x, y0, z0], [hi[0], y1, z1], tex, ALL);
-            const yc = (lo[1] + hi[1]) / 2, zc = (lo[2] + hi[2]) / 2, e = 0.07, tip = lo[0] - 0.05;
-            solid(m, s, [[x, y0, z0], [x, y1, z0], [x, y1, z1], [x, y0, z1],
-                [tip, yc - e, zc - e], [tip, yc + e, zc - e], [tip, yc + e, zc + e], [tip, yc - e, zc + e]], tex, ALL);
-        }
+        // each shin from as high as its fin reached (filling the thigh's end) down to the point
+        for (const s of SHINS)
+            thickShin(m, s, 1.2, boxOf(m, s, true)[1][0], -1.1, { taper: 0.75, guard: { rise: 0.7, half: 0.55, lean: 0.08 } });
+        THIGHS.forEach((t, k) => {
+            // the thigh runs along -x from its joint; its end at the knee over the shin's top, a little short of the
+            // shin's outside so the guard stands before it, and underneath as wide as the shin there
+            const hip = boxOf(m, t, true)[1][0] - 0.3;
+            const knee = Math.min(...points(m, SHINS[k]).map(p => toNode(m, t, p)[0])) + 0.12;
+            thickThigh(m, t, knee, hip, 1.75, 1.05, 0.5, 0.95);
+        });
     };
 
     /** Sarge's shape before its size: Grunt 3, its body higher and further forward, fenders over the tracks. */
@@ -214,8 +362,8 @@ module.exports = h => {
             line: "MACHINE AGGRESSOR 4 ASSASSIN LR_PLASMA_RIFLE_X2",
             make: colour => { const m = thresher(colour); scale(m, 1.2); return m; },
         },
-        // Harvester (Reaper 5): the Thresher bigger again on armoured legs, a thicker and higher body, armour round
-        // its gun mounts.
+        // Harvester (Reaper 5): the Thresher bigger again on thick legs made from the Reaper's own, a thicker and
+        // higher body.
         harvester: {
             line: "MACHINE AGGRESSOR 5 ASSASSIN LR_PLASMA_RIFLE_X2",
             make: colour => {
@@ -225,15 +373,6 @@ module.exports = h => {
                 spread(m, ["l_gun", "r_gun"], [1, 1.1, 1]);
                 move(m, ["l_gun", "r_gun"], [0, 0, 0.31]);
                 move(m, "fplat", [0.12, 0, 0.21]);
-                const armour = texture("leg_armour_b.bmp");
-                for (const [gun, s] of [["r_gun", 1], ["l_gun", -1]]) {
-                    const [lo, hi] = boxUnder(m, nodes(m, gun)[0][1]);
-                    const a = Math.min(Math.abs(lo[1]), Math.abs(hi[1])), b = Math.max(Math.abs(lo[1]), Math.abs(hi[1]));
-                    const cy = (a + b) / 2, cz = (lo[2] + hi[2]) / 2, ry = (b - a) / 2 + 0.22, rz = (hi[2] - lo[2]) / 2 + 0.22;
-                    // round the mount over the top, the outside and the bottom, open towards the body
-                    const profile = [...Array(13).keys()].map(k => { const th = (120 - k * 20) * Math.PI / 180; return [s * (cy + ry * Math.cos(th)), cz + rz * Math.sin(th)]; });
-                    cowl(m, "body", profile, [s * cy, cz], lo[0] + 0.2, hi[0] - 0.55, 0.14, armour);
-                }
                 ground(m, "hip", 0.04);
                 roofMount(m, "body");
                 scale(m, 1.32);
@@ -392,6 +531,9 @@ module.exports = h => {
                         box(m, "head", [0.15, s * 0.58, 1.95], [0.62, s * 1.08, 2.42], steel, ALL);
                     }
                 });
+                // the weapons' mounts on the boxes' tops, bare until a weapon is fitted
+                for (const [gun, s] of [["l_gun", -1], ["r_gun", 1]])
+                    mount(m, "head", gun, [0.385, s * 0.83, 2.42]);
                 scale(m, 2.4);
                 return m;
             },
@@ -412,6 +554,49 @@ module.exports = h => {
                 const all = points(m, "mult2.cdf");
                 const lo = [0, 1, 2].map(i => Math.min(...all.map(p => p[i]))), hi = [0, 1, 2].map(i => Math.max(...all.map(p => p[i])));
                 move(m, "gun", [c[0] - (lo[0] + hi[0]) / 2, c[1] - (lo[1] + hi[1]) / 2, top - 0.25 - lo[2]]);
+                return m;
+            },
+        },
+        // The original's constructors and spies as Wired's heroes wear them: each the original unchanged with empty
+        // mounts for the weapons it is given, under an id of its own (an original's id here would replace the
+        // original in every match).
+        // Dozer 1: a top mount on the cab's sloping roof.
+        dozer: {
+            line: "MACHINE CONSTRUCTOR 1 DOZER WIRED",
+            make: colour => { const m = load(colour, "CONSTRUCTOR_1_DOZER"); roofMount(m, "head"); return m; },
+        },
+        // Builder 3: a top mount on the ridge of its hopper.
+        builder: {
+            line: "MACHINE CONSTRUCTOR 3 BUILDER WIRED",
+            make: colour => { const m = load(colour, "CONSTRUCTOR_3_BUILDER"); roofMount(m, "head"); return m; },
+        },
+        // Behemoth 4: a top mount on the cab, whose flat roof runs from x -2.5 (the back's ridge ends there) to its
+        // front edge at 0.85; it has no head, the cab is part of the hip.
+        behemoth: {
+            line: "MACHINE CONSTRUCTOR 4 BEHEMOTH WIRED",
+            make: colour => { const m = load(colour, "CONSTRUCTOR_4_BEHEMOTH"); roofMount(m, "hip", 2.6); return m; },
+        },
+        // Spy 3: a top mount over the head, raised to the tip of the short spike on its top, which a weapon would
+        // otherwise pierce. The tall antenna rises on the head's left, its inner edge from y -0.45 at z 2.2 to -0.38 at
+        // its tip (z 4.06): a weapon on the centre line reaching further than about 0.38 m to that side stands into it.
+        spy3: {
+            line: "MACHINE SPY_LOCATOR 3 WIRED",
+            make: colour => {
+                const m = load(colour, "SPY_LOCATOR_3");
+                const [lo, hi] = boxOf(m, "head");
+                const tip = Math.max(...points(m, "head").filter(p => Math.abs(p[1]) < 0.3).map(p => p[2]));
+                mount(m, "head", "gun", [(lo[0] + hi[0]) / 2, 0, tip]);
+                return m;
+            },
+        },
+        // Spy 5: a mount on either side of the head, on its walls at half their height (z 1.64 to 2.35 on the left,
+        // to 2.28 on the right, whose top falls away; the side blades reach further out, but thin as paper).
+        spy5: {
+            line: "MACHINE SPY_LOCATOR 5 WIRED",
+            make: colour => {
+                const m = load(colour, "SPY_LOCATOR_5");
+                for (const [gun, s] of [["l_gun", -1], ["r_gun", 1]])
+                    mount(m, "head", gun, [0, s * 0.8, 2.0]);
                 return m;
             },
         },

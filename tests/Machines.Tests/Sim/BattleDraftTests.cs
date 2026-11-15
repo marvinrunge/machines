@@ -66,6 +66,9 @@ public class BattleDraftTests
         Assert.Equal(WiredCatalogue.Chassis.Count, tree.Count);
         Assert.Equal(BattleStage.Worn, tree["grunt1"].Stage);
         Assert.Equal(new[] { 1, 2, 3, 4, 5, 6, 7, 7, 8 }, new[] { "grunt1", "grunt2", "reaper2", "reaper3", "knight3", "knight4", "ballista4", "boss2", "gorilla5" }.Select(id => tree[id].Tier));
+        // The constructors and spies too: the tier is the row of the shop's tree plus one.
+        Assert.Equal(new[] { 3, 4, 6, 8, 4, 6, 8 }, new[] { "dozer1", "builder3", "behemoth4", "titan6", "spy3", "spy5", "phantom6" }.Select(id => tree[id].Tier));
+        Assert.All(WiredCatalogue.Chassis, c => Assert.InRange(tree[c.Id].Tier, 1, BattleCatalogue.MostTier));
 
         var grunt2 = tree["grunt2"];
         Assert.Equal(BattleStage.Short, grunt2.Stage);
