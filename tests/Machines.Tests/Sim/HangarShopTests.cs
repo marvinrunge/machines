@@ -265,6 +265,21 @@ public class HangarShopTests
     public void The_constructors_stand_at_the_far_left_and_the_spies_at_the_far_right(string chassis, int column, int row) =>
         Assert.Equal((column, row), ChassisTree.Place(chassis));
 
+    [Theory]
+    [InlineData("geo1", 8, 0)]
+    [InlineData("geo3", 8, 1)]
+    [InlineData("boss1", 8, 4)]
+    [InlineData("boss3", 8, 5)]
+    public void The_flyer_line_runs_down_column_eight_from_the_crab(string chassis, int column, int row) =>
+        Assert.Equal((column, row), ChassisTree.Place(chassis));
+
+    [Fact]
+    public void The_line_from_the_glider_to_the_first_boss_runs_straight_down_its_column()
+    {
+        Assert.Contains(("geo3", "boss1"), ChassisTree.Lines);
+        Assert.True(ChassisTree.TurnsAtOnce("geo3", "boss1"));
+    }
+
     [Fact]
     public void The_lines_of_the_tree_are_the_catalogues_needs_and_run_downwards()
     {
@@ -363,6 +378,64 @@ public class HangarShopTests
 
         Assert.Equal(ChassisStep.ForSale, Shop(world).Step(Chassis("grunt2")));
         Assert.NotEqual("grunt2", Shop(world).NextChassis()!.Id);
+    }
+
+    [Fact]
+    public void The_crab_stands_for_sale_for_nothing_but_a_start_of_the_tree_is_never_the_next_chassis()
+    {
+        var world = InHangar();
+        var shop = Shop(world);
+
+        Assert.Equal(ChassisStep.ForSale, shop.Step(Chassis("geo1")));
+        Assert.Equal(0, shop.Price("geo1"));
+        Assert.Equal("grunt2", shop.NextChassis()!.Id);
+        // Nor on the crab: the first grunt, owned in every run, is a start of the tree as well.
+        Assert.Null(Do(world, new WiredChassisCommand(Race.Red, Buy(world, "geo1").Id)));
+        foreach (var wave in new[] { 0, 4, 12, 30 })
+        {
+            world.Wired!.Wave = wave;
+            Assert.DoesNotContain(shop.NextChassis(), WiredCatalogue.Roots);
+        }
+    }
+
+    [Fact]
+    public void The_glider_is_closed_before_wave_five()
+    {
+        var world = InHangar();
+        var shop = Shop(world);
+        Buy(world, "geo1");
+
+        world.Wired!.Wave = 3;
+        Assert.Equal(4, world.Wired.ShopWave);
+        Assert.Equal(ChassisStep.Closed, shop.Step(Chassis("geo3")));
+
+        world.Wired.Wave = 4;
+        Assert.Equal(ChassisStep.ForSale, shop.Step(Chassis("geo3")));
+    }
+
+    [Fact]
+    public void The_glider_is_closed_to_a_hero_that_never_had_the_crab()
+    {
+        var world = InHangar();
+        world.Wired!.Wave = 10;
+
+        Assert.Equal(ChassisStep.Closed, Shop(world).Step(Chassis("geo3")));
+        Assert.Equal("needs geo1 first", world.WhyCannotBuy(Red(world), "geo3"));
+    }
+
+    [Fact]
+    public void The_first_boss_opens_from_the_glider()
+    {
+        var world = InHangar();
+        var shop = Shop(world);
+        world.Wired!.Wave = 10;
+        Buy(world, "geo1");
+        Assert.Equal(ChassisStep.Closed, shop.Step(Chassis("boss1")));
+
+        Buy(world, "geo3");
+
+        Assert.DoesNotContain("overseer3", Red(world).Reached);
+        Assert.Equal(ChassisStep.ForSale, shop.Step(Chassis("boss1")));
     }
 
     [Fact]
@@ -510,8 +583,10 @@ public class HangarShopTests
             world.WhyNoSpecial(state, on);
             world.WhyNoAnchor(state, on);
         }
-        world.SpecialView(Race.Red);
-        world.SpecialView(Race.Blue);
+        foreach (var race in Enum.GetValues<Race>())
+            world.SpecialView(race);
+        world.WhyNoLocate(state);
+        world.LocatedFor(foe.Id);
         world.SquadLimit(state);
         world.WhyNoRally(state);
         world.WhyNoMine(state);
@@ -528,6 +603,7 @@ public class HangarShopTests
         world.WhyNoScrap(state, 0);
         if (hero is not null)
         {
+            world.LocatedFor(hero.Id);
             world.AnchorPhaseOf(hero);
             world.Shadowed(foe, hero);
             world.Shadowed(hero, foe);
@@ -543,6 +619,8 @@ public class HangarShopTests
         var far = world.Nav.NearestFreePoint(world.WiredPod(Race.Red)!.Position + new Vector2(300, 0), crossesWater: false)!.Value;
         var foe = world.AddMachine(Race.Blue, far, "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
         world.Step();
+        // Located, as a geo hero's pulse leaves it, so that the questions about it go the located way as well.
+        world.Wired!.Located[foe.Id] = world.Time + 1000;
 
         foreach (var chassis in WiredCatalogue.Chassis)
         {

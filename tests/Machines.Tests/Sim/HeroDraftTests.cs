@@ -222,6 +222,33 @@ public class HeroDraftTests
     }
 
     [Fact]
+    public void A_start_on_the_crab_has_the_free_bolter_on_top_owns_the_grunt_as_well_and_keeps_all_the_capital()
+    {
+        var profile = new WiredProfile { LastHero = new WiredHeroSheet { Chassis = "geo1" } };
+
+        var draft = new HeroDraft(Data, profile);
+
+        Assert.Equal("geo1", draft.Chassis);
+        Assert.Equal([WiredBalance.StartWeapon], draft.State.Loadout.Battery(Mounting.Top).Select(i => i.Catalogue));
+        Assert.Contains(draft.State.Items, i => i is { Kind: WiredKind.Chassis, Catalogue: WiredBalance.StartChassis });
+        Assert.Equal(WiredBalance.StartCapital(WiredDifficulty.Normal), draft.Bank);
+        Assert.Equal(draft.Capital, draft.Bank);
+    }
+
+    [Fact]
+    public void Changing_to_the_crab_puts_the_free_bolter_on_its_top_for_nothing()
+    {
+        var draft = NewDraft();
+
+        draft.Wear("geo1");
+
+        Assert.Equal("geo1", draft.Chassis);
+        Assert.Equal([WiredBalance.StartWeapon], Worn(draft));
+        Assert.Equal([WiredBalance.StartWeapon], draft.State.Loadout.Battery(Mounting.Top).Select(i => i.Catalogue));
+        Assert.Equal(draft.Capital, draft.Bank);
+    }
+
+    [Fact]
     public void Only_what_the_first_wave_offers_is_for_sale()
     {
         var draft = NewDraft();

@@ -84,11 +84,12 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// A tick of the run: its heroes first, then the wave under way, then the clock. A hangar closes when its hero leaves,
-    /// and an open one holds the countdown.
+    /// and an open one holds the countdown. Located machines gone, fallen or whose time is up are forgotten before all.
     /// </summary>
     private void UpdateWired()
     {
         var run = Wired!;
+        PruneLocated(run);
         if (run.Phase == WiredPhase.Ended)
             return;
         NoteShots(run);
@@ -383,6 +384,8 @@ public sealed partial class GameWorld
         }
         // What the body of Wired's own machines makes of a hit, hero or not; exactly 1 for any other.
         share *= BodyShare(target, shooter);
+        // A located machine takes more from its enemies; exactly 1 for one that is not and for a hit without a dealer.
+        share *= LocatedShare(target, shooter);
         if (share != 1 && damage > 0)
             damage = Math.Max(1, WholeDamage(damage * share));
         return true;

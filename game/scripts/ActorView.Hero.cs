@@ -14,6 +14,19 @@ public partial class ActorView
     public bool Refitted(Machine machine) => machine.Refits != _refits;
 
     /// <summary>
+    /// How a machine's legs keep pace with the ground: its walk is clocked by its top speed, a hero's by its share of the
+    /// original's (<see cref="WiredMachines.GaitShare"/>), since a hero may be tuned faster than the walk of its model was
+    /// made for – the crab runs 16 m/s on legs made for 6. Such a hero's walk may then run up to twice as fast as any
+    /// other's, so that its legs run rather than skate; every other machine, a crab of a normal match too, as before.
+    /// </summary>
+    private void Gait(Machine machine, bool hero)
+    {
+        var share = hero ? WiredMachines.GaitShare(machine.Spec.TypeName, machine.Stats.HardwareLevel) : 1;
+        _maxSpeed = machine.Stats.Speed * share;
+        _fastestWalk = share < 1 ? 2 * RigView.FastestWalk : RigView.FastestWalk;
+    }
+
+    /// <summary>
     /// Shows what a hero is since the hangar refitted it: a new rig and all that hangs on its size. The view stays, so
     /// the selection, what burns and smokes on it and the driver's seat stay as well.
     /// </summary>
@@ -33,7 +46,7 @@ public partial class ActorView
         Size = Mathf.Max(size.X, size.Z);
         _rigView = RigView.Create(rig);
         _rigView.UpperBody = turned;
-        _maxSpeed = machine.Stats.Speed;
+        Gait(machine, hero: true);
         if (machine.Stats.BodyTurnRate is > 0 and var bodyRate)
             _rigView.TurnRate = Mathf.DegToRad(bodyRate);
         AddChild(_rigView);

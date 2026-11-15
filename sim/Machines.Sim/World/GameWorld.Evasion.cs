@@ -101,8 +101,8 @@ public sealed partial class GameWorld
         var plan = Data.Parm.EvasionStrategies.FirstOrDefault(e => e.Name == machine.Stats.Evasion);
         if (plan is null || plan.GarrisonsPriority == -2 || machine.Order is StandGroundOrder || VirtualDefCon(machine) == DefCon.High)
             return;
-        // A Wired hero on a constructor or a spy fights as any other hero: their plans would only have it run away.
-        if (Wired is not null && machine.Spec.Type is "CONSTRUCTOR" or "SPY_LOCATOR" && IsWiredHero(machine))
+        // A Wired hero on a constructor, a spy or a geo locator fights as any other hero: their plans would only have it run away.
+        if (Wired is not null && machine.Spec.Type is "CONSTRUCTOR" or "SPY_LOCATOR" or "GEO_LOCATOR" && IsWiredHero(machine))
             return;
         if (machine.Inside is { } inside && Find<Construction>(inside) is { } building && building.IsType("GARRISON")
             && building.Race == machine.Race && machine.HitPoints < 0.2f * machine.MaxHitPoints)

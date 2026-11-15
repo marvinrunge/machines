@@ -418,6 +418,12 @@ public static class WiredBalance
     /// <summary>The Phantom: the seconds without firing after which it is hidden, and how near an enemy must come to see it all the same.</summary>
     public const float ShadowQuiet = 3, ShadowReach = 25;
 
+    /// <summary>
+    /// The geo locators' pulse: the seconds an enemy within the hero's scanner reach stays located, what a hit on it from
+    /// an enemy of its is multiplied by meanwhile, and the seconds from one pulse to the next.
+    /// </summary>
+    public const float LocateTime = 10, LocateShare = 1.2f, LocateCooldown = 20;
+
     // ---- batteries --------------------------------------------------------------------------------
 
     /// <summary>The copies of one weapon a slot carries as a battery, by its <see cref="SlotSize"/>: whatever the weapon's own size.</summary>

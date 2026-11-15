@@ -34,6 +34,44 @@ public static class WiredMachines
         new("SPY_LOCATOR", 6, 5, 120, 60, 1.0f, 20, 720, 75, 280, 400, 2.4f, "Phantom"),
     ];
 
+    /// <summary>
+    /// Levels of the original's that a hero wears with other values than the original's machine: the crab, Geo Locator 1,
+    /// would as a hero be tougher than Grunt 1 and too slow to scout, so a hero on it gives toughness for speed and sight.
+    /// Only <see cref="AsHero"/> reads them: never parmdata, never <see cref="Levels"/>, so a crab in any other place (a
+    /// match of the original's kind, the computer's) and every other hero stay as they are; nor does the game take a
+    /// name from them. <see cref="WiredLevel.From"/> is the level itself, <see cref="WiredLevel.Cost"/> the original's.
+    /// </summary>
+    public static readonly IReadOnlyList<WiredLevel> HeroTunes =
+    [
+        new("GEO_LOCATOR", 1, 1, 12, 5, 0.25f, 16, 90, 60, 160, 25, 1.0f, "Geo Locator 1"),
+    ];
+
+    /// <summary>
+    /// The original's speed of each tuned level, which the walk of its model is made for (parmdata's SPEED, which
+    /// WiredLocatorTests holds this to): the view clocks a tuned hero's walk by it (<see cref="GaitShare"/>).
+    /// </summary>
+    private static readonly IReadOnlyDictionary<(string TypeName, int Level), float> WalkedAt = new Dictionary<(string, int), float>
+    {
+        [("GEO_LOCATOR", 1)] = 6,
+    };
+
+    /// <summary>The hero's tune of a type and level, or null where a hero wears the level as it is.</summary>
+    public static WiredLevel? HeroTune(string typeName, int level) => HeroTunes.FirstOrDefault(t => t.TypeName == typeName && t.Level == level);
+
+    /// <summary>
+    /// A level as a hero wears it: the very same <paramref name="level"/> where there is no tune of it, so every other
+    /// hero is built as before, otherwise the tune's values, the accelerations along in proportion.
+    /// </summary>
+    public static MachineLevel AsHero(string typeName, MachineLevel level) =>
+        HeroTune(typeName, level.HardwareLevel) is { } tune ? Made(tune, level) : level;
+
+    /// <summary>
+    /// The original's speed of a level over the speed a hero on it is tuned to: what a hero's walk is clocked by, so that
+    /// the crab's legs run faster rather than skate. 1 for every level without a tune.
+    /// </summary>
+    public static float GaitShare(string typeName, int level) =>
+        HeroTune(typeName, level) is { } tune && WalkedAt.TryGetValue((typeName, level), out var walked) ? walked / tune.Speed : 1;
+
     /// <summary>The specials that belong to a machine's body and go for every machine of its type and level, not for the hero alone.</summary>
     public const ChassisSpecial BodySpecials = ChassisSpecial.Plough | ChassisSpecial.Harvest | ChassisSpecial.Lurk | ChassisSpecial.Anchor;
 

@@ -40,6 +40,28 @@ public class WiredProfileTests
         Assert.All(WiredProfile.StartChassis, start => Assert.NotNull(WiredCatalogue.FindChassis(start.Chassis)));
     }
 
+    [Fact]
+    public void A_new_profile_starts_on_the_crab_as_well()
+    {
+        var profile = new WiredProfile();
+
+        Assert.True(profile.CanStartOn("geo1"));
+        Assert.False(profile.CanStartOn("geo3"));
+        Assert.Equal(["grunt1", "geo1"], WiredProfile.StartChassis.Where(s => s.Wave == 0).Select(s => s.Chassis));
+    }
+
+    [Fact]
+    public void The_crab_is_no_goal_and_no_run_opens_it()
+    {
+        var profile = new WiredProfile();
+        Assert.DoesNotContain(profile.Goals(), g => g.Id == "geo1");
+
+        foreach (var waves in new[] { 0, 10, 40 })
+            Assert.DoesNotContain("geo1", profile.Note(Run(waves, squad: 3)));
+        Assert.DoesNotContain("geo1", profile.Unlocks);
+        Assert.True(profile.CanStartOn("geo1"));
+    }
+
     [Theory]
     [InlineData(9, 0, new string[0])]
     [InlineData(10, 0, new[] { "reaper2", "m_moon" })]

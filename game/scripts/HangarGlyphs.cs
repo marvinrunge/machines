@@ -80,6 +80,7 @@ public static class HangarGlyphs
         ["BUILDER"] = [[2, 15, 8, 15], [4, 15, 4, 2, 14, 2], [4, 5, 7, 2], [12, 2, 12, 7, 13, 9, 12, 10, 11, 9]],
         ["BEHEMOTH"] = [[1, 10, 15, 10, 15, 14, 1, 14, 1, 10], [3, 10, 3, 5, 13, 5, 13, 10], [6, 5, 6, 2, 10, 2, 10, 5], [3, 12, 13, 12]],
         ["SPY_LOCATOR"] = [[3, 9, 8, 6, 13, 9, 8, 12, 3, 9], Ring(8, 9, 1.5f), [8, 6, 8, 2], [6, 2, 10, 2], [2, 14, 5, 12], [14, 14, 11, 12]],
+        ["GEO_LOCATOR"] = [[2, 3, 4, 6.5f, 8, 7.5f, 12, 6.5f, 14, 3], Ring(8, 3.5f, 1), [8, 4.5f, 8, 12], [3, 15, 5, 13, 8, 12, 11, 13, 13, 15]],
     };
 
     /// <summary>The drawing of an item, or null for what has none. A chassis is drawn by its kind, the spies by their type.</summary>

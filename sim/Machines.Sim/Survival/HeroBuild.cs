@@ -74,7 +74,8 @@ public sealed record HeroBuild
     {
         var chassis = loadout.ChassisEntry;
         var spec = data.Parm.Machine(chassis.TypeName);
-        var level = spec.Level(chassis.Level);
+        // A hero wears a few of the original's levels tuned (the crab); every other level as it is, the same reference.
+        var level = WiredMachines.AsHero(chassis.TypeName, spec.Level(chassis.Level));
 
         float armour = 0, hitPoints = 0, repair = 0, speed = 0, turn = 0, scanner = 0, reload = 0, wrecks = 0;
         int capacity = chassis.Load, supply = chassis.Power, accuracy = 0, load = 0, draw = 0;
@@ -189,7 +190,8 @@ public sealed record HeroBuild
             Range = weapons.Select(w => w.Spec.Range).DefaultIfEmpty(0).Max(),
             TurnShare = rotate,
             WreckShare = 1 + wrecks,
-            PickupReach = MathF.Max(WiredBalance.PickupReach, chips.PickupReach) * (chassis.Glider ? WiredBalance.GliderPickup : 1),
+            // Whatever flies reaches further down for a wreck: the Boss line and the geo locator's glider alike.
+            PickupReach = MathF.Max(WiredBalance.PickupReach, chips.PickupReach) * (level.Locomotion == Locomotion.Glider ? WiredBalance.GliderPickup : 1),
             DashCooldown = dash,
             Warnings = warnings,
         };

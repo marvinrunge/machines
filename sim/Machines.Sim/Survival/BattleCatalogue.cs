@@ -51,6 +51,9 @@ public static class BattleCatalogue
         ["spy3"] = 4,
         ["spy5"] = 6,
         ["phantom6"] = 8,
+        // The locators: the crab a start beside Grunt 1, the glider the first flyer.
+        ["geo1"] = 1,
+        ["geo3"] = 2,
     };
 
     /// <summary>The tier of a chassis, or 0 for one without a row.</summary>

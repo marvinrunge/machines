@@ -250,7 +250,7 @@ public class WiredHeroTests
         string[][] byBarrels =
         [
             [],
-            ["grunt1", "grunt2", "boss1", "dozer1", "builder3", "spy3"],
+            ["grunt1", "grunt2", "boss1", "dozer1", "builder3", "spy3", "geo1", "geo3"],
             ["overseer2", "behemoth4", "spy5"],
             ["reaper2", "overseer3", "ballista3", "boss2", "titan6"],
             ["grunt3", "reaper3", "knight3", "boss3", "phantom6"],
@@ -263,7 +263,7 @@ public class WiredHeroTests
         Assert.Equal(byBarrels.SelectMany((ids, count) => ids.Select(id => (id, count))).OrderBy(p => p.id, StringComparer.Ordinal),
             barrels.Select(p => (id: p.Key, count: p.Value)).OrderBy(p => p.id, StringComparer.Ordinal));
         Assert.Equal(["grunt1", "grunt2", "reaper2", "overseer2", "overseer3", "knight3", "ballista3", "boss1", "grunt4", "boss3", "dozer1", "builder3",
-            "behemoth4", "titan6", "spy3", "spy5", "phantom6"], allowed);
+            "behemoth4", "titan6", "spy3", "spy5", "phantom6", "geo1", "geo3"], allowed);
     }
 
     [Fact]
@@ -451,7 +451,7 @@ public class WiredHeroTests
         var world = InHangar();
         var state = Red(world);
         var sting = Buy(world, "WASP_LIGHT_STING");
-        Assert.Equal("that fits only the top slot of a glider", Do(world, new WiredEquipCommand(Race.Red, sting.Id, Right)));
+        Assert.Equal("that fits only the top slot of the Boss line", Do(world, new WiredEquipCommand(Race.Red, sting.Id, Right)));
 
         Board(world, "boss1");
         Assert.Null(Do(world, new WiredEquipCommand(Race.Red, sting.Id, Top)));
@@ -603,11 +603,12 @@ public class WiredHeroTests
     [Fact]
     public void Every_chassis_resolves_against_the_real_data_on_the_machine_it_names()
     {
-        Assert.Equal(32, WiredCatalogue.Chassis.Count);
+        Assert.Equal(34, WiredCatalogue.Chassis.Count);
         Assert.Contains(WiredCatalogue.Chassis, c => c.Type == "SPY_LOCATOR" && c.SubType is null);
         foreach (var chassis in WiredCatalogue.Chassis)
         {
-            var level = Data.Parm.Machine(chassis.TypeName).Level(chassis.Level);
+            // A hero wears the crab tuned (WiredMachines.HeroTunes); every other chassis as the data has it.
+            var level = WiredMachines.AsHero(chassis.TypeName, Data.Parm.Machine(chassis.TypeName).Level(chassis.Level));
             var build = HeroBuild.Resolve(Data, Loadout(chassis.Id));
 
             Assert.Equal(level.HitPoints * WiredBalance.HeroHitPoints, build.Stats.HitPoints);
@@ -678,7 +679,9 @@ public class WiredHeroTests
     [Fact]
     public void The_way_through_the_chassis_tree_reaches_every_chassis()
     {
-        var reached = new HashSet<string> { "grunt1" };
+        // From the roots: Grunt 1 and the crab need nothing.
+        Assert.Equal(["grunt1", "geo1"], WiredCatalogue.Roots.Select(c => c.Id));
+        var reached = WiredCatalogue.Roots.Select(c => c.Id).ToHashSet();
         for (var round = 0; round < WiredCatalogue.Chassis.Count; round++)
             reached.UnionWith(WiredCatalogue.Chassis.Where(c => c.Needs.Any(reached.Contains)).Select(c => c.Id));
 
@@ -2218,8 +2221,8 @@ public class WiredHeroTests
     [InlineData("grunt1", "BOLTER", null)]
     [InlineData("grunt1", "HEAVY_BOLTER1", "that needs a medium slot")]
     [InlineData("grunt1", "PLASMA_CANNON2", "that needs a heavy slot")]
-    [InlineData("grunt1", "WASP_LIGHT_STING", "that fits only the top slot of a glider")]
-    [InlineData("grunt1", "BEE_BOMB", "that fits only the top slot of a glider")]
+    [InlineData("grunt1", "WASP_LIGHT_STING", "that fits only the top slot of the Boss line")]
+    [InlineData("grunt1", "BEE_BOMB", "that fits only the top slot of the Boss line")]
     [InlineData("boss1", "WASP_LIGHT_STING", null)]
     public void A_weapon_with_no_slot_says_what_would_take_it(string chassis, string weapon, string? why) =>
         Assert.Equal(why, Loadout(chassis).WhyNoSlot(new WiredItem(1, WiredKind.Weapon, weapon)));

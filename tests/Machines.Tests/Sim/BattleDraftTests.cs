@@ -68,6 +68,8 @@ public class BattleDraftTests
         Assert.Equal(new[] { 1, 2, 3, 4, 5, 6, 7, 7, 8 }, new[] { "grunt1", "grunt2", "reaper2", "reaper3", "knight3", "knight4", "ballista4", "boss2", "gorilla5" }.Select(id => tree[id].Tier));
         // The constructors and spies too: the tier is the row of the shop's tree plus one.
         Assert.Equal(new[] { 3, 4, 6, 8, 4, 6, 8 }, new[] { "dozer1", "builder3", "behemoth4", "titan6", "spy3", "spy5", "phantom6" }.Select(id => tree[id].Tier));
+        // The locators: the crab a start beside Grunt 1, the glider on the second row.
+        Assert.Equal(new[] { 1, 2 }, new[] { "geo1", "geo3" }.Select(id => tree[id].Tier));
         Assert.All(WiredCatalogue.Chassis, c => Assert.InRange(tree[c.Id].Tier, 1, BattleCatalogue.MostTier));
 
         var grunt2 = tree["grunt2"];
@@ -425,13 +427,25 @@ public class BattleDraftTests
         draft.Map = "fortmult";
         var options = draft.Options();
         var own = options.Heroes.Single(h => !h.Bot);
-        string Kit(BattleHero hero) => string.Join(",", hero.Items.Select(i => $"{i.Catalogue}/{i.Slot}/{i.Mk}"));
+        string Kit(BattleHero hero) => string.Join(",", hero.Items.Select(i => $"{i.Catalogue}/{i.Mk}"));
         Assert.Equal(WiredBalance.StartChassis, own.Chassis);
-        Assert.All(options.Heroes.Where(h => h.Bot), bot =>
+        // The first tier's line is Grunt 1 and the crab, which the bots take in turn.
+        var line = BattleCatalogue.OfTier(1).Select(c => c.Id).ToList();
+        Assert.Equal(["grunt1", "geo1"], line);
+        var teams = new[] { options.TeamA.Order().ToList(), options.TeamB.Order().ToList() };
+        var bots = options.Heroes.Where(h => h.Bot).ToList();
+        Assert.Equal(3, bots.Count);
+        Assert.All(bots, bot =>
         {
-            Assert.Equal(own.Chassis, bot.Chassis);
+            // The first of a team on Grunt 1, the second on the crab.
+            var k = teams.Select(team => team.IndexOf(bot.Race)).Single(i => i >= 0);
+            Assert.Equal(BattleBots.Pick(1, bot.Race, k), bot.Chassis);
+            Assert.Equal(k % 2 == 0 ? "grunt1" : "geo1", bot.Chassis);
+            // Each wears the start kit as the player does, the Bolter on its one slot: right on Grunt 1, top on the crab.
             Assert.Equal(Kit(own), Kit(bot));
+            Assert.Equal(WiredSlot.Weapon(bot.Chassis == "geo1" ? Mounting.Top : Mounting.Right), bot.Items.Single(i => i.Catalogue == "BOLTER").Slot);
         });
+        Assert.Contains(bots, bot => bot.Chassis == "geo1");
         // From the second tier on bots wear modules too.
         Assert.Contains(BattleBots.Loadout("grunt2", 2), i => WiredCatalogue.FindModule(i.Catalogue) is not null);
     }

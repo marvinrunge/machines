@@ -137,7 +137,8 @@ public class BattleSetupTests
             var team = world.Battle!.TeamOf(race);
             Assert.True(Vector2.Distance(hero.Position, world.BattlePod(team)!.Position) < 45, $"{race} stands at {hero.Position}");
             Assert.Equal(world.BattlePod(team)!.Id, world.Wired!.Heroes[race].Pod);
-            Assert.Equal("AGGRESSOR GRUNT", hero.Spec.TypeName);
+            // The first of a team on Grunt 1, the second on the crab: the first tier's line, taken in turn.
+            Assert.Equal(race is Race.Red or Race.Green ? "AGGRESSOR GRUNT" : "GEO_LOCATOR", hero.Spec.TypeName);
         }
         Assert.Equal([Race.Blue, Race.Yellow], world.HeroBots.Keys);
         Assert.Equal([Race.Blue, Race.Yellow], world.Battle!.Bots);

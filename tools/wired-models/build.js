@@ -63,15 +63,28 @@ function world(m, index) {
     return n.parent < 0 || n.parent === index ? n.transform : mul(world(m, n.parent), n.transform);
 }
 
-/** Every position of the model, its rest translations and its animations' translations, times `s`. */
-function scale(m, s) {
+/**
+ * Every motion of the model: its animations' tracks, and its idle and working motions (a machine's bob, a fan's turn, a
+ * building's work), whose samples set a node's transform outright every frame in the game, its rest left aside.
+ */
+const motions = m => [...Object.values(m.rig.animations ?? {}).flatMap(clip => clip.tracks), ...(m.rig.idle ?? []), ...(m.rig.working ?? [])];
+
+/**
+ * Every position of the model, its rest translations and its motions' translations, times `s`. The motions of the nodes
+ * named in `aloft` grow about the node's rest instead: a glider's idle motion holds its hip at the height every glider of
+ * the original flies at, 20 m over the ground, and a bigger glider flies no higher; only its bob grows. Unscaled, the idle
+ * motion drew a machine at its original's height: the Phantom's (Spy 5's) 2 m down in the ground.
+ */
+function scale(m, s, aloft = []) {
+    const about = new Map(aloft.flatMap(name => nodes(m, name)).map(([n, index]) => [index, n.transform.slice(9)]));
     for (const n of m.rig.nodes) {
         n.transform = n.transform.map((v, k) => (k >= 9 ? v * s : v));
         scaleShapes(n, [s, s, s], [0, 0, 0]);
     }
-    for (const clip of Object.values(m.rig.animations ?? {}))
-        for (const track of clip.tracks)
-            track.samples = track.samples.map(t => t.map((v, k) => (k >= 9 ? v * s : v)));
+    for (const track of motions(m)) {
+        const rest = about.get(track.node) ?? [0, 0, 0];
+        track.samples = track.samples.map(t => t.map((v, k) => (k >= 9 ? rest[k - 9] + (v - rest[k - 9]) * s : v)));
+    }
     if (m.rig.eye)
         m.rig.eye = m.rig.eye.map(v => v * s);
     if (m.rig.tracks)
@@ -120,7 +133,7 @@ function middle(n) {
     return lo[0] === Infinity ? [0, 0, 0] : lo.map((v, i) => (v + hi[i]) / 2);
 }
 
-/** A node moved by `by` in its parent's space, at rest and in every animation. */
+/** A node moved by `by` in its parent's space, at rest and in every motion. */
 function move(m, name, by) {
     for (const [, index] of nodes(m, name))
         moveAt(m, index, by);
@@ -128,12 +141,9 @@ function move(m, name, by) {
 
 function moveAt(m, index, by) {
     const n = m.rig.nodes[index];
-    {
-        n.transform = n.transform.map((v, k) => (k >= 9 ? v + by[k - 9] : v));
-        for (const clip of Object.values(m.rig.animations ?? {}))
-            for (const track of clip.tracks.filter(t => t.node === index))
-                track.samples = track.samples.map(t => t.map((v, k) => (k >= 9 ? v + by[k - 9] : v)));
-    }
+    n.transform = n.transform.map((v, k) => (k >= 9 ? v + by[k - 9] : v));
+    for (const track of motions(m).filter(t => t.node === index))
+        track.samples = track.samples.map(t => t.map((v, k) => (k >= 9 ? v + by[k - 9] : v)));
 }
 
 /** A node placed where its rest origin times `f` would be: spreads mounts and tracks outwards with a stretched hull. */
@@ -329,7 +339,7 @@ function lowest(m) {
     return low;
 }
 
-/** The machine raised or lowered (node `name`, at rest and in its animations) so its lowest point is at `z`. */
+/** The machine raised or lowered (node `name`, at rest and in every motion) so its lowest point is at `z`. */
 function ground(m, name, z) {
     move(m, name, [0, 0, z - lowest(m)]);
 }
@@ -389,13 +399,12 @@ function boxUnder(m, index) {
     return [[0, 1, 2].map(i => Math.min(...all.map(p => p[i]))), [0, 1, 2].map(i => Math.max(...all.map(p => p[i])))];
 }
 
-/** Node `name` turned about its own y axis by `deg` (nose down for positive), at rest and in its animations. */
+/** Node `name` turned about its own y axis by `deg` (nose down for positive), at rest and in every motion. */
 function tilt(m, name, deg) {
     for (const [n, index] of nodes(m, name)) {
         n.transform = mul(n.transform, tiltY(deg));
-        for (const clip of Object.values(m.rig.animations ?? {}))
-            for (const track of clip.tracks.filter(t => t.node === index))
-                track.samples = track.samples.map(t => mul(t, tiltY(deg)));
+        for (const track of motions(m).filter(t => t.node === index))
+            track.samples = track.samples.map(t => mul(t, tiltY(deg)));
     }
 }
 

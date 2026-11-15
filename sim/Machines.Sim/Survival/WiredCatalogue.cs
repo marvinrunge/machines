@@ -50,13 +50,16 @@ public enum ChassisSpecial
 
     /// <summary>Phantom: quiet, it cannot be locked on from afar.</summary>
     Shadow = 256,
+
+    /// <summary>The geo locators: a pulse marks every enemy within the scanner's reach, and the marked take more from the hero's side.</summary>
+    Locate = 512,
 }
 
 /// <summary>
 /// A machine as the hero's body. The real game data supplies its hit points, armour, repair, speed, turn, accuracy,
 /// scanner and locomotion (<see cref="MachineSpec.Level"/>); slots, load, power, price and the way there are Wired's own.
 /// </summary>
-/// <param name="SubType">None for a type without subtypes, the spies.</param>
+/// <param name="SubType">None for a type without subtypes, the spies and the geo locators.</param>
 /// <param name="Needs">Having owned any one of these opens it up; none for the first.</param>
 /// <param name="FromWave">The first wave whose shop sells it in a run; chassis new to Wired wait.</param>
 /// <param name="Dash">The cooldown of a dash built into the chassis, in seconds; thrusters may make it shorter.</param>
@@ -68,7 +71,10 @@ public sealed record WiredChassis(string Id, string Type, string? SubType, int L
 {
     public string TypeName => SubType is null ? Type : $"{Type} {SubType}";
 
-    /// <summary>A glider: only its top slot takes the stings and bombs.</summary>
+    /// <summary>
+    /// The Boss line: only its top slot takes the stings and bombs. It is not "a machine that flies": the geo locator's
+    /// glider flies as well and takes none of them, and every flight rule goes by the machine's locomotion instead.
+    /// </summary>
     public bool Glider => SubType == "BOSS";
 
     public ChassisSlot? Slot(Mounting mounting) => Slots.FirstOrDefault(s => s.Mounting == mounting);
@@ -147,7 +153,7 @@ public static class WiredCatalogue
         new("commander5", "ADMINISTRATOR", "COMMANDER", 5, [Left(H), Right(H)], 5, 26, 34, 1900, ["commander4"]),
         new("ballista3", "AGGRESSOR", "BALLISTA", 3, [Top(H)], 2, 24, 16, 800, ["grunt3", "reaper3"]),
         new("ballista4", "AGGRESSOR", "BALLISTA", 4, [Left(H), Right(H)], 3, 36, 22, 1500, ["ballista3"]),
-        new("boss1", "ADMINISTRATOR", "BOSS", 1, [Top(L)], 2, 8, 14, 700, ["overseer3"]),
+        new("boss1", "ADMINISTRATOR", "BOSS", 1, [Top(L)], 2, 8, 14, 700, ["overseer3", "geo3"]),
         new("boss2", "ADMINISTRATOR", "BOSS", 2, [Top(H)], 3, 14, 20, 1400, ["boss1"]),
         new("gorilla5", "AGGRESSOR", "NINJA", 5, [Left(H), Right(H), new ChassisSlot(Mounting.Top, H, "GORILLA_PUNCH")], 4, 44, 30, 3200, ["knight5", "ballista4"]),
         // Wired's own machines (WiredMachines), sidegrades at the ends of the lines: Sarge, Old Iron, Thresher, Harvester,
@@ -169,7 +175,15 @@ public static class WiredCatalogue
         new("spy3", "SPY_LOCATOR", null, 3, [Top(L)], 3, 8, 12, 420, ["overseer2"], 6, Special: ChassisSpecial.Mines),
         new("spy5", "SPY_LOCATOR", null, 5, [Left(L), Right(L)], 3, 10, 16, 1000, ["spy3"], 12, Special: ChassisSpecial.Mines),
         new("phantom6", "SPY_LOCATOR", null, 6, [Left(M), Right(M)], 4, 16, 26, 2600, ["spy5"], 20, Special: ChassisSpecial.Mines | ChassisSpecial.Shadow),
+        // The locator line, scouts that locate: the original's Geo Locator 1, the crab, a second start beside Grunt 1 with
+        // its frame (as a hero tuned, WiredMachines.HeroTunes), and its Geo Locator 3, the first chassis that flies and the
+        // cheaper way to Boss 1. Only ever appended: Chassis[0] is the run's own and the hangar numbers chassis by place.
+        new("geo1", "GEO_LOCATOR", null, 1, [Top(L)], 1, 6, 6, 0, [], Special: ChassisSpecial.Locate),
+        new("geo3", "GEO_LOCATOR", null, 3, [Top(L)], 2, 7, 9, 280, ["geo1"], 5, Special: ChassisSpecial.Locate),
     ];
+
+    /// <summary>The chassis that need none before them, in catalogue order: those a hero may start on with nothing owned.</summary>
+    public static readonly IReadOnlyList<WiredChassis> Roots = [.. Chassis.Where(c => c.Needs.Count == 0)];
 
     /// <summary>The towers a constructor hero may raise, smallest first; which of them a chassis builds goes by its machine's data.</summary>
     public static readonly IReadOnlyList<WiredTower> Towers =
@@ -297,8 +311,10 @@ public static class WiredCatalogue
             return "this chassis has no such slot";
         if (slot.Fixed is not null)
             return "that weapon is part of the chassis";
+        // Every chassis outside the Boss line hears the same, the geo locator's glider too, which flies and still has no
+        // room for the stings and the bomb.
         if (weapon.GliderOnly && !(chassis.Glider && mounting == Mounting.Top))
-            return "that fits only the top slot of a glider";
+            return "that fits only the top slot of the Boss line";
         return weapon.Size > slot.Size ? "the weapon is too big for this slot" : null;
     }
 

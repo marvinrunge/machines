@@ -42,7 +42,9 @@ public enum ChassisLine
 /// The chassis on the shop's tree: where each stands and which lines run between them, the catalogue's <c>Needs</c>. Any one
 /// line into a chassis opens it. The grunts run down the middle, the Ballistas down the left and the administrators
 /// down the right, and all come together in the Gorilla; the constructors stand at the far left, the spies at the far
-/// right. Free of Godot, so the tests can compile it.
+/// right. The flyers run straight down column 8: the crab, a second start beside the first grunt, opens the glider,
+/// which opens the first Boss as Overseer 3 does, and the Bosses follow under it. Free of Godot, so the tests can
+/// compile it.
 /// </summary>
 public static class ChassisTree
 {
@@ -51,7 +53,9 @@ public static class ChassisTree
     private static readonly Dictionary<string, (int Column, int Row)> Places = new()
     {
         ["grunt1"] = (4, 0),
+        ["geo1"] = (8, 0),
         ["grunt2"] = (4, 1),
+        ["geo3"] = (8, 1),
         ["dozer1"] = (0, 2),
         ["reaper2"] = (2, 2),
         ["grunt3"] = (4, 2),
@@ -253,10 +257,14 @@ public sealed class HangarShop(GameWorld world, WiredState state)
         }
     }
 
-    /// <summary>The cheapest chassis that is next on the way, one that loses nothing if there is any, or null when the tree is climbed.</summary>
+    /// <summary>
+    /// The cheapest chassis that is next on the way, one that loses nothing if there is any, or null when the tree is
+    /// climbed. A start of the tree (<see cref="WiredCatalogue.Roots"/>) is no step on the way: the crab, free, with the
+    /// first grunt's slots and as many hit points, would otherwise be the advice to every hero on it.
+    /// </summary>
     public WiredChassis? NextChassis()
     {
-        var open = WiredCatalogue.Chassis.Where(c => Step(c) is ChassisStep.ForSale or ChassisStep.TooDear).ToList();
+        var open = WiredCatalogue.Chassis.Where(c => !WiredCatalogue.Roots.Contains(c) && Step(c) is ChassisStep.ForSale or ChassisStep.TooDear).ToList();
         return open.Where(c => Gain(c) is { WeaponSlots: >= 0, ModuleSlots: >= 0, HitPoints: >= 0 }).MinBy(c => c.Price) ?? open.MinBy(c => c.Price);
     }
 

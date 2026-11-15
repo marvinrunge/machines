@@ -329,6 +329,9 @@ public enum GameEventKind
 
     /// <summary>A tower was pulled down for part of its price (Actor: the tower; Position: where it stood; Detail: the BMUs back).</summary>
     WiredTowerScrapped,
+
+    /// <summary>A geo locator hero's pulse went out (Actor: the hero; Position: where it stands; Other: the enemies it located).</summary>
+    WiredLocated,
 }
 
 /// <param name="Mark">Where a round fired in first person really went, height and all, when that is not under the crosshair (a Wired run).</param>

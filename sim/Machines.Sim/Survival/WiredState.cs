@@ -111,6 +111,9 @@ public sealed class WiredRun(WiredOptions options)
     /// <summary>What is kept in mind about each living machine with a special of its body, by actor id.</summary>
     public SortedDictionary<int, WiredBody> Bodies { get; } = [];
 
+    /// <summary>The machines a geo locator hero's pulse has located, by actor id, with the time until which each stays so.</summary>
+    public SortedDictionary<int, float> Located { get; } = [];
+
     /// <summary>When an ion storm next announces a strike.</summary>
     public float NextStrike { get; set; }
 
@@ -146,6 +149,9 @@ public sealed class WiredRun(WiredOptions options)
 
     /// <summary>The wave the shop and the squad go by: the one under way, or else the one coming.</summary>
     public int ShopWave => Phase == WiredPhase.Wave ? Wave : Wave + 1;
+
+    /// <summary>What sets the located machines apart in the fingerprint from whatever is mixed before them.</summary>
+    private const int LocatedTag = 1;
 
     /// <summary>A fingerprint of the run for the world's checksum.</summary>
     public long Fingerprint()
@@ -200,6 +206,17 @@ public sealed class WiredRun(WiredOptions options)
         {
             hash.Mix(id);
             body.MixInto(hash);
+        }
+        // Likewise the located machines: a tag, the count, each id and its time.
+        if (Located.Count > 0)
+        {
+            hash.Mix(LocatedTag);
+            hash.Mix(Located.Count);
+            foreach (var (id, until) in Located)
+            {
+                hash.Mix(id);
+                hash.Mix(BitConverter.SingleToInt32Bits(until));
+            }
         }
         return hash.Value;
     }
@@ -330,6 +347,9 @@ public sealed class WiredState
 
     /// <summary>When it last laid a mine.</summary>
     public float MineLaidAt { get; set; } = float.NegativeInfinity;
+
+    /// <summary>When a geo locator's pulse can go out again. It stays with the hero through a death, as the rally's wait does.</summary>
+    public float LocateReadyAt { get; set; } = float.NegativeInfinity;
 
     /// <summary>Where a Harvester's kills fell since it last looked for the wrecks there.</summary>
     public List<Vector2> Harvests { get; } = [];
@@ -618,6 +638,7 @@ public sealed class WiredState
         MixSet(hash, 1, RallyReadyAt);
         MixSet(hash, 2, RevealedAt);
         MixSet(hash, 3, MineLaidAt);
+        MixSet(hash, 5, LocateReadyAt);
         if (Harvests.Count > 0)
         {
             hash.Mix(Harvests.Count);

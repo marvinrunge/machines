@@ -42,8 +42,24 @@ public static class HeroHull
     }
 
     /// <summary>
+    /// The hangar's view of a hero left alone, in the model's terms (MachineScreen, HangarScreen): the camera 0.3 up and 0.5 round
+    /// from ahead, the turntable turned by -0.28 and swaying 0.2 either way.
+    /// </summary>
+    private const float HomeElevation = 0.3f, HomeRound = 0.5f - 0.28f, Sway = 0.2f;
+
+    /// <summary>How far a spot's skin turns towards that camera at least, wherever the sway has the hero: from there on its trace shows in full (HangarTraces).</summary>
+    private const float LeastSeen = 0.15f;
+
+    /// <summary>How far a spot that had to move keeps from every other, as a share of the body's width: its trace does not end on another's.</summary>
+    private const float Apart = 0.12f;
+
+    /// <summary>
     /// The spots of a hero: first <see cref="ModuleSpots"/> for its modules, then those of its abilities. A spot lies where a line
     /// from ahead first meets the body or what stands before it, and where that would miss on the nearest place that does not.
+    /// Where that skin is turned away from the hangar's camera, the spot moves on to the nearest place whose skin is turned
+    /// towards it, clear of the other spots (the crab's middle module lay on its head's prow, which slopes away below and to
+    /// its face's side, the Phantom's under its roof: their traces went out of sight as the hero swayed); where no place has
+    /// such skin, it stays.
     /// </summary>
     public static HullSpot[] Spots(IReadOnlyList<RigShape> rig, int upperBody)
     {
@@ -54,17 +70,36 @@ public static class HeroHull
         var skin = Enumerable.Range(1, rig.Count - 1).Where(p => Hull(rig[p])).SelectMany(p => Triangles(rig, p)).ToList();
         var (middle, half) = ((low.Z + high.Z) / 2, (high.Z - low.Z) / 2);
         var places = Enumerable.Range(0, Tries * Tries).Select(i => (Across: 2f * (i % Tries) / (Tries - 1) - 1, Up: (float)(i / Tries) / (Tries - 1))).ToList();
-        HullSpot Spot(float across, float up)
+        // What lines from ahead meet, from the place asked for on to those ever further from it.
+        IEnumerable<Hit> Round((float Across, float Up) wanted) => places
+            .OrderBy(p => (p.Across - wanted.Across) * (p.Across - wanted.Across) + (p.Up - wanted.Up) * (p.Up - wanted.Up)).Prepend(wanted)
+            .Select(p => Cast(rig, skin, middle + p.Across * half, low.Y + p.Up * (high.Y - low.Y))).OfType<Hit>();
+        var wanted = Modules.Select(m => (m, ModulesUp)).Concat(Abilities.Select(a => (a, AbilitiesUp))).ToList();
+        var first = wanted.Select(w => Round(w).Cast<Hit?>().FirstOrDefault()).ToList();
+        var taken = first.OfType<Hit>().Where(h => Seen(h.Facing) >= LeastSeen).Select(h => h.Model).ToList();
+        var apart = Apart * (high.Z - low.Z);
+        var spots = new HullSpot[wanted.Count];
+        for (var i = 0; i < wanted.Count; i++)
         {
-            foreach (var place in places.OrderBy(p => (p.Across - across) * (p.Across - across) + (p.Up - up) * (p.Up - up)).Prepend((Across: across, Up: up)))
-                if (Cast(rig, skin, middle + place.Across * half, low.Y + place.Up * (high.Y - low.Y)) is { } spot)
-                    return spot;
-            // The body is too thin for any of that: the middle of what it has most of, seen from ahead.
-            var widest = own.MaxBy(t => MathF.Abs(Area(t)));
-            var centre = (widest.A + widest.B + widest.C) / 3;
-            return Cast(rig, [widest], centre.Z, centre.Y) ?? new HullSpot(body, Vector3.Zero, Vector3.UnitX);
+            if (first[i] is { } hit && Seen(hit.Facing) >= LeastSeen)
+                spots[i] = hit.Spot;
+            else if (Round(wanted[i]).Where(h => Seen(h.Facing) >= LeastSeen && taken.All(t => Vector3.Distance(t, h.Model) >= apart)).Cast<Hit?>().FirstOrDefault() is { } moved)
+            {
+                spots[i] = moved.Spot;
+                taken.Add(moved.Model);
+            }
+            else
+                spots[i] = first[i]?.Spot ?? Widest(rig, own, body);
         }
-        return Modules.Select(m => Spot(m, ModulesUp)).Concat(Abilities.Select(a => Spot(a, AbilitiesUp))).ToArray();
+        return spots;
+    }
+
+    /// <summary>Where a body too thin for any line from ahead to meet has its spots: the middle of what it has most of, seen from ahead.</summary>
+    private static HullSpot Widest(IReadOnlyList<RigShape> rig, List<Triangle> own, int body)
+    {
+        var widest = own.MaxBy(t => MathF.Abs(Area(t)));
+        var centre = (widest.A + widest.B + widest.C) / 3;
+        return Cast(rig, [widest], centre.Z, centre.Y)?.Spot ?? new HullSpot(body, Vector3.Zero, Vector3.UnitX);
     }
 
     /// <summary>A triangle's size seen from ahead, twice over and with a sign.</summary>
@@ -99,8 +134,20 @@ public static class HeroHull
         return (low, high);
     }
 
-    /// <summary>The first skin a line from far ahead meets at <paramref name="z"/> across and <paramref name="y"/> up.</summary>
-    private static HullSpot? Cast(IReadOnlyList<RigShape> rig, List<Triangle> skin, float z, float y)
+    /// <summary>
+    /// How far skin facing that way, in the model's terms, turns towards the hangar's camera at least while the hero sways at
+    /// home: 1 straight at it, below 0 turned away. The sway is short, so the least lies at one of its ends.
+    /// </summary>
+    private static float Seen(Vector3 facing) => MathF.Min(Towards(facing, HomeRound - Sway), Towards(facing, HomeRound + Sway));
+
+    private static float Towards(Vector3 facing, float round) => Vector3.Dot(facing,
+        new Vector3(MathF.Cos(HomeElevation) * MathF.Cos(round), MathF.Sin(HomeElevation), MathF.Cos(HomeElevation) * MathF.Sin(round)));
+
+    /// <summary>A spot where a line from ahead meets the skin, which way that skin faces and where it lies, both in the model's terms.</summary>
+    private readonly record struct Hit(HullSpot Spot, Vector3 Facing, Vector3 Model);
+
+    /// <summary>The first skin a line from far ahead meets at <paramref name="z"/> across and <paramref name="y"/> up, its facing turned towards the front.</summary>
+    private static Hit? Cast(IReadOnlyList<RigShape> rig, List<Triangle> skin, float z, float y)
     {
         var (nearest, hit) = (float.MinValue, default(Triangle?));
         foreach (var triangle in skin)
@@ -122,6 +169,7 @@ public static class HeroHull
         var facing = Vector3.Normalize(Vector3.Cross(skinHit.B - skinHit.A, skinHit.C - skinHit.A));
         if (facing.X < 0)
             facing = -facing;
-        return new HullSpot(skinHit.Part, Vector3.Transform(new Vector3(nearest, y, z), back), Vector3.Normalize(Vector3.TransformNormal(facing, back)));
+        var at = new Vector3(nearest, y, z);
+        return new Hit(new HullSpot(skinHit.Part, Vector3.Transform(at, back), Vector3.Normalize(Vector3.TransformNormal(facing, back))), facing, at);
     }
 }

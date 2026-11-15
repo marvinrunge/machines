@@ -92,9 +92,12 @@ public sealed class BattleProfile
         Fresh = new SortedSet<string>((Fresh ?? []).OfType<string>(), StringComparer.Ordinal);
         Battles = Math.Max(0, Battles);
         Wins = Math.Clamp(Wins, 0, Battles);
-        // Every account starts on the first grunt with its bolter.
-        Researched.Add(WiredBalance.StartChassis);
-        Owned[WiredBalance.StartChassis] = 1;
+        // Every account starts on the first grunt with its bolter, and owns every other start of the tree (the crab) too.
+        foreach (var root in WiredCatalogue.Roots)
+        {
+            Researched.Add(root.Id);
+            Owned[root.Id] = 1;
+        }
         Owned[WiredBalance.StartWeapon] = Math.Max(1, Owned.GetValueOrDefault(WiredBalance.StartWeapon));
         if (LastHero is { } hero)
         {

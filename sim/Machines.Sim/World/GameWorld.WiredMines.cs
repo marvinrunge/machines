@@ -97,7 +97,8 @@ public sealed partial class GameWorld
         if ((special & ChassisSpecial.Shadow) != 0)
         {
             var (phase, toHidden) = ShadowPhase(state);
-            return new WiredSpecialView(special, "Mines", phase, toHidden, 1 - toHidden / WiredBalance.ShadowQuiet, count, most, why is null, why);
+            // Located, it may wait longer than the quiet takes: the share stays within its bounds.
+            return new WiredSpecialView(special, "Mines", phase, toHidden, Math.Clamp(1 - toHidden / WiredBalance.ShadowQuiet, 0, 1), count, most, why is null, why);
         }
         var wait = Math.Clamp(state.MineLaidAt + WiredBalance.MineLayGap - Time, 0, WiredBalance.MineLayGap);
         return new WiredSpecialView(special, "Mines", null, wait, 1 - wait / WiredBalance.MineLayGap, count, most, why is null, why);

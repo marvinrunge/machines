@@ -40,7 +40,9 @@ public partial class ActorView : Node3D
 
     // Animated parts
     private RigView? _rigView;
+    // The speed the walk is clocked by and the walk's top rate (see Gait).
     private float _maxSpeed;
+    private float _fastestWalk = RigView.FastestWalk;
     private float _aim;
     private Vector3 _lastPosition;
     private float _lastYaw;
@@ -486,7 +488,10 @@ public partial class ActorView : Node3D
             view._rigView = RigView.Create(rig);
             if (actor is Construction lab && lab.IsType("HARDWARE_LAB"))
                 view._rigView.RestingScreen = assets.Texture("models/texture4/static.bmp");
-            view._maxSpeed = actor is Machine rigged ? rigged.Stats.Speed : 0;
+            if (actor is Machine rigged)
+                view.Gait(rigged, hero is not null);
+            else
+                view._maxSpeed = 0;
             // A machine's upper body turns at its BODY_TURN_RATE, degrees per second (MachPhysTurnerTracker).
             if (actor is Machine { Stats.BodyTurnRate: > 0 and var bodyRate })
                 view._rigView.TurnRate = Mathf.DegToRad(bodyRate);
@@ -1013,7 +1018,7 @@ public partial class ActorView : Node3D
             var speed = new Vector3(moved.X, 0, moved.Z).Dot(facing) / (float)delta;
             var sideways = new Vector3(moved.X, 0, moved.Z).Dot(right) / (float)delta;
             var turnRate = -Mathf.AngleDifference(_lastYaw, _yaw) / (float)delta;
-            _rigView.Animate((float)delta, speed, turnRate, _maxSpeed, _aim, sideways);
+            _rigView.Animate((float)delta, speed, turnRate, _maxSpeed, _aim, sideways, _fastestWalk);
             if (_locomotion is not null)
             {
                 // The world time on show: running on with the frames, never past the last tick less the lag of

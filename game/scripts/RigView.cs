@@ -661,12 +661,17 @@ public partial class RigView : Node3D
         return cycle;
     }
 
+    /// <summary>The fastest a walk cycle runs, as a share of its own pace, unless the caller allows more.</summary>
+    public const float FastestWalk = 1.5f;
+
     /// <summary>
     /// Moves the parts for one frame. <paramref name="speed"/> is metres per second forwards (negative backwards),
     /// <paramref name="turnRate"/> radians per second (positive turns left), <paramref name="maxSpeed"/> the
     /// machine's top speed, and <paramref name="aim"/> the upper body's wanted angle relative to the body.
+    /// <paramref name="fastest"/> caps the walk's rate: a hero tuned faster than its model walks (the crab) runs its legs
+    /// faster than <see cref="FastestWalk"/>, so that they keep up with the ground rather than skate.
     /// </summary>
-    public void Animate(float delta, float speed, float turnRate, float maxSpeed, float aim, float sideways = 0)
+    public void Animate(float delta, float speed, float turnRate, float maxSpeed, float aim, float sideways = 0, float fastest = FastestWalk)
     {
         // Legs walk whichever way the machine goes, sideways too in first person.
         var moving = Mathf.Abs(speed) > 0.3f || Mathf.Abs(sideways) > 0.3f;
@@ -734,7 +739,7 @@ public partial class RigView : Node3D
             if (_rig.Animations.TryGetValue(_cycle, out var animation) && animation.Duration > 0)
             {
                 // Legs keep pace with the ground: the walk cycle runs at the machine's share of its top speed.
-                var rate = moving && _cycle == "walk" ? Mathf.Clamp(Mathf.Sqrt(speed * speed + sideways * sideways) / Mathf.Max(1, maxSpeed), 0.5f, 1.5f) : 1;
+                var rate = moving && _cycle == "walk" ? Mathf.Clamp(Mathf.Sqrt(speed * speed + sideways * sideways) / Mathf.Max(1, maxSpeed), 0.5f, fastest) : 1;
                 _phase += delta * rate / animation.Duration;
                 _phase = _cycle is "startWalking" or "stopWalking" ? Mathf.Min(_phase, 1) : _phase % 1;
                 foreach (var track in animation.Tracks)

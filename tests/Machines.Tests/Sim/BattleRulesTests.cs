@@ -335,7 +335,8 @@ public class BattleRulesTests
         Assert.True(Vector2.Distance(back.Position, world.BattlePod(0)!.Position) < 45);
         Assert.Equal(0, state.SpareBodies);
         Assert.Equal(1, Run(world).Tally[Race.Blue].Deaths);
-        Assert.Equal(["grunt1"], Run(world).Tally[Race.Green].Killed);
+        // Blue, the second of its team, fought on the first tier's second chassis, the crab.
+        Assert.Equal(["geo1"], Run(world).Tally[Race.Green].Killed);
 
         // The shield holds for a while, then a hit lands.
         var whole = back.Durability;

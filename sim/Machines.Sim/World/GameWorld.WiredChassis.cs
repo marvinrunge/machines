@@ -11,7 +11,7 @@ namespace Machines.Sim.World;
 /// <param name="Phase">Where it stands, for one that goes through phases (an anchor); null otherwise.</param>
 /// <param name="SecondsLeft">The seconds until it is ready again or its phase is over; 0 when there is no wait.</param>
 /// <param name="Share">How far that wait or the work under way has come, from 0 to 1.</param>
-/// <param name="Count">What it has of what it counts: mines carried, towers standing.</param>
+/// <param name="Count">What it has of what it counts: mines carried, towers standing, enemies located.</param>
 /// <param name="Most">The most of that.</param>
 /// <param name="Ready">Whether its key would work now.</param>
 /// <param name="Why">Why not, when it would not.</param>
@@ -20,8 +20,9 @@ public sealed record WiredSpecialView(ChassisSpecial Special, string Name, strin
 /// <summary>
 /// The specials of the chassis Wired's hero can wear, the remake's own addition: the special command, what the HUD reads
 /// of it, and what the hangar asks of the chassis. Each special lives in a file of its own: the bodies' in
-/// GameWorld.WiredBodies, the towers in GameWorld.WiredTowers, the mines in GameWorld.WiredMines and the Phantom's
-/// shadow in GameWorld.WiredShadow. Nothing here runs without <see cref="Wired"/>.
+/// GameWorld.WiredBodies, the towers in GameWorld.WiredTowers, the mines in GameWorld.WiredMines, the Phantom's
+/// shadow in GameWorld.WiredShadow and the geo locators' pulse in GameWorld.WiredLocate. Nothing here runs without
+/// <see cref="Wired"/>.
 /// </summary>
 public sealed partial class GameWorld
 {
@@ -50,12 +51,17 @@ public sealed partial class GameWorld
             return WhyNoAnchor(state, on);
         if ((special & ChassisSpecial.Field) != 0)
             return WhyNoRally(state);
+        if ((special & ChassisSpecial.Locate) != 0)
+            return WhyNoLocate(state);
         if ((special & ChassisSpecial.Mines) != 0)
             return WhyNoMine(state);
         return "this chassis has nothing to use";
     }
 
-    /// <summary>The special command: a Colossus anchors or is released, a Marshal rallies its squad, a spy lays a mine.</summary>
+    /// <summary>
+    /// The special command: a Colossus anchors or is released, a Marshal rallies its squad, a geo locator sends out its
+    /// pulse, a spy lays a mine.
+    /// </summary>
     private string? UseSpecial(WiredState state, bool on)
     {
         if (WhyNoSpecial(state, on) is { } why)
@@ -63,7 +69,11 @@ public sealed partial class GameWorld
         var special = WornSpecial(state);
         if ((special & ChassisSpecial.Anchor) != 0)
             return Anchor(state, on);
-        return (special & ChassisSpecial.Field) != 0 ? Rally(state) : LayMine(state);
+        if ((special & ChassisSpecial.Field) != 0)
+            return Rally(state);
+        if ((special & ChassisSpecial.Locate) != 0)
+            return Locate(state);
+        return (special & ChassisSpecial.Mines) != 0 ? LayMine(state) : "this chassis has nothing to use";
     }
 
     /// <summary>What the HUD shows of the special of a race's hero's chassis; null for a chassis without one, or outside a Wired match.</summary>
@@ -76,6 +86,8 @@ public sealed partial class GameWorld
             return TowerView(state);
         if ((special & ChassisSpecial.Mines) != 0)
             return MineView(state);
+        if ((special & ChassisSpecial.Locate) != 0)
+            return LocateView(state);
         return special == ChassisSpecial.None ? null : BodyView(state);
     }
 

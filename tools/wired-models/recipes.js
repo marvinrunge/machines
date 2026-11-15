@@ -488,7 +488,8 @@ module.exports = h => {
                     // turbine's foot is 1.61 under the wing's pivot
                     arm(m, launcher, "top", mount(m, name, side[0] + "_gun", [w[0] - 0.3, w[1], w[2] - 1.61 - 1.48]), 0.8, side);
                 }
-                scale(m, 1.4);
+                // it flies as high as the Wasp, its hip's bob about the Wasp's 20 m
+                scale(m, 1.4, ["hip"]);
                 return m;
             },
         },
@@ -616,6 +617,39 @@ module.exports = h => {
                 const m = load(colour, "SPY_LOCATOR_5");
                 for (const [gun, s] of [["l_gun", -1], ["r_gun", 1]])
                     mount(m, "head", gun, [0, s * 0.8, 2.0]);
+                return m;
+            },
+        },
+        // The locators (geo1, geo3): the original's Geo Locator 1 and 3 unchanged with one empty top mount each, over
+        // the right half of the roof, where nothing stands up through a weapon.
+        // The crab: on its head's roof (box x -1.02 to 1.01, y -0.62 to 0.59, z 1.26 to 2.18), which goes along with the
+        // walk. Its face looks along -y while it walks along +x, sideways, as the original's: the hero's front is +x, so
+        // the weapon looks the way it walks, and +y is the crab's back. The middle of the roof (z 1.92) is no place for
+        // a weapon: a tall antenna rod rises on the centre line at the back (x -0.77, from z 1.62 to 3.06), two short
+        // ones on the face's side (x -0.2 and 0.2, y -0.45, up to z 2.5), and the bump with its flag stands ahead of them
+        // (x 0.27 to 0.62, y -0.62 to -0.1, up to z 2.18); a weapon there stood through the rods and the bump. On the
+        // back half, a little ahead of the middle (x 0.2, y 0.4, z 1.81), it keeps clear of all of them, its back end
+        // of the tall rod (the smaller sizes in HeroDonors.Scale see to the rest).
+        crab: {
+            line: "MACHINE GEO_LOCATOR 1 WIRED",
+            make: colour => {
+                const m = load(colour, "GEO_LOCATOR_1");
+                const [x, y] = [0.2, 0.4];
+                mount(m, "head", "gun", [x, y, surfaceZ(m, x, y, ["head"])]);
+                return m;
+            },
+        },
+        // The glider: on its body, an upright egg that pitches and rolls in flight (the hip at z 20 only bobs). An
+        // antenna fin stands on the centre line on top behind the middle (x -0.26 to -0.73, up to z 24.32) and the tail
+        // flap behind it (x -0.84 to -2.12, z 21.32 to 22.33), sheets without thickness: on the centre line (x 0.3, z
+        // 22.06) a long weapon pushed back over the egg went into the fin. Over the right half, ahead of the middle
+        // (x 0.4, y 0.3, z 21.58), the weapons keep clear of both (the Pulse Rifle a little smaller, HeroDonors.Scale).
+        glider: {
+            line: "MACHINE GEO_LOCATOR 3 WIRED",
+            make: colour => {
+                const m = load(colour, "GEO_LOCATOR_3");
+                const [x, y] = [0.4, 0.3];
+                mount(m, "body", "gun", [x, y, surfaceZ(m, x, y, ["body"])]);
                 return m;
             },
         },

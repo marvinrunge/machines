@@ -488,7 +488,8 @@ public sealed partial class GameWorld
     /// What a Wired match leaves out of the original's orders: nobody places, builds, mends, takes or pulls down buildings
     /// there (a constructor hero raises its towers by <see cref="WiredTowerCommand"/>), and a spy hero lays its mines by
     /// <see cref="WiredSpecialCommand"/>, fetches none, does not hide (camouflage would take it out of every fight unseen
-    /// by the checksum) and breaks into no building. The spies of the waves keep all of it.
+    /// by the checksum) and breaks into no building; a geo locator hero sends out its pulse by
+    /// <see cref="WiredSpecialCommand"/> and goes looking for no ore. The spies and geo locators of anybody else keep all of it.
     /// </summary>
     private string? WhyNotInWired(Command command) => command switch
     {
@@ -497,6 +498,7 @@ public sealed partial class GameWorld
         RefillLandMinesCommand refill when HoldsWiredHero(refill.Spies) => NotInWired,
         CamouflageCommand camouflage when HoldsWiredHero(camouflage.Spies) => NotInWired,
         EnterLabCommand enter when HoldsWiredHero(enter.Technicians) => NotInWired,
+        LocateCommand locate when HoldsWiredHero(locate.Locators) => NotInWired,
         _ => null,
     };
 

@@ -80,7 +80,8 @@ public sealed class BattleDraft
                 _items = last.Items.ToList();
             }
         }
-        if (_items.Count == 0 && Chassis == WiredBalance.StartChassis)
+        // A start of the tree with nothing on gets the start bolter, onto the first weapon slot it has.
+        if (_items.Count == 0 && WiredCatalogue.Roots.Any(root => root.Id == Chassis))
             _items = [new BattleItem(WiredBalance.StartWeapon, FirstWeaponSlot(Chassis), 1)];
         Settle();
     }

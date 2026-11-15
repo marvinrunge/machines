@@ -161,7 +161,8 @@ public class WiredEndTests
         var profile = new WiredProfile();
         var fresh = profile.Goals();
 
-        Assert.Equal(WiredProfile.StartChassis.Count - 1 + 2 + 1 + WiredProfile.Milestones.Count, fresh.Count);
+        // The starts open from the first run (Grunt 1 and the crab) are no goal.
+        Assert.Equal(WiredProfile.StartChassis.Count(s => s.Wave > 0) + 2 + 1 + WiredProfile.Milestones.Count, fresh.Count);
         Assert.All(fresh, goal => Assert.Equal(0, goal.Have));
 
         profile.Note(Run(9, WiredDifficulty.Hard));

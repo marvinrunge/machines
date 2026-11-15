@@ -87,10 +87,14 @@ public sealed class WiredProfile
 
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true, Converters = { new JsonStringEnumConverter() } };
 
-    /// <summary>The chassis a hero can start on, the first always.</summary>
+    /// <summary>
+    /// The chassis a hero can start on: the first always, and the crab of the locator line beside it, open from the first
+    /// run as well; the rest once the wave is cleared.
+    /// </summary>
     public static readonly IReadOnlyList<WiredStartChassis> StartChassis =
     [
         new(WiredBalance.StartChassis, 0),
+        new("geo1", 0),
         new("reaper2", 10),
         new("overseer2", 10, 3),
         new("knight3", 15),

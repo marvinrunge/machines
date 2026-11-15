@@ -1,5 +1,6 @@
 using Machines.Game;
 using Machines.Import.Model;
+using Machines.Sim;
 using Machines.Sim.Combat;
 using Machines.Sim.Survival;
 
@@ -11,6 +12,10 @@ namespace Machines.Tests.Sim;
 /// </summary>
 public class BattleAccountTests
 {
+    private static readonly Lazy<GameData> DataLoader = new(() => GameData.Load(RepoPaths.OriginalDataFolder()));
+
+    private static GameData Data => DataLoader.Value;
+
     private static LocalBattleAccount NewAccount(Action<BattleProfile>? setup = null)
     {
         var profile = new WiredProfile();
@@ -44,8 +49,22 @@ public class BattleAccountTests
         Assert.Equal(0, account.FreeXp);
         Assert.Equal(0, account.Credits);
         Assert.Equal(0, account.Battles);
-        Assert.Equal([WiredBalance.StartChassis], account.Profile.Battle.Researched);
-        Assert.Equal(2, account.Profile.Battle.Owned.Count);
+        // The crab, the other start of the tree, comes with every account: researched and owned.
+        Assert.Equal(["geo1", "grunt1"], account.Profile.Battle.Researched);
+        Assert.True(account.Owned("geo1"));
+        Assert.Equal(3, account.Profile.Battle.Owned.Count);
+    }
+
+    [Fact]
+    public void A_new_account_whose_last_hero_sat_on_the_crab_with_nothing_on_gets_the_start_bolter_on_its_top()
+    {
+        var account = NewAccount(book => book.LastHero = new BattleHeroSheet { Chassis = "geo1" });
+
+        var draft = new BattleDraft(Data, account);
+
+        Assert.Equal("geo1", draft.Chassis);
+        Assert.Equal(new BattleItem(WiredBalance.StartWeapon, WiredSlot.Weapon(Mounting.Top), 1), Assert.Single(draft.Items));
+        Assert.Equal([WiredBalance.StartWeapon], draft.Loadout.Battery(Mounting.Top).Select(i => i.Catalogue));
     }
 
     [Fact]

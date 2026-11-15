@@ -126,7 +126,7 @@ public class WiredLinesTests
     {
         string[] constructors = ["dozer1", "builder3", "behemoth4", "titan6"], spies = ["spy3", "spy5", "phantom6"];
 
-        Assert.Equal(constructors.Concat(spies), WiredCatalogue.Chassis.TakeLast(7).Select(c => c.Id));
+        Assert.Equal(constructors.Concat(spies), WiredCatalogue.Chassis.SkipLast(2).TakeLast(7).Select(c => c.Id));
         Assert.Equal(["grunt2", "dozer1", "builder3", "behemoth4"], constructors.Select(c => WiredCatalogue.FindChassis(c)!.Needs.Single()));
         Assert.Equal(["overseer2", "spy3", "spy5"], spies.Select(c => WiredCatalogue.FindChassis(c)!.Needs.Single()));
         Assert.Equal([6, 9, 12, 20, 6, 12, 20], constructors.Concat(spies).Select(c => WiredCatalogue.FindChassis(c)!.FromWave));
@@ -205,7 +205,7 @@ public class WiredLinesTests
             var expected = chassis.Id switch
             {
                 "phantom6" => 75,
-                _ when chassis.Type is "CONSTRUCTOR" or "SPY_LOCATOR" => WiredBalance.NoAccuracy,
+                _ when chassis.Type is "CONSTRUCTOR" or "SPY_LOCATOR" or "GEO_LOCATOR" => WiredBalance.NoAccuracy,
                 _ => level.Accuracy!.Value,
             };
 
@@ -251,7 +251,7 @@ public class WiredLinesTests
         Assert.Equal(ChassisSpecial.Anchor, specials["ballista5"]);
         Assert.Equal(ChassisSpecial.Afterburner, specials["boss3"]);
         Assert.Equal(ChassisSpecial.Field, specials["commander6"]);
-        Assert.Equal(13, specials.Count);
+        Assert.Equal(15, specials.Count);
 
         Assert.Equal(ChassisSpecial.Plough, WiredMachines.SpecialOf("AGGRESSOR GRUNT", 5));
         Assert.Equal(ChassisSpecial.Anchor, WiredMachines.SpecialOf("AGGRESSOR BALLISTA", 5));
@@ -342,8 +342,8 @@ public class WiredLinesTests
             else if (view is not null)
                 Assert.Equal(chassis.Special, view.Special & chassis.Special);
             var why = world.WhyNoSpecial(state);
-            // Only the anchor, the rally and the mines are worked by the special's key; the towers have their own command.
-            if ((chassis.Special & (ChassisSpecial.Anchor | ChassisSpecial.Field | ChassisSpecial.Mines)) == 0)
+            // Only the anchor, the rally, the mines and the pulse are worked by the special's key; the towers have their own command.
+            if ((chassis.Special & (ChassisSpecial.Anchor | ChassisSpecial.Field | ChassisSpecial.Mines | ChassisSpecial.Locate)) == 0)
                 Assert.True(why is "this chassis has nothing to use" or "not from inside the pod", $"{chassis.Id}: {why}");
         }
         Assert.Null(world.SpecialView(Race.Blue));

@@ -55,6 +55,9 @@ public static class HeroDonors
         ["spy3"] = "SPY_LOCATOR_3_WIRED",
         ["spy5"] = "SPY_LOCATOR_5_WIRED",
         ["phantom6"] = "SPY_LOCATOR_6",
+        // The locators, crab and glider: the original's Geo Locator 1 and 3 with a top mount each (tools/wired-models).
+        ["geo1"] = "GEO_LOCATOR_1_WIRED",
+        ["geo3"] = "GEO_LOCATOR_3_WIRED",
     };
 
     /// <summary>The chassis of the catalogue a machine of Wired's own is, by its type and level; null for the original's.</summary>
@@ -179,6 +182,19 @@ public static class HeroDonors
         // The Phantom's battery of two flame throwers stands side by side (ChassisCopyWays): at full size the outer one leaned on
         // nothing but the tank of the inner and climbed into the roof to be held.
         ("phantom6", "FLAME_THROWER2") => 0.7f,
+        // The crab's head is small and crowded: its mount on the back half of the roof (tools/wired-models) lies between a
+        // tall antenna rod behind, two short ones and a bump on the face's side. A light weapon longer or wider than the
+        // Bolter comes smaller, as far as it takes to stand on the roof in every look without one of them standing up
+        // through it; the flame thrower's tank leans over the back.
+        ("geo1", "AUTO_CANNON") => 0.8f,
+        ("geo1", "ELECTRIC_CHARGE") => 0.8f,
+        ("geo1", "PLASMA_RIFLE") => 0.7f,
+        ("geo1", "PULSE_RIFLE") => 0.6f,
+        ("geo1", "FLAME_THROWER2") => 0.45f,
+        // The glider's egg holds the flame thrower's tank only at this size: larger, it hung off the side. The Pulse Rifle at
+        // full size reached back over the egg into its tail flap, a sheet on the centre line behind it.
+        ("geo3", "FLAME_THROWER2") => 0.6f,
+        ("geo3", "PULSE_RIFLE") => 0.9f,
         _ => 1,
     };
 

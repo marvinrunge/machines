@@ -460,6 +460,9 @@ public class WiredBatteryTests
         "spy3 T_FLAME_THROWER2 load 12/8 power 2/12 dps 5 range 15 hp 117 armour 32 acc 60 speed 8.4 n 1 reloads 3",
         "spy5 L_FLAME_THROWER2_R_FLAME_THROWER2 load 15/10 power 4/16 dps 10 range 15 hp 140 armour 32 acc 60 speed 14 n 2 reloads 3,3",
         "phantom6 L_MULTI_LAUNCHER5_R_MULTI_LAUNCHER5 load 24/16 power 8/26 dps 20 range 90 hp 504 armour 360 acc 75 speed 14 n 2 reloads 3,3",
+        // The locators, added after batteries: one light top slot each, so never a battery.
+        "geo1 T_FLAME_THROWER2 load 6/6 power 2/6 dps 5 range 15 hp 40 armour 19 acc 60 speed 16 n 1 reloads 3",
+        "geo3 T_FLAME_THROWER2 load 9/7 power 2/9 dps 5 range 15 hp 79 armour 22 acc 60 speed 16.571428 n 1 reloads 3",
     ];
 
     private static string Describe(HeroBuild build) => FormattableString.Invariant(
