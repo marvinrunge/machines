@@ -38,7 +38,7 @@ public sealed partial class GameWorld
             return "that is out of reach";
         if (ability.Id == "treachery" && Aimed(state, aim) is null)
             return "nothing there to turn";
-        if (ability.Id == "minefield" && LandMines.Count(m => m.Race == state.Race) + WiredBalance.MinesLaid > WiredBalance.MostMines)
+        if (ability.Id == "minefield" && !RoomForMines(state.Race, WiredBalance.MinesLaid))
             return "too many mines on the ground";
         return null;
     }
