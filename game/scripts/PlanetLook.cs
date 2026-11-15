@@ -28,9 +28,12 @@ public partial class PlanetLook : Node
     /// </summary>
     private const float MinimumAmbient = 0.5f;
 
-    /// <summary>The remake's darker base light: the ambient's floor, its share of the planet's own, and the sun.</summary>
-    private const float RemakeMinimumAmbient = 0.2f;
-    private const float RemakeAmbient = 0.5f;
+    /// <summary>
+    /// The remake's base light while the sun stands high: the ambient's floor as a share of the sunlight, and the sun. The
+    /// planet's own ambient is kept whole: dark planets (Gracko, the moons, space) give little or none, and halving it, with
+    /// a floor of a fifth, left their shade sides nearly black.
+    /// </summary>
+    private const float RemakeMinimumAmbient = 0.45f;
     private const float RemakeSun = 1.6f;
 
     /// <summary>The remake's contrast, in a world with light in its sky (see Update).</summary>
@@ -546,8 +549,8 @@ public partial class PlanetLook : Node
             ambient = new Color(ambient.R + light.R, ambient.G + light.G, ambient.B + light.B);
         }
         ambient = Forced(ambient, StarLight);
-        // The remake darkens the ambient while the sun stands high, where shade then stands apart from sunlight; as it
-        // sinks the scene lives on its ambient, which goes back to the original's. A sun fixed overhead is the stations'
+        // The remake lowers the ambient's floor a little while the sun stands high, where shade then stands apart from
+        // sunlight; as it sinks the scene lives on its ambient, which goes back to the original's. A sun fixed overhead is the stations'
         // lamp (kidnap, sat, control): no day to set the shade against, and their walls, which it never reaches, live on
         // the ambient too.
         var lamp = _sunOrbit is { } still && still.MinElevation == still.MaxElevation;
@@ -557,8 +560,6 @@ public partial class PlanetLook : Node
         if (_softShadows)
             floor = new Color(Mathf.Max(floor.R, 0.04f), Mathf.Max(floor.G, 0.05f), Mathf.Max(floor.B, 0.085f));
         _environment.AmbientLightColor = new Color(Mathf.Max(ambient.R, floor.R), Mathf.Max(ambient.G, floor.G), Mathf.Max(ambient.B, floor.B));
-        // Bounced light (SSIL) brings back some of what the darker ambient takes away, where it really bounces.
-        _environment.AmbientLightEnergy = Mathf.Lerp(1, RemakeAmbient, high);
         if (PaintedShadows)
             ShadowPlate.SetShaderParameter("strength", Mathf.Clamp(direct.V - ambient.V, 0.2f, 0.75f));
 
