@@ -55,6 +55,41 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
                 Starts.Colours.GetValueOrDefault(p.Key, p.Key), p.Value == Controller.Ai)).ToList(), terrain);
 
     /// <summary>
+    /// A battle against the computer on a map: <paramref name="player"/> plays its slot (with <paramref name="watch"/> a bot
+    /// plays it as well), every other race of the teams is the computer's, and each race wears its own colour.
+    /// <paramref name="options"/> lists every hero (<see cref="BattleDraft.Compose"/>).
+    /// </summary>
+    public static MatchRequest ForBattle(Machines.Sim.Survival.BattleMap map, Machines.Sim.Survival.BattleOptions options, Race player, bool watch)
+    {
+        var races = options.TeamA.Concat(options.TeamB).Distinct().Order().ToList();
+        var starts = new StartPositions(player,
+            races.ToDictionary(r => r, r => r == player && !watch ? Controller.Player : Controller.Ai),
+            races.ToDictionary(r => r, r => r));
+        // The map is known ground in a battle, as in Wired.
+        return new MatchRequest(map.Scenario, map.Planet, starts, new MatchOptions { Battle = options, FogOfWar = false });
+    }
+
+    /// <summary>
+    /// For automated checks: MACHINES_BATTLE=&lt;map&gt;[,tier=&lt;1-8&gt;][,lives=&lt;1-5&gt;][,win=both|wipe|capture][,bots=4] starts a
+    /// battle straight away, the player on the first team's anchor slot with a bot's loadout at the tier (not the pod's hero,
+    /// so that a run does not depend on the profile); bots=4 lets a bot play the player's hero too, to watch.
+    /// </summary>
+    private static MatchRequest? BattleFromEnvironment(string setting)
+    {
+        var parts = setting.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0 || Machines.Sim.Survival.BattleCatalogue.Map(parts[0]) is not { } map)
+            throw new ArgumentException($"MACHINES_BATTLE: no battle map '{(parts.Length > 0 ? parts[0] : "")}'; the maps are {string.Join(", ", Machines.Sim.Survival.BattleCatalogue.Maps.Select(m => m.Scenario))}");
+        var values = parts.Skip(1).Select(p => p.Split('=', 2)).Where(p => p.Length == 2).ToDictionary(p => p[0].ToLowerInvariant(), p => p[1]);
+        int Number(string key, int fallback) => values.TryGetValue(key, out var text) && int.TryParse(text, out var value) ? value : fallback;
+        var tier = Math.Clamp(Number("tier", 3), 1, Machines.Sim.Survival.BattleCatalogue.MostTier);
+        var win = values.TryGetValue("win", out var won) && Enum.TryParse<Machines.Sim.Survival.BattleWin>(won, true, out var parsed) ? parsed : Machines.Sim.Survival.BattleWin.Both;
+        var watch = Number("bots", 3) >= 4;
+        var player = map.TeamA[0];
+        var hero = watch ? null : Machines.Sim.Survival.BattleBots.Bot(tier, player, 0) with { Name = BattleDraft.ShortName(NetLink.OfflineName), Bot = false };
+        return ForBattle(map, BattleDraft.Compose(map, tier, Number("lives", 1), win, hero), player, watch);
+    }
+
+    /// <summary>
     /// For automated checks: MACHINES_MAP=&lt;scenario&gt;,&lt;planet&gt; starts that map straight away, with an AI
     /// in every other start position.
     /// </summary>
@@ -75,6 +110,9 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
         // MACHINES_CAMPAIGN=<mission> plays a campaign mission (tut01, commsat ...) for the campaign's current player.
         if (System.Environment.GetEnvironmentVariable("MACHINES_CAMPAIGN") is { Length: > 0 } mission && Campaign.Entry(mission) is { } entry)
             return Campaign.Request(entry, CampaignProgress.Load().CurrentPlayer ?? new CampaignPlayer());
+        // MACHINES_BATTLE=<map>[,...] starts a battle (see BattleFromEnvironment).
+        if (System.Environment.GetEnvironmentVariable("MACHINES_BATTLE") is { Length: > 0 } battle)
+            return BattleFromEnvironment(battle);
         var map = System.Environment.GetEnvironmentVariable("MACHINES_MAP");
         if (string.IsNullOrEmpty(map))
             return null;

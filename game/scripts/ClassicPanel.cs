@@ -227,8 +227,11 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             : "Left click to look there, right click to send the selection"));
 
         var x = 136;
-        _widgets.Add(new Widget(R(x, 0, 20, 20), rect => DrawBitmap(rect, "navigate/bmus.bmp", "BMU"), () => _showBmus = !_showBmus,
-            world.Wired is null ? $"BMUs {world.Races[Game.Player].Bmu:F0} of {world.BmuCapacity(Game.Player)}" : $"{world.Races[Game.Player].Bmu:F0} BMU"));
+        // A battle has no money and no squadrons: a hero is all a player has.
+        var battle = world.Battle is not null;
+        if (!battle)
+            _widgets.Add(new Widget(R(x, 0, 20, 20), rect => DrawBitmap(rect, "navigate/bmus.bmp", "BMU"), () => _showBmus = !_showBmus,
+                world.Wired is null ? $"BMUs {world.Races[Game.Player].Bmu:F0} of {world.BmuCapacity(Game.Player)}" : $"{world.Races[Game.Player].Bmu:F0} BMU"));
         var race = RaceFolder(Game.Player);
         _widgets.Add(new Widget(R(x, 19, 20, 29), rect => DrawBitmap(rect, $"navigate/{race}/machines.bmp", "M"),
             () => _navigator = _navigator == NavigatorKind.Machines ? NavigatorKind.None : NavigatorKind.Machines,
@@ -247,9 +250,10 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             _widgets.Add(new Widget(R(2 + 134 - 14, 1 + 127 - 11, 14, 11), rect => DrawMapButton(rect, "map/mapt.bmp", _terrainOn),
                 () => _terrainOn = !_terrainOn, "Terrain on or off"));
         }
-        _widgets.Add(new Widget(R(x, 75, 20, 29), rect => DrawBitmap(rect, $"navigate/{race}/squads.bmp", "S"),
-            () => _squadrons = _squadrons == SquadronMode.None ? SquadronMode.Select : SquadronMode.None,
-            "Squadrons: pick one (or its number; Ctrl and the number forms one)"));
+        if (!battle)
+            _widgets.Add(new Widget(R(x, 75, 20, 29), rect => DrawBitmap(rect, $"navigate/{race}/squads.bmp", "S"),
+                () => _squadrons = _squadrons == SquadronMode.None ? SquadronMode.Select : SquadronMode.None,
+                "Squadrons: pick one (or its number; Ctrl and the number forms one)"));
     }
 
     private int AddSelection(int y)
@@ -372,7 +376,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     public void PressSelfDestruct()
     {
         var selected = game.Selection.Select(game.World.Find).OfType<Actor>().Where(a => a.Race == Game.Player).ToList();
-        if (selected.Count > 0 && !game.Watching && !game.RefusesOrders())
+        // Nothing self-destructs in a battle (the simulation refuses it).
+        if (selected.Count > 0 && !game.Watching && game.World.Battle is null && !game.RefusesOrders())
             SelfDestruct(selected).Act();
     }
 
@@ -391,7 +396,9 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         var selected = game.Selection.Select(world.Find).OfType<Actor>().Where(a => a.Race == Game.Player).ToList();
         var machines = selected.OfType<Machine>().ToList();
         var ids = machines.Select(m => m.Id).ToList();
-        if (selected.Count > 0)
+        // A battle has no self-destruct (the simulation refuses it) and no squadrons.
+        var battle = world.Battle is not null;
+        if (selected.Count > 0 && !battle)
             bars.Add(SelfDestruct(selected));
         var spies = machines.Where(m => m.IsSpy).ToList();
         var emplacements = game.SelectedEmplacements();
@@ -443,8 +450,9 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                 bars.Add(new Bar("Scavenge", "Scavenge: click the wreckage to gather", game.BeginScavenge, "commands/scavenge.bmp", Hot: Key.Y));
             if (machines.Any(m => m.Weapons.Any(w => w.IsTreachery)))
                 bars.Add(new Bar("Treachery", "Treachery: click an enemy machine to turn it", game.BeginTreachery, "commands/treach.bmp", Hot: Key.J));
-            bars.Add(new Bar("Form squadron", "Form squadron: click one of the squadrons below (or Ctrl and its number)",
-                () => _squadrons = SquadronMode.Form, "commands/formsqad.bmp", Hot: Key.F));
+            if (!battle)
+                bars.Add(new Bar("Form squadron", "Form squadron: click one of the squadrons below (or Ctrl and its number)",
+                    () => _squadrons = SquadronMode.Form, "commands/formsqad.bmp", Hot: Key.F));
             if (machines.Any(m => m.CanHeal))
                 bars.Add(new Bar("Heal", "Heal: click a machine", game.BeginHeal, "commands/heal.bmp", Hot: Key.H));
             bars.Add(new Bar("Stand ground", "Stand ground: shoot from where it is, never move to",
@@ -889,7 +897,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                     DrawCircle(at, 2 * _scale, Colors.White);
             }
         }
-        if (_showBmus)
+        if (_showBmus && world.Battle is null)
         {
             var state = world.Races[Game.Player];
             // A run has no ceiling to the bank.

@@ -12,7 +12,7 @@ namespace Machines.Game;
 /// </summary>
 public static class HangarCreation
 {
-    private static readonly (Race Race, Color Colour)[] Colours =
+    internal static readonly (Race Race, Color Colour)[] Colours =
     [
         (Race.Red, new Color(0.9f, 0.16f, 0.12f)),
         (Race.Blue, new Color(0.2f, 0.4f, 0.95f)),

@@ -13,11 +13,13 @@ namespace Machines.Game;
 /// and drives the lobby (see <see cref="MultiplayerPage"/>), MACHINES_MENU_SELECT=&lt;scenario&gt;,&lt;planet&gt; picks a
 /// map and MACHINES_MENU_START=1 starts it from the skirmish page (MACHINES_LOADING_SCREENSHOT, see
 /// <see cref="LoadingScreen"/>). MACHINES_MENU_SCREENSHOT=&lt;png&gt;[,page[,WxH]] saves a page (main, skirmish, room,
-/// multiplayer, load, replays, options, graphics, keys, models, campaign, missions, briefing or quit), at that size if one
+/// room-battle, multiplayer, load, replays, options, graphics, keys, models, pod, pod-path, pod-modules, pod-chassis, pod-room,
+/// campaign, missions, briefing or quit), at that size if one
 /// is given, and quits. The first start's questions (setup, setup-import, setup-look, setup-music) come before the main menu until
 /// they are answered (<see cref="SetupPage"/>). MACHINES_MENU_GO=&lt;page&gt; skips the first films and goes from the main
 /// menu to that page as a click would, with the films of the way (main stays there, to wait for the logos).
-/// MACHINES_WIRED_DRIVE plays a whole Wired run from the main menu on (see <see cref="WiredDriver"/>).
+/// MACHINES_WIRED_DRIVE plays a whole Wired run from the main menu on (see <see cref="WiredDriver"/>), MACHINES_BATTLE_DRIVE a
+/// whole battle (see <see cref="BattleDriver"/>).
 /// </summary>
 public partial class MenuScreens : Control
 {
@@ -51,8 +53,9 @@ public partial class MenuScreens : Control
         Lang.Apply();
         // For automated checks: MACHINES_WIRED_DRIVE plays a whole run from here (see WiredDriver).
         WiredDriver.Attend(GetTree());
+        BattleDriver.Attend(GetTree());
         var shot = (Setting("MACHINES_MENU_SCREENSHOT") ?? "").Split(',', StringSplitOptions.TrimEntries);
-        if (shot[0].Length == 0 && Setting("MACHINES_MP") is null && Setting("MACHINES_MENU_START") is null && (Setting("MACHINES_SCREENSHOT") ?? Setting("MACHINES_MAP")) is not null)
+        if (shot[0].Length == 0 && Setting("MACHINES_MP") is null && Setting("MACHINES_MENU_START") is null && (Setting("MACHINES_SCREENSHOT") ?? Setting("MACHINES_MAP") ?? Setting("MACHINES_BATTLE")) is not null)
         {
             // Automated checks of a match skip the menus; the match reads them from the environment.
             GetTree().CallDeferred(SceneTree.MethodName.ChangeSceneToFile, "res://scenes/Main.tscn");
@@ -189,6 +192,11 @@ public partial class MenuScreens : Control
         {
             case "skirmish": ShowSkirmish(); break;
             case "room": ShowSkirmish(forRoom: true); break;
+            case "room-battle":
+                SkirmishPage.ChooseBattle();
+                ShowSkirmish(forRoom: true);
+                break;
+            case "pod-room": ShowPod(BattlePod.SampleRoom()); break;
             case "multiplayer": ShowMultiplayer(); break;
             case "load": ShowLoad(); break;
             case "replays": ShowReplays(); break;
@@ -198,6 +206,10 @@ public partial class MenuScreens : Control
             case "keys-run": _stage.Show(new KeysPage(ShowOptions, run: true)); break;
             case "models": ShowModels(); break;
             case "hangar": ShowHangar(); break;
+            case "pod": ShowPod(); break;
+            case "pod-path": ShowPod(HangarShelf.Tree); break;
+            case "pod-modules": ShowPod(HangarShelf.Modules); break;
+            case "pod-chassis": ShowPod(HangarShelf.Chassis); break;
             case "setup": ShowSetup(SetupPage.First); break;
             case "setup-import": ShowSetup(SetupPage.Step.Import); break;
             case "setup-look": ShowSetup(SetupPage.Step.Look); break;
@@ -227,6 +239,9 @@ public partial class MenuScreens : Control
 
     public void ShowMultiplayer() => Go(MenuFilms.Multiplayer, () => new MultiplayerPage(this));
 
+    /// <summary>The multiplayer page, whose Back goes to <paramref name="back"/> instead of the main menu (the pod, for one).</summary>
+    public void ShowMultiplayer(Action back) => Go(MenuFilms.Multiplayer, () => new MultiplayerPage(this, back));
+
     /// <summary>The multiplayer page, on its way back to the room the player is in.</summary>
     public void ShowRoom() => Go(MenuFilms.Room, () => new MultiplayerPage(this));
 
@@ -240,6 +255,15 @@ public partial class MenuScreens : Control
 
     /// <summary>Wired: hero creation, in the hangar.</summary>
     public void ShowHangar() => _stage.Show(HangarCreation.Page(this));
+
+    /// <summary>Battle: the pod, where the hero is put together and research and purchases are made.</summary>
+    public void ShowPod() => ShowPod(HangarShelf.Weapons);
+
+    /// <summary>The pod, on a shelf.</summary>
+    public void ShowPod(HangarShelf shelf) => _stage.Show(BattlePod.Page(this, shelf));
+
+    /// <summary>The pod for a battle room: it goes back to the room, and its way into the battle is Ready.</summary>
+    public void ShowPod(RoomState room) => _stage.Show(BattlePod.Page(this, HangarShelf.Weapons, room));
 
     /// <summary>The campaign's players.</summary>
     public void ShowCampaign() => Go(MenuFilms.CampaignPlayers, () => new CampaignPlayersPage(this));

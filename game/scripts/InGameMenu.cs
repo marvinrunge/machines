@@ -32,6 +32,8 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
         MenuSounds.Attach(_stage, _assets.GameFolder);
         if (game.World.Wired is { Phase: Machines.Sim.Survival.WiredPhase.Ended } && (debriefing || statistics))
             _stage.Show(new WiredEndScreen(game, _assets));
+        else if (game.World.Battle is { Over: true } && (debriefing || statistics))
+            _stage.Show(new BattleEndScreen(game, _assets));
         else if (debriefing)
             ShowDebriefing();
         else if (statistics)
@@ -110,7 +112,9 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
             Button(7310, "Load Game", ShowLoad, !game.Online),
             Button(7306, "Hot Keys", ShowHotkeys),
             Button(7303, "Exit Game", () => _stage.Message(
-                game.Online ? "Leave the match?" : "Leave the match? What is not saved is lost.",
+                // A battle cannot be saved, and one left before its end is not counted.
+                game.World.Battle is { Over: false } ? "Leave the battle? It will not be counted."
+                : game.Online ? "Leave the match?" : "Leave the match? What is not saved is lost.",
                 ("Leave", Leave), ("Stay", null))),
         })
             grid.AddChild(button);
@@ -170,7 +174,7 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
     {
         var mission = Scenario();
         var texts = _assets.ScenarioTexts(mission?.Text);
-        var won = game.World.Winner == Game.Player;
+        var won = game.World.Won(Game.Player);
         var picture = new ChipPanel { Padding = 10, CustomMinimumSize = new Vector2(470, 414) };
         // Without a picture of its own, the original's of the player's colour (vicr.bmp, defb.bmp and so on).
         var file = Campaign.Media(_assets.GameFolder, mission?.Media.GetValueOrDefault(won ? "DEBRIEFING" : "DEBRIEFINGLOSE"))
@@ -209,7 +213,9 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
     {
         var chip = new ChipPanel { SizeFlagsVertical = SizeFlags.ExpandFill, Padding = 30 };
         var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        scroll.AddChild(MenuTheme.Paragraph(game.BriefingText() ?? "No briefing for this scenario.", 25, MenuTheme.Text));
+        var text = game.World.Battle is { } battle ? BattlePod.Briefing(battle.Options, MatchRequest.Current.Scenario)
+            : game.BriefingText() ?? "No briefing for this scenario.";
+        scroll.AddChild(MenuTheme.Paragraph(text, 25, MenuTheme.Text));
         chip.AddChild(scroll);
         var ok = Footer(Text(7302, "OK"), game.CloseMenu);
         page.AddChild(MenuPage.Column(MenuPage.Gap, MenuPage.Heading(Text(7304, "Briefing")), chip,
@@ -242,6 +248,10 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
         [
             ("Fire left, right, top", string.Join(", ", KeyMap.Name(KeyMap.Act.FireLeft), KeyMap.Name(KeyMap.Act.FireRight), KeyMap.Name(KeyMap.Act.FireTop))),
             .. game.World.Wired is null ? new[] { ("Fire all", "Space") } :
+            game.World.Battle is not null ?
+            [
+                ("Abilities, dash", K(KeyMap.Act.Ability1, KeyMap.Act.Ability2, KeyMap.Act.Dash)), ("Next team-mate, once destroyed", "Tab"),
+            ] :
             [
                 ("Squad: follow, attack, hold, back", K(KeyMap.Act.SquadFollow, KeyMap.Act.SquadAttack, KeyMap.Act.SquadHold, KeyMap.Act.SquadBack)),
                 ("Abilities, dash", K(KeyMap.Act.Ability1, KeyMap.Act.Ability2, KeyMap.Act.Dash)), ("Hangar", K(KeyMap.Act.Hangar)),

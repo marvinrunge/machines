@@ -544,8 +544,16 @@ public sealed partial class GameWorld
         if (way == Way.Aside)
             return path.Count;
         var resting = IsResting(blocker);
-        // One driven in first person is never asked to make way: the other stops and waits.
-        if (blocker.DrivenByPlayer)
+        // One driven in first person is never asked to make way: the other stops and waits. In a battle a hero at the wheel
+        // may stand for minutes (a player holding the pod's door), so one held up by it goes round it, or, when it stands on
+        // the goal itself, takes a place near the goal as with any machine resting there.
+        var roundTheWheel = blocker.DrivenByPlayer && Battle is not null && resting && way == Way.Order;
+        if (roundTheWheel && RoundTheWheel(machine, path[index], blocker) is { } round)
+        {
+            path.InsertRange(index, round);
+            return index;
+        }
+        if (blocker.DrivenByPlayer && !(roundTheWheel && index == path.Count - 1))
         {
             motion.WaitUntil = Time + PlayerRetry;
             return index;
@@ -855,7 +863,15 @@ public sealed partial class GameWorld
         var step = ahead * forward + left * sideways;
         if (step == Vector2.Zero)
             return;
-        if (Blocker(machine, machine.Position, machine.Position + step) is not null || !SlideOn(machine, step))
+        if (Blocker(machine, machine.Position, machine.Position + step) is { } blocker)
+        {
+            // In a battle a team-mate the computer drives, standing in the way of a player at the wheel (a guard at its
+            // post on the way out of the pod), makes way as a resting machine of its own side does for one on an order.
+            if (Battle is not null && blocker.Race != machine.Race && !AreEnemies(machine.Race, blocker.Race))
+                MakeWay(blocker, machine.Position, machine.Position + Vector2.Normalize(step) * (4 * (machine.Radius + blocker.Radius)), machine.Radius);
+            StopDead(motion);
+        }
+        else if (!SlideOn(machine, step))
             StopDead(motion);
     }
 

@@ -92,10 +92,16 @@ public partial class GroundBlast : Node3D
             var (wave, look) = Piece(waveMesh);
             look.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
             Vector3 small = new(0.2f, 0.5f, 0.2f), thread = new(0.005f, 2000, 0.005f);
+            var colour = look.AlbedoColor;
             _parts.Add(age =>
             {
                 var drawn = age - expansion - shrink;
                 var full = Vector3.One * Mathf.Lerp(0.01f, radius, Mathf.Clamp(age / expansion, 0, 1));
+                // A camera looking on (Battle) from inside the wave, or as it rolled past, saw the hero through a grey veil
+                // and a wall of fire across the picture: near it the wave is faint.
+                var near = OnlookerShare(this, at, full.X * 1.7f + 10, full.X * 1.7f + 50, 0.15f);
+                if (near < 1 || look.AlbedoColor != colour)
+                    look.AlbedoColor = colour with { A = colour.A * near };
                 var scale = drawn < 0 ? full : drawn < shrink ? full.Lerp(small, drawn / shrink) : small.Lerp(thread, Mathf.Min(1, drawn / shrink - 1));
                 wave.Visible = age < expansion + 3 * shrink;
                 wave.Transform = new Transform3D(Basis.FromScale(scale), at);
@@ -120,6 +126,8 @@ public partial class GroundBlast : Node3D
             _parts.Add(age =>
             {
                 var grown = Mathf.Lerp(0.01f, radius, Mathf.Clamp(age / expansion, 0, 1));
+                // A camera looking on at a hero the strike came down on stood in its light, the picture white.
+                look.AlbedoColor = new Color(1, 1, 1, strength * OnlookerShare(this, at, grown + 20, grown * 1.5f + 60, 0.05f));
                 flare.Visible = age < expansion;
                 flare.Transform = new Transform3D(Basis.FromScale(Vector3.One * grown * size), at + Vector3.Up * grown * 0.72f);
                 TextureMotion.Show(look, age);
@@ -198,6 +206,27 @@ public partial class GroundBlast : Node3D
     }
 
     private const float VortexTime = 10, VortexSplit = 8;
+
+    /// <summary>
+    /// Whether the view looks on at a hero from outside it (Battle's watch camera): a vortex right beside that camera is drawn
+    /// lighter, so that the hero it came down on stays in sight. Set every frame by the game; false in any other view.
+    /// </summary>
+    public static bool Onlooker { get; set; }
+
+    /// <summary>
+    /// How much of a bright effect at <paramref name="at"/> is drawn for a camera looking on (<see cref="Onlooker"/>):
+    /// <paramref name="least"/> within <paramref name="inner"/> metres of it across the ground, rising evenly to all of it
+    /// at <paramref name="outer"/>; all of it in any other view. A camera 16 to 20 m behind a hero an ion strike came down
+    /// on stood inside the column, and the picture was white for its six seconds.
+    /// </summary>
+    public static float OnlookerShare(Node node, Vector3 at, float inner, float outer, float least)
+    {
+        if (!Onlooker || !node.IsInsideTree() || node.GetViewport()?.GetCamera3D() is not { } camera)
+            return 1;
+        var off = camera.GlobalPosition - at;
+        var across = Mathf.Sqrt(off.X * off.X + off.Z * off.Z);
+        return Mathf.Lerp(least, 1, Mathf.Clamp((across - inner) / Mathf.Max(0.01f, outer - inner), 0, 1));
+    }
 
     /// <summary>
     /// The vortex (MachPhysVortexBomb), over 10 s: a white sphere flares up for 2 s; the vortex sphere, black with
@@ -506,8 +535,10 @@ public partial class GroundBlast : Node3D
         _parts.Add(age =>
         {
             light.Visible = age >= start && age < start + time;
-            if (strength is not null)
-                light.LightEnergy = energy * strongest * strength(age - start);
+            // A camera looking on from right beside the blast (Battle) had the picture washed out by its light: near it the
+            // light is a fifth as strong, and full again only well outside it.
+            var near = OnlookerShare(this, at, range * 0.3f, range * 0.8f, 0.2f);
+            light.LightEnergy = energy * strongest * near * (strength?.Invoke(age - start) ?? 1);
             return age < start + time;
         });
     }

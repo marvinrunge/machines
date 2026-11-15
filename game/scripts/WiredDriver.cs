@@ -56,13 +56,16 @@ public partial class WiredDriver(string folder, WiredDriver.Plan plan) : Node
         Abilities = ["discharge", "minefield", "supercharge"],
     };
 
+    /// <summary>The folder the pictures go to.</summary>
+    private protected string Folder => folder;
+
     private static bool _attending;
 
     private readonly Queue<string> _pictures = new();
     private int _shots;
     private Vector2 _mouse = new(4, 4);
     private bool _down;
-    private double _lastDeal;
+    private protected double _lastDeal;
 
     /// <summary>Comes along if the switch says so, from the first screen on; it outlives every change of scene.</summary>
     public static void Attend(SceneTree tree)
@@ -74,9 +77,9 @@ public partial class WiredDriver(string folder, WiredDriver.Plan plan) : Node
         tree.Root.CallDeferred(Node.MethodName.AddChild, new WiredDriver(words[0], Plan.Parse(words.Skip(1))));
     }
 
-    private static void Say(string text) => GD.Print($"drive: {text}");
+    private protected static void Say(string text) => GD.Print($"drive: {text}");
 
-    private Node? Scene => GetTree().CurrentScene;
+    private protected Node? Scene => GetTree().CurrentScene;
 
     public override async void _Ready()
     {
@@ -156,7 +159,7 @@ public partial class WiredDriver(string folder, WiredDriver.Plan plan) : Node
     }
 
     /// <summary>Steps a choice on with clicks on its right half until it shows the item.</summary>
-    private async Task Step(ChipChoice choice, string item)
+    private protected async Task Step(ChipChoice choice, string item)
     {
         for (var i = 0; i < choice.Items.Count && choice.Items[choice.Selected] != item; i++)
         {
@@ -217,16 +220,16 @@ public partial class WiredDriver(string folder, WiredDriver.Plan plan) : Node
     }
 
     /// <summary>The recordings kept since the driver came, newest first.</summary>
-    private IEnumerable<string> Replays()
+    private protected IEnumerable<string> Replays()
     {
-        var replays = System.IO.Path.Combine(Paths.Root, "replays");
+        var replays = Game.ReplayFolder;
         return System.IO.Directory.Exists(replays)
             ? System.IO.Directory.GetFiles(replays, "*" + Machines.Net.Replay.Extension).Where(f => System.IO.File.GetLastWriteTime(f) >= _began)
                 .OrderByDescending(System.IO.File.GetLastWriteTime)
             : [];
     }
 
-    private readonly DateTime _began = DateTime.Now.AddSeconds(-5);
+    private protected readonly DateTime _began = DateTime.Now.AddSeconds(-5);
 
     // ---- a recording ------------------------------------------------------------------------------
 
@@ -261,13 +264,13 @@ public partial class WiredDriver(string folder, WiredDriver.Plan plan) : Node
     // ---- pictures ---------------------------------------------------------------------------------
 
     /// <summary>A picture if the plan wants one at this moment.</summary>
-    private async Task Moment(string moment, string? name = null)
+    private protected async Task Moment(string moment, string? name = null)
     {
         if (plan.Shoots(moment))
             await Picture(name ?? moment);
     }
 
-    private async Task Picture(string name)
+    private protected async Task Picture(string name)
     {
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
         var path = System.IO.Path.Combine(folder, $"{++_shots:000}-{name}.png");
@@ -276,14 +279,21 @@ public partial class WiredDriver(string folder, WiredDriver.Plan plan) : Node
     }
 
     /// <summary>The pictures asked for since the last frame: by the plan's moments, or by a file "snap" in the folder.</summary>
-    private async Task Pictures()
+    private protected async Task Pictures()
     {
         var snap = System.IO.Path.Combine(folder, "snap");
         if (System.IO.File.Exists(snap))
         {
-            var name = System.IO.File.ReadAllText(snap).Trim();
-            System.IO.File.Delete(snap);
-            _pictures.Enqueue(name.Length > 0 ? name : "snap");
+            // The file may still be being written by whoever asks: then it is read on a later frame.
+            try
+            {
+                var name = System.IO.File.ReadAllText(snap).Trim();
+                System.IO.File.Delete(snap);
+                _pictures.Enqueue(name.Length > 0 ? name : "snap");
+            }
+            catch (System.IO.IOException)
+            {
+            }
         }
         while (_pictures.TryDequeue(out var picture))
             await Picture(picture);
@@ -291,24 +301,24 @@ public partial class WiredDriver(string folder, WiredDriver.Plan plan) : Node
 
     // ---- the hands --------------------------------------------------------------------------------
 
-    private T? Find<T>() where T : class => GetTree().Root.FindChildren("*", "", true, false).OfType<T>().FirstOrDefault();
+    private protected T? Find<T>() where T : class => GetTree().Root.FindChildren("*", "", true, false).OfType<T>().FirstOrDefault();
 
-    private static IEnumerable<ChipButton> Buttons(Node node) => node.FindChildren("*", "", true, false).OfType<ChipButton>();
+    private protected static IEnumerable<ChipButton> Buttons(Node node) => node.FindChildren("*", "", true, false).OfType<ChipButton>();
 
-    private static Vector2 Middle(Control control) => control.GetGlobalTransform() * (control.Size / 2);
+    private protected static Vector2 Middle(Control control) => control.GetGlobalTransform() * (control.Size / 2);
 
-    private Vector2 ScreenMiddle => GetViewport().GetVisibleRect().Size / 2;
+    private protected Vector2 ScreenMiddle => GetViewport().GetVisibleRect().Size / 2;
 
-    private async Task Wait(double seconds) => await ToSignal(GetTree().CreateTimer(seconds, processAlways: true), SceneTreeTimer.SignalName.Timeout);
+    private protected async Task Wait(double seconds) => await ToSignal(GetTree().CreateTimer(seconds, processAlways: true), SceneTreeTimer.SignalName.Timeout);
 
-    private async Task Frames(int count = 2)
+    private protected async Task Frames(int count = 2)
     {
         for (var i = 0; i < count; i++)
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
     }
 
     /// <summary>Waits for something to come, at most so many seconds; null if it did not.</summary>
-    private async Task<T?> Until<T>(Func<T?> found, double seconds) where T : class
+    private protected async Task<T?> Until<T>(Func<T?> found, double seconds) where T : class
     {
         for (var waited = 0.0; waited < seconds; waited += 0.1)
         {
@@ -319,10 +329,10 @@ public partial class WiredDriver(string folder, WiredDriver.Plan plan) : Node
         return found();
     }
 
-    private async Task Until(Func<bool> done, double seconds) => await Until(() => done() ? this : null, seconds);
+    private protected async Task Until(Func<bool> done, double seconds) => await Until(() => done() ? this : null, seconds);
 
     /// <summary>The pointer goes to a point of the screen, in steps for a drag.</summary>
-    private async Task Move(Vector2 to, int steps = 1)
+    private protected async Task Move(Vector2 to, int steps = 1)
     {
         var from = _mouse;
         for (var i = 1; i <= steps; i++)
@@ -340,7 +350,7 @@ public partial class WiredDriver(string folder, WiredDriver.Plan plan) : Node
         }
     }
 
-    private void Button(MouseButton button, bool pressed) => GetViewport().PushInput(new InputEventMouseButton
+    private protected void Button(MouseButton button, bool pressed) => GetViewport().PushInput(new InputEventMouseButton
     {
         Position = _mouse,
         GlobalPosition = _mouse,
@@ -351,7 +361,7 @@ public partial class WiredDriver(string folder, WiredDriver.Plan plan) : Node
     });
 
     /// <summary>A click on the screen's controls: the pointer goes there first, as a hand would.</summary>
-    private async Task Click(Vector2 at, MouseButton button = MouseButton.Left)
+    private protected async Task Click(Vector2 at, MouseButton button = MouseButton.Left)
     {
         await Move(at);
         await Frames(2);
@@ -362,7 +372,7 @@ public partial class WiredDriver(string folder, WiredDriver.Plan plan) : Node
     }
 
     /// <summary>A card or a chip carried from one place to another with the button held.</summary>
-    private async Task Drag(Vector2 from, Vector2 to)
+    private protected async Task Drag(Vector2 from, Vector2 to)
     {
         await Move(from);
         await Frames();
@@ -377,7 +387,7 @@ public partial class WiredDriver(string folder, WiredDriver.Plan plan) : Node
     }
 
     /// <summary>A key pressed and let go on the screen's controls.</summary>
-    private async Task Press(Key key, bool ctrl = false)
+    private protected async Task Press(Key key, bool ctrl = false)
     {
         GetViewport().PushInput(new InputEventKey { Keycode = key, PhysicalKeycode = key, Pressed = true, CtrlPressed = ctrl });
         await Frames();

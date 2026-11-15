@@ -179,14 +179,15 @@ public sealed partial class GameWorld
     {
         if (state.Hero is { } id && HeroOf(state.Race) is null)
             HeroDown(state, id);
-        if (state.RespawnAt is { } back && Time >= back && WiredPod(state.Race) is { } pod)
+        if (state.RespawnAt is { } back && Time >= back && WiredPod(state.Race) is { } pod && Battle is not { Over: true })
             Respawn(state, pod);
         if (HeroOf(state.Race) is { } alive)
             WiredChips.Ticking(this, state, alive);
         if (HeroOf(state.Race) is { Inside: null } hero)
         {
             UpdateDash(state, hero);
-            Collect(state, hero);
+            if (Battle is null)
+                Collect(state, hero);
         }
         if (run.BetweenWaves && WiredPod(state.Race) is { } home)
             MendAt(home, state);
@@ -201,11 +202,15 @@ public sealed partial class GameWorld
         state.Stats.Deaths++;
         state.Stats.CleanStreak = 0;
         Races[state.Race].Bmu *= WiredChips.Kept(state);
-        if (state.SpareBodies > 0)
+        // Once a battle is over a fall costs no body and is not counted.
+        var over = Battle is { Over: true };
+        if (state.SpareBodies > 0 && !over)
         {
             state.SpareBodies--;
-            state.RespawnAt = Time + WiredBalance.RespawnTime;
+            state.RespawnAt = Time + (Battle?.Options.RespawnWait ?? WiredBalance.RespawnTime);
         }
+        if (!over && Battle?.Tally.GetValueOrDefault(state.Race) is { } tally)
+            tally.Deaths++;
         Raise(new GameEvent(GameEventKind.WiredHeroDied, id, fell?.Position ?? Vector2.Zero, (int)state.Race, state.SpareBodies.ToString()));
     }
 
@@ -217,9 +222,17 @@ public sealed partial class GameWorld
     private void Respawn(WiredState state, Construction pod)
     {
         state.RespawnAt = null;
-        var door = pod.EntranceOutside is { } entrance && PadClear(entrance) ? entrance : FreePointNear(pod);
-        var hero = AddHero(state.Race, door, state.Build(Data));
+        var build = state.Build(Data);
+        // In a battle it is set down clear of a team-mate however large either is, beside it, looking out of the door.
+        var hero = Battle is not null ? AddHeroAtPod(state.Race, pod, build)
+            : AddHero(state.Race, pod.EntranceOutside is { } entrance && PadClear(entrance) ? entrance : FreePointNear(pod), build);
         state.Hero = hero.Id;
+        if (Battle is { } battle)
+        {
+            state.InvulnerableUntil = Time + BattleBalance.RespawnShield;
+            if (battle.Bots.Contains(state.Race))
+                hero.DefCon = DefCon.High;
+        }
         foreach (var escort in Escorts(state.Race))
         {
             if (escort.Order is IdleOrder or FollowOrder or ReturnOrder)
@@ -229,7 +242,7 @@ public sealed partial class GameWorld
             if (_series.TryGetValue(escort.Id, out var steps))
                 _series[escort.Id] = new Queue<Command>(steps.Select(step => FollowsTheFallen(step) is { } follow ? follow with { Target = hero.Id } : step));
         }
-        Raise(new GameEvent(GameEventKind.WiredHeroRespawned, hero.Id, door, (int)state.Race, state.SpareBodies.ToString()));
+        Raise(new GameEvent(GameEventKind.WiredHeroRespawned, hero.Id, hero.Position,(int)state.Race, state.SpareBodies.ToString()));
     }
 
     /// <summary>A step of a series that follows a machine no longer there.</summary>
@@ -338,7 +351,7 @@ public sealed partial class GameWorld
     }
 
     /// <summary>What belongs to the waves. Artefacts are always red, which the waves can be as well, and are nobody's.</summary>
-    private bool OnTheWavesSide(Actor target) => target.Race == Wired!.Enemy && target is not Artefact;
+    private bool OnTheWavesSide(Actor target) => Battle is null && target.Race == Wired!.Enemy && target is not Artefact;
 
     /// <summary>
     /// What a hit comes to with the chips of the hero that dealt it or takes it, in <paramref name="damage"/>. A hero
@@ -539,6 +552,8 @@ public sealed partial class GameWorld
     /// <returns>null if the hangar can be opened now, otherwise why not.</returns>
     public string? WhyNoHangar(WiredState state)
     {
+        if (Battle is not null)
+            return "there is no hangar in a battle";
         if (!Wired!.Waiting)
             return "the hangar opens only between waves";
         if (HeroOf(state.Race) is not { } hero)
@@ -622,6 +637,8 @@ public sealed partial class GameWorld
     {
         if (Wired?.Heroes.GetValueOrDefault(command.Race) is not { } state)
             return "this is not a Wired match";
+        if (Battle is not null && command is not (WiredAbilityCommand or WiredDashCommand))
+            return "there is no hangar in a battle";
         return command switch
         {
             WiredHangarCommand hangar => SetHangar(state, hangar.Open),

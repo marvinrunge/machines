@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Machines.Import.Model;
+using Machines.Sim.Survival;
 using Machines.Sim.World;
 
 namespace Machines.Net;
@@ -45,7 +46,14 @@ public sealed record ListRooms : NetMessage;
 
 public sealed record RoomList(IReadOnlyList<RoomSummary> Rooms) : NetMessage;
 
-public sealed record RoomSummary(int Id, string Name, string Scenario, string Planet, int Players, int MaxPlayers, bool Started);
+/// <summary>A room in the lobby's list. <paramref name="Mode"/> is "battle" for a battle room (null for a normal one), and
+/// <paramref name="Tier"/> the top of its bracket (0 for a normal room).</summary>
+public sealed record RoomSummary(int Id, string Name, string Scenario, string Planet, int Players, int MaxPlayers, bool Started,
+    string? Mode = null, int Tier = 0)
+{
+    /// <summary>The <see cref="Mode"/> of a battle room.</summary>
+    public const string Battle = "battle";
+}
 
 /// <summary>
 /// Opens a room on a map. <paramref name="Slots"/> are the map's start positions (its scenario races); players
@@ -60,9 +68,11 @@ public sealed record LeaveRoom : NetMessage;
 
 /// <summary>
 /// A player's colour and whether they are ready to start; <paramref name="Terrain"/> fingerprints the ground their game
-/// copy's export gives the room's planet (none without one).
+/// copy's export gives the room's planet (none without one). In a battle room <paramref name="Hero"/> is the hero the
+/// player brings from their pod (its race is filled in at the start); nobody is ready there without one, and the relay
+/// refuses one that is not in the room's bracket or does not fit together. Other rooms ignore it.
 /// </summary>
-public sealed record SetPlayer(Race Colour, bool Ready, long? Terrain = null) : NetMessage;
+public sealed record SetPlayer(Race Colour, bool Ready, long? Terrain = null, BattleHero? Hero = null) : NetMessage;
 
 /// <summary>What a start position nobody sits at is for (the slot's drop-down in the room, MachGuiPlayerListItem).</summary>
 public enum SeatUse
@@ -90,7 +100,8 @@ public sealed record ChangeRoom(string Scenario, string Planet, IReadOnlyList<Ra
 public sealed record RoomState(int Id, string Name, string Scenario, string Planet, IReadOnlyList<Race> Slots, MatchOptions Options,
     bool FillWithAi, int HostId, IReadOnlyList<LobbyPlayer> Players, IReadOnlyList<RoomSeat> Seats) : NetMessage;
 
-public sealed record LobbyPlayer(int ClientId, string Name, Race Colour, bool Ready, long? Terrain = null);
+/// <summary>A player in a room; in a battle room with the hero they bring (null until they chose one).</summary>
+public sealed record LobbyPlayer(int ClientId, string Name, Race Colour, bool Ready, long? Terrain = null, BattleHero? Hero = null);
 
 /// <summary>A start position of the room: the player sitting there, or what it is for.</summary>
 public sealed record RoomSeat(int? ClientId, SeatUse Use);

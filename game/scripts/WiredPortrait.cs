@@ -63,10 +63,14 @@ public partial class WiredPortrait(ClassicAssets assets) : Node
             // One frame for the transforms, one to draw.
             if (++_frames < 3)
                 return;
-            var image = _viewport.GetTexture().GetImage();
+            var image = DisplayServer.GetName() == "headless" ? null : _viewport.GetTexture().GetImage();
             _viewport.RenderTargetUpdateMode = SubViewport.UpdateMode.Disabled;
-            image.Convert(Image.Format.Rgba8);
-            Picture = ImageTexture.CreateFromImage(image);
+            // Without a screen (a headless replay) nothing is drawn and there is no picture to keep.
+            if (image is not null)
+            {
+                image.Convert(Image.Format.Rgba8);
+                Picture = ImageTexture.CreateFromImage(image);
+            }
             _view.QueueFree();
             _view = null;
             return;

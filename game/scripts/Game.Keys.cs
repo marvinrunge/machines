@@ -75,20 +75,23 @@ public partial class Game
                 _hud.Panel.CancelMarked();
                 return;
             // Ctrl and a number forms the selection into that squadron, the number alone selects it
-            // (MachGuiSquadronBank).
+            // (MachGuiSquadronBank). A battle has no squadrons.
             case >= Key.Key0 and <= Key.Key9 when ctrl:
-                FormSquadron((int)(key.Keycode - Key.Key0));
+                if (World.Battle is null)
+                    FormSquadron((int)(key.Keycode - Key.Key0));
                 return;
             case >= Key.Key0 and <= Key.Key9:
-                SelectSquadron((int)(key.Keycode - Key.Key0));
+                if (World.Battle is null)
+                    SelectSquadron((int)(key.Keycode - Key.Key0));
                 return;
             // F1 to F3 start a chat message to another player, F4 one to everyone (MachPromptText).
             case >= Key.F1 and <= Key.F4 when Online && !shift && !ctrl:
                 _hud.Chat.Begin((int)(key.Keycode - Key.F1));
                 return;
-            // With Ctrl, F1 to F3 make that other player an ally or no longer one (MachPromptText).
+            // With Ctrl, F1 to F3 make that other player an ally or no longer one (MachPromptText); a battle's teams are fixed.
             case >= Key.F1 and <= Key.F3 when Online && ctrl:
-                ToggleAlliance((int)(key.Keycode - Key.F1));
+                if (World.Battle is null)
+                    ToggleAlliance((int)(key.Keycode - Key.F1));
                 return;
             // Alt and the left arrow puts the control panel away, Alt and the right arrow brings it out.
             case Key.Left when alt:
@@ -122,7 +125,7 @@ public partial class Game
             UseZenithCamera(true);
         else if (KeyMap.Is(key, KeyMap.Act.GroundView))
             UseZenithCamera(false);
-        else if (World.Wired is not null && KeyMap.Is(key, KeyMap.Act.Hangar))
+        else if (World.Wired is not null && World.Battle is null && KeyMap.Is(key, KeyMap.Act.Hangar))
             OpenHangar();
         // A bare letter the layout leaves free is the command that has it, when the panel shows that command.
         else if (!ctrl && !shift && !alt && !KeyMap.Taken(key.Keycode, firstPerson: false))

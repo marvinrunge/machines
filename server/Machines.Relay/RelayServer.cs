@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Sockets;
 using Machines.Import.Model;
 using Machines.Net;
+using Machines.Sim.Survival;
+using Machines.Sim.World;
 
 namespace Machines.Relay;
 
@@ -127,8 +129,13 @@ public sealed class RelayServer : IAsyncDisposable
                     member.Connection.Send(new Refused("a room needs a map with at least two start positions"));
                     break;
                 }
+                if (WhyNotBattle(create.Scenario, create.Options) is { } notBattle)
+                {
+                    member.Connection.Send(new Refused(notBattle));
+                    break;
+                }
                 Leave(member);
-                var room = new Room(_nextRoom++, create, member.Id);
+                var room = new Room(_nextRoom++, AsBattle(create), member.Id);
                 _rooms[room.Id] = room;
                 Join(member, room);
                 break;
@@ -158,9 +165,23 @@ public sealed class RelayServer : IAsyncDisposable
                     member.Connection.Send(new Refused($"{set.Colour} is taken"));
                     break;
                 }
+                // In a battle room a player brings a hero that may play in the room's bracket, and is ready only with one.
+                BattleHero? hero = null;
+                if (room.Setup.Options.Battle is { } battle)
+                {
+                    var why = set.Hero is { } chosen ? WhyNotHero(chosen, battle.Tier)
+                        : set.Ready ? "choose a hero in your pod first" : null;
+                    if (why is not null)
+                    {
+                        member.Connection.Send(new Refused(why));
+                        break;
+                    }
+                    hero = set.Hero is { } brought ? brought with { Name = HeroName(brought.Name, member.Name), Bot = false } : null;
+                }
                 member.Colour = set.Colour;
                 member.Ready = set.Ready;
                 member.Terrain = set.Terrain;
+                member.Hero = hero;
                 Broadcast(room, room.State());
                 break;
 
@@ -169,7 +190,8 @@ public sealed class RelayServer : IAsyncDisposable
                     member.Connection.Send(new Refused("only the host changes the seats"));
                 else if (seat.Seat >= 0 && seat.Seat < room.Seats.Count && room.Seats[seat.Seat].Player != member)
                 {
-                    room.Seats[seat.Seat].Use = seat.Use;
+                    // A battle has a hero for every race of its teams: a seat nobody plays is the computer's.
+                    room.Seats[seat.Seat].Use = room.Setup.Options.Battle is not null && seat.Use == SeatUse.Closed ? SeatUse.Computer : seat.Use;
                     if (room.Seats[seat.Seat].Player is { } sitting)
                         TakeOut(sitting, room);
                     else
@@ -182,9 +204,11 @@ public sealed class RelayServer : IAsyncDisposable
                     member.Connection.Send(new Refused("only the host changes the room"));
                 else if (change.Slots.Count < 2)
                     member.Connection.Send(new Refused("a room needs a map with at least two start positions"));
+                else if (WhyNotBattle(change.Scenario, change.Options) is { } notBattle)
+                    member.Connection.Send(new Refused(notBattle));
                 else
                 {
-                    foreach (var removed in room.Change(change))
+                    foreach (var removed in room.Change(AsBattle(change)))
                         TakeOut(removed, room);
                     Broadcast(room, room.State());
                 }
@@ -195,6 +219,10 @@ public sealed class RelayServer : IAsyncDisposable
                     member.Connection.Send(new Refused("only the host starts the match"));
                 else if (room.Members.Any(m => !m.Ready))
                     member.Connection.Send(new Refused("not everyone is ready"));
+                else if (room.Setup.Options.Battle is { } fight
+                         && room.Members.Select(m => m.Hero is { } hero ? WhyNotHero(hero, fight.Tier) : "not everyone has chosen a hero")
+                             .FirstOrDefault(why => why is not null) is { } unfit)
+                    member.Connection.Send(new Refused(unfit));
                 else
                     Start(room);
                 break;
@@ -231,6 +259,7 @@ public sealed class RelayServer : IAsyncDisposable
     {
         member.Room = room;
         member.Ready = false;
+        member.Hero = null;
         member.Colour = Enum.GetValues<Race>().First(c => room.Members.All(m => m.Colour != c));
         room.Members.Add(member);
         room.Seats.First(s => s.IsFree).Player = member;
@@ -319,6 +348,11 @@ public sealed class RelayServer : IAsyncDisposable
 
     private void Start(Room room)
     {
+        if (room.Setup.Options.Battle is { } battle)
+        {
+            StartBattle(room, battle);
+            return;
+        }
         var players = new List<MatchPlayer>();
         var slots = room.Setup.Slots.OrderBy(s => s).ToList();
         var seats = room.Seats.Zip(slots).ToList();
@@ -340,6 +374,121 @@ public sealed class RelayServer : IAsyncDisposable
         room.Match = new MatchInfo(room.Setup.Scenario, room.Setup.Planet, room.Setup.Options, _random.Next(1, int.MaxValue), InputDelay, players, terrain);
         Broadcast(room, new MatchStarted(room.Match));
         Log?.Invoke($"room {room.Id} started {room.Setup.Scenario} with {room.Members.Count} players");
+    }
+
+    /// <summary>
+    /// Starts a battle room: each seated player plays the race of their seat with the hero they brought, and every other
+    /// race of the two teams is the computer's, its bot hero chosen by the mirror rule (<see cref="BattleBots.Compose"/>).
+    /// The teams are the map's, so every client gets the whole battle, every hero listed, in the match's options.
+    /// </summary>
+    private void StartBattle(Room room, BattleOptions battle)
+    {
+        var map = BattleCatalogue.Map(room.Setup.Scenario)!;
+        var players = new List<MatchPlayer>();
+        var heroes = new List<BattleHero>();
+        var slots = room.Setup.Slots.OrderBy(s => s).ToList();
+        var seats = room.Seats.Zip(slots).ToList();
+        foreach (var (seat, slot) in seats.Where(s => s.First.Player is not null))
+        {
+            var member = seat.Player!;
+            member.Slot = slot;
+            players.Add(new MatchPlayer(member.Id, member.Name, slot, member.Colour, Ai: false));
+            heroes.Add(member.Hero! with { Race = slot, Bot = false });
+        }
+        // Whatever the seat was set to, nobody's race is the computer's: a battle has a hero for every race of its teams.
+        var colours = Enum.GetValues<Race>().Where(c => players.All(p => p.Colour != c)).ToList();
+        foreach (var (_, slot) in seats.Where(s => s.First.Player is null))
+        {
+            var colour = colours.Contains(slot) ? slot : colours[0];
+            colours.Remove(colour);
+            players.Add(new MatchPlayer(0, "AI", slot, colour, Ai: true));
+        }
+        var options = room.Setup.Options with
+        {
+            Battle = BattleBots.Compose(battle with { TeamA = map.TeamA, TeamB = map.TeamB, Heroes = [] }, heroes),
+        };
+        var terrain = room.Members.Select(m => m.Terrain).Distinct().ToList() is [{ } same] ? same : (long?)null;
+        room.Match = new MatchInfo(room.Setup.Scenario, room.Setup.Planet, options, _random.Next(1, int.MaxValue), InputDelay, players, terrain);
+        Broadcast(room, new MatchStarted(room.Match));
+        Log?.Invoke($"room {room.Id} started a battle on {room.Setup.Scenario} at tier {battle.Tier} with {room.Members.Count} players");
+    }
+
+    /// <returns>
+    /// Why a room cannot be a battle so, or null; null for every room that is no battle. A battle is fought on a map of
+    /// the battle catalogue, in a bracket whose top is a tier there is.
+    /// </returns>
+    private static string? WhyNotBattle(string scenario, MatchOptions options) => Battled(options).Battle switch
+    {
+        null => null,
+        _ when BattleCatalogue.Map(scenario) is null => "battles are fought only on the battle maps",
+        { Tier: < 1 or > BattleCatalogue.MostTier } => "no such tier",
+        _ => null,
+    };
+
+    /// <summary>
+    /// Options asking for the battle victory without a battle's settings are a battle with the default ones, as
+    /// <see cref="MatchSetup"/> plays them; so such a room is checked, set up and started as the battle it is.
+    /// </summary>
+    private static MatchOptions Battled(MatchOptions options) =>
+        options.Battle is null && options.Victory == VictoryCondition.Battle ? options with { Battle = new BattleOptions() } : options;
+
+    /// <summary>
+    /// A battle room as it will be played, so the room shows what the match will be: its map's planet, its map's two
+    /// teams as start positions, heroes driven in first person, and its settings within what the sim plays (lives 1 to 5,
+    /// no negative wait or time, a victory there is). The teams' heroes are the players' own until the start composes
+    /// them. Only called once <see cref="WhyNotBattle"/> let the room be.
+    /// </summary>
+    private static CreateRoom AsBattle(CreateRoom create) => Battled(create.Options) is { Battle: { } battle } options && BattleCatalogue.Map(create.Scenario) is { } map
+        ? create with { Planet = map.Planet, Slots = BattleSlots(map), Options = AsBattle(options, battle, map) }
+        : create;
+
+    /// <inheritdoc cref="AsBattle(CreateRoom)"/>
+    private static ChangeRoom AsBattle(ChangeRoom change) => Battled(change.Options) is { Battle: { } battle } options && BattleCatalogue.Map(change.Scenario) is { } map
+        ? change with { Planet = map.Planet, Slots = BattleSlots(map), Options = AsBattle(options, battle, map) }
+        : change;
+
+    private static MatchOptions AsBattle(MatchOptions options, BattleOptions battle, BattleMap map) => options with
+    {
+        Victory = VictoryCondition.Battle,
+        Wired = null,
+        DisableFirstPerson = false,
+        Battle = battle with
+        {
+            Lives = Math.Clamp(battle.Lives, 1, 5),
+            RespawnWait = MathF.Max(0, battle.RespawnWait),
+            TimeLimit = Math.Max(1, battle.TimeLimit),
+            Win = Enum.IsDefined(battle.Win) ? battle.Win : BattleWin.Both,
+            TeamA = map.TeamA,
+            TeamB = map.TeamB,
+            Heroes = [],
+        },
+    };
+
+    private static List<Race> BattleSlots(BattleMap map) => map.TeamA.Concat(map.TeamB).Order().ToList();
+
+    /// <summary>The name a hero plays under: the one the player gave it, else the player's, at most <see cref="BattleHero.MostName"/> characters.</summary>
+    private static string HeroName(string? given, string player)
+    {
+        var name = string.IsNullOrWhiteSpace(given) ? player.Trim() : given.Trim();
+        if (name.Length <= BattleHero.MostName)
+            return name;
+        // Never cut a character drawn with two UTF-16 units in half.
+        return name[..(char.IsHighSurrogate(name[BattleHero.MostName - 1]) ? BattleHero.MostName - 1 : BattleHero.MostName)];
+    }
+
+    /// <returns>
+    /// Why a hero a player brings may not play in the bracket whose top is <paramref name="tier"/>, or null. The relay
+    /// cannot tell whether the player owns it (that is the player's profile); it only keeps out what the bracket does not
+    /// allow and what does not fit together, so that a room does not start with a hero the sim would have to clamp.
+    /// </returns>
+    private static string? WhyNotHero(BattleHero hero, int tier)
+    {
+        // A hand-made message may leave out what a hero must have.
+        if (hero.Chassis is null || hero.Items is null || hero.Items.Any(i => i is null || i.Catalogue is null))
+            return "that hero does not fit together";
+        if (!BattleCatalogue.InBracket(hero.Chassis, tier))
+            return "that hero is not in the room's bracket";
+        return BattleBots.WhyNot(hero, tier) is null ? null : "that hero does not fit together";
     }
 
     /// <summary>Once every remaining player reported a tick, they must all agree.</summary>
@@ -401,6 +550,9 @@ public sealed class RelayServer : IAsyncDisposable
         public bool Ready { get; set; }
         public long? Terrain { get; set; }
         public Race? Slot { get; set; }
+
+        /// <summary>In a battle room, the hero the player brings; null until they chose one, and in every other room.</summary>
+        public BattleHero? Hero { get; set; }
     }
 
     /// <summary>A start position of a room, in the order of the map's races.</summary>
@@ -434,15 +586,20 @@ public sealed class RelayServer : IAsyncDisposable
         public Dictionary<Race, long> FirstTurn { get; } = [];
 
         public RoomSummary Summary() => new(Id, Setup.Name, Setup.Scenario, Setup.Planet, Members.Count,
-            Seats.Count(s => s.Player is not null || s.Use == SeatUse.Open), Match is not null);
+            Seats.Count(s => s.Player is not null || s.Use == SeatUse.Open), Match is not null,
+            Setup.Options.Battle is null ? null : RoomSummary.Battle, Setup.Options.Battle?.Tier ?? 0);
 
         public RoomState State() => new(Id, Setup.Name, Setup.Scenario, Setup.Planet, Setup.Slots, Setup.Options, Setup.FillWithAi, HostId,
-            Members.Select(m => new LobbyPlayer(m.Id, m.Name, m.Colour, m.Ready, m.Terrain)).ToList(),
+            Members.Select(m => new LobbyPlayer(m.Id, m.Name, m.Colour, m.Ready, m.Terrain, m.Hero)).ToList(),
             Seats.Select(s => new RoomSeat(s.Player?.Id, s.Use)).ToList());
 
-        /// <summary>The room on a new map, its players at the new seats, the host first; returns those it has no seat for.</summary>
+        /// <summary>
+        /// The room on a new map, its players at the new seats, the host first; returns those it has no seat for. The heroes
+        /// players brought stay only while the room stays a battle on the same map and bracket; a battle has no closed seats.
+        /// </summary>
         public List<Member> Change(ChangeRoom change)
         {
+            var heroesStay = Setup.Options.Battle is { } was && change.Options.Battle is { } now && was.Tier == now.Tier && Setup.Scenario == change.Scenario;
             Setup = Setup with { Scenario = change.Scenario, Planet = change.Planet, Slots = change.Slots, Options = change.Options, FillWithAi = change.FillWithAi };
             var people = Seats.Where(s => s.Player is not null).Select(s => s.Player!).OrderByDescending(m => m.Id == HostId).ToList();
             var uses = Seats.Where(s => s.Player is null).Select(s => s.Use).ToList();
@@ -451,6 +608,16 @@ public sealed class RelayServer : IAsyncDisposable
                 : new Seat { Use = i - people.Count < uses.Count ? uses[i - people.Count] : SeatUse.Open }).ToList();
             foreach (var member in Members)
                 (member.Ready, member.Terrain) = (false, null);
+            if (change.Options.Battle is not null)
+            {
+                foreach (var seat in Seats.Where(s => s.Use == SeatUse.Closed))
+                    seat.Use = SeatUse.Computer;
+            }
+            if (!heroesStay)
+            {
+                foreach (var member in Members)
+                    member.Hero = null;
+            }
             return people.Skip(change.Slots.Count).ToList();
         }
     }

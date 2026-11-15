@@ -76,7 +76,7 @@ public partial class WiredHud : Control
     public bool Driving { get; set; }
 
     /// <summary>How far down the wave's plate reaches, the bosses' bars under it included: the messages go below.</summary>
-    public float Hanging => (WavePlateHeight + (_now is { Bosses.Count: > 0 } ? 8 + 40 : 0) + Gap) * _u;
+    public float Hanging => _battle is not null ? BattleHanging : (WavePlateHeight + (_now is { Bosses.Count: > 0 } ? 8 + 40 : 0) + Gap) * _u;
 
     public WiredHud(Game game, Hud hud)
     {
@@ -90,10 +90,14 @@ public partial class WiredHud : Control
     public override void _Process(double delta)
     {
         _time += delta;
-        _now = WiredReadout.Of(_game.World, Game.Player);
+        // A battle has its own figures; Wired's waves, bank and squad mean nothing there.
+        _battle = BattleReadout.Of(_game.World, Game.Player);
+        _now = _battle is null ? WiredReadout.Of(_game.World, Game.Player) : null;
         _size = GetViewportRect().Size;
         _u = Mathf.Max(_size.Y / 1080f, 0.6f);
-        if (_now is { } now)
+        if (_battle is { } battle)
+            FollowBattle(battle, (float)delta);
+        else if (_now is { } now)
             Follow(now, (float)delta);
         FollowCalls(delta);
         QueueRedraw();
@@ -156,11 +160,18 @@ public partial class WiredHud : Control
 
     public override void _Draw()
     {
-        if (_now is not { } now || _size == Vector2.Zero)
+        if (_size == Vector2.Zero)
             return;
         (_prompted, _prompting) = (_prompting, _prompted);
         _prompting.Clear();
-        DrawDanger(now);
+        if (_battle is { } battle)
+        {
+            DrawBattle(battle);
+            return;
+        }
+        if (_now is not { } now)
+            return;
+        DrawDanger();
         DrawMarkers(now);
         DrawFloats();
         DrawPrompts(now);
@@ -634,7 +645,8 @@ public partial class WiredHud : Control
     private void Sweep(Rect2 box, float share)
     {
         share = Mathf.Clamp(share, 0, 1);
-        if (share >= 1)
+        // A sliver left of the sweep is too thin to cut into triangles (Godot says "triangulation failed"): it is not drawn.
+        if (share >= 0.995f)
             return;
         var (centre, half) = (box.GetCenter(), box.Size / 2);
         const int Steps = 40;

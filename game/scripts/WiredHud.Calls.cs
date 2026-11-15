@@ -127,7 +127,7 @@ public partial class WiredHud
     // ---- over the view ----------------------------------------------------------------------------
 
     /// <summary>The red at the edges of a hero nearly gone, and the arcs towards what hit it.</summary>
-    private void DrawDanger(WiredReadout now)
+    private void DrawDanger()
     {
         if (_game.World.HeroOf(Game.Player) is { } hero && Driving)
         {
@@ -171,8 +171,15 @@ public partial class WiredHud
         }
     }
 
-    /// <summary>A mark on a place in view, or an arrow on the ring round the sight towards one that is not.</summary>
-    private void Pointer(Camera3D camera, Vector3 place, Color colour, string label, bool strong)
+    /// <summary>How far round the sight, in interface pixels, a mark that keeps it clear fades and lifts its word.</summary>
+    private const float SightClear = 110;
+
+    /// <summary>
+    /// A mark on a place in view, or an arrow on the ring round the sight towards one that is not. With
+    /// <paramref name="clearSight"/> a mark near the sight in the middle of the view fades and its word goes up out of the way,
+    /// so that it does not sit on what the sight is on (a battle's pods lie straight ahead while their defenders stand there).
+    /// </summary>
+    private void Pointer(Camera3D camera, Vector3 place, Color colour, string label, bool strong, bool clearSight = false)
     {
         var margin = 90 * _u;
         var area = new Rect2(new Vector2(Left + margin, margin * 1.4f), _size - new Vector2(Left + margin * 2, margin * 3.2f));
@@ -185,8 +192,14 @@ public partial class WiredHud
         var r = (strong ? 11 : 8) * _u;
         if (front && view.HasPoint(at) && !Kept(plates: false).Any(k => k.Grow(r + 26 * _u).HasPoint(at)))
         {
+            var over = at + new Vector2(0, -r - 14 * _u);
+            if (clearSight && at.DistanceTo(_size / 2) is var off && off < SightClear * _u)
+            {
+                tint = new Color(tint, tint.A * Mathf.Lerp(0.25f, 1, Mathf.SmoothStep(SightClear * 0.35f * _u, SightClear * _u, off)));
+                over = new Vector2(over.X, Mathf.Min(over.Y, _size.Y / 2 - SightClear * _u));
+            }
             DrawPolyline([at + new Vector2(0, -r), at + new Vector2(r, 0), at + new Vector2(0, r), at + new Vector2(-r, 0), at + new Vector2(0, -r)], tint, 2 * _u, true);
-            Tag(at + new Vector2(0, -r - 14 * _u), label, tint);
+            Tag(over, label, tint);
             return;
         }
         var local = camera.GlobalTransform.AffineInverse() * place;
@@ -251,7 +264,8 @@ public partial class WiredHud
     private void Tag(Vector2 middle, string label, Color tint)
     {
         var half = new Vector2(Width(label, 15) / 2 + 8 * _u, 12 * _u);
-        middle = new Vector2(Mathf.Clamp(middle.X, Left + half.X, _size.X - half.X), Mathf.Clamp(middle.Y, half.Y, _size.Y - half.Y));
+        // In a view narrower than the word (a run without a screen has a tiny one) it stands at the left edge.
+        middle = new Vector2(Mathf.Clamp(middle.X, Left + half.X, Mathf.Max(Left + half.X, _size.X - half.X)), Mathf.Clamp(middle.Y, half.Y, Mathf.Max(half.Y, _size.Y - half.Y)));
         DrawRect(new Rect2(middle - half, half * 2), new Color(Plating, 0.72f));
         Say(middle + new Vector2(0, 5.5f * _u), label, 15, new Color(tint, 1), 0.5f);
     }

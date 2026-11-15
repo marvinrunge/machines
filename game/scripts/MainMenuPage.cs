@@ -48,23 +48,32 @@ public partial class MainMenuPage(MenuScreens screens) : MenuPage(screens.Quit)
         display.AddChild(layers);
         row.AddChild(display);
 
-        // Eight buttons of this size stand as high as the seven before them did, so the page still fits at a large interface size.
+        // Nine buttons of this size stand no higher than the eight before them did (740 against 748), so the page still fits at a large interface size.
+        const float height = 68;
         var right = new VBoxContainer { CustomMinimumSize = new Vector2(360, 0), Alignment = BoxContainer.AlignmentMode.Center };
-        right.AddThemeConstantOverride("separation", 20);
+        right.AddThemeConstantOverride("separation", 16);
         row.AddChild(right);
-        var campaign = Button("Campaign", screens.ShowCampaign, 76, 30);
+        var campaign = Button("Campaign", screens.ShowCampaign, height, 30);
         right.AddChild(campaign);
-        var skirmish = Button("Skirmish", () => screens.ShowSkirmish(), 76, 30);
+        var skirmish = Button("Skirmish", () => screens.ShowSkirmish(), height, 30);
         right.AddChild(skirmish);
-        var wired = Button("Wired", screens.ShowHangar, 76, 30);
-        if (WiredProfile.Load().Fresh.Count is > 0 and var fresh)
+        // A battle that had to wait for the file is written now, as Load writes Wired's waiting runs, so its tag is right.
+        if (BattleAccounts.Ledger.Waiting)
+            BattleAccounts.Ledger.Write();
+        var profile = WiredProfile.Load();
+        var wired = Button("Wired", screens.ShowHangar, height, 30);
+        if (profile.Fresh.Count is > 0 and var fresh)
             wired.Tag = Lang.T("{0} new", fresh);
         right.AddChild(wired);
-        right.AddChild(Button("Multiplayer", screens.ShowMultiplayer, 76, 30));
-        right.AddChild(Button("Load Game", screens.ShowLoad, 76, 30));
-        right.AddChild(Button("Replays", screens.ShowReplays, 76, 30));
-        right.AddChild(Button("Models", screens.ShowModels, 76, 30));
-        right.AddChild(Button("Options", screens.ShowOptions, 76, 30));
+        var battle = Button("Battle", screens.ShowPod, height, 30);
+        if (profile.Battle.Fresh.Count is > 0 and var within)
+            battle.Tag = Lang.T("{0} new", within);
+        right.AddChild(battle);
+        right.AddChild(Button("Multiplayer", screens.ShowMultiplayer, height, 30));
+        right.AddChild(Button("Load Game", screens.ShowLoad, height, 30));
+        right.AddChild(Button("Replays", screens.ShowReplays, height, 30));
+        right.AddChild(Button("Models", screens.ShowModels, height, 30));
+        right.AddChild(Button("Options", screens.ShowOptions, height, 30));
 
         SwitchOn();
         Focus(skirmish);

@@ -139,6 +139,12 @@ public sealed class WiredProfile
 
     public WiredHeroSheet? LastHero { get; set; }
 
+    /// <summary>
+    /// The battle account (<see cref="LocalBattleAccount"/>): a section of its own, with its own last hero and what is new,
+    /// so that Wired's screens never see it. Typed, so that writing a Wired run keeps it.
+    /// </summary>
+    public BattleProfile Battle { get; set; } = new BattleProfile().Mended();
+
     /// <summary>The file is there but could not be read just now: what this holds is not all of it, so it is not written over.</summary>
     [JsonIgnore]
     public bool Held { get; private set; }
@@ -146,7 +152,10 @@ public sealed class WiredProfile
 #if GODOT
     private static WiredLedger? _runs;
 
-    public static string FilePath => Godot.ProjectSettings.GlobalizePath("user://wired.json");
+    /// <summary>The file; for automated checks MACHINES_WIRED_PROFILE=&lt;file&gt; puts another in its place, so the player's own is not touched.</summary>
+    public static string FilePath => System.Environment.GetEnvironmentVariable("MACHINES_WIRED_PROFILE") is { Length: > 0 } other
+        ? other
+        : Godot.ProjectSettings.GlobalizePath("user://wired.json");
 
     /// <summary>The runs on their way into the file.</summary>
     public static WiredLedger Runs => _runs ??= new WiredLedger(FilePath, Godot.GD.PushWarning);
@@ -245,6 +254,7 @@ public sealed class WiredProfile
         }
         Records = records;
         Totals ??= new();
+        Battle = (Battle ?? new()).Mended();
         if (LastHero is { } hero)
             LastHero = hero with
             {

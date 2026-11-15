@@ -73,7 +73,7 @@ public partial class HangarPage
             return row;
         }
         if (desk.Shop is null)
-            return Row(Stock.Append((HangarShelf.Tree, "Path")));
+            return Row(Stock.Where(s => desk.Shelves.Contains(s.Shelf)).Append((HangarShelf.Tree, "Path")));
         _stockTab = new HangarTab { Text = "" };
         _storeTab = new HangarTab { Text = Lang.T("Shop").ToUpperInvariant() };
         _stockTab.Pressed += () => ShowShelf(_lastStock);

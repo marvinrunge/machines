@@ -3609,3 +3609,415 @@ msgstr "Karte"
 
 msgid "Machines and buildings"
 msgstr "Maschinen und Gebäude"
+
+# Battle: the pod, the match and its end
+
+msgid "Battle"
+msgstr "Schlacht"
+
+msgid "Battle · {0}"
+msgstr "Schlacht · {0}"
+
+msgid "{0} Cr"
+msgstr "{0} Cr"
+
+msgid "{0} XP"
+msgstr "{0} EP"
+
+msgid "Research"
+msgstr "Erforschen"
+
+msgid "Tier {0}"
+msgstr "Stufe {0}"
+
+msgid "Bracket"
+msgstr "Stufen"
+
+msgid "Lives"
+msgstr "Leben"
+
+msgid "1 life"
+msgstr "1 Leben"
+
+msgid "{0} lives"
+msgstr "{0} Leben"
+
+msgid "Wipe out"
+msgstr "Vernichten"
+
+msgid "Take the pod"
+msgstr "Pod einnehmen"
+
+msgid "Wipe out or take the pod"
+msgstr "Vernichten / Einnehmen"
+
+msgid "Fight against bots"
+msgstr "Gegen Bots kämpfen"
+
+msgid "Within reach: {0}"
+msgstr "Jetzt erforschbar: {0}"
+
+msgid "Research {0} first"
+msgstr "Erst {0} erforschen"
+
+msgid "Needs {0} XP on {1}"
+msgstr "Braucht {0} EP auf {1}"
+
+msgid "Needs {0} Cr"
+msgstr "Braucht {0} Cr"
+
+msgid "Buy it first"
+msgstr "Erst kaufen"
+
+msgid "Buy Mk {0} first"
+msgstr "Erst Mk {0} kaufen"
+
+msgid "From tier {0}"
+msgstr "Ab Stufe {0}"
+
+msgid "Mk {0} from tier {1}"
+msgstr "Mk {0} ab Stufe {1}"
+
+msgid "Research for {0}"
+msgstr "Erforschen für {0}"
+
+msgid "Buy for {0}"
+msgstr "Kaufen für {0}"
+
+msgid "Owned: a double click changes to it."
+msgstr "Gekauft: ein Doppelklick wechselt dazu."
+
+msgid "{0} XP · {1} free XP"
+msgstr "{0} EP · {1} freie EP"
+
+msgid "{0} / {1} XP to {2}"
+msgstr "{0} / {1} EP bis {2}"
+
+msgid "The top of its line"
+msgstr "Das Ende seiner Linie"
+
+msgid "Everything after it is researched"
+msgstr "Alles danach ist erforscht"
+
+msgid "Owned: a click changes to it."
+msgstr "Gekauft: ein Klick wechselt dazu."
+
+msgid "Leave the battle? It will not be counted."
+msgstr "Die Schlacht verlassen? Sie wird nicht gezählt."
+
+msgid "This battle had ended before you came back: it is not counted here."
+msgstr "Diese Schlacht war vor deiner Rückkehr zu Ende: Sie wird hier nicht gezählt."
+
+msgid "Your team"
+msgstr "Dein Team"
+
+msgid "Enemy team"
+msgstr "Feindliches Team"
+
+msgid "Your pod"
+msgstr "Dein Pod"
+
+msgid "Enemy pod"
+msgstr "Feindlicher Pod"
+
+msgid "ENEMY POD {0} m"
+msgstr "FEINDLICHER POD {0} m"
+
+msgid "ENEMY POD"
+msgstr "FEINDLICHER POD"
+
+msgid "POD {0} m"
+msgstr "POD {0} m"
+
+msgid "POD"
+msgstr "POD"
+
+msgid "Time"
+msgstr "Zeit"
+
+msgid "Destroyed"
+msgstr "Zerstört"
+
+msgid "Kills: {0}"
+msgstr "Abschüsse: {0}"
+
+msgid "Back in {0} s"
+msgstr "Zurück in {0} s"
+
+msgid "This is your last life"
+msgstr "Das ist dein letztes Leben"
+
+msgid "Lives left after it: {0}"
+msgstr "Danach noch {0} Leben"
+
+msgid "Destroyed – watching {0}"
+msgstr "Zerstört – du siehst {0} zu"
+
+msgid "Watching {0}"
+msgstr "Du siehst {0} zu"
+
+msgid "Tab: next team-mate"
+msgstr "Tab: nächster Teamkamerad"
+
+msgid "Tab: next hero"
+msgstr "Tab: nächster Held"
+
+msgid "Your team is out – watching {0}"
+msgstr "Dein Team ist draußen – du siehst {0} zu"
+
+msgid "The battle begins in"
+msgstr "Die Schlacht beginnt in"
+
+msgid "Destroy the enemy team"
+msgstr "Vernichte das feindliche Team"
+
+msgid "Take the enemy pod: stand in its circle"
+msgstr "Nimm den feindlichen Pod ein: Stell dich in seinen Kreis"
+
+msgid "Destroy the enemy team or take their pod"
+msgstr "Vernichte das feindliche Team oder nimm seinen Pod ein"
+
+msgid "Taking the enemy pod"
+msgstr "Feindlicher Pod wird eingenommen"
+
+msgid "Your pod is being taken"
+msgstr "Dein Pod wird eingenommen"
+
+msgid "Stay in the circle: a hit costs your share"
+msgstr "Bleib im Kreis: Ein Treffer kostet deinen Anteil"
+
+msgid "Drive them out of the circle or hit them"
+msgstr "Vertreibe sie aus dem Kreis oder triff sie"
+
+msgid "Hit: your share of the capture is lost"
+msgstr "Getroffen: Dein Anteil an der Einnahme ist verloren"
+
+msgid "{0} destroyed {1}"
+msgstr "{0} hat {1} zerstört"
+
+msgid "{0} fell"
+msgstr "{0} ist gefallen"
+
+msgid "Hero destroyed"
+msgstr "Held zerstört"
+
+msgid "The battle is not in the profile yet: the file cannot be written just now."
+msgstr "Die Schlacht ist noch nicht im Profil: Die Datei kann gerade nicht geschrieben werden."
+
+msgid "The battle is in the profile."
+msgstr "Die Schlacht ist im Profil."
+
+msgid "Next team-mate, once destroyed"
+msgstr "Nächster Teamkamerad, wenn zerstört"
+
+msgid "Draw"
+msgstr "Unentschieden"
+
+msgid "Enemy team destroyed"
+msgstr "Feindliches Team vernichtet"
+
+msgid "Enemy pod taken"
+msgstr "Feindlicher Pod eingenommen"
+
+msgid "Your team was destroyed"
+msgstr "Dein Team wurde vernichtet"
+
+msgid "Your pod was taken"
+msgstr "Dein Pod wurde eingenommen"
+
+msgid "Both teams destroyed"
+msgstr "Beide Teams vernichtet"
+
+msgid "Both pods taken at once"
+msgstr "Beide Pods zugleich eingenommen"
+
+msgid "Time is up"
+msgstr "Die Zeit ist um"
+
+msgid "XP"
+msgstr "EP"
+
+msgid "Free XP"
+msgstr "Freie EP"
+
+msgid "Credits"
+msgstr "Credits"
+
+msgid "Captured"
+msgstr "Erobert"
+
+msgid "Taking part"
+msgstr "Teilnahme"
+
+msgid "Damage to enemy heroes"
+msgstr "Schaden an feindlichen Helden"
+
+msgid "Enemy heroes destroyed"
+msgstr "Feindliche Helden zerstört"
+
+msgid "Capture points"
+msgstr "Eroberungspunkte"
+
+msgid "XP on {0}"
+msgstr "EP auf {0}"
+
+msgid "1 hero"
+msgstr "1 Held"
+
+msgid "{0} heroes"
+msgstr "{0} Helden"
+
+msgid "Within reach"
+msgstr "Jetzt erforschbar"
+
+msgid "Research it in the pod."
+msgstr "Erforsche es im Pod."
+
+msgid "Nothing new this battle"
+msgstr "Diesmal nichts Neues"
+
+msgid "Next on the line"
+msgstr "Als Nächstes auf der Linie"
+
+msgid "{0} XP to research it"
+msgstr "{0} EP zum Erforschen"
+
+msgid "Room"
+msgstr "Raum"
+
+msgid "This battle has been counted."
+msgstr "Diese Schlacht ist gezählt."
+
+msgid "A recording changes nothing in the account."
+msgstr "Eine Aufzeichnung ändert nichts am Konto."
+
+msgid "A battle the bots played alone changes nothing in the account."
+msgstr "Eine Schlacht nur unter Bots ändert nichts am Konto."
+
+msgctxt "arena"
+msgid "Central Dominance"
+msgstr "Zentrale Vorherrschaft"
+
+msgctxt "arena"
+msgid "The Red Planet"
+msgstr "Der rote Planet"
+
+msgctxt "arena"
+msgid "Ice Moon Mountain"
+msgstr "Eismondgebirge"
+
+msgid "Mode"
+msgstr "Modus"
+
+msgid "Battle maps"
+msgstr "Schlachtkarten"
+
+msgid "{0} against {1}"
+msgstr "{0} gegen {1}"
+
+msgid "Every player brings the hero from their pod; every other seat is a bot hero of the same tier."
+msgstr "Jeder Spieler bringt den Helden aus seinem Pod mit; jeder andere Platz ist ein Bot-Held derselben Stufe."
+
+msgid "Two heroes against two. A team wins when the other has no hero and no life left, or when its heroes have stood in the circle round the other team's pod long enough to take it. When the time is up, it is a draw."
+msgstr "Zwei Helden gegen zwei. Ein Team gewinnt, wenn das andere keinen Helden und kein Leben mehr hat oder wenn seine Helden lange genug im Kreis um den Pod des anderen Teams gestanden haben, um ihn einzunehmen. Ist die Zeit um, endet es unentschieden."
+
+msgid "Free seats: bot heroes"
+msgstr "Freie Plätze: Bot-Helden"
+
+msgid "{0}'s battle"
+msgstr "Schlacht von {0}"
+
+msgid "{0}   ·   Battle on {1}   ·   {2}   ·   {3}/{4} players"
+msgstr "{0}   ·   Schlacht auf {1}   ·   {2}   ·   {3}/{4} Spieler"
+
+msgid ", the rest bots"
+msgstr ", der Rest Bots"
+
+msgid "{0}   ·   Battle on {1}   ·   {2}   ·   {3}/{4}"
+msgstr "{0}   ·   Schlacht auf {1}   ·   {2}   ·   {3}/{4}"
+
+msgid "Team {0}"
+msgstr "Team {0}"
+
+msgid "a bot hero"
+msgstr "ein Bot-Held"
+
+msgid "no hero yet"
+msgstr "noch kein Held"
+
+msgid "Put your hero together for this battle"
+msgstr "Stell deinen Helden für diese Schlacht zusammen"
+
+msgid "Waiting for {0} to open the room again…"
+msgstr "Warte, bis {0} den Raum wieder öffnet …"
+
+msgid "{0} has not opened the room again."
+msgstr "{0} hat den Raum nicht wieder geöffnet."
+
+# Battle: the sim's, the pod's and the relay's refusals (lower case, as the sim writes them)
+
+msgid "that is researched already"
+msgstr "das ist schon erforscht"
+
+msgid "you own that already"
+msgstr "das gehört dir schon"
+
+msgid "that is not offered in a battle"
+msgstr "das gibt es in einer Schlacht nicht"
+
+msgid "the profile cannot be written just now"
+msgstr "das Profil kann gerade nicht geschrieben werden"
+
+msgid "no such chassis"
+msgstr "dieses Chassis gibt es nicht"
+
+msgid "no such item"
+msgstr "das gibt es nicht"
+
+msgid "two items in one slot"
+msgstr "zwei Teile auf einem Platz"
+
+msgid "more items than the chassis wears"
+msgstr "mehr Teile, als das Chassis tragen kann"
+
+msgid "that chassis is not in the bracket"
+msgstr "dieses Chassis ist nicht in den Stufen"
+
+msgid "abilities go on chassis from tier III"
+msgstr "Fähigkeiten gibt es auf Chassis ab Stufe III"
+
+msgid "teams are fixed in a battle"
+msgstr "in einer Schlacht stehen die Teams fest"
+
+msgid "the battle has not begun yet"
+msgstr "die Schlacht hat noch nicht begonnen"
+
+msgid "the battle is over"
+msgstr "die Schlacht ist vorbei"
+
+msgid "there is no hangar in a battle"
+msgstr "in einer Schlacht gibt es keinen Hangar"
+
+msgid "nothing self-destructs in a battle"
+msgstr "in einer Schlacht sprengt sich nichts selbst"
+
+msgid "that cannot turn a hero"
+msgstr "das kann keinen Helden umdrehen"
+
+msgid "battles are fought only on the battle maps"
+msgstr "Schlachten gibt es nur auf den Schlachtkarten"
+
+msgid "no such tier"
+msgstr "diese Stufe gibt es nicht"
+
+msgid "that hero is not in the room's bracket"
+msgstr "dieser Held ist nicht in den Stufen des Raums"
+
+msgid "that hero does not fit together"
+msgstr "dieser Held passt nicht zusammen"
+
+msgid "choose a hero in your pod first"
+msgstr "wähle erst im Pod einen Helden"
+
+msgid "not everyone has chosen a hero"
+msgstr "noch haben nicht alle einen Helden gewählt"

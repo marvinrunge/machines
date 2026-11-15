@@ -57,6 +57,9 @@ public static class MenuTheme
     {
         get
         {
+            // For automated checks: MACHINES_UI_SCALE=1.25 shows the menus at that size without touching the settings.
+            if (float.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_UI_SCALE"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var asked))
+                return asked;
             var config = new ConfigFile();
             return config.Load(Settings) == Error.Ok ? (float)config.GetValue("interface", "scale", 1f) : 1f;
         }

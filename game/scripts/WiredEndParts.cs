@@ -37,6 +37,9 @@ public partial class EndFigure(string title, int fontSize) : Control
 
     private double Now => _left > 0 ? _to + (_from - _to) * (_left / _time) * (_left / _time) : _to;
 
+    /// <summary>For automated checks: the number as it stands on the screen now.</summary>
+    public long Shown => (long)Math.Round(Now);
+
     public override void _Ready() => MouseFilter = MouseFilterEnum.Ignore;
 
     public override void _Process(double delta)
@@ -259,6 +262,11 @@ public partial class EndCard : Control
     /// <summary>The picture of an arena.</summary>
     public Texture2D? Map { get; init; }
 
+    /// <summary>What it is and what it means, in place of what a Wired unlock says (a battle's chassis within reach).</summary>
+    public string? Kind { get; init; }
+
+    public string? Meaning { get; init; }
+
     public override void _Ready()
     {
         MouseFilter = MouseFilterEnum.Pass;
@@ -295,6 +303,8 @@ public partial class EndCard : Control
     private (string Kind, string Name, string Line) Words()
     {
         var name = HangarText.Opened(Id);
+        if (Kind is not null || Meaning is not null)
+            return (Kind ?? "", name, Meaning ?? "");
         if (Id == WiredProfile.Hardcore)
             return (Lang.T("New difficulty"), name, Lang.T("No spare bodies, double the score."));
         if (WiredProfile.Arenas.Any(a => a.Scenario == Id))

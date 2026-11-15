@@ -80,7 +80,8 @@ public partial class Game
     /// </summary>
     public void OpenHangar()
     {
-        if (HangarOpen || Watching || World.Wired?.Heroes.GetValueOrDefault(Player) is not { } state)
+        // A battle has no hangar: what a hero wears is chosen in the pod before it.
+        if (HangarOpen || Watching || World.Battle is not null || World.Wired?.Heroes.GetValueOrDefault(Player) is not { } state)
             return;
         if ((Paused && !Online ? "not while the game is paused" : World.WhyNoHangar(state)) is { } why)
         {
@@ -130,7 +131,7 @@ public partial class Game
     /// </summary>
     private void RecordWired()
     {
-        if (_wiredCounted || Watching || World.Wired is not { Phase: WiredPhase.Ended } run || run.Heroes.GetValueOrDefault(Player) is not { } state)
+        if (_wiredCounted || Watching || World.Battle is not null || World.Wired is not { Phase: WiredPhase.Ended } run || run.Heroes.GetValueOrDefault(Player) is not { } state)
             return;
         _wiredCounted = true;
         var options = run.Options;
@@ -142,15 +143,18 @@ public partial class Game
             ShowOpened(opened);
         else
             _hud.Message(Lang.T("The run is not in the profile yet: the file cannot be written just now."));
+        // The run brings its final chassis XP and credits for Battle too, less than a battle would.
+        BattleAccounts.Ledger.Tell(BattleNote.OfWired(state.Loadout.Chassis.Catalogue, run.Wave));
     }
 
     /// <summary>A profile held by something else at a run's end usually is free again a moment later: the run is tried again every so often.</summary>
     private void RetryWired(double now)
     {
-        if (!WiredProfile.Runs.Waiting || now < _wiredRetryAt)
+        if (!WiredProfile.Runs.Waiting && !BattleAccounts.Ledger.Waiting || now < _wiredRetryAt)
             return;
         _wiredRetryAt = now + WiredRetry;
-        if (WiredProfile.Runs.Write() is { } opened)
+        BattleAccounts.Ledger.Write();
+        if (WiredProfile.Runs.Waiting && WiredProfile.Runs.Write() is { } opened)
         {
             _hud.Message(Lang.T("The run is in the profile."));
             ShowOpened(opened);
@@ -214,7 +218,7 @@ public partial class Game
     /// </summary>
     private void GiftForChecks()
     {
-        if (World.Wired?.Heroes.GetValueOrDefault(Player) is not { } state || System.Environment.GetEnvironmentVariable("MACHINES_WIRED_GIFT") is not { Length: > 0 } gift)
+        if (World.Battle is not null || World.Wired?.Heroes.GetValueOrDefault(Player) is not { } state || System.Environment.GetEnvironmentVariable("MACHINES_WIRED_GIFT") is not { Length: > 0 } gift)
             return;
         var words = gift.Split(',');
         World.Races[Player].Bmu = int.Parse(words[0]);

@@ -270,12 +270,16 @@ public partial class Blowup : Node3D
             }
         }
         var size = view.Scale;
+        var at = view.GlobalPosition;
         blowup._parts.Add(age =>
         {
             var t = Mathf.Min(1, age / duration);
-            glow.AlbedoColor = new Color(1, 1, 1, 1 - t);
+            // A camera looking on from right behind the hero (Battle) had its white shape swell over the whole picture:
+            // near it the shape is a sixth as bright and swells to a seventh as much.
+            var near = GroundBlast.OnlookerShare(blowup, at, 25, 70, 0.15f);
+            glow.AlbedoColor = new Color(1, 1, 1, (1 - t) * near);
             foreach (var (holder, last) in holders)
-                holder.Scale = size * Mathf.Lerp(1, last, t);
+                holder.Scale = size * Mathf.Lerp(1, near >= 1 || last < 1 ? last : Mathf.Lerp(1 + (last - 1) * 0.15f, last, (near - 0.15f) / 0.85f), t);
             return t < 1;
         });
     }

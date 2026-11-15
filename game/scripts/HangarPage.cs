@@ -53,7 +53,7 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
     private Label _bank = null!, _banner = null!, _hint = null!;
     private ChipButton _testFire = null!;
 
-    private HangarShelf _shelf = HangarShelf.Weapons;
+    private HangarShelf _shelf = desk.FirstShelf;
     private HeroLoadout _shown = null!;
     private HeroBuild _build = null!;
     private int _shownBank = int.MinValue;
@@ -159,7 +159,7 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
     {
         var chip = new ChipPanel { CustomMinimumSize = new Vector2(width, 0), Padding = 12 };
         var title = Line(10);
-        var name = MenuTheme.Label(Lang.T("Hangar").ToUpperInvariant(), 34, MenuTheme.Bright);
+        var name = MenuTheme.Label(Lang.T(desk.Title).ToUpperInvariant(), 34, MenuTheme.Bright);
         name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         title.AddChild(name);
         title.AddChild(_bank = MenuTheme.Label("", 26, MenuTheme.Glow, HorizontalAlignment.Right));
@@ -326,7 +326,7 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
         var modules = 0;
         foreach (var card in _slots)
         {
-            ShowSlot(card, _shown, then, trial?.Chassis == true);
+            ShowSlot(card, _shown, then, trial?.Chassis == true, desk.HasSlot);
             if (card.Slot.Kind == WiredSlotKind.Module && card.Visible)
                 modules++;
         }
@@ -350,11 +350,11 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
         _ => true,
     };
 
-    private static void ShowSlot(SlotCard card, HeroLoadout now, HeroLoadout? then, bool chassis)
+    private static void ShowSlot(SlotCard card, HeroLoadout now, HeroLoadout? then, bool chassis, Func<WiredSlot, WiredChassis, bool> hasSlot)
     {
         var slot = card.Slot;
         var shown = then ?? now;
-        var (had, has) = (Exists(now, slot), Exists(shown, slot));
+        var (had, has) = (Exists(now, slot) && hasSlot(slot, now.ChassisEntry), Exists(shown, slot) && hasSlot(slot, shown.ChassisEntry));
         var (was, comes) = (now.At(slot), shown.At(slot));
         var mount = slot.Kind == WiredSlotKind.Weapon ? shown.ChassisEntry.Slot((Mounting)slot.Index) : null;
         card.Title = Heading(slot, mount).ToUpperInvariant();
@@ -418,6 +418,8 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
             (text, colour) = (_under.Why, Red);
         if (text is null && _arrival is not null)
             (text, colour) = (_arrival, MenuTheme.Bright);
+        if (text is null && _held is null && _pointed is { } pointing && desk.Pointing(pointing, _hovered is TreeCard) is { } note)
+            (text, colour) = (note, MenuTheme.Bright);
         if (text is null && _hovered is SlotCard { Slot.Kind: WiredSlotKind.Weapon, Item: not null, Absent: false } && _trial is null)
             (text, colour) = (Lang.T("Click: test fire. Right click: take off."), MenuTheme.Text);
         if (text is null && _trial is { Chassis: true } trial)

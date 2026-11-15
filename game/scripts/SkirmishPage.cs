@@ -2,6 +2,7 @@ using Godot;
 using Machines.Import.Model;
 using Machines.Import.Scenarios;
 using Machines.Net;
+using Machines.Sim.Survival;
 using Machines.Sim.World;
 
 namespace Machines.Game;
@@ -13,6 +14,8 @@ namespace Machines.Game;
 /// For a multiplayer room (<see cref="MultiplayerPage"/>) the same page sets the room up instead: the players come
 /// to it, so it asks whether free slots play the AI and what only a network game has, Broadcast Alliances and Disable
 /// First Person. With a <paramref name="room"/> it is that room's settings (MachGuiCtxSettings), which its host changes.
+/// A room is a normal match or a battle (the remake's own team mode of heroes): in Battle the page offers only the battle
+/// maps and asks for the bracket, the lives and the victory, as every seat is a hero, a player's from their pod or a bot.
 /// </summary>
 public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, RoomState? room = null)
     : MenuPage(room is not null ? screens.ShowRoom : forRoom ? screens.ShowMultiplayer : screens.ShowMain)
@@ -24,6 +27,11 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
     private static (string Scenario, string Planet)? _lastMap;
     private static int _lastPlayers = 2, _lastColour, _lastStarts = 1, _lastBmu, _lastResources = 2, _lastTech, _lastVictory, _lastFill, _lastAi = (int)AiLevel.Normal, _lastFog, _lastBroadcast, _lastNoFirstPerson;
 
+    // A room's mode (0 normal, 1 battle) and a battle's settings; tier 0 until chosen, then the pod's hero sets it.
+    private static int _lastMode, _lastTier, _lastLives = 1, _lastWin;
+    private static string _lastBattleMap = "m_desert";
+    private static readonly BattleWin[] Wins = [BattleWin.Both, BattleWin.Wipe, BattleWin.Capture];
+
     private readonly Dictionary<string, Texture2D?> _maps = [];
     private readonly List<CatalogueScenario> _entries = [];
 
@@ -32,6 +40,9 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
     private TextureRect _preview = null!;
     private ChipChoice _players = null!, _bmu = null!;
     private ChipButton _start = null!;
+    private Control _normal = null!;
+    private Control? _battle;
+    private ScenarioCatalogue _catalogue = null!;
 
     private CatalogueScenario? _selected;
     private List<Race> _slots = [];
@@ -73,7 +84,20 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
 
         var settings = new ChipPanel { CustomMinimumSize = new Vector2(480, 0), Padding = 20 };
         var rows = Column(14);
-        settings.AddChild(rows);
+        _normal = rows;
+        if (forRoom)
+        {
+            _battle = BattleRows();
+            _battle.Visible = false;
+            // A room's rows (and at the large interface more than the screen is high) scroll, so Back stays on it.
+            var all = Column(14, rows, _battle);
+            all.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            var scrolled = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+            scrolled.AddChild(all);
+            settings.AddChild(scrolled);
+        }
+        else
+            settings.AddChild(rows);
         columns.AddChild(settings);
         _players = new ChipChoice([]);
         _players.ItemSelected += _ => _lastPlayers = int.TryParse(_players.Text.Split(' ')[0], out var n) ? n : 2;
@@ -103,12 +127,23 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
         back.CustomMinimumSize = new Vector2(340, 76);
         footer.AddChild(back);
         footer.AddChild(Spring());
+        if (forRoom)
+        {
+            // A room's mode stands in the foot, where the settings column has room for neither mode's rows and it.
+            var mode = new ChipPanel { Padding = 6, SizeFlagsVertical = SizeFlags.ShrinkCenter };
+            var setting = Setting("Mode", Choice(["Normal", "Battle"], _lastMode, SwitchMode), 0);
+            setting.CustomMinimumSize = new Vector2(440, 0);
+            mode.AddChild(setting);
+            footer.AddChild(mode);
+            footer.AddChild(Spring());
+        }
         _start = Button(room is not null ? "OK" : forRoom ? "Open room" : "Start", Start, 76, 30);
         _start.CustomMinimumSize = new Vector2(480, 76);
         footer.AddChild(_start);
         page.AddChild(footer);
 
-        FillTree(ScenarioCatalogueParser.Load(System.IO.Path.Combine(Paths.OriginalData, "sceninfo.dat")));
+        _catalogue = ScenarioCatalogueParser.Load(System.IO.Path.Combine(Paths.OriginalData, "sceninfo.dat"));
+        ShowMode();
         SwitchOn();
         Focus(_tree);
         // MACHINES_MENU_START=1 presses Start on the map picked (MACHINES_MENU_SELECT), the way a player would.
@@ -121,6 +156,56 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
         var choice = new ChipChoice(items, selected);
         choice.ItemSelected += changed;
         return choice;
+    }
+
+    /// <summary>A battle room's settings: the bracket by its top tier, the lives and how the battle is won.</summary>
+    private Control BattleRows()
+    {
+        if (_lastTier == 0)
+            _lastTier = Math.Clamp(PodTier(), 1, BattleCatalogue.MostTier);
+        var tiers = Enumerable.Range(1, BattleCatalogue.MostTier).Select(BracketName);
+        var note = MenuTheme.Paragraph(Lang.T("Every player brings the hero from their pod; every other seat is a bot hero of the same tier."), 19, MenuTheme.Dim);
+        return Column(14,
+            Setting("Bracket", Choice(tiers, _lastTier - 1, i => _lastTier = i + 1), 180),
+            Setting("Lives", Choice(Enumerable.Range(1, 5).Select(BattlePod.LivesName), _lastLives - 1, i => _lastLives = i + 1), 180),
+            Setting("Victory", Choice(Wins.Select(BattlePod.VictoryName), _lastWin, i => _lastWin = i), 180),
+            note);
+    }
+
+    /// <summary>The tier of the hero last put together in the pod: a new battle room is first offered at its bracket.</summary>
+    private static int PodTier() => BattleAccounts.Load().LastHero is { } last && BattleCatalogue.Tier(last.Chassis) is > 0 and var tier ? tier : 1;
+
+    /// <summary>A bracket by its top tier: "Tier III (II–III)".</summary>
+    public static string BracketName(int tier)
+    {
+        var bottom = BattleCatalogue.BracketBottom(tier);
+        var top = Lang.T("Tier {0}", BattleDraft.Roman(tier));
+        return bottom == tier ? top : $"{top} ({BattleDraft.Roman(bottom)}–{BattleDraft.Roman(tier)})";
+    }
+
+    /// <summary>Whether the page sets up a battle room.</summary>
+    private bool Battle => forRoom && _lastMode == 1;
+
+    private void SwitchMode(int mode)
+    {
+        _lastMode = mode;
+        ShowMode();
+    }
+
+    /// <summary>The maps and the settings of the mode chosen.</summary>
+    private void ShowMode()
+    {
+        _normal.Visible = !Battle;
+        if (_battle is not null)
+            _battle.Visible = Battle;
+        _tree.Clear();
+        _entries.Clear();
+        _selected = null;
+        _start.Disabled = true;
+        if (Battle)
+            FillBattleTree();
+        else
+            FillTree(_catalogue);
     }
 
     private static string FormatMinutes(int seconds) => seconds < 3600 ? $"{seconds / 60} min" : $"{seconds / 3600.0:0.#} h";
@@ -193,6 +278,40 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
         }
     }
 
+    /// <summary>The battle maps; the one last picked is chosen.</summary>
+    private void FillBattleTree()
+    {
+        var root = _tree.CreateItem();
+        var section = _tree.CreateItem(root);
+        section.SetText(0, Lang.T("Battle maps").ToUpperInvariant());
+        section.SetSelectable(0, false);
+        section.SetCustomColor(0, MenuTheme.Bright);
+        TreeItem? select = null;
+        var known = _catalogue.Skirmish.Concat(_catalogue.Multiplayer).SelectMany(t => t.Scenarios).ToList();
+        foreach (var map in BattleCatalogue.Maps)
+        {
+            var leaf = _tree.CreateItem(section);
+            leaf.SetText(0, BattlePod.MapName(map));
+            leaf.SetMetadata(0, Variant.From(_entries.Count));
+            _entries.Add(known.FirstOrDefault(s => s.Name == map.Scenario)
+                         ?? new CatalogueScenario(map.Scenario, map.Planet, map.StringId, null, null, [], 4, new Dictionary<string, string>(), null, 0));
+            if (select is null || map.Scenario == _lastBattleMap)
+                select = leaf;
+        }
+        if (select is not null)
+        {
+            select.Select(0);
+            _tree.CallDeferred(Tree.MethodName.ScrollToItem, select, true);
+        }
+    }
+
+    /// <summary>A battle map's two teams in words: "Red and Blue against Green and Yellow".</summary>
+    public static string Teams(BattleMap map)
+    {
+        static string Team(IEnumerable<Race> team) => string.Join(Lang.T(" and "), team.Select(r => Lang.T(r.ToString())));
+        return Lang.T("{0} against {1}", Team(map.TeamA), Team(map.TeamB));
+    }
+
     private TreeItem? FindItem(TreeItem item, string wanted)
     {
         for (var child = item.GetFirstChild(); child is not null; child = child.GetNext())
@@ -212,6 +331,11 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
         if (item?.GetMetadata(0).VariantType != Variant.Type.Int)
             return;
         _selected = _entries[item.GetMetadata(0).AsInt32()];
+        if (Battle && BattleCatalogue.Map(_selected.Name) is { } battleMap)
+        {
+            ShowBattleMap(item, battleMap);
+            return;
+        }
         _lastMap = (_selected.Name, _selected.Planet);
 
         var scenario = Paths.Data.LoadScenario(_selected.Name);
@@ -235,6 +359,18 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
         _start.Disabled = forRoom ? RoomSlots.Count < 2 : _slots.Count < 1;
     }
 
+    /// <summary>A battle map picked: its two teams, its picture and how a battle goes.</summary>
+    private void ShowBattleMap(TreeItem item, BattleMap map)
+    {
+        _lastBattleMap = map.Scenario;
+        _slots = map.TeamA.Concat(map.TeamB).Order().ToList();
+        _title.Text = item.GetText(0);
+        _facts.Text = $"{map.Planet.ToUpperInvariant()}   ·   {Teams(map)}";
+        _preview.Texture = BattlePod.MapPicture(map, screens.Assets);
+        _description.Text = Lang.T("Two heroes against two. A team wins when the other has no hero and no life left, or when its heroes have stood in the circle round the other team's pod long enough to take it. When the time is up, it is a draw.");
+        _start.Disabled = false;
+    }
+
     /// <summary>The start positions a room on the picked map has: those past the map's players are not for anyone.</summary>
     private List<Race> RoomSlots => _slots.Take(_selected?.MaxPlayers ?? _slots.Count).ToList();
 
@@ -251,10 +387,11 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
                 screens.Message("The connection to the relay is gone.", ("OK", screens.ShowMultiplayer));
                 return;
             }
+            var slots = Battle ? _slots : RoomSlots;
             if (room is null)
-                NetLink.Send(Room(_selected.Name, _selected.Planet, RoomSlots));
+                NetLink.Send(Room(_selected.Name, _selected.Planet, slots));
             else
-                NetLink.Send(new ChangeRoom(_selected.Name, _selected.Planet, RoomSlots, Options(network: true), FillWithAi: _lastFill == 0));
+                NetLink.Send(new ChangeRoom(_selected.Name, _selected.Planet, slots, Options(network: true, room.Options), FillWithAi: Battle || _lastFill == 0));
             screens.ShowRoom();
             return;
         }
@@ -264,9 +401,16 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
         LoadingScreen.Show(GetTree(), _title.Text, $"{_selected.Planet.ToUpperInvariant()}   ·   {(players == 1 ? Lang.T("NO OPPONENT") : Lang.T("{0} PLAYERS", players))}");
     }
 
-    /// <summary>The settings last chosen on the page; only a <paramref name="network"/> game has the last two.</summary>
-    private static MatchOptions Options(bool network)
+    /// <summary>
+    /// The settings last chosen on the page; only a <paramref name="network"/> game has the last two, and only a room can be a
+    /// battle. A room's settings are changed from <paramref name="kept"/>, the options it has, so that what the page does not
+    /// show (a Wired run's or a battle's own settings, the rules a recording keeps) comes through the change unharmed.
+    /// </summary>
+    private static MatchOptions Options(bool network, MatchOptions? kept = null)
     {
+        var basis = kept ?? new MatchOptions();
+        if (network && _lastMode == 1)
+            return RoomOptions.Battle(basis, _lastTier, _lastLives, Wins[Math.Clamp(_lastWin, 0, Wins.Length - 1)]);
         var victory = _lastVictory switch
         {
             0 => VictoryCondition.Default,
@@ -274,7 +418,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
             2 => VictoryCondition.Pod,
             _ => VictoryCondition.Timer,
         };
-        return new MatchOptions
+        return RoomOptions.Normal(basis, new MatchOptions
         {
             StartingBmu = (StartingBmu)_lastBmu,
             Resources = ResourceLevel.Low + _lastResources,
@@ -285,13 +429,20 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
             FogOfWar = _lastFog == 0,
             BroadcastAlliances = network && _lastBroadcast == 1,
             DisableFirstPerson = network && _lastNoFirstPerson == 1,
-        };
+        });
     }
 
     /// <summary>The page shows the settings of the room it changes.</summary>
     private static void Adopt(RoomState room)
     {
         var options = room.Options;
+        if (options.Battle is { } battle)
+        {
+            (_lastMode, _lastBattleMap, _lastTier, _lastLives) = (1, room.Scenario, battle.Tier, battle.Lives);
+            _lastWin = Math.Max(0, Array.IndexOf(Wins, battle.Win));
+            return;
+        }
+        _lastMode = 0;
         _lastMap = (room.Scenario, room.Planet);
         (_lastBmu, _lastTech, _lastAi) = ((int)options.StartingBmu, (int)options.TechLevel, (int)options.AiLevel);
         _lastResources = Math.Max(0, options.Resources - ResourceLevel.Low);
@@ -311,6 +462,12 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
     /// <summary>A room's settings in a line, for all in it to read (the ready room's list, MachGuiCtxImReady).</summary>
     public static string Summary(MatchOptions options)
     {
+        if (options.Battle is { } battle)
+            return string.Join("   ·   ",
+                $"{Lang.T("Battle")}: {BracketName(battle.Tier)}",
+                BattlePod.LivesName(battle.Lives),
+                $"{Lang.T("Victory")}: {BattlePod.VictoryName(battle.Win)}",
+                Lang.T("Free seats: bot heroes"));
         static string Item(string name, string value) => $"{Lang.T(name)}: {Lang.T(value)}";
         static string Switch(string name, bool on) => Item(name, on ? "On" : "Off");
         var victory = options.Victory switch
@@ -331,8 +488,25 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
             Switch("Disable first person", options.DisableFirstPerson));
     }
 
-    private static CreateRoom Room(string scenario, string planet, List<Race> slots) =>
-        new(Lang.T("{0}'s game", NetLink.Name), scenario, planet, slots, Options(network: true), FillWithAi: _lastFill == 0);
+    private static CreateRoom Room(string scenario, string planet, List<Race> slots) => _lastMode == 1
+        ? new(Lang.T("{0}'s battle", NetLink.Name), scenario, planet, slots, Options(network: true), FillWithAi: true)
+        : new(Lang.T("{0}'s game", NetLink.Name), scenario, planet, slots, Options(network: true), FillWithAi: _lastFill == 0);
+
+    /// <summary>Opens the room page on its battle settings next time (MACHINES_MENU_SCREENSHOT's room-battle).</summary>
+    public static void ChooseBattle() => _lastMode = 1;
+
+    /// <summary>
+    /// A battle room on <paramref name="scenario"/> (a battle map) at a bracket, for the multiplayer page's automated checks
+    /// (MACHINES_MP=host,&lt;address&gt;,battle=&lt;map&gt;[,tier=,lives=,win=]); null off the battle maps.
+    /// </summary>
+    public static CreateRoom? BattleRoom(string scenario, int tier, int lives, BattleWin win)
+    {
+        if (BattleCatalogue.Map(scenario) is not { } map)
+            return null;
+        (_lastMode, _lastBattleMap, _lastTier, _lastLives) = (1, map.Scenario, Math.Clamp(tier, 1, BattleCatalogue.MostTier), Math.Clamp(lives, 1, 5));
+        _lastWin = Math.Max(0, Array.IndexOf(Wins, win));
+        return Room(map.Scenario, map.Planet, map.TeamA.Concat(map.TeamB).Order().ToList());
+    }
 
     /// <summary>
     /// A room on the map last picked (or MACHINES_MENU_SELECT's, or the first skirmish map) with the settings last
@@ -340,6 +514,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
     /// </summary>
     public static CreateRoom? LastRoom()
     {
+        _lastMode = 0;
         var map = _lastMap;
         if (map is null && System.Environment.GetEnvironmentVariable("MACHINES_MENU_SELECT")?.Split(',') is [var name, var planet])
             map = (name, planet);

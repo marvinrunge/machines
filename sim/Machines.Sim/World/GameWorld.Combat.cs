@@ -92,7 +92,9 @@ public sealed partial class GameWorld
     private void UpdateCombat()
     {
         UpdateDarkness();
-        foreach (var machine in Machines.Where(m => m.CanFight && !m.IsDead && m.Inside is null).ToList())
+        // In a battle's opening no hero fires, nor once it is over.
+        var held = Battle is { } battle && (battle.InOpening(Time) || battle.Over);
+        foreach (var machine in Machines.Where(m => m.CanFight && !m.IsDead && m.Inside is null && !held).ToList())
         {
             // MachLogCanAttack::diminishAlertnessAndInaccuracy.
             GunneryOf(machine).Settle(Dt / 4);
@@ -185,6 +187,9 @@ public sealed partial class GameWorld
     {
         if (target.IsDead || target is Artefact && !Options.DestructibleArtefacts)
             return;
+        // Once a battle is over nothing is hurt any more: rounds still in the air and blasts land harmlessly.
+        if (Battle is { } fought && (fought.Over || !BattleHits(target, by)))
+            return;
         var dealer = shooter ?? (Wired is not null && blaster is { } id ? Find(id) : null);
         if (Wired is not null && !WiredHit(target, ref damage, dealer, weapon))
             return;
@@ -196,6 +201,8 @@ public sealed partial class GameWorld
             WiredStruck(target, armour, shooter, weapon);
             NoteDamage(target, before + armour - Math.Max(0, target.HitPoints) - target.Armour, by, dealer, weapon);
         }
+        if (Battle is not null)
+            BattleStruck(target, before + armour - Math.Max(0, target.HitPoints) - target.Armour, by);
         if (target is Machine { CanFight: true } shaken)
             Shake(shaken, before - target.HitPoints);
         if (by is not null)

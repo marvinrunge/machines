@@ -92,7 +92,7 @@ public sealed partial class GameWorld
             {
                 foreach (var actor in _spatial[y * _spatialX + x])
                 {
-                    if (actor.IsDead || !AreEnemies(from.Race, actor.Race) || actor is Machine { Inside: not null }
+                    if (actor.IsDead || !AreEnemies(from.Race, actor.Race) || actor is Machine { Inside: not null } || Battle is not null && actor is Construction
                         || !seeCamouflage && actor is Machine { Camouflaged: true })
                         continue;
                     var distance = from.DistanceTo(actor);

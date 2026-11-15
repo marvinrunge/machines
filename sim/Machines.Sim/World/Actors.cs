@@ -196,7 +196,10 @@ public sealed class Machine : Actor
     /// <summary>The squadron it left when it changed sides, for when it comes back.</summary>
     public int? OldSquad { get; set; }
 
-    public override float Radius => MathF.Max(1.5f, Stats.HighClearance);
+    public override float Radius => RadiusOf(Stats);
+
+    /// <summary>How wide a machine with these stats is, before it is made.</summary>
+    public static float RadiusOf(MachineLevel stats) => MathF.Max(1.5f, stats.HighClearance);
     public override int Cost => Stats.Cost;
 
     public bool IsType(string type, string? subType = null) => Spec.Type == type && (subType is null || Spec.SubType == subType);

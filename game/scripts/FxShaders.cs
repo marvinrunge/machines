@@ -256,13 +256,21 @@ public static class FxShaders
     /// up towards its edge, and a bright thread along the edge itself; a unit sphere (<see cref="HoleSphere"/>)
     /// scaled by the node. <c>calm</c> stills the wisps, leaving it pure black as the original's last two seconds.
     /// </summary>
-    public static readonly Lazy<ShaderMaterial> Hole = new(() => new ShaderMaterial
+    public static readonly Lazy<ShaderMaterial> Hole = new(() => HoleMaterial("unshaded, cull_disabled, shadows_disabled"));
+
+    /// <summary>
+    /// <see cref="Hole"/> with its black left out: only the wisps and the bright edge, added to what lies behind. For a camera
+    /// that looks on at a hero right beside a vortex (Battle), which the black would hide behind a wall of night.
+    /// </summary>
+    public static readonly Lazy<ShaderMaterial> HoleGhost = new(() => HoleMaterial("unshaded, blend_add, cull_back, depth_draw_never, shadows_disabled, fog_disabled"));
+
+    private static ShaderMaterial HoleMaterial(string mode) => new()
     {
         Shader = new Shader
         {
             Code = """
                 shader_type spatial;
-                render_mode unshaded, cull_disabled, shadows_disabled;
+                render_mode MODE;
 
                 instance uniform float energy = 3.0;
                 instance uniform float calm = 0.0;
@@ -284,9 +292,9 @@ public static class FxShaders
                     float glow = wisps * 1.5 * pow(edge, 1.8) * (1.0 - calm) + 1.4 * pow(edge, 10.0);
                     ALBEDO = vec3(0.85, 0.9, 1.0) * glow * energy;
                 }
-                """,
+                """.Replace("MODE", mode),
         },
-    });
+    };
 
     /// <summary>
     /// The HD Bee Bomber's ball of plasma: a deep blue ball, white hot in its middle, with arcs crawling over it where

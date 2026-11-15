@@ -11,6 +11,13 @@ public sealed partial class GameWorld
     /// <returns>null when applied, otherwise why it was refused.</returns>
     private string? Apply(Command command)
     {
+        if (Battle is not null)
+        {
+            if (WhyNotInBattle(command) is { } refused)
+                return refused;
+            if (command is DriveCommand held)
+                command = HeldInOpening(held);
+        }
         switch (command)
         {
             case MoveCommand move:

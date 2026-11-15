@@ -48,6 +48,16 @@ public sealed partial class GameWorld
     /// <summary>The AI takes over a player's race, e.g. when the player left a network match.</summary>
     public void HandOverToAi(Race race)
     {
+        // In a battle a bot drives the leaver's hero.
+        if (Battle is not null)
+        {
+            if (Races.TryGetValue(race, out var leaver) && leaver.Controller == Controller.Player)
+            {
+                leaver.Controller = Controller.Ai;
+                AddBot(race);
+            }
+            return;
+        }
         if (!Races.TryGetValue(race, out var state) || state.Controller == Controller.Ai || !StandIns.TryGetValue(race, out var standIn))
             return;
         state.Controller = Controller.Ai;
@@ -57,6 +67,15 @@ public sealed partial class GameWorld
     /// <summary>A player takes their race back from the AI (they rejoined a network match).</summary>
     public void HandBackFromAi(Race race)
     {
+        if (Battle is not null)
+        {
+            if (Races.TryGetValue(race, out var back) && back.Controller == Controller.Ai && Battle.Bots.Contains(race))
+            {
+                back.Controller = Controller.Player;
+                RemoveBot(race);
+            }
+            return;
+        }
         if (!Races.TryGetValue(race, out var state) || state.Controller != Controller.Ai)
             return;
         state.Controller = Controller.Player;
@@ -107,7 +126,7 @@ public sealed partial class GameWorld
 
     /// <summary>Whether a race may shoot at the target: an enemy, or an artefact while artefacts can be destroyed.</summary>
     public bool CanAttack(Race race, Actor target) =>
-        target is Artefact ? Options.DestructibleArtefacts : AreEnemies(race, target.Race);
+        target is Artefact ? Options.DestructibleArtefacts : AreEnemies(race, target.Race) && !(Battle is not null && target is Construction);
 
     public void Issue(Command command) => _pending.Enqueue(command);
 
@@ -138,6 +157,8 @@ public sealed partial class GameWorld
             });
             ReportNewConstructions();
         }
+        if (Battle is not null && Tick % Ai.BattleBot.ThinkEvery == 0)
+            Timed("bots", ThinkBots);
 
         Timed("machines", () =>
         {
@@ -165,6 +186,8 @@ public sealed partial class GameWorld
         Timed("script", UpdateScript);
         if (Wired is not null)
             Timed("wired", UpdateWired);
+        if (Battle is not null)
+            Timed("battle", UpdateBattle);
         Timed("victory", CheckVictory);
 
         Tick++;
@@ -429,6 +452,12 @@ public sealed partial class GameWorld
     {
         if (Winner is not null)
             return;
+
+        if (Options.Victory == VictoryCondition.Battle)
+        {
+            CheckBattleEnd();
+            return;
+        }
 
         if (Options.Victory == VictoryCondition.Wired)
         {

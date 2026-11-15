@@ -61,6 +61,8 @@ public partial class Game
         AddChild(_marks = new WiredMarks(this));
         AddChild(_portrait = new WiredPortrait(_assets));
         WiredEndScript.Attend(GetTree());
+        if (World.Battle is not null)
+            BattleShots.Attend(GetTree());
     }
 
     /// <summary>Called every frame of a run, after the world's ticks.</summary>
@@ -71,7 +73,8 @@ public partial class Game
         BeginRun();
         FollowBody(run);
         FollowNight((float)delta);
-        ActorView.Driver = _driven is not null || _heroDown;
+        FollowWatch(delta);
+        ActorView.Driver = _driven is not null || _heroDown || _watched is not null;
         var hero = World.HeroOf(Player);
         _marks!.Show(delta, hero is not null && _views.TryGetValue(hero.Id, out var view) ? view.Centre : null);
         if (run.Heroes.TryGetValue(Player, out var state))
@@ -92,6 +95,12 @@ public partial class Game
             _hud.Message(KeyMap.GaveWayNote());
         if (Watching || Cinematic.Asked is not null)
             return;
+        // A battle a bot plays for the player is looked on from behind its hero.
+        if (BattleWatch)
+        {
+            StartWatching();
+            return;
+        }
         // A save from the seconds the hero was down: the driver is back on the static, waiting for the new body.
         if (World.HeroOf(Player) is not { } hero)
         {
@@ -132,6 +141,9 @@ public partial class Game
     {
         if (World.HeroOf(Player) is not { } hero)
         {
+            // Out of a battle for good, the view goes to a team-mate instead.
+            if (World.Battle is { Over: false } && World.Wired?.Heroes.GetValueOrDefault(Player) is { RespawnAt: null } && StartWatching())
+                return false;
             RunRefused(HangarText.Reason("the hero is down"));
             return false;
         }
@@ -149,6 +161,9 @@ public partial class Game
         if (World.Wired?.Heroes.GetValueOrDefault(Player) is not { RespawnAt: not null })
         {
             LeaveFirstPerson();
+            // The last body of a battle is gone: the player looks on through a team-mate still fighting, or at its end through a hero still standing.
+            if (World.Battle is not null)
+                StartWatching();
             return;
         }
         _driven = null;
@@ -174,7 +189,7 @@ public partial class Game
     /// <summary>The new body has its view by now: a driver waiting on the static gets in, one up in the air gets it selected.</summary>
     private void FollowBody(WiredRun run)
     {
-        if (_heroDown && run.Phase == WiredPhase.Ended)
+        if (_heroDown && (run.Phase == WiredPhase.Ended || World.Battle is { Over: true }))
         {
             _heroDown = false;
             LeaveFirstPerson();
@@ -208,6 +223,7 @@ public partial class Game
     {
         if (World.Wired is null || _hud.Wired is not { } hud)
             return;
+        ShowBattleEvents(hud);
         foreach (var e in World.Events)
         {
             var at = ActorView.World(e.Position);

@@ -23,6 +23,15 @@ public sealed partial class GameWorld
             return "the hero is down";
         if (hero.Inside is not null)
             return "not from inside the pod";
+        if (Battle is { } battle)
+        {
+            if (battle.InOpening(Time))
+                return "the battle has not begun yet";
+            if (battle.Over)
+                return "the battle is over";
+            if (BattleCatalogue.NotOffered.Contains(ability.Id))
+                return "that cannot turn a hero";
+        }
         if (state.AbilitySecondsLeft(slot, Time) > 0 || state.AbilityWavesLeft(slot, Wired!.Wave) > 0)
             return "that is not ready yet";
         if (ability.Id is "vortex" or "treachery" && Vector2.Distance(hero.Position, aim) > ability.Reach)
@@ -71,7 +80,9 @@ public sealed partial class GameWorld
                 LayMinefield(hero, aim);
                 break;
         }
-        if (ability.CooldownWaves > 0)
+        if (Battle is not null && ability.Id == "ionstrike")
+            state.AbilityReadyAt[item.Id] = Time + BattleBalance.IonCooldown;
+        else if (ability.CooldownWaves > 0)
             state.AbilityReadyWave[item.Id] = Wired!.Wave + ability.CooldownWaves;
         else
             state.AbilityReadyAt[item.Id] = Time + ability.Cooldown;
@@ -155,6 +166,8 @@ public sealed partial class GameWorld
             return "the hero is down";
         if (hero.Inside is not null)
             return "not from inside the pod";
+        if (Battle is { } battle && battle.InOpening(Time))
+            return "the battle has not begun yet";
         if (state.Build(Data).DashCooldown is not { } cooldown)
             return "the hero has no thrusters";
         if (Time < state.DashReadyAt)

@@ -361,6 +361,7 @@ public partial class Game : Node3D
 
     public override void _Ready()
     {
+        GroundBlast.Onlooker = false;
         if (PerfLog.Create() is { } perf)
             AddChild(perf);
         if (HitchLog.Create() is { } hitches)
@@ -718,7 +719,7 @@ public partial class Game : Node3D
         else if (World.Winner is { } winner && Watching)
             _hud.Banner(Lang.T("{0} wins", Lang.T(Look(winner).ToString())));
         else if (MatchOver && World.Wired is null && ClassicGui.Bitmap(EndPicture) is null)
-            _hud.Banner(World.Winner == Player ? "Victory" : "Defeat");
+            _hud.Banner(World.Won(Player) ? "Victory" : "Defeat");
         else if (_waitingFor <= 1)
             _hud.Banner(null);
         // A run ends on its own screen, and misc/defeat.bmp has its word in English.
@@ -727,20 +728,24 @@ public partial class Game : Node3D
         // it ended, and after 19 seconds won, 14 lost or 5 in training, or at Esc or Space, the statistics
         // (MachGuiCtxStatistics) come up over it (MachInGameScreen::gameState); after a campaign mission its film of
         // victory or defeat, then its debriefing.
-        if (World.Winner is not null || World.Races[Player].Defeated && !Watching || World.Wired is { Phase: Machines.Sim.Survival.WiredPhase.Ended })
+        if (World.Winner is not null || World.Races[Player].Defeated && !Watching || World.Wired is { Phase: Machines.Sim.Survival.WiredPhase.Ended } || World.Battle is { Over: true })
         {
             var now = Time.GetTicksMsec() / 1000.0;
             if (_decidedAt is null)
             {
                 RecordCampaign();
                 RecordWired();
+                RecordBattle();
                 foreach (var sound in FindChildren("*", nameof(AudioStreamPlayer3D), true, false).OfType<AudioStreamPlayer3D>())
                     sound.Stop();
                 _audio.Hush();
             }
             _decidedAt ??= now;
-            RetryWired(now);
-            var wait = World.Wired is not null ? WiredHold : Watching || Training ? 5 : World.Winner == Player ? 19 : 14;
+            if (World.Battle is not null)
+                RetryBattle(now);
+            else
+                RetryWired(now);
+            var wait = World.Battle is not null ? BattleHold : World.Wired is not null ? WiredHold : Watching || Training ? 5 : World.Won(Player) ? 19 : 14;
             // The cursor is gone while the world stands still (MachInGameScreen::update).
             if (MatchOver && !_statisticsShown && _driven is null)
                 Input.MouseMode = Input.MouseModeEnum.Hidden;
@@ -763,9 +768,9 @@ public partial class Game : Node3D
         {
             _musicEnded = true;
             if (!Training)
-                Music.End(this, World.Winner == Player);
+                Music.End(this, World.Won(Player));
         }
-        if (World.Winner is not null)
+        if (World.Winner is not null || World.Battle is { Over: true })
             SaveReplay();
 
         FollowRun(delta);
@@ -994,6 +999,15 @@ public partial class Game : Node3D
                     if (System.Enum.TryParse<Key>(name, ignoreCase: true, out var held))
                         Input.ParseInputEvent(new InputEventKey { Keycode = held, PhysicalKeycode = held, Pressed = true });
             }
+        }
+        // MACHINES_SCREENSHOT_FIELD=1: a run or battle, which begins in the hero, goes back to the field a second in with the
+        // hero selected, as Esc does (to look at the control panel); MACHINES_SCREENSHOT_MENU=menus then opens the in-game menu.
+        if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_FIELD") == "1" && _runTime >= 1 && _driven is { } fielded)
+        {
+            LeaveFirstPerson();
+            Select([fielded.Id]);
+            if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU") == "menus")
+                OpenMenu(statistics: false);
         }
         // MACHINES_SCREENSHOT_MENU=briefing or debrief (with MACHINES_CAMPAIGN): a campaign mission's briefing over the
         // match after MACHINES_SCREENSHOT_AFTER less a second, or its debriefing.
@@ -1616,7 +1630,15 @@ public partial class Game : Node3D
     }
 
     /// <summary>
-    /// Keeps the match as a replay in <c>replays/</c> next to the game: the setup and every turn, which the
+    /// Where replays are kept: <c>replays/</c> next to the game, or for automated checks the folder of
+    /// MACHINES_REPLAY_DIR=&lt;folder&gt;, so that test runs leave the player's own replays alone.
+    /// </summary>
+    public static string ReplayFolder => System.Environment.GetEnvironmentVariable("MACHINES_REPLAY_DIR") is { Length: > 0 } other
+        ? other
+        : System.IO.Path.Combine(Paths.Root, "replays");
+
+    /// <summary>
+    /// Keeps the match as a replay in <see cref="ReplayFolder"/>: the setup and every turn, which the
     /// deterministic simulation turns back into the same match.
     /// </summary>
     private void SaveReplay()
@@ -1626,12 +1648,14 @@ public partial class Game : Node3D
         _replaySaved = true;
         try
         {
-            var folder = System.IO.Path.Combine(Paths.Root, "replays");
+            var folder = ReplayFolder;
             Directory.CreateDirectory(folder);
             var match = MatchRequest.Current.ToMatchInfo(_seed, _session.InputDelay, World.Terrain?.Fingerprint());
             var file = System.IO.Path.Combine(folder, $"{DateTime.Now:yyyy-MM-dd_HH-mm}_{match.Scenario}{Replay.Extension}");
             new Replay(match, _session.Played, World.Tick, _session.Presence).Save(file);
-            _hud.Message(Lang.T("Replay saved: {0}", System.IO.Path.GetFileName(file)));
+            // Not in a battle, where the line stood over the victory banner; the file is written all the same.
+            if (World.Battle is null)
+                _hud.Message(Lang.T("Replay saved: {0}", System.IO.Path.GetFileName(file)));
         }
         catch (IOException exception)
         {
@@ -1664,7 +1688,7 @@ public partial class Game : Node3D
         && system.Planets.SelectMany(p => p.Scenarios).Any(s => s.Name.Equals(MatchRequest.Current.Scenario, StringComparison.OrdinalIgnoreCase));
 
     // How it ended, in the bitmap of MachWorldViewWindow::doDisplay.
-    private string EndPicture => World.Winner == Player ? Training ? "misc/complete.bmp" : "misc/victory.bmp" : Training ? "misc/failed.bmp" : "misc/defeat.bmp";
+    private string EndPicture => World.Won(Player) ? Training ? "misc/complete.bmp" : "misc/victory.bmp" : Training ? "misc/failed.bmp" : "misc/defeat.bmp";
 
     /// <summary>Opens the menus over the match (Esc, F10, the return button); a game on this machine waits meanwhile.</summary>
     public void OpenMenu() => OpenMenu(statistics: false);
@@ -1697,7 +1721,7 @@ public partial class Game : Node3D
     }
 
     /// <summary>Whether this match can be saved, restarted or swapped for a saved one: a game on this machine.</summary>
-    public bool CanSave => !Online && !Watching && World.Winner is null && World.Wired is not { Phase: Machines.Sim.Survival.WiredPhase.Ended };
+    public bool CanSave => !Online && !Watching && World.Winner is null && World.Wired is not { Phase: Machines.Sim.Survival.WiredPhase.Ended } && World.Battle is null;
 
     /// <summary>The match so far, saved under <paramref name="name"/>; null when it went well, otherwise why not.</summary>
     public string? SaveGame(string name)
@@ -1752,7 +1776,7 @@ public partial class Game : Node3D
             NetLink.Send(new LeaveRoom());
         // The menus open where the match was set up: the choice of mission, the skirmish setup or the rooms.
         if (!Watching && !home)
-            MenuScreens.StartPage = Online ? "multiplayer" : World.Wired is not null ? "hangar" : Campaign.IsCampaign(MatchRequest.Current) ? "missions" : "skirmish";
+            MenuScreens.StartPage = Online ? "multiplayer" : World.Battle is not null ? "pod" : World.Wired is not null ? "hangar" : Campaign.IsCampaign(MatchRequest.Current) ? "missions" : "skirmish";
         GetTree().ChangeSceneToFile("res://scenes/Menu.tscn");
     }
 
@@ -1767,7 +1791,7 @@ public partial class Game : Node3D
         var progress = CampaignProgress.Load();
         if (progress.CurrentPlayer is not { } player)
             return;
-        var won = World.Winner == Player;
+        var won = World.Won(Player);
         player.Record(mission.Name, won, World.Races[Player].Score.Gross, World.Script?.FlagsSet ?? [],
             won && mission.SaveMachines is { } race ? MissionScript.Survivors(World, race) : null);
         try
@@ -1783,7 +1807,7 @@ public partial class Game : Node3D
     /// <summary>After a campaign mission: its film of victory or defeat when it has one (WIN, LOSE), then the debriefing.</summary>
     private void ShowCampaignEnding()
     {
-        var won = World.Winner == Player;
+        var won = World.Won(Player);
         if (Campaign.Media(_assets.GameFolder, Campaign.Entry(MatchRequest.Current.Scenario)?.Media.GetValueOrDefault(won ? "WIN" : "LOSE")) is { } film)
             FilmScreen.Play(GetTree(), film, () =>
             {
@@ -1930,9 +1954,10 @@ public partial class Game : Node3D
     private void UpdateHover()
     {
         var mouse = PointedForScreenshot ?? GetViewport().GetMousePosition();
-        // A film points at nothing, wherever the mouse is.
-        var inWorld = _driven is null && Cinematic.Asked is null && (PointedForScreenshot is not null || GetViewport().GuiGetHoveredControl() is null);
-        var onMap = _driven is null ? _hud.Panel.PointedOnMap : null;
+        // A film points at nothing, wherever the mouse is; nor does the view looking on through a hero in a battle (the captured
+        // mouse sits in the middle of the screen, on the hero it follows).
+        var inWorld = _driven is null && _watched is null && Cinematic.Asked is null && (PointedForScreenshot is not null || GetViewport().GuiGetHoveredControl() is null);
+        var onMap = _driven is null && _watched is null ? _hud.Panel.PointedOnMap : null;
         _hovered = onMap is { } map ? map.Actor : inWorld ? ActorAt(mouse) : null;
         _hoveredArtefact = inWorld && _hovered is null ? ArtefactAt(mouse) : null;
         _hoveredDebris = onMap?.Wreck ?? (inWorld && _hovered is null ? DebrisAt(mouse) : null);
@@ -2410,7 +2435,9 @@ public partial class Game : Node3D
         _driven = machine;
         if (_views.TryGetValue(machine.Id, out var view))
             view.SetDriven(true);
-        Issue(new StopCommand(Player, [machine.Id]));
+        // A battle's opening refuses every order but driving; the hero has none to stop then.
+        if (World.Battle?.InOpening(World.Time) != true)
+            Issue(new StopCommand(Player, [machine.Id]));
         Issue(new DriveCommand(Player, machine.Id, Driving: true));
         _rig.Active = false;
         _firstPersonCamera.Current = true;

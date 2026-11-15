@@ -12,10 +12,33 @@ public static class MatchSetup
         int seed = 1, MatchOptions? options = null)
     {
         options ??= new MatchOptions();
+        if (options.Battle is null && options.Victory == VictoryCondition.Battle)
+            options = options with { Battle = new BattleOptions() };
+        // A battle keeps of the scenario the ground, its artefacts and one pod per team; it is no Wired run.
+        if (options.Battle is { } fight)
+        {
+            var map = BattleCatalogue.Map(scenarioName);
+            options = options with
+            {
+                Battle = fight with
+                {
+                    TeamA = fight.TeamA.Count > 0 ? fight.TeamA : map?.TeamA ?? [],
+                    TeamB = fight.TeamB.Count > 0 ? fight.TeamB : map?.TeamB ?? [],
+                },
+                Victory = VictoryCondition.Battle,
+                Wired = null,
+            };
+            if (options.Battle!.TeamA.Count == 0 || options.Battle.TeamB.Count == 0 || options.Battle.TeamA.Intersect(options.Battle.TeamB).Any())
+                throw new ArgumentException($"a battle on {scenarioName} needs two teams apart");
+            players = options.Battle.TeamA.Concat(options.Battle.TeamB).Distinct().Order()
+                .ToDictionary(race => race, race => players.GetValueOrDefault(race, Controller.Ai));
+        }
         // A Wired run keeps of the scenario only the ground, its artefacts and each player's pod.
-        if (options.Wired is not null || options.Victory == VictoryCondition.Wired)
+        else if (options.Wired is not null || options.Victory == VictoryCondition.Wired)
             options = options with { Wired = options.Wired ?? new WiredOptions(), Victory = VictoryCondition.Wired };
         var wired = options.Wired is not null;
+        var battle = options.Battle;
+        var bare = wired || battle is not null;
         var scenario = data.LoadScenario(scenarioName);
         var world = new GameWorld(data, data.LoadPlanet(planetName), seed) { Options = options };
 
@@ -58,12 +81,14 @@ public static class MatchSetup
                 VirtualBeacon = setup.VirtualBeacon switch { "LEVEL_1_BEACON" => 1, "LEVEL_3_BEACON" => 3, _ => 0 },
                 ScoreDisplayed = setup.ScoreDisplayed,
             };
-            if (!wired)
+            if (battle is not null)
+                state.Allies.UnionWith((battle.TeamA.Contains(race) ? battle.TeamA : battle.TeamB).Where(mate => mate != race));
+            else if (!wired)
                 state.Allies.UnionWith(setup.Allies);
             world.Races[race] = state;
             world.BuildingPlans[race] = [];
 
-            foreach (var building in wired ? WiredBuildings(setup, controller) : setup.Constructions)
+            foreach (var building in battle is not null ? BattlePod(setup, race, battle) : wired ? WiredBuildings(setup, controller) : setup.Constructions)
             {
                 if (building.NotBuilt)
                 {
@@ -74,11 +99,11 @@ public static class MatchSetup
                     building.HardwareLevel, building.Orientation, complete: true, building.WeaponCombo);
                 placed.Height = building.Position.Z;
                 placed.DisplayAs = building.DisplayAs;
-                placed.IonCannonGranted = building.ActivateIonCannon && !wired;
+                placed.IonCannonGranted = building.ActivateIonCannon && !bare;
                 placed.Rebuild = building.Rebuild;
             }
 
-            foreach (var unit in wired ? [] : setup.Machines)
+            foreach (var unit in bare ? [] : setup.Machines)
             {
                 var machine = world.AddMachine(race, new Vector2(unit.Position.X, unit.Position.Y), unit.Type, unit.SubType, unit.HardwareLevel, unit.WeaponCombo);
                 machine.Squad = unit.Squad;
@@ -86,13 +111,13 @@ public static class MatchSetup
                 machine.DisplayAs = unit.DisplayAs;
             }
 
-            if (setup.AiScript is { } script && !wired)
+            if (setup.AiScript is { } script && !bare)
                 world.StandIns[race] = () => new Ai.AiController(race, data.LoadAiScript(script), setup);
             if (controller == Controller.Ai && world.StandIns.TryGetValue(race, out var standIn))
                 world.AiControllers.Add(standIn());
         }
 
-        if (scenario.Research is { } research && !wired)
+        if (scenario.Research is { } research && !bare)
         {
             var file = options.TechLevel switch
             {
@@ -131,7 +156,9 @@ public static class MatchSetup
                 world.Script = script;
         }
 
-        if (options.Wired is { } run)
+        if (battle is not null)
+            world.StartBattle(battle);
+        else if (options.Wired is { } run)
         {
             // Where the others would have started, the waves may arrive.
             var starts = Enum.GetValues<Race>().Where(r => !players.TryGetValue(r, out var controller) || controller != Controller.Player)
@@ -142,6 +169,10 @@ public static class MatchSetup
         }
         return world;
     }
+
+    /// <summary>What of a race's buildings stands in a battle: the first pod of each team's anchor, the first race of the team.</summary>
+    private static IEnumerable<ScenarioConstruction> BattlePod(RaceSetup setup, Race race, BattleOptions battle) =>
+        battle.TeamA[0] == race || battle.TeamB[0] == race ? setup.Constructions.Where(b => b.Type == "POD" && !b.NotBuilt).Take(1) : [];
 
     /// <summary>What of a race's buildings stands in a Wired run: a player's first pod, and nothing of the others.</summary>
     private static IEnumerable<ScenarioConstruction> WiredBuildings(RaceSetup setup, Controller controller) =>

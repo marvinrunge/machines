@@ -176,6 +176,9 @@ public partial class Effects
             ColorRamp = Ramp(new Color(0.85f, 0.84f, 0.82f, 0), new Color(0.8f, 0.8f, 0.78f, 0.5f), new Color(0.7f, 0.7f, 0.7f, 0)),
         }, additive: false);
 
+    /// <summary>How near the eye a tracer may come, in metres, when it strikes the hull the view looks out of.</summary>
+    private const float EyeClear = 5;
+
     /// <summary>
     /// A tracer: a streak of light that leaves the muzzle, races to the mark at the weapon's speed (seen for at least
     /// a few frames) and draws its tail in after it, the heavier guns' thicker. Where it lands, sparks off metal, or
@@ -188,6 +191,15 @@ public partial class Effects
         _lastRound = (to, round);
         // Game aims at the middle of the machine; the tracer stops where it meets its hull.
         var mark = Hull(from, to) ?? to;
+        // A bolt at the hero the view looks out of met its hull a metre before the eye, on the line to the one firing, so
+        // its head and its spark covered the middle of the screen in white: seen from the hull it ends a few metres out.
+        if (IsInsideTree() && GetViewport()?.GetCamera3D() is { } camera && camera.GlobalPosition.DistanceTo(mark) < EyeClear
+            && from.DistanceTo(camera.GlobalPosition) > EyeClear * 2)
+        {
+            var back = (from - mark).Normalized();
+            for (var moved = 0f; moved < EyeClear * 2 && mark.DistanceTo(camera.GlobalPosition) < EyeClear; moved += 0.25f)
+                mark += back * 0.25f;
+        }
         var distance = from.DistanceTo(mark);
         if (distance < 0.5f)
             return;

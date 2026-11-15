@@ -1,6 +1,7 @@
 using Godot;
 using Machines.Import.Model;
 using Machines.Net;
+using Machines.Sim.Survival;
 
 namespace Machines.Game;
 
@@ -8,9 +9,11 @@ namespace Machines.Game;
 /// The multiplayer page: connect to a relay or host one, then open a room (set up on the skirmish page) or join one,
 /// pick a colour, get ready, and the host starts. The relay then hands every player the same match. The room lists its
 /// start positions and its settings; its host says what each free position is for, takes players out and changes the
-/// settings (MachGuiCtxImReady).
+/// settings (MachGuiCtxImReady). In a battle room each player brings the hero last put together in their pod (Pod opens
+/// it and comes back here), the room shows every player's chassis and tier, and after the battle the end screen's Room
+/// brings the players back into a room like it.
 /// </summary>
-public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.ShowMain)
+public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null) : MenuPage(backTo ?? screens.ShowMain)
 {
     private static readonly Race[] Colours = [Race.Red, Race.Blue, Race.Green, Race.Yellow];
 
@@ -29,6 +32,22 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
     private static readonly List<(string Text, bool Note)> ChatLines = [];
     private static int? _chatRoom;
 
+    // The room the player is in, so that the page comes back to it from the pod or the settings without waiting for the relay.
+    private static RoomState? _known;
+
+    // The room the last match was started from, and whether the end screen's Room asked to go back to one like it.
+    private static RoomState? _matchRoom;
+    private static bool _returning;
+
+    // Coming back from the pod: the hero is sent again, ready or not as the pod's button said.
+    private static bool? _fromPod;
+
+    // The battle room (id, map and bracket) the pod's hero was last sent to by itself, so a refused one is not sent over and over.
+    private static string? _heroSentFor;
+
+    // MACHINES_MP's automated room is played once a run.
+    private static bool _automated;
+
     private LineEdit _name = null!, _relay = null!, _say = null!;
     private Label _status = null!, _roomTitle = null!, _settings = null!;
     private RichTextLabel _chat = null!;
@@ -36,7 +55,7 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
     private VBoxContainer _seats = null!;
     private ChipChoice _colour = null!;
     private CheckButton _ready = null!;
-    private ChipButton _connect = null!, _host = null!, _start = null!, _change = null!, _join = null!, _copy = null!;
+    private ChipButton _connect = null!, _host = null!, _start = null!, _change = null!, _join = null!, _copy = null!, _pod = null!;
     private Control _offline = null!, _lobby = null!, _room = null!;
     private RoomList? _roomList;
     private RoomState? _state;
@@ -116,6 +135,8 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
         _colour.ItemSelected += _ => SendPlayer();
         _ready = new CheckButton { Text = "Ready" };
         _ready.Toggled += _ => SendPlayer();
+        _pod = Button("Pod", OpenPod, 70, 26);
+        _pod.TooltipText = "Put your hero together for this battle";
         _start = Button("Start match", () => NetLink.Send(new StartMatch()), 70, 26);
         _change = Button("Settings", () => screens.ShowSkirmish(forRoom: true, room: _state), 70, 26);
         var leave = Button("Leave room", () =>
@@ -125,7 +146,7 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
         }, 70, 26);
         _settings.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _room = Column(16, _roomTitle, _seats, Line(16, _settings, _change), _chat, Line(16, _say, send),
-            Line(20, MenuTheme.Label("Colour", 22, MenuTheme.Text), _colour, _ready, Spring(), leave, _start));
+            Line(20, MenuTheme.Label("Colour", 22, MenuTheme.Text), _colour, _ready, Spring(), _pod, leave, _start));
         foreach (var view in new[] { _offline, _lobby, _room })
         {
             view.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
@@ -136,16 +157,44 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
         back.CustomMinimumSize = new Vector2(400, 76);
         page.AddChild(Line(Gap, back));
 
-        if (NetLink.Connected)
+        if (NetLink.Connected && _known is { } known)
+        {
+            // Back from the pod or the settings: the room as it was, until the relay tells more.
+            ShowRoom(known);
+            if (_fromPod is { } ready && _state is not null)
+            {
+                _ready.SetBlockSignals(true);
+                _ready.ButtonPressed = ready;
+                _ready.SetBlockSignals(false);
+                SendPlayer();
+            }
+        }
+        else if (NetLink.Connected)
             ShowLobby();
         else
             ShowOffline();
+        _fromPod = null;
         SwitchOn();
         Focus(NetLink.Connected ? _rooms : _connect);
+        if (_returning)
+        {
+            _returning = false;
+            if (NetLink.Connected && _matchRoom is { } was)
+                _ = Return(was);
+        }
         Automate();
     }
 
     private void Say(string text) => _status.Text = _statusText = Lang.T(text);
+
+    /// <summary>A refusal of the relay or the sim, in the player's language and with a capital, in the status and the room's chat.</summary>
+    private void Refuse(string reason)
+    {
+        var text = HangarText.Reason(reason);
+        _status.Text = _statusText = text;
+        if (_state is not null)
+            AddChat(text, note: true);
+    }
 
     /// <summary>Leaves for the match the relay started; what follows in the inbox is the match scene's to read.</summary>
     private void Leave()
@@ -166,20 +215,22 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
                     _roomList = list;
                     _rooms.Clear();
                     foreach (var room in list.Rooms)
-                        _rooms.AddItem(Lang.T("{0}   ·   {1} on {2}   ·   {3}/{4}", room.Name, room.Scenario, room.Planet, room.Players, room.MaxPlayers) + (room.Started ? "   ·   " + Lang.T("playing") : ""));
+                        _rooms.AddItem(RoomLine(room));
                     _join.Disabled = list.Rooms.Count == 0;
                     break;
                 case RoomState state:
                     ShowRoom(state);
                     break;
                 case Refused refused:
-                    Say(refused.Reason);
+                    Refuse(refused.Reason);
                     break;
                 case MatchStarted started:
                     MatchRequest.Current = MatchRequest.FromMatch(started.Match, NetLink.ClientId) with { Network = started.Match };
+                    (_matchRoom, _known) = (_state, null);
                     Leave();
                     return;
                 case MatchResumed resumed:
+                    _known = null;
                     // The match so far follows in the inbox; the match scene reads it from there.
                     MatchRequest.Current = MatchRequest.FromMatch(resumed.Match, NetLink.ClientId, resumed.Slot)
                         with { Network = resumed.Match, ResumeFrom = resumed.FromTick };
@@ -264,7 +315,7 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
 
     private void ShowOffline()
     {
-        _state = null;
+        (_state, _known) = (null, null);
         screens.At(MenuFilms.Multiplayer);
         (_offline.Visible, _lobby.Visible, _room.Visible) = (true, false, false);
         _connect.Disabled = _host.Disabled = false;
@@ -272,7 +323,7 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
 
     private void ShowLobby()
     {
-        _state = null;
+        (_state, _known) = (null, null);
         screens.At(MenuFilms.Multiplayer);
         (_offline.Visible, _lobby.Visible, _room.Visible) = (false, true, false);
         _connect.Disabled = _host.Disabled = true;
@@ -303,12 +354,17 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
             foreach (var player in before.Players.Where(b => state.Players.All(p => p.ClientId != b.ClientId)))
                 AddChat(Lang.T("{0} left the room", player.Name), note: true);
         }
-        _state = state;
+        (_state, _known) = (state, state);
         screens.At(MenuFilms.Room);
         (_offline.Visible, _lobby.Visible, _room.Visible) = (false, false, true);
-        _roomTitle.Text = Lang.T("{0}   ·   {1} on {2}   ·   {3}/{4} players", state.Name, state.Scenario, state.Planet, state.Players.Count,
-                              state.Seats.Count(s => s.ClientId is not null || s.Use == SeatUse.Open)) +
-                          (state.FillWithAi ? Lang.T(", the rest AI") : "");
+        var battle = state.Options.Battle;
+        _roomTitle.Text = battle is not null && BattleCatalogue.Map(state.Scenario) is { } map
+            ? Lang.T("{0}   ·   Battle on {1}   ·   {2}   ·   {3}/{4} players", state.Name, BattlePod.MapName(map), SkirmishPage.BracketName(battle.Tier),
+                state.Players.Count, state.Seats.Count) + Lang.T(", the rest bots")
+            : Lang.T("{0}   ·   {1} on {2}   ·   {3}/{4} players", state.Name, state.Scenario, state.Planet, state.Players.Count,
+                  state.Seats.Count(s => s.ClientId is not null || s.Use == SeatUse.Open)) +
+              (state.FillWithAi ? Lang.T(", the rest AI") : "");
+        _pod.Visible = battle is not null;
         ShowSeats(state);
         _settings.Text = SkirmishPage.Summary(state.Options);
         // The ground counts only when everyone has the same export of it (MatchInfo.Terrain).
@@ -320,6 +376,12 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
         _ready.SetBlockSignals(false);
         _start.Visible = _change.Visible = state.HostId == NetLink.ClientId;
         _start.Disabled = state.Players.Any(p => !p.Ready);
+        // In a battle room the hero comes from the pod by itself, once for each map and bracket the room has.
+        if (battle is not null && me.Hero is null && $"{state.Id}/{state.Scenario}/{battle.Tier}" is var key && key != _heroSentFor)
+        {
+            _heroSentFor = key;
+            SendPlayer();
+        }
     }
 
     /// <summary>A line for each start position: who sits there or what it is for, and the host's choice for it.</summary>
@@ -330,30 +392,55 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
             _seats.RemoveChild(row);
             row.QueueFree();
         }
+        var map = state.Options.Battle is not null ? BattleCatalogue.Map(state.Scenario) : null;
+        var slots = state.Slots.Order().ToList();
         for (var i = 0; i < state.Seats.Count; i++)
         {
             var seat = state.Seats[i];
             var player = state.Players.FirstOrDefault(p => p.ClientId == seat.ClientId);
             var text = player is null ? Lang.T(seat.Use.ToString())
                 : $"{player.Name}   {Lang.T(player.Colour.ToString())}{(player.ClientId == state.HostId ? "   " + Lang.T("(host)") : "")}{(player.Ready ? "   " + Lang.T("ready") : "")}";
+            if (map is not null)
+            {
+                // A battle seat is a race of one team: its hero is the player's, or a bot's if nobody sits there.
+                var team = i < slots.Count && map.TeamB.Contains(slots[i]) ? 2 : 1;
+                text = $"{Lang.T("Team {0}", team)}   ·   {text}   ·   {(player is null ? Lang.T("a bot hero") : HeroText(player.Hero))}";
+            }
             var line = MenuTheme.Label(text, 22, player is null ? MenuTheme.Dim : MenuTheme.Text);
+            line.AutoTranslateMode = AutoTranslateModeEnum.Disabled;
             line.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            line.ClipText = true;
             var row = Line(16, line);
             if (state.HostId == NetLink.ClientId && player?.ClientId != NetLink.ClientId)
-                row.AddChild(SeatChoice(i, seat.Use, player));
+                row.AddChild(SeatChoice(i, seat.Use, player, battle: map is not null));
             _seats.AddChild(row);
         }
+    }
+
+    /// <summary>A player's hero in the room's list: chassis and tier, or that none is chosen yet.</summary>
+    private static string HeroText(BattleHero? hero) => hero is null
+        ? Lang.T("no hero yet")
+        : $"{HangarText.Name(hero.Chassis)}, {Lang.T("Tier {0}", BattleDraft.Roman(BattleCatalogue.Tier(hero.Chassis)))}";
+
+    /// <summary>A room in the lobby's list; a battle room with its map and bracket.</summary>
+    private static string RoomLine(RoomSummary room)
+    {
+        var line = room.Mode == RoomSummary.Battle && BattleCatalogue.Map(room.Scenario) is { } map
+            ? Lang.T("{0}   ·   Battle on {1}   ·   {2}   ·   {3}/{4}", room.Name, BattlePod.MapName(map), SkirmishPage.BracketName(room.Tier), room.Players, room.MaxPlayers)
+            : Lang.T("{0}   ·   {1} on {2}   ·   {3}/{4}", room.Name, room.Scenario, room.Planet, room.Players, room.MaxPlayers);
+        return line + (room.Started ? "   ·   " + Lang.T("playing") : "");
     }
 
     /// <summary>
     /// The host's choice for a start position (MachGuiPlayerListItem): Open, Closed or Computer, and at a player's seat
     /// their name first; choosing anything else takes them out of the room, once the host has confirmed it.
     /// </summary>
-    private ChipChoice SeatChoice(int seat, SeatUse use, LobbyPlayer? player)
+    private ChipChoice SeatChoice(int seat, SeatUse use, LobbyPlayer? player, bool battle = false)
     {
-        var uses = Enum.GetValues<SeatUse>();
+        // A battle has a hero at every seat: a seat cannot be closed there.
+        var uses = Enum.GetValues<SeatUse>().Where(u => !battle || u != SeatUse.Closed).ToArray();
         var names = uses.Select(u => u.ToString());
-        var choice = new ChipChoice(player is null ? names : names.Prepend(player.Name), player is null ? (int)use : 0) { CustomMinimumSize = new Vector2(220, 0) };
+        var choice = new ChipChoice(player is null ? names : names.Prepend(player.Name), player is null ? Math.Max(0, Array.IndexOf(uses, use)) : 0) { CustomMinimumSize = new Vector2(220, 0) };
         choice.ItemSelected += i =>
         {
             if (player is null)
@@ -419,7 +506,78 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
         _chat.Pop();
     }
 
-    private void SendPlayer() => NetLink.Send(new SetPlayer(Colours[_colour.Selected], _ready.ButtonPressed, TerrainPrint(_state?.Planet)));
+    /// <summary>
+    /// The player's colour, readiness and ground; in a battle room also the hero last put together in the pod. A hero the
+    /// room's bracket does not take is not sent, and the player cannot be ready without one: the page says why, translated.
+    /// </summary>
+    private void SendPlayer()
+    {
+        BattleHero? hero = null;
+        if (_state?.Options.Battle is { } battle)
+        {
+            hero = PodHero(Colours[_colour.Selected]);
+            if (RoomOptions.WhyNotHere(hero, battle.Tier) is { } why)
+            {
+                Refuse(why);
+                hero = null;
+                _ready.SetBlockSignals(true);
+                _ready.ButtonPressed = false;
+                _ready.SetBlockSignals(false);
+            }
+        }
+        NetLink.Send(new SetPlayer(Colours[_colour.Selected], _ready.ButtonPressed, TerrainPrint(_state?.Planet), hero));
+    }
+
+    /// <summary>The hero last put together in the pod, as far as the account still owns it.</summary>
+    private static BattleHero PodHero(Race race) => new BattleDraft(Paths.Data, BattleAccounts.Load()).Hero(race);
+
+    /// <summary>To the pod, not ready meanwhile; it comes back to this room.</summary>
+    private void OpenPod()
+    {
+        if (_state is not { } state)
+            return;
+        _ready.SetBlockSignals(true);
+        _ready.ButtonPressed = false;
+        _ready.SetBlockSignals(false);
+        SendPlayer();
+        screens.ShowPod(state);
+    }
+
+    /// <summary>The pod goes back to the room, the player <paramref name="ready"/> with its hero or not.</summary>
+    public static void FromPod(bool ready) => _fromPod = ready;
+
+    /// <summary>The battle's end screen goes back to a room like the one the battle was started from.</summary>
+    public static void BackToRoom() => _returning = true;
+
+    /// <summary>
+    /// After a match, into a room like the one it was started from: its host opens it again with the same name and settings,
+    /// the others wait for it to show in the list (two minutes at most) and join it. The relay keeps no room past its match.
+    /// </summary>
+    private async Task Return(RoomState was)
+    {
+        if (was.HostId == NetLink.ClientId)
+        {
+            NetLink.Send(new CreateRoom(was.Name, was.Scenario, was.Planet, was.Slots, was.Options, was.FillWithAi));
+            return;
+        }
+        var host = was.Players.FirstOrDefault(p => p.ClientId == was.HostId)?.Name ?? "";
+        Say(Lang.T("Waiting for {0} to open the room again…", host));
+        for (var waited = 0.0; waited < 120; waited += 1)
+        {
+            if (!IsInstanceValid(this) || !NetLink.Connected || _state is not null)
+                return;
+            if (_roomList?.Rooms.FirstOrDefault(r => r.Name == was.Name && r.Scenario == was.Scenario && !r.Started) is { } again)
+            {
+                NetLink.Send(new JoinRoom(again.Id));
+                Say(Lang.T("Connected as {0}.", NetLink.Name));
+                return;
+            }
+            NetLink.Send(new ListRooms());
+            await ToSignal(GetTree().CreateTimer(1), SceneTreeTimer.SignalName.Timeout);
+        }
+        if (IsInstanceValid(this) && _state is null)
+            Say(Lang.T("{0} has not opened the room again.", host));
+    }
 
     private static readonly Dictionary<string, long?> TerrainPrints = [];
 
@@ -439,16 +597,30 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
     /// For automated checks: MACHINES_MP=host,&lt;address&gt; opens a room on the map last picked (or
     /// MACHINES_MENU_SELECT's), readies and starts once a second player is ready; MACHINES_MP=serve,&lt;address&gt;
     /// does the same on a relay it hosts itself; MACHINES_MP=join,&lt;address&gt; joins the first room and readies.
-    /// Each says a line in the room's chat first; MACHINES_MP_SHOT=&lt;png&gt; saves the room once both are ready.
+    /// Each says a line in the room's chat first; MACHINES_MP_SHOT=&lt;png&gt; saves the room once both are ready, and
+    /// MACHINES_MP_LOBBY_SHOT=&lt;png&gt; the list of rooms the joining side sees. The host or server opens a battle room
+    /// instead with battle=&lt;map&gt;[,tier=1-8][,lives=1-5][,win=both|wipe|capture] after the address (for example
+    /// MACHINES_MP=serve,127.0.0.1:7777,battle=m_desert,tier=2): both bring the hero of their own pod, the two other
+    /// seats are bots. The joining side with pod=1 goes to the pod from the room and comes back by its Ready
+    /// (MACHINES_MP_POD_SHOT=&lt;png&gt; saves the pod on the way). It all happens once a run: the page coming again (back
+    /// from the pod or a match) does not connect anew.
     /// </summary>
     private void Automate()
     {
-        if (System.Environment.GetEnvironmentVariable("MACHINES_MP") is not { Length: > 0 } setting)
+        if (_automated || System.Environment.GetEnvironmentVariable("MACHINES_MP") is not { Length: > 0 } setting)
             return;
+        _automated = true;
         var parts = setting.Split(',');
         var serve = parts[0] == "serve";
         var host = serve || parts[0] == "host";
-        _relay.Text = parts.Length > 1 ? parts[1] : "127.0.0.1:7777";
+        _relay.Text = _address = parts.Length > 1 ? parts[1] : "127.0.0.1:7777";
+        var asked = parts.Skip(2).Select(p => p.Split('=', 2)).Where(p => p.Length == 2).ToDictionary(p => p[0], p => p[1]);
+        int Number(string key, int otherwise) => asked.TryGetValue(key, out var text) && int.TryParse(text, out var n) ? n : otherwise;
+        // Made once connected, so that the room has the player's name.
+        CreateRoom? BattleRoom() => asked.TryGetValue("battle", out var battleMap)
+            ? SkirmishPage.BattleRoom(battleMap, Number("tier", 1), Number("lives", 1),
+                asked.TryGetValue("win", out var win) && Enum.TryParse<BattleWin>(win, ignoreCase: true, out var wins) ? wins : BattleWin.Both)
+            : null;
         _name.Text = host ? "Host" : "Guest";
         // Automated checks leave the router alone.
         _openPort = false;
@@ -461,7 +633,7 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
                 return;
             if (host)
             {
-                if (SkirmishPage.LastRoom() is { } room)
+                if ((BattleRoom() ?? SkirmishPage.LastRoom()) is { } room)
                     NetLink.Send(room);
                 while (_state is not { Players.Count: >= 2 })
                     await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
@@ -481,15 +653,43 @@ public partial class MultiplayerPage(MenuScreens screens) : MenuPage(screens.Sho
                     NetLink.Send(new ListRooms());
                     await ToSignal(GetTree().CreateTimer(0.5), SceneTreeTimer.SignalName.Timeout);
                 }
+                if (System.Environment.GetEnvironmentVariable("MACHINES_MP_LOBBY_SHOT") is { Length: > 0 } lobbyShot)
+                {
+                    _rooms.Select(0);
+                    await ToSignal(GetTree().CreateTimer(1), SceneTreeTimer.SignalName.Timeout);
+                    GetViewport().GetTexture().GetImage().SavePng(lobbyShot);
+                }
                 NetLink.Send(new JoinRoom(_roomList.Rooms[0].Id));
                 while (_state is null)
                     await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
                 Type("Hello from the guest, all set here.");
                 _colour.Selected = 1;
+                if (asked.ContainsKey("pod"))
+                {
+                    await ThroughThePod();
+                    return;
+                }
                 _ready.ButtonPressed = true;
                 await Shoot();
             }
         }
+
+        // To the pod and back by its Ready, as a player would; this page is gone meanwhile, the tree stays.
+        async Task ThroughThePod()
+        {
+            var tree = GetTree();
+            OpenPod();
+            await tree.ToSignal(tree.CreateTimer(3), SceneTreeTimer.SignalName.Timeout);
+            if (System.Environment.GetEnvironmentVariable("MACHINES_MP_POD_SHOT") is { Length: > 0 } podShot)
+                tree.Root.GetViewport().GetTexture().GetImage().SavePng(podShot);
+            var ready = Lang.T("Ready").ToUpperInvariant();
+            var button = Buttons(tree.Root).FirstOrDefault(b => b.Text == ready && b.IsVisibleInTree());
+            GD.Print(button is null ? "mp: no Ready in the pod" : "mp: Ready in the pod");
+            button?.EmitSignal(BaseButton.SignalName.Pressed);
+        }
+
+        static IEnumerable<ChipButton> Buttons(Node node) => node.GetChildren().SelectMany(child =>
+            child is ChipButton button ? [button] : Buttons(child));
 
         void Type(string text)
         {

@@ -9,7 +9,7 @@ namespace Machines.Game;
 public partial class WiredDriver
 {
     /// <summary>Seconds between two deals, more than a double click takes, so that no click counts as the second half of one.</summary>
-    private const double DealGap = 0.6;
+    private protected const double DealGap = 0.6;
 
     /// <summary>The hangar at the pod, for as long as it is open: the bot's next command, carried out on the screen, then its answer awaited.</summary>
     private async Task Shop(Game game, HangarPage page)
@@ -159,7 +159,7 @@ public partial class WiredDriver
     };
 
     /// <summary>A shelf comes up by its tabs, the shop's or the stock's first.</summary>
-    private async Task Open(HangarPage page, HangarShelf shelf)
+    private protected async Task Open(HangarPage page, HangarShelf shelf)
     {
         if (page.ShelfShown == shelf)
             return;
@@ -170,7 +170,7 @@ public partial class WiredDriver
     }
 
     /// <summary>A card scrolled into its shelf's view with the wheel, if it is below or above.</summary>
-    private async Task Reveal(Control card)
+    private protected async Task Reveal(Control card)
     {
         Node? at = card.GetParent();
         while (at is not null and not ScrollContainer)
@@ -193,7 +193,7 @@ public partial class WiredDriver
     private static Vector2 Strip(ItemCard card) => card.GetGlobalTransform() * new Vector2(card.Size.X / 2, card.Size.Y - ItemCard.Strip / 2 - 6);
 
     /// <summary>A deal on a card: its strip, or the card itself where the card is the deal (the chassis tree).</summary>
-    private async Task<bool> Deal(HangarPage page, HangarShelf shelf, Func<ItemCard, bool> which, bool strip)
+    private protected async Task<bool> Deal(HangarPage page, HangarShelf shelf, Func<ItemCard, bool> which, bool strip)
     {
         await Open(page, shelf);
         if (page.Cards.FirstOrDefault(which) is not { } card)
@@ -206,7 +206,7 @@ public partial class WiredDriver
     }
 
     /// <summary>A card carried onto a slot of the hero or a socket of the chip board.</summary>
-    private async Task<bool> Put(HangarPage page, HangarShelf shelf, int item, WiredSlot slot)
+    private protected async Task<bool> Put(HangarPage page, HangarShelf shelf, int item, WiredSlot slot)
     {
         await Open(page, shelf);
         if (page.Cards.FirstOrDefault(c => c.Good.Item.Id == item) is not { } card || page.Slots.FirstOrDefault(s => s.Slot == slot && s.IsVisibleInTree()) is not { } place)

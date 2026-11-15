@@ -11,7 +11,8 @@ public sealed partial class GameWorld
 {
     /// <summary>Whether a machine may go into a building at all (MachLogMachine::canEnterConstruction).</summary>
     public bool CanEnter(Machine machine, Construction building) =>
-        building.HasInterior && building.Complete && !building.IsDead && !AreEnemies(machine.Race, building.Race) && FitsThrough(machine, building);
+        building.HasInterior && building.Complete && !building.IsDead && !AreEnemies(machine.Race, building.Race) && FitsThrough(machine, building)
+        && Battle is null;
 
     /// <summary>Whether a building has room for one more: a bay no one holds. A machine driven round it holds none, nor does one of another race (MachGuiMoveCommand::applyEnterBuilding).</summary>
     public bool HasFreeBay(Construction building) =>

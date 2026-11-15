@@ -9,6 +9,9 @@ public static class NetLink
     public static int ClientId { get; private set; }
     public static string Name { get; private set; } = "Player";
 
+    /// <summary>The player's name in a match without the relay: one never given reads in the player's language ("Spieler").</summary>
+    public static string OfflineName => Name == "Player" ? Lang.T("Player") : Name;
+
     public static bool Connected => Connection is { Closed: false };
 
     /// <summary>The relay this game hosts for the others, if it hosts one.</summary>

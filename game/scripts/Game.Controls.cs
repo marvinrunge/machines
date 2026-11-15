@@ -90,6 +90,17 @@ public partial class Game
     {
         if (World.Wired is null || Watching || MatchOver)
             return;
+        // A battle has no squad and no hangar: only the abilities and the dash.
+        if (World.Battle is not null)
+        {
+            if (KeyMap.Is(@event, KeyMap.Act.Ability1))
+                UseAbility(0);
+            else if (KeyMap.Is(@event, KeyMap.Act.Ability2))
+                UseAbility(1);
+            else if (KeyMap.Is(@event, KeyMap.Act.Dash))
+                Dash();
+            return;
+        }
         if (KeyMap.Is(@event, KeyMap.Act.SquadFollow))
             SquadFollows();
         else if (KeyMap.Is(@event, KeyMap.Act.SquadAttack))

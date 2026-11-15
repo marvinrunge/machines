@@ -52,9 +52,13 @@ public partial class LoadingScreen : CanvasLayer
         tree.Root.CallDeferred(Node.MethodName.AddChild, screen);
     }
 
-    /// <summary>The match's scenario, and its planet when that is another name, as the screens print it.</summary>
+    /// <summary>
+    /// The match's scenario, and its planet when that is another name, as the screens print it; a battle's map by its
+    /// name in the player's language.
+    /// </summary>
     public static string MapName(MatchRequest request) =>
-        (request.Scenario.Equals(request.Planet, StringComparison.OrdinalIgnoreCase) ? request.Scenario : $"{request.Scenario}   ·   {request.Planet}")
+        (request.Options.Battle is not null && Machines.Sim.Survival.BattleCatalogue.Map(request.Scenario) is { } battle ? BattlePod.MapName(battle)
+            : request.Scenario.Equals(request.Planet, StringComparison.OrdinalIgnoreCase) ? request.Scenario : $"{request.Scenario}   ·   {request.Planet}")
             .ToUpperInvariant();
 
     public override void _Ready()

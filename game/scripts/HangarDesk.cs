@@ -31,6 +31,9 @@ public enum HangarDeal
 
     /// <summary>Takes a chip offered after a boss.</summary>
     Choose,
+
+    /// <summary>Researches a chassis in the pod of Battle, for XP.</summary>
+    Research,
 }
 
 /// <summary>
@@ -78,11 +81,38 @@ public abstract class HangarDesk
     /// <summary>The BMUs there are to spend.</summary>
     public abstract int Bank { get; }
 
+    /// <summary>Whether a chassis has a slot here; Wired's heroes have every slot their chassis has.</summary>
+    public virtual bool HasSlot(WiredSlot slot, WiredChassis chassis) => true;
+
     /// <summary>How the bank is shown.</summary>
     public virtual string BankText => $"{Bank} BMU";
 
     /// <summary>What the right mouse button does here.</summary>
     public virtual string Hint => "Right click takes off.";
+
+    /// <summary>The inventory's title, untranslated.</summary>
+    public virtual string Title => "Hangar";
+
+    /// <summary>A sum of the bank's money as the cards write it.</summary>
+    public virtual string PriceText(int amount) => $"{amount} BMU";
+
+    /// <summary>The shelves of what is owned, where there is no shop: the shop's own are fixed.</summary>
+    public virtual IReadOnlyList<HangarShelf> Shelves => [HangarShelf.Weapons, HangarShelf.Modules, HangarShelf.Abilities, HangarShelf.Chips, HangarShelf.Chassis];
+
+    /// <summary>The shelf on show when the hangar comes up.</summary>
+    public virtual HangarShelf FirstShelf => HangarShelf.Weapons;
+
+    /// <summary>The word under a chassis on the tree, where the desk has its own: null keeps the step's.</summary>
+    public virtual string? StepWord(HangarGood chassis) => null;
+
+    /// <summary>A short mark in the corner of a chassis on the tree, or none.</summary>
+    public virtual string? Badge(HangarGood chassis) => null;
+
+    /// <summary>What a deal on a card comes to as its strip writes it: the bank's money, unless the desk deals in more than one.</summary>
+    public virtual string DealText(HangarGood good, int amount) => PriceText(amount);
+
+    /// <summary>What the banner says of a good the mouse is on (<paramref name="onTree"/>: a chassis on the tree), before what it does; null for nothing.</summary>
+    public virtual string? Pointing(HangarGood good, bool onTree) => null;
 
     /// <summary>The shop's books, in a run; before one there is nothing to weigh up.</summary>
     public virtual HangarShop? Shop => null;

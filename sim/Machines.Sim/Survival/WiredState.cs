@@ -13,6 +13,8 @@ public enum WiredPhase
     Wave,
     Intermission,
     Ended,
+    /// <summary>Not a run at all: a battle (<see cref="BattleRun"/>) borrows the heroes. No waves, no shop, no hangar.</summary>
+    Battle,
 }
 
 /// <summary>How a Wired run came to its end.</summary>
@@ -476,6 +478,25 @@ public sealed class WiredState
                 if (state.WhyNotWear(data, worn) is null)
                     state.Loadout = worn;
             }
+        }
+        return state;
+    }
+
+    /// <summary>
+    /// A hero for a battle: the chassis and the items of <paramref name="hero"/>, each at its Mk, nothing paid, and
+    /// <paramref name="lives"/> bodies. The hero must have been checked (<see cref="BattleBots.Resolved"/>); what does not
+    /// fit a slot all the same stays in the inventory.
+    /// </summary>
+    public static WiredState ForBattle(GameData data, Race race, BattleHero hero, int lives)
+    {
+        var state = new WiredState(race, WiredDifficulty.Normal, hero.Chassis) { SpareBodies = Math.Max(0, lives - 1) };
+        foreach (var entry in hero.Items)
+        {
+            if (WiredCatalogue.KindOf(entry.Catalogue) is not { } kind || kind is not (WiredKind.Weapon or WiredKind.Module or WiredKind.Ability))
+                continue;
+            var item = state.Add(kind, entry.Catalogue, 0, Math.Max(1, entry.Mk));
+            if (entry.Slot is { } slot && state.Loadout.At(slot) is null && state.Loadout.WhyNotFit(item, slot) is null)
+                state.Loadout = state.Loadout.With(slot, item);
         }
         return state;
     }

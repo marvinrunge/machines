@@ -55,11 +55,16 @@ public partial class GroundBlast
         _parts.Add(age =>
         {
             var t = age - start;
-            flames.Emitting = t >= 0 && t < time - life * 0.5f;
+            // A camera looking on (Battle) from among the flames of an ion strike's ring of cracks saw nothing but a white
+            // veil of fire for two seconds: near it the flames burn low, and right at it not at all.
+            var near = OnlookerShare(this, middle, length / 2 + size, length / 2 + size * 3 + 20, 0);
+            flames.Emitting = t >= 0 && t < time - life * 0.5f && near > 0.15f;
             if (t < 0)
                 return true;
             var rise = falls ? fade : time;
             var high = t < rise ? Mathf.Lerp(0.15f, 1, t / rise) : Mathf.Lerp(1, 0.15f, Mathf.Clamp((t - rise) / Mathf.Max(0.01f, time - rise), 0, 1));
+            if (near < 1)
+                high *= Mathf.Max(near, 0.3f);
             process.ScaleMin = size * 0.8f * high;
             process.ScaleMax = size * high;
             flames.Position = middle + Vector3.Up * size * high * 0.85f;
@@ -250,18 +255,27 @@ public partial class GroundBlast
         {
             var width = Mathf.Lerp(0.01f, radius, Mathf.Clamp(age / expansion, 0, 1));
             var charging = age < expansion;
+            // A camera looking on at a hero the strike came down on (Battle) stood inside the column: the picture was white
+            // for six seconds, and at a fifth of its light the column was still a veil over the hero standing in it. Near it
+            // the column and its shell, which the camera stands in and looks through, all but vanish, and what shines
+            // on the ground round it a quarter, rising to full only well outside.
+            var veil = OnlookerShare(view, at, width + 20, width * 1.5f + 60, 0.015f);
+            var dim = OnlookerShare(view, at, width + 20, width * 1.5f + 60, 0.25f);
             // The original's four textures flicker the shell a frame each; here its energy does.
             var flicker = IonFlicker[(int)(age * 25) % IonFlicker.Length];
             core.Visible = charging;
             core.SetInstanceShaderParameter("energy", 3 * flicker);
+            // Fading, not less energy: the streak covers what is behind it whatever its energy, and drawn dark it was a grey veil.
+            core.SetInstanceShaderParameter("fade", veil);
             core.SetInstanceShaderParameter("thickness", Mathf.Max(width * 0.6f, 0.3f));
             var drawn = Mathf.Clamp((age - expansion) / shrink, 0, 1);
             shell.Visible = age < expansion + shrink;
             shell.SetInstanceShaderParameter("thickness", Mathf.Lerp(width * 2, 0.5f, drawn));
             shell.SetInstanceShaderParameter("energy", Mathf.Lerp(1.2f * flicker, 4, drawn));
+            shell.SetInstanceShaderParameter("fade", veil);
             pool.Visible = charging;
             pool.Transform = new Transform3D(Basis.FromScale(new Vector3(width * 1.4f, 1, width * 1.4f)), at + Vector3.Up * 0.3f);
-            poolLook.AlbedoColor = colour with { A = 0.7f * flicker };
+            poolLook.AlbedoColor = colour with { A = 0.7f * flicker * dim };
             // Rings of light run out to the wave one after another, dying as they reach it.
             for (var i = 0; i < ripples.Count; i++)
             {
@@ -270,20 +284,20 @@ public partial class GroundBlast
                 ripple.Visible = charging && run >= 0;
                 run = Mathf.PosMod(run, 1);
                 ripple.Transform = new Transform3D(Basis.FromScale(new Vector3(3.35f * width * run, 1, 3.35f * width * run)), at + Vector3.Up * 0.6f);
-                rippleLook.AlbedoColor = new Color(0.8f, 1, 1.4f, (1 - run) * flicker);
+                rippleLook.AlbedoColor = new Color(0.8f, 1, 1.4f, (1 - run) * flicker * dim);
             }
-            sparks.Emitting = charging && age > 0.3f;
+            sparks.Emitting = charging && age > 0.3f && dim > 0.9f;
             sparkLook.EmissionRingRadius = Mathf.Max(width, 0.5f);
 
             var w = age - expansion;
             ring.Visible = w >= 0 && w < 2 * shrink;
             var reach = w < shrink ? Mathf.Lerp(0.01f, radius, w / shrink) : Mathf.Lerp(radius, 0.2f * radius, Mathf.Clamp((w - shrink) / shrink, 0, 1));
             ring.Transform = new Transform3D(Basis.FromScale(new Vector3(reach, 1, reach)), at + Vector3.Up * 0.5f);
-            ringLook.AlbedoColor = new Color(1.2f, 1.3f, 1.5f, Fading(w, shrink, 2 * shrink));
+            ringLook.AlbedoColor = new Color(1.2f, 1.3f, 1.5f, Fading(w, shrink, 2 * shrink) * dim);
             strike.Visible = w >= 0 && w < 2 * shrink;
-            strike.SetInstanceShaderParameter("fade", Fading(w, 0, 2 * shrink));
+            strike.SetInstanceShaderParameter("fade", Fading(w, 0, 2 * shrink) * veil);
             thread.Visible = w >= shrink && w < 3 * shrink;
-            thread.SetInstanceShaderParameter("fade", Fading(w, 2 * shrink, 3 * shrink));
+            thread.SetInstanceShaderParameter("fade", Fading(w, 2 * shrink, 3 * shrink) * veil);
             return age < expansion + 3 * shrink + sparks.Lifetime;
         });
 
@@ -355,18 +369,30 @@ public partial class GroundBlast
         view._parts.Add(age =>
         {
             var size = Mathf.Max(VortexSize(age, radius), 0.01f);
-            hole.Visible = age < VortexTime;
+            // A camera inside the hole (a hero's own view, with the vortex gone off right beside it) would see nothing but
+            // black for seconds: from inside, the hole and the space drawn in about it are not drawn, the darkened ground,
+            // the dust and the shell are.
+            var camera = view.IsInsideTree() ? view.GetViewport()?.GetCamera3D() : null;
+            var inside = camera is not null && camera.GlobalPosition.DistanceTo(at) < size * 1.15f;
+            // A camera looking on at a hero (Battle) that the vortex came down on stood just outside the shell with the
+            // hole and the shell's glow over the lower two thirds of the picture: near it the hole is only its wisps and
+            // edge and the shell only its rim, faint.
+            var looksOn = Onlooker && camera is not null && camera.GlobalPosition.DistanceTo(at)
+                < Mathf.Max(size, age < 2 || age >= VortexSplit ? WhiteSize(age, radius) : 0) * 0.7f + 8;
+            if (hole.MaterialOverride != (looksOn ? FxShaders.HoleGhost.Value : FxShaders.Hole.Value))
+                hole.MaterialOverride = looksOn ? FxShaders.HoleGhost.Value : FxShaders.Hole.Value;
+            hole.Visible = age < VortexTime && !inside;
             hole.Transform = new Transform3D(new Basis(Vector3.Up, age * 1.2f).Scaled(Vector3.One * size), at);
             hole.SetInstanceShaderParameter("calm", Mathf.Clamp((age - VortexSplit) / 0.3f, 0, 1));
-            lens.Visible = hole.Visible;
+            lens.Visible = hole.Visible && !looksOn;
             lens.Transform = new Transform3D(Basis.FromScale(Vector3.One * size * LensReach), at);
             lens.SetInstanceShaderParameter("pull", size / (2 * radius));
 
             // The shell glows through while it flares, and is only a ring of light about the hole as it collapses.
             shell.Visible = age < 2 || age >= VortexSplit && age < VortexTime;
             shell.Transform = new Transform3D(Basis.FromScale(Vector3.One * Mathf.Max(WhiteSize(age, radius), 0.01f)), at);
-            shell.SetInstanceShaderParameter("fade", WhiteShown(age));
-            shell.SetInstanceShaderParameter("fill", age < 2 ? 0.15f : 0);
+            shell.SetInstanceShaderParameter("fade", WhiteShown(age) * (looksOn ? 0.2f : 1));
+            shell.SetInstanceShaderParameter("fill", age < 2 && !looksOn ? 0.15f : 0);
 
             inflow.EmissionSphereRadius = Mathf.Max(size * 0.75f, 1);
             dust.Emitting = age > 0.5f && age < VortexSplit;

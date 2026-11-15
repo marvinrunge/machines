@@ -28,22 +28,22 @@ public partial class WiredDriver
     private static readonly KeyMap.Act[] TriggerActs = [KeyMap.Act.FireLeft, KeyMap.Act.FireRight, KeyMap.Act.FireTop];
 
     private Bot _bot = null!;
-    private readonly List<Command> _orders = [];
+    private protected readonly List<Command> _orders = [];
     private readonly HashSet<Key> _keys = [];
     private readonly HashSet<MouseButton> _buttons = [];
     private readonly Dictionary<KeyMap.Act, double> _pulled = [];
-    private long _thinkAt;
+    private protected long _thinkAt;
 
     // What the bot wants now, and what it asked for once.
-    private int? _target;
-    private NVector2? _place;
-    private (NVector2 Way, string Why)? _dash;
-    private (int Slot, NVector2 Aim)? _ability;
+    private protected int? _target;
+    private protected NVector2? _place;
+    private protected (NVector2 Way, string Why)? _dash;
+    private protected (int Slot, NVector2 Aim)? _ability;
     private bool _hangar;
     private KeyMap.Act? _squad;
 
     // The way being driven, and how the driving goes.
-    private List<NVector2> _way = [];
+    private protected List<NVector2> _way = [];
     private NVector2 _wayTo;
     private double _wayAt, _backUntil, _asideUntil, _lastDash, _lastAttackOrder, _lastGetIn, _blocked;
     private (double At, NVector2 Where)? _stuck;
@@ -58,11 +58,11 @@ public partial class WiredDriver
     private float? _savedAt;
     private string? _saveName;
 
-    private static double Now => Time.GetTicksMsec() / 1000.0;
+    private protected static double Now => Time.GetTicksMsec() / 1000.0;
 
-    private static float Wrap(float angle) => Mathf.Wrap(angle, -Mathf.Pi, Mathf.Pi);
+    private protected static float Wrap(float angle) => Mathf.Wrap(angle, -Mathf.Pi, Mathf.Pi);
 
-    private static float Heading(NVector2 from, NVector2 to) => MathF.Atan2(to.Y - from.Y, to.X - from.X);
+    private protected static float Heading(NVector2 from, NVector2 to) => MathF.Atan2(to.Y - from.Y, to.X - from.X);
 
     /// <summary>
     /// One match of the run, frame by frame, until its end screen is up (true) or a load leaves it (false).
@@ -187,14 +187,14 @@ public partial class WiredDriver
         }
     }
 
-    private void Queue(string moment, string name)
+    private protected void Queue(string moment, string name)
     {
         if (plan.Shoots(moment))
             _pictures.Enqueue(name);
     }
 
     /// <summary>Back into the hero: the key for first person, as a player presses it.</summary>
-    private async Task GetIn(Game game)
+    private protected async Task GetIn(Game game)
     {
         if (Now - _lastGetIn < 1.5)
             return;
@@ -290,7 +290,7 @@ public partial class WiredDriver
     // ---- going ------------------------------------------------------------------------------------
 
     /// <summary>Towards a place, along a way round what stands in it, with the view on the way; true once near enough.</summary>
-    private bool GoTo(Game game, Machine hero, NVector2 place, float near, bool look = true)
+    private protected bool GoTo(Game game, Machine hero, NVector2 place, float near, bool look = true)
     {
         if (NVector2.Distance(hero.Position, place) <= near)
         {
@@ -333,7 +333,7 @@ public partial class WiredDriver
     private static bool CanDash(GameWorld world) =>
         world.Wired!.Heroes[Game.Player] is var state && state.Build(world.Data).DashCooldown is not null && world.Time >= state.DashReadyAt;
 
-    private void Stop(Machine hero)
+    private protected void Stop(Machine hero)
     {
         _forward = false;
         Hold(KeyMap.Act.Forward, false);
@@ -343,7 +343,7 @@ public partial class WiredDriver
     }
 
     /// <summary>A machine whose upper body follows the view has its hull turned by the keys; any other follows the view by itself.</summary>
-    private void TurnHull(Machine hero, float? heading)
+    private protected void TurnHull(Machine hero, float? heading)
     {
         var off = heading is { } way && hero.CanTurnUpperBody ? Wrap(way - hero.Facing) : 0;
         Hold(KeyMap.Act.TurnRight, off > 0.08f);
@@ -485,7 +485,7 @@ public partial class WiredDriver
     // ---- fighting ---------------------------------------------------------------------------------
 
     /// <summary>Closes in to a good distance, keeps the sight on the target and holds the triggers of what reaches it.</summary>
-    private void Attack(Game game, Machine hero, Machine target)
+    private protected void Attack(Game game, Machine hero, Machine target)
     {
         var guns = game.GunsOf(hero).Where(g => g.Weapon is not null).ToList();
         var reach = guns.Count > 0 ? guns.Max(g => g.Weapon!.Spec.Range) : 0;
@@ -518,7 +518,7 @@ public partial class WiredDriver
     }
 
     /// <summary>The triggers of the guns that reach, held while the crosshair rests on an enemy; the others let go.</summary>
-    private void Fire(Game game, Machine hero, float distance, bool sighted)
+    private protected void Fire(Game game, Machine hero, float distance, bool sighted)
     {
         var wanted = new HashSet<KeyMap.Act>();
         if (sighted)
@@ -560,7 +560,7 @@ public partial class WiredDriver
             GoTo(game, hero, foe.Position, 3);
     }
 
-    private void Idle(Game game)
+    private protected void Idle(Game game)
     {
         Fire(game, game.Driven!, 0, false);
         Stop(game.Driven!);
@@ -570,7 +570,7 @@ public partial class WiredDriver
     // ---- the view ---------------------------------------------------------------------------------
 
     /// <summary>The mouse moves the view towards a heading and a pitch, as far as a hand does in a frame.</summary>
-    private void Look(Game game, float yaw, float pitch)
+    private protected void Look(Game game, float yaw, float pitch)
     {
         var turn = Math.Clamp(Wrap(yaw - game.AimYaw), -TurnPerFrame, TurnPerFrame);
         var tilt = Math.Clamp(pitch - game.LookPitch, -TurnPerFrame, TurnPerFrame);
@@ -582,7 +582,7 @@ public partial class WiredDriver
         Input.ParseInputEvent(new InputEventMouseMotion { Relative = new Vector2(turn / step, tilt / (down * step)), Position = ScreenMiddle, GlobalPosition = ScreenMiddle });
     }
 
-    private void LookAt(Game game, Vector3 point)
+    private protected void LookAt(Game game, Vector3 point)
     {
         var to = point - game.Eye;
         Look(game, MathF.Atan2(to.Z, to.X), MathF.Atan2(to.Y, new Vector2(to.X, to.Z).Length()));
@@ -591,7 +591,7 @@ public partial class WiredDriver
     // ---- one press --------------------------------------------------------------------------------
 
     /// <summary>The view along the way, then the dash's key: it throws the hero the way the view looks.</summary>
-    private async Task Dash(Game game, NVector2 way, string why)
+    private protected async Task Dash(Game game, NVector2 way, string why)
     {
         var yaw = MathF.Atan2(way.Y, way.X);
         Hold(KeyMap.Act.Back, false);
@@ -608,7 +608,7 @@ public partial class WiredDriver
     }
 
     /// <summary>An ability where the bot aims it: the sight on the machine there first, then its key.</summary>
-    private async Task UseAbility(Game game, Machine hero, int slot, NVector2 aim)
+    private protected async Task UseAbility(Game game, Machine hero, int slot, NVector2 aim)
     {
         var world = game.World;
         var item = world.Wired!.Heroes[Game.Player].Loadout.Abilities.ElementAtOrDefault(slot);
@@ -660,7 +660,7 @@ public partial class WiredDriver
     // ---- the keys ---------------------------------------------------------------------------------
 
     /// <summary>An action's key or button held down or let go, through the input as the system sends it.</summary>
-    private void Hold(KeyMap.Act act, bool down)
+    private protected void Hold(KeyMap.Act act, bool down)
     {
         if (KeyMap.Button(act) is { } button)
             HoldButton(button, down);
@@ -690,7 +690,7 @@ public partial class WiredDriver
     }
 
     /// <summary>Everything held is let go.</summary>
-    private void LetGo()
+    private protected void LetGo()
     {
         foreach (var key in _keys.ToList())
             HoldKey(key, false);
@@ -701,7 +701,7 @@ public partial class WiredDriver
     }
 
     /// <summary>A key pressed and let go on the field.</summary>
-    private async Task Tap(Key key)
+    private protected async Task Tap(Key key)
     {
         Input.ParseInputEvent(new InputEventKey { Keycode = key, PhysicalKeycode = key, Pressed = true });
         await Wait(0.08);

@@ -287,6 +287,21 @@ public enum GameEventKind
 
     /// <summary>The wrecks left lying were swept up as a wave began, at a share of their worth (Other: the hero's race; Detail: the BMUs).</summary>
     WiredWrecksSwept,
+
+    /// <summary>A battle is over (Other: the winning team, 0 or 1, none on a draw; Detail: the name of its <c>BattleEnd</c>).</summary>
+    BattleEnded,
+
+    /// <summary>
+    /// A team's taking of the other's pod went on (Actor: the pod; Position: the pod's; Other: the capturing team; Detail:
+    /// its progress in whole points). Raised when a capture starts and at every tenth of the way.
+    /// </summary>
+    BattleCaptureProgress,
+
+    /// <summary>A hero lost its share of a capture (Actor: the hero; Other: its race; Detail: <c>hit</c>, <c>left</c> or <c>down</c>).</summary>
+    BattleCaptureReset,
+
+    /// <summary>A hero fell in a battle (Actor: the machine it was; Position: where; Other: the race that dealt the last hit, if an enemy did; Detail: the fallen hero's race).</summary>
+    BattleHeroKilled,
 }
 
 /// <param name="Mark">Where a round fired in first person really went, height and all, when that is not under the crosshair (a Wired run).</param>

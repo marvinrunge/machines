@@ -80,11 +80,54 @@ public partial class WiredMarks : Node3D
             """,
     });
 
+    /// <summary>
+    /// The capture circle round a pod in a battle: a rim and inside it a dashed band that fills round the circle as the
+    /// enemy takes the pod, the ground inside glowing faintly and beating while someone stands in it taking it.
+    /// </summary>
+    private static readonly Lazy<Shader> PodCircleShader = new(() => new Shader
+    {
+        Code = """
+            shader_type spatial;
+            render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled, fog_disabled;
+            uniform vec3 colour : source_color = vec3(1.0, 0.78, 0.3);
+            uniform vec3 taking : source_color = vec3(1.0, 0.3, 0.12);
+            uniform float taken = 0.0;
+            uniform float busy = 0.0;
+            uniform float strength = 1.0;
+            void fragment() {
+                float r = UV.x;
+                float beat = 0.6 + 0.4 * sin(TIME * 6.0);
+                float rim = smoothstep(0.962, 0.972, r) * (1.0 - smoothstep(0.992, 1.0, r));
+                float band = smoothstep(0.895, 0.905, r) * (1.0 - smoothstep(0.945, 0.955, r));
+                float filled = 1.0 - step(taken, UV.y);
+                float dashes = mix(step(0.35, fract(UV.y * 48.0)), 1.0, filled);
+                // The team's own circle, which its heroes start in, lies quieter until it is being taken, and its inside is
+                // not tinted then (from the door the tint lay over the ground below the view like water).
+                float own = 1.0 - step(0.99, strength);
+                float fill = (0.045 * (1.0 - own) + 0.09 * busy * beat) * (1.0 - step(1.0, r));
+                vec3 lit = mix(colour, taking, max(filled * band, busy * fill * 4.0));
+                float quiet = mix(strength, 1.0, max(busy, filled));
+                // Its dashed band too only once it is being taken: from inside, at the door, it lay across the view in slabs.
+                float banded = max(1.0 - own, max(busy, step(0.001, taken)));
+                float shown = max(rim * (0.75 + 0.25 * busy * beat) * quiet, max(band * dashes * (0.22 + 0.7 * filled) * quiet * banded, fill * quiet));
+                // A dark line either side of the rim, so that it reads on snow and sand as well as on dark ground.
+                float edge = smoothstep(0.990, 0.993, r) * (1.0 - smoothstep(0.999, 1.0, r)) + smoothstep(0.951, 0.954, r) * (1.0 - smoothstep(0.959, 0.962, r));
+                float dark = edge * 0.6 * max(quiet, 0.8);
+                ALBEDO = mix(lit, colour * 0.1, dark / max(shown + dark, 0.001));
+                ALPHA = max(shown, dark);
+            }
+            """,
+    });
+
+    /// <summary>The colours of the capture circles: the enemy's pod in gold, the team's own in the cool blue of its pointer.</summary>
+    private static readonly Color EnemyPodRing = new(1f, 0.78f, 0.3f), OwnPodRing = new(0.45f, 0.8f, 1f);
+
     private readonly record struct Flying(Vector3 From, double Since);
 
     private readonly Game _game;
     private readonly Dictionary<int, (Node3D Node, MeshInstance3D Box)> _crates = [];
     private readonly Dictionary<WiredStrike, (MeshInstance3D Mesh, ShaderMaterial Material)> _circles = [];
+    private readonly Dictionary<int, (MeshInstance3D Mesh, ShaderMaterial Material)> _podCircles = [];
     private readonly List<Flying> _flying = [];
     private MultiMesh _glints = null!;
     private StandardMaterial3D? _crateSkin;
@@ -126,9 +169,50 @@ public partial class WiredMarks : Node3D
         var world = _game.World;
         if (world.Wired is not { } run)
             return;
-        ShowGlints(world, hero);
-        ShowCrates(world);
+        // Nothing is collected in a battle: its wrecks do not glint and there are no crates.
+        if (world.Battle is null)
+        {
+            ShowGlints(world, hero);
+            ShowCrates(world);
+        }
         ShowCircles(world, run);
+        ShowPodCircles(world);
+    }
+
+    /// <summary>
+    /// In a battle with pods to take, the circle round each pod that stands: how far the other team has taken it, and whether
+    /// one of its heroes stands in it now.
+    /// </summary>
+    private void ShowPodCircles(GameWorld world)
+    {
+        var pods = new Dictionary<int, int>();
+        if (world.Battle is { } battle && battle.Options.Win != BattleWin.Wipe)
+        {
+            for (var team = 0; team < 2; team++)
+            {
+                if (world.BattlePod(team) is { } pod)
+                    pods[pod.Id] = team;
+            }
+        }
+        foreach (var (id, team) in pods)
+        {
+            var run = world.Battle!;
+            var pod = world.BattlePod(team)!;
+            if (!_podCircles.ContainsKey(id))
+            {
+                _podCircles[id] = MakeCircle(pod.Position, BattleBalance.CaptureRadius, "PodCircle", PodCircleShader.Value);
+                _podCircles[id].Material.SetShaderParameter("colour", run.TeamOf(Game.Player) == team ? OwnPodRing : EnemyPodRing);
+                _podCircles[id].Material.SetShaderParameter("strength", run.TeamOf(Game.Player) == team ? 0.6f : 1f);
+            }
+            var material = _podCircles[id].Material;
+            material.SetShaderParameter("taken", run.Progress(1 - team) / BattleBalance.CaptureTarget);
+            material.SetShaderParameter("busy", run.Teams[1 - team].Any(run.Shares.ContainsKey) && !run.Over ? 1f : 0f);
+        }
+        foreach (var id in _podCircles.Keys.Where(id => !pods.ContainsKey(id)).ToList())
+        {
+            _podCircles[id].Mesh.QueueFree();
+            _podCircles.Remove(id);
+        }
     }
 
     private void ShowGlints(GameWorld world, Vector3? hero)
@@ -236,7 +320,7 @@ public partial class WiredMarks : Node3D
         foreach (var strike in run.Strikes)
         {
             if (!_circles.ContainsKey(strike))
-                _circles[strike] = MakeCircle(strike);
+                _circles[strike] = MakeCircle(strike.Position, strike.Radius, "IonCircle", CircleShader.Value);
             _circles[strike].Material.SetShaderParameter("left", Mathf.Clamp((strike.At - world.Time) / WiredBalance.IonWarning, 0, 1));
         }
         foreach (var strike in _circles.Keys.Where(s => !run.Strikes.Contains(s)).ToList())
@@ -247,7 +331,7 @@ public partial class WiredMarks : Node3D
     }
 
     /// <summary>A disc lying on the ground as it is, its u the share of the radius and its v the way round.</summary>
-    private (MeshInstance3D Mesh, ShaderMaterial Material) MakeCircle(WiredStrike strike)
+    private (MeshInstance3D Mesh, ShaderMaterial Material) MakeCircle(System.Numerics.Vector2 centre, float radius, string name, Shader shader)
     {
         var (points, marks, indices) = (new List<Vector3>(), new List<Vector2>(), new List<int>());
         for (var ring = 0; ring <= Rings; ring++)
@@ -256,8 +340,8 @@ public partial class WiredMarks : Node3D
             for (var sector = 0; sector <= Sectors; sector++)
             {
                 var angle = Mathf.Tau * sector / Sectors;
-                var way = new System.Numerics.Vector2(MathF.Cos(angle), MathF.Sin(angle)) * (strike.Radius * share);
-                points.Add(ActorView.World(strike.Position + way) + Vector3.Up * Lift);
+                var way = new System.Numerics.Vector2(MathF.Cos(angle), MathF.Sin(angle)) * (radius * share);
+                points.Add(ActorView.World(centre + way) + Vector3.Up * Lift);
                 marks.Add(new Vector2(share, sector / (float)Sectors));
             }
         }
@@ -276,8 +360,8 @@ public partial class WiredMarks : Node3D
         arrays[(int)Mesh.ArrayType.Index] = indices.ToArray();
         var mesh = new ArrayMesh();
         mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
-        var material = new ShaderMaterial { Shader = CircleShader.Value };
-        var view = new MeshInstance3D { Name = "IonCircle", Mesh = mesh, MaterialOverride = material, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+        var material = new ShaderMaterial { Shader = shader };
+        var view = new MeshInstance3D { Name = name, Mesh = mesh, MaterialOverride = material, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
         AddChild(view);
         return (view, material);
     }

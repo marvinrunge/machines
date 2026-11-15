@@ -41,6 +41,8 @@ public enum VictoryCondition
     Default,
     /// <summary>The remake's survival mode: nobody wins, the run ends when the pod is gone or the hero out of bodies.</summary>
     Wired,
+    /// <summary>The remake's team mode: a team wins by wiping out the other or taking its pod; when the time is up it is a draw.</summary>
+    Battle,
 }
 
 /// <summary>How well the AIs play (<see cref="MatchOptions.AiLevel"/>).</summary>
@@ -122,6 +124,9 @@ public sealed record MatchOptions
 
     /// <summary>For a run of the survival mode Wired, the remake's own addition; null in every other match.</summary>
     public WiredOptions? Wired { get; init; }
+
+    /// <summary>For a battle, the remake's own team mode of heroes; null in every other match.</summary>
+    public BattleOptions? Battle { get; init; }
 
     /// <summary>The BMUs an AI race gets for each it would earn, at <paramref name="level"/>.</summary>
     public static float AiIncome(AiLevel level) => level switch

@@ -29,6 +29,8 @@
     <Compile Include="..\..\game\scripts\HeroSeat.cs" Link="Sim\HeroSeat.cs" />
     <Compile Include="..\..\game\scripts\HeroDraft.cs" Link="Sim\HeroDraft.cs" />
     <Compile Include="..\..\game\scripts\WiredProfile.cs" Link="Sim\WiredProfile.cs" />
+    <Compile Include="..\..\game\scripts\BattleAccount.cs" Link="Sim\BattleAccount.cs" />
+    <Compile Include="..\..\game\scripts\BattleDraft.cs" Link="Sim\BattleDraft.cs" />
     <Compile Include="..\..\game\scripts\WiredReport.cs" Link="Sim\WiredReport.cs" />
     <Compile Include="..\..\game\scripts\HangarShop.cs" Link="Sim\HangarShop.cs" />
     <Compile Include="..\..\game\scripts\HangarWatch.cs" Link="Sim\HangarWatch.cs" />
@@ -36,6 +38,8 @@
     <Compile Include="..\..\game\scripts\HeroHull.cs" Link="Sim\HeroHull.cs" />
     <Compile Include="..\..\game\scripts\HangarGlyphs.cs" Link="Sim\HangarGlyphs.cs" />
     <Compile Include="..\..\game\scripts\WiredReadout.cs" Link="Sim\WiredReadout.cs" />
+    <Compile Include="..\..\game\scripts\BattleReadout.cs" Link="Sim\BattleReadout.cs" />
+    <Compile Include="..\..\game\scripts\RoomOptions.cs" Link="Net\RoomOptions.cs" />
     <Compile Include="..\..\game\scripts\WeaponTriggers.cs" Link="Sim\WeaponTriggers.cs" />
     <Compile Include="..\..\game\scripts\GameLocator.cs" Link="Import\GameLocator.cs" />
   </ItemGroup>

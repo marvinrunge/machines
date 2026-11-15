@@ -228,6 +228,12 @@ public partial class ItemCard : HangarCard
     /// <summary>What the deal comes to.</summary>
     protected int DealPrice => Good.Deal == HangarDeal.Buy ? Good.Price ?? 0 : Good.Amount;
 
+    /// <summary>A sum as the desk writes it: BMU in Wired, credits in the pod.</summary>
+    protected string PriceText(int amount) => Page?.Desk.PriceText(amount) ?? $"{amount} BMU";
+
+    /// <summary>What the deal comes to as its strip writes it: XP for research in the pod, otherwise as <see cref="PriceText"/>.</summary>
+    private string DealText => Page?.Desk.DealText(Good, DealPrice) ?? PriceText(DealPrice);
+
     /// <summary>Whether the bank does not cover the deal.</summary>
     protected bool TooDear => Good.Deal is HangarDeal.Buy or HangarDeal.Upgrade && DealPrice > (Page?.Bank ?? int.MaxValue);
 
@@ -252,7 +258,7 @@ public partial class ItemCard : HangarCard
         else if (Good.Locked is { } locked)
             HangarText.Line(this, new Vector2(inner.Position.X + 4, baseline), HangarText.Reason(locked), inner.Size.X - 8, 15, MenuTheme.Dim.Lightened(0.2f));
         else if (Good.Price is { } price)
-            HangarText.Line(this, new Vector2(inner.Position.X + 4, baseline), $"{price} BMU", inner.Size.X - 8, 17, price > (Page?.Bank ?? int.MaxValue) ? HangarPage.Red : MenuTheme.Glow, HorizontalAlignment.Right);
+            HangarText.Line(this, new Vector2(inner.Position.X + 4, baseline), PriceText(price), inner.Size.X - 8, 17, price > (Page?.Bank ?? int.MaxValue) ? HangarPage.Red : MenuTheme.Glow, HorizontalAlignment.Right);
         if (HangarText.Family(Good.Item) is { } family)
             DrawRect(inner.Grow(1), new Color(family, 0.7f), false, 2);
         if (Picked)
@@ -277,7 +283,7 @@ public partial class ItemCard : HangarCard
         {
             var dim = MenuTheme.Dim.Lightened(0.3f);
             DrawRect(strip, new Color(dim, 0.13f));
-            var price = $"{DealPrice} BMU";
+            var price = DealText;
             var priceWidth = Math.Min(MenuTheme.Font.GetStringSize(price, HorizontalAlignment.Left, -1, 17).X, width * 0.45f);
             HangarText.Line(this, baseline, HangarText.Reason(locked), width - priceWidth - 6, 15, dim);
             HangarText.Line(this, baseline + new Vector2(width - priceWidth, 0), price, priceWidth, 17, dim, HorizontalAlignment.Right);
@@ -291,11 +297,12 @@ public partial class ItemCard : HangarCard
             HangarDeal.Buy => Lang.T("Buy"),
             HangarDeal.Sell => Lang.T("Sell"),
             HangarDeal.Upgrade => $"Mk {Good.Item.Mk + 1}",
+            HangarDeal.Research => Lang.T("Research"),
             _ => Lang.T("Take"),
         };
         HangarText.Line(this, baseline, word, width * 0.42f, 17, colour);
         if (Good.Deal != HangarDeal.Choose)
-            HangarText.Line(this, baseline + new Vector2(width * 0.42f, 0), $"{DealPrice} BMU", width * 0.58f, 17, colour, HorizontalAlignment.Right);
+            HangarText.Line(this, baseline + new Vector2(width * 0.42f, 0), DealText, width * 0.58f, 17, colour, HorizontalAlignment.Right);
     }
 }
 
@@ -305,7 +312,7 @@ public partial class ItemCard : HangarCard
 /// </summary>
 public partial class TreeCard : ItemCard
 {
-    public override bool OnDeal(Vector2 at) => Good.Deal == HangarDeal.Buy;
+    public override bool OnDeal(Vector2 at) => Good.Deal is HangarDeal.Buy or HangarDeal.Research;
 
     public override void _Draw()
     {
@@ -313,32 +320,54 @@ public partial class TreeCard : ItemCard
         var step = Good.Step ?? ChassisStep.Closed;
         ChipArt.Draw(this, body, ArtScale, Light * 0.45f, dim: step == ChassisStep.Closed);
         var inner = body.Grow(-ChipArt.FrameWidth(ArtScale) - 2);
+        var own = Page?.Desk.StepWord(Good);
         var (frame, word) = step switch
         {
             ChassisStep.Worn => (MenuTheme.Glow, Lang.T("Worn")),
             ChassisStep.Owned => (MenuTheme.Text, Lang.T(Good.Deal == HangarDeal.None && Good.Price is null && Page?.Desk.Shop is null ? "Open" : "Owned")),
-            ChassisStep.ForSale or ChassisStep.TooDear when Good.Locked is not null => (MenuTheme.Dim.Lightened(0.3f), Lang.T("Inventory full")),
-            ChassisStep.ForSale => (MenuTheme.Bright, $"{Good.Price} BMU"),
-            ChassisStep.TooDear => (HangarPage.Red, $"{Good.Price} BMU"),
-            _ => (MenuTheme.Dim, $"{Good.Amount} BMU"),
+            ChassisStep.ForSale or ChassisStep.TooDear when Good.Locked is not null && own is null => (MenuTheme.Dim.Lightened(0.3f), Lang.T("Inventory full")),
+            ChassisStep.ForSale => (MenuTheme.Bright, PriceText(Good.Price ?? 0)),
+            ChassisStep.TooDear => (HangarPage.Red, PriceText(Good.Price ?? 0)),
+            _ => (MenuTheme.Dim, PriceText(Good.Amount)),
         };
+        word = own ?? word;
         var alpha = step == ChassisStep.Closed ? 0.6f : 1;
         DrawRect(inner.Grow(1), new Color(frame, step == ChassisStep.Closed ? 0.25f : 0.8f), false, step == ChassisStep.Worn ? 3 : 1.5f);
         var size = Math.Min(inner.Size.Y - 2, 46);
         var x = inner.Position.X + 3;
-        if (inner.Size.X >= 104)
+        var pictured = inner.Size.X >= 104;
+        if (pictured)
         {
             var icon = new Rect2(new Vector2(x, inner.Position.Y + (inner.Size.Y - size) / 2), new Vector2(size, size));
             HangarIcons.Draw(this, Good.Item, icon, new Color(1, 1, 1, alpha));
             x = icon.End.X + 5;
         }
         var width = inner.End.X - x - 3;
+        // Without the picture the tier's plate goes before the name instead of over the picture.
+        var badge = Page?.Desk.Badge(Good);
+        var nameX = x;
+        if (badge is not null && !pictured)
+            nameX += DrawBadge(new Vector2(x, inner.Position.Y + (inner.Size.Y - 46) / 2 + 1), badge, frame, alpha) + 4;
         var name = step == ChassisStep.Closed ? MenuTheme.Dim.Lightened(0.35f) : step == ChassisStep.Worn ? MenuTheme.Glow : MenuTheme.Bright;
         var top = inner.Position.Y + (inner.Size.Y - 46) / 2;
-        HangarText.Line(this, new Vector2(x, top + 15), HangarText.Name(Good.Item.Catalogue), width, 17, name);
+        HangarText.Line(this, new Vector2(nameX, top + 15), HangarText.Name(Good.Item.Catalogue), width - (nameX - x), 17, name);
         HangarText.Line(this, new Vector2(x, top + 30), HangarText.Kind(Good.Item), width, 13, new Color(MenuTheme.Text, alpha * 0.85f));
         HangarText.Line(this, new Vector2(x, top + 45), word, width, 15, frame);
+        if (badge is not null && pictured)
+            DrawBadge(inner.Position + new Vector2(1, 1), badge, frame, alpha);
         DrawFresh(inner);
+    }
+
+    /// <summary>A little plate in the top left corner, over the picture: the pod's tier of the chassis.</summary>
+    private float DrawBadge(Vector2 at, string text, Color frame, float alpha)
+    {
+        const int size = 13;
+        var width = MenuTheme.Font.GetStringSize(text, HorizontalAlignment.Left, -1, size).X + 8;
+        var plate = new Rect2(at, new Vector2(width, 17));
+        DrawRect(plate, new Color(MenuTheme.Well, 0.92f));
+        DrawRect(plate, new Color(frame, 0.9f * alpha), false, 1);
+        DrawString(MenuTheme.Font, at + new Vector2(4, 13), text, HorizontalAlignment.Left, -1, size, new Color(MenuTheme.Bright, alpha));
+        return width;
     }
 }
 

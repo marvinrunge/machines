@@ -38,6 +38,11 @@ public partial class Game
             DownInput(@event);
             return;
         }
+        if (_watched is not null)
+        {
+            WatchInput(@event);
+            return;
+        }
         if (_driven is not null)
         {
             FirstPersonInput(@event);
