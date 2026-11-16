@@ -18,17 +18,26 @@ namespace Machines.Game;
 /// there until Godot has built every pipeline it needed to draw them, and then takes it all away; meanwhile a copy of
 /// the match plays its first seconds on a worker thread, so that the simulation's code is compiled. Until it is done
 /// the match stands still (see <see cref="Game.Warming"/>), and its first frames still run hidden (<see cref="Game.Hidden"/>).
+/// So that the loading screen goes on moving meanwhile, the warm-up leaves it room: two cores free of the loading,
+/// a few milliseconds of work in a frame, the machines and buildings put up drawn an eighth at a time in turn (all at
+/// once they were some 25,000 draw calls, a tenth of a second a frame; a pipeline is built the first time its group
+/// is drawn), and the garbage collector kept from halting every thread while it loads.
 /// MACHINES_WARMUP=0 leaves it out; films, the movie maker and runs without a screen do too.
 /// </summary>
 public partial class Warmup : Node3D
 {
-    // Milliseconds of loading per frame, so that the loading screen goes on drawing.
-    private const double Budget = 30;
+    // Milliseconds of loading per frame, so that the loading screen goes on drawing smoothly.
+    private const double Budget = 12;
+
+    // The loading on worker threads leaves two cores to the loading screen: Godot's main and rendering threads.
+    private static readonly ParallelOptions Loaders = new() { MaxDegreeOfParallelism = Math.Max(1, System.Environment.ProcessorCount - 2) };
 
     // How long everything stands at least (the blow-ups' later parts show by then), how many frames in a row must
     // build no pipeline, and when to give up waiting.
     private const double ShownAtLeast = 1.6, GiveUpAfter = 30;
-    private const int QuietFrames = 10;
+    // The machines and buildings put up are drawn in this many groups, one a frame; the quiet frames see each twice.
+    private const int Groups = 8;
+    private const int QuietFrames = 2 * Groups;
 
     // The blow-ups put up as they stand these many seconds on, so that their later parts show too.
     private static readonly float[] Ages = [0, 1.5f, 3, 4.5f, 6, 7.5f, 9];
@@ -45,6 +54,10 @@ public partial class Warmup : Node3D
     private readonly Stopwatch _clock = new();
     private readonly List<string> _report = [];
     private bool _muted;
+    private System.Runtime.GCLatencyMode _latency;
+    private Node3D[] _groups = [];
+    private int _turn, _placed;
+    private bool _eased;
 
     /// <summary>Whether everything is ready and the match may begin.</summary>
     public bool Done { get; private set; }
@@ -79,6 +92,19 @@ public partial class Warmup : Node3D
         var bus = AudioServer.GetBusIndex(GameAudio.EffectsBus);
         _muted = AudioServer.IsBusMute(bus);
         AudioServer.SetBusMute(bus, true);
+        // Room for the loading screen: no collection that halts every thread.
+        _latency = System.Runtime.GCSettings.LatencyMode;
+        System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
+        _eased = true;
+    }
+
+    // The collector as it was: the match's first frames run so, still hidden.
+    private void Unease()
+    {
+        if (!_eased)
+            return;
+        _eased = false;
+        System.Runtime.GCSettings.LatencyMode = _latency;
     }
 
     public override void _Process(double delta)
@@ -91,12 +117,17 @@ public partial class Warmup : Node3D
                 Reveal();
             return;
         }
+        // The next group of the crowd drawn this frame, the others not.
+        _turn++;
+        for (var group = 0; group < _groups.Length; group++)
+            _groups[group].Visible = group == _turn % _groups.Length;
         var start = Stopwatch.GetTimestamp();
         while (Stopwatch.GetElapsedTime(start).TotalMilliseconds < Budget)
         {
             if (!_steps.MoveNext())
             {
                 Done = true;
+                Unease();
                 AudioServer.SetBusMute(AudioServer.GetBusIndex(GameAudio.EffectsBus), _muted);
                 return;
             }
@@ -109,6 +140,7 @@ public partial class Warmup : Node3D
     // A match left while it is readied keeps no muted effects.
     public override void _ExitTree()
     {
+        Unease();
         if (!Done)
             AudioServer.SetBusMute(AudioServer.GetBusIndex(GameAudio.EffectsBus), _muted);
     }
@@ -154,6 +186,9 @@ public partial class Warmup : Node3D
         var at = ActorView.World(ground);
         var stage = new Node3D { Name = "Stage" };
         AddChild(stage);
+        _groups = [.. Enumerable.Range(0, Groups).Select(group => new Node3D { Name = $"Group{group}" })];
+        foreach (var group in _groups)
+            stage.AddChild(group);
         // The warm-up's own world: actors made in it are never in the match.
         var world = new GameWorld(_world.Data, _world.Planet, 0);
         var views = new List<(Actor Actor, ActorView View)>();
@@ -189,6 +224,7 @@ public partial class Warmup : Node3D
         _report.Add($"rehearsed {rehearsal.Result:F1} s");
         foreach (var screen in _screens)
             screen.Visible = false;
+        _groups = [];
         stage.QueueFree();
         // The stage goes before the match is shown, and the garbage of all that loading with it: collected later, it
         // held up a frame of the match for a third of a second.
@@ -242,14 +278,14 @@ public partial class Warmup : Node3D
         var loaded = 0;
         var loading = Task.Run(() =>
         {
-            Parallel.ForEach(effects, name => Load(() =>
+            Parallel.ForEach(effects, Loaders, name => Load(() =>
             {
                 if (name.StartsWith("demolish/", StringComparison.Ordinal))
                     _assets.EffectRig(name);
                 else
                     _assets.EffectMesh(name);
             }));
-            Parallel.ForEach(models, model => Load(() =>
+            Parallel.ForEach(models, Loaders, model => Load(() =>
             {
                 if (_assets.RigFor(model.Id, model.Look) is null)
                     _assets.MeshFor(model.Id, model.Look, model.Size);
@@ -273,7 +309,7 @@ public partial class Warmup : Node3D
         foreach (var actor in actors)
         {
             Report("Machines and buildings", 0.45f + 0.11f * views.Count / actors.Count);
-            views.Add((actor, Show(stage, actor)));
+            views.Add((actor, Show(NextGroup(), actor)));
             yield return false;
         }
         foreach (var (id, look) in bare)
@@ -281,7 +317,7 @@ public partial class Warmup : Node3D
             Node3D model = _assets.RigFor(id, look) is { } rig
                 ? RigView.Create(rig)
                 : new MeshInstance3D { Mesh = _assets.MeshFor(id, look, Vector3.One * 3) };
-            stage.AddChild(model);
+            NextGroup().AddChild(model);
             model.GlobalPosition = ActorView.World(ground);
             yield return false;
         }
@@ -291,7 +327,7 @@ public partial class Warmup : Node3D
             if (HeroRig.Compose(_assets, Game.Look(race), state.Loadout) is { } rig)
             {
                 var hero = RigView.Create(rig);
-                stage.AddChild(hero);
+                NextGroup().AddChild(hero);
                 hero.GlobalPosition = ActorView.World(ground);
             }
             yield return false;
@@ -306,7 +342,7 @@ public partial class Warmup : Node3D
             if (_world.Data.ResearchTree.Items.FirstOrDefault(i => i.Kind == kind) is { } item && Add(world, race0, kind, item.Key, ground) is { } hurt)
             {
                 hurt.HitPoints = 1;
-                Show(stage, hurt).Selected = true;
+                Show(NextGroup(), hurt).Selected = true;
             }
         views[0].Item2.Highlighted = true;
         yield return false;
@@ -366,6 +402,9 @@ public partial class Warmup : Node3D
         }
     }
 
+    /// <summary>The group the next of the crowd goes in, round the groups in turn.</summary>
+    private Node3D NextGroup() => _groups[_placed++ % _groups.Length];
+
     private ActorView Show(Node3D stage, Actor actor)
     {
         var view = ActorView.Create(actor, _assets, _audio);
@@ -398,8 +437,12 @@ public partial class Warmup : Node3D
                 support.BolterFlash(from, Vector3.Right, name, Effects.RoundLit(weapon));
                 if (name.StartsWith("FLAME_THROWER", StringComparison.Ordinal))
                     support.FlameBalls(from, to, weapon);
+                // Each age a step of its own: a blow-up is a lot to put up in one frame.
                 foreach (var age in Ages)
+                {
                     Aged([effects], age, () => Blowup.Hit(name, to, _assets, effects));
+                    yield return false;
+                }
             }
             yield return false;
         }
@@ -414,6 +457,7 @@ public partial class Warmup : Node3D
                 {
                     effects.AddChild(torn);
                     torn.Skip(age);
+                    yield return false;
                 }
             var (dome, colour) = Game.BlastDome(weapon.TypeName);
             effects.AddChild(dome);
@@ -485,6 +529,7 @@ public partial class Warmup : Node3D
                     Aged([stage, effects], age, () => fate(dying));
                     if (goes)
                         dying.QueueFree();
+                    yield return false;
                 }
             yield return false;
         }
