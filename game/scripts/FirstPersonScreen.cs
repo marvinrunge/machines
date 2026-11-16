@@ -4,14 +4,15 @@ namespace Machines.Game;
 
 /// <summary>
 /// What lies over the driver's view (MachGuiFirstPerson, under the crosshair and gauges): black bars at the top and
-/// bottom, which open from the middle of the screen as the machine is entered; static, which flickers on entry, comes
+/// bottom, which open from the middle of the screen as the machine is entered (the original kept a twentieth of the
+/// height at either edge black; the remake opens them all the way and the view fills the screen); static, which flickers on entry, comes
 /// with one hit in twenty and swallows the view as the machine dies (RenDevice::addInterference); and the colour of the
 /// night vision goggles (EnvPlanetEnvironment::nvgOn), which a hit may knock on or off until the static ends.
 /// </summary>
 public partial class FirstPersonScreen : CanvasLayer
 {
-    // STARTUP_SEQUENCE_TIME; the bars' share of the height once open; how long the view lasts after the machine.
-    private const float Startup = 0.5f, Border = 0.05f, Dying = 0.5f;
+    // STARTUP_SEQUENCE_TIME; the bars' share of the height once open (the original's 0.05); how long the view lasts after the machine.
+    private const float Startup = 0.5f, Border = 0, Dying = 0.5f;
 
     // The most bands of static RenDevice::addInterference lays on a frame.
     private const int MostBands = 3;
@@ -23,7 +24,7 @@ public partial class FirstPersonScreen : CanvasLayer
             uniform sampler2D screen : hint_screen_texture, filter_linear;
             uniform sampler2D noise : repeat_enable, filter_nearest;
             uniform vec3 filter_colour = vec3(1.0);
-            uniform float border = 0.05;
+            uniform float border = 0.0;
             uniform vec4 bands[{{MostBands}}];
             uniform int count = 0;
             uniform vec4 noise_place = vec4(0.0, 0.0, 1.0, 1.0);
