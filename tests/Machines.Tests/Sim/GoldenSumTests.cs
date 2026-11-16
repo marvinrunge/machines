@@ -1,0 +1,131 @@
+using System.Globalization;
+using Machines.Import.Model;
+using Machines.Net;
+using Machines.Sim;
+using Machines.Sim.Survival;
+using Xunit.Abstractions;
+
+namespace Machines.Tests.Sim;
+
+/// <summary>
+/// Golden sums of commanded matches as they are played online, taken on the code before players were told apart from
+/// races (P1 design §7.1, slice S0): a skirmish of two commanders, a four-way match whose leaver comes back, a commanded
+/// Wired run and three battles (<see cref="GoldenCase"/>). Every match is shaped as the relay starts it (seated humans in
+/// seat order, then the computer's rows in seat order) and built through <see cref="Replay.BuildWorld"/>, so the sums pin
+/// the actor order of a real online match; one lockstep session plays it, every human's turn coming through the wire as
+/// the relay brings it, the commands made by the players' scripts (<see cref="GoldenScript"/>). Each match's recording is
+/// saved, loaded and played back to the same sums.
+/// </summary>
+/// <remarks>
+/// The constants were copied from the printed <c>0x…UL</c> and held three runs in a row. Later changes may adapt the calls
+/// to a changed API (a turn by player, the session's constructor, a leaver by player) but keep seeds, rows, scripts, ticks
+/// and constants: a sum that moves means the simulation changed for matches with one player per race, which is a bug to
+/// find, not a constant to copy.
+/// </remarks>
+public class GoldenSumTests(ITestOutputHelper output)
+{
+    private static readonly Lazy<GameData> DataLoader = new(() => GameData.Load(RepoPaths.OriginalDataFolder()));
+
+    private static GameData Data => DataLoader.Value;
+
+    /// <summary>Plays a case to its ticks, prints what it saw and checks the sums; then its recording, played back, passes the same sums.</summary>
+    private GoldenMatch Play(GoldenCase golden, ulong[] expected)
+    {
+        var match = new GoldenMatch(golden, Data);
+
+        var sums = match.PlayTo(golden.Ticks);
+
+        output.WriteLine(string.Join(", ", sums.Select(s => $"0x{s:X16}UL")));
+        output.WriteLine($"{match.Session.Played.Count} turns with commands: " + string.Join(", ", match.Session.Played.SelectMany(t => t.Commands)
+            .GroupBy(c => c.GetType().Name).OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => $"{g.Key} ×{g.Count()}")));
+        output.WriteLine("refused: " + string.Join("; ", match.Refused.Select(r => $"{r.Key} ×{r.Value}")));
+        output.WriteLine(string.Join("; ", match.World.Races.Keys.Order().Select(race =>
+            $"{race} {match.World.Machines.Count(m => m.Race == race)} machines, {match.World.Constructions.Count(c => c.Race == race)} buildings")));
+        if (match.World.Battle is { } battle)
+            output.WriteLine(Describe(battle.Result));
+        Assert.Equal(expected, sums);
+
+        var path = Path.Combine(Path.GetTempPath(), $"golden-{Guid.NewGuid():N}{Replay.Extension}");
+        Replay loaded;
+        try
+        {
+            match.Recording.Save(path);
+            loaded = Replay.Load(path);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+        var playback = loaded.Playback(Replay.BuildWorld(Data, loaded.Match));
+        var again = new List<ulong>();
+        foreach (var tick in golden.Ticks)
+        {
+            while (playback.World.Tick < tick)
+                Assert.True(playback.TryStep(), $"the playback of {golden.Name} stuck at tick {playback.World.Tick}");
+            again.Add(playback.World.Checksum());
+        }
+        Assert.Equal(expected, again);
+        Assert.Equal(match.World.Battle?.Result, playback.World.Battle?.Result);
+        return match;
+    }
+
+    /// <summary>A battle's result as it would be written in this file.</summary>
+    private static string Describe(BattleResult? result) => result is { } r
+        ? $"new BattleResult({r.Winner?.ToString(CultureInfo.InvariantCulture) ?? "null"}, BattleEnd.{r.Reason}, {r.EndedAt.ToString("R", CultureInfo.InvariantCulture)}f)"
+        : "no result";
+
+    [Fact]
+    public void A_skirmish_of_two_commanders_keeps_its_sums() => Play(GoldenCase.Skirmish, SkirmishSums);
+
+    [Fact]
+    public void A_four_way_match_whose_leaver_comes_back_keeps_its_sums()
+    {
+        var match = Play(GoldenCase.FourWay, FourWaySums);
+
+        Assert.Equal(2, match.Session.Presence.Count);
+    }
+
+    [Fact]
+    public void A_commanded_wired_run_keeps_its_sums()
+    {
+        var match = Play(GoldenCase.Wired, WiredSums);
+
+        Assert.Equal((WiredPhase.Wave, 4), (match.World.Wired!.Phase, match.World.Wired.Wave));
+    }
+
+    [Fact]
+    public void A_commanded_battle_keeps_its_sums_and_result()
+    {
+        var match = Play(GoldenCase.Battle, BattleSums);
+
+        Assert.Equal(BattleEnded, match.World.Battle!.Result);
+    }
+
+    [Fact]
+    public void A_battle_of_bots_keeps_its_sums_and_result()
+    {
+        var match = Play(GoldenCase.BotBattle, BotBattleSums);
+
+        Assert.Equal(BotBattleEnded, match.World.Battle!.Result);
+    }
+
+    [Fact]
+    public void A_battle_whose_player_leaves_keeps_its_sums_and_result()
+    {
+        var match = Play(GoldenCase.LeaverBattle, LeaverBattleSums);
+
+        Assert.Contains(Race.Green, match.World.Battle!.Bots);
+        Assert.Equal(LeaverBattleEnded, match.World.Battle.Result);
+    }
+
+    // Taken at e915579 (branch online, P0 committed, nothing of P1 built).
+    private static readonly ulong[] SkirmishSums = [0x4267B178A96649D3UL, 0x9E440FFF9F1190A5UL];
+    private static readonly ulong[] FourWaySums = [0xCE853B3BB625E2ADUL, 0xE9C8E3683C9106F2UL, 0x640F9E9E5D6727C5UL];
+    private static readonly ulong[] WiredSums = [0x881BB78F4E3B5B32UL, 0xEF7D6E9EEBF36063UL, 0xC4224CC350D3CA13UL];
+    private static readonly ulong[] BattleSums = [0xE142FCCC97986C2BUL, 0x8D3C8E387ECDB623UL, 0x66C5B8C42BC1BC49UL, 0xE10B269A928D93C7UL];
+    private static readonly BattleResult BattleEnded = new(1, BattleEnd.Wipe, 569.65f);
+    private static readonly ulong[] BotBattleSums = [0xF9ED19CA3D2D2464UL, 0x9236EE3B615D8E8FUL];
+    private static readonly BattleResult BotBattleEnded = new(1, BattleEnd.Capture, 219.35f);
+    private static readonly ulong[] LeaverBattleSums = [0x2016ADC4F82F375CUL, 0xD0E53E46D2A85EDBUL, 0x730AC7688EFC8203UL];
+    private static readonly BattleResult LeaverBattleEnded = new(0, BattleEnd.Wipe, 518f);
+}
