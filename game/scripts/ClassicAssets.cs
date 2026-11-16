@@ -533,14 +533,17 @@ public sealed class ClassicAssets
     /// the camera — the glowing eyes and lamps of machines, flares, leaves. Every corner sits at the centre and
     /// carries its offset across the screen in UV2; the sprite shader spreads it out in view space, as the
     /// original's compose2DGeometry did. Glowing sprites add their light; the others are lit and see-through
-    /// where their texture is magenta.
+    /// where their texture is magenta. A sprite's <c>depthOffset</c> moves it that many metres away from the camera
+    /// (negative: nearer) for the depth test alone, as RenTTFPolygon::render did, so a big glow is not cut by the
+    /// model it sits in.
     /// </summary>
     private void AddSprites(ArrayMesh mesh, JsonElement sprites, Race? race)
     {
         // Corners in the original's order (a triangle fan): right-down, right-up, left-up, left-down.
         Vector2[] corners = [new(1, -1), new(1, 1), new(-1, 1), new(-1, -1)];
+        static float DepthOffset(JsonElement sprite) => sprite.TryGetProperty("depthOffset", out var offset) ? offset.GetSingle() : 0;
         foreach (var group in sprites.EnumerateArray().GroupBy(s => s.GetProperty("texture").GetString() + "|"
-                     + s.GetProperty("diffuse").GetRawText() + "|" + s.GetProperty("emissive").GetRawText()))
+                     + s.GetProperty("diffuse").GetRawText() + "|" + s.GetProperty("emissive").GetRawText() + "|" + DepthOffset(s)))
         {
             var vertices = new List<Vector3>();
             var uvs = new List<Vector2>();
@@ -579,6 +582,7 @@ public sealed class ClassicAssets
             if (LoadTexture(texture).Texture is { } image)
                 material.SetShaderParameter("sprite", image);
             material.SetShaderParameter("colour", glowing ? new Vector3(emissive[0], emissive[1], emissive[2]) : new Vector3(diffuse[0], diffuse[1], diffuse[2]));
+            material.SetShaderParameter("depth_offset", DepthOffset(sample));
             mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, material);
         }
     }
@@ -658,8 +662,11 @@ public sealed class ClassicAssets
                 vec3 along = (MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz;
                 float scale = length(along);
                 along = normalize(along);
+                // Seen straight along the axis, any direction square to it does (as the original picked one).
                 vec3 across = cross(-base, along);
-                across = length(across) > 1e-5 ? normalize(across) : normalize(cross(along, vec3(0.0, 0.0, 1.0)));
+                if (length(across) <= 1e-5)
+                    across = abs(along.z) < 0.9 ? cross(along, vec3(0.0, 0.0, 1.0)) : cross(along, vec3(0.0, 1.0, 0.0));
+                across = normalize(across);
                 vec3 position = base + (along * UV2.x + across * UV2.y) * scale;
                 POSITION = PROJECTION_MATRIX * vec4(position, 1.0);
                 NORMAL = normalize(cross(along, across));
@@ -675,11 +682,16 @@ public sealed class ClassicAssets
     });
 
     private const string SpriteVertex = """
+        uniform float depth_offset = 0.0;
         void vertex() {
             // Every corner starts at the sprite's centre and moves by its offset across the screen.
             vec4 centre = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
             centre.xy += UV2;
             POSITION = PROJECTION_MATRIX * centre;
+            // Its depth is taken that much farther along the line of sight (the camera looks down -z), its place on the
+            // screen kept; brought nearer, never closer than half way to the camera.
+            vec4 tested = PROJECTION_MATRIX * vec4(centre.xy, min(centre.z - depth_offset, centre.z * 0.5), 1.0);
+            POSITION.z = tested.z / tested.w * POSITION.w;
             NORMAL = normalize((inverse(MODELVIEW_MATRIX) * vec4(0.0, 0.0, 1.0, 0.0)).xyz);
         }
         """;
@@ -718,16 +730,24 @@ public sealed class ClassicAssets
             """,
     });
 
-    /// <summary>A model's mesh from its export: the triangles of its <c>parts</c> and the <c>sprites</c> that face the camera.</summary>
     /// <summary>How far a model's plates on the ground are lifted above it, metres.</summary>
     private const float GroundPlateLift = 0.12f;
 
+    /// <summary>
+    /// A model's mesh from its export: the triangles of its <c>parts</c> and the <c>sprites</c> and <c>spinners</c> that
+    /// face the camera. Parts are drawn from both sides, except the triangles that lie back to back on another (see
+    /// <see cref="BackToBack"/>): those show their front alone, as the original showed them.
+    /// </summary>
     private Mesh? MeshFromParts(JsonElement model, Race? race = null)
     {
         var mesh = new ArrayMesh();
-        foreach (var part in model.GetProperty("parts").EnumerateArray())
+        var parts = model.GetProperty("parts").EnumerateArray().ToArray();
+        var allPositions = parts.Select(p => p.GetProperty("positions").EnumerateArray().Select(e => e.GetSingle()).ToArray()).ToArray();
+        var backed = BackToBack(allPositions);
+        for (var p = 0; p < parts.Length; p++)
         {
-            var positions = part.GetProperty("positions").EnumerateArray().Select(e => e.GetSingle()).ToArray();
+            var part = parts[p];
+            var positions = allPositions[p];
             var uvs = part.GetProperty("uvs").EnumerateArray().Select(e => e.GetSingle()).ToArray();
             var count = positions.Length / 3;
             if (count == 0)
@@ -797,14 +817,7 @@ public sealed class ClassicAssets
             // Meshy parts bring their own maps (colour, normal, occlusion-roughness-metal), relative to classic/.
             JsonElement? maps = part.TryGetProperty("maps", out var mapList) ? mapList : null;
             // The HD textures' normal maps need tangents along the texture's axes, as the Meshy ones do.
-            if ((Sharp(part.GetProperty("texture").GetString() ?? "") && HdTextures.Made) || maps is not null)
-            {
-                var tool = new SurfaceTool();
-                tool.CreateFromArrays(arrays);
-                tool.GenerateTangents();
-                arrays = tool.CommitToArrays();
-            }
-            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+            var tangents = (Sharp(part.GetProperty("texture").GetString() ?? "") && HdTextures.Made) || maps is not null;
 
             var emissive = part.TryGetProperty("emissive", out var glow) ? glow.EnumerateArray().Select(e => e.GetSingle()).ToArray() : [0f, 0f, 0f];
             // Upgraded parts may say how rough they are (the tyres' rubber).
@@ -817,9 +830,28 @@ public sealed class ClassicAssets
                 "plasma" => FxShaders.PlasmaBall.Value,
                 _ => null,
             } : null;
-            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, effect ?? (maps is { } meshyMaps
+            var material = effect ?? (maps is { } meshyMaps
                 ? MeshyMaterial(meshyMaps, part.TryGetProperty("emissionEnergy", out var energy) ? energy.GetSingle() : 1)
-                : MaterialFor(part.GetProperty("texture").GetString() ?? "", diffuse, race, emissive, vertexColours, occluded, roughness)));
+                : MaterialFor(part.GetProperty("texture").GetString() ?? "", diffuse, race, emissive, vertexColours, occluded, roughness));
+
+            // The triangles drawn from both sides first, then those lying back to back on another, from the front alone.
+            foreach (var culled in new[] { false, true })
+            {
+                var chosen = Enumerable.Range(0, count / 3).Where(t => backed[p][t] == culled).SelectMany(t => indices[(t * 3)..(t * 3 + 3)]).ToArray();
+                if (chosen.Length == 0)
+                    continue;
+                var surface = arrays.Duplicate();
+                surface[(int)Mesh.ArrayType.Index] = chosen;
+                if (tangents)
+                {
+                    var tool = new SurfaceTool();
+                    tool.CreateFromArrays(surface);
+                    tool.GenerateTangents();
+                    surface = tool.CommitToArrays();
+                }
+                mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, surface);
+                mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, culled ? FrontOnly(material) : material);
+            }
         }
         if (model.TryGetProperty("sprites", out var sprites))
             AddSprites(mesh, sprites, race);
@@ -827,6 +859,91 @@ public sealed class ClassicAssets
             AddSpinners(mesh, spinners, race);
         return mesh.GetSurfaceCount() > 0 ? mesh : null;
     }
+
+    /// <summary>
+    /// Which triangles of a model's parts (their <c>positions</c>, three corners each) lie back to back on another:
+    /// in the same plane, facing the other way, overlapping. The original modelled two-faced things so: a gun's muzzle
+    /// and the round end of its barrel seen from behind, a wheel's face and its dark inside, the two sides of a plate.
+    /// It culled back faces, so each face showed from its own side alone; drawn from both sides, the two lie at the
+    /// same depth and take turns over the pixels as the view moves, which flickers.
+    /// </summary>
+    private static bool[][] BackToBack(float[][] parts)
+    {
+        var backed = parts.Select(p => new bool[p.Length / 9]).ToArray();
+        // Triangles by their plane: the normal made to point along its largest axis, and the distance from the origin
+        // along it, in cells; a triangle's twin lies in the same cell or one beside it.
+        const float NormalCell = 64, DistanceCell = 200;
+        var planes = new Dictionary<(int, int, int, int), List<(int Part, int Triangle, Vector3 A, Vector3 B, Vector3 C, Vector3 Normal)>>();
+        for (var p = 0; p < parts.Length; p++)
+            for (var t = 0; t < backed[p].Length; t++)
+            {
+                var o = t * 9;
+                var a = new Vector3(parts[p][o], parts[p][o + 1], parts[p][o + 2]);
+                var b = new Vector3(parts[p][o + 3], parts[p][o + 4], parts[p][o + 5]);
+                var c = new Vector3(parts[p][o + 6], parts[p][o + 7], parts[p][o + 8]);
+                var normal = (b - a).Cross(c - a);
+                if (normal.LengthSquared() < 1e-12f)
+                    continue;
+                normal = normal.Normalized();
+                var axis = normal.Abs().MaxAxisIndex();
+                var line = normal[(int)axis] < 0 ? -normal : normal;
+                var cell = (X: (int)Mathf.Round(line.X * NormalCell), Y: (int)Mathf.Round(line.Y * NormalCell), Z: (int)Mathf.Round(line.Z * NormalCell), D: (int)Mathf.Round(line.Dot(a) * DistanceCell));
+                for (var dx = -1; dx <= 1; dx++)
+                    for (var dy = -1; dy <= 1; dy++)
+                        for (var dz = -1; dz <= 1; dz++)
+                            for (var dd = -1; dd <= 1; dd++)
+                            {
+                                if (!planes.TryGetValue((cell.X + dx, cell.Y + dy, cell.Z + dz, cell.D + dd), out var near))
+                                    continue;
+                                foreach (var other in near)
+                                    if (normal.Dot(other.Normal) < -0.9995f && Mathf.Abs(normal.Dot((other.A + other.B + other.C) / 3 - a)) < 1e-3f
+                                        && Overlapping(normal, [a, b, c], [other.A, other.B, other.C]))
+                                        backed[p][t] = backed[other.Part][other.Triangle] = true;
+                            }
+                var key = (cell.X, cell.Y, cell.Z, cell.D);
+                if (!planes.TryGetValue(key, out var list))
+                    planes[key] = list = [];
+                list.Add((p, t, a, b, c, normal));
+            }
+        return backed;
+    }
+
+    /// <summary>Whether two triangles in the plane square to <paramref name="normal"/> cover some of the same ground (more than touching).</summary>
+    private static bool Overlapping(Vector3 normal, Vector3[] first, Vector3[] second)
+    {
+        var u = normal.Cross(Mathf.Abs(normal.X) < 0.9f ? Vector3.Right : Vector3.Up).Normalized();
+        var v = normal.Cross(u);
+        var a = first.Select(p => new Vector2(p.Dot(u), p.Dot(v))).ToArray();
+        var b = second.Select(p => new Vector2(p.Dot(u), p.Dot(v))).ToArray();
+        // Separated along an edge's perpendicular of either: apart.
+        foreach (var triangle in new[] { a, b })
+            for (var i = 0; i < 3; i++)
+            {
+                var edge = triangle[(i + 1) % 3] - triangle[i];
+                var across = new Vector2(-edge.Y, edge.X).Normalized();
+                float lowA = float.MaxValue, highA = float.MinValue, lowB = float.MaxValue, highB = float.MinValue;
+                foreach (var point in a)
+                    (lowA, highA) = (Mathf.Min(lowA, point.Dot(across)), Mathf.Max(highA, point.Dot(across)));
+                foreach (var point in b)
+                    (lowB, highB) = (Mathf.Min(lowB, point.Dot(across)), Mathf.Max(highB, point.Dot(across)));
+                if (highA <= lowB + 1e-4f || highB <= lowA + 1e-4f)
+                    return false;
+            }
+        return true;
+    }
+
+    /// <summary><paramref name="material"/> drawn from the front alone (a shader's material stays as it is), made once.</summary>
+    private Material FrontOnly(Material material) => material is not BaseMaterial3D standard ? material
+        : Cached(_frontOnly, material.GetInstanceId().ToString(), () =>
+        {
+            var front = (BaseMaterial3D)standard.Duplicate();
+            front.CullMode = BaseMaterial3D.CullModeEnum.Back;
+            foreach (var name in standard.GetMetaList())
+                front.SetMeta(name, standard.GetMeta(name));
+            return (Material)front;
+        });
+
+    private readonly Dictionary<string, Lazy<Material>> _frontOnly = [];
 
     /// <summary>
     /// A Meshy model's material: its colour map, its normal map and the glTF metal-roughness map (roughness in
@@ -974,7 +1091,9 @@ public sealed class ClassicAssets
                 material.Metallic = ModelMetal * (1 - tint.S);
             }
         }
-        // See-through textures: cut out where keyed, blended where they have an alpha map.
+        // See-through textures: cut out where keyed, blended where they have an alpha map. On machines and buildings
+        // what such a texture covers whole hides what lies behind it, as the original's depth buffer did (a wheel's
+        // face its far side): blended surfaces are drawn back to front by the whole model, not face by face.
         if (clearness == Clearness.Keyed)
         {
             material.Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor;
@@ -982,7 +1101,7 @@ public sealed class ClassicAssets
         }
         else if (clearness == Clearness.Soft)
         {
-            material.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
+            material.Transparency = race is not null ? BaseMaterial3D.TransparencyEnum.AlphaDepthPrePass : BaseMaterial3D.TransparencyEnum.Alpha;
         }
         // A see-through colour: the flat shadow that flying machines drag over the ground is half-clear black.
         if (diffuse.Length > 3 && diffuse[3] < 0.99f)
