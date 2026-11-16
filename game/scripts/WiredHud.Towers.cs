@@ -117,10 +117,15 @@ public partial class WiredHud
         if (chosen)
             DrawRect(box.Grow(3 * _u), new Color(Gold, 0.45f), false, 2 * _u);
         var picture = new Rect2(box.Position + new Vector2(box.Size.X / 2 - 22 * _u, 6 * _u), new Vector2(44, 44) * _u);
-        var bitmap = choice.Tower is { } tower
-            ? ClassicGui.Bitmap($"construc/{ClassicPanel.RaceFolder(Game.Player)}/{ClassicPanel.ConstructionPrefix(WiredTower.Type, tower.SubType)}{tower.Level}.bmp")
-            : ClassicGui.Bitmap("commands/deconst.bmp");
-        if (bitmap is not null)
+        var path = choice.Tower is { } tower
+            ? $"construc/{ClassicPanel.RaceFolder(Game.Player)}/{ClassicPanel.ConstructionPrefix(WiredTower.Type, tower.SubType)}{tower.Level}.bmp"
+            : "commands/deconst.bmp";
+        var bitmap = ClassicGui.Bitmap(path);
+        // The picture's enlargement (tools/hud-sharp) at the box's size in whole screen pixels, else the bitmap stretched.
+        var (corner, across) = (picture.Position.Round(), picture.Size.Round());
+        if (bitmap is not null && HudArt.Sized(path, (int)across.X, (int)across.Y) is { } sharp)
+            DrawTexture(sharp, corner, lit ? Colors.White : new Color(1, 1, 1, 0.3f));
+        else if (bitmap is not null)
             DrawTextureRect(bitmap, picture, false, lit ? Colors.White : new Color(1, 1, 1, 0.3f));
         else
             Glyph(TowerGlyph, picture, lit ? MenuTheme.Glow : MenuTheme.Dim);

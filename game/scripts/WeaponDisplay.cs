@@ -8,6 +8,8 @@ namespace Machines.Game;
 /// The first-person weapon panels at the top left (MachGuiFirstPerson::displayWeapons): left, top and right
 /// weapon in that order, each dropping down in ten frames (gui/fstpersn/weapon/weap0..9) as first person begins,
 /// one after another, then showing its icon and how far it has recharged. A weapon not selected (Tab) folds back up.
+/// The bitmaps are drawn a texel to a screen pixel at a whole number of pixels to each of the original's (<see cref="HudArt"/>:
+/// the enlargements of tools/hud-sharp where made, else the bitmaps blown up by Scale2x).
 /// Where each weapon has its own trigger, the remake's own, a mark under each panel shows what fires it, and a place of
 /// a hero's chassis without a gun has its panel, empty. A hero's battery, one gun that fires as often as it has copies, has
 /// one panel too: "×n" on its icon, the charge of the copy due next and a pip for each copy, lit while it is loaded.
@@ -216,21 +218,6 @@ public partial class WeaponDisplay : Control
         DrawString(font, at - new Vector2(font.GetStringSize(text, HorizontalAlignment.Left, -1, size).X * align, 0), text, HorizontalAlignment.Left, -1, size, colour);
     }
 
-    private Texture2D? Bitmap(string name, int scale)
-    {
-        if (_bitmaps.TryGetValue((name, scale), out var cached))
-            return cached;
-        Texture2D? texture = null;
-        if (ClassicGui.Bitmap($"fstpersn/weapon/{name}.bmp")?.GetImage() is { } image)
-        {
-            var (width, height) = (image.GetWidth() * scale, image.GetHeight() * scale);
-            for (var grown = 1; grown < scale; grown *= 2)
-                image = ClassicCursor.Scale2x(image);
-            if (image.GetWidth() != width)
-                image.Resize(width, height, Image.Interpolation.Lanczos);
-            texture = ImageTexture.CreateFromImage(image);
-        }
-        _bitmaps[(name, scale)] = texture;
-        return texture;
-    }
+    // The panel's art at the screen's scale: enlarged where tools/hud-sharp made it, else blown up by Scale2x.
+    private static Texture2D? Bitmap(string name, int scale) => HudArt.Get($"fstpersn/weapon/{name}.bmp", scale, HudArt.Fallback.Scale2x);
 }

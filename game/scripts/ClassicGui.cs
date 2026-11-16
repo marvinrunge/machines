@@ -22,6 +22,7 @@ public static class ClassicGui
         _root = root is not null && Directory.Exists(root) ? root : null;
         Bitmaps.Clear();
         Folders.Clear();
+        HudArt.Clear();
     }
 
     public static bool Available => _root is not null;
