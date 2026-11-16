@@ -6,8 +6,8 @@ namespace Machines.Game;
 /// The switches of the original's options screen (MachGuiCtxOptions) beside the volumes and the look: the up and down
 /// keys reversed, the first-person mouse reversed, the 2D selection box, 3D sound and the gamma correction. They are
 /// kept in <c>user://settings.cfg</c> and take at once. MACHINES_OPTIONS sets them for one run (screenshots, checks),
-/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic,dof=strong,film=on,mouse_speed=1.5,classic_mouse=on,classic_keys=on,weapon_buttons=on</c>.
-/// Depth of field, the film look, the first-person mouse speed, the choice of mouse and keys and the triggers of the weapons are the remake's own.
+/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic,dof=strong,film=on,mouse_speed=1.5,classic_mouse=on,classic_keys=on,weapon_buttons=on,fire_waits=off</c>.
+/// Depth of field, the film look, the first-person mouse speed, the choice of mouse and keys, the triggers of the weapons and fire waiting for the gun are the remake's own.
 /// </summary>
 public static class GameOptions
 {
@@ -19,7 +19,7 @@ public static class GameOptions
     /// <summary>The first-person mouse speed's range, times the standard speed.</summary>
     public const float MouseSpeedLowest = 0.25f, MouseSpeedHighest = 2.5f;
 
-    private static bool _read, _reverseKeys, _reverseMouse, _selection2d, _sound3d = true, _classicDriving, _filmLook, _classicMouse, _classicKeys, _weaponButtons, _transitions = true;
+    private static bool _read, _reverseKeys, _reverseMouse, _selection2d, _sound3d = true, _classicDriving, _filmLook, _classicMouse, _classicKeys, _weaponButtons, _transitions = true, _fireWaits = true;
     private static float _gamma = 1, _mouseSpeed = 1;
     private static Blur _depthOfField;
 
@@ -144,6 +144,18 @@ public static class GameOptions
     }
 
     /// <summary>
+    /// Whether, in Wired with the Modern layout, a held trigger waits for the gun to come round to the sight (Fire waits for
+    /// the gun): its weapon fires while the gun is on, while the gun sight rests on an enemy, or for a quarter of a second
+    /// after the trigger went down, so a click fires at once wherever the gun points. On at first. Kept as
+    /// <c>fire_waits_for_gun</c>.
+    /// </summary>
+    public static bool FireWaitsForGun
+    {
+        get { Read(); return _fireWaits; }
+        set => Keep(ref _fireWaits, value, "controls", "fire_waits_for_gun");
+    }
+
+    /// <summary>
     /// Whether what is selected or pointed at is marked by the corners of a frame facing the camera rather than by
     /// a wireframe box (2D Selection box, MachPhysMarker).
     /// </summary>
@@ -196,6 +208,7 @@ public static class GameOptions
             _classicMouse = (bool)config.GetValue("controls", "classic_mouse", false);
             _classicKeys = (bool)config.GetValue("controls", "classic_keys", false);
             _weaponButtons = (bool)config.GetValue("controls", "weapon_buttons", false);
+            _fireWaits = (bool)config.GetValue("controls", "fire_waits_for_gun", true);
         }
         foreach (var part in (System.Environment.GetEnvironmentVariable("MACHINES_OPTIONS") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
@@ -213,6 +226,7 @@ public static class GameOptions
                 case "classic_mouse": _classicMouse = on; break;
                 case "classic_keys": _classicKeys = on; break;
                 case "weapon_buttons": _weaponButtons = on; break;
+                case "fire_waits": _fireWaits = on; break;
                 case "gamma" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var gamma):
                     _gamma = Mathf.Clamp(gamma, GammaLowest, GammaHighest);
                     break;

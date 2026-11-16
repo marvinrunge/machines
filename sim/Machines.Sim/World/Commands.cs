@@ -122,10 +122,13 @@ public sealed record ScavengeCommand(Race Race, IReadOnlyList<int> Scavengers, I
 /// through the crosshair meets a model, the ground or its end, as the original fired (MachPhys1stPersonDriver::aimData);
 /// null aims at the middle of whatever stands at the point, as before. <paramref name="Buttons"/> says the bits of
 /// <paramref name="Weapons"/> are triggers held, a button for each weapon, and not a selection: the others go on
-/// reloading (the remake's addition). <paramref name="Driving"/> false hands it back.
+/// reloading (the remake's addition). <paramref name="Yaw"/> is the heading the driver looks along, radians anticlockwise
+/// in the simulation's axes as <see cref="Machine.Facing"/>: in a Wired run or battle the simulation turns the machine's
+/// gun to it at the gun's own rate and sends its rounds along where the gun points (the remake's addition, as World of
+/// Tanks aims); null, or in any other match, the rounds go to the aim point. <paramref name="Driving"/> false hands it back.
 /// </summary>
 public sealed record DriveCommand(Race Race, int Machine, bool Driving, float Forward = 0, float Turn = 0, Vector2? Aim = null, int Weapons = -1,
-    float Head = 0, float Strafe = 0, bool Slow = false, float? AimHeight = null, bool Buttons = false) : Command(Race);
+    float Head = 0, float Strafe = 0, bool Slow = false, float? AimHeight = null, bool Buttons = false, float? Yaw = null) : Command(Race);
 
 /// <summary>Why a command was refused, for the client to show.</summary>
 public sealed record CommandRejected(Command Command, string Reason);
@@ -158,16 +161,21 @@ public sealed record WiredHangarCommand(Race Race, bool Open) : WiredCommand(Rac
 /// <summary>
 /// Buys a chassis of the tree or one of the shop's offers, by its catalogue id, into the inventory, or with a
 /// <paramref name="Slot"/> straight onto the hero: all at once or not at all, so that nothing bought is left lying when the hangar closes.
+/// With <paramref name="Add"/> it joins the battery on that slot instead of replacing it; a further copy of the weapon a slot
+/// carries is sold at its full price whether or not it is on offer, and leaves the offer as it is.
 /// </summary>
-public sealed record WiredBuyCommand(Race Race, string Item, WiredSlot? Slot = null) : WiredCommand(Race);
+public sealed record WiredBuyCommand(Race Race, string Item, WiredSlot? Slot = null, bool Add = false) : WiredCommand(Race);
 
 /// <summary>Sells an item out of the inventory for half of what went into it.</summary>
 public sealed record WiredSellCommand(Race Race, int Item) : WiredCommand(Race);
 
-/// <summary>Puts an owned weapon, module or ability into a slot; what sat there goes back into the inventory.</summary>
-public sealed record WiredEquipCommand(Race Race, int Item, WiredSlot Slot) : WiredCommand(Race);
+/// <summary>
+/// Puts an owned weapon, module or ability into a slot; what sat there, a whole battery, goes back into the inventory. With
+/// <paramref name="Add"/> a weapon joins the battery on its slot instead, as its last copy.
+/// </summary>
+public sealed record WiredEquipCommand(Race Race, int Item, WiredSlot Slot, bool Add = false) : WiredCommand(Race);
 
-/// <summary>Takes a worn item off, back into the inventory.</summary>
+/// <summary>Takes a worn item off, back into the inventory: one copy of a battery, whose later copies close up.</summary>
 public sealed record WiredUnequipCommand(Race Race, int Item) : WiredCommand(Race);
 
 /// <summary>Changes to an owned chassis. Weapons and modules stay on where they still fit; the rest and the old chassis go into the inventory.</summary>
@@ -199,3 +207,16 @@ public sealed record WiredAbilityCommand(Race Race, int Slot, Vector2 Aim) : Wir
 
 /// <summary>Fires the hero's thrusters that way; with no direction, straight ahead. Needs no open hangar.</summary>
 public sealed record WiredDashCommand(Race Race, Vector2 Direction = default) : WiredCommand(Race);
+
+/// <summary>
+/// Uses the special of the hero's chassis: a Colossus anchors with <paramref name="On"/> and is released without it, a
+/// Marshal calls in its squad, a spy lays a mine. Saying what is wanted rather than switching keeps a command sent twice
+/// harmless. Needs no open hangar.
+/// </summary>
+public sealed record WiredSpecialCommand(Race Race, bool On = true) : WiredCommand(Race);
+
+/// <summary>A constructor hero places a tower of the catalogue (<c>WiredCatalogue.Towers</c>) near it, turned by <paramref name="Orientation"/> degrees, and pays for it. Needs no open hangar.</summary>
+public sealed record WiredTowerCommand(Race Race, string Tower, Vector2 Position, int Orientation) : WiredCommand(Race);
+
+/// <summary>Pulls down one of the race's towers near the hero, for part of its price. Needs no open hangar.</summary>
+public sealed record WiredScrapTowerCommand(Race Race, int Tower) : WiredCommand(Race);

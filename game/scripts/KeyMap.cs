@@ -46,6 +46,7 @@ public static class KeyMap
         Ability1,
         Ability2,
         Dash,
+        Special,
     }
 
     /// <summary>Where an action's key works. Two actions that work in the same place cannot share a key.</summary>
@@ -106,6 +107,8 @@ public static class KeyMap
         [Act.Ability2] = new("Ability 2", Key.H, Where.FirstPerson | Where.Run),
         // In a run Space no longer fires: that is what the triggers are for.
         [Act.Dash] = new("Dash", Key.Space, Where.FirstPerson | Where.Run),
+        // What the hero's chassis has of its own: an anchor, a rally, a mine, towers, a pulse.
+        [Act.Special] = new("Special", Key.J, Where.FirstPerson | Where.Run),
     };
 
     /// <summary>
@@ -303,7 +306,7 @@ public static class KeyMap
         string.Join(", ", GaveWay.Select(act => Lang.T("{0} is on {1}", Title(act), ChosenName(act)))));
 
     /// <summary>What a run's actions may move to when an older choice has their key.</summary>
-    private static readonly Key[] Spare = [Key.J, Key.K, Key.L, Key.U, Key.Y, Key.O, Key.M];
+    private static readonly Key[] Spare = [Key.K, Key.L, Key.U, Key.Y, Key.O, Key.M];
 
     /// <summary>
     /// A choice from before Wired may hold a key a run's action came with, and where both work one of them would be lost or
@@ -349,16 +352,23 @@ public static class KeyMap
             if (config.Load(Settings) != Error.Ok)
                 return _keys;
             var chosen = new Dictionary<Act, Key>(_keys);
+            var named = new HashSet<Act>();
             foreach (var act in All)
                 if ((string)config.GetValue("keys", Setting(act), "") is { Length: > 0 } name && Parsed(name) is var key && !Refuses(act, key) && (!IsMouse(key) || TakesMouse(act)))
+                {
                     chosen[act] = key;
-            // Keys that clash (a file written by hand) leave every action on its first key; a clash among a run's own
-            // actions only those.
+                    named.Add(act);
+                }
+            // Keys that clash (a file written by hand) leave every action on its first key. Among a run's own actions one
+            // on its first key gives way to one the player put there (KeyClash); keys the player put there that clash
+            // leave only a run's actions on their first keys.
             if (All.Any(a => All.Any(b => a < b && chosen[a] == chosen[b] && Overlap(a, b))))
                 return _keys;
-            if (All.Any(a => All.Any(b => a < b && chosen[a] == chosen[b] && IsRun(a) && IsRun(b) && Crosses(a, b))))
+            var run = All.Where(IsRun).ToList();
+            if (!KeyClash.Settle(chosen, run, named, Crosses, Spare, _gaveWay))
             {
-                foreach (var act in All.Where(IsRun))
+                _gaveWay.Clear();
+                foreach (var act in run)
                     chosen[act] = Entries[act].Default;
             }
             MakeWay(chosen);

@@ -22,6 +22,7 @@ public static class ClassicGui
         _root = root is not null && Directory.Exists(root) ? root : null;
         Bitmaps.Clear();
         Folders.Clear();
+        HudArt.Clear();
     }
 
     public static bool Available => _root is not null;
@@ -45,9 +46,15 @@ public static class ClassicGui
     }
 
 
-    private static string? Find(string relative)
+    /// <summary>The names of the files in a folder under <c>gui/</c>, in lower case, e.g. <c>fstpersn/machines</c>; none when it is missing.</summary>
+    public static IEnumerable<string> Names(string folder) => _root is null ? [] : Files(folder.ToLowerInvariant().Trim('/')).Keys;
+
+    private static string? Find(string relative) =>
+        Files(Path.GetDirectoryName(relative)?.Replace('\\', '/') ?? "").GetValueOrDefault(Path.GetFileName(relative));
+
+    // The files of a folder by their lower-case names, looked up once.
+    private static Dictionary<string, string> Files(string folder)
     {
-        var folder = Path.GetDirectoryName(relative)?.Replace('\\', '/') ?? "";
         if (!Folders.TryGetValue(folder, out var files))
         {
             files = [];
@@ -69,7 +76,7 @@ public static class ClassicGui
                     files[Path.GetFileName(file).ToLowerInvariant()] = file;
             Folders[folder] = files;
         }
-        return files.GetValueOrDefault(Path.GetFileName(relative));
+        return files;
     }
 
     public static void KeyOut(Image image, bool black)

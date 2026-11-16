@@ -8,8 +8,11 @@ namespace Machines.Game;
 /// The first-person weapon panels at the top left (MachGuiFirstPerson::displayWeapons): left, top and right
 /// weapon in that order, each dropping down in ten frames (gui/fstpersn/weapon/weap0..9) as first person begins,
 /// one after another, then showing its icon and how far it has recharged. A weapon not selected (Tab) folds back up.
+/// The bitmaps are drawn a texel to a screen pixel at a whole number of pixels to each of the original's (<see cref="HudArt"/>:
+/// the enlargements of tools/hud-sharp where made, else the bitmaps blown up by Scale2x).
 /// Where each weapon has its own trigger, the remake's own, a mark under each panel shows what fires it, and a place of
-/// a hero's chassis without a gun has its panel, empty.
+/// a hero's chassis without a gun has its panel, empty. A hero's battery, one gun that fires as often as it has copies, has
+/// one panel too: "×n" on its icon, the charge of the copy due next and a pip for each copy, lit while it is loaded.
 /// </summary>
 public partial class WeaponDisplay : Control
 {
@@ -39,6 +42,9 @@ public partial class WeaponDisplay : Control
 
     /// <summary>Whether the driver holds a trigger, which the game knows better than the system when the focus came and went.</summary>
     public Func<KeyMap.Act, bool> Held { get; set; } = KeyMap.Held;
+
+    /// <summary>Whether a held trigger waits for the gun to come round ("Fire waits for the gun"): it is drawn held, but dimmed.</summary>
+    public Func<KeyMap.Act, bool> Waiting { get; set; } = _ => false;
 
     /// <summary>Where the marks under the panels end, in pixels from the top; 0 without any.</summary>
     public float Bottom { get; private set; }
@@ -74,8 +80,9 @@ public partial class WeaponDisplay : Control
             var step = (float)delta / DropTime * DropFrames;
             _drop[mounting] = down ? Mathf.Min(DropFrames, drop + step) : Mathf.Max(0, drop - step);
         }
-        foreach (var (weapon, selected) in _weapons)
-            Drop(weapon.Mounting, selected);
+        // A battery's copies share their mounting's panel: it is down while any of them is selected.
+        foreach (var mounting in _weapons.Select(w => w.Weapon.Mounting).Distinct())
+            Drop(mounting, _weapons.Any(w => w.Weapon.Mounting == mounting && w.Selected));
         foreach (var place in _places ?? [])
             if (place.Weapon is null)
                 Drop(place.Mounting, true);
@@ -91,7 +98,8 @@ public partial class WeaponDisplay : Control
         Bottom = 0;
         foreach (var mounting in new[] { Mounting.Left, Mounting.Top, Mounting.Right })
         {
-            var weapon = _weapons.FirstOrDefault(w => w.Weapon.Mounting == mounting).Weapon;
+            var battery = _weapons.Where(w => w.Weapon.Mounting == mounting).Select(w => w.Weapon).ToList();
+            var weapon = battery.FirstOrDefault();
             var place = _places?.FirstOrDefault(p => p.Mounting == mounting);
             if (weapon is null && place is null)
                 continue;
@@ -108,12 +116,15 @@ public partial class WeaponDisplay : Control
                 }
                 else if (Icons.TryGetValue(weapon.Spec.TypeName, out var icon) && Bitmap(icon, scale) is { } picture)
                     DrawTexture(picture, at + new Vector2(8, 33) * scale);
+                // The copy due next is the one most charged.
                 if (weapon is not null && Bitmap("chrgey", scale) is { } charge)
                 {
-                    var width = charge.GetWidth() * weapon.ChargePercent / 100;
+                    var width = charge.GetWidth() * battery.Max(w => w.ChargePercent) / 100;
                     DrawTextureRectRegion(charge, new Rect2(at + new Vector2(9, 19) * scale, new Vector2(width, charge.GetHeight())),
                         new Rect2(0, 0, width, charge.GetHeight()));
                 }
+                if (battery.Count > 1)
+                    DrawBattery(battery, at, background.GetWidth(), scale);
             }
             else if (Bitmap($"weap{Math.Max(0, frame)}", scale) is { } dropping)
             {
@@ -127,6 +138,27 @@ public partial class WeaponDisplay : Control
         Area = new Rect2(start, end - start);
     }
 
+    /// <summary>A battery's marks on its panel: "×n" in the icon's top right corner, and between bar and icon a pip for each copy, lit while loaded.</summary>
+    private void DrawBattery(IReadOnlyList<WeaponMount> battery, Vector2 at, float panel, int scale)
+    {
+        var mark = Lang.T("×{0}", battery.Count);
+        var size = 9 * scale;
+        var width = MenuTheme.Font.GetStringSize(mark, HorizontalAlignment.Left, -1, size).X + 4 * scale;
+        var plate = new Rect2(at + new Vector2(77 * scale - width, 34 * scale), new Vector2(width, 11 * scale));
+        DrawRect(plate, new Color(MenuTheme.Bright, 0.92f));
+        DrawString(MenuTheme.Font, plate.Position + new Vector2(2 * scale, 9 * scale), mark, HorizontalAlignment.Left, -1, size, MenuTheme.OnLight);
+        var (wide, gap) = (6 * scale, 3 * scale);
+        var x = at.X + (panel - (battery.Count * wide + (battery.Count - 1) * gap)) / 2;
+        var loaded = battery.Count(w => w.ChargePercent >= 100);
+        for (var pip = 0; pip < battery.Count; pip++)
+        {
+            var box = new Rect2(x + pip * (wide + gap), at.Y + 28.5f * scale, wide, 3 * scale);
+            DrawRect(box, pip < loaded ? MenuTheme.Glow : new Color(0, 0, 0, 0.7f));
+            if (pip >= loaded)
+                DrawRect(box, new Color(MenuTheme.Glow, 0.5f), false, 1);
+        }
+    }
+
     /// <summary>What fires a place, side by side and centred on a point; it lights up while held.</summary>
     private void DrawTriggers(GunPlace place, Vector2 top, int scale)
     {
@@ -136,7 +168,7 @@ public partial class WeaponDisplay : Control
         var x = top.X - (place.Triggers.Sum(Wide) + gap * (place.Triggers.Count - 1)) / 2;
         foreach (var act in place.Triggers)
         {
-            var colour = place.Weapon is null ? MenuTheme.Dim : Held(act) ? Colors.White : MenuTheme.Glow;
+            var colour = place.Weapon is null ? MenuTheme.Dim : Held(act) ? Waiting(act) ? new Color(1, 1, 1, 0.4f) : Colors.White : MenuTheme.Glow;
             if (IsPlainButton(act))
                 DrawMouse(KeyMap.Button(act)!.Value, new Rect2(x, top.Y, 12 * scale, 17 * scale), colour, scale);
             else
@@ -186,21 +218,6 @@ public partial class WeaponDisplay : Control
         DrawString(font, at - new Vector2(font.GetStringSize(text, HorizontalAlignment.Left, -1, size).X * align, 0), text, HorizontalAlignment.Left, -1, size, colour);
     }
 
-    private Texture2D? Bitmap(string name, int scale)
-    {
-        if (_bitmaps.TryGetValue((name, scale), out var cached))
-            return cached;
-        Texture2D? texture = null;
-        if (ClassicGui.Bitmap($"fstpersn/weapon/{name}.bmp")?.GetImage() is { } image)
-        {
-            var (width, height) = (image.GetWidth() * scale, image.GetHeight() * scale);
-            for (var grown = 1; grown < scale; grown *= 2)
-                image = ClassicCursor.Scale2x(image);
-            if (image.GetWidth() != width)
-                image.Resize(width, height, Image.Interpolation.Lanczos);
-            texture = ImageTexture.CreateFromImage(image);
-        }
-        _bitmaps[(name, scale)] = texture;
-        return texture;
-    }
+    // The panel's art at the screen's scale: enlarged where tools/hud-sharp made it, else blown up by Scale2x.
+    private static Texture2D? Bitmap(string name, int scale) => HudArt.Get($"fstpersn/weapon/{name}.bmp", scale, HudArt.Fallback.Scale2x);
 }

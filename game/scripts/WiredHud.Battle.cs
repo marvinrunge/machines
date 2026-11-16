@@ -5,9 +5,9 @@ using Machines.Sim.Survival;
 namespace Machines.Game;
 
 // The screen of a battle, on the run's plates: the clock between the two teams at the top, each hero with its name, chassis,
-// tier, what is left of it and its lives, the capture of both pods under them, the ways to both pods, the abilities and the
-// thrusters in the foot, the opening's countdown, the wait for a new body and whom a player out of the fight looks on
-// through. Everything it says comes from BattleReadout. Battle is the remake's own addition.
+// tier, what is left of it and its lives, the capture of both pods under them, the ways to both pods, the abilities, the
+// thrusters and the chassis' special in the foot, the opening's countdown, the wait for a new body and whom a player out of
+// the fight looks on through. Everything it says comes from BattleReadout. Battle is the remake's own addition.
 public partial class WiredHud
 {
     // Sizes in pixels of a window 1080 high: a team's block, the clock between them, a hero's row, the team's heading, the
@@ -56,14 +56,16 @@ public partial class WiredHud
         if (dashReady && !_dashWasReady)
             _dashReadyAt = _time;
         _dashWasReady = dashReady;
+        FollowSpecial(now.SpecialView);
     }
 
     private void DrawBattle(BattleReadout now)
     {
         DrawDanger();
-        // Once the battle is over its banner says what came of it: no pod pointer or hero mark is drawn into it.
+        // Once the battle is over its banner says what came of it: no pod pointer, hero mark or located enemy is drawn into it.
         if (_game.World.Battle is not { Over: true })
         {
+            DrawLocated();
             DrawPodPointers(now);
             DrawHeroMarks();
         }
@@ -79,11 +81,11 @@ public partial class WiredHud
     }
 
     /// <summary>What a battle ended in, called out over the view.</summary>
-    public void BattleEnds(BattleOutcome outcome, BattleEnd reason) => Announce(BattleEndScreen.Head(outcome).ToUpperInvariant(), BattleEndScreen.Why(outcome, reason),
+    public void BattleEnds(BattleOutcome outcome, BattleEnd reason) => Announce(BattleEndScreen.Head(outcome).Caps(), BattleEndScreen.Why(outcome, reason),
         outcome switch { BattleOutcome.Won => MenuTheme.Glow, BattleOutcome.Lost => Danger, _ => Warning }, 5);
 
     /// <summary>A capture began: of the team's own pod, or of the enemy's by the team.</summary>
-    public void CaptureBegins(bool ours) => Announce(Lang.T(ours ? "Taking the enemy pod" : "Your pod is being taken").ToUpperInvariant(),
+    public void CaptureBegins(bool ours) => Announce(Lang.T(ours ? "Taking the enemy pod" : "Your pod is being taken").Caps(),
         Lang.T(ours ? "Stay in the circle: a hit costs your share" : "Drive them out of the circle or hit them"), ours ? MenuTheme.Glow : Danger, 2.6f);
 
     // ---- the plate at the top ---------------------------------------------------------------------
@@ -113,7 +115,7 @@ public partial class WiredHud
 
     private void DrawTeam(BattleTeamReadout team, Rect2 block, string title, Color accent)
     {
-        Say(new Vector2(block.Position.X + 2 * _u, block.Position.Y + 17 * _u), title.ToUpperInvariant(), 14, team.InTheFight ? accent : MenuTheme.Dim);
+        Say(new Vector2(block.Position.X + 2 * _u, block.Position.Y + 17 * _u), title.Caps(), 14, team.InTheFight ? accent : MenuTheme.Dim);
         for (var i = 0; i < team.Heroes.Count; i++)
             DrawHeroRow(team.Heroes[i], new Rect2(block.Position.X, block.Position.Y + (TeamHead + i * HeroRow) * _u, block.Size.X, HeroRow * _u));
     }
@@ -128,7 +130,7 @@ public partial class WiredHud
         var colour = HangarCreation.Colours.FirstOrDefault(c => c.Race == Game.Look(hero.Race)).Colour;
         DrawRect(new Rect2(row.Position + new Vector2(0, 4 * _u), new Vector2(5 * _u, row.Size.Y - 10 * _u)), new Color(colour, alpha));
         var nameColour = hero.You ? MenuTheme.Bright : MenuTheme.Text;
-        var name = Fit(hero.Name.ToUpperInvariant(), 17, 176);
+        var name = Fit(hero.Name.Caps(), 17, 176);
         var at = row.Position + new Vector2(13 * _u, 17 * _u);
         Say(at, name, 17, new Color(nameColour, alpha));
         if (hero.Out)
@@ -141,7 +143,7 @@ public partial class WiredHud
 
         var bar = new Rect2(row.Position + new Vector2(196 * _u, 6 * _u), new Vector2(row.Size.X - 198 * _u, 10 * _u));
         if (hero.Out)
-            Say(new Vector2(bar.End.X, bar.Position.Y + 10 * _u), Lang.T("Destroyed").ToUpperInvariant(), 13, new Color(Danger, 0.85f), 1);
+            Say(new Vector2(bar.End.X, bar.Position.Y + 10 * _u), Lang.T("Destroyed").Caps(), 13, new Color(Danger, 0.85f), 1);
         else if (hero.BackIn is { } back)
             Say(new Vector2(bar.End.X, bar.Position.Y + 10 * _u), Lang.T("Back in {0} s", Mathf.CeilToInt(back)), 14, Warning, 1);
         else
@@ -174,7 +176,7 @@ public partial class WiredHud
         var beat = last ? 1 - (float)(_time % 1) : 0;
         var colour = now.Outcome is not null ? MenuTheme.Dim : now.Seconds <= 30 && now.Opening is null ? Danger.Lerp(Colors.White, beat * 0.35f) : MenuTheme.Text;
         var seconds = Math.Max(0, now.Seconds);
-        Say(new Vector2(middle, box.Position.Y + (PlateTop + 18) * _u), Lang.T("Time").ToUpperInvariant(), 13, MenuTheme.Dim, 0.5f);
+        Say(new Vector2(middle, box.Position.Y + (PlateTop + 18) * _u), Lang.T("Time").Caps(), 13, MenuTheme.Dim, 0.5f);
         Say(new Vector2(middle, box.Position.Y + (PlateTop + 62) * _u), $"{seconds / 60}:{seconds % 60:00}", 44 + beat * 6, colour, 0.5f, outline: last ? 3 : 0);
         var share = Mathf.Clamp(seconds / (float)Math.Max(now.TimeLimit, 1), 0, 1);
         Thin(new Rect2(middle - (ClockWidth / 2 - 10) * _u, box.End.Y - 14 * _u, (ClockWidth - 20) * _u, 3 * _u), share, colour);
@@ -185,7 +187,7 @@ public partial class WiredHud
     {
         var beat = going ? (MathF.Sin((float)_time * 9) + 1) / 2 : 0;
         Plate(box, Plating, going ? colour.Lerp(Colors.White, beat * 0.4f) : MenuTheme.Edge, 8);
-        Say(box.Position + new Vector2(10, 17) * _u, title.ToUpperInvariant(), 13, going ? colour : MenuTheme.Dim);
+        Say(box.Position + new Vector2(10, 17) * _u, title.Caps(), 13, going ? colour : MenuTheme.Dim);
         Say(new Vector2(box.End.X - 10 * _u, box.Position.Y + 17 * _u), $"{Mathf.FloorToInt(progress)} %", 15, progress > 0 ? colour : MenuTheme.Dim, 1);
         var bar = new Rect2(box.Position + new Vector2(10, 22) * _u, new Vector2(box.Size.X - 20 * _u, 5 * _u));
         DrawRect(bar, MenuTheme.Well);
@@ -199,7 +201,7 @@ public partial class WiredHud
 
     /// <summary>
     /// A small mark over each hero in view, in its team's colour (the team-mates' with the name): in a close fight the heroes
-    /// of both teams look alike, and only the paint told them apart.
+    /// of both teams look alike, and only the paint told them apart. An enemy hidden in its shadow gets none.
     /// </summary>
     private void DrawHeroMarks()
     {
@@ -210,7 +212,7 @@ public partial class WiredHud
         var eye = world.HeroOf(Game.Player)?.Id ?? _game.WatchedHero;
         foreach (var race in run.Teams.SelectMany(t => t.Order()))
         {
-            if (world.HeroOf(race) is not { } hero || hero.Id == eye)
+            if (world.HeroOf(race) is not { } hero || hero.Id == eye || _game.InShadow(hero))
                 continue;
             var mate = run.TeamOf(race) == own;
             // An enemy only near by, where it is fought: the marks are not there to find it from afar.
@@ -261,14 +263,16 @@ public partial class WiredHud
             Prompt(new Vector2(Left + (_size.X - Left) / 2, _size.Y - (Rise + 84) * _u), refused, new Color(Danger.Lerp(Colors.White, 0.2f), Mathf.Min(alpha * 2, 1)), 20);
     }
 
-    /// <summary>The abilities and the thrusters, left of the radar.</summary>
+    /// <summary>The abilities, the thrusters and the chassis' special, left of the radar.</summary>
     private void DrawBattleFoot(BattleReadout now)
     {
         var blocks = new List<Block>();
         foreach (var ability in now.Abilities)
             blocks.Add(new Block(Foot(Rise), at => DrawAbility(ability, at)));
         if (now.Dash is { } dash)
-            blocks.Add(new Block(Foot(Rise), at => DrawDash(dash, at)));
+            blocks.Add(new Block(Foot(Rise), at => DrawDash(dash, at, DashName(now.SpecialView))));
+        if (OwnBlock(now.SpecialView) is { } special)
+            blocks.Add(new Block(Foot(SpecialWidth), at => DrawSpecial(special, at)));
         var (x, y) = (Left + 16 * _u, _size.Y - (Rise + 8 + (Driving ? 0 : PromptLine)) * _u);
         foreach (var block in blocks)
         {
@@ -286,7 +290,7 @@ public partial class WiredHud
         var box = new Rect2(middle - 300 * _u, _size.Y * 0.5f - 96 * _u, 600 * _u, 230 * _u);
         var beat = 1 - (float)(seconds % 1);
         Plate(box, new Color(0, 0, 0, 0.82f), Danger, 16);
-        Say(new Vector2(middle, box.Position.Y + 50 * _u), Lang.T("Body lost").ToUpperInvariant(), 36, Danger, 0.5f);
+        Say(new Vector2(middle, box.Position.Y + 50 * _u), Lang.T("Body lost").Caps(), 36, Danger, 0.5f);
         Say(new Vector2(middle, box.Position.Y + 136 * _u), Lang.T("Back in {0} s", Mathf.CeilToInt(seconds)), 64 + beat * 6, Colors.White, 0.5f);
         Say(new Vector2(middle, box.Position.Y + 190 * _u), Lang.T("The next body stands at the pod"), 22, MenuTheme.Text, 0.5f);
         var left = now.You.LivesLeft - 1;
@@ -306,7 +310,7 @@ public partial class WiredHud
         var title = enemy ? Lang.T("Your team is out – watching {0}", name)
             : now.Out ? Lang.T("Destroyed – watching {0}", name) : Lang.T("Watching {0}", name);
         var colour = now.Out ? Danger : MenuTheme.Glow;
-        Prompt(new Vector2(middle, y), title.ToUpperInvariant(), colour, 22);
+        Prompt(new Vector2(middle, y), title.Caps(), colour, 22);
         var more = _game.Watchable.Count > 1 ? enemy ? Lang.T("Tab: next hero") : Lang.T("Tab: next team-mate") : null;
         if (!now.Out && now.DownSeconds is { } back)
             more = Lang.T("Back in {0} s", Mathf.CeilToInt(back)) + (more is null ? "" : "   ·   " + more);
@@ -327,7 +331,7 @@ public partial class WiredHud
         var (width, top, bottom) = ((_size.X - Left) * 0.36f, y - 70 * _u, y + 150 * _u);
         DrawPolygon([new Vector2(middle - width, top), new Vector2(middle, top), new Vector2(middle, bottom), new Vector2(middle - width, bottom)], [clear, dark, dark, clear]);
         DrawPolygon([new Vector2(middle, top), new Vector2(middle + width, top), new Vector2(middle + width, bottom), new Vector2(middle, bottom)], [dark, clear, clear, dark]);
-        Say(new Vector2(middle, y - 30 * _u), Lang.T("The battle begins in").ToUpperInvariant(), 26, MenuTheme.Text, 0.5f, outline: 2);
+        Say(new Vector2(middle, y - 30 * _u), Lang.T("The battle begins in").Caps(), 26, MenuTheme.Text, 0.5f, outline: 2);
         Say(new Vector2(middle, y + 92 * _u), seconds.ToString(), 120 + beat * 14, seconds <= 3 ? Gold.Lerp(Colors.White, beat * 0.4f) : Colors.White, 0.5f, outline: 3);
         var goal = BattlePod.Goal(_game.World.Battle!.Options.Win);
         Say(new Vector2(middle, y + 136 * _u), goal, 22, MenuTheme.Glow, 0.5f, outline: 2);

@@ -35,7 +35,7 @@ public class WiredHeroTests
     }
 
     /// <summary>A run with its hangar open and a bank that does not get in the way.</summary>
-    private static GameWorld InHangar(WiredOptions? options = null, int bmu = 100000)
+    internal static GameWorld InHangar(WiredOptions? options = null, int bmu = 100000)
     {
         var world = NewRun(options);
         world.Races[Race.Red].Bmu = bmu;
@@ -53,7 +53,7 @@ public class WiredHeroTests
         return state.Items[^1];
     }
 
-    private static WiredItem Wear(GameWorld world, string id, WiredSlot slot)
+    internal static WiredItem Wear(GameWorld world, string id, WiredSlot slot)
     {
         var item = Buy(world, id);
         Assert.Null(Do(world, new WiredEquipCommand(Race.Red, item.Id, slot)));
@@ -61,7 +61,7 @@ public class WiredHeroTests
     }
 
     /// <summary>Puts the hero on any chassis, without the way there.</summary>
-    private static WiredItem Board(GameWorld world, string chassis)
+    internal static WiredItem Board(GameWorld world, string chassis)
     {
         var item = Red(world).Add(WiredKind.Chassis, chassis, 0);
         Assert.Null(Do(world, new WiredChassisCommand(Race.Red, item.Id)));
@@ -195,6 +195,10 @@ public class WiredHeroTests
         Assert.Contains("Too heavy for this chassis", HeroBuild.Resolve(Data, heavier).Warnings);
     }
 
+    /// <summary>
+    /// Single weapons, one on each slot, as before batteries: the heaviest such fill of any chassis, with the heaviest modules,
+    /// comes to the limit and no further. Batteries weigh more and are held to it (the test after this one).
+    /// </summary>
     [Fact]
     public void The_heaviest_fill_of_any_real_chassis_comes_to_exactly_what_the_hangar_allows()
     {
@@ -205,7 +209,61 @@ public class WiredHeroTests
         var limit = WiredCatalogue.Chassis.Where(c => Heaviest(c) >= WiredBalance.MostLoad).Select(c => c.Id);
 
         Assert.Equal(WiredBalance.MostLoad, WiredCatalogue.Chassis.Max(Heaviest));
-        Assert.Equal(["grunt3", "overseer2", "overseer3", "commander5", "boss2"], limit);
+        Assert.Equal(["grunt3", "overseer2", "overseer3", "commander5", "boss2", "widow6", "commander6", "spy3", "spy5", "phantom6"], limit);
+    }
+
+    /// <summary>
+    /// Every slot full of copies of its heaviest weapon: the barrels come to what the slots' sizes carry, each copy weighs
+    /// as a weapon, and the hangar refuses just those fills that weigh more than it allows.
+    /// </summary>
+    [Fact]
+    public void A_full_battery_on_every_slot_counts_its_barrels_and_is_refused_only_above_the_limit()
+    {
+        var state = WiredState.Create(Data, Race.Red, new WiredOptions(), out _);
+        var (barrels, allowed) = (new Dictionary<string, int>(), new List<string>());
+        foreach (var chassis in WiredCatalogue.Chassis)
+        {
+            var loadout = HeroLoadout.Bare(new WiredItem(100, WiredKind.Chassis, chassis.Id));
+            var (id, load) = (101, 0);
+            foreach (var slot in chassis.Slots.Where(s => s.Fixed is null))
+            {
+                var weapon = WiredCatalogue.Weapons.Where(w => !w.Single && WiredCatalogue.WhyNotFit(chassis, slot.Mounting, w) is null).MaxBy(w => w.Load)!;
+                for (var copy = 0; copy < WiredCatalogue.MostCopies(chassis, slot.Mounting); copy++)
+                {
+                    var item = new WiredItem(id++, WiredKind.Weapon, weapon.Id);
+                    Assert.Null(loadout.WhyNotAdd(item, WiredSlot.Weapon(slot.Mounting)));
+                    loadout = loadout.Adding(WiredSlot.Weapon(slot.Mounting), item);
+                    load += weapon.Load;
+                }
+                Assert.NotNull(loadout.WhyNotAdd(new WiredItem(id, WiredKind.Weapon, weapon.Id), WiredSlot.Weapon(slot.Mounting)));
+            }
+            var build = HeroBuild.Resolve(Data, loadout);
+            Assert.Equal(load, build.Load);
+            Assert.Equal(build.Weapons.Count(w => w.Item is not null), loadout.Worn.Count() - 1);
+            barrels[chassis.Id] = build.Weapons.Count(w => w.Item is not null);
+            var why = state.WhyNotWear(Data, loadout);
+            Assert.Equal(build.LoadShare > WiredBalance.MostLoad ? "too heavy for this chassis" : null, why);
+            if (why is null)
+                allowed.Add(chassis.Id);
+        }
+
+        string[][] byBarrels =
+        [
+            [],
+            ["grunt1", "grunt2", "boss1", "dozer1", "builder3", "spy3", "geo1", "geo3"],
+            ["overseer2", "behemoth4", "spy5"],
+            ["reaper2", "overseer3", "ballista3", "boss2", "titan6"],
+            ["grunt3", "reaper3", "knight3", "boss3", "phantom6"],
+            ["grunt4", "reaper4", "widow6", "commander4"],
+            ["knight4", "commander5", "ballista4", "gorilla5"],
+            ["grunt5", "reaper5"],
+            ["knight5", "commander6"],
+            ["ballista5"],
+        ];
+        Assert.Equal(byBarrels.SelectMany((ids, count) => ids.Select(id => (id, count))).OrderBy(p => p.id, StringComparer.Ordinal),
+            barrels.Select(p => (id: p.Key, count: p.Value)).OrderBy(p => p.id, StringComparer.Ordinal));
+        Assert.Equal(["grunt1", "grunt2", "reaper2", "overseer2", "overseer3", "knight3", "ballista3", "boss1", "grunt4", "boss3", "dozer1", "builder3",
+            "behemoth4", "titan6", "spy3", "spy5", "phantom6", "geo1", "geo3"], allowed);
     }
 
     [Fact]
@@ -340,6 +398,22 @@ public class WiredHeroTests
     }
 
     [Fact]
+    public void A_batterys_combo_names_its_mounting_for_every_copy_and_reads_back_copy_for_copy()
+    {
+        foreach (var gun in WiredCatalogue.Weapons.Where(w => !w.GliderOnly).Select(w => w.Id))
+        {
+            var loadout = Loadout("ballista5", (Left, gun, 1), (Right, gun, 1), (Top, "BOLTER", 1));
+            loadout = loadout.Adding(Left, new WiredItem(20, WiredKind.Weapon, gun)).Adding(Left, new WiredItem(21, WiredKind.Weapon, gun))
+                .Adding(Right, new WiredItem(22, WiredKind.Weapon, gun));
+            var build = HeroBuild.Resolve(Data, loadout);
+
+            Assert.Equal([.. Enumerable.Repeat((Mounting.Left, gun), 3), .. Enumerable.Repeat((Mounting.Right, gun), 2), (Mounting.Top, "BOLTER")],
+                WeaponCombos.Split(build.WeaponCombo!));
+            Assert.Equal(build.Weapons.Select(w => (w.Mounting, w.Spec.TypeName)), WeaponCombos.Split(build.WeaponCombo!));
+        }
+    }
+
+    [Fact]
     public void Dps_and_range_come_from_the_weapons_as_carried()
     {
         var one = HeroBuild.Resolve(Data, Loadout("grunt1", (Right, "BOLTER", 1)));
@@ -377,7 +451,7 @@ public class WiredHeroTests
         var world = InHangar();
         var state = Red(world);
         var sting = Buy(world, "WASP_LIGHT_STING");
-        Assert.Equal("that fits only the top slot of a glider", Do(world, new WiredEquipCommand(Race.Red, sting.Id, Right)));
+        Assert.Equal("that fits only the top slot of the Boss line", Do(world, new WiredEquipCommand(Race.Red, sting.Id, Right)));
 
         Board(world, "boss1");
         Assert.Null(Do(world, new WiredEquipCommand(Race.Red, sting.Id, Top)));
@@ -453,11 +527,17 @@ public class WiredHeroTests
     {
         var world = InHangar();
         var hero = Hero(world);
+        // On an upper body that a sighted driver has turned.
+        Board(world, "grunt2");
+        world.Issue(new DriveCommand(Race.Red, hero.Id, Driving: true, Yaw: hero.Facing + 1));
+        world.Step();
+        Assert.NotEqual(0, world.HeadOf(hero.Id));
         var aim = world.GunneryOf(hero);
         Assert.Null(Do(world, new MoveCommand(Race.Red, [hero.Id], hero.Position + new Vector2(15, 0))));
         for (var i = 0; i < 5; i++)
             world.Step();
         Assert.NotEqual(Order.Idle, hero.Order);
+        world.PlayerYaws[hero.Id] = 1;
         world.PlayerAims[hero.Id] = (Vector2.Zero, null);
         world.PlayerWeapons[hero.Id] = 3;
         world.PlayerHeads[hero.Id] = 1;
@@ -470,6 +550,8 @@ public class WiredHeroTests
         Assert.False(world.PlayerAims.ContainsKey(hero.Id));
         Assert.False(world.PlayerWeapons.ContainsKey(hero.Id));
         Assert.False(world.PlayerHeads.ContainsKey(hero.Id));
+        Assert.False(world.PlayerYaws.ContainsKey(hero.Id));
+        Assert.Equal(0, world.HeadOf(hero.Id));
         Assert.False(world.DriveInput.ContainsKey(hero.Id));
         Assert.NotSame(aim, world.GunneryOf(hero));
         Assert.False(world.Busy(hero));
@@ -529,10 +611,12 @@ public class WiredHeroTests
     [Fact]
     public void Every_chassis_resolves_against_the_real_data_on_the_machine_it_names()
     {
-        Assert.Equal(17, WiredCatalogue.Chassis.Count);
+        Assert.Equal(34, WiredCatalogue.Chassis.Count);
+        Assert.Contains(WiredCatalogue.Chassis, c => c.Type == "SPY_LOCATOR" && c.SubType is null);
         foreach (var chassis in WiredCatalogue.Chassis)
         {
-            var level = Data.Parm.Machine(chassis.TypeName).Level(chassis.Level);
+            // A hero wears the crab tuned (WiredMachines.HeroTunes); every other chassis as the data has it.
+            var level = WiredMachines.AsHero(chassis.TypeName, Data.Parm.Machine(chassis.TypeName).Level(chassis.Level));
             var build = HeroBuild.Resolve(Data, Loadout(chassis.Id));
 
             Assert.Equal(level.HitPoints * WiredBalance.HeroHitPoints, build.Stats.HitPoints);
@@ -576,8 +660,11 @@ public class WiredHeroTests
             .Concat(WiredCatalogue.Modules.Select(m => m.Id))
             .Concat(WiredCatalogue.Abilities.Select(a => a.Id))
             .Concat(WiredChips.All.Select(c => c.Id)).ToList();
-        Assert.Equal(ids.Count, ids.Distinct().Count());
+        var towers = WiredCatalogue.Towers.Select(t => t.Id).ToList();
+        Assert.Equal(ids.Count + towers.Count, ids.Concat(towers).Distinct().Count());
         Assert.All(ids, id => Assert.NotNull(WiredCatalogue.KindOf(id)));
+        Assert.All(WiredCatalogue.Towers, t => Assert.True(Data.Parm.Construction($"{WiredTower.Type} {t.SubType}").Level(t.Level).Cost > 0, t.Id));
+        Assert.All(towers, id => Assert.Equal(id, WiredCatalogue.FindTower(id)?.Id));
 
         Assert.Equal(12, WiredCatalogue.Modules.Count);
         Assert.Equal(6, WiredCatalogue.Abilities.Count);
@@ -600,7 +687,9 @@ public class WiredHeroTests
     [Fact]
     public void The_way_through_the_chassis_tree_reaches_every_chassis()
     {
-        var reached = new HashSet<string> { "grunt1" };
+        // From the roots: Grunt 1 and the crab need nothing.
+        Assert.Equal(["grunt1", "geo1"], WiredCatalogue.Roots.Select(c => c.Id));
+        var reached = WiredCatalogue.Roots.Select(c => c.Id).ToHashSet();
         for (var round = 0; round < WiredCatalogue.Chassis.Count; round++)
             reached.UnionWith(WiredCatalogue.Chassis.Where(c => c.Needs.Any(reached.Contains)).Select(c => c.Id));
 
@@ -1246,13 +1335,17 @@ public class WiredHeroTests
     }
 
     [Theory]
-    [InlineData(1, 3)]
-    [InlineData(4, 3)]
-    [InlineData(5, 4)]
-    [InlineData(10, 5)]
-    [InlineData(15, 6)]
-    [InlineData(40, 6)]
-    public void The_squad_grows_with_the_waves(int wave, int size) => Assert.Equal(size, WiredBalance.SquadLimit(wave));
+    [InlineData(1, 0, 0, 3)]
+    [InlineData(4, 0, 0, 3)]
+    [InlineData(5, 0, 0, 4)]
+    [InlineData(10, 0, 0, 5)]
+    [InlineData(15, 0, 0, 6)]
+    [InlineData(40, 0, 0, 6)]
+    // The Marshal's field comes on top of the largest squad, tactics or not.
+    [InlineData(20, 0, WiredBalance.FieldSquad, 8)]
+    [InlineData(20, 1, WiredBalance.FieldSquad, 8)]
+    public void The_squad_grows_with_the_waves(int wave, int extra, int chassis, int size) =>
+        Assert.Equal(size, WiredBalance.SquadLimit(wave, extra, chassis));
 
     [Fact]
     public void The_hero_in_squad_one_is_no_escort()
@@ -1440,7 +1533,7 @@ public class WiredHeroTests
     }
 
     /// <summary>A hero with twin guns of one kind, cold and ready to fire.</summary>
-    private static (GameWorld World, Machine Hero, WeaponMount Left, WeaponMount Right, Vector2 Aim) Twins(string weapon)
+    internal static (GameWorld World, Machine Hero, WeaponMount Left, WeaponMount Right, Vector2 Aim) Twins(string weapon)
     {
         var world = InHangar();
         Board(world, "grunt3");
@@ -2136,8 +2229,8 @@ public class WiredHeroTests
     [InlineData("grunt1", "BOLTER", null)]
     [InlineData("grunt1", "HEAVY_BOLTER1", "that needs a medium slot")]
     [InlineData("grunt1", "PLASMA_CANNON2", "that needs a heavy slot")]
-    [InlineData("grunt1", "WASP_LIGHT_STING", "that fits only the top slot of a glider")]
-    [InlineData("grunt1", "BEE_BOMB", "that fits only the top slot of a glider")]
+    [InlineData("grunt1", "WASP_LIGHT_STING", "that fits only the top slot of the Boss line")]
+    [InlineData("grunt1", "BEE_BOMB", "that fits only the top slot of the Boss line")]
     [InlineData("boss1", "WASP_LIGHT_STING", null)]
     public void A_weapon_with_no_slot_says_what_would_take_it(string chassis, string weapon, string? why) =>
         Assert.Equal(why, Loadout(chassis).WhyNoSlot(new WiredItem(1, WiredKind.Weapon, weapon)));

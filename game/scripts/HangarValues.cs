@@ -22,6 +22,8 @@ public partial class HangarValues : Control
         new("Repair", (b, _) => b.Stats.RepairRate, "0.0", "/s"),
         new("Speed", (b, _) => b.Stats.Speed, "0.0", " m/s"),
         new("Turn", (b, limit) => b.DrivenTurnRate(limit), "0", "°/s"),
+        // How fast the gun follows the view: the upper body's rate, or a hull-only chassis' sighted hull rate.
+        new("Gun turn", (b, _) => b.GunTurnRate, "0", "°/s"),
         new("Accuracy", (b, _) => b.Stats.Accuracy ?? 100, "0"),
         new("Scanner", (b, _) => b.Stats.ScannerRange, "0", " m"),
         new("Damage/s", (b, _) => b.DamagePerSecond, "0.0"),

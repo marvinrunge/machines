@@ -18,7 +18,7 @@ public partial class Game
 
     /// <summary>
     /// Plays a scene of a run through and prints its figures, with pictures in the folder: hud, boss, twins, night, ion, pickup,
-    /// down, intermission, refit, load, groundload, refused, triggers, squad, keys, leave, bay. The last five press what a player presses,
+    /// down, intermission, refit, load, groundload, refused, triggers, squad, keys, specials, towers, leave, bay, turret, turrethull. The last nine press what a player presses,
     /// through Input. The hero wears full gear and, unless the scene is about its death, does not fall. losepod, losebody, plainend,
     /// unlock and unlock20 end the run and leave the game open for its end screen, plainsave saves it half way and quits; several
     /// joined by + go with the runs one after the other.
@@ -63,9 +63,13 @@ public partial class Game
             "triggers" => SceneTriggers(folder, run),
             "squad" => SceneSquad(folder, run),
             "keys" => SceneKeys(folder, run),
+            "specials" => SceneSpecials(folder, run),
+            "towers" => SceneTowers(folder, run),
             "leave" => SceneLeave(folder, run),
             "bay" => SceneBay(folder, run),
             "refused" => SceneRefused(folder, run),
+            "turret" => SceneTurret(folder, run, hullOnly: false),
+            "turrethull" => SceneTurret(folder, run, hullOnly: true),
             "stray" => SceneStray(folder, run),
             "podhit" => ScenePodHit(folder, run),
             "losepod" => SceneLosePod(folder, run),
@@ -657,7 +661,281 @@ public partial class Game
         TellSquad("the target's end");
     }
 
-    /// <summary>The abilities, the dash and the hangar by their keys, with what each says where it cannot be done.</summary>
+    /// <summary>
+    /// The special of every chassis that has one, in first person: the hero changes to it at the pod, taps the special's key
+    /// (the dash's for Old Iron and the Hornet) and is pictured with its block in the foot; a crab, with a Bolter, pulses at
+    /// three foes standing before it, and a Harvester kills one beside it.
+    /// </summary>
+    private async Task SceneSpecials(string folder, WiredRun run)
+    {
+        var state = run.Heroes[Player];
+        run.Countdown = 100_000;
+        World.Races[Player].Bmu = 100000;
+        Task Wear(string chassis, string? weapon = null, Mounting mounting = Mounting.Top) => WearForScene(state, chassis, weapon, mounting);
+        Machine Place(float ahead, float aside, Race race, ResearchKey key) => PlaceForScene(ahead, aside, race, key);
+        // A spy of the waves: it shoots at nobody.
+        Machine Foe(float ahead, float aside) => Place(ahead, aside, Race.Blue, WiredDirector.Spy);
+
+        await Wear("ballista5");
+        await Tap(KeyMap.Act.Special);
+        await Seconds(0.5);
+        Snap(folder, "special-colossus-locking");
+        await Seconds(2.2);
+        Snap(folder, "special-colossus-anchored");
+        await Tap(KeyMap.Act.Special);
+        await Seconds(2.5);
+
+        // The Marshal calls a Sarge, a level of Wired's own, which the squad strip names.
+        await Wear("commander6");
+        state.EscortIds.Add(Place(8, 4, Player, new ResearchKey("AGGRESSOR", "GRUNT", 4, null)).Id);
+        await Seconds(0.5);
+        await Tap(KeyMap.Act.Special);
+        await Seconds(0.5);
+        Snap(folder, "special-marshal");
+
+        await Wear("spy3");
+        await Tap(KeyMap.Act.Special);
+        await Seconds(0.5);
+        Snap(folder, "special-spy");
+
+        // A shot gives the Phantom away: it is seen until it has been quiet for long enough.
+        await Wear("phantom6", "BOLTER", Mounting.Left);
+        await Tap(KeyMap.Act.Special);
+        Press(MouseButton.Left, true);
+        await Seconds(0.3);
+        Press(MouseButton.Left, false);
+        await Seconds(0.5);
+        Snap(folder, "special-phantom-seen");
+        await Seconds(3.5);
+        Snap(folder, "special-phantom-hidden");
+
+        await Wear("dozer1");
+        await Tap(KeyMap.Act.Special);
+        await Seconds(0.5);
+        Snap(folder, "special-dozer");
+
+        await Wear("widow6");
+        await Seconds(0.6);
+        Snap(folder, "special-widow-filling");
+        await Seconds(1.5);
+        Snap(folder, "special-widow-lurking");
+        // The lurk works by itself, and its key says so.
+        await Tap(KeyMap.Act.Special);
+        await Seconds(0.4);
+        Snap(folder, "special-widow-key");
+
+        await Wear("reaper5");
+        var harvester = World.HeroOf(Player)!;
+        harvester.Durability = harvester.Durability with { Armour = harvester.MaxArmour / 2 };
+        World.Damage(Foe(8, 0), 1_000_000, Player, harvester);
+        // The harvest happened between ticks: its event is shown before the next tick clears it.
+        ShowRunEvents();
+        await Seconds(0.3);
+        Snap(folder, "special-harvester");
+
+        await Wear("grunt5");
+        await Tap(KeyMap.Act.Dash);
+        await Seconds(0.5);
+        Snap(folder, "special-old-iron");
+        // The ram is the thrusters' key's: the special's key names it.
+        await Tap(KeyMap.Act.Special);
+        await Seconds(0.4);
+        Snap(folder, "special-old-iron-key");
+
+        await Wear("boss3");
+        await Tap(KeyMap.Act.Dash);
+        await Seconds(0.5);
+        Snap(folder, "special-hornet");
+
+        await Wear("geo1", "BOLTER");
+        var foes = new[] { Foe(22, 0), Foe(45, -12), Foe(70, 14) };
+        await Seconds(0.5);
+        // The edge of the view sweeps with the player's own pulse, for a third of a second once the world has sent it out.
+        var crab = World.HeroOf(Player)!.Id;
+        var special = KeyMap.Of(KeyMap.Act.Special);
+        Input.ParseInputEvent(new InputEventKey { Keycode = special, PhysicalKeycode = special, Pressed = true });
+        for (var wait = 0; wait < 50 && !_pulsedAt.ContainsKey(crab); wait++)
+            await Seconds(0.02);
+        await Seconds(0.1);
+        Snap(folder, "special-crab-sweep");
+        Input.ParseInputEvent(new InputEventKey { Keycode = special, PhysicalKeycode = special, Pressed = false });
+        await Seconds(0.5);
+        GD.Print($"scene: located [{string.Join(", ", foes.Select(f => $"{f.Id} {World.LocatedFor(f.Id):0.0} s"))}], aimed {_hud.Crosshair.Located}");
+        Snap(folder, "special-crab-located");
+        // A quarter of a second off the blink's half second: the other half of it.
+        await Seconds(1.25);
+        Snap(folder, "special-crab-blink");
+    }
+
+    /// <summary>The hero changes to a chassis at the pod through the hangar's commands, wearing at most one weapon, and is driven.</summary>
+    private async Task WearForScene(WiredState state, string chassis, string? weapon = null, Mounting mounting = Mounting.Top)
+    {
+        OpenHangar();
+        await Seconds(0.3);
+        foreach (var worn in state.Loadout.Weapons.OfType<WiredItem>().Concat(state.Loadout.Copies.SelectMany(c => c)).ToList())
+            await Do(new WiredUnequipCommand(Player, worn.Id));
+        await Do(new WiredChassisCommand(Player, state.Add(WiredKind.Chassis, chassis, 0).Id));
+        if (weapon is not null)
+            await Do(new WiredEquipCommand(Player, state.Add(WiredKind.Weapon, weapon, 0).Id, WiredSlot.Weapon(mounting)));
+        CloseHangar();
+        await Seconds(0.6);
+        if (_driven is null && World.HeroOf(Player) is { } hero)
+        {
+            Select([hero.Id]);
+            EnterFirstPerson();
+        }
+        await Seconds(1);
+        GD.Print($"scene: {chassis}: special {World.SpecialView(Player)}");
+    }
+
+    /// <summary>A machine where the hero looks: as far ahead as given (or a little further, on free ground) and as far to the side.</summary>
+    private Machine PlaceForScene(float ahead, float aside, Race race, ResearchKey key)
+    {
+        var hero = World.HeroOf(Player)!;
+        var (forward, side) = (new NVector2(MathF.Cos(hero.Facing), MathF.Sin(hero.Facing)), new NVector2(-MathF.Sin(hero.Facing), MathF.Cos(hero.Facing)));
+        var at = Enumerable.Range(0, 24).Select(k => hero.Position + forward * (ahead + k) + side * aside).FirstOrDefault(p => World.Nav.IsFree(p, crossesWater: false), hero.Position + forward * ahead);
+        return World.AddMachine(race, at, key.Type, key.SubType, key.HardwareLevel, key.WeaponCombo);
+    }
+
+    /// <summary>
+    /// A crab's pulse ring and a Marshal's escort called in from afar, pictured as they go out; then a Titan's towers in
+    /// first person, by the keys and the wheel: taken up away from the pod, the ghost where the sight meets the ground, the
+    /// strip at each choice, a Launcher 4 placed and built until it is ready, pulled down again, and a place refused with a
+    /// machine standing on it.
+    /// </summary>
+    private async Task SceneTowers(string folder, WiredRun run)
+    {
+        var state = run.Heroes[Player];
+        run.Countdown = 100_000;
+        World.Races[Player].Bmu = 100000;
+
+        // The crab's pulse runs out over the ground, seen from high above, and its ring plays for a second and a half.
+        await WearForScene(state, "geo1", "BOLTER");
+        var spy = PlaceForScene(30, 0, Race.Blue, WiredDirector.Spy);
+        if (World.HeroOf(Player) is { } far && _views.TryGetValue(far.Id, out var farView))
+        {
+            LeaveFirstPerson();
+            (_rig.Position, _rig.Pitch, _rig.Distance) = (farView.Position, 58, 300);
+            await Seconds(0.6);
+            Issue(new WiredSpecialCommand(Player));
+            await Seconds(0.4);
+            Snap(folder, "towers-crab-wave");
+            // Until the pulse is ready again the crab goes after the spy: it comes back to where it stood, facing as it did,
+            // so that the Titan later sets out the same way, away from the pod, and a spy stands before it again.
+            var (home, facing) = (far.Position, far.Facing);
+            await Seconds(20);
+            (far.Position, far.Facing) = (home, facing);
+            if (spy.IsDead || World.Find<Machine>(spy.Id) is null)
+                PlaceForScene(30, 0, Race.Blue, WiredDirector.Spy);
+            else
+                spy.Position = home + new System.Numerics.Vector2(MathF.Cos(facing), MathF.Sin(facing)) * 30;
+            await Seconds(0.5);
+            Select([far.Id]);
+            EnterFirstPerson();
+            await Seconds(1);
+        }
+        await Tap(KeyMap.Act.Special);
+        await Seconds(0.3);
+        LeaveFirstPerson();
+        if (World.HeroOf(Player) is { } crab && _views.TryGetValue(crab.Id, out var crabView))
+        {
+            (_rig.Position, _rig.Pitch, _rig.Distance) = (crabView.Position, 38, 70);
+            await Seconds(0.3);
+            GD.Print($"scene: crab pulsing {Pulsing(crab)}");
+            Snap(folder, "towers-crab-pulse");
+            await Seconds(1.2);
+            GD.Print($"scene: crab pulsing {Pulsing(crab)} after 1.8 s");
+        }
+
+        // The Marshal calls in an escort from far off: it fades out there and glows in beside the hero.
+        await WearForScene(state, "commander6");
+        var escort = PlaceForScene(60, 10, Player, new ResearchKey("AGGRESSOR", "GRUNT", 4, null));
+        state.EscortIds.Add(escort.Id);
+        LeaveFirstPerson();
+        await Seconds(0.6);
+        if (World.HeroOf(Player) is { } marshal && _views.TryGetValue(marshal.Id, out var marshalView))
+            (_rig.Position, _rig.Pitch, _rig.Distance) = ((marshalView.Position + ActorView.World(escort.Position)) / 2, 45, 120);
+        await Seconds(0.3);
+        Issue(new WiredSpecialCommand(Player));
+        await Seconds(0.3);
+        GD.Print($"scene: escort {escort.Id} at {escort.Position}");
+        Snap(folder, "towers-rally");
+        await Seconds(1);
+
+        await WearForScene(state, "titan6");
+        // Away from the pod's door, where towers may stand.
+        var forward = KeyMap.Of(KeyMap.Act.Forward);
+        Input.ParseInputEvent(new InputEventKey { Keycode = forward, PhysicalKeycode = forward, Pressed = true });
+        await Seconds(6);
+        Input.ParseInputEvent(new InputEventKey { Keycode = forward, PhysicalKeycode = forward, Pressed = false });
+        await Seconds(1);
+        _lookPitch = Mathf.DegToRad(-14);
+        void Report(string name)
+        {
+            var shown = Towers is { } t ? $"{t.Choices[t.Chosen].Tower?.Id ?? "scrap"} why {t.Why ?? "-"} target {t.Target} refund {t.Refund}" : "down";
+            var standing = string.Join(", ", World.TowersOf(Player).Select(c => $"{c.Id} {c.Spec.SubType} {c.Stats.HardwareLevel} {(c.Complete ? "complete" : $"{c.Built:0}/{c.Stats.Cost}")}"));
+            GD.Print($"scene: {name}: towers {shown}, stand {World.TowersOf(Player).Count} [{standing}], bank {World.Races[Player].Bmu}, firing {_driven is { } d && HeldWeapons(d) != 0}");
+        }
+        async Task Wheel(MouseButton button)
+        {
+            Press(button, true);
+            await Seconds(0.05);
+            Press(button, false);
+            await Seconds(0.3);
+        }
+        await Tap(KeyMap.Act.Special);
+        await Seconds(0.5);
+        Report("towers-turret1");
+        Snap(folder, "towers-turret1");
+        for (var step = 0; step < 5; step++)
+            await Wheel(MouseButton.WheelDown);
+        Report("towers-launcher4");
+        Snap(folder, "towers-launcher4");
+        // The trigger places it, and fires nothing.
+        Press(MouseButton.Left, true);
+        await Seconds(0.3);
+        Report("towers-pressed");
+        Press(MouseButton.Left, false);
+        await Seconds(1.5);
+        Report("towers-placed");
+        Snap(folder, "towers-placed");
+        for (var second = 0; second < 30 && !World.TowersOf(Player).All(c => c.Complete); second++)
+            await Seconds(1);
+        await Seconds(0.4);
+        Report("towers-ready");
+        Snap(folder, "towers-ready");
+        await Wheel(MouseButton.WheelDown);
+        await Seconds(0.3);
+        Report("towers-scrap");
+        Snap(folder, "towers-scrap");
+        Press(MouseButton.Left, true);
+        await Seconds(0.2);
+        Press(MouseButton.Left, false);
+        await Seconds(0.6);
+        Report("towers-scrapped");
+        Snap(folder, "towers-scrapped");
+        // Round to the first again, and a machine of the player's where it would stand.
+        await Wheel(MouseButton.WheelDown);
+        if (World.HeroOf(Player) is { } titan && Towers is not null)
+        {
+            var spot = _towerSpot;
+            World.AddMachine(Player, spot, "AGGRESSOR", "GRUNT", 1, "L_BOLTER");
+            // While the machine glows in; a refused ghost blinks, and it is pictured a few frames into a time it shows.
+            await Seconds(2);
+            for (var wait = 0; wait < 20 && Time.GetTicksMsec() / 250 % 2 == 0; wait++)
+                await Seconds(0.03);
+            await Seconds(0.08);
+            Report("towers-refused");
+            Snap(folder, "towers-refused");
+            GD.Print($"scene: titan at {titan.Position}, spot {spot}");
+        }
+        await Tap(Key.Escape);
+        await Seconds(0.4);
+        Report("towers-away");
+        Snap(folder, "towers-away");
+    }
+
+    /// <summary>The abilities, the dash, the special and the hangar by their keys, with what each says where it cannot be done.</summary>
     private async Task SceneKeys(string folder, WiredRun run)
     {
         var (hero, pod) = (World.HeroOf(Player)!, World.WiredPod(Player)!);
@@ -668,6 +946,10 @@ public partial class Game
         await Tap(KeyMap.Act.Dash);
         await Seconds(0.4);
         Snap(folder, "run-key-no-thrusters");
+        // The first chassis has no special of its own: its key says so.
+        await Tap(KeyMap.Act.Special);
+        await Seconds(0.4);
+        Snap(folder, "run-key-no-special");
         hero.Position = pod.EntranceInside ?? hero.Position;
         await Seconds(1);
         GD.Print($"scene: hero inside {hero.Inside?.ToString() ?? "no"}");
@@ -832,5 +1114,188 @@ public partial class Game
         Issue(new WiredDashCommand(Player));
         await Seconds(0.4);
         Snap(folder, "run-refused-down");
+    }
+
+    // Whether the turret scene logs the world's gun, and keeps its foes alive.
+    private bool _turretLogs;
+
+    /// <summary>
+    /// The gun following the view, in first person with the triggers held: a Harvester (Plasma Cannon 2, flying) and a Grunt 3
+    /// (Heavy Bolters, instant), or with <paramref name="hullOnly"/> a Colossus and a crab, whose hulls aim. Two foes stand
+    /// 40 m off (nearer if the guns reach less), 120° apart; the view rests on one until the gun is on it, then flicks onto the other, and pictures follow
+    /// the gun round; then it tracks the second as it moves, and lets go and presses again in the middle of a flick back.
+    /// The Harvester's end is shown again at night with the goggles on. With the classic layout one picture of the single
+    /// sight is all. Every tick logs the world's yaw, head, lag and whether the gun is on, every round where its mark lies
+    /// against the gun.
+    /// </summary>
+    private async Task SceneTurret(string folder, WiredRun run, bool hullOnly)
+    {
+        var state = run.Heroes[Player];
+        run.Countdown = 100_000;
+        World.Races[Player].Bmu = 100000;
+        Ticked += LogTurret;
+        var rigs = hullOnly
+            ? new[]
+            {
+                ("ballista5", "run-turrethull", new[] { (Mounting.Left, "HEAVY_BOLTER1"), (Mounting.Right, "HEAVY_BOLTER1") }, new[] { 0.2, 0.8, 2.0 }),
+                ("geo1", "run-turrethull-crab", new[] { (Mounting.Top, "BOLTER") }, new[] { 0.2, 0.8, 1.6 }),
+            }
+            : new[]
+            {
+                ("reaper5", "run-turret", new[] { (Mounting.Left, "PLASMA_CANNON2"), (Mounting.Right, "PLASMA_CANNON2") }, new[] { 0.05, 0.2, 0.4, 0.8 }),
+                ("grunt3", "run-turret-grunt3", new[] { (Mounting.Left, "HEAVY_BOLTER1"), (Mounting.Right, "HEAVY_BOLTER1") }, new[] { 0.05, 0.2, 0.4, 0.8 }),
+            };
+        foreach (var (chassis, name, weapons, snaps) in rigs)
+        {
+            await WearAllForScene(state, chassis, weapons);
+            if (World.HeroOf(Player) is not { } hero || _driven is null)
+            {
+                GD.PrintErr($"scene: turret: no hero on {chassis}");
+                continue;
+            }
+            // Out on the field, beyond the pod's reach, and back to the pod for the next chassis.
+            var home = hero.Position;
+            if (World.WiredPod(Player) is { } pod)
+            {
+                var away = hero.Position - pod.Position;
+                away = away.LengthSquared() < 1 ? NVector2.UnitX : NVector2.Normalize(away);
+                hero.Position = World.Nav.NearestFreePoint(pod.Position + away * (WiredBalance.PodReach + 30), crossesWater: false) ?? hero.Position;
+                hero.Facing = MathF.Atan2(away.Y, away.X);
+                _aimYaw = hero.Facing;
+                await Seconds(0.5);
+            }
+            // 40 m off, or nearer within the guns' reach.
+            var ahead = hero.Facing;
+            var metres = MathF.Min(40, 0.8f * hero.Weapons.Select(w => w.Spec.Range).DefaultIfEmpty(40).Max());
+            var first = TurretFoe(run.Enemy, hero, ahead, metres);
+            var second = TurretFoe(run.Enemy, hero, ahead + MathF.PI * 2 / 3, metres);
+            _turretLogs = true;
+            await Seconds(0.4);
+            SightOn(first);
+            await Seconds(2);
+            GD.Print($"scene: turret: {chassis} gun turn {state.Build(World.Data).GunTurnRate:0} degrees a second, spread {World.AimSpread(hero):0.00} degrees, input delay {_session.InputDelay}");
+            if (GameOptions.ClassicDriving)
+            {
+                Press(MouseButton.Left, true);
+                await Seconds(0.5);
+                Snap(folder, "run-turret-classic");
+                Press(MouseButton.Left, false);
+                return;
+            }
+            // The triggers held from before the flick; the gun is on the first foe.
+            Press(MouseButton.Left, true);
+            Press(MouseButton.Right, true);
+            await Seconds(1);
+            GD.Print($"scene: turret: flick at tick {World.Tick}");
+            SightOn(second);
+            var waited = 0.0;
+            for (var shot = 0; shot < snaps.Length; shot++)
+            {
+                await Seconds(snaps[shot] - waited);
+                waited = snaps[shot];
+                Snap(folder, $"{name}-{shot + 1}");
+                GD.Print($"scene: turret: {name}-{shot + 1} at tick {World.Tick}, gun sight {_hud.Crosshair.Aim} on {_gun.On} at {_hud.Crosshair.At}, dot {_dotSight}");
+            }
+            // The second foe walks sideways, and the view keeps on it.
+            var bearing = ahead + MathF.PI * 2 / 3;
+            var across = new NVector2(-MathF.Sin(bearing), MathF.Cos(bearing)) * 5;
+            for (var frame = 0; frame < 40; frame++)
+            {
+                second.Position += across * 0.05f;
+                await Seconds(0.05);
+                SightOn(second);
+            }
+            if (chassis == "reaper5")
+                Snap(folder, "run-turret-5");
+            GD.Print($"scene: turret: tracked, gun sight {_hud.Crosshair.Aim} on {_gun.On}, dot {_dotSight}");
+            Press(MouseButton.Left, false);
+            Press(MouseButton.Right, false);
+            await Seconds(0.6);
+            // A press in the middle of a flick back fires at once.
+            SightOn(first);
+            await Seconds(0.2);
+            GD.Print($"scene: turret: pressed mid-swing at tick {World.Tick}");
+            Press(MouseButton.Left, true);
+            await Seconds(0.8);
+            Press(MouseButton.Left, false);
+            if (chassis == "reaper5")
+            {
+                // The same at night, the goggles on.
+                World.ForcedDarkness = WiredBalance.NightDarkness;
+                await Seconds(7);
+                _screen.ToggleGoggles();
+                SightOn(second);
+                await Seconds(0.25);
+                Snap(folder, "run-turret-night");
+                await Seconds(1.2);
+                Snap(folder, "run-turret-night-on");
+                _screen.ToggleGoggles();
+                World.ForcedDarkness = null;
+                await Seconds(1);
+            }
+            _turretLogs = false;
+            first.HitPoints = 0;
+            second.HitPoints = 0;
+            hero.Position = home;
+            await Seconds(1);
+        }
+    }
+
+    /// <summary>Has the sight rest on a machine, as long as it is shown.</summary>
+    private void SightOn(Machine target)
+    {
+        if (_driven is not null && _views.ContainsKey(_driven.Id) && _views.ContainsKey(target.Id) && !target.IsDead)
+            Sight(target);
+    }
+
+    /// <summary>An enemy Gorilla that stands where it is put, fires nothing and is healed after every tick of the scene, so that it never falls.</summary>
+    private Machine TurretFoe(Race race, Machine hero, float bearing, float metres)
+    {
+        var way = new NVector2(MathF.Cos(bearing), MathF.Sin(bearing));
+        var at = Enumerable.Range(0, 20).Select(k => hero.Position + way * (metres + k)).FirstOrDefault(p => World.Nav.IsFree(p, crossesWater: false), hero.Position + way * metres);
+        var foe = World.AddMachine(race, at, "AGGRESSOR", "NINJA", 5, "L_MULTI_LAUNCHER7_T_GORILLA_PUNCH_R_MULTI_LAUNCHER7");
+        foe.Weapons.Clear();
+        foe.Order = new StandGroundOrder();
+        Ticked += () =>
+        {
+            if (!foe.IsDead && _turretLogs)
+                (foe.HitPoints, foe.Armour) = (foe.MaxHitPoints, foe.MaxArmour);
+        };
+        return foe;
+    }
+
+    /// <summary>The turret scene's log: the world's gun each tick, and each round's mark against the gun it left along.</summary>
+    private void LogTurret()
+    {
+        if (!_turretLogs || _driven is not { } machine || World.Find<Machine>(machine.Id) is null)
+            return;
+        var gun = World.GunHeading(machine);
+        var yaw = World.PlayerYaws.TryGetValue(machine.Id, out var held) ? held : float.NaN;
+        GD.Print($"turret: tick {World.Tick - 1} yaw {yaw:0.0000} head {World.HeadOf(machine.Id):0.0000} lambda {MathF.IEEERemainder(gun - yaw, 2 * MathF.PI):0.0000} on {World.OnSight(machine.Id)}");
+        foreach (var round in World.Events.Where(e => e.Kind == GameEventKind.Fired && e.Actor == machine.Id))
+        {
+            var mark = round.Mark is { } at ? MathF.Atan2(at.Y - machine.Position.Y, at.X - machine.Position.X) : float.NaN;
+            GD.Print($"turret: fired {round.Detail} tick {World.Tick - 1} mark bearing {mark:0.0000} gun {MathF.IEEERemainder(gun, 2 * MathF.PI):0.0000} off {MathF.IEEERemainder(mark - gun, 2 * MathF.PI):0.0000} weapons {World.PlayerWeapons.GetValueOrDefault(machine.Id)}");
+        }
+    }
+
+    /// <summary>The hero changes to a chassis at the pod with the weapons given and the goggles, and is driven.</summary>
+    private async Task WearAllForScene(WiredState state, string chassis, (Mounting Mounting, string Weapon)[] weapons)
+    {
+        await WearForScene(state, chassis);
+        OpenHangar();
+        await Seconds(0.3);
+        foreach (var (mounting, weapon) in weapons)
+            await Do(new WiredEquipCommand(Player, state.Add(WiredKind.Weapon, weapon, 0).Id, WiredSlot.Weapon(mounting)));
+        await Do(new WiredEquipCommand(Player, state.Add(WiredKind.Module, "nightvision", 0).Id, WiredSlot.Module(0)));
+        CloseHangar();
+        await Seconds(0.6);
+        if (_driven is null && World.HeroOf(Player) is { } hero)
+        {
+            Select([hero.Id]);
+            EnterFirstPerson();
+        }
+        await Seconds(1);
+        TellGuns();
     }
 }

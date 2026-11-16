@@ -31,7 +31,7 @@ public class WiredReplayTests
     ]);
 
     [Fact]
-    public void The_protocol_went_up_for_the_new_commands() => Assert.Equal(11, NetJson.Protocol);
+    public void The_protocol_went_up_for_the_new_commands() => Assert.Equal(12, NetJson.Protocol);
 
     [Fact]
     public void Every_wired_command_comes_through_the_wire_as_it_went_in()
@@ -41,8 +41,10 @@ public class WiredReplayTests
             new WiredHangarCommand(Race.Red, true),
             new WiredBuyCommand(Race.Red, "reaper2"),
             new WiredBuyCommand(Race.Red, "BOLTER", WiredSlot.Weapon(Mounting.Left)),
+            new WiredBuyCommand(Race.Red, "BOLTER", WiredSlot.Weapon(Mounting.Left), Add: true),
             new WiredSellCommand(Race.Red, 3),
             new WiredEquipCommand(Race.Red, 4, WiredSlot.Weapon(Mounting.Top)),
+            new WiredEquipCommand(Race.Red, 4, WiredSlot.Weapon(Mounting.Top), Add: true),
             new WiredUnequipCommand(Race.Red, 5),
             new WiredChassisCommand(Race.Red, 6),
             new WiredUpgradeCommand(Race.Red, 7),
@@ -56,6 +58,10 @@ public class WiredReplayTests
             new WiredSquadBuyCommand(Race.Red, new ResearchKey("AGGRESSOR", "GRUNT", 1, "R_BOLTER")),
             new WiredAbilityCommand(Race.Red, 1, new Vector2(120, 80.5f)),
             new WiredDashCommand(Race.Red, new Vector2(0, -1)),
+            new WiredSpecialCommand(Race.Red),
+            new WiredSpecialCommand(Race.Red, false),
+            new WiredTowerCommand(Race.Red, "turret2", new Vector2(310.25f, 92), 3),
+            new WiredScrapTowerCommand(Race.Red, 41),
         ];
 
         // Each sealed kind of command is in the list above.
@@ -69,19 +75,65 @@ public class WiredReplayTests
         }
     }
 
+    /// <summary>
+    /// Something on the wire as it was sent or saved before <paramref name="field"/> was added to it: that field left out.
+    /// A command goes as a <see cref="Command"/> (<c>Old&lt;Command&gt;</c>), as a recording holds it.
+    /// </summary>
+    internal static T? Old<T>(T value, string field)
+    {
+        var json = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(value, NetJson.Options))!.AsObject();
+        foreach (var key in json.Select(p => p.Key).Where(k => k.Equals(field, StringComparison.OrdinalIgnoreCase)).ToList())
+            json.Remove(key);
+        return JsonSerializer.Deserialize<T>(json.ToJsonString(), NetJson.Options);
+    }
+
     [Fact]
     public void What_was_recorded_before_a_buy_could_name_a_slot_still_loads()
     {
-        Assert.Equal(new WiredBuyCommand(Race.Red, "reaper2"), Old(new WiredBuyCommand(Race.Red, "reaper2"), "slot"));
-        Assert.Equal(new WiredChipChoiceCommand(Race.Red, 1), Old(new WiredChipChoiceCommand(Race.Red, 1), "socket"));
+        Assert.Equal(new WiredBuyCommand(Race.Red, "reaper2"), Old<Command>(new WiredBuyCommand(Race.Red, "reaper2"), "slot"));
+        Assert.Equal(new WiredChipChoiceCommand(Race.Red, 1), Old<Command>(new WiredChipChoiceCommand(Race.Red, 1), "socket"));
+    }
 
-        static Command? Old(Command command, string field)
-        {
-            var json = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(command, NetJson.Options))!.AsObject();
-            foreach (var key in json.Select(p => p.Key).Where(k => k.Equals(field, StringComparison.OrdinalIgnoreCase)).ToList())
-                json.Remove(key);
-            return JsonSerializer.Deserialize<Command>(json.ToJsonString(), NetJson.Options);
-        }
+    [Fact]
+    public void What_was_recorded_before_batteries_still_loads_as_a_put_of_one()
+    {
+        var left = WiredSlot.Weapon(Mounting.Left);
+        Assert.Equal(new WiredBuyCommand(Race.Red, "BOLTER", left), Old<Command>(new WiredBuyCommand(Race.Red, "BOLTER", left, Add: true), "add"));
+        Assert.Equal(new WiredEquipCommand(Race.Red, 4, left), Old<Command>(new WiredEquipCommand(Race.Red, 4, left, Add: true), "add"));
+        Assert.Equal(new WiredStartItem("BOLTER", left), Old(new WiredStartItem("BOLTER", left, 3), "count"));
+        Assert.Equal(new BattleItem("BOLTER", left, 2), Old(new BattleItem("BOLTER", left, 2, 3), "count"));
+    }
+
+    [Fact]
+    public void A_drive_with_a_yaw_comes_through_the_wire()
+    {
+        var drive = new DriveCommand(Race.Red, 12, true, 1, -1, new Vector2(120, 80.5f), 0b11, AimHeight: 3.25f, Yaw: -2.75f);
+        var json = JsonSerializer.Serialize<Command>(drive, NetJson.Options);
+
+        Assert.Equal(drive, JsonSerializer.Deserialize<Command>(json, NetJson.Options));
+    }
+
+    [Fact]
+    public void A_drive_recorded_without_a_yaw_decodes_with_none()
+    {
+        var drive = new DriveCommand(Race.Red, 12, true, 1, -1, new Vector2(120, 80.5f), 0b11, AimHeight: 3.25f);
+
+        Assert.Equal(drive, Old<Command>(drive with { Yaw = 1.5f }, "yaw"));
+        Assert.Null(((DriveCommand)Old<Command>(drive with { Yaw = 1.5f }, "yaw")!).Yaw);
+    }
+
+    [Fact]
+    public void A_battery_in_the_options_comes_through_the_wire()
+    {
+        var left = WiredSlot.Weapon(Mounting.Left);
+        var match = Run() with { Options = new MatchOptions { Wired = Options with { Chassis = "knight4", Items = [new WiredStartItem("BOLTER", left, 3), new WiredStartItem("plates", WiredSlot.Module(0))] } } };
+
+        var back = JsonSerializer.Deserialize<MatchInfo>(JsonSerializer.Serialize(match, NetJson.Options), NetJson.Options)!;
+
+        Assert.Equal(match.Options.Wired!.Items, back.Options.Wired!.Items);
+        Assert.Equal([3, 1], back.Options.Wired.Items.Select(i => i.Count));
+        var hero = new BattleHero(Race.Red, "Anna", "knight4", [new BattleItem("BOLTER", left, 2, 3)]);
+        Assert.Equal(hero.Items, JsonSerializer.Deserialize<BattleHero>(JsonSerializer.Serialize(hero, NetJson.Options), NetJson.Options)!.Items);
     }
 
     [Fact]

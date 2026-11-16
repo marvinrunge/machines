@@ -30,6 +30,9 @@ public sealed class Projectile(int id, WeaponSpec weapon, int shooter, Race race
     /// <summary>Which of the shooter's weapons fired it, and from which of its barrels (LAUNCH_OFFSET, in turn).</summary>
     public Mounting Mounting { get; } = mounting;
     public int Barrel { get; } = barrel;
+
+    /// <summary>Which copy of a Wired hero's battery on that mounting fired it: 0 for the first, and for every other weapon.</summary>
+    public int Copy { get; init; }
     public Race Race { get; } = race;
     public Vector2 Start { get; } = start;
 
@@ -47,6 +50,12 @@ public sealed class Projectile(int id, WeaponSpec weapon, int shooter, Race race
     /// that point's height (a view flies it through the point) rather than a guess at the middle of what is there.
     /// </summary>
     public bool Sighted { get; init; }
+
+    /// <summary>
+    /// Whether it left along a sighted driver's gun line while the gun was still off the line to where the driver looks,
+    /// so that it flies away from the sight; for the view only.
+    /// </summary>
+    public bool OffSight { get; init; }
 }
 
 public sealed partial class GameWorld
@@ -69,16 +78,17 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// Sends a round from the shooter's middle towards a point <paramref name="aimHeight"/> up; it flies on past it
-    /// until its range is spent.
+    /// until its range is spent. <paramref name="offSight"/> marks a round sent along a gun still turning to its driver's
+    /// view (<see cref="Projectile.OffSight"/>).
     /// </summary>
-    private void Launch(Actor shooter, WeaponMount weapon, Vector2 towards, float aimHeight, bool sighted = false)
+    private void Launch(Actor shooter, WeaponMount weapon, Vector2 towards, float aimHeight, bool sighted = false, bool offSight = false)
     {
         var offset = towards - shooter.Position;
         var direction = offset.LengthSquared() > 0.01f
             ? Vector2.Normalize(offset)
             : shooter is Machine machine ? new Vector2(DetMath.Cos(machine.Facing), DetMath.Sin(machine.Facing)) : Vector2.UnitX;
         _projectiles.Add(new Projectile(_nextProjectile++, weapon.Spec, shooter.Id, shooter.Race, shooter.Position, direction,
-            weapon.Mounting, weapon.Shots++, towards, AimPoint(shooter).Z, aimHeight) { Sighted = sighted });
+            weapon.Mounting, weapon.Shots++, towards, AimPoint(shooter).Z, aimHeight) { Sighted = sighted, OffSight = offSight, Copy = weapon.Copy });
     }
 
     private void UpdateProjectiles()

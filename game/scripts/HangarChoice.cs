@@ -1,10 +1,12 @@
 using Godot;
+using Machines.Sim.Survival;
 
 namespace Machines.Game;
 
 /// <summary>
 /// The question the hangar is there for, under the hero's values: the next chassis and the next weapon side by side, what
-/// each costs and brings, how far the bank goes for both, and what the good under the mouse leaves for the next wave.
+/// each costs and brings, how far the bank goes for both, and what the good under the mouse leaves for the next wave. The
+/// weapon may be one more copy of a worn one, which makes its gun fire more often; a chassis names its special first.
 /// Wired is the remake's own addition.
 /// </summary>
 public partial class HangarChoice : Control
@@ -14,7 +16,7 @@ public partial class HangarChoice : Control
     private const int FactSize = 14;
 
     private ShopChoice? _choice;
-    private int _wave, _bonus, _pointedPrice;
+    private int _wave, _bonus, _pointedPrice, _copies;
     private string? _pointed;
 
     public override void _Ready()
@@ -23,10 +25,13 @@ public partial class HangarChoice : Control
         CustomMinimumSize = new Vector2(0, Height);
     }
 
-    /// <summary>What there is to weigh up, and <paramref name="pointed"/> if the mouse is on a good of that price.</summary>
-    public void Show(ShopChoice choice, int wave, int bonus, string? pointed, int pointedPrice)
+    /// <summary>
+    /// What there is to weigh up, and <paramref name="pointed"/> if the mouse is on a good of that price; with a copy on
+    /// offer, <paramref name="copies"/> is what its battery has now.
+    /// </summary>
+    public void Show(ShopChoice choice, int wave, int bonus, string? pointed, int pointedPrice, int copies = 0)
     {
-        (_choice, _wave, _bonus, _pointed, _pointedPrice) = (choice, wave, bonus, pointed, pointedPrice);
+        (_choice, _wave, _bonus, _pointed, _pointedPrice, _copies) = (choice, wave, bonus, pointed, pointedPrice, copies);
         QueueRedraw();
     }
 
@@ -39,10 +44,13 @@ public partial class HangarChoice : Control
 
         var half = (Size.X - 12) / 2;
         Side(new Rect2(0, 34, half, 84), choice.Chassis is { } chassis ? HangarText.Name(chassis.Id) : Lang.T("Tree climbed"), choice.ChassisPrice,
-            choice.Chassis is null ? null : choice.ChassisAffordable, choice.Full, Lines(choice.Step, half - 12));
-        var weapon = choice.Weapon is { } id ? HangarText.Name(id) : Lang.T("No weapon on offer");
+            choice.Chassis is null ? null : choice.ChassisAffordable, choice.Full, Lines(choice.Step, choice.Chassis, half - 12));
+        // One more copy of a worn weapon is the same gun firing more often.
+        var copy = choice.CopyOnto is not null;
+        var weapon = choice.Weapon is { } id ? copy ? $"+1 {HangarText.Name(id)}" : HangarText.Name(id) : Lang.T("No weapon on offer");
         Side(new Rect2(half + 12, 34, half, 84), weapon, choice.WeaponPrice, choice.Weapon is null ? null : choice.WeaponAffordable, choice.Full,
-            choice.Weapon is null ? ("", "") : (Lang.T("{0} damage/s", (choice.WeaponGain >= 0 ? "+" : "") + Decimal(choice.WeaponGain)), Lang.T("in the best slot")));
+            choice.Weapon is null ? ("", "") : (Lang.T("{0} damage/s", (choice.WeaponGain >= 0 ? "+" : "") + Decimal(choice.WeaponGain)),
+                copy ? Lang.T("the gun fires {0}× as often", _copies + 1) : Lang.T("in the best slot")));
 
         Bank(new Rect2(0, 126, Size.X, 14), choice);
         var both = choice.LeftWithBoth >= 0
@@ -88,16 +96,17 @@ public partial class HangarChoice : Control
             yield return Lang.T("{0} power", Signed(step.Supplies));
     }
 
-    /// <summary>What a chassis brings, as far as two short lines hold it: the rest it shows when pointed at.</summary>
-    private static (string, string) Lines(ChassisGain? step, float width)
+    /// <summary>What a chassis brings, as far as two short lines hold it, its special first: the rest it shows when pointed at.</summary>
+    private static (string, string) Lines(ChassisGain? step, WiredChassis? chassis, float width)
     {
         if (step is null)
             return ("", "");
-        if (step.Same)
+        var special = chassis is not null && HangarText.SpecialName(chassis) is { } name ? Lang.T("Special: {0}", name) : null;
+        if (step.Same && special is null)
             return (Lang.T("No change"), "");
         var lines = new[] { "", "" };
         var at = 0;
-        foreach (var fact in Facts(step))
+        foreach (var fact in (special is null ? [] : new[] { special }).Concat(step.Same ? [] : Facts(step)))
         {
             var longer = $"{lines[at]} · {fact}";
             if (lines[at].Length == 0)

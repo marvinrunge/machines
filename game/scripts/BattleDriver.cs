@@ -13,8 +13,10 @@ namespace Machines.Game;
 /// a chassis of the tier asked for, researches or buys one thing the account can pay for and fills the empty slots with what
 /// it owns, all by clicks and drags; it sets the map, lives and victory on the foot bar, presses "Fight against bots" and
 /// plays the player's hero in first person with held keys and buttons. What to do a <see cref="BattleBot"/> of the player's
-/// race decides, its orders caught by its issue hook; the driver only carries them out with the keys and the mouse, as
-/// <see cref="WiredDriver"/> does with the Wired bench's bot, and never touches the world. At the end screen it checks the
+/// race decides, its orders caught by its issue hook; the driver carries them out with the keys and the mouse, as
+/// <see cref="WiredDriver"/> does with the Wired bench's bot, and never touches the world: the chassis' special it presses
+/// with its key (J), as a player does; only what the key would refuse or turn into tower mode it sends as the command
+/// through the game, and says which it did. At the end screen it checks the
 /// XP, free XP and credits shown against <see cref="BattleRewards.Of"/> and, back in the pod, the account against them.
 /// It prints "drive: ..." lines, "drive: tick N checksum X ..." every 100 ticks, and writes its pictures to the folder. Over a
 /// recording (MACHINES_REPLAY) it opens the recording from the menu and prints the same tick lines and nothing else, for
@@ -350,7 +352,8 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
         var run = world.Battle!;
         LetGo();
         _brain = new BattleBot(world, Game.Player, _orders.Add);
-        (_thinkAt, _target, _place, _dash, _ability, _stand) = (0, null, null, null, null, false);
+        (_thinkAt, _target, _place, _dash, _ability, _special, _stand) = (0, null, null, null, null, null, false);
+        _byCommand.Clear();
         _way = [];
         game.Ticked += () => Ticked(game);
         Say($"battle on {MatchRequest.Current.Scenario}: player {Game.Player}, tier {run.Options.Tier}, {run.Options.Lives} lives, {run.Options.Win}, " +
@@ -517,6 +520,14 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
             await UseAbility(game, hero, ability.Slot, ability.Aim);
             return;
         }
+        if (_special is { } on)
+        {
+            _special = null;
+            await UseSpecial(game, hero, on);
+            return;
+        }
+        if (_byCommand.Count > 0)
+            ByCommand(game);
         if (_target is { } id && world.Find<Machine>(id) is { IsDead: false } target)
             Attack(game, hero, target);
         else if (_place is { } place)
@@ -576,6 +587,12 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
                 case WiredAbilityCommand ability:
                     _ability = (ability.Slot, ability.Aim);
                     break;
+                case WiredSpecialCommand special:
+                    _special = special.On;
+                    break;
+                case WiredTowerCommand or WiredScrapTowerCommand:
+                    _byCommand.Add(order);
+                    break;
                 case DefConCommand:
                     // A hero in the hands answers to them, not to its DefCon.
                     break;
@@ -586,7 +603,7 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
         }
     }
 
-    /// <summary>Standing its ground: the sight on the nearest enemy hero in reach and the triggers held; false with none in reach.</summary>
+    /// <summary>Standing its ground: the view on the nearest enemy hero in reach (ahead of it for flying guns) and the triggers held as in an attack; false with none in reach.</summary>
     private bool StandFiring(Game game, Machine hero)
     {
         var world = game.World;
@@ -598,9 +615,12 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
             return false;
         Stop(hero);
         TurnHull(hero, Heading(hero.Position, foe.Position));
-        if (game.CentreOf(foe.Id) is { } aim)
-            LookAt(game, aim);
-        Fire(game, hero, NVector2.Distance(hero.Position, foe.Position), game.CrosshairSight == Crosshair.Sight.Enemy);
+        var distance = NVector2.Distance(hero.Position, foe.Position);
+        var leading = false;
+        if (game.CentreOf(foe.Id) is { } middle)
+            LookAt(game, Lead(game, hero, foe, middle, distance, out leading));
+        GunTimer(game, foe, true, leading);
+        Fire(game, hero, distance, Sighted(game, leading, true));
         return true;
     }
 

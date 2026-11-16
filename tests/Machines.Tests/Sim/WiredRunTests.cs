@@ -201,9 +201,15 @@ public class WiredRunTests
     [InlineData(20, "Primus", 3f, 1, 0)]
     [InlineData(25, "The Twins", 4f, 2, 0)]
     [InlineData(30, "The Queen", 8f, 1, 6)]
-    [InlineData(35, "The Crusher", 12.8f, 1, 0)]
-    [InlineData(65, "The Crusher", 20.48f, 1, 0)]
-    public void Bosses_come_every_fifth_wave_and_the_list_repeats_stronger(int wave, string name, float hitPoints, int count, int guards)
+    [InlineData(35, "The Reaper", 4.8f, 1, 2)]
+    [InlineData(40, "Old Iron", 4.8f, 1, 6)]
+    [InlineData(45, "The Wall", 4.8f, 1, 0)]
+    [InlineData(50, "The Queen", 12.8f, 1, 6)]
+    [InlineData(55, "The Marshal", 6.4f, 1, 4)]
+    [InlineData(60, "The Builder", 4.8f, 1, 0)]
+    [InlineData(65, "The Reaper", 7.68f, 1, 2)]
+    [InlineData(95, "The Reaper", 12.288f, 1, 2)]
+    public void Bosses_come_every_fifth_wave_and_the_second_lap_brings_its_own_stronger(int wave, string name, float hitPoints, int count, int guards)
     {
         var plan = WiredDirector.Plan(Data, wave, WiredDifficulty.Normal, new Random(1));
 
@@ -229,8 +235,9 @@ public class WiredRunTests
     {
         var world = NewRun();
         var keys = WiredCatalogue.Tiers.SelectMany(t => t.Combos.Select(c => new ResearchKey(t.Type, t.SubType, t.Level, c)))
-            .Concat(WiredDirector.Bosses.Select(b => b.Machine))
-            .Concat(WiredDirector.Bosses.Select(b => b.Guard).OfType<ResearchKey>());
+            .Concat(WiredDirector.Bosses.Concat(WiredDirector.SecondLap).Select(b => b.Machine))
+            .Concat(WiredDirector.Bosses.Concat(WiredDirector.SecondLap).Select(b => b.Guard).OfType<ResearchKey>())
+            .Concat([WiredDirector.Besieger, WiredDirector.BigBesieger, WiredDirector.ColossusBesieger]);
 
         foreach (var key in keys)
         {
@@ -1759,6 +1766,8 @@ public class WiredRunTests
     public void A_fight_the_escort_picks_while_the_hero_is_down_ends_with_the_new_body()
     {
         var world = NewRun();
+        // No wave comes: its machines would pick fights of their own with the escort and the hero.
+        world.Wired!.Countdown = 100_000;
         var escort = BoughtEscort(world);
         Run(world, 3);
         Kill(world, Hero(world), Race.Blue);

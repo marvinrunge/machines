@@ -309,6 +309,60 @@ public class WiredReadoutTests
     }
 
     [Fact]
+    public void An_escort_of_a_level_of_wireds_own_is_named_on_the_strip_and_one_of_the_originals_is_not()
+    {
+        var world = NewRun();
+        world.Step();
+        var hero = Hero(world);
+        var sarge = world.AddMachine(Race.Red, hero.Position + new Vector2(8, 0), "AGGRESSOR", "GRUNT", 4, null);
+        var grunt = world.AddMachine(Race.Red, hero.Position + new Vector2(-8, 0), "AGGRESSOR", "GRUNT", 1, null);
+        Red(world).EscortIds.Add(sarge.Id);
+        Red(world).EscortIds.Add(grunt.Id);
+
+        var squad = Now(world).Squad;
+
+        Assert.Equal(new[] { grunt.Id, sarge.Id }.Order(), squad.Select(e => e.Id));
+        Assert.Equal("Sarge", squad.Single(e => e.Id == sarge.Id).Name);
+        Assert.Null(squad.Single(e => e.Id == grunt.Id).Name);
+    }
+
+    [Theory]
+    [InlineData("ballista5", ChassisSpecial.Anchor)]
+    [InlineData("commander6", ChassisSpecial.Field)]
+    [InlineData("spy3", ChassisSpecial.Mines)]
+    [InlineData("phantom6", ChassisSpecial.Mines | ChassisSpecial.Shadow)]
+    [InlineData("dozer1", ChassisSpecial.Towers)]
+    [InlineData("geo1", ChassisSpecial.Locate)]
+    [InlineData("widow6", ChassisSpecial.Lurk)]
+    [InlineData("reaper5", ChassisSpecial.Harvest)]
+    [InlineData("grunt5", ChassisSpecial.Plough)]
+    [InlineData("boss3", ChassisSpecial.Afterburner)]
+    public void The_special_of_the_heros_chassis_is_shown_as_the_world_has_it(string chassis, ChassisSpecial special)
+    {
+        var world = MatchSetup.Create(Data, "m_desert", "m_desert",
+            new Dictionary<Race, Controller> { [Race.Red] = Controller.Player, [Race.Blue] = Controller.Ai }, 7,
+            new MatchOptions { Wired = new WiredOptions { Chassis = chassis } });
+        world.Step();
+        Assert.Equal(chassis, Red(world).Loadout.Chassis.Catalogue);
+
+        var shown = Now(world).SpecialView;
+
+        Assert.NotNull(shown);
+        Assert.Equal(world.SpecialView(Race.Red), shown);
+        Assert.Equal(special, shown!.Special);
+    }
+
+    [Fact]
+    public void A_chassis_without_a_special_shows_none()
+    {
+        var world = NewRun();
+        world.Step();
+
+        Assert.Equal("grunt1", Red(world).Loadout.Chassis.Catalogue);
+        Assert.Null(Now(world).SpecialView);
+    }
+
+    [Fact]
     public void The_chips_keep_their_order_and_a_lit_one_is_lit()
     {
         var world = AtWave(1);

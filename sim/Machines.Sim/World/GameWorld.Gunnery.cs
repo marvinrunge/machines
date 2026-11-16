@@ -53,7 +53,10 @@ public sealed partial class GameWorld
             && Vector2.DistanceSquared(machine.Position, commander.Position) <= 100 * 100)
             penalty -= 20;
         if (Wired is not null)
+        {
             penalty -= WiredChips.SquadAim(this, machine);
+            penalty -= FieldAim(machine);
+        }
         return penalty;
     }
 
@@ -130,7 +133,7 @@ public sealed partial class GameWorld
     }
 
     /// <summary>The share of a weapon's range it opens fire at, to allow for errors in working it out (MachLogCanAttack::rangeData).</summary>
-    private const float FiringRangeShare = 0.95f;
+    public const float FiringRangeShare = 0.95f;
 
     private readonly record struct WeaponAngles(float TanHorizontal, float Vertical, float MostUp, float MostDown);
 
@@ -165,6 +168,56 @@ public sealed partial class GameWorld
 
     /// <summary>Which way an actor's weapons point, in radians.</summary>
     private float Heading(Actor actor) => HullFacing(actor) + _heads.GetValueOrDefault(actor.Id);
+
+    // ---- the sighted driver's gun (the remake's addition, as World of Tanks aims) -------------------
+
+    /// <summary>Whether a machine is sighted: its driver says where it looks (<see cref="PlayerYaws"/>), and its gun turns there.</summary>
+    public bool HasYaw(int actor) => PlayerYaws.ContainsKey(actor);
+
+    /// <summary>Whether a sighted machine's gun stood on the line to where its driver looks, within <see cref="WiredBalance.GunPlay"/>, this tick.</summary>
+    public bool OnSight(int actor) => _onSight.Contains(actor);
+
+    /// <summary>Where an actor's head stands, radians anticlockwise from its hull: 0 for a machine without one.</summary>
+    public float HeadOf(int actor) => _heads.GetValueOrDefault(actor);
+
+    /// <summary>Which way a machine's gun points, radians anticlockwise: its hull and its upper body together.</summary>
+    public float GunHeading(Machine machine) => Heading(machine);
+
+    /// <summary>How far a sighted machine's gun lags behind where its driver looks, radians anticlockwise, ±π.</summary>
+    private float GunLag(Machine machine, float yaw) => MathF.IEEERemainder(Heading(machine) - yaw, 2 * MathF.PI);
+
+    /// <summary>One tick of a head's turn, in <see cref="TurnHead"/>'s order of operations, radians; 0 for a machine without an upper body.</summary>
+    public static float HeadStep(Machine machine) =>
+        machine.CanTurnUpperBody && machine.Stats.BodyTurnRate is > 0 and var rate ? rate * MathF.PI / 180 * Dt : 0;
+
+    /// <summary>
+    /// A head turned by at most <paramref name="step"/> from <paramref name="head"/> towards <paramref name="wanted"/>, the
+    /// short way round, and whether it got there: within a step it lands exactly on it.
+    /// </summary>
+    public static (float Head, bool Arrived) GunStep(float head, float wanted, float step)
+    {
+        var rest = MathF.IEEERemainder(wanted - head, 2 * MathF.PI);
+        return MathF.Abs(rest) <= step
+            ? (wanted, true)
+            : (MathF.IEEERemainder(head + (rest > 0 ? step : -step), 2 * MathF.PI), false);
+    }
+
+    /// <summary>
+    /// The aim turned about the shooter's middle by the gun's lag: where a round goes while the gun is off the sight. It
+    /// keeps the aim's distance, and at no lag it is the aim itself.
+    /// </summary>
+    public static Vector2 GunPoint(Vector2 from, float lag, Vector2 aim)
+    {
+        var (cos, sin) = (DetMath.Cos(lag), DetMath.Sin(lag));
+        var way = aim - from;
+        return from + new Vector2(way.X * cos - way.Y * sin, way.X * sin + way.Y * cos);
+    }
+
+    /// <summary>The weapons that are set down rather than fired along a barrel: the bee's bomb and the vortex.</summary>
+    private static bool Placed(WeaponSpec weapon) => weapon.TypeName is "VORTEX" or "BEE_BOMB";
+
+    // The tangent of the play a Wired hero fighting on its own has to its target, worked out once.
+    private static readonly float BotPlayTan = Tan(WiredBalance.BotPlay);
 
     /// <summary>
     /// Turns a head at its rate towards what it is firing at, or back to the hull with nothing to fire at: BODY_TURN_RATE
@@ -233,11 +286,15 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// MachLogCanAttack::rangeData: the line from the weapon as near the target as its DEVIATION_ANGLES let it from where the
-    /// weapon points must meet the target, or it has to turn. A tower with no head to turn fires all round.
+    /// weapon points must meet the target, or it has to turn. A tower with no head to turn fires all round. With
+    /// <paramref name="botPlay"/>, for a Wired hero fighting on its own, the line may turn only by
+    /// <see cref="WiredBalance.BotPlay"/>, so that it waits for its gun as a driver does; a weapon set down rather than
+    /// fired keeps the original's play.
     /// </summary>
-    private bool InArc(Actor shooter, WeaponMount weapon, Actor target)
+    private bool InArc(Actor shooter, WeaponMount weapon, Actor target, bool botPlay)
     {
         var angles = AnglesOf(weapon.Spec);
+        var tanHorizontal = botPlay && !Placed(weapon.Spec) ? BotPlayTan : angles.TanHorizontal;
         var (min, max) = BoxOf(target);
         var heading = Heading(shooter);
         var forward = new Vector2(DetMath.Cos(heading), DetMath.Sin(heading));
@@ -248,7 +305,7 @@ public sealed partial class GameWorld
             return WithinTilt(shooter, weapon, target);
         if (x <= 0.01f)
             return false;
-        var limit = x * angles.TanHorizontal;
+        var limit = x * tanHorizontal;
         var line = forward * x + left * Math.Clamp(Vector2.Dot(way, left), -limit, limit);
         return EntryInto(new Vector3(shooter.Position, 0), new Vector3(shooter.Position + line, 0), min with { Z = -1 }, max with { Z = 1 }) is not null
             && WithinTilt(shooter, weapon, target, x, forward);
@@ -339,7 +396,7 @@ public sealed partial class GameWorld
     // ---- where rounds end (MachLogLinearProjectile::genericCheckForDamage) ----------------------------
 
     /// <summary>How far a round's burst reaches and whether its damage falls off with the distance (each round's doBeDestroyed).</summary>
-    private static (float Radius, bool FallsOff) BurstOf(string weapon) => weapon switch
+    internal static (float Radius, bool FallsOff) BurstOf(string weapon) => weapon switch
     {
         "LARGE_MISSILE" => (20, true),
         _ when weapon.StartsWith("MULTI_LAUNCHER", StringComparison.Ordinal) => (10, true),

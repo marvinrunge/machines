@@ -100,7 +100,7 @@ public partial class HangarIcons : Node
         if (_current?.Picture($"{MachineKey}{_current._race()}/{Model(machine)}") is { } picture)
             item.DrawTextureRect(picture, box, false, tint);
         else
-            DrawLines(item, HangarGlyphs.All.GetValueOrDefault(machine.SubType ?? ""), MenuTheme.Glow, box, tint);
+            DrawLines(item, HangarGlyphs.All.GetValueOrDefault(machine.SubType ?? machine.Type), MenuTheme.Glow, box, tint);
         item.DrawRect(box, new Color(MenuTheme.Edge, tint.A * 0.8f), false, 1);
     }
 

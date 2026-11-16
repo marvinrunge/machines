@@ -10,7 +10,8 @@ namespace Machines.Game;
 
 // The driver in the field: every half second it asks the bot what to do and does it with the keys and the mouse, a target
 // in the sight with the triggers held, a place to go along a way round what stands in it. Squad orders, the dash on a long
-// way and giving up at a wave are its own; everything else is the bot's.
+// way and giving up at a wave are its own; everything else is the bot's. What the keys cannot give (the chassis' special
+// until its key is in the key map, a tower at an exact place) goes in as the command and is said in the log.
 public partial class WiredDriver
 {
     /// <summary>The bot is asked again every so many ticks, as often as the bench asks it.</summary>
@@ -39,6 +40,10 @@ public partial class WiredDriver
     private protected NVector2? _place;
     private protected (NVector2 Way, string Why)? _dash;
     private protected (int Slot, NVector2 Aim)? _ability;
+
+    // What the bot wants of the chassis' special key (on or off, for an anchor), and what goes in as the command it is.
+    private protected bool? _special;
+    private protected readonly List<Command> _byCommand = [];
     private bool _hangar;
     private KeyMap.Act? _squad;
 
@@ -72,7 +77,8 @@ public partial class WiredDriver
         var world = game.World;
         LetGo();
         _bot = new Bot(world, world.Data, Shopping, Game.Player, _orders.Add);
-        (_thinkAt, _target, _place, _dash, _ability, _hangar, _squad) = (0, null, null, null, null, false, null);
+        (_thinkAt, _target, _place, _dash, _ability, _special, _hangar, _squad) = (0, null, null, null, null, null, false, null);
+        _byCommand.Clear();
         _way = [];
         game.Ticked += () => Ticked(game);
         await Until(() => game.Driven is not null || world.Tick > 40, 30);
@@ -236,6 +242,14 @@ public partial class WiredDriver
             await UseAbility(game, hero, ability.Slot, ability.Aim);
             return;
         }
+        if (_special is { } on)
+        {
+            _special = null;
+            await UseSpecial(game, hero, on);
+            return;
+        }
+        if (_byCommand.Count > 0)
+            ByCommand(game);
         if (givingUp)
             Charge(game, hero, run);
         else if (_target is { } id && world.Find<Machine>(id) is { IsDead: false } target)
@@ -276,6 +290,12 @@ public partial class WiredDriver
                     break;
                 case WiredAbilityCommand ability:
                     _ability = (ability.Slot, ability.Aim);
+                    break;
+                case WiredSpecialCommand special:
+                    _special = special.On;
+                    break;
+                case WiredTowerCommand or WiredScrapTowerCommand:
+                    _byCommand.Add(order);
                     break;
                 case WiredHangarCommand { Open: true }:
                     _hangar = true;
@@ -484,15 +504,23 @@ public partial class WiredDriver
 
     // ---- fighting ---------------------------------------------------------------------------------
 
-    /// <summary>Closes in to a good distance, keeps the sight on the target and holds the triggers of what reaches it.</summary>
+    /// <summary>
+    /// Closes in to a good distance, keeps the view on the target (ahead of it for flying rounds) and holds the triggers of
+    /// what reaches it while the gun sight is on it, or while the gun is on a led view.
+    /// </summary>
     private protected void Attack(Game game, Machine hero, Machine target)
     {
         var guns = game.GunsOf(hero).Where(g => g.Weapon is not null).ToList();
         var reach = guns.Count > 0 ? guns.Max(g => g.Weapon!.Spec.Range) : 0;
         var distance = NVector2.Distance(hero.Position, target.Position);
-        var sighted = game.CrosshairSight == Crosshair.Sight.Enemy;
-        _blocked = sighted ? 0 : _blocked + GetProcessDeltaTime();
         var centre = game.CentreOf(target.Id);
+        var leading = false;
+        if (centre is { } middle)
+            centre = Lead(game, hero, target, middle, distance, out leading);
+        var sighted = Sighted(game, leading, distance <= reach);
+        // Only a view that rests on no enemy is a blocked way; a gun still turning is not.
+        _blocked = game.DotSight == Crosshair.Sight.Enemy ? 0 : _blocked + GetProcessDeltaTime();
+        GunTimer(game, target, distance <= reach, leading);
         if (distance > reach * 0.8f || _blocked > 2.5)
         {
             // On the way the sight stays on the target as long as the way leads at it.
@@ -514,6 +542,55 @@ public partial class WiredDriver
         {
             (_orderedAt, _lastAttackOrder) = (target.Id, Now);
             _squad = KeyMap.Act.SquadAttack;
+        }
+    }
+
+    /// <summary>
+    /// Whether the triggers are to be held: the gun sight rests on an enemy, or, while the view leads a target in reach, the
+    /// gun is on the view (a led view rests ahead of the target, so the arrived gun sight rests on nothing).
+    /// </summary>
+    private protected static bool Sighted(Game game, bool leading, bool inReach) =>
+        game.CrosshairSight == Crosshair.Sight.Enemy || leading && inReach && game.GunSightOn;
+
+    // Where machines stood at the last two ticks seen, for how fast they go.
+    private readonly Dictionary<int, (long Tick, NVector2 Now, NVector2 Before)> _seen = [];
+
+    /// <summary>
+    /// Where the view goes on a target: its middle, and for flying guns ahead of it along the way it goes (its move over the
+    /// last tick) by the time the slowest of the guns in reach takes to get there; no lead for guns that strike at once.
+    /// </summary>
+    private protected Vector3 Lead(Game game, Machine hero, Machine target, Vector3 middle, float distance, out bool leading)
+    {
+        var speed = game.GunsOf(hero).Select(g => g.Weapon).OfType<WeaponMount>()
+            .Where(w => GameWorld.Flies(w.Spec) && w.Spec.ProjectileSpeed > 0 && distance <= w.Spec.Range * 0.98f)
+            .Select(w => w.Spec.ProjectileSpeed).DefaultIfEmpty(0).Min();
+        var world = game.World;
+        var seen = _seen.GetValueOrDefault(target.Id);
+        if (seen.Tick != world.Tick)
+            _seen[target.Id] = seen = (world.Tick, target.Position, seen.Tick == world.Tick - 1 ? seen.Now : target.Position);
+        var ahead = (seen.Now - seen.Before) / GameWorld.Dt * (speed > 0 ? distance / speed : 0);
+        leading = ahead.LengthSquared() > 0.01f;
+        return middle + new Vector3(ahead.X, 0, ahead.Y);
+    }
+
+    // The target the gun is brought onto, when it first came within reach, and whether the time it took has been told.
+    private int _gunTarget = -1;
+    private double _gunReached = -1;
+    private bool _gunTold;
+
+    /// <summary>Logs per target how long the gun took to come on from the first frame the target was in reach.</summary>
+    private protected void GunTimer(Game game, Machine target, bool inReach, bool leading)
+    {
+        if (_gunTarget != target.Id)
+            (_gunTarget, _gunReached, _gunTold) = (target.Id, -1, false);
+        if (_gunTold)
+            return;
+        if (inReach && _gunReached < 0)
+            _gunReached = Now;
+        if (_gunReached >= 0 && game.GunSightOn && (leading || game.CrosshairSight == Crosshair.Sight.Enemy))
+        {
+            _gunTold = true;
+            Say($"gun on after {Now - _gunReached:0.00} s ({target.Id}, {(game.Driven?.CanTurnUpperBody == true ? "upper body" : "hull")})");
         }
     }
 
@@ -607,7 +684,7 @@ public partial class WiredDriver
         Queue("dash", "dash");
     }
 
-    /// <summary>An ability where the bot aims it: the sight on the machine there first, then its key.</summary>
+    /// <summary>An ability where the bot aims it: the view (the dot) on the machine there first, then its key.</summary>
     private protected async Task UseAbility(Game game, Machine hero, int slot, NVector2 aim)
     {
         var world = game.World;
@@ -622,7 +699,7 @@ public partial class WiredDriver
                 LookAt(game, point);
                 await Frames(1);
                 var to = point - game.Eye;
-                if (foe is not null && game.CrosshairSight == Crosshair.Sight.Enemy || MathF.Abs(Wrap(MathF.Atan2(to.Z, to.X) - game.AimYaw)) < 0.02f)
+                if (foe is not null && game.DotSight == Crosshair.Sight.Enemy || MathF.Abs(Wrap(MathF.Atan2(to.Z, to.X) - game.AimYaw)) < 0.02f)
                     break;
             }
         }
@@ -631,6 +708,59 @@ public partial class WiredDriver
         var act = slot == 0 ? KeyMap.Act.Ability1 : KeyMap.Act.Ability2;
         await Tap(KeyMap.Of(act));
         Say($"ability {slot + 1} {item?.Catalogue}: pressed {KeyMap.Name(act)}, aimed at {aim.X:0},{aim.Y:0}");
+    }
+
+    /// <summary>
+    /// The chassis' special, used when what the bot wants differs from what the chassis does: a Colossus' anchor only to
+    /// lock free tracks (<paramref name="on"/>) or to let go of locking or locked ones, every other special (a rally, a
+    /// mine, a pulse) each time it is asked for.
+    /// </summary>
+    private protected async Task UseSpecial(Game game, Machine hero, bool on)
+    {
+        var world = game.World;
+        var state = world.Wired!.Heroes[Game.Player];
+        var special = state.Build(world.Data).Chassis.Special;
+        var anchor = (special & ChassisSpecial.Anchor) != 0;
+        var phase = world.AnchorPhaseOf(hero);
+        if (anchor && (on ? phase != AnchorPhase.Free : phase is AnchorPhase.Free or AnchorPhase.Releasing))
+            return;
+        var what = anchor ? $"special {special} {(on ? "on" : "off")}" : $"special {special}";
+        if (world.WhyNoSpecial(state, on) is { } why)
+        {
+            Say($"{what}: not now ({why})");
+            return;
+        }
+        // The key sends these as a player's press does (Game.UseSpecial); anything else it would refuse or turn into
+        // tower mode, so that goes as the command itself.
+        if ((special & (ChassisSpecial.Anchor | ChassisSpecial.Field | ChassisSpecial.Mines | ChassisSpecial.Locate)) != 0)
+        {
+            await Tap(KeyMap.Of(KeyMap.Act.Special));
+            Say($"{what}: pressed {KeyMap.Name(KeyMap.Act.Special)}");
+            return;
+        }
+        game.Issue(new WiredSpecialCommand(Game.Player, on));
+        await Frames(2);
+        Say($"{what}: by command");
+    }
+
+    /// <summary>
+    /// Orders the keys cannot give exactly, sent as the commands they are: a tower set down at the very place the bot chose
+    /// (the tower mode's aim puts it where the sight rests, not on a point), and a tower scrapped. Each is said in the log,
+    /// "tower by command", so that none goes silently.
+    /// </summary>
+    private protected void ByCommand(Game game)
+    {
+        foreach (var command in _byCommand)
+        {
+            game.Issue(command);
+            Say(command switch
+            {
+                WiredTowerCommand tower => $"tower by command: {tower.Tower} at {tower.Position.X:0},{tower.Position.Y:0} turned {tower.Orientation}",
+                WiredScrapTowerCommand scrap => $"tower by command: scrap tower {scrap.Tower}",
+                _ => $"by command: {command}",
+            });
+        }
+        _byCommand.Clear();
     }
 
     /// <summary>An order to the squad by its key; with none to order there is nothing to press.</summary>

@@ -53,16 +53,26 @@ public partial class HangarScreen : MachineScreen
             """,
     });
 
-    /// <summary>A weapon firing on the turntable: where its burst has got to.</summary>
-    private sealed class Burst(Mounting mounting, WeaponSpec spec)
+    /// <summary>A weapon firing on the turntable: where its burst has got to. Each copy of a battery fires a burst of its own from the one gun.</summary>
+    private sealed class Burst(Mounting mounting, WeaponSpec spec, int copy, float wait)
     {
         public Mounting Mounting { get; } = mounting;
         public WeaponSpec Spec { get; } = spec;
-        public float Wait;
+        public int Copy { get; } = copy;
+        public float Wait = wait;
         public int Round;
     }
 
+    /// <summary>The longest a battery's copy waits after the one before it, so that the faster rhythm shows at once.</summary>
+    private const float MostTurn = 0.25f;
+
     private readonly List<Burst> _bursts = [];
+
+    /// <summary>The barrel each mounting's gun fires from next: a battery's copies go on round its barrels.</summary>
+    private readonly Dictionary<Mounting, int> _barrels = [];
+
+    /// <summary>For automated checks: the bursts still to come, each with its copy and when its next round goes.</summary>
+    public IEnumerable<string> Bursts => _bursts.Select(b => $"{b.Mounting} copy {b.Copy} round {b.Round} in {b.Wait:0.00} s");
     private readonly Dictionary<Rig, Aabb> _extents = [];
     private readonly Dictionary<Rig, HeroBand[]> _bands = [];
     private readonly Dictionary<Mounting, Vector3> _middles = [];
@@ -131,6 +141,7 @@ public partial class HangarScreen : MachineScreen
         Place(_view);
         Target = target;
         _bursts.Clear();
+        _barrels.Clear();
         _middles.Clear();
         _spots = [];
         if (_view is null)
@@ -308,11 +319,28 @@ public partial class HangarScreen : MachineScreen
 
     // ---- firing and sparks ------------------------------------------------------------------------
 
-    /// <summary>A weapon fires one burst, with its sound and recoil and what the game shows at its muzzle.</summary>
-    public void Fire(Mounting mounting, WeaponSpec spec)
+    /// <summary>
+    /// A weapon fires one burst, with its sound and recoil and what the game shows at its muzzle: of a battery
+    /// <paramref name="copy"/>, <paramref name="after"/> seconds from now, from the one gun on its mounting.
+    /// </summary>
+    public void Fire(Mounting mounting, WeaponSpec spec, int copy = 0, float after = 0)
     {
-        _bursts.RemoveAll(b => b.Mounting == mounting);
-        _bursts.Add(new Burst(mounting, spec));
+        _bursts.RemoveAll(b => b.Mounting == mounting && b.Copy == copy);
+        _bursts.Add(new Burst(mounting, spec, copy, after));
+    }
+
+    /// <summary>
+    /// A hero's weapons fire, a battery's gun once for each of its n copies in turn: copy k k × min(R / n, 0.25 s) after the
+    /// first, R its reload, so that the gun shows it fires n times as often without waiting a whole reload.
+    /// </summary>
+    public void Fire(IEnumerable<HeroWeapon> weapons)
+    {
+        foreach (var battery in weapons.GroupBy(w => w.Mounting))
+        {
+            var copies = battery.Count();
+            foreach (var weapon in battery)
+                Fire(weapon.Mounting, weapon.Spec, weapon.Copy, weapon.Copy * Math.Min(weapon.Spec.ReloadTime / copies, MostTurn));
+        }
     }
 
     private void FireBursts(float step)
@@ -337,7 +365,10 @@ public partial class HangarScreen : MachineScreen
         var (spec, weapon) = (burst.Spec, burst.Spec.TypeName);
         _view.Fire(burst.Mounting, spec);
         MenuSounds.Effect(SoundTable.FiringSound(weapon));
-        var muzzle = at * Launch(spec, burst.Round);
+        // The first copy starts at the first barrel; the others go on where the one before left off.
+        var barrel = burst is { Copy: 0, Round: 0 } ? 0 : _barrels.GetValueOrDefault(burst.Mounting);
+        _barrels[burst.Mounting] = barrel + 1;
+        var muzzle = at * Launch(spec, barrel);
         var along = at.Basis.X.Normalized();
         var mark = muzzle + along * Math.Clamp(spec.Range, 10, 40);
         if (weapon.StartsWith("ELECTRIC", StringComparison.Ordinal))

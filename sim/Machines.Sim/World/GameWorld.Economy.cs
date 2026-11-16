@@ -229,7 +229,10 @@ public sealed partial class GameWorld
         {
             if (machine.Armour >= machine.MaxArmour)
                 continue;
-            machine.ArmourRegen += machine.Stats.RepairRate * Dt;
+            var rate = machine.Stats.RepairRate;
+            // In a Wired match a Marshal nearby has its squad mend faster.
+            rate += Wired is not null ? machine.Stats.RepairRate * FieldRepair(machine) : 0;
+            machine.ArmourRegen += rate * Dt;
             var whole = (int)machine.ArmourRegen;
             if (whole > 0)
             {

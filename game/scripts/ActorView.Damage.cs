@@ -289,6 +289,18 @@ public partial class ActorView
         Visible = shown;
     }
 
+    /// <summary>
+    /// The machine is set down somewhere else at once (a Marshal's rally, a foe fetched nearer the pod): it fades out where
+    /// its view still stands, as into an APC, and glows in where the next sync puts it, which it jumps to rather than
+    /// gliding there across the field.
+    /// </summary>
+    public void TeleportAway()
+    {
+        TeleportOut();
+        _placed = false;
+        TeleportIn();
+    }
+
     // ---- scanning -------------------------------------------------------------------------------
 
     private MeshInstance3D? _scan;

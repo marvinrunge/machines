@@ -1,5 +1,6 @@
 using Machines.Game;
 using Machines.Import.Model;
+using Machines.Sim;
 using Machines.Sim.Combat;
 using Machines.Sim.Survival;
 
@@ -11,6 +12,10 @@ namespace Machines.Tests.Sim;
 /// </summary>
 public class BattleAccountTests
 {
+    private static readonly Lazy<GameData> DataLoader = new(() => GameData.Load(RepoPaths.OriginalDataFolder()));
+
+    private static GameData Data => DataLoader.Value;
+
     private static LocalBattleAccount NewAccount(Action<BattleProfile>? setup = null)
     {
         var profile = new WiredProfile();
@@ -44,8 +49,22 @@ public class BattleAccountTests
         Assert.Equal(0, account.FreeXp);
         Assert.Equal(0, account.Credits);
         Assert.Equal(0, account.Battles);
-        Assert.Equal([WiredBalance.StartChassis], account.Profile.Battle.Researched);
-        Assert.Equal(2, account.Profile.Battle.Owned.Count);
+        // The crab, the other start of the tree, comes with every account: researched and owned.
+        Assert.Equal(["geo1", "grunt1"], account.Profile.Battle.Researched);
+        Assert.True(account.Owned("geo1"));
+        Assert.Equal(3, account.Profile.Battle.Owned.Count);
+    }
+
+    [Fact]
+    public void A_new_account_whose_last_hero_sat_on_the_crab_with_nothing_on_gets_the_start_bolter_on_its_top()
+    {
+        var account = NewAccount(book => book.LastHero = new BattleHeroSheet { Chassis = "geo1" });
+
+        var draft = new BattleDraft(Data, account);
+
+        Assert.Equal("geo1", draft.Chassis);
+        Assert.Equal(new BattleItem(WiredBalance.StartWeapon, WiredSlot.Weapon(Mounting.Top), 1), Assert.Single(draft.Items));
+        Assert.Equal([WiredBalance.StartWeapon], draft.Loadout.Battery(Mounting.Top).Select(i => i.Catalogue));
     }
 
     [Fact]
@@ -275,6 +294,37 @@ public class BattleAccountTests
         }
         Assert.True(account.Save());
         Assert.True(new LocalBattleAccount(WiredProfile.Load(path)).Researched(WiredBalance.StartChassis));
+    });
+
+    [Fact]
+    public void A_kept_hero_from_before_batteries_has_one_copy_of_each_and_a_count_out_of_reach_is_mended() => InAFolder(path =>
+    {
+        // Reaper 3: medium slots left and right. A count of 0 is one copy, 9 what the slot carries, and a module, or a
+        // weapon kept without a slot, comes once whatever it says.
+        File.WriteAllText(path, """
+            { "Battle": { "LastHero": { "Chassis": "reaper3", "Items": [
+                { "Catalogue": "BOLTER", "Slot": { "Kind": "Weapon", "Index": 1 }, "Mk": 1 },
+                { "Catalogue": "FLAME_THROWER2", "Slot": { "Kind": "Weapon", "Index": 0 }, "Mk": 2, "Count": 0 },
+                { "Catalogue": "AUTO_CANNON", "Slot": { "Kind": "Weapon", "Index": 0 }, "Mk": 1, "Count": 9 },
+                { "Catalogue": "plates", "Slot": { "Kind": "Module", "Index": 0 }, "Count": 3 },
+                { "Catalogue": "AUTO_CANNON", "Slot": null, "Count": 2 } ] } } }
+            """);
+
+        var hero = new LocalBattleAccount(WiredProfile.Load(path)).LastHero!;
+
+        Assert.Equal([1, 1, 2, 1, 1], hero.Items.Select(i => i.Count));
+        Assert.Equal([1, 2, 1, 1, 1], hero.Items.Select(i => i.Mk));
+    });
+
+    [Fact]
+    public void A_kept_battery_comes_back_as_it_was_kept() => InAFolder(path =>
+    {
+        var account = new LocalBattleAccount(new WiredProfile(), path);
+        var right = WiredSlot.Weapon(Mounting.Right);
+        account.LastHero = new BattleHeroSheet { Chassis = "reaper3", Items = [new BattleItem("BOLTER", right, 1, 2)] };
+        Assert.True(account.Save());
+
+        Assert.Equal(new BattleItem("BOLTER", right, 1, 2), new LocalBattleAccount(WiredProfile.Load(path)).LastHero!.Items.Single());
     });
 
     [Fact]

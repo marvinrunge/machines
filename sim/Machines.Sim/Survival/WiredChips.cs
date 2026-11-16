@@ -251,20 +251,24 @@ public static class WiredChips
     public static int SquadExtra(WiredState state) => (int)MathF.Ceiling(state.ChipValue("tactics"));
 
     /// <summary>
-    /// The machine bought for a choice from the squad list: with Veterans the next hardware level of the type, or two when
-    /// linked, where the tiers have one, keeping the weapons if that level has a combo of them.
+    /// The machine bought for a choice from the squad list at a wave: with Veterans the next hardware level of the type, or
+    /// two when linked, where the tiers have one the hangar sells as an escort by that wave and its hardware costs no less,
+    /// keeping the weapons if that level has a combo of them. A Bee stays a Bee: the Hornet over it is cheaper.
     /// </summary>
-    public static ResearchKey Veteran(WiredState state, ResearchKey key)
+    public static ResearchKey Veteran(GameData data, WiredState state, ResearchKey key, int wave)
     {
         for (var steps = (int)MathF.Ceiling(state.ChipValue("veterans")); steps > 0; steps--)
         {
             var (at, combo) = (key, key.WeaponCombo);
-            if (WiredCatalogue.Tiers.FirstOrDefault(t => t.Type == at.Type && t.SubType == at.SubType && t.Level == at.HardwareLevel + 1) is not { } better)
+            if (WiredCatalogue.Tiers.FirstOrDefault(t => t.Type == at.Type && t.SubType == at.SubType && t.Level == at.HardwareLevel + 1) is not { } better
+                || better.EscortFrom > wave || HardwareCost(data, better.TypeName, better.Level) < HardwareCost(data, at.TypeName, at.HardwareLevel))
                 break;
             key = at with { HardwareLevel = better.Level, WeaponCombo = better.Combos.FirstOrDefault(c => SameWeapons(c, combo)) ?? better.Combos[0] };
         }
         return key;
     }
+
+    private static int HardwareCost(GameData data, string typeName, int level) => data.Parm.Machine(typeName).Level(level).Cost;
 
     private static bool SameWeapons(string combo, string? other) => other is not null
         && WeaponCombos.Split(combo).Select(w => w.Weapon).Order().SequenceEqual(WeaponCombos.Split(other).Select(w => w.Weapon).Order());

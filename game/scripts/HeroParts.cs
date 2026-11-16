@@ -38,7 +38,33 @@ public static class HeroDonors
         ["boss1"] = "ADMINISTRATOR_1_BOSS_T_WASP_LIGHT_STING",
         ["boss2"] = "ADMINISTRATOR_2_BOSS_T_BEE_BOMB",
         ["gorilla5"] = "AGGRESSOR_5_NINJA_L_MULTI_LAUNCHER7_T_GORILLA_PUNCH_R_MULTI_LAUNCHER7",
+        // Wired's own, from classic/wired (tools/wired-models): only the classic look has them, the others show it too.
+        ["grunt4"] = "AGGRESSOR_4_GRUNT_LR_HEAVY_BOLTER1_X2",
+        ["grunt5"] = "AGGRESSOR_5_GRUNT_LR_HEAVY_BOLTER1_X2",
+        ["reaper4"] = "AGGRESSOR_4_ASSASSIN_LR_PLASMA_RIFLE_X2",
+        ["reaper5"] = "AGGRESSOR_5_ASSASSIN_LR_PLASMA_RIFLE_X2",
+        ["widow6"] = "AGGRESSOR_6_ASSASSIN_LR_PLASMA_RIFLE_X2",
+        ["ballista5"] = "AGGRESSOR_5_BALLISTA_LRT_MULTI_LAUNCHER2_X3",
+        ["boss3"] = "ADMINISTRATOR_3_BOSS_T_WASP_LIGHT_STING",
+        ["commander6"] = "ADMINISTRATOR_6_COMMANDER_LR_PULSE_CANNON_X2",
+        // The constructors and spies: the original's own with weapon mounts (tools/wired-models), and Titan and Phantom.
+        ["dozer1"] = "CONSTRUCTOR_1_DOZER_WIRED",
+        ["builder3"] = "CONSTRUCTOR_3_BUILDER_WIRED",
+        ["behemoth4"] = "CONSTRUCTOR_4_BEHEMOTH_WIRED",
+        ["titan6"] = "CONSTRUCTOR_6_BEHEMOTH",
+        ["spy3"] = "SPY_LOCATOR_3_WIRED",
+        ["spy5"] = "SPY_LOCATOR_5_WIRED",
+        ["phantom6"] = "SPY_LOCATOR_6",
+        // The locators, crab and glider: the original's Geo Locator 1 and 3 with a top mount each (tools/wired-models).
+        ["geo1"] = "GEO_LOCATOR_1_WIRED",
+        ["geo3"] = "GEO_LOCATOR_3_WIRED",
     };
+
+    /// <summary>The chassis of the catalogue a machine of Wired's own is, by its type and level; null for the original's.</summary>
+    public static string? WiredChassis(string type, string? subType, int level) =>
+        Machines.Sim.Survival.WiredMachines.IsWired(subType is null ? type : $"{type} {subType}", level)
+            ? Machines.Sim.Survival.WiredCatalogue.Chassis.FirstOrDefault(c => c.Type == type && c.SubType == subType && c.Level == level)?.Id
+            : null;
 
     private const Mounting L = Mounting.Left, R = Mounting.Right, T = Mounting.Top;
 
@@ -82,8 +108,11 @@ public static class HeroDonors
     // TYPE_LEVEL_SUBTYPE, the part of a model's name before its weapons.
     private static string Machine(string model) => string.Join('_', model.Split('_').Take(3));
 
-    /// <summary>Whether a chassis' mounts lie inside its body: the Ballista 4 sinks its great launchers into its dome, anything smaller would vanish.</summary>
-    public static bool Sinks(string chassis) => chassis == "ballista4";
+    /// <summary>
+    /// Whether a chassis' mounts lie inside its body: the Ballista 4 sinks its great launchers into its dome, anything smaller
+    /// would vanish; the Titan's launcher stands in its ring, and a launcher on a stem would stand over the ring's top.
+    /// </summary>
+    public static bool Sinks(string chassis) => chassis is "ballista4" or "titan6";
 
     /// <summary>Whether a chassis' mount hangs under its body: the Bee's holds a bomb, anything else rides on its back, where it shows.</summary>
     public static bool Rides(string chassis) => chassis == "boss2";
@@ -94,6 +123,24 @@ public static class HeroDonors
     /// one on the right too, the others a small cone at the antenna's foot.
     /// </summary>
     public static (float Start, float Top)? Shoulder(string chassis) => chassis == "reaper2" ? (0.7f, 1.25f) : null;
+
+    /// <summary>
+    /// The weapon a hero shows on each mounting, by <see cref="Mounting"/>: left, right, top, null for an empty slot. A
+    /// battery shows its weapon once, exactly as a single one of it stands on that slot: its copies are one gun that fires
+    /// as many times as often, so the model never knows of them.
+    /// </summary>
+    public static string?[] Shown(Machines.Sim.Survival.HeroLoadout loadout) => loadout.Weapons.Select(w => w?.Catalogue).ToArray();
+
+    /// <summary>
+    /// What a hero wears as its rig and its picture are kept by: its race, its chassis and the weapon shown on each
+    /// mounting, left, right, top. A hero with batteries is kept as its twin with single weapons, the one rig for both.
+    /// </summary>
+    public static string Worn(Machines.Import.Model.Race race, string chassis, IReadOnlyList<string?> weapons) =>
+        $"{race}/{chassis}/{string.Join('/', weapons)}";
+
+    /// <inheritdoc cref="Worn(Machines.Import.Model.Race, string, IReadOnlyList{string?})"/>
+    public static string Worn(Machines.Import.Model.Race race, Machines.Sim.Survival.HeroLoadout loadout) =>
+        Worn(race, loadout.Chassis.Catalogue, Shown(loadout));
 
     /// <summary>Whether a weapon loses its HD model's round foot here: it was made for its own machine's roof, and the other looks have none.</summary>
     public static bool Footless(string chassis, HeroWorn worn) =>
@@ -109,6 +156,30 @@ public static class HeroDonors
         ("knight4" or "knight5" or "commander5", "MULTI_LAUNCHER2") => 0.6f,
         ("commander4", "MULTI_LAUNCHER2") => 0.5f,
         ("ballista3", "FLAME_THROWER2") => 0.75f,
+        // Wired's own: the Colossus' sides are tall enough for a bigger tank to lean on, the Marshal's crown leaves less room.
+        ("ballista5", "FLAME_THROWER2") => 1.4f,
+        ("commander6", "FLAME_THROWER2") => 0.9f,
+        // The Spy 3's head is short and pointed: a long light weapon on its top comes smaller, as far as it takes to stand on
+        // its mount over the head's right half (clear of the antenna) in every look rather than hang off the machine to the
+        // front and back or step aside.
+        ("spy3", "AUTO_CANNON") => 0.85f,
+        ("spy3", "ELECTRIC_CHARGE") => 0.65f,
+        ("spy3", "PLASMA_RIFLE") => 0.6f,
+        ("spy3", "PULSE_RIFLE") => 0.55f,
+        ("spy3", "FLAME_THROWER2") => 0.4f,
+        // The crab's head is small and crowded: its mount on the back half of the roof (tools/wired-models) lies between a
+        // tall antenna rod behind, two short ones and a bump on the face's side. A light weapon longer or wider than the
+        // Bolter comes smaller, as far as it takes to stand on the roof in every look without one of them standing up
+        // through it; the flame thrower's tank leans over the back.
+        ("geo1", "AUTO_CANNON") => 0.8f,
+        ("geo1", "ELECTRIC_CHARGE") => 0.8f,
+        ("geo1", "PLASMA_RIFLE") => 0.7f,
+        ("geo1", "PULSE_RIFLE") => 0.6f,
+        ("geo1", "FLAME_THROWER2") => 0.45f,
+        // The glider's egg holds the flame thrower's tank only at this size: larger, it hung off the side. The Pulse Rifle at
+        // full size reached back over the egg into its tail flap, a sheet on the centre line behind it.
+        ("geo3", "FLAME_THROWER2") => 0.6f,
+        ("geo3", "PULSE_RIFLE") => 0.9f,
         _ => 1,
     };
 

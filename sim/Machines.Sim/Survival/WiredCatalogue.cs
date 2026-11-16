@@ -15,16 +15,71 @@ public enum SlotSize
 public sealed record ChassisSlot(Mounting Mounting, SlotSize Size, string? Fixed = null);
 
 /// <summary>
+/// What a chassis can do besides carrying weapons, Wired's own. The body's (<see cref="WiredMachines.BodySpecials"/>:
+/// plough, harvest, lurk, anchor) belong to the machine type and level and go for every machine of it in a Wired match;
+/// the others are the hero's, from the chassis it wears.
+/// </summary>
+[Flags]
+public enum ChassisSpecial
+{
+    None = 0,
+
+    /// <summary>Old Iron: hits from the front cost less, and its dash rams.</summary>
+    Plough = 1,
+
+    /// <summary>Harvester: a kill near it gives armour back and brings in the wrecks there.</summary>
+    Harvest = 2,
+
+    /// <summary>Widow: standing still, its first shot flies further and hurts more.</summary>
+    Lurk = 4,
+
+    /// <summary>Colossus: it anchors its tracks for range, reload and armour.</summary>
+    Anchor = 8,
+
+    /// <summary>Hornet: a dash without thrusters.</summary>
+    Afterburner = 16,
+
+    /// <summary>Marshal: a bigger squad that aims and mends better near it, and calls it in.</summary>
+    Field = 32,
+
+    /// <summary>The constructors: they raise towers.</summary>
+    Towers = 64,
+
+    /// <summary>The spies: they lay mines.</summary>
+    Mines = 128,
+
+    /// <summary>Phantom: quiet, it cannot be locked on from afar.</summary>
+    Shadow = 256,
+
+    /// <summary>The geo locators: a pulse marks every enemy within the scanner's reach, and the marked take more from the hero's side.</summary>
+    Locate = 512,
+}
+
+/// <summary>
 /// A machine as the hero's body. The real game data supplies its hit points, armour, repair, speed, turn, accuracy,
 /// scanner and locomotion (<see cref="MachineSpec.Level"/>); slots, load, power, price and the way there are Wired's own.
 /// </summary>
+/// <param name="SubType">None for a type without subtypes, the spies and the geo locators.</param>
 /// <param name="Needs">Having owned any one of these opens it up; none for the first.</param>
-public sealed record WiredChassis(string Id, string Type, string SubType, int Level, IReadOnlyList<ChassisSlot> Slots, int Modules,
-    int Load, int Power, int Price, IReadOnlyList<string> Needs)
+/// <param name="FromWave">The first wave whose shop sells it in a run; chassis new to Wired wait.</param>
+/// <param name="Dash">The cooldown of a dash built into the chassis, in seconds; thrusters may make it shorter.</param>
+/// <param name="Special">What it can do besides carrying weapons.</param>
+/// <param name="Towers">The most towers a constructor stands at once.</param>
+/// <param name="GunTurn">
+/// A share of how fast its gun turns: its upper body's BODY_TURN_RATE, or without one the rate a sighted driver aims its
+/// hull at (<see cref="HeroBuild.HullAimRate"/>). With an upper body it stays at 0.25 or more, or the hull's own turn
+/// would outrun the gun.
+/// </param>
+public sealed record WiredChassis(string Id, string Type, string? SubType, int Level, IReadOnlyList<ChassisSlot> Slots, int Modules,
+    int Load, int Power, int Price, IReadOnlyList<string> Needs, int FromWave = 0, float? Dash = null,
+    ChassisSpecial Special = ChassisSpecial.None, int Towers = 0, float GunTurn = 1)
 {
-    public string TypeName => $"{Type} {SubType}";
+    public string TypeName => SubType is null ? Type : $"{Type} {SubType}";
 
-    /// <summary>A glider: only its top slot takes the stings and bombs.</summary>
+    /// <summary>
+    /// The Boss line: only its top slot takes the stings and bombs. It is not "a machine that flies": the geo locator's
+    /// glider flies as well and takes none of them, and every flight rule goes by the machine's locomotion instead.
+    /// </summary>
     public bool Glider => SubType == "BOSS";
 
     public ChassisSlot? Slot(Mounting mounting) => Slots.FirstOrDefault(s => s.Mounting == mounting);
@@ -32,9 +87,10 @@ public sealed record WiredChassis(string Id, string Type, string SubType, int Le
 
 /// <summary>
 /// A real weapon (<see cref="WeaponSpec"/>, by its name in parmdata) as an item; size, load, power and price are Wired's own.
-/// <paramref name="FromWave"/> is the first wave the shop offers it for.
+/// <paramref name="FromWave"/> is the first wave the shop offers it for. <paramref name="Single"/> keeps it from forming a
+/// battery: it never comes more than once on a slot.
 /// </summary>
-public sealed record WiredWeapon(string Id, SlotSize Size, int Load, int Power, int Price, int FromWave, bool GliderOnly = false);
+public sealed record WiredWeapon(string Id, SlotSize Size, int Load, int Power, int Price, int FromWave, bool GliderOnly = false, bool Single = false);
 
 /// <summary>What a module does for each Mk: shares of the chassis' values, and whole points.</summary>
 public sealed record ModuleEffect
@@ -63,9 +119,21 @@ public sealed record WiredModule(string Id, string Name, int Load, int Power, IR
 /// </summary>
 public sealed record WiredAbility(string Id, string Name, string? Based, float Cooldown, int CooldownWaves, float Reach, int Power, int Price, int FromWave);
 
-/// <summary>A type of machine the waves bring in and the hangar sells as an escort, from <paramref name="Wave"/> on.</summary>
+/// <summary>A tower a constructor hero raises: a MISSILE_EMPLACEMENT of the original's, by its subtype and level.</summary>
+public sealed record WiredTower(string Id, string SubType, int Level)
+{
+    /// <summary>The construction every tower is.</summary>
+    public const string Type = "MISSILE_EMPLACEMENT";
+}
+
+/// <summary>A type of machine the waves bring in from <paramref name="Wave"/> on, and the hangar sells as an escort from <see cref="EscortFrom"/>.</summary>
 public sealed record WiredTier(int Wave, string Type, string SubType, int Level, IReadOnlyList<string> Combos)
 {
+    /// <summary>The first wave whose hangar sells it as an escort: the wave the waves bring it from, unless given.</summary>
+    public int EscortFrom { get; init; } = Wave;
+
+    public string TypeName => $"{Type} {SubType}";
+
     public bool Offers(ResearchKey key) =>
         key.Type == Type && key.SubType == SubType && key.HardwareLevel == Level && key.WeaponCombo is { } combo && Combos.Contains(combo);
 }
@@ -95,9 +163,47 @@ public static class WiredCatalogue
         new("commander5", "ADMINISTRATOR", "COMMANDER", 5, [Left(H), Right(H)], 5, 26, 34, 1900, ["commander4"]),
         new("ballista3", "AGGRESSOR", "BALLISTA", 3, [Top(H)], 2, 24, 16, 800, ["grunt3", "reaper3"]),
         new("ballista4", "AGGRESSOR", "BALLISTA", 4, [Left(H), Right(H)], 3, 36, 22, 1500, ["ballista3"]),
-        new("boss1", "ADMINISTRATOR", "BOSS", 1, [Top(L)], 2, 8, 14, 700, ["overseer3"]),
+        new("boss1", "ADMINISTRATOR", "BOSS", 1, [Top(L)], 2, 8, 14, 700, ["overseer3", "geo3"]),
         new("boss2", "ADMINISTRATOR", "BOSS", 2, [Top(H)], 3, 14, 20, 1400, ["boss1"]),
         new("gorilla5", "AGGRESSOR", "NINJA", 5, [Left(H), Right(H), new ChassisSlot(Mounting.Top, H, "GORILLA_PUNCH")], 4, 44, 30, 3200, ["knight5", "ballista4"]),
+        // Wired's own machines (WiredMachines), sidegrades at the ends of the lines: Sarge, Old Iron, Thresher, Harvester,
+        // Widow, Colossus, Hornet and Marshal. Their values are the concept's, a start for balancing.
+        new("grunt4", "AGGRESSOR", "GRUNT", 4, [Left(M), Right(M), Top(L)], 3, 20, 13, 850, ["grunt3"], 12),
+        new("grunt5", "AGGRESSOR", "GRUNT", 5, [Left(H), Right(M), Top(M)], 4, 34, 20, 2400, ["grunt4"], 20, Dash: 10, Special: ChassisSpecial.Plough),
+        new("reaper4", "AGGRESSOR", "ASSASSIN", 4, [Left(H), Right(M)], 3, 24, 16, 1250, ["reaper3"], 12),
+        new("reaper5", "AGGRESSOR", "ASSASSIN", 5, [Left(H), Right(H), Top(L)], 3, 32, 22, 3000, ["reaper4"], 20, Special: ChassisSpecial.Harvest),
+        new("widow6", "AGGRESSOR", "ASSASSIN", 6, [Left(H), Right(M)], 3, 18, 24, 2700, ["reaper3"], 20, Special: ChassisSpecial.Lurk),
+        new("ballista5", "AGGRESSOR", "BALLISTA", 5, [Left(H), Right(H), Top(H)], 3, 52, 30, 3600, ["ballista4"], 20, Special: ChassisSpecial.Anchor),
+        new("boss3", "ADMINISTRATOR", "BOSS", 3, [Left(L), Right(L), Top(M)], 2, 14, 20, 1700, ["boss1"], 14, Dash: 8, Special: ChassisSpecial.Afterburner),
+        new("commander6", "ADMINISTRATOR", "COMMANDER", 6, [Left(H), Right(H), Top(M)], 6, 32, 44, 3300, ["commander5"], 20, Special: ChassisSpecial.Field),
+        // The constructor line, which raises towers, and the spy line, which lays mines: the original's machines new to Wired
+        // as chassis, with Wired's own Titan (Behemoth 6) and Phantom (Spy Locator 6) at their ends.
+        new("dozer1", "CONSTRUCTOR", "DOZER", 1, [Top(L)], 2, 8, 8, 420, ["grunt2"], 6, Special: ChassisSpecial.Towers, Towers: 2),
+        new("builder3", "CONSTRUCTOR", "BUILDER", 3, [Top(L)], 2, 12, 10, 700, ["dozer1"], 9, Special: ChassisSpecial.Towers, Towers: 4),
+        new("behemoth4", "CONSTRUCTOR", "BEHEMOTH", 4, [Top(M)], 3, 18, 12, 1100, ["builder3"], 12, Special: ChassisSpecial.Towers, Towers: 6),
+        new("titan6", "CONSTRUCTOR", "BEHEMOTH", 6, [Top(H)], 4, 28, 18, 2600, ["behemoth4"], 20, Special: ChassisSpecial.Towers, Towers: 8),
+        new("spy3", "SPY_LOCATOR", null, 3, [Top(L)], 3, 8, 12, 420, ["overseer2"], 6, Special: ChassisSpecial.Mines),
+        new("spy5", "SPY_LOCATOR", null, 5, [Left(L), Right(L)], 3, 10, 16, 1000, ["spy3"], 12, Special: ChassisSpecial.Mines),
+        new("phantom6", "SPY_LOCATOR", null, 6, [Left(M), Right(M)], 4, 16, 26, 2600, ["spy5"], 20, Special: ChassisSpecial.Mines | ChassisSpecial.Shadow),
+        // The locator line, scouts that locate: the original's Geo Locator 1, the crab, a second start beside Grunt 1 with
+        // its frame (as a hero tuned, WiredMachines.HeroTunes), and its Geo Locator 3, the first chassis that flies and the
+        // cheaper way to Boss 1. Only ever appended: Chassis[0] is the run's own and the hangar numbers chassis by place.
+        new("geo1", "GEO_LOCATOR", null, 1, [Top(L)], 1, 6, 6, 0, [], Special: ChassisSpecial.Locate),
+        new("geo3", "GEO_LOCATOR", null, 3, [Top(L)], 2, 7, 9, 280, ["geo1"], 5, Special: ChassisSpecial.Locate),
+    ];
+
+    /// <summary>The chassis that need none before them, in catalogue order: those a hero may start on with nothing owned.</summary>
+    public static readonly IReadOnlyList<WiredChassis> Roots = [.. Chassis.Where(c => c.Needs.Count == 0)];
+
+    /// <summary>The towers a constructor hero may raise, smallest first; which of them a chassis builds goes by its machine's data.</summary>
+    public static readonly IReadOnlyList<WiredTower> Towers =
+    [
+        new("turret1", "TURRET", 1),
+        new("turret2", "TURRET", 2),
+        new("turret3", "TURRET", 3),
+        new("sentry3", "SENTRY", 3),
+        new("sentry4", "SENTRY", 4),
+        new("launcher4", "LAUNCHER", 4),
     ];
 
     public static readonly IReadOnlyList<WiredWeapon> Weapons =
@@ -119,9 +225,11 @@ public static class WiredCatalogue
         new("MULTI_LAUNCHER1", H, 9, 5, 750, 10),
         new("MULTI_LAUNCHER7", H, 10, 6, 1000, 12),
         new("MULTI_LAUNCHER2", H, 12, 7, 1200, 14),
-        new("WASP_LIGHT_STING", L, 2, 2, 200, 6, GliderOnly: true),
-        new("WASP_METAL_STING", M, 4, 3, 450, 9, GliderOnly: true),
-        new("BEE_BOMB", H, 7, 5, 800, 12, GliderOnly: true),
+        // The glider's own body weapons have barrels enough and no room on its top to stack, and three of the bomb's
+        // blasts, which go off at the target without straying and hit friend and foe, would tame nothing: no batteries.
+        new("WASP_LIGHT_STING", L, 2, 2, 200, 6, GliderOnly: true, Single: true),
+        new("WASP_METAL_STING", M, 4, 3, 450, 9, GliderOnly: true, Single: true),
+        new("BEE_BOMB", H, 7, 5, 800, 12, GliderOnly: true, Single: true),
     ];
 
     public static readonly IReadOnlyList<WiredModule> Modules =
@@ -168,12 +276,30 @@ public static class WiredCatalogue
         new(26, "AGGRESSOR", "BALLISTA", 4, ["LR_MULTI_LAUNCHER2_X2"]),
         new(30, "AGGRESSOR", "KNIGHT", 5, ["LRT_MULTI_LAUNCHER4_X3", "LRT_PLASMA_CANNON2_X3"]),
         new(36, "AGGRESSOR", "NINJA", 5, ["L_MULTI_LAUNCHER7_T_GORILLA_PUNCH_R_MULTI_LAUNCHER7"]),
+        // Wired's own machines come only after the Gorilla, so that the runs the balance aims at (to wave 20) never meet
+        // them; the hangar sells them as escorts from wave 20. No export has them with these weapons: the view puts them
+        // together as it does a hero (HeroRig).
+        new(38, "AGGRESSOR", "GRUNT", 4, ["LR_HEAVY_BOLTER2_X2_T_AUTO_CANNON"]) { EscortFrom = WiredBalance.OwnEscortsFrom },
+        new(38, "AGGRESSOR", "ASSASSIN", 4, ["L_PLASMA_CANNON2_R_PLASMA_CANNON1"]) { EscortFrom = WiredBalance.OwnEscortsFrom },
+        new(42, "ADMINISTRATOR", "BOSS", 3, ["LR_PULSE_RIFLE_X2_T_WASP_METAL_STING"]) { EscortFrom = WiredBalance.OwnEscortsFrom },
+        new(42, "AGGRESSOR", "ASSASSIN", 6, ["L_MULTI_LAUNCHER1_R_PULSE_CANNON"]) { EscortFrom = WiredBalance.OwnEscortsFrom },
+        new(46, "AGGRESSOR", "GRUNT", 5, ["L_PLASMA_CANNON2_R_HEAVY_BOLTER2_T_MULTI_LAUNCHER3"]) { EscortFrom = WiredBalance.OwnEscortsFrom },
+        new(46, "AGGRESSOR", "ASSASSIN", 5, ["LR_PLASMA_CANNON2_X2_T_PULSE_RIFLE"]) { EscortFrom = WiredBalance.OwnEscortsFrom },
+        new(50, "AGGRESSOR", "BALLISTA", 5, ["LRT_MULTI_LAUNCHER2_X3"]) { EscortFrom = WiredBalance.OwnEscortsFrom },
     ];
+
+    /// <summary>
+    /// The tiers the hangar sells as escorts at a wave, the newest first: by the wave each was first sold from, and among
+    /// those of one wave the later in the list first.
+    /// </summary>
+    public static IEnumerable<WiredTier> EscortTiers(int wave) => Tiers.Select((tier, at) => (Tier: tier, At: at))
+        .Where(t => t.Tier.EscortFrom <= wave).OrderByDescending(t => t.Tier.EscortFrom).ThenByDescending(t => t.At).Select(t => t.Tier);
 
     public static WiredChassis? FindChassis(string id) => Chassis.FirstOrDefault(c => c.Id == id);
     public static WiredWeapon? FindWeapon(string id) => Weapons.FirstOrDefault(w => w.Id == id);
     public static WiredModule? FindModule(string id) => Modules.FirstOrDefault(m => m.Id == id);
     public static WiredAbility? FindAbility(string id) => Abilities.FirstOrDefault(a => a.Id == id);
+    public static WiredTower? FindTower(string id) => Towers.FirstOrDefault(t => t.Id == id);
 
     /// <summary>What a catalogue id is, or null for none.</summary>
     public static WiredKind? KindOf(string id) =>
@@ -203,8 +329,53 @@ public static class WiredCatalogue
             return "this chassis has no such slot";
         if (slot.Fixed is not null)
             return "that weapon is part of the chassis";
+        // Every chassis outside the Boss line hears the same, the geo locator's glider too, which flies and still has no
+        // room for the stings and the bomb.
         if (weapon.GliderOnly && !(chassis.Glider && mounting == Mounting.Top))
-            return "that fits only the top slot of a glider";
+            return "that fits only the top slot of the Boss line";
         return weapon.Size > slot.Size ? "the weapon is too big for this slot" : null;
+    }
+
+    /// <summary>The copies of one weapon a mounting of the chassis carries as a battery, by the slot's size; 0 for a missing or fixed slot.</summary>
+    public static int MostCopies(WiredChassis chassis, Mounting mounting) =>
+        chassis.Slot(mounting) is { Fixed: null } slot ? WiredBalance.MostCopies[(int)slot.Size] : 0;
+
+    /// <returns>
+    /// null if <paramref name="count"/> copies of the weapon may stand as a battery on that mounting of the chassis, otherwise
+    /// why not: what <see cref="WhyNotFit"/> says, then a weapon that forms none, then the slot's size. One copy is a
+    /// single weapon, as before batteries.
+    /// </returns>
+    public static string? WhyNotCopies(WiredChassis chassis, Mounting mounting, WiredWeapon weapon, int count)
+    {
+        if (WhyNotFit(chassis, mounting, weapon) is { } why)
+            return why;
+        if (count <= 1)
+            return null;
+        if (weapon.Single)
+            return "that weapon cannot form a battery";
+        return count > MostCopies(chassis, mounting) ? Full(chassis.Slot(mounting)!.Size) : null;
+    }
+
+    /// <summary>What a slot of a size says to one copy more than it carries.</summary>
+    public static string Full(SlotSize size) => size switch
+    {
+        SlotSize.Light => "a light slot carries one weapon",
+        SlotSize.Medium => "a medium slot carries two at most",
+        _ => "a heavy slot carries three at most",
+    };
+
+    /// <summary>
+    /// A number of copies of an item made to stand on a slot of the chassis: from 1 to as many as <see cref="WhyNotCopies"/>
+    /// lets the slot carry, and 1 for anything that is no weapon on a weapon slot, or no weapon that fits it. A battery saved
+    /// or sent with a bad count still makes a hero.
+    /// </summary>
+    public static int Copies(WiredChassis chassis, WiredSlot? slot, string catalogue, int count)
+    {
+        if (slot is not { Kind: WiredSlotKind.Weapon, Index: >= 0 and <= (int)Mounting.Top } at || FindWeapon(catalogue) is not { } weapon)
+            return 1;
+        count = Math.Min(count, WiredBalance.MostCopies[^1]);
+        while (count > 1 && WhyNotCopies(chassis, (Mounting)at.Index, weapon, count) is not null)
+            count--;
+        return Math.Max(1, count);
     }
 }

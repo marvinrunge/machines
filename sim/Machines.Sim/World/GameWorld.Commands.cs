@@ -18,6 +18,8 @@ public sealed partial class GameWorld
             if (command is DriveCommand held)
                 command = HeldInOpening(held);
         }
+        if (Wired is not null && WhyNotInWired(command) is { } barred)
+            return barred;
         switch (command)
         {
             case MoveCommand move:
@@ -314,6 +316,7 @@ public sealed partial class GameWorld
                     PlayerWeapons.Remove(driven.Id);
                     PlayerButtons.Remove(driven.Id);
                     PlayerHeads.Remove(driven.Id);
+                    PlayerYaws.Remove(driven.Id);
                     return null;
                 }
                 DriveInput[driven.Id] = (Math.Clamp(drive.Forward, -1, 1), Math.Clamp(drive.Turn, -1, 1),
@@ -324,6 +327,11 @@ public sealed partial class GameWorld
                 else
                     PlayerButtons.Remove(driven.Id);
                 PlayerHeads[driven.Id] = drive.Head;
+                // Only Wired turns a gun to the view; a yaw that is no number is none.
+                if (Wired is not null && drive.Yaw is { } yaw && float.IsFinite(yaw))
+                    PlayerYaws[driven.Id] = MathF.IEEERemainder(yaw, 2 * MathF.PI);
+                else
+                    PlayerYaws.Remove(driven.Id);
                 if (drive.Aim is { } aim)
                     PlayerAims[driven.Id] = (aim, drive.AimHeight);
                 else
@@ -482,9 +490,35 @@ public sealed partial class GameWorld
         .DefaultIfEmpty(-1)
         .Max();
 
+    /// <summary>
+    /// What a Wired match leaves out of the original's orders: nobody places, builds, mends, takes or pulls down buildings
+    /// there (a constructor hero raises its towers by <see cref="WiredTowerCommand"/>), and a spy hero lays its mines by
+    /// <see cref="WiredSpecialCommand"/>, fetches none, does not hide (camouflage would take it out of every fight unseen
+    /// by the checksum) and breaks into no building; a geo locator hero sends out its pulse by
+    /// <see cref="WiredSpecialCommand"/> and goes looking for no ore. The spies and geo locators of anybody else keep all of it.
+    /// </summary>
+    private string? WhyNotInWired(Command command) => command switch
+    {
+        PlaceConstructionCommand or ConstructCommand or RepairCommand or CaptureCommand or DeconstructCommand => NotInWired,
+        DropLandMinesCommand drop when HoldsWiredHero(drop.Spies) => NotInWired,
+        RefillLandMinesCommand refill when HoldsWiredHero(refill.Spies) => NotInWired,
+        CamouflageCommand camouflage when HoldsWiredHero(camouflage.Spies) => NotInWired,
+        EnterLabCommand enter when HoldsWiredHero(enter.Technicians) => NotInWired,
+        LocateCommand locate when HoldsWiredHero(locate.Locators) => NotInWired,
+        _ => null,
+    };
+
+    private const string NotInWired = "not in Wired";
+
+    /// <summary>Whether any of these machines is a hero of the Wired match.</summary>
+    private bool HoldsWiredHero(IEnumerable<int> machines) => Wired is { } run && machines.Any(id => run.Heroes.Values.Any(s => s.Hero == id));
+
     /// <returns>null if the building may go there, otherwise why not.</returns>
     public string? WhyCannotPlace(Race race, string type, string? subType, int level, Vector2 position, int orientation)
     {
+        // A Wired match has no building of the original's kind; its towers go by WiredTowerCommand. A series bypasses Apply.
+        if (Wired is not null)
+            return NotInWired;
         if (!Buildable(race).Any(e => e.Type == type && e.SubType == subType && e.HardwareLevel == level))
             return "your constructors cannot build that yet";
         if (Races[race].Bmu < MinimumBmuToPlace)

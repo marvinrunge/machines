@@ -76,11 +76,18 @@ public static class HangarGlyphs
         ["BOSS"] = [[8, 3, 8, 13], [8, 5, 1, 3, 3, 9, 8, 9], [8, 5, 15, 3, 13, 9, 8, 9]],
         ["COMMANDER"] = [[3, 13, 3, 4, 6, 8, 8, 3, 10, 8, 13, 4, 13, 13, 3, 13]],
         ["NINJA"] = [[2, 8, 5, 3, 11, 3, 14, 8, 12, 14, 10, 9, 6, 9, 4, 14, 2, 8], [6, 5, 10, 5]],
+        ["DOZER"] = [[4, 11, 13, 11, 15, 13, 13, 15, 4, 15, 2, 13, 4, 11], [5, 11, 5, 5, 11, 5, 13, 8, 13, 11], [5, 8, 2, 8], [1, 5, 1, 12, 2, 13]],
+        ["BUILDER"] = [[2, 15, 8, 15], [4, 15, 4, 2, 14, 2], [4, 5, 7, 2], [12, 2, 12, 7, 13, 9, 12, 10, 11, 9]],
+        ["BEHEMOTH"] = [[1, 10, 15, 10, 15, 14, 1, 14, 1, 10], [3, 10, 3, 5, 13, 5, 13, 10], [6, 5, 6, 2, 10, 2, 10, 5], [3, 12, 13, 12]],
+        ["SPY_LOCATOR"] = [[3, 9, 8, 6, 13, 9, 8, 12, 3, 9], Ring(8, 9, 1.5f), [8, 6, 8, 2], [6, 2, 10, 2], [2, 14, 5, 12], [14, 14, 11, 12]],
+        ["GEO_LOCATOR"] = [[2, 3, 4, 6.5f, 8, 7.5f, 12, 6.5f, 14, 3], Ring(8, 3.5f, 1), [8, 4.5f, 8, 12], [3, 15, 5, 13, 8, 12, 11, 13, 13, 15]],
     };
 
-    /// <summary>The drawing of an item, or null for what has none.</summary>
+    /// <summary>The drawing of an item, or null for what has none. A chassis is drawn by its kind, the spies by their type.</summary>
     public static float[][]? Of(WiredKind kind, string catalogue) =>
-        All.GetValueOrDefault(kind == WiredKind.Chassis ? WiredCatalogue.FindChassis(catalogue)?.SubType ?? "" : catalogue);
+        All.GetValueOrDefault(kind == WiredKind.Chassis
+            ? WiredCatalogue.FindChassis(catalogue) is { } chassis ? chassis.SubType ?? chassis.Type : ""
+            : catalogue);
 
     private static float[] Ring(float x, float y, float radius)
     {

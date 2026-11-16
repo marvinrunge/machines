@@ -378,7 +378,7 @@ public sealed class RelayServer : IAsyncDisposable
 
     /// <summary>
     /// Starts a battle room: each seated player plays the race of their seat with the hero they brought, and every other
-    /// race of the two teams is the computer's, its bot hero chosen by the mirror rule (<see cref="BattleBots.Compose"/>).
+    /// race of the two teams is the computer's, its bot hero chosen for the map by the mirror rule (<see cref="BattleBots.Compose"/>).
     /// The teams are the map's, so every client gets the whole battle, every hero listed, in the match's options.
     /// </summary>
     private void StartBattle(Room room, BattleOptions battle)
@@ -405,7 +405,7 @@ public sealed class RelayServer : IAsyncDisposable
         }
         var options = room.Setup.Options with
         {
-            Battle = BattleBots.Compose(battle with { TeamA = map.TeamA, TeamB = map.TeamB, Heroes = [] }, heroes),
+            Battle = BattleBots.Compose(battle with { TeamA = map.TeamA, TeamB = map.TeamB, Heroes = [] }, heroes, map.Scenario),
         };
         var terrain = room.Members.Select(m => m.Terrain).Distinct().ToList() is [{ } same] ? same : (long?)null;
         room.Match = new MatchInfo(room.Setup.Scenario, room.Setup.Planet, options, _random.Next(1, int.MaxValue), InputDelay, players, terrain);

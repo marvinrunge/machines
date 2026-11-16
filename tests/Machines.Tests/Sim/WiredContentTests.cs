@@ -448,10 +448,11 @@ public class WiredContentTests
     // ---- the dash ---------------------------------------------------------------------------------
 
     [Fact]
-    public void Only_thrusters_dash()
+    public void Only_thrusters_dash_a_chassis_without_a_dash_of_its_own()
     {
         var world = Quiet();
 
+        Assert.Null(WiredCatalogue.FindChassis(Red(world).Loadout.Chassis.Catalogue)!.Dash);
         Assert.Equal("the hero has no thrusters", Do(world, new WiredDashCommand(Race.Red, Vector2.UnitX)));
     }
 
@@ -960,17 +961,19 @@ public class WiredContentTests
         var world = NewRun();
         var state = Red(world);
         var grunt = new ResearchKey("AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+        const int Wave = 19;
 
-        Assert.Equal(grunt, WiredChips.Veteran(state, grunt));
+        Assert.Equal(grunt, WiredChips.Veteran(world.Data, state, grunt, Wave));
 
         Chip(world, "veterans", 0);
-        Assert.Equal(new ResearchKey("AGGRESSOR", "GRUNT", 2, "L_BOLTER"), WiredChips.Veteran(state, grunt));
+        Assert.Equal(new ResearchKey("AGGRESSOR", "GRUNT", 2, "L_BOLTER"), WiredChips.Veteran(world.Data, state, grunt, Wave));
 
         var best = new ResearchKey("AGGRESSOR", "KNIGHT", 5, "LRT_MULTI_LAUNCHER4_X3");
-        Assert.Equal(best, WiredChips.Veteran(state, best));
+        Assert.Equal(best, WiredChips.Veteran(world.Data, state, best, Wave));
 
         Chip(world, "tactics", 1);
-        Assert.Equal(("GRUNT", 3), (WiredChips.Veteran(state, grunt).SubType, WiredChips.Veteran(state, grunt).HardwareLevel));
+        var twice = WiredChips.Veteran(world.Data, state, grunt, Wave);
+        Assert.Equal(("GRUNT", 3), (twice.SubType, twice.HardwareLevel));
     }
 
     [Fact]
@@ -1088,7 +1091,7 @@ public class WiredContentTests
     public void A_storm_brings_twice_as_many_of_the_fastest_on_the_ground()
     {
         // From the wave on that a plain wave brings what it bought and no crowd of weaker machines.
-        for (var wave = WiredBalance.CrowdUntil + 1; wave <= 40; wave++)
+        for (var wave = WiredBalance.CrowdUntil + 1; wave <= 60; wave++)
         {
             if (WiredDirector.IsBossWave(wave))
                 continue;
@@ -1102,6 +1105,20 @@ public class WiredContentTests
     }
 
     private static List<WiredFoePlan> Machines(WiredWavePlan plan) => plan.Groups.SelectMany(g => g.Machines).ToList();
+
+    [Fact]
+    public void No_foe_escort_or_boss_is_a_geo_locator()
+    {
+        // The tiers are where the waves buy, the escorts come from and a veteran is promoted to.
+        Assert.DoesNotContain(WiredCatalogue.Tiers, t => t.Type == "GEO_LOCATOR");
+        for (var wave = 1; wave <= 60; wave++)
+        {
+            if (WiredDirector.BossOf(wave) is { } boss)
+                Assert.DoesNotContain(new[] { boss.Machine, boss.Guard }.OfType<ResearchKey>(), k => k.Type == "GEO_LOCATOR");
+            foreach (var special in Enum.GetValues<WiredSpecial>().Where(s => s == WiredSpecial.None || WiredBalance.SpecialOpens(s) <= wave))
+                Assert.DoesNotContain(Machines(WiredDirector.Plan(Data, wave, WiredDifficulty.Normal, new Random(wave), special)), m => m.Key.Type == "GEO_LOCATOR");
+        }
+    }
 
     [Fact]
     public void Spies_arrive_first_and_lay_mines_on_the_way_and_round_the_pod()
@@ -1185,7 +1202,7 @@ public class WiredContentTests
     [Fact]
     public void An_air_raid_is_gliders_and_nothing_else()
     {
-        for (var wave = 9; wave <= 40; wave++)
+        for (var wave = 9; wave <= 60; wave++)
         {
             if (WiredDirector.IsBossWave(wave))
                 continue;
@@ -1202,7 +1219,15 @@ public class WiredContentTests
         var plan = WiredDirector.Plan(Data, 11, WiredDifficulty.Normal, new Random(5), WiredSpecial.Siege);
         Assert.All(Machines(plan), m => Assert.Equal((WiredRole.Besieger, WiredDirector.Besieger), (m.Role, m.Key)));
         Assert.True(Machines(plan).Count >= WiredBalance.FewestBesiegers);
-        Assert.All(Machines(WiredDirector.Plan(Data, 27, WiredDifficulty.Normal, new Random(5), WiredSpecial.Siege)), m => Assert.Equal(WiredDirector.BigBesieger, m.Key));
+        foreach (var (wave, key) in new[] { (27, WiredDirector.BigBesieger), (WiredBalance.ColossusSiegeFrom - 1, WiredDirector.BigBesieger),
+            (WiredBalance.ColossusSiegeFrom, WiredDirector.ColossusBesieger), (57, WiredDirector.ColossusBesieger) })
+        {
+            // A boss wave's boss and guards come along first, as they would.
+            var siege = Machines(WiredDirector.Plan(Data, wave, WiredDifficulty.Normal, new Random(5), WiredSpecial.Siege))
+                .Skip(WiredDirector.BossOf(wave) is { } boss ? boss.Count + boss.Guards : 0).ToList();
+            Assert.True(siege.Count >= WiredBalance.FewestBesiegers);
+            Assert.All(siege, m => Assert.Equal((WiredRole.Besieger, key), (m.Role, m.Key)));
+        }
 
         var world = AtWave(11, WiredSpecial.Siege, spawn: 300);
         var run = world.Wired!;

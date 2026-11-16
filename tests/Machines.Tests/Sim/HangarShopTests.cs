@@ -1,3 +1,4 @@
+using System.Numerics;
 using Machines.Game;
 using Machines.Import.Model;
 using Machines.Sim;
@@ -244,8 +245,39 @@ public class HangarShopTests
         var places = WiredCatalogue.Chassis.Select(c => ChassisTree.Place(c.Id)).ToList();
 
         Assert.Equal(places.Count, places.Distinct().Count());
+        Assert.Equal((11, 8), (ChassisTree.Columns, ChassisTree.Rows));
         Assert.All(places, p => Assert.InRange(p.Column, 0, ChassisTree.Columns - 1));
         Assert.All(places, p => Assert.InRange(p.Row, 0, ChassisTree.Rows - 1));
+        Assert.Equal(0, places.Min(p => p.Column));
+        Assert.Equal(10, places.Max(p => p.Column));
+    }
+
+    [Theory]
+    [InlineData("grunt1", 4, 0)]
+    [InlineData("gorilla5", 5, 7)]
+    [InlineData("dozer1", 0, 2)]
+    [InlineData("builder3", 0, 3)]
+    [InlineData("behemoth4", 0, 5)]
+    [InlineData("titan6", 0, 7)]
+    [InlineData("spy3", 10, 3)]
+    [InlineData("spy5", 10, 5)]
+    [InlineData("phantom6", 10, 7)]
+    public void The_constructors_stand_at_the_far_left_and_the_spies_at_the_far_right(string chassis, int column, int row) =>
+        Assert.Equal((column, row), ChassisTree.Place(chassis));
+
+    [Theory]
+    [InlineData("geo1", 8, 0)]
+    [InlineData("geo3", 8, 1)]
+    [InlineData("boss1", 8, 4)]
+    [InlineData("boss3", 8, 5)]
+    public void The_flyer_line_runs_down_column_eight_from_the_crab(string chassis, int column, int row) =>
+        Assert.Equal((column, row), ChassisTree.Place(chassis));
+
+    [Fact]
+    public void The_line_from_the_glider_to_the_first_boss_runs_straight_down_its_column()
+    {
+        Assert.Contains(("geo3", "boss1"), ChassisTree.Lines);
+        Assert.True(ChassisTree.TurnsAtOnce("geo3", "boss1"));
     }
 
     [Fact]
@@ -349,6 +381,64 @@ public class HangarShopTests
     }
 
     [Fact]
+    public void The_crab_stands_for_sale_for_nothing_but_a_start_of_the_tree_is_never_the_next_chassis()
+    {
+        var world = InHangar();
+        var shop = Shop(world);
+
+        Assert.Equal(ChassisStep.ForSale, shop.Step(Chassis("geo1")));
+        Assert.Equal(0, shop.Price("geo1"));
+        Assert.Equal("grunt2", shop.NextChassis()!.Id);
+        // Nor on the crab: the first grunt, owned in every run, is a start of the tree as well.
+        Assert.Null(Do(world, new WiredChassisCommand(Race.Red, Buy(world, "geo1").Id)));
+        foreach (var wave in new[] { 0, 4, 12, 30 })
+        {
+            world.Wired!.Wave = wave;
+            Assert.DoesNotContain(shop.NextChassis(), WiredCatalogue.Roots);
+        }
+    }
+
+    [Fact]
+    public void The_glider_is_closed_before_wave_five()
+    {
+        var world = InHangar();
+        var shop = Shop(world);
+        Buy(world, "geo1");
+
+        world.Wired!.Wave = 3;
+        Assert.Equal(4, world.Wired.ShopWave);
+        Assert.Equal(ChassisStep.Closed, shop.Step(Chassis("geo3")));
+
+        world.Wired.Wave = 4;
+        Assert.Equal(ChassisStep.ForSale, shop.Step(Chassis("geo3")));
+    }
+
+    [Fact]
+    public void The_glider_is_closed_to_a_hero_that_never_had_the_crab()
+    {
+        var world = InHangar();
+        world.Wired!.Wave = 10;
+
+        Assert.Equal(ChassisStep.Closed, Shop(world).Step(Chassis("geo3")));
+        Assert.Equal("needs geo1 first", world.WhyCannotBuy(Red(world), "geo3"));
+    }
+
+    [Fact]
+    public void The_first_boss_opens_from_the_glider()
+    {
+        var world = InHangar();
+        var shop = Shop(world);
+        world.Wired!.Wave = 10;
+        Buy(world, "geo1");
+        Assert.Equal(ChassisStep.Closed, shop.Step(Chassis("boss1")));
+
+        Buy(world, "geo3");
+
+        Assert.DoesNotContain("overseer3", Red(world).Reached);
+        Assert.Equal(ChassisStep.ForSale, shop.Step(Chassis("boss1")));
+    }
+
+    [Fact]
     public void Asking_the_shop_changes_nothing_in_the_world()
     {
         var world = InHangar();
@@ -365,8 +455,191 @@ public class HangarShopTests
             world.WhyNoEscort(state, key);
         world.WhyNoReroll(state);
         world.WhyNoPodRepair(state);
+        AskAboutCopies(world, state, shop);
 
         Assert.Equal(before, world.Checksum());
+    }
+
+    /// <summary>All that the hangar may ask about a further copy of every weapon onto every slot.</summary>
+    private static void AskAboutCopies(GameWorld world, WiredState state, HangarShop shop)
+    {
+        foreach (var weapon in WiredCatalogue.Weapons)
+        {
+            var copy = new WiredItem(-1, WiredKind.Weapon, weapon.Id);
+            foreach (var mounting in Enum.GetValues<Mounting>())
+            {
+                var slot = WiredSlot.Weapon(mounting);
+                state.Loadout.WhyNotAdd(copy, slot);
+                world.WhyCannotBuy(state, weapon.Id, slot);
+                foreach (var worn in state.Loadout.Battery(mounting))
+                    state.Loadout.WhyNotAdd(worn, slot);
+            }
+            shop.Ways(weapon.Id).ToList();
+            shop.WeaponGain(weapon.Id);
+            shop.Choice(null, weapon.Id);
+        }
+        shop.NextWeapon();
+    }
+
+    /// <summary>The Reaper of <see cref="OnTheReaper"/> with a bolter on its medium left slot, whose battery has room for one more.</summary>
+    private static WiredState WithRoomForACopy(GameWorld world)
+    {
+        var state = Red(world);
+        OnTheReaper(world);
+        state.Offer.Add("BOLTER");
+        Assert.Null(Do(world, new WiredBuyCommand(Race.Red, "BOLTER", WiredSlot.Weapon(Mounting.Left))));
+        state.Offer.Clear();
+        return state;
+    }
+
+    [Fact]
+    public void A_further_copy_of_a_worn_weapon_is_a_candidate_of_the_next_weapon_though_not_on_offer()
+    {
+        var world = InHangar();
+        var state = WithRoomForACopy(world);
+        var shop = Shop(world);
+        var left = WiredSlot.Weapon(Mounting.Left);
+
+        Assert.Equal("BOLTER", shop.NextWeapon());
+        var way = shop.BestWay("BOLTER")!;
+        Assert.Equal((left, true), (way.Slot, way.Copy));
+        Assert.True(way.Gain > 0);
+
+        var choice = shop.Choice(null, null);
+        Assert.Equal("BOLTER", choice.Weapon);
+        Assert.Equal(left, choice.CopyOnto);
+        Assert.Equal(shop.Price("BOLTER"), choice.WeaponPrice);
+        Assert.Equal(way.Gain, choice.WeaponGain);
+
+        // Bought as the shop advises it, the battery is full, and off the offer nothing goes onto the empty right slot.
+        Assert.Null(Do(world, new WiredBuyCommand(Race.Red, "BOLTER", left, Add: true)));
+        Assert.Equal(2, state.Loadout.Battery(Mounting.Left).Count);
+        Assert.Null(shop.NextWeapon());
+        Assert.Empty(shop.Ways("BOLTER"));
+    }
+
+    [Fact]
+    public void A_weapon_on_offer_is_still_advised_for_a_slot_and_a_copy_not_on_offer_only_onto_its_battery()
+    {
+        var world = InHangar();
+        var state = WithRoomForACopy(world);
+        var shop = Shop(world);
+
+        // Off the offer the bolter goes nowhere but onto its battery.
+        Assert.All(shop.Ways("BOLTER"), w => Assert.True(w.Copy));
+        Assert.Null(shop.BestWay("FLAME_THROWER2"));
+
+        // On offer it may go into every slot it fits as well; the put is named first where both bring the same.
+        state.Offer.Add("BOLTER");
+        var ways = shop.Ways("BOLTER").ToList();
+        Assert.Contains(ways, w => !w.Copy && w.Slot == WiredSlot.Weapon(Mounting.Right));
+        Assert.Contains(ways, w => w.Copy && w.Slot == WiredSlot.Weapon(Mounting.Left));
+        Assert.Equal(ways.Max(w => w.Gain), shop.WeaponGain("BOLTER"));
+    }
+
+    [Fact]
+    public void A_copy_the_hero_cannot_carry_is_not_advised()
+    {
+        var world = InHangar();
+        var state = Red(world);
+        state.Loadout = HeroLoadout.Bare(new WiredItem(-1, WiredKind.Chassis, "reaper5"))
+            .With(WiredSlot.Weapon(Mounting.Left), state.Add(WiredKind.Weapon, "PLASMA_CANNON2", 0))
+            .Adding(WiredSlot.Weapon(Mounting.Left), state.Add(WiredKind.Weapon, "PLASMA_CANNON2", 0))
+            .With(WiredSlot.Weapon(Mounting.Right), state.Add(WiredKind.Weapon, "PLASMA_CANNON2", 0))
+            .Adding(WiredSlot.Weapon(Mounting.Right), state.Add(WiredKind.Weapon, "PLASMA_CANNON2", 0))
+            .Adding(WiredSlot.Weapon(Mounting.Right), state.Add(WiredKind.Weapon, "PLASMA_CANNON2", 0))
+            .With(WiredSlot.Weapon(Mounting.Top), state.Add(WiredKind.Weapon, "BOLTER", 0));
+        state.Offer.Clear();
+        var shop = Shop(world);
+
+        // Five plasma cannons and a bolter weigh 42 of 32 at most 48: a sixth cannon would make 50.
+        Assert.Equal("too heavy for this chassis", state.WhyNotWear(world.Data, state.Loadout.Adding(WiredSlot.Weapon(Mounting.Left), new WiredItem(-1, WiredKind.Weapon, "PLASMA_CANNON2"))));
+        Assert.Empty(shop.Ways("PLASMA_CANNON2"));
+        Assert.Null(shop.NextWeapon());
+    }
+
+    [Fact]
+    public void Asking_about_copies_with_a_battery_on_changes_nothing_in_the_world()
+    {
+        var world = InHangar();
+        var state = WithRoomForACopy(world);
+        state.Offer.Add("AUTO_CANNON");
+        var (before, fingerprint, bank) = (world.Checksum(), state.Loadout, world.Races[Race.Red].Bmu);
+
+        AskAboutCopies(world, state, Shop(world));
+
+        Assert.Equal(before, world.Checksum());
+        Assert.Same(fingerprint, state.Loadout);
+        Assert.Equal(bank, world.Races[Race.Red].Bmu);
+    }
+
+    /// <summary>All that the hangar and the HUD may ask about the special of the chassis the hero wears, every frame.</summary>
+    private static void AskAboutTheSpecial(GameWorld world, WiredState state, WiredChassis chassis, Machine foe)
+    {
+        var hero = world.HeroOf(Race.Red);
+        var at = hero?.Position ?? world.WiredPod(Race.Red)!.Position;
+        foreach (var on in new[] { true, false })
+        {
+            world.WhyNoSpecial(state, on);
+            world.WhyNoAnchor(state, on);
+        }
+        foreach (var race in Enum.GetValues<Race>())
+            world.SpecialView(race);
+        world.WhyNoLocate(state);
+        world.LocatedFor(foe.Id);
+        world.SquadLimit(state);
+        world.WhyNoRally(state);
+        world.WhyNoMine(state);
+        foreach (var tower in WiredCatalogue.Towers)
+        {
+            foreach (var orientation in new[] { 0, 45, 90 })
+                world.WhyNoTower(state, tower.Id, at + new Vector2(20, 0), orientation);
+        }
+        world.WhyNoTower(state, "nothing", at, 0);
+        world.TowersFor(chassis);
+        world.TowersOf(Race.Red);
+        world.MostTowers(state);
+        world.WhyNoScrap(state, world.WiredPod(Race.Red)!.Id);
+        world.WhyNoScrap(state, 0);
+        if (hero is not null)
+        {
+            world.LocatedFor(hero.Id);
+            world.AnchorPhaseOf(hero);
+            world.Shadowed(foe, hero);
+            world.Shadowed(hero, foe);
+        }
+    }
+
+    [Fact]
+    public void Asking_about_the_special_of_any_chassis_changes_nothing_in_the_world()
+    {
+        var world = InHangar();
+        var state = Red(world);
+        // Far off, so that it does nothing between the questions.
+        var far = world.Nav.NearestFreePoint(world.WiredPod(Race.Red)!.Position + new Vector2(300, 0), crossesWater: false)!.Value;
+        var foe = world.AddMachine(Race.Blue, far, "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+        world.Step();
+        // Located, as a geo hero's pulse leaves it, so that the questions about it go the located way as well.
+        world.Wired!.Located[foe.Id] = world.Time + 1000;
+
+        foreach (var chassis in WiredCatalogue.Chassis)
+        {
+            if (!state.HangarOpen)
+                Assert.Null(Do(world, new WiredHangarCommand(Race.Red, true)));
+            if (state.Loadout.Chassis.Catalogue != chassis.Id)
+                Assert.Null(Do(world, new WiredChassisCommand(Race.Red, state.Add(WiredKind.Chassis, chassis.Id, 0).Id)));
+            // In the hangar and out on the field, where the questions get past the hero's whereabouts.
+            foreach (var open in new[] { true, false })
+            {
+                if (state.HangarOpen != open)
+                    Assert.Null(Do(world, new WiredHangarCommand(Race.Red, open)));
+                var before = world.Checksum();
+
+                AskAboutTheSpecial(world, state, chassis, foe);
+
+                Assert.True(before == world.Checksum(), $"{chassis.Id}, hangar {(open ? "open" : "closed")}: asking changed the world");
+            }
+        }
     }
 
     [Fact]
@@ -424,7 +697,7 @@ public class HangarShopTests
         var state = Red(world);
         var shop = Shop(world);
         var key = shop.Escorts().First();
-        var later = WiredCatalogue.Tiers.Where(t => t.Wave > shop.Wave).Select(t => new ResearchKey(t.Type, t.SubType, t.Level, t.Combos[0])).First();
+        var later = WiredCatalogue.Tiers.Where(t => t.EscortFrom > shop.Wave).Select(t => new ResearchKey(t.Type, t.SubType, t.Level, t.Combos[0])).First();
 
         Assert.Equal("not enough BMUs", world.WhyNoEscort(state, key));
         Assert.Equal(world.WhyNoEscort(state, key), Do(world, new WiredSquadBuyCommand(Race.Red, key)));

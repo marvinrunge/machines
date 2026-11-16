@@ -21,12 +21,14 @@ public class HeroRigTests
 
     private static bool Exported => Directory.Exists(Models);
 
-    // Where each look finds a rig, the first asked first (ClassicAssets).
+    private static readonly string Wired = Path.Combine("wired", "models");
+
+    // Where each look finds a rig, the first asked first (ClassicAssets): Wired's own machines lie in classic/wired in every look.
     private static readonly Dictionary<string, string[]> Looks = new()
     {
-        ["Classic"] = ["models"],
-        ["Overhauled"] = [Path.Combine("remake", "models"), "models"],
-        ["Hd"] = [Path.Combine("built", "models"), Path.Combine("meshy", "models"), Path.Combine("remake", "models"), "models"],
+        ["Classic"] = [Wired, "models"],
+        ["Overhauled"] = [Wired, Path.Combine("remake", "models"), "models"],
+        ["Hd"] = [Wired, Path.Combine("built", "models"), Path.Combine("meshy", "models"), Path.Combine("remake", "models"), "models"],
     };
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string, string), RigShape[]> Shapes = new();
@@ -56,18 +58,21 @@ public class HeroRigTests
         return new HeroWorn(side, weapon, donor, rig, RigGraft.MountOf(rig.Select(p => new RigPart(p.Parent, p.Name)).ToArray(), donor.Mount));
     }
 
-    private static (RigShape[] Body, HeroSolid Solid) Chassis(string look, string chassis)
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string, string), Lazy<(RigShape[], HeroSolid)>> Bodies = new();
+
+    // Made once for each look: a body's solid takes a while.
+    private static (RigShape[] Body, HeroSolid Solid) Chassis(string look, string chassis) => Bodies.GetOrAdd((look, chassis), _ => new(() =>
     {
         var body = Shape(look, HeroDonors.Chassis[chassis]);
         return (body, HeroSeat.Solid(chassis, body));
-    }
+    })).Value;
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, RigPart[]> Rigs = new();
 
     // Read once: the exports hold every vertex.
     private static RigPart[] Rig(string model) => Rigs.GetOrAdd(model, _ =>
     {
-        using var file = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(Models, model + ".json")));
+        using var file = JsonDocument.Parse(File.ReadAllBytes(Looks["Classic"].Select(folder => Path.Combine(Exports, folder, "red", model + ".json")).First(File.Exists)));
         return file.RootElement.GetProperty("rig").GetProperty("nodes").EnumerateArray()
             .Select(n => new RigPart(n.GetProperty("parent").GetInt32(), n.GetProperty("name").GetString() ?? "")).ToArray();
     });
@@ -255,6 +260,55 @@ public class HeroRigTests
         }
     }
 
+    private static readonly Lazy<Machines.Sim.GameData> DataLoader = new(() => Machines.Sim.GameData.Load(RepoPaths.OriginalDataFolder()));
+
+    // The node of a model's rig its upper body turns, -1 for none.
+    private static int UpperBody(string model)
+    {
+        using var file = JsonDocument.Parse(File.ReadAllBytes(Looks["Classic"].Select(folder => Path.Combine(Exports, folder, "red", model + ".json")).First(File.Exists)));
+        return file.RootElement.GetProperty("rig").GetProperty("upperBody").GetInt32();
+    }
+
+    [Fact]
+    public void Every_gun_of_a_chassis_with_an_upper_body_hangs_under_it()
+    {
+        // The sim fires a sighted hero's every gun along its upper body's heading: in the picture each must turn with it.
+        if (!Exported)
+            return;
+        var turreted = WiredCatalogue.Chassis
+            .Where(c => HeroBuild.Resolve(DataLoader.Value, HeroLoadout.Bare(new WiredItem(1, WiredKind.Chassis, c.Id))).TurnsUpperBody).ToList();
+        Assert.Contains(turreted, c => c.Id == "overseer3");
+        Assert.DoesNotContain(turreted, c => c.Id == "grunt1");
+        foreach (var chassis in turreted)
+        {
+            var model = HeroDonors.Chassis[chassis.Id];
+            var parts = Rig(model);
+            var upper = UpperBody(model);
+            Assert.True(upper >= 0, $"{chassis.Id} turns an upper body its rig does not have");
+            foreach (var weapon in WiredCatalogue.Weapons)
+            {
+                var slots = new Dictionary<Mounting, RigGraft.Source?>();
+                foreach (var slot in chassis.Slots.Where(s => s.Fixed is null))
+                {
+                    var donor = HeroDonors.For(weapon.Id, slot.Mounting)!;
+                    var rig = Rig(donor.Model);
+                    slots[slot.Mounting] = WiredCatalogue.WhyNotFit(chassis, slot.Mounting, weapon) is null ? new(rig, RigGraft.MountOf(rig, donor.Mount)) : null;
+                }
+                var graft = new RigGraft(parts, slots);
+                var body = graft.Chassis(upper);
+                Assert.True(body >= 0, $"{chassis.Id} lost its upper body for {weapon.Id}");
+                var sides = slots.Where(s => s.Value is not null).Select(s => s.Key).Concat(chassis.Slots.Where(s => s.Fixed is not null).Select(s => s.Mounting));
+                foreach (var side in sides)
+                {
+                    var under = false;
+                    for (var p = graft.Mount(side); p >= 0 && !under; p = graft.Nodes[p].Parent)
+                        under = p == body;
+                    Assert.True(under, $"{chassis.Id}'s {side} mount for {weapon.Id} does not turn with its upper body");
+                }
+            }
+        }
+    }
+
     private static readonly MountBox Bolter = new(-0.7f, 1, -0.5f, 0.7f, -0.25f, 0.25f);
 
     [Fact]
@@ -323,7 +377,16 @@ public class HeroRigTests
         Assert.Equal(1, HeroDonors.Scale("ballista4", "MULTI_LAUNCHER2"));
         Assert.Equal(0.75f, HeroDonors.Scale("ballista3", "FLAME_THROWER2"));
         Assert.Equal(1, HeroDonors.Scale("knight5", "FLAME_THROWER2"));
-        Assert.All(HeroDonors.Chassis.Keys, chassis => Assert.All(HeroDonors.Weapons.Where(w => w is not "MULTI_LAUNCHER2" and not "FLAME_THROWER2"), weapon => Assert.Equal(1, HeroDonors.Scale(chassis, weapon))));
+        // The Phantom's flame thrower stands under its roof at full size, one on a side (a battery is that one gun).
+        Assert.Equal(1, HeroDonors.Scale("phantom6", "FLAME_THROWER2"));
+        // The Spy 3's short head takes its long light weapons smaller, though less so over the hover pod beside the antenna;
+        // the Bolter stands on it as it is.
+        Assert.Equal([0.85f, 0.65f, 0.4f, 0.55f, 0.6f, 1], new[] { "AUTO_CANNON", "ELECTRIC_CHARGE", "FLAME_THROWER2", "PULSE_RIFLE", "PLASMA_RIFLE", "BOLTER" }.Select(w => HeroDonors.Scale("spy3", w)));
+        // The crab's small head between its antennas takes every light weapon but the Bolter smaller; the glider only its flame
+        // thrower and, a little, the long Pulse Rifle.
+        Assert.Equal([0.8f, 0.8f, 0.45f, 0.6f, 0.7f, 1], new[] { "AUTO_CANNON", "ELECTRIC_CHARGE", "FLAME_THROWER2", "PULSE_RIFLE", "PLASMA_RIFLE", "BOLTER" }.Select(w => HeroDonors.Scale("geo1", w)));
+        Assert.Equal([1, 1, 0.6f, 0.9f, 1, 1], new[] { "AUTO_CANNON", "ELECTRIC_CHARGE", "FLAME_THROWER2", "PULSE_RIFLE", "PLASMA_RIFLE", "BOLTER" }.Select(w => HeroDonors.Scale("geo3", w)));
+        Assert.All(HeroDonors.Chassis.Keys.Where(c => c is not "spy3" and not "geo1" and not "geo3"), chassis => Assert.All(HeroDonors.Weapons.Where(w => w is not "MULTI_LAUNCHER2" and not "FLAME_THROWER2"), weapon => Assert.Equal(1, HeroDonors.Scale(chassis, weapon))));
         Assert.Equal(new MountBox(-1, 1, -2, 2, -3, 3), new MountBox(-2, 2, -4, 4, -6, 6) * 0.5f);
     }
 
@@ -537,6 +600,94 @@ public class HeroRigTests
         Assert.True(wrong.IsEmpty, string.Join('\n', wrong.Order()));
     }
 
+    // A loadout as the hangar puts it on: on each slot its weapon, the further copies added to it as a battery.
+    private static HeroLoadout Loadout(string chassis, IEnumerable<(Mounting Side, string Weapon, int Count)> worn)
+    {
+        var ids = 0;
+        var loadout = HeroLoadout.Bare(new WiredItem(++ids, WiredKind.Chassis, chassis));
+        foreach (var (side, weapon, count) in worn)
+            for (var copy = 0; copy < count; copy++)
+                loadout = loadout.Adding(WiredSlot.Weapon(side), new WiredItem(++ids, WiredKind.Weapon, weapon));
+        return loadout;
+    }
+
+    // What HeroRig builds a hero's model of in a look, from its loadout: the weapon shown on each mounting, the graft's
+    // nodes (each naming the part of the chassis or of its weapon's donor whose mesh it carries) with those parts' rests,
+    // every weapon's donor, size and foot, and its seat as it is placed.
+    private static string Model(string look, HeroLoadout loadout)
+    {
+        var chassis = loadout.Chassis.Catalogue;
+        var shown = HeroDonors.Shown(loadout);
+        var (body, solid) = Chassis(look, chassis);
+        var worn = new Dictionary<Mounting, HeroWorn>();
+        var slots = new Dictionary<Mounting, RigGraft.Source?>();
+        foreach (var slot in loadout.ChassisEntry.Slots.Where(s => s.Fixed is null))
+        {
+            slots[slot.Mounting] = null;
+            if (shown[(int)slot.Mounting] is not { } weapon)
+                continue;
+            worn[slot.Mounting] = Wearing(look, weapon, slot.Mounting);
+            slots[slot.Mounting] = new RigGraft.Source(worn[slot.Mounting].Rig.Select(p => new RigPart(p.Parent, p.Name)).ToArray(), worn[slot.Mounting].Mount);
+        }
+        var graft = new RigGraft(body.Select(p => new RigPart(p.Parent, p.Name)).ToArray(), slots);
+        Sound(graft);
+        var seats = HeroSeat.Seats(chassis, body, solid, worn.Values);
+        var nodes = graft.Nodes.Select(n => $"{n} rest {(n.Weapon is { } side && n.Donor >= 0 ? worn[side].Rig[n.Donor].Rest : n.Chassis >= 0 ? body[n.Chassis].Rest : Matrix4x4.Identity)}");
+        var weapons = worn.OrderBy(w => w.Key).Select(w => $"{w.Key} {w.Value.Weapon} {w.Value.Donor} scale {HeroDonors.Scale(chassis, w.Value.Weapon)} "
+            + $"footless {HeroDonors.Footless(chassis, w.Value)} seat {HeroSeat.Upright(w.Value, seats[w.Key])}");
+        return string.Join('\n', [$"{chassis} shows {string.Join(", ", shown)}", .. nodes, .. weapons]);
+    }
+
+    [Fact]
+    public void A_hero_with_batteries_has_the_rig_of_its_twin_with_single_weapons()
+    {
+        // A battery is one gun that fires as many times as often: its copies have no nodes, meshes or seats of their own.
+        // HeroRig builds a hero's model from the weapons it shows and keeps it by what it wears, so a hero with batteries,
+        // showing its copies 0 and kept by the key of its twin with one of each weapon, gets the very rig of that twin.
+        // Every chassis with its fullest batteries of a light, a medium and a heavy weapon, as far as its slots take them,
+        // and the batteries the user saw stacked.
+        var heroes = new List<(string Chassis, (Mounting Side, string Weapon, int Count)[] Worn)>
+        {
+            ("reaper5", [(Mounting.Left, "PLASMA_CANNON2", 3), (Mounting.Right, "PLASMA_CANNON2", 3)]),
+            ("ballista5", [(Mounting.Left, "PLASMA_CANNON2", 3), (Mounting.Right, "MULTI_LAUNCHER1", 3), (Mounting.Top, "MULTI_LAUNCHER7", 3)]),
+            ("phantom6", [(Mounting.Left, "FLAME_THROWER2", 2), (Mounting.Right, "FLAME_THROWER2", 2)]),
+        };
+        foreach (var (chassis, index) in WiredCatalogue.Chassis.Select((c, i) => (c, i)))
+        {
+            var slots = chassis.Slots.Where(s => s.Fixed is null).ToList();
+            foreach (var size in Enum.GetValues<SlotSize>().Where(size => slots.Any(s => s.Size >= size)))
+            {
+                var worn = slots.Select(slot =>
+                {
+                    var weapons = WiredCatalogue.Weapons.Where(w => !w.Single && w.Size == (size < slot.Size ? size : slot.Size)
+                        && WiredCatalogue.WhyNotFit(chassis, slot.Mounting, w) is null).ToList();
+                    return (slot.Mounting, weapons.Count > 0 ? weapons[(index + (int)slot.Mounting) % weapons.Count].Id : null, WiredCatalogue.MostCopies(chassis, slot.Mounting));
+                }).Where(w => w.Item2 is not null).Select(w => (w.Mounting, w.Item2!, w.Item3)).ToArray();
+                if (worn.Any(w => w.Item3 > 1))
+                    heroes.Add((chassis.Id, worn));
+            }
+        }
+        Assert.True(heroes.Count > 40, $"{heroes.Count} heroes");
+        foreach (var (chassis, worn) in heroes)
+        {
+            var (battery, single) = (Loadout(chassis, worn), Loadout(chassis, worn.Select(w => (w.Side, w.Weapon, 1))));
+            var what = $"{chassis} {string.Join(", ", worn.Select(w => $"{w.Side} {w.Count}x {w.Weapon}"))}";
+            Assert.True(worn.All(w => battery.Battery(w.Side).Count == w.Count && single.Battery(w.Side).Count == 1), $"{what}: the hangar did not put it on");
+            // Each mounting shows its battery's copy 0, and nothing where it carries none.
+            Assert.Equal(Enum.GetValues<Mounting>().Select(m => battery.Battery(m).FirstOrDefault()?.Catalogue), HeroDonors.Shown(battery));
+            Assert.Equal(HeroDonors.Shown(single), HeroDonors.Shown(battery));
+            foreach (var race in Enum.GetValues<Machines.Import.Model.Race>())
+                Assert.Equal(HeroDonors.Worn(race, single), HeroDonors.Worn(race, battery));
+        }
+
+        // What that rig is made of, in every look, for the user's Harvester with three plasma cannons a side.
+        if (!Exported)
+            return;
+        (Mounting, string, int)[] harvester = [(Mounting.Left, "PLASMA_CANNON2", 3), (Mounting.Right, "PLASMA_CANNON2", 3)];
+        foreach (var look in Looks.Keys)
+            Assert.Equal(Model(look, Loadout("reaper5", harvester.Select(w => (w.Item1, w.Item2, 1)))), Model(look, Loadout("reaper5", harvester)));
+    }
+
     // A seat lies on a grid and is measured by sample, so a hair over will do.
     private static bool Well(HeroStand stand, (float Held, float Over) wanted)
     {
@@ -559,6 +710,10 @@ public class HeroRigTests
     [InlineData("reaper2", "ELECTRIC_CHARGE")]
     [InlineData("reaper2", "PLASMA_RIFLE")]
     [InlineData("reaper2", "PULSE_RIFLE")]
+    [InlineData("spy5", "BOLTER")]
+    [InlineData("spy5", "PULSE_RIFLE")]
+    [InlineData("phantom6", "HEAVY_BOLTER1")]
+    [InlineData("phantom6", "PLASMA_RIFLE")]
     public void A_pair_of_guns_stands_alike(string chassis, string weapon)
     {
         if (!Exported)
@@ -725,7 +880,7 @@ public class HeroRigTests
         foreach (var weapon in HeroDonors.Weapons.Where(HeroDonors.Leans))
         {
             var donor = HeroDonors.For(weapon, Mounting.Right)!;
-            using var file = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(Models, donor.Model + ".json")));
+            using var file = JsonDocument.Parse(File.ReadAllBytes(Looks["Classic"].Select(folder => Path.Combine(Exports, folder, "red", donor.Model + ".json")).First(File.Exists)));
             var rig = file.RootElement.GetProperty("rig");
             var parts = Rig(donor.Model);
             var mount = RigGraft.MountOf(parts, donor.Mount);
@@ -973,6 +1128,35 @@ public class HeroRigTests
         }
     }
 
+    [Theory]
+    [InlineData("Classic")]
+    [InlineData("Overhauled")]
+    [InlineData("Hd")]
+    public void The_traces_of_modules_and_abilities_end_on_skin_the_hangar_sees_while_the_hero_sways(string look)
+    {
+        // The hangar's camera (MachineScreen, HangarScreen) looks from 0.3 up and 0.5 round from ahead at the hero turned by
+        // -0.28, which sways 0.2 either way when left alone; HangarTraces shows a trace in full once its skin turns 0.15 towards
+        // the camera. The crab's middle module lay on its head's prow, which slopes away below and to its face's side, the
+        // Phantom's second and fourth under its roof: their traces came and went, or never showed.
+        if (!Exported)
+            return;
+        var views = new[] { 0.22f - 0.2f, 0.22f + 0.2f }.Select(round => new Vector3(MathF.Cos(0.3f) * MathF.Cos(round), MathF.Sin(0.3f), MathF.Cos(0.3f) * MathF.Sin(round))).ToList();
+        var wrong = new List<string>();
+        foreach (var chassis in WiredCatalogue.Chassis)
+        {
+            var model = HeroDonors.Chassis[chassis.Id];
+            var rig = Shape(look, model);
+            var spots = HeroHull.Spots(rig, UpperBody(look, model));
+            for (var i = 0; i < spots.Length; i++)
+            {
+                var facing = Vector3.Normalize(Vector3.TransformNormal(spots[i].Facing, World(rig, spots[i].Part)));
+                if (views.Min(view => Vector3.Dot(facing, view)) is < 0.15f - 0.01f and var least)
+                    wrong.Add($"{look} {chassis.Id} spot {i} on {rig[spots[i].Part].Name}: {least:0.00} towards the camera");
+            }
+        }
+        Assert.True(wrong.Count == 0, string.Join('\n', wrong));
+    }
+
     private static bool OnTriangle(Vector3 point, Vector3 a, Vector3 b, Vector3 c)
     {
         var (ab, ac, ap) = (b - a, c - a, point - a);
@@ -992,6 +1176,8 @@ public class HeroRigTests
     [InlineData("boss2", "body")]
     [InlineData("ballista3", "hip")]
     [InlineData("ballista4", "hip")]
+    [InlineData("geo1", "head")]
+    [InlineData("geo3", "body")]
     public void The_body_is_found_among_the_limbs(string chassis, string part)
     {
         if (!Exported)
@@ -1000,6 +1186,144 @@ public class HeroRigTests
         var rig = Shape("Classic", model);
 
         Assert.Equal(part, rig[HeroHull.Body(rig, UpperBody("Classic", model))].Name);
+    }
+
+    [Theory]
+    [InlineData("geo1", "head")]
+    [InlineData("geo3", "body")]
+    public void A_locators_top_mount_hangs_from_what_carries_it_in_motion(string chassis, string part)
+    {
+        if (!Exported)
+            return;
+        // The crab's head goes along with its walk, the glider's body pitches and rolls in flight: the weapon with them.
+        var parts = Rig(HeroDonors.Chassis[chassis]);
+        var gun = RigGraft.MountOf(parts, Mounting.Top);
+
+        Assert.True(gun >= 0, $"{chassis} has no top mount");
+        Assert.Equal(part, parts[parts[gun].Parent].Name);
+    }
+
+    // Points on what stands up thin round a locator's top mount, where no solid holds it, in the rig's terms (y up): the
+    // spin-to-face rods of its antennas (the crab's tall one on the centre line behind the mount, two short ones on its face's
+    // side), the crab's bump with its flag before those, and the glider's fin and tail flap, sheets on its centre line.
+    private static List<Vector3> Antennas(string chassis)
+    {
+        var model = HeroDonors.Chassis[chassis];
+        var points = new List<Vector3>();
+        using (var json = JsonDocument.Parse(File.ReadAllBytes(Looks["Classic"].Select(folder => Path.Combine(Exports, folder, "red", model + ".json")).First(File.Exists))))
+            foreach (var spinner in json.RootElement.GetProperty("spinners").EnumerateArray())
+            {
+                float[] Of(string name) => spinner.GetProperty(name).EnumerateArray().Select(e => e.GetSingle()).ToArray();
+                var (at, axis, corners) = (Of("base"), Of("axis"), Of("corners"));
+                var along = Vector3.Normalize(new Vector3(axis[0], axis[2], axis[1]));
+                var lengths = Enumerable.Range(0, corners.Length / 2).Select(i => corners[i * 2]).ToList();
+                for (var t = lengths.Min(); t <= lengths.Max(); t += 0.02f)
+                    points.Add(new Vector3(at[0], at[2], at[1]) + along * t);
+            }
+        var rig = Shape("Classic", model);
+        // The crab's bump and flag are the head's only faces on its face's side above the roof's lowest edge (the plate below
+        // them, fplat, only just reaches the roof's height, where a weapon's foot may rest on it).
+        bool Thin(int part, Vector3[] t) => chassis == "geo1"
+            ? rig[part].Name == "head" && t.All(p => p.Z < -0.09f && p.Y > 1.8f)
+            : t.All(p => MathF.Abs(p.Z) < 0.05f && p.Y > 21.3f);
+        for (var part = 1; part < rig.Length; part++)
+            foreach (var surface in rig[part].Surfaces)
+                foreach (var t in surface.Select(v => Vector3.Transform(v, World(rig, part))).Chunk(3).Where(t => t.Length == 3 && Thin(part, t)))
+                    for (var i = 0; i <= 10; i++)
+                        for (var j = 0; i + j <= 10; j++)
+                            points.Add(t[0] + (t[1] - t[0]) * (i / 10f) + (t[2] - t[0]) * (j / 10f));
+        return points;
+    }
+
+    [Theory]
+    [InlineData("geo1")]
+    [InlineData("geo3")]
+    public void In_every_look_no_antenna_of_a_locator_stands_through_the_weapon_on_its_top(string chassis)
+    {
+        if (!Exported)
+            return;
+        var antennas = Antennas(chassis);
+        var wired = WiredCatalogue.FindChassis(chassis)!;
+        var wrong = new List<string>();
+
+        Assert.NotEmpty(antennas);
+        foreach (var look in Looks.Keys)
+        {
+            var (body, solid) = Chassis(look, chassis);
+            foreach (var weapon in WiredCatalogue.Weapons.Where(w => WiredCatalogue.WhyNotFit(wired, Mounting.Top, w) is null))
+            {
+                var worn = Wearing(look, weapon.Id, Mounting.Top);
+                var held = HeroSeat.Solid(chassis, body, worn, HeroSeat.Seats(chassis, body, solid, [worn])[Mounting.Top]);
+                if (antennas.Count(held.Holds) is > 0 and var through)
+                    wrong.Add($"{look} {chassis} {weapon.Id}: {through} points inside");
+            }
+        }
+        Assert.True(wrong.Count == 0, string.Join('\n', wrong));
+    }
+
+    [Fact]
+    public void The_phantoms_side_mounts_hang_low_beside_its_mount_boxes()
+    {
+        // The user: "Waffen weiter unten". In the recipe (tools/wired-models) under the boxes' outer faces, at 0.385 ahead,
+        // 1.17 out and 1.75 up, times the model's 2.4; on the boxes' tops (5.5 m up and 2 m out) weapons stood through the roof.
+        if (!Exported)
+            return;
+        var rig = Shape("Classic", HeroDonors.Chassis["phantom6"]);
+        var parts = rig.Select(p => new RigPart(p.Parent, p.Name)).ToArray();
+        foreach (var (side, across) in new[] { (Mounting.Left, -2.808f), (Mounting.Right, 2.808f) })
+        {
+            var at = World(rig, RigGraft.MountOf(parts, side)).Translation;
+            Assert.True(Vector3.Distance(new Vector3(0.924f, 4.2f, across), at) < 0.01f, $"{side} mount at {at}");
+        }
+    }
+
+    // The Phantom's roof in the rig's terms (y up), spread to points 5 cm apart: every face of its hull wholly at or above the
+    // roof's underside, 6.36 m high (its plates hang from 1.92 m over the head, whose origin stands 4.44 m up), so its plates,
+    // the spikes on them and what of the Spy 5's head reaches up into it. The Spy 5's head between the mount boxes' tops
+    // (5.81 m) and the roof is hull a weapon may lean on and sink into a little as into any other (on the left the inner top
+    // edge of Multi Launcher 3, and in the Overhauled look of Multi Launcher 5, does); the roof is where none may go. The
+    // body's solid cannot tell that: a weapon is held against the hull and may only sink into it so far, which says nothing
+    // of what stands over it.
+    private static List<Vector3> Roof()
+    {
+        const float underside = 6.3f;
+        var rig = Shape("Classic", HeroDonors.Chassis["phantom6"]);
+        var faces = Enumerable.Range(1, rig.Length - 1).SelectMany(part => rig[part].Surfaces
+            .Select(s => s.Select(v => Vector3.Transform(v, World(rig, part))).Chunk(3).Where(t => t.Length == 3 && t.All(p => p.Y >= underside)).SelectMany(t => t).ToArray()));
+        return HeroSolid.Spread(faces, 0.05f);
+    }
+
+    [Theory]
+    [InlineData("Classic")]
+    [InlineData("Overhauled")]
+    [InlineData("Hd")]
+    public void In_every_look_no_weapon_of_the_phantom_stands_through_its_roof(string look)
+    {
+        // Every weapon its sides take, on one side and as a pair: no point of the roof lies inside any of them. A battery
+        // stands as its single weapon does.
+        if (!Exported)
+            return;
+        const string chassis = "phantom6";
+        var phantom = WiredCatalogue.FindChassis(chassis)!;
+        var roof = Roof();
+        var (body, solid) = Chassis(look, chassis);
+        var wrong = new System.Collections.Concurrent.ConcurrentBag<string>();
+
+        Assert.True(roof.Count > 1000, $"{roof.Count} points of the roof");
+        Parallel.ForEach(WiredCatalogue.Weapons.Where(w => WiredCatalogue.WhyNotFit(phantom, Mounting.Left, w) is null), weapon =>
+        {
+            List<List<HeroWorn>> fits = [[Wearing(look, weapon.Id, Mounting.Left)], [Wearing(look, weapon.Id, Mounting.Right)],
+                [Wearing(look, weapon.Id, Mounting.Left), Wearing(look, weapon.Id, Mounting.Right)]];
+            foreach (var worn in fits)
+            {
+                var seats = HeroSeat.Seats(chassis, body, solid, worn);
+                var what = string.Join(" + ", worn.Select(w => w.Side));
+                foreach (var each in worn)
+                    if (roof.Count(HeroSeat.Solid(chassis, body, each, seats[each.Side]).Holds) is > 0 and var through)
+                        wrong.Add($"{look} {weapon.Id} {what}: on {each.Side} holds {through} points of the roof");
+            }
+        });
+        Assert.True(wrong.IsEmpty, string.Join('\n', wrong.Order()));
     }
 
     [Fact]

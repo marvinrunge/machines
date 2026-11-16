@@ -12,8 +12,8 @@ namespace Machines.Net;
 /// </summary>
 public static class NetJson
 {
-    /// <summary>Bump when messages or commands change incompatibly; the relay refuses other versions. 11: battles (heroes in rooms, the options' Battle).</summary>
-    public const int Protocol = 11;
+    /// <summary>Bump when messages or commands change incompatibly; the relay refuses other versions. 11: battles (heroes in rooms, the options' Battle). 12: Wired's chassis specials (special, tower and scrap commands).</summary>
+    public const int Protocol = 12;
 
     public static readonly JsonSerializerOptions Options = Create();
 

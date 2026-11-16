@@ -229,9 +229,7 @@ public partial class Game : Node3D
     // Building placement
     private (string Type, string? SubType, int Level)? _placing;
     private int _placingOrientation;
-    private Node3D? _ghost;
-    private StandardMaterial3D? _ghostMaterial;
-    private bool _ghostPrinted;
+    private Ghost? _ghost;
 
     // Area weapons going off, drawn as growing spheres
     private readonly Dictionary<Blast, MeshInstance3D> _blastViews = [];
@@ -423,7 +421,7 @@ public partial class Game : Node3D
         _support = SupportEffects.Create(_assets);
         AddChild(_support);
         _audio = GameAudio.Create(_assets.GameFolder);
-        _projectiles = ProjectileViews.Create(World, _assets, id => _views.GetValueOrDefault(id), _effects, _audio);
+        _projectiles = ProjectileViews.Create(World, _assets, id => _views.GetValueOrDefault(id), _effects, _audio, BarrelOf);
         AddChild(_projectiles);
 
         _rig = new CameraRig { Name = "CameraRig" };
@@ -777,7 +775,9 @@ public partial class Game : Node3D
 
         FollowRun(delta);
         UpdateGhost();
+        UpdateSightScript(delta);
         UpdateFirstPersonCamera();
+        UpdateTowerMode();
         ShowFilmLook();
         ShowInteriors();
         ShowHealing();
@@ -1074,6 +1074,9 @@ public partial class Game : Node3D
     // The machines in an APC, which teleport out when they leave it.
     private readonly HashSet<int> _aboard = [];
 
+    // The constructor heroes whose views are at work on a tower.
+    private readonly HashSet<int> _heroesAtWork = [];
+
     private void SyncViews()
     {
         foreach (var actor in World.Actors)
@@ -1109,7 +1112,7 @@ public partial class Game : Node3D
             if (actor is Machine machine)
                 ShowRefit(view, machine);
             // Upper bodies and towers' heads turn to what they attack, ordered or of their own choice, and to
-            // whom they heal; one driven in first person turns where its driver looks.
+            // whom they heal; one driven in first person turns where its driver looks, a sighted one's where its gun stands.
             view.Sync(actor, actor switch
             {
                 Machine { Order: AttackOrder attack } => World.Find(attack.Target),
@@ -1119,7 +1122,8 @@ public partial class Game : Node3D
             if (actor is Machine)
                 view.Moving(World.MoveOf(actor.Id), World.Time);
             if (actor is Machine { DrivenByPlayer: true } driven)
-                view.UpperBodyAngle = driven.Id == _driven?.Id ? _headTarget : World.PlayerHeads.GetValueOrDefault(driven.Id);
+                view.UpperBodyAngle = driven.Id == _driven?.Id ? _headTarget
+                    : World.HasYaw(driven.Id) ? World.HeadOf(driven.Id) : World.PlayerHeads.GetValueOrDefault(driven.Id);
             // In the remake tracks and wheels leave their marks on the ground behind them.
             if (GraphicsSettings.Effects && actor is Machine { Inside: null, Stats.Locomotion: Locomotion.Tracks or Locomotion.Wheels } rolling)
             {
@@ -1134,9 +1138,13 @@ public partial class Game : Node3D
             }
             if (actor is Machine { Inside: null } && _aboard.Remove(actor.Id))
                 view.TeleportIn();
-            // A geo locator scans the ground as it goes.
+            // A geo locator scans the ground as it goes; a Wired hero on one plays its ring while its pulse goes out.
             if (actor is Machine { Spec.Type: "GEO_LOCATOR" } locator)
-                view.Scan(locator.Order is LocateOrder ? _assets.EffectMesh("locator") : null, locator.Stats.ScannerRange);
+            {
+                var pulsing = Pulsing(locator);
+                view.Scan(locator.Order is LocateOrder || pulsing ? _assets.EffectMesh("locator") : null,
+                    pulsing ? World.ScannerReach(locator) : locator.Stats.ScannerRange);
+            }
             // A transporter loading or unloading ore glows with rings of light (MachPhysResourceCarrier::doLoading).
             if (actor is Machine carrier)
             {
@@ -1150,10 +1158,18 @@ public partial class Game : Node3D
                 }
                 _oreCarried[carrier.Id] = carrier.Ore;
             }
-            // Constructors at work reach out to the building with beams and sparks.
+            // Constructors at work reach out to the building with beams and sparks, a Wired hero to the tower it builds or
+            // mends. A hero's view hears of its work while it goes on and once as it ends, so that a driver's cabin keeps its hum.
             if (actor is Machine { Spec.Type: "CONSTRUCTOR" } constructor)
-                view.Construct(World.WorkedOn(constructor) is { } site ? ActorView.World((site.Footprint.Min + site.Footprint.Max) / 2) + Vector3.Up * 2 : null,
-                    _assets.EffectMesh("torch"), _assets.EffectMesh("sparks"), _assets.EffectMesh("groundlight"));
+            {
+                var hero = HeroOf(constructor) is not null;
+                var site = hero ? World.TowerWorkOf(constructor) : World.WorkedOn(constructor);
+                if (!hero || site is not null || _heroesAtWork.Remove(constructor.Id))
+                    view.Construct(site is null ? null : ActorView.World((site.Footprint.Min + site.Footprint.Max) / 2) + Vector3.Up * 2,
+                        _assets.EffectMesh("torch"), _assets.EffectMesh("sparks"), _assets.EffectMesh("groundlight"));
+                if (hero && site is not null)
+                    _heroesAtWork.Add(constructor.Id);
+            }
             // Technicians in a lab research with their arms while it has work (MachLogHardwareLab's MachLogResearchAnimation).
             if (actor is Machine { Spec.Type: "TECHNICIAN" } technician)
                 view.Working = technician.Inside is { } workplace && World.Find<Construction>(workplace) is { } lab
@@ -1200,6 +1216,7 @@ public partial class Game : Node3D
 
     private void ShowEvents()
     {
+        CountLaunches();
         foreach (var e in World.Events)
         {
             var at = ActorView.World(e.Position) + Vector3.Up * 2;
@@ -1218,7 +1235,7 @@ public partial class Game : Node3D
                     // flash at the weapon's muzzle.
                     else if (World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail) is { } spec && GameWorld.Flies(spec))
                     {
-                        var muzzle = MuzzleOf(e.Actor, spec) ?? at;
+                        var muzzle = MuzzleOf(e.Actor, spec, e.Gun) ?? at;
                         _effects.Shot(muzzle, muzzle, e.Detail ?? "", spec.ProjectileSpeed, spec);
                     }
                     // The electric charger strikes with lightning, and a halo runs over its victim.
@@ -1226,18 +1243,21 @@ public partial class Game : Node3D
                              && World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail) is { } charge)
                     {
                         var victimView = _views.GetValueOrDefault(struck);
-                        var (muzzle, aim) = (MuzzleOf(e.Actor, charge) ?? at, victimView?.Centre ?? ActorView.World(shocked.Position) + Vector3.Up * 1.5f);
+                        var (muzzle, aim) = (MuzzleOf(e.Actor, charge, e.Gun) ?? at, victimView?.Centre ?? ActorView.World(shocked.Position) + Vector3.Up * 1.5f);
                         _support.Lightning(muzzle, aim, victimView);
                         _effects.ChargerFires(muzzle, aim, Blast.Extras(charge)[2]);
                         if (victimView is not null)
                             _effects.FaceplateSmoke(victimView, Blast.Extras(charge)[1]);
                     }
-                    // In a Wired run a round from first person strays, and the simulation says where it went.
+                    // In a Wired run a round from first person strays, and the simulation says where it went: the local
+                    // driver's round sent to the sight is drawn to the picture's point, one that left along a turning gun
+                    // to where the simulation ended it.
                     else if (e.Mark is { } strayed && World.Find(e.Actor) is { } straying
                              && World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail) is { } stray)
                     {
-                        var muzzle = MuzzleOf(e.Actor, stray) ?? at;
-                        var mark = new Vector3(strayed.X, strayed.Z, strayed.Y) + _sightLift;
+                        var muzzle = MuzzleOf(e.Actor, stray, e.Gun) ?? at;
+                        var lifted = e.Actor == _driven?.Id && (!World.HasYaw(e.Actor) || World.OnSight(e.Actor));
+                        var mark = new Vector3(strayed.X, strayed.Z, strayed.Y) + (lifted ? _sightLift : Vector3.Zero);
                         var reach = NVector2.Distance(straying.Position, new NVector2(strayed.X, strayed.Y));
                         Shot(muzzle, reach > stray.Range ? muzzle + (mark - muzzle) * (stray.Range / reach) : mark, e.Detail ?? "");
                     }
@@ -1248,7 +1268,7 @@ public partial class Game : Node3D
                              && World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail) is { } sighted
                              && !World.Events.Any(x => x.Kind == GameEventKind.Impact && x.Actor == e.Actor && x.Detail == e.Detail))
                     {
-                        var muzzle = MuzzleOf(e.Actor, sighted) ?? at;
+                        var muzzle = MuzzleOf(e.Actor, sighted, e.Gun) ?? at;
                         var mark = new Vector3(sight.Point.X, sightHeight, sight.Point.Y);
                         var reach = NVector2.Distance(sighting.Position, sight.Point);
                         Shot(muzzle, reach > sighted.Range ? muzzle + (mark - muzzle) * (sighted.Range / reach) : mark, e.Detail ?? "");
@@ -1256,7 +1276,7 @@ public partial class Game : Node3D
                     else if (e.Other is { } target && World.Find(target) is { } victim)
                     {
                         var weapon = World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail);
-                        Shot(weapon is null ? at : MuzzleOf(e.Actor, weapon) ?? at, ActorView.World(victim.Position) + Vector3.Up * 1.5f, e.Detail ?? "");
+                        Shot(weapon is null ? at : MuzzleOf(e.Actor, weapon, e.Gun) ?? at, ActorView.World(victim.Position) + Vector3.Up * 1.5f, e.Detail ?? "");
                     }
                     // The commander's launcher has a sound of its own (MachPhysMultiLauncher::newMissile).
                     _audio.Play(e.Detail == "MULTI_LAUNCHER5" && World.Find<Machine>(e.Actor)?.IsType("ADMINISTRATOR", "COMMANDER") == true
@@ -1328,7 +1348,8 @@ public partial class Game : Node3D
                     if (SoundTable.BuiltReport(built) is { } builtReport)
                         _audio.Say(builtReport);
                     break;
-                case GameEventKind.ConstructionComplete when World.Find(e.Actor)?.Race == Player:
+                // A run's towers say they are ready by its own words (Game.Wired).
+                case GameEventKind.ConstructionComplete when World.Find(e.Actor)?.Race == Player && World.Wired is null:
                     _hud.Message(Lang.T("Construction complete: {0}", e.Detail));
                     _audio.Say("VID_DOZER_BUILDING_COMPLETE");
                     break;
@@ -1353,7 +1374,7 @@ public partial class Game : Node3D
                     if (World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == weapon) is { } stopped && !GameWorld.Flies(stopped))
                     {
                         var ground = ActorView.World(e.Position) + Vector3.Up * 0.5f;
-                        Shot(MuzzleOf(e.Actor, stopped) ?? ground, ground, weapon);
+                        Shot(MuzzleOf(e.Actor, stopped, GunOfImpact(e)) ?? ground, ground, weapon);
                         _effects.Impact(ground);
                         _audio.Play(SoundTable.HitSound(weapon, Random.Shared.Next(1, 5)), ground);
                     }
@@ -1423,20 +1444,78 @@ public partial class Game : Node3D
     // Shots fired by each shooter's weapons so far, so that twin weapons and barrels take turns.
     private readonly Dictionary<(int, string), int> _shotsShown = [];
 
+    // Rounds each gun of a shooter fired so far, by its mounting and weapon, so that its barrels take turns: the copies of a
+    // Wired hero's battery are one gun and count as one.
+    private readonly Dictionary<(int Shooter, Mounting Mounting, string Weapon), int> _gunRounds = [];
+
+    // The rounds each of a shooter's weapons launched in this tick and not shown yet, by its place among its weapons.
+    private readonly Dictionary<(int Shooter, int Gun), int> _launching = [];
+
+    // The barrel each round in flight left by, as its flash showed it, by what the round says of itself: shooter, mounting,
+    // copy and that copy's count of rounds before it (Projectile.Barrel); with the tick it left in. Its view takes it from
+    // here (BarrelOf), so that a battery's rounds fly from the barrels their flashes lit.
+    private readonly Dictionary<(int Shooter, Mounting Mounting, int Copy, int Shot), (int Barrel, int Tick)> _flownFrom = [];
+
+    /// <summary>Counts the rounds that leave each weapon in this tick, before they are shown (see <see cref="MuzzleOf"/>).</summary>
+    private void CountLaunches()
+    {
+        _launching.Clear();
+        foreach (var e in World.Events)
+            if (e is { Kind: GameEventKind.Fired, Gun: >= 0 } && World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail) is { } spec && GameWorld.Flies(spec))
+                _launching[(e.Actor, e.Gun)] = _launching.GetValueOrDefault((e.Actor, e.Gun)) + 1;
+        // A round its view never took (it struck before a frame was drawn) is forgotten after two seconds.
+        if (_flownFrom.Count > 64)
+            foreach (var old in _flownFrom.Where(f => World.Tick - f.Value.Tick > 2 * GameWorld.TicksPerSecond).Select(f => f.Key).ToList())
+                _flownFrom.Remove(old);
+    }
+
+    /// <summary>The barrel a round in flight leaves by: the one its flash lit, else the one its weapon counted.</summary>
+    private int BarrelOf(Projectile round) =>
+        _flownFrom.Remove((round.Shooter, round.Mounting, round.Copy, round.Barrel), out var shown) ? shown.Barrel : round.Barrel;
+
+    /// <summary>The gun of a round the ground stopped: that of the shot raised just before its impact, or -1.</summary>
+    private int GunOfImpact(GameEvent impact)
+    {
+        var events = World.Events;
+        for (var i = 1; i < events.Count; i++)
+            if (ReferenceEquals(events[i], impact))
+                return events[i - 1] is { Kind: GameEventKind.Fired } fired && fired.Actor == impact.Actor && fired.Detail == impact.Detail ? fired.Gun : -1;
+        return -1;
+    }
+
     /// <summary>
-    /// The muzzle a shooter's weapon of this kind fires from now, its twins and barrels in turn; that weapon
-    /// recoils.
+    /// The muzzle a shooter's weapon of this kind fires from now; that weapon recoils. A round that says which of the
+    /// machine's weapons fired it (<see cref="GameEvent.Gun"/>) leaves the gun on that one's mounting, its barrels in turn
+    /// over all the rounds that gun fires: every copy of a Wired hero's battery fires from the one gun the model shows.
+    /// Without that, the twins of the kind and their barrels take turns.
     /// </summary>
-    private Vector3? MuzzleOf(int shooter, Machines.Import.Model.WeaponSpec weapon)
+    private Vector3? MuzzleOf(int shooter, Machines.Import.Model.WeaponSpec weapon, int gun = -1)
     {
         if (World.Find(shooter) is not { } actor || !_views.TryGetValue(shooter, out var view))
             return null;
-        var mounts = (actor switch { Machine m => m.Weapons, Construction c => c.Weapons, _ => [] })
-            .Where(w => w.Spec.TypeName == weapon.TypeName).ToList();
+        var all = actor switch { Machine m => m.Weapons, Construction c => c.Weapons, _ => [] };
+        if (gun >= 0 && gun < all.Count && all[gun].Spec.TypeName == weapon.TypeName)
+        {
+            var fired = all[gun];
+            var round = _gunRounds.GetValueOrDefault((shooter, fired.Mounting, weapon.TypeName));
+            _gunRounds[(shooter, fired.Mounting, weapon.TypeName)] = round + 1;
+            // A round that flies leaves its barrel to its view: by its weapon's count of rounds, this tick's in order.
+            if (_launching.GetValueOrDefault((shooter, gun)) is > 0 and var left)
+            {
+                _launching[(shooter, gun)] = left - 1;
+                _flownFrom[(shooter, fired.Mounting, fired.Copy, fired.Shots - left)] = (round, World.Tick);
+            }
+            view.Fire(fired.Mounting, weapon);
+            var muzzle = view.Muzzle(fired.Mounting, weapon, round);
+            _roundsLogged?.Add((shooter, gun, round, muzzle - view.GlobalPosition));
+            return muzzle;
+        }
+        var mounts = all.Where(w => w.Spec.TypeName == weapon.TypeName).ToList();
         if (mounts.Count == 0)
             return null;
+        // Of a hero's guns those that can have fired, a battery once: its copies are the one gun on their mounting.
         if (HeroOf(actor) is not null)
-            mounts = HeroGuns.Firing(mounts);
+            mounts = HeroGuns.Firing(mounts).DistinctBy(w => w.Mounting).ToList();
         var shot = _shotsShown.GetValueOrDefault((shooter, weapon.TypeName));
         _shotsShown[(shooter, weapon.TypeName)] = shot + 1;
         // The weapon the round leaves recoils with it.
@@ -2141,11 +2220,11 @@ public partial class Game : Node3D
         if (target is not null && World.AreEnemies(Player, target.Race))
         {
             // Constructors take enemy buildings over, spies slip into enemy labs to steal research; everyone armed
-            // attacks.
-            var capturers = target is Construction { Complete: true } ? Ids(m => m.Spec.Type == "CONSTRUCTOR") : [];
+            // attacks. A Wired hero on either is a fighter (RoleOf).
+            var capturers = target is Construction { Complete: true } ? Ids(m => RoleOf(m) == "CONSTRUCTOR") : [];
             if (capturers.Count > 0)
                 Order(new CaptureCommand(Player, capturers, target.Id));
-            var spies = target is Construction { Complete: true } lab && lab.IsType("HARDWARE_LAB") ? Ids(m => m.IsSpy) : [];
+            var spies = target is Construction { Complete: true } lab && lab.IsType("HARDWARE_LAB") ? Ids(m => RoleOf(m) == "SPY_LOCATOR") : [];
             if (spies.Count > 0)
                 Order(new EnterLabCommand(Player, spies, target.Id));
             Order(new AttackCommand(Player, Ids(m => m.CanFight), target.Id));
@@ -2183,13 +2262,13 @@ public partial class Game : Node3D
             var rest = machines.Select(m => m.Id).ToHashSet();
             if (!building.Complete)
             {
-                var constructors = Ids(m => m.Spec.Type == "CONSTRUCTOR");
+                var constructors = Ids(m => RoleOf(m) == "CONSTRUCTOR");
                 Order(new ConstructCommand(Player, constructors, building.Id));
                 rest.ExceptWith(constructors);
             }
             else if (building.HitPoints < building.MaxHitPoints)
             {
-                var constructors = Ids(m => m.Spec.Type == "CONSTRUCTOR");
+                var constructors = Ids(m => RoleOf(m) == "CONSTRUCTOR");
                 Order(new RepairCommand(Player, constructors, building.Id));
                 rest.ExceptWith(constructors);
             }
@@ -2239,10 +2318,10 @@ public partial class Game : Node3D
             _audio.PlayGui("gui/sounds/clickbad.wav");
             return;
         }
-        var locators = Ids(m => m.Spec.Type == "GEO_LOCATOR");
+        var locators = Ids(m => RoleOf(m) == "GEO_LOCATOR");
         if (locators.Count > 0)
             Order(new LocateCommand(Player, locators, point));
-        var others = Ids(m => m.Spec.Type != "GEO_LOCATOR");
+        var others = Ids(m => RoleOf(m) != "GEO_LOCATOR");
         if (Input.IsKeyPressed(Key.Ctrl))
             Order(new AttackMoveCommand(Player, others, point));
         else
@@ -2257,26 +2336,7 @@ public partial class Game : Node3D
         CancelPlacement();
         _placing = (type, subType, level);
         _placingOrientation = 0;
-        // The building itself, see-through, in green where it may stand and red where not.
-        var spec = World.Data.Parm.Construction(subType is null ? type : $"{type} {subType}");
-        var (id, size) = ActorView.ModelOf(new Construction(0, Player, NVector2.Zero, spec, spec.Level(level), 0));
-        _ghostMaterial = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(0.3f, 1, 0.3f, 0.4f),
-            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-        };
-        // Built from its rig, its pads lie printed on the ground as the building's will (see UpdateGhost).
-        _ghost = _assets.RigFor(id, Look(Player)) is { } rig
-            ? RigView.Create(rig)
-            : new MeshInstance3D { Mesh = _assets.MeshFor(id, Look(Player), size) };
-        _ghostPrinted = false;
-        AddChild(_ghost);
-        foreach (var mesh in _ghost.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>().Append(_ghost as MeshInstance3D).OfType<MeshInstance3D>())
-        {
-            mesh.MaterialOverride = _ghostMaterial;
-            mesh.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
-        }
+        _ghost = new Ghost(this, type, subType, level);
         _hud.Message("Left click to place, Space to turn, right click to cancel");
     }
 
@@ -2287,9 +2347,8 @@ public partial class Game : Node3D
         _placingWhy = null;
         _placedAt.Clear();
         _joined.Clear();
-        _ghost?.QueueFree();
+        _ghost?.Remove();
         _ghost = null;
-        _ghostMaterial = null;
     }
 
     private void UpdateGhost()
@@ -2305,27 +2364,76 @@ public partial class Game : Node3D
             at = held;
         }
         _placingAt = at;
-        // Placed and turned as the building's own view will be (ActorView). A mine goes where the mouse is, as
-        // anything else: anywhere near a found site will do (MachGuiConstructCommand never moved it onto the site).
-        _ghost.Position = ActorView.World(at);
-        _ghost.Rotation = new Vector3(0, -Mathf.DegToRad(_placingOrientation), 0);
+        // A mine goes where the mouse is, as anything else: anywhere near a found site will do (MachGuiConstructCommand
+        // never moved it onto the site).
         _placingWhy = WhyNotHere(p, at);
-        var ok = _placingWhy is null;
-        // Where it cannot stand it flashes, four times a second.
-        _ghost.Visible = ok || (int)(Time.GetTicksMsec() / 250) % 2 == 1;
-        var tint = ok ? new Color(0.3f, 1, 0.3f, 0.4f) : new Color(1, 0.25f, 0.2f, 0.4f);
-        _ghostMaterial!.AlbedoColor = tint;
-        if (_ghost is RigView view)
+        _ghost.Show(at, _placingOrientation, _placingWhy is null);
+    }
+
+    /// <summary>
+    /// A building as it would stand, see-through, to place it by: green where it may stand, red and flashing four times a
+    /// second where not, placed and turned as the building's own view will be (ActorView). Built from its rig, its pads lie
+    /// printed on the ground as the building's will, once where it first stands, reaching far enough up and down to lie on
+    /// the ground wherever it is taken. The constructors' placing and a constructor hero's towers (Game.Towers) both use it,
+    /// the towers in tints of their own.
+    /// </summary>
+    private sealed class Ghost
+    {
+        /// <summary>The placing's tints: a light green where it may stand, a light red where not.</summary>
+        public static readonly Color Allowed = new(0.3f, 1, 0.3f, 0.4f), Refused = new(1, 0.25f, 0.2f, 0.4f);
+
+        private readonly Color _allowed, _refused;
+
+        private readonly StandardMaterial3D _material = new()
         {
-            // Printed once where it first stands, reaching far enough up and down to lie on the ground wherever the
-            // mouse takes it.
-            if (!_ghostPrinted && HeightField.Current is { } ground)
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+        };
+
+        private readonly Node3D _model;
+        private bool _printed;
+
+        /// <param name="allowed">The tint where it may stand; the placing's if null.</param>
+        /// <param name="refused">The tint where it may not; the placing's if null.</param>
+        public Ghost(Game game, string type, string? subType, int level, Color? allowed = null, Color? refused = null)
+        {
+            (_allowed, _refused) = (allowed ?? Allowed, refused ?? Refused);
+            _material.AlbedoColor = _allowed;
+            var spec = game.World.Data.Parm.Construction(subType is null ? type : $"{type} {subType}");
+            var (id, size) = ActorView.ModelOf(new Construction(0, Player, NVector2.Zero, spec, spec.Level(level), 0));
+            _model = game._assets.RigFor(id, Look(Player)) is { } rig
+                ? RigView.Create(rig)
+                : new MeshInstance3D { Mesh = game._assets.MeshFor(id, Look(Player), size) };
+            game.AddChild(_model);
+            foreach (var mesh in _model.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>().Append(_model as MeshInstance3D).OfType<MeshInstance3D>())
+            {
+                mesh.MaterialOverride = _material;
+                mesh.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+            }
+        }
+
+        /// <summary>Stands at a place, turned by <paramref name="orientation"/> degrees, in the tint of whether it may.</summary>
+        public void Show(NVector2 at, int orientation, bool allowed)
+        {
+            _model.Position = ActorView.World(at);
+            _model.Rotation = new Vector3(0, -Mathf.DegToRad(orientation), 0);
+            _model.Visible = allowed || (int)(Time.GetTicksMsec() / 250) % 2 == 1;
+            var tint = allowed ? _allowed : _refused;
+            _material.AlbedoColor = tint;
+            if (_model is not RigView view)
+                return;
+            if (!_printed && HeightField.Current is { } ground)
             {
                 view.PrintPads(ground.At, reach: 12);
-                _ghostPrinted = true;
+                _printed = true;
             }
             view.PadTint = tint;
         }
+
+        /// <summary>Out of sight, pads and all, until it is shown again.</summary>
+        public void Hide() => _model.Visible = false;
+
+        public void Remove() => _model.QueueFree();
     }
 
     // Where the building to place stands now, and why it cannot; the sites picked with Shift so far, new and joined.
@@ -2366,7 +2474,7 @@ public partial class Game : Node3D
     {
         if (_placing is not { } p || RefusesOrders())
             return;
-        var constructors = Movers().Where(m => m.Spec.Type == "CONSTRUCTOR").Select(m => m.Id).ToList();
+        var constructors = Movers().Where(m => RoleOf(m) == "CONSTRUCTOR").Select(m => m.Id).ToList();
         PlaceConstructionCommand? placed = null;
         var spot = _placingAt ?? at.Ground;
         if (at.Actor is Construction { Complete: false } site && site.Race == Player)
@@ -2458,7 +2566,7 @@ public partial class Game : Node3D
         if (machine.Weapons.Count > 0)
             _audio.PlayGui("gui/sounds/weapchng.wav");
         _aimYaw = machine.Facing;
-        _hullTurnsDue.Clear();
+        ForgetGun();
         // The keys as the player chose them (KeyMap).
         static string K(KeyMap.Act act) => KeyMap.Name(act);
         var (drive, sides, turn) = ($"{K(KeyMap.Act.Forward)}/{K(KeyMap.Act.Back)}", $"{K(KeyMap.Act.Left)}/{K(KeyMap.Act.Right)}",
@@ -2496,8 +2604,12 @@ public partial class Game : Node3D
             Issue(new DriveCommand(Player, machine.Id, Driving: false));
         var left = _driven;
         if (_driven is { } was && _views.TryGetValue(was.Id, out var view))
+        {
             view.SetDriven(false);
+            view.UpperBodySnaps = false;
+        }
         _driven = null;
+        ForgetGun();
         _hands.LetGo();
         _headTarget = 0;
         _rightButtonTurnedHead = false;
@@ -2534,13 +2646,15 @@ public partial class Game : Node3D
     // options' F.P. Mouse Speed scales it, and the classic keys' mouse turns too.
     private static float LookPerPixel => 0.002f * GameOptions.MouseSpeed;
 
-    // The hull turns the driven machine has been told to make and has not made yet, by the tick that carries each out
-    // (radians anticlockwise in the original's axes): a hull following the view counts them, or it would overshoot.
-    private readonly Queue<(long Tick, float Turn)> _hullTurnsDue = new();
+    /// <summary>
+    /// How fast the simulation turns the driven machine's hull, radians a second (GameWorld's driving): a sighted hero
+    /// without an upper body at its gun's rate.
+    /// </summary>
+    private float HullTurnRate(Machine machine, bool slow) => Mathf.DegToRad(HullTurnDegrees(machine, slow));
 
-    /// <summary>How fast the simulation turns the driven machine's hull, radians a second (GameWorld's driving).</summary>
-    private float HullTurnRate(Machine machine, bool slow) =>
-        Mathf.DegToRad(World.Options.OriginalMotion ? World.DrivenTurnRate(machine, slow) : World.Data.Parm.General.FirstPersonMaxFastTurnRate);
+    /// <summary>The same in degrees a second, as the simulation works with it.</summary>
+    private float HullTurnDegrees(Machine machine, bool slow) =>
+        World.Options.OriginalMotion ? World.DrivenTurnRate(machine, slow, Sighted) : World.Data.Parm.General.FirstPersonMaxFastTurnRate;
 
     /// <summary>
     /// With the modern keys, how Q and E turn the hull, and A and D where the machine cannot step sideways: 1 for a
@@ -2702,7 +2816,9 @@ public partial class Game : Node3D
         // Behind the hangar's screen the hero stands: its keys and buttons are the screen's.
         if (HangarOpen)
         {
-            Issue(new DriveCommand(Player, machine.Id, Driving: true, Weapons: SelectedWeapons(machine), Head: _headTarget));
+            Issue(new DriveCommand(Player, machine.Id, Driving: true, Weapons: SelectedWeapons(machine), Head: _headTarget, Yaw: SentYaw));
+            if (Sighted)
+                SendingGun(machine, 0);
             return;
         }
         // The arrows drive and turn whatever the moves' keys are, and the up arrow on the number pad too; the one down
@@ -2732,12 +2848,9 @@ public partial class Game : Node3D
             {
                 // Without one the hull turns to where the view looks (the keys turn the view, frame by frame), as
                 // fast as it can, counting the turns already on their way so as to stop there.
-                while (_hullTurnsDue.TryPeek(out var due) && due.Tick < World.Tick)
-                    _hullTurnsDue.Dequeue();
-                var step = HullTurnRate(machine, Input.IsKeyPressed(Key.Ctrl)) * GameWorld.Dt;
-                var behind = Mathf.Wrap(_aimYaw - machine.Facing - _hullTurnsDue.Sum(due => due.Turn), -Mathf.Pi, Mathf.Pi);
-                turn = -Mathf.Clamp(behind / step, -1, 1);
-                _hullTurnsDue.Enqueue((World.Tick + _session.InputDelay, -turn * step));
+                turn = FollowTurn(machine, out var step);
+                if (!Sighted)
+                    _turnsDue.Add(new GunPrediction.Due(World.Tick + _session.InputDelay, -turn * step, _aimYaw));
             }
         }
         // With Shift (or the right button) held, A and D turn the upper body as the original's Shift and arrows did.
@@ -2756,6 +2869,13 @@ public partial class Game : Node3D
         var buttons = WeaponButtons;
         var selected = buttons ? HeldWeapons(machine) : SelectedWeapons(machine);
         var firing = buttons ? selected != 0 : Input.IsMouseButtonPressed(MouseButton.Left) || SpaceFires;
+        // A sighted driver's gun as it will stand when this command is carried out; held triggers wait for it.
+        var sent = selected;
+        if (Sighted)
+        {
+            var gun = SendingGun(machine, Mathf.Clamp(-turn, -1, 1));
+            sent = buttons ? WaitForGun(machine, selected, gun) : selected;
+        }
         if ((firing || buttons && machine.Weapons.Any(w => w.RoundsLeft > 0)) && machine.CanFight)
         {
             // None of the selected weapons charged: the original's dud click, at most every 0.8 s (MachGuiFirstPerson).
@@ -2767,23 +2887,33 @@ public partial class Game : Node3D
                 _audio.PlayGui("gui/sounds/nowefire.wav");
                 _lastCouldFire = now;
             }
-            var (sight, met) = SightAt(GetViewport().GetVisibleRect().Size / 2, machine.Weapons.Max(w => w.Spec.Range));
-            (aimAt, aimHeight) = (new NVector2(sight.X, sight.Z), sight.Y);
-            _sightLift = Vector3.Zero;
-            // In a run the sight on a model means what stops rounds of it; the picture still shows them going where the eye looks.
-            if (World.Wired is not null && met is not null)
-            {
-                var (point, height) = World.AimInside(met, aimAt.Value, sight.Y);
-                (aimAt, aimHeight) = (point, height);
-                _sightLift = sight - new Vector3(point.X, height, point.Y);
-            }
-            _projectiles.SightLift = _sightLift.Y;
+            var aim = SightPoint(machine);
+            (aimAt, aimHeight) = (aim.Point, aim.Height);
+            _projectiles.SightLift = (machine.Id, _sightLift.Y);
         }
         // The simulation turns left (counter-clockwise in the original's axes) for a positive turn, and steps left for a
         // positive strafe; the client shows the world with y and z swapped, which mirrors it, so on screen both go
         // right. Ctrl turns slowly (FIRST_PERSON_MAX_SLOW_TURN_RATE).
-        Issue(new DriveCommand(Player, machine.Id, Driving: true, forward, Mathf.Clamp(-turn, -1, 1), aimAt, selected, _headTarget,
-            -strafe, Input.IsKeyPressed(Key.Ctrl), aimHeight, buttons));
+        Issue(new DriveCommand(Player, machine.Id, Driving: true, forward, Mathf.Clamp(-turn, -1, 1), aimAt, sent, _headTarget,
+            -strafe, Input.IsKeyPressed(Key.Ctrl), aimHeight, buttons, SentYaw));
+    }
+
+    /// <summary>
+    /// Where the line of sight through the screen's middle meets what the weapons reach (<see cref="SightAt"/>): the point
+    /// seen and what it met, and the point a command sends the rounds to. In a run the sight on a model means what stops
+    /// rounds of it (<c>GameWorld.AimInside</c>); <see cref="_sightLift"/> keeps how far the picture's point lies from that.
+    /// </summary>
+    private (Vector3 Seen, Actor? Met, NVector2 Point, float Height) SightPoint(Machine machine)
+    {
+        var (sight, met) = SightAt(GetViewport().GetVisibleRect().Size / 2, machine.Weapons.Select(w => w.Spec.Range).DefaultIfEmpty(0).Max());
+        var (point, height) = (new NVector2(sight.X, sight.Z), sight.Y);
+        _sightLift = Vector3.Zero;
+        if (World.Wired is not null && met is not null)
+        {
+            (point, height) = World.AimInside(met, point, sight.Y);
+            _sightLift = sight - new Vector3(point.X, height, point.Y);
+        }
+        return (sight, met, point, height);
     }
 
     /// <summary>
@@ -2827,12 +2957,21 @@ public partial class Game : Node3D
         if (FreeLook && !machine.CanTurnUpperBody && (!Paused || Online) && !HangarOpen)
             _aimYaw = Mathf.Wrap(_aimYaw - KeyTurn(machine) * HullTurnRate(machine, Input.IsKeyPressed(Key.Ctrl)) * (float)GetProcessDeltaTime(),
                 -Mathf.Pi, Mathf.Pi);
+        // A sighted driver's gun as it will stand, and where its sight is drawn; the upper body points there at once.
+        var aimsGun = Sighted;
+        if (aimsGun)
+            TurnDrawnGun(machine, view);
+        view.UpperBodySnaps = aimsGun && machine.CanTurnUpperBody;
         // From the faceplate, as the original, turning with the upper body; the view stays level whatever the
         // machine leans or sways.
-        if (machine.CanTurnUpperBody)
+        if (machine.CanTurnUpperBody && !aimsGun)
             view.UpperBodyAngle = _headTarget;
         var head = HeadNow(machine);
         _firstPersonCamera.GlobalPosition = view.Eye;
+        // A sighted machine without an upper body looks from above its pivot at the eye's height, so that the view
+        // does not slide sideways while the hull swings round under it.
+        if (aimsGun && !machine.CanTurnUpperBody)
+            _firstPersonCamera.GlobalPosition = new Vector3(view.GlobalPosition.X, view.Eye.Y, view.GlobalPosition.Z);
         // With the modern keys the view looks where the mouse turned it, not waiting for the machine to follow.
         var yaw = FreeLook ? -_aimYaw : view.Yaw - head;
         _firstPersonCamera.GlobalRotation = new Vector3(_lookPitch, yaw - Mathf.Pi / 2, 0);
@@ -2840,6 +2979,7 @@ public partial class Game : Node3D
 
         _hud.Weapons.Show(machine.Weapons, SelectedWeapons(machine));
         _hud.Weapons.Held = ActHeld;
+        _hud.Weapons.Waiting = act => aimsGun && _waiting.Contains(act);
         _hud.Weapons.ShowTriggers(WeaponButtons ? GunPlaces(machine) : null);
         _hud.Radar.Driven = machine;
         _hud.Radar.Head = head;
@@ -2850,10 +2990,20 @@ public partial class Game : Node3D
             _hud.Crosshair.Outlined = _screen.Goggles;
         }
 
+        if (aimsGun)
+        {
+            ShowGunSight(machine, view);
+            return;
+        }
+        _hud.Crosshair.Single();
         // The crosshair shows what it rests on: an enemy to shoot or a friend to spare (ore and wrecks don't count).
         // It looks along the same line of sight the weapons fire along, as far as they reach.
         var reach = machine.Weapons.Select(w => w.Spec.Range).DefaultIfEmpty(0).Max();
         var (sighted, aimed) = SightAt(GetViewport().GetVisibleRect().Size / 2, reach);
+        // A Wired hero hiding in its shadow gives the sight nothing to show; one a geo locator has located stands in brackets.
+        if (aimed is not null && InShadow(aimed))
+            aimed = null;
+        _hud.Crosshair.Located = aimed is not null && LocatedFoe(aimed);
         _hud.Crosshair.Target = aimed is null ? null
             : (aimed.HitPoints / (float)Math.Max(1, aimed.MaxHitPoints), aimed.Armour / (float)Math.Max(1, aimed.MaxArmour));
         // The compass reads the heading as the original's azimuth: degrees anticlockwise from its x axis.

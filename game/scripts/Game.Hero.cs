@@ -12,6 +12,9 @@ public partial class Game
     private HeroLoadout? HeroOf(Actor actor) =>
         World.Wired is { } run && run.Heroes.TryGetValue(actor.Race, out var state) && state.Hero == actor.Id ? state.Loadout : null;
 
+    /// <summary>Whether the actor is a hero of a Wired match: the panel offers it none of the original's constructor, spy or locator commands.</summary>
+    public bool IsHero(Actor actor) => HeroOf(actor) is not null;
+
     /// <summary>A hero the hangar refitted changes its model where it stands, in sparks and the sound of work.</summary>
     private void ShowRefit(ActorView view, Machine machine)
     {
@@ -27,10 +30,16 @@ public partial class Game
 
     private bool _refitScripted;
 
+    /// <summary>While a scripted refit drives its hero: every round's flash this tick, which gun fired it, its barrel and muzzle.</summary>
+    private List<(int Shooter, int Gun, int Barrel, Vector3? Muzzle)>? _roundsLogged;
+
     /// <summary>
     /// For automated checks of a Wired run (MACHINES_WIRED=1 with MACHINES_MAP): MACHINES_SCREENSHOT_REFIT=&lt;chassis&gt;,&lt;left&gt;,&lt;right&gt;,&lt;top&gt;
     /// selects the hero, keeps the camera on it and refits it after two seconds through the hangar's commands, - for an
-    /// empty slot, then prints what its view shows. A fifth word drives it afterwards (first) or sets it on fire before (burning).
+    /// empty slot, <c>WEAPON*3</c> for a battery of three (the further copies added to the first), then prints what its view
+    /// shows, every gun's muzzle. A fifth word drives it afterwards (first), printing for every round it fires the gun that
+    /// fired it, the barrel and muzzle its flash lit and those its flying round leaves from, or sets it on fire before
+    /// (burning).
     /// </summary>
     private async void ScriptRefit()
     {
@@ -48,30 +57,69 @@ public partial class Game
         {
             if (words.Length > 4 && words[4] == "burning" && World.HeroOf(Player) is { } burning)
                 burning.HitPoints = burning.MaxHitPoints / 20;
+            // The world forgets its refusals with the next tick, so they are looked for after each.
+            var reasons = new List<string>();
+            void Refused() => reasons.AddRange(World.Rejected.Where(r => Equals(r.Command, command)).Select(r => r.Reason));
+            Ticked += Refused;
             Issue(command);
             await Wait(0.3);
-            foreach (var refused in World.Rejected)
-                GD.PrintErr($"hero: {command.GetType().Name} refused: {refused.Reason}");
+            Ticked -= Refused;
+            foreach (var reason in reasons)
+                GD.PrintErr($"hero: {command.GetType().Name} refused: {reason}");
         }
 
         await Wait(2);
         World.Races[Player].Bmu = 1000000;
+        // Through the screen, as a player opens it: a hangar opened without one is closed again by FollowHangar.
+        OpenHangar();
+        await Wait(0.3);
         // Whatever it wears now goes first, so that a smaller chassis can take the hero.
-        await Do(new WiredHangarCommand(Player, true));
-        foreach (var worn in state.Loadout.Weapons.OfType<WiredItem>().ToList())
+        foreach (var worn in state.Loadout.Weapons.OfType<WiredItem>().Concat(state.Loadout.Copies.SelectMany(c => c)).ToList())
             await Do(new WiredUnequipCommand(Player, worn.Id));
         await Do(new WiredChassisCommand(Player, state.Add(WiredKind.Chassis, words[0], 0).Id));
         foreach (var (word, mounting) in words.Skip(1).Take(3).Zip(Enum.GetValues<Mounting>()))
-            if (word != "-")
-                await Do(new WiredEquipCommand(Player, state.Add(WiredKind.Weapon, word, 0).Id, WiredSlot.Weapon(mounting)));
-        await Do(new WiredHangarCommand(Player, false));
+        {
+            if (word == "-")
+                continue;
+            var star = word.IndexOf('*');
+            var (weapon, count) = star < 0 ? (word, 1) : (word[..star], int.TryParse(word[(star + 1)..], out var copies) ? copies : 1);
+            for (var copy = 0; copy < count; copy++)
+                await Do(new WiredEquipCommand(Player, state.Add(WiredKind.Weapon, weapon, 0).Id, WiredSlot.Weapon(mounting), Add: copy > 0));
+        }
+        CloseHangar();
+        await Wait(0.3);
         if (World.HeroOf(Player) is not { } refitted || !_views.TryGetValue(refitted.Id, out var view))
             return;
         _rig.Position = view.Position;
         GD.Print($"hero: {refitted.Spec.Type} {refitted.Spec.SubType} refits {refitted.Refits}, selected {_selection.Contains(refitted.Id)}, bounds {view.Bounds}, eye {view.Eye - view.GlobalPosition}");
-        foreach (var weapon in refitted.Weapons)
-            GD.Print($"hero: {weapon.Mounting} {weapon.Spec.TypeName} muzzle {MuzzleOf(refitted.Id, weapon.Spec) - view.GlobalPosition}");
+        for (var gun = 0; gun < refitted.Weapons.Count; gun++)
+        {
+            var weapon = refitted.Weapons[gun];
+            GD.Print($"hero: {weapon.Mounting} copy {weapon.Copy} {weapon.Spec.TypeName} muzzle {view.Muzzle(weapon.Mounting, weapon.Spec, 0) - view.GlobalPosition}");
+        }
         if (words.Length > 4 && words[4] == "first")
+        {
             EnterFirstPerson();
+            // Which gun every round leaves, and from where: a battery's copies take turns firing the one gun on their
+            // mounting, so all their rounds leave its muzzle.
+            _roundsLogged = [];
+            var flying = new HashSet<int>();
+            Ticked += () =>
+            {
+                if (!IsInstanceValid(view))
+                    return;
+                foreach (var (_, index, barrel, muzzle) in _roundsLogged.Where(r => r.Shooter == refitted.Id && r.Gun < refitted.Weapons.Count))
+                {
+                    var gun = refitted.Weapons[index];
+                    GD.Print($"hero: tick {World.Tick} flash gun {index} {gun.Mounting} copy {gun.Copy} {gun.Spec.TypeName} barrel {barrel} muzzle {muzzle}");
+                }
+                _roundsLogged.Clear();
+                foreach (var round in World.Projectiles.Where(p => p.Shooter == refitted.Id && flying.Add(p.Id)))
+                {
+                    var barrel = _flownFrom.TryGetValue((round.Shooter, round.Mounting, round.Copy, round.Barrel), out var shown) ? shown.Barrel : round.Barrel;
+                    GD.Print($"hero: tick {World.Tick} round {round.Id} {round.Mounting} copy {round.Copy} {round.Weapon.TypeName} barrel {barrel} muzzle {view.Muzzle(round.Mounting, round.Weapon, barrel) - view.GlobalPosition}");
+                }
+            };
+        }
     }
 }

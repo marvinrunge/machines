@@ -34,6 +34,26 @@ public static class BattleCatalogue
         ["ballista4"] = 7,
         ["boss2"] = 7,
         ["gorilla5"] = 8,
+        // Wired's own machines, by the rows of the tree they stand in.
+        ["grunt4"] = 6,
+        ["reaper4"] = 6,
+        ["boss3"] = 6,
+        ["grunt5"] = 8,
+        ["reaper5"] = 8,
+        ["widow6"] = 8,
+        ["ballista5"] = 8,
+        ["commander6"] = 8,
+        // The constructors and spies, by their rows too.
+        ["dozer1"] = 3,
+        ["builder3"] = 4,
+        ["behemoth4"] = 6,
+        ["titan6"] = 8,
+        ["spy3"] = 4,
+        ["spy5"] = 6,
+        ["phantom6"] = 8,
+        // The locators: the crab a start beside Grunt 1, the glider the first flyer.
+        ["geo1"] = 1,
+        ["geo3"] = 2,
     };
 
     /// <summary>The tier of a chassis, or 0 for one without a row.</summary>

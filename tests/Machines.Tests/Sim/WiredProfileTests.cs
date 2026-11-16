@@ -40,6 +40,28 @@ public class WiredProfileTests
         Assert.All(WiredProfile.StartChassis, start => Assert.NotNull(WiredCatalogue.FindChassis(start.Chassis)));
     }
 
+    [Fact]
+    public void A_new_profile_starts_on_the_crab_as_well()
+    {
+        var profile = new WiredProfile();
+
+        Assert.True(profile.CanStartOn("geo1"));
+        Assert.False(profile.CanStartOn("geo3"));
+        Assert.Equal(["grunt1", "geo1"], WiredProfile.StartChassis.Where(s => s.Wave == 0).Select(s => s.Chassis));
+    }
+
+    [Fact]
+    public void The_crab_is_no_goal_and_no_run_opens_it()
+    {
+        var profile = new WiredProfile();
+        Assert.DoesNotContain(profile.Goals(), g => g.Id == "geo1");
+
+        foreach (var waves in new[] { 0, 10, 40 })
+            Assert.DoesNotContain("geo1", profile.Note(Run(waves, squad: 3)));
+        Assert.DoesNotContain("geo1", profile.Unlocks);
+        Assert.True(profile.CanStartOn("geo1"));
+    }
+
     [Theory]
     [InlineData(9, 0, new string[0])]
     [InlineData(10, 0, new[] { "reaper2", "m_moon" })]
@@ -357,5 +379,41 @@ public class WiredProfileTests
     public void No_file_is_a_new_profile()
     {
         Assert.Empty(WiredProfile.Load(Path.Combine(Path.GetTempPath(), $"wired-{Guid.NewGuid():N}.json")).Unlocks);
+    }
+
+    [Fact]
+    public void A_kept_hero_from_before_batteries_has_one_copy_of_each_and_a_count_out_of_reach_is_mended()
+    {
+        // Reaper 3: medium slots left and right. A count of 0 is one copy, 9 what the slot carries, and anything that is no
+        // weapon on a weapon slot comes once, whatever it says.
+        const string Json = """
+            { "LastHero": { "Chassis": "reaper3", "Items": [
+                { "Catalogue": "BOLTER", "Slot": { "Kind": "Weapon", "Index": 1 } },
+                { "Catalogue": "FLAME_THROWER2", "Slot": { "Kind": "Weapon", "Index": 0 }, "Count": 0 },
+                { "Catalogue": "AUTO_CANNON", "Slot": { "Kind": "Weapon", "Index": 0 }, "Count": 9 },
+                { "Catalogue": "plates", "Slot": { "Kind": "Module", "Index": 0 }, "Count": 3 },
+                { "Catalogue": "AUTO_CANNON", "Count": 2 },
+                { "Catalogue": "BOLTER", "Slot": { "Kind": "Weapon", "Index": 1 }, "Count": -4 } ] } }
+            """;
+        InAFolder(path =>
+        {
+            File.WriteAllText(path, Json);
+
+            var items = WiredProfile.Load(path).LastHero!.Items;
+
+            Assert.Equal([1, 1, 2, 1, 1, 1], items.Select(i => i.Count));
+        });
+    }
+
+    [Fact]
+    public void A_kept_battery_comes_back_as_it_was_kept()
+    {
+        InAFolder(path =>
+        {
+            var left = WiredSlot.Weapon(Mounting.Left);
+            new WiredProfile { LastHero = new WiredHeroSheet { Chassis = "reaper2", Items = [new WiredStartItem("BOLTER", left, 2)] } }.Save(path);
+
+            Assert.Equal(new WiredStartItem("BOLTER", left, 2), WiredProfile.Load(path).LastHero!.Items.Single());
+        });
     }
 }

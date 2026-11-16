@@ -9,8 +9,10 @@ namespace Machines.Game;
 /// inventory on the left and its values on the right. It serves hero creation in the menus as well as the run, whichever
 /// <see cref="HangarDesk"/> it works on. Everything can be tried before it is done: pointing at a good shows the model
 /// and the values as they would be, worked out by <see cref="HeroBuild.Resolve"/> and <see cref="HeroRig.Compose"/> on a
-/// copy, and for a chassis what stays on, what falls off and which slots are left empty. In a run its left side holds the
-/// shop too (HangarPage.Shop) and its foot the chip board. Wired is the remake's own addition.
+/// copy, and for a chassis what stays on, what falls off and which slots are left empty. A weapon dropped onto a slot that
+/// carries the same weapon joins its battery, one gun that fires as often as it has copies; with Shift held it replaces the
+/// battery. In a run its left side holds the shop too (HangarPage.Shop) and its foot the chip board. Wired is the remake's
+/// own addition.
 /// </summary>
 public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, Control?>? plate, Func<HangarPage, Control> bar) : MenuPage(back)
 {
@@ -36,8 +38,8 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
         (HangarShelf.Chassis, "Chassis"),
     ];
 
-    /// <summary>A build being tried: <paramref name="Chassis"/> says the hero changes chassis.</summary>
-    private sealed record Trial(HeroLoadout Loadout, bool Chassis);
+    /// <summary>A build being tried: <paramref name="Chassis"/> says the hero changes chassis, <paramref name="Copy"/> that one more copy joins the battery on that slot.</summary>
+    private sealed record Trial(HeroLoadout Loadout, bool Chassis, WiredSlot? Copy = null);
 
     private readonly List<SlotCard> _slots = [];
     private readonly List<ItemCard> _cards = [];
@@ -64,7 +66,13 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
     private ItemCard? _ghost;
     private SlotCard? _under;
     private bool _overPlate;
-    private (HangarGood? Good, WiredSlot? Slot, bool Plate, HangarCard? Hovered, HeroLoadout? Shown) _asked;
+    private (HangarGood? Good, WiredSlot? Slot, bool Plate, HangarCard? Hovered, HeroLoadout? Shown, bool Replace, WiredSlot? Plus) _asked;
+
+    /// <summary>Shift is held, by its key's own events: they come for scripted input too.</summary>
+    private bool _shift;
+
+    /// <summary>The weapon card whose strip for one more copy the mouse is on.</summary>
+    private SlotCard? _plus;
     private Trial? _trial;
     private HeroLoadout? _wanted;
     private float _settling, _refusalLeft, _arrivalLeft;
@@ -72,6 +80,9 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
     private readonly List<WiredSlot> _sparks = [];
 
     public HangarDesk Desk => desk;
+
+    /// <summary>Whether the page drafts a battle's hero: what a chassis has of its own is said as a battle has it.</summary>
+    private bool Battle => desk is BattleDesk;
 
     /// <summary>The BMUs there are, for the cards' prices.</summary>
     public int Bank => desk.Bank;
@@ -152,7 +163,7 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
         SwitchOn();
         // MACHINES_HANGAR_SCRIPT=<folder>,<what>: see HangarScript.
         if (System.Environment.GetEnvironmentVariable("MACHINES_HANGAR_SCRIPT")?.Split(',') is [var folder, var what] && !(what == "start" && HangarScript.Started))
-            AddChild(new HangarScript(this, folder, desk is CreationDesk || what is "shop" or "bay" or "view" ? what : "match"));
+            AddChild(new HangarScript(this, folder, desk is CreationDesk || what is "shop" or "bay" or "view" or "batteries" ? what : "match"));
     }
 
     private ChipPanel BuildInventory(float width, int columns)
@@ -251,7 +262,7 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
         Put(_hint, layout.Status);
         Put(_testFire, layout.Button);
         _screen.KeepOff(layout.Boxes);
-        Say(_said.Text, _said.Colour);
+        Say(_said.Text, _said.Colour, _said.Shorter);
     }
 
     private static void Put(Control control, HangarBox box)
@@ -301,6 +312,9 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
         _bank.Text = desk.BankText;
         _choiceAsked = default;
         ShowStock();
+        // What one more copy costs and whether the bank covers it.
+        foreach (var card in _slots)
+            ShowPlus(card, _trial);
     }
 
     /// <summary>The model anew, for a change of colours as well.</summary>
@@ -326,7 +340,7 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
         var modules = 0;
         foreach (var card in _slots)
         {
-            ShowSlot(card, _shown, then, trial?.Chassis == true, desk.HasSlot);
+            ShowSlot(card, trial);
             if (card.Slot.Kind == WiredSlotKind.Module && card.Visible)
                 modules++;
         }
@@ -350,12 +364,22 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
         _ => true,
     };
 
-    private static void ShowSlot(SlotCard card, HeroLoadout now, HeroLoadout? then, bool chassis, Func<WiredSlot, WiredChassis, bool> hasSlot)
+    /// <summary>What a slot carries: a weapon slot its battery, copy 0 first; any other what sits in it.</summary>
+    private static IReadOnlyList<WiredItem> Carried(HeroLoadout loadout, WiredSlot slot) =>
+        slot.Kind == WiredSlotKind.Weapon && slot.Index is >= 0 and <= (int)Mounting.Top ? loadout.Battery((Mounting)slot.Index)
+        : loadout.At(slot) is { } item ? [item] : [];
+
+    /// <summary>What comes away from a slot by a drag or a right click: of a battery its last copy.</summary>
+    private WiredItem? Outermost(WiredSlot slot) => Carried(_shown, slot).LastOrDefault();
+
+    private void ShowSlot(SlotCard card, Trial? trial)
     {
+        var (now, then, chassis) = (_shown, trial?.Loadout, trial?.Chassis == true);
         var slot = card.Slot;
         var shown = then ?? now;
-        var (had, has) = (Exists(now, slot) && hasSlot(slot, now.ChassisEntry), Exists(shown, slot) && hasSlot(slot, shown.ChassisEntry));
+        var (had, has) = (Exists(now, slot) && desk.HasSlot(slot, now.ChassisEntry), Exists(shown, slot) && desk.HasSlot(slot, shown.ChassisEntry));
         var (was, comes) = (now.At(slot), shown.At(slot));
+        var (before, after) = (Carried(now, slot), Carried(shown, slot));
         var mount = slot.Kind == WiredSlotKind.Weapon ? shown.ChassisEntry.Slot((Mounting)slot.Index) : null;
         card.Title = Heading(slot, mount).ToUpperInvariant();
         card.Fixed = mount?.Fixed;
@@ -367,8 +391,16 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
             _ => true,
         };
         card.Item = comes ?? (was is not null && then is not null ? was : null);
-        card.Trial = then is not null && comes is not null && (comes.Id != was?.Id || comes.Mk != was.Mk);
-        (card.Note, card.NoteColour) = then is null ? (null, MenuTheme.Bright) : Fate(then, had, has, was, comes, now, chassis);
+        card.Battery = slot.Kind != WiredSlotKind.Weapon || card.Item is null ? null : comes is not null ? after : before;
+        card.Capacity = slot.Kind != WiredSlotKind.Weapon || card.Item is null ? 0
+            : HangarText.Capacity((comes is not null ? shown : now).ChassisEntry, (Mounting)slot.Index, card.Item.Catalogue);
+        card.Trial = then is not null && comes is not null && !before.Select(i => (i.Id, i.Mk)).SequenceEqual(after.Select(i => (i.Id, i.Mk)));
+        (card.Note, card.NoteColour) = then is null ? (null, MenuTheme.Bright) : Fate(then, had, has, before, after, now, chassis);
+        ShowPlus(card, trial);
+        // A module the chassis makes all but useless says so, unless what the trial does to it says more.
+        if (slot.Kind == WiredSlotKind.Module && comes is not null && (card.Note is null || chassis && comes.Id == was?.Id)
+            && HangarText.ModuleNote(comes, shown.ChassisEntry) is { } gift)
+            (card.Note, card.NoteColour) = (gift, MenuTheme.Bright);
         if (slot.Kind != WiredSlotKind.Chip)
             return;
         card.Linked = WiredChips.Linked(shown.Chips, slot.Index);
@@ -390,16 +422,61 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
         return mount is null ? side : $"{side} · {HangarText.Size(mount.Size)}";
     }
 
-    /// <summary>What becomes of a slot in a build being tried: the user's question when changing chassis.</summary>
-    private static (string? Note, Color Colour) Fate(HeroLoadout then, bool had, bool has, WiredItem? was, WiredItem? comes, HeroLoadout now, bool chassis)
+    /// <summary>
+    /// The strip for one more copy on a weapon's card, where the weapon forms a battery on the slot: while nothing is carried
+    /// and no other build being tried changes the slot or the chassis. Full, or out of reach, it says why not.
+    /// </summary>
+    private void ShowPlus(SlotCard card, Trial? trial)
+    {
+        card.Plus = null;
+        if (card.Slot.Kind != WiredSlotKind.Weapon || card.Absent || _shown.At(card.Slot) is null || card.Capacity < 2 || (_held ?? _picked) is not null
+            || trial is { Copy: null } && (trial.Chassis || card.Trial || card.Note is not null))
+            return;
+        card.Plus = Lang.T("+1 · fires {0}× as often", _shown.Battery((Mounting)card.Slot.Index).Count + 1);
+        card.PlusPrice = desk.CopyPrice(card.Slot);
+        card.PlusWhy = desk.WhyNoCopy(card.Slot);
+    }
+
+    /// <summary>
+    /// What becomes of a slot in a build being tried: the user's question when changing chassis. A slot is asked by what it
+    /// carries, a weapon slot by its battery: <paramref name="before"/> as it is, <paramref name="after"/> as it would be.
+    /// </summary>
+    private static (string? Note, Color Colour) Fate(HeroLoadout then, bool had, bool has, IReadOnlyList<WiredItem> before, IReadOnlyList<WiredItem> after, HeroLoadout now, bool chassis)
     {
         var (good, bad, warn) = (MenuTheme.Glow, Red, MenuTheme.Bright);
+        var (was, comes) = (before.FirstOrDefault(), after.FirstOrDefault());
+        // What leaves the slot moves if the hero keeps it elsewhere; the rest falls off, of a battery counted.
+        (string, Color) Leaving(IEnumerable<WiredItem> leaving)
+        {
+            var off = leaving.Count(i => !then.Holds(i.Id));
+            return off == 0 ? (Lang.T("Moves"), warn) : (off == 1 ? Lang.T("Falls off") : Lang.T("{0} fall off", off), chassis ? bad : warn);
+        }
         if (!had && has)
             return comes is null ? (Lang.T("New slot"), warn) : (Lang.T("Moves here"), good);
         if (had && !has)
-            return was is null ? (Lang.T("Slot goes"), bad) : then.Holds(was.Id) ? (Lang.T("Moves"), warn) : (Lang.T("Falls off"), bad);
+            return was is null ? (Lang.T("Slot goes"), bad) : Leaving(before);
         if (!has)
             return (null, warn);
+        if (before.Count > 1 || after.Count > 1)
+        {
+            var leaving = before.Where(i => after.All(a => a.Id != i.Id)).ToList();
+            var joining = after.Count(i => before.All(b => b.Id != i.Id));
+            if (comes?.Catalogue == was?.Catalogue)
+            {
+                if (joining > 0 && leaving.Count == 0)
+                    return (Lang.T("Joins the battery"), good);
+                if (joining == 1 && leaving.Count == 1 && after.Count == before.Count)
+                    return (Lang.T("Swaps Mk {0}", leaving[0].Mk), good);
+                if (leaving.Count > 0)
+                    return Leaving(leaving);
+                if (after.FirstOrDefault(i => before.First(b => b.Id == i.Id).Mk != i.Mk) is { } raised)
+                    return ($"Mk {raised.Mk}", good);
+                return !chassis ? (null, warn) : (Lang.T("Stays on"), good);
+            }
+            // A battery that another weapon takes the place of, or that is taken off.
+            if (before.Count > 1)
+                return Leaving(leaving);
+        }
         if (comes is not null && comes.Id == was?.Id && comes.Mk != was.Mk)
             return ($"Mk {comes.Mk}", good);
         if (comes?.Id == was?.Id)
@@ -414,14 +491,23 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
     private void ShowBanner()
     {
         var (text, colour) = (_refusal, Red);
+        string? shorter = null;
         if (text is null && _under?.Fits == false)
-            (text, colour) = (_under.Why, Red);
+            (text, colour) = (ShiftWould(_under) ? $"{_under.Why} · {Lang.T("Shift: replace the battery")}" : _under.Why, Red);
         if (text is null && _arrival is not null)
             (text, colour) = (_arrival, MenuTheme.Bright);
         if (text is null && _held is null && _pointed is { } pointing && desk.Pointing(pointing, _hovered is TreeCard) is { } note)
             (text, colour) = (note, MenuTheme.Bright);
-        if (text is null && _hovered is SlotCard { Slot.Kind: WiredSlotKind.Weapon, Item: not null, Absent: false } && _trial is null)
-            (text, colour) = (Lang.T("Click: test fire. Right click: take off."), MenuTheme.Text);
+        if (text is null && _plus is { } plus)
+            (text, colour) = plus.PlusWhy is { } no ? (HangarText.Reason(no), Red)
+                : (Lang.T("One more copy of {0}: the gun fires {1} times as often, every round at full damage.", HangarText.Name(plus.Item!.Catalogue), Carried(_shown, plus.Slot).Count + 1), MenuTheme.Text);
+        if (text is null && _hovered is SlotCard { Slot.Kind: WiredSlotKind.Weapon, Item: not null, Absent: false } weapon && _trial is null)
+            (text, colour) = (weapon.Battery is { Count: > 1 } battery
+                ? Lang.T("Battery of {0}: one gun that fires {0} times as often. Click: test fire. Right click: take one off.", battery.Count)
+                : Lang.T("Click: test fire. Right click: take off."), MenuTheme.Text);
+        if (text is null && !Replace && (_held ?? _picked) is { Item.Kind: WiredKind.Weapon } carried && _under is { Fits: true } joined
+            && desk.Joining(carried, joined.Slot).Join is SlotJoin.Add or SlotJoin.Swap)
+            (text, colour) = (Lang.T("Shift: replace the battery"), MenuTheme.Text);
         if (text is null && _trial is { Chassis: true } trial)
         {
             var worn = _shown.Worn.Where(i => i.Kind is WiredKind.Weapon or WiredKind.Module).ToList();
@@ -429,7 +515,11 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
             var then = trial.Loadout;
             var weaponSlots = then.ChassisEntry.Slots.Count(s => s.Fixed is null && then.Weapon(s.Mounting) is null);
             var empty = weaponSlots + then.Modules.Count(m => m is null);
-            (text, colour) = (Lang.T("Stays on: {0} · Falls off: {1} · Empty slots: {2}", staying, worn.Count - staying, empty), MenuTheme.Bright);
+            var facts = Lang.T("Stays on: {0} · Falls off: {1} · Empty slots: {2}", staying, worn.Count - staying, empty);
+            // What the chassis has of its own comes first: it is what the change is for. Where the box has no room for both
+            // it says that alone, as the slots say what stays on and what falls off.
+            shorter = HangarText.ChassisEffect(then.Chassis.Catalogue, Battle);
+            (text, colour) = (shorter is null ? facts : $"{shorter}\n{facts}", MenuTheme.Bright);
         }
         if (text is null && _pointed is { Deal: HangarDeal.Upgrade } spare && !_shown.Holds(spare.Item.Id))
             (text, colour) = (Lang.T("The spare goes up a Mk where it lies: the hero stays as it is."), MenuTheme.Text);
@@ -437,15 +527,25 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
             (text, colour) = (HangarText.Reason(desk.WhyNoSlot(homeless)), MenuTheme.Text);
         if (text is null && (_held ?? _picked ?? _pointed ?? (_hovered as SlotCard)?.Item.Good()) is { } good && Said(good) is { } said)
             (text, colour) = (said, MenuTheme.Text);
-        Say(text, colour);
+        Say(text, colour, shorter);
     }
 
-    private (string? Text, Color Colour) _said;
+    private (string? Text, Color Colour, string? Shorter) _said;
 
-    /// <summary>The line at the stage's foot: what is said over the hint, which comes back when nothing is. It takes the size at which the box shows all of it.</summary>
-    private void Say(string? text, Color colour)
+    /// <summary>Whether a weapon put onto its battery replaces it: Shift is held.</summary>
+    private bool Replace => _shift || Input.IsKeyPressed(Key.Shift);
+
+    /// <summary>Whether what is carried, refused by the full battery on a slot, would go there with Shift held.</summary>
+    private bool ShiftWould(SlotCard over) => !Replace && (_held ?? _picked) is { Item.Kind: WiredKind.Weapon } carried
+        && desk.Joining(carried, over.Slot).Join == SlotJoin.Full && desk.WhyNot(carried, over.Slot, replace: true) is null;
+
+    /// <summary>
+    /// The line at the stage's foot: what is said over the hint, which comes back when nothing is. It takes the size at
+    /// which the box shows all of it; if none does, <paramref name="shorter"/> is said instead where there is one.
+    /// </summary>
+    private void Say(string? text, Color colour, string? shorter = null)
     {
-        _said = (text, colour);
+        _said = (text, colour, shorter);
         _banner.Visible = text is not null;
         _hint.Visible = text is null;
         _banner.AddThemeColorOverride("font_color", colour);
@@ -459,6 +559,11 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
             if (_banner.GetVisibleLineCount() >= _banner.GetLineCount())
                 break;
         }
+        if (shorter is null || _banner.GetVisibleLineCount() >= _banner.GetLineCount())
+            return;
+        Say(shorter, colour);
+        // A wider box after a change of shelf tries the whole of it again.
+        _said = (text, colour, shorter);
     }
 
     // ---- the mouse --------------------------------------------------------------------------------
@@ -470,6 +575,8 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
     {
         if (@event is InputEventMouse mouse)
             Mouse = mouse.GlobalPosition;
+        if (@event is InputEventKey { Keycode: Key.Shift } shift)
+            _shift = shift.Pressed;
         if (@event is not InputEventMouseButton { ButtonIndex: MouseButton.Left } button)
             return;
         _mouseDown = button.Pressed;
@@ -479,6 +586,14 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
             _pressed = null;
             EndDrag(good);
         }
+    }
+
+    public override void _Notification(int what)
+    {
+        base._Notification(what);
+        // A Shift let go of in another window sends no event here.
+        if (what == NotificationApplicationFocusOut)
+            _shift = false;
     }
 
     public override void _Process(double delta)
@@ -499,6 +614,7 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
         foreach (var card in _slots)
             card.Pointed = card == _under;
         _plate.Pointed = _overPlate;
+        _plus = !Dragging && _picked is null && _under is { } over && over.OnPlus(mouse) ? over : null;
 
         if (_refusal is not null && (_refusalLeft -= (float)delta) <= 0)
         {
@@ -511,7 +627,7 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
             ShowBanner();
         }
         var carried = _held ?? _picked;
-        var asked = (carried ?? _pointed, _under?.Slot, _overPlate, _hovered, (HeroLoadout?)_shown);
+        var asked = (carried ?? _pointed, _under?.Slot, _overPlate, _hovered, (HeroLoadout?)_shown, Replace, _plus?.Slot);
         if (asked != _asked)
         {
             _asked = asked;
@@ -531,7 +647,7 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
     {
         foreach (var card in _slots)
         {
-            var why = carried is null || carried.Item.Kind == WiredKind.Chassis || !card.Visible ? null : desk.WhyNot(carried, card.Slot);
+            var why = carried is null || carried.Item.Kind == WiredKind.Chassis || !card.Visible ? null : desk.WhyNot(carried, card.Slot, Replace);
             card.Fits = carried is null || carried.Item.Kind == WiredKind.Chassis ? null : why is null;
             card.Why = why is null ? null : HangarText.Reason(why);
         }
@@ -546,9 +662,12 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
             if (carried.Item.Kind == WiredKind.Chassis)
                 return new Trial(desk.Trying(carried), true);
             if (_under?.Fits == true)
-                return new Trial(desk.Trying(carried, _under.Slot), false);
+                return new Trial(desk.Trying(carried, _under.Slot, Replace), false);
             return Dragging ? null : Tried(null);
         }
+        // One more copy, as it would be bought: Mk 1 at the battery's end.
+        if (_plus is { Slot: var copyOnto } && desk.CopyPrice(copyOnto) is not null && _shown.At(copyOnto) is { } first)
+            return new Trial(_shown.Adding(copyOnto, new WiredItem(-1, WiredKind.Weapon, first.Catalogue)), false, copyOnto);
         if (_pointed is { } good)
         {
             if (good.Item.Kind == WiredKind.Chassis)
@@ -601,9 +720,10 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
         {
             // A slot with something picked waits for the click that puts it there: a hand that slips is no drag.
             SlotCard when _picked is not null => null,
+            SlotCard plus when plus.OnPlus(_pressedAt) => null,
             ItemCard item => item.Good,
-            // What the card shows may only be tried: it is what the hero wears that comes away.
-            SlotCard { Absent: false, Slot: var slot } => _shown.At(slot).Good(),
+            // What the card shows may only be tried: it is what the hero wears that comes away, of a battery its last copy.
+            SlotCard { Absent: false, Slot: var slot } => Outermost(slot).Good(),
             _ => null,
         };
         if (good is null)
@@ -691,6 +811,10 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
                     other.Picked = other == item && _picked is not null;
                 MenuSounds.Gui("listclik.wav");
                 break;
+            case SlotCard plus when plus.OnPlus(Mouse):
+                if (!JustDealt)
+                    BuyCopy(plus);
+                break;
             case SlotCard slot when _picked is { } carried && carried.Item.Kind != WiredKind.Chassis:
                 Put(carried, slot.Slot);
                 break;
@@ -712,9 +836,9 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
             case SlotCard when _picked is not null:
                 Unpick();
                 break;
-            // What the card shows may only be tried: it is what the hero wears that comes off.
-            case SlotCard { Absent: false, Slot: var slot } when _shown.At(slot) is { } worn:
-                TakeOff(worn);
+            // What the card shows may only be tried: it is what the hero wears that comes off, of a battery its last copy.
+            case SlotCard { Absent: false, Slot: var slot } when _shown.At(slot) is not null:
+                TakeOff(slot);
                 break;
             case ItemCard { Picked: true }:
                 _picked = null;
@@ -768,7 +892,7 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
 
     private void Put(HangarGood good, WiredSlot slot)
     {
-        if (desk.Put(good, slot) is { } why)
+        if (desk.Put(good, slot, Replace) is { } why)
         {
             Refuse(why);
             return;
@@ -781,14 +905,35 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
         MenuSounds.Effect("SID_CONSTRUCTING");
     }
 
-    private void TakeOff(WiredItem item)
+    private void TakeOff(WiredItem item) => TookOff(desk.TakeOff(item));
+
+    private void TakeOff(WiredSlot slot) => TookOff(desk.TakeOff(slot));
+
+    private void TookOff(string? why)
     {
-        if (desk.TakeOff(item) is { } why)
+        if (why is not null)
         {
             Refuse(why);
             return;
         }
         MenuSounds.Gui("ctrlpoff.wav");
+    }
+
+    /// <summary>A click on a weapon card's strip: one more copy onto its battery, bought where copies are bought.</summary>
+    private void BuyCopy(SlotCard card)
+    {
+        Dealing();
+        var price = card.PlusPrice;
+        if (desk.BuyCopy(card.Slot) is { } why)
+        {
+            Refuse(why);
+            return;
+        }
+        if (price > 0)
+            Bought();
+        _sparks.Add(card.Slot);
+        MenuSounds.Gui("weapchng.wav");
+        MenuSounds.Effect("SID_CONSTRUCTING");
     }
 
     private void Wear(HangarGood chassis)
@@ -812,19 +957,11 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
         ShowBanner();
     }
 
-    /// <summary>Everything on the hero fires.</summary>
-    private void TestFire()
-    {
-        foreach (var weapon in _build.Weapons)
-            _screen.Fire(weapon.Mounting, weapon.Spec);
-    }
+    /// <summary>Everything on the hero fires, a battery's gun once for each copy.</summary>
+    private void TestFire() => _screen.Fire(_build.Weapons);
 
-    /// <summary>One mount fires, if there is something on it.</summary>
-    private void TestFire(Mounting mounting)
-    {
-        if (_build.Weapons.FirstOrDefault(w => w.Mounting == mounting) is { } weapon)
-            _screen.Fire(mounting, weapon.Spec);
-    }
+    /// <summary>One mount fires, if there is something on it: of a battery its one gun, once for each copy.</summary>
+    private void TestFire(Mounting mounting) => _screen.Fire(_build.Weapons.Where(w => w.Mounting == mounting));
 
     public override void Back()
     {

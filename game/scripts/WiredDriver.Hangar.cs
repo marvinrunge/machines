@@ -5,7 +5,8 @@ using Machines.Sim.World;
 namespace Machines.Game;
 
 // The driver in the hangar and the menu: what the bot buys, wears, sells and takes it does with the hangar's cards, tabs
-// and buttons, one command at a time and each landed before the next; the save and the load go through the menu.
+// and buttons, one command at a time and each landed before the next; the save and the load go through the menu. A
+// weapon dropped onto its battery joins it, as the page has it; a put that replaces the battery holds Shift.
 public partial class WiredDriver
 {
     /// <summary>Seconds between two deals, more than a double click takes, so that no click counts as the second half of one.</summary>
@@ -101,17 +102,20 @@ public partial class WiredDriver
             {
                 case WiredBuyCommand buy when WiredCatalogue.FindChassis(buy.Item) is not null:
                     return await Deal(page, HangarShelf.Tree, c => c.Good.Item.Catalogue == buy.Item, strip: false);
+                case WiredBuyCommand { Slot: { Kind: WiredSlotKind.Weapon } onto, Add: true } copy when state.Loadout.At(onto)?.Catalogue == copy.Item:
+                    return await Plus(page, onto);
                 case WiredBuyCommand buy:
                     return await Deal(page, HangarShelf.Offer, c => c.Good.Deal == HangarDeal.Buy && c.Good.Item.Catalogue == buy.Item, strip: true);
+                // A battery's copies are one card, whose deal goes to its lowest Mk.
                 case WiredUpgradeCommand upgrade:
-                    return await Deal(page, HangarShelf.Upgrades, c => c.Good.Item.Id == upgrade.Item, strip: true);
+                    return await Deal(page, HangarShelf.Upgrades, c => c.Good.Item.Id == upgrade.Item || c.Battery?.Any(b => b.Id == upgrade.Item) == true, strip: true);
                 case WiredSellCommand sell:
                     return await Deal(page, ShelfOf(state, sell.Item), c => c.Good.Item.Id == sell.Item && c.Good.Deal == HangarDeal.Sell, strip: true);
                 case WiredChassisCommand chassis:
                     var owned = state.Items.Find(i => i.Id == chassis.Item)?.Catalogue;
                     return await Deal(page, HangarShelf.Tree, c => c.Good.Item.Catalogue == owned, strip: false);
                 case WiredEquipCommand equip:
-                    return await Put(page, ShelfOf(state, equip.Item), equip.Item, equip.Slot);
+                    return await Put(page, ShelfOf(state, equip.Item), equip.Item, equip.Slot, replace: !equip.Add);
                 case WiredChipCommand { Item: { } chip } socket:
                     return await Put(page, HangarShelf.Chips, chip, WiredSlot.Chip(socket.Socket));
                 case WiredChipChoiceCommand choice:
@@ -205,14 +209,38 @@ public partial class WiredDriver
         return true;
     }
 
-    /// <summary>A card carried onto a slot of the hero or a socket of the chip board.</summary>
-    private protected async Task<bool> Put(HangarPage page, HangarShelf shelf, int item, WiredSlot slot)
+    /// <summary>
+    /// A card carried onto a slot of the hero or a socket of the chip board. A weapon dropped onto the battery of the same
+    /// weapon joins it; with <paramref name="replace"/> Shift is held over the drop, and the battery comes off.
+    /// </summary>
+    private protected async Task<bool> Put(HangarPage page, HangarShelf shelf, int item, WiredSlot slot, bool replace = false)
     {
         await Open(page, shelf);
         if (page.Cards.FirstOrDefault(c => c.Good.Item.Id == item) is not { } card || page.Slots.FirstOrDefault(s => s.Slot == slot && s.IsVisibleInTree()) is not { } place)
             return false;
         await Reveal(card);
+        var shift = replace && page.Desk.Joining(card.Good, slot).Join != SlotJoin.Put;
+        if (shift)
+            GetViewport().PushInput(new InputEventKey { Keycode = Godot.Key.Shift, PhysicalKeycode = Godot.Key.Shift, Pressed = true, ShiftPressed = true });
         await Drag(Middle(card), Middle(place));
+        if (shift)
+        {
+            GetViewport().PushInput(new InputEventKey { Keycode = Godot.Key.Shift, PhysicalKeycode = Godot.Key.Shift, Pressed = false });
+            await Frames(1);
+        }
+        return true;
+    }
+
+    /// <summary>One more copy onto the battery on a slot, by the strip at the foot of its card.</summary>
+    private async Task<bool> Plus(HangarPage page, WiredSlot slot)
+    {
+        if (page.Slots.FirstOrDefault(s => s.Slot == slot && s.IsVisibleInTree()) is not { } card)
+            return false;
+        await Move(Middle(card));
+        await Wait(0.3);
+        if (!card.ShowsPlus)
+            return false;
+        await Click(card.PlusPoint);
         return true;
     }
 

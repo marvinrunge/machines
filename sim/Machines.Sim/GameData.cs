@@ -20,7 +20,8 @@ public sealed class GameData
     public static GameData Load(string originalDataFolder) => new()
     {
         Folder = originalDataFolder,
-        Parm = ParmDataParser.Load(Path.Combine(originalDataFolder, "parmdata.dat")),
+        // Wired's own machines are levels of the original's types beyond its own; nothing of the original asks for them.
+        Parm = Survival.WiredMachines.Extend(ParmDataParser.Load(Path.Combine(originalDataFolder, "parmdata.dat"))),
         ResearchTree = ResearchTreeParser.Load(Path.Combine(originalDataFolder, "global.rst")),
         ConstructionOrder = ConstructionOrderParser.Load(Path.Combine(originalDataFolder, "global.cst")),
         FactoryLists = FactoryBuildListParser.Load(Path.Combine(originalDataFolder, "factory.bld")),

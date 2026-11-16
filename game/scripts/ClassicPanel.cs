@@ -78,7 +78,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             return true;
         var selected = game.Selection.Select(game.World.Find).OfType<Actor>().Where(a => a.Race == Game.Player).ToList();
         return selected.Count == 1 && selected[0] is Construction { Complete: true } building && building.Spec.Type is "FACTORY" or "HARDWARE_LAB"
-            || selected.Count > 0 && selected.All(a => a is Machine { Spec.Type: "CONSTRUCTOR" });
+            || selected.Count > 0 && selected.All(a => a is Machine { Spec.Type: "CONSTRUCTOR" } && !game.IsHero(a));
     }
 
     /// <summary>
@@ -400,7 +400,10 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         var battle = world.Battle is not null;
         if (selected.Count > 0 && !battle)
             bars.Add(SelfDestruct(selected));
-        var spies = machines.Where(m => m.IsSpy).ToList();
+        // A Wired hero raises its towers, lays its mines and sends out its pulse by the special's key: the original's
+        // commands for them are for the machines that are no heroes.
+        var plain = machines.Where(m => !game.IsHero(m)).ToList();
+        var spies = plain.Where(m => m.IsSpy).ToList();
         var emplacements = game.SelectedEmplacements();
         if (machines.Count > 0)
             bars.Add(new Bar("Move", "Move: click where to, Shift for points on the way", game.BeginMove, "commands/move.bmp", Hot: Key.M));
@@ -410,7 +413,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             bars.Add(new Bar("Attack", "Attack: click the target", game.BeginAttack, "commands/attack.bmp", Hot: Key.A));
         if (machines.Count > 0)
         {
-            if (machines.Any(m => m.Spec.Type == "CONSTRUCTOR"))
+            if (plain.Any(m => m.Spec.Type == "CONSTRUCTOR"))
             {
                 bars.Add(new Bar("Construct", "Construct: pick a building below", () => _buildMenu = !_buildMenu, "commands/const.bmp", Hot: Key.C));
                 bars.Add(new Bar("Repair", "Repair: click a building", game.BeginRepair, "commands/repair.bmp", Hot: Key.R));
@@ -419,7 +422,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             }
             if (game.World.Wired is null) // nothing is recycled in a run
                 bars.Add(new Bar("Recycle", "Recycle: click a smelter or pod, half the price back", game.BeginRecycle, "commands/recycle.bmp", Hot: Key.Q));
-            if (machines.Any(m => m.Spec.Type == "GEO_LOCATOR"))
+            if (plain.Any(m => m.Spec.Type == "GEO_LOCATOR"))
                 bars.Add(new Bar("Locate", "Locate: click where to search", game.BeginLocate, "commands/locate.bmp", Hot: Key.L));
             if (spies.Any(s => s.Mines > 0))
                 bars.Add(new Bar("Lay mines", Lang.T("Lay land mines (Shift for more points): {0} carried", spies.Sum(s => s.Mines)), () => game.BeginWaypoints(
@@ -525,7 +528,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         var world = game.World;
         var selected = game.Selection.Select(world.Find).OfType<Actor>().Where(a => a.Race == Game.Player).ToList();
         var icons = new List<(string Bitmap, string Short, string Prompt, Action Act)>();
-        if (_buildMenu && selected.OfType<Machine>().Any(m => m.Spec.Type == "CONSTRUCTOR"))
+        if (_buildMenu && selected.OfType<Machine>().Any(m => m.Spec.Type == "CONSTRUCTOR" && !game.IsHero(m)))
         {
             _contextPrompt = Text(14, "Select construction to build");
             foreach (var e in world.Buildable(Game.Player))
@@ -873,7 +876,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                 foreach (var artefact in world.Artefacts)
                     DrawPixel(ToMap(artefact.Position), relic, new Color(0.8f, 0.6f, 0.9f));
             }
-            foreach (var actor in _mapMode == MapMode.ResourcesOnly ? [] : world.Actors.Where(a => a is not Machine { Inside: not null }))
+            // A Wired hero hiding in its shadow is left off, as off the radar.
+            foreach (var actor in _mapMode == MapMode.ResourcesOnly ? [] : world.Actors.Where(a => a is not Machine { Inside: not null } && !game.InShadow(a)))
             {
                 // A camouflaged spy shows in the colours of whoever looks at the map (MachContinentMap's CAMOUFLAGEDMACHINE),
                 // a disguised actor in those it wears.
@@ -1517,7 +1521,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         Machine { Spec.Type: "RESOURCE_CARRIER", IsScavenger: false } carrier => $"{Text(2320, "Capacity")} {(int)carrier.Ore}/{carrier.Stats.Capacity}",
         Machine { Spec.Type: "TECHNICIAN" } technician => $"{Text(2330, "Research Points")} {technician.Stats.ResearchRate ?? 0}",
         Machine { Spec.Type: "SPY_LOCATOR" } spy => $"{Text(2350, "Mines")} {spy.Mines}/{spy.Stats.MineCapacity ?? 0}",
-        Machine { Spec.Type: "GEO_LOCATOR" } locator => $"{Text(2360, "Locate Range")} {locator.Stats.ScannerRange}",
+        Machine { Spec.Type: "GEO_LOCATOR" } locator when !game.IsHero(locator) => $"{Text(2360, "Locate Range")} {locator.Stats.ScannerRange}",
         Machine { Spec.Type: "CONSTRUCTOR" } constructor => $"{Text(2370, "Construct Rate")} {constructor.Stats.ConstructionRate ?? 0}",
         Construction mine when mine.IsType("MINE") => $"{Text(2380, "Remaining BMUs")} {(int)DepositOre(mine)}",
         Construction factory when factory.IsType("FACTORY") => $"{Text(2390, "Build Rate")} {factory.Stats.BuildRate ?? 0}",
@@ -1588,7 +1592,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         _ => "bad",
     };
 
-    private static string ConstructionPrefix(string type, string? subType) => (type, subType) switch
+    internal static string ConstructionPrefix(string type, string? subType) => (type, subType) switch
     {
         ("BEACON", _) => "bk",
         ("FACTORY", "CIVILIAN") => "fac",

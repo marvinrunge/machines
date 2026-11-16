@@ -87,10 +87,14 @@ public sealed class WiredProfile
 
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true, Converters = { new JsonStringEnumConverter() } };
 
-    /// <summary>The chassis a hero can start on, the first always.</summary>
+    /// <summary>
+    /// The chassis a hero can start on: the first always, and the crab of the locator line beside it, open from the first
+    /// run as well; the rest once the wave is cleared.
+    /// </summary>
     public static readonly IReadOnlyList<WiredStartChassis> StartChassis =
     [
         new(WiredBalance.StartChassis, 0),
+        new("geo1", 0),
         new("reaper2", 10),
         new("overseer2", 10, 3),
         new("knight3", 15),
@@ -256,18 +260,30 @@ public sealed class WiredProfile
         Totals ??= new();
         Battle = (Battle ?? new()).Mended();
         if (LastHero is { } hero)
+        {
+            var chassis = hero.Chassis ?? WiredBalance.StartChassis;
             LastHero = hero with
             {
                 // An unnamed hero was once kept under the word for one in the language of the day; it is unnamed again.
                 Name = hero.Name is null or "Hero" or "Held" ? "" : hero.Name,
                 Colour = Enum.IsDefined(hero.Colour) ? hero.Colour : Race.Red,
-                Chassis = hero.Chassis ?? WiredBalance.StartChassis,
+                Chassis = chassis,
                 Difficulty = Enum.IsDefined(hero.Difficulty) ? hero.Difficulty : WiredDifficulty.Normal,
                 Arena = hero.Arena ?? "",
-                Items = (hero.Items ?? []).Where(i => i?.Catalogue is not null && WiredCatalogue.KindOf(i.Catalogue) is not null).ToList(),
+                Items = (hero.Items ?? []).Where(i => i?.Catalogue is not null && WiredCatalogue.KindOf(i.Catalogue) is not null)
+                    .Select(i => i with { Count = Copies(chassis, i.Slot, i.Catalogue, i.Count) }).ToList(),
             };
+        }
         return this;
     }
+
+    /// <summary>
+    /// A count of copies as a kept hero may have it: from 1 to what the slot carries of the weapon on that chassis
+    /// (<see cref="WiredCatalogue.Copies"/>), on the first chassis where the chassis is none, and 1 for anything else. A sheet
+    /// from before batteries has no count and reads as 1.
+    /// </summary>
+    internal static int Copies(string chassis, WiredSlot? slot, string catalogue, int count) =>
+        WiredCatalogue.Copies(WiredCatalogue.FindChassis(chassis) ?? WiredCatalogue.Chassis[0], slot, catalogue, count);
 
     /// <summary>
     /// Writes it, by way of a second file that is on the disk before it takes the first's place: a crash half way through must

@@ -15,7 +15,9 @@ namespace Machines.Game;
 /// <item><c>match</c>: over a run (<see cref="Game.ScriptHangar"/>), the same drag through the Wired commands;</item>
 /// <item><c>shop</c>: over a run, all of the shop from the pod to the wave, with the checksum after each step, the hero driven in;</item>
 /// <item><c>bay</c>: the same with the hero sent into a bay and no one driving it;</item>
-/// <item><c>view</c>: over a run, every shelf for what sticks out, and a picture named by the look.</item>
+/// <item><c>view</c>: over a run, every shelf for what sticks out, and a picture named by the look;</item>
+/// <item><c>batteries</c>: over a run, a Harvester's batteries on their cards, joined, swapped, replaced with Shift, taken
+/// off, bought by the card's strip, on the Mk shelf and test fired, then what the crab and other chassis have of their own.</item>
 /// </list>
 /// </summary>
 public partial class HangarScript(HangarPage page, string folder, string what) : Node
@@ -69,6 +71,9 @@ public partial class HangarScript(HangarPage page, string folder, string what) :
                 break;
             case "view":
                 await View();
+                break;
+            case "batteries":
+                await Batteries();
                 break;
         }
     }
@@ -479,6 +484,160 @@ public partial class HangarScript(HangarPage page, string folder, string what) :
             Say($"dragged {spare.Good.Item.Catalogue} onto {slot}: {Worn()}");
         }
         await Picture("hangar-match");
+        ((Game)GetTree().CurrentScene).EndHangarScript(folder);
+    }
+
+    /// <summary>What the weapon slots show: each battery, its note and its strip for one more copy.</summary>
+    private void Batteries(string when)
+    {
+        Say($"{when}: {Worn()}, banner '{page.Banner}'");
+        foreach (var slot in page.Slots.Where(s => s.Visible && s.Slot.Kind == WiredSlotKind.Weapon))
+        {
+            var battery = slot.Battery is { } copies ? string.Join(" ", copies.Select(c => $"{c.Catalogue}#{c.Id}:Mk{c.Mk}")) : "-";
+            Say($"  {slot.Title}: [{battery}] capacity {slot.Capacity}, note '{slot.Note}', strip '{(slot.ShowsPlus ? slot.Plus : "")}' price {slot.PlusPrice} why '{slot.PlusWhy}'");
+        }
+    }
+
+    /// <summary>A key held down or let go, as the keyboard sends it.</summary>
+    private void Key(Godot.Key key, bool down) =>
+        GetViewport().PushInput(new InputEventKey { Keycode = key, PhysicalKeycode = key, Pressed = down, ShiftPressed = down && key == Godot.Key.Shift });
+
+    private async Task Batteries()
+    {
+        var game = Run;
+        var world = game.World;
+        var state = world.Wired!.Heroes[Game.Player];
+        async Task Do(Machines.Sim.World.Command command)
+        {
+            game.Issue(command);
+            await Wait(0.4);
+        }
+        // The hero for the checks, made through the hangar's commands from items the check hands it; the bank is set so that
+        // the copies' prices can be seen paid and refused.
+        world.Races[Game.Player].Bmu = 2000;
+        foreach (var worn in state.Loadout.Weapons.OfType<WiredItem>().Concat(state.Loadout.Copies.SelectMany(c => c)).ToList())
+            await Do(new Machines.Sim.World.WiredUnequipCommand(Game.Player, worn.Id));
+        await Do(new Machines.Sim.World.WiredChassisCommand(Game.Player, state.Add(WiredKind.Chassis, "reaper5", 0).Id));
+        for (var mk = 1; mk <= 3; mk++)
+            await Do(new Machines.Sim.World.WiredEquipCommand(Game.Player, state.Add(WiredKind.Weapon, "PLASMA_CANNON2", 0, mk).Id, WiredSlot.Weapon(Mounting.Left), Add: mk > 1));
+        await Do(new Machines.Sim.World.WiredEquipCommand(Game.Player, state.Add(WiredKind.Weapon, "HEAVY_BOLTER1", 0).Id, WiredSlot.Weapon(Mounting.Right)));
+        state.Add(WiredKind.Weapon, "PLASMA_CANNON2", 0, 2);
+        state.Add(WiredKind.Weapon, "HEAVY_BOLTER1", 0);
+        await Wait(1);
+        var (left, right) = (page.Slots.First(s => s.Slot == WiredSlot.Weapon(Mounting.Left)), page.Slots.First(s => s.Slot == WiredSlot.Weapon(Mounting.Right)));
+        await Open(HangarShelf.Weapons);
+        await Move(new Vector2(4, 4));
+        await Wait(0.5);
+        Batteries("the batteries");
+        await Picture("batteries-cards");
+
+        // The battery's plate explains itself, and the card says what a click and a right click do.
+        if (left.MarkPoint is { } mark)
+        {
+            await Move(mark);
+            await Wait(1.4);
+            Say($"over the plate x3: tooltip '{left.TooltipText}{left._GetTooltip(left.GetGlobalTransform().AffineInverse() * mark)}', banner '{page.Banner}'");
+            await Picture("batteries-tooltip");
+        }
+        // One more copy, by the strip at the right card's foot: tried while the mouse is on it.
+        await Move(right.PlusPoint);
+        await Wait(0.6);
+        Batteries("over the right card's strip");
+        Say($"  dps {page.Hero.DamagePerSecond:0.0} -> {page.Trying?.DamagePerSecond:0.0}, accuracy {page.Hero.Stats.Accuracy:0.0} -> {page.Trying?.Stats.Accuracy:0.0}");
+        await Picture("batteries-plus");
+        await Move(left.PlusPoint);
+        await Wait(0.4);
+        Batteries("over the full left battery's strip");
+
+        // A spare Plasma Cannon 2 Mk 2 over the full battery: it takes the place of the Mk 1; with Shift the battery comes off.
+        // Held by the lower left corner of the slot's card, so that the card can be read beside what is carried.
+        static Vector2 Corner(Control card) => card.GetGlobalRect().Position + new Vector2(14, card.GetGlobalRect().Size.Y - 10);
+        await Press(Card("PLASMA_CANNON2", owned: true));
+        await Move(Corner(left), 12);
+        await Wait(0.6);
+        Batteries("PLASMA_CANNON2 Mk 2 held over the left battery");
+        await Picture("batteries-swap");
+        Key(Godot.Key.Shift, true);
+        await Wait(0.5);
+        Batteries("the same with Shift held");
+        await Picture("batteries-shift");
+        Key(Godot.Key.Shift, false);
+        await Wait(0.3);
+        await Release();
+        await Landed();
+        Batteries("dropped without Shift");
+
+        // A spare Heavy Bolter onto the right one: it joins.
+        await Press(Card("HEAVY_BOLTER1", owned: true));
+        await Move(Corner(right), 12);
+        await Wait(0.6);
+        Batteries("HEAVY_BOLTER1 held over the right one");
+        await Picture("batteries-joins");
+        await Release();
+        await Landed();
+        Batteries("dropped");
+
+        // A right click takes the last copy off; the strip buys one.
+        await Move(right.GetGlobalRect().GetCenter());
+        await Click(MouseButton.Right);
+        await Landed();
+        Batteries("right click on the right card");
+        await Move(right.PlusPoint);
+        await Wait(0.4);
+        await Click(MouseButton.Left);
+        await Landed();
+        await Move(new Vector2(4, 4));
+        await Wait(0.4);
+        Batteries("bought one more by the strip");
+        await Picture("batteries-bought");
+
+        // The Mk shelf: the battery is one card, whose deal goes to its lowest Mk.
+        await Open(HangarShelf.Upgrades);
+        if (page.Cards.FirstOrDefault(c => c.Battery is not null) is { } card)
+        {
+            await Move(card.GetGlobalRect().GetCenter());
+            await Wait(0.6);
+            Say($"Mk shelf: the battery's card is {card.Good.Item.Catalogue}#{card.Good.Item.Id} Mk {card.Good.Item.Mk} of [{string.Join(" ", card.Battery!.Select(c => $"#{c.Id}:Mk{c.Mk}"))}], deal {card.Good.Deal} {card.Good.Amount}");
+            Batteries("pointing at it");
+            await Picture("batteries-mk");
+        }
+        Say($"Mk shelf cards: {string.Join(", ", page.Cards.Select(c => $"{c.Good.Item.Catalogue}#{c.Good.Item.Id}{(c.Battery is { } b ? $" x{b.Count}" : "")}"))}");
+
+        // The left gun fires once for each copy, a quarter second apart at most.
+        await Open(HangarShelf.Weapons);
+        await Move(left.GetGlobalRect().GetCenter() + new Vector2(0, -20));
+        await Click(MouseButton.Left);
+        Say($"test fire of the left battery: {string.Join("; ", page.Screen.Bursts)}");
+        for (var shot = 0; shot < 3; shot++)
+        {
+            await Wait(0.12);
+            Say($"  after {(shot + 1) * 0.12:0.00} s and more: {string.Join("; ", page.Screen.Bursts)}");
+            await Picture($"batteries-fire-{shot}");
+        }
+        await Wait(1);
+
+        // What the chassis have of their own: the crab's line over its card on the tree, and others'.
+        await Open(HangarShelf.Tree);
+        await Wait(0.6);
+        foreach (var chassis in new[] { "geo1", "geo3", "ballista5", "commander6", "phantom6", "dozer1", "grunt5", "boss3", "reaper4" })
+        {
+            if (page.Cards.FirstOrDefault(c => c.Good.Item.Catalogue == chassis) is not { } tree)
+                continue;
+            await Move(tree.GetGlobalRect().GetCenter());
+            await Wait(0.5);
+            Say($"pointing at {chassis}: says '{page.Banner}'");
+            if (chassis is "geo1" or "ballista5" or "commander6")
+                await Picture($"chassis-{chassis}");
+        }
+        foreach (var chassis in WiredCatalogue.Chassis)
+        {
+            foreach (var module in new[] { "thrusters", "nightvision" })
+            {
+                if (HangarText.ModuleHint(new WiredItem(-1, WiredKind.Module, module), chassis) is { } hint)
+                    Say($"module {module} on {chassis.Id}: '{hint}'");
+            }
+        }
+        Overflow();
         ((Game)GetTree().CurrentScene).EndHangarScript(folder);
     }
 

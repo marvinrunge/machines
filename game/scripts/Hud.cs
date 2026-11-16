@@ -99,7 +99,7 @@ public partial class Hud : CanvasLayer
         Weapons = WeaponDisplay.Create();
         Weapons.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         root.AddChild(Weapons);
-        Radar = Radar.Create(_game, _game.Audio);
+        Radar = Radar.Create(_game, _game.Audio, _map);
         Radar.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         root.AddChild(Radar);
 

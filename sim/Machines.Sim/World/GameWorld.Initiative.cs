@@ -21,6 +21,12 @@ public sealed partial class GameWorld
             : NearestEnemy(machine, range, accept: enemy => WorthTakingOn(machine, enemy));
     }
 
+    /// <summary>
+    /// An enemy a machine can neither shoot from where it stands nor come at: it stands where no machine can stand, on a
+    /// building's footprint, and the line to it is blocked, so no place round it gives a better shot.
+    /// </summary>
+    private bool OutOfReach(Machine machine, Actor enemy) => !Nav.IsFree(enemy.Position, CrossesWater(machine)) && !ClearShot(machine, enemy);
+
     private bool WorthTakingOn(Machine machine, Actor enemy)
     {
         if (machine.DistanceTo(enemy) <= machine.Weapons.Where(w => w.DealsDamage).Select(w => w.Spec.Range).DefaultIfEmpty(0).Max() && ClearShot(machine, enemy))

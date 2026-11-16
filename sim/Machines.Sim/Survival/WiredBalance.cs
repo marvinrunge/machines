@@ -205,7 +205,10 @@ public static class WiredBalance
     /// <summary>The seconds between a wave's first group and its last, at least and at most.</summary>
     public const int LeastSpread = 60, MostSpread = 90;
 
-    /// <summary>How many of the newest tiers a wave draws on.</summary>
+    /// <summary>
+    /// How many tiers a wave draws on: the newest in the catalogue's order, and from the first wave of Wired's own machines
+    /// on the dearest (<see cref="WiredDirector.Buy"/>).
+    /// </summary>
     public const int TierSpread = 4;
 
     /// <summary>In how many cases out of a hundred a machine goes for the hero rather than the pod.</summary>
@@ -269,8 +272,8 @@ public static class WiredBalance
     /// <summary>The fewest machines of an air raid and of a siege, whatever the budget.</summary>
     public const int FewestRaiders = 2, FewestBesiegers = 2;
 
-    /// <summary>The wave from which a siege brings the bigger Ballistas.</summary>
-    public const int BigSiegeFrom = 26;
+    /// <summary>The wave from which a siege brings the bigger Ballistas, and the wave from which Colossi, which anchor at the pod.</summary>
+    public const int BigSiegeFrom = 26, ColossusSiegeFrom = 50;
 
     /// <summary>How often an ion storm strikes, how long before each the warning stands, and how wide it is.</summary>
     public const float IonEvery = 25, IonWarning = 5, IonRadius = 40;
@@ -330,6 +333,9 @@ public static class WiredBalance
     /// <summary>What multiplies a boss's hit points each time the list comes round.</summary>
     public const float BossLapHitPoints = 1.6f;
 
+    /// <summary>The most towers a boss that builds keeps standing, raised one after the other as it stands within reach of the pod.</summary>
+    public const int BossTowers = 4;
+
     /// <summary>What a boss below half calls in: this share of the wave's budget, at least the given BMUs, in so many machines.</summary>
     public const float ReinforcementShare = 0.25f, LeastReinforcements = 80;
 
@@ -363,12 +369,101 @@ public static class WiredBalance
     /// <summary>What an escort costs, in percent of its hardware cost.</summary>
     public const int EscortPercent = 120;
 
+    /// <summary>
+    /// The wave from which the hangar sells Wired's own machines as escorts, long before the waves bring them: a Marshal
+    /// may lead them, and the runs the balance aims at (to wave 20) stay as they were.
+    /// </summary>
+    public const int OwnEscortsFrom = 20;
+
     /// <summary>The escorts allowed at first, and at most.</summary>
     public const int SmallestSquad = 3, LargestSquad = 6;
 
     /// <summary>The waves that allow one escort more.</summary>
     public static readonly IReadOnlyList<int> SquadGrowsAt = [5, 10, 15];
 
-    /// <summary>The escorts allowed when <paramref name="wave"/> is the wave coming or under way, with what chips add: never more than the largest squad.</summary>
-    public static int SquadLimit(int wave, int extra = 0) => Math.Min(LargestSquad, SmallestSquad + SquadGrowsAt.Count(w => wave >= w) + extra);
+    /// <summary>
+    /// The escorts allowed when <paramref name="wave"/> is the wave coming or under way, with what chips add: never more than
+    /// the largest squad. What the chassis adds (<paramref name="chassis"/>, the Marshal's) comes on top of that.
+    /// </summary>
+    public static int SquadLimit(int wave, int extra = 0, int chassis = 0) =>
+        Math.Min(LargestSquad, SmallestSquad + SquadGrowsAt.Count(w => wave >= w) + extra) + chassis;
+
+    // ---- the chassis' specials --------------------------------------------------------------------
+
+    /// <summary>The hero's accuracy on a chassis whose machine has none in the data: the constructors and the spies.</summary>
+    public const int NoAccuracy = 60;
+
+    /// <summary>Old Iron's plough: the share of a hit from the front that it takes, and the cosine of the front's half-arc (60°).</summary>
+    public const float PloughShare = 0.65f, PloughCos = 0.5f;
+
+    /// <summary>Old Iron's ram: what it deals each machine it meets in a dash, how far beyond the overlap it pushes it, and the margin of a meeting.</summary>
+    public const int RamDamage = 60;
+
+    public const float RamPush = 2, RamMargin = 0.5f;
+
+    /// <summary>How near its target must be for a machine of the waves, an escort or a bot on an Old Iron to dash at it.</summary>
+    public const float RamReach = 16;
+
+    /// <summary>The Harvester's kills: how near they must fall, and the share of its armour each gives back.</summary>
+    public const float HarvestReach = 15, HarvestArmour = 0.06f;
+
+    /// <summary>The Widow's lurk: seconds standing still, how far it may drift and still stand, and what its weapons' range and damage are multiplied by.</summary>
+    public const float LurkStill = 1.5f, LurkDrift = 0.25f, LurkRange = 1.3f, LurkDamage = 1.4f;
+
+    /// <summary>
+    /// The Colossus' anchor: seconds to lock or release the tracks, what anchored multiplies range and reload by and divides
+    /// damage taken by, and how long a machine of the waves stays anchored with nothing in reach.
+    /// </summary>
+    public const float AnchorTime = 2, AnchorRange = 1.4f, AnchorReload = 0.75f, AnchorArmour = 1.5f, AnchorIdle = 6;
+
+    /// <summary>The Marshal: how near the squad must be, the accuracy and share of repair it gives, the escorts it adds, and the seconds between rallies.</summary>
+    public const float FieldReach = 30, FieldAim = 15, FieldRepair = 0.3f, RallyCooldown = 40;
+
+    public const int FieldSquad = 2;
+
+    /// <summary>Towers: how far from the hero one is placed at most, how much faster than the original a hero builds, and how far from the pod's door none may stand.</summary>
+    public const float TowerReach = 30, TowerBuildSpeed = 4, PodKeepOut = 12;
+
+    /// <summary>The seconds between two mines a spy hero lays.</summary>
+    public const float MineLayGap = 1;
+
+    /// <summary>The Phantom: the seconds without firing after which it is hidden, and how near an enemy must come to see it all the same.</summary>
+    public const float ShadowQuiet = 3, ShadowReach = 25;
+
+    /// <summary>
+    /// The geo locators' pulse: the seconds an enemy within the hero's scanner reach stays located, what a hit on it from
+    /// an enemy of its is multiplied by meanwhile, and the seconds from one pulse to the next.
+    /// </summary>
+    public const float LocateTime = 10, LocateShare = 1.2f, LocateCooldown = 20;
+
+    // ---- batteries --------------------------------------------------------------------------------
+
+    /// <summary>The copies of one weapon a slot carries as a battery, by its <see cref="SlotSize"/>: whatever the weapon's own size.</summary>
+    public static readonly IReadOnlyList<int> MostCopies = [1, 2, 3];
+
+    /// <summary>The points of accuracy the hero loses for each barrel beyond the first of every battery: a knob for the balance, none for now.</summary>
+    public const int BatteryAimLoss = 0;
+
+    // ---- the gun follows the view -----------------------------------------------------------------
+
+    /// <summary>
+    /// How far a sighted driver's gun may stand off the line to where the driver looks, radians, and its round still go
+    /// there: for the crumbs of float sums only, less than a pixel at the middle of the screen.
+    /// </summary>
+    public const float GunPlay = 0.001f;
+
+    /// <summary>
+    /// How far a Wired hero fighting on its own may have its gun line off its target when it opens fire, radians: the
+    /// angle a machine turns to face its target to, so that one aiming with its hull can fire at a narrow target far off.
+    /// </summary>
+    public const float BotPlay = 0.05f;
+
+    /// <summary>
+    /// The fastest a sighted Wired hero without an upper body turns its hull, and a hero bot without one turns to aim,
+    /// degrees a second before gyros and overload: the upper bodies' BODY_TURN_RATE, so that no hull aims faster than a turret.
+    /// </summary>
+    public const float HullAimCap = 180;
+
+    /// <summary>A Wired hero fighting on its own punches only what lies this close to its facing, radians (the blast's cone is 0.53).</summary>
+    public const float PunchPlay = 0.35f;
 }

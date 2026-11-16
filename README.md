@@ -341,6 +341,7 @@ hero has no spare body left (2 on Normal, 1 on Hard, none on Hardcore).
 | W A S D, Q / E, mouse | Drive, turn and look, as in first person everywhere |
 | Space | Dash |
 | G, H | The two abilities |
+| J | The chassis' special: anchor, rally, mine, towers, locate |
 | I | The hangar, at the pod between waves |
 | F | Back into the hero, whatever is selected |
 | Z, X, V, T | The squad: follow, attack my target, hold, back to the pod |
@@ -348,6 +349,22 @@ hero has no spare body left (2 on Normal, 1 on Hard, none on Hardcore).
 **Keys of Wired** in the options moves all of these, and a trigger may lie on a key or a mouse button. **Mouse button per
 weapon** in the options gives every other match the same triggers in first person (`weapon_buttons=on`; off at first, where
 the left button and Tab stay as in the original, and always on in a run).
+
+With the Modern layout your gun follows the view at its turret rate (a hull-only machine's hull at its own turn rate): the
+sight shows where the gun points, the dot where you look; rounds go where the gun points. A held trigger waits for the gun,
+a click fires at once (option 'Fire waits for the gun').
+
+The hangar's tree holds the original's chassis and Wired's own, each of these with something of its own: Sarge's third slot,
+Old Iron's ram plough, the Thresher's heavy slot, the Harvester's harvest, the Widow's lurk, the Colossus' anchor (J), the
+Hornet's afterburner and the Marshal's larger squad with its rally (J). Three lines come with their J: the constructors
+Dozer, Builder, Behemoth and Titan raise the original's gun towers within 30 m, paid at the original's prices and built by
+the hero itself (J takes them up, the wheel chooses, the left button places or pulls down); the spies Spy 3, Spy 5 and
+Phantom lay mines, and the Phantom hides from enemies more than 25 m off once it has held its fire for 3 s; the locators,
+the crab (Geo Locator 1, a start chassis beside Grunt 1) and the glider (Geo Locator 3, the first flyer, from wave 5), send
+a pulse that locates every enemy in scanner reach for 10 s, in brackets on the screen and taking a fifth more damage. A
+medium slot carries up to two of the same weapon and a heavy slot up to three: such a battery is one gun that fires two or
+three times as often, each copy bought, carried and powered in full. A weapon dropped on its own kind joins the battery,
+with Shift it replaces it, and the card's +1 buys one more.
 
 The end of a run shows the score, the waves, the kills, the hero as it stood, the records of that arena and difficulty, what
 was opened and what is next, with **Again**, **Hangar** and **Menu**. The score is the value of the machines destroyed, 150

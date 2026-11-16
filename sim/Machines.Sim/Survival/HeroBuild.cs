@@ -6,7 +6,8 @@ namespace Machines.Sim.Survival;
 
 /// <summary>A weapon as a hero carries it: a copy of the real one with its Mk and the hero's reload, never the shared spec.</summary>
 /// <param name="Item">The item behind it; null for a weapon that is part of the chassis.</param>
-public sealed record HeroWeapon(Mounting Mounting, WeaponSpec Spec, WiredItem? Item, float DamagePerSecond);
+/// <param name="Copy">Where it stands in its mounting's battery: 0 for the first copy and every single weapon.</param>
+public sealed record HeroWeapon(Mounting Mounting, WeaponSpec Spec, WiredItem? Item, float DamagePerSecond, int Copy = 0);
 
 /// <summary>
 /// What a <see cref="HeroLoadout"/> comes to: the machine it makes and how its two budgets stand. Worked out by
@@ -21,7 +22,7 @@ public sealed record HeroBuild
     /// <summary>The chassis' data with the hero's toughness, the modules and overload worked in; this hero's own copy.</summary>
     public required MachineLevel Stats { get; init; }
 
-    /// <summary>The weapons on the machine: left, right, top, leaving out empty slots.</summary>
+    /// <summary>The weapons on the machine: left, right, top, leaving out empty slots, a battery's copies next to each other in order.</summary>
     public required IReadOnlyList<HeroWeapon> Weapons { get; init; }
 
     /// <summary>The combo that names the weapons (<see cref="WeaponCombos.Split"/> reads it), or null for none.</summary>
@@ -47,7 +48,7 @@ public sealed record HeroBuild
     /// <summary>How near it must come to a wreck to collect it.</summary>
     public required float PickupReach { get; init; }
 
-    /// <summary>The cooldown of its dash in seconds; null without thrusters.</summary>
+    /// <summary>The cooldown of its dash in seconds: of the thrusters or the chassis' own, the shorter; null without either.</summary>
     public required float? DashCooldown { get; init; }
 
     /// <summary>What a player should know about it, in plain words for the hangar.</summary>
@@ -65,15 +66,34 @@ public sealed record HeroBuild
     /// </summary>
     public float DrivenTurnRate(float limit) => MathF.Min(Stats.RotationSpeed, limit * TurnShare);
 
+    /// <summary>Whether its gun turns on an upper body (its level's BODY_TURN_LINK, as <see cref="Machine.CanTurnUpperBody"/>), not with the hull.</summary>
+    public bool TurnsUpperBody => Stats.BodyTurnLink is { Length: > 0 } link && link != "NONE";
+
+    /// <summary>
+    /// How fast it aims with its hull, degrees a second, for a chassis without an upper body: a sighted driver's hull, and
+    /// a hero bot's turn to face its target. Its ROTATION_SPEED, but no faster than a turret
+    /// (<see cref="WiredBalance.HullAimCap"/>, moved by gyros and overload), times the chassis' <see cref="WiredChassis.GunTurn"/>.
+    /// </summary>
+    public float HullAimRate => MathF.Min(Stats.RotationSpeed, WiredBalance.HullAimCap * TurnShare) * Chassis.GunTurn;
+
+    /// <summary>How fast its gun turns, degrees a second: its upper body's rate, or without one <see cref="HullAimRate"/>.</summary>
+    public float GunTurnRate => TurnsUpperBody ? Stats.BodyTurnRate ?? 0 : HullAimRate;
+
     /// <summary>
     /// Resolves a loadout. Pure: it reads the game data and the catalogues and changes nothing. A weapon on a mounting
     /// the chassis does not have counts for nothing; <see cref="HeroLoadout.WhyNotFit"/> keeps those from happening.
     /// </summary>
-    public static HeroBuild Resolve(GameData data, HeroLoadout loadout)
+    public static HeroBuild Resolve(GameData data, HeroLoadout loadout) => Resolve(data, loadout, loadout.ChassisEntry);
+
+    /// <summary>
+    /// The same on <paramref name="chassis"/>, a row of the catalogue for the loadout's chassis as it may be tuned: so a
+    /// change to a knob can be tried out before it goes into the catalogue.
+    /// </summary>
+    public static HeroBuild Resolve(GameData data, HeroLoadout loadout, WiredChassis chassis)
     {
-        var chassis = loadout.ChassisEntry;
         var spec = data.Parm.Machine(chassis.TypeName);
-        var level = spec.Level(chassis.Level);
+        // A hero wears a few of the original's levels tuned (the crab); every other level as it is, the same reference.
+        var level = WiredMachines.AsHero(chassis.TypeName, spec.Level(chassis.Level));
 
         float armour = 0, hitPoints = 0, repair = 0, speed = 0, turn = 0, scanner = 0, reload = 0, wrecks = 0;
         int capacity = chassis.Load, supply = chassis.Power, accuracy = 0, load = 0, draw = 0;
@@ -104,12 +124,16 @@ public sealed record HeroBuild
                 dash = dash is { } other ? MathF.Min(other, cooldown) : cooldown;
             }
         }
+        // A dash built into the chassis: thrusters can only make it come round sooner.
+        if (chassis.Dash is { } builtIn)
+            dash = dash is { } thrusters ? MathF.Min(thrusters, builtIn) : builtIn;
         foreach (var item in loadout.Abilities.OfType<WiredItem>())
             draw += WiredCatalogue.FindAbility(item.Catalogue)?.Power ?? 0;
         var chips = WiredChips.Building(loadout);
 
-        // Load and power of the guns come first, as the reloads depend on the sum of everything.
-        var mounted = new List<(Mounting Mounting, WeaponSpec Spec, WiredItem? Item)>();
+        // Load and power of the guns come first, as the reloads depend on the sum of everything. Each copy of a battery
+        // weighs and draws as a single weapon does.
+        var mounted = new List<(Mounting Mounting, WeaponSpec Spec, WiredItem? Item, int Copy)>();
         foreach (var mounting in Enum.GetValues<Mounting>())
         {
             if (chassis.Slot(mounting) is not { } slot)
@@ -117,19 +141,24 @@ public sealed record HeroBuild
             if (slot.Fixed is { } part)
             {
                 draw += chips.PowerPerWeapon;
-                mounted.Add((mounting, data.Parm.Weapon(part), null));
+                mounted.Add((mounting, data.Parm.Weapon(part), null, 0));
+                continue;
             }
-            else if (loadout.Weapon(mounting) is { } item && WiredCatalogue.FindWeapon(item.Catalogue) is { } weapon)
+            var battery = loadout.Battery(mounting);
+            for (var copy = 0; copy < battery.Count; copy++)
             {
+                if (WiredCatalogue.FindWeapon(battery[copy].Catalogue) is not { } weapon)
+                    continue;
                 load += weapon.Load;
                 draw += weapon.Power + chips.PowerPerWeapon;
-                mounted.Add((mounting, data.Parm.Weapon(weapon.Id), item));
+                mounted.Add((mounting, data.Parm.Weapon(weapon.Id), battery[copy], copy));
             }
         }
+        var extraBarrels = mounted.Count(w => w.Copy > 0);
 
         var powerShare = draw <= supply ? 1 : supply / (float)draw;
         var coolers = MathF.Max(WiredBalance.LeastReload, 1 - reload);
-        var weapons = mounted.Select(w => Carried(w.Mounting, w.Spec, w.Item, coolers / powerShare, chips)).ToList();
+        var weapons = mounted.Select(w => Carried(w.Mounting, w.Spec, w.Item, coolers / powerShare, chips, w.Copy)).ToList();
 
         var overload = capacity <= 0 ? 0 : MathF.Max(0, load / (float)capacity - 1);
         var burden = MathF.Max(0, 1 - overload * WiredBalance.OverloadCost);
@@ -144,8 +173,9 @@ public sealed record HeroBuild
             Acceleration = level.Acceleration * move,
             RotationSpeed = level.RotationSpeed * rotate,
             RotationAcceleration = level.RotationAcceleration * rotate,
-            BodyTurnRate = level.BodyTurnRate * rotate,
-            Accuracy = Math.Min(100, (level.Accuracy ?? 100) + accuracy),
+            BodyTurnRate = level.BodyTurnRate * rotate * chassis.GunTurn,
+            // Constructors and spies have no accuracy in the data, which the original's machines read as perfect aim.
+            Accuracy = BatteryAccuracy(Math.Min(100, (level.Accuracy ?? WiredBalance.NoAccuracy) + accuracy), extraBarrels, WiredBalance.BatteryAimLoss),
             ScannerRange = (int)MathF.Round(level.ScannerRange * (1 + scanner)),
             NightVision = nightVision,
             NumberOfWeapons = weapons.Count,
@@ -178,14 +208,22 @@ public sealed record HeroBuild
             Range = weapons.Select(w => w.Spec.Range).DefaultIfEmpty(0).Max(),
             TurnShare = rotate,
             WreckShare = 1 + wrecks,
-            PickupReach = MathF.Max(WiredBalance.PickupReach, chips.PickupReach) * (chassis.Glider ? WiredBalance.GliderPickup : 1),
+            // Whatever flies reaches further down for a wreck: the Boss line and the geo locator's glider alike.
+            PickupReach = MathF.Max(WiredBalance.PickupReach, chips.PickupReach) * (level.Locomotion == Locomotion.Glider ? WiredBalance.GliderPickup : 1),
             DashCooldown = dash,
             Warnings = warnings,
         };
     }
 
+    /// <summary>
+    /// The hero's accuracy with its batteries: <paramref name="loss"/> points off for each barrel beyond the first of every
+    /// battery, never below 0; with none to take off, the accuracy as it is.
+    /// </summary>
+    public static int BatteryAccuracy(int accuracy, int extraBarrels, int loss) =>
+        extraBarrels * loss <= 0 ? accuracy : Math.Max(0, accuracy - extraBarrels * loss);
+
     /// <summary>A weapon with its Mk (+20 % damage and -8 % reload each), the hero's reload and what the chips add worked in.</summary>
-    private static HeroWeapon Carried(Mounting mounting, WeaponSpec real, WiredItem? item, float reloadShare, ChipBuild chips)
+    private static HeroWeapon Carried(Mounting mounting, WeaponSpec real, WiredItem? item, float reloadShare, ChipBuild chips, int copy)
     {
         var steps = (item?.Mk ?? 1) - 1;
         var spec = real with
@@ -194,7 +232,7 @@ public sealed record HeroBuild
             Range = real.Range * (1 + chips.Range),
             ReloadTime = real.ReloadTime * (1 - WiredBalance.ReloadPerMk * steps) * reloadShare,
         };
-        return new HeroWeapon(mounting, spec, item, DamageRate(spec));
+        return new HeroWeapon(mounting, spec, item, DamageRate(spec), copy);
     }
 
     /// <summary>
@@ -213,7 +251,10 @@ public sealed record HeroBuild
     /// <summary>What a product of floats may be over a whole number of ticks and still be that number.</summary>
     private const float TickSlack = 0.001f;
 
-    /// <summary>Names the weapons as a combo does, each on its mounting: <c>L_BOLTER_R_PLASMA_RIFLE</c>.</summary>
+    /// <summary>
+    /// Names the weapons as a combo does, each on its mounting: <c>L_BOLTER_R_PLASMA_RIFLE</c>. A battery names its mounting
+    /// for every copy, <c>L_BOLTER_L_BOLTER_R_BOLTER</c>, which <see cref="WeaponCombos.Split"/> reads back copy for copy.
+    /// </summary>
     private static string? Combo(IReadOnlyList<HeroWeapon> weapons) => weapons.Count == 0
         ? null
         : string.Join('_', weapons.Select(w => $"{w.Mounting.ToString()[0]}_{w.Spec.TypeName}"));

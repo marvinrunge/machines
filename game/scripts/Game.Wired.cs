@@ -23,6 +23,23 @@ public partial class Game
     /// <summary>The picture of a run's hero, for what has no bitmap for its made-up combination of machine and weapons.</summary>
     public Texture2D? HeroPicture(Actor actor) => HeroOf(actor) is not null ? _portrait?.Picture : null;
 
+    /// <summary>The view of an actor, while it has one.</summary>
+    public ActorView? ViewOf(int actor) => _views.GetValueOrDefault(actor);
+
+    /// <summary>What the player looks out of: the machine driven, the team-mate looked on through, or else the hero.</summary>
+    private Machine? Eyes => _driven ?? (WatchedHero is { } watched ? World.Find<Machine>(watched) : null) ?? World.HeroOf(Player);
+
+    /// <summary>
+    /// Whether an enemy hero hides in its shadow from the player (GameWorld.Shadowed): quiet for long enough, not located,
+    /// and farther from what the player looks out of than the shadow lets it be seen. The radar and the map show no blip of
+    /// it, the sight neither its bars nor a lock, a battle's marks leave it out; its model stands in the view as ever, for a
+    /// player to find by eye.
+    /// </summary>
+    public bool InShadow(Actor actor) => World.Wired is not null && actor is Machine && Eyes is { } eyes && World.Shadowed(eyes, actor);
+
+    /// <summary>Whether an enemy of the player stands located by a geo locator's pulse (GameWorld.LocatedFor): the view marks it.</summary>
+    public bool LocatedFoe(Actor actor) => World.Wired is not null && actor is Machine && World.AreEnemies(Player, actor.Race) && World.LocatedFor(actor.Id) > 0;
+
     /// <summary>What goes wrong in a run says so over the plates; in first person the message line is far from the eye.</summary>
     private void RunRefused(string why)
     {
@@ -283,9 +300,95 @@ public partial class Game
                 case GameEventKind.Hit when e.Actor == _driven?.Id && e.Other is { } from && World.Find(from) is { } shooter:
                     hud.HitFrom(ActorView.World(shooter.Position));
                     break;
+                case GameEventKind.WiredHarvest:
+                    // The armour coming back sounds as a supercharger's mending; the player's own block flashes with it.
+                    _audio.Play("SID_SUPERHEAL", at);
+                    if (e.Actor == World.HeroOf(Player)?.Id)
+                        hud.Harvested(e.Detail ?? "0");
+                    break;
+                default:
+                    ShowSpecialEvent(e, at);
+                    break;
             }
         }
     }
+
+    /// <summary>
+    /// What the chassis' specials do in the view: a ram's blow, a Colossus' tracks locking and coming free, a squad called
+    /// in and a foe fetched nearer the pod going out where they stood and in where they stand, a constructor's towers set
+    /// down, ready and pulled down, a geo locator's pulse going out. They come before the views follow the world, so a
+    /// view still stands where its actor was.
+    /// </summary>
+    private void ShowSpecialEvent(GameEvent e, Vector3 at)
+    {
+        var view = _views.GetValueOrDefault(e.Actor);
+        switch (e.Kind)
+        {
+            case GameEventKind.WiredRammed:
+                _audio.Play("SID_PUNCH", at);
+                view?.Shake();
+                if (_driven is { } driven && (driven.Id == e.Actor || driven.Id == e.Other))
+                    CameraRig.Shake(at, 4, 0.4f);
+                break;
+            case GameEventKind.WiredAnchoring or GameEventKind.WiredReleasing:
+                _audio.Play("SID_DOOR", at);
+                break;
+            case GameEventKind.WiredAnchored:
+                // The tracks bite: the clamps shut and dust comes up along them.
+                _audio.Play("SID_DOOR", at);
+                if (view is not null)
+                    _effects.KickUp(view.GlobalPosition, new Vector2(view.Bounds.Size.X, view.Bounds.Size.Z) * 0.55f);
+                break;
+            case GameEventKind.WiredReleased when view is not null:
+                _effects.KickUp(view.GlobalPosition, new Vector2(view.Bounds.Size.X, view.Bounds.Size.Z) * 0.45f);
+                break;
+            case GameEventKind.WiredSquadRallied or GameEventKind.WiredFoePulled when view is not null:
+                view.TeleportAway();
+                _audio.Play("SID_ENTERED_APC", World.Find(e.Actor) is { } moved ? ActorView.World(moved.Position) : view.GlobalPosition);
+                break;
+            case GameEventKind.WiredTowerPlaced:
+                _effects.KickUp(at, new Vector2(3, 3));
+                if (World.Find(e.Actor)?.Race == Player)
+                    _audio.PlayGui("gui/sounds/taskmach.wav");
+                break;
+            case GameEventKind.ConstructionComplete when World.Find(e.Actor) is Construction tower && tower.IsType(WiredTower.Type) && tower.Race == Player:
+                _audio.Say("VID_DOZER_BUILDING_COMPLETE");
+                _hud.Message(Lang.T("Tower ready"));
+                _hud.Wired?.Float(at + Vector3.Up * 4, Lang.T("Tower ready"), new Color(0.45f, 1, 0.7f));
+                break;
+            case GameEventKind.WiredTowerScrapped:
+                _vaporised.Add(e.Actor);
+                _audio.Play("SID_RECYCLE", at);
+                if (view?.Race == Player)
+                    _hud.Wired?.Float(at + Vector3.Up * 3, $"+{e.Detail} BMU");
+                break;
+            case GameEventKind.WiredLocated:
+                _pulsedAt[e.Actor] = World.Time;
+                // Beside the original's locating ring the pulse runs out over the ground as far as it reaches, and the
+                // player's own sweeps round the edge of the view, which in first person shows little of the ground.
+                if (World.Find<Machine>(e.Actor) is { } locator)
+                    _effects.LocatePulse(at, World.ScannerReach(locator), LocateGlow);
+                if (e.Actor == World.HeroOf(Player)?.Id)
+                {
+                    _hud.Message(Lang.T("{0} located", e.Other ?? 0));
+                    _hud.Wired?.Pulsed();
+                }
+                break;
+        }
+    }
+
+    /// <summary>When each geo locator hero last sent out its pulse, by the world's clock: its ring plays for a while after.</summary>
+    private readonly Dictionary<int, float> _pulsedAt = [];
+
+    /// <summary>The amber of a pulse running out over the ground, as the HUD's brackets round what it has located.</summary>
+    private static readonly Color LocateGlow = new(1f, 0.62f, 0.12f);
+
+    /// <summary>How long a geo locator hero's ring plays after its pulse, seconds.</summary>
+    private const float PulseShown = 1.5f;
+
+    /// <summary>Whether a geo locator's pulse went out only just now, which its view plays as the locating ring.</summary>
+    private bool Pulsing(Machine locator) =>
+        _pulsedAt.TryGetValue(locator.Id, out var at) && World.Time - at < PulseShown && World.Time >= at;
 
     /// <summary>A wave that forces night has it fall, whatever the hour and the planet; the morning after it comes as fast.</summary>
     private void FollowNight(float delta) =>

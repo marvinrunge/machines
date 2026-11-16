@@ -250,11 +250,13 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
             .. game.World.Wired is null ? new[] { ("Fire all", "Space") } :
             game.World.Battle is not null ?
             [
-                ("Abilities, dash", K(KeyMap.Act.Ability1, KeyMap.Act.Ability2, KeyMap.Act.Dash)), ("Next team-mate, once destroyed", "Tab"),
+                ("Abilities, dash", K(KeyMap.Act.Ability1, KeyMap.Act.Ability2, KeyMap.Act.Dash)), ("Chassis special", K(KeyMap.Act.Special)),
+                ("Next team-mate, once destroyed", "Tab"),
             ] :
             [
                 ("Squad: follow, attack, hold, back", K(KeyMap.Act.SquadFollow, KeyMap.Act.SquadAttack, KeyMap.Act.SquadHold, KeyMap.Act.SquadBack)),
-                ("Abilities, dash", K(KeyMap.Act.Ability1, KeyMap.Act.Ability2, KeyMap.Act.Dash)), ("Hangar", K(KeyMap.Act.Hangar)),
+                ("Abilities, dash", K(KeyMap.Act.Ability1, KeyMap.Act.Ability2, KeyMap.Act.Dash)), ("Chassis special", K(KeyMap.Act.Special)),
+                ("Hangar", K(KeyMap.Act.Hangar)),
             ],
             ("Leave first person", LeaveKeys),
         ]

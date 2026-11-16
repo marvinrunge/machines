@@ -12,8 +12,9 @@ namespace Machines.Game;
 /// A Wired hero's model, put together from the game's own rigs: the chassis' rig with its weapons taken off and the
 /// parts of the weapons it wears hung on its mounts (see <see cref="RigGraft"/>). It comes in the look and colours of
 /// <see cref="ClassicAssets.RigFor"/>, and moves as any machine, its weapons recoiling on their sides. An empty slot shows
-/// the bare mount. What stands turned over is turned over in its mesh, never by a part's transform: materials draw both
-/// sides, so a part with its scale turned over would be lit as if from inside. Wired is the remake's own addition.
+/// the bare mount, and a battery its weapon once (<see cref="HeroDonors.Shown"/>). What stands turned over is turned over in
+/// its mesh, never by a part's transform: materials draw both sides, so a part with its scale turned over would be lit as
+/// if from inside. Wired is the remake's own addition.
 /// </summary>
 public static class HeroRig
 {
@@ -24,20 +25,23 @@ public static class HeroRig
 
     private static readonly Lazy<StandardMaterial3D> Rubber = new(() => new StandardMaterial3D { AlbedoColor = new Color(0.1f, 0.1f, 0.105f), Roughness = 0.85f, MetallicSpecular = 0.25f });
 
-    /// <summary>The model of what <paramref name="loadout"/> wears, or null without the chassis' export.</summary>
+    /// <summary>The model of what <paramref name="loadout"/> wears, or null without the chassis' export: that of the weapons it shows.</summary>
     public static Rig? Compose(ClassicAssets assets, Race race, HeroLoadout loadout) =>
-        Compose(assets, race, loadout.Chassis.Catalogue, loadout.Weapons.Select(w => w?.Catalogue).ToArray());
+        Compose(assets, race, loadout.Chassis.Catalogue, HeroDonors.Shown(loadout));
 
     /// <summary>
     /// The model of a chassis with <paramref name="weapons"/> on its mounts, by <see cref="Mounting"/>: left, right, top,
-    /// null for empty. A weapon its chassis cannot take still shows, for a preview. Rigs are kept by what they wear.
+    /// null for empty. A weapon its chassis cannot take still shows, for a preview. Rigs are kept by what they wear
+    /// (<see cref="HeroDonors.Worn(Race, string, IReadOnlyList{string?})"/>).
     /// </summary>
     public static Rig? Compose(ClassicAssets assets, Race race, string chassis, IReadOnlyList<string?> weapons)
     {
-        var key = $"{race}/{chassis}/{string.Join('/', weapons)}";
+        var key = HeroDonors.Worn(race, chassis, weapons);
         if (assets.HeroRigs.TryGetValue(key, out var kept))
             return kept;
+        var start = HitchLog.Start;
         var rig = Build(assets, race, chassis, weapons);
+        HitchLog.Loaded($"hero {key}", start);
         assets.HeroRigs[key] = rig;
         return rig;
     }

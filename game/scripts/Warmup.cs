@@ -225,8 +225,11 @@ public partial class Warmup : Node3D
                 if (item.Kind == ResearchKind.Construction && Add(world, race, item.Kind, item.Key, ground, complete: false) is { } site)
                     actors.Add(site);
             }
-            // Models no research brings: the scenarios' own (the ore hologram, the bosses).
-            foreach (var id in _assets.ModelIds(look).Where(shown.Add))
+            // Models no research brings: the scenarios' own (the ore hologram, the bosses), and in Wired, for a race with a
+            // hero, every chassis' model heroes are put together from (Wired's own machines, the constructors, spies and
+            // locators with weapon mounts), so that a chassis changed in the hangar loads nothing.
+            var heroes = _world.Wired?.Heroes.ContainsKey(race) == true ? HeroDonors.Chassis.Values : [];
+            foreach (var id in _assets.ModelIds(look).Concat(heroes).Where(shown.Add))
             {
                 models.Add((id, look, Vector3.One * 3));
                 bare.Add((id, look));
@@ -280,6 +283,17 @@ public partial class Warmup : Node3D
                 : new MeshInstance3D { Mesh = _assets.MeshFor(id, look, Vector3.One * 3) };
             stage.AddChild(model);
             model.GlobalPosition = ActorView.World(ground);
+            yield return false;
+        }
+        // Each hero as it stands, put together from those (kept by what it wears, so its view takes the same).
+        foreach (var (race, state) in _world.Wired?.Heroes ?? [])
+        {
+            if (HeroRig.Compose(_assets, Game.Look(race), state.Loadout) is { } rig)
+            {
+                var hero = RigView.Create(rig);
+                stage.AddChild(hero);
+                hero.GlobalPosition = ActorView.World(ground);
+            }
             yield return false;
         }
         Note($"{actors.Count + bare.Count} put up", since);

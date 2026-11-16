@@ -2,6 +2,7 @@ using System.Text.Json;
 using Machines.Game;
 using Machines.Import.Model;
 using Machines.Net;
+using Machines.Sim.Combat;
 using Machines.Sim.Survival;
 using Machines.Sim.World;
 
@@ -111,7 +112,7 @@ public class BattleRoomOptionsTests
     [InlineData(8, 8, null)]
     public void A_hero_is_taken_in_the_bracket_and_refused_outside_it_in_the_relays_words(int heroTier, int roomTier, string? why)
     {
-        var hero = BattleBots.Bot(heroTier, Race.Red, 0) with { Name = "Rivet", Bot = false };
+        var hero = BattleBots.Bot("m_desert", heroTier, Race.Red, 0) with { Name = "Rivet", Bot = false };
 
         Assert.Equal(why, RoomOptions.WhyNotHere(hero, roomTier));
     }
@@ -119,11 +120,24 @@ public class BattleRoomOptionsTests
     [Fact]
     public void A_hero_that_does_not_fit_together_is_refused_in_the_relays_words()
     {
-        var hero = BattleBots.Bot(1, Race.Red, 0);
+        var hero = BattleBots.Bot("m_desert", 1, Race.Red, 0);
         var stacked = hero with { Items = [.. hero.Items, new BattleItem("BOLTER", null, 3)] };
         var nothing = hero with { Items = [new BattleItem("NO_SUCH_THING", null)] };
 
         Assert.Equal("that hero does not fit together", RoomOptions.WhyNotHere(stacked, 1));
         Assert.Equal("that hero does not fit together", RoomOptions.WhyNotHere(nothing, 1));
+    }
+
+    [Fact]
+    public void A_battery_is_taken_up_to_what_its_slot_carries_and_a_copy_more_is_refused_in_the_relays_words()
+    {
+        var tier = BattleCatalogue.Tier("knight4");
+        BattleHero Hero(int count) => new(Race.Red, "Rivet", "knight4", [new BattleItem("BOLTER", WiredSlot.Weapon(Mounting.Left), 1, count)]);
+
+        // As every player gets it: through the relay's JSON.
+        var three = JsonSerializer.Deserialize<BattleHero>(JsonSerializer.Serialize(Hero(3), NetJson.Options), NetJson.Options)!;
+        Assert.Equal(3, three.Items.Single().Count);
+        Assert.Null(RoomOptions.WhyNotHere(three, tier));
+        Assert.Equal("that hero does not fit together", RoomOptions.WhyNotHere(Hero(4), tier));
     }
 }

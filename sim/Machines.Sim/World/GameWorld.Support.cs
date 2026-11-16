@@ -171,12 +171,29 @@ public sealed partial class GameWorld
         if (!AtBuilding(constructor, building))
             return;
 
-        // oprepair.cpp: CONSTRUCTION_RATE BMUs per minute from the bank, turned into hit points in
-        // proportion to the building's cost.
-        var bmu = SpendBmu(constructor.Race, (constructor.Stats.ConstructionRate ?? 0) / 60f * Dt);
-        AddHitPoints(building, HitPointValue(building, bmu));
+        Mend(constructor, building);
         if (building.HitPoints >= building.MaxHitPoints)
             ReportJobDone(constructor, "VID_DOZER_BUILDING_REPAIRED");
+    }
+
+    /// <summary>
+    /// A tick of a constructor's repair (oprepair.cpp): CONSTRUCTION_RATE BMUs per minute from the bank, turned into hit
+    /// points in proportion to the building's cost. A Wired hero mends its towers <paramref name="speed"/> times as fast,
+    /// and its bank is drawn on as the hangar charges: the pod's warnings of a low bank are the original's, not Wired's.
+    /// </summary>
+    private void Mend(Machine constructor, Construction building, float speed = 1)
+    {
+        var wanted = (constructor.Stats.ConstructionRate ?? 0) / 60f * speed * Dt;
+        float bmu;
+        if (Wired is null)
+            bmu = SpendBmu(constructor.Race, wanted);
+        else
+        {
+            var bank = Races[constructor.Race];
+            bmu = MathF.Min(wanted, bank.Bmu);
+            bank.Bmu -= bmu;
+        }
+        AddHitPoints(building, HitPointValue(building, bmu));
     }
 
     private void UpdateCapture(Machine constructor, CaptureOrder capture)

@@ -1,4 +1,5 @@
 using Godot;
+using Machines.Sim.Combat;
 using Machines.Sim.Survival;
 
 namespace Machines.Game;
@@ -150,7 +151,8 @@ public partial class HangarPage
                 break;
             case HangarShelf.Upgrades:
                 Head("Mk upgrades");
-                Goods(desk.Upgrades());
+                // A battery is one card, whose deal goes to its lowest Mk.
+                Goods(desk.Upgrades().Where(g => BatteryOf(g.Item) is not { } battery || Lowest(battery).Id == g.Item.Id), g => BatteryOf(g.Item));
                 break;
             case HangarShelf.Squad:
                 FillSquad();
@@ -186,7 +188,15 @@ public partial class HangarPage
         _extra.AddChild(line);
     }
 
-    private void Goods(IEnumerable<HangarGood?> goods)
+    /// <summary>The battery a worn weapon stands in, where it has more than one copy; null for anything else.</summary>
+    private IReadOnlyList<WiredItem>? BatteryOf(WiredItem item) =>
+        _shown.SlotOf(item.Id) is { Kind: WiredSlotKind.Weapon } slot && _shown.Battery((Mounting)slot.Index) is { Count: > 1 } battery ? battery : null;
+
+    /// <summary>The copy of a battery that an upgrade raises: its lowest Mk, the last of equals.</summary>
+    private static WiredItem Lowest(IReadOnlyList<WiredItem> battery) => battery.Last(c => c.Mk == battery.Min(b => b.Mk));
+
+    /// <summary>A card for each good, with <paramref name="battery"/> the battery a card stands for.</summary>
+    private void Goods(IEnumerable<HangarGood?> goods, Func<HangarGood, IReadOnlyList<WiredItem>?>? battery = null)
     {
         var width = CardWidth;
         var list = goods.ToList();
@@ -200,7 +210,7 @@ public partial class HangarPage
                 continue;
             }
             var height = good.Deal != HangarDeal.None ? 112 : good.Price is null && good.Locked is null ? 86 : 106;
-            var card = new ItemCard { Good = good, Page = this, CustomMinimumSize = new Vector2(width, height) };
+            var card = new ItemCard { Good = good, Page = this, CustomMinimumSize = new Vector2(width, height), Battery = battery?.Invoke(good) };
             _grid.AddChild(card);
             _cards.Add(card);
         }
@@ -322,12 +332,17 @@ public partial class HangarPage
         Wear(good);
     }
 
-    /// <summary>What a good does, for the banner: for a chip with what linking would add where it would go.</summary>
+    /// <summary>
+    /// What a good does, for the banner: for a chip with what linking would add where it would go, for a module what the
+    /// chassis leaves for it to do where that is little.
+    /// </summary>
     private string? Said(HangarGood good)
     {
-        if (HangarText.Effect(good.Item) is not { } plain)
+        if (HangarText.Effect(good.Item, battle: Battle) is not { } plain)
             return null;
         var then = _trial?.Loadout ?? _shown;
+        if (good.Item.Kind == WiredKind.Module && HangarText.ModuleHint(good.Item, then.ChassisEntry) is { } hint)
+            return $"{plain} {hint}";
         if (good.Item.Kind != WiredKind.Chip || then.SlotOf(good.Item.Id) is not { } socket)
             return plain;
         return WiredChips.Linked(then.Chips, socket.Index) ? $"{Lang.T("Linked")}: {HangarText.Effect(good.Item, WiredChips.Strength(then.Chips, socket.Index))}" : plain;
@@ -355,7 +370,9 @@ public partial class HangarPage
         if (asked == _choiceAsked)
             return;
         _choiceAsked = asked;
-        _choice.Show(shop.Choice(_lookedChassis, _lookedWeapon), shop.Wave, shop.WaveBonus, name, price);
+        var choice = shop.Choice(_lookedChassis, _lookedWeapon);
+        var copies = choice.CopyOnto is { Kind: WiredSlotKind.Weapon } onto ? _shown.Battery((Mounting)onto.Index).Count : 0;
+        _choice.Show(choice, shop.Wave, shop.WaveBonus, name, price, copies);
     }
 }
 

@@ -6,7 +6,21 @@ namespace Machines.Sim.Combat;
 public sealed class WeaponMount(Mounting mounting, WeaponSpec spec)
 {
     public Mounting Mounting { get; } = mounting;
-    public WeaponSpec Spec { get; } = spec;
+
+    /// <summary>
+    /// Where it stands in a Wired hero's battery on its mounting: 0 for the first copy, and for every other weapon of the
+    /// game. A machine's copies stand next to each other in its weapons, in order.
+    /// </summary>
+    public int Copy { get; init; }
+
+    /// <summary>The weapon as the mount was made with it; a copy of the mount copies this, never <see cref="Spec"/>.</summary>
+    public WeaponSpec Base { get; } = spec;
+
+    /// <summary>The weapon as it fires now: <see cref="Base"/>, or a tuned copy of it while a Wired machine's special works on it.</summary>
+    public WeaponSpec Spec { get; private set; } = spec;
+
+    /// <summary>Fires as <paramref name="tuned"/> from now on, or as <see cref="Base"/> again with null.</summary>
+    internal void Tune(WeaponSpec? tuned) => Spec = tuned ?? Base;
 
     /// <summary>Seconds until the next burst may start.</summary>
     public float Reload { get; set; }
@@ -19,6 +33,14 @@ public sealed class WeaponMount(Mounting mounting, WeaponSpec spec)
 
     /// <summary>How the burst under way goes.</summary>
     public FireData Burst { get; set; }
+
+    /// <summary>
+    /// Whether it stood loaded and was passed over the last time its machine fired: true until it first opens fire, false
+    /// from then until its reload is over and its burst out and a tick goes by without it opening fire. A copy of a battery
+    /// that waited for the trigger so takes its turn behind the copy before it, while one whose reload has only just ended
+    /// does not, however the reload was cut short. Not part of the checksum.
+    /// </summary>
+    internal bool Waited { get; set; } = true;
 
     /// <summary>Rounds fired so far; their barrels take turns.</summary>
     public int Shots { get; set; }

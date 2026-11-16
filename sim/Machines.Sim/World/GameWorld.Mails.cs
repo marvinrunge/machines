@@ -95,6 +95,9 @@ public sealed partial class GameWorld
     /// </summary>
     private void ReportNewConstructions()
     {
+        // A constructor hero opens no buildings: Wired has none of the original's to build.
+        if (Wired is not null)
+            return;
         foreach (var state in Races.Values)
         {
             var best = BestConstructor(state.Race);

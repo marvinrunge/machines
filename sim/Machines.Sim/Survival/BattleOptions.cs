@@ -10,8 +10,12 @@ public enum BattleWin
     Capture,
 }
 
-/// <summary>Something a battle hero wears, at its Mk; with no slot it stays in the inventory, as modules, abilities and spares can.</summary>
-public sealed record BattleItem(string Catalogue, WiredSlot? Slot, int Mk = 1);
+/// <summary>
+/// Something a battle hero wears, at its Mk; with no slot it stays in the inventory, as modules, abilities and spares can. A
+/// weapon on a weapon slot may come as a battery of <paramref name="Count"/> copies, all at that Mk; an entry from before
+/// batteries has one.
+/// </summary>
+public sealed record BattleItem(string Catalogue, WiredSlot? Slot, int Mk = 1, int Count = 1);
 
 /// <summary>One hero of a battle: its race (the scenario slot it plays), its name, its chassis and what it wears. <paramref name="Bot"/> says the computer drives it.</summary>
 public sealed record BattleHero(Race Race, string Name, string Chassis, IReadOnlyList<BattleItem> Items, bool Bot = false)

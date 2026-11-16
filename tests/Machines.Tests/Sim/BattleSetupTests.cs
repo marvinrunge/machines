@@ -25,7 +25,7 @@ internal static class Battles
             TeamB = options.TeamB.Count > 0 ? options.TeamB : entry.TeamB,
         };
         if (options.Heroes.Count == 0)
-            options = BattleBots.Compose(options, []);
+            options = BattleBots.Compose(options, [], entry.Scenario);
         var world = MatchSetup.Create(Data, entry.Scenario, entry.Planet,
             Enum.GetValues<Race>().ToDictionary(r => r, r => bots.Contains(r) ? Controller.Ai : Controller.Player), seed,
             new MatchOptions { Battle = options, FogOfWar = false });
@@ -137,7 +137,8 @@ public class BattleSetupTests
             var team = world.Battle!.TeamOf(race);
             Assert.True(Vector2.Distance(hero.Position, world.BattlePod(team)!.Position) < 45, $"{race} stands at {hero.Position}");
             Assert.Equal(world.BattlePod(team)!.Id, world.Wired!.Heroes[race].Pod);
-            Assert.Equal("AGGRESSOR GRUNT", hero.Spec.TypeName);
+            // The first of a team on Grunt 1, the second on the crab: the first tier's line, taken in turn.
+            Assert.Equal(race is Race.Red or Race.Green ? "AGGRESSOR GRUNT" : "GEO_LOCATOR", hero.Spec.TypeName);
         }
         Assert.Equal([Race.Blue, Race.Yellow], world.HeroBots.Keys);
         Assert.Equal([Race.Blue, Race.Yellow], world.Battle!.Bots);
@@ -192,6 +193,26 @@ public class BattleSetupTests
     }
 
     [Fact]
+    public void A_race_the_options_name_no_hero_for_gets_the_bot_the_relay_would_compose_for_the_map()
+    {
+        var map = BattleCatalogue.Map("fortmult")!;
+        var player = BattleBots.Bot(map.Scenario, 4, Race.Red, 0) with { Name = "Ace", Bot = false };
+        foreach (var given in new List<BattleHero>[] { [], [player] })
+        {
+            var options = new BattleOptions { Tier = 5, TeamA = map.TeamA, TeamB = map.TeamB, Heroes = given };
+            var world = MatchSetup.Create(Data, map.Scenario, map.Planet, new Dictionary<Race, Controller> { [Race.Red] = Controller.Player }, 3,
+                new MatchOptions { Battle = options });
+            var composed = BattleBots.Compose(options, given, map.Scenario).Heroes;
+            var played = world.Battle!.Options.Heroes;
+            Assert.Equal(composed.Count, played.Count);
+            foreach (var (expected, actual) in composed.Zip(played))
+                Machines.Tests.Net.BattleNetTests.SameHero(expected, actual);
+            // Two bots facing each other take the top of the bracket.
+            Assert.Contains(played, h => h.Bot && BattleCatalogue.Tier(h.Chassis) == 5);
+        }
+    }
+
+    [Fact]
     public void Every_map_of_the_catalogue_has_a_pod_for_each_anchor_and_room_for_four_heroes()
     {
         foreach (var map in BattleCatalogue.Maps)
@@ -226,16 +247,17 @@ public class BattleSetupTests
         Assert.Equal(4, played.Count);
         Assert.All(played, h => Assert.Null(BattleBots.WhyNot(h, tier)));
         Assert.All(played, h => Assert.Equal(h.Race.ToString(), h.Name));
-        // On its own line where the bottom of the bracket has it, else a bot's chassis.
+        // On its own line where the bottom of the bracket has it, else the chassis a bot of its place takes on the map.
         Assert.Equal("grunt2", played.Single(h => h.Race == Race.Blue).Chassis);
-        Assert.Equal("grunt2", played.Single(h => h.Race == Race.Green).Chassis);
+        Assert.Equal(BattleBots.Pick("m_desert", BattleCatalogue.BracketBottom(tier), 0), played.Single(h => h.Race == Race.Green).Chassis);
+        Assert.Contains(played.Single(h => h.Race == Race.Green).Chassis, BattleCatalogue.OfTier(BattleCatalogue.BracketBottom(tier)).Select(c => c.Id));
         Assert.All(Enum.GetValues<Race>(), r => Assert.NotNull(world.HeroOf(r)));
 
         // A hero that may play stays as it is.
         var fine = Hero(Race.Red, "reaper2", new BattleItem("AUTO_CANNON", WiredSlot.Weapon(Mounting.Left)), new BattleItem("plates", WiredSlot.Module(0)),
             new BattleItem("discharge", WiredSlot.Ability(0)));
         Assert.Null(BattleBots.WhyNot(fine, tier));
-        Assert.Same(fine, BattleBots.Resolved(fine, tier, 0));
+        Assert.Same(fine, BattleBots.Resolved(fine, tier, 0, "m_desert"));
         Assert.NotNull(BattleBots.WhyNot(fine with { Items = [new BattleItem("treachery", WiredSlot.Ability(0))] }, tier));
         Assert.NotNull(BattleBots.WhyNot(Hero(Race.Red, "grunt2", new BattleItem("discharge", WiredSlot.Ability(0))), tier));
     }
@@ -244,7 +266,7 @@ public class BattleSetupTests
     public void A_hand_made_hero_with_no_items_or_more_than_its_chassis_wears_is_clamped()
     {
         var tier = 3;
-        var fine = BattleBots.Bot(tier, Race.Red, 0);
+        var fine = BattleBots.Bot("m_desert", tier, Race.Red, 0);
         Assert.Null(BattleBots.WhyNot(fine, tier));
         // Things without a slot stay in the inventory: a few may come, but never more than the chassis has places for.
         var chassis = WiredCatalogue.FindChassis(fine.Chassis)!;
@@ -277,6 +299,34 @@ public class BattleSetupTests
         Assert.Equal(0, state.SpareBodies);
         Assert.Equal(2, Battles.Hero(world, Race.Red).Weapons.Count);
         Assert.NotNull(state.Build(Data).DashCooldown);
+    }
+
+    [Fact]
+    public void A_battery_is_one_entry_of_a_heros_items_and_the_hero_plays_with_every_copy()
+    {
+        var tier = BattleCatalogue.Tier("reaper3");
+        var hero = new BattleHero(Race.Red, "Ace", "reaper3", [new BattleItem("HEAVY_BOLTER1", WiredSlot.Weapon(Mounting.Left), 1, 2)]);
+        Assert.Null(BattleBots.WhyNot(hero, tier));
+        // The cap on items counts entries, not copies.
+        var chassis = WiredCatalogue.FindChassis("reaper3")!;
+        var room = chassis.Slots.Count + chassis.Modules + WiredBalance.AbilitySlots - hero.Items.Count;
+        Assert.Null(BattleBots.WhyNot(hero with { Items = [.. hero.Items, .. Enumerable.Repeat(new BattleItem("plates", null), room)] }, tier));
+        Assert.Equal("more items than the chassis wears",
+            BattleBots.WhyNot(hero with { Items = [.. hero.Items, .. Enumerable.Repeat(new BattleItem("plates", null), room + 1)] }, tier));
+
+        var world = Battles.Begun(new BattleOptions
+        {
+            Tier = tier,
+            Heroes = BattleBots.Compose(new BattleOptions { Tier = tier, TeamA = [Race.Red, Race.Blue], TeamB = [Race.Green, Race.Yellow] }, [hero]).Heroes,
+        });
+        var state = world.Wired!.Heroes[Race.Red];
+        Assert.Equal(["HEAVY_BOLTER1", "HEAVY_BOLTER1"], state.Loadout.Battery(Mounting.Left).Select(i => i.Catalogue));
+        var red = Battles.Hero(world, Race.Red);
+        Assert.Equal([0, 1], red.Weapons.Select(w => w.Copy));
+
+        Assert.Null(Battles.Do(world, new DriveCommand(Race.Red, red.Id, Driving: true, Aim: red.Position + new Vector2(30, 0), Weapons: -1, Buttons: true)));
+        var fired = Battles.Run(world, 2).Where(e => e.Kind == GameEventKind.Fired && e.Actor == red.Id).Select(e => e.Gun).ToHashSet();
+        Assert.Equal([0, 1], fired.Order());
     }
 
     [Fact]

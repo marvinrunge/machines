@@ -76,10 +76,13 @@ public sealed partial class GameWorld
     /// <summary>MachLogMachine::isFreeToAttack: it has nothing else to do but fight.</summary>
     private static bool FreeToAttack(Machine machine) => machine.Order is IdleOrder or StandGroundOrder or AttackMoveOrder;
 
-    /// <summary>MachLogCanAttack::actorIsDirectThreat: what can shoot back, unless it is a pod, a silo or a tower not yet built.</summary>
-    private static bool DirectThreat(Actor actor) => actor switch
+    /// <summary>
+    /// MachLogCanAttack::actorIsDirectThreat: what can shoot back, unless it is a pod, a silo or a tower not yet built. A
+    /// Wired hero shoots back whatever its type.
+    /// </summary>
+    private bool DirectThreat(Actor actor) => actor switch
     {
-        Machine machine => machine.Spec.Type is "AGGRESSOR" or "ADMINISTRATOR",
+        Machine machine => IsFighter(machine),
         Construction tower => tower.IsType("MISSILE_EMPLACEMENT") && tower.Spec.SubType != "ICBM" && tower.Complete,
         _ => false,
     };
@@ -183,9 +186,12 @@ public sealed partial class GameWorld
     /// MachLogStrategy::changeToCounterattackMode: the machine puts aside what it is doing to fight. One that was doing
     /// nothing will come back to where it stands now, looking the way the enemy came from, after a pause that is
     /// shorter the worse it was hurt, so a group wheels back one by one. One already in a fight just turns to the new target.
+    /// A Wired hero does not go for an enemy it can never get at (<see cref="OutOfReach"/>).
     /// </summary>
     internal void Counterattack(Machine machine, Actor target)
     {
+        if (Wired is not null && IsWiredHero(machine) && OutOfReach(machine, target))
+            return;
         var orderedAt = machine.OrderedAt;
         if (machine.Order is AttackOrder { Back: not null } fight)
         {
@@ -331,9 +337,12 @@ public sealed partial class GameWorld
 
     // ---- calling for help -----------------------------------------------------------------------
 
-    /// <summary>Friends that can fight within <paramref name="range"/>, beyond <paramref name="beyond"/>, not carried in an APC (MachLogRaces::allFriendlyAggressiveMachinesWithinRange).</summary>
+    /// <summary>
+    /// Friends that can fight within <paramref name="range"/>, beyond <paramref name="beyond"/>, not carried in an APC
+    /// (MachLogRaces::allFriendlyAggressiveMachinesWithinRange); a Wired hero fights whatever its type.
+    /// </summary>
     private List<Machine> FriendlyFighters(Actor actor, float range, float beyond = 0) => FiledNear(actor.Position, range).OfType<Machine>()
-        .Where(m => m != actor && !m.IsDead && m.Spec.Type is "AGGRESSOR" or "ADMINISTRATOR" && !AreEnemies(actor.Race, m.Race)
+        .Where(m => m != actor && !m.IsDead && IsFighter(m) && !AreEnemies(actor.Race, m.Race)
             && (m.Inside is not { } inside || Find<Machine>(inside) is null)
             && Vector2.DistanceSquared(m.Position, actor.Position) is var distance && distance > beyond * beyond && distance <= range * range)
         .OrderBy(m => m.Id).ToList();

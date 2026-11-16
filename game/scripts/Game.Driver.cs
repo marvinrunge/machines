@@ -35,8 +35,17 @@ public partial class Game
     /// <summary>Whether the game counts a trigger as held.</summary>
     public bool TriggerDown(Mounting trigger) => _hands.Down(trigger);
 
-    /// <summary>What the crosshair rests on.</summary>
+    /// <summary>What the crosshair rests on: for a sighted driver the gun sight, where the gun will point.</summary>
     public Crosshair.Sight CrosshairSight => _hud.Crosshair.Aim;
+
+    /// <summary>What lies where the view looks: for a sighted driver what the dot in the middle rests on, else the crosshair's.</summary>
+    public Crosshair.Sight DotSight => Sighted ? _dotSight : _hud.Crosshair.Aim;
+
+    /// <summary>Whether the gun is on the sight as foreseen: always for a driver who is not sighted.</summary>
+    public bool GunSightOn => !Sighted || _gun.On;
+
+    /// <summary>Where on the screen the gun sight stands.</summary>
+    public Vector2 GunSightAt => _hud.Crosshair.At ?? GetViewport().GetVisibleRect().Size / 2;
 
     /// <summary>The hangar's page while it is open.</summary>
     public HangarPage? HangarShown => HangarOpen ? _hangar!.Page : null;

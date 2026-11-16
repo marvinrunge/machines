@@ -131,6 +131,26 @@ public sealed class HeroSolid
         return x >= 0 && z >= 0 && x < _wide && z < _deep && _column[x * _deep + z];
     }
 
+    /// <summary>What <see cref="Holds"/>, <see cref="Gap"/> and <see cref="Covers"/> say of a point, looked up at once.</summary>
+    public (bool Holds, float Gap, bool Covers) Probe(Vector3 point)
+    {
+        var cell = (point - _origin) / Cell;
+        var (x, y, z) = ((int)MathF.Floor(cell.X), (int)MathF.Floor(cell.Y), (int)MathF.Floor(cell.Z));
+        var (holds, gap, covers) = (false, float.PositiveInfinity, false);
+        if (x >= 0 && z >= 0 && x < _wide && z < _deep)
+        {
+            covers = _column[x * _deep + z];
+            if (y >= 0 && y < _high)
+            {
+                var at = (x * _high + y) * _deep + z;
+                holds = _inside[at];
+                if (_gap[at] != Unknown)
+                    gap = _gap[at] * Cell;
+            }
+        }
+        return (holds, gap, covers);
+    }
+
     /// <summary>How far a point lies from the skin; out in the open it does not matter how far.</summary>
     public float Gap(Vector3 point) => Index(point) is >= 0 and var at && _gap[at] != Unknown ? _gap[at] * Cell : float.PositiveInfinity;
 
@@ -356,8 +376,11 @@ public static class HeroSeat
         if (across)
             own = RigGraft.MountOf(parts, Opposite(side));
         var shape = Shape(chassis, worn).ToList();
-        if (own < 0 || RoomOf(body, own) is not { } room || MountBox.Of(shape.SelectMany(s => s).ToList()) is not { } box)
+        if (own < 0 || MountBox.Of(shape.SelectMany(s => s).ToList()) is not { } box)
             return fitted;
+        // An empty mount, as Wired's own machines have on top (tools/wired-models): the weapon stands on it, its middle over it.
+        var found = RoomOf(body, own);
+        var (empty, room) = (found is null, found ?? default);
 
         var mount = MountPlace(body, side);
         Matrix4x4.Invert(mount, out var back);
@@ -374,8 +397,8 @@ public static class HeroSeat
         else
         {
             var sinks = HeroDonors.Sinks(chassis);
-            var (x, y, z) = Between(across ? room.Across : room, turned, side, sinks || side == Mounting.Top || !HeroDonors.Leans(worn.Weapon),
-                sinks ? solid.Skin(mount.Translation, Up(mount)) - Embedded : null);
+            var (x, y, z) = Between(across ? room.Across : room, turned, side, sinks || empty || side == Mounting.Top || !HeroDonors.Leans(worn.Weapon),
+                sinks ? solid.Skin(mount.Translation, Up(mount)) - Embedded : empty ? -Embedded : null);
             seat = fitted * Matrix4x4.CreateTranslation(x, y, z);
         }
 
@@ -490,23 +513,45 @@ public static class HeroSeat
     private static readonly Lazy<Vector3[]> MovesOnTop = new(() => Moves.Value.OrderBy(m => m.Z != 0).ToArray());
 
     /// <summary>How a weapon stands, moved so far.</summary>
-    public static HeroStand Stand(HeroSolid body, IReadOnlyList<HeroSolid> others, HeroPoints points, Vector3 move)
+    public static HeroStand Stand(HeroSolid body, IReadOnlyList<HeroSolid> others, HeroPoints points, Vector3 move) =>
+        Standing(body, others, points, move, default, float.MaxValue)!.Value;
+
+    /// <summary>
+    /// <see cref="Stand"/>, given up (null) as soon as the points not yet looked at can no longer make the weapon stand less
+    /// wrong for <paramref name="wanted"/> than <paramref name="bound"/>: most of <see cref="Fit"/>'s tries end early so, and
+    /// the one it keeps is the same.
+    /// </summary>
+    private static HeroStand? Standing(HeroSolid body, IReadOnlyList<HeroSolid> others, HeroPoints points, Vector3 move, (float Held, float Over) wanted, float bound)
     {
         var (buried, held, crowded, over, blocked) = (0, 0, 0, 0, 0);
-        foreach (var point in points.All)
+        var all = (float)Math.Max(1, points.All.Count);
+        for (var k = 0; k < points.All.Count; k++)
         {
-            var at = point + move;
-            buried += body.Holds(at) ? 1 : 0;
-            held += body.Gap(at) <= Touching ? 1 : 0;
-            over += body.Covers(at) ? 1 : 0;
+            var at = points.All[k] + move;
+            var (holds, gap, covers) = body.Probe(at);
+            buried += holds ? 1 : 0;
+            held += gap <= Touching ? 1 : 0;
+            over += covers ? 1 : 0;
             foreach (var other in others)
                 crowded += other.Holds(at) ? 1 : 0;
+            // The least it can come to: every point left held and over, none buried or crowded, the muzzle clear.
+            if ((k & 15) == 15 && bound < float.MaxValue)
+            {
+                var left = points.All.Count - 1 - k;
+                if (MathF.Max(0, buried / all - MostBuried) + MathF.Max(0, wanted.Held - (held + left) / all) + 2 * MathF.Max(0, crowded / all - MostCrowded)
+                    + MathF.Max(0, wanted.Over - (over + left) / all) >= bound)
+                    return null;
+            }
         }
         foreach (var point in points.Muzzle)
             blocked += body.Holds(point + move) ? 1 : 0;
-        var all = (float)Math.Max(1, points.All.Count);
         return new HeroStand(buried / all, held / all, crowded / all, over / all, blocked / (float)Math.Max(1, points.Muzzle.Count));
     }
+
+    /// <summary>How wrong a weapon stands for what it has to come up to, 0 for well (see <see cref="Fit"/>).</summary>
+    private static float Wrongness(HeroStand stand, (float Held, float Over) wanted) =>
+        MathF.Max(0, stand.Buried - MostBuried) + MathF.Max(0, wanted.Held - stand.Held) + 2 * MathF.Max(0, stand.Crowded - MostCrowded)
+        + MathF.Max(0, wanted.Over - stand.Over) + MathF.Max(0, stand.Blocked - MostBlocked);
 
     /// <summary>
     /// The shortest move, in the chassis' axes, that leaves a weapon neither buried in the body nor standing off it, with
@@ -516,15 +561,17 @@ public static class HeroSeat
     /// </summary>
     public static Vector3 Fit(HeroSolid body, IReadOnlyList<HeroSolid> others, HeroPoints points, (float Held, float Over) wanted, bool twins = false, bool right = false)
     {
-        float Wrong(HeroStand stand) => MathF.Max(0, stand.Buried - MostBuried) + MathF.Max(0, wanted.Held - stand.Held) + 2 * MathF.Max(0, stand.Crowded - MostCrowded)
-            + MathF.Max(0, wanted.Over - stand.Over) + MathF.Max(0, stand.Blocked - MostBlocked);
+        float Wrong(HeroStand stand) => Wrongness(stand, wanted);
 
         var across = points.Across;
         var (best, least) = (Vector3.Zero, float.MaxValue);
         foreach (var way in wanted.Over > 0 ? MovesOnTop.Value : Moves.Value)
         {
             var move = right ? way with { Z = -way.Z } : way;
-            var wrong = Wrong(Stand(body, others, points, move));
+            // A try that cannot beat the best so far is given up half way.
+            if (Standing(body, others, points, move, wanted, least) is not { } stand)
+                continue;
+            var wrong = Wrong(stand);
             if (twins && wrong < least)
                 wrong += Wrong(Stand(body, [], across, move with { Z = -move.Z })) + 2 * MathF.Max(0, Past(points, move, right) - MostCrowded);
             if (wrong <= 0)

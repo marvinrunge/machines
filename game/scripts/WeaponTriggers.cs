@@ -6,22 +6,32 @@ namespace Machines.Game;
 /// One trigger for each weapon in first person (the options' Mouse button per weapon, always in Wired), the remake's own:
 /// the left trigger fires what is mounted left, the right one what is mounted right, the top one what is on top, held
 /// ones together. It goes by the weapons' mountings, not by their places in the list, so a machine with only a right gun
-/// fires it with the right trigger. A machine with one gun, on whatever mounting and however many other places stand
-/// empty, fires it with the left trigger as well, so that nobody is left without one.
+/// fires it with the right trigger. A machine with guns on one mounting only, on whatever mounting and however many other
+/// places stand empty, fires them with the left trigger as well, so that nobody is left without one: a battery's copies
+/// stand on one mounting and count as one gun here.
 /// </summary>
 public static class WeaponTriggers
 {
-    /// <summary>The triggers of a gun on <paramref name="mounting"/>, on a machine with <paramref name="guns"/> guns.</summary>
-    public static IReadOnlyList<Mounting> Of(Mounting mounting, int guns) =>
-        guns == 1 && mounting != Mounting.Left ? [Mounting.Left, mounting] : [mounting];
+    /// <summary>The triggers of a gun on <paramref name="mounting"/>, on a machine with guns on <paramref name="places"/> mountings (<see cref="Places"/>).</summary>
+    public static IReadOnlyList<Mounting> Of(Mounting mounting, int places) =>
+        places == 1 && mounting != Mounting.Left ? [Mounting.Left, mounting] : [mounting];
 
-    /// <summary>The weapons that fire for the triggers held: a bit for each by its place in the list, as a DriveCommand takes them.</summary>
+    /// <summary>How many mountings carry a gun: the copies of a battery count once.</summary>
+    public static int Places(IReadOnlyList<WeaponMount> weapons)
+    {
+        var mountings = 0;
+        foreach (var weapon in weapons)
+            mountings |= 1 << (int)weapon.Mounting;
+        return System.Numerics.BitOperations.PopCount((uint)mountings);
+    }
+
+    /// <summary>The weapons that fire for the triggers held: a bit for each by its place in the list, as a DriveCommand takes them, so every copy of a battery.</summary>
     public static int Mask(IReadOnlyList<WeaponMount> weapons, Func<Mounting, bool> held)
     {
-        var mask = 0;
+        var (mask, places) = (0, Places(weapons));
         for (var i = 0; i < weapons.Count; i++)
         {
-            if (Of(weapons[i].Mounting, weapons.Count).Any(held))
+            if (Of(weapons[i].Mounting, places).Any(held))
                 mask |= 1 << i;
         }
         return mask;
@@ -43,12 +53,17 @@ public sealed class TriggerHands
 
     private readonly HashSet<Mounting> _down = [];
     private readonly Dictionary<Mounting, double> _owed = [];
+    private readonly Dictionary<Mounting, double> _pressed = [];
 
     public void Press(Mounting trigger, double now)
     {
         _down.Add(trigger);
         _owed[trigger] = now + Patience;
+        _pressed[trigger] = now;
     }
+
+    /// <summary>When a trigger last went down, in the clock's seconds; never for one not pressed since the hands let go.</summary>
+    public double PressedAt(Mounting trigger) => _pressed.GetValueOrDefault(trigger, double.NegativeInfinity);
 
     public void Release(Mounting trigger) => _down.Remove(trigger);
 
@@ -57,6 +72,7 @@ public sealed class TriggerHands
     {
         _down.Clear();
         _owed.Clear();
+        _pressed.Clear();
     }
 
     public bool Down(Mounting trigger) => _down.Contains(trigger);
@@ -64,9 +80,10 @@ public sealed class TriggerHands
     /// <summary>The weapons that are to fire: those of the triggers <paramref name="held"/> and of the presses still owed.</summary>
     public int Mask(IReadOnlyList<WeaponMount> weapons, Func<Mounting, bool> held, double now)
     {
+        var places = WeaponTriggers.Places(weapons);
         foreach (var (trigger, until) in _owed.ToList())
         {
-            if (now > until || weapons.Any(w => w.RoundsLeft > 0 && WeaponTriggers.Of(w.Mounting, weapons.Count).Contains(trigger)))
+            if (now > until || weapons.Any(w => w.RoundsLeft > 0 && WeaponTriggers.Of(w.Mounting, places).Contains(trigger)))
                 _owed.Remove(trigger);
         }
         return WeaponTriggers.Mask(weapons, trigger => held(trigger) || _owed.ContainsKey(trigger));

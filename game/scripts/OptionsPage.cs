@@ -217,8 +217,9 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         rows.AddChild(Setting("F.P. Mouse Speed",
             Slider(GameOptions.MouseSpeed, value => GameOptions.MouseSpeed = value, GameOptions.MouseSpeedLowest, GameOptions.MouseSpeedHighest), 260));
         var weaponButtons = Setting("Mouse button per weapon", Switch(GameOptions.WeaponButtons, on => GameOptions.WeaponButtons = on), 0);
+        var fireWaits = Setting("Fire waits for the gun", Switch(GameOptions.FireWaitsForGun, on => GameOptions.FireWaitsForGun = on), 0);
         rows.AddChild(Setting("Classic F.P. Keys", Line(28, Switch(GameOptions.ClassicDriving, on => GameOptions.ClassicDriving = on), weaponButtons), 260));
-        rows.AddChild(Setting(Text(6996, "2D Selection box"), Switch(GameOptions.Selection2d, on => GameOptions.Selection2d = on), 260));
+        rows.AddChild(Setting(Text(6996, "2D Selection box"), Line(28, Switch(GameOptions.Selection2d, on => GameOptions.Selection2d = on), fireWaits), 260));
         var classicKeys = Setting("Classic Keys", Switch(GameOptions.ClassicKeys, on => GameOptions.ClassicKeys = on), 0);
         rows.AddChild(Setting("Classic Mouse", Line(28, Switch(GameOptions.ClassicMouse, on => GameOptions.ClassicMouse = on), classicKeys), 260));
         // The keys themselves are on their own page.

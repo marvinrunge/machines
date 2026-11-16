@@ -57,7 +57,7 @@ public partial class WiredPortrait(ClassicAssets assets) : Node
     /// <summary>Has the hero photographed if it wears something else than in the picture.</summary>
     public void Follow(Race race, HeroLoadout loadout)
     {
-        var worn = $"{race}/{loadout.Chassis.Catalogue}/{string.Join('/', loadout.Weapons.Select(w => w?.Catalogue))}";
+        var worn = HeroDonors.Worn(race, loadout);
         if (_view is not null)
         {
             // One frame for the transforms, one to draw.

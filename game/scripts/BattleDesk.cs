@@ -125,7 +125,7 @@ public sealed class BattleDesk(GameData data, ClassicAssets assets, IBattleAccou
         if (good.Item.Kind == WiredKind.Chassis)
         {
             var tier = Lang.T("Tier {0}", BattleDraft.Roman(BattleCatalogue.Tier(id)));
-            return good switch
+            var said = good switch
             {
                 { Step: ChassisStep.Worn } => tier,
                 { Locked: { } locked } => $"{tier} · {locked}",
@@ -134,6 +134,8 @@ public sealed class BattleDesk(GameData data, ClassicAssets assets, IBattleAccou
                 // On the Path a click changes to it at once (WearFromTree); on the shelf a click picks it up and a double click changes.
                 _ => $"{tier} · {Lang.T(onTree ? "Owned: a click changes to it." : "Owned: a double click changes to it.")}",
             };
+            // What the chassis has of its own, as a battle has it, goes under it.
+            return HangarText.ChassisEffect(id, battle: true) is { } own ? $"{said}\n{own}" : said;
         }
         if (Draft.Wears(good.Item.Id))
             return null;
@@ -161,30 +163,37 @@ public sealed class BattleDesk(GameData data, ClassicAssets assets, IBattleAccou
         return Said(why);
     }
 
-    public override string? WhyNot(HangarGood good, WiredSlot slot)
+    public override string? WhyNot(HangarGood good, WiredSlot slot, bool replace = false)
     {
         if (good.Locked is { } locked)
             return locked;
         if (Draft.Wears(good.Item.Id))
-            return Said(Draft.WhyNotMove(good.Item.Id, slot));
+            return Said(Draft.WhyNotMove(good.Item.Id, slot, replace));
         if (good.Price is { } price)
-            return Said(Draft.WhyNotPut(good.Item.Catalogue, slot, buying: true) ?? (account.Credits < price ? new BattleWhy("Needs {0} Cr", price) : null));
-        return Said(Draft.WhyNotPut(good.Item.Catalogue, slot));
+            return Said(Draft.WhyNotPut(good.Item.Catalogue, slot, buying: true, replace: replace) ?? (account.Credits < price ? new BattleWhy("Needs {0} Cr", price) : null));
+        return Said(Draft.WhyNotPut(good.Item.Catalogue, slot, replace: replace));
     }
 
     public override string? WhyNotWear(HangarGood chassis) => chassis.Locked ?? Said(Draft.WhyNotWear(chassis.Item.Catalogue));
 
-    public override string? Put(HangarGood good, WiredSlot slot)
+    public override string? Put(HangarGood good, WiredSlot slot, bool replace = false)
     {
-        if (WhyNot(good, slot) is { } why)
+        if (WhyNot(good, slot, replace) is { } why)
             return why;
         if (Draft.Wears(good.Item.Id))
-            return Said(Draft.Move(good.Item.Id, slot));
+            return Said(Draft.Move(good.Item.Id, slot, replace));
         // What is on sale and dropped onto a slot is bought on the way, as in Wired's hangar.
         if (good.Price is not null && Done(Draft.Buy(good.Item.Catalogue)) is { } dear)
             return dear;
-        return Said(Draft.Put(good.Item.Catalogue, slot));
+        return Said(Draft.Put(good.Item.Catalogue, slot, replace));
     }
+
+    /// <summary>An owned weapon fills a battery for nothing (Q8): a copy costs no credits, only load.</summary>
+    public override int? CopyPrice(WiredSlot slot) => HasRoom(slot) ? 0 : null;
+
+    public override string? WhyNoCopy(WiredSlot slot) => CopyWeapon(slot) is { } weapon ? Said(Draft.WhyNotPut(weapon, slot)) : NoWeapon;
+
+    public override string? BuyCopy(WiredSlot slot) => WhyNoCopy(slot) ?? Said(Draft.Put(CopyWeapon(slot)!, slot));
 
     public override string? TakeOff(WiredItem item)
     {

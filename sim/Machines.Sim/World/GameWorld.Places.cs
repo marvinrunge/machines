@@ -150,18 +150,20 @@ public sealed partial class GameWorld
     /// 7 m nearer than now and never nearer than 5 m; turreted machines from further than 40 m mostly come at it from
     /// the flank.
     /// </summary>
-    private void MoveCloserToAttack(Machine machine, Actor target)
+    /// <returns>False when, choosing its place again, it has nowhere to go: it would stand where it is.</returns>
+    private bool MoveCloserToAttack(Machine machine, Actor target)
     {
         // A gorilla always wants to come within reach of its punch (MachLogAttackOperation's "special clause for
         // George"): it goes straight for the target.
         if (machine.Weapons.Any(w => w.Spec.TypeName == "GORILLA_PUNCH"))
         {
             Approach(machine, target.Position);
-            return;
+            return true;
         }
         var reach = machine.Weapons.Where(w => w.DealsDamage || w.IsTreachery).Select(w => w.Spec.Range).DefaultIfEmpty(0).Max();
         var chasing = target is Machine { Order: EvadeOrder };
         var distance = Vector2.Distance(machine.Position, target.Position);
+        var stuck = false;
         if (ChooseAgain(machine, target, reach, chasing && distance < 50 ? 0.9f : 0.45f))
         {
             float desired;
@@ -174,8 +176,12 @@ public sealed partial class GameWorld
             desired = MathF.Max(MathF.Min(desired, distance - 7), 5);
             var pattern = machine.CanTurnUpperBody && distance > 40 && Random.Next(3) != 0 ? Pattern.Flanking : Pattern.Clock;
             GoNear(machine, target, desired, MathF.Max(distance - desired, 10), pattern);
+            // The way it has after choosing, or with no place found the one it had: none left, or one that ends within
+            // its own size of where it stands, gets it no better shot.
+            stuck = machine.PathIndex >= machine.Path.Count || Vector2.Distance(machine.Path[^1], machine.Position) <= machine.Radius;
         }
         FollowPath(machine);
+        return !stuck;
     }
 
     /// <summary>
