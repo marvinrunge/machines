@@ -5,7 +5,7 @@ namespace Machines.Game;
 
 /// <summary>
 /// The options (MachGuiCtxOptions), the same before a match and over one: the look, the music's and the sounds'
-/// volumes, 3D sound, the soundtrack's folder, window or full screen and the menus' size, and the original's gamma,
+/// volumes, 3D sound, the soundtrack's folder, window or full screen, the menus' and the HUD's size, and the original's gamma,
 /// reversed keys and mouse and 2D selection box (<see cref="GameOptions"/>). Before a match it also imports the
 /// original models and terrain from the player's own copy of the game (<see cref="ClassicImport"/>). Every change
 /// takes at once and is kept in <c>user://settings.cfg</c>.
@@ -144,13 +144,30 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         rows.AddChild(Setting("Depth of field", Line(28, blur, film)));
         blur.SizeFlagsHorizontal = film.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 
-        columns.AddChild(Controls(() => stage.Show(new KeysPage(() => stage.Show(new OptionsPage(_back, inGame))))));
+        columns.AddChild(Controls(() => stage.Show(new KeysPage(() => stage.Show(new OptionsPage(_back, inGame)))), HudSize()));
 
         var backButton = Button("Back", Back);
         backButton.CustomMinimumSize = new Vector2(400, 76);
         page.AddChild(Line(Gap, backButton));
         SwitchOn();
         Focus(look);
+    }
+
+    /// <summary>
+    /// How large the HUD is drawn (<see cref="GameOptions.HudSize"/>): over a match it shows as the match goes on, its
+    /// art made ready for the new size meanwhile.
+    /// </summary>
+    private Control HudSize()
+    {
+        var sizes = GameOptions.HudSizes;
+        var choice = new ChipChoice(sizes.Select(s => $"{s * 100:0} %"), Math.Max(0, Array.FindIndex(sizes, s => Mathf.IsEqualApprox(s, GameOptions.HudSize))));
+        choice.ItemSelected += i =>
+        {
+            GameOptions.HudSize = sizes[i];
+            if (inGame)
+                HudArt.Prepare(HudScale.Of(GetViewportRect().Size));
+        };
+        return Setting("HUD size", choice, 0);
     }
 
     private static string Describe(Look look) => look switch
@@ -188,9 +205,10 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
     /// <summary>
     /// The rest of the original's options (MachGuiCtxOptions): the gamma correction beside its calibration picture
     /// (gammacal.bmp of the player's game copy), the up and down keys and the first-person mouse reversed, and the
-    /// 2D selection box; and beside its title the button to the <paramref name="keys"/> page.
+    /// 2D selection box; and beside its title the button to the <paramref name="keys"/> page; beside the mouse speed the
+    /// <paramref name="hudSize"/>.
     /// </summary>
-    private static ChipPanel Controls(Action keys)
+    private static ChipPanel Controls(Action keys, Control hudSize)
     {
         var chip = new ChipPanel { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ShrinkBegin, Padding = 28 };
         var title = MenuTheme.Label("CONTROLS AND PICTURE", 24, MenuTheme.Bright);
@@ -214,8 +232,11 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         // Side by side, or Back would leave the screen.
         var reverseMouse = Setting(Text(6994, "Reverse F.P. Mouse"), Switch(GameOptions.ReverseMouse, on => GameOptions.ReverseMouse = on), 0);
         rows.AddChild(Setting(Text(6995, "Reverse Up/Down Keys"), Line(28, Switch(GameOptions.ReverseKeys, on => GameOptions.ReverseKeys = on), reverseMouse), 260));
-        rows.AddChild(Setting("F.P. Mouse Speed",
-            Slider(GameOptions.MouseSpeed, value => GameOptions.MouseSpeed = value, GameOptions.MouseSpeedLowest, GameOptions.MouseSpeedHighest), 260));
+        // The HUD's size shares the mouse speed's row: one more would push Back off the screen.
+        var mouseSpeed = Slider(GameOptions.MouseSpeed, value => GameOptions.MouseSpeed = value, GameOptions.MouseSpeedLowest, GameOptions.MouseSpeedHighest);
+        rows.AddChild(Setting("F.P. Mouse Speed", Line(28, mouseSpeed, hudSize), 260));
+        mouseSpeed.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        mouseSpeed.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         var weaponButtons = Setting("Mouse button per weapon", Switch(GameOptions.WeaponButtons, on => GameOptions.WeaponButtons = on), 0);
         var fireWaits = Setting("Fire waits for the gun", Switch(GameOptions.FireWaitsForGun, on => GameOptions.FireWaitsForGun = on), 0);
         rows.AddChild(Setting("Classic F.P. Keys", Line(28, Switch(GameOptions.ClassicDriving, on => GameOptions.ClassicDriving = on), weaponButtons), 260));

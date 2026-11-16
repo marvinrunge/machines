@@ -6,8 +6,8 @@ namespace Machines.Game;
 /// The switches of the original's options screen (MachGuiCtxOptions) beside the volumes and the look: the up and down
 /// keys reversed, the first-person mouse reversed, the 2D selection box, 3D sound and the gamma correction. They are
 /// kept in <c>user://settings.cfg</c> and take at once. MACHINES_OPTIONS sets them for one run (screenshots, checks),
-/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic,dof=strong,film=on,mouse_speed=1.5,classic_mouse=on,classic_keys=on,weapon_buttons=on,fire_waits=off</c>.
-/// Depth of field, the film look, the first-person mouse speed, the choice of mouse and keys, the triggers of the weapons and fire waiting for the gun are the remake's own.
+/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic,dof=strong,film=on,mouse_speed=1.5,classic_mouse=on,classic_keys=on,weapon_buttons=on,fire_waits=off,hud_size=1.25</c>.
+/// Depth of field, the film look, the first-person mouse speed, the choice of mouse and keys, the triggers of the weapons, fire waiting for the gun and the HUD's size are the remake's own.
 /// </summary>
 public static class GameOptions
 {
@@ -20,7 +20,7 @@ public static class GameOptions
     public const float MouseSpeedLowest = 0.25f, MouseSpeedHighest = 2.5f;
 
     private static bool _read, _reverseKeys, _reverseMouse, _selection2d, _sound3d = true, _classicDriving, _filmLook, _classicMouse, _classicKeys, _weaponButtons, _transitions = true, _fireWaits = true;
-    private static float _gamma = 1, _mouseSpeed = 1;
+    private static float _gamma = 1, _mouseSpeed = 1, _hudSize = 1;
     private static Blur _depthOfField;
 
     /// <summary>How far from what the camera looks at the picture blurs (<see cref="DepthOfField"/>).</summary>
@@ -43,6 +43,19 @@ public static class GameOptions
             config.SetValue("display", "depth_of_field", value.ToString().ToLowerInvariant());
             config.Save(Settings);
         }
+    }
+
+    /// <summary>The sizes the HUD can be shown at, times its standard size (<see cref="HudSize"/>).</summary>
+    public static readonly float[] HudSizes = [0.75f, 1f, 1.25f, 1.5f];
+
+    /// <summary>
+    /// How large the first-person HUD (the sight, the radar, the weapon panels) and Wired's own HUD are drawn, times their
+    /// standard size, which grows with the screen's height (<see cref="HudScale"/>). Not in the original. Kept as <c>hud_size</c>.
+    /// </summary>
+    public static float HudSize
+    {
+        get { Read(); return _hudSize; }
+        set => Keep(ref _hudSize, Mathf.Clamp(value, HudSizes[0], HudSizes[^1]), "display", "hud_size");
     }
 
     /// <summary>Whether a transition leads between the menus' screens (Menu Transitions, see <see cref="MenuTransition"/>).</summary>
@@ -209,6 +222,7 @@ public static class GameOptions
             _classicKeys = (bool)config.GetValue("controls", "classic_keys", false);
             _weaponButtons = (bool)config.GetValue("controls", "weapon_buttons", false);
             _fireWaits = (bool)config.GetValue("controls", "fire_waits_for_gun", true);
+            _hudSize = Mathf.Clamp((float)(double)config.GetValue("display", "hud_size", 1.0), HudSizes[0], HudSizes[^1]);
         }
         foreach (var part in (System.Environment.GetEnvironmentVariable("MACHINES_OPTIONS") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
@@ -229,6 +243,9 @@ public static class GameOptions
                 case "fire_waits": _fireWaits = on; break;
                 case "gamma" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var gamma):
                     _gamma = Mathf.Clamp(gamma, GammaLowest, GammaHighest);
+                    break;
+                case "hud_size" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var hud):
+                    _hudSize = Mathf.Clamp(hud, HudSizes[0], HudSizes[^1]);
                     break;
                 case "mouse_speed" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var speed):
                     _mouseSpeed = Mathf.Clamp(speed, MouseSpeedLowest, MouseSpeedHighest);

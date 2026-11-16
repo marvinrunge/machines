@@ -83,6 +83,16 @@ public partial class WiredHud : Control
     /// <summary>Whether the hero is being driven: the plates sit in the bars then, and the view's call-outs make room for the sight.</summary>
     public bool Driving { get; set; }
 
+    /// <summary>
+    /// How far down the weapons' panels of first person start at least: under the hero's plate, and under the plates at the
+    /// top middle where a large HUD size brings the panels under those (<see cref="PlaceTop"/>, <see cref="DrawTeams"/>).
+    /// </summary>
+    public float PanelsTop { get; private set; }
+
+    // Where across the wave's plate and the bosses' bars stand, how wide the bars are together, and how much smaller than
+    // the rest the two are drawn to fit beside the weapons' panels (PlaceTop).
+    private float _waveMiddle, _bossesMiddle, _bossesWidth, _topFit = 1;
+
     /// <summary>How far down the wave's plate reaches, the bosses' bars under it included: the messages go below.</summary>
     public float Hanging => _battle is not null ? BattleHanging : (WavePlateHeight + (_now is { Bosses.Count: > 0 } ? 8 + 40 : 0) + Gap) * _u;
 
@@ -102,7 +112,8 @@ public partial class WiredHud : Control
         _battle = BattleReadout.Of(_game.World, Game.Player);
         _now = _battle is null ? WiredReadout.Of(_game.World, Game.Player) : null;
         _size = GetViewportRect().Size;
-        _u = Mathf.Max(_size.Y / 1080f, 0.6f);
+        // Grown or shrunk by the HUD's size chosen in the options.
+        _u = Mathf.Max(_size.Y / 1080f, 0.6f) * GameOptions.HudSize;
         if (_battle is { } battle)
             FollowBattle(battle, (float)delta);
         else if (_now is { } now)
@@ -174,6 +185,7 @@ public partial class WiredHud : Control
         (_prompted, _prompting) = (_prompting, _prompted);
         _prompting.Clear();
         DrawPulseSweep();
+        PanelsTop = 0;
         if (_battle is { } battle)
         {
             DrawBattle(battle);
@@ -181,6 +193,7 @@ public partial class WiredHud : Control
         }
         if (_now is not { } now)
             return;
+        PlaceTop(now);
         DrawDanger();
         DrawLocated();
         DrawMarkers(now);
@@ -189,14 +202,55 @@ public partial class WiredHud : Control
         DrawCall();
         DrawHero(now);
         DrawBank(now);
+        var u = _u;
+        _u *= _topFit;
         DrawWave(now);
         DrawBosses(now);
+        _u = u;
         DrawFoot(now);
         DrawTowerMode();
         DrawDown(now);
     }
 
     // ---- the top bar ------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Where the plates at the top middle stand: across the middle of the view, unless the weapons' panels of first person
+    /// reach under the wave's plate or the bosses' bars, as at a large HUD size. Then the plate and the bars move right of
+    /// the panels, the plate a little smaller where it would reach the bank or what lies on the ground; with too little room
+    /// for that the panels go below them instead. The panels start under the hero's plate in any case.
+    /// </summary>
+    private void PlaceTop(WiredReadout now)
+    {
+        const float Smallest = 0.7f;
+        _waveMiddle = _bossesMiddle = Left + (_size.X - Left) / 2;
+        _bossesWidth = Mathf.Min(760 * _u, _size.X - Left - 40 * _u);
+        _topFit = 1;
+        PanelsTop = (6 + 44 + 2) * _u;
+        if (!_hud.Weapons.Visible || !_hud.Weapons.Area.HasArea())
+            return;
+        var panels = _hud.Weapons.Area.End.X;
+        var plate = WavePlateWidth * _u;
+        var bosses = now.Bosses.Count > 0;
+        // The plate's lower corners are cut 22 of its pixels in: the panels may reach that far under it.
+        if (panels <= _waveMiddle - plate / 2 + 22 * _u && (!bosses || panels <= _bossesMiddle - _bossesWidth / 2))
+            return;
+        var from = panels + Gap * _u;
+        var right = _size.X - (316 + Gap) * _u;
+        if (now.Grounded > 0)
+            right = Mathf.Min(right, _size.X - 16 * _u - Width(GroundedText(now), 15) - (24 + Gap) * _u);
+        var fit = Mathf.Min(1, (right - from) / plate);
+        var room = _size.X - 20 * _u - from;
+        if (fit < Smallest || bosses && room < 300 * _u)
+        {
+            PanelsTop = Mathf.Max(PanelsTop, Hanging);
+            return;
+        }
+        _topFit = fit;
+        _waveMiddle = from + plate * fit / 2;
+        _bossesWidth = Mathf.Min(760 * _u * fit, room);
+        _bossesMiddle = from + _bossesWidth / 2;
+    }
 
     /// <summary>The hero's name and the bodies left, at the top left of the view.</summary>
     private void DrawHero(WiredReadout now)
@@ -245,9 +299,7 @@ public partial class WiredHud : Control
             return;
         var soon = now.SweepIn is <= 10;
         var beat = soon ? 1 - (float)(_time % 1) : 0;
-        var text = now.SweepIn is { } seconds
-            ? Lang.T("{0} BMU on the ground, half of it in {1} s", Thousands(now.Grounded), seconds)
-            : Lang.T("{0} BMU on the ground", Thousands(now.Grounded));
+        var text = GroundedText(now);
         var size = 15f;
         var width = Width(text, size) + 24 * _u;
         var box = new Rect2(new Vector2(bank.End.X - width, bank.End.Y + 4 * _u), new Vector2(width, 24 * _u));
@@ -255,10 +307,14 @@ public partial class WiredHud : Control
         Say(new Vector2(box.End.X - 12 * _u, box.Position.Y + 17 * _u), text, size, soon ? Warning : Gold, 1);
     }
 
+    private static string GroundedText(WiredReadout now) => now.SweepIn is { } seconds
+        ? Lang.T("{0} BMU on the ground, half of it in {1} s", Thousands(now.Grounded), seconds)
+        : Lang.T("{0} BMU on the ground", Thousands(now.Grounded));
+
     /// <summary>The plate hanging from the top bar: what comes next and when between waves, what is left of it during one.</summary>
     private void DrawWave(WiredReadout now)
     {
-        var middle = Left + (_size.X - Left) / 2;
+        var middle = _waveMiddle;
         var (width, height) = (WavePlateWidth * _u, WavePlateHeight * _u);
         var box = new Rect2(middle - width / 2, 0, width, height);
         var boss = now.BossName is not null;
@@ -328,8 +384,7 @@ public partial class WiredHud : Control
     {
         if (now.Bosses.Count == 0)
             return;
-        var middle = Left + (_size.X - Left) / 2;
-        var total = Mathf.Min(760 * _u, _size.X - Left - 40 * _u);
+        var (middle, total) = (_bossesMiddle, _bossesWidth);
         var gap = 14 * _u;
         var width = (total - gap * (now.Bosses.Count - 1)) / now.Bosses.Count;
         for (var i = 0; i < now.Bosses.Count; i++)

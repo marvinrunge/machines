@@ -143,7 +143,7 @@ public partial class Crosshair : Control
     public override void _Draw()
     {
         var size = GetViewportRect().Size;
-        var scale = Math.Max(1, (int)Math.Round(size.Y / 480f));
+        var scale = HudScale.Of(size);
         var (name, frame) = Current();
         var centre = (size / 2).Floor();
         var sight = At is { } placed ? placed.Floor() : centre;
@@ -160,12 +160,12 @@ public partial class Crosshair : Control
             _strength = 1;
             if (Target is { } target)
             {
-                Bar(HealthShades, target.Health, centre + new Vector2(-33, -9) * scale);
-                Bar(ArmourShades, target.Armour, centre + new Vector2(29, -9) * scale);
+                Bar(HealthShades, target.Health, (centre + new Vector2(-33, -9) * scale).Round());
+                Bar(ArmourShades, target.Armour, (centre + new Vector2(29, -9) * scale).Round());
             }
             // MachGuiFirstPerson::displayCompass: under the sight, once it has opened.
             if (name != "ping")
-                DrawCompass(centre + new Vector2(-24, 26) * scale);
+                DrawCompass((centre + new Vector2(-24, 26) * scale).Round());
             if (showSight)
             {
                 _strength = Clamped ? 0.5f : 1;
@@ -191,7 +191,7 @@ public partial class Crosshair : Control
     // point: a pixel's middle lies at .5, so 24.5 is the middle of the ring of pixels 24 out; each is _s screen pixels.
 
     // Screen pixels to the original's one; whether the dark edge under the goggles is being drawn; how strongly the sight shows.
-    private int _s = 1;
+    private float _s = 1;
     private bool _edge;
     private float _strength = 1;
 
@@ -371,7 +371,7 @@ public partial class Crosshair : Control
             DrawRect(new Rect2(topLeft, new Vector2(Wide, 9) * _s).Grow(_s), new Color(0, 0, 0, 0.6f));
         // The strip's left end, in pixels east of north.
         var start = Mathf.PosMod(Heading, 360) / 360 * Turn - Wide / 2;
-        var size = 7 * _s;
+        var size = Mathf.RoundToInt(7 * _s);
         for (var mark = Mathf.CeilToInt(start / 2) * 2; mark < start + Wide + 2; mark += 2)
         {
             var x = mark - start;
@@ -393,7 +393,7 @@ public partial class Crosshair : Control
                 if (_edge)
                 {
                     DrawPolyline([.. head, head[0]], Ink(Faded(Colors.Black)), 2 * _s, true);
-                    DrawStringOutline(MenuTheme.Font, baseline, bearing, HorizontalAlignment.Left, -1, size, 2 * _s + 1, Ink(Label(Colors.Black)));
+                    DrawStringOutline(MenuTheme.Font, baseline, bearing, HorizontalAlignment.Left, -1, size, Mathf.RoundToInt(2 * _s) + 1, Ink(Label(Colors.Black)));
                 }
                 else
                 {
@@ -445,7 +445,7 @@ public partial class Crosshair : Control
     }
 
     /// <summary>Amber brackets at the four corners round the sight and its bars, as the HUD sets round a located enemy in the field.</summary>
-    private void DrawLocated(Vector2 centre, int scale)
+    private void DrawLocated(Vector2 centre, float scale)
     {
         var colour = new Color(1, 0.7f, 0.2f, 0.75f + 0.25f * Mathf.Sin((float)_time * 8));
         var (half, arm) = (new Vector2(44, 26) * scale, 9f * scale);
