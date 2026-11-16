@@ -12,7 +12,7 @@ namespace Machines.Tests.Sim;
 
 /// <summary>
 /// Batteries of a Wired hero: up to three copies of one weapon on a slot, by the slot's size, each bought, weighed, powered
-/// and fired as a weapon of its own, the copies of a salvo a little after one another.
+/// and reloaded as a weapon of its own, the copies taking turns as one gun that fires n times as often.
 /// </summary>
 public class WiredBatteryTests
 {
@@ -82,11 +82,13 @@ public class WiredBatteryTests
             Assert.Null(Do(world, new WiredUnequipCommand(Race.Red, weapon.Id)));
     }
 
-    /// <summary>Gives the hero an item, as loot would, and puts it on: a weapon joins the battery on its slot.</summary>
+    /// <summary>Gives the hero an item, as loot would, and puts it on: a weapon joins the battery on its slot, a chip goes into its socket.</summary>
     private static WiredItem Wear(GameWorld world, string id, WiredSlot slot, int mk = 1, bool add = true)
     {
         var item = Red(world).Add(WiredCatalogue.KindOf(id)!.Value, id, 0, mk);
-        Assert.Null(Do(world, new WiredEquipCommand(Race.Red, item.Id, slot, add && slot.Kind == WiredSlotKind.Weapon)));
+        Assert.Null(Do(world, item.Kind == WiredKind.Chip
+            ? new WiredChipCommand(Race.Red, item.Id, slot.Index)
+            : new WiredEquipCommand(Race.Red, item.Id, slot, add && slot.Kind == WiredSlotKind.Weapon)));
         return item;
     }
 
@@ -176,6 +178,34 @@ public class WiredBatteryTests
             flown.AddRange(world.Projectiles.Where(p => p.Shooter == hero.Id && seen.Add(p.Id)).Select(p => (tick, p)));
         }
         return new Salvos(opened, rounds, flown);
+    }
+
+    /// <summary>
+    /// Hears a hero's guns while the test goes on changing what they do, whatever state they are in: the tick of each
+    /// gun's every round, counted from the first step heard.
+    /// </summary>
+    private sealed class Ear(GameWorld world, Machine hero)
+    {
+        public int Tick { get; private set; }
+
+        public List<int>[] Rounds { get; } = [.. hero.Weapons.Select(_ => new List<int>())];
+
+        /// <summary>Steps the world <paramref name="ticks"/> times, after each step telling <paramref name="each"/> its tick.</summary>
+        public void Hear(int ticks, Action<int>? each = null)
+        {
+            for (var i = 0; i < ticks; i++)
+            {
+                world.Step();
+                Tick++;
+                each?.Invoke(Tick);
+                foreach (var fired in world.Events.Where(e => e.Kind == GameEventKind.Fired && e.Actor == hero.Id))
+                    Rounds[fired.Gun].Add(Tick);
+            }
+        }
+
+        /// <summary>The ticks of all rounds of the guns <paramref name="guns"/> in order, from tick <paramref name="from"/> to before <paramref name="to"/>.</summary>
+        public List<int> Between(IEnumerable<int> guns, int from, int to = int.MaxValue) =>
+            [.. guns.SelectMany(gun => Rounds[gun]).Where(tick => tick >= from && tick < to).Order()];
     }
 
     // ---- capacity ---------------------------------------------------------------------------------
@@ -584,39 +614,201 @@ public class WiredBatteryTests
         Assert.Equal(2, Hero(world).Weapons.Count);
     }
 
-    // ---- the salvo --------------------------------------------------------------------------------
+    // ---- the rhythm -------------------------------------------------------------------------------
+
+    /// <summary>The ticks a copy's first round waits behind copy 0's when the <paramref name="chain"/>-th of <paramref name="size"/> opens fire with it.</summary>
+    private static int TurnOf(int chain, int size, float reload) =>
+        (int)MathF.Round(GameWorld.BatteryOffset(chain, size, reload, GameWorld.Dt) / GameWorld.Dt);
+
+    /// <summary>The ticks of the rounds of the first <paramref name="guns"/> guns watched, all together and in order: a battery's rounds from its one gun.</summary>
+    private static List<int> RoundsOf(Salvos salvos, int guns) => [.. salvos.Rounds.Take(guns).SelectMany(r => r).Order()];
+
+    /// <summary>Asserts that every round of <paramref name="rounds"/> follows the one before by a share of a reload, give or take a tick.</summary>
+    private static void EverySharedTurn(List<int> rounds, float reload, int size)
+    {
+        var turn = reload * GameWorld.TicksPerSecond / size;
+        Assert.All(rounds.Zip(rounds.Skip(1), (before, after) => after - before), gap => Assert.InRange(gap, turn - 1, turn + 1));
+    }
+
+    /// <summary>A Blue grunt that does not fall, 30 m in front of the hero, which it is told to attack.</summary>
+    private static void AttackAStandIn(GameWorld world, Machine hero)
+    {
+        var target = world.AddMachine(Race.Blue, hero.Position + new Vector2(30, 0), "AGGRESSOR", "GRUNT", 1, null);
+        target.HitPoints = 1_000_000;
+        world.Issue(new AttackCommand(Race.Red, [hero.Id], target.Id));
+    }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void Three_copies_triggered_together_fire_their_first_rounds_two_ticks_apart_and_a_single_gun_at_once(bool driven)
+    [InlineData(2, true)]
+    [InlineData(3, true)]
+    [InlineData(2, false)]
+    [InlineData(3, false)]
+    public void A_battery_of_n_fires_its_copies_a_nth_of_a_reload_apart_and_keeps_that_rhythm_while_it_fires(int n, bool driven)
     {
-        var world = OutOn("knight4", driven, (Left, "PLASMA_CANNON2", 1), (Left, "PLASMA_CANNON2", 1), (Left, "PLASMA_CANNON2", 1), (Right, "PLASMA_CANNON2", 1));
+        var world = OutOn("knight4", driven, [.. Enumerable.Repeat((Left, "PLASMA_CANNON2", 1), n), (Right, "PLASMA_CANNON2", 1), (WiredSlot.Module(0), "reactor", 3)]);
         var hero = Hero(world);
-        Assert.Equal([(Mounting.Left, 0), (Mounting.Left, 1), (Mounting.Left, 2), (Mounting.Right, 0)], hero.Weapons.Select(w => (w.Mounting, w.Copy)));
+        Assert.Equal([.. Enumerable.Range(0, n).Select(copy => (Mounting.Left, copy)), (Mounting.Right, 0)], hero.Weapons.Select(w => (w.Mounting, w.Copy)));
+        // Fed in full, each copy reloads as the plasma cannon does: two seconds, which Fire counts down in 41 ticks; a
+        // battery of two takes turns after 20 ticks, one of three after 13 and 27.
+        var reload = hero.Weapons[0].Spec.ReloadTime;
+        Assert.Equal((2f, 41), (reload, GameWorld.ReloadTicks(reload, GameWorld.Dt)));
+        int[] turns = n == 2 ? [0, 20] : [0, 13, 27];
+        Assert.Equal(turns, Enumerable.Range(0, n).Select(copy => TurnOf(copy, n, reload)));
         if (driven)
             FireAtWill(world);
         else
-        {
-            var target = world.AddMachine(Race.Blue, hero.Position + new Vector2(30, 0), "AGGRESSOR", "GRUNT", 1, null);
-            target.HitPoints = 1_000_000;
-            world.Issue(new AttackCommand(Race.Red, [hero.Id], target.Id));
-        }
+            AttackAStandIn(world, hero);
 
-        var salvo = Watch(world, hero, 3 * GameWorld.TicksPerSecond);
+        var salvo = Watch(world, hero, 6 * 2 * GameWorld.TicksPerSecond);
 
         var opened = salvo.Opened[0];
         Assert.True(opened > 0, "the battery never opened fire");
-        Assert.Equal([opened, opened, opened], salvo.Opened.Take(3));
-        Assert.Equal([opened + 1, opened + 3, opened + 5], salvo.Rounds.Take(3).Select(r => r[0]));
-        Assert.Equal(salvo.Opened[3] + 1, salvo.Rounds[3][0]);
+        // All copies open fire in one tick, copy 0's round leaves at once and every other copy's at its turn.
+        Assert.Equal(Enumerable.Repeat(opened, n), salvo.Opened.Take(n));
+        Assert.Equal(turns.Select(turn => opened + 1 + turn), salvo.Rounds.Take(n).Select(r => r[0]));
+        // The single gun beside it starts at once.
+        Assert.Equal(salvo.Opened[n] + 1, salvo.Rounds[n][0]);
+        // From then on the one gun fires every n-th of a reload, for five reloads and more.
+        var rounds = RoundsOf(salvo, n);
+        Assert.True(rounds.Count >= 5 * n, $"the battery fired {rounds.Count} rounds: {string.Join(",", rounds)}");
+        EverySharedTurn(rounds, reload, n);
         // Each round flies from the copy that fired it.
-        foreach (var (tick, copy) in new[] { (opened + 3, 1), (opened + 5, 2) })
+        for (var copy = 0; copy < n; copy++)
         {
-            var round = Assert.Single(salvo.Flown, f => f.Tick == tick).Round;
-            Assert.Equal((Mounting.Left, copy), (round.Mounting, round.Copy));
+            var round = Assert.Single(salvo.Flown, f => f.Tick == opened + 1 + turns[copy] && f.Round.Mounting == Mounting.Left).Round;
+            Assert.Equal(copy, round.Copy);
         }
-        Assert.Contains(salvo.Flown, f => f.Tick == opened + 1 && f.Round is { Mounting: Mounting.Left, Copy: 0 });
+    }
+
+    [Fact]
+    public void Copy_0_and_a_single_gun_fire_on_the_ticks_they_fire_on_without_a_battery()
+    {
+        (WiredSlot, string, int) reactor = (WiredSlot.Module(0), "reactor", 3);
+        var battery = OutOn("knight4", true, [.. Enumerable.Repeat((Left, "PLASMA_CANNON2", 1), 3), (Right, "PLASMA_CANNON2", 1), reactor]);
+        var single = OutOn("knight4", true, (Left, "PLASMA_CANNON2", 1), (Right, "PLASMA_CANNON2", 1), reactor);
+        FireAtWill(battery);
+        FireAtWill(single);
+
+        var ticks = 10 * GameWorld.TicksPerSecond;
+        var with = Watch(battery, Hero(battery), ticks);
+        var without = Watch(single, Hero(single), ticks);
+
+        Assert.Equal((without.Opened[0], without.Opened[1]), (with.Opened[0], with.Opened[3]));
+        Assert.Equal(without.Rounds[0], with.Rounds[0]);
+        Assert.Equal(without.Rounds[1], with.Rounds[3]);
+        // As ever: the first round in the tick after the gun opened fire, and one every reload of 41 ticks, the 40 of its
+        // two seconds and the tick to open fire again.
+        Assert.Equal(Enumerable.Range(0, 5).Select(cycle => without.Opened[0] + 1 + cycle * 41), without.Rounds[0]);
+    }
+
+    [Fact]
+    public void After_a_pause_longer_than_a_reload_the_battery_takes_its_turns_anew_from_copy_0()
+    {
+        var world = OutOn("knight4", true, [.. Enumerable.Repeat((Left, "PLASMA_CANNON2", 1), 3)]);
+        var hero = Hero(world);
+        var reload = hero.Weapons[0].Spec.ReloadTime;
+        FireAtWill(world);
+        var before = Watch(world, hero, 5 * GameWorld.TicksPerSecond + 7);
+        Assert.Equal([1, 14, 28], before.Rounds.Select(r => r[0] - before.Opened[0]));
+
+        // Let go: every copy reloads, the last one its turn later than the first.
+        FireAtWill(world, weapons: 0);
+        Run(world, reload + 1.5f);
+        Assert.All(hero.Weapons, w => Assert.True(w.Reload <= 0 && w.RoundsLeft == 0));
+
+        FireAtWill(world);
+        var again = Watch(world, hero, 3 * GameWorld.TicksPerSecond);
+
+        var opened = again.Opened[0];
+        Assert.Equal([opened, opened, opened], again.Opened);
+        Assert.Equal([opened + 1, opened + 14, opened + 28], again.Rounds.Select(r => r[0]));
+        EverySharedTurn(RoundsOf(again, 3), reload, 3);
+    }
+
+    [Fact]
+    public void Let_go_for_less_than_a_reload_the_battery_fires_on_in_its_turns()
+    {
+        var world = OutOn("knight4", true, [.. Enumerable.Repeat((Left, "PLASMA_CANNON2", 1), 3)]);
+        var hero = Hero(world);
+        var reload = hero.Weapons[0].Spec.ReloadTime;
+        var ear = new Ear(world, hero);
+        FireAtWill(world);
+        ear.Hear(30);
+        var first = ear.Rounds.Select(r => Assert.Single(r)).ToList();
+        Assert.Equal([13, 27], first.Skip(1).Select(tick => tick - first[0]));
+
+        // Let go, and take hold again while copies 0 and 1 are loaded and copy 2 is not.
+        FireAtWill(world, weapons: 0);
+        ear.Hear(30);
+        Assert.Equal([true, true, false], hero.Weapons.Select(w => w.Reload <= 0));
+        FireAtWill(world);
+        var resumed = ear.Tick + 1;
+        ear.Hear(8 * GameWorld.TicksPerSecond);
+
+        // Copy 2, loaded later, waits for its turn rather than fire between the other two: one round every third of a reload.
+        var rounds = ear.Between([0, 1, 2], resumed);
+        Assert.Equal(resumed + 1, rounds[0]);
+        Assert.True(rounds.Count >= 3 * 3, $"the battery fired {rounds.Count} rounds: {string.Join(",", rounds)}");
+        EverySharedTurn(rounds, reload, 3);
+    }
+
+    [Fact]
+    public void A_turn_is_nothing_for_copy_0_whole_ticks_for_the_others_and_never_a_whole_reload()
+    {
+        const float dt = GameWorld.Dt;
+        // Fire counts a reload down in whole ticks, and in one more where the float sum leaves a crumb: 2 s in 41.
+        Assert.Equal((41, 23, 20, 0), (GameWorld.ReloadTicks(2, dt), GameWorld.ReloadTicks(1.125f, dt), GameWorld.ReloadTicks(0.99f, dt), GameWorld.ReloadTicks(0, dt)));
+        Assert.Equal((13, 27, 20), (TurnOf(1, 3, 2), TurnOf(2, 3, 2), TurnOf(1, 2, 2)));
+        // The anchored Colossus' heavy bolter, 1.125 s or 23 ticks: 7⅔ and 15⅓ ticks down to whole ones.
+        Assert.Equal((7, 15), (TurnOf(1, 3, 1.125f), TurnOf(2, 3, 1.125f)));
+        var reloads = Enumerable.Range(1, 1200).Select(hundredths => hundredths / 100f)
+            .Concat(WiredCatalogue.Weapons.Select(w => Data.Parm.Weapon(w.Id).ReloadTime)).Concat([1.125f, 1.68f, 1.84f]);
+        foreach (var reload in reloads)
+        {
+            for (var size = 1; size <= 3; size++)
+            {
+                Assert.Equal(0, GameWorld.BatteryOffset(0, size, reload, dt));
+                // Even a chain longer than the battery, which Fire never makes.
+                for (var chain = 1; chain <= size + 1; chain++)
+                {
+                    var offset = GameWorld.BatteryOffset(chain, size, reload, dt);
+                    Assert.True(offset >= 0 && offset < reload, $"{chain} of {size} at {reload} s waits {offset} s");
+                    Assert.Equal(MathF.Round(offset / dt), offset / dt, 0.001f);
+                    // Within a tick of its share of the reload.
+                    var share = Math.Min(chain, size - 1) * reload / size;
+                    Assert.True(Math.Abs(offset - share) < dt + 0.0001f, $"{chain} of {size} at {reload} s waits {offset} s, not about {share} s");
+                }
+            }
+        }
+        // A battery of one, and a weapon without a reload, wait for nothing.
+        Assert.Equal(0, GameWorld.BatteryOffset(1, 1, 2, dt));
+        Assert.Equal(0, GameWorld.BatteryOffset(1, 3, 0, dt));
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void Over_a_long_fight_a_battery_of_n_fires_n_times_the_rounds_per_minute_of_its_single_weapon(int n)
+    {
+        const int minutes = 5;
+        static List<int>[] Fought(int copies)
+        {
+            var world = OutOn("knight4", true, [.. Enumerable.Repeat((Left, "PLASMA_CANNON2", 1), copies)]);
+            FireAtWill(world);
+            return Watch(world, Hero(world), minutes * 60 * GameWorld.TicksPerSecond).Rounds;
+        }
+        // Rounds per minute from the first round to the last.
+        static float PerMinute(List<int> rounds) => (rounds.Count - 1) * 60f * GameWorld.TicksPerSecond / (rounds[^1] - rounds[0]);
+
+        var single = Fought(1)[0];
+        var battery = Fought(n);
+
+        Assert.InRange(PerMinute(single), 29, 30);
+        var rounds = battery.SelectMany(r => r).Order().ToList();
+        Assert.InRange(PerMinute(rounds), n * PerMinute(single) - 1, n * PerMinute(single) + 1);
+        // Every copy fires as often as the single gun, the later copies a round fewer where their turn came too late.
+        Assert.All(battery, copy => Assert.InRange(copy.Count, single.Count - 1, single.Count));
+        Assert.Equal(single.Count, battery[0].Count);
     }
 
     /// <returns>The rounds each gun fires in <paramref name="seconds"/>, counted from its own first one on, firing at will at the wheel.</returns>
@@ -624,7 +816,8 @@ public class WiredBatteryTests
     {
         FireAtWill(world);
         var ticks = (int)MathF.Round(seconds * GameWorld.TicksPerSecond);
-        var salvo = Watch(world, Hero(world), ticks + 10);
+        // Long enough for the last copy's own count too, whose first round waits most of a reload.
+        var salvo = Watch(world, Hero(world), ticks + 3 * GameWorld.TicksPerSecond);
         return [.. salvo.Rounds.Select(r => r.Count(tick => tick < r[0] + ticks))];
     }
 
@@ -646,34 +839,72 @@ public class WiredBatteryTests
         Assert.Equal([single, single], RoundsIn(two, 20));
     }
 
-    [Fact]
-    public void Copies_of_different_mk_drift_apart_and_none_stalls()
+    [Theory]
+    [InlineData(1, 2, 3)]
+    [InlineData(3, 1, 1)]
+    public void Copies_of_different_mk_drift_apart_each_at_its_own_pace_and_none_stalls(int first, int second, int third)
     {
-        var world = OutOn("knight4", true, (Left, "PLASMA_CANNON2", 1), (Left, "PLASMA_CANNON2", 2), (Left, "PLASMA_CANNON2", 3));
+        var world = OutOn("knight4", true, (Left, "PLASMA_CANNON2", first), (Left, "PLASMA_CANNON2", second), (Left, "PLASMA_CANNON2", third));
         var hero = Hero(world);
         FireAtWill(world);
 
-        var salvo = Watch(world, hero, 20 * GameWorld.TicksPerSecond);
+        const int ticks = 60 * GameWorld.TicksPerSecond;
+        var salvo = Watch(world, hero, ticks);
 
         var counts = salvo.Rounds.Select(r => r.Count).ToArray();
-        Assert.True(counts[0] < counts[1] && counts[1] < counts[2], string.Join(", ", counts));
-        // The faster copies are first in the second salvo: each opens fire again on its own.
-        Assert.True(salvo.Rounds[2][1] < salvo.Rounds[1][1] && salvo.Rounds[1][1] < salvo.Rounds[0][1],
-            string.Join(" | ", salvo.Rounds.Select(r => string.Join(",", r.Take(3)))));
+        int[] mks = [first, second, third];
+        // A higher Mk reloads sooner and fires more.
+        for (var copy = 1; copy < 3; copy++)
+        {
+            if (mks[copy] != mks[copy - 1])
+                Assert.True(counts[copy] > counts[copy - 1] == mks[copy] > mks[copy - 1], $"Mk {string.Join(",", mks)} fired {string.Join(", ", counts)}");
+        }
+        var opened = salvo.Opened[0];
         for (var copy = 0; copy < 3; copy++)
         {
-            var reload = (int)MathF.Ceiling(hero.Weapons[copy].Spec.ReloadTime * GameWorld.TicksPerSecond);
+            var reload = hero.Weapons[copy].Spec.ReloadTime;
+            var cycle = GameWorld.ReloadTicks(reload, GameWorld.Dt);
             var rounds = salvo.Rounds[copy];
-            // Never longer than its reload, the tick to open fire again and the longest wait in a salvo.
-            Assert.All(rounds.Zip(rounds.Skip(1), (before, after) => after - before), gap => Assert.InRange(gap, reload - 5, reload + 5));
-            Assert.True(rounds[^1] > 20 * GameWorld.TicksPerSecond - reload - 5, $"copy {copy} stopped at tick {rounds[^1]}");
+            // Each copy's turn is its share of its own reload; then it fires every reload of its own, the tick to open
+            // fire again included, never set back a turn when it meets another copy as they drift past each other.
+            Assert.Equal(opened + 1 + TurnOf(copy, 3, reload), rounds[0]);
+            Assert.All(rounds.Zip(rounds.Skip(1), (before, after) => after - before), gap => Assert.Equal(cycle, gap));
+            Assert.True(rounds[^1] > ticks - cycle, $"copy {copy} stopped at tick {rounds[^1]}");
+        }
+    }
+
+    [Fact]
+    public void Copies_of_different_mk_keep_each_its_own_pace_while_overload_cuts_their_reloads_short()
+    {
+        // Overload takes its share off every reload after the tick's fighting, so a reload it ends looks loaded at the
+        // next; a copy that has only just reloaded so must still not count as waiting for the trigger.
+        var world = OutOn("knight4", true, (Left, "PLASMA_CANNON2", 1), (Left, "PLASMA_CANNON2", 2), (Left, "PLASMA_CANNON2", 3), (WiredSlot.Chip(0), "overload", 1));
+        var hero = Hero(world);
+        hero.HitPoints = 1;
+        FireAtWill(world);
+
+        const int ticks = 60 * GameWorld.TicksPerSecond;
+        var salvo = Watch(world, hero, ticks);
+
+        Assert.Contains("overload", WiredChips.Lit(world, Red(world)));
+        var counts = salvo.Rounds.Select(r => r.Count).ToArray();
+        Assert.True(counts[0] < counts[1] && counts[1] < counts[2], $"fired {string.Join(", ", counts)}");
+        for (var copy = 0; copy < 3; copy++)
+        {
+            var rounds = salvo.Rounds[copy];
+            // After the first, which holds the copy's turn, every reload of a copy is as long as the next: never set
+            // back a turn when it meets another copy.
+            var cycles = rounds.Zip(rounds.Skip(1), (before, after) => after - before).Skip(1).Distinct().ToList();
+            var cycle = Assert.Single(cycles);
+            Assert.True(cycle < GameWorld.ReloadTicks(hero.Weapons[copy].Spec.ReloadTime, GameWorld.Dt), $"copy {copy} reloads in {cycle} ticks");
+            Assert.True(rounds[^1] > ticks - cycle, $"copy {copy} stopped at tick {rounds[^1]}");
         }
     }
 
     // ---- the specials -----------------------------------------------------------------------------
 
     [Fact]
-    public void A_widows_battery_flies_every_copys_first_round_tuned_from_its_lurk_and_the_next_salvo_as_made()
+    public void A_widows_lurk_tunes_the_first_round_of_every_copy_triggered_with_copy_0_even_the_last_turn_and_the_next_rounds_fly_as_made()
     {
         var world = OutOn("widow6", true, [.. Enumerable.Repeat((Left, "PLASMA_CANNON2", 1), 3)]);
         var hero = Hero(world);
@@ -684,24 +915,30 @@ public class WiredBatteryTests
         FireAtWill(world);
         var salvo = Watch(world, hero, 5 * GameWorld.TicksPerSecond);
 
+        // Copy 0's round spends the lurk; the copies triggered with it fire theirs a third and two thirds of a reload
+        // later, still tuned.
+        var opened = salvo.Opened[0];
+        Assert.Equal([opened + 1, opened + 14, opened + 28], salvo.Rounds.Select(r => r[0]));
         for (var copy = 0; copy < 3; copy++)
         {
             var made = hero.Weapons[copy].Base;
-            var rounds = salvo.Flown.Where(f => f.Round.Copy == copy).Select(f => f.Round.Weapon).ToList();
+            var rounds = salvo.Flown.Where(f => f.Round.Copy == copy).ToList();
             Assert.True(rounds.Count >= 2, $"copy {copy} fired {rounds.Count} rounds");
-            Near(made.Damage * WiredBalance.LurkDamage, rounds[0].Damage);
-            Near(made.Range * WiredBalance.LurkRange, rounds[0].Range);
-            Assert.All(rounds.Skip(1), round => Assert.Equal(made.Damage, round.Damage));
+            Assert.Equal(salvo.Rounds[copy][0], rounds[0].Tick);
+            Near(made.Damage * WiredBalance.LurkDamage, rounds[0].Round.Weapon.Damage);
+            Near(made.Range * WiredBalance.LurkRange, rounds[0].Round.Weapon.Range);
+            Assert.All(rounds.Skip(1), round => Assert.Equal(made.Damage, round.Round.Weapon.Damage));
         }
         Assert.DoesNotContain(hero.Weapons, w => !ReferenceEquals(w.Spec, w.Base));
     }
 
     [Fact]
-    public void An_anchored_colossus_tunes_every_copy()
+    public void An_anchored_colossus_tunes_every_copy_and_its_battery_takes_turns_by_the_shortened_reload()
     {
-        var world = OutOn("ballista5", false, [(Left, "BOLTER", 1), .. Enumerable.Repeat((Top, "HEAVY_BOLTER1", 1), 3)]);
+        var world = OutOn("ballista5", true, [(Left, "BOLTER", 1), .. Enumerable.Repeat((Top, "HEAVY_BOLTER1", 1), 3)]);
         var hero = Hero(world);
         Assert.Equal([0, 0, 1, 2], hero.Weapons.Select(w => w.Copy));
+        var free = hero.Weapons[1].Spec.ReloadTime;
 
         Assert.Null(Do(world, new WiredSpecialCommand(Race.Red)));
         Run(world, WiredBalance.AnchorTime + 0.1f);
@@ -712,6 +949,58 @@ public class WiredBatteryTests
             Assert.Equal(w.Base.Range * WiredBalance.AnchorRange, w.Spec.Range);
             Assert.Equal(w.Base.ReloadTime * WiredBalance.AnchorReload, w.Spec.ReloadTime);
         });
+        var anchored = hero.Weapons[1].Spec.ReloadTime;
+        int[] turns = [.. Enumerable.Range(0, 3).Select(copy => TurnOf(copy, 3, anchored))];
+        Assert.True(turns[1] < TurnOf(1, 3, free) && turns[2] < TurnOf(2, 3, free), $"anchored {string.Join(",", turns)}, free {TurnOf(1, 3, free)},{TurnOf(2, 3, free)}");
+
+        FireAtWill(world);
+        var salvo = Watch(world, hero, 4 * GameWorld.TicksPerSecond);
+
+        var opened = salvo.Opened[1];
+        Assert.Equal([opened, opened, opened], salvo.Opened.Skip(1));
+        Assert.Equal(turns.Select(turn => opened + 1 + turn), salvo.Rounds.Skip(1).Select(r => r[0]));
+        var rounds = RoundsOf(salvo with { Rounds = salvo.Rounds[1..] }, 3);
+        Assert.True(rounds.Count >= 3 * 3, $"the battery fired {rounds.Count} rounds");
+        EverySharedTurn(rounds, anchored, 3);
+    }
+
+    [Fact]
+    public void A_colossus_anchored_and_released_while_its_battery_fires_takes_its_turns_by_the_new_reload_within_a_reload()
+    {
+        var world = OutOn("ballista5", true, [.. Enumerable.Repeat((Top, "HEAVY_BOLTER1", 1), 3)]);
+        var hero = Hero(world);
+        Assert.Equal([0, 1, 2], hero.Weapons.Select(w => w.Copy));
+        var free = hero.Weapons[0].Spec.ReloadTime;
+        var anchored = free * WiredBalance.AnchorReload;
+        // The longer of the two reloads in ticks, within which the battery has found its new turns.
+        var settle = GameWorld.ReloadTicks(free, GameWorld.Dt);
+        var ear = new Ear(world, hero);
+        FireAtWill(world);
+        ear.Hear(3 * GameWorld.TicksPerSecond);
+        EverySharedTurn(ear.Between([0, 1, 2], 0), free, 3);
+
+        // Anchored while it fires: its reloads shorten in the tick the tracks lock, wherever the battery is in its turns.
+        world.Issue(new WiredSpecialCommand(Race.Red));
+        var locked = -1;
+        ear.Hear((int)((WiredBalance.AnchorTime + 7) * GameWorld.TicksPerSecond), tick =>
+        {
+            if (locked < 0 && hero.Weapons[0].Spec.ReloadTime == anchored)
+                locked = tick;
+        });
+        Assert.Equal(AnchorPhase.Anchored, world.AnchorPhaseOf(hero));
+        Assert.All(hero.Weapons, w => Assert.Equal(anchored, w.Spec.ReloadTime));
+        var tight = ear.Between([0, 1, 2], locked + settle);
+        Assert.True(tight.Count >= 4 * 3, $"anchored at tick {locked}, the battery fired {string.Join(",", ear.Between([0, 1, 2], locked))}");
+        EverySharedTurn(tight, anchored, 3);
+
+        // Released while it fires: the reloads lengthen again at once.
+        world.Issue(new WiredSpecialCommand(Race.Red, false));
+        var released = ear.Tick + 1;
+        ear.Hear(9 * GameWorld.TicksPerSecond);
+        Assert.All(hero.Weapons, w => Assert.Equal(free, w.Spec.ReloadTime));
+        var loose = ear.Between([0, 1, 2], released + settle);
+        Assert.True(loose.Count >= 4 * 3, $"released at tick {released}, the battery fired {string.Join(",", ear.Between([0, 1, 2], released))}");
+        EverySharedTurn(loose, free, 3);
     }
 
     // ---- saved data and commands ------------------------------------------------------------------

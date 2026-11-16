@@ -33,8 +33,15 @@ public partial class ProjectileViews : Node3D
     private GameWorld _world = null!;
     private ClassicAssets _assets = null!;
 
-    public static ProjectileViews Create(GameWorld world, ClassicAssets assets, Func<int, ActorView?> viewOf, Effects? effects = null, GameAudio? audio = null) =>
-        new() { Name = "Projectiles", _world = world, _assets = assets, _viewOf = viewOf, _effects = effects, _audio = audio };
+    /// <param name="barrelOf">
+    /// The barrel a round leaves by, where the game keeps count of it across a gun's rounds (the copies of a Wired hero's
+    /// battery fire from one gun); without it, the barrel its weapon counted.
+    /// </param>
+    public static ProjectileViews Create(GameWorld world, ClassicAssets assets, Func<int, ActorView?> viewOf, Effects? effects = null, GameAudio? audio = null,
+        Func<Projectile, int>? barrelOf = null) =>
+        new() { Name = "Projectiles", _world = world, _assets = assets, _viewOf = viewOf, _effects = effects, _audio = audio, _barrelOf = barrelOf ?? (p => p.Barrel) };
+
+    private Func<Projectile, int> _barrelOf = p => p.Barrel;
 
     private Effects? _effects;
     private GameAudio? _audio;
@@ -58,7 +65,7 @@ public partial class ProjectileViews : Node3D
             if (!_shown.TryGetValue(projectile.Id, out var shown))
             {
                 // It leaves the weapon's muzzle and comes onto its line of flight as it goes.
-                var muzzle = _viewOf(projectile.Shooter)?.Muzzle(projectile.Mounting, projectile.Weapon, projectile.Barrel, projectile.Copy) is { } at
+                var muzzle = _viewOf(projectile.Shooter)?.Muzzle(projectile.Mounting, projectile.Weapon, _barrelOf(projectile)) is { } at
                     ? at - Ground(projectile.Start)
                     : Vector3.Zero;
                 shown = (projectile, NewView(projectile), muzzle);

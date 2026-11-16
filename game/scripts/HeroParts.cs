@@ -125,38 +125,26 @@ public static class HeroDonors
     public static (float Start, float Top)? Shoulder(string chassis) => chassis == "reaper2" ? (0.7f, 1.25f) : null;
 
     /// <summary>
-    /// Whether a weapon loses its HD model's round foot here: it was made for its own machine's roof, and the other looks have
-    /// none. A battery's further copies stand on what is below them, so they never have it, even on their own machine.
+    /// The weapon a hero shows on each mounting, by <see cref="Mounting"/>: left, right, top, null for an empty slot. A
+    /// battery shows its weapon once, exactly as a single one of it stands on that slot: its copies are one gun that fires
+    /// as many times as often, so the model never knows of them.
     /// </summary>
+    public static string?[] Shown(Machines.Sim.Survival.HeroLoadout loadout) => loadout.Weapons.Select(w => w?.Catalogue).ToArray();
+
+    /// <summary>
+    /// What a hero wears as its rig and its picture are kept by: its race, its chassis and the weapon shown on each
+    /// mounting, left, right, top. A hero with batteries is kept as its twin with single weapons, the one rig for both.
+    /// </summary>
+    public static string Worn(Machines.Import.Model.Race race, string chassis, IReadOnlyList<string?> weapons) =>
+        $"{race}/{chassis}/{string.Join('/', weapons)}";
+
+    /// <inheritdoc cref="Worn(Machines.Import.Model.Race, string, IReadOnlyList{string?})"/>
+    public static string Worn(Machines.Import.Model.Race race, Machines.Sim.Survival.HeroLoadout loadout) =>
+        Worn(race, loadout.Chassis.Catalogue, Shown(loadout));
+
+    /// <summary>Whether a weapon loses its HD model's round foot here: it was made for its own machine's roof, and the other looks have none.</summary>
     public static bool Footless(string chassis, HeroWorn worn) =>
-        worn.Weapon is "MULTI_LAUNCHER1" or "MULTI_LAUNCHER2" && (worn.Copy > 0 || !AtHome(chassis, worn.Donor, worn.Side));
-
-    /// <summary>
-    /// The ways a battery's further copies are tried on a chassis, by weapon, where the first way that stands well is not the
-    /// one to take (see <see cref="HeroSeat.CopySeats"/>). The spec leaves this to the user's review of the battery pictures;
-    /// one entry was set before it and goes before the user on a picture of its own beside the battery sheet: the Colossus' great
-    /// flame throwers (×1.4) ran into each other on top of one another or outward, so on each side they fan round the flank
-    /// beside the first copy, the second toward the hull's top, the third lower down and away from it.
-    /// </summary>
-    private static readonly Dictionary<(string Chassis, string Weapon), HeroCopyWay> CopyWays = new()
-    {
-        [("ballista5", "FLAME_THROWER2")] = HeroCopyWay.Beside,
-    };
-
-    /// <summary>
-    /// The same for every weapon of a chassis, where no entry of <see cref="CopyWays"/> names it. The Phantom's side guns hang
-    /// low beside its mount boxes, under its wide roof (the user: "Waffen weiter unten"), which leaves no room for a second
-    /// copy on top of the first: of a Multi Launcher 3 two stand 4.8 m tall, the roof 2.4 m over the mounts. So its batteries
-    /// of two stand side by side, the second beside the first away from the body.
-    /// </summary>
-    private static readonly Dictionary<string, HeroCopyWay> ChassisCopyWays = new()
-    {
-        ["phantom6"] = HeroCopyWay.Out,
-    };
-
-    /// <summary>The way a battery's further copies of <paramref name="weapon"/> have to go on <paramref name="chassis"/>, or null to try them in turn.</summary>
-    public static HeroCopyWay? CopyWay(string chassis, string weapon) =>
-        CopyWays.TryGetValue((chassis, weapon), out var way) ? way : ChassisCopyWays.TryGetValue(chassis, out var all) ? all : null;
+        worn.Weapon is "MULTI_LAUNCHER1" or "MULTI_LAUNCHER2" && !AtHome(chassis, worn.Donor, worn.Side);
 
     /// <summary>
     /// The size a weapon is shown at: the Ballista 4's great launcher comes smaller on anything lesser than itself,
@@ -179,9 +167,6 @@ public static class HeroDonors
         ("spy3", "PLASMA_RIFLE") => 0.6f,
         ("spy3", "PULSE_RIFLE") => 0.55f,
         ("spy3", "FLAME_THROWER2") => 0.4f,
-        // The Phantom's battery of two flame throwers stands side by side (ChassisCopyWays): at full size the outer one leaned on
-        // nothing but the tank of the inner and climbed into the roof to be held.
-        ("phantom6", "FLAME_THROWER2") => 0.7f,
         // The crab's head is small and crowded: its mount on the back half of the roof (tools/wired-models) lies between a
         // tall antenna rod behind, two short ones and a bump on the face's side. A light weapon longer or wider than the
         // Bolter comes smaller, as far as it takes to stand on the roof in every look without one of them standing up
@@ -215,18 +200,6 @@ public static class HeroDonors
     }
 }
 
-/// <summary>
-/// Where a further copy of a battery starts from, before it is held against the body (<see cref="HeroSeat.CopySeats"/>):
-/// on top of the copy before it, beside it away from the body, or beside the first copy across the machine: on a top slot
-/// the second to its right and the third to its left, on a side slot the second toward the body and the third away from it.
-/// </summary>
-public enum HeroCopyWay
-{
-    Up,
-    Out,
-    Beside,
-}
-
 /// <summary>What a hero's guns do in the view.</summary>
 public static class HeroGuns
 {
@@ -247,9 +220,7 @@ public static class HeroGuns
 /// <summary>
 /// A chassis' rig and the weapons' rigs put together, as indices: which part of which rig each new part is, what it
 /// hangs from, and where every old index went. A mount is <c>l_gun</c>, <c>r_gun</c> and <c>gun</c> or <c>t_gun</c>, and
-/// a weapon everything on its mount: the mount's mesh and the parts below it. A battery's further copies each get a mount
-/// of their own beside the slot's, <c>l_gun2</c>, <c>r_gun3</c>, <c>gun2</c> and so on: never a mount's name, so that what
-/// looks for a mount by its name finds the first copy, and beginning as the mounts do, so that no copy is taken for the body.
+/// a weapon everything on its mount: the mount's mesh and the parts below it.
 /// </summary>
 public sealed class RigGraft
 {
@@ -257,11 +228,9 @@ public sealed class RigGraft
     /// A part of the new rig. <paramref name="Chassis"/> is its index in the chassis' rig, or -1; for a mount the chassis
     /// lacks, <paramref name="Opposite"/> is the mount on the other side to mirror. <paramref name="Stripped"/> marks a
     /// mount that lost what it carried, its mesh too. <paramref name="Weapon"/> and <paramref name="Donor"/> name the
-    /// weapon's rig and the part of it: for a mount, the donor's mount, whose mesh it takes. <paramref name="Copy"/> is the
-    /// copy of a battery the part belongs to; a further copy's mount names the slot's mount by <paramref name="Chassis"/> and
-    /// <paramref name="Opposite"/> as that does, and rests where it rests.
+    /// weapon's rig and the part of it: for a mount, the donor's mount, whose mesh it takes.
     /// </summary>
-    public sealed record Node(int Parent, string Name, int Chassis, bool Stripped = false, Mounting? Weapon = null, int Donor = -1, int Opposite = -1, int Copy = 0);
+    public sealed record Node(int Parent, string Name, int Chassis, bool Stripped = false, Mounting? Weapon = null, int Donor = -1, int Opposite = -1);
 
     /// <summary>A weapon's rig and its mount in it.</summary>
     public sealed record Source(IReadOnlyList<RigPart> Parts, int Mount);
@@ -270,15 +239,7 @@ public sealed class RigGraft
 
     private readonly List<Node> _nodes = [];
     private readonly int[] _chassis;
-    private readonly Dictionary<(Mounting Side, int Copy), int[]> _donors = [];
-
-    /// <summary>The name of a battery's further copy's mount: <c>l_gun2</c>, <c>r_gun3</c>, <c>gun2</c>, whatever the slot's own is called; for the first, the usual name of a mount on that side.</summary>
-    public static string CopyMount(Mounting mounting, int copy) => (mounting switch
-    {
-        Mounting.Left => "l_gun",
-        Mounting.Right => "r_gun",
-        _ => "gun",
-    }) + (copy > 0 ? $"{copy + 1}" : "");
+    private readonly Dictionary<Mounting, int[]> _donors = [];
 
     // Parts of a chassis that hang from a mount without being the weapon: the Grunt 3's shoulders turn with its guns.
     private static bool OfTheChassis(string name) => name.EndsWith("_shoulder", StringComparison.Ordinal);
@@ -328,8 +289,7 @@ public sealed class RigGraft
 
     /// <param name="chassis">The chassis' rig as exported, with the weapons it came with.</param>
     /// <param name="slots">The mounts to strip, each with what goes on it, or null for nothing.</param>
-    /// <param name="copies">How many copies of its weapon a slot carries, 1 where it does not say.</param>
-    public RigGraft(IReadOnlyList<RigPart> chassis, IReadOnlyDictionary<Mounting, Source?> slots, IReadOnlyDictionary<Mounting, int>? copies = null)
+    public RigGraft(IReadOnlyList<RigPart> chassis, IReadOnlyDictionary<Mounting, Source?> slots)
     {
         // What comes off: everything below a mount but the chassis' own parts there.
         var gone = new HashSet<int>();
@@ -367,34 +327,22 @@ public sealed class RigGraft
         {
             if (source is null)
                 continue;
+            var map = new int[source.Parts.Count];
+            Array.Fill(map, -1);
+            _donors[side] = map;
             var mount = _nodes.FindIndex(n => n.Weapon == side && n.Donor == source.Mount);
-            var count = copies is not null && copies.TryGetValue(side, out var asked) ? Math.Max(1, asked) : 1;
-            for (var copy = 0; copy < count; copy++)
+            if (mount < 0)
+                continue;
+            map[source.Mount] = mount;
+            var parts = Below(source.Parts, source.Mount).Where(p => !OfTheChassis(source.Parts[p].Name)).ToList();
+            foreach (var part in parts)
+                map[part] = _nodes.Count + parts.IndexOf(part);
+            foreach (var part in parts)
             {
-                var map = new int[source.Parts.Count];
-                Array.Fill(map, -1);
-                _donors[(side, copy)] = map;
-                if (mount < 0)
-                    break;
-                // A further copy stands on a mount of its own beside the slot's, where that rests, with the donor's mount's mesh.
-                var at = mount;
-                if (copy > 0)
-                {
-                    var slot = _nodes[mount];
-                    at = _nodes.Count;
-                    _nodes.Add(new Node(slot.Parent, CopyMount(side, copy), slot.Chassis, true, side, source.Mount, slot.Opposite, copy));
-                }
-                map[source.Mount] = at;
-                var parts = Below(source.Parts, source.Mount).Where(p => !OfTheChassis(source.Parts[p].Name)).ToList();
-                foreach (var part in parts)
-                    map[part] = _nodes.Count + parts.IndexOf(part);
-                foreach (var part in parts)
-                {
-                    // What hung from a shoulder that stayed behind hangs from the mount.
-                    var parent = source.Parts[part].Parent;
-                    var name = source.Parts[part].Name;
-                    _nodes.Add(new Node(map[parent] >= 0 ? map[parent] : at, IsMount(name) ? "barrels" : name, -1, false, side, part, Copy: copy));
-                }
+                // What hung from a shoulder that stayed behind hangs from the mount.
+                var parent = source.Parts[part].Parent;
+                var name = source.Parts[part].Name;
+                _nodes.Add(new Node(map[parent] >= 0 ? map[parent] : mount, IsMount(name) ? "barrels" : name, -1, false, side, part));
             }
         }
     }
@@ -403,18 +351,11 @@ public sealed class RigGraft
     public int Chassis(int part) => part >= 0 && part < _chassis.Length ? _chassis[part] : -1;
 
     /// <summary>Where a part of the weapon's rig on <paramref name="mounting"/> went; -1 for what was left behind.</summary>
-    public int Weapon(Mounting mounting, int part) => Weapon(mounting, 0, part);
-
-    /// <summary>Where a part of the weapon's rig went in a battery's copy on <paramref name="mounting"/>; -1 for what was left behind and for a copy it lacks.</summary>
-    public int Weapon(Mounting mounting, int copy, int part) =>
-        _donors.TryGetValue((mounting, copy), out var map) && part >= 0 && part < map.Length ? map[part] : -1;
+    public int Weapon(Mounting mounting, int part) =>
+        _donors.TryGetValue(mounting, out var map) && part >= 0 && part < map.Length ? map[part] : -1;
 
     /// <summary>The new mount of a side, or -1.</summary>
     public int Mount(Mounting mounting) => _nodes.FindIndex(n => IsMount(n.Name, mounting) && !UnderMount(n));
-
-    /// <summary>The mount of a battery's copy on a side, the slot's own for the first; -1 for a copy it lacks.</summary>
-    public int Mount(Mounting mounting, int copy) =>
-        copy == 0 ? Mount(mounting) : _nodes.FindIndex(n => n.Weapon == mounting && n.Copy == copy && n.Name == CopyMount(mounting, copy));
 
     private bool UnderMount(Node node)
     {

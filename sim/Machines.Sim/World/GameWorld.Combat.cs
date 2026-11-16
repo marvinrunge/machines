@@ -220,8 +220,15 @@ public sealed partial class GameWorld
     /// all the while a machine has that it goes on aiming. A machine driven in first person fires at
     /// <paramref name="aimPoint"/> instead, at whatever is there or not. Only weapons with their bit in
     /// <paramref name="triggers"/> open fire; the others reload and finish their bursts all the same. The copies of a
-    /// Wired hero's battery that open fire with the copy before them follow it as a salvo, each first round
-    /// <see cref="WiredBalance.BatteryStagger"/> after the one before; every other weapon starts at once, as it always did.
+    /// Wired hero's battery take turns as one gun. Copy k of n, whenever it opens fire while its copy 0 reloads by the same
+    /// reload, is timed from copy 0: its round leaves at its turn, k/n of the reload (<see cref="BatteryTurn"/>) after copy
+    /// 0 opened fire, at once if that turn is past, and its reload ends that turn after copy 0's. So the battery keeps one
+    /// round every n-th of a reload from one gun while the trigger is held, and finds its turns again within a reload
+    /// after anything that put it out of them: a short pause, or the anchor changing the reload while it fires. Any other
+    /// copy (of another Mk than copy 0, or while copy 0 is loaded and silent) that opens fire in the same tick as the copy
+    /// before it, having waited for the trigger (<see cref="WeaponMount.Waited"/>), waits the turn of its place in that
+    /// chain; one that has only just reloaded starts at once, as every other weapon always did, so that copies of
+    /// different Mk go each at its own pace.
     /// </summary>
     private void Fire(Actor shooter, List<WeaponMount> weapons, Actor? target, (Vector2 Point, float? Height)? aimPoint = null, int triggers = -1)
     {
@@ -233,12 +240,14 @@ public sealed partial class GameWorld
             GunneryOf(shooter).LastAimed = Time;
         }
         FireData? aim = null;
-        // How far along a salvo the copy under way is, and whether the weapon before it opened fire in this tick.
+        // How many copies of a battery in a row opened fire with the one before them, and whether the weapon before opened fire in this tick.
         var (chain, before) = (0, false);
         for (var i = 0; i < weapons.Count; i++)
         {
             var weapon = weapons[i];
-            var follows = before && weapon.Copy > 0;
+            // Only a copy that waited for the trigger takes its turn behind the one before it; one that reloads in this
+            // very tick, as a faster copy of another Mk catching up does, opens fire at once rather than be set back a turn.
+            var follows = before && weapon.Copy > 0 && weapon.Waited;
             before = false;
             if (weapon.Reload > 0)
                 weapon.Reload -= Dt;
@@ -256,26 +265,105 @@ public sealed partial class GameWorld
                     FireRound(shooter, weapon, target);
                 continue;
             }
-            if (weapon.Reload > 0 || (triggers & (1 << i)) == 0)
+            if (weapon.Reload > 0)
                 continue;
+            if ((triggers & (1 << i)) == 0)
+            {
+                weapon.Waited = true;
+                continue;
+            }
 
             var triggered = aimPoint is not null
                 ? weapon.DealsDamage || weapon.IsTreachery
                 : weapon.FiresAt(target) && target is { IsDead: false } && (weapon.Spec.TypeName == "GORILLA_PUNCH"
                     ? shooter.DistanceTo(target) <= weapon.Spec.Range && CanFireAt(shooter, target) && PunchesHere(shooter)
                     : inSights && InReach(shooter, weapon, target) && InArc(shooter, weapon, target));
+            weapon.Waited = !triggered;
             if (triggered)
             {
                 // Fired at a point, a weapon gives its full burst and its rounds go where they are sent, in a Wired run about there.
                 weapon.Burst = aimPoint is not null ? new FireData(0.9999f) : aim ??= TakeAim(shooter, target!);
                 weapon.RoundsLeft = RoundsIn(weapon.Spec, weapon.Burst);
-                // A chained copy waits whole ticks, and half a tick more so that no sum of floats lands on a tick's edge.
                 chain = follows ? chain + 1 : 0;
-                weapon.RoundTimer = chain == 0 ? 0 : chain * WiredBalance.BatteryStagger + Dt / 2;
-                weapon.Reload = weapon.Spec.ReloadTime;
+                // The round's wait and the reload of a copy that takes a turn are set half a tick off whole ticks, so that
+                // no sum of floats lands on a tick's edge.
+                if (weapon.Copy > 0 && FirstCopy(weapons, i) is { Reload: > 0 } first && first.Spec.ReloadTime == weapon.Spec.ReloadTime)
+                {
+                    // Timed from copy 0, which opened fire earlier in this tick or before: the turn is counted from then
+                    // and the reload ends that turn after copy 0's, wherever this copy's own cycle had drifted.
+                    var cycle = ReloadTicks(weapon.Spec.ReloadTime, Dt);
+                    var turn = BatteryTurn(weapon.Copy, BatterySize(weapons, i), weapon.Spec.ReloadTime, Dt);
+                    var left = ReloadTicks(first.Reload, Dt);
+                    var wait = Math.Max(0, turn - Math.Max(0, cycle - left));
+                    weapon.RoundTimer = wait == 0 ? 0 : (wait + 0.5f) * Dt;
+                    weapon.Reload = (left + turn - 0.5f) * Dt;
+                }
+                else if (chain == 0)
+                {
+                    weapon.RoundTimer = 0;
+                    weapon.Reload = weapon.Spec.ReloadTime;
+                }
+                else
+                {
+                    // A chained copy waits its turn, and its reload with it, so that its cycle stays that much behind
+                    // the first of the chain's for good.
+                    var offset = BatteryOffset(chain, BatterySize(weapons, i), weapon.Spec.ReloadTime, Dt);
+                    weapon.RoundTimer = offset + Dt / 2;
+                    weapon.Reload = (ReloadTicks(weapon.Spec.ReloadTime, Dt) - 0.5f) * Dt + offset;
+                }
                 before = true;
             }
         }
+    }
+
+    /// <summary>The copy 0 of the battery the copy at <paramref name="index"/> belongs to, or null where it is not in the list.</summary>
+    private static WeaponMount? FirstCopy(List<WeaponMount> weapons, int index)
+    {
+        var weapon = weapons[index];
+        var first = index - weapon.Copy;
+        return first >= 0 && weapons[first] is { Copy: 0 } copy0 && copy0.Mounting == weapon.Mounting && copy0.Spec.TypeName == weapon.Spec.TypeName
+            ? copy0 : null;
+    }
+
+    /// <summary>
+    /// The ticks <see cref="Fire"/> counts a reload of <paramref name="reloadTime"/> down in, from the tick a weapon opens
+    /// fire to the first it may open fire again: the reload in ticks of <paramref name="dt"/>, rounded up, and one tick
+    /// more where the float sum leaves a crumb above nothing, as two seconds do (41 ticks).
+    /// </summary>
+    public static int ReloadTicks(float reloadTime, float dt)
+    {
+        var ticks = 0;
+        for (var left = reloadTime; left > 0 && dt > 0; left -= dt)
+            ticks++;
+        return ticks;
+    }
+
+    /// <summary>
+    /// The turn of copy <paramref name="chain"/> of a battery of <paramref name="size"/>, or of the chain-th copy that
+    /// opens fire in one tick after the first: how long after the first it fires, that share of a reload as
+    /// <see cref="Fire"/> counts it, chain × <see cref="ReloadTicks"/> / size, taken down to whole ticks of
+    /// <paramref name="dt"/>. Nothing for the first copy and for a battery of one, and always short of a whole reload, so
+    /// that the n copies of a battery fire one after another, n times as often as one of them and a tick or less off an
+    /// n-th of the reload apart.
+    /// </summary>
+    public static float BatteryOffset(int chain, int size, float reloadTime, float dt) => BatteryTurn(chain, size, reloadTime, dt) * dt;
+
+    /// <summary><see cref="BatteryOffset"/> in whole ticks of <paramref name="dt"/>.</summary>
+    public static int BatteryTurn(int chain, int size, float reloadTime, float dt) =>
+        chain <= 0 || size <= 1 || reloadTime <= 0 ? 0 : Math.Min(chain, size - 1) * ReloadTicks(reloadTime, dt) / size;
+
+    /// <summary>
+    /// How many copies the battery of the mount at <paramref name="index"/> has: its copy 0 and the copies of its mounting
+    /// that follow it in order.
+    /// </summary>
+    private static int BatterySize(List<WeaponMount> weapons, int index)
+    {
+        var weapon = weapons[index];
+        var first = index - weapon.Copy;
+        var size = weapon.Copy + 1;
+        while (first + size < weapons.Count && weapons[first + size] is var next && next.Mounting == weapon.Mounting && next.Copy == size)
+            size++;
+        return size;
     }
 
     /// <summary>A round fired at a target: what becomes of it depends on the weapon (each MachLogWeapon's doFire).</summary>

@@ -34,6 +34,14 @@ public sealed class WeaponMount(Mounting mounting, WeaponSpec spec)
     /// <summary>How the burst under way goes.</summary>
     public FireData Burst { get; set; }
 
+    /// <summary>
+    /// Whether it stood loaded and was passed over the last time its machine fired: true until it first opens fire, false
+    /// from then until its reload is over and its burst out and a tick goes by without it opening fire. A copy of a battery
+    /// that waited for the trigger so takes its turn behind the copy before it, while one whose reload has only just ended
+    /// does not, however the reload was cut short. Not part of the checksum.
+    /// </summary>
+    internal bool Waited { get; set; } = true;
+
     /// <summary>Rounds fired so far; their barrels take turns.</summary>
     public int Shots { get; set; }
 

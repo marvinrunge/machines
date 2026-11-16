@@ -305,9 +305,9 @@ public sealed partial class GameWorld
             body.LurkSpent = false;
         }
         var lurks = Lurks(machine, body);
-        // A weapon is told by its type here, not by its mount, so that the copies of a battery, whose first rounds
-        // follow the first copy's a moment later, keep their part of the salvo, the one first shot. Two weapons of one
-        // type on different slots that open fire a tick apart are one salvo as well.
+        // A weapon is told by its type here, not by its mount, so that the copies of a battery triggered with the first,
+        // whose first rounds follow its round by their turns of a reload, keep their part of the one first shot until
+        // their bursts are out. Two weapons of one type on different slots that open fire a tick apart are one shot as well.
         foreach (var weapon in machine.Weapons)
         {
             if (lurks && weapon.DealsDamage)

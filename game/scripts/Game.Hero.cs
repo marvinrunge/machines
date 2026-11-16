@@ -27,12 +27,16 @@ public partial class Game
 
     private bool _refitScripted;
 
+    /// <summary>While a scripted refit drives its hero: every round's flash this tick, which gun fired it, its barrel and muzzle.</summary>
+    private List<(int Shooter, int Gun, int Barrel, Vector3? Muzzle)>? _roundsLogged;
+
     /// <summary>
     /// For automated checks of a Wired run (MACHINES_WIRED=1 with MACHINES_MAP): MACHINES_SCREENSHOT_REFIT=&lt;chassis&gt;,&lt;left&gt;,&lt;right&gt;,&lt;top&gt;
     /// selects the hero, keeps the camera on it and refits it after two seconds through the hangar's commands, - for an
     /// empty slot, <c>WEAPON*3</c> for a battery of three (the further copies added to the first), then prints what its view
-    /// shows, every gun's muzzle. A fifth word drives it afterwards (first), printing the gun and muzzle of every round it
-    /// fires, or sets it on fire before (burning).
+    /// shows, every gun's muzzle. A fifth word drives it afterwards (first), printing for every round it fires the gun that
+    /// fired it, the barrel and muzzle its flash lit and those its flying round leaves from, or sets it on fire before
+    /// (burning).
     /// </summary>
     private async void ScriptRefit()
     {
@@ -88,18 +92,29 @@ public partial class Game
         for (var gun = 0; gun < refitted.Weapons.Count; gun++)
         {
             var weapon = refitted.Weapons[gun];
-            GD.Print($"hero: {weapon.Mounting} copy {weapon.Copy} {weapon.Spec.TypeName} muzzle {MuzzleOf(refitted.Id, weapon.Spec, gun) - view.GlobalPosition}");
+            GD.Print($"hero: {weapon.Mounting} copy {weapon.Copy} {weapon.Spec.TypeName} muzzle {view.Muzzle(weapon.Mounting, weapon.Spec, 0) - view.GlobalPosition}");
         }
         if (words.Length > 4 && words[4] == "first")
         {
             EnterFirstPerson();
-            // Which gun every round leaves, and from where: a battery fires copy after copy, each from its own barrel.
+            // Which gun every round leaves, and from where: a battery's copies take turns firing the one gun on their
+            // mounting, so all their rounds leave its muzzle.
+            _roundsLogged = [];
+            var flying = new HashSet<int>();
             Ticked += () =>
             {
-                foreach (var shot in World.Events.Where(e => IsInstanceValid(view) && e.Kind == GameEventKind.Fired && e.Actor == refitted.Id && e.Gun >= 0 && e.Gun < refitted.Weapons.Count))
+                if (!IsInstanceValid(view))
+                    return;
+                foreach (var (_, index, barrel, muzzle) in _roundsLogged.Where(r => r.Shooter == refitted.Id && r.Gun < refitted.Weapons.Count))
                 {
-                    var gun = refitted.Weapons[shot.Gun];
-                    GD.Print($"hero: tick {World.Tick} gun {shot.Gun} {gun.Mounting} copy {gun.Copy} {gun.Spec.TypeName} muzzle {view.Muzzle(gun.Mounting, gun.Spec, 0, gun.Copy) - view.GlobalPosition}");
+                    var gun = refitted.Weapons[index];
+                    GD.Print($"hero: tick {World.Tick} flash gun {index} {gun.Mounting} copy {gun.Copy} {gun.Spec.TypeName} barrel {barrel} muzzle {muzzle}");
+                }
+                _roundsLogged.Clear();
+                foreach (var round in World.Projectiles.Where(p => p.Shooter == refitted.Id && flying.Add(p.Id)))
+                {
+                    var barrel = _flownFrom.TryGetValue((round.Shooter, round.Mounting, round.Copy, round.Barrel), out var shown) ? shown.Barrel : round.Barrel;
+                    GD.Print($"hero: tick {World.Tick} round {round.Id} {round.Mounting} copy {round.Copy} {round.Weapon.TypeName} barrel {barrel} muzzle {view.Muzzle(round.Mounting, round.Weapon, barrel) - view.GlobalPosition}");
                 }
             };
         }

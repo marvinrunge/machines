@@ -26,12 +26,6 @@ public sealed class Rig
     /// <summary>The part of each mounted weapon that moves as it fires: it recoils, or the autocannon's barrels turn.</summary>
     public RigWeapon[] Weapons { get; init; } = [];
 
-    /// <summary>
-    /// A Wired hero's guns, every copy of each battery with its mount, where a round leaves it; empty for every other
-    /// machine, whose mounts go by their names.
-    /// </summary>
-    public RigGun[] Guns { get; init; } = [];
-
     /// <summary>The lamps of a building's interior.</summary>
     public RigLight[] Lights { get; init; } = [];
 
@@ -137,14 +131,8 @@ public sealed record RigAnimation(float Duration, RigTrack[] Tracks);
 /// <summary>A part's endless motion of its own, one period long.</summary>
 public sealed record RigIdle(float Duration, RigTrack Track);
 
-/// <summary>
-/// A mounted weapon's moving part (see <see cref="Rig.Weapons"/>) and where it is mounted: left, right or top, and as which
-/// copy of a Wired hero's battery there (0 for the first and every other weapon).
-/// </summary>
-public sealed record RigWeapon(int Node, string Mounting, int Copy = 0);
-
-/// <summary>A copy of a Wired hero's gun (see <see cref="Rig.Guns"/>): its mounting, which copy of the battery there, and the part it is mounted on.</summary>
-public sealed record RigGun(Machines.Sim.Combat.Mounting Mounting, int Copy, int Mount);
+/// <summary>A mounted weapon's moving part (see <see cref="Rig.Weapons"/>) and where it is mounted: left, right or top.</summary>
+public sealed record RigWeapon(int Node, string Mounting);
 
 /// <summary>Wheels spin about their axle (the original's local y axis) by distance over radius.</summary>
 public sealed record RigWheels(float Radius, int[] Left, int[] Right);

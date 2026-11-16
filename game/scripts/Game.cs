@@ -423,7 +423,7 @@ public partial class Game : Node3D
         _support = SupportEffects.Create(_assets);
         AddChild(_support);
         _audio = GameAudio.Create(_assets.GameFolder);
-        _projectiles = ProjectileViews.Create(World, _assets, id => _views.GetValueOrDefault(id), _effects, _audio);
+        _projectiles = ProjectileViews.Create(World, _assets, id => _views.GetValueOrDefault(id), _effects, _audio, BarrelOf);
         AddChild(_projectiles);
 
         _rig = new CameraRig { Name = "CameraRig" };
@@ -1200,6 +1200,7 @@ public partial class Game : Node3D
 
     private void ShowEvents()
     {
+        CountLaunches();
         foreach (var e in World.Events)
         {
             var at = ActorView.World(e.Position) + Vector3.Up * 2;
@@ -1423,8 +1424,34 @@ public partial class Game : Node3D
     // Shots fired by each shooter's weapons so far, so that twin weapons and barrels take turns.
     private readonly Dictionary<(int, string), int> _shotsShown = [];
 
-    // Rounds each gun of a shooter fired so far, by its place among the shooter's weapons, so that its barrels take turns.
-    private readonly Dictionary<(int Shooter, int Gun), int> _gunShots = [];
+    // Rounds each gun of a shooter fired so far, by its mounting and weapon, so that its barrels take turns: the copies of a
+    // Wired hero's battery are one gun and count as one.
+    private readonly Dictionary<(int Shooter, Mounting Mounting, string Weapon), int> _gunRounds = [];
+
+    // The rounds each of a shooter's weapons launched in this tick and not shown yet, by its place among its weapons.
+    private readonly Dictionary<(int Shooter, int Gun), int> _launching = [];
+
+    // The barrel each round in flight left by, as its flash showed it, by what the round says of itself: shooter, mounting,
+    // copy and that copy's count of rounds before it (Projectile.Barrel); with the tick it left in. Its view takes it from
+    // here (BarrelOf), so that a battery's rounds fly from the barrels their flashes lit.
+    private readonly Dictionary<(int Shooter, Mounting Mounting, int Copy, int Shot), (int Barrel, int Tick)> _flownFrom = [];
+
+    /// <summary>Counts the rounds that leave each weapon in this tick, before they are shown (see <see cref="MuzzleOf"/>).</summary>
+    private void CountLaunches()
+    {
+        _launching.Clear();
+        foreach (var e in World.Events)
+            if (e is { Kind: GameEventKind.Fired, Gun: >= 0 } && World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail) is { } spec && GameWorld.Flies(spec))
+                _launching[(e.Actor, e.Gun)] = _launching.GetValueOrDefault((e.Actor, e.Gun)) + 1;
+        // A round its view never took (it struck before a frame was drawn) is forgotten after two seconds.
+        if (_flownFrom.Count > 64)
+            foreach (var old in _flownFrom.Where(f => World.Tick - f.Value.Tick > 2 * GameWorld.TicksPerSecond).Select(f => f.Key).ToList())
+                _flownFrom.Remove(old);
+    }
+
+    /// <summary>The barrel a round in flight leaves by: the one its flash lit, else the one its weapon counted.</summary>
+    private int BarrelOf(Projectile round) =>
+        _flownFrom.Remove((round.Shooter, round.Mounting, round.Copy, round.Barrel), out var shown) ? shown.Barrel : round.Barrel;
 
     /// <summary>The gun of a round the ground stopped: that of the shot raised just before its impact, or -1.</summary>
     private int GunOfImpact(GameEvent impact)
@@ -1438,8 +1465,9 @@ public partial class Game : Node3D
 
     /// <summary>
     /// The muzzle a shooter's weapon of this kind fires from now; that weapon recoils. A round that says which of the
-    /// machine's weapons fired it (<see cref="GameEvent.Gun"/>) leaves that one, a copy of a hero's battery from its own
-    /// mount, its barrels in turn. Without that, the twins of the kind and their barrels take turns.
+    /// machine's weapons fired it (<see cref="GameEvent.Gun"/>) leaves the gun on that one's mounting, its barrels in turn
+    /// over all the rounds that gun fires: every copy of a Wired hero's battery fires from the one gun the model shows.
+    /// Without that, the twins of the kind and their barrels take turns.
     /// </summary>
     private Vector3? MuzzleOf(int shooter, Machines.Import.Model.WeaponSpec weapon, int gun = -1)
     {
@@ -1449,16 +1477,25 @@ public partial class Game : Node3D
         if (gun >= 0 && gun < all.Count && all[gun].Spec.TypeName == weapon.TypeName)
         {
             var fired = all[gun];
-            var round = _gunShots.GetValueOrDefault((shooter, gun));
-            _gunShots[(shooter, gun)] = round + 1;
-            view.Fire(fired.Mounting, weapon, HeroOf(actor) is not null ? fired.Copy : null);
-            return view.Muzzle(fired.Mounting, weapon, round, fired.Copy);
+            var round = _gunRounds.GetValueOrDefault((shooter, fired.Mounting, weapon.TypeName));
+            _gunRounds[(shooter, fired.Mounting, weapon.TypeName)] = round + 1;
+            // A round that flies leaves its barrel to its view: by its weapon's count of rounds, this tick's in order.
+            if (_launching.GetValueOrDefault((shooter, gun)) is > 0 and var left)
+            {
+                _launching[(shooter, gun)] = left - 1;
+                _flownFrom[(shooter, fired.Mounting, fired.Copy, fired.Shots - left)] = (round, World.Tick);
+            }
+            view.Fire(fired.Mounting, weapon);
+            var muzzle = view.Muzzle(fired.Mounting, weapon, round);
+            _roundsLogged?.Add((shooter, gun, round, muzzle - view.GlobalPosition));
+            return muzzle;
         }
         var mounts = all.Where(w => w.Spec.TypeName == weapon.TypeName).ToList();
         if (mounts.Count == 0)
             return null;
+        // Of a hero's guns those that can have fired, a battery once: its copies are the one gun on their mounting.
         if (HeroOf(actor) is not null)
-            mounts = HeroGuns.Firing(mounts);
+            mounts = HeroGuns.Firing(mounts).DistinctBy(w => w.Mounting).ToList();
         var shot = _shotsShown.GetValueOrDefault((shooter, weapon.TypeName));
         _shotsShown[(shooter, weapon.TypeName)] = shot + 1;
         // The weapon the round leaves recoils with it.
