@@ -20,6 +20,7 @@ public partial class StartupFilms : Control
 
     private readonly string _gameFolder;
     private readonly Action _done;
+    private readonly Func<bool>? _loaded;
     private readonly bool _logos;
     private Control? _frame;
     private SmackerView? _playing;
@@ -28,26 +29,32 @@ public partial class StartupFilms : Control
     private Action? _afterLogo;
     private double _logoLeft;
     private bool _finished;
+    private Action? _whenLoaded;
+    private double _loadingLeft;
+
+    // The longest the loading picture waits for the menus' loading before its film plays.
+    private const double MostLoading = 8;
 
     private static string TrailerFile => System.IO.Path.Combine(Paths.Root, "films", "trailer.ogv");
 
-    private StartupFilms(string gameFolder, Action done, bool logos = false)
+    private StartupFilms(string gameFolder, Action done, bool logos = false, Func<bool>? loaded = null)
     {
-        (_gameFolder, _done, _logos) = (gameFolder, done, logos);
+        (_gameFolder, _done, _logos, _loaded) = (gameFolder, done, logos, loaded);
         MouseFilter = MouseFilterEnum.Stop;
     }
 
     /// <summary>
     /// The films, the first time the menus open in this run of the game; <paramref name="done"/> follows once they
-    /// have played or been skipped, and the films then leave. Null when they have played already or the game copy
-    /// has no intro.
+    /// have played or been skipped, and the films then leave. The loading picture stays without its film until
+    /// <paramref name="loaded"/> says the menus have loaded what they need (eight seconds at most), as the original
+    /// played it after loading. Null when they have played already or the game copy has no intro.
     /// </summary>
-    public static StartupFilms? Create(string? gameFolder, Action done)
+    public static StartupFilms? Create(string? gameFolder, Action done, Func<bool>? loaded = null)
     {
         if (_played || gameFolder is null || !File.Exists(System.IO.Path.Combine(gameFolder, "flics", "animatic.smk")))
             return null;
         _played = true;
-        return new StartupFilms(gameFolder, done);
+        return new StartupFilms(gameFolder, done, loaded: loaded);
     }
 
     /// <summary>The logos and the intro film, for the main menu left alone; null when the game copy has no intro.</summary>
@@ -72,6 +79,12 @@ public partial class StartupFilms : Control
 
     public override void _Process(double delta)
     {
+        if (_whenLoaded is not null && (_loaded!() || (_loadingLeft -= delta) <= 0))
+        {
+            var play = _whenLoaded;
+            _whenLoaded = null;
+            play();
+        }
         if (_afterLogo is not null && (_logoLeft -= delta) <= 0)
             EndLogo();
         if (_trailer is not null && _picture!.Texture != _trailer.GetVideoTexture())
@@ -155,11 +168,21 @@ public partial class StartupFilms : Control
             Size = Screen,
             MouseFilter = MouseFilterEnum.Ignore,
         });
-        var view = Play(new SmackerView(film), IntroFilm);
-        _frame.AddChild(view);
-        view.Position = new Vector2(32, 129);
-        view.Size = view.VideoSize;
         Fit();
+        var frame = _frame;
+        void PlayFilm()
+        {
+            var view = Play(new SmackerView(film), IntroFilm);
+            frame.AddChild(view);
+            view.Position = new Vector2(32, 129);
+            view.Size = view.VideoSize;
+            Fit();
+        }
+        // The film comes after loading, as in the original: until the menus have what they need the picture waits.
+        if (_loaded is null || _loaded())
+            PlayFilm();
+        else
+            (_whenLoaded, _loadingLeft) = (PlayFilm, MostLoading);
     }
 
     /// <summary>The intro film, as wide as the window allows.</summary>

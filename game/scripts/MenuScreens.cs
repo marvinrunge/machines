@@ -112,7 +112,12 @@ public partial class MenuScreens : Control
         var page = shot.Length > 1 ? shot[1] : Setting("MACHINES_MP") is not null ? "multiplayer" : Setting("MACHINES_MENU_START") is not null ? "skirmish" : StartPage ?? "main";
         StartPage = null;
         // The first time, the original's loading and intro films play before the main menu (not in automated runs).
-        if (page == "main" && shot[0].Length == 0 && Setting("MACHINES_MENU_GO") is null && StartupFilms.Create(_assets.GameFolder, () => Begin(page)) is { } films)
+        // The main menu's machines load and are drawn once where nobody sees them, the first time: under the loading picture.
+        var warmup = shot[0].Length == 0 ? MachineWarmup.Begin(_assets) : null;
+        if (warmup is not null)
+            _host.AddChild(warmup);
+        if (page == "main" && shot[0].Length == 0 && Setting("MACHINES_MENU_GO") is null
+            && StartupFilms.Create(_assets.GameFolder, () => Begin(page), () => warmup is null || warmup.Done) is { } films)
             _host.AddChild(films);
         else
             Begin(page);
