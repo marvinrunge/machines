@@ -12,39 +12,61 @@ namespace Machines.Relay;
 /// every player's turns to the others and compares their checksums. It never runs the simulation; every client
 /// does (deterministic lockstep). One lock guards all room state; messages are tiny.
 /// </summary>
+/// <remarks>
+/// Players come over TCP (the listener here: the LAN, a host's address, the relay inside the game) or over WebSocket
+/// (<see cref="RelayHttp"/>: the public relay on Cloud Run); both feed the same rooms through <see cref="Accept"/>. A
+/// client that asks for it gets a session to come back with over a new socket when its line drops or its host ends the
+/// socket (see <see cref="Connection"/>): its seat waits for it, and the match never notices.
+/// </remarks>
 public sealed class RelayServer : IAsyncDisposable
 {
     /// <summary>Ticks between a command and every world carrying it out: 200 ms at 20 ticks a second.</summary>
     public const int InputDelay = 4;
+
+    /// <summary>The relay's version, told to every client in its <see cref="Welcome"/> and shown by /health. Raise it when the relay changes.</summary>
+    public const string Version = "1.0";
+
+    /// <summary>How long a new socket may stay silent before its first message.</summary>
+    private static readonly TimeSpan FirstMessage = TimeSpan.FromSeconds(30);
 
     private readonly TcpListener _listener;
     private readonly CancellationTokenSource _stop = new();
     private readonly object _lock = new();
     private readonly Dictionary<int, Member> _clients = [];
     private readonly Dictionary<int, Room> _rooms = [];
+    private readonly Dictionary<string, Member> _sessions = [];
     private readonly Random _random = new();
     private readonly List<Task> _tasks = [];
+    private readonly LinkTimings _timings;
     private int _nextClient = 1, _nextRoom = 1;
     private Task _accepting = Task.CompletedTask;
 
-    private RelayServer(TcpListener listener) => _listener = listener;
+    private RelayServer(TcpListener listener, LinkTimings timings) => (_listener, _timings) = (listener, timings);
 
     public int Port => ((IPEndPoint)_listener.LocalEndpoint).Port;
 
     /// <param name="port">0 picks a free port (tests).</param>
     /// <param name="address">Where to listen; without one, on every address, IPv6 as well as IPv4 where the computer has it.</param>
-    public static RelayServer Start(int port, IPAddress? address = null)
+    /// <param name="timings">How long a dropped player's seat waits, and the other clocks of a resumable connection (tests shorten them).</param>
+    public static RelayServer Start(int port, IPAddress? address = null, LinkTimings? timings = null)
     {
         var listener = new TcpListener(address ?? (Socket.OSSupportsIPv6 ? IPAddress.IPv6Any : IPAddress.Any), port);
         if (address is null && Socket.OSSupportsIPv6)
             listener.Server.DualMode = true;
         listener.Start();
-        var server = new RelayServer(listener);
+        var server = new RelayServer(listener, timings ?? LinkTimings.Default);
         server._accepting = server.AcceptLoop();
         return server;
     }
 
     public event Action<string>? Log;
+
+    /// <summary>How many rooms are open and how many players are connected, for /health.</summary>
+    public (int Rooms, int Players) Count()
+    {
+        lock (_lock)
+            return (_rooms.Count, _clients.Count);
+    }
 
     private async Task AcceptLoop()
     {
@@ -53,8 +75,7 @@ public sealed class RelayServer : IAsyncDisposable
             while (!_stop.IsCancellationRequested)
             {
                 var client = await _listener.AcceptTcpClientAsync(_stop.Token);
-                lock (_lock)
-                    _tasks.Add(Serve(new Connection(client)));
+                Track(Accept(new TcpLink(client)));
             }
         }
         catch (OperationCanceledException)
@@ -65,7 +86,66 @@ public sealed class RelayServer : IAsyncDisposable
         }
     }
 
-    private async Task Serve(Connection connection)
+    private void Track(Task task)
+    {
+        lock (_lock)
+        {
+            _tasks.RemoveAll(t => t.IsCompleted);
+            _tasks.Add(task);
+        }
+    }
+
+    /// <summary>
+    /// Takes a new socket: its first message either brings back a session whose line dropped (<see cref="ResumeLink"/>)
+    /// or begins a new client. Completes when this socket ends; the client may live on over a later one.
+    /// </summary>
+    public async Task Accept(Link link)
+    {
+        NetMessage? first;
+        try
+        {
+            using var wait = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
+            wait.CancelAfter(FirstMessage);
+            first = await link.ReceiveAsync(wait.Token);
+        }
+        catch (Exception exception) when (exception is IOException or SocketException or System.Net.WebSockets.WebSocketException
+                                              or OperationCanceledException or ObjectDisposedException or System.Text.Json.JsonException or InvalidDataException)
+        {
+            first = null;
+        }
+        if (first is null)
+        {
+            await link.DisposeAsync();
+            return;
+        }
+        if (first is ResumeLink resume)
+        {
+            Member? member;
+            lock (_lock)
+                _sessions.TryGetValue(resume.Session, out member);
+            if (member is null || !member.Connection.Resume(link, resume.Received))
+            {
+                try
+                {
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                    await link.SendAsync(new Refused("that connection is over"), timeout.Token);
+                }
+                catch (Exception exception) when (exception is IOException or SocketException or System.Net.WebSockets.WebSocketException
+                                                      or OperationCanceledException or ObjectDisposedException)
+                {
+                }
+                await link.DisposeAsync();
+                Log?.Invoke($"refused to resume an unknown connection over {link.Kind}");
+                return;
+            }
+            Log?.Invoke($"{member.Name} ({member.Id}) carries on over a new {link.Kind} socket");
+        }
+        else
+            Track(Serve(new Connection(link, first, _timings), link.Kind));
+        await link.Ended;
+    }
+
+    private async Task Serve(Connection connection, string kind)
     {
         Member? member = null;
         try
@@ -85,8 +165,15 @@ public sealed class RelayServer : IAsyncDisposable
                         }
                         member = new Member(_nextClient++, string.IsNullOrWhiteSpace(hello.Name) ? "Player" : hello.Name.Trim(), connection);
                         _clients[member.Id] = member;
-                        connection.Send(new Welcome(member.Id));
-                        Log?.Invoke($"{member.Name} ({member.Id}) connected");
+                        if (hello.Resume)
+                        {
+                            // The key to come back with: whoever holds it takes the seat, so it cannot be guessed.
+                            member.Session = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16));
+                            _sessions[member.Session] = member;
+                            connection.MakeResumable(member.Session);
+                        }
+                        connection.Send(new Welcome(member.Id, member.Session, Version));
+                        Log?.Invoke($"{member.Name} ({member.Id}) connected over {kind}");
                         continue;
                     }
                     Handle(member, message);
@@ -104,10 +191,22 @@ public sealed class RelayServer : IAsyncDisposable
                 {
                     Leave(member);
                     _clients.Remove(member.Id);
+                    if (member.Session is not null)
+                        _sessions.Remove(member.Session);
                     Log?.Invoke($"{member.Name} ({member.Id}) left");
                 }
             }
             await connection.DisposeAsync();
+        }
+    }
+
+    /// <summary>Cuts every player's socket as a broken line would, as Cloud Run does after its request timeout (tests).</summary>
+    internal void CutLines()
+    {
+        lock (_lock)
+        {
+            foreach (var member in _clients.Values)
+                member.Connection.Cut();
         }
     }
 
@@ -545,6 +644,10 @@ public sealed class RelayServer : IAsyncDisposable
         public int Id { get; } = id;
         public string Name { get; } = name;
         public Connection Connection { get; } = connection;
+
+        /// <summary>The key the player's connection comes back with over a new socket; null for a client that did not ask.</summary>
+        public string? Session { get; set; }
+
         public Room? Room { get; set; }
         public Race Colour { get; set; }
         public bool Ready { get; set; }

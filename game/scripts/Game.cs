@@ -707,7 +707,12 @@ public partial class Game : Node3D
                 }
                 _waitingFor = stepped > 0 ? 0 : _waitingFor + GameWorld.Dt;
             }
-            if (_waitingFor > 1)
+            if (_waitingFor > 1 && Online && NetLink.Connection is { Reconnecting: true })
+            {
+                // This player's own line dropped: it comes back by itself, and the match carries on where it stood.
+                _hud.Banner(Lang.T("Reconnecting to the relay…"));
+            }
+            else if (_waitingFor > 1)
             {
                 var names = _session.Waiting().Select(race => MatchRequest.Current.Network?.Players.FirstOrDefault(p => p.Slot == race)?.Name ?? race.ToString());
                 _hud.Banner(Lang.T("Waiting for {0}", string.Join(", ", names)));

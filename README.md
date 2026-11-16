@@ -255,7 +255,7 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
 | `import/Machines.Import` | Readers for every original data format: stats, research, factories, scenarios, AI scripts, menus, strings, planets, sounds |
 | `sim/Machines.Sim` | The simulation core, plain C# with no Godot types: world, pathfinding on the original obstacles, economy, construction, production, research, combat, the original AI scripts |
 | `net/Machines.Net` | Multiplayer messages and framing, the lockstep session and replays |
-| `server/Machines.Relay` | The multiplayer relay: rooms, turn forwarding, checksum comparison (`--port`, default 7777) |
+| `server/Machines.Relay` | The multiplayer relay: rooms, turn forwarding, checksum comparison (`--port`, default 7777; WebSockets and `/health` on `--http-port` or `PORT`), its Dockerfile and Cloud Run deploy script |
 | `tests/Machines.Tests` | xUnit tests that pin the importers and simulation to the 1999 numbers |
 | `game/` | The Godot 4 client: terrain, units, RTS camera, selection and orders, build menus, HUD, minimap, first person |
 | `tools/classic-export` | Exports the original models from your own copy of the game (see its README) |
@@ -386,6 +386,63 @@ VPN such as Tailscale. A dedicated relay runs with
 ```bash
 dotnet run --project server/Machines.Relay -- --port 7777
 ```
+
+The name typed under **Multiplayer** is kept for the next session (`name` under `[multiplayer]` in the game's
+`user://settings.cfg`), and once connected the page shows the relay's version.
+
+### The relay online
+
+The public relay is the same `server/Machines.Relay`, reached over WebSocket: players type its web address
+(`wss://…`, or the `https://…` Cloud Run shows) where they would type host:port, and the game takes WebSocket for a web
+address and TCP for anything else. Beside the TCP port the relay serves HTTP on the port of the `PORT` environment
+variable (Cloud Run sets it) or of `--http-port`: `GET /health` answers
+`{"status":"ok","version":"1.0","protocol":12,"rooms":0,"players":0}`, and `/ws` takes the games' WebSockets into the
+same rooms as TCP. It logs to standard output.
+
+A dropped line costs the match nothing. A game asks the relay for a session as it connects; both sides count their
+messages and keep what the other has not yet acknowledged, and a game whose socket breaks connects again by itself and
+carries on where it stood, nothing lost and nothing twice (meanwhile its player sees "Reconnecting to the relay…" and
+the others wait for its turns). Some 45 to 50 minutes after connecting a game moves to a new socket on its own, before
+Cloud Run ends the old one at its 60-minute request timeout. A line that stays down for a minute ends as leaving does:
+the AI takes the race over, and the player can rejoin by name. A game that closes on purpose says goodbye, so nobody
+waits for it. The same holds over TCP.
+
+On this computer, with a game connecting to `ws://localhost:8080` (or `127.0.0.1:7777` over TCP):
+
+```bash
+dotnet run --project server/Machines.Relay -- --port 7777 --http-port 8080
+curl http://localhost:8080/health
+```
+
+In Docker, built from the repository's root (only the projects the relay is made of go in, see
+`server/Machines.Relay/Dockerfile.dockerignore`):
+
+```bash
+docker build -f server/Machines.Relay/Dockerfile -t machines-relay .
+docker run --rm -p 8080:8080 -p 7777:7777 machines-relay
+```
+
+On Google Cloud Run, `server/Machines.Relay/deploy-cloudrun.sh <project-id>` builds that image, pushes it to Artifact
+Registry and deploys the service `machines-relay` in `europe-west3` (Frankfurt): one instance at most, since the rooms
+live in its memory; none while nobody plays (the first game after a pause waits a few seconds for it to start, and the
+page says "Server is waking up…"); a request timeout of 3600 seconds, session affinity, up to 1000 connections, one CPU
+and 512 MiB, open to everyone. At the end it prints the address for the game. Once, before the first deploy:
+
+1. Create a project in the Google Cloud console (console.cloud.google.com) and note its project id; link a billing
+   account to it. Cloud Run bills only while a match runs, and its monthly free allowance should cover a start (check
+   the current terms).
+2. Set a budget alert on that billing account (Billing, Budgets & alerts, Create budget), for example 5 euros a month
+   with alerts at 50, 90 and 100 percent.
+3. Install the Google Cloud CLI, sign in with `gcloud auth login`, and have Docker running.
+4. Run `server/Machines.Relay/deploy-cloudrun.sh <project-id>` (in Git Bash on Windows). It turns on Cloud Run,
+   Artifact Registry and Secret Manager for the project, and running it again deploys a new version.
+5. Give the game the address it printed (`wss://machines-relay-….run.app`): as `NetLink.PublicRelay` in
+   `game/scripts/NetLink.cs` for every build, as `public_relay` under `[multiplayer]` in `user://settings.cfg` for one
+   computer, or as `MACHINES_RELAY=<address>` for one run. The RELAY field then starts with it.
+
+Later phases give the relay an admin secret (the matchmaker opens rooms with it) and a key for join tokens. They live in
+Secret Manager as `machines-relay-admin` and `machines-relay-token-key` (`gcloud secrets create <name> --data-file=-`),
+the service's account needs `roles/secretmanager.secretAccessor` on them, and `--with-secrets` hands them to the service.
 
 For automated checks, `MACHINES_MP=host,<address>` (or `serve` to host the relay in the game, `join` to join
 the first room) drives the lobby, and `MACHINES_CHECKSUM_AT=<tick>` prints the world checksum at that tick.

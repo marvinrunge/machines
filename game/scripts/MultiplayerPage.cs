@@ -17,8 +17,14 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
 {
     private static readonly Race[] Colours = [Race.Red, Race.Blue, Race.Green, Race.Yellow];
 
-    // Kept while the game runs, so the page comes back as it was left.
-    private static string _address = "127.0.0.1:7777";
+    // Kept while the game runs, so the page comes back as it was left; at first the public relay, if there is one.
+    private static string? _address;
+
+    // How long a web address may take before the page says the relay is waking up (Cloud Run starts it on the first call).
+    private const double WakingAfter = 1.5;
+
+    // Whether the line to the relay was last seen dropped, to say so once and once more when it is back.
+    private bool _reconnecting;
     private static string _statusText = "Host runs the relay in this game (port 7777) and asks the router to let the others in; " +
                                         "they connect to the address it shows. Or connect to a relay someone else runs.";
 
@@ -72,7 +78,12 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
 
         var login = new ChipPanel { CustomMinimumSize = new Vector2(480, 0), Padding = 22 };
         _name = new LineEdit { Text = NetLink.Name, PlaceholderText = "Your name", ContextMenuEnabled = false };
-        _relay = new LineEdit { Text = _address, PlaceholderText = "Relay address", ContextMenuEnabled = false };
+        _relay = new LineEdit
+        {
+            Text = _address ??= GameOptions.PublicRelay,
+            PlaceholderText = "host:port, or wss://… for a relay online",
+            ContextMenuEnabled = false,
+        };
         _relay.TextChanged += text => _address = text;
         _connect = Button("Connect", () => _ = Connect(), 70, 26);
         _host = Button("Host", () => _ = Host(), 70, 26);
@@ -248,24 +259,51 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             ShowOffline();
             _ = NetLink.DisconnectAsync();
         }
+        else if (connection.Reconnecting != _reconnecting)
+        {
+            // A dropped line comes back by itself within a minute; meanwhile the page says so.
+            _reconnecting = !_reconnecting;
+            Say(_reconnecting ? "The line to the relay dropped; reconnecting…" : ConnectedText());
+        }
     }
 
-    private string PlayerName => string.IsNullOrWhiteSpace(_name.Text) ? "Player" : _name.Text;
+    private string PlayerName => string.IsNullOrWhiteSpace(_name.Text) ? "Player" : _name.Text.Trim();
+
+    /// <summary>Who the player is on the relay, and the relay's version where it says it.</summary>
+    private static string ConnectedText() => NetLink.RelayVersion is { } version
+        ? Lang.T("Connected as {0} to relay {1}.", NetLink.Name, version)
+        : Lang.T("Connected as {0}.", NetLink.Name);
 
     private async Task Connect()
     {
         if (_busy)
             return;
+        var address = _relay.Text.Trim();
+        if (address.Length == 0)
+        {
+            Say("Type the address of a relay first: host:port, or wss://… for a relay online.");
+            return;
+        }
         _busy = true;
         Say("Connecting…");
-        var error = await NetLink.ConnectAsync(_relay.Text, PlayerName);
+        var connecting = NetLink.ConnectAsync(address, PlayerName, keepName: !_automated);
+        // A relay on Cloud Run sleeps between matches; the first call wakes it, which takes a few seconds.
+        if (RelayAddress.IsWebSocket(address))
+            GetTree().CreateTimer(WakingAfter).Timeout += () =>
+            {
+                if (!connecting.IsCompleted && IsInstanceValid(this))
+                    Say("Server is waking up…");
+            };
+        var error = await connecting;
         _busy = false;
+        if (!IsInstanceValid(this))
+            return;
         if (error is not null)
         {
             Say(error);
             return;
         }
-        Say(Lang.T("Connected as {0}.", NetLink.Name));
+        Say(ConnectedText());
         ShowLobby();
     }
 
@@ -276,7 +314,7 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
         _busy = true;
         Say("Starting the relay…");
         var port = _relay.Text.Split(':') is [_, var p] && int.TryParse(p, out var parsed) ? parsed : 7777;
-        var error = await NetLink.HostAsync(port, PlayerName);
+        var error = await NetLink.HostAsync(port, PlayerName, keepName: !_automated);
         _busy = false;
         if (error is not null)
         {
@@ -569,7 +607,7 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             if (_roomList?.Rooms.FirstOrDefault(r => r.Name == was.Name && r.Scenario == was.Scenario && !r.Started) is { } again)
             {
                 NetLink.Send(new JoinRoom(again.Id));
-                Say(Lang.T("Connected as {0}.", NetLink.Name));
+                Say(ConnectedText());
                 return;
             }
             NetLink.Send(new ListRooms());

@@ -32,12 +32,24 @@ namespace Machines.Net;
 [JsonDerivedType(typeof(MatchResumed), "matchResumed")]
 [JsonDerivedType(typeof(PlayerReturned), "playerReturned")]
 [JsonDerivedType(typeof(Chat), "chat")]
+[JsonDerivedType(typeof(Ack), "ack")]
+[JsonDerivedType(typeof(ResumeLink), "resumeLink")]
+[JsonDerivedType(typeof(LinkResumed), "linkResumed")]
+[JsonDerivedType(typeof(Goodbye), "goodbye")]
 public abstract record NetMessage;
 
-/// <summary>First message of a client. <paramref name="Protocol"/> must match the relay's.</summary>
-public sealed record Hello(string Name, int Protocol) : NetMessage;
+/// <summary>
+/// First message of a client. <paramref name="Protocol"/> must match the relay's. With <paramref name="Resume"/> the client
+/// asks to keep its seat over a dropped line (see <see cref="Connection"/>); a relay that cannot ignores it, and a client
+/// that leaves it out is served as before.
+/// </summary>
+public sealed record Hello(string Name, int Protocol, bool Resume = false) : NetMessage;
 
-public sealed record Welcome(int ClientId) : NetMessage;
+/// <summary>
+/// The relay takes a client in. <paramref name="Session"/> is the key a dropped line comes back with, given only to a
+/// client that asked to resume; <paramref name="Relay"/> the relay's version, for the game to show.
+/// </summary>
+public sealed record Welcome(int ClientId, string? Session = null, string? Relay = null) : NetMessage;
 
 /// <summary>A request the relay turned down, and why.</summary>
 public sealed record Refused(string Reason) : NetMessage;
@@ -161,3 +173,28 @@ public sealed record Chat(string From, string Text, Race? To = null) : NetMessag
     /// <summary>The longest text typed in a match (MAX_INGAMECHATMESSAGE_LEN less a name).</summary>
     public const int MaxMatchText = 175;
 }
+
+/// <summary>
+/// What a <see cref="Connection"/> says to the one at the other end to carry a session over changing sockets. These are
+/// neither counted nor kept, and never reach an inbox: the game and the relay only see the messages in between.
+/// </summary>
+public abstract record LinkMessage : NetMessage;
+
+/// <summary>
+/// The sender has received the first <paramref name="Received"/> messages of the other side, which no longer has to keep
+/// them. Sent now and then, and when nothing else is said for a while, to show the line still stands.
+/// </summary>
+public sealed record Ack(long Received) : LinkMessage;
+
+/// <summary>
+/// The first message on a new socket of a client whose line dropped: the session it was given in <see cref="Welcome"/>,
+/// and how many of the relay's messages it has received. The relay answers <see cref="LinkResumed"/>, or
+/// <see cref="Refused"/> when it no longer knows the session.
+/// </summary>
+public sealed record ResumeLink(string Session, long Received) : LinkMessage;
+
+/// <summary>The relay took the new socket for the session; it has received the first <paramref name="Received"/> of the client's messages.</summary>
+public sealed record LinkResumed(long Received) : LinkMessage;
+
+/// <summary>The sender closes the connection on purpose: the other side need not wait for it to come back.</summary>
+public sealed record Goodbye : LinkMessage;

@@ -5,9 +5,34 @@ namespace Machines.Game;
 /// <summary>The connection to the multiplayer relay; it lives across scenes, from the lobby into the match.</summary>
 public static class NetLink
 {
+    /// <summary>
+    /// The public relay this build offers when the settings and MACHINES_RELAY name none (see
+    /// <see cref="GameOptions.PublicRelay"/>): the address Cloud Run gives server/Machines.Relay/deploy-cloudrun.sh, as
+    /// <c>wss://…</c>. Empty until one is deployed.
+    /// </summary>
+    public const string PublicRelay = "";
+
+    /// <summary>How long a web address may take to answer: a relay asleep on Cloud Run first has to wake up.</summary>
+    public static readonly TimeSpan WebTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>How long a TCP address may take to answer.</summary>
+    public static readonly TimeSpan TcpTimeout = TimeSpan.FromSeconds(5);
+
+    private static string? _name;
+    private static Godot.Node? _closer;
+
     public static Connection? Connection { get; private set; }
     public static int ClientId { get; private set; }
-    public static string Name { get; private set; } = "Player";
+
+    /// <summary>The player's name online: the one last used, kept between sessions (<see cref="GameOptions.PlayerName"/>).</summary>
+    public static string Name
+    {
+        get => _name ??= GameOptions.PlayerName ?? "Player";
+        private set => _name = value;
+    }
+
+    /// <summary>The version of the relay connected to, as its welcome said; null for a relay too old to say.</summary>
+    public static string? RelayVersion { get; private set; }
 
     /// <summary>The player's name in a match without the relay: one never given reads in the player's language ("Spieler").</summary>
     public static string OfflineName => Name == "Player" ? Lang.T("Player") : Name;
@@ -42,7 +67,7 @@ public static class NetLink
     /// Runs the relay inside this game on <paramref name="port"/> and connects to it; the other players connect
     /// to this computer's address. Returns why it failed, or null.
     /// </summary>
-    public static async Task<string?> HostAsync(int port, string name)
+    public static async Task<string?> HostAsync(int port, string name, bool keepName = true)
     {
         if (HostedRelay is null)
         {
@@ -55,19 +80,24 @@ public static class NetLink
                 return Lang.T("cannot open port {0}: {1}", port, exception.Message);
             }
         }
-        return await ConnectAsync($"127.0.0.1:{HostedRelay.Port}", name);
+        return await ConnectAsync($"127.0.0.1:{HostedRelay.Port}", name, keepName);
     }
 
-    /// <summary>Connects and introduces the player; returns why it failed, or null.</summary>
-    public static async Task<string?> ConnectAsync(string address, string name)
+    /// <summary>
+    /// Connects to a relay by what the player typed (a web address by WebSocket, "host:port" over TCP, see
+    /// <see cref="RelayAddress"/>) and introduces the player, asking to keep the seat over a dropped line; returns why it
+    /// failed, or null. With <paramref name="keepName"/> the name is kept for the next session (automated checks leave
+    /// the player's own alone).
+    /// </summary>
+    public static async Task<string?> ConnectAsync(string address, string name, bool keepName = true)
     {
         await DisconnectAsync();
-        var (host, port) = Split(address);
+        var web = RelayAddress.IsWebSocket(address);
         try
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            var connection = await Connection.ConnectAsync(host, port, timeout.Token);
-            connection.Send(new Hello(name, NetJson.Protocol));
+            using var timeout = new CancellationTokenSource(web ? WebTimeout : TcpTimeout);
+            var connection = await Connection.ConnectAsync(address, timeout.Token);
+            connection.Send(new Hello(name, NetJson.Protocol, Resume: true));
             var reply = await connection.Inbox.ReadAsync(timeout.Token);
             if (reply is not Welcome welcome)
             {
@@ -76,13 +106,39 @@ public static class NetLink
             }
             Connection = connection;
             ClientId = welcome.ClientId;
+            RelayVersion = welcome.Relay;
+            CloseWithTheGame();
             Name = name;
+            if (keepName)
+                GameOptions.PlayerName = name;
             return null;
         }
-        catch (Exception exception) when (exception is System.Net.Sockets.SocketException or OperationCanceledException or IOException)
+        catch (UriFormatException)
         {
-            return Lang.T("cannot reach {0}:{1} ({2})", host, port, exception.Message);
+            return Lang.T("{0} is not a relay's address", address.Trim());
         }
+        catch (Exception exception) when (exception is System.Net.Sockets.SocketException or System.Net.WebSockets.WebSocketException
+                                              or OperationCanceledException or IOException or System.Threading.Channels.ChannelClosedException)
+        {
+            var why = exception is OperationCanceledException ? Lang.T("no answer") : exception.Message;
+            if (web)
+                return Lang.T("cannot reach {0} ({1})", address.Trim(), why);
+            var (host, port) = RelayAddress.Split(address);
+            return Lang.T("cannot reach {0}:{1} ({2})", host, port, why);
+        }
+    }
+
+    /// <summary>
+    /// A node on the tree's root closes the connection as the game ends: it says goodbye, so the others are not kept
+    /// waiting the minute the relay holds a dropped player's seat for.
+    /// </summary>
+    private static void CloseWithTheGame()
+    {
+        if (_closer is not null && Godot.GodotObject.IsInstanceValid(_closer) || Godot.Engine.GetMainLoop() is not Godot.SceneTree tree)
+            return;
+        _closer = new Godot.Node { Name = "RelayCloser" };
+        _closer.TreeExiting += () => Task.Run(DisconnectAsync).Wait(TimeSpan.FromSeconds(2));
+        tree.Root.CallDeferred(Godot.Node.MethodName.AddChild, _closer);
     }
 
     public static async Task DisconnectAsync()
@@ -90,24 +146,12 @@ public static class NetLink
         if (Connection is { } connection)
         {
             Connection = null;
+            RelayVersion = null;
             await connection.DisposeAsync();
         }
     }
 
     public static void Send(NetMessage message) => Connection?.Send(message);
-
-    /// <summary>"host:port", the port defaulting to the relay's 7777; an IPv6 address in brackets before a port ("[2001:db8::1]:7777").</summary>
-    public static (string Host, int Port) Split(string address)
-    {
-        var text = address.Trim();
-        if (text.StartsWith('[') && text.IndexOf(']') is var close and > 0)
-            return (text[1..close], text[(close + 1)..].TrimStart(':') is { Length: > 0 } after && int.TryParse(after, out var p) ? p : 7777);
-        // More than one colon without brackets: an IPv6 address alone.
-        if (text.Count(c => c == ':') > 1)
-            return (text, 7777);
-        var colon = text.LastIndexOf(':');
-        return colon > 0 && int.TryParse(text[(colon + 1)..], out var port) ? (text[..colon], port) : (text, 7777);
-    }
 
     /// <summary>An address and port as the others type it: an IPv6 address in brackets.</summary>
     public static string Join(System.Net.IPAddress address, int port) =>

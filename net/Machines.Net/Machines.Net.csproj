@@ -9,4 +9,10 @@
     <ProjectReference Include="..\..\sim\Machines.Sim\Machines.Sim.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The tests, and the relay for them, cut a connection's socket as a broken line would. -->
+    <InternalsVisibleTo Include="Machines.Tests" />
+    <InternalsVisibleTo Include="Machines.Relay" />
+  </ItemGroup>
+
 </Project>

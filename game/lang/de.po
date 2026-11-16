@@ -936,6 +936,33 @@ msgstr "Port {0} lässt sich nicht öffnen: {1}"
 msgid "cannot reach {0}:{1} ({2})"
 msgstr "{0}:{1} ist nicht erreichbar ({2})"
 
+msgid "cannot reach {0} ({1})"
+msgstr "{0} ist nicht erreichbar ({1})"
+
+msgid "no answer"
+msgstr "keine Antwort"
+
+msgid "{0} is not a relay's address"
+msgstr "{0} ist keine Relay-Adresse"
+
+msgid "host:port, or wss://… for a relay online"
+msgstr "Host:Port, oder wss://… für ein Relay im Internet"
+
+msgid "Type the address of a relay first: host:port, or wss://… for a relay online."
+msgstr "Gib zuerst die Adresse eines Relays ein: Host:Port, oder wss://… für ein Relay im Internet."
+
+msgid "Server is waking up…"
+msgstr "Der Server wacht auf…"
+
+msgid "Connected as {0} to relay {1}."
+msgstr "Verbunden als {0} mit Relay {1}."
+
+msgid "The line to the relay dropped; reconnecting…"
+msgstr "Die Verbindung zum Relay ist abgerissen; verbinde neu…"
+
+msgid "Reconnecting to the relay…"
+msgstr "Verbinde neu mit dem Relay…"
+
 msgid "Hosting."
 msgstr "Spiel wird gehostet."
 

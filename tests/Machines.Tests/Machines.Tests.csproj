@@ -17,6 +17,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The relay's web side (RelayHttp, Kestrel) runs in the tests; the relay keeps its own reference private. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\import\Machines.Import\Machines.Import.csproj" />
     <ProjectReference Include="..\..\sim\Machines.Sim\Machines.Sim.csproj" />
     <ProjectReference Include="..\..\net\Machines.Net\Machines.Net.csproj" />
