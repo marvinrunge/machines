@@ -6,7 +6,9 @@ namespace Machines.Game;
 /// What the original showed once when the game started, before the main menu (MachGuiStartupScreens): the loading
 /// picture (<c>gui/menu/wait.bmp</c>) with the short film played on it after loading (<c>flics/postload.smk</c>, at
 /// 32,129 of the 640×480 screen), then the intro film (<c>flics/animatic.smk</c>) on black. A click or Escape skips
-/// the film playing. Played straight from the player's own copy of the game; without it there is nothing to show.
+/// the film playing. Under the picture's film the loading bar fills as the menus load (the original's ProgressIndicator
+/// of SDLApp::clientStartup: a pale yellow bar 441 by 5 pixels at 98,362, five pixels long at the start).
+/// Played straight from the player's own copy of the game; without it there is nothing to show.
 /// The remake's own trailer follows when it lies beside the game (<c>films/trailer.ogv</c>, Ogg Theora).
 /// The main menu left alone brings the logos back, five seconds each, with the intro film after them (<see cref="Logos"/>).
 /// </summary>
@@ -20,7 +22,7 @@ public partial class StartupFilms : Control
 
     private readonly string _gameFolder;
     private readonly Action _done;
-    private readonly Func<bool>? _loaded;
+    private readonly Func<float>? _loaded;
     private readonly bool _logos;
     private Control? _frame;
     private SmackerView? _playing;
@@ -31,13 +33,19 @@ public partial class StartupFilms : Control
     private bool _finished;
     private Action? _whenLoaded;
     private double _loadingLeft;
+    private ColorRect? _bar;
+    private float _shown;
+
+    // The original's loading bar: where it lies on the 640x480 screen, and its colour.
+    private static readonly Rect2 BarPlace = new(98, 362, 441, 5);
+    private static readonly Color BarColour = Color.Color8(255, 250, 142);
 
     // The longest the loading picture waits for the menus' loading before its film plays.
     private const double MostLoading = 8;
 
     private static string TrailerFile => System.IO.Path.Combine(Paths.Root, "films", "trailer.ogv");
 
-    private StartupFilms(string gameFolder, Action done, bool logos = false, Func<bool>? loaded = null)
+    private StartupFilms(string gameFolder, Action done, bool logos = false, Func<float>? loaded = null)
     {
         (_gameFolder, _done, _logos, _loaded) = (gameFolder, done, logos, loaded);
         MouseFilter = MouseFilterEnum.Stop;
@@ -46,10 +54,11 @@ public partial class StartupFilms : Control
     /// <summary>
     /// The films, the first time the menus open in this run of the game; <paramref name="done"/> follows once they
     /// have played or been skipped, and the films then leave. The loading picture stays without its film until
-    /// <paramref name="loaded"/> says the menus have loaded what they need (eight seconds at most), as the original
-    /// played it after loading. Null when they have played already or the game copy has no intro.
+    /// <paramref name="loaded"/> (how far the menus have loaded what they need, 0 to 1, shown on its bar) comes to 1,
+    /// eight seconds at most, as the original played it after loading. Null when they have played already or the game
+    /// copy has no intro.
     /// </summary>
-    public static StartupFilms? Create(string? gameFolder, Action done, Func<bool>? loaded = null)
+    public static StartupFilms? Create(string? gameFolder, Action done, Func<float>? loaded = null)
     {
         if (_played || gameFolder is null || !File.Exists(System.IO.Path.Combine(gameFolder, "flics", "animatic.smk")))
             return null;
@@ -79,7 +88,14 @@ public partial class StartupFilms : Control
 
     public override void _Process(double delta)
     {
-        if (_whenLoaded is not null && (_loaded!() || (_loadingLeft -= delta) <= 0))
+        if (_bar is not null)
+        {
+            // The bar fills as loading goes, easing forward and never back; full once the picture's film plays.
+            var share = _whenLoaded is null ? 1 : _loaded?.Invoke() ?? 1;
+            _shown = Math.Max(_shown, Mathf.MoveToward(_shown, share, (float)delta * 2.5f));
+            _bar.Size = new Vector2(Math.Min(_shown * BarPlace.Size.X + 5, BarPlace.Size.X), BarPlace.Size.Y);
+        }
+        if (_whenLoaded is not null && ((_loaded!() >= 1 && _shown >= 0.999f) || (_loadingLeft -= delta) <= 0))
         {
             var play = _whenLoaded;
             _whenLoaded = null;
@@ -168,6 +184,8 @@ public partial class StartupFilms : Control
             Size = Screen,
             MouseFilter = MouseFilterEnum.Ignore,
         });
+        _bar = new ColorRect { Color = BarColour, Position = BarPlace.Position, Size = new Vector2(5, BarPlace.Size.Y), MouseFilter = MouseFilterEnum.Ignore };
+        _frame.AddChild(_bar);
         Fit();
         var frame = _frame;
         void PlayFilm()
@@ -179,8 +197,11 @@ public partial class StartupFilms : Control
             Fit();
         }
         // The film comes after loading, as in the original: until the menus have what they need the picture waits.
-        if (_loaded is null || _loaded())
+        if (_loaded is null || _loaded() >= 1)
+        {
+            _shown = 1;
             PlayFilm();
+        }
         else
             (_whenLoaded, _loadingLeft) = (PlayFilm, MostLoading);
     }

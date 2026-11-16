@@ -49,24 +49,49 @@ public partial class MachineDisplay : MachineScreen
         _next = first ?? (int)(GD.Randi() % Machines.Length);
     }
 
+    /// <summary>The loading of the machines shown: its task, and how many of them it has loaded so far.</summary>
+    public sealed class Loading
+    {
+        private int _loaded;
+
+        public Task Task { get; init; } = Task.CompletedTask;
+
+        /// <summary>How far it has come, from 0 to 1.</summary>
+        public float Share => Task.IsCompleted ? 1 : Volatile.Read(ref _loaded) / (float)(Machines.Length * Races.Length);
+
+        public void Count() => Interlocked.Increment(ref _loaded);
+    }
+
     // The loading of the machines shown, once for each set of assets.
-    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ClassicAssets, Task> Loading = new();
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ClassicAssets, Loading> Loadings = new();
 
     /// <summary>
     /// Loads every machine the display shows, in each race's colours, on worker threads (the assets' caches are
     /// thread-safe), once for <paramref name="assets"/>; the display takes them from the cache as it comes to them.
     /// </summary>
-    public static Task Preload(ClassicAssets assets) => Loading.GetValue(assets, loaded => Task.Run(() =>
+    public static Loading Preload(ClassicAssets assets) => Loadings.GetValue(assets, loaded =>
     {
-        try
+        Loading? loading = null;
+        loading = new Loading
         {
-            Parallel.ForEach(AllShown(), shown => loaded.RigFor(shown.Id, shown.Race));
-        }
-        catch (Exception e)
-        {
-            GD.PushWarning($"Preloading the menu's machines: {e.Message}");
-        }
-    }));
+            Task = Task.Run(() =>
+            {
+                try
+                {
+                    Parallel.ForEach(AllShown(), shown =>
+                    {
+                        loaded.RigFor(shown.Id, shown.Race);
+                        loading!.Count();
+                    });
+                }
+                catch (Exception e)
+                {
+                    GD.PushWarning($"Preloading the menu's machines: {e.Message}");
+                }
+            }),
+        };
+        return loading;
+    });
 
     /// <summary>Every machine the display shows, in each race's colours.</summary>
     public static IEnumerable<(string Id, Race Race)> AllShown() => Races.SelectMany(race => Machines.Select(machine => (machine.Id, race)));

@@ -117,7 +117,7 @@ public partial class MenuScreens : Control
         if (warmup is not null)
             _host.AddChild(warmup);
         if (page == "main" && shot[0].Length == 0 && Setting("MACHINES_MENU_GO") is null
-            && StartupFilms.Create(_assets.GameFolder, () => Begin(page), () => warmup is null || warmup.Done) is { } films)
+            && StartupFilms.Create(_assets.GameFolder, () => Begin(page), () => warmup is null || warmup.Done ? 1 : warmup.Progress) is { } films)
             _host.AddChild(films);
         else
             Begin(page);
