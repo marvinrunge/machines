@@ -14,8 +14,9 @@ namespace Machines.Game;
 /// it owns, all by clicks and drags; it sets the map, lives and victory on the foot bar, presses "Fight against bots" and
 /// plays the player's hero in first person with held keys and buttons. What to do a <see cref="BattleBot"/> of the player's
 /// race decides, its orders caught by its issue hook; the driver carries them out with the keys and the mouse, as
-/// <see cref="WiredDriver"/> does with the Wired bench's bot, and never touches the world: the chassis' special, which no
-/// key gives yet, it sends as the command through the game, as a key would, and says so. At the end screen it checks the
+/// <see cref="WiredDriver"/> does with the Wired bench's bot, and never touches the world: the chassis' special it presses
+/// with its key (J), as a player does; only what the key would refuse or turn into tower mode it sends as the command
+/// through the game, and says which it did. At the end screen it checks the
 /// XP, free XP and credits shown against <see cref="BattleRewards.Of"/> and, back in the pod, the account against them.
 /// It prints "drive: ..." lines, "drive: tick N checksum X ..." every 100 ticks, and writes its pictures to the folder. Over a
 /// recording (MACHINES_REPLAY) it opens the recording from the menu and prints the same tick lines and nothing else, for
