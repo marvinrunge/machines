@@ -278,6 +278,9 @@ msgstr "Vollbild"
 msgid "Menu size"
 msgstr "Menügröße"
 
+msgid "HUD size"
+msgstr "HUD-Größe"
+
 msgid "Gamma"
 msgstr "Gamma"
 

@@ -168,7 +168,10 @@ public partial class Hud : CanvasLayer
         // (the camera tab beside the panel stays at its full width, 30 of the original's pixels wide)
         var left = (_panel.Visible ? Math.Max(_panel.ScreenWidth, (ClassicPanel.PanelWidth + 30) * _panel.PixelScale) : 0) + 12;
         // In first person the weapon panels take the top left; the text goes below them.
-        var top = Weapons.Visible ? Math.Max(Weapons.Bottom, GetViewport().GetVisibleRect().Size.Y * 0.05f + 90 * Math.Max(1, (int)Math.Round(GetViewport().GetVisibleRect().Size.Y / 480f))) : 0;
+        var screen = GetViewport().GetVisibleRect().Size;
+        // The panels start below a Wired run's plates where those reach over them (at a large HUD size).
+        Weapons.Top = Wired?.PanelsTop ?? 0;
+        var top = Weapons.Visible ? Math.Max(Weapons.Bottom, Math.Max(screen.Y * 0.05f, Weapons.Top) + 90 * HudScale.Of(screen)) : 0;
         if (Wired is { } run)
         {
             run.Left = left - 12;

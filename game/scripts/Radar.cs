@@ -54,10 +54,10 @@ public partial class Radar : Control
     };
 
     /// <summary>How wide the radar's corner is on the screen.</summary>
-    public float ScreenWidth => (ClassicGui.Bitmap("fstpersn/radar/rmmap.bmp")?.GetWidth() ?? 0) * Math.Max(1, (int)Math.Round(GetViewportRect().Size.Y / 480f));
+    public float ScreenWidth => HudArt.Size(ClassicGui.Bitmap("fstpersn/radar/rmmap.bmp")?.GetWidth() ?? 0, HudScale.Of(GetViewportRect().Size));
 
     /// <summary>How high the radar's backdrop stands on the screen.</summary>
-    public float ScreenHeight => (ClassicGui.Bitmap("fstpersn/radar/rmmap.bmp")?.GetHeight() ?? 0) * Math.Max(1, (int)Math.Round(GetViewportRect().Size.Y / 480f));
+    public float ScreenHeight => HudArt.Size(ClassicGui.Bitmap("fstpersn/radar/rmmap.bmp")?.GetHeight() ?? 0, HudScale.Of(GetViewportRect().Size));
 
     /// <summary>The machine being driven, whose surroundings the radar shows.</summary>
     public Machine? Driven { get; set; }
@@ -77,7 +77,7 @@ public partial class Radar : Control
     }
 
     // The art of the first moments in first person is made ready for the screen's scale as the match begins.
-    public override void _Ready() => HudArt.Prepare(Math.Max(1, (int)Math.Round(GetViewportRect().Size.Y / 480f)));
+    public override void _Ready() => HudArt.Prepare(HudScale.Of(GetViewportRect().Size));
 
     public override void _Process(double delta)
     {
@@ -89,7 +89,9 @@ public partial class Radar : Control
     public override void _Draw()
     {
         var size = GetViewportRect().Size;
-        var scale = Math.Max(1, (int)Math.Round(size.Y / 480f));
+        var scale = HudScale.Of(size);
+        // The HUD's size changed in the options, or the window's: the art for the new one is made ready.
+        HudArt.Prepare(scale);
         if (Driven is not { } machine || Art("fstpersn/radar/rmmap.bmp", scale) is not { } backdrop)
             return;
         var corner = size - backdrop.GetSize();
@@ -185,7 +187,7 @@ public partial class Radar : Control
     /// The map of the ground under the glass, faintly: a disc the size of the glass whose corners look up the continent
     /// map's picture where the ground under them lies, so that it turns and moves as the blips do.
     /// </summary>
-    private void DrawGround(Vector2 corner, NVector2 position, float cos, float sin, float reach, int scale)
+    private void DrawGround(Vector2 corner, NVector2 position, float cos, float sin, float reach, float scale)
     {
         if ((MiniMaps.For(MatchRequest.Current.Scenario) ?? _planetMap) is not { } map)
             return;
@@ -206,7 +208,7 @@ public partial class Radar : Control
 
     /// <summary>What a Wired run adds: its crates, as a green diamond, and the coming ion strikes' circles.</summary>
     private void ShowRun(Machines.Sim.Survival.WiredRun run, GameWorld world, Func<NVector2, Vector2?> onRadar, Func<NVector2, Vector2> spot,
-        Vector2 disc, float discRadius, float reach, int scale)
+        Vector2 disc, float discRadius, float reach, float scale)
     {
         foreach (var crate in world.WiredPickups)
         {
@@ -280,9 +282,9 @@ public partial class Radar : Control
         return chosen;
     }
 
-    private static Texture2D? Art(string path, int scale) => HudArt.Get(path, scale);
+    private static Texture2D? Art(string path, float scale) => HudArt.Get(path, scale);
 
-    private void Blit(string path, Vector2 at, int scale)
+    private void Blit(string path, Vector2 at, float scale)
     {
         if (path.StartsWith("fstpersn/radar/blips/", StringComparison.Ordinal))
             DrawBlip(path, at.Round(), scale);
@@ -295,7 +297,7 @@ public partial class Radar : Control
     /// building's square plate with a C, a missile emplacement's with an E and a pod's round plate with a P, each in a
     /// brown rim and lit from the top left; ore a pale green heap and wreckage a dark one. Without the bitmap, none.
     /// </summary>
-    private void DrawBlip(string path, Vector2 at, int scale)
+    private void DrawBlip(string path, Vector2 at, float scale)
     {
         if (ClassicGui.Bitmap(path)?.GetImage() is not { } image)
             return;
@@ -369,7 +371,7 @@ public partial class Radar : Control
         ArrowHead = new(0.13f, 0.97f, 0), ArrowEdge = new(0.22f, 0.32f, 0.13f);
 
     /// <summary>The arrow out of the scanner's middle, turned clockwise from straight ahead (MachGuiRadar::displayMotionDirection).</summary>
-    private void DrawArrow(Vector2 middle, float turn, int scale)
+    private void DrawArrow(Vector2 middle, float turn, float scale)
     {
         Vector2 At(float x, float y) => middle + new Vector2(x, y).Rotated(turn) * scale;
         DrawLine(At(-0.5f, 0), At(-0.5f, -10.5f), ArrowLight, scale, true);
@@ -383,7 +385,7 @@ public partial class Radar : Control
     /// The dome in the scanner's middle (gui/fstpersn/radar/dome.bmp): a grey ball eleven of the original's pixels across,
     /// lit from the top left, as discs of light shrinking towards its shine.
     /// </summary>
-    private void DrawDome(Vector2 middle, int scale)
+    private void DrawDome(Vector2 middle, float scale)
     {
         const int Discs = 24;
         var (dark, light) = (new Color(0.16f, 0.17f, 0.17f), new Color(0.80f, 0.82f, 0.82f));
@@ -397,7 +399,7 @@ public partial class Radar : Control
     }
 
     /// <summary>An upright bar filled from the bottom; its second and third pictures (amber, red) below 1.7 and 1 third.</summary>
-    private void Bar(string name, float share, Vector2 topLeft, int scale)
+    private void Bar(string name, float share, Vector2 topLeft, float scale)
     {
         share = Mathf.Clamp(share, 0, 1);
         var picture = share <= 1 / 3f ? $"{name}3" : share <= 1.7f / 3 ? $"{name}2" : name;
@@ -405,6 +407,7 @@ public partial class Radar : Control
             return;
         var height = bar.GetHeight();
         var shown = Mathf.Round(share * height);
+        topLeft = topLeft.Round();
         DrawTextureRectRegion(bar, new Rect2(topLeft + new Vector2(0, height - shown), new Vector2(bar.GetWidth(), shown)),
             new Rect2(0, height - shown, bar.GetWidth(), shown));
     }

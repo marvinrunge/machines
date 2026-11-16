@@ -97,6 +97,10 @@ public partial class WiredHud
         var height = BattlePlateHeight * _u;
         var width = (2 * TeamWidth + ClockWidth + 4 * PlatePad) * _u;
         var box = new Rect2(middle - width / 2, 0, width, height);
+        // The weapons' panels of first person go below the plate (and the capture bars) where a large HUD size brings
+        // them under it; its lower corners are cut 22 of its pixels in, as far as they may reach.
+        if (_hud.Weapons.Visible && _hud.Weapons.Area.End.X > box.Position.X + 22 * _u)
+            PanelsTop = BattleHanging;
         var last = now.Outcome is null && now.Opening is null && now.Seconds <= 30;
         Plate(Corners(box, 0, 0, 22, 22), Plating, last ? Danger : MenuTheme.Edge, 2);
 

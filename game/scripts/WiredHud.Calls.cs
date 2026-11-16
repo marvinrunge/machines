@@ -370,6 +370,14 @@ public partial class WiredHud
         var y = _size.Y * 0.28f;
         var width = (_size.X - Left) * 0.42f * (1 - (1 - opening) * (1 - opening));
         var height = (call.Line is null ? 92 : 128) * _u;
+        // Where the weapons' panels of first person and their triggers reach this far down (at a large HUD size), the
+        // banner starts right of them.
+        var weapons = _hud.Weapons;
+        if (weapons.Visible && weapons.Area.HasArea() && Mathf.Max(weapons.Bottom, weapons.Area.End.Y) > y && weapons.Area.End.X + Gap * _u > middle - width)
+        {
+            var from = weapons.Area.End.X + Gap * _u;
+            (middle, width) = ((from + middle + width) / 2, Mathf.Max(0, (middle + width - from) / 2));
+        }
         // Dark across the middle and clear towards the ends, to read on any ground.
         var left = new Color(0, 0, 0, 0);
         var dark = new Color(0, 0, 0, 0.62f * alpha);

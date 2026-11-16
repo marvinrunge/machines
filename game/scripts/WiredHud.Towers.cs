@@ -43,8 +43,8 @@ public partial class WiredHud
     private void DrawTowerSight(Game.TowerSight towers)
     {
         var choice = towers.Choices[towers.Chosen];
-        // The sight's compass reaches 40 of its own pixels down, which grow with the window by whole steps (Crosshair).
-        var under = towers.Sight + new Vector2(0, 44 * Math.Max(1, Mathf.RoundToInt(_size.Y / 480f)) + 6 * _u);
+        // The sight's compass reaches 40 of its own pixels down, which grow with the window by whole steps and the HUD's size (Crosshair).
+        var under = towers.Sight + new Vector2(0, 44 * HudScale.Of(_size) + 6 * _u);
         if (choice.Tower is { } tower)
         {
             if (towers.Why is { } why)
