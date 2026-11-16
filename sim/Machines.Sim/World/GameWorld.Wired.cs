@@ -651,7 +651,7 @@ public sealed partial class GameWorld
     public string? WhyNoEscort(WiredState state, ResearchKey key)
     {
         var wave = Wired!.ShopWave;
-        if (!WiredCatalogue.Tiers.Any(t => t.Wave <= wave && t.Offers(key)))
+        if (!WiredCatalogue.Tiers.Any(t => t.EscortFrom <= wave && t.Offers(key)))
             return "that is not on offer yet";
         if (Escorts(state.Race).Count() >= SquadLimit(state))
             return "the squad is full";
@@ -891,13 +891,16 @@ public sealed partial class GameWorld
         ? state.EscortIds.Select(Find<Machine>).OfType<Machine>().Where(m => m.Race == race && !m.IsDead)
         : [];
 
+    /// <summary>The machine that comes for a choice from the squad list, now: with Veterans a better one, as the hangar sells them by the wave.</summary>
+    public ResearchKey EscortAs(WiredState state, ResearchKey key) => WiredChips.Veteran(Data, state, key, Wired!.ShopWave);
+
     private string? BuyEscort(WiredState state, ResearchKey key)
     {
         if (WhyNoEscort(state, key) is { } why)
             return why;
         var pod = WiredPod(state.Race)!;
         Charge(state, EscortPrice(state, key));
-        key = WiredChips.Veteran(state, key);
+        key = EscortAs(state, key);
         var spawn = FreePointNear(pod);
         var machine = AddMachine(state.Race, spawn, key.Type, key.SubType, key.HardwareLevel, key.WeaponCombo);
         machine.Squad = WiredBalance.EscortSquad;

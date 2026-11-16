@@ -10,7 +10,8 @@ namespace Machines.Game;
 
 // The driver in the field: every half second it asks the bot what to do and does it with the keys and the mouse, a target
 // in the sight with the triggers held, a place to go along a way round what stands in it. Squad orders, the dash on a long
-// way and giving up at a wave are its own; everything else is the bot's.
+// way and giving up at a wave are its own; everything else is the bot's. What the keys cannot give (the chassis' special
+// until its key is in the key map, a tower at an exact place) goes in as the command and is said in the log.
 public partial class WiredDriver
 {
     /// <summary>The bot is asked again every so many ticks, as often as the bench asks it.</summary>
@@ -39,6 +40,10 @@ public partial class WiredDriver
     private protected NVector2? _place;
     private protected (NVector2 Way, string Why)? _dash;
     private protected (int Slot, NVector2 Aim)? _ability;
+
+    // What the bot wants of the chassis' special key (on or off, for an anchor), and what goes in as the command it is.
+    private protected bool? _special;
+    private protected readonly List<Command> _byCommand = [];
     private bool _hangar;
     private KeyMap.Act? _squad;
 
@@ -72,7 +77,8 @@ public partial class WiredDriver
         var world = game.World;
         LetGo();
         _bot = new Bot(world, world.Data, Shopping, Game.Player, _orders.Add);
-        (_thinkAt, _target, _place, _dash, _ability, _hangar, _squad) = (0, null, null, null, null, false, null);
+        (_thinkAt, _target, _place, _dash, _ability, _special, _hangar, _squad) = (0, null, null, null, null, null, false, null);
+        _byCommand.Clear();
         _way = [];
         game.Ticked += () => Ticked(game);
         await Until(() => game.Driven is not null || world.Tick > 40, 30);
@@ -236,6 +242,14 @@ public partial class WiredDriver
             await UseAbility(game, hero, ability.Slot, ability.Aim);
             return;
         }
+        if (_special is { } on)
+        {
+            _special = null;
+            await UseSpecial(game, hero, on);
+            return;
+        }
+        if (_byCommand.Count > 0)
+            ByCommand(game);
         if (givingUp)
             Charge(game, hero, run);
         else if (_target is { } id && world.Find<Machine>(id) is { IsDead: false } target)
@@ -276,6 +290,12 @@ public partial class WiredDriver
                     break;
                 case WiredAbilityCommand ability:
                     _ability = (ability.Slot, ability.Aim);
+                    break;
+                case WiredSpecialCommand special:
+                    _special = special.On;
+                    break;
+                case WiredTowerCommand or WiredScrapTowerCommand:
+                    _byCommand.Add(order);
                     break;
                 case WiredHangarCommand { Open: true }:
                     _hangar = true;
@@ -631,6 +651,53 @@ public partial class WiredDriver
         var act = slot == 0 ? KeyMap.Act.Ability1 : KeyMap.Act.Ability2;
         await Tap(KeyMap.Of(act));
         Say($"ability {slot + 1} {item?.Catalogue}: pressed {KeyMap.Name(act)}, aimed at {aim.X:0},{aim.Y:0}");
+    }
+
+    /// <summary>
+    /// The chassis' special, used when what the bot wants differs from what the chassis does: a Colossus' anchor only to
+    /// lock free tracks (<paramref name="on"/>) or to let go of locking or locked ones, every other special (a rally, a
+    /// mine, a pulse) each time it is asked for.
+    /// </summary>
+    private protected async Task UseSpecial(Game game, Machine hero, bool on)
+    {
+        var world = game.World;
+        var state = world.Wired!.Heroes[Game.Player];
+        var special = state.Build(world.Data).Chassis.Special;
+        var anchor = (special & ChassisSpecial.Anchor) != 0;
+        var phase = world.AnchorPhaseOf(hero);
+        if (anchor && (on ? phase != AnchorPhase.Free : phase is AnchorPhase.Free or AnchorPhase.Releasing))
+            return;
+        var what = anchor ? $"special {special} {(on ? "on" : "off")}" : $"special {special}";
+        if (world.WhyNoSpecial(state, on) is { } why)
+        {
+            Say($"{what}: not now ({why})");
+            return;
+        }
+        // TODO(after stage E's merge): tap the special's key as a player does, await Tap(KeyMap.Of(KeyMap.Act.Special)),
+        // and say which key was pressed; until that key is in the key map the driver sends the command the key sends.
+        game.Issue(new WiredSpecialCommand(Game.Player, on));
+        await Frames(2);
+        Say($"{what}: by command");
+    }
+
+    /// <summary>
+    /// Orders the keys cannot give exactly, sent as the commands they are: a tower set down at the very place the bot chose
+    /// (the tower mode's aim puts it where the sight rests, not on a point), and a tower scrapped. Each is said in the log,
+    /// "tower by command", so that none goes silently.
+    /// </summary>
+    private protected void ByCommand(Game game)
+    {
+        foreach (var command in _byCommand)
+        {
+            game.Issue(command);
+            Say(command switch
+            {
+                WiredTowerCommand tower => $"tower by command: {tower.Tower} at {tower.Position.X:0},{tower.Position.Y:0} turned {tower.Orientation}",
+                WiredScrapTowerCommand scrap => $"tower by command: scrap tower {scrap.Tower}",
+                _ => $"by command: {command}",
+            });
+        }
+        _byCommand.Clear();
     }
 
     /// <summary>An order to the squad by its key; with none to order there is nothing to press.</summary>

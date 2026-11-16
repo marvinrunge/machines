@@ -180,6 +180,7 @@ public sealed partial class GameWorld
         CountFoes(run);
         BringBackTurned(run);
         UpdateStrikes(run);
+        UpdateBuilders(run);
         if (Time >= run.NextReview)
         {
             run.NextReview = Time + WiredBalance.OrdersEvery;
@@ -193,9 +194,12 @@ public sealed partial class GameWorld
             EndWave(run);
     }
 
-    /// <summary>All is clear: the bonus is paid, a boss leaves its chips to choose from, and the intermission starts.</summary>
+    /// <summary>All is clear: the waves' towers fall with them, the bonus is paid, a boss leaves its chips to choose from, and the intermission starts.</summary>
     private void EndWave(WiredRun run)
     {
+        // Gone at the next tick as any that falls, to nobody's credit.
+        foreach (var tower in TowersOf(run.Enemy))
+            (tower.HitPoints, tower.LastHitBy) = (0, null);
         var (bonus, boss) = (WiredBalance.WaveBonus(run.Wave), run.Boss);
         foreach (var state in run.Heroes.Values)
         {
@@ -332,6 +336,68 @@ public sealed partial class GameWorld
         Arrive(run, WiredDirector.Reinforcements(Data, run.Wave, run.Options.Difficulty, Random), nearest);
     }
 
+    /// <summary>
+    /// A boss that builds raises the waves' towers by the pod: standing with the pod within its weapons' reach, it builds
+    /// on a site of its race within its reach at its rate, and with none there raises the next of its towers that can fire
+    /// at the hero beside it (<see cref="NextTower"/>), at no charge, while fewer than <see cref="WiredBalance.BossTowers"/>
+    /// of its race stand. So they come one after the other.
+    /// </summary>
+    private void UpdateBuilders(WiredRun run)
+    {
+        if (AttackedPod(run) is not { } pod)
+            return;
+        foreach (var foe in run.Foes)
+        {
+            var builder = foe.Machine;
+            if (foe.Plan.Boss?.Towers is not { Count: > 0 } kinds || builder.IsDead || builder.Inside is not null
+                || builder.PathIndex < builder.Path.Count || (builder.Stats.ConstructionRate ?? 0) <= 0
+                || builder.DistanceTo(pod) > MaximumWeaponRange(builder) * FiringRangeShare)
+                continue;
+            var towers = TowersOf(run.Enemy);
+            if (towers.FirstOrDefault(t => !t.Complete && InReach(builder, t)) is { } site)
+                WorkOnTower(builder, site);
+            else if (towers.Count < WiredBalance.BossTowers
+                && NextTower(run, builder, kinds, towers.Count, pod) is { } tower && TowerSpot(builder, pod, tower) is { } spot)
+                RaiseTower(run.Enemy, tower, spot, 0);
+        }
+    }
+
+    /// <summary>
+    /// The kind of tower a boss that builds raises next, the one after <paramref name="standing"/> of its kinds in turn,
+    /// counting only those that could fire at the hero, or at the pod while the hero is not out: a sentry fires at the
+    /// ground or at the air alone. Null when none could.
+    /// </summary>
+    private WiredTower? NextTower(WiredRun run, Machine builder, IReadOnlyList<string> kinds, int standing, Construction pod)
+    {
+        var mark = (Actor?)Quarry(run) ?? pod;
+        var fit = kinds.Select(WiredCatalogue.FindTower).OfType<WiredTower>()
+            .Where(tower => CanFireAt(TowerProbe(builder.Race, tower, builder.Position, 0), mark)).ToList();
+        return fit.Count == 0 ? null : fit[standing % fit.Count];
+    }
+
+    /// <summary>The ways a boss that builds tries for a tower, in eighths of a turn from the way to the pod: to the sides first, never first in its own line of fire.</summary>
+    private static readonly int[] TowerWays = [2, -2, 3, -3, 1, -1, 4, 0];
+
+    /// <summary>
+    /// Where a boss that builds raises a tower: the first place close beside it, by <see cref="TowerWays"/>, where a tower
+    /// can stand and the boss can build it from where it stands.
+    /// </summary>
+    private Vector2? TowerSpot(Machine builder, Construction pod, WiredTower tower)
+    {
+        var way = pod.Position - builder.Position;
+        way = way.LengthSquared() > 0.01f ? Vector2.Normalize(way) : Vector2.UnitX;
+        var gap = builder.Radius + TowerProbe(builder.Race, tower, builder.Position, 0).Radius + 1;
+        foreach (var eighths in TowerWays)
+        {
+            var angle = eighths * MathF.Tau / 8;
+            var (sin, cos) = (DetMath.Sin(angle), DetMath.Cos(angle));
+            var probe = TowerProbe(builder.Race, tower, builder.Position + new Vector2(way.X * cos - way.Y * sin, way.X * sin + way.Y * cos) * gap, 0);
+            if (WhyNoTowerThere(probe) is null && InReach(builder, probe))
+                return probe.Position;
+        }
+        return null;
+    }
+
     /// <summary>Every few seconds: machines of the enemy that came over to it join the wave, the idle get new orders, and those that hang are fetched.</summary>
     private void ReviewFoes(WiredRun run)
     {
@@ -385,6 +451,7 @@ public sealed partial class GameWorld
         if (FetchPlace(machine, pod) is not { } place)
             return;
         StartAfresh(machine);
+        CutLoose(machine);
         machine.Position = FreeSpotNear(place, MathF.Max(1, machine.Stats.LowClearance));
         foe.Fetched = true;
         foe.LastPlace = machine.Position;

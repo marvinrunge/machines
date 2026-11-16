@@ -133,7 +133,7 @@ public sealed partial class GameWorld
     }
 
     /// <summary>The share of a weapon's range it opens fire at, to allow for errors in working it out (MachLogCanAttack::rangeData).</summary>
-    private const float FiringRangeShare = 0.95f;
+    public const float FiringRangeShare = 0.95f;
 
     private readonly record struct WeaponAngles(float TanHorizontal, float Vertical, float MostUp, float MostDown);
 
@@ -342,7 +342,7 @@ public sealed partial class GameWorld
     // ---- where rounds end (MachLogLinearProjectile::genericCheckForDamage) ----------------------------
 
     /// <summary>How far a round's burst reaches and whether its damage falls off with the distance (each round's doBeDestroyed).</summary>
-    private static (float Radius, bool FallsOff) BurstOf(string weapon) => weapon switch
+    internal static (float Radius, bool FallsOff) BurstOf(string weapon) => weapon switch
     {
         "LARGE_MISSILE" => (20, true),
         _ when weapon.StartsWith("MULTI_LAUNCHER", StringComparison.Ordinal) => (10, true),

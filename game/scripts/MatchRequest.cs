@@ -85,7 +85,7 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
         var win = values.TryGetValue("win", out var won) && Enum.TryParse<Machines.Sim.Survival.BattleWin>(won, true, out var parsed) ? parsed : Machines.Sim.Survival.BattleWin.Both;
         var watch = Number("bots", 3) >= 4;
         var player = map.TeamA[0];
-        var hero = watch ? null : Machines.Sim.Survival.BattleBots.Bot(tier, player, 0) with { Name = BattleDraft.ShortName(NetLink.OfflineName), Bot = false };
+        var hero = watch ? null : Machines.Sim.Survival.BattleBots.Bot(map.Scenario, tier, player, 0) with { Name = BattleDraft.ShortName(NetLink.OfflineName), Bot = false };
         return ForBattle(map, BattleDraft.Compose(map, tier, Number("lives", 1), win, hero), player, watch);
     }
 

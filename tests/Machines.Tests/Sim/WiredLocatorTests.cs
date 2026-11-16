@@ -863,15 +863,16 @@ public class WiredLocatorTests
     // ---- battle -----------------------------------------------------------------------------------
 
     [Fact]
-    public void In_a_battle_the_crab_is_of_the_first_tier_the_glider_of_the_second_and_bots_take_them_second()
+    public void In_a_battle_the_crab_is_of_the_first_tier_the_glider_of_the_second_and_bots_take_them_beside_the_grunts()
     {
         Assert.Equal((1, 2), (BattleCatalogue.Tier("geo1"), BattleCatalogue.Tier("geo3")));
         Assert.Equal(["grunt1", "geo1"], BattleCatalogue.OfTier(1).Select(c => c.Id));
         Assert.Equal(["grunt2", "geo3"], BattleCatalogue.OfTier(2).Select(c => c.Id));
-        foreach (var race in Enum.GetValues<Race>())
+        // On every map the two bots of a team at tiers I and II are a grunt and a locator, which one first by the map.
+        foreach (var map in BattleCatalogue.Maps)
         {
-            Assert.Equal(("grunt1", "geo1"), (BattleBots.Pick(1, race, 0), BattleBots.Pick(1, race, 1)));
-            Assert.Equal(("grunt2", "geo3"), (BattleBots.Pick(2, race, 0), BattleBots.Pick(2, race, 1)));
+            Assert.Equal(["geo1", "grunt1"], new[] { BattleBots.Pick(map.Scenario, 1, 0), BattleBots.Pick(map.Scenario, 1, 1) }.Order());
+            Assert.Equal(["geo3", "grunt2"], new[] { BattleBots.Pick(map.Scenario, 2, 0), BattleBots.Pick(map.Scenario, 2, 1) }.Order());
         }
 
         foreach (var (chassis, tier) in new[] { ("geo1", 1), ("geo3", 2) })

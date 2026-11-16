@@ -579,8 +579,8 @@ public sealed class MatchDesk(Game game, ClassicAssets assets) : HangarDesk
     /// <summary>Mends the pod for so many BMUs, or wholly for 0.</summary>
     public string? MendPod(int bmu) => Asked(World.WhyNoPodRepair(State), new WiredPodRepairCommand(Game.Player, bmu));
 
-    /// <summary>The machine that comes for a choice from the squad list: with Veterans a better one.</summary>
-    public ResearchKey EscortAs(ResearchKey machine) => WiredChips.Veteran(State, machine);
+    /// <summary>The machine that comes for a choice from the squad list: with Veterans a better one, as the sim delivers it.</summary>
+    public ResearchKey EscortAs(ResearchKey machine) => World.EscortAs(State, machine);
 
     /// <summary>Why an escort cannot be had, or null.</summary>
     public string? WhyNoEscort(ResearchKey machine) => World.WhyNoEscort(State, machine);

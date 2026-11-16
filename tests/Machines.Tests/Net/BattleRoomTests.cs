@@ -280,7 +280,7 @@ public class BattleRoomTests
         // Green is the first of team B and mirrors Anna's tier, Yellow the second and mirrors Ben's.
         Assert.Equal((true, 2), (battle.Heroes[2].Bot, BattleCatalogue.Tier(battle.Heroes[2].Chassis)));
         Assert.Equal((true, 3), (battle.Heroes[3].Bot, BattleCatalogue.Tier(battle.Heroes[3].Chassis)));
-        BattleNetTests.SameHero(BattleBots.Bot(3, Race.Yellow, 1), battle.Heroes[3]);
+        BattleNetTests.SameHero(BattleBots.Bot(map.Scenario, 3, Race.Yellow, 1), battle.Heroes[3]);
         Assert.Null(BattleBots.WhyNot(battle.Heroes[2], 3));
     }
 

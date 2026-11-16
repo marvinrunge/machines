@@ -35,10 +35,13 @@ public sealed partial class GameWorld
         var hero = HeroOf(state.Race)!;
         if (Vector2.DistanceSquared(hero.Position, position) > WiredBalance.TowerReach * WiredBalance.TowerReach)
             return "too far";
-        if (!Nav.OnPlanet(position))
-            return "obstacles or uneven terrain";
-        var probe = TowerProbe(state.Race, WiredCatalogue.FindTower(tower)!, position, orientation);
-        if (!Nav.IsAreaFree(probe.Footprint))
+        return WhyNoTowerThere(TowerProbe(state.Race, WiredCatalogue.FindTower(tower)!, position, orientation));
+    }
+
+    /// <returns>null if a tower can stand where <paramref name="probe"/> stands, on open even ground off the pods' doors and clear of every machine, otherwise why not.</returns>
+    private string? WhyNoTowerThere(Construction probe)
+    {
+        if (!Nav.OnPlanet(probe.Position) || !Nav.IsAreaFree(probe.Footprint))
             return "obstacles or uneven terrain";
         // The waves march to the pod's door, and the hero comes out by it.
         if (Wired!.Heroes.Keys.Select(WiredPod).OfType<Construction>().Any(pod => probe.DistanceFrom(Doorstep(pod)) < WiredBalance.PodKeepOut))

@@ -11,7 +11,8 @@ namespace Machines.Sim.World;
 /// hero, escort, machine of the waves and battle hero alike; and the Marshal's field and rally, the hero's. What a body
 /// keeps in mind is in <see cref="WiredRun.Bodies"/>. What a special does to a weapon it does by tuning the mount
 /// (<see cref="WeaponMount.Tune"/>), never by a refit, so that reloads and the driver stay. Nothing here runs without
-/// <see cref="Wired"/>; who uses the specials of the bodies on the waves' side and in the squad is decided elsewhere.
+/// <see cref="Wired"/>. A hero's driver uses its body's special by its commands; the machines of the waves and of the squad
+/// use theirs by themselves (<see cref="DriveBody"/>).
 /// </summary>
 public sealed partial class GameWorld
 {
@@ -57,8 +58,9 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// A tick of the bodies, after the fighting and before the heroes': the harvests are paid out, what stands still
-    /// lurks, anchors lock and come free, and what a body's own dash throws along rams. The bodies of machines gone, fallen
-    /// or on a chassis without a special of its body are forgotten first.
+    /// lurks, anchors lock and come free, the machines of the waves and of the squad use their bodies by themselves, and
+    /// what a body's own dash throws along rams. The bodies of machines gone, fallen or on a chassis without a special of
+    /// its body are forgotten first.
     /// </summary>
     private void UpdateBodies(WiredRun run)
     {
@@ -85,6 +87,7 @@ public sealed partial class GameWorld
             else
                 // A hero that changed from a Colossus to another body special's chassis stands free.
                 body.Anchor = AnchorPhase.Free;
+            DriveBody(run, machine, body, special);
             if (Time < body.DashUntil && !IsWiredHero(machine))
                 UpdateBodyDash(machine, body, special);
         }
@@ -328,17 +331,19 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// What a rooted machine without a driver does instead of its order, which waits for the tracks to come free: it turns
-    /// its hull to what it fights, its attack's target or the nearest enemy in its reach, as anchored. An attack on what
-    /// is gone ends as any does.
+    /// its hull to what it fights, its attack's target or else the nearest enemy in its reach that it has a clear shot at,
+    /// as it picks one to fire at standing its ground; with no clear shot at any, the nearest. An attack on what is gone
+    /// ends as any does.
     /// </summary>
     private void HoldRooted(Machine machine)
     {
         if (machine.Order is AttackOrder attack && FindTarget(attack.Target) is var lost
             && (lost is null || lost.IsDead || !CanAttack(machine.Race, lost) || !CanFireAt(machine, lost) || Indoors(lost) || Shadowed(machine, lost)))
             UpdateAttack(machine, attack);
+        var reach = MaximumWeaponRange(machine);
         var target = machine.Order is AttackOrder still && FindTarget(still.Target) is { IsDead: false } fought && CanAttack(machine.Race, fought)
             ? fought
-            : NearestEnemy(machine, MaximumWeaponRange(machine));
+            : NearestEnemy(machine, reach, clearShot: true) ?? NearestEnemy(machine, reach);
         if (target is not null && !machine.CanTurnUpperBody)
             Face(machine, target.Position);
     }
@@ -390,26 +395,139 @@ public sealed partial class GameWorld
         if (WhyNoAnchor(state, on) is { } why)
             return why;
         var hero = HeroOf(state.Race)!;
-        switch (AnchorPhaseOf(hero), on)
-        {
-            case (AnchorPhase.Free, true):
-                if (_motion.TryGetValue(hero.Id, out var motion))
-                {
-                    AnnounceStop(hero, motion);
-                    StopDead(motion);
-                }
-                SetAnchor(hero, BodyOf(hero), AnchorPhase.Locking, GameEventKind.WiredAnchoring);
-                break;
-            case (AnchorPhase.Locking, false):
-                SetAnchor(hero, BodyOf(hero), AnchorPhase.Free, GameEventKind.WiredReleased);
-                break;
-            case (AnchorPhase.Anchored, false):
-                var body = BodyOf(hero);
-                SetAnchor(hero, body, AnchorPhase.Releasing, GameEventKind.WiredReleasing);
-                TuneAnchor(hero, body);
-                break;
-        }
+        if (on && AnchorPhaseOf(hero) == AnchorPhase.Free)
+            Lock(hero, BodyOf(hero));
+        else if (!on && KnownBody(hero) is { } body)
+            Release(hero, body);
         return null;
+    }
+
+    /// <summary>The tracks begin to lock, and what the machine was rolling stops dead.</summary>
+    private void Lock(Machine machine, WiredBody body)
+    {
+        if (_motion.TryGetValue(machine.Id, out var motion))
+        {
+            AnnounceStop(machine, motion);
+            StopDead(motion);
+        }
+        SetAnchor(machine, body, AnchorPhase.Locking, GameEventKind.WiredAnchoring);
+    }
+
+    /// <summary>The tracks let go: locking they are free again at once, as they had not locked yet; anchored they start coming free.</summary>
+    private void Release(Machine machine, WiredBody body)
+    {
+        if (body.Anchor == AnchorPhase.Locking)
+            SetAnchor(machine, body, AnchorPhase.Free, GameEventKind.WiredReleased);
+        else if (body.Anchor == AnchorPhase.Anchored)
+        {
+            SetAnchor(machine, body, AnchorPhase.Releasing, GameEventKind.WiredReleasing);
+            TuneAnchor(machine, body);
+        }
+    }
+
+    /// <summary>A machine set down somewhere else stands free there at once, its weapons as made.</summary>
+    private void CutLoose(Machine machine)
+    {
+        if (KnownBody(machine) is not { Anchor: not AnchorPhase.Free } body)
+            return;
+        SetAnchor(machine, body, AnchorPhase.Free, GameEventKind.WiredReleased);
+        TuneAnchor(machine, body);
+    }
+
+    // ---- the bodies of the waves and of the squad --------------------------------------------------
+
+    /// <summary>
+    /// What a machine of the waves or of the squad does with its body by itself: a Colossus of the waves anchors at what it
+    /// can hit anchored, one of the squad while it holds its ground, and an Old Iron rams what it attacks. A Widow lurks
+    /// wherever it stands still and a Hornet of theirs never dashes, so neither needs more. Not in a battle, whose machines
+    /// are all heroes.
+    /// </summary>
+    private void DriveBody(WiredRun run, Machine machine, WiredBody body, ChassisSpecial special)
+    {
+        if (Battle is not null || machine.Inside is not null || IsWiredHero(machine))
+            return;
+        if ((special & ChassisSpecial.Anchor) != 0)
+        {
+            if (machine.Race == run.Enemy)
+                AnchorAgainst(run, machine, body);
+            else
+                AnchorOnHold(machine, body);
+        }
+        if ((special & ChassisSpecial.Plough) != 0)
+            RamAhead(machine, body);
+    }
+
+    /// <summary>
+    /// A Colossus of the waves anchors as soon as it has a clear shot at something within its anchored reach: a besieger
+    /// only at the pod, any other at the enemy nearest, pod and towers included. Unless it attacks something there already,
+    /// it then attacks that, going on afterwards to where it was bound. Its order waits while the tracks hold. Anchored
+    /// with nothing to hit for <see cref="WiredBalance.AnchorIdle"/> seconds it lets go.
+    /// </summary>
+    private void AnchorAgainst(WiredRun run, Machine machine, WiredBody body)
+    {
+        var reach = AnchoredReach(machine);
+        var fighting = machine.Order is AttackOrder attack && FindTarget(attack.Target) is { } fought && Marks(machine, fought, reach) ? fought : null;
+        Actor? mark = run.Foes.Exists(f => f.Machine == machine && f.Plan.Role == WiredRole.Besieger)
+            ? AttackedPod(run) is { } pod && Marks(machine, pod, reach) ? pod : null
+            : fighting ?? NearestEnemy(machine, reach, clearShot: true);
+        if (mark is null)
+        {
+            if (body.Anchor == AnchorPhase.Anchored && Past(body.AnchorIdleSince, WiredBalance.AnchorIdle))
+                Release(machine, body);
+            return;
+        }
+        body.AnchorIdleSince = Time;
+        if (fighting is null)
+            Engage(run, machine, mark);
+        if (body.Anchor == AnchorPhase.Free)
+            Lock(machine, body);
+    }
+
+    /// <summary>A Colossus of the squad anchors while it holds its ground, and lets go at any other order, which waits for the tracks to come free.</summary>
+    private void AnchorOnHold(Machine machine, WiredBody body)
+    {
+        if (machine.Order is not StandGroundOrder)
+            Release(machine, body);
+        else if (body.Anchor == AnchorPhase.Free)
+            Lock(machine, body);
+    }
+
+    /// <summary>How far a Colossus hits anchored: its furthest weapon that deals damage as made, as the anchor tunes it, at the share of the range it opens fire at.</summary>
+    private static float AnchoredReach(Machine machine) =>
+        machine.Weapons.Where(w => w.DealsDamage).Select(w => w.Base.Range).DefaultIfEmpty(0).Max() * WiredBalance.AnchorRange * FiringRangeShare;
+
+    /// <summary>Whether a machine could fight a target from where it stands, within <paramref name="reach"/> and with a clear shot.</summary>
+    private bool Marks(Machine machine, Actor target, float reach) =>
+        !target.IsDead && CanAttack(machine.Race, target) && CanFireAt(machine, target) && !Indoors(target) && !Shadowed(machine, target)
+        && machine.DistanceTo(target) <= reach && ClearShot(machine, target);
+
+    /// <summary>A machine of the waves attacks its mark, and goes on afterwards to where it was bound, the pod's door at the least.</summary>
+    private void Engage(WiredRun run, Machine machine, Actor mark)
+    {
+        var then = machine.Order switch
+        {
+            AttackMoveOrder move => move.Target,
+            AttackOrder attack => attack.Then,
+            _ => AttackedPod(run) is { } pod ? Doorstep(pod) : (Vector2?)null,
+        };
+        Send(machine, new AttackOrder(mark.Id, Then: then), null);
+    }
+
+    /// <summary>
+    /// An Old Iron of the waves or of the squad dashes at the enemy machine it attacks once that is within
+    /// <see cref="WiredBalance.RamReach"/> in the front third of its hull and its dash is ready, so the dash rams it. Its
+    /// attack goes on.
+    /// </summary>
+    private void RamAhead(Machine machine, WiredBody body)
+    {
+        if (Time < body.DashReadyAt || machine.Order is not AttackOrder attack
+            || Find<Machine>(attack.Target) is not { IsDead: false, Inside: null } target || target.Stats.Locomotion == Locomotion.Glider
+            || !AreEnemies(machine.Race, target.Race)
+            || Vector2.DistanceSquared(machine.Position, target.Position) > WiredBalance.RamReach * WiredBalance.RamReach
+            || !InFront(machine, target.Position))
+            return;
+        if (BodyDash(machine, target.Position - machine.Position))
+            machine.Order = attack;
     }
 
     // ---- the Marshal -------------------------------------------------------------------------------
@@ -476,6 +594,7 @@ public sealed partial class GameWorld
         {
             var old = escort.Position;
             StartAfresh(escort);
+            CutLoose(escort);
             escort.Position = FreeSpotNear(hero.Position, MathF.Max(1, escort.Stats.LowClearance));
             Send(escort, new FollowOrder(hero.Id), hero.Position);
             Raise(new GameEvent(GameEventKind.WiredSquadRallied, escort.Id, old));

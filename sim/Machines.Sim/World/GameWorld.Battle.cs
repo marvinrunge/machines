@@ -29,13 +29,16 @@ public sealed partial class GameWorld
         Battle is { } battle && team is 0 or 1 && battle.Pods[team] is { } id && Find<Construction>(id) is { IsDead: false } pod ? pod : null;
 
     /// <summary>
-    /// Starts the battle: every race of the teams gets its hero at its team's pod, the first at the door and the second
-    /// beside it, and the computer's races a bot. A hero that does not resolve is clamped to a bot's loadout.
+    /// Starts the battle on the map of <paramref name="scenario"/>: every race of the teams gets its hero at its team's pod,
+    /// the first at the door and the second beside it, and the computer's races a bot. A race the options name no hero for
+    /// gets a bot's, composed for that map by <see cref="BattleBots.Compose"/> as the relay and the pod compose it; a hero
+    /// that does not resolve is clamped to a bot's loadout.
     /// </summary>
-    internal void StartBattle(BattleOptions options)
+    internal void StartBattle(BattleOptions options, string scenario)
     {
         var tier = Math.Clamp(options.Tier, 1, BattleCatalogue.MostTier);
         var teams = new[] { options.TeamA.Distinct().ToList(), options.TeamB.Distinct().ToList() };
+        var composed = BattleBots.Compose(options with { Tier = tier, TeamA = teams[0], TeamB = teams[1] }, options.Heroes, scenario).Heroes;
         var heroes = new List<BattleHero>();
         foreach (var team in teams)
         {
@@ -43,9 +46,7 @@ public sealed partial class GameWorld
             for (var k = 0; k < ordered.Count; k++)
             {
                 var race = ordered[k];
-                var hero = options.Heroes.FirstOrDefault(h => h.Race == race)
-                    ?? BattleBots.Bot(BattleCatalogue.BracketBottom(tier), race, k);
-                heroes.Add(BattleBots.Resolved(hero with { Race = race }, tier, k));
+                heroes.Add(BattleBots.Resolved(composed.First(h => h.Race == race) with { Race = race }, tier, k, scenario));
             }
         }
         var played = options with

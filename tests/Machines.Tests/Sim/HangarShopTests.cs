@@ -697,7 +697,7 @@ public class HangarShopTests
         var state = Red(world);
         var shop = Shop(world);
         var key = shop.Escorts().First();
-        var later = WiredCatalogue.Tiers.Where(t => t.Wave > shop.Wave).Select(t => new ResearchKey(t.Type, t.SubType, t.Level, t.Combos[0])).First();
+        var later = WiredCatalogue.Tiers.Where(t => t.EscortFrom > shop.Wave).Select(t => new ResearchKey(t.Type, t.SubType, t.Level, t.Combos[0])).First();
 
         Assert.Equal("not enough BMUs", world.WhyNoEscort(state, key));
         Assert.Equal(world.WhyNoEscort(state, key), Do(world, new WiredSquadBuyCommand(Race.Red, key)));

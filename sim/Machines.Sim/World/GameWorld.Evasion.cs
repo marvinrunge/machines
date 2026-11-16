@@ -169,9 +169,11 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// Whether a machine is one of the fighting kind, an aggressor or an administrator, as the original counts them
-    /// for strength, threats and help. A Wired hero is one whatever its type: a constructor or a spy is worn to fight.
+    /// for strength, threats and help. In Wired a hero is one whatever its type, as is any machine with a gun, such as
+    /// the Titan the waves bring: a constructor or a spy is worn there to fight.
     /// </summary>
-    private bool IsFighter(Machine machine) => machine.Spec.Type is "AGGRESSOR" or "ADMINISTRATOR" || Wired is not null && IsWiredHero(machine);
+    private bool IsFighter(Machine machine) =>
+        machine.Spec.Type is "AGGRESSOR" or "ADMINISTRATOR" || Wired is not null && (machine.CanFight || IsWiredHero(machine));
 
     /// <summary>
     /// MachActor::militaryStrength: a fighting machine (<see cref="IsFighter"/>) or a tower is worth its cost by the share

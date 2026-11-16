@@ -121,9 +121,14 @@ public sealed record WiredTower(string Id, string SubType, int Level)
     public const string Type = "MISSILE_EMPLACEMENT";
 }
 
-/// <summary>A type of machine the waves bring in and the hangar sells as an escort, from <paramref name="Wave"/> on.</summary>
+/// <summary>A type of machine the waves bring in from <paramref name="Wave"/> on, and the hangar sells as an escort from <see cref="EscortFrom"/>.</summary>
 public sealed record WiredTier(int Wave, string Type, string SubType, int Level, IReadOnlyList<string> Combos)
 {
+    /// <summary>The first wave whose hangar sells it as an escort: the wave the waves bring it from, unless given.</summary>
+    public int EscortFrom { get; init; } = Wave;
+
+    public string TypeName => $"{Type} {SubType}";
+
     public bool Offers(ResearchKey key) =>
         key.Type == Type && key.SubType == SubType && key.HardwareLevel == Level && key.WeaponCombo is { } combo && Combos.Contains(combo);
 }
@@ -267,15 +272,23 @@ public static class WiredCatalogue
         new(30, "AGGRESSOR", "KNIGHT", 5, ["LRT_MULTI_LAUNCHER4_X3", "LRT_PLASMA_CANNON2_X3"]),
         new(36, "AGGRESSOR", "NINJA", 5, ["L_MULTI_LAUNCHER7_T_GORILLA_PUNCH_R_MULTI_LAUNCHER7"]),
         // Wired's own machines come only after the Gorilla, so that the runs the balance aims at (to wave 20) never meet
-        // them. No export has them with these weapons: the view puts them together as it does a hero (HeroRig).
-        new(38, "AGGRESSOR", "GRUNT", 4, ["LR_HEAVY_BOLTER2_X2_T_AUTO_CANNON"]),
-        new(38, "AGGRESSOR", "ASSASSIN", 4, ["L_PLASMA_CANNON2_R_PLASMA_CANNON1"]),
-        new(42, "ADMINISTRATOR", "BOSS", 3, ["LR_PULSE_RIFLE_X2_T_WASP_METAL_STING"]),
-        new(42, "AGGRESSOR", "ASSASSIN", 6, ["L_MULTI_LAUNCHER1_R_PULSE_CANNON"]),
-        new(46, "AGGRESSOR", "GRUNT", 5, ["L_PLASMA_CANNON2_R_HEAVY_BOLTER2_T_MULTI_LAUNCHER3"]),
-        new(46, "AGGRESSOR", "ASSASSIN", 5, ["LR_PLASMA_CANNON2_X2_T_PULSE_RIFLE"]),
-        new(50, "AGGRESSOR", "BALLISTA", 5, ["LRT_MULTI_LAUNCHER2_X3"]),
+        // them; the hangar sells them as escorts from wave 20. No export has them with these weapons: the view puts them
+        // together as it does a hero (HeroRig).
+        new(38, "AGGRESSOR", "GRUNT", 4, ["LR_HEAVY_BOLTER2_X2_T_AUTO_CANNON"]) { EscortFrom = WiredBalance.OwnEscortsFrom },
+        new(38, "AGGRESSOR", "ASSASSIN", 4, ["L_PLASMA_CANNON2_R_PLASMA_CANNON1"]) { EscortFrom = WiredBalance.OwnEscortsFrom },
+        new(42, "ADMINISTRATOR", "BOSS", 3, ["LR_PULSE_RIFLE_X2_T_WASP_METAL_STING"]) { EscortFrom = WiredBalance.OwnEscortsFrom },
+        new(42, "AGGRESSOR", "ASSASSIN", 6, ["L_MULTI_LAUNCHER1_R_PULSE_CANNON"]) { EscortFrom = WiredBalance.OwnEscortsFrom },
+        new(46, "AGGRESSOR", "GRUNT", 5, ["L_PLASMA_CANNON2_R_HEAVY_BOLTER2_T_MULTI_LAUNCHER3"]) { EscortFrom = WiredBalance.OwnEscortsFrom },
+        new(46, "AGGRESSOR", "ASSASSIN", 5, ["LR_PLASMA_CANNON2_X2_T_PULSE_RIFLE"]) { EscortFrom = WiredBalance.OwnEscortsFrom },
+        new(50, "AGGRESSOR", "BALLISTA", 5, ["LRT_MULTI_LAUNCHER2_X3"]) { EscortFrom = WiredBalance.OwnEscortsFrom },
     ];
+
+    /// <summary>
+    /// The tiers the hangar sells as escorts at a wave, the newest first: by the wave each was first sold from, and among
+    /// those of one wave the later in the list first.
+    /// </summary>
+    public static IEnumerable<WiredTier> EscortTiers(int wave) => Tiers.Select((tier, at) => (Tier: tier, At: at))
+        .Where(t => t.Tier.EscortFrom <= wave).OrderByDescending(t => t.Tier.EscortFrom).ThenByDescending(t => t.At).Select(t => t.Tier);
 
     public static WiredChassis? FindChassis(string id) => Chassis.FirstOrDefault(c => c.Id == id);
     public static WiredWeapon? FindWeapon(string id) => Weapons.FirstOrDefault(w => w.Id == id);
