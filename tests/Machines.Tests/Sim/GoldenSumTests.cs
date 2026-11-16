@@ -114,7 +114,9 @@ public class GoldenSumTests(ITestOutputHelper output)
     {
         var match = Play(GoldenCase.LeaverBattle, LeaverBattleSums);
 
-        Assert.Contains(Race.Green, match.World.Battle!.Bots);
+        // Asked by race through the set's own Contains, which keeps a race form when its keys become players (P1 S3), so
+        // this line compiles before and after and no slice has to touch it.
+        Assert.True(match.World.Battle!.Bots.Contains(Race.Green), "a bot drives the leaver's hero");
         Assert.Equal(LeaverBattleEnded, match.World.Battle.Result);
     }
 
