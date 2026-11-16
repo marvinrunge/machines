@@ -25,7 +25,7 @@ internal static class Battles
             TeamB = options.TeamB.Count > 0 ? options.TeamB : entry.TeamB,
         };
         if (options.Heroes.Count == 0)
-            options = BattleBots.Compose(options, []);
+            options = BattleBots.Compose(options, [], entry.Scenario);
         var world = MatchSetup.Create(Data, entry.Scenario, entry.Planet,
             Enum.GetValues<Race>().ToDictionary(r => r, r => bots.Contains(r) ? Controller.Ai : Controller.Player), seed,
             new MatchOptions { Battle = options, FogOfWar = false });
@@ -193,6 +193,26 @@ public class BattleSetupTests
     }
 
     [Fact]
+    public void A_race_the_options_name_no_hero_for_gets_the_bot_the_relay_would_compose_for_the_map()
+    {
+        var map = BattleCatalogue.Map("fortmult")!;
+        var player = BattleBots.Bot(map.Scenario, 4, Race.Red, 0) with { Name = "Ace", Bot = false };
+        foreach (var given in new List<BattleHero>[] { [], [player] })
+        {
+            var options = new BattleOptions { Tier = 5, TeamA = map.TeamA, TeamB = map.TeamB, Heroes = given };
+            var world = MatchSetup.Create(Data, map.Scenario, map.Planet, new Dictionary<Race, Controller> { [Race.Red] = Controller.Player }, 3,
+                new MatchOptions { Battle = options });
+            var composed = BattleBots.Compose(options, given, map.Scenario).Heroes;
+            var played = world.Battle!.Options.Heroes;
+            Assert.Equal(composed.Count, played.Count);
+            foreach (var (expected, actual) in composed.Zip(played))
+                Machines.Tests.Net.BattleNetTests.SameHero(expected, actual);
+            // Two bots facing each other take the top of the bracket.
+            Assert.Contains(played, h => h.Bot && BattleCatalogue.Tier(h.Chassis) == 5);
+        }
+    }
+
+    [Fact]
     public void Every_map_of_the_catalogue_has_a_pod_for_each_anchor_and_room_for_four_heroes()
     {
         foreach (var map in BattleCatalogue.Maps)
@@ -227,16 +247,17 @@ public class BattleSetupTests
         Assert.Equal(4, played.Count);
         Assert.All(played, h => Assert.Null(BattleBots.WhyNot(h, tier)));
         Assert.All(played, h => Assert.Equal(h.Race.ToString(), h.Name));
-        // On its own line where the bottom of the bracket has it, else a bot's chassis.
+        // On its own line where the bottom of the bracket has it, else the chassis a bot of its place takes on the map.
         Assert.Equal("grunt2", played.Single(h => h.Race == Race.Blue).Chassis);
-        Assert.Equal("grunt2", played.Single(h => h.Race == Race.Green).Chassis);
+        Assert.Equal(BattleBots.Pick("m_desert", BattleCatalogue.BracketBottom(tier), 0), played.Single(h => h.Race == Race.Green).Chassis);
+        Assert.Contains(played.Single(h => h.Race == Race.Green).Chassis, BattleCatalogue.OfTier(BattleCatalogue.BracketBottom(tier)).Select(c => c.Id));
         Assert.All(Enum.GetValues<Race>(), r => Assert.NotNull(world.HeroOf(r)));
 
         // A hero that may play stays as it is.
         var fine = Hero(Race.Red, "reaper2", new BattleItem("AUTO_CANNON", WiredSlot.Weapon(Mounting.Left)), new BattleItem("plates", WiredSlot.Module(0)),
             new BattleItem("discharge", WiredSlot.Ability(0)));
         Assert.Null(BattleBots.WhyNot(fine, tier));
-        Assert.Same(fine, BattleBots.Resolved(fine, tier, 0));
+        Assert.Same(fine, BattleBots.Resolved(fine, tier, 0, "m_desert"));
         Assert.NotNull(BattleBots.WhyNot(fine with { Items = [new BattleItem("treachery", WiredSlot.Ability(0))] }, tier));
         Assert.NotNull(BattleBots.WhyNot(Hero(Race.Red, "grunt2", new BattleItem("discharge", WiredSlot.Ability(0))), tier));
     }
@@ -245,7 +266,7 @@ public class BattleSetupTests
     public void A_hand_made_hero_with_no_items_or_more_than_its_chassis_wears_is_clamped()
     {
         var tier = 3;
-        var fine = BattleBots.Bot(tier, Race.Red, 0);
+        var fine = BattleBots.Bot("m_desert", tier, Race.Red, 0);
         Assert.Null(BattleBots.WhyNot(fine, tier));
         // Things without a slot stay in the inventory: a few may come, but never more than the chassis has places for.
         var chassis = WiredCatalogue.FindChassis(fine.Chassis)!;

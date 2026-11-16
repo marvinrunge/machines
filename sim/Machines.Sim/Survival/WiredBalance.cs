@@ -205,7 +205,10 @@ public static class WiredBalance
     /// <summary>The seconds between a wave's first group and its last, at least and at most.</summary>
     public const int LeastSpread = 60, MostSpread = 90;
 
-    /// <summary>How many of the newest tiers a wave draws on.</summary>
+    /// <summary>
+    /// How many tiers a wave draws on: the newest in the catalogue's order, and from the first wave of Wired's own machines
+    /// on the dearest (<see cref="WiredDirector.Buy"/>).
+    /// </summary>
     public const int TierSpread = 4;
 
     /// <summary>In how many cases out of a hundred a machine goes for the hero rather than the pod.</summary>
@@ -269,8 +272,8 @@ public static class WiredBalance
     /// <summary>The fewest machines of an air raid and of a siege, whatever the budget.</summary>
     public const int FewestRaiders = 2, FewestBesiegers = 2;
 
-    /// <summary>The wave from which a siege brings the bigger Ballistas.</summary>
-    public const int BigSiegeFrom = 26;
+    /// <summary>The wave from which a siege brings the bigger Ballistas, and the wave from which Colossi, which anchor at the pod.</summary>
+    public const int BigSiegeFrom = 26, ColossusSiegeFrom = 50;
 
     /// <summary>How often an ion storm strikes, how long before each the warning stands, and how wide it is.</summary>
     public const float IonEvery = 25, IonWarning = 5, IonRadius = 40;
@@ -330,6 +333,9 @@ public static class WiredBalance
     /// <summary>What multiplies a boss's hit points each time the list comes round.</summary>
     public const float BossLapHitPoints = 1.6f;
 
+    /// <summary>The most towers a boss that builds keeps standing, raised one after the other as it stands within reach of the pod.</summary>
+    public const int BossTowers = 4;
+
     /// <summary>What a boss below half calls in: this share of the wave's budget, at least the given BMUs, in so many machines.</summary>
     public const float ReinforcementShare = 0.25f, LeastReinforcements = 80;
 
@@ -362,6 +368,12 @@ public static class WiredBalance
 
     /// <summary>What an escort costs, in percent of its hardware cost.</summary>
     public const int EscortPercent = 120;
+
+    /// <summary>
+    /// The wave from which the hangar sells Wired's own machines as escorts, long before the waves bring them: a Marshal
+    /// may lead them, and the runs the balance aims at (to wave 20) stay as they were.
+    /// </summary>
+    public const int OwnEscortsFrom = 20;
 
     /// <summary>The escorts allowed at first, and at most.</summary>
     public const int SmallestSquad = 3, LargestSquad = 6;

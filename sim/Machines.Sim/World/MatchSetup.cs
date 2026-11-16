@@ -157,7 +157,7 @@ public static class MatchSetup
         }
 
         if (battle is not null)
-            world.StartBattle(battle);
+            world.StartBattle(battle, scenarioName);
         else if (options.Wired is { } run)
         {
             // Where the others would have started, the waves may arrive.

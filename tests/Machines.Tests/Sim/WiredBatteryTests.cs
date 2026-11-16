@@ -1189,9 +1189,9 @@ public class WiredBatteryTests
         Assert.Equal("more items than the chassis wears", WhyNot(Fighter("knight4", [.. items, new BattleItem("plates", null)])));
 
         var tier = BattleCatalogue.Tier("knight4");
-        Assert.Same(fine, BattleBots.Resolved(fine, tier, 0));
+        Assert.Same(fine, BattleBots.Resolved(fine, tier, 0, "m_desert"));
         var refused = Fighter("knight4", new BattleItem("BOLTER", Left, 1, 4));
-        var clamped = BattleBots.Resolved(refused, tier, 0);
+        var clamped = BattleBots.Resolved(refused, tier, 0, "m_desert");
         Assert.NotSame(refused, clamped);
         Assert.Null(BattleBots.WhyNot(clamped, tier));
         Assert.Equal(BattleBots.Loadout(clamped.Chassis, BattleCatalogue.Tier(clamped.Chassis)), clamped.Items);

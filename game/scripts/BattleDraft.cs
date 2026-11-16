@@ -534,7 +534,7 @@ public sealed class BattleDraft
         return Compose(map, Tier, Lives, Win, watch ? null : hero);
     }
 
-    /// <summary>A battle on a map at a tier, with <paramref name="player"/>'s hero if there is one and bots for every other race.</summary>
+    /// <summary>A battle on a map at a tier, with <paramref name="player"/>'s hero if there is one and bots for every other race, picked for that map.</summary>
     public static BattleOptions Compose(BattleMap map, int tier, int lives, BattleWin win, BattleHero? player) =>
         BattleBots.Compose(new BattleOptions
         {
@@ -543,5 +543,5 @@ public sealed class BattleDraft
             Win = win,
             TeamA = map.TeamA,
             TeamB = map.TeamB,
-        }, player is null ? [] : [player]);
+        }, player is null ? [] : [player], map.Scenario);
 }

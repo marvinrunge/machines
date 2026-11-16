@@ -49,8 +49,13 @@ public enum WiredRole
 /// translations), <paramref name="HitPoints"/> multiplies the type's. <paramref name="Guard"/> comes along beside the
 /// wave's escort, <paramref name="Guards"/> of them, healing the boss if <paramref name="GuardsHeal"/>.
 /// <paramref name="Damage"/> multiplies what its weapons do, for one whose weapon was made for a stage of the game further on.
+/// <paramref name="Towers"/>: standing within its weapons' reach of the pod, it raises towers of these kinds of the
+/// catalogue's, in turn, one after the other, up to <see cref="WiredBalance.BossTowers"/> standing; of them only those that
+/// can fire at the hero (at the pod while the hero is not out), so a sentry for the ground or one for the air by what the
+/// hero is.
 /// </summary>
-public sealed record WiredBoss(string Name, ResearchKey Machine, float HitPoints, int Count = 1, ResearchKey? Guard = null, int Guards = 0, bool GuardsHeal = false, float Damage = 1);
+public sealed record WiredBoss(string Name, ResearchKey Machine, float HitPoints, int Count = 1, ResearchKey? Guard = null, int Guards = 0, bool GuardsHeal = false, float Damage = 1,
+    IReadOnlyList<string>? Towers = null);
 
 /// <summary>One machine a wave brings. <paramref name="Key"/> is the real machine; the rest says what makes this one special.</summary>
 public sealed record WiredFoePlan(ResearchKey Key)
@@ -86,7 +91,7 @@ public sealed record WiredWavePlan(int Wave, float Budget, WiredBoss? Boss, IRea
 /// </summary>
 public static class WiredDirector
 {
-    /// <summary>The bosses, one every <see cref="WiredBalance.BossEvery"/> waves; then the list starts over, stronger.</summary>
+    /// <summary>The bosses, one every <see cref="WiredBalance.BossEvery"/> waves; then <see cref="SecondLap"/> follows, stronger.</summary>
     public static readonly IReadOnlyList<WiredBoss> Bosses =
     [
         new("The Crusher", new ResearchKey("AGGRESSOR", "BALLISTA", 3, "T_VORTEX"), 8, Damage: 0.2f),
@@ -99,12 +104,38 @@ public static class WiredDirector
             Guard: new ResearchKey("ADMINISTRATOR", "BOSS", 1, "T_WASP_LIGHT_STING"), Guards: 6),
     ];
 
+    /// <summary>
+    /// The bosses once <see cref="Bosses"/> has come round, Wired's own machines (from wave 35), each as strong as the lap
+    /// makes it (<see cref="LapStrength"/>); then this list starts over, stronger again. Their combos are those of their
+    /// tiers where they have one, so that the view puts them together as it does those.
+    /// </summary>
+    public static readonly IReadOnlyList<WiredBoss> SecondLap =
+    [
+        new("The Reaper", new ResearchKey("AGGRESSOR", "ASSASSIN", 5, "LR_PLASMA_CANNON2_X2_T_PULSE_RIFLE"), 3,
+            Guard: new ResearchKey("AGGRESSOR", "ASSASSIN", 4, "L_PLASMA_CANNON2_R_PLASMA_CANNON1"), Guards: 2),
+        new("Old Iron", new ResearchKey("AGGRESSOR", "GRUNT", 5, "L_PLASMA_CANNON2_R_HEAVY_BOLTER2_T_MULTI_LAUNCHER3"), 3,
+            Guard: new ResearchKey("AGGRESSOR", "GRUNT", 4, "LR_HEAVY_BOLTER2_X2_T_AUTO_CANNON"), Guards: 6),
+        // A Colossus of the waves anchors as soon as something to fight is within its anchored reach: the wall stays far off.
+        new("The Wall", new ResearchKey("AGGRESSOR", "BALLISTA", 5, "LRT_MULTI_LAUNCHER2_X3"), 3),
+        new("The Queen", new ResearchKey("ADMINISTRATOR", "BOSS", 2, "T_BEE_BOMB"), 8,
+            Guard: new ResearchKey("ADMINISTRATOR", "BOSS", 3, "LR_PULSE_RIFLE_X2_T_WASP_METAL_STING"), Guards: 6),
+        new("The Marshal", new ResearchKey("ADMINISTRATOR", "COMMANDER", 6, "LR_MULTI_LAUNCHER5_X2_T_PULSE_CANNON"), 4,
+            Guard: new ResearchKey("ADMINISTRATOR", "OVERSEER", 2, "L_PULSE_RIFLE_R_SUPERCHARGE_ADVANCED"), Guards: 4, GuardsHeal: true),
+        new("The Builder", new ResearchKey("CONSTRUCTOR", "BEHEMOTH", 6, "T_PLASMA_CANNON2"), 3, Towers: ["turret3", "sentry3", "sentry4"]),
+    ];
+
     public static bool IsBossWave(int wave) => wave > 0 && wave % WiredBalance.BossEvery == 0;
 
-    /// <summary>The boss of a wave, or null.</summary>
-    public static WiredBoss? BossOf(int wave) => IsBossWave(wave) ? Bosses[(wave / WiredBalance.BossEvery - 1) % Bosses.Count] : null;
+    /// <summary>The boss of a wave, or null: the first list once, then the second over and over.</summary>
+    public static WiredBoss? BossOf(int wave)
+    {
+        if (!IsBossWave(wave))
+            return null;
+        var at = wave / WiredBalance.BossEvery - 1;
+        return at < Bosses.Count ? Bosses[at] : SecondLap[(at - Bosses.Count) % SecondLap.Count];
+    }
 
-    /// <summary>What multiplies a boss's hit points for each time the list has come round before.</summary>
+    /// <summary>What multiplies a boss's hit points for each six bosses that came before it: the first list, then each round of the second.</summary>
     public static float LapStrength(int wave)
     {
         var strength = 1f;
@@ -116,7 +147,8 @@ public static class WiredDirector
     /// <summary>The machines special waves bring, whatever the tiers have opened by then.</summary>
     public static readonly ResearchKey Spy = new("SPY_LOCATOR", null, 3, null), BetterSpy = new("SPY_LOCATOR", null, 5, null),
         Turncoat = new("ADMINISTRATOR", "COMMANDER", 4, "L_MULTI_LAUNCHER5_R_TREACHERY"),
-        Besieger = new("AGGRESSOR", "BALLISTA", 3, "T_MULTI_LAUNCHER1"), BigBesieger = new("AGGRESSOR", "BALLISTA", 4, "LR_MULTI_LAUNCHER2_X2");
+        Besieger = new("AGGRESSOR", "BALLISTA", 3, "T_MULTI_LAUNCHER1"), BigBesieger = new("AGGRESSOR", "BALLISTA", 4, "LR_MULTI_LAUNCHER2_X2"),
+        ColossusBesieger = new("AGGRESSOR", "BALLISTA", 5, "LRT_MULTI_LAUNCHER2_X3");
 
     /// <summary>
     /// Whether a wave is a special one: the first at <see cref="WiredBalance.SpecialFrom"/>, then each third of the waves
@@ -138,19 +170,26 @@ public static class WiredDirector
 
     private static int Cost(GameData data, ResearchKey key) => data.Parm.Machine(key.TypeName).Level(key.HardwareLevel).Cost;
 
+    /// <summary>The first wave a tier of Wired's own machines is open at: from then on a wave buys from its dearest tiers.</summary>
+    public static readonly int DearestFrom = WiredCatalogue.Tiers.Where(t => WiredMachines.IsWired(t.TypeName, t.Level)).Min(t => t.Wave);
+
     /// <summary>
-    /// Machines for a budget, at random among the newest tiers open at the wave that it still covers, until it runs out or
-    /// there are <paramref name="most"/> of them, of the given <paramref name="tiers"/> if there are any. Even the smallest
-    /// budget buys one of the first tier.
+    /// Machines for a budget, at random among the tiers open at the wave that it still covers, until it runs out or there
+    /// are <paramref name="most"/> of them, of the given <paramref name="tiers"/> if there are any. Up to the first wave of
+    /// Wired's own machines those are the newest <see cref="WiredBalance.TierSpread"/> in the list's order; from it on the
+    /// dearest, the earlier in the list first between two that cost the same, as Wired's machines cost what they cost and
+    /// not what their place in the list would say. Even the smallest budget buys one of the first tier.
     /// </summary>
     public static List<WiredFoePlan> Buy(GameData data, int wave, float budget, Random random, int most = WiredBalance.MostInWave, IReadOnlyList<WiredTier>? tiers = null)
     {
         var open = (tiers ?? WiredCatalogue.Tiers).Where(t => t.Wave <= wave).ToList();
+        var dearest = wave >= DearestFrom;
         var bought = new List<WiredFoePlan>();
         while (bought.Count < most)
         {
             var left = budget;
-            var within = open.Where(t => Cost(data, t) <= left).TakeLast(WiredBalance.TierSpread).ToList();
+            var covered = open.Where(t => Cost(data, t) <= left);
+            var within = (dearest ? covered.OrderByDescending(t => Cost(data, t)).Take(WiredBalance.TierSpread) : covered.TakeLast(WiredBalance.TierSpread)).ToList();
             if (within.Count == 0)
                 break;
             var tier = within[random.Next(within.Count)];
@@ -211,10 +250,13 @@ public static class WiredDirector
         return raid;
     }
 
-    /// <summary>A siege: the budget in Ballistas, and at least a pair of them, for all that they cost more than an early budget.</summary>
+    /// <summary>
+    /// A siege: the budget in Ballistas, and at least a pair of them, for all that they cost more than an early budget;
+    /// later the bigger ones, and at last Colossi, which anchor where the pod comes within their reach.
+    /// </summary>
     private static List<WiredFoePlan> Siege(GameData data, int wave, float budget, Random random)
     {
-        var key = wave >= WiredBalance.BigSiegeFrom ? BigBesieger : Besieger;
+        var key = wave >= WiredBalance.ColossusSiegeFrom ? ColossusBesieger : wave >= WiredBalance.BigSiegeFrom ? BigBesieger : Besieger;
         var count = Math.Clamp((int)(budget / Cost(data, key)), WiredBalance.FewestBesiegers, WiredBalance.MostInWave);
         return Enumerable.Range(0, count).Select(_ => Foe(new WiredFoePlan(key) { Role = WiredRole.Besieger }, wave, random)).ToList();
     }

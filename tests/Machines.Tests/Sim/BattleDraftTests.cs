@@ -269,7 +269,7 @@ public class BattleDraftTests
                 Assert.Null(draft.WhyNotFight());
                 Assert.True(HeroBuild.Resolve(Data, draft.Loadout).LoadShare <= WiredBalance.MostLoad, chassis);
                 var hero = draft.Hero(Race.Red);
-                Assert.Same(hero, BattleBots.Resolved(hero, draft.Tier, 0));
+                Assert.Same(hero, BattleBots.Resolved(hero, draft.Tier, 0, draft.Map));
             }
             Assert.True(draft.Loadout.Modules.Count(m => m?.Catalogue == "plates") + refused == WiredCatalogue.FindChassis(chassis)!.Modules, chassis);
         }
@@ -439,7 +439,7 @@ public class BattleDraftTests
         {
             // The first of a team on Grunt 1, the second on the crab.
             var k = teams.Select(team => team.IndexOf(bot.Race)).Single(i => i >= 0);
-            Assert.Equal(BattleBots.Pick(1, bot.Race, k), bot.Chassis);
+            Assert.Equal(BattleBots.Pick(draft.Map, 1, k), bot.Chassis);
             Assert.Equal(k % 2 == 0 ? "grunt1" : "geo1", bot.Chassis);
             // Each wears the start kit as the player does, the Bolter on its one slot: right on Grunt 1, top on the crab.
             Assert.Equal(Kit(own), Kit(bot));

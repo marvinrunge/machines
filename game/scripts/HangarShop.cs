@@ -294,8 +294,8 @@ public sealed class HangarShop(GameWorld world, WiredState state)
             weapon, weapon is null ? 0 : Price(weapon), way?.Gain ?? 0, bank, Full, way is { Copy: true } ? way.Slot : null);
     }
 
-    /// <summary>The escorts for sale for the wave, the newest first.</summary>
-    public IEnumerable<ResearchKey> Escorts() => WiredCatalogue.Tiers.Where(t => t.Wave <= Wave).Reverse()
+    /// <summary>The escorts for sale for the wave, the newest first (<see cref="WiredCatalogue.EscortTiers"/>).</summary>
+    public IEnumerable<ResearchKey> Escorts() => WiredCatalogue.EscortTiers(Wave)
         .SelectMany(t => t.Combos.Select(combo => new ResearchKey(t.Type, t.SubType, t.Level, combo)));
 }
 

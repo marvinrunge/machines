@@ -13,16 +13,16 @@ public class BattleNetTests
 {
     private static readonly Lazy<GameData> DataLoader = new(() => GameData.Load(RepoPaths.OriginalDataFolder()));
 
-    /// <summary>A player's hero of a tier, as their pod would send it.</summary>
+    /// <summary>A player's hero of a tier, as their pod would send it: a bot's of Canyon Attack.</summary>
     internal static BattleHero Brought(string name, int tier, int line = 0) =>
-        BattleBots.Bot(tier, Race.Red, line) with { Name = name, Bot = false };
+        BattleBots.Bot("m_desert", tier, Race.Red, line) with { Name = name, Bot = false };
 
     /// <summary>A battle on Canyon Attack at tier III: Anna plays Red, Ben Green, the computer Blue and Yellow.</summary>
     private static MatchInfo Battle(int seed = 5)
     {
         var map = BattleCatalogue.Map("m_desert")!;
         var options = BattleBots.Compose(new BattleOptions { Tier = 3, Lives = 2, TeamA = map.TeamA, TeamB = map.TeamB },
-            [Brought("Anna", 3) with { Race = Race.Red }, Brought("Ben", 2) with { Race = Race.Green }]);
+            [Brought("Anna", 3) with { Race = Race.Red }, Brought("Ben", 2) with { Race = Race.Green }], map.Scenario);
         return new MatchInfo("m_desert", "m_desert", new MatchOptions { Battle = options, FogOfWar = false }, seed, 2,
         [
             new MatchPlayer(1, "Anna", Race.Red, Race.Red, Ai: false),

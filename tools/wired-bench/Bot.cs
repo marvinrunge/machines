@@ -461,7 +461,7 @@ internal sealed class Bot(GameWorld world, GameData data, Strategy strategy, Rac
     {
         if (world.Escorts(Side).Count() >= world.SquadLimit(_state))
             return (null, null, false);
-        foreach (var tier in WiredCatalogue.Tiers.Where(t => t.Wave <= run.ShopWave && t.SubType != "BOSS").Reverse())
+        foreach (var tier in WiredCatalogue.EscortTiers(run.ShopWave).Where(t => t.SubType != "BOSS"))
         {
             var key = new ResearchKey(tier.Type, tier.SubType, tier.Level, tier.Combos[0]);
             var price = _state.Priced((data.Parm.Machine(key.TypeName).Level(key.HardwareLevel).Cost * WiredBalance.EscortPercent + 50) / 100);
