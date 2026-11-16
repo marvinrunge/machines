@@ -7,7 +7,10 @@ namespace Machines.Game;
 /// (<c>ping</c>), then turns slowly (<c>targ</c>); over an enemy it shows the attack sight (<c>targv</c>) and
 /// over a friend the no-fire sight (<c>targnv</c>), each with its sound as it comes on. The bitmaps come from
 /// <c>gui/fstpersn/cursor</c> of the player's game copy, scaled up with the screen; without them a plain cross. In a Wired
-/// match brackets stand round it over an enemy a geo locator has located.
+/// match brackets stand round it over an enemy a geo locator has located. A sighted driver of Wired (the Modern layout) sees
+/// two marks: this sight where the gun points (<see cref="At"/>), with its colour, sounds and spread marks, and a dot in the
+/// middle where the view looks (<see cref="Dot"/>), with the bars and brackets of what it rests on. Left unset, those draw
+/// and sound as the original's single sight.
 /// </summary>
 public partial class Crosshair : Control
 {
@@ -43,17 +46,70 @@ public partial class Crosshair : Control
         _sight = Sight.None;
     }
 
-    /// <summary>What lies under the crosshair; an enemy or a friend coming into it plays its sound.</summary>
+    /// <summary>
+    /// What lies under the crosshair; an enemy or a friend coming into it plays its sound, for a sighted driver only while
+    /// the gun is on the sight (<see cref="GunOn"/>).
+    /// </summary>
     public Sight Aim
     {
         get => _sight;
         set
         {
-            if (value != _sight && value is Sight.Enemy or Sight.Friend)
-                _audio?.PlayGui(value == Sight.Enemy ? "gui/sounds/attackon.wav" : "gui/sounds/friendon.wav");
+            if (value != _sight && _gunOn)
+                Sound(value);
             _sight = value;
         }
     }
+
+    /// <summary>
+    /// Whether the driven machine's gun points where the view looks; true unless a sighted driver's gun still turns. Coming
+    /// on with an enemy or a friend in the sight plays that one's sound, so the sound says the gun is on it.
+    /// </summary>
+    public bool GunOn
+    {
+        get => _gunOn;
+        set
+        {
+            if (value && !_gunOn)
+                Sound(_sight);
+            _gunOn = value;
+        }
+    }
+
+    private bool _gunOn = true;
+
+    private void Sound(Sight sight)
+    {
+        if (sight is Sight.Enemy or Sight.Friend)
+            _audio?.PlayGui(sight == Sight.Enemy ? "gui/sounds/attackon.wav" : "gui/sounds/friendon.wav");
+    }
+
+    /// <summary>What the gun sight rests on and whether the gun is on: the gun goes off before the sight changes and on after it, so one sound at most plays.</summary>
+    public void Show(Sight aim, bool gunOn)
+    {
+        if (!gunOn)
+            GunOn = false;
+        Aim = aim;
+        GunOn = gunOn;
+    }
+
+    /// <summary>The original's single sight in the middle again, without a sound.</summary>
+    public void Single()
+    {
+        (At, Clamped, Dot, SightHidden, _gunOn) = (null, false, false, false, true);
+    }
+
+    /// <summary>Where on the screen the sight stands, its bitmap and spread marks: null for the middle.</summary>
+    public Vector2? At { get; set; }
+
+    /// <summary>Whether the sight stands clamped to the edge of the screen, the gun pointing off it: its bitmap alone, at half strength.</summary>
+    public bool Clamped { get; set; }
+
+    /// <summary>Whether a dot marks the middle, where the view looks; the bars and brackets stand round it.</summary>
+    public bool Dot { get; set; }
+
+    /// <summary>Whether the sight is left out and the dot alone drawn (a constructor's towers are up: the triggers are theirs).</summary>
+    public bool SightHidden { get; set; }
 
     /// <summary>The aimed-at actor's health and armour, each 0 to 1, or null when nothing is aimed at.</summary>
     public (float Health, float Armour)? Target { get; set; }
@@ -92,8 +148,10 @@ public partial class Crosshair : Control
         var scale = Math.Max(1, (int)Math.Round(size.Y / 480f));
         var (name, frame) = Current();
         var centre = (size / 2).Floor();
-        if (Spread is not null)
-            DrawSpread(centre, size.Y);
+        var sight = At is { } placed ? placed.Floor() : centre;
+        var showSight = !(Dot && SightHidden);
+        if (Spread is not null && showSight && !Clamped)
+            DrawSpread(sight, size.Y);
 
         // MachGuiFirstPerson::displayHealthArmour: two upright bars beside the sight, filled from the bottom.
         if (Target is { } target)
@@ -116,21 +174,32 @@ public partial class Crosshair : Control
             DrawTextureRectRegion(compass, strip, from);
         }
 
-        if (Frame(name, frame, scale) is { } texture)
+        if (showSight && Frame(name, frame, scale) is { } texture)
         {
-            var at = (size - texture.GetSize()) / 2;
+            var at = At is null ? (size - texture.GetSize()) / 2 : (sight - texture.GetSize() / 2).Floor();
+            var strength = Clamped ? 0.5f : 1;
             if (Outlined)
             {
                 foreach (var way in Round)
-                    DrawTexture(texture, at + way * scale, new Color(0, 0, 0, 0.85f));
+                    DrawTexture(texture, at + way * scale, new Color(0, 0, 0, 0.85f * strength));
             }
-            DrawTexture(texture, at);
+            DrawTexture(texture, at, new Color(1, 1, 1, strength));
         }
-        else
+        else if (showSight)
         {
             var colour = _sight == Sight.Enemy ? new Color(1, 0.4f, 0.2f) : new Color(0.4f, 1, 0.3f);
-            DrawLine(centre - new Vector2(12, 0), centre + new Vector2(12, 0), colour, 2);
-            DrawLine(centre - new Vector2(0, 12), centre + new Vector2(0, 12), colour, 2);
+            if (Clamped)
+                colour.A = 0.5f;
+            DrawLine(sight - new Vector2(12, 0), sight + new Vector2(12, 0), colour, 2);
+            DrawLine(sight - new Vector2(0, 12), sight + new Vector2(0, 12), colour, 2);
+        }
+
+        // The dot where the view looks, over everything: white with a dark ring, six pixels across at 1080 lines.
+        if (Dot)
+        {
+            var radius = 1.5f * scale;
+            DrawCircle(centre, radius + 1, new Color(0, 0, 0, 0.9f));
+            DrawCircle(centre, radius, new Color(1, 1, 1, 0.9f));
         }
     }
 

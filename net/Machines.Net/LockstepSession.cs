@@ -46,6 +46,10 @@ public sealed class LockstepSession
     public GameWorld World { get; }
     public Race? Local { get; }
     public int InputDelay { get; }
+
+    /// <summary>The tick of the local player's next turn: the commands queued now are carried out on it.</summary>
+    public long NextLocalTurn => _nextLocalTurn;
+
     public int ChecksumInterval { get; }
 
     /// <summary>Messages for the relay: this client's turns and checksums.</summary>

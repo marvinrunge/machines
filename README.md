@@ -350,6 +350,10 @@ hero has no spare body left (2 on Normal, 1 on Hard, none on Hardcore).
 weapon** in the options gives every other match the same triggers in first person (`weapon_buttons=on`; off at first, where
 the left button and Tab stay as in the original, and always on in a run).
 
+With the Modern layout your gun follows the view at its turret rate (a hull-only machine's hull at its own turn rate): the
+sight shows where the gun points, the dot where you look; rounds go where the gun points. A held trigger waits for the gun,
+a click fires at once (option 'Fire waits for the gun').
+
 The hangar's tree holds the original's chassis and Wired's own, each of these with something of its own: Sarge's third slot,
 Old Iron's ram plough, the Thresher's heavy slot, the Harvester's harvest, the Widow's lurk, the Colossus' anchor (J), the
 Hornet's afterburner and the Marshal's larger squad with its rally (J). Three lines come with their J: the constructors

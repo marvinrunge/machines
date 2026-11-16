@@ -775,6 +775,7 @@ public partial class Game : Node3D
 
         FollowRun(delta);
         UpdateGhost();
+        UpdateSightScript(delta);
         UpdateFirstPersonCamera();
         UpdateTowerMode();
         ShowFilmLook();
@@ -1111,7 +1112,7 @@ public partial class Game : Node3D
             if (actor is Machine machine)
                 ShowRefit(view, machine);
             // Upper bodies and towers' heads turn to what they attack, ordered or of their own choice, and to
-            // whom they heal; one driven in first person turns where its driver looks.
+            // whom they heal; one driven in first person turns where its driver looks, a sighted one's where its gun stands.
             view.Sync(actor, actor switch
             {
                 Machine { Order: AttackOrder attack } => World.Find(attack.Target),
@@ -1121,7 +1122,8 @@ public partial class Game : Node3D
             if (actor is Machine)
                 view.Moving(World.MoveOf(actor.Id), World.Time);
             if (actor is Machine { DrivenByPlayer: true } driven)
-                view.UpperBodyAngle = driven.Id == _driven?.Id ? _headTarget : World.PlayerHeads.GetValueOrDefault(driven.Id);
+                view.UpperBodyAngle = driven.Id == _driven?.Id ? _headTarget
+                    : World.HasYaw(driven.Id) ? World.HeadOf(driven.Id) : World.PlayerHeads.GetValueOrDefault(driven.Id);
             // In the remake tracks and wheels leave their marks on the ground behind them.
             if (GraphicsSettings.Effects && actor is Machine { Inside: null, Stats.Locomotion: Locomotion.Tracks or Locomotion.Wheels } rolling)
             {
@@ -1247,12 +1249,15 @@ public partial class Game : Node3D
                         if (victimView is not null)
                             _effects.FaceplateSmoke(victimView, Blast.Extras(charge)[1]);
                     }
-                    // In a Wired run a round from first person strays, and the simulation says where it went.
+                    // In a Wired run a round from first person strays, and the simulation says where it went: the local
+                    // driver's round sent to the sight is drawn to the picture's point, one that left along a turning gun
+                    // to where the simulation ended it.
                     else if (e.Mark is { } strayed && World.Find(e.Actor) is { } straying
                              && World.Data.Parm.Weapons.FirstOrDefault(w => w.TypeName == e.Detail) is { } stray)
                     {
                         var muzzle = MuzzleOf(e.Actor, stray, e.Gun) ?? at;
-                        var mark = new Vector3(strayed.X, strayed.Z, strayed.Y) + _sightLift;
+                        var lifted = e.Actor == _driven?.Id && (!World.HasYaw(e.Actor) || World.OnSight(e.Actor));
+                        var mark = new Vector3(strayed.X, strayed.Z, strayed.Y) + (lifted ? _sightLift : Vector3.Zero);
                         var reach = NVector2.Distance(straying.Position, new NVector2(strayed.X, strayed.Y));
                         Shot(muzzle, reach > stray.Range ? muzzle + (mark - muzzle) * (stray.Range / reach) : mark, e.Detail ?? "");
                     }
@@ -2561,7 +2566,7 @@ public partial class Game : Node3D
         if (machine.Weapons.Count > 0)
             _audio.PlayGui("gui/sounds/weapchng.wav");
         _aimYaw = machine.Facing;
-        _hullTurnsDue.Clear();
+        ForgetGun();
         // The keys as the player chose them (KeyMap).
         static string K(KeyMap.Act act) => KeyMap.Name(act);
         var (drive, sides, turn) = ($"{K(KeyMap.Act.Forward)}/{K(KeyMap.Act.Back)}", $"{K(KeyMap.Act.Left)}/{K(KeyMap.Act.Right)}",
@@ -2599,8 +2604,12 @@ public partial class Game : Node3D
             Issue(new DriveCommand(Player, machine.Id, Driving: false));
         var left = _driven;
         if (_driven is { } was && _views.TryGetValue(was.Id, out var view))
+        {
             view.SetDriven(false);
+            view.UpperBodySnaps = false;
+        }
         _driven = null;
+        ForgetGun();
         _hands.LetGo();
         _headTarget = 0;
         _rightButtonTurnedHead = false;
@@ -2637,13 +2646,15 @@ public partial class Game : Node3D
     // options' F.P. Mouse Speed scales it, and the classic keys' mouse turns too.
     private static float LookPerPixel => 0.002f * GameOptions.MouseSpeed;
 
-    // The hull turns the driven machine has been told to make and has not made yet, by the tick that carries each out
-    // (radians anticlockwise in the original's axes): a hull following the view counts them, or it would overshoot.
-    private readonly Queue<(long Tick, float Turn)> _hullTurnsDue = new();
+    /// <summary>
+    /// How fast the simulation turns the driven machine's hull, radians a second (GameWorld's driving): a sighted hero
+    /// without an upper body at its gun's rate.
+    /// </summary>
+    private float HullTurnRate(Machine machine, bool slow) => Mathf.DegToRad(HullTurnDegrees(machine, slow));
 
-    /// <summary>How fast the simulation turns the driven machine's hull, radians a second (GameWorld's driving).</summary>
-    private float HullTurnRate(Machine machine, bool slow) =>
-        Mathf.DegToRad(World.Options.OriginalMotion ? World.DrivenTurnRate(machine, slow) : World.Data.Parm.General.FirstPersonMaxFastTurnRate);
+    /// <summary>The same in degrees a second, as the simulation works with it.</summary>
+    private float HullTurnDegrees(Machine machine, bool slow) =>
+        World.Options.OriginalMotion ? World.DrivenTurnRate(machine, slow, Sighted) : World.Data.Parm.General.FirstPersonMaxFastTurnRate;
 
     /// <summary>
     /// With the modern keys, how Q and E turn the hull, and A and D where the machine cannot step sideways: 1 for a
@@ -2805,7 +2816,9 @@ public partial class Game : Node3D
         // Behind the hangar's screen the hero stands: its keys and buttons are the screen's.
         if (HangarOpen)
         {
-            Issue(new DriveCommand(Player, machine.Id, Driving: true, Weapons: SelectedWeapons(machine), Head: _headTarget));
+            Issue(new DriveCommand(Player, machine.Id, Driving: true, Weapons: SelectedWeapons(machine), Head: _headTarget, Yaw: SentYaw));
+            if (Sighted)
+                SendingGun(machine, 0);
             return;
         }
         // The arrows drive and turn whatever the moves' keys are, and the up arrow on the number pad too; the one down
@@ -2835,12 +2848,9 @@ public partial class Game : Node3D
             {
                 // Without one the hull turns to where the view looks (the keys turn the view, frame by frame), as
                 // fast as it can, counting the turns already on their way so as to stop there.
-                while (_hullTurnsDue.TryPeek(out var due) && due.Tick < World.Tick)
-                    _hullTurnsDue.Dequeue();
-                var step = HullTurnRate(machine, Input.IsKeyPressed(Key.Ctrl)) * GameWorld.Dt;
-                var behind = Mathf.Wrap(_aimYaw - machine.Facing - _hullTurnsDue.Sum(due => due.Turn), -Mathf.Pi, Mathf.Pi);
-                turn = -Mathf.Clamp(behind / step, -1, 1);
-                _hullTurnsDue.Enqueue((World.Tick + _session.InputDelay, -turn * step));
+                turn = FollowTurn(machine, out var step);
+                if (!Sighted)
+                    _turnsDue.Add(new GunPrediction.Due(World.Tick + _session.InputDelay, -turn * step, _aimYaw));
             }
         }
         // With Shift (or the right button) held, A and D turn the upper body as the original's Shift and arrows did.
@@ -2859,6 +2869,13 @@ public partial class Game : Node3D
         var buttons = WeaponButtons;
         var selected = buttons ? HeldWeapons(machine) : SelectedWeapons(machine);
         var firing = buttons ? selected != 0 : Input.IsMouseButtonPressed(MouseButton.Left) || SpaceFires;
+        // A sighted driver's gun as it will stand when this command is carried out; held triggers wait for it.
+        var sent = selected;
+        if (Sighted)
+        {
+            var gun = SendingGun(machine, Mathf.Clamp(-turn, -1, 1));
+            sent = buttons ? WaitForGun(machine, selected, gun) : selected;
+        }
         if ((firing || buttons && machine.Weapons.Any(w => w.RoundsLeft > 0)) && machine.CanFight)
         {
             // None of the selected weapons charged: the original's dud click, at most every 0.8 s (MachGuiFirstPerson).
@@ -2870,23 +2887,33 @@ public partial class Game : Node3D
                 _audio.PlayGui("gui/sounds/nowefire.wav");
                 _lastCouldFire = now;
             }
-            var (sight, met) = SightAt(GetViewport().GetVisibleRect().Size / 2, machine.Weapons.Max(w => w.Spec.Range));
-            (aimAt, aimHeight) = (new NVector2(sight.X, sight.Z), sight.Y);
-            _sightLift = Vector3.Zero;
-            // In a run the sight on a model means what stops rounds of it; the picture still shows them going where the eye looks.
-            if (World.Wired is not null && met is not null)
-            {
-                var (point, height) = World.AimInside(met, aimAt.Value, sight.Y);
-                (aimAt, aimHeight) = (point, height);
-                _sightLift = sight - new Vector3(point.X, height, point.Y);
-            }
-            _projectiles.SightLift = _sightLift.Y;
+            var aim = SightPoint(machine);
+            (aimAt, aimHeight) = (aim.Point, aim.Height);
+            _projectiles.SightLift = (machine.Id, _sightLift.Y);
         }
         // The simulation turns left (counter-clockwise in the original's axes) for a positive turn, and steps left for a
         // positive strafe; the client shows the world with y and z swapped, which mirrors it, so on screen both go
         // right. Ctrl turns slowly (FIRST_PERSON_MAX_SLOW_TURN_RATE).
-        Issue(new DriveCommand(Player, machine.Id, Driving: true, forward, Mathf.Clamp(-turn, -1, 1), aimAt, selected, _headTarget,
-            -strafe, Input.IsKeyPressed(Key.Ctrl), aimHeight, buttons));
+        Issue(new DriveCommand(Player, machine.Id, Driving: true, forward, Mathf.Clamp(-turn, -1, 1), aimAt, sent, _headTarget,
+            -strafe, Input.IsKeyPressed(Key.Ctrl), aimHeight, buttons, SentYaw));
+    }
+
+    /// <summary>
+    /// Where the line of sight through the screen's middle meets what the weapons reach (<see cref="SightAt"/>): the point
+    /// seen and what it met, and the point a command sends the rounds to. In a run the sight on a model means what stops
+    /// rounds of it (<c>GameWorld.AimInside</c>); <see cref="_sightLift"/> keeps how far the picture's point lies from that.
+    /// </summary>
+    private (Vector3 Seen, Actor? Met, NVector2 Point, float Height) SightPoint(Machine machine)
+    {
+        var (sight, met) = SightAt(GetViewport().GetVisibleRect().Size / 2, machine.Weapons.Select(w => w.Spec.Range).DefaultIfEmpty(0).Max());
+        var (point, height) = (new NVector2(sight.X, sight.Z), sight.Y);
+        _sightLift = Vector3.Zero;
+        if (World.Wired is not null && met is not null)
+        {
+            (point, height) = World.AimInside(met, point, sight.Y);
+            _sightLift = sight - new Vector3(point.X, height, point.Y);
+        }
+        return (sight, met, point, height);
     }
 
     /// <summary>
@@ -2930,12 +2957,21 @@ public partial class Game : Node3D
         if (FreeLook && !machine.CanTurnUpperBody && (!Paused || Online) && !HangarOpen)
             _aimYaw = Mathf.Wrap(_aimYaw - KeyTurn(machine) * HullTurnRate(machine, Input.IsKeyPressed(Key.Ctrl)) * (float)GetProcessDeltaTime(),
                 -Mathf.Pi, Mathf.Pi);
+        // A sighted driver's gun as it will stand, and where its sight is drawn; the upper body points there at once.
+        var aimsGun = Sighted;
+        if (aimsGun)
+            TurnDrawnGun(machine, view);
+        view.UpperBodySnaps = aimsGun && machine.CanTurnUpperBody;
         // From the faceplate, as the original, turning with the upper body; the view stays level whatever the
         // machine leans or sways.
-        if (machine.CanTurnUpperBody)
+        if (machine.CanTurnUpperBody && !aimsGun)
             view.UpperBodyAngle = _headTarget;
         var head = HeadNow(machine);
         _firstPersonCamera.GlobalPosition = view.Eye;
+        // A sighted machine without an upper body looks from above its pivot at the eye's height, so that the view
+        // does not slide sideways while the hull swings round under it.
+        if (aimsGun && !machine.CanTurnUpperBody)
+            _firstPersonCamera.GlobalPosition = new Vector3(view.GlobalPosition.X, view.Eye.Y, view.GlobalPosition.Z);
         // With the modern keys the view looks where the mouse turned it, not waiting for the machine to follow.
         var yaw = FreeLook ? -_aimYaw : view.Yaw - head;
         _firstPersonCamera.GlobalRotation = new Vector3(_lookPitch, yaw - Mathf.Pi / 2, 0);
@@ -2943,6 +2979,7 @@ public partial class Game : Node3D
 
         _hud.Weapons.Show(machine.Weapons, SelectedWeapons(machine));
         _hud.Weapons.Held = ActHeld;
+        _hud.Weapons.Waiting = act => aimsGun && _waiting.Contains(act);
         _hud.Weapons.ShowTriggers(WeaponButtons ? GunPlaces(machine) : null);
         _hud.Radar.Driven = machine;
         _hud.Radar.Head = head;
@@ -2953,6 +2990,12 @@ public partial class Game : Node3D
             _hud.Crosshair.Outlined = _screen.Goggles;
         }
 
+        if (aimsGun)
+        {
+            ShowGunSight(machine, view);
+            return;
+        }
+        _hud.Crosshair.Single();
         // The crosshair shows what it rests on: an enemy to shoot or a friend to spare (ore and wrecks don't count).
         // It looks along the same line of sight the weapons fire along, as far as they reach.
         var reach = machine.Weapons.Select(w => w.Spec.Range).DefaultIfEmpty(0).Max();

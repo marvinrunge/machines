@@ -53,12 +53,17 @@ public sealed class TriggerHands
 
     private readonly HashSet<Mounting> _down = [];
     private readonly Dictionary<Mounting, double> _owed = [];
+    private readonly Dictionary<Mounting, double> _pressed = [];
 
     public void Press(Mounting trigger, double now)
     {
         _down.Add(trigger);
         _owed[trigger] = now + Patience;
+        _pressed[trigger] = now;
     }
+
+    /// <summary>When a trigger last went down, in the clock's seconds; never for one not pressed since the hands let go.</summary>
+    public double PressedAt(Mounting trigger) => _pressed.GetValueOrDefault(trigger, double.NegativeInfinity);
 
     public void Release(Mounting trigger) => _down.Remove(trigger);
 
@@ -67,6 +72,7 @@ public sealed class TriggerHands
     {
         _down.Clear();
         _owed.Clear();
+        _pressed.Clear();
     }
 
     public bool Down(Mounting trigger) => _down.Contains(trigger);

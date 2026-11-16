@@ -41,6 +41,9 @@ public partial class WeaponDisplay : Control
     /// <summary>Whether the driver holds a trigger, which the game knows better than the system when the focus came and went.</summary>
     public Func<KeyMap.Act, bool> Held { get; set; } = KeyMap.Held;
 
+    /// <summary>Whether a held trigger waits for the gun to come round ("Fire waits for the gun"): it is drawn held, but dimmed.</summary>
+    public Func<KeyMap.Act, bool> Waiting { get; set; } = _ => false;
+
     /// <summary>Where the marks under the panels end, in pixels from the top; 0 without any.</summary>
     public float Bottom { get; private set; }
 
@@ -163,7 +166,7 @@ public partial class WeaponDisplay : Control
         var x = top.X - (place.Triggers.Sum(Wide) + gap * (place.Triggers.Count - 1)) / 2;
         foreach (var act in place.Triggers)
         {
-            var colour = place.Weapon is null ? MenuTheme.Dim : Held(act) ? Colors.White : MenuTheme.Glow;
+            var colour = place.Weapon is null ? MenuTheme.Dim : Held(act) ? Waiting(act) ? new Color(1, 1, 1, 0.4f) : Colors.White : MenuTheme.Glow;
             if (IsPlainButton(act))
                 DrawMouse(KeyMap.Button(act)!.Value, new Rect2(x, top.Y, 12 * scale, 17 * scale), colour, scale);
             else

@@ -603,7 +603,7 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
         }
     }
 
-    /// <summary>Standing its ground: the sight on the nearest enemy hero in reach and the triggers held; false with none in reach.</summary>
+    /// <summary>Standing its ground: the view on the nearest enemy hero in reach (ahead of it for flying guns) and the triggers held as in an attack; false with none in reach.</summary>
     private bool StandFiring(Game game, Machine hero)
     {
         var world = game.World;
@@ -615,9 +615,12 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
             return false;
         Stop(hero);
         TurnHull(hero, Heading(hero.Position, foe.Position));
-        if (game.CentreOf(foe.Id) is { } aim)
-            LookAt(game, aim);
-        Fire(game, hero, NVector2.Distance(hero.Position, foe.Position), game.CrosshairSight == Crosshair.Sight.Enemy);
+        var distance = NVector2.Distance(hero.Position, foe.Position);
+        var leading = false;
+        if (game.CentreOf(foe.Id) is { } middle)
+            LookAt(game, Lead(game, hero, foe, middle, distance, out leading));
+        GunTimer(game, foe, true, leading);
+        Fire(game, hero, distance, Sighted(game, leading, true));
         return true;
     }
 

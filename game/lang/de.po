@@ -2510,6 +2510,10 @@ msgid "Turn"
 msgstr "Drehrate"
 
 msgctxt "hangar"
+msgid "Gun turn"
+msgstr "Schwenk"
+
+msgctxt "hangar"
 msgid "Repair"
 msgstr "Reparatur"
 
@@ -4312,3 +4316,6 @@ msgstr "ein schwerer Slot trägt höchstens drei"
 
 msgid "a battery needs a weapon slot"
 msgstr "eine Batterie braucht einen Waffenslot"
+
+msgid "Fire waits for the gun"
+msgstr "Feuer wartet auf die Kanone"

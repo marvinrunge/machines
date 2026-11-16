@@ -159,18 +159,22 @@ public partial class ProjectileViews : Node3D
 
     private static Vector3 Ground(System.Numerics.Vector2 at) => ActorView.World(at) + Vector3.Up * Height;
 
-    /// <summary>How far above where a run's rounds are sent the sight rests, on the picture of what it met.</summary>
-    public float SightLift { get; set; }
+    /// <summary>
+    /// The local driver's machine, and how far above where its rounds of a run are sent the sight rests, on the picture of
+    /// what it met: only its own rounds sent to the sight are drawn so lifted.
+    /// </summary>
+    public (int Shooter, float Lift) SightLift { get; set; } = (-1, 0);
 
     /// <summary>
-    /// How high the point a round was fired at lies: the point under the crosshair it was fired at in first person;
+    /// How high the point a round was fired at lies: the point under the crosshair it was fired at in first person (one that
+    /// left along a turning gun, to where the world sent it);
     /// else the middle of the actor there (or the one it was aimed to miss, which the simulation aims at most 4.5 m
     /// beside it), so it flies up to a flyer; else above the ground.
     /// </summary>
     private float AimHeight(Projectile projectile)
     {
         if (projectile.Sighted)
-            return projectile.AimHeight + SightLift;
+            return projectile.AimHeight + (!projectile.OffSight && projectile.Shooter == SightLift.Shooter ? SightLift.Lift : 0);
         var target = _world.Actors
             .Where(a => a.Id != projectile.Shooter && !a.IsDead
                 && System.Numerics.Vector2.Distance(a.Position, projectile.Aim) <= a.Radius + 5)

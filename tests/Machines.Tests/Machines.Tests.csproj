@@ -38,6 +38,7 @@
     <Compile Include="..\..\game\scripts\HeroHull.cs" Link="Sim\HeroHull.cs" />
     <Compile Include="..\..\game\scripts\HangarGlyphs.cs" Link="Sim\HangarGlyphs.cs" />
     <Compile Include="..\..\game\scripts\WiredReadout.cs" Link="Sim\WiredReadout.cs" />
+    <Compile Include="..\..\game\scripts\GunPrediction.cs" Link="Sim\GunPrediction.cs" />
     <Compile Include="..\..\game\scripts\BattleReadout.cs" Link="Sim\BattleReadout.cs" />
     <Compile Include="..\..\game\scripts\RoomOptions.cs" Link="Net\RoomOptions.cs" />
     <Compile Include="..\..\game\scripts\WeaponTriggers.cs" Link="Sim\WeaponTriggers.cs" />

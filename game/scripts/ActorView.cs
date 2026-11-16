@@ -127,6 +127,15 @@ public partial class ActorView : Node3D
         set => _aim = value;
     }
 
+    /// <summary>
+    /// Whether the upper body points along <see cref="GunBearing"/> at once, without turning at its own rate: a sighted
+    /// driver's, so that its barrels and the gun sight always agree.
+    /// </summary>
+    public bool UpperBodySnaps { get; set; }
+
+    /// <summary>Where a snapping upper body points, radians anticlockwise in the original's axes (in the world, not from the hull).</summary>
+    public float GunBearing { get; set; }
+
     /// <summary>Where the upper body turns whatever the machine attacks, as <see cref="UpperBodyAngle"/> (a film's direction); null leaves it to the target.</summary>
     public float? Steered { get; set; }
 
@@ -1004,6 +1013,10 @@ public partial class ActorView : Node3D
             var speed = new Vector3(moved.X, 0, moved.Z).Dot(facing) / (float)delta;
             var sideways = new Vector3(moved.X, 0, moved.Z).Dot(right) / (float)delta;
             var turnRate = -Mathf.AngleDifference(_lastYaw, _yaw) / (float)delta;
+            // A sighted driver's upper body points where the gun sight is drawn, against the hull as it is drawn now.
+            if (UpperBodySnaps)
+                _aim = Mathf.Wrap(GunBearing + _yaw, -Mathf.Pi, Mathf.Pi);
+            _rigView.Snaps = UpperBodySnaps;
             _rigView.Animate((float)delta, speed, turnRate, _maxSpeed, _aim, sideways, _fastestWalk);
             if (_locomotion is not null)
             {

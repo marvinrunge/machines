@@ -18,7 +18,7 @@ public partial class Game
 
     /// <summary>
     /// Plays a scene of a run through and prints its figures, with pictures in the folder: hud, boss, twins, night, ion, pickup,
-    /// down, intermission, refit, load, groundload, refused, triggers, squad, keys, specials, towers, leave, bay. The last seven press what a player presses,
+    /// down, intermission, refit, load, groundload, refused, triggers, squad, keys, specials, towers, leave, bay, turret, turrethull. The last nine press what a player presses,
     /// through Input. The hero wears full gear and, unless the scene is about its death, does not fall. losepod, losebody, plainend,
     /// unlock and unlock20 end the run and leave the game open for its end screen, plainsave saves it half way and quits; several
     /// joined by + go with the runs one after the other.
@@ -68,6 +68,8 @@ public partial class Game
             "leave" => SceneLeave(folder, run),
             "bay" => SceneBay(folder, run),
             "refused" => SceneRefused(folder, run),
+            "turret" => SceneTurret(folder, run, hullOnly: false),
+            "turrethull" => SceneTurret(folder, run, hullOnly: true),
             "stray" => SceneStray(folder, run),
             "podhit" => ScenePodHit(folder, run),
             "losepod" => SceneLosePod(folder, run),
@@ -1112,5 +1114,188 @@ public partial class Game
         Issue(new WiredDashCommand(Player));
         await Seconds(0.4);
         Snap(folder, "run-refused-down");
+    }
+
+    // Whether the turret scene logs the world's gun, and keeps its foes alive.
+    private bool _turretLogs;
+
+    /// <summary>
+    /// The gun following the view, in first person with the triggers held: a Harvester (Plasma Cannon 2, flying) and a Grunt 3
+    /// (Heavy Bolters, instant), or with <paramref name="hullOnly"/> a Colossus and a crab, whose hulls aim. Two foes stand
+    /// 40 m off (nearer if the guns reach less), 120° apart; the view rests on one until the gun is on it, then flicks onto the other, and pictures follow
+    /// the gun round; then it tracks the second as it moves, and lets go and presses again in the middle of a flick back.
+    /// The Harvester's end is shown again at night with the goggles on. With the classic layout one picture of the single
+    /// sight is all. Every tick logs the world's yaw, head, lag and whether the gun is on, every round where its mark lies
+    /// against the gun.
+    /// </summary>
+    private async Task SceneTurret(string folder, WiredRun run, bool hullOnly)
+    {
+        var state = run.Heroes[Player];
+        run.Countdown = 100_000;
+        World.Races[Player].Bmu = 100000;
+        Ticked += LogTurret;
+        var rigs = hullOnly
+            ? new[]
+            {
+                ("ballista5", "run-turrethull", new[] { (Mounting.Left, "HEAVY_BOLTER1"), (Mounting.Right, "HEAVY_BOLTER1") }, new[] { 0.2, 0.8, 2.0 }),
+                ("geo1", "run-turrethull-crab", new[] { (Mounting.Top, "BOLTER") }, new[] { 0.2, 0.8, 1.6 }),
+            }
+            : new[]
+            {
+                ("reaper5", "run-turret", new[] { (Mounting.Left, "PLASMA_CANNON2"), (Mounting.Right, "PLASMA_CANNON2") }, new[] { 0.05, 0.2, 0.4, 0.8 }),
+                ("grunt3", "run-turret-grunt3", new[] { (Mounting.Left, "HEAVY_BOLTER1"), (Mounting.Right, "HEAVY_BOLTER1") }, new[] { 0.05, 0.2, 0.4, 0.8 }),
+            };
+        foreach (var (chassis, name, weapons, snaps) in rigs)
+        {
+            await WearAllForScene(state, chassis, weapons);
+            if (World.HeroOf(Player) is not { } hero || _driven is null)
+            {
+                GD.PrintErr($"scene: turret: no hero on {chassis}");
+                continue;
+            }
+            // Out on the field, beyond the pod's reach, and back to the pod for the next chassis.
+            var home = hero.Position;
+            if (World.WiredPod(Player) is { } pod)
+            {
+                var away = hero.Position - pod.Position;
+                away = away.LengthSquared() < 1 ? NVector2.UnitX : NVector2.Normalize(away);
+                hero.Position = World.Nav.NearestFreePoint(pod.Position + away * (WiredBalance.PodReach + 30), crossesWater: false) ?? hero.Position;
+                hero.Facing = MathF.Atan2(away.Y, away.X);
+                _aimYaw = hero.Facing;
+                await Seconds(0.5);
+            }
+            // 40 m off, or nearer within the guns' reach.
+            var ahead = hero.Facing;
+            var metres = MathF.Min(40, 0.8f * hero.Weapons.Select(w => w.Spec.Range).DefaultIfEmpty(40).Max());
+            var first = TurretFoe(run.Enemy, hero, ahead, metres);
+            var second = TurretFoe(run.Enemy, hero, ahead + MathF.PI * 2 / 3, metres);
+            _turretLogs = true;
+            await Seconds(0.4);
+            SightOn(first);
+            await Seconds(2);
+            GD.Print($"scene: turret: {chassis} gun turn {state.Build(World.Data).GunTurnRate:0} degrees a second, spread {World.AimSpread(hero):0.00} degrees, input delay {_session.InputDelay}");
+            if (GameOptions.ClassicDriving)
+            {
+                Press(MouseButton.Left, true);
+                await Seconds(0.5);
+                Snap(folder, "run-turret-classic");
+                Press(MouseButton.Left, false);
+                return;
+            }
+            // The triggers held from before the flick; the gun is on the first foe.
+            Press(MouseButton.Left, true);
+            Press(MouseButton.Right, true);
+            await Seconds(1);
+            GD.Print($"scene: turret: flick at tick {World.Tick}");
+            SightOn(second);
+            var waited = 0.0;
+            for (var shot = 0; shot < snaps.Length; shot++)
+            {
+                await Seconds(snaps[shot] - waited);
+                waited = snaps[shot];
+                Snap(folder, $"{name}-{shot + 1}");
+                GD.Print($"scene: turret: {name}-{shot + 1} at tick {World.Tick}, gun sight {_hud.Crosshair.Aim} on {_gun.On} at {_hud.Crosshair.At}, dot {_dotSight}");
+            }
+            // The second foe walks sideways, and the view keeps on it.
+            var bearing = ahead + MathF.PI * 2 / 3;
+            var across = new NVector2(-MathF.Sin(bearing), MathF.Cos(bearing)) * 5;
+            for (var frame = 0; frame < 40; frame++)
+            {
+                second.Position += across * 0.05f;
+                await Seconds(0.05);
+                SightOn(second);
+            }
+            if (chassis == "reaper5")
+                Snap(folder, "run-turret-5");
+            GD.Print($"scene: turret: tracked, gun sight {_hud.Crosshair.Aim} on {_gun.On}, dot {_dotSight}");
+            Press(MouseButton.Left, false);
+            Press(MouseButton.Right, false);
+            await Seconds(0.6);
+            // A press in the middle of a flick back fires at once.
+            SightOn(first);
+            await Seconds(0.2);
+            GD.Print($"scene: turret: pressed mid-swing at tick {World.Tick}");
+            Press(MouseButton.Left, true);
+            await Seconds(0.8);
+            Press(MouseButton.Left, false);
+            if (chassis == "reaper5")
+            {
+                // The same at night, the goggles on.
+                World.ForcedDarkness = WiredBalance.NightDarkness;
+                await Seconds(7);
+                _screen.ToggleGoggles();
+                SightOn(second);
+                await Seconds(0.25);
+                Snap(folder, "run-turret-night");
+                await Seconds(1.2);
+                Snap(folder, "run-turret-night-on");
+                _screen.ToggleGoggles();
+                World.ForcedDarkness = null;
+                await Seconds(1);
+            }
+            _turretLogs = false;
+            first.HitPoints = 0;
+            second.HitPoints = 0;
+            hero.Position = home;
+            await Seconds(1);
+        }
+    }
+
+    /// <summary>Has the sight rest on a machine, as long as it is shown.</summary>
+    private void SightOn(Machine target)
+    {
+        if (_driven is not null && _views.ContainsKey(_driven.Id) && _views.ContainsKey(target.Id) && !target.IsDead)
+            Sight(target);
+    }
+
+    /// <summary>An enemy Gorilla that stands where it is put, fires nothing and is healed after every tick of the scene, so that it never falls.</summary>
+    private Machine TurretFoe(Race race, Machine hero, float bearing, float metres)
+    {
+        var way = new NVector2(MathF.Cos(bearing), MathF.Sin(bearing));
+        var at = Enumerable.Range(0, 20).Select(k => hero.Position + way * (metres + k)).FirstOrDefault(p => World.Nav.IsFree(p, crossesWater: false), hero.Position + way * metres);
+        var foe = World.AddMachine(race, at, "AGGRESSOR", "NINJA", 5, "L_MULTI_LAUNCHER7_T_GORILLA_PUNCH_R_MULTI_LAUNCHER7");
+        foe.Weapons.Clear();
+        foe.Order = new StandGroundOrder();
+        Ticked += () =>
+        {
+            if (!foe.IsDead && _turretLogs)
+                (foe.HitPoints, foe.Armour) = (foe.MaxHitPoints, foe.MaxArmour);
+        };
+        return foe;
+    }
+
+    /// <summary>The turret scene's log: the world's gun each tick, and each round's mark against the gun it left along.</summary>
+    private void LogTurret()
+    {
+        if (!_turretLogs || _driven is not { } machine || World.Find<Machine>(machine.Id) is null)
+            return;
+        var gun = World.GunHeading(machine);
+        var yaw = World.PlayerYaws.TryGetValue(machine.Id, out var held) ? held : float.NaN;
+        GD.Print($"turret: tick {World.Tick - 1} yaw {yaw:0.0000} head {World.HeadOf(machine.Id):0.0000} lambda {MathF.IEEERemainder(gun - yaw, 2 * MathF.PI):0.0000} on {World.OnSight(machine.Id)}");
+        foreach (var round in World.Events.Where(e => e.Kind == GameEventKind.Fired && e.Actor == machine.Id))
+        {
+            var mark = round.Mark is { } at ? MathF.Atan2(at.Y - machine.Position.Y, at.X - machine.Position.X) : float.NaN;
+            GD.Print($"turret: fired {round.Detail} tick {World.Tick - 1} mark bearing {mark:0.0000} gun {MathF.IEEERemainder(gun, 2 * MathF.PI):0.0000} off {MathF.IEEERemainder(mark - gun, 2 * MathF.PI):0.0000} weapons {World.PlayerWeapons.GetValueOrDefault(machine.Id)}");
+        }
+    }
+
+    /// <summary>The hero changes to a chassis at the pod with the weapons given and the goggles, and is driven.</summary>
+    private async Task WearAllForScene(WiredState state, string chassis, (Mounting Mounting, string Weapon)[] weapons)
+    {
+        await WearForScene(state, chassis);
+        OpenHangar();
+        await Seconds(0.3);
+        foreach (var (mounting, weapon) in weapons)
+            await Do(new WiredEquipCommand(Player, state.Add(WiredKind.Weapon, weapon, 0).Id, WiredSlot.Weapon(mounting)));
+        await Do(new WiredEquipCommand(Player, state.Add(WiredKind.Module, "nightvision", 0).Id, WiredSlot.Module(0)));
+        CloseHangar();
+        await Seconds(0.6);
+        if (_driven is null && World.HeroOf(Player) is { } hero)
+        {
+            Select([hero.Id]);
+            EnterFirstPerson();
+        }
+        await Seconds(1);
+        TellGuns();
     }
 }

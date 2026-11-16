@@ -20,6 +20,9 @@ public partial class RigView : Node3D
     /// </summary>
     public float TurnRate { get; set; } = 2.5f;
 
+    /// <summary>Whether the upper body takes its aim at once instead of turning to it at <see cref="TurnRate"/>.</summary>
+    public bool Snaps { get; set; }
+
     /// <summary>How far the upper body has turned from the hull, radians anticlockwise in the original's axes.</summary>
     public float UpperBody
     {
@@ -784,7 +787,7 @@ public partial class RigView : Node3D
 
         if (_rig.UpperBody > 0 && _rig.UpperBody < _nodes.Length)
         {
-            var step = Mathf.Clamp(Mathf.AngleDifference(_upperBody, aim), -TurnRate * delta, TurnRate * delta);
+            var step = Snaps ? Mathf.AngleDifference(_upperBody, aim) : Mathf.Clamp(Mathf.AngleDifference(_upperBody, aim), -TurnRate * delta, TurnRate * delta);
             _upperBody += step;
             // The original turns about its vertical z axis; with the axis swap that is Godot's y, reversed.
             _nodes[_rig.UpperBody].Transform = (_head ?? _rig.Nodes[_rig.UpperBody].Rest) * new Transform3D(new Basis(Vector3.Up, -_upperBody), Vector3.Zero);
