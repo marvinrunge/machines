@@ -6,7 +6,9 @@ namespace Machines.Game;
 /// <summary>
 /// The main menu's showpiece: a machine turning slowly on the big chip's screen, another every few seconds, in each
 /// race's colours in turn. It is built as the game builds it (<see cref="ClassicAssets.RigFor"/>), so it shows the
-/// look the player has chosen; without imported models the screen stays empty.
+/// look the player has chosen; without imported models the screen stays empty. All of them are loaded beforehand on
+/// worker threads (<see cref="Preload"/>), and the menus show them once where nobody sees (<see cref="MachineWarmup"/>),
+/// so that the next machine comes on without the menu halting for its loading or the GPU's first drawing of it.
 /// </summary>
 public partial class MachineDisplay : MachineScreen
 {
@@ -43,8 +45,31 @@ public partial class MachineDisplay : MachineScreen
     public MachineDisplay(ClassicAssets assets, int? first = null)
     {
         _assets = assets;
+        Preload(assets);
         _next = first ?? (int)(GD.Randi() % Machines.Length);
     }
+
+    // The loading of the machines shown, once for each set of assets.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ClassicAssets, Task> Loading = new();
+
+    /// <summary>
+    /// Loads every machine the display shows, in each race's colours, on worker threads (the assets' caches are
+    /// thread-safe), once for <paramref name="assets"/>; the display takes them from the cache as it comes to them.
+    /// </summary>
+    public static Task Preload(ClassicAssets assets) => Loading.GetValue(assets, loaded => Task.Run(() =>
+    {
+        try
+        {
+            Parallel.ForEach(AllShown(), shown => loaded.RigFor(shown.Id, shown.Race));
+        }
+        catch (Exception e)
+        {
+            GD.PushWarning($"Preloading the menu's machines: {e.Message}");
+        }
+    }));
+
+    /// <summary>Every machine the display shows, in each race's colours.</summary>
+    public static IEnumerable<(string Id, Race Race)> AllShown() => Races.SelectMany(race => Machines.Select(machine => (machine.Id, race)));
 
     /// <summary>A machine to begin with by chance, for displays shown side by side.</summary>
     public static int AnyFirst() => (int)(GD.Randi() % Machines.Length);
