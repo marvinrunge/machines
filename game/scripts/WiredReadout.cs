@@ -30,8 +30,11 @@ public readonly record struct DashReadout(float SecondsLeft, float Share, bool F
     public bool Ready => SecondsLeft <= 0;
 }
 
-/// <summary>An escort on the squad strip.</summary>
-public readonly record struct EscortReadout(int Id, string Model, int Level, float Health, EscortDoing Doing);
+/// <summary>
+/// An escort on the squad strip: its kind and level, and the name of a level that is Wired's own (Sarge, Old Iron), which the
+/// strip shows in place of a level the original never had; null for the original's.
+/// </summary>
+public readonly record struct EscortReadout(int Id, string Model, int Level, float Health, EscortDoing Doing, string? Name = null);
 
 /// <summary>A chip on the board, lit while it is at work.</summary>
 public readonly record struct ChipReadout(string Id, ChipFamily Family, bool Lit);
@@ -84,8 +87,11 @@ public sealed record WiredReadout
     /// <summary>The filled ability slots; the slots are <see cref="WiredBalance.AbilitySlots"/> however many are filled.</summary>
     public required IReadOnlyList<AbilityReadout> Abilities { get; init; }
 
-    /// <summary>The thrusters, for a hero that wears them.</summary>
+    /// <summary>The thrusters, for a hero that wears them or whose chassis dashes by itself.</summary>
     public required DashReadout? Dash { get; init; }
+
+    /// <summary>What the special of the hero's chassis shows, as the world has it; null for a chassis without one.</summary>
+    public required WiredSpecialView? SpecialView { get; init; }
 
     public required IReadOnlyList<EscortReadout> Squad { get; init; }
 
@@ -120,7 +126,8 @@ public sealed record WiredReadout
             return null;
         var (hero, pod, now) = (world.HeroOf(race), world.WiredPod(race), world.Time);
         var escorts = world.Escorts(race).OrderBy(m => m.Id).Select(m =>
-            new EscortReadout(m.Id, m.Key.SubType ?? m.Key.Type, m.Key.HardwareLevel, Share(m.HitPoints, m.MaxHitPoints), Doing(m.Order))).ToList();
+            new EscortReadout(m.Id, m.Key.SubType ?? m.Key.Type, m.Key.HardwareLevel, Share(m.HitPoints, m.MaxHitPoints), Doing(m.Order),
+                WiredMachines.Find(m.Spec.TypeName, m.Key.HardwareLevel)?.Name)).ToList();
         var strike = run.Strikes.Count > 0 ? run.Strikes[0] : null;
         // An ended run has no next wave: it stands at the one it ended on.
         var wave = run.Phase == WiredPhase.Ended ? run.Wave : run.ShopWave;
@@ -146,6 +153,7 @@ public sealed record WiredReadout
             Dash = state.Build(world.Data).DashCooldown is { } cooldown
                 ? new DashReadout(MathF.Max(0, state.DashReadyAt - now), 1 - Share(state.DashReadyAt - now, cooldown), now < state.DashUntil)
                 : null,
+            SpecialView = world.SpecialView(race),
             Squad = escorts,
             SquadLimit = world.SquadLimit(state),
             Chips = BoardOf(world, state),

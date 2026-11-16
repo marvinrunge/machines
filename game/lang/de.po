@@ -2529,8 +2529,8 @@ msgstr "diese Waffe gehört zum Chassis"
 msgid "the weapon is too big for this slot"
 msgstr "die Waffe ist zu groß für diesen Slot"
 
-msgid "that fits only the top slot of a glider"
-msgstr "das passt nur in den oberen Slot eines Gleiters"
+msgid "that fits only the top slot of the Boss line"
+msgstr "das passt nur in den oberen Slot der Boss-Linie"
 
 msgid "too heavy for this chassis"
 msgstr "zu schwer für dieses Chassis"
@@ -4024,3 +4024,291 @@ msgstr "wähle erst im Pod einen Helden"
 
 msgid "not everyone has chosen a hero"
 msgstr "noch haben nicht alle einen Helden gewählt"
+
+# Wired: what each chassis has of its own, and batteries in the hangar (Stage E)
+
+msgid "Third slot: a light weapon on top, the cheapest way to three slots."
+msgstr "Dritter Slot: eine leichte Waffe oben, der billigste Weg zu drei Slots."
+
+msgid "First heavy slot of the line: any heavy weapon fits on the left."
+msgstr "Erster schwerer Slot der Linie: links passt jede schwere Waffe."
+
+msgid "Ram plough: hits from the front cost {0} % less. A built-in dash every {1} s knocks over whatever it meets and deals it {2} damage."
+msgstr "Rammpflug: Treffer von vorn kosten {0} % weniger. Eingebauter Sprint alle {1} s, der alles umfährt, was er trifft, und ihm {2} Schaden macht."
+
+msgid "Harvest: every kill within {0} m gives back {1} % armour."
+msgstr "Ernte: Jeder Abschuss im Umkreis von {0} m gibt {1} % Panzerung zurück."
+
+msgid "Harvest: every kill within {0} m gives back {1} % armour and pulls in the wrecks there."
+msgstr "Ernte: Jeder Abschuss im Umkreis von {0} m gibt {1} % Panzerung zurück und zieht die Wracks dort heran."
+
+msgid "Lurk: after {0} s standing still the first shot flies {1} % further and deals {2} % more damage."
+msgstr "Lauer: Nach {0} s Stillstand fliegt der erste Schuss {1} % weiter und macht {2} % mehr Schaden."
+
+msgid "Anchor (key {0}): after {1} s the tracks lock and it stands: +{2} % range, −{3} % reload, +{4} % armour. Releasing takes {1} s."
+msgstr "Verankern (Taste {0}): Nach {1} s blockieren die Ketten und er steht: +{2} % Reichweite, −{3} % Nachladen, +{4} % Panzerung. Lösen dauert {1} s."
+
+msgid "Afterburner: a dash every {0} s without thrusters; the module slot stays free."
+msgstr "Nachbrenner: ein Sprint alle {0} s ohne Schubdüsen; der Modulplatz bleibt frei."
+
+msgid "Field marshal: team-mates within {0} m get +{1} accuracy and {2} % more repair."
+msgstr "Feldherr: Teamkameraden im Umkreis von {0} m bekommen +{1} Präzision und {2} % mehr Reparatur."
+
+msgid "Field marshal: squad +{0}. Within {1} m the squad gets +{2} accuracy and {3} % more repair. Rally (key {4}): the squad teleports to you, every {5} s."
+msgstr "Feldherr: Trupp +{0}. Wer im Umkreis von {1} m ist, bekommt +{2} Präzision und {3} % mehr Reparatur. Sammeln (Taste {4}): holt den Trupp per Teleport heran, alle {5} s."
+
+msgid "Raises no towers in a battle."
+msgstr "Baut in einer Schlacht keine Türme."
+
+msgid "Towers (key {0}): up to {1} at once – {2} – at the original's prices."
+msgstr "Türme (Taste {0}): bis zu {1} zugleich – {2} – zu Originalpreisen."
+
+msgid "Shadow: after {0} s without firing, enemies beyond {1} m lose their lock. Mines (key {2}): carries {3}."
+msgstr "Schatten: Wer {0} s nicht feuert, wird von Gegnern über {1} m nicht mehr aufgeschaltet. Minen (Taste {2}): trägt {3}."
+
+msgid "Mines (key {0}): carries {1}."
+msgstr "Minen (Taste {0}): trägt {1}."
+
+msgid "Locate (key {0}): every enemy within the scanner's reach is located for {1} s and takes {2} % more damage; every {3} s."
+msgstr "Orten (Taste {0}): Jeder Gegner in Scannerreichweite wird {1} s lang geortet und nimmt {2} % mehr Schaden; alle {3} s."
+
+msgid "Flies: weapons of {0} m or less cannot reach it, and it crosses water."
+msgstr "Fliegt: Waffen bis {0} m Reichweite erreichen ihn nicht, und er überquert Wasser."
+
+msgid "Special: {0}"
+msgstr "Spezial: {0}"
+
+msgid "Ram plough"
+msgstr "Rammpflug"
+
+msgid "Harvest"
+msgstr "Ernte"
+
+msgid "Lurk"
+msgstr "Lauer"
+
+msgid "Anchor"
+msgstr "Verankern"
+
+msgid "Afterburner"
+msgstr "Nachbrenner"
+
+msgid "Field marshal"
+msgstr "Feldherr"
+
+msgid "Towers"
+msgstr "Türme"
+
+msgid "Shadow"
+msgstr "Schatten"
+
+msgid "Adds little"
+msgstr "Bringt wenig"
+
+msgid "Adds nothing"
+msgstr "Bringt nichts"
+
+msgid "Thrusters add little on this chassis: it dashes every {0} s by itself."
+msgstr "Schubdüsen bringen auf diesem Chassis wenig: Es sprintet von selbst alle {0} s."
+
+msgid "This chassis sees in the dark by itself: the module adds nothing."
+msgstr "Dieses Chassis sieht von selbst im Dunkeln: Das Modul bringt nichts."
+
+msgid "Mk {0}–{1}"
+msgstr "Mk {0}–{1}"
+
+msgid "{0}× {1}"
+msgstr "{0}× {1}"
+
+msgid "×{0}"
+msgstr "×{0}"
+
+msgid "Fires {0} times as often"
+msgstr "Feuert {0}-mal so oft"
+
+msgid "+1 · fires {0}× as often"
+msgstr "+1 · feuert {0}× so oft"
+
+msgid "Joins the battery"
+msgstr "Kommt zur Batterie"
+
+msgid "Swaps Mk {0}"
+msgstr "Ersetzt Mk {0}"
+
+msgid "Shift: replace the battery"
+msgstr "Umschalt: Batterie ersetzen"
+
+msgid "One more copy of {0}: the gun fires {1} times as often, every round at full damage."
+msgstr "+1 {0}: Das Geschütz feuert {1}-mal so oft, jeder Schuss mit vollem Schaden."
+
+msgid "Battery of {0}: one gun that fires {0} times as often. Click: test fire. Right click: take one off."
+msgstr "Batterie ×{0}: ein Geschütz, das {0}-mal so oft feuert. Klick: Probeschuss. Rechtsklick: eine Kopie abnehmen."
+
+msgid "the gun fires {0}× as often"
+msgstr "das Geschütz feuert {0}× so oft"
+
+msgid "Turret"
+msgstr "Geschützturm"
+
+msgid "Sentry"
+msgstr "Wachturm"
+
+msgid "Launcher"
+msgstr "Raketenwerfer"
+
+# Wired: the chassis special in the field – its key, its block in the HUD, the towers (Stage E)
+
+msgid "Special"
+msgstr "Spezial"
+
+msgid "Chassis special"
+msgstr "Chassis-Spezial"
+
+msgid "Rally"
+msgstr "Sammeln"
+
+msgid "Ram"
+msgstr "Rammen"
+
+msgid "Free"
+msgstr "Frei"
+
+msgid "Locking"
+msgstr "Rastet ein"
+
+msgid "Anchored"
+msgstr "Verankert"
+
+msgid "Releasing"
+msgstr "Löst sich"
+
+msgid "Hidden"
+msgstr "Verborgen"
+
+msgid "Seen"
+msgstr "Gesehen"
+
+msgid "Lurking"
+msgstr "Lauert"
+
+msgid "Spent"
+msgstr "Verschossen"
+
+msgid "Located {0}"
+msgstr "Geortet {0}"
+
+msgid "{0} located"
+msgstr "{0} geortet"
+
+msgid "Towers {0}/{1}"
+msgstr "Türme {0}/{1}"
+
+msgid "No squad"
+msgstr "Kein Trupp"
+
+msgid "in reach"
+msgstr "in Reichweite"
+
+msgid "Tower ready"
+msgstr "Turm fertig"
+
+msgid "Scrap"
+msgstr "Abreißen"
+
+msgid "from {0}"
+msgstr "ab {0}"
+
+msgid "Wheel: choose"
+msgstr "Mausrad: wählen"
+
+msgid "{0}: place"
+msgstr "{0}: setzen"
+
+msgid "{0}: pull down"
+msgstr "{0}: abreißen"
+
+msgid "{0}: put away"
+msgstr "{0}: einpacken"
+
+# Wired: the refusals of the specials, the towers, the mines and the batteries (lower case, as the sim writes them)
+
+msgid "this chassis has nothing to use"
+msgstr "dieses Chassis hat nichts einzusetzen"
+
+msgid "{0} works by itself"
+msgstr "{0} wirkt von selbst"
+
+msgid "only while driving the hero"
+msgstr "nur, während du den Helden steuerst"
+
+msgid "the tracks are being released"
+msgstr "die Ketten werden gerade gelöst"
+
+msgid "the Colossus is anchored"
+msgstr "der Colossus ist verankert"
+
+msgid "there is no squad to call"
+msgstr "es gibt keinen Trupp zum Herbeirufen"
+
+msgid "there is no squad in a battle"
+msgstr "in einer Schlacht gibt es keinen Trupp"
+
+msgid "no mines left"
+msgstr "keine Minen mehr"
+
+msgid "{0} mines lie already"
+msgstr "es liegen schon {0} Minen"
+
+msgid "no towers in a battle"
+msgstr "keine Türme in einer Schlacht"
+
+msgid "no such tower"
+msgstr "diesen Turm gibt es nicht"
+
+msgid "this chassis cannot build that"
+msgstr "das kann dieses Chassis nicht bauen"
+
+msgid "{0} towers stand already"
+msgstr "es stehen schon {0} Türme"
+
+msgid "a tower turns only by quarter turns"
+msgstr "ein Turm dreht sich nur in Vierteldrehungen"
+
+msgid "too far"
+msgstr "zu weit weg"
+
+msgid "too close to the pod"
+msgstr "zu nah am Pod"
+
+msgid "something stands there"
+msgstr "dort steht etwas"
+
+msgid "not from the doorway"
+msgstr "nicht aus dem Tor heraus"
+
+msgid "no tower of yours there"
+msgstr "dort steht kein Turm von dir"
+
+msgid "your tower stands there"
+msgstr "dort steht schon dein Turm"
+
+msgid "not in Wired"
+msgstr "nicht im Überlebensmodus"
+
+msgid "a battery takes only the same weapon"
+msgstr "eine Batterie nimmt nur dieselbe Waffe"
+
+msgid "that weapon cannot form a battery"
+msgstr "diese Waffe bildet keine Batterie"
+
+msgid "a light slot carries one weapon"
+msgstr "ein leichter Slot trägt eine Waffe"
+
+msgid "a medium slot carries two at most"
+msgstr "ein mittlerer Slot trägt höchstens zwei"
+
+msgid "a heavy slot carries three at most"
+msgstr "ein schwerer Slot trägt höchstens drei"
+
+msgid "a battery needs a weapon slot"
+msgstr "eine Batterie braucht einen Waffenslot"

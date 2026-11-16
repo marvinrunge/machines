@@ -20,11 +20,19 @@ public static partial class HangarText
     };
 }
 
+/// <summary>The HUD's titles in capitals.</summary>
+public static class Capitals
+{
+    /// <summary>A text in capitals, a German ß as SS: the invariant culture leaves it small, and among capitals it reads as a B.</summary>
+    public static string Caps(this string text) => text.ToUpperInvariant().Replace("ß", "SS", StringComparison.Ordinal);
+}
+
 /// <summary>
 /// The screen of a Wired run, in the black bars of <see cref="FirstPersonScreen"/> and on plates rising out of them: the wave and
-/// its kind, the enemies left or the countdown, the bank, the bodies left, the pod, the bosses, abilities, thrusters, chips
-/// and the squad, and over the view what is called out, the way to the pod and what floats up from a pickup. It lies over
-/// the goggles' filter, so it reads the same with them on, and everything it says comes from <see cref="WiredReadout"/>.
+/// its kind, the enemies left or the countdown, the bank, the bodies left, the pod, the bosses, abilities, thrusters, the
+/// chassis' special, chips and the squad, and over the view what is called out, the way to the pod, the enemies located and
+/// what floats up from a pickup. It lies over the goggles' filter, so it reads the same with them on, and everything it says
+/// comes from <see cref="WiredReadout"/>.
 /// Beside the control panel, out of first person, it moves over. Wired is the remake's own addition.
 /// </summary>
 public partial class WiredHud : Control
@@ -156,6 +164,7 @@ public partial class WiredHud : Control
         if (dashReady && !_dashWasReady)
             _dashReadyAt = _time;
         _dashWasReady = dashReady;
+        FollowSpecial(now.SpecialView);
     }
 
     public override void _Draw()
@@ -164,6 +173,7 @@ public partial class WiredHud : Control
             return;
         (_prompted, _prompting) = (_prompting, _prompted);
         _prompting.Clear();
+        DrawPulseSweep();
         if (_battle is { } battle)
         {
             DrawBattle(battle);
@@ -172,6 +182,7 @@ public partial class WiredHud : Control
         if (_now is not { } now)
             return;
         DrawDanger();
+        DrawLocated();
         DrawMarkers(now);
         DrawFloats();
         DrawPrompts(now);
@@ -181,6 +192,7 @@ public partial class WiredHud : Control
         DrawWave(now);
         DrawBosses(now);
         DrawFoot(now);
+        DrawTowerMode();
         DrawDown(now);
     }
 
@@ -193,7 +205,7 @@ public partial class WiredHud : Control
         var at = new Vector2(Left + 16 * _u, 6 * _u);
         var box = new Rect2(at, new Vector2(330, 44) * _u);
         Plate(box, Plating, MenuTheme.Edge, 8);
-        var name = Fit((options.HeroName is { Length: > 0 } given ? given : Lang.T("Hero")).ToUpperInvariant(), 21, 300);
+        var name = Fit((options.HeroName is { Length: > 0 } given ? given : Lang.T("Hero")).Caps(), 21, 300);
         Say(at + new Vector2(12, 21) * _u, name, 21, MenuTheme.Text);
         var bodies = now.BodiesAtStart == 0 ? Lang.T("No spare body") : Lang.T("Spare bodies");
         var low = now.SpareBodies == 0 && now.DownSeconds is null;
@@ -257,7 +269,7 @@ public partial class WiredHud : Control
         var points = Corners(box, 0, 0, 22, 22);
         Plate(points, Plating, edge, 2);
 
-        var title = (now.BetweenWaves ? Lang.T("Next wave {0}", now.Wave) : Lang.T("Wave {0}", now.Wave)).ToUpperInvariant();
+        var title = (now.BetweenWaves ? Lang.T("Next wave {0}", now.Wave) : Lang.T("Wave {0}", now.Wave)).Caps();
         var tag = boss ? Lang.T("Boss: {0}", Lang.T(now.BossName!)) : kind;
         var (top, centre) = (24 * _u, new Vector2(middle, 0));
         if (tag is null)
@@ -265,7 +277,7 @@ public partial class WiredHud : Control
         else
         {
             // A long name brings the line down in size before it loses any of it.
-            tag = tag.ToUpperInvariant();
+            tag = tag.Caps();
             var size = 21f;
             while (size > 13 && Width(title, size) + Width(tag, size) + 24 * _u > 390 * _u)
                 size--;
@@ -288,7 +300,7 @@ public partial class WiredHud : Control
         var line = box.End.Y - 8 * _u;
         if (now.Seconds == 0)
         {
-            Say(new Vector2(middle, box.End.Y - 34 * _u), Lang.T("The wave is on its way").ToUpperInvariant(), 24, accent, 0.5f);
+            Say(new Vector2(middle, box.End.Y - 34 * _u), Lang.T("The wave is on its way").Caps(), 24, accent, 0.5f);
             return;
         }
         var last = now.Seconds <= 5;
@@ -335,7 +347,7 @@ public partial class WiredHud : Control
             // Half way a call for help goes out: the mark says when.
             DrawRect(new Rect2(bar.Position + new Vector2(bar.Size.X * 0.5f - _u, 0), new Vector2(2 * _u, bar.Size.Y)), new Color(0, 0, 0, 0.75f));
             DrawRect(new Rect2(bar.Position + new Vector2(0, bar.Size.Y + _u), new Vector2(bar.Size.X * boss.Armour, 2 * _u)), Ice);
-            Say(box.Position + new Vector2(12, 17) * _u, Fit(Lang.T(boss.Name).ToUpperInvariant(), 16, box.Size.X / _u - 80), 16, Colors.White);
+            Say(box.Position + new Vector2(12, 17) * _u, Fit(Lang.T(boss.Name).Caps(), 16, box.Size.X / _u - 80), 16, Colors.White);
             Say(box.Position + new Vector2(box.Size.X - 12 * _u, 17 * _u), $"{Mathf.CeilToInt(boss.Health * 100)} %", 15, MenuTheme.Text, 1);
         }
     }
@@ -345,8 +357,8 @@ public partial class WiredHud : Control
     private readonly record struct Block(float Width, Action<Vector2> Draw);
 
     /// <summary>
-    /// The pod, the abilities, the chips and the squad, side by side left of the radar; what no longer fits there goes on a
-    /// row above.
+    /// The pod, the abilities, the thrusters, the chassis' special, the chips and the squad, side by side left of the radar;
+    /// what no longer fits there goes on a row above.
     /// </summary>
     private void DrawFoot(WiredReadout now)
     {
@@ -354,7 +366,9 @@ public partial class WiredHud : Control
         foreach (var ability in now.Abilities)
             blocks.Add(new Block(Foot(Rise), at => DrawAbility(ability, at)));
         if (now.Dash is { } dash)
-            blocks.Add(new Block(Foot(Rise), at => DrawDash(dash, at)));
+            blocks.Add(new Block(Foot(Rise), at => DrawDash(dash, at, DashName(now.SpecialView))));
+        if (OwnBlock(now.SpecialView) is { } special)
+            blocks.Add(new Block(Foot(SpecialWidth), at => DrawSpecial(special, at)));
         if (now.Chips.Count > 0)
             blocks.Add(new Block(Foot(ChipsWidth), at => DrawChips(now, at)));
         if (now.Squad.Count > 0)
@@ -370,6 +384,7 @@ public partial class WiredHud : Control
             block.Draw(new Vector2(x, y));
             x += block.Width + Gap * _u;
         }
+        _footTop = y;
     }
 
     private float Foot(float width) => width * _u;
@@ -394,7 +409,7 @@ public partial class WiredHud : Control
         DrawRect(new Rect2(bar.Position, new Vector2(bar.Size.X * share, bar.Size.Y)), hurt ? Danger : share < 0.6f ? Warning : MenuTheme.Glow);
         DrawRect(bar, MenuTheme.Edge, false, 1);
         if (struck > 0)
-            Say(at + new Vector2(66, 76) * _u, Lang.T("Under attack").ToUpperInvariant(), 16, Danger.Lerp(Colors.White, beat * 0.5f));
+            Say(at + new Vector2(66, 76) * _u, Lang.T("Under attack").Caps(), 16, Danger.Lerp(Colors.White, beat * 0.5f));
         else if (now.PodDistance is { } distance)
             Say(at + new Vector2(66, 76) * _u, Lang.T("{0} m away", Mathf.RoundToInt(distance)), 15, MenuTheme.Dim);
     }
@@ -417,14 +432,17 @@ public partial class WiredHud : Control
         Cap(box, KeyOf(ability.Slot));
     }
 
-    private void DrawDash(DashReadout dash, Vector2 at)
+    /// <summary>The thrusters, or the dash a chassis has of its own, under the name of its special (Old Iron's ram, the Hornet's afterburner).</summary>
+    private void DrawDash(DashReadout dash, Vector2 at, string? name = null)
     {
         var box = new Rect2(at, new Vector2(Rise, Rise) * _u);
         var flash = Fading(_dashReadyAt, 0.6);
         var colour = dash.Firing ? Colors.White : dash.Ready ? Ice : MenuTheme.Dim;
         Plate(box, Plating, dash.Ready ? Ice.Lerp(Colors.White, flash) : MenuTheme.Edge, 10);
-        // Three chevrons, one way.
+        // Three chevrons, one way; a name under them pushes them up.
         var inner = box.Grow(-22 * _u);
+        if (name is not null)
+            inner = new Rect2(inner.Position - new Vector2(0, 8 * _u), inner.Size);
         for (var i = 0; i < 3; i++)
         {
             var x = inner.Position.X + inner.Size.X * (0.1f + 0.3f * i);
@@ -435,6 +453,13 @@ public partial class WiredHud : Control
         {
             Sweep(box.Grow(-4 * _u), dash.Share);
             Say(box.GetCenter() + new Vector2(0, 11) * _u, $"{Mathf.CeilToInt(dash.SecondsLeft)}", 30, Colors.White, 0.5f, outline: 3);
+        }
+        // The name over the sweep, so that it reads while the dash cools; in small letters, as "Afterburner" is long.
+        if (name is not null)
+        {
+            var label = Lang.T(name);
+            var size = Shrunk(label, 13, Rise - 8);
+            Say(box.Position + new Vector2(Rise / 2, 88) * _u, Fit(label, size, Rise - 8), size, dash.Ready || dash.Firing ? Ice : MenuTheme.Text, 0.5f);
         }
         if (flash > 0)
             DrawRect(box.Grow(flash * 6 * _u), new Color(Ice, flash * 0.7f), false, 2 * _u);
@@ -449,7 +474,7 @@ public partial class WiredHud : Control
     {
         var box = new Rect2(at, new Vector2(ChipsWidth, Rise) * _u);
         Plate(box, Plating, MenuTheme.Edge, 10);
-        Say(at + new Vector2(ChipsWidth / 2, 20) * _u, Lang.T("Chips").ToUpperInvariant(), 13, MenuTheme.Dim, 0.5f);
+        Say(at + new Vector2(ChipsWidth / 2, 20) * _u, Lang.T("Chips").Caps(), 13, MenuTheme.Dim, 0.5f);
         for (var i = 0; i < WiredBalance.ChipSockets; i++)
         {
             var place = at + new Vector2(10 + i % 3 * (ChipSize + ChipGap), 26 + i / 3 * (ChipSize + ChipGap)) * _u;
@@ -476,13 +501,16 @@ public partial class WiredHud : Control
 
     private static float SquadWidth(WiredReadout now) => 16 + Math.Max(now.SquadLimit, now.Squad.Count) * (CardWidth + CardGap);
 
-    /// <summary>The escorts as cards: the kind of machine and its level, its health and what it is about; a free place stays empty.</summary>
+    /// <summary>
+    /// The escorts as cards: the kind of machine and its level, or the name of a level that is Wired's own, its health and
+    /// what it is about; a free place stays empty.
+    /// </summary>
     private void DrawSquad(WiredReadout now, Vector2 at)
     {
         var count = Math.Max(now.SquadLimit, now.Squad.Count);
         var box = new Rect2(at, new Vector2(SquadWidth(now), Rise) * _u);
         Plate(box, Plating, MenuTheme.Edge, 10);
-        Say(at + new Vector2(10, 18) * _u, Lang.T("Squad {0}/{1}", now.Squad.Count, now.SquadLimit).ToUpperInvariant(), 13, MenuTheme.Dim);
+        Say(at + new Vector2(10, 18) * _u, Lang.T("Squad {0}/{1}", now.Squad.Count, now.SquadLimit).Caps(), 13, MenuTheme.Dim);
         if (Driving)
             DrawOrders(at);
         for (var i = 0; i < count; i++)
@@ -496,9 +524,20 @@ public partial class WiredHud : Control
             var escort = now.Squad[i];
             var hurt = escort.Health < 0.3f;
             Plate(card, MenuTheme.Well, hurt ? Danger : MenuTheme.Edge, 6);
-            Glyph(HangarGlyphs.All.GetValueOrDefault(escort.Model), new Rect2(card.Position + new Vector2(4, 3) * _u, new Vector2(40, 40) * _u), hurt ? Danger : MenuTheme.Glow);
-            Say(card.Position + new Vector2(CardWidth - 5, 17) * _u, escort.Level.ToString(), 14, MenuTheme.Text, 1);
-            DrawDoing(escort.Doing, card.Position + new Vector2(CardWidth - 13, 33) * _u);
+            var glyph = HangarGlyphs.All.GetValueOrDefault(escort.Model);
+            if (escort.Name is { } name)
+            {
+                // Sarge is no Grunt 4 to the player: the name goes under a smaller drawing.
+                Glyph(glyph, new Rect2(card.Position + new Vector2(4, 2) * _u, new Vector2(32, 32) * _u), hurt ? Danger : MenuTheme.Glow);
+                Say(card.Position + new Vector2(CardWidth / 2, 46) * _u, Fit(name.Caps(), 11, CardWidth - 6), 11, MenuTheme.Text, 0.5f);
+                DrawDoing(escort.Doing, card.Position + new Vector2(CardWidth - 13, 18) * _u);
+            }
+            else
+            {
+                Glyph(glyph, new Rect2(card.Position + new Vector2(4, 3) * _u, new Vector2(40, 40) * _u), hurt ? Danger : MenuTheme.Glow);
+                Say(card.Position + new Vector2(CardWidth - 5, 17) * _u, escort.Level.ToString(), 14, MenuTheme.Text, 1);
+                DrawDoing(escort.Doing, card.Position + new Vector2(CardWidth - 13, 33) * _u);
+            }
             var bar = new Rect2(card.Position + new Vector2(5, 50) * _u, new Vector2(CardWidth - 10, 8) * _u);
             DrawRect(bar, new Color(0, 0, 0, 0.8f));
             DrawRect(new Rect2(bar.Position, new Vector2(bar.Size.X * escort.Health, bar.Size.Y)), hurt ? Danger : escort.Health < 0.6f ? Warning : MenuTheme.Glow);
@@ -660,11 +699,12 @@ public partial class WiredHud : Control
         DrawColoredPolygon([.. points], new Color(0, 0, 0, 0.72f));
     }
 
-    // The keys are shown while they work, in first person: the abilities' by their slots, -1 the thrusters'.
+    // The keys are shown while they work, in first person: the abilities' by their slots, -1 the thrusters', -2 the chassis' special.
     private string? KeyOf(int slot) => !Driving ? null : KeyMap.Name(slot switch
     {
         0 => KeyMap.Act.Ability1,
         1 => KeyMap.Act.Ability2,
+        -2 => KeyMap.Act.Special,
         _ => KeyMap.Act.Dash,
     });
 

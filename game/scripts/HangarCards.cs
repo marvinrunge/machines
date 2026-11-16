@@ -63,6 +63,28 @@ public static partial class HangarText
         return item.Kind == WiredKind.Chip ? "" : Lang.T("Load {0} · Power {1}", load, power);
     }
 
+    /// <summary>The second line of a battery's card: its Mk, "Mk 1–3" where the copies differ, and its size.</summary>
+    public static string Kind(IReadOnlyList<WiredItem> battery)
+    {
+        if (battery.Count < 2 || WiredCatalogue.FindWeapon(battery[0].Catalogue) is not { } weapon)
+            return battery.Count == 0 ? "" : Kind(battery[0]);
+        var (low, high) = (battery.Min(c => c.Mk), battery.Max(c => c.Mk));
+        return $"{(low == high ? $"Mk {low}" : Lang.T("Mk {0}–{1}", low, high))} · {Size(weapon.Size)}";
+    }
+
+    /// <summary>The third line of a battery's card: what all its copies load and draw together.</summary>
+    public static string Budget(IReadOnlyList<WiredItem> battery) => battery.Count < 2 || WiredCatalogue.FindWeapon(battery[0].Catalogue) is not { } weapon
+        ? battery.Count == 0 ? "" : Budget(battery[0])
+        : Lang.T("Load {0} · Power {1}", weapon.Load * battery.Count, weapon.Power * battery.Count);
+
+    /// <summary>The weapons a hero carries, left, right, top, a battery as "3× Plasma Cannon": one gun that fires three times as often.</summary>
+    public static IEnumerable<string> Guns(HeroLoadout loadout) => Enum.GetValues<Mounting>().Select(loadout.Battery).Where(b => b.Count > 0)
+        .Select(b => b.Count == 1 ? Name(b[0].Catalogue) : Lang.T("{0}× {1}", b.Count, Name(b[0].Catalogue)));
+
+    /// <summary>How many copies a slot carries of a weapon: none for no slot, one of a weapon that forms no battery.</summary>
+    public static int Capacity(WiredChassis chassis, Mounting mounting, string? weapon) =>
+        weapon is not null && WiredCatalogue.FindWeapon(weapon) is { Single: true } ? 1 : WiredCatalogue.MostCopies(chassis, mounting);
+
     /// <summary>A chassis in full, for its plate.</summary>
     public static string Plate(WiredChassis chassis) => Lang.T("Weapons: {0} · Modules: {1} · Carries {2} · Supplies {3}",
         chassis.Slots.Count(s => s.Fixed is null), chassis.Modules, chassis.Load, chassis.Power);
@@ -90,8 +112,24 @@ public static partial class HangarText
         var text = why.StartsWith("needs ") && why.EndsWith(" first")
             ? Lang.T("needs {0} first", string.Join($" {Lang.T("or")} ", why[6..^6].Split(" or ").Select(Name)))
             : why.StartsWith("opens at wave ") ? Lang.T("opens at wave {0}", why[14..])
-            : Lang.T(why);
+            : Counted(why);
         return text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
+    }
+
+    /// <summary>
+    /// A reason in the language; one with a count in it, as the sim writes "15 mines lie already", by its words with {0}
+    /// for the count where only those have a translation.
+    /// </summary>
+    private static string Counted(string why)
+    {
+        var start = why.AsSpan().IndexOfAnyInRange('0', '9');
+        if (start < 0 || Lang.T(why) != why)
+            return Lang.T(why);
+        var end = start;
+        while (end < why.Length && char.IsAsciiDigit(why[end]))
+            end++;
+        var words = $"{why[..start]}{{0}}{why[end..]}";
+        return Lang.T(words) is var said && said != words ? string.Format(said, why[start..end]) : why;
     }
 
     /// <summary>Draws a line, smaller if it would not fit, and narrower if even that will not do: Mehrfachwerfer 3 must keep its number.</summary>
@@ -170,32 +208,90 @@ public abstract partial class HangarCard : Control
     /// <summary>
     /// An item's picture with its name, Mk and budget beside it, closer together on a low card. On a narrow card the words
     /// get all the width, and with <paramref name="note"/> that takes the place of the budget. Narrower still there is no room
-    /// for the budget, which the banner gives anyway, and a name of two words takes its line.
+    /// for the budget, which the banner gives anyway, and a name of two words takes its line. A <paramref name="battery"/> of
+    /// more than one copy is one gun that fires as often as it has copies: the picture wears a "×n" plate, the Mk spans its
+    /// copies and the budget is all of theirs; under the picture a pip for each copy the slot carries
+    /// (<paramref name="capacity"/>, where it carries more than one), lit for those it has.
     /// </summary>
-    protected void DrawItem(WiredItem item, Rect2 inner, Color name, float alpha = 1, string? note = null, Color noteColour = default)
+    protected void DrawItem(WiredItem item, Rect2 inner, Color name, float alpha = 1, string? note = null, Color noteColour = default,
+        IReadOnlyList<WiredItem>? battery = null, int capacity = 0)
     {
         var (x, width) = (inner.Position.X + 4, inner.Size.X - 6);
+        var copies = battery?.Count ?? 1;
+        var mark = copies > 1 ? Lang.T("×{0}", copies) : null;
+        Rect2? icon = null;
         if (inner.Size.X >= Narrow)
         {
             var size = Math.Min(inner.Size.Y - 4, 58);
-            var icon = new Rect2(inner.Position + new Vector2(2, (inner.Size.Y - size) / 2), new Vector2(size, size));
-            HangarIcons.Draw(this, item, icon, new Color(1, 1, 1, alpha));
-            (x, width) = (icon.End.X + 7, inner.End.X - icon.End.X - 8);
+            icon = new Rect2(inner.Position + new Vector2(2, (inner.Size.Y - size) / 2), new Vector2(size, size));
+            HangarIcons.Draw(this, item, icon.Value, new Color(1, 1, 1, alpha));
+            (x, width) = (icon.Value.End.X + 7, inner.End.X - icon.Value.End.X - 8);
         }
         var low = inner.Size.Y < 56;
         var (top, first, lines) = (inner.Position.Y, low ? 15 : 21, low ? new[] { 29, 43 } : [41, 59]);
         var dim = new Color(MenuTheme.Text, alpha * 0.85f);
         var (title, small) = (HangarText.Name(item.Catalogue), low ? 14 : 15);
+        // Without a picture the plate goes at the end of the name's line, which gives it the room.
+        var markWidth = mark is null ? 0 : MenuTheme.Font.GetStringSize(mark, HorizontalAlignment.Left, -1, MarkSize).X + 10;
+        var nameWidth = icon is null ? width - markWidth : width;
         var second = title.LastIndexOf(' ') is > 0 and var gap && width < Tight ? title[(gap + 1)..] : null;
-        HangarText.Line(this, new Vector2(x, top + first), second is null ? title : title[..title.LastIndexOf(' ')], width, low ? 17 : 20, new Color(name, alpha));
+        HangarText.Line(this, new Vector2(x, top + first), second is null ? title : title[..title.LastIndexOf(' ')], nameWidth, low ? 17 : 20, new Color(name, alpha));
         if (second is not null)
             HangarText.Line(this, new Vector2(x, top + lines[0]), second, width, low ? 17 : 20, new Color(name, alpha));
-        HangarText.Line(this, new Vector2(x, top + lines[second is null ? 0 : 1]), HangarText.Kind(item), width, small, dim);
+        var kind = battery is { Count: > 1 } ? HangarText.Kind(battery) : HangarText.Kind(item);
+        HangarText.Line(this, new Vector2(x, top + lines[second is null ? 0 : 1]), kind, width, small, dim);
         if (note is not null)
             HangarText.Line(this, new Vector2(x, top + lines[1]), note, width, small, noteColour);
-        else if (width >= Tight)
-            HangarText.Line(this, new Vector2(x, top + lines[1]), HangarText.Budget(item), width, small, new Color(MenuTheme.Dim.Lightened(0.25f), alpha));
+        else if (width >= Tight && inner.Size.Y >= lines[1] + 2)
+            HangarText.Line(this, new Vector2(x, top + lines[1]), battery is { Count: > 1 } ? HangarText.Budget(battery) : HangarText.Budget(item), width, small,
+                new Color(MenuTheme.Dim.Lightened(0.25f), alpha));
+        _mark = null;
+        if (mark is not null)
+        {
+            var corner = icon is { } picture ? new Vector2(picture.End.X + 3, picture.Position.Y - 2) : new Vector2(inner.End.X - 2, top + first - 16);
+            _mark = DrawMark(corner, mark, alpha);
+            _markCopies = copies;
+        }
+        if (icon is { } under && capacity > 1)
+            DrawPips(new Vector2(under.GetCenter().X, Math.Min(under.End.Y + 1, inner.End.Y - 6)), copies, capacity, alpha);
     }
+
+    private const int MarkSize = 15;
+
+    /// <summary>Where the "×n" plate stands, in the card's terms, for its tooltip; null without one.</summary>
+    private Rect2? _mark;
+
+    /// <summary>The middle of the "×n" plate in the window, for automated checks; null without one.</summary>
+    public Vector2? MarkPoint => _mark is { } plate ? GetGlobalTransform() * plate.GetCenter() : null;
+
+    private int _markCopies;
+
+    /// <summary>The battery's plate, gold as what stands out on the hangar's cards, its right end at the top right corner given.</summary>
+    private Rect2 DrawMark(Vector2 topRight, string text, float alpha)
+    {
+        var width = MenuTheme.Font.GetStringSize(text, HorizontalAlignment.Left, -1, MarkSize).X + 8;
+        var plate = new Rect2(topRight - new Vector2(width, 0), new Vector2(width, 19));
+        DrawRect(plate, new Color(MenuTheme.Bright, alpha));
+        DrawString(MenuTheme.Font, plate.Position + new Vector2(4, 15), text, HorizontalAlignment.Left, -1, MarkSize, new Color(MenuTheme.OnLight, alpha));
+        return plate;
+    }
+
+    /// <summary>A pip for each copy a slot carries, centred under a point's middle, lit for those there are.</summary>
+    private void DrawPips(Vector2 topMiddle, int lit, int pips, float alpha)
+    {
+        const float wide = 9, high = 5, gap = 4;
+        var x = topMiddle.X - (pips * wide + (pips - 1) * gap) / 2;
+        for (var pip = 0; pip < pips; pip++)
+        {
+            var box = new Rect2(x + pip * (wide + gap), topMiddle.Y, wide, high);
+            DrawRect(box, pip < lit ? new Color(MenuTheme.Bright, alpha) : new Color(MenuTheme.Well, 0.85f * alpha));
+            DrawRect(box, new Color(pip < lit ? MenuTheme.Bright : MenuTheme.Dim, alpha), false, 1);
+        }
+    }
+
+    /// <summary>The "×n" plate explains itself when the mouse rests on it: the battery is one gun that fires n times as often.</summary>
+    public override string _GetTooltip(Vector2 atPosition) =>
+        _mark is { } plate && plate.HasPoint(atPosition) ? Lang.T("Fires {0} times as often", _markCopies) : "";
 
     /// <summary>Below this width of card its words need the room of the picture.</summary>
     protected const float Narrow = 150;
@@ -219,6 +315,9 @@ public partial class ItemCard : HangarCard
 
     /// <summary>It follows the mouse and takes no input.</summary>
     public bool Ghost { get; init; }
+
+    /// <summary>On the Mk shelf, the battery the good is the lowest Mk of: the card shows the battery, its deal is that copy's.</summary>
+    public IReadOnlyList<WiredItem>? Battery { get; init; }
 
     protected override bool Lit => Picked || Ghost || IsHovered();
 
@@ -253,7 +352,7 @@ public partial class ItemCard : HangarCard
         var inner = body.Grow(-ChipArt.FrameWidth(ArtScale) - 3);
         var below = Good.Deal != HangarDeal.None ? Strip : Good.Price is null && Good.Locked is null ? 0 : 20;
         DrawItem(Good.Item, new Rect2(inner.Position, inner.Size - new Vector2(0, below)),
-            Good.Locked is null ? MenuTheme.Bright : MenuTheme.Dim.Lightened(0.35f), Good.Locked is null ? 1 : 0.75f);
+            Good.Locked is null ? MenuTheme.Bright : MenuTheme.Dim.Lightened(0.35f), Good.Locked is null ? 1 : 0.75f, battery: Battery);
         var baseline = inner.End.Y - 3;
         if (Good.Deal != HangarDeal.None)
             DrawDeal(new Rect2(inner.End - new Vector2(inner.Size.X, Strip), new Vector2(inner.Size.X, Strip)));
@@ -484,7 +583,38 @@ public partial class SlotCard : HangarCard
     /// <summary>A trace joins the chip in this socket to one of its family.</summary>
     public bool Linked { get; set; }
 
+    /// <summary>The battery shown here, its first copy <see cref="Item"/>: more than one copy is one gun that fires as often as it has copies.</summary>
+    public IReadOnlyList<WiredItem>? Battery { get; set; }
+
+    /// <summary>How many copies of its weapon the slot carries: from two on a pip for each.</summary>
+    public int Capacity { get; set; }
+
+    /// <summary>What the strip for one more copy of the weapon says; null for no strip.</summary>
+    public string? Plus { get; set; }
+
+    /// <summary>What one more copy costs; null or 0 where nothing is paid.</summary>
+    public int? PlusPrice { get; set; }
+
+    /// <summary>Why one more copy cannot be had now: the strip says so, dim.</summary>
+    public string? PlusWhy { get; set; }
+
+    /// <summary>The strip's height, at the card's foot.</summary>
+    public const float PlusHeight = 22;
+
+    /// <summary>The least room the item needs over the strip: a card lower than that shows none.</summary>
+    private const float PlusRoom = 30;
+
     public bool Empty => Item is null && Fixed is null && !Absent;
+
+    /// <summary>The card has room for the strip and shows it.</summary>
+    public bool ShowsPlus => Plus is not null && Item is not null && !Absent && Size.Y - 2 * (ChipArt.FrameWidth(ArtScale) + 3) - 16 - PlusHeight >= PlusRoom;
+
+    /// <summary>The middle of the strip for one more copy, in the window.</summary>
+    public Vector2 PlusPoint => GetGlobalTransform() * new Vector2(Size.X / 2, Size.Y - ChipArt.FrameWidth(ArtScale) - 3 - PlusHeight / 2);
+
+    /// <summary>Whether a point of the window is on the strip for one more copy.</summary>
+    public bool OnPlus(Vector2 at) => ShowsPlus && GetGlobalRect().HasPoint(at)
+        && (GetGlobalTransform().AffineInverse() * at).Y >= Size.Y - PlusHeight - ChipArt.FrameWidth(ArtScale) - 3;
 
     protected override bool Lit => Pointed && !Absent;
 
@@ -532,7 +662,13 @@ public partial class SlotCard : HangarCard
                 DrawRect(inner, new Color(family, 0.06f + 0.06f * Pulse));
         }
         if (Item is { } worn)
-            DrawItem(worn, rest, Trial ? MenuTheme.Glow : MenuTheme.Bright, Absent ? 0.45f : 1, below ? note : null, noteColour);
+        {
+            var plus = ShowsPlus;
+            var above = plus ? new Rect2(rest.Position, rest.Size - new Vector2(0, PlusHeight)) : rest;
+            DrawItem(worn, above, Trial ? MenuTheme.Glow : MenuTheme.Bright, Absent ? 0.45f : 1, below ? note : null, noteColour, Battery, Capacity);
+            if (plus)
+                DrawPlus(new Rect2(inner.Position.X, inner.End.Y - PlusHeight, inner.Size.X, PlusHeight));
+        }
         else if (Fixed is { } part)
         {
             HangarText.Line(this, rest.Position + new Vector2(6, 30), Lang.T(Studio.Title(part)), rest.Size.X - 10, 20, MenuTheme.Text);
@@ -544,6 +680,28 @@ public partial class SlotCard : HangarCard
             var baseline = rest.Position.Y + rest.Size.Y / 2 + 8;
             DrawString(MenuTheme.Font, new Vector2(rest.Position.X, baseline), word.ToUpperInvariant(), HorizontalAlignment.Center, rest.Size.X, 20,
                 Absent ? MenuTheme.Dim : new Color(MenuTheme.Bright, 0.45f + 0.5f * Pulse));
+        }
+    }
+
+    /// <summary>
+    /// The strip for one more copy, as the inventory's deal strips: what it does on the left, the price on the right; dim
+    /// with the reason where it cannot be had, the price in red if the bank does not cover it.
+    /// </summary>
+    private void DrawPlus(Rect2 strip)
+    {
+        var refused = PlusWhy is not null;
+        var colour = refused ? MenuTheme.Dim.Lightened(0.3f) : MenuTheme.Glow;
+        var over = !refused && Page is { Dragging: false } page && OnPlus(page.Mouse);
+        DrawRect(strip, new Color(colour, over ? 0.34f : 0.13f));
+        var (baseline, width) = (strip.Position + new Vector2(6, strip.Size.Y - 6), strip.Size.X - 12);
+        var price = PlusPrice is > 0 and var cost ? Page?.Desk.PriceText(cost) ?? $"{cost} BMU" : null;
+        var priceWidth = price is null ? 0 : Math.Min(MenuTheme.Font.GetStringSize(price, HorizontalAlignment.Left, -1, 15).X, width * 0.4f);
+        var words = refused ? $"+1 · {HangarText.Reason(PlusWhy!)}" : Plus!;
+        HangarText.Line(this, baseline, words, width - priceWidth - (price is null ? 0 : 6), 14, colour);
+        if (price is not null)
+        {
+            var dear = PlusPrice > (Page?.Bank ?? int.MaxValue);
+            HangarText.Line(this, baseline + new Vector2(width - priceWidth, 0), price, priceWidth, 15, dear ? HangarPage.Red : colour, HorizontalAlignment.Right);
         }
     }
 }

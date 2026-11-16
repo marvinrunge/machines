@@ -229,9 +229,7 @@ public partial class Game : Node3D
     // Building placement
     private (string Type, string? SubType, int Level)? _placing;
     private int _placingOrientation;
-    private Node3D? _ghost;
-    private StandardMaterial3D? _ghostMaterial;
-    private bool _ghostPrinted;
+    private Ghost? _ghost;
 
     // Area weapons going off, drawn as growing spheres
     private readonly Dictionary<Blast, MeshInstance3D> _blastViews = [];
@@ -778,6 +776,7 @@ public partial class Game : Node3D
         FollowRun(delta);
         UpdateGhost();
         UpdateFirstPersonCamera();
+        UpdateTowerMode();
         ShowFilmLook();
         ShowInteriors();
         ShowHealing();
@@ -1074,6 +1073,9 @@ public partial class Game : Node3D
     // The machines in an APC, which teleport out when they leave it.
     private readonly HashSet<int> _aboard = [];
 
+    // The constructor heroes whose views are at work on a tower.
+    private readonly HashSet<int> _heroesAtWork = [];
+
     private void SyncViews()
     {
         foreach (var actor in World.Actors)
@@ -1134,9 +1136,13 @@ public partial class Game : Node3D
             }
             if (actor is Machine { Inside: null } && _aboard.Remove(actor.Id))
                 view.TeleportIn();
-            // A geo locator scans the ground as it goes.
+            // A geo locator scans the ground as it goes; a Wired hero on one plays its ring while its pulse goes out.
             if (actor is Machine { Spec.Type: "GEO_LOCATOR" } locator)
-                view.Scan(locator.Order is LocateOrder ? _assets.EffectMesh("locator") : null, locator.Stats.ScannerRange);
+            {
+                var pulsing = Pulsing(locator);
+                view.Scan(locator.Order is LocateOrder || pulsing ? _assets.EffectMesh("locator") : null,
+                    pulsing ? World.ScannerReach(locator) : locator.Stats.ScannerRange);
+            }
             // A transporter loading or unloading ore glows with rings of light (MachPhysResourceCarrier::doLoading).
             if (actor is Machine carrier)
             {
@@ -1150,10 +1156,18 @@ public partial class Game : Node3D
                 }
                 _oreCarried[carrier.Id] = carrier.Ore;
             }
-            // Constructors at work reach out to the building with beams and sparks.
+            // Constructors at work reach out to the building with beams and sparks, a Wired hero to the tower it builds or
+            // mends. A hero's view hears of its work while it goes on and once as it ends, so that a driver's cabin keeps its hum.
             if (actor is Machine { Spec.Type: "CONSTRUCTOR" } constructor)
-                view.Construct(World.WorkedOn(constructor) is { } site ? ActorView.World((site.Footprint.Min + site.Footprint.Max) / 2) + Vector3.Up * 2 : null,
-                    _assets.EffectMesh("torch"), _assets.EffectMesh("sparks"), _assets.EffectMesh("groundlight"));
+            {
+                var hero = HeroOf(constructor) is not null;
+                var site = hero ? World.TowerWorkOf(constructor) : World.WorkedOn(constructor);
+                if (!hero || site is not null || _heroesAtWork.Remove(constructor.Id))
+                    view.Construct(site is null ? null : ActorView.World((site.Footprint.Min + site.Footprint.Max) / 2) + Vector3.Up * 2,
+                        _assets.EffectMesh("torch"), _assets.EffectMesh("sparks"), _assets.EffectMesh("groundlight"));
+                if (hero && site is not null)
+                    _heroesAtWork.Add(constructor.Id);
+            }
             // Technicians in a lab research with their arms while it has work (MachLogHardwareLab's MachLogResearchAnimation).
             if (actor is Machine { Spec.Type: "TECHNICIAN" } technician)
                 view.Working = technician.Inside is { } workplace && World.Find<Construction>(workplace) is { } lab
@@ -1329,7 +1343,8 @@ public partial class Game : Node3D
                     if (SoundTable.BuiltReport(built) is { } builtReport)
                         _audio.Say(builtReport);
                     break;
-                case GameEventKind.ConstructionComplete when World.Find(e.Actor)?.Race == Player:
+                // A run's towers say they are ready by its own words (Game.Wired).
+                case GameEventKind.ConstructionComplete when World.Find(e.Actor)?.Race == Player && World.Wired is null:
                     _hud.Message(Lang.T("Construction complete: {0}", e.Detail));
                     _audio.Say("VID_DOZER_BUILDING_COMPLETE");
                     break;
@@ -2200,11 +2215,11 @@ public partial class Game : Node3D
         if (target is not null && World.AreEnemies(Player, target.Race))
         {
             // Constructors take enemy buildings over, spies slip into enemy labs to steal research; everyone armed
-            // attacks.
-            var capturers = target is Construction { Complete: true } ? Ids(m => m.Spec.Type == "CONSTRUCTOR") : [];
+            // attacks. A Wired hero on either is a fighter (RoleOf).
+            var capturers = target is Construction { Complete: true } ? Ids(m => RoleOf(m) == "CONSTRUCTOR") : [];
             if (capturers.Count > 0)
                 Order(new CaptureCommand(Player, capturers, target.Id));
-            var spies = target is Construction { Complete: true } lab && lab.IsType("HARDWARE_LAB") ? Ids(m => m.IsSpy) : [];
+            var spies = target is Construction { Complete: true } lab && lab.IsType("HARDWARE_LAB") ? Ids(m => RoleOf(m) == "SPY_LOCATOR") : [];
             if (spies.Count > 0)
                 Order(new EnterLabCommand(Player, spies, target.Id));
             Order(new AttackCommand(Player, Ids(m => m.CanFight), target.Id));
@@ -2242,13 +2257,13 @@ public partial class Game : Node3D
             var rest = machines.Select(m => m.Id).ToHashSet();
             if (!building.Complete)
             {
-                var constructors = Ids(m => m.Spec.Type == "CONSTRUCTOR");
+                var constructors = Ids(m => RoleOf(m) == "CONSTRUCTOR");
                 Order(new ConstructCommand(Player, constructors, building.Id));
                 rest.ExceptWith(constructors);
             }
             else if (building.HitPoints < building.MaxHitPoints)
             {
-                var constructors = Ids(m => m.Spec.Type == "CONSTRUCTOR");
+                var constructors = Ids(m => RoleOf(m) == "CONSTRUCTOR");
                 Order(new RepairCommand(Player, constructors, building.Id));
                 rest.ExceptWith(constructors);
             }
@@ -2298,10 +2313,10 @@ public partial class Game : Node3D
             _audio.PlayGui("gui/sounds/clickbad.wav");
             return;
         }
-        var locators = Ids(m => m.Spec.Type == "GEO_LOCATOR");
+        var locators = Ids(m => RoleOf(m) == "GEO_LOCATOR");
         if (locators.Count > 0)
             Order(new LocateCommand(Player, locators, point));
-        var others = Ids(m => m.Spec.Type != "GEO_LOCATOR");
+        var others = Ids(m => RoleOf(m) != "GEO_LOCATOR");
         if (Input.IsKeyPressed(Key.Ctrl))
             Order(new AttackMoveCommand(Player, others, point));
         else
@@ -2316,26 +2331,7 @@ public partial class Game : Node3D
         CancelPlacement();
         _placing = (type, subType, level);
         _placingOrientation = 0;
-        // The building itself, see-through, in green where it may stand and red where not.
-        var spec = World.Data.Parm.Construction(subType is null ? type : $"{type} {subType}");
-        var (id, size) = ActorView.ModelOf(new Construction(0, Player, NVector2.Zero, spec, spec.Level(level), 0));
-        _ghostMaterial = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(0.3f, 1, 0.3f, 0.4f),
-            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-        };
-        // Built from its rig, its pads lie printed on the ground as the building's will (see UpdateGhost).
-        _ghost = _assets.RigFor(id, Look(Player)) is { } rig
-            ? RigView.Create(rig)
-            : new MeshInstance3D { Mesh = _assets.MeshFor(id, Look(Player), size) };
-        _ghostPrinted = false;
-        AddChild(_ghost);
-        foreach (var mesh in _ghost.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>().Append(_ghost as MeshInstance3D).OfType<MeshInstance3D>())
-        {
-            mesh.MaterialOverride = _ghostMaterial;
-            mesh.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
-        }
+        _ghost = new Ghost(this, type, subType, level);
         _hud.Message("Left click to place, Space to turn, right click to cancel");
     }
 
@@ -2346,9 +2342,8 @@ public partial class Game : Node3D
         _placingWhy = null;
         _placedAt.Clear();
         _joined.Clear();
-        _ghost?.QueueFree();
+        _ghost?.Remove();
         _ghost = null;
-        _ghostMaterial = null;
     }
 
     private void UpdateGhost()
@@ -2364,27 +2359,76 @@ public partial class Game : Node3D
             at = held;
         }
         _placingAt = at;
-        // Placed and turned as the building's own view will be (ActorView). A mine goes where the mouse is, as
-        // anything else: anywhere near a found site will do (MachGuiConstructCommand never moved it onto the site).
-        _ghost.Position = ActorView.World(at);
-        _ghost.Rotation = new Vector3(0, -Mathf.DegToRad(_placingOrientation), 0);
+        // A mine goes where the mouse is, as anything else: anywhere near a found site will do (MachGuiConstructCommand
+        // never moved it onto the site).
         _placingWhy = WhyNotHere(p, at);
-        var ok = _placingWhy is null;
-        // Where it cannot stand it flashes, four times a second.
-        _ghost.Visible = ok || (int)(Time.GetTicksMsec() / 250) % 2 == 1;
-        var tint = ok ? new Color(0.3f, 1, 0.3f, 0.4f) : new Color(1, 0.25f, 0.2f, 0.4f);
-        _ghostMaterial!.AlbedoColor = tint;
-        if (_ghost is RigView view)
+        _ghost.Show(at, _placingOrientation, _placingWhy is null);
+    }
+
+    /// <summary>
+    /// A building as it would stand, see-through, to place it by: green where it may stand, red and flashing four times a
+    /// second where not, placed and turned as the building's own view will be (ActorView). Built from its rig, its pads lie
+    /// printed on the ground as the building's will, once where it first stands, reaching far enough up and down to lie on
+    /// the ground wherever it is taken. The constructors' placing and a constructor hero's towers (Game.Towers) both use it,
+    /// the towers in tints of their own.
+    /// </summary>
+    private sealed class Ghost
+    {
+        /// <summary>The placing's tints: a light green where it may stand, a light red where not.</summary>
+        public static readonly Color Allowed = new(0.3f, 1, 0.3f, 0.4f), Refused = new(1, 0.25f, 0.2f, 0.4f);
+
+        private readonly Color _allowed, _refused;
+
+        private readonly StandardMaterial3D _material = new()
         {
-            // Printed once where it first stands, reaching far enough up and down to lie on the ground wherever the
-            // mouse takes it.
-            if (!_ghostPrinted && HeightField.Current is { } ground)
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+        };
+
+        private readonly Node3D _model;
+        private bool _printed;
+
+        /// <param name="allowed">The tint where it may stand; the placing's if null.</param>
+        /// <param name="refused">The tint where it may not; the placing's if null.</param>
+        public Ghost(Game game, string type, string? subType, int level, Color? allowed = null, Color? refused = null)
+        {
+            (_allowed, _refused) = (allowed ?? Allowed, refused ?? Refused);
+            _material.AlbedoColor = _allowed;
+            var spec = game.World.Data.Parm.Construction(subType is null ? type : $"{type} {subType}");
+            var (id, size) = ActorView.ModelOf(new Construction(0, Player, NVector2.Zero, spec, spec.Level(level), 0));
+            _model = game._assets.RigFor(id, Look(Player)) is { } rig
+                ? RigView.Create(rig)
+                : new MeshInstance3D { Mesh = game._assets.MeshFor(id, Look(Player), size) };
+            game.AddChild(_model);
+            foreach (var mesh in _model.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>().Append(_model as MeshInstance3D).OfType<MeshInstance3D>())
+            {
+                mesh.MaterialOverride = _material;
+                mesh.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+            }
+        }
+
+        /// <summary>Stands at a place, turned by <paramref name="orientation"/> degrees, in the tint of whether it may.</summary>
+        public void Show(NVector2 at, int orientation, bool allowed)
+        {
+            _model.Position = ActorView.World(at);
+            _model.Rotation = new Vector3(0, -Mathf.DegToRad(orientation), 0);
+            _model.Visible = allowed || (int)(Time.GetTicksMsec() / 250) % 2 == 1;
+            var tint = allowed ? _allowed : _refused;
+            _material.AlbedoColor = tint;
+            if (_model is not RigView view)
+                return;
+            if (!_printed && HeightField.Current is { } ground)
             {
                 view.PrintPads(ground.At, reach: 12);
-                _ghostPrinted = true;
+                _printed = true;
             }
             view.PadTint = tint;
         }
+
+        /// <summary>Out of sight, pads and all, until it is shown again.</summary>
+        public void Hide() => _model.Visible = false;
+
+        public void Remove() => _model.QueueFree();
     }
 
     // Where the building to place stands now, and why it cannot; the sites picked with Shift so far, new and joined.
@@ -2425,7 +2469,7 @@ public partial class Game : Node3D
     {
         if (_placing is not { } p || RefusesOrders())
             return;
-        var constructors = Movers().Where(m => m.Spec.Type == "CONSTRUCTOR").Select(m => m.Id).ToList();
+        var constructors = Movers().Where(m => RoleOf(m) == "CONSTRUCTOR").Select(m => m.Id).ToList();
         PlaceConstructionCommand? placed = null;
         var spot = _placingAt ?? at.Ground;
         if (at.Actor is Construction { Complete: false } site && site.Race == Player)
@@ -2913,6 +2957,10 @@ public partial class Game : Node3D
         // It looks along the same line of sight the weapons fire along, as far as they reach.
         var reach = machine.Weapons.Select(w => w.Spec.Range).DefaultIfEmpty(0).Max();
         var (sighted, aimed) = SightAt(GetViewport().GetVisibleRect().Size / 2, reach);
+        // A Wired hero hiding in its shadow gives the sight nothing to show; one a geo locator has located stands in brackets.
+        if (aimed is not null && InShadow(aimed))
+            aimed = null;
+        _hud.Crosshair.Located = aimed is not null && LocatedFoe(aimed);
         _hud.Crosshair.Target = aimed is null ? null
             : (aimed.HitPoints / (float)Math.Max(1, aimed.MaxHitPoints), aimed.Armour / (float)Math.Max(1, aimed.MaxArmour));
         // The compass reads the heading as the original's azimuth: degrees anticlockwise from its x axis.

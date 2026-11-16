@@ -74,7 +74,7 @@ public partial class KeysPage(Action back, bool run = false) : MenuPage(back)
     {
         columns.AddChild(List("WEAPONS", [KeyMap.Act.FireLeft, KeyMap.Act.FireRight, KeyMap.Act.FireTop],
             "One trigger for each weapon in first person, with the options' Mouse button per weapon and always in Wired. Held ones fire together. A key or a mouse button will do; while these are on the mouse, the right button neither turns the upper body nor leaves by a double click."));
-        columns.AddChild(List("WIRED", [KeyMap.Act.SquadFollow, KeyMap.Act.SquadAttack, KeyMap.Act.SquadHold, KeyMap.Act.SquadBack, KeyMap.Act.Ability1, KeyMap.Act.Ability2, KeyMap.Act.Dash, KeyMap.Act.Hangar],
+        columns.AddChild(List("WIRED", [KeyMap.Act.SquadFollow, KeyMap.Act.SquadAttack, KeyMap.Act.SquadHold, KeyMap.Act.SquadBack, KeyMap.Act.Ability1, KeyMap.Act.Ability2, KeyMap.Act.Dash, KeyMap.Act.Special, KeyMap.Act.Hangar],
             "These work in the hero, in first person; the hangar also from above, at the pod between the waves. The options' Classic Keys leave them as they are."));
     }
 

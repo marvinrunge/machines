@@ -45,7 +45,7 @@ public partial class WiredHud
 
     /// <summary>The wave has begun, with what its boss is called.</summary>
     public void WaveBegins(int wave, string? boss) =>
-        Announce(Lang.T("Wave {0}", wave).ToUpperInvariant(), boss is null ? null : Lang.T("Boss: {0}", Lang.T(boss)), boss is null ? Gold : Danger, 3.2f);
+        Announce(Lang.T("Wave {0}", wave).Caps(), boss is null ? null : Lang.T("Boss: {0}", Lang.T(boss)), boss is null ? Gold : Danger, 3.2f);
 
     /// <summary>The wave just called out is a special one: the same call says so.</summary>
     public void WaveIsSpecial(WiredSpecial special)
@@ -71,15 +71,15 @@ public partial class WiredHud
     };
 
     public void WaveCleared(int wave, string bonus) =>
-        Announce(Lang.T("Wave {0} cleared", wave).ToUpperInvariant(), Lang.T("Bonus {0} BMU", bonus), MenuTheme.Glow, 3);
+        Announce(Lang.T("Wave {0} cleared", wave).Caps(), Lang.T("Bonus {0} BMU", bonus), MenuTheme.Glow, 3);
 
-    public void BossAppears(string name) => Announce(Lang.T(name).ToUpperInvariant(), Lang.T("Boss on the field"), Danger, 3);
+    public void BossAppears(string name) => Announce(Lang.T(name).Caps(), Lang.T("Boss on the field"), Danger, 3);
 
-    public void BossCallsForHelp(string name) => Announce(Lang.T(name).ToUpperInvariant(), Lang.T("Below half: a call for help"), Warning, 2.4f);
+    public void BossCallsForHelp(string name) => Announce(Lang.T(name).Caps(), Lang.T("Below half: a call for help"), Warning, 2.4f);
 
-    public void ChipChoiceWaits() => Announce(Lang.T("Boss down").ToUpperInvariant(), Lang.T("Choose a chip in the hangar"), Gold, 3.4f);
+    public void ChipChoiceWaits() => Announce(Lang.T("Boss down").Caps(), Lang.T("Choose a chip in the hangar"), Gold, 3.4f);
 
-    public void RunEnds(WiredEnding ending) => Announce(Lang.T("Run over").ToUpperInvariant(), WiredEndScreen.Why(ending), Danger, 4);
+    public void RunEnds(WiredEnding ending) => Announce(Lang.T("Run over").Caps(), WiredEndScreen.Why(ending), Danger, 4);
 
     private void Announce(string title, string? line, Color colour, float seconds)
     {
@@ -175,7 +175,8 @@ public partial class WiredHud
     private const float SightClear = 110;
 
     /// <summary>
-    /// A mark on a place in view, or an arrow on the ring round the sight towards one that is not. With
+    /// A mark on a place in view, or an arrow on the ring round the sight towards one that is not, both above the towers'
+    /// strip while it is up. With
     /// <paramref name="clearSight"/> a mark near the sight in the middle of the view fades and its word goes up out of the way,
     /// so that it does not sit on what the sight is on (a battle's pods lie straight ahead while their defenders stand there).
     /// </summary>
@@ -187,6 +188,12 @@ public partial class WiredHud
         var tint = new Color(colour, beat);
         // What can be seen gets its mark right up to the edges of the view, short of the plates, the radar and the panels.
         var view = new Rect2(new Vector2(Left + 16 * _u, margin * 0.6f), new Vector2(_size.X - Left - 32 * _u, _size.Y - margin * 0.6f - (Rise + 16 + (Driving ? 0 : PromptLine)) * _u));
+        // While the towers are up their strip and its keys take the foot of the view: marks and arrows keep above them.
+        if (TowerStripTop is { } strip)
+        {
+            area.Size = new Vector2(area.Size.X, Mathf.Max(margin, Mathf.Min(area.Size.Y, strip - 16 * _u - area.Position.Y)));
+            view.Size = new Vector2(view.Size.X, Mathf.Max(margin, Mathf.Min(view.Size.Y, strip - 8 * _u - view.Position.Y)));
+        }
         var front = !camera.IsPositionBehind(place);
         var at = front ? camera.UnprojectPosition(place) : Vector2.Zero;
         var r = (strong ? 11 : 8) * _u;
@@ -212,6 +219,14 @@ public partial class WiredHud
         var tip = middle + way * area.Size / 2;
         var size = (strong ? 24 : 17) * _u;
         var room = size + Width(label, 15) / 2 + 22 * _u;
+        // An arrow that would come down onto the towers' strip, or onto the sight's words over it, stands beside the strip's
+        // end instead, the left one unless the way goes right and there is room before the radar.
+        if (_game.Towers is not null && _towerStrip is { } band && tip.Y > band.Position.Y - room
+            && tip.X > band.Position.X - room && tip.X < band.End.X + room)
+        {
+            var right = way.X > 0.3f && band.End.X + room * 2 < (RadarCorner()?.Position.X ?? _size.X);
+            tip = new Vector2(right ? band.End.X + room * 0.6f : band.Position.X - room * 0.6f, band.GetCenter().Y);
+        }
         tip = Clear(tip, Kept(plates: true).Select(k => k.Grow(room)).ToList());
         var side = new Vector2(-way.Y, way.X);
         var back = tip - way * size;
@@ -329,7 +344,7 @@ public partial class WiredHud
         }
 
         if (_refused is { } refused && Fading(_refusedAt, 2.6) is > 0 and var alpha)
-            Prompt(new Vector2(middle, _size.Y - (Rise + 84) * _u), refused, new Color(Danger.Lerp(Colors.White, 0.2f), Mathf.Min(alpha * 2, 1)), 20);
+            Prompt(new Vector2(middle, RefusalAt), refused, new Color(Danger.Lerp(Colors.White, 0.2f), Mathf.Min(alpha * 2, 1)), 20);
     }
 
     private void Prompt(Vector2 at, string text, Color colour, float size)
@@ -377,7 +392,7 @@ public partial class WiredHud
         var box = new Rect2(middle - 300 * _u, _size.Y * 0.5f - 96 * _u, 600 * _u, 250 * _u);
         var beat = 1 - (float)(seconds % 1);
         Plate(box, new Color(0, 0, 0, 0.82f), Danger, 16);
-        Say(new Vector2(middle, box.Position.Y + 50 * _u), Lang.T("Body lost").ToUpperInvariant(), 36, Danger, 0.5f);
+        Say(new Vector2(middle, box.Position.Y + 50 * _u), Lang.T("Body lost").Caps(), 36, Danger, 0.5f);
         Say(new Vector2(middle, box.Position.Y + 150 * _u), Mathf.CeilToInt(seconds).ToString(), 96 + beat * 10, Colors.White, 0.5f);
         Say(new Vector2(middle, box.Position.Y + 190 * _u), Lang.T("The next body stands at the pod"), 22, MenuTheme.Text, 0.5f);
         Say(new Vector2(middle, box.Position.Y + 224 * _u), Lang.T("Spare bodies left: {0}", now.SpareBodies), 19, MenuTheme.Dim, 0.5f);

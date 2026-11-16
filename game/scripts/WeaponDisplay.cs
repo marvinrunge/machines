@@ -9,7 +9,8 @@ namespace Machines.Game;
 /// weapon in that order, each dropping down in ten frames (gui/fstpersn/weapon/weap0..9) as first person begins,
 /// one after another, then showing its icon and how far it has recharged. A weapon not selected (Tab) folds back up.
 /// Where each weapon has its own trigger, the remake's own, a mark under each panel shows what fires it, and a place of
-/// a hero's chassis without a gun has its panel, empty.
+/// a hero's chassis without a gun has its panel, empty. A hero's battery, one gun that fires as often as it has copies, has
+/// one panel too: "×n" on its icon, the charge of the copy due next and a pip for each copy, lit while it is loaded.
 /// </summary>
 public partial class WeaponDisplay : Control
 {
@@ -74,8 +75,9 @@ public partial class WeaponDisplay : Control
             var step = (float)delta / DropTime * DropFrames;
             _drop[mounting] = down ? Mathf.Min(DropFrames, drop + step) : Mathf.Max(0, drop - step);
         }
-        foreach (var (weapon, selected) in _weapons)
-            Drop(weapon.Mounting, selected);
+        // A battery's copies share their mounting's panel: it is down while any of them is selected.
+        foreach (var mounting in _weapons.Select(w => w.Weapon.Mounting).Distinct())
+            Drop(mounting, _weapons.Any(w => w.Weapon.Mounting == mounting && w.Selected));
         foreach (var place in _places ?? [])
             if (place.Weapon is null)
                 Drop(place.Mounting, true);
@@ -91,7 +93,8 @@ public partial class WeaponDisplay : Control
         Bottom = 0;
         foreach (var mounting in new[] { Mounting.Left, Mounting.Top, Mounting.Right })
         {
-            var weapon = _weapons.FirstOrDefault(w => w.Weapon.Mounting == mounting).Weapon;
+            var battery = _weapons.Where(w => w.Weapon.Mounting == mounting).Select(w => w.Weapon).ToList();
+            var weapon = battery.FirstOrDefault();
             var place = _places?.FirstOrDefault(p => p.Mounting == mounting);
             if (weapon is null && place is null)
                 continue;
@@ -108,12 +111,15 @@ public partial class WeaponDisplay : Control
                 }
                 else if (Icons.TryGetValue(weapon.Spec.TypeName, out var icon) && Bitmap(icon, scale) is { } picture)
                     DrawTexture(picture, at + new Vector2(8, 33) * scale);
+                // The copy due next is the one most charged.
                 if (weapon is not null && Bitmap("chrgey", scale) is { } charge)
                 {
-                    var width = charge.GetWidth() * weapon.ChargePercent / 100;
+                    var width = charge.GetWidth() * battery.Max(w => w.ChargePercent) / 100;
                     DrawTextureRectRegion(charge, new Rect2(at + new Vector2(9, 19) * scale, new Vector2(width, charge.GetHeight())),
                         new Rect2(0, 0, width, charge.GetHeight()));
                 }
+                if (battery.Count > 1)
+                    DrawBattery(battery, at, background.GetWidth(), scale);
             }
             else if (Bitmap($"weap{Math.Max(0, frame)}", scale) is { } dropping)
             {
@@ -125,6 +131,27 @@ public partial class WeaponDisplay : Control
             at.X += background.GetWidth() + 2 * scale;
         }
         Area = new Rect2(start, end - start);
+    }
+
+    /// <summary>A battery's marks on its panel: "×n" in the icon's top right corner, and between bar and icon a pip for each copy, lit while loaded.</summary>
+    private void DrawBattery(IReadOnlyList<WeaponMount> battery, Vector2 at, float panel, int scale)
+    {
+        var mark = Lang.T("×{0}", battery.Count);
+        var size = 9 * scale;
+        var width = MenuTheme.Font.GetStringSize(mark, HorizontalAlignment.Left, -1, size).X + 4 * scale;
+        var plate = new Rect2(at + new Vector2(77 * scale - width, 34 * scale), new Vector2(width, 11 * scale));
+        DrawRect(plate, new Color(MenuTheme.Bright, 0.92f));
+        DrawString(MenuTheme.Font, plate.Position + new Vector2(2 * scale, 9 * scale), mark, HorizontalAlignment.Left, -1, size, MenuTheme.OnLight);
+        var (wide, gap) = (6 * scale, 3 * scale);
+        var x = at.X + (panel - (battery.Count * wide + (battery.Count - 1) * gap)) / 2;
+        var loaded = battery.Count(w => w.ChargePercent >= 100);
+        for (var pip = 0; pip < battery.Count; pip++)
+        {
+            var box = new Rect2(x + pip * (wide + gap), at.Y + 28.5f * scale, wide, 3 * scale);
+            DrawRect(box, pip < loaded ? MenuTheme.Glow : new Color(0, 0, 0, 0.7f));
+            if (pip >= loaded)
+                DrawRect(box, new Color(MenuTheme.Glow, 0.5f), false, 1);
+        }
     }
 
     /// <summary>What fires a place, side by side and centred on a point; it lights up while held.</summary>

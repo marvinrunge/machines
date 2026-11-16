@@ -27,6 +27,38 @@ public class BattleReadoutTests
         Assert.Equal(blue, BattleReadout.HeroName(world.Battle, Race.Blue));
     }
 
+    [Theory]
+    [InlineData("phantom6", ChassisSpecial.Mines | ChassisSpecial.Shadow)]
+    [InlineData("geo1", ChassisSpecial.Locate)]
+    [InlineData("ballista5", ChassisSpecial.Anchor)]
+    [InlineData("commander6", ChassisSpecial.Field)]
+    public void The_special_of_the_heros_chassis_is_shown_as_the_world_has_it(string chassis, ChassisSpecial special)
+    {
+        var tier = BattleCatalogue.Tier(chassis);
+        var options = BattleBots.Compose(new BattleOptions { Tier = tier, TeamA = [Race.Red, Race.Blue], TeamB = [Race.Green, Race.Yellow] },
+            [new BattleHero(Race.Red, "Ace", chassis, BattleBots.Loadout(chassis, tier))]);
+        var world = Battles.New(options);
+        Assert.Equal(chassis, world.Wired!.Heroes[Race.Red].Loadout.Chassis.Catalogue);
+
+        var shown = Of(world, Race.Red).SpecialView;
+
+        Assert.NotNull(shown);
+        Assert.Equal(world.SpecialView(Race.Red), shown);
+        Assert.Equal(special, shown!.Special);
+        Battles.Run(world, BattleBalance.Opening + 1);
+        Assert.Equal(world.SpecialView(Race.Red), Of(world, Race.Red).SpecialView);
+    }
+
+    [Fact]
+    public void A_hero_on_a_chassis_without_a_special_shows_none()
+    {
+        var options = BattleBots.Compose(new BattleOptions { Tier = 1, TeamA = [Race.Red, Race.Blue], TeamB = [Race.Green, Race.Yellow] },
+            [new BattleHero(Race.Red, "Ace", "grunt1", BattleBots.Loadout("grunt1", 1))]);
+        var world = Battles.New(options);
+
+        Assert.Null(Of(world, Race.Red).SpecialView);
+    }
+
     [Fact]
     public void There_is_none_outside_a_battle_or_for_a_race_in_no_team()
     {

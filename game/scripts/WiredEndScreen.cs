@@ -160,7 +160,7 @@ public partial class WiredEndScreen(Game game, ClassicAssets assets) : MenuPage(
         var loadout = _state.Loadout;
         var chassis = MenuTheme.Label(HangarText.Name(loadout.Chassis.Catalogue), 22, MenuTheme.Text, HorizontalAlignment.Center);
         chassis.AutoTranslateMode = AutoTranslateModeEnum.Disabled;
-        var weapons = MenuTheme.Paragraph(string.Join("  ·  ", loadout.Weapons.OfType<WiredItem>().Select(w => HangarText.Name(w.Catalogue))), 17, MenuTheme.Dim.Lightened(0.35f));
+        var weapons = MenuTheme.Paragraph(string.Join("  ·  ", HangarText.Guns(loadout)), 17, MenuTheme.Dim.Lightened(0.35f));
         weapons.HorizontalAlignment = HorizontalAlignment.Center;
         weapons.AutoTranslateMode = AutoTranslateModeEnum.Disabled;
         plate.AddChild(Column(0, name, chassis, weapons));
@@ -424,13 +424,14 @@ public partial class WiredEndScreen(Game game, ClassicAssets assets) : MenuPage(
         }
     }
 
-    /// <summary>The hero fires what it carries into the air of the turntable.</summary>
+    /// <summary>The hero fires what it carries into the air of the turntable, a battery's gun once for each copy.</summary>
     private void Salute()
     {
-        foreach (var weapon in _state.Build(Paths.Data).Weapons)
+        var weapons = _state.Build(Paths.Data).Weapons;
+        _screen.Fire(weapons);
+        foreach (var mounting in weapons.Select(w => w.Mounting).Distinct())
         {
-            _screen.Fire(weapon.Mounting, weapon.Spec);
-            if (_screen.MountPoint(weapon.Mounting) is { } mount)
+            if (_screen.MountPoint(mounting) is { } mount)
                 _screen.Spark(mount);
         }
     }

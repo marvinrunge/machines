@@ -6,7 +6,8 @@ namespace Machines.Game;
 /// The first-person crosshair of the original (MachGuiFirstPerson): it opens up when a machine is taken over
 /// (<c>ping</c>), then turns slowly (<c>targ</c>); over an enemy it shows the attack sight (<c>targv</c>) and
 /// over a friend the no-fire sight (<c>targnv</c>), each with its sound as it comes on. The bitmaps come from
-/// <c>gui/fstpersn/cursor</c> of the player's game copy, scaled up with the screen; without them a plain cross.
+/// <c>gui/fstpersn/cursor</c> of the player's game copy, scaled up with the screen; without them a plain cross. In a Wired
+/// match brackets stand round it over an enemy a geo locator has located.
 /// </summary>
 public partial class Crosshair : Control
 {
@@ -57,6 +58,9 @@ public partial class Crosshair : Control
     /// <summary>The aimed-at actor's health and armour, each 0 to 1, or null when nothing is aimed at.</summary>
     public (float Health, float Armour)? Target { get; set; }
 
+    /// <summary>In a Wired match, whether the enemy aimed at has been located by a geo locator's pulse: brackets stand round the sight.</summary>
+    public bool Located { get; set; }
+
     /// <summary>The driven machine's heading in degrees, for the compass under the sight.</summary>
     public float Heading { get; set; }
 
@@ -96,6 +100,8 @@ public partial class Crosshair : Control
         {
             Bar("health", target.Health, centre + new Vector2(-33, -9) * scale, scale);
             Bar("armour", target.Armour, centre + new Vector2(29, -9) * scale, scale);
+            if (Located)
+                DrawLocated(centre, scale);
         }
 
         // MachGuiFirstPerson::displayCompass: under the sight, once it has opened, a strip of the compass
@@ -136,6 +142,21 @@ public partial class Crosshair : Control
         var colour = _sight == Sight.Enemy ? new Color(1, 0.5f, 0.3f, 0.9f) : new Color(0.55f, 1, 0.45f, 0.75f);
         foreach (var way in new[] { Vector2.Up, Vector2.Right, Vector2.Down, Vector2.Left })
             DrawLine(centre + way * radius, centre + way * (radius + length), colour, line);
+    }
+
+    /// <summary>Amber brackets at the four corners round the sight and its bars, as the HUD sets round a located enemy in the field.</summary>
+    private void DrawLocated(Vector2 centre, int scale)
+    {
+        var colour = new Color(1, 0.7f, 0.2f, 0.75f + 0.25f * Mathf.Sin((float)_time * 8));
+        var (half, arm) = (new Vector2(44, 26) * scale, 9f * scale);
+        foreach (var (x, y) in new[] { (-1f, -1f), (1f, -1f), (1f, 1f), (-1f, 1f) })
+        {
+            var corner = centre + new Vector2(x * half.X, y * half.Y);
+            Vector2[] strokes = [corner - new Vector2(0, y * arm), corner, corner - new Vector2(x * arm, 0)];
+            if (Outlined)
+                DrawPolyline(strokes, new Color(0, 0, 0, 0.7f), scale + 2, true);
+            DrawPolyline(strokes, colour, scale, true);
+        }
     }
 
     private (string Name, int Frame) Current()

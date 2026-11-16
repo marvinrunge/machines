@@ -41,6 +41,7 @@
     <Compile Include="..\..\game\scripts\BattleReadout.cs" Link="Sim\BattleReadout.cs" />
     <Compile Include="..\..\game\scripts\RoomOptions.cs" Link="Net\RoomOptions.cs" />
     <Compile Include="..\..\game\scripts\WeaponTriggers.cs" Link="Sim\WeaponTriggers.cs" />
+    <Compile Include="..\..\game\scripts\KeyClash.cs" Link="Sim\KeyClash.cs" />
     <Compile Include="..\..\game\scripts\GameLocator.cs" Link="Import\GameLocator.cs" />
   </ItemGroup>
 

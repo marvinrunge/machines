@@ -91,6 +91,14 @@ public partial class Game
 
     private List<Machine> Movers() => SelectedMachines().Where(m => m.Inside is null).ToList();
 
+    /// <summary>
+    /// What a machine is to the cursor and the orders: its type, but a Wired hero built on a constructor, a spy or a geo
+    /// locator is a fighter as any other hero, which moves where it is sent and attacks what it can fire at. Its towers,
+    /// mines and pulse go by the special's key (Game.Controls); the world refuses it the original's orders for them.
+    /// </summary>
+    private string RoleOf(Machine machine) =>
+        machine.Spec.Type is "CONSTRUCTOR" or "SPY_LOCATOR" or "GEO_LOCATOR" && HeroOf(machine) is not null ? "AGGRESSOR" : machine.Spec.Type;
+
     // The player's emplacements among the selected that take orders.
     public List<Construction> SelectedEmplacements() =>
         _selection.Select(World.Find<Construction>).OfType<Construction>().Where(c => c.Race == Player && GameWorld.TakesOrders(c)).ToList();
@@ -130,7 +138,7 @@ public partial class Game
         {
             if (!Free(at, Movers()))
                 return Aim.Invalid;
-            if (machine.Spec.Type == "GEO_LOCATOR" && !alt)
+            if (RoleOf(machine) == "GEO_LOCATOR" && !alt)
                 return Aim.Locate;
             return machine.IsType("APC") && alt ? Aim.Deploy : Aim.Move;
         }
@@ -146,7 +154,7 @@ public partial class Game
         if (lead is Construction building)
             return actor is not null && GameWorld.TakesOrders(building) && World.CanAttack(Player, actor) ? Aim.Attack : Selecting(lead, at, ctrl, alt);
         var machine = (Machine)lead;
-        switch (machine.Spec.Type)
+        switch (RoleOf(machine))
         {
             case "ADMINISTRATOR":
                 if (actor is not null && Fires(machine, actor))
@@ -211,7 +219,7 @@ public partial class Game
         if (at.Actor is Machine or Construction)
             return Selecting(machine, at, ctrl, alt);
         if (at.Loose)
-            return machine.Spec.Type == "GEO_LOCATOR" ? Aim.Locate : Aim.Move;
+            return RoleOf(machine) == "GEO_LOCATOR" ? Aim.Locate : Aim.Move;
         return Aim.Invalid;
     }
 
@@ -238,7 +246,7 @@ public partial class Game
             return Aim.Select;
         }
         if (at.Wreck is not null)
-            return lead is Machine { Spec.Type: "GEO_LOCATOR" } ? Aim.Locate : Aim.Move;
+            return lead is Machine leader && RoleOf(leader) == "GEO_LOCATOR" ? Aim.Locate : Aim.Move;
         return Aim.Menu;
     }
 
@@ -285,7 +293,7 @@ public partial class Game
         List<int> Ids(Func<Machine, bool> which) => machines.Where(which).Select(m => m.Id).ToList();
         var target = at.Actor;
         var id = target?.Id ?? 0;
-        var constructors = Ids(m => m.Spec.Type == "CONSTRUCTOR");
+        var constructors = Ids(m => RoleOf(m) == "CONSTRUCTOR");
         switch (aim)
         {
             case Aim.Move or Aim.Locate when shift:
@@ -295,8 +303,8 @@ public partial class Game
                 Order(new MoveCommand(Player, Ids(_ => true), point));
                 break;
             case Aim.Locate when at.Point is { } point:
-                Order(new LocateCommand(Player, Ids(m => m.Spec.Type == "GEO_LOCATOR"), point));
-                if (Ids(m => m.Spec.Type != "GEO_LOCATOR") is { Count: > 0 } others)
+                Order(new LocateCommand(Player, Ids(m => RoleOf(m) == "GEO_LOCATOR"), point));
+                if (Ids(m => RoleOf(m) != "GEO_LOCATOR") is { Count: > 0 } others)
                     Order(new MoveCommand(Player, others, point));
                 break;
             case Aim.Attack:
@@ -373,10 +381,10 @@ public partial class Game
         List<int> Ids(Func<Machine, bool> which) => machines.Where(which).Select(m => m.Id).ToList();
         if (building.IsType("HARDWARE_LAB"))
         {
-            if (Ids(m => m.Spec.Type == "TECHNICIAN" && building.Race == Player || m.IsSpy && building.Race != Player) is { Count: > 0 } workers)
+            if (Ids(m => m.Spec.Type == "TECHNICIAN" && building.Race == Player || RoleOf(m) == "SPY_LOCATOR" && building.Race != Player) is { Count: > 0 } workers)
                 Order(new EnterLabCommand(Player, workers, building.Id));
         }
-        if (building.IsType("GARRISON") && Ids(m => m.IsSpy && m.Mines < (m.Stats.MineCapacity ?? 0)) is { Count: > 0 } spies)
+        if (building.IsType("GARRISON") && Ids(m => RoleOf(m) == "SPY_LOCATOR" && m.Mines < (m.Stats.MineCapacity ?? 0)) is { Count: > 0 } spies)
             Order(new RefillLandMinesCommand(Player, spies));
         if (machines.Where(m => World.CanEnter(m, building) && (m.Spec.Type != "TECHNICIAN" || !building.IsType("HARDWARE_LAB"))).Select(m => m.Id).ToList() is { Count: > 0 } entering)
             Order(new EnterGarrisonCommand(Player, entering, building.Id));
@@ -507,7 +515,7 @@ public partial class Game
     /// </summary>
     private void BeginWork(string message, Aim work, Func<Construction, bool> fits, Func<IReadOnlyList<int>, int, Command> step)
     {
-        var constructors = Movers().Where(m => m.Spec.Type == "CONSTRUCTOR").Select(m => m.Id).ToList();
+        var constructors = Movers().Where(m => RoleOf(m) == "CONSTRUCTOR").Select(m => m.Id).ToList();
         var picked = new List<int>();
         Hold(message, at => at.Actor is Construction building ? fits(building) ? work : Aim.Invalid : at.Actor is null && !at.Loose ? Aim.Menu : Aim.Invalid, (aim, at, shift) =>
         {
@@ -552,7 +560,7 @@ public partial class Game
     /// <summary>Locate (MachGuiLocateToCommand): locators search at each point in turn, more with Shift; actors refuse it.</summary>
     public void BeginLocate()
     {
-        var locators = Movers().Where(m => m.Spec.Type == "GEO_LOCATOR").ToList();
+        var locators = Movers().Where(m => RoleOf(m) == "GEO_LOCATOR").ToList();
         var ids = locators.Select(m => m.Id).ToList();
         var points = new List<NVector2>();
         Hold("Click where to search for minerals, Shift for more; right click cancels",

@@ -1,13 +1,14 @@
 using Godot;
 using Machines.Sim.Combat;
+using Machines.Sim.Survival;
 using Machines.Sim.World;
 using NVector2 = System.Numerics.Vector2;
 
 namespace Machines.Game;
 
 // The remake's own controls in first person: a trigger for each weapon, always in a run and elsewhere with the options'
-// Mouse button per weapon, and the keys a run's driver orders the squad and uses the abilities with. In any other match,
-// with the option off, none of this does anything.
+// Mouse button per weapon, and the keys a run's driver orders the squad and uses the abilities and the chassis' special
+// with. In any other match, with the option off, none of this does anything.
 public partial class Game
 {
     /// <summary>How far the sight looks for what the squad is to attack, metres: further than any gun reaches.</summary>
@@ -46,9 +47,12 @@ public partial class Game
             : new WeaponDisplay.GunPlace(mounting, null, [])).ToList();
     }
 
-    /// <summary>The weapons whose triggers are held or were just pressed, one bit each in mounting order, as <see cref="DriveCommand.Weapons"/> wants them.</summary>
+    /// <summary>
+    /// The weapons whose triggers are held or were just pressed, one bit each in mounting order, as <see cref="DriveCommand.Weapons"/>
+    /// wants them; none while a constructor hero's towers are up (Game.Towers).
+    /// </summary>
     private int HeldWeapons(Machine machine) =>
-        SpaceFires ? -1 : _hands.Mask(machine.Weapons, TriggerHeld, Time.GetTicksMsec() / 1000.0);
+        _towersUp ? 0 : SpaceFires ? -1 : _hands.Mask(machine.Weapons, TriggerHeld, Time.GetTicksMsec() / 1000.0);
 
     /// <summary>
     /// Whether a trigger is held: pressed where the driver could mean it, and not come up since. A press seen anywhere else, or
@@ -66,9 +70,17 @@ public partial class Game
     /// <summary>Whether the action is a trigger held.</summary>
     private bool ActHeld(KeyMap.Act act) => Triggers.Any(trigger => Trigger(trigger) == act && TriggerHeld(trigger));
 
-    /// <summary>The triggers are watched before anything else hears of them, so that no panel or menu can swallow a release.</summary>
+    /// <summary>
+    /// The triggers are watched before anything else hears of them, so that no panel or menu can swallow a release. While a
+    /// constructor hero's towers are up, the wheel, the triggers and Esc are theirs.
+    /// </summary>
     public override void _Input(InputEvent @event)
     {
+        if (TowerInput(@event))
+        {
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         if (@event is not (InputEventMouseButton or InputEventKey) || !WeaponButtons)
             return;
         foreach (var trigger in Triggers)
@@ -86,12 +98,12 @@ public partial class Game
             _hands.LetGo();
     }
 
-    /// <summary>The keys of a run, driving or down: the squad's orders, the abilities, the dash and the hangar.</summary>
+    /// <summary>The keys of a run, driving or down: the squad's orders, the abilities, the dash, the chassis' special and the hangar.</summary>
     private void RunInput(InputEvent @event)
     {
         if (World.Wired is null || Watching || MatchOver)
             return;
-        // A battle has no squad and no hangar: only the abilities and the dash.
+        // A battle has no squad and no hangar: only the abilities, the dash and the special.
         if (World.Battle is not null)
         {
             if (KeyMap.Is(@event, KeyMap.Act.Ability1))
@@ -100,6 +112,8 @@ public partial class Game
                 UseAbility(1);
             else if (KeyMap.Is(@event, KeyMap.Act.Dash))
                 Dash();
+            else if (KeyMap.Is(@event, KeyMap.Act.Special))
+                UseSpecial();
             return;
         }
         if (KeyMap.Is(@event, KeyMap.Act.SquadFollow))
@@ -116,9 +130,45 @@ public partial class Game
             UseAbility(1);
         else if (KeyMap.Is(@event, KeyMap.Act.Dash))
             Dash();
+        else if (KeyMap.Is(@event, KeyMap.Act.Special))
+            UseSpecial();
         else if (KeyMap.Is(@event, KeyMap.Act.Hangar))
             OpenHangar();
     }
+
+    /// <summary>
+    /// The key of the hero's chassis: a Colossus anchors when it is free (or coming free, which the world refuses with its
+    /// reason) and lets go when it is locking or anchored; a Marshal calls its squad, a spy lays a mine, a geo locator
+    /// sends out its pulse, all as the world allows; a constructor takes up its towers or puts them away, in a run only.
+    /// Old Iron's ram and the Hornet's afterburner are the thrusters' key's, which it names; the Widow's lurk and the
+    /// Harvester's harvest work by themselves, and it says so. Any other chassis has nothing to use, and says that.
+    /// </summary>
+    private void UseSpecial()
+    {
+        if (RefusesOrders() || World.Wired?.Heroes.GetValueOrDefault(Player) is not { } state)
+            return;
+        var special = state.Build(World.Data).Chassis.Special;
+        if ((special & ChassisSpecial.Towers) != 0)
+        {
+            if (World.Battle is not null)
+                RunRefused(HangarText.Reason("no towers in a battle"));
+            else
+                ToggleTowerMode();
+        }
+        else if ((special & ChassisSpecial.Anchor) != 0)
+            Issue(new WiredSpecialCommand(Player, World.HeroOf(Player) is not { } hero || World.AnchorPhaseOf(hero) is not (AnchorPhase.Locking or AnchorPhase.Anchored)));
+        else if ((special & (ChassisSpecial.Field | ChassisSpecial.Mines | ChassisSpecial.Locate)) != 0)
+            Issue(new WiredSpecialCommand(Player));
+        else if ((special & (ChassisSpecial.Plough | ChassisSpecial.Afterburner)) != 0)
+            RunRefused(Lang.T("{0} is on {1}", Lang.T((special & ChassisSpecial.Plough) != 0 ? "Ram" : "Afterburner"), KeyMap.Name(KeyMap.Act.Dash)));
+        else if ((special & (ChassisSpecial.Lurk | ChassisSpecial.Harvest)) != 0)
+            RunRefused(Lang.T("{0} works by itself", Lang.T((special & ChassisSpecial.Lurk) != 0 ? "Lurk" : "Harvest")));
+        else
+            RunRefused(HangarText.Reason(World.WhyNoSpecial(state) ?? "this chassis has nothing to use"));
+    }
+
+    /// <summary>A constructor's key takes up its towers, or puts them away while they are up (Game.Towers).</summary>
+    partial void ToggleTowerMode();
 
     private void SquadFollows()
     {

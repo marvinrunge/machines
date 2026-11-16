@@ -42,14 +42,126 @@ public static partial class HangarText
 
     private static string Percent(float share) => Number(share * 100);
 
-    /// <summary>What a good does, a line for the hangar's banner, for a chip at the strength it would have; null for what needs no words.</summary>
-    public static string? Effect(WiredItem item, float? strength = null) => item.Kind switch
+    /// <summary>
+    /// What a good does, a line for the hangar's banner, for a chip at the strength it would have, for a chassis as a
+    /// <paramref name="battle"/> has it or a run; null for what needs no words.
+    /// </summary>
+    public static string? Effect(WiredItem item, float? strength = null, bool battle = false) => item.Kind switch
     {
         WiredKind.Chip => WiredChips.Find(item.Catalogue) is { } chip ? ChipEffect(chip, strength ?? chip.Value) : null,
         WiredKind.Module => ModuleEffect(item),
         WiredKind.Ability => AbilityEffect(item.Catalogue),
+        WiredKind.Chassis => ChassisEffect(item.Catalogue, battle),
         _ => null,
     };
+
+    /// <summary>
+    /// What a chassis has of its own besides its slots, a line for the hangar's banner; null for a chassis with nothing of its
+    /// own. In a <paramref name="battle"/> without what only a run has: wrecks, a squad to call, towers. The values are those
+    /// the world plays by, and the key the one the player has given the special.
+    /// </summary>
+    public static string? ChassisEffect(string id, bool battle = false)
+    {
+        if (WiredCatalogue.FindChassis(id) is not { } chassis)
+            return null;
+        var key = KeyMap.Name(KeyMap.Act.Special);
+        var level = Paths.Data.Parm.Machine(chassis.TypeName).Level(chassis.Level);
+        var special = chassis.Special;
+        string? line = null;
+        if (id == "grunt4")
+            line = Lang.T("Third slot: a light weapon on top, the cheapest way to three slots.");
+        else if (id == "reaper4")
+            line = Lang.T("First heavy slot of the line: any heavy weapon fits on the left.");
+        else if (special.HasFlag(ChassisSpecial.Plough))
+            line = Lang.T("Ram plough: hits from the front cost {0} % less. A built-in dash every {1} s knocks over whatever it meets and deals it {2} damage.",
+                Percent(1 - WiredBalance.PloughShare), Number(chassis.Dash ?? 0), WiredBalance.RamDamage);
+        else if (special.HasFlag(ChassisSpecial.Harvest))
+            line = battle
+                ? Lang.T("Harvest: every kill within {0} m gives back {1} % armour.", Number(WiredBalance.HarvestReach), Percent(WiredBalance.HarvestArmour))
+                : Lang.T("Harvest: every kill within {0} m gives back {1} % armour and pulls in the wrecks there.", Number(WiredBalance.HarvestReach), Percent(WiredBalance.HarvestArmour));
+        else if (special.HasFlag(ChassisSpecial.Lurk))
+            line = Lang.T("Lurk: after {0} s standing still the first shot flies {1} % further and deals {2} % more damage.",
+                Number(WiredBalance.LurkStill), Percent(WiredBalance.LurkRange - 1), Percent(WiredBalance.LurkDamage - 1));
+        else if (special.HasFlag(ChassisSpecial.Anchor))
+            line = Lang.T("Anchor (key {0}): after {1} s the tracks lock and it stands: +{2} % range, −{3} % reload, +{4} % armour. Releasing takes {1} s.",
+                key, Number(WiredBalance.AnchorTime), Percent(WiredBalance.AnchorRange - 1), Percent(1 - WiredBalance.AnchorReload), Percent(WiredBalance.AnchorArmour - 1));
+        else if (special.HasFlag(ChassisSpecial.Afterburner))
+            line = Lang.T("Afterburner: a dash every {0} s without thrusters; the module slot stays free.", Number(chassis.Dash ?? 0));
+        else if (special.HasFlag(ChassisSpecial.Field))
+            line = battle
+                ? Lang.T("Field marshal: team-mates within {0} m get +{1} accuracy and {2} % more repair.", Number(WiredBalance.FieldReach), Number(WiredBalance.FieldAim), Percent(WiredBalance.FieldRepair))
+                : Lang.T("Field marshal: squad +{0}. Within {1} m the squad gets +{2} accuracy and {3} % more repair. Rally (key {4}): the squad teleports to you, every {5} s.",
+                    WiredBalance.FieldSquad, Number(WiredBalance.FieldReach), Number(WiredBalance.FieldAim), Percent(WiredBalance.FieldRepair), key, Number(WiredBalance.RallyCooldown));
+        else if (special.HasFlag(ChassisSpecial.Towers))
+            line = battle
+                ? Lang.T("Raises no towers in a battle.")
+                : Lang.T("Towers (key {0}): up to {1} at once – {2} – at the original's prices.", key, chassis.Towers, TowerList(chassis, level));
+        else if (special.HasFlag(ChassisSpecial.Shadow))
+            line = Lang.T("Shadow: after {0} s without firing, enemies beyond {1} m lose their lock. Mines (key {2}): carries {3}.",
+                Number(WiredBalance.ShadowQuiet), Number(WiredBalance.ShadowReach), key, level.MineCapacity ?? 0);
+        else if (special.HasFlag(ChassisSpecial.Mines))
+            line = Lang.T("Mines (key {0}): carries {1}.", key, level.MineCapacity ?? 0);
+        else if (special.HasFlag(ChassisSpecial.Locate))
+        {
+            line = Lang.T("Locate (key {0}): every enemy within the scanner's reach is located for {1} s and takes {2} % more damage; every {3} s.",
+                key, Number(WiredBalance.LocateTime), Percent(WiredBalance.LocateShare - 1), Number(WiredBalance.LocateCooldown));
+            // The Boss line flies too but says nothing of it: the locator's glider is the first flyer on the way.
+            if (level.Locomotion == Locomotion.Glider)
+                line += " " + Lang.T("Flies: weapons of {0} m or less cannot reach it, and it crosses water.", 20);
+        }
+        return line;
+    }
+
+    /// <summary>
+    /// What a chassis' special is called, for the shop's comparison; null for none. Sarge and the Thresher have only their
+    /// slots, which the comparison names anyway.
+    /// </summary>
+    public static string? SpecialName(WiredChassis chassis)
+    {
+        var names = new (ChassisSpecial Special, string Name)[]
+        {
+            (ChassisSpecial.Plough, "Ram plough"), (ChassisSpecial.Harvest, "Harvest"), (ChassisSpecial.Lurk, "Lurk"),
+            (ChassisSpecial.Anchor, "Anchor"), (ChassisSpecial.Afterburner, "Afterburner"), (ChassisSpecial.Field, "Field marshal"),
+            (ChassisSpecial.Towers, "Towers"), (ChassisSpecial.Shadow, "Shadow"), (ChassisSpecial.Mines, "Mines"), (ChassisSpecial.Locate, "Locate"),
+        }.Where(n => chassis.Special.HasFlag(n.Special)).Select(n => Lang.T(n.Name)).ToList();
+        return names.Count == 0 ? null : string.Join(", ", names);
+    }
+
+    /// <summary>
+    /// The towers a constructor raises, by kind with their levels: "Turret 1–3, Sentry 3–4, Launcher 4". The same rule as the
+    /// world's (<c>GameWorld.TowersFor</c>): the catalogue's towers up to its machine's most advanced construction.
+    /// </summary>
+    private static string TowerList(WiredChassis chassis, MachineLevel level)
+    {
+        if (level.MostAdvancedConstruction is not { } most)
+            return "";
+        var order = Paths.Data.ConstructionOrder.UpTo(most).Where(e => e.Type == WiredTower.Type).ToList();
+        var towers = WiredCatalogue.Towers.Where(t => order.Any(e => e.SubType == t.SubType && e.HardwareLevel == t.Level)).ToList();
+        return string.Join(", ", towers.GroupBy(t => t.SubType).Select(kind =>
+        {
+            var (low, high) = (kind.Min(t => t.Level), kind.Max(t => t.Level));
+            var name = Lang.T(Studio.Names.GetValueOrDefault(kind.Key, kind.Key));
+            return low == high ? $"{name} {low}" : $"{name} {low}–{high}";
+        }));
+    }
+
+    /// <summary>A chassis that dashes by itself, or sees in the dark by itself, has little or nothing from the module that does that.</summary>
+    private static (string Note, string Line)? ModuleGift(WiredItem item, WiredChassis chassis)
+    {
+        if (WiredCatalogue.FindModule(item.Catalogue) is not { Effect: var effect })
+            return null;
+        if (effect.Dash && chassis.Dash is { } dash)
+            return ("Adds little", Lang.T("Thrusters add little on this chassis: it dashes every {0} s by itself.", Number(dash)));
+        if (effect.NightVision && WiredMachines.AsHero(chassis.TypeName, Paths.Data.Parm.Machine(chassis.TypeName).Level(chassis.Level)).NightVision)
+            return ("Adds nothing", Lang.T("This chassis sees in the dark by itself: the module adds nothing."));
+        return null;
+    }
+
+    /// <summary>A few words on a module's card where the chassis has its gift already: "Adds little"; null where the module brings what it says.</summary>
+    public static string? ModuleNote(WiredItem item, WiredChassis chassis) => ModuleGift(item, chassis) is { } gift ? Lang.T(gift.Note) : null;
+
+    /// <summary>The banner's sentence on a module the chassis makes all but useless; null where the module brings what it says.</summary>
+    public static string? ModuleHint(WiredItem item, WiredChassis chassis) => ModuleGift(item, chassis)?.Line;
 
     private static string? ChipEffect(WiredChip chip, float value)
     {

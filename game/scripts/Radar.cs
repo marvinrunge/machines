@@ -8,7 +8,8 @@ namespace Machines.Game;
 /// The first-person radar of the original (MachGuiRadar), in the lower right corner: it switches on in ten frames
 /// (<c>radar0</c> to <c>radar9</c>, half a second), then shows what lies within the driven machine's scanner range
 /// as blips turned to its heading (machines, buildings, pods and missile emplacements in their race's colour, and the
-/// ore anyone has found, and wreckage), the dome and arrow in its middle, the machine's picture, and its own health and armour
+/// ore anyone has found, and wreckage; in a Wired match no blip of a hero hiding in its shadow, and a located enemy's
+/// blinking in a ring), the dome and arrow in its middle, the machine's picture, and its own health and armour
 /// as two upright bars filled from the bottom, amber and then red as they run low; at a fifth of its health a warning
 /// sounds. The bitmaps come from <c>gui/fstpersn/radar</c> of the player's game copy, scaled up with the screen.
 /// </summary>
@@ -116,9 +117,11 @@ public partial class Radar : Control
                 Blit("fstpersn/radar/blips/debris.bmp", at, scale);
         if (world.Wired is { } run)
             ShowRun(run, world, OnRadar, Spot, corner + ScannerCentre * scale, range * reach * scale, reach, scale);
+        // A Wired hero hiding in its shadow shows no blip; an enemy a geo locator's pulse has located blinks, in a ring.
+        var blink = Mathf.PosMod((float)_time, 0.5f) < 0.3f;
         foreach (var actor in world.Actors)
         {
-            if (actor.Id == machine.Id || actor is Machine { Inside: not null } || OnRadar(actor.Position) is not { } at)
+            if (actor.Id == machine.Id || actor is Machine { Inside: not null } || OnRadar(actor.Position) is not { } at || _game.InShadow(actor))
                 continue;
             var letter = ClassicPanel.RaceFolder(actor is Machine { Camouflaged: true } ? Game.Player : actor.Race)[0];
             var kind = actor switch
@@ -128,17 +131,30 @@ public partial class Radar : Control
                 Construction c when c.IsType("MISSILE_EMPLACEMENT") => "misspix",
                 _ => "conspix",
             };
-            Blit($"fstpersn/radar/blips/{letter}{kind}.bmp", at, scale);
+            var blip = $"fstpersn/radar/blips/{letter}{kind}.bmp";
+            if (!_game.LocatedFoe(actor))
+                Blit(blip, at, scale);
+            else
+            {
+                var middle = at + (ClassicGui.Bitmap(blip)?.GetSize() ?? Vector2.Zero) * scale / 2;
+                DrawArc(middle, 4.5f * scale, 0, Mathf.Tau, 16, new Color(0, 0, 0, 0.7f), scale + 2, true);
+                DrawArc(middle, 4.5f * scale, 0, Mathf.Tau, 16, new Color(1, 0.62f, 0.1f, blink ? 1 : 0.6f), scale, true);
+                if (blink)
+                    Blit(blip, at, scale);
+            }
         }
         Blit("fstpersn/radar/dome.bmp", corner + DomeAt * scale, scale);
 
-        // The machine's own picture, and its health and armour; a hero of a run is photographed, as no bitmap shows it.
+        // The machine's own picture, and its health and armour; a hero of a run is photographed, as no bitmap shows it. Any
+        // other match shows the original's picture of the machine or, where the game copy has none, nothing, as the original.
         var key = machine.Key;
         if (_game.HeroPicture(machine) is { } photo)
             DrawTextureRect(photo, new Rect2(corner + IconAt * scale, new Vector2(PictureSize, PictureSize) * scale), false);
-        else
+        else if (world.Wired is null && world.Battle is null)
             Blit($"fstpersn/machines/{ClassicPanel.MachinePrefix(key.Type, key.SubType)}{key.HardwareLevel}{ClassicPanel.WeaponSuffix(key.WeaponCombo)}.bmp",
                 corner + IconAt * scale, scale);
+        else if (PictureOf(key.Type, key.SubType, key.HardwareLevel, key.WeaponCombo) is { } picture)
+            Blit($"fstpersn/machines/{picture}", corner + IconAt * scale, scale);
         var health = machine.HitPoints / (float)Math.Max(1, machine.MaxHitPoints);
         var armour = machine.Armour / (float)Math.Max(1, machine.MaxArmour);
         Bar("rhealth", health, corner + HealthAt * scale, scale);
@@ -184,6 +200,44 @@ public partial class Radar : Control
                 Draw();
         }
         Draw();
+    }
+
+    // The picture chosen for each name a machine's picture would have, by PictureOf.
+    private static readonly Dictionary<string, string?> Pictures = [];
+
+    /// <summary>
+    /// The file in <c>gui/fstpersn/machines</c> that pictures a machine (MachActorBitmaps): of its kind, level and weapons
+    /// where the original has it, else of its kind and level with other weapons, the unarmed first, else of the nearest level
+    /// below, else above, so that a machine of a level the original never had (Wired's Phantom, Titan and its own grunts and
+    /// assassins, a geo locator's hero) still shows its kind; null for a kind without a picture.
+    /// </summary>
+    private static string? PictureOf(string type, string? subType, int level, string? combo)
+    {
+        var (prefix, suffix) = (ClassicPanel.MachinePrefix(type, subType), ClassicPanel.WeaponSuffix(combo));
+        var name = $"{prefix}{level}{suffix}";
+        if (!ClassicGui.Available)
+            return null;
+        if (Pictures.TryGetValue(name, out var known))
+            return known;
+        var pictured = new List<(string File, int Level, string Suffix)>();
+        foreach (var file in ClassicGui.Names("fstpersn/machines"))
+        {
+            var stem = Path.GetFileNameWithoutExtension(file);
+            var digits = stem.Length > prefix.Length && stem.StartsWith(prefix, StringComparison.Ordinal)
+                ? stem[prefix.Length..].TakeWhile(char.IsAsciiDigit).Count()
+                : 0;
+            if (digits > 0)
+                pictured.Add((file, int.Parse(stem.AsSpan(prefix.Length, digits)), stem[(prefix.Length + digits)..]));
+        }
+        var chosen = pictured
+            .OrderBy(p => p.Level == level ? 0 : p.Level < level ? 1 : 2)
+            .ThenBy(p => Math.Abs(p.Level - level))
+            .ThenBy(p => p.Suffix == suffix ? 0 : p.Suffix.Length == 0 ? 1 : 2)
+            .ThenBy(p => p.File, StringComparer.Ordinal)
+            .Select(p => p.File)
+            .FirstOrDefault();
+        Pictures[name] = chosen;
+        return chosen;
     }
 
     private void Blit(string path, Vector2 at, int scale)

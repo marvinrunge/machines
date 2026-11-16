@@ -125,7 +125,7 @@ public sealed class BattleDesk(GameData data, ClassicAssets assets, IBattleAccou
         if (good.Item.Kind == WiredKind.Chassis)
         {
             var tier = Lang.T("Tier {0}", BattleDraft.Roman(BattleCatalogue.Tier(id)));
-            return good switch
+            var said = good switch
             {
                 { Step: ChassisStep.Worn } => tier,
                 { Locked: { } locked } => $"{tier} · {locked}",
@@ -134,6 +134,8 @@ public sealed class BattleDesk(GameData data, ClassicAssets assets, IBattleAccou
                 // On the Path a click changes to it at once (WearFromTree); on the shelf a click picks it up and a double click changes.
                 _ => $"{tier} · {Lang.T(onTree ? "Owned: a click changes to it." : "Owned: a double click changes to it.")}",
             };
+            // What the chassis has of its own, as a battle has it, goes under it.
+            return HangarText.ChassisEffect(id, battle: true) is { } own ? $"{said}\n{own}" : said;
         }
         if (Draft.Wears(good.Item.Id))
             return null;

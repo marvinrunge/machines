@@ -12,6 +12,9 @@ public partial class Game
     private HeroLoadout? HeroOf(Actor actor) =>
         World.Wired is { } run && run.Heroes.TryGetValue(actor.Race, out var state) && state.Hero == actor.Id ? state.Loadout : null;
 
+    /// <summary>Whether the actor is a hero of a Wired match: the panel offers it none of the original's constructor, spy or locator commands.</summary>
+    public bool IsHero(Actor actor) => HeroOf(actor) is not null;
+
     /// <summary>A hero the hangar refitted changes its model where it stands, in sparks and the sound of work.</summary>
     private void ShowRefit(ActorView view, Machine machine)
     {

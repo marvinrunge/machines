@@ -33,8 +33,8 @@ public sealed record BattleTeamReadout(int Team, bool Ours, IReadOnlyList<Battle
 /// <summary>
 /// What the HUD of a battle reads off the world at one moment, for one race, as plain figures: the clock and the opening, both
 /// teams, the capture of both pods, the race's own hero (its lives, the wait for its next body, whether it is out), its
-/// abilities and thrusters, and how the battle ended. Free of Godot so that a test can hold each figure against the
-/// simulation. Battle is the remake's own addition.
+/// abilities, thrusters and the special of its chassis, and how the battle ended. Free of Godot so that a test can hold each
+/// figure against the simulation. Battle is the remake's own addition.
 /// </summary>
 public sealed record BattleReadout
 {
@@ -76,6 +76,9 @@ public sealed record BattleReadout
 
     public required DashReadout? Dash { get; init; }
 
+    /// <summary>What the special of the hero's chassis shows, as the world has it; null for a chassis without one.</summary>
+    public required WiredSpecialView? SpecialView { get; init; }
+
     /// <summary>The hero's distance from its own pod and from the enemy's, in metres; null without either.</summary>
     public required float? PodDistance { get; init; }
 
@@ -112,6 +115,7 @@ public sealed record BattleReadout
             Dash = state is not null && state.Build(world.Data).DashCooldown is { } cooldown
                 ? new DashReadout(MathF.Max(0, state.DashReadyAt - now), 1 - Share(state.DashReadyAt - now, cooldown), now < state.DashUntil)
                 : null,
+            SpecialView = world.SpecialView(race),
             PodDistance = hero is not null && pod is not null ? hero.DistanceTo(pod) : null,
             EnemyPodDistance = hero is not null && enemyPod is not null ? hero.DistanceTo(enemyPod) : null,
         };

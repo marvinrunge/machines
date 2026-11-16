@@ -89,6 +89,59 @@ public partial class Effects : Node3D
 
     // ---- ground ---------------------------------------------------------------------------------
 
+    /// <summary>
+    /// Dust thrown up from the ground at once over a patch <paramref name="extents"/> wide each way from its middle, low and
+    /// spreading, in the planet's ground colour: tracks biting in or letting go, a tower set down on its site.
+    /// </summary>
+    public void KickUp(Vector3 at, Vector2 extents) =>
+        Burst(at, amount: Math.Clamp((int)(extents.X * extents.Y), 8, 28), lifetime: 1.6f, texture: GraphicsSettings.Effects ? Particle("smoke_04") : Soft, new ParticleProcessMaterial
+        {
+            EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Box,
+            EmissionBoxExtents = new Vector3(extents.X, 0.2f, extents.Y),
+            Direction = Vector3.Up,
+            Spread = 70,
+            InitialVelocityMin = 1,
+            InitialVelocityMax = 3,
+            Gravity = new Vector3(0, -0.6f, 0),
+            DampingMin = 1,
+            DampingMax = 2,
+            ScaleMin = 2,
+            ScaleMax = 3.5f,
+            ScaleCurve = Grow(0.5f),
+            AngleMin = -180,
+            AngleMax = 180,
+            ColorRamp = Ramp(DustTint with { A = 0 }, DustTint with { A = 0.55f }, DustTint.Darkened(0.05f) with { A = 0 }),
+        }, additive: false);
+
+    /// <summary>
+    /// A geo locator's pulse going out over the ground: a ring of light in <paramref name="colour"/>, printed on the ground as
+    /// it lies, that runs from the locator out to <paramref name="reach"/> metres in about two thirds of a second and fades
+    /// as it gets there. It shines by itself, by night as by day. Only the ground takes it.
+    /// </summary>
+    public void LocatePulse(Vector3 at, float reach, Color colour)
+    {
+        const float Out = 0.7f, Gone = 1, Energy = 1.6f;
+        var decal = new Decal
+        {
+            TextureAlbedo = Ring,
+            TextureEmission = RingGlow,
+            EmissionEnergy = Energy,
+            Modulate = colour,
+            Size = new Vector3(4, 80, 4),
+            UpperFade = 0.1f,
+            LowerFade = 0.1f,
+            CullMask = TerrainBuilder.GroundLayer,
+        };
+        AddChild(decal);
+        decal.GlobalPosition = at;
+        // The ring texture's rim lies at 0.86 of its half size: the decal grows until the rim stands at the reach.
+        var run = decal.CreateTween().SetParallel();
+        run.TweenProperty(decal, "size", new Vector3(reach * 2 / 0.86f, 80, reach * 2 / 0.86f), Out).SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Quad);
+        run.TweenProperty(decal, "modulate:a", 0f, Gone - Out * 0.5f).SetDelay(Out * 0.5f);
+        run.TweenProperty(decal, "emission_energy", 0f, Gone - Out * 0.5f).SetDelay(Out * 0.5f);
+        run.Chain().TweenCallback(Callable.From(decal.QueueFree));
+    }
+
     /// <summary>A dark burn on the ground that fades away after a minute.</summary>
     public void Scorch(Vector3 at, float size)
     {
@@ -595,6 +648,16 @@ public partial class Effects : Node3D
     });
 
     private static readonly Texture2D Square = Generate(8, (_, _) => Colors.White);
+
+    /// <summary>
+    /// The light of a pulse's ring (LocatePulse): its rim alone, bright in colour and black elsewhere, since a decal's
+    /// emission shines by its colour and not by its alpha.
+    /// </summary>
+    private static readonly Texture2D RingGlow = Generate(256, (x, y) =>
+    {
+        var rim = Mathf.Exp(-Mathf.Pow((new Vector2(x, y).Length() - 0.86f) * 14, 2));
+        return new Color(rim, rim, rim, rim);
+    });
 
     /// <summary>A burn mark: dark in the middle, ragged at the edge.</summary>
     private static readonly Texture2D Burn = Generate(128, (x, y) =>
