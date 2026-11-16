@@ -14,7 +14,8 @@ namespace Machines.Game;
 /// sounds. The bitmaps come from <c>gui/fstpersn/radar</c> of the player's game copy, drawn a texel to a screen pixel at a
 /// whole number of pixels to each of the original's (<see cref="HudArt"/>: the enlargements of tools/hud-sharp where made,
 /// in which the scanner's checkered glass is evenly half see-through, else the bitmaps blown up); the blips, the arrow and
-/// the dome in the middle are drawn as shapes.
+/// the dome in the middle are drawn as shapes. Under them the remake lays the map of the ground, faintly, turned with the
+/// view as the blips are: the continent map's picture, as the ground chosen draws it.
 /// </summary>
 public partial class Radar : Control
 {
@@ -26,19 +27,27 @@ public partial class Radar : Control
     private static readonly Vector2 HealthAt = new(216, 111), ArmourAt = new(234, 111);
     private const float ScannerRadius = 55;
 
+    // The scanner's glass, a circle in the original's pixels, and how strongly the map shows through it; where the
+    // driven machine stands on it, at the dome's middle, as the blips' bitmaps put the others half a blip off their spot.
+    private static readonly Vector2 GlassCentre = new(106, 106), MapMiddle = new(105.5f, 106.5f);
+    private const float GlassRadius = 58.5f, MapShows = 0.42f;
+    private const int GlassSteps = 64;
+
     // The original's machine pictures are this many of its pixels square.
     private const int PictureSize = 50;
 
     private Game _game = null!;
     private GameAudio? _audio;
+    private Texture2D? _planetMap;
     private double _time, _started;
     private bool _healthy;
 
-    public static Radar Create(Game game, GameAudio? audio) => new()
+    public static Radar Create(Game game, GameAudio? audio, Texture2D? planetMap = null) => new()
     {
         Name = "Radar",
         _game = game,
         _audio = audio,
+        _planetMap = planetMap,
         MouseFilter = MouseFilterEnum.Ignore,
         TextureFilter = TextureFilterEnum.Linear,
         Visible = false,
@@ -115,6 +124,7 @@ public partial class Radar : Control
             return corner + (ScannerCentre + new Vector2(d.X * cos + d.Y * sin, -d.X * sin + d.Y * cos) * reach) * scale;
         }
         Vector2? OnRadar(NVector2 position) => (position - machine.Position).LengthSquared() >= range * range ? null : Spot(position);
+        DrawGround(corner, machine.Position, cos, sin, reach, scale);
         foreach (var site in world.Sites.Where(s => s.DiscoveredBy.Count > 0 && s.Ore > 0))
             if (OnRadar(site.Position) is { } at)
                 Blit("fstpersn/radar/blips/ore.bmp", at, scale);
@@ -169,6 +179,29 @@ public partial class Radar : Control
         if (_healthy && health <= 0.2f)
             _audio?.PlayGui("gui/sounds/hpcritic.wav");
         _healthy = health > 0.2f;
+    }
+
+    /// <summary>
+    /// The map of the ground under the glass, faintly: a disc the size of the glass whose corners look up the continent
+    /// map's picture where the ground under them lies, so that it turns and moves as the blips do.
+    /// </summary>
+    private void DrawGround(Vector2 corner, NVector2 position, float cos, float sin, float reach, int scale)
+    {
+        if ((MiniMaps.For(MatchRequest.Current.Scenario) ?? _planetMap) is not { } map)
+            return;
+        var surface = _game.World.Planet.Surface;
+        var (middle, glass) = (corner + MapMiddle * scale, corner + GlassCentre * scale);
+        var points = new Vector2[GlassSteps];
+        var uvs = new Vector2[GlassSteps];
+        for (var i = 0; i < GlassSteps; i++)
+        {
+            points[i] = glass + Vector2.FromAngle(i * Mathf.Tau / GlassSteps) * GlassRadius * scale;
+            // Back from the radar to the ground: the blips' turn undone.
+            var o = (points[i] - middle) / (reach * scale);
+            var ground = new Vector2(position.X + o.X * cos - o.Y * sin, position.Y + o.X * sin + o.Y * cos);
+            uvs[i] = new Vector2(ground.X / surface.Width, ground.Y / surface.Depth);
+        }
+        DrawPolygon(points, new[] { new Color(1, 1, 1, MapShows) }, uvs, map);
     }
 
     /// <summary>What a Wired run adds: its crates, as a green diamond, and the coming ion strikes' circles.</summary>
