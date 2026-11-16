@@ -66,5 +66,7 @@ public class BattleRegressionTests(ITestOutputHelper output)
 
     private static readonly ulong[] NormalSums = [0x15ED6D85BAFD7946UL, 0x2C0995F78A7F8DD5UL];
     private static readonly ulong[] FourWaySums = [0xA07B3CABDCD17C0FUL, 0xA7F7B019709129B7UL, 0x17F44E9695745550UL];
-    private static readonly ulong[] WiredSums = [0xD8973FE23BBC0964UL, 0xDF15F9BCE165A255UL, 0x87313A62CADB4BC8UL];
+    // The run's hero fights by itself once the foes reach it, and opens fire only with its gun line within
+    // WiredBalance.BotPlay of its target: from the second sum on, the run goes as that rule has it.
+    private static readonly ulong[] WiredSums = [0xD8973FE23BBC0964UL, 0xDB083A2D838A4AAEUL, 0xCF742748AE132606UL];
 }

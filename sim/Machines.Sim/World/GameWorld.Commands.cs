@@ -316,6 +316,7 @@ public sealed partial class GameWorld
                     PlayerWeapons.Remove(driven.Id);
                     PlayerButtons.Remove(driven.Id);
                     PlayerHeads.Remove(driven.Id);
+                    PlayerYaws.Remove(driven.Id);
                     return null;
                 }
                 DriveInput[driven.Id] = (Math.Clamp(drive.Forward, -1, 1), Math.Clamp(drive.Turn, -1, 1),
@@ -326,6 +327,11 @@ public sealed partial class GameWorld
                 else
                     PlayerButtons.Remove(driven.Id);
                 PlayerHeads[driven.Id] = drive.Head;
+                // Only Wired turns a gun to the view; a yaw that is no number is none.
+                if (Wired is not null && drive.Yaw is { } yaw && float.IsFinite(yaw))
+                    PlayerYaws[driven.Id] = MathF.IEEERemainder(yaw, 2 * MathF.PI);
+                else
+                    PlayerYaws.Remove(driven.Id);
                 if (drive.Aim is { } aim)
                     PlayerAims[driven.Id] = (aim, drive.AimHeight);
                 else

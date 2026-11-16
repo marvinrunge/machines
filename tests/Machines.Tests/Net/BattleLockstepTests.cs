@@ -25,17 +25,22 @@ public class BattleLockstepTests
         Assert.Equal(new[] { Race.Blue, Race.Yellow }, a.Session.World.HeroBots.Keys);
 
         var rng = new Random(3);
+        // Half the drives say where their driver looks, so the guns turn there; a hero with a turned upper body shows it.
+        var turned = false;
         for (var frame = 0; frame < 700; frame++)
         {
             foreach (var player in new[] { a, b })
             {
                 if (rng.Next(8) == 0 && player.Session.World.HeroOf(player.Race) is { } hero)
                 {
+                    float? yaw = rng.Next(2) == 0 ? (float)(rng.NextDouble() * 8 - 4) : null;
                     player.Session.Queue(new DriveCommand(player.Race, hero.Id, true, rng.Next(3) - 1, rng.Next(3) - 1,
-                        hero.Position + new Vector2(rng.Next(-80, 80), rng.Next(-80, 80)), Weapons: rng.Next(4), Buttons: rng.Next(2) == 0));
+                        hero.Position + new Vector2(rng.Next(-80, 80), rng.Next(-80, 80)), Weapons: rng.Next(4), Buttons: rng.Next(2) == 0, Yaw: yaw));
                 }
             }
             await Player.Frame(a, b);
+            var world = a.Session.World;
+            turned |= new[] { a.Race, b.Race }.Select(world.HeroOf).OfType<Machine>().Any(h => world.HasYaw(h.Id) && world.HeadOf(h.Id) != 0);
         }
         await Player.CatchUp(a, b);
 
@@ -45,6 +50,7 @@ public class BattleLockstepTests
         Assert.Null(a.Session.DesyncTick);
         Assert.Null(b.Session.DesyncTick);
         Assert.Contains(a.Session.Played, t => t.Race == b.Race);
+        Assert.True(turned, "no sighted hero turned its upper body");
 
         var replay = new Replay(a.Match, a.Session.Played, a.Session.World.Tick, a.Session.Presence);
         var path = Path.Combine(Path.GetTempPath(), $"battle-lockstep-{Guid.NewGuid():N}{Replay.Extension}");

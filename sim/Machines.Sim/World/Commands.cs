@@ -122,10 +122,13 @@ public sealed record ScavengeCommand(Race Race, IReadOnlyList<int> Scavengers, I
 /// through the crosshair meets a model, the ground or its end, as the original fired (MachPhys1stPersonDriver::aimData);
 /// null aims at the middle of whatever stands at the point, as before. <paramref name="Buttons"/> says the bits of
 /// <paramref name="Weapons"/> are triggers held, a button for each weapon, and not a selection: the others go on
-/// reloading (the remake's addition). <paramref name="Driving"/> false hands it back.
+/// reloading (the remake's addition). <paramref name="Yaw"/> is the heading the driver looks along, radians anticlockwise
+/// in the simulation's axes as <see cref="Machine.Facing"/>: in a Wired run or battle the simulation turns the machine's
+/// gun to it at the gun's own rate and sends its rounds along where the gun points (the remake's addition, as World of
+/// Tanks aims); null, or in any other match, the rounds go to the aim point. <paramref name="Driving"/> false hands it back.
 /// </summary>
 public sealed record DriveCommand(Race Race, int Machine, bool Driving, float Forward = 0, float Turn = 0, Vector2? Aim = null, int Weapons = -1,
-    float Head = 0, float Strafe = 0, bool Slow = false, float? AimHeight = null, bool Buttons = false) : Command(Race);
+    float Head = 0, float Strafe = 0, bool Slow = false, float? AimHeight = null, bool Buttons = false, float? Yaw = null) : Command(Race);
 
 /// <summary>Why a command was refused, for the client to show.</summary>
 public sealed record CommandRejected(Command Command, string Reason);

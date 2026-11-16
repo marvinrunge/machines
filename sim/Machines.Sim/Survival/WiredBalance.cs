@@ -443,4 +443,27 @@ public static class WiredBalance
 
     /// <summary>The points of accuracy the hero loses for each barrel beyond the first of every battery: a knob for the balance, none for now.</summary>
     public const int BatteryAimLoss = 0;
+
+    // ---- the gun follows the view -----------------------------------------------------------------
+
+    /// <summary>
+    /// How far a sighted driver's gun may stand off the line to where the driver looks, radians, and its round still go
+    /// there: for the crumbs of float sums only, less than a pixel at the middle of the screen.
+    /// </summary>
+    public const float GunPlay = 0.001f;
+
+    /// <summary>
+    /// How far a Wired hero fighting on its own may have its gun line off its target when it opens fire, radians: the
+    /// angle a machine turns to face its target to, so that one aiming with its hull can fire at a narrow target far off.
+    /// </summary>
+    public const float BotPlay = 0.05f;
+
+    /// <summary>
+    /// The fastest a sighted Wired hero without an upper body turns its hull, and a hero bot without one turns to aim,
+    /// degrees a second before gyros and overload: the upper bodies' BODY_TURN_RATE, so that no hull aims faster than a turret.
+    /// </summary>
+    public const float HullAimCap = 180;
+
+    /// <summary>A Wired hero fighting on its own punches only what lies this close to its facing, radians (the blast's cone is 0.53).</summary>
+    public const float PunchPlay = 0.35f;
 }

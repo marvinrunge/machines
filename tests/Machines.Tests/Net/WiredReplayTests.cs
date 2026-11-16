@@ -105,6 +105,24 @@ public class WiredReplayTests
     }
 
     [Fact]
+    public void A_drive_with_a_yaw_comes_through_the_wire()
+    {
+        var drive = new DriveCommand(Race.Red, 12, true, 1, -1, new Vector2(120, 80.5f), 0b11, AimHeight: 3.25f, Yaw: -2.75f);
+        var json = JsonSerializer.Serialize<Command>(drive, NetJson.Options);
+
+        Assert.Equal(drive, JsonSerializer.Deserialize<Command>(json, NetJson.Options));
+    }
+
+    [Fact]
+    public void A_drive_recorded_without_a_yaw_decodes_with_none()
+    {
+        var drive = new DriveCommand(Race.Red, 12, true, 1, -1, new Vector2(120, 80.5f), 0b11, AimHeight: 3.25f);
+
+        Assert.Equal(drive, Old<Command>(drive with { Yaw = 1.5f }, "yaw"));
+        Assert.Null(((DriveCommand)Old<Command>(drive with { Yaw = 1.5f }, "yaw")!).Yaw);
+    }
+
+    [Fact]
     public void A_battery_in_the_options_comes_through_the_wire()
     {
         var left = WiredSlot.Weapon(Mounting.Left);

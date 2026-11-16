@@ -186,9 +186,12 @@ public sealed partial class GameWorld
     /// MachLogStrategy::changeToCounterattackMode: the machine puts aside what it is doing to fight. One that was doing
     /// nothing will come back to where it stands now, looking the way the enemy came from, after a pause that is
     /// shorter the worse it was hurt, so a group wheels back one by one. One already in a fight just turns to the new target.
+    /// A Wired hero does not go for an enemy it can never get at (<see cref="OutOfReach"/>).
     /// </summary>
     internal void Counterattack(Machine machine, Actor target)
     {
+        if (Wired is not null && IsWiredHero(machine) && OutOfReach(machine, target))
+            return;
         var orderedAt = machine.OrderedAt;
         if (machine.Order is AttackOrder { Back: not null } fight)
         {

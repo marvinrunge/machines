@@ -65,9 +65,14 @@ public enum ChassisSpecial
 /// <param name="Dash">The cooldown of a dash built into the chassis, in seconds; thrusters may make it shorter.</param>
 /// <param name="Special">What it can do besides carrying weapons.</param>
 /// <param name="Towers">The most towers a constructor stands at once.</param>
+/// <param name="GunTurn">
+/// A share of how fast its gun turns: its upper body's BODY_TURN_RATE, or without one the rate a sighted driver aims its
+/// hull at (<see cref="HeroBuild.HullAimRate"/>). With an upper body it stays at 0.25 or more, or the hull's own turn
+/// would outrun the gun.
+/// </param>
 public sealed record WiredChassis(string Id, string Type, string? SubType, int Level, IReadOnlyList<ChassisSlot> Slots, int Modules,
     int Load, int Power, int Price, IReadOnlyList<string> Needs, int FromWave = 0, float? Dash = null,
-    ChassisSpecial Special = ChassisSpecial.None, int Towers = 0)
+    ChassisSpecial Special = ChassisSpecial.None, int Towers = 0, float GunTurn = 1)
 {
     public string TypeName => SubType is null ? Type : $"{Type} {SubType}";
 

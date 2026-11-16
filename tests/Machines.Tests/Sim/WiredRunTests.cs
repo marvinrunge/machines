@@ -1766,6 +1766,8 @@ public class WiredRunTests
     public void A_fight_the_escort_picks_while_the_hero_is_down_ends_with_the_new_body()
     {
         var world = NewRun();
+        // No wave comes: its machines would pick fights of their own with the escort and the hero.
+        world.Wired!.Countdown = 100_000;
         var escort = BoughtEscort(world);
         Run(world, 3);
         Kill(world, Hero(world), Race.Blue);

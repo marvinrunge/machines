@@ -146,7 +146,10 @@ public sealed partial class GameWorld
                 break;
 
             case StandGroundOrder:
-                // It fires from where it stands (UpdateCombat) and goes nowhere.
+                // It fires from where it stands (UpdateCombat) and goes nowhere. A Wired hero that aims with its hull
+                // turns it to what it fires at, as it waits for its gun.
+                if (Wired is not null && !machine.CanTurnUpperBody && IsWiredHero(machine) && FiringAt(machine) is { } foe)
+                    Face(machine, foe.Position);
                 break;
 
             case DropMinesOrder drop:
@@ -351,26 +354,32 @@ public sealed partial class GameWorld
 
     // ---- fighting -------------------------------------------------------------------------------
 
+    /// <summary>
+    /// The end of an attack, its target gone or given up: ready at once for the next target
+    /// (MachLogAttackOperation::beNotified). On an attack-move, the next enemy in sight is taken on at once, as the move
+    /// would the next tick: when a target falls, everyone who shot at it would otherwise plan the way on to its own
+    /// place, only to drop it again. One that broke off something for the fight takes that up again.
+    /// </summary>
+    private void EndAttack(Machine machine, AttackOrder attack)
+    {
+        machine.Alert.NoChecksBefore = Time;
+        if (attack.Back is { } back)
+            TakeUpAgain(machine, back);
+        else if (attack.Then is { } then && NearestEnemy(machine, ScannerReach(machine)) is { } next)
+            Send(machine, new AttackOrder(next.Id, then), next.Position);
+        else if (attack.Then is { } on)
+            Send(machine, new AttackMoveOrder(on), on);
+        else
+            machine.Order = Order.Idle;
+    }
+
     private void UpdateAttack(Machine machine, AttackOrder attack)
     {
         var target = FindTarget(attack.Target);
         if (target is null || target.IsDead || !CanAttack(machine.Race, target) || !CanFireAt(machine, target) || Indoors(target)
             || Wired is not null && Shadowed(machine, target))
         {
-            // Ready at once for the next target (MachLogAttackOperation::beNotified).
-            machine.Alert.NoChecksBefore = Time;
-            // On an attack-move, the next enemy in sight is taken on at once, as the move would the next tick:
-            // when a target falls, everyone who shot at it would otherwise plan the way on to its own place,
-            // only to drop it again.
-            // One that broke off something for the fight takes that up again.
-            if (attack.Back is { } back)
-                TakeUpAgain(machine, back);
-            else if (attack.Then is { } then && NearestEnemy(machine, ScannerReach(machine)) is { } next)
-                Send(machine, new AttackOrder(next.Id, then), next.Position);
-            else if (attack.Then is { } on)
-                Send(machine, new AttackMoveOrder(on), on);
-            else
-                machine.Order = Order.Idle;
+            EndAttack(machine, attack);
             return;
         }
 
@@ -395,8 +404,13 @@ public sealed partial class GameWorld
         }
         else if (!machine.DrivenByPlayer)
         {
+            // A Wired hero fighting by itself gives up a target it can neither shoot from here nor find a place to shoot
+            // from (one standing inside a building's footprint), rather than stand by it for good.
             if (Options.OriginalMotion)
-                MoveCloserToAttack(machine, target);
+            {
+                if (!MoveCloserToAttack(machine, target) && Wired is not null && IsWiredHero(machine))
+                    EndAttack(machine, attack);
+            }
             else
                 Approach(machine, target.Position);
         }

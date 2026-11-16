@@ -66,13 +66,31 @@ public sealed record HeroBuild
     /// </summary>
     public float DrivenTurnRate(float limit) => MathF.Min(Stats.RotationSpeed, limit * TurnShare);
 
+    /// <summary>Whether its gun turns on an upper body (its level's BODY_TURN_LINK, as <see cref="Machine.CanTurnUpperBody"/>), not with the hull.</summary>
+    public bool TurnsUpperBody => Stats.BodyTurnLink is { Length: > 0 } link && link != "NONE";
+
+    /// <summary>
+    /// How fast it aims with its hull, degrees a second, for a chassis without an upper body: a sighted driver's hull, and
+    /// a hero bot's turn to face its target. Its ROTATION_SPEED, but no faster than a turret
+    /// (<see cref="WiredBalance.HullAimCap"/>, moved by gyros and overload), times the chassis' <see cref="WiredChassis.GunTurn"/>.
+    /// </summary>
+    public float HullAimRate => MathF.Min(Stats.RotationSpeed, WiredBalance.HullAimCap * TurnShare) * Chassis.GunTurn;
+
+    /// <summary>How fast its gun turns, degrees a second: its upper body's rate, or without one <see cref="HullAimRate"/>.</summary>
+    public float GunTurnRate => TurnsUpperBody ? Stats.BodyTurnRate ?? 0 : HullAimRate;
+
     /// <summary>
     /// Resolves a loadout. Pure: it reads the game data and the catalogues and changes nothing. A weapon on a mounting
     /// the chassis does not have counts for nothing; <see cref="HeroLoadout.WhyNotFit"/> keeps those from happening.
     /// </summary>
-    public static HeroBuild Resolve(GameData data, HeroLoadout loadout)
+    public static HeroBuild Resolve(GameData data, HeroLoadout loadout) => Resolve(data, loadout, loadout.ChassisEntry);
+
+    /// <summary>
+    /// The same on <paramref name="chassis"/>, a row of the catalogue for the loadout's chassis as it may be tuned: so a
+    /// change to a knob can be tried out before it goes into the catalogue.
+    /// </summary>
+    public static HeroBuild Resolve(GameData data, HeroLoadout loadout, WiredChassis chassis)
     {
-        var chassis = loadout.ChassisEntry;
         var spec = data.Parm.Machine(chassis.TypeName);
         // A hero wears a few of the original's levels tuned (the crab); every other level as it is, the same reference.
         var level = WiredMachines.AsHero(chassis.TypeName, spec.Level(chassis.Level));
@@ -155,7 +173,7 @@ public sealed record HeroBuild
             Acceleration = level.Acceleration * move,
             RotationSpeed = level.RotationSpeed * rotate,
             RotationAcceleration = level.RotationAcceleration * rotate,
-            BodyTurnRate = level.BodyTurnRate * rotate,
+            BodyTurnRate = level.BodyTurnRate * rotate * chassis.GunTurn,
             // Constructors and spies have no accuracy in the data, which the original's machines read as perfect aim.
             Accuracy = BatteryAccuracy(Math.Min(100, (level.Accuracy ?? WiredBalance.NoAccuracy) + accuracy), extraBarrels, WiredBalance.BatteryAimLoss),
             ScannerRange = (int)MathF.Round(level.ScannerRange * (1 + scanner)),

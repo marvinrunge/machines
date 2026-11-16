@@ -401,18 +401,21 @@ public sealed partial class GameWorld
         motion.Speed = start;
         motion.Turning = false;
         if (start == 0)
-            StartTurn(machine, motion, heading);
+            StartTurn(machine, motion, heading, machine.Stats.RotationSpeed);
         // A run that first turns on the spot is told of once it has turned.
         if (!motion.Turning)
             AnnounceRun(machine, motion);
         return true;
     }
 
-    /// <summary>Starts a turn on the spot to a heading (MachPhysMachine::turn): ramped at ROTATION_ACCELERATION up to ROTATION_SPEED.</summary>
-    private static void StartTurn(Machine machine, Motion motion, float heading)
+    /// <summary>
+    /// Starts a turn on the spot to a heading (MachPhysMachine::turn): ramped at ROTATION_ACCELERATION up to
+    /// <paramref name="topRate"/> degrees a second, its ROTATION_SPEED but where <see cref="TurnTop"/> says less.
+    /// </summary>
+    private static void StartTurn(Machine machine, Motion motion, float heading, float topRate)
     {
         var by = AngleBetween(machine.Facing, heading);
-        var top = machine.Stats.RotationSpeed * MathF.PI / 180;
+        var top = topRate * MathF.PI / 180;
         if (MathF.Abs(by) < 1e-4f || top <= 0)
         {
             machine.Facing = heading;
@@ -447,6 +450,15 @@ public sealed partial class GameWorld
         return false;
     }
 
+    /// <summary>
+    /// How fast a machine turns on the spot to face something, degrees a second: its ROTATION_SPEED, but a Wired hero
+    /// without an upper body, which aims with its hull, no faster than a driver could aim it (<see cref="HeroBuild.HullAimRate"/>).
+    /// </summary>
+    private float TurnTop(Machine machine) =>
+        Wired?.Heroes.GetValueOrDefault(machine.Race) is { } state && state.Hero == machine.Id && !machine.CanTurnUpperBody
+            ? MathF.Min(machine.Stats.RotationSpeed, state.Build(Data).HullAimRate)
+            : machine.Stats.RotationSpeed;
+
     /// <summary>Turns a standing machine to face a point, at its own turning speed (MachLogTurnAnimation).</summary>
     private void TurnToFace(Machine machine, Vector2 point, float within)
     {
@@ -465,7 +477,7 @@ public sealed partial class GameWorld
         {
             if (MathF.Abs(AngleBetween(machine.Facing, heading)) <= within)
                 return;
-            StartTurn(machine, motion, heading);
+            StartTurn(machine, motion, heading, TurnTop(machine));
             if (!motion.Turning)
                 return;
         }
@@ -825,20 +837,30 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// How fast a driven hull turns, degrees a second: at its ROTATION_SPEED, capped at the first-person rate (the slow
-    /// one with Ctrl). A Wired hero's build has its say in that cap.
+    /// one with Ctrl). A Wired hero's build has its say in that cap. A sighted Wired hero without an upper body
+    /// (<paramref name="hasYaw"/>, not slow) aims with its hull and turns it at its gun's rate,
+    /// <see cref="HeroBuild.HullAimRate"/>. Pure: the client asks it to foresee the turns.
     /// </summary>
-    public float DrivenTurnRate(Machine machine, bool slow)
+    public float DrivenTurnRate(Machine machine, bool slow, bool hasYaw = false)
     {
         var general = Data.Parm.General;
         var limit = slow ? general.FirstPersonMaxSlowTurnRate : general.FirstPersonMaxFastTurnRate;
-        return Wired?.Heroes.GetValueOrDefault(machine.Race) is { } state && state.Hero == machine.Id
-            ? state.Build(Data).DrivenTurnRate(limit)
-            : MathF.Min(machine.Stats.RotationSpeed, limit);
+        if (Wired?.Heroes.GetValueOrDefault(machine.Race) is not { } state || state.Hero != machine.Id)
+            return MathF.Min(machine.Stats.RotationSpeed, limit);
+        var build = state.Build(Data);
+        return hasYaw && !slow && !machine.CanTurnUpperBody ? build.HullAimRate : build.DrivenTurnRate(limit);
     }
 
     /// <summary>
+    /// The turn of a driven hull in one tick, radians, for a <paramref name="turn"/> input of −1 to 1 at
+    /// <paramref name="rate"/> degrees a second: the sum the driving does, so that the client foresees it to the bit.
+    /// </summary>
+    public static float HullTurnOf(float turn, float rate) => turn * (rate * MathF.PI / 180) * Dt;
+
+    /// <summary>
     /// First-person driving as the original's driver did it (MachPhys1stPersonMachineDriver::nextPosition): it turns at
-    /// its ROTATION_SPEED, capped at the first-person rate (the slow one with Ctrl); it speeds up and slows down at its
+    /// its ROTATION_SPEED, capped at the first-person rate (the slow one with Ctrl; a sighted Wired hero that aims with its
+    /// hull at its gun's rate, <see cref="DrivenTurnRate"/>); it speeds up and slows down at its
     /// ACCELERATION, coasts to a halt when let go, goes a quarter of its SPEED in reverse, and a fifth slower up a slope
     /// steeper than one in ten (a fifth faster down). Sideways, on legs, hover or glider, it does the same at full
     /// speed (the remake's addition; both at once go no faster than one). Running into another machine it stops dead.
@@ -850,7 +872,8 @@ public sealed partial class GameWorld
         var state = input.Forward > 0 ? MoveKind.Forwards : input.Forward < 0 ? MoveKind.Backwards : MoveKind.Halted;
         if (MoveOf(machine.Id)?.Kind != state)
             _moves[machine.Id] = new MachineMove(state, Time);
-        machine.Facing += input.Turn * (DrivenTurnRate(machine, input.Slow) * MathF.PI / 180) * Dt;
+        // A command's yaw counts for its own turn: commands are carried out before the machines move.
+        machine.Facing += HullTurnOf(input.Turn, DrivenTurnRate(machine, input.Slow, HasYaw(machine.Id)));
 
         var ahead = new Vector2(DetMath.Cos(machine.Facing), DetMath.Sin(machine.Facing));
         var left = new Vector2(-ahead.Y, ahead.X);

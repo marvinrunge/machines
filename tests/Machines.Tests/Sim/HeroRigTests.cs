@@ -260,6 +260,55 @@ public class HeroRigTests
         }
     }
 
+    private static readonly Lazy<Machines.Sim.GameData> DataLoader = new(() => Machines.Sim.GameData.Load(RepoPaths.OriginalDataFolder()));
+
+    // The node of a model's rig its upper body turns, -1 for none.
+    private static int UpperBody(string model)
+    {
+        using var file = JsonDocument.Parse(File.ReadAllBytes(Looks["Classic"].Select(folder => Path.Combine(Exports, folder, "red", model + ".json")).First(File.Exists)));
+        return file.RootElement.GetProperty("rig").GetProperty("upperBody").GetInt32();
+    }
+
+    [Fact]
+    public void Every_gun_of_a_chassis_with_an_upper_body_hangs_under_it()
+    {
+        // The sim fires a sighted hero's every gun along its upper body's heading: in the picture each must turn with it.
+        if (!Exported)
+            return;
+        var turreted = WiredCatalogue.Chassis
+            .Where(c => HeroBuild.Resolve(DataLoader.Value, HeroLoadout.Bare(new WiredItem(1, WiredKind.Chassis, c.Id))).TurnsUpperBody).ToList();
+        Assert.Contains(turreted, c => c.Id == "overseer3");
+        Assert.DoesNotContain(turreted, c => c.Id == "grunt1");
+        foreach (var chassis in turreted)
+        {
+            var model = HeroDonors.Chassis[chassis.Id];
+            var parts = Rig(model);
+            var upper = UpperBody(model);
+            Assert.True(upper >= 0, $"{chassis.Id} turns an upper body its rig does not have");
+            foreach (var weapon in WiredCatalogue.Weapons)
+            {
+                var slots = new Dictionary<Mounting, RigGraft.Source?>();
+                foreach (var slot in chassis.Slots.Where(s => s.Fixed is null))
+                {
+                    var donor = HeroDonors.For(weapon.Id, slot.Mounting)!;
+                    var rig = Rig(donor.Model);
+                    slots[slot.Mounting] = WiredCatalogue.WhyNotFit(chassis, slot.Mounting, weapon) is null ? new(rig, RigGraft.MountOf(rig, donor.Mount)) : null;
+                }
+                var graft = new RigGraft(parts, slots);
+                var body = graft.Chassis(upper);
+                Assert.True(body >= 0, $"{chassis.Id} lost its upper body for {weapon.Id}");
+                var sides = slots.Where(s => s.Value is not null).Select(s => s.Key).Concat(chassis.Slots.Where(s => s.Fixed is not null).Select(s => s.Mounting));
+                foreach (var side in sides)
+                {
+                    var under = false;
+                    for (var p = graft.Mount(side); p >= 0 && !under; p = graft.Nodes[p].Parent)
+                        under = p == body;
+                    Assert.True(under, $"{chassis.Id}'s {side} mount for {weapon.Id} does not turn with its upper body");
+                }
+            }
+        }
+    }
+
     private static readonly MountBox Bolter = new(-0.7f, 1, -0.5f, 0.7f, -0.25f, 0.25f);
 
     [Fact]

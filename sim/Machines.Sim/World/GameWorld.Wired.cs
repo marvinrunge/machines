@@ -524,7 +524,7 @@ public sealed partial class GameWorld
         ForgetDriver(machine);
     }
 
-    /// <summary>Takes from a machine what its driver last said.</summary>
+    /// <summary>Takes from a machine what its driver last said; its gun's head stays where it stands, for the AI to take over.</summary>
     private void ForgetDriver(Machine machine)
     {
         DriveInput.Remove(machine.Id);
@@ -532,6 +532,7 @@ public sealed partial class GameWorld
         PlayerWeapons.Remove(machine.Id);
         PlayerButtons.Remove(machine.Id);
         PlayerHeads.Remove(machine.Id);
+        PlayerYaws.Remove(machine.Id);
     }
 
     // ---- the shop ---------------------------------------------------------------------------------

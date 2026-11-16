@@ -64,6 +64,13 @@ public sealed partial class GameWorld
             Mix(WiredFingerprint());
         if (Battle is not null)
             Mix(BattleFingerprint());
+        // The sighted drivers' views and their guns: nothing in a match without one.
+        foreach (var (id, yaw) in PlayerYaws)
+        {
+            Mix(id);
+            MixFloat(yaw);
+            MixFloat(_heads.GetValueOrDefault(id));
+        }
         foreach (var state in Races.Values.OrderBy(r => r.Race))
         {
             Mix((int)state.Race);

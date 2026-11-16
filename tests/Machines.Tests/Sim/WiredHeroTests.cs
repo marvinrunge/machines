@@ -35,7 +35,7 @@ public class WiredHeroTests
     }
 
     /// <summary>A run with its hangar open and a bank that does not get in the way.</summary>
-    private static GameWorld InHangar(WiredOptions? options = null, int bmu = 100000)
+    internal static GameWorld InHangar(WiredOptions? options = null, int bmu = 100000)
     {
         var world = NewRun(options);
         world.Races[Race.Red].Bmu = bmu;
@@ -53,7 +53,7 @@ public class WiredHeroTests
         return state.Items[^1];
     }
 
-    private static WiredItem Wear(GameWorld world, string id, WiredSlot slot)
+    internal static WiredItem Wear(GameWorld world, string id, WiredSlot slot)
     {
         var item = Buy(world, id);
         Assert.Null(Do(world, new WiredEquipCommand(Race.Red, item.Id, slot)));
@@ -61,7 +61,7 @@ public class WiredHeroTests
     }
 
     /// <summary>Puts the hero on any chassis, without the way there.</summary>
-    private static WiredItem Board(GameWorld world, string chassis)
+    internal static WiredItem Board(GameWorld world, string chassis)
     {
         var item = Red(world).Add(WiredKind.Chassis, chassis, 0);
         Assert.Null(Do(world, new WiredChassisCommand(Race.Red, item.Id)));
@@ -527,11 +527,17 @@ public class WiredHeroTests
     {
         var world = InHangar();
         var hero = Hero(world);
+        // On an upper body that a sighted driver has turned.
+        Board(world, "grunt2");
+        world.Issue(new DriveCommand(Race.Red, hero.Id, Driving: true, Yaw: hero.Facing + 1));
+        world.Step();
+        Assert.NotEqual(0, world.HeadOf(hero.Id));
         var aim = world.GunneryOf(hero);
         Assert.Null(Do(world, new MoveCommand(Race.Red, [hero.Id], hero.Position + new Vector2(15, 0))));
         for (var i = 0; i < 5; i++)
             world.Step();
         Assert.NotEqual(Order.Idle, hero.Order);
+        world.PlayerYaws[hero.Id] = 1;
         world.PlayerAims[hero.Id] = (Vector2.Zero, null);
         world.PlayerWeapons[hero.Id] = 3;
         world.PlayerHeads[hero.Id] = 1;
@@ -544,6 +550,8 @@ public class WiredHeroTests
         Assert.False(world.PlayerAims.ContainsKey(hero.Id));
         Assert.False(world.PlayerWeapons.ContainsKey(hero.Id));
         Assert.False(world.PlayerHeads.ContainsKey(hero.Id));
+        Assert.False(world.PlayerYaws.ContainsKey(hero.Id));
+        Assert.Equal(0, world.HeadOf(hero.Id));
         Assert.False(world.DriveInput.ContainsKey(hero.Id));
         Assert.NotSame(aim, world.GunneryOf(hero));
         Assert.False(world.Busy(hero));
@@ -1525,7 +1533,7 @@ public class WiredHeroTests
     }
 
     /// <summary>A hero with twin guns of one kind, cold and ready to fire.</summary>
-    private static (GameWorld World, Machine Hero, WeaponMount Left, WeaponMount Right, Vector2 Aim) Twins(string weapon)
+    internal static (GameWorld World, Machine Hero, WeaponMount Left, WeaponMount Right, Vector2 Aim) Twins(string weapon)
     {
         var world = InHangar();
         Board(world, "grunt3");
