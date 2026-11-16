@@ -18,7 +18,7 @@ public partial class MachineWarmup : MachineScreen
     private static bool _begun;
 
     private readonly ClassicAssets _assets;
-    private readonly Task _loading;
+    private readonly MachineDisplay.Loading _loading;
     private bool _placed;
     private int _quiet;
     private long _built;
@@ -26,6 +26,12 @@ public partial class MachineWarmup : MachineScreen
 
     /// <summary>Whether the machines have been drawn and the GPU has done with them (or there was nothing to draw).</summary>
     public bool Done { get; private set; }
+
+    /// <summary>
+    /// How far the rehearsal has come, from 0 to 1, for the loading bar: the loading the first nine tenths, the drawing
+    /// the rest, as its quiet frames count up.
+    /// </summary>
+    public float Progress => Done ? 1 : !_placed ? 0.9f * _loading.Share : 0.9f + 0.1f * Math.Max(_quiet / (float)QuietFrames, (float)(_shownFor / MostSeconds));
 
     private MachineWarmup(ClassicAssets assets)
     {
@@ -59,7 +65,7 @@ public partial class MachineWarmup : MachineScreen
             return;
         if (!_placed)
         {
-            if (!_loading.IsCompleted)
+            if (!_loading.Task.IsCompleted)
                 return;
             _placed = true;
             Place(Lineup());
