@@ -673,8 +673,14 @@ public partial class WiredDriver
             Say($"{what}: not now ({why})");
             return;
         }
-        // TODO(after stage E's merge): tap the special's key as a player does, await Tap(KeyMap.Of(KeyMap.Act.Special)),
-        // and say which key was pressed; until that key is in the key map the driver sends the command the key sends.
+        // The key sends these as a player's press does (Game.UseSpecial); anything else it would refuse or turn into
+        // tower mode, so that goes as the command itself.
+        if ((special & (ChassisSpecial.Anchor | ChassisSpecial.Field | ChassisSpecial.Mines | ChassisSpecial.Locate)) != 0)
+        {
+            await Tap(KeyMap.Of(KeyMap.Act.Special));
+            Say($"{what}: pressed {KeyMap.Name(KeyMap.Act.Special)}");
+            return;
+        }
         game.Issue(new WiredSpecialCommand(Game.Player, on));
         await Frames(2);
         Say($"{what}: by command");
