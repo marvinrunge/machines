@@ -37,6 +37,9 @@ public sealed class RelayHttp : IAsyncDisposable
         builder.Logging.ClearProviders();
         builder.Logging.AddSimpleConsole(options => options.SingleLine = true);
         builder.Logging.SetMinimumLevel(LogLevel.Warning);
+        // The port is the one given here, not the ASPNETCORE_HTTP_PORTS the .NET container images set (8080), which
+        // would only make Kestrel warn at every start that it overrides it.
+        builder.WebHost.UseSetting(WebHostDefaults.HttpPortsKey, "");
         builder.WebHost.ConfigureKestrel(kestrel =>
         {
             if (address is null)

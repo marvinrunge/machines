@@ -115,11 +115,13 @@ public sealed class Connection : IAsyncDisposable
 
     private Link? _link;
     private Channel<NetMessage>? _outbox;
-    private Task? _writing;
+    private Task? _writing, _reading;
     // Bumped whenever a socket is left: its reader and writer stop at the next message.
     private int _generation;
     private long _sent, _received, _acknowledged, _ackSent;
     private bool _keep, _closed, _disposing;
+    // A planned move is between its old socket and its new one: the line has not dropped, and nobody need be told.
+    private bool _moving;
     private string? _session;
     // Milliseconds on the connection's own clock.
     private long _heard, _said, _ackAt, _lostAt, _rotateAt;
@@ -168,7 +170,8 @@ public sealed class Connection : IAsyncDisposable
         return Open(async token => await WebSocketLink.ConnectAsync(uri, token), cancel, timings);
     }
 
-    private static async Task<Connection> Open(Func<CancellationToken, Task<Link>> dial, CancellationToken cancel, LinkTimings? timings)
+    /// <summary>A client's connection over whatever <paramref name="dial"/> opens, now and each time the line has to be found again (tests break it).</summary>
+    internal static async Task<Connection> Open(Func<CancellationToken, Task<Link>> dial, CancellationToken cancel, LinkTimings? timings)
     {
         var link = await dial(cancel);
         var connection = new Connection(timings, dial, keep: true);
@@ -192,13 +195,13 @@ public sealed class Connection : IAsyncDisposable
         }
     }
 
-    /// <summary>Whether the line dropped and the connection is trying to get it back.</summary>
+    /// <summary>Whether the line dropped and the connection is trying to get it back (not while it only moves to a new socket on its own).</summary>
     public bool Reconnecting
     {
         get
         {
             lock (_lock)
-                return !_closed && _session is not null && _link is null;
+                return !_closed && _session is not null && _link is null && !_moving;
         }
     }
 
@@ -209,6 +212,16 @@ public sealed class Connection : IAsyncDisposable
         {
             lock (_lock)
                 return _links;
+        }
+    }
+
+    /// <summary>How many sent messages are kept because the other side has not yet acknowledged them (tests).</summary>
+    internal int Unacknowledged
+    {
+        get
+        {
+            lock (_lock)
+                return _kept.Count;
         }
     }
 
@@ -276,6 +289,7 @@ public sealed class Connection : IAsyncDisposable
         var generation = ++_generation;
         _link = link;
         _links++;
+        _moving = false;
         var outbox = _outbox = Channel.CreateUnbounded<NetMessage>(new UnboundedChannelOptions { SingleReader = true });
         if (first is not null)
             outbox.Writer.TryWrite(first);
@@ -286,8 +300,9 @@ public sealed class Connection : IAsyncDisposable
             _rotateAt = Now + Ms(_timings.Rotation) - (long)(Random.Shared.NextDouble() * Ms(_timings.RotationSpread));
         _pumps.RemoveAll(t => t.IsCompleted);
         _writing = Task.Run(() => Write(link, outbox.Reader, generation));
+        _reading = Task.Run(() => Read(link, generation));
         _pumps.Add(_writing);
-        _pumps.Add(Task.Run(() => Read(link, generation)));
+        _pumps.Add(_reading);
     }
 
     // Under the lock: leaves the link in use, if any; its reader and writer stop. Returns it for disposal.
@@ -463,6 +478,10 @@ public sealed class Connection : IAsyncDisposable
                             Close();
                             return;
                         }
+                        // A client whose line is down and that is not finding it again starts anew: the line broke while a
+                        // planned move gave up, or broke again the moment the way back ended.
+                        if (_dial is not null && !_disposing && _redialing.IsCompleted)
+                            _redialing = Task.Run(Redial);
                         continue;
                     }
                     if (now - _heard > Ms(_timings.Silence))
@@ -490,7 +509,8 @@ public sealed class Connection : IAsyncDisposable
     // socket only once the new one is open; a dropped line is tried again and again until the grace period is over.
     private async Task Redial()
     {
-        var deadline = Now + Ms(_timings.Grace);
+        // When a dropped line has to be back, counted from the moment it is found down.
+        long? deadline = null;
         var pause = 100;
         while (true)
         {
@@ -500,6 +520,11 @@ public sealed class Connection : IAsyncDisposable
                 if (_closed || _disposing)
                     return;
                 planned = _link is not null;
+                if (!planned)
+                {
+                    _moving = false;
+                    deadline ??= Now + Ms(_timings.Grace);
+                }
             }
             if (!planned && Now > deadline)
                 break;
@@ -508,7 +533,7 @@ public sealed class Connection : IAsyncDisposable
             try
             {
                 using var attempt = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
-                attempt.CancelAfter(TimeSpan.FromMilliseconds(planned ? Ms(_timings.Dial) : Math.Clamp(deadline - Now, 1, Ms(_timings.Dial))));
+                attempt.CancelAfter(TimeSpan.FromMilliseconds(deadline is { } end ? Math.Clamp(end - Now, 1, Ms(_timings.Dial)) : Ms(_timings.Dial)));
                 link = await _dial!(attempt.Token);
                 Link? old;
                 long received;
@@ -523,6 +548,8 @@ public sealed class Connection : IAsyncDisposable
                     // From here on the old socket is read no further: what still comes on it comes again on the new one.
                     old = Detach();
                     left = true;
+                    // A move whose old socket still stood is no dropped line; one whose socket broke meanwhile is.
+                    _moving = old is not null;
                     received = _received;
                     session = _session!;
                 }
@@ -557,10 +584,16 @@ public sealed class Connection : IAsyncDisposable
                     return;
                 if (planned && !left)
                 {
-                    // The old socket still stands: try the move again a little later.
                     lock (_lock)
-                        _rotateAt = Now + Ms(_timings.Dial);
-                    return;
+                    {
+                        // The old socket still stands: try the move again a little later. If it broke while the move
+                        // waited for its new one, this is a dropped line now, and the way back goes on below.
+                        if (_link is not null)
+                        {
+                            _rotateAt = Now + Ms(_timings.Dial);
+                            return;
+                        }
+                    }
                 }
             }
             try
@@ -579,15 +612,18 @@ public sealed class Connection : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        Task? writing;
+        Task? writing, reading = null;
         lock (_lock)
         {
             if (_disposing)
                 return;
             _disposing = true;
             // A resumable other side is told not to wait for this one.
-            if (!_closed && _session is not null)
-                _outbox?.Writer.TryWrite(new Goodbye());
+            if (!_closed && _session is not null && _outbox is not null)
+            {
+                _outbox.Writer.TryWrite(new Goodbye());
+                reading = _reading;
+            }
             _outbox?.Writer.TryComplete();
             writing = _outbox is null ? null : _writing;
         }
@@ -596,6 +632,20 @@ public sealed class Connection : IAsyncDisposable
             try
             {
                 await writing.WaitAsync(TimeSpan.FromSeconds(1));
+            }
+            catch (TimeoutException)
+            {
+            }
+        }
+        if (reading is not null)
+        {
+            // The other side closes its end on the goodbye; reading on until it has (a second at most) lets the goodbye
+            // arrive. Stopping at once would cut it off: a WebSocket whose read is cancelled is aborted, perhaps before
+            // the goodbye left, and a socket closed with something unread resets the line, perhaps before the other side
+            // read the goodbye, which then thinks its line dropped and tries for a minute to come back.
+            try
+            {
+                await reading.WaitAsync(TimeSpan.FromSeconds(1));
             }
             catch (TimeoutException)
             {

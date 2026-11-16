@@ -208,6 +208,37 @@ public class OnlineRelayTests
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), $"Anna waited {watch.Elapsed.TotalSeconds:0.0} s");
     }
 
+    [Fact]
+    public async Task A_relay_that_stops_says_goodbye_and_nobody_waits_to_come_back()
+    {
+        var relay = RelayServer.Start(0, IPAddress.Loopback);
+        var http = await RelayHttp.StartAsync(relay, 0, IPAddress.Loopback);
+        await using var anna = await Client.Connect($"ws://127.0.0.1:{http.Port}", "Anna");
+        await using var ben = await Client.Connect($"127.0.0.1:{relay.Port}", "Ben");
+
+        // As the relay's program stops on SIGTERM: the relay with its players, then the web side.
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        await relay.DisposeAsync();
+        await http.DisposeAsync();
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(3), $"stopping took {watch.Elapsed.TotalSeconds:0.0} s");
+
+        // Both were told goodbye: their connections end rather than trying for a minute to come back.
+        foreach (var (client, name) in new[] { (anna, "Anna"), (ben, "Ben") })
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            try
+            {
+                while (await client.Connection.Inbox.WaitToReadAsync(timeout.Token))
+                    client.Connection.Inbox.TryRead(out _);
+            }
+            catch (OperationCanceledException)
+            {
+                Assert.Fail($"{name} still open after {watch.Elapsed.TotalSeconds:0.0} s, reconnecting {client.Connection.Reconnecting}, {client.Connection.Links} sockets");
+            }
+            Assert.True(client.Connection.Closed);
+        }
+    }
+
     /// <summary>A connected client before any room.</summary>
     private sealed class Client : IAsyncDisposable
     {

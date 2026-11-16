@@ -48,5 +48,8 @@ http?.Stopping.Register(() => stopped.TrySetResult());
 await stopped.Task;
 Say("Machines relay stopping.");
 terminate?.Dispose();
+// The players first, each told goodbye over its own socket so that none tries to come back to a relay that is going;
+// then the web side, which no longer has a WebSocket to wait out (with one open it would wait its five seconds and cut it).
+await relay.DisposeAsync();
 if (http is not null)
     await http.DisposeAsync();

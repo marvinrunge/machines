@@ -93,17 +93,18 @@ public static class NetLink
     {
         await DisconnectAsync();
         var web = RelayAddress.IsWebSocket(address);
+        // Until the relay's welcome: a connection given up on before it is closed below, or it would linger (and a late
+        // welcome would make it resumable, keeping a seat nobody plays alive with its heartbeat).
+        Connection? connecting = null;
         try
         {
             using var timeout = new CancellationTokenSource(web ? WebTimeout : TcpTimeout);
-            var connection = await Connection.ConnectAsync(address, timeout.Token);
+            var connection = connecting = await Connection.ConnectAsync(address, timeout.Token);
             connection.Send(new Hello(name, NetJson.Protocol, Resume: true));
             var reply = await connection.Inbox.ReadAsync(timeout.Token);
             if (reply is not Welcome welcome)
-            {
-                await connection.DisposeAsync();
                 return reply is Refused refused ? refused.Reason : "the relay did not answer";
-            }
+            connecting = null;
             Connection = connection;
             ClientId = welcome.ClientId;
             RelayVersion = welcome.Relay;
@@ -125,6 +126,11 @@ public static class NetLink
                 return Lang.T("cannot reach {0} ({1})", address.Trim(), why);
             var (host, port) = RelayAddress.Split(address);
             return Lang.T("cannot reach {0}:{1} ({2})", host, port, why);
+        }
+        finally
+        {
+            if (connecting is not null)
+                await connecting.DisposeAsync();
         }
     }
 

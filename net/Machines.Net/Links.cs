@@ -37,7 +37,9 @@ public abstract class Link : IAsyncDisposable
         {
             await CloseSocketAsync();
         }
-        catch (Exception exception) when (exception is IOException or SocketException or WebSocketException or OperationCanceledException or ObjectDisposedException)
+        // InvalidOperationException: a WebSocket refuses to close while a send of the link's writer is still under way.
+        catch (Exception exception) when (exception is IOException or SocketException or WebSocketException or OperationCanceledException
+                                              or ObjectDisposedException or InvalidOperationException)
         {
         }
         finally
@@ -87,10 +89,12 @@ public sealed class TcpLink : Link
 
     protected override void AbortSocket()
     {
-        // No lingering: the other side sees the line break rather than an orderly close.
+        // No lingering: the other side sees the line break rather than an orderly close. A link closed already has no
+        // socket left to cut.
         try
         {
-            _client.Client.LingerState = new LingerOption(true, 0);
+            if (_client.Client is { } socket)
+                socket.LingerState = new LingerOption(true, 0);
         }
         catch (Exception exception) when (exception is SocketException or ObjectDisposedException)
         {
@@ -174,11 +178,18 @@ public sealed class WebSocketLink(WebSocket socket) : Link
 
     protected override async Task CloseSocketAsync()
     {
-        if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
+        try
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(1));
-            await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, timeout.Token);
+            if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
+            {
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+                await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, timeout.Token);
+            }
         }
-        socket.Dispose();
+        finally
+        {
+            // Whether the closing word went out or not (a dead line, a send still under way), the socket is let go.
+            socket.Dispose();
+        }
     }
 }
