@@ -55,7 +55,9 @@ public sealed class RelayServer : IAsyncDisposable
             listener.Server.DualMode = true;
         listener.Start();
         var server = new RelayServer(listener, timings ?? LinkTimings.Default);
-        server._accepting = server.AcceptLoop();
+        // On the thread pool, whatever thread starts it: a game's main thread (busy with its frames) or a test runner's
+        // few threads would otherwise run every message the relay handles, and hold up the other players behind them.
+        server._accepting = Task.Run(server.AcceptLoop);
         return server;
     }
 

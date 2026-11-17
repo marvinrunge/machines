@@ -209,6 +209,72 @@ public class OnlineRelayTests
     }
 
     [Fact]
+    public async Task The_relay_answers_while_the_thread_that_started_it_is_busy()
+    {
+        // A game hosting the relay starts it on its main thread, the tests on the test runner's few threads; neither may
+        // hold it up: a frame of loading, or every runner thread at a long simulation, kept new players from their welcome.
+        var busy = new HeldContext();
+        var before = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(busy);
+        RelayServer relay;
+        try
+        {
+            relay = RelayServer.Start(0, IPAddress.Loopback);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(before);
+        }
+        try
+        {
+            var anna = Task.Run(() => ChatTests.Client.Connect(relay, "Anna"));
+            var answered = await Task.WhenAny(anna, Task.Delay(TimeSpan.FromSeconds(8))) == anna;
+
+            Assert.True(answered && anna.IsCompletedSuccessfully, $"no welcome while the starting thread was busy ({busy.Held} callbacks waited for it)");
+            await (await anna).DisposeAsync();
+        }
+        finally
+        {
+            busy.Release();
+            await relay.DisposeAsync();
+        }
+    }
+
+    /// <summary>A thread that is busy: what is posted to it waits until <see cref="Release"/>, then runs on the pool.</summary>
+    private sealed class HeldContext : SynchronizationContext
+    {
+        private readonly List<(SendOrPostCallback, object?)> _held = [];
+        private bool _released;
+
+        public int Held
+        {
+            get { lock (_held) return _held.Count; }
+        }
+
+        public override void Post(SendOrPostCallback d, object? state)
+        {
+            lock (_held)
+                if (!_released)
+                {
+                    _held.Add((d, state));
+                    return;
+                }
+            ThreadPool.QueueUserWorkItem(_ => d(state));
+        }
+
+        public void Release()
+        {
+            lock (_held)
+            {
+                _released = true;
+                foreach (var (d, state) in _held)
+                    ThreadPool.QueueUserWorkItem(_ => d(state));
+                _held.Clear();
+            }
+        }
+    }
+
+    [Fact]
     public async Task A_relay_that_stops_says_goodbye_and_nobody_waits_to_come_back()
     {
         var relay = RelayServer.Start(0, IPAddress.Loopback);
