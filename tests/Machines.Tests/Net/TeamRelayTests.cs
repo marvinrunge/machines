@@ -237,6 +237,59 @@ public class TeamRelayTests
         Assert.NotEqual(anna.Sums[120], cleo.Sums[120]);
     }
 
+    /// <summary>
+    /// A tick is compared once everyone still playing has reported it, also when the last who had not quits instead: worlds
+    /// that differ there are a desync at that tick, worlds that agree are agreed on, and the one who quit, back, catches up
+    /// past it in peace.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_tick_only_a_leaver_had_still_to_report_is_compared_when_they_leave(bool differ)
+    {
+        await using var relay = await RelayClients.Start();
+        var anna = await relay.Connect("Anna", web: false);
+        var ben = await relay.Connect("Ben", web: true);
+        var cleo = await relay.Connect("Cleo", web: false);
+        var room = await RelayClients.Open(anna,
+            new CreateRoom("Together", "m_desert", "m_desert", [Race.Red, Race.Blue], new MatchOptions(), FillWithAi: false, SeatsPerSlot: 2), ben, cleo);
+        List<RelayClient> clients = [anna, ben, cleo];
+        await RelayClients.Begin(anna, clients);
+        Assert.Equal((P(0), P(1), P(4)), (anna.Me, ben.Me, cleo.Me));
+        await RelayClients.PlayTo(99, clients);
+
+        // With differ, Ben's world goes its own way just before tick 100; Anna and he report it, Cleo, a tick behind, does not.
+        if (differ)
+            ben.World.Races[Race.Blue].Bmu += 1;
+        await RelayClients.PlayTo(103, [anna, ben]);
+        Assert.Equal(differ, anna.Sums[100] != ben.Sums[100]);
+        // The relay has taken both reports for 100 once it forwarded the turns they sent after them (for 107) to Cleo.
+        var forwarded = new HashSet<PlayerId>();
+        using (var wait = new CancellationTokenSource(TimeSpan.FromSeconds(15)))
+        {
+            while (forwarded.Count < 2)
+            {
+                if (await cleo.Connection.Inbox.ReadAsync(wait.Token) is Turn { Tick: 107 } turn)
+                    forwarded.Add(turn.Player);
+            }
+        }
+
+        // Cleo quits without having reported tick 100: everyone still there has.
+        await cleo.Leave();
+        await RelayClients.PlayTo(140, clients);
+        if (differ)
+        {
+            Assert.Equal(100, anna.Session.DesyncTick);
+            Assert.Equal(100, ben.Session.DesyncTick);
+            return;
+        }
+        // Agreed on: Cleo comes back, catches up past it, and everyone agrees on every checksum.
+        var back = await relay.Rejoin("Cleo", web: false, room.Id);
+        clients.Add(back);
+        await RelayClients.PlayTo(200, clients);
+        Assert.Equal(10, RelayClients.AssertAgree(clients));
+    }
+
     /// <summary>A machine of a player's that a follow order can be given to: a constructor if they have one, which no fight needs.</summary>
     private static int Follower(GameWorld world, PlayerId owner, int? except = null) =>
         world.Machines.Where(m => m.Owner == owner && !m.IsDead && m.Inside is null && m.Id != except)

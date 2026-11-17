@@ -433,6 +433,9 @@ public sealed class RelayServer : IAsyncDisposable
             var left = new PlayerLeft(leaver, from);
             room.Log.Add(left);
             Broadcast(room, left);
+            // The ticks only the leaver had still to report are compared now, among those still playing.
+            foreach (var (tick, reports) in room.Checksums.OrderBy(c => c.Key).ToList())
+                Settle(room, tick, reports);
         }
     }
 
@@ -707,14 +710,23 @@ public sealed class RelayServer : IAsyncDisposable
         if (!room.Checksums.TryGetValue(report.Tick, out var reports))
             room.Checksums[report.Tick] = reports = [];
         reports[report.Player] = report.Value;
+        Settle(room, report.Tick, reports);
+    }
+
+    /// <summary>
+    /// A tick's reports are compared once every person still playing has given theirs: after the last report, or after the
+    /// last who had not reported it left.
+    /// </summary>
+    private void Settle(Room room, long tick, Dictionary<PlayerId, ulong> reports)
+    {
         var expected = room.Members.Select(m => m.Player).OfType<PlayerId>().Where(player => !room.Left.Contains(player)).ToList();
-        if (expected.Any(player => !reports.ContainsKey(player)))
+        if (expected.Count == 0 || expected.Any(player => !reports.ContainsKey(player)))
             return;
-        room.Checksums.Remove(report.Tick);
+        room.Checksums.Remove(tick);
         if (reports.Values.Distinct().Count() > 1)
-            Desynced(room, report.Tick);
+            Desynced(room, tick);
         else
-            room.Agreed[report.Tick] = report.Value;
+            room.Agreed[tick] = reports.Values.First();
     }
 
     private void Desynced(Room room, long tick)
