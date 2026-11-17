@@ -1,3 +1,4 @@
+using System.Numerics;
 using Machines.Import.Model;
 using Machines.Net;
 using Machines.Relay;
@@ -181,6 +182,44 @@ public class BeatTests
         relay.Play(BeatTimings.Default.MaxDelay);
         Assert.Equal([Drive(Race.Red, 1)], relay.At(6).Turns.Single().Commands);
         Assert.Equal([Drive(Race.Red, 4)], relay.At(BeatTimings.Default.MaxDelay).Turns.Single().Commands);
+    }
+
+    [Fact]
+    public void Commands_that_would_make_a_bundle_larger_than_a_frame_are_dropped_their_stamp_counted()
+    {
+        // Moves of so many machines that two of them, not one, are more than a bundle may carry.
+        static Command Order(Race race, int seed)
+        {
+            var random = new Random(seed);
+            return new MoveCommand(race, [.. Enumerable.Range(0, 50_000).Select(_ => random.Next(1_000_000_000, int.MaxValue))], new Vector2(1, 1));
+        }
+
+        var relay = new Relay(BeatTimings.Default, Skirmish(4));
+        Assert.InRange(NetJson.Encode(new Turn(4, Red, [Order(Race.Red, 1)])).Length, Beat.MostTurnBytes / 2 + 1, Beat.MostTurnBytes);
+
+        Assert.Equal(Offered.Placed, relay.Send(Red, 4, [Order(Race.Red, 1)]));
+        Assert.Equal(Offered.TooLarge, relay.Send(Blue, 4, [Order(Race.Blue, 2)]));
+        Assert.Equal(4, relay.Beat.Seat(Blue)!.Stamped);
+        Assert.Equal(Offered.Placed, relay.Send(Green, 4, [Drive(Race.Green, 1)]));
+        relay.Play(3);
+        // A late turn merged on the next open bundle, which has no room left for it; the next turn of a player whose last was
+        // dropped, on a bundle with room; and one more of the late player's that does not fit, noted no more within the minute.
+        Assert.Equal(Offered.TooLarge, relay.Send(Yellow, 2, [Order(Race.Yellow, 3)]));
+        Assert.Equal(2, relay.Beat.Seat(Yellow)!.Stamped);
+        Assert.Equal(Offered.Placed, relay.Send(Blue, 5, [Order(Race.Blue, 4)]));
+        Assert.Equal(Offered.TooLarge, relay.Send(Yellow, 5, [Order(Race.Yellow, 5)]));
+        relay.Play(5);
+
+        var four = relay.At(4).Turns;
+        Assert.Equal([Red, Green], four.Select(t => t.Player));
+        Assert.Equal([Drive(Race.Green, 1)], four[1].Commands);
+        Assert.Equal(Blue, relay.At(5).Turns.Single().Player);
+        Assert.All(relay.Sent, b => Assert.InRange(NetJson.Encode(b).Length, 0, Framing.MaxFrame));
+        Assert.Equal(
+            [
+                $"player {Blue}'s turn for tick 4 dropped: its commands would make bundle 4 larger than {Beat.MostTurnBytes} bytes",
+                $"player {Yellow}'s turn for tick 2 dropped: its commands would make bundle 4 larger than {Beat.MostTurnBytes} bytes",
+            ], relay.Lines.Where(l => l.Contains("larger than", StringComparison.Ordinal)));
     }
 
     [Fact]

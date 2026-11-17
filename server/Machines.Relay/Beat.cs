@@ -237,6 +237,12 @@ public enum Offered
 
     /// <summary>Dropped: its tick is more than <see cref="BeatTimings.MaxDelay"/> past the next bundle.</summary>
     TooFar,
+
+    /// <summary>
+    /// Its commands dropped, its stamp counted: with them its bundle would be larger than a frame a client reads
+    /// (<see cref="Beat.MostTurnBytes"/>).
+    /// </summary>
+    TooLarge,
 }
 
 /// <summary>
@@ -256,6 +262,14 @@ public sealed class Beat
 
     /// <summary>The fewest turnaround samples a player's need is reckoned from.</summary>
     public const int MinSamples = 20;
+
+    /// <summary>
+    /// The most bytes of turns one bundle carries, counted as each turn placed on it encodes alone: a frame
+    /// (<see cref="Framing.MaxFrame"/>) less room for the bundle's own fields and its comings and goings. Each turn a player
+    /// sends fits in a frame, but the turns of several players, or the late turns of one merged on the next open tick, need
+    /// not; a bundle larger than a frame no client could read, nor after a reconnect, which sends it again.
+    /// </summary>
+    public const int MostTurnBytes = Framing.MaxFrame - 64 * 1024;
 
     private readonly SortedDictionary<PlayerId, BeatSeat> _seats = [];
     // The commands placed on each tick still to close, by player, with the newest stamp merged into each.
@@ -365,10 +379,15 @@ public sealed class Beat
             return Offered.Stamped;
         if (!_buckets.TryGetValue(tick, out var bucket))
             _buckets[tick] = bucket = [];
+        // Counted as the turn encodes alone, which is more than its commands add to the bundle's turn of the player.
+        var bytes = NetJson.Encode(turn).Length;
+        if (bucket.Values.Sum(b => b.Bytes) + bytes > MostTurnBytes)
+            return Dropped(seat, Offered.TooLarge, turn, now, tick);
         if (!bucket.TryGetValue(seat.Player, out var placed))
             bucket[seat.Player] = placed = new Bucket();
         placed.Commands.AddRange(turn.Commands);
         placed.Asked = turn.Tick;
+        placed.Bytes += bytes;
         if (turn.Commands.Any(c => c is DriveCommand))
             (seat.DroveAt, seat.Stale) = (Math.Max(seat.DroveAt, tick), 0);
         if (tick == turn.Tick)
@@ -377,14 +396,17 @@ public sealed class Beat
         return Offered.Moved;
     }
 
-    private Offered Dropped(BeatSeat seat, Offered why, Turn turn, TimeSpan now)
+    private Offered Dropped(BeatSeat seat, Offered why, Turn turn, TimeSpan now, long bundle = -1)
     {
         if (!_dropNoted.TryGetValue((seat.Player, why), out var noted) || now - noted >= TimeSpan.FromMinutes(1))
         {
             _dropNoted[(seat.Player, why)] = now;
-            Note(why == Offered.WentBack
-                ? $"player {seat.Player}'s turn for tick {turn.Tick} dropped: not past its last, {seat.Stamped}"
-                : $"player {seat.Player}'s turn for tick {turn.Tick} dropped: more than {Timings.MaxDelay} past the next bundle, {NextTick}");
+            Note(why switch
+            {
+                Offered.WentBack => $"player {seat.Player}'s turn for tick {turn.Tick} dropped: not past its last, {seat.Stamped}",
+                Offered.TooLarge => $"player {seat.Player}'s turn for tick {turn.Tick} dropped: its commands would make bundle {bundle} larger than {MostTurnBytes} bytes",
+                _ => $"player {seat.Player}'s turn for tick {turn.Tick} dropped: more than {Timings.MaxDelay} past the next bundle, {NextTick}",
+            });
         }
         return why;
     }
@@ -904,5 +926,8 @@ public sealed class Beat
     {
         public List<Command> Commands { get; } = [];
         public long Asked { get; set; } = -1;
+
+        /// <summary>The placed turns' bytes, each as it encodes alone (<see cref="MostTurnBytes"/>).</summary>
+        public int Bytes { get; set; }
     }
 }

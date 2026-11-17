@@ -523,6 +523,41 @@ public class BeatRelayTests
     }
 
     [Fact]
+    public async Task No_bundle_outgrows_a_frame_the_commands_that_would_make_it_are_dropped_and_the_match_goes_on()
+    {
+        await using var relay = await RelayClients.Start();
+        var sent = new ConcurrentQueue<Bundle>();
+        relay.Relay.Sent = (_, message) =>
+        {
+            if (message is Bundle bundle)
+                sent.Enqueue(bundle);
+        };
+        var anna = await relay.Connect("Anna", web: false);
+        var ben = await relay.Connect("Ben", web: true);
+        var room = await RelayClients.Open(anna, new CreateRoom("Beat", "m_desert", "m_desert", [Race.Red, Race.Blue], new MatchOptions(), FillWithAi: false), ben);
+        List<RelayClient> clients = [anna, ben];
+        await RelayClients.Begin(anna, clients);
+        await RelayClients.PlayTo(40, clients);
+
+        // Both order a move of 60,000 machines for the same tick: each turn fits in a frame (some 660 KB), the two together
+        // would not, and no client could read the bundle (nor would one after a reconnect, which sends it again).
+        var tick = anna.Session.NextLocalTurn;
+        Assert.Equal(tick, ben.Session.NextLocalTurn);
+        anna.Session.Queue(Huge(anna.Race, 1, 60_000));
+        ben.Session.Queue(Huge(ben.Race, 2, 60_000));
+        var playing = RelayClients.PlayTo(80, clients);
+        Assert.True(await Task.WhenAny(playing, Task.Delay(TimeSpan.FromSeconds(30))) == playing, "the match stood still");
+        await playing;
+
+        Assert.All(sent, b => Assert.True(NetJson.Encode(b).Length <= Framing.MaxFrame, $"bundle {b.Tick} of {NetJson.Encode(b).Length} bytes"));
+        var orders = sent.SelectMany(b => b.Turns.Where(t => t.Commands.Any(c => c is MoveCommand { Machines.Count: 60_000 })).Select(t => (b.Tick, t.Player))).Distinct().ToList();
+        Assert.Equal(tick, Assert.Single(orders).Tick);
+        var dropped = orders[0].Player == anna.Me ? ben.Me : anna.Me;
+        Assert.Contains(relay.Lines, l => l.StartsWith($"room {room.Id}: player {dropped}'s turn for tick {tick} dropped: its commands would make bundle {tick} larger than", StringComparison.Ordinal));
+        RelayClients.AssertAgree(clients);
+    }
+
+    [Fact]
     public async Task Turns_going_back_or_too_far_ahead_are_dropped()
     {
         await using var relay = await RelayClients.Start();
@@ -725,11 +760,14 @@ public class BeatRelayTests
         _ => throw new ArgumentException($"{change} is no coming or going"),
     };
 
-    /// <summary>A move of 40,000 machines nobody has: some 440 KB of JSON, which every world carries out alike (moving nothing).</summary>
-    private static MoveCommand Huge(Race race, int seed)
+    /// <summary>
+    /// A move of <paramref name="machines"/> machines nobody has (40,000 are some 440 KB of JSON), which every world carries
+    /// out alike (moving nothing).
+    /// </summary>
+    private static MoveCommand Huge(Race race, int seed, int machines = 40_000)
     {
         var random = new Random(seed);
-        return new MoveCommand(race, Enumerable.Range(0, 40_000).Select(_ => random.Next(1_000_000_000, int.MaxValue)).ToList(), new Vector2(100, 100));
+        return new MoveCommand(race, Enumerable.Range(0, machines).Select(_ => random.Next(1_000_000_000, int.MaxValue)).ToList(), new Vector2(100, 100));
     }
 
     /// <summary>A person who gives an order every tick: a stop to none of their machines, which every world takes alike.</summary>
