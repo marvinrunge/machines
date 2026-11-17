@@ -1,6 +1,13 @@
 using Machines.Net;
+using Machines.Sim.World;
 
 namespace Machines.Game;
+
+/// <summary>
+/// The seat this game holds in a match running on a relay (P2 design §6.1): the relay's address as it was typed, the room,
+/// the player and the key the relay gave for it (<see cref="SeatKey"/>), which takes the seat back from any connection.
+/// </summary>
+public sealed record MatchSeat(string Relay, int Room, PlayerId Player, string Key);
 
 /// <summary>The connection to the multiplayer relay; it lives across scenes, from the lobby into the match.</summary>
 public static class NetLink
@@ -23,6 +30,77 @@ public static class NetLink
 
     public static Connection? Connection { get; private set; }
     public static int ClientId { get; private set; }
+
+    /// <summary>The address of the relay connected to, as it was typed (the hosted relay's on this computer); null offline.</summary>
+    public static string? Address { get; private set; }
+
+    private const string Settings = "user://settings.cfg";
+    private static MatchSeat? _seat;
+    private static bool _seatRead;
+
+    /// <summary>
+    /// The seat this game holds in a running match, if any (P2 design §6.1): set from the relay's <see cref="SeatKey"/> right
+    /// after the match starts, or a new key a rejoin brings, and kept in the settings (<c>[online] seat_relay</c>,
+    /// <c>seat_room</c>, <c>seat_player</c>, <c>seat_key</c>), so a game started again still has it and the multiplayer page
+    /// takes the seat back by key. Cleared when the match scene ends as it should, or the relay takes the game out of the match.
+    /// </summary>
+    public static MatchSeat? Seat
+    {
+        get
+        {
+            if (!_seatRead)
+            {
+                _seatRead = true;
+                var config = new Godot.ConfigFile();
+                if (config.Load(Settings) == Godot.Error.Ok && (string)config.GetValue("online", "seat_key", "") is { Length: > 0 } key)
+                    _seat = new MatchSeat((string)config.GetValue("online", "seat_relay", ""), (int)config.GetValue("online", "seat_room", -1),
+                        new PlayerId((int)config.GetValue("online", "seat_player", -1)), key);
+            }
+            return _seat;
+        }
+        private set
+        {
+            _seat = value;
+            _seatRead = true;
+            var config = new Godot.ConfigFile();
+            config.Load(Settings);
+            if (value is null)
+            {
+                if (config.HasSection("online"))
+                    config.EraseSection("online");
+            }
+            else
+            {
+                config.SetValue("online", "seat_relay", value.Relay);
+                config.SetValue("online", "seat_room", value.Room);
+                config.SetValue("online", "seat_player", value.Player.Value);
+                config.SetValue("online", "seat_key", value.Key);
+            }
+            config.Save(Settings);
+        }
+    }
+
+    /// <summary>Keeps the key the relay gave for a seat of a match on the relay connected to.</summary>
+    public static void KeepSeat(int room, PlayerId player, string key)
+    {
+        if (Seat is { } held && held.Room == room && held.Player == player && held.Key == key && SameRelay(held.Relay))
+            return;
+        Seat = new MatchSeat(Address ?? "", room, player, key);
+        Godot.GD.Print($"net: seat key kept for room {room}, player {player}");
+    }
+
+    /// <summary>Forgets the seat: the match ended as it should, or the relay took this game out of it.</summary>
+    public static void ForgetSeat()
+    {
+        if (Seat is not null)
+            Seat = null;
+    }
+
+    /// <summary>The seat this game holds in a room of the relay connected to, if it holds one there.</summary>
+    public static MatchSeat? SeatIn(int room) => Seat is { } seat && seat.Room == room && SameRelay(seat.Relay) ? seat : null;
+
+    private static bool SameRelay(string relay) =>
+        Address is { } address && string.Equals(relay.Trim(), address.Trim(), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The player's name online: the one last used, kept between sessions (<see cref="GameOptions.PlayerName"/>).</summary>
     public static string Name
@@ -74,6 +152,9 @@ public static class NetLink
             try
             {
                 HostedRelay = Machines.Relay.RelayServer.Start(port);
+                // What the relay does goes into the game's log as the standalone relay prints it (the beat's anchor, delay
+                // changes, leaves and rejoins, the match's summary), for automated checks to set the players' lines against.
+                HostedRelay.Log += line => Godot.GD.Print($"relay: {line}");
             }
             catch (System.Net.Sockets.SocketException exception)
             {
@@ -106,6 +187,7 @@ public static class NetLink
                 return reply is Refused refused ? refused.Reason : "the relay did not answer";
             connecting = null;
             Connection = connection;
+            Address = address.Trim();
             ClientId = welcome.ClientId;
             RelayVersion = welcome.Relay;
             CloseWithTheGame();
@@ -153,6 +235,7 @@ public static class NetLink
         {
             Connection = null;
             RelayVersion = null;
+            Address = null;
             await connection.DisposeAsync();
         }
     }

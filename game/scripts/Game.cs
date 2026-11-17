@@ -385,17 +385,24 @@ public partial class Game : Node3D
         World = MatchSetup.Create(data, request.Scenario, request.Planet, request.Players, _seed, request.Options);
         GiftForChecks();
 
-        // Every match runs through lockstep: alone with one tick of input delay, online with the relay's, or
-        // played back from a replay. The session waits for the world's people; a person of a match on this computer alone
-        // who is not at it is away from the start.
+        // Every match runs through lockstep: alone with one tick of input delay, or played back from a replay, in turn mode,
+        // where the session waits for the world's people (a person of a match on this computer alone who is not at it is away
+        // from the start); online in bundle mode, where a tick runs once the relay's bundle for it is in and nobody is waited
+        // for (P2 design §4.1), the delay the relay's as its newest bundle says.
         _session = request.Replay?.Playback(World)
             ?? request.Saved?.Resume(World, request.Me)
-            ?? new LockstepSession(World, request.Me, request.Network?.InputDelay ?? 1,
-                firstLocalTurn: request.ResumeFrom, echoed: request.Network is not null);
+            ?? (request.Network is { } network
+                ? new LockstepSession(World, request.Me, network.InputDelay, mode: SessionMode.Bundles)
+                : new LockstepSession(World, request.Me, 1, firstLocalTurn: request.ResumeFrom));
         foreach (var away in request.AwayFromStart)
             _session.Receive(new PlayerLeft(away, 0));
         if (request.Network is not null)
+        {
             _session.Outgoing += NetLink.Send;
+            _session.PresenceApplied += Applied;
+            _session.Gap += Gapped;
+            GD.Print($"net: bundle mode, delay {_session.InputDelay}");
+        }
 
         _assets = new ClassicAssets(Paths.Root);
         ClassicGui.Use(_assets.GameFolder);
@@ -683,13 +690,11 @@ public partial class Game : Node3D
     public override void _Process(double delta)
     {
         ReadNetwork();
-        if (Warming)
+        if (Warming || _reloading)
             return;
-        if (Online && World.Winner is null && _session.Ready(CatchUpLead) >= CatchUpLead)
-        {
-            CatchUp();
-        }
-        else if ((!Paused || Online) && (World.Winner is null ? !MatchOver || Online : !Watching && !MatchOver))
+        if (_session.Mode == SessionMode.Bundles)
+            PlayBundles(delta);
+        else if (!Paused && (World.Winner is null ? !MatchOver : !Watching && !MatchOver))
         {
             _accumulator += Math.Min(delta, 0.25);
             while (_accumulator >= GameWorld.Dt)
@@ -705,31 +710,12 @@ public partial class Game : Node3D
                 while (stepped < 3 && World.Tick < _clockTick && _session.TryStep())
                 {
                     stepped++;
-                    // Only what this person asked for is refused to them: a teammate's refusals are the teammate's.
-                    foreach (var rejected in World.Rejected.Where(r => r.Command.Issuer == Me))
-                    {
-                        if (rejected.Command is WiredCommand)
-                            WiredRefused(rejected.Command, rejected.Reason);
-                        else
-                            _hud.Message(rejected.Reason);
-                    }
-                    ShowEvents();
-                    ShowRunEvents();
-                    SyncBlasts();
-                    SyncViews();
-                    Ticked?.Invoke();
-                    // For automated checks: MACHINES_CHECKSUM_AT=<tick> prints the world's checksum at that tick.
-                    if (System.Environment.GetEnvironmentVariable("MACHINES_CHECKSUM_AT") is { } at && at.Split(',').Contains(World.Tick.ToString()))
-                        GD.Print($"checksum at tick {World.Tick}: {World.Checksum():x16}");
+                    Stepped();
                 }
                 _waitingFor = stepped > 0 ? 0 : _waitingFor + GameWorld.Dt;
             }
-            if (_waitingFor > 1 && Online && NetLink.Connection is { Reconnecting: true })
-            {
-                // This player's own line dropped: it comes back by itself, and the match carries on where it stood.
-                _hud.Banner(Lang.T("Reconnecting to the relay…"));
-            }
-            else if (_waitingFor > 1)
+            // Only a person of a match on this computer who is away holds it up (offline the session waits for them).
+            if (_waitingFor > 1)
             {
                 var names = _session.Waiting().Select(PlayerName);
                 _hud.Banner(Lang.T("Waiting for {0}", string.Join(", ", names)));
@@ -742,6 +728,8 @@ public partial class Game : Node3D
             _hud.Banner(Lang.T("{0} wins", Lang.T(Look(winner).ToString())));
         else if (MatchOver && World.Wired is null && ClassicGui.Bitmap(EndPicture) is null)
             _hud.Banner(World.Won(Player) ? "Victory" : "Defeat");
+        else if (_session.Mode == SessionMode.Bundles)
+            ShowBundleBanner();
         else if (_waitingFor <= 1)
             _hud.Banner(null);
         // A run ends on its own screen, and misc/defeat.bmp has its word in English.
@@ -750,7 +738,8 @@ public partial class Game : Node3D
         // it ended, and after 19 seconds won, 14 lost or 5 in training, or at Esc or Space, the statistics
         // (MachGuiCtxStatistics) come up over it (MachInGameScreen::gameState); after a campaign mission its film of
         // victory or defeat, then its debriefing.
-        if (World.Winner is not null || World.Races[Player].Defeated && !Watching || World.Wired is { Phase: Machines.Sim.Survival.WiredPhase.Ended } || World.Battle is { Over: true })
+        if (World.Winner is not null || World.Races[Player].Defeated && !Watching || World.Wired is { Phase: Machines.Sim.Survival.WiredPhase.Ended } || World.Battle is { Over: true }
+            || _endedOutOfStep)
         {
             var now = Time.GetTicksMsec() / 1000.0;
             if (_decidedAt is null)
@@ -815,29 +804,222 @@ public partial class Game : Node3D
         TakeScreenshotIfAsked(delta);
     }
 
-    /// <summary>A world this many ticks behind the turns it has (rejoining a running match) fast-forwards.</summary>
-    private const int CatchUpLead = 60;
-
-    /// <summary>
-    /// Runs as many ticks as fit in a frame, without sounds or effects, and draws only where they end: a player
-    /// rejoining a match rebuilds the whole match so far this way.
-    /// </summary>
-    private void CatchUp()
+    /// <summary>What a tick the frame shows was: the player's refusals, the world's events and views, and the automated checks' lines.</summary>
+    private void Stepped()
     {
-        var clock = System.Diagnostics.Stopwatch.StartNew();
-        while (clock.ElapsedMilliseconds < 30)
+        // Only what this person asked for is refused to them: a teammate's refusals are the teammate's.
+        foreach (var rejected in World.Rejected.Where(r => r.Command.Issuer == Me))
         {
-            _session.Pump();
-            if (!_session.TryStep())
-                break;
+            if (rejected.Command is WiredCommand)
+                WiredRefused(rejected.Command, rejected.Reason);
+            else
+                _hud.Message(rejected.Reason);
         }
-        _accumulator = 0;
-        _waitingFor = 0;
+        ShowEvents();
+        ShowRunEvents();
         SyncBlasts();
         SyncViews();
-        var resume = MatchRequest.Current.ResumeFrom is { } from && World.Tick < from ? Lang.T(" of {0}", from) : "";
-        _hud.Banner(Lang.T("Catching up: tick {0}{1}", World.Tick, resume));
+        Ticked?.Invoke();
+        Counted();
     }
+
+    /// <summary>
+    /// After every tick, shown or caught up: MACHINES_CHECKSUM_AT=&lt;tick&gt;[,&lt;tick&gt;...] prints the world's checksum at
+    /// those ticks; online the world's decision goes to the relay (<see cref="NoteDecision"/>), and with MACHINES_PACE=1 a line
+    /// every 100 ticks says where the world stands against the relay's bundles and the clock (P2 design §5.6).
+    /// </summary>
+    private void Counted()
+    {
+        if (ChecksumTicks.Contains(World.Tick))
+            GD.Print($"checksum at tick {World.Tick}: {World.Checksum():x16}");
+        if (_session.Mode != SessionMode.Bundles)
+            return;
+        NoteDecision();
+        if (Pacing && World.Tick % 100 == 0)
+            GD.Print($"pace: tick {World.Tick} head {_session.NewestBundle} utc {DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()} " +
+                     $"lag {(_session.Lagging(Me) ? 1 : 0)} away {(_session.Away(Me, World.Tick) ? 1 : 0)}");
+    }
+
+    private static readonly HashSet<long> ChecksumTicks = [.. (System.Environment.GetEnvironmentVariable("MACHINES_CHECKSUM_AT") ?? "")
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(t => long.TryParse(t, out var tick) ? tick : -1).Where(t => t >= 0)];
+
+    private static readonly bool Pacing = System.Environment.GetEnvironmentVariable("MACHINES_PACE") == "1";
+
+    // Online (bundle mode): whether the world's being built was told to the relay; whether a rejoin was asked for from this
+    // scene (after a gap in the relay's numbering); when the last bundle came, by the frame clock; since when the world is
+    // catching up.
+    private bool _loadedSent, _rejoinAsked;
+    private double _bundleAt;
+    private double? _catchingUpSince;
+
+    // Online: the tick at which this world decided the match for everyone (sent once as MatchDecided); the tick the relay
+    // says the match was decided at by more than half of the players (MatchEnded); and whether this world reached that tick
+    // without deciding it.
+    private long? _decidedTick, _matchEnded;
+    private bool _endedOutOfStep;
+
+    /// <summary>
+    /// Online (bundle mode, P2 design §4.3): with a long backlog of the relay's bundles in hand the frame catches up without
+    /// drawing for <see cref="BundlePacer.CatchUpBudget"/> and then sends one turn; otherwise each 50 ms slot of the clock
+    /// sends the drive and one turn and runs the bundles <see cref="BundlePacer.TicksForSlot"/> gives: one while one to three
+    /// are in hand, more to work a few off. With none in hand the slot passes and no time is owed, so the world never runs
+    /// ahead of the relay's beat. A world with a winner stands still two seconds after it, as offline; a battle's steps on.
+    /// </summary>
+    private void PlayBundles(double delta)
+    {
+        SendLoaded();
+        if (World.Winner is not null && MatchOver)
+            return;
+        var budget = World.Winner is null ? BundlePacer.CatchUpBudget(_session.Ready(BundlePacer.LongCatchUp)) : TimeSpan.Zero;
+        if (budget > TimeSpan.Zero)
+        {
+            CatchUp(budget);
+            return;
+        }
+        if (_catchingUpSince is { } since)
+        {
+            GD.Print($"net: caught up at tick {World.Tick} after {Time.GetTicksMsec() / 1000.0 - since:0.0} s");
+            _catchingUpSince = null;
+        }
+        _accumulator += Math.Min(delta, 0.25);
+        while (_accumulator >= GameWorld.Dt)
+        {
+            _accumulator -= GameWorld.Dt;
+            UpdateDriving();
+            _session.Pump();
+            for (var ticks = BundlePacer.TicksForSlot(_session.Ready(BundlePacer.CatchUpLead)); ticks > 0 && _session.TryStep(); ticks--)
+                Stepped();
+        }
+    }
+
+    /// <summary>
+    /// Runs the bundles in hand for <paramref name="budget"/>, without sounds or effects, then sends one turn and draws only
+    /// where they end: a world far behind the relay (rejoining, or after a long stall) works its backlog off this way.
+    /// </summary>
+    private void CatchUp(TimeSpan budget)
+    {
+        _catchingUpSince ??= Time.GetTicksMsec() / 1000.0;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        while (clock.Elapsed < budget && _session.TryStep())
+            Counted();
+        _session.Pump();
+        _accumulator = 0;
+        SyncBlasts();
+        SyncViews();
+    }
+
+    /// <summary>
+    /// Online, once the warm-up is over: the relay is told this world is built (<see cref="MatchLoaded"/>), and the beat waits
+    /// for nobody's world once all have said so (P2 design §2.8). Not from a scene that has asked to rejoin already: its world
+    /// is about to be built anew, and that one says so.
+    /// </summary>
+    private void SendLoaded()
+    {
+        if (_loadedSent || _rejoinAsked)
+            return;
+        _loadedSent = true;
+        _bundleAt = Time.GetTicksMsec() / 1000.0;
+        NetLink.Send(new MatchLoaded());
+        GD.Print($"net: loaded at tick {World.Tick}, {_session.NewestBundle + 1} bundles in hand");
+    }
+
+    /// <summary>
+    /// The first time the world decides the match for everyone (a winner, a battle over, a run ended), the tick goes to the
+    /// relay (<see cref="MatchDecided"/>), which ends the match once more than half of the players report the same tick. The
+    /// player's own defeat decides nothing: a skirmish of three goes on without them.
+    /// </summary>
+    private void NoteDecision()
+    {
+        if (_decidedTick is not null || World.Winner is null && World.Battle is not { Over: true } && World.Wired is not { Phase: Machines.Sim.Survival.WiredPhase.Ended })
+            return;
+        _decidedTick = World.Tick;
+        NetLink.Send(new MatchDecided(World.Tick));
+        GD.Print($"net: decided at tick {World.Tick}");
+    }
+
+    /// <summary>
+    /// The relay's word that the match was decided at <paramref name="tick"/> (<see cref="MatchEnded"/>): a world that decided
+    /// it there counts the battle now; one that decided it elsewhere does not, and one that reaches the tick undecided had
+    /// gone out of step, which it is told on its end screen (P2 design §2.8, §4.4).
+    /// </summary>
+    private void Ended()
+    {
+        if (_matchEnded is not { } tick || _endNoted)
+            return;
+        if (_decidedTick is { } own)
+        {
+            _endNoted = true;
+            if (own == tick)
+                RecordBattle();
+            else
+                GD.Print($"net: decided at {own}, the match at {tick}: not recorded");
+        }
+        else if (World.Tick >= tick)
+        {
+            (_endNoted, _endedOutOfStep) = (true, true);
+            GD.Print($"net: decided at -, the match at {tick}: not recorded");
+        }
+    }
+
+    // Whether the relay's end was taken: recorded, or said not to be.
+    private bool _endNoted;
+
+    /// <summary>
+    /// The large line across the view online, the first that holds (P2 design §4.4): the end agreed where this world had not
+    /// decided it; none once the world has decided the match or met the end the relay agreed; taken out of the match, and why;
+    /// the line to the relay lost; the line dropped and no bundle for a second; catching up; the others still loading; no
+    /// bundle from the relay for a second.
+    /// </summary>
+    private (string Kind, string Text)? BundleBanner()
+    {
+        if (_endedOutOfStep && _matchEnded is { } decided)
+            return ("out-of-step", Lang.T("The match was decided at tick {0}; your game had gone out of step", decided));
+        if (_decidedTick is not null || _matchEnded is { } ended && World.Tick >= ended)
+            return null;
+        if (_takenOut is { } reason)
+            return ("taken-out", Lang.T(reason));
+        if (NetLink.Connection is not { Closed: false } connection)
+            return ("lost", Lang.T("Connection to the relay lost"));
+        var quiet = Time.GetTicksMsec() / 1000.0 - _bundleAt > 1;
+        if (connection.Reconnecting && quiet)
+            return ("reconnecting", Lang.T("Reconnecting to the relay…"));
+        if (_catchingUpSince is not null)
+            return ("catching-up", Lang.T("Catching up: tick {0}{1}", World.Tick, Lang.T(" of {0}", _session.NewestBundle + 1)));
+        if (World.Tick == 0 && _session.NewestBundle < 0)
+            return ("loading", Lang.T("Waiting for the others to load…"));
+        return quiet ? ("relay", Lang.T("Waiting for the relay…")) : null;
+    }
+
+    /// <summary>
+    /// Shows the online banner (<see cref="BundleBanner"/>). For automated checks, MACHINES_BANNER_SHOTS=&lt;folder&gt;[,&lt;name&gt;]
+    /// keeps a picture of each kind of banner the first time it has been drawn over the match, as &lt;name&gt;-banner-&lt;kind&gt;.png,
+    /// and says so in the log.
+    /// </summary>
+    private void ShowBundleBanner()
+    {
+        var banner = BundleBanner();
+        _hud.Banner(banner?.Text);
+        if (BannerShots is not { Length: > 0 } setting)
+            return;
+        // Only over the match itself, not the loading screen still fading out above it; the window's picture is of the frame
+        // drawn before, so the second frame in a row with the banner has it.
+        var kind = Hidden || LoadingScreen.Busy ? null : banner?.Kind;
+        _bannerFrames = kind is not null && kind == _bannerKind ? _bannerFrames + 1 : 0;
+        _bannerKind = kind;
+        if (kind is null || _bannerFrames != 1 || !_bannersShot.Add(kind))
+            return;
+        var words = setting.Split(',');
+        Directory.CreateDirectory(words[0]);
+        var file = System.IO.Path.Combine(words[0], $"{(words.Length > 1 ? words[1] : "game")}-banner-{kind}.png");
+        GetViewport().GetTexture().GetImage().SavePng(file);
+        GD.Print($"net: banner {kind} at tick {World.Tick} pictured: {banner!.Value.Text}");
+    }
+
+    private static readonly string? BannerShots = System.Environment.GetEnvironmentVariable("MACHINES_BANNER_SHOTS");
+    private readonly HashSet<string> _bannersShot = [];
+    private string? _bannerKind;
+    private int _bannerFrames;
 
     private double _runTime;
 
@@ -1716,57 +1898,152 @@ public partial class Game : Node3D
     /// a battle a bot drives their hero; in a skirmish the teammate of their race with the lowest number who is still there
     /// commands their machines, and with nobody of the race left the computer plays it; a Wired run has no stand-in.
     /// </summary>
-    private string LeaveNotice(PlayerId left)
+    /// <remarks>
+    /// Online the world has the leave applied when this is asked (<see cref="LockstepSession.PresenceApplied"/>); one whose
+    /// turns came too late for too long (<paramref name="lagged"/>, P2 design §2.6) is said to lag too far behind.
+    /// </remarks>
+    private string LeaveNotice(PlayerId left, bool lagged = false)
     {
         var name = PlayerName(left);
         var players = World.Players;
         if (World.Battle is not null)
-            return Lang.T("{0} left – a bot drives their hero", name);
+            return Lang.T(lagged ? "{0} lags too far behind – a bot drives their hero" : "{0} left – a bot drives their hero", name);
         if (World.Wired is not null)
-            return Lang.T("{0} left the match", name);
+            return Lang.T(lagged ? "{0} lags too far behind" : "{0} left the match", name);
         var race = players.Contains(left) ? players.RaceOf(left) : Player;
         var keeper = players.PlayersOf(race).Where(id => id != left && players[id].Kind == PlayerKind.Human && !players.Away(id))
             .Select(id => (PlayerId?)id).FirstOrDefault();
-        return keeper == Me ? Lang.T("{0} left – you command their machines", name)
-            : keeper is { } other ? Lang.T("{0} left – {1} commands their machines", name, PlayerName(other))
-            : Lang.T("{0} left – the computer plays {1}", name, Lang.T(Look(race).ToString()));
+        return keeper == Me ? Lang.T(lagged ? "{0} lags too far behind – you command their machines" : "{0} left – you command their machines", name)
+            : keeper is { } other ? Lang.T(lagged ? "{0} lags too far behind – {1} commands their machines" : "{0} left – {1} commands their machines", name, PlayerName(other))
+            : Lang.T(lagged ? "{0} lags too far behind – the computer plays {1}" : "{0} left – the computer plays {1}", name, Lang.T(Look(race).ToString()));
     }
 
-    /// <summary>The name a player of the match is shown by.</summary>
-    private static string PlayerName(PlayerId player) =>
-        MatchRequest.Current.Players.Contains(player) ? MatchRequest.Current.Players[player].Name : player.ToString();
+    /// <summary>The name a player of the match is shown by, as the world has it: a bot's seat joined late shows its person's.</summary>
+    private string PlayerName(PlayerId player) =>
+        World.Players.Contains(player) ? World.Players[player].Name : player.ToString();
 
-    /// <summary>The name a side is shown by: online the names of everyone playing it, else its race's.</summary>
-    private static string PlayerName(Race race) =>
-        MatchRequest.Current.Network?.Players.Where(p => p.Slot == race).Select(p => p.Name).ToList() is { Count: > 0 } names
+    /// <summary>The name a side is shown by: online the names of everyone playing it (as the world has them), else its race's.</summary>
+    private string PlayerName(Race race) =>
+        Online && World.Players.PlayersOf(race).Select(id => World.Players[id].Name).ToList() is { Count: > 0 } names
             ? string.Join(" & ", names)
             : race.ToString();
 
-    /// <summary>Hands the relay's messages to the session and tells the player what happened.</summary>
+    /// <summary>
+    /// Hands the relay's messages to the session and takes what is the game's: the seat's key, the agreed end, being taken out
+    /// of the match, a rebuild asked for, and the chat. Comings and goings are told when the world has them
+    /// (<see cref="Applied"/>), not as they arrive.
+    /// </summary>
     private void ReadNetwork()
     {
-        if (!Online || NetLink.Connection is not { } connection)
+        if (!Online || _reloading || NetLink.Connection is not { } connection)
             return;
+        var newest = _session.NewestBundle;
         while (connection.Inbox.TryRead(out var message))
         {
             _session.Receive(message);
             switch (message)
             {
-                // Rejoining, the match so far arrives too; only what happens from now on is news.
-                case PlayerLeft left when left.FromTick >= (MatchRequest.Current.ResumeFrom ?? 0):
-                    _hud.Message(LeaveNotice(left.Player));
+                case SeatKey key:
+                    NetLink.KeepSeat(key.RoomId, key.Player, key.Key);
                     break;
-                case PlayerReturned back when back.Player != Me && back.FromTick >= (MatchRequest.Current.ResumeFrom ?? 0):
-                    _hud.Message(Lang.T("{0} is back", PlayerName(back.Player)));
+                case MatchEnded ended:
+                    _matchEnded ??= ended.Tick;
+                    GD.Print($"net: the match ended at tick {ended.Tick} (this world at {World.Tick}, decided at {_decidedTick?.ToString() ?? "-"})");
                     break;
+                case LeftMatch left:
+                    TakenOut(left.Reason);
+                    break;
+                // The world is rebuilt from the relay's log in a new scene, which reads everything after this from the inbox.
+                case MatchResumed resumed:
+                    Rebuild(resumed);
+                    return;
                 case Chat chat:
                     _hud.Chat.Receive(chat);
                     break;
             }
         }
-        if (connection.Closed && _session.CanStep is false)
-            _hud.Banner("Connection to the relay lost");
+        if (_session.NewestBundle != newest)
+            _bundleAt = Time.GetTicksMsec() / 1000.0;
+        Ended();
     }
+
+    /// <summary>
+    /// A coming or going as the world applied it, at its tick (P2 design §4.4): who left, and who looks after what they played;
+    /// who is back; who joined a bot's seat late; who lags, and who is on time again. What happened before this player came back
+    /// into the match is no news.
+    /// </summary>
+    private void Applied(NetMessage change)
+    {
+        var resumed = MatchRequest.Current.ResumeFrom ?? 0;
+        switch (change)
+        {
+            case PlayerLeft left when left.FromTick >= resumed:
+                _hud.Message(LeaveNotice(left.Player, lagged: _session.Lagging(left.Player)));
+                break;
+            case PlayerReturned back when back.Player != Me && back.FromTick >= resumed:
+                _hud.Message(Lang.T("{0} is back", PlayerName(back.Player)));
+                break;
+            case PlayerJoined join when join.Player != Me && join.FromTick >= resumed:
+                var seat = World.Players.Rows.FirstOrDefault(r => r.Id == join.Player);
+                _hud.Message(Lang.T("{0} joined and takes over {1}", join.Name, seat?.Name ?? join.Player.ToString()));
+                break;
+            // The mark of this tick counts from the next: what Lagging says now is how it stood before.
+            case PlayerLagging lagging when lagging.Player != Me && lagging.FromTick >= resumed && lagging.Lagging != _session.Lagging(lagging.Player):
+                _hud.Message(Lang.T(lagging.Lagging ? "{0} is lagging" : "{0} is on time again", PlayerName(lagging.Player)));
+                break;
+        }
+    }
+
+    /// <summary>
+    /// A bundle broke the relay's numbering, which a working line never does: the world takes no more, and the game asks the
+    /// relay to rebuild it from its log by the seat's key (P2 design §6.1).
+    /// </summary>
+    private void Gapped(long expected, long got)
+    {
+        if (NetLink.Seat is { } held && NetLink.SeatIn(held.Room) is { } seat)
+        {
+            _rejoinAsked = true;
+            NetLink.Send(new RejoinMatch(seat.Room, seat.Player, seat.Key));
+            GD.Print($"net: bundle {got} came where {expected} was due: rejoining room {seat.Room} by key");
+        }
+        else
+            GD.Print($"net: bundle {got} came where {expected} was due, and no seat key to rejoin with");
+    }
+
+    /// <summary>
+    /// The relay rebuilds this player's world from its log (a rejoin after a gap; S3's resyncs come the same way): the match
+    /// scene starts again from the match the relay names, its world catching up to the live bundles that follow in the inbox.
+    /// </summary>
+    private void Rebuild(MatchResumed resumed)
+    {
+        if (resumed.Key is { } key && NetLink.Seat is { } held)
+            NetLink.KeepSeat(held.Room, resumed.Player, key);
+        GD.Print($"net: rebuilt from tick {resumed.FromTick} ({resumed.Reason})");
+        MatchRequest.Current = MatchRequest.FromMatch(resumed.Match, NetLink.ClientId, resumed.Player)
+            with { Network = resumed.Match, ResumeFrom = resumed.FromTick };
+        // This scene neither plays nor records any more, nor says its world is built: the new one does.
+        (_reloading, _rejoinAsked, _replaySaved) = (true, true, true);
+        GetTree().ChangeSceneToFile("res://scenes/Main.tscn");
+    }
+
+    private bool _reloading;
+
+    /// <summary>
+    /// The relay took this game out of the running match (<see cref="LeftMatch"/>), and says why: the world gets no more
+    /// bundles. Its seat's key is forgotten, unless the seat went to this player's game on another connection, which keeps it.
+    /// </summary>
+    private void TakenOut(string reason)
+    {
+        if (reason != TakenOver)
+            NetLink.ForgetSeat();
+        _takenOut = reason;
+        GD.Print($"net: taken out of the match: {reason}");
+    }
+
+    // The relay's reason when this player's seat was taken back from another connection (RelayServer.Rejoin).
+    private const string TakenOver = "you came back to this match from another connection";
+
+    private string? _takenOut;
 
     /// <summary>
     /// Where replays are kept: <c>replays/</c> next to the game, or for automated checks the folder of
@@ -1789,7 +2066,9 @@ public partial class Game : Node3D
         {
             var folder = ReplayFolder;
             Directory.CreateDirectory(folder);
-            var match = MatchRequest.Current.ToMatchInfo(_seed, _session.InputDelay, World.Terrain?.Fingerprint());
+            // Online the delay changes with the relay's bundles and the world never sees it: the match is recorded with the
+            // one it started with, and plays back in turn mode as it was played (P2 design §4.4).
+            var match = MatchRequest.Current.ToMatchInfo(_seed, MatchRequest.Current.Network?.InputDelay ?? _session.InputDelay, World.Terrain?.Fingerprint());
             var file = System.IO.Path.Combine(folder, $"{DateTime.Now:yyyy-MM-dd_HH-mm}_{match.Scenario}{Replay.Extension}");
             new Replay(match, _session.Played, World.Tick, _session.Presence).Save(file);
             // Not in a battle, where the line stood over the victory banner; the file is written all the same.
@@ -1912,7 +2191,11 @@ public partial class Game : Node3D
     {
         SaveReplay();
         if (Online)
+        {
             NetLink.Send(new LeaveRoom());
+            // Left on purpose: the seat is not taken back by key from the multiplayer page.
+            NetLink.ForgetSeat();
+        }
         // The menus open where the match was set up: the choice of mission, the skirmish setup or the rooms.
         if (!Watching && !home)
             MenuScreens.StartPage = Online ? "multiplayer" : World.Battle is not null ? "pod" : World.Wired is not null ? "hangar" : Campaign.IsCampaign(MatchRequest.Current) ? "missions" : "skirmish";
@@ -2917,8 +3200,10 @@ public partial class Game : Node3D
                 // Without one the hull turns to where the view looks (the keys turn the view, frame by frame), as
                 // fast as it can, counting the turns already on their way so as to stop there.
                 turn = FollowTurn(machine, out var step);
+                // At the tick the next turn goes for; online a drive queued again in a slot without a bundle replaces the
+                // one still queued, and so does its prediction.
                 if (!Sighted)
-                    _turnsDue.Add(new GunPrediction.Due(World.Tick + _session.InputDelay, -turn * step, _aimYaw));
+                    GunPrediction.Add(_turnsDue, new GunPrediction.Due(NextDue, -turn * step, _aimYaw));
             }
         }
         // With Shift (or the right button) held, A and D turn the upper body as the original's Shift and arrows did.

@@ -58,7 +58,6 @@ public sealed class LockstepSession
     private readonly List<Turn> _played = [];
     private readonly SortedSet<PlayerId> _humans;
     private long _nextLocalTurn;
-    private readonly bool _echoed;
     private readonly SessionMode _mode;
 
     // Bundle mode: the tick of the next bundle the relay sends; whether a gap in its numbering stopped taking any.
@@ -73,15 +72,16 @@ public sealed class LockstepSession
     private readonly List<long> _onTheWay = [];
 
     /// <param name="local">The player this client is, or null for a spectator or a replay.</param>
-    /// <param name="firstLocalTurn">The first tick this client sends a turn for: later than the start when it rejoins.</param>
-    /// <param name="echoed">Online: the relay sends this client's own turns back, and only those count.</param>
-    /// <param name="mode">When a tick may run: once every turn for it is in, or once its bundle is.</param>
+    /// <param name="firstLocalTurn">Turn mode: the first tick this client sends a turn for (a saved game carried on).</param>
+    /// <param name="mode">
+    /// When a tick may run: once every turn for it is in (offline, recordings, saves), or once the relay's bundle is (online,
+    /// where the bundle carries this client's own turns as everyone else's).
+    /// </param>
     public LockstepSession(GameWorld world, PlayerId? local, int inputDelay, int checksumInterval = 20,
-        long? firstLocalTurn = null, bool echoed = false, SessionMode mode = SessionMode.Turns)
+        long? firstLocalTurn = null, SessionMode mode = SessionMode.Turns)
     {
         World = world;
         Local = local;
-        _echoed = echoed;
         _mode = mode;
         _humans = new SortedSet<PlayerId>(world.Players.Humans);
         InputDelay = Math.Max(1, inputDelay);
@@ -188,12 +188,9 @@ public sealed class LockstepSession
             var turn = new Turn(_nextLocalTurn, local, _pending.ToList());
             _pending.Clear();
             _nextLocalTurn++;
-            // Keep the turn as everyone else will see it (online, it comes back from the relay).
-            if (!_echoed)
-            {
-                var copy = (Turn)NetJson.Decode(NetJson.Encode(turn));
-                _turns[(copy.Tick, local)] = copy;
-            }
+            // Keep the turn as everyone else will see it: through JSON, as the others (and a recording) get it.
+            var copy = (Turn)NetJson.Decode(NetJson.Encode(turn));
+            _turns[(copy.Tick, local)] = copy;
             Outgoing?.Invoke(turn);
         }
     }

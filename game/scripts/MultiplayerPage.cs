@@ -217,7 +217,11 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
     /// <summary>A refusal of the relay or the sim, in the player's language and with a capital, in the status and the room's chat.</summary>
     private void Refuse(string reason)
     {
-        var text = HangarText.Reason(reason);
+        // The relay names the player it found no seat for; the sentence is translated around the name.
+        const string noPlayer = "no player called ", leftThat = " left that match";
+        var text = reason.StartsWith(noPlayer, StringComparison.Ordinal) && reason.EndsWith(leftThat, StringComparison.Ordinal)
+            ? HangarText.Reason(Lang.T(noPlayer + "{0}" + leftThat, reason[noPlayer.Length..^leftThat.Length]))
+            : HangarText.Reason(reason);
         _status.Text = _statusText = text;
         if (_state is not null)
             AddChat(text, note: true);
@@ -249,6 +253,11 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
                     ShowRoom(state);
                     break;
                 case Refused refused:
+                    // A seat key the relay does not take (its match is over, or it took this player out) is no use any more:
+                    // the next Join asks by name.
+                    if (_rejoinedByKey)
+                        NetLink.ForgetSeat();
+                    _rejoinedByKey = false;
                     Refuse(refused.Reason);
                     break;
                 case MatchStarted started:
@@ -256,8 +265,17 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
                     (_matchRoom, _known) = (_state, null);
                     Leave();
                     return;
+                // The key to take the seat back with comes right after the start, which the match scene reads; should it
+                // still come here, it is kept here.
+                case SeatKey key:
+                    NetLink.KeepSeat(key.RoomId, key.Player, key.Key);
+                    break;
                 case MatchResumed resumed:
                     _known = null;
+                    _rejoinedByKey = false;
+                    // A rejoin by name brings the seat's new key.
+                    if (resumed.Key is { } fresh && _rejoining is { } asked)
+                        NetLink.KeepSeat(asked, resumed.Player, fresh);
                     // The match so far follows in the inbox; the match scene reads it from there.
                     MatchRequest.Current = MatchRequest.FromMatch(resumed.Match, NetLink.ClientId, resumed.Player)
                         with { Network = resumed.Match, ResumeFrom = resumed.FromTick };
@@ -618,13 +636,40 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
         var selected = _rooms.GetSelectedItems();
         if (_roomList is null || selected.Length == 0)
             return;
-        // A match already running takes back a player who dropped out of it: the player they were when it is the match this
-        // game last played, so that of two who connected under one name each comes back as themself.
         var room = _roomList.Rooms[selected[0]];
-        Machines.Sim.World.PlayerId? was = _matchRoom?.Id == room.Id && MatchRequest.Current.Network is { } played && played.Scenario == room.Scenario
+        if (room.Started)
+            Rejoin(room.Id);
+        else
+            NetLink.Send(new JoinRoom(room.Id));
+    }
+
+    // The running match this page last asked to come back into, and whether it asked with the seat's key.
+    private static int? _rejoining;
+    private static bool _rejoinedByKey;
+
+    /// <summary>
+    /// Back into a running match (P2 design §6.1): with the key of the seat this game holds there, kept in the settings, which
+    /// takes the seat back from any connection, also one the relay still holds for this player; else by the name connected
+    /// with, as the player they were when it is the match this game last played, so that of two who connected under one name
+    /// each comes back as themself.
+    /// </summary>
+    private void Rejoin(int room)
+    {
+        _rejoining = room;
+        if (NetLink.SeatIn(room) is { } seat)
+        {
+            _rejoinedByKey = true;
+            GD.Print($"mp: rejoining room {room} by key as player {seat.Player}");
+            NetLink.Send(new RejoinMatch(room, seat.Player, seat.Key));
+            return;
+        }
+        _rejoinedByKey = false;
+        Machines.Sim.World.PlayerId? was = _matchRoom?.Id == room && MatchRequest.Current.Network is { } played
+                                                                     && _roomList?.Rooms.FirstOrDefault(r => r.Id == room)?.Scenario == played.Scenario
             ? MatchRequest.Current.Me
             : null;
-        NetLink.Send(room.Started ? new RejoinMatch(room.Id, was) : new JoinRoom(room.Id));
+        GD.Print($"mp: rejoining room {room} by name");
+        NetLink.Send(new RejoinMatch(room, was));
     }
 
     /// <summary>
@@ -765,8 +810,9 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
     /// side with seat=&lt;n&gt; moves to the room's seat n (counted from 0) once in, keeping the colour it is given there
     /// (seat=1 in a room of two a side sits beside the host); with pod=1 it goes to the pod from the room and comes back
     /// by its Ready (MACHINES_MP_POD_SHOT=&lt;png&gt; saves the pod on the way). Where the first room's match is running
-    /// already, the joining side asks to come back into it as the player of its name who left (RejoinMatch). It all happens
-    /// once a run: the page coming again (back from the pod or a match) does not connect anew.
+    /// already, the joining side asks to come back into it (RejoinMatch): by the key of its seat there when its settings keep
+    /// one from an earlier run (a game killed in the match and started again), else as the player of its name who left. It all
+    /// happens once a run: the page coming again (back from the pod or a match) does not connect anew.
     /// </summary>
     private void Automate()
     {
@@ -823,11 +869,11 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
                     await ToSignal(GetTree().CreateTimer(1), SceneTreeTimer.SignalName.Timeout);
                     GetViewport().GetTexture().GetImage().SavePng(lobbyShot);
                 }
-                // A match already running there takes the joining side back as the player of its name who left it.
+                // A match already running there takes the joining side back: by the key of its seat there, kept in the
+                // settings from the run before, else as the player of its name who left it.
                 if (_roomList.Rooms[0] is { Started: true } running)
                 {
-                    GD.Print($"mp: rejoining room {running.Id}");
-                    NetLink.Send(new RejoinMatch(running.Id));
+                    Rejoin(running.Id);
                     return;
                 }
                 NetLink.Send(new JoinRoom(_roomList.Rooms[0].Id));

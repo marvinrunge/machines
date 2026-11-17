@@ -4481,3 +4481,56 @@ msgstr "Platz nehmen"
 
 msgid "{0} of {1} seats taken"
 msgstr "{0} von {1} Plätzen besetzt"
+
+# Online (P2 S2b): the match on the relay's beat, its end, the seat's key and coming back
+
+msgid "Waiting for the others to load…"
+msgstr "Warte, bis die anderen geladen haben…"
+
+msgid "Waiting for the relay…"
+msgstr "Warte auf das Relay…"
+
+msgid "The match was decided at tick {0}; your game had gone out of step"
+msgstr "Das Match wurde bei Tick {0} entschieden; dein Spiel war nicht mehr synchron"
+
+msgid "{0} lags too far behind – a bot drives their hero"
+msgstr "{0} hängt zu weit hinterher – ein Bot fährt den Helden"
+
+msgid "{0} lags too far behind"
+msgstr "{0} hängt zu weit hinterher"
+
+msgid "{0} lags too far behind – you command their machines"
+msgstr "{0} hängt zu weit hinterher – du befehligst die Maschinen"
+
+msgid "{0} lags too far behind – {1} commands their machines"
+msgstr "{0} hängt zu weit hinterher – {1} befehligt die Maschinen"
+
+msgid "{0} lags too far behind – the computer plays {1}"
+msgstr "{0} hängt zu weit hinterher – der Computer spielt {1}"
+
+msgid "{0} joined and takes over {1}"
+msgstr "{0} ist dazugekommen und übernimmt {1}"
+
+msgid "{0} is lagging"
+msgstr "{0} hängt hinterher"
+
+msgid "{0} is on time again"
+msgstr "{0} ist wieder im Takt"
+
+msgid "Your connection cannot keep up with this match."
+msgstr "Deine Verbindung kommt bei diesem Match nicht mit."
+
+msgid "Your computer cannot keep up with this match."
+msgstr "Dein Computer kommt bei diesem Match nicht mit."
+
+msgid "you came back to this match from another connection"
+msgstr "du bist über eine andere Verbindung in dieses Match zurückgekehrt"
+
+msgid "no player called {0} left that match"
+msgstr "kein Spieler namens {0} hat dieses Match verlassen"
+
+msgid "you were taken out of that match"
+msgstr "du wurdest aus diesem Match genommen"
+
+msgid "that seat key is not this match's"
+msgstr "dieser Platzschlüssel gehört nicht zu diesem Match"

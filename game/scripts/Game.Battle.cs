@@ -522,17 +522,24 @@ public partial class Game
     /// <summary>
     /// A battle that has come to its end goes into the player's account once: XP on the chassis it was fought on, free XP and
     /// credits, and what came within reach is said once it is written. A recording, and a battle a bot played for the player,
-    /// change nothing.
+    /// change nothing. Online it counts only once the relay says more than half of the players' worlds ended it at the tick
+    /// this one did (<see cref="MatchEnded"/>, P2 design §2.8): a world gone its own way counts nothing.
     /// </summary>
     private void RecordBattle()
     {
-        if (_battleRecorded || Watching || BattleWatch || World.Battle is not { Over: true } run || BattleNote.Of(run, Me) is not { } note)
+        if (_battleRecorded || Watching || BattleWatch || World.Battle is not { Over: true } run)
+            return;
+        if (Online && (_matchEnded is not { } ended || ended != _decidedTick))
+            return;
+        if (BattleNote.Of(run, Me) is not { } note)
             return;
         // Rejoining a match whose battle had ended before this player took the race back: the session that saw the end
         // counted it then, and one that left before the end does not count it now.
         if (MatchRequest.Current.ResumeFrom is { } from && run.Result!.EndedAt * GameWorld.TicksPerSecond < from)
             return;
         _battleRecorded = true;
+        if (Online)
+            GD.Print($"net: the match ended at tick {_matchEnded}, as this world decided: battle recorded");
         if (BattleAccounts.Ledger.Tell(note) is { } opened)
             ShowWithinReach(opened);
         else

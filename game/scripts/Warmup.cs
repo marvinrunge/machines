@@ -363,8 +363,12 @@ public partial class Warmup : Node3D
             for (var tick = 0; tick < RehearsedTicks; tick++)
                 copy.Step();
             // Each turn goes through JSON (LockstepSession.Pump keeps a copy as the others see it); the first time
-            // it looked at every kind of command, a sixth of a second.
-            NetJson.Decode(NetJson.Encode(new Turn(0, PlayerId.Of(players.Keys.First()), [])));
+            // it looked at every kind of command, a sixth of a second. Online every tick comes as the relay's bundle, with
+            // its turns and its comings and goings (P2 design §4.4).
+            var first = players.Keys.First();
+            NetJson.Decode(NetJson.Encode(new Turn(0, PlayerId.Of(first), [])));
+            NetJson.Decode(NetJson.Encode(new Bundle(0, [new Turn(0, PlayerId.Of(first), [new DriveCommand(first, 0, Driving: true, Forward: 1)], Asked: 0)],
+                [new PlayerLagging(PlayerId.Of(first), 0, Lagging: true)], Delay: 4)));
             foreach (var type in typeof(Command).Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(Command)) && !t.IsAbstract))
                 NetJson.Options.GetTypeInfo(type);
         }
