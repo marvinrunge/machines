@@ -11,8 +11,10 @@ public sealed record BeatTimings
     public static BeatTimings Default { get; } = new();
 
     /// <summary>
-    /// Scripted relay tests: a bundle closes as soon as every playing person's turn for it is in (else after a second), and
-    /// the delay stays at 4, so that every turn lands on its own tick, as today, and the tests run fast.
+    /// Scripted relay tests: a bundle closes as soon as every playing person's turn for it is in, and the delay stays at 4,
+    /// so that every turn lands on its own tick, as today, and the tests run fast. Else a bundle waits for its due time on the
+    /// anchored schedule of a second a bundle: once the beat has run ahead of that schedule by closing early, a player who
+    /// stays silent (without leaving) holds the next bundle back until the schedule catches up, which may be minutes.
     /// </summary>
     public static BeatTimings Scripted { get; } = new()
     {
@@ -188,6 +190,24 @@ public sealed class BeatSeat
     /// <summary>Late bundles counted for the seat over the match, for the summary.</summary>
     public int Late { get; internal set; }
 
+    /// <summary>The bundle the newest drive of the seat's player was placed on since it last began playing, −1 for none.</summary>
+    internal long DroveAt { get; set; } = -1;
+
+    /// <summary>The bundle of the newest <c>PlayerLagging(true)</c> for the seat since it last began playing, −1 for none.</summary>
+    internal long LetGoAt { get; set; } = -1;
+
+    /// <summary>Counted late bundles in a row after the newest drive of the seat's player ran.</summary>
+    internal int Stale { get; set; }
+
+    /// <summary>
+    /// Whether a drive placed since the seat's last let-go may hold a wheel in every world: a marked player's late drive
+    /// takes it again (a drive on the let-go's own tick too, as the turns run after the let-go).
+    /// </summary>
+    internal bool TookTheWheel => DroveAt >= 0 && DroveAt >= LetGoAt;
+
+    /// <summary>Forgets what the seat drove and was let go of: it begins playing, or stops.</summary>
+    internal void ClearWheel() => (DroveAt, LetGoAt, Stale) = (-1, -1, 0);
+
     /// <summary>The newest turnaround samples (ms), oldest first.</summary>
     internal Queue<double> Window { get; } = new();
 }
@@ -348,6 +368,8 @@ public sealed class Beat
             bucket[seat.Player] = placed = new Bucket();
         placed.Commands.AddRange(turn.Commands);
         placed.Asked = turn.Tick;
+        if (turn.Commands.Any(c => c is DriveCommand))
+            (seat.DroveAt, seat.Stale) = (Math.Max(seat.DroveAt, tick), 0);
         if (tick == turn.Tick)
             return Offered.Placed;
         Moved++;
@@ -456,7 +478,11 @@ public sealed class Beat
 
         // Who stopped playing since the last close.
         foreach (var (player, leaves) in _queued)
+        {
             presence.Add(leaves ? new PlayerLeft(player, tick) : new PlayerLagging(player, tick, true));
+            if (!leaves)
+                _seats[player].LetGoAt = tick;
+        }
         _queued.Clear();
 
         // A tick counts only when the relay sent on time the bundle a client must have run to stamp it: a stall of the relay
@@ -488,7 +514,13 @@ public sealed class Beat
         return bundle;
     }
 
-    /// <summary>A playing person's lateness at a counted tick (§2.4 step 2): the mark at <see cref="BeatTimings.LagMark"/>, the handover at <see cref="BeatTimings.LagLeave"/>, the mark gone after <see cref="BeatTimings.BackAfter"/>.</summary>
+    /// <summary>
+    /// A playing person's lateness at a counted tick (§2.4 step 2): the mark at <see cref="BeatTimings.LagMark"/>, the handover
+    /// at <see cref="BeatTimings.LagLeave"/>, the mark gone after <see cref="BeatTimings.BackAfter"/>. A marked player whose late
+    /// drive took a wheel again since the mark and who then sent no drive for <see cref="BeatTimings.LagMark"/> late bundles is
+    /// let go of again (<c>PlayerLagging(true)</c> once more), so that the wheel does not drive on with that input until the
+    /// handover; one who drives on with late turns keeps it.
+    /// </summary>
     private void CountPlaying(BeatSeat seat, long tick, List<NetMessage> presence)
     {
         var late = seat.Stamped < tick;
@@ -497,11 +529,14 @@ public sealed class Beat
             seat.LateStreak++;
             seat.OnTime = 0;
             seat.Late++;
+            if (tick > seat.DroveAt)
+                seat.Stale++;
         }
         else
         {
             seat.LateStreak = 0;
             seat.OnTime++;
+            seat.Stale = 0;
         }
         if (late && seat.LateStreak == Timings.LagLeave)
         {
@@ -513,8 +548,14 @@ public sealed class Beat
         else if (late && seat.LateStreak == Timings.LagMark && !seat.Marked)
         {
             presence.Add(new PlayerLagging(seat.Player, tick, true));
-            seat.Marked = true;
+            (seat.Marked, seat.LetGoAt) = (true, tick);
             Note($"player {seat.Player} late {Timings.LagMark} bundles in a row: marked at tick {tick}");
+        }
+        else if (late && seat.Marked && seat.TookTheWheel && seat.Stale >= Timings.LagMark)
+        {
+            presence.Add(new PlayerLagging(seat.Player, tick, true));
+            seat.LetGoAt = tick;
+            Note($"player {seat.Player}, marked, drove again and then nothing for {Timings.LagMark} late bundles: let go of again at tick {tick}");
         }
         else if (!late && seat.Marked && seat.OnTime == Timings.BackAfter)
         {
@@ -560,6 +601,7 @@ public sealed class Beat
         seat.Joined = true;
         seat.State = SeatState.Playing;
         (seat.LateStreak, seat.OnTime, seat.Marked, seat.Held) = (0, 0, false, false);
+        seat.ClearWheel();
         seat.Window.Clear();
     }
 
@@ -570,6 +612,7 @@ public sealed class Beat
         seat.Returning = kind;
         seat.Since = tick;
         (seat.LateStreak, seat.OnTime, seat.Marked, seat.Held) = (0, 0, false, false);
+        seat.ClearWheel();
         RemoveBuckets(seat.Player, tick);
     }
 
@@ -680,8 +723,9 @@ public sealed class Beat
                 Queue(player, leaves: true);
                 StopPlaying(seat, ReturnKind.Rebuilding, NextTick);
                 break;
+            // A marked seat's wheels were let go of at the mark, unless a late drive took one again since.
             case SeatState.Playing:
-                if (!seat.Marked)
+                if (!seat.Marked || seat.TookTheWheel)
                     Queue(player, leaves: false);
                 StopPlaying(seat, ReturnKind.Rebuilding, NextTick);
                 (seat.Held, seat.Marked) = (true, true);
@@ -795,6 +839,7 @@ public sealed class Beat
     {
         seat.State = state;
         (seat.Loaded, seat.Marked, seat.Held, seat.LateStreak, seat.OnTime, seat.Decided) = (false, false, false, 0, 0, null);
+        seat.ClearWheel();
         seat.Window.Clear();
     }
 
