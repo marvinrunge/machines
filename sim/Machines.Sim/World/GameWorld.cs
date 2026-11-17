@@ -45,8 +45,14 @@ public sealed partial class GameWorld
     /// <summary>The AI that plays each race when no one does (its scenario's script), also for players' races.</summary>
     public Dictionary<Race, Func<Ai.AiController>> StandIns { get; } = [];
 
+    /// <summary>The race's first player left (a network match): race form of <see cref="HandOverToAi(PlayerId)"/>.</summary>
+    public void HandOverToAi(Race race) => HandOverToAi(PlayerId.Of(race));
+
+    /// <summary>The race's first player is back: race form of <see cref="HandBackFromAi(PlayerId)"/>.</summary>
+    public void HandBackFromAi(Race race) => HandBackFromAi(PlayerId.Of(race));
+
     /// <summary>The AI takes over a player's race, e.g. when the player left a network match.</summary>
-    public void HandOverToAi(Race race)
+    private void LeaveRace(Race race)
     {
         // In a battle a bot drives the leaver's hero.
         if (Battle is not null)
@@ -65,7 +71,7 @@ public sealed partial class GameWorld
     }
 
     /// <summary>A player takes their race back from the AI (they rejoined a network match).</summary>
-    public void HandBackFromAi(Race race)
+    private void ReturnRace(Race race)
     {
         if (Battle is not null)
         {
@@ -210,14 +216,17 @@ public sealed partial class GameWorld
 
     // ---- creating actors ------------------------------------------------------------------------
 
-    public Machine AddMachine(Race race, Vector2 position, string type, string? subType, int level, string? weaponCombo)
+    /// <param name="owner">The player it belongs to; the race's first player when not given.</param>
+    public Machine AddMachine(Race race, Vector2 position, string type, string? subType, int level, string? weaponCombo, PlayerId? owner = null)
     {
         var spec = Data.Parm.Machine(subType is null ? type : $"{type} {subType}");
         var machine = new Machine(_nextId++, race, position, spec, spec.Level(level), weaponCombo);
+        if (owner is { } player)
+            machine.GiveTo(player);
         // Not all at the same moment.
         machine.Alert.NextLook = Time + machine.Id % 10 * Dt;
         // The AI's machines take the initiative, players' wait for a reason (MachLogScenario: DEFCON_LOW, DEFCON_NORMAL).
-        if (Races.TryGetValue(race, out var owner) && owner.Controller == Controller.Ai)
+        if (Races.TryGetValue(race, out var side) && side.Controller == Controller.Ai)
             machine.DefCon = DefCon.Low;
         machine.Mines = machine.Stats.MineCapacity ?? 0;
         if (weaponCombo is not null)
@@ -233,10 +242,14 @@ public sealed partial class GameWorld
         return machine;
     }
 
-    public Construction AddConstruction(Race race, Vector2 position, string type, string? subType, int level, int orientation, bool complete, string? weaponCombo = null)
+    /// <param name="owner">The player who placed it; the race's first player when not given.</param>
+    public Construction AddConstruction(Race race, Vector2 position, string type, string? subType, int level, int orientation, bool complete, string? weaponCombo = null,
+        PlayerId? owner = null)
     {
         var spec = Data.Parm.Construction(subType is null ? type : $"{type} {subType}");
         var construction = new Construction(_nextId++, race, position, spec, spec.Level(level), orientation);
+        if (owner is { } player)
+            construction.GiveTo(player);
         if (complete)
             construction.MakeComplete();
 

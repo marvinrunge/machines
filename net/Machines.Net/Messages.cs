@@ -128,7 +128,21 @@ public sealed record MatchStarted(MatchInfo Match) : NetMessage;
 /// <param name="Terrain">The ground every player has alike, by its fingerprint: shots are stopped by hills only
 /// then, so that all worlds agree. Null when some player has none or another.</param>
 public sealed record MatchInfo(string Scenario, string Planet, MatchOptions Options, int Seed, int InputDelay, IReadOnlyList<MatchPlayer> Players,
-    long? Terrain = null);
+    long? Terrain = null)
+{
+    /// <summary>
+    /// The players of the match, a row for each of <see cref="Players"/> in its order, numbered by
+    /// <see cref="PlayerTable.Number"/> over the rows' slots: a person for a row that is no AI's, a bot for the computer's
+    /// rows in a battle (<see cref="MatchOptions.IsBattle"/>), else the AI playing the whole race.
+    /// </summary>
+    public PlayerTable Table()
+    {
+        var ids = PlayerTable.Number([.. Players.Select(p => p.Slot)]);
+        var battle = Options.IsBattle;
+        return new PlayerTable(Players.Select((p, i) =>
+            new PlayerSeat(ids[i], p.Slot, !p.Ai ? PlayerKind.Human : battle ? PlayerKind.Bot : PlayerKind.Ai, p.Name)));
+    }
+}
 
 /// <summary>Who plays which start position (<paramref name="Slot"/>) in which colour; AI slots have no client.</summary>
 public sealed record MatchPlayer(int ClientId, string Name, Race Slot, Race Colour, bool Ai);

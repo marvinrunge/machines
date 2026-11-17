@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Machines.Import.Model;
 using Machines.Sim.Survival;
 
@@ -127,6 +128,13 @@ public sealed record MatchOptions
 
     /// <summary>For a battle, the remake's own team mode of heroes; null in every other match.</summary>
     public BattleOptions? Battle { get; init; }
+
+    /// <summary>
+    /// Whether the match is a battle: it has battle options, or is won as one (a battle's default options are filled in
+    /// then). The one test of it, for the sim, the players' table and the relay alike. Not sent: it follows from the rest.
+    /// </summary>
+    [JsonIgnore]
+    public bool IsBattle => Battle is not null || Victory == VictoryCondition.Battle;
 
     /// <summary>The BMUs an AI race gets for each it would earn, at <paramref name="level"/>.</summary>
     public static float AiIncome(AiLevel level) => level switch

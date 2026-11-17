@@ -1,11 +1,21 @@
 using System.Numerics;
+using System.Text.Json.Serialization;
 using Machines.Import.Model;
 using Machines.Sim.Survival;
 
 namespace Machines.Sim.World;
 
 /// <summary>A player's or AI's instruction. Commands are queued and applied at the start of the next tick.</summary>
-public abstract record Command(Race Race);
+public abstract record Command(Race Race)
+{
+    /// <summary>
+    /// The player who gave it, stamped by the lockstep session from the turn that brought it, so that no client can speak
+    /// for another; never sent or saved. Null is the race's own authority, as the AI, the waves, scripts and tests give
+    /// orders: it may do what any command of its race may.
+    /// </summary>
+    [JsonIgnore]
+    public PlayerId? Issuer { get; init; }
+}
 
 /// <summary>Machines drive to a point, through <paramref name="Via"/> first when given (points picked with Shift, MachGuiMoveCommand).</summary>
 public sealed record MoveCommand(Race Race, IReadOnlyList<int> Machines, Vector2 Target, IReadOnlyList<Vector2>? Via = null) : Command(Race);
@@ -148,6 +158,12 @@ public sealed record CancelResearchCommand(Race Race, int Lab, int Index) : Comm
 /// changes: the other's towards it stays as it was (MachLogRaces::dispositionToRace).
 /// </summary>
 public sealed record AllianceCommand(Race Race, Race Target, bool Ally) : Command(Race);
+
+/// <summary>
+/// A commander gives their own machines among <paramref name="Machines"/> to <paramref name="To"/>, another commander of the
+/// race who is there; not in a battle or a Wired run, where heroes are not given.
+/// </summary>
+public sealed record GiveCommand(Race Race, IReadOnlyList<int> Machines, PlayerId To) : Command(Race);
 
 /// <summary>
 /// What a player does with the hero of a Wired run, the remake's own survival mode: all of it goes through lockstep like

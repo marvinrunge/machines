@@ -40,7 +40,21 @@ public static class NetJson
             TypeInfoResolver = resolver,
             // Vector2 keeps its coordinates in fields.
             IncludeFields = true,
-            Converters = { new JsonStringEnumConverter() },
+            Converters = { new JsonStringEnumConverter(), new PlayerIdConverter() },
         };
     }
+}
+
+/// <summary>A <see cref="PlayerId"/> as its bare number, also where it keys a dictionary.</summary>
+public sealed class PlayerIdConverter : JsonConverter<PlayerId>
+{
+    public override PlayerId Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => new(reader.GetInt32());
+
+    public override void Write(Utf8JsonWriter writer, PlayerId value, JsonSerializerOptions options) => writer.WriteNumberValue(value.Value);
+
+    public override PlayerId ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        new(int.Parse(reader.GetString() ?? throw new JsonException("a player without a number"), System.Globalization.CultureInfo.InvariantCulture));
+
+    public override void WriteAsPropertyName(Utf8JsonWriter writer, PlayerId value, JsonSerializerOptions options) =>
+        writer.WritePropertyName(value.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
 }

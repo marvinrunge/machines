@@ -103,6 +103,19 @@ public static class BattleBalance
     /// <summary>Points a second each enemy hero in the circle adds to its share, and the points that take the pod.</summary>
     public const float CaptureRate = 1, CaptureTarget = 100;
 
+    /// <summary>
+    /// The points that take a pod when the larger team has <paramref name="heroes"/> heroes: <see cref="CaptureTarget"/> up to
+    /// two (every battle of today's layout), from three on 50 a hero, so that a whole team takes a pod in about as long as two
+    /// heroes do today. Pods cannot be shot in a battle, so this is a pod's strength.
+    /// </summary>
+    public static float CaptureTargetFor(int heroes) => heroes <= 2 ? CaptureTarget : 50 * heroes;
+
+    /// <summary>The most heroes a team may have in a room until the relay's beat comes (online plan P2); the sim takes up to <see cref="BattleSeats.MostPerTeam"/>.</summary>
+    public const int MostTeamSize = 5;
+
+    /// <summary>The lives a room proposes for a battle whose larger team has <paramref name="heroes"/> heroes; the room may choose 1 to 5.</summary>
+    public static int ProposedLives(int heroes) => heroes <= 2 ? 1 : heroes < 10 ? 2 : 3;
+
     /// <summary>The cooldown of the ion call in a battle, in seconds, as there are no waves to count.</summary>
     public const float IonCooldown = 90;
 

@@ -15,7 +15,33 @@ public abstract class Actor
     }
 
     public int Id { get; }
-    public Race Race { get; set; }
+
+    /// <summary>The race it belongs to. Changing sides gives it to the new race's first player (<see cref="Owner"/>) unless it is then given to another.</summary>
+    public Race Race
+    {
+        get => _race;
+        set
+        {
+            if (value == _race)
+                return;
+            _race = value;
+            OwnerOverride = null;
+        }
+    }
+
+    private Race _race;
+
+    /// <summary>The player it belongs to when that is not its race's first player; null for every actor of a race with one player.</summary>
+    public PlayerId? OwnerOverride { get; private set; }
+
+    /// <summary>
+    /// The player it belongs to, within its race: machines obey their owner when the race has several players, buildings
+    /// every player of the race.
+    /// </summary>
+    public PlayerId Owner => OwnerOverride ?? PlayerId.Of(Race);
+
+    /// <summary>Gives it to a player of its race; the race's first player is kept as no override at all.</summary>
+    public void GiveTo(PlayerId owner) => OwnerOverride = owner == PlayerId.Of(Race) ? null : owner;
 
     /// <summary>
     /// Another race whose colours, map dot and icon it wears: a scenario's DISPLAY AS block, passed on to what its
@@ -58,6 +84,12 @@ public abstract class Actor
 
     /// <summary>The race that damaged it last, credited when it dies.</summary>
     public Race? LastHitBy { get; set; }
+
+    /// <summary>
+    /// The player who damaged it last, within <see cref="LastHitBy"/>'s race: it only picks who of that race is credited,
+    /// whether anyone is stays <see cref="LastHitBy"/>'s to say. Not in the checksum.
+    /// </summary>
+    public PlayerId? LastHitByPlayer { get; set; }
 
     /// <summary>Game time at which a started self-destruct goes off.</summary>
     public float? SelfDestructAt { get; set; }
@@ -164,6 +196,9 @@ public sealed class Machine : Actor
     /// <summary>True while a player drives this machine in first person.</summary>
     public bool DrivenByPlayer { get; set; }
 
+    /// <summary>The player driving it while <see cref="DrivenByPlayer"/>; null otherwise. Not in the checksum, as that is not.</summary>
+    public PlayerId? Driver { get; set; }
+
     /// <summary>
     /// The command it is carrying out, by number: machines sent by one command wait for one another rather than step
     /// aside (MachLogMachineMotionSequencer::objectHasSameCommandId).
@@ -245,11 +280,15 @@ public enum DefCon
 }
 
 /// <summary>A land mine a spy locator laid (MachLogLandMine): it goes off under the first enemy to come near.</summary>
-public sealed class LandMineState(int id, Race race, Vector2 position)
+/// <param name="owner">The player who laid it; the race's first player when not given.</param>
+public sealed class LandMineState(int id, Race race, Vector2 position, PlayerId? owner = null)
 {
     public int Id { get; } = id;
     public Race Race { get; } = race;
     public Vector2 Position { get; } = position;
+
+    /// <summary>The player who laid it, within its race.</summary>
+    public PlayerId Owner { get; } = owner ?? PlayerId.Of(race);
 }
 
 /// <summary>A building: placed by constructors, or present at the start.</summary>
@@ -375,6 +414,38 @@ public sealed class Construction : Actor
 
     // Factories
     public List<ResearchKey> ProductionQueue { get; } = [];
+
+    /// <summary>
+    /// Who ordered each machine on <see cref="ProductionQueue"/>, kept only for a race of several players and only through
+    /// <see cref="Enqueue"/> and <see cref="Dequeue"/>. Whenever it is not in step with the queue (a race of one player, or
+    /// the queue changed another way), every machine on it is the race's first player's (<see cref="ProductionOwner"/>).
+    /// </summary>
+    public List<PlayerId> ProductionOwners { get; } = [];
+
+    /// <summary>Puts a machine at the end of the queue, for <paramref name="owner"/> when the race keeps owners (null when it does not).</summary>
+    public void Enqueue(ResearchKey machine, PlayerId? owner)
+    {
+        // An empty queue has no owners left over from a time it changed another way.
+        if (ProductionQueue.Count == 0)
+            ProductionOwners.Clear();
+        var inStep = ProductionOwners.Count == ProductionQueue.Count;
+        ProductionQueue.Add(machine);
+        if (owner is { } who && inStep)
+            ProductionOwners.Add(who);
+    }
+
+    /// <summary>Takes the entry at <paramref name="index"/> off the queue, and its owner while the owners are in step.</summary>
+    public void Dequeue(int index)
+    {
+        var inStep = ProductionOwners.Count == ProductionQueue.Count;
+        ProductionQueue.RemoveAt(index);
+        if (inStep)
+            ProductionOwners.RemoveAt(index);
+    }
+
+    /// <summary>Whose the machine at <paramref name="index"/> of the queue is: its owner while the owners are in step, else the race's first player.</summary>
+    public PlayerId ProductionOwner(int index) =>
+        ProductionOwners.Count == ProductionQueue.Count && index >= 0 && index < ProductionOwners.Count ? ProductionOwners[index] : PlayerId.Of(Race);
 
     /// <summary>Where new machines gather (MachLogFactory::specifiedDeployPoint), if the player set one.</summary>
     public Vector2? AssemblyPoint { get; set; }

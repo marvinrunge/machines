@@ -1,4 +1,5 @@
 using Machines.Import.Model;
+using Machines.Sim.World;
 
 namespace Machines.Sim.Survival;
 
@@ -17,8 +18,12 @@ public enum BattleWin
 /// </summary>
 public sealed record BattleItem(string Catalogue, WiredSlot? Slot, int Mk = 1, int Count = 1);
 
-/// <summary>One hero of a battle: its race (the scenario slot it plays), its name, its chassis and what it wears. <paramref name="Bot"/> says the computer drives it.</summary>
-public sealed record BattleHero(Race Race, string Name, string Chassis, IReadOnlyList<BattleItem> Items, bool Bot = false)
+/// <summary>
+/// One hero of a battle: its race (the scenario slot it plays), its name, its chassis and what it wears. <paramref name="Bot"/>
+/// says the computer drives it; <paramref name="Player"/> is the player it is, null for the race's first player (today's
+/// layout, one hero per race).
+/// </summary>
+public sealed record BattleHero(Race Race, string Name, string Chassis, IReadOnlyList<BattleItem> Items, bool Bot = false, PlayerId? Player = null)
 {
     /// <summary>The longest name a hero has, in characters, as the hangar lets a player type it.</summary>
     public const int MostName = 24;
@@ -50,6 +55,12 @@ public sealed record BattleOptions
 
     public IReadOnlyList<Race> TeamB { get; init; } = [];
 
-    /// <summary>One hero for each race of the two teams, sorted by race.</summary>
+    /// <summary>
+    /// Heroes per team: 0 for one hero for each race of the two teams (two against two on the maps of phase 1); from 1 on,
+    /// the teams are only the two anchors, each with that many heroes (<see cref="BattleSeats"/>).
+    /// </summary>
+    public int TeamSize { get; init; }
+
+    /// <summary>One hero for each seat of the two teams (<see cref="BattleSeats.Of"/>), sorted by player: by race in today's layout.</summary>
     public IReadOnlyList<BattleHero> Heroes { get; init; } = [];
 }

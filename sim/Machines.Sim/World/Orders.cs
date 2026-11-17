@@ -332,6 +332,9 @@ public enum GameEventKind
 
     /// <summary>A geo locator hero's pulse went out (Actor: the hero; Position: where it stands; Other: the enemies it located).</summary>
     WiredLocated,
+
+    /// <summary>A commander gave machines to a teammate of their race (Actor: the first machine; Player: the teammate; By: the giver; Detail: how many).</summary>
+    MachinesGiven,
 }
 
 /// <param name="Mark">Where a round fired in first person really went, height and all, when that is not under the crosshair (a Wired run).</param>
@@ -339,4 +342,7 @@ public enum GameEventKind
 /// For <see cref="GameEventKind.Fired"/>, which of the shooter's weapons fired: its place in the machine's weapons of that
 /// tick, so that a view fires a battery from the right barrel; -1 for any other event and for actors that are no machine.
 /// </param>
-public sealed record GameEvent(GameEventKind Kind, int Actor, Vector2 Position, int? Other = null, string? Detail = null, Vector3? Mark = null, int Gun = -1);
+/// <param name="Player">The player the event is about, where it is about one (a hero's events, machines given); <paramref name="Other"/> and <paramref name="Detail"/> keep their races.</param>
+/// <param name="By">The player who did it, where one did.</param>
+public sealed record GameEvent(GameEventKind Kind, int Actor, Vector2 Position, int? Other = null, string? Detail = null, Vector3? Mark = null, int Gun = -1,
+    PlayerId? Player = null, PlayerId? By = null);

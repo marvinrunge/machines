@@ -43,6 +43,12 @@ public sealed partial class GameWorld
             {
                 MixFloat(building.Built);
             }
+            // Whose it is, only when that is not its race's first player: never in a match with one player per race.
+            if (actor.OwnerOverride is { } owner)
+            {
+                Mix(OwnerTag);
+                Mix(owner.Value);
+            }
         }
         foreach (var artefact in _artefacts.Values.Where(a => a.HitPoints != a.MaxHitPoints || a.Armour != a.MaxArmour).OrderBy(a => a.Id))
         {
@@ -80,6 +86,23 @@ public sealed partial class GameWorld
             Mix(state.Defeated ? 1 : 0);
             Mix(state.Allies.Aggregate(0, (bits, ally) => bits | 1 << (int)ally));
         }
+        // Who is away and who keeps whose machines, only where a race has several players.
+        if (Players.AnyShared)
+        {
+            Mix(PlayersTag);
+            Mix(Players.AwayPlayers.Count);
+            foreach (var away in Players.AwayPlayers)
+                Mix(away.Value);
+            Mix(Players.Keepers.Count);
+            foreach (var (kept, keeper) in Players.Keepers)
+            {
+                Mix(kept.Value);
+                Mix(keeper.Value);
+            }
+        }
         return hash;
     }
+
+    /// <summary>The tags before an actor's owner and before the players' presence in the checksum, mixed only when there is any.</summary>
+    private const long OwnerTag = 0x4F574E4552, PlayersTag = 0x504C4159455253;
 }
