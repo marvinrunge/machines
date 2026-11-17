@@ -80,12 +80,13 @@ public sealed partial class GameWorld
     /// A race of several players after its players came or went (P1 design §2.8). In a battle each person of the race who
     /// is away has a bot drive their hero and each who is there drives it again (<see cref="AddBot"/>, <see cref="RemoveBot"/>,
     /// in player order), and the race is a player's while one of its people is there, else the computer's. In a Wired run
-    /// the heroes stand, as a race of one player's does (the run has no stand-in). In a skirmish, while a person of the race
-    /// is there, the one with the lowest number keeps the machines of every away player (they may order them, and what they
-    /// build is theirs), the race is a player's again and a stand-in AI that played it goes. Once the last person is gone,
-    /// nobody keeps anything and the stand-in AI plays the whole race, as it takes over a race of one player; the machines
-    /// stay whose they were. A machine driven by someone away, or by someone who may no longer order it, is let go of, as
-    /// by a <see cref="DriveCommand"/> letting go of the wheel.
+    /// the heroes stand, as a race of one player's does (the run has no stand-in): an away player's hero lets go of the
+    /// wheel rather than drive on with their last input. In a skirmish, while a person of the race is there, the one with
+    /// the lowest number keeps the machines of every away player (they may order them, and what they build is theirs), the
+    /// race is a player's again and a stand-in AI that played it goes. Once the last person is gone, nobody keeps anything
+    /// and the stand-in AI plays the whole race, as it takes over a race of one player; the machines stay whose they were.
+    /// A machine driven by someone away, or by someone who may no longer order it, is let go of, as by a
+    /// <see cref="DriveCommand"/> letting go of the wheel.
     /// </summary>
     private void Settle(Race race)
     {
@@ -95,7 +96,10 @@ public sealed partial class GameWorld
             return;
         }
         if (Wired is not null)
+        {
+            LetGoOfAwayWheels(race);
             return;
+        }
         var players = Players.PlayersOf(race);
         var present = players.Where(id => Players[id].Kind == PlayerKind.Human && !Players.Away(id)).ToList();
         PlayerId? keeper = present.Count > 0 ? present[0] : null;
@@ -118,6 +122,12 @@ public sealed partial class GameWorld
                     AiControllers.Add(standIn());
             }
         }
+        LetGoOfAwayWheels(race);
+    }
+
+    /// <summary>Every machine of a race driven by someone away, or by someone who may no longer order it, lets go of the wheel, in id order.</summary>
+    private void LetGoOfAwayWheels(Race race)
+    {
         foreach (var machine in Machines.Where(m => m.Race == race && m.DrivenByPlayer && m.Driver is { } driver
             && (Players.Away(driver) || !MayOrder(driver, m))).OrderBy(m => m.Id).ToList())
             LetGoOfWheel(machine);

@@ -187,6 +187,30 @@ public class WiredCoopTests
         Assert.Equal("you have no hero", Do(world, new WiredHangarCommand(Race.Blue, true) { Issuer = P(1) }));
     }
 
+    [Fact]
+    public void A_leaver_s_hero_stands_and_does_not_drive_on_with_their_last_input()
+    {
+        var world = Coop(2);
+        var (mine, mate) = (Hero(world, P(0)), Hero(world, P(4)));
+        Assert.Null(Do(world, new DriveCommand(Race.Red, mine.Id, Driving: true, Forward: 1) { Issuer = P(0) }));
+        Assert.Null(Do(world, new DriveCommand(Race.Red, mate.Id, Driving: true, Forward: 1) { Issuer = P(4) }));
+        Run(world, 1);
+
+        world.ChangePresence([new PresenceChange(P(4), Away: true)]);
+
+        Assert.Equal((false, (PlayerId?)null), (mate.DrivenByPlayer, mate.Driver));
+        Assert.Equal((true, (PlayerId?)P(0)), (mine.DrivenByPlayer, mine.Driver));
+        var at = mate.Position;
+        Run(world, 3);
+        Assert.True(Vector2.Distance(mate.Position, at) < 1, $"the leaver's hero went on {Vector2.Distance(mate.Position, at)} m");
+        Assert.True(mine.DrivenByPlayer);
+
+        // Back, the player takes the wheel again as anyone does.
+        world.ChangePresence([new PresenceChange(P(4), Away: false)]);
+        Assert.Null(Do(world, new DriveCommand(Race.Red, mate.Id, Driving: true, Forward: 1) { Issuer = P(4) }));
+        Assert.Equal((true, (PlayerId?)P(4)), (mate.DrivenByPlayer, mate.Driver));
+    }
+
     // ---- banks ----------------------------------------------------------------------------------------
 
     [Fact]
