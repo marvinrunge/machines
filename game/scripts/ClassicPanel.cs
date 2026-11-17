@@ -280,10 +280,12 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                 _widgets.Add(new Widget(R(PanelWidth - 21, y, 20, 20), rect => DrawBitmap(rect, $"misc/{RaceFolder(r)}/inhead.bmp", "1st"),
                     game.EnterFirstPerson, "Drive it in first person (F)"));
             else if (actor is Construction { Garrisoned.Count: > 0 } garrison && garrison.Race == Game.Player
-                && garrison.Garrisoned.Any(id => game.World.Find<Machine>(id)?.Race == Game.Player))
+                && garrison.Garrisoned.Where(id => game.World.Find<Machine>(id) is { } inside && inside.Race == Game.Player && game.MayOrder(inside))
+                    .ToList() is { Count: > 0 } ours)
+                // Those the player may order: a teammate's machines inside stay theirs to let out.
                 _widgets.Add(new Widget(R(PanelWidth - 21, y, 20, 20), rect => DrawBitmap(rect, "misc/contents.bmp", "Out"),
-                    () => game.Order(new StopCommand(Game.Player, garrison.Garrisoned.ToList())),
-                    Lang.T("Let the {0} machines inside out", garrison.Garrisoned.Count)));
+                    () => game.Order(new StopCommand(Game.Player, ours)),
+                    Lang.T("Let the {0} machines inside out", ours.Count)));
             return y + height;
         }
 
