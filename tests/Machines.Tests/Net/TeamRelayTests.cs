@@ -271,6 +271,9 @@ public class TeamRelayTests
         }
         Assert.False(redAi, "the computer took Red while Cleo's world was rebuilt");
 
+        // Every world reported tick 500 as it reached it, but the relay may not have settled it yet: a tick without an agreed value
+        // counts nothing below.
+        await RelayClients.Until(() => relay.Relay.Agreed(room.Id, 500) is not null, TimeSpan.FromSeconds(10), "the relay agreed tick 500");
         Assert.True(RelayClients.AssertRecovered(relay.Relay, room.Id, clients) >= 4 * 500 / 20);
         Assert.True(RelayClients.AssertAgree(clients, resyncs: true) >= 500 / 20);
         foreach (var client in new[] { anna, cleo })

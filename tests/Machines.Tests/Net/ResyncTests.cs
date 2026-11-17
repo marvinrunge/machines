@@ -62,6 +62,9 @@ public class ResyncTests
             Assert.DoesNotContain(P(5), client.World.HeroBots.Keys);
         }
 
+        // Every world reported tick 800 as it reached it, but the relay may not have settled it yet: a tick without an agreed value
+        // counts nothing below.
+        await RelayClients.Until(() => relay.Relay.Agreed(room.Id, 800) is not null, TimeSpan.FromSeconds(10), "the relay agreed tick 800");
         Assert.True(RelayClients.AssertRecovered(relay.Relay, room.Id, clients) >= 10 * 800 / 20);
         Assert.True(RelayClients.AssertAgree(clients, resyncs: true) >= 800 / 20);
         foreach (var client in new[] { clients[0], eve })
