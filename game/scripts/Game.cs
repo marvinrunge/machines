@@ -1729,7 +1729,7 @@ public partial class Game : Node3D
             .Select(id => (PlayerId?)id).FirstOrDefault();
         return keeper == Me ? Lang.T("{0} left – you command their machines", name)
             : keeper is { } other ? Lang.T("{0} left – {1} commands their machines", name, PlayerName(other))
-            : Lang.T("{0} left – the computer plays {1}", name, Lang.T(race.ToString()));
+            : Lang.T("{0} left – the computer plays {1}", name, Lang.T(Look(race).ToString()));
     }
 
     /// <summary>The name a player of the match is shown by.</summary>
