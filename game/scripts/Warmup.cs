@@ -364,7 +364,7 @@ public partial class Warmup : Node3D
                 copy.Step();
             // Each turn goes through JSON (LockstepSession.Pump keeps a copy as the others see it); the first time
             // it looked at every kind of command, a sixth of a second.
-            NetJson.Decode(NetJson.Encode(new Turn(0, players.Keys.First(), [])));
+            NetJson.Decode(NetJson.Encode(new Turn(0, PlayerId.Of(players.Keys.First()), [])));
             foreach (var type in typeof(Command).Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(Command)) && !t.IsAbstract))
                 NetJson.Options.GetTypeInfo(type);
         }

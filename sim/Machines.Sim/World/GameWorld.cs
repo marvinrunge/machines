@@ -46,9 +46,11 @@ public sealed partial class GameWorld
     public Dictionary<Race, Func<Ai.AiController>> StandIns { get; } = [];
 
     /// <summary>The race's first player left (a network match): race form of <see cref="HandOverToAi(PlayerId)"/>.</summary>
+    [Obsolete("Race form: name the player.", DiagnosticId = PlayerId.RaceForm)]
     public void HandOverToAi(Race race) => HandOverToAi(PlayerId.Of(race));
 
     /// <summary>The race's first player is back: race form of <see cref="HandBackFromAi(PlayerId)"/>.</summary>
+    [Obsolete("Race form: name the player.", DiagnosticId = PlayerId.RaceForm)]
     public void HandBackFromAi(Race race) => HandBackFromAi(PlayerId.Of(race));
 
     /// <summary>The AI takes over a player's race, e.g. when the player left a network match.</summary>

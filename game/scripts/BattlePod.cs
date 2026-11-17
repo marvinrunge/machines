@@ -265,7 +265,8 @@ public static class BattlePod
     /// <summary>A battle room for MACHINES_MENU_SCREENSHOT's pod-room: Canyon Attack, tier II, two lives.</summary>
     public static RoomState SampleRoom() => new(1, Lang.T("{0}'s battle", "Host"), "m_desert", "m_desert", [Race.Red, Race.Blue, Race.Green, Race.Yellow],
         new MatchOptions { Victory = VictoryCondition.Battle, FogOfWar = false, Battle = new BattleOptions { Tier = 2, Lives = 2 } },
-        true, 0, [], [new RoomSeat(null, SeatUse.Open), new RoomSeat(null, SeatUse.Open), new RoomSeat(null, SeatUse.Computer), new RoomSeat(null, SeatUse.Computer)]);
+        true, 0, [], [new RoomSeat(null, SeatUse.Open, Race.Red), new RoomSeat(null, SeatUse.Open, Race.Blue), new RoomSeat(null, SeatUse.Computer, Race.Green),
+            new RoomSeat(null, SeatUse.Computer, Race.Yellow)]);
 
     /// <summary>
     /// The battle against the computer begins: the hero and the battle chosen are remembered, and the player's hero with three
@@ -282,7 +283,7 @@ public static class BattlePod
         draft.Keep();
         var map = BattleCatalogue.Map(draft.Map)!;
         // A hero not named yet fights under the player's name, as a room's relay names it.
-        MatchRequest.Current = MatchRequest.ForBattle(map, draft.Options(unnamed: NetLink.OfflineName), BattleDraft.PlayerRace(map, draft.Colour), watch: false);
+        MatchRequest.Current = MatchRequest.ForBattle(map, draft.Options(unnamed: NetLink.OfflineName), PlayerId.Of(BattleDraft.PlayerRace(map, draft.Colour)), watch: false);
         LoadingScreen.Show(page.GetTree(), Title(map), Detail(draft.Tier, draft.Lives, draft.Win));
     }
 

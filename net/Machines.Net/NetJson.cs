@@ -12,8 +12,12 @@ namespace Machines.Net;
 /// </summary>
 public static class NetJson
 {
-    /// <summary>Bump when messages or commands change incompatibly; the relay refuses other versions. 11: battles (heroes in rooms, the options' Battle). 12: Wired's chassis specials (special, tower and scrap commands).</summary>
-    public const int Protocol = 12;
+    /// <summary>
+    /// Bump when messages or commands change incompatibly; the relay refuses other versions. 11: battles (heroes in rooms, the
+    /// options' Battle). 12: Wired's chassis specials (special, tower and scrap commands). 13: players apart from races (turns,
+    /// checksums, leaving and coming back by player; seats with their race, several a race; recordings stamped with it).
+    /// </summary>
+    public const int Protocol = 13;
 
     public static readonly JsonSerializerOptions Options = Create();
 

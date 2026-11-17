@@ -243,7 +243,7 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
                 case MatchResumed resumed:
                     _known = null;
                     // The match so far follows in the inbox; the match scene reads it from there.
-                    MatchRequest.Current = MatchRequest.FromMatch(resumed.Match, NetLink.ClientId, resumed.Slot)
+                    MatchRequest.Current = MatchRequest.FromMatch(resumed.Match, NetLink.ClientId, resumed.Player)
                         with { Network = resumed.Match, ResumeFrom = resumed.FromTick };
                     Leave();
                     return;
@@ -431,7 +431,6 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             row.QueueFree();
         }
         var map = state.Options.Battle is not null ? BattleCatalogue.Map(state.Scenario) : null;
-        var slots = state.Slots.Order().ToList();
         for (var i = 0; i < state.Seats.Count; i++)
         {
             var seat = state.Seats[i];
@@ -441,7 +440,7 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             if (map is not null)
             {
                 // A battle seat is a race of one team: its hero is the player's, or a bot's if nobody sits there.
-                var team = i < slots.Count && map.TeamB.Contains(slots[i]) ? 2 : 1;
+                var team = map.TeamB.Contains(seat.Race) ? 2 : 1;
                 text = $"{Lang.T("Team {0}", team)}   ·   {text}   ·   {(player is null ? Lang.T("a bot hero") : HeroText(player.Hero))}";
             }
             var line = MenuTheme.Label(text, 22, player is null ? MenuTheme.Dim : MenuTheme.Text);
@@ -500,9 +499,13 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
         var selected = _rooms.GetSelectedItems();
         if (_roomList is null || selected.Length == 0)
             return;
-        // A match already running takes back a player who dropped out of it.
+        // A match already running takes back a player who dropped out of it: the player they were when it is the match this
+        // game last played, so that of two who connected under one name each comes back as themself.
         var room = _roomList.Rooms[selected[0]];
-        NetLink.Send(room.Started ? new RejoinMatch(room.Id) : new JoinRoom(room.Id));
+        Machines.Sim.World.PlayerId? was = _matchRoom?.Id == room.Id && MatchRequest.Current.Network is { } played && played.Scenario == room.Scenario
+            ? MatchRequest.Current.Me
+            : null;
+        NetLink.Send(room.Started ? new RejoinMatch(room.Id, was) : new JoinRoom(room.Id));
     }
 
     /// <summary>
@@ -595,7 +598,7 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
     {
         if (was.HostId == NetLink.ClientId)
         {
-            NetLink.Send(new CreateRoom(was.Name, was.Scenario, was.Planet, was.Slots, was.Options, was.FillWithAi));
+            NetLink.Send(new CreateRoom(was.Name, was.Scenario, was.Planet, was.Slots, was.Options, was.FillWithAi, was.SeatsPerSlot));
             return;
         }
         var host = was.Players.FirstOrDefault(p => p.ClientId == was.HostId)?.Name ?? "";

@@ -34,23 +34,26 @@ public partial class FilesPage : MenuPage
     public static FilesPage Replays(Action back, Func<string, string?> watch) =>
         new(Kind.Replays, System.IO.Path.Combine(Paths.Root, "replays"), Replay.Extension, back, watch);
 
-    /// <summary>Leaves the menus for a saved game, carried on from where it was saved.</summary>
+    /// <summary>Leaves the menus for a saved game, carried on from where it was saved by its first person.</summary>
     public static string? OpenSaved(SceneTree tree, string path)
     {
         try
         {
             var saved = Replay.Load(path);
-            var local = saved.Match.Players.FirstOrDefault(p => !p.Ai)?.Slot;
-            MatchRequest.Current = MatchRequest.FromMatch(saved.Match, clientId: -1, local) with { Saved = saved };
+            MatchRequest.Current = MatchRequest.FromMatch(saved.Match, clientId: -1) with { Saved = saved };
             LoadingScreen.Show(tree, System.IO.Path.GetFileNameWithoutExtension(path).ToUpperInvariant(),
                 $"{Lang.T("SAVED GAME")}   ·   {LoadingScreen.MapName(MatchRequest.Current)}");
             return null;
         }
         catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
         {
-            return exception.Message;
+            return Why(exception);
         }
     }
+
+    /// <summary>Why a file does not load, for the player: a recording from before players apart from races in their language.</summary>
+    public static string Why(Exception exception) =>
+        exception is RecordingTooOldException ? Lang.T(RecordingTooOldException.Text) : exception.Message;
 
     /// <summary>Leaves the menus to watch a recorded match.</summary>
     public static string? OpenReplay(SceneTree tree, string path)
@@ -65,7 +68,7 @@ public partial class FilesPage : MenuPage
         }
         catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
         {
-            return exception.Message;
+            return Why(exception);
         }
     }
 
@@ -171,7 +174,7 @@ public partial class FilesPage : MenuPage
             why = _act(file);
         }
         if (why is not null)
-            Stage.Message(_kind switch { Kind.Save => "Not saved: ", Kind.Load => "Cannot load: ", _ => "That replay cannot be read: " } + why);
+            Stage.Message(Lang.T(_kind switch { Kind.Save => "Not saved: ", Kind.Load => "Cannot load: ", _ => "That replay cannot be read: " }) + why);
     }
 
     private void AskDelete()

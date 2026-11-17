@@ -304,7 +304,7 @@ public class WiredEndTests
     {
         var pool = new WiredProfile().ChipPool;
         var match = Match(new WiredOptions { HeroName = "Kai", Arena = "m_desert", Chassis = "grunt1", ChipPool = pool });
-        var live = new LockstepSession(Replay.BuildWorld(Data, match), Race.Red, [Race.Red], match.InputDelay);
+        var live = new LockstepSession(Replay.BuildWorld(Data, match), PlayerId.Of(Race.Red), match.InputDelay);
         var run = live.World.Wired!;
         var state = run.Heroes[Race.Red];
         for (var tick = 0; tick < 20 * 3600 && run.Phase != WiredPhase.Ended; tick++)

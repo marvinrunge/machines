@@ -4349,3 +4349,30 @@ msgstr "eine Batterie braucht einen Waffenslot"
 
 msgid "Fire waits for the gun"
 msgstr "Feuer wartet auf die Kanone"
+
+msgid "This recording is from an older version of the game and can no longer be played."
+msgstr "Diese Aufnahme stammt aus einer älteren Version des Spiels und lässt sich nicht mehr abspielen."
+
+msgid "no such seat"
+msgstr "diesen Platz gibt es nicht"
+
+msgid "that seat is not free"
+msgstr "dieser Platz ist nicht frei"
+
+msgid "no such start position"
+msgstr "diese Startposition gibt es nicht"
+
+msgid "every side needs a seat"
+msgstr "jede Seite braucht einen Platz"
+
+msgid "two commanders per side at most"
+msgstr "höchstens zwei Kommandanten je Seite"
+
+msgid "a room has at most {0} seats"
+msgstr "ein Raum hat höchstens {0} Plätze"
+
+msgid "no such team size"
+msgstr "diese Teamgröße gibt es nicht"
+
+msgid "a team has at most {0} heroes"
+msgstr "ein Team hat höchstens {0} Helden"

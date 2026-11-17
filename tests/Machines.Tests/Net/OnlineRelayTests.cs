@@ -184,7 +184,7 @@ public class OnlineRelayTests
         for (var frame = 0; frame < 400 && anna.Session.World.Tick < before + 40; frame++)
             await Player.Frame(anna);
         Assert.True(anna.Session.World.Tick >= before + 40, $"stuck at {anna.Session.World.Tick}");
-        Assert.Contains(anna.Session.Presence, m => m is PlayerLeft left && left.Race == ben.Race);
+        Assert.Contains(anna.Session.Presence, m => m is PlayerLeft left && left.Player == PlayerId.Of(ben.Race));
         Assert.Equal(Controller.Ai, anna.Session.World.Races[ben.Race].Controller);
     }
 
@@ -204,7 +204,7 @@ public class OnlineRelayTests
         while (!anna.Session.Presence.Any(m => m is PlayerLeft) && watch.Elapsed < TimeSpan.FromSeconds(10))
             await Player.Frame(anna);
 
-        Assert.Contains(anna.Session.Presence, m => m is PlayerLeft left && left.Race == ben.Race);
+        Assert.Contains(anna.Session.Presence, m => m is PlayerLeft left && left.Player == PlayerId.Of(ben.Race));
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), $"Anna waited {watch.Elapsed.TotalSeconds:0.0} s");
     }
 
@@ -310,9 +310,10 @@ public class OnlineRelayTests
             {
                 var started = (MatchStarted)await player.Client.Next(m => m is MatchStarted);
                 player.Match = started.Match;
-                player.Race = started.Match.Players.Single(p => p.ClientId == player.Id).Slot;
-                player.Session = new LockstepSession(Replay.BuildWorld(DataLoader.Value, started.Match), player.Race,
-                    started.Match.Players.Where(p => !p.Ai).Select(p => p.Slot), started.Match.InputDelay, echoed: true);
+                var table = started.Match.Table();
+                var me = table.Rows[started.Match.Players.ToList().FindIndex(p => p.ClientId == player.Id && !p.Ai)].Id;
+                player.Race = table.RaceOf(me);
+                player.Session = new LockstepSession(Replay.BuildWorld(DataLoader.Value, started.Match), me, started.Match.InputDelay, echoed: true);
                 player.Session.Outgoing += player.Connection.Send;
             }
         }
@@ -322,7 +323,7 @@ public class OnlineRelayTests
             while (Connection.Inbox.TryRead(out var message))
             {
                 if (message is Turn turn)
-                    Turns.Add((turn.Tick, turn.Race));
+                    Turns.Add((turn.Tick, Session.World.Players.RaceOf(turn.Player)));
                 Session.Receive(message);
             }
         }

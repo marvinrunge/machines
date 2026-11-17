@@ -27,7 +27,7 @@ internal sealed record GoldenCase(string Name, MatchInfo Match, int[] Ticks, Fun
     /// <summary>G2: four races on Central Dominance, Red and Yellow commanded (with alliances), Blue and Green the computer's; Yellow leaves and comes back.</summary>
     public static GoldenCase FourWay => new("G2 four-way", Relayed("fortmult", "fortmult", new MatchOptions(), 3, [Race.Red, Race.Yellow], [Race.Blue, Race.Green]),
         [1000, 2000, 4000], () => [new SkirmishScript(Race.Red, 201, alliances: true), new SkirmishScript(Race.Yellow, 202, alliances: true)],
-        new PlayerLeft(Race.Yellow, 600), new PlayerReturned(Race.Yellow, 1400));
+        new PlayerLeft(PlayerId.Of(Race.Yellow), 600), new PlayerReturned(PlayerId.Of(Race.Yellow), 1400));
 
     /// <summary>G3: a Wired run on Canyon Attack, Red's hero commanded, Blue the computer's.</summary>
     public static GoldenCase Wired => new("G3 Wired", Relayed("m_desert", "m_desert", new MatchOptions { Wired = new WiredOptions() }, 7, [Race.Red], [Race.Blue]),
@@ -45,7 +45,7 @@ internal sealed record GoldenCase(string Name, MatchInfo Match, int[] Ticks, Fun
 
     /// <summary>G6: G4 whose Green player leaves at tick 800, a bot driving their hero from then on; its last sum is taken after its end.</summary>
     public static GoldenCase LeaverBattle => new("G6 battle with a leaver", CommandedBattle(), [2000, 4000, 12000],
-        () => [new BattleScript(Race.Red, 401), new BattleScript(Race.Green, 402)], new PlayerLeft(Race.Green, 800));
+        () => [new BattleScript(Race.Red, 401), new BattleScript(Race.Green, 402)], new PlayerLeft(PlayerId.Of(Race.Green), 800));
 
     /// <summary>
     /// G7: G4 whose Green player leaves at tick 800 and comes back at 1600, the bot letting go of the hero again, and whose
@@ -54,7 +54,8 @@ internal sealed record GoldenCase(string Name, MatchInfo Match, int[] Ticks, Fun
     /// </summary>
     public static GoldenCase ReturningBattle => new("G7 battle whose leavers come back", CommandedBattle(), [2000, 4000, 12000],
         () => [new BattleScript(Race.Red, 701), new BattleScript(Race.Green, 702)],
-        new PlayerLeft(Race.Green, 800), new PlayerReturned(Race.Green, 1600), new PlayerLeft(Race.Red, 2400), new PlayerReturned(Race.Red, 2400));
+        new PlayerLeft(PlayerId.Of(Race.Green), 800), new PlayerReturned(PlayerId.Of(Race.Green), 1600),
+        new PlayerLeft(PlayerId.Of(Race.Red), 2400), new PlayerReturned(PlayerId.Of(Race.Red), 2400));
 
     /// <summary>
     /// G8: two commanders on Canyon Attack who give the orders a skirmish has beyond G1's (<see cref="OrdersScript"/>): every
@@ -63,7 +64,7 @@ internal sealed record GoldenCase(string Name, MatchInfo Match, int[] Ticks, Fun
     /// </summary>
     public static GoldenCase Orders => new("G8 skirmish of many orders", Relayed("m_desert", "m_desert", new MatchOptions(), 17, [Race.Red, Race.Blue], []),
         [1000, 2000, 4000], () => [new OrdersScript(Race.Red, 801), new OrdersScript(Race.Blue, 802)],
-        new PlayerLeft(Race.Red, 1200), new PlayerReturned(Race.Red, 1200), new PlayerLeft(Race.Blue, 2600));
+        new PlayerLeft(PlayerId.Of(Race.Red), 1200), new PlayerReturned(PlayerId.Of(Race.Red), 1200), new PlayerLeft(PlayerId.Of(Race.Blue), 2600));
 
     /// <summary>
     /// G9: a Wired run on Canyon Attack whose hero starts as a spy, whose special lays mines, and whose player, beside G3's
@@ -119,7 +120,7 @@ internal sealed class GoldenMatch
 {
     private readonly GoldenCase _case;
     private readonly GoldenScript[] _scripts;
-    private readonly List<Race> _humans;
+    private readonly List<PlayerId> _humans;
 
     public GoldenMatch(GoldenCase golden, GameData data)
         : this(golden, Replay.BuildWorld(data, golden.Match))
@@ -130,8 +131,8 @@ internal sealed class GoldenMatch
     {
         _case = golden;
         _scripts = golden.Scripts();
-        _humans = golden.Match.Players.Where(p => !p.Ai).Select(p => p.Slot).ToList();
-        Session = new LockstepSession(world, local: null, _humans, golden.Match.InputDelay);
+        _humans = golden.Match.Table().Rows.Where(p => p.Kind == PlayerKind.Human).Select(p => p.Id).ToList();
+        Session = new LockstepSession(world, local: null, golden.Match.InputDelay);
     }
 
     public LockstepSession Session { get; }
@@ -167,12 +168,13 @@ internal sealed class GoldenMatch
         var due = World.Tick + _case.Match.InputDelay;
         foreach (var notice in _case.Notices.Where(n => n is PlayerLeft { FromTick: var left } && left == due || n is PlayerReturned { FromTick: var back } && back == due))
             Session.Receive(Wire(notice));
-        foreach (var race in _humans)
+        foreach (var player in _humans)
         {
-            if (Session.Away(race, due))
+            if (Session.Away(player, due))
                 continue;
+            var race = World.Players.RaceOf(player);
             var script = _scripts.FirstOrDefault(s => s.Race == race);
-            Session.Receive(Wire(new Turn(due, race, script?.Next(World) ?? [])));
+            Session.Receive(Wire(new Turn(due, player, script?.Next(World) ?? [])));
         }
     }
 

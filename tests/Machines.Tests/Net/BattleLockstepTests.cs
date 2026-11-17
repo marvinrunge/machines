@@ -49,7 +49,7 @@ public class BattleLockstepTests
         Assert.Equal(a.Session.World.Checksum(), b.Session.World.Checksum());
         Assert.Null(a.Session.DesyncTick);
         Assert.Null(b.Session.DesyncTick);
-        Assert.Contains(a.Session.Played, t => t.Race == b.Race);
+        Assert.Contains(a.Session.Played, t => a.Session.World.Players.RaceOf(t.Player) == b.Race);
         Assert.True(turned, "no sighted hero turned its upper body");
 
         var replay = new Replay(a.Match, a.Session.Played, a.Session.World.Tick, a.Session.Presence);
@@ -154,9 +154,10 @@ public class BattleLockstepTests
         private void Begin(MatchInfo match)
         {
             Match = match;
-            Race = match.Players.Single(p => p.ClientId == Id).Slot;
-            Session = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), Race,
-                match.Players.Where(p => !p.Ai).Select(p => p.Slot), match.InputDelay, echoed: true);
+            var table = match.Table();
+            var me = table.Rows[match.Players.ToList().FindIndex(p => p.ClientId == Id && !p.Ai)].Id;
+            Race = table.RaceOf(me);
+            Session = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), me, match.InputDelay, echoed: true);
             Session.Outgoing += Connection.Send;
         }
 

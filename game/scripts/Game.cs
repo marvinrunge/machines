@@ -17,8 +17,11 @@ namespace Machines.Game;
 /// </summary>
 public partial class Game : Node3D
 {
-    /// <summary>The start position (scenario race) the local player commands.</summary>
+    /// <summary>The start position (scenario race) the local player commands: their side, shared with every teammate.</summary>
     public static Race Player => MatchRequest.Current.Starts.PlayerSlot;
+
+    /// <summary>The player at this computer, one of <see cref="Player"/>'s race (<see cref="MatchRequest.Me"/>).</summary>
+    public static PlayerId Me => MatchRequest.Current.Me;
 
     /// <summary>The colour a race is shown in; start positions keep the scenario's race in the simulation.</summary>
     public static Race Look(Race race) => MatchRequest.Current.Starts.Colours.GetValueOrDefault(race, race);
@@ -368,16 +371,19 @@ public partial class Game : Node3D
         var data = Paths.Data;
         // A film plays the same battle each time it is recorded.
         _seed = request.Seed ?? (Cinematic.Asked is not null ? 1 : (int)(Time.GetUnixTimeFromSystem() % int.MaxValue));
-        World = MatchSetup.Create(data, request.Scenario, request.Planet, request.Starts.Players, _seed, request.Options);
+        // The world is built from exactly the players the match records, in their order (a replay or save from its rows).
+        World = MatchSetup.Create(data, request.Scenario, request.Planet, request.Players, _seed, request.Options);
         GiftForChecks();
 
         // Every match runs through lockstep: alone with one tick of input delay, online with the relay's, or
-        // played back from a replay.
-        var humans = request.Starts.Players.Where(p => p.Value == Controller.Player).Select(p => p.Key);
+        // played back from a replay. The session waits for the world's people; a person of a match on this computer alone
+        // who is not at it is away from the start.
         _session = request.Replay?.Playback(World)
-            ?? request.Saved?.Resume(World, Player)
-            ?? new LockstepSession(World, Player, humans, request.Network?.InputDelay ?? 1,
+            ?? request.Saved?.Resume(World, request.Me)
+            ?? new LockstepSession(World, request.Me, request.Network?.InputDelay ?? 1,
                 firstLocalTurn: request.ResumeFrom, echoed: request.Network is not null);
+        foreach (var away in request.AwayFromStart)
+            _session.Receive(new PlayerLeft(away, 0));
         if (request.Network is not null)
             _session.Outgoing += NetLink.Send;
 
@@ -714,7 +720,7 @@ public partial class Game : Node3D
             }
             else if (_waitingFor > 1)
             {
-                var names = _session.Waiting().Select(race => MatchRequest.Current.Network?.Players.FirstOrDefault(p => p.Slot == race)?.Name ?? race.ToString());
+                var names = _session.Waiting().Select(PlayerName);
                 _hud.Banner(Lang.T("Waiting for {0}", string.Join(", ", names)));
             }
         }
@@ -1686,10 +1692,17 @@ public partial class Game : Node3D
         Issue(new AllianceCommand(Player, opponent.Slot, !own.Allies.Contains(opponent.Slot)));
     }
 
-    /// <summary>Hands the relay's messages to the session and tells the player what happened.</summary>
-    private static string PlayerName(Race race) =>
-        MatchRequest.Current.Network?.Players.FirstOrDefault(p => p.Slot == race)?.Name ?? race.ToString();
+    /// <summary>The name a player of the match is shown by.</summary>
+    private static string PlayerName(PlayerId player) =>
+        MatchRequest.Current.Players.Contains(player) ? MatchRequest.Current.Players[player].Name : player.ToString();
 
+    /// <summary>The name a side is shown by: online the names of everyone playing it, else its race's.</summary>
+    private static string PlayerName(Race race) =>
+        MatchRequest.Current.Network?.Players.Where(p => p.Slot == race).Select(p => p.Name).ToList() is { Count: > 0 } names
+            ? string.Join(" & ", names)
+            : race.ToString();
+
+    /// <summary>Hands the relay's messages to the session and tells the player what happened.</summary>
     private void ReadNetwork()
     {
         if (!Online || NetLink.Connection is not { } connection)
@@ -1701,10 +1714,10 @@ public partial class Game : Node3D
             {
                 // Rejoining, the match so far arrives too; only what happens from now on is news.
                 case PlayerLeft left when left.FromTick >= (MatchRequest.Current.ResumeFrom ?? 0):
-                    _hud.Message(Lang.T("{0} left the match; the AI takes over", PlayerName(left.Race)));
+                    _hud.Message(Lang.T("{0} left the match; the AI takes over", PlayerName(left.Player)));
                     break;
-                case PlayerReturned back when back.Race != Player && back.FromTick >= (MatchRequest.Current.ResumeFrom ?? 0):
-                    _hud.Message(Lang.T("{0} is back and takes over from the AI", PlayerName(back.Race)));
+                case PlayerReturned back when back.Player != Me && back.FromTick >= (MatchRequest.Current.ResumeFrom ?? 0):
+                    _hud.Message(Lang.T("{0} is back and takes over from the AI", PlayerName(back.Player)));
                     break;
                 case Chat chat:
                     _hud.Chat.Receive(chat);
@@ -1832,15 +1845,15 @@ public partial class Game : Node3D
     {
         try
         {
+            // The saved game's first person plays on.
             var saved = Replay.Load(path);
-            var local = saved.Match.Players.FirstOrDefault(p => !p.Ai)?.Slot;
-            MatchRequest.Current = MatchRequest.FromMatch(saved.Match, clientId: -1, local) with { Saved = saved };
+            MatchRequest.Current = MatchRequest.FromMatch(saved.Match, clientId: -1) with { Saved = saved };
             GetTree().ChangeSceneToFile("res://scenes/Main.tscn");
             return null;
         }
         catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException)
         {
-            return exception.Message;
+            return FilesPage.Why(exception);
         }
     }
 

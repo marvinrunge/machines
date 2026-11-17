@@ -863,10 +863,10 @@ public class CoopCommanderTests
             {
                 foreach (var world in new[] { byRace.World, byPlayer.World })
                 {
-                    if (notice is PlayerLeft { FromTick: var left, Race: var leaver } && left == tick)
-                        world.HandOverToAi(PlayerId.Of(leaver));
-                    if (notice is PlayerReturned { FromTick: var back, Race: var returner } && back == tick)
-                        world.HandBackFromAi(PlayerId.Of(returner));
+                    if (notice is PlayerLeft { FromTick: var left, Player: var leaver } && left == tick)
+                        world.HandOverToAi(leaver);
+                    if (notice is PlayerReturned { FromTick: var back, Player: var returner } && back == tick)
+                        world.HandBackFromAi(returner);
                 }
             }
             foreach (var (world, scripts, stamped) in new[] { (byRace.World, byRace.Scripts, false), (byPlayer.World, byPlayer.Scripts, true) })

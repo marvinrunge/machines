@@ -26,14 +26,15 @@ public class LockstepTests
             new StrikeCommand(Race.Red, 5, new Vector2(MathF.PI, MathF.E)),
             new AllianceCommand(Race.Blue, Race.Green, Ally: true),
         ];
-        var turn = new Turn(42, Race.Red, commands);
+        var turn = new Turn(42, new PlayerId(5), commands);
 
         var back = (Turn)NetJson.Decode(NetJson.Encode(turn));
 
         Assert.Equal(turn.Tick, back.Tick);
+        Assert.Equal(new PlayerId(5), back.Player);
         Assert.Equal(commands.Length, back.Commands.Count);
         for (var i = 0; i < commands.Length; i++)
-            Assert.Equal(NetJson.Encode(new Turn(0, Race.Red, [commands[i]])), NetJson.Encode(new Turn(0, Race.Red, [back.Commands[i]])));
+            Assert.Equal(NetJson.Encode(new Turn(0, PlayerId.Of(Race.Red), [commands[i]])), NetJson.Encode(new Turn(0, PlayerId.Of(Race.Red), [back.Commands[i]])));
         var move = (MoveCommand)back.Commands[0];
         Assert.Equal(BitConverter.SingleToInt32Bits(0.1f + 0.2f), BitConverter.SingleToInt32Bits(move.Target.Y));
         var triggers = (DriveCommand)back.Commands[4];
@@ -92,7 +93,7 @@ public class LockstepTests
         // through, and from the save.
         var match = new MatchInfo("m_desert", "m_desert", new MatchOptions(), 11, 1,
             [new MatchPlayer(0, "Anna", Race.Red, Race.Red, Ai: false), new MatchPlayer(0, "AI", Race.Blue, Race.Blue, Ai: true)]);
-        var straight = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), Race.Red, [Race.Red], match.InputDelay);
+        var straight = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), PlayerId.Of(Race.Red), match.InputDelay);
         var rng = new Random(5);
         void Play(LockstepSession session, int ticks)
         {
@@ -111,7 +112,7 @@ public class LockstepTests
         var loaded = Replay.Load(path);
         File.Delete(path);
 
-        var resumed = loaded.Resume(Replay.BuildWorld(DataLoader.Value, loaded.Match), Race.Red);
+        var resumed = loaded.Resume(Replay.BuildWorld(DataLoader.Value, loaded.Match), PlayerId.Of(Race.Red));
         while (resumed.World.Tick < loaded.Ticks && resumed.TryStep())
         {
         }
@@ -122,7 +123,7 @@ public class LockstepTests
         Play(resumed, 200);
         Assert.True(resumed.Played.Count >= straight.Played.Count);
         var again = new Replay(match, resumed.Played, resumed.World.Tick);
-        var second = again.Resume(Replay.BuildWorld(DataLoader.Value, again.Match), Race.Red);
+        var second = again.Resume(Replay.BuildWorld(DataLoader.Value, again.Match), PlayerId.Of(Race.Red));
         while (second.World.Tick < again.Ticks && second.TryStep())
         {
         }
@@ -307,7 +308,7 @@ public class LockstepTests
         Assert.Equal(Controller.Player, back.Session.World.Races[race].Controller);
         Assert.Null(a.Session.DesyncTick);
         Assert.Null(back.Session.DesyncTick);
-        Assert.Contains(a.Session.Presence, m => m is PlayerReturned r && r.Race == race);
+        Assert.Contains(a.Session.Presence, m => m is PlayerReturned r && r.Player == PlayerId.Of(race));
 
         // The whole match, departure and return included, plays back the same.
         var replay = new Replay(a.Match, a.Session.Played, a.Session.World.Tick, a.Session.Presence);
@@ -361,12 +362,13 @@ public class LockstepTests
             }
         }
 
-        private void Begin(MatchInfo match, Race? slot = null, long? from = null)
+        private void Begin(MatchInfo match, PlayerId? player = null, long? from = null)
         {
             Match = match;
-            Race = slot ?? match.Players.Single(p => p.ClientId == Id).Slot;
-            Session = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), Race,
-                match.Players.Where(p => !p.Ai).Select(p => p.Slot), match.InputDelay, firstLocalTurn: from, echoed: true);
+            var table = match.Table();
+            var me = player ?? table.Rows[match.Players.ToList().FindIndex(p => p.ClientId == Id && !p.Ai)].Id;
+            Race = table.RaceOf(me);
+            Session = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), me, match.InputDelay, firstLocalTurn: from, echoed: true);
             Session.Outgoing += Connection.Send;
         }
 
@@ -381,7 +383,7 @@ public class LockstepTests
             connection.Send(new RejoinMatch(rooms.Rooms.Single(r => r.Started).Id));
             var resumed = (MatchResumed)await Next(connection, m => m is MatchResumed);
             var player = new Player { Connection = connection, Id = welcome.ClientId };
-            player.Begin(resumed.Match, resumed.Slot, resumed.FromTick);
+            player.Begin(resumed.Match, resumed.Player, resumed.FromTick);
             return player;
         }
 

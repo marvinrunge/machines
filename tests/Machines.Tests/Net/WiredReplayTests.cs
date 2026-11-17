@@ -31,7 +31,7 @@ public class WiredReplayTests
     ]);
 
     [Fact]
-    public void The_protocol_went_up_for_the_new_commands() => Assert.Equal(12, NetJson.Protocol);
+    public void The_protocol_went_up_for_players_apart_from_races() => Assert.Equal(13, NetJson.Protocol);
 
     [Fact]
     public void Every_wired_command_comes_through_the_wire_as_it_went_in()
@@ -153,7 +153,7 @@ public class WiredReplayTests
     public void A_saved_run_comes_back_from_its_commands_alone()
     {
         var match = Run() with { Options = new MatchOptions { Wired = Options with { Difficulty = WiredDifficulty.Normal, Chassis = "grunt1", Items = [] } } };
-        var live = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), Race.Red, [Race.Red], match.InputDelay);
+        var live = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), PlayerId.Of(Race.Red), match.InputDelay);
         var state = live.World.Wired!.Heroes[Race.Red];
 
         void Play(int ticks)
@@ -186,7 +186,7 @@ public class WiredReplayTests
         File.Delete(path);
         Assert.Equal(Options.ChipPool, loaded.Match.Options.Wired!.ChipPool);
 
-        var resumed = loaded.Resume(Replay.BuildWorld(DataLoader.Value, loaded.Match), Race.Red);
+        var resumed = loaded.Resume(Replay.BuildWorld(DataLoader.Value, loaded.Match), PlayerId.Of(Race.Red));
         while (resumed.World.Tick < loaded.Ticks && resumed.TryStep())
         {
         }
@@ -239,7 +239,7 @@ public class WiredReplayTests
     public void A_whole_run_comes_back_from_its_recording()
     {
         var match = Run() with { Options = new MatchOptions { Wired = Options with { Difficulty = WiredDifficulty.Normal, Chassis = "grunt1", Items = [] } } };
-        var live = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), Race.Red, [Race.Red], match.InputDelay);
+        var live = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), PlayerId.Of(Race.Red), match.InputDelay);
         var run = live.World.Wired!;
         var state = run.Heroes[Race.Red];
 
@@ -262,7 +262,7 @@ public class WiredReplayTests
 
         foreach (var session in new[]
         {
-            loaded.Resume(Replay.BuildWorld(DataLoader.Value, loaded.Match), Race.Red),
+            loaded.Resume(Replay.BuildWorld(DataLoader.Value, loaded.Match), PlayerId.Of(Race.Red)),
             loaded.Playback(Replay.BuildWorld(DataLoader.Value, loaded.Match)),
         })
         {
@@ -282,7 +282,7 @@ public class WiredReplayTests
     public void A_run_saved_in_the_middle_of_a_wave_goes_on_as_it_would_have()
     {
         var match = Run() with { Options = new MatchOptions { Wired = Options with { Difficulty = WiredDifficulty.Normal, Chassis = "grunt1", Items = [] } } };
-        var live = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), Race.Red, [Race.Red], match.InputDelay);
+        var live = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), PlayerId.Of(Race.Red), match.InputDelay);
         var run = live.World.Wired!;
         for (var tick = 0; tick < 20 * 200 && !(run.Phase == WiredPhase.Wave && run.Wave == 2 && run.Foes.Count > 0); tick++)
         {
@@ -293,7 +293,7 @@ public class WiredReplayTests
         Assert.Equal((WiredPhase.Wave, 2), (run.Phase, run.Wave));
 
         var saved = new Replay(match, live.Played, live.World.Tick);
-        var resumed = saved.Resume(Replay.BuildWorld(DataLoader.Value, match), Race.Red);
+        var resumed = saved.Resume(Replay.BuildWorld(DataLoader.Value, match), PlayerId.Of(Race.Red));
         while (resumed.World.Tick < saved.Ticks && resumed.TryStep())
         {
         }

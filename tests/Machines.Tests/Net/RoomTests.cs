@@ -22,7 +22,8 @@ public class RoomTests
         await ben.Join(room);
 
         var state = await anna.Next<RoomState>(s => s.Players.Count == 2);
-        Assert.Equal([new RoomSeat(anna.Id, SeatUse.Open), new RoomSeat(ben.Id, SeatUse.Open), new RoomSeat(null, SeatUse.Open)], state.Seats);
+        Assert.Equal([new RoomSeat(anna.Id, SeatUse.Open, Race.Red), new RoomSeat(ben.Id, SeatUse.Open, Race.Blue), new RoomSeat(null, SeatUse.Open, Race.Green)],
+            state.Seats);
     }
 
     [Fact]
@@ -55,7 +56,7 @@ public class RoomTests
         anna.Connection.Send(new SetSeat(1, SeatUse.Computer));
 
         var state = await anna.Next<RoomState>(s => s.Players.Count == 1);
-        Assert.Equal(new RoomSeat(null, SeatUse.Computer), state.Seats[1]);
+        Assert.Equal(new RoomSeat(null, SeatUse.Computer, Race.Blue), state.Seats[1]);
         await ben.Next<RoomState>(s => s.Players.All(p => p.ClientId != ben.Id));
         Assert.Equal("The host took you out of the room.", (await Refusal(ben)).Reason);
     }
@@ -77,7 +78,7 @@ public class RoomTests
         anna.Connection.Send(new SetSeat(0, SeatUse.Closed));
         anna.Connection.Send(new SetSeat(2, SeatUse.Closed));
         var state = await anna.Next<RoomState>(s => s.Seats[2].Use == SeatUse.Closed);
-        Assert.Equal(new RoomSeat(anna.Id, SeatUse.Open), state.Seats[0]);
+        Assert.Equal(new RoomSeat(anna.Id, SeatUse.Open, Race.Red), state.Seats[0]);
     }
 
     [Fact]
@@ -99,7 +100,8 @@ public class RoomTests
         Assert.Equal(options, state.Options);
         Assert.True(state.FillWithAi);
         Assert.All(state.Players, p => Assert.False(p.Ready));
-        Assert.Equal([new RoomSeat(anna.Id, SeatUse.Open), new RoomSeat(ben.Id, SeatUse.Open), new RoomSeat(null, SeatUse.Open)], state.Seats);
+        Assert.Equal([new RoomSeat(anna.Id, SeatUse.Open, Race.Red), new RoomSeat(ben.Id, SeatUse.Open, Race.Blue), new RoomSeat(null, SeatUse.Open, Race.Green)],
+            state.Seats);
     }
 
     [Fact]
