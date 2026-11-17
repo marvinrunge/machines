@@ -49,7 +49,7 @@ public sealed partial class GameWorld
             return "that squadron has no machines";
         var ids = members.Select(m => m.Id).ToList();
         var key = (squadron.Race, scope, squadron.Squad);
-        _squadAttacks.Remove(key);
+        EndSquadAttacks(key);
         // What the squadron is told to do is told by whoever told the squadron.
         string? Pass(Command order) => Apply(order with { Issuer = squadron.Issuer });
         if (CommanderOf(squadron.Race, scope, squadron.Squad) is not { } commander)
@@ -139,6 +139,21 @@ public sealed partial class GameWorld
         GiveCommand c => c with { Machines = ids },
         _ => order,
     };
+
+    /// <summary>
+    /// A new order for a squadron ends every attack that was ordering its machines, as it ends the squadron's own in a race
+    /// of one player: in a race of several commanders, a commander's order also ends the attack of the whole race's
+    /// squadron of the number (one the stand-in AI gave while it played the race), and an order of the whole race's
+    /// squadron (the AI's) also ends each commander's.
+    /// </summary>
+    private void EndSquadAttacks((Race Race, PlayerId? Owner, int Squad) key)
+    {
+        if (_squadAttacks.Count == 0)
+            return;
+        foreach (var attack in _squadAttacks.Keys.Where(k => k.Race == key.Race && k.Squad == key.Squad
+            && (key.Owner is null || k.Owner is null || k.Owner == key.Owner)).ToList())
+            _squadAttacks.Remove(attack);
+    }
 
     /// <summary>Every five seconds a squadron's attack goes on (MachLogAdminAttackOperation::doUpdate).</summary>
     private void UpdateSquadAttacks()

@@ -492,6 +492,75 @@ public class CoopCommanderTests
         Assert.Equal(0, world.DriveInput[hers.Id].Forward);
     }
 
+    // ---- after the review of S2 ---------------------------------------------------------------------
+
+    /// <summary>
+    /// As in a race of one player, where the player's squadron order ends the attack the computer gave that squadron while
+    /// it played the race: a commander back from the computer orders her squadron, and its attack, which went for the whole
+    /// race's squadron of the number, no longer drags her machines after its target.
+    /// </summary>
+    [Fact]
+    public void A_commander_s_squadron_order_ends_the_attack_the_computer_left_it()
+    {
+        var world = NewCoop();
+        var at = OpenGround(world);
+        var level = world.Data.Parm.Machines.First(m => m.Type == "ADMINISTRATOR" && m.SubType == "BOSS").Levels[0].HardwareLevel;
+        var herBoss = world.AddMachine(Race.Red, at, "ADMINISTRATOR", "BOSS", level, null, Anna);
+        var hers = Grunt(world, at + new Vector2(0, 12), Anna);
+        // A Blue grunt far off, on open ground, that Cleo will drive further away.
+        var far = Enumerable.Range(0, 2500).Select(i => new Vector2(100 + i % 50 * 30, 100 + i / 50 * 30))
+            .First(p => Vector2.Distance(p, at) is > 380 and < 450 && world.Nav.IsAreaFree((p - new Vector2(20, 20), p + new Vector2(20, 20))));
+        var quarry = world.AddMachine(Race.Blue, far, "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+        Assert.DoesNotContain(world.Machines, m => m.Squad == 9);
+        world.Issue(new FormSquadronCommand(Race.Red, [herBoss.Id, hers.Id], 9) { Issuer = Anna });
+        Run(world, 1, () => world.Tick % GameWorld.TicksPerSecond == 1);
+
+        // Both away, the computer sends Red's squadron 9 after the quarry.
+        world.ChangePresence([Away(Anna), Away(Ben)]);
+        world.Issue(new SquadronCommand(Race.Red, 9, new AttackCommand(Race.Red, [], quarry.Id)));
+        world.Step();
+        Assert.Empty(world.Rejected);
+        Assert.IsType<MoveOrder>(hers.Order);
+
+        // Back, she calls her squadron home, and the quarry comes halfway: far enough off for her to stay put on her own.
+        world.ChangePresence([Back(Anna)]);
+        world.Issue(new SquadronCommand(Race.Red, 9, new MoveCommand(Race.Red, [], at)) { Issuer = Anna });
+        world.Issue(new MoveCommand(Race.Blue, [quarry.Id], at + (far - at) * 0.5f) { Issuer = Cleo });
+        world.Step();
+        Assert.Empty(world.Rejected);
+        Run(world, 40);
+        Assert.True(Vector2.Distance(hers.Position, at) < 40, $"her grunt went after the quarry: {hers.Position}, {hers.Order}");
+        Assert.IsNotType<MoveOrder>(hers.Order);
+    }
+
+    /// <summary>The other way round: an order of the whole race's squadron (the AI's, a script's) ends the attack a commander gave hers.</summary>
+    [Fact]
+    public void An_order_of_the_race_s_squadron_ends_a_commander_s_attack()
+    {
+        var world = NewCoop();
+        var at = OpenGround(world);
+        var level = world.Data.Parm.Machines.First(m => m.Type == "ADMINISTRATOR" && m.SubType == "BOSS").Levels[0].HardwareLevel;
+        var herBoss = world.AddMachine(Race.Red, at, "ADMINISTRATOR", "BOSS", level, null, Anna);
+        var hers = Grunt(world, at + new Vector2(0, 12), Anna);
+        var far = Enumerable.Range(0, 2500).Select(i => new Vector2(100 + i % 50 * 30, 100 + i / 50 * 30))
+            .First(p => Vector2.Distance(p, at) is > 380 and < 450 && world.Nav.IsAreaFree((p - new Vector2(20, 20), p + new Vector2(20, 20))));
+        var quarry = world.AddMachine(Race.Blue, far, "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+        world.Issue(new FormSquadronCommand(Race.Red, [herBoss.Id, hers.Id], 9) { Issuer = Anna });
+        world.Step();
+
+        world.Issue(new SquadronCommand(Race.Red, 9, new AttackCommand(Race.Red, [], quarry.Id)) { Issuer = Anna });
+        world.Step();
+        Assert.IsType<MoveOrder>(hers.Order);
+
+        world.Issue(new SquadronCommand(Race.Red, 9, new MoveCommand(Race.Red, [], at)));
+        world.Issue(new MoveCommand(Race.Blue, [quarry.Id], at + (far - at) * 0.5f) { Issuer = Cleo });
+        world.Step();
+        Assert.Empty(world.Rejected);
+        Run(world, 40);
+        Assert.True(Vector2.Distance(hers.Position, at) < 40, $"her grunt went after the quarry: {hers.Position}, {hers.Order}");
+        Assert.IsNotType<MoveOrder>(hers.Order);
+    }
+
     // ---- determinism ----------------------------------------------------------------------------------
 
     [Fact]
