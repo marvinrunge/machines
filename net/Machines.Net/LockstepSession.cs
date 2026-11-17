@@ -133,9 +133,6 @@ public sealed class LockstepSession
     /// </summary>
     public event Action<long, long>? Landed;
 
-    /// <summary>The first tick after which the worlds disagreed, once the relay has said so.</summary>
-    public long? DesyncTick { get; private set; }
-
     /// <summary>Every turn carried out that held commands, at the tick it ran on, for a replay.</summary>
     public IReadOnlyList<Turn> Played => _played;
 
@@ -198,8 +195,8 @@ public sealed class LockstepSession
     /// <summary>
     /// Takes what the relay (or a recording) brings. In turn mode: a human player's turn for a tick still to come, a human
     /// player leaving or coming back, a bot's seat joined late, a lag mark. In bundle mode only the relay's bundles and the
-    /// pieces of its log count, each in the relay's numbering. Both: the news that the worlds differ. Anything else, and
-    /// anything about a player who is no human of this world, is passed over.
+    /// pieces of its log count, each in the relay's numbering. Anything else, and anything about a player who is no human of
+    /// this world, is passed over: a world the relay finds out of step is rebuilt from its log in a new session (P2 design §5).
     /// </summary>
     public void Receive(NetMessage message)
     {
@@ -216,9 +213,6 @@ public sealed class LockstepSession
                 break;
             case PlayerLeft or PlayerReturned or PlayerJoined or PlayerLagging when _mode == SessionMode.Turns:
                 Note(message);
-                break;
-            case Desync desync:
-                DesyncTick ??= desync.Tick;
                 break;
         }
     }

@@ -269,7 +269,7 @@ public sealed class RelayServer : IAsyncDisposable
                 if (!_rooms.TryGetValue(join.RoomId, out var target))
                     SendTo(member, new Refused("no such room"));
                 else if (target.Match is not null)
-                    SendTo(member, new Refused("that match has already started"));
+                    JoinLate(member, target, join);
                 else if (!target.Seats.Any(s => s.IsFree))
                     SendTo(member, new Refused("that room is full"));
                 else
@@ -465,8 +465,8 @@ public sealed class RelayServer : IAsyncDisposable
         }
         if (room.Members.Count == 0)
         {
-            _rooms.Remove(room.Id);
-            if (room.Beat is { Stopped: false } running)
+            // Settling what the leaver left may have taken the room's other members out, and dropped it already.
+            if (_rooms.Remove(room.Id) && room.Beat is { Stopped: false } running)
                 Log?.Invoke($"room {room.Id}: dropped with its last member; {running.Summary()}");
             return;
         }
@@ -535,13 +535,12 @@ public sealed class RelayServer : IAsyncDisposable
                 TakeOutOfMatch(holder, "you came back to this match from another connection");
             return;
         }
-        var row = room.Match.Players
-            .Where(p => !p.Ai && p.Player is { } id && beat.Seat(id)?.State == SeatState.Gone && room.HelloNames.GetValueOrDefault(id) == member.Name
-                        && (rejoin.Player is null || rejoin.Player == id))
-            .MinBy(p => p.Player!.Value);
-        if (row is null)
+        // The seats of the match's people (and of its late joiners), by the name they connected with.
+        var named = beat.Seats.Where(s => s.State is SeatState.Gone or SeatState.Barred && room.HelloNames.GetValueOrDefault(s.Player) == member.Name
+                                          && (rejoin.Player is null || rejoin.Player == s.Player)).ToList();
+        if (named.Where(s => s.State == SeatState.Gone).MinBy(s => s.Player.Value) is not { } gone)
         {
-            SendTo(member, new Refused($"no player called {member.Name} left that match"));
+            SendTo(member, new Refused(named.Count > 0 ? "you were taken out of that match" : $"no player called {member.Name} left that match"));
             return;
         }
         Leave(member);
@@ -551,30 +550,116 @@ public sealed class RelayServer : IAsyncDisposable
             return;
         }
         var fresh = NewKey();
-        room.SeatKeys[row.Player!.Value] = fresh;
-        Rebuild(member, room, row.Player.Value, ResumeReason.Rejoin, fresh);
+        room.SeatKeys[gone.Player] = fresh;
+        Rebuild(member, room, gone.Player, ResumeReason.Rejoin, fresh);
     }
+
+    /// <summary>
+    /// A player joins a running battle late, in a seat a bot has played since the start (P2 design §6.2): the seat
+    /// <see cref="JoinRoom.Seat"/> names, else one on the team with fewer people (team A on a tie), the bot's seat there with the
+    /// lowest player. Only a battle whose beat runs and whose end is not agreed takes one, and only with the battle's ground
+    /// (<see cref="MatchInfo.Terrain"/>, when it has one). The joiner's world is rebuilt from the log while the bot plays on; once
+    /// it is on time every world turns the bot's row into the joiner's (<see cref="PlayerJoined"/>), who takes over the hero as
+    /// it stands.
+    /// </summary>
+    private void JoinLate(Member member, Room room, JoinRoom join)
+    {
+        // A member of the match itself comes back to it by RejoinMatch.
+        if (room.Match!.Options.Battle is not { } battle || member.Room == room)
+        {
+            SendTo(member, new Refused("that match has already started"));
+            return;
+        }
+        if (Joinable(room) == 0)
+        {
+            SendTo(member, new Refused("no seat to join in that battle"));
+            return;
+        }
+        var beat = room.Beat!;
+        PlayerId? named = null;
+        if (join.Seat is { } index)
+        {
+            if (index < 0 || index >= room.Seats.Count)
+            {
+                SendTo(member, new Refused("no such seat"));
+                return;
+            }
+            named = room.Seats[index].Player ?? PlayerId.Of(room.Seats[index].Race);
+            if (beat.Seat(named.Value)?.State != SeatState.Bot)
+            {
+                SendTo(member, new Refused("that seat is not free"));
+                return;
+            }
+        }
+        // Without the battle's ground the joiner's shots would go through hills its world does not have: out of step, three
+        // resyncs, and out.
+        if (room.Match.Terrain is { } ground && join.Terrain != ground)
+        {
+            SendTo(member, new Refused("your game's ground differs from that battle's"));
+            return;
+        }
+        if (member.Room is not null)
+            Leave(member);
+        // Leaving its own seat may have changed the seats (a joiner joining again), or dropped the room it was the last of.
+        var player = named is { } seat && beat.Seat(seat)?.State == SeatState.Bot ? seat : named is null ? JoinSeat(room, battle) : null;
+        if (!_rooms.ContainsKey(room.Id) || player is null)
+        {
+            SendTo(member, new Refused(_rooms.ContainsKey(room.Id) ? "no seat to join in that battle" : "that match is not running"));
+            return;
+        }
+        var key = NewKey();
+        room.SeatKeys[player.Value] = key;
+        Rebuild(member, room, player.Value, ResumeReason.LateJoin, key, room.UniqueName(member.Name));
+    }
+
+    /// <summary>
+    /// The seat a late joiner takes (P2 design §6.2): on the team with fewer people's seats (of people in any state, joiners
+    /// included), team A on a tie, the bot's seat with the lowest player; on the other team when that one has none. Null when no
+    /// seat is a bot's.
+    /// </summary>
+    private static PlayerId? JoinSeat(Room room, BattleOptions battle)
+    {
+        var beat = room.Beat!;
+        var teams = BattleSeats.Of(battle).Select(s => (s.Team, Seat: beat.Seat(s.Player))).Where(s => s.Seat is not null).ToList();
+        return teams.GroupBy(s => s.Team)
+            .OrderBy(team => team.Count(s => s.Seat!.State != SeatState.Bot)).ThenBy(team => team.Key)
+            .Select(team => team.Where(s => s.Seat!.State == SeatState.Bot).Select(s => (PlayerId?)s.Seat!.Player).Min())
+            .FirstOrDefault(player => player is not null);
+    }
+
+    /// <summary>
+    /// How many seats of a running battle a player may join late (<see cref="RoomSummary.Joinable"/>): the bots' seats, while
+    /// the beat runs and the end is not agreed; none in any other room.
+    /// </summary>
+    private static int Joinable(Room room) =>
+        room is { Match.Options.Battle: not null, Beat: { Anchor: not null, Stopped: false, DecidedAt: null } beat, Failed: false }
+            ? beat.Seats.Count(s => s.State == SeatState.Bot)
+            : 0;
 
     /// <summary>
     /// A player's world is rebuilt from the relay's log (P2 design §5.3): their seat stops playing at the next bundle (held,
     /// or in a battle handed to a bot) and returns once its world is built and on time (<see cref="Beat.Rebuild"/>); the
     /// member takes the seat; and before the next bundle it gets <see cref="MatchResumed"/>, the pieces of every sealed
-    /// segment of the log (the same objects for every rebuild), and every bundle since as a plain one.
+    /// segment of the log (the same objects for every rebuild), and every bundle since as a plain one. What its old world
+    /// reported and the relay has not compared yet is forgotten: from now on only its new world's reports count.
     /// </summary>
-    private void Rebuild(Member member, Room room, PlayerId player, ResumeReason reason, string? newKey)
+    /// <param name="name">A late joiner's name in the room, which every world gives the seat when it joins.</param>
+    private void Rebuild(Member member, Room room, PlayerId player, ResumeReason reason, string? newKey, string? name = null)
     {
         var beat = room.Beat!;
-        beat.Rebuild(player);
+        beat.Rebuild(player, name);
+        var seat = beat.Seat(player)!;
         var row = room.Match!.Players.First(r => r.Player == player);
         member.Room = room;
-        (member.Race, member.Player, member.RoomName, member.Colour, member.Ready) = (row.Slot, player, row.Name, row.Colour, true);
+        (member.Race, member.Player, member.RoomName, member.Colour, member.Ready) = (row.Slot, player, seat.Name ?? row.Name, row.Colour, true);
         if (!room.Members.Contains(member))
             room.Members.Add(member);
         room.HelloNames[player] = member.Name;
+        Forget(room, player);
         var log = room.Bundles!;
         var parts = log.Segments.SelectMany(s => s.Parts).ToList();
         var plain = log.Plain().ToList();
-        SendTo(member, new MatchResumed(room.Match, player, beat.NextTick, reason, parts.Count, newKey));
+        SendTo(member, new MatchResumed(room.Match, player, beat.NextTick, reason, parts.Count, newKey, seat.Resyncs));
         foreach (var part in parts)
             SendTo(member, part);
         foreach (var bundle in plain)
@@ -587,7 +672,12 @@ public sealed class RelayServer : IAsyncDisposable
         // is what the member had not acknowledged before it (a line just cut for its backlog acknowledges what it caught up
         // on only within a second). From what it has now on, its backlog may grow by MostBacklog as anyone's may.
         member.Allowance = member.Connection.Backlog;
-        var what = reason switch { ResumeReason.Resync => "resync", ResumeReason.LateJoin => "late join", _ => "rejoin" };
+        var what = reason switch
+        {
+            ResumeReason.Resync => $"resync {seat.Resyncs}/{_beat.MostResyncs}",
+            ResumeReason.LateJoin => "late join",
+            _ => "rejoin",
+        };
         Log?.Invoke($"room {room.Id}: {what} of {member.Name} (player {player}) from tick {beat.NextTick}: log {parts.Sum(p => (long)p.Data.Length)} bytes in {parts.Count} parts and {plain.Count} bundles");
         _wake.Set();
     }
@@ -893,7 +983,7 @@ public sealed class RelayServer : IAsyncDisposable
             foreach (var bundle in bundles)
             {
                 if (room.Bundles!.Add(bundle, _beat.SegmentTicks) is { } run)
-                    Seal(room.Bundles, run);
+                    Seal(room, room.Bundles, run);
                 Broadcast(room, bundle);
             }
             Notices(room, beat);
@@ -968,10 +1058,12 @@ public sealed class RelayServer : IAsyncDisposable
     {
         foreach (var member in room.Members.Where(m => m.Player is not null).ToList())
         {
+            // What is left of a rebuild package not acknowledged yet is in the backlog, so the allowance shrinks as the backlog
+            // does, never below what the package may still hold: a package smaller than the limit stays allowed until an
+            // acknowledgement (once a second) takes it off, rather than counting from the first look at it.
             var backlog = member.Connection.Backlog;
-            if (backlog <= _beat.MostBacklog)
-                member.Allowance = 0;
-            else if (backlog > _beat.MostBacklog + member.Allowance)
+            member.Allowance = Math.Min(member.Allowance, backlog);
+            if (backlog > _beat.MostBacklog + member.Allowance)
             {
                 Log?.Invoke($"room {room.Id}: {member.Name} (player {member.Player}) has {backlog} messages not acknowledged: taken out of the match");
                 SendTo(member, new LeftMatch("Your connection cannot keep up with this match."));
@@ -984,72 +1076,152 @@ public sealed class RelayServer : IAsyncDisposable
     /// A run of the log is sealed on the thread pool, outside the lock (P2 design §2.10): its bundles with something in them
     /// as gzipped JSON in pieces; under the lock again the pieces join the sealed segments once every older run's have.
     /// </summary>
-    private void Seal(BundleLog log, SealRun run)
+    /// <remarks>
+    /// A run whose sealing fails is tried once more; failing again, it stays in the log as plain bundles, which every rebuild
+    /// is sent instead, and so do the runs after it (which wait for it). Nothing of the match is lost either way.
+    /// </remarks>
+    private void Seal(Room room, BundleLog log, SealRun run)
     {
         var partBytes = _beat.PartBytes;
         var hook = BeforeSeal;
         Track(Task.Run(async () =>
         {
-            if (hook is not null)
-                await hook(run.From, run.To);
-            var parts = BundleSegments.Seal(run.From, run.To, run.Bundles, partBytes);
-            lock (_lock)
-                log.Sealed(run, parts);
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    if (hook is not null)
+                        await hook(run.From, run.To);
+                    var parts = BundleSegments.Seal(run.From, run.To, run.Bundles, partBytes);
+                    lock (_lock)
+                        log.Sealed(run, parts);
+                    return;
+                }
+                catch (Exception exception)
+                {
+                    lock (_lock)
+                        Log?.Invoke($"room {room.Id}: sealing ticks {run.From}–{run.To} failed{(attempt < 2 ? ", trying again" : "; they stay plain bundles")}: {exception.Message}");
+                    if (attempt >= 2)
+                        return;
+                }
+            }
         }));
     }
 
-    /// <summary>Whether a player's checksum counts: a playing person's, or a returning one's once its world is built (a lagged one's always).</summary>
+    /// <summary>
+    /// Whether a player's checksum counts: a playing person's, or a returning one's once its world is built (a lagged one's
+    /// always); a rebuilding or joining world's before its <see cref="MatchLoaded"/> is the old world's.
+    /// </summary>
     private static bool Reports(Beat beat, PlayerId player) => beat.Seat(player) is { } seat
         && (seat.State == SeatState.Playing || seat.State == SeatState.Returning && (seat.Loaded || seat.Returning == ReturnKind.Lagged));
 
-    /// <summary>Once every person still playing reported a tick, they must all agree: teammates as well as sides.</summary>
+    /// <summary>
+    /// A player's checksum of a tick (P2 design §5.2): one of a tick already agreed (a straggler, or a returning world catching
+    /// up) is checked against it at once; any other waits with the tick's reports until a value is agreed.
+    /// </summary>
     private void Compare(Room room, ChecksumReport report)
     {
-        // A returning player catching up reports ticks the others agreed on long ago.
         if (room.Agreed.TryGetValue(report.Tick, out var agreed))
         {
             if (agreed != report.Value)
-                Desynced(room, report.Tick);
+                OutOfStep(room, report.Player, report.Tick, $"{report.Value:X16} against the agreed {agreed:X16}");
             return;
         }
         if (!room.Checksums.TryGetValue(report.Tick, out var reports))
             room.Checksums[report.Tick] = reports = [];
         reports[report.Player] = report.Value;
-        Settle(room, report.Tick, reports);
+        Settle(room, report.Tick);
     }
 
-    /// <summary>Every tick still waiting for reports is compared again: fewer may be playing now.</summary>
+    /// <summary>Every tick still waiting for reports is settled again: fewer may be playing now, or a returning player plays again.</summary>
     private void SettlePending(Room room)
     {
         if (room.Checksums.Count == 0)
             return;
-        foreach (var (tick, reports) in room.Checksums.OrderBy(c => c.Key).ToList())
-            Settle(room, tick, reports);
+        foreach (var tick in room.Checksums.Keys.Order().ToList())
+        {
+            // A world taken out of the match may have been the room's last member.
+            if (!_rooms.ContainsKey(room.Id))
+                return;
+            Settle(room, tick);
+        }
     }
 
     /// <summary>
-    /// A tick's reports are compared once every person playing has given theirs: after the last report, or after the last
-    /// who had not reported it stopped playing.
+    /// A tick's reports are settled (P2 design §5.2) as soon as more than half of the persons playing (reported or not)
+    /// reported one value: it is agreed, and every reporter with another value, playing or returning, is out of step. When
+    /// every person playing reported the tick without such a value, every reporter of it is out of step (a 1 vs 1 that
+    /// differs rebuilds both) and nothing is agreed. Reports of seats no longer reporting (gone, taken out, rebuilt) do not count.
     /// </summary>
-    private void Settle(Room room, long tick, Dictionary<PlayerId, ulong> reports)
+    private void Settle(Room room, long tick)
     {
-        var expected = room.Beat!.Seats.Where(s => s.State == SeatState.Playing).Select(s => s.Player).ToList();
-        if (expected.Count == 0 || expected.Any(player => !reports.ContainsKey(player)))
+        var beat = room.Beat!;
+        if (!room.Checksums.TryGetValue(tick, out var all))
             return;
-        room.Checksums.Remove(tick);
-        if (reports.Values.Distinct().Count() > 1)
-            Desynced(room, tick);
-        else
-            room.Agreed[tick] = reports.Values.First();
+        var reports = all.Where(r => Reports(beat, r.Key)).OrderBy(r => r.Key.Value).ToList();
+        var playing = beat.Seats.Where(s => s.State == SeatState.Playing).Select(s => s.Player).ToList();
+        if (playing.Count == 0)
+            return;
+        var votes = reports.Where(r => playing.Contains(r.Key)).ToList();
+        if (votes.GroupBy(r => r.Value).FirstOrDefault(g => g.Count() * 2 > playing.Count) is { } majority)
+        {
+            room.Checksums.Remove(tick);
+            room.Agreed[tick] = majority.Key;
+            foreach (var (player, value) in reports.Where(r => r.Value != majority.Key))
+                OutOfStep(room, player, tick, $"{value:X16} against {majority.Key:X16}, agreed by {majority.Count()} of {playing.Count} playing");
+        }
+        else if (votes.Count == playing.Count)
+        {
+            room.Checksums.Remove(tick);
+            foreach (var (player, value) in reports)
+                OutOfStep(room, player, tick, $"{value:X16}, no value agreed by more than half of {playing.Count} playing");
+        }
     }
 
-    private void Desynced(Room room, long tick)
+    /// <summary>
+    /// A player's world was found out of step at a tick (P2 design §5.2, §5.5), at most once a tick for each world it builds:
+    /// up to <see cref="BeatTimings.MostResyncs"/> times it is rebuilt from the log (a resync), the next time the player is
+    /// taken out of the match. Once the end is agreed it is only logged: that world's battle does not count (§2.8).
+    /// </summary>
+    private void OutOfStep(Room room, PlayerId player, long tick, string values)
     {
-        if (room.Desynced)
+        var beat = room.Beat!;
+        if (!room.OutOfStepAt.Add((player, tick)))
             return;
-        room.Desynced = true;
-        Broadcast(room, new Desync(tick));
-        Log?.Invoke($"room {room.Id} desynced at tick {tick}");
+        var member = room.Members.FirstOrDefault(m => m.Player == player);
+        var name = member?.Name ?? room.HelloNames.GetValueOrDefault(player) ?? "nobody";
+        if (beat.DecidedAt is { } decided)
+        {
+            Log?.Invoke($"room {room.Id}: {name} (player {player}) out of step at tick {tick}: {values}; the match is decided at tick {decided}: nothing done");
+            return;
+        }
+        if (member is null)
+            return;
+        var count = beat.OutOfStep(player);
+        Log?.Invoke($"room {room.Id}: {name} (player {player}) out of step at tick {tick}: {values}");
+        if (count <= _beat.MostResyncs)
+        {
+            Rebuild(member, room, player, ResumeReason.Resync, newKey: null);
+            return;
+        }
+        beat.Bar(player);
+        Log?.Invoke($"room {room.Id}: {name} (player {player}) out of step {count} times: taken out of the match at tick {beat.NextTick}");
+        TakeOutOfMatch(member, "Your game kept going out of step with the others, so it has left the match.");
+        _wake.Set();
+    }
+
+    /// <summary>
+    /// A player's world is about to be rebuilt: what its old world reported and the relay has not settled yet no longer counts,
+    /// and its new world may be found out of step at the same ticks again.
+    /// </summary>
+    private static void Forget(Room room, PlayerId player)
+    {
+        foreach (var (tick, reports) in room.Checksums.ToList())
+        {
+            if (reports.Remove(player) && reports.Count == 0)
+                room.Checksums.Remove(tick);
+        }
+        room.OutOfStepAt.RemoveWhere(o => o.Player == player);
     }
 
     private void Broadcast(Room room, NetMessage message)
@@ -1196,8 +1368,8 @@ public sealed class RelayServer : IAsyncDisposable
         public BattleHero? Hero { get; set; }
 
         /// <summary>
-        /// The backlog the member had once the rebuild package sent last was on its way, which it may hold on top of its limit
-        /// until it was below the limit once.
+        /// The backlog the member had once the rebuild package sent last was on its way, which it may hold on top of its limit;
+        /// it shrinks with the backlog as acknowledgements take the package off.
         /// </summary>
         public int Allowance { get; set; }
     }
@@ -1301,11 +1473,14 @@ public sealed class RelayServer : IAsyncDisposable
         /// <summary>How often the relay went through the room's beat to close what was due (tests).</summary>
         public int Advanced { get; set; }
 
+        /// <summary>The checksums reported of each tick not settled yet, by player.</summary>
         public Dictionary<long, Dictionary<PlayerId, ulong>> Checksums { get; } = [];
-        public bool Desynced { get; set; }
 
-        /// <summary>Checksums every player reported alike, by tick.</summary>
+        /// <summary>The checksum agreed for a tick (P2 design §5.2): more than half of the persons playing reported it.</summary>
         public Dictionary<long, ulong> Agreed { get; } = [];
+
+        /// <summary>The ticks at which each player's present world was found out of step: once a tick and world is enough.</summary>
+        public HashSet<(PlayerId Player, long Tick)> OutOfStepAt { get; } = [];
 
         /// <summary>The name each person of the match connected with, by which they rejoin it.</summary>
         public Dictionary<PlayerId, string> HelloNames { get; } = [];
@@ -1358,7 +1533,7 @@ public sealed class RelayServer : IAsyncDisposable
 
         public RoomSummary Summary() => new(Id, Setup.Name, Setup.Scenario, Setup.Planet, Members.Count,
             Seats.Count(s => s.Member is not null || s.Use == SeatUse.Open), Match is not null,
-            Setup.Options.Battle is null ? null : RoomSummary.Battle, Setup.Options.Battle?.Tier ?? 0);
+            Setup.Options.Battle is null ? null : RoomSummary.Battle, Setup.Options.Battle?.Tier ?? 0, Joinable(this));
 
         public RoomState State() => new(Id, Setup.Name, Setup.Scenario, Setup.Planet, Setup.Slots, Setup.Options, Setup.FillWithAi, HostId,
             Members.Select(m => new LobbyPlayer(m.Id, m.RoomName, m.Colour, m.Ready, m.Terrain, m.Hero)).ToList(),

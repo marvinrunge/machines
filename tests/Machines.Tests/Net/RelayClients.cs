@@ -86,18 +86,20 @@ internal sealed class RelayClients : IAsyncDisposable
     }
 
     /// <summary>
-    /// Everyone in the room says, one after the other, that they are ready, in the colour the room shows them and in a battle
-    /// with the hero <paramref name="hero"/> gives them; the host starts and each client begins the match the relay sent
+    /// Everyone in the room says, one after the other, that they are ready, in the colour the room shows them, in a battle
+    /// with the hero <paramref name="hero"/> gives them, and with the ground fingerprint <paramref name="terrain"/> (which the
+    /// match then has, <see cref="MatchInfo.Terrain"/>); the host starts and each client begins the match the relay sent
     /// (with <paramref name="play"/> false only takes it, for a test to play it elsewhere).
     /// </summary>
-    public static async Task<MatchInfo> Begin(RelayClient host, IReadOnlyList<RelayClient> everyone, Func<RelayClient, BattleHero?>? hero = null, bool play = true)
+    public static async Task<MatchInfo> Begin(RelayClient host, IReadOnlyList<RelayClient> everyone, Func<RelayClient, BattleHero?>? hero = null, bool play = true,
+        long? terrain = null)
     {
         // The room as it stands: the relay shows it again to a member who asks for the list of rooms.
         host.Connection.Send(new ListRooms());
         var state = await host.Next<RoomState>(s => s.Players.Count == everyone.Count);
         foreach (var client in everyone)
         {
-            client.Connection.Send(new SetPlayer(state.Players.Single(p => p.ClientId == client.Id).Colour, Ready: true, Hero: hero?.Invoke(client)));
+            client.Connection.Send(new SetPlayer(state.Players.Single(p => p.ClientId == client.Id).Colour, Ready: true, terrain, hero?.Invoke(client)));
             state = await host.Next<RoomState>(s => s.Players.Single(p => p.ClientId == client.Id).Ready);
         }
         host.Connection.Send(new StartMatch());
@@ -151,6 +153,21 @@ internal sealed class RelayClients : IAsyncDisposable
         var client = await Connect(old.Name, web, via);
         (client.RoomId, client.Key) = (old.RoomId, old.Key);
         client.Connection.Send(new RejoinMatch(old.RoomId, old.Me, old.Key));
+        client.Take(await client.Next<MatchResumed>());
+        return client;
+    }
+
+    /// <summary>
+    /// A player joins the running battle of <paramref name="room"/> late under <paramref name="name"/> (P2 design §6.2), in
+    /// the bot's seat the relay picks or the one <paramref name="seat"/> names, with the ground fingerprint
+    /// <paramref name="terrain"/>, and rebuilds the world from the relay's log while the bot plays on; a refusal throws
+    /// (<see cref="InvalidOperationException"/>, "name: reason").
+    /// </summary>
+    public async Task<RelayClient> LateJoin(string name, bool web, int room, int? seat = null, long? terrain = null)
+    {
+        var client = await Connect(name, web);
+        client.RoomId = room;
+        client.Connection.Send(new JoinRoom(room, seat, terrain));
         client.Take(await client.Next<MatchResumed>());
         return client;
     }
@@ -230,17 +247,17 @@ internal sealed class RelayClients : IAsyncDisposable
     }
 
     /// <summary>
-    /// The clients' worlds agree: those still playing stand at the same tick with the same checksum, nobody heard of a desync,
-    /// and every checksum any of them reported is the one every other reported for that tick (<see cref="AssertSumsAgree"/>).
-    /// Returns how many ticks were compared.
+    /// The clients' worlds agree: those still playing stand at the same tick with the same checksum, nobody was resynced
+    /// (unless <paramref name="resyncs"/>), and every checksum any of them reported is the one every other reported for that
+    /// tick (<see cref="AssertSumsAgree"/>). Returns how many ticks were compared.
     /// </summary>
-    public static int AssertAgree(IEnumerable<RelayClient> clients)
+    public static int AssertAgree(IEnumerable<RelayClient> clients, bool resyncs = false)
     {
         var all = clients.ToList();
         var playing = all.Where(c => c.InMatch).ToList();
         Assert.Single(playing.Select(c => c.World.Tick).Distinct());
         Assert.Single(playing.Select(c => c.World.Checksum()).Distinct());
-        var compared = AssertSumsAgree(all);
+        var compared = AssertSumsAgree(all, resyncs);
         // Everyone still playing reported every checksum of the match, a returning player those of before too.
         foreach (var client in playing)
         {
@@ -251,16 +268,16 @@ internal sealed class RelayClients : IAsyncDisposable
     }
 
     /// <summary>
-    /// Every checksum any of the clients reported (those who left until they left, those who came back from the start again)
-    /// is the one every other reported for that tick, and nobody heard of a desync; wherever their worlds stand. Returns how
-    /// many ticks were compared.
+    /// Every checksum any of the clients reported (those who left until they left, those who came back from the start again;
+    /// of a world rebuilt the newest one's) is the one every other reported for that tick, and nobody's world was found out of
+    /// step and rebuilt (unless <paramref name="resyncs"/>); wherever their worlds stand. Returns how many ticks were compared.
     /// </summary>
-    public static int AssertSumsAgree(IEnumerable<RelayClient> clients)
+    public static int AssertSumsAgree(IEnumerable<RelayClient> clients, bool resyncs = false)
     {
         var sums = new Dictionary<long, (ulong Value, string Who)>();
         foreach (var client in clients)
         {
-            Assert.True(client.Session.DesyncTick is null, $"{client.Name} heard of a desync at tick {client.Session.DesyncTick}");
+            Assert.True(resyncs || client.Resyncs == 0, $"{client.Name}'s world was found out of step and rebuilt {client.Resyncs} times");
             Assert.True(client.Failure is null, $"{client.Name}'s thread failed: {client.Failure}");
             foreach (var (tick, value) in client.Sums)
             {
@@ -271,6 +288,39 @@ internal sealed class RelayClients : IAsyncDisposable
             }
         }
         return sums.Count;
+    }
+
+    /// <summary>
+    /// The clients' worlds recovered (P2 design §5): every checksum a world of theirs reported is the one the relay agreed for
+    /// that tick, where it agreed one, except those a world spoiled by <see cref="RelayClient.Corrupt"/> reported after its
+    /// spoiling, which may differ once the relay rebuilt that world (or took the client out of the match). Returns how many
+    /// reports were found equal to an agreed value.
+    /// </summary>
+    public static int AssertRecovered(RelayServer relay, int room, IEnumerable<RelayClient> clients)
+    {
+        var equal = 0;
+        foreach (var client in clients)
+        {
+            Assert.True(client.Failure is null, $"{client.Name}'s thread failed: {client.Failure}");
+            foreach (var world in client.History.Select(h => h.World).Distinct().Order())
+            {
+                // A world was replaced when the relay rebuilt it; the newest one stands, unless the client is out of the match.
+                var replaced = world < client.Rebuilds || client.Out is not null;
+                var spoiled = client.Corruptions.Where(c => c.World == world).Select(c => c.Tick).DefaultIfEmpty(long.MaxValue).Min();
+                foreach (var (_, tick, value) in client.History.Where(h => h.World == world))
+                {
+                    if (relay.Agreed(room, tick) is not { } agreed)
+                        continue;
+                    if (value == agreed)
+                        equal++;
+                    else
+                        Assert.True(replaced && tick > spoiled,
+                            $"{client.Name}'s world {world} reported {value:X16} at tick {tick}, the agreed {agreed:X16}"
+                            + (tick > spoiled ? $"; spoiled at {spoiled} and never rebuilt" : "; not spoiled"));
+                }
+            }
+        }
+        return equal;
     }
 
     /// <summary>
@@ -405,6 +455,26 @@ internal sealed class RelayClient(Connection connection, string name, bool web) 
 
     public int Rebuilds { get; private set; }
 
+    /// <summary>Every rebuild the relay sent the client, in order: the one that replaced its world <c>i</c> at <c>[i]</c>.</summary>
+    public List<MatchResumed> Rebuilt { get; } = [];
+
+    /// <summary>How often the relay rebuilt the client's world for being out of step (a resync).</summary>
+    public int Resyncs => Rebuilt.Count(r => r.Reason == ResumeReason.Resync);
+
+    /// <summary>
+    /// Every checksum the client reported, with the world it came from: 0 for the one the match began with, then one more
+    /// for each rebuild (<see cref="Rebuilds"/> when it was reported).
+    /// </summary>
+    public List<(int World, long Tick, ulong Value)> History { get; } = [];
+
+    /// <summary>Every time <see cref="Corrupt"/> spoiled one of the client's worlds: which, and after which tick.</summary>
+    public List<(int World, long Tick)> Corruptions { get; } = [];
+
+    /// <summary>The script the client's person follows in a world rebuilt from the relay's log; without, the old one goes on.</summary>
+    public Func<RelayClient, RelayScript?>? Rescript { get; set; }
+
+    private (long Tick, bool Every)? _spoil;
+
     /// <summary>Whether the client keeps its <see cref="MatchLoaded"/> back when its world is built, until <see cref="Load"/>.</summary>
     public bool HoldLoad { get; set; }
 
@@ -487,6 +557,13 @@ internal sealed class RelayClient(Connection connection, string name, bool web) 
     /// <summary>The client says its world is built.</summary>
     public void Load() => Connection.Send(new MatchLoaded());
 
+    /// <summary>
+    /// Something only this client's world has, a cheat or a bug (P2 design §9 S3): just after the world ran
+    /// <paramref name="tick"/>, the client's hero loses a hit point in a battle (while it lives with more than one), else its
+    /// race gains a BMU; once, or with <paramref name="every"/> in each world rebuilt from the log as well.
+    /// </summary>
+    public void Corrupt(long tick, bool every = false) => _spoil = (tick, every);
+
     /// <summary>The client asks for its seat back with its key over the connection it plays on, as the game does after a gap.</summary>
     public void RejoinHere() => Connection.Send(new RejoinMatch(RoomId, Me, Key));
 
@@ -494,7 +571,10 @@ internal sealed class RelayClient(Connection connection, string name, bool web) 
     {
         Connection.Send(message);
         if (message is ChecksumReport report)
+        {
             Sums[report.Tick] = report.Value;
+            History.Add((Rebuilds, report.Tick, report.Value));
+        }
     }
 
     /// <summary>Everything that arrived.</summary>
@@ -514,8 +594,11 @@ internal sealed class RelayClient(Connection connection, string name, bool web) 
                 break;
             case MatchResumed resumed:
                 (Resumed, Rebuilds) = (resumed, Rebuilds + 1);
+                Rebuilt.Add(resumed);
                 Key = resumed.Key ?? Key;
                 Begin(resumed.Match, resumed.Player);
+                if (Rescript is { } script)
+                    Script = script(this);
                 break;
             case LeftMatch left:
                 Out = left;
@@ -565,6 +648,16 @@ internal sealed class RelayClient(Connection connection, string name, bool web) 
 
     private void Stepped()
     {
+        if (_spoil is { } spoil && World.Tick == spoil.Tick)
+        {
+            if (World.Battle is not null && World.HeroOf(Me) is { IsDead: false, HitPoints: > 1 } hero)
+                hero.HitPoints -= 1;
+            else
+                World.Races[Race].Bmu += 1;
+            Corruptions.Add((Rebuilds, World.Tick));
+            if (!spoil.Every)
+                _spoil = null;
+        }
         Interlocked.Exchange(ref _tick, World.Tick);
         foreach (var refusal in World.Rejected)
             Refused.Add((World.Tick, refusal));

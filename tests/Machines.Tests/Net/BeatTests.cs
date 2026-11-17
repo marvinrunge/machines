@@ -638,6 +638,35 @@ public class BeatTests
         Assert.Contains(relay.Lines, l => l.Contains("the hold after the decision is over"));
     }
 
+    /// <summary>
+    /// The relay counts each time a seat's world is out of step (P2 design §5.2), for the resyncs and the bar and the summary;
+    /// and once the end is agreed nobody comes back, as nothing is to be won by it: a world rebuilt then stays returning.
+    /// </summary>
+    [Fact]
+    public void Out_of_step_is_counted_by_seat_into_the_summary_and_once_the_end_is_agreed_nobody_comes_back()
+    {
+        var quick = BeatTimings.Quick;
+        var relay = new Relay(quick, Skirmish(4));
+        relay.Play(20, Red, Blue, Green, Yellow);
+        Assert.DoesNotContain("out of step", relay.Beat.Summary());
+
+        // Green's world went its own way twice; the relay rebuilt it, held.
+        Assert.Equal(1, relay.Beat.OutOfStep(Green));
+        Assert.Equal(ReturnKind.Rebuilding, relay.Beat.Rebuild(Green));
+        Assert.Equal(2, relay.Beat.OutOfStep(Green));
+        Assert.Equal((2, 0), (relay.Beat.Seat(Green)!.Resyncs, relay.Beat.Seat(Red)!.Resyncs));
+        relay.Beat.Loaded(Green, relay.Now);
+
+        // Two of the three playing agree on the end: Green's rebuilt world is on time from then on, and stays returning.
+        relay.Beat.Decided(Red, 40, relay.Now);
+        relay.Beat.Decided(Blue, 40, relay.Now);
+        Assert.Equal(40, relay.Beat.DecidedAt);
+        relay.Play(20 + quick.BackAfter * 4, Red, Blue, Yellow, Green);
+        Assert.Equal((SeatState.Returning, true), (relay.Beat.Seat(Green)!.State, relay.Beat.Seat(Green)!.Held));
+        Assert.Equal([new PlayerLagging(Green, 21, true)], PresenceOf(relay.Sent));
+        Assert.EndsWith($"; out of step by player: {Green} 2", relay.Beat.Summary());
+    }
+
     [Fact]
     public void The_beat_starts_once_everyone_loaded_or_after_the_load_timeout_and_a_player_still_loading_is_late()
     {

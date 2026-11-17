@@ -69,7 +69,8 @@ public class LockstepTests
         Assert.True(a.Session.World.Tick > 300, $"only {a.Session.World.Tick} ticks ran");
         Assert.Equal(a.Session.World.Tick, b.Session.World.Tick);
         Assert.Equal(a.Session.World.Checksum(), b.Session.World.Checksum());
-        Assert.Null(a.Session.DesyncTick);
+        Assert.Empty(a.Resumed);
+        Assert.Empty(b.Resumed);
         Assert.NotEmpty(a.Session.Played);
 
         // The replay rebuilds the same world from the setup and the turns alone.
@@ -173,8 +174,8 @@ public class LockstepTests
 
         Assert.Equal(a.Session.World.Tick, b.Session.World.Tick);
         Assert.Equal(a.Session.World.Checksum(), b.Session.World.Checksum());
-        Assert.Null(a.Session.DesyncTick);
-        Assert.Null(b.Session.DesyncTick);
+        Assert.Empty(a.Resumed);
+        Assert.Empty(b.Resumed);
 
         var replay = new Replay(a.Match, a.Session.Played, a.Session.World.Tick);
         var playback = replay.Playback(Replay.BuildWorld(DataLoader.Value, replay.Match));
@@ -223,8 +224,12 @@ public class LockstepTests
         Assert.Empty(allied.Races[Race.Red].Allies);
     }
 
+    /// <summary>
+    /// Two worlds that differ in a 1 vs 1 have no value more than half of the players reported (P2 design §5.2): the relay
+    /// rebuilds both from its log, each player's race held meanwhile, and they play on alike.
+    /// </summary>
     [Fact]
-    public async Task The_relay_reports_a_desync_when_worlds_differ()
+    public async Task Both_worlds_of_a_one_against_one_that_differ_are_rebuilt_from_the_relays_log_and_agree_again()
     {
         await using var relay = RelayServer.Start(0, IPAddress.Loopback, beat: BeatTimings.Scripted);
         await using var a = await Player.Join(relay, "Anna", host: true);
@@ -233,12 +238,30 @@ public class LockstepTests
 
         for (var frame = 0; frame < 30; frame++)
             await Player.Frame(a, b);
+        var spoiled = b.Session.World.Tick;
         // Something only one world has: a cheat, or a bug.
         b.Session.World.Races[b.Race].Bmu += 1;
-        for (var frame = 0; frame < 80 && a.Session.DesyncTick is null; frame++)
+        for (var frame = 0; frame < 200 && (a.Resumed.Count == 0 || b.Resumed.Count == 0); frame++)
             await Player.Frame(a, b);
+        foreach (var player in new[] { a, b })
+        {
+            var resumed = Assert.Single(player.Resumed);
+            Assert.Equal((ResumeReason.Resync, 1, (string?)null), (resumed.Reason, resumed.Resyncs, resumed.Key));
+            Assert.True(resumed.FromTick > spoiled, $"rebuilt from tick {resumed.FromTick}");
+        }
 
-        Assert.NotNull(a.Session.DesyncTick);
+        // Rebuilt, both catch up and play on alike; the relay agrees on their checksums again.
+        for (var frame = 0; frame < 2000 && a.Session.World.Tick < spoiled + 200; frame++)
+            await Player.Frame(a, b);
+        await Player.CatchUp(a, b);
+        Assert.True(a.Session.World.Tick >= spoiled + 200, $"only at tick {a.Session.World.Tick}");
+        Assert.Equal(a.Session.World.Tick, b.Session.World.Tick);
+        Assert.Equal(a.Session.World.Checksum(), b.Session.World.Checksum());
+        Assert.Single(a.Resumed);
+        Assert.Single(b.Resumed);
+        // Each was held while its world was rebuilt, and is back.
+        foreach (var player in new[] { PlayerId.Of(a.Race), PlayerId.Of(b.Race) })
+            Assert.Equal([true, false], a.Session.Presence.OfType<PlayerLagging>().Where(l => l.Player == player).Select(l => l.Lagging));
     }
 
     [Fact]
@@ -306,8 +329,8 @@ public class LockstepTests
         Assert.Equal(a.Session.World.Checksum(), back.Session.World.Checksum());
         Assert.Equal(Controller.Player, a.Session.World.Races[race].Controller);
         Assert.Equal(Controller.Player, back.Session.World.Races[race].Controller);
-        Assert.Null(a.Session.DesyncTick);
-        Assert.Null(back.Session.DesyncTick);
+        Assert.Empty(a.Resumed);
+        Assert.Empty(back.Resumed);
         Assert.Contains(a.Session.Presence, m => m is PlayerReturned r && r.Player == PlayerId.Of(race));
 
         // The whole match, departure and return included, plays back the same.
@@ -327,6 +350,21 @@ public class LockstepTests
         public MatchInfo Match { get; private set; } = null!;
         public LockstepSession Session { get; private set; } = null!;
         public Race Race { get; private set; }
+
+        /// <summary>Every rebuild of the world the relay sent (a resync), in order.</summary>
+        public List<MatchResumed> Resumed { get; } = [];
+
+        /// <summary>A message of the relay: a rebuild begins the match afresh, the rest goes to the session.</summary>
+        private void Take(NetMessage message)
+        {
+            if (message is MatchResumed resumed)
+            {
+                Resumed.Add(resumed);
+                Begin(resumed.Match, resumed.Player);
+            }
+            else
+                Session.Receive(message);
+        }
 
         public static async Task<Player> Join(RelayServer relay, string name, bool host)
         {
@@ -396,7 +434,7 @@ public class LockstepTests
             {
                 player.Session.Pump();
                 while (player.Connection.Inbox.TryRead(out var message))
-                    player.Session.Receive(message);
+                    player.Take(message);
                 // A world far behind (rejoining) catches up several ticks a frame, as the game does.
                 for (var steps = 0; steps < 40 && player.Session.TryStep(); steps++)
                     player.Session.Pump();
@@ -412,7 +450,7 @@ public class LockstepTests
                 foreach (var player in new[] { a, b })
                 {
                     while (player.Connection.Inbox.TryRead(out var message))
-                        player.Session.Receive(message);
+                        player.Take(message);
                     var other = player == a ? b : a;
                     if (player.Session.World.Tick < other.Session.World.Tick)
                         player.Session.TryStep();

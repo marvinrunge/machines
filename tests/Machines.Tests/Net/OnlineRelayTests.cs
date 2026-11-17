@@ -358,6 +358,9 @@ public class OnlineRelayTests
         /// <summary>Every gap the session met in the relay's numbering.</summary>
         public List<(long Expected, long Got)> Gaps { get; } = [];
 
+        /// <summary>Every rebuild of the world the relay sent (a resync), in order.</summary>
+        public List<MatchResumed> Resumed { get; } = [];
+
         /// <summary>The tick of every turn with commands the player sent, in order.</summary>
         public List<long> Ordered { get; } = [];
 
@@ -412,6 +415,8 @@ public class OnlineRelayTests
                     Bundles.Add(bundle.Tick);
                     Turns.AddRange(bundle.Turns.Select(turn => (bundle.Tick, Session.World.Players.RaceOf(turn.Player))));
                 }
+                if (message is MatchResumed resumed)
+                    Resumed.Add(resumed);
                 Session.Receive(message);
             }
         }
@@ -471,8 +476,8 @@ public class OnlineRelayTests
             Assert.True(a.Session.World.Tick >= minimumTick, $"only {a.Session.World.Tick} ticks ran");
             Assert.Equal(a.Session.World.Tick, b.Session.World.Tick);
             Assert.Equal(a.Session.World.Checksum(), b.Session.World.Checksum());
-            Assert.Null(a.Session.DesyncTick);
-            Assert.Null(b.Session.DesyncTick);
+            Assert.Empty(a.Resumed);
+            Assert.Empty(b.Resumed);
             foreach (var player in new[] { a, b })
             {
                 Assert.Empty(player.Gaps);

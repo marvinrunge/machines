@@ -722,9 +722,7 @@ public partial class Game : Node3D
             }
         }
 
-        if (_session.DesyncTick is { } desync)
-            _hud.Banner(Lang.T("Out of sync since tick {0}: the players' games differ", desync));
-        else if (World.Winner is { } winner && Watching)
+        if (World.Winner is { } winner && Watching)
             _hud.Banner(Lang.T("{0} wins", Lang.T(Look(winner).ToString())));
         else if (MatchOver && World.Wired is null && ClassicGui.Bitmap(EndPicture) is null)
             _hud.Banner(World.Won(Player) ? "Victory" : "Defeat");

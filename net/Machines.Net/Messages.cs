@@ -27,7 +27,6 @@ namespace Machines.Net;
 [JsonDerivedType(typeof(MatchStarted), "matchStarted")]
 [JsonDerivedType(typeof(Turn), "turn")]
 [JsonDerivedType(typeof(ChecksumReport), "checksum")]
-[JsonDerivedType(typeof(Desync), "desync")]
 [JsonDerivedType(typeof(PlayerLeft), "playerLeft")]
 [JsonDerivedType(typeof(RejoinMatch), "rejoinMatch")]
 [JsonDerivedType(typeof(MatchResumed), "matchResumed")]
@@ -215,11 +214,12 @@ public sealed record Bundle(long Tick, IReadOnlyList<Turn> Turns, IReadOnlyList<
     public bool Empty => Turns.Count == 0 && (Presence is null || Presence.Count == 0);
 }
 
-/// <summary>A player's world checksum after a tick; the relay compares them.</summary>
+/// <summary>
+/// A player's world checksum after a tick. The relay compares them (P2 design §5.2): a value more than half of the playing
+/// persons reported is agreed, and a world that differs from it is rebuilt from the relay's log (a resync), or taken out of the
+/// match after <see cref="MatchResumed.Resyncs"/> resyncs.
+/// </summary>
 public sealed record ChecksumReport(long Tick, PlayerId Player, ulong Value) : NetMessage;
-
-/// <summary>Players' worlds differed after this tick.</summary>
-public sealed record Desync(long Tick) : NetMessage;
 
 /// <summary>
 /// A player left; their last turn was for <paramref name="FromTick"/> − 1, nobody waits for them after it, and

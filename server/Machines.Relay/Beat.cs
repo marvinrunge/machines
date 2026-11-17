@@ -191,6 +191,12 @@ public sealed class BeatSeat
     /// <summary>Late bundles counted for the seat over the match, for the summary.</summary>
     public int Late { get; internal set; }
 
+    /// <summary>
+    /// How often the seat's world was found out of step with the others (<see cref="Beat.OutOfStep"/>): each time up to
+    /// <see cref="BeatTimings.MostResyncs"/> it is rebuilt from the log, the next time it is taken out of the match.
+    /// </summary>
+    public int Resyncs { get; internal set; }
+
     /// <summary>The bundle the newest drive of the seat's player was placed on since it last began playing, −1 for none.</summary>
     internal long DroveAt { get; set; } = -1;
 
@@ -539,8 +545,13 @@ public sealed class Beat
             foreach (var seat in _seats.Values.Where(s => s.State == SeatState.Playing && s.Decided is null).ToList())
                 CountPlaying(seat, tick, presence);
         }
-        foreach (var seat in returning)
-            CountReturning(seat, tick, counts, presence);
+        // Once the end is agreed nobody's lateness counts (§2.8): nobody returns, a held rebuild is not handed over and no
+        // lagged seat is taken out, so the comings and goings after the end are only those of people who quit.
+        if (DecidedAt is null)
+        {
+            foreach (var seat in returning)
+                CountReturning(seat, tick, counts, presence);
+        }
 
         AdaptDelay();
 
@@ -788,6 +799,14 @@ public sealed class Beat
     }
 
     /// <summary>
+    /// A player's world was found out of step with the others (P2 design §5.2): counted, and the count returned. Up to
+    /// <see cref="BeatTimings.MostResyncs"/> the relay rebuilds that world from the log (<see cref="Rebuild"/>, a resync); the
+    /// next time it takes the player out of the match (<see cref="Bar"/>, §5.5).
+    /// </summary>
+    /// <exception cref="KeyNotFoundException">No seat of the match.</exception>
+    public int OutOfStep(PlayerId player) => ++_seats[player].Resyncs;
+
+    /// <summary>
     /// A player is taken out of the match for good (out of step too often, P2 design §5.5): a playing seat or a held rebuild
     /// leaves at the next bundle, after which the computer plays for them.
     /// </summary>
@@ -819,6 +838,8 @@ public sealed class Beat
             return;
         }
         Note($"player {player} says the match was decided at tick {tick}");
+        if (DecidedAt is { } decided && decided != tick)
+            Note($"player {player}'s world decided the match at tick {tick}, the others' at {decided}: out of step");
         seat.Decided = tick;
         Agree(now);
     }
@@ -837,6 +858,10 @@ public sealed class Beat
                 _buckets.Remove(later);
             _notices.Add(new BeatNotice(new MatchEnded(agreed.Key)));
             Note($"the match is decided at tick {agreed.Key}: {agreed.Count()} of {playing.Count} playing agree");
+            // A world that decided at another tick went its own way; once the end is agreed nobody is resynced (§5.2), so the
+            // log says so, and that world's battle does not count (§2.8).
+            foreach (var other in playing.Where(s => s.Decided is { } own && own != agreed.Key))
+                Note($"player {other.Player}'s world decided the match at tick {other.Decided}, the others' at {agreed.Key}: out of step");
         }
         if (playing.All(s => s.Decided is not null))
             Stop("every playing person reported the end");
@@ -863,8 +888,12 @@ public sealed class Beat
     {
         var late = string.Join(", ", _seats.Values.Where(s => s.Joined).Select(s => $"{s.Player} {s.Late}"));
         var delays = string.Join(", ", _delays.Select(d => $"{d.Key}: {d.Value}"));
+        // Out of step by player (each time up to MostResyncs a resync, the next a bar), only in a match where a world was.
+        var resyncs = _seats.Values.Where(s => s.Resyncs > 0).Select(s => $"{s.Player} {s.Resyncs}").ToList() is { Count: > 0 } found
+            ? $"; out of step by player: {string.Join(", ", found)}"
+            : "";
         return string.Create(CultureInfo.InvariantCulture,
-            $"{NextTick} ticks, {Moved} turns moved, late bundles by player: {late}; delay (bundles): {delays}; {_lateCloses} closed over 20 ms late, {_uncounted} counted nobody");
+            $"{NextTick} ticks, {Moved} turns moved, late bundles by player: {late}; delay (bundles): {delays}; {_lateCloses} closed over 20 ms late, {_uncounted} counted nobody{resyncs}");
     }
 
     private void Queue(PlayerId player, bool leaves) => _queued[player] = leaves || _queued.GetValueOrDefault(player);

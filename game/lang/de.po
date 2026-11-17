@@ -4545,3 +4545,14 @@ msgstr "Die Spiele der anderen haben diese Schlacht zu einem anderen Zeitpunkt b
 
 msgid "The relay did not confirm the end of this battle: it is not counted."
 msgstr "Das Relay hat das Ende dieser Schlacht nicht bestätigt: Sie wird nicht gezählt."
+
+# Online (P2 S3): a world taken out for going out of step, and a late join's refusals
+
+msgid "Your game kept going out of step with the others, so it has left the match."
+msgstr "Dein Spiel ist immer wieder aus dem Takt der anderen geraten und hat das Match deshalb verlassen."
+
+msgid "no seat to join in that battle"
+msgstr "in dieser Schlacht ist kein Platz frei"
+
+msgid "your game's ground differs from that battle's"
+msgstr "das Gelände deines Spiels weicht von dem dieser Schlacht ab"

@@ -50,8 +50,8 @@ public class BattleLockstepTests
         Assert.True(a.Session.World.Tick > BattleBalance.Opening / GameWorld.Dt + 100, $"only {a.Session.World.Tick} ticks ran");
         Assert.Equal(a.Session.World.Tick, b.Session.World.Tick);
         Assert.Equal(a.Session.World.Checksum(), b.Session.World.Checksum());
-        Assert.Null(a.Session.DesyncTick);
-        Assert.Null(b.Session.DesyncTick);
+        Assert.Empty(a.Resumed);
+        Assert.Empty(b.Resumed);
         Assert.Contains(a.Session.Played, t => a.Session.World.Players.RaceOf(t.Player) == b.Race);
         Assert.True(turned, "no sighted hero turned its upper body");
 
@@ -115,6 +115,10 @@ public class BattleLockstepTests
         public MatchInfo Match { get; private set; } = null!;
         public LockstepSession Session { get; private set; } = null!;
         public Race Race { get; private set; }
+
+        /// <summary>Every rebuild of the world the relay sent (a resync), in order.</summary>
+        public List<MatchResumed> Resumed { get; } = [];
+
         private bool _gone;
 
         private static async Task<Player> Connect(RelayServer relay, string name)
@@ -165,6 +169,14 @@ public class BattleLockstepTests
             Connection.Send(new MatchLoaded());
         }
 
+        /// <summary>A message of the relay to the session; a rebuild is only noted (no test here expects one).</summary>
+        private void Take(NetMessage message)
+        {
+            if (message is MatchResumed resumed)
+                Resumed.Add(resumed);
+            Session.Receive(message);
+        }
+
         /// <summary>One frame of each client: send a turn, read what arrived, step what can be stepped, a turn after each tick.</summary>
         public static async Task Frame(params Player[] players)
         {
@@ -172,7 +184,7 @@ public class BattleLockstepTests
             {
                 player.Session.Pump();
                 while (player.Connection.Inbox.TryRead(out var message))
-                    player.Session.Receive(message);
+                    player.Take(message);
                 for (var steps = 0; steps < 40 && player.Session.TryStep(); steps++)
                     player.Session.Pump();
             }
@@ -187,7 +199,7 @@ public class BattleLockstepTests
                 foreach (var player in new[] { a, b })
                 {
                     while (player.Connection.Inbox.TryRead(out var message))
-                        player.Session.Receive(message);
+                        player.Take(message);
                     var other = player == a ? b : a;
                     if (player.Session.World.Tick < other.Session.World.Tick)
                         player.Session.TryStep();

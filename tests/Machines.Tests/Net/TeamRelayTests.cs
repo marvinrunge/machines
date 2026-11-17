@@ -215,29 +215,66 @@ public class TeamRelayTests
             RelayClients.AssertPlaysBack(client);
     }
 
+    /// <summary>
+    /// A teammate whose world goes its own way (P2 design §5.2): three of the four worlds agree, so only hers is out of step
+    /// and rebuilt from the relay's log; meanwhile her machines are held (they keep their orders, nobody else's AI takes
+    /// them, her teammate plays on), and once her world is on time she is back and agrees with everyone again.
+    /// </summary>
     [Fact]
-    public async Task A_second_commander_whose_world_goes_its_own_way_is_a_desync_for_everyone()
+    public async Task A_second_commander_whose_world_goes_its_own_way_alone_is_rebuilt_and_agrees_again()
     {
         await using var relay = await RelayClients.Start();
         var anna = await relay.Connect("Anna", web: true);
         var ben = await relay.Connect("Ben", web: false);
         var cleo = await relay.Connect("Cleo", web: true);
         var dan = await relay.Connect("Dan", web: false);
-        await RelayClients.Open(anna,
+        var room = await RelayClients.Open(anna,
             new CreateRoom("Together", "m_desert", "m_desert", [Race.Red, Race.Blue], new MatchOptions(), FillWithAi: false, SeatsPerSlot: 2), ben, cleo, dan);
         List<RelayClient> clients = [anna, ben, cleo, dan];
         await RelayClients.Begin(anna, clients);
         Assert.Equal(P(4), cleo.Me);
+        var redAi = false;
+        foreach (var client in clients)
+        {
+            client.Script = new CommanderScript(client.Me, 700 + client.Me.Value, gives: false);
+            client.AfterStep = world => redAi |= world.AiControllers.Any(ai => ai.Race == Race.Red);
+        }
         await RelayClients.PlayTo(100, clients);
         Assert.Equal(5, RelayClients.AssertAgree(clients));
 
-        // Something only Cleo's world has, a cheat or a bug: her teammate's world and the others' do not.
-        cleo.World.Races[Race.Red].Bmu += 1;
-        await RelayClients.PlayTo(200, clients);
+        // Something only Cleo's world has, a cheat or a bug, after tick 110: her teammate's world and the others' do not.
+        cleo.Corrupt(110);
+        await RelayClients.PlayTo(500, clients);
 
-        Assert.All(clients, c => Assert.Equal(120, c.Session.DesyncTick));
-        Assert.Equal(anna.Sums[100], cleo.Sums[100]);
-        Assert.NotEqual(anna.Sums[120], cleo.Sums[120]);
+        // Her report of 120 was out of step with the three others': her world, and hers alone, was rebuilt from 120 on.
+        var resumed = Assert.Single(cleo.Rebuilt);
+        Assert.Equal((P(4), ResumeReason.Resync, 1, (string?)null), (resumed.Player, resumed.Reason, resumed.Resyncs, resumed.Key));
+        Assert.True(resumed.FromTick > 120, $"rebuilt from {resumed.FromTick}");
+        Assert.All(clients.Where(c => c != cleo), c => Assert.Equal(0, c.Rebuilds));
+        Assert.NotEqual(cleo.History.Single(h => h is { World: 0, Tick: 120 }).Value, relay.Relay.Agreed(room.Id, 120));
+        Assert.Equal(cleo.History.Single(h => h is { World: 1, Tick: 120 }).Value, relay.Relay.Agreed(room.Id, 120));
+        // Her report reached the relay before the third of the others' (agreed by 3 of 4 then) or after it (checked against the
+        // value agreed already), as the four connections happen to deliver them.
+        var agreed = relay.Relay.Agreed(room.Id, 120)!.Value;
+        Assert.Contains(relay.Lines, l => l.StartsWith($"room {room.Id}: Cleo (player 4) out of step at tick 120: ", StringComparison.Ordinal)
+                                          && (l.EndsWith($" against {agreed:X16}, agreed by 3 of 4 playing", StringComparison.Ordinal)
+                                              || l.EndsWith($" against the agreed {agreed:X16}", StringComparison.Ordinal)));
+        Assert.Contains(relay.Lines, l => l.StartsWith($"room {room.Id}: resync 1/3 of Cleo (player 4) from tick {resumed.FromTick}: log ", StringComparison.Ordinal));
+
+        // Every world held her machines from the rebuild until she was back, and Red was never the computer's.
+        foreach (var client in clients)
+        {
+            Assert.Equal([(true, resumed.FromTick)], client.Session.Presence.OfType<PlayerLagging>().Where(l => l.Lagging).Select(l => (l.Lagging, l.FromTick)));
+            Assert.Single(client.Session.Presence.OfType<PlayerLagging>(), l => !l.Lagging && l.Player == P(4));
+            Assert.Empty(client.Session.Presence.OfType<PlayerLeft>());
+            Assert.False(client.Session.Lagging(P(4)));
+        }
+        Assert.False(redAi, "the computer took Red while Cleo's world was rebuilt");
+
+        Assert.True(RelayClients.AssertRecovered(relay.Relay, room.Id, clients) >= 4 * 500 / 20);
+        Assert.True(RelayClients.AssertAgree(clients, resyncs: true) >= 500 / 20);
+        foreach (var client in new[] { anna, cleo })
+            RelayClients.AssertPlaysBack(client);
     }
 
     /// <summary>
@@ -395,9 +432,10 @@ public class TeamRelayTests
     }
 
     /// <summary>
-    /// A tick is compared once everyone still playing has reported it, also when the last who had not quits instead: worlds
-    /// that differ there are a desync at that tick, worlds that agree are agreed on, and the one who quit, back, catches up
-    /// past it in peace.
+    /// A tick no value of which more than half of the players reported is settled once everyone still playing has reported
+    /// it, also when the last who had not quits instead (P2 design §5.2): two worlds that differ there, with nobody left to
+    /// tell which went its own way, are both rebuilt from the relay's log and agree again; worlds that agree are agreed on,
+    /// and the one who quit, back, catches up past it in peace.
     /// </summary>
     [Theory]
     [InlineData(true)]
@@ -420,16 +458,25 @@ public class TeamRelayTests
             ben.World.Races[Race.Blue].Bmu += 1;
         await RelayClients.PlayTo(103, [anna, ben]);
         Assert.Equal(differ, anna.Sums[100] != ben.Sums[100]);
-        // The relay has taken both reports for 100 and waits for Cleo's.
-        await RelayClients.Until(() => relay.Relay.Pending(room.Id, 100)?.Count == 2, TimeSpan.FromSeconds(15), "both reports of tick 100 at the relay");
+        // The relay has taken both reports for 100: alike, they are two of three, more than half, and agreed at once; different,
+        // neither value is, and they wait for Cleo's.
+        await RelayClients.Until(() => differ ? relay.Relay.Pending(room.Id, 100)?.Count == 2 : relay.Relay.Agreed(room.Id, 100) is not null,
+            TimeSpan.FromSeconds(15), "both reports of tick 100 at the relay");
+        Assert.Equal(differ, relay.Relay.Agreed(room.Id, 100) is null);
 
         // Cleo quits without having reported tick 100: everyone still there has.
         await cleo.Leave();
         await RelayClients.PlayTo(140, clients);
         if (differ)
         {
-            Assert.Equal(100, anna.Session.DesyncTick);
-            Assert.Equal(100, ben.Session.DesyncTick);
+            // Neither of the two is more than half: both worlds are rebuilt from the relay's log, and agree from then on.
+            await RelayClients.PlayTo(300, clients);
+            foreach (var client in new[] { anna, ben })
+                Assert.Equal((ResumeReason.Resync, 1), (Assert.Single(client.Rebuilt).Reason, client.Rebuilt[0].Resyncs));
+            Assert.Contains(relay.Lines, l => l.Contains("(player 1) out of step at tick 100: ", StringComparison.Ordinal)
+                                              && l.EndsWith(", no value agreed by more than half of 2 playing", StringComparison.Ordinal));
+            Assert.Equal(anna.Sums[100], relay.Relay.Agreed(room.Id, 100));
+            Assert.Equal(15, RelayClients.AssertAgree(clients, resyncs: true));
             return;
         }
         // Agreed on: Cleo comes back, catches up past it, and everyone agrees on every checksum.

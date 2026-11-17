@@ -224,8 +224,8 @@ public class SeatTests
             Assert.Equal((match.InputDelay, new PlayerId(4)), (bundle.Tick, Assert.Single(bundle.Turns).Player));
         }
 
-        // Every person reports their own checksum, and all four must agree: a report in another's name counts for nothing,
-        // and a teammate whose world went its own way is a desync.
+        // Every person reports their own checksum, and teammates must agree as sides do: a report in another's name counts for
+        // nothing, and a teammate whose world went its own way is out of step with what more than half reported, and rebuilt.
         var everyone = new[] { (anna, 0), (ben, 1), (cleo, 4), (dan, 5) };
         foreach (var (client, player) in everyone)
             client.Connection.Send(new ChecksumReport(20, new PlayerId(player), 7));
@@ -234,10 +234,16 @@ public class SeatTests
         cleo.Connection.Send(new ChecksumReport(40, new PlayerId(5), 99));
         foreach (var (client, _) in everyone)
             await Handled(client);
+        Assert.Equal(3ul, relay.Agreed(room, 40));
         foreach (var (client, player) in everyone)
             client.Connection.Send(new ChecksumReport(60, new PlayerId(player), client == cleo ? 8u : 9u));
 
-        Assert.Equal(60, (await ben.Next<Desync>()).Tick);
+        var resumed = await cleo.Next<MatchResumed>();
+        Assert.Equal((new PlayerId(4), ResumeReason.Resync, 1, (string?)null), (resumed.Player, resumed.Reason, resumed.Resyncs, resumed.Key));
+        foreach (var (client, _) in everyone)
+            await Handled(client);
+        Assert.Equal(9ul, relay.Agreed(room, 60));
+        Assert.Equal([0, 0, 1, 0], everyone.Select(e => relay.WithBeat(room, beat => beat.Seat(new PlayerId(e.Item2))!.Resyncs)));
     }
 
     [Fact]
