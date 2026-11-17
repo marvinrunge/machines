@@ -1970,14 +1970,15 @@ public partial class Game : Node3D
     /// <summary>
     /// A coming or going as the world applied it, at its tick (P2 design §4.4): who left, and who looks after what they played;
     /// who is back; who joined a bot's seat late; who lags, and who is on time again. What happened before this player came back
-    /// into the match is no news.
+    /// into the match is no news, nor is the player's own leave at that very tick: in a battle the relay hands the hero to a bot
+    /// while the world is being rebuilt (P2 design §5.3), which is this coming back, not a leave of theirs.
     /// </summary>
     private void Applied(NetMessage change)
     {
         var resumed = MatchRequest.Current.ResumeFrom ?? 0;
         switch (change)
         {
-            case PlayerLeft left when left.FromTick >= resumed:
+            case PlayerLeft left when left.FromTick > resumed || left.FromTick == resumed && (left.Player != Me || MatchRequest.Current.ResumeFrom is null):
                 _hud.Message(LeaveNotice(left.Player, lagged: _session.Lagging(left.Player)));
                 break;
             case PlayerReturned back when back.Player != Me && back.FromTick >= resumed:
@@ -2193,8 +2194,10 @@ public partial class Game : Node3D
         if (Online)
         {
             NetLink.Send(new LeaveRoom());
-            // Left on purpose: the seat is not taken back by key from the multiplayer page.
-            NetLink.ForgetSeat();
+            // Left on purpose: the seat is not taken back by key from the multiplayer page. A seat this player's game took back
+            // on another connection is that game's now, and its key (the same, in the same settings) stays for it.
+            if (_takenOut != TakenOver)
+                NetLink.ForgetSeat();
         }
         // The menus open where the match was set up: the choice of mission, the skirmish setup or the rooms.
         if (!Watching && !home)
