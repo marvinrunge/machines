@@ -16,7 +16,7 @@ public partial class WiredDriver
     private async Task Shop(Game game, HangarPage page)
     {
         var world = game.World;
-        var state = world.Wired!.Heroes[Game.Player];
+        var state = world.Wired!.Heroes[Game.Me];
         await Until(() => state.HangarOpen || !IsInstanceValid(page), 3);
         await Wait(1);
         await Moment("hangar", $"hangar-w{world.Wired.Wave}");
@@ -65,9 +65,9 @@ public partial class WiredDriver
 
     /// <summary>What a command touches of the run, to see it land.</summary>
     private static string Fingerprint(GameWorld world, WiredState state) =>
-        $"{world.Races[Game.Player].Bmu:0}|{string.Join(",", state.Items.Select(i => $"{i.Id}:{i.Mk}"))}|{string.Join(",", state.Loadout.Worn.Select(i => i.Id))}|" +
+        $"{world.Bank(state):0}|{string.Join(",", state.Items.Select(i => $"{i.Id}:{i.Mk}"))}|{string.Join(",", state.Loadout.Worn.Select(i => i.Id))}|" +
         $"{string.Join(",", state.Loadout.Chips.Select(c => c?.Id))}|{state.ChipChoice.Count}|{string.Join(",", state.Offer)}|{state.Rerolled}|" +
-        $"{world.Escorts(Game.Player).Count()}|{world.WiredPod(Game.Player)?.HitPoints}|{state.HangarOpen}";
+        $"{world.Escorts(Game.Me).Count()}|{world.WiredPod(Game.Me)?.HitPoints}|{state.HangarOpen}";
 
     /// <summary>A command in a few words, with the names of what it touches.</summary>
     private static string Describe(WiredState state, Command order)

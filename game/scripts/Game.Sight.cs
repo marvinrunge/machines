@@ -251,7 +251,7 @@ public partial class Game
             return;
         if (_driven is null)
         {
-            if (World.HeroOf(Player) is { IsDead: false } hero && !HangarOpen && !_heroDown)
+            if (World.HeroOf(Me) is { IsDead: false } hero && !HangarOpen && !_heroDown)
             {
                 Select([hero.Id]);
                 EnterFirstPerson();

@@ -94,7 +94,7 @@ public partial class WiredEndScreen(Game game, ClassicAssets assets) : MenuPage(
     protected override void Build()
     {
         _run = game.World.Wired!;
-        _state = _run.Heroes.GetValueOrDefault(Game.Player) ?? _run.Heroes.Values.First();
+        _state = _run.Heroes.GetValueOrDefault(Game.Me) ?? _run.Heroes.Values.First();
         _report = new WiredReport(_state.Stats, _run.Options.Difficulty);
         if (game.WiredBefore is { } before)
             _news = new WiredRecordNews(before, _report.Score, _state.Stats.WavesCleared, _state.Stats.Kills);

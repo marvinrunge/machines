@@ -205,8 +205,9 @@ public partial class WiredMarks : Node3D
                 _podCircles[id].Material.SetShaderParameter("strength", run.TeamOf(Game.Player) == team ? 0.6f : 1f);
             }
             var material = _podCircles[id].Material;
-            material.SetShaderParameter("taken", run.Progress(1 - team) / BattleBalance.CaptureTarget);
-            material.SetShaderParameter("busy", run.Teams[1 - team].Any(run.Shares.ContainsKey) && !run.Over ? 1f : 0f);
+            // Of the points that take a pod in this battle: 100 in today's layout, more for bigger teams.
+            material.SetShaderParameter("taken", Math.Clamp(run.Progress(1 - team) / run.CaptureTarget, 0, 1));
+            material.SetShaderParameter("busy", run.Members[1 - team].Any(run.Shares.ContainsKey) && !run.Over ? 1f : 0f);
         }
         foreach (var id in _podCircles.Keys.Where(id => !pods.ContainsKey(id)).ToList())
         {

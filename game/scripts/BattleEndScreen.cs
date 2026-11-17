@@ -95,11 +95,13 @@ public partial class BattleEndScreen(Game game, ClassicAssets assets) : MenuPage
     {
         var world = game.World;
         _run = world.Battle!;
-        var race = _run.Tally.ContainsKey(Game.Player) ? Game.Player : world.Players.RaceOf(_run.Tally.Keys.First());
-        _state = world.Wired!.Heroes.GetValueOrDefault(race) ?? world.Wired.Heroes.Values.First();
-        _tally = _run.Tally[race];
-        _reward = BattleRewards.Of(_run, race);
-        _outcome = _run.Won(race) ? BattleOutcome.Won : _run.Lost(race) ? BattleOutcome.Lost : BattleOutcome.Draw;
+        // The screen is the player's own: their hero, what it did and brought (one looking on sees the first hero's).
+        var player = _run.Tally.ContainsKey(Game.Me) ? Game.Me : _run.Tally.Keys.First();
+        var race = world.Players.RaceOf(player);
+        _state = world.Wired!.Heroes.GetValueOrDefault(player) ?? world.Wired.Heroes.Values.First();
+        _tally = _run.Tally[player];
+        _reward = BattleRewards.Of(_run, player);
+        _outcome = _run.Won(player) ? BattleOutcome.Won : _run.Lost(player) ? BattleOutcome.Lost : BattleOutcome.Draw;
         _waiting = game.BattleCounted && BattleAccounts.Ledger.Waiting;
 
         foreach (var (side, value) in new[] { ("left", 30), ("right", 30), ("top", 24), ("bottom", 24) })
@@ -113,8 +115,8 @@ public partial class BattleEndScreen(Game game, ClassicAssets assets) : MenuPage
         var row = Line(14);
         row.SizeFlagsVertical = SizeFlags.ExpandFill;
         column.AddChild(row);
-        row.AddChild(BuildHero(compact ? 372 : 470, race));
-        row.AddChild(BuildMiddle(compact, race));
+        row.AddChild(BuildHero(compact ? 372 : 470, player));
+        row.AddChild(BuildMiddle(compact, player));
         row.AddChild(BuildRight(compact ? 410 : 490));
         column.AddChild(BuildFoot());
         AddChild(_fanfare = new EndFanfare());
@@ -151,7 +153,7 @@ public partial class BattleEndScreen(Game game, ClassicAssets assets) : MenuPage
     }
 
     /// <summary>The hero as it stood at the end, on the turntable, with its plate.</summary>
-    private Control BuildHero(float width, Race race)
+    private Control BuildHero(float width, PlayerId player)
     {
         var column = Column(10);
         column.CustomMinimumSize = new Vector2(width, 0);
@@ -164,7 +166,7 @@ public partial class BattleEndScreen(Game game, ClassicAssets assets) : MenuPage
         column.AddChild(chip);
 
         var plate = new ChipPanel { Padding = 8 };
-        var sheet = _run.Options.Heroes.FirstOrDefault(h => h.Race == race);
+        var sheet = BattleReadout.SheetOf(_run, player);
         var name = MenuTheme.Label(sheet?.Name is { Length: > 0 } given ? given : Lang.T("Hero"), 30, MenuTheme.Bright, HorizontalAlignment.Center);
         name.AutoTranslateMode = AutoTranslateModeEnum.Disabled;
         var loadout = _state.Loadout;
@@ -180,7 +182,7 @@ public partial class BattleEndScreen(Game game, ClassicAssets assets) : MenuPage
     }
 
     /// <summary>The middle: what the battle brought in three big numbers, how the XP came about, and every hero of both teams.</summary>
-    private Control BuildMiddle(bool compact, Race race)
+    private Control BuildMiddle(bool compact, PlayerId player)
     {
         var column = Column(10);
         column.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -215,7 +217,7 @@ public partial class BattleEndScreen(Game game, ClassicAssets assets) : MenuPage
         var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         var inner = Column(1);
         inner.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        var own = _run.TeamOf(race);
+        var own = _run.TeamOf(player);
         foreach (var team in new[] { own, 1 - own })
         {
             var heading = new EndRow
@@ -225,15 +227,16 @@ public partial class BattleEndScreen(Game game, ClassicAssets assets) : MenuPage
             };
             _rows.Add(heading);
             inner.AddChild(heading);
-            foreach (var hero in _run.Teams[team].Order())
+            // Every player of the team in their place, numbered where their race has several.
+            foreach (var hero in _run.Members[team])
             {
                 var tally = _run.Tally.GetValueOrDefault(hero) ?? new BattleTally();
-                var name = BattleReadout.HeroName(_run, hero);
+                var name = BattleReadout.Label(BattleReadout.NumberOf(game.World, hero), BattleReadout.HeroName(_run, hero));
                 var row = new EndRow
                 {
                     Cells = [name, $"{HangarText.Name(tally.Chassis)} · {BattleDraft.Roman(BattleCatalogue.Tier(tally.Chassis))}",
                         Number(tally.Damage), Number(tally.Kills), Number(Points(tally.Capture))],
-                    Stops = BoardStops, FontSize = 19, Last = hero == race ? MenuTheme.Bright : MenuTheme.Text,
+                    Stops = BoardStops, FontSize = 19, Last = hero == player ? MenuTheme.Bright : MenuTheme.Text,
                 };
                 _rows.Add(row);
                 inner.AddChild(row);

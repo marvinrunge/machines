@@ -180,7 +180,11 @@ public partial class Hud : CanvasLayer
             top = Math.Max(top, run.Hanging - 34);
         }
         _figures.Position = new Vector2(left, 8 + top);
-        _figures.Text = Lang.T("Machines {0}     Score {1}     ", world.Machines.Count(m => m.Race == Game.Player), state.Score.Gross) +
+        // The race's machines, and in a race of several commanders the player's own in brackets after them.
+        var machines = world.Machines.Count(m => m.Race == Game.Player).ToString();
+        if (world.Players.Shared(Game.Player))
+            machines += $" ({world.Machines.Count(m => m.Race == Game.Player && m.Owner == Game.Me)})";
+        _figures.Text = Lang.T("Machines {0}     Score {1}     ", machines, state.Score.Gross) +
                         (world.TimeLeft is { } timeLeft
                             ? Lang.T("Time left {0}", TimeSpan.FromSeconds(timeLeft).ToString(@"h\:mm\:ss"))
                             : Lang.T("Time {0}", TimeSpan.FromSeconds(world.Time).ToString(@"h\:mm\:ss"))) +

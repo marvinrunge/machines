@@ -31,13 +31,19 @@ public partial class Game
     /// <summary>The machine the view follows in a battle, while it stands.</summary>
     public int? WatchedHero => _watched is { } id && World.Find<Machine>(id) is { IsDead: false } ? id : null;
 
-    /// <summary>The name of the hero the view follows, while it stands.</summary>
+    /// <summary>The name of the hero the view follows, while it stands, with its number where its race has several ("3 · Torque").</summary>
     public string? WatchedName => WatchedHero is { } id && World.Find<Machine>(id) is { } machine
-        ? World.Battle is { } run ? BattleReadout.HeroName(run, machine.Race) : machine.Race.ToString()
+        ? World.Battle is { } run ? HeroLabel(run, machine.Owner) : machine.Race.ToString()
         : null;
 
-    /// <summary>The heroes the view can follow: the team-mates standing, and in a battle a bot plays for the player its own hero first.</summary>
-    public IReadOnlyList<Race> Watchable => WatchCandidates().Select(m => m.Race).ToList();
+    /// <summary>The players whose heroes the view can follow: the team-mates standing, and in a battle a bot plays for the player its own hero first.</summary>
+    public IReadOnlyList<PlayerId> Watchable => WatchCandidates().Select(m => m.Owner).ToList();
+
+    /// <summary>A player's hero as the messages name it: its name, with its number where its race has several.</summary>
+    private string HeroLabel(BattleRun run, PlayerId player) => BattleReadout.Label(BattleReadout.NumberOf(World, player), BattleReadout.HeroName(run, player));
+
+    /// <summary>The player's team in the battle: theirs as a member, else (one looking on) their race's.</summary>
+    private static int OwnTeam(BattleRun run) => run.TeamOf(Me) is >= 0 and var team ? team : run.TeamOf(Player);
 
     /// <summary>What the battle that just ended opened: the chassis that came within reach of research.</summary>
     public IReadOnlyList<string> BattleOpened { get; private set; } = [];
@@ -52,17 +58,18 @@ public partial class Game
     {
         if (World.Battle is not { } run)
             return [];
-        var team = run.TeamOf(Player);
+        var team = OwnTeam(run);
         if (team < 0)
             return [];
-        var races = run.Teams[team].Order().Where(race => race != Player).ToList();
+        // The team-mates in their places (BattleRun.Members: in today's layout the team's races in race order).
+        var players = run.Members[team].Where(player => player != Me).ToList();
         if (BattleWatch)
-            races.Insert(0, Player);
-        var mates = races.Select(World.HeroOf).OfType<Machine>().ToList();
+            players.Insert(0, Me);
+        var mates = players.Select(World.HeroOf).OfType<Machine>().ToList();
         // Once it is over, or none of the team stands and none has a body to come (with victory by taking the pod the
         // battle goes on until the other team has taken it), the view may go to a hero of the other team still standing.
-        var teamOut = run.Teams[team].All(race => World.HeroOf(race) is null && World.Wired?.Heroes.GetValueOrDefault(race)?.RespawnAt is null);
-        return mates.Count > 0 || !run.Over && !teamOut ? mates : run.Teams.SelectMany(t => t.Order()).Select(World.HeroOf).OfType<Machine>().ToList();
+        var teamOut = run.Members[team].All(player => World.HeroOf(player) is null && World.Wired?.Heroes.GetValueOrDefault(player)?.RespawnAt is null);
+        return mates.Count > 0 || !run.Over && !teamOut ? mates : run.Members.SelectMany(t => t).Select(World.HeroOf).OfType<Machine>().ToList();
     }
 
     /// <summary>
@@ -478,14 +485,13 @@ public partial class Game
     {
         if (World.Battle is not { } run)
             return;
-        var own = run.TeamOf(Player);
-        string Name(Race race) => BattleReadout.HeroName(run, race);
+        var own = OwnTeam(run);
         foreach (var e in World.Events)
         {
             switch (e.Kind)
             {
                 case GameEventKind.BattleEnded when Enum.TryParse<BattleEnd>(e.Detail, out var reason):
-                    var outcome = run.Won(Player) ? BattleOutcome.Won : run.Lost(Player) ? BattleOutcome.Lost : BattleOutcome.Draw;
+                    var outcome = run.Result?.Winner is not { } winner ? BattleOutcome.Draw : winner == own ? BattleOutcome.Won : BattleOutcome.Lost;
                     hud.BattleEnds(outcome, reason);
                     _audio.PlayGui(outcome == BattleOutcome.Won ? "gui/sounds/taskmach.wav" : "gui/sounds/hpcritic.wav");
                     break;
@@ -495,13 +501,14 @@ public partial class Game
                         hud.CaptureBegins(ours);
                     _audio.PlayGui(ours ? "gui/sounds/listclik.wav" : "gui/sounds/hpcritic.wav");
                     break;
-                case GameEventKind.BattleCaptureReset when e.Other == (int)Player && e.Detail == "hit":
+                case GameEventKind.BattleCaptureReset when Mine(e) && e.Detail == "hit":
                     _hud.Message(Lang.T("Hit: your share of the capture is lost"));
                     break;
-                case GameEventKind.BattleHeroKilled when Enum.TryParse<Race>(e.Detail, out var fallen):
-                    var killer = e.Other is { } by ? (Race)by : (Race?)null;
-                    _hud.Message(killer is { } k ? Lang.T("{0} destroyed {1}", Name(k), Name(fallen)) : Lang.T("{0} fell", Name(fallen)));
-                    if (killer == Player)
+                // The event names the fallen (Player) and who destroyed it (By); its race values say the same in today's layout.
+                case GameEventKind.BattleHeroKilled when (e.Player ?? (Enum.TryParse<Race>(e.Detail, out var race) ? PlayerId.Of(race) : (PlayerId?)null)) is { } fallen:
+                    var killer = e.By ?? (e.Other is { } by ? PlayerId.Of((Race)by) : (PlayerId?)null);
+                    _hud.Message(killer is { } k ? Lang.T("{0} destroyed {1}", HeroLabel(run, k), HeroLabel(run, fallen)) : Lang.T("{0} fell", HeroLabel(run, fallen)));
+                    if (killer == Me)
                     {
                         hud.Float(ActorView.World(e.Position) + Vector3.Up * 3, Lang.T("Hero destroyed"));
                         _audio.PlayGui("gui/sounds/taskmach.wav");
@@ -519,7 +526,7 @@ public partial class Game
     /// </summary>
     private void RecordBattle()
     {
-        if (_battleRecorded || Watching || BattleWatch || World.Battle is not { Over: true } run || BattleNote.Of(run, Player) is not { } note)
+        if (_battleRecorded || Watching || BattleWatch || World.Battle is not { Over: true } run || BattleNote.Of(run, Me) is not { } note)
             return;
         // Rejoining a match whose battle had ended before this player took the race back: the session that saw the end
         // counted it then, and one that left before the end does not count it now.

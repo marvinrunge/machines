@@ -4,15 +4,21 @@ using Machines.Net;
 
 namespace Machines.Game;
 
+/// <summary>One other side of a match for F1 to F3: a race with people, and their names joined ("Anna &amp; Ben").</summary>
+public sealed record OtherSide(Race Slot, string Name);
+
 /// <summary>
 /// Chat in a multiplayer match, as the original's (MachPromptText, MachGuiInGameChatMessages): F1, F2 or F3 start a
-/// message to the first, second or third other player, F4 one to everyone, typed in the prompt line beside the
+/// message to the first, second or third other side, F4 one to everyone, typed in the prompt line beside the
 /// control panel; the same key again puts the next of the game copy's standard messages (data/chatmsgs.txt) in it.
-/// Enter sends, Esc or F10 drops it, and while the line is open every key is its own. Messages show at the top
-/// beside the panel, five lines at most in the prompt font, and the oldest goes every eight seconds.
+/// Ctrl+F4, the remake's own, starts one to the player's team: the other commanders of their race, and in a battle the
+/// team's other races too. Enter sends, Esc or F10 drops it, and while the line is open every key is its own. Messages
+/// show at the top beside the panel, five lines at most in the prompt font, and the oldest goes every eight seconds.
 /// </summary>
 public partial class MatchChat(Game game, ClassicPanel panel) : Control
 {
+    /// <summary>The key of a message to the team (Ctrl+F4), after F1 to F4's 0 to 3.</summary>
+    public const int TeamKey = 4;
     // MachGuiInGameChatMessages: five lines 430 pixels wide, the oldest dropped every eight seconds.
     private const int MaxLines = 5, ListWidth = 430;
     private const double LineLife = 8;
@@ -25,10 +31,11 @@ public partial class MatchChat(Game game, ClassicPanel panel) : Control
     private readonly List<string> _lines = [];
     private double _lastChange = Now;
 
-    // The message being typed: the F key it was started with (0 to 3; null while none is), for whom (null for
-    // everyone) and how the line says so, the text so far, the caret, and the next standard message.
+    // The message being typed: the F key it was started with (0 to 3, 4 for the team; null while none is), for whom (none
+    // for everyone, the team's races for the team) and how the line says so, the text so far, the caret, and the next
+    // standard message.
     private int? _key;
-    private Race? _to;
+    private IReadOnlyList<Race> _to = [];
     private string _prefix = "", _text = "";
     private int _caret, _standard;
 
@@ -57,8 +64,9 @@ public partial class MatchChat(Game game, ClassicPanel panel) : Control
     public override void _ExitTree() => Typing = false;
 
     /// <summary>
-    /// F1 to F4 (MachPromptText::doHandleKeyEvent): a message to that other player, or with F4 to everyone; pressed
-    /// again while typing to the same, the next standard message. F1 to F3 do nothing for a player who is not there.
+    /// F1 to F4 (MachPromptText::doHandleKeyEvent): a message to that other side, or with F4 to everyone, with
+    /// <see cref="TeamKey"/> (Ctrl+F4) to the team; pressed again while typing to the same, the next standard message. F1
+    /// to F3 do nothing for a side that is not there, Ctrl+F4 nothing without a teammate.
     /// </summary>
     public void Begin(int key)
     {
@@ -74,23 +82,31 @@ public partial class MatchChat(Game game, ClassicPanel panel) : Control
         }
         if (key < 3)
         {
-            if (Opponents().ElementAtOrDefault(key) is not { } opponent)
+            if (OtherSides().ElementAtOrDefault(key) is not { } side)
                 return;
-            (_to, _prefix) = (opponent.Slot, Lang.T("Send to {0}: ", opponent.Name));
+            (_to, _prefix) = ([side.Slot], Lang.T("Send to {0}: ", side.Name));
+        }
+        else if (key == TeamKey)
+        {
+            if (TeamRaces() is not { Count: > 0 } team)
+                return;
+            (_to, _prefix) = (team, Lang.T("Send to team: "));
         }
         else
-            (_to, _prefix) = (null, Lang.T("Send to Everyone: "));
+            (_to, _prefix) = ([], Lang.T("Send to Everyone: "));
         (_key, _standard) = (key, 0);
         Typing = true;
     }
 
-    /// <summary>A message from another player, unless it was for someone else.</summary>
+    /// <summary>A message from another player, unless it was for someone else; one from the team says so.</summary>
     public void Receive(Chat chat)
     {
         // A relay from before chat could be addressed passes every message to everyone.
         if (chat.To is { } to && to != Game.Player)
             return;
-        Add($"{chat.From}: {chat.Text}");
+        var team = chat.To is not null && MatchRequest.Current.Players.Rows.Any(r => r.Name == chat.From && r.Kind == Sim.World.PlayerKind.Human
+            && OwnTeam().Contains(r.Race));
+        Add(team ? Lang.T("{0} (team): {1}", chat.From, chat.Text) : $"{chat.From}: {chat.Text}");
     }
 
     /// <summary>For automated checks: says a line to everyone, then, given another, opens the line with it typed in.</summary>
@@ -105,9 +121,34 @@ public partial class MatchChat(Game game, ClassicPanel panel) : Control
         Insert(typing);
     }
 
-    /// <summary>The other human players, in the match's order, for F1 to F3 (MachGuiInGameChatMessages::opponentName).</summary>
-    public static IEnumerable<MatchPlayer> Opponents() =>
-        MatchRequest.Current.Network?.Players.Where(p => !p.Ai && p.Slot != Game.Player) ?? [];
+    /// <summary>
+    /// The other sides with people, for F1 to F3 and the alliance keys (MachGuiInGameChatMessages::opponentName): every race
+    /// but the player's own that has a human row, each once however many commanders it has, in race order, named by its
+    /// people. In a match of one person per race these are the other human players, as before.
+    /// </summary>
+    public static IEnumerable<OtherSide> OtherSides()
+    {
+        var players = MatchRequest.Current.Players;
+        return players.Rows.Where(r => r.Kind == Sim.World.PlayerKind.Human && r.Race != Game.Player)
+            .GroupBy(r => r.Race).OrderBy(g => g.Key)
+            .Select(g => new OtherSide(g.Key, string.Join(" & ", g.OrderBy(r => r.Id).Select(r => r.Name))));
+    }
+
+    /// <summary>The races of the player's team: in a battle every race of their team, else their own race.</summary>
+    private static IReadOnlyList<Race> OwnTeam() =>
+        MatchRequest.Current.Options.Battle is { } battle && new[] { battle.TeamA, battle.TeamB }.FirstOrDefault(t => t.Contains(Game.Player)) is { } team
+            ? team
+            : [Game.Player];
+
+    /// <summary>
+    /// Where a message to the team goes: each race of the team with a person in it besides the player (a teammate of their
+    /// own race, or in a battle a team-mate's race); none without one, and then Ctrl+F4 does nothing.
+    /// </summary>
+    public static IReadOnlyList<Race> TeamRaces()
+    {
+        var request = MatchRequest.Current;
+        return OwnTeam().Where(race => request.Players.Rows.Any(r => r.Race == race && r.Kind == Sim.World.PlayerKind.Human && r.Id != request.Me)).ToList();
+    }
 
     private static List<string> StandardMessages()
     {
@@ -126,7 +167,11 @@ public partial class MatchChat(Game game, ClassicPanel panel) : Control
         var text = _text.Trim();
         if (text.Length > 0)
         {
-            NetLink.Send(new Chat(NetLink.Name, text, _to));
+            if (_to.Count == 0)
+                NetLink.Send(new Chat(NetLink.Name, text));
+            // A message to a side goes to its race; one to the team to each of its races (the relay passes a message to one race).
+            foreach (var race in _to)
+                NetLink.Send(new Chat(NetLink.Name, text, race));
             Add(_prefix + text);
         }
         Close();
@@ -173,6 +218,9 @@ public partial class MatchChat(Game game, ClassicPanel panel) : Control
                 break;
             case >= Key.F1 and <= Key.F4 when !key.Echo && !key.ShiftPressed && !key.CtrlPressed:
                 Begin((int)(key.Keycode - Key.F1));
+                break;
+            case Key.F4 when !key.Echo && !key.ShiftPressed && key.CtrlPressed:
+                Begin(TeamKey);
                 break;
             case Key.Backspace when _caret > 0:
                 _text = _text.Remove(--_caret, 1);

@@ -4,8 +4,6 @@
     <TargetFramework>net10.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <RootNamespace>Machines.Game</RootNamespace>
-    <!-- Until the game names its players (online plan P1, slice S5) it may ask by race for the race's first player (PlayerId.RaceForm). -->
-    <NoWarn>$(NoWarn);MACHINES0001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

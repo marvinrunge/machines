@@ -8,7 +8,7 @@ namespace Machines.Tests.Sim;
 /// <summary>What the HUD of a battle reads off the world: the clock and the opening, both teams, the capture, lives and the end.</summary>
 public class BattleReadoutTests
 {
-    private static BattleReadout Of(GameWorld world, Race race) => BattleReadout.Of(world, race)!;
+    private static BattleReadout Of(GameWorld world, Race race) => BattleReadout.Of(world, PlayerId.Of(race))!;
 
     [Fact]
     public void A_hero_with_an_empty_name_is_called_by_its_race()
@@ -20,11 +20,11 @@ public class BattleReadoutTests
         };
         var world = Battles.New(options);
 
-        Assert.Equal("Red", BattleReadout.HeroName(world.Battle!, Race.Red));
+        Assert.Equal("Red", BattleReadout.HeroName(world.Battle!, PlayerId.Of(Race.Red)));
         Assert.Equal("Red", Of(world, Race.Red).You.Name);
         var blue = world.Battle!.Options.Heroes.Single(h => h.Race == Race.Blue).Name;
         Assert.NotEmpty(blue);
-        Assert.Equal(blue, BattleReadout.HeroName(world.Battle, Race.Blue));
+        Assert.Equal(blue, BattleReadout.HeroName(world.Battle, PlayerId.Of(Race.Blue)));
     }
 
     [Theory]
@@ -66,11 +66,11 @@ public class BattleReadoutTests
         var normal = MatchSetup.Create(Battles.Data, "m_desert", "m_desert", players, 7, new MatchOptions());
         var wired = MatchSetup.Create(Battles.Data, "m_desert", "m_desert", new Dictionary<Race, Controller> { [Race.Red] = Controller.Player, [Race.Blue] = Controller.Ai },
             7, new MatchOptions { Wired = new WiredOptions { Arena = "m_desert" } });
-        Assert.Null(BattleReadout.Of(normal, Race.Red));
-        Assert.Null(BattleReadout.Of(wired, Race.Red));
+        Assert.Null(BattleReadout.Of(normal, PlayerId.Of(Race.Red)));
+        Assert.Null(BattleReadout.Of(wired, PlayerId.Of(Race.Red)));
         var pair = Battles.New(new BattleOptions { TeamA = [Race.Red], TeamB = [Race.Green] });
-        Assert.Null(BattleReadout.Of(pair, Race.Blue));
-        Assert.NotNull(BattleReadout.Of(pair, Race.Green));
+        Assert.Null(BattleReadout.Of(pair, PlayerId.Of(Race.Blue)));
+        Assert.NotNull(BattleReadout.Of(pair, PlayerId.Of(Race.Green)));
     }
 
     [Fact]
@@ -165,7 +165,7 @@ public class BattleReadoutTests
     public void A_hero_that_falls_for_the_last_time_is_out_and_looks_on_through_its_team_mate()
     {
         var world = Battles.Begun();
-        Assert.Equal([Race.Blue], Of(world, Race.Red).Watchable);
+        Assert.Equal([PlayerId.Of(Race.Blue)], Of(world, Race.Red).Watchable);
         Battles.Kill(world, Race.Red, Race.Green);
         Battles.Run(world, 1);
         var red = Of(world, Race.Red);
@@ -174,7 +174,7 @@ public class BattleReadoutTests
         Assert.Equal(0, red.You.LivesLeft);
         Assert.Equal(0, red.You.Health);
         Assert.True(red.Ours.InTheFight);
-        Assert.Equal([Race.Blue], red.Watchable);
+        Assert.Equal([PlayerId.Of(Race.Blue)], red.Watchable);
         Assert.Null(red.Outcome);
         Assert.Null(red.PodDistance);
         Assert.Empty(Of(world, Race.Blue).Watchable);
@@ -218,6 +218,107 @@ public class BattleReadoutTests
         Assert.InRange(ion.Share, 0, 0.01f);
         Battles.Run(world, BattleBalance.IonCooldown / 2);
         Assert.InRange(Of(world, race).Abilities.Single(a => a.Slot == slot).Share, 0.45f, 0.55f);
+    }
+
+    // ---- five against five (P1 design §6.4) -----------------------------------------------------------
+
+    /// <summary>The players of the Desert's two teams in a five against five, in their places.</summary>
+    private static readonly PlayerId[] Reds = [new(0), new(4), new(5), new(6), new(7)], Greens = [new(2), new(8), new(9), new(10), new(11)];
+
+    /// <summary>A five against five on the Desert, <paramref name="humans"/> people (named "Seat n") and the computer's bots in the other seats.</summary>
+    private static GameWorld FiveAgainstFive(params PlayerId[] humans)
+    {
+        var entry = BattleCatalogue.Map("m_desert")!;
+        var options = new BattleOptions { Tier = 3, TeamSize = 5, TeamA = entry.TeamA, TeamB = entry.TeamB };
+        var rows = BattleSeats.Of(options).Select(seat => new PlayerSeat(seat.Player, seat.Race,
+            humans.Contains(seat.Player) ? PlayerKind.Human : PlayerKind.Bot, $"Seat {seat.Player.Value}")).ToList();
+        var world = MatchSetup.Create(Battles.Data, entry.Scenario, entry.Planet, new PlayerTable(rows), 7, new MatchOptions { Battle = options, FogOfWar = false });
+        foreach (var human in humans)
+            world.HeroOf(human)!.DrivenByPlayer = true;
+        return world;
+    }
+
+    [Fact]
+    public void Five_against_five_lists_every_player_in_their_place_with_number_and_names()
+    {
+        var world = FiveAgainstFive(Reds[2], Greens[0]);
+        var run = world.Battle!;
+
+        var mine = BattleReadout.Of(world, Reds[2])!;
+
+        Assert.Equal(Reds, mine.Ours.Heroes.Select(h => h.Player));
+        Assert.Equal(Greens, mine.Theirs.Heroes.Select(h => h.Player));
+        Assert.Equal([1, 2, 3, 4, 5], mine.Ours.Heroes.Select(h => h.Number));
+        Assert.Equal([1, 2, 3, 4, 5], mine.Theirs.Heroes.Select(h => h.Number));
+        Assert.All(mine.Ours.Heroes, h => Assert.Equal(Race.Red, h.Race));
+        Assert.All(mine.Theirs.Heroes, h => Assert.Equal(Race.Green, h.Race));
+        Assert.Equal((Reds[2], 3, true), (mine.You.Player, mine.You.Number, mine.You.You));
+        Assert.Single(mine.Ours.Heroes.Concat(mine.Theirs.Heroes), h => h.You);
+        foreach (var hero in mine.Ours.Heroes.Concat(mine.Theirs.Heroes))
+        {
+            var sheet = run.Options.Heroes.Single(h => h.Player == hero.Player);
+            Assert.Equal(sheet.Name, hero.Name);
+            Assert.Equal(sheet.Name, BattleReadout.HeroName(run, hero.Player));
+            Assert.Equal($"{hero.Number} · {sheet.Name}", hero.Label);
+            Assert.Equal(sheet.Chassis, hero.Chassis);
+            Assert.True(hero.Standing);
+        }
+        // People are named by their row; the computer's heroes are bots and have no person.
+        Assert.Equal(("Seat 5", false), (mine.You.PlayerName, mine.You.Bot));
+        Assert.Equal(("Seat 2", false), (mine.Theirs.Heroes[0].PlayerName, mine.Theirs.Heroes[0].Bot));
+        Assert.Equal((null, true), (mine.Ours.Heroes[0].PlayerName, mine.Ours.Heroes[0].Bot));
+        Assert.All(mine.Ours.Heroes.Concat(mine.Theirs.Heroes), h => Assert.False(h.Away));
+        // The team-mates standing, in their places, without the player.
+        Assert.Equal([Reds[0], Reds[1], Reds[3], Reds[4]], mine.Watchable);
+        // The other side sees its own team first.
+        var theirs = BattleReadout.Of(world, Greens[0])!;
+        Assert.Equal(Greens, theirs.Ours.Heroes.Select(h => h.Player));
+        Assert.Equal((1, 1), (theirs.Ours.Team, theirs.You.Number));
+
+        // A person who leaves is away, and a bot drives their hero.
+        world.HandOverToAi(Greens[0]);
+        var left = BattleReadout.Of(world, Reds[2])!.Theirs.Heroes[0];
+        Assert.Equal((true, true, "Seat 2"), (left.Away, left.Bot, left.PlayerName));
+    }
+
+    [Fact]
+    public void Today_s_layout_numbers_no_hero()
+    {
+        var red = Of(Battles.New(), Race.Red);
+        Assert.All(red.Ours.Heroes.Concat(red.Theirs.Heroes), h =>
+        {
+            Assert.Equal(0, h.Number);
+            Assert.Equal(h.Name, h.Label);
+            Assert.Equal(PlayerId.Of(h.Race), h.Player);
+        });
+    }
+
+    [Fact]
+    public void The_capture_bar_counts_against_the_points_that_take_the_pod()
+    {
+        // Five against five takes 250 points: a team's shares add up against those.
+        var world = FiveAgainstFive(Reds[0]);
+        var run = world.Battle!;
+        Assert.Equal(250, run.CaptureTarget);
+        run.Shares[Reds[1]] = 40;
+        run.Shares[Reds[3]] = 22.5f;
+        var red = BattleReadout.Of(world, Reds[0])!;
+        Assert.Equal(250, red.CaptureTarget);
+        Assert.Equal((62.5f, 250f, true), (red.Ours.Progress, red.Ours.Target, red.Ours.Capturing));
+        Assert.Equal(0.25f, red.Ours.Taken, 1e-4f);
+        Assert.Equal(25, red.Ours.Percent);
+        Assert.Equal((0f, 0, false), (red.Theirs.Taken, red.Theirs.Percent, red.Theirs.Capturing));
+        // Seen from the other side, the same capture is of its own pod.
+        Assert.Equal(25, BattleReadout.Of(world, Greens[2])!.Theirs.Percent);
+        run.Shares[Reds[4]] = 250;
+        Assert.Equal((1f, 100), (BattleReadout.Of(world, Reds[0])!.Ours.Taken, BattleReadout.Of(world, Reds[0])!.Ours.Percent));
+
+        // Today's layout takes 100: points and per cent are one.
+        var classic = Battles.New();
+        classic.Battle!.Shares[PlayerId.Of(Race.Blue)] = 37;
+        var ours = Of(classic, Race.Red).Ours;
+        Assert.Equal((100f, 37f, 37), (ours.Target, ours.Progress, ours.Percent));
+        Assert.Equal(0.37f, ours.Taken, 1e-4f);
     }
 
     [Fact]

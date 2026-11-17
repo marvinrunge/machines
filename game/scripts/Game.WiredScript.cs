@@ -26,7 +26,7 @@ public partial class Game
     /// </summary>
     private async void ScriptRun()
     {
-        if (_sceneHolds && World.HeroOf(Player) is { } kept)
+        if (_sceneHolds && World.HeroOf(Me) is { } kept)
             kept.HitPoints = kept.MaxHitPoints;
         if (_sceneScripted || Watching || World.Wired is not { } run || System.Environment.GetEnvironmentVariable("MACHINES_WIRED_SCENE") is not { Length: > 0 } scene)
             return;
@@ -88,7 +88,7 @@ public partial class Game
     {
         GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(folder, name + ".png"));
         GD.Print($"scene: {name}: {RunReport}");
-        if (WiredReadout.Of(World, Player) is { } now)
+        if (WiredReadout.Of(World, Me) is { } now)
             GD.Print($"scene: {name} shows wave {now.Wave}, between {now.BetweenWaves}, seconds {now.Seconds}, {now.Special}, boss {now.BossName}, enemies {now.EnemiesLeft}, bank {now.Bank}, " +
                      $"score {now.Score}, pod {now.Pod:0.000}, bosses [{string.Join(", ", now.Bosses.Select(b => $"{b.Name} {b.Health:0.000}/{b.Armour:0.000}"))}], bodies {now.SpareBodies}/{now.BodiesAtStart}, " +
                      $"down {now.DownSeconds:0.0}, abilities [{string.Join(", ", now.Abilities.Select(a => $"{a.Catalogue} {a.SecondsLeft:0.0}s {a.WavesLeft}w"))}], dash {now.Dash?.SecondsLeft:0.0}, " +
@@ -107,7 +107,7 @@ public partial class Game
     /// <summary>Full gear through the hangar's commands, and a squad; the next wave is the given one, in a few seconds.</summary>
     private async Task Gear(WiredRun run, int wave, WiredSpecial special, bool squad = true)
     {
-        var state = run.Heroes[Player];
+        var state = run.Heroes[Me];
         World.Races[Player].Bmu = 100000;
         run.Wave = wave - 1;
         OpenHangar();
@@ -141,7 +141,7 @@ public partial class Game
     {
         for (var second = 0; second < 120 && !run.Foes.Any(which ?? (_ => true)); second++)
             await Seconds(0.5);
-        if (run.Foes.FirstOrDefault(which ?? (_ => true)) is not { } foe || World.HeroOf(Player) is not { } hero)
+        if (run.Foes.FirstOrDefault(which ?? (_ => true)) is not { } foe || World.HeroOf(Me) is not { } hero)
             return;
         var way = hero.Position - foe.Machine.Position;
         way = way.LengthSquared() < 1 ? NVector2.UnitX : NVector2.Normalize(way);
@@ -151,7 +151,7 @@ public partial class Game
 
     private void Face(NVector2 place)
     {
-        if (World.HeroOf(Player) is not { } hero)
+        if (World.HeroOf(Me) is not { } hero)
             return;
         var way = place - hero.Position;
         _aimYaw = MathF.Atan2(way.Y, way.X);
@@ -162,7 +162,7 @@ public partial class Game
         await Gear(run, 6, WiredSpecial.None);
         await MeetFoes(run);
         await Seconds(1.5);
-        Issue(new WiredAbilityCommand(Player, 0, World.HeroOf(Player)!.Position));
+        Issue(new WiredAbilityCommand(Player, 0, World.HeroOf(Me)!.Position));
         Issue(new WiredDashCommand(Player));
         World.Races[Player].Bmu += 137;
         await Seconds(1.5);
@@ -224,7 +224,7 @@ public partial class Game
         if (run.Strikes.Count == 0)
             return;
         var strike = run.Strikes[0];
-        var hero = World.HeroOf(Player)!;
+        var hero = World.HeroOf(Me)!;
         // Inside the circle, looking across it.
         hero.Position = World.Nav.NearestFreePoint(strike.Position + new NVector2(14, 22), crossesWater: false) ?? hero.Position;
         Face(strike.Position);
@@ -254,7 +254,7 @@ public partial class Game
         await Seconds(1);
         if (World.Debris.FirstOrDefault() is { } near)
         {
-            var hero = World.HeroOf(Player)!;
+            var hero = World.HeroOf(Me)!;
             var way = hero.Position - near.Position;
             hero.Position = near.Position + (way.LengthSquared() < 1 ? NVector2.UnitX : NVector2.Normalize(way)) * 24;
             Face(near.Position);
@@ -280,7 +280,7 @@ public partial class Game
         await Gear(run, 6, WiredSpecial.None, squad: false);
         await MeetFoes(run);
         await Seconds(1);
-        var old = World.HeroOf(Player)!;
+        var old = World.HeroOf(Me)!;
         old.HitPoints = old.MaxHitPoints * 2 / 10;
         await Seconds(0.8);
         Snap(folder, "run-hurt");
@@ -288,11 +288,11 @@ public partial class Game
         await Seconds(2.5);
         Snap(folder, "run-down");
         GD.Print($"scene: down, input refused: selection {_selection.Count}, hero down {_heroDown}");
-        for (var i = 0; i < 100 && World.HeroOf(Player) is null; i++)
+        for (var i = 0; i < 100 && World.HeroOf(Me) is null; i++)
             await Seconds(0.1);
         await Seconds(1.2);
         Snap(folder, "run-back");
-        GD.Print($"scene: back: driven {_driven?.Id}, hero {World.HeroOf(Player)?.Id}, driven by player {World.HeroOf(Player)?.DrivenByPlayer}, weapons kept {World.PlayerWeapons.GetValueOrDefault(World.HeroOf(Player)?.Id ?? 0)}");
+        GD.Print($"scene: back: driven {_driven?.Id}, hero {World.HeroOf(Me)?.Id}, driven by player {World.HeroOf(Me)?.DrivenByPlayer}, weapons kept {World.PlayerWeapons.GetValueOrDefault(World.HeroOf(Me)?.Id ?? 0)}");
     }
 
     private async Task SceneIntermission(string folder, WiredRun run)
@@ -312,7 +312,7 @@ public partial class Game
         Snap(folder, "run-cleared");
         await Seconds(3.4);
         Snap(folder, "run-far");
-        var (hero, pod) = (World.HeroOf(Player)!, World.WiredPod(Player)!);
+        var (hero, pod) = (World.HeroOf(Me)!, World.WiredPod(Me)!);
         var door = pod.EntranceOutside ?? pod.Position;
         hero.Position = door + NVector2.Normalize(door - pod.Position) * 12;
         Face(pod.Position);
@@ -322,10 +322,10 @@ public partial class Game
 
     private async Task SceneRefit(string folder, WiredRun run)
     {
-        var state = run.Heroes[Player];
-        var hero = World.HeroOf(Player)!;
+        var state = run.Heroes[Me];
+        var hero = World.HeroOf(Me)!;
         // From inside the pod, where a bigger chassis no longer fits.
-        hero.Position = World.WiredPod(Player)!.EntranceInside ?? hero.Position;
+        hero.Position = World.WiredPod(Me)!.EntranceInside ?? hero.Position;
         await Seconds(1);
         GD.Print($"scene: refit from inside {hero.Inside?.ToString() ?? "no"}");
         OpenHangar();
@@ -364,7 +364,7 @@ public partial class Game
     private async Task SceneLoaded(string folder)
     {
         await Seconds(2);
-        GD.Print($"scene: loaded: driven {_driven?.Id}, hero {World.HeroOf(Player)?.Id}, driven by player {World.HeroOf(Player)?.DrivenByPlayer}, mouse {Input.MouseMode}");
+        GD.Print($"scene: loaded: driven {_driven?.Id}, hero {World.HeroOf(Me)?.Id}, driven by player {World.HeroOf(Me)?.DrivenByPlayer}, mouse {Input.MouseMode}");
         Snap(folder, "run-loaded");
     }
 
@@ -373,7 +373,7 @@ public partial class Game
     {
         await Gear(run, 6, WiredSpecial.None, squad: false);
         await MeetFoes(run, 60);
-        var hero = World.HeroOf(Player)!;
+        var hero = World.HeroOf(Me)!;
         GD.Print($"scene: stray: spread {World.AimSpread(hero):0.00} degrees");
         Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = GetViewport().GetVisibleRect().Size / 2 });
         for (var frame = 0; frame < 120; frame++)
@@ -392,7 +392,7 @@ public partial class Game
     {
         await Gear(run, 6, WiredSpecial.None, squad: false);
         await MeetFoes(run, 40);
-        var pod = World.WiredPod(Player)!;
+        var pod = World.WiredPod(Me)!;
         foreach (var foe in run.Foes.ToList())
             foe.Machine.Position = World.Nav.NearestFreePoint(pod.Position + new NVector2(30, 0), crossesWater: false) ?? foe.Machine.Position;
         for (var i = 0; i < 200 && pod.HitPoints == pod.MaxHitPoints; i++)
@@ -406,11 +406,11 @@ public partial class Game
     {
         await Gear(run, 6, WiredSpecial.None, squad: false);
         await MeetFoes(run, 16);
-        var stats = run.Heroes[Player].Stats;
+        var stats = run.Heroes[Me].Stats;
         Press(MouseButton.Left, true);
         Press(MouseButton.Right, true);
         Press(MouseButton.Middle, true);
-        for (var second = 0.0; second < 16 && stats.Kills == 0 && World.HeroOf(Player) is not null; second += 0.25)
+        for (var second = 0.0; second < 16 && stats.Kills == 0 && World.HeroOf(Me) is not null; second += 0.25)
         {
             if (run.Foes.FirstOrDefault() is { } foe)
                 Face(foe.Machine.Position);
@@ -419,21 +419,21 @@ public partial class Game
         Press(MouseButton.Left, false);
         Press(MouseButton.Right, false);
         Press(MouseButton.Middle, false);
-        var near = run.Foes.Select(f => World.HeroOf(Player)?.DistanceTo(f.Machine) ?? 0).DefaultIfEmpty(0).Min();
-        GD.Print($"scene: the fight has gone on, kills {stats.Kills}, rounds {stats.Weapons.Values.Sum(w => w.Rounds)}, damage {stats.DamageDealt}, nearest foe {near:0.0} m, facing {World.HeroOf(Player)?.Facing:0.00}, aim {_aimYaw:0.00}: {RunReport}");
+        var near = run.Foes.Select(f => World.HeroOf(Me)?.DistanceTo(f.Machine) ?? 0).DefaultIfEmpty(0).Min();
+        GD.Print($"scene: the fight has gone on, kills {stats.Kills}, rounds {stats.Weapons.Values.Sum(w => w.Rounds)}, damage {stats.DamageDealt}, nearest foe {near:0.0} m, facing {World.HeroOf(Me)?.Facing:0.00}, aim {_aimYaw:0.00}: {RunReport}");
     }
 
     /// <summary>The player's own orders only, so that the recording plays back: the wave is called, and each of the hero's bodies goes by self-destruct until none is left.</summary>
     private async Task ScenePlain(string folder, WiredRun run)
     {
-        if (!run.Heroes[Player].Stats.Weapons.Any() && run.Phase == WiredPhase.Prepare)
+        if (!run.Heroes[Me].Stats.Weapons.Any() && run.Phase == WiredPhase.Prepare)
             Issue(new WiredReadyCommand(Player));
         while (run.Phase != WiredPhase.Ended)
         {
-            if (World.HeroOf(Player) is { } hero)
+            if (World.HeroOf(Me) is { } hero)
             {
                 Issue(new SelfDestructCommand(Player, [hero.Id]));
-                while (World.HeroOf(Player) == hero && run.Phase != WiredPhase.Ended)
+                while (World.HeroOf(Me) == hero && run.Phase != WiredPhase.Ended)
                     await Seconds(0.25);
             }
             await Seconds(1);
@@ -445,11 +445,11 @@ public partial class Game
     private async Task ScenePlainSave(string folder, WiredRun run)
     {
         Issue(new WiredReadyCommand(Player));
-        var hero = World.HeroOf(Player)!;
+        var hero = World.HeroOf(Me)!;
         Issue(new SelfDestructCommand(Player, [hero.Id]));
-        while (World.HeroOf(Player) == hero)
+        while (World.HeroOf(Me) == hero)
             await Seconds(0.25);
-        while (World.HeroOf(Player) is null)
+        while (World.HeroOf(Me) is null)
             await Seconds(0.25);
         await Seconds(2);
         Snap(folder, "run-saved");
@@ -461,7 +461,7 @@ public partial class Game
     private async Task SceneLosePod(string folder, WiredRun run)
     {
         await FirstBlood(run);
-        var pod = World.WiredPod(Player)!;
+        var pod = World.WiredPod(Me)!;
         foreach (var foe in run.Foes.ToList())
             foe.Machine.Position = World.Nav.NearestFreePoint(pod.Position + new NVector2(30, 0), crossesWater: false) ?? foe.Machine.Position;
         pod.HitPoints = Math.Min(pod.HitPoints, 25);
@@ -484,8 +484,8 @@ public partial class Game
 
     private async Task ByOwnHand(string folder, WiredRun run)
     {
-        run.Heroes[Player].SpareBodies = 0;
-        if (World.HeroOf(Player) is { } hero)
+        run.Heroes[Me].SpareBodies = 0;
+        if (World.HeroOf(Me) is { } hero)
             Issue(new SelfDestructCommand(Player, [hero.Id]));
         for (var second = 0; second < 80 && run.Phase != WiredPhase.Ended; second++)
             await Seconds(0.25);
@@ -499,7 +499,7 @@ public partial class Game
     /// </summary>
     private async Task SceneUnlock(string folder, WiredRun run, int wave)
     {
-        var state = run.Heroes[Player];
+        var state = run.Heroes[Me];
         await Gear(run, wave, WiredSpecial.None);
         var stats = state.Stats;
         stats.WavesCleared = wave - 1;
@@ -544,7 +544,7 @@ public partial class Game
 
     private void TellGuns()
     {
-        var hero = World.HeroOf(Player)!;
+        var hero = World.HeroOf(Me)!;
         GD.Print($"scene: guns {string.Join(", ", hero.Weapons.Select(w => $"{w.Mounting} {w.Spec.TypeName}"))}, places {string.Join(", ", GunPlaces(hero).Select(p => $"{p.Mounting} on {string.Join("+", p.Triggers)}"))}");
     }
 
@@ -553,7 +553,7 @@ public partial class Game
     {
         const MouseButton left = MouseButton.Left, right = MouseButton.Right, middle = MouseButton.Middle;
         Ticked += LogShots;
-        var state = run.Heroes[Player];
+        var state = run.Heroes[Me];
         run.Countdown = 300;
         TellGuns();
         await Hold(left);
@@ -614,7 +614,7 @@ public partial class Game
     }
 
     private void TellSquad(string order) =>
-        GD.Print($"scene: after {order}: [{string.Join(", ", World.Escorts(Player).Select(e => e.Order.GetType().Name))}]");
+        GD.Print($"scene: after {order}: [{string.Join(", ", World.Escorts(Me).Select(e => e.Order.GetType().Name))}]");
 
     /// <summary>The four orders by their keys, in a fight.</summary>
     private async Task SceneSquad(string folder, WiredRun run)
@@ -668,7 +668,7 @@ public partial class Game
     /// </summary>
     private async Task SceneSpecials(string folder, WiredRun run)
     {
-        var state = run.Heroes[Player];
+        var state = run.Heroes[Me];
         run.Countdown = 100_000;
         World.Races[Player].Bmu = 100000;
         Task Wear(string chassis, string? weapon = null, Mounting mounting = Mounting.Top) => WearForScene(state, chassis, weapon, mounting);
@@ -725,7 +725,7 @@ public partial class Game
         Snap(folder, "special-widow-key");
 
         await Wear("reaper5");
-        var harvester = World.HeroOf(Player)!;
+        var harvester = World.HeroOf(Me)!;
         harvester.Durability = harvester.Durability with { Armour = harvester.MaxArmour / 2 };
         World.Damage(Foe(8, 0), 1_000_000, Player, harvester);
         // The harvest happened between ticks: its event is shown before the next tick clears it.
@@ -751,7 +751,7 @@ public partial class Game
         var foes = new[] { Foe(22, 0), Foe(45, -12), Foe(70, 14) };
         await Seconds(0.5);
         // The edge of the view sweeps with the player's own pulse, for a third of a second once the world has sent it out.
-        var crab = World.HeroOf(Player)!.Id;
+        var crab = World.HeroOf(Me)!.Id;
         var special = KeyMap.Of(KeyMap.Act.Special);
         Input.ParseInputEvent(new InputEventKey { Keycode = special, PhysicalKeycode = special, Pressed = true });
         for (var wait = 0; wait < 50 && !_pulsedAt.ContainsKey(crab); wait++)
@@ -779,19 +779,19 @@ public partial class Game
             await Do(new WiredEquipCommand(Player, state.Add(WiredKind.Weapon, weapon, 0).Id, WiredSlot.Weapon(mounting)));
         CloseHangar();
         await Seconds(0.6);
-        if (_driven is null && World.HeroOf(Player) is { } hero)
+        if (_driven is null && World.HeroOf(Me) is { } hero)
         {
             Select([hero.Id]);
             EnterFirstPerson();
         }
         await Seconds(1);
-        GD.Print($"scene: {chassis}: special {World.SpecialView(Player)}");
+        GD.Print($"scene: {chassis}: special {World.SpecialView(Me)}");
     }
 
     /// <summary>A machine where the hero looks: as far ahead as given (or a little further, on free ground) and as far to the side.</summary>
     private Machine PlaceForScene(float ahead, float aside, Race race, ResearchKey key)
     {
-        var hero = World.HeroOf(Player)!;
+        var hero = World.HeroOf(Me)!;
         var (forward, side) = (new NVector2(MathF.Cos(hero.Facing), MathF.Sin(hero.Facing)), new NVector2(-MathF.Sin(hero.Facing), MathF.Cos(hero.Facing)));
         var at = Enumerable.Range(0, 24).Select(k => hero.Position + forward * (ahead + k) + side * aside).FirstOrDefault(p => World.Nav.IsFree(p, crossesWater: false), hero.Position + forward * ahead);
         return World.AddMachine(race, at, key.Type, key.SubType, key.HardwareLevel, key.WeaponCombo);
@@ -805,14 +805,14 @@ public partial class Game
     /// </summary>
     private async Task SceneTowers(string folder, WiredRun run)
     {
-        var state = run.Heroes[Player];
+        var state = run.Heroes[Me];
         run.Countdown = 100_000;
         World.Races[Player].Bmu = 100000;
 
         // The crab's pulse runs out over the ground, seen from high above, and its ring plays for a second and a half.
         await WearForScene(state, "geo1", "BOLTER");
         var spy = PlaceForScene(30, 0, Race.Blue, WiredDirector.Spy);
-        if (World.HeroOf(Player) is { } far && _views.TryGetValue(far.Id, out var farView))
+        if (World.HeroOf(Me) is { } far && _views.TryGetValue(far.Id, out var farView))
         {
             LeaveFirstPerson();
             (_rig.Position, _rig.Pitch, _rig.Distance) = (farView.Position, 58, 300);
@@ -837,7 +837,7 @@ public partial class Game
         await Tap(KeyMap.Act.Special);
         await Seconds(0.3);
         LeaveFirstPerson();
-        if (World.HeroOf(Player) is { } crab && _views.TryGetValue(crab.Id, out var crabView))
+        if (World.HeroOf(Me) is { } crab && _views.TryGetValue(crab.Id, out var crabView))
         {
             (_rig.Position, _rig.Pitch, _rig.Distance) = (crabView.Position, 38, 70);
             await Seconds(0.3);
@@ -853,7 +853,7 @@ public partial class Game
         state.EscortIds.Add(escort.Id);
         LeaveFirstPerson();
         await Seconds(0.6);
-        if (World.HeroOf(Player) is { } marshal && _views.TryGetValue(marshal.Id, out var marshalView))
+        if (World.HeroOf(Me) is { } marshal && _views.TryGetValue(marshal.Id, out var marshalView))
             (_rig.Position, _rig.Pitch, _rig.Distance) = ((marshalView.Position + ActorView.World(escort.Position)) / 2, 45, 120);
         await Seconds(0.3);
         Issue(new WiredSpecialCommand(Player));
@@ -916,7 +916,7 @@ public partial class Game
         Snap(folder, "towers-scrapped");
         // Round to the first again, and a machine of the player's where it would stand.
         await Wheel(MouseButton.WheelDown);
-        if (World.HeroOf(Player) is { } titan && Towers is not null)
+        if (World.HeroOf(Me) is { } titan && Towers is not null)
         {
             var spot = _towerSpot;
             World.AddMachine(Player, spot, "AGGRESSOR", "GRUNT", 1, "L_BOLTER");
@@ -938,7 +938,7 @@ public partial class Game
     /// <summary>The abilities, the dash, the special and the hangar by their keys, with what each says where it cannot be done.</summary>
     private async Task SceneKeys(string folder, WiredRun run)
     {
-        var (hero, pod) = (World.HeroOf(Player)!, World.WiredPod(Player)!);
+        var (hero, pod) = (World.HeroOf(Me)!, World.WiredPod(Me)!);
         await Tap(KeyMap.Act.Ability1);
         await Seconds(0.4);
         Snap(folder, "run-key-no-ability");
@@ -960,7 +960,7 @@ public partial class Game
         await Seconds(1);
         await Gear(run, 6, WiredSpecial.None, squad: false);
         await Seconds(2);
-        hero = World.HeroOf(Player)!;
+        hero = World.HeroOf(Me)!;
         await Tap(KeyMap.Act.Ability1);
         await Seconds(0.4);
         await Tap(KeyMap.Act.Ability1);
@@ -968,7 +968,7 @@ public partial class Game
         Snap(folder, "run-key-cooling");
         await Tap(KeyMap.Act.Ability2);
         await Seconds(0.4);
-        var state = run.Heroes[Player];
+        var state = run.Heroes[Me];
         GD.Print($"scene: abilities used: {state.AbilitySecondsLeft(0, World.Time):0.0} s, {state.AbilitySecondsLeft(1, World.Time):0.0} s left");
         async Task DashWith(Key? held)
         {
@@ -1013,7 +1013,7 @@ public partial class Game
     {
         await Gear(run, 6, WiredSpecial.None);
         await MeetFoes(run, 40);
-        var hero = World.HeroOf(Player)!;
+        var hero = World.HeroOf(Me)!;
         var shots = 0;
         void Count() => shots += World.Events.Count(e => e.Kind == GameEventKind.Fired && e.Actor == hero.Id);
         // The foes last, for the hero to have something to fight on its own.
@@ -1033,7 +1033,7 @@ public partial class Game
         await Seconds(8);
         Ticked -= Last;
         GD.Print($"scene: alone for 8 s: {shots} shots, order {hero.Order.GetType().Name}, hit points {hero.HitPoints}");
-        var escort = World.Escorts(Player).First();
+        var escort = World.Escorts(Me).First();
         var camera = GetViewport().GetCamera3D();
         LookAtActor(escort);
         await Seconds(0.5);
@@ -1044,7 +1044,7 @@ public partial class Game
         await Seconds(0.6);
         TellSquad("the mouse's order");
         Snap(folder, "run-left-order");
-        Select([World.WiredPod(Player)!.Id]);
+        Select([World.WiredPod(Me)!.Id]);
         await Seconds(0.5);
         Snap(folder, "run-left-pod");
         Select([escort.Id]);
@@ -1060,7 +1060,7 @@ public partial class Game
     /// <summary>The hero in a bay of the pod: the hangar opens there, and first person takes it out by the door, where it opens as well.</summary>
     private async Task SceneBay(string folder, WiredRun run)
     {
-        var (hero, pod) = (World.HeroOf(Player)!, World.WiredPod(Player)!);
+        var (hero, pod) = (World.HeroOf(Me)!, World.WiredPod(Me)!);
         void Tell(string when) => GD.Print($"scene: {when}: inside {hero.Inside?.ToString() ?? "no"}, driven {_driven?.Id}, by player {hero.DrivenByPlayer}, hangar {HangarOpen}, {NVector2.Distance(hero.Position, pod.Position):0.0} m from the pod");
         Tell("start");
         await Tap(KeyMap.Act.FirstPerson);
@@ -1089,7 +1089,7 @@ public partial class Game
     private async Task SceneRefused(string folder, WiredRun run)
     {
         // The first chassis is small enough for the pod's door: driven over the threshold it counts as inside.
-        var (hero, pod) = (World.HeroOf(Player)!, World.WiredPod(Player)!);
+        var (hero, pod) = (World.HeroOf(Me)!, World.WiredPod(Me)!);
         hero.Position = pod.EntranceInside ?? hero.Position;
         await Seconds(1);
         GD.Print($"scene: hero inside {hero.Inside?.ToString() ?? "no"}");
@@ -1099,7 +1099,7 @@ public partial class Game
         hero.Position = pod.EntranceOutside ?? hero.Position;
         await Seconds(1);
         await Gear(run, 6, WiredSpecial.None, squad: false);
-        hero = World.HeroOf(Player)!;
+        hero = World.HeroOf(Me)!;
         Issue(new WiredAbilityCommand(Player, 0, hero.Position));
         await Seconds(0.3);
         Issue(new WiredAbilityCommand(Player, 0, hero.Position));
@@ -1130,7 +1130,7 @@ public partial class Game
     /// </summary>
     private async Task SceneTurret(string folder, WiredRun run, bool hullOnly)
     {
-        var state = run.Heroes[Player];
+        var state = run.Heroes[Me];
         run.Countdown = 100_000;
         World.Races[Player].Bmu = 100000;
         Ticked += LogTurret;
@@ -1148,14 +1148,14 @@ public partial class Game
         foreach (var (chassis, name, weapons, snaps) in rigs)
         {
             await WearAllForScene(state, chassis, weapons);
-            if (World.HeroOf(Player) is not { } hero || _driven is null)
+            if (World.HeroOf(Me) is not { } hero || _driven is null)
             {
                 GD.PrintErr($"scene: turret: no hero on {chassis}");
                 continue;
             }
             // Out on the field, beyond the pod's reach, and back to the pod for the next chassis.
             var home = hero.Position;
-            if (World.WiredPod(Player) is { } pod)
+            if (World.WiredPod(Me) is { } pod)
             {
                 var away = hero.Position - pod.Position;
                 away = away.LengthSquared() < 1 ? NVector2.UnitX : NVector2.Normalize(away);
@@ -1290,7 +1290,7 @@ public partial class Game
         await Do(new WiredEquipCommand(Player, state.Add(WiredKind.Module, "nightvision", 0).Id, WiredSlot.Module(0)));
         CloseHangar();
         await Seconds(0.6);
-        if (_driven is null && World.HeroOf(Player) is { } hero)
+        if (_driven is null && World.HeroOf(Me) is { } hero)
         {
             Select([hero.Id]);
             EnterFirstPerson();

@@ -76,7 +76,7 @@ public partial class WiredDriver
     {
         var world = game.World;
         LetGo();
-        _bot = new Bot(world, world.Data, Shopping, Game.Player, _orders.Add);
+        _bot = new Bot(world, world.Data, Shopping, Game.Player, _orders.Add, Game.Me);
         (_thinkAt, _target, _place, _dash, _ability, _special, _hangar, _squad) = (0, null, null, null, null, null, false, null);
         _byCommand.Clear();
         _way = [];
@@ -120,7 +120,7 @@ public partial class WiredDriver
                 await Load(game);
                 continue;
             }
-            if (game.HeroDown || world.HeroOf(Game.Player) is null)
+            if (game.HeroDown || world.HeroOf(Game.Me) is null)
             {
                 LetGo();
                 continue;
@@ -162,14 +162,14 @@ public partial class WiredDriver
                     Say($"tick {world.Tick}: boss {e.Detail}");
                     Queue("boss", "boss");
                     break;
-                case GameEventKind.WiredChipChoiceReady when e.Other == (int)Game.Player:
+                case GameEventKind.WiredChipChoiceReady when e.Player == Game.Me:
                     Say($"tick {world.Tick}: chips to choose from");
                     break;
-                case GameEventKind.WiredHeroDied when e.Other == (int)Game.Player:
+                case GameEventKind.WiredHeroDied when e.Player == Game.Me:
                     Say($"tick {world.Tick}: the hero fell, {e.Detail} spare bodies left");
                     Queue("down", "down");
                     break;
-                case GameEventKind.WiredHeroRespawned when e.Other == (int)Game.Player:
+                case GameEventKind.WiredHeroRespawned when e.Player == Game.Me:
                     Say($"tick {world.Tick}: a new body at the pod, {e.Detail} spare bodies left");
                     Queue("body", "body");
                     break;
@@ -351,7 +351,7 @@ public partial class WiredDriver
     }
 
     private static bool CanDash(GameWorld world) =>
-        world.Wired!.Heroes[Game.Player] is var state && state.Build(world.Data).DashCooldown is not null && world.Time >= state.DashReadyAt;
+        world.Wired!.Heroes[Game.Me] is var state && state.Build(world.Data).DashCooldown is not null && world.Time >= state.DashReadyAt;
 
     private protected void Stop(Machine hero)
     {
@@ -538,7 +538,7 @@ public partial class WiredDriver
                 LookAt(game, aim);
         }
         Fire(game, hero, distance, sighted);
-        if (sighted && _orderedAt != target.Id && Now - _lastAttackOrder > OrderEvery && game.World.Escorts(Game.Player).Any())
+        if (sighted && _orderedAt != target.Id && Now - _lastAttackOrder > OrderEvery && game.World.Escorts(Game.Me).Any())
         {
             (_orderedAt, _lastAttackOrder) = (target.Id, Now);
             _squad = KeyMap.Act.SquadAttack;
@@ -688,7 +688,7 @@ public partial class WiredDriver
     private protected async Task UseAbility(Game game, Machine hero, int slot, NVector2 aim)
     {
         var world = game.World;
-        var item = world.Wired!.Heroes[Game.Player].Loadout.Abilities.ElementAtOrDefault(slot);
+        var item = world.Wired!.Heroes[Game.Me].Loadout.Abilities.ElementAtOrDefault(slot);
         if (NVector2.Distance(aim, hero.Position) > 2)
         {
             var foe = world.Machines.Where(m => !m.IsDead && world.AreEnemies(Game.Player, m.Race) && NVector2.Distance(m.Position, aim) < 5)
@@ -718,7 +718,7 @@ public partial class WiredDriver
     private protected async Task UseSpecial(Game game, Machine hero, bool on)
     {
         var world = game.World;
-        var state = world.Wired!.Heroes[Game.Player];
+        var state = world.Wired!.Heroes[Game.Me];
         var special = state.Build(world.Data).Chassis.Special;
         var anchor = (special & ChassisSpecial.Anchor) != 0;
         var phase = world.AnchorPhaseOf(hero);
@@ -766,7 +766,7 @@ public partial class WiredDriver
     /// <summary>An order to the squad by its key; with none to order there is nothing to press.</summary>
     private async Task Order(Game game, KeyMap.Act act)
     {
-        var squad = game.World.Escorts(Game.Player).Count();
+        var squad = game.World.Escorts(Game.Me).Count();
         if (squad == 0)
             return;
         await Tap(KeyMap.Of(act));
@@ -777,7 +777,7 @@ public partial class WiredDriver
     private async Task OpenHangar(Game game, WiredRun run)
     {
         LetGo();
-        if (_heldAt != run.Wave && game.World.Escorts(Game.Player).Any())
+        if (_heldAt != run.Wave && game.World.Escorts(Game.Me).Any())
         {
             _heldAt = run.Wave;
             await Order(game, KeyMap.Act.SquadHold);

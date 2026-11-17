@@ -351,7 +351,8 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
         var world = game.World;
         var run = world.Battle!;
         LetGo();
-        _brain = new BattleBot(world, Game.Player, _orders.Add);
+        // The autopilot thinks for the player at this computer: their hero, of their place in the team.
+        _brain = new BattleBot(world, Game.Me, _orders.Add);
         (_thinkAt, _target, _place, _dash, _ability, _special, _stand) = (0, null, null, null, null, null, false);
         _byCommand.Clear();
         _way = [];
@@ -380,7 +381,7 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
                 LetGo();
                 continue;
             }
-            if (game.HeroDown || world.HeroOf(Game.Player) is null)
+            if (game.HeroDown || world.HeroOf(Game.Me) is null)
             {
                 LetGo();
                 continue;
@@ -414,13 +415,13 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
         _sightedSince = sighted ? _sightedSince < 0 ? now : _sightedSince : -1;
         if (!run.Over && (_sightedSince >= 0 && now - _sightedSince > 1 || run.Elapsed > 300 && game.Driven is not null))
             await Once("fight");
-        _downSince = game.HeroDown && world.HeroOf(Game.Player) is null && !run.Over ? _downSince < 0 ? now : _downSince : -1;
+        _downSince = game.HeroDown && world.HeroOf(Game.Me) is null && !run.Over ? _downSince < 0 ? now : _downSince : -1;
         if (_downSince >= 0 && now - _downSince > 1.5 && !_taken.Contains($"down-{_downs}"))
         {
             _taken.Add($"down-{_downs}");
             await Moment("down", $"down-{_downs}");
         }
-        _watchSince = game.WatchedName is not null && !run.Over && world.HeroOf(Game.Player) is null ? _watchSince < 0 ? now : _watchSince : -1;
+        _watchSince = game.WatchedName is not null && !run.Over && world.HeroOf(Game.Me) is null ? _watchSince < 0 ? now : _watchSince : -1;
         if (_watchSince >= 0 && now - _watchSince > 2.5)
             await Once("watching");
         _overSince = run.Over ? _overSince < 0 ? now : _overSince : -1;
@@ -448,23 +449,23 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
                 case GameEventKind.BattleHeroKilled:
                     Say($"tick {world.Tick}: {e.Detail}'s hero fell{(e.Other is { } by ? $" to {(Race)by}" : "")}");
                     break;
-                case GameEventKind.WiredHeroDied when e.Other == (int)Game.Player:
+                case GameEventKind.WiredHeroDied when e.Player == Game.Me:
                     _downs++;
                     Say($"tick {world.Tick}: the player's hero fell, {e.Detail} spare bodies left");
                     break;
-                case GameEventKind.WiredHeroRespawned when e.Other == (int)Game.Player:
+                case GameEventKind.WiredHeroRespawned when e.Player == Game.Me:
                     Say($"tick {world.Tick}: the player's hero stands at the pod again, {e.Detail} spare bodies left");
                     break;
                 case GameEventKind.BattleCaptureProgress:
                     Say($"tick {world.Tick}: team {e.Other} takes the pod: {e.Detail}");
                     break;
-                case GameEventKind.BattleCaptureReset when e.Other == (int)Game.Player:
+                case GameEventKind.BattleCaptureReset when e.Player == Game.Me:
                     Say($"tick {world.Tick}: the player's share of the capture is lost ({e.Detail})");
                     break;
-                case GameEventKind.WiredAbilityUsed when world.Find<Machine>(e.Actor)?.Race == Game.Player:
+                case GameEventKind.WiredAbilityUsed when world.Find<Machine>(e.Actor)?.Owner == Game.Me:
                     Say($"tick {world.Tick}: ability {e.Detail} went off");
                     break;
-                case GameEventKind.WiredDashed when world.Find<Machine>(e.Actor)?.Race == Game.Player:
+                case GameEventKind.WiredDashed when world.Find<Machine>(e.Actor)?.Owner == Game.Me:
                     Say($"tick {world.Tick}: the thrusters fired");
                     break;
                 case GameEventKind.BattleEnded:
@@ -488,15 +489,18 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
         var world = game.World;
         if (world.Tick % 100 != 0 || world.Battle is not { Over: false } run)
             return;
-        string Hero(Race race)
+        // Every player of each team in their place, named by race, with the number in the race where it has several ("Red 3").
+        string Hero(PlayerId player)
         {
-            var state = world.Wired?.Heroes.GetValueOrDefault(race);
-            var hero = world.HeroOf(race);
-            var tally = run.Tally.GetValueOrDefault(race);
-            return $"{race} {(hero is null ? "down" : $"{hero.HitPoints}/{hero.MaxHitPoints}")} bodies {state?.SpareBodies} dmg {tally?.Damage} kills {tally?.Kills}";
+            var state = world.Wired?.Heroes.GetValueOrDefault(player);
+            var hero = world.HeroOf(player);
+            var tally = run.Tally.GetValueOrDefault(player);
+            var race = world.Players.RaceOf(player);
+            var name = BattleReadout.NumberOf(world, player) is > 0 and var number ? $"{race} {number}" : race.ToString();
+            return $"{name} {(hero is null ? "down" : $"{hero.HitPoints}/{hero.MaxHitPoints}")} bodies {state?.SpareBodies} dmg {tally?.Damage} kills {tally?.Kills}";
         }
         Say($"tick {world.Tick} checksum {world.Checksum():x16} clock {run.TimeLeft:0} capture {run.Progress(0):0}/{run.Progress(1):0} " +
-            $"[{string.Join("; ", run.Teams[0].Select(Hero))}] vs [{string.Join("; ", run.Teams[1].Select(Hero))}]");
+            $"[{string.Join("; ", run.Members[0].Select(Hero))}] vs [{string.Join("; ", run.Members[1].Select(Hero))}]");
     }
 
     // ---- the hands --------------------------------------------------------------------------------
@@ -608,7 +612,7 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
     {
         var world = game.World;
         var reach = game.GunsOf(hero).Where(g => g.Weapon is not null).Select(g => g.Weapon!.Spec.Range).DefaultIfEmpty(0).Max();
-        var foe = world.Battle!.Teams.SelectMany(t => t).Where(r => world.AreEnemies(Game.Player, r)).Select(world.HeroOf).OfType<Machine>()
+        var foe = world.Battle!.Members.SelectMany(t => t).Select(world.HeroOf).OfType<Machine>().Where(m => world.AreEnemies(Game.Player, m.Race))
             .Where(m => m.Inside is null && NVector2.Distance(m.Position, hero.Position) <= reach)
             .OrderBy(m => NVector2.DistanceSquared(m.Position, hero.Position)).ThenBy(m => m.Id).FirstOrDefault();
         if (foe is null)
@@ -636,7 +640,7 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
         await Moment("end");
         Say($"end screen: {page.Figures}");
         var run = _game!.World.Battle!;
-        var reward = BattleRewards.Of(run, Game.Player);
+        var reward = BattleRewards.Of(run, Game.Me);
         var shown = page.Shown;
         var same = shown.Xp == reward.Xp && shown.FreeXp == reward.FreeXp && shown.Credits == reward.Credits;
         Say($"end check: shown {shown.Xp} XP, {shown.FreeXp} free XP, {shown.Credits} Cr; BattleRewards.Of gives {reward.Xp} XP, {reward.FreeXp} free XP, " +

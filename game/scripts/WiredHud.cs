@@ -109,8 +109,8 @@ public partial class WiredHud : Control
     {
         _time += delta;
         // A battle has its own figures; Wired's waves, bank and squad mean nothing there.
-        _battle = BattleReadout.Of(_game.World, Game.Player);
-        _now = _battle is null ? WiredReadout.Of(_game.World, Game.Player) : null;
+        _battle = BattleReadout.Of(_game.World, Game.Me);
+        _now = _battle is null ? WiredReadout.Of(_game.World, Game.Me) : null;
         _size = GetViewportRect().Size;
         // Grown or shrunk by the HUD's size chosen in the options.
         _u = Mathf.Max(_size.Y / 1080f, 0.6f) * GameOptions.HudSize;

@@ -4376,3 +4376,53 @@ msgstr "diese Teamgröße gibt es nicht"
 
 msgid "a team has at most {0} heroes"
 msgstr "ein Team hat höchstens {0} Helden"
+
+# Online (S5): commanders sharing a race, numbered heroes, team chat
+
+msgid "Away"
+msgstr "Weg"
+
+msgid "Bot"
+msgstr "Bot"
+
+msgid "{0}'s {1}"
+msgstr "{1} von {0}"
+
+msgid "Give to {0}"
+msgstr "An {0} geben"
+
+msgid "{0} is away: nothing can be given to them now"
+msgstr "{0} ist weg: Ihm kann jetzt nichts gegeben werden"
+
+msgid "Give the selected machines to {0}"
+msgstr "Die gewählten Maschinen an {0} geben"
+
+msgid "{0} gave you {1} machines"
+msgstr "{0} hat dir {1} Maschinen gegeben"
+
+msgid "{0} left – a bot drives their hero"
+msgstr "{0} ist gegangen – ein Bot fährt den Helden"
+
+msgid "{0} left the match"
+msgstr "{0} hat das Spiel verlassen"
+
+msgid "{0} left – you command their machines"
+msgstr "{0} ist gegangen – du befehligst die Maschinen"
+
+msgid "{0} left – {1} commands their machines"
+msgstr "{0} ist gegangen – {1} befehligt die Maschinen"
+
+msgid "{0} left – the computer plays {1}"
+msgstr "{0} ist gegangen – der Computer spielt {1}"
+
+msgid "{0} is back"
+msgstr "{0} ist zurück"
+
+msgid "Send to team: "
+msgstr "Ans Team: "
+
+msgid "{0} (team): {1}"
+msgstr "{0} (Team): {1}"
+
+msgid "Back when the wave is over"
+msgstr "Zurück, wenn die Welle vorbei ist"

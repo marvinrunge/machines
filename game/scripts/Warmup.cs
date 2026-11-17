@@ -264,7 +264,7 @@ public partial class Warmup : Node3D
             // Models no research brings: the scenarios' own (the ore hologram, the bosses), and in Wired, for a race with a
             // hero, every chassis' model heroes are put together from (Wired's own machines, the constructors, spies and
             // locators with weapon mounts), so that a chassis changed in the hangar loads nothing.
-            var heroes = _world.Wired?.Heroes.ContainsKey(race) == true ? HeroDonors.Chassis.Values : [];
+            var heroes = _world.Wired?.Heroes.Values.Any(state => state.Race == race) == true ? HeroDonors.Chassis.Values : [];
             foreach (var id in _assets.ModelIds(look).Concat(heroes).Where(shown.Add))
             {
                 models.Add((id, look, Vector3.One * 3));

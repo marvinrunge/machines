@@ -59,14 +59,14 @@ public partial class Game
             LeaveTowerMode();
             return;
         }
-        if (World.SpecialView(Player) is { Ready: false, Why: { } why })
+        if (World.SpecialView(Me) is { Ready: false, Why: { } why })
         {
             RunRefused(HangarText.Reason(why));
             return;
         }
         if (!TowerModeHolds(out _, out _))
         {
-            RunRefused(HangarText.Reason(World.HeroOf(Player) is null ? "the hero is down" : "only while driving the hero"));
+            RunRefused(HangarText.Reason(World.HeroOf(Me) is null ? "the hero is down" : "only while driving the hero"));
             return;
         }
         _towersUp = true;
@@ -100,8 +100,8 @@ public partial class Game
     /// </summary>
     private bool TowerModeHolds([NotNullWhen(true)] out WiredState? state, [NotNullWhen(true)] out Machine? hero)
     {
-        state = World.Wired?.Heroes.GetValueOrDefault(Player);
-        hero = World.HeroOf(Player);
+        state = World.Wired?.Heroes.GetValueOrDefault(Me);
+        hero = World.HeroOf(Me);
         return state is not null && hero is not null && World.Battle is null && !Watching && !MatchOver && !_heroDown && !HangarOpen
             && _driven?.Id == hero.Id && hero.Inside is null && (state.Build(World.Data).Chassis.Special & ChassisSpecial.Towers) != 0;
     }

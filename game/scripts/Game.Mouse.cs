@@ -186,7 +186,10 @@ public partial class Game
         _rig.Frozen = false;
     }
 
-    /// <summary>The player's machines and buildings in the box, in the order they are selected: first what can fight (MachWorldViewWindow::selectActors).</summary>
+    /// <summary>
+    /// The player's machines and buildings in the box, in the order they are selected: first what can fight
+    /// (MachWorldViewWindow::selectActors). A teammate's machines stay out of it (MayOrder).
+    /// </summary>
     private IEnumerable<Actor> InBand(Rect2 rect)
     {
         var camera = GetViewport().GetCamera3D();
@@ -195,7 +198,7 @@ public partial class Game
             var at = _views.TryGetValue(actor.Id, out var view) ? view.Centre : ActorView.World(actor.Position);
             return !camera.IsPositionBehind(at) && rect.HasPoint(camera.UnprojectPosition(at));
         }
-        return World.Actors.Where(a => a.Race == Player && a is Machine { Inside: null } or Construction && !a.IsDead && Shown(a))
+        return World.Actors.Where(a => a.Race == Player && a is Machine { Inside: null } or Construction && !a.IsDead && MayOrder(a) && Shown(a))
             .OrderBy(a => a switch
             {
                 Machine { CanFight: true } => 0,

@@ -145,7 +145,7 @@ public partial class Game
     /// </summary>
     private void UseSpecial()
     {
-        if (RefusesOrders() || World.Wired?.Heroes.GetValueOrDefault(Player) is not { } state)
+        if (RefusesOrders() || World.Wired?.Heroes.GetValueOrDefault(Me) is not { } state)
             return;
         var special = state.Build(World.Data).Chassis.Special;
         if ((special & ChassisSpecial.Towers) != 0)
@@ -156,7 +156,7 @@ public partial class Game
                 ToggleTowerMode();
         }
         else if ((special & ChassisSpecial.Anchor) != 0)
-            Issue(new WiredSpecialCommand(Player, World.HeroOf(Player) is not { } hero || World.AnchorPhaseOf(hero) is not (AnchorPhase.Locking or AnchorPhase.Anchored)));
+            Issue(new WiredSpecialCommand(Player, World.HeroOf(Me) is not { } hero || World.AnchorPhaseOf(hero) is not (AnchorPhase.Locking or AnchorPhase.Anchored)));
         else if ((special & (ChassisSpecial.Field | ChassisSpecial.Mines | ChassisSpecial.Locate)) != 0)
             Issue(new WiredSpecialCommand(Player));
         else if ((special & (ChassisSpecial.Plough | ChassisSpecial.Afterburner)) != 0)
@@ -172,7 +172,7 @@ public partial class Game
 
     private void SquadFollows()
     {
-        if (World.HeroOf(Player) is { } hero)
+        if (World.HeroOf(Me) is { } hero)
             SquadOrder(KeyMap.Act.SquadFollow, squad => new FollowCommand(Player, squad, hero.Id));
         else
             RunRefused(HangarText.Reason("the hero is down"));
@@ -181,7 +181,7 @@ public partial class Game
     /// <summary>What the sight rests on is attacked; the squad goes back to following once it has fallen.</summary>
     private void SquadAttacks()
     {
-        if (World.HeroOf(Player) is not { } hero)
+        if (World.HeroOf(Me) is not { } hero)
         {
             RunRefused(HangarText.Reason("the hero is down"));
             return;
@@ -198,7 +198,7 @@ public partial class Game
 
     private void SquadBack()
     {
-        if (World.WiredPod(Player) is { } pod)
+        if (World.WiredPod(Me) is { } pod)
             SquadOrder(KeyMap.Act.SquadBack, squad => new MoveCommand(Player, squad, pod.EntranceOutside ?? pod.Position));
         else
             RunRefused(HangarText.Reason("the pod is gone"));
@@ -208,7 +208,7 @@ public partial class Game
     /// <param name="answered">The order as the machines answer it, where that is not the one they get.</param>
     private void SquadOrder(KeyMap.Act act, Func<IReadOnlyList<int>, Command> order, Func<IReadOnlyList<int>, Command>? answered = null)
     {
-        var squad = World.Escorts(Player).Select(escort => escort.Id).ToList();
+        var squad = World.Escorts(Me).Select(escort => escort.Id).ToList();
         if (squad.Count == 0)
         {
             RunRefused(HangarText.Reason("there is no squad to order"));

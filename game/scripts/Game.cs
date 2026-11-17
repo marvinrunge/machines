@@ -23,6 +23,16 @@ public partial class Game : Node3D
     /// <summary>The player at this computer, one of <see cref="Player"/>'s race (<see cref="MatchRequest.Me"/>).</summary>
     public static PlayerId Me => MatchRequest.Current.Me;
 
+    /// <summary>
+    /// Whether the player at this computer may order an actor (<see cref="GameWorld.MayOrder"/>): what they select, band,
+    /// drive and form squadrons of. In a race of one player that is every actor of the race, as it always was; in a race of
+    /// several commanders their own machines, those of an away teammate they keep, and every building of the race.
+    /// </summary>
+    public bool MayOrder(Actor actor) => World.MayOrder(Me, actor);
+
+    /// <summary>Whether a Wired or battle event is about this player's own hero (its <see cref="GameEvent.Player"/>).</summary>
+    private static bool Mine(GameEvent e) => e.Player == Me;
+
     /// <summary>The colour a race is shown in; start positions keep the scenario's race in the simulation.</summary>
     public static Race Look(Race race) => MatchRequest.Current.Starts.Colours.GetValueOrDefault(race, race);
 
@@ -695,7 +705,8 @@ public partial class Game : Node3D
                 while (stepped < 3 && World.Tick < _clockTick && _session.TryStep())
                 {
                     stepped++;
-                    foreach (var rejected in World.Rejected.Where(r => r.Command.Race == Player))
+                    // Only what this person asked for is refused to them: a teammate's refusals are the teammate's.
+                    foreach (var rejected in World.Rejected.Where(r => r.Command.Issuer == Me))
                     {
                         if (rejected.Command is WiredCommand)
                             WiredRefused(rejected.Command, rejected.Reason);
@@ -1220,7 +1231,8 @@ public partial class Game : Node3D
             if (_driven?.Id == id)
                 _screen.Die(DriverLost);
         }
-        if (_driven is { } lost && lost.Race != Player)
+        // A machine changing sides, or (in a race of several commanders) given to a teammate, is no longer this player's to drive.
+        if (_driven is { } lost && (lost.Race != Player || !MayOrder(lost)))
             _screen.Die(DriverLost);
         SyncArtefacts();
     }
@@ -1239,7 +1251,7 @@ public partial class Game : Node3D
                     {
                         if (_views.TryGetValue(e.Actor, out var puncher))
                             puncher.Punch();
-                        if (World.Find(e.Actor)?.Race == Player)
+                        if (World.Find(e.Actor) is { } smasher && MayOrder(smasher))
                             _audio.Say("VID_NINJA_SMASH");
                     }
                     // Flying rounds are drawn in flight (ProjectileViews); the others streak to their mark. Both
@@ -1352,7 +1364,8 @@ public partial class Game : Node3D
                             CameraRig.Shake(at, degrees, 2);
                     }
                     break;
-                case GameEventKind.MachineBuilt when World.Find<Machine>(e.Actor) is { } built && built.Race == Player:
+                // In a race of several commanders a machine is reported to the one it is built for (or who keeps it).
+                case GameEventKind.MachineBuilt when World.Find<Machine>(e.Actor) is { } built && MayOrder(built):
                     // In a Wired run the squad strip shows who has come.
                     if (World.Wired is null)
                         _hud.Message(Lang.T("Machine ready: {0}", e.Detail));
@@ -1372,12 +1385,17 @@ public partial class Game : Node3D
                     _aboard.Add(e.Actor);
                     _views.GetValueOrDefault(e.Actor)?.TeleportOut();
                     _audio.Play("SID_ENTERED_APC", at);
-                    if (World.Find(e.Actor)?.Race == Player)
+                    if (World.Find(e.Actor) is { } boarded && MayOrder(boarded))
                         _audio.Say("VID_APC_UNIT_BOARDED");
                     break;
-                case GameEventKind.Deployed when World.Find(e.Actor)?.Race == Player:
+                case GameEventKind.Deployed when World.Find(e.Actor) is { } apc && MayOrder(apc):
                     _hud.Message(Lang.T("APC deployed {0} machines", e.Detail));
                     _audio.Say("VID_APC_DEPLOYMENT_COMPLETE");
+                    break;
+                // A teammate of the race handed this player machines (GiveCommand).
+                case GameEventKind.MachinesGiven when e.Player == Me && e.By is { } giver && giver != Me:
+                    _hud.Message(Lang.T("{0} gave you {1} machines", PlayerName(giver), e.Detail ?? "0"));
+                    _audio.PlayGui("gui/sounds/taskmach.wav");
                     break;
                 // A round the ground stopped: one that flies ends in its splat as it vanishes (ProjectileViews); a
                 // bolt or shell streaks into the hillside and bursts there (MachPhys::ON_TERRAIN).
@@ -1682,14 +1700,36 @@ public partial class Game : Node3D
     // ---- input ----------------------------------------------------------------------------------
 
     /// <summary>
-    /// Ctrl and F1 to F3 (MachPromptText::doHandleKeyEvent): the player takes that other human player for an ally,
-    /// or an ally no longer; nothing for a player who is not there. The others count as in the chat's F1 to F3.
+    /// Ctrl and F1 to F3 (MachPromptText::doHandleKeyEvent): the player's side takes that other side for an ally, or an
+    /// ally no longer; nothing for a side that is not there. The sides count as in the chat's F1 to F3
+    /// (<see cref="MatchChat.OtherSides"/>), never the player's own race, however many commanders share it.
     /// </summary>
     private void ToggleAlliance(int index)
     {
-        if (MatchChat.Opponents().ElementAtOrDefault(index) is not { } opponent || !World.Races.TryGetValue(Player, out var own))
+        if (MatchChat.OtherSides().ElementAtOrDefault(index) is not { } side || !World.Races.TryGetValue(Player, out var own))
             return;
-        Issue(new AllianceCommand(Player, opponent.Slot, !own.Allies.Contains(opponent.Slot)));
+        Issue(new AllianceCommand(Player, side.Slot, !own.Allies.Contains(side.Slot)));
+    }
+
+    /// <summary>
+    /// What the others are told when a player leaves (P1 design §6.3), by who looks after what they played from then on: in
+    /// a battle a bot drives their hero; in a skirmish the teammate of their race with the lowest number who is still there
+    /// commands their machines, and with nobody of the race left the computer plays it; a Wired run has no stand-in.
+    /// </summary>
+    private string LeaveNotice(PlayerId left)
+    {
+        var name = PlayerName(left);
+        var players = World.Players;
+        if (World.Battle is not null)
+            return Lang.T("{0} left – a bot drives their hero", name);
+        if (World.Wired is not null)
+            return Lang.T("{0} left the match", name);
+        var race = players.Contains(left) ? players.RaceOf(left) : Player;
+        var keeper = players.PlayersOf(race).Where(id => id != left && players[id].Kind == PlayerKind.Human && !players.Away(id))
+            .Select(id => (PlayerId?)id).FirstOrDefault();
+        return keeper == Me ? Lang.T("{0} left – you command their machines", name)
+            : keeper is { } other ? Lang.T("{0} left – {1} commands their machines", name, PlayerName(other))
+            : Lang.T("{0} left – the computer plays {1}", name, Lang.T(race.ToString()));
     }
 
     /// <summary>The name a player of the match is shown by.</summary>
@@ -1714,10 +1754,10 @@ public partial class Game : Node3D
             {
                 // Rejoining, the match so far arrives too; only what happens from now on is news.
                 case PlayerLeft left when left.FromTick >= (MatchRequest.Current.ResumeFrom ?? 0):
-                    _hud.Message(Lang.T("{0} left the match; the AI takes over", PlayerName(left.Player)));
+                    _hud.Message(LeaveNotice(left.Player));
                     break;
                 case PlayerReturned back when back.Player != Me && back.FromTick >= (MatchRequest.Current.ResumeFrom ?? 0):
-                    _hud.Message(Lang.T("{0} is back and takes over from the AI", PlayerName(back.Player)));
+                    _hud.Message(Lang.T("{0} is back", PlayerName(back.Player)));
                     break;
                 case Chat chat:
                     _hud.Chat.Receive(chat);
@@ -2128,9 +2168,18 @@ public partial class Game : Node3D
     /// </summary>
     public void SelectSquadron(int squad)
     {
-        Select(World.Machines.Where(m => m.Race == Player && m.Squad == squad && m.Inside is null).Select(m => m.Id).ToList());
+        Select(World.Machines.Where(m => m.Race == Player && m.Squad == squad && InOwnSquads(m) && m.Inside is null).Select(m => m.Id).ToList());
         _squadronSelected = squad;
     }
+
+    /// <summary>
+    /// Whose squadrons the player's numbers 0 to 9 are (<see cref="GameWorld.SquadScope"/>): in a race of several commanders
+    /// their own, so that each has all ten; else, null, the whole race's, as always.
+    /// </summary>
+    public PlayerId? SquadOwner => World.SquadScope(Player, Me);
+
+    /// <summary>Whether a machine of the race is in the squadrons the player's numbers name.</summary>
+    public bool InOwnSquads(Machine machine) => SquadOwner is not { } owner || machine.Owner == owner;
 
     // The squadron picked by its number or from the bank, while the selection is still just that.
     private int? _squadronSelected;
@@ -2140,7 +2189,7 @@ public partial class Game : Node3D
     /// squadron context); orders that are not for machines go as they are.
     /// </summary>
     private Command ThroughCommander(Command command) =>
-        _squadronSelected is { } squad && World.CommanderOf(Player, squad) is not null && command is MoveCommand or AttackCommand
+        _squadronSelected is { } squad && World.CommanderOf(Player, SquadOwner, squad) is not null && command is MoveCommand or AttackCommand
             or AttackMoveCommand or StopCommand or ConstructCommand or LocateCommand or PatrolCommand or HealCommand or RepairCommand
             or CaptureCommand or DeconstructCommand or RecycleCommand or StandGroundCommand or DefConCommand
             or DropLandMinesCommand or RefillLandMinesCommand or CamouflageCommand or FollowCommand or SeriesCommand
@@ -2193,8 +2242,9 @@ public partial class Game : Node3D
             _audio.Say($"VID_{voice}_{report}");
     }
 
+    /// <summary>The selected machines the player may order: of their race, and in a race of several commanders their own or kept ones.</summary>
     public IEnumerable<Machine> SelectedMachines() =>
-        _selection.Select(World.Find<Machine>).OfType<Machine>().Where(m => m.Race == Player);
+        _selection.Select(World.Find<Machine>).OfType<Machine>().Where(m => m.Race == Player && MayOrder(m));
 
     /// <summary>
     /// Right click: the right order for each selected machine and what was clicked. It goes to the machines

@@ -30,7 +30,7 @@ public class WiredReadoutTests
         return world;
     }
 
-    private static WiredReadout Now(GameWorld world) => WiredReadout.Of(world, Race.Red)!;
+    private static WiredReadout Now(GameWorld world) => WiredReadout.Of(world, PlayerId.Of(Race.Red))!;
 
     private static WiredState Red(GameWorld world) => world.Wired!.Heroes[Race.Red];
 
@@ -57,13 +57,62 @@ public class WiredReadoutTests
         state.Loadout = state.Loadout.With(slot, state.Add(WiredCatalogue.KindOf(id)!.Value, id, 0));
     }
 
+    /// <summary>A run of two Red heroes (players 0 and 4) against the computer's Blue, each with a bank of its own.</summary>
+    private static GameWorld Coop()
+    {
+        var rows = new List<PlayerSeat>
+        {
+            new(new PlayerId(0), Race.Red, PlayerKind.Human, "Anna"), new(new PlayerId(1), Race.Blue, PlayerKind.Ai, "AI"),
+            new(new PlayerId(4), Race.Red, PlayerKind.Human, "Ben"),
+        };
+        return MatchSetup.Create(Data, "m_desert", "m_desert", new PlayerTable(rows), 7, new MatchOptions { Wired = new WiredOptions() });
+    }
+
+    [Fact]
+    public void In_a_run_of_several_heroes_each_sees_its_own_bank_and_its_wait_for_the_wave()
+    {
+        var world = Coop();
+        var (anna, ben) = (new PlayerId(0), new PlayerId(4));
+        var (hers, his) = (world.Wired!.Heroes[anna], world.Wired.Heroes[ben]);
+        Assert.True(hers.OwnBank && his.OwnBank);
+        Assert.Equal(0, world.Races[Race.Red].Bmu);
+        Assert.True(hers.Bank > 0);
+
+        // Each hero's purse, not the race's empty one; one hero's spending is not the other's.
+        var grunt = new ResearchKey("AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+        var price = world.EscortPrice(his, grunt);
+        Assert.Null(Do(world, new WiredHangarCommand(Race.Red, true) { Issuer = ben }));
+        Assert.Null(Do(world, new WiredSquadBuyCommand(Race.Red, grunt) { Issuer = ben }));
+        var (annas, bens) = (WiredReadout.Of(world, anna)!, WiredReadout.Of(world, ben)!);
+        Assert.Equal((int)world.Bank(hers), annas.Bank);
+        Assert.Equal((int)world.Bank(his), bens.Bank);
+        Assert.Equal((int)hers.Bank - price, bens.Bank);
+        Assert.Equal(bens.Bank, new HangarShop(world, his).Bank);
+        Assert.Equal((0, 1), (annas.Squad.Count, bens.Squad.Count));
+        Assert.Null(Do(world, new WiredHangarCommand(Race.Red, false) { Issuer = ben }));
+        Assert.Null(WiredReadout.Of(world, new PlayerId(5)));
+
+        // A hero that falls in a wave waits for its end: no seconds count down, and the HUD says so.
+        world.Wired.Wave = 0;
+        world.Wired.Countdown = 0;
+        world.Step();
+        world.Step();
+        Assert.Equal(WiredPhase.Wave, world.Wired.Phase);
+        world.Damage(world.HeroOf(ben)!, 1_000_000, Race.Blue);
+        world.Step();
+        var down = WiredReadout.Of(world, ben)!;
+        Assert.True(down.WaitsForWave);
+        Assert.Null(down.DownSeconds);
+        Assert.False(WiredReadout.Of(world, anna)!.WaitsForWave);
+    }
+
     [Fact]
     public void A_match_without_a_run_has_no_figures()
     {
         var world = MatchSetup.Create(Data, "m_desert", "m_desert",
             new Dictionary<Race, Controller> { [Race.Red] = Controller.Player, [Race.Blue] = Controller.Ai }, 7, new MatchOptions());
 
-        Assert.Null(WiredReadout.Of(world, Race.Red));
+        Assert.Null(WiredReadout.Of(world, PlayerId.Of(Race.Red)));
     }
 
     [Fact]

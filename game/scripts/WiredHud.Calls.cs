@@ -129,7 +129,7 @@ public partial class WiredHud
     /// <summary>The red at the edges of a hero nearly gone, and the arcs towards what hit it.</summary>
     private void DrawDanger()
     {
-        if (_game.World.HeroOf(Game.Player) is { } hero && Driving)
+        if (_game.World.HeroOf(Game.Me) is { } hero && Driving)
         {
             var health = hero.HitPoints / (float)Math.Max(1, hero.MaxHitPoints);
             if (health < 0.35f)
@@ -153,7 +153,7 @@ public partial class WiredHud
         if (GetViewport().GetCamera3D() is not { } camera)
             return;
         var world = _game.World;
-        if (world.WiredPod(Game.Player) is { } pod && world.HeroOf(Game.Player) is not null)
+        if (world.WiredPod(Game.Me) is { } pod && world.HeroOf(Game.Me) is not null)
         {
             var struck = Fading(_podStruck, 1.4) > 0;
             var strong = now.BetweenWaves || struck;
@@ -161,7 +161,7 @@ public partial class WiredHud
             var label = now.PodDistance is { } distance ? $"POD {Mathf.RoundToInt(distance)} m" : "POD";
             Pointer(camera, ActorView.World(pod.Position) + Vector3.Up * 14, colour, label, strong);
         }
-        if (world.Wired is { } run && now.InStrike && world.HeroOf(Game.Player) is { } hero)
+        if (world.Wired is { } run && now.InStrike && world.HeroOf(Game.Me) is { } hero)
         {
             var strike = run.Strikes.Where(s => NVector2.Distance(s.Position, hero.Position) <= s.Radius)
                 .OrderBy(s => s.At).First();
@@ -327,7 +327,7 @@ public partial class WiredHud
             if (now.ChipChoice)
                 Prompt(new Vector2(middle, y + 56 * _u), Lang.T("A chip is waiting to be chosen"), Gold, 18);
         }
-        else if (now.BetweenWaves && _game.World.HeroOf(Game.Player) is not null && now.Seconds > 0)
+        else if (now.BetweenWaves && _game.World.HeroOf(Game.Me) is not null && now.Seconds > 0)
             Prompt(new Vector2(middle, y), Lang.T("Back to the pod for the hangar"), MenuTheme.Text, 20);
 
         if (now.StrikeIn is { } strike)
@@ -391,13 +391,25 @@ public partial class WiredHud
             Say(new Vector2(middle, y + 106 * _u), Fit(line, 25, (_size.X - Left) / _u * 0.8f), 25, tint, 0.5f, outline: 2);
     }
 
-    /// <summary>The hero is down: over the static, how long until the next body and what is left.</summary>
+    /// <summary>
+    /// The hero is down: over the static, how long until the next body and what is left; in a run of several heroes, during
+    /// a wave, that the body comes when the wave is over.
+    /// </summary>
     private void DrawDown(WiredReadout now)
     {
-        if (now.DownSeconds is not { } seconds)
-            return;
         var middle = Left + (_size.X - Left) / 2;
         var box = new Rect2(middle - 300 * _u, _size.Y * 0.5f - 96 * _u, 600 * _u, 250 * _u);
+        if (now.WaitsForWave)
+        {
+            Plate(box, new Color(0, 0, 0, 0.82f), Danger, 16);
+            Say(new Vector2(middle, box.Position.Y + 50 * _u), Lang.T("Body lost").Caps(), 36, Danger, 0.5f);
+            Say(new Vector2(middle, box.Position.Y + 128 * _u), Lang.T("Back when the wave is over"), 34, Colors.White, 0.5f);
+            Say(new Vector2(middle, box.Position.Y + 190 * _u), Lang.T("The next body stands at the pod"), 22, MenuTheme.Text, 0.5f);
+            Say(new Vector2(middle, box.Position.Y + 224 * _u), Lang.T("Spare bodies left: {0}", now.SpareBodies), 19, MenuTheme.Dim, 0.5f);
+            return;
+        }
+        if (now.DownSeconds is not { } seconds)
+            return;
         var beat = 1 - (float)(seconds % 1);
         Plate(box, new Color(0, 0, 0, 0.82f), Danger, 16);
         Say(new Vector2(middle, box.Position.Y + 50 * _u), Lang.T("Body lost").Caps(), 36, Danger, 0.5f);
