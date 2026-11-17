@@ -764,8 +764,9 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
     /// seats are bots; team=5 seats five heroes a team. A normal room has two commanders a side with seats=2. The joining
     /// side with seat=&lt;n&gt; moves to the room's seat n (counted from 0) once in, keeping the colour it is given there
     /// (seat=1 in a room of two a side sits beside the host); with pod=1 it goes to the pod from the room and comes back
-    /// by its Ready (MACHINES_MP_POD_SHOT=&lt;png&gt; saves the pod on the way). It all happens once a run: the page coming
-    /// again (back from the pod or a match) does not connect anew.
+    /// by its Ready (MACHINES_MP_POD_SHOT=&lt;png&gt; saves the pod on the way). Where the first room's match is running
+    /// already, the joining side asks to come back into it as the player of its name who left (RejoinMatch). It all happens
+    /// once a run: the page coming again (back from the pod or a match) does not connect anew.
     /// </summary>
     private void Automate()
     {
@@ -821,6 +822,13 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
                     _rooms.Select(0);
                     await ToSignal(GetTree().CreateTimer(1), SceneTreeTimer.SignalName.Timeout);
                     GetViewport().GetTexture().GetImage().SavePng(lobbyShot);
+                }
+                // A match already running there takes the joining side back as the player of its name who left it.
+                if (_roomList.Rooms[0] is { Started: true } running)
+                {
+                    GD.Print($"mp: rejoining room {running.Id}");
+                    NetLink.Send(new RejoinMatch(running.Id));
+                    return;
                 }
                 NetLink.Send(new JoinRoom(_roomList.Rooms[0].Id));
                 while (_state is null)
