@@ -512,6 +512,17 @@ public class BundleSessionTests
         Assert.InRange(NetJson.Encode(new Bundle(8, [])).Length, 40, 80);
         var resumed = (MatchResumed)NetJson.Decode(NetJson.Encode(new MatchResumed(Skirmish(), Ben, 600, ResumeReason.LateJoin, Parts: 3, Key: "k3y", Resyncs: 1)));
         Assert.Equal((ResumeReason.LateJoin, 3, "k3y", 1), (resumed.Reason, resumed.Parts, resumed.Key, resumed.Resyncs));
+
+        // Why a player left goes along only where it is a lag or a rebuild (S4): a plain leave, and so every recording's, reads as before.
+        Assert.DoesNotContain("Why", text);
+        foreach (var why in Enum.GetValues<LeaveReason>())
+            Assert.Equal(new PlayerLeft(Anna, 9, why), NetJson.Decode(NetJson.Encode(new PlayerLeft(Anna, 9, why))));
+        Assert.Contains("\"Why\":\"Rebuilding\"", Encoding.UTF8.GetString(NetJson.Encode(new PlayerLeft(Anna, 9, LeaveReason.Rebuilding))));
+        Assert.Equal(new PlayerLeft(Anna, 9), NetJson.Decode("""{"$type":"playerLeft","Player":0,"FromTick":9}"""u8));
+        // The relay's reasons for taking a player out are the texts the game tells apart and translates.
+        Assert.Equal(["Your computer cannot keep up with this match.", "Your connection cannot keep up with this match.",
+                "Your game kept going out of step with the others, so it has left the match.", "you came back to this match from another connection"],
+            [LeftMatch.CannotKeepUp, LeftMatch.SlowLine, LeftMatch.OutOfStep, LeftMatch.TakenOver]);
     }
 
     /// <summary>Commands compared by their JSON: some hold lists, which records compare by reference.</summary>

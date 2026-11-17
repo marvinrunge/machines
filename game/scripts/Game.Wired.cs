@@ -107,6 +107,15 @@ public partial class Game
     {
         if (_runBegun)
             return;
+        // Online, a hero that is not the player's yet (the world rebuilt, joining late, catching up or fallen behind) is not
+        // got into: in a battle the view looks on from behind it while its bot drives; the run begins once it is the player's
+        // (P2 design §5.4, §6.3).
+        if (Online && HeroHeld && Cinematic.Asked is null)
+        {
+            if (World.Battle is not null && _watched is null && World.HeroOf(Me) is { } held)
+                StartWatching(held.Id);
+            return;
+        }
         _runBegun = true;
         if (KeyMap.GaveWay.Count > 0)
             _hud.Message(KeyMap.GaveWayNote());

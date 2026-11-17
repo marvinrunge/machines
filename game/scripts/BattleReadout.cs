@@ -28,10 +28,12 @@ public enum BattleOutcome
 /// several heroes of one race (none, 0, where every race has one hero, as in today's layout), its name, the name of the person
 /// who plays it (null for the computer's), chassis and tier, what is left of it, the lives it began with and has left (the
 /// body it stands in or is waiting for counted), the seconds until it is back while it is down, whether it is out for good,
-/// whether a bot drives it and whether its person has left the match.
+/// whether a bot drives it, whether its person has left the match, and online whether they are there but lag (their orders
+/// come late, P2 design §2.6; a held rebuild too).
 /// </summary>
 public sealed record BattleHeroReadout(PlayerId Player, Race Race, int Number, string Name, string? PlayerName, string Chassis, int Tier, bool Bot,
-    bool You, float Health, float Armour, int Lives, int LivesLeft, bool Standing, float? BackIn, bool Out, int Kills, bool Away = false)
+    bool You, float Health, float Armour, int Lives, int LivesLeft, bool Standing, float? BackIn, bool Out, int Kills, bool Away = false,
+    bool Lagging = false)
 {
     /// <summary>The hero as the marks over it and the team list name it: "3 · Torque" with a number, else its name alone.</summary>
     public string Label => BattleReadout.Label(Number, Name);
@@ -111,8 +113,11 @@ public sealed record BattleReadout
 
     public required float? EnemyPodDistance { get; init; }
 
-    /// <summary>The figures for a player of a battle; null in any other match or for a player in neither team.</summary>
-    public static BattleReadout? Of(GameWorld world, PlayerId player)
+    /// <summary>
+    /// The figures for a player of a battle; null in any other match or for a player in neither team. Online,
+    /// <paramref name="lagging"/> says which players lag as the world stands (the session's marks, P2 design §5.6).
+    /// </summary>
+    public static BattleReadout? Of(GameWorld world, PlayerId player, Func<PlayerId, bool>? lagging = null)
     {
         if (world.Battle is not { } run || world.Wired is not { } wired)
             return null;
@@ -120,7 +125,7 @@ public sealed record BattleReadout
         if (own < 0)
             return null;
         var now = world.Time;
-        var teams = new[] { Team(world, run, 0, own, player), Team(world, run, 1, own, player) };
+        var teams = new[] { Team(world, run, 0, own, player, lagging), Team(world, run, 1, own, player, lagging) };
         var you = teams[own].Heroes.First(h => h.Player == player);
         var state = wired.Heroes.GetValueOrDefault(player);
         var hero = world.HeroOf(player);
@@ -150,14 +155,14 @@ public sealed record BattleReadout
     }
 
     /// <summary>A team as its players stand in it (<see cref="BattleRun.Members"/>): in today's layout its races in race order.</summary>
-    private static BattleTeamReadout Team(GameWorld world, BattleRun run, int team, int own, PlayerId viewer)
+    private static BattleTeamReadout Team(GameWorld world, BattleRun run, int team, int own, PlayerId viewer, Func<PlayerId, bool>? lagging)
     {
-        var heroes = run.Members[team].Select(player => Hero(world, run, player, viewer)).ToList();
+        var heroes = run.Members[team].Select(player => Hero(world, run, player, viewer, lagging)).ToList();
         var capturing = run.Members[team].Any(run.Shares.ContainsKey);
         return new BattleTeamReadout(team, team == own, heroes, run.Progress(team), capturing, world.BattlePod(team) is not null, run.CaptureTarget);
     }
 
-    private static BattleHeroReadout Hero(GameWorld world, BattleRun run, PlayerId player, PlayerId viewer)
+    private static BattleHeroReadout Hero(GameWorld world, BattleRun run, PlayerId player, PlayerId viewer, Func<PlayerId, bool>? lagging)
     {
         var sheet = SheetOf(run, player);
         var race = sheet?.Race ?? world.Players.RaceOf(player);
@@ -172,7 +177,8 @@ public sealed record BattleReadout
             chassis, BattleCatalogue.Tier(chassis), run.Bots.Contains(player), player == viewer,
             hero is null ? 0 : Share(hero.HitPoints, hero.MaxHitPoints), hero is null ? 0 : Share(hero.Armour, hero.MaxArmour),
             run.Options.Lives, left, hero is not null, coming ? MathF.Max(0, state!.RespawnAt!.Value - world.Time) : null,
-            hero is null && !coming, tally?.Kills ?? 0, world.Players.Away(player));
+            hero is null && !coming, tally?.Kills ?? 0, world.Players.Away(player),
+            row is { Kind: PlayerKind.Human } && !world.Players.Away(player) && lagging?.Invoke(player) == true);
     }
 
     /// <summary>
@@ -197,13 +203,15 @@ public sealed record BattleReadout
 
     /// <summary>
     /// What a hero's row says of who drives it now, besides standing or down, as the words to translate: "Away" for a person
-    /// who left (the computer drives their hero), "Bot" for a bot where that is news, in a list of three or more heroes
-    /// a team (<paramref name="teamHeroes"/>) or where several <paramref name="people"/> play; null for a hero out for good
-    /// and otherwise. The rows show it before the name, where it is never cut off.
+    /// who left (the computer drives their hero), "Lag" online for a person still there whose orders come late (P2 design
+    /// §5.6), "Bot" for a bot where that is news, in a list of three or more heroes a team (<paramref name="teamHeroes"/>) or
+    /// where several <paramref name="people"/> play; null for a hero out for good and otherwise. The rows show it before the
+    /// name, where it is never cut off.
     /// </summary>
     public static string? DriverTag(BattleHeroReadout hero, int teamHeroes, int people) =>
         hero.Out ? null
         : hero.Away ? "Away"
+        : hero.Lagging ? "Lag"
         : hero.Bot && (teamHeroes > 2 || people > 1) ? "Bot"
         : null;
 

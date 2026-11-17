@@ -172,7 +172,8 @@ public partial class WiredHud
         if (DriverTag(hero) is not { } tag)
             return 0;
         var text = tag.Caps();
-        var colour = hero.Away ? Warning : Ice;
+        // A person away or lagging is warned of; a bot is a plain fact.
+        var colour = hero.Away || hero.Lagging ? Warning : Ice;
         var width = Width(text, size) / _u + 8;
         var box = new Rect2(at, new Vector2(width, height) * _u);
         DrawRect(box, new Color(colour, 0.16f));

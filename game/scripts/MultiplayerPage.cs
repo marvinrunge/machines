@@ -46,6 +46,15 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
     private static RoomState? _matchRoom;
     private static bool _returning;
 
+    // The room of the match this game plays now: started from here, or come back into (rejoined or joined late).
+    private static int? _playing;
+
+    /// <summary>The relay's room of the match this game plays, which a world that lost its place asks to come back into.</summary>
+    public static int? MatchRoomId => _playing;
+
+    /// <summary>What the page says when it comes again: the match scene tells why it left the match (P2 design §5.5).</summary>
+    public static void Tell(string text) => _statusText = text;
+
     // Coming back from the pod: the hero is sent again, ready or not as the pod's button said.
     private static bool? _fromPod;
 
@@ -227,11 +236,11 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             AddChat(text, note: true);
     }
 
-    /// <summary>Leaves for the match the relay started; what follows in the inbox is the match scene's to read.</summary>
-    private void Leave()
+    /// <summary>Leaves for the match the relay started, or comes back into; what follows in the inbox is the match scene's to read.</summary>
+    private void Leave(string detail = "MULTIPLAYER")
     {
         _leaving = true;
-        LoadingScreen.Show(GetTree(), LoadingScreen.MapName(MatchRequest.Current), Lang.T("MULTIPLAYER"));
+        LoadingScreen.Show(GetTree(), LoadingScreen.MapName(MatchRequest.Current), Lang.T(detail));
     }
 
     public override void _Process(double delta)
@@ -253,16 +262,14 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
                     ShowRoom(state);
                     break;
                 case Refused refused:
-                    // A seat key the relay does not take (its match is over, or it took this player out) is no use any more:
-                    // the next Join asks by name.
-                    if (_rejoinedByKey)
-                        NetLink.ForgetSeat();
-                    _rejoinedByKey = false;
+                    if (_rejoining is { } asking && TryNextWayBack(asking, refused.Reason))
+                        break;
+                    (_rejoining, _rejoinedByKey, _lateJoining) = (null, false, false);
                     Refuse(refused.Reason);
                     break;
                 case MatchStarted started:
                     MatchRequest.Current = MatchRequest.FromMatch(started.Match, NetLink.ClientId) with { Network = started.Match };
-                    (_matchRoom, _known) = (_state, null);
+                    (_matchRoom, _known, _playing, _rejoining) = (_state, null, _state?.Id, null);
                     Leave();
                     return;
                 // The key to take the seat back with comes right after the start, which the match scene reads; should it
@@ -272,14 +279,16 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
                     break;
                 case MatchResumed resumed:
                     _known = null;
-                    _rejoinedByKey = false;
-                    // A rejoin by name brings the seat's new key.
+                    // A rejoin by name, or a late join, brings the seat's new key.
                     if (resumed.Key is { } fresh && _rejoining is { } asked)
                         NetLink.KeepSeat(asked, resumed.Player, fresh);
-                    // The match so far follows in the inbox; the match scene reads it from there.
+                    (_playing, _rejoining, _rejoinedByKey, _lateJoining) = (_rejoining ?? _playing, null, false, false);
+                    // The match so far follows in the inbox; the match scene reads it from there, and plays it from where the
+                    // relay rebuilds this world: the hero is the player's once they are back in the match (P2 design §5.4, §6.3).
                     MatchRequest.Current = MatchRequest.FromMatch(resumed.Match, NetLink.ClientId, resumed.Player)
-                        with { Network = resumed.Match, ResumeFrom = resumed.FromTick };
-                    Leave();
+                        with { Network = resumed.Match, ResumeFrom = resumed.FromTick, Rebuild = resumed.Reason, Resyncs = resumed.Resyncs };
+                    GD.Print($"mp: {(resumed.Reason == ResumeReason.LateJoin ? "joining" : "back in")} room {_playing} as player {resumed.Player} from tick {resumed.FromTick}");
+                    Leave(resumed.Reason == ResumeReason.LateJoin ? "JOINING A RUNNING BATTLE" : "REJOINING THE MATCH");
                     return;
                 case Chat chat:
                     AddChat($"{chat.From} : {chat.Text}");
@@ -595,7 +604,10 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
         var line = room.Mode == RoomSummary.Battle && BattleCatalogue.Map(room.Scenario) is { } map
             ? Lang.T("{0}   ·   Battle on {1}   ·   {2}   ·   {3}/{4}", room.Name, BattlePod.MapName(map), SkirmishPage.BracketName(room.Tier), room.Players, room.MaxPlayers)
             : Lang.T("{0}   ·   {1} on {2}   ·   {3}/{4}", room.Name, room.Scenario, room.Planet, room.Players, room.MaxPlayers);
-        return line + (room.Started ? "   ·   " + Lang.T("playing") : "");
+        // A running battle with bots' seats a player may join late says how many (P2 design §6.2).
+        return line + (!room.Started ? ""
+            : room.Joinable > 0 ? "   ·   " + Lang.T(room.Joinable == 1 ? "playing · a seat to join" : "playing · {0} seats to join", room.Joinable)
+            : "   ·   " + Lang.T("playing"));
     }
 
     /// <summary>
@@ -644,19 +656,19 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             NetLink.Send(new JoinRoom(room.Id));
     }
 
-    // The running match this page last asked to come back into, and whether it asked with the seat's key.
+    // The running match this page last asked to come back into, and whether it asked with the seat's key or to join it late.
     private static int? _rejoining;
-    private static bool _rejoinedByKey;
+    private static bool _rejoinedByKey, _lateJoining;
 
     /// <summary>
     /// Back into a running match (P2 design §6.1): with the key of the seat this game holds there, kept in the settings, which
     /// takes the seat back from any connection, also one the relay still holds for this player; else by the name connected
     /// with, as the player they were when it is the match this game last played, so that of two who connected under one name
-    /// each comes back as themself.
+    /// each comes back as themself. Refused, the next way is tried (<see cref="TryNextWayBack"/>).
     /// </summary>
     private void Rejoin(int room)
     {
-        _rejoining = room;
+        (_rejoining, _lateJoining) = (room, false);
         if (NetLink.SeatIn(room) is { } seat)
         {
             _rejoinedByKey = true;
@@ -664,6 +676,40 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             NetLink.Send(new RejoinMatch(room, seat.Player, seat.Key));
             return;
         }
+        RejoinByName(room);
+    }
+
+    /// <summary>
+    /// A way back into a running match was refused (P2 design §6.1, §6.2): a seat key the relay does not take (the match it was
+    /// for is over, or it took this player out) is forgotten and the player asks by name; nobody of that name having left a
+    /// running battle with bots' seats free, the player joins it late in one, with this game's ground. False where no way is
+    /// left, and the page says the refusal.
+    /// </summary>
+    private bool TryNextWayBack(int room, string reason)
+    {
+        if (_rejoinedByKey)
+        {
+            NetLink.ForgetSeat();
+            _rejoinedByKey = false;
+            if (reason == "that match is not running")
+                return false;
+            GD.Print($"mp: the seat key was refused ({reason}): rejoining room {room} by name");
+            RejoinByName(room);
+            return true;
+        }
+        if (!_lateJoining && reason.StartsWith("no player called ", StringComparison.Ordinal)
+                          && _roomList?.Rooms.FirstOrDefault(r => r.Id == room) is { Mode: RoomSummary.Battle, Joinable: > 0 } battle)
+        {
+            _lateJoining = true;
+            GD.Print($"mp: nobody of this name left room {room}: joining its battle late");
+            NetLink.Send(new JoinRoom(room, Terrain: TerrainPrint(battle.Planet)));
+            return true;
+        }
+        return false;
+    }
+
+    private void RejoinByName(int room)
+    {
         _rejoinedByKey = false;
         Machines.Sim.World.PlayerId? was = _matchRoom?.Id == room && MatchRequest.Current.Network is { } played
                                                                      && _roomList?.Rooms.FirstOrDefault(r => r.Id == room)?.Scenario == played.Scenario
@@ -813,8 +859,10 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
     /// the room and comes back by its Ready (MACHINES_MP_POD_SHOT=&lt;png&gt; saves the pod on the way). Where the first
     /// room's match is running already, the joining side asks to come back into it (RejoinMatch): by the key of its seat
     /// there when its settings keep one from an earlier run (a game killed in the match and started again), else as the
-    /// player of its name who left. It all happens once a run: the page coming again (back from the pod or a match) does
-    /// not connect anew.
+    /// player of its name who left, else, a battle with bots' seats free, late into one of them; with late=1 the joining side
+    /// waits until the first room's match runs. name=&lt;x&gt; connects under that name (else Host or Guest), and players=&lt;n&gt;
+    /// makes the host wait for n players, itself included, instead of two. It all happens once a run: the page coming again
+    /// (back from the pod or a match) does not connect anew.
     /// </summary>
     private void Automate()
     {
@@ -833,7 +881,7 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
                 asked.TryGetValue("win", out var win) && Enum.TryParse<BattleWin>(win, ignoreCase: true, out var wins) ? wins : BattleWin.Both,
                 Number("team", 0))
             : null;
-        _name.Text = host ? "Host" : "Guest";
+        _name.Text = asked.TryGetValue("name", out var name) && name.Length > 0 ? name : host ? "Host" : "Guest";
         // Automated checks leave the router alone.
         _openPort = false;
         _ = Run();
@@ -847,10 +895,11 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             {
                 if ((BattleRoom() ?? SkirmishPage.LastRoom(Number("seats", 1))) is { } room)
                     NetLink.Send(room);
-                while (_state is not { Players.Count: >= 2 })
+                var players = Math.Max(2, Number("players", 2));
+                while (_state is null || _state.Players.Count < players)
                     await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
                 Type("Welcome! Start when you are ready.");
-                while (_state is not { Players.Count: >= 2 } || _state.Players.Any(p => p.ClientId != NetLink.ClientId && !p.Ready))
+                while (_state is null || _state.Players.Count < players || _state.Players.Any(p => p.ClientId != NetLink.ClientId && !p.Ready))
                     await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
                 await Shoot();
                 _ready.ButtonPressed = true;
@@ -860,7 +909,9 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             }
             else
             {
-                while (_roomList is not { Rooms.Count: > 0 })
+                // late=1: the first room is joined once its match runs, late into a bot's seat (P2 design §6.2).
+                var late = Number("late", 0) > 0;
+                while (_roomList is not { Rooms.Count: > 0 } || late && !_roomList.Rooms[0].Started)
                 {
                     NetLink.Send(new ListRooms());
                     await ToSignal(GetTree().CreateTimer(0.5), SceneTreeTimer.SignalName.Timeout);
@@ -872,7 +923,7 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
                     GetViewport().GetTexture().GetImage().SavePng(lobbyShot);
                 }
                 // A match already running there takes the joining side back: by the key of its seat there, kept in the
-                // settings from the run before, else as the player of its name who left it.
+                // settings from the run before, else as the player of its name who left it; else, a battle, into a bot's seat.
                 if (_roomList.Rooms[0] is { Started: true } running)
                 {
                     Rejoin(running.Id);

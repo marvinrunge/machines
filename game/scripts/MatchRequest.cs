@@ -28,6 +28,15 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
     /// <summary>Rejoining a running match: the tick this player plays again from (the world catches up to it first).</summary>
     public long? ResumeFrom { get; init; }
 
+    /// <summary>
+    /// Online, why the relay rebuilds this player's world from its log (P2 design §5.4): a rejoin, a resync after going out of
+    /// step, or a late join into a bot's seat; null for a match started as usual.
+    /// </summary>
+    public ResumeReason? Rebuild { get; init; }
+
+    /// <summary>Online, how often this player's world was resynced in the match so far (the relay takes them out after three).</summary>
+    public int Resyncs { get; init; }
+
     /// <summary>A saved game to carry on: its recording brings the world back to where it was saved.</summary>
     public Replay? Saved { get; init; }
 

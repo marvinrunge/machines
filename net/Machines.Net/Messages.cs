@@ -224,9 +224,23 @@ public sealed record ChecksumReport(long Tick, PlayerId Player, ulong Value) : N
 /// <summary>
 /// A player left; their last turn was for <paramref name="FromTick"/> − 1, nobody waits for them after it, and
 /// from that tick on the computer stands in for them (<see cref="GameWorld.ChangePresence"/>): the AI plays their race,
-/// a teammate keeps their machines, or a bot drives their hero.
+/// a teammate keeps their machines, or a bot drives their hero. <paramref name="Why"/> says what took them out, for the
+/// others' notices alone (P2 design §4.4): every world does the same whatever it is, and the JSON leaves out a plain leave.
 /// </summary>
-public sealed record PlayerLeft(PlayerId Player, long FromTick) : NetMessage;
+public sealed record PlayerLeft(PlayerId Player, long FromTick, LeaveReason Why = LeaveReason.Left) : NetMessage;
+
+/// <summary>Why a player left the world (<see cref="PlayerLeft.Why"/>), for what the others are told.</summary>
+public enum LeaveReason
+{
+    /// <summary>They quit, their line ended, or the relay took them out.</summary>
+    Left,
+
+    /// <summary>Their turns came too late for too long (P2 design §2.6), or their held rebuild took too long.</summary>
+    Lagged,
+
+    /// <summary>Their world is being rebuilt from the relay's log (a resync or a rejoin, P2 design §5.3): they are back once it has caught up.</summary>
+    Rebuilding,
+}
 
 /// <summary>
 /// A player who dropped out asks to play again (the relay knows them by name). <paramref name="Player"/> is the player they
@@ -290,8 +304,24 @@ public sealed record SeatKey(int RoomId, PlayerId Player, string Key) : NetMessa
 /// </summary>
 public sealed record LogPart(long From, long To, int Part, int Parts, byte[] Data) : NetMessage;
 
-/// <summary>The relay took this client out of the running match, and why (P2 design §2.6, §5.5, §6.1); it is back in the lobby.</summary>
-public sealed record LeftMatch(string Reason) : NetMessage;
+/// <summary>
+/// The relay took this client out of the running match, and why (P2 design §2.6, §5.5, §6.1); it is back in the lobby. The
+/// reasons the relay gives are the constants here, in English: the game tells them apart by them and translates them.
+/// </summary>
+public sealed record LeftMatch(string Reason) : NetMessage
+{
+    /// <summary>The world never caught up after its handover, or its rebuild or late join never got going; the seat's key still takes it back.</summary>
+    public const string CannotKeepUp = "Your computer cannot keep up with this match.";
+
+    /// <summary>The line could not carry the match's traffic (its backlog grew too long); the seat's key still takes it back.</summary>
+    public const string SlowLine = "Your connection cannot keep up with this match.";
+
+    /// <summary>Out of step too often (P2 design §5.5): out for good, and no recording is kept.</summary>
+    public const string OutOfStep = "Your game kept going out of step with the others, so it has left the match.";
+
+    /// <summary>The seat went to this player's game on another connection, which holds its key now.</summary>
+    public const string TakenOver = "you came back to this match from another connection";
+}
 
 /// <summary>
 /// A chat message: in a room to everyone in it; in a match to everyone, or with <paramref name="To"/> only to every player

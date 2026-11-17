@@ -188,6 +188,33 @@ public partial class FogOfWar : CanvasLayer
     /// <summary>Whether the map has been uncovered at a point of the planet.</summary>
     public bool UncoveredAt(NVector2 at) => Uncovered((int)(at.X / _cellSize), (int)(at.Y / _cellSize));
 
+    /// <summary>The ground uncovered so far and the biggest scanner seen in each part of the planet, carried over a rebuild of the match (P2 design §5.4).</summary>
+    public sealed record Explored(bool[] Cells, byte[] BeenHere);
+
+    /// <summary>What has been uncovered, as a copy.</summary>
+    public Explored Export() => new((bool[])_uncovered.Clone(), (byte[])_beenHere.Clone());
+
+    /// <summary>
+    /// What was uncovered before the match scene was rebuilt, on top of what this one has: the same planet's, so of the same
+    /// size; another size is left alone.
+    /// </summary>
+    public void Import(Explored explored)
+    {
+        if (explored.Cells.Length != _uncovered.Length || explored.BeenHere.Length != _beenHere.Length)
+            return;
+        for (var i = 0; i < _beenHere.Length; i++)
+            _beenHere[i] = Math.Max(_beenHere[i], explored.BeenHere[i]);
+        for (var i = 0; i < _uncovered.Length; i++)
+        {
+            if (!explored.Cells[i] || _uncovered[i])
+                continue;
+            _uncovered[i] = true;
+            _mask.SetPixel(i % _width, i / _width, Colors.Transparent);
+            _maskDirty = true;
+        }
+        _first = false;
+    }
+
     // Beyond the planet's edge counts as known, as the original cleared the unused parts of its map.
     private bool Uncovered(int x, int y) => x < 0 || y < 0 || x >= _width || y >= _depth || _uncovered[y * _width + x];
 

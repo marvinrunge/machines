@@ -57,7 +57,7 @@ public class ResyncTests
         {
             var news = client.Session.Presence;
             Assert.Equal(2, news.Count);
-            Assert.Equal(new PlayerLeft(P(5), resumed.FromTick), news[0]);
+            Assert.Equal(new PlayerLeft(P(5), resumed.FromTick, LeaveReason.Rebuilding), news[0]);
             Assert.True(news[1] is PlayerReturned back && back.Player == P(5) && back.FromTick > resumed.FromTick, $"{news[1]}");
             Assert.DoesNotContain(P(5), client.World.HeroBots.Keys);
         }

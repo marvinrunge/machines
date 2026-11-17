@@ -60,6 +60,13 @@ public static class NetJson
                 }
                 return;
             }
+            if (info.Type == typeof(PlayerLeft))
+            {
+                // A plain leave reads as before P2: in a recording's presence, and in every bundle where it is no lag or rebuild.
+                foreach (var property in info.Properties.Where(p => p.Name == nameof(PlayerLeft.Why)))
+                    property.ShouldSerialize = static (_, value) => value is not LeaveReason.Left;
+                return;
+            }
             if (info.Type != typeof(Command))
                 return;
             info.PolymorphismOptions = new JsonPolymorphismOptions { TypeDiscriminatorPropertyName = "$command" };

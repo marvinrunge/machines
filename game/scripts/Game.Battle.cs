@@ -66,11 +66,20 @@ public partial class Game
     /// </summary>
     public string? BattleNotCounted => !Online || _battleRecorded || BattleConfirming ? null
         : _matchEnded is { } agreed && agreed != _decidedTick ? "The other players' games ended this battle at another moment: it is not counted."
+        // The line lost before the relay's word came: the end screen stops waiting for it.
+        : _matchEnded is null && _decidedTick is not null && !NetLink.Connected ? "The line to the relay was lost before the end of this battle was confirmed: it is not counted."
         : _matchEnded is null ? "The relay did not confirm the end of this battle: it is not counted."
+        : JoinedLate ? "You joined this battle late: it does not count for your profile."
         : null;
+
+    /// <summary>Online, this player took over a bot's seat of the running battle (P2 design §6.2), as the world's rows say.</summary>
+    private bool JoinedLate => Online && World.Players.Joined.Contains(Me);
 
     /// <summary>For automated checks: the Wired HUD with its battle readout.</summary>
     internal WiredHud? BattleHud => _hud.Wired;
+
+    /// <summary>For automated checks: the players' chat in the match.</summary>
+    internal MatchChat Chat => _hud.Chat;
 
     private List<Machine> WatchCandidates()
     {
@@ -81,7 +90,8 @@ public partial class Game
             return [];
         // The team-mates in their places (BattleRun.Members: in today's layout the team's races in race order).
         var players = run.Members[team].Where(player => player != Me).ToList();
-        if (BattleWatch)
+        // Online, a hero a bot drives until this world is back in the match is the player's own to look on through first.
+        if (BattleWatch || Online && HeroHeld)
             players.Insert(0, Me);
         var mates = players.Select(World.HeroOf).OfType<Machine>().ToList();
         // Once it is over, or none of the team stands and none has a body to come (with victory by taking the pod the
@@ -548,6 +558,10 @@ public partial class Game
         if (_battleRecorded || Watching || BattleWatch || World.Battle is not { Over: true } run)
             return;
         if (Online && (_matchEnded is not { } ended || ended != _decidedTick))
+            return;
+        // A late joiner took over a bot's hero, whose chassis the profile may not own (P2 design §6.2): as the world says, so
+        // also after a later rejoin or rebuild.
+        if (JoinedLate)
             return;
         if (BattleNote.Of(run, Me) is not { } note)
             return;

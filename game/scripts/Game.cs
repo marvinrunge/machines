@@ -344,10 +344,30 @@ public partial class Game : Node3D
     /// </summary>
     public bool RefusesOrders()
     {
+        // Online, orders given while the world catches up or is not back in the match would go nowhere (P2 design §5.4).
+        if (Online && HeroHeld)
+        {
+            _audio.PlayGui("gui/sounds/clickbad.wav");
+            HeldNote("No orders until your game is back in the match");
+            return true;
+        }
         if (!Paused || Online || Watching)
             return false;
         _audio.PlayGui("gui/sounds/clickbad.wav");
         return true;
+    }
+
+    // When the player was last told that their game is not back in the match yet, so that clicks do not repeat it.
+    private double _heldNoteAt = double.MinValue;
+
+    /// <summary>Why the player's order or first person is refused while their world is held, once in a few seconds.</summary>
+    private void HeldNote(string text)
+    {
+        var now = Time.GetTicksMsec() / 1000.0;
+        if (now - _heldNoteAt < 4)
+            return;
+        _heldNoteAt = now;
+        _hud.Message(Lang.T(text));
     }
 
     /// <summary>A replay: the player watches and cannot give orders.</summary>
@@ -401,6 +421,7 @@ public partial class Game : Node3D
             _session.Outgoing += NetLink.Send;
             _session.PresenceApplied += Applied;
             _session.Gap += Gapped;
+            _session.Landed += Landed;
             GD.Print($"net: bundle mode, delay {_session.InputDelay}");
         }
 
@@ -692,8 +713,12 @@ public partial class Game : Node3D
         ReadNetwork();
         if (Warming || _reloading)
             return;
+        TakeCarry();
         if (_session.Mode == SessionMode.Bundles)
+        {
             PlayBundles(delta);
+            LeaveWhenTakenOut();
+        }
         else if (!Paused && (World.Winner is null ? !MatchOver : !Watching && !MatchOver))
         {
             _accumulator += Math.Min(delta, 0.25);
@@ -832,6 +857,7 @@ public partial class Game : Node3D
             GD.Print($"checksum at tick {World.Tick}: {World.Checksum():x16}");
         if (_session.Mode != SessionMode.Bundles)
             return;
+        GoOutOfStepIfAsked();
         NoteDecision();
         if (Pacing && World.Tick % 100 == 0)
             GD.Print($"pace: tick {World.Tick} head {_session.NewestBundle} utc {DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()} " +
@@ -869,6 +895,7 @@ public partial class Game : Node3D
         SendLoaded();
         if (World.Winner is not null && MatchOver)
             return;
+        FillThrottle(delta);
         var budget = World.Winner is null ? BundlePacer.CatchUpBudget(_session.Ready(BundlePacer.LongCatchUp)) : TimeSpan.Zero;
         if (budget > TimeSpan.Zero)
         {
@@ -886,7 +913,7 @@ public partial class Game : Node3D
             _accumulator -= GameWorld.Dt;
             UpdateDriving();
             _session.Pump();
-            for (var ticks = BundlePacer.TicksForSlot(_session.Ready(BundlePacer.CatchUpLead)); ticks > 0 && _session.TryStep(); ticks--)
+            for (var ticks = BundlePacer.TicksForSlot(_session.Ready(BundlePacer.CatchUpLead)); ticks > 0 && MayStep() && _session.TryStep(); ticks--)
                 Stepped();
         }
     }
@@ -899,7 +926,7 @@ public partial class Game : Node3D
     {
         _catchingUpSince ??= Time.GetTicksMsec() / 1000.0;
         var clock = System.Diagnostics.Stopwatch.StartNew();
-        while (clock.Elapsed < budget && _session.TryStep())
+        while (clock.Elapsed < budget && MayStep() && _session.TryStep())
             Counted();
         _session.Pump();
         _accumulator = 0;
@@ -964,10 +991,11 @@ public partial class Game : Node3D
     private bool _endNoted;
 
     /// <summary>
-    /// The large line across the view online, the first that holds (P2 design §4.4): the end agreed where this world had not
-    /// decided it; none once the world has decided the match or met the end the relay agreed; taken out of the match, and why;
-    /// the line to the relay lost; the line dropped and no bundle for a second; catching up; the others still loading; no
-    /// bundle from the relay for a second.
+    /// The large line across the view online, the first that holds (P2 design §4.4, §5.4, §6.3): the end agreed where this world
+    /// had not decided it; none once the world has decided the match or met the end the relay agreed; taken out of the match,
+    /// and why; the line to the relay lost; the line dropped and no bundle for a second; catching up, under why where the world
+    /// is rebuilt, joins late or fell behind; the others still loading; no bundle from the relay for a second; the world rebuilt
+    /// or joining and not back yet; fallen too far behind, a bot or someone else playing for the player meanwhile; lagging.
     /// </summary>
     private (string Kind, string Text)? BundleBanner()
     {
@@ -982,12 +1010,71 @@ public partial class Game : Node3D
         var quiet = Time.GetTicksMsec() / 1000.0 - _bundleAt > 1;
         if (connection.Reconnecting && quiet)
             return ("reconnecting", Lang.T("Reconnecting to the relay…"));
+        var behind = RebuildBanner() ?? LagBanner();
         if (_catchingUpSince is not null)
-            return ("catching-up", Lang.T("Catching up: tick {0}{1}", World.Tick, Lang.T(" of {0}", _session.NewestBundle + 1)));
+        {
+            var line = Lang.T("Catching up: tick {0}{1}", World.Tick, Lang.T(" of {0}", _session.NewestBundle + 1));
+            return behind is { } why ? ($"{why.Kind}-catching-up", why.Text + "\n" + line) : ("catching-up", line);
+        }
         if (World.Tick == 0 && _session.NewestBundle < 0)
             return ("loading", Lang.T("Waiting for the others to load…"));
-        return quiet ? ("relay", Lang.T("Waiting for the relay…")) : null;
+        return quiet ? ("relay", Lang.T("Waiting for the relay…")) : behind;
     }
+
+    /// <summary>
+    /// While this player's world, rebuilt from the relay's log (P2 design §5.4) or joining a battle late (§6.3), has not come
+    /// back into the match: why, and who plays for them meanwhile.
+    /// </summary>
+    private (string Kind, string Text)? RebuildBanner() => !RebuildPending ? null : MatchRequest.Current.Rebuild switch
+    {
+        ResumeReason.Resync => ("rebuild", Lang.T("Your game went out of step: rebuilding the match ({0} of 3)", Math.Max(1, MatchRequest.Current.Resyncs))),
+        ResumeReason.LateJoin => ("joining", Lang.T("A bot drives your hero until you have caught up")),
+        _ => ("rejoin", Lang.T(World.Battle is not null ? "Back in the match: a bot drives your hero until you have caught up" : "Back in the match: catching up with the others")),
+    };
+
+    /// <summary>
+    /// Fallen too far behind, and who plays for this player meanwhile (P2 design §2.6), as the leave that took them out said;
+    /// else marked as lagging, with orders coming late. The relay's marks are read from the session, so a reload shows them still.
+    /// </summary>
+    private (string Kind, string Text)? LagBanner()
+    {
+        if (_session.Away(Me, World.Tick))
+        {
+            if (LastLeave(Me) is not { Why: LeaveReason.Lagged })
+                return null;
+            var players = World.Players;
+            var race = players.Contains(Me) ? players.RaceOf(Me) : Player;
+            var text = World.Battle is not null ? Lang.T("Your game fell too far behind: a bot drives your hero until it has caught up")
+                : World.Wired is not null ? Lang.T("Your game fell too far behind: your hero waits until it has caught up")
+                : players.KeeperOf(Me) is { } keeper ? Lang.T("Your game fell too far behind: {0} keeps your machines until it has caught up", PlayerName(keeper))
+                : Lang.T("Your game fell too far behind: the computer plays {0} until it has caught up", Lang.T(Look(race).ToString()));
+            return ("lag-away", text);
+        }
+        return _session.Lagging(Me) ? ("lagging", Lang.T("Your game is lagging: your orders arrive late")) : null;
+    }
+
+    /// <summary>The newest leave of a player the world has applied, and why they left.</summary>
+    private PlayerLeft? LastLeave(PlayerId player) =>
+        _session.Presence.OfType<PlayerLeft>().LastOrDefault(left => left.Player == player && left.FromTick <= World.Tick);
+
+    /// <summary>
+    /// Online, this player's world is rebuilt from the relay's log or joins late (<see cref="MatchRequest.Rebuild"/>) and has not
+    /// come back into the match yet: returned, joined or no longer held (P2 design §5.4).
+    /// </summary>
+    private bool RebuildPending => MatchRequest.Current.Rebuild is not null && !_rebuildBack && _session.Mode == SessionMode.Bundles;
+
+    // Whether this player came back into the match after the rebuild this scene began with.
+    private bool _rebuildBack;
+
+    /// <summary>
+    /// Online: this player's hero is not theirs to drive now, or their orders would go nowhere: the world is catching up, or
+    /// they are away from it (handed over, rebuilt, joining) or held (P2 design §5.4). The view looks on meanwhile.
+    /// </summary>
+    public bool HeroHeld => _session.Mode == SessionMode.Bundles && !Watching
+        && (_catchingUpSince is not null || RebuildPending || _session.Away(Me, World.Tick));
+
+    /// <summary>Online, whether a player lags as the world stands (the relay's marks): the team list's LAG.</summary>
+    public bool Lagging(PlayerId player) => _session.Mode == SessionMode.Bundles && _session.Lagging(player);
 
     /// <summary>
     /// Shows the online banner (<see cref="BundleBanner"/>). For automated checks, MACHINES_BANNER_SHOTS=&lt;folder&gt;[,&lt;name&gt;]
@@ -996,6 +1083,7 @@ public partial class Game : Node3D
     /// </summary>
     private void ShowBundleBanner()
     {
+        TakeMomentShots();
         var banner = BundleBanner();
         _hud.Banner(banner?.Text);
         if (BannerShots is not { Length: > 0 } setting)
@@ -1300,11 +1388,12 @@ public partial class Game : Node3D
                 AddChild(view);
                 view.SplatMesh = _assets.EffectMesh("groundsplat");
                 view.FirePictures = _support.FirePictures;
-                // A machine new to the world, from a factory or as reinforcements, teleports in.
-                if (_viewsSynced && turned is null && actor is Machine)
+                // A machine new to the world, from a factory or as reinforcements, teleports in; one that came while the world
+                // caught up stands there (P2 design §5.4: no sounds or effects of the ticks passed over).
+                if (_viewsSynced && turned is null && actor is Machine && _catchingUpSince is null)
                     view.TeleportIn();
                 // A machine turned traitor flickers between its old and new colours.
-                if (turned is { } old && actor is Machine)
+                if (turned is { } old && actor is Machine && _catchingUpSince is null)
                     view.Defect(old, actor, _assets);
                 // A building clears the grass and stones from the ground it stands on.
                 if (actor is Construction placed && GetNodeOrNull<GroundScatter>("Terrain/GroundScatter") is { } scatter)
@@ -1338,7 +1427,7 @@ public partial class Game : Node3D
                     _lastMark[rolling.Id] = here;
                 }
             }
-            if (actor is Machine { Inside: null } && _aboard.Remove(actor.Id))
+            if (actor is Machine { Inside: null } && _aboard.Remove(actor.Id) && _catchingUpSince is null)
                 view.TeleportIn();
             // A geo locator scans the ground as it goes; a Wired hero on one plays its ring while its pulse goes out.
             if (actor is Machine { Spec.Type: "GEO_LOCATOR" } locator)
@@ -1886,7 +1975,7 @@ public partial class Game : Node3D
     /// </summary>
     private void ToggleAlliance(int index)
     {
-        if (MatchChat.OtherSides().ElementAtOrDefault(index) is not { } side || !World.Races.TryGetValue(Player, out var own))
+        if (MatchChat.OtherSides(World.Players).ElementAtOrDefault(index) is not { } side || !World.Races.TryGetValue(Player, out var own))
             return;
         Issue(new AllianceCommand(Player, side.Slot, !own.Allies.Contains(side.Slot)));
     }
@@ -1898,12 +1987,16 @@ public partial class Game : Node3D
     /// </summary>
     /// <remarks>
     /// Online the world has the leave applied when this is asked (<see cref="LockstepSession.PresenceApplied"/>); one whose
-    /// turns came too late for too long (<paramref name="lagged"/>, P2 design §2.6) is said to lag too far behind.
+    /// turns came too late for too long (P2 design §2.6) is said to lag too far behind, one whose world is being rebuilt (§5.3)
+    /// to be back once it is, and anyone else, a lagging player whose line ended too, to have left (<paramref name="why"/>).
     /// </remarks>
-    private string LeaveNotice(PlayerId left, bool lagged = false)
+    private string LeaveNotice(PlayerId left, LeaveReason why)
     {
         var name = PlayerName(left);
         var players = World.Players;
+        var lagged = why == LeaveReason.Lagged;
+        if (why == LeaveReason.Rebuilding && World.Battle is not null)
+            return Lang.T("{0}'s game is being rebuilt – a bot drives their hero meanwhile", name);
         if (World.Battle is not null)
             return Lang.T(lagged ? "{0} lags too far behind – a bot drives their hero" : "{0} left – a bot drives their hero", name);
         if (World.Wired is not null)
@@ -1951,6 +2044,9 @@ public partial class Game : Node3D
                 case LeftMatch left:
                     TakenOut(left.Reason);
                     break;
+                case Refused refused when _rejoinRoom is not null && !_reloading:
+                    RejoinRefused(refused);
+                    break;
                 // The world is rebuilt from the relay's log in a new scene, which reads everything after this from the inbox.
                 case MatchResumed resumed:
                     Rebuild(resumed);
@@ -1976,21 +2072,89 @@ public partial class Game : Node3D
         var resumed = MatchRequest.Current.ResumeFrom ?? 0;
         switch (change)
         {
-            case PlayerLeft left when left.FromTick > resumed || left.FromTick == resumed && (left.Player != Me || MatchRequest.Current.ResumeFrom is null):
-                _hud.Message(LeaveNotice(left.Player, lagged: _session.Lagging(left.Player)));
+            // This player's own leave mid-match: their turns came too late for too long, and the hero is the bot's for now.
+            case PlayerLeft left when left.Player == Me:
+                if (left.FromTick > resumed || MatchRequest.Current.ResumeFrom is null)
+                    LostTheHero();
                 break;
-            case PlayerReturned back when back.Player != Me && back.FromTick >= resumed:
+            case PlayerLeft left when left.FromTick >= resumed:
+                _hud.Message(LeaveNotice(left.Player, left.Why));
+                GD.Print($"net: notice: {LeaveNotice(left.Player, left.Why)}");
+                PictureSoon($"left-{left.Player}", 1);
+                break;
+            // Back after a rebuild, a late join or a handover: the hero is this player's again, driven from now on.
+            case PlayerReturned back when back.Player == Me && back.FromTick >= resumed:
+            case PlayerJoined joined when joined.Player == Me && joined.FromTick >= resumed:
+            case PlayerLagging { Lagging: false } free when free.Player == Me && free.FromTick >= resumed && RebuildPending:
+                BackInTheMatch(change is PlayerJoined);
+                break;
+            case PlayerReturned back when back.FromTick >= resumed:
                 _hud.Message(Lang.T("{0} is back", PlayerName(back.Player)));
                 break;
-            case PlayerJoined join when join.Player != Me && join.FromTick >= resumed:
-                var seat = World.Players.Rows.FirstOrDefault(r => r.Id == join.Player);
-                _hud.Message(Lang.T("{0} joined and takes over {1}", join.Name, seat?.Name ?? join.Player.ToString()));
+            // The world's row is the joiner's now: the name the relay gave them (made unique), and the hero the bot drove.
+            case PlayerJoined join when join.FromTick >= resumed:
+                _hud.Message(Lang.T("{0} joined and takes over {1}", PlayerName(join.Player), HeroOrSeatName(join.Player)));
+                GD.Print($"net: notice: {PlayerName(join.Player)} joined and takes over {HeroOrSeatName(join.Player)}");
+                PictureSoon($"joined-{join.Player}", 1);
                 break;
             // The mark of this tick counts from the next: what Lagging says now is how it stood before.
             case PlayerLagging lagging when lagging.Player != Me && lagging.FromTick >= resumed && lagging.Lagging != _session.Lagging(lagging.Player):
                 _hud.Message(Lang.T(lagging.Lagging ? "{0} is lagging" : "{0} is on time again", PlayerName(lagging.Player)));
+                GD.Print($"net: notice: {PlayerName(lagging.Player)} is {(lagging.Lagging ? "lagging" : "on time again")} at tick {lagging.FromTick}");
+                if (lagging.Lagging)
+                    PictureSoon($"lagging-{lagging.Player}", 1.5);
                 break;
         }
+    }
+
+    /// <summary>A seat as a notice names what it plays: in a battle its hero ("3 · Torque"), else the name its row started with.</summary>
+    private string HeroOrSeatName(PlayerId player) =>
+        World.Battle is { } run ? HeroLabel(run, player) : World.Players.Rows.FirstOrDefault(r => r.Id == player)?.Name ?? player.ToString();
+
+    /// <summary>
+    /// This player's turns came too late for too long and the relay handed them over (P2 design §2.6): in a battle a bot
+    /// drives the hero, and the view leaves first person to look on from behind it until the world has caught up.
+    /// </summary>
+    private void LostTheHero()
+    {
+        GD.Print($"net: away from tick {World.Tick} ({LastLeave(Me)?.Why.ToString() ?? "left"})");
+        PictureSoon("away", 2);
+        if (World.Battle is null || Watching)
+            return;
+        if (_driven is not null)
+            LeaveFirstPerson();
+        if (World.HeroOf(Me) is { } hero)
+            StartWatching(hero.Id);
+    }
+
+    /// <summary>
+    /// This player is back in the match (P2 design §5.4, §6.3): rebuilt, joined late, or handed over and on time again. In a run
+    /// the hero is driven again, a late joiner told which one they took over; elsewhere what was kept from before the rebuild
+    /// (first person) comes back.
+    /// </summary>
+    private void BackInTheMatch(bool joined)
+    {
+        _rebuildBack = true;
+        GD.Print($"net: back in the match at tick {World.Tick}{(joined ? " (joined)" : "")}");
+        PictureSoon("back", 3);
+        if (Watching)
+            return;
+        if (joined && World.Battle is { } run)
+            _hud.Message(Lang.T("You take over {0}", HeroLabel(run, Me)));
+        if (World.Wired is not null)
+        {
+            if (_watched is not null)
+                StopWatching();
+            _runBegun = false;
+            BeginRun();
+            return;
+        }
+        if (_carriedFirstPerson is { } machine && World.Find<Machine>(machine) is { IsDead: false } && _driven is null)
+        {
+            Select([machine]);
+            EnterFirstPerson();
+        }
+        _carriedFirstPerson = null;
     }
 
     /// <summary>
@@ -1999,50 +2163,115 @@ public partial class Game : Node3D
     /// </summary>
     private void Gapped(long expected, long got)
     {
+        _rejoinAsked = true;
         if (NetLink.Seat is { } held && NetLink.SeatIn(held.Room) is { } seat)
         {
-            _rejoinAsked = true;
+            (_rejoinRoom, _rejoinedByKey) = (seat.Room, true);
             NetLink.Send(new RejoinMatch(seat.Room, seat.Player, seat.Key));
             GD.Print($"net: bundle {got} came where {expected} was due: rejoining room {seat.Room} by key");
         }
+        // Without a key (it never came, or was forgotten), as the player of this name who is this seat's.
+        else if (MultiplayerPage.MatchRoomId is { } room)
+        {
+            (_rejoinRoom, _rejoinedByKey) = (room, false);
+            NetLink.Send(new RejoinMatch(room, Me));
+            GD.Print($"net: bundle {got} came where {expected} was due, and no seat key: rejoining room {room} by name");
+        }
         else
-            GD.Print($"net: bundle {got} came where {expected} was due, and no seat key to rejoin with");
+        {
+            GD.Print($"net: bundle {got} came where {expected} was due, and nothing to rejoin with");
+            TakenOut(LostPlace);
+        }
+    }
+
+    // The match this scene asked to come back into after a gap, and whether by the seat's key.
+    private int? _rejoinRoom;
+    private bool _rejoinedByKey;
+
+    /// <summary>
+    /// The relay refused to take this world back after a gap (<see cref="Gapped"/>): a key it does not take is forgotten and the
+    /// player asks again by name; refused that way too, the match is left with the relay's reason, back to the rooms.
+    /// </summary>
+    private void RejoinRefused(Refused refused)
+    {
+        GD.Print($"net: the rejoin {(_rejoinedByKey ? "by key" : "by name")} was refused: {refused.Reason}");
+        if (_rejoinedByKey && _rejoinRoom is { } room)
+        {
+            NetLink.ForgetSeat();
+            _rejoinedByKey = false;
+            NetLink.Send(new RejoinMatch(room, Me));
+            GD.Print($"net: rejoining room {room} by name");
+            return;
+        }
+        TakenOut(refused.Reason);
     }
 
     /// <summary>
-    /// The relay rebuilds this player's world from its log (a rejoin after a gap; S3's resyncs come the same way): the match
-    /// scene starts again from the match the relay names, its world catching up to the live bundles that follow in the inbox.
+    /// The relay rebuilds this player's world from its log (P2 design §5.4): a rejoin after a gap or a resync after going out
+    /// of step. What the player had in hand is kept (<see cref="ResyncCarry"/>), and behind the loading screen the match scene
+    /// starts again from the match the relay names, its world catching up to the live bundles that follow in the inbox.
     /// </summary>
     private void Rebuild(MatchResumed resumed)
     {
-        if (resumed.Key is { } key && NetLink.Seat is { } held)
-            NetLink.KeepSeat(held.Room, resumed.Player, key);
+        if (resumed.Key is { } key && (NetLink.Seat?.Room ?? _rejoinRoom ?? MultiplayerPage.MatchRoomId) is { } room)
+            NetLink.KeepSeat(room, resumed.Player, key);
+        if (resumed.Reason == ResumeReason.Resync)
+            GD.Print($"net: resync {resumed.Resyncs} from tick {resumed.FromTick}");
         GD.Print($"net: rebuilt from tick {resumed.FromTick} ({resumed.Reason})");
+        if (resumed.Player == Me && resumed.Reason != ResumeReason.LateJoin)
+            CarryOver();
         MatchRequest.Current = MatchRequest.FromMatch(resumed.Match, NetLink.ClientId, resumed.Player)
-            with { Network = resumed.Match, ResumeFrom = resumed.FromTick };
+            with { Network = resumed.Match, ResumeFrom = resumed.FromTick, Rebuild = resumed.Reason, Resyncs = resumed.Resyncs };
         // This scene neither plays nor records any more, nor says its world is built: the new one does.
         (_reloading, _rejoinAsked, _replaySaved) = (true, true, true);
-        GetTree().ChangeSceneToFile("res://scenes/Main.tscn");
+        var detail = Lang.T(resumed.Reason == ResumeReason.Resync ? "REBUILDING THE MATCH" : "REJOINING THE MATCH");
+        if (LoadingScreen.Busy)
+            GetTree().ChangeSceneToFile(LoadingScreen.MatchScene);
+        else
+            LoadingScreen.Show(GetTree(), LoadingScreen.MapName(MatchRequest.Current), detail);
     }
 
     private bool _reloading;
 
     /// <summary>
     /// The relay took this game out of the running match (<see cref="LeftMatch"/>), and says why: the world gets no more
-    /// bundles. Its seat's key is forgotten, unless the seat went to this player's game on another connection, which keeps it.
+    /// bundles, and after a few seconds under the reason the game goes back to the rooms, which say it again
+    /// (<see cref="LeaveWhenTakenOut"/>). The seat's key stays where it may take the seat back (the world could not keep up,
+    /// or the line could not carry the match) and with the game on another connection that took it; out of step too often the
+    /// player is out for good: the key goes, and no recording is kept (P2 design §5.5).
     /// </summary>
     private void TakenOut(string reason)
     {
-        if (reason != TakenOver)
+        if (reason is not (LeftMatch.CannotKeepUp or LeftMatch.SlowLine or LeftMatch.TakenOver))
             NetLink.ForgetSeat();
+        if (reason == LeftMatch.OutOfStep)
+            _replaySaved = true;
         _takenOut = reason;
+        _takenOutAt = Time.GetTicksMsec() / 1000.0;
         GD.Print($"net: taken out of the match: {reason}");
     }
 
-    // The relay's reason when this player's seat was taken back from another connection (RelayServer.Rejoin).
-    private const string TakenOver = "you came back to this match from another connection";
+    // Lost the place in the relay's numbering with nothing to come back with.
+    private const string LostPlace = "Your game lost its place in the match: join it again from the list.";
 
     private string? _takenOut;
+    private double _takenOutAt;
+    private bool _leftForRooms;
+
+    /// <summary>
+    /// Taken out of the match, the game does not stand there: five seconds under the reason, then back to the multiplayer page,
+    /// which says why and, where the seat's key still takes the match back, that Join does (P2 design §5.5, §6.1).
+    /// </summary>
+    private void LeaveWhenTakenOut()
+    {
+        if (_takenOut is not { } reason || _leftForRooms || _decidedTick is not null || Time.GetTicksMsec() / 1000.0 - _takenOutAt < 5)
+            return;
+        _leftForRooms = true;
+        var back = reason is LeftMatch.CannotKeepUp or LeftMatch.SlowLine && NetLink.Seat is not null;
+        MultiplayerPage.Tell(HangarText.Reason(Lang.T(reason)) + (back ? " " + Lang.T("Join the match again from the list to play on.") : ""));
+        GD.Print("net: back to the rooms after being taken out of the match");
+        ExitToMenus();
+    }
 
     /// <summary>
     /// Where replays are kept: <c>replays/</c> next to the game, or for automated checks the folder of
@@ -2193,8 +2422,9 @@ public partial class Game : Node3D
         {
             NetLink.Send(new LeaveRoom());
             // Left on purpose: the seat is not taken back by key from the multiplayer page. A seat this player's game took back
-            // on another connection is that game's now, and its key (the same, in the same settings) stays for it.
-            if (_takenOut != TakenOver)
+            // on another connection is that game's now, and its key (the same, in the same settings) stays for it; taken out
+            // for a world or a line too slow, the key takes the seat back from the page.
+            if (_takenOut is not (LeftMatch.TakenOver or LeftMatch.CannotKeepUp or LeftMatch.SlowLine))
                 NetLink.ForgetSeat();
         }
         // The menus open where the match was set up: the choice of mission, the skirmish setup or the rooms.
@@ -2878,6 +3108,12 @@ public partial class Game : Node3D
         if (World.Options.DisableFirstPerson)
         {
             _hud.Message("First person is switched off in this match");
+            return;
+        }
+        // Online, a machine is not driven until the world is back in the match: a bot or nobody has it meanwhile (P2 design §5.4).
+        if (Online && HeroHeld)
+        {
+            HeldNote(World.Battle is not null ? "A bot drives your hero until you have caught up" : "No orders until your game is back in the match");
             return;
         }
         // In a run first person is the hero's, whatever stands selected.

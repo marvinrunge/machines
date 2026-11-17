@@ -90,6 +90,12 @@ public sealed record BeatTimings
     /// <summary>Bundles a seat may stay lagged (handed over, never on time again) before its member is taken out (5 min).</summary>
     public int LaggedOut { get; init; } = 6000;
 
+    /// <summary>
+    /// Bundles a rebuilt or joining seat may take to be back (5 min): one whose client never loads or never gets on time is
+    /// taken out after them, a joiner's seat going back to its bot.
+    /// </summary>
+    public int StuckOut { get; init; } = 6000;
+
     /// <summary>Messages sent to a member and not yet acknowledged before it is taken out (60 s of bundles).</summary>
     public int MostBacklog { get; init; } = 1200;
 
@@ -281,8 +287,8 @@ public sealed class Beat
     private readonly SortedDictionary<PlayerId, BeatSeat> _seats = [];
     // The commands placed on each tick still to close, by player, with the newest stamp merged into each.
     private readonly SortedDictionary<long, SortedDictionary<PlayerId, Bucket>> _buckets = [];
-    // Players who stopped playing since the last close: true leaves, false is held.
-    private readonly SortedDictionary<PlayerId, bool> _queued = [];
+    // Players who stopped playing since the last close: a leave and why, or null for held.
+    private readonly SortedDictionary<PlayerId, LeaveReason?> _queued = [];
     private readonly (long Tick, TimeSpan At)[] _sent = new (long, TimeSpan)[SentRing];
     private readonly List<BeatNotice> _notices = [];
     private readonly Dictionary<(PlayerId, Offered), TimeSpan> _dropNoted = [];
@@ -532,8 +538,8 @@ public sealed class Beat
         // Who stopped playing since the last close.
         foreach (var (player, leaves) in _queued)
         {
-            presence.Add(leaves ? new PlayerLeft(player, tick) : new PlayerLagging(player, tick, true));
-            if (!leaves)
+            presence.Add(leaves is { } why ? new PlayerLeft(player, tick, why) : new PlayerLagging(player, tick, true));
+            if (leaves is null)
                 _seats[player].LetGoAt = tick;
         }
         _queued.Clear();
@@ -598,7 +604,7 @@ public sealed class Beat
         }
         if (late && seat.LateStreak == Timings.LagLeave)
         {
-            presence.Add(new PlayerLeft(seat.Player, tick));
+            presence.Add(new PlayerLeft(seat.Player, tick, LeaveReason.Lagged));
             StopPlaying(seat, ReturnKind.Lagged, tick);
             seat.Loaded = true;
             Note($"player {seat.Player} late {Timings.LagLeave} bundles in a row: handed over at tick {tick}");
@@ -625,8 +631,9 @@ public sealed class Beat
 
     /// <summary>
     /// A returning person at a tick (§2.4 step 3): a held rebuild handed over after <see cref="BeatTimings.LagLeave"/>, a lagged
-    /// seat taken out after <see cref="BeatTimings.LaggedOut"/>, and once its world is built and on time for
-    /// <see cref="BeatTimings.BackAfter"/> counted bundles in a row, back: joined, no longer held, or returned.
+    /// seat taken out after <see cref="BeatTimings.LaggedOut"/>, a rebuilt or joining one never back after
+    /// <see cref="BeatTimings.StuckOut"/> taken out too (a joiner's seat the bot's again), and once its world is built and on
+    /// time for <see cref="BeatTimings.BackAfter"/> counted bundles in a row, back: joined, no longer held, or returned.
     /// </summary>
     private void CountReturning(BeatSeat seat, long tick, bool counts, List<NetMessage> presence)
     {
@@ -634,7 +641,7 @@ public sealed class Beat
             return;
         if (seat.Held && tick - seat.Since >= Timings.LagLeave)
         {
-            presence.Add(new PlayerLeft(seat.Player, tick));
+            presence.Add(new PlayerLeft(seat.Player, tick, LeaveReason.Lagged));
             (seat.Held, seat.Marked) = (false, false);
             Note($"player {seat.Player}'s rebuild held since tick {seat.Since}: handed over at tick {tick}");
             return;
@@ -642,8 +649,21 @@ public sealed class Beat
         if (seat.Returning == ReturnKind.Lagged && tick - seat.Since >= Timings.LaggedOut)
         {
             Forget(seat, SeatState.Gone);
-            _notices.Add(new BeatNotice(new LeftMatch("Your computer cannot keep up with this match."), seat.Player));
+            _notices.Add(new BeatNotice(new LeftMatch(LeftMatch.CannotKeepUp), seat.Player));
             Note($"player {seat.Player} lagged since tick {seat.Since}: taken out of the match at tick {tick}");
+            return;
+        }
+        // A client whose rebuild or late join never loads or never gets on time (stuck behind its loading screen, say) would hold
+        // its seat for the rest of the match: the seat is gone, or for one who never joined the bot's as it was.
+        if (seat.Returning != ReturnKind.Lagged && tick - seat.Since >= Timings.StuckOut)
+        {
+            var joined = seat.Joined;
+            if (seat.Held)
+                presence.Add(new PlayerLeft(seat.Player, tick, LeaveReason.Lagged));
+            Forget(seat, joined ? SeatState.Gone : SeatState.Bot);
+            _notices.Add(new BeatNotice(new LeftMatch(LeftMatch.CannotKeepUp), seat.Player));
+            Note($"player {seat.Player} {(joined ? "rebuilding" : "joining")} since tick {seat.Since} and not back: taken out of the match at tick {tick}" +
+                 (joined ? "" : ", the seat a bot's again"));
             return;
         }
         if (!counts || !(seat.Loaded || seat.Returning == ReturnKind.Lagged))
@@ -739,7 +759,7 @@ public sealed class Beat
         switch (seat.State)
         {
             case SeatState.Playing:
-                Queue(player, leaves: true);
+                Queue(player, LeaveReason.Left);
                 RemoveBuckets(player, NextTick);
                 break;
             case SeatState.Returning when !seat.Joined:
@@ -748,7 +768,7 @@ public sealed class Beat
                 return;
             case SeatState.Returning:
                 if (seat.Held)
-                    Queue(player, leaves: true);
+                    Queue(player, LeaveReason.Left);
                 break;
             default:
                 return;
@@ -781,18 +801,19 @@ public sealed class Beat
                 seat.Since = NextTick;
                 break;
             case SeatState.Playing when Battle:
-                Queue(player, leaves: true);
+                Queue(player, LeaveReason.Rebuilding);
                 StopPlaying(seat, ReturnKind.Rebuilding, NextTick);
                 break;
             // A marked seat's wheels were let go of at the mark, unless a late drive took one again since.
             case SeatState.Playing:
                 if (!seat.Marked || seat.TookTheWheel)
-                    Queue(player, leaves: false);
+                    Queue(player, null);
                 StopPlaying(seat, ReturnKind.Rebuilding, NextTick);
                 (seat.Held, seat.Marked) = (true, true);
                 break;
-            // A held rebuild stays held, its time running on; a lagged seat is away already.
-            case SeatState.Returning when seat.Returning == ReturnKind.Lagged:
+            // A held rebuild stays held, its time running on; a lagged seat is away already, and so is one rebuilding or
+            // joining, whose time to be back starts again.
+            case SeatState.Returning when seat.Returning == ReturnKind.Lagged || !seat.Held:
             case SeatState.Gone:
                 seat.Since = NextTick;
                 break;
@@ -827,7 +848,7 @@ public sealed class Beat
             return;
         if (seat.State == SeatState.Playing || seat.State == SeatState.Returning && seat.Held)
         {
-            Queue(player, leaves: true);
+            Queue(player, LeaveReason.Left);
             RemoveBuckets(player, NextTick);
         }
         Forget(seat, SeatState.Barred);
@@ -906,7 +927,8 @@ public sealed class Beat
             $"{NextTick} ticks, {Moved} turns moved, late bundles by player: {late}; delay (bundles): {delays}; {_lateCloses} closed over 20 ms late, {_uncounted} counted nobody{resyncs}");
     }
 
-    private void Queue(PlayerId player, bool leaves) => _queued[player] = leaves || _queued.GetValueOrDefault(player);
+    /// <summary>The player stops playing at the next close: leaves (and why), or with null is held; a leave outweighs a hold.</summary>
+    private void Queue(PlayerId player, LeaveReason? leaves) => _queued[player] = leaves ?? _queued.GetValueOrDefault(player);
 
     private void RemoveBuckets(PlayerId player, long from)
     {

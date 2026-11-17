@@ -532,7 +532,7 @@ public sealed class RelayServer : IAsyncDisposable
             }
             Rebuild(member, room, player, ResumeReason.Rejoin, newKey: null);
             if (holder is not null)
-                TakeOutOfMatch(holder, "you came back to this match from another connection");
+                TakeOutOfMatch(holder, LeftMatch.TakenOver);
             return;
         }
         // The seats of the match's people (and of its late joiners), by the name they connected with.
@@ -1077,7 +1077,7 @@ public sealed class RelayServer : IAsyncDisposable
             if (backlog > _beat.MostBacklog + member.Allowance)
             {
                 Log?.Invoke($"room {room.Id}: {member.Name} (player {member.Player}) has {backlog} messages not acknowledged: taken out of the match");
-                SendTo(member, new LeftMatch("Your connection cannot keep up with this match."));
+                SendTo(member, new LeftMatch(LeftMatch.SlowLine));
                 Leave(member);
             }
         }
@@ -1217,7 +1217,7 @@ public sealed class RelayServer : IAsyncDisposable
         }
         beat.Bar(player);
         Log?.Invoke($"room {room.Id}: {name} (player {player}) out of step {count} times: taken out of the match at tick {beat.NextTick}");
-        TakeOutOfMatch(member, "Your game kept going out of step with the others, so it has left the match.");
+        TakeOutOfMatch(member, LeftMatch.OutOfStep);
         _wake.Set();
     }
 

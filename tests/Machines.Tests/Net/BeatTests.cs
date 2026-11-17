@@ -231,7 +231,7 @@ public class BeatTests
         relay.Play(29, Red);
 
         // Late from bundle 0: the mark at the LagMark-th late bundle, the handover at the LagLeave-th.
-        Assert.Equal([new PlayerLagging(Blue, quick.LagMark - 1, true), new PlayerLeft(Blue, quick.LagLeave - 1)], PresenceOf(relay.Sent));
+        Assert.Equal([new PlayerLagging(Blue, quick.LagMark - 1, true), new PlayerLeft(Blue, quick.LagLeave - 1, LeaveReason.Lagged)], PresenceOf(relay.Sent));
         var seat = relay.Beat.Seat(Blue)!;
         Assert.Equal((SeatState.Returning, ReturnKind.Lagged, quick.LagLeave - 1L, false), (seat.State, seat.Returning, seat.Since, seat.Marked));
         Assert.Equal(SeatState.Playing, relay.Beat.Seat(Red)!.State);
@@ -316,7 +316,7 @@ public class BeatTests
 
         relay.Play(10 + quick.LagLeave + 5, Red);
 
-        Assert.Equal([new PlayerLagging(Blue, 10, true), new PlayerLeft(Blue, 10 + quick.LagLeave)], PresenceOf(relay.Sent));
+        Assert.Equal([new PlayerLagging(Blue, 10, true), new PlayerLeft(Blue, 10 + quick.LagLeave, LeaveReason.Lagged)], PresenceOf(relay.Sent));
         var seat = relay.Beat.Seat(Blue)!;
         Assert.Equal((SeatState.Returning, ReturnKind.Rebuilding, false, false), (seat.State, seat.Returning, seat.Held, seat.Marked));
 
@@ -341,10 +341,38 @@ public class BeatTests
         relay.Beat.Loaded(Green, relay.Now);
         relay.Play(20, Red, Green);
 
-        Assert.Equal([new PlayerLeft(Green, 10), new PlayerReturned(Green, 13 + quick.BackAfter - 1)], PresenceOf(relay.Sent));
+        Assert.Equal([new PlayerLeft(Green, 10, LeaveReason.Rebuilding), new PlayerReturned(Green, 13 + quick.BackAfter - 1)], PresenceOf(relay.Sent));
         Assert.False(relay.Beat.Seat(Green)!.Held);
         // Its commands placed before the rebuild went with it.
         Assert.DoesNotContain(relay.Sent, b => b.Turns.Any(t => t.Player == Green));
+    }
+
+    [Fact]
+    public void A_rebuild_or_late_join_that_is_never_back_is_taken_out_after_StuckOut_bundles_and_a_joiner_s_seat_is_the_bot_s_again()
+    {
+        var timings = BeatTimings.Quick with { StuckOut = 30 };
+        var relay = new Relay(timings, Battle());
+        relay.Play(9, Red, Green);
+
+        // Ben's world is rebuilt from bundle 10 on and never says it is built; Cleo joins Blue's bot seat at 20, loads, and is never on time.
+        relay.Beat.Rebuild(Green);
+        relay.Play(19, Red);
+        // A second rebuild of a seat rebuilding already (a rejoin by key, say) starts its time again.
+        relay.Beat.Rebuild(Green);
+        Assert.Equal(ReturnKind.Joining, relay.Beat.Rebuild(Blue, "Cleo"));
+        relay.Beat.Loaded(Blue, relay.Now);
+        relay.Play(20 + timings.StuckOut - 1, Red);
+        Assert.Empty(relay.Beat.Drain());
+        Assert.Equal((SeatState.Returning, SeatState.Returning), (relay.Beat.Seat(Green)!.State, relay.Beat.Seat(Blue)!.State));
+
+        relay.Play(20 + timings.StuckOut, Red);
+        Assert.Equal([new BeatNotice(new LeftMatch(LeftMatch.CannotKeepUp), Blue), new BeatNotice(new LeftMatch(LeftMatch.CannotKeepUp), Green)],
+            relay.Beat.Drain());
+        Assert.Equal((SeatState.Gone, SeatState.Bot), (relay.Beat.Seat(Green)!.State, relay.Beat.Seat(Blue)!.State));
+        // In the worlds a bot drove Ben's hero from the rebuild on, and nobody ever joined Blue's seat.
+        Assert.Equal([new PlayerLeft(Green, 10, LeaveReason.Rebuilding)], PresenceOf(relay.Sent));
+        Assert.Contains(relay.Lines, l => l == $"player {Blue} joining since tick 20 and not back: taken out of the match at tick {20 + timings.StuckOut}, the seat a bot's again");
+        Assert.Equal(Offered.Ignored, relay.OnTime(Blue));
     }
 
     [Fact]

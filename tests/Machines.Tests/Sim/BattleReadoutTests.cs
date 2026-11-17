@@ -281,6 +281,28 @@ public class BattleReadoutTests
         Assert.Equal((true, true, "Seat 2"), (left.Away, left.Bot, left.PlayerName));
     }
 
+    [Fact]
+    public void Online_a_person_still_there_whose_orders_come_late_is_tagged_LAG_and_one_handed_over_AWAY()
+    {
+        var world = FiveAgainstFive(Reds[2], Greens[0], Greens[1]);
+        // The session's marks as the world stands: Greens 0 and 1 lag, and so (it says) does a bot's seat, which no person plays.
+        var marked = new HashSet<PlayerId> { Greens[0], Greens[1], Reds[0] };
+
+        var mine = BattleReadout.Of(world, Reds[2], marked.Contains)!;
+        Assert.Equal([true, true, false, false, false], mine.Theirs.Heroes.Select(h => h.Lagging));
+        Assert.All(mine.Ours.Heroes, h => Assert.False(h.Lagging));
+        Assert.Equal(["Lag", "Lag", "Bot", "Bot", "Bot"], mine.Theirs.Heroes.Select(h => BattleReadout.DriverTag(h, 5, 3)));
+        // Offline, or without marks, nobody lags.
+        Assert.All(BattleReadout.Of(world, Reds[2])!.Theirs.Heroes, h => Assert.False(h.Lagging));
+
+        // Handed over after lagging too long, the person is away: a bot drives the hero, and the tag says AWAY, mark or not.
+        world.HandOverToAi(Greens[0]);
+        var away = BattleReadout.Of(world, Reds[2], marked.Contains)!.Theirs.Heroes[0];
+        Assert.Equal((true, false, "Away"), (away.Away, away.Lagging, BattleReadout.DriverTag(away, 5, 3)));
+        // A hero out for good shows no tag, however its person stands.
+        Assert.Null(BattleReadout.DriverTag(mine.Theirs.Heroes[1] with { Out = true }, 5, 3));
+    }
+
     // ---- ten and fifteen against as many (P2 design §7) ---------------------------------------------------
 
     /// <summary>A battle of a team size on the Desert, <paramref name="humans"/> people (named "Seat n") and bots in the other seats.</summary>

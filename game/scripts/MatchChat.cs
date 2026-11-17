@@ -45,6 +45,18 @@ public partial class MatchChat(Game game, ClassicPanel panel) : Control
     /// <summary>How much of the screen the messages take below <see cref="ListAt"/>.</summary>
     public float ListHeight => _lines.Count * LineHeight * PixelScale;
 
+    /// <summary>The lines shown now, oldest first: a rebuild of the match carries them over (<see cref="ResyncCarry"/>).</summary>
+    public IReadOnlyList<string> Lines => _lines;
+
+    /// <summary>Lines from before the match scene was rebuilt, shown again with their time to go starting afresh, without a sound.</summary>
+    public void Carry(IEnumerable<string> lines)
+    {
+        _lines.InsertRange(0, lines);
+        if (_lines.Count > MaxLines)
+            _lines.RemoveRange(0, _lines.Count - MaxLines);
+        _lastChange = Now;
+    }
+
     private static double Now => Time.GetTicksMsec() / 1000.0;
 
     private float PixelScale => panel.PixelScale;
@@ -82,13 +94,13 @@ public partial class MatchChat(Game game, ClassicPanel panel) : Control
         }
         if (key < 3)
         {
-            if (OtherSides().ElementAtOrDefault(key) is not { } side)
+            if (OtherSides(game.World.Players).ElementAtOrDefault(key) is not { } side)
                 return;
             (_to, _prefix) = ([side.Slot], Lang.T("Send to {0}: ", side.Name));
         }
         else if (key == TeamKey)
         {
-            if (TeamRaces() is not { Count: > 0 } team)
+            if (TeamRaces(game.World.Players) is not { Count: > 0 } team)
                 return;
             (_to, _prefix) = (team, Lang.T("Send to team: "));
         }
@@ -98,15 +110,33 @@ public partial class MatchChat(Game game, ClassicPanel panel) : Control
         Typing = true;
     }
 
-    /// <summary>A message from another player, unless it was for someone else; one from the team says so.</summary>
+    /// <summary>
+    /// A message from another player, unless it was for someone else; one from the team says so. Who is a person of the team
+    /// the world's table says as it stands (P2 design §4.4): a bot's seat joined late is its person's, under the name the relay
+    /// gave them, which is the name their messages come with.
+    /// </summary>
     public void Receive(Chat chat)
     {
         // A relay from before chat could be addressed passes every message to everyone.
         if (chat.To is { } to && to != Game.Player)
             return;
-        var team = chat.To is not null && MatchRequest.Current.Players.Rows.Any(r => r.Name == chat.From && r.Kind == Sim.World.PlayerKind.Human
+        var team = chat.To is not null && game.World.Players.ById.Any(r => r.Name == chat.From && r.Kind == Sim.World.PlayerKind.Human
             && OwnTeam().Contains(r.Race));
-        Add(team ? Lang.T("{0} (team): {1}", chat.From, chat.Text) : $"{chat.From}: {chat.Text}");
+        var line = team ? Lang.T("{0} (team): {1}", chat.From, chat.Text) : $"{chat.From}: {chat.Text}";
+        GD.Print($"chat: {line}");
+        Add(line);
+    }
+
+    /// <summary>For automated checks: a line to the team (Ctrl+F4) as if typed and sent; false without a person of the team to take it.</summary>
+    public bool AutomateTeam(string text)
+    {
+        Begin(TeamKey);
+        if (_key != TeamKey)
+            return false;
+        _text = text;
+        Send();
+        GD.Print($"chat: said to the team: {text}");
+        return true;
     }
 
     /// <summary>For automated checks: says a line to everyone, then, given another, opens the line with it typed in.</summary>
@@ -124,12 +154,12 @@ public partial class MatchChat(Game game, ClassicPanel panel) : Control
     /// <summary>
     /// The other sides with people, for F1 to F3 and the alliance keys (MachGuiInGameChatMessages::opponentName): every race
     /// but the player's own that has a human row, each once however many commanders it has, in race order, named by its
-    /// people. In a match of one person per race these are the other human players, as before.
+    /// people. In a match of one person per race these are the other human players, as before. The rows are the world's as
+    /// they stand (<paramref name="players"/>): one joined late is its person's.
     /// </summary>
-    public static IEnumerable<OtherSide> OtherSides()
+    public static IEnumerable<OtherSide> OtherSides(Sim.World.PlayerTable players)
     {
-        var players = MatchRequest.Current.Players;
-        return players.Rows.Where(r => r.Kind == Sim.World.PlayerKind.Human && r.Race != Game.Player)
+        return players.ById.Where(r => r.Kind == Sim.World.PlayerKind.Human && r.Race != Game.Player)
             .GroupBy(r => r.Race).OrderBy(g => g.Key)
             .Select(g => new OtherSide(g.Key, string.Join(" & ", g.OrderBy(r => r.Id).Select(r => r.Name))));
     }
@@ -144,11 +174,8 @@ public partial class MatchChat(Game game, ClassicPanel panel) : Control
     /// Where a message to the team goes: each race of the team with a person in it besides the player (a teammate of their
     /// own race, or in a battle a team-mate's race); none without one, and then Ctrl+F4 does nothing.
     /// </summary>
-    public static IReadOnlyList<Race> TeamRaces()
-    {
-        var request = MatchRequest.Current;
-        return OwnTeam().Where(race => request.Players.Rows.Any(r => r.Race == race && r.Kind == Sim.World.PlayerKind.Human && r.Id != request.Me)).ToList();
-    }
+    public static IReadOnlyList<Race> TeamRaces(Sim.World.PlayerTable players) =>
+        OwnTeam().Where(race => players.ById.Any(r => r.Race == race && r.Kind == Sim.World.PlayerKind.Human && r.Id != Game.Me)).ToList();
 
     private static List<string> StandardMessages()
     {

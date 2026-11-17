@@ -1279,9 +1279,6 @@ msgstr "Ein Mehrspieler-Match lässt sich nicht anhalten"
 msgid "Waiting for {0}"
 msgstr "Warte auf {0}"
 
-msgid "Out of sync since tick {0}: the players' games differ"
-msgstr "Seit Tick {0} nicht mehr synchron: Die Spiele der Spieler weichen ab"
-
 msgid "Catching up: tick {0}{1}"
 msgstr "Hole auf: Tick {0}{1}"
 
@@ -4567,3 +4564,71 @@ msgstr "15 gegen 15"
 
 msgid "bot"
 msgstr "Bot"
+
+# Online (P2 S4): rebuilding, rejoining and joining a running battle in the game, lagging, and the lobby's late join
+
+msgid "Your game went out of step: rebuilding the match ({0} of 3)"
+msgstr "Dein Spiel ist aus dem Takt geraten: Das Match wird neu aufgebaut ({0} von 3)"
+
+msgid "A bot drives your hero until you have caught up"
+msgstr "Ein Bot fährt deinen Helden, bis du aufgeholt hast"
+
+msgid "Back in the match: a bot drives your hero until you have caught up"
+msgstr "Zurück im Match: Ein Bot fährt deinen Helden, bis du aufgeholt hast"
+
+msgid "Back in the match: catching up with the others"
+msgstr "Zurück im Match: Du holst die anderen ein"
+
+msgid "Your game fell too far behind: a bot drives your hero until it has caught up"
+msgstr "Dein Spiel ist zu weit zurückgefallen: Ein Bot fährt deinen Helden, bis es aufgeholt hat"
+
+msgid "Your game fell too far behind: your hero waits until it has caught up"
+msgstr "Dein Spiel ist zu weit zurückgefallen: Dein Held wartet, bis es aufgeholt hat"
+
+msgid "Your game fell too far behind: {0} keeps your machines until it has caught up"
+msgstr "Dein Spiel ist zu weit zurückgefallen: {0} hält deine Maschinen, bis es aufgeholt hat"
+
+msgid "Your game fell too far behind: the computer plays {0} until it has caught up"
+msgstr "Dein Spiel ist zu weit zurückgefallen: Der Computer spielt {0}, bis es aufgeholt hat"
+
+msgid "Your game is lagging: your orders arrive late"
+msgstr "Dein Spiel hängt hinterher: Deine Befehle kommen zu spät an"
+
+msgid "{0}'s game is being rebuilt – a bot drives their hero meanwhile"
+msgstr "Das Spiel von {0} wird neu aufgebaut – solange fährt ein Bot den Helden"
+
+msgid "You take over {0}"
+msgstr "Du übernimmst {0}"
+
+msgid "No orders until your game is back in the match"
+msgstr "Keine Befehle, bis dein Spiel wieder im Match ist"
+
+msgid "REBUILDING THE MATCH"
+msgstr "DAS MATCH WIRD NEU AUFGEBAUT"
+
+msgid "REJOINING THE MATCH"
+msgstr "ZURÜCK INS MATCH"
+
+msgid "JOINING A RUNNING BATTLE"
+msgstr "EINSTIEG IN EINE LAUFENDE SCHLACHT"
+
+msgid "Your game lost its place in the match: join it again from the list."
+msgstr "Dein Spiel hat seinen Platz im Match verloren: Tritt ihm über die Liste wieder bei."
+
+msgid "Join the match again from the list to play on."
+msgstr "Tritt dem Match über die Liste wieder bei, um weiterzuspielen."
+
+msgid "You joined this battle late: it does not count for your profile."
+msgstr "Du bist dieser Schlacht spät beigetreten: Sie zählt nicht für dein Profil."
+
+msgid "The line to the relay was lost before the end of this battle was confirmed: it is not counted."
+msgstr "Die Verbindung zum Relay brach ab, bevor das Ende dieser Schlacht bestätigt war: Sie wird nicht gezählt."
+
+msgid "playing · a seat to join"
+msgstr "läuft · ein Platz frei"
+
+msgid "playing · {0} seats to join"
+msgstr "läuft · {0} Plätze frei"
+
+msgid "Lag"
+msgstr "Lag"
