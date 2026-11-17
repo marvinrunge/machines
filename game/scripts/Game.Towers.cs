@@ -137,7 +137,7 @@ public partial class Game
             }
             // Over a tower of the player's own, the one just set down or one standing, the ghost would stand inside it: it
             // goes, and where the world finds no room the HUD names that tower as what stands in the way.
-            var (onOwn, againstOwn) = why is null ? (false, false) : (NearOwnTower(tower, spot, turn, 0), NearOwnTower(tower, spot, turn, OwnTowerNear));
+            var (onOwn, againstOwn) = why is null ? (false, false) : (NearOwnTower(state, tower, spot, turn, 0), NearOwnTower(state, tower, spot, turn, OwnTowerNear));
             if (againstOwn && why == "obstacles or uneven terrain")
                 why = "your tower stands there";
             if (onOwn)
@@ -149,7 +149,7 @@ public partial class Game
             return;
         }
         RemoveTowerGhost();
-        var target = ScrapTarget(sight, ground);
+        var target = ScrapTarget(state, sight, ground);
         Towers = new TowerSight(choices, _towerChosen, sight, target is null ? "no tower of yours there" : World.WhyNoScrap(state, target.Id),
             target?.Id, target is null ? 0 : World.ScrapRefund(state, target));
     }
@@ -196,26 +196,31 @@ public partial class Game
 
     /// <summary>
     /// Whether the tower set down there, turned by <paramref name="turn"/> degrees, would stand on one of the player's own,
-    /// finished or not, or within <paramref name="near"/> metres of it. Only what the view shows: the world decides.
+    /// finished or not, or within <paramref name="near"/> metres of it. Only what the view shows: the world decides. The
+    /// player's own are their hero's (<see cref="GameWorld.TowersOf(WiredState)"/>): in a run of several heroes a
+    /// teammate's tower is in the way as anything else is.
     /// </summary>
-    private bool NearOwnTower(WiredTower tower, NVector2 spot, int turn, float near)
+    private bool NearOwnTower(WiredState state, WiredTower tower, NVector2 spot, int turn, float near)
     {
         var spec = World.Data.Parm.Construction($"{WiredTower.Type} {tower.SubType}");
         var (min, max) = new Construction(0, Player, spot, spec, spec.Level(tower.Level), turn).Footprint;
-        return World.TowersOf(Player).Any(own => min.X < own.Footprint.Max.X + near && own.Footprint.Min.X - near < max.X
+        return World.TowersOf(state).Any(own => min.X < own.Footprint.Max.X + near && own.Footprint.Min.X - near < max.X
             && min.Y < own.Footprint.Max.Y + near && own.Footprint.Min.Y - near < max.Y);
     }
 
     /// <summary>A heading in radians as a tower's turn: degrees by quarter turns, 0, 90, 180 or 270.</summary>
     private static int QuarterTurn(float facing) => ((int)MathF.Round(facing / (MathF.PI / 2)) % 4 + 4) % 4 * 90;
 
-    /// <summary>The player's tower the sight meets, or else the nearest standing close to where it meets the ground.</summary>
-    private Construction? ScrapTarget(Vector2 sight, NVector2 ground)
+    /// <summary>
+    /// The player's tower the sight meets, or else the nearest standing close to where it meets the ground: one of their
+    /// hero's own, the only ones it may pull down (<see cref="GameWorld.WhyNoScrap"/>), never a teammate's beside it.
+    /// </summary>
+    private Construction? ScrapTarget(WiredState state, Vector2 sight, NVector2 ground)
     {
         var (_, met) = SightAt(sight, OrderSight);
-        if (met is Construction { IsDead: false } seen && seen.Race == Player && seen.IsType(WiredTower.Type))
+        if (met is Construction { IsDead: false } seen && seen.Race == state.Race && seen.Owner == state.Player && seen.IsType(WiredTower.Type))
             return seen;
-        return World.TowersOf(Player).Where(t => t.DistanceFrom(ground) < ScrapNear).MinBy(t => t.DistanceFrom(ground));
+        return World.TowersOf(state).Where(t => t.DistanceFrom(ground) < ScrapNear).MinBy(t => t.DistanceFrom(ground));
     }
 
     /// <summary>
