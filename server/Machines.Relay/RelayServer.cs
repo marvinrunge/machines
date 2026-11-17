@@ -524,6 +524,12 @@ public sealed class RelayServer : IAsyncDisposable
             }
             if (member.Room is not null)
                 Leave(member);
+            // Leaving the seat it held may have left the room without members, and so dropped it with its beat and log.
+            if (!_rooms.ContainsKey(room.Id))
+            {
+                SendTo(member, new Refused("that match is not running"));
+                return;
+            }
             Rebuild(member, room, player, ResumeReason.Rejoin, newKey: null);
             if (holder is not null)
                 TakeOutOfMatch(holder, "you came back to this match from another connection");
@@ -573,6 +579,10 @@ public sealed class RelayServer : IAsyncDisposable
             SendTo(member, part);
         foreach (var bundle in plain)
             SendTo(member, bundle);
+        // A world rebuilt once the end is agreed hears of it as every member did (it may not have been one then, or its game
+        // left that message behind with the world it rebuilds), after the log that leads to it.
+        if (beat.DecidedAt is { } decided)
+            SendTo(member, new MatchEnded(decided));
         // The package goes out at once: it may hold more than the backlog a member may have, and is no sign of a slow line; nor
         // is what the member had not acknowledged before it (a line just cut for its backlog acknowledges what it caught up
         // on only within a second). From what it has now on, its backlog may grow by MostBacklog as anyone's may.

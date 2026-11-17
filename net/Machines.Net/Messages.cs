@@ -250,7 +250,8 @@ public enum ResumeReason
 /// <summary>
 /// The relay takes a player into a running match to rebuild their world: the player they are in <paramref name="Match"/>,
 /// and <paramref name="FromTick"/>, the first bundle that comes live. Then follow <paramref name="Parts"/>
-/// <see cref="LogPart"/>s of the sealed log, then the bundles since as plain bundles, then the live ones (P2 design §5.3).
+/// <see cref="LogPart"/>s of the sealed log, then the bundles since as plain bundles, then <see cref="MatchEnded"/> when the end
+/// is agreed already, then the live ones (P2 design §5.3).
 /// <paramref name="Key"/> is the seat's key when it is a new one, <paramref name="Resyncs"/> how often the player was resynced.
 /// </summary>
 public sealed record MatchResumed(MatchInfo Match, PlayerId Player, long FromTick, ResumeReason Reason = ResumeReason.Rejoin, int Parts = 0,

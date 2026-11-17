@@ -421,6 +421,70 @@ public class BeatRelayTests
     }
 
     [Fact]
+    public async Task A_world_rebuilt_after_the_end_was_agreed_is_told_of_the_end_with_its_log()
+    {
+        await using var relay = await RelayClients.Start();
+        var told = new ConcurrentQueue<(int To, NetMessage Message)>();
+        relay.Relay.Sent = (to, message) =>
+        {
+            if (message is MatchResumed or MatchEnded or Bundle)
+                told.Enqueue((to, message));
+        };
+        var anna = await relay.Connect("Anna", web: false);
+        var ben = await relay.Connect("Ben", web: true);
+        var cleo = await relay.Connect("Cleo", web: false);
+        var room = await RelayClients.Open(anna, new CreateRoom("Beat", "m_desert", "m_desert", [Race.Red, Race.Blue, Race.Green], new MatchOptions(), FillWithAi: false), ben, cleo);
+        List<RelayClient> clients = [anna, ben, cleo];
+        await RelayClients.Begin(anna, clients);
+        await RelayClients.PlayTo(100, clients);
+
+        // Cleo quits; the two still playing say the match was decided at 90: it is, and the beat stops at once.
+        await cleo.Leave();
+        anna.Connection.Send(new MatchDecided(90));
+        ben.Connection.Send(new MatchDecided(90));
+        await RelayClients.Until(() => relay.Relay.WithBeat(room.Id, b => b.Stopped), TimeSpan.FromSeconds(10), "the beat stopped");
+        var last = relay.Relay.WithBeat(room.Id, b => b.NextTick) - 1;
+
+        // Cleo comes back by name, and Ben's game asks for its world to be rebuilt: each gets the log, then the end.
+        var back = await relay.Rejoin("Cleo", web: false, room.Id);
+        ben.RejoinHere();
+        await RelayClients.Until(() => told.Count(t => t.To == ben.Id && t.Message is MatchResumed) == 1, TimeSpan.FromSeconds(10), "Ben's rebuild");
+        await RelayClients.PlayTo(last + 1, [back]);
+        Assert.Equal(new MatchEnded(90), back.Ended);
+        foreach (var id in new[] { back.Id, ben.Id })
+        {
+            var package = told.Where(t => t.To == id).Select(t => t.Message).SkipWhile(m => m is not MatchResumed).ToList();
+            Assert.Equal(new MatchEnded(90), package[^1]);
+            Assert.Equal(last, Assert.IsType<Bundle>(package[^2]).Tick);
+        }
+        Assert.True(RelayClients.AssertSumsAgree([anna, ben, back]) > 0);
+    }
+
+    [Fact]
+    public async Task A_key_rejoin_that_leaves_its_own_match_without_members_is_refused()
+    {
+        await using var relay = await RelayClients.Start();
+        var anna = await relay.Connect("Anna", web: false);
+        var ben = await relay.Connect("Ben", web: true);
+        var room = await RelayClients.Open(anna, new CreateRoom("Beat", "m_desert", "m_desert", [Race.Red, Race.Blue], new MatchOptions(), FillWithAi: false), ben);
+        List<RelayClient> clients = [anna, ben];
+        await RelayClients.Begin(anna, clients);
+        await RelayClients.PlayTo(20, clients);
+
+        // Ben quits, and Anna, the last member, turns up with his key: taking his seat she leaves hers, and with it the match
+        // its last member, which goes with its beat and log.
+        var key = ben.Key;
+        await ben.Leave();
+        await TickIn(relay, $@"^room {room.Id}: player {ben.Me} gone from tick (\d+)$");
+        anna.Connection.Send(new RejoinMatch(room.Id, ben.Me, key));
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() => anna.Next<MatchResumed>());
+
+        Assert.Equal("Anna: that match is not running", refused.Message);
+        Assert.Contains(relay.Lines, l => l.StartsWith($"room {room.Id}: dropped with its last member", StringComparison.Ordinal));
+        Assert.Throws<KeyNotFoundException>(() => relay.Relay.WithBeat(room.Id, b => b.NextTick));
+    }
+
+    [Fact]
     public async Task Turns_going_back_or_too_far_ahead_are_dropped()
     {
         await using var relay = await RelayClients.Start();
