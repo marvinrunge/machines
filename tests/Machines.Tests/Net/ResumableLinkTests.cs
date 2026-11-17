@@ -46,16 +46,20 @@ public class ResumableLinkTests
         Assert.IsType<Hello>(await Next(other));
 
         const int count = 2500;
-        var sending = Task.WhenAll(Count(near, count), Count(other, count));
+        // The messages go out alongside the hundred cuts, a hundredth of them per cut so far, so they pass through the
+        // breaks however fast the sending goes (with a relay in the same process asking Windows for its 1 ms timer, a
+        // Task.Delay(1) takes a millisecond, not sixteen, and unpaced the messages were through after a dozen cuts).
+        var cuts = 0;
+        var sending = Task.WhenAll(Count(near, count, () => Volatile.Read(ref cuts)), Count(other, count, () => Volatile.Read(ref cuts)));
         var nearGot = Task.Run(() => Gather(near, count));
         var otherGot = Task.Run(() => Gather(other, count));
         var rng = new Random(17);
-        var cuts = 0;
         while (!sending.IsCompleted || !nearGot.IsCompleted || !otherGot.IsCompleted)
         {
             await Task.Delay(rng.Next(10, 60));
-            if (cuts++ < 100)
+            if (cuts < 100)
                 (rng.Next(2) == 0 ? near : other).Cut();
+            Interlocked.Increment(ref cuts);
             if (cuts > 2000)
                 break;
         }
@@ -136,13 +140,16 @@ public class ResumableLinkTests
         await other.Inbox.Completion.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
-    // Sends Chats numbered 1 to count, a few at a time.
-    private static async Task Count(Connection connection, int count)
+    // Sends Chats numbered 1 to count, a few at a time; with cuts, no more than a hundredth of them per cut made so far
+    // until the hundredth.
+    private static async Task Count(Connection connection, int count, Func<int>? cuts = null)
     {
         for (var i = 1; i <= count; i++)
         {
             connection.Send(new Chat("", i.ToString(System.Globalization.CultureInfo.InvariantCulture)));
             if (i % 8 == 0)
+                await Task.Delay(1);
+            while (cuts is not null && cuts() < 100 && i >= (cuts() + 1) * count / 100)
                 await Task.Delay(1);
         }
     }

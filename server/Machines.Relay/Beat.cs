@@ -11,10 +11,11 @@ public sealed record BeatTimings
     public static BeatTimings Default { get; } = new();
 
     /// <summary>
-    /// Scripted relay tests: a bundle closes as soon as every playing person's turn for it is in, and the delay stays at 4,
-    /// so that every turn lands on its own tick, as today, and the tests run fast. Else a bundle waits for its due time on the
-    /// anchored schedule of a second a bundle: once the beat has run ahead of that schedule by closing early, a player who
-    /// stays silent (without leaving) holds the next bundle back until the schedule catches up, which may be minutes.
+    /// Scripted relay tests: a bundle closes as soon as the turn for it of every playing person, and of every returning one
+    /// whose world is built, is in, and the delay stays at 4, so that every turn lands on its own tick, as today, and the
+    /// tests run fast. Else a bundle waits for its due time on the anchored schedule of a second a bundle: once the beat has
+    /// run ahead of that schedule by closing early, a player who stays silent (without leaving) holds the next bundle back
+    /// until the schedule catches up, which may be minutes.
     /// </summary>
     public static BeatTimings Scripted { get; } = new()
     {
@@ -390,11 +391,13 @@ public sealed class Beat
 
     /// <summary>
     /// A turnaround sample (P2 design §2.7): from the bundle the turn's world had run to the turn, only from a playing,
-    /// unmarked player on time, from a turn made without a backlog.
+    /// unmarked player, from a turn made without a backlog. Late or not: a line a little slower than the delay makes every
+    /// turn late, and only its samples can raise the delay before the mark (a backlog, which also makes turns late, gives
+    /// none by <see cref="Turn.Held"/>).
     /// </summary>
     private void Sample(BeatSeat seat, Turn turn, TimeSpan now)
     {
-        if (seat.State != SeatState.Playing || seat.Marked || seat.LateStreak != 0 || turn.Held > BundlePacer.Buffer + 1 || turn.Seen < 0
+        if (seat.State != SeatState.Playing || seat.Marked || turn.Held > BundlePacer.Buffer + 1 || turn.Seen < 0
             || SentAt(turn.Seen) is not { } sent)
             return;
         seat.Window.Enqueue((now - sent).TotalMilliseconds);
@@ -459,13 +462,14 @@ public sealed class Beat
         return now >= due || Timings.EarlyBy > TimeSpan.Zero && now >= due - Timings.EarlyBy && AllIn(tick);
     }
 
-    /// <summary>The players a bundle waits for to close early: the playing persons, or with none the returning ones whose world is built.</summary>
-    private List<BeatSeat> Expected()
-    {
-        var playing = _seats.Values.Where(s => s.State == SeatState.Playing).ToList();
-        return playing.Count > 0 ? playing
-            : _seats.Values.Where(s => s.State == SeatState.Returning && (s.Loaded || s.Returning == ReturnKind.Lagged)).ToList();
-    }
+    /// <summary>
+    /// The players a bundle waits for to close early (<see cref="BeatTimings.EarlyBy"/>, tests only): the playing persons and
+    /// the returning ones whose world is built. A returning player is back only once on time; were the bundles closed the
+    /// moment the last playing person's turn is in, a returning player's turn for it would always come after, and nobody
+    /// rebuilt in a scripted test would ever be back.
+    /// </summary>
+    private List<BeatSeat> Expected() =>
+        _seats.Values.Where(s => s.State == SeatState.Playing || s.State == SeatState.Returning && (s.Loaded || s.Returning == ReturnKind.Lagged)).ToList();
 
     /// <summary>Whether every expected player's turn for the tick, or a later one, is in; never with nobody expected.</summary>
     private bool AllIn(long tick) => Expected() is { Count: > 0 } expected && expected.All(s => s.Stamped >= tick);

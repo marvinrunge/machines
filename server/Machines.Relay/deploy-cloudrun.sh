@@ -54,6 +54,8 @@ if [[ $SECRETS == 1 ]]; then
 fi
 
 echo "== Cloud Run service $SERVICE"
+# 1 GiB: the relay holds every running match's log of bundles (compressed, shared by every rebuild: some 40 MB for the
+# largest match) and what each connection has not had acknowledged yet (P2 design §2.10).
 gcloud run deploy "$SERVICE" \
   --project "$PROJECT" \
   --region "$REGION" \
@@ -65,7 +67,7 @@ gcloud run deploy "$SERVICE" \
   --session-affinity \
   --concurrency 1000 \
   --cpu 1 \
-  --memory 512Mi \
+  --memory 1Gi \
   --allow-unauthenticated \
   ${SECRET_FLAGS[@]+"${SECRET_FLAGS[@]}"}
 

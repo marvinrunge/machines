@@ -188,7 +188,7 @@ public class SeatTests
     [Fact]
     public async Task Two_commanders_a_side_play_as_players_of_their_own_and_send_only_their_own_turns()
     {
-        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback, beat: BeatTimings.Scripted);
         await using var anna = await ChatTests.Client.Connect(relay, "Anna");
         await using var ben = await ChatTests.Client.Connect(relay, "Ben");
         await using var cleo = await ChatTests.Client.Connect(relay, "Cleo");
@@ -209,11 +209,20 @@ public class SeatTests
         Assert.Equal([new PlayerId(0), new PlayerId(1), new PlayerId(4), new PlayerId(5)], table.Humans);
         Assert.Equal(Race.Red, table.RaceOf(new PlayerId(4)));
 
-        // Cleo may not send Anna's turn; her own reaches everyone, her first.
-        cleo.Connection.Send(new Turn(match.InputDelay, new PlayerId(0), []));
-        cleo.Connection.Send(new Turn(match.InputDelay, new PlayerId(4), []));
-        Assert.Equal(new PlayerId(4), (await anna.Next<Turn>()).Player);
-        Assert.Equal(new PlayerId(4), (await dan.Next<Turn>()).Player);
+        // Everyone's world is built. Cleo may not send Anna's turn; her own reaches everyone, in the bundle of its tick, which
+        // closes once everyone's turn for it is in.
+        foreach (var client in new[] { anna, ben, cleo, dan })
+            client.Connection.Send(new MatchLoaded());
+        var order = new MoveCommand(Race.Red, [1], new System.Numerics.Vector2(100, 100));
+        cleo.Connection.Send(new Turn(match.InputDelay, new PlayerId(0), [order]));
+        cleo.Connection.Send(new Turn(match.InputDelay, new PlayerId(4), [order]));
+        foreach (var (client, player) in new[] { (anna, 0), (ben, 1), (dan, 5) })
+            client.Connection.Send(new Turn(match.InputDelay, new PlayerId(player), []));
+        foreach (var client in new[] { anna, dan })
+        {
+            var bundle = await client.Next<Bundle>(b => b.Turns.Count > 0);
+            Assert.Equal((match.InputDelay, new PlayerId(4)), (bundle.Tick, Assert.Single(bundle.Turns).Player));
+        }
 
         // Every person reports their own checksum, and all four must agree: a report in another's name counts for nothing,
         // and a teammate whose world went its own way is a desync.
@@ -234,7 +243,7 @@ public class SeatTests
     [Fact]
     public async Task A_player_who_left_comes_back_as_the_one_they_name_else_the_first_of_their_name()
     {
-        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback, beat: BeatTimings.Scripted);
         var first = await ChatTests.Client.Connect(relay, "Kim");
         await using var ben = await ChatTests.Client.Connect(relay, "Ben");
         var second = await ChatTests.Client.Connect(relay, "Kim");
@@ -246,26 +255,26 @@ public class SeatTests
 
         await first.DisposeAsync();
         await second.DisposeAsync();
-        var left = new[] { await ben.Next<PlayerLeft>(), await ben.Next<PlayerLeft>() };
-        Assert.Equal([new PlayerId(0), new PlayerId(4)], left.Select(l => l.Player).Order());
+        // Ben's world is built: the beat starts once the others are gone too, and its bundles tell him of both leaving.
+        ben.Connection.Send(new MatchLoaded());
+        var left = new List<PlayerId>();
+        while (left.Count < 2)
+            left.AddRange((await ben.Next<Bundle>(b => b.Presence is { Count: > 0 })).Presence!.OfType<PlayerLeft>().Select(l => l.Player));
+        Assert.Equal([new PlayerId(0), new PlayerId(4)], left.Order());
 
-        // Ben is still there, and not Kim: nobody of that name left as him.
+        // Ben is still there, and not Kim: nobody of that name left as him. (Who comes back plays again once their world is
+        // rebuilt and on time, BeatRelayTests.)
         await using var named = await ChatTests.Client.Connect(relay, "Kim");
         named.Connection.Send(new RejoinMatch(room, new PlayerId(1)));
         Assert.Equal("no player called Kim left that match", (await Refusal(named)).Reason);
         named.Connection.Send(new RejoinMatch(room, new PlayerId(4)));
         var resumed = await named.Next<MatchResumed>();
         Assert.Equal(new PlayerId(4), resumed.Player);
-        Assert.Equal(new PlayerId(4), (await ben.Next<PlayerReturned>()).Player);
+        Assert.NotNull(resumed.Key);
 
         await using var unnamed = await ChatTests.Client.Connect(relay, "Kim");
         unnamed.Connection.Send(new RejoinMatch(room));
         Assert.Equal(new PlayerId(0), (await unnamed.Next<MatchResumed>()).Player);
-        Assert.Equal(new PlayerId(0), (await ben.Next<PlayerReturned>()).Player);
-
-        // Back, each sends their own turns again.
-        named.Connection.Send(new Turn(resumed.FromTick, new PlayerId(4), []));
-        Assert.Equal(new PlayerId(4), (await ben.Next<Turn>(t => t.Tick >= resumed.FromTick)).Player);
     }
 
     [Fact]

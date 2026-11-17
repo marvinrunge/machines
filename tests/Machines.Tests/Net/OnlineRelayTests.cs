@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Net.Sockets;
 using System.Numerics;
 using Machines.Import.Model;
 using Machines.Net;
@@ -94,7 +93,7 @@ public class OnlineRelayTests
     [Fact]
     public async Task A_room_opened_over_WebSocket_plays_with_a_TCP_client()
     {
-        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback, beat: BeatTimings.Scripted);
         await using var http = await RelayHttp.StartAsync(relay, 0, IPAddress.Loopback);
         await using var anna = await Player.Join($"ws://127.0.0.1:{http.Port}", "Anna", host: true);
         await using var ben = await Player.Join($"127.0.0.1:{relay.Port}", "Ben", host: false);
@@ -109,7 +108,7 @@ public class OnlineRelayTests
     [Fact]
     public async Task A_cut_line_comes_back_without_a_message_lost_or_doubled()
     {
-        await using var relay = RelayServer.Start(0, IPAddress.Loopback, Quick);
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback, Quick, BeatTimings.Scripted);
         await using var http = await RelayHttp.StartAsync(relay, 0, IPAddress.Loopback);
         await using var anna = await Player.Join($"ws://127.0.0.1:{http.Port}", "Anna", host: true, Quick);
         await using var ben = await Player.Join($"127.0.0.1:{relay.Port}", "Ben", host: false, Quick);
@@ -141,7 +140,7 @@ public class OnlineRelayTests
     public async Task Clients_move_to_a_new_socket_on_their_own_and_the_match_goes_on()
     {
         var moving = Quick with { Rotation = TimeSpan.FromMilliseconds(300), RotationSpread = TimeSpan.FromMilliseconds(100) };
-        await using var relay = RelayServer.Start(0, IPAddress.Loopback, moving);
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback, moving, BeatTimings.Scripted);
         await using var http = await RelayHttp.StartAsync(relay, 0, IPAddress.Loopback);
         await using var anna = await Player.Join($"ws://127.0.0.1:{http.Port}", "Anna", host: true, moving);
         await using var ben = await Player.Join($"127.0.0.1:{relay.Port}", "Ben", host: false, moving);
@@ -149,7 +148,11 @@ public class OnlineRelayTests
 
         var watch = System.Diagnostics.Stopwatch.StartNew();
         var rng = new Random(11);
-        while (watch.Elapsed < TimeSpan.FromSeconds(2.5))
+        // Two and a half seconds of sockets moving, and the ticks and moves the test asks for even on a computer busy with
+        // other tests (where a dial can take its whole two seconds and the move is tried again later).
+        while ((watch.Elapsed < TimeSpan.FromSeconds(2.5) || anna.Session.World.Tick < 30 || ben.Session.World.Tick < 30
+                || anna.Connection.Links < 4 || ben.Connection.Links < 4)
+               && watch.Elapsed < TimeSpan.FromSeconds(30))
             await Player.Play(20, rng, anna, ben);
         await Player.CatchUp(anna, ben);
 
@@ -163,7 +166,7 @@ public class OnlineRelayTests
     public async Task A_line_that_stays_down_gives_the_race_to_the_AI_after_the_grace_period()
     {
         var brief = Quick with { Grace = TimeSpan.FromSeconds(1.5), Dial = TimeSpan.FromMilliseconds(300) };
-        await using var relay = RelayServer.Start(0, IPAddress.Loopback, brief);
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback, brief, BeatTimings.Scripted);
         await using var line = new LineProxy(relay.Port);
         await using var anna = await Player.Join($"127.0.0.1:{relay.Port}", "Anna", host: true, brief);
         await using var ben = await Player.Join($"127.0.0.1:{line.Port}", "Ben", host: false, brief);
@@ -192,7 +195,7 @@ public class OnlineRelayTests
     public async Task A_player_who_closes_on_purpose_is_not_waited_for()
     {
         // The default grace of a minute: closing says goodbye, so nobody waits it out.
-        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback, beat: BeatTimings.Scripted);
         await using var http = await RelayHttp.StartAsync(relay, 0, IPAddress.Loopback);
         await using var anna = await Player.Join($"ws://127.0.0.1:{http.Port}", "Anna", host: true);
         var ben = await Player.Join($"ws://127.0.0.1:{http.Port}", "Ben", host: false);
@@ -336,7 +339,7 @@ public class OnlineRelayTests
         public ValueTask DisposeAsync() => Connection.DisposeAsync();
     }
 
-    /// <summary>A client as the game runs it, which also notes every turn the relay hands it.</summary>
+    /// <summary>A client as the game runs it, which also notes every bundle the relay hands it and every turn in them.</summary>
     private sealed class Player : IAsyncDisposable
     {
         public required Client Client { get; init; }
@@ -346,8 +349,17 @@ public class OnlineRelayTests
         public LockstepSession Session { get; private set; } = null!;
         public Race Race { get; private set; }
 
-        /// <summary>Every turn received, by its tick and race, in the order it came.</summary>
+        /// <summary>The tick of every bundle received, in the order it came.</summary>
+        public List<long> Bundles { get; } = [];
+
+        /// <summary>Every turn received in a bundle, by its tick and race, in the order it came.</summary>
         public List<(long Tick, Race Race)> Turns { get; } = [];
+
+        /// <summary>Every gap the session met in the relay's numbering.</summary>
+        public List<(long Expected, long Got)> Gaps { get; } = [];
+
+        /// <summary>The tick of every turn with commands the player sent, in order.</summary>
+        public List<long> Ordered { get; } = [];
 
         public static async Task<Player> Join(string address, string name, bool host, LinkTimings? timings = null)
         {
@@ -379,8 +391,15 @@ public class OnlineRelayTests
                 var table = started.Match.Table();
                 var me = table.Rows[started.Match.Players.ToList().FindIndex(p => p.ClientId == player.Id && !p.Ai)].Id;
                 player.Race = table.RaceOf(me);
-                player.Session = new LockstepSession(Replay.BuildWorld(DataLoader.Value, started.Match), me, started.Match.InputDelay, echoed: true);
+                player.Session = new LockstepSession(Replay.BuildWorld(DataLoader.Value, started.Match), me, started.Match.InputDelay, mode: SessionMode.Bundles);
                 player.Session.Outgoing += player.Connection.Send;
+                player.Session.Outgoing += message =>
+                {
+                    if (message is Turn { Commands.Count: > 0 } ordered)
+                        player.Ordered.Add(ordered.Tick);
+                };
+                player.Session.Gap += (expected, got) => player.Gaps.Add((expected, got));
+                player.Connection.Send(new MatchLoaded());
             }
         }
 
@@ -388,13 +407,16 @@ public class OnlineRelayTests
         {
             while (Connection.Inbox.TryRead(out var message))
             {
-                if (message is Turn turn)
-                    Turns.Add((turn.Tick, Session.World.Players.RaceOf(turn.Player)));
+                if (message is Bundle bundle)
+                {
+                    Bundles.Add(bundle.Tick);
+                    Turns.AddRange(bundle.Turns.Select(turn => (bundle.Tick, Session.World.Players.RaceOf(turn.Player))));
+                }
                 Session.Receive(message);
             }
         }
 
-        /// <summary>One frame of each client: send turns, read what arrived, step what can be stepped.</summary>
+        /// <summary>One frame of each client: send a turn, read what arrived, step what can be stepped, a turn after each tick.</summary>
         public static async Task Frame(params Player[] players)
         {
             foreach (var player in players)
@@ -402,8 +424,7 @@ public class OnlineRelayTests
                 player.Session.Pump();
                 player.Read();
                 for (var steps = 0; steps < 40 && player.Session.TryStep(); steps++)
-                {
-                }
+                    player.Session.Pump();
             }
             await Task.Delay(1);
         }
@@ -440,8 +461,10 @@ public class OnlineRelayTests
         }
 
         /// <summary>
-        /// Both worlds are alike, and each client was handed every turn of every player exactly once, from the first tick
-        /// on without a gap: nothing was lost on the way, nothing came twice.
+        /// Both worlds are alike, and each client was handed every bundle exactly once, from the first on without a gap, and in
+        /// them each player's every turn with commands, once, on the tick it asked for (a scripted relay moves none): nothing
+        /// was lost on the way, nothing came twice. Only turns with commands go into bundles, so a player who happened to order
+        /// nothing has none there.
         /// </summary>
         public static void AssertSame(Player a, Player b, long minimumTick)
         {
@@ -452,105 +475,17 @@ public class OnlineRelayTests
             Assert.Null(b.Session.DesyncTick);
             foreach (var player in new[] { a, b })
             {
-                foreach (var race in new[] { a.Race, b.Race })
+                Assert.Empty(player.Gaps);
+                Assert.True(player.Bundles.Count >= minimumTick);
+                Assert.Equal(Enumerable.Range(0, player.Bundles.Count).Select(t => (long)t), player.Bundles);
+                foreach (var sender in new[] { a, b })
                 {
-                    var ticks = player.Turns.Where(t => t.Race == race).Select(t => t.Tick).ToList();
-                    Assert.True(ticks.Count > 0);
-                    Assert.Equal(Enumerable.Range(player.Match.InputDelay, ticks.Count).Select(t => (long)t), ticks);
+                    var ticks = player.Turns.Where(t => t.Race == sender.Race).Select(t => t.Tick).ToList();
+                    Assert.Equal(sender.Ordered.Where(t => t < player.Bundles.Count), ticks);
                 }
             }
         }
 
         public ValueTask DisposeAsync() => Client.DisposeAsync();
-    }
-
-    /// <summary>A line between a client and the relay that the test can break: it forwards TCP both ways until it goes down.</summary>
-    private sealed class LineProxy : IAsyncDisposable
-    {
-        private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
-        private readonly List<TcpClient> _open = [];
-        private readonly CancellationTokenSource _stop = new();
-        private readonly Task _accepting;
-        private readonly int _target;
-        private volatile bool _down;
-
-        public LineProxy(int target)
-        {
-            _target = target;
-            _listener.Start();
-            _accepting = Accept();
-        }
-
-        public int Port => ((IPEndPoint)_listener.LocalEndpoint).Port;
-
-        /// <summary>Breaks every line through it, and every new one at once.</summary>
-        public void Down()
-        {
-            _down = true;
-            lock (_open)
-            {
-                foreach (var socket in _open)
-                    Break(socket);
-                _open.Clear();
-            }
-        }
-
-        private static void Break(TcpClient socket)
-        {
-            try
-            {
-                socket.Client.LingerState = new LingerOption(true, 0);
-            }
-            catch (Exception exception) when (exception is SocketException or ObjectDisposedException)
-            {
-            }
-            socket.Dispose();
-        }
-
-        private async Task Accept()
-        {
-            try
-            {
-                while (true)
-                {
-                    var client = await _listener.AcceptTcpClientAsync(_stop.Token);
-                    if (_down)
-                    {
-                        Break(client);
-                        continue;
-                    }
-                    var relay = new TcpClient();
-                    await relay.ConnectAsync(IPAddress.Loopback, _target, _stop.Token);
-                    lock (_open)
-                        _open.AddRange([client, relay]);
-                    _ = Pump(client, relay);
-                    _ = Pump(relay, client);
-                }
-            }
-            catch (Exception exception) when (exception is OperationCanceledException or ObjectDisposedException or SocketException)
-            {
-            }
-        }
-
-        private static async Task Pump(TcpClient from, TcpClient to)
-        {
-            try
-            {
-                await from.GetStream().CopyToAsync(to.GetStream());
-            }
-            catch (Exception exception) when (exception is IOException or ObjectDisposedException or SocketException or InvalidOperationException)
-            {
-            }
-            Break(from);
-            Break(to);
-        }
-
-        public async ValueTask DisposeAsync()
-        {
-            _stop.Cancel();
-            _listener.Stop();
-            Down();
-            await _accepting;
-        }
     }
 }

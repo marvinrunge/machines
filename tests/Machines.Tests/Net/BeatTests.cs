@@ -383,7 +383,7 @@ public class BeatTests
     }
 
     [Fact]
-    public void No_sample_is_taken_from_a_late_marked_or_backlogged_turn_and_the_window_is_empty_after_a_return()
+    public void A_late_turn_gives_a_sample_none_comes_from_a_marked_or_backlogged_one_and_the_window_is_empty_after_a_return()
     {
         var quick = BeatTimings.Quick;
         var relay = new Relay(quick, Skirmish());
@@ -399,21 +399,26 @@ public class BeatTests
         relay.Send(Blue, relay.Beat.NextTick + 6, seen: relay.Beat.NextTick - 1, held: BundlePacer.Buffer + 1);
         Assert.Equal(samples + 1, seat.Window.Count);
 
-        // Late: none; marked: none.
+        // Late but not marked: a sample (a line a little slower than the delay makes every turn late, and only its samples
+        // can raise the delay before the mark); marked: none.
+        relay.Play(14, Red);
+        Assert.True(seat.LateStreak > 0 && !seat.Marked);
+        Assert.Equal(Offered.Stamped, relay.Send(Blue, 14, seen: relay.Beat.NextTick - 1, held: 1));
+        Assert.Equal(samples + 2, seat.Window.Count);
         relay.Play(20, Red);
-        Assert.True(seat.LateStreak > 0);
+        Assert.True(seat.Marked);
         Assert.Equal(Offered.Stamped, relay.Send(Blue, 15, seen: relay.Beat.NextTick - 1, held: 1));
-        Assert.Equal(samples + 1, seat.Window.Count);
+        Assert.Equal(samples + 2, seat.Window.Count);
         relay.Play(25, Red);
         Assert.True(seat.Marked);
         relay.Play(28, Red, Blue);
         Assert.True(seat.Marked && seat.LateStreak == 0);
-        Assert.Equal(samples + 1, seat.Window.Count);
+        Assert.Equal(samples + 2, seat.Window.Count);
 
         // Handed over with its old samples, back with none.
         relay.Play(60, Red);
         Assert.Equal(SeatState.Returning, seat.State);
-        Assert.Equal(samples + 1, seat.Window.Count);
+        Assert.Equal(samples + 2, seat.Window.Count);
         relay.Play(60 + quick.BackAfter, Red, Blue);
         Assert.Equal(new PlayerReturned(Blue, 60 + quick.BackAfter), PresenceOf(relay.Sent).Last());
         Assert.Equal(SeatState.Playing, seat.State);

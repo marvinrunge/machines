@@ -9,7 +9,10 @@ using Machines.Sim.World;
 
 namespace Machines.Tests.Net;
 
-/// <summary>A battle in deterministic lockstep through the real relay: two players against each other, the computer's bots beside them.</summary>
+/// <summary>
+/// A battle in deterministic lockstep through the real relay keeping the beat (scripted timings): two players against each
+/// other, the computer's bots beside them.
+/// </summary>
 public class BattleLockstepTests
 {
     private static readonly Lazy<GameData> DataLoader = new(() => GameData.Load(RepoPaths.OriginalDataFolder()));
@@ -17,7 +20,7 @@ public class BattleLockstepTests
     [Fact]
     public async Task Two_players_and_two_bots_keep_identical_worlds_and_a_replay_repeats_them()
     {
-        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback, beat: BeatTimings.Scripted);
         var (a, b) = await Player.Battle(relay, new BattleOptions { Tier = 3, Lives = 2 });
         await using var _ = a;
         await using var __ = b;
@@ -68,7 +71,7 @@ public class BattleLockstepTests
     [Fact]
     public async Task A_leavers_hero_is_driven_by_a_bot_and_the_battle_goes_on_to_its_end()
     {
-        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback, beat: BeatTimings.Scripted);
         var (a, b) = await Player.Battle(relay, new BattleOptions { Tier = 2, TimeLimit = 20 });
         await using var _ = a;
         await using var __ = b;
@@ -157,11 +160,12 @@ public class BattleLockstepTests
             var table = match.Table();
             var me = table.Rows[match.Players.ToList().FindIndex(p => p.ClientId == Id && !p.Ai)].Id;
             Race = table.RaceOf(me);
-            Session = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), me, match.InputDelay, echoed: true);
+            Session = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), me, match.InputDelay, mode: SessionMode.Bundles);
             Session.Outgoing += Connection.Send;
+            Connection.Send(new MatchLoaded());
         }
 
-        /// <summary>One frame of each client: send turns, read what arrived, step what can be stepped.</summary>
+        /// <summary>One frame of each client: send a turn, read what arrived, step what can be stepped, a turn after each tick.</summary>
         public static async Task Frame(params Player[] players)
         {
             foreach (var player in players)
@@ -170,8 +174,7 @@ public class BattleLockstepTests
                 while (player.Connection.Inbox.TryRead(out var message))
                     player.Session.Receive(message);
                 for (var steps = 0; steps < 40 && player.Session.TryStep(); steps++)
-                {
-                }
+                    player.Session.Pump();
             }
             await Task.Delay(1);
         }

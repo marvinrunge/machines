@@ -225,6 +225,20 @@ public sealed class Connection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// How many messages sent here have not reached the other side as far as this side knows: on a resumable connection those
+    /// it has not acknowledged yet, else those still waiting to be written to the socket. The relay takes a member out of a
+    /// match whose traffic its line cannot carry by it (P2 design §2.4).
+    /// </summary>
+    public int Backlog
+    {
+        get
+        {
+            lock (_lock)
+                return _session is not null ? _kept.Count : _outbox?.Reader.Count ?? 0;
+        }
+    }
+
     public void Send(NetMessage message)
     {
         lock (_lock)
@@ -290,7 +304,8 @@ public sealed class Connection : IAsyncDisposable
         _link = link;
         _links++;
         _moving = false;
-        var outbox = _outbox = Channel.CreateUnbounded<NetMessage>(new UnboundedChannelOptions { SingleReader = true });
+        // A channel that counts what waits in it (Backlog); one for a single reader cannot.
+        var outbox = _outbox = Channel.CreateUnbounded<NetMessage>();
         if (first is not null)
             outbox.Writer.TryWrite(first);
         foreach (var (_, message) in _kept)

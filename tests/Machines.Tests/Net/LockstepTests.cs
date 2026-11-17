@@ -8,7 +8,7 @@ using Machines.Sim.World;
 
 namespace Machines.Tests.Net;
 
-/// <summary>Deterministic lockstep through the real relay, with two clients in this process.</summary>
+/// <summary>Deterministic lockstep through the real relay keeping the beat (scripted timings), with two clients in this process.</summary>
 public class LockstepTests
 {
     private static readonly Lazy<GameData> DataLoader = new(() => GameData.Load(RepoPaths.OriginalDataFolder()));
@@ -45,7 +45,7 @@ public class LockstepTests
     [Fact]
     public async Task Two_players_through_the_relay_keep_identical_worlds_and_a_replay_repeats_them()
     {
-        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback, beat: BeatTimings.Scripted);
         await using var a = await Player.Join(relay, "Anna", host: true);
         await using var b = await Player.Join(relay, "Ben", host: false);
         await Player.Start(a, b);
@@ -134,7 +134,7 @@ public class LockstepTests
     [Fact]
     public async Task An_alliance_reaches_both_worlds_and_a_replay_repeats_it()
     {
-        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback, beat: BeatTimings.Scripted);
         await using var a = await Player.Join(relay, "Anna", host: true);
         await using var b = await Player.Join(relay, "Ben", host: false);
         await Player.Start(a, b);
@@ -226,7 +226,7 @@ public class LockstepTests
     [Fact]
     public async Task The_relay_reports_a_desync_when_worlds_differ()
     {
-        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback, beat: BeatTimings.Scripted);
         await using var a = await Player.Join(relay, "Anna", host: true);
         await using var b = await Player.Join(relay, "Ben", host: false);
         await Player.Start(a, b);
@@ -244,7 +244,7 @@ public class LockstepTests
     [Fact]
     public async Task The_others_play_on_against_the_AI_when_a_player_leaves()
     {
-        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback, beat: BeatTimings.Scripted);
         await using var a = await Player.Join(relay, "Anna", host: true);
         var b = await Player.Join(relay, "Ben", host: false);
         await Player.Start(a, b);
@@ -272,7 +272,7 @@ public class LockstepTests
     [Fact]
     public async Task A_player_who_dropped_out_rejoins_catches_up_and_takes_their_race_back()
     {
-        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback, beat: BeatTimings.Scripted);
         await using var a = await Player.Join(relay, "Anna", host: true);
         var b = await Player.Join(relay, "Ben", host: false);
         await Player.Start(a, b);
@@ -362,14 +362,16 @@ public class LockstepTests
             }
         }
 
-        private void Begin(MatchInfo match, PlayerId? player = null, long? from = null)
+        /// <summary>The world built and the session on the relay's bundles, then the relay is told the world is there.</summary>
+        private void Begin(MatchInfo match, PlayerId? player = null)
         {
             Match = match;
             var table = match.Table();
             var me = player ?? table.Rows[match.Players.ToList().FindIndex(p => p.ClientId == Id && !p.Ai)].Id;
             Race = table.RaceOf(me);
-            Session = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), me, match.InputDelay, firstLocalTurn: from, echoed: true);
+            Session = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), me, match.InputDelay, mode: SessionMode.Bundles);
             Session.Outgoing += Connection.Send;
+            Connection.Send(new MatchLoaded());
         }
 
         /// <summary>Connects under the name of a player who dropped out and takes their race back.</summary>
@@ -383,11 +385,11 @@ public class LockstepTests
             connection.Send(new RejoinMatch(rooms.Rooms.Single(r => r.Started).Id));
             var resumed = (MatchResumed)await Next(connection, m => m is MatchResumed);
             var player = new Player { Connection = connection, Id = welcome.ClientId };
-            player.Begin(resumed.Match, resumed.Player, resumed.FromTick);
+            player.Begin(resumed.Match, resumed.Player);
             return player;
         }
 
-        /// <summary>One frame of each client: send turns, read what arrived, step what can be stepped.</summary>
+        /// <summary>One frame of each client: send a turn, read what arrived, step what can be stepped, a turn after each tick.</summary>
         public static async Task Frame(params Player[] players)
         {
             foreach (var player in players)
@@ -397,8 +399,7 @@ public class LockstepTests
                     player.Session.Receive(message);
                 // A world far behind (rejoining) catches up several ticks a frame, as the game does.
                 for (var steps = 0; steps < 40 && player.Session.TryStep(); steps++)
-                {
-                }
+                    player.Session.Pump();
             }
             await Task.Delay(1);
         }
