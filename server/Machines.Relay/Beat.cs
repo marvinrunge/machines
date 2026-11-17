@@ -192,8 +192,9 @@ public sealed class BeatSeat
     public int Late { get; internal set; }
 
     /// <summary>
-    /// How often the seat's world was found out of step with the others (<see cref="Beat.OutOfStep"/>): each time up to
-    /// <see cref="BeatTimings.MostResyncs"/> it is rebuilt from the log, the next time it is taken out of the match.
+    /// How often the world of the seat's person was found out of step with the others (<see cref="Beat.OutOfStep"/>): each
+    /// time up to <see cref="BeatTimings.MostResyncs"/> it is rebuilt from the log, the next time they are taken out of the
+    /// match. A late joiner taking a bot's seat starts with none: those of a joiner lost before joining it were that one's.
     /// </summary>
     public int Resyncs { get; internal set; }
 
@@ -286,6 +287,8 @@ public sealed class Beat
     private readonly List<BeatNotice> _notices = [];
     private readonly Dictionary<(PlayerId, Offered), TimeSpan> _dropNoted = [];
     private readonly SortedDictionary<int, long> _delays = [];
+    // How often each seat's worlds were out of step over the match, whoever played it, for the summary.
+    private readonly SortedDictionary<PlayerId, int> _outOfStep = [];
     private int _above, _below;
     private TimeSpan? _agreedAt;
     private long _uncounted, _lateCloses;
@@ -770,8 +773,11 @@ public sealed class Beat
         {
             case SeatState.Barred:
                 throw new InvalidOperationException($"player {player} was taken out of the match");
+            // A late joiner takes the seat: the resyncs of a joiner lost before joining it are not theirs (§5.5). Without a name
+            // it is that joiner's own seat key bringing them back, resyncs and all.
             case SeatState.Bot:
-                seat.Name = name ?? seat.Name;
+                if (name is not null)
+                    (seat.Name, seat.Resyncs) = (name, 0);
                 seat.Since = NextTick;
                 break;
             case SeatState.Playing when Battle:
@@ -804,7 +810,12 @@ public sealed class Beat
     /// next time it takes the player out of the match (<see cref="Bar"/>, §5.5).
     /// </summary>
     /// <exception cref="KeyNotFoundException">No seat of the match.</exception>
-    public int OutOfStep(PlayerId player) => ++_seats[player].Resyncs;
+    public int OutOfStep(PlayerId player)
+    {
+        var seat = _seats[player];
+        _outOfStep[player] = _outOfStep.GetValueOrDefault(player) + 1;
+        return ++seat.Resyncs;
+    }
 
     /// <summary>
     /// A player is taken out of the match for good (out of step too often, P2 design §5.5): a playing seat or a held rebuild
@@ -888,10 +899,9 @@ public sealed class Beat
     {
         var late = string.Join(", ", _seats.Values.Where(s => s.Joined).Select(s => $"{s.Player} {s.Late}"));
         var delays = string.Join(", ", _delays.Select(d => $"{d.Key}: {d.Value}"));
-        // Out of step by player (each time up to MostResyncs a resync, the next a bar), only in a match where a world was.
-        var resyncs = _seats.Values.Where(s => s.Resyncs > 0).Select(s => $"{s.Player} {s.Resyncs}").ToList() is { Count: > 0 } found
-            ? $"; out of step by player: {string.Join(", ", found)}"
-            : "";
+        // Out of step by player (each time up to MostResyncs a resync, the next a bar; a seat's late joiners together), only in
+        // a match where a world was.
+        var resyncs = _outOfStep.Count > 0 ? $"; out of step by player: {string.Join(", ", _outOfStep.Select(o => $"{o.Key} {o.Value}"))}" : "";
         return string.Create(CultureInfo.InvariantCulture,
             $"{NextTick} ticks, {Moved} turns moved, late bundles by player: {late}; delay (bundles): {delays}; {_lateCloses} closed over 20 ms late, {_uncounted} counted nobody{resyncs}");
     }

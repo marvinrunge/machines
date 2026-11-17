@@ -322,6 +322,60 @@ public class LateJoinTests
     }
 
     /// <summary>
+    /// A seat's resyncs are its person's (P2 design §5.5): a joiner lost before joining leaves the seat a bot's, and the next
+    /// one to join it starts with none of the lost one's, rather than taken out on their first resync.
+    /// </summary>
+    [Fact]
+    public async Task A_joiner_starts_with_none_of_the_resyncs_of_one_lost_before_joining_the_same_seat()
+    {
+        await using var relay = await RelayClients.Start();
+        // Begun, with no world run: the checksums are sent by hand.
+        var (room, clients, _) = await Battle(relay, ["Anna", "Ben", "Cleo"]);
+        await RelayClients.Until(() => relay.Relay.WithBeat(room.Id, beat => beat.Anchor) is not null, TimeSpan.FromSeconds(15), "the beat begun");
+        foreach (var client in clients)
+            await Said(client, new ChecksumReport(20, client.Me, 7));
+        Assert.Equal(7ul, relay.Relay.Agreed(room.Id, 20));
+
+        // Xia's world goes its own way three times while it catches up, and her game is gone before it joined.
+        var xia = await relay.LateJoin("Xia", web: false, room.Id);
+        Assert.Equal(P(8), xia.Me);
+        for (var i = 1; i <= 3; i++)
+        {
+            var resumed = Assert.Single((await Said(xia, new ChecksumReport(20, xia.Me, 9))).OfType<MatchResumed>());
+            Assert.Equal((ResumeReason.Resync, i), (resumed.Reason, resumed.Resyncs));
+            xia.Take(resumed);
+        }
+        await xia.Leave();
+        await RelayClients.Until(() => relay.Relay.WithBeat(room.Id, beat => beat.Seat(P(8))!.State) == SeatState.Bot, TimeSpan.FromSeconds(15), "the seat a bot's again");
+
+        // Yan takes the seat: none of Xia's resyncs are his, and his world going its own way is his first.
+        var yan = await relay.LateJoin("Yan", web: true, room.Id);
+        Assert.Equal((P(8), 0), (yan.Me, yan.Resumed!.Resyncs));
+        Assert.Equal(0, relay.Relay.WithBeat(room.Id, beat => beat.Seat(P(8))!.Resyncs));
+        var heard = await Said(yan, new ChecksumReport(20, yan.Me, 9));
+        Assert.DoesNotContain(heard, m => m is LeftMatch);
+        Assert.Equal((ResumeReason.Resync, 1), Assert.Single(heard.OfType<MatchResumed>()) is var again ? (again.Reason, again.Resyncs) : default);
+        Assert.Contains(relay.Lines, l => l.StartsWith($"room {room.Id}: resync 1/3 of Yan (player 8) from tick ", StringComparison.Ordinal));
+        // The match's summary still counts every time the seat's worlds were out of step.
+        Assert.EndsWith("; out of step by player: 8 4", relay.Relay.WithBeat(room.Id, beat => beat.Summary()));
+    }
+
+    /// <summary>
+    /// A client sends a message and waits until the relay handled it (it answers a list of rooms in the order it was asked);
+    /// returns what the client was sent until then.
+    /// </summary>
+    private static async Task<List<NetMessage>> Said(RelayClient client, NetMessage message)
+    {
+        client.Connection.Send(message);
+        client.Connection.Send(new ListRooms());
+        var heard = new List<NetMessage>();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        while (await client.Connection.Inbox.ReadAsync(timeout.Token) is var next && next is not RoomList)
+            heard.Add(next);
+        return heard;
+    }
+
+    /// <summary>
     /// A five against five on Canyon Attack at tier I whose people are <paramref name="names"/> (every second over a
     /// WebSocket), bots in the other seats, each with the hero they bring and with <paramref name="terrain"/> as their ground;
     /// begun and played by the clients (each with a hero's script), or with <paramref name="play"/> false only taken.
