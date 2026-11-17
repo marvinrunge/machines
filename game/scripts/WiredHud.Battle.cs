@@ -492,7 +492,9 @@ public partial class WiredHud
         if (now.Opening is not { } seconds || seconds <= 0)
             return;
         var middle = Left + (_size.X - Left) / 2;
-        var y = _size.Y * 0.36f;
+        // Its first line under the team plate and the capture bars where they hang this far down (ten or fifteen a side at a
+        // large HUD size), not over them.
+        var y = Mathf.Max(_size.Y * 0.36f, BattleHanging + 50 * _u);
         var beat = 1 - (float)(_time % 1);
         var dark = new Color(0, 0, 0, 0.55f);
         var clear = new Color(0, 0, 0, 0);

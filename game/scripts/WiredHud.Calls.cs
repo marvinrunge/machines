@@ -368,6 +368,10 @@ public partial class WiredHud
         var alpha = opening * Mathf.Clamp((call.Seconds - age) / 0.45f, 0, 1);
         var middle = Left + (_size.X - Left) / 2;
         var y = _size.Y * 0.28f;
+        // In a battle the call starts under the team plate and the capture bars where they hang this far down (ten or fifteen
+        // a side at a large HUD size), which would cover its title.
+        if (_battle is not null)
+            y = Mathf.Max(y, BattleHanging - Gap * _u);
         var width = (_size.X - Left) * 0.42f * (1 - (1 - opening) * (1 - opening));
         var height = (call.Line is null ? 92 : 128) * _u;
         // Where the weapons' panels of first person and their triggers reach this far down (at a large HUD size), the
