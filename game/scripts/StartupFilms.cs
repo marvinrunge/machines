@@ -141,6 +141,7 @@ public partial class StartupFilms : Control
     {
         _frame?.QueueFree();
         _frame = null;
+        _bar = null;
         if (Campaign.Media(_gameFolder, $"gui/menu/{name}") is not { } file || ClassicAssets.DecodeBmp(File.ReadAllBytes(file)) is not { } image)
         {
             next();
@@ -209,8 +210,10 @@ public partial class StartupFilms : Control
     /// <summary>The intro film, as wide as the window allows.</summary>
     private void IntroFilm()
     {
+        // The loading bar goes with the picture it lies on.
         _frame?.QueueFree();
         _frame = null;
+        _bar = null;
         var view = Play(new SmackerView(System.IO.Path.Combine(_gameFolder, "flics", "animatic.smk")), _logos ? Finish : Trailer);
         AddChild(view);
         view.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
