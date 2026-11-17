@@ -872,8 +872,9 @@ public sealed class RelayServer : IAsyncDisposable
         /// <summary>
         /// The room on a new map or with new seats, its players at the new seats in the fill order, the host first, each in
         /// the colour of their new race as <see cref="ColourFor"/> gives it; returns those it has no seat for. The seats nobody
-        /// sits at keep what they were for, in order. The heroes players brought stay only while the room stays a battle on
-        /// the same map and bracket; a battle has no closed seats.
+        /// sits at keep what they were for, in order. While the seats stay the same (only a setting changed), everyone stays
+        /// where they sat and every seat nobody sits at stays what it was for. The heroes players brought stay only while the
+        /// room stays a battle on the same map and bracket; a battle has no closed seats.
         /// </summary>
         public List<Member> Change(ChangeRoom change)
         {
@@ -885,17 +886,22 @@ public sealed class RelayServer : IAsyncDisposable
                 Scenario = change.Scenario, Planet = change.Planet, Slots = change.Slots, Options = change.Options, FillWithAi = change.FillWithAi,
                 SeatsPerSlot = change.SeatsPerSlot,
             };
-            Seats = SeatPlan(Setup);
-            var seated = new List<Member>();
-            foreach (var (seat, member) in FillOrder().Zip(people))
+            var plan = SeatPlan(Setup);
+            // A seat a player chose (TakeSeat) or the host set (SetSeat) is not undone by a change of the settings alone.
+            if (!plan.Select(s => (s.Race, s.Place, s.Player)).SequenceEqual(Seats.Select(s => (s.Race, s.Place, s.Player))))
             {
-                seat.Member = member;
-                member.Race = seat.Race;
-                member.Colour = ColourFor(member, seated, keepColour: true);
-                seated.Add(member);
+                Seats = plan;
+                var seated = new List<Member>();
+                foreach (var (seat, member) in FillOrder().Zip(people))
+                {
+                    seat.Member = member;
+                    member.Race = seat.Race;
+                    member.Colour = ColourFor(member, seated, keepColour: true);
+                    seated.Add(member);
+                }
+                foreach (var (seat, use) in Seats.Where(s => s.Member is null).Select((seat, i) => (seat, i < uses.Count ? uses[i] : SeatUse.Open)))
+                    seat.Use = use;
             }
-            foreach (var (seat, use) in Seats.Where(s => s.Member is null).Select((seat, i) => (seat, i < uses.Count ? uses[i] : SeatUse.Open)))
-                seat.Use = use;
             foreach (var member in Members)
                 (member.Ready, member.Terrain) = (false, null);
             if (change.Options.Battle is not null)
