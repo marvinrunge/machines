@@ -421,6 +421,44 @@ public class BeatRelayTests
     }
 
     [Fact]
+    public async Task The_beat_goes_through_a_room_only_when_something_of_it_is_due()
+    {
+        // The relay's own timings: a room's bundles every 50 ms, another room waiting a minute for its world to be built.
+        await using var relay = RelayServer.Start(0, System.Net.IPAddress.Loopback);
+        var lines = new ConcurrentQueue<string>();
+        relay.Log += lines.Enqueue;
+        await using var anna = await ChatTests.Client.Connect(relay, "Anna");
+        await using var ben = await ChatTests.Client.Connect(relay, "Ben");
+        var running = await Alone(anna, load: true);
+        var loading = await Alone(ben, load: false);
+        await Task.Delay(TimeSpan.FromSeconds(2));
+
+        // The running room was gone through for its bundles (about one each, as each came due), the loading one never: a relay
+        // of many rooms would otherwise go through them all at every bundle of any.
+        var (advanced, bundles) = relay.Beats(running);
+        Assert.True(bundles >= 20, $"{bundles} bundles");
+        Assert.True(advanced <= bundles + 5, $"gone through {advanced} times for {bundles} bundles");
+        Assert.Equal((0, 0L), relay.Beats(loading));
+        Assert.Single(lines, l => Regex.IsMatch(l, $@"^room {running}: bundle 0 was due at \d{{13}} ms UTC$"));
+        Assert.DoesNotContain(lines, l => l.StartsWith($"room {loading}: bundle 0", StringComparison.Ordinal));
+
+        static async Task<int> Alone(ChatTests.Client client, bool load)
+        {
+            var room = await client.Open("Alone", 2);
+            client.Connection.Send(new SetPlayer(Race.Red, Ready: true));
+            await client.Next<RoomState>(s => s.Players.Single().Ready);
+            client.Connection.Send(new StartMatch());
+            await client.Next<MatchStarted>();
+            if (load)
+            {
+                client.Connection.Send(new MatchLoaded());
+                await client.Next<Bundle>();
+            }
+            return room;
+        }
+    }
+
+    [Fact]
     public async Task A_world_rebuilt_after_the_end_was_agreed_is_told_of_the_end_with_its_log()
     {
         await using var relay = await RelayClients.Start();

@@ -842,10 +842,25 @@ public sealed class RelayServer : IAsyncDisposable
                 var now = Now;
                 foreach (var room in _rooms.Values.Where(r => r.Beat is not null).ToList())
                 {
-                    if (!_rooms.ContainsKey(room.Id))
+                    if (!_rooms.ContainsKey(room.Id) || room.Failed)
                         continue;
-                    if (Advance(room, now) is { } next && (wake is null || next < wake))
-                        wake = next;
+                    // Only a room with something due is gone through (or one whose beat stopped, for its summary); the others'
+                    // next times are only looked at. Going through every room at every bundle of any cost a relay of 200 rooms
+                    // more than half a core.
+                    TimeSpan? next;
+                    try
+                    {
+                        next = room.Beat!.NextWake(now);
+                    }
+                    catch (Exception exception)
+                    {
+                        Fail(room, exception);
+                        continue;
+                    }
+                    if (next is { } due && due <= now || room.Beat.Stopped && !room.Summarised)
+                        next = Advance(room, now);
+                    if (next is { } then && (wake is null || then < wake))
+                        wake = then;
                 }
                 _planned = wake;
             }
@@ -864,12 +879,17 @@ public sealed class RelayServer : IAsyncDisposable
     {
         if (room.Beat is not { } beat || room.Failed)
             return null;
+        room.Advanced++;
         try
         {
             var bundles = beat.Close(now);
-            // The beat starts here, or in the last MatchLoaded, after which this runs at once.
+            // The beat starts here, or in the last MatchLoaded, after which this runs at once. Its time in UTC lets the clients'
+            // pace lines, which carry theirs, be set against the relay's clock (P2 design §5.6).
             if (room.AnchorTicks < 0 && beat.Anchor is { } anchor)
+            {
                 Volatile.Write(ref room.AnchorTicks, anchor.Ticks);
+                Log?.Invoke($"room {room.Id}: bundle 0 was due at {(DateTimeOffset.UtcNow - (Now - anchor)).ToUnixTimeMilliseconds()} ms UTC");
+            }
             foreach (var bundle in bundles)
             {
                 if (room.Bundles!.Add(bundle, _beat.SegmentTicks) is { } run)
@@ -889,12 +909,19 @@ public sealed class RelayServer : IAsyncDisposable
         }
         catch (Exception exception)
         {
-            // A fault in one match must not stop the others' beat, nor the relay's thread; this one stands still, and its
-            // players can leave.
-            room.Failed = true;
-            Log?.Invoke($"room {room.Id}: the beat failed and stands still: {exception}");
+            Fail(room, exception);
             return null;
         }
+    }
+
+    /// <summary>
+    /// A fault in one match must not stop the others' beat, nor the relay's thread (an exception there would end the relay's
+    /// process): this one stands still, and its players can leave.
+    /// </summary>
+    private void Fail(Room room, Exception exception)
+    {
+        room.Failed = true;
+        Log?.Invoke($"room {room.Id}: the beat failed and stands still: {exception}");
     }
 
     /// <summary>
@@ -1093,6 +1120,13 @@ public sealed class RelayServer : IAsyncDisposable
             return _rooms[room].Checksums.TryGetValue(tick, out var reports) ? new Dictionary<PlayerId, ulong>(reports) : null;
     }
 
+    /// <summary>Tests: how often the relay went through a room's beat to close what was due, and how many bundles it closed.</summary>
+    internal (int Advanced, long Bundles) Beats(int room)
+    {
+        lock (_lock)
+            return (_rooms[room].Advanced, _rooms[room].Beat?.NextTick ?? 0);
+    }
+
     /// <summary>Tests: the checksum every player agreed on for a tick, or null.</summary>
     internal ulong? Agreed(int room, long tick)
     {
@@ -1263,6 +1297,9 @@ public sealed class RelayServer : IAsyncDisposable
 
         /// <summary>Whether the beat failed and stands still.</summary>
         public bool Failed { get; set; }
+
+        /// <summary>How often the relay went through the room's beat to close what was due (tests).</summary>
+        public int Advanced { get; set; }
 
         public Dictionary<long, Dictionary<PlayerId, ulong>> Checksums { get; } = [];
         public bool Desynced { get; set; }
