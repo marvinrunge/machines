@@ -37,6 +37,15 @@ namespace Machines.Net;
 [JsonDerivedType(typeof(ResumeLink), "resumeLink")]
 [JsonDerivedType(typeof(LinkResumed), "linkResumed")]
 [JsonDerivedType(typeof(Goodbye), "goodbye")]
+[JsonDerivedType(typeof(Bundle), "bundle")]
+[JsonDerivedType(typeof(PlayerJoined), "playerJoined")]
+[JsonDerivedType(typeof(PlayerLagging), "playerLagging")]
+[JsonDerivedType(typeof(MatchLoaded), "matchLoaded")]
+[JsonDerivedType(typeof(MatchDecided), "matchDecided")]
+[JsonDerivedType(typeof(MatchEnded), "matchEnded")]
+[JsonDerivedType(typeof(SeatKey), "seatKey")]
+[JsonDerivedType(typeof(LogPart), "logPart")]
+[JsonDerivedType(typeof(LeftMatch), "leftMatch")]
 public abstract record NetMessage;
 
 /// <summary>
@@ -60,9 +69,11 @@ public sealed record ListRooms : NetMessage;
 public sealed record RoomList(IReadOnlyList<RoomSummary> Rooms) : NetMessage;
 
 /// <summary>A room in the lobby's list. <paramref name="Mode"/> is "battle" for a battle room (null for a normal one), and
-/// <paramref name="Tier"/> the top of its bracket (0 for a normal room).</summary>
+/// <paramref name="Tier"/> the top of its bracket (0 for a normal room). <paramref name="Joinable"/> counts the seats a bot has
+/// played since the start of a running battle that a player may still join (P2 design §6.2): while the relay keeps the
+/// battle's beat and nothing is decided.</summary>
 public sealed record RoomSummary(int Id, string Name, string Scenario, string Planet, int Players, int MaxPlayers, bool Started,
-    string? Mode = null, int Tier = 0)
+    string? Mode = null, int Tier = 0, int Joinable = 0)
 {
     /// <summary>The <see cref="Mode"/> of a battle room.</summary>
     public const string Battle = "battle";
@@ -77,7 +88,13 @@ public sealed record RoomSummary(int Id, string Name, string Scenario, string Pl
 public sealed record CreateRoom(string Name, string Scenario, string Planet, IReadOnlyList<Race> Slots, MatchOptions Options, bool FillWithAi,
     int SeatsPerSlot = 1) : NetMessage;
 
-public sealed record JoinRoom(int RoomId) : NetMessage;
+/// <summary>
+/// Joins a room before its match. A running battle takes a player late into a seat a bot has played since the start (P2
+/// design §6.2): <paramref name="Seat"/> names the seat in the room's list, else the relay picks one on the team with fewer
+/// people; <paramref name="Terrain"/> is the joiner's ground fingerprint (as <see cref="SetPlayer.Terrain"/>), which must be the
+/// battle's.
+/// </summary>
+public sealed record JoinRoom(int RoomId, int? Seat = null, long? Terrain = null) : NetMessage;
 
 public sealed record LeaveRoom : NetMessage;
 
@@ -172,10 +189,31 @@ public sealed record MatchInfo(string Scenario, string Planet, MatchOptions Opti
 public sealed record MatchPlayer(int ClientId, string Name, Race Slot, Race Colour, bool Ai, PlayerId? Player = null, string? Uid = null);
 
 /// <summary>
-/// One player's commands for one tick; sent every tick, empty or not. Every world carries out only those of the player's
-/// own race, each as the player's (<see cref="Command.Issuer"/>, which no turn carries).
+/// One player's commands for one tick. Every world carries out only those of the player's own race, each as the player's
+/// (<see cref="Command.Issuer"/>, which no turn carries). <paramref name="Tick"/> is the tick asked for; inside a
+/// <see cref="Bundle"/>, the tick it runs on. In turn mode (offline, recordings) one is sent every tick, empty or not; online
+/// (bundle mode) at most one a slot of the client's clock (P2 design §4.2), stamped from its world, which also tells the relay
+/// how far that world is: <paramref name="Seen"/> the newest bundle it had run (−1 before any), <paramref name="Held"/> how
+/// many bundles it held then, for the relay's turnaround (§2.7). Inside a bundle those two are left out, and
+/// <paramref name="Asked"/> is the newest stamp the relay merged into it (−1 elsewhere), so a client knows which of its
+/// turns landed there (§4.4). The three are left out of the JSON at those values, so a turn of a recording reads as before.
 /// </summary>
-public sealed record Turn(long Tick, PlayerId Player, IReadOnlyList<Command> Commands) : NetMessage;
+public sealed record Turn(long Tick, PlayerId Player, IReadOnlyList<Command> Commands, long Seen = -1, int Held = 0, long Asked = -1) : NetMessage;
+
+/// <summary>
+/// One tick of a running match as the relay closed it (P2 design §2.4): every turn it placed on <paramref name="Tick"/> that
+/// held commands, one a player at most, in player order; the comings and goings from this tick on (<paramref name="Presence"/>:
+/// only <see cref="PlayerLeft"/>, <see cref="PlayerJoined"/>, <see cref="PlayerReturned"/> and <see cref="PlayerLagging"/>,
+/// each from this tick, in player order and for one player in that order); and the input delay in force
+/// (<paramref name="Delay"/>, 0 for none), which clients stamp their turns with and the world never sees. A player without a
+/// turn here has nothing new for the tick. The relay sends one for every tick, in order, empty ones too.
+/// </summary>
+public sealed record Bundle(long Tick, IReadOnlyList<Turn> Turns, IReadOnlyList<NetMessage>? Presence = null, int Delay = 0) : NetMessage
+{
+    /// <summary>Whether the bundle holds no turn and no coming or going (a sealed log segment leaves such bundles out).</summary>
+    [JsonIgnore]
+    public bool Empty => Turns.Count == 0 && (Presence is null || Presence.Count == 0);
+}
 
 /// <summary>A player's world checksum after a tick; the relay compares them.</summary>
 public sealed record ChecksumReport(long Tick, PlayerId Player, ulong Value) : NetMessage;
@@ -192,18 +230,67 @@ public sealed record PlayerLeft(PlayerId Player, long FromTick) : NetMessage;
 
 /// <summary>
 /// A player who dropped out asks to play again (the relay knows them by name). <paramref name="Player"/> is the player they
-/// were, when the game still knows it: the relay then takes that row and no other of the same name.
+/// were, when the game still knows it: the relay then takes that row and no other of the same name. With
+/// <paramref name="Key"/>, the seat key the relay gave (<see cref="SeatKey"/>), it takes the seat that key is for, the player
+/// given, also from a connection that still holds it (P2 design §6.1).
 /// </summary>
-public sealed record RejoinMatch(int RoomId, PlayerId? Player = null) : NetMessage;
+public sealed record RejoinMatch(int RoomId, PlayerId? Player = null, string? Key = null) : NetMessage;
+
+/// <summary>Why a player's world is rebuilt from the relay's log (P2 design §5.3).</summary>
+public enum ResumeReason
+{
+    /// <summary>They came back to the match.</summary>
+    Rejoin,
+    /// <summary>Their world went its own way.</summary>
+    Resync,
+    /// <summary>They join a running battle in a bot's seat.</summary>
+    LateJoin,
+}
 
 /// <summary>
-/// The relay takes a returning player back: the player they are in <paramref name="Match"/>, and the tick from which they
-/// play again. Every turn and every coming and going so far follows, in order, to rebuild the world from.
+/// The relay takes a player into a running match to rebuild their world: the player they are in <paramref name="Match"/>,
+/// and <paramref name="FromTick"/>, the first bundle that comes live. Then follow <paramref name="Parts"/>
+/// <see cref="LogPart"/>s of the sealed log, then the bundles since as plain bundles, then the live ones (P2 design §5.3).
+/// <paramref name="Key"/> is the seat's key when it is a new one, <paramref name="Resyncs"/> how often the player was resynced.
 /// </summary>
-public sealed record MatchResumed(MatchInfo Match, PlayerId Player, long FromTick) : NetMessage;
+public sealed record MatchResumed(MatchInfo Match, PlayerId Player, long FromTick, ResumeReason Reason = ResumeReason.Rejoin, int Parts = 0,
+    string? Key = null, int Resyncs = 0) : NetMessage;
 
 /// <summary>A player is back: from <paramref name="FromTick"/> on, they play again what the computer played for them and everyone waits for their turns again.</summary>
 public sealed record PlayerReturned(PlayerId Player, long FromTick) : NetMessage;
+
+/// <summary>
+/// A late joiner takes over a seat a bot has played since the start (P2 design §6.2): from <paramref name="FromTick"/> on the
+/// world's row of <paramref name="Player"/> is a person's, named <paramref name="Name"/>, who drives the hero as it stands.
+/// </summary>
+public sealed record PlayerJoined(PlayerId Player, long FromTick, string Name) : NetMessage;
+
+/// <summary>
+/// A player's turns come late (<paramref name="Lagging"/>), or on time again, from <paramref name="FromTick"/> (P2 design
+/// §2.6): while lagging, every world lets go of the wheel of what they drive at that tick; their next drive takes it again.
+/// </summary>
+public sealed record PlayerLagging(PlayerId Player, long FromTick, bool Lagging) : NetMessage;
+
+/// <summary>The client's world is built and warmed up (P2 design §2.8): the relay starts the beat once every player has said so.</summary>
+public sealed record MatchLoaded : NetMessage;
+
+/// <summary>The client's world decided the match for everyone at <paramref name="Tick"/>: a winner, a battle over, a run ended (P2 design §2.8).</summary>
+public sealed record MatchDecided(long Tick) : NetMessage;
+
+/// <summary>More than half of the playing persons' worlds decided the match at <paramref name="Tick"/>: it is over (P2 design §2.8).</summary>
+public sealed record MatchEnded(long Tick) : NetMessage;
+
+/// <summary>The key with which this player takes their seat of the match back from any connection (P2 design §6.1).</summary>
+public sealed record SeatKey(int RoomId, PlayerId Player, string Key) : NetMessage;
+
+/// <summary>
+/// One piece of a sealed segment of the relay's log (the bundles from <paramref name="From"/> to <paramref name="To"/>,
+/// <see cref="BundleSegments"/>): piece <paramref name="Part"/> of <paramref name="Parts"/>, base64 in the JSON.
+/// </summary>
+public sealed record LogPart(long From, long To, int Part, int Parts, byte[] Data) : NetMessage;
+
+/// <summary>The relay took this client out of the running match, and why (P2 design §2.6, §5.5, §6.1); it is back in the lobby.</summary>
+public sealed record LeftMatch(string Reason) : NetMessage;
 
 /// <summary>
 /// A chat message: in a room to everyone in it; in a match to everyone, or with <paramref name="To"/> only to every player

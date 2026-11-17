@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
@@ -16,21 +17,49 @@ public static class NetJson
     /// Bump when messages or commands change incompatibly; the relay refuses other versions. 11: battles (heroes in rooms, the
     /// options' Battle). 12: Wired's chassis specials (special, tower and scrap commands). 13: players apart from races (turns,
     /// checksums, leaving and coming back by player; seats with their race, several a race; recordings stamped with it).
+    /// 14: relay-paced bundles (P2: the relay keeps the beat and sends a bundle a tick; lag marks, late joins, seat keys,
+    /// rebuilds from the relay's log; recordings may hold joins and lag marks).
     /// </summary>
-    public const int Protocol = 13;
+    public const int Protocol = 14;
 
     public static readonly JsonSerializerOptions Options = Create();
 
-    public static byte[] Encode(NetMessage message) => JsonSerializer.SerializeToUtf8Bytes(message, Options);
+    // A bundle or a piece of the log goes to every member of a room: encoded once, for as long as the message lives.
+    private static readonly ConditionalWeakTable<NetMessage, byte[]> Encoded = new();
+
+    /// <summary>
+    /// The message as JSON. A <see cref="Bundle"/> or <see cref="LogPart"/> is encoded once and the same bytes are given to
+    /// every caller after, so they must not be changed.
+    /// </summary>
+    public static byte[] Encode(NetMessage message) => message is Bundle or LogPart
+        ? Encoded.GetValue(message, static shared => Serialize(shared))
+        : Serialize(message);
 
     public static NetMessage Decode(ReadOnlySpan<byte> json) =>
         JsonSerializer.Deserialize<NetMessage>(json, Options) ?? throw new JsonException("empty message");
+
+    private static byte[] Serialize(NetMessage message) => JsonSerializer.SerializeToUtf8Bytes(message, Options);
 
     private static JsonSerializerOptions Create()
     {
         var resolver = new DefaultJsonTypeInfoResolver();
         resolver.Modifiers.Add(info =>
         {
+            if (info.Type == typeof(Turn))
+            {
+                // What only bundle mode fills in is left out where it is not filled in: a turn of a recording, and every turn
+                // inside a bundle, reads as it did before (the defaults come back from the constructor when read).
+                foreach (var property in info.Properties)
+                {
+                    property.ShouldSerialize = property.Name switch
+                    {
+                        nameof(Turn.Seen) or nameof(Turn.Asked) => static (_, value) => value is not -1L,
+                        nameof(Turn.Held) => static (_, value) => value is not 0,
+                        _ => property.ShouldSerialize,
+                    };
+                }
+                return;
+            }
             if (info.Type != typeof(Command))
                 return;
             info.PolymorphismOptions = new JsonPolymorphismOptions { TypeDiscriminatorPropertyName = "$command" };

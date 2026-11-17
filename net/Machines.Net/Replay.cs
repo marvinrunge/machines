@@ -6,8 +6,9 @@ namespace Machines.Net;
 
 /// <summary>
 /// A recorded match: how it was set up (its players included, <see cref="MatchInfo.Players"/>), every turn that held commands
-/// and who left and came back when, each by player. Because the simulation is deterministic, playing the turns back into a
-/// world built the same way shows the same match. Saved games are recordings too, ending where the game was saved.
+/// at the tick it ran on, and who left, came back, joined late or lagged when, each by player. Because the simulation is
+/// deterministic, playing the turns back into a world built the same way shows the same match, also one played online in
+/// bundle mode, played back in turn mode. Saved games are recordings too, ending where the game was saved.
 /// </summary>
 /// <param name="Format">The protocol the recording was saved with (<see cref="NetJson.Protocol"/>); a file from before
 /// <see cref="OldestFormat"/> does not load.</param>
@@ -76,6 +77,11 @@ public sealed record Replay(MatchInfo Match, IReadOnlyList<Turn> Turns, long Tic
 
     private LockstepSession Fill(LockstepSession session)
     {
+        // The comings and goings first, so that players who joined late are humans of the session when their turns are
+        // filled (P2 design §4.5); turns are kept by tick and player, and absences only gate them, so for a recording without
+        // joins the order makes no difference.
+        foreach (var change in Presence ?? [])
+            session.Receive(change);
         var recorded = Turns.ToLookup(t => t.Tick);
         // Ticks without a recorded turn were empty; fill them so the session never waits.
         for (var tick = 0L; tick < Ticks; tick++)
@@ -83,8 +89,6 @@ public sealed record Replay(MatchInfo Match, IReadOnlyList<Turn> Turns, long Tic
             foreach (var player in session.Humans)
                 session.Receive(recorded[tick].FirstOrDefault(t => t.Player == player) ?? new Turn(tick, player, []));
         }
-        foreach (var change in Presence ?? [])
-            session.Receive(change);
         return session;
     }
 }

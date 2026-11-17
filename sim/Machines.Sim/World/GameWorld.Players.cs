@@ -47,20 +47,29 @@ public sealed partial class GameWorld
     public void HandBackFromAi(PlayerId player) => ChangePresence([new PresenceChange(player, Away: false)]);
 
     /// <summary>
-    /// The players who left or came back in one tick, given in player order, a player's leave before their return. Each is
-    /// first noted as away or present. A race of one player is then handed to the computer or back one change after the
-    /// other, as it always was; a race of several players settles once, after all of the tick's changes, in race order
-    /// (<see cref="Settle"/>), so that one commander leaving while another comes back hands the race straight from the one
-    /// to the other, and a battle's player who leaves and comes back within the tick keeps their hero as it was.
+    /// The players who left, joined or came back in one tick, given in player order, a player's leave before their return. A
+    /// join (<see cref="PresenceChange.Joins"/>) first turns the bot's seat into the person's (<see cref="PlayerTable.Join"/>)
+    /// and then is a return. Each is first noted as away or present. A race of one player is then handed to the computer or
+    /// back one change after the other, as it always was (a bot's race of a battle joined late comes back to its person so);
+    /// a race of several players settles once, after all of the tick's changes, in race order (<see cref="Settle"/>), so that
+    /// one commander leaving while another comes back hands the race straight from the one to the other, a battle's player who
+    /// leaves and comes back within the tick keeps their hero as it was, and a late joiner takes the bot's hero over afresh.
     /// </summary>
     /// <exception cref="KeyNotFoundException">A player the table does not know; then none of the changes is made.</exception>
+    /// <exception cref="ArgumentException">A join of a seat that is no bot's, or joined already; then none of the changes is made.</exception>
     public void ChangePresence(IReadOnlyList<PresenceChange> changes)
     {
         var races = changes.Select(change => Players.RaceOf(change.Player)).ToList();
+        if (changes.FirstOrDefault(change => change.Joins is not null && !Players.CanJoin(change.Player)) is { Joins: not null } refused)
+            throw new ArgumentException($"player {refused.Player} is no bot's seat to join");
+        if (changes.Where(change => change.Joins is not null).GroupBy(change => change.Player).FirstOrDefault(twice => twice.Count() > 1) is { } again)
+            throw new ArgumentException($"player {again.Key} joins twice");
         var settling = new SortedSet<Race>();
         for (var i = 0; i < changes.Count; i++)
         {
             var (change, race) = (changes[i], races[i]);
+            if (change.Joins is { } name)
+                Players.Join(change.Player, name);
             Players.SetAway(change.Player, change.Away);
             if (Settles(race))
                 settling.Add(race);
@@ -123,6 +132,17 @@ public sealed partial class GameWorld
             }
         }
         LetGoOfAwayWheels(race);
+    }
+
+    /// <summary>
+    /// A player's turns come late (a lag mark, P2 design §2.6): every machine they drive lets go of the wheel, in id order,
+    /// as by a <see cref="DriveCommand"/> letting go, so that it does not drive and fire on with their last input; their next
+    /// drive takes the wheel again. Draws nothing from <see cref="Random"/>.
+    /// </summary>
+    public void LetGo(PlayerId player)
+    {
+        foreach (var machine in Machines.Where(m => m.DrivenByPlayer && m.Driver == player).OrderBy(m => m.Id).ToList())
+            LetGoOfWheel(machine);
     }
 
     /// <summary>Every machine of a race driven by someone away, or by someone who may no longer order it, lets go of the wheel, in id order.</summary>

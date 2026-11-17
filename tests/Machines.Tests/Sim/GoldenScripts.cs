@@ -116,23 +116,39 @@ internal sealed record GoldenCase(string Name, MatchInfo Match, int[] Ticks, Fun
 /// the tick <see cref="GoldenCase.InputDelay"/> ahead comes through the wire, its commands made by the player's script
 /// from the world as it stands; a leaver's or returner's notice comes when their turn for its tick would.
 /// </summary>
+/// <remarks>
+/// In <see cref="SessionMode.Bundles"/> (P2 design §8.2, T2) the same turns come as a relay on time would bundle them: once
+/// every present human's turn for a tick is made, the tick's bundle comes through the wire with those that hold commands and
+/// the tick's notices, after an empty bundle for each tick before the first turn. Who is away at a tick is the match's own
+/// reckoning, by the notices applied before any script is asked, as turn mode gets it from its session, which hears the
+/// notices first: a session in bundle mode hears of them only with the bundle, and asking it would call a leaver's script
+/// at its leave's tick.
+/// </remarks>
 internal sealed class GoldenMatch
 {
     private readonly GoldenCase _case;
     private readonly GoldenScript[] _scripts;
     private readonly List<PlayerId> _humans;
+    private readonly SessionMode _mode;
+    private readonly HashSet<PlayerId> _away = [];
 
-    public GoldenMatch(GoldenCase golden, GameData data)
-        : this(golden, Replay.BuildWorld(data, golden.Match))
+    public GoldenMatch(GoldenCase golden, GameData data, SessionMode mode = SessionMode.Turns)
+        : this(golden, Replay.BuildWorld(data, golden.Match), mode)
     {
     }
 
-    public GoldenMatch(GoldenCase golden, GameWorld world)
+    public GoldenMatch(GoldenCase golden, GameWorld world, SessionMode mode = SessionMode.Turns)
     {
         _case = golden;
         _scripts = golden.Scripts();
         _humans = golden.Match.Table().Rows.Where(p => p.Kind == PlayerKind.Human).Select(p => p.Id).ToList();
-        Session = new LockstepSession(world, local: null, golden.Match.InputDelay);
+        _mode = mode;
+        Session = new LockstepSession(world, local: null, golden.Match.InputDelay, mode: mode);
+        if (mode == SessionMode.Bundles)
+        {
+            for (var tick = 0L; tick < golden.Match.InputDelay; tick++)
+                Session.Receive(Wire(new Bundle(tick, [], Delay: golden.Match.InputDelay)));
+        }
     }
 
     public LockstepSession Session { get; }
@@ -165,6 +181,11 @@ internal sealed class GoldenMatch
 
     private void Send()
     {
+        if (_mode == SessionMode.Bundles)
+        {
+            SendBundle();
+            return;
+        }
         var due = World.Tick + _case.Match.InputDelay;
         foreach (var notice in _case.Notices.Where(n => n is PlayerLeft { FromTick: var left } && left == due || n is PlayerReturned { FromTick: var back } && back == due))
             Session.Receive(Wire(notice));
@@ -176,6 +197,33 @@ internal sealed class GoldenMatch
             var script = _scripts.FirstOrDefault(s => s.Race == race);
             Session.Receive(Wire(new Turn(due, player, script?.Next(World) ?? [])));
         }
+    }
+
+    /// <summary>The bundle of the tick <see cref="GoldenCase.InputDelay"/> ahead, its notices applied to the away set before any script is asked.</summary>
+    private void SendBundle()
+    {
+        var delay = _case.Match.InputDelay;
+        var due = World.Tick + (long)delay;
+        var notices = _case.Notices.Where(n => n is PlayerLeft { FromTick: var left } && left == due || n is PlayerReturned { FromTick: var back } && back == due)
+            .ToList();
+        foreach (var notice in notices)
+        {
+            if (notice is PlayerLeft left)
+                _away.Add(left.Player);
+            else if (notice is PlayerReturned back)
+                _away.Remove(back.Player);
+        }
+        var turns = new List<Turn>();
+        foreach (var player in _humans)
+        {
+            if (_away.Contains(player))
+                continue;
+            var race = World.Players.RaceOf(player);
+            var script = _scripts.FirstOrDefault(s => s.Race == race);
+            if (script?.Next(World) is { Count: > 0 } commands)
+                turns.Add(new Turn(due, player, commands, Asked: due));
+        }
+        Session.Receive(Wire(new Bundle(due, turns, notices.Count > 0 ? notices : null, delay)));
     }
 
     private static NetMessage Wire(NetMessage message) => NetJson.Decode(NetJson.Encode(message));

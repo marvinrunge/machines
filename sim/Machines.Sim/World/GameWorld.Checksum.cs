@@ -100,9 +100,17 @@ public sealed partial class GameWorld
                 Mix(keeper.Value);
             }
         }
+        // The bots' seats people joined late, only once there is one.
+        if (Players.Joined.Count > 0)
+        {
+            Mix(JoinedTag);
+            Mix(Players.Joined.Count);
+            foreach (var joined in Players.Joined)
+                Mix(joined.Value);
+        }
         return hash;
     }
 
-    /// <summary>The tags before an actor's owner and before the players' presence in the checksum, mixed only when there is any.</summary>
-    private const long OwnerTag = 0x4F574E4552, PlayersTag = 0x504C4159455253;
+    /// <summary>The tags before an actor's owner, the players' presence and the seats joined late in the checksum, mixed only when there is any.</summary>
+    private const long OwnerTag = 0x4F574E4552, PlayersTag = 0x504C4159455253, JoinedTag = 0x4A4F494E4544;
 }

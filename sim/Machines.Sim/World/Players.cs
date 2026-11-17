@@ -40,12 +40,17 @@ public enum PlayerKind
 /// <summary>One player of the match as it started: id, race, kind and the name shown for them.</summary>
 public sealed record PlayerSeat(PlayerId Id, Race Race, PlayerKind Kind, string Name);
 
-/// <summary>One player leaving (<paramref name="Away"/>) or coming back, handed to <see cref="GameWorld.ChangePresence"/>.</summary>
-public readonly record struct PresenceChange(PlayerId Player, bool Away);
+/// <summary>
+/// One player leaving (<paramref name="Away"/>) or coming back, handed to <see cref="GameWorld.ChangePresence"/>. With
+/// <paramref name="Joins"/> a person takes over a bot's seat under that name and comes back as its player (a late join, P2
+/// design §6.2).
+/// </summary>
+public readonly record struct PresenceChange(PlayerId Player, bool Away, string? Joins = null);
 
 /// <summary>
 /// The players of a match: its rows as the match records them (never changed after the start), and who is away and who
-/// keeps an away player's machines, which change during the match and are set only by <see cref="GameWorld.ChangePresence"/>.
+/// keeps an away player's machines, which change during the match and are set only by <see cref="GameWorld.ChangePresence"/>;
+/// and the bots' seats people joined late, whose rows read as those people's from then on.
 /// </summary>
 /// <remarks>
 /// A table is refused (<see cref="ArgumentException"/>) unless its ids are unique and below <see cref="PlayerId.Most"/>, it
@@ -58,6 +63,7 @@ public sealed class PlayerTable
     private readonly Dictionary<Race, List<PlayerId>> _byRace = [];
     private readonly SortedSet<PlayerId> _away = [];
     private readonly SortedDictionary<PlayerId, PlayerId> _keepers = [];
+    private readonly SortedSet<PlayerId> _joined = [];
 
     public PlayerTable(IEnumerable<PlayerSeat> rows)
     {
@@ -101,18 +107,22 @@ public sealed class PlayerTable
     /// <summary>The rows in the order the match records them; <see cref="MatchSetup"/> creates the races in the order of their first row.</summary>
     public IReadOnlyList<PlayerSeat> Rows { get; }
 
-    /// <summary>The rows by id: the order every loop over players goes in.</summary>
-    public IReadOnlyList<PlayerSeat> ById { get; }
+    /// <summary>The rows by id: the order every loop over players goes in. A seat joined late reads as its person's.</summary>
+    public IReadOnlyList<PlayerSeat> ById { get; private set; }
 
     /// <summary>The races of the rows, in the order of their first row.</summary>
     public IReadOnlyList<Race> Races { get; }
 
-    /// <summary>The ids of the <see cref="PlayerKind.Human"/> rows, sorted.</summary>
-    public IReadOnlyList<PlayerId> Humans { get; }
+    /// <summary>The ids of the <see cref="PlayerKind.Human"/> rows, sorted; a seat joined late is one from its join on.</summary>
+    public IReadOnlyList<PlayerId> Humans { get; private set; }
+
+    /// <summary>The bots' seats people joined late, sorted (P2 design §6.2): none in a match without such a join.</summary>
+    public IReadOnlyCollection<PlayerId> Joined => _joined;
 
     /// <summary>Whether any race has more than one player: the gate of everything the table adds to the checksum.</summary>
     public bool AnyShared { get; }
 
+    /// <summary>A player's row; a bot's seat joined late reads as the person's (<see cref="PlayerKind.Human"/>, their name).</summary>
     public PlayerSeat this[PlayerId id] => _byId.TryGetValue(id, out var row) ? row : throw new KeyNotFoundException($"player {id} is not in the table");
 
     public bool Contains(PlayerId id) => _byId.ContainsKey(id);
@@ -162,7 +172,27 @@ public sealed class PlayerTable
             _keepers.Remove(id);
     }
 
-    /// <summary>The same rows, with everyone present: what a new world starts from.</summary>
+    /// <summary>Whether a person may join a seat late: a bot's, which nobody joined yet (a joined one reads as a person's).</summary>
+    public bool CanJoin(PlayerId id) => _byId.TryGetValue(id, out var row) && row.Kind == PlayerKind.Bot;
+
+    /// <summary>
+    /// A person takes over a bot's seat (P2 design §6.2): from now on its row reads as theirs, a <see cref="PlayerKind.Human"/>
+    /// named <paramref name="name"/>, and it is among <see cref="Humans"/> and <see cref="Joined"/>. <see cref="Rows"/> keep the
+    /// rows the match started with.
+    /// </summary>
+    /// <exception cref="KeyNotFoundException">A player the table does not know.</exception>
+    /// <exception cref="ArgumentException">The seat is no bot's, or joined already.</exception>
+    internal void Join(PlayerId id, string name)
+    {
+        if (this[id].Kind != PlayerKind.Bot)
+            throw new ArgumentException($"player {id} is no bot's seat to join");
+        var row = _byId[id] = _byId[id] with { Kind = PlayerKind.Human, Name = name };
+        _joined.Add(id);
+        ById = [.. ById.Select(r => r.Id == id ? row : r)];
+        Humans = [.. ById.Where(r => r.Kind == PlayerKind.Human).Select(r => r.Id)];
+    }
+
+    /// <summary>The same rows, with everyone present and nobody joined: what a new world starts from.</summary>
     public PlayerTable Fresh() => new(Rows);
 
     /// <summary>
