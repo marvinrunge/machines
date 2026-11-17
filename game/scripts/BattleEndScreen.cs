@@ -95,7 +95,7 @@ public partial class BattleEndScreen(Game game, ClassicAssets assets) : MenuPage
     {
         var world = game.World;
         _run = world.Battle!;
-        var race = _run.Tally.ContainsKey(Game.Player) ? Game.Player : _run.Tally.Keys.First();
+        var race = _run.Tally.ContainsKey(Game.Player) ? Game.Player : world.Players.RaceOf(_run.Tally.Keys.First());
         _state = world.Wired!.Heroes.GetValueOrDefault(race) ?? world.Wired.Heroes.Values.First();
         _tally = _run.Tally[race];
         _reward = BattleRewards.Of(_run, race);

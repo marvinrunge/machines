@@ -95,7 +95,7 @@ public class BattleNetTests
         var match = Battle();
         var live = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), Race.Red, [Race.Red, Race.Green], match.InputDelay);
         Assert.NotNull(live.World.Battle);
-        Assert.Equal(new[] { Race.Blue, Race.Yellow }, live.World.HeroBots.Keys);
+        Assert.Equal(new[] { PlayerId.Of(Race.Blue), PlayerId.Of(Race.Yellow) }, live.World.HeroBots.Keys);
         var rng = new Random(9);
         DriveCommand Drive(Race race) => new(race, live.World.HeroOf(race)?.Id ?? 0, true, rng.Next(3) - 1, rng.Next(3) - 1,
             live.World.HeroOf(race) is { } hero ? hero.Position + new Vector2(rng.Next(-60, 60), rng.Next(-60, 60)) : (Vector2?)null,

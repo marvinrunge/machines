@@ -409,9 +409,10 @@ public sealed partial class GameWorld
     /// A round's end, wherever that is, on something, on the ground or in the air: whatever lies within reach of the point
     /// is hit, friend or foe, the shooter too unless it threw flame or lightning. A land mine goes up at twice the
     /// reach. Buildings and artefacts take it all; machines all but what falls off with the distance from the
-    /// point to where they stand, unless the point lies within them.
+    /// point to where they stand, unless the point lies within them. <paramref name="owner"/> is the player who fired it, as
+    /// the round carried it, credited with what it hurts.
     /// </summary>
-    private void Burst(Vector3 point, WeaponSpec weapon, int shooter, Race race)
+    private void Burst(Vector3 point, WeaponSpec weapon, int shooter, Race race, PlayerId? owner = null)
     {
         var (radius, fallsOff) = BurstOf(weapon.TypeName);
         var damage = WholeDamage(weapon.Damage);
@@ -431,7 +432,7 @@ public sealed partial class GameWorld
             var hit = damage;
             if (actor is Machine && fallsOff && off > 1e-4f && Vector3.Distance(point, new Vector3(actor.Position, min.Z)) is > 1 and var distance)
                 hit = Math.Max(1, (int)(damage - distance * damage / radius));
-            Damage(actor, hit, race, by, WeaponOf(weapon));
+            Damage(actor, hit, race, by, WeaponOf(weapon), player: owner);
             Raise(new GameEvent(GameEventKind.Hit, actor.Id, actor.Position, shooter, weapon.TypeName));
         }
 
@@ -476,7 +477,7 @@ public sealed partial class GameWorld
             if (way.LengthSquared() > 1e-4f)
                 point += Vector3.Normalize(way) * 5;
         }
-        Burst(InWorld(point), weapon.Spec, shooter.Id, shooter.Race);
+        Burst(InWorld(point), weapon.Spec, shooter.Id, shooter.Race, shooter.Owner);
     }
 
     private Vector3 InWorld(Vector3 point) =>
@@ -486,8 +487,8 @@ public sealed partial class GameWorld
     private static bool Sprays(WeaponSpec weapon) =>
         weapon.TypeName.StartsWith("FLAME_THROWER", StringComparison.Ordinal) || weapon.TypeName == "ELECTRIC_CHARGE";
 
-    // The sprays on their way: when each ends, and where.
-    private readonly List<(float At, Vector3 Point, WeaponSpec Weapon, int Shooter, Race Race)> _sprays = [];
+    // The sprays on their way: when each ends, and where, and whose they are.
+    private readonly List<(float At, Vector3 Point, WeaponSpec Weapon, int Shooter, Race Race, PlayerId Owner)> _sprays = [];
 
     /// <summary>
     /// Sends off a spray towards a point. A flamethrower throws all its balls at once, each by its EXTRAS: when it leaves, how
@@ -517,18 +518,18 @@ public sealed partial class GameWorld
         if (FirstOnLine(from, to, actor => actor.Id != shooter.Id) is { } met)
             flight = MathF.Min(flight, met.Along);
         var point = Vector3.Lerp(from, to, flight);
-        _sprays.Add((Time + delay + Vector3.Distance(from, point) / MathF.Max(1, weapon.ProjectileSpeed), InWorld(point), weapon, shooter.Id, shooter.Race));
+        _sprays.Add((Time + delay + Vector3.Distance(from, point) / MathF.Max(1, weapon.ProjectileSpeed), InWorld(point), weapon, shooter.Id, shooter.Race, shooter.Owner));
     }
 
     private void UpdateSprays()
     {
         for (var i = 0; i < _sprays.Count; i++)
         {
-            var (at, point, weapon, shooter, race) = _sprays[i];
+            var (at, point, weapon, shooter, race, owner) = _sprays[i];
             if (at > Time)
                 continue;
             _sprays.RemoveAt(i--);
-            Burst(point, weapon, shooter, race);
+            Burst(point, weapon, shooter, race, owner);
         }
     }
 
@@ -562,7 +563,7 @@ public sealed partial class GameWorld
     {
         if (shooter is Machine eradicator)
             _busyUntil[eradicator.Id] = Time + VortexBusy;
-        StartBlast(vortex, point, shooter.Race);
+        StartBlast(vortex, point, shooter.Race, owner: shooter.Owner);
     }
 
     /// <summary>An order given to an Eradicator takes it out of its wait (MachLogMachine::manualCommandIssued).</summary>
@@ -582,7 +583,7 @@ public sealed partial class GameWorld
         {
             case Machine eradicator when eradicator.Weapons.FirstOrDefault(w => w.Spec.TypeName == "VORTEX") is { Reload: <= 0 } vortex:
                 Raise(new GameEvent(GameEventKind.Fired, eradicator.Id, eradicator.Position, null, vortex.Spec.TypeName));
-                StartBlast(vortex.Spec, eradicator.Position, eradicator.Race);
+                StartBlast(vortex.Spec, eradicator.Position, eradicator.Race, owner: eradicator.Owner);
                 break;
             case Construction { Complete: true } silo when silo.Weapons.FirstOrDefault(w => w.Spec.TypeName == "NUCLEAR_MISSILE") is { Reload: <= 0 } missile:
                 LaunchStrike(silo, missile, silo.Position);

@@ -322,9 +322,9 @@ public partial class Warmup : Node3D
             yield return false;
         }
         // Each hero as it stands, put together from those (kept by what it wears, so its view takes the same).
-        foreach (var (race, state) in _world.Wired?.Heroes ?? [])
+        foreach (var (_, state) in _world.Wired?.Heroes ?? [])
         {
-            if (HeroRig.Compose(_assets, Game.Look(race), state.Loadout) is { } rig)
+            if (HeroRig.Compose(_assets, Game.Look(state.Race), state.Loadout) is { } rig)
             {
                 var hero = RigView.Create(rig);
                 NextGroup().AddChild(hero);

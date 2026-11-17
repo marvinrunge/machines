@@ -83,7 +83,7 @@ public sealed partial class GameWorld
             actor.SelfDestructAt = null;
             LastShot(actor);
             // Its own doing (MachActor::update hits it with itself): nobody scores, and a smelter loses no stores.
-            actor.LastHitBy = actor.Race;
+            (actor.LastHitBy, actor.LastHitByPlayer) = (actor.Race, actor.Owner);
             actor.HitPoints = 0;
             actor.SelfDestructed = true;
         }
@@ -180,7 +180,8 @@ public sealed partial class GameWorld
     /// <summary>
     /// A tick of a constructor's repair (oprepair.cpp): CONSTRUCTION_RATE BMUs per minute from the bank, turned into hit
     /// points in proportion to the building's cost. A Wired hero mends its towers <paramref name="speed"/> times as fast,
-    /// and its bank is drawn on as the hangar charges: the pod's warnings of a low bank are the original's, not Wired's.
+    /// and its bank is drawn on as the hangar charges: the pod's warnings of a low bank are the original's, not Wired's. A
+    /// hero of a race of several heroes, and its escorts, draw on that hero's own bank (<see cref="Bank(WiredState)"/>).
     /// </summary>
     private void Mend(Machine constructor, Construction building, float speed = 1)
     {
@@ -188,6 +189,11 @@ public sealed partial class GameWorld
         float bmu;
         if (Wired is null)
             bmu = SpendBmu(constructor.Race, wanted);
+        else if (Wired.Heroes.GetValueOrDefault(constructor.Owner) is { OwnBank: true } own)
+        {
+            bmu = MathF.Min(wanted, own.Bank);
+            own.Bank -= bmu;
+        }
         else
         {
             var bank = Races[constructor.Race];
@@ -251,7 +257,7 @@ public sealed partial class GameWorld
         // The original blames whoever takes it down, its owner too (opdecons.cpp): a smelter or pod demolished by its
         // own race loses no stores (see LoseStores).
         if (!own || Options.OriginalBank)
-            building.LastHitBy = constructor.Race;
+            (building.LastHitBy, building.LastHitByPlayer) = (constructor.Race, constructor.Owner);
         AddHitPoints(building, -hitPoints);
         AddBmu(constructor.Race, bmu * RecycleRefund);
         if (building.IsDead)

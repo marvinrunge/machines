@@ -46,7 +46,7 @@ public class BattleRulesTests
         world.Damage(Battles.Hero(world, Race.Red), 10, Race.Green);
         Assert.False(Run(world).Shares.ContainsKey(Race.Red));
         world.Step();
-        Assert.Contains(Race.Red, Run(world).Shares.Keys);
+        Assert.Contains(PlayerId.Of(Race.Red), Run(world).Shares.Keys);
         Assert.Equal(5, Run(world).Shares[Race.Blue], 0.2f);
         Assert.InRange(Run(world).Shares[Race.Red], 0, 0.1f);
         // The points of the lost share went with it; only the new share counts.

@@ -27,11 +27,14 @@ public sealed partial class GameWorld
         return free[0];
     }
 
-    /// <summary>The pod the waves go for.</summary>
-    private Construction? AttackedPod(WiredRun run) => run.Heroes.Keys.Select(WiredPod).OfType<Construction>().FirstOrDefault();
+    /// <summary>The pod the waves go for: the first hero's, in player order, that stands.</summary>
+    private Construction? AttackedPod(WiredRun run) => run.Heroes.Values.Select(state => WiredPod(state)).OfType<Construction>().FirstOrDefault();
 
-    /// <summary>The hero the hunters go for: one that stands out there. A hero in the pod leaves them to the pod, like one that fell.</summary>
-    private Machine? Quarry(WiredRun run) => run.Heroes.Keys.Select(HeroOf).OfType<Machine>().FirstOrDefault(hero => hero.Inside is null);
+    /// <summary>
+    /// The hero the hunters go for: one that stands out there, the first in player order (spreading them over several heroes
+    /// is left for online plan P5). A hero in the pod leaves them to the pod, like one that fell.
+    /// </summary>
+    private Machine? Quarry(WiredRun run) => run.Heroes.Values.Select(state => HeroOf(state)).OfType<Machine>().FirstOrDefault(hero => hero.Inside is null);
 
     /// <summary>Where the waves march to.</summary>
     private static Vector2 Doorstep(Construction pod) => pod.EntranceOutside ?? pod.Position;
@@ -135,7 +138,7 @@ public sealed partial class GameWorld
             state.HangarOpen = false;
             RefillMines(state);
         }
-        var plan = WiredDirector.Plan(Data, run.Wave, run.Options.Difficulty, Random, run.NextSpecial);
+        var plan = WiredDirector.Plan(Data, run.Wave, run.Options.Difficulty, Random, run.NextSpecial, run.Heroes.Count);
         run.Boss = plan.Boss;
         run.WaveStarted = run.LastGroupAt = Time;
         run.NextReview = Time + WiredBalance.OrdersEvery;
@@ -149,7 +152,8 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// The wrecks still lying as a wave begins are swept up for the heroes, at a share of what driving over them pays:
-    /// collecting them is still worth the while, and one overlooked costs only that share.
+    /// collecting them is still worth the while, and one overlooked costs only that share. Each hero has an equal part of
+    /// them, into its bank.
     /// </summary>
     private void SweepWrecks(WiredRun run)
     {
@@ -163,7 +167,7 @@ public sealed partial class GameWorld
             if (bmu <= 0)
                 continue;
             Earn(state, bmu);
-            Raise(new GameEvent(GameEventKind.WiredWrecksSwept, 0, Vector2.Zero, (int)state.Race, bmu.ToString()));
+            Raise(new GameEvent(GameEventKind.WiredWrecksSwept, 0, Vector2.Zero, (int)state.Race, bmu.ToString(), Player: state.Player));
         }
     }
 
@@ -194,12 +198,15 @@ public sealed partial class GameWorld
             EndWave(run);
     }
 
-    /// <summary>All is clear: the waves' towers fall with them, the bonus is paid, a boss leaves its chips to choose from, and the intermission starts.</summary>
+    /// <summary>
+    /// All is clear: the waves' towers fall with them, the bonus is paid, the heroes that fell in the wave come back, a boss
+    /// leaves its chips to choose from, and the intermission starts.
+    /// </summary>
     private void EndWave(WiredRun run)
     {
         // Gone at the next tick as any that falls, to nobody's credit.
         foreach (var tower in TowersOf(run.Enemy))
-            (tower.HitPoints, tower.LastHitBy) = (0, null);
+            (tower.HitPoints, tower.LastHitBy, tower.LastHitByPlayer) = (0, null, null);
         var (bonus, boss) = (WiredBalance.WaveBonus(run.Wave), run.Boss);
         foreach (var state in run.Heroes.Values)
         {
@@ -210,6 +217,7 @@ public sealed partial class GameWorld
             Earn(state, bonus);
         }
         Raise(new GameEvent(GameEventKind.WiredWaveCleared, 0, Vector2.Zero, run.Wave, bonus.ToString()));
+        BringBackWaiting(run);
         BeginIntermission();
         if (boss is null)
             return;
@@ -217,7 +225,7 @@ public sealed partial class GameWorld
         {
             OfferChips(state);
             if (state.ChipChoice.Count > 0)
-                Raise(new GameEvent(GameEventKind.WiredChipChoiceReady, 0, Vector2.Zero, (int)state.Race));
+                Raise(new GameEvent(GameEventKind.WiredChipChoiceReady, 0, Vector2.Zero, (int)state.Race, Player: state.Player));
         }
     }
 
@@ -306,17 +314,17 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>A machine of the waves is gone: whoever hit it last gets the credit, and a crate may stay behind.</summary>
+    /// <summary>A machine of the waves is gone: the hero of whoever hit it last gets the credit (<see cref="CreditOf"/>), and a crate may stay behind.</summary>
     private void Fallen(WiredRun run, WiredFoe foe)
     {
         var machine = foe.Machine;
-        if (machine.LastHitBy is { } by && run.Heroes.GetValueOrDefault(by) is { } state)
+        if (CreditOf(machine) is { } by && run.Heroes.GetValueOrDefault(by) is { } state)
         {
             state.Stats.Kills++;
             state.Stats.KillValue += (int)(machine.Stats.Cost * foe.Plan.Worth);
             if (foe.IsBoss)
                 state.Stats.BossesKilled++;
-            if (HeroOf(by) is { } hero)
+            if (HeroOf(state) is { } hero)
                 WiredChips.Killed(this, state, hero, machine);
         }
         var luck = run.Heroes.Values.Max(WiredChips.LootShare);
@@ -333,7 +341,7 @@ public sealed partial class GameWorld
             return;
         run.LastGroupAt = Time;
         var nearest = run.SpawnPoints.MinBy(p => Vector2.DistanceSquared(p, boss.Machine.Position));
-        Arrive(run, WiredDirector.Reinforcements(Data, run.Wave, run.Options.Difficulty, Random), nearest);
+        Arrive(run, WiredDirector.Reinforcements(Data, run.Wave, run.Options.Difficulty, Random, run.Heroes.Count), nearest);
     }
 
     /// <summary>

@@ -231,9 +231,12 @@ public sealed partial class GameWorld
     /// <summary>
     /// Applies damage with the original armour rule, remembers who did it, for the score, and lets the target react to
     /// the <paramref name="shooter"/> where there is one. A blast has none to react to; <paramref name="blaster"/> is the
-    /// machine that set it off, for a run's chips and statistics.
+    /// machine that set it off, for a run's chips and statistics. <paramref name="player"/> is the player who dealt it, as
+    /// the round or blast carried it from the moment it was fired (a hero that falls before its round lands keeps the
+    /// kill); without one it is the shooter's or the blaster's owner. It only picks the player within <paramref name="by"/>'s
+    /// race who is credited (<see cref="CreditOf"/>).
     /// </summary>
-    public void Damage(Actor target, int damage, Race? by, Actor? shooter = null, string? weapon = null, int? blaster = null)
+    public void Damage(Actor target, int damage, Race? by, Actor? shooter = null, string? weapon = null, int? blaster = null, PlayerId? player = null)
     {
         if (target.IsDead || target is Artefact && !Options.DestructibleArtefacts)
             return;
@@ -243,6 +246,7 @@ public sealed partial class GameWorld
         var dealer = shooter ?? (Wired is not null && blaster is { } id ? Find(id) : null);
         if (Wired is not null && !WiredHit(target, ref damage, dealer, weapon))
             return;
+        var hitter = player ?? shooter?.Owner ?? dealer?.Owner;
         var before = target.HitPoints;
         var armour = target.Armour;
         target.Durability = ArmourModel.ApplyHit(target.Durability, damage);
@@ -250,18 +254,29 @@ public sealed partial class GameWorld
         {
             WiredStruck(target, armour, shooter, weapon);
             AfterHit(target, before, dealer);
-            NoteDamage(target, before + armour - Math.Max(0, target.HitPoints) - target.Armour, by, dealer, weapon);
+            NoteDamage(target, before + armour - Math.Max(0, target.HitPoints) - target.Armour, by, dealer, weapon, hitter);
         }
         if (Battle is not null)
-            BattleStruck(target, before + armour - Math.Max(0, target.HitPoints) - target.Armour, by);
+            BattleStruck(target, before + armour - Math.Max(0, target.HitPoints) - target.Armour, by, hitter);
         if (target is Machine { CanFight: true } shaken)
             Shake(shaken, before - target.HitPoints);
         if (by is not null)
-            target.LastHitBy = by;
+            (target.LastHitBy, target.LastHitByPlayer) = (by, hitter);
         if (by is { } foe && foe != target.Race && !target.IsDead)
             ReportHit(target);
         ReactToHit(target, shooter);
     }
+
+    /// <summary>
+    /// The player credited with what last hit an actor did: of the race that hit it last (<see cref="Actor.LastHitBy"/>, which
+    /// alone says whether anyone is), the player who dealt the hit where that is one of the race, else the race's first
+    /// player. Null where no race hit it. With one player per race this is always the race's own player.
+    /// </summary>
+    public PlayerId? CreditOf(Actor actor) => Credited(actor.LastHitBy, actor.LastHitByPlayer);
+
+    /// <summary>The player of race <paramref name="by"/> credited with a hit <paramref name="player"/> dealt: that player where they play the race, else the race's first.</summary>
+    private PlayerId? Credited(Race? by, PlayerId? player) =>
+        by is { } race ? player is { } dealer && Plays(dealer, race) ? dealer : PlayerId.Of(race) : null;
 
     /// <summary>
     /// Runs each weapon's burst and reload cycle: RELOAD_TIME seconds from the start of one burst to the next, its rounds
@@ -435,7 +450,7 @@ public sealed partial class GameWorld
             FireVortex(shooter, weapon.Spec, target);
         // Area weapons go off where the target is and hit everyone the blast reaches, friend or foe, as in the original.
         else if (weapon.IsArea)
-            StartBlast(weapon.Spec, target.Position, shooter.Race, shooter: shooter.Id);
+            StartBlast(weapon.Spec, target.Position, shooter.Race, shooter: shooter.Id, owner: shooter.Owner);
         else if (Sprays(weapon.Spec))
             Spray(shooter, weapon.Spec, Aimed(shooter, weapon, target));
         else
@@ -500,11 +515,11 @@ public sealed partial class GameWorld
         else if (weapon.Spec.TypeName == "VORTEX")
             Vortex(shooter, weapon.Spec, point);
         else if (weapon.IsArea)
-            StartBlast(weapon.Spec, point, shooter.Race, shooter: shooter.Id);
+            StartBlast(weapon.Spec, point, shooter.Race, shooter: shooter.Id, owner: shooter.Owner);
         else if (Sprays(weapon.Spec))
             Spray(shooter, weapon.Spec, new Vector3(point, aimHeight));
         else
-            Burst(InWorld(new Vector3(point, aimHeight)), weapon.Spec, shooter.Id, shooter.Race);
+            Burst(InWorld(new Vector3(point, aimHeight)), weapon.Spec, shooter.Id, shooter.Race, shooter.Owner);
     }
 
     /// <summary>
@@ -533,7 +548,7 @@ public sealed partial class GameWorld
         else
             mark = end;
         Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, there?.Id, weapon.Spec.TypeName, mark, GunOf(shooter, weapon)));
-        Burst(InWorld(mark), weapon.Spec, shooter.Id, shooter.Race);
+        Burst(InWorld(mark), weapon.Spec, shooter.Id, shooter.Race, shooter.Owner);
     }
 
     /// <summary>Which of a machine's weapons fired, by its place among them, for the view; -1 for an actor that is no machine.</summary>
@@ -557,7 +572,7 @@ public sealed partial class GameWorld
     {
         if (shooter is Machine gorilla)
             _busyUntil[gorilla.Id] = Time + PunchBusy;
-        ScheduleBlast(Time + Blast.PunchLanding, punch, shooter.Position, shooter.Race, toward, shooter.Id);
+        ScheduleBlast(Time + Blast.PunchLanding, punch, shooter.Position, shooter.Race, toward, shooter.Id, shooter.Owner);
     }
 
     /// <summary>Whether a target's bearing from a machine lies within <paramref name="play"/> radians of its facing.</summary>

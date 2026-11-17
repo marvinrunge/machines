@@ -22,7 +22,7 @@ public class BattleLockstepTests
         await using var _ = a;
         await using var __ = b;
         Assert.Equal((Race.Red, Race.Green), (a.Race, b.Race));
-        Assert.Equal(new[] { Race.Blue, Race.Yellow }, a.Session.World.HeroBots.Keys);
+        Assert.Equal(new[] { PlayerId.Of(Race.Blue), PlayerId.Of(Race.Yellow) }, a.Session.World.HeroBots.Keys);
 
         var rng = new Random(3);
         // Half the drives say where their driver looks, so the guns turn there; a hero with a turned upper body shows it.
@@ -83,7 +83,7 @@ public class BattleLockstepTests
             await Player.Frame(a);
         Assert.Equal(Controller.Ai, world.Races[leaver].Controller);
         Assert.True(world.HeroBots.ContainsKey(leaver));
-        Assert.Contains(leaver, world.Battle!.Bots);
+        Assert.Contains(PlayerId.Of(leaver), world.Battle!.Bots);
         var hero = world.HeroOf(leaver)!;
         var from = hero.Position;
 

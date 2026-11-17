@@ -140,8 +140,8 @@ public class BattleSetupTests
             // The first of a team on Grunt 1, the second on the crab: the first tier's line, taken in turn.
             Assert.Equal(race is Race.Red or Race.Green ? "AGGRESSOR GRUNT" : "GEO_LOCATOR", hero.Spec.TypeName);
         }
-        Assert.Equal([Race.Blue, Race.Yellow], world.HeroBots.Keys);
-        Assert.Equal([Race.Blue, Race.Yellow], world.Battle!.Bots);
+        Assert.Equal([PlayerId.Of(Race.Blue), PlayerId.Of(Race.Yellow)], world.HeroBots.Keys);
+        Assert.Equal([PlayerId.Of(Race.Blue), PlayerId.Of(Race.Yellow)], world.Battle!.Bots);
         Assert.Equal(DefCon.High, Battles.Hero(world, Race.Blue).DefCon);
         // Team mates do not stand on each other.
         Assert.True(Vector2.Distance(Battles.Hero(world, Race.Red).Position, Battles.Hero(world, Race.Blue).Position) >= 4);
@@ -189,7 +189,7 @@ public class BattleSetupTests
         Assert.Equal([Race.Blue, Race.Green], world.Battle.Teams[1]);
         // Races not listed are the computer's.
         Assert.Equal(Controller.Ai, world.Races[Race.Green].Controller);
-        Assert.Equal([Race.Blue, Race.Green, Race.Yellow], world.HeroBots.Keys);
+        Assert.Equal([PlayerId.Of(Race.Blue), PlayerId.Of(Race.Green), PlayerId.Of(Race.Yellow)], world.HeroBots.Keys);
     }
 
     [Fact]

@@ -19,7 +19,7 @@ public sealed partial class GameWorld
             return "no such ability slot";
         if (state.Loadout.Abilities[slot] is not { } item || WiredCatalogue.FindAbility(item.Catalogue) is not { } ability)
             return "no ability in this slot";
-        if (HeroOf(state.Race) is not { } hero)
+        if (HeroOf(state) is not { } hero)
             return "the hero is down";
         if (hero.Inside is not null)
             return "not from inside the pod";
@@ -38,7 +38,7 @@ public sealed partial class GameWorld
             return "that is out of reach";
         if (ability.Id == "treachery" && Aimed(state, aim) is null)
             return "nothing there to turn";
-        if (ability.Id == "minefield" && !RoomForMines(state.Race, WiredBalance.MinesLaid))
+        if (ability.Id == "minefield" && !RoomForMines(state, WiredBalance.MinesLaid))
             return "too many mines on the ground";
         return null;
     }
@@ -56,7 +56,7 @@ public sealed partial class GameWorld
     {
         if (WhyNoAbility(state, slot, aim) is { } why)
             return why;
-        var hero = HeroOf(state.Race)!;
+        var hero = HeroOf(state)!;
         var item = state.Loadout.Abilities[slot]!;
         var ability = WiredCatalogue.FindAbility(item.Catalogue)!;
         switch (ability.Id)
@@ -98,7 +98,7 @@ public sealed partial class GameWorld
     {
         var weapon = Data.Parm.Weapon(ability.Based!);
         Raise(new GameEvent(GameEventKind.Fired, hero.Id, hero.Position, null, weapon.TypeName));
-        StartBlast(weapon, point, hero.Race);
+        StartBlast(weapon, point, hero.Race, owner: hero.Owner);
     }
 
     /// <summary>A real orb from a mount that exists for this one round, aimed where the target will be. It can miss, as any orb can.</summary>
@@ -142,7 +142,7 @@ public sealed partial class GameWorld
     private void Supercharge(WiredState state, Machine hero, WiredAbility ability)
     {
         Raise(new GameEvent(GameEventKind.Fired, hero.Id, hero.Position, null, ability.Based));
-        foreach (var machine in Escorts(state.Race).Where(e => e.Inside is null && e.DistanceTo(hero) <= ability.Reach).Append(hero))
+        foreach (var machine in Escorts(state).Where(e => e.Inside is null && e.DistanceTo(hero) <= ability.Reach).Append(hero))
             AddHitPoints(machine, machine.MaxHitPoints * WiredBalance.SuperchargeHeal);
     }
 
@@ -155,7 +155,7 @@ public sealed partial class GameWorld
         for (var i = 0; i < WiredBalance.MinesLaid; i++)
         {
             var place = hero.Position + ahead * WiredBalance.MinesAhead + across * ((i - (WiredBalance.MinesLaid - 1) / 2f) * WiredBalance.MineGap);
-            var mine = new LandMineState(_nextMineId++, hero.Race, OnFreeGround(place));
+            var mine = new LandMineState(_nextMineId++, hero.Race, OnFreeGround(place), hero.Owner);
             LandMines.Add(mine);
             Raise(new GameEvent(GameEventKind.MineLaid, hero.Id, mine.Position, mine.Id));
         }
@@ -169,7 +169,7 @@ public sealed partial class GameWorld
     /// </returns>
     public string? WhyNoDash(WiredState state)
     {
-        if (HeroOf(state.Race) is not { } hero)
+        if (HeroOf(state) is not { } hero)
             return "the hero is down";
         if (hero.Inside is not null)
             return "not from inside the pod";
@@ -186,7 +186,7 @@ public sealed partial class GameWorld
     {
         if (WhyNoDash(state) is { } why)
             return why;
-        var hero = HeroOf(state.Race)!;
+        var hero = HeroOf(state)!;
         state.DashWay = direction.LengthSquared() > 1e-4f ? Vector2.Normalize(direction) : new Vector2(DetMath.Cos(hero.Facing), DetMath.Sin(hero.Facing));
         state.DashReadyAt = Time + state.Build(Data).DashCooldown!.Value;
         state.DashUntil = Time + WiredBalance.DashTime;

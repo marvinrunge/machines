@@ -214,7 +214,7 @@ public static class WiredChips
     /// <summary>The ids of the chips at work right now, for the HUD.</summary>
     public static IEnumerable<string> Lit(GameWorld world, WiredState state)
     {
-        if (world.HeroOf(state.Race) is not { } hero)
+        if (world.HeroOf(state) is not { } hero)
             yield break;
         foreach (var (chip, strength) in state.Chips)
         {
@@ -276,7 +276,7 @@ public static class WiredChips
     /// <summary>What an escort near its hero gains on an aim taken afresh, with Radio booster.</summary>
     public static float SquadAim(GameWorld world, Machine machine)
     {
-        if (!IsEscort(world, machine, out var state) || world.HeroOf(state.Race) is not { } hero)
+        if (!IsEscort(world, machine, out var state) || world.HeroOf(state) is not { } hero)
             return 0;
         return Vector2.DistanceSquared(machine.Position, hero.Position) <= Square(Find("booster")!.Limit) ? state.ChipValue("booster") : 0;
     }
@@ -285,9 +285,10 @@ public static class WiredChips
     public static float Pace(GameWorld world, Machine machine) =>
         machine.Order is FollowOrder && IsEscort(world, machine, out var state) ? 1 + state.ChipValue("rally") : 1;
 
+    /// <summary>Whether a machine is an escort, and of whose hero: the hero of its owner, who bought it.</summary>
     private static bool IsEscort(GameWorld world, Machine machine, out WiredState state)
     {
-        state = world.Wired!.Heroes.GetValueOrDefault(machine.Race)!;
+        state = world.Wired!.Heroes.GetValueOrDefault(machine.Owner)!;
         return state is not null && state.EscortIds.Contains(machine.Id);
     }
 
@@ -325,7 +326,7 @@ public static class WiredChips
     }
 
     private static void Shrapnel(ChipUse use, Machine victim) =>
-        use.World.Shrapnel(victim, (int)(victim.MaxHitPoints * use.Strength), use.Chip.Limit, use.State.Race);
+        use.World.Shrapnel(victim, (int)(victim.MaxHitPoints * use.Strength), use.Chip.Limit, use.State.Race, use.State.Player);
 
     private static void HotBarrels(ChipBuild build, WiredChip chip, float value)
     {
@@ -359,7 +360,7 @@ public static class WiredChips
     }
 
     private static bool AtPod(ChipUse use) =>
-        use.World.WiredPod(use.State.Race) is { } pod && use.Hero.DistanceTo(pod) <= use.Chip.Limit;
+        use.World.WiredPod(use.State) is { } pod && use.Hero.DistanceTo(pod) <= use.Chip.Limit;
 
     /// <summary>Armour is a pool hits drain and not a share of each, so a quarter more of it is a fifth less drawn from it.</summary>
     private static float Bastion(ChipUse use, ChipHit hit) =>
@@ -373,7 +374,7 @@ public static class WiredChips
     {
         if (use.World.Tick % GameWorld.TicksPerSecond != 0)
             return;
-        foreach (var escort in use.World.Escorts(use.State.Race))
+        foreach (var escort in use.World.Escorts(use.State))
         {
             if (Vector2.DistanceSquared(escort.Position, use.Hero.Position) <= Square(use.Chip.Limit))
                 use.World.AddHitPoints(escort, escort.MaxHitPoints * use.Strength);
@@ -387,7 +388,7 @@ public static class WiredChips
             || use.Now < use.State.CoverCalledAt + WiredBalance.CoverEvery / use.Strength)
             return;
         use.State.CoverCalledAt = use.Now;
-        foreach (var escort in use.World.Escorts(use.State.Race).Where(e => e.CanFight && e.Order is FollowOrder or IdleOrder or ReturnOrder))
+        foreach (var escort in use.World.Escorts(use.State).Where(e => e.CanFight && e.Order is FollowOrder or IdleOrder or ReturnOrder))
             use.World.Counterattack(escort, shooter);
     }
 }

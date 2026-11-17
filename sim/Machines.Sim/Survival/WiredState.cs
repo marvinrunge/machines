@@ -59,7 +59,7 @@ public sealed class WiredFoe(Machine machine, WiredFoePlan plan, bool huntsHero,
     public int LastDurability { get; set; } = machine.HitPoints + machine.Armour;
 }
 
-/// <summary>What a Wired run shares between its heroes: where it stands, the wave under way, and each race's hero.</summary>
+/// <summary>What a Wired run shares between its heroes: where it stands, the wave under way, and each player's hero.</summary>
 public sealed class WiredRun(WiredOptions options)
 {
     public WiredOptions Options { get; } = options;
@@ -72,8 +72,15 @@ public sealed class WiredRun(WiredOptions options)
     /// <summary>Seconds until the next wave, between waves.</summary>
     public float Countdown { get; set; } = WiredBalance.PrepareTime;
 
-    /// <summary>Each hero, by race. There is one for now; co-op would add more.</summary>
-    public SortedDictionary<Race, WiredState> Heroes { get; } = [];
+    /// <summary>Each hero, by its player, in player order: one in a run of one player, more in a co-op run, every seat's in a battle.</summary>
+    public PlayerMap<WiredState> Heroes { get; } = [];
+
+    /// <summary>
+    /// Whether a hero that falls during a wave waits for the wave's end to come back at its pod (<see cref="WiredState.WaitsForWave"/>)
+    /// rather than after <see cref="WiredBalance.RespawnTime"/>: a run of more than one hero. Set when the run starts; it
+    /// follows from the heroes, so the fingerprint leaves it out.
+    /// </summary>
+    public bool BackAfterWave { get; internal set; }
 
     /// <summary>The race the waves belong to; nobody plays it.</summary>
     public Race Enemy { get; set; }
@@ -242,8 +249,8 @@ internal sealed class WiredHash
 }
 
 /// <summary>
-/// One race's hero in a Wired run: all it owns, what it wears, its spare bodies, its shop and what it has done. Everything
-/// here changes through commands or the world's ticks, so that a recording brings it back.
+/// One player's hero in a Wired run or a battle: all it owns, what it wears, its spare bodies, its shop and what it has done.
+/// Everything here changes through commands or the world's ticks, so that a recording brings it back.
 /// </summary>
 public sealed class WiredState
 {
@@ -254,13 +261,31 @@ public sealed class WiredState
     private WiredState(Race race, WiredDifficulty difficulty, string chassis)
     {
         Race = race;
+        Player = PlayerId.Of(race);
         Difficulty = difficulty;
         Loadout = HeroLoadout.Bare(Add(WiredKind.Chassis, chassis, 0));
         SpareBodies = WiredBalance.SpareBodies(difficulty);
     }
 
+    /// <summary>The race (team colour) the hero fights for.</summary>
     public Race Race { get; }
+
+    /// <summary>The player whose hero it is: the race's first player unless the world sets another as it seats the hero.</summary>
+    public PlayerId Player { get; internal set; }
+
     public WiredDifficulty Difficulty { get; }
+
+    /// <summary>
+    /// Whether the hero has a bank of its own, <see cref="Bank"/>: every hero of a race that has more than one. A race's only
+    /// hero keeps its money in the race's bank, as it always did (GameWorld.Bank goes by this).
+    /// </summary>
+    public bool OwnBank { get; internal set; }
+
+    /// <summary>The hero's own BMUs, where it has a bank of its own (<see cref="OwnBank"/>); 0 otherwise.</summary>
+    public float Bank { get; internal set; }
+
+    /// <summary>A hero of a run of several that fell during a wave with a body to spare: it comes back at its pod when the wave ends.</summary>
+    public bool WaitsForWave { get; internal set; }
 
     /// <summary>The machine that is the hero, while it stands.</summary>
     public int? Hero { get; set; }
@@ -556,12 +581,13 @@ public sealed class WiredState
 
     /// <summary>
     /// A hero for a battle: the chassis and the items of <paramref name="hero"/>, each at its Mk, nothing paid, and
-    /// <paramref name="lives"/> bodies; a battery's copies all at its entry's Mk. The hero must have been checked
-    /// (<see cref="BattleBots.Resolved"/>); what does not fit a slot all the same stays in the inventory.
+    /// <paramref name="lives"/> bodies; a battery's copies all at its entry's Mk. It is the hero's player's (the race's first
+    /// where the hero names none). The hero must have been checked (<see cref="BattleBots.Resolved"/>); what does not fit a
+    /// slot all the same stays in the inventory.
     /// </summary>
     public static WiredState ForBattle(GameData data, Race race, BattleHero hero, int lives)
     {
-        var state = new WiredState(race, WiredDifficulty.Normal, hero.Chassis) { SpareBodies = Math.Max(0, lives - 1) };
+        var state = new WiredState(race, WiredDifficulty.Normal, hero.Chassis) { SpareBodies = Math.Max(0, lives - 1), Player = hero.Player ?? PlayerId.Of(race) };
         var chassis = WiredCatalogue.FindChassis(hero.Chassis);
         foreach (var entry in hero.Items)
         {
@@ -659,6 +685,20 @@ public sealed class WiredState
                     hash.Mix(copy.Id);
             }
         }
+        // What the players of one race apart bring, each behind a tag of its own and only where it is not as for the
+        // race's only hero: another player than the race's first, a bank of its own, a wait for the wave's end.
+        if (Player != PlayerId.Of(Race))
+        {
+            hash.Mix(6);
+            hash.Mix(Player.Value);
+        }
+        if (OwnBank)
+        {
+            hash.Mix(7);
+            hash.Mix(BitConverter.SingleToInt32Bits(Bank));
+        }
+        if (WaitsForWave)
+            hash.Mix(8);
     }
 
     /// <summary>Mixes a time with a tag of its own, unless it is still at its start, minus infinity.</summary>

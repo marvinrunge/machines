@@ -214,10 +214,12 @@ public static class WiredDirector
         return plan with { Elite = true, HitPoints = WiredBalance.EliteHitPoints * strength, Damage = WiredBalance.EliteDamage * strength };
     }
 
-    /// <summary>A boss with what comes along with it.</summary>
-    private static IEnumerable<WiredFoePlan> Party(WiredBoss boss, int wave)
+    /// <summary>A boss with what comes along with it; for a run of more than one hero the boss is the stronger (<see cref="WiredBalance.CoopBoss"/>).</summary>
+    private static IEnumerable<WiredFoePlan> Party(WiredBoss boss, int wave, int heroes = 1)
     {
         var hitPoints = boss.HitPoints * LapStrength(wave);
+        if (heroes > 1)
+            hitPoints *= WiredBalance.CoopBoss(heroes);
         for (var i = 0; i < boss.Count; i++)
             yield return new WiredFoePlan(boss.Machine) { Boss = boss, HitPoints = hitPoints, Damage = boss.Damage };
         for (var i = 0; i < boss.Guards; i++)
@@ -228,9 +230,9 @@ public static class WiredDirector
     /// A storm: twice the machines a wave of this budget would bring. So that the budget goes round, it takes the fastest of
     /// those it can pay that many of, leaving out what flies; if it can pay none that often, the cheapest.
     /// </summary>
-    private static List<WiredFoePlan> Storm(GameData data, int wave, float budget, Random random)
+    private static List<WiredFoePlan> Storm(GameData data, int wave, float budget, Random random, int most = WiredBalance.MostInWave)
     {
-        var wanted = Math.Min(WiredBalance.MostInWave, Buy(data, wave, budget, random).Count * WiredBalance.StormShare);
+        var wanted = Math.Min(most, Buy(data, wave, budget, random, most).Count * WiredBalance.StormShare);
         var ground = WiredCatalogue.Tiers.Where(t => t.Wave <= wave && t.SubType != "BOSS").ToList();
         var within = ground.Where(t => Cost(data, t) * wanted <= budget).ToList();
         if (within.Count == 0)
@@ -241,10 +243,10 @@ public static class WiredDirector
     }
 
     /// <summary>An air raid: the budget in gliders, and at least a pair of them.</summary>
-    private static List<WiredFoePlan> AirRaid(GameData data, int wave, float budget, Random random)
+    private static List<WiredFoePlan> AirRaid(GameData data, int wave, float budget, Random random, int most = WiredBalance.MostInWave)
     {
         var gliders = WiredCatalogue.Tiers.Where(t => t.SubType == "BOSS").ToList();
-        var raid = Buy(data, wave, budget, random, tiers: gliders);
+        var raid = Buy(data, wave, budget, random, most, gliders);
         while (raid.Count < WiredBalance.FewestRaiders)
             raid.Add(Foe(gliders[0], wave, random));
         return raid;
@@ -254,10 +256,10 @@ public static class WiredDirector
     /// A siege: the budget in Ballistas, and at least a pair of them, for all that they cost more than an early budget;
     /// later the bigger ones, and at last Colossi, which anchor where the pod comes within their reach.
     /// </summary>
-    private static List<WiredFoePlan> Siege(GameData data, int wave, float budget, Random random)
+    private static List<WiredFoePlan> Siege(GameData data, int wave, float budget, Random random, int most = WiredBalance.MostInWave)
     {
         var key = wave >= WiredBalance.ColossusSiegeFrom ? ColossusBesieger : wave >= WiredBalance.BigSiegeFrom ? BigBesieger : Besieger;
-        var count = Math.Clamp((int)(budget / Cost(data, key)), WiredBalance.FewestBesiegers, WiredBalance.MostInWave);
+        var count = Math.Clamp((int)(budget / Cost(data, key)), WiredBalance.FewestBesiegers, most);
         return Enumerable.Range(0, count).Select(_ => Foe(new WiredFoePlan(key) { Role = WiredRole.Besieger }, wave, random)).ToList();
     }
 
@@ -273,18 +275,23 @@ public static class WiredDirector
     /// A wave by its budget: machines in groups of a few, the first at once and the last after 60 to 90 s. On a boss wave
     /// the budget pays for the boss's escort; the boss itself comes on top, with the first group. A special wave spends
     /// the budget in its own way: spies are paid out of it and arrive ahead of the others, a storm, a raid or a siege has
-    /// machines of its own, a turncoat comes on top like a boss.
+    /// machines of its own, a turncoat comes on top like a boss. A run of more than one hero has a larger budget, room for
+    /// more machines and a stronger boss (<see cref="WiredBalance.CoopFoes"/>, <see cref="WiredBalance.CoopBoss"/>); one
+    /// hero's wave is planned exactly as it always was.
     /// </summary>
-    public static WiredWavePlan Plan(GameData data, int wave, WiredDifficulty difficulty, Random random, WiredSpecial special = WiredSpecial.None)
+    public static WiredWavePlan Plan(GameData data, int wave, WiredDifficulty difficulty, Random random, WiredSpecial special = WiredSpecial.None, int heroes = 1)
     {
         var budget = WiredBalance.Budget(wave, difficulty);
+        if (heroes > 1)
+            budget *= WiredBalance.CoopFoes(heroes);
+        var most = WiredBalance.MostInWaveFor(heroes);
         var spies = special == WiredSpecial.Spies ? Spies(wave) : [];
         var machines = special switch
         {
-            WiredSpecial.Storm => Storm(data, wave, budget, random),
-            WiredSpecial.AirRaid => AirRaid(data, wave, budget, random),
-            WiredSpecial.Siege => Siege(data, wave, budget, random),
-            _ => Crowded(wave, Buy(data, wave, MathF.Max(0, budget - spies.Sum(s => Cost(data, s.Key))), random)),
+            WiredSpecial.Storm => Storm(data, wave, budget, random, most),
+            WiredSpecial.AirRaid => AirRaid(data, wave, budget, random, most),
+            WiredSpecial.Siege => Siege(data, wave, budget, random, most),
+            _ => Crowded(wave, Buy(data, wave, MathF.Max(0, budget - spies.Sum(s => Cost(data, s.Key))), random, most)),
         };
         var count = Math.Min(machines.Count, Math.Max(WiredBalance.FewestGroups, (machines.Count + WiredBalance.GroupSize - 1) / WiredBalance.GroupSize));
         var spread = WiredBalance.LeastSpread + random.Next(WiredBalance.MostSpread - WiredBalance.LeastSpread + 1);
@@ -300,7 +307,7 @@ public static class WiredDirector
         {
             var group = machines.Take((i + 1) * machines.Count / count).Skip(i * machines.Count / count);
             if (i == 0 && boss is not null)
-                group = Party(boss, wave).Concat(group);
+                group = Party(boss, wave, heroes).Concat(group);
             if (i == 0 && special == WiredSpecial.Treason)
                 group = group.Prepend(new WiredFoePlan(Turncoat) { Role = WiredRole.Turncoat });
             groups.Add(new WiredGroup(lead + (count > 1 ? spread * i / (float)(count - 1) : 0), group.ToList()));
@@ -324,10 +331,14 @@ public static class WiredDirector
             .Select(plan => plan with { HitPoints = plan.HitPoints * share, Damage = plan.Damage * share, Worth = plan.Worth * worth }).ToList();
     }
 
-    /// <summary>What a boss below half calls in: a small group from a part of the wave's budget.</summary>
-    public static List<WiredFoePlan> Reinforcements(GameData data, int wave, WiredDifficulty difficulty, Random random) =>
-        Buy(data, wave, MathF.Max(WiredBalance.LeastReinforcements, WiredBalance.Budget(wave, difficulty) * WiredBalance.ReinforcementShare),
-            random, WiredBalance.MostReinforcements);
+    /// <summary>What a boss below half calls in: a small group from a part of the wave's budget, a larger part in a run of more than one hero.</summary>
+    public static List<WiredFoePlan> Reinforcements(GameData data, int wave, WiredDifficulty difficulty, Random random, int heroes = 1)
+    {
+        var budget = MathF.Max(WiredBalance.LeastReinforcements, WiredBalance.Budget(wave, difficulty) * WiredBalance.ReinforcementShare);
+        if (heroes > 1)
+            budget *= WiredBalance.CoopFoes(heroes);
+        return Buy(data, wave, budget, random, WiredBalance.MostReinforcements);
+    }
 
     /// <summary>
     /// What a crate of a wave holds: a chip from <paramref name="chips"/> now and then, else a weapon, module or ability from

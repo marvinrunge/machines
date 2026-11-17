@@ -49,10 +49,9 @@ public sealed partial class GameWorld
     /// <summary>
     /// The players who left or came back in one tick, given in player order, a player's leave before their return. Each is
     /// first noted as away or present. A race of one player is then handed to the computer or back one change after the
-    /// other, as it always was; a skirmish race of several commanders settles once, after all of the tick's changes, in race
-    /// order (<see cref="Settle"/>), so that one commander leaving while another comes back hands the race straight from the
-    /// one to the other. A battle's or Wired run's race of several players is still handed over one change after the other
-    /// until heroes are kept by player (P1 design §2.8, slice S3).
+    /// other, as it always was; a race of several players settles once, after all of the tick's changes, in race order
+    /// (<see cref="Settle"/>), so that one commander leaving while another comes back hands the race straight from the one
+    /// to the other, and a battle's player who leaves and comes back within the tick keeps their hero as it was.
     /// </summary>
     /// <exception cref="KeyNotFoundException">A player the table does not know; then none of the changes is made.</exception>
     public void ChangePresence(IReadOnlyList<PresenceChange> changes)
@@ -74,12 +73,15 @@ public sealed partial class GameWorld
             Settle(race);
     }
 
-    /// <summary>Whether a race's comings and goings settle once per tick: a skirmish race of several commanders.</summary>
-    private bool Settles(Race race) => Players.Shared(race) && Battle is null && Wired is null;
+    /// <summary>Whether a race's comings and goings settle once per tick: a race of several players.</summary>
+    private bool Settles(Race race) => Players.Shared(race);
 
     /// <summary>
-    /// A skirmish race of several commanders after its players came or went (P1 design §2.8). While a person of the race is
-    /// there, the one with the lowest number keeps the machines of every away player (they may order them, and what they
+    /// A race of several players after its players came or went (P1 design §2.8). In a battle each person of the race who
+    /// is away has a bot drive their hero and each who is there drives it again (<see cref="AddBot"/>, <see cref="RemoveBot"/>,
+    /// in player order), and the race is a player's while one of its people is there, else the computer's. In a Wired run
+    /// the heroes stand, as a race of one player's does (the run has no stand-in). In a skirmish, while a person of the race
+    /// is there, the one with the lowest number keeps the machines of every away player (they may order them, and what they
     /// build is theirs), the race is a player's again and a stand-in AI that played it goes. Once the last person is gone,
     /// nobody keeps anything and the stand-in AI plays the whole race, as it takes over a race of one player; the machines
     /// stay whose they were. A machine driven by someone away, or by someone who may no longer order it, is let go of, as
@@ -87,6 +89,13 @@ public sealed partial class GameWorld
     /// </summary>
     private void Settle(Race race)
     {
+        if (Battle is not null)
+        {
+            SettleBattle(race);
+            return;
+        }
+        if (Wired is not null)
+            return;
         var players = Players.PlayersOf(race);
         var present = players.Where(id => Players[id].Kind == PlayerKind.Human && !Players.Away(id)).ToList();
         PlayerId? keeper = present.Count > 0 ? present[0] : null;
@@ -112,6 +121,24 @@ public sealed partial class GameWorld
         foreach (var machine in Machines.Where(m => m.Race == race && m.DrivenByPlayer && m.Driver is { } driver
             && (Players.Away(driver) || !MayOrder(driver, m))).OrderBy(m => m.Id).ToList())
             LetGoOfWheel(machine);
+    }
+
+    /// <summary>
+    /// A battle's race of several players after its people came or went: the hero of each who is away is the computer's, of
+    /// each who is there their own; the race is a player's while one of its people is there. A bot from the start stays.
+    /// </summary>
+    private void SettleBattle(Race race)
+    {
+        var people = Players.PlayersOf(race).Where(id => Players[id].Kind == PlayerKind.Human).ToList();
+        foreach (var person in people)
+        {
+            if (Players.Away(person))
+                AddBot(person);
+            else
+                RemoveBot(person);
+        }
+        if (Races.TryGetValue(race, out var state))
+            state.Controller = people.Any(id => !Players.Away(id)) ? Controller.Player : Controller.Ai;
     }
 
     /// <summary>Whether a player plays the race: a row of it, or, for a number from 0 to 3 without a row, the race of that number.</summary>

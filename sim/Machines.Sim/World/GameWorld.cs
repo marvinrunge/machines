@@ -60,7 +60,7 @@ public sealed partial class GameWorld
             if (Races.TryGetValue(race, out var leaver) && leaver.Controller == Controller.Player)
             {
                 leaver.Controller = Controller.Ai;
-                AddBot(race);
+                AddBot(PlayerId.Of(race));
             }
             return;
         }
@@ -75,10 +75,10 @@ public sealed partial class GameWorld
     {
         if (Battle is not null)
         {
-            if (Races.TryGetValue(race, out var back) && back.Controller == Controller.Ai && Battle.Bots.Contains(race))
+            if (Races.TryGetValue(race, out var back) && back.Controller == Controller.Ai && Battle.Bots.Contains(PlayerId.Of(race)))
             {
                 back.Controller = Controller.Player;
-                RemoveBot(race);
+                RemoveBot(PlayerId.Of(race));
             }
             return;
         }
