@@ -104,10 +104,25 @@ internal sealed class RelayClients : IAsyncDisposable
     public async Task<RelayClient> Rejoin(string name, bool web, int room, PlayerId? player = null)
     {
         var client = await Connect(name, web);
+        // The old connection's goodbye closes its line at once, but the relay lets the player go only when it is done with
+        // that connection, which may come after this one asked: until then nobody of the name has left, and it asks again.
+        using var patience = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         client.Connection.Send(new RejoinMatch(room, player));
-        var resumed = await client.Next<MatchResumed>();
-        client.Begin(resumed.Match, resumed.Player, resumed.FromTick);
-        return client;
+        while (true)
+        {
+            switch (await client.Connection.Inbox.ReadAsync(patience.Token))
+            {
+                case MatchResumed resumed:
+                    client.Begin(resumed.Match, resumed.Player, resumed.FromTick);
+                    return client;
+                case Refused { Reason: var why } when why.StartsWith("no player called", StringComparison.Ordinal) && !patience.IsCancellationRequested:
+                    await Task.Delay(20, CancellationToken.None);
+                    client.Connection.Send(new RejoinMatch(room, player));
+                    break;
+                case Refused refused:
+                    throw new InvalidOperationException($"{name}: {refused.Reason}");
+            }
+        }
     }
 
     /// <summary>

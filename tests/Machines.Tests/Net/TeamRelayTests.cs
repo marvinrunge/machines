@@ -238,6 +238,130 @@ public class TeamRelayTests
     }
 
     /// <summary>
+    /// Comings and goings in one tick, as the relay makes them when people quit and come back while the match stands still:
+    /// in a co-op skirmish Anna quits as Cleo, who had quit before, comes back, and Dan quits and is back; Red is never the
+    /// computer's, Cleo keeps Anna's machines from that very tick, and nobody ever keeps Dan's.
+    /// </summary>
+    [Fact]
+    public async Task Through_the_relay_commanders_quit_and_come_back_in_one_tick_and_their_race_never_changes_hands()
+    {
+        await using var relay = await RelayClients.Start();
+        var anna = await relay.Connect("Anna", web: false);
+        var ben = await relay.Connect("Ben", web: true);
+        var cleo = await relay.Connect("Cleo", web: false);
+        var dan = await relay.Connect("Dan", web: true);
+        var room = await RelayClients.Open(anna,
+            new CreateRoom("Together", "m_desert", "m_desert", [Race.Red, Race.Blue], new MatchOptions(), FillWithAi: false, SeatsPerSlot: 2), ben, cleo, dan);
+        List<RelayClient> clients = [anna, ben, cleo, dan];
+        await RelayClients.Begin(anna, clients);
+        var seen = new List<(string Who, long Tick, Controller Red, bool RedAi, PlayerId? KeepsAnna, PlayerId? KeepsCleo, bool DanAway, PlayerId? KeepsDan)>();
+        void Watch(RelayClient client)
+        {
+            client.Script = new CommanderScript(client.Me, 500 + client.Me.Value + clients.Count, gives: false);
+            client.AfterStep = world => seen.Add((client.Name, world.Tick, world.Races[Race.Red].Controller, world.AiControllers.Any(ai => ai.Race == Race.Red),
+                world.Players.KeeperOf(P(0)), world.Players.KeeperOf(P(4)), world.Players.Away(P(5)), world.Players.KeeperOf(P(5))));
+        }
+        clients.ForEach(Watch);
+
+        await RelayClients.PlayTo(200, clients);
+        await cleo.Leave();
+        await RelayClients.PlayTo(300, clients);
+        // Everyone stands at 300 with their turns sent up to 304: whoever quits now is gone from 305, whoever is back plays from it.
+        await anna.Leave();
+        var cleoBack = await relay.Rejoin("Cleo", web: false, room.Id);
+        await dan.Leave();
+        var danBack = await relay.Rejoin("Dan", web: true, room.Id);
+        Assert.Equal((P(4), 305L, P(5), 305L), (cleoBack.Me, cleoBack.FirstTurn, danBack.Me, danBack.FirstTurn));
+        foreach (var back in new[] { cleoBack, danBack })
+        {
+            Watch(back);
+            clients.Add(back);
+        }
+        await RelayClients.PlayTo(500, clients);
+
+        // In every world, also as the two who came back caught up: Red a player's at every tick, Cleo's machines Anna's to
+        // keep from 205 to 305 and Anna's Cleo's from then on, Dan never away after a tick and nobody keeping his.
+        Assert.Equal(2, seen.Count(s => s.Who == "Cleo" && s.Tick == 1));
+        Assert.Equal(2, seen.Count(s => s.Who == "Dan" && s.Tick == 1));
+        Assert.Contains(seen, s => s.Who == "Ben" && s.Tick == 500);
+        foreach (var s in seen)
+        {
+            Assert.True((s.Red, s.RedAi) == (Controller.Player, false), $"{s.Who} at {s.Tick}: Red {s.Red}");
+            Assert.Equal(s.Tick is > 205 and <= 305 ? P(0) : null, s.KeepsCleo);
+            Assert.Equal(s.Tick > 305 ? P(4) : null, s.KeepsAnna);
+            Assert.False(s.DanAway, $"{s.Who} at {s.Tick}: Dan away");
+            Assert.Null(s.KeepsDan);
+        }
+        Assert.Equal([(P(4), true, 205L), (P(0), true, 305L), (P(4), false, 305L), (P(5), true, 305L), (P(5), false, 305L)],
+            ben.Session.Presence.Select(m => m is PlayerLeft left ? (left.Player, true, left.FromTick) : (((PlayerReturned)m).Player, false, ((PlayerReturned)m).FromTick))
+                .OrderBy(c => c.Item3).ThenBy(c => c.Player).ThenBy(c => !c.Item2));
+        Assert.All(clients.Where(c => !c.Gone), c => Assert.Equal(ben.Session.Presence, c.Session.Presence));
+        Assert.True(RelayClients.AssertAgree(clients) >= 500 / 20);
+        foreach (var client in new[] { ben, cleoBack, danBack })
+            Assert.Equal(client.World.Players.Keepers, RelayClients.AssertPlaysBack(client).Players.Keepers);
+    }
+
+    /// <summary>
+    /// The same in five against five: Anna quits as Cleo of her team comes back, and Ben, Green's first, quits and is back,
+    /// all in one tick: a bot takes Anna's hero from that tick and leaves Cleo's, and Ben's hero is never a bot's.
+    /// </summary>
+    [Fact]
+    public async Task Through_the_relay_heroes_change_hands_in_the_tick_their_people_quit_and_come_back()
+    {
+        await using var relay = await RelayClients.Start();
+        var anna = await relay.Connect("Anna", web: true);
+        var ben = await relay.Connect("Ben", web: false);
+        var cleo = await relay.Connect("Cleo", web: true);
+        var dan = await relay.Connect("Dan", web: false);
+        var options = new MatchOptions { Battle = new BattleOptions { Tier = 1, Lives = 3, TeamSize = 5 }, FogOfWar = false };
+        var room = await RelayClients.Open(anna, new CreateRoom("Ten", "m_desert", "m_desert", [Race.Red, Race.Green], options, FillWithAi: false), ben, cleo, dan);
+        List<RelayClient> clients = [anna, ben, cleo, dan];
+        await RelayClients.Begin(anna, clients, c => BattleNetTests.Brought($"{c.Name}'s hero", 1, line: c.Id % 2));
+        Assert.Equal([P(0), P(2), P(4), P(8)], clients.Select(c => c.Me));
+        var seen = new List<(string Who, long Tick, PlayerId[] Bots, Controller Red, Controller Green)>();
+        void Watch(RelayClient client)
+        {
+            client.Script = new HeroScript(client.Me, 600 + client.Me.Value + clients.Count);
+            client.AfterStep = world => seen.Add((client.Name, world.Tick, [.. world.HeroBots.Keys.Where(p => p.Value is 0 or 2 or 4)],
+                world.Races[Race.Red].Controller, world.Races[Race.Green].Controller));
+        }
+        clients.ForEach(Watch);
+
+        await RelayClients.PlayTo(300, clients);
+        await cleo.Leave();
+        await RelayClients.PlayTo(400, clients);
+        await anna.Leave();
+        var cleoBack = await relay.Rejoin("Cleo", web: true, room.Id);
+        await ben.Leave();
+        var benBack = await relay.Rejoin("Ben", web: false, room.Id);
+        Assert.Equal((P(4), 405L, P(2), 405L), (cleoBack.Me, cleoBack.FirstTurn, benBack.Me, benBack.FirstTurn));
+        foreach (var back in new[] { cleoBack, benBack })
+        {
+            Watch(back);
+            clients.Add(back);
+        }
+        await RelayClients.PlayTo(700, clients);
+
+        foreach (var s in seen)
+        {
+            PlayerId[] bots = s.Tick switch { <= 305 => [], <= 405 => [P(4)], _ => [P(0)] };
+            Assert.True(bots.SequenceEqual(s.Bots), $"{s.Who} at {s.Tick}: bots of [{string.Join(", ", s.Bots)}]");
+            Assert.Equal((Controller.Player, Controller.Player), (s.Red, s.Green));
+        }
+        Assert.Equal(2, seen.Count(s => s.Who == "Cleo" && s.Tick == 1));
+        Assert.Equal(2, seen.Count(s => s.Who == "Ben" && s.Tick == 1));
+        Assert.Contains(seen, s => s.Who == "Dan" && s.Tick == 700);
+        Assert.All(clients.Where(c => !c.Gone), c => Assert.Equal(dan.Session.Presence, c.Session.Presence));
+        Assert.True(RelayClients.AssertAgree(clients) >= 700 / 20);
+        foreach (var client in new[] { dan, cleoBack, benBack })
+        {
+            var played = RelayClients.AssertPlaysBack(client);
+            Assert.Equal(client.World.HeroBots.Keys, played.HeroBots.Keys);
+            Assert.Equal(client.World.Battle!.Fingerprint(), played.Battle!.Fingerprint());
+        }
+    }
+
+    /// <summary>
     /// A tick is compared once everyone still playing has reported it, also when the last who had not quits instead: worlds
     /// that differ there are a desync at that tick, worlds that agree are agreed on, and the one who quit, back, catches up
     /// past it in peace.
