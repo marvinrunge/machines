@@ -494,6 +494,25 @@ public class CoopCommanderTests
 
     // ---- after the review of S2 ---------------------------------------------------------------------
 
+    [Fact]
+    public void Nobody_may_order_another_race_s_actors()
+    {
+        var world = NewCoop();
+        var hers = world.Machines.First(m => m.Race == Race.Red && m.Owner == Anna);
+        var blue = world.Machines.First(m => m.Race == Race.Blue);
+        var bluePod = world.Constructions.First(c => c.Race == Race.Blue);
+        Assert.False(world.MayOrder(Anna, blue) || world.MayOrder(Ben, blue) || world.MayOrder(Ben, bluePod));
+        Assert.False(world.MayOrder(Cleo, hers));
+        Assert.True(world.MayOrder(Cleo, blue) && world.MayOrder(Cleo, bluePod) && world.MayOrder(null, blue));
+
+        // In a match of one player per race too: what the game may pick for its player is the race's alone.
+        var classic = MatchSetup.Create(Data, "m_desert", "m_desert",
+            new Dictionary<Race, Controller> { [Race.Red] = Controller.Player, [Race.Blue] = Controller.Player }, 7);
+        Assert.True(classic.MayOrder(Anna, classic.Machines.First(m => m.Race == Race.Red)));
+        Assert.False(classic.MayOrder(Anna, classic.Machines.First(m => m.Race == Race.Blue)));
+        Assert.False(classic.MayOrder(Anna, classic.Constructions.First(c => c.Race == Race.Blue)));
+    }
+
     /// <summary>
     /// As in a race of one player, where the player's squadron order ends the attack the computer gave that squadron while
     /// it played the race: a commander back from the computer orders her squadron, and its attack, which went for the whole

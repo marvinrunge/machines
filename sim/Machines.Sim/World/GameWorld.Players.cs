@@ -12,14 +12,22 @@ public sealed partial class GameWorld
     public PlayerTable Players { get; internal set; } = PlayerTable.Empty;
 
     /// <summary>
-    /// Whether a player may give orders to an actor of their race; <paramref name="issuer"/> null is the race's own authority,
-    /// which may order all of it. In a race of several commanders a machine obeys its owner, and while the owner is away the
-    /// teammate who keeps their machines; buildings obey everyone of the race. In a race of one player everyone of the race
-    /// may order all of it, without the owner being looked at. The race itself is checked where the command is carried out.
+    /// Whether a player may give orders to an actor; <paramref name="issuer"/> null is the race's own authority, which may
+    /// order all of it. Nobody orders another race's actors. In a race of several commanders a machine obeys its owner, and
+    /// while the owner is away the teammate who keeps their machines; buildings obey everyone of the race. In a race of one
+    /// player everyone of the race may order all of it, without the owner being looked at.
     /// </summary>
+    /// <remarks>
+    /// The race is checked here too (P1 design §0: "race must match"), so that the game may pick what a player commands by
+    /// this alone; a command's own race was checked before it reaches <c>Own</c>, so commands are carried out as before.
+    /// </remarks>
     public bool MayOrder(PlayerId? issuer, Actor actor)
     {
-        if (issuer is not { } player || !Players.Shared(actor.Race) || actor is not Machine)
+        if (issuer is not { } player)
+            return true;
+        if (!Plays(player, actor.Race))
+            return false;
+        if (!Players.Shared(actor.Race) || actor is not Machine)
             return true;
         return actor.Owner == player || Players.KeeperOf(actor.Owner) == player;
     }
