@@ -4452,3 +4452,32 @@ msgstr "du hast keinen Helden"
 
 msgid "too many units"
 msgstr "zu viele Einheiten"
+
+# Online (S6): the room's seats, commanders per side, team sizes in rooms and the pod
+
+msgid "Commanders per side"
+msgstr "Kommandanten je Seite"
+
+msgid "{0} commanders per side"
+msgstr "{0} Kommandanten je Seite"
+
+msgid "Team size"
+msgstr "Teamgröße"
+
+msgid "2 vs 2"
+msgstr "2 gegen 2"
+
+msgid "5 vs 5"
+msgstr "5 gegen 5"
+
+msgid "Five heroes against five. A team wins when the other has no hero and no life left, or when its heroes have stood in the circle round the other team's pod long enough to take it. When the time is up, it is a draw."
+msgstr "Fünf Helden gegen fünf. Ein Team gewinnt, wenn das andere keinen Helden und kein Leben mehr hat oder wenn seine Helden lange genug im Kreis um den Pod des anderen Teams gestanden haben, um ihn einzunehmen. Ist die Zeit um, endet es unentschieden."
+
+msgid "{0} heroes against {0}. A team wins when the other has no hero and no life left, or when its heroes have stood in the circle round the other team's pod long enough to take it. When the time is up, it is a draw."
+msgstr "{0} Helden gegen {0}. Ein Team gewinnt, wenn das andere keinen Helden und kein Leben mehr hat oder wenn seine Helden lange genug im Kreis um den Pod des anderen Teams gestanden haben, um ihn einzunehmen. Ist die Zeit um, endet es unentschieden."
+
+msgid "Take this seat"
+msgstr "Platz nehmen"
+
+msgid "{0} of {1} seats taken"
+msgstr "{0} von {1} Plätzen besetzt"

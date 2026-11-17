@@ -47,6 +47,9 @@ public sealed record BattleHeroSheet
     public int Lives { get; init; } = 1;
     public BattleWin Win { get; init; } = BattleWin.Both;
 
+    /// <summary>The team size last chosen (<see cref="BattleOptions.TeamSize"/>: 0 two against two, 5 five against five).</summary>
+    public int TeamSize { get; init; }
+
     /// <summary>The hero as a battle takes it, playing <paramref name="race"/>.</summary>
     public BattleHero Hero(Race race) => new(race, BattleDraft.ShortName(Name), Chassis, Items.ToList());
 }

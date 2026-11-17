@@ -8,10 +8,11 @@ namespace Machines.Game;
 /// <summary>
 /// The multiplayer page: connect to a relay or host one, then open a room (set up on the skirmish page) or join one,
 /// pick a colour, get ready, and the host starts. The relay then hands every player the same match. The room lists its
-/// start positions and its settings; its host says what each free position is for, takes players out and changes the
-/// settings (MachGuiCtxImReady). In a battle room each player brings the hero last put together in their pod (Pod opens
-/// it and comes back here), the room shows every player's chassis and tier, and after the battle the end screen's Room
-/// brings the players back into a room like it.
+/// seats and its settings; its host says what each free seat is for, takes players out and changes the settings
+/// (MachGuiCtxImReady). The seats stand by race in a normal room, where two commanders may share a side, and by team in a
+/// battle room, where a team may have five heroes; each shows its race's colour, and a free one can be taken. In a battle
+/// room each player brings the hero last put together in their pod (Pod opens it and comes back here), the room shows every
+/// player's chassis and tier, and after the battle the end screen's Room brings the players back into a room like it.
 /// </summary>
 public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null) : MenuPage(backTo ?? screens.ShowMain)
 {
@@ -54,11 +55,20 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
     // MACHINES_MP's automated room is played once a run.
     private static bool _automated;
 
+    // The seats' list scrolls once it is taller than this (fifteen heroes a team, P2), or than what the page has left once the
+    // chat has a few lines; it shows at least a team's heading and a seat or two.
+    private const float MostSeatsHeight = 420, LeastSeatsHeight = 110, LeastChatHeight = 80;
+
+    // Where seats are many (a battle team's five or more one under another, or a side's two commanders) they are written and
+    // chosen a size smaller than a room of one seat a side.
+    private const int SeatFont = 15;
+
     private LineEdit _name = null!, _relay = null!, _say = null!;
     private Label _status = null!, _roomTitle = null!, _settings = null!;
     private RichTextLabel _chat = null!;
     private ItemList _rooms = null!;
     private VBoxContainer _seats = null!;
+    private ScrollContainer _seatList = null!;
     private ChipChoice _colour = null!;
     private CheckButton _ready = null!;
     private ChipButton _connect = null!, _host = null!, _start = null!, _change = null!, _join = null!, _copy = null!, _pod = null!;
@@ -127,7 +137,12 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
                 Button("Open a room", () => screens.ShowSkirmish(forRoom: true), 70, 26)));
 
         _roomTitle = MenuTheme.Paragraph("", 26, MenuTheme.Bright);
-        _seats = Column(6);
+        _seats = Column(4);
+        _seats.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _seatList = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _seatList.AddChild(_seats);
+        // As high as its seats, up to what the page has room for.
+        _seats.MinimumSizeChanged += () => Callable.From(FitSeats).CallDeferred();
         _settings = MenuTheme.Paragraph("", 20, MenuTheme.Dim);
         // Below the players, the chat: the lines said so far, set into the board as the fields are, and one to type in.
         _chat = new RichTextLabel { SizeFlagsVertical = SizeFlags.ExpandFill, ScrollFollowing = true, FocusMode = FocusModeEnum.None };
@@ -156,8 +171,9 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             ShowLobby();
         }, 70, 26);
         _settings.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        _room = Column(16, _roomTitle, _seats, Line(16, _settings, _change), _chat, Line(16, _say, send),
+        _room = Column(10, _roomTitle, _seatList, Line(16, _settings, _change), _chat, Line(16, _say, send),
             Line(20, MenuTheme.Label("Colour", 22, MenuTheme.Text), _colour, _ready, Spring(), _pod, leave, _start));
+        _room.Resized += () => Callable.From(FitSeats).CallDeferred();
         foreach (var view in new[] { _offline, _lobby, _room })
         {
             view.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
@@ -404,7 +420,7 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
               (state.FillWithAi ? Lang.T(", the rest AI") : "");
         _pod.Visible = battle is not null;
         ShowSeats(state);
-        _settings.Text = SkirmishPage.Summary(state.Options);
+        _settings.Text = SkirmishPage.Summary(state.Options, state.SeatsPerSlot);
         // The ground counts only when everyone has the same export of it (MatchInfo.Terrain).
         if (state.Players.Where(p => p.Ready).Select(p => p.Terrain).Distinct().Count() > 1)
             _roomTitle.Text += "\n" + Lang.T("The players' classic terrain exports differ: hills will not stop shots in this match");
@@ -422,7 +438,13 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
         }
     }
 
-    /// <summary>A line for each start position: who sits there or what it is for, and the host's choice for it.</summary>
+    /// <summary>
+    /// The room's seats (<see cref="RoomSeating"/>), each with its race's colour: in a normal room a line for each race, its
+    /// seats side by side (two where commanders share a side); in a battle room a column for each team, its seats one under
+    /// another (five a team today, up to fifteen once the relay's beat comes, when the list scrolls). A seat says who sits
+    /// there or what it is for, numbered where a race has several; a free one can be taken, and the host says what each
+    /// seat not theirs is for.
+    /// </summary>
     private void ShowSeats(RoomState state)
     {
         foreach (var row in _seats.GetChildren())
@@ -430,28 +452,117 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             _seats.RemoveChild(row);
             row.QueueFree();
         }
-        var map = state.Options.Battle is not null ? BattleCatalogue.Map(state.Scenario) : null;
-        for (var i = 0; i < state.Seats.Count; i++)
+        var numbered = RoomSeating.Numbered(state);
+        if (state.Options.Battle is not null)
         {
-            var seat = state.Seats[i];
-            var player = state.Players.FirstOrDefault(p => p.ClientId == seat.ClientId);
-            var text = player is null ? Lang.T(seat.Use.ToString())
-                : $"{player.Name}   {Lang.T(player.Colour.ToString())}{(player.ClientId == state.HostId ? "   " + Lang.T("(host)") : "")}{(player.Ready ? "   " + Lang.T("ready") : "")}";
-            if (map is not null)
+            var teams = Line(28);
+            foreach (var group in RoomSeating.Groups(state))
             {
-                // A battle seat is a race of one team: its hero is the player's, or a bot's if nobody sits there.
-                var team = map.TeamB.Contains(seat.Race) ? 2 : 1;
-                text = $"{Lang.T("Team {0}", team)}   ·   {text}   ·   {(player is null ? Lang.T("a bot hero") : HeroText(player.Hero))}";
+                var column = Column(2, TeamHeading(state, group));
+                column.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+                foreach (var line in group.Seats)
+                    column.AddChild(SeatRow(state, line, numbered, battle: true));
+                teams.AddChild(column);
             }
-            var line = MenuTheme.Label(text, 22, player is null ? MenuTheme.Dim : MenuTheme.Text);
-            line.AutoTranslateMode = AutoTranslateModeEnum.Disabled;
-            line.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            line.ClipText = true;
-            var row = Line(16, line);
-            if (state.HostId == NetLink.ClientId && player?.ClientId != NetLink.ClientId)
-                row.AddChild(SeatChoice(i, seat.Use, player, battle: map is not null));
+            _seats.AddChild(teams);
+            return;
+        }
+        foreach (var group in RoomSeating.Groups(state))
+        {
+            var row = Line(18, new SeatChip { Colour = RaceColour(state, group.Races[0]) });
+            foreach (var line in group.Seats)
+                row.AddChild(SeatRow(state, line, numbered, battle: false));
             _seats.AddChild(row);
         }
+    }
+
+    /// <summary>
+    /// The seats' list as high as its seats, but no higher than the room's column leaves once its other lines and a few lines
+    /// of chat are in (a larger UI scale leaves less), and at most <see cref="MostSeatsHeight"/>; beyond that it scrolls. While
+    /// the column runs over the page it is as high as what it holds, and the list gives up a few lines' height a time until it
+    /// fits.
+    /// </summary>
+    private void FitSeats()
+    {
+        if (!IsInstanceValid(this) || !IsInstanceValid(_seatList) || !_room.Visible)
+            return;
+        var others = _room.GetCombinedMinimumSize().Y - _seatList.CustomMinimumSize.Y - _chat.GetCombinedMinimumSize().Y;
+        var room = Math.Clamp(_room.Size.Y - others - LeastChatHeight, LeastSeatsHeight, MostSeatsHeight);
+        var height = Math.Min(_seats.GetCombinedMinimumSize().Y, room);
+        if (Math.Abs(_seatList.CustomMinimumSize.Y - height) > 0.5f)
+            _seatList.CustomMinimumSize = new Vector2(0, height);
+    }
+
+    /// <summary>A battle team's heading over its column: its number and the colours its races show.</summary>
+    private static Control TeamHeading(RoomState state, SeatGroup group)
+    {
+        var name = MenuTheme.Label(group.Team >= 0 ? Lang.T("Team {0}", group.Team + 1).ToUpperInvariant() : Lang.T(group.Races[0].ToString()), 20, MenuTheme.Bright);
+        name.AutoTranslateMode = AutoTranslateModeEnum.Disabled;
+        var heading = Line(10, name);
+        foreach (var race in group.Races)
+            heading.AddChild(new SeatChip { Colour = RaceColour(state, race) });
+        var people = group.Seats.Count(s => s.Player is not null);
+        var count = MenuTheme.Label(Lang.T("{0} of {1} seats taken", people, group.Seats.Count), 16, MenuTheme.Dim);
+        count.AutoTranslateMode = AutoTranslateModeEnum.Disabled;
+        count.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        heading.AddChild(count);
+        return heading;
+    }
+
+    /// <summary>
+    /// A seat in the room's list: in a battle its race's colour (a team of today's layout has two), its number where its race
+    /// has several, who sits there or what it is for, in a battle the hero there; "Take this seat" where it is free, and the
+    /// host's choice for every seat but their own. Where seats are many (a battle, or numbered ones) they are written a size
+    /// smaller.
+    /// </summary>
+    private HBoxContainer SeatRow(RoomState state, SeatLine line, bool numbered, bool battle)
+    {
+        var compact = battle || numbered;
+        var row = Line(10);
+        row.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        if (battle)
+            row.AddChild(new SeatChip { Colour = RaceColour(state, line.Race) });
+        if (numbered)
+        {
+            var number = MenuTheme.Label(line.Number.ToString(System.Globalization.CultureInfo.InvariantCulture), compact ? 18 : 22, MenuTheme.Bright);
+            number.CustomMinimumSize = new Vector2(22, 0);
+            row.AddChild(number);
+        }
+        var player = line.Player;
+        var text = player is null ? Lang.T(line.Seat.Use.ToString())
+            : $"{player.Name}{(player.ClientId == state.HostId ? "   " + Lang.T("(host)") : "")}{(player.Ready ? "   " + Lang.T("ready") : "")}";
+        // A battle seat has a hero: the player's, or a bot's if nobody sits there.
+        if (battle)
+            text += "   ·   " + (player is null ? Lang.T("a bot hero") : HeroText(player.Hero));
+        var label = MenuTheme.Label(text, compact ? 18 : 22, player is null ? MenuTheme.Dim : MenuTheme.Text);
+        label.AutoTranslateMode = AutoTranslateModeEnum.Disabled;
+        label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        label.ClipText = true;
+        label.TooltipText = text;
+        row.AddChild(label);
+        if (RoomSeating.MayTake(state, NetLink.ClientId, line.Index))
+        {
+            var take = Button("Take this seat", () => NetLink.Send(new TakeSeat(line.Index)), 40, compact ? SeatFont : 18);
+            take.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+            row.AddChild(take);
+        }
+        if (state.HostId == NetLink.ClientId && player?.ClientId != NetLink.ClientId)
+            row.AddChild(SeatChoice(state, line, compact));
+        return row;
+    }
+
+    /// <summary>The colour a race shows in the room: its players' (they share it); null while nobody sits at its seats.</summary>
+    private static Color? RaceColour(RoomState state, Race race)
+    {
+        var sitting = state.Seats.Where(s => s.Race == race && s.ClientId is not null).Select(s => s.ClientId!.Value).ToHashSet();
+        if (state.Players.FirstOrDefault(p => sitting.Contains(p.ClientId)) is not { } player)
+            return null;
+        foreach (var (colour, shown) in HangarCreation.Colours)
+        {
+            if (colour == player.Colour)
+                return shown;
+        }
+        return null;
     }
 
     /// <summary>A player's hero in the room's list: chassis and tier, or that none is chosen yet.</summary>
@@ -469,15 +580,22 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
     }
 
     /// <summary>
-    /// The host's choice for a start position (MachGuiPlayerListItem): Open, Closed or Computer, and at a player's seat
-    /// their name first; choosing anything else takes them out of the room, once the host has confirmed it.
+    /// The host's choice for a seat (MachGuiPlayerListItem): what <see cref="RoomSeating.Uses"/> allows there (Open or
+    /// Computer in a battle, which has a hero at every seat; Open, Closed and at a race's first seat Computer otherwise), and
+    /// at a player's seat their name first; choosing anything else takes them out of the room, once the host has confirmed it.
+    /// A size smaller where the seats are many (<paramref name="compact"/>).
     /// </summary>
-    private ChipChoice SeatChoice(int seat, SeatUse use, LobbyPlayer? player, bool battle = false)
+    private ChipChoice SeatChoice(RoomState state, SeatLine line, bool compact)
     {
-        // A battle has a hero at every seat: a seat cannot be closed there.
-        var uses = Enum.GetValues<SeatUse>().Where(u => !battle || u != SeatUse.Closed).ToArray();
+        var (seat, use, player) = (line.Index, line.Seat.Use, line.Player);
+        var uses = RoomSeating.Uses(state, seat).ToArray();
         var names = uses.Select(u => u.ToString());
-        var choice = new ChipChoice(player is null ? names : names.Prepend(player.Name), player is null ? Math.Max(0, Array.IndexOf(uses, use)) : 0) { CustomMinimumSize = new Vector2(220, 0) };
+        var choice = new ChipChoice(player is null ? names : names.Prepend(player.Name), player is null ? Math.Max(0, Array.IndexOf(uses, use)) : 0)
+        {
+            CustomMinimumSize = new Vector2(compact ? 160 : 220, 0),
+        };
+        if (compact)
+            choice.FontSize = SeatFont;
         choice.ItemSelected += i =>
         {
             if (player is null)
@@ -640,11 +758,13 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
     /// does the same on a relay it hosts itself; MACHINES_MP=join,&lt;address&gt; joins the first room and readies.
     /// Each says a line in the room's chat first; MACHINES_MP_SHOT=&lt;png&gt; saves the room once both are ready, and
     /// MACHINES_MP_LOBBY_SHOT=&lt;png&gt; the list of rooms the joining side sees. The host or server opens a battle room
-    /// instead with battle=&lt;map&gt;[,tier=1-8][,lives=1-5][,win=both|wipe|capture] after the address (for example
-    /// MACHINES_MP=serve,127.0.0.1:7777,battle=m_desert,tier=2): both bring the hero of their own pod, the two other
-    /// seats are bots. The joining side with pod=1 goes to the pod from the room and comes back by its Ready
-    /// (MACHINES_MP_POD_SHOT=&lt;png&gt; saves the pod on the way). It all happens once a run: the page coming again (back
-    /// from the pod or a match) does not connect anew.
+    /// instead with battle=&lt;map&gt;[,tier=1-8][,lives=1-5][,win=both|wipe|capture][,team=5] after the address (for
+    /// example MACHINES_MP=serve,127.0.0.1:7777,battle=m_desert,tier=2): both bring the hero of their own pod, the other
+    /// seats are bots; team=5 seats five heroes a team. A normal room has two commanders a side with seats=2. The joining
+    /// side with seat=&lt;n&gt; moves to the room's seat n (counted from 0) once in, keeping the colour it is given there
+    /// (seat=1 in a room of two a side sits beside the host); with pod=1 it goes to the pod from the room and comes back
+    /// by its Ready (MACHINES_MP_POD_SHOT=&lt;png&gt; saves the pod on the way). It all happens once a run: the page coming
+    /// again (back from the pod or a match) does not connect anew.
     /// </summary>
     private void Automate()
     {
@@ -660,7 +780,8 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
         // Made once connected, so that the room has the player's name.
         CreateRoom? BattleRoom() => asked.TryGetValue("battle", out var battleMap)
             ? SkirmishPage.BattleRoom(battleMap, Number("tier", 1), Number("lives", 1),
-                asked.TryGetValue("win", out var win) && Enum.TryParse<BattleWin>(win, ignoreCase: true, out var wins) ? wins : BattleWin.Both)
+                asked.TryGetValue("win", out var win) && Enum.TryParse<BattleWin>(win, ignoreCase: true, out var wins) ? wins : BattleWin.Both,
+                Number("team", 0))
             : null;
         _name.Text = host ? "Host" : "Guest";
         // Automated checks leave the router alone.
@@ -674,7 +795,7 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
                 return;
             if (host)
             {
-                if ((BattleRoom() ?? SkirmishPage.LastRoom()) is { } room)
+                if ((BattleRoom() ?? SkirmishPage.LastRoom(Number("seats", 1))) is { } room)
                     NetLink.Send(room);
                 while (_state is not { Players.Count: >= 2 })
                     await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
@@ -704,7 +825,16 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
                 while (_state is null)
                     await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
                 Type("Hello from the guest, all set here.");
-                _colour.Selected = 1;
+                if (Number("seat", -1) is >= 0 and var seat)
+                {
+                    // Beside a teammate, say: the seat's race's colour is the one to keep.
+                    NetLink.Send(new TakeSeat(seat));
+                    for (var waited = 0.0; _state?.Seats.ElementAtOrDefault(seat)?.ClientId != NetLink.ClientId && waited < 10; waited += 0.2)
+                        await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
+                    GD.Print(_state?.Seats.ElementAtOrDefault(seat)?.ClientId == NetLink.ClientId ? $"mp: at seat {seat}" : $"mp: not at seat {seat}");
+                }
+                else
+                    _colour.Selected = 1;
                 if (asked.ContainsKey("pod"))
                 {
                     await ThroughThePod();
@@ -745,5 +875,35 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             await ToSignal(GetTree().CreateTimer(0.5), SceneTreeTimer.SignalName.Timeout);
             GetViewport().GetTexture().GetImage().SavePng(shot);
         }
+    }
+}
+
+/// <summary>
+/// A race's colour beside its seats in the room's list: a lamp in the colour its players show (teammates share one), a
+/// ring while nobody sits at its seats and the colour is not settled.
+/// </summary>
+public partial class SeatChip : Control
+{
+    public Color? Colour { get; init; }
+
+    public override void _Ready()
+    {
+        CustomMinimumSize = new Vector2(24, 24);
+        SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        MouseFilter = MouseFilterEnum.Ignore;
+    }
+
+    public override void _Draw()
+    {
+        var middle = Size / 2;
+        var radius = Math.Min(Size.X, Size.Y) / 2 - 2;
+        if (Colour is not { } colour)
+        {
+            DrawArc(middle, radius - 1, 0, Mathf.Tau, 32, MenuTheme.Dim, 2, true);
+            return;
+        }
+        DrawCircle(middle, radius, colour);
+        DrawCircle(middle - new Vector2(radius * 0.3f, radius * 0.3f), radius * 0.28f, new Color(1, 1, 1, 0.45f));
+        DrawArc(middle, radius, 0, Mathf.Tau, 32, colour.Darkened(0.4f), 1.5f, true);
     }
 }

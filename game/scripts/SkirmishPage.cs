@@ -12,10 +12,11 @@ namespace Machines.Game;
 /// and the remake's own test maps in a tree, the picked one's overview and description, and the original settings,
 /// players, colour, start positions, starting BMUs, mineral resources, technology level and victory condition.
 /// For a multiplayer room (<see cref="MultiplayerPage"/>) the same page sets the room up instead: the players come
-/// to it, so it asks whether free slots play the AI and what only a network game has, Broadcast Alliances and Disable
-/// First Person. With a <paramref name="room"/> it is that room's settings (MachGuiCtxSettings), which its host changes.
-/// A room is a normal match or a battle (the remake's own team mode of heroes): in Battle the page offers only the battle
-/// maps and asks for the bracket, the lives and the victory, as every seat is a hero, a player's from their pod or a bot.
+/// to it, so it asks whether free slots play the AI, how many commanders a side has (one, or two sharing it, the remake's
+/// own) and what only a network game has, Broadcast Alliances and Disable First Person. With a <paramref name="room"/> it
+/// is that room's settings (MachGuiCtxSettings), which its host changes. A room is a normal match or a battle (the remake's
+/// own team mode of heroes): in Battle the page offers only the battle maps and asks for the team size (two against two or
+/// five against five), the bracket, the lives and the victory, as every seat is a hero, a player's from their pod or a bot.
 /// </summary>
 public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, RoomState? room = null)
     : MenuPage(room is not null ? screens.ShowRoom : forRoom ? screens.ShowMultiplayer : screens.ShowMain)
@@ -27,10 +28,15 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
     private static (string Scenario, string Planet)? _lastMap;
     private static int _lastPlayers = 2, _lastColour, _lastStarts = 1, _lastBmu, _lastResources = 2, _lastTech, _lastVictory, _lastFill, _lastAi = (int)AiLevel.Normal, _lastFog, _lastBroadcast, _lastNoFirstPerson;
 
-    // A room's mode (0 normal, 1 battle) and a battle's settings; tier 0 until chosen, then the pod's hero sets it.
-    private static int _lastMode, _lastTier, _lastLives = 1, _lastWin;
+    // A room's mode (0 normal, 1 battle) and a battle's settings; tier 0 until chosen, then the pod's hero sets it. A normal
+    // room's commanders per side and a battle's team size, by their place in RoomOptions' lists.
+    private static int _lastMode, _lastTier, _lastLives = 1, _lastWin, _lastCommanders, _lastTeamSize;
     private static string _lastBattleMap = "m_desert";
     private static readonly BattleWin[] Wins = [BattleWin.Both, BattleWin.Wipe, BattleWin.Capture];
+
+    // The battle map picked, and its lives chooser, which follows the team size chosen.
+    private BattleMap? _battleMap;
+    private ChipChoice? _lives;
 
     private readonly Dictionary<string, Texture2D?> _maps = [];
     private readonly List<CatalogueScenario> _entries = [];
@@ -117,6 +123,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
         rows.AddChild(Setting("Fog of war", Choice(["On", "Off"], _lastFog, i => _lastFog = i), 180));
         if (forRoom)
         {
+            rows.AddChild(Setting("Commanders per side", Choice(RoomOptions.CommandersPerSide.Select(n => n.ToString()), _lastCommanders, i => _lastCommanders = i), 180));
             rows.AddChild(Setting("Free slots", Choice(["Play the AI", "Stay empty"], _lastFill, i => _lastFill = i), 180));
             rows.AddChild(Setting("Broadcast alliances", Choice(["Off", "On"], _lastBroadcast, i => _lastBroadcast = i), 180));
             rows.AddChild(Setting("Disable first person", Choice(["Off", "On"], _lastNoFirstPerson, i => _lastNoFirstPerson = i), 180));
@@ -158,19 +165,38 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
         return choice;
     }
 
-    /// <summary>A battle room's settings: the bracket by its top tier, the lives and how the battle is won.</summary>
+    /// <summary>
+    /// A battle room's settings: the team size, the bracket by its top tier, the lives and how the battle is won. A new team
+    /// size proposes its lives (<see cref="RoomOptions.ProposedLives"/>), which the host may change after.
+    /// </summary>
     private Control BattleRows()
     {
         if (_lastTier == 0)
             _lastTier = Math.Clamp(PodTier(), 1, BattleCatalogue.MostTier);
         var tiers = Enumerable.Range(1, BattleCatalogue.MostTier).Select(BracketName);
         var note = MenuTheme.Paragraph(Lang.T("Every player brings the hero from their pod; every other seat is a bot hero of the same tier."), 19, MenuTheme.Dim);
+        _lives = Choice(Enumerable.Range(1, 5).Select(BattlePod.LivesName), _lastLives - 1, i => _lastLives = i + 1);
+        var sizes = Choice(RoomOptions.TeamSizes.Select(size => RoomOptions.TeamSizeName(size, null)), _lastTeamSize, i =>
+        {
+            _lastTeamSize = i;
+            _lastLives = RoomOptions.ProposedLives(RoomOptions.TeamSizes[i], _battleMap);
+            if (_lives is not null)
+                _lives.Selected = _lastLives - 1;
+            ShowBattleText();
+        });
         return Column(14,
+            Setting("Team size", sizes, 180),
             Setting("Bracket", Choice(tiers, _lastTier - 1, i => _lastTier = i + 1), 180),
-            Setting("Lives", Choice(Enumerable.Range(1, 5).Select(BattlePod.LivesName), _lastLives - 1, i => _lastLives = i + 1), 180),
+            Setting("Lives", _lives, 180),
             Setting("Victory", Choice(Wins.Select(BattlePod.VictoryName), _lastWin, i => _lastWin = i), 180),
             note);
     }
+
+    /// <summary>The team size chosen, as <see cref="BattleOptions.TeamSize"/>.</summary>
+    private static int TeamSize => RoomOptions.TeamSizes[Math.Clamp(_lastTeamSize, 0, RoomOptions.TeamSizes.Count - 1)];
+
+    /// <summary>The commanders a side has in the normal room being set up.</summary>
+    private static int Commanders => RoomOptions.CommandersPerSide[Math.Clamp(_lastCommanders, 0, RoomOptions.CommandersPerSide.Count - 1)];
 
     /// <summary>The tier of the hero last put together in the pod: a new battle room is first offered at its bracket.</summary>
     private static int PodTier() => BattleAccounts.Load().LastHero is { } last && BattleCatalogue.Tier(last.Chassis) is > 0 and var tier ? tier : 1;
@@ -305,12 +331,27 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
         }
     }
 
-    /// <summary>A battle map's two teams in words: "Red and Blue against Green and Yellow".</summary>
-    public static string Teams(BattleMap map)
+    /// <summary>
+    /// A battle map's two teams in words: "Red and Blue against Green and Yellow"; with a team size the races its heroes
+    /// play, each team's first (<see cref="BattleSeats.Teams"/>): "Red against Green".
+    /// </summary>
+    public static string Teams(BattleMap map, int teamSize = 0)
     {
         static string Team(IEnumerable<Race> team) => string.Join(Lang.T(" and "), team.Select(r => Lang.T(r.ToString())));
-        return Lang.T("{0} against {1}", Team(map.TeamA), Team(map.TeamB));
+        var (a, b) = BattleSeats.Teams(new BattleOptions { TeamSize = teamSize }, map);
+        return Lang.T("{0} against {1}", Team(a), Team(b));
     }
+
+    /// <summary>A team size in words, "2 vs 2" or "5 vs 5", in the player's language.</summary>
+    public static string TeamSizeName(int teamSize, BattleMap? map = null) => Lang.T(RoomOptions.TeamSizeName(teamSize, map));
+
+    /// <summary>How a battle goes, for a team size: the heroes a team, how a team wins, and the draw.</summary>
+    public static string BattleText(int teamSize, BattleMap? map) => RoomOptions.HeroesPerTeam(teamSize, map) switch
+    {
+        2 => Lang.T("Two heroes against two. A team wins when the other has no hero and no life left, or when its heroes have stood in the circle round the other team's pod long enough to take it. When the time is up, it is a draw."),
+        5 => Lang.T("Five heroes against five. A team wins when the other has no hero and no life left, or when its heroes have stood in the circle round the other team's pod long enough to take it. When the time is up, it is a draw."),
+        var heroes => Lang.T("{0} heroes against {0}. A team wins when the other has no hero and no life left, or when its heroes have stood in the circle round the other team's pod long enough to take it. When the time is up, it is a draw.", heroes),
+    };
 
     private TreeItem? FindItem(TreeItem item, string wanted)
     {
@@ -363,12 +404,21 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
     private void ShowBattleMap(TreeItem item, BattleMap map)
     {
         _lastBattleMap = map.Scenario;
+        _battleMap = map;
         _slots = map.TeamA.Concat(map.TeamB).Order().ToList();
         _title.Text = item.GetText(0);
-        _facts.Text = $"{map.Planet.ToUpperInvariant()}   ·   {Teams(map)}";
         _preview.Texture = BattlePod.MapPicture(map, screens.Assets);
-        _description.Text = Lang.T("Two heroes against two. A team wins when the other has no hero and no life left, or when its heroes have stood in the circle round the other team's pod long enough to take it. When the time is up, it is a draw.");
+        ShowBattleText();
         _start.Disabled = false;
+    }
+
+    /// <summary>The picked battle map's teams and how a battle goes, for the team size chosen.</summary>
+    private void ShowBattleText()
+    {
+        if (_battleMap is not { } map || !Battle)
+            return;
+        _facts.Text = $"{map.Planet.ToUpperInvariant()}   ·   {TeamSizeName(TeamSize, map)}   ·   {Teams(map, TeamSize)}";
+        _description.Text = BattleText(TeamSize, map);
     }
 
     /// <summary>The start positions a room on the picked map has: those past the map's players are not for anyone.</summary>
@@ -391,7 +441,8 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
             if (room is null)
                 NetLink.Send(Room(_selected.Name, _selected.Planet, slots));
             else
-                NetLink.Send(new ChangeRoom(_selected.Name, _selected.Planet, slots, Options(network: true, room.Options), FillWithAi: Battle || _lastFill == 0));
+                NetLink.Send(new ChangeRoom(_selected.Name, _selected.Planet, slots, Options(network: true, room.Options), FillWithAi: Battle || _lastFill == 0,
+                    SeatsPerSlot: Battle ? 1 : Commanders));
             screens.ShowRoom();
             return;
         }
@@ -410,7 +461,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
     {
         var basis = kept ?? new MatchOptions();
         if (network && _lastMode == 1)
-            return RoomOptions.Battle(basis, _lastTier, _lastLives, Wins[Math.Clamp(_lastWin, 0, Wins.Length - 1)]);
+            return RoomOptions.Battle(basis, _lastTier, _lastLives, Wins[Math.Clamp(_lastWin, 0, Wins.Length - 1)], TeamSize);
         var victory = _lastVictory switch
         {
             0 => VictoryCondition.Default,
@@ -440,10 +491,12 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
         {
             (_lastMode, _lastBattleMap, _lastTier, _lastLives) = (1, room.Scenario, battle.Tier, battle.Lives);
             _lastWin = Math.Max(0, Array.IndexOf(Wins, battle.Win));
+            _lastTeamSize = Math.Max(0, RoomOptions.TeamSizes.ToList().IndexOf(battle.TeamSize));
             return;
         }
         _lastMode = 0;
         _lastMap = (room.Scenario, room.Planet);
+        _lastCommanders = Math.Max(0, RoomOptions.CommandersPerSide.ToList().IndexOf(room.SeatsPerSlot));
         (_lastBmu, _lastTech, _lastAi) = ((int)options.StartingBmu, (int)options.TechLevel, (int)options.AiLevel);
         _lastResources = Math.Max(0, options.Resources - ResourceLevel.Low);
         _lastVictory = options.Victory switch
@@ -459,12 +512,16 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
         _lastNoFirstPerson = options.DisableFirstPerson ? 1 : 0;
     }
 
-    /// <summary>A room's settings in a line, for all in it to read (the ready room's list, MachGuiCtxImReady).</summary>
-    public static string Summary(MatchOptions options)
+    /// <summary>
+    /// A room's settings in a line, for all in it to read (the ready room's list, MachGuiCtxImReady); with
+    /// <paramref name="commanders"/> a side has more than one, that too.
+    /// </summary>
+    public static string Summary(MatchOptions options, int commanders = 1)
     {
         if (options.Battle is { } battle)
             return string.Join("   ·   ",
-                $"{Lang.T("Battle")}: {BracketName(battle.Tier)}",
+                $"{Lang.T("Battle")}: {TeamSizeName(battle.TeamSize)}",
+                BracketName(battle.Tier),
                 BattlePod.LivesName(battle.Lives),
                 $"{Lang.T("Victory")}: {BattlePod.VictoryName(battle.Win)}",
                 Lang.T("Free seats: bot heroes"));
@@ -477,7 +534,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
             VictoryCondition.Timer => Lang.T("Timed: {0}", FormatMinutes(options.TimeLimit)),
             _ => "Default",
         };
-        return string.Join("   ·   ",
+        return string.Join("   ·   ", new[] { commanders > 1 ? Lang.T("{0} commanders per side", commanders) : null }.OfType<string>().Concat([
             Item("Starting BMUs", MatchOptions.BmuFor(options.StartingBmu)?.ToString() ?? "Map default"),
             Item("Resources", options.Resources == ResourceLevel.Default ? "Map default" : options.Resources.ToString()),
             Item("Technology", options.TechLevel == TechLevel.Default ? "Map default" : options.TechLevel.ToString()),
@@ -485,36 +542,50 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
             Item("AI", options.AiLevel.ToString()),
             Switch("Fog of war", options.FogOfWar),
             Switch("Broadcast alliances", options.BroadcastAlliances),
-            Switch("Disable first person", options.DisableFirstPerson));
+            Switch("Disable first person", options.DisableFirstPerson)]));
     }
 
     private static CreateRoom Room(string scenario, string planet, List<Race> slots) => _lastMode == 1
         ? new(Lang.T("{0}'s battle", NetLink.Name), scenario, planet, slots, Options(network: true), FillWithAi: true)
-        : new(Lang.T("{0}'s game", NetLink.Name), scenario, planet, slots, Options(network: true), FillWithAi: _lastFill == 0);
-
-    /// <summary>Opens the room page on its battle settings next time (MACHINES_MENU_SCREENSHOT's room-battle).</summary>
-    public static void ChooseBattle() => _lastMode = 1;
+        : new(Lang.T("{0}'s game", NetLink.Name), scenario, planet, slots, Options(network: true), FillWithAi: _lastFill == 0, SeatsPerSlot: Commanders);
 
     /// <summary>
-    /// A battle room on <paramref name="scenario"/> (a battle map) at a bracket, for the multiplayer page's automated checks
-    /// (MACHINES_MP=host,&lt;address&gt;,battle=&lt;map&gt;[,tier=,lives=,win=]); null off the battle maps.
+    /// Opens the room page on its battle settings next time (MACHINES_MENU_SCREENSHOT's room-battle), with
+    /// MACHINES_MENU_TEAM=&lt;n&gt; heroes a team chosen (5 for five against five; else today's layout) and its lives proposed,
+    /// as choosing it on the page does.
     /// </summary>
-    public static CreateRoom? BattleRoom(string scenario, int tier, int lives, BattleWin win)
+    public static void ChooseBattle()
+    {
+        _lastMode = 1;
+        if (!int.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_MENU_TEAM"), out var team))
+            return;
+        _lastTeamSize = Math.Max(0, RoomOptions.TeamSizes.ToList().IndexOf(team));
+        _lastLives = RoomOptions.ProposedLives(TeamSize, null);
+    }
+
+    /// <summary>
+    /// A battle room on <paramref name="scenario"/> (a battle map) at a bracket, with <paramref name="teamSize"/> heroes a team
+    /// (0 today's layout), for the multiplayer page's automated checks
+    /// (MACHINES_MP=host,&lt;address&gt;,battle=&lt;map&gt;[,tier=,lives=,win=,team=]); null off the battle maps.
+    /// </summary>
+    public static CreateRoom? BattleRoom(string scenario, int tier, int lives, BattleWin win, int teamSize = 0)
     {
         if (BattleCatalogue.Map(scenario) is not { } map)
             return null;
         (_lastMode, _lastBattleMap, _lastTier, _lastLives) = (1, map.Scenario, Math.Clamp(tier, 1, BattleCatalogue.MostTier), Math.Clamp(lives, 1, 5));
         _lastWin = Math.Max(0, Array.IndexOf(Wins, win));
+        _lastTeamSize = Math.Max(0, RoomOptions.TeamSizes.ToList().IndexOf(teamSize));
         return Room(map.Scenario, map.Planet, map.TeamA.Concat(map.TeamB).Order().ToList());
     }
 
     /// <summary>
     /// A room on the map last picked (or MACHINES_MENU_SELECT's, or the first skirmish map) with the settings last
-    /// chosen, for the multiplayer page's automated checks.
+    /// chosen and <paramref name="commanders"/> a side, for the multiplayer page's automated checks.
     /// </summary>
-    public static CreateRoom? LastRoom()
+    public static CreateRoom? LastRoom(int commanders = 1)
     {
         _lastMode = 0;
+        _lastCommanders = Math.Max(0, RoomOptions.CommandersPerSide.ToList().IndexOf(commanders));
         var map = _lastMap;
         if (map is null && System.Environment.GetEnvironmentVariable("MACHINES_MENU_SELECT")?.Split(',') is [var name, var planet])
             map = (name, planet);
