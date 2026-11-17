@@ -513,6 +513,44 @@ public class CoopCommanderTests
         Assert.False(classic.MayOrder(Anna, classic.Constructions.First(c => c.Race == Race.Blue)));
     }
 
+    [Fact]
+    public void A_squadron_s_attack_is_its_own_commander_s_alone()
+    {
+        var world = NewCoop();
+        var at = OpenGround(world);
+        var level = world.Data.Parm.Machines.First(m => m.Type == "ADMINISTRATOR" && m.SubType == "BOSS").Levels[0].HardwareLevel;
+        var herBoss = world.AddMachine(Race.Red, at, "ADMINISTRATOR", "BOSS", level, null, Anna);
+        var hers = Grunt(world, at + new Vector2(0, 12), Anna);
+        var hisBoss = world.AddMachine(Race.Red, at + new Vector2(30, 0), "ADMINISTRATOR", "BOSS", level, null, Ben);
+        var his = Grunt(world, at + new Vector2(30, 12), Ben);
+        // Blue's base, far off: the squadron goes after it.
+        var target = world.Constructions.Where(c => c.Race == Race.Blue).MaxBy(c => Vector2.Distance(c.Position, at))!;
+        Assert.True(world.AreEnemies(Race.Red, Race.Blue));
+        Assert.True(Vector2.Distance(target.Position, at) > 300);
+
+        world.Issue(new FormSquadronCommand(Race.Red, [herBoss.Id, hers.Id], 1) { Issuer = Anna });
+        world.Issue(new FormSquadronCommand(Race.Red, [hisBoss.Id, his.Id], 1) { Issuer = Ben });
+        world.Step();
+        world.Issue(new SquadronCommand(Race.Red, 1, new AttackCommand(Race.Red, [], target.Id)) { Issuer = Anna });
+        world.Step();
+        Assert.Empty(world.Rejected);
+        Assert.IsType<MoveOrder>(hers.Order);
+        Assert.IsType<IdleOrder>(his.Order);
+        Assert.IsType<IdleOrder>(hisBoss.Order);
+
+        // Her squadron's attack goes on every five seconds, still without his.
+        Run(world, 12);
+        Assert.IsNotType<IdleOrder>(hers.Order);
+        Assert.IsType<IdleOrder>(his.Order);
+        Assert.IsType<IdleOrder>(hisBoss.Order);
+
+        // His squadron's attack is his own and leaves hers going.
+        world.Issue(new SquadronCommand(Race.Red, 1, new AttackCommand(Race.Red, [], target.Id)) { Issuer = Ben });
+        world.Step();
+        Assert.IsType<MoveOrder>(his.Order);
+        Assert.IsNotType<IdleOrder>(hers.Order);
+    }
+
     /// <summary>
     /// As in a race of one player, where the player's squadron order ends the attack the computer gave that squadron while
     /// it played the race: a commander back from the computer orders her squadron, and its attack, which went for the whole
@@ -578,6 +616,145 @@ public class CoopCommanderTests
         Run(world, 40);
         Assert.True(Vector2.Distance(hers.Position, at) < 40, $"her grunt went after the quarry: {hers.Position}, {hers.Order}");
         Assert.IsNotType<MoveOrder>(hers.Order);
+    }
+
+    [Fact]
+    public void A_keeper_s_squadrons_leave_the_kept_machines_squadrons_alone()
+    {
+        var world = NewCoop();
+        var at = OpenGround(world);
+        var hers = Grunt(world, at, Anna);
+        var his = Grunt(world, at + new Vector2(0, 12), Ben);
+        world.Issue(new FormSquadronCommand(Race.Red, [hers.Id], 2) { Issuer = Anna });
+        world.Step();
+        world.ChangePresence([Away(Anna)]);
+
+        // Ben may order her machine, but his squadrons are of his own machines.
+        world.Issue(new FormSquadronCommand(Race.Red, [hers.Id, his.Id], 3) { Issuer = Ben });
+        world.Step();
+        Assert.Equal((2, 3), (hers.Squad, his.Squad));
+        world.Issue(new FormSquadronCommand(Race.Red, [hers.Id, his.Id], 2) { Issuer = Ben });
+        world.Step();
+        Assert.Equal((2, 2), (hers.Squad, his.Squad));
+        world.Issue(new SquadronCommand(Race.Red, 2, new MoveCommand(Race.Red, [], at + new Vector2(0, 60))) { Issuer = Ben });
+        world.Step();
+        Assert.IsType<MoveOrder>(his.Order);
+        Assert.IsType<IdleOrder>(hers.Order);
+        // He orders her machine by itself.
+        world.Issue(new MoveCommand(Race.Red, [hers.Id], at + new Vector2(30, 60)) { Issuer = Ben });
+        world.Step();
+        Assert.IsType<MoveOrder>(hers.Order);
+    }
+
+    [Fact]
+    public void A_squadron_is_given_by_its_commander_alone()
+    {
+        var world = NewCoop();
+        var at = OpenGround(world);
+        var level = world.Data.Parm.Machines.First(m => m.Type == "ADMINISTRATOR" && m.SubType == "BOSS").Levels[0].HardwareLevel;
+        var herBoss = world.AddMachine(Race.Red, at, "ADMINISTRATOR", "BOSS", level, null, Anna);
+        var hers = Grunt(world, at + new Vector2(0, 12), Anna);
+        var his = Grunt(world, at + new Vector2(30, 12), Ben);
+        world.Issue(new FormSquadronCommand(Race.Red, [herBoss.Id, hers.Id], 4) { Issuer = Anna });
+        world.Issue(new FormSquadronCommand(Race.Red, [his.Id], 4) { Issuer = Ben });
+        world.Step();
+
+        world.Issue(new SquadronCommand(Race.Red, 4, new GiveCommand(Race.Red, [], Ben)) { Issuer = Anna });
+        world.Step();
+        Assert.Empty(world.Rejected);
+        Assert.Equal((Ben, Ben), (herBoss.Owner, hers.Owner));
+        Assert.Equal(((int?)null, (int?)null, (int?)4), (herBoss.Squad, hers.Squad, his.Squad));
+
+        // Nor does a squadron of hers hand on what she may not order.
+        world.Issue(new SquadronCommand(Race.Red, 4, new GiveCommand(Race.Red, [], Anna)) { Issuer = Anna });
+        world.Step();
+        Assert.Equal("that squadron has no machines", Assert.Single(world.Rejected).Reason);
+        Assert.Equal(Ben, his.Owner);
+    }
+
+    [Fact]
+    public void A_building_a_commander_s_constructor_captures_is_theirs_and_obeys_the_race()
+    {
+        var world = NewCoop();
+        var at = OpenGround(world);
+        var garrison = world.AddConstruction(Race.Blue, at, "GARRISON", null, 1, 0, complete: true);
+        var dozer = world.AddMachine(Race.Red, at + new Vector2(0, 50), "CONSTRUCTOR", "DOZER", 1, null, Ben);
+
+        world.Issue(new CaptureCommand(Race.Red, [dozer.Id], garrison.Id) { Issuer = Ben });
+        Run(world, 600, () => garrison.Race == Race.Red);
+
+        Assert.Equal(Race.Red, garrison.Race);
+        Assert.Equal(Ben, garrison.Owner);
+        var hers = Grunt(world, at + new Vector2(50, 0), Anna);
+        world.Issue(new EnterGarrisonCommand(Race.Red, [hers.Id], garrison.Id) { Issuer = Anna });
+        world.Step();
+        Assert.Empty(world.Rejected);
+        Assert.IsType<EnterGarrisonOrder>(hers.Order);
+    }
+
+    [Fact]
+    public void Every_wheel_is_let_go_of_as_its_driver_leaves()
+    {
+        var world = NewCoop();
+        var at = OpenGround(world);
+        var hers = Grunt(world, at, Anna);
+        var his = Grunt(world, at + new Vector2(0, 12), Ben);
+        world.Issue(new DriveCommand(Race.Red, hers.Id, Driving: true, Forward: 1) { Issuer = Anna });
+        world.Issue(new DriveCommand(Race.Red, his.Id, Driving: true, Forward: 1) { Issuer = Ben });
+        world.Step();
+        Assert.True(hers.DrivenByPlayer && his.DrivenByPlayer);
+
+        world.ChangePresence([Away(Ben)]);
+        Assert.Equal((true, false), (hers.DrivenByPlayer, his.DrivenByPlayer));
+        Assert.DoesNotContain(his.Id, world.DriveInput.Keys);
+
+        // Anna keeps his machine and takes its wheel; then she leaves too, and the computer drives nothing of theirs.
+        world.Issue(new DriveCommand(Race.Red, his.Id, Driving: true, Forward: 1) { Issuer = Anna });
+        world.Step();
+        Assert.Equal((PlayerId?)Anna, his.Driver);
+        world.ChangePresence([Away(Anna)]);
+        Assert.Equal(Controller.Ai, world.Races[Race.Red].Controller);
+        Assert.False(hers.DrivenByPlayer || his.DrivenByPlayer);
+        Assert.Null(hers.Driver ?? his.Driver);
+        Assert.DoesNotContain(world.DriveInput.Keys, id => id == hers.Id || id == his.Id);
+    }
+
+    [Fact]
+    public void Of_three_commanders_the_lowest_present_keeps_and_hands_on_as_others_come_back()
+    {
+        var dan = new PlayerId(5);
+        var world = MatchSetup.Create(Data, "m_desert", "m_desert", new PlayerTable(
+        [
+            new PlayerSeat(Anna, Race.Red, PlayerKind.Human, "Anna"),
+            new PlayerSeat(Cleo, Race.Blue, PlayerKind.Human, "Cleo"),
+            new PlayerSeat(Ben, Race.Red, PlayerKind.Human, "Ben"),
+            new PlayerSeat(dan, Race.Red, PlayerKind.Human, "Dan"),
+        ]), 7);
+        var at = OpenGround(world);
+        var his = Grunt(world, at, Ben);
+
+        world.ChangePresence([Away(Anna), Away(Ben)]);
+        Assert.Equal((dan, dan), (world.Players.KeeperOf(Anna), world.Players.KeeperOf(Ben)));
+        world.Issue(new DriveCommand(Race.Red, his.Id, Driving: true) { Issuer = dan });
+        world.Step();
+        Assert.Equal((PlayerId?)dan, his.Driver);
+
+        // Anna back: she, the lowest there, keeps Ben's, and Dan's hands are off his wheel.
+        world.ChangePresence([Back(Anna)]);
+        Assert.Equal((PlayerId?)Anna, world.Players.KeeperOf(Ben));
+        Assert.Null(world.Players.KeeperOf(Anna));
+        Assert.False(his.DrivenByPlayer);
+        Assert.False(world.MayOrder(dan, his));
+        Assert.True(world.MayOrder(Anna, his));
+
+        // One leaving and coming back within a tick changes nothing.
+        world.Issue(new DriveCommand(Race.Red, his.Id, Driving: true) { Issuer = Anna });
+        world.Step();
+        var sum = world.Checksum();
+        world.ChangePresence([Away(Anna), Back(Anna)]);
+        Assert.Equal(sum, world.Checksum());
+        Assert.Equal((true, (PlayerId?)Anna), (his.DrivenByPlayer, his.Driver));
+        Assert.DoesNotContain(world.AiControllers, ai => ai.Race == Race.Red);
     }
 
     // ---- determinism ----------------------------------------------------------------------------------
@@ -658,13 +835,21 @@ public class CoopCommanderTests
     /// <summary>The golden skirmishes, whose players' orders and presence the next slices check machine by machine.</summary>
     public static TheoryData<string> Skirmishes => [GoldenCase.Skirmish.Name, GoldenCase.Orders.Name];
 
+    /// <summary>The other golden matches with players' orders: the four-way skirmish with a leaver, the Wired runs and the commanded battles.</summary>
+    public static TheoryData<string> OtherModes =>
+    [
+        GoldenCase.FourWay.Name, GoldenCase.Wired.Name, GoldenCase.WiredOrders.Name, GoldenCase.Battle.Name, GoldenCase.LeaverBattle.Name,
+        GoldenCase.ReturningBattle.Name,
+    ];
+
     /// <summary>
     /// In a race of one player an order given by the player is an order given by the race (P1 design §7.2, I7): each golden
-    /// skirmish played straight into two worlds, once with the race's authority and once with each order stamped with its
+    /// match played straight into two worlds, once with the race's authority and once with each order stamped with its
     /// race's player, as the lockstep session will stamp it, plays to the same checksum every hundred ticks.
     /// </summary>
     [Theory]
     [MemberData(nameof(Skirmishes))]
+    [MemberData(nameof(OtherModes))]
     public void An_order_of_a_race_s_only_player_is_the_race_s_order(string name)
     {
         var golden = GoldenCase.All.Single(c => c.Name == name);
