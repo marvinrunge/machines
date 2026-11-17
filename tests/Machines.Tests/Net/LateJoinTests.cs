@@ -361,6 +361,47 @@ public class LateJoinTests
     }
 
     /// <summary>
+    /// A player taken out of a battle for going out of step too often is out of it for good (P2 design §5.5): neither the
+    /// game that was taken out nor one connecting again under that name may join the battle late in a bot's seat, which the
+    /// lobby offers it; nor may a joiner taken out before it joined.
+    /// </summary>
+    [Fact]
+    public async Task A_player_taken_out_for_going_out_of_step_may_not_join_the_battle_again_in_a_bots_seat()
+    {
+        await using var relay = await RelayClients.Start();
+        // Begun, with no world run: the checksums are sent by hand.
+        var (room, clients, _) = await Battle(relay, ["Anna", "Ben", "Cleo"]);
+        await RelayClients.Until(() => relay.Relay.WithBeat(room.Id, beat => beat.Anchor) is not null, TimeSpan.FromSeconds(15), "the beat begun");
+        foreach (var client in clients)
+            await Said(client, new ChecksumReport(20, client.Me, 7));
+        var cleo = clients[2];
+
+        // Cleo's world goes its own way after every rebuild: three resyncs, then out.
+        for (var i = 1; i <= 3; i++)
+            cleo.Take(Assert.Single((await Said(cleo, new ChecksumReport(20, cleo.Me, 9))).OfType<MatchResumed>()));
+        Assert.Contains(new LeftMatch("Your game kept going out of step with the others, so it has left the match."), await Said(cleo, new ChecksumReport(20, cleo.Me, 9)));
+        Assert.Equal(SeatState.Barred, relay.Relay.WithBeat(room.Id, beat => beat.Seat(P(4))!.State));
+        var free = relay.Relay.WithBeat(room.Id, beat => beat.Seats.Count(s => s.State == SeatState.Bot));
+
+        // Back in the lobby, her game sees seats to join, and is refused; so is a game of hers connecting anew.
+        cleo.Connection.Send(new JoinRoom(room.Id));
+        Assert.Equal("you were taken out of that match", await Refusal(cleo));
+        Assert.Equal("Cleo: you were taken out of that match", (await Refused(() => relay.LateJoin("Cleo", web: true, room.Id))).Message);
+
+        // A joiner taken out before it joined: the same.
+        var zoe = await relay.LateJoin("Zoe", web: true, room.Id);
+        for (var i = 1; i <= 3; i++)
+            zoe.Take(Assert.Single((await Said(zoe, new ChecksumReport(20, zoe.Me, 9))).OfType<MatchResumed>()));
+        Assert.Contains(await Said(zoe, new ChecksumReport(20, zoe.Me, 9)), m => m is LeftMatch);
+        zoe.Connection.Send(new JoinRoom(room.Id));
+        Assert.Equal("you were taken out of that match", await Refusal(zoe));
+        Assert.Equal("Zoe: you were taken out of that match", (await Refused(() => relay.LateJoin("Zoe", web: false, room.Id))).Message);
+        Assert.Equal(free - 1, relay.Relay.WithBeat(room.Id, beat => beat.Seats.Count(s => s.State == SeatState.Bot)));
+        // Anyone else may still join.
+        Assert.Equal(ResumeReason.LateJoin, (await relay.LateJoin("Una", web: false, room.Id)).Resumed!.Reason);
+    }
+
+    /// <summary>
     /// A client sends a message and waits until the relay handled it (it answers a list of rooms in the order it was asked);
     /// returns what the client was sent until then.
     /// </summary>

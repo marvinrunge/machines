@@ -557,10 +557,10 @@ public sealed class RelayServer : IAsyncDisposable
     /// <summary>
     /// A player joins a running battle late, in a seat a bot has played since the start (P2 design §6.2): the seat
     /// <see cref="JoinRoom.Seat"/> names, else one on the team with fewer people (team A on a tie), the bot's seat there with the
-    /// lowest player. Only a battle whose beat runs and whose end is not agreed takes one, and only with the battle's ground
-    /// (<see cref="MatchInfo.Terrain"/>, when it has one). The joiner's world is rebuilt from the log while the bot plays on; once
-    /// it is on time every world turns the bot's row into the joiner's (<see cref="PlayerJoined"/>), who takes over the hero as
-    /// it stands.
+    /// lowest player. Only a battle whose beat runs and whose end is not agreed takes one, only with the battle's ground
+    /// (<see cref="MatchInfo.Terrain"/>, when it has one), and never a player it took out for going out of step (by the name they
+    /// connected with). The joiner's world is rebuilt from the log while the bot plays on; once it is on time every world turns
+    /// the bot's row into the joiner's (<see cref="PlayerJoined"/>), who takes over the hero as it stands.
     /// </summary>
     private void JoinLate(Member member, Room room, JoinRoom join)
     {
@@ -568,6 +568,13 @@ public sealed class RelayServer : IAsyncDisposable
         if (room.Match!.Options.Battle is not { } battle || member.Room == room)
         {
             SendTo(member, new Refused("that match has already started"));
+            return;
+        }
+        // Taken out for going out of step, a player is out of the match for good (§5.5), not back in a bot's seat that the lobby
+        // offers them: known, as a rejoin by name knows them, by the name they connected with.
+        if (room.Beat!.Seats.Any(s => s.State == SeatState.Barred && room.HelloNames.GetValueOrDefault(s.Player) == member.Name))
+        {
+            SendTo(member, new Refused("you were taken out of that match"));
             return;
         }
         if (Joinable(room) == 0)
