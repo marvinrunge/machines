@@ -418,15 +418,17 @@ public sealed class Construction : Actor
     /// <summary>
     /// Who ordered each machine on <see cref="ProductionQueue"/>, kept only for a race of several players and only through
     /// <see cref="Enqueue"/> and <see cref="Dequeue"/>. Whenever it is not in step with the queue (a race of one player, or
-    /// the queue changed another way), every machine on it is the race's first player's (<see cref="ProductionOwner"/>).
+    /// the queue changed another way), every machine on it is the race's first player's (<see cref="ProductionOwner"/>) until
+    /// the queue is empty again: owners out of step are let go at the next change, so that they never fall back into step by
+    /// chance and name the wrong machines.
     /// </summary>
     public List<PlayerId> ProductionOwners { get; } = [];
 
     /// <summary>Puts a machine at the end of the queue, for <paramref name="owner"/> when the race keeps owners (null when it does not).</summary>
     public void Enqueue(ResearchKey machine, PlayerId? owner)
     {
-        // An empty queue has no owners left over from a time it changed another way.
-        if (ProductionQueue.Count == 0)
+        // Owners out of step say nothing any more; an empty queue starts in step again.
+        if (ProductionOwners.Count != ProductionQueue.Count)
             ProductionOwners.Clear();
         var inStep = ProductionOwners.Count == ProductionQueue.Count;
         ProductionQueue.Add(machine);
@@ -434,13 +436,15 @@ public sealed class Construction : Actor
             ProductionOwners.Add(who);
     }
 
-    /// <summary>Takes the entry at <paramref name="index"/> off the queue, and its owner while the owners are in step.</summary>
+    /// <summary>Takes the entry at <paramref name="index"/> off the queue, and its owner while the owners are in step (else all of them).</summary>
     public void Dequeue(int index)
     {
         var inStep = ProductionOwners.Count == ProductionQueue.Count;
         ProductionQueue.RemoveAt(index);
         if (inStep)
             ProductionOwners.RemoveAt(index);
+        else
+            ProductionOwners.Clear();
     }
 
     /// <summary>Whose the machine at <paramref name="index"/> of the queue is: its owner while the owners are in step, else the race's first player.</summary>

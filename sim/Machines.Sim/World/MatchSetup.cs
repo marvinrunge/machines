@@ -186,12 +186,16 @@ public static class MatchSetup
 
     /// <summary>
     /// The players of a battle: the given rows of the teams' races, and a bot for every seat (<see cref="BattleSeats.Of"/>)
-    /// no row names, named after the hero the battle composes for it.
+    /// no row names, named after the hero the battle composes for it. A row of a team's race that is none of its seats would
+    /// be a player without a hero, and is refused.
     /// </summary>
     private static PlayerTable Seated(PlayerTable given, BattleOptions battle, IReadOnlyList<Race> races, string scenario)
     {
+        var seats = BattleSeats.Of(battle);
         var rows = given.Rows.Where(r => races.Contains(r.Race)).ToList();
-        var missing = BattleSeats.Of(battle).Where(seat => rows.All(r => r.Id != seat.Player)).ToList();
+        if (rows.FirstOrDefault(r => !seats.Any(seat => seat.Player == r.Id && seat.Race == r.Race)) is { } stray)
+            throw new ArgumentException($"player {stray.Id} of {stray.Race} has no seat in this battle");
+        var missing = seats.Where(seat => rows.All(r => r.Id != seat.Player)).ToList();
         if (missing.Count == 0)
             return rows.Count == given.Rows.Count ? given : new PlayerTable(rows);
         var heroes = BattleBots.Compose(battle, battle.Heroes, scenario).Heroes;

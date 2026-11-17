@@ -171,6 +171,27 @@ public class BattleSeatsTests
         }
     }
 
+    /// <summary>
+    /// A hero brought to today's layout plays the race it is put on, as before the seats, whatever player it names: the
+    /// relay puts each member's hero on the member's race but passes on the rest of what the client sent.
+    /// </summary>
+    [Fact]
+    public void A_hero_brought_to_today_s_layout_plays_its_race_whatever_player_it_names()
+    {
+        var options = new BattleOptions { Tier = 3, TeamA = Desert.TeamA, TeamB = Desert.TeamB };
+        var red = BattleBots.Bot(Desert.Scenario, 3, Race.Red, 0) with { Name = "Anna", Bot = false, Player = P(1) };
+        var green = BattleBots.Bot(Desert.Scenario, 3, Race.Red, 1) with { Name = "Ben", Bot = false, Race = Race.Green, Player = P(9) };
+
+        var composed = BattleBots.Compose(options, [red, green], Desert.Scenario);
+
+        Assert.Equal(Json(TodaysCompose(options, [red with { Player = null }, green with { Player = null }], Desert.Scenario)), Json(composed));
+        var world = MatchSetup.Create(Data, Desert.Scenario, Desert.Planet,
+            new Dictionary<Race, Controller> { [Race.Red] = Controller.Player, [Race.Green] = Controller.Player }, 5,
+            new MatchOptions { Battle = composed });
+        Assert.Equal(["Anna", "Ben"], world.Battle!.Options.Heroes.Where(h => !h.Bot).Select(h => h.Name));
+        Assert.Equal(4, world.Wired!.Heroes.Count);
+    }
+
     private static string Json(BattleOptions options) => JsonSerializer.Serialize(options, NetJson.Options);
 
     /// <summary>
@@ -235,5 +256,24 @@ public class BattleSeatsTests
 
         Assert.Equal([P(0), P(2)], world.Players.ById.Select(r => r.Id));
         Assert.Equal([Race.Red, Race.Green], world.Races.Keys);
+    }
+
+    public static TheoryData<string, int, PlayerSeat[]> Strays => new()
+    {
+        { "a second player of a race in today's layout", 0, [new(P(0), Race.Red, PlayerKind.Human, "Anna"), new(P(4), Race.Red, PlayerKind.Human, "Ben")] },
+        { "a player numbered as another team's seat", 5, [new(P(0), Race.Red, PlayerKind.Human, "Anna"), new(P(2), Race.Green, PlayerKind.Human, "Ben"),
+            new(P(4), Race.Green, PlayerKind.Human, "Cleo")] },
+        { "a player past the last seat", 5, [new(P(0), Race.Red, PlayerKind.Human, "Anna"), new(P(12), Race.Red, PlayerKind.Human, "Ben")] },
+    };
+
+    /// <summary>A battle's players are its seats: a row of a team's race that sits nowhere would be a player without a hero.</summary>
+    [Theory]
+    [MemberData(nameof(Strays))]
+    public void A_battle_refuses_a_player_of_its_teams_without_a_seat(string what, int teamSize, PlayerSeat[] rows)
+    {
+        Assert.False(string.IsNullOrEmpty(what));
+        var options = new MatchOptions { Battle = new BattleOptions { Tier = 3, TeamSize = teamSize } };
+
+        Assert.Throws<ArgumentException>(() => MatchSetup.Create(Data, "m_desert", "m_desert", new PlayerTable(rows), 3, options));
     }
 }

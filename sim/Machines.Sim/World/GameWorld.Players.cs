@@ -35,12 +35,13 @@ public sealed partial class GameWorld
     /// noted as away or present, and its race handed to the computer or back, one change after the other, as a race with one
     /// player always was (a race of several settles once for all of them from P1 slice S2 on).
     /// </summary>
-    /// <exception cref="KeyNotFoundException">A player the table does not know.</exception>
+    /// <exception cref="KeyNotFoundException">A player the table does not know; then none of the changes is made.</exception>
     public void ChangePresence(IReadOnlyList<PresenceChange> changes)
     {
-        foreach (var change in changes)
+        var races = changes.Select(change => Players.RaceOf(change.Player)).ToList();
+        for (var i = 0; i < changes.Count; i++)
         {
-            var race = Players.RaceOf(change.Player);
+            var (change, race) = (changes[i], races[i]);
             Players.SetAway(change.Player, change.Away);
             if (change.Away)
                 LeaveRace(race);

@@ -319,7 +319,8 @@ public static class BattleBots
 
     /// <summary>
     /// The options with a hero for every seat of the two teams (<see cref="BattleSeats.Of"/>): the given ones (players'
-    /// heroes, matched by their player, a hero without one being its race's first player), and bots for the rest, each picked
+    /// heroes, matched by their race in today's layout, where each is its race's first player, and by their player with a team
+    /// size, a hero without one being its race's first player), and bots for the rest, each picked
     /// for the map's <paramref name="scenario"/> (<see cref="Pick"/>). The hero at place k of a team mirrors the tier of the
     /// one at place k of the other; a bot whose counterpart is a bot too takes the bracket's top tier. In today's layout the
     /// seats are the teams' races in race order and the heroes come as they always did, sorted by race; with a team size the
@@ -332,13 +333,18 @@ public static class BattleBots
     {
         var seats = BattleSeats.Of(options);
         var sized = BattleSeats.Size(options) > 0;
-        BattleHero? Given(BattleSeat seat) => given.FirstOrDefault(h => (h.Player ?? PlayerId.Of(h.Race)) == seat.Player);
+        // Today's layout matches a hero by its race, as it always did, so that a player it names (from a client, which the
+        // relay passes on) cannot move it to another race's seat and leave its own race without a hero.
+        BattleHero? Given(BattleSeat seat) => sized
+            ? given.FirstOrDefault(h => (h.Player ?? PlayerId.Of(h.Race)) == seat.Player)
+            : given.FirstOrDefault(h => h.Race == seat.Race);
         var heroes = new List<BattleHero>();
         foreach (var seat in seats)
         {
             if (Given(seat) is { } own)
             {
-                heroes.Add(sized ? own with { Race = seat.Race, Player = seat.Player } : own);
+                heroes.Add(sized ? own with { Race = seat.Race, Player = seat.Player }
+                    : own.Player is { } named && named != seat.Player ? own with { Player = null } : own);
                 continue;
             }
             var counterpart = seats.FirstOrDefault(s => s.Team != seat.Team && s.Place == seat.Place);

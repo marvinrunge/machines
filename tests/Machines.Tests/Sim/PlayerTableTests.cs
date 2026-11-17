@@ -155,6 +155,22 @@ public class PlayerTableTests
         Assert.Throws<KeyNotFoundException>(() => world.ChangePresence([new PresenceChange(P(9), Away: true)]));
     }
 
+    [Fact]
+    public void Changes_of_presence_naming_a_stranger_change_nothing()
+    {
+        var table = new PlayerTable([Row(0, Race.Red), Row(1, Race.Blue, name: "Ben")]);
+        var world = MatchSetup.Create(Data, "m_desert", "m_desert", table, 7);
+        var before = world.Checksum();
+
+        Assert.Throws<KeyNotFoundException>(() => world.ChangePresence(
+            [new PresenceChange(P(0), Away: true), new PresenceChange(P(1), Away: true), new PresenceChange(P(9), Away: true)]));
+
+        Assert.Empty(world.Players.AwayPlayers);
+        Assert.Equal((Controller.Player, Controller.Player), (world.Races[Race.Red].Controller, world.Races[Race.Blue].Controller));
+        Assert.Empty(world.AiControllers);
+        Assert.Equal(before, world.Checksum());
+    }
+
     // ---- today's tables -------------------------------------------------------------------------------
 
     /// <summary>The matches of today, as the relay starts them: the golden cases, and a battle named only by its victory.</summary>
@@ -292,10 +308,38 @@ public class PlayerTableTests
         factory.ProductionQueue.Add(key);
         Assert.Equal((P(0), P(0)), (factory.ProductionOwner(0), factory.ProductionOwner(1)));
         factory.Dequeue(1);
-        Assert.Equal([P(0)], factory.ProductionOwners);
+        Assert.Empty(factory.ProductionOwners);
+        Assert.Equal(P(0), factory.ProductionOwner(0));
         factory.ProductionQueue.Clear();
         factory.Enqueue(key, P(4));
         Assert.Equal([P(4)], factory.ProductionOwners);
+    }
+
+    [Fact]
+    public void Owners_let_go_never_fall_back_into_step_by_chance()
+    {
+        var world = MatchSetup.Create(Data, "m_desert", "m_desert", new PlayerTable([Row(0, Race.Red), Row(4, Race.Red, name: "Ben")]), 7);
+        var factory = world.AddConstruction(Race.Red, new Vector2(100, 100), "FACTORY", "CIVILIAN", 1, 0, complete: true);
+        var key = new ResearchKey("AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+
+        factory.Enqueue(key, P(4));
+        factory.Enqueue(key, P(4));
+        // One put at the front another way: from now on every machine on the queue is the race's first player's.
+        factory.ProductionQueue.Insert(0, key);
+        Assert.Equal([P(0), P(0), P(0)], Enumerable.Range(0, 3).Select(factory.ProductionOwner));
+
+        // Taking one off leaves as many owners as machines again, but they no longer say whose the machines are.
+        factory.Dequeue(1);
+        Assert.Equal([P(0), P(0)], Enumerable.Range(0, 2).Select(factory.ProductionOwner));
+        factory.Enqueue(key, P(4));
+        Assert.Equal([P(0), P(0), P(0)], Enumerable.Range(0, 3).Select(factory.ProductionOwner));
+
+        // Once the queue is empty, it keeps its owners again.
+        while (factory.ProductionQueue.Count > 0)
+            factory.Dequeue(0);
+        factory.Enqueue(key, P(4));
+        factory.Enqueue(key, P(0));
+        Assert.Equal([P(4), P(0)], Enumerable.Range(0, 2).Select(factory.ProductionOwner));
     }
 
     [Fact]
