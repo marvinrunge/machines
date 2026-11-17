@@ -7,9 +7,10 @@ namespace Machines.Tests.Sim;
 
 /// <summary>
 /// Players apart from races change nothing for a match with one player per race (P1 design §7.4, tests T4 and T5): each
-/// golden match (<see cref="GoldenCase"/>) built once through its races, as <see cref="Replay.BuildWorld"/> builds it, and
-/// once through the table it records (<see cref="MatchInfo.Table"/>) plays to the same checksum every hundred ticks, and at
-/// every golden tick no actor belongs to anyone but its race's first player and no race is shared.
+/// golden match (<see cref="GoldenCase"/>) built once through its races, as <see cref="Replay.BuildWorld"/> built it before
+/// players were told apart from races, and once through the table it records (<see cref="MatchInfo.Table"/>), as it builds
+/// it now, plays to the same checksum every hundred ticks, and at every golden tick no actor belongs to anyone but its race's
+/// first player and no race is shared.
 /// </summary>
 public class PlayerNeutralityTests
 {
@@ -23,13 +24,21 @@ public class PlayerNeutralityTests
     private static GameWorld FromTable(MatchInfo match) =>
         MatchSetup.Create(Data, match.Scenario, match.Planet, match.Table(), match.Seed, match.Options);
 
+    /// <summary>
+    /// The world of a match built through its races, a controller for each row's slot in the rows' order: the road
+    /// <see cref="Replay.BuildWorld"/> took before it built from the table (it would throw on two rows of one race).
+    /// </summary>
+    private static GameWorld ByRace(MatchInfo match) =>
+        MatchSetup.Create(Data, match.Scenario, match.Planet, match.Players.ToDictionary(p => p.Slot, p => p.Ai ? Controller.Ai : Controller.Player),
+            match.Seed, match.Options);
+
     [Theory]
     [MemberData(nameof(Cases))]
     public void Two_roads_build_one_world(string name)
     {
         var golden = GoldenCase.All.Single(c => c.Name == name);
-        var byRace = new GoldenMatch(golden, Replay.BuildWorld(Data, golden.Match));
-        var byTable = new GoldenMatch(golden, FromTable(golden.Match));
+        var byRace = new GoldenMatch(golden, ByRace(golden.Match));
+        var byTable = new GoldenMatch(golden, Replay.BuildWorld(Data, golden.Match));
 
         Assert.Equal(byRace.World.Races.Keys, byTable.World.Races.Keys);
         Assert.Equal(byRace.World.Actors.Select(a => (a.Id, a.Race)), byTable.World.Actors.Select(a => (a.Id, a.Race)));
