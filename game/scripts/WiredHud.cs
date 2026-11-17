@@ -262,7 +262,8 @@ public partial class WiredHud : Control
         var name = Fit((now.HeroName is { Length: > 0 } given ? given : Lang.T("Hero")).Caps(), 21, 300);
         Say(at + new Vector2(12, 21) * _u, name, 21, MenuTheme.Text);
         var bodies = now.BodiesAtStart == 0 ? Lang.T("No spare body") : Lang.T("Spare bodies");
-        var low = now.SpareBodies == 0 && now.DownSeconds is null;
+        // The last body warns only when none is coming: not while one counts down, nor while one waits for the wave's end.
+        var low = now.SpareBodies == 0 && now.DownSeconds is null && !now.WaitsForWave;
         Say(at + new Vector2(12, 38) * _u, bodies, 14, low ? Warning : MenuTheme.Dim);
         var x = at.X + (12 * _u) + Width(bodies, 14) + 10 * _u;
         for (var i = 0; i < now.BodiesAtStart; i++)
