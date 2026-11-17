@@ -58,14 +58,28 @@ public class WiredReadoutTests
     }
 
     /// <summary>A run of two Red heroes (players 0 and 4) against the computer's Blue, each with a bank of its own.</summary>
-    private static GameWorld Coop()
+    private static GameWorld Coop(WiredOptions? options = null)
     {
         var rows = new List<PlayerSeat>
         {
             new(new PlayerId(0), Race.Red, PlayerKind.Human, "Anna"), new(new PlayerId(1), Race.Blue, PlayerKind.Ai, "AI"),
             new(new PlayerId(4), Race.Red, PlayerKind.Human, "Ben"),
         };
-        return MatchSetup.Create(Data, "m_desert", "m_desert", new PlayerTable(rows), 7, new MatchOptions { Wired = new WiredOptions() });
+        return MatchSetup.Create(Data, "m_desert", "m_desert", new PlayerTable(rows), 7, new MatchOptions { Wired = options ?? new WiredOptions() });
+    }
+
+    [Fact]
+    public void Each_hero_of_a_run_is_called_by_its_own_name()
+    {
+        // A run of one hero: the run's name, as always.
+        Assert.Equal("Solo", Now(NewRun(new WiredOptions { HeroName = "Solo" })).HeroName);
+        Assert.Equal("", Now(NewRun()).HeroName);
+
+        // Two heroes: the first plays the run's own hero, the second its entry, and each HUD names its own (it named the
+        // run's for both, so Ben's HUD and end screen said "Anvil").
+        var world = Coop(new WiredOptions { HeroName = "Anvil", Heroes = [new WiredHero(new PlayerId(4), "Bolt", WiredBalance.StartChassis, [])] });
+        Assert.Equal("Anvil", WiredReadout.Of(world, new PlayerId(0))!.HeroName);
+        Assert.Equal("Bolt", WiredReadout.Of(world, new PlayerId(4))!.HeroName);
     }
 
     [Fact]

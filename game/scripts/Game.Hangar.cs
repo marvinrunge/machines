@@ -137,7 +137,8 @@ public partial class Game
         var options = run.Options;
         var profile = WiredProfile.Load();
         WiredBefore = profile.Held ? null : profile.Record(options.Arena, options.Difficulty);
-        var result = new WiredRunResult(options.Arena, options.Difficulty, options.HeroName, state.Loadout.Chassis.Catalogue,
+        // The player's own hero by its own name (a run of several heroes names each; one hero has the run's).
+        var result = new WiredRunResult(options.Arena, options.Difficulty, options.HeroFor(Me).Name, state.Loadout.Chassis.Catalogue,
             WiredBalance.Score(state.Stats, options.Difficulty), state.Stats);
         if (WiredProfile.Runs.Tell(result) is { } opened)
             ShowOpened(opened);

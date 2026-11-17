@@ -255,11 +255,11 @@ public partial class WiredHud : Control
     /// <summary>The hero's name and the bodies left, at the top left of the view.</summary>
     private void DrawHero(WiredReadout now)
     {
-        var options = _game.World.Wired!.Options;
         var at = new Vector2(Left + 16 * _u, 6 * _u);
         var box = new Rect2(at, new Vector2(330, 44) * _u);
         Plate(box, Plating, MenuTheme.Edge, 8);
-        var name = Fit((options.HeroName is { Length: > 0 } given ? given : Lang.T("Hero")).Caps(), 21, 300);
+        // The player's own hero's name: in a run of several heroes each has its own.
+        var name = Fit((now.HeroName is { Length: > 0 } given ? given : Lang.T("Hero")).Caps(), 21, 300);
         Say(at + new Vector2(12, 21) * _u, name, 21, MenuTheme.Text);
         var bodies = now.BodiesAtStart == 0 ? Lang.T("No spare body") : Lang.T("Spare bodies");
         var low = now.SpareBodies == 0 && now.DownSeconds is null;

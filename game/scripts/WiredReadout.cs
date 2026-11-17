@@ -45,6 +45,12 @@ public readonly record struct ChipReadout(string Id, ChipFamily Family, bool Lit
 /// </summary>
 public sealed record WiredReadout
 {
+    /// <summary>
+    /// The name the player gave their hero (<see cref="WiredOptions.HeroFor"/>): in a run of several heroes each its own,
+    /// else the run's; empty when none was given.
+    /// </summary>
+    public required string HeroName { get; init; }
+
     /// <summary>The wave the HUD speaks of: the one under way, or else the one coming.</summary>
     public required int Wave { get; init; }
 
@@ -139,6 +145,7 @@ public sealed record WiredReadout
         var wave = run.Phase == WiredPhase.Ended ? run.Wave : run.ShopWave;
         return new WiredReadout
         {
+            HeroName = run.Options.HeroFor(player).Name,
             Wave = wave,
             BetweenWaves = run.BetweenWaves,
             Seconds = run.Waiting ? (int)MathF.Ceiling(run.Countdown) : 0,
