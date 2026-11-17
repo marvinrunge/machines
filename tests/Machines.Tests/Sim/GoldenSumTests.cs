@@ -3,6 +3,7 @@ using Machines.Import.Model;
 using Machines.Net;
 using Machines.Sim;
 using Machines.Sim.Survival;
+using Machines.Sim.World;
 using Xunit.Abstractions;
 
 namespace Machines.Tests.Sim;
@@ -10,7 +11,9 @@ namespace Machines.Tests.Sim;
 /// <summary>
 /// Golden sums of commanded matches as they are played online, taken on the code before players were told apart from
 /// races (P1 design §7.1, slice S0): a skirmish of two commanders, a four-way match whose leaver comes back, a commanded
-/// Wired run and three battles (<see cref="GoldenCase"/>). Every match is shaped as the relay starts it (seated humans in
+/// Wired run, three battles, and three that the review of S0 added: a battle whose leavers come back (one in the tick it
+/// left), a skirmish of the other orders whose player leaves and comes back in one tick, and a Wired run of the rest of the
+/// hangar and the hero's powers (<see cref="GoldenCase"/>). Every match is shaped as the relay starts it (seated humans in
 /// seat order, then the computer's rows in seat order) and built through <see cref="Replay.BuildWorld"/>, so the sums pin
 /// the actor order of a real online match; one lockstep session plays it, every human's turn coming through the wire as
 /// the relay brings it, the commands made by the players' scripts (<see cref="GoldenScript"/>). Each match's recording is
@@ -120,6 +123,33 @@ public class GoldenSumTests(ITestOutputHelper output)
         Assert.Equal(LeaverBattleEnded, match.World.Battle.Result);
     }
 
+    [Fact]
+    public void A_battle_whose_leavers_come_back_keeps_its_sums_and_result()
+    {
+        var match = Play(GoldenCase.ReturningBattle, ReturningBattleSums);
+
+        Assert.Equal(4, match.Session.Presence.Count);
+        Assert.False(match.World.Battle!.Bots.Contains(Race.Green) || match.World.Battle.Bots.Contains(Race.Red), "both players drive their heroes again");
+        Assert.Equal(ReturningBattleEnded, match.World.Battle.Result);
+    }
+
+    [Fact]
+    public void A_skirmish_of_many_orders_keeps_its_sums()
+    {
+        var match = Play(GoldenCase.Orders, OrdersSums);
+
+        Assert.Equal(3, match.Session.Presence.Count);
+        Assert.Equal((Controller.Player, Controller.Ai), (match.World.Races[Race.Red].Controller, match.World.Races[Race.Blue].Controller));
+    }
+
+    [Fact]
+    public void A_wired_run_of_many_orders_keeps_its_sums()
+    {
+        var match = Play(GoldenCase.WiredOrders, WiredOrdersSums);
+
+        Assert.Equal((WiredPhase.Wave, 5), (match.World.Wired!.Phase, match.World.Wired.Wave));
+    }
+
     // Taken at e915579 (branch online, P0 committed, nothing of P1 built).
     private static readonly ulong[] SkirmishSums = [0x4267B178A96649D3UL, 0x9E440FFF9F1190A5UL];
     private static readonly ulong[] FourWaySums = [0xCE853B3BB625E2ADUL, 0xE9C8E3683C9106F2UL, 0x640F9E9E5D6727C5UL];
@@ -130,4 +160,9 @@ public class GoldenSumTests(ITestOutputHelper output)
     private static readonly BattleResult BotBattleEnded = new(1, BattleEnd.Capture, 219.35f);
     private static readonly ulong[] LeaverBattleSums = [0x2016ADC4F82F375CUL, 0xD0E53E46D2A85EDBUL, 0x730AC7688EFC8203UL];
     private static readonly BattleResult LeaverBattleEnded = new(0, BattleEnd.Wipe, 518f);
+    // Added by the review of S0, taken at a3a7c7c (sim and net still as at e915579).
+    private static readonly ulong[] ReturningBattleSums =[0xD51C0428B2E51BD7UL, 0xCA5F0BC1705D7753UL, 0x91527D299E29F339UL];
+    private static readonly BattleResult ReturningBattleEnded = new(0, BattleEnd.Wipe, 538.7f);
+    private static readonly ulong[] OrdersSums = [0x8A125333E713E7BFUL, 0x6D33FD9711139C1FUL, 0x2FD0D33A99C8B818UL];
+    private static readonly ulong[] WiredOrdersSums = [0x062822930B5E3B47UL, 0x7D60C49AF3349580UL, 0x021D50BFEDE74C78UL];
 }

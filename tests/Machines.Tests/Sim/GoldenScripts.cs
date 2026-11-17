@@ -47,7 +47,34 @@ internal sealed record GoldenCase(string Name, MatchInfo Match, int[] Ticks, Fun
     public static GoldenCase LeaverBattle => new("G6 battle with a leaver", CommandedBattle(), [2000, 4000, 12000],
         () => [new BattleScript(Race.Red, 401), new BattleScript(Race.Green, 402)], new PlayerLeft(Race.Green, 800));
 
-    public static IReadOnlyList<GoldenCase> All => [Skirmish, FourWay, Wired, Battle, BotBattle, LeaverBattle];
+    /// <summary>
+    /// G7: G4 whose Green player leaves at tick 800 and comes back at 1600, the bot letting go of the hero again, and whose
+    /// Red player leaves and comes back in the same tick, 2400, as the relay has it when nobody's turn passed the leave
+    /// (P1 design §2.8: a race with one player takes both changes one by one, as today); its last sum is taken after its end.
+    /// </summary>
+    public static GoldenCase ReturningBattle => new("G7 battle whose leavers come back", CommandedBattle(), [2000, 4000, 12000],
+        () => [new BattleScript(Race.Red, 701), new BattleScript(Race.Green, 702)],
+        new PlayerLeft(Race.Green, 800), new PlayerReturned(Race.Green, 1600), new PlayerLeft(Race.Red, 2400), new PlayerReturned(Race.Red, 2400));
+
+    /// <summary>
+    /// G8: two commanders on Canyon Attack who give the orders a skirmish has beyond G1's (<see cref="OrdersScript"/>): every
+    /// order the next slices check machine by machine; Red leaves and comes back in the same tick, 1200, Blue leaves for good
+    /// at 2600.
+    /// </summary>
+    public static GoldenCase Orders => new("G8 skirmish of many orders", Relayed("m_desert", "m_desert", new MatchOptions(), 17, [Race.Red, Race.Blue], []),
+        [1000, 2000, 4000], () => [new OrdersScript(Race.Red, 801), new OrdersScript(Race.Blue, 802)],
+        new PlayerLeft(Race.Red, 1200), new PlayerReturned(Race.Red, 1200), new PlayerLeft(Race.Blue, 2600));
+
+    /// <summary>
+    /// G9: a Wired run on Canyon Attack whose hero starts as a spy, whose special lays mines, and whose player, beside G3's
+    /// shopping and driving, uses the rest of the hangar and the hero's own powers (<see cref="WiredOrdersScript"/>); Blue
+    /// the computer's.
+    /// </summary>
+    public static GoldenCase WiredOrders => new("G9 Wired of many orders",
+        Relayed("m_desert", "m_desert", new MatchOptions { Wired = new WiredOptions { Chassis = "spy3" } }, 19, [Race.Red], [Race.Blue]),
+        [2000, 6000, 10000], () => [new WiredOrdersScript(Race.Red, 901)]);
+
+    public static IReadOnlyList<GoldenCase> All => [Skirmish, FourWay, Wired, Battle, BotBattle, LeaverBattle, ReturningBattle, Orders, WiredOrders];
 
     private static MatchInfo CommandedBattle() => RelayedBattle("m_desert", new BattleOptions { Tier = 3, Lives = 2 }, 5, (Race.Red, 3), (Race.Green, 2));
 
@@ -315,6 +342,125 @@ internal sealed class SkirmishScript(Race race, int seed, bool alliances = false
 }
 
 /// <summary>
+/// A skirmish commander who, beside what a <see cref="SkirmishScript"/> does, once a second gives one of the other orders a
+/// skirmish has: takes a machine off a factory's queue or an item off a lab's, stops, follows, patrols, sets the initiative,
+/// holds ground, sets a factory's assembly point, gives a series of orders, sends constructors to repair, build on, take
+/// down or capture, recycles or blows up a machine now and then, gives a squadron an order of these, and sends carriers,
+/// locators, healers, garrisons and APCs to their work when it has them.
+/// </summary>
+internal sealed class OrdersScript(Race race, int seed) : GoldenScript(race, seed)
+{
+    private readonly SkirmishScript _commander = new(race, seed + 1000);
+
+    public override IReadOnlyList<Command> Next(GameWorld world) =>
+        world.Tick % GameWorld.TicksPerSecond == 3 + 4 * (int)Race ? More(world) : _commander.Next(world);
+
+    private List<int> Ids(IReadOnlyList<Actor> actors, int most) => Some(actors, most).Select(a => a.Id).ToList();
+
+    private List<Command> More(GameWorld world)
+    {
+        var own = world.Machines.Where(m => m.Race == Race && !m.IsDead).OrderBy(m => m.Id).ToList();
+        var movers = own.Where(m => m.Spec.Type is not ("CONSTRUCTOR" or "TECHNICIAN")).ToList();
+        var fighters = own.Where(m => m.CanFight).ToList();
+        var constructors = own.Where(m => m.Spec.Type == "CONSTRUCTOR").ToList();
+        var buildings = world.Constructions.Where(c => c.Race == Race && !c.IsDead).OrderBy(c => c.Id).ToList();
+        var factories = buildings.Where(c => c.Complete && c.IsType("FACTORY")).ToList();
+        var sites = buildings.Where(c => !c.Complete).ToList();
+        switch (Random.Next(20))
+        {
+            case 0 when factories.Where(f => f.ProductionQueue.Count > 0).ToList() is { Count: > 0 } busy:
+            {
+                var factory = Pick(busy);
+                return [new CancelProductionCommand(Race, factory.Id, Random.Next(factory.ProductionQueue.Count))];
+            }
+            case 1 when buildings.Where(c => c.ResearchQueue.Count > 0).ToList() is { Count: > 0 } studying:
+            {
+                var lab = Pick(studying);
+                return [new CancelResearchCommand(Race, lab.Id, Random.Next(lab.ResearchQueue.Count))];
+            }
+            case 2 when movers.Count > 0:
+                return [new StopCommand(Race, Ids(movers, 3))];
+            case 3 when movers.Count > 1:
+                return [new FollowCommand(Race, Ids(movers, 2), Pick(own).Id)];
+            case 4 when fighters.Count > 0:
+            {
+                var from = Pick(fighters).Position;
+                return [new PatrolCommand(Race, Ids(fighters, 3), [Near(world, from, 150), Near(world, from, 150), Near(world, from, 150)])];
+            }
+            case 5 when own.Count > 0:
+                return [new DefConCommand(Race, Ids(own, 4), (DefCon)Random.Next(3))];
+            case 6 when fighters.Count > 0:
+                return [new StandGroundCommand(Race, Ids(fighters, 3))];
+            case 7 when factories.Count > 0:
+            {
+                var factory = Pick(factories);
+                return [new AssemblyPointCommand(Race, [factory.Id], Random.Next(3) == 0 ? null : Near(world, factory.Position, 120))];
+            }
+            case 8 when movers.Count > 0:
+            {
+                var from = Pick(movers).Position;
+                return [new SeriesCommand(Race, Ids(movers, 2),
+                    [new MoveCommand(Race, [], Near(world, from, 150)), new AttackMoveCommand(Race, [], Near(world, from, 250)), new DefConCommand(Race, [], DefCon.High)])];
+            }
+            case 9 when constructors.Count > 0 && buildings.Where(c => c.Complete).ToList() is { Count: > 0 } standing:
+            {
+                var damaged = standing.Where(c => c.HitPoints < c.MaxHitPoints).ToList();
+                return [new RepairCommand(Race, Ids(constructors, 2), Pick(damaged.Count > 0 ? damaged : standing).Id)];
+            }
+            case 10 when constructors.Count > 0 && sites.Count > 0:
+                return [new ConstructCommand(Race, Ids(constructors, 2), Pick(sites).Id)];
+            case 11 when constructors.Count > 0 && sites.Count > 0 && Random.Next(2) == 0:
+                return [new DeconstructCommand(Race, Ids(constructors, 1), Pick(sites).Id)];
+            case 12 when constructors.Count > 1 && Random.Next(2) == 0
+                && world.Constructions.Where(c => c.Race != Race && c.Complete && !c.IsDead).OrderBy(c => c.Id).ToList() is { Count: > 0 } theirs:
+                return [new CaptureCommand(Race, Ids(constructors, 1), Pick(theirs).Id)];
+            case 13 when movers.Count > 3 && Random.Next(3) == 0:
+                return [new RecycleCommand(Race, [Pick(movers).Id])];
+            case 14 when movers.Count > 2 && Random.Next(2) == 0:
+            {
+                // Now and then called off at once by a stop in the same turn.
+                var doomed = Pick(movers).Id;
+                return Random.Next(2) == 0 ? [new SelfDestructCommand(Race, [doomed])] : [new SelfDestructCommand(Race, [doomed]), new StopCommand(Race, [doomed])];
+            }
+            case 15 when fighters.Count > 0:
+            {
+                Command order = Random.Next(3) switch
+                {
+                    0 => new StopCommand(Race, []),
+                    1 => new DefConCommand(Race, [], (DefCon)Random.Next(3)),
+                    _ => new PatrolCommand(Race, [], [Near(world, Pick(fighters).Position, 200), Near(world, Pick(fighters).Position, 200)]),
+                };
+                return [new SquadronCommand(Race, 1 + Random.Next(3), order)];
+            }
+            case 16 when own.Where(m => m.IsType("RESOURCE_CARRIER") && !m.IsScavenger).ToList() is { Count: > 0 } carriers
+                && world.Constructions.Where(c => c.Race == Race && c.Complete && c.IsType("MINE")).OrderBy(c => c.Id).ToList() is { Count: > 0 } mines:
+                return [new TransportCommand(Race, Ids(carriers, 2), Pick(mines).Id, 0)];
+            case 17 when own.Where(m => m.IsType("GEO_LOCATOR")).ToList() is { Count: > 0 } locators:
+            {
+                var locator = Pick(locators);
+                return [new LocateCommand(Race, [locator.Id], Near(world, locator.Position, 300))];
+            }
+            case 18 when own.Where(m => m.Weapons.Any(w => w.IsHealer)).ToList() is { Count: > 0 } healers && own.Count > 1:
+                return [new HealCommand(Race, Ids(healers, 1), Pick(own).Id)];
+            case 19 when movers.Count > 0:
+            {
+                if (own.Where(m => m.IsType("APC")).ToList() is { Count: > 0 } apcs)
+                {
+                    var apc = Pick(apcs);
+                    return Random.Next(2) == 0
+                        ? [new BoardCommand(Race, Ids(movers, 2), apc.Id)]
+                        : [new DeployCommand(Race, [apc.Id], Near(world, apc.Position, 200))];
+                }
+                var shelters = buildings.Where(c => c.Complete && c.HasInterior).ToList();
+                return shelters.Count > 0 ? [new EnterGarrisonCommand(Race, Ids(movers, 2), Pick(shelters).Id)] : [];
+            }
+            default:
+                return [];
+        }
+    }
+}
+
+/// <summary>
 /// The player of a Wired run: between waves it goes to the pod, opens the hangar, buys from the offer, puts what it bought
 /// on, buys an escort or mends the pod, closes the hangar and says it is ready; in a wave it drives the hero in first person
 /// for a while (forward, turning, aiming at a foe, firing), then lets go and sends it at the wrecks and the foes, as
@@ -415,6 +561,72 @@ internal sealed class WiredScript(Race race, int seed) : GoldenScript(race, seed
         ];
         var slot = slots.FirstOrDefault(s => state.Loadout.WhyNotFit(item, s) is null);
         return slot is null ? [] : [new WiredEquipCommand(Race, item.Id, slot)];
+    }
+}
+
+/// <summary>
+/// The player of a Wired run who, beside what a <see cref="WiredScript"/> does, uses the rest of the hangar and the hero's
+/// own powers every second and a half: in the hangar it rerolls the offer, raises an item by a Mk, sells or takes off
+/// something now and then, puts its chips in and changes to another chassis it owns; in a wave it dashes, uses an ability
+/// and its chassis' special; whenever a boss left chips to choose from, it takes one now and then.
+/// </summary>
+internal sealed class WiredOrdersScript(Race race, int seed) : GoldenScript(race, seed)
+{
+    private readonly WiredScript _player = new(race, seed + 1000);
+
+    public override IReadOnlyList<Command> Next(GameWorld world)
+    {
+        var made = _player.Next(world);
+        if (world.Tick % 30 != 15 || world.HeroOf(Race) is not { } hero)
+            return made;
+        return [.. made, .. More(world, world.Wired!, world.Wired!.Heroes[Race], hero)];
+    }
+
+    private List<Command> More(GameWorld world, WiredRun run, WiredState state, Machine hero)
+    {
+        if (state.ChipChoice.Count > 0 && Random.Next(3) == 0)
+        {
+            int? socket = state.HangarOpen && Random.Next(2) == 0 ? Random.Next(WiredBalance.ChipSockets) : null;
+            return [new WiredChipChoiceCommand(Race, Random.Next(state.ChipChoice.Count), socket)];
+        }
+        if (run.BetweenWaves)
+        {
+            if (!state.HangarOpen)
+                return [];
+            var loose = state.Items.Where(i => !state.Loadout.Holds(i.Id)).ToList();
+            switch (Random.Next(7))
+            {
+                case 0:
+                    return [new WiredRerollCommand(Race)];
+                case 1 or 2 when state.Items.Where(i => i.Kind is WiredKind.Weapon or WiredKind.Module).ToList() is { Count: > 0 } raisable:
+                    return [new WiredUpgradeCommand(Race, Pick(raisable).Id)];
+                case 3 when loose.Where(i => i.Kind is not WiredKind.Chassis).ToList() is { Count: > 0 } spare && Random.Next(2) == 0:
+                    return [new WiredSellCommand(Race, Pick(spare).Id)];
+                case 4 when state.Loadout.Worn.Where(i => i.Kind is not WiredKind.Chassis).ToList() is { Count: > 1 } worn:
+                    return [new WiredUnequipCommand(Race, Pick(worn).Id)];
+                case 5:
+                {
+                    var chips = loose.Where(i => i.Kind == WiredKind.Chip).ToList();
+                    return chips.Count > 0
+                        ? [new WiredChipCommand(Race, Pick(chips).Id, Random.Next(WiredBalance.ChipSockets))]
+                        : [new WiredChipCommand(Race, null, Random.Next(WiredBalance.ChipSockets))];
+                }
+                // Now and then onto the run's first chassis, and at once back.
+                case 6 when loose.Where(i => i.Kind == WiredKind.Chassis).ToList() is { Count: > 0 } bodies
+                    && (state.Loadout.Chassis.Catalogue == WiredBalance.StartChassis || Random.Next(4) == 0):
+                    return [new WiredChassisCommand(Race, Pick(bodies).Id)];
+                default:
+                    return [];
+            }
+        }
+        var foe = run.Foes.Select(f => f.Machine).Where(m => !m.IsDead).OrderBy(m => Vector2.DistanceSquared(m.Position, hero.Position)).ThenBy(m => m.Id).FirstOrDefault();
+        return Random.Next(4) switch
+        {
+            0 => [new WiredDashCommand(Race, Random.Next(3) == 0 ? default : Vector2.Normalize(new Vector2(Random.Next(-2, 3), Random.Next(-2, 3)) + new Vector2(0.5f, 0)))],
+            1 => [new WiredSpecialCommand(Race, Random.Next(3) != 0)],
+            2 => [new WiredAbilityCommand(Race, Random.Next(WiredBalance.AbilitySlots), foe?.Position ?? Near(world, hero.Position, 100))],
+            _ => [],
+        };
     }
 }
 
