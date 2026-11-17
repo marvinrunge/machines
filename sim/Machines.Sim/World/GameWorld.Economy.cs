@@ -86,7 +86,7 @@ public sealed partial class GameWorld
         var item = Data.ResearchTree.Find(key);
         if (item is null)
         {
-            factory.ProductionQueue.RemoveAt(0);
+            Dequeue(factory, 0);
             return;
         }
 
@@ -97,13 +97,15 @@ public sealed partial class GameWorld
         if (factory.ProductionSpent < price || MaxUnitsExist(factory.Race) || PadBlocked(factory))
             return;
 
-        factory.ProductionQueue.RemoveAt(0);
+        // The machine is whoever's ordered it (in a race of one player, the race's).
+        var owner = factory.ProductionOwner(0);
+        Dequeue(factory, 0);
         factory.ProductionSpent = 0;
         // The new machine appears on the pad before the door (MachLogFactory::createNewMachine), unless something
         // stands there, and then walks off it so the next one has room (moveToDeployPoint).
         var pad = factory.EntranceOutside is { } outside && PadClear(outside) ? outside : (Vector2?)null;
         var spawn = pad ?? FreePointNear(factory);
-        var machine = AddMachine(factory.Race, spawn, key.Type, key.SubType, key.HardwareLevel, key.WeaponCombo);
+        var machine = AddMachine(factory.Race, spawn, key.Type, key.SubType, key.HardwareLevel, key.WeaponCombo, owner);
         // A disguised factory's machines wear the same disguise (MachLogFactory::createNewMachine).
         machine.DisplayAs = factory.DisplayAs;
         // It comes into the world pumped and alert (MachLogMachine::teleportIntoWorld).

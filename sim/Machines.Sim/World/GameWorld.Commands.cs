@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Numerics;
 using Machines.Import.Model;
 
@@ -11,6 +12,9 @@ public sealed partial class GameWorld
     /// <returns>null when applied, otherwise why it was refused.</returns>
     private string? Apply(Command command)
     {
+        // A player speaks only for their own race (the lockstep session already drops other turns; this guards commands made in code).
+        if (command.Issuer is { } speaker && !Plays(speaker, command.Race))
+            return "not your race";
         if (Battle is not null)
         {
             if (WhyNotInBattle(command) is { } refused)
@@ -24,7 +28,7 @@ public sealed partial class GameWorld
         {
             case MoveCommand move:
             {
-                var group = Own<Machine>(move.Race, move.Machines).ToList();
+                var group = Own<Machine>(move, move.Machines).ToList();
                 var formation = GroupMove.Formation(group);
                 foreach (var (machine, destination) in GroupMove.Destinations(group, move.Target, Nav))
                 {
@@ -39,7 +43,7 @@ public sealed partial class GameWorld
             {
                 if (Find<Machine>(follow.Target) is not { IsDead: false } leader)
                     return "nothing to follow there";
-                foreach (var machine in Own<Machine>(follow.Race, follow.Machines).Where(m => m.Id != leader.Id))
+                foreach (var machine in Own<Machine>(follow, follow.Machines).Where(m => m.Id != leader.Id))
                     Send(machine, new FollowOrder(leader.Id), leader.Position);
                 return null;
             }
@@ -49,7 +53,7 @@ public sealed partial class GameWorld
 
             case AttackMoveCommand attackMove:
             {
-                var group = Own<Machine>(attackMove.Race, attackMove.Machines).Where(m => m.CanFight).ToList();
+                var group = Own<Machine>(attackMove, attackMove.Machines).Where(m => m.CanFight).ToList();
                 var formation = GroupMove.Formation(group);
                 foreach (var (machine, destination) in GroupMove.Destinations(group, attackMove.Target, Nav))
                     Send(machine, new AttackMoveOrder(destination), destination, attackMove.Target, formation[machine.Id]);
@@ -61,9 +65,9 @@ public sealed partial class GameWorld
                 var target = FindTarget(attack.Target);
                 if (target is null || !CanAttack(attack.Race, target))
                     return "no enemy there";
-                foreach (var turret in Own<Construction>(attack.Race, attack.Machines).Where(TakesOrders))
+                foreach (var turret in Own<Construction>(attack, attack.Machines).Where(TakesOrders))
                     _turretOrders[turret.Id] = target.Id;
-                var attackers = Own<Machine>(attack.Race, attack.Machines).Where(m => m.CanFight).ToList();
+                var attackers = Own<Machine>(attack, attack.Machines).Where(m => m.CanFight).ToList();
                 var places = GroupMove.Formation(attackers);
                 foreach (var machine in attackers)
                 {
@@ -75,7 +79,7 @@ public sealed partial class GameWorld
             }
 
             case StopCommand stop:
-                foreach (var actor in Own<Actor>(stop.Race, stop.Machines))
+                foreach (var actor in Own<Actor>(stop, stop.Machines))
                 {
                     actor.SelfDestructAt = null;
                     _turretOrders.Remove(actor.Id);
@@ -85,14 +89,14 @@ public sealed partial class GameWorld
                 return null;
 
             case AssemblyPointCommand assembly:
-                foreach (var factory in Own<Construction>(assembly.Race, assembly.Factories).Where(c => c.IsType("FACTORY")))
+                foreach (var factory in Own<Construction>(assembly, assembly.Factories).Where(c => c.IsType("FACTORY")))
                     factory.AssemblyPoint = assembly.Point;
                 return null;
 
             case PatrolCommand patrol:
                 if (patrol.Points.Count == 0)
                     return "a patrol needs points";
-                foreach (var machine in Own<Machine>(patrol.Race, patrol.Machines))
+                foreach (var machine in Own<Machine>(patrol, patrol.Machines))
                     Send(machine, new PatrolOrder(patrol.Points, 0), patrol.Points[0]);
                 return null;
 
@@ -104,13 +108,13 @@ public sealed partial class GameWorld
                 var site = Find<Construction>(construct.Construction);
                 if (site is null || site.Race != construct.Race || site.Complete)
                     return "nothing to build there";
-                foreach (var constructor in Own<Machine>(construct.Race, construct.Constructors).Where(m => m.Spec.Type == "CONSTRUCTOR"))
+                foreach (var constructor in Own<Machine>(construct, construct.Constructors).Where(m => m.Spec.Type == "CONSTRUCTOR"))
                     Send(constructor, new ConstructOrder(site.Id), site.Position);
                 return null;
             }
 
             case LocateCommand locate:
-                foreach (var locator in Own<Machine>(locate.Race, locate.Locators).Where(m => m.Spec.Type == "GEO_LOCATOR"))
+                foreach (var locator in Own<Machine>(locate, locate.Locators).Where(m => m.Spec.Type == "GEO_LOCATOR"))
                 {
                     var sites = SitesOnTheWay(locator, locate.Target);
                     Send(locator, new LocateOrder(locate.Target, sites), sites.Count > 0 ? Sites[sites[0]].Position : locate.Target);
@@ -130,7 +134,7 @@ public sealed partial class GameWorld
                 // The AI's carriers only have suppliers set and find the smelter themselves (assignResourceCarrierTask).
                 var named = Races[transport.Race].Controller == Controller.Ai ? null : smelter;
                 // Scavengers gather wreckage, not ore (MachLogResourceCarrier::isNormalResourceCarrier).
-                foreach (var carrier in Own<Machine>(transport.Race, transport.Carriers).Where(m => m.Spec.Type == "RESOURCE_CARRIER" && !m.IsScavenger))
+                foreach (var carrier in Own<Machine>(transport, transport.Carriers).Where(m => m.Spec.Type == "RESOURCE_CARRIER" && !m.IsScavenger))
                     GiveRound(carrier, stops, named, transport.Adding);
                 return null;
             }
@@ -142,7 +146,7 @@ public sealed partial class GameWorld
                     return "that is not a finished lab";
                 // Technicians work in their own labs; spies slip into other races' to steal research (MachLogSpyLocator).
                 var own = lab.Race == enter.Race;
-                var entering = Own<Machine>(enter.Race, enter.Technicians).Where(m => own ? m.Spec.Type == "TECHNICIAN" : m.IsSpy).ToList();
+                var entering = Own<Machine>(enter, enter.Technicians).Where(m => own ? m.Spec.Type == "TECHNICIAN" : m.IsSpy).ToList();
                 if (entering.Count == 0)
                     return own ? "only technicians work in labs" : "only spies get into enemy labs";
                 foreach (var machine in entering)
@@ -159,7 +163,8 @@ public sealed partial class GameWorld
                     return "this factory cannot build that";
                 if (!Races[build.Race].Researched.Contains(build.Machine))
                     return "not researched yet";
-                factory.ProductionQueue.Add(build.Machine);
+                // The factory builds for everyone of its race; the machine is the orderer's.
+                Enqueue(factory, build.Machine, build.Issuer ?? PlayerId.Of(build.Race));
                 return null;
             }
 
@@ -168,7 +173,7 @@ public sealed partial class GameWorld
                 var factory = Find<Construction>(cancel.Factory);
                 if (factory is null || factory.Race != cancel.Race || cancel.Index < 0 || cancel.Index >= factory.ProductionQueue.Count)
                     return "nothing to cancel there";
-                factory.ProductionQueue.RemoveAt(cancel.Index);
+                Dequeue(factory, cancel.Index);
                 if (cancel.Index == 0)
                 {
                     // Only the machine under way has cost anything; the original pays back three quarters of it
@@ -205,33 +210,33 @@ public sealed partial class GameWorld
             }
 
             case HealCommand heal:
-                return OrderWork(heal.Race, heal.Machines, heal.Target, m => m.Weapons.Any(w => w.IsHealer), "no healer selected",
+                return OrderWork(heal, heal.Machines, heal.Target, m => m.Weapons.Any(w => w.IsHealer), "no healer selected",
                     t => t is Machine ? null : "only machines can be healed", id => new HealOrder(id));
 
             case RepairCommand repair:
-                return OrderWork(repair.Race, repair.Constructors, repair.Building, IsConstructor, "no constructor selected",
+                return OrderWork(repair, repair.Constructors, repair.Building, IsConstructor, "no constructor selected",
                     t => t is Construction { Complete: true } ? null : "only finished buildings can be repaired",
                     id => new RepairOrder(id));
 
             case CaptureCommand capture:
-                return OrderWork(capture.Race, capture.Constructors, capture.Building, IsConstructor, "no constructor selected",
+                return OrderWork(capture, capture.Constructors, capture.Building, IsConstructor, "no constructor selected",
                     t => t is Construction { Complete: true } && t.Race != capture.Race ? null : "only finished buildings of other races can be captured",
                     id => new CaptureOrder(id));
 
             case DeconstructCommand deconstruct:
-                return OrderWork(deconstruct.Race, deconstruct.Constructors, deconstruct.Building, IsConstructor, "no constructor selected",
+                return OrderWork(deconstruct, deconstruct.Constructors, deconstruct.Building, IsConstructor, "no constructor selected",
                     t => t is Construction ? null : "only buildings can be deconstructed", id => new DeconstructOrder(id));
 
             case RecycleCommand recycle:
                 return Recycle(recycle);
 
             case StandGroundCommand stand:
-                foreach (var machine in Own<Machine>(stand.Race, stand.Machines))
+                foreach (var machine in Own<Machine>(stand, stand.Machines))
                     Send(machine, new StandGroundOrder(), null);
                 return null;
 
             case DefConCommand defCon:
-                foreach (var machine in Own<Machine>(defCon.Race, defCon.Machines))
+                foreach (var machine in Own<Machine>(defCon, defCon.Machines))
                     machine.DefCon = defCon.DefCon;
                 return null;
 
@@ -239,7 +244,7 @@ public sealed partial class GameWorld
             {
                 if (drop.Points.Count == 0)
                     return "no place for the mines";
-                var spies = Own<Machine>(drop.Race, drop.Spies).Where(m => m.IsSpy && m.Mines > 0).ToList();
+                var spies = Own<Machine>(drop, drop.Spies).Where(m => m.IsSpy && m.Mines > 0).ToList();
                 if (spies.Count == 0)
                     return "no spy with mines selected";
                 foreach (var spy in spies)
@@ -248,7 +253,7 @@ public sealed partial class GameWorld
             }
 
             case RefillLandMinesCommand refill:
-                foreach (var spy in Own<Machine>(refill.Race, refill.Spies).Where(m => m.IsSpy))
+                foreach (var spy in Own<Machine>(refill, refill.Spies).Where(m => m.IsSpy))
                 {
                     var garrison = Constructions.Where(c => c.Race == refill.Race && c.Complete && c.IsType("GARRISON"))
                         .MinBy(c => Vector2.DistanceSquared(c.Position, spy.Position));
@@ -259,7 +264,7 @@ public sealed partial class GameWorld
                 return null;
 
             case CamouflageCommand camouflage:
-                foreach (var spy in Own<Machine>(camouflage.Race, camouflage.Spies).Where(m => m.IsSpy))
+                foreach (var spy in Own<Machine>(camouflage, camouflage.Spies).Where(m => m.IsSpy))
                     spy.Camouflaged = !spy.Camouflaged;
                 return null;
 
@@ -272,9 +277,12 @@ public sealed partial class GameWorld
             {
                 if (form.Squad is < 0 or > 9)
                     return "squadrons are numbered 0 to 9";
-                foreach (var member in Machines.Where(m => m.Race == form.Race && m.Squad == form.Squad))
+                // In a race of several commanders each has squadrons of their own, of their own machines: what a teammate
+                // keeps for someone away keeps its squadron.
+                var scope = form.Issuer is { } issuer ? SquadScope(form.Race, issuer) : null;
+                foreach (var member in SquadMembers(form.Race, scope, form.Squad))
                     member.Squad = null;
-                foreach (var machine in Own<Machine>(form.Race, form.Machines))
+                foreach (var machine in Own<Machine>(form, form.Machines).Where(m => scope is not { } owner || m.Owner == owner))
                     machine.Squad = form.Squad;
                 return null;
             }
@@ -284,7 +292,7 @@ public sealed partial class GameWorld
                 var wrecks = scavenge.Debris.Where(id => FindDebris(id) is not null).Distinct().ToList();
                 if (wrecks.Count == 0)
                     return "no wreckage there";
-                var scavengers = Own<Machine>(scavenge.Race, scavenge.Scavengers).Where(m => m.IsScavenger).ToList();
+                var scavengers = Own<Machine>(scavenge, scavenge.Scavengers).Where(m => m.IsScavenger).ToList();
                 if (scavengers.Count == 0)
                     return "only scavengers gather wreckage";
                 foreach (var scavenger in scavengers)
@@ -296,7 +304,7 @@ public sealed partial class GameWorld
             {
                 // machine.cpp: a machine fits through a building's door when its access size allows it.
                 var building = Find<Construction>(garrison.Garrison);
-                return OrderWork(garrison.Race, garrison.Machines, garrison.Garrison, m => building is null || FitsThrough(m, building),
+                return OrderWork(garrison, garrison.Machines, garrison.Garrison, m => building is null || FitsThrough(m, building),
                     "too big for the building's doors",
                     t => t is Construction { Complete: true, HasInterior: true } g && !AreEnemies(garrison.Race, g.Race) ? null : "that is not one of your or your allies' buildings to go into",
                     id => new EnterGarrisonOrder(id));
@@ -305,20 +313,18 @@ public sealed partial class GameWorld
             case DriveCommand drive:
             {
                 // One lost with its last orders still on their way: the view is already leaving it.
-                if (Own<Machine>(drive.Race, [drive.Machine]).FirstOrDefault() is not { } driven)
+                if (Own<Machine>(drive, [drive.Machine]).FirstOrDefault() is not { } driven)
                     return null;
-                driven.DrivenByPlayer = drive.Driving;
+                // In a race of several commanders one machine has one driver: nobody else takes the wheel or lets go of it.
+                if (drive.Issuer is { } issuer && Players.Shared(driven.Race) && driven is { DrivenByPlayer: true, Driver: { } driver } && driver != issuer)
+                    return "someone else drives it";
                 if (!drive.Driving)
                 {
-                    LetGoInside(driven);
-                    DriveInput.Remove(driven.Id);
-                    PlayerAims.Remove(driven.Id);
-                    PlayerWeapons.Remove(driven.Id);
-                    PlayerButtons.Remove(driven.Id);
-                    PlayerHeads.Remove(driven.Id);
-                    PlayerYaws.Remove(driven.Id);
+                    LetGoOfWheel(driven);
                     return null;
                 }
+                driven.DrivenByPlayer = true;
+                driven.Driver = drive.Issuer ?? PlayerId.Of(drive.Race);
                 DriveInput[driven.Id] = (Math.Clamp(drive.Forward, -1, 1), Math.Clamp(drive.Turn, -1, 1),
                     driven.CanStrafe ? Math.Clamp(drive.Strafe, -1, 1) : 0, drive.Slow);
                 PlayerWeapons[driven.Id] = drive.Weapons;
@@ -340,13 +346,13 @@ public sealed partial class GameWorld
             }
 
             case BoardCommand board:
-                return OrderWork(board.Race, board.Machines, board.Apc, m => !m.IsType("APC"), "nothing that can board",
+                return OrderWork(board, board.Machines, board.Apc, m => !m.IsType("APC"), "nothing that can board",
                     t => t is Machine apc && apc.IsType("APC") && apc.Race == board.Race ? null : "that is not one of your APCs",
                     id => new BoardOrder(id));
 
             case DeployCommand deploy:
             {
-                var apcs = Own<Machine>(deploy.Race, deploy.Apcs).Where(m => m.IsType("APC")).ToList();
+                var apcs = Own<Machine>(deploy, deploy.Apcs).Where(m => m.IsType("APC")).ToList();
                 if (apcs.Count == 0)
                     return "no APC selected";
                 foreach (var apc in apcs)
@@ -355,7 +361,7 @@ public sealed partial class GameWorld
             }
 
             case SelfDestructCommand selfDestruct:
-                foreach (var actor in Own<Actor>(selfDestruct.Race, selfDestruct.Actors))
+                foreach (var actor in Own<Actor>(selfDestruct, selfDestruct.Actors))
                     actor.SelfDestructAt ??= Time + SelfDestructDelay;
                 return null;
 
@@ -398,6 +404,9 @@ public sealed partial class GameWorld
                 return null;
             }
 
+            case GiveCommand give:
+                return Give(give);
+
             case WiredCommand wired:
                 return ApplyWired(wired);
 
@@ -406,10 +415,58 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>The race's live actors among the ids. Technicians in labs stay put; garrisoned machines come out.</summary>
-    private IEnumerable<T> Own<T>(Race race, IEnumerable<int> ids) where T : Actor =>
-        ids.Select(Find<T>).OfType<T>().Where(a => a.Race == race && !a.IsDead
-            && (a is not Machine { Inside: { } building } || Find<Construction>(building)?.Garrisoned.Contains(a.Id) == true));
+    /// <summary>
+    /// The live actors among the ids that the command's issuer may order (<see cref="MayOrder"/>): the race's, and in a race of
+    /// several commanders only the issuer's machines and those they keep. Technicians in labs stay put; garrisoned machines
+    /// come out.
+    /// </summary>
+    private IEnumerable<T> Own<T>(Command command, IEnumerable<int> ids) where T : Actor =>
+        ids.Select(Find<T>).OfType<T>().Where(a => a.Race == command.Race && !a.IsDead
+            && (a is not Machine { Inside: { } building } || Find<Construction>(building)?.Garrisoned.Contains(a.Id) == true)
+            && MayOrder(command.Issuer, a));
+
+    /// <summary>
+    /// A commander hands machines to a teammate of their race who is there (P1 design §2.6): the machines the issuer may order
+    /// among those named become the teammate's, leave their squadrons and the rest of their series, and a driven one is let go
+    /// of. Not in a battle or a Wired run, where heroes are not given.
+    /// </summary>
+    private string? Give(GiveCommand give)
+    {
+        if (Battle is not null || Wired is not null)
+            return "heroes are not given";
+        if (!Players.Contains(give.To) || Players[give.To] is not { Kind: PlayerKind.Human } to || to.Race != give.Race || Players.Away(give.To))
+            return "no commander of your race there to take them";
+        if (give.Issuer == give.To)
+            return "they are yours already";
+        var given = Own<Machine>(give, give.Machines).Distinct().Where(m => m.Owner != give.To).ToList();
+        if (given.Count == 0)
+            return "none of these are yours to give";
+        foreach (var machine in given)
+        {
+            if (machine.DrivenByPlayer)
+                LetGoOfWheel(machine);
+            machine.GiveTo(give.To);
+            machine.Squad = null;
+            _series.Remove(machine.Id);
+        }
+        Raise(new GameEvent(GameEventKind.MachinesGiven, given[0].Id, given[0].Position, Detail: given.Count.ToString(CultureInfo.InvariantCulture),
+            Player: give.To, By: give.Issuer));
+        return null;
+    }
+
+    /// <summary>As a <see cref="DriveCommand"/> that lets go of the wheel: the machine is nobody's to drive, and its driver's last input goes with it.</summary>
+    private void LetGoOfWheel(Machine machine)
+    {
+        machine.DrivenByPlayer = false;
+        machine.Driver = null;
+        LetGoInside(machine);
+        DriveInput.Remove(machine.Id);
+        PlayerAims.Remove(machine.Id);
+        PlayerWeapons.Remove(machine.Id);
+        PlayerButtons.Remove(machine.Id);
+        PlayerHeads.Remove(machine.Id);
+        PlayerYaws.Remove(machine.Id);
+    }
 
     // Commands numbered as they are applied: the one being applied, else 0 (orders the world gives of its own accord
     // get a number each).
@@ -559,8 +616,10 @@ public sealed partial class GameWorld
         if (why is not null)
             return why;
 
-        var site = placed = AddConstruction(place.Race, place.Position, place.Type, place.SubType, place.HardwareLevel, place.Orientation, complete: false);
-        var constructors = Own<Machine>(place.Race, place.Constructors).Where(m => m.Spec.Type == "CONSTRUCTOR").ToList();
+        // The site is the placing player's (it matters only for counting a hero's towers); buildings obey the whole race.
+        var site = placed = AddConstruction(place.Race, place.Position, place.Type, place.SubType, place.HardwareLevel, place.Orientation, complete: false,
+            owner: place.Issuer);
+        var constructors = Own<Machine>(place, place.Constructors).Where(m => m.Spec.Type == "CONSTRUCTOR").ToList();
         // A disguised constructor's building wears the same disguise (MachLogConstructOperation).
         site.DisplayAs = constructors.FirstOrDefault()?.DisplayAs;
         foreach (var constructor in constructors)

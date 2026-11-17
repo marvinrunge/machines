@@ -98,7 +98,7 @@ public sealed partial class GameWorld
     {
         if (machine.Stats.NightVision || Darkness <= 0)
             return 0;
-        return machine.Squad is { } squad && CommanderOf(machine.Race, squad) is { } commander
+        return CommanderFor(machine) is { } commander
             ? MathF.Min(Darkness, Vector2.Distance(machine.Position, commander.Position) / 200)
             : Darkness;
     }

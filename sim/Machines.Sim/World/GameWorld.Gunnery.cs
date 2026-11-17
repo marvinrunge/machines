@@ -49,7 +49,7 @@ public sealed partial class GameWorld
         var penalty = PerceivedDarkness(machine) * 40;
         if (target is Machine { Stats.Locomotion: Locomotion.Glider })
             penalty += 35;
-        if (machine.Spec.Type != "ADMINISTRATOR" && machine.Squad is { } squad && CommanderOf(machine.Race, squad) is { } commander
+        if (machine.Spec.Type != "ADMINISTRATOR" && CommanderFor(machine) is { } commander
             && Vector2.DistanceSquared(machine.Position, commander.Position) <= 100 * 100)
             penalty -= 20;
         if (Wired is not null)
