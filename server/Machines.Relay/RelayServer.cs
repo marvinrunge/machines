@@ -560,7 +560,8 @@ public sealed class RelayServer : IAsyncDisposable
     /// lowest player. Only a battle whose beat runs and whose end is not agreed takes one, only with the battle's ground
     /// (<see cref="MatchInfo.Terrain"/>, when it has one), and never a player it took out for going out of step (by the name they
     /// connected with). The joiner's world is rebuilt from the log while the bot plays on; once it is on time every world turns
-    /// the bot's row into the joiner's (<see cref="PlayerJoined"/>), who takes over the hero as it stands.
+    /// the bot's row into the joiner's (<see cref="PlayerJoined"/>), under a name no other player of the battle shows, and the
+    /// joiner takes over the hero as it stands.
     /// </summary>
     private void JoinLate(Member member, Room room, JoinRoom join)
     {
@@ -616,7 +617,10 @@ public sealed class RelayServer : IAsyncDisposable
         }
         var key = NewKey();
         room.SeatKeys[player.Value] = key;
-        Rebuild(member, room, player.Value, ResumeReason.LateJoin, key, room.UniqueName(member.Name));
+        // A name no other member shows, nor any other row of the battle: a person who left still shows theirs in every world.
+        var shown = room.Match.Players.Where(p => p.Player != player).Select(p => p.Name)
+            .Concat(beat.Seats.Where(s => s.Player != player && s.Joined).Select(s => s.Name).OfType<string>());
+        Rebuild(member, room, player.Value, ResumeReason.LateJoin, key, room.UniqueName(member.Name, shown));
     }
 
     /// <summary>
@@ -1510,10 +1514,13 @@ public sealed class RelayServer : IAsyncDisposable
         /// <summary>The seats in the order members take them: by their place in their race, then in seat order, so every race's first seat is taken before any race's second.</summary>
         public IEnumerable<Seat> FillOrder() => Seats.Select((seat, index) => (seat, index)).OrderBy(s => s.seat.Place).ThenBy(s => s.index).Select(s => s.seat);
 
-        /// <summary>A name for a member that no other member shows: their own, else with the first free number from 2.</summary>
-        public string UniqueName(string name)
+        /// <summary>
+        /// A name for a member that no other member shows, nor any of <paramref name="also"/>: their own, else with the first free
+        /// number from 2.
+        /// </summary>
+        public string UniqueName(string name, IEnumerable<string>? also = null)
         {
-            var shown = Members.Select(m => m.RoomName).ToHashSet(StringComparer.Ordinal);
+            var shown = Members.Select(m => m.RoomName).Concat(also ?? []).ToHashSet(StringComparer.Ordinal);
             if (!shown.Contains(name))
                 return name;
             for (var number = 2; ; number++)

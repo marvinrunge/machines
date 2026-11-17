@@ -402,6 +402,38 @@ public class LateJoinTests
     }
 
     /// <summary>
+    /// A joiner takes a name no player of the battle shows (P2 design §6.2): not a member's, nor that of a person who left,
+    /// whose row shows it in every world still; the name of the bot whose seat they take is theirs to keep.
+    /// </summary>
+    [Fact]
+    public async Task A_joiner_takes_a_name_no_other_player_of_the_battle_shows_not_even_one_who_left()
+    {
+        await using var relay = await RelayClients.Start();
+        var (room, clients, match) = await Battle(relay, ["Anna", "Ben", "Cleo"]);
+        await RelayClients.PlayTo(100, clients);
+        // Ben (Green, player 2) quits: a bot drives his hero, and his row is still called Ben.
+        await clients[1].Leave();
+        await RelayClients.PlayTo(200, clients);
+
+        // Another Ben joins Green's lowest bot seat, player 8, as Ben 2; one named after the bot of seat 7 (player 9) keeps it.
+        var again = await relay.LateJoin("Ben", web: false, room.Id);
+        var bot = match.Players.Single(p => p.Player == P(9)).Name;
+        var named = await relay.LateJoin(bot, web: true, room.Id, seat: 7);
+        Assert.Equal((P(8), P(9)), (again.Me, named.Me));
+        Assert.Equal(("Ben 2", bot), relay.Relay.WithBeat(room.Id, beat => (beat.Seat(P(8))!.Name, beat.Seat(P(9))!.Name)));
+        again.Script = new HeroScript(again.Me, 908);
+        named.Script = new HeroScript(named.Me, 909);
+        clients.AddRange([again, named]);
+        await RelayClients.PlayTo(700, clients);
+        foreach (var client in clients.Where(c => c.InMatch))
+        {
+            Assert.Equal(("Ben", "Ben 2", bot), (client.World.Players[P(2)].Name, client.World.Players[P(8)].Name, client.World.Players[P(9)].Name));
+            Assert.Equal([P(8), P(9)], client.World.Players.Joined);
+        }
+        Assert.True(RelayClients.AssertAgree(clients) >= 700 / 20);
+    }
+
+    /// <summary>
     /// A client sends a message and waits until the relay handled it (it answers a list of rooms in the order it was asked);
     /// returns what the client was sent until then.
     /// </summary>
