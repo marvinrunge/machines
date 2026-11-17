@@ -65,7 +65,7 @@ public partial class KeysPage(Action back, bool run = false) : MenuPage(back)
             "The moves scroll and turn the ground camera and drive in first person, where left and right step sideways or turn as the options' first-person keys say."));
         columns.AddChild(List("COMMANDS", KeyMap.All.Where(act => !KeyMap.IsMove(act) && !KeyMap.IsRun(act) && act is not (KeyMap.Act.FirstPerson or KeyMap.Act.Weapons or KeyMap.Act.CentreView)),
             "These keep their use: the arrows scroll too, and with Ctrl and Shift tilt the camera or, with Shift, look in first person; " +
-            "Ctrl with S stops, Shift with A or S selects all machines or buildings, Alt with them looks at the next; the numbers select a squadron and Ctrl with one forms it; F1 to F4 chat; Alt with the arrows moves the panel; " +
+            "Ctrl with S stops, Shift with A or S selects all machines or buildings, Alt with them looks at the next; the numbers select a squadron and Ctrl with one forms it; F1 to F4 chat, Ctrl with F4 to the team; Alt with the arrows moves the panel; " +
             "Esc cancels or opens the menus. R turns a building, keypad 5 centres the upper body, keypad 1 goes into first person and " +
             "Pause pauses too while no action has them. While the options' Classic Keys are on, the original's keys stand in for these."));
     }

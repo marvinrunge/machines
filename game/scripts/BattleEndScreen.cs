@@ -322,7 +322,7 @@ public partial class BattleEndScreen(Game game, ClassicAssets assets) : MenuPage
     {
         var options = _run.Options;
         var map = BattleCatalogue.Map(MatchRequest.Current.Scenario);
-        LoadingScreen.Show(game.GetTree(), map is null ? MatchRequest.Current.Scenario : BattlePod.Title(map), BattlePod.Detail(options.Tier, options.Lives, options.Win), game.BattleAgain);
+        LoadingScreen.Show(game.GetTree(), map is null ? MatchRequest.Current.Scenario : BattlePod.Title(map), BattlePod.Detail(options.Tier, options.Lives, options.Win, options.TeamSize), game.BattleAgain);
     }
 
     /// <summary>Online: back to a room like the one the battle was started from (see <see cref="MultiplayerPage.BackToRoom"/>).</summary>
