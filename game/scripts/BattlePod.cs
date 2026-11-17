@@ -69,7 +69,8 @@ public static class BattlePod
 
     /// <summary>
     /// The in-game menu's briefing for a battle (the scenario's own text is a skirmish's): the map, the bracket, lives and
-    /// victory, the teams and the goal.
+    /// victory, the teams in the colours the match shows them in (a Blue player's five against five is Blue's, though its
+    /// heroes play Red's seats) and the goal.
     /// </summary>
     public static string Briefing(BattleOptions battle, string scenario)
     {
@@ -82,7 +83,7 @@ public static class BattlePod
             $"{SkirmishPage.TeamSizeName(battle.TeamSize, map)}   ·   {Lang.T("Tier {0}", bracket)}   ·   {LivesName(battle.Lives)}   ·   {VictoryName(battle.Win)}",
         };
         if (map is not null)
-            lines.Add(SkirmishPage.Teams(map, battle.TeamSize));
+            lines.Add(SkirmishPage.Teams(map, battle.TeamSize, Game.Look));
         lines.Add(Goal(battle.Win));
         return string.Join("\n\n", lines);
     }

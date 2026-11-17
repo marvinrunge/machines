@@ -333,11 +333,13 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
 
     /// <summary>
     /// A battle map's two teams in words: "Red and Blue against Green and Yellow"; with a team size the races its heroes
-    /// play, each team's first (<see cref="BattleSeats.Teams"/>): "Red against Green".
+    /// play, each team's first (<see cref="BattleSeats.Teams"/>): "Red against Green". With <paramref name="look"/> each race
+    /// is named by the colour a match shows it in (<see cref="Game.Look"/>), which with a team size may be another of its
+    /// team's colours: "Blue against Green".
     /// </summary>
-    public static string Teams(BattleMap map, int teamSize = 0)
+    public static string Teams(BattleMap map, int teamSize = 0, Func<Race, Race>? look = null)
     {
-        static string Team(IEnumerable<Race> team) => string.Join(Lang.T(" and "), team.Select(r => Lang.T(r.ToString())));
+        string Team(IEnumerable<Race> team) => string.Join(Lang.T(" and "), team.Select(r => Lang.T((look?.Invoke(r) ?? r).ToString())));
         var (a, b) = BattleSeats.Teams(new BattleOptions { TeamSize = teamSize }, map);
         return Lang.T("{0} against {1}", Team(a), Team(b));
     }
