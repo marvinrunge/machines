@@ -673,6 +673,44 @@ public class BeatRelayTests
     }
 
     /// <summary>
+    /// A run of the log whose sealing fails is tried once more (P2 slice S3); failing again it stays plain bundles, and so do the
+    /// runs after it, which wait for it: a rebuild then gets the sealed segments before it and every bundle from it on as
+    /// plain ones, without a gap, and its world agrees.
+    /// </summary>
+    [Fact]
+    public async Task A_run_whose_sealing_fails_is_tried_again_and_else_stays_plain_bundles_which_a_rebuild_gets_without_a_gap()
+    {
+        await using var relay = await RelayClients.Start(BeatTimings.Scripted with { SegmentTicks = 50 });
+        // The run from 0 fails once and is sealed the second time; the one from 50 fails both times.
+        var tries = new ConcurrentDictionary<long, int>();
+        relay.Relay.BeforeSeal = (from, _) => tries.AddOrUpdate(from, 1, (_, n) => n + 1) is var n && (from == 0 && n == 1 || from == 50)
+            ? throw new InvalidDataException($"no seal for {from} this time")
+            : Task.CompletedTask;
+        var (room, clients, _) = await Skirmish(relay, ["Anna", "Ben", "Cleo"]);
+        await RelayClients.PlayTo(220, clients);
+        var given = $"room {room.Id}: sealing ticks 50–99 failed; they stay plain bundles: no seal for 50 this time";
+        await Until(relay, () => relay.Relay.LogShape(room.Id) is { Segments.Count: 1 } log && log.Sealing.Skip(1).All(r => r.Done) && relay.Lines.Contains(given),
+            TimeSpan.FromSeconds(10), "every run tried");
+
+        Assert.Contains($"room {room.Id}: sealing ticks 0–49 failed, trying again: no seal for 0 this time", relay.Lines);
+        Assert.Contains($"room {room.Id}: sealing ticks 50–99 failed, trying again: no seal for 50 this time", relay.Lines);
+        Assert.Equal((2, 2, 1, 1), (tries[0], tries[50], tries[100], tries[150]));
+        var shape = relay.Relay.LogShape(room.Id);
+        Assert.Equal([(0L, 49L)], shape.Segments.Select(s => (s.From, s.To)));
+        Assert.Equal([(50L, 99L, false), (100L, 149L, true), (150L, 199L, true)], shape.Sealing);
+
+        // A rebuild: the one segment in pieces, then every bundle from 50 on, and the world agrees with everyone's.
+        var ben = clients[1];
+        ben.RejoinHere();
+        await RelayClients.PlayTo(300, clients);
+        Assert.Equal(1, ben.Rebuilds);
+        Assert.Equal(shape.Segments[0].Parts, ben.Resumed!.Parts);
+        Assert.Empty(ben.Gaps);
+        Assert.True(RelayClients.AssertAgree(clients) >= 300 / 20);
+        RelayClients.AssertPlaysBack(ben);
+    }
+
+    /// <summary>
     /// A skirmish of one person a race (Red, Blue, Green, Yellow in turn) on m_desert, every second client over a WebSocket
     /// unless <paramref name="via"/> gives it a port (a <see cref="LineProxy"/>'s, over TCP); begun, every world built, each
     /// person with a script (a <see cref="CommanderScript"/> unless <paramref name="script"/> says otherwise); not run yet.

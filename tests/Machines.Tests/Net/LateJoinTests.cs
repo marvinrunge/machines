@@ -322,6 +322,58 @@ public class LateJoinTests
     }
 
     /// <summary>
+    /// In a two against two of today's layout each seat is a race of its own (P2 design §6.2): a joiner takes a bot's race
+    /// back from the computer, and a world of theirs rebuilt after the join hands the race's hero to a bot and back again, as
+    /// every world does at the same ticks.
+    /// </summary>
+    [Fact]
+    public async Task A_joiner_takes_a_bots_race_of_one_in_a_two_against_two_and_a_resync_after_the_join_hands_it_to_a_bot_and_back()
+    {
+        await using var relay = await RelayClients.Start();
+        List<RelayClient> clients = [await relay.Connect("Anna", web: false), await relay.Connect("Ben", web: true)];
+        var options = new MatchOptions { Battle = new BattleOptions { Tier = 1, Lives = 3 }, FogOfWar = false };
+        var room = await RelayClients.Open(clients[0], new CreateRoom("Pair", "m_desert", "m_desert", [Race.Red, Race.Green], options, FillWithAi: false), clients[1]);
+        await RelayClients.Begin(clients[0], clients, c => BattleNetTests.Brought($"{c.Name}'s hero", 1, line: c.Id % 2));
+        foreach (var client in clients)
+            client.Script = new HeroScript(client.Me, 900 + client.Me.Value);
+        // Anna plays Red and Ben Blue, team A; Green and Yellow are the bots' races of one.
+        Assert.Equal([P(0), P(1)], clients.Select(c => c.Me));
+        await RelayClients.PlayTo(200, clients);
+
+        var zoe = await relay.LateJoin("Zoe", web: true, room.Id);
+        Assert.Equal((P(2), Race.Green), (zoe.Me, zoe.Race));
+        zoe.Script = new HeroScript(zoe.Me, 902);
+        zoe.Rescript = rebuilt => new HeroScript(rebuilt.Me, 912);
+        clients.Add(zoe);
+        var anna = clients[0];
+        for (var to = 220L; anna.Session.Presence.OfType<PlayerJoined>().FirstOrDefault() is not { } join || zoe.World.Tick <= join.FromTick + 5; to += 10)
+        {
+            Assert.True(to < 800, "Zoe never joined");
+            await RelayClients.PlayTo(to, clients);
+        }
+        var joined = anna.Session.Presence.OfType<PlayerJoined>().Single().FromTick;
+        Assert.All(clients, c => Assert.Equal(Controller.Player, c.World.Races[Race.Green].Controller));
+
+        // Her world goes its own way after the join: rebuilt, a bot drives the hero meanwhile, and she is back.
+        zoe.Corrupt(zoe.World.Tick + 1);
+        await RelayClients.PlayTo(anna.World.Tick + 400, clients);
+        Assert.Equal([ResumeReason.LateJoin, ResumeReason.Resync], zoe.Rebuilt.Select(r => r.Reason));
+        Assert.Equal([typeof(PlayerJoined), typeof(PlayerLeft), typeof(PlayerReturned)], anna.Session.Presence.Select(m => m.GetType()));
+        Assert.Equal(joined, anna.Session.Presence.OfType<PlayerJoined>().Single().FromTick);
+        foreach (var client in clients)
+        {
+            Assert.Equal(anna.Session.Presence, client.Session.Presence);
+            Assert.Equal(new PlayerSeat(P(2), Race.Green, PlayerKind.Human, "Zoe"), client.World.Players[P(2)]);
+            Assert.Equal(Controller.Player, client.World.Races[Race.Green].Controller);
+            Assert.DoesNotContain(P(2), client.World.HeroBots.Keys);
+        }
+        Assert.True(RelayClients.AssertRecovered(relay.Relay, room.Id, clients) > 0);
+        Assert.True(RelayClients.AssertAgree(clients, resyncs: true) >= anna.World.Tick / 20);
+        foreach (var client in clients)
+            RelayClients.AssertPlaysBack(client);
+    }
+
+    /// <summary>
     /// A seat's resyncs are its person's (P2 design §5.5): a joiner lost before joining leaves the seat a bot's, and the next
     /// one to join it starts with none of the lost one's, rather than taken out on their first resync.
     /// </summary>
