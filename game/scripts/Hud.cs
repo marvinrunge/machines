@@ -81,9 +81,15 @@ public partial class Hud : CanvasLayer
         root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         AddChild(root);
 
-        _banner = new Label { Visible = false, HorizontalAlignment = HorizontalAlignment.Center };
+        // Across the view and about its middle, wrapped where it is longer than the view is wide: anchored at the screen's
+        // centre alone it began there and ran off the right edge ("Waiting for …", "Reconnecting to the relay…").
+        _banner = new Label
+        {
+            Visible = false, HorizontalAlignment = HorizontalAlignment.Center, AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            GrowVertical = Control.GrowDirection.Both, MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
         _banner.AddThemeFontSizeOverride("font_size", 64);
-        _banner.SetAnchorsPreset(Control.LayoutPreset.Center);
+        _banner.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.HcenterWide, Control.LayoutPresetMode.KeepHeight);
         root.AddChild(_banner);
 
         _picture = new TextureRect { Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, TextureFilter = CanvasItem.TextureFilterEnum.Nearest };
@@ -137,6 +143,8 @@ public partial class Hud : CanvasLayer
     {
         _banner.Text = text ?? "";
         _banner.Visible = text is not null;
+        // Over the view beside the control panel, as the pictures are.
+        _banner.OffsetLeft = _panel.Visible ? _panel.ScreenWidth : 0;
     }
 
     /// <summary>
