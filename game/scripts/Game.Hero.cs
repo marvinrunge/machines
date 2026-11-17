@@ -57,9 +57,10 @@ public partial class Game
         {
             if (words.Length > 4 && words[4] == "burning" && World.HeroOf(Player) is { } burning)
                 burning.HitPoints = burning.MaxHitPoints / 20;
-            // The world forgets its refusals with the next tick, so they are looked for after each.
+            // The world forgets its refusals with the next tick, so they are looked for after each; the world's copy carries
+            // the player it came from (Command.Issuer, stamped by the session), the one issued here none.
             var reasons = new List<string>();
-            void Refused() => reasons.AddRange(World.Rejected.Where(r => Equals(r.Command, command)).Select(r => r.Reason));
+            void Refused() => reasons.AddRange(World.Rejected.Where(r => Equals(r.Command with { Issuer = command.Issuer }, command)).Select(r => r.Reason));
             Ticked += Refused;
             Issue(command);
             await Wait(0.3);
