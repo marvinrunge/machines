@@ -4426,3 +4426,29 @@ msgstr "{0} (Team): {1}"
 
 msgid "Back when the wave is over"
 msgstr "Zurück, wenn die Welle vorbei ist"
+
+# Online (S5): why an order of a commander sharing a race was refused
+
+msgid "not your race"
+msgstr "nicht deine Seite"
+
+msgid "someone else drives it"
+msgstr "jemand anderes fährt sie"
+
+msgid "heroes are not given"
+msgstr "Helden werden nicht verschenkt"
+
+msgid "no commander of your race there to take them"
+msgstr "kein Kommandant deiner Seite da, der sie nimmt"
+
+msgid "they are yours already"
+msgstr "sie gehören dir schon"
+
+msgid "none of these are yours to give"
+msgstr "keine davon kannst du verschenken"
+
+msgid "you have no hero"
+msgstr "du hast keinen Helden"
+
+msgid "too many units"
+msgstr "zu viele Einheiten"
