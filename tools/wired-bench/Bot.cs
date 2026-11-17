@@ -50,7 +50,15 @@ internal sealed class Bot(GameWorld world, GameData data, Strategy strategy, Rac
     // What the hero spends: its own purse in a run of several heroes, else the race's BMU.
     private float Bank => world.Bank(_state);
 
-    private void Issue(Command command) => (issue ?? world.Issue)(command);
+    // Straight into the world a command is the given player's (Command.Issuer), as a lockstep session stamps it, or a Wired
+    // command would be carried out for the race's first hero; one given to whoever carries it out is stamped by them.
+    private void Issue(Command command)
+    {
+        if (issue is not null)
+            issue(command);
+        else
+            world.Issue(player is { } own ? command with { Issuer = own } : command);
+    }
 
     /// <summary>One look at the world: a command or none.</summary>
     public void Think()
