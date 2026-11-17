@@ -884,15 +884,16 @@ public sealed class RelayServer : IAsyncDisposable
         /// <summary>
         /// The room on a new map or with new seats, its players at the new seats in the fill order, the host first, each in
         /// the colour of their new race as <see cref="ColourFor"/> gives it; returns those it has no seat for. The seats nobody
-        /// sits at keep what they were for, in order. While the seats stay the same (only a setting changed), everyone stays
-        /// where they sat and every seat nobody sits at stays what it was for. The heroes players brought stay only while the
-        /// room stays a battle on the same map and bracket; a battle has no closed seats.
+        /// sits at keep what they were for: a seat of a race and place the room had free what that one was for, the others
+        /// what the remaining free seats were for, in order. While the seats stay the same (only a setting changed), everyone
+        /// stays where they sat and every seat nobody sits at stays what it was for. The heroes players brought stay only while
+        /// the room stays a battle on the same map and bracket; a battle has no closed seats.
         /// </summary>
         public List<Member> Change(ChangeRoom change)
         {
             var heroesStay = Setup.Options.Battle is { } was && change.Options.Battle is { } now && was.Tier == now.Tier && Setup.Scenario == change.Scenario;
             var people = Seats.Where(s => s.Member is not null).Select(s => s.Member!).OrderByDescending(m => m.Id == HostId).ToList();
-            var uses = Seats.Where(s => s.Member is null).Select(s => s.Use).ToList();
+            var free = Seats.Where(s => s.Member is null).ToList();
             Setup = Setup with
             {
                 Scenario = change.Scenario, Planet = change.Planet, Slots = change.Slots, Options = change.Options, FillWithAi = change.FillWithAi,
@@ -911,8 +912,22 @@ public sealed class RelayServer : IAsyncDisposable
                     member.Colour = ColourFor(member, seated, keepColour: true);
                     seated.Add(member);
                 }
-                foreach (var (seat, use) in Seats.Where(s => s.Member is null).Select((seat, i) => (seat, i < uses.Count ? uses[i] : SeatUse.Open)))
-                    seat.Use = use;
+                // A free seat of a race and place the room had free keeps what that one was for (a side the host gave the
+                // computer stays the computer's when the room takes a second commander a side or five heroes a team); the
+                // others take what the remaining free seats were for, in order.
+                var unmatched = new List<Seat>();
+                foreach (var seat in Seats.Where(s => s.Member is null))
+                {
+                    if (free.FirstOrDefault(old => old.Race == seat.Race && old.Place == seat.Place) is { } same)
+                    {
+                        seat.Use = same.Use;
+                        free.Remove(same);
+                    }
+                    else
+                        unmatched.Add(seat);
+                }
+                foreach (var (seat, i) in unmatched.Select((seat, i) => (seat, i)))
+                    seat.Use = i < free.Count ? free[i].Use : SeatUse.Open;
             }
             foreach (var member in Members)
                 (member.Ready, member.Terrain) = (false, null);

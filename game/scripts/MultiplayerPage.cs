@@ -581,14 +581,15 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
 
     /// <summary>
     /// The host's choice for a seat (MachGuiPlayerListItem): what <see cref="RoomSeating.Uses"/> allows there (Open or
-    /// Computer in a battle, which has a hero at every seat; Open, Closed and at a race's first seat Computer otherwise), and
-    /// at a player's seat their name first; choosing anything else takes them out of the room, once the host has confirmed it.
-    /// A size smaller where the seats are many (<paramref name="compact"/>).
+    /// Computer in a battle, which has a hero at every seat; Open, Closed and at a race's first seat Computer otherwise) and
+    /// what the seat is for now (<see cref="RoomSeating.Choices"/>), and at a player's seat their name first; choosing
+    /// anything else takes them out of the room, once the host has confirmed it. A size smaller where the seats are many
+    /// (<paramref name="compact"/>).
     /// </summary>
     private ChipChoice SeatChoice(RoomState state, SeatLine line, bool compact)
     {
         var (seat, use, player) = (line.Index, line.Seat.Use, line.Player);
-        var uses = RoomSeating.Uses(state, seat).ToArray();
+        var uses = RoomSeating.Choices(state, seat).ToArray();
         var names = uses.Select(u => u.ToString());
         var choice = new ChipChoice(player is null ? names : names.Prepend(player.Name), player is null ? Math.Max(0, Array.IndexOf(uses, use)) : 0)
         {

@@ -125,4 +125,74 @@ public class RoomSeatingTests
         Assert.Equal([[(Race.Red, 1, ben.Id)], [(Race.Blue, 1, null)]], RoomSeating.Groups(normal).Select(Seats));
         Assert.Equal([SeatUse.Open, SeatUse.Closed, SeatUse.Computer], RoomSeating.Uses(normal, 1));
     }
+
+    [Fact]
+    public async Task A_side_the_host_gave_the_computer_or_closed_keeps_it_when_the_room_takes_a_second_commander_a_side()
+    {
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var anna = await ChatTests.Client.Connect(relay, "Anna");
+        await using var ben = await ChatTests.Client.Connect(relay, "Ben");
+        anna.Connection.Send(new CreateRoom("Room", "m_desert", "m_desert", Four, new MatchOptions(), FillWithAi: false));
+        var room = (await anna.Next<RoomState>(s => s.Players.Count == 1)).Id;
+        anna.Connection.Send(new SetSeat(1, SeatUse.Computer));
+        anna.Connection.Send(new SetSeat(2, SeatUse.Closed));
+        await anna.Next<RoomState>(s => s.Seats[2].Use == SeatUse.Closed);
+
+        // The settings page asks for two commanders a side: Blue stays the computer's and Green closed, every second seat
+        // waits for a player.
+        anna.Connection.Send(new ChangeRoom("m_desert", "m_desert", Four, new MatchOptions(), FillWithAi: false, SeatsPerSlot: 2));
+        var state = await anna.Next<RoomState>(s => s.Seats.Count == 8);
+        Assert.Equal([
+                (Race.Red, SeatUse.Open), (Race.Red, SeatUse.Open), (Race.Blue, SeatUse.Computer), (Race.Blue, SeatUse.Open),
+                (Race.Green, SeatUse.Closed), (Race.Green, SeatUse.Open), (Race.Yellow, SeatUse.Open), (Race.Yellow, SeatUse.Open)],
+            state.Seats.Select(s => (s.Race, s.Use)));
+        Assert.Equal(anna.Id, state.Seats[0].ClientId);
+        Assert.All(Enumerable.Range(0, 8), i => Assert.Contains(state.Seats[i].Use, RoomSeating.Choices(state, i)));
+
+        // Ben takes the first seat free for a player, Yellow's; the computer plays Blue and nobody Green.
+        await ben.Join(room);
+        state = await anna.Next<RoomState>(s => s.Players.Count == 2);
+        Assert.Equal(ben.Id, state.Seats[6].ClientId);
+        anna.Connection.Send(new SetPlayer(Race.Red, Ready: true));
+        ben.Connection.Send(new SetPlayer(Race.Yellow, Ready: true));
+        await anna.Next<RoomState>(s => s.Players.All(p => p.Ready));
+        anna.Connection.Send(new StartMatch());
+        var match = (await anna.Next<MatchStarted>()).Match;
+        Assert.Equal([(Race.Red, false), (Race.Yellow, false), (Race.Blue, true)], match.Players.Select(p => (p.Slot, p.Ai)));
+    }
+
+    [Fact]
+    public async Task A_battle_seat_the_host_gave_the_computer_stays_the_computers_when_the_teams_grow_to_five()
+    {
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var anna = await ChatTests.Client.Connect(relay, "Anna");
+        anna.Connection.Send(BattleRoom(0));
+        await anna.Next<RoomState>(s => s.Players.Count == 1);
+        // Green's hero, the second team's first, is the computer's: nobody is to take it.
+        anna.Connection.Send(new SetSeat(2, SeatUse.Computer));
+        await anna.Next<RoomState>(s => s.Seats[2].Use == SeatUse.Computer);
+
+        anna.Connection.Send(new ChangeRoom("m_desert", "m_desert", Four, RoomOptions.Battle(new MatchOptions(), 2, 2, BattleWin.Both, 5), FillWithAi: true));
+        var state = await anna.Next<RoomState>(s => s.Seats.Count == 10);
+
+        Assert.Equal([(Race.Red, SeatUse.Open), (Race.Green, SeatUse.Computer)], state.Seats.Where((_, i) => i % 5 == 0).Select(s => (s.Race, s.Use)));
+        Assert.All(state.Seats.Where((_, i) => i % 5 != 0), s => Assert.Equal(SeatUse.Open, s.Use));
+    }
+
+    [Fact]
+    public void The_hosts_choice_for_a_seat_shows_what_it_is_for_even_where_that_is_not_offered_there()
+    {
+        // A computer at a side's second seat (left there by a change from a battle room, say) shows as the computer's, and
+        // the host may make it open or closed.
+        var state = new RoomState(1, "Room", "m_desert", "m_desert", [Race.Red, Race.Blue], new MatchOptions(), false, 7,
+            [new LobbyPlayer(7, "Anna", Race.Red, false)],
+            [new RoomSeat(7, SeatUse.Open, Race.Red), new RoomSeat(null, SeatUse.Computer, Race.Red),
+             new RoomSeat(null, SeatUse.Open, Race.Blue), new RoomSeat(null, SeatUse.Closed, Race.Blue)], 2);
+
+        Assert.Equal([SeatUse.Open, SeatUse.Closed], RoomSeating.Uses(state, 1));
+        Assert.Equal([SeatUse.Open, SeatUse.Closed, SeatUse.Computer], RoomSeating.Choices(state, 1));
+        Assert.Equal([SeatUse.Open, SeatUse.Closed, SeatUse.Computer], RoomSeating.Choices(state, 2));
+        Assert.Equal([SeatUse.Open, SeatUse.Closed], RoomSeating.Choices(state, 3));
+        Assert.Empty(RoomSeating.Choices(state, 4));
+    }
 }

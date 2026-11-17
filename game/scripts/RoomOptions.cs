@@ -158,6 +158,17 @@ public static class RoomSeating
         return first ? [SeatUse.Open, SeatUse.Closed, SeatUse.Computer] : [SeatUse.Open, SeatUse.Closed];
     }
 
+    /// <summary>
+    /// The host's choice for a seat as the list shows it: what <see cref="Uses"/> offers there and, where the seat is for
+    /// something else now (the computer at a side's second seat, as a change of the room may leave it), that too, so that the
+    /// choice shows what the seat is for and the host can change it from there.
+    /// </summary>
+    public static IReadOnlyList<SeatUse> Choices(RoomState state, int seat)
+    {
+        var uses = Uses(state, seat);
+        return uses.Count > 0 && !uses.Contains(state.Seats[seat].Use) ? [.. uses, state.Seats[seat].Use] : uses;
+    }
+
     /// <summary>Whether the player <paramref name="clientId"/> may take a seat: one nobody sits at that waits for a player (<see cref="TakeSeat"/>).</summary>
     public static bool MayTake(RoomState state, int clientId, int seat) =>
         seat >= 0 && seat < state.Seats.Count && state.Seats[seat] is { ClientId: null, Use: SeatUse.Open }
