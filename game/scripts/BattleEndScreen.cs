@@ -42,6 +42,9 @@ public partial class BattleEndScreen(Game game, ClassicAssets assets) : MenuPage
     private int _next;
     private double _wait, _settle = HandsOff;
     private bool _done, _quiet, _framed, _waiting, _goalsShown;
+    // Online: whether the battle's end still waits for the relay's word that it holds (Game.BattleConfirming); whether the note
+    // under the figures has been shown.
+    private bool _confirming, _noted;
 
     /// <summary>The screen that is up, for automated checks.</summary>
     public static BattleEndScreen? Current { get; private set; }
@@ -103,6 +106,7 @@ public partial class BattleEndScreen(Game game, ClassicAssets assets) : MenuPage
         _reward = BattleRewards.Of(_run, player);
         _outcome = _run.Won(player) ? BattleOutcome.Won : _run.Lost(player) ? BattleOutcome.Lost : BattleOutcome.Draw;
         _waiting = game.BattleCounted && BattleAccounts.Ledger.Waiting;
+        _confirming = game.BattleConfirming;
 
         foreach (var (side, value) in new[] { ("left", 30), ("right", 30), ("top", 24), ("bottom", 24) })
             AddThemeConstantOverride($"margin_{side}", value);
@@ -397,11 +401,16 @@ public partial class BattleEndScreen(Game game, ClassicAssets assets) : MenuPage
     private static long ParsePoints(EndRow row) =>
         long.TryParse(new string(row.Cells[^1].Where(char.IsDigit).ToArray()), out var points) ? points : 0;
 
-    private void ShowNote() => _note.Text = Lang.T(_waiting ? "The battle is not in the profile yet: the file cannot be written just now."
-        : game.Watching ? "A recording changes nothing in the account."
-        : game.BattleWatch ? "A battle the bots played alone changes nothing in the account."
-        : !game.BattleCounted ? "This battle had ended before you came back: it is not counted here."
-        : "This battle has been counted.");
+    private void ShowNote()
+    {
+        _noted = true;
+        _note.Text = Lang.T(_waiting ? "The battle is not in the profile yet: the file cannot be written just now."
+            : game.Watching ? "A recording changes nothing in the account."
+            : game.BattleWatch ? "A battle the bots played alone changes nothing in the account."
+            : _confirming ? "Waiting for the other players' games to confirm the end…"
+            : !game.BattleCounted ? game.BattleNotCounted ?? "This battle had ended before you came back: it is not counted here."
+            : "This battle has been counted.");
+    }
 
     /// <summary>A win comes down on the XP with a flash, sparks and the hero's guns.</summary>
     private void Stamp()
@@ -543,10 +552,29 @@ public partial class BattleEndScreen(Game game, ClassicAssets assets) : MenuPage
     /// <summary>The profile was held at the battle's end and has come free: what came within reach arrives now.</summary>
     private void WatchAccount()
     {
+        // Online the relay's word on the end came after the screen opened: the battle counts now (what came within reach
+        // arrives), or it is known that it does not.
+        if (_confirming && !game.BattleConfirming)
+        {
+            _confirming = false;
+            GD.Print($"battle: the end was settled with the end screen up: {(game.BattleCounted ? "counted" : "not counted")}");
+            _waiting = game.BattleCounted && BattleAccounts.Ledger.Waiting;
+            if (_noted)
+                ShowNote();
+            if (game.BattleCounted && !_waiting)
+                Arrived();
+            return;
+        }
         if (!_waiting || BattleAccounts.Ledger.Waiting)
             return;
         _waiting = false;
         _note.Text = Lang.T("The battle is in the profile.");
+        Arrived();
+    }
+
+    /// <summary>The battle went into the profile after the show began: what came within reach comes on the board, the goals anew.</summary>
+    private void Arrived()
+    {
         foreach (var id in game.BattleOpened)
             Open(id);
         if (_goalsShown)

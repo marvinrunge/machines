@@ -4534,3 +4534,14 @@ msgstr "du wurdest aus diesem Match genommen"
 
 msgid "that seat key is not this match's"
 msgstr "dieser Platzschlüssel gehört nicht zu diesem Match"
+
+# Online (P2 S2b review): the battle's end screen while the relay's word on the end is still to come
+
+msgid "Waiting for the other players' games to confirm the end…"
+msgstr "Warte, bis die Spiele der anderen das Ende bestätigen…"
+
+msgid "The other players' games ended this battle at another moment: it is not counted."
+msgstr "Die Spiele der anderen haben diese Schlacht zu einem anderen Zeitpunkt beendet: Sie wird nicht gezählt."
+
+msgid "The relay did not confirm the end of this battle: it is not counted."
+msgstr "Das Relay hat das Ende dieser Schlacht nicht bestätigt: Sie wird nicht gezählt."

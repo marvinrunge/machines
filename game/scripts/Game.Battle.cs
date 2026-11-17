@@ -51,6 +51,24 @@ public partial class Game
     /// <summary>Whether this battle's result is in the account, or waits for the file; false for one not counted here.</summary>
     public bool BattleCounted => _battleRecorded;
 
+    /// <summary>
+    /// Online: this world ended the battle and the relay has not said yet where more than half of the players' worlds ended
+    /// it (<see cref="MatchEnded"/>, P2 design §2.8), so whether it counts is not known yet; the end screen opens after a few
+    /// seconds whatever a slower player's world is doing, and says so. False offline, once the relay's word came, and with the
+    /// line to the relay lost (that word will not come).
+    /// </summary>
+    public bool BattleConfirming => Online && !_battleRecorded && !_endNoted && _decidedTick is not null && NetLink.Connected;
+
+    /// <summary>
+    /// Online: why a battle this world ended does not count, where it is the match's end rather than coming back after it:
+    /// the others' worlds ended it at another tick, or the relay never said where it ended. Null otherwise (English; the end
+    /// screen translates it).
+    /// </summary>
+    public string? BattleNotCounted => !Online || _battleRecorded || BattleConfirming ? null
+        : _matchEnded is { } agreed && agreed != _decidedTick ? "The other players' games ended this battle at another moment: it is not counted."
+        : _matchEnded is null ? "The relay did not confirm the end of this battle: it is not counted."
+        : null;
+
     /// <summary>For automated checks: the Wired HUD with its battle readout.</summary>
     internal WiredHud? BattleHud => _hud.Wired;
 
