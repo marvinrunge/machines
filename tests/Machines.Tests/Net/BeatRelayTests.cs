@@ -90,7 +90,10 @@ public class BeatRelayTests
         await using var relay = await RelayClients.Start(BeatTimings.Default with { LoadTimeout = TimeSpan.FromSeconds(30) });
         var (room, clients, clock) = await Skirmish(relay, ["Anna", "Ben", "Cleo"]);
         RelayClients.Run(clients, clock);
-        await PlayOn(relay, clock,40);
+        // The stall comes once everyone's turnarounds count for the delay, while they are still few: a turn that waited at the
+        // relay through it would then be past the 95th percentile.
+        await Until(relay, () => relay.Relay.WithBeat(room.Id, b => b.Seats.All(s => s.Window.Count >= Beat.MinSamples)), TimeSpan.FromSeconds(30),
+            "enough turnarounds");
 
         await Task.Run(() => relay.Relay.HoldStill(TimeSpan.FromSeconds(5)));
         await PlayOn(relay, clock,80);
@@ -101,6 +104,16 @@ public class BeatRelayTests
         Assert.True(int.Parse(Regex.Match(summary, @"(\d+) counted nobody").Groups[1].Value, CultureInfo.InvariantCulture) > 0, summary);
         Assert.All(clients, c => Assert.DoesNotContain(c.Heard, m => m is PlayerLagging or PlayerLeft));
         Assert.DoesNotContain(relay.Lines, l => l.Contains("marked at tick", StringComparison.Ordinal) || l.Contains("handed over at tick", StringComparison.Ordinal));
+        // Nor is it anybody's line: the turns that waited at the relay through the stall measure nothing (they would give
+        // turnarounds of five seconds, and with the few samples there are yet raise everyone's delay to the most), so the delay
+        // stays within what a loopback line needs.
+        var windows = relay.Relay.WithBeat(room.Id, b => b.Seats.Select(s => (s.Player, Window: s.Window.ToList())).ToList());
+        var changes = relay.Lines.Where(l => l.Contains(": delay ", StringComparison.Ordinal)).ToList();
+        var said = string.Join(Environment.NewLine, changes.Concat(windows.Select(w => $"{w.Player}: {string.Join(" ", w.Window.Select(ms => ms.ToString("F0", CultureInfo.InvariantCulture)))}")));
+        Assert.All(windows, w => Assert.True(w.Window.All(ms => ms < 1000), said));
+        Assert.True(relay.Relay.WithBeat(room.Id, b => b.Delay) <= BeatTimings.Default.StartDelay, said);
+        Assert.True(changes.All(l => Regex.Match(l, @": delay \d → (\d) ") is { Success: true } change
+                                     && int.Parse(change.Groups[1].Value, CultureInfo.InvariantCulture) <= BeatTimings.Default.StartDelay), said);
         // Everyone caught up and plays on the clock again.
         Assert.All(clients, c => Assert.True(c.Samples.Last().Clock - c.Samples.Last().Tick <= MostBehind, $"{c.Name}: {c.Samples.Last()}"));
         Assert.True(RelayClients.AssertSumsAgree(clients) > 0);

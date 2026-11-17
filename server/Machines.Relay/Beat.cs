@@ -393,16 +393,34 @@ public sealed class Beat
     /// A turnaround sample (P2 design §2.7): from the bundle the turn's world had run to the turn, only from a playing,
     /// unmarked player, from a turn made without a backlog. Late or not: a line a little slower than the delay makes every
     /// turn late, and only its samples can raise the delay before the mark (a backlog, which also makes turns late, gives
-    /// none by <see cref="Turn.Held"/>).
+    /// none by <see cref="Turn.Held"/>). None while the relay's own lateness lies within the turnaround (§2.2): a turn that
+    /// waited at a stalled relay measures the stall, not the line, and a few of them would raise everyone's delay to the most.
     /// </summary>
     private void Sample(BeatSeat seat, Turn turn, TimeSpan now)
     {
         if (seat.State != SeatState.Playing || seat.Marked || turn.Held > BundlePacer.Buffer + 1 || turn.Seen < 0
-            || SentAt(turn.Seen) is not { } sent)
+            || SentAt(turn.Seen) is not { } sent || RelayLateSince(turn.Seen, now))
             return;
         seat.Window.Enqueue((now - sent).TotalMilliseconds);
         while (seat.Window.Count > Timings.DelayWindow)
             seat.Window.Dequeue();
+    }
+
+    /// <summary>
+    /// Whether the relay was late by more than <see cref="BeatTimings.RelayLate"/> since bundle <paramref name="seen"/> went out:
+    /// a bundle after it went out that late, or the next one is that overdue now (the relay takes the turn before it closes
+    /// the bundles a stall held up).
+    /// </summary>
+    private bool RelayLateSince(long seen, TimeSpan now)
+    {
+        if (now - Due(NextTick) > Timings.RelayLate)
+            return true;
+        for (var tick = Math.Max(seen + 1, NextTick - SentRing); tick < NextTick; tick++)
+        {
+            if (_sent[tick % SentRing] is var (sent, at) && sent == tick && at - Due(tick) > Timings.RelayLate)
+                return true;
+        }
+        return false;
     }
 
     /// <summary>

@@ -506,6 +506,39 @@ public class BeatTests
         Assert.Equal(Enumerable.Range(0, 401).Select(t => (long)t), relay.Sent.Select(b => b.Tick));
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Turns_that_waited_out_a_stall_of_the_relay_give_no_turnaround_sample_and_the_delay_stays(bool turnsFirst)
+    {
+        var relay = new Relay(BeatTimings.Default, Skirmish());
+        relay.Play(40, Red, Blue);
+        var windows = new[] { Red, Blue }.Select(p => relay.Beat.Seat(p)!.Window.Count).ToList();
+        Assert.All(windows, count => Assert.True(count >= Beat.MinSamples, $"{count} samples"));
+
+        // The relay stands still for five seconds. The turns the clients made meanwhile, from the bundles they still had in
+        // hand, waited at the relay for it: the relay takes them in before it closes the overdue bundles, or after.
+        relay.Now = relay.Beat.Due(41) + TimeSpan.FromSeconds(5);
+        if (!turnsFirst)
+            Assert.Equal(101, relay.Close().Count);
+        foreach (var player in new[] { Red, Blue })
+        {
+            for (var i = 0; i < 3; i++)
+                relay.Send(player, 45 + i, seen: 38 + i, held: 3 - i);
+        }
+        if (turnsFirst)
+            Assert.Equal(101, relay.Close().Count);
+
+        // The stall is the relay's, not their lines': their windows did not take it, and the delay never rose.
+        var after = new[] { Red, Blue }.Select(p => relay.Beat.Seat(p)!.Window.Count).ToList();
+        relay.Play(260, Red, Blue);
+        Assert.True(relay.Sent.Max(b => b.Delay) <= BeatTimings.Default.StartDelay,
+            string.Join(Environment.NewLine, relay.Lines.Where(l => l.StartsWith("delay ", StringComparison.Ordinal))));
+        Assert.Equal(windows, after);
+        // After it, the turns measure the lines again.
+        Assert.All(new[] { Red, Blue }, p => Assert.Equal(BeatTimings.Default.DelayWindow, relay.Beat.Seat(p)!.Window.Count));
+    }
+
     [Fact]
     public void Nobody_is_counted_after_their_own_report_and_the_end_needs_a_majority_on_one_tick()
     {
