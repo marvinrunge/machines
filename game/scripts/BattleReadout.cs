@@ -4,6 +4,17 @@ using Machines.Sim.World;
 
 namespace Machines.Game;
 
+/// <summary>
+/// How a battle's team plate lists its heroes: a row of two lines each (today's two against two), a compact row each (three
+/// to five a team) or a mini row each (six to fifteen, ten or fifteen against as many).
+/// </summary>
+public enum BattleRows
+{
+    Full,
+    Compact,
+    Mini,
+}
+
 /// <summary>How a battle ended for one race: won with its team, lost, or a draw.</summary>
 public enum BattleOutcome
 {
@@ -165,7 +176,7 @@ public sealed record BattleReadout
     }
 
     /// <summary>
-    /// The number a player's hero carries where its race has several (a team of 3 to 5 heroes of one colour): its place in the
+    /// The number a player's hero carries where its race has several (a team of 3 to 15 heroes of one colour): its place in the
     /// race, from 1; 0 where the race has one player, so today's layout shows none.
     /// </summary>
     public static int NumberOf(GameWorld world, PlayerId player) =>
@@ -173,6 +184,28 @@ public sealed record BattleReadout
 
     /// <summary>A hero as the marks and lists name it: "3 · Torque" with a number, the name alone without.</summary>
     public static string Label(int number, string name) => number > 0 ? $"{number} · {name}" : name;
+
+    /// <summary>How a team plate lists its heroes, by the most a team has: two a row each, three to five compact, six to fifteen in mini rows.</summary>
+    public static BattleRows RowsFor(int heroes) => heroes <= 2 ? BattleRows.Full : heroes <= 5 ? BattleRows.Compact : BattleRows.Mini;
+
+    /// <summary>The characters of a hero's name a mini row keeps, the cut one's last a "…".</summary>
+    public const int MiniName = 12;
+
+    /// <summary>A hero as a mini row names it: its number and its name cut to <see cref="MiniName"/> characters, "11 · Wrenchwork…".</summary>
+    public static string MiniLabel(BattleHeroReadout hero) =>
+        Label(hero.Number, hero.Name.Length <= MiniName ? hero.Name : hero.Name[..(MiniName - 1)].TrimEnd() + "…");
+
+    /// <summary>
+    /// What a hero's row says of who drives it now, besides standing or down, as the words to translate: "Away" for a person
+    /// who left (the computer drives their hero), "Bot" for a bot where that is news, in a list of three or more heroes
+    /// a team (<paramref name="teamHeroes"/>) or where several <paramref name="people"/> play; null for a hero out for good
+    /// and otherwise. The rows show it before the name, where it is never cut off.
+    /// </summary>
+    public static string? DriverTag(BattleHeroReadout hero, int teamHeroes, int people) =>
+        hero.Out ? null
+        : hero.Away ? "Away"
+        : hero.Bot && (teamHeroes > 2 || people > 1) ? "Bot"
+        : null;
 
     /// <summary>The sheet a player's hero was made from: the one naming the player, or in today's layout the one of its race.</summary>
     public static BattleHero? SheetOf(BattleRun run, PlayerId player) =>

@@ -110,8 +110,12 @@ public static class BattleBalance
     /// </summary>
     public static float CaptureTargetFor(int heroes) => heroes <= 2 ? CaptureTarget : 50 * heroes;
 
-    /// <summary>The most heroes a team may have in a room until the relay's beat comes (online plan P2); the sim takes up to <see cref="BattleSeats.MostPerTeam"/>.</summary>
-    public const int MostTeamSize = 5;
+    /// <summary>
+    /// The most heroes a team may have in a room, as the relay keeps the beat (online plan P2, design §7): the relay and the
+    /// sim (<see cref="BattleSeats.MostPerTeam"/>) take fifteen; the menus offer up to ten (RoomOptions.TeamSizes), fifteen
+    /// is for matchmaking (P4), tests and benches.
+    /// </summary>
+    public const int MostTeamSize = 15;
 
     /// <summary>The lives a room proposes for a battle whose larger team has <paramref name="heroes"/> heroes; the room may choose 1 to 5.</summary>
     public static int ProposedLives(int heroes) => heroes <= 2 ? 1 : heroes < 10 ? 2 : 3;

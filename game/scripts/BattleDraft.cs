@@ -125,7 +125,8 @@ public sealed class BattleDraft
 
     /// <summary>
     /// The heroes a team, as <see cref="BattleOptions.TeamSize"/>: 0 for today's layout (a hero for each race of the map's
-    /// teams, two against two), else that many on each team's first race, at most <see cref="BattleBalance.MostTeamSize"/>.
+    /// teams, two against two), else that many on each team's first race, at most <see cref="BattleBalance.MostTeamSize"/>
+    /// (the pod offers five and ten, <see cref="RoomOptions.TeamSizes"/>).
     /// </summary>
     public int TeamSize
     {

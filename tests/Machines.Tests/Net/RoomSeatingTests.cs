@@ -62,6 +62,59 @@ public class RoomSeatingTests
         Assert.Equal(state.Players.Single(p => p.ClientId == anna.Id).Colour, state.Players.Single(p => p.ClientId == ben.Id).Colour);
     }
 
+    [Theory]
+    [InlineData(10)]
+    [InlineData(15)]
+    public async Task Ten_and_fifteen_a_side_list_two_teams_of_numbered_seats_written_short(int size)
+    {
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var anna = await ChatTests.Client.Connect(relay, "Anna");
+        await using var ben = await ChatTests.Client.Connect(relay, "Ben");
+        anna.Connection.Send(BattleRoom(size));
+        var room = (await anna.Next<RoomState>(s => s.Players.Count == 1)).Id;
+        await ben.Join(room);
+
+        var state = await anna.Next<RoomState>(s => s.Players.Count == 2);
+
+        Assert.Equal(size, state.Options.Battle!.TeamSize);
+        Assert.Equal(2 * size, state.Seats.Count);
+        Assert.True(RoomSeating.Numbered(state));
+        var groups = RoomSeating.Groups(state);
+        Assert.Equal([0, 1], groups.Select(g => g.Team));
+        Assert.Equal([[Race.Red], [Race.Green]], groups.Select(g => g.Races.ToArray()));
+        Assert.Equal([(Race.Red, 1, (int?)anna.Id), .. Enumerable.Range(2, size - 1).Select(n => (Race.Red, n, (int?)null))], Seats(groups[0]));
+        Assert.Equal([(Race.Green, 1, (int?)ben.Id), .. Enumerable.Range(2, size - 1).Select(n => (Race.Green, n, (int?)null))], Seats(groups[1]));
+        Assert.Equal(Enumerable.Range(0, 2 * size), groups.SelectMany(g => g.Seats).Select(s => s.Index));
+        Assert.All(Enumerable.Range(0, 2 * size), i => Assert.Equal([SeatUse.Open, SeatUse.Computer], RoomSeating.Uses(state, i)));
+        // A column at its least width writes a bot's seat short.
+        Assert.True(RoomSeating.Short(state));
+        Assert.Equal("bot", RoomSeating.BotSeat(state));
+        // The lobby counts the seats.
+        anna.Connection.Send(new ListRooms());
+        var listed = (await anna.Next<RoomList>()).Rooms.Single(r => r.Id == room);
+        Assert.Equal((2, 2 * size), (listed.Players, listed.MaxPlayers));
+
+        // Ben takes his team's last seat; the room starts with every other seat a bot's hero.
+        ben.Connection.Send(new TakeSeat(groups[1].Seats[^1].Index));
+        state = await anna.Next<RoomState>(s => s.Seats[^1].ClientId == ben.Id);
+        Assert.Equal(ben.Id, RoomSeating.Groups(state)[1].Seats[^1].Player!.ClientId);
+    }
+
+    [Fact]
+    public async Task Five_a_side_and_todays_layout_write_a_bots_seat_in_full()
+    {
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var anna = await ChatTests.Client.Connect(relay, "Anna");
+        anna.Connection.Send(BattleRoom(5));
+        var five = await anna.Next<RoomState>(s => s.Players.Count == 1);
+        Assert.False(RoomSeating.Short(five));
+        Assert.Equal("a bot hero", RoomSeating.BotSeat(five));
+
+        anna.Connection.Send(new ChangeRoom("m_desert", "m_desert", Four, RoomOptions.Battle(new MatchOptions(), 2, 2, BattleWin.Both, 0), FillWithAi: true));
+        var two = await anna.Next<RoomState>(s => s.Seats.Count == 4);
+        Assert.Equal("a bot hero", RoomSeating.BotSeat(two));
+    }
+
     [Fact]
     public async Task Two_commanders_a_side_list_each_race_with_its_two_seats_and_the_computer_only_at_the_first()
     {

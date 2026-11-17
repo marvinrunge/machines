@@ -459,7 +459,7 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
     /// <summary>
     /// The room's seats (<see cref="RoomSeating"/>), each with its race's colour: in a normal room a line for each race, its
     /// seats side by side (two where commanders share a side); in a battle room a column for each team, its seats one under
-    /// another (five a team today, up to fifteen once the relay's beat comes, when the list scrolls). A seat says who sits
+    /// another (up to ten a team in the menus, fifteen for matchmaking, the list scrolling past its room). A seat says who sits
     /// there or what it is for, numbered where a race has several; a free one can be taken, and the host says what each
     /// seat not theirs is for.
     /// </summary>
@@ -549,9 +549,10 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
         var player = line.Player;
         var text = player is null ? Lang.T(line.Seat.Use.ToString())
             : $"{player.Name}{(player.ClientId == state.HostId ? "   " + Lang.T("(host)") : "")}{(player.Ready ? "   " + Lang.T("ready") : "")}";
-        // A battle seat has a hero: the player's, or a bot's if nobody sits there.
+        // A battle seat has a hero: the player's, or a bot's if nobody sits there ("bot" from ten a side, where a team's
+        // column is at its least width).
         if (battle)
-            text += "   ·   " + (player is null ? Lang.T("a bot hero") : HeroText(player.Hero));
+            text += "   ·   " + (player is null ? Lang.T(RoomSeating.BotSeat(state)) : HeroText(player.Hero));
         var label = MenuTheme.Label(text, compact ? 18 : 22, player is null ? MenuTheme.Dim : MenuTheme.Text);
         label.AutoTranslateMode = AutoTranslateModeEnum.Disabled;
         label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -804,15 +805,16 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
     /// does the same on a relay it hosts itself; MACHINES_MP=join,&lt;address&gt; joins the first room and readies.
     /// Each says a line in the room's chat first; MACHINES_MP_SHOT=&lt;png&gt; saves the room once both are ready, and
     /// MACHINES_MP_LOBBY_SHOT=&lt;png&gt; the list of rooms the joining side sees. The host or server opens a battle room
-    /// instead with battle=&lt;map&gt;[,tier=1-8][,lives=1-5][,win=both|wipe|capture][,team=5] after the address (for
+    /// instead with battle=&lt;map&gt;[,tier=1-8][,lives=1-5][,win=both|wipe|capture][,team=5|10|15] after the address (for
     /// example MACHINES_MP=serve,127.0.0.1:7777,battle=m_desert,tier=2): both bring the hero of their own pod, the other
-    /// seats are bots; team=5 seats five heroes a team. A normal room has two commanders a side with seats=2. The joining
-    /// side with seat=&lt;n&gt; moves to the room's seat n (counted from 0) once in, keeping the colour it is given there
-    /// (seat=1 in a room of two a side sits beside the host); with pod=1 it goes to the pod from the room and comes back
-    /// by its Ready (MACHINES_MP_POD_SHOT=&lt;png&gt; saves the pod on the way). Where the first room's match is running
-    /// already, the joining side asks to come back into it (RejoinMatch): by the key of its seat there when its settings keep
-    /// one from an earlier run (a game killed in the match and started again), else as the player of its name who left. It all
-    /// happens once a run: the page coming again (back from the pod or a match) does not connect anew.
+    /// seats are bots; team=n seats n heroes a team (15, which the menus do not offer, too). A normal room has two commanders
+    /// a side with seats=2. The joining side with seat=&lt;n&gt; moves to the room's seat n (counted from 0) once in, keeping
+    /// the colour it is given there (seat=1 in a room of two a side sits beside the host); with pod=1 it goes to the pod from
+    /// the room and comes back by its Ready (MACHINES_MP_POD_SHOT=&lt;png&gt; saves the pod on the way). Where the first
+    /// room's match is running already, the joining side asks to come back into it (RejoinMatch): by the key of its seat
+    /// there when its settings keep one from an earlier run (a game killed in the match and started again), else as the
+    /// player of its name who left. It all happens once a run: the page coming again (back from the pod or a match) does
+    /// not connect anew.
     /// </summary>
     private void Automate()
     {

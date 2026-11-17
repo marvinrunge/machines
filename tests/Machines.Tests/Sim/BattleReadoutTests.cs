@@ -281,6 +281,94 @@ public class BattleReadoutTests
         Assert.Equal((true, true, "Seat 2"), (left.Away, left.Bot, left.PlayerName));
     }
 
+    // ---- ten and fifteen against as many (P2 design §7) ---------------------------------------------------
+
+    /// <summary>A battle of a team size on the Desert, <paramref name="humans"/> people (named "Seat n") and bots in the other seats.</summary>
+    private static GameWorld Sized(int size, params PlayerId[] humans)
+    {
+        var entry = BattleCatalogue.Map("m_desert")!;
+        var options = new BattleOptions { Tier = 3, TeamSize = size, TeamA = entry.TeamA, TeamB = entry.TeamB };
+        var rows = BattleSeats.Of(options).Select(seat => new PlayerSeat(seat.Player, seat.Race,
+            humans.Contains(seat.Player) ? PlayerKind.Human : PlayerKind.Bot, $"Seat {seat.Player.Value}")).ToList();
+        var world = MatchSetup.Create(Battles.Data, entry.Scenario, entry.Planet, new PlayerTable(rows), 7, new MatchOptions { Battle = options, FogOfWar = false });
+        foreach (var human in humans)
+            world.HeroOf(human)!.DrivenByPlayer = true;
+        return world;
+    }
+
+    [Theory]
+    [InlineData(10)]
+    [InlineData(15)]
+    public void Ten_and_fifteen_against_as_many_list_every_player_in_their_place_with_number_and_names(int size)
+    {
+        var options = new BattleOptions { TeamSize = size, TeamA = [Race.Red], TeamB = [Race.Green] };
+        var seats = BattleSeats.Of(options);
+        var reds = seats.Where(s => s.Team == 0).Select(s => s.Player).ToArray();
+        var greens = seats.Where(s => s.Team == 1).Select(s => s.Player).ToArray();
+        // A person in the middle of each team, the last of the green team too; bots everywhere else.
+        var me = reds[size / 2];
+        var world = Sized(size, me, greens[0], greens[^1]);
+        var run = world.Battle!;
+
+        var mine = BattleReadout.Of(world, me)!;
+
+        Assert.Equal(reds, mine.Ours.Heroes.Select(h => h.Player));
+        Assert.Equal(greens, mine.Theirs.Heroes.Select(h => h.Player));
+        Assert.Equal(Enumerable.Range(1, size), mine.Ours.Heroes.Select(h => h.Number));
+        Assert.Equal(Enumerable.Range(1, size), mine.Theirs.Heroes.Select(h => h.Number));
+        Assert.All(mine.Ours.Heroes, h => Assert.Equal(Race.Red, h.Race));
+        Assert.All(mine.Theirs.Heroes, h => Assert.Equal(Race.Green, h.Race));
+        Assert.Equal((me, size / 2 + 1, true), (mine.You.Player, mine.You.Number, mine.You.You));
+        Assert.Single(mine.Ours.Heroes.Concat(mine.Theirs.Heroes), h => h.You);
+        Assert.Equal(2 * size, mine.Ours.Heroes.Concat(mine.Theirs.Heroes).Select(h => h.Player).Distinct().Count());
+        foreach (var hero in mine.Ours.Heroes.Concat(mine.Theirs.Heroes))
+        {
+            var sheet = run.Options.Heroes.Single(h => h.Player == hero.Player);
+            Assert.Equal((sheet.Name, sheet.Chassis), (hero.Name, hero.Chassis));
+            Assert.Equal($"{hero.Number} · {sheet.Name}", hero.Label);
+            Assert.True(hero.Standing);
+            Assert.Equal((1, 1), (hero.Lives, hero.LivesLeft));
+        }
+        // People by their row, the computer's heroes bots; three people play.
+        Assert.Equal(($"Seat {greens[^1].Value}", false), (mine.Theirs.Heroes[^1].PlayerName, mine.Theirs.Heroes[^1].Bot));
+        Assert.Equal(size * 2 - 3, mine.Ours.Heroes.Concat(mine.Theirs.Heroes).Count(h => h.Bot));
+        Assert.Equal(reds.Where(p => p != me), mine.Watchable);
+        // The other side sees its own team first, its last seat numbered last.
+        var theirs = BattleReadout.Of(world, greens[^1])!;
+        Assert.Equal(greens, theirs.Ours.Heroes.Select(h => h.Player));
+        Assert.Equal((1, size), (theirs.Ours.Team, theirs.You.Number));
+
+        // The plate lists them in mini rows, each bot tagged before its name, a person who left as away.
+        Assert.Equal(BattleRows.Mini, BattleReadout.RowsFor(size));
+        Assert.All(mine.Ours.Heroes.Concat(mine.Theirs.Heroes), h => Assert.Equal(h.Bot ? "Bot" : null, BattleReadout.DriverTag(h, size, 3)));
+        world.HandOverToAi(greens[0]);
+        var left = BattleReadout.Of(world, me)!.Theirs.Heroes[0];
+        Assert.Equal((true, true, "Away"), (left.Away, left.Bot, BattleReadout.DriverTag(left, size, 3)));
+    }
+
+    [Fact]
+    public void Each_team_size_has_its_rows_and_a_mini_row_cuts_a_long_name_to_twelve_characters()
+    {
+        Assert.Equal([BattleRows.Full, BattleRows.Full, BattleRows.Compact, BattleRows.Compact, BattleRows.Mini, BattleRows.Mini, BattleRows.Mini],
+            new[] { 1, 2, 3, 5, 6, 10, 15 }.Select(BattleReadout.RowsFor));
+
+        var hero = new BattleHeroReadout(new PlayerId(30), Race.Green, 14, "Wrenchworks Grand", null, "grunt1", 1, Bot: true, You: false,
+            1, 1, 2, 2, Standing: true, BackIn: null, Out: false, Kills: 3);
+        Assert.Equal("14 · Wrenchworks…", BattleReadout.MiniLabel(hero));
+        Assert.Equal(BattleReadout.MiniName, BattleReadout.MiniLabel(hero)[5..].Length);
+        Assert.Equal("14 · Wrenchwork12", BattleReadout.MiniLabel(hero with { Name = "Wrenchwork12" }));
+        Assert.Equal("Torque", BattleReadout.MiniLabel(hero with { Number = 0, Name = "Torque" }));
+
+        // Who drives it: a bot only where it is news (three or more a team, or several people), never for a hero out for good.
+        Assert.Equal("Bot", BattleReadout.DriverTag(hero, 15, 1));
+        Assert.Equal("Bot", BattleReadout.DriverTag(hero, 5, 1));
+        Assert.Null(BattleReadout.DriverTag(hero, 2, 1));
+        Assert.Equal("Bot", BattleReadout.DriverTag(hero, 2, 2));
+        Assert.Null(BattleReadout.DriverTag(hero with { Out = true }, 15, 1));
+        Assert.Equal("Away", BattleReadout.DriverTag(hero with { Away = true }, 2, 1));
+        Assert.Null(BattleReadout.DriverTag(hero with { Bot = false }, 15, 2));
+    }
+
     [Fact]
     public void Today_s_layout_numbers_no_hero()
     {

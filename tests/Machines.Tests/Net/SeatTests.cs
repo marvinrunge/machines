@@ -168,7 +168,7 @@ public class SeatTests
                      (new CreateRoom("r", "m_desert", "m_desert", two, new MatchOptions(), false, SeatsPerSlot: 3), "two commanders per side at most"),
                      (new CreateRoom("r", "m_desert", "m_desert", two, new MatchOptions(), false, SeatsPerSlot: 0), "every side needs a seat"),
                      (new CreateRoom("r", "m_desert", "m_desert", [Race.Red, (Race)7], new MatchOptions(), false), "no such start position"),
-                     (new CreateRoom("r", "m_desert", "m_desert", two, Sized(BattleBalance.MostTeamSize + 1), false), "a team has at most 5 heroes"),
+                     (new CreateRoom("r", "m_desert", "m_desert", two, Sized(BattleBalance.MostTeamSize + 1), false), "a team has at most 15 heroes"),
                      (new CreateRoom("r", "m_desert", "m_desert", two, Sized(-1), false), "no such team size"),
                  })
         {

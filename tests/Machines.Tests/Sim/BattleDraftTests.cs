@@ -439,6 +439,45 @@ public class BattleDraftTests
         Assert.DoesNotContain(PlayerId.Of(Race.Green), world.Battle.Bots);
     }
 
+    [Fact]
+    public void Ten_against_ten_seats_the_player_and_nineteen_bots_in_a_world_that_sets_up()
+    {
+        var (draft, _) = NewDraft();
+        draft.Map = "m_desert";
+        draft.Colour = Race.Yellow;
+        draft.TeamSize = 10;
+        draft.Lives = RoomOptions.ProposedLives(draft.TeamSize, BattleCatalogue.Map(draft.Map));
+        var map = BattleCatalogue.Map("m_desert")!;
+
+        var options = draft.Options(unnamed: "Pilot");
+
+        Assert.Equal((10, 3), (options.TeamSize, options.Lives));
+        Assert.Equal([map.TeamA[0]], options.TeamA);
+        Assert.Equal([map.TeamB[0]], options.TeamB);
+        Assert.Equal(20, options.Heroes.Count);
+        Assert.Equal(BattleSeats.Of(options).Select(s => s.Player).Order(), options.Heroes.Select(h => h.Player!.Value));
+        // Yellow is Green's team's: the player is that team's first seat, the others are bots.
+        var mine = options.Heroes.Single(h => !h.Bot);
+        Assert.Equal((Race.Green, PlayerId.Of(Race.Green), "Pilot"), (mine.Race, mine.Player!.Value, mine.Name));
+        Assert.Equal(19, options.Heroes.Count(h => h.Bot));
+        Assert.All(options.Heroes, h => Assert.Null(BattleBots.WhyNot(h, options.Tier)));
+        Assert.Equal(20, options.Heroes.Select(h => h.Name).Distinct().Count());
+
+        var world = BattleWorld(map, options, draft.Player(map));
+        Assert.Equal(2, world.Races.Count);
+        Assert.Equal(20, world.Wired!.Heroes.Count);
+        Assert.Equal(20, world.Machines.Count(m => world.HeroOf(m.Owner) == m));
+        Assert.Equal(19, world.Battle!.Bots.Count);
+        Assert.DoesNotContain(PlayerId.Of(Race.Green), world.Battle.Bots);
+        Assert.Equal([10, 10], world.Battle.Members.Select(team => team.Count));
+        Assert.Equal(BattleBalance.CaptureTargetFor(10), world.Battle.CaptureTarget);
+        // Every hero stands at its team's pod and the battle plays past its opening.
+        for (var i = 0; i < (BattleBalance.Opening + 2) * GameWorld.TicksPerSecond; i++)
+            world.Step();
+        Assert.False(world.Battle.InOpening(world.Time));
+        Assert.Equal(20, world.Wired.Heroes.Keys.Count(p => world.HeroOf(p) is not null));
+    }
+
     [Theory]
     [InlineData(Race.Blue)]
     [InlineData(Race.Yellow)]
@@ -493,7 +532,7 @@ public class BattleDraftTests
     }
 
     [Fact]
-    public void The_team_size_is_kept_with_the_battle_chosen_and_comes_back_at_most_five()
+    public void The_team_size_is_kept_with_the_battle_chosen_and_comes_back_at_most_fifteen()
     {
         var (draft, account) = NewDraft();
         draft.TeamSize = 5;
@@ -501,8 +540,12 @@ public class BattleDraftTests
 
         Assert.Equal(5, account.LastHero!.TeamSize);
         Assert.Equal(5, new BattleDraft(Data, account).TeamSize);
-        draft.TeamSize = 15;
+        draft.TeamSize = 10;
+        Assert.True(draft.Keep());
+        Assert.Equal(10, new BattleDraft(Data, account).TeamSize);
+        draft.TeamSize = 16;
         Assert.Equal(BattleBalance.MostTeamSize, draft.TeamSize);
+        Assert.Equal(15, draft.TeamSize);
         draft.TeamSize = -1;
         Assert.Equal(0, draft.TeamSize);
         // A sheet kept before team sizes reads as today's layout.

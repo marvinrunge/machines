@@ -94,14 +94,21 @@ public class BattleRoomOptionsTests
     }
 
     [Fact]
-    public void A_battle_room_takes_the_team_size_chosen_keeps_its_own_when_none_is_and_never_more_than_five()
+    public void A_battle_room_takes_the_team_size_chosen_keeps_its_own_when_none_is_and_never_more_than_fifteen()
     {
         var five = Wired(RoomOptions.Battle(new MatchOptions(), 2, 1, BattleWin.Both, teamSize: 5));
 
         Assert.Equal(5, five.Battle!.TeamSize);
         Assert.Equal(5, RoomOptions.Battle(five, 3, 2, BattleWin.Wipe).Battle!.TeamSize);
         Assert.Equal(0, RoomOptions.Battle(five, 3, 2, BattleWin.Wipe, teamSize: 0).Battle!.TeamSize);
-        Assert.Equal(BattleBalance.MostTeamSize, RoomOptions.Battle(five, 3, 2, BattleWin.Wipe, teamSize: 15).Battle!.TeamSize);
+        // Ten is kept as chosen, through the relay's JSON and a change that names none.
+        var ten = Wired(RoomOptions.Battle(five, 3, 3, BattleWin.Both, teamSize: 10));
+        Assert.Equal(10, ten.Battle!.TeamSize);
+        Assert.Equal(10, RoomOptions.Battle(ten, 4, 3, BattleWin.Capture).Battle!.TeamSize);
+        // Fifteen, which the menus do not offer, is taken (MACHINES_MP's team=15, matchmaking later); more is not.
+        Assert.Equal(15, BattleBalance.MostTeamSize);
+        Assert.Equal(15, Wired(RoomOptions.Battle(five, 3, 2, BattleWin.Wipe, teamSize: 15)).Battle!.TeamSize);
+        Assert.Equal(BattleBalance.MostTeamSize, RoomOptions.Battle(five, 3, 2, BattleWin.Wipe, teamSize: 16).Battle!.TeamSize);
         Assert.Equal(0, RoomOptions.Battle(five, 3, 2, BattleWin.Wipe, teamSize: -3).Battle!.TeamSize);
         // A room of today's layout stays one, and a room turned normal has no team size left.
         Assert.Equal(0, RoomOptions.Battle(new MatchOptions(), 2, 1, BattleWin.Both).Battle!.TeamSize);
@@ -109,13 +116,18 @@ public class BattleRoomOptionsTests
     }
 
     [Fact]
-    public void The_rooms_offer_two_against_two_and_five_against_five_with_the_lives_proposed_and_one_or_two_commanders_a_side()
+    public void The_rooms_offer_two_against_two_five_against_five_and_ten_against_ten_with_the_lives_proposed_and_one_or_two_commanders_a_side()
     {
         var map = BattleCatalogue.Map("m_desert")!;
 
-        Assert.Equal([0, 5], RoomOptions.TeamSizes);
-        Assert.Equal(["2 vs 2", "5 vs 5"], RoomOptions.TeamSizes.Select(size => RoomOptions.TeamSizeName(size, map)));
-        Assert.Equal([1, 2], RoomOptions.TeamSizes.Select(size => RoomOptions.ProposedLives(size, map)));
+        Assert.Equal([0, 5, 10], RoomOptions.TeamSizes);
+        Assert.Equal(["2 vs 2", "5 vs 5", "10 vs 10"], RoomOptions.TeamSizes.Select(size => RoomOptions.TeamSizeName(size, map)));
+        Assert.Equal([1, 2, 3], RoomOptions.TeamSizes.Select(size => RoomOptions.ProposedLives(size, map)));
+        Assert.Equal([0, 1, 2], RoomOptions.TeamSizes.Select(RoomOptions.Offered));
+        Assert.All(RoomOptions.TeamSizes, size => Assert.InRange(size, 0, BattleBalance.MostTeamSize));
+        // Fifteen is taken but not offered: the pod and the settings page keep it apart.
+        Assert.Equal((-1, -1), (RoomOptions.Offered(15), RoomOptions.Offered(3)));
+        Assert.Equal(("15 vs 15", 3), (RoomOptions.TeamSizeName(15, map), RoomOptions.ProposedLives(15, map)));
         Assert.Equal([1, 2], RoomOptions.CommandersPerSide);
         Assert.Equal(RelayServer.MostSeatsPerSlot, RoomOptions.CommandersPerSide.Max());
         Assert.All(BattleCatalogue.Maps, m => Assert.Equal(2, RoomOptions.HeroesPerTeam(0, m)));

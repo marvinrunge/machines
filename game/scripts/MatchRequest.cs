@@ -109,7 +109,8 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
     /// For automated checks: MACHINES_BATTLE=&lt;map&gt;[,tier=&lt;1-8&gt;][,lives=&lt;1-5&gt;][,win=both|wipe|capture][,bots=4][,team=&lt;n&gt;]
     /// starts a battle straight away, the player on the first team's anchor slot with a bot's loadout at the tier (not the
     /// pod's hero, so that a run does not depend on the profile); bots=4 lets a bot play the player's hero too, to watch;
-    /// team=n seats n heroes a team (n against n, up to <see cref="BattleSeats.MostPerTeam"/>), the player the first of team A.
+    /// team=n seats n heroes a team (n against n, up to <see cref="BattleBalance.MostTeamSize"/>, fifteen, which the menus do
+    /// not offer), the player the first of team A.
     /// </summary>
     private static MatchRequest? BattleFromEnvironment(string setting)
     {
@@ -121,7 +122,7 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
         var tier = Math.Clamp(Number("tier", 3), 1, BattleCatalogue.MostTier);
         var win = values.TryGetValue("win", out var won) && Enum.TryParse<BattleWin>(won, true, out var parsed) ? parsed : BattleWin.Both;
         var watch = Number("bots", 3) >= 4;
-        var team = Math.Clamp(Number("team", 0), 0, BattleSeats.MostPerTeam);
+        var team = Math.Clamp(Number("team", 0), 0, BattleBalance.MostTeamSize);
         var player = map.TeamA[0];
         var hero = watch ? null : BattleBots.Bot(map.Scenario, tier, player, 0) with { Name = BattleDraft.ShortName(NetLink.OfflineName), Bot = false };
         var options = BattleDraft.Compose(map, tier, Number("lives", 1), win, hero);

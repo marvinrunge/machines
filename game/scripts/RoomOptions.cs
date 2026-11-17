@@ -16,10 +16,17 @@ public static class RoomOptions
 {
     /// <summary>
     /// The team sizes a battle offers, in the room's settings and the pod: 0 for today's layout, a hero for each race of the
-    /// map's two teams (two against two), and <see cref="BattleBalance.MostTeamSize"/> heroes a team on each team's first
-    /// race (five against five). The relay's beat (online plan P2) adds ten and fifteen.
+    /// map's two teams (two against two), and five or ten heroes a team on each team's first race (five against five, ten
+    /// against ten). The relay and the sim take up to <see cref="BattleBalance.MostTeamSize"/> (fifteen), which only
+    /// MACHINES_MP's and MACHINES_BATTLE's team=15 ask for until matchmaking offers it (online plan P4).
     /// </summary>
-    public static IReadOnlyList<int> TeamSizes { get; } = [0, BattleBalance.MostTeamSize];
+    public static IReadOnlyList<int> TeamSizes { get; } = [0, 5, 10];
+
+    /// <summary>
+    /// The place of a team size among <see cref="TeamSizes"/>, for a choice that shows them; -1 for a size not offered (none
+    /// of the menus', fifteen for one).
+    /// </summary>
+    public static int Offered(int teamSize) => TeamSizes.ToList().IndexOf(teamSize);
 
     /// <summary>The commanders a side may have in a normal room: one, as in the original, or two sharing the side.</summary>
     public static IReadOnlyList<int> CommandersPerSide { get; } = [.. Enumerable.Range(1, RelayServer.MostSeatsPerSlot)];
@@ -141,6 +148,19 @@ public static class RoomSeating
     /// numbers the heroes and commanders of a race it shares.
     /// </summary>
     public static bool Numbered(RoomState state) => state.Seats.GroupBy(s => s.Race).Any(race => race.Count() > 1);
+
+    /// <summary>A battle team of this many seats or more is listed short: a column of the list is at its least width.</summary>
+    public const int ShortFrom = 10;
+
+    /// <summary>
+    /// Whether the list writes a battle's seats short, "bot" for "a bot hero": from <see cref="ShortFrom"/> seats a team (ten
+    /// against ten), where the two teams' columns are at their least width.
+    /// </summary>
+    public static bool Short(RoomState state) =>
+        state.Options.Battle is not null && Groups(state).Any(group => group.Team >= 0 && group.Seats.Count >= ShortFrom);
+
+    /// <summary>What a battle seat nobody sits at has, in the list's words (to be translated): a bot's hero, "bot" where the list is <see cref="Short"/>.</summary>
+    public static string BotSeat(RoomState state) => Short(state) ? "bot" : "a bot hero";
 
     /// <summary>
     /// What the host may make of a seat (MachGuiPlayerListItem's drop-down): in a battle Open or Computer, as every seat has a

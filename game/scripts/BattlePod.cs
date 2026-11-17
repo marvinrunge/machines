@@ -9,8 +9,9 @@ namespace Machines.Game;
 /// <summary>
 /// The pod of Battle as the main menu opens it: the hangar's screen over a <see cref="BattleDesk"/>, with the hero's name,
 /// colours, tier and XP over its values, and below it all the battle to fight (map, team size, lives, victory) and the way
-/// in: against bots on this machine, two against two or five against five, or a room in Multiplayer. Battle is the remake's
-/// own addition.
+/// in: against bots on this machine, two against two, five against five or ten against ten, or a room in Multiplayer. For
+/// automated pictures MACHINES_MENU_TEAM=&lt;n&gt; chooses a team size offered (MACHINES_MENU_SCREENSHOT's pod), as choosing
+/// it in the bar does. Battle is the remake's own addition.
 /// </summary>
 public static class BattlePod
 {
@@ -27,6 +28,11 @@ public static class BattlePod
         if (fresh.Count > 0)
             account.Save();
         var desk = new BattleDesk(Paths.Data, screens.Assets, account) { Fresh = fresh, First = shelf };
+        if (room is null && int.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_MENU_TEAM"), out var team) && RoomOptions.Offered(team) >= 0)
+        {
+            desk.Draft.TeamSize = team;
+            desk.Draft.Lives = RoomOptions.ProposedLives(team, BattleCatalogue.Map(desk.Draft.Map));
+        }
         void Back()
         {
             desk.Draft.Keep();
@@ -138,7 +144,10 @@ public static class BattlePod
             SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
         };
         var sizes = RoomOptions.TeamSizes.ToList();
-        var size = new ChipChoice(sizes.Select(s => RoomOptions.TeamSizeName(s, null)), Math.Max(0, sizes.IndexOf(draft.TeamSize))) { CustomMinimumSize = new Vector2(130, 62) };
+        // The pod fights only the sizes it offers.
+        if (RoomOptions.Offered(draft.TeamSize) < 0)
+            draft.TeamSize = sizes[0];
+        var size = new ChipChoice(sizes.Select(s => RoomOptions.TeamSizeName(s, null)), Math.Max(0, sizes.IndexOf(draft.TeamSize))) { CustomMinimumSize = new Vector2(150, 62) };
         var lives = new ChipChoice(Enumerable.Range(1, 5).Select(LivesName), draft.Lives - 1) { CustomMinimumSize = new Vector2(150, 62) };
         var victory = new ChipChoice(Victories.Select(VictoryName), Math.Max(0, Array.IndexOf(Victories, draft.Win))) { CustomMinimumSize = new Vector2(250, 62) };
         var bracket = MenuTheme.Label("", 21, MenuTheme.Text);

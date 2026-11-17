@@ -31,6 +31,10 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
     // A room's mode (0 normal, 1 battle) and a battle's settings; tier 0 until chosen, then the pod's hero sets it. A normal
     // room's commanders per side and a battle's team size, by their place in RoomOptions' lists.
     private static int _lastMode, _lastTier, _lastLives = 1, _lastWin, _lastCommanders, _lastTeamSize;
+
+    // A battle room's team size the page does not offer (fifteen, from MACHINES_MP's team=15 or a room that has it), kept as
+    // it is until the host chooses one of those it offers.
+    private static int? _unofferedTeamSize;
     private static string _lastBattleMap = "m_desert";
     private static readonly BattleWin[] Wins = [BattleWin.Both, BattleWin.Wipe, BattleWin.Capture];
 
@@ -176,10 +180,12 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
         var tiers = Enumerable.Range(1, BattleCatalogue.MostTier).Select(BracketName);
         var note = MenuTheme.Paragraph(Lang.T("Every player brings the hero from their pod; every other seat is a bot hero of the same tier."), 19, MenuTheme.Dim);
         _lives = Choice(Enumerable.Range(1, 5).Select(BattlePod.LivesName), _lastLives - 1, i => _lastLives = i + 1);
-        var sizes = Choice(RoomOptions.TeamSizes.Select(size => RoomOptions.TeamSizeName(size, null)), _lastTeamSize, i =>
+        // A room of a size not offered (fifteen) shows it after those offered, as long as it keeps it.
+        List<int> shown = [.. RoomOptions.TeamSizes, .. _unofferedTeamSize is { } unoffered ? [unoffered] : Array.Empty<int>()];
+        var sizes = Choice(shown.Select(size => RoomOptions.TeamSizeName(size, null)), _unofferedTeamSize is null ? _lastTeamSize : shown.Count - 1, i =>
         {
-            _lastTeamSize = i;
-            _lastLives = RoomOptions.ProposedLives(RoomOptions.TeamSizes[i], _battleMap);
+            TakeTeamSize(shown[i]);
+            _lastLives = RoomOptions.ProposedLives(shown[i], _battleMap);
             if (_lives is not null)
                 _lives.Selected = _lastLives - 1;
             ShowBattleText();
@@ -193,7 +199,18 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
     }
 
     /// <summary>The team size chosen, as <see cref="BattleOptions.TeamSize"/>.</summary>
-    private static int TeamSize => RoomOptions.TeamSizes[Math.Clamp(_lastTeamSize, 0, RoomOptions.TeamSizes.Count - 1)];
+    private static int TeamSize => _unofferedTeamSize ?? RoomOptions.TeamSizes[Math.Clamp(_lastTeamSize, 0, RoomOptions.TeamSizes.Count - 1)];
+
+    /// <summary>
+    /// Takes a battle's team size as the page's choice: one it offers as that choice, another (fifteen) as it is, up to
+    /// <see cref="BattleBalance.MostTeamSize"/>, the choice standing on today's layout meanwhile.
+    /// </summary>
+    private static void TakeTeamSize(int teamSize)
+    {
+        var offered = RoomOptions.Offered(teamSize);
+        _lastTeamSize = Math.Max(0, offered);
+        _unofferedTeamSize = offered < 0 && teamSize > 0 ? Math.Min(teamSize, BattleBalance.MostTeamSize) : null;
+    }
 
     /// <summary>The commanders a side has in the normal room being set up.</summary>
     private static int Commanders => RoomOptions.CommandersPerSide[Math.Clamp(_lastCommanders, 0, RoomOptions.CommandersPerSide.Count - 1)];
@@ -344,7 +361,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
         return Lang.T("{0} against {1}", Team(a), Team(b));
     }
 
-    /// <summary>A team size in words, "2 vs 2" or "5 vs 5", in the player's language.</summary>
+    /// <summary>A team size in words, "2 vs 2", "5 vs 5" or "10 vs 10", in the player's language.</summary>
     public static string TeamSizeName(int teamSize, BattleMap? map = null) => Lang.T(RoomOptions.TeamSizeName(teamSize, map));
 
     /// <summary>How a battle goes, for a team size: the heroes a team, how a team wins, and the draw.</summary>
@@ -493,7 +510,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
         {
             (_lastMode, _lastBattleMap, _lastTier, _lastLives) = (1, room.Scenario, battle.Tier, battle.Lives);
             _lastWin = Math.Max(0, Array.IndexOf(Wins, battle.Win));
-            _lastTeamSize = Math.Max(0, RoomOptions.TeamSizes.ToList().IndexOf(battle.TeamSize));
+            TakeTeamSize(battle.TeamSize);
             return;
         }
         _lastMode = 0;
@@ -553,15 +570,15 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
 
     /// <summary>
     /// Opens the room page on its battle settings next time (MACHINES_MENU_SCREENSHOT's room-battle), with
-    /// MACHINES_MENU_TEAM=&lt;n&gt; heroes a team chosen (5 for five against five; else today's layout) and its lives proposed,
-    /// as choosing it on the page does.
+    /// MACHINES_MENU_TEAM=&lt;n&gt; heroes a team chosen (5 or 10 for five or ten against as many, 15 kept as it is; else
+    /// today's layout) and its lives proposed, as choosing it on the page does.
     /// </summary>
     public static void ChooseBattle()
     {
         _lastMode = 1;
         if (!int.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_MENU_TEAM"), out var team))
             return;
-        _lastTeamSize = Math.Max(0, RoomOptions.TeamSizes.ToList().IndexOf(team));
+        TakeTeamSize(team);
         _lastLives = RoomOptions.ProposedLives(TeamSize, null);
     }
 
@@ -576,7 +593,7 @@ public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, Roo
             return null;
         (_lastMode, _lastBattleMap, _lastTier, _lastLives) = (1, map.Scenario, Math.Clamp(tier, 1, BattleCatalogue.MostTier), Math.Clamp(lives, 1, 5));
         _lastWin = Math.Max(0, Array.IndexOf(Wins, win));
-        _lastTeamSize = Math.Max(0, RoomOptions.TeamSizes.ToList().IndexOf(teamSize));
+        TakeTeamSize(teamSize);
         return Room(map.Scenario, map.Planet, map.TeamA.Concat(map.TeamB).Order().ToList());
     }
 

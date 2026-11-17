@@ -4556,3 +4556,14 @@ msgstr "in dieser Schlacht ist kein Platz frei"
 
 msgid "your game's ground differs from that battle's"
 msgstr "das Gelände deines Spiels weicht von dem dieser Schlacht ab"
+
+# Online (P2 S5): bigger teams, ten a side in the rooms and the pod, fifteen for matchmaking and tests
+
+msgid "10 vs 10"
+msgstr "10 gegen 10"
+
+msgid "15 vs 15"
+msgstr "15 gegen 15"
+
+msgid "bot"
+msgstr "Bot"
