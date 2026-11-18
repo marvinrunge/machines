@@ -62,7 +62,9 @@ public static class FxShaders
                     float core = exp(-a * a * 28.0);
                     float glow = exp(-a * a * 4.0) * (1.0 - a);
                     float even = smoothstep(0.0, 0.05, along) * smoothstep(1.0, 0.8, along);
-                    float trail = smoothstep(0.0, 0.03, along) * pow(1.0 - along, 1.6);
+                    // along can pass 1 by a hair between the vertices, and a power of a negative number is no number
+                    // (a black square once the glow spreads it).
+                    float trail = smoothstep(0.0, 0.03, along) * pow(max(1.0 - along, 0.0), 1.6);
                     float ripple = flow == 0.0 ? 1.0 : 0.7 + 0.3 * sin(along * reach * 6.2832 / wavelength - TIME * flow);
                     vec3 hot = mix(colour, vec3(1.0), white);
                     float shape = mix(even, trail, head) * ripple * wave * fade;
@@ -104,10 +106,13 @@ public static class FxShaders
                 void fragment() {
                     vec2 p = UV * 2.0 - 1.0;
                     float r = length(p);
-                    float angle = atan(p.y, p.x);
+                    // atan(0, 0) is no number, nor is a power of a negative one: a pixel turned black that the glow
+                    // spread to a square in the bolt's head.
+                    float angle = r > 1e-5 ? atan(p.y, p.x) : 0.0;
                     float turn = 0.5 + 0.5 * sin(angle * 5.0 + TIME * swirl + r * 9.0);
                     float core = exp(-r * r * 22.0);
-                    float shell = exp(-pow((r - 0.32) * 6.0, 2.0)) * (0.5 + 0.5 * turn);
+                    float ring = (r - 0.32) * 6.0;
+                    float shell = exp(-ring * ring) * (0.5 + 0.5 * turn);
                     float halo = exp(-r * r * 3.5) * 0.35;
                     float edge = 1.0 - smoothstep(0.8, 1.0, r);
                     vec3 hot = mix(colour, vec3(1.0), 0.4);
@@ -148,7 +153,7 @@ public static class FxShaders
                 void fragment() {
                     vec2 p = UV * 2.0 - 1.0;
                     float r = length(p);
-                    float a = atan(p.y, p.x) + turn;
+                    float a = (r > 1e-5 ? atan(p.y, p.x) : 0.0) + turn;
                     float rays = pow(abs(cos(a * spikes * 0.5)), 28.0) * pow(max(1.0 - r, 0.0), 1.5);
                     float between = pow(abs(sin(a * spikes * 0.5)), 60.0) * pow(max(1.0 - r * 1.6, 0.0), 2.0) * 0.6;
                     float core = exp(-r * r * 40.0);
