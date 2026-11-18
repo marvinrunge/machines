@@ -2243,22 +2243,40 @@ public partial class Game : Node3D
     // Lost the place in the relay's numbering with nothing to come back with.
     private const string LostPlace = "Your game lost its place in the match: join it again from the list.";
 
+    // The line to the relay lost for good (the link gave up after its grace), as the "Connection to the relay lost" banner says.
+    private const string LineLost = "Connection to the relay lost";
+
     private string? _takenOut;
     private double _takenOutAt;
-    private bool _leftForRooms;
+    private double? _lineLostAt;
+    private bool _leftForRooms, _leftLineLost;
 
     /// <summary>
-    /// Taken out of the match, the game does not stand there: five seconds under the reason, then back to the multiplayer page,
-    /// which says why and, where the seat's key still takes the match back, that Join does (P2 design §5.5, §6.1).
+    /// Taken out of the match, or with the line to the relay lost for good, the game does not stand there: five seconds under
+    /// the reason, then back to the multiplayer page, which says why and, where the seat's key still takes the match back (the
+    /// computer, the line or the link could not keep up), that Join does (P2 design §5.5, §6.1).
     /// </summary>
     private void LeaveWhenTakenOut()
     {
-        if (_takenOut is not { } reason || _leftForRooms || _decidedTick is not null || Time.GetTicksMsec() / 1000.0 - _takenOutAt < 5)
+        if (_leftForRooms || _decidedTick is not null)
             return;
-        _leftForRooms = true;
-        var back = reason is LeftMatch.CannotKeepUp or LeftMatch.SlowLine && NetLink.Seat is not null;
-        MultiplayerPage.Tell(HangarText.Reason(Lang.T(reason)) + (back ? " " + Lang.T("Join the match again from the list to play on.") : ""));
-        GD.Print("net: back to the rooms after being taken out of the match");
+        var now = Time.GetTicksMsec() / 1000.0;
+        if (_takenOut is null && !NetLink.Connected)
+            _lineLostAt ??= now;
+        var reason = _takenOut ?? (_lineLostAt is not null ? LineLost : null);
+        var since = _takenOut is not null ? _takenOutAt : _lineLostAt ?? now;
+        if (reason is null || now - since < 5)
+            return;
+        (_leftForRooms, _leftLineLost) = (true, reason == LineLost);
+        // The link that gave up is let go of here, so that the page opens offline with what it is told rather than saying so itself.
+        if (_leftLineLost)
+            _ = NetLink.DisconnectAsync();
+        var back = reason is LeftMatch.CannotKeepUp or LeftMatch.SlowLine or LineLost && NetLink.Seat is not null;
+        var told = HangarText.Reason(Lang.T(reason));
+        if (back)
+            told = (told.EndsWith('.') ? told : told + ".") + " " + Lang.T("Join the match again from the list to play on.");
+        MultiplayerPage.Tell(told);
+        GD.Print($"net: back to the rooms: {reason}");
         ExitToMenus();
     }
 
@@ -2412,8 +2430,9 @@ public partial class Game : Node3D
             NetLink.Send(new LeaveRoom());
             // Left on purpose: the seat is not taken back by key from the multiplayer page. A seat this player's game took back
             // on another connection is that game's now, and its key (the same, in the same settings) stays for it; taken out
-            // for a world or a line too slow, the key takes the seat back from the page.
-            if (_takenOut is not (LeftMatch.TakenOver or LeftMatch.CannotKeepUp or LeftMatch.SlowLine))
+            // for a world or a line too slow, or gone back to the rooms with the line lost, the key takes the seat back from the
+            // page.
+            if (!_leftLineLost && _takenOut is not (LeftMatch.TakenOver or LeftMatch.CannotKeepUp or LeftMatch.SlowLine))
                 NetLink.ForgetSeat();
         }
         // The menus open where the match was set up: the choice of mission, the skirmish setup or the rooms.

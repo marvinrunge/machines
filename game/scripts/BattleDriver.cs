@@ -377,9 +377,22 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
             if (!IsInstanceValid(game) || Scene != game)
             {
                 LetGo();
-                // Online the match scene is loaded anew when the world is rebuilt or the match rejoined: driven on in the new one.
-                if (!course.Online || await NextBattle(game, 180) is not { } again)
+                if (!course.Online)
                     return false;
+                // Online the match scene is loaded anew when the world is rebuilt or the match rejoined: driven on in the new one.
+                // Taken out of the match, or with the line lost, the game goes back to the rooms, which say why: pictured.
+                var was = game;
+                if (await Until(() => Scene is Game found && found != was && found.IsNodeReady() && found.World.Battle is not null ? (Node)found
+                        : Find<MultiplayerPage>(), 180) is not Game again)
+                {
+                    if (Find<MultiplayerPage>() is not null)
+                    {
+                        await Wait(2);
+                        Say("back in the rooms");
+                        await Picture("rooms");
+                    }
+                    return false;
+                }
                 Say($"the match scene was loaded again: driving on as player {Game.Me}");
                 game = again;
                 (world, run) = Bind(game);
