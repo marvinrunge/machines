@@ -30,7 +30,8 @@ public partial class ModelsPage(Action back) : MenuPage(back)
         public int Round;
     }
 
-    private static readonly string[] Looks = ["Original", "Overhauled", "HD"];
+    // The HD models, unfinished, only where the build offers them (GraphicsSettings.HdModels).
+    private static readonly string[] Looks = GraphicsSettings.HdModels ? ["Original", "Overhauled", "HD"] : ["Original", "Overhauled"];
     private static readonly Race[] Races = [Race.Red, Race.Blue, Race.Green, Race.Yellow];
     private static readonly string[] Motions = ["Stand", "Forward", "Backward", "Turn left", "Turn right"];
 

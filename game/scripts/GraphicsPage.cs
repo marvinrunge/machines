@@ -16,6 +16,8 @@ public partial class GraphicsPage(Action back, bool inGame) : MenuPage(back)
 
     private readonly List<Part> _parts = [];
     private ChipChoice _look = null!;
+
+    private static Look[] Looks => GraphicsSettings.Looks;
     private Label _lookNote = null!;
 
     protected override void Build()
@@ -29,10 +31,10 @@ public partial class GraphicsPage(Action back, bool inGame) : MenuPage(back)
         chip.AddChild(rows);
         page.AddChild(chip);
 
-        _look = new ChipChoice(Enum.GetValues<Look>().Select(GraphicsSettings.Name), (int)GraphicsSettings.Look);
+        _look = new ChipChoice(Looks.Select(GraphicsSettings.Name), Array.IndexOf(Looks, GraphicsSettings.Look));
         _look.ItemSelected += i =>
         {
-            GraphicsSettings.Look = (Look)i;
+            GraphicsSettings.Look = Looks[i];
             Refresh();
         };
         _lookNote = Note();
@@ -46,12 +48,16 @@ public partial class GraphicsPage(Action back, bool inGame) : MenuPage(back)
             "The original's ground, its pictures upscaled with relief and roughness." + sharp,
             "A finer shape that casts shadows; the natural planets painted with photographed ground.",
         ]));
-        rows.AddChild(Choice("Machines & buildings", ["Original", "Overhauled", "HD"], p => (int)p.Models, (p, i) => p with { Models = (ModelLook)i },
+        // The HD models, while unfinished, only where this build offers them; they are the last of the three.
+        string[] models = ["Original", "Overhauled", "HD"];
+        string[] modelNotes =
         [
             "The original's models and textures.",
             "The original's models with rounded edges, baked shading, sharper textures and a little sheen.",
             "The remade models in the original's rigs; those not remade yet show overhauled.",
-        ]));
+        ];
+        var offered = GraphicsSettings.HdModels ? 3 : 2;
+        rows.AddChild(Choice("Machines & buildings", models[..offered], p => (int)p.Models, (p, i) => p with { Models = (ModelLook)i }, modelNotes[..offered]));
         rows.AddChild(Choice("Lighting & sky", ["Original", "Remake"], p => p.Lighting ? 1 : 0, (p, i) => p with { Lighting = i == 1 },
         [
             "The original's light.",
@@ -115,7 +121,7 @@ public partial class GraphicsPage(Action back, bool inGame) : MenuPage(back)
     private void Refresh()
     {
         var parts = GraphicsSettings.Parts;
-        _look.Selected = (int)parts.Look;
+        _look.Selected = Array.IndexOf(Looks, parts.Look);
         _lookNote.Text = parts.Look switch
         {
             Look.Classic => "Everything as the original had it.",

@@ -67,11 +67,12 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         columns.AddChild(chip);
 
         var lookNote = MenuTheme.Paragraph("", 20, MenuTheme.Dim);
-        var look = new ChipChoice(Enum.GetValues<Look>().Select(GraphicsSettings.Name), (int)GraphicsSettings.Look);
+        var looks = GraphicsSettings.Looks;
+        var look = new ChipChoice(looks.Select(GraphicsSettings.Name), Array.IndexOf(looks, GraphicsSettings.Look));
         look.ItemSelected += i =>
         {
-            GraphicsSettings.Look = (Look)i;
-            lookNote.Text = inGame ? "The new look shows from the next match." : Describe((Look)i);
+            GraphicsSettings.Look = looks[i];
+            lookNote.Text = inGame ? "The new look shows from the next match." : Describe(looks[i]);
         };
         lookNote.Text = inGame ? "" : Describe(GraphicsSettings.Look);
         // Each part of the look on a page of its own; Back there comes back here.

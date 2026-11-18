@@ -88,9 +88,10 @@ public static class GraphicsSettings
     /// <summary>Every part as chosen; parts that make no look are kept as the custom one too.</summary>
     public static GraphicsParts Parts
     {
-        get => _parts ??= Asked(System.Environment.GetEnvironmentVariable("MACHINES_LOOK"), Saved());
+        get => _parts ??= Offered(Asked(System.Environment.GetEnvironmentVariable("MACHINES_LOOK"), Saved()));
         set
         {
+            value = Offered(value);
             _parts = value;
             var config = new ConfigFile();
             config.Load(File);
@@ -120,6 +121,22 @@ public static class GraphicsSettings
             return config.Load(File) == Error.Ok ? Read(config, CustomSection, FirstCustom) : FirstCustom;
         }
     }
+
+    /// <summary>
+    /// Whether the HD models are offered. Unfinished, they are left out of exported builds: no look, part or model viewer
+    /// shows them, and a choice of them kept from before shows the overhauled models (the HD look the whole Overhauled
+    /// one). The editor and MACHINES_HD_MODELS=1 still have them.
+    /// </summary>
+    public static bool HdModels => OS.HasFeature("editor") || System.Environment.GetEnvironmentVariable("MACHINES_HD_MODELS") == "1";
+
+    /// <summary>The looks the menus offer, in their order.</summary>
+    public static Look[] Looks => HdModels ? Enum.GetValues<Look>() : [Look.Classic, Look.Overhauled, Look.Custom];
+
+    /// <summary><paramref name="parts"/> as this build can show them (see <see cref="HdModels"/>).</summary>
+    private static GraphicsParts Offered(GraphicsParts parts) =>
+        HdModels || parts.Models != ModelLook.Hd ? parts
+        : parts == GraphicsParts.Hd ? GraphicsParts.Overhauled
+        : parts with { Models = ModelLook.Overhauled };
 
     public static TerrainLook Terrain => Parts.Terrain;
     public static ModelLook Models => Parts.Models;
