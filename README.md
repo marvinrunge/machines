@@ -16,6 +16,8 @@ your own copy of the game.
 | **Campaign** | **Skirmish** |
 | ![Wired in first person](site/shots/wired.jpg) | ![A five against five battle](site/shots/battle.jpg) |
 | **Wired** | **Battle** |
+| ![The pod: a Knight 4 with two plasma cannons](site/shots/pod.jpg) | ![The chassis path from tier I to VIII](site/shots/tree.jpg) |
+| **The pod**: build your hero | **The chassis path** |
 
 ## What's in it
 
