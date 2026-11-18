@@ -13,7 +13,7 @@ A **test build** of the Machines: Wired for War remake, for Windows 10/11 (64-bi
 **Everyone online needs 0.7.0.** Replays and saves from earlier versions do not load.
 
 **Original models, sounds and films**
-This build contains no art, sound, terrain or films from the original game; those belong to Night Dive Studios. If you own the game (GOG or Steam), the first start finds your copy (or **Import** in the options reads it from a folder you pick) and keeps them next to the game. Without them, units are simple shapes.
+This build contains no art, sound, terrain or films from the original game; those belong to Night Dive Studios. If you own the game (installed from its CD), the first start finds your copy (or **Import** in the options reads it from a folder you pick) and keeps them next to the game. Without them, units are simple shapes.
 
 **Imported with an earlier version?** If the options say so, press **Import again** once.
 
