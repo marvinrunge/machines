@@ -11,13 +11,21 @@ namespace Machines.Game;
 /// </summary>
 public static partial class GameLocator
 {
+    /// <summary>
+    /// The player's own folder, whose Downloads, Desktop and Documents are searched; MACHINES_HOME=&lt;folder&gt; puts
+    /// another in its place, for checks of what the first start finds.
+    /// </summary>
+    public static string Home => System.Environment.GetEnvironmentVariable("MACHINES_HOME") is { Length: > 0 } home
+        ? home
+        : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
     /// <summary>The copies found, Steam's and GOG's first, each once.</summary>
     public static IReadOnlyList<string> Find()
     {
         if (!OperatingSystem.IsWindows())
             return [];
         var drives = DriveInfo.GetDrives().Where(drive => drive.DriveType == DriveType.Fixed && drive.IsReady).Select(drive => drive.RootDirectory.FullName);
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var home = Home;
         return Copies(SteamRoots(), RegistryFolders(), drives, [Path.Combine(home, "Downloads"), Path.Combine(home, "Desktop"), Path.Combine(home, "Documents")]);
     }
 

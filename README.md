@@ -21,15 +21,17 @@ your own copy of the game.
 
 ## Install
 
-You need Windows 10 or 11 (64-bit) and your own copy of *Machines: Wired for War*, installed from its CD
-(the game is not sold anywhere today).
+You need Windows 10 or 11 (64-bit) and your own *Machines: Wired for War*: its CDs, disc images of them (`.iso`) or
+the game installed from them (it is not sold anywhere today).
 
 1. **Download** `Machines-Remake-<version>-setup.exe` from the
    [latest release](https://github.com/marvinrunge/machines/releases).
 2. **Run it.** It installs for you alone, without administrator rights, and adds a start menu entry. If Windows warns
    about an unknown publisher, choose **More info**, then **Run anyway**.
-3. **Start the game.** The first start looks for an installed copy in the usual folders: press **Import**. If it finds
-   none, pick the folder the game is installed in, the one that holds `models.bin`. The import takes a few minutes.
+3. **Start the game and import.** Put CD 1 in the drive (or keep its `.iso` in Downloads, Desktop or Documents), or
+   have the game installed: the first start finds it, press **Import**. Found nothing? Pick the disc image with
+   **Disc image** or the installed game's folder with **Folder**. With CD 2 in the drive or its image beside CD 1's,
+   the campaign's films come along; later, **From CD** in the options adds them. The import takes a few minutes.
 4. **Music** (optional): pick a folder with the soundtrack as MP3s (`Track 00 - Intro.mp3` and the others), for
    example ripped from the CD's audio tracks.
 

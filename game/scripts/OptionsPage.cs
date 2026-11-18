@@ -260,9 +260,11 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
                 ? "Imported by an older version. Import again for the right lighting."
                 : ClassicImport.Imported && !HdTextures.Made
                     ? "Imported. Import again for the remake's sharper textures."
+                : ClassicImport.Imported && ClassicImport.FilmsMissing
+                    ? "Imported from CD 1. Put in CD 2 and press From CD for the campaign's films."
                 : ClassicImport.Imported
                     ? "Imported from your game copy."
-                    : "Not imported. You need your own copy of Machines: Wired for War.",
+                    : "Not imported. You need your own copy of Machines: Wired for War: its CD, a disc image of it or the folder it is installed in.",
             22, MenuTheme.Text);
         var dialog = new FileDialog
         {
@@ -275,17 +277,52 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         if (ClassicImport.Available && GameLocator.Find().FirstOrDefault() is { } found)
             dialog.CurrentDir = found;
         AddChild(dialog);
+        var image = ImageDialog();
+        AddChild(image);
+        ChipButton? disc = null;
         var button = Button(ClassicImport.Imported ? "Import again" : "Import", () => dialog.PopupCentered(new Vector2I(900, 600)), 64, 22);
-        button.CustomMinimumSize = new Vector2(240, 64);
-        button.SizeFlagsVertical = SizeFlags.ShrinkCenter;
-        // The importer (tools/classic-export) runs on Windows and comes with the release, not with every checkout.
-        button.Visible = ClassicImport.Available;
-        dialog.DirSelected += folder => RunImport(this, folder, status, busy => button.Disabled = _importing = busy);
+        void Busy(bool busy) => button.Disabled = disc!.Disabled = _importing = busy;
+        // From the CD in a drive or a disc image found on this computer (CD 2 when only its films are missing), else a
+        // disc image the player picks.
+        disc = Button("From CD", () =>
+        {
+            var kind = ClassicImport.FilmsMissing ? GameDisc.Kind.Two : GameDisc.Kind.One;
+            if (GameDisc.First(GameDisc.Find(), kind) is { } found)
+                RunImport(this, found, status, Busy);
+            else
+                image.PopupCentered(new Vector2I(900, 600));
+        }, 64, 22);
+        disc.TooltipText = Lang.T("Import from the Machines CD in a drive or from a disc image of it (.iso)");
+        foreach (var each in new[] { button, disc })
+        {
+            each.CustomMinimumSize = new Vector2(240, 64);
+            each.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+            // The importer (tools/classic-export) runs on Windows and comes with the release, not with every checkout.
+            each.Visible = ClassicImport.Available;
+        }
+        dialog.DirSelected += folder => RunImport(this, folder, status, Busy);
+        image.FileSelected += file => RunImport(this, file, status, Busy);
         var text = Column(6, MenuTheme.Label("ORIGINAL MODELS AND TERRAIN", 24, MenuTheme.Bright), status);
         text.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         text.SizeFlagsVertical = SizeFlags.ShrinkCenter;
-        chip.AddChild(Line(18, text, button));
+        chip.AddChild(Line(18, text, disc, button));
         return chip;
+    }
+
+    /// <summary>A picker for a disc image of one of the game's CDs.</summary>
+    public static FileDialog ImageDialog()
+    {
+        var dialog = new FileDialog
+        {
+            FileMode = FileDialog.FileModeEnum.OpenFile,
+            Access = FileDialog.AccessEnum.Filesystem,
+            Title = "Pick a disc image of a Machines CD (.iso)",
+            Filters = ["*.iso ; Disc images"],
+            UseNativeDialog = true,
+        };
+        if (Directory.Exists(Path.Combine(GameLocator.Home, "Downloads")))
+            dialog.CurrentDir = Path.Combine(GameLocator.Home, "Downloads");
+        return dialog;
     }
 
     /// <summary>
@@ -295,7 +332,7 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
     /// </summary>
     public static void RunImport(Node owner, string folder, Label status, Action<bool> busy)
     {
-        if (ClassicImport.WhyNot(folder) is { } why)
+        if (ClassicImport.WhyNotSource(folder) is { } why)
         {
             status.Text = why;
             return;
@@ -303,7 +340,7 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         busy(true);
         Task.Run(() =>
         {
-            var error = ClassicImport.Run(folder, line => Callable.From(() => status.Text = line).CallDeferred());
+            var error = ClassicImport.FromSource(folder, line => Callable.From(() => status.Text = line).CallDeferred());
             Callable.From(() =>
             {
                 if (error is null)

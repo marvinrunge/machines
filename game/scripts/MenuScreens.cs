@@ -61,9 +61,9 @@ public partial class MenuScreens : Control
             GetTree().CallDeferred(SceneTree.MethodName.ChangeSceneToFile, "res://scenes/Main.tscn");
             return;
         }
-        // For automated checks: MACHINES_IMPORT=<game folder> imports from that copy before the menus open.
+        // For automated checks: MACHINES_IMPORT=<game folder, CD drive or disc image> imports from it before the menus open.
         if (Setting("MACHINES_IMPORT") is { } importFrom && ClassicImport.Available)
-            GD.Print(ClassicImport.Run(importFrom, line => GD.Print(line)) ?? "import finished");
+            GD.Print(ClassicImport.FromSource(importFrom, line => GD.Print(line)) ?? "import finished");
         // MACHINES_HD=<game folder> makes only the HD textures (see HdTextures) and quits.
         if (Setting("MACHINES_HD") is { } hdFrom && ClassicImport.Imported)
         {
@@ -149,7 +149,12 @@ public partial class MenuScreens : Control
         _shotTime += delta;
         if (_shotTime < 3)
             return;
-        (_shot?.GetTexture() ?? GetViewport().GetTexture()).GetImage().SavePng(_shotPath);
+        // Freed here, and what the garbage collector still holds finalized while the engine is there: finalized after
+        // it is gone, a Godot object crashes the exit.
+        using (var picture = (_shot?.GetTexture() ?? GetViewport().GetTexture()).GetImage())
+            picture.SavePng(_shotPath);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
         GetTree().Quit();
     }
 

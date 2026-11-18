@@ -219,8 +219,8 @@ msgstr "Musik"
 msgid "No models imported"
 msgstr "Keine Modelle importiert"
 
-msgid "Machines Remake rebuilds Machines: Wired for War (1999). It brings nothing of the original along: its models, planets, sounds and films come from your own copy of the game (GOG or Steam)."
-msgstr "Machines Remake baut Machines: Wired for War (1999) neu. Es bringt nichts vom Original mit: Modelle, Planeten, Klänge und Filme kommen aus deiner eigenen Kopie des Spiels (GOG oder Steam)."
+msgid "Machines Remake rebuilds Machines: Wired for War (1999). It brings nothing of the original along: its models, planets, sounds and films come from your own copy of the game."
+msgstr "Machines Remake baut Machines: Wired for War (1999) neu. Es bringt nichts vom Original mit: Modelle, Planeten, Klänge und Filme kommen aus deiner eigenen Kopie des Spiels."
 
 msgid "Pick the folder Machines is installed in, the one that holds models.bin. The import takes a few minutes and makes the remake's sharper textures on your graphics card as it goes."
 msgstr "Wähle den Ordner, in dem Machines installiert ist, also den mit models.bin. Der Import dauert ein paar Minuten und erzeugt dabei auf deiner Grafikkarte die schärferen Texturen des Remakes."
@@ -374,8 +374,8 @@ msgstr "Importiert. Importiere erneut für die schärferen Texturen des Remakes.
 msgid "Imported by an older version. Import again for the right lighting."
 msgstr "Von einer älteren Version importiert. Importiere erneut für die richtige Beleuchtung."
 
-msgid "Not imported. You need your own copy of Machines: Wired for War."
-msgstr "Nicht importiert. Du brauchst deine eigene Kopie von Machines: Wired for War."
+msgid "Not imported. You need your own copy of Machines: Wired for War: its CD, a disc image of it or the folder it is installed in."
+msgstr "Nicht importiert. Du brauchst deine eigene Kopie von Machines: Wired for War: die CD, ein Abbild davon oder den Ordner, in dem es installiert ist."
 
 msgid "That folder has no models.bin. Pick the folder Machines is installed in."
 msgstr "In diesem Ordner liegt keine models.bin. Wähle den Ordner, in dem Machines installiert ist."
@@ -4632,3 +4632,45 @@ msgstr "läuft · {0} Plätze frei"
 
 msgid "Lag"
 msgstr "Lag"
+
+msgid "Your Machines CD was found. The import copies the game from it and takes a few minutes. Put in CD 2 as well, or keep its disc image beside, and the campaign's films come along."
+msgstr "Deine Machines-CD wurde gefunden. Der Import kopiert das Spiel von ihr und dauert ein paar Minuten. Leg auch CD 2 ein oder lass ihr Abbild daneben liegen, dann kommen die Filme der Kampagne mit."
+
+msgid "Put the first Machines CD in the drive and it is found at once. Or pick a disc image of the CD (.iso), or the folder Machines is installed in. The import takes a few minutes."
+msgstr "Leg die erste Machines-CD ins Laufwerk, dann wird sie sofort gefunden. Oder wähle ein Abbild der CD (.iso) oder den Ordner, in dem Machines installiert ist. Der Import dauert ein paar Minuten."
+
+msgid "Disc image"
+msgstr "CD-Abbild"
+
+msgid "Folder"
+msgstr "Ordner"
+
+msgid "From CD"
+msgstr "Von CD"
+
+msgid "Pick a disc image of a Machines CD (.iso)"
+msgstr "Wähle ein Abbild einer Machines-CD (.iso)"
+
+msgid "Import from the Machines CD in a drive or from a disc image of it (.iso)"
+msgstr "Von der Machines-CD im Laufwerk oder von einem Abbild davon (.iso) importieren"
+
+msgid "That file is no disc image of a Machines CD."
+msgstr "Diese Datei ist kein Abbild einer Machines-CD."
+
+msgid "This is CD 2, with the campaign's films. Import from CD 1 first."
+msgstr "Das ist CD 2 mit den Filmen der Kampagne. Importiere zuerst von CD 1."
+
+msgid "Copying the game from the CD: {0} of {1} files"
+msgstr "Das Spiel wird von der CD kopiert: {0} von {1} Dateien"
+
+msgid "Copying the films from CD 2: {0} of {1}"
+msgstr "Die Filme werden von CD 2 kopiert: {0} von {1}"
+
+msgid "Reading the CD failed: {0}"
+msgstr "Die CD konnte nicht gelesen werden: {0}"
+
+msgid "Imported from CD 1. Put in CD 2 and press From CD for the campaign's films."
+msgstr "Von CD 1 importiert. Leg CD 2 ein und drück Von CD für die Filme der Kampagne."
+
+msgid "CD in drive {0}"
+msgstr "CD im Laufwerk {0}"

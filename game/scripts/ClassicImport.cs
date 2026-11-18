@@ -38,6 +38,77 @@ public static class ClassicImport
     public static bool Outdated => Imported
         && !(File.Exists(FormatFile) && int.TryParse(File.ReadAllText(FormatFile).Trim(), out var format) && format >= Format);
 
+    /// <summary>Where a copy unpacked from the CDs goes: beside the game, as an installed copy would be elsewhere.</summary>
+    public static string DiscCopy => Path.Combine(Paths.Root, "game-copy");
+
+    /// <summary>The copy the last import came from, while it is still there.</summary>
+    public static string? CurrentCopy
+    {
+        get
+        {
+            var file = Path.Combine(Paths.Classic, "game_path.txt");
+            if (!File.Exists(file))
+                return null;
+            var folder = File.ReadAllText(file).Trim();
+            if (!Path.IsPathRooted(folder))
+                folder = Path.GetFullPath(Path.Combine(Paths.Root, folder));
+            return Directory.Exists(folder) ? folder : null;
+        }
+    }
+
+    /// <summary>The copy came from the CDs but CD 2's films are not in it yet.</summary>
+    public static bool FilmsMissing => CurrentCopy is { } copy
+        && Path.GetFullPath(copy).Equals(Path.GetFullPath(DiscCopy), StringComparison.OrdinalIgnoreCase)
+        && !GameDisc.HasFilms(copy);
+
+    /// <returns>null when <paramref name="source"/> (a folder, a drive or a disc image) can be imported from, otherwise why not.</returns>
+    public static string? WhyNotSource(string source)
+    {
+        using var disc = GameDisc.Open(source);
+        if (disc is null)
+            return File.Exists(source) ? Lang.T("That file is no disc image of a Machines CD.") : WhyNot(source);
+        if (GameDisc.Which(disc) == GameDisc.Kind.Two && CurrentCopy is null)
+            return Lang.T("This is CD 2, with the campaign's films. Import from CD 1 first.");
+        return null;
+    }
+
+    /// <summary>
+    /// Imports from a folder, a drive or a disc image: CD 1 is unpacked into <see cref="DiscCopy"/> first, with CD 2's
+    /// films where CD 2 is found too, and imported from there; CD 2 alone adds its films to the copy imported before.
+    /// Returns an error or null.
+    /// </summary>
+    public static string? FromSource(string source, Action<string> progress)
+    {
+        try
+        {
+            using var disc = GameDisc.Open(source);
+            if (disc is null)
+                return Run(source, progress);
+            if (GameDisc.Which(disc) == GameDisc.Kind.Two)
+            {
+                AddFilms(disc, CurrentCopy!, progress);
+                progress(Lang.T("Done."));
+                return null;
+            }
+            var copy = DiscCopy;
+            GameDisc.Install(disc, copy, (done, total) => progress(Lang.T("Copying the game from the CD: {0} of {1} files", done, total)));
+            if (GameDisc.Second(source) is { } second)
+            {
+                using var films = GameDisc.Open(second);
+                if (films is not null)
+                    AddFilms(films, copy, progress);
+            }
+            return Run(copy, progress);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            return Lang.T("Reading the CD failed: {0}", exception.Message);
+        }
+    }
+
+    private static void AddFilms(IDiscFiles disc, string copy, Action<string> progress) =>
+        GameDisc.AddFilms(disc, copy, (done, total) => progress(Lang.T("Copying the films from CD 2: {0} of {1}", done, total)));
+
     /// <returns>null when the folder holds the game, otherwise why not.</returns>
     public static string? WhyNot(string gameFolder)
     {

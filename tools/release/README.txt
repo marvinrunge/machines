@@ -19,11 +19,11 @@ ORIGINAL MODELS, SOUNDS AND FILMS
   This build contains no art, sound, terrain or films from the original game; those belong to Night
   Dive Studios. Without them, units are coloured shapes and the ground is simple stand-in terrain.
 
-  If you own Machines: Wired for War (installed from its CD), the first start looks for it in the usual
-  folders and offers the copy it finds: press "Import".
-  Otherwise pick the folder the game is installed in (the one with models.bin), at the first start or
-  with "Import" in the options. The
-  import takes a few minutes; it reads the models and terrain from your copy with the original engine
+  If you own Machines: Wired for War, put CD 1 in the drive, keep a disc image of it (.iso) in
+  Downloads, Desktop or Documents, or have the game installed: the first start finds it, press "Import".
+  Otherwise pick the disc image ("Disc image") or the installed game's folder ("Folder"), at the first
+  start or in the options. With CD 2 in the drive or its image beside CD 1's, the campaign's films come
+  along; "From CD" in the options adds them later. The import takes a few minutes; it reads the models and terrain from your copy with the original engine
   code, sharpens the textures on your graphics card and stores them in the "classic" folder next to
   Machines.exe. Sounds, texts and the campaign's films come straight from your copy.
 

@@ -22,6 +22,8 @@ tools/film-upscale/bin/
 # Ground detail textures fetched from Poly Haven (tools/terrain-textures/fetch.sh)
 /textures/
 classic/
+# A copy of the game unpacked from its CDs by the import (ClassicImport.DiscCopy)
+game-copy/
 
 # Local reference material (fan models, screenshots, manual scans, OpenMachines); not redistributed
 references/

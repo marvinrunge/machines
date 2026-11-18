@@ -95,48 +95,79 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
     /// </summary>
     private void ImportStep(VBoxContainer page)
     {
-        var found = GameLocator.Find().FirstOrDefault();
+        // An installed copy first, else the CD in a drive or a disc image of it.
+        var installed = GameLocator.Find().FirstOrDefault();
+        var disc = installed is null ? GameDisc.First(GameDisc.Find(), GameDisc.Kind.One) : null;
+        var found = installed ?? disc;
         page.AddChild(Top("Welcome"));
         page.AddChild(Words(
             "Machines Remake rebuilds Machines: Wired for War (1999). It brings nothing of the original along: its models, " +
-            "planets, sounds and films come from your own copy of the game (GOG or Steam).",
-            found is null
-                ? "Pick the folder Machines is installed in, the one that holds models.bin. The import takes a few minutes and " +
-                  "makes the remake's sharper textures on your graphics card as it goes."
-                : "Your copy was found on this computer. The import takes a few minutes and makes the remake's sharper " +
-                  "textures on your graphics card as it goes."));
+            "planets, sounds and films come from your own copy of the game.",
+            installed is not null
+                ? "Your copy was found on this computer. The import takes a few minutes and makes the remake's sharper " +
+                  "textures on your graphics card as it goes."
+            : disc is not null
+                ? "Your Machines CD was found. The import copies the game from it and takes a few minutes. Put in CD 2 as " +
+                  "well, or keep its disc image beside, and the campaign's films come along."
+                : "Put the first Machines CD in the drive and it is found at once. Or pick a disc image of the CD (.iso), " +
+                  "or the folder Machines is installed in. The import takes a few minutes."));
         if (found is not null)
-            page.AddChild(MenuTheme.Label(found, 24, MenuTheme.Bright));
+        {
+            // The disc by its name, a folder by its path, cut short where it is too long for the page.
+            static string Name(string place) => File.Exists(place) ? Path.GetFileName(place) : Lang.T("CD in drive {0}", place.TrimEnd('\\', '/'));
+            var second = disc is null ? null : GameDisc.Second(found);
+            var where = MenuTheme.Label(disc is null ? found : second is null ? Name(found) : $"{Name(found)}  +  {Name(second)}", 24, MenuTheme.Bright);
+            where.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+            where.ClipText = true;
+            where.CustomMinimumSize = new Vector2(1, 0);
+            where.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            page.AddChild(where);
+        }
         var status = MenuTheme.Paragraph("Without the import the machines show as simple shapes; the options can import later.", 22, MenuTheme.Text);
         page.AddChild(status);
         page.AddChild(Spring(across: false));
 
-        var dialog = new FileDialog
+        var folders = new FileDialog
         {
             FileMode = FileDialog.FileModeEnum.OpenDir,
             Access = FileDialog.AccessEnum.Filesystem,
             Title = "Pick the folder Machines is installed in (it holds models.bin)",
             UseNativeDialog = true,
         };
-        AddChild(dialog);
+        AddChild(folders);
+        var images = OptionsPage.ImageDialog();
+        AddChild(images);
         var buttons = new List<ChipButton>();
-        void Import(string folder) => OptionsPage.RunImport(this, folder, status, busy =>
+        void Import(string source) => OptionsPage.RunImport(this, source, status, busy =>
         {
             foreach (var button in buttons)
                 button.Disabled = busy;
             _importing = busy;
             status.AddThemeColorOverride("font_color", busy ? MenuTheme.Text : MenuTheme.Bright);
         });
-        dialog.DirSelected += Import;
-        var pick = Button(found is null ? "Import" : "Other folder", () => dialog.PopupCentered(new Vector2I(900, 600)));
+        folders.DirSelected += Import;
+        images.FileSelected += Import;
         if (found is not null)
             buttons.Add(Button("Import", () => Import(found)));
-        buttons.Add(pick);
+        buttons.Add(Button("Disc image", () => images.PopupCentered(new Vector2I(900, 600))));
+        buttons.Add(Button(found is null ? "Folder" : "Other folder", () => folders.PopupCentered(new Vector2I(900, 600))));
         buttons.Add(Button("Later", () => screens.ShowSetup(Step.Look)));
         foreach (var button in buttons)
-            button.CustomMinimumSize = new Vector2(found is null ? 400 : 320, 76);
+            button.CustomMinimumSize = new Vector2(found is null ? 360 : 280, 76);
         page.AddChild(Line(Gap, [.. buttons]));
         Focus(buttons[0]);
+
+        // While nothing is found, a CD put in the drive brings the page back with it.
+        if (found is null)
+        {
+            var watch = new Godot.Timer { WaitTime = 2, Autostart = true };
+            watch.Timeout += () =>
+            {
+                if (!_importing && GameDisc.InDrive() is not null)
+                    screens.ShowSetup(Step.Import);
+            };
+            AddChild(watch);
+        }
     }
 
     private void LookStep(VBoxContainer page)
