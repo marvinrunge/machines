@@ -96,6 +96,12 @@ public partial class WiredHud : Control
     /// <summary>How far down the wave's plate reaches, the bosses' bars under it included: the messages go below.</summary>
     public float Hanging => _battle is not null ? BattleHanging : (WavePlateHeight + (_now is { Bosses.Count: > 0 } ? 8 + 40 : 0) + Gap) * _u;
 
+    /// <summary>How far down the top reaches, the watching plate under the battle's plate included when it was drawn last: the online banner goes below.</summary>
+    public float Reach => Mathf.Max(Hanging, _watchingBottom);
+
+    // Where the watching plate drawn last ends, 0 when none was.
+    private float _watchingBottom;
+
     public WiredHud(Game game, Hud hud)
     {
         (_game, _hud) = (game, hud);
@@ -185,6 +191,7 @@ public partial class WiredHud : Control
             return;
         (_prompted, _prompting) = (_prompting, _prompted);
         _prompting.Clear();
+        _watchingBottom = 0;
         DrawPulseSweep();
         PanelsTop = 0;
         if (_battle is { } battle)

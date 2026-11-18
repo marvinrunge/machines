@@ -129,6 +129,9 @@ public partial class Hud : CanvasLayer
         root.AddChild(_panel);
         Chat = new MatchChat(_game, _panel);
         root.AddChild(Chat);
+        // The banner over all of it: put below a Wired run's plates it reaches the hero's radar at the foot of the view, which
+        // drawn over it cut its words.
+        root.MoveChild(_banner, -1);
     }
 
     public void Message(string text)
@@ -145,6 +148,22 @@ public partial class Hud : CanvasLayer
         _banner.Visible = text is not null;
         // Over the view beside the control panel, as the pictures are.
         _banner.OffsetLeft = _panel.Visible ? _panel.ScreenWidth : 0;
+    }
+
+    /// <summary>
+    /// The banner about the middle of the view, but below a Wired run's plates and the watching plate under them where those
+    /// hang that far down (a battle of ten or fifteen a side at a large HUD size: three lines about the middle ran over the
+    /// capture bars and under "Watching …"), and within the view's foot.
+    /// </summary>
+    private void PlaceBanner(Vector2 screen)
+    {
+        if (!_banner.Visible)
+            return;
+        var high = _banner.Size.Y;
+        var middle = screen.Y / 2;
+        var top = Math.Max(middle - high / 2, (Wired?.Reach ?? 0) + 8);
+        top = Math.Max(0, Math.Min(top, screen.Y - high - 8));
+        (_banner.OffsetTop, _banner.OffsetBottom) = (top - middle, top - middle + high);
     }
 
     /// <summary>
@@ -187,6 +206,7 @@ public partial class Hud : CanvasLayer
             // The run's plates take the top: the chat and the messages start below the wave's plate and the bosses' bars.
             top = Math.Max(top, run.Hanging - 34);
         }
+        PlaceBanner(screen);
         _figures.Position = new Vector2(left, 8 + top);
         // The race's machines, and in a race of several commanders the player's own in brackets after them.
         var machines = world.Machines.Count(m => m.Race == Game.Player).ToString();

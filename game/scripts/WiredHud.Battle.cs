@@ -485,6 +485,8 @@ public partial class WiredHud
             more = Lang.T("Back in {0} s", Mathf.CeilToInt(back)) + (more is null ? "" : "   ·   " + more);
         if (more is not null)
             Prompt(new Vector2(middle, y + 50 * _u), more, MenuTheme.Text, 16);
+        // The prompts' plates are their size plus 20 high.
+        _watchingBottom = more is not null ? y + (50 + 16 + 20) * _u : y + (22 + 20) * _u;
     }
 
     /// <summary>The opening: big in the middle the seconds until the heroes may move, and how this battle is won.</summary>
