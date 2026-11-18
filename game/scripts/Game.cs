@@ -425,7 +425,10 @@ public partial class Game : Node3D
             GD.Print($"net: bundle mode, delay {_session.InputDelay}");
         }
 
-        _assets = new ClassicAssets(Paths.Root);
+        // A rebuild of the match goes on with the models and materials the scene before it had loaded: its warm-up then finds
+        // them loaded and their pipelines built.
+        _assets = request.Rebuild is not null && _rebuildAssets is { } kept ? kept : new ClassicAssets(Paths.Root);
+        _rebuildAssets = null;
         ClassicGui.Use(_assets.GameFolder);
         var map = _assets.PlanetMap(request.Planet);
         var surface = World.Planet.Surface;
@@ -541,6 +544,9 @@ public partial class Game : Node3D
     }
 
     private Warmup? _warmup;
+
+    // The loaded models and materials a scene hands to the scene that rebuilds its match (Rebuild), taken by that one.
+    private static ClassicAssets? _rebuildAssets;
 
     /// <summary>Whether the match is still being readied (<see cref="Warmup"/>): it stands still meanwhile, behind the loading screen.</summary>
     public bool Warming => _warmup is { Done: false };
@@ -2210,6 +2216,7 @@ public partial class Game : Node3D
         GD.Print($"net: rebuilt from tick {resumed.FromTick} ({resumed.Reason})");
         if (resumed.Player == Me && resumed.Reason != ResumeReason.LateJoin)
             CarryOver();
+        _rebuildAssets = _assets;
         MatchRequest.Current = MatchRequest.FromMatch(resumed.Match, NetLink.ClientId, resumed.Player)
             with { Network = resumed.Match, ResumeFrom = resumed.FromTick, Rebuild = resumed.Reason, Resyncs = resumed.Resyncs };
         // This scene neither plays nor records any more, nor says its world is built: the new one does.
