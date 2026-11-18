@@ -9,7 +9,7 @@ namespace Machines.Game;
 /// <summary>
 /// The pod of Battle as the main menu opens it: the hangar's screen over a <see cref="BattleDesk"/>, with the hero's name,
 /// colours, tier and XP over its values, and below it all the battle to fight (map, team size, lives, victory) and the way
-/// in: against bots on this machine, two against two, five against five or ten against ten, or a room in Multiplayer. For
+/// in: against bots on this machine, two against two or five against five, or a room in Multiplayer. For
 /// automated pictures MACHINES_MENU_TEAM=&lt;n&gt; chooses a team size offered (MACHINES_MENU_SCREENSHOT's pod), as choosing
 /// it in the bar does. Battle is the remake's own addition.
 /// </summary>

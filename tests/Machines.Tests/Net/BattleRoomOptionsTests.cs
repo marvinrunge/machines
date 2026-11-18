@@ -116,17 +116,19 @@ public class BattleRoomOptionsTests
     }
 
     [Fact]
-    public void The_rooms_offer_two_against_two_five_against_five_and_ten_against_ten_with_the_lives_proposed_and_one_or_two_commanders_a_side()
+    public void The_rooms_offer_two_against_two_and_five_against_five_with_the_lives_proposed_and_one_or_two_commanders_a_side()
     {
         var map = BattleCatalogue.Map("m_desert")!;
 
-        Assert.Equal([0, 5, 10], RoomOptions.TeamSizes);
-        Assert.Equal(["2 vs 2", "5 vs 5", "10 vs 10"], RoomOptions.TeamSizes.Select(size => RoomOptions.TeamSizeName(size, map)));
-        Assert.Equal([1, 2, 3], RoomOptions.TeamSizes.Select(size => RoomOptions.ProposedLives(size, map)));
-        Assert.Equal([0, 1, 2], RoomOptions.TeamSizes.Select(RoomOptions.Offered));
+        // Ten against ten waits for the P2 acceptance's twenty people to keep the beat (BeatAcceptanceTests).
+        Assert.Equal([0, 5], RoomOptions.TeamSizes);
+        Assert.Equal(["2 vs 2", "5 vs 5"], RoomOptions.TeamSizes.Select(size => RoomOptions.TeamSizeName(size, map)));
+        Assert.Equal([1, 2], RoomOptions.TeamSizes.Select(size => RoomOptions.ProposedLives(size, map)));
+        Assert.Equal([0, 1], RoomOptions.TeamSizes.Select(RoomOptions.Offered));
         Assert.All(RoomOptions.TeamSizes, size => Assert.InRange(size, 0, BattleBalance.MostTeamSize));
-        // Fifteen is taken but not offered: the pod and the settings page keep it apart.
-        Assert.Equal((-1, -1), (RoomOptions.Offered(15), RoomOptions.Offered(3)));
+        // Ten and fifteen are taken but not offered: the pod and the settings page keep them apart.
+        Assert.Equal((-1, -1, -1), (RoomOptions.Offered(10), RoomOptions.Offered(15), RoomOptions.Offered(3)));
+        Assert.Equal(("10 vs 10", 3), (RoomOptions.TeamSizeName(10, map), RoomOptions.ProposedLives(10, map)));
         Assert.Equal(("15 vs 15", 3), (RoomOptions.TeamSizeName(15, map), RoomOptions.ProposedLives(15, map)));
         Assert.Equal([1, 2], RoomOptions.CommandersPerSide);
         Assert.Equal(RelayServer.MostSeatsPerSlot, RoomOptions.CommandersPerSide.Max());

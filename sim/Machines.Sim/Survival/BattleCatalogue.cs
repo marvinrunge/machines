@@ -112,8 +112,8 @@ public static class BattleBalance
 
     /// <summary>
     /// The most heroes a team may have in a room, as the relay keeps the beat (online plan P2, design §7): the relay and the
-    /// sim (<see cref="BattleSeats.MostPerTeam"/>) take fifteen; the menus offer up to ten (RoomOptions.TeamSizes), fifteen
-    /// is for matchmaking (P4), tests and benches.
+    /// sim (<see cref="BattleSeats.MostPerTeam"/>) take fifteen; the menus offer up to five (RoomOptions.TeamSizes), ten
+    /// and fifteen are for matchmaking (P4), tests and benches.
     /// </summary>
     public const int MostTeamSize = 15;
 
