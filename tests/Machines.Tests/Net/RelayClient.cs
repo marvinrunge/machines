@@ -82,7 +82,10 @@ internal sealed class RelayClient(Connection connection, string name, bool web, 
     /// <inheritdoc cref="SlowestTick"/>
     public (double Ms, long Tick) SlowestThink { get; private set; }
 
-    /// <summary>With the world's <see cref="GameWorld.Profile"/> set: each tick over 100 ms, with the parts that took over 5 ms of it.</summary>
+    /// <summary>
+    /// With the world's <see cref="GameWorld.Profile"/> set: each tick over 100 ms, with the parts that took over 5 ms of it,
+    /// the time outside the world's parts (the orders given before its step) among them.
+    /// </summary>
     public ConcurrentQueue<string> SlowTicks { get; } = new();
 
     // A tick on the client's thread, timed.
@@ -96,8 +99,14 @@ internal sealed class RelayClient(Connection connection, string name, bool web, 
         if (ms > SlowestTick.Ms)
             SlowestTick = (ms, World.Tick);
         if (ms > 100 && before is not null && World.Profile is { } after)
-            SlowTicks.Enqueue($"tick {World.Tick} {ms:F0} ms: " + string.Join(", ", after.Select(p => (p.Key, Ms: p.Value - before.GetValueOrDefault(p.Key)))
+        {
+            var parts = after.Select(p => (p.Key, Ms: p.Value - before.GetValueOrDefault(p.Key))).ToList();
+            // The world times the parts of its step (an order's own part indented under "machines"); the rest of the tick is
+            // the session's, mostly the turns' orders given before the step (a path search for each move).
+            var rest = ms - parts.Where(p => !p.Key.StartsWith(' ')).Sum(p => p.Ms);
+            SlowTicks.Enqueue($"tick {World.Tick} {ms:F0} ms: " + string.Join(", ", parts.Append((Key: "orders given and the rest", Ms: rest))
                 .Where(p => p.Ms > 5).OrderByDescending(p => p.Ms).Select(p => $"{p.Key} {p.Ms:F0}")));
+        }
         return true;
     }
 
