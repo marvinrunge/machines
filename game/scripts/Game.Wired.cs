@@ -132,18 +132,33 @@ public partial class Game
         if (World.HeroOf(Me) is not { } hero)
         {
             if (World.Wired?.Heroes.GetValueOrDefault(Me) is { RespawnAt: not null } or { WaitsForWave: true })
+            {
+                LookOnNoLonger();
                 WaitForBody();
+            }
             return;
         }
         // A save from the ground stays there; one from the last moments of the down has the new body already, and it is driven.
         if (!hero.DrivenByPlayer && MatchRequest.Current.Saved is not null && _newBody != hero.Id)
             return;
+        LookOnNoLonger();
         Drive(hero);
         if (World.WiredPod(Me) is { } pod && NVector2.DistanceSquared(hero.Position, pod.Position) > 1 && MatchRequest.Current.Saved is null)
         {
             var away = hero.Position - pod.Position;
             _aimYaw = MathF.Atan2(away.Y, away.X);
         }
+    }
+
+    /// <summary>
+    /// Online, the view that looked on from behind the hero while it was not the player's (<see cref="HeroHeld"/>) ends where
+    /// the run begins: driven while still looking on, the keys and the mouse would go on to the onlooker (WatchInput) and its
+    /// camera would follow the hero from behind over the driver's.
+    /// </summary>
+    private void LookOnNoLonger()
+    {
+        if (Online && _watched is not null)
+            StopWatching();
     }
 
     /// <summary>Gets into a hero with no more ado than a new body needs: no voice, no list of keys.</summary>
