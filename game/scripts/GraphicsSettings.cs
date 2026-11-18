@@ -8,8 +8,8 @@ public enum Look
     /// <summary>The original as it was: its models, ground, lighting and effects.</summary>
     Classic,
     /// <summary>
-    /// The original sharpened: its models with rounded edges and baked occlusion, its pictures of the ground upscaled,
-    /// HD textures, and the remake's lighting, sky, effects, weather, trees and rocks.
+    /// The original sharpened: its models with rounded edges and baked occlusion and HD textures, on the painted ground,
+    /// with the remake's lighting, sky, effects, weather, trees and rocks.
     /// </summary>
     Overhauled,
     /// <summary>
@@ -52,7 +52,8 @@ public enum ModelLook
 public sealed record GraphicsParts(TerrainLook Terrain, ModelLook Models, bool Lighting, bool Effects, bool Weather, bool Scenery)
 {
     public static readonly GraphicsParts Classic = new(TerrainLook.Original, ModelLook.Original, false, false, false, false);
-    public static readonly GraphicsParts Overhauled = new(TerrainLook.Sharpened, ModelLook.Overhauled, true, true, true, true);
+    // The painted ground since 0.7.4 (the sharpened tiles looked flat); a look chosen before keeps its ground as saved.
+    public static readonly GraphicsParts Overhauled = new(TerrainLook.Painted, ModelLook.Overhauled, true, true, true, true);
     public static readonly GraphicsParts Hd = new(TerrainLook.Painted, ModelLook.Hd, true, true, true, true);
 
     /// <summary>The parts a look sets; the custom one keeps <paramref name="custom"/>.</summary>

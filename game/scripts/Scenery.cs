@@ -48,6 +48,9 @@ public static class Scenery
 
     private static string Folder => Path.Combine(Paths.Root, "models", "nature");
 
+    /// <summary>MACHINES_NATURE=0 leaves the remade models out, as a build without them has (films shot as players see them).</summary>
+    private static bool Off => System.Environment.GetEnvironmentVariable("MACHINES_NATURE") == "0";
+
     /// <summary>A loaded model: its mesh (with levels of detail) and its size in its own metres.</summary>
     public sealed record Model(string Name, Mesh Mesh, Aabb Bounds);
 
@@ -59,6 +62,8 @@ public static class Scenery
         var key = small ? "small/" + name : name;
         if (Loaded.TryGetValue(key, out var cached))
             return cached;
+        if (Off)
+            return Loaded[key] = null;
         var path = Path.Combine(Folder, key + ".glb");
         Model? model = null;
         if (File.Exists(path))

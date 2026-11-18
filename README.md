@@ -17,7 +17,7 @@ your own copy of the game.
   pod alive against endless waves.
 - **Battle**, two teams of heroes defending their pods: 2 vs 2, 5 vs 5 or 10 vs 10, with bots in free seats.
 - **Online play** over the public relay, no port forwarding needed, or on your own network.
-- Two looks: **Classic**, as in 1999, and **Overhauled**, with sharpened textures, new lighting, weather and effects.
+- Two looks: **Classic**, as in 1999, and **Overhauled**, with sharper textures on painted ground, new lighting, weather and effects.
 
 ## Install
 

@@ -184,8 +184,8 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
         var classic = Card(cards, Look.Classic, first, "Classic",
             "The original as it was in 1999: its models, its tiled ground, its light and its effects.");
         var overhauled = Card(cards, Look.Overhauled, first, "Overhauled · recommended",
-            "The original sharpened: textures upscaled with relief, soft shadows and glow, photographed skies, " +
-            "new explosions and smoke, weather, trees and rocks.");
+            "The original's machines sharpened on painted ground: photographed ground and skies, soft shadows and " +
+            "glow, new explosions and smoke, weather, trees and rocks.");
         Focus(GraphicsSettings.Look == Look.Classic ? classic : overhauled);
     }
 

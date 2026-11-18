@@ -174,7 +174,7 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
     private static string Describe(Look look) => look switch
     {
         Look.Classic => "The original's models, ground, lighting and effects.",
-        Look.Overhauled => "The original sharpened: its ground and models upscaled, with tone mapping, glow, soft shadows and the remake's effects.",
+        Look.Overhauled => "The original's models sharpened on the painted ground, with tone mapping, glow, soft shadows and the remake's effects.",
         Look.Hd => "Still in the making: the remade models on the painted ground, where they exist; the rest shows overhauled.",
         _ => "Each part of the look as chosen under Customize.",
     };

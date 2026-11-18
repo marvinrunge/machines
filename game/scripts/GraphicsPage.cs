@@ -125,7 +125,7 @@ public partial class GraphicsPage(Action back, bool inGame) : MenuPage(back)
         _lookNote.Text = parts.Look switch
         {
             Look.Classic => "Everything as the original had it.",
-            Look.Overhauled => "The original sharpened, with the remake's lighting, effects, weather, trees and rocks.",
+            Look.Overhauled => "The original's models sharpened on the painted ground, with the remake's lighting, effects, weather, trees and rocks.",
             Look.Hd => "The remade models on the painted ground, with the rest of the remake.",
             _ => "Each part as chosen below.",
         };

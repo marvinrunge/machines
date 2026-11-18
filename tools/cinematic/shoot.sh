@@ -7,6 +7,8 @@
 # blended in fours and drawn at 1.5 times the size (final about two minutes a second of film and 0.7 GB of frames a
 # second on the way, hd about half that).
 # The films give their orders on the world's ticks, so every quality shows the same battle.
+# LOOK (default Overhauled, the release's) is MACHINES_LOOK; RELEASE=1 (the default) shows what a release build has:
+# no upgraded models and no remade trees and rocks (tools/blender), which only a local checkout makes.
 # GODOT: the console Godot .NET (default: winget's). Needs the ffmpeg of tools/film-upscale/fetch.sh, and the game
 # built (dotnet build game/Machines.csproj).
 set -e
@@ -44,7 +46,8 @@ for FILM in "${FILMS[@]}"; do
     [ "$QUALITY" = draft ] && MOVIE="$FRAMES/film.avi" || MOVIE="$FRAMES/frame.png"
     echo "$FILM: recording ($QUALITY) ..."
     ( [ "$CLOCK" != - ] && export MACHINES_CLOCK="$CLOCK"
-      MACHINES_CINEMATIC=$FILM MACHINES_MAP=$MAP MACHINES_LOOK="Hd,models=overhauled" MACHINES_WEATHER=$WEATHER \
+      [ "${RELEASE:-1}" = 1 ] && export MACHINES_MODEL_UPGRADE=0 MACHINES_NATURE=0
+      MACHINES_CINEMATIC=$FILM MACHINES_MAP=$MAP MACHINES_LOOK="${LOOK:-Overhauled}" MACHINES_WEATHER=$WEATHER \
       MACHINES_CINEMATIC_SCALE=$SCALE MACHINES_CINEMATIC_SIZE=${WIDTH}x${HEIGHT} \
           "$GODOT" --path "$ROOT/game" --resolution 1280x720 --fixed-fps $FPS --write-movie "$MOVIE" \
           > "$FRAMES/godot.log" 2>&1 )

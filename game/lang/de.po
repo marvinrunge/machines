@@ -243,8 +243,8 @@ msgstr "Beide spielen dasselbe Spiel. Die Optionen ändern die Grafik jederzeit,
 msgid "The original as it was in 1999: its models, its tiled ground, its light and its effects."
 msgstr "Das Original, wie es 1999 war: seine Modelle, sein gekachelter Boden, sein Licht und seine Effekte."
 
-msgid "The original sharpened: textures upscaled with relief, soft shadows and glow, photographed skies, new explosions and smoke, weather, trees and rocks."
-msgstr "Das Original geschärft: hochskalierte Texturen mit Relief, weiche Schatten und Glühen, fotografierte Himmel, neue Explosionen und Rauch, Wetter, Bäume und Felsen."
+msgid "The original's machines sharpened on painted ground: photographed ground and skies, soft shadows and glow, new explosions and smoke, weather, trees and rocks."
+msgstr "Die Maschinen des Originals geschärft auf bemaltem Boden: fotografierter Boden und Himmel, weiche Schatten und Glühen, neue Explosionen und Rauch, Wetter, Bäume und Felsen."
 
 msgid "The remake plays the original soundtrack from MP3s of your own, as the original played its CD: the intro, the menu tune, each planet's own track and the victory and defeat tunes."
 msgstr "Das Remake spielt den Original-Soundtrack aus deinen eigenen MP3s, so wie das Original seine CD abspielte: das Intro, die Menümelodie, das Stück jedes Planeten und die Melodien für Sieg und Niederlage."
@@ -463,11 +463,11 @@ msgstr "Sand, Schnee, Regen oder Asche, wie der Planet sie hat, und ab und zu St
 msgid "The new look shows from the next match."
 msgstr "Die neue Grafik gilt ab dem nächsten Match."
 
-msgid "The original sharpened, with the remake's lighting, effects, weather, trees and rocks."
-msgstr "Das Original geschärft, mit Licht, Effekten, Wetter, Bäumen und Felsen des Remakes."
+msgid "The original's models sharpened on the painted ground, with the remake's lighting, effects, weather, trees and rocks."
+msgstr "Die Modelle des Originals geschärft auf dem bemalten Boden, mit Licht, Effekten, Wetter, Bäumen und Felsen des Remakes."
 
-msgid "The original sharpened: its ground and models upscaled, with tone mapping, glow, soft shadows and the remake's effects."
-msgstr "Das Original geschärft: Boden und Modelle hochskaliert, mit Tone Mapping, Glühen, weichen Schatten und den Effekten des Remakes."
+msgid "The original's models sharpened on the painted ground, with tone mapping, glow, soft shadows and the remake's effects."
+msgstr "Die Modelle des Originals geschärft auf dem bemalten Boden, mit Tone Mapping, Glühen, weichen Schatten und den Effekten des Remakes."
 
 msgid "The original's explosions and shots."
 msgstr "Die Explosionen und Schüsse des Originals."
