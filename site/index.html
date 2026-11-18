@@ -224,6 +224,73 @@
   .shot img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 0.25s; }
   .shot:hover img, .shot:focus-visible img { transform: scale(1.02); }
   .shot:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
+  /* Classic and Overhauled on one screen, the line between them dragged across. */
+  .compare {
+    --at: 50%;
+    position: relative;
+    border: 3px solid #2b302b;
+    box-shadow: inset 0 0 0 1px #0d120d, 0 4px 10px rgba(0, 0, 0, 0.5);
+    background: var(--well);
+    aspect-ratio: 16 / 9;
+    max-width: 100%;
+    overflow: hidden;
+    user-select: none;
+  }
+  .compare img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .compare .before { clip-path: inset(0 calc(100% - var(--at)) 0 0); }
+  .compare .line {
+    position: absolute; top: 0; bottom: 0; left: var(--at);
+    width: 2px; margin-left: -1px;
+    background: var(--glow);
+    box-shadow: 0 0 8px var(--glow);
+    pointer-events: none;
+  }
+  .compare .grip {
+    position: absolute; top: 50%; left: 50%;
+    width: 38px; height: 38px; margin: -19px 0 0 -19px;
+    background: var(--well);
+    border: 2px solid var(--glow);
+    box-shadow: 0 0 10px rgba(107, 250, 71, 0.5);
+    display: grid; place-items: center;
+    color: var(--glow);
+    font: 700 16px/1 "Saira", system-ui, sans-serif;
+  }
+  .compare .tag {
+    position: absolute; top: 10px;
+    font: 600 13px/1 "Saira", system-ui, sans-serif;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 6px 9px;
+    background: rgba(3, 11, 5, 0.8);
+    border: 1px solid var(--edge);
+    pointer-events: none;
+  }
+  .compare .tag.left { left: 10px; color: var(--text); }
+  .compare .tag.right { right: 10px; color: var(--bright); }
+  @media (max-width: 520px) {
+    .compare .tag { top: 6px; font-size: 10px; letter-spacing: 0.08em; padding: 4px 6px; }
+    .compare .tag.left { left: 6px; }
+    .compare .tag.right { right: 6px; }
+    .compare .grip { width: 30px; height: 30px; margin: -15px 0 0 -15px; font-size: 14px; }
+  }
+  /* The range lies over the whole picture, unseen: dragging anywhere moves the line, the arrow keys too. */
+  .compare input {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    margin: 0; opacity: 0; cursor: ew-resize;
+  }
+  .compare:has(input:focus-visible) { outline: 2px solid var(--glow); outline-offset: 2px; }
+  .scenes { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 10px; }
+  .scenes button {
+    font: 600 14px/1 "Saira", system-ui, sans-serif;
+    letter-spacing: 0.06em;
+    color: var(--dim);
+    background: var(--well);
+    border: 2px solid var(--frame);
+    padding: 9px 12px;
+    cursor: pointer;
+  }
+  .scenes button[aria-pressed="true"] { color: var(--bright); border-color: var(--edge); }
+  .scenes button:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
   .step {
     font-size: 13px;
     font-weight: 700;
@@ -334,6 +401,26 @@
     </div>
   </section>
 
+  <section aria-labelledby="looks">
+    <h3 id="looks" data-t="looks">Classic and Overhauled</h3>
+    <div class="chip card">
+      <div class="compare" id="compare">
+        <img class="after" src="shots/compare/hilly-overhauled.jpg" width="1440" height="810" alt="The scene in the Overhauled look">
+        <img class="before" src="shots/compare/hilly-classic.jpg" width="1440" height="810" alt="The same scene in the Classic look">
+        <span class="tag left" data-t="classic">Classic</span>
+        <span class="tag right" data-t="overhauled">Overhauled</span>
+        <div class="line"><span class="grip" aria-hidden="true">&#x2194;</span></div>
+        <input type="range" min="0" max="100" value="50" step="0.5" aria-label="Classic on the left, Overhauled on the right: move the line">
+      </div>
+      <div class="scenes" role="group" aria-label="Scene">
+        <button type="button" data-scene="hilly" aria-pressed="true" data-t="sc1">A base on the hills</button>
+        <button type="button" data-scene="desert" aria-pressed="false" data-t="sc2">Desert canyon</button>
+        <button type="button" data-scene="desspy" aria-pressed="false" data-t="sc3">Campaign</button>
+      </div>
+      <p data-t="lookp">The same moment of the same match in both looks: the original's tiles beside the painted ground, with the remake's light. Drag the line to compare.</p>
+    </div>
+  </section>
+
   <section aria-labelledby="hero">
     <h3 id="hero" data-t="hero">Your hero</h3>
     <div class="row modes">
@@ -381,6 +468,10 @@
       m2: "Gefecht", m2p: "Alle 32 Karten gegen die KI des Originals, allein oder mit Freunden.",
       m3: "Überlebensmodus", m3p: "Bau dir einen Helden und halte deinen Pod gegen endlose Wellen.",
       m4: "Schlacht", m4p: "Zwei Teams aus Helden, 2 gegen 2 bis 10 gegen 10, Bots auf freien Plätzen.",
+      looks: "Klassisch und Überarbeitet",
+      classic: "Klassisch", overhauled: "Überarbeitet",
+      sc1: "Eine Basis in den Hügeln", sc2: "Wüstenschlucht", sc3: "Kampagne",
+      lookp: "Derselbe Moment derselben Partie in beiden Looks: die Kacheln des Originals neben dem bemalten Boden, mit dem Licht des Remakes. Zieh die Linie zum Vergleichen.",
       hero: "Dein Held",
       h1: "Der Pod", h1p: "Wähle ein Chassis, zieh Waffen, Module und Fähigkeiten auf seine Plätze, gib ihm Namen und Farbe.",
       h2: "Der Chassis-Pfad", h2p: "Sammle Erfahrung in der Schlacht und erforsche das nächste Chassis, über acht Stufen.",
@@ -404,7 +495,34 @@
       b.setAttribute("aria-pressed", String(b.dataset.lang === lang));
     });
     try { localStorage.setItem("lang", lang); } catch (e) {}
+    compareText(lang);
   }
+
+  // The comparison: the range moves the line, the buttons change the scene.
+  var compare = document.getElementById("compare");
+  var slider = compare.querySelector("input");
+  var before = compare.querySelector(".before"), after = compare.querySelector(".after");
+  function compareText(lang) {
+    var de = lang === "de";
+    slider.setAttribute("aria-label", de ? "Links Klassisch, rechts Überarbeitet: die Linie verschieben" : "Classic on the left, Overhauled on the right: move the line");
+    before.alt = de ? "Die Szene im Look Klassisch" : "The scene in the Classic look";
+    after.alt = de ? "Dieselbe Szene im Look Überarbeitet" : "The same scene in the Overhauled look";
+  }
+  slider.addEventListener("input", function () { compare.style.setProperty("--at", slider.value + "%"); });
+  document.querySelectorAll(".scenes button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      before.src = "shots/compare/" + b.dataset.scene + "-classic.jpg";
+      after.src = "shots/compare/" + b.dataset.scene + "-overhauled.jpg";
+      document.querySelectorAll(".scenes button").forEach(function (o) { o.setAttribute("aria-pressed", String(o === b)); });
+    });
+  });
+  // The other scenes load once the page has, so that a switch shows them at once.
+  window.addEventListener("load", function () {
+    ["desert", "desspy"].forEach(function (s) {
+      ["classic", "overhauled"].forEach(function (l) { new Image().src = "shots/compare/" + s + "-" + l + ".jpg"; });
+    });
+  });
+
   var saved = null;
   try { saved = localStorage.getItem("lang"); } catch (e) {}
   var lang = saved || ((navigator.language || "").toLowerCase().indexOf("de") === 0 ? "de" : "en");
