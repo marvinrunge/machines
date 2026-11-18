@@ -2376,6 +2376,8 @@ public partial class Game : Node3D
         _menu.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         layer.AddChild(_menu);
         _rig.Active = false;
+        // Over a run's first person (driving or down) the mouse comes free for the menus, as over the hangar.
+        Input.MouseMode = Input.MouseModeEnum.Visible;
     }
 
     /// <summary>Back to the match from the menus.</summary>
@@ -2385,7 +2387,9 @@ public partial class Game : Node3D
             return;
         _menu.GetParent().QueueFree();
         _menu = null;
-        _rig.Active = _driven is null;
+        _rig.Active = _driven is null && !_heroDown && _watched is null;
+        if (_driven is not null || _heroDown || _watched is not null)
+            Input.MouseMode = Input.MouseModeEnum.Captured;
         if (!Online)
             Paused = _pausedBeforeMenu;
     }
@@ -3301,24 +3305,30 @@ public partial class Game : Node3D
 
     private void FirstPersonInput(InputEvent @event)
     {
-        if (_screen.Lost)
+        // Behind the menus (opened over a run's first person) the mouse neither looks nor turns.
+        if (_screen.Lost || MenuShown is not null)
             return;
         switch (@event)
         {
-            case InputEventKey { Pressed: true, Echo: false } key when key.Keycode == Key.Escape || KeyMap.Is(key, KeyMap.Act.FirstPerson) || MatchOver && key.Keycode == Key.Space:
+            // A run or battle going on has no way out of the hero: Esc opens the menus over it.
+            case InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape } when KeptInFirstPerson:
+                OpenMenu();
+                break;
+            case InputEventKey { Pressed: true, Echo: false } key when !KeptInFirstPerson && (key.Keycode == Key.Escape || KeyMap.Is(key, KeyMap.Act.FirstPerson) || MatchOver && key.Keycode == Key.Space):
                 LeaveFirstPerson();
                 break;
             case InputEventKey { Pressed: true } when MatchOver:
                 break;
             // 0 and 2 on the number pad leave for the ground and the zenith camera.
-            case InputEventKey { Pressed: true, Echo: false, Keycode: Key.Kp0 }:
+            case InputEventKey { Pressed: true, Echo: false, Keycode: Key.Kp0 } when !KeptInFirstPerson:
                 LeaveFirstPerson(ground: true);
                 break;
-            case InputEventKey { Pressed: true, Echo: false, Keycode: Key.Kp2 }:
+            case InputEventKey { Pressed: true, Echo: false, Keycode: Key.Kp2 } when !KeptInFirstPerson:
                 LeaveFirstPerson(ground: false);
                 break;
             case InputEventKey { Pressed: true, Echo: false } key when KeyMap.Is(key, KeyMap.Act.Menu) && !TakenInFirstPerson(key.Keycode):
-                LeaveFirstPerson();
+                if (!KeptInFirstPerson)
+                    LeaveFirstPerson();
                 OpenMenu();
                 break;
             case InputEventKey { Pressed: true, Echo: false } key when KeyMap.Is(key, KeyMap.Act.Pause) && !TakenInFirstPerson(key.Keycode):
@@ -3378,7 +3388,7 @@ public partial class Game : Node3D
     // LOOKDOWN and LOOKUP keys); the options' Reverse Up/Down Keys swaps the arrows.
     private void LookWithKeys()
     {
-        if (!Input.IsKeyPressed(Key.Shift) || Input.IsKeyPressed(Key.Up) == Input.IsKeyPressed(Key.Down) || HangarOpen)
+        if (!Input.IsKeyPressed(Key.Shift) || Input.IsKeyPressed(Key.Up) == Input.IsKeyPressed(Key.Down) || ScreenOver)
             return;
         var step = Mathf.DegToRad(Input.IsKeyPressed(Key.Ctrl) ? 15 : 150) * (float)GetProcessDeltaTime();
         LookBy(Input.IsKeyPressed(Key.Up) != GameOptions.ReverseKeys ? -step : step);
@@ -3426,8 +3436,8 @@ public partial class Game : Node3D
     {
         if (_driven is not { } machine || _screen.Lost)
             return;
-        // Behind the hangar's screen the hero stands: its keys and buttons are the screen's.
-        if (HangarOpen)
+        // Behind the hangar's screen (or a run's menus) the hero stands: its keys and buttons are the screen's.
+        if (ScreenOver)
         {
             Issue(new DriveCommand(Player, machine.Id, Driving: true, Weapons: SelectedWeapons(machine), Head: _headTarget, Yaw: SentYaw));
             if (Sighted)
@@ -3569,7 +3579,7 @@ public partial class Game : Node3D
         LookWithKeys();
         // With the modern keys a machine without an upper body turns its view with the keys, smoothly, and the hull
         // follows it at the same rate.
-        if (FreeLook && !machine.CanTurnUpperBody && (!Paused || Online) && !HangarOpen)
+        if (FreeLook && !machine.CanTurnUpperBody && (!Paused || Online) && !ScreenOver)
             _aimYaw = Mathf.Wrap(_aimYaw - KeyTurn(machine) * HullTurnRate(machine, Input.IsKeyPressed(Key.Ctrl)) * (float)GetProcessDeltaTime(),
                 -Mathf.Pi, Mathf.Pi);
         // A sighted driver's gun as it will stand, and where its sight is drawn; the upper body points there at once.

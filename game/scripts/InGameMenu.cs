@@ -247,7 +247,8 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
         ?
         [
             ("Fire left, right, top", string.Join(", ", KeyMap.Name(KeyMap.Act.FireLeft), KeyMap.Name(KeyMap.Act.FireRight), KeyMap.Name(KeyMap.Act.FireTop))),
-            .. game.World.Wired is null ? new[] { ("Fire all", "Space") } :
+            // A run or battle keeps its driver in the hero: there is no leaving it.
+            .. game.World.Wired is null ? new[] { ("Fire all", "Space"), ("Leave first person", LeaveKeys) } :
             game.World.Battle is not null ?
             [
                 ("Abilities, dash", K(KeyMap.Act.Ability1, KeyMap.Act.Ability2, KeyMap.Act.Dash)), ("Chassis special", K(KeyMap.Act.Special)),
@@ -258,7 +259,6 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
                 ("Abilities, dash", K(KeyMap.Act.Ability1, KeyMap.Act.Ability2, KeyMap.Act.Dash)), ("Chassis special", K(KeyMap.Act.Special)),
                 ("Hangar", K(KeyMap.Act.Hangar)),
             ],
-            ("Leave first person", LeaveKeys),
         ]
         :
         [

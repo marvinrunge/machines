@@ -122,7 +122,7 @@ public partial class Game
 
     /// <summary>The turn the next command will carry, as <see cref="UpdateDriving"/> works it out (before its sign is put right).</summary>
     private float NextTurn(Machine machine) =>
-        HangarOpen ? 0 : machine.CanTurnUpperBody ? KeyTurn(machine) : FollowTurn(machine, out _);
+        ScreenOver ? 0 : machine.CanTurnUpperBody ? KeyTurn(machine) : FollowTurn(machine, out _);
 
     /// <summary>
     /// The held weapons whose bits go into the command, with "Fire waits for the gun" (<see cref="GunPrediction.Gate"/>);

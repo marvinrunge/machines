@@ -28,6 +28,12 @@ public partial class Game
     public bool BattleWatch => World.Battle is not null && !Online && !Watching
         && MatchRequest.Current.Starts.Players.GetValueOrDefault(Player) == Controller.Ai;
 
+    /// <summary>
+    /// A player of a battle going on who looks on (out of bodies, or away while a bot drives) stays with the team-mate followed:
+    /// a replay, and a battle a bot plays for the player, may still go to the field.
+    /// </summary>
+    private bool KeptLookingOn => World.Battle is { Over: false } && !Watching && !BattleWatch;
+
     /// <summary>The machine the view follows in a battle, while it stands.</summary>
     public int? WatchedHero => _watched is { } id && World.Find<Machine>(id) is { IsDead: false } ? id : null;
 
@@ -500,6 +506,11 @@ public partial class Game
         }
         if (key.Keycode == Key.Tab)
             WatchNext();
+        // A battle going on is not looked over from above: Esc opens the menus.
+        else if (KeptLookingOn && (key.Keycode == Key.Escape || KeyMap.Is(key, KeyMap.Act.Menu)))
+            OpenMenu();
+        else if (KeptLookingOn && KeyMap.Is(key, KeyMap.Act.FirstPerson))
+            return;
         else if (key.Keycode == Key.Escape || KeyMap.Is(key, KeyMap.Act.FirstPerson))
             StopWatching();
         else if (KeyMap.Is(key, KeyMap.Act.Menu))

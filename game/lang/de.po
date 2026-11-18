@@ -3444,8 +3444,8 @@ msgstr "WIRED"
 msgid "One trigger for each weapon in first person, with the options' Mouse button per weapon and always in Wired. Held ones fire together. A key or a mouse button will do; while these are on the mouse, the right button neither turns the upper body nor leaves by a double click."
 msgstr "Ein Abzug für jede Waffe in der Ego-Perspektive, mit „Maustaste je Waffe“ aus den Optionen und im Überlebensmodus immer. Gehaltene feuern zusammen. Eine Taste oder Maustaste ist recht; solange sie gelten, dreht die rechte Taste weder den Oberkörper, noch verlässt ein Doppelklick die Maschine."
 
-msgid "These work in the hero, in first person; the hangar also from above, at the pod between the waves. The options' Classic Keys leave them as they are."
-msgstr "Sie gelten im Helden, in der Ego-Perspektive; der Hangar auch von oben, am Pod zwischen den Wellen. Die „Klassischen Tasten“ der Optionen lassen sie, wie sie sind."
+msgid "These work in the hero, in first person, which a run and a battle do not leave; the hangar at the pod between the waves. The options' Classic Keys leave them as they are."
+msgstr "Sie gelten im Helden, in der Ego-Perspektive, die Überleben und Schlacht nicht verlassen; der Hangar am Pod zwischen den Wellen. Die „Klassischen Tasten“ der Optionen lassen sie, wie sie sind."
 
 msgid "Press the key or mouse button for {0}, Esc keeps {1}."
 msgstr "Drücke die Taste oder Maustaste für „{0}“, Esc behält {1}."

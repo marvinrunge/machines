@@ -249,10 +249,25 @@ public partial class Game
             Select([body.Id]);
     }
 
-    /// <summary>While the hero is down, the view has nothing to steer: it can only be left.</summary>
+    /// <summary>
+    /// A run or battle going on keeps its driver in the hero, on the static while it is down and looking on through a
+    /// team-mate once a battle has no body left for them: no view from above, which in a battle would look over the
+    /// whole field. Esc opens the menus over it; the end of the run, and a match that is not a run, leave as ever.
+    /// </summary>
+    private bool KeptInFirstPerson => World.Wired is { Phase: not WiredPhase.Ended } && World.Battle is not { Over: true } && !MatchOver && !Watching;
+
+    /// <summary>A screen over first person, the hangar's or the menus': behind it the hero stands, and the mouse does not look.</summary>
+    private bool ScreenOver => HangarOpen || MenuShown is not null;
+
+    /// <summary>While the hero is down, the view has nothing to steer: Esc opens the menus (in a run) or leaves.</summary>
     private void DownInput(InputEvent @event)
     {
-        if (@event is InputEventKey { Pressed: true, Echo: false } key && (key.Keycode == Key.Escape || KeyMap.Is(key, KeyMap.Act.FirstPerson)))
+        if (KeptInFirstPerson && @event is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape })
+        {
+            OpenMenu();
+            return;
+        }
+        if (!KeptInFirstPerson && @event is InputEventKey { Pressed: true, Echo: false } key && (key.Keycode == Key.Escape || KeyMap.Is(key, KeyMap.Act.FirstPerson)))
         {
             _heroDown = false;
             LeaveFirstPerson();
