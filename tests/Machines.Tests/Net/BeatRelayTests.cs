@@ -323,6 +323,50 @@ public class BeatRelayTests
     }
 
     [Fact]
+    public async Task A_player_back_by_key_sees_another_s_lag_mark_from_before_the_rejoin_in_the_rebuilt_world_without_it_coming_again()
+    {
+        // Not handed over for a long while: Cleo stays marked through Ben's rejoin.
+        await using var relay = await RelayClients.Start(Fast with { LagLeave = 2000 });
+        var (room, clients, clock) = await Skirmish(relay, ["Anna", "Ben", "Cleo"]);
+        var (anna, ben, cleo) = (clients[0], clients[1], clients[2]);
+        RelayClients.Run(clients, clock);
+        await PlayOn(relay, clock, 40);
+
+        // Cleo's game hangs and is marked lagging.
+        cleo.Frozen = true;
+        var marked = await TickIn(relay, $@"^room {room.Id}: player {cleo.Me} late \d+ bundles in a row: marked at tick (\d+)$");
+        await PlayOn(relay, clock, 10);
+
+        // Ben's game comes back over a new connection with his seat key while she is still marked (P2 acceptance S4 (4)), and
+        // rebuilds its world from the relay's log, which holds her mark.
+        var taker = await relay.RejoinWithKey(ben, web: false);
+        taker.Script = new CommanderScript(taker.Me, 77);
+        taker.Run(clock);
+        var from = taker.Resumed!.FromTick;
+        await Until(relay, () => Heard(anna, ben.Me, from).Any(m => m is PlayerLagging { Lagging: false }), TimeSpan.FromSeconds(15), "Ben back");
+        await Until(relay, () => taker.Tick > from, TimeSpan.FromSeconds(10), "Ben's world past his rejoin");
+
+        // As his rebuilt world stands she lags, by the mark from before he came back (which the game shows without a notice,
+        // being older than his rejoin), and no new mark came for it.
+        Assert.True(marked < from, $"Cleo marked at {marked}, Ben back from {from}");
+        Assert.True(taker.Session.Lagging(cleo.Me), $"Cleo not lagging in Ben's rebuilt world at tick {taker.Tick}");
+        Assert.Equal([new PlayerLagging(cleo.Me, marked, true)], taker.Session.Presence.OfType<PlayerLagging>().Where(m => m.Player == cleo.Me));
+
+        // Her game runs again: her mark goes, in his world as in Anna's.
+        cleo.Frozen = false;
+        var free = await TickIn(relay, $@"^room {room.Id}: player {cleo.Me} on time again: mark gone at tick (\d+)$");
+        await Until(relay, () => taker.Tick > free + 1 && anna.Tick > free + 1, TimeSpan.FromSeconds(10), "the mark's end played");
+        RelayClients.Halt([.. clients, taker]);
+
+        Assert.False(taker.Session.Lagging(cleo.Me));
+        Assert.False(anna.Session.Lagging(cleo.Me));
+        Assert.Equal([new PlayerLagging(cleo.Me, marked, true), new PlayerLagging(cleo.Me, free, false)],
+            taker.Session.Presence.OfType<PlayerLagging>().Where(m => m.Player == cleo.Me));
+        Assert.True(RelayClients.AssertSumsAgree([.. clients, taker]) > 0);
+        RelayClients.AssertPlaysBack(taker);
+    }
+
+    [Fact]
     public async Task The_beat_waits_for_every_world_to_be_built()
     {
         await using var relay = await RelayClients.Start(Fast);
