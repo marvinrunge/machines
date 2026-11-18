@@ -2,16 +2,18 @@ A **test build** of the Machines: Wired for War remake, for Windows 10/11 (64-bi
 
 **Download** the `setup.exe` below and run it, or the `windows.zip`, unzip it anywhere and run `Machines.exe`. `README.txt` lists the controls.
 
-**New in 0.7.3:** Survival and Battle stay in first person while a run or a battle goes on; there is no view from above any more. **Esc** opens the menu over your hero. The end of a run or battle, skirmish and the campaign leave first person as before.
+**New in 0.7.4:** the **Overhauled** look shows the painted ground (photographed textures) in place of the sharpened original tiles, which looked flat and blurry. A look chosen before keeps its ground as saved; pick **Overhauled** again in the options to switch. Energy bolts no longer show a black dot at their head.
 
-**From 0.7.2:** the unfinished HD models are left out of this build. A look chosen with them before now shows **Overhauled**: the sharpened ground and the original models with sharper textures.
+**From 0.7.3:** Survival and Battle stay in first person while a run or a battle goes on; there is no view from above any more. **Esc** opens the menu over your hero. The end of a run or battle, skirmish and the campaign leave first person as before.
+
+**From 0.7.2:** the unfinished HD models are left out of this build. A look chosen with them before now shows **Overhauled**: the original models with sharper textures.
 
 **From 0.7.1: import from the CDs**
 - **Put CD 1 in the drive** and the first start finds it: press **Import**. A disc image of it (`.iso`) in Downloads, Desktop or Documents is found as well, or pick one with **Disc image**. The game no longer has to be installed; the import unpacks it from the CD next to the remake.
 - **The campaign's films** come along when CD 2 is in a drive or its image lies beside CD 1's; later, **From CD** in the options adds them.
 - An installed copy still works as before (**Folder** picks it by hand).
 
-**0.7.0 to 0.7.3 play together online.**
+**0.7.0 to 0.7.4 play together online.**
 
 **From 0.7.0: online play**
 - **A public relay.** Under **Multiplayer** the relay is already filled in: type a name, press **Connect**, join a room or open one. Nobody has to open a port. The relay sleeps while nobody plays, so the first connection after a break takes a few seconds.
