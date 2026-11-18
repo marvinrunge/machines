@@ -59,54 +59,61 @@ public class BeatAcceptanceTests(ITestOutputHelper output) : IAsyncLifetime
 
         // (a) Everyone else kept speed with the relay's clock after tick 300 and was never marked.
         foreach (var client in others)
-            Say($"(a) {client.Name}: {RelayClients.AssertAtSpeed(client, AtSpeedFrom, end)}");
+            Hold($"(a) {client.Name}", () => Say($"(a) {client.Name}: {RelayClients.AssertAtSpeed(client, AtSpeedFrom, end)}"));
         var marked = clients.SelectMany(c => c.Heard).OfType<PlayerLagging>().Where(l => l.Lagging).Select(l => l.Player).Distinct().ToList();
-        Assert.All(others, c => Assert.DoesNotContain(c.Me, marked));
+        Hold("(a) never marked", () => Assert.All(others, c => Assert.DoesNotContain(c.Me, marked)));
 
         // (b) Slow: its first late bundle once throttled, where no turn of its asking for that bundle or later had gone out by
         // the bundle's due time; the mark 2.5–4 s after it, the handover 29–31 s after it, back within 5 s of the throttle's end.
-        Assert.True(slow.ThrottledAt is not null && slow.ThrottleOverAt is not null, "Slow was never throttled, or its throttle never ended");
-        var stamps = slow.Stamps.OrderBy(s => s.Utc).ToList();
-        var firstLate = FirstLate(stamps, run.Anchor, (slow.ThrottledAt!.Value - run.Anchor) / 50);
-        var markedAt = HeardAt<PlayerLagging>(slow.Me, Due(firstLate), l => l.Lagging);
-        var leftAt = HeardAt<PlayerLeft>(slow.Me, Due(firstLate));
-        var backAt = HeardAt<PlayerReturned>(slow.Me, leftAt);
-        Assert.True(markedAt > 0 && leftAt > 0 && backAt > 0, $"Slow marked at {markedAt}, handed over at {leftAt}, back at {backAt} (Unix ms)");
-        var (toMark, toHandover, back) = (markedAt - Due(firstLate), leftAt - Due(firstLate), backAt - slow.ThrottleOverAt!.Value);
-        Say($"(b) Slow throttled at clock tick {(slow.ThrottledAt.Value - run.Anchor) / 50} for {(slow.ThrottleOverAt.Value - slow.ThrottledAt.Value) / 1000.0:F1} s; " +
-            $"first late bundle {firstLate}; marked {toMark / 1000.0:F2} s after it, handed over {toHandover / 1000.0:F2} s after it, back {back / 1000.0:F2} s after the throttle");
-        Assert.InRange(toMark, 2_500, 4_000);
-        Assert.InRange(toHandover, 29_000, 31_000);
-        Assert.InRange(back, 0, 5_000);
+        Hold("(b)", () =>
+        {
+            Assert.True(slow.ThrottledAt is not null && slow.ThrottleOverAt is not null, "Slow was never throttled, or its throttle never ended");
+            var stamps = slow.Stamps.OrderBy(s => s.Utc).ToList();
+            var firstLate = FirstLate(stamps, run.Anchor, (slow.ThrottledAt!.Value - run.Anchor) / 50);
+            var markedAt = HeardAt<PlayerLagging>(slow.Me, Due(firstLate), l => l.Lagging);
+            var leftAt = HeardAt<PlayerLeft>(slow.Me, Due(firstLate));
+            var backAt = HeardAt<PlayerReturned>(slow.Me, leftAt);
+            Assert.True(markedAt > 0 && leftAt > 0 && backAt > 0, $"Slow marked at {markedAt}, handed over at {leftAt}, back at {backAt} (Unix ms)");
+            var (toMark, toHandover, back) = (markedAt - Due(firstLate), leftAt - Due(firstLate), backAt - slow.ThrottleOverAt!.Value);
+            Say($"(b) Slow throttled at clock tick {(slow.ThrottledAt.Value - run.Anchor) / 50} for {(slow.ThrottleOverAt.Value - slow.ThrottledAt.Value) / 1000.0:F1} s; " +
+                $"first late bundle {firstLate}; marked {toMark / 1000.0:F2} s after it, handed over {toHandover / 1000.0:F2} s after it, back {back / 1000.0:F2} s after the throttle");
+            Assert.InRange(toMark, 2_500, 4_000);
+            Assert.InRange(toHandover, 29_000, 31_000);
+            Assert.InRange(back, 0, 5_000);
+        });
 
         // (c) Odd: found out of step at the first checksum tick after its world was spoiled, against a value more than half of
         // the ten reported; rebuilt once, back within 15 s of the rebuild, and every report of its new world the others'.
-        var spoiled = Assert.Single(odd.Corruptions);
-        var found = relay.Lines.Select(l => OutOfStep.Match(l.Line)).Where(m => m.Success && m.Groups["name"].Value == "Odd").ToList();
-        Assert.NotEmpty(found);
-        var at = long.Parse(found[0].Groups["tick"].Value, CultureInfo.InvariantCulture);
-        Assert.Equal(spoiled.Tick - spoiled.Tick % 20 + 20, at);
-        var agreedValue = found[0].Groups["agreed"].Value;
-        Assert.NotEqual("", agreedValue);
-        var agreeing = others.Concat([slow]).Count(c => c.History.Any(h => h.Tick == at && h.Value.ToString("X16", CultureInfo.InvariantCulture) == agreedValue));
-        Assert.True(agreeing * 2 > 10, $"{agreeing} of the ten reported the value Odd was set against at tick {at}: {found[0].Value}");
-        Assert.Equal(1, odd.Resyncs);
-        Assert.Single(relay.Lines, l => l.Line.Contains($"resync 1/3 of Odd (player {odd.Me})", StringComparison.Ordinal));
-        Assert.DoesNotContain(relay.Lines, l => l.Line.Contains("resync 2/3", StringComparison.Ordinal));
-        var rebuiltAt = odd.RebuiltAt.Single();
-        var oddBack = HeardAt<PlayerReturned>(odd.Me, rebuiltAt);
-        Assert.True(oddBack > 0, "Odd never came back after its rebuild");
-        Say($"(c) Odd spoiled after tick {spoiled.Tick}, found out of step at tick {at} ({found[0].Groups["values"].Value}, {agreeing} of 10 reported the agreed value); " +
-            $"rebuilt from tick {odd.Resumed!.FromTick} ({(rebuiltAt - Due(at)) / 1000.0:F2} s after the tick was due), back {(oddBack - rebuiltAt) / 1000.0:F2} s after the rebuild came");
-        Assert.InRange(oddBack - rebuiltAt, 0, 15_000);
-        var consensus = Consensus(others);
-        var later = odd.History.Where(h => h.World == 1).ToList();
-        Assert.True(later.Count(h => h.Tick > at) >= 20, $"Odd's rebuilt world reported only {later.Count(h => h.Tick > at)} checksums after tick {at}");
-        Assert.All(later, h => Assert.True(!consensus.TryGetValue(h.Tick, out var value) || value == h.Value,
-            $"Odd's rebuilt world reported {h.Value:X16} at tick {h.Tick}, the others {consensus.GetValueOrDefault(h.Tick):X16}"));
-        Assert.All(odd.History.Where(h => h.World == 0 && h.Tick <= spoiled.Tick), h => Assert.Equal(consensus[h.Tick], h.Value));
+        Hold("(c)", () =>
+        {
+            var spoiled = Assert.Single(odd.Corruptions);
+            var found = relay.Lines.Select(l => OutOfStep.Match(l.Line)).Where(m => m.Success && m.Groups["name"].Value == "Odd").ToList();
+            Assert.NotEmpty(found);
+            var at = long.Parse(found[0].Groups["tick"].Value, CultureInfo.InvariantCulture);
+            Assert.Equal(spoiled.Tick - spoiled.Tick % 20 + 20, at);
+            var agreedValue = found[0].Groups["agreed"].Value;
+            Assert.NotEqual("", agreedValue);
+            var agreeing = others.Concat([slow]).Count(c => c.History.Any(h => h.Tick == at && h.Value.ToString("X16", CultureInfo.InvariantCulture) == agreedValue));
+            Assert.True(agreeing * 2 > 10, $"{agreeing} of the ten reported the value Odd was set against at tick {at}: {found[0].Value}");
+            Assert.Equal(1, odd.Resyncs);
+            Assert.Single(relay.Lines, l => l.Line.Contains($"resync 1/3 of Odd (player {odd.Me})", StringComparison.Ordinal));
+            Assert.DoesNotContain(relay.Lines, l => l.Line.Contains("resync 2/3", StringComparison.Ordinal));
+            var rebuiltAt = odd.RebuiltAt.Single();
+            var oddBack = HeardAt<PlayerReturned>(odd.Me, rebuiltAt);
+            Assert.True(oddBack > 0, "Odd never came back after its rebuild");
+            Say($"(c) Odd spoiled after tick {spoiled.Tick}, found out of step at tick {at} ({found[0].Groups["values"].Value}, {agreeing} of 10 reported the agreed value); " +
+                $"rebuilt from tick {odd.Resumed!.FromTick} ({(rebuiltAt - Due(at)) / 1000.0:F2} s after the tick was due), back {(oddBack - rebuiltAt) / 1000.0:F2} s after the rebuild came");
+            Assert.InRange(oddBack - rebuiltAt, 0, 15_000);
+            var consensus = Consensus(others);
+            var later = odd.History.Where(h => h.World == 1).ToList();
+            Assert.True(later.Count(h => h.Tick > at) >= 20, $"Odd's rebuilt world reported only {later.Count(h => h.Tick > at)} checksums after tick {at}");
+            Assert.All(later, h => Assert.True(!consensus.TryGetValue(h.Tick, out var value) || value == h.Value,
+                $"Odd's rebuilt world reported {h.Value:X16} at tick {h.Tick}, the others {consensus.GetValueOrDefault(h.Tick):X16}"));
+            Assert.All(odd.History.Where(h => h.World == 0 && h.Tick <= spoiled.Tick), h => Assert.Equal(consensus[h.Tick], h.Value));
+        });
 
         AssertAgreedAndPlayedBack(run, outOfStep: ["Odd"]);
+        AllHeld();
     }
 
     [Acceptance]
@@ -114,11 +121,34 @@ public class BeatAcceptanceTests(ITestOutputHelper output) : IAsyncLifetime
     {
         var run = await Play(teamSize: 10, people: 20, ticks: 3000);
         foreach (var client in run.Clients)
-            Say($"(a) {client.Name}: {RelayClients.AssertAtSpeed(client, AtSpeedFrom, run.End)}");
+            Hold($"(a) {client.Name}", () => Say($"(a) {client.Name}: {RelayClients.AssertAtSpeed(client, AtSpeedFrom, run.End)}"));
         var marked = run.Clients.SelectMany(c => c.Heard).OfType<PlayerLagging>().Where(l => l.Lagging).Select(l => l.Player).Distinct().ToList();
-        Assert.Empty(marked);
+        Hold("(a) never marked", () => Assert.Empty(marked));
         AssertAgreedAndPlayedBack(run, outOfStep: []);
+        AllHeld();
     }
+
+    // The criteria that did not hold. Each is checked whatever came before it, so that one failing run says all that failed
+    // (a run of the ten against ten that failed (e) never got to (f) before).
+    private readonly List<string> _failed = [];
+
+    /// <summary>Checks one criterion of the acceptance: what does not hold is said and noted, and the next is checked all the same.</summary>
+    private void Hold(string criterion, Action check)
+    {
+        try
+        {
+            check();
+        }
+        catch (Exception failure)
+        {
+            _failed.Add($"{criterion}: {failure.Message}");
+            Say($"{criterion} DOES NOT HOLD: {failure.Message.ReplaceLineEndings(" ")}");
+        }
+    }
+
+    /// <summary>The test fails with every criterion that did not hold.</summary>
+    private void AllHeld() =>
+        Assert.True(_failed.Count == 0, $"{_failed.Count} of the criteria did not hold:{Environment.NewLine}{string.Join(Environment.NewLine, _failed)}");
 
     /// <summary>What a run left to look at: the relay, the clients, the room, the tick the relay's clock stood at when bundle 0 was due (Unix ms), and the tick played to.</summary>
     private sealed record Run(RelayProcess Relay, List<RelayClient> Clients, int Room, long Anchor, long End);
@@ -237,25 +267,34 @@ public class BeatAcceptanceTests(ITestOutputHelper output) : IAsyncLifetime
     private void AssertAgreedAndPlayedBack(Run run, string[] outOfStep)
     {
         var (relay, clients) = (run.Relay, run.Clients);
-        Assert.DoesNotContain(relay.Lines, l => l.Line.Contains("no value agreed by more than half", StringComparison.Ordinal));
-        var found = relay.Lines.Select(l => OutOfStep.Match(l.Line)).Where(m => m.Success).Select(m => m.Groups["name"].Value).Distinct().ToList();
-        Assert.All(found, name => Assert.Contains(name, outOfStep));
-        var compared = RelayClients.AssertSumsAgree(clients, resyncs: outOfStep.Length > 0);
-        var shared = clients.Select(c => c.Sums.Keys.Max()).Min();
-        Assert.Single(clients.Select(c => c.Sums[shared]).Distinct());
-        Say($"(d) {compared} checksum ticks agree; at tick {shared}, the last all reported, every world has {clients[0].Sums[shared]:X16}");
+        Hold("(d)", () =>
+        {
+            Assert.DoesNotContain(relay.Lines, l => l.Line.Contains("no value agreed by more than half", StringComparison.Ordinal));
+            var found = relay.Lines.Select(l => OutOfStep.Match(l.Line)).Where(m => m.Success).Select(m => m.Groups["name"].Value).Distinct().ToList();
+            Assert.All(found, name => Assert.Contains(name, outOfStep));
+            var compared = RelayClients.AssertSumsAgree(clients, resyncs: outOfStep.Length > 0);
+            var shared = clients.Select(c => c.Sums.Keys.Max()).Min();
+            Assert.Single(clients.Select(c => c.Sums[shared]).Distinct());
+            Say($"(d) {compared} checksum ticks agree; at tick {shared}, the last all reported, every world has {clients[0].Sums[shared]:X16}");
+        });
 
-        var summary = SummaryLine.Match(relay.Lines.Last(l => SummaryLine.IsMatch(l.Line)).Line);
-        var delays = summary.Groups["delays"].Value.Split(", ").Select(d => d.Split(": ")).ToDictionary(d => int.Parse(d[0], CultureInfo.InvariantCulture), d => long.Parse(d[1], CultureInfo.InvariantCulture));
-        var bundles = long.Parse(summary.Groups["ticks"].Value, CultureInfo.InvariantCulture);
-        var lateCloses = long.Parse(summary.Groups["lateCloses"].Value, CultureInfo.InvariantCulture);
-        Say($"(e) delays {summary.Groups["delays"].Value} over {bundles} bundles; {lateCloses} closed over 20 ms late ({lateCloses / (double)bundles:P2}); {summary.Groups["moved"].Value} turns moved; {summary.Groups["nobody"].Value} counted nobody");
-        Assert.All(delays.Keys, delay => Assert.InRange(delay, 3, 4));
-        Assert.True(lateCloses <= bundles * 0.02, $"{lateCloses} of {bundles} bundles closed more than 20 ms after their due time");
+        Hold("(e)", () =>
+        {
+            var summary = SummaryLine.Match(relay.Lines.Last(l => SummaryLine.IsMatch(l.Line)).Line);
+            var delays = summary.Groups["delays"].Value.Split(", ").Select(d => d.Split(": ")).ToDictionary(d => int.Parse(d[0], CultureInfo.InvariantCulture), d => long.Parse(d[1], CultureInfo.InvariantCulture));
+            var bundles = long.Parse(summary.Groups["ticks"].Value, CultureInfo.InvariantCulture);
+            var lateCloses = long.Parse(summary.Groups["lateCloses"].Value, CultureInfo.InvariantCulture);
+            Say($"(e) delays {summary.Groups["delays"].Value} over {bundles} bundles; {lateCloses} closed over 20 ms late ({lateCloses / (double)bundles:P2}); {summary.Groups["moved"].Value} turns moved; {summary.Groups["nobody"].Value} counted nobody");
+            Assert.All(delays.Keys, delay => Assert.InRange(delay, 3, 4));
+            Assert.True(lateCloses <= bundles * 0.02, $"{lateCloses} of {bundles} bundles closed more than 20 ms after their due time");
+        });
 
-        foreach (var client in clients)
-            RelayClients.AssertPlaysBack(client);
-        Say($"(f) all {clients.Count} recordings play back in turn mode to their own sums");
+        Hold("(f)", () =>
+        {
+            foreach (var client in clients)
+                RelayClients.AssertPlaysBack(client);
+            Say($"(f) all {clients.Count} recordings play back in turn mode to their own sums");
+        });
     }
 
     /// <summary>
