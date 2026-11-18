@@ -8,25 +8,38 @@ namespace Machines.Game;
 // automated checks' switches that make a world fall behind or go out of step on purpose.
 public partial class Game
 {
-    // The machine driven in first person before the rebuild, driven again once the player is back; whether the carried things
-    // were taken (once, after the warm-up).
+    // The machine driven in first person before the rebuild, driven again once the player is back; the machines selected
+    // before it, selected again once the world has caught up to where they were kept (the rebuilt world starts at tick 0,
+    // where a machine made since does not stand yet); whether the carried things were taken (once, after the warm-up).
     private int? _carriedFirstPerson;
+    private IReadOnlyList<int>? _carriedSelection;
     private bool _carryTaken;
 
-    /// <summary>What this player has in hand goes over the reload of a rebuild of the same player (<see cref="ResyncCarry"/>).</summary>
+    /// <summary>
+    /// What this player has in hand goes over the reload of a rebuild of the same player (<see cref="ResyncCarry"/>): what
+    /// was carried into this scene and is not taken back yet goes on as it was. A rebuilt scene that is rebuilt again before
+    /// it took back what was kept for it (still warming up) has nothing of its own in hand yet and leaves that as it is.
+    /// </summary>
     private void CarryOver()
     {
+        if (MatchRequest.Current.Rebuild is not null && !_carryTaken)
+        {
+            GD.Print("net: rebuilt again before taking back what was kept: kept as it was");
+            return;
+        }
         var camera = _rig.Snapshot with { Ground = !ZenithCamera };
-        ResyncCarry.Keep(new ResyncCarry.Kept(Me, camera, (CameraRig.View?[])_savedViews.Clone(), [.. _selection], _driven?.Id,
+        IReadOnlyList<int> selection = _carriedSelection ?? [.. _selection];
+        var firstPerson = _driven?.Id ?? _carriedFirstPerson;
+        ResyncCarry.Keep(new ResyncCarry.Kept(Me, camera, (CameraRig.View?[])_savedViews.Clone(), selection, firstPerson,
             [.. _hud.Chat.Lines], Fog?.Export()));
-        GD.Print($"net: kept for the rebuild: camera at {camera.Position.X:0},{camera.Position.Z:0}, selection [{string.Join(", ", _selection)}], " +
-                 $"first person {_driven?.Id.ToString() ?? "no"}, {_hud.Chat.Lines.Count} chat lines");
+        GD.Print($"net: kept for the rebuild: camera at {camera.Position.X:0},{camera.Position.Z:0}, selection [{string.Join(", ", selection)}], " +
+                 $"first person {firstPerson?.ToString() ?? "no"}, {_hud.Chat.Lines.Count} chat lines");
     }
 
     /// <summary>
     /// Once the rebuilt scene is warmed up, what was kept before the reload comes back: the camera and its kept places, the
-    /// selection, the chat and the fog; first person once the player is back in the match. A run's view is its hero's, which
-    /// <see cref="BeginRun"/> sees to.
+    /// chat and the fog; the selection once the world has caught up (<see cref="TakeCarriedSelection"/>), first person once the
+    /// player is back in the match. A run's view is its hero's, which <see cref="BeginRun"/> sees to.
     /// </summary>
     private void TakeCarry()
     {
@@ -39,14 +52,31 @@ public partial class Game
         if (World.Wired is null)
         {
             ShowView(kept.Camera);
-            SelectQuietly(kept.Selection);
+            _carriedSelection = kept.Selection;
             _carriedFirstPerson = kept.FirstPerson;
         }
         _hud.Chat.Carry(kept.Chat);
         if (kept.Fog is { } fog)
             Fog?.Import(fog);
-        GD.Print($"net: carried over the rebuild: camera at {kept.Camera.Position.X:0},{kept.Camera.Position.Z:0}, selection [{string.Join(", ", _selection)}], " +
-                 $"first person {kept.FirstPerson?.ToString() ?? "no"}, {kept.Chat.Count} chat lines, fog {(kept.Fog is null ? "none" : "kept")}");
+        GD.Print($"net: carried over the rebuild at tick {World.Tick}: camera at {kept.Camera.Position.X:0},{kept.Camera.Position.Z:0}, " +
+                 $"selection [{string.Join(", ", kept.Selection)}] once caught up, first person {kept.FirstPerson?.ToString() ?? "no"}, " +
+                 $"{kept.Chat.Count} chat lines, fog {(kept.Fog is null ? "none" : "kept")}");
+    }
+
+    /// <summary>
+    /// The machines selected before the rebuild are selected again once the world has caught up to where they were kept
+    /// (<see cref="MatchRequest.ResumeFrom"/>), so that those made since the start stand in it again; unless the player chose
+    /// others meanwhile.
+    /// </summary>
+    private void TakeCarriedSelection()
+    {
+        if (_carriedSelection is not { } ids || _catchingUpSince is not null || World.Tick < (MatchRequest.Current.ResumeFrom ?? 0))
+            return;
+        _carriedSelection = null;
+        if (_selection.Count > 0)
+            return;
+        SelectQuietly(ids);
+        GD.Print($"net: selection [{string.Join(", ", _selection)}] taken back at tick {World.Tick}");
     }
 
     /// <summary>The selection set without the first machine's answer: nothing was chosen anew.</summary>

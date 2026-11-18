@@ -270,6 +270,7 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
                 case MatchStarted started:
                     MatchRequest.Current = MatchRequest.FromMatch(started.Match, NetLink.ClientId) with { Network = started.Match };
                     (_matchRoom, _known, _playing, _rejoining) = (_state, null, _state?.Id, null);
+                    ResyncCarry.Forget();
                     Leave();
                     return;
                 // The key to take the seat back with comes right after the start, which the match scene reads; should it
@@ -287,6 +288,8 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
                     // relay rebuilds this world: the hero is the player's once they are back in the match (P2 design §5.4, §6.3).
                     MatchRequest.Current = MatchRequest.FromMatch(resumed.Match, NetLink.ClientId, resumed.Player)
                         with { Network = resumed.Match, ResumeFrom = resumed.FromTick, Rebuild = resumed.Reason, Resyncs = resumed.Resyncs };
+                    // A game started anew or come back from the lobby has nothing in hand from before (ResyncCarry is the match scene's).
+                    ResyncCarry.Forget();
                     GD.Print($"mp: {(resumed.Reason == ResumeReason.LateJoin ? "joining" : "back in")} room {_playing} as player {resumed.Player} from tick {resumed.FromTick}");
                     Leave(resumed.Reason == ResumeReason.LateJoin ? "JOINING A RUNNING BATTLE" : "REJOINING THE MATCH");
                     return;

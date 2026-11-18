@@ -19,6 +19,12 @@ public static class ResyncCarry
     /// <summary>Keeps what the scene about to be left had in hand.</summary>
     public static void Keep(Kept kept) => _kept = kept;
 
+    /// <summary>
+    /// Nothing is carried into a match started or come back into from the multiplayer page: what a rebuilt scene left untaken
+    /// (taken out or left while it warmed up) was another match's, or this one's from before.
+    /// </summary>
+    public static void Forget() => _kept = null;
+
     /// <summary>What was kept for <paramref name="player"/>, once: null when nothing was, or it was another player's.</summary>
     public static Kept? Take(PlayerId player)
     {

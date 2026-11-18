@@ -717,6 +717,7 @@ public partial class Game : Node3D
         if (_session.Mode == SessionMode.Bundles)
         {
             PlayBundles(delta);
+            TakeCarriedSelection();
             LeaveWhenTakenOut();
         }
         else if (!Paused && (World.Winner is null ? !MatchOver : !Watching && !MatchOver))
