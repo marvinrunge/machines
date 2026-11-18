@@ -17,9 +17,9 @@ namespace Machines.Tests.Net;
 /// Ten of them play five against five while one computer cannot keep up for 45 s and another's world goes its own way, and
 /// everyone else keeps speed with the relay's clock, the slow one is marked, handed over and back, the odd one is rebuilt and
 /// back, every world agrees and every recording plays back; twenty play ten against ten and keep speed, which backs offering
-/// that size (RoomOptions.TeamSizes offers it again once this passes: on 2026-11-18 the path searches of ten heroes a team
-/// setting off together, 25,000 to 30,000 cells each, made ticks of 35 to 160 ms on one core around tick 200, and the twenty
-/// worlds on twelve cores stood still for up to 1.5 s, which drove the delay to 8). Opt-in (<c>MACHINES_P2_ACCEPT=1</c>, optionally <c>MACHINES_P2_ACCEPT_REPORT=&lt;file&gt;</c> for the figures),
+/// that size in RoomOptions.TeamSizes (it passes in Release since turns say how many bundles are in hand from a fresh read;
+/// in Debug the opening's path searches of twenty worlds in one process, 25,000 to 30,000 cells each around tick 200, can
+/// still hold them back long enough to be marked). Opt-in (<c>MACHINES_P2_ACCEPT=1</c>, optionally <c>MACHINES_P2_ACCEPT_REPORT=&lt;file&gt;</c> for the figures),
 /// as each plays for minutes on the real clock; run alone, nothing else on the computer.
 /// </summary>
 [Collection(nameof(BeatRelayTests))]

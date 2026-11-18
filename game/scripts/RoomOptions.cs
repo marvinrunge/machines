@@ -16,12 +16,11 @@ public static class RoomOptions
 {
     /// <summary>
     /// The team sizes a battle offers, in the room's settings and the pod: 0 for today's layout, a hero for each race of the
-    /// map's two teams (two against two), and five heroes a team on each team's first race (five against five). The relay and
-    /// the sim take up to <see cref="BattleBalance.MostTeamSize"/> (fifteen), which only MACHINES_MP's and MACHINES_BATTLE's
-    /// team=10 or team=15 ask for: ten against ten is offered again once the P2 acceptance's twenty people keep the beat in
-    /// it (BeatAcceptanceTests; the path searches of ten heroes a team setting off together still push the input delay up).
+    /// map's two teams (two against two), and five or ten heroes a team on each team's first race (five against five, ten
+    /// against ten). The relay and the sim take up to <see cref="BattleBalance.MostTeamSize"/> (fifteen), which only
+    /// MACHINES_MP's and MACHINES_BATTLE's team=15 ask for until matchmaking offers it (online plan P4).
     /// </summary>
-    public static IReadOnlyList<int> TeamSizes { get; } = [0, 5];
+    public static IReadOnlyList<int> TeamSizes { get; } = [0, 5, 10];
 
     /// <summary>
     /// The place of a team size among <see cref="TeamSizes"/>, for a choice that shows them; -1 for a size not offered (none
