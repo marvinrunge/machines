@@ -2,8 +2,9 @@ MACHINES REMAKE {{VERSION}} - TEST BUILD
 =======================================
 
 A fan remake of Machines: Wired for War (1999), built with Godot. This is a test build: the original's
-campaign, and skirmish against the original AI on all 32 skirmish and multiplayer maps, alone or with
-friends.
+campaign, skirmish against the original AI on all 32 skirmish and multiplayer maps, Wired (survival) and
+Battle (teams of heroes), alone, with friends or online.
+Website: https://marvinrunge.github.io/machines/
 
 START
   Run Machines-Remake-{{VERSION}}-setup.exe, or unzip the zip anywhere and run Machines.exe. Windows 10
@@ -31,7 +32,11 @@ MUSIC
   Pick their folder at the first start or under Soundtrack in the options.
 
 MULTIPLAYER
-  One player hosts: press "Multiplayer", then "Host". Windows may ask whether Machines may use the
+  Online: press "Multiplayer", type your name and press "Connect". The RELAY field already holds the
+  public relay, so nobody has to open a port. Join a room or open one: a match, a skirmish map or a
+  Battle (2 vs 2, 5 vs 5 or 10 vs 10, bots in the free seats). The relay sleeps while nobody plays, so
+  the first connection after a break takes a few seconds ("Server is waking up...").
+  On your own network or with your own relay: one player hosts: press "Multiplayer", then "Host". Windows may ask whether Machines may use the
   network; allow it. With "Open the port on the router" ticked, the game asks the router to let the
   others in (UPnP) and shows the address to give them; "Copy address" copies it. If the router will not,
   the page says why: then forward TCP port 7777 in the router by hand, play over IPv6, or everyone joins
@@ -71,7 +76,9 @@ WIRED (survival for one player, on the main menu)
   "Keys of Wired" in the options moves them.
 
 FEEDBACK
-  Note what you did, what you expected and what happened; a screenshot helps.
+  Report problems at https://github.com/marvinrunge/machines/issues: what you did, what you expected
+  and what happened. A screenshot helps, and so does the newest log from
+  %APPDATA%\Godot\app_userdata\Machines Remake\logs
 
 LICENCE
   GPLv3, see LICENSE.md. Source code: https://github.com/marvinrunge/machines

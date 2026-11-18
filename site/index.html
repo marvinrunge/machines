@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Machines Remake</title>
+<meta name="description" content="A fan remake of Machines: Wired for War (1999), rebuilt in Godot 4. Campaign, skirmish, survival, team battles and online play.">
+<meta property="og:title" content="Machines Remake">
+<meta property="og:description" content="A fan remake of Machines: Wired for War (1999), rebuilt in Godot 4.">
+<meta property="og:image" content="https://marvinrunge.github.io/machines/board.jpg">
+<meta name="theme-color" content="#06140a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cg fill='%239aa39a'%3E%3Crect x='1' y='7' width='4' height='3'/%3E%3Crect x='1' y='14' width='4' height='3'/%3E%3Crect x='1' y='21' width='4' height='3'/%3E%3Crect x='27' y='7' width='4' height='3'/%3E%3Crect x='27' y='14' width='4' height='3'/%3E%3Crect x='27' y='21' width='4' height='3'/%3E%3C/g%3E%3Crect x='5' y='4' width='22' height='24' fill='%230c2a12' stroke='%234a4f4a' stroke-width='2'/%3E%3Ctext x='16' y='21' font-family='Arial' font-weight='700' font-size='13' text-anchor='middle' fill='%23ffd95c'%3EM%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* The game's menu colours (game/scripts/MenuTheme.cs). */
+  :root {
+    --text: #dbe6cc;
+    --bright: #ffd95c;
+    --dim: #7d8f75;
+    --on-light: #082108;
+    --well: #030b05;
+    --edge: #335c2e;
+    --glow: #6bfa47;
+    --frame: #4a4f4a;
+    --frame-dark: #1b211b;
+    --pin: #9aa39a;
+    --chip-top: #10301a;
+    --chip-bottom: #061a0b;
+    --board: #06140a;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--board); }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--text);
+    font: 400 17px/1.6 "Saira", "Segoe UI", system-ui, sans-serif;
+    background:
+      radial-gradient(ellipse 90% 70% at 50% 35%, rgba(4, 18, 8, 0.1), rgba(2, 8, 4, 0.7) 80%),
+      linear-gradient(rgba(3, 12, 6, 0.32), rgba(3, 12, 6, 0.32)),
+      url("board.jpg") center top / 1100px repeat,
+      var(--board);
+    background-attachment: fixed, fixed, fixed, fixed;
+  }
+  a { color: inherit; }
+  .page {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding-block: 32px 48px;
+    padding-left: max(24px, env(safe-area-inset-left, 0px));
+    padding-right: max(24px, env(safe-area-inset-right, 0px));
+    display: grid;
+    gap: 28px;
+  }
+
+  /* A chip: dark green body in a grey frame, pins down both sides. */
+  .chip {
+    position: relative;
+    background: linear-gradient(180deg, var(--chip-top), var(--chip-bottom));
+    border: 3px solid var(--frame);
+    box-shadow: inset 0 0 0 2px var(--frame-dark), 0 8px 18px rgba(0, 0, 0, 0.55);
+    margin-inline: 9px;
+  }
+  .chip::before, .chip::after {
+    content: "";
+    position: absolute;
+    top: 10px;
+    bottom: 10px;
+    width: 7px;
+    background: repeating-linear-gradient(to bottom, var(--pin) 0 3px, transparent 3px 8px);
+    opacity: 0.85;
+  }
+  .chip::before { left: -11px; }
+  .chip::after { right: -11px; }
+
+  .label {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin: 0 0 6px;
+  }
+
+  /* The top: the title chip and the language switch. */
+  .top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .title {
+    padding: 18px 34px 16px;
+    text-align: center;
+  }
+  .title h1 {
+    margin: 0;
+    font-size: clamp(40px, 6vw, 64px);
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--bright);
+  }
+  .title .sub {
+    margin-top: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    font-size: 17px;
+  }
+  .lang { display: flex; gap: 8px; margin-top: 8px; }
+  .lang button {
+    font: 600 14px/1 "Saira", system-ui, sans-serif;
+    letter-spacing: 0.08em;
+    color: var(--dim);
+    background: var(--well);
+    border: 2px solid var(--frame);
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+  .lang button[aria-pressed="true"] { color: var(--bright); border-color: var(--edge); }
+
+  /* The screen and the menu beside it. */
+  .main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 28px;
+    align-items: stretch;
+  }
+  .screen {
+    padding: clamp(28px, 5vw, 56px);
+    background: radial-gradient(ellipse at 50% 45%, #0b2a12 0%, #04120a 55%, #010603 100%);
+    border: 4px solid #2b302b;
+    box-shadow: inset 0 0 0 2px #0d120d, inset 0 0 60px rgba(0, 0, 0, 0.6), 0 10px 24px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 18px;
+    min-width: 0;
+  }
+  .screen h2 {
+    margin: 0;
+    font-size: clamp(28px, 3.6vw, 42px);
+    line-height: 1.15;
+    font-weight: 700;
+    text-wrap: balance;
+  }
+  .screen p { margin: 0; max-width: 58ch; color: #b9c8ad; }
+  .version {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+  .version b { color: var(--glow); font-weight: 600; }
+
+  .menu { display: grid; gap: 16px; align-content: center; }
+  .button {
+    display: block;
+    padding: 14px 18px;
+    text-align: center;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 19px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: color 0.15s, background 0.15s;
+  }
+  .button small {
+    display: block;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--dim);
+    font-weight: 500;
+    margin-top: 2px;
+  }
+  .button:hover, .button:focus-visible, .button.lit {
+    color: var(--on-light);
+    background: radial-gradient(ellipse 70% 120% at 50% 50%, #6bfa47 0%, #2fae1c 48%, #0d4a0b 100%);
+    outline: none;
+  }
+  .button:hover small, .button:focus-visible small, .button.lit small { color: #164d12; }
+
+  /* Sections below: a label and a row of chips. */
+  section { display: grid; gap: 14px; }
+  section > h3 {
+    margin: 0 9px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--bright);
+  }
+  .row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 20px;
+  }
+  .card { padding: 18px 20px 20px; min-width: 0; }
+  .card h4 {
+    margin: 0 0 6px;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .card p { margin: 0; color: #b9c8ad; font-size: 16px; }
+  .step {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--glow);
+    margin-bottom: 4px;
+  }
+  code, .field {
+    font-family: "Saira", ui-monospace, monospace;
+    font-weight: 500;
+    background: var(--well);
+    border: 1px solid var(--edge);
+    padding: 0 6px;
+    white-space: nowrap;
+  }
+
+  footer {
+    margin: 8px 9px 0;
+    font-size: 14px;
+    color: var(--dim);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    justify-content: space-between;
+  }
+  footer p { margin: 0; max-width: 70ch; }
+  footer a { color: var(--text); }
+
+  @media (max-width: 820px) {
+    .main { grid-template-columns: minmax(0, 1fr); }
+    body { font-size: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .button { transition: none; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="top">
+    <div class="chip title">
+      <h1>MACHINES</h1>
+      <div class="sub">REMAKE</div>
+    </div>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang="de" aria-pressed="false">DE</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="screen">
+      <div class="version"><span data-t="build">Test build</span> · <b id="version">latest</b></div>
+      <h2 data-t="headline">Machines: Wired for War, rebuilt.</h2>
+      <p data-t="intro">A fan remake of the 1999 real-time strategy game, made from the ground up in Godot 4. Command from above or drive any machine yourself, alone, against the AI or online.</p>
+    </div>
+    <nav class="menu" aria-label="Downloads">
+      <a class="chip button lit" id="setup" href="https://github.com/marvinrunge/machines/releases"><span data-t="download">Download</span><small id="setup-note" data-t="setupNote">Windows installer</small></a>
+      <a class="chip button" id="zip" href="https://github.com/marvinrunge/machines/releases"><span data-t="zip">Zip</span><small id="zip-note" data-t="zipNote">No installer</small></a>
+      <a class="chip button" id="notes" href="https://github.com/marvinrunge/machines/releases"><span data-t="notes">Release notes</span></a>
+      <a class="chip button" href="https://github.com/marvinrunge/machines"><span data-t="source">Source code</span></a>
+    </nav>
+  </div>
+
+  <section aria-labelledby="install">
+    <h3 id="install" data-t="install">Install</h3>
+    <div class="row">
+      <div class="chip card">
+        <div class="step">01</div>
+        <h4 data-t="s1">Download</h4>
+        <p data-t="s1p">Get the setup for Windows 10 or 11 (64-bit) above.</p>
+      </div>
+      <div class="chip card">
+        <div class="step">02</div>
+        <h4 data-t="s2">Install</h4>
+        <p data-t="s2p">Run it. No administrator rights needed. If Windows warns about an unknown publisher: More info, then Run anyway.</p>
+      </div>
+      <div class="chip card">
+        <div class="step">03</div>
+        <h4 data-t="s3">Import</h4>
+        <p data-t="s3p">The first start finds your copy of the game from GOG or Steam. Press Import and wait a few minutes.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="modes">
+    <h3 id="modes" data-t="modes">Play</h3>
+    <div class="row">
+      <div class="chip card">
+        <h4 data-t="m1">Campaign</h4>
+        <p data-t="m1p">The original missions, with their briefings and films.</p>
+      </div>
+      <div class="chip card">
+        <h4 data-t="m2">Skirmish</h4>
+        <p data-t="m2p">All 32 maps against the original AI, alone or with friends.</p>
+      </div>
+      <div class="chip card">
+        <h4 data-t="m3">Wired</h4>
+        <p data-t="m3p">Build a hero and hold your pod against endless waves.</p>
+      </div>
+      <div class="chip card">
+        <h4 data-t="m4">Battle</h4>
+        <p data-t="m4p">Two teams of heroes, 2 vs 2 up to 10 vs 10, bots in free seats.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="online">
+    <h3 id="online" data-t="online">Online</h3>
+    <div class="chip card">
+      <p data-t="onlinep">Open Multiplayer, type a name and press Connect: the public relay is already set, so nobody has to open a port. Join a room or open one. Everyone needs the same version.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p data-t="legal">A fan project, not affiliated with Night Dive Studios. You need your own copy of Machines: Wired for War; this build contains none of its art, sound or films. Free software under the GPLv3.</p>
+    <p><a href="https://github.com/marvinrunge/machines/issues" data-t="issues">Report a problem</a></p>
+  </footer>
+
+</div>
+<script>
+(function () {
+  var text = {
+    de: {
+      build: "Testversion",
+      headline: "Machines: Wired for War, neu gebaut.",
+      intro: "Ein Fan-Remake des Echtzeit-Strategiespiels von 1999, von Grund auf neu in Godot 4. Befiehl von oben oder steuere jede Maschine selbst, allein, gegen die KI oder online.",
+      download: "Herunterladen", setupNote: "Windows-Installer", zip: "Zip", zipNote: "Ohne Installer",
+      notes: "Neuerungen", source: "Quellcode",
+      install: "Installieren",
+      s1: "Herunterladen", s1p: "Hol dir oben das Setup für Windows 10 oder 11 (64 Bit).",
+      s2: "Installieren", s2p: "Starte es, Administratorrechte braucht es nicht. Warnt Windows vor einem unbekannten Herausgeber: Weitere Informationen, dann Trotzdem ausführen.",
+      s3: "Importieren", s3p: "Der erste Start findet deine Kopie des Spiels von GOG oder Steam. Drück Importieren und warte ein paar Minuten.",
+      modes: "Spielen",
+      m1: "Kampagne", m1p: "Die Missionen des Originals, mit Einsatzbesprechungen und Filmen.",
+      m2: "Gefecht", m2p: "Alle 32 Karten gegen die KI des Originals, allein oder mit Freunden.",
+      m3: "Überlebensmodus", m3p: "Bau dir einen Helden und halte deinen Pod gegen endlose Wellen.",
+      m4: "Schlacht", m4p: "Zwei Teams aus Helden, 2 gegen 2 bis 10 gegen 10, Bots auf freien Plätzen.",
+      online: "Online",
+      onlinep: "Öffne Mehrspieler, gib einen Namen ein und drück Verbinden: Das öffentliche Relay ist schon eingetragen, niemand muss einen Port öffnen. Tritt einem Raum bei oder eröffne einen. Alle brauchen dieselbe Version.",
+      legal: "Ein Fan-Projekt, nicht verbunden mit Night Dive Studios. Du brauchst deine eigene Kopie von Machines: Wired for War; diese Version enthält keine Grafik, keinen Ton und keine Filme daraus. Freie Software unter der GPLv3.",
+      issues: "Problem melden"
+    }
+  };
+  var english = {};
+  document.querySelectorAll("[data-t]").forEach(function (el) { english[el.dataset.t] = el.textContent; });
+  text.en = english;
+
+  function setLanguage(lang) {
+    var table = text[lang] || english;
+    document.documentElement.lang = lang;
+    document.querySelectorAll("[data-t]").forEach(function (el) {
+      if (table[el.dataset.t] && !el.dataset.fixed) el.textContent = table[el.dataset.t];
+    });
+    document.querySelectorAll(".lang button").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.lang === lang));
+    });
+    try { localStorage.setItem("lang", lang); } catch (e) {}
+  }
+  var saved = null;
+  try { saved = localStorage.getItem("lang"); } catch (e) {}
+  var lang = saved || ((navigator.language || "").toLowerCase().indexOf("de") === 0 ? "de" : "en");
+  document.querySelectorAll(".lang button").forEach(function (b) {
+    b.addEventListener("click", function () { setLanguage(b.dataset.lang); });
+  });
+  setLanguage(lang);
+
+  // The newest release (test builds are pre-releases, which /releases/latest skips).
+  fetch("https://api.github.com/repos/marvinrunge/machines/releases?per_page=10")
+    .then(function (r) { return r.ok ? r.json() : []; })
+    .then(function (releases) {
+      var release = releases.filter(function (r) { return !r.draft; })[0];
+      if (!release) return;
+      document.getElementById("version").textContent = release.tag_name;
+      document.getElementById("notes").href = release.html_url;
+      function asset(id, ending) {
+        var a = (release.assets || []).filter(function (x) { return x.name.slice(-ending.length) === ending; })[0];
+        if (!a) return;
+        var link = document.getElementById(id);
+        link.href = a.browser_download_url;
+        var note = document.getElementById(id + "-note");
+        var mb = Math.round(a.size / 1048576) + " MB";
+        note.dataset.fixed = "1";
+        note.textContent = (text[document.documentElement.lang] || english)[note.dataset.t] + " · " + mb;
+        note.dataset.mb = mb;
+      }
+      asset("setup", "-setup.exe");
+      asset("zip", "-windows.zip");
+    })
+    .catch(function () {});
+
+  // Keep the size behind the note when the language changes.
+  document.querySelectorAll(".lang button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      ["setup-note", "zip-note"].forEach(function (id) {
+        var note = document.getElementById(id);
+        if (note.dataset.mb) note.textContent = (text[b.dataset.lang] || english)[note.dataset.t] + " · " + note.dataset.mb;
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

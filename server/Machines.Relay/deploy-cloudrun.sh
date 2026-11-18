@@ -5,7 +5,7 @@
 #
 #   server/Machines.Relay/deploy-cloudrun.sh <project-id> [--with-secrets] [--local-docker]
 #
-# Needs gcloud signed in (gcloud auth login) to a project with billing; see the README's "The relay online". The image
+# Needs gcloud signed in (gcloud auth login) to a project with billing; see docs/DEVELOPMENT.md, "The relay online". The image
 # is built from the committed state (HEAD) of the projects the relay is made of. --with-secrets also hands the service
 # the relay's admin secret and token key from Secret Manager (machines-relay-admin, machines-relay-token-key). With
 # --local-docker the image is built and pushed by Docker on this computer instead of Cloud Build.
