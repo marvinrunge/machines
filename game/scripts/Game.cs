@@ -723,6 +723,9 @@ public partial class Game : Node3D
         if (_session.Mode == SessionMode.Bundles)
         {
             PlayBundles(delta);
+            // A rebuild taken in between: this scene does nothing more, as when it comes at the frame's start.
+            if (_reloading)
+                return;
             TakeCarriedSelection();
             LeaveWhenTakenOut();
         }
@@ -893,9 +896,10 @@ public partial class Game : Node3D
     /// <summary>
     /// Online (bundle mode, P2 design §4.3): with a long backlog of the relay's bundles in hand the frame catches up without
     /// drawing for <see cref="BundlePacer.CatchUpBudget"/> and then sends one turn; otherwise each 50 ms slot of the clock
-    /// sends the drive and one turn and runs the bundles <see cref="BundlePacer.TicksForSlot"/> gives: one while one to three
-    /// are in hand, more to work a few off. With none in hand the slot passes and no time is owed, so the world never runs
-    /// ahead of the relay's beat. A world with a winner stands still two seconds after it, as offline; a battle's steps on.
+    /// takes what arrived meanwhile, sends the drive and one turn and runs the bundles <see cref="BundlePacer.TicksForSlot"/>
+    /// gives: one while one to three are in hand, more to work a few off. With none in hand the slot passes and no time is
+    /// owed, so the world never runs ahead of the relay's beat. A world with a winner stands still two seconds after it, as
+    /// offline; a battle's steps on.
     /// </summary>
     private void PlayBundles(double delta)
     {
@@ -918,6 +922,11 @@ public partial class Game : Node3D
         while (_accumulator >= GameWorld.Dt)
         {
             _accumulator -= GameWorld.Dt;
+            // What came in while the slots before ran: the turn's Held must count the bundles that arrived during a slow tick,
+            // or it is sent as if made without a backlog and its turnaround raises everyone's delay (§2.7).
+            ReadNetwork();
+            if (_reloading)
+                return;
             UpdateDriving();
             _session.Pump();
             for (var ticks = BundlePacer.TicksForSlot(_session.Ready(BundlePacer.CatchUpLead)); ticks > 0 && MayStep() && _session.TryStep(); ticks--)

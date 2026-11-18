@@ -432,8 +432,9 @@ internal sealed class RelayClient(Connection connection, string name, bool web, 
     /// <summary>
     /// The client runs on a thread of its own as the game paces its frames (P2 design §4.3), a frame every 16 ms: what arrived
     /// in; then with a backlog of <see cref="BundlePacer.CatchUpLead"/> bundles or more it catches up for the frame's budget and
-    /// sends one turn, else every 50 ms slot owed (at most a quarter second's) sends a turn and runs the ticks
-    /// <see cref="BundlePacer.TicksForSlot"/> gives. Every 100 ms it notes where it stands against <paramref name="clock"/>.
+    /// sends one turn, else every 50 ms slot owed (at most a quarter second's) takes what arrived meanwhile, sends a turn and
+    /// runs the ticks <see cref="BundlePacer.TicksForSlot"/> gives. Every 100 ms it notes where it stands against
+    /// <paramref name="clock"/>.
     /// </summary>
     public void Run(Func<long?>? clock = null)
     {
@@ -503,6 +504,11 @@ internal sealed class RelayClient(Connection connection, string name, bool web, 
                         while (InMatch && owed >= slot)
                         {
                             owed -= slot;
+                            // What came in while the slots before ran, as the game reads it: the turn's Held must count the
+                            // bundles that arrived during a slow tick, or it is sent as if made without a backlog (§2.7).
+                            Read();
+                            if (!InMatch)
+                                break;
                             Act();
                             for (var ticks = BundlePacer.TicksForSlot(Session.Ready(BundlePacer.CatchUpLead)); ticks > 0 && MayStep(clock) && Step(); ticks--)
                                 Stepped();
