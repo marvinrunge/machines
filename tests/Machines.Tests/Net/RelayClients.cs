@@ -63,11 +63,7 @@ internal sealed class RelayClients : IAsyncDisposable
     /// </summary>
     public async Task<RelayClient> Connect(string name, bool web, int? via = null)
     {
-        var address = web ? $"ws://127.0.0.1:{via ?? Web.Port}" : $"127.0.0.1:{via ?? Relay.Port}";
-        var connection = await Connection.ConnectAsync(address, CancellationToken.None);
-        connection.Send(new Hello(name, NetJson.Protocol, Resume: true));
-        var client = new RelayClient(connection, name, web);
-        client.Id = (await client.Next<Welcome>()).ClientId;
+        var client = await RelayClient.Connect(web ? $"ws://127.0.0.1:{via ?? Web.Port}" : $"127.0.0.1:{via ?? Relay.Port}", name, Data);
         _clients.Add(client);
         return client;
     }
@@ -362,6 +358,49 @@ internal sealed class RelayClients : IAsyncDisposable
     }
 
     /// <summary>
+    /// Where a client's world stood against the relay's clock tick (<c>(now − anchor) / 50 ms</c>) in the samples its thread
+    /// took (<see cref="RelayClient.Samples"/>) while that clock ran from <paramref name="from"/> to <paramref name="to"/>:
+    /// how many samples, the share of them within <paramref name="near"/> ticks of the clock, the most it stood behind, and the
+    /// fewest ticks it moved in any ten seconds of its run (P2 design §9 S6, (a)). Set against its own newest bundle instead, a
+    /// relay that stalled or a client starved of bundles would look on time.
+    /// </summary>
+    public static PaceFigures Pace(RelayClient client, long from, long to, int near = 10)
+    {
+        var samples = client.Samples.Where(s => s.Clock is { } c && c >= from && c <= to).ToList();
+        if (samples.Count == 0)
+            return new PaceFigures(0, 0, 0, 0);
+        var within = samples.Count(s => s.Clock!.Value - s.Tick <= near) / (double)samples.Count;
+        var most = samples.Max(s => s.Clock!.Value - s.Tick);
+        // Every window of ten seconds that fits: from each sample to the last one at most ten seconds later (and at least
+        // 9.8, a sample being taken every 100 ms or so).
+        var least = long.MaxValue;
+        var j = 0;
+        for (var i = 0; i < samples.Count; i++)
+        {
+            while (j + 1 < samples.Count && samples[j + 1].Ms <= samples[i].Ms + 10_000)
+                j++;
+            if (samples[j].Ms >= samples[i].Ms + 9_800)
+                least = Math.Min(least, samples[j].Tick - samples[i].Tick);
+        }
+        return new PaceFigures(samples.Count, within, most, least == long.MaxValue ? 0 : least);
+    }
+
+    /// <summary>
+    /// The client kept speed with the relay's clock from <paramref name="from"/> to <paramref name="to"/> (P2 design §9 S6,
+    /// (a)): within ten ticks of it in at least 95 % of its samples, never more than 40 behind, at least 190 ticks in every
+    /// ten seconds. Returns its figures.
+    /// </summary>
+    public static PaceFigures AssertAtSpeed(RelayClient client, long from, long to)
+    {
+        var pace = Pace(client, from, to);
+        Assert.True(pace.Samples >= (to - from) / 2 / 2, $"{client.Name} took {pace.Samples} pace samples from the clock's tick {from} to {to}");
+        Assert.True(pace.Within >= 0.95, $"{client.Name}'s world was within 10 ticks of the relay's clock in {pace.Within:P1} of its samples: {pace}");
+        Assert.True(pace.MostBehind <= 40, $"{client.Name}'s world stood {pace.MostBehind} ticks behind the relay's clock: {pace}");
+        Assert.True(pace.LeastInTenSeconds >= 190, $"{client.Name}'s world moved only {pace.LeastInTenSeconds} ticks in ten seconds: {pace}");
+        return pace;
+    }
+
+    /// <summary>
     /// Whether a player is away in a world standing at <paramref name="tick"/> by a client's log of comings and goings: the
     /// newest leave or return from <paramref name="tick"/> − 1 or before decides (a change from a tick on runs in that tick's step).
     /// </summary>
@@ -385,415 +424,6 @@ internal sealed class RelayClients : IAsyncDisposable
             await client.DisposeAsync();
         await Web.DisposeAsync();
         await Relay.DisposeAsync();
-    }
-}
-
-/// <summary>What a client's thread saw of its pace: when (ms since it started), its world's tick, the newest bundle in hand, and the relay's clock tick.</summary>
-internal readonly record struct PaceSample(double Ms, long Tick, long Head, long? Clock);
-
-/// <summary>
-/// One client as the game runs it: its connection, and once the match began its world, its lockstep session on the relay's
-/// bundles and who it is there; besides, what a test reads off it (every checksum it reported, every order of its refused,
-/// the comings and goings it heard, its seat key, whether the relay took it out) and the script of what its person does.
-/// </summary>
-internal sealed class RelayClient(Connection connection, string name, bool web) : IAsyncDisposable
-{
-    private Thread? _pacer;
-    private volatile bool _pacing;
-    private volatile bool _frozen;
-    private long _tick;
-
-    public Connection Connection { get; } = connection;
-
-    /// <summary>The name the client said hello with, by which it rejoins.</summary>
-    public string Name { get; } = name;
-
-    /// <summary>Whether it talks to the relay over a WebSocket, else over TCP.</summary>
-    public bool Web { get; } = web;
-
-    public int Id { get; set; }
-
-    /// <summary>The room of its match.</summary>
-    public int RoomId { get; set; }
-
-    public MatchInfo Match { get; private set; } = null!;
-    public LockstepSession Session { get; private set; } = null!;
-    public GameWorld World => Session.World;
-
-    /// <summary>The player the client is in the match.</summary>
-    public PlayerId Me { get; private set; }
-
-    /// <summary>The race (team) the client plays.</summary>
-    public Race Race { get; private set; }
-
-    /// <summary>What the client's person does each tick a turn of theirs goes out; nothing without one.</summary>
-    public RelayScript? Script { get; set; }
-
-    /// <summary>Called after each tick the client's world ran, for a test to look at the world just then.</summary>
-    public Action<GameWorld>? AfterStep { get; set; }
-
-    /// <summary>Every checksum the client reported to the relay, by tick.</summary>
-    public SortedDictionary<long, ulong> Sums { get; } = [];
-
-    /// <summary>Every order refused in the client's world, with the tick it ran in.</summary>
-    public List<(long Tick, CommandRejected Refusal)> Refused { get; } = [];
-
-    /// <summary>Whether the client left (closed its connection); it plays no more.</summary>
-    public bool Gone { get; private set; }
-
-    /// <summary>The key the relay gave the client's seat (<see cref="SeatKey"/>, or a new one with <see cref="MatchResumed"/>).</summary>
-    public string? Key { get; set; }
-
-    /// <summary>Why the relay took the client out of its match (<see cref="LeftMatch"/>), until it comes back; null while it plays.</summary>
-    public LeftMatch? Out { get; private set; }
-
-    /// <summary>The end the relay agreed for the match, once it did.</summary>
-    public MatchEnded? Ended { get; private set; }
-
-    /// <summary>The newest rebuild the relay sent the client, and how many it took.</summary>
-    public MatchResumed? Resumed { get; private set; }
-
-    public int Rebuilds { get; private set; }
-
-    /// <summary>Every rebuild the relay sent the client, in order: the one that replaced its world <c>i</c> at <c>[i]</c>.</summary>
-    public List<MatchResumed> Rebuilt { get; } = [];
-
-    /// <summary>How often the relay rebuilt the client's world for being out of step (a resync).</summary>
-    public int Resyncs => Rebuilt.Count(r => r.Reason == ResumeReason.Resync);
-
-    /// <summary>
-    /// Every checksum the client reported, with the world it came from: 0 for the one the match began with, then one more
-    /// for each rebuild (<see cref="Rebuilds"/> when it was reported).
-    /// </summary>
-    public List<(int World, long Tick, ulong Value)> History { get; } = [];
-
-    /// <summary>Every time <see cref="Corrupt"/> spoiled one of the client's worlds: which, and after which tick.</summary>
-    public List<(int World, long Tick)> Corruptions { get; } = [];
-
-    /// <summary>The script the client's person follows in a world rebuilt from the relay's log; without, the old one goes on.</summary>
-    public Func<RelayClient, RelayScript?>? Rescript { get; set; }
-
-    private (long Tick, bool Every)? _spoil;
-
-    /// <summary>Whether the client keeps its <see cref="MatchLoaded"/> back when its world is built, until <see cref="Load"/>.</summary>
-    public bool HoldLoad { get; set; }
-
-    /// <summary>The comings and goings of every bundle the client took, as they came (for a test on another thread).</summary>
-    public ConcurrentQueue<NetMessage> Heard { get; } = new();
-
-    /// <summary>Every 100 ms of its thread, where the client stood (<see cref="Run"/>).</summary>
-    public ConcurrentQueue<PaceSample> Samples { get; } = new();
-
-    /// <summary>Every gap in the relay's numbering the session met: the tick expected, the tick that came.</summary>
-    public ConcurrentQueue<(long Expected, long Got)> Gaps { get; } = new();
-
-    /// <summary>Every refusal the relay sent during the match.</summary>
-    public ConcurrentQueue<string> Refusals { get; } = new();
-
-    /// <summary>What went wrong on the client's thread, if anything did.</summary>
-    public Exception? Failure { get; private set; }
-
-    /// <summary>The tick its world stands at, for a test on another thread.</summary>
-    public long Tick => Interlocked.Read(ref _tick);
-
-    /// <summary>Whether the client plays a match: begun, not taken out, not gone.</summary>
-    public bool InMatch => Session is not null && Out is null && !Gone;
-
-    /// <summary>A frozen client reads, sends and steps nothing, as a hung game; its clock runs on.</summary>
-    public bool Frozen
-    {
-        get => _frozen;
-        set => _frozen = value;
-    }
-
-    /// <summary>The next message of a kind the client was sent, before its match; a refusal fails the test.</summary>
-    public async Task<T> Next<T>(Func<T, bool>? wanted = null) where T : NetMessage
-    {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        while (true)
-        {
-            var message = await Connection.Inbox.ReadAsync(timeout.Token);
-            if (message is Refused refused)
-                throw new InvalidOperationException($"{Name}: {refused.Reason}");
-            if (message is T typed && (wanted is null || wanted(typed)))
-                return typed;
-        }
-    }
-
-    public async Task Join(int room)
-    {
-        Connection.Send(new JoinRoom(room));
-        await Next<RoomState>(s => s.Players.Any(p => p.ClientId == Id));
-    }
-
-    /// <summary>Moves to a free open seat (<see cref="TakeSeat"/>) and waits until the room shows it there.</summary>
-    public async Task TakeSeat(int seat)
-    {
-        Connection.Send(new TakeSeat(seat));
-        await Next<RoomState>(s => s.Seats[seat].ClientId == Id);
-    }
-
-    /// <summary>
-    /// The match begins for this client, as the game begins it: the world built from the match's table, the session on the
-    /// relay's bundles for the player the client is (the row of its client, or the one it comes back as), and once built,
-    /// unless held back, <see cref="MatchLoaded"/>.
-    /// </summary>
-    public void Begin(MatchInfo match, PlayerId? me = null)
-    {
-        Match = match;
-        var table = match.Table();
-        Me = me ?? table.Rows[match.Players.ToList().FindIndex(p => p.ClientId == Id && !p.Ai)].Id;
-        Race = table.RaceOf(Me);
-        var session = new LockstepSession(Replay.BuildWorld(RelayClients.Data, match), Me, match.InputDelay, mode: SessionMode.Bundles);
-        session.Outgoing += Send;
-        session.Gap += (expected, got) => Gaps.Enqueue((expected, got));
-        Session = session;
-        Interlocked.Exchange(ref _tick, 0);
-        Out = null;
-        if (!HoldLoad)
-            Load();
-    }
-
-    /// <summary>The client says its world is built.</summary>
-    public void Load() => Connection.Send(new MatchLoaded());
-
-    /// <summary>
-    /// Something only this client's world has, a cheat or a bug (P2 design §9 S3): just after the world ran
-    /// <paramref name="tick"/>, the client's hero loses a hit point in a battle (while it lives with more than one), else its
-    /// race gains a BMU; once, or with <paramref name="every"/> in each world rebuilt from the log as well.
-    /// </summary>
-    public void Corrupt(long tick, bool every = false) => _spoil = (tick, every);
-
-    /// <summary>The client asks for its seat back with its key over the connection it plays on, as the game does after a gap.</summary>
-    public void RejoinHere() => Connection.Send(new RejoinMatch(RoomId, Me, Key));
-
-    private void Send(NetMessage message)
-    {
-        Connection.Send(message);
-        if (message is ChecksumReport report)
-        {
-            Sums[report.Tick] = report.Value;
-            History.Add((Rebuilds, report.Tick, report.Value));
-        }
-    }
-
-    /// <summary>Everything that arrived.</summary>
-    private void Read()
-    {
-        while (Connection.Inbox.TryRead(out var message))
-            Take(message);
-    }
-
-    /// <summary>A message of the relay: the match's to the session, the rest noted (a rebuild begins the match afresh).</summary>
-    internal void Take(NetMessage message)
-    {
-        switch (message)
-        {
-            case SeatKey key:
-                (RoomId, Key) = (key.RoomId, key.Key);
-                break;
-            case MatchResumed resumed:
-                (Resumed, Rebuilds) = (resumed, Rebuilds + 1);
-                Rebuilt.Add(resumed);
-                Key = resumed.Key ?? Key;
-                Begin(resumed.Match, resumed.Player);
-                if (Rescript is { } script)
-                    Script = script(this);
-                break;
-            case LeftMatch left:
-                Out = left;
-                break;
-            case MatchEnded ended:
-                Ended = ended;
-                break;
-            case Refused refused:
-                Refusals.Enqueue(refused.Reason);
-                break;
-            case Bundle bundle when InMatch:
-                foreach (var change in bundle.Presence ?? [])
-                    Heard.Enqueue(change);
-                Session.Receive(bundle);
-                break;
-            default:
-                if (InMatch)
-                    Session.Receive(message);
-                break;
-        }
-    }
-
-    /// <summary>
-    /// One frame as fast as it goes: what arrived in, the client's next turn out (its person's orders in it), and the ticks that
-    /// can run, up to 40 as the game catches up and never past <paramref name="limit"/>, a turn after each as the game sends
-    /// one each slot; returns whether the world ran a tick.
-    /// </summary>
-    public bool Frame(long limit)
-    {
-        if (Gone || Frozen)
-            return false;
-        Read();
-        if (!InMatch)
-            return false;
-        Act();
-        var stepped = false;
-        for (var steps = 0; steps < 40 && InMatch && World.Tick < limit && Session.TryStep(); steps++)
-        {
-            stepped = true;
-            Stepped();
-            Read();
-            if (InMatch)
-                Act();
-        }
-        return stepped;
-    }
-
-    private void Stepped()
-    {
-        if (_spoil is { } spoil && World.Tick == spoil.Tick)
-        {
-            if (World.Battle is not null && World.HeroOf(Me) is { IsDead: false, HitPoints: > 1 } hero)
-                hero.HitPoints -= 1;
-            else
-                World.Races[Race].Bmu += 1;
-            Corruptions.Add((Rebuilds, World.Tick));
-            if (!spoil.Every)
-                _spoil = null;
-        }
-        Interlocked.Exchange(ref _tick, World.Tick);
-        foreach (var refusal in World.Rejected)
-            Refused.Add((World.Tick, refusal));
-        AfterStep?.Invoke(World);
-    }
-
-    /// <summary>Sends the turn for the tick ahead once the world has come to it, with what the script orders now.</summary>
-    private void Act()
-    {
-        if (Session.NextLocalTurn > World.Tick + Session.InputDelay)
-            return;
-        if (Script is { } script)
-        {
-            foreach (var command in script.Next(World))
-                Session.Queue(command);
-        }
-        Session.Pump();
-    }
-
-    /// <summary>
-    /// The client runs on a thread of its own as the game paces its frames (P2 design §4.3), a frame every 16 ms: what arrived
-    /// in; then with a backlog of <see cref="BundlePacer.CatchUpLead"/> bundles or more it catches up for the frame's budget and
-    /// sends one turn, else every 50 ms slot owed (at most a quarter second's) sends a turn and runs the ticks
-    /// <see cref="BundlePacer.TicksForSlot"/> gives. Every 100 ms it notes where it stands against <paramref name="clock"/>.
-    /// </summary>
-    public void Run(Func<long?>? clock = null)
-    {
-        if (_pacer is not null)
-            return;
-        _pacing = true;
-        _pacer = new Thread(() => Pace(clock)) { IsBackground = true, Name = $"client {Name}" };
-        _pacer.Start();
-    }
-
-    /// <summary>The client's thread stops.</summary>
-    public void Halt()
-    {
-        _pacing = false;
-        _pacer?.Join();
-        _pacer = null;
-    }
-
-    private void Pace(Func<long?>? clock)
-    {
-        var slot = TimeSpan.FromSeconds(1.0 / GameWorld.TicksPerSecond);
-        var watch = Stopwatch.StartNew();
-        var last = watch.Elapsed;
-        var owed = TimeSpan.Zero;
-        var sampled = TimeSpan.Zero;
-        try
-        {
-            while (_pacing)
-            {
-                if (Frozen)
-                {
-                    Thread.Sleep(5);
-                    continue;
-                }
-                var now = watch.Elapsed;
-                var delta = now - last < TimeSpan.FromSeconds(0.25) ? now - last : TimeSpan.FromSeconds(0.25);
-                last = now;
-                Read();
-                if (InMatch)
-                {
-                    var budget = BundlePacer.CatchUpBudget(Session.Ready(BundlePacer.LongCatchUp));
-                    if (budget > TimeSpan.Zero)
-                    {
-                        var until = now + budget;
-                        while (InMatch && watch.Elapsed < until && Session.TryStep())
-                            Stepped();
-                        if (InMatch)
-                            Act();
-                        owed = TimeSpan.Zero;
-                    }
-                    else
-                    {
-                        owed += delta;
-                        while (InMatch && owed >= slot)
-                        {
-                            owed -= slot;
-                            Act();
-                            for (var ticks = BundlePacer.TicksForSlot(Session.Ready(BundlePacer.CatchUpLead)); ticks > 0 && Session.TryStep(); ticks--)
-                                Stepped();
-                        }
-                    }
-                    if (watch.Elapsed - sampled >= TimeSpan.FromMilliseconds(100) && InMatch)
-                    {
-                        sampled = watch.Elapsed;
-                        Samples.Enqueue(new PaceSample(sampled.TotalMilliseconds, World.Tick, Session.NewestBundle, clock?.Invoke()));
-                    }
-                }
-                Thread.Sleep(16);
-            }
-        }
-        catch (Exception exception)
-        {
-            Failure = exception;
-        }
-    }
-
-    /// <summary>The client closes on purpose (the game quits the match): the relay tells the others at once.</summary>
-    public Task Leave() => DisposeAsync().AsTask();
-
-    public async ValueTask DisposeAsync()
-    {
-        Halt();
-        if (Gone)
-            return;
-        Gone = true;
-        await Connection.DisposeAsync();
-    }
-}
-
-/// <summary>
-/// What a person at a client does, from the world as their client sees it and a <see cref="System.Random"/> of their own: a
-/// script only reads the world, and what it makes goes into the person's turn.
-/// </summary>
-internal abstract class RelayScript(PlayerId player, int seed)
-{
-    public PlayerId Player { get; } = player;
-
-    protected Random Random { get; } = new(seed);
-
-    /// <summary>The commands of the turn the person sends at the world's present tick.</summary>
-    public abstract IReadOnlyList<Command> Next(GameWorld world);
-
-    protected T Pick<T>(IReadOnlyList<T> list) => list[Random.Next(list.Count)];
-
-    protected List<T> Some<T>(IReadOnlyList<T> list, int most) =>
-        list.OrderBy(_ => Random.Next()).Take(Math.Max(1, Random.Next(most) + 1)).ToList();
-
-    /// <summary>A point within <paramref name="reach"/> of another, kept on the map.</summary>
-    protected Vector2 Near(GameWorld world, Vector2 from, int reach)
-    {
-        var at = from + new Vector2(Random.Next(-reach, reach + 1), Random.Next(-reach, reach + 1));
-        return Vector2.Clamp(at, new Vector2(10, 10), new Vector2(world.Planet.Surface.Width - 10, world.Planet.Surface.Depth - 10));
     }
 }
 
@@ -921,4 +551,14 @@ internal sealed class HeroScript(PlayerId player, int seed) : RelayScript(player
             _ => [new AttackMoveCommand(race, [hero.Id], enemy is not null ? Near(world, enemy.Position, 20) : Near(world, hero.Position, 200))],
         };
     }
+}
+
+/// <summary>
+/// Where a client's world stood against the relay's clock (<see cref="RelayClients.Pace"/>): its samples, the share of them
+/// within ten ticks of the clock, the most it stood behind, and the fewest ticks it moved in ten seconds.
+/// </summary>
+internal readonly record struct PaceFigures(int Samples, double Within, long MostBehind, long LeastInTenSeconds)
+{
+    public override string ToString() =>
+        $"{Samples} samples, {Within:P1} within 10 ticks, at most {MostBehind} behind, at least {LeastInTenSeconds} ticks in 10 s";
 }
