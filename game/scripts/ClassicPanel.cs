@@ -76,7 +76,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     {
         if (_navigator != NavigatorKind.None || _squadrons != SquadronMode.None || _buildMenu)
             return true;
-        var selected = game.Selection.Select(game.World.Find).OfType<Actor>().Where(a => a.Race == Game.Player).ToList();
+        var selected = game.Selection.Select(game.World.Find).OfType<Actor>().Where(a => a.Race == Game.Player && game.MayOrder(a)).ToList();
         return selected.Count == 1 && selected[0] is Construction { Complete: true } building && building.Spec.Type is "FACTORY" or "HARDWARE_LAB"
             || selected.Count > 0 && selected.All(a => a is Machine { Spec.Type: "CONSTRUCTOR" } && !game.IsHero(a));
     }
@@ -231,7 +231,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         var battle = world.Battle is not null;
         if (!battle)
             _widgets.Add(new Widget(R(x, 0, 20, 20), rect => DrawBitmap(rect, "navigate/bmus.bmp", "BMU"), () => _showBmus = !_showBmus,
-                world.Wired is null ? $"BMUs {world.Races[Game.Player].Bmu:F0} of {world.BmuCapacity(Game.Player)}" : $"{world.Races[Game.Player].Bmu:F0} BMU"));
+                world.Wired is null ? $"BMUs {world.Races[Game.Player].Bmu:F0} of {world.BmuCapacity(Game.Player)}" : $"{RunBank():F0} BMU"));
         var race = RaceFolder(Game.Player);
         _widgets.Add(new Widget(R(x, 19, 20, 29), rect => DrawBitmap(rect, $"navigate/{race}/machines.bmp", "M"),
             () => _navigator = _navigator == NavigatorKind.Machines ? NavigatorKind.None : NavigatorKind.Machines,
@@ -275,15 +275,17 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             if (!chosen)
                 return y + height;
             // The way into its head is not there for a machine in an APC (MachGuiCorralSingleIcon).
-            if (actor is Machine { Race: var r } driven && r == Game.Player && !game.Watching && !world.Options.DisableFirstPerson
+            if (actor is Machine { Race: var r } driven && r == Game.Player && game.MayOrder(driven) && !game.Watching && !world.Options.DisableFirstPerson
                 && !(driven.Inside is { } carrier && world.Find<Machine>(carrier) is not null))
                 _widgets.Add(new Widget(R(PanelWidth - 21, y, 20, 20), rect => DrawBitmap(rect, $"misc/{RaceFolder(r)}/inhead.bmp", "1st"),
                     game.EnterFirstPerson, "Drive it in first person (F)"));
             else if (actor is Construction { Garrisoned.Count: > 0 } garrison && garrison.Race == Game.Player
-                && garrison.Garrisoned.Any(id => game.World.Find<Machine>(id)?.Race == Game.Player))
+                && garrison.Garrisoned.Where(id => game.World.Find<Machine>(id) is { } inside && inside.Race == Game.Player && game.MayOrder(inside))
+                    .ToList() is { Count: > 0 } ours)
+                // Those the player may order: a teammate's machines inside stay theirs to let out.
                 _widgets.Add(new Widget(R(PanelWidth - 21, y, 20, 20), rect => DrawBitmap(rect, "misc/contents.bmp", "Out"),
-                    () => game.Order(new StopCommand(Game.Player, garrison.Garrisoned.ToList())),
-                    Lang.T("Let the {0} machines inside out", garrison.Garrisoned.Count)));
+                    () => game.Order(new StopCommand(Game.Player, ours)),
+                    Lang.T("Let the {0} machines inside out", ours.Count)));
             return y + height;
         }
 
@@ -344,8 +346,9 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     private Rect2? _corralArea;
 
     // Icon is the bitmap in gui/commands; a charging strike weapon lays Charged of its Overlay over it. Hot is the letter
-    // that presses it, with Shift when Shifted.
-    private sealed record Bar(string Label, string Name, Action Act, string Icon, float? Charged = null, string? Overlay = null, Key Hot = Key.None, bool Shifted = false);
+    // that presses it, with Shift when Shifted. An Off button is shown greyed and does nothing (giving to a teammate away).
+    private sealed record Bar(string Label, string Name, Action Act, string Icon, float? Charged = null, string? Overlay = null, Key Hot = Key.None,
+        bool Shifted = false, bool Off = false);
 
     // The self-destruct button (MachGuiSelfDestructCommandIcon): the first click slides its cover open, the second
     // starts the countdown. It shuts again when the selection changes.
@@ -375,7 +378,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     /// <summary>Ctrl, Shift and Backspace work the self-destruct button.</summary>
     public void PressSelfDestruct()
     {
-        var selected = game.Selection.Select(game.World.Find).OfType<Actor>().Where(a => a.Race == Game.Player).ToList();
+        var selected = game.Selection.Select(game.World.Find).OfType<Actor>().Where(a => a.Race == Game.Player && game.MayOrder(a)).ToList();
         // Nothing self-destructs in a battle (the simulation refuses it).
         if (selected.Count > 0 && !game.Watching && game.World.Battle is null && !game.RefusesOrders())
             SelfDestruct(selected).Act();
@@ -393,7 +396,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             return [];
         var world = game.World;
         var bars = new List<Bar>();
-        var selected = game.Selection.Select(world.Find).OfType<Actor>().Where(a => a.Race == Game.Player).ToList();
+        var selected = game.Selection.Select(world.Find).OfType<Actor>().Where(a => a.Race == Game.Player && game.MayOrder(a)).ToList();
         var machines = selected.OfType<Machine>().ToList();
         var ids = machines.Select(m => m.Id).ToList();
         // A battle has no self-destruct (the simulation refuses it) and no squadrons.
@@ -460,6 +463,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                 bars.Add(new Bar("Heal", "Heal: click a machine", game.BeginHeal, "commands/heal.bmp", Hot: Key.H));
             bars.Add(new Bar("Stand ground", "Stand ground: shoot from where it is, never move to",
                 () => game.Order(new StandGroundCommand(Game.Player, ids)), "commands/stand.bmp", Hot: Key.W));
+            bars.AddRange(GiveBars(ids));
         }
         // Factories send their new machines to an assembly point (B, as in the original).
         var factories = selected.OfType<Construction>().Where(c => c.Complete && c.IsType("FACTORY")).Select(c => c.Id).ToList();
@@ -496,6 +500,30 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         return bars;
     }
 
+    /// <summary>The bank of the player's hero in a Wired run (<see cref="GameWorld.Bank"/>): its own purse in co-op, else the race's BMU.</summary>
+    private float RunBank() => game.World.Wired?.Heroes.GetValueOrDefault(Game.Me) is { } state ? game.World.Bank(state) : game.World.Races[Game.Player].Bmu;
+
+    /// <summary>
+    /// "Give to Ben", the remake's own (P1 design §6.3): in a skirmish where the player's race has several commanders, a
+    /// button for each other commander of it, which hands them the selected machines (<see cref="GiveCommand"/>); greyed,
+    /// and doing nothing, while that teammate is away. None in a battle or a Wired run, where heroes are not given.
+    /// </summary>
+    private IEnumerable<Bar> GiveBars(List<int> machines)
+    {
+        var world = game.World;
+        if (machines.Count == 0 || world.Battle is not null || world.Wired is not null || !world.Players.Shared(Game.Player))
+            yield break;
+        foreach (var mate in world.Players.PlayersOf(Game.Player).Where(id => id != Game.Me && world.Players[id].Kind == PlayerKind.Human))
+        {
+            var name = world.Players[mate].Name;
+            if (world.Players.Away(mate))
+                yield return new Bar(Lang.T("Give to {0}", name), Lang.T("{0} is away: nothing can be given to them now", name), () => { }, "commands/give.bmp", Off: true);
+            else
+                yield return new Bar(Lang.T("Give to {0}", name), Lang.T("Give the selected machines to {0}", name),
+                    () => game.Issue(new GiveCommand(Game.Player, machines, mate)), "commands/give.bmp");
+        }
+    }
+
     /// <summary>
     /// The self-destruct button: shut (selfdes1), a click slides its cover open (selfdes2 to 7, a frame every
     /// 0.05 s) and the next starts the five-second countdown, during which it flashes (selfdes7 and 8, four times a
@@ -526,7 +554,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             return;
         }
         var world = game.World;
-        var selected = game.Selection.Select(world.Find).OfType<Actor>().Where(a => a.Race == Game.Player).ToList();
+        var selected = game.Selection.Select(world.Find).OfType<Actor>().Where(a => a.Race == Game.Player && game.MayOrder(a)).ToList();
         var icons = new List<(string Bitmap, string Short, string Prompt, Action Act)>();
         if (_buildMenu && selected.OfType<Machine>().Any(m => m.Spec.Type == "CONSTRUCTOR" && !game.IsHero(m)))
         {
@@ -628,7 +656,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         for (var slot = 0; slot < 10; slot++)
         {
             var squad = (slot + 1) % 10;
-            var members = world.Machines.Where(m => m.Race == Game.Player && m.Squad == squad).ToList();
+            // In a race of several commanders each has their own ten squadrons (SquadScope).
+            var members = world.Machines.Where(m => m.Race == Game.Player && m.Squad == squad && game.InOwnSquads(m)).ToList();
             var commander = members.FirstOrDefault(m => m.IsType("ADMINISTRATOR"));
             var x = left + slot / 5 * (number + admin + spacer);
             var top = y + slot % 5 * (height - 1);
@@ -904,8 +933,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         if (_showBmus && world.Battle is null)
         {
             var state = world.Races[Game.Player];
-            // A run has no ceiling to the bank.
-            var text = world.Wired is null ? $"{state.Bmu:F0} / {world.BmuCapacity(Game.Player)} BMU" : $"{state.Bmu:F0} BMU";
+            // A run has no ceiling to the bank, and a hero of a run with its own purse spends that (World.Bank).
+            var text = world.Wired is null ? $"{state.Bmu:F0} / {world.BmuCapacity(Game.Player)} BMU" : $"{RunBank():F0} BMU";
             DrawRect(new Rect2(rect.Position, new Vector2(Font.GetStringSize(text, HorizontalAlignment.Left, -1, FontSize).X + 4 * _scale, 9 * _scale)), new Color(0, 0, 0, 0.6f));
             DrawText(rect.Position + new Vector2(2, 1) * _scale, text, Accent);
         }
@@ -992,11 +1021,15 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             }
             return;
         }
-        DrawRect(inner, Button);
+        DrawRect(inner, bar.Off ? DarkGrey : Button);
         if (bar.Charged is not null && share < 1)
             DrawRect(new Rect2(inner.Position, new Vector2(inner.Size.X * share, inner.Size.Y)), new Color(0.55f, 0.25f, 0.15f));
-        var size = Font.GetStringSize(bar.Label, HorizontalAlignment.Left, -1, FontSize);
-        DrawText(inner.Position + new Vector2((inner.Size.X - size.X) / 2, (inner.Size.Y - 9 * _scale) / 2 + _scale), bar.Label, Colors.White);
+        // A label too long for the button (a teammate's long name) is cut short.
+        var label = bar.Label;
+        while (label.Length > 4 && Font.GetStringSize(label, HorizontalAlignment.Left, -1, FontSize).X > inner.Size.X - 2 * _scale)
+            label = label[..^2] + "…";
+        var size = Font.GetStringSize(label, HorizontalAlignment.Left, -1, FontSize);
+        DrawText(inner.Position + new Vector2((inner.Size.X - size.X) / 2, (inner.Size.Y - 9 * _scale) / 2 + _scale), label, bar.Off ? new Color(0.6f, 0.6f, 0.6f) : Colors.White);
     }
 
     private void DrawIcon(Rect2 rect, string path, string fallback, float? progress = null, bool sunk = false)
@@ -1239,7 +1272,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             Construction c => c.IsType(k.Type, k.SubType),
             _ => false,
         };
-        return game.World.Actors.Where(a => a.Race == Game.Player && !a.IsDead && kinds.Any(k => Is(a, k))).OrderBy(a => a.Id).ToList();
+        return game.World.Actors.Where(a => a.Race == Game.Player && game.MayOrder(a) && !a.IsDead && kinds.Any(k => Is(a, k))).OrderBy(a => a.Id).ToList();
     }
 
     /// <summary>
@@ -1389,8 +1422,12 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         // An artefact: its name from the string table, with its hit and armour points (addPromptTextArtefactInfo).
         if (actor is Artefact artefact)
             return $"{ArtefactName(artefact)} {Points(artefact)}";
+        var players = game.World.Players;
         var prompt = actor switch
         {
+            // In a race of several commanders a machine says whose it is when it is not the player's own: "Ben's Grunt".
+            Machine m when m.Race == Game.Player && players.Shared(m.Race) && m.Owner != Game.Me =>
+                Lang.T("{0}'s {1}", players.Contains(m.Owner) ? players[m.Owner].Name : m.Owner.ToString(), KeyName(m.Key)),
             Machine m when m.Race == Game.Player => KeyName(m.Key),
             Machine m => $"{TypeName(m.Spec.Type, m.Spec.SubType)} L{m.Stats.HardwareLevel}",
             Construction c => $"{TypeName(c.Spec.Type, c.Spec.SubType)} L{c.Stats.HardwareLevel}",

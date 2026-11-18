@@ -15,8 +15,8 @@ public sealed partial class GameWorld
     /// <summary>The battle, in a battle; null in every other match.</summary>
     public BattleRun? Battle { get; private set; }
 
-    /// <summary>The computer's heroes in a battle, by race: they think in race order.</summary>
-    public SortedDictionary<Race, Ai.BattleBot> HeroBots { get; } = [];
+    /// <summary>The computer's heroes in a battle, by player: they think in player order (with one player per race, race order).</summary>
+    public PlayerMap<Ai.BattleBot> HeroBots { get; } = [];
 
     /// <summary>Whether a race won: in a battle with its team, elsewhere alone. False while the match lasts and on a draw.</summary>
     public bool Won(Race race) => Battle is { } battle ? battle.Won(race) : Winner == race;
@@ -29,25 +29,28 @@ public sealed partial class GameWorld
         Battle is { } battle && team is 0 or 1 && battle.Pods[team] is { } id && Find<Construction>(id) is { IsDead: false } pod ? pod : null;
 
     /// <summary>
-    /// Starts the battle on the map of <paramref name="scenario"/>: every race of the teams gets its hero at its team's pod,
-    /// the first at the door and the second beside it, and the computer's races a bot. A race the options name no hero for
-    /// gets a bot's, composed for that map by <see cref="BattleBots.Compose"/> as the relay and the pod compose it; a hero
-    /// that does not resolve is clamped to a bot's loadout.
+    /// Starts the battle on the map of <paramref name="scenario"/>: every seat of the teams (<see cref="BattleSeats.Of"/>)
+    /// gets its player's hero at its team's pod, the first at the door and the others beside it, and every bot of the table
+    /// a bot. A seat the options name no hero for gets a bot's, composed for that map by <see cref="BattleBots.Compose"/> as
+    /// the relay and the pod compose it; a hero that does not resolve is clamped to a bot's loadout. In today's layout the
+    /// seats are the teams' races, each its own first player, and the bots the computer's races, all in race order.
     /// </summary>
     internal void StartBattle(BattleOptions options, string scenario)
     {
         var tier = Math.Clamp(options.Tier, 1, BattleCatalogue.MostTier);
+        var sized = BattleSeats.Size(options) > 0;
         var teams = new[] { options.TeamA.Distinct().ToList(), options.TeamB.Distinct().ToList() };
-        var composed = BattleBots.Compose(options with { Tier = tier, TeamA = teams[0], TeamB = teams[1] }, options.Heroes, scenario).Heroes;
+        // With a team size only the anchors fight, as the match was set up (BattleSeats.Teams).
+        if (sized)
+            teams = [.. teams.Select(team => team.Take(1).ToList())];
+        var fielded = options with { Tier = tier, TeamA = teams[0], TeamB = teams[1] };
+        var composed = BattleBots.Compose(fielded, options.Heroes, scenario).Heroes;
+        var seats = BattleSeats.Of(fielded);
         var heroes = new List<BattleHero>();
-        foreach (var team in teams)
+        foreach (var seat in seats)
         {
-            var ordered = team.Order().ToList();
-            for (var k = 0; k < ordered.Count; k++)
-            {
-                var race = ordered[k];
-                heroes.Add(BattleBots.Resolved(composed.First(h => h.Race == race) with { Race = race }, tier, k, scenario));
-            }
+            var hero = sized ? composed.First(h => h.Player == seat.Player) : composed.First(h => h.Race == seat.Race);
+            heroes.Add(BattleBots.Resolved(hero with { Race = seat.Race }, tier, seat.Place, scenario));
         }
         var played = options with
         {
@@ -57,7 +60,7 @@ public sealed partial class GameWorld
             TimeLimit = Math.Max(1, options.TimeLimit),
             TeamA = teams[0],
             TeamB = teams[1],
-            Heroes = heroes.OrderBy(h => h.Race).ToList(),
+            Heroes = heroes.OrderBy(h => h.Player ?? PlayerId.Of(h.Race)).ToList(),
         };
         Wired = new WiredRun(new WiredOptions()) { Phase = WiredPhase.Battle };
         var run = Battle = new BattleRun(played, teams[0], teams[1], Time + BattleBalance.Opening);
@@ -66,26 +69,22 @@ public sealed partial class GameWorld
             var anchor = teams[team][0];
             run.Pods[team] = Constructions.Where(c => c.Race == anchor && c.IsType("POD")).OrderBy(c => c.Id).FirstOrDefault()?.Id;
         }
-        for (var team = 0; team < 2; team++)
+        for (var i = 0; i < seats.Count; i++)
         {
-            var pod = BattlePod(team);
-            var ordered = teams[team].Order().ToList();
-            for (var k = 0; k < ordered.Count; k++)
-            {
-                var race = ordered[k];
-                var hero = played.Heroes.First(h => h.Race == race);
-                var state = WiredState.ForBattle(Data, race, hero, played.Lives);
-                Wired.Heroes[race] = state;
-                run.Tally[race] = new BattleTally { Chassis = hero.Chassis };
-                state.Pod = pod?.Id;
-                if (pod is null)
-                    continue;
-                var build = HeroBuild.Resolve(Data, state.Loadout);
-                state.Hero = AddHeroAtPod(race, pod, build).Id;
-            }
+            var (seat, hero) = (seats[i], heroes[i]);
+            var pod = BattlePod(seat.Team);
+            var state = WiredState.ForBattle(Data, seat.Race, hero, played.Lives);
+            state.Player = seat.Player;
+            Wired.Heroes[seat.Player] = state;
+            run.Tally[seat.Player] = new BattleTally { Chassis = hero.Chassis };
+            state.Pod = pod?.Id;
+            if (pod is null)
+                continue;
+            var build = HeroBuild.Resolve(Data, state.Loadout);
+            state.Hero = AddHeroAtPod(state, pod, build).Id;
         }
-        foreach (var race in Races.Values.Where(r => r.Controller == Controller.Ai).Select(r => r.Race).Order())
-            AddBot(race);
+        foreach (var bot in Players.ById.Where(row => row.Kind == PlayerKind.Bot))
+            AddBot(bot.Id);
     }
 
     /// <summary>How far apart heroes set down beside the pod's door stand, at least.</summary>
@@ -137,11 +136,11 @@ public sealed partial class GameWorld
     /// </summary>
     private static readonly int[] Aside = [4, -4, 5, -5, 3, -3, 6, -6];
 
-    /// <summary>A hero set down at its team's pod, looking out of the door (<see cref="BattleSpot"/>).</summary>
-    private Machine AddHeroAtPod(Race race, Construction pod, HeroBuild build)
+    /// <summary>A player's hero set down at its team's pod, looking out of the door (<see cref="BattleSpot"/>).</summary>
+    private Machine AddHeroAtPod(WiredState state, Construction pod, HeroBuild build)
     {
-        var enemyPod = Battle!.TeamOf(race) is var team and >= 0 ? BattlePod(1 - team)?.Position : null;
-        var hero = AddHero(race, BattleSpot(pod, Machine.RadiusOf(build.Stats), enemyPod, out var facing), build);
+        var enemyPod = Battle!.TeamOf(state.Player) is var team and >= 0 ? BattlePod(1 - team)?.Position : null;
+        var hero = AddHero(state.Race, BattleSpot(pod, Machine.RadiusOf(build.Stats), enemyPod, out var facing), build, state.Player);
         hero.Facing = facing;
         return hero;
     }
@@ -196,14 +195,14 @@ public sealed partial class GameWorld
         return FreeSpotNear(door, clearance);
     }
 
-    /// <summary>The computer takes a race's hero: it holds its target and does not run.</summary>
-    private void AddBot(Race race)
+    /// <summary>The computer takes a player's hero: it holds its target and does not run.</summary>
+    private void AddBot(PlayerId player)
     {
-        if (Battle is not { } run || HeroBots.ContainsKey(race))
+        if (Battle is not { } run || HeroBots.ContainsKey(player))
             return;
-        run.Bots.Add(race);
-        HeroBots[race] = new Ai.BattleBot(this, race);
-        if (HeroOf(race) is { } hero)
+        run.Bots.Add(player);
+        HeroBots[player] = new Ai.BattleBot(this, player);
+        if (HeroOf(player) is { } hero)
         {
             if (hero.DrivenByPlayer)
             {
@@ -217,12 +216,13 @@ public sealed partial class GameWorld
         }
     }
 
-    private void RemoveBot(Race race)
+    /// <summary>A player takes their hero back from the computer.</summary>
+    private void RemoveBot(PlayerId player)
     {
-        if (Battle is not { } run || !HeroBots.Remove(race))
+        if (Battle is not { } run || !HeroBots.Remove(player))
             return;
-        run.Bots.Remove(race);
-        if (HeroOf(race) is { } hero)
+        run.Bots.Remove(player);
+        if (HeroOf(player) is { } hero)
         {
             StartAfresh(hero);
             hero.DefCon = DefCon.Normal;
@@ -259,36 +259,37 @@ public sealed partial class GameWorld
     {
         var pod = BattlePod(1 - team);
         var before = run.Progress(team);
-        foreach (var race in run.Teams[team])
+        foreach (var player in run.Members[team])
         {
-            var hero = HeroOf(race);
+            var state = Wired?.Heroes.GetValueOrDefault(player);
+            var hero = state is null ? null : HeroOf(state);
             var inside = pod is not null && hero is { Inside: null } && Vector2.Distance(hero.Position, pod.Position) <= BattleBalance.CaptureRadius;
             if (!inside)
             {
-                LoseShare(run, race, hero, hero is null ? "down" : "left");
+                LoseShare(run, player, hero, hero is null ? "down" : "left");
                 continue;
             }
             // In the other team's circle a hero is seen, shadow or not: no pod is taken unseen.
-            if (Wired?.Heroes.GetValueOrDefault(race) is { } state)
-                Reveal(state);
+            Reveal(state!);
             if (run.Options.Win == BattleWin.Wipe)
                 continue;
-            run.Shares[race] = BattleRun.Gained(run.Shares.GetValueOrDefault(race));
-            run.Tally[race].Capture = run.Shares[race];
+            run.Shares[player] = BattleRun.Gained(run.Shares.GetValueOrDefault(player));
+            run.Tally[player].Capture = run.Shares[player];
         }
         var after = run.Progress(team);
         if (pod is not null && after > before && (before == 0 || (int)(after / 10) > (int)(before / 10)))
             Raise(new GameEvent(GameEventKind.BattleCaptureProgress, pod.Id, pod.Position, team, ((int)after).ToString()));
     }
 
-    /// <summary>A hero's share of a capture is gone, and the capture points it was worth with it.</summary>
-    private void LoseShare(BattleRun run, Race race, Machine? hero, string why)
+    /// <summary>A player's hero's share of a capture is gone, and the capture points it was worth with it.</summary>
+    private void LoseShare(BattleRun run, PlayerId player, Machine? hero, string why)
     {
-        if (!run.Shares.Remove(race))
+        if (!run.Shares.Remove(player))
             return;
-        if (run.Tally.GetValueOrDefault(race) is { } tally)
+        if (run.Tally.GetValueOrDefault(player) is { } tally)
             tally.Capture = 0;
-        Raise(new GameEvent(GameEventKind.BattleCaptureReset, hero?.Id ?? 0, hero?.Position ?? Vector2.Zero, (int)race, why));
+        var race = Wired?.Heroes.GetValueOrDefault(player)?.Race ?? Players.RaceOf(player);
+        Raise(new GameEvent(GameEventKind.BattleCaptureReset, hero?.Id ?? 0, hero?.Position ?? Vector2.Zero, (int)race, why, Player: player));
     }
 
     /// <summary>
@@ -298,23 +299,30 @@ public sealed partial class GameWorld
     private bool BattleHits(Actor target, Race? by) =>
         target is Artefact || target is not Construction && !(by is { } race && !AreEnemies(race, target.Race));
 
-    /// <summary>A hit landed on a hero in a battle: a capturer loses its share, and the race that dealt it counts the damage and the kill.</summary>
-    private void BattleStruck(Actor target, int lost, Race? by)
+    /// <summary>
+    /// A hit landed on a hero in a battle: a capturer loses its share, and the player who dealt it counts the damage and the
+    /// kill: of the race that dealt it, the player whose round or blast it was (<paramref name="hitter"/>), else the race's
+    /// first player (<see cref="Credited"/>).
+    /// </summary>
+    private void BattleStruck(Actor target, int lost, Race? by, PlayerId? hitter)
     {
         var run = Battle!;
-        if (run.Over || target is not Machine hero || Wired!.Heroes.GetValueOrDefault(target.Race) is not { } state || state.Hero != target.Id)
+        if (run.Over || target is not Machine hero || HeroStateOf(hero) is not { } state)
             return;
+        var victim = state.Player;
         if (lost > 0)
-            LoseShare(run, target.Race, hero, "hit");
+            LoseShare(run, victim, hero, "hit");
         // Only an enemy counts the damage and the kill; a hero that falls to anything else (a tree, its own blast) still falls.
-        var killer = by is { } race && AreEnemies(race, target.Race) && run.Tally.ContainsKey(race) ? race : (Race?)null;
+        var killer = by is { } race && AreEnemies(race, target.Race) && Credited(race, hitter) is { } credited && run.Tally.ContainsKey(credited)
+            ? credited : (PlayerId?)null;
         if (killer is { } enemy)
             run.Tally[enemy].Damage += lost;
         if (!hero.IsDead)
             return;
         if (killer is { } last)
-            run.Tally[last].Killed.Add(run.Tally.GetValueOrDefault(target.Race)?.Chassis ?? hero.Spec.TypeName);
-        Raise(new GameEvent(GameEventKind.BattleHeroKilled, hero.Id, hero.Position, (int?)killer, target.Race.ToString()));
+            run.Tally[last].Killed.Add(run.Tally.GetValueOrDefault(victim)?.Chassis ?? hero.Spec.TypeName);
+        Raise(new GameEvent(GameEventKind.BattleHeroKilled, hero.Id, hero.Position, killer is null ? null : (int)by!.Value, target.Race.ToString(),
+            Player: victim, By: killer));
     }
 
     /// <summary>
@@ -329,9 +337,9 @@ public sealed partial class GameWorld
         var wiped = new[] { Wiped(run, 0), Wiped(run, 1) };
         if (run.Options.Win == BattleWin.Capture ? wiped[0] && wiped[1] : wiped[0] || wiped[1])
             EndBattle(run, wiped[0] && wiped[1] ? null : wiped[0] ? 1 : 0, BattleEnd.Wipe);
-        else if (run.Options.Win != BattleWin.Wipe && (run.Progress(0) >= BattleBalance.CaptureTarget || run.Progress(1) >= BattleBalance.CaptureTarget))
+        else if (run.Options.Win != BattleWin.Wipe && (run.Progress(0) >= run.CaptureTarget || run.Progress(1) >= run.CaptureTarget))
         {
-            var (a, b) = (run.Progress(0) >= BattleBalance.CaptureTarget, run.Progress(1) >= BattleBalance.CaptureTarget);
+            var (a, b) = (run.Progress(0) >= run.CaptureTarget, run.Progress(1) >= run.CaptureTarget);
             EndBattle(run, a && b ? null : a ? 0 : 1, BattleEnd.Capture);
         }
         else if (!run.InOpening(Time) && run.Elapsed >= run.Options.TimeLimit)
@@ -340,14 +348,14 @@ public sealed partial class GameWorld
 
     /// <summary>Whether no hero of a team stands and none has a body to come; a body comes only to a pod that stands.</summary>
     private bool Wiped(BattleRun run, int team) =>
-        run.Teams[team].All(race => Wired!.Heroes.GetValueOrDefault(race) is not { } state
-            || HeroOf(race) is null && (state.RespawnAt is null || WiredPod(race) is null));
+        run.Members[team].All(player => Wired!.Heroes.GetValueOrDefault(player) is not { } state
+            || HeroOf(state) is null && (state.RespawnAt is null || WiredPod(state) is null));
 
     private void EndBattle(BattleRun run, int? winner, BattleEnd reason)
     {
         run.Result = new BattleResult(winner, reason, Time);
-        foreach (var (race, tally) in run.Tally)
-            tally.AliveAtEnd = HeroOf(race) is not null;
+        foreach (var (player, tally) in run.Tally)
+            tally.AliveAtEnd = HeroOf(player) is not null;
         // A hero that fell waits for no body: none comes now.
         foreach (var state in Wired!.Heroes.Values)
             state.RespawnAt = null;

@@ -28,7 +28,8 @@ public sealed partial class GameWorld
 
     private static bool IsConstructor(Machine machine) => machine.Spec.Type == "CONSTRUCTOR";
 
-    private string? OrderWork(Race race, IReadOnlyList<int> ids, int targetId, Func<Machine, bool> able, string noneAble,
+    /// <summary>Sends the machines among <paramref name="ids"/> that the command may order and that are <paramref name="able"/> to work on a target.</summary>
+    private string? OrderWork(Command command, IReadOnlyList<int> ids, int targetId, Func<Machine, bool> able, string noneAble,
         Func<Actor, string?> whyNotTarget, Func<int, Order> order)
     {
         var target = Find(targetId);
@@ -36,7 +37,7 @@ public sealed partial class GameWorld
             return "nothing there";
         if (whyNotTarget(target) is { } why)
             return why;
-        var workers = Own<Machine>(race, ids).Where(able).Where(m => m.Id != targetId).ToList();
+        var workers = Own<Machine>(command, ids).Where(able).Where(m => m.Id != targetId).ToList();
         if (workers.Count == 0)
             return noneAble;
         foreach (var worker in workers)
@@ -49,7 +50,7 @@ public sealed partial class GameWorld
         // The waves are a Wired run's only source of BMUs, and what the hero bought stays bought.
         if (Wired is not null)
             return "nothing is recycled in a run";
-        var machines = Own<Machine>(recycle.Race, recycle.Machines).ToList();
+        var machines = Own<Machine>(recycle, recycle.Machines).ToList();
         if (machines.Count == 0)
             return "nothing selected";
         foreach (var machine in machines)
@@ -82,7 +83,7 @@ public sealed partial class GameWorld
             actor.SelfDestructAt = null;
             LastShot(actor);
             // Its own doing (MachActor::update hits it with itself): nobody scores, and a smelter loses no stores.
-            actor.LastHitBy = actor.Race;
+            (actor.LastHitBy, actor.LastHitByPlayer) = (actor.Race, actor.Owner);
             actor.HitPoints = 0;
             actor.SelfDestructed = true;
         }
@@ -179,7 +180,8 @@ public sealed partial class GameWorld
     /// <summary>
     /// A tick of a constructor's repair (oprepair.cpp): CONSTRUCTION_RATE BMUs per minute from the bank, turned into hit
     /// points in proportion to the building's cost. A Wired hero mends its towers <paramref name="speed"/> times as fast,
-    /// and its bank is drawn on as the hangar charges: the pod's warnings of a low bank are the original's, not Wired's.
+    /// and its bank is drawn on as the hangar charges: the pod's warnings of a low bank are the original's, not Wired's. A
+    /// hero of a race of several heroes, and its escorts, draw on that hero's own bank (<see cref="Bank(WiredState)"/>).
     /// </summary>
     private void Mend(Machine constructor, Construction building, float speed = 1)
     {
@@ -187,6 +189,11 @@ public sealed partial class GameWorld
         float bmu;
         if (Wired is null)
             bmu = SpendBmu(constructor.Race, wanted);
+        else if (Wired.Heroes.GetValueOrDefault(constructor.Owner) is { OwnBank: true } own)
+        {
+            bmu = MathF.Min(wanted, own.Bank);
+            own.Bank -= bmu;
+        }
         else
         {
             var bank = Races[constructor.Race];
@@ -218,6 +225,8 @@ public sealed partial class GameWorld
             // building had cost so far (MachLogCaptureOperation, MachLogFactory::cancelAllProduction).
             var refund = Options.OriginalCapture && building.ProductionQueue.Count > 0 ? building.ProductionSpent * CancelRefund : 0;
             TakeOver(building, constructor.Race);
+            // It is the capturer's (the race's first player's in a race of one).
+            building.GiveTo(constructor.Owner);
             if (refund > 0)
                 AddBmu(constructor.Race, refund);
             constructor.Order = Order.Idle;
@@ -248,7 +257,7 @@ public sealed partial class GameWorld
         // The original blames whoever takes it down, its owner too (opdecons.cpp): a smelter or pod demolished by its
         // own race loses no stores (see LoseStores).
         if (!own || Options.OriginalBank)
-            building.LastHitBy = constructor.Race;
+            (building.LastHitBy, building.LastHitByPlayer) = (constructor.Race, constructor.Owner);
         AddHitPoints(building, -hitPoints);
         AddBmu(constructor.Race, bmu * RecycleRefund);
         if (building.IsDead)
@@ -381,7 +390,7 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// A building changes sides: a smelter or pod takes its share of the bank along, production and research stop,
-    /// and whoever was inside comes out.
+    /// and whoever was inside comes out. It is the new race's first player's unless given to another right after.
     /// </summary>
     private void TakeOver(Construction building, Race race)
     {
@@ -396,6 +405,7 @@ public sealed partial class GameWorld
             constructor.Order = Order.Idle;
         building.DisplayAs = null;
         building.ProductionQueue.Clear();
+        building.ProductionOwners.Clear();
         building.ProductionSpent = 0;
         building.ResearchQueue.Clear();
         foreach (var machine in building.Technicians.Concat(building.Garrisoned).Select(Find<Machine>).OfType<Machine>().ToList())
@@ -443,7 +453,10 @@ public sealed partial class GameWorld
             losing.Bmu = MathF.Min(losing.Bmu, BmuCapacity(building.Race) - (building.Stats.Capacity ?? 0));
     }
 
-    /// <summary>MachLogTreacheryOrb: a machine hit by the orb defects to the shooter's race.</summary>
+    /// <summary>
+    /// MachLogTreacheryOrb: a machine hit by the orb defects to the shooter's race. It is the new race's first player's
+    /// unless given to another right after, and no driver of its old race drives it any more.
+    /// </summary>
     private void Defect(Machine machine, Race race)
     {
         LeaveGarrison(machine);
@@ -458,6 +471,7 @@ public sealed partial class GameWorld
         foreach (var healer in Machines.Where(m => m.Order is HealOrder heal && heal.Target == machine.Id && m.Race != race))
             healer.Order = Order.Idle;
         machine.Race = race;
+        machine.Driver = null;
         machine.DisplayAs = null;
         machine.SelfDestructAt = null;
         machine.Order = Order.Idle;

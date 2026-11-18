@@ -20,13 +20,32 @@ public sealed partial class GameWorld
     /// <summary>The crates on the ground, oldest first.</summary>
     public List<WiredPickup> WiredPickups { get; } = [];
 
-    /// <summary>The machine that is a race's hero, while it stands.</summary>
-    public Machine? HeroOf(Race race) =>
-        Wired?.Heroes.GetValueOrDefault(race) is { Hero: { } id } && Find<Machine>(id) is { IsDead: false } hero ? hero : null;
+    /// <summary>The machine that is the hero, while it stands.</summary>
+    public Machine? HeroOf(WiredState state) => state.Hero is { } id && Find<Machine>(id) is { IsDead: false } hero ? hero : null;
 
-    /// <summary>The pod a race's hero defends, while it stands.</summary>
-    public Construction? WiredPod(Race race) =>
-        Wired?.Heroes.GetValueOrDefault(race) is { Pod: { } id } && Find<Construction>(id) is { IsDead: false } pod ? pod : null;
+    /// <summary>The machine that is a player's hero, while it stands.</summary>
+    public Machine? HeroOf(PlayerId player) => Wired?.Heroes.GetValueOrDefault(player) is { } state ? HeroOf(state) : null;
+
+    /// <summary>Race form: the machine that is the race's first player's hero, while it stands.</summary>
+    [Obsolete("Race form: name the player.", DiagnosticId = PlayerId.RaceForm)]
+    public Machine? HeroOf(Race race) => HeroOf(PlayerId.Of(race));
+
+    /// <summary>The pod the hero defends, while it stands.</summary>
+    public Construction? WiredPod(WiredState state) => state.Pod is { } id && Find<Construction>(id) is { IsDead: false } pod ? pod : null;
+
+    /// <summary>The pod a player's hero defends, while it stands.</summary>
+    public Construction? WiredPod(PlayerId player) => Wired?.Heroes.GetValueOrDefault(player) is { } state ? WiredPod(state) : null;
+
+    /// <summary>Race form: the pod the race's first player's hero defends, while it stands.</summary>
+    [Obsolete("Race form: name the player.", DiagnosticId = PlayerId.RaceForm)]
+    public Construction? WiredPod(Race race) => WiredPod(PlayerId.Of(race));
+
+    /// <summary>
+    /// The hero whose machine an actor is, found by the actor's owner: a hero is its player's machine. Null for every other
+    /// actor and outside a Wired run or a battle.
+    /// </summary>
+    private WiredState? HeroStateOf(Actor? actor) =>
+        actor is Machine && Wired?.Heroes.GetValueOrDefault(actor.Owner) is { } state && state.Hero == actor.Id ? state : null;
 
     /// <summary>Whether a machine is a hero, in a Wired run: nothing may turn it.</summary>
     private bool IsWiredHero(Machine machine) => Wired is { } run && run.Heroes.Values.Any(s => s.Hero == machine.Id);
@@ -47,30 +66,63 @@ public sealed partial class GameWorld
     private bool Indoors(Actor target) => Wired is not null && target is Machine { Inside: not null };
 
     /// <summary>
-    /// Starts the run: each player gets a hero by the options, at its pod, and a first offer in the shop, and the waves get
-    /// a race and places to arrive at, tried at <paramref name="starts"/> first.
+    /// Starts the run: each person playing gets a hero by the options (<see cref="WiredOptions.HeroFor"/>), in player order,
+    /// at its race's pod, and a first offer in the shop, and the waves get a race and places to arrive at, tried at
+    /// <paramref name="starts"/> first. A race's only hero keeps its money in the race's bank, as it always did; the heroes of
+    /// a race of several each have a bank of their own. A run of more than one hero brings a hero that fell in a wave back
+    /// at the wave's end.
     /// </summary>
     internal void StartWired(WiredOptions options, IEnumerable<Vector2> starts)
     {
         var run = Wired = new WiredRun(options) { Enemy = WiredEnemy() };
-        foreach (var race in Races.Values.Where(r => r.Controller == Controller.Player).OrderBy(r => r.Race))
+        var players = Players.ById.Where(r => r.Kind == PlayerKind.Human && r.Race != run.Enemy && Races.ContainsKey(r.Race)).ToList();
+        foreach (var row in players)
         {
-            var state = WiredState.Create(Data, race.Race, options, out var bank);
-            race.Bmu = bank;
-            run.Heroes[race.Race] = state;
-            var pod = Constructions.Where(c => c.Race == race.Race && c.IsType("POD")).OrderBy(c => c.Id).FirstOrDefault();
+            var hero = options.HeroFor(row.Id);
+            var state = WiredState.Create(Data, row.Race, options with { HeroName = hero.Name, Chassis = hero.Chassis, Items = hero.Items }, out var bank);
+            state.Player = row.Id;
+            if (players.Count(r => r.Race == row.Race) > 1)
+            {
+                (state.OwnBank, state.Bank) = (true, bank);
+                Races[row.Race].Bmu = 0;
+            }
+            else
+                Races[row.Race].Bmu = bank;
+            run.Heroes[row.Id] = state;
+            var pod = Constructions.Where(c => c.Race == row.Race && c.IsType("POD")).OrderBy(c => c.Id).FirstOrDefault();
             state.Pod = pod?.Id;
             if (pod is not null)
-                state.Hero = AddHero(race.Race, pod.EntranceOutside ?? FreePointNear(pod), HeroBuild.Resolve(Data, state.Loadout)).Id;
+                state.Hero = SetDownAtPod(state, pod, HeroBuild.Resolve(Data, state.Loadout), back: false).Id;
             RollOffer(state);
         }
+        run.BackAfterWave = run.Heroes.Count > 1;
         FindSpawnPoints(run, starts);
     }
 
-    /// <summary>Sets a new hero on the map, with its own stats and its own copies of its weapons.</summary>
-    private Machine AddHero(Race race, Vector2 position, HeroBuild build)
+    /// <summary>
+    /// A hero of a run set down at its pod, at the start or <paramref name="back"/> with a new body: the race's first hero at
+    /// the door as it always was (coming back where the pad there is clear, else by the pod), every further one of the race
+    /// beside the door looking out of it, as a battle sets its heroes down (<see cref="BattleSpot"/>).
+    /// </summary>
+    private Machine SetDownAtPod(WiredState state, Construction pod, HeroBuild build, bool back)
+    {
+        if (state.Player == PlayerId.Of(state.Race))
+        {
+            var door = back ? pod.EntranceOutside is { } entrance && PadClear(entrance) ? entrance : FreePointNear(pod)
+                : pod.EntranceOutside ?? FreePointNear(pod);
+            return AddHero(state.Race, door, build);
+        }
+        var hero = AddHero(state.Race, BattleSpot(pod, Machine.RadiusOf(build.Stats), enemyPod: null, out var facing), build, state.Player);
+        hero.Facing = facing;
+        return hero;
+    }
+
+    /// <summary>Sets a new hero on the map, with its own stats and its own copies of its weapons; it is <paramref name="owner"/>'s, else the race's first player's.</summary>
+    private Machine AddHero(Race race, Vector2 position, HeroBuild build, PlayerId? owner = null)
     {
         var hero = new Machine(_nextId++, race, position, build.Spec, build.Stats, build.WeaponCombo);
+        if (owner is { } player)
+            hero.GiveTo(player);
         hero.Alert.NextLook = Time + hero.Id % 10 * Dt;
         hero.Weapons.AddRange(Mounts(build));
         hero.Mines = MineCarrier(build) ? build.Stats.MineCapacity ?? 0 : 0;
@@ -127,20 +179,23 @@ public sealed partial class GameWorld
             run.NextSpecial = WiredDirector.RollSpecial(run.Wave + 1, run.LastSpecial, Random);
     }
 
-    /// <summary>The run ends with the last pod, or with the last body of the last hero. Nobody wins it.</summary>
+    /// <summary>
+    /// The run ends with the last pod, or with the last body of the last hero; a hero waiting for the wave's end counts as a
+    /// body to come while the pod stands. Nobody wins it.
+    /// </summary>
     private void CheckWiredEnd()
     {
         if (Wired is not { Phase: not WiredPhase.Ended } run)
             return;
-        var podStands = run.Heroes.Keys.Any(race => WiredPod(race) is not null);
-        if (podStands && run.Heroes.Values.Any(s => s.Hero is not null || s.RespawnAt is not null))
+        var podStands = run.Heroes.Values.Any(state => WiredPod(state) is not null);
+        if (podStands && run.Heroes.Values.Any(s => s.Hero is not null || s.RespawnAt is not null || s.WaitsForWave))
             return;
         run.Phase = WiredPhase.Ended;
         run.Ending = podStands ? WiredEnding.OutOfBodies : WiredEnding.PodLost;
         // A hero who fell before the pod did waits for no body: none comes now.
         foreach (var state in run.Heroes.Values)
-            (state.HangarOpen, state.RespawnAt) = (false, null);
-        foreach (var race in run.Heroes.Keys.Where(r => !Races[r].Defeated))
+            (state.HangarOpen, state.RespawnAt, state.WaitsForWave) = (false, null, false);
+        foreach (var race in run.Heroes.Values.Select(s => s.Race).Distinct().Where(r => !Races[r].Defeated).ToList())
         {
             Races[race].Defeated = true;
             Raise(new GameEvent(GameEventKind.RaceDefeated, 0, Vector2.Zero, Detail: race.ToString()));
@@ -152,9 +207,9 @@ public sealed partial class GameWorld
     private long WiredFingerprint()
     {
         var hash = Wired!.Fingerprint();
-        foreach (var race in Wired.Heroes.Keys)
+        foreach (var state in Wired.Heroes.Values)
         {
-            if (HeroOf(race) is not { } hero)
+            if (HeroOf(state) is not { } hero)
                 continue;
             hash = hash * 31 + hero.Refits;
             hash = hash * 31 + hero.MaxHitPoints;
@@ -187,13 +242,13 @@ public sealed partial class GameWorld
     /// <summary>What a hero does by itself each tick: it falls, comes back, takes up what it drives over and mends at the pod.</summary>
     private void UpdateHero(WiredRun run, WiredState state)
     {
-        if (state.Hero is { } id && HeroOf(state.Race) is null)
-            HeroDown(state, id);
-        if (state.RespawnAt is { } back && Time >= back && WiredPod(state.Race) is { } pod && Battle is not { Over: true })
+        if (state.Hero is { } id && HeroOf(state) is null)
+            HeroDown(run, state, id);
+        if (state.RespawnAt is { } back && Time >= back && WiredPod(state) is { } pod && Battle is not { Over: true })
             Respawn(state, pod);
-        if (HeroOf(state.Race) is { } alive)
+        if (HeroOf(state) is { } alive)
             WiredChips.Ticking(this, state, alive);
-        if (HeroOf(state.Race) is { Inside: null } hero)
+        if (HeroOf(state) is { Inside: null } hero)
         {
             UpdateDash(state, hero);
             if (Battle is null)
@@ -202,29 +257,47 @@ public sealed partial class GameWorld
                 Collect(state, hero);
             }
         }
-        if (run.BetweenWaves && WiredPod(state.Race) is { } home)
+        if (run.BetweenWaves && WiredPod(state) is { } home)
             MendAt(home, state);
     }
 
-    /// <summary>The hero fell: the bank goes, all but what the Savings bank keeps, and a spare body is called up if there is one.</summary>
-    private void HeroDown(WiredState state, int id)
+    /// <summary>
+    /// The hero fell: its bank goes, all but what the Savings bank keeps, and a spare body is called up if there is one. In a
+    /// run of several heroes a hero that falls during a wave waits for the wave's end for it (<see cref="WiredRun.BackAfterWave"/>).
+    /// </summary>
+    private void HeroDown(WiredRun run, WiredState state, int id)
     {
         var fell = _events.Find(e => e.Kind == GameEventKind.Destroyed && e.Actor == id);
         state.Hero = null;
         state.HangarOpen = false;
         state.Stats.Deaths++;
         state.Stats.CleanStreak = 0;
-        Races[state.Race].Bmu *= WiredChips.Kept(state);
+        SetBank(state, Bank(state) * WiredChips.Kept(state));
         // Once a battle is over a fall costs no body and is not counted.
         var over = Battle is { Over: true };
         if (state.SpareBodies > 0 && !over)
         {
             state.SpareBodies--;
-            state.RespawnAt = Time + (Battle?.Options.RespawnWait ?? WiredBalance.RespawnTime);
+            if (run.BackAfterWave && run.Phase == WiredPhase.Wave)
+                state.WaitsForWave = true;
+            else
+                state.RespawnAt = Time + (Battle?.Options.RespawnWait ?? WiredBalance.RespawnTime);
         }
-        if (!over && Battle?.Tally.GetValueOrDefault(state.Race) is { } tally)
+        if (!over && Battle?.Tally.GetValueOrDefault(state.Player) is { } tally)
             tally.Deaths++;
-        Raise(new GameEvent(GameEventKind.WiredHeroDied, id, fell?.Position ?? Vector2.Zero, (int)state.Race, state.SpareBodies.ToString()));
+        Raise(new GameEvent(GameEventKind.WiredHeroDied, id, fell?.Position ?? Vector2.Zero, (int)state.Race, state.SpareBodies.ToString(), Player: state.Player));
+    }
+
+    /// <summary>The wave is over: every hero that fell in it with a body to spare stands at its pod again, in player order.</summary>
+    private void BringBackWaiting(WiredRun run)
+    {
+        foreach (var state in run.Heroes.Values.Where(s => s.WaitsForWave).ToList())
+        {
+            if (WiredPod(state) is not { } pod)
+                continue;
+            state.WaitsForWave = false;
+            Respawn(state, pod);
+        }
     }
 
     /// <summary>
@@ -237,16 +310,15 @@ public sealed partial class GameWorld
         state.RespawnAt = null;
         var build = state.Build(Data);
         // In a battle it is set down clear of a team-mate however large either is, beside it, looking out of the door.
-        var hero = Battle is not null ? AddHeroAtPod(state.Race, pod, build)
-            : AddHero(state.Race, pod.EntranceOutside is { } entrance && PadClear(entrance) ? entrance : FreePointNear(pod), build);
+        var hero = Battle is not null ? AddHeroAtPod(state, pod, build) : SetDownAtPod(state, pod, build, back: true);
         state.Hero = hero.Id;
         if (Battle is { } battle)
         {
             state.InvulnerableUntil = Time + BattleBalance.RespawnShield;
-            if (battle.Bots.Contains(state.Race))
+            if (battle.Bots.Contains(state.Player))
                 hero.DefCon = DefCon.High;
         }
-        foreach (var escort in Escorts(state.Race))
+        foreach (var escort in Escorts(state))
         {
             if (escort.Order is IdleOrder or FollowOrder or ReturnOrder)
                 Send(escort, new FollowOrder(hero.Id), hero.Position);
@@ -255,7 +327,7 @@ public sealed partial class GameWorld
             if (_series.TryGetValue(escort.Id, out var steps))
                 _series[escort.Id] = new Queue<Command>(steps.Select(step => FollowsTheFallen(step) is { } follow ? follow with { Target = hero.Id } : step));
         }
-        Raise(new GameEvent(GameEventKind.WiredHeroRespawned, hero.Id, hero.Position,(int)state.Race, state.SpareBodies.ToString()));
+        Raise(new GameEvent(GameEventKind.WiredHeroRespawned, hero.Id, hero.Position, (int)state.Race, state.SpareBodies.ToString(), Player: state.Player));
     }
 
     /// <summary>A step of a series that follows a machine no longer there.</summary>
@@ -276,10 +348,13 @@ public sealed partial class GameWorld
     /// fights as a follower does, and sets off again when the hero is back.
     /// </summary>
     private bool WaitsForHero(Machine escort, FollowOrder follow) =>
-        Wired!.Heroes.GetValueOrDefault(escort.Race) is { } state && state.EscortIds.Contains(escort.Id)
-        && (state.Hero == follow.Target || state.RespawnAt is not null);
+        Wired!.Heroes.GetValueOrDefault(escort.Owner) is { } state && state.EscortIds.Contains(escort.Id)
+        && (state.Hero == follow.Target || state.RespawnAt is not null || state.WaitsForWave);
 
-    /// <summary>Wrecks pay out as the hero drives over them. A crate stays on the ground while the inventory is full.</summary>
+    /// <summary>
+    /// Wrecks pay out as the hero drives over them, into its bank: whoever collects a wreck has it. A crate stays on the
+    /// ground while the inventory is full.
+    /// </summary>
     private void Collect(WiredState state, Machine hero)
     {
         var build = state.Build(Data);
@@ -323,7 +398,7 @@ public sealed partial class GameWorld
     /// <summary>Between waves the hero and its escorts mend for free near the pod.</summary>
     private void MendAt(Construction pod, WiredState state)
     {
-        foreach (var machine in Escorts(state.Race).Append(HeroOf(state.Race)).OfType<Machine>())
+        foreach (var machine in Escorts(state).Append(HeroOf(state)).OfType<Machine>())
         {
             if (machine.DistanceTo(pod) > WiredBalance.PodReach)
                 continue;
@@ -333,11 +408,45 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>BMUs that came in by the hero's work: wrecks and bonuses, not what the hangar refunds.</summary>
+    /// <summary>BMUs that came in by the hero's work, into its bank: wrecks and bonuses, not what the hangar refunds.</summary>
     private void Earn(WiredState state, int bmu)
     {
-        AddBmu(state.Race, bmu);
+        if (state.OwnBank)
+        {
+            // As the race's bank takes them: up to the race's storage, counted in its score.
+            var added = MathF.Min(bmu, MathF.Max(0, BmuCapacity(state.Race) - state.Bank));
+            state.Bank += added;
+            Races[state.Race].Score.BmusMined += added;
+        }
+        else
+            AddBmu(state.Race, bmu);
         state.Stats.BmusEarned += bmu;
+    }
+
+    // ---- the bank ---------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The BMUs a hero has to spend: its own bank where it has one (a race of several heroes), else its race's, as a race's
+    /// only hero always had. Every charge, refund and earning of a hero goes through here.
+    /// </summary>
+    public float Bank(WiredState state) => state.OwnBank ? state.Bank : Races[state.Race].Bmu;
+
+    /// <summary>Sets what a hero has to spend (<see cref="Bank(WiredState)"/>).</summary>
+    private void SetBank(WiredState state, float bmu)
+    {
+        if (state.OwnBank)
+            state.Bank = bmu;
+        else
+            Races[state.Race].Bmu = bmu;
+    }
+
+    /// <summary>What comes back to a hero's bank: a sale, a tower pulled down. Not earned, so not counted as earned.</summary>
+    private void Refund(WiredState state, int bmu)
+    {
+        if (state.OwnBank)
+            state.Bank += bmu;
+        else
+            Races[state.Race].Bmu += bmu;
     }
 
     /// <summary>
@@ -356,7 +465,7 @@ public sealed partial class GameWorld
             foreach (var state in run.Heroes.Values.Where(s => s.Hero == shot.Actor))
             {
                 state.Stats.Weapon(shot.Detail!).Rounds++;
-                if (HeroOf(state.Race) is { } hero && Time - state.LastShotAt > WiredChips.FireGap(hero))
+                if (HeroOf(state) is { } hero && Time - state.LastShotAt > WiredChips.FireGap(hero))
                     state.FiringSince = Time;
                 state.LastShotAt = Time;
             }
@@ -372,11 +481,10 @@ public sealed partial class GameWorld
     /// </summary>
     private bool WiredHit(Actor target, ref int damage, Actor? shooter, string? weapon)
     {
-        var run = Wired!;
         var share = 1f;
-        if (OnTheWavesSide(target) && shooter is Machine dealing && run.Heroes.GetValueOrDefault(shooter.Race) is { } own && own.Hero == shooter.Id)
+        if (OnTheWavesSide(target) && shooter is Machine dealing && HeroStateOf(dealing) is { } own)
             share *= WiredChips.Dealing(this, own, dealing, new ChipHit(target, shooter, weapon, target.Armour));
-        if (target is Machine taking && run.Heroes.GetValueOrDefault(target.Race) is { } hit && hit.Hero == target.Id)
+        if (target is Machine taking && HeroStateOf(taking) is { } hit)
         {
             if (Time < hit.InvulnerableUntil)
                 return false;
@@ -443,33 +551,34 @@ public sealed partial class GameWorld
     /// <summary>A hit has landed: a hero's chips answer it, one may yet save it, and the time of the hit is noted.</summary>
     private void WiredStruck(Actor target, int armourBefore, Actor? shooter, string? weapon)
     {
-        if (target is not Machine hero || Wired!.Heroes.GetValueOrDefault(target.Race) is not { } state || state.Hero != target.Id)
+        if (target is not Machine hero || HeroStateOf(hero) is not { } state)
             return;
         WiredChips.Struck(this, state, hero, new ChipHit(target, shooter, weapon, armourBefore));
         state.LastHitAt = Time;
     }
 
-    /// <summary>A machine of the waves bursts: what stands round it of the enemy takes a part of what it was.</summary>
-    internal void Shrapnel(Machine victim, int damage, float reach, Race by)
+    /// <summary>A machine of the waves bursts: what stands round it of the enemy takes a part of what it was, from the hero whose chip it was.</summary>
+    internal void Shrapnel(Machine victim, int damage, float reach, Race by, PlayerId? owner = null)
     {
         Raise(new GameEvent(GameEventKind.WiredShrapnel, victim.Id, victim.Position));
         foreach (var machine in FiledNear(victim.Position, reach + _spatialReach).OfType<Machine>().ToList())
         {
             if (machine != victim && machine.Race == Wired!.Enemy && machine.Inside is null && Vector2.Distance(machine.Position, victim.Position) - machine.Radius <= reach)
-                Damage(machine, damage, by);
+                Damage(machine, damage, by, player: owner);
         }
     }
 
     /// <summary>
-    /// What a hit took goes into the statistics: from the hero, or from the enemy by a hero's race. It counts for a weapon
-    /// when the hero itself dealt it, with a blast of its own as well.
+    /// What a hit took goes into the statistics: from the hero, or from the enemy by a hero's race, for the player of that
+    /// race who dealt it (<paramref name="player"/>, the race's first where that is none of its players). It counts for a
+    /// weapon when the hero itself dealt it, with a blast of its own as well.
     /// </summary>
-    private void NoteDamage(Actor target, int lost, Race? by, Actor? shooter, string? weapon)
+    private void NoteDamage(Actor target, int lost, Race? by, Actor? shooter, string? weapon, PlayerId? player)
     {
         var run = Wired!;
-        if (run.Heroes.GetValueOrDefault(target.Race) is { } hit && hit.Hero == target.Id)
+        if (HeroStateOf(target) is { } hit)
             hit.Stats.DamageTaken += lost;
-        if (!OnTheWavesSide(target) || by is not { } race || run.Heroes.GetValueOrDefault(race) is not { } state)
+        if (!OnTheWavesSide(target) || Credited(by, player) is not { } dealer || run.Heroes.GetValueOrDefault(dealer) is not { } state)
             return;
         state.Stats.DamageDealt += lost;
         if (weapon is null || shooter is null || shooter.Id != state.Hero)
@@ -491,7 +600,7 @@ public sealed partial class GameWorld
     {
         var otherChassis = state.Loadout.Chassis.Catalogue != loadout.Chassis.Catalogue;
         state.Loadout = loadout;
-        if (HeroOf(state.Race) is not { } hero)
+        if (HeroOf(state) is not { } hero)
             return;
         var build = HeroBuild.Resolve(Data, loadout);
         // The weapons as made, not as a special has tuned them for now, or a tuned hero would be refitted every time.
@@ -578,9 +687,9 @@ public sealed partial class GameWorld
             return "there is no hangar in a battle";
         if (!Wired!.Waiting)
             return "the hangar opens only between waves";
-        if (HeroOf(state.Race) is not { } hero)
+        if (HeroOf(state) is not { } hero)
             return "the hero is down";
-        if (WiredPod(state.Race) is not { } pod)
+        if (WiredPod(state) is not { } pod)
             return "the pod is gone";
         return hero.DistanceTo(pod) > WiredBalance.PodReach ? "too far from the pod" : null;
     }
@@ -605,7 +714,7 @@ public sealed partial class GameWorld
         }
         else if (!state.Offer.Contains(id) && !IsCopy(state, id, copyOnto))
             return "that is not on offer";
-        return WhyNoRoom(state) ?? (Races[state.Race].Bmu < state.Priced(WiredCatalogue.Price(id)) ? "not enough BMUs" : null);
+        return WhyNoRoom(state) ?? (Bank(state) < state.Priced(WiredCatalogue.Price(id)) ? "not enough BMUs" : null);
     }
 
     /// <summary>Whether buying a weapon onto a slot makes it a further copy of the weapon there: the slot carries that weapon already.</summary>
@@ -623,7 +732,7 @@ public sealed partial class GameWorld
     {
         if (state.Rerolled)
             return "only one reroll per intermission";
-        return Races[state.Race].Bmu < state.Priced(WiredBalance.RerollCost) ? "not enough BMUs" : null;
+        return Bank(state) < state.Priced(WiredBalance.RerollCost) ? "not enough BMUs" : null;
     }
 
     /// <returns>null if the item can go up a Mk now, otherwise why not.</returns>
@@ -631,17 +740,17 @@ public sealed partial class GameWorld
     {
         if (state.UpgradePrice(item) is not { } price)
             return "that has no higher Mk";
-        return Races[state.Race].Bmu < price ? "not enough BMUs" : null;
+        return Bank(state) < price ? "not enough BMUs" : null;
     }
 
     /// <returns>null if the hangar can mend the pod now, otherwise why not.</returns>
     public string? WhyNoPodRepair(WiredState state)
     {
-        if (WiredPod(state.Race) is not { } pod)
+        if (WiredPod(state) is not { } pod)
             return "the pod is gone";
         if (pod.MaxHitPoints - pod.HitPoints <= 0)
             return "the pod needs no repair";
-        return Races[state.Race].Bmu < 1 ? "not enough BMUs" : null;
+        return Bank(state) < 1 ? "not enough BMUs" : null;
     }
 
     /// <summary>What an escort of a type costs this hero.</summary>
@@ -654,23 +763,32 @@ public sealed partial class GameWorld
         var wave = Wired!.ShopWave;
         if (!WiredCatalogue.Tiers.Any(t => t.EscortFrom <= wave && t.Offers(key)))
             return "that is not on offer yet";
-        if (Escorts(state.Race).Count() >= SquadLimit(state))
+        if (Escorts(state).Count() >= SquadLimit(state))
             return "the squad is full";
-        if (WiredPod(state.Race) is null)
+        if (WiredPod(state) is null)
             return "the pod is gone";
-        return Races[state.Race].Bmu < EscortPrice(state, key) ? "not enough BMUs" : null;
+        return Bank(state) < EscortPrice(state, key) ? "not enough BMUs" : null;
     }
 
     /// <summary>What Ready pays now: the seconds saved of the intermission under way. The time before the first wave pays nothing.</summary>
     public int ReadyPays => Wired is { Phase: WiredPhase.Intermission } run ? (int)(MathF.Max(0, run.IntermissionEnds - Time) * WiredBalance.ReadyBonus) : 0;
 
     /// <summary>Takes what the hangar charges from the bank; shopping is no cause for the pod's warnings of a low bank.</summary>
-    private void Charge(WiredState state, int bmu) => Races[state.Race].Bmu -= bmu;
+    private void Charge(WiredState state, int bmu)
+    {
+        if (state.OwnBank)
+            state.Bank -= bmu;
+        else
+            Races[state.Race].Bmu -= bmu;
+    }
 
+    /// <summary>A command for a hero: the hero of the player who gave it, or with no player named the race's first player's.</summary>
     private string? ApplyWired(WiredCommand command)
     {
-        if (Wired?.Heroes.GetValueOrDefault(command.Race) is not { } state)
+        if (Wired is null)
             return "this is not a Wired match";
+        if (Wired.Heroes.GetValueOrDefault(command.Issuer ?? PlayerId.Of(command.Race)) is not { } state)
+            return command.Issuer is null ? "this is not a Wired match" : "you have no hero";
         if (Battle is not null && command is not (WiredAbilityCommand or WiredDashCommand or WiredSpecialCommand or WiredTowerCommand or WiredScrapTowerCommand))
             return "there is no hangar in a battle";
         return command switch
@@ -756,7 +874,7 @@ public sealed partial class GameWorld
         if (state.Loadout.Holds(id))
             return "take it off first";
         state.Items.Remove(item);
-        Races[state.Race].Bmu += state.SellValue(item);
+        Refund(state, state.SellValue(item));
         return null;
     }
 
@@ -825,7 +943,7 @@ public sealed partial class GameWorld
         if (state.WhyNotWear(Data, loadout) is { } why)
             return why;
         Wear(state, loadout);
-        if (HeroOf(state.Race) is { } hero)
+        if (HeroOf(state) is { } hero)
             OutOfDoorTooSmall(hero);
         return null;
     }
@@ -866,10 +984,10 @@ public sealed partial class GameWorld
     {
         if (WhyNoPodRepair(state) is { } why)
             return why;
-        var pod = WiredPod(state.Race)!;
+        var pod = WiredPod(state)!;
         var missing = pod.MaxHitPoints - pod.HitPoints;
         var whole = state.PodRepairPrice(missing);
-        var spent = Math.Min(bmu > 0 ? Math.Min(bmu, whole) : whole, (int)Races[state.Race].Bmu);
+        var spent = Math.Min(bmu > 0 ? Math.Min(bmu, whole) : whole, (int)Bank(state));
         Charge(state, spent);
         pod.HitPoints += Math.Min(missing, state.PodRepairFor(spent));
         return null;
@@ -887,10 +1005,16 @@ public sealed partial class GameWorld
         return socket is { } at && state.HangarOpen ? PlaceChip(state, chip.Id, at) : null;
     }
 
-    /// <summary>The bought escorts still standing and on their side, oldest first, in whatever squadrons the player has put them.</summary>
-    public IEnumerable<Machine> Escorts(Race race) => Wired?.Heroes.GetValueOrDefault(race) is { } state
-        ? state.EscortIds.Select(Find<Machine>).OfType<Machine>().Where(m => m.Race == race && !m.IsDead)
-        : [];
+    /// <summary>The escorts a hero bought still standing and on its side, oldest first, in whatever squadrons the player has put them.</summary>
+    public IEnumerable<Machine> Escorts(WiredState state) =>
+        state.EscortIds.Select(Find<Machine>).OfType<Machine>().Where(m => m.Race == state.Race && !m.IsDead);
+
+    /// <summary>The escorts a player's hero bought still standing and on its side, oldest first.</summary>
+    public IEnumerable<Machine> Escorts(PlayerId player) => Wired?.Heroes.GetValueOrDefault(player) is { } state ? Escorts(state) : [];
+
+    /// <summary>Race form: the escorts the race's first player's hero bought still standing and on its side.</summary>
+    [Obsolete("Race form: name the player.", DiagnosticId = PlayerId.RaceForm)]
+    public IEnumerable<Machine> Escorts(Race race) => Escorts(PlayerId.Of(race));
 
     /// <summary>The machine that comes for a choice from the squad list, now: with Veterans a better one, as the hangar sells them by the wave.</summary>
     public ResearchKey EscortAs(WiredState state, ResearchKey key) => WiredChips.Veteran(Data, state, key, Wired!.ShopWave);
@@ -899,16 +1023,17 @@ public sealed partial class GameWorld
     {
         if (WhyNoEscort(state, key) is { } why)
             return why;
-        var pod = WiredPod(state.Race)!;
+        var pod = WiredPod(state)!;
         Charge(state, EscortPrice(state, key));
         key = EscortAs(state, key);
         var spawn = FreePointNear(pod);
-        var machine = AddMachine(state.Race, spawn, key.Type, key.SubType, key.HardwareLevel, key.WeaponCombo);
+        // The buyer's: in a race of several heroes each squad stays its hero's own.
+        var machine = AddMachine(state.Race, spawn, key.Type, key.SubType, key.HardwareLevel, key.WeaponCombo, state.Player);
         machine.Squad = WiredBalance.EscortSquad;
         state.EscortIds.Add(machine.Id);
-        state.Stats.LargestSquad = Math.Max(state.Stats.LargestSquad, Escorts(state.Race).Count());
+        state.Stats.LargestSquad = Math.Max(state.Stats.LargestSquad, Escorts(state).Count());
         machine.Alert.Raise(FullAlert);
-        if (HeroOf(state.Race) is { } hero)
+        if (HeroOf(state) is { } hero)
             Send(machine, new FollowOrder(hero.Id), hero.Position);
         var score = Races[state.Race].Score;
         score.MachinesBuilt++;

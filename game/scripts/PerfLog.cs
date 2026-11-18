@@ -4,15 +4,16 @@ namespace Machines.Game;
 
 /// <summary>
 /// For measuring (MACHINES_PERF=<seconds>): after a few seconds to settle, logs once a second what a frame costs (its
-/// time on the CPU and on the GPU, and the frame rate) and what is drawn (objects, draw calls, triangles), then sums
-/// it up and ends the game. Run it with --disable-vsync, or the frame rate stops at the screen's.
+/// time on the CPU and on the GPU, the frame rate, and the main thread's process time of the second's slowest frame, the
+/// sim's ticks of that frame among it) and what is drawn (objects, draw calls, triangles), then sums it up with the memory
+/// the game holds and ends the game. Run it with --disable-vsync, or the frame rate stops at the screen's.
 /// </summary>
 public partial class PerfLog : Node
 {
     private const double Settle = 5;
 
     private double _seconds, _time, _next = Settle;
-    private readonly List<(double Fps, double Cpu, double Gpu, long Objects, long Calls, long Triangles)> _samples = [];
+    private readonly List<(double Fps, double Cpu, double Gpu, long Objects, long Calls, long Triangles, double Process)> _samples = [];
 
     public static PerfLog? Create() =>
         double.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_PERF"), System.Globalization.CultureInfo.InvariantCulture, out var s)
@@ -36,15 +37,23 @@ public partial class PerfLog : Node
             RenderingServer.ViewportGetMeasuredRenderTimeGpu(viewport),
             (long)RenderingServer.GetRenderingInfo(RenderingServer.RenderingInfo.TotalObjectsInFrame),
             (long)RenderingServer.GetRenderingInfo(RenderingServer.RenderingInfo.TotalDrawCallsInFrame),
-            (long)RenderingServer.GetRenderingInfo(RenderingServer.RenderingInfo.TotalPrimitivesInFrame));
+            (long)RenderingServer.GetRenderingInfo(RenderingServer.RenderingInfo.TotalPrimitivesInFrame),
+            Performance.GetMonitor(Performance.Monitor.TimeProcess) * 1000);
         _samples.Add(sample);
-        GD.Print($"perf: {sample.Item1:F0} fps, render cpu {sample.Item2:F2} ms, gpu {sample.Item3:F2} ms, {sample.Item4} objects, {sample.Item5} draw calls, {sample.Item6 / 1000} k triangles");
+        GD.Print($"perf: {sample.Item1:F0} fps, render cpu {sample.Item2:F2} ms, gpu {sample.Item3:F2} ms, slowest process {sample.Item7:F2} ms, {sample.Item4} objects, {sample.Item5} draw calls, {sample.Item6 / 1000} k triangles");
         if (_time < Settle + _seconds)
             return;
         var n = _samples.Count;
         GD.Print($"perf summary: {_samples.Average(s => s.Fps):F0} fps (lowest {_samples.Min(s => s.Fps):F0}), "
             + $"render cpu {_samples.Average(s => s.Cpu):F2} ms, gpu {_samples.Average(s => s.Gpu):F2} ms (worst {_samples.Max(s => s.Gpu):F2}), "
-            + $"{_samples.Average(s => s.Objects):F0} objects, {_samples.Average(s => s.Calls):F0} draw calls, {_samples.Average(s => s.Triangles) / 1000:F0} k triangles over {n} s");
+            + $"slowest process {_samples.Average(s => s.Process):F2} ms (worst {_samples.Max(s => s.Process):F2}), "
+            + $"{_samples.Average(s => s.Objects):F0} objects, {_samples.Average(s => s.Calls):F0} draw calls (most {_samples.Max(s => s.Calls)}), {_samples.Average(s => s.Triangles) / 1000:F0} k triangles over {n} s");
+        const double MiB = 1024 * 1024;
+        GD.Print($"perf memory: process {System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / MiB:F0} MiB working set "
+            + $"({System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 / MiB:F0} MiB private), engine {OS.GetStaticMemoryUsage() / MiB:F0} MiB "
+            + $"(peak {OS.GetStaticMemoryPeakUsage() / MiB:F0}), managed heap {System.GC.GetTotalMemory(false) / MiB:F0} MiB, "
+            + $"video {Performance.GetMonitor(Performance.Monitor.RenderVideoMemUsed) / MiB:F0} MiB "
+            + $"(textures {Performance.GetMonitor(Performance.Monitor.RenderTextureMemUsed) / MiB:F0}, buffers {Performance.GetMonitor(Performance.Monitor.RenderBufferMemUsed) / MiB:F0})");
         GetTree().Quit();
     }
 

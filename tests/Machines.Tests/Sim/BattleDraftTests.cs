@@ -394,6 +394,164 @@ public class BattleDraftTests
         Assert.Equal("Rivet", draft.Options(unnamed: "Pilot").Heroes.Single(h => !h.Bot).Name);
     }
 
+    /// <summary>
+    /// The world a battle against the computer makes of a draft's options, as the game's MatchRequest.ForBattle seats it: the
+    /// player at their seat, a bot at every other.
+    /// </summary>
+    private static GameWorld BattleWorld(BattleMap map, BattleOptions options, PlayerId me, int seed = 3)
+    {
+        var rows = BattleSeats.Of(options).Select(seat => new PlayerSeat(seat.Player, seat.Race,
+            seat.Player == me ? PlayerKind.Human : PlayerKind.Bot, seat.Player == me ? "Pilot" : "AI")).ToList();
+        return MatchSetup.Create(Data, map.Scenario, map.Planet, new PlayerTable(rows), seed, new MatchOptions { Battle = options, FogOfWar = false });
+    }
+
+    [Fact]
+    public void Five_against_five_seats_the_player_first_on_their_team_and_bots_at_the_nine_other_seats()
+    {
+        var (draft, _) = NewDraft(book => Owns(book, "reaper3"));
+        draft.Wear("reaper3");
+        draft.Map = "m_desert";
+        draft.Colour = Race.Green;
+        draft.TeamSize = 5;
+        var map = BattleCatalogue.Map("m_desert")!;
+
+        var options = draft.Options(unnamed: "Pilot");
+
+        Assert.Equal(5, options.TeamSize);
+        Assert.Equal([map.TeamA[0]], options.TeamA);
+        Assert.Equal([map.TeamB[0]], options.TeamB);
+        Assert.Equal(10, options.Heroes.Count);
+        Assert.Equal(BattleSeats.Of(options).Select(s => s.Player).Order(), options.Heroes.Select(h => h.Player!.Value));
+        // Green is the second team's first race: the player is its first seat, its race's first player.
+        Assert.Equal(PlayerId.Of(Race.Green), draft.Player(map));
+        var mine = options.Heroes.Single(h => !h.Bot);
+        Assert.Equal((Race.Green, PlayerId.Of(Race.Green), "reaper3", "Pilot"), (mine.Race, mine.Player!.Value, mine.Chassis, mine.Name));
+        Assert.Equal(draft.Items, mine.Items);
+        Assert.All(options.Heroes, h => Assert.Null(BattleBots.WhyNot(h, options.Tier)));
+        // The first seat of the other team mirrors the player's tier.
+        Assert.Equal(4, BattleCatalogue.Tier(options.Heroes.Single(h => h.Player == PlayerId.Of(Race.Red)).Chassis));
+
+        var world = BattleWorld(map, options, draft.Player(map));
+        Assert.Equal(2, world.Races.Count);
+        Assert.Equal(10, world.Wired!.Heroes.Count);
+        Assert.Equal("reaper3", world.Wired.Heroes[PlayerId.Of(Race.Green)].Loadout.Chassis.Catalogue);
+        Assert.Equal(9, world.Battle!.Bots.Count);
+        Assert.DoesNotContain(PlayerId.Of(Race.Green), world.Battle.Bots);
+    }
+
+    [Fact]
+    public void Ten_against_ten_seats_the_player_and_nineteen_bots_in_a_world_that_sets_up()
+    {
+        var (draft, _) = NewDraft();
+        draft.Map = "m_desert";
+        draft.Colour = Race.Yellow;
+        draft.TeamSize = 10;
+        draft.Lives = RoomOptions.ProposedLives(draft.TeamSize, BattleCatalogue.Map(draft.Map));
+        var map = BattleCatalogue.Map("m_desert")!;
+
+        var options = draft.Options(unnamed: "Pilot");
+
+        Assert.Equal((10, 3), (options.TeamSize, options.Lives));
+        Assert.Equal([map.TeamA[0]], options.TeamA);
+        Assert.Equal([map.TeamB[0]], options.TeamB);
+        Assert.Equal(20, options.Heroes.Count);
+        Assert.Equal(BattleSeats.Of(options).Select(s => s.Player).Order(), options.Heroes.Select(h => h.Player!.Value));
+        // Yellow is Green's team's: the player is that team's first seat, the others are bots.
+        var mine = options.Heroes.Single(h => !h.Bot);
+        Assert.Equal((Race.Green, PlayerId.Of(Race.Green), "Pilot"), (mine.Race, mine.Player!.Value, mine.Name));
+        Assert.Equal(19, options.Heroes.Count(h => h.Bot));
+        Assert.All(options.Heroes, h => Assert.Null(BattleBots.WhyNot(h, options.Tier)));
+        Assert.Equal(20, options.Heroes.Select(h => h.Name).Distinct().Count());
+
+        var world = BattleWorld(map, options, draft.Player(map));
+        Assert.Equal(2, world.Races.Count);
+        Assert.Equal(20, world.Wired!.Heroes.Count);
+        Assert.Equal(20, world.Machines.Count(m => world.HeroOf(m.Owner) == m));
+        Assert.Equal(19, world.Battle!.Bots.Count);
+        Assert.DoesNotContain(PlayerId.Of(Race.Green), world.Battle.Bots);
+        Assert.Equal([10, 10], world.Battle.Members.Select(team => team.Count));
+        Assert.Equal(BattleBalance.CaptureTargetFor(10), world.Battle.CaptureTarget);
+        // Every hero stands at its team's pod and the battle plays past its opening.
+        for (var i = 0; i < (BattleBalance.Opening + 2) * GameWorld.TicksPerSecond; i++)
+            world.Step();
+        Assert.False(world.Battle.InOpening(world.Time));
+        Assert.Equal(20, world.Wired.Heroes.Keys.Count(p => world.HeroOf(p) is not null));
+    }
+
+    [Theory]
+    [InlineData(Race.Blue)]
+    [InlineData(Race.Yellow)]
+    public void A_colour_that_is_not_its_teams_first_race_plays_its_teams_first_seat_in_five_against_five(Race colour)
+    {
+        var (draft, _) = NewDraft();
+        draft.Map = "m_desert";
+        draft.Colour = colour;
+        draft.TeamSize = 5;
+        var map = BattleCatalogue.Map("m_desert")!;
+        var side = map.TeamA.Contains(colour) ? map.TeamA[0] : map.TeamB[0];
+
+        var options = draft.Options(unnamed: "Pilot");
+
+        // Blue is Red's team's, Yellow Green's: neither has seats of its own, so the hero plays its team's first race.
+        Assert.Equal(side, BattleDraft.PlayerRace(map, colour, 5));
+        Assert.Equal(PlayerId.Of(side), draft.Player(map));
+        Assert.Equal(10, options.Heroes.Count);
+        var mine = options.Heroes.Single(h => !h.Bot);
+        Assert.Equal((side, PlayerId.Of(side), "Pilot"), (mine.Race, mine.Player!.Value, mine.Name));
+        Assert.DoesNotContain(options.Heroes, h => h.Race == colour);
+
+        var world = BattleWorld(map, options, draft.Player(map));
+        Assert.Equal(10, world.Wired!.Heroes.Count);
+        Assert.Equal(PlayerKind.Human, world.Players[PlayerId.Of(side)].Kind);
+        Assert.DoesNotContain(PlayerId.Of(side), world.Battle!.Bots);
+        // In today's layout the same colour plays its own race, as before.
+        draft.TeamSize = 0;
+        Assert.Equal(colour, BattleDraft.PlayerRace(map, colour));
+        Assert.Equal(PlayerId.Of(colour), draft.Player(map));
+        Assert.Equal(colour, draft.Options().Heroes.Single(h => !h.Bot).Race);
+    }
+
+    [Fact]
+    public void A_hero_given_to_five_against_five_without_a_player_plays_the_first_seat_of_its_colours_side()
+    {
+        var map = BattleCatalogue.Map("m_desert")!;
+        var hero = BattleBots.Bot(map.Scenario, 2, Race.Yellow, 0) with { Name = "Rivet", Bot = false };
+
+        var options = BattleDraft.Compose(map, 2, 2, BattleWin.Wipe, hero, teamSize: 5);
+        var classic = BattleDraft.Compose(map, 2, 2, BattleWin.Wipe, hero);
+
+        var given = options.Heroes.Single(h => !h.Bot);
+        Assert.Equal((Race.Green, PlayerId.Of(Race.Green), "Rivet"), (given.Race, given.Player!.Value, given.Name));
+        Assert.Equal(10, options.Heroes.Count);
+        Assert.Equal((2, 2, BattleWin.Wipe), (options.Tier, options.Lives, options.Win));
+        // Today's layout is composed as it always was: four heroes, the given one on its own race.
+        Assert.Equal(0, classic.TeamSize);
+        Assert.Equal(4, classic.Heroes.Count);
+        Assert.Equal(Race.Yellow, classic.Heroes.Single(h => !h.Bot).Race);
+        Assert.Null(classic.Heroes.Single(h => !h.Bot).Player);
+    }
+
+    [Fact]
+    public void The_team_size_is_kept_with_the_battle_chosen_and_comes_back_at_most_fifteen()
+    {
+        var (draft, account) = NewDraft();
+        draft.TeamSize = 5;
+        Assert.True(draft.Keep());
+
+        Assert.Equal(5, account.LastHero!.TeamSize);
+        Assert.Equal(5, new BattleDraft(Data, account).TeamSize);
+        draft.TeamSize = 10;
+        Assert.True(draft.Keep());
+        Assert.Equal(10, new BattleDraft(Data, account).TeamSize);
+        draft.TeamSize = 16;
+        Assert.Equal(BattleBalance.MostTeamSize, draft.TeamSize);
+        Assert.Equal(15, draft.TeamSize);
+        draft.TeamSize = -1;
+        Assert.Equal(0, draft.TeamSize);
+        // A sheet kept before team sizes reads as today's layout.
+        Assert.Equal(0, new BattleHeroSheet().TeamSize);
+    }
+
     [Fact]
     public void Only_a_chassis_that_leads_nowhere_is_the_top_of_its_line()
     {

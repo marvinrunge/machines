@@ -1,5 +1,6 @@
 using Machines.Import.Model;
 using Machines.Sim.Combat;
+using Machines.Sim.World;
 
 namespace Machines.Sim.Survival;
 
@@ -10,8 +11,19 @@ namespace Machines.Sim.Survival;
 /// </summary>
 public static class BattleBots
 {
-    /// <summary>The bots' names, by race and their place in the team.</summary>
-    private static readonly IReadOnlyList<string> Names = ["Rivet", "Flux", "Cinder", "Gauge", "Torque", "Ember", "Static", "Piston"];
+    /// <summary>
+    /// The bots' names: the first eight by race and their place in the team in today's layout (<see cref="Name"/>), all thirty
+    /// by team and place with a team size (<see cref="TeamName"/>).
+    /// </summary>
+    private static readonly IReadOnlyList<string> Names =
+    [
+        "Rivet", "Flux", "Cinder", "Gauge", "Torque", "Ember", "Static", "Piston",
+        "Anvil", "Bolt", "Cog", "Dynamo", "Ferrite", "Gasket", "Ingot", "Joule", "Kiln", "Lathe", "Magnet", "Nickel", "Ohm",
+        "Pulley", "Quench", "Ratchet", "Solder", "Tensor", "Valve", "Weld", "Zinc", "Sprocket",
+    ];
+
+    /// <summary>How many of <see cref="Names"/> today's layout names its bots from.</summary>
+    private const int ClassicNames = 8;
 
     /// <summary>The order modules go on a bot: plates and frame first, the thrusters' dash from the tier of the abilities.</summary>
     private static readonly IReadOnlyList<string> ModuleOrder = ["plates", "frame", "thrusters", "repair", "drive", "targeting", "gyro", "cooler", "reactor"];
@@ -24,8 +36,11 @@ public static class BattleBots
         _ => ["supercharge", "discharge"],
     };
 
-    /// <summary>A bot's name.</summary>
-    public static string Name(Race race, int index) => Names[((int)race * 2 + index) % Names.Count];
+    /// <summary>A bot's name in today's layout, by its race and its place in the team.</summary>
+    public static string Name(Race race, int index) => Names[((int)race * 2 + index) % ClassicNames];
+
+    /// <summary>A bot's name with a team size, by its team and its place there: no two alike in a match of up to fifteen a team.</summary>
+    public static string TeamName(int team, int place) => Names[(team * BattleSeats.MostPerTeam + place) % Names.Count];
 
     /// <summary>
     /// The chassis a bot of a tier takes on a map. The line (which chassis of that tier) goes by its place in the team, so the
@@ -303,34 +318,47 @@ public static class BattleBots
     }
 
     /// <summary>
-    /// The options with a hero for every race of the two teams: the given ones (players' heroes), and bots for the rest,
-    /// each picked for the map's <paramref name="scenario"/> (<see cref="Pick"/>). The k-th hero of a team, by race order,
-    /// mirrors the tier of the k-th of the other team; a bot whose counterpart is a bot too takes the bracket's top tier.
-    /// The relay, the pod and the sim's own fallback compose alike for the same map; options made for no map in particular
-    /// (an empty name) start the lines where that name puts them.
+    /// The options with a hero for every seat of the two teams (<see cref="BattleSeats.Of"/>): the given ones (players'
+    /// heroes, matched by their race in today's layout, where each is its race's first player, and by their player with a team
+    /// size, a hero without one being its race's first player), and bots for the rest, each picked
+    /// for the map's <paramref name="scenario"/> (<see cref="Pick"/>). The hero at place k of a team mirrors the tier of the
+    /// one at place k of the other; a bot whose counterpart is a bot too takes the bracket's top tier. In today's layout the
+    /// seats are the teams' races in race order and the heroes come as they always did, sorted by race; with a team size the
+    /// teams are narrowed to their anchors and every hero names its player and plays its seat's race (a player's own colour
+    /// gives way to its team's anchor), the bots named by team and place (<see cref="TeamName"/>), all sorted by player. The
+    /// relay, the pod and the sim's own fallback compose alike for the same map; options made for no map in particular (an
+    /// empty name) start the lines where that name puts them.
     /// </summary>
     public static BattleOptions Compose(BattleOptions options, IReadOnlyList<BattleHero> given, string scenario = "")
     {
-        var teams = new[] { options.TeamA.Order().ToList(), options.TeamB.Order().ToList() };
+        var seats = BattleSeats.Of(options);
+        var sized = BattleSeats.Size(options) > 0;
+        // Today's layout matches a hero by its race, as it always did, so that a player it names (from a client, which the
+        // relay passes on) cannot move it to another race's seat and leave its own race without a hero.
+        BattleHero? Given(BattleSeat seat) => sized
+            ? given.FirstOrDefault(h => (h.Player ?? PlayerId.Of(h.Race)) == seat.Player)
+            : given.FirstOrDefault(h => h.Race == seat.Race);
         var heroes = new List<BattleHero>();
-        for (var team = 0; team < 2; team++)
+        foreach (var seat in seats)
         {
-            for (var k = 0; k < teams[team].Count; k++)
+            if (Given(seat) is { } own)
             {
-                var race = teams[team][k];
-                if (given.FirstOrDefault(h => h.Race == race) is { } own)
-                {
-                    heroes.Add(own);
-                    continue;
-                }
-                var other = teams[1 - team];
-                var mirror = k < other.Count ? given.FirstOrDefault(h => h.Race == other[k]) : null;
-                var tier = mirror is not null && BattleCatalogue.InBracket(mirror.Chassis, options.Tier)
-                    ? BattleCatalogue.Tier(mirror.Chassis)
-                    : options.Tier;
-                heroes.Add(Bot(scenario, tier, race, k));
+                heroes.Add(sized ? own with { Race = seat.Race, Player = seat.Player }
+                    : own.Player is { } named && named != seat.Player ? own with { Player = null } : own);
+                continue;
             }
+            var counterpart = seats.FirstOrDefault(s => s.Team != seat.Team && s.Place == seat.Place);
+            var mirror = counterpart is not null ? Given(counterpart) : null;
+            var tier = mirror is not null && BattleCatalogue.InBracket(mirror.Chassis, options.Tier)
+                ? BattleCatalogue.Tier(mirror.Chassis)
+                : options.Tier;
+            var bot = Bot(scenario, tier, seat.Race, seat.Place);
+            heroes.Add(sized ? bot with { Name = TeamName(seat.Team, seat.Place), Player = seat.Player } : bot);
         }
-        return options with { Heroes = heroes.OrderBy(h => h.Race).ToList() };
+        var sorted = heroes.OrderBy(h => h.Player ?? PlayerId.Of(h.Race)).ToList();
+        if (!sized)
+            return options with { Heroes = sorted };
+        var (a, b) = BattleSeats.Teams(options, null);
+        return options with { TeamA = a, TeamB = b, Heroes = sorted };
     }
 }

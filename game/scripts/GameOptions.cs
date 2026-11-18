@@ -22,6 +22,7 @@ public static class GameOptions
     private static bool _read, _reverseKeys, _reverseMouse, _selection2d, _sound3d = true, _classicDriving, _filmLook, _classicMouse, _classicKeys, _weaponButtons, _transitions = true, _fireWaits = true;
     private static float _gamma = 1, _mouseSpeed = 1, _hudSize = 1;
     private static Blur _depthOfField;
+    private static string? _playerName, _publicRelay;
 
     /// <summary>How far from what the camera looks at the picture blurs (<see cref="DepthOfField"/>).</summary>
     public enum Blur { Off, Subtle, Strong }
@@ -178,6 +179,41 @@ public static class GameOptions
         set => Keep(ref _selection2d, value, "controls", "selection_2d");
     }
 
+    /// <summary>
+    /// The name the player last went online under, given again next time (the multiplayer page's YOUR NAME); null before
+    /// the first time. Kept as <c>multiplayer/name</c>.
+    /// </summary>
+    public static string? PlayerName
+    {
+        get
+        {
+            Read();
+            return _playerName;
+        }
+        set
+        {
+            var name = value?.Trim();
+            if (string.IsNullOrEmpty(name) || name == _playerName)
+                return;
+            Keep(ref _playerName, name, "multiplayer", "name");
+        }
+    }
+
+    /// <summary>
+    /// The public relay the multiplayer page offers first, a web address such as <c>wss://machines-relay-….run.app</c>:
+    /// MACHINES_RELAY for one run, else <c>multiplayer/public_relay</c> in the settings, else <see cref="NetLink.PublicRelay"/>.
+    /// Empty while there is none; the page then shows what to type.
+    /// </summary>
+    public static string PublicRelay
+    {
+        get
+        {
+            Read();
+            return System.Environment.GetEnvironmentVariable("MACHINES_RELAY") is { Length: > 0 } run ? run.Trim()
+                : _publicRelay is { Length: > 0 } kept ? kept : NetLink.PublicRelay;
+        }
+    }
+
     /// <summary>Whether the world's sounds come from where they happen, left or right; without, only their distance tells (3D Sound).</summary>
     public static bool Sound3d
     {
@@ -223,6 +259,8 @@ public static class GameOptions
             _weaponButtons = (bool)config.GetValue("controls", "weapon_buttons", false);
             _fireWaits = (bool)config.GetValue("controls", "fire_waits_for_gun", true);
             _hudSize = Mathf.Clamp((float)(double)config.GetValue("display", "hud_size", 1.0), HudSizes[0], HudSizes[^1]);
+            _playerName = (string)config.GetValue("multiplayer", "name", "") is { Length: > 0 } name ? name : null;
+            _publicRelay = ((string)config.GetValue("multiplayer", "public_relay", "")).Trim();
         }
         foreach (var part in (System.Environment.GetEnvironmentVariable("MACHINES_OPTIONS") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {

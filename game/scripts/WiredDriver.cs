@@ -250,14 +250,14 @@ public partial class WiredDriver(string folder, WiredDriver.Plan plan) : Node
     private static void Report(Game game)
     {
         var world = game.World;
-        if (world.Tick % 100 != 0 || world.Wired is not { } run || !run.Heroes.TryGetValue(Game.Player, out var state))
+        if (world.Tick % 100 != 0 || world.Wired is not { } run || !run.Heroes.TryGetValue(Game.Me, out var state))
             return;
-        var hero = world.HeroOf(Game.Player);
-        var pod = world.WiredPod(Game.Player);
-        Say($"tick {world.Tick} checksum {world.Checksum():x16} wave {run.Wave} {run.Phase} countdown {run.Countdown:0.0} bank {world.Races[Game.Player].Bmu:0} " +
+        var hero = world.HeroOf(Game.Me);
+        var pod = world.WiredPod(Game.Me);
+        Say($"tick {world.Tick} checksum {world.Checksum():x16} wave {run.Wave} {run.Phase} countdown {run.Countdown:0.0} bank {world.Bank(state):0} " +
             $"hero {state.Loadout.Chassis.Catalogue} {hero?.HitPoints}/{hero?.MaxHitPoints} armour {hero?.Armour}/{hero?.MaxArmour} refits {hero?.Refits} " +
             $"worn [{string.Join(", ", state.Loadout.Worn.Skip(1).Select(i => $"{i.Catalogue} Mk{i.Mk}"))}] bodies {state.SpareBodies} " +
-            $"spares [{string.Join(", ", state.Inventory.Select(i => i.Catalogue))}] squad {world.Escorts(Game.Player).Count()} pod {pod?.HitPoints}/{pod?.MaxHitPoints} " +
+            $"spares [{string.Join(", ", state.Inventory.Select(i => i.Catalogue))}] squad {world.Escorts(Game.Me).Count()} pod {pod?.HitPoints}/{pod?.MaxHitPoints} " +
             $"foes {run.EnemiesLeft} kills {state.Stats.Kills}");
     }
 

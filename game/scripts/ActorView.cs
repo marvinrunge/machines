@@ -30,6 +30,12 @@ public partial class ActorView : Node3D
     /// <summary>The race whose colours it wears (<see cref="Actor.ShownRace"/>).</summary>
     public Race Shown { get; private set; }
 
+    /// <summary>
+    /// The player the actor last belonged to as the view saw it (<see cref="Actor.Owner"/>): what is told of an actor gone from
+    /// the world, as a tower pulled down, goes to its owner alone.
+    /// </summary>
+    public PlayerId OwnedBy { get; private set; }
+
     public float Size { get; private set; } = 3;
 
     /// <summary>A building rather than a machine; it explodes with the construction sounds.</summary>
@@ -462,7 +468,7 @@ public partial class ActorView : Node3D
     /// <param name="hero">What a Wired hero wears; its model is put together from that, not found by its name.</param>
     public static ActorView Create(Actor actor, ClassicAssets assets, GameAudio audio, HeroLoadout? hero = null)
     {
-        var view = new ActorView { ActorId = actor.Id, Race = actor.Race, Shown = actor.ShownRace, Name = $"Actor{actor.Id}", IsBuilding = actor is Construction };
+        var view = new ActorView { ActorId = actor.Id, Race = actor.Race, Shown = actor.ShownRace, OwnedBy = actor.Owner, Name = $"Actor{actor.Id}", IsBuilding = actor is Construction };
         var (id, size) = ModelOf(actor);
         view.Size = Mathf.Max(size.X, size.Z);
         if (actor is Machine machine)
@@ -833,6 +839,7 @@ public partial class ActorView : Node3D
     /// <param name="aimAt">What the machine or tower is attacking, for its upper body or head to turn to.</param>
     public void Sync(Actor actor, Actor? aimAt = null)
     {
+        OwnedBy = actor.Owner;
         _target = World(actor.Position);
         // The upper body's (or a tower head's) angle relative to the hull, in the original's sense
         // (counter-clockwise); with nothing to aim at it turns back to the front.

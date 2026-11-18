@@ -1,3 +1,5 @@
+using Machines.Sim.World;
+
 namespace Machines.Sim.Survival;
 
 /// <summary>
@@ -27,4 +29,17 @@ public sealed record WiredOptions
 
     /// <summary>The chips the player has unlocked; empty means the base pool.</summary>
     public IReadOnlyList<string> ChipPool { get; init; } = [];
+
+    /// <summary>
+    /// The heroes of a run with more than one, by player; a hero player without an entry plays the run's own
+    /// <see cref="HeroName"/>, <see cref="Chassis"/> and <see cref="Items"/>, as a run of one hero always does.
+    /// </summary>
+    public IReadOnlyList<WiredHero> Heroes { get; init; } = [];
+
+    /// <summary>The hero a player starts the run with: its entry in <see cref="Heroes"/>, else the run's own.</summary>
+    public WiredHero HeroFor(PlayerId player) =>
+        Heroes.FirstOrDefault(h => h.Player == player) ?? new WiredHero(player, HeroName, Chassis, Items);
 }
+
+/// <summary>One hero of a Wired run with more than one: whose it is, its name, the chassis it starts on and what it bought at creation.</summary>
+public sealed record WiredHero(PlayerId Player, string Name, string Chassis, IReadOnlyList<WiredStartItem> Items);

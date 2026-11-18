@@ -8,8 +8,10 @@ namespace Machines.Game;
 
 /// <summary>
 /// The pod of Battle as the main menu opens it: the hangar's screen over a <see cref="BattleDesk"/>, with the hero's name,
-/// colours, tier and XP over its values, and below it all the battle to fight (map, lives, victory) and the way in: against
-/// bots on this machine, or a room in Multiplayer. Battle is the remake's own addition.
+/// colours, tier and XP over its values, and below it all the battle to fight (map, team size, lives, victory) and the way
+/// in: against bots on this machine, two against two, five against five or ten against ten, or a room in Multiplayer. For
+/// automated pictures MACHINES_MENU_TEAM=&lt;n&gt; chooses a team size offered (MACHINES_MENU_SCREENSHOT's pod), as choosing
+/// it in the bar does. Battle is the remake's own addition.
 /// </summary>
 public static class BattlePod
 {
@@ -26,6 +28,11 @@ public static class BattlePod
         if (fresh.Count > 0)
             account.Save();
         var desk = new BattleDesk(Paths.Data, screens.Assets, account) { Fresh = fresh, First = shelf };
+        if (room is null && int.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_MENU_TEAM"), out var team) && RoomOptions.Offered(team) >= 0)
+        {
+            desk.Draft.TeamSize = team;
+            desk.Draft.Lives = RoomOptions.ProposedLives(team, BattleCatalogue.Map(desk.Draft.Map));
+        }
         void Back()
         {
             desk.Draft.Keep();
@@ -68,7 +75,8 @@ public static class BattlePod
 
     /// <summary>
     /// The in-game menu's briefing for a battle (the scenario's own text is a skirmish's): the map, the bracket, lives and
-    /// victory, the teams and the goal.
+    /// victory, the teams in the colours the match shows them in (a Blue player's five against five is Blue's, though its
+    /// heroes play Red's seats) and the goal.
     /// </summary>
     public static string Briefing(BattleOptions battle, string scenario)
     {
@@ -78,10 +86,10 @@ public static class BattlePod
         var lines = new List<string>
         {
             map is null ? scenario : MapName(map),
-            $"{Lang.T("Tier {0}", bracket)}   ·   {LivesName(battle.Lives)}   ·   {VictoryName(battle.Win)}",
+            $"{SkirmishPage.TeamSizeName(battle.TeamSize, map)}   ·   {Lang.T("Tier {0}", bracket)}   ·   {LivesName(battle.Lives)}   ·   {VictoryName(battle.Win)}",
         };
         if (map is not null)
-            lines.Add(SkirmishPage.Teams(map));
+            lines.Add(SkirmishPage.Teams(map, battle.TeamSize, Game.Look));
         lines.Add(Goal(battle.Win));
         return string.Join("\n\n", lines);
     }
@@ -135,6 +143,11 @@ public static class BattlePod
             StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
             SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
         };
+        var sizes = RoomOptions.TeamSizes.ToList();
+        // The pod fights only the sizes it offers.
+        if (RoomOptions.Offered(draft.TeamSize) < 0)
+            draft.TeamSize = sizes[0];
+        var size = new ChipChoice(sizes.Select(s => RoomOptions.TeamSizeName(s, null)), Math.Max(0, sizes.IndexOf(draft.TeamSize))) { CustomMinimumSize = new Vector2(150, 62) };
         var lives = new ChipChoice(Enumerable.Range(1, 5).Select(LivesName), draft.Lives - 1) { CustomMinimumSize = new Vector2(150, 62) };
         var victory = new ChipChoice(Victories.Select(VictoryName), Math.Max(0, Array.IndexOf(Victories, draft.Win))) { CustomMinimumSize = new Vector2(250, 62) };
         var bracket = MenuTheme.Label("", 21, MenuTheme.Text);
@@ -152,11 +165,19 @@ public static class BattlePod
             picture.Texture = MapPicture(chosen, screens.Assets);
             var (top, bottom) = (draft.Tier, BattleCatalogue.BracketBottom(draft.Tier));
             bracket.Text = top == bottom ? BattleDraft.Roman(top) : $"{BattleDraft.Roman(bottom)}–{BattleDraft.Roman(top)}";
-            page.Bar = $"{MapName(chosen)} · {LivesName(draft.Lives)} · {VictoryName(draft.Win)} · {Lang.T("Tier {0}", bracket.Text)}";
+            page.Bar = $"{MapName(chosen)} · {SkirmishPage.TeamSizeName(draft.TeamSize, chosen)} · {LivesName(draft.Lives)} · {VictoryName(draft.Win)} · {Lang.T("Tier {0}", bracket.Text)}";
         }
         map.ItemSelected += at =>
         {
             draft.Map = maps[at].Scenario;
+            Show();
+        };
+        // A new team size proposes its lives, as a room does; the player may change them after.
+        size.ItemSelected += at =>
+        {
+            draft.TeamSize = sizes[at];
+            draft.Lives = RoomOptions.ProposedLives(draft.TeamSize, BattleCatalogue.Map(draft.Map));
+            lives.Selected = draft.Lives - 1;
             Show();
         };
         lives.ItemSelected += at => draft.Lives = at + 1;
@@ -174,6 +195,7 @@ public static class BattlePod
         }
         row.AddChild(Titled("Map", map));
         row.AddChild(picture);
+        row.AddChild(Titled("Team size", size));
         row.AddChild(Titled("Lives", lives));
         row.AddChild(Titled("Victory", victory));
         row.AddChild(Titled("Bracket", bracket, HorizontalAlignment.Center));
@@ -235,12 +257,14 @@ public static class BattlePod
                 SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
             });
         row.AddChild(Titled("Map", mapName, 190));
+        var teamSize = SkirmishPage.TeamSizeName(battle.TeamSize, map);
+        row.AddChild(Titled("Team size", teamSize, 90));
         row.AddChild(Titled("Lives", LivesName(battle.Lives), 90));
         row.AddChild(Titled("Victory", VictoryName(battle.Win), 230));
         var (top, bottom) = (battle.Tier, BattleCatalogue.BracketBottom(battle.Tier));
         var bracket = top == bottom ? BattleDraft.Roman(top) : $"{BattleDraft.Roman(bottom)}–{BattleDraft.Roman(top)}";
         row.AddChild(Titled("Bracket", bracket, 70));
-        page.Bar = $"{room.Name} · {mapName} · {LivesName(battle.Lives)} · {VictoryName(battle.Win)} · {Lang.T("Tier {0}", bracket)}";
+        page.Bar = $"{room.Name} · {mapName} · {teamSize} · {LivesName(battle.Lives)} · {VictoryName(battle.Win)} · {Lang.T("Tier {0}", bracket)}";
 
         var ready = MenuPage.Button("Ready", () =>
         {
@@ -265,11 +289,12 @@ public static class BattlePod
     /// <summary>A battle room for MACHINES_MENU_SCREENSHOT's pod-room: Canyon Attack, tier II, two lives.</summary>
     public static RoomState SampleRoom() => new(1, Lang.T("{0}'s battle", "Host"), "m_desert", "m_desert", [Race.Red, Race.Blue, Race.Green, Race.Yellow],
         new MatchOptions { Victory = VictoryCondition.Battle, FogOfWar = false, Battle = new BattleOptions { Tier = 2, Lives = 2 } },
-        true, 0, [], [new RoomSeat(null, SeatUse.Open), new RoomSeat(null, SeatUse.Open), new RoomSeat(null, SeatUse.Computer), new RoomSeat(null, SeatUse.Computer)]);
+        true, 0, [], [new RoomSeat(null, SeatUse.Open, Race.Red), new RoomSeat(null, SeatUse.Open, Race.Blue), new RoomSeat(null, SeatUse.Computer, Race.Green),
+            new RoomSeat(null, SeatUse.Computer, Race.Yellow)]);
 
     /// <summary>
-    /// The battle against the computer begins: the hero and the battle chosen are remembered, and the player's hero with three
-    /// bots by the mirror rule goes into the match's options, the bracket topped by the worn chassis' tier.
+    /// The battle against the computer begins: the hero and the battle chosen are remembered, and the player's hero with bots
+    /// at every other seat by the mirror rule goes into the match's options, the bracket topped by the worn chassis' tier.
     /// </summary>
     private static void Start(HangarPage page, BattleDesk desk)
     {
@@ -282,16 +307,33 @@ public static class BattlePod
         draft.Keep();
         var map = BattleCatalogue.Map(draft.Map)!;
         // A hero not named yet fights under the player's name, as a room's relay names it.
-        MatchRequest.Current = MatchRequest.ForBattle(map, draft.Options(unnamed: NetLink.OfflineName), BattleDraft.PlayerRace(map, draft.Colour), watch: false);
-        LoadingScreen.Show(page.GetTree(), Title(map), Detail(draft.Tier, draft.Lives, draft.Win));
+        MatchRequest.Current = Against(map, draft);
+        LoadingScreen.Show(page.GetTree(), Title(map), Detail(draft.Tier, draft.Lives, draft.Win, draft.TeamSize));
+    }
+
+    /// <summary>
+    /// The match of a battle against the computer on a map, as the draft chose it: the player at the first seat of their
+    /// colour's side (<see cref="BattleDraft.Player"/>), bots at every other. Each side wears its race's colour, the player's
+    /// side the one chosen: with a team size a colour that is not its team's first race still plays that race (its seats are
+    /// the team's), in the colour chosen. The other side never shows it, as a colour belongs to one team only.
+    /// </summary>
+    public static MatchRequest Against(BattleMap map, BattleDraft draft)
+    {
+        var request = MatchRequest.ForBattle(map, draft.Options(unnamed: NetLink.OfflineName), draft.Player(map), watch: false);
+        var side = BattleDraft.PlayerRace(map, draft.Colour, draft.TeamSize);
+        if (side == draft.Colour || request.Starts.Colours.Any(c => c.Key != side && c.Value == draft.Colour))
+            return request;
+        var colours = request.Starts.Colours.ToDictionary(c => c.Key, c => c.Value);
+        colours[side] = draft.Colour;
+        return request with { Starts = request.Starts with { Colours = colours } };
     }
 
     /// <summary>The loading screen's title for a battle on a map.</summary>
     public static string Title(BattleMap map) => Lang.T("Battle · {0}", MapName(map));
 
-    /// <summary>The loading screen's line under it: tier, lives and victory.</summary>
-    public static string Detail(int tier, int lives, BattleWin win) =>
-        $"{Lang.T("Tier {0}", BattleDraft.Roman(tier))}   ·   {LivesName(lives)}   ·   {VictoryName(win)}".ToUpperInvariant();
+    /// <summary>The loading screen's line under it: tier, lives and victory, and with a team size how many a team.</summary>
+    public static string Detail(int tier, int lives, BattleWin win, int teamSize = 0) =>
+        $"{(teamSize > 0 ? SkirmishPage.TeamSizeName(teamSize) + "   ·   " : "")}{Lang.T("Tier {0}", BattleDraft.Roman(tier))}   ·   {LivesName(lives)}   ·   {VictoryName(win)}".ToUpperInvariant();
 }
 
 /// <summary>

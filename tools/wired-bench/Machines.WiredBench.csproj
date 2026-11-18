@@ -5,6 +5,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- The bench may ask by race for the race's first player (PlayerId.RaceForm); the sim and the net may not. -->
+    <NoWarn>$(NoWarn);MACHINES0001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

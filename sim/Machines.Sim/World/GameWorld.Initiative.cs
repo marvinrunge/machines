@@ -62,7 +62,7 @@ public sealed partial class GameWorld
             return;
         if (Vector2.DistanceSquared(spy.Position, point) <= 1)
         {
-            var mine = new LandMineState(_nextMineId++, spy.Race, spy.Position);
+            var mine = new LandMineState(_nextMineId++, spy.Race, spy.Position, spy.Owner);
             LandMines.Add(mine);
             spy.Mines--;
             Raise(new GameEvent(GameEventKind.MineLaid, spy.Id, spy.Position, mine.Id));
@@ -122,7 +122,7 @@ public sealed partial class GameWorld
             if (victim is null)
                 continue;
             LandMines.Remove(mine);
-            Damage(victim, 80, mine.Race, weapon: LandMineBlast);
+            Damage(victim, 80, mine.Race, weapon: LandMineBlast, player: mine.Owner);
             Raise(new GameEvent(GameEventKind.MineExploded, victim.Id, mine.Position, mine.Id));
         }
     }

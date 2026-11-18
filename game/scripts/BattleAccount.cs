@@ -16,12 +16,12 @@ public sealed record BattleWhy(string Words, params object[] Args)
 /// <summary>What a battle or a Wired run brings the account: XP on the chassis it was fought on, free XP and credits.</summary>
 public sealed record BattleNote(string Chassis, int Xp, int FreeXp, int Credits, bool Won = false, bool Wired = false)
 {
-    /// <summary>What a race's battle brings, by <see cref="BattleRewards.Of"/>; null for a race that had no hero in it.</summary>
-    public static BattleNote? Of(BattleRun run, Race race)
+    /// <summary>What a player's battle brings, by <see cref="BattleRewards.Of(BattleRun, Machines.Sim.World.PlayerId)"/>; null for a player that had no hero in it.</summary>
+    public static BattleNote? Of(BattleRun run, Machines.Sim.World.PlayerId player)
     {
-        if (!run.Tally.TryGetValue(race, out var tally))
+        if (!run.Tally.TryGetValue(player, out var tally))
             return null;
-        var reward = BattleRewards.Of(run, race);
+        var reward = BattleRewards.Of(run, player);
         return new BattleNote(tally.Chassis, reward.Xp, reward.FreeXp, reward.Credits, reward.Won);
     }
 
@@ -46,6 +46,9 @@ public sealed record BattleHeroSheet
 
     public int Lives { get; init; } = 1;
     public BattleWin Win { get; init; } = BattleWin.Both;
+
+    /// <summary>The team size last chosen (<see cref="BattleOptions.TeamSize"/>: 0 two against two, 5 five against five).</summary>
+    public int TeamSize { get; init; }
 
     /// <summary>The hero as a battle takes it, playing <paramref name="race"/>.</summary>
     public BattleHero Hero(Race race) => new(race, BattleDraft.ShortName(Name), Chassis, Items.ToList());

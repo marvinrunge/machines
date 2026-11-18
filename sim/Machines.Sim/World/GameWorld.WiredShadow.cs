@@ -23,7 +23,7 @@ public sealed partial class GameWorld
     /// </summary>
     public bool Shadowed(Actor seeker, Actor target)
     {
-        if (Wired is not { } run || target is not Machine || !run.Heroes.TryGetValue(target.Race, out var state)
+        if (Wired is not { } run || target is not Machine || !run.Heroes.TryGetValue(target.Owner, out var state)
             || state.Hero != target.Id || !AreEnemies(seeker.Race, target.Race) || !QuietForShadow(state)
             || (WornSpecial(state) & ChassisSpecial.Shadow) == 0 || LocatedFor(target.Id) > 0)
             return false;

@@ -8,9 +8,9 @@ namespace Machines.Game;
 // What a Wired hero means to the views. In any other match World.Wired is null and none of this does anything.
 public partial class Game
 {
-    /// <summary>What a hero of a Wired run wears; null for every other actor.</summary>
+    /// <summary>What a hero of a Wired run (or a battle) wears; null for every other actor. A hero is its player's: found by its owner.</summary>
     private HeroLoadout? HeroOf(Actor actor) =>
-        World.Wired is { } run && run.Heroes.TryGetValue(actor.Race, out var state) && state.Hero == actor.Id ? state.Loadout : null;
+        World.Wired is { } run && run.Heroes.TryGetValue(actor.Owner, out var state) && state.Hero == actor.Id ? state.Loadout : null;
 
     /// <summary>Whether the actor is a hero of a Wired match: the panel offers it none of the original's constructor, spy or locator commands.</summary>
     public bool IsHero(Actor actor) => HeroOf(actor) is not null;
@@ -44,22 +44,23 @@ public partial class Game
     private async void ScriptRefit()
     {
         if (_refitScripted || World.Wired is not { } run || System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_REFIT") is not { Length: > 0 } script
-            || World.HeroOf(Player) is not { } hero)
+            || World.HeroOf(Me) is not { } hero)
             return;
         _refitScripted = true;
         var words = script.Split(',');
-        var state = run.Heroes[Player];
+        var state = run.Heroes[Me];
         Select([hero.Id]);
         _rig.Position = _views[hero.Id].Position;
 
         async Task Wait(double seconds) => await ToSignal(GetTree().CreateTimer(seconds), SceneTreeTimer.SignalName.Timeout);
         async Task Do(Command command)
         {
-            if (words.Length > 4 && words[4] == "burning" && World.HeroOf(Player) is { } burning)
+            if (words.Length > 4 && words[4] == "burning" && World.HeroOf(Me) is { } burning)
                 burning.HitPoints = burning.MaxHitPoints / 20;
-            // The world forgets its refusals with the next tick, so they are looked for after each.
+            // The world forgets its refusals with the next tick, so they are looked for after each; the world's copy carries
+            // the player it came from (Command.Issuer, stamped by the session), the one issued here none.
             var reasons = new List<string>();
-            void Refused() => reasons.AddRange(World.Rejected.Where(r => Equals(r.Command, command)).Select(r => r.Reason));
+            void Refused() => reasons.AddRange(World.Rejected.Where(r => Equals(r.Command with { Issuer = command.Issuer }, command)).Select(r => r.Reason));
             Ticked += Refused;
             Issue(command);
             await Wait(0.3);
@@ -88,7 +89,7 @@ public partial class Game
         }
         CloseHangar();
         await Wait(0.3);
-        if (World.HeroOf(Player) is not { } refitted || !_views.TryGetValue(refitted.Id, out var view))
+        if (World.HeroOf(Me) is not { } refitted || !_views.TryGetValue(refitted.Id, out var view))
             return;
         _rig.Position = view.Position;
         GD.Print($"hero: {refitted.Spec.Type} {refitted.Spec.SubType} refits {refitted.Refits}, selected {_selection.Contains(refitted.Id)}, bounds {view.Bounds}, eye {view.Eye - view.GlobalPosition}");

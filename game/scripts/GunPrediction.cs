@@ -19,7 +19,14 @@ public static class GunPrediction
     /// A command on its way: the tick the world carries it out on, the hull turn it makes then (radians anticlockwise, as
     /// <see cref="GameWorld.HullTurnOf"/> works it out) and the heading the driver looks along.
     /// </summary>
-    public readonly record struct Due(long Tick, float Turn, float Yaw);
+    public readonly record struct Due(long Tick, float Turn, float Yaw)
+    {
+        /// <summary>The tick the command was stamped for when it went out: where it runs, unless online it lands later (<see cref="Land"/>).</summary>
+        public long Stamp { get; init; } = Tick;
+
+        /// <summary>Online: the relay's bundle placed it, at <see cref="Tick"/>.</summary>
+        public bool Landed { get; init; }
+    }
 
     /// <summary>
     /// The gun as it will stand: the hull's facing, the upper body's turn from it, the two together (the gun's heading), how
@@ -36,8 +43,36 @@ public static class GunPrediction
             due.Add(entry);
     }
 
-    /// <summary>The commands the world has carried out by <paramref name="tick"/> leave.</summary>
-    public static void Drop(List<Due> due, long tick) => due.RemoveAll(entry => entry.Tick < tick);
+    /// <summary>
+    /// The commands the world has carried out by <paramref name="tick"/> leave. Online (<paramref name="grace"/> above 0) one
+    /// not landed yet stays that many ticks past its stamp, as a late turn may still land on a bundle after it
+    /// (<see cref="Land"/>); one the relay dropped never lands and leaves then.
+    /// </summary>
+    public static void Drop(List<Due> due, long tick, int grace = 0) =>
+        due.RemoveAll(entry => entry.Tick < tick && (grace <= 0 || entry.Landed || entry.Tick < tick - grace));
+
+    /// <summary>
+    /// Online, the relay placed the command stamped <paramref name="stamp"/> on the bundle of <paramref name="tick"/> (P2 design
+    /// §4.4): it runs there, later than stamped for a late turn, and turns nothing before it. Of two on one tick the world keeps
+    /// the one sent later, as the relay puts their commands one after the other.
+    /// </summary>
+    public static void Land(List<Due> due, long stamp, long tick)
+    {
+        var at = due.FindIndex(entry => entry.Stamp == stamp && !entry.Landed);
+        if (at < 0)
+            return;
+        var landed = due[at] with { Tick = Math.Max(tick, stamp), Landed = true };
+        due.RemoveAt(at);
+        var there = due.FindIndex(entry => entry.Tick == landed.Tick);
+        if (there >= 0)
+        {
+            if (due[there].Stamp > landed.Stamp)
+                return;
+            due.RemoveAt(there);
+        }
+        var after = due.FindIndex(entry => entry.Tick > landed.Tick);
+        due.Insert(after < 0 ? due.Count : after, landed);
+    }
 
     /// <summary>The hull turns still to come from <paramref name="tick"/> on, but for the one due at <paramref name="except"/>, which a new command replaces.</summary>
     public static float Turning(IReadOnlyList<Due> due, long tick, long except)

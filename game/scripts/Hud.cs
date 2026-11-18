@@ -81,9 +81,15 @@ public partial class Hud : CanvasLayer
         root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         AddChild(root);
 
-        _banner = new Label { Visible = false, HorizontalAlignment = HorizontalAlignment.Center };
+        // Across the view and about its middle, wrapped where it is longer than the view is wide: anchored at the screen's
+        // centre alone it began there and ran off the right edge ("Waiting for …", "Reconnecting to the relay…").
+        _banner = new Label
+        {
+            Visible = false, HorizontalAlignment = HorizontalAlignment.Center, AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            GrowVertical = Control.GrowDirection.Both, MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
         _banner.AddThemeFontSizeOverride("font_size", 64);
-        _banner.SetAnchorsPreset(Control.LayoutPreset.Center);
+        _banner.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.HcenterWide, Control.LayoutPresetMode.KeepHeight);
         root.AddChild(_banner);
 
         _picture = new TextureRect { Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, TextureFilter = CanvasItem.TextureFilterEnum.Nearest };
@@ -123,6 +129,9 @@ public partial class Hud : CanvasLayer
         root.AddChild(_panel);
         Chat = new MatchChat(_game, _panel);
         root.AddChild(Chat);
+        // The banner over all of it: put below a Wired run's plates it reaches the hero's radar at the foot of the view, which
+        // drawn over it cut its words.
+        root.MoveChild(_banner, -1);
     }
 
     public void Message(string text)
@@ -137,6 +146,24 @@ public partial class Hud : CanvasLayer
     {
         _banner.Text = text ?? "";
         _banner.Visible = text is not null;
+        // Over the view beside the control panel, as the pictures are.
+        _banner.OffsetLeft = _panel.Visible ? _panel.ScreenWidth : 0;
+    }
+
+    /// <summary>
+    /// The banner about the middle of the view, but below a Wired run's plates and the watching plate under them where those
+    /// hang that far down (a battle of ten or fifteen a side at a large HUD size: three lines about the middle ran over the
+    /// capture bars and under "Watching …"), and within the view's foot.
+    /// </summary>
+    private void PlaceBanner(Vector2 screen)
+    {
+        if (!_banner.Visible)
+            return;
+        var high = _banner.Size.Y;
+        var middle = screen.Y / 2;
+        var top = Math.Max(middle - high / 2, (Wired?.Reach ?? 0) + 8);
+        top = Math.Max(0, Math.Min(top, screen.Y - high - 8));
+        (_banner.OffsetTop, _banner.OffsetBottom) = (top - middle, top - middle + high);
     }
 
     /// <summary>
@@ -179,8 +206,13 @@ public partial class Hud : CanvasLayer
             // The run's plates take the top: the chat and the messages start below the wave's plate and the bosses' bars.
             top = Math.Max(top, run.Hanging - 34);
         }
+        PlaceBanner(screen);
         _figures.Position = new Vector2(left, 8 + top);
-        _figures.Text = Lang.T("Machines {0}     Score {1}     ", world.Machines.Count(m => m.Race == Game.Player), state.Score.Gross) +
+        // The race's machines, and in a race of several commanders the player's own in brackets after them.
+        var machines = world.Machines.Count(m => m.Race == Game.Player).ToString();
+        if (world.Players.Shared(Game.Player))
+            machines += $" ({world.Machines.Count(m => m.Race == Game.Player && m.Owner == Game.Me)})";
+        _figures.Text = Lang.T("Machines {0}     Score {1}     ", machines, state.Score.Gross) +
                         (world.TimeLeft is { } timeLeft
                             ? Lang.T("Time left {0}", TimeSpan.FromSeconds(timeLeft).ToString(@"h\:mm\:ss"))
                             : Lang.T("Time {0}", TimeSpan.FromSeconds(world.Time).ToString(@"h\:mm\:ss"))) +

@@ -35,7 +35,7 @@ public sealed partial class GameWorld
     /// </returns>
     public string? WhyNoSpecial(WiredState state, bool on = true)
     {
-        if (HeroOf(state.Race) is not { } hero)
+        if (HeroOf(state) is not { } hero)
             return "the hero is down";
         if (hero.Inside is not null)
             return "not from inside the pod";
@@ -77,10 +77,16 @@ public sealed partial class GameWorld
     }
 
     /// <summary>What the HUD shows of the special of a race's hero's chassis; null for a chassis without one, or outside a Wired match.</summary>
-    public WiredSpecialView? SpecialView(Race race)
+    [Obsolete("Race form: name the player.", DiagnosticId = PlayerId.RaceForm)]
+    public WiredSpecialView? SpecialView(Race race) => SpecialView(PlayerId.Of(race));
+
+    /// <summary>What the HUD shows of the special of a player's hero's chassis; null for a chassis without one, for a player without a hero, or outside a Wired match.</summary>
+    public WiredSpecialView? SpecialView(PlayerId player) =>
+        Wired?.Heroes.GetValueOrDefault(player) is { } state ? SpecialView(state) : null;
+
+    /// <summary>What the HUD shows of the special of a hero's chassis; null for a chassis without one.</summary>
+    public WiredSpecialView? SpecialView(WiredState state)
     {
-        if (Wired?.Heroes.GetValueOrDefault(race) is not { } state)
-            return null;
         var special = WornSpecial(state);
         if ((special & ChassisSpecial.Towers) != 0)
             return TowerView(state);

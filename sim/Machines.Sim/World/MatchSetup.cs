@@ -8,39 +8,48 @@ namespace Machines.Sim.World;
 public static class MatchSetup
 {
     /// <param name="players">The races taking part and who controls each; races not listed are left out.</param>
+    /// <remarks>One player per race: the table of <see cref="PlayerTable.OnePerRace"/>, in the dictionary's order.</remarks>
     public static GameWorld Create(GameData data, string scenarioName, string planetName, IReadOnlyDictionary<Race, Controller> players,
+        int seed = 1, MatchOptions? options = null) =>
+        Create(data, scenarioName, planetName, PlayerTable.OnePerRace(players, (options ?? new MatchOptions()).IsBattle), seed, options);
+
+    /// <param name="players">
+    /// The players taking part, as the match records them; races without a row are left out, and the races are created in
+    /// the order of their first row. In a battle the races are the teams', in race order: a seat no row names gets a bot,
+    /// as the sim composes a hero no one brought, and rows of races outside the teams are left out.
+    /// </param>
+    public static GameWorld Create(GameData data, string scenarioName, string planetName, PlayerTable players,
         int seed = 1, MatchOptions? options = null)
     {
         options ??= new MatchOptions();
-        if (options.Battle is null && options.Victory == VictoryCondition.Battle)
+        if (options is { IsBattle: true, Battle: null })
             options = options with { Battle = new BattleOptions() };
+        IReadOnlyList<Race> races = players.Races;
         // A battle keeps of the scenario the ground, its artefacts and one pod per team; it is no Wired run.
         if (options.Battle is { } fight)
         {
-            var map = BattleCatalogue.Map(scenarioName);
+            var (teamA, teamB) = BattleSeats.Teams(fight, BattleCatalogue.Map(scenarioName));
             options = options with
             {
-                Battle = fight with
-                {
-                    TeamA = fight.TeamA.Count > 0 ? fight.TeamA : map?.TeamA ?? [],
-                    TeamB = fight.TeamB.Count > 0 ? fight.TeamB : map?.TeamB ?? [],
-                },
+                Battle = fight with { TeamA = teamA, TeamB = teamB },
                 Victory = VictoryCondition.Battle,
                 Wired = null,
             };
             if (options.Battle!.TeamA.Count == 0 || options.Battle.TeamB.Count == 0 || options.Battle.TeamA.Intersect(options.Battle.TeamB).Any())
                 throw new ArgumentException($"a battle on {scenarioName} needs two teams apart");
-            players = options.Battle.TeamA.Concat(options.Battle.TeamB).Distinct().Order()
-                .ToDictionary(race => race, race => players.GetValueOrDefault(race, Controller.Ai));
+            races = [.. options.Battle.TeamA.Concat(options.Battle.TeamB).Distinct().Order()];
+            players = Seated(players, options.Battle, races, scenarioName);
         }
         // A Wired run keeps of the scenario only the ground, its artefacts and each player's pod.
         else if (options.Wired is not null || options.Victory == VictoryCondition.Wired)
             options = options with { Wired = options.Wired ?? new WiredOptions(), Victory = VictoryCondition.Wired };
+        if (options.Battle is null && players.Rows.FirstOrDefault(r => r.Kind == PlayerKind.Bot) is { } bot)
+            throw new ArgumentException($"player {bot.Id} is a bot, which only a battle has");
         var wired = options.Wired is not null;
         var battle = options.Battle;
         var bare = wired || battle is not null;
         var scenario = data.LoadScenario(scenarioName);
-        var world = new GameWorld(data, data.LoadPlanet(planetName), seed) { Options = options };
+        var world = new GameWorld(data, data.LoadPlanet(planetName), seed) { Options = options, Players = players.Fresh() };
 
         // Active artefacts (trees, rocks, wrecks, doors the scenario names ACTIVE) stand in the way: their boundary,
         // turned as they stand, is blocked to machines and building (MachLogArtefact::addObstaclePolygon), and they
@@ -72,8 +81,9 @@ public static class MatchSetup
         foreach (var site in scenario.MineralSites.Where(s => s.Level == ResourceLevel.Default || s.Level == options.Resources))
             world.Sites.Add(new MineralSiteState(world.Sites.Count, site));
 
-        foreach (var (race, controller) in players)
+        foreach (var race in races)
         {
+            var controller = players.HasHuman(race) ? Controller.Player : Controller.Ai;
             var setup = scenario.Race(race) ?? throw new ArgumentException($"{scenarioName} has no {race} race");
             var state = new RaceState(race, controller)
             {
@@ -88,7 +98,7 @@ public static class MatchSetup
             world.Races[race] = state;
             world.BuildingPlans[race] = [];
 
-            foreach (var building in battle is not null ? BattlePod(setup, race, battle) : wired ? WiredBuildings(setup, controller) : setup.Constructions)
+            foreach (var building in battle is not null ? BattlePod(setup, race, battle) : wired ? WiredBuildings(setup, players.HasHuman(race)) : setup.Constructions)
             {
                 if (building.NotBuilt)
                 {
@@ -103,9 +113,13 @@ public static class MatchSetup
                 placed.Rebuild = building.Rebuild;
             }
 
+            // With several commanders the race's starting machines are dealt among them in turn; otherwise all are the race's.
+            var humans = players.PlayersOf(race).Where(id => players[id].Kind == PlayerKind.Human).ToList();
+            var dealt = 0;
             foreach (var unit in bare ? [] : setup.Machines)
             {
-                var machine = world.AddMachine(race, new Vector2(unit.Position.X, unit.Position.Y), unit.Type, unit.SubType, unit.HardwareLevel, unit.WeaponCombo);
+                PlayerId? owner = humans.Count > 1 ? humans[dealt++ % humans.Count] : null;
+                var machine = world.AddMachine(race, new Vector2(unit.Position.X, unit.Position.Y), unit.Type, unit.SubType, unit.HardwareLevel, unit.WeaponCombo, owner);
                 machine.Squad = unit.Squad;
                 machine.Height = unit.Position.Z;
                 machine.DisplayAs = unit.DisplayAs;
@@ -161,7 +175,7 @@ public static class MatchSetup
         else if (options.Wired is { } run)
         {
             // Where the others would have started, the waves may arrive.
-            var starts = Enum.GetValues<Race>().Where(r => !players.TryGetValue(r, out var controller) || controller != Controller.Player)
+            var starts = Enum.GetValues<Race>().Where(r => !players.HasHuman(r))
                 .Select(scenario.Race).OfType<RaceSetup>()
                 .SelectMany(setup => setup.Constructions.Where(b => b.Type == "POD").Select(b => b.Position).Concat(setup.Machines.Select(m => m.Position)).Take(1))
                 .Select(p => new Vector2(p.X, p.Y));
@@ -170,13 +184,36 @@ public static class MatchSetup
         return world;
     }
 
+    /// <summary>
+    /// The players of a battle: the given rows of the teams' races, and a bot for every seat (<see cref="BattleSeats.Of"/>)
+    /// no row names, named after the hero the battle composes for it. A row of a team's race that is none of its seats would
+    /// be a player without a hero, and is refused.
+    /// </summary>
+    private static PlayerTable Seated(PlayerTable given, BattleOptions battle, IReadOnlyList<Race> races, string scenario)
+    {
+        var seats = BattleSeats.Of(battle);
+        var rows = given.Rows.Where(r => races.Contains(r.Race)).ToList();
+        if (rows.FirstOrDefault(r => !seats.Any(seat => seat.Player == r.Id && seat.Race == r.Race)) is { } stray)
+            throw new ArgumentException($"player {stray.Id} of {stray.Race} has no seat in this battle");
+        var missing = seats.Where(seat => rows.All(r => r.Id != seat.Player)).ToList();
+        if (missing.Count == 0)
+            return rows.Count == given.Rows.Count ? given : new PlayerTable(rows);
+        var heroes = BattleBots.Compose(battle, battle.Heroes, scenario).Heroes;
+        foreach (var seat in missing)
+        {
+            var name = heroes.FirstOrDefault(h => (h.Player ?? PlayerId.Of(h.Race)) == seat.Player)?.Name ?? BattleBots.TeamName(seat.Team, seat.Place);
+            rows.Add(new PlayerSeat(seat.Player, seat.Race, PlayerKind.Bot, name));
+        }
+        return new PlayerTable(rows);
+    }
+
     /// <summary>What of a race's buildings stands in a battle: the first pod of each team's anchor, the first race of the team.</summary>
     private static IEnumerable<ScenarioConstruction> BattlePod(RaceSetup setup, Race race, BattleOptions battle) =>
         battle.TeamA[0] == race || battle.TeamB[0] == race ? setup.Constructions.Where(b => b.Type == "POD" && !b.NotBuilt).Take(1) : [];
 
-    /// <summary>What of a race's buildings stands in a Wired run: a player's first pod, and nothing of the others.</summary>
-    private static IEnumerable<ScenarioConstruction> WiredBuildings(RaceSetup setup, Controller controller) =>
-        controller == Controller.Player ? setup.Constructions.Where(b => b.Type == "POD" && !b.NotBuilt).Take(1) : [];
+    /// <summary>What of a race's buildings stands in a Wired run: the first pod of a race people play, and nothing of the others.</summary>
+    private static IEnumerable<ScenarioConstruction> WiredBuildings(RaceSetup setup, bool played) =>
+        played ? setup.Constructions.Where(b => b.Type == "POD" && !b.NotBuilt).Take(1) : [];
 
     private static void ApplyResearch(GameWorld world, ScenarioResearch research)
     {

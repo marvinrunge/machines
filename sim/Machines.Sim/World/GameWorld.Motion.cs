@@ -455,7 +455,7 @@ public sealed partial class GameWorld
     /// without an upper body, which aims with its hull, no faster than a driver could aim it (<see cref="HeroBuild.HullAimRate"/>).
     /// </summary>
     private float TurnTop(Machine machine) =>
-        Wired?.Heroes.GetValueOrDefault(machine.Race) is { } state && state.Hero == machine.Id && !machine.CanTurnUpperBody
+        HeroStateOf(machine) is { } state && !machine.CanTurnUpperBody
             ? MathF.Min(machine.Stats.RotationSpeed, state.Build(Data).HullAimRate)
             : machine.Stats.RotationSpeed;
 
@@ -845,7 +845,7 @@ public sealed partial class GameWorld
     {
         var general = Data.Parm.General;
         var limit = slow ? general.FirstPersonMaxSlowTurnRate : general.FirstPersonMaxFastTurnRate;
-        if (Wired?.Heroes.GetValueOrDefault(machine.Race) is not { } state || state.Hero != machine.Id)
+        if (HeroStateOf(machine) is not { } state)
             return MathF.Min(machine.Stats.RotationSpeed, limit);
         var build = state.Build(Data);
         return hasYaw && !slow && !machine.CanTurnUpperBody ? build.HullAimRate : build.DrivenTurnRate(limit);

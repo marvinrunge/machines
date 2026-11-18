@@ -34,6 +34,9 @@ public sealed class Projectile(int id, WeaponSpec weapon, int shooter, Race race
     /// <summary>Which copy of a Wired hero's battery on that mounting fired it: 0 for the first, and for every other weapon.</summary>
     public int Copy { get; init; }
     public Race Race { get; } = race;
+
+    /// <summary>The player who fired it, taken as it was fired: a hero that falls before it lands keeps what it does.</summary>
+    public PlayerId? Owner { get; init; }
     public Vector2 Start { get; } = start;
 
     /// <summary>The point it was fired at (a view flies it there in a straight line, height and all).</summary>
@@ -88,7 +91,7 @@ public sealed partial class GameWorld
             ? Vector2.Normalize(offset)
             : shooter is Machine machine ? new Vector2(DetMath.Cos(machine.Facing), DetMath.Sin(machine.Facing)) : Vector2.UnitX;
         _projectiles.Add(new Projectile(_nextProjectile++, weapon.Spec, shooter.Id, shooter.Race, shooter.Position, direction,
-            weapon.Mounting, weapon.Shots++, towards, AimPoint(shooter).Z, aimHeight) { Sighted = sighted, OffSight = offSight, Copy = weapon.Copy });
+            weapon.Mounting, weapon.Shots++, towards, AimPoint(shooter).Z, aimHeight) { Sighted = sighted, OffSight = offSight, Copy = weapon.Copy, Owner = shooter.Owner });
     }
 
     private void UpdateProjectiles()
@@ -137,7 +140,7 @@ public sealed partial class GameWorld
         if (projectile.Weapon.TypeName == "ORB_OF_TREACHERY")
             Treachery(projectile, point);
         else
-            Burst(InWorld(point), projectile.Weapon, projectile.Shooter, projectile.Race);
+            Burst(InWorld(point), projectile.Weapon, projectile.Shooter, projectile.Race, projectile.Owner);
     }
 
     /// <summary>The first machine of any other race within a metre of where the orb ends changes sides, an ally's too (MachLogTreacheryOrb::doBeDestroyed).</summary>
@@ -151,6 +154,9 @@ public sealed partial class GameWorld
             if (Vector3.DistanceSquared(point, Vector3.Clamp(point, min, max)) >= 1)
                 continue;
             Defect(traitor, orb.Race);
+            // It goes to whoever threw the orb; in a race of one player that is the race's own player, as it always was.
+            if (orb.Owner is { } thrower && Plays(thrower, orb.Race))
+                traitor.GiveTo(thrower);
             Raise(new GameEvent(GameEventKind.Hit, traitor.Id, traitor.Position, orb.Shooter, orb.Weapon.TypeName));
             return;
         }

@@ -9,7 +9,10 @@ using Machines.Sim.World;
 
 namespace Machines.Tests.Net;
 
-/// <summary>A battle in deterministic lockstep through the real relay: two players against each other, the computer's bots beside them.</summary>
+/// <summary>
+/// A battle in deterministic lockstep through the real relay keeping the beat (scripted timings): two players against each
+/// other, the computer's bots beside them.
+/// </summary>
 public class BattleLockstepTests
 {
     private static readonly Lazy<GameData> DataLoader = new(() => GameData.Load(RepoPaths.OriginalDataFolder()));
@@ -17,12 +20,12 @@ public class BattleLockstepTests
     [Fact]
     public async Task Two_players_and_two_bots_keep_identical_worlds_and_a_replay_repeats_them()
     {
-        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback, beat: BeatTimings.Scripted);
         var (a, b) = await Player.Battle(relay, new BattleOptions { Tier = 3, Lives = 2 });
         await using var _ = a;
         await using var __ = b;
         Assert.Equal((Race.Red, Race.Green), (a.Race, b.Race));
-        Assert.Equal(new[] { Race.Blue, Race.Yellow }, a.Session.World.HeroBots.Keys);
+        Assert.Equal(new[] { PlayerId.Of(Race.Blue), PlayerId.Of(Race.Yellow) }, a.Session.World.HeroBots.Keys);
 
         var rng = new Random(3);
         // Half the drives say where their driver looks, so the guns turn there; a hero with a turned upper body shows it.
@@ -47,9 +50,9 @@ public class BattleLockstepTests
         Assert.True(a.Session.World.Tick > BattleBalance.Opening / GameWorld.Dt + 100, $"only {a.Session.World.Tick} ticks ran");
         Assert.Equal(a.Session.World.Tick, b.Session.World.Tick);
         Assert.Equal(a.Session.World.Checksum(), b.Session.World.Checksum());
-        Assert.Null(a.Session.DesyncTick);
-        Assert.Null(b.Session.DesyncTick);
-        Assert.Contains(a.Session.Played, t => t.Race == b.Race);
+        Assert.Empty(a.Resumed);
+        Assert.Empty(b.Resumed);
+        Assert.Contains(a.Session.Played, t => a.Session.World.Players.RaceOf(t.Player) == b.Race);
         Assert.True(turned, "no sighted hero turned its upper body");
 
         var replay = new Replay(a.Match, a.Session.Played, a.Session.World.Tick, a.Session.Presence);
@@ -68,7 +71,7 @@ public class BattleLockstepTests
     [Fact]
     public async Task A_leavers_hero_is_driven_by_a_bot_and_the_battle_goes_on_to_its_end()
     {
-        await using var relay = RelayServer.Start(0, IPAddress.Loopback);
+        await using var relay = RelayServer.Start(0, IPAddress.Loopback, beat: BeatTimings.Scripted);
         var (a, b) = await Player.Battle(relay, new BattleOptions { Tier = 2, TimeLimit = 20 });
         await using var _ = a;
         await using var __ = b;
@@ -83,7 +86,7 @@ public class BattleLockstepTests
             await Player.Frame(a);
         Assert.Equal(Controller.Ai, world.Races[leaver].Controller);
         Assert.True(world.HeroBots.ContainsKey(leaver));
-        Assert.Contains(leaver, world.Battle!.Bots);
+        Assert.Contains(PlayerId.Of(leaver), world.Battle!.Bots);
         var hero = world.HeroOf(leaver)!;
         var from = hero.Position;
 
@@ -112,6 +115,10 @@ public class BattleLockstepTests
         public MatchInfo Match { get; private set; } = null!;
         public LockstepSession Session { get; private set; } = null!;
         public Race Race { get; private set; }
+
+        /// <summary>Every rebuild of the world the relay sent (a resync), in order.</summary>
+        public List<MatchResumed> Resumed { get; } = [];
+
         private bool _gone;
 
         private static async Task<Player> Connect(RelayServer relay, string name)
@@ -154,23 +161,32 @@ public class BattleLockstepTests
         private void Begin(MatchInfo match)
         {
             Match = match;
-            Race = match.Players.Single(p => p.ClientId == Id).Slot;
-            Session = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), Race,
-                match.Players.Where(p => !p.Ai).Select(p => p.Slot), match.InputDelay, echoed: true);
+            var table = match.Table();
+            var me = table.Rows[match.Players.ToList().FindIndex(p => p.ClientId == Id && !p.Ai)].Id;
+            Race = table.RaceOf(me);
+            Session = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), me, match.InputDelay, mode: SessionMode.Bundles);
             Session.Outgoing += Connection.Send;
+            Connection.Send(new MatchLoaded());
         }
 
-        /// <summary>One frame of each client: send turns, read what arrived, step what can be stepped.</summary>
+        /// <summary>A message of the relay to the session; a rebuild is only noted (no test here expects one).</summary>
+        private void Take(NetMessage message)
+        {
+            if (message is MatchResumed resumed)
+                Resumed.Add(resumed);
+            Session.Receive(message);
+        }
+
+        /// <summary>One frame of each client: send a turn, read what arrived, step what can be stepped, a turn after each tick.</summary>
         public static async Task Frame(params Player[] players)
         {
             foreach (var player in players)
             {
                 player.Session.Pump();
                 while (player.Connection.Inbox.TryRead(out var message))
-                    player.Session.Receive(message);
+                    player.Take(message);
                 for (var steps = 0; steps < 40 && player.Session.TryStep(); steps++)
-                {
-                }
+                    player.Session.Pump();
             }
             await Task.Delay(1);
         }
@@ -183,7 +199,7 @@ public class BattleLockstepTests
                 foreach (var player in new[] { a, b })
                 {
                     while (player.Connection.Inbox.TryRead(out var message))
-                        player.Session.Receive(message);
+                        player.Take(message);
                     var other = player == a ? b : a;
                     if (player.Session.World.Tick < other.Session.World.Tick)
                         player.Session.TryStep();

@@ -199,6 +199,18 @@ public static class WiredBalance
     /// <summary>The most machines a wave's budget buys.</summary>
     public const int MostInWave = 60;
 
+    /// <summary>
+    /// What a run of <paramref name="heroes"/> heroes multiplies a wave's budget, the reinforcements' budget and
+    /// <see cref="MostInWave"/> by: a starting value for co-op (online plan P5 tunes it). Only asked for more than one hero.
+    /// </summary>
+    public static float CoopFoes(int heroes) => 1 + 0.6f * (heroes - 1);
+
+    /// <summary>What a run of <paramref name="heroes"/> heroes multiplies a boss's hit points by: a starting value for co-op. Only asked for more than one hero.</summary>
+    public static float CoopBoss(int heroes) => 1 + 0.5f * (heroes - 1);
+
+    /// <summary>The most machines a wave's budget buys in a run of <paramref name="heroes"/> heroes: <see cref="MostInWave"/> for one, more for more.</summary>
+    public static int MostInWaveFor(int heroes) => heroes > 1 ? (int)(MostInWave * CoopFoes(heroes)) : MostInWave;
+
     /// <summary>The most machines that arrive together, and the groups a wave is split into if it has the machines for it.</summary>
     public const int GroupSize = 4, FewestGroups = 3;
 

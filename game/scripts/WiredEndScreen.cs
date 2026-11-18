@@ -94,7 +94,7 @@ public partial class WiredEndScreen(Game game, ClassicAssets assets) : MenuPage(
     protected override void Build()
     {
         _run = game.World.Wired!;
-        _state = _run.Heroes.GetValueOrDefault(Game.Player) ?? _run.Heroes.Values.First();
+        _state = _run.Heroes.GetValueOrDefault(Game.Me) ?? _run.Heroes.Values.First();
         _report = new WiredReport(_state.Stats, _run.Options.Difficulty);
         if (game.WiredBefore is { } before)
             _news = new WiredRecordNews(before, _report.Score, _state.Stats.WavesCleared, _state.Stats.Kills);
@@ -155,7 +155,8 @@ public partial class WiredEndScreen(Game game, ClassicAssets assets) : MenuPage(
         column.AddChild(chip);
 
         var plate = new ChipPanel { Padding = 8 };
-        var name = MenuTheme.Label(_run.Options.HeroName is { Length: > 0 } hero ? hero : Lang.T("Hero"), 30, MenuTheme.Bright, HorizontalAlignment.Center);
+        // The shown hero's own name: in a run of several heroes each has its own (WiredOptions.HeroFor).
+        var name = MenuTheme.Label(_run.Options.HeroFor(_state.Player).Name is { Length: > 0 } hero ? hero : Lang.T("Hero"), 30, MenuTheme.Bright, HorizontalAlignment.Center);
         name.AutoTranslateMode = AutoTranslateModeEnum.Disabled;
         var loadout = _state.Loadout;
         var chassis = MenuTheme.Label(HangarText.Name(loadout.Chassis.Catalogue), 22, MenuTheme.Text, HorizontalAlignment.Center);

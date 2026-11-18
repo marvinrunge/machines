@@ -9,23 +9,29 @@ public sealed partial class GameWorld
     // The steps each machine has still to carry out, after the order it has now.
     private readonly Dictionary<int, Queue<Command>> _series = [];
 
+    /// <remarks>
+    /// Every step is its giver's: the sites a series places are placed at once by whoever gave the series, and the steps
+    /// kept for later are carried out in the giver's name, so that a step the machine does not stand in for (a squadron
+    /// formed, an APC deployed) orders nothing its giver may not, and a step its giver may no longer order the machine to
+    /// take is passed over. Machines are not given away in a series.
+    /// </remarks>
     private string? ApplySeries(SeriesCommand series)
     {
-        if (series.Steps.Count == 0 || series.Steps.Any(s => s is SeriesCommand or SquadronCommand || s.Race != series.Race))
+        if (series.Steps.Count == 0 || series.Steps.Any(s => s is SeriesCommand or SquadronCommand or GiveCommand || s.Race != series.Race))
             return "not a series of orders";
-        var machines = Own<Machine>(series.Race, series.Machines).ToList();
+        var machines = Own<Machine>(series, series.Machines).ToList();
         var steps = new List<Command>();
         string? why = null;
         foreach (var step in series.Steps)
         {
             if (step is not PlaceConstructionCommand place)
             {
-                steps.Add(step);
+                steps.Add(step with { Issuer = series.Issuer });
                 continue;
             }
-            why = Place(place with { Constructors = [] }, out var site);
+            why = Place(place with { Constructors = [], Issuer = series.Issuer }, out var site);
             if (site is not null)
-                steps.Add(new ConstructCommand(series.Race, [], site.Id));
+                steps.Add(new ConstructCommand(series.Race, [], site.Id) { Issuer = series.Issuer });
         }
         foreach (var machine in machines)
         {

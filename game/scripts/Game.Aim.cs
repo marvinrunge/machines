@@ -86,8 +86,12 @@ public partial class Game
         return new Pointed(actor, actor is null ? DebrisAt(screen) : null, GroundAt(screen), actor is null && SiteAt(screen) is not null);
     }
 
-    /// <summary>The first of the selected that is not inside an APC, on which the cursor is based.</summary>
-    private Actor? Leading => _selection.Select(World.Find).OfType<Actor>().FirstOrDefault(a => a is not Machine { Inside: not null });
+    /// <summary>
+    /// The first of the selected that is not inside an APC, on which the cursor is based. A teammate's machine, which the
+    /// player may look at but not order (MayOrder), leads nothing: the cursor shows no order the click would not carry out.
+    /// </summary>
+    private Actor? Leading => _selection.Select(World.Find).OfType<Actor>()
+        .FirstOrDefault(a => a is not Machine { Inside: not null } && (a.Race != Player || MayOrder(a)));
 
     private List<Machine> Movers() => SelectedMachines().Where(m => m.Inside is null).ToList();
 

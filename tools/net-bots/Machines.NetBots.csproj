@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Machines.NetBots</RootNamespace>
+    <!-- The harness's scripts may ask by race for the race's first player (PlayerId.RaceForm); the sim and the net may not. -->
+    <NoWarn>$(NoWarn);MACHINES0001</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\import\Machines.Import\Machines.Import.csproj" />
+    <ProjectReference Include="..\..\sim\Machines.Sim\Machines.Sim.csproj" />
+    <ProjectReference Include="..\..\net\Machines.Net\Machines.Net.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The tests' relay client, as the P2 acceptance plays it (P2 design §9, S6): no test framework in it. -->
+    <Compile Include="..\..\tests\Machines.Tests\Net\RelayClient.cs" Link="RelayClient.cs" />
+  </ItemGroup>
+
+</Project>

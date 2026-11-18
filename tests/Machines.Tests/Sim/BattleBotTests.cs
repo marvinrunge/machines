@@ -238,8 +238,8 @@ public class BattleBotTests
         Assert.True(green.DrivenByPlayer);
         world.HandOverToAi(Race.Green);
         Assert.Equal(Controller.Ai, world.Races[Race.Green].Controller);
-        Assert.Contains(Race.Green, world.HeroBots.Keys);
-        Assert.Contains(Race.Green, world.Battle!.Bots);
+        Assert.Contains(PlayerId.Of(Race.Green), world.HeroBots.Keys);
+        Assert.Contains(PlayerId.Of(Race.Green), world.Battle!.Bots);
         Assert.False(green.DrivenByPlayer);
         Assert.Equal(DefCon.High, green.DefCon);
         var start = green.Position;
@@ -248,8 +248,8 @@ public class BattleBotTests
 
         world.HandBackFromAi(Race.Green);
         Assert.Equal(Controller.Player, world.Races[Race.Green].Controller);
-        Assert.DoesNotContain(Race.Green, world.HeroBots.Keys);
-        Assert.DoesNotContain(Race.Green, world.Battle.Bots);
+        Assert.DoesNotContain(PlayerId.Of(Race.Green), world.HeroBots.Keys);
+        Assert.DoesNotContain(PlayerId.Of(Race.Green), world.Battle.Bots);
         Assert.Equal(DefCon.Normal, green.DefCon);
         Assert.IsType<IdleOrder>(green.Order);
     }

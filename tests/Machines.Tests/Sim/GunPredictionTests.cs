@@ -112,6 +112,48 @@ public class GunPredictionTests
     }
 
     [Fact]
+    public void Online_a_late_command_moves_to_the_bundle_it_landed_on_and_one_the_relay_dropped_ages_out()
+    {
+        // Sent stamped 10, 11, 12 and 14 (turns 0.1, 0.2, 0.3 and 0.5); the world is at 12 when the bundle of 13 brings the late
+        // 10 and 11 (Asked 11).
+        var due = new List<GunPrediction.Due>();
+        foreach (var tick in new long[] { 10, 11, 12, 14 })
+            GunPrediction.Add(due, new(tick, 0.1f * (tick - 9), tick));
+        GunPrediction.Drop(due, 12, grace: 20);
+        Assert.Equal(4, due.Count);
+        Assert.Equal(0.3f + 0.5f, GunPrediction.Turning(due, 12, -1), 6);
+
+        GunPrediction.Land(due, 10, 13);
+        GunPrediction.Land(due, 11, 13);
+        // Of the two on 13 the later sent runs, as the world carries out the relay's commands in their order; it turns the hull
+        // still to come, where before the world passed it and the prediction lost it.
+        Assert.Equal([12L, 13L, 14L], due.Select(e => e.Tick));
+        Assert.Equal([12L, 11L, 14L], due.Select(e => e.Stamp));
+        Assert.Equal([false, true, false], due.Select(e => e.Landed));
+        Assert.Equal(0.3f + 0.2f + 0.5f, GunPrediction.Turning(due, 12, -1), 6);
+        // An earlier one never lands over one sent later on the same tick; a stamp nobody waits for changes nothing.
+        GunPrediction.Land(due, 12, 14);
+        Assert.Equal([13L, 14L], due.Select(e => e.Tick));
+        Assert.Equal(0.5f, due[^1].Turn, 6);
+        GunPrediction.Land(due, 99, 100);
+        GunPrediction.Land(due, 14, 14);
+        Assert.Equal([true, true], due.Select(e => e.Landed));
+
+        // Landed ones go once the world passed them; one that never lands (the relay dropped it) stays past its tick for the grace.
+        GunPrediction.Add(due, new(16, 0.7f, 16));
+        GunPrediction.Drop(due, 17, grace: 20);
+        Assert.Equal([16L], due.Select(e => e.Stamp));
+        Assert.Equal(0f, GunPrediction.Turning(due, 17, -1));
+        GunPrediction.Drop(due, 37, grace: 20);
+        Assert.Empty(due);
+
+        // Offline (no grace) everything leaves as the world passes it, as before.
+        GunPrediction.Add(due, new(5, 0.1f, 0));
+        GunPrediction.Drop(due, 6);
+        Assert.Empty(due);
+    }
+
+    [Fact]
     public void A_held_trigger_waits_for_the_gun_and_a_click_does_not()
     {
         // Held a second, the gun off and the sight on nothing: no bit.

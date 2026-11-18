@@ -219,7 +219,7 @@ public sealed partial class GameWorld
         var gained = armour - harvester.Armour;
         harvester.Durability = harvester.Durability with { Armour = armour };
         Raise(new GameEvent(GameEventKind.WiredHarvest, harvester.Id, harvester.Position, victim.Id, gained.ToString()));
-        if (Battle is null && Wired!.Heroes.GetValueOrDefault(harvester.Race) is { } state && state.Hero == harvester.Id)
+        if (Battle is null && HeroStateOf(harvester) is { } state)
             state.Harvests.Add(victim.Position);
     }
 
@@ -233,7 +233,7 @@ public sealed partial class GameWorld
         {
             if (state.Harvests.Count == 0)
                 continue;
-            if (HeroOf(state.Race) is { } hero)
+            if (HeroOf(state) is { } hero)
                 PayHarvest(state, hero);
             state.Harvests.Clear();
         }
@@ -379,7 +379,7 @@ public sealed partial class GameWorld
     /// </returns>
     public string? WhyNoAnchor(WiredState state, bool on)
     {
-        if (HeroOf(state.Race) is not { } hero)
+        if (HeroOf(state) is not { } hero)
             return "the hero is down";
         if ((BodySpecial(hero) & ChassisSpecial.Anchor) == 0)
             return "this chassis has nothing to use";
@@ -394,7 +394,7 @@ public sealed partial class GameWorld
     {
         if (WhyNoAnchor(state, on) is { } why)
             return why;
-        var hero = HeroOf(state.Race)!;
+        var hero = HeroOf(state)!;
         if (on && AnchorPhaseOf(hero) == AnchorPhase.Free)
             Lock(hero, BodyOf(hero));
         else if (!on && KnownBody(hero) is { } body)
@@ -540,38 +540,38 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// Whether a Marshal hero out in the open stands near a machine of its own: in a run an escort of its squad, in a
-    /// battle the hero of a team-mate. Never the Marshal itself, and two near one count as one.
+    /// battle the hero of a team-mate, of its own colour too. Never the Marshal itself, and two near one count as one.
     /// </summary>
     private bool InField(Machine machine)
     {
         if (Wired is not { } run)
             return false;
         if (Battle is not { } battle)
-            return run.Heroes.GetValueOrDefault(machine.Race) is { } state && state.EscortIds.Contains(machine.Id) && NearMarshal(state, machine);
-        var team = battle.TeamOf(machine.Race);
-        if (team < 0 || run.Heroes.GetValueOrDefault(machine.Race) is not { } own || own.Hero != machine.Id)
+            return run.Heroes.GetValueOrDefault(machine.Owner) is { } state && state.EscortIds.Contains(machine.Id) && NearMarshal(state, machine);
+        var team = battle.TeamOf(machine.Owner);
+        if (team < 0 || HeroStateOf(machine) is null)
             return false;
-        foreach (var (race, mate) in run.Heroes)
+        foreach (var (player, mate) in run.Heroes)
         {
-            if (race != machine.Race && battle.TeamOf(race) == team && NearMarshal(mate, machine))
+            if (player != machine.Owner && battle.TeamOf(player) == team && NearMarshal(mate, machine))
                 return true;
         }
         return false;
     }
 
     private bool NearMarshal(WiredState state, Machine machine) =>
-        (WornSpecial(state) & ChassisSpecial.Field) != 0 && HeroOf(state.Race) is { Inside: null } marshal && marshal != machine
+        (WornSpecial(state) & ChassisSpecial.Field) != 0 && HeroOf(state) is { Inside: null } marshal && marshal != machine
         && Vector2.DistanceSquared(marshal.Position, machine.Position) <= WiredBalance.FieldReach * WiredBalance.FieldReach;
 
     /// <summary>The escorts a rally would call in: those standing and out in the open, not aboard a building or a carrier.</summary>
-    private IEnumerable<Machine> Callable(WiredState state) => Escorts(state.Race).Where(e => e.Inside is null);
+    private IEnumerable<Machine> Callable(WiredState state) => Escorts(state).Where(e => e.Inside is null);
 
     /// <returns>null if the hero's Marshal can call its squad in now, otherwise why not.</returns>
     public string? WhyNoRally(WiredState state)
     {
         if (Battle is not null)
             return "there is no squad in a battle";
-        if (HeroOf(state.Race) is null)
+        if (HeroOf(state) is null)
             return "the hero is down";
         if ((WornSpecial(state) & ChassisSpecial.Field) == 0)
             return "this chassis has nothing to use";
@@ -588,7 +588,7 @@ public sealed partial class GameWorld
     {
         if (WhyNoRally(state) is { } why)
             return why;
-        var hero = HeroOf(state.Race)!;
+        var hero = HeroOf(state)!;
         var moved = 0;
         foreach (var escort in Callable(state).OrderBy(e => e.Id).ToList())
         {
@@ -615,7 +615,7 @@ public sealed partial class GameWorld
     private WiredSpecialView? BodyView(WiredState state)
     {
         var special = WornSpecial(state);
-        var hero = HeroOf(state.Race);
+        var hero = HeroOf(state);
         if ((special & ChassisSpecial.Anchor) != 0)
             return AnchorView(state, special, hero);
         if ((special & ChassisSpecial.Field) != 0)
@@ -654,7 +654,7 @@ public sealed partial class GameWorld
     private WiredSpecialView RallyView(WiredState state, ChassisSpecial special, Machine? hero)
     {
         var left = MathF.Max(0, state.RallyReadyAt - Time);
-        var squad = Escorts(state.Race).ToList();
+        var squad = Escorts(state).ToList();
         var near = hero is null ? 0 : squad.Count(e => e.Inside is null
             && Vector2.DistanceSquared(e.Position, hero.Position) <= WiredBalance.FieldReach * WiredBalance.FieldReach);
         var why = WhyNoSpecial(state);

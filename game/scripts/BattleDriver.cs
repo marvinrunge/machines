@@ -27,7 +27,12 @@ namespace Machines.Game;
 /// <item><c>lives=&lt;1..5&gt;</c> and <c>win=both|wipe|capture</c>: else the pod's;</item>
 /// <item><c>shots=&lt;moment&gt;+...</c>, <c>all</c> (the default) or <c>none</c>: pictures at menu, pod, deal, ready, opening,
 /// fight, capture, down, watching, ended, end and after, and at t&lt;tick&gt;; a file "snap" in the folder asks for one at once;</item>
-/// <item><c>end=pod|menu</c>: the end screen's button it presses (pod).</item>
+/// <item><c>end=pod|menu</c>: the end screen's button it presses (pod);</item>
+/// <item><c>online</c>: the battle of the multiplayer page's room (MACHINES_MP) instead of the pod's, waited for ten minutes
+/// at most and driven on through every reload of the match scene (a rebuild, a rejoin, a late join), never while the hero is
+/// not the player's (<see cref="Game.HeroHeld"/>); pictures of who lags, who is away, the own world held and back, a join and
+/// a chat line; at the end screen whether the battle counted, without the account check, and no button pressed;</item>
+/// <item><c>team=&lt;text&gt;</c> (online): said to the team once the hero is the player's.</item>
 /// </list>
 /// Battle is the remake's own addition.
 /// </summary>
@@ -36,8 +41,15 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
     /// <summary>What the switch asks for.</summary>
     public sealed record Course(string? Map, int? Tier, int? Lives, BattleWin? Win, string End, Plan Pictures)
     {
+        /// <summary>The battle of the multiplayer page's room, through every reload of the match scene.</summary>
+        public bool Online { get; init; }
+
+        /// <summary>Online: a line said to the team once the hero is the player's.</summary>
+        public string? TeamSay { get; init; }
+
         public static Course Parse(IEnumerable<string> options)
         {
+            options = options.ToList();
             var set = options.Select(o => o.Split('=', 2)).Where(w => w.Length == 2).ToDictionary(w => w[0].Trim().ToLowerInvariant(), w => w[1].Trim());
             string? Get(string key) => set.TryGetValue(key, out var value) && value.Length > 0 ? value : null;
             int? Number(string key) => Get(key) is { } text && int.TryParse(text, out var value) ? value : null;
@@ -50,7 +62,11 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
             if (end is not ("pod" or "menu"))
                 throw new ArgumentException($"MACHINES_BATTLE_DRIVE: end is pod or menu, not '{end}'");
             return new Course(map, Number("tier"), Number("lives") is { } lives ? Math.Clamp(lives, 1, 5) : null, win, end,
-                new Plan("Driver", int.MaxValue, null, 0, shots, end, "squad"));
+                new Plan("Driver", int.MaxValue, null, 0, shots, end, "squad"))
+            {
+                Online = options.Any(o => o.Trim() == "online"),
+                TeamSay = Get("team"),
+            };
         }
     }
 
@@ -88,6 +104,11 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
         {
             if (MatchRequest.Current.Replay is not null)
                 await Recording();
+            else if (course.Online)
+            {
+                if (await Fight())
+                    await EndOnline();
+            }
             else
             {
                 await ToPod();
@@ -342,23 +363,13 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
     /// <summary>The battle, frame by frame, until its end screen is up (true) or the match is gone (false).</summary>
     private async Task<bool> Fight()
     {
-        if (await Until(() => Scene is Game found && found.IsNodeReady() && found.World.Battle is not null ? found : null, 180) is not { } game)
+        // Online the room's match may take a while: the others join, ready and load.
+        if (await NextBattle(null, course.Online ? 600 : 180) is not { } game)
         {
             Say("no battle came");
             return false;
         }
-        _game = game;
-        var world = game.World;
-        var run = world.Battle!;
-        LetGo();
-        _brain = new BattleBot(world, Game.Player, _orders.Add);
-        (_thinkAt, _target, _place, _dash, _ability, _special, _stand) = (0, null, null, null, null, null, false);
-        _byCommand.Clear();
-        _way = [];
-        game.Ticked += () => Ticked(game);
-        Say($"battle on {MatchRequest.Current.Scenario}: player {Game.Player}, tier {run.Options.Tier}, {run.Options.Lives} lives, {run.Options.Win}, " +
-            $"teams [{string.Join(", ", run.Teams[0])}] against [{string.Join(", ", run.Teams[1])}], heroes " +
-            string.Join("; ", run.Options.Heroes.Select(h => $"{h.Race} {h.Name} {h.Chassis}{(h.Bot ? " (bot)" : "")} [{string.Join(", ", h.Items.Select(i => i.Catalogue))}]")));
+        var (world, run) = Bind(game);
         await Until(() => !IsInstanceValid(game) || !game.Warming && !game.Hidden && world.Tick > 0, 180);
         while (true)
         {
@@ -366,7 +377,27 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
             if (!IsInstanceValid(game) || Scene != game)
             {
                 LetGo();
-                return false;
+                if (!course.Online)
+                    return false;
+                // Online the match scene is loaded anew when the world is rebuilt or the match rejoined: driven on in the new one.
+                // Taken out of the match, or with the line lost, the game goes back to the rooms, which say why: pictured.
+                var was = game;
+                if (await Until(() => Scene is Game found && found != was && found.IsNodeReady() && found.World.Battle is not null ? (Node)found
+                        : Find<MultiplayerPage>(), 180) is not Game again)
+                {
+                    if (Find<MultiplayerPage>() is not null)
+                    {
+                        await Wait(2);
+                        Say("back in the rooms");
+                        await Picture("rooms");
+                    }
+                    return false;
+                }
+                Say($"the match scene was loaded again: driving on as player {Game.Me}");
+                game = again;
+                (world, run) = Bind(game);
+                await Until(() => !IsInstanceValid(game) || !game.Warming && !game.Hidden && world.Tick > 0, 180);
+                continue;
             }
             await Pictures();
             if (BattleEndScreen.Current is not null)
@@ -375,12 +406,14 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
                 return true;
             }
             await Moments(game, run);
+            if (course.Online && await Online(game))
+                continue;
             if (run.Over || game.MatchOver || game.MenuShown is not null)
             {
                 LetGo();
                 continue;
             }
-            if (game.HeroDown || world.HeroOf(Game.Player) is null)
+            if (game.HeroDown || world.HeroOf(Game.Me) is null)
             {
                 LetGo();
                 continue;
@@ -400,6 +433,99 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
         }
     }
 
+    /// <summary>A match scene with its battle, ready, other than <paramref name="was"/>; null when none comes in time.</summary>
+    private async Task<Game?> NextBattle(Game? was, double seconds) =>
+        await Until(() => Scene is Game found && found != was && found.IsNodeReady() && found.World.Battle is not null ? found : null, seconds);
+
+    /// <summary>The driver takes on a match scene: its world, the bot that thinks for the player, and its ticks.</summary>
+    private (GameWorld World, BattleRun Run) Bind(Game game)
+    {
+        _game = game;
+        var world = game.World;
+        var run = world.Battle!;
+        LetGo();
+        // The autopilot thinks for the player at this computer: their hero, of their place in the team.
+        _brain = new BattleBot(world, Game.Me, _orders.Add);
+        (_thinkAt, _target, _place, _dash, _ability, _special, _stand) = (0, null, null, null, null, null, false);
+        _byCommand.Clear();
+        _way = [];
+        (_heldSince, _freeSince, _joinedSeen, _chatSeen, _wasHeld) = (-1, -1, world.Players.Joined.Count, game.Chat.Lines.Count, false);
+        game.Ticked += () => Ticked(game);
+        Say($"battle on {MatchRequest.Current.Scenario}: player {Game.Player}, tier {run.Options.Tier}, {run.Options.Lives} lives, {run.Options.Win}, " +
+            $"teams [{string.Join(", ", run.Teams[0])}] against [{string.Join(", ", run.Teams[1])}], heroes " +
+            string.Join("; ", run.Options.Heroes.Select(h => $"{h.Race} {h.Name} {h.Chassis}{(h.Bot ? " (bot)" : "")} [{string.Join(", ", h.Items.Select(i => i.Catalogue))}]")));
+        return (world, run);
+    }
+
+    // Online: since when the player's hero has been held from them, and free again; how many late joins and chat lines were seen;
+    // whether the team was spoken to.
+    private double _heldSince = -1, _freeSince = -1;
+    private int _joinedSeen, _chatSeen;
+    private bool _teamSaid, _wasHeld;
+
+    /// <summary>
+    /// Online, a frame of the battle before any driving (P2 design §5.4, §6.3): pictures of another person's row tagged LAG or
+    /// AWAY, of the player's own world held from the hero and back, of a late join and of each new chat line; the line to the
+    /// team once the hero is the player's. True while the hero is not the player's: nothing is driven then.
+    /// </summary>
+    private async Task<bool> Online(Game game)
+    {
+        var world = game.World;
+        var now = Time.GetTicksMsec() / 1000.0;
+        if (game.BattleHud?.Battle is { } readout)
+        {
+            // Each tag the first time it shows on another person's row, on the HUD's team list.
+            var others = readout.Ours.Heroes.Concat(readout.Theirs.Heroes).Where(h => !h.You && !h.Out).ToList();
+            foreach (var (tag, hero) in new[] { ("lag", others.FirstOrDefault(h => h.Lagging)), ("away", others.FirstOrDefault(h => h.Away)) })
+            {
+                if (hero is null || !_taken.Add(tag))
+                    continue;
+                Say($"tick {world.Tick}: {hero.Label} ({hero.PlayerName}) is tagged {tag.ToUpperInvariant()}");
+                await Moment(tag, $"{tag}-t{world.Tick}");
+            }
+        }
+        // The player's own world held from the hero for two seconds (the banner says why), and free again for two and a half.
+        var held = game.HeroHeld;
+        _heldSince = held ? _heldSince < 0 ? now : _heldSince : -1;
+        if (_heldSince >= 0 && now - _heldSince > 2 && !_wasHeld)
+        {
+            _wasHeld = true;
+            Say($"tick {world.Tick}: the hero is held from the player");
+            await Moment("held", $"held-t{world.Tick}");
+        }
+        _freeSince = !held && _wasHeld ? _freeSince < 0 ? now : _freeSince : -1;
+        if (_freeSince >= 0 && now - _freeSince > 2.5)
+        {
+            _wasHeld = false;
+            Say($"tick {world.Tick}: the hero is the player's again");
+            await Moment("back", $"back-t{world.Tick}");
+        }
+        if (world.Players.Joined.Count > _joinedSeen)
+        {
+            _joinedSeen = world.Players.Joined.Count;
+            Say($"tick {world.Tick}: joined late: [{string.Join(", ", world.Players.Joined.Select(p => $"{p} {world.Players[p].Name}"))}]");
+            await Wait(1);
+            await Moment("joined", $"joined-t{world.Tick}");
+        }
+        if (game.Chat.Lines.Count != _chatSeen)
+        {
+            _chatSeen = game.Chat.Lines.Count;
+            await Wait(0.3);
+            await Moment("chat", $"chat-t{world.Tick}");
+        }
+        if (held)
+        {
+            LetGo();
+            return true;
+        }
+        if (course.TeamSay is { } text && !_teamSaid && game.Driven is not null)
+        {
+            _teamSaid = true;
+            Say(game.Chat.AutomateTeam(text) ? $"said to the team: {text}" : "nobody of the team to say it to");
+        }
+        return false;
+    }
+
     /// <summary>The pictures of the battle's moments, each once (a fall each time).</summary>
     private async Task Moments(Game game, BattleRun run)
     {
@@ -414,13 +540,13 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
         _sightedSince = sighted ? _sightedSince < 0 ? now : _sightedSince : -1;
         if (!run.Over && (_sightedSince >= 0 && now - _sightedSince > 1 || run.Elapsed > 300 && game.Driven is not null))
             await Once("fight");
-        _downSince = game.HeroDown && world.HeroOf(Game.Player) is null && !run.Over ? _downSince < 0 ? now : _downSince : -1;
+        _downSince = game.HeroDown && world.HeroOf(Game.Me) is null && !run.Over ? _downSince < 0 ? now : _downSince : -1;
         if (_downSince >= 0 && now - _downSince > 1.5 && !_taken.Contains($"down-{_downs}"))
         {
             _taken.Add($"down-{_downs}");
             await Moment("down", $"down-{_downs}");
         }
-        _watchSince = game.WatchedName is not null && !run.Over && world.HeroOf(Game.Player) is null ? _watchSince < 0 ? now : _watchSince : -1;
+        _watchSince = game.WatchedName is not null && !run.Over && world.HeroOf(Game.Me) is null ? _watchSince < 0 ? now : _watchSince : -1;
         if (_watchSince >= 0 && now - _watchSince > 2.5)
             await Once("watching");
         _overSince = run.Over ? _overSince < 0 ? now : _overSince : -1;
@@ -448,23 +574,23 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
                 case GameEventKind.BattleHeroKilled:
                     Say($"tick {world.Tick}: {e.Detail}'s hero fell{(e.Other is { } by ? $" to {(Race)by}" : "")}");
                     break;
-                case GameEventKind.WiredHeroDied when e.Other == (int)Game.Player:
+                case GameEventKind.WiredHeroDied when e.Player == Game.Me:
                     _downs++;
                     Say($"tick {world.Tick}: the player's hero fell, {e.Detail} spare bodies left");
                     break;
-                case GameEventKind.WiredHeroRespawned when e.Other == (int)Game.Player:
+                case GameEventKind.WiredHeroRespawned when e.Player == Game.Me:
                     Say($"tick {world.Tick}: the player's hero stands at the pod again, {e.Detail} spare bodies left");
                     break;
                 case GameEventKind.BattleCaptureProgress:
                     Say($"tick {world.Tick}: team {e.Other} takes the pod: {e.Detail}");
                     break;
-                case GameEventKind.BattleCaptureReset when e.Other == (int)Game.Player:
+                case GameEventKind.BattleCaptureReset when e.Player == Game.Me:
                     Say($"tick {world.Tick}: the player's share of the capture is lost ({e.Detail})");
                     break;
-                case GameEventKind.WiredAbilityUsed when world.Find<Machine>(e.Actor)?.Race == Game.Player:
+                case GameEventKind.WiredAbilityUsed when world.Find<Machine>(e.Actor)?.Owner == Game.Me:
                     Say($"tick {world.Tick}: ability {e.Detail} went off");
                     break;
-                case GameEventKind.WiredDashed when world.Find<Machine>(e.Actor)?.Race == Game.Player:
+                case GameEventKind.WiredDashed when world.Find<Machine>(e.Actor)?.Owner == Game.Me:
                     Say($"tick {world.Tick}: the thrusters fired");
                     break;
                 case GameEventKind.BattleEnded:
@@ -488,15 +614,18 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
         var world = game.World;
         if (world.Tick % 100 != 0 || world.Battle is not { Over: false } run)
             return;
-        string Hero(Race race)
+        // Every player of each team in their place, named by race, with the number in the race where it has several ("Red 3").
+        string Hero(PlayerId player)
         {
-            var state = world.Wired?.Heroes.GetValueOrDefault(race);
-            var hero = world.HeroOf(race);
-            var tally = run.Tally.GetValueOrDefault(race);
-            return $"{race} {(hero is null ? "down" : $"{hero.HitPoints}/{hero.MaxHitPoints}")} bodies {state?.SpareBodies} dmg {tally?.Damage} kills {tally?.Kills}";
+            var state = world.Wired?.Heroes.GetValueOrDefault(player);
+            var hero = world.HeroOf(player);
+            var tally = run.Tally.GetValueOrDefault(player);
+            var race = world.Players.RaceOf(player);
+            var name = BattleReadout.NumberOf(world, player) is > 0 and var number ? $"{race} {number}" : race.ToString();
+            return $"{name} {(hero is null ? "down" : $"{hero.HitPoints}/{hero.MaxHitPoints}")} bodies {state?.SpareBodies} dmg {tally?.Damage} kills {tally?.Kills}";
         }
         Say($"tick {world.Tick} checksum {world.Checksum():x16} clock {run.TimeLeft:0} capture {run.Progress(0):0}/{run.Progress(1):0} " +
-            $"[{string.Join("; ", run.Teams[0].Select(Hero))}] vs [{string.Join("; ", run.Teams[1].Select(Hero))}]");
+            $"[{string.Join("; ", run.Members[0].Select(Hero))}] vs [{string.Join("; ", run.Members[1].Select(Hero))}]");
     }
 
     // ---- the hands --------------------------------------------------------------------------------
@@ -608,7 +737,7 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
     {
         var world = game.World;
         var reach = game.GunsOf(hero).Where(g => g.Weapon is not null).Select(g => g.Weapon!.Spec.Range).DefaultIfEmpty(0).Max();
-        var foe = world.Battle!.Teams.SelectMany(t => t).Where(r => world.AreEnemies(Game.Player, r)).Select(world.HeroOf).OfType<Machine>()
+        var foe = world.Battle!.Members.SelectMany(t => t).Select(world.HeroOf).OfType<Machine>().Where(m => world.AreEnemies(Game.Player, m.Race))
             .Where(m => m.Inside is null && NVector2.Distance(m.Position, hero.Position) <= reach)
             .OrderBy(m => NVector2.DistanceSquared(m.Position, hero.Position)).ThenBy(m => m.Id).FirstOrDefault();
         if (foe is null)
@@ -636,7 +765,7 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
         await Moment("end");
         Say($"end screen: {page.Figures}");
         var run = _game!.World.Battle!;
-        var reward = BattleRewards.Of(run, Game.Player);
+        var reward = BattleRewards.Of(run, Game.Me);
         var shown = page.Shown;
         var same = shown.Xp == reward.Xp && shown.FreeXp == reward.FreeXp && shown.Credits == reward.Credits;
         Say($"end check: shown {shown.Xp} XP, {shown.FreeXp} free XP, {shown.Credits} Cr; BattleRewards.Of gives {reward.Xp} XP, {reward.FreeXp} free XP, " +
@@ -662,6 +791,25 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
             var counted = xp == reward.Xp && free == reward.FreeXp && credits == reward.Credits;
             Say($"account check: +{xp} XP on {before.Chassis}, +{free} free XP, +{credits} Cr against the reward: {(counted ? "equal" : "DIFFERENT")}");
         }
+    }
+
+    /// <summary>
+    /// Online, the end screen once its show is over and the relay's word on the end has come (or the line is gone): its figures
+    /// and whether the battle counted. The account check is left out: a late joiner's battle does not count, and one held by
+    /// another game's process on the same machine may not either.
+    /// </summary>
+    private async Task EndOnline()
+    {
+        var page = BattleEndScreen.Current!;
+        for (var waited = 0.0; (!page.Done || _game is { } game && IsInstanceValid(game) && game.BattleConfirming) && waited < 60; waited += 0.1)
+            await Wait(0.1);
+        await Wait(1.5);
+        await Moment("end");
+        Say($"end screen: {page.Figures}");
+        if (_game is { } ended && IsInstanceValid(ended))
+            Say(ended.BattleCounted ? "the battle counted" : $"the battle did not count: {ended.BattleNotCounted ?? "-"}");
+        if (Replays().FirstOrDefault() is { } replay)
+            Say($"replay {replay}");
     }
 
     // ---- a recording ------------------------------------------------------------------------------

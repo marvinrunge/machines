@@ -165,7 +165,8 @@ public sealed record WeaponWay(WiredSlot Slot, bool Copy, float Gain);
 /// </summary>
 public sealed class HangarShop(GameWorld world, WiredState state)
 {
-    public int Bank => (int)world.Races[state.Race].Bmu;
+    /// <summary>What the hero can spend: its own purse in a run of several heroes, else the race's BMU (<see cref="GameWorld.Bank"/>).</summary>
+    public int Bank => (int)world.Bank(state);
 
     /// <summary>The wave the shop is stocked for: the next one.</summary>
     public int Wave => world.Wired!.ShopWave;
@@ -173,7 +174,7 @@ public sealed class HangarShop(GameWorld world, WiredState state)
     /// <summary>What clearing the next wave pays, on top of what its wrecks bring.</summary>
     public int WaveBonus => WiredBalance.WaveBonus(Wave) + WiredChips.WaveExtra(state, Wave);
 
-    public int SquadSize => world.Escorts(state.Race).Count();
+    public int SquadSize => world.Escorts(state).Count();
 
     public int SquadLimit => world.SquadLimit(state);
 

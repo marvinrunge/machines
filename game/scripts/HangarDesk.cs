@@ -403,7 +403,7 @@ public sealed class MatchDesk(Game game, ClassicAssets assets) : HangarDesk
 {
     private HangarShop? _shop;
 
-    private WiredState State => game.World.Wired!.Heroes[Game.Player];
+    private WiredState State => game.World.Wired!.Heroes[Game.Me];
 
     private GameWorld World => game.World;
 
@@ -415,7 +415,8 @@ public sealed class MatchDesk(Game game, ClassicAssets assets) : HangarDesk
 
     public override HeroLoadout Loadout => State.Loadout;
 
-    public override int Bank => (int)World.Races[Game.Player].Bmu;
+    // A hero of a run with its own purse (co-op) spends that, every other the race's BMU.
+    public override int Bank => (int)World.Bank(State);
 
     public override string Hint => "Right click takes off, or sells a spare.";
 
@@ -588,10 +589,10 @@ public sealed class MatchDesk(Game game, ClassicAssets assets) : HangarDesk
     public int EscortPrice(ResearchKey machine) => World.EscortPrice(State, machine);
 
     /// <summary>The escorts standing.</summary>
-    public IEnumerable<Machine> Escorts => World.Escorts(Game.Player);
+    public IEnumerable<Machine> Escorts => World.Escorts(Game.Me);
 
     /// <summary>The pod's hit points as they stand and what mending it wholly costs; null when it is gone.</summary>
-    public (int HitPoints, int MaxHitPoints, int Price)? Pod => World.WiredPod(Game.Player) is { } pod
+    public (int HitPoints, int MaxHitPoints, int Price)? Pod => World.WiredPod(Game.Me) is { } pod
         ? (pod.HitPoints, pod.MaxHitPoints, State.PodRepairPrice(pod.MaxHitPoints - pod.HitPoints))
         : null;
 

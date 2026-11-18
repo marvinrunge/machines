@@ -131,7 +131,8 @@ public partial class HangarClock(Game game) : VBoxContainer
     {
         if (game.World.Wired is not { } run)
             return;
-        _bank.Text = $"{(int)game.World.Races[Game.Player].Bmu} BMU";
+        var bank = run.Heroes.GetValueOrDefault(Game.Me) is { } state ? game.World.Bank(state) : game.World.Races[Game.Player].Bmu;
+        _bank.Text = $"{(int)bank} BMU";
         _wave.Text = Lang.T("Next: wave {0}", run.ShopWave) + (Coming(run) is { } coming ? $" · {coming}" : "");
         var pays = game.World.ReadyPays;
         _time.Text = !run.Waiting ? Lang.T("The wave is on its way")

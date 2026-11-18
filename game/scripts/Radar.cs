@@ -68,6 +68,23 @@ public partial class Radar : Control
     /// </summary>
     public float Head { get; set; }
 
+    /// <summary>
+    /// The number a hero's blip carries where its race has several heroes (a team of three to five of one colour): its
+    /// player's place in the race (<see cref="BattleReadout.NumberOf"/>); 0 for any other actor, and in today's layout.
+    /// </summary>
+    private static int HeroNumber(GameWorld world, Actor actor) =>
+        actor is Machine && world.Wired?.Heroes.GetValueOrDefault(actor.Owner) is { } state && state.Hero == actor.Id ? BattleReadout.NumberOf(world, actor.Owner) : 0;
+
+    /// <summary>A hero's number beside its blip, small and outlined so that it reads over the glass and the map.</summary>
+    private void DrawNumber(Vector2 at, int number, float scale)
+    {
+        var font = ThemeDB.FallbackFont;
+        var size = Mathf.Max(9, Mathf.RoundToInt(7 * scale));
+        var baseline = at + new Vector2(0, font.GetAscent(size) / 2);
+        DrawStringOutline(font, baseline, number.ToString(), HorizontalAlignment.Left, -1, size, Mathf.Max(2, Mathf.RoundToInt(scale)), Colors.Black);
+        DrawString(font, baseline, number.ToString(), HorizontalAlignment.Left, -1, size, Colors.White);
+    }
+
     /// <summary>Switches the radar on from its first frame, as when the original embodies a machine.</summary>
     public void Start()
     {
@@ -150,16 +167,18 @@ public partial class Radar : Control
                 _ => "conspix",
             };
             var blip = $"fstpersn/radar/blips/{letter}{kind}.bmp";
+            var centre = at.Round() + (ClassicGui.Bitmap(blip)?.GetSize() ?? Vector2.Zero) * scale / 2;
             if (!_game.LocatedFoe(actor))
                 Blit(blip, at, scale);
             else
             {
-                var middle = at.Round() + (ClassicGui.Bitmap(blip)?.GetSize() ?? Vector2.Zero) * scale / 2;
-                DrawArc(middle, 4.5f * scale, 0, Mathf.Tau, 16, new Color(0, 0, 0, 0.7f), scale + 2, true);
-                DrawArc(middle, 4.5f * scale, 0, Mathf.Tau, 16, new Color(1, 0.62f, 0.1f, blink ? 1 : 0.6f), scale, true);
+                DrawArc(centre, 4.5f * scale, 0, Mathf.Tau, 16, new Color(0, 0, 0, 0.7f), scale + 2, true);
+                DrawArc(centre, 4.5f * scale, 0, Mathf.Tau, 16, new Color(1, 0.62f, 0.1f, blink ? 1 : 0.6f), scale, true);
                 if (blink)
                     Blit(blip, at, scale);
             }
+            if (HeroNumber(world, actor) is > 0 and var number)
+                DrawNumber(centre + new Vector2(4, 3.5f) * scale, number, scale);
         }
         DrawDome(corner + (DomeAt + new Vector2(5.5f, 5.5f)) * scale, scale);
 

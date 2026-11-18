@@ -1,0 +1,10 @@
+# Only the projects the relay is built from go into the image's build (the context is the repository's root, whose
+# classic game files and models have nothing to do with it). Docker reads this file for the Dockerfile beside it.
+*
+!Directory.Build.props
+!import/Machines.Import
+!sim/Machines.Sim
+!net/Machines.Net
+!server/Machines.Relay
+**/bin
+**/obj

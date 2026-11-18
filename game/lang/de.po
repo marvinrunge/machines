@@ -561,8 +561,8 @@ msgstr " und "
 msgid "The moves scroll and turn the ground camera and drive in first person, where left and right step sideways or turn as the options' first-person keys say."
 msgstr "Die Bewegungen scrollen und drehen die Bodenkamera und fahren in der Ego-Perspektive; dort gehen Links und Rechts seitwärts oder drehen, wie es die Ego-Tasten in den Optionen festlegen."
 
-msgid "These keep their use: the arrows scroll too, and with Ctrl and Shift tilt the camera or, with Shift, look in first person; Ctrl with S stops, Shift with A or S selects all machines or buildings, Alt with them looks at the next; the numbers select a squadron and Ctrl with one forms it; F1 to F4 chat; Alt with the arrows moves the panel; Esc cancels or opens the menus. R turns a building, keypad 5 centres the upper body, keypad 1 goes into first person and Pause pauses too while no action has them. While the options' Classic Keys are on, the original's keys stand in for these."
-msgstr "Diese behalten ihre Aufgabe: Die Pfeile scrollen auch, neigen mit Strg und Umschalt die Kamera und sehen mit Umschalt in der Ego-Perspektive umher; Strg mit S hält an, Umschalt mit A oder S wählt alle Maschinen oder Gebäude, Alt damit zeigt die nächsten; die Ziffern wählen eine Staffel, Strg mit einer bildet sie; F1 bis F4 chatten; Alt mit den Pfeilen verschiebt die Leiste; Esc bricht ab oder öffnet die Menüs. R dreht ein Gebäude, Ziffernblock 5 richtet den Oberkörper aus, Ziffernblock 1 geht in die Ego-Perspektive und Pause hält an, solange keine Aktion sie belegt. Mit den klassischen Tasten der Optionen treten die Tasten des Originals an ihre Stelle."
+msgid "These keep their use: the arrows scroll too, and with Ctrl and Shift tilt the camera or, with Shift, look in first person; Ctrl with S stops, Shift with A or S selects all machines or buildings, Alt with them looks at the next; the numbers select a squadron and Ctrl with one forms it; F1 to F4 chat, Ctrl with F4 to the team; Alt with the arrows moves the panel; Esc cancels or opens the menus. R turns a building, keypad 5 centres the upper body, keypad 1 goes into first person and Pause pauses too while no action has them. While the options' Classic Keys are on, the original's keys stand in for these."
+msgstr "Diese behalten ihre Aufgabe: Die Pfeile scrollen auch, neigen mit Strg und Umschalt die Kamera und sehen mit Umschalt in der Ego-Perspektive umher; Strg mit S hält an, Umschalt mit A oder S wählt alle Maschinen oder Gebäude, Alt damit zeigt die nächsten; die Ziffern wählen eine Staffel, Strg mit einer bildet sie; F1 bis F4 chatten, Strg mit F4 mit dem Team; Alt mit den Pfeilen verschiebt die Leiste; Esc bricht ab oder öffnet die Menüs. R dreht ein Gebäude, Ziffernblock 5 richtet den Oberkörper aus, Ziffernblock 1 geht in die Ego-Perspektive und Pause hält an, solange keine Aktion sie belegt. Mit den klassischen Tasten der Optionen treten die Tasten des Originals an ihre Stelle."
 
 msgid "Forward"
 msgstr "Vorwärts"
@@ -936,6 +936,33 @@ msgstr "Port {0} lässt sich nicht öffnen: {1}"
 msgid "cannot reach {0}:{1} ({2})"
 msgstr "{0}:{1} ist nicht erreichbar ({2})"
 
+msgid "cannot reach {0} ({1})"
+msgstr "{0} ist nicht erreichbar ({1})"
+
+msgid "no answer"
+msgstr "keine Antwort"
+
+msgid "{0} is not a relay's address"
+msgstr "{0} ist keine Relay-Adresse"
+
+msgid "host:port, or wss://… for a relay online"
+msgstr "Host:Port, oder wss://… für ein Relay im Internet"
+
+msgid "Type the address of a relay first: host:port, or wss://… for a relay online."
+msgstr "Gib zuerst die Adresse eines Relays ein: Host:Port, oder wss://… für ein Relay im Internet."
+
+msgid "Server is waking up…"
+msgstr "Der Server wacht auf…"
+
+msgid "Connected as {0} to relay {1}."
+msgstr "Verbunden als {0} mit Relay {1}."
+
+msgid "The line to the relay dropped; reconnecting…"
+msgstr "Die Verbindung zum Relay ist abgerissen; verbinde neu…"
+
+msgid "Reconnecting to the relay…"
+msgstr "Verbinde neu mit dem Relay…"
+
 msgid "Hosting."
 msgstr "Spiel wird gehostet."
 
@@ -1251,9 +1278,6 @@ msgstr "Ein Mehrspieler-Match lässt sich nicht anhalten"
 
 msgid "Waiting for {0}"
 msgstr "Warte auf {0}"
-
-msgid "Out of sync since tick {0}: the players' games differ"
-msgstr "Seit Tick {0} nicht mehr synchron: Die Spiele der Spieler weichen ab"
 
 msgid "Catching up: tick {0}{1}"
 msgstr "Hole auf: Tick {0}{1}"
@@ -4322,3 +4346,289 @@ msgstr "eine Batterie braucht einen Waffenslot"
 
 msgid "Fire waits for the gun"
 msgstr "Feuer wartet auf die Kanone"
+
+msgid "This recording is from an older version of the game and can no longer be played."
+msgstr "Diese Aufnahme stammt aus einer älteren Version des Spiels und lässt sich nicht mehr abspielen."
+
+msgid "no such seat"
+msgstr "diesen Platz gibt es nicht"
+
+msgid "that seat is not free"
+msgstr "dieser Platz ist nicht frei"
+
+msgid "no such start position"
+msgstr "diese Startposition gibt es nicht"
+
+msgid "every side needs a seat"
+msgstr "jede Seite braucht einen Platz"
+
+msgid "two commanders per side at most"
+msgstr "höchstens zwei Kommandanten je Seite"
+
+msgid "a room has at most {0} seats"
+msgstr "ein Raum hat höchstens {0} Plätze"
+
+msgid "no such team size"
+msgstr "diese Teamgröße gibt es nicht"
+
+msgid "a team has at most {0} heroes"
+msgstr "ein Team hat höchstens {0} Helden"
+
+# Online (S5): commanders sharing a race, numbered heroes, team chat
+
+msgid "Away"
+msgstr "Weg"
+
+msgid "Bot"
+msgstr "Bot"
+
+msgid "{0}'s {1}"
+msgstr "{1} von {0}"
+
+msgid "Give to {0}"
+msgstr "An {0} geben"
+
+msgid "{0} is away: nothing can be given to them now"
+msgstr "{0} ist weg: Ihm kann jetzt nichts gegeben werden"
+
+msgid "Give the selected machines to {0}"
+msgstr "Die gewählten Maschinen an {0} geben"
+
+msgid "{0} gave you {1} machines"
+msgstr "{0} hat dir {1} Maschinen gegeben"
+
+msgid "{0} left – a bot drives their hero"
+msgstr "{0} ist gegangen – ein Bot fährt den Helden"
+
+msgid "{0} left the match"
+msgstr "{0} hat das Spiel verlassen"
+
+msgid "{0} left – you command their machines"
+msgstr "{0} ist gegangen – du befehligst die Maschinen"
+
+msgid "{0} left – {1} commands their machines"
+msgstr "{0} ist gegangen – {1} befehligt die Maschinen"
+
+msgid "{0} left – the computer plays {1}"
+msgstr "{0} ist gegangen – der Computer spielt {1}"
+
+msgid "{0} is back"
+msgstr "{0} ist zurück"
+
+msgid "Send to team: "
+msgstr "Ans Team: "
+
+msgid "{0} (team): {1}"
+msgstr "{0} (Team): {1}"
+
+msgid "Back when the wave is over"
+msgstr "Zurück, wenn die Welle vorbei ist"
+
+# Online (S5): why an order of a commander sharing a race was refused
+
+msgid "not your race"
+msgstr "nicht deine Seite"
+
+msgid "someone else drives it"
+msgstr "jemand anderes fährt sie"
+
+msgid "heroes are not given"
+msgstr "Helden werden nicht verschenkt"
+
+msgid "no commander of your race there to take them"
+msgstr "kein Kommandant deiner Seite da, der sie nimmt"
+
+msgid "they are yours already"
+msgstr "sie gehören dir schon"
+
+msgid "none of these are yours to give"
+msgstr "keine davon kannst du verschenken"
+
+msgid "you have no hero"
+msgstr "du hast keinen Helden"
+
+msgid "too many units"
+msgstr "zu viele Einheiten"
+
+# Online (S6): the room's seats, commanders per side, team sizes in rooms and the pod
+
+msgid "Commanders per side"
+msgstr "Kommandanten je Seite"
+
+msgid "{0} commanders per side"
+msgstr "{0} Kommandanten je Seite"
+
+msgid "Team size"
+msgstr "Teamgröße"
+
+msgid "2 vs 2"
+msgstr "2 gegen 2"
+
+msgid "5 vs 5"
+msgstr "5 gegen 5"
+
+msgid "Five heroes against five. A team wins when the other has no hero and no life left, or when its heroes have stood in the circle round the other team's pod long enough to take it. When the time is up, it is a draw."
+msgstr "Fünf Helden gegen fünf. Ein Team gewinnt, wenn das andere keinen Helden und kein Leben mehr hat oder wenn seine Helden lange genug im Kreis um den Pod des anderen Teams gestanden haben, um ihn einzunehmen. Ist die Zeit um, endet es unentschieden."
+
+msgid "{0} heroes against {0}. A team wins when the other has no hero and no life left, or when its heroes have stood in the circle round the other team's pod long enough to take it. When the time is up, it is a draw."
+msgstr "{0} Helden gegen {0}. Ein Team gewinnt, wenn das andere keinen Helden und kein Leben mehr hat oder wenn seine Helden lange genug im Kreis um den Pod des anderen Teams gestanden haben, um ihn einzunehmen. Ist die Zeit um, endet es unentschieden."
+
+msgid "Take this seat"
+msgstr "Platz nehmen"
+
+msgid "{0} of {1} seats taken"
+msgstr "{0} von {1} Plätzen besetzt"
+
+# Online (P2 S2b): the match on the relay's beat, its end, the seat's key and coming back
+
+msgid "Waiting for the others to load…"
+msgstr "Warte, bis die anderen geladen haben…"
+
+msgid "Waiting for the relay…"
+msgstr "Warte auf das Relay…"
+
+msgid "The match was decided at tick {0}; your game had gone out of step"
+msgstr "Das Match wurde bei Tick {0} entschieden; dein Spiel war nicht mehr synchron"
+
+msgid "{0} lags too far behind – a bot drives their hero"
+msgstr "{0} hängt zu weit hinterher – ein Bot fährt den Helden"
+
+msgid "{0} lags too far behind"
+msgstr "{0} hängt zu weit hinterher"
+
+msgid "{0} lags too far behind – you command their machines"
+msgstr "{0} hängt zu weit hinterher – du befehligst die Maschinen"
+
+msgid "{0} lags too far behind – {1} commands their machines"
+msgstr "{0} hängt zu weit hinterher – {1} befehligt die Maschinen"
+
+msgid "{0} lags too far behind – the computer plays {1}"
+msgstr "{0} hängt zu weit hinterher – der Computer spielt {1}"
+
+msgid "{0} joined and takes over {1}"
+msgstr "{0} ist dazugekommen und übernimmt {1}"
+
+msgid "{0} is lagging"
+msgstr "{0} hängt hinterher"
+
+msgid "{0} is on time again"
+msgstr "{0} ist wieder im Takt"
+
+msgid "Your connection cannot keep up with this match."
+msgstr "Deine Verbindung kommt bei diesem Match nicht mit."
+
+msgid "Your computer cannot keep up with this match."
+msgstr "Dein Computer kommt bei diesem Match nicht mit."
+
+msgid "you came back to this match from another connection"
+msgstr "du bist über eine andere Verbindung in dieses Match zurückgekehrt"
+
+msgid "no player called {0} left that match"
+msgstr "kein Spieler namens {0} hat dieses Match verlassen"
+
+msgid "you were taken out of that match"
+msgstr "du wurdest aus diesem Match genommen"
+
+msgid "that seat key is not this match's"
+msgstr "dieser Platzschlüssel gehört nicht zu diesem Match"
+
+# Online (P2 S2b review): the battle's end screen while the relay's word on the end is still to come
+
+msgid "Waiting for the other players' games to confirm the end…"
+msgstr "Warte, bis die Spiele der anderen das Ende bestätigen…"
+
+msgid "The other players' games ended this battle at another moment: it is not counted."
+msgstr "Die Spiele der anderen haben diese Schlacht zu einem anderen Zeitpunkt beendet: Sie wird nicht gezählt."
+
+msgid "The relay did not confirm the end of this battle: it is not counted."
+msgstr "Das Relay hat das Ende dieser Schlacht nicht bestätigt: Sie wird nicht gezählt."
+
+# Online (P2 S3): a world taken out for going out of step, and a late join's refusals
+
+msgid "Your game kept going out of step with the others, so it has left the match."
+msgstr "Dein Spiel ist immer wieder aus dem Takt der anderen geraten und hat das Match deshalb verlassen."
+
+msgid "no seat to join in that battle"
+msgstr "in dieser Schlacht ist kein Platz frei"
+
+msgid "your game's ground differs from that battle's"
+msgstr "das Gelände deines Spiels weicht von dem dieser Schlacht ab"
+
+# Online (P2 S5): bigger teams, ten a side in the rooms and the pod, fifteen for matchmaking and tests
+
+msgid "10 vs 10"
+msgstr "10 gegen 10"
+
+msgid "15 vs 15"
+msgstr "15 gegen 15"
+
+msgid "bot"
+msgstr "Bot"
+
+# Online (P2 S4): rebuilding, rejoining and joining a running battle in the game, lagging, and the lobby's late join
+
+msgid "Your game went out of step: rebuilding the match ({0} of 3)"
+msgstr "Dein Spiel ist aus dem Takt geraten: Das Match wird neu aufgebaut ({0} von 3)"
+
+msgid "A bot drives your hero until you have caught up"
+msgstr "Ein Bot fährt deinen Helden, bis du aufgeholt hast"
+
+msgid "Back in the match: a bot drives your hero until you have caught up"
+msgstr "Zurück im Match: Ein Bot fährt deinen Helden, bis du aufgeholt hast"
+
+msgid "Back in the match: catching up with the others"
+msgstr "Zurück im Match: Du holst die anderen ein"
+
+msgid "Your game fell too far behind: a bot drives your hero until it has caught up"
+msgstr "Dein Spiel ist zu weit zurückgefallen: Ein Bot fährt deinen Helden, bis es aufgeholt hat"
+
+msgid "Your game fell too far behind: your hero waits until it has caught up"
+msgstr "Dein Spiel ist zu weit zurückgefallen: Dein Held wartet, bis es aufgeholt hat"
+
+msgid "Your game fell too far behind: {0} keeps your machines until it has caught up"
+msgstr "Dein Spiel ist zu weit zurückgefallen: {0} hält deine Maschinen, bis es aufgeholt hat"
+
+msgid "Your game fell too far behind: the computer plays {0} until it has caught up"
+msgstr "Dein Spiel ist zu weit zurückgefallen: Der Computer spielt {0}, bis es aufgeholt hat"
+
+msgid "Your game is lagging: your orders arrive late"
+msgstr "Dein Spiel hängt hinterher: Deine Befehle kommen zu spät an"
+
+msgid "{0}'s game is being rebuilt – a bot drives their hero meanwhile"
+msgstr "Das Spiel von {0} wird neu aufgebaut – solange fährt ein Bot den Helden"
+
+msgid "You take over {0}"
+msgstr "Du übernimmst {0}"
+
+msgid "No orders until your game is back in the match"
+msgstr "Keine Befehle, bis dein Spiel wieder im Match ist"
+
+msgid "REBUILDING THE MATCH"
+msgstr "DAS MATCH WIRD NEU AUFGEBAUT"
+
+msgid "REJOINING THE MATCH"
+msgstr "ZURÜCK INS MATCH"
+
+msgid "JOINING A RUNNING BATTLE"
+msgstr "EINSTIEG IN EINE LAUFENDE SCHLACHT"
+
+msgid "Your game lost its place in the match: join it again from the list."
+msgstr "Dein Spiel hat seinen Platz im Match verloren: Tritt ihm über die Liste wieder bei."
+
+msgid "Join the match again from the list to play on."
+msgstr "Tritt dem Match über die Liste wieder bei, um weiterzuspielen."
+
+msgid "You joined this battle late: it does not count for your profile."
+msgstr "Du bist dieser Schlacht spät beigetreten: Sie zählt nicht für dein Profil."
+
+msgid "The line to the relay was lost before the end of this battle was confirmed: it is not counted."
+msgstr "Die Verbindung zum Relay brach ab, bevor das Ende dieser Schlacht bestätigt war: Sie wird nicht gezählt."
+
+msgid "playing · a seat to join"
+msgstr "läuft · ein Platz frei"
+
+msgid "playing · {0} seats to join"
+msgstr "läuft · {0} Plätze frei"
+
+msgid "Lag"
+msgstr "Lag"

@@ -88,10 +88,14 @@ public partial class Game
             case >= Key.F1 and <= Key.F4 when Online && !shift && !ctrl:
                 _hud.Chat.Begin((int)(key.Keycode - Key.F1));
                 return;
-            // With Ctrl, F1 to F3 make that other player an ally or no longer one (MachPromptText); a battle's teams are fixed.
+            // With Ctrl, F1 to F3 make that other side an ally or no longer one (MachPromptText); a battle's teams are fixed.
             case >= Key.F1 and <= Key.F3 when Online && ctrl:
                 if (World.Battle is null)
                     ToggleAlliance((int)(key.Keycode - Key.F1));
+                return;
+            // Ctrl and F4, the remake's own: a chat message to the team, where the player has a teammate.
+            case Key.F4 when Online && ctrl && !shift:
+                _hud.Chat.Begin(MatchChat.TeamKey);
                 return;
             // Alt and the left arrow puts the control panel away, Alt and the right arrow brings it out.
             case Key.Left when alt:
@@ -146,7 +150,8 @@ public partial class Game
     // MachGuiNavigatorBase::selectAll: those that can fight first, and an open navigator stays open.
     private void SelectAll(bool machines, bool keep)
     {
-        var all = World.Actors.Where(a => a.Race == Player && !a.IsDead && (machines ? a is Machine { Inside: null } : a is Construction))
+        // A teammate's machines are theirs to order (MayOrder): Ctrl+A takes the player's own and those they keep.
+        var all = World.Actors.Where(a => a.Race == Player && MayOrder(a) && !a.IsDead && (machines ? a is Machine { Inside: null } : a is Construction))
             .OrderBy(a => a is Machine { CanFight: true } or Construction { Weapons.Count: > 0 } ? 0 : 1).Select(a => a.Id);
         _hud.Panel.KeepNavigator();
         Select(keep ? _selection.Union(all).ToList() : all.ToList());
@@ -154,7 +159,7 @@ public partial class Game
 
     private void ViewNext(bool machines)
     {
-        var all = World.Actors.Where(a => a.Race == Player && !a.IsDead && (machines ? a is Machine : a is Construction)).OrderBy(a => a.Id).ToList();
+        var all = World.Actors.Where(a => a.Race == Player && MayOrder(a) && !a.IsDead && (machines ? a is Machine : a is Construction)).OrderBy(a => a.Id).ToList();
         if (all.Count == 0)
             return;
         ref var next = ref machines ? ref _nextMachine : ref _nextConstruction;

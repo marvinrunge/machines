@@ -264,7 +264,7 @@ public partial class Warmup : Node3D
             // Models no research brings: the scenarios' own (the ore hologram, the bosses), and in Wired, for a race with a
             // hero, every chassis' model heroes are put together from (Wired's own machines, the constructors, spies and
             // locators with weapon mounts), so that a chassis changed in the hangar loads nothing.
-            var heroes = _world.Wired?.Heroes.ContainsKey(race) == true ? HeroDonors.Chassis.Values : [];
+            var heroes = _world.Wired?.Heroes.Values.Any(state => state.Race == race) == true ? HeroDonors.Chassis.Values : [];
             foreach (var id in _assets.ModelIds(look).Concat(heroes).Where(shown.Add))
             {
                 models.Add((id, look, Vector3.One * 3));
@@ -322,9 +322,9 @@ public partial class Warmup : Node3D
             yield return false;
         }
         // Each hero as it stands, put together from those (kept by what it wears, so its view takes the same).
-        foreach (var (race, state) in _world.Wired?.Heroes ?? [])
+        foreach (var (_, state) in _world.Wired?.Heroes ?? [])
         {
-            if (HeroRig.Compose(_assets, Game.Look(race), state.Loadout) is { } rig)
+            if (HeroRig.Compose(_assets, Game.Look(state.Race), state.Loadout) is { } rig)
             {
                 var hero = RigView.Create(rig);
                 NextGroup().AddChild(hero);
@@ -363,8 +363,12 @@ public partial class Warmup : Node3D
             for (var tick = 0; tick < RehearsedTicks; tick++)
                 copy.Step();
             // Each turn goes through JSON (LockstepSession.Pump keeps a copy as the others see it); the first time
-            // it looked at every kind of command, a sixth of a second.
-            NetJson.Decode(NetJson.Encode(new Turn(0, players.Keys.First(), [])));
+            // it looked at every kind of command, a sixth of a second. Online every tick comes as the relay's bundle, with
+            // its turns and its comings and goings (P2 design §4.4).
+            var first = players.Keys.First();
+            NetJson.Decode(NetJson.Encode(new Turn(0, PlayerId.Of(first), [])));
+            NetJson.Decode(NetJson.Encode(new Bundle(0, [new Turn(0, PlayerId.Of(first), [new DriveCommand(first, 0, Driving: true, Forward: 1)], Asked: 0)],
+                [new PlayerLagging(PlayerId.Of(first), 0, Lagging: true)], Delay: 4)));
             foreach (var type in typeof(Command).Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(Command)) && !t.IsAbstract))
                 NetJson.Options.GetTypeInfo(type);
         }

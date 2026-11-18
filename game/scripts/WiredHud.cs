@@ -96,6 +96,12 @@ public partial class WiredHud : Control
     /// <summary>How far down the wave's plate reaches, the bosses' bars under it included: the messages go below.</summary>
     public float Hanging => _battle is not null ? BattleHanging : (WavePlateHeight + (_now is { Bosses.Count: > 0 } ? 8 + 40 : 0) + Gap) * _u;
 
+    /// <summary>How far down the top reaches, the watching plate under the battle's plate included when it was drawn last: the online banner goes below.</summary>
+    public float Reach => Mathf.Max(Hanging, _watchingBottom);
+
+    // Where the watching plate drawn last ends, 0 when none was.
+    private float _watchingBottom;
+
     public WiredHud(Game game, Hud hud)
     {
         (_game, _hud) = (game, hud);
@@ -109,8 +115,9 @@ public partial class WiredHud : Control
     {
         _time += delta;
         // A battle has its own figures; Wired's waves, bank and squad mean nothing there.
-        _battle = BattleReadout.Of(_game.World, Game.Player);
-        _now = _battle is null ? WiredReadout.Of(_game.World, Game.Player) : null;
+        // Online, a person still there whose orders come late is tagged LAG (P2 design §5.6).
+        _battle = BattleReadout.Of(_game.World, Game.Me, _game.Lagging);
+        _now = _battle is null ? WiredReadout.Of(_game.World, Game.Me) : null;
         _size = GetViewportRect().Size;
         // Grown or shrunk by the HUD's size chosen in the options.
         _u = Mathf.Max(_size.Y / 1080f, 0.6f) * GameOptions.HudSize;
@@ -184,6 +191,7 @@ public partial class WiredHud : Control
             return;
         (_prompted, _prompting) = (_prompting, _prompted);
         _prompting.Clear();
+        _watchingBottom = 0;
         DrawPulseSweep();
         PanelsTop = 0;
         if (_battle is { } battle)
@@ -255,14 +263,15 @@ public partial class WiredHud : Control
     /// <summary>The hero's name and the bodies left, at the top left of the view.</summary>
     private void DrawHero(WiredReadout now)
     {
-        var options = _game.World.Wired!.Options;
         var at = new Vector2(Left + 16 * _u, 6 * _u);
         var box = new Rect2(at, new Vector2(330, 44) * _u);
         Plate(box, Plating, MenuTheme.Edge, 8);
-        var name = Fit((options.HeroName is { Length: > 0 } given ? given : Lang.T("Hero")).Caps(), 21, 300);
+        // The player's own hero's name: in a run of several heroes each has its own.
+        var name = Fit((now.HeroName is { Length: > 0 } given ? given : Lang.T("Hero")).Caps(), 21, 300);
         Say(at + new Vector2(12, 21) * _u, name, 21, MenuTheme.Text);
         var bodies = now.BodiesAtStart == 0 ? Lang.T("No spare body") : Lang.T("Spare bodies");
-        var low = now.SpareBodies == 0 && now.DownSeconds is null;
+        // The last body warns only when none is coming: not while one counts down, nor while one waits for the wave's end.
+        var low = now.SpareBodies == 0 && now.DownSeconds is null && !now.WaitsForWave;
         Say(at + new Vector2(12, 38) * _u, bodies, 14, low ? Warning : MenuTheme.Dim);
         var x = at.X + (12 * _u) + Width(bodies, 14) + 10 * _u;
         for (var i = 0; i < now.BodiesAtStart; i++)

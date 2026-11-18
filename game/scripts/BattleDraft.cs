@@ -2,6 +2,7 @@ using Machines.Import.Model;
 using Machines.Sim;
 using Machines.Sim.Combat;
 using Machines.Sim.Survival;
+using Machines.Sim.World;
 
 namespace Machines.Game;
 
@@ -61,7 +62,7 @@ public sealed class BattleDraft
     private List<WiredItem> _made = [];
     private WiredState _state = null!;
     private string _map = BattleCatalogue.Maps[0].Scenario;
-    private int _lives = 1;
+    private int _lives = 1, _teamSize;
 
     /// <summary>Takes up the last hero as far as the account still owns it, or starts on the first grunt with its bolter.</summary>
     public BattleDraft(GameData data, IBattleAccount account)
@@ -74,6 +75,7 @@ public sealed class BattleDraft
             Map = last.Map;
             Lives = last.Lives;
             Win = last.Win;
+            TeamSize = last.TeamSize;
             if (account.Owned(last.Chassis) && WiredCatalogue.FindChassis(last.Chassis) is not null)
             {
                 Chassis = last.Chassis;
@@ -121,6 +123,17 @@ public sealed class BattleDraft
 
     public BattleWin Win { get; set; } = BattleWin.Both;
 
+    /// <summary>
+    /// The heroes a team, as <see cref="BattleOptions.TeamSize"/>: 0 for today's layout (a hero for each race of the map's
+    /// teams, two against two), else that many on each team's first race, at most <see cref="BattleBalance.MostTeamSize"/>
+    /// (the pod offers five and ten, <see cref="RoomOptions.TeamSizes"/>).
+    /// </summary>
+    public int TeamSize
+    {
+        get => _teamSize;
+        set => _teamSize = Math.Clamp(value, 0, BattleBalance.MostTeamSize);
+    }
+
     public string Chassis { get; private set; } = WiredBalance.StartChassis;
 
     /// <summary>The worn chassis' tier: the top of the bracket the hero fights in.</summary>
@@ -149,6 +162,7 @@ public sealed class BattleDraft
         Map = Map,
         Lives = Lives,
         Win = Win,
+        TeamSize = TeamSize,
     };
 
     /// <summary>Remembers the hero and the battle chosen in the account, and keeps the account.</summary>
@@ -516,32 +530,56 @@ public sealed class BattleDraft
     /// <returns>null if the hero may fight, otherwise why not, in the sim's words.</returns>
     public BattleWhy? WhyNotFight() => BattleBots.WhyNot(Hero(Maker), Tier) is { } why ? new BattleWhy(why) : null;
 
-    /// <summary>The race the player plays on a map: the colour chosen where it is a slot of the teams, else the first team's anchor.</summary>
-    public static Race PlayerRace(BattleMap map, Race colour) => map.TeamA.Contains(colour) || map.TeamB.Contains(colour) ? colour : map.TeamA[0];
+    /// <summary>
+    /// The race the player plays on a map with a team size: the side of the colour chosen (<see cref="BattleSeats.Side"/>). In
+    /// today's layout that is the colour itself where a team holds it; with a team size the first race of the colour's team,
+    /// whose seats the team's heroes take; a colour no team holds plays the first team's first race.
+    /// </summary>
+    public static Race PlayerRace(BattleMap map, Race colour, int teamSize = 0) =>
+        BattleSeats.Side(new BattleOptions { TeamSize = teamSize }, map, colour);
 
     /// <summary>
-    /// The battle these choices make against the computer: the map's teams, the bracket topped by the worn chassis' tier, and
-    /// a hero for every race, the player's own (none in <paramref name="watch"/>, when a bot plays it too) and bots for the
-    /// rest by the mirror rule (<see cref="BattleBots.Compose"/>). A hero with no name yet takes <paramref name="unnamed"/>
-    /// (the player's), as a room's relay gives it one.
+    /// The player at this computer in the battle these choices make on a map: the first seat of their side, which is the
+    /// side's race's first player (<see cref="PlayerId.Of"/>); in today's layout the race of their colour.
+    /// </summary>
+    public PlayerId Player(BattleMap map) => PlayerId.Of(PlayerRace(map, Colour, TeamSize));
+
+    /// <summary>
+    /// The battle these choices make against the computer: the map's teams (with a team size its two first races, that many
+    /// heroes each), the bracket topped by the worn chassis' tier, and a hero for every seat, the player's own at the first
+    /// seat of their side (none in <paramref name="watch"/>, when a bot plays it too) and bots for the rest by the mirror rule
+    /// (<see cref="BattleBots.Compose"/>). A hero with no name yet takes <paramref name="unnamed"/> (the player's), as a room's
+    /// relay gives it one.
     /// </summary>
     public BattleOptions Options(bool watch = false, string? unnamed = null)
     {
         var map = BattleCatalogue.Map(Map)!;
-        var hero = Hero(PlayerRace(map, Colour));
+        var hero = Hero(PlayerRace(map, Colour, TeamSize));
         if (hero.Name.Length == 0 && unnamed is not null)
             hero = hero with { Name = ShortName(unnamed) };
-        return Compose(map, Tier, Lives, Win, watch ? null : hero);
+        return Compose(map, Tier, Lives, Win, watch ? null : hero, TeamSize);
     }
 
-    /// <summary>A battle on a map at a tier, with <paramref name="player"/>'s hero if there is one and bots for every other race, picked for that map.</summary>
-    public static BattleOptions Compose(BattleMap map, int tier, int lives, BattleWin win, BattleHero? player) =>
-        BattleBots.Compose(new BattleOptions
+    /// <summary>
+    /// A battle on a map at a tier, with <paramref name="player"/>'s hero if there is one and bots for every other seat, picked
+    /// for that map, seat by seat over <see cref="BattleSeats.Teams"/>: in today's layout a hero for each race of the map's
+    /// teams; with a <paramref name="teamSize"/> (up to <see cref="BattleSeats.MostPerTeam"/>) that many on each team's first
+    /// race. There a hero that names no player of its own plays the first seat of its colour's side
+    /// (<see cref="BattleSeats.Side"/>), so that a colour that is no team's first race is not left without its hero.
+    /// </summary>
+    public static BattleOptions Compose(BattleMap map, int tier, int lives, BattleWin win, BattleHero? player, int teamSize = 0)
+    {
+        var options = new BattleOptions
         {
             Tier = Math.Clamp(tier, 1, BattleCatalogue.MostTier),
             Lives = Math.Clamp(lives, 1, 5),
             Win = win,
             TeamA = map.TeamA,
             TeamB = map.TeamB,
-        }, player is null ? [] : [player], map.Scenario);
+            TeamSize = Math.Clamp(teamSize, 0, BattleSeats.MostPerTeam),
+        };
+        if (player is { Player: null } && BattleSeats.Size(options) > 0 && BattleSeats.Side(options, map, player.Race) is var side)
+            player = player with { Race = side, Player = PlayerId.Of(side) };
+        return BattleBots.Compose(options, player is null ? [] : [player], map.Scenario);
+    }
 }

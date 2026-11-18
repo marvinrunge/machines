@@ -19,7 +19,7 @@ public sealed partial class GameWorld
     /// </returns>
     public string? WhyNoMine(WiredState state)
     {
-        if (HeroOf(state.Race) is not { } hero)
+        if (HeroOf(state) is not { } hero)
             return "the hero is down";
         if (hero.Inside is not null)
             return "not from inside the pod";
@@ -36,19 +36,20 @@ public sealed partial class GameWorld
             return "no mines left";
         if (Time - state.MineLaidAt < WiredBalance.MineLayGap)
             return "that is not ready yet";
-        return RoomForMines(state.Race, 1) ? null : $"{WiredBalance.MostMines} mines lie already";
+        return RoomForMines(state, 1) ? null : $"{WiredBalance.MostMines} mines lie already";
     }
 
     /// <summary>
-    /// Whether a race may put <paramref name="more"/> mines more on the ground: all of its mines count, those its hero laid
-    /// one by one and those of its minefields alike, up to <see cref="WiredBalance.MostMines"/>.
+    /// Whether a hero may put <paramref name="more"/> mines more on the ground: all of its player's mines count, those it laid
+    /// one by one and those of its minefields alike, up to <see cref="WiredBalance.MostMines"/> for each hero. A race's only
+    /// hero counts every mine of its race, which are all its player's.
     /// </summary>
-    private bool RoomForMines(Race race, int more)
+    private bool RoomForMines(WiredState state, int more)
     {
         var lying = 0;
         foreach (var mine in LandMines)
         {
-            if (mine.Race == race)
+            if (mine.Race == state.Race && mine.Owner == state.Player)
                 lying++;
         }
         return lying + more <= WiredBalance.MostMines;
@@ -62,8 +63,8 @@ public sealed partial class GameWorld
     {
         if (WhyNoMine(state) is { } why)
             return why;
-        var hero = HeroOf(state.Race)!;
-        var mine = new LandMineState(_nextMineId++, hero.Race, OnFreeGround(hero.Position));
+        var hero = HeroOf(state)!;
+        var mine = new LandMineState(_nextMineId++, hero.Race, OnFreeGround(hero.Position), state.Player);
         LandMines.Add(mine);
         hero.Mines--;
         state.MineLaidAt = Time;
@@ -77,7 +78,7 @@ public sealed partial class GameWorld
     /// </summary>
     private void RefillMines(WiredState state)
     {
-        if (Battle is not null || HeroOf(state.Race) is not { } hero)
+        if (Battle is not null || HeroOf(state) is not { } hero)
             return;
         var build = state.Build(Data);
         hero.Mines = MineCarrier(build) ? build.Stats.MineCapacity ?? 0 : 0;
@@ -92,7 +93,7 @@ public sealed partial class GameWorld
     {
         var build = state.Build(Data);
         var special = build.Chassis.Special;
-        var (count, most) = (HeroOf(state.Race)?.Mines ?? 0, build.Stats.MineCapacity ?? 0);
+        var (count, most) = (HeroOf(state)?.Mines ?? 0, build.Stats.MineCapacity ?? 0);
         var why = WhyNoSpecial(state);
         if ((special & ChassisSpecial.Shadow) != 0)
         {

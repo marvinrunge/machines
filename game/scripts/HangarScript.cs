@@ -506,7 +506,7 @@ public partial class HangarScript(HangarPage page, string folder, string what) :
     {
         var game = Run;
         var world = game.World;
-        var state = world.Wired!.Heroes[Game.Player];
+        var state = world.Wired!.Heroes[Game.Me];
         async Task Do(Machines.Sim.World.Command command)
         {
             game.Issue(command);

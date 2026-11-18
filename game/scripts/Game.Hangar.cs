@@ -81,7 +81,7 @@ public partial class Game
     public void OpenHangar()
     {
         // A battle has no hangar: what a hero wears is chosen in the pod before it.
-        if (HangarOpen || Watching || World.Battle is not null || World.Wired?.Heroes.GetValueOrDefault(Player) is not { } state)
+        if (HangarOpen || Watching || World.Battle is not null || World.Wired?.Heroes.GetValueOrDefault(Me) is not { } state)
             return;
         if ((Paused && !Online ? "not while the game is paused" : World.WhyNoHangar(state)) is { } why)
         {
@@ -131,13 +131,14 @@ public partial class Game
     /// </summary>
     private void RecordWired()
     {
-        if (_wiredCounted || Watching || World.Battle is not null || World.Wired is not { Phase: WiredPhase.Ended } run || run.Heroes.GetValueOrDefault(Player) is not { } state)
+        if (_wiredCounted || Watching || World.Battle is not null || World.Wired is not { Phase: WiredPhase.Ended } run || run.Heroes.GetValueOrDefault(Me) is not { } state)
             return;
         _wiredCounted = true;
         var options = run.Options;
         var profile = WiredProfile.Load();
         WiredBefore = profile.Held ? null : profile.Record(options.Arena, options.Difficulty);
-        var result = new WiredRunResult(options.Arena, options.Difficulty, options.HeroName, state.Loadout.Chassis.Catalogue,
+        // The player's own hero by its own name (a run of several heroes names each; one hero has the run's).
+        var result = new WiredRunResult(options.Arena, options.Difficulty, options.HeroFor(Me).Name, state.Loadout.Chassis.Catalogue,
             WiredBalance.Score(state.Stats, options.Difficulty), state.Stats);
         if (WiredProfile.Runs.Tell(result) is { } opened)
             ShowOpened(opened);
@@ -183,7 +184,7 @@ public partial class Game
     /// </summary>
     private void FollowHangar()
     {
-        if (Watching || World.Wired?.Heroes.GetValueOrDefault(Player) is not { } state)
+        if (Watching || World.Wired?.Heroes.GetValueOrDefault(Me) is not { } state)
             return;
         switch (_hangarWatch.Follow(HangarOpen, state.HangarOpen, state.HangarOpens))
         {
@@ -202,7 +203,7 @@ public partial class Game
         if (command is WiredHangarCommand { Open: true })
         {
             _hangarWatch.Refused();
-            if (HangarOpen && _hangarWatch.Answered(World.Wired!.Heroes[Player].HangarOpens))
+            if (HangarOpen && _hangarWatch.Answered(World.Wired!.Heroes[Me].HangarOpens))
                 TakeDownHangar();
         }
         if (HangarOpen)
@@ -218,11 +219,11 @@ public partial class Game
     /// </summary>
     private void GiftForChecks()
     {
-        if (World.Battle is not null || World.Wired?.Heroes.GetValueOrDefault(Player) is not { } state || System.Environment.GetEnvironmentVariable("MACHINES_WIRED_GIFT") is not { Length: > 0 } gift)
+        if (World.Battle is not null || World.Wired?.Heroes.GetValueOrDefault(Me) is not { } state || System.Environment.GetEnvironmentVariable("MACHINES_WIRED_GIFT") is not { Length: > 0 } gift)
             return;
         var words = gift.Split(',');
         World.Races[Player].Bmu = int.Parse(words[0]);
-        if (World.WiredPod(Player) is { } pod)
+        if (World.WiredPod(Me) is { } pod)
             pod.HitPoints -= int.Parse(words[1]);
         foreach (var chip in words[2].Split('+', StringSplitOptions.RemoveEmptyEntries))
             state.Add(WiredKind.Chip, chip, 0);
@@ -248,13 +249,13 @@ public partial class Game
         get
         {
             var run = World.Wired!;
-            var state = run.Heroes[Player];
-            var hero = World.HeroOf(Player);
-            var pod = World.WiredPod(Player);
-            return $"tick {World.Tick}, checksum {World.Checksum():x16}, {run.Phase}, wave {run.Wave}, countdown {run.Countdown:0.0}, bank {World.Races[Player].Bmu:0}, " +
+            var state = run.Heroes[Me];
+            var hero = World.HeroOf(Me);
+            var pod = World.WiredPod(Me);
+            return $"tick {World.Tick}, checksum {World.Checksum():x16}, {run.Phase}, wave {run.Wave}, countdown {run.Countdown:0.0}, bank {World.Bank(state):0}, " +
                    $"worn {state.Loadout.Chassis.Catalogue} [{string.Join(", ", state.Loadout.Worn.Skip(1).Select(i => $"{i.Catalogue} Mk{i.Mk}"))}], " +
                    $"spares [{string.Join(", ", state.Inventory.Select(i => i.Catalogue))}], offer [{string.Join(", ", state.Offer.Select(o => o ?? "-"))}], " +
-                   $"squad {World.Escorts(Player).Count()}, pod {pod?.HitPoints}/{pod?.MaxHitPoints}, hero {hero?.HitPoints}/{hero?.MaxHitPoints} refits {hero?.Refits} inside {hero?.Inside?.ToString() ?? "no"}, " +
+                   $"squad {World.Escorts(Me).Count()}, pod {pod?.HitPoints}/{pod?.MaxHitPoints}, hero {hero?.HitPoints}/{hero?.MaxHitPoints} refits {hero?.Refits} inside {hero?.Inside?.ToString() ?? "no"}, " +
                    $"hangar {state.HangarOpen}, driven {_driven?.Id.ToString() ?? "no"}, mouse {Input.MouseMode}, foes {World.Machines.Count(m => m.Race == run.Enemy)}";
         }
     }
@@ -266,7 +267,7 @@ public partial class Game
     /// </summary>
     private async Task IntoThePod(bool driven)
     {
-        var (hero, pod) = (World.HeroOf(Player)!, World.WiredPod(Player)!);
+        var (hero, pod) = (World.HeroOf(Me)!, World.WiredPod(Me)!);
         Select([hero.Id]);
         Issue(new EnterGarrisonCommand(Player, [hero.Id], pod.Id));
         while (driven ? hero.Doorway != pod.Id : hero.Inside is null)
@@ -320,7 +321,7 @@ public partial class Game
     /// <summary>The key where it does not open the hangar: what the world says, in the player's language, and the message line's picture.</summary>
     private async Task KeyRefused(string folder, string picture)
     {
-        var why = World.WhyNoHangar(World.Wired!.Heroes[Player]);
+        var why = World.WhyNoHangar(World.Wired!.Heroes[Me]);
         PressHangarKey();
         await Seconds(0.4);
         GD.Print($"hangar: the key says '{(why is null ? "nothing" : HangarText.Reason(why))}', open {HangarOpen}");
@@ -330,7 +331,7 @@ public partial class Game
     /// <summary>The hero is sent away from the pod until the key no longer opens the hangar.</summary>
     private async void ScriptTooFar(string folder)
     {
-        var (hero, pod) = (World.HeroOf(Player)!, World.WiredPod(Player)!);
+        var (hero, pod) = (World.HeroOf(Me)!, World.WiredPod(Me)!);
         var away = hero.Position + System.Numerics.Vector2.Normalize(hero.Position - pod.Position) * 90;
         Issue(new MoveCommand(Player, [hero.Id], away));
         for (var second = 0; second < 40 && hero.DistanceTo(pod) <= WiredBalance.PodReach + 2; second++)
@@ -395,7 +396,7 @@ public partial class Game
             return;
         }
         var words = script.Split(',');
-        var state = run.Heroes[Player];
+        var state = run.Heroes[Me];
         if (Watching || words.Length > 1 && words[1] == "start")
             return;
         if (words.Length > 1 && words[1] is "shop" or "bay" or "view" or "far")
@@ -413,14 +414,14 @@ public partial class Game
         var options = run.Options;
         GD.Print($"hangar: the run: hero '{options.HeroName}', arena {options.Arena}, {options.Difficulty}, {state.Loadout.Chassis.Catalogue} " +
                  $"[{string.Join(", ", state.Loadout.Worn.Skip(1).Select(i => i.Catalogue))}], spares [{string.Join(", ", state.Inventory.Select(i => i.Catalogue))}], " +
-                 $"bank {World.Races[Player].Bmu}, colour {Look(Player)}, chip pool {options.ChipPool.Count}, waiting {run.Waiting}");
+                 $"bank {World.Bank(state)}, colour {Look(Player)}, chip pool {options.ChipPool.Count}, waiting {run.Waiting}");
         await ToSignal(GetTree().CreateTimer(3), SceneTreeTimer.SignalName.Timeout);
         GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(words[0], "run-started.png"));
         OpenHangar();
         await ToSignal(GetTree().CreateTimer(0.5), SceneTreeTimer.SignalName.Timeout);
         foreach (var refused in World.Rejected)
             GD.Print($"hangar: opening refused: {refused.Reason}");
-        GD.Print($"hangar: open {run.Heroes[Player].HangarOpen}: {RunState}");
+        GD.Print($"hangar: open {run.Heroes[Me].HangarOpen}: {RunState}");
     }
 
     /// <summary>The script's last step, here because the screen goes with the hangar: back to the run, and after a look at it out of the game.</summary>

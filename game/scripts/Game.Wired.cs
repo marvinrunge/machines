@@ -27,7 +27,7 @@ public partial class Game
     public ActorView? ViewOf(int actor) => _views.GetValueOrDefault(actor);
 
     /// <summary>What the player looks out of: the machine driven, the team-mate looked on through, or else the hero.</summary>
-    private Machine? Eyes => _driven ?? (WatchedHero is { } watched ? World.Find<Machine>(watched) : null) ?? World.HeroOf(Player);
+    private Machine? Eyes => _driven ?? (WatchedHero is { } watched ? World.Find<Machine>(watched) : null) ?? World.HeroOf(Me);
 
     /// <summary>
     /// Whether an enemy hero hides in its shadow from the player (GameWorld.Shadowed): quiet for long enough, not located,
@@ -92,9 +92,9 @@ public partial class Game
         FollowNight((float)delta);
         FollowWatch(delta);
         ActorView.Driver = _driven is not null || _heroDown || _watched is not null;
-        var hero = World.HeroOf(Player);
+        var hero = World.HeroOf(Me);
         _marks!.Show(delta, hero is not null && _views.TryGetValue(hero.Id, out var view) ? view.Centre : null);
-        if (run.Heroes.TryGetValue(Player, out var state))
+        if (run.Heroes.TryGetValue(Me, out var state))
             _portrait!.Follow(Look(Player), state.Loadout);
         ScriptRun();
     }
@@ -107,6 +107,15 @@ public partial class Game
     {
         if (_runBegun)
             return;
+        // Online, a hero that is not the player's yet (the world rebuilt, joining late, catching up or fallen behind) is not
+        // got into: in a battle the view looks on from behind it while its bot drives; the run begins once it is the player's
+        // (P2 design §5.4, §6.3).
+        if (Online && HeroHeld && Cinematic.Asked is null)
+        {
+            if (World.Battle is not null && _watched is null && World.HeroOf(Me) is { } held)
+                StartWatching(held.Id);
+            return;
+        }
         _runBegun = true;
         if (KeyMap.GaveWay.Count > 0)
             _hud.Message(KeyMap.GaveWayNote());
@@ -118,22 +127,38 @@ public partial class Game
             StartWatching();
             return;
         }
-        // A save from the seconds the hero was down: the driver is back on the static, waiting for the new body.
-        if (World.HeroOf(Player) is not { } hero)
+        // A save from the seconds the hero was down (or, in a run of several heroes, waiting for the wave's end): the
+        // driver is back on the static, waiting for the new body.
+        if (World.HeroOf(Me) is not { } hero)
         {
-            if (World.Wired?.Heroes.GetValueOrDefault(Player) is { RespawnAt: not null })
+            if (World.Wired?.Heroes.GetValueOrDefault(Me) is { RespawnAt: not null } or { WaitsForWave: true })
+            {
+                LookOnNoLonger();
                 WaitForBody();
+            }
             return;
         }
         // A save from the ground stays there; one from the last moments of the down has the new body already, and it is driven.
         if (!hero.DrivenByPlayer && MatchRequest.Current.Saved is not null && _newBody != hero.Id)
             return;
+        LookOnNoLonger();
         Drive(hero);
-        if (World.WiredPod(Player) is { } pod && NVector2.DistanceSquared(hero.Position, pod.Position) > 1 && MatchRequest.Current.Saved is null)
+        if (World.WiredPod(Me) is { } pod && NVector2.DistanceSquared(hero.Position, pod.Position) > 1 && MatchRequest.Current.Saved is null)
         {
             var away = hero.Position - pod.Position;
             _aimYaw = MathF.Atan2(away.Y, away.X);
         }
+    }
+
+    /// <summary>
+    /// Online, the view that looked on from behind the hero while it was not the player's (<see cref="HeroHeld"/>) ends where
+    /// the run begins: driven while still looking on, the keys and the mouse would go on to the onlooker (WatchInput) and its
+    /// camera would follow the hero from behind over the driver's.
+    /// </summary>
+    private void LookOnNoLonger()
+    {
+        if (Online && _watched is not null)
+            StopWatching();
     }
 
     /// <summary>Gets into a hero with no more ado than a new body needs: no voice, no list of keys.</summary>
@@ -156,10 +181,10 @@ public partial class Game
     /// <summary>First person in a run goes into the hero, whatever is selected; it may be down, and then says so.</summary>
     private bool IntoTheHero()
     {
-        if (World.HeroOf(Player) is not { } hero)
+        if (World.HeroOf(Me) is not { } hero)
         {
             // Out of a battle for good, the view goes to a team-mate instead.
-            if (World.Battle is { Over: false } && World.Wired?.Heroes.GetValueOrDefault(Player) is { RespawnAt: null } && StartWatching())
+            if (World.Battle is { Over: false } && World.Wired?.Heroes.GetValueOrDefault(Me) is { RespawnAt: null } && StartWatching())
                 return false;
             RunRefused(HangarText.Reason("the hero is down"));
             return false;
@@ -171,11 +196,12 @@ public partial class Game
 
     /// <summary>
     /// The driver's way when the machine is gone: in a run a new body may be coming, and until it does the view stays on
-    /// the static with its countdown. Anything else, and the end of a run, leaves first person as ever.
+    /// the static with its countdown, or, in a run of several heroes, until the wave is over. Anything else, and the end of a
+    /// run, leaves first person as ever.
     /// </summary>
     private void DriverLost()
     {
-        if (World.Wired?.Heroes.GetValueOrDefault(Player) is not { RespawnAt: not null })
+        if (World.Wired?.Heroes.GetValueOrDefault(Me) is not ({ RespawnAt: not null } or { WaitsForWave: true }))
         {
             LeaveFirstPerson();
             // The last body of a battle is gone: the player looks on through a team-mate still fighting, or at its end through a hero still standing.
@@ -195,7 +221,7 @@ public partial class Game
         _firstPersonFromGround = !ZenithCamera;
         _rig.Active = false;
         _firstPersonCamera.Current = true;
-        if (World.WiredPod(Player) is { } pod)
+        if (World.WiredPod(Me) is { } pod)
             _firstPersonCamera.GlobalPosition = ActorView.World(pod.Position) + Vector3.Up * 4;
         Input.MouseMode = Input.MouseModeEnum.Captured;
         _hud.FirstPerson = true;
@@ -274,19 +300,19 @@ public partial class Game
                 case GameEventKind.WiredBossBelowHalf when e.Detail is { } boss:
                     hud.BossCallsForHelp(boss);
                     break;
-                case GameEventKind.WiredChipChoiceReady when e.Other == (int)Player:
+                case GameEventKind.WiredChipChoiceReady when Mine(e):
                     hud.ChipChoiceWaits();
                     break;
-                case GameEventKind.WiredWreckCollected when e.Actor == World.HeroOf(Player)?.Id:
+                case GameEventKind.WiredWreckCollected when e.Actor == World.HeroOf(Me)?.Id:
                     _audio.Play("SID_RESOURCE_PICKUP", at);
                     hud.Float(at + Vector3.Up * 2, $"+{e.Detail} BMU");
                     _marks!.Fly(at + Vector3.Up);
                     break;
-                case GameEventKind.WiredWrecksSwept when e.Other == (int)Player:
+                case GameEventKind.WiredWrecksSwept when Mine(e):
                     _audio.PlayGui("gui/sounds/stats.wav");
                     _hud.Message(Lang.T("Wrecks left lying swept up at half: +{0} BMU", e.Detail ?? "0"));
                     break;
-                case GameEventKind.WiredCrateCollected when e.Actor == World.HeroOf(Player)?.Id && e.Detail is { } crate:
+                case GameEventKind.WiredCrateCollected when e.Actor == World.HeroOf(Me)?.Id && e.Detail is { } crate:
                     _audio.Play("SID_RESOURCE_PICKUP", at);
                     _audio.PlayGui("gui/sounds/stats.wav");
                     hud.Float(at + Vector3.Up * 2, HangarText.Name(crate), new Color(0.45f, 1, 0.7f));
@@ -294,7 +320,8 @@ public partial class Game
                 case GameEventKind.WiredIonWarning:
                     _audio.PlayGui("gui/sounds/hpcritic.wav");
                     break;
-                case GameEventKind.WiredHeroRespawned when e.Other == (int)Player:
+                // A team-mate's new body is theirs: the view jumps into the player's own only.
+                case GameEventKind.WiredHeroRespawned when Mine(e):
                     _newBody = e.Actor;
                     break;
                 case GameEventKind.Hit when e.Actor == _driven?.Id && e.Other is { } from && World.Find(from) is { } shooter:
@@ -303,7 +330,7 @@ public partial class Game
                 case GameEventKind.WiredHarvest:
                     // The armour coming back sounds as a supercharger's mending; the player's own block flashes with it.
                     _audio.Play("SID_SUPERHEAL", at);
-                    if (e.Actor == World.HeroOf(Player)?.Id)
+                    if (e.Actor == World.HeroOf(Me)?.Id)
                         hud.Harvested(e.Detail ?? "0");
                     break;
                 default:
@@ -348,10 +375,10 @@ public partial class Game
                 break;
             case GameEventKind.WiredTowerPlaced:
                 _effects.KickUp(at, new Vector2(3, 3));
-                if (World.Find(e.Actor)?.Race == Player)
+                if (World.Find(e.Actor) is { } placed && placed.Owner == Me)
                     _audio.PlayGui("gui/sounds/taskmach.wav");
                 break;
-            case GameEventKind.ConstructionComplete when World.Find(e.Actor) is Construction tower && tower.IsType(WiredTower.Type) && tower.Race == Player:
+            case GameEventKind.ConstructionComplete when World.Find(e.Actor) is Construction tower && tower.IsType(WiredTower.Type) && tower.Owner == Me:
                 _audio.Say("VID_DOZER_BUILDING_COMPLETE");
                 _hud.Message(Lang.T("Tower ready"));
                 _hud.Wired?.Float(at + Vector3.Up * 4, Lang.T("Tower ready"), new Color(0.45f, 1, 0.7f));
@@ -359,7 +386,8 @@ public partial class Game
             case GameEventKind.WiredTowerScrapped:
                 _vaporised.Add(e.Actor);
                 _audio.Play("SID_RECYCLE", at);
-                if (view?.Race == Player)
+                // The scrap goes to the tower's owner (its constructor's hero), so only they see it come in.
+                if (view?.Race == Player && view.OwnedBy == Me)
                     _hud.Wired?.Float(at + Vector3.Up * 3, $"+{e.Detail} BMU");
                 break;
             case GameEventKind.WiredLocated:
@@ -368,7 +396,7 @@ public partial class Game
                 // player's own sweeps round the edge of the view, which in first person shows little of the ground.
                 if (World.Find<Machine>(e.Actor) is { } locator)
                     _effects.LocatePulse(at, World.ScannerReach(locator), LocateGlow);
-                if (e.Actor == World.HeroOf(Player)?.Id)
+                if (e.Actor == World.HeroOf(Me)?.Id)
                 {
                     _hud.Message(Lang.T("{0} located", e.Other ?? 0));
                     _hud.Wired?.Pulsed();

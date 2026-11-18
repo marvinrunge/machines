@@ -11,9 +11,10 @@ namespace Machines.WiredBench;
 /// A hero under simple rules, as the balance targets describe it: it stays near the pod, attacks what comes close, collects
 /// wrecks and buys by its strategy. It has only what a player has, commands through <see cref="GameWorld.Issue"/>, or
 /// through <paramref name="issue"/> for whoever carries them out instead (the game's run driver plays them with the
-/// player's input). It tests the numbers, not the fun.
+/// player's input). It plays <paramref name="player"/>'s hero, by default that of <paramref name="side"/>'s first player.
+/// It tests the numbers, not the fun.
 /// </summary>
-internal sealed class Bot(GameWorld world, GameData data, Strategy strategy, Race side = Race.Red, Action<Command>? issue = null)
+internal sealed class Bot(GameWorld world, GameData data, Strategy strategy, Race side = Race.Red, Action<Command>? issue = null, PlayerId? player = null)
 {
     private Race Side => side;
 
@@ -38,16 +39,26 @@ internal sealed class Bot(GameWorld world, GameData data, Strategy strategy, Rac
     /// <summary>The pod is mended below this share of its hit points, with up to half the bank.</summary>
     private const float MendPodBelow = 0.7f;
 
-    private readonly WiredState _state = world.Wired!.Heroes[side];
+    // The hero it plays: the player's, by default the race's first player's (one hero a race, as the bench runs).
+    private readonly WiredState _state = world.Wired!.Heroes[player ?? PlayerId.Of(side)];
     private int _turn, _actions, _podMended = -1;
     private float _openedAt;
 
     /// <summary>What it bought, by name: items by their id, upgrades with a ^, escorts by their machine.</summary>
     public SortedDictionary<string, int> Purchases { get; } = new(StringComparer.Ordinal);
 
-    private float Bank => world.Races[Side].Bmu;
+    // What the hero spends: its own purse in a run of several heroes, else the race's BMU.
+    private float Bank => world.Bank(_state);
 
-    private void Issue(Command command) => (issue ?? world.Issue)(command);
+    // Straight into the world a command is the given player's (Command.Issuer), as a lockstep session stamps it, or a Wired
+    // command would be carried out for the race's first hero; one given to whoever carries it out is stamped by them.
+    private void Issue(Command command)
+    {
+        if (issue is not null)
+            issue(command);
+        else
+            world.Issue(player is { } own ? command with { Issuer = own } : command);
+    }
 
     /// <summary>One look at the world: a command or none.</summary>
     public void Think()
@@ -63,7 +74,7 @@ internal sealed class Bot(GameWorld world, GameData data, Strategy strategy, Rac
 
     private void Fight(WiredRun run)
     {
-        if (world.HeroOf(Side) is not { Inside: null } hero || world.WiredPod(Side) is not { } pod)
+        if (world.HeroOf(_state) is not { Inside: null } hero || world.WiredPod(_state) is not { } pod)
             return;
         if (Dodge(run, hero))
             return;
@@ -178,7 +189,7 @@ internal sealed class Bot(GameWorld world, GameData data, Strategy strategy, Rac
 
     private void Prepare(WiredRun run)
     {
-        if (world.HeroOf(Side) is not { Inside: null } hero || world.WiredPod(Side) is not { } pod)
+        if (world.HeroOf(_state) is not { Inside: null } hero || world.WiredPod(_state) is not { } pod)
             return;
         if (!_state.HangarOpen)
         {
@@ -334,7 +345,7 @@ internal sealed class Bot(GameWorld world, GameData data, Strategy strategy, Rac
 
     private bool MendPod(WiredRun run)
     {
-        if (_podMended == run.Wave || world.WiredPod(Side) is not { } pod || pod.HitPoints >= pod.MaxHitPoints * MendPodBelow || Bank < 20)
+        if (_podMended == run.Wave || world.WiredPod(_state) is not { } pod || pod.HitPoints >= pod.MaxHitPoints * MendPodBelow || Bank < 20)
             return false;
         _podMended = run.Wave;
         Issue(new WiredPodRepairCommand(Side, (int)(Bank / 2)));
@@ -459,7 +470,7 @@ internal sealed class Bot(GameWorld world, GameData data, Strategy strategy, Rac
     /// <summary>The newest machine on the ground that the bank pays, while the squad has room.</summary>
     private (Command?, string?, bool) NextEscort(WiredRun run)
     {
-        if (world.Escorts(Side).Count() >= world.SquadLimit(_state))
+        if (world.Escorts(_state).Count() >= world.SquadLimit(_state))
             return (null, null, false);
         foreach (var tier in WiredCatalogue.EscortTiers(run.ShopWave).Where(t => t.SubType != "BOSS"))
         {

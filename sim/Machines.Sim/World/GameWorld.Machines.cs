@@ -207,7 +207,7 @@ public sealed partial class GameWorld
                     // an administrator sets its idle squadron on the enemy too.
                     Send(machine, new AttackOrder(enemy.Id, Back: new Interrupted(patrol, patrol.Points[patrol.Next], Chases: false)), enemy.Position);
                     if (machine.Spec.Type == "ADMINISTRATOR" && machine.Squad is { } squad)
-                        foreach (var fighter in Machines.Where(m => m.Race == machine.Race && m.Squad == squad && m.CanFight && m.Order is IdleOrder && !m.IsDead).ToList())
+                        foreach (var fighter in SquadMembers(machine.Race, SquadScope(machine.Race, machine.Owner), squad).Where(m => m.CanFight && m.Order is IdleOrder && !m.IsDead).ToList())
                             Send(fighter, new AttackOrder(enemy.Id), enemy.Position);
                 }
                 break;

@@ -55,6 +55,23 @@ public partial class BattleShots(string folder, string name, string end) : Node
                $"watching {game.WatchedName ?? "-"}, hero down {game.HeroDown}, outcome {now.Outcome?.ToString() ?? "-"} {now.Reason?.ToString() ?? ""}";
     }
 
+    /// <summary>Online, a match scene being loaded anew: true once the new one is up (three minutes at most), false offline or without one.</summary>
+    private async Task<bool> Reloaded(SceneTree tree)
+    {
+        if (MatchRequest.Current.Network is null)
+            return false;
+        for (var waited = 0.0; waited < 180; waited += 0.25)
+        {
+            if (Match(tree) is { World.Tick: > 0, Hidden: false, Warming: false, BattleHud.Battle: not null })
+            {
+                Say("the match scene was loaded again");
+                return true;
+            }
+            await Wait(0.25);
+        }
+        return false;
+    }
+
     public override async void _Ready()
     {
         var tree = GetTree();
@@ -75,7 +92,13 @@ public partial class BattleShots(string folder, string name, string end) : Node
         for (var time = 0.0; time < 1200; time += 0.1)
         {
             if (Match(tree) is not { } game || game.BattleHud?.Battle is not { } now)
-                break;
+            {
+                // Online the match scene is loaded anew when the world is rebuilt or the match rejoined (P2 design §5.4): the
+                // pictures go on in the new one once it is up.
+                if (!await Reloaded(tree))
+                    break;
+                continue;
+            }
             if (time >= nextReport)
             {
                 Say(State(game));

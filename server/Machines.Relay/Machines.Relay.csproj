@@ -10,4 +10,14 @@
     <ProjectReference Include="..\..\net\Machines.Net\Machines.Net.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Kestrel for the web side (RelayHttp). Private: the game hosts the relay over TCP only and must not need ASP.NET. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The tests cut every player's socket as Cloud Run does. -->
+    <InternalsVisibleTo Include="Machines.Tests" />
+  </ItemGroup>
+
 </Project>

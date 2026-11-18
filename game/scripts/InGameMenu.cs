@@ -370,9 +370,20 @@ public partial class StatisticsChart(Game game, Func<int, string, string> text) 
 
     private Score? ScoreOf(Race race) => Shown(race) ? game.World.Races[race].Score : null;
 
-    private string NameOf(Race race) => !Shown(race) ? text(7097, "N/A")
-        : race == Game.Player ? text(7095, "Player")
-        : MatchRequest.Current.Network?.Players.FirstOrDefault(p => p.Slot == race && !p.Ai)?.Name ?? text(7096, "Computer");
+    /// <summary>
+    /// Whose a race's bar is: "Player" for the player's own, the name of the person playing another, "Computer"; a race of
+    /// several commanders is named by all of them ("Anna &amp; Ben").
+    /// </summary>
+    private string NameOf(Race race)
+    {
+        if (!Shown(race))
+            return text(7097, "N/A");
+        var players = game.World.Players;
+        if (players.Shared(race))
+            return string.Join(" & ", players.PlayersOf(race).Select(id => players[id]).Where(row => row.Kind == Machines.Sim.World.PlayerKind.Human).Select(row => row.Name));
+        return race == Game.Player ? text(7095, "Player")
+            : MatchRequest.Current.Network?.Players.FirstOrDefault(p => p.Slot == race && !p.Ai)?.Name ?? text(7096, "Computer");
+    }
 
     public override void _Draw()
     {

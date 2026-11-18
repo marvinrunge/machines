@@ -23,7 +23,7 @@ public sealed partial class GameWorld
     /// </returns>
     public string? WhyNoLocate(WiredState state)
     {
-        if (HeroOf(state.Race) is not { } hero)
+        if (HeroOf(state) is not { } hero)
             return "the hero is down";
         if (hero.Inside is not null)
             return "not from inside the pod";
@@ -56,7 +56,7 @@ public sealed partial class GameWorld
         if (WhyNoLocate(state) is { } why)
             return why;
         var run = Wired!;
-        var hero = HeroOf(state.Race)!;
+        var hero = HeroOf(state)!;
         var reach = ScannerReach(hero);
         var until = Time + WiredBalance.LocateTime;
         var located = 0;

@@ -184,7 +184,7 @@ public sealed partial class GameWorld
         foreach (var passenger in apc.Passengers.Select(Find<Machine>).OfType<Machine>())
         {
             passenger.HitPoints = 0;
-            passenger.LastHitBy = apc.LastHitBy;
+            (passenger.LastHitBy, passenger.LastHitByPlayer) = (apc.LastHitBy, apc.LastHitByPlayer);
         }
         apc.Passengers.Clear();
     }

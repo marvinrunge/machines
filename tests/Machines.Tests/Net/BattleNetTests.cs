@@ -39,7 +39,7 @@ public class BattleNetTests
     }
 
     [Fact]
-    public void The_protocol_went_up_for_battles() => Assert.Equal(12, NetJson.Protocol);
+    public void The_protocol_went_up_for_relay_paced_bundles() => Assert.Equal(14, NetJson.Protocol);
 
     [Fact]
     public void The_options_of_a_battle_and_its_heroes_come_through_the_wire()
@@ -67,7 +67,7 @@ public class BattleNetTests
 
         var set = (SetPlayer)NetJson.Decode(NetJson.Encode(new SetPlayer(Race.Green, Ready: true, Terrain: 7, Hero: hero)));
         var player = (RoomState)NetJson.Decode(NetJson.Encode(new RoomState(1, "r", "m_desert", "m_desert", [Race.Red], new MatchOptions(), false, 1,
-            [new LobbyPlayer(1, "Anna", Race.Red, true, null, hero)], [new RoomSeat(1, SeatUse.Open)])));
+            [new LobbyPlayer(1, "Anna", Race.Red, true, null, hero)], [new RoomSeat(1, SeatUse.Open, Race.Red)])));
         var list = (RoomList)NetJson.Decode(NetJson.Encode(new RoomList([new RoomSummary(1, "r", "m_desert", "m_desert", 1, 4, false, RoomSummary.Battle, 4)])));
 
         Assert.Equal((Race.Green, true, 7L), (set.Colour, set.Ready, set.Terrain));
@@ -93,9 +93,10 @@ public class BattleNetTests
     public void A_saved_battle_comes_back_from_its_commands_alone_resumed_or_played_back()
     {
         var match = Battle();
-        var live = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), Race.Red, [Race.Red, Race.Green], match.InputDelay);
+        var live = new LockstepSession(Replay.BuildWorld(DataLoader.Value, match), PlayerId.Of(Race.Red), match.InputDelay);
+        Assert.Equal(new[] { PlayerId.Of(Race.Red), PlayerId.Of(Race.Green) }, live.Humans);
         Assert.NotNull(live.World.Battle);
-        Assert.Equal(new[] { Race.Blue, Race.Yellow }, live.World.HeroBots.Keys);
+        Assert.Equal(new[] { PlayerId.Of(Race.Blue), PlayerId.Of(Race.Yellow) }, live.World.HeroBots.Keys);
         var rng = new Random(9);
         DriveCommand Drive(Race race) => new(race, live.World.HeroOf(race)?.Id ?? 0, true, rng.Next(3) - 1, rng.Next(3) - 1,
             live.World.HeroOf(race) is { } hero ? hero.Position + new Vector2(rng.Next(-60, 60), rng.Next(-60, 60)) : (Vector2?)null,
@@ -107,11 +108,11 @@ public class BattleNetTests
             live.Pump();
             // Ben's turns, as the relay would bring them.
             if (live.World.Tick >= match.InputDelay)
-                live.Receive(new Turn(live.World.Tick, Race.Green, rng.Next(4) == 0 ? [Drive(Race.Green)] : []));
+                live.Receive(new Turn(live.World.Tick, PlayerId.Of(Race.Green), rng.Next(4) == 0 ? [Drive(Race.Green)] : []));
             Assert.True(live.TryStep(), $"stuck at tick {live.World.Tick}");
         }
         Assert.True(live.World.Tick >= 400);
-        Assert.Contains(live.Played, t => t.Race == Race.Green);
+        Assert.Contains(live.Played, t => t.Player == PlayerId.Of(Race.Green));
 
         var path = Path.Combine(Path.GetTempPath(), $"battle-{Guid.NewGuid():N}{Replay.Extension}");
         new Replay(match, live.Played, live.World.Tick).Save(path);
@@ -119,7 +120,7 @@ public class BattleNetTests
         File.Delete(path);
         SameHero(match.Options.Battle!.Heroes[0], loaded.Match.Options.Battle!.Heroes[0]);
 
-        var resumed = loaded.Resume(Replay.BuildWorld(DataLoader.Value, loaded.Match), Race.Red);
+        var resumed = loaded.Resume(Replay.BuildWorld(DataLoader.Value, loaded.Match), PlayerId.Of(Race.Red));
         while (resumed.World.Tick < loaded.Ticks && resumed.TryStep())
         {
         }

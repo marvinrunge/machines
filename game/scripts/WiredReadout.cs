@@ -45,6 +45,12 @@ public readonly record struct ChipReadout(string Id, ChipFamily Family, bool Lit
 /// </summary>
 public sealed record WiredReadout
 {
+    /// <summary>
+    /// The name the player gave their hero (<see cref="WiredOptions.HeroFor"/>): in a run of several heroes each its own,
+    /// else the run's; empty when none was given.
+    /// </summary>
+    public required string HeroName { get; init; }
+
     /// <summary>The wave the HUD speaks of: the one under way, or else the one coming.</summary>
     public required int Wave { get; init; }
 
@@ -119,13 +125,19 @@ public sealed record WiredReadout
     /// <summary>The seconds until the next wave sweeps the wrecks up at a share, while the wait for it counts down and wrecks lie.</summary>
     public int? SweepIn { get; init; }
 
-    /// <summary>The figures for a race's hero; null without a run.</summary>
-    public static WiredReadout? Of(GameWorld world, Race race)
+    /// <summary>
+    /// The hero fell during a wave and comes back at its pod when the wave is over (a run of several heroes,
+    /// <see cref="WiredState.WaitsForWave"/>); its <see cref="DownSeconds"/> are null meanwhile.
+    /// </summary>
+    public bool WaitsForWave { get; init; }
+
+    /// <summary>The figures for a player's hero; null without a run or for a player without a hero.</summary>
+    public static WiredReadout? Of(GameWorld world, PlayerId player)
     {
-        if (world.Wired is not { } run || !run.Heroes.TryGetValue(race, out var state))
+        if (world.Wired is not { } run || !run.Heroes.TryGetValue(player, out var state))
             return null;
-        var (hero, pod, now) = (world.HeroOf(race), world.WiredPod(race), world.Time);
-        var escorts = world.Escorts(race).OrderBy(m => m.Id).Select(m =>
+        var (hero, pod, now) = (world.HeroOf(state), world.WiredPod(state), world.Time);
+        var escorts = world.Escorts(state).OrderBy(m => m.Id).Select(m =>
             new EscortReadout(m.Id, m.Key.SubType ?? m.Key.Type, m.Key.HardwareLevel, Share(m.HitPoints, m.MaxHitPoints), Doing(m.Order),
                 WiredMachines.Find(m.Spec.TypeName, m.Key.HardwareLevel)?.Name)).ToList();
         var strike = run.Strikes.Count > 0 ? run.Strikes[0] : null;
@@ -133,6 +145,7 @@ public sealed record WiredReadout
         var wave = run.Phase == WiredPhase.Ended ? run.Wave : run.ShopWave;
         return new WiredReadout
         {
+            HeroName = run.Options.HeroFor(player).Name,
             Wave = wave,
             BetweenWaves = run.BetweenWaves,
             Seconds = run.Waiting ? (int)MathF.Ceiling(run.Countdown) : 0,
@@ -141,7 +154,8 @@ public sealed record WiredReadout
             BossName = WiredDirector.BossOf(wave)?.Name,
             EnemiesLeft = run.EnemiesLeft,
             MostEnemies = Math.Max(run.MostEnemies, run.EnemiesLeft),
-            Bank = (int)world.Races[race].Bmu,
+            // A hero of a run with its own purse (co-op) spends that, every other the race's BMU.
+            Bank = (int)world.Bank(state),
             Score = WiredBalance.Score(state.Stats, run.Options.Difficulty),
             Pod = pod is null ? null : Share(pod.HitPoints, pod.MaxHitPoints),
             Bosses = run.Bosses.Where(b => !b.Machine.IsDead).Select(b => new BossReadout(b.Machine.Id, b.Plan.Boss?.Name ?? "",
@@ -153,7 +167,7 @@ public sealed record WiredReadout
             Dash = state.Build(world.Data).DashCooldown is { } cooldown
                 ? new DashReadout(MathF.Max(0, state.DashReadyAt - now), 1 - Share(state.DashReadyAt - now, cooldown), now < state.DashUntil)
                 : null,
-            SpecialView = world.SpecialView(race),
+            SpecialView = world.SpecialView(state),
             Squad = escorts,
             SquadLimit = world.SquadLimit(state),
             Chips = BoardOf(world, state),
@@ -164,6 +178,7 @@ public sealed record WiredReadout
             InStrike = hero is { Inside: null } && run.Strikes.Any(s => Vector2.Distance(hero.Position, s.Position) <= s.Radius),
             Grounded = (int)(world.Debris.Sum(d => d.Quantity) * state.Build(world.Data).WreckShare),
             SweepIn = run.Waiting && world.Debris.Count > 0 && !state.HangarOpen ? (int)MathF.Ceiling(run.Countdown) : null,
+            WaitsForWave = state.WaitsForWave && state.RespawnAt is null,
         };
     }
 

@@ -6,10 +6,12 @@ using Machines.Sim.World;
 namespace Machines.Sim.Ai;
 
 /// <summary>
-/// The computer's hero in a battle. It plays by orders, as a player's machines take them (move, attack, stand, abilities
-/// and the dash), and holds its target: its hero is at high DefCon, so neither it picks fights of its own nor runs. The
-/// first of a team by race attacks: it fights the nearest enemy hero near it, else takes the enemy pod, else hunts. The
-/// second defends: an enemy in its own circle first, then one near the pod, else it guards the pod (with victory by wipe
+/// The computer's hero in a battle, a player's: a bot's from the start, or that of a player who left. It plays by orders, as
+/// a player's machines take them (move, attack, stand, abilities and the dash), under its player's name, and holds its
+/// target: its hero is at high DefCon, so neither it picks fights of its own nor runs. The first of a team by place
+/// attacks: it fights the nearest enemy hero near it, else takes the enemy pod, else hunts. The second defends (in today's
+/// layout every one after the first, with a team size every third from the second: places 1, 4, 7 and so on): an enemy
+/// in its own circle first, then one near the pod, else it guards the pod (with victory by wipe
 /// alone, where there is no pod to take, it goes with the attacker instead), and once its mate has fallen it guards the pod
 /// until all is quiet there for a while, then attacks itself. It uses what its chassis can do: Old Iron rams what it
 /// fights at close quarters, a Colossus anchors where it holds and lets go before it moves on, a Widow that is not under
@@ -21,8 +23,18 @@ namespace Machines.Sim.Ai;
 /// <paramref name="issue"/> for a driver that turns its orders into input; all it keeps follows from tick 0, and what its
 /// chassis' specials go by (anchors, lurks, mines, the pulse) it reads off the world each time.
 /// </summary>
-public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue = null)
+public sealed class BattleBot(GameWorld world, PlayerId player, Action<Command>? issue = null)
 {
+    /// <summary>Race form: the bot of the race's first player.</summary>
+    [Obsolete("Race form: name the player.", DiagnosticId = PlayerId.RaceForm)]
+    public BattleBot(GameWorld world, Race side, Action<Command>? issue = null)
+        : this(world, PlayerId.Of(side), issue)
+    {
+    }
+
+    // The race its player plays, for its commands and what its race has on the ground (mines, blasts).
+    private readonly Race side = world.Wired?.Heroes.GetValueOrDefault(player)?.Race ?? world.Players.RaceOf(player);
+
     /// <summary>The ticks between two looks at the world.</summary>
     public const int ThinkEvery = 10;
 
@@ -71,29 +83,33 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
     /// <summary>A geo locator sends its pulse again at an enemy hero located for no longer than this.</summary>
     private const float LocateAgain = 2;
 
+    /// <summary>The race whose hero it drives.</summary>
     public Race Side => side;
+
+    /// <summary>The player whose hero it drives; its commands go out in their name.</summary>
+    public PlayerId Player => player;
 
     // Whether the defender has taken over the attack, and since when its pod has been quiet.
     private bool _attacks;
     private float _quietSince;
-    private readonly Dictionary<int, Vector2> _holds = [];
+    private readonly Dictionary<(int Pod, int Place), Vector2> _holds = [];
 
     // The hero it fights, since when, and until when it closes in on it.
     private int _fightTarget;
     private float _fightSince, _closeInUntil;
 
-    private void Issue(Command command) => (issue ?? world.Issue)(command);
+    private void Issue(Command command) => (issue ?? world.Issue)(command with { Issuer = player });
 
     /// <summary>One look at the world: a command or a few, or none.</summary>
     public void Think()
     {
-        if (world.Battle is not { Over: false } run || run.InOpening(world.Time) || world.Wired?.Heroes.GetValueOrDefault(side) is not { } state)
+        if (world.Battle is not { Over: false } run || run.InOpening(world.Time) || world.Wired?.Heroes.GetValueOrDefault(player) is not { } state)
             return;
-        var team = run.TeamOf(side);
+        var team = run.TeamOf(player);
         if (team < 0)
             return;
         var ownPod = world.BattlePod(team);
-        var own = world.HeroOf(side);
+        var own = world.HeroOf(state);
         var enemies = Enemies(run, team, own);
         if (own is not { Inside: null } hero)
         {
@@ -104,20 +120,39 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
             Issue(new DefConCommand(side, [hero.Id], DefCon.High));
         UseSpecial(state, hero, enemies, UseAbilities(state, hero, enemies));
 
-        var mates = run.Teams[team].Order().ToList();
-        var defender = mates.IndexOf(side) > 0;
+        var mates = run.Members[team];
+        var place = Place(run, team);
         NoteQuiet(ownPod, enemies);
-        if (defender && Defend(run, team, hero, ownPod, enemies, mates))
+        if (Defends(run, place) && Defend(run, team, hero, ownPod, enemies, mates, place))
             return;
-        Attack(run, team, hero, enemies);
+        Attack(run, team, hero, enemies, place);
     }
+
+    /// <summary>Its player's place in the team, from 0.</summary>
+    private int Place(BattleRun run, int team)
+    {
+        var members = run.Members[team];
+        for (var place = 0; place < members.Count; place++)
+        {
+            if (members[place] == player)
+                return place;
+        }
+        return -1;
+    }
+
+    /// <summary>
+    /// Whether the hero at a place defends: in today's layout every one after the first, as it always was; with a team size
+    /// every third from the second (places 1, 4, 7, …), the others attack.
+    /// </summary>
+    private static bool Defends(BattleRun run, int place) =>
+        BattleSeats.Size(run.Options) > 0 ? place % 3 == 1 : place > 0;
 
     /// <summary>What the chassis of the bot's hero can do besides carrying weapons.</summary>
     private ChassisSpecial Special(WiredState state) => state.Build(world.Data).Chassis.Special;
 
-    /// <summary>The enemy heroes standing outside, in race order, leaving out those hidden in their shadow from the bot's own hero.</summary>
+    /// <summary>The enemy heroes standing outside, in place order, leaving out those hidden in their shadow from the bot's own hero.</summary>
     private List<Machine> Enemies(BattleRun run, int team, Machine? own) =>
-        run.Teams[1 - team].Order().Select(world.HeroOf).OfType<Machine>().Where(m => m.Inside is null && (own is null || !world.Shadowed(own, m))).ToList();
+        run.Members[1 - team].Select(enemy => world.HeroOf(enemy)).OfType<Machine>().Where(m => m.Inside is null && (own is null || !world.Shadowed(own, m))).ToList();
 
     /// <summary>Keeps the time since an enemy was last near the own pod.</summary>
     private void NoteQuiet(Construction? ownPod, List<Machine> enemies)
@@ -127,7 +162,7 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
     }
 
     /// <returns>Whether the defender did its own part; false sends it along with the attack.</returns>
-    private bool Defend(BattleRun run, int team, Machine hero, Construction? ownPod, List<Machine> enemies, List<Race> mates)
+    private bool Defend(BattleRun run, int team, Machine hero, Construction? ownPod, List<Machine> enemies, IReadOnlyList<PlayerId> mates, int place)
     {
         if (ownPod is null)
             return false;
@@ -145,7 +180,11 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
             Fight(hero, intruder, enemies);
             return true;
         }
-        var mateStands = mates.Where(r => r != side).Any(r => world.HeroOf(r) is not null);
+        // With a team size only a mate on the attack keeps a defender at its pod: the defenders of a team would else guard
+        // it for each other, and once both teams' attackers had fallen every battle ran out of time.
+        var sized = BattleSeats.Size(run.Options) > 0;
+        var mateStands = Enumerable.Range(0, mates.Count)
+            .Any(other => mates[other] != player && (!sized || !Defends(run, other)) && world.HeroOf(mates[other]) is not null);
         if (mateStands)
         {
             _attacks = false;
@@ -162,8 +201,8 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
         // Guard the pod: the mate is off taking the other one, or has fallen. A Marshal guards it too, its field round the
         // pod (the pod would stand open while it went with its mate), and a spy lays its mines on the approach as they
         // come due.
-        var state = world.Wired!.Heroes[side];
-        var guard = HoldPoint(ownPod, enemyPod?.Position ?? hero.Position, mates.IndexOf(side), hero.Radius);
+        var state = world.Wired!.Heroes[player];
+        var guard = HoldPoint(ownPod, enemyPod?.Position ?? hero.Position, place, hero.Radius);
         if (Nearest(enemies, hero.Position, FightReach) is { } near)
             Fight(hero, near, enemies);
         else if (!MineApproach(state, hero, ownPod, enemyPod?.Position ?? hero.Position))
@@ -172,7 +211,7 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
     }
 
     /// <summary>The attack: the nearest enemy hero close by, else the enemy pod (or, for a Marshal, a mate out in the field), else the hunt.</summary>
-    private void Attack(BattleRun run, int team, Machine hero, List<Machine> enemies)
+    private void Attack(BattleRun run, int team, Machine hero, List<Machine> enemies, int place)
     {
         if (Nearest(enemies, hero.Position, FightReach) is { } near)
         {
@@ -181,11 +220,10 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
         }
         if (run.Options.Win != BattleWin.Wipe && world.BattlePod(1 - team) is { } enemyPod)
         {
-            if (KeepNear(world.Wired!.Heroes[side], run, team, hero))
+            if (KeepNear(world.Wired!.Heroes[player], run, team, hero, place))
                 return;
             var from = world.BattlePod(team)?.Position ?? hero.Position;
-            var index = run.Teams[team].Order().ToList().IndexOf(side);
-            Go(hero, HoldPoint(enemyPod, from, index, hero.Radius), stand: true, inCircle: enemyPod);
+            Go(hero, HoldPoint(enemyPod, from, place, hero.Radius), stand: true, inCircle: enemyPod);
             return;
         }
         if (Nearest(enemies, hero.Position, float.MaxValue) is { } quarry)
@@ -199,7 +237,7 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
     /// from the attack (<see cref="MateAfield"/>); a Marshal guarding the pod stays at it. False for any other chassis, and
     /// with no mate out in the field.
     /// </summary>
-    private bool KeepNear(WiredState state, BattleRun run, int team, Machine hero)
+    private bool KeepNear(WiredState state, BattleRun run, int team, Machine hero, int place)
     {
         if ((Special(state) & ChassisSpecial.Field) == 0 || MateAfield(run, team) is not { } mate)
             return false;
@@ -207,7 +245,7 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
             && Vector2.Distance(mate.Position, enemyPod.Position) <= BattleBalance.CaptureRadius)
         {
             var from = world.BattlePod(team)?.Position ?? hero.Position;
-            Go(hero, HoldPoint(enemyPod, from, run.Teams[team].Order().ToList().IndexOf(side), hero.Radius), stand: true, inCircle: enemyPod);
+            Go(hero, HoldPoint(enemyPod, from, place, hero.Radius), stand: true, inCircle: enemyPod);
             return true;
         }
         if (Vector2.Distance(hero.Position, mate.Position) > MarshalNear)
@@ -227,9 +265,9 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
     private Machine? MateAfield(BattleRun run, int team)
     {
         var home = world.BattlePod(team);
-        foreach (var race in run.Teams[team].Order())
+        foreach (var member in run.Members[team])
         {
-            if (race != side && world.HeroOf(race) is { Inside: null } mate
+            if (member != player && world.HeroOf(member) is { Inside: null } mate
                 && (home is null || Vector2.Distance(mate.Position, home.Position) > GuardReach + MarshalNear))
                 return mate;
         }
@@ -276,7 +314,7 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
 
     /// <summary>Whether no hero of the other team stands and none has a body to come.</summary>
     private bool EnemiesOut(BattleRun run, int team) =>
-        run.Teams[1 - team].All(race => world.HeroOf(race) is null && world.Wired?.Heroes.GetValueOrDefault(race)?.RespawnAt is null);
+        run.Members[1 - team].All(enemy => world.HeroOf(enemy) is null && world.Wired?.Heroes.GetValueOrDefault(enemy)?.RespawnAt is null);
 
     /// <summary>The nearest of the machines within reach of a place, ties by id.</summary>
     private static Machine? Nearest(List<Machine> machines, Vector2 place, float reach)
@@ -300,7 +338,7 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
     /// </summary>
     private void Fight(Machine hero, Machine target, List<Machine> enemies)
     {
-        var state = world.Wired!.Heroes[side];
+        var state = world.Wired!.Heroes[player];
         var special = Special(state);
         if (target.Id != _fightTarget)
             (_fightTarget, _fightSince, _closeInUntil) = (target.Id, world.Time, 0);
@@ -366,7 +404,7 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
     /// </summary>
     private bool WaitsToLurk(WiredState state, Machine hero, Machine target, List<Machine> enemies)
     {
-        if (world.Time - state.LastHitAt < LurkQuiet || world.SpecialView(side) is not { Phase: "Standing" })
+        if (world.Time - state.LastHitAt < LurkQuiet || world.SpecialView(state) is not { Phase: "Standing" })
             return false;
         var reach = hero.Weapons.Where(w => w.DealsDamage).Select(w => w.Base.Range).DefaultIfEmpty(0).Max() * GameWorld.FiringRangeShare;
         if (reach <= 0 || enemies.Exists(e => hero.DistanceTo(e) <= reach))
@@ -424,7 +462,7 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
         {
             if (stand && hero.Order is not StandGroundOrder)
                 Issue(new StandGroundCommand(side, [hero.Id]));
-            if (stand && (Special(world.Wired!.Heroes[side]) & ChassisSpecial.Anchor) != 0 && world.AnchorPhaseOf(hero) == AnchorPhase.Free)
+            if (stand && (Special(world.Wired!.Heroes[player]) & ChassisSpecial.Anchor) != 0 && world.AnchorPhaseOf(hero) == AnchorPhase.Free)
                 Issue(new WiredSpecialCommand(side, On: true));
             return;
         }
@@ -442,7 +480,7 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
     /// <summary>Fires the thrusters (or the chassis' own dash) towards a place, when it has them, they are ready and no anchor holds it.</summary>
     private void DashTowards(Machine hero, Vector2 place)
     {
-        if (world.WhyNoDash(world.Wired!.Heroes[side]) is not null)
+        if (world.WhyNoDash(world.Wired!.Heroes[player]) is not null)
             return;
         var way = place - hero.Position;
         if (way.LengthSquared() < 1)
@@ -456,22 +494,22 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
     /// parked there stood on its own mate's spot), and the hero's whole breadth is on open ground; the own pod is guarded
     /// from further out than the other is held in, clear of its walls.
     /// </summary>
-    private Vector2 HoldPoint(Construction pod, Vector2 from, int index, float radius)
+    private Vector2 HoldPoint(Construction pod, Vector2 from, int place, float radius)
     {
-        var key = pod.Id * 8 + index;
+        var key = (pod.Id, place);
         if (_holds.TryGetValue(key, out var known))
             return known;
         var way = from - pod.Position;
         var facing = way.LengthSquared() > 1 ? DetMath.Atan2(way.Y, way.X) : 0;
         var hold = pod.EntranceOutside ?? pod.Position;
-        var at = world.Battle?.TeamOf(side) is { } team and >= 0 && world.BattlePod(team)?.Id == pod.Id ? GuardAt : HoldAt;
+        var at = world.Battle?.TeamOf(player) is { } team and >= 0 && world.BattlePod(team)?.Id == pod.Id ? GuardAt : HoldAt;
         var offDoor = 2 * radius + 4;
         bool Open(Vector2 p) => world.Nav.IsFree(p, crossesWater: false)
             && Enumerable.Range(0, 4).All(k => world.Nav.IsFree(p + new Vector2(DetMath.Cos(k * MathF.Tau / 4), DetMath.Sin(k * MathF.Tau / 4)) * radius, crossesWater: false));
         for (var step = 0; step < 16; step++)
         {
-            // From the side facing the team outwards, alternately left and right, the second of the team a step aside.
-            var turn = (step + 1) / 2 * (step % 2 == 0 ? 1 : -1) + (index > 0 ? 0.5f : 0);
+            // From the side facing the team outwards, alternately left and right, the others of the team steps aside.
+            var turn = (step + 1) / 2 * (step % 2 == 0 ? 1 : -1) + Aside(world.Battle, place);
             var angle = facing + turn * MathF.Tau / 16;
             var point = pod.Position + new Vector2(DetMath.Cos(angle), DetMath.Sin(angle)) * at;
             if (Open(point) && (pod.EntranceOutside is not { } door || Vector2.Distance(point, door) >= offDoor))
@@ -482,6 +520,20 @@ public sealed class BattleBot(GameWorld world, Race side, Action<Command>? issue
         }
         _holds[key] = hold;
         return hold;
+    }
+
+    /// <summary>
+    /// How many sixteenths of a turn the hold point of a place is set aside from the first's: in today's layout half a step
+    /// for every one after the first, as it always was; with a team size half a step for the second, then half a step the
+    /// other way, a whole step, a whole step the other way and so on, so that no two places share a point.
+    /// </summary>
+    private static float Aside(BattleRun? run, int place)
+    {
+        if (place <= 0)
+            return 0;
+        if (run is null || BattleSeats.Size(run.Options) == 0)
+            return 0.5f;
+        return (place + 1) / 2 * 0.5f * (place % 2 == 1 ? 1 : -1);
     }
 
     // ---- abilities --------------------------------------------------------------------------------

@@ -1,28 +1,43 @@
 using Godot;
-using Machines.Import.Model;
 using Machines.Sim.Survival;
+using PlayerId = Machines.Sim.World.PlayerId;
 
 namespace Machines.Game;
 
-// The screen of a battle, on the run's plates: the clock between the two teams at the top, each hero with its name, chassis,
-// tier, what is left of it and its lives, the capture of both pods under them, the ways to both pods, the abilities, the
-// thrusters and the chassis' special in the foot, the opening's countdown, the wait for a new body and whom a player out of
-// the fight looks on through. Everything it says comes from BattleReadout. Battle is the remake's own addition.
+// The screen of a battle, on the run's plates: the clock between the two teams at the top, each hero with its number (where a
+// race has several), name, chassis, tier, what is left of it and its lives, the capture of both pods under them, the ways to
+// both pods, the abilities, the thrusters and the chassis' special in the foot, the opening's countdown, the wait for a new
+// body and whom a player out of the fight looks on through. Everything it says comes from BattleReadout. Battle is the
+// remake's own addition.
 public partial class WiredHud
 {
-    // Sizes in pixels of a window 1080 high: a team's block, the clock between them, a hero's row, the team's heading, the
-    // capture bars under the plate and the plate round them.
-    private const float TeamWidth = 340, ClockWidth = 150, HeroRow = 40, TeamHead = 24, CaptureHeight = 32, PlatePad = 12, PlateTop = 6;
+    // Sizes in pixels of a window 1080 high: a team's block, the clock between them, a hero's row (of a team of two; of three
+    // to five the rows are compact, of six to fifteen mini), the team's heading, the capture bars under the plate and the
+    // plate round them.
+    private const float TeamWidth = 340, ClockWidth = 150, HeroRow = 40, CompactRow = 24, MiniRow = 16, TeamHead = 24, CaptureHeight = 32, PlatePad = 12, PlateTop = 6;
 
     private BattleReadout? _battle;
-    private readonly Dictionary<Race, float> _healthTrail = [];
-    private readonly Dictionary<Race, double> _heroStruck = [];
+    private readonly Dictionary<PlayerId, float> _healthTrail = [];
+    private readonly Dictionary<PlayerId, double> _heroStruck = [];
     private int _openingSeen = -1, _clockSeen = -1;
 
     /// <summary>The battle as the HUD shows it now; null in any other match.</summary>
     public BattleReadout? Battle => _battle;
 
-    private float BattlePlateHeight => PlateTop + TeamHead + HeroRow * Math.Max(_battle?.Ours.Heroes.Count ?? 2, _battle?.Theirs.Heroes.Count ?? 2) + PlatePad;
+    /// <summary>The most heroes a team of this battle has: two in today's layout.</summary>
+    private int TeamHeroes => Math.Max(_battle?.Ours.Heroes.Count ?? 2, _battle?.Theirs.Heroes.Count ?? 2);
+
+    /// <summary>A team of three to five lists its heroes in compact rows, so that five fit under the clock; of six to fifteen in mini rows.</summary>
+    private BattleRows Rows => BattleReadout.RowsFor(TeamHeroes);
+
+    private float RowHeight => Rows switch
+    {
+        BattleRows.Full => HeroRow,
+        BattleRows.Compact => CompactRow,
+        _ => MiniRow,
+    };
+
+    private float BattlePlateHeight => PlateTop + TeamHead + RowHeight * TeamHeroes + PlatePad;
 
     /// <summary>How far down the battle's plate and the capture bars under it reach.</summary>
     private float BattleHanging => (BattlePlateHeight + (_battle is { Capture: true } ? CaptureHeight + 6 : 0) + Gap) * _u;
@@ -39,10 +54,10 @@ public partial class WiredHud
 
         foreach (var hero in now.Ours.Heroes.Concat(now.Theirs.Heroes))
         {
-            var trail = _healthTrail.GetValueOrDefault(hero.Race, hero.Health);
-            if (hero.Health < trail - 0.001f && _heroStruck.GetValueOrDefault(hero.Race, -10) < _time - 0.12)
-                _heroStruck[hero.Race] = _time;
-            _healthTrail[hero.Race] = Mathf.Max(hero.Health, Mathf.MoveToward(trail, hero.Health, 0.4f * delta));
+            var trail = _healthTrail.GetValueOrDefault(hero.Player, hero.Health);
+            if (hero.Health < trail - 0.001f && _heroStruck.GetValueOrDefault(hero.Player, -10) < _time - 0.12)
+                _heroStruck[hero.Player] = _time;
+            _healthTrail[hero.Player] = Mathf.Max(hero.Health, Mathf.MoveToward(trail, hero.Health, 0.4f * delta));
         }
 
         foreach (var ability in now.Abilities)
@@ -113,20 +128,65 @@ public partial class WiredHud
         if (!now.Capture)
             return;
         // Under its team the pod's capture by the other side: the own pod reddens as the enemy takes it.
-        DrawCapture(new Rect2(ours.Position.X, height + 6 * _u, ours.Size.X, CaptureHeight * _u), Lang.T("Your pod"), now.Theirs.Progress, now.Theirs.Capturing, Danger);
-        DrawCapture(new Rect2(theirs.Position.X, height + 6 * _u, theirs.Size.X, CaptureHeight * _u), Lang.T("Enemy pod"), now.Ours.Progress, now.Ours.Capturing, MenuTheme.Glow);
+        DrawCapture(new Rect2(ours.Position.X, height + 6 * _u, ours.Size.X, CaptureHeight * _u), Lang.T("Your pod"), now.Theirs, Danger);
+        DrawCapture(new Rect2(theirs.Position.X, height + 6 * _u, theirs.Size.X, CaptureHeight * _u), Lang.T("Enemy pod"), now.Ours, MenuTheme.Glow);
     }
 
     private void DrawTeam(BattleTeamReadout team, Rect2 block, string title, Color accent)
     {
         Say(new Vector2(block.Position.X + 2 * _u, block.Position.Y + 17 * _u), title.Caps(), 14, team.InTheFight ? accent : MenuTheme.Dim);
         for (var i = 0; i < team.Heroes.Count; i++)
-            DrawHeroRow(team.Heroes[i], new Rect2(block.Position.X, block.Position.Y + (TeamHead + i * HeroRow) * _u, block.Size.X, HeroRow * _u));
+        {
+            var row = new Rect2(block.Position.X, block.Position.Y + (TeamHead + i * RowHeight) * _u, block.Size.X, RowHeight * _u);
+            switch (Rows)
+            {
+                case BattleRows.Full: DrawHeroRow(team.Heroes[i], row); break;
+                case BattleRows.Compact: DrawCompactRow(team.Heroes[i], row); break;
+                default: DrawMiniRow(team.Heroes[i], row); break;
+            }
+        }
     }
 
     /// <summary>
-    /// A hero's row: its colour, name, chassis and tier on the left, on the right what is left of it over its lives; while it
-    /// is down the seconds until it is back, and once it is out for good its row dims and its name is struck through.
+    /// The name of the person who plays a hero, where the list shows it: another person's, not the player's own (their row is
+    /// lit) and not the computer's, so that a match of one person against the computer shows none, as it always did.
+    /// </summary>
+    private static string? PersonOf(BattleHeroReadout hero) =>
+        hero.PlayerName is { Length: > 0 } person && !hero.You && !string.Equals(person, hero.Name, StringComparison.OrdinalIgnoreCase) ? person : null;
+
+    /// <summary>
+    /// What the row says of who drives the hero now, besides standing or down (<see cref="BattleReadout.DriverTag"/>): the
+    /// computer, for a person who left (away), and for a bot from the start where it is news: in a list of three or more
+    /// heroes, or where several people play.
+    /// </summary>
+    private string? DriverTag(BattleHeroReadout hero) =>
+        BattleReadout.DriverTag(hero, TeamHeroes, _game.World.Players.Humans.Count) is { } tag ? Lang.T(tag) : null;
+
+    /// <summary>
+    /// A row's tag of who drives its hero, on a little plate of its own before the name (at the end of a row it was cut
+    /// off): <paramref name="height"/> high from <paramref name="at"/>, its top left. Returns how wide it is in the HUD's
+    /// pixels, its gap after it included; 0 for none.
+    /// </summary>
+    private float DrawDriverTag(BattleHeroReadout hero, Vector2 at, float height, float size)
+    {
+        if (DriverTag(hero) is not { } tag)
+            return 0;
+        var text = tag.Caps();
+        // A person away or lagging is warned of; a bot is a plain fact.
+        var colour = hero.Away || hero.Lagging ? Warning : Ice;
+        var width = Width(text, size) / _u + 8;
+        var box = new Rect2(at, new Vector2(width, height) * _u);
+        DrawRect(box, new Color(colour, 0.16f));
+        DrawRect(box, new Color(colour, 0.7f), false, Mathf.Max(_u, 1));
+        // The capitals' middle on the plate's.
+        Say(new Vector2(at.X + 4 * _u, at.Y + (height * _u + Px(size) * 0.7f) / 2), text, size, colour);
+        return width + 5;
+    }
+
+    /// <summary>
+    /// A hero's row: its colour, number and name, the person playing it, chassis and tier on the left, on the right what is
+    /// left of it over its lives; while it is down the seconds until it is back, and once it is out for good its row dims and
+    /// its name is struck through.
     /// </summary>
     private void DrawHeroRow(BattleHeroReadout hero, Rect2 row)
     {
@@ -134,16 +194,20 @@ public partial class WiredHud
         var colour = HangarCreation.Colours.FirstOrDefault(c => c.Race == Game.Look(hero.Race)).Colour;
         DrawRect(new Rect2(row.Position + new Vector2(0, 4 * _u), new Vector2(5 * _u, row.Size.Y - 10 * _u)), new Color(colour, alpha));
         var nameColour = hero.You ? MenuTheme.Bright : MenuTheme.Text;
-        var name = Fit(hero.Name.Caps(), 17, 176);
-        var at = row.Position + new Vector2(13 * _u, 17 * _u);
+        // Who drives it, before the name.
+        var tag = DrawDriverTag(hero, row.Position + new Vector2(13 * _u, 4 * _u), 16, 11);
+        var name = Fit(hero.Label.Caps(), 17, 176 - tag);
+        var at = row.Position + new Vector2((13 + tag) * _u, 17 * _u);
         Say(at, name, 17, new Color(nameColour, alpha));
         if (hero.Out)
         {
             var across = Width(name, 17);
             DrawLine(at + new Vector2(-2 * _u, -6 * _u), at + new Vector2(across + 2 * _u, -6 * _u), Danger, Mathf.Max(2 * _u, 1));
         }
-        var chassis = Fit($"{HangarText.Name(hero.Chassis)} · {BattleDraft.Roman(hero.Tier)}", 13, 176);
-        Say(row.Position + new Vector2(13 * _u, 33 * _u), chassis, 13, new Color(MenuTheme.Dim, alpha));
+        var about = $"{HangarText.Name(hero.Chassis)} · {BattleDraft.Roman(hero.Tier)}";
+        if (PersonOf(hero) is { } person)
+            about = $"{person} · {about}";
+        Say(row.Position + new Vector2(13 * _u, 33 * _u), Fit(about, 13, 176), 13, new Color(MenuTheme.Dim, alpha));
 
         var bar = new Rect2(row.Position + new Vector2(196 * _u, 6 * _u), new Vector2(row.Size.X - 198 * _u, 10 * _u));
         if (hero.Out)
@@ -151,26 +215,119 @@ public partial class WiredHud
         else if (hero.BackIn is { } back)
             Say(new Vector2(bar.End.X, bar.Position.Y + 10 * _u), Lang.T("Back in {0} s", Mathf.CeilToInt(back)), 14, Warning, 1);
         else
-        {
-            var struck = Fading(_heroStruck.GetValueOrDefault(hero.Race, -10), 0.25);
-            DrawRect(bar, MenuTheme.Well);
-            DrawRect(new Rect2(bar.Position, new Vector2(bar.Size.X * _healthTrail.GetValueOrDefault(hero.Race, hero.Health), bar.Size.Y)), new Color(1, 0.86f, 0.74f, 0.8f));
-            var fill = hero.Health < 0.3f ? Danger : hero.Health < 0.6f ? Warning : MenuTheme.Glow;
-            DrawRect(new Rect2(bar.Position, new Vector2(bar.Size.X * hero.Health, bar.Size.Y)), fill.Lerp(Colors.White, struck * 0.6f));
-            DrawRect(bar, MenuTheme.Edge, false, 1);
-            DrawRect(new Rect2(bar.Position + new Vector2(0, bar.Size.Y + _u), new Vector2(bar.Size.X * hero.Armour, 2 * _u)), Ice);
-        }
-        // The lives: lit for each still to be had, the body it stands in or waits for counted.
-        for (var i = 0; i < hero.Lives; i++)
-        {
-            var pip = new Rect2(new Vector2(bar.End.X - (i + 1) * 15 * _u + 3 * _u, row.Position.Y + 23 * _u), new Vector2(11, 11) * _u);
-            if (i < hero.LivesLeft)
-                Plate(pip, hero.Out ? MenuTheme.Dim : MenuTheme.Glow, hero.Out ? MenuTheme.Dim : MenuTheme.Glow, 3);
-            else
-                Plate(pip, Plating, MenuTheme.Edge, 3);
-        }
+            DrawHealth(hero, bar, 2);
+        DrawLives(hero, bar.End.X, row.Position.Y + 23 * _u, 11, 15);
         if (hero.Kills > 0)
             Say(new Vector2(bar.Position.X, row.Position.Y + 33 * _u), Lang.T("Kills: {0}", hero.Kills), 13, new Color(Gold, alpha));
+    }
+
+    /// <summary>
+    /// A hero's compact row, for teams of three to five: colour, who drives it (a bot, a person who left), number and name,
+    /// and the person playing it (or else the chassis) on one line; on the right what is left of it, or the seconds until it
+    /// is back, over its kills and its lives.
+    /// </summary>
+    private void DrawCompactRow(BattleHeroReadout hero, Rect2 row)
+    {
+        var alpha = hero.Out ? 0.5f : 1;
+        var colour = HangarCreation.Colours.FirstOrDefault(c => c.Race == Game.Look(hero.Race)).Colour;
+        DrawRect(new Rect2(row.Position + new Vector2(0, 3 * _u), new Vector2(5 * _u, row.Size.Y - 6 * _u)), new Color(colour, alpha));
+        // Who drives it, before the name; the name keeps its room, the person or chassis after it gives way.
+        var tag = DrawDriverTag(hero, row.Position + new Vector2(13 * _u, 5 * _u), 14, 10);
+        var name = Fit(hero.Label.Caps(), 15, 112);
+        var at = row.Position + new Vector2((13 + tag) * _u, 17 * _u);
+        Say(at, name, 15, new Color(hero.You ? MenuTheme.Bright : MenuTheme.Text, alpha));
+        var across = Width(name, 15);
+        if (hero.Out)
+            DrawLine(at + new Vector2(-2 * _u, -5 * _u), at + new Vector2(across + 2 * _u, -5 * _u), Danger, Mathf.Max(2 * _u, 1));
+        var room = 186 - 13 - tag - across / _u - 8;
+        if (room > 24)
+            Say(at + new Vector2(across + 8 * _u, 0), Fit(PersonOf(hero) ?? $"{HangarText.Name(hero.Chassis)} {BattleDraft.Roman(hero.Tier)}", 12, room), 12, new Color(MenuTheme.Dim, alpha));
+
+        // The bar and its armour line keep to the row's upper half, the line below them to its lower.
+        var bar = new Rect2(row.Position + new Vector2(196 * _u, 3 * _u), new Vector2(row.Size.X - 198 * _u, 6 * _u));
+        if (hero.Out)
+            Say(new Vector2(bar.End.X, bar.Position.Y + 9 * _u), Lang.T("Destroyed").Caps(), 11, new Color(Danger, 0.85f), 1);
+        else if (hero.BackIn is { } back)
+            Say(new Vector2(bar.End.X, bar.Position.Y + 9 * _u), Lang.T("Back in {0} s", Mathf.CeilToInt(back)), 12, Warning, 1);
+        else
+            DrawHealth(hero, bar, 1.5f);
+        var pips = DrawLives(hero, bar.End.X, row.Position.Y + 14 * _u, 7, 10);
+        if (hero.Kills > 0)
+            Say(new Vector2(bar.Position.X, row.Position.Y + 22 * _u), Fit(Lang.T("Kills: {0}", hero.Kills), 11, (bar.Size.X - pips) / _u - 4), 11, new Color(Gold, alpha));
+    }
+
+    /// <summary>
+    /// A hero's mini row, for teams of six to fifteen: colour, who drives it, number and name (cut to twelve characters,
+    /// <see cref="BattleReadout.MiniLabel"/>); on the right one bar of what is left of it over its armour, or the seconds until
+    /// it is back, its kills and its lives as a figure. The player's own row is lit.
+    /// </summary>
+    private void DrawMiniRow(BattleHeroReadout hero, Rect2 row)
+    {
+        var alpha = hero.Out ? 0.5f : 1;
+        if (hero.You)
+            DrawRect(row, new Color(MenuTheme.Glow, 0.1f));
+        var colour = HangarCreation.Colours.FirstOrDefault(c => c.Race == Game.Look(hero.Race)).Colour;
+        DrawRect(new Rect2(row.Position + new Vector2(0, 2 * _u), new Vector2(4 * _u, row.Size.Y - 4 * _u)), new Color(colour, alpha));
+        var tag = DrawDriverTag(hero, row.Position + new Vector2(10 * _u, 2 * _u), 12, 9);
+        var name = Fit(BattleReadout.MiniLabel(hero).Caps(), 12, 164 - tag);
+        var at = row.Position + new Vector2((10 + tag) * _u, 12.5f * _u);
+        Say(at, name, 12, new Color(hero.You ? MenuTheme.Bright : MenuTheme.Text, alpha));
+        if (hero.Out)
+            DrawLine(at + new Vector2(-2 * _u, -4 * _u), at + new Vector2(Width(name, 12) + 2 * _u, -4 * _u), Danger, Mathf.Max(1.5f * _u, 1));
+
+        // On the right, from the end: the lives left as a figure on a pip, the kills before it, the bar before them.
+        var lives = new Rect2(row.Position + new Vector2(row.Size.X - 14 * _u, 2 * _u), new Vector2(12, 12) * _u);
+        var lit = hero.LivesLeft > 0 && !hero.Out;
+        Plate(lives, lit ? new Color(MenuTheme.Glow, 0.25f) : Plating, lit ? MenuTheme.Glow : MenuTheme.Edge, 2);
+        Say(new Vector2(lives.GetCenter().X, lives.Position.Y + (lives.Size.Y + Px(9) * 0.7f) / 2), hero.LivesLeft.ToString(System.Globalization.CultureInfo.InvariantCulture), 9,
+            lit ? MenuTheme.Bright : MenuTheme.Dim, 0.5f);
+        var killsEnd = lives.Position.X - 5 * _u;
+        if (hero.Kills > 0)
+        {
+            var kills = hero.Kills.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            Say(new Vector2(killsEnd, at.Y), kills, 11, new Color(Gold, alpha), 1);
+            // A small cross before the figure: what it counts.
+            var cross = new Vector2(killsEnd - Width(kills, 11) - 6 * _u, row.Position.Y + 8 * _u);
+            var arm = 2.5f * _u;
+            DrawLine(cross - new Vector2(arm, arm), cross + new Vector2(arm, arm), new Color(Gold, alpha), Mathf.Max(1.2f * _u, 1));
+            DrawLine(cross + new Vector2(-arm, arm), cross + new Vector2(arm, -arm), new Color(Gold, alpha), Mathf.Max(1.2f * _u, 1));
+        }
+        var bar = new Rect2(row.Position + new Vector2(180 * _u, 4 * _u), new Vector2(lives.Position.X - row.Position.X - 214 * _u, 4 * _u));
+        if (hero.Out)
+            Say(new Vector2(bar.Position.X, at.Y), Lang.T("Destroyed").Caps(), 10, new Color(Danger, 0.85f));
+        else if (hero.BackIn is { } back)
+            Say(new Vector2(bar.Position.X, at.Y), Lang.T("Back in {0} s", Mathf.CeilToInt(back)), 10, Warning);
+        else
+            DrawHealth(hero, bar, 1.5f);
+    }
+
+    /// <summary>What is left of a hero on its bar: the trail of a hit fading behind, the bar flashing as it is struck, the armour under it.</summary>
+    private void DrawHealth(BattleHeroReadout hero, Rect2 bar, float armour)
+    {
+        var struck = Fading(_heroStruck.GetValueOrDefault(hero.Player, -10), 0.25);
+        DrawRect(bar, MenuTheme.Well);
+        DrawRect(new Rect2(bar.Position, new Vector2(bar.Size.X * _healthTrail.GetValueOrDefault(hero.Player, hero.Health), bar.Size.Y)), new Color(1, 0.86f, 0.74f, 0.8f));
+        var fill = hero.Health < 0.3f ? Danger : hero.Health < 0.6f ? Warning : MenuTheme.Glow;
+        DrawRect(new Rect2(bar.Position, new Vector2(bar.Size.X * hero.Health, bar.Size.Y)), fill.Lerp(Colors.White, struck * 0.6f));
+        DrawRect(bar, MenuTheme.Edge, false, 1);
+        DrawRect(new Rect2(bar.Position + new Vector2(0, bar.Size.Y + _u), new Vector2(bar.Size.X * hero.Armour, armour * _u)), Ice);
+    }
+
+    /// <summary>
+    /// The lives, right-aligned to <paramref name="right"/>: lit for each still to be had, the body it stands in or waits for
+    /// counted. Returns how wide they are in pixels.
+    /// </summary>
+    private float DrawLives(BattleHeroReadout hero, float right, float top, float size, float step)
+    {
+        for (var i = 0; i < hero.Lives; i++)
+        {
+            var pip = new Rect2(new Vector2(right - (i + 1) * step * _u + (step - size - 1) * _u, top), new Vector2(size, size) * _u);
+            if (i < hero.LivesLeft)
+                Plate(pip, hero.Out ? MenuTheme.Dim : MenuTheme.Glow, hero.Out ? MenuTheme.Dim : MenuTheme.Glow, size > 8 ? 3 : 2);
+            else
+                Plate(pip, Plating, MenuTheme.Edge, size > 8 ? 3 : 2);
+        }
+        return hero.Lives * step * _u;
     }
 
     /// <summary>The clock between the teams: minutes and seconds to the draw, the last half minute in red and the last ten beating.</summary>
@@ -186,16 +343,20 @@ public partial class WiredHud
         Thin(new Rect2(middle - (ClockWidth / 2 - 10) * _u, box.End.Y - 14 * _u, (ClockWidth - 20) * _u, 3 * _u), share, colour);
     }
 
-    /// <summary>A pod's capture: how far the other team has come, beating while one of them stands in the circle.</summary>
-    private void DrawCapture(Rect2 box, string title, float progress, bool going, Color colour)
+    /// <summary>
+    /// A pod's capture by <paramref name="taker"/>: how far that team has come of the points that take it (100 in today's
+    /// layout, 250 for five against five), in per cent, beating while one of them stands in the circle.
+    /// </summary>
+    private void DrawCapture(Rect2 box, string title, BattleTeamReadout taker, Color colour)
     {
+        var going = taker.Capturing;
         var beat = going ? (MathF.Sin((float)_time * 9) + 1) / 2 : 0;
         Plate(box, Plating, going ? colour.Lerp(Colors.White, beat * 0.4f) : MenuTheme.Edge, 8);
         Say(box.Position + new Vector2(10, 17) * _u, title.Caps(), 13, going ? colour : MenuTheme.Dim);
-        Say(new Vector2(box.End.X - 10 * _u, box.Position.Y + 17 * _u), $"{Mathf.FloorToInt(progress)} %", 15, progress > 0 ? colour : MenuTheme.Dim, 1);
+        Say(new Vector2(box.End.X - 10 * _u, box.Position.Y + 17 * _u), $"{taker.Percent} %", 15, taker.Progress > 0 ? colour : MenuTheme.Dim, 1);
         var bar = new Rect2(box.Position + new Vector2(10, 22) * _u, new Vector2(box.Size.X - 20 * _u, 5 * _u));
         DrawRect(bar, MenuTheme.Well);
-        DrawRect(new Rect2(bar.Position, new Vector2(bar.Size.X * Mathf.Clamp(progress / BattleBalance.CaptureTarget, 0, 1), bar.Size.Y)), colour);
+        DrawRect(new Rect2(bar.Position, new Vector2(bar.Size.X * taker.Taken, bar.Size.Y)), colour);
     }
 
     // ---- over the view ----------------------------------------------------------------------------
@@ -204,21 +365,22 @@ public partial class WiredHud
     private const float MarkReach = 260;
 
     /// <summary>
-    /// A small mark over each hero in view, in its team's colour (the team-mates' with the name): in a close fight the heroes
-    /// of both teams look alike, and only the paint told them apart. An enemy hidden in its shadow gets none.
+    /// A small mark over each hero in view, in its team's colour (the team-mates' with the number and name, "3 · Torque", an
+    /// enemy's with its number where its race has several): in a close fight the heroes of both teams look alike, and only
+    /// the paint told them apart. An enemy hidden in its shadow gets none.
     /// </summary>
     private void DrawHeroMarks()
     {
         if (GetViewport().GetCamera3D() is not { } camera || _game.World.Battle is not { } run)
             return;
         var world = _game.World;
-        var own = run.TeamOf(Game.Player);
-        var eye = world.HeroOf(Game.Player)?.Id ?? _game.WatchedHero;
-        foreach (var race in run.Teams.SelectMany(t => t.Order()))
+        var own = run.TeamOf(Game.Me) is >= 0 and var team ? team : run.TeamOf(Game.Player);
+        var eye = world.HeroOf(Game.Me)?.Id ?? _game.WatchedHero;
+        foreach (var player in run.Members.SelectMany(t => t))
         {
-            if (world.HeroOf(race) is not { } hero || hero.Id == eye || _game.InShadow(hero))
+            if (world.HeroOf(player) is not { } hero || hero.Id == eye || _game.InShadow(hero))
                 continue;
-            var mate = run.TeamOf(race) == own;
+            var mate = run.TeamOf(player) == own;
             // An enemy only near by, where it is fought: the marks are not there to find it from afar.
             var reach = mate ? MarkReach : MarkReach / 2;
             var place = ActorView.World(hero.Position) + Vector3.Up * (hero.Radius * 1.6f + 4);
@@ -234,8 +396,11 @@ public partial class WiredHud
             Vector2[] mark = [at + new Vector2(-r, -r), at + new Vector2(r, -r), at + new Vector2(0, r * 0.4f)];
             DrawColoredPolygon(mark, colour);
             DrawPolyline([.. mark, mark[0]], new Color(Plating, alpha), 1.5f * _u, true);
+            var number = BattleReadout.NumberOf(world, player);
             if (mate)
-                Say(at + new Vector2(0, -r - 5 * _u), BattleReadout.HeroName(run, race), 13, colour, 0.5f, outline: 2);
+                Say(at + new Vector2(0, -r - 5 * _u), BattleReadout.Label(number, BattleReadout.HeroName(run, player)), 13, colour, 0.5f, outline: 2);
+            else if (number > 0)
+                Say(at + new Vector2(0, -r - 5 * _u), number.ToString(), 13, colour, 0.5f, outline: 2);
         }
     }
 
@@ -247,7 +412,7 @@ public partial class WiredHud
         var world = _game.World;
         var own = world.Battle!.TeamOf(Game.Player);
         // Metres from the hero, or from the one looked on through.
-        var from = world.HeroOf(Game.Player) ?? (_game.WatchedHero is { } watched ? world.Find<Sim.World.Machine>(watched) : null);
+        var from = world.HeroOf(Game.Me) ?? (_game.WatchedHero is { } watched ? world.Find<Sim.World.Machine>(watched) : null);
         if (world.BattlePod(1 - own) is { } enemy)
         {
             var label = from is null ? Lang.T("ENEMY POD") : Lang.T("ENEMY POD {0} m", Mathf.RoundToInt(from.DistanceTo(enemy)));
@@ -320,6 +485,8 @@ public partial class WiredHud
             more = Lang.T("Back in {0} s", Mathf.CeilToInt(back)) + (more is null ? "" : "   ·   " + more);
         if (more is not null)
             Prompt(new Vector2(middle, y + 50 * _u), more, MenuTheme.Text, 16);
+        // The prompts' plates are their size plus 20 high.
+        _watchingBottom = more is not null ? y + (50 + 16 + 20) * _u : y + (22 + 20) * _u;
     }
 
     /// <summary>The opening: big in the middle the seconds until the heroes may move, and how this battle is won.</summary>
@@ -328,7 +495,9 @@ public partial class WiredHud
         if (now.Opening is not { } seconds || seconds <= 0)
             return;
         var middle = Left + (_size.X - Left) / 2;
-        var y = _size.Y * 0.36f;
+        // Its first line under the team plate and the capture bars where they hang this far down (ten or fifteen a side at a
+        // large HUD size), not over them.
+        var y = Mathf.Max(_size.Y * 0.36f, BattleHanging + 50 * _u);
         var beat = 1 - (float)(_time % 1);
         var dark = new Color(0, 0, 0, 0.55f);
         var clear = new Color(0, 0, 0, 0);

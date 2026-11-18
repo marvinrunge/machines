@@ -1,4 +1,5 @@
 using Godot;
+using Machines.Net;
 using Machines.Sim.World;
 using NVector2 = System.Numerics.Vector2;
 
@@ -50,6 +51,22 @@ public partial class Game
     /// <summary>The tick a command queued now is carried out on: the session's next turn, at least the input delay ahead.</summary>
     private long NextDue => Math.Max(World.Tick + _session.InputDelay, _session.NextLocalTurn);
 
+    /// <summary>Ticks a command not landed yet stays past its stamp online: a turn later than this was marked as lagging long before.</summary>
+    private const int LateGrace = 40;
+
+    /// <summary>
+    /// The commands the world has carried out leave; online one not landed yet stays a while, as it may still land later
+    /// (<see cref="GunPrediction.Drop"/>).
+    /// </summary>
+    private void DropDue() => GunPrediction.Drop(_turnsDue, World.Tick, _session.Mode == SessionMode.Bundles ? LateGrace : 0);
+
+    /// <summary>
+    /// Online, the relay placed this player's turn stamped <paramref name="stamp"/> on the bundle of <paramref name="tick"/>
+    /// (<see cref="LockstepSession.Landed"/>): a late turn's hull turn is carried out there, not where it was stamped, and the
+    /// prediction follows it (P2 design §4.4), so the gun and hull turn foreseen are not off by the turns that came late.
+    /// </summary>
+    private void Landed(long stamp, long tick) => GunPrediction.Land(_turnsDue, stamp, tick);
+
     /// <summary>
     /// How a hull without an upper body turns to where the view looks, as fast as it can, counting the turns already on
     /// their way so as to stop there: the command's turn before its sign is put right, and the most a tick turns.
@@ -57,7 +74,7 @@ public partial class Game
     private float FollowTurn(Machine machine, out float step)
     {
         step = HullTurnRate(machine, Input.IsKeyPressed(Key.Ctrl)) * GameWorld.Dt;
-        GunPrediction.Drop(_turnsDue, World.Tick);
+        DropDue();
         var coming = GunPrediction.Turning(_turnsDue, World.Tick, Sighted ? NextDue : long.MinValue);
         var behind = Mathf.Wrap(_aimYaw - machine.Facing - coming, -Mathf.Pi, Mathf.Pi);
         return -Mathf.Clamp(behind / step, -1, 1);
@@ -80,7 +97,7 @@ public partial class Game
             return new GunPrediction.Gun(machine.Facing, World.HeadOf(machine.Id), heading,
                 MathF.IEEERemainder(heading - _aimYaw, 2 * MathF.PI), World.OnSight(machine.Id));
         }
-        GunPrediction.Drop(_turnsDue, World.Tick);
+        DropDue();
         (float, float)? carried = World.DriveInput.TryGetValue(machine.Id, out var input)
             ? (HullTurnFor(machine, input.Turn, input.Slow, World.HasYaw(machine.Id)), World.PlayerYaws.TryGetValue(machine.Id, out var yaw) ? yaw : float.NaN)
             : null;
@@ -95,7 +112,7 @@ public partial class Game
     private GunPrediction.Gun SendingGun(Machine machine, float turn)
     {
         var due = NextDue;
-        GunPrediction.Drop(_turnsDue, World.Tick);
+        DropDue();
         GunPrediction.Add(_turnsDue, new GunPrediction.Due(due, HullTurnFor(machine, turn, Input.IsKeyPressed(Key.Ctrl), true), _aimYaw));
         var gun = PredictGun(machine, null);
         if (SightLog)
@@ -251,7 +268,7 @@ public partial class Game
             return;
         if (_driven is null)
         {
-            if (World.HeroOf(Player) is { IsDead: false } hero && !HangarOpen && !_heroDown)
+            if (World.HeroOf(Me) is { IsDead: false } hero && !HangarOpen && !_heroDown)
             {
                 Select([hero.Id]);
                 EnterFirstPerson();

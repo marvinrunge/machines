@@ -4,6 +4,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- The tests may ask by race for the race's first player (PlayerId.RaceForm); the sim and the net may not. -->
+    <NoWarn>$(NoWarn);MACHINES0001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,6 +16,11 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The relay's web side (RelayHttp, Kestrel) runs in the tests; the relay keeps its own reference private. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <ItemGroup>
