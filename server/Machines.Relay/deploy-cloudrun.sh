@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Deploys the Machines relay to Google Cloud Run: builds its container with Docker, pushes it to Artifact Registry and
+# Deploys the Machines relay to Google Cloud Run: has Cloud Build build its container into Artifact Registry and
 # runs it as the service machines-relay in Frankfurt (europe-west3): one instance at most, asleep while no match runs,
 # WebSockets held up to the 60 minutes Cloud Run allows (the game moves to a new socket before that).
 #
-#   server/Machines.Relay/deploy-cloudrun.sh <project-id> [--with-secrets]
+#   server/Machines.Relay/deploy-cloudrun.sh <project-id> [--with-secrets] [--local-docker]
 #
-# Needs gcloud signed in (gcloud auth login) to a project with billing, and Docker running; see the README's
-# "The relay online". --with-secrets also hands the service the relay's admin secret and token key from Secret Manager
-# (secrets machines-relay-admin and machines-relay-token-key, for the matchmaking to come; the relay does not read them
-# yet).
+# Needs gcloud signed in (gcloud auth login) to a project with billing; see the README's "The relay online". The image
+# is built from the committed state (HEAD) of the projects the relay is made of. --with-secrets also hands the service
+# the relay's admin secret and token key from Secret Manager (machines-relay-admin, machines-relay-token-key). With
+# --local-docker the image is built and pushed by Docker on this computer instead of Cloud Build.
 set -euo pipefail
 
 if [[ $# -lt 1 || "$1" == -* ]]; then
@@ -18,12 +18,20 @@ fi
 PROJECT="$1"
 shift
 SECRETS=0
+LOCAL_DOCKER=0
 for arg in "$@"; do
   case "$arg" in
     --with-secrets) SECRETS=1 ;;
+    --local-docker) LOCAL_DOCKER=1 ;;
     *) echo "unknown option: $arg" >&2; exit 1 ;;
   esac
 done
+
+# In Git Bash on Windows gcloud finds no Python of its own; the one that comes with the Cloud SDK does.
+if [[ -z "${CLOUDSDK_PYTHON:-}" ]] && command -v gcloud >/dev/null; then
+  BUNDLED="$(dirname "$(command -v gcloud)")/../platform/bundledpython/python.exe"
+  [[ -x "$BUNDLED" ]] && export CLOUDSDK_PYTHON="$BUNDLED"
+fi
 
 REGION=europe-west3
 SERVICE=machines-relay
@@ -33,18 +41,31 @@ TAG="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)"
 IMAGE="$REGION-docker.pkg.dev/$PROJECT/$REPOSITORY/$SERVICE:$TAG"
 
 echo "== Services the relay needs"
-gcloud services enable run.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com --project "$PROJECT"
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com   cloudbuild.googleapis.com --project "$PROJECT"
 
 echo "== Artifact Registry repository $REPOSITORY in $REGION"
 if ! gcloud artifacts repositories describe "$REPOSITORY" --location "$REGION" --project "$PROJECT" >/dev/null 2>&1; then
   gcloud artifacts repositories create "$REPOSITORY" --repository-format docker --location "$REGION" --project "$PROJECT" \
     --description "Machines Remake containers"
 fi
-gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
-
 echo "== Image $IMAGE"
-docker build -f "$ROOT/server/Machines.Relay/Dockerfile" -t "$IMAGE" "$ROOT"
-docker push "$IMAGE"
+PARTS=(Directory.Build.props import/Machines.Import sim/Machines.Sim net/Machines.Net server/Machines.Relay)
+if [[ -n "$(git -C "$ROOT" status --porcelain -- "${PARTS[@]}")" ]]; then
+  echo "note: uncommitted changes in the relay's projects are not in the image (it is built from HEAD)" >&2
+fi
+if [[ $LOCAL_DOCKER == 1 ]]; then
+  gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+  docker build -f "$ROOT/server/Machines.Relay/Dockerfile" -t "$IMAGE" "$ROOT"
+  docker push "$IMAGE"
+else
+  # Only the relay's projects go up (a few hundred KB, not the repository with its game files and models), as they
+  # stand in HEAD, with the Dockerfile at the root of that context.
+  CONTEXT="$(mktemp -d)"
+  trap 'rm -rf "$CONTEXT"' EXIT
+  git -C "$ROOT" archive --format=tar HEAD "${PARTS[@]}" | tar -x -C "$CONTEXT"
+  cp "$CONTEXT/server/Machines.Relay/Dockerfile" "$CONTEXT/Dockerfile"
+  gcloud builds submit "$CONTEXT" --tag "$IMAGE" --project "$PROJECT"
+fi
 
 # Placeholders for later phases: the admin secret the matchmaker opens rooms with and the key join tokens are signed
 # with live in Secret Manager, never in the game or this script.

@@ -396,7 +396,7 @@ The public relay is the same `server/Machines.Relay`, reached over WebSocket: pl
 (`wss://…`, or the `https://…` Cloud Run shows) where they would type host:port, and the game takes WebSocket for a web
 address and TCP for anything else. Beside the TCP port the relay serves HTTP on the port of the `PORT` environment
 variable (Cloud Run sets it) or of `--http-port`: `GET /health` answers
-`{"status":"ok","version":"1.0","protocol":12,"rooms":0,"players":0}`, and `/ws` takes the games' WebSockets into the
+`{"status":"ok","version":"1.0","protocol":14,"rooms":0,"players":0}`, and `/ws` takes the games' WebSockets into the
 same rooms as TCP. It logs to standard output.
 
 A dropped line costs the match nothing. A game asks the relay for a session as it connects; both sides count their
@@ -422,20 +422,21 @@ docker build -f server/Machines.Relay/Dockerfile -t machines-relay .
 docker run --rm -p 8080:8080 -p 7777:7777 machines-relay
 ```
 
-On Google Cloud Run, `server/Machines.Relay/deploy-cloudrun.sh <project-id>` builds that image, pushes it to Artifact
-Registry and deploys the service `machines-relay` in `europe-west3` (Frankfurt): one instance at most, since the rooms
+On Google Cloud Run, `server/Machines.Relay/deploy-cloudrun.sh <project-id>` has Cloud Build build that image from the
+relay's projects as committed (only they are uploaded, about 2 MB), keeps it in Artifact Registry and deploys the service `machines-relay` in `europe-west3` (Frankfurt): one instance at most, since the rooms
 live in its memory; none while nobody plays (the first game after a pause waits a few seconds for it to start, and the
 page says "Server is waking up…"); a request timeout of 3600 seconds, session affinity, up to 1000 connections, one CPU
-and 512 MiB, open to everyone. At the end it prints the address for the game. Once, before the first deploy:
+and 1 GiB (the logs of running matches), open to everyone. At the end it prints the address for the game. Once, before the first deploy:
 
 1. Create a project in the Google Cloud console (console.cloud.google.com) and note its project id; link a billing
    account to it. Cloud Run bills only while a match runs, and its monthly free allowance should cover a start (check
    the current terms).
 2. Set a budget alert on that billing account (Billing, Budgets & alerts, Create budget), for example 5 euros a month
    with alerts at 50, 90 and 100 percent.
-3. Install the Google Cloud CLI, sign in with `gcloud auth login`, and have Docker running.
+3. Install the Google Cloud CLI and sign in with `gcloud auth login`. Docker is not needed (`--local-docker` builds
+   with it all the same); in Git Bash the script points gcloud at the Python that comes with the Cloud SDK.
 4. Run `server/Machines.Relay/deploy-cloudrun.sh <project-id>` (in Git Bash on Windows). It turns on Cloud Run,
-   Artifact Registry and Secret Manager for the project, and running it again deploys a new version.
+   Cloud Build, Artifact Registry and Secret Manager for the project, and running it again deploys a new version.
 5. Give the game the address it printed (`wss://machines-relay-….run.app`): as `NetLink.PublicRelay` in
    `game/scripts/NetLink.cs` for every build, as `public_relay` under `[multiplayer]` in `user://settings.cfg` for one
    computer, or as `MACHINES_RELAY=<address>` for one run. The RELAY field then starts with it.
