@@ -2166,44 +2166,33 @@ public partial class Game : Node3D
         _rejoinAsked = true;
         if (NetLink.Seat is { } held && NetLink.SeatIn(held.Room) is { } seat)
         {
-            (_rejoinRoom, _rejoinedByKey) = (seat.Room, true);
+            _rejoinRoom = seat.Room;
             NetLink.Send(new RejoinMatch(seat.Room, seat.Player, seat.Key));
             GD.Print($"net: bundle {got} came where {expected} was due: rejoining room {seat.Room} by key");
         }
-        // Without a key (it never came, or was forgotten), as the player of this name who is this seat's.
-        else if (MultiplayerPage.MatchRoomId is { } room)
-        {
-            (_rejoinRoom, _rejoinedByKey) = (room, false);
-            NetLink.Send(new RejoinMatch(room, Me));
-            GD.Print($"net: bundle {got} came where {expected} was due, and no seat key: rejoining room {room} by name");
-        }
+        // Without a key (it never came, or was forgotten) there is no asking back from here: by name the relay gives back only
+        // a seat whose player has left it, and this connection holds this one still. Back in the rooms the seat is left, and
+        // Join there asks by name.
         else
         {
-            GD.Print($"net: bundle {got} came where {expected} was due, and nothing to rejoin with");
+            GD.Print($"net: bundle {got} came where {expected} was due, and no seat key to rejoin with");
             TakenOut(LostPlace);
         }
     }
 
-    // The match this scene asked to come back into after a gap, and whether by the seat's key.
+    // The match this scene asked to come back into by the seat's key after a gap.
     private int? _rejoinRoom;
-    private bool _rejoinedByKey;
 
     /// <summary>
-    /// The relay refused to take this world back after a gap (<see cref="Gapped"/>): a key it does not take is forgotten and the
-    /// player asks again by name; refused that way too, the match is left with the relay's reason, back to the rooms.
+    /// The relay refused to take this world back by the seat's key after a gap (<see cref="Gapped"/>): out for good or the
+    /// match over, it says so; otherwise the key is no use any more and the place is lost, and the match is left for the rooms,
+    /// where Join asks by name once this connection has left the seat (asked by name from here, the relay would refuse: the
+    /// seat is still this connection's). The key goes either way (<see cref="TakenOut"/>).
     /// </summary>
     private void RejoinRefused(Refused refused)
     {
-        GD.Print($"net: the rejoin {(_rejoinedByKey ? "by key" : "by name")} was refused: {refused.Reason}");
-        if (_rejoinedByKey && _rejoinRoom is { } room)
-        {
-            NetLink.ForgetSeat();
-            _rejoinedByKey = false;
-            NetLink.Send(new RejoinMatch(room, Me));
-            GD.Print($"net: rejoining room {room} by name");
-            return;
-        }
-        TakenOut(refused.Reason);
+        GD.Print($"net: the rejoin by key was refused: {refused.Reason}");
+        TakenOut(refused.Reason is "you were taken out of that match" or "that match is not running" ? refused.Reason : LostPlace);
     }
 
     /// <summary>
