@@ -1,14 +1,17 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Machines.Net;
 
 /// <summary>
 /// The P2 acceptance's comparer (design §9, S6): the logs of games and net bots of one match set against each other and
 /// against the relay's log. Every log's "checksum at tick N: x" lines must agree with every other's wherever both have the
 /// tick (a world rebuilt after going out of step counts with its newest value), and its "pace: tick T head H utc ms lag l
 /// away a" lines are set against the relay's clock tick at that moment, <c>(utc − anchor) / 50 ms</c>, from the relay's
-/// "room r: bundle 0 was due at ms UTC" line, skipping the stretches a world catches up (from "net: loaded at tick …, N
-/// bundles in hand" with N above 0, "net: rebuilt from tick" or "net: catching up" to "net: caught up at tick"): how often it
-/// was within 10 ticks of the clock, the most it stood behind, the slowest 200 ticks, and how many lines say lagging or away.
+/// "room r: bundle 0 was due at ms UTC" line, skipping the stretches a world catches up after it was built (from "net: loaded
+/// at tick …, N bundles in hand" with N above 0 or "net: rebuilt from tick" to "net: caught up at tick", or to the first pace
+/// line with no more bundles in hand than the pacer's buffer): how often it was within 10 ticks of the clock, the most it stood
+/// behind, the slowest 200 ticks, and how many lines say lagging or away. A world that fell behind while it played and caught
+/// up again ("net: catching up from tick" of a net bot) is not skipped: that is what keeping speed is about.
 /// The logs named with --at-speed must keep speed: within 10 ticks in 95 % of their lines, never more than 40 behind, no 200
 /// ticks slower than 190 ticks in 10 s, never lagging. Also lists the relay's events (marks, handovers, returns, joins, out of
 /// step, rebuilds, delay changes, the summary). Exit code 0 when all holds.
@@ -17,7 +20,7 @@ internal static class Compare
 {
     private static readonly Regex Checksum = new(@"checksum at tick (\d+): ([0-9a-fA-F]{16})");
     private static readonly Regex Pace = new(@"pace: tick (\d+) head (-?\d+) utc (\d+) lag (\d) away (\d)");
-    private static readonly Regex CatchUpFrom = new(@"net: loaded at tick \d+, ([1-9]\d*) bundles in hand|net: rebuilt from tick|net: catching up from tick");
+    private static readonly Regex CatchUpFrom = new(@"net: loaded at tick \d+, ([1-9]\d*) bundles in hand|net: rebuilt from tick");
     private static readonly Regex CaughtUp = new(@"net: caught up at tick");
     private static readonly Regex Events = new(
         @"bundle 0 was due|the beat starts|marked at|handed over|back at tick|on time again|out of step|resync|rejoin of|late join of|delay \d+ \S+ \d+ at tick|fell behind|decided|the beat stops|ticks, \d+ turns moved|taken out");
@@ -65,7 +68,7 @@ internal static class Compare
         var ok = true;
         var sums = new List<(string Name, SortedDictionary<long, string> Sums)>();
         Console.WriteLine();
-        Console.WriteLine($"pace against the relay's clock from its tick {from} on (catch-ups skipped):");
+        Console.WriteLine($"pace against the relay's clock from its tick {from} on (catch-ups after a load or a rebuild skipped):");
         foreach (var log in logs)
         {
             var name = Path.GetFileName(log);
@@ -139,9 +142,15 @@ internal static class Compare
                 catchingUp = true;
             else if (CaughtUp.IsMatch(line))
                 catchingUp = false;
-            else if (Pace.Match(line) is { Success: true } pace && !catchingUp)
+            else if (Pace.Match(line) is { Success: true } pace)
             {
                 var tick = long.Parse(pace.Groups[1].Value, CultureInfo.InvariantCulture);
+                // A world built with fewer bundles in hand than a catch-up takes works them off without saying it caught up:
+                // once a pace line shows no more in hand than the pacer's buffer, the world plays at the beat's pace again.
+                if (catchingUp && long.Parse(pace.Groups[2].Value, CultureInfo.InvariantCulture) - tick + 1 <= BundlePacer.Buffer + 1)
+                    catchingUp = false;
+                if (catchingUp)
+                    continue;
                 var utc = long.Parse(pace.Groups[3].Value, CultureInfo.InvariantCulture);
                 var clock = (utc - anchor) / 50;
                 if (clock < from)
