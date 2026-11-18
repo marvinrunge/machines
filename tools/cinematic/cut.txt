@@ -12,10 +12,10 @@ build 0.3 3.97
 ice2 0.5 2.36
 strike 0.3 2.13
 
-// 7.36 s: the gorillas swing as the music starts driving, and the fists land on its beat at 9.0 s.
-gorilla2 14.45 18.05
-// The vortex opens at 12.3 s.
-ice2 6.8 10.49
+// 7.36 s: the gorillas swing as the music starts driving, and the fists land on its beat at 9.0 s (punches at 17.6 s).
+gorilla2 15.96 19.56
+// The vortex comes down at 13.1 s, near the beat at 13.31 (ice2 34.4 s, behind the line of knights).
+ice2 32.31 36.0
 trailer 10.75 13.17
 strike2 3 6.69
 gorilla 19.6 23.29
@@ -30,10 +30,10 @@ ice2 19 22.69
 trailer 21.74 25.34
 build 9.5 13.28
 strike 19.8 23.5
-strike2 20.5 23.24
+strike2 20.5 23.77
 
 // 57.68 s: the missile's blast as the music breaks loose again.
-strike 26.05 30.69
+strike 26.05 30.16
 strike2 27.5 31.19
 gorilla 26 29.69
 ice 30.8 34.5
