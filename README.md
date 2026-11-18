@@ -10,6 +10,13 @@ your own copy of the game.
 
 > This is a test build. Expect rough edges, and tell us about them.
 
+| | |
+|---|---|
+| ![A campaign mission in the desert](site/shots/campaign.jpg) | ![A skirmish base](site/shots/skirmish.jpg) |
+| **Campaign** | **Skirmish** |
+| ![Wired in first person](site/shots/wired.jpg) | ![A five against five battle](site/shots/battle.jpg) |
+| **Wired** | **Battle** |
+
 ## What's in it
 
 - **The campaign** and **skirmish** against the original AI on all 32 skirmish and multiplayer maps.

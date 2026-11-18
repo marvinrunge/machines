@@ -209,6 +209,21 @@
     text-transform: uppercase;
   }
   .card p { margin: 0; color: #b9c8ad; font-size: 16px; }
+
+  /* The modes, two a row, each with its picture on a small screen. */
+  .row.modes { grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); }
+  .shot {
+    display: block;
+    margin: 0 0 14px;
+    border: 3px solid #2b302b;
+    box-shadow: inset 0 0 0 1px #0d120d, 0 4px 10px rgba(0, 0, 0, 0.5);
+    background: var(--well);
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+  }
+  .shot img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 0.25s; }
+  .shot:hover img, .shot:focus-visible img { transform: scale(1.02); }
+  .shot:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
   .step {
     font-size: 13px;
     font-weight: 700;
@@ -295,20 +310,24 @@
 
   <section aria-labelledby="modes">
     <h3 id="modes" data-t="modes">Play</h3>
-    <div class="row">
+    <div class="row modes">
       <div class="chip card">
+        <a class="shot" href="shots/campaign.jpg"><img src="shots/campaign.jpg" width="1600" height="900" loading="lazy" alt="A campaign mission on the desert planet, seen from above with the control panel"></a>
         <h4 data-t="m1">Campaign</h4>
         <p data-t="m1p">The original missions, with their briefings and films.</p>
       </div>
       <div class="chip card">
+        <a class="shot" href="shots/skirmish.jpg"><img src="shots/skirmish.jpg" width="1600" height="900" loading="lazy" alt="A base of the red race in a skirmish, with its machines"></a>
         <h4 data-t="m2">Skirmish</h4>
         <p data-t="m2p">All 32 maps against the original AI, alone or with friends.</p>
       </div>
       <div class="chip card">
+        <a class="shot" href="shots/wired.jpg"><img src="shots/wired.jpg" width="1600" height="900" loading="lazy" alt="Wired in first person: the hero faces three enemy cars attacking its pod in the desert"></a>
         <h4 data-t="m3">Wired</h4>
         <p data-t="m3p">Build a hero and hold your pod against endless waves.</p>
       </div>
       <div class="chip card">
+        <a class="shot" href="shots/battle.jpg"><img src="shots/battle.jpg" width="1600" height="900" loading="lazy" alt="A five against five battle in first person, team-mates heading for the enemy pod"></a>
         <h4 data-t="m4">Battle</h4>
         <p data-t="m4p">Two teams of heroes, 2 vs 2 up to 10 vs 10, bots in free seats.</p>
       </div>
@@ -323,7 +342,7 @@
   </section>
 
   <footer>
-    <p data-t="legal">A fan project, not affiliated with Night Dive Studios. You need your own copy of Machines: Wired for War; this build contains none of its art, sound or films. Free software under the GPLv3.</p>
+    <p data-t="legal">A fan project, not affiliated with Night Dive Studios. You need your own copy of Machines: Wired for War; this build contains none of its art, sound or films. The pictures show them as imported from a copy. Free software under the GPLv3.</p>
     <p><a href="https://github.com/marvinrunge/machines/issues" data-t="issues">Report a problem</a></p>
   </footer>
 
@@ -348,7 +367,7 @@
       m4: "Schlacht", m4p: "Zwei Teams aus Helden, 2 gegen 2 bis 10 gegen 10, Bots auf freien Plätzen.",
       online: "Online",
       onlinep: "Öffne Mehrspieler, gib einen Namen ein und drück Verbinden: Das öffentliche Relay ist schon eingetragen, niemand muss einen Port öffnen. Tritt einem Raum bei oder eröffne einen. Alle brauchen dieselbe Version.",
-      legal: "Ein Fan-Projekt, nicht verbunden mit Night Dive Studios. Du brauchst deine eigene Kopie von Machines: Wired for War; diese Version enthält keine Grafik, keinen Ton und keine Filme daraus. Freie Software unter der GPLv3.",
+      legal: "Ein Fan-Projekt, nicht verbunden mit Night Dive Studios. Du brauchst deine eigene Kopie von Machines: Wired for War; diese Version enthält keine Grafik, keinen Ton und keine Filme daraus. Die Bilder zeigen sie aus einer importierten Kopie. Freie Software unter der GPLv3.",
       issues: "Problem melden"
     }
   };
