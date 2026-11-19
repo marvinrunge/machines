@@ -220,6 +220,66 @@ public static class Scenery
     }
 
     /// <summary>
+    /// The spray where the green planets' waterfall lands (in its model's frame, the original's "waterfal": the fall
+    /// 35 m across, its foot from 15 m out to the end of its foam): soft white wisps thrown up and drifting downstream,
+    /// thinning as they rise, lit as the ground is so they dim at night. <paramref name="lift"/> raises it from where the
+    /// model stands to the height the scenario set it at.
+    /// </summary>
+    public static GpuParticles3D WaterfallSpray(float lift)
+    {
+        var swell = new Curve();
+        swell.AddPoint(new Vector2(0, 0.35f));
+        swell.AddPoint(new Vector2(1, 1));
+        return new GpuParticles3D
+        {
+            Name = "Spray",
+            Amount = 160,
+            Lifetime = 4f,
+            Randomness = 0.4f,
+            Preprocess = 4,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            // Original axes, z up, as the models: where the water lands, 13 m out from the foot's far end, a metre up.
+            Position = new Vector3(0.5f, 1 + lift, 13),
+            VisibilityAabb = new Aabb(new Vector3(-26, -4, -22), new Vector3(52, 26, 36)),
+            DrawPass1 = new QuadMesh
+            {
+                Material = new StandardMaterial3D
+                {
+                    AlbedoTexture = Effects.Soft,
+                    VertexColorUseAsAlbedo = true,
+                    BillboardMode = BaseMaterial3D.BillboardModeEnum.Particles,
+                    BillboardKeepScale = true,
+                    Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                    DepthDrawMode = BaseMaterial3D.DepthDrawModeEnum.Disabled,
+                    // Soft where it meets the water and the banks.
+                    ProximityFadeEnabled = true,
+                    ProximityFadeDistance = 2.5f,
+                    Roughness = 1,
+                },
+            },
+            ProcessMaterial = new ParticleProcessMaterial
+            {
+                EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Box,
+                EmissionBoxExtents = new Vector3(15, 0.5f, 1.5f),
+                // Up and away from the fall, downstream.
+                Direction = new Vector3(0, 1, -0.45f),
+                Spread = 30,
+                InitialVelocityMin = 3,
+                InitialVelocityMax = 6.5f,
+                Gravity = new Vector3(0, -0.4f, 0),
+                DampingMin = 0.3f,
+                DampingMax = 0.7f,
+                ScaleMin = 6,
+                ScaleMax = 11,
+                ScaleCurve = new CurveTexture { Curve = swell },
+                AngleMin = 0,
+                AngleMax = 360,
+                ColorRamp = Effects.Ramp(new Color(0.9f, 0.93f, 0.95f, 0), new Color(0.9f, 0.93f, 0.95f, 0.42f), new Color(0.9f, 0.93f, 0.95f, 0), 0.25f),
+            },
+        };
+    }
+
+    /// <summary>
     /// A lava pool the scenarios set (the red moons' "lava"): mostly open melt with a little crust drifting on it, as
     /// the lava on the ground is drawn; null (it keeps its own picture) when the lava maps were not fetched.
     /// </summary>

@@ -613,6 +613,14 @@ public partial class Game : Node3D
             };
             if (PlanetLook.PaintedShadows && _assets.ArtefactShadow(models, placement.TypeName) is { } plate)
                 model.AddChild(new MeshInstance3D { Mesh = plate, Name = "Shadow", MaterialOverride = PlanetLook.ShadowPlate, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
+            // The green planets' waterfall: its still see-through sheets give way to spray where the water lands, the
+            // painted ground drawing the falling water and the foam itself (ClassicAssets' water).
+            if (GraphicsSettings.Terrain == TerrainLook.Painted && placement.TypeName.Equals("waterfal", StringComparison.OrdinalIgnoreCase))
+            {
+                model.Mesh = null;
+                // The scenario sets it at its own height (the water's), which the ground under it may lie below.
+                model.AddChild(Scenery.WaterfallSpray(placement.Position.Z - at.Y));
+            }
             root.AddChild(model);
             _artefactModels[index] = model;
         }

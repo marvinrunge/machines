@@ -206,6 +206,58 @@ public static class TerrainMaterials
         """;
 
     /// <summary>
+    /// Water, the remake's own, for the lakes and rivers (ClassicAssets' water tiles) and for the water the shore tiles
+    /// keep (the ground's shader): dark and clear, so what it mirrors (the sky, the banks) makes most of its look, under
+    /// waves of three sizes drifting different ways (the seamless <see cref="WaveNormals"/>), lighter and greener where
+    /// it is shallow. <c>water_waves</c> gives the normal in world space; <c>water_body</c> the colour.
+    /// </summary>
+    public const string WaterGlsl = """
+        vec3 water_waves(sampler2D wave_map, vec2 p, float time, float strength) {
+            vec2 a = texture(wave_map, p / 9.0 + time * vec2(0.011, 0.007)).xy * 2.0 - 1.0;
+            vec2 b = texture(wave_map, mat2(vec2(0.8, 0.6), vec2(-0.6, 0.8)) * p / 26.0 + time * vec2(-0.004, 0.006)).xy * 2.0 - 1.0;
+            vec2 c = texture(wave_map, p / 3.3 - time * vec2(0.019, -0.014)).xy * 2.0 - 1.0;
+            vec2 slope = (a * 0.45 + b * 0.7 + c * 0.3) * strength;
+            return normalize(vec3(slope.x, 1.0, slope.y));
+        }
+
+        vec3 water_body(sampler2D noise_map, vec2 p, float shallow) {
+            // Slow patches a little darker and lighter, so a lake does not look poured in one go.
+            float patch = texture(noise_map, p / 140.0 + 0.27).r - 0.5;
+            vec3 deep = vec3(0.012, 0.042, 0.056) * (1.0 + patch * 0.5);
+            return mix(deep, vec3(0.05, 0.12, 0.105), clamp(shallow, 0.0, 1.0));
+        }
+        """;
+
+    /// <summary>The water's waves: a seamless normal map of soft noise (<see cref="WaterGlsl"/>).</summary>
+    public static Texture2D WaveNormals => WaveNormalsMade.Value;
+
+    private static readonly Lazy<Texture2D> WaveNormalsMade = new(() =>
+    {
+        const int size = 256;
+        var heights = new FastNoiseLite { Frequency = 1 / 22f, FractalOctaves = 3, Seed = 11 }.GetSeamlessImage(size, size);
+        float H(int x, int y) => heights.GetPixel(Mathf.PosMod(x, size), Mathf.PosMod(y, size)).R;
+        var data = new byte[size * size * 3];
+        for (var y = 0; y < size; y++)
+            for (var x = 0; x < size; x++)
+            {
+                // The slopes, steep enough that the waves read; x and y at 0.5 are flat.
+                var (dx, dy) = ((H(x + 1, y) - H(x - 1, y)) * 6, (H(x, y + 1) - H(x, y - 1)) * 6);
+                var i = (y * size + x) * 3;
+                data[i] = (byte)Math.Clamp(127.5f + dx * 127.5f, 0, 255);
+                data[i + 1] = (byte)Math.Clamp(127.5f + dy * 127.5f, 0, 255);
+                data[i + 2] = 255;
+            }
+        var image = Image.CreateFromData(size, size, false, Image.Format.Rgb8, data);
+        image.GenerateMipmaps();
+        return ImageTexture.CreateFromImage(image);
+    });
+
+    /// <summary>The ground's wandering noise as a texture, for the water and the scenarios' lava.</summary>
+    public static Texture2D NoiseTexture => NoiseTextureMade.Value;
+
+    private static readonly Lazy<Texture2D> NoiseTextureMade = new(() => ImageTexture.CreateFromImage(WarpNoise()));
+
+    /// <summary>
     /// The lava's maps as one array (crust colour, crust glow, melt colour, melt glow), or null when they were not
     /// fetched: the lava then keeps the original's picture.
     /// </summary>
@@ -411,6 +463,9 @@ public static class TerrainMaterials
                 if (LavaMaps is { } lavaMaps)
                     shader.SetShaderParameter("lava_maps", lavaMaps);
                 shader.SetShaderParameter("sulphur_ground", Sulphur.Contains(family.Planets[0]));
+                // Only the green planets keep water in their painted tiles (the hills keep their water tiles whole).
+                shader.SetShaderParameter("water_ground", family.Planets[0] == "m_green");
+                shader.SetShaderParameter("waves", WaveNormals);
                 if (roads.Contains(s) && Asphalt.Value is { } asphalt)
                 {
                     shader.SetShaderParameter("road", true);
@@ -985,6 +1040,9 @@ public static class TerrainMaterials
             uniform bool lava_ground = false;
             uniform sampler2DArray lava_maps : source_color, filter_linear_mipmap, repeat_enable;
             uniform bool sulphur_ground = false;
+            // The water the shore tiles keep, drawn anew (WaterGlsl), on the planets that have water.
+            uniform bool water_ground = false;
+            uniform sampler2D waves : filter_linear_mipmap, repeat_enable;
             uniform sampler2DArray layer_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
             uniform sampler2DArray layer_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
             uniform sampler2DArray layer_rough : filter_linear_mipmap_anisotropic, repeat_enable;
@@ -1088,6 +1146,8 @@ public static class TerrainMaterials
             }
 
             {{LavaGlsl}}
+
+            {{WaterGlsl}}
 
             // One material at a point: its three looks are scored by slow noise (patches of 20 to 60 m) and by what is
             // around (the foot of the rock, the open, the water, the slope); the best two are sampled, tinted each to
@@ -1239,15 +1299,26 @@ public static class TerrainMaterials
                     old = mix(old, crystals * (0.55 + 0.7 * broad_light), sulphur);
                 }
                 old *= tint * (vertex_colours ? COLOR.rgb : vec3(1.0));
+                // The water: lighter where the land is near, a fringe of foam coming and going where it laps the bank.
+                float water = water_ground ? bk : 0.0;
+                vec3 surface = normalize(n + bent * near);
+                if (water > 0.0) {
+                    float shallow = 1.0 - smoothstep(0.4, 0.95, keep);
+                    vec3 body = water_body(warp, world_pos.xz, shallow);
+                    float lap = texture(warp, world_pos.xz / 2.5 + vec2(TIME * 0.02, -TIME * 0.015)).r + 0.15 * sin(TIME * 0.9 + world_pos.x * 0.4 + world_pos.z * 0.3);
+                    float fringe = smoothstep(0.2, 0.35, keep) * (1.0 - smoothstep(0.45, 0.65, keep)) * smoothstep(0.5, 0.7, lap);
+                    old = mix(body, vec3(0.5, 0.56, 0.55), fringe * 0.55);
+                    surface = normalize(mix(surface, water_waves(waves, world_pos.xz, TIME, 0.35 * (1.0 - fringe)), water));
+                }
                 ALBEDO = colour + old * bk;
                 EMISSION = glow * bk;
-                NORMAL = normalize((VIEW_MATRIX * vec4(normalize(n + bent * near), 0.0)).xyz);
-                ROUGHNESS = roughness + 0.92 * bk;
+                NORMAL = normalize((VIEW_MATRIX * vec4(surface, 0.0)).xyz);
+                ROUGHNESS = roughness + mix(0.92, 0.05, water_ground ? 1.0 : 0.0) * bk;
                 // Rain darkens the ground and makes it glisten, more where it lies flat and in its hollows.
-                float wet = weather_wetness * (1.0 - steep) * mix(0.75, 1.0, 1.0 - (l0.albedo.a * b.x + l1.albedo.a * b.y + l2.albedo.a * b.z + l3.albedo.a * b.w));
+                float wet = weather_wetness * (1.0 - steep) * (1.0 - water) * mix(0.75, 1.0, 1.0 - (l0.albedo.a * b.x + l1.albedo.a * b.y + l2.albedo.a * b.z + l3.albedo.a * b.w));
                 ALBEDO *= mix(1.0, 0.55, wet);
                 ROUGHNESS = mix(ROUGHNESS, 0.15, wet * 0.85);
-                SPECULAR = 0.35;
+                SPECULAR = mix(0.35, 0.5, water);
             }
             """,
     });

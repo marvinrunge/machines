@@ -1110,47 +1110,107 @@ public sealed class ClassicAssets
             material.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
         }
 
-        // The planets' water tiles (watr*, and the falling and flowing watfal / watflw) move on the painted ground.
+        // The planets' water tiles move on the painted ground: the lakes and rivers (watr*, the hills' wat00), the
+        // falling water (watfal) and the foam at its foot (watflw).
         var name = Path.GetFileName(texture).ToLowerInvariant();
-        if (GraphicsSettings.Terrain == TerrainLook.Painted && race is null && material.AlbedoTexture is { } water && (name.StartsWith("watr") || name.StartsWith("watfal") || name.StartsWith("watflw")))
+        var hills = texture.Contains("/hilly/", StringComparison.OrdinalIgnoreCase) || texture.Contains("/talonth8/", StringComparison.OrdinalIgnoreCase);
+        var kind = name.StartsWith("watfal") ? 1 : name.StartsWith("watflw") ? 2 : name.StartsWith("watr") || (hills && name.StartsWith("wat00")) ? 0 : -1;
+        if (GraphicsSettings.Terrain == TerrainLook.Painted && race is null && material.AlbedoTexture is { } water && kind >= 0)
         {
             var moving = new ShaderMaterial { Shader = WaterShader.Value };
             moving.SetShaderParameter("albedo_tex", water);
             moving.SetShaderParameter("tint", new Vector3(diffuse[0], diffuse[1], diffuse[2]));
-            moving.SetShaderParameter("flow", name.StartsWith("watr") ? Vector2.Zero : new Vector2(0, 0.35f));
+            moving.SetShaderParameter("kind", kind);
+            moving.SetShaderParameter("waves", TerrainMaterials.WaveNormals);
+            moving.SetShaderParameter("noise", TerrainMaterials.NoiseTexture);
             return moving;
         }
         return material;
     }
 
     /// <summary>
-    /// Water: the original texture sampled twice, drifting and rippling against each other, on a smooth surface
-    /// that catches the sun and mirrors its surroundings (screen-space reflections).
+    /// Water (<see cref="TerrainMaterials.WaterGlsl"/>): dark and clear under drifting waves, on a smooth surface that
+    /// catches the sun and mirrors its surroundings (screen-space reflections). Falling water runs down in streaks,
+    /// the original's picture among them, and churns white at its foot, the foam thinning out downstream. Which way is
+    /// down is read from the tile itself (how its height runs across its picture), so a tile laid either way flows
+    /// downhill.
     /// </summary>
     private static readonly Lazy<Shader> WaterShader = new(() => new Shader
     {
-        Code = """
+        Code = $$"""
             shader_type spatial;
             render_mode cull_disabled;
             uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
             uniform vec3 tint = vec3(1.0);
-            uniform vec2 flow = vec2(0.0);
+            // 0 a lake or river, 1 falling water, 2 the foam at its foot.
+            uniform int kind = 0;
+            uniform sampler2D waves : filter_linear_mipmap, repeat_enable;
+            uniform sampler2D noise : filter_linear, repeat_enable;
             varying vec3 world;
+
+            {{TerrainMaterials.WaterGlsl}}
+
             void vertex() {
                 world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
             }
+
+            // Downhill across the picture: the height's slope over the texture coordinates, from how both change
+            // from pixel to pixel, turned to the nearer of the picture's axes so both triangles of a tile agree.
+            vec2 downhill(vec2 uv) {
+                vec2 ux = dFdx(uv), uy = dFdy(uv);
+                float hx = dFdx(world.y), hy = dFdy(world.y);
+                float det = ux.x * uy.y - ux.y * uy.x;
+                vec2 g = vec2(hx * uy.y - ux.y * hy, ux.x * hy - hx * uy.x) / (abs(det) > 1e-12 ? det : 1e-12);
+                return abs(g.x) > abs(g.y) ? vec2(-sign(g.x), 0.0) : vec2(0.0, -sign(g.y));
+            }
+
             void fragment() {
                 float t = TIME;
-                // Waves in metres, so they look the same however the tiles repeat their texture.
-                vec2 p = world.xz;
-                vec2 drift = vec2(sin(p.y * 0.35 + t * 0.9), cos(p.x * 0.3 + t * 0.8)) * 0.006;
-                vec3 water = texture(albedo_tex, UV + flow * t + drift).rgb;
-                ALBEDO = water * tint * 0.9;
-                ROUGHNESS = 0.05;
-                SPECULAR = 0.7;
-                float r1 = sin(p.x * 0.9 + p.y * 0.4 + t * 1.6) + sin(p.x * 0.31 - p.y * 0.77 - t * 1.1);
-                float r2 = sin(p.y * 0.85 - p.x * 0.35 + t * 1.4) + sin(p.y * 0.27 + p.x * 0.61 + t * 0.9);
-                NORMAL_MAP = vec3(0.5 + r1 * 0.04, 0.5 + r2 * 0.04, 1.0);
+                vec3 up = vec3(0.0, 1.0, 0.0);
+                vec3 face = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
+                vec3 surface = water_waves(waves, world.xz, t, 0.35);
+                vec3 colour = water_body(noise, world.xz, 0.0);
+                float rough = 0.04;
+                if (kind > 0) {
+                    vec2 down = downhill(UV);
+                    vec2 across = vec2(-down.y, down.x);
+                    // Along the flow from the tile's upper edge (0) to its lower (1), and across it.
+                    float along = dot(UV, down);
+                    along = down.x + down.y > 0.0 ? along : 1.0 + along;
+                    float side = dot(UV, across);
+                    if (kind == 1) {
+                        // Streaks rushing down, two sizes at two speeds, over the original's picture running down too.
+                        float s1 = texture(noise, vec2(side * 2.5, along * 0.35 - t * 0.55)).r;
+                        float s2 = texture(noise, vec2(side * 6.0 + 0.31, along * 0.8 - t * 1.1)).r;
+                        float streak = smoothstep(0.42, 0.75, s1 * 0.55 + s2 * 0.45);
+                        vec3 old = texture(albedo_tex, UV - down * t * 0.8).rgb * tint;
+                        vec3 sheet = mix(vec3(0.05, 0.13, 0.16), old * 0.8, 0.5);
+                        // Whiter at the lip, where it tips over, and towards the foot, where it breaks.
+                        float white = streak * 0.7 + smoothstep(0.12, 0.0, along) * 0.5 + smoothstep(0.75, 1.0, along) * 0.35;
+                        colour = mix(sheet, vec3(0.78, 0.84, 0.86), clamp(white, 0.0, 0.9));
+                        // The sheet keeps the face's own slope; the foam on it is rough, the clear water between glossy.
+                        surface = face;
+                        rough = mix(0.12, 0.5, streak);
+                    } else {
+                        // The foam the fall throws up: thick where it lands, breaking into drifts and thinning out
+                        // downstream, churning as it goes.
+                        float churn = texture(noise, vec2(side * 3.0, along * 2.0 - t * 0.35)).r * 0.6
+                            + texture(noise, vec2(side * 7.0 + 0.5, along * 4.0 - t * 0.8) + 0.13 * sin(t * 1.3 + side * 9.0)).r * 0.4;
+                        // Thinner towards the banks on either side, so the foam does not end in a straight line.
+                        float side01 = across.x + across.y > 0.0 ? side : 1.0 + side;
+                        float banks = smoothstep(0.0, 0.25, side01) * smoothstep(1.0, 0.75, side01);
+                        float thick = (1.0 - smoothstep(0.0, 0.9, along)) * (0.4 + 0.6 * banks);
+                        float lo = 0.62 - thick * 0.3;
+                        float foam = smoothstep(lo, lo + 0.14, churn) * (0.3 + 0.6 * thick);
+                        colour = mix(colour, vec3(0.8, 0.85, 0.86), clamp(foam, 0.0, 0.85));
+                        surface = normalize(mix(water_waves(waves, world.xz * 2.0, t * 3.0, 0.6), up, foam * 0.6));
+                        rough = mix(0.06, 0.6, foam);
+                    }
+                }
+                ALBEDO = colour;
+                NORMAL = normalize((VIEW_MATRIX * vec4(surface, 0.0)).xyz);
+                ROUGHNESS = rough;
+                SPECULAR = 0.5;
             }
             """,
     });

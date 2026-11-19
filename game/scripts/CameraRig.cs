@@ -290,17 +290,32 @@ public partial class CameraRig : Node3D
     public static void Shake(Vector3 epicentre, float degrees, float duration)
     {
         var turns = degrees >= 15 ? 45 : degrees >= 10 ? 37 : 32;
+        // The remake's effects shake slower and softer: the punch's 45 turns in 0.6 s threw the view somewhere new
+        // every frame (the original ran at a fraction of today's frame rate), which read as flicker.
+        _smooth = GraphicsSettings.Effects;
+        var scale = 1f;
+        if (_smooth)
+        {
+            turns = Math.Clamp((int)(duration * SmoothTurnsPerSecond), 4, turns);
+            scale = SmoothStrength;
+        }
         var random = new Random();
         _shake = new Quaternion[turns + 2];
         _shake[0] = _shake[^1] = Quaternion.Identity;
         for (var i = 0; i < turns; i++)
         {
-            var angle = Mathf.DegToRad(degrees * (1 - i / (float)turns));
+            var angle = Mathf.DegToRad(degrees * scale * (1 - i / (float)turns));
             float Turn() => angle * (float)(random.NextDouble() * 2 - 1);
             _shake[i + 1] = Quaternion.FromEuler(new Vector3(Turn(), Turn(), Turn()));
         }
         (_shakeStart, _shakeTime, _epicentre) = ((float)FrameClock.Now, duration, epicentre);
     }
+
+    /// <summary>The remake's shaking (with its effects on): turns a second at most, and how much of the angle.</summary>
+    private const float SmoothTurnsPerSecond = 18, SmoothStrength = 0.4f;
+
+    // Whether the shaking under way eases from turn to turn (see Shake).
+    private static bool _smooth;
 
     /// <summary>
     /// The turn the shaking gives a camera at <paramref name="camera"/> now; none when it is over. It weakens with
@@ -316,7 +331,10 @@ public partial class CameraRig : Node3D
         var strength = near * near;
         var position = t * (_shake.Length - 1);
         var i = Math.Min((int)position, _shake.Length - 2);
-        var turn = _shake[i].Slerp(_shake[i + 1], position - i);
+        var along = position - i;
+        if (_smooth)
+            along = along * along * (3 - 2 * along);
+        var turn = _shake[i].Slerp(_shake[i + 1], along);
         return new Basis(Quaternion.Identity.Slerp(turn, strength));
     }
 }
