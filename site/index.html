@@ -222,6 +222,17 @@
     overflow: hidden;
   }
   .shot img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 0.25s; }
+  /* The trailer, framed as the pictures are. */
+  .film {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    aspect-ratio: 16 / 9;
+    border: 3px solid #2b302b;
+    box-shadow: inset 0 0 0 1px #0d120d, 0 4px 10px rgba(0, 0, 0, 0.5);
+    background: #000;
+  }
+  .film + p { margin-top: 12px; }
   .shot:hover img, .shot:focus-visible img { transform: scale(1.02); }
   .shot:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
   /* Classic and Overhauled on one screen, the line between them dragged across. */
@@ -354,6 +365,16 @@
     </nav>
   </div>
 
+  <section aria-labelledby="trailer">
+    <h3 id="trailer" data-t="trailer">Trailer</h3>
+    <div class="chip card">
+      <video class="film" controls preload="none" playsinline poster="shots/trailer.jpg" width="1920" height="1080" aria-label="The remake's trailer, 88 seconds, with the original's intro music">
+        <source src="trailer.mp4" type="video/mp4">
+      </video>
+      <p data-t="trailerp">Recorded in the game in the Overhauled look, to the original's intro music.</p>
+    </div>
+  </section>
+
   <section aria-labelledby="install">
     <h3 id="install" data-t="install">Install</h3>
     <div class="row">
@@ -459,6 +480,7 @@
       intro: "Ein Fan-Remake des Echtzeit-Strategiespiels von 1999, von Grund auf neu in Godot 4. Befiehl von oben oder steuere jede Maschine selbst, allein, gegen die KI oder online.",
       download: "Herunterladen", setupNote: "Windows-Installer", zip: "Zip", zipNote: "Ohne Installer",
       notes: "Neuerungen", source: "Quellcode",
+      trailer: "Trailer", trailerp: "Im Spiel aufgenommen, im überarbeiteten Look, zur Intro-Musik des Originals.",
       install: "Installieren",
       s1: "Herunterladen", s1p: "Hol dir oben das Setup für Windows 10 oder 11 (64 Bit).",
       s2: "Installieren", s2p: "Starte es, Administratorrechte braucht es nicht. Warnt Windows vor einem unbekannten Herausgeber: Weitere Informationen, dann Trotzdem ausführen.",

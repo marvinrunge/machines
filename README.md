@@ -10,6 +10,8 @@ your own copy of the game.
 
 > This is a test build. Expect rough edges, and tell us about them.
 
+[![The trailer: 88 seconds recorded in the game, to the original's intro music](site/shots/trailer.jpg)](https://marvinrunge.github.io/machines/#trailer)
+
 | | |
 |---|---|
 | ![A campaign mission in the desert](site/shots/campaign.jpg) | ![A skirmish base](site/shots/skirmish.jpg) |

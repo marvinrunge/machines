@@ -1,8 +1,10 @@
 #!/bin/bash
 # Records the footage of the remake's films (game/scripts/Cinematic*.cs, tools/cinematic/films.txt), one MP4 per film
 # with the game's sound and no music, for cutting into a trailer (tools/cinematic/cut.sh):
-#   tools/cinematic/shoot.sh <folder> [draft|preview|hd|final] [film ...]
+#   tools/cinematic/shoot.sh <folder> [draft|fast|preview|hd|final] [film ...]
 # draft (the default): 640x360 at 30 frames a second, straight from the movie writer (a minute or two a film);
+# fast: 1920x1080 at 60 frames a second blended in twos, drawn at its own size and written straight into the movie
+# writer's AVI as fine JPEGs instead of PNGs (a few minutes a film);
 # preview: 1280x720, 60 frames a second blended in twos; hd: 1920x1080 and final: 2560x1440, both 120 frames a second
 # blended in fours and drawn at 1.5 times the size (final about two minutes a second of film and 0.7 GB of frames a
 # second on the way, hd about half that).
@@ -13,17 +15,18 @@
 # built (dotnet build game/Machines.csproj).
 set -e
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-OUT="${1:?usage: shoot.sh <folder> [draft|preview|hd|final] [film ...]}"
+OUT="${1:?usage: shoot.sh <folder> [draft|fast|preview|hd|final] [film ...]}"
 QUALITY="${2:-draft}"
 shift $(( $# < 2 ? $# : 2 ))
 FFMPEG="$ROOT/tools/film-upscale/bin/ffmpeg/ffmpeg.exe"
 GODOT="${GODOT:-$LOCALAPPDATA/Microsoft/WinGet/Packages/GodotEngine.GodotEngine.Mono_Microsoft.Winget.Source_8wekyb3d8bbwe/Godot_v4.7.2-stable_mono_win64/Godot_v4.7.2-stable_mono_win64_console.exe}"
 case "$QUALITY" in
     draft) WIDTH=640 HEIGHT=360 FPS=30 BLEND=1 SCALE=1 ;;
+    fast) WIDTH=1920 HEIGHT=1080 FPS=60 BLEND=2 SCALE=1 ;;
     preview) WIDTH=1280 HEIGHT=720 FPS=60 BLEND=2 SCALE=1 ;;
     hd) WIDTH=1920 HEIGHT=1080 FPS=120 BLEND=4 SCALE=1.5 ;;
     final) WIDTH=2560 HEIGHT=1440 FPS=120 BLEND=4 SCALE=1.5 ;;
-    *) echo "Quality is draft, preview, hd or final, not '$QUALITY'."; exit 1 ;;
+    *) echo "Quality is draft, fast, preview, hd or final, not '$QUALITY'."; exit 1 ;;
 esac
 FILMS=("$@")
 [ ${#FILMS[@]} -gt 0 ] || mapfile -t FILMS < <(grep -v '^//' "$ROOT/tools/cinematic/films.txt" | cut -d' ' -f1)
@@ -36,14 +39,16 @@ OVERRIDE="$ROOT/game/override.cfg"
 [ -e "$OVERRIDE" ] && { echo "$OVERRIDE exists already; move it away first."; exit 1; }
 trap 'rm -f "$OVERRIDE"' EXIT
 printf '[display]\n\nwindow/size/viewport_width=%s\nwindow/size/viewport_height=%s\n' $WIDTH $HEIGHT > "$OVERRIDE"
+# The AVIs' JPEGs as fine as they go (at the default, 0.75, the dust and smoke turn blocky).
+printf '\n[editor]\n\nmovie_writer/mjpeg_quality=0.97\n' >> "$OVERRIDE"
 
 for FILM in "${FILMS[@]}"; do
     read -r _ MAP WEATHER CLOCK < <(grep "^$FILM " "$ROOT/tools/cinematic/films.txt") || { echo "No film '$FILM' in films.txt."; exit 1; }
     FRAMES="$OUT/$FILM-frames"
     rm -rf "${FRAMES:?}"
     mkdir -p "$FRAMES"
-    # Drafts go straight into an AVI; the finer qualities into PNGs, to be blended.
-    [ "$QUALITY" = draft ] && MOVIE="$FRAMES/film.avi" || MOVIE="$FRAMES/frame.png"
+    # Drafts and fast takes go straight into an AVI; the finer qualities into PNGs, to be blended.
+    case "$QUALITY" in draft|fast) MOVIE="$FRAMES/film.avi" ;; *) MOVIE="$FRAMES/frame.png" ;; esac
     echo "$FILM: recording ($QUALITY) ..."
     ( [ "$CLOCK" != - ] && export MACHINES_CLOCK="$CLOCK"
       [ "${RELEASE:-1}" = 1 ] && export MACHINES_MODEL_UPGRADE=0 MACHINES_NATURE=0
@@ -60,6 +65,9 @@ for FILM in "${FILMS[@]}"; do
     if [ "$QUALITY" = draft ]; then
         "$FFMPEG" -v error -y -i "$MOVIE" -vf format=yuv420p -af "$SOUND" \
             -c:v libx264 -preset fast -crf 20 -c:a aac -b:a 192k -movflags +faststart "$OUT/$FILM.mp4"
+    elif [ "$QUALITY" = fast ]; then
+        "$FFMPEG" -v error -y -i "$MOVIE" -vf "tmix=frames=$BLEND,fps=30,format=yuv420p" -af "$SOUND" \
+            -c:v libx264 -preset slow -crf 16 -c:a aac -b:a 256k -movflags +faststart "$OUT/$FILM.mp4"
     else
         # Each output frame is the mean of the last BLEND drawn (motion blur, as a film camera's open shutter).
         "$FFMPEG" -v error -y -framerate $FPS -i "$FRAMES/frame%08d.png" -i "$FRAMES/frame.wav" \
