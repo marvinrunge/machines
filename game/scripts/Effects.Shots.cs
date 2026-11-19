@@ -190,7 +190,8 @@ public partial class Effects
         var round = new Round();
         _lastRound = (to, round);
         // Game aims at the middle of the machine; the tracer stops where it meets its hull.
-        var mark = Hull(from, to) ?? to;
+        var struck = Strike(from, to);
+        var mark = struck?.Point ?? to;
         // A bolt at the hero the view looks out of met its hull a metre before the eye, on the line to the one firing, so
         // its head and its spark covered the middle of the screen in white: seen from the hull it ends a few metres out.
         if (IsInsideTree() && GetViewport()?.GetCamera3D() is { } camera && camera.GlobalPosition.DistanceTo(mark) < EyeClear
@@ -224,33 +225,62 @@ public partial class Effects
             if (round.Ground)
                 GroundHit(mark, direction);
             else
-                MetalHit(mark, direction);
+                MetalHit(mark, direction, struck?.Normal);
         }), 0f, distance + longest, flight * (distance + longest) / distance);
         tween.TweenCallback(Callable.From(tracer.QueueFree));
     }
 
     /// <summary>
-    /// Where a shot from <paramref name="from"/> to <paramref name="to"/> first meets the bounds of a machine or
-    /// building round its mark (the actor views beside the effects), or null when it meets none.
+    /// Where a shot from <paramref name="from"/> to <paramref name="to"/> first meets a machine or building round its
+    /// mark (the actor views beside the effects), or null when it meets none. See <see cref="Strike"/>.
     /// </summary>
-    private Vector3? Hull(Vector3 from, Vector3 to)
+    private Vector3? Hull(Vector3 from, Vector3 to) => Strike(from, to)?.Point;
+
+    /// <summary>
+    /// Where a shot from <paramref name="from"/> to <paramref name="to"/> first meets the model of a machine or building
+    /// round its mark, and the face's normal there. The mark is the middle Game aims at, or where the world's round
+    /// stopped, at its hit radius and short of the model (the pod's box reaches far past its dome): so the shot goes on
+    /// through the box of what stands at its mark until it meets the model. A shot that slips through the model past
+    /// its middle is taken to the middle; one that still meets nothing stops where it enters the box, as before.
+    /// </summary>
+    private (Vector3 Point, Vector3? Normal)? Strike(Vector3 from, Vector3 to)
     {
-        Vector3? nearest = null;
+        (Vector3 Point, Vector3? Normal)? nearest = null;
+        var towards = to - from;
+        if (towards.LengthSquared() < 1e-4f)
+            return null;
+        var direction = towards.Normalized();
         foreach (var node in GetParent().GetChildren())
         {
             if (node is not ActorView view || view.GlobalPosition.DistanceSquaredTo(to) > 400)
                 continue;
             var local = view.GlobalTransform.AffineInverse();
+            var box = view.Bounds;
             // Not the shooter it leaves.
-            if (view.Bounds.HasPoint(local * from))
+            if (box.HasPoint(local * from))
                 continue;
-            var (start, end) = (local * from, local * to);
-            if (Entry(view.Bounds, start, end) is { } entry
-                && (nearest is null || from.DistanceSquaredTo(view.GlobalTransform * entry) < from.DistanceSquaredTo(nearest.Value)))
-                nearest = view.GlobalTransform * entry;
+            var mark = local * to;
+            var reach = box.Size.Length();
+            var atMark = Outside(box, mark) < 2;
+            var end = atMark ? to + direction * reach : to;
+            if (Entry(box, local * from, local * end) is null)
+                continue;
+            (Vector3 Point, Vector3? Normal)? hit = view.Surface(from, end) is { } surface ? (surface.Point, surface.Normal) : null;
+            if (hit is null && box.HasPoint(mark))
+            {
+                var middle = view.Centre;
+                hit = view.Surface(from, middle + (middle - from).Normalized() * reach) is { } inner ? (inner.Point, inner.Normal) : null;
+            }
+            if (hit is null && atMark && Entry(box, local * from, mark) is { } entry)
+                hit = (view.GlobalTransform * entry, null);
+            if (hit is { } found && (nearest is null || from.DistanceSquaredTo(found.Point) < from.DistanceSquaredTo(nearest.Value.Point)))
+                nearest = found;
         }
         return nearest;
     }
+
+    /// <summary>How far <paramref name="point"/> lies outside the box (0 inside it).</summary>
+    private static float Outside(Aabb box, Vector3 point) => (point - point.Clamp(box.Position, box.End)).Length();
 
     /// <summary>Where the line from <paramref name="start"/> to <paramref name="end"/> enters the box, or null if it misses it.</summary>
     private static Vector3? Entry(Aabb box, Vector3 start, Vector3 end)

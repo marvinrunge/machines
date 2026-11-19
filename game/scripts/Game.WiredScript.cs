@@ -72,6 +72,7 @@ public partial class Game
             "turrethull" => SceneTurret(folder, run, hullOnly: true),
             "stray" => SceneStray(folder, run),
             "podhit" => ScenePodHit(folder, run),
+            "podfire" => ScenePodFire(folder, run),
             "losepod" => SceneLosePod(folder, run),
             "losebody" => SceneLoseBody(folder, run),
             "unlock" => SceneUnlock(folder, run, 10),
@@ -399,6 +400,66 @@ public partial class Game
             await Seconds(0.1);
         await Seconds(2.5);
         Snap(folder, "run-pod-hit");
+    }
+
+    /// <summary>
+    /// Grunts firing at the pod, seen from the side: where their bolts strike it (on its dome, not in the air round it),
+    /// pictured every tenth of a second.
+    /// </summary>
+    private async Task ScenePodFire(string folder, WiredRun run)
+    {
+        await Gear(run, 2, WiredSpecial.None, squad: false);
+        await MeetFoes(run, 40);
+        var pod = World.WiredPod(Me)!;
+        var hero = World.HeroOf(Me)!;
+        var foes = run.Foes.ToList();
+        var race = foes.Count > 0 ? foes[0].Machine.Race : Race.Red;
+        // Grunts of the wave's side on the pod's one flank, told to fire at it; the hero looks on from afar, out of their reach.
+        var grunts = new List<int>();
+        for (var i = 0; i < 4; i++)
+            if (World.Nav.NearestFreePoint(pod.Position + new NVector2(24, (i - 1.5f) * 5), crossesWater: false) is { } spot)
+                grunts.Add(World.AddMachine(race, spot, "AGGRESSOR", "GRUNT", 1, "L_BOLTER").Id);
+        hero.Position = World.Nav.NearestFreePoint(pod.Position + new NVector2(12, -55), crossesWater: false) ?? hero.Position;
+        Face(pod.Position + new NVector2(10, 0));
+        for (var i = 0; i < 200 && pod.HitPoints == pod.MaxHitPoints; i++)
+        {
+            if (i % 10 == 0)
+                World.Issue(new AttackCommand(race, grunts, pod.Id));
+            await Seconds(0.1);
+        }
+        await Seconds(0.5);
+        GD.Print($"scene: podfire: pod {pod.HitPoints}/{pod.MaxHitPoints}, foes [{string.Join(", ", World.Machines.Where(m => m.Race == race).Select(m => m.Spec.SubType ?? m.Spec.Type))}]");
+        // Seen from beside the line of fire, without the HUD.
+        var ground = ActorView.World(pod.Position);
+        var watcher = new Camera3D { Fov = 50 };
+        AddChild(watcher);
+        watcher.GlobalPosition = ground + new Vector3(14, 7, -62);
+        watcher.LookAt(ground + new Vector3(14, 3, 0), Vector3.Up);
+        watcher.MakeCurrent();
+        foreach (var layer in FindChildren("*", nameof(CanvasLayer), true, false).OfType<CanvasLayer>())
+            layer.Visible = false;
+        for (var i = 0; i < 40; i++)
+        {
+            await Seconds(0.05);
+            Snap(folder, $"podfire-{i:00}");
+        }
+        // What finding the dome costs a shot: a thousand shots from round the pod at its middle.
+        if (_views.GetValueOrDefault(pod.Id) is { } view)
+        {
+            var (made, building) = ActorView.TrianglesMade;
+            var middle = view.Centre;
+            var met = 0;
+            var started = System.Diagnostics.Stopwatch.GetTimestamp();
+            for (var shot = 0; shot < 1000; shot++)
+            {
+                var angle = shot * 0.37f;
+                var from = middle + new Vector3(Mathf.Cos(angle) * 30, 1 + shot % 7, Mathf.Sin(angle) * 30);
+                if (view.Surface(from, middle + (middle - from).Normalized() * 20) is not null)
+                    met++;
+            }
+            var each = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            GD.Print($"scene: podfire: {made} meshes' triangles made in {building:0.0} ms; a shot at the pod takes {each:0.000} µs ({met}/1000 met its model)");
+        }
     }
 
     /// <summary>The hero in full gear meets the sixth wave and fires with all it has until something has fallen to it.</summary>

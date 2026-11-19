@@ -770,6 +770,66 @@ public partial class ActorView : Node3D
         return PartsHit(_model, from, direction);
     }
 
+    // Each mesh's triangles, made once for all the views that show it, for where shots strike the model.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Mesh, TriangleMesh?> Triangles = new();
+    private Node? _surfaceOf;
+    private MeshInstance3D[] _surfaceMeshes = [];
+
+    /// <summary>For measuring <see cref="Surface"/>: how many models' triangles were made, and how long that took in all.</summary>
+    public static (int Made, double Milliseconds) TrianglesMade;
+
+    /// <summary>
+    /// Where the segment from <paramref name="from"/> to <paramref name="to"/> first meets the model's own triangles,
+    /// with the face's normal turned towards <paramref name="from"/>, or null: for shots to strike the hull itself, not
+    /// the box round the whole model.
+    /// </summary>
+    public (Vector3 Point, Vector3 Normal)? Surface(Vector3 from, Vector3 to)
+    {
+        if (!Visible || _model is null)
+            return null;
+        (Vector3 Point, Vector3 Normal)? nearest = null;
+        var best = float.MaxValue;
+        // The model's meshes, looked up once for each model it wears (a hero's refit gives it another).
+        if (_surfaceOf != _model)
+        {
+            _surfaceOf = _model;
+            _surfaceMeshes = _model.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>()
+                .Append(_model as MeshInstance3D).OfType<MeshInstance3D>().ToArray();
+        }
+        foreach (var mesh in _surfaceMeshes)
+        {
+            if (!IsInstanceValid(mesh))
+                continue;
+            // A skinned mesh's triangles are not where its bones have put them.
+            if (mesh.Mesh is not { } shape || mesh.Skin is not null || !mesh.IsVisibleInTree()
+                || BoxHit(mesh.GlobalTransform, shape.GetAabb(), from, to - from) is not <= 1)
+                continue;
+            if (Triangles.GetValue(shape, Make) is not { } triangles)
+                continue;
+            var place = mesh.GlobalTransform;
+            var inverse = place.AffineInverse();
+            var hit = triangles.IntersectSegment(inverse * from, inverse * to);
+            if (hit.Count == 0)
+                continue;
+            var point = place * hit["position"].AsVector3();
+            var distance = from.DistanceSquaredTo(point);
+            if (distance >= best)
+                continue;
+            best = distance;
+            var normal = (place.Basis.Inverse().Transposed() * hit["normal"].AsVector3()).Normalized();
+            nearest = (point, normal.Dot(from - point) < 0 ? -normal : normal);
+        }
+        return nearest;
+
+        static TriangleMesh? Make(Mesh shape)
+        {
+            var started = System.Diagnostics.Stopwatch.GetTimestamp();
+            var made = shape.GenerateTriangleMesh();
+            TrianglesMade = (TrianglesMade.Made + 1, TrianglesMade.Milliseconds + System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            return made;
+        }
+    }
+
     /// <summary>How far along the ray it first meets the box of a mesh under <paramref name="root"/>, or null.</summary>
     public static float? PartsHit(Node root, Vector3 from, Vector3 direction)
     {

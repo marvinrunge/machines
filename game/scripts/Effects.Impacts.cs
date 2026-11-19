@@ -184,14 +184,18 @@ public partial class Effects
         }, explosiveness: 0.6f);
 
     /// <summary>A bolt glances off metal: a spray of sparks thrown back the way it came, and a white flash.</summary>
-    private void MetalHit(Vector3 at, Vector3 direction)
+    private void MetalHit(Vector3 at, Vector3 direction, Vector3? normal = null)
     {
         // A hit on the hull the view looks out of (a bolt striking the front of the driven hero, a metre ahead of the eye)
         // flashed white over half the screen: right before the camera the flash and the sparks are small.
         var camera = IsInsideTree() ? GetViewport()?.GetCamera3D() : null;
         var near = camera is null ? 1 : Mathf.Clamp(camera.GlobalPosition.DistanceTo(at) / 6, 0.15f, 1);
+        // Struck on the model's face, the sparks glance off it as the bolt would, and the flash sits on the face.
+        var away = normal is { } face ? direction.Bounce(face) + face * 0.3f + Vector3.Up * 0.2f : -direction + Vector3.Up * 0.4f;
+        if (normal is { } outward)
+            at += outward * 0.1f;
         FlashOrb(at, new Color(1, 0.85f, 0.6f), 0.9f * near, 0.06f);
-        Sparks(at, new Color(1, 0.75f, 0.4f), Mathf.Max(2, Mathf.RoundToInt(10 * near)), -direction + Vector3.Up * 0.4f, spread: 60, speed: 10, lifetime: 0.35f, size: 0.45f * near);
+        Sparks(at, new Color(1, 0.75f, 0.4f), Mathf.Max(2, Mathf.RoundToInt(10 * near)), away, spread: normal is null ? 60 : 40, speed: 10, lifetime: 0.35f, size: 0.45f * near);
     }
 
     /// <summary>A bolt strikes the ground: a puff of dust in its colour, grit thrown up, a few sparks and a small burn.</summary>
