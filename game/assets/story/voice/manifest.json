@@ -1,0 +1,905 @@
+{
+ "about": "Voice files per line id and language. placeholder=true: Windows SAPI voice through tools/voice/robot.py, to be replaced by the user's recordings (tools/voice/README.md). seconds: length of the Ogg file.",
+ "lines": {
+  "P_ANN_C1": {
+   "de": {
+    "file": "de/P_ANN_C1.ogg",
+    "seconds": 5.96,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "6fbdb373e578"
+   },
+   "en": {
+    "file": "en/P_ANN_C1.ogg",
+    "seconds": 5.73,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "e22c29b4e201"
+   }
+  },
+  "P_ANN_C2": {
+   "de": {
+    "file": "de/P_ANN_C2.ogg",
+    "seconds": 4.71,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "92ad91fe9d15"
+   },
+   "en": {
+    "file": "en/P_ANN_C2.ogg",
+    "seconds": 4.14,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "308b4122e815"
+   }
+  },
+  "P_ANN_C3": {
+   "de": {
+    "file": "de/P_ANN_C3.ogg",
+    "seconds": 4.5,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "d73ea6bf7e1e"
+   },
+   "en": {
+    "file": "en/P_ANN_C3.ogg",
+    "seconds": 4.29,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "7fa9d10509c1"
+   }
+  },
+  "P_ANN_C4": {
+   "de": {
+    "file": "de/P_ANN_C4.ogg",
+    "seconds": 5.85,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "065dc0037048"
+   },
+   "en": {
+    "file": "en/P_ANN_C4.ogg",
+    "seconds": 4.79,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "c82f0becc2bb"
+   }
+  },
+  "P_ANN_C5": {
+   "de": {
+    "file": "de/P_ANN_C5.ogg",
+    "seconds": 4.23,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "877b6bacd6a6"
+   },
+   "en": {
+    "file": "en/P_ANN_C5.ogg",
+    "seconds": 3.7,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "f03b8e341b6e"
+   }
+  },
+  "P_ANN_C6": {
+   "de": {
+    "file": "de/P_ANN_C6.ogg",
+    "seconds": 0.78,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "416d34bfc2b6"
+   },
+   "en": {
+    "file": "en/P_ANN_C6.ogg",
+    "seconds": 1.41,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "24af9338dd57"
+   }
+  },
+  "P_ANN_C7": {
+   "de": {
+    "file": "de/P_ANN_C7.ogg",
+    "seconds": 1.44,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "2c42a49d06f7"
+   },
+   "en": {
+    "file": "en/P_ANN_C7.ogg",
+    "seconds": 1.62,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "6d78f2193f50"
+   }
+  },
+  "P_ANN_C8": {
+   "de": {
+    "file": "de/P_ANN_C8.ogg",
+    "seconds": 1.11,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "32b15ee566fc"
+   },
+   "en": {
+    "file": "en/P_ANN_C8.ogg",
+    "seconds": 1.15,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "1134a5046ca3"
+   }
+  },
+  "P_ANN_CORE": {
+   "de": {
+    "file": "de/P_ANN_CORE.ogg",
+    "seconds": 5.59,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "7edab80526ee"
+   },
+   "en": {
+    "file": "en/P_ANN_CORE.ogg",
+    "seconds": 5.26,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "d0683affa819"
+   }
+  },
+  "P_ANN_CRASH": {
+   "de": {
+    "file": "de/P_ANN_CRASH.ogg",
+    "seconds": 6.83,
+    "placeholder": true,
+    "preset": "ship-old",
+    "source": "sapi",
+    "hash": "ac57f8f8a34a"
+   },
+   "en": {
+    "file": "en/P_ANN_CRASH.ogg",
+    "seconds": 6.14,
+    "placeholder": true,
+    "preset": "ship-old",
+    "source": "sapi",
+    "hash": "fbc0ee7362d1"
+   }
+  },
+  "P_ANN_DECK_1": {
+   "de": {
+    "file": "de/P_ANN_DECK_1.ogg",
+    "seconds": 7.02,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "6bbdcea171c2"
+   },
+   "en": {
+    "file": "en/P_ANN_DECK_1.ogg",
+    "seconds": 6.0,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "c4be4ae945c6"
+   }
+  },
+  "P_ANN_DECK_2": {
+   "de": {
+    "file": "de/P_ANN_DECK_2.ogg",
+    "seconds": 6.79,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "7468664846ec"
+   },
+   "en": {
+    "file": "en/P_ANN_DECK_2.ogg",
+    "seconds": 4.96,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "95baae547dba"
+   }
+  },
+  "P_ANN_DECK_3": {
+   "de": {
+    "file": "de/P_ANN_DECK_3.ogg",
+    "seconds": 6.71,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "25b0773eb450"
+   },
+   "en": {
+    "file": "en/P_ANN_DECK_3.ogg",
+    "seconds": 6.3,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "eff74d9f6775"
+   }
+  },
+  "P_ANN_DECK_4": {
+   "de": {
+    "file": "de/P_ANN_DECK_4.ogg",
+    "seconds": 6.42,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "04304758d758"
+   },
+   "en": {
+    "file": "en/P_ANN_DECK_4.ogg",
+    "seconds": 5.72,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "c1f764165b84"
+   }
+  },
+  "P_ANN_FOUND": {
+   "de": {
+    "file": "de/P_ANN_FOUND.ogg",
+    "seconds": 0.83,
+    "placeholder": true,
+    "preset": "ship-dry",
+    "source": "sapi",
+    "hash": "84bec6f9b0b4"
+   },
+   "en": {
+    "file": "en/P_ANN_FOUND.ogg",
+    "seconds": 0.7,
+    "placeholder": true,
+    "preset": "ship-dry",
+    "source": "sapi",
+    "hash": "5f1c85b4ab9e"
+   }
+  },
+  "P_ANN_WAKE_1": {
+   "de": {
+    "file": "de/P_ANN_WAKE_1.ogg",
+    "seconds": 8.04,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "13c3e866223a"
+   },
+   "en": {
+    "file": "en/P_ANN_WAKE_1.ogg",
+    "seconds": 6.83,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "8e3254d45b7e"
+   }
+  },
+  "P_ANN_WAKE_2": {
+   "de": {
+    "file": "de/P_ANN_WAKE_2.ogg",
+    "seconds": 6.76,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "3176d35e9231"
+   },
+   "en": {
+    "file": "en/P_ANN_WAKE_2.ogg",
+    "seconds": 5.74,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "febcfbd52d49"
+   }
+  },
+  "P_AUTO_1": {
+   "de": {
+    "file": "de/P_AUTO_1.ogg",
+    "seconds": 4.12,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "8615137a551e"
+   },
+   "en": {
+    "file": "en/P_AUTO_1.ogg",
+    "seconds": 3.89,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "3a3d40500346"
+   }
+  },
+  "P_AUTO_2": {
+   "de": {
+    "file": "de/P_AUTO_2.ogg",
+    "seconds": 4.34,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "eb940e8d02db"
+   },
+   "en": {
+    "file": "en/P_AUTO_2.ogg",
+    "seconds": 3.57,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "7cee83cd19d6"
+   }
+  },
+  "P_AUTO_3": {
+   "de": {
+    "file": "de/P_AUTO_3.ogg",
+    "seconds": 2.56,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "c0a5afa11ffa"
+   },
+   "en": {
+    "file": "en/P_AUTO_3.ogg",
+    "seconds": 2.39,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "683e710b9226"
+   }
+  },
+  "P_AUTO_4": {
+   "de": {
+    "file": "de/P_AUTO_4.ogg",
+    "seconds": 2.1,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "c00acdb31eb6"
+   },
+   "en": {
+    "file": "en/P_AUTO_4.ogg",
+    "seconds": 1.93,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "0a054c2690da"
+   }
+  },
+  "P_AUTO_POD_GO": {
+   "de": {
+    "file": "de/P_AUTO_POD_GO.ogg",
+    "seconds": 3.42,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "1a56af5352f7"
+   },
+   "en": {
+    "file": "en/P_AUTO_POD_GO.ogg",
+    "seconds": 3.26,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "5b9dc65600f9"
+   }
+  },
+  "P_AUTO_POD_NO": {
+   "de": {
+    "file": "de/P_AUTO_POD_NO.ogg",
+    "seconds": 3.7,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "8b8f2d4faa76"
+   },
+   "en": {
+    "file": "en/P_AUTO_POD_NO.ogg",
+    "seconds": 3.16,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "40df9da6fcf6"
+   }
+  },
+  "P_AUTO_T10": {
+   "de": {
+    "file": "de/P_AUTO_T10.ogg",
+    "seconds": 0.71,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "6144aefb0262"
+   },
+   "en": {
+    "file": "en/P_AUTO_T10.ogg",
+    "seconds": 0.85,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "5e0d686bd86d"
+   }
+  },
+  "P_AUTO_T30": {
+   "de": {
+    "file": "de/P_AUTO_T30.ogg",
+    "seconds": 1.63,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "7e9bcb5106d3"
+   },
+   "en": {
+    "file": "en/P_AUTO_T30.ogg",
+    "seconds": 1.36,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "4145155b2032"
+   }
+  },
+  "P_AUTO_T60": {
+   "de": {
+    "file": "de/P_AUTO_T60.ogg",
+    "seconds": 1.54,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "49f087d098dc"
+   },
+   "en": {
+    "file": "en/P_AUTO_T60.ogg",
+    "seconds": 1.52,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "04208fd1833f"
+   }
+  },
+  "P_AUTO_T90": {
+   "de": {
+    "file": "de/P_AUTO_T90.ogg",
+    "seconds": 1.57,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "df04d714e152"
+   },
+   "en": {
+    "file": "en/P_AUTO_T90.ogg",
+    "seconds": 1.46,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "732b9a12581e"
+   }
+  },
+  "P_BOB_BARRICADE": {
+   "de": {
+    "file": "de/P_BOB_BARRICADE.ogg",
+    "seconds": 1.37,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "516f245e7d1d"
+   },
+   "en": {
+    "file": "en/P_BOB_BARRICADE.ogg",
+    "seconds": 1.37,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "ba1c9371b435"
+   }
+  },
+  "P_BOB_CONTACT_L": {
+   "de": {
+    "file": "de/P_BOB_CONTACT_L.ogg",
+    "seconds": 2.27,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "8fa4c6639253"
+   },
+   "en": {
+    "file": "en/P_BOB_CONTACT_L.ogg",
+    "seconds": 2.05,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "4cf48a2b7ad4"
+   }
+  },
+  "P_BOB_CONTACT_R": {
+   "de": {
+    "file": "de/P_BOB_CONTACT_R.ogg",
+    "seconds": 2.18,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "8e667b7fb5e6"
+   },
+   "en": {
+    "file": "en/P_BOB_CONTACT_R.ogg",
+    "seconds": 2.04,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "b8ca10330a73"
+   }
+  },
+  "P_BOB_FOLLOW": {
+   "de": {
+    "file": "de/P_BOB_FOLLOW.ogg",
+    "seconds": 0.94,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "51d00dcb3271"
+   },
+   "en": {
+    "file": "en/P_BOB_FOLLOW.ogg",
+    "seconds": 1.13,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "6762c370b7c0"
+   }
+  },
+  "P_BOB_GATE": {
+   "de": {
+    "file": "de/P_BOB_GATE.ogg",
+    "seconds": 3.2,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "638e68783da1"
+   },
+   "en": {
+    "file": "en/P_BOB_GATE.ogg",
+    "seconds": 2.51,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "3e653b6c2677"
+   }
+  },
+  "P_BOB_GLITCH": {
+   "de": {
+    "file": "de/P_BOB_GLITCH.ogg",
+    "seconds": 5.84,
+    "placeholder": true,
+    "preset": "bob-radio",
+    "source": "sapi",
+    "hash": "8c1bb8006294"
+   },
+   "en": {
+    "file": "en/P_BOB_GLITCH.ogg",
+    "seconds": 5.13,
+    "placeholder": true,
+    "preset": "bob-radio",
+    "source": "sapi",
+    "hash": "0c4487c21219"
+   }
+  },
+  "P_BOB_HOLD": {
+   "de": {
+    "file": "de/P_BOB_HOLD.ogg",
+    "seconds": 1.83,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "20e9480dc36e"
+   },
+   "en": {
+    "file": "en/P_BOB_HOLD.ogg",
+    "seconds": 1.62,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "1c4f6cfb17a2"
+   }
+  },
+  "P_BOB_POD": {
+   "de": {
+    "file": "de/P_BOB_POD.ogg",
+    "seconds": 1.09,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "c4ec1f82f78c"
+   },
+   "en": {
+    "file": "en/P_BOB_POD.ogg",
+    "seconds": 0.97,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "592ad6fb0dcd"
+   }
+  },
+  "P_BOB_RAM": {
+   "de": {
+    "file": "de/P_BOB_RAM.ogg",
+    "seconds": 0.96,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "04b16b63d74e"
+   },
+   "en": {
+    "file": "en/P_BOB_RAM.ogg",
+    "seconds": 1.14,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "e033dd8737a4"
+   }
+  },
+  "P_BOB_UP": {
+   "de": {
+    "file": "de/P_BOB_UP.ogg",
+    "seconds": 3.37,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "d9479c0f3e1e"
+   },
+   "en": {
+    "file": "en/P_BOB_UP.ogg",
+    "seconds": 3.38,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "15419a7cefee"
+   }
+  },
+  "P_BOB_WAKE": {
+   "de": {
+    "file": "de/P_BOB_WAKE.ogg",
+    "seconds": 4.15,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "9359c527721b"
+   },
+   "en": {
+    "file": "en/P_BOB_WAKE.ogg",
+    "seconds": 3.78,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "23bdae280137"
+   }
+  },
+  "P_IKE_ALARM": {
+   "de": {
+    "file": "de/P_IKE_ALARM.ogg",
+    "seconds": 3.32,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "a51c72298943"
+   },
+   "en": {
+    "file": "en/P_IKE_ALARM.ogg",
+    "seconds": 3.14,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "a5222f763568"
+   }
+  },
+  "P_IKE_BARRICADE": {
+   "de": {
+    "file": "de/P_IKE_BARRICADE.ogg",
+    "seconds": 3.28,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "5521f1828b5e"
+   },
+   "en": {
+    "file": "en/P_IKE_BARRICADE.ogg",
+    "seconds": 3.28,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "696ca962a7bb"
+   }
+  },
+  "P_IKE_DISTRACT": {
+   "de": {
+    "file": "de/P_IKE_DISTRACT.ogg",
+    "seconds": 3.23,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "e210287ae006"
+   },
+   "en": {
+    "file": "en/P_IKE_DISTRACT.ogg",
+    "seconds": 3.06,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "1ab89859f0dd"
+   }
+  },
+  "P_IKE_DOWN": {
+   "de": {
+    "file": "de/P_IKE_DOWN.ogg",
+    "seconds": 2.26,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "695e54760ad8"
+   },
+   "en": {
+    "file": "en/P_IKE_DOWN.ogg",
+    "seconds": 2.85,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "ee5ae15656df"
+   }
+  },
+  "P_IKE_POD": {
+   "de": {
+    "file": "de/P_IKE_POD.ogg",
+    "seconds": 2.7,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "516cd822786a"
+   },
+   "en": {
+    "file": "en/P_IKE_POD.ogg",
+    "seconds": 1.88,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "2beac8aac54f"
+   }
+  },
+  "P_IKE_RAM": {
+   "de": {
+    "file": "de/P_IKE_RAM.ogg",
+    "seconds": 0.91,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "109978df4acd"
+   },
+   "en": {
+    "file": "en/P_IKE_RAM.ogg",
+    "seconds": 0.9,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "740570ef88ed"
+   }
+  },
+  "P_IKE_STEPS": {
+   "de": {
+    "file": "de/P_IKE_STEPS.ogg",
+    "seconds": 2.67,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "6143cd9f5a58"
+   },
+   "en": {
+    "file": "en/P_IKE_STEPS.ogg",
+    "seconds": 1.93,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "4c951e445263"
+   }
+  },
+  "P_IKE_UP": {
+   "de": {
+    "file": "de/P_IKE_UP.ogg",
+    "seconds": 2.62,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "ccffe3f579d2"
+   },
+   "en": {
+    "file": "en/P_IKE_UP.ogg",
+    "seconds": 2.32,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "f9f6ae926f5a"
+   }
+  },
+  "P_IKE_VENT": {
+   "de": {
+    "file": "de/P_IKE_VENT.ogg",
+    "seconds": 5.01,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "5d462e91051c"
+   },
+   "en": {
+    "file": "en/P_IKE_VENT.ogg",
+    "seconds": 4.61,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "b39b0c56ad50"
+   }
+  },
+  "P_IKE_WAIT": {
+   "de": {
+    "file": "de/P_IKE_WAIT.ogg",
+    "seconds": 4.55,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "debc6a2dfea3"
+   },
+   "en": {
+    "file": "en/P_IKE_WAIT.ogg",
+    "seconds": 3.6,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "cb1ce353ea7b"
+   }
+  },
+  "P_IKE_WAKE": {
+   "de": {
+    "file": "de/P_IKE_WAKE.ogg",
+    "seconds": 4.97,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "2aa74b571304"
+   },
+   "en": {
+    "file": "en/P_IKE_WAKE.ogg",
+    "seconds": 4.7,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "f6fa53257960"
+   }
+  },
+  "P_WHISPER_1": {
+   "de": {
+    "file": "de/P_WHISPER_1.ogg",
+    "seconds": 7.25,
+    "placeholder": true,
+    "preset": "whisper",
+    "source": "sapi",
+    "hash": "16df1975bf57"
+   },
+   "en": {
+    "file": "en/P_WHISPER_1.ogg",
+    "seconds": 7.07,
+    "placeholder": true,
+    "preset": "whisper",
+    "source": "sapi",
+    "hash": "0e379beda2df"
+   }
+  }
+ }
+}
