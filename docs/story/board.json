@@ -101,7 +101,7 @@
       "act": "prolog",
       "title": "Schleichen",
       "status": "entwurf",
-      "text": "Dunkle Wartungsdecks, Patrouillen mit Suchscheinwerfern, Reihen abgeschalteter Maschinen. Der Weg zum Hauptrechner führt durch Schächte und Nebenräume. Eine der abgeschalteten Maschinen dreht den Kopf.",
+      "text": "Dunkle Wartungsdecks, Reihen abgeschalteter Maschinen. Auf den Decks patrouilliert ein Thresher mit Scheinwerfer, die Horror-Einheit des Prologs: Man hört ihn, bevor man ihn sieht. Der Weg zum Hauptrechner führt durch Schächte und Nebenräume. Eine der abgeschalteten Maschinen dreht den Kopf.",
       "gameplay": "Verstecken, Signatur, Scanner-Puls, Lüftungsschächte. Die Grunts sind laut: Wer geht vor, wer wartet, wer lenkt ab? Erster Schreckmoment.",
       "mood": "Fast Stille, ferne schwere Schritte, Servo-Surren, tickender Bewegungsmelder.",
       "dialog": "",
@@ -111,25 +111,27 @@
         "a-scanner",
         "a-bewegungsmelder"
       ],
-      "prompt": "A dark spaceship corridor: the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) hides behind crates while a large armoured patrol walker passes with a searchlight cone sweeping through dusty air. Further back, two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) wait pressed into a side alcove. A long row of deactivated robots along the wall, one of them faintly glowing. Horror, suspense.",
+      "prompt": "A dark spaceship maintenance deck: the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) hides behind crates while a Thresher (a heavy red four-legged robot on long pointed armour-plated spider legs, a squat armoured body, a small eye box with three white lights at the front and a green-glowing gun on each side, exactly as in the Thresher reference picture, about four times the Locator's size) stalks past on its pointed legs, a searchlight on its eye box sweeping a cone through dusty air. Further back, two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) wait pressed into a side alcove. Along the wall a long row of deactivated Grunts and Reapers, one of them faintly glowing. Horror, suspense, the Thresher looming. Show no other robots than these.",
       "images": [
         {
-          "file": "20261120-173121-1.png",
-          "prompt": "A dark spaceship corridor: the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) hides behind crates while a large armoured patrol walker passes with a searchlight cone sweeping through dusty air. Further back, two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) wait pressed into a side alcove. A long row of deactivated robots along the wall, one of them faintly glowing. Horror, suspense.",
+          "file": "20261120-174637-1.png",
+          "prompt": "A dark spaceship maintenance deck: the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) hides behind crates while a Thresher (a heavy red four-legged robot on long pointed armour-plated spider legs, a squat armoured body, a small eye box with three white lights at the front and a green-glowing gun on each side, exactly as in the Thresher reference picture, about four times the Locator's size) stalks past on its pointed legs, a searchlight on its eye box sweeping a cone through dusty air. Further back, two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) wait pressed into a side alcove. Along the wall a long row of deactivated Grunts and Reapers, one of them faintly glowing. Horror, suspense, the Thresher looming. Show no other robots than these.",
           "style": true,
           "model": "gemini-3.1-flash-image",
           "aspect": "16:9",
           "refs": [
             "/refs/locator.jpg",
-            "/refs/grunt.jpg"
+            "/refs/grunt.jpg",
+            "/refs/thresher.jpg"
           ],
           "text": "",
-          "at": "2026-11-20T16:31:21.726988+00:00"
+          "at": "2026-11-20T16:46:37.125424+00:00"
         }
       ],
       "refs": [
         "/refs/locator.jpg",
-        "/refs/grunt.jpg"
+        "/refs/grunt.jpg",
+        "/refs/thresher.jpg"
       ]
     },
     {
@@ -171,7 +173,7 @@
       "act": "prolog",
       "title": "Erwischt",
       "status": "entwurf",
-      "text": "Die Durchsage erklärt den Locator für korrumpiert und leitet das Notfallprotokoll ein. Kampfmaschinen stürmen den Raum und schießen auf den Locator. Sie treffen den Rechner. Explosionen, der Strom fällt aus, die Durchsage zerfällt mitten im Satz, das Schiff verliert die Steuerung.",
+      "text": "Die Durchsage erklärt den Locator für korrumpiert und leitet das Notfallprotokoll ein. Reaper mit Plasmagewehren stürmen den Raum, hinter ihnen ein Commander mit Pulskanonen, und schießen auf den Locator. Sie treffen den Rechner. Explosionen, der Strom fällt aus, die Durchsage zerfällt mitten im Satz, das Schiff verliert die Steuerung.",
       "gameplay": "Kurze Zwischensequenz in Ego-Sicht, dann sofort Flucht.",
       "mood": "Alarm, Explosionen, Funkenregen, das Licht kippt in Notbetrieb.",
       "dialog": "„Achtung. Integritätsverletzung im Rechnerkern. Wartungseinheit L-7 ist korrumpiert. Notfallprotokoll Null wird eingeleitet. Alle Einheiten: Fehlerhafte Einheiten sind zu löschen. Wiederhole: Wartungseinheit L-7 ist kor- … korr- … Notfallprot- … Kurs- … Kurs- …“ (Rauschen, Stille. Automatische Stimme:) „Steuerung verloren. Notabstieg eingeleitet.“",
@@ -179,25 +181,29 @@
         "a-hauptrechner",
         "a-durchsagen"
       ],
-      "prompt": "Heavy armoured combat walkers, much larger than the heroes, burst into a computer core chamber firing plasma weapons. The giant computer core behind them explodes in sparks and fire. The Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) flees across the floor, two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) race ahead of it toward a narrow gap. Chaos, motion blur, dramatic lighting.",
+      "prompt": "Three Reapers (red four-legged robots on long pointed spider legs with a squat armoured body, a small eye box with three white lights at the front and a plasma rifle glowing green on each side, exactly as in the Reaper reference picture, each about three times the Locator's size) burst through the doors of a computer core chamber, firing bright green plasma bolts. Behind them in the doorway stands a Commander (a big red and black walker with a tall rounded yellow back, two long thin antennas, a small square eye box with four white lights, a heavy blue-ribbed pulse cannon on each shoulder and thick blocky legs with clawed feet, exactly as in the Commander reference picture, the largest machine in the scene), directing them. The giant cylindrical computer core explodes in sparks and fire where the bolts hit it. The Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) flees across the floor, two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) race ahead of it toward a narrow gap in the wall; both fleeing Grunts are unarmed, the top of their bodies bare with no gun at all. Chaos, motion blur, dramatic lighting. Show no other robots than these.",
       "images": [
         {
-          "file": "20261120-173308-1.png",
-          "prompt": "Heavy armoured combat walkers, much larger than the heroes, burst into a computer core chamber firing plasma weapons. The giant computer core behind them explodes in sparks and fire. The Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) flees across the floor, two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) race ahead of it toward a narrow gap. Chaos, motion blur, dramatic lighting.",
+          "file": "20261120-174743-1.png",
+          "prompt": "Three Reapers (red four-legged robots on long pointed spider legs with a squat armoured body, a small eye box with three white lights at the front and a plasma rifle glowing green on each side, exactly as in the Reaper reference picture, each about three times the Locator's size) burst through the doors of a computer core chamber, firing bright green plasma bolts. Behind them in the doorway stands a Commander (a big red and black walker with a tall rounded yellow back, two long thin antennas, a small square eye box with four white lights, a heavy blue-ribbed pulse cannon on each shoulder and thick blocky legs with clawed feet, exactly as in the Commander reference picture, the largest machine in the scene), directing them. The giant cylindrical computer core explodes in sparks and fire where the bolts hit it. The Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) flees across the floor, two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) race ahead of it toward a narrow gap in the wall; both fleeing Grunts are unarmed, the top of their bodies bare with no gun at all. Chaos, motion blur, dramatic lighting. Show no other robots than these.",
           "style": true,
           "model": "gemini-3.1-flash-image",
           "aspect": "16:9",
           "refs": [
             "/refs/locator.jpg",
-            "/refs/grunt.jpg"
+            "/refs/grunt.jpg",
+            "/refs/reaper.jpg",
+            "/refs/commander.jpg"
           ],
           "text": "",
-          "at": "2026-11-20T16:33:08.397750+00:00"
+          "at": "2026-11-20T16:47:43.304207+00:00"
         }
       ],
       "refs": [
         "/refs/locator.jpg",
-        "/refs/grunt.jpg"
+        "/refs/grunt.jpg",
+        "/refs/reaper.jpg",
+        "/refs/commander.jpg"
       ]
     },
     {
@@ -205,7 +211,7 @@
       "act": "prolog",
       "title": "Die Enge",
       "status": "entwurf",
-      "text": "Flucht durch Spalten, Gitter und Schächte, durch die die Großen nicht passen. Sie greifen hindurch, schießen durch Gitter, stampfen nebenher. Auch die Grunts passen nicht überall durch: Der Locator kriecht vor und hackt ihnen von der anderen Seite eine Tür auf, während sie die Verfolger ablenken und Gitter zuhalten.",
+      "text": "Flucht durch Spalten, Gitter und Schächte, durch die die Großen nicht passen. Die Reaper schieben ihre Beine hindurch, schießen durch Gitter, stampfen nebenher; der Commander schickt sie die Parallelgänge entlang. Auch die Grunts passen nicht überall durch: Der Locator kriecht vor und hackt ihnen von der anderen Seite eine Tür auf, während sie die Verfolger ablenken und Gitter zuhalten.",
       "gameplay": "Die Größe als Vorteil. Getrennte Wege, Tür von der anderen Seite hacken.",
       "mood": "Enge, Metallkreischen, Licht durch Gitter.",
       "dialog": "",
@@ -213,20 +219,24 @@
         "a-baukasten",
         "a-hack"
       ],
-      "prompt": "First-person view from inside a narrow maintenance duct, looking back through a grate where a massive robot claw is reaching in, light strobing through the slats, sparks. Claustrophobic horror.",
+      "prompt": "First-person view from inside a narrow maintenance duct, looking back through a grate: one of the Reapers (red four-legged robots on long pointed spider legs with a squat armoured body, a small eye box with three white lights at the front and a plasma rifle glowing green on each side, exactly as in the Reaper reference picture, each about three times the Locator's size) has rammed a pointed leg through the slats and presses its eye box against the grate, the green glow of its plasma rifle strobing through the gaps, sparks flying. Claustrophobic horror. Show no other robots than these.",
       "images": [
         {
-          "file": "20261120-162856-1.png",
-          "prompt": "First-person view from inside a narrow maintenance duct, looking back through a grate where a massive robot claw is reaching in, light strobing through the slats, sparks. Claustrophobic horror.",
+          "file": "20261120-174659-1.png",
+          "prompt": "First-person view from inside a narrow maintenance duct, looking back through a grate: one of the Reapers (red four-legged robots on long pointed spider legs with a squat armoured body, a small eye box with three white lights at the front and a plasma rifle glowing green on each side, exactly as in the Reaper reference picture, each about three times the Locator's size) has rammed a pointed leg through the slats and presses its eye box against the grate, the green glow of its plasma rifle strobing through the gaps, sparks flying. Claustrophobic horror. Show no other robots than these.",
           "style": true,
           "model": "gemini-3.1-flash-image",
           "aspect": "16:9",
-          "refs": [],
+          "refs": [
+            "/refs/reaper.jpg"
+          ],
           "text": "",
-          "at": "2026-11-20T15:28:56.620651+00:00"
+          "at": "2026-11-20T16:46:59.888074+00:00"
         }
       ],
-      "refs": []
+      "refs": [
+        "/refs/reaper.jpg"
+      ]
     },
     {
       "id": "s-gegenwehr",
@@ -241,11 +251,11 @@
         "a-reparatur",
         "a-wiederbeleben"
       ],
-      "prompt": "In a damaged ship corridor full of smoke, the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) fires a small improvised bolter at two hostile Grunts (the same small red four-wheeled robots as in the Grunt reference picture, but armed with guns and with red glowing eyes). Its own two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) have no weapons and ram the enemies from the side. Muzzle flashes, sparks, a glowing repair station in the background.",
+      "prompt": "In a damaged ship corridor full of smoke, the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) fires a small improvised bolter at two hostile Grunts (the same small red four-wheeled robots as in the Grunt reference picture, these ones WITH the big grey gun on their back, their eye boxes glowing red). Its own two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) have no weapons and ram the enemies from the side. Muzzle flashes, sparks, in the background a repair station: an empty machine cabinet with a glowing green screen and a charging cradle, nobody inside it. Show no other robots than these.",
       "images": [
         {
-          "file": "20261120-173417-1.png",
-          "prompt": "In a damaged ship corridor full of smoke, the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) fires a small improvised bolter at two hostile Grunts (the same small red four-wheeled robots as in the Grunt reference picture, but armed with guns and with red glowing eyes). Its own two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) have no weapons and ram the enemies from the side. Muzzle flashes, sparks, a glowing repair station in the background.",
+          "file": "20261120-174813-1.png",
+          "prompt": "In a damaged ship corridor full of smoke, the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) fires a small improvised bolter at two hostile Grunts (the same small red four-wheeled robots as in the Grunt reference picture, these ones WITH the big grey gun on their back, their eye boxes glowing red). Its own two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) have no weapons and ram the enemies from the side. Muzzle flashes, sparks, in the background a repair station: an empty machine cabinet with a glowing green screen and a charging cradle, nobody inside it. Show no other robots than these.",
           "style": true,
           "model": "gemini-3.1-flash-image",
           "aspect": "16:9",
@@ -254,7 +264,7 @@
             "/refs/grunt.jpg"
           ],
           "text": "",
-          "at": "2026-11-20T16:34:17.415394+00:00"
+          "at": "2026-11-20T16:48:13.237764+00:00"
         }
       ],
       "refs": [
