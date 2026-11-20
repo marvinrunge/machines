@@ -178,6 +178,13 @@ public partial class Warmup : Node3D
                 Effects.Particle(particles[i - sounds.Count]);
             yield return false;
         }
+        // A story's own sound effects, voices and music (StoryAudio).
+        if (_world.Story is not null)
+            foreach (var story in StoryAudio.Files())
+            {
+                StoryAudio.Preload(story);
+                yield return false;
+            }
         Note("sounds", since);
 
         // The stage stands where the camera looks; what is put on it is drawn under the loading screen.
