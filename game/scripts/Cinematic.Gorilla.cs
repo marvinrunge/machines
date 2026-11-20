@@ -26,6 +26,13 @@ public partial class Cinematic
         _rival = NearestOf(defenders, 1268, 238);
         _brute = NearestOf(defenders, 1268, 262);
         var third = defenders.Where(id => id != _rival && id != _brute).ToList();
+        // Wired's machines in blue at the blue base: the Titan among its buildings, the Marshal at its edge past the brawl,
+        // Old Iron by the lab and a Hornet coming in over the roofs.
+        Cameos(Race.Blue,
+            new("CONSTRUCTOR", "BEHEMOTH", 6, "", 1345, 235, Facing: MathF.PI),
+            new("ADMINISTRATOR", "COMMANDER", 6, "LR_PULSE_CANNON_X2", 1262, 168, Facing: MathF.PI * 0.75f),
+            new("AGGRESSOR", "GRUNT", 5, "L_PLASMA_CANNON2_R_HEAVY_BOLTER2_T_MULTI_LAUNCHER3", 1300, 348, Facing: MathF.PI),
+            new("ADMINISTRATOR", "BOSS", 3, "LR_PULSE_RIFLE_X2_T_WASP_METAL_STING", 1440, 262, 1300, 258, 18, MathF.PI));
         At(0.5f, () =>
         {
             _world.Issue(new DefConCommand(Race.Red, _gorillas, DefCon.High));

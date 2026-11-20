@@ -163,7 +163,7 @@ public partial class HangarPage(HangarDesk desk, Action back, Func<HangarPage, C
         SwitchOn();
         // MACHINES_HANGAR_SCRIPT=<folder>,<what>: see HangarScript.
         if (System.Environment.GetEnvironmentVariable("MACHINES_HANGAR_SCRIPT")?.Split(',') is [var folder, var what] && !(what == "start" && HangarScript.Started))
-            AddChild(new HangarScript(this, folder, desk is CreationDesk || what is "shop" or "bay" or "view" or "batteries" ? what : "match"));
+            AddChild(new HangarScript(this, folder, desk is CreationDesk || what is "shop" or "bay" or "view" or "batteries" or "film" ? what : "match"));
     }
 
     private ChipPanel BuildInventory(float width, int columns)

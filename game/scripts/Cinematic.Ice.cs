@@ -28,6 +28,15 @@ public partial class Cinematic
         _boss = Of(Race.Red, "ADMINISTRATOR", "BOSS").FirstOrDefault(-1);
         _commander = Of(Race.Red, "ADMINISTRATOR", "COMMANDER").FirstOrDefault(-1);
         _overseer = Of(Race.Red, "ADMINISTRATOR", "OVERSEER").FirstOrDefault(-1);
+        // Wired's machines in blue behind the blue army, coming up from the base: seen past the ballista and the boss,
+        // and the Widow east of the ranks past the bees.
+        const float South = -MathF.PI / 2;
+        Cameos(Race.Blue,
+            new("AGGRESSOR", "BALLISTA", 5, "LRT_MULTI_LAUNCHER2_X3", 300, 950, 298, 828, 10, South),
+            new("AGGRESSOR", "GRUNT", 5, "L_PLASMA_CANNON2_R_HEAVY_BOLTER2_T_MULTI_LAUNCHER3", 352, 935, 352, 840, 11, South),
+            new("AGGRESSOR", "ASSASSIN", 5, "LR_PLASMA_CANNON2_X2_T_PULSE_RIFLE", 245, 935, 250, 826, 10.5f, South),
+            new("AGGRESSOR", "ASSASSIN", 6, "L_MULTI_LAUNCHER1_R_PULSE_CANNON", 430, 830, 356, 786, 9, MathF.PI),
+            new("ADMINISTRATOR", "BOSS", 3, "LR_PULSE_RIFLE_X2_T_WASP_METAL_STING", 300, 1010, 318, 846, 12, South));
         At(0.5f, () =>
         {
             _world.Issue(new DefConCommand(Race.Red, _knights, DefCon.High));

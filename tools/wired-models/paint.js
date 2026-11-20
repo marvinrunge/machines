@@ -9,8 +9,34 @@ const path = require("path");
 const GAME = fs.readFileSync(path.resolve(__dirname, "..", "..", "classic", "game_path.txt"), "utf8").trim();
 const OUT = path.resolve(__dirname, "..", "..", "classic", "wired", "textures");
 
-/** An original texture (models/texture4/<name>), as rows of [r, g, b] from the top. */
+// The race-coloured textures of data/original/logos.dat (by their Red name, e.g. kturb1_b.bmp), which come in four
+// variants numbered 1 to 4 for Red, Blue, Green and Yellow (see ClassicAssets.RaceTexture).
+const RACED = new Set(fs.readFileSync(path.resolve(__dirname, "..", "..", "data", "original", "logos.dat"), "utf8")
+    .split(/\r?\n/).map(l => l.split("//")[0].trim().toLowerCase()).filter(n => /1(_b|_bt)?\.bmp$/.test(n)));
+const RACES = { red: 1, blue: 2, green: 3, yellow: 4 };
+let race = 1;
+let raced = false;
+
+/** Paints from now on in a colour's paint: reading a race-coloured texture reads that race's variant. */
+function colour(name) {
+    race = RACES[name];
+    raced = false;
+}
+
+/** Whether anything painted since colour() read a race-coloured texture, so that each colour needs its own picture. */
+function wasRaced() {
+    return raced;
+}
+
+/** An original texture (models/texture4/<name>), as rows of [r, g, b] from the top; of a race-coloured one the
+ * variant of the colour painted in. */
 function read(name) {
+    if (RACED.has(name.toLowerCase())) {
+        raced = true;
+        const variant = name.replace(/1((_b|_bt)?\.bmp)$/i, `${race}$1`);
+        if (fs.existsSync(path.join(GAME, "models", "texture4", variant)))
+            name = variant;
+    }
     const b = fs.readFileSync(path.join(GAME, "models", "texture4", name));
     const offset = b.readUInt32LE(10), w = b.readInt32LE(18), raw = b.readInt32LE(22), bpp = b.readUInt16LE(28);
     const h = Math.abs(raw), stride = Math.ceil((w * bpp) / 32) * 4;
@@ -144,4 +170,4 @@ function stamp(img, from, u0, v0, u1, v1, x0, y0, x1, y1) {
         }
 }
 
-module.exports = { read, picture, write, mean, shade, mix, random, set, rect, grain, plate, rivet, rivets, wear, stripes, vent, stamp };
+module.exports = { colour, wasRaced, read, picture, write, mean, shade, mix, random, set, rect, grain, plate, rivet, rivets, wear, stripes, vent, stamp };
