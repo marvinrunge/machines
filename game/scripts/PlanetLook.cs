@@ -132,9 +132,10 @@ public partial class PlanetLook : Node
         look.ReadGoggles();
         var fogStill = env.Fog is { } fogBlock && env.ColourTables.TryGetValue(fogBlock.ColourTable, out var fogTable) && fogTable.Count > 0
             ? Lookup(fogTable, 60).Luminance : 0;
-        Enclosed = GraphicsSettings.Lighting && (look._sunOrbit is { } fixedSun && fixedSun.MinElevation == fixedSun.MaxElevation
+        Enclosed = Interior || GraphicsSettings.Lighting && (look._sunOrbit is { } fixedSun && fixedSun.MinElevation == fixedSun.MaxElevation
             || look._uniformSky is not null && fogStill < BlackHaze);
-        look._sun = new DirectionalLight3D { ShadowEnabled = !PaintedShadows, Name = "Sun" };
+        // Indoors no sun shines: the deck's own lamps light it (DeckView).
+        look._sun = new DirectionalLight3D { ShadowEnabled = !PaintedShadows && !Interior, Name = "Sun", Visible = !Interior };
         look._sky = new ProceduralSkyMaterial { SunAngleMax = 8, GroundCurve = 0.02f };
         look._environment = new Godot.Environment
         {
@@ -224,6 +225,8 @@ public partial class PlanetLook : Node
         _adapting = false;
         if (GraphicsSettings.Lighting)
             look.Enhance();
+        if (Interior)
+            look.Indoors();
         look.AddChild(look._sun);
         var attributes = new CameraAttributesPractical();
         Adapt(attributes);
@@ -300,6 +303,80 @@ public partial class PlanetLook : Node
             AddChild(disc);
             _discs.Add((satellite, disc));
         }
+    }
+
+    /// <summary>
+    /// Whether the match is played indoors, on a ship deck (the story's; Game.BuildGround sets it for each match before the
+    /// look is made): no sun and no sky, a black background past the walls, little ambient light so the deck's lamps tell,
+    /// the corridors fading into the dark, ambient occlusion sized to rooms rather than landscapes, and a thin haze the
+    /// lamps and searchlights shine through. Smooth metal keeps its screen-space reflections, on purpose.
+    /// </summary>
+    public static bool Interior { get; set; }
+
+    // Indoors: the ambient light, the dark the far end of a corridor fades into (metres), occlusion and bounced light about
+    // the size of a machine, and the haze.
+    private static readonly Color InteriorAmbient = new(0.04f, 0.042f, 0.05f);
+    private const float InteriorFogBegin = 25, InteriorFogEnd = 140;
+    private const float InteriorOcclusion = 1.5f, InteriorBounce = 2.5f;
+    private static readonly Color InteriorHaze = new(0.55f, 0.56f, 0.6f);
+    private const float InteriorHazeDensity = 0.012f, InteriorHazeLength = 60;
+
+    /// <summary>The look indoors (<see cref="Interior"/>), over what the planet's own light set.</summary>
+    private void Indoors()
+    {
+        _environment.BackgroundMode = Godot.Environment.BGMode.Color;
+        _environment.BackgroundColor = Colors.Black;
+        _environment.AmbientLightSource = Godot.Environment.AmbientSource.Color;
+        _environment.ReflectedLightSource = Godot.Environment.ReflectionSource.Disabled;
+        _environment.FogEnabled = true;
+        _environment.FogMode = Godot.Environment.FogModeEnum.Depth;
+        _environment.FogSkyAffect = 0;
+        foreach (var (_, disc) in _discs)
+            disc.Visible = false;
+        if (_domeView is not null)
+            _domeView.Visible = false;
+        if (_skylineView is not null)
+            _skylineView.Visible = false;
+        if (!GraphicsSettings.Lighting)
+            return;
+        _environment.SsaoRadius = InteriorOcclusion;
+        _environment.SsaoIntensity = 2.0f;
+        _environment.SsilRadius = InteriorBounce;
+        _environment.VolumetricFogEnabled = true;
+        _environment.VolumetricFogAnisotropy = 0.5f;
+        _environment.VolumetricFogLength = InteriorHazeLength;
+        _environment.VolumetricFogDetailSpread = 2;
+        _environment.VolumetricFogSkyAffect = 0;
+        _environment.VolumetricFogTemporalReprojectionEnabled = true;
+        _environment.VolumetricFogAlbedo = InteriorHaze;
+        _environment.VolumetricFogDensity = InteriorHazeDensity;
+        // Dark rooms are most of the picture: the remake's contrast would take them to black (see Update).
+        _environment.AdjustmentContrast = 1;
+    }
+
+    /// <summary>Each frame indoors: no sun, the ambient low (bright through the goggles), the far dark black.</summary>
+    private void UpdateIndoors()
+    {
+        _sun.LightEnergy = 0;
+        foreach (var (_, _, quad, _) in _sprites)
+            quad.Visible = false;
+        if (!NightVision)
+        {
+            _environment.AmbientLightColor = InteriorAmbient;
+            _environment.AmbientLightEnergy = 1;
+        }
+        _environment.FogLightColor = NightVision ? _nvgFog * 0.25f : Colors.Black;
+        _environment.FogDensity = 1;
+        _environment.FogDepthBegin = NightVision ? InteriorFogBegin * 2 : InteriorFogBegin;
+        _environment.FogDepthEnd = NightVision ? InteriorFogEnd * 2 : InteriorFogEnd;
+        if (_environment.VolumetricFogEnabled)
+        {
+            _environment.VolumetricFogDensity = InteriorHazeDensity;
+            _environment.VolumetricFogAlbedo = NightVision ? _nvgFog : InteriorHaze;
+            _environment.VolumetricFogSkyAffect = 0;
+        }
+        if (_softShadows)
+            _environment.AdjustmentContrast = 1;
     }
 
     private readonly List<(Satellite Satellite, DirectionalLight3D Disc)> _discs = [];
@@ -773,6 +850,8 @@ public partial class PlanetLook : Node
             _environment.AdjustmentContrast = Mathf.Lerp(1, RemakeContrast, Mathf.Clamp(world / (2 * BlackHaze), 0, 1));
         }
         UpdateShadowReach();
+        if (Interior)
+            UpdateIndoors();
     }
 
     /// <summary>
