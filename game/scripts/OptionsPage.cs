@@ -34,6 +34,8 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
             config.SetValue("display", "full_screen", value);
             config.Save(Settings);
             ApplyWindow();
+            // The next start opens the window so from its splash on.
+            BootSplash.Write();
         }
     }
 

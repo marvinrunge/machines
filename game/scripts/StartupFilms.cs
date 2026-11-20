@@ -66,6 +66,32 @@ public partial class StartupFilms : Control
         return new StartupFilms(gameFolder, done, loaded: loaded);
     }
 
+    /// <summary>
+    /// The loading picture the films open on, when the game copy has what they show; null otherwise, and the films
+    /// begin with the intro on black.
+    /// </summary>
+    public static string? LoadingPicture(string? gameFolder)
+    {
+        if (gameFolder is null || !File.Exists(System.IO.Path.Combine(gameFolder, "flics", "animatic.smk"))
+            || !File.Exists(System.IO.Path.Combine(gameFolder, "flics", "postload.smk")))
+            return null;
+        var picture = System.IO.Path.Combine(gameFolder, "gui", "menu", "wait.bmp");
+        return File.Exists(picture) ? picture : null;
+    }
+
+    /// <summary>
+    /// The films' first frame, 640×480: the loading picture with the loading bar at its start, as <see cref="LoadingFilm"/>
+    /// first shows them. The boot splash shows it before the game starts (<see cref="BootSplash"/>).
+    /// </summary>
+    public static Image? FirstFrame(string picture)
+    {
+        if (ClassicAssets.DecodeBmp(File.ReadAllBytes(picture)) is not { } image)
+            return null;
+        image.Convert(Image.Format.Rgba8);
+        image.FillRect(new Rect2I((Vector2I)BarPlace.Position, new Vector2I(5, (int)BarPlace.Size.Y)), BarColour);
+        return image;
+    }
+
     /// <summary>The logos and the intro film, for the main menu left alone; null when the game copy has no intro.</summary>
     public static StartupFilms? Logos(string? gameFolder, Action done) =>
         gameFolder is null || !File.Exists(System.IO.Path.Combine(gameFolder, "flics", "animatic.smk")) ? null : new StartupFilms(gameFolder, done, logos: true);
@@ -90,9 +116,11 @@ public partial class StartupFilms : Control
     {
         if (_bar is not null)
         {
-            // The bar fills as loading goes, easing forward and never back; full once the picture's film plays.
+            // The bar fills as loading goes, easing forward and never back; full once the picture's film plays. A long
+            // frame moves it no further than a short one: the first frame comes long after the start, and the bar
+            // eases on from where the boot splash showed it (BootSplash) rather than jumping.
             var share = _whenLoaded is null ? 1 : _loaded?.Invoke() ?? 1;
-            _shown = Math.Max(_shown, Mathf.MoveToward(_shown, share, (float)delta * 2.5f));
+            _shown = Math.Max(_shown, Mathf.MoveToward(_shown, share, (float)Math.Min(delta, 1.0 / 30) * 2.5f));
             _bar.Size = new Vector2(Math.Min(_shown * BarPlace.Size.X + 5, BarPlace.Size.X), BarPlace.Size.Y);
         }
         if (_whenLoaded is not null && ((_loaded!() >= 1 && _shown >= 0.999f) || (_loadingLeft -= delta) <= 0))
@@ -197,8 +225,9 @@ public partial class StartupFilms : Control
             view.Size = view.VideoSize;
             Fit();
         }
-        // The film comes after loading, as in the original: until the menus have what they need the picture waits.
-        if (_loaded is null || _loaded() >= 1)
+        // The film comes after loading, as in the original: until the menus have what they need the picture waits,
+        // and the bar fills from where the boot splash left it even when they have it already.
+        if (_loaded is null)
         {
             _shown = 1;
             PlayFilm();
