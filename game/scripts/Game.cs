@@ -829,6 +829,7 @@ public partial class Game : Node3D
             SaveReplay();
 
         FollowRun(delta);
+        FollowHack();
         UpdateGhost();
         UpdateSightScript(delta);
         UpdateFirstPersonCamera();

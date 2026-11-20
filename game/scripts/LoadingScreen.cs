@@ -130,78 +130,13 @@ public partial class LoadingScreen : CanvasLayer
                 });
             if (detail.Length > 0)
                 column.AddChild(MenuTheme.Label(detail, 24, MenuTheme.Text, HorizontalAlignment.Center));
-            column.AddChild(new Bar());
+            // How far the match is loaded, and what is loading.
+            column.AddChild(new LedBar { Source = () => Progress, Caption = () => Lang.T(Step), OnlyForward = true });
             var chip = new ChipPanel { Padding = 40 };
             chip.AddChild(column);
             var centre = new CenterContainer();
             centre.AddChild(chip);
             AddChild(centre);
-        }
-    }
-
-    /// <summary>
-    /// How far the match is loaded, as a part of the board: a row of SMD LEDs set into a groove, lit from the left as
-    /// far as it has come, with a blip running along the lit ones as along a bus, wired to a solder pad at either end;
-    /// under it what is loading and how much of it is done.
-    /// </summary>
-    private partial class Bar : Control
-    {
-        private const int Leds = 24;
-        private const float Groove = 30, PadRadius = 8, Ends = 34;
-        private static readonly Color Copper = new(0.64f, 0.56f, 0.22f), Off = new(0.06f, 0.16f, 0.07f), Lit = new(0.25f, 0.85f, 0.16f);
-        private float _shown, _time;
-
-        public Bar() => CustomMinimumSize = new Vector2(620, Groove + 46);
-
-        public override void _Process(double delta)
-        {
-            _time += (float)delta;
-            // Eased toward where loading is, never back.
-            _shown = Mathf.Max(_shown, Mathf.Lerp(_shown, Mathf.Clamp(Progress, 0, 1), 1 - Mathf.Exp(-6 * (float)delta)));
-            QueueRedraw();
-        }
-
-        public override void _Draw()
-        {
-            var middle = Groove / 2;
-            // The pads and the traces from them into the groove.
-            foreach (var x in new[] { PadRadius + 2, Size.X - PadRadius - 2 })
-            {
-                var inner = x < Size.X / 2 ? Ends : Size.X - Ends;
-                DrawLine(new Vector2(x, middle), new Vector2(inner, middle), Copper, 3);
-                DrawCircle(new Vector2(x, middle), PadRadius, Copper);
-                DrawCircle(new Vector2(x, middle), PadRadius * 0.45f, MenuTheme.Well);
-            }
-            var groove = new Rect2(Ends, 0, Size.X - 2 * Ends, Groove);
-            DrawStyleBox(new StyleBoxFlat
-            {
-                BgColor = MenuTheme.Well,
-                BorderColor = MenuTheme.Edge,
-                BorderWidthLeft = 2, BorderWidthTop = 2, BorderWidthRight = 2, BorderWidthBottom = 2,
-                CornerRadiusTopLeft = 6, CornerRadiusTopRight = 6, CornerRadiusBottomLeft = 6, CornerRadiusBottomRight = 6,
-            }, groove);
-
-            // The LEDs: lit as far as loading has come, the last one partly; the blip runs along the lit ones.
-            var inside = groove.Grow(-7);
-            const float gap = 4;
-            var width = (inside.Size.X - gap * (Leds - 1)) / Leds;
-            var lit = _shown * Leds;
-            var blip = lit >= 1 ? _time * 18 % (lit + 4) : -10;
-            for (var i = 0; i < Leds; i++)
-            {
-                var led = new Rect2(inside.Position.X + i * (width + gap), inside.Position.Y, width, inside.Size.Y);
-                var on = Mathf.Clamp(lit - i, 0, 1);
-                var hot = Mathf.Clamp(1 - Mathf.Abs(i - blip) / 2.5f, 0, 1) * on;
-                if (on > 0)
-                    DrawRect(led.Grow(3), new Color(MenuTheme.Glow, 0.16f * on + 0.2f * hot));
-                DrawRect(led, Off.Lerp(Lit, on).Lerp(new Color(0.85f, 1, 0.7f), hot * 0.7f));
-                // The light on the lens's top.
-                DrawRect(new Rect2(led.Position + new Vector2(1, 1), new Vector2(led.Size.X - 2, led.Size.Y * 0.3f)),
-                    new Color(1, 1, 1, 0.04f + 0.22f * on));
-            }
-
-            var caption = Step.Length > 0 ? $"{Lang.T(Step).ToUpperInvariant()}   ·   {Mathf.RoundToInt(_shown * 100)} %" : $"{Mathf.RoundToInt(_shown * 100)} %";
-            DrawString(MenuTheme.Font, new Vector2(0, Groove + 34), caption, HorizontalAlignment.Center, Size.X, 20, MenuTheme.Dim);
         }
     }
 }
