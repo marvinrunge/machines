@@ -23,6 +23,13 @@ public partial class Cinematic
         _army = _world.Machines.Where(m => m.Race == Race.Blue).Select(m => m.Id).ToList();
         _pod = Building(Race.Red, "POD", 1784, 772);
         _silo = Building(Race.Red, "MISSILE_EMPLACEMENT", 1879, 817, "ICBM");
+        // Wired's machines in blue come on beside the army, on the far side from the ion beam's take: well clear of it (if
+        // they got in its way it would march, and the ion beam and the missile fall, elsewhere).
+        Cameos(Race.Blue,
+            new("AGGRESSOR", "ASSASSIN", 5, "LR_PLASMA_CANNON2_X2_T_PULSE_RIFLE", 1440, 940, 1520, 944, 2),
+            new("AGGRESSOR", "ASSASSIN", 4, "L_PLASMA_CANNON2_R_PLASMA_CANNON1", 1460, 915, 1545, 918, 2.5f),
+            new("AGGRESSOR", "BALLISTA", 5, "LRT_MULTI_LAUNCHER2_X3", 1490, 965, 1528, 966, 1),
+            new("ADMINISTRATOR", "BOSS", 3, "LR_PULSE_RIFLE_X2_T_WASP_METAL_STING", 1400, 930, 1505, 925, 4));
         At(0.5f, () => _world.Issue(new MoveCommand(Race.Blue, _army, new NVector2(1560, 840))));
         At(10, () => Fire(_pod));
         // In time for the dome to stand open.

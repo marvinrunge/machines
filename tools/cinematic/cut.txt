@@ -26,9 +26,10 @@ gorilla2 25.85 29.67
 strike 9.12 12.81
 ice2 19 22.69
 
-// 42.91 s: the music drops back: the slowed battle, the constructor at work, the silo's missile climbing.
-trailer 21.74 25.34
-build 9.5 13.28
+// 42.91 s: the music drops back: Wired's hangar (tools/cinematic/shoot-hangar.sh), a pulse cannon dragged onto a
+// Reaper and the Knight onto its plate, then the silo's missile climbing.
+hangar-wide 11.9 15.5
+hangar-wide 20.42 24.2
 strike 19.8 23.5
 strike2 20.5 23.77
 

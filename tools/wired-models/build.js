@@ -473,12 +473,20 @@ function arm(m, from, mounting, on, size, as) {
     m.rig.weapons.push({ ...weapon, node: map.get(weapon.node), mounting: as ?? mounting });
 }
 
-/** Paints the textures a recipe uses, once per run; returns their paths as parts name them. */
+/** Paints the textures a recipe uses, once per run and colour; returns their paths as parts name them. One painted
+ * from a race-coloured original is painted again in every colour's paint, the Red one keeping the plain name and the
+ * others named by their colour (hornet_wing_blue_b.bmp): the game swaps only the original's own race textures. */
 const painted = new Map();
+let painting = "red";
 function texture(name) {
-    if (!painted.has(name))
-        painted.set(name, paint.write(TEXTURES[name](), name));
-    return painted.get(name);
+    const key = painting + "/" + name;
+    if (!painted.has(key)) {
+        paint.colour(painting);
+        const img = TEXTURES[name]();
+        const own = painting !== "red" && paint.wasRaced() ? name.replace(/(_b\.bmp)$/,`_${painting}$1`) : name;
+        painted.set(key, paint.write(img, own));
+    }
+    return painted.get(key);
 }
 
 /** The model's top-level parts, glows and spinners again from its rig at rest, as the export writes them. */
@@ -563,6 +571,7 @@ else {
             throw new Error(`no recipe ${name}; there are ${Object.keys(RECIPES).join(", ")}`);
         const id = recipe.line.split(" ").slice(1).join("_");
         for (const colour of COLOURS) {
+            painting = colour;
             const m = recipe.make(colour);
             m.id = id;
             write(m, colour, recipe.line);

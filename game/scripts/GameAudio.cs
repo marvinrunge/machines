@@ -281,7 +281,9 @@ public partial class GameAudio : Node
     /// </summary>
     public void Say(string id, bool queue = false, int speaker = 0)
     {
-        if (_voice.Playing && !queue)
+        // A film (Cinematic) has the battle and the music, no one talking: the reports and the base's mails ("BMUs
+        // low", the machines reporting in) spoke over the trailer's first shots.
+        if (Film || _voice.Playing && !queue)
             return;
         var variants = _voiceMail.Keys.Where(k => k == id || k.Length == id.Length + 1 && k.StartsWith(id, StringComparison.Ordinal) && char.IsDigit(k[^1])).ToList();
         if (variants.Count == 0)

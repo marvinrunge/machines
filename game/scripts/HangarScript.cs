@@ -18,6 +18,7 @@ namespace Machines.Game;
 /// <item><c>view</c>: over a run, every shelf for what sticks out, and a picture named by the look;</item>
 /// <item><c>batteries</c>: over a run, a Harvester's batteries on their cards, joined, swapped, replaced with Shift, taken
 /// off, bought by the card's strip, on the Mk shelf and test fired, then what the crab and other chassis have of their own.</item>
+/// <item><c>film</c>: over a run, a Reaper fitted by hand for the trailer, the mouse drawn (HangarScript.Film).</item>
 /// </list>
 /// </summary>
 public partial class HangarScript(HangarPage page, string folder, string what) : Node
@@ -74,6 +75,9 @@ public partial class HangarScript(HangarPage page, string folder, string what) :
                 break;
             case "batteries":
                 await Batteries();
+                break;
+            case "film":
+                await Film();
                 break;
         }
     }
