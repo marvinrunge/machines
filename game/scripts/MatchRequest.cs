@@ -1,5 +1,6 @@
 using Machines.Import.Model;
 using Machines.Net;
+using Machines.Sim.Story;
 using Machines.Sim.Survival;
 using Machines.Sim.World;
 
@@ -115,6 +116,37 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
     }
 
     /// <summary>
+    /// A chapter of the story played alone: the person at this computer is the Locator, Ike and Bob are the computer's bots, the
+    /// ship is the computer (<see cref="StorySeats.Seated"/>). The chapter is the scenario and the planet; the deck is known
+    /// ground, as Wired's arenas are.
+    /// </summary>
+    public static MatchRequest ForStory(StoryOptions story)
+    {
+        var me = PlayerId.Of(story.Race);
+        var players = StorySeats.Seated(new PlayerTable([new PlayerSeat(me, story.Race, PlayerKind.Human, NetLink.OfflineName)]), story);
+        var starts = new StartPositions(story.Race,
+            new Dictionary<Race, Controller> { [story.Race] = Controller.Player, [story.Ship] = Controller.Ai },
+            new Dictionary<Race, Race> { [story.Race] = story.Race, [story.Ship] = story.Ship });
+        return new MatchRequest(story.Chapter, story.Chapter, starts, new MatchOptions { Story = story, FogOfWar = false })
+        {
+            Me = me,
+            Players = players,
+        };
+    }
+
+    /// <summary>
+    /// For automated checks: MACHINES_STORY=&lt;chapter&gt;[,&lt;checkpoint&gt;] plays a chapter of the story (prolog) from a
+    /// checkpoint (0, its start, when not given).
+    /// </summary>
+    private static MatchRequest StoryFromEnvironment(string setting)
+    {
+        var parts = setting.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        var chapter = parts.Length > 0 ? parts[0] : StoryOptions.Prologue;
+        var checkpoint = parts.Length > 1 && int.TryParse(parts[1], out var number) ? Math.Max(0, number) : 0;
+        return ForStory(new StoryOptions { Chapter = chapter, Checkpoint = checkpoint });
+    }
+
+    /// <summary>
     /// For automated checks: MACHINES_BATTLE=&lt;map&gt;[,tier=&lt;1-8&gt;][,lives=&lt;1-5&gt;][,win=both|wipe|capture][,bots=4][,team=&lt;n&gt;]
     /// starts a battle straight away, the player on the first team's anchor slot with a bot's loadout at the tier (not the
     /// pod's hero, so that a run does not depend on the profile); bots=4 lets a bot play the player's hero too, to watch;
@@ -176,6 +208,9 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
         // MACHINES_CAMPAIGN=<mission> plays a campaign mission (tut01, commsat ...) for the campaign's current player.
         if (System.Environment.GetEnvironmentVariable("MACHINES_CAMPAIGN") is { Length: > 0 } mission && Campaign.Entry(mission) is { } entry)
             return Campaign.Request(entry, CampaignProgress.Load().CurrentPlayer ?? new CampaignPlayer());
+        // MACHINES_STORY=<chapter>[,<checkpoint>] plays the story (see StoryFromEnvironment).
+        if (System.Environment.GetEnvironmentVariable("MACHINES_STORY") is { Length: > 0 } story)
+            return StoryFromEnvironment(story);
         // MACHINES_BATTLE=<map>[,...] starts a battle (see BattleFromEnvironment).
         if (System.Environment.GetEnvironmentVariable("MACHINES_BATTLE") is { Length: > 0 } battle)
             return BattleFromEnvironment(battle);
@@ -200,7 +235,7 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
     /// <summary>
     /// For screenshots of two commanders sharing a race: MACHINES_COOP=1 gives the skirmish asked for (MACHINES_MAP, or the
     /// default match) a second commander of the player's race, "Teammate", who is away from the first tick on (nobody plays
-    /// them on this computer), so the player keeps their machines and orders them too. Not for battles, Wired runs,
+    /// them on this computer), so the player keeps their machines and orders them too. Not for battles, the story, Wired runs,
     /// recordings and saved games.
     /// </summary>
     private static MatchRequest? WithTeammate(MatchRequest? request)
@@ -208,7 +243,7 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
         if (System.Environment.GetEnvironmentVariable("MACHINES_COOP") != "1")
             return request;
         var asked = request ?? Default;
-        if (asked.Options.IsBattle || asked.Options.Wired is not null || asked.Replay is not null || asked.Saved is not null || asked.Network is not null)
+        if (asked.Options.IsBattle || asked.Options.IsStory || asked.Options.Wired is not null || asked.Replay is not null || asked.Saved is not null || asked.Network is not null)
             return request;
         var me = asked.Players[asked.Me];
         var rows = asked.Players.Rows.ToList();

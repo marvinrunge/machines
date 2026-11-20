@@ -140,12 +140,29 @@ public static class GraphicsSettings
         : parts == GraphicsParts.Hd ? GraphicsParts.Overhauled
         : parts with { Models = ModelLook.Overhauled };
 
-    public static TerrainLook Terrain => Parts.Terrain;
-    public static ModelLook Models => Parts.Models;
-    public static bool Lighting => Parts.Lighting;
-    public static bool Effects => Parts.Effects;
-    public static bool Weather => Parts.Weather;
-    public static bool Scenery => Parts.Scenery;
+    /// <summary>
+    /// Whether a story chapter is being played: the story is told in the remake's look, never the original's (its decks
+    /// and their light are the remake's own). The player's choice stays as saved; <see cref="Shown"/> is what the view takes.
+    /// </summary>
+    public static bool Story { get; set; }
+
+    /// <summary>
+    /// The parts the view shows: the chosen ones, but in a story the classic look shows the overhauled one, and a custom look
+    /// at least the overhauled models in the remake's light.
+    /// </summary>
+    public static GraphicsParts Shown => Story ? ForStory(Parts) : Parts;
+
+    /// <summary>The parts a story shows for <paramref name="parts"/> (see <see cref="Shown"/>).</summary>
+    public static GraphicsParts ForStory(GraphicsParts parts) =>
+        parts == GraphicsParts.Classic ? GraphicsParts.Overhauled
+        : parts with { Models = parts.Models == ModelLook.Original ? ModelLook.Overhauled : parts.Models, Lighting = true };
+
+    public static TerrainLook Terrain => Shown.Terrain;
+    public static ModelLook Models => Shown.Models;
+    public static bool Lighting => Shown.Lighting;
+    public static bool Effects => Shown.Effects;
+    public static bool Weather => Shown.Weather;
+    public static bool Scenery => Shown.Scenery;
 
     private static GraphicsParts Saved()
     {

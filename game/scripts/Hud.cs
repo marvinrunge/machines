@@ -33,6 +33,9 @@ public partial class Hud : CanvasLayer
     /// <summary>The screen of a Wired run; null in any other match.</summary>
     public WiredHud? Wired { get; private set; }
 
+    /// <summary>The screen of a story chapter; null in any other match.</summary>
+    public StoryHud? Story { get; private set; }
+
     public Hud(Game game, Texture2D? map)
     {
         _game = game;
@@ -109,16 +112,22 @@ public partial class Hud : CanvasLayer
         Radar.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         root.AddChild(Radar);
 
-        if (_game.World.Wired is not null)
+        // The story borrows Wired's heroes but none of its plates: it has its own screen.
+        if (_game.World.Story is not null)
+        {
+            Story = new StoryHud(_game);
+            root.AddChild(Story);
+        }
+        else if (_game.World.Wired is not null)
         {
             Wired = new WiredHud(_game, this);
             root.AddChild(Wired);
         }
-        _figures = new Label { Modulate = new Color(1, 1, 1, 0.85f), Visible = Wired is null };
+        _figures = new Label { Modulate = new Color(1, 1, 1, 0.85f), Visible = Wired is null && Story is null };
         root.AddChild(_figures);
         _messageLabel = new Label();
         // Over a moving view, on whatever ground, without the plates' backing.
-        if (Wired is not null)
+        if (Wired is not null || Story is not null)
         {
             _messageLabel.AddThemeConstantOverride("outline_size", 6);
             _messageLabel.AddThemeColorOverride("font_outline_color", Colors.Black);

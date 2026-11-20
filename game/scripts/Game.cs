@@ -398,6 +398,7 @@ public partial class Game : Node3D
         if (HitchLog.Create() is { } hitches)
             AddChild(hitches);
         var request = MatchRequest.Current;
+        SetUpStoryLook(request);
         var data = Paths.Data;
         // A film plays the same battle each time it is recorded.
         _seed = request.Seed ?? (Cinematic.Asked is not null ? 1 : (int)(Time.GetUnixTimeFromSystem() % int.MaxValue));

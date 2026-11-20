@@ -30,7 +30,8 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
         AddChild(_stage);
         _assets = new ClassicAssets(Paths.Root);
         MenuSounds.Attach(_stage, _assets.GameFolder);
-        if (game.World.Wired is { Phase: Machines.Sim.Survival.WiredPhase.Ended } && (debriefing || statistics))
+        // A story chapter borrows Wired's heroes, not its end: it has the debriefing of any match until it has its own.
+        if (game.World.Story is null && game.World.Wired is { Phase: Machines.Sim.Survival.WiredPhase.Ended } && (debriefing || statistics))
             _stage.Show(new WiredEndScreen(game, _assets));
         else if (game.World.Battle is { Over: true } && (debriefing || statistics))
             _stage.Show(new BattleEndScreen(game, _assets));
