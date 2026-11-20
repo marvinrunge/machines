@@ -1,0 +1,64 @@
+// The story's prolog: written by tools/deck/deck.mjs from data/planets/prolog/prolog.deck; edit the deck, not this.
+// RED is the trio (the story's heroes), BLUE the ship. No machines: the story's director sets everything down.
+// Doors closed at the start and the props that move or break are artefacts (ids: doors 100 + 10 a door in DOORS order,
+// the second leaf one more; props as the deck gives them).
+RACES_DEFAULT
+	RED PC
+	BLUE AI
+ENDRACES_DEFAULT
+
+ARTEFACTS
+MODELS models/planet/prolog/prolog.arf
+ACTIVE door_small COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 4 BOUNDARY 2 -1 2 1 -2 1 -2 -1
+AT 19 26 0 90 ID 100	// door A bay7_bay6 (locked)
+AT 35 26 0 90 ID 110	// door B bay7_bay8 (locked)
+AT 26 33 0 0 ID 120	// door C bay7_corridor (locked)
+AT 51 38 0 90 ID 130	// door D corridor_deckA (closed)
+AT 110 41 0 0 ID 140	// door E service_passage (locked)
+AT 61 50 0 90 ID 150	// door F lager_westlink (locked)
+AT 105 102 0 90 ID 190	// door K core_cable (closed)
+AT 171 102 0 90 ID 230	// door Q d5 (locked)
+AT 189 106 0 90 ID 260	// door R kreuzung_werkstatt (closed)
+AT 221 98 0 90 ID 270	// door T werkstatt_gang (closed)
+AT 221 106 0 90 ID 280	// door U werkstatt_repair (closed)
+ACTIVE door_leaf_3 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 7 BOUNDARY 1.5 -1 1.5 1 -1.5 1 -1.5 -1
+AT 85.5 89 0 0 ID 160	// door H deckB_vorraum (locked)
+AT 88.5 89 0 0 ID 161	// door H deckB_vorraum (locked)
+AT 85.5 99 0 0 ID 170	// door I vorraum_core (closed)
+AT 88.5 99 0 0 ID 171	// door I vorraum_core (closed)
+ACTIVE door_leaf_35 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 7 BOUNDARY 1.75 -1 1.75 1 -1.75 1 -1.75 -1
+AT 105 107.75 0 90 ID 200	// door M core_p2 (closed)
+AT 105 111.25 0 90 ID 201	// door M core_p2 (closed)
+ACTIVE door_leaf_4 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 8 BOUNDARY 2 -1 2 1 -2 1 -2 -1
+AT 86 133 0 0 ID 180	// door J core_spine (closed)
+AT 90 133 0 0 ID 181	// door J core_spine (closed)
+ACTIVE gate_leaf_35 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 7 BOUNDARY 1.75 -1 1.75 1 -1.75 1 -1.75 -1
+AT 171 107.75 0 90 ID 240	// door O g2 (closed)
+AT 171 111.25 0 90 ID 241	// door O g2 (closed)
+AT 171 123.75 0 90 ID 250	// door G g1 (closed)
+AT 171 127.25 0 90 ID 251	// door G g1 (closed)
+ACTIVE vent_cover COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 3 BOUNDARY 2 -1 2 1 -2 1 -2 -1
+AT 105 118 0 90 ID 220	// door V core_vent (closed)
+ACTIVE crate_large COST 0 HP 150 ARMOUR 5 IDS 0 HEIGHT 2.2 BOUNDARY 1.5 -1 1.5 1 -1.5 1 -1.5 -1
+AT 82.5 95 0 0 ID 301	// prop pile_1
+AT 82.5 91.5 0 0 ID 302	// prop pile_2
+AT 93.5 95 0 0 ID 303	// prop pile_3
+AT 93.5 91.5 0 0 ID 304	// prop pile_4
+ACTIVE crate_small COST 0 HP 60 ARMOUR 2 IDS 0 HEIGHT 1.5 BOUNDARY 0.75 -0.75 0.75 0.75 -0.75 0.75 -0.75 -0.75
+AT 75.2 54.8 0 0 ID 311	// prop stack_1
+AT 76.8 54.8 0 0 ID 312	// prop stack_2
+ACTIVE core COST 0 HP 2000 ARMOUR 10 IDS 0 HEIGHT 14 BOUNDARY 4 1.657 1.657 4 -1.657 4 -4 1.657 -4 -1.657 -1.657 -4 1.657 -4 4 -1.657
+AT 88 116 0 0 ID 400	// prop core
+ENDARTEFACTS
+
+RACE RED none
+CAMERA_POS 27 23.5 1.5 90 0 0 GROUND
+NBMU 0
+NORE 0
+ENDRACE
+
+RACE BLUE none
+CAMERA_POS 135 90 100 -90 55 0 ZENITH
+NBMU 0
+NORE 0
+ENDRACE

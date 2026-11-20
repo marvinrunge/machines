@@ -1021,7 +1021,7 @@ public sealed class ClassicAssets
         if (race is { } r)
             texture = RaceTexture(texture, r);
         emissive ??= [0, 0, 0];
-        var key = $"{texture}|{string.Join(',', diffuse)}|{string.Join(',', emissive)}|{race is not null}|{vertexColours}|{occluded}|{roughness}|{GraphicsSettings.Parts.GetHashCode()}";
+        var key = $"{texture}|{string.Join(',', diffuse)}|{string.Join(',', emissive)}|{race is not null}|{vertexColours}|{occluded}|{roughness}|{GraphicsSettings.Shown.GetHashCode()}";
         return Cached(_materials, key, () => MakeMaterial(texture, diffuse, race, emissive, vertexColours, occluded, roughness));
     }
 

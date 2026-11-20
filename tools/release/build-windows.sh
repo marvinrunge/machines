@@ -23,6 +23,8 @@ mkdir -p "$OUT"
 mkdir -p "$OUT/data"
 cp -r "$REPO/data/original" "$OUT/data/original"
 cp -r "$REPO/data/maps" "$OUT/data/maps"
+# The remake's own planets: the story's ship decks (GameData.LoadPlanet looks there first).
+cp -r "$REPO/data/planets" "$OUT/data/planets"
 if [ -n "$EXPORTER" ]; then
     mkdir -p "$OUT/tools"
     cp -r "$EXPORTER" "$OUT/tools/classic-export"

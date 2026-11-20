@@ -1,0 +1,277 @@
+PLANET_SIZE 9 6
+TILE_SIZE 30
+TILE_CELLS 3 3
+TILE_BOUNDS -15 -15 15 15
+BACKGROUND_FILE none
+
+// The prologue's ship deck: flat, every tile at height 0 (270 x 180 m). Walls, ducts and doors come from prolog.deck.
+
+// Tile(0,0)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(1,0)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(2,0)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(3,0)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(4,0)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(5,0)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(6,0)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(7,0)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(8,0)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(0,1)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(1,1)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(2,1)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(3,1)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(4,1)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(5,1)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(6,1)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(7,1)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(8,1)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(0,2)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(1,2)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(2,2)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(3,2)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(4,2)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(5,2)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(6,2)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(7,2)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(8,2)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(0,3)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(1,3)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(2,3)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(3,3)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(4,3)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(5,3)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(6,3)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(7,3)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(8,3)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(0,4)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(1,4)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(2,4)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(3,4)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(4,4)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(5,4)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(6,4)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(7,4)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(8,4)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(0,5)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(1,5)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(2,5)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(3,5)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(4,5)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(5,5)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(6,5)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(7,5)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod
+
+// Tile(8,5)
+ROTATION 0
+HEIGHT 0
+TILE lod\black.lod

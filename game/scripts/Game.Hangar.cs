@@ -131,7 +131,7 @@ public partial class Game
     /// </summary>
     private void RecordWired()
     {
-        if (_wiredCounted || Watching || World.Battle is not null || World.Wired is not { Phase: WiredPhase.Ended } run || run.Heroes.GetValueOrDefault(Me) is not { } state)
+        if (_wiredCounted || Watching || World.Battle is not null || World.Story is not null || World.Wired is not { Phase: WiredPhase.Ended } run || run.Heroes.GetValueOrDefault(Me) is not { } state)
             return;
         _wiredCounted = true;
         var options = run.Options;

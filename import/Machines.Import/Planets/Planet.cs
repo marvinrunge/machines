@@ -3,10 +3,13 @@ using Machines.Import.Parm;
 
 namespace Machines.Import.Planets;
 
-/// <summary>All three files of one planet folder, e.g. <c>models/planet/desert</c>.</summary>
+/// <summary>All three files of one planet folder, e.g. <c>models/planet/desert</c>, and the remake's deck where it has one.</summary>
 public sealed record Planet(string Name, PlanetSurface Surface, ConfigSpace ConfigSpace, PlanetEnvironment Environment)
 {
-    /// <summary>Loads <c>&lt;folder&gt;/&lt;name&gt;.psf</c>, <c>.csp</c> and <c>.env</c>.</summary>
+    /// <summary>The ship deck of a story's interior (<c>&lt;name&gt;.deck</c>, <see cref="DeckParser"/>); null for every planet of the original's.</summary>
+    public Deck? Deck { get; init; }
+
+    /// <summary>Loads <c>&lt;folder&gt;/&lt;name&gt;.psf</c>, <c>.csp</c> and <c>.env</c>, and <c>.deck</c> where there is one.</summary>
     public static Planet Load(string folder)
     {
         var name = Path.GetFileName(folder.TrimEnd('/', '\\'));
@@ -16,7 +19,10 @@ public sealed record Planet(string Name, PlanetSurface Surface, ConfigSpace Conf
             name,
             SurfaceParser.Load(File(".psf")),
             ConfigSpaceParser.Load(File(".csp")),
-            EnvironmentParser.Load(File(".env")));
+            EnvironmentParser.Load(File(".env")))
+        {
+            Deck = System.IO.File.Exists(File(".deck")) ? DeckParser.Load(File(".deck")) : null,
+        };
     }
 
     /// <summary>Runs a parser and puts the file name in front of any format error.</summary>

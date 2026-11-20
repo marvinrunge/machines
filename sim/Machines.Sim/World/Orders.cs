@@ -335,6 +335,9 @@ public enum GameEventKind
 
     /// <summary>A commander gave machines to a teammate of their race (Actor: the first machine; Player: the teammate; By: the giver; Detail: how many).</summary>
     MachinesGiven,
+
+    /// <summary>A story chapter is lost (Other: the trio's race; Player: the Locator's; Detail: the name of its <c>StoryEnding</c>).</summary>
+    StoryFailed,
 }
 
 /// <param name="Mark">Where a round fired in first person really went, height and all, when that is not under the crosshair (a Wired run).</param>

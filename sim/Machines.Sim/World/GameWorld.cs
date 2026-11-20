@@ -196,6 +196,8 @@ public sealed partial class GameWorld
             Timed("wired", UpdateWired);
         if (Battle is not null)
             Timed("battle", UpdateBattle);
+        if (Story is not null)
+            Timed("story", UpdateStory);
         Timed("victory", CheckVictory);
 
         Tick++;
@@ -471,6 +473,13 @@ public sealed partial class GameWorld
         if (Options.Victory == VictoryCondition.Battle)
         {
             CheckBattleEnd();
+            return;
+        }
+
+        // Before the Wired check: the story borrows the run but has no pod, and only its own run ends it.
+        if (Options.Victory == VictoryCondition.Story)
+        {
+            CheckStoryEnd();
             return;
         }
 

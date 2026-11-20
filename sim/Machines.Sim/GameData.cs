@@ -41,7 +41,15 @@ public sealed class GameData
 
     public ScenarioResearch LoadResearch(string path) => ScenarioResearchParser.Load(Path.Combine(Folder, Path.GetFileName(path)));
 
-    public Planet LoadPlanet(string name) => Planet.Load(Path.Combine(Folder, "models", "planet", name));
+    /// <summary>The <c>data/planets</c> folder beside <see cref="Folder"/>: the remake's own planets, such as the story's ship decks.</summary>
+    public string PlanetsFolder => Path.GetFullPath(Path.Combine(Folder, "..", "planets"));
+
+    /// <summary>A planet of the remake's own (<see cref="PlanetsFolder"/>), or else the original's.</summary>
+    public Planet LoadPlanet(string name)
+    {
+        var own = Path.Combine(PlanetsFolder, name);
+        return Planet.Load(Directory.Exists(own) ? own : Path.Combine(Folder, "models", "planet", name));
+    }
 
     /// <summary>The machines a factory of this type and level offers (exactly its level's list, as in the original).</summary>
     public IReadOnlyList<ResearchKey> FactoryOffer(string factoryType, int level) =>
