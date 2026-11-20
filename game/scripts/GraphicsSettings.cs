@@ -45,7 +45,8 @@ public enum ModelLook
 
 /// <summary>
 /// The six parts of the look, each chosen on its own: the ground, the machines and buildings, the lighting and sky
-/// (tone mapping, glow, ambient occlusion, soft shadows, the photographed skies, lamps at night), the effects
+/// (tone mapping, the planet's colour grade, eye adaptation, glow, ambient occlusion, soft shadows, temporal smoothing,
+/// the photographed skies, lamps at night), the effects
 /// (explosions, machines flying apart, smoke, tracks, scorch marks, lights of fire and plasma), the weather, and the
 /// trees and rocks (the remade scenery, grass and stones on the painted ground).
 /// </summary>

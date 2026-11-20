@@ -4,8 +4,8 @@ namespace Machines.Game;
 
 /// <summary>
 /// Where rounds land and things blow up: in the remake's effects sparks streaking off metal, dust thrown up from the
-/// ground, plasma and pulse splats, missiles bursting in balls of fire, and explosions of fire, smoke, embers and a
-/// shock ring. The fire and smoke are flipbooks rendered in Blender (tools/blender/flipbooks.py).
+/// ground, plasma and pulse splats, missiles bursting in balls of fire, and explosions of fire, smoke, embers, a
+/// shock ring and the air bent by the blast (Effects.Air.cs). The fire and smoke are flipbooks rendered in Blender (tools/blender/flipbooks.py).
 /// </summary>
 public partial class Effects
 {
@@ -69,6 +69,7 @@ public partial class Effects
         }, explosiveness: 0.8f);
         Smoke(at + Vector3.Up, amount: 3, size: 4 * scale, lifetime: 2.5f);
         Sparks(at, new Color(1, 0.6f, 0.25f), 12, Vector3.Up, spread: 70, speed: 9, lifetime: 0.7f, size: 0.5f);
+        Shimmer(at + Vector3.Up * 0.5f, 3.5f * scale, 0.8f, 0.6f);
         Scorch(at, 2.5f * scale);
     }
 
@@ -115,14 +116,15 @@ public partial class Effects
         Light(at + Vector3.Up * 2 * scale, new Color(1, 0.6f, 0.25f), 7, 20 * scale, 0.7f);
         FlashOrb(centre, new Color(1, 0.75f, 0.45f), 3.5f * scale, 0.15f);
         ShockRing(at + Vector3.Up * 0.4f, 7 * scale, new Color(1, 0.65f, 0.3f), 0.35f);
+        Shimmer(centre, 8 * scale, 1.4f, 1);
         Fireballs(centre, scale, (int)(7 * scale));
 
         Smoke(centre, amount: (int)(5 * scale), size: 9 * scale, lifetime: 4.5f);
         Sparks(centre, new Color(1, 0.55f, 0.2f), (int)(24 * scale), Vector3.Up, spread: 80, speed: 12 * Mathf.Sqrt(scale),
             lifetime: 1.4f, size: 0.7f);
 
-        // Debris: shards of plate thrown up and falling, turning with their flight.
-        Burst(centre, amount: (int)(14 * scale), lifetime: 1.6f, Shard.Value, new ParticleProcessMaterial
+        // Debris: shards of plate thrown up and falling, turning with their flight, landing and skidding to a stop.
+        Burst(centre, amount: (int)(14 * scale), lifetime: 2.2f, Shard.Value, Bouncing(new ParticleProcessMaterial
         {
             Direction = Vector3.Up,
             Spread = 60,
@@ -132,7 +134,7 @@ public partial class Effects
             ScaleMin = 0.3f,
             ScaleMax = 0.8f,
             ParticleFlagAlignY = true,
-        });
+        }, bounce: 0.25f));
 
         Scorch(at, 3.5f * scale);
     }
@@ -267,10 +269,10 @@ public partial class Effects
     /// <summary>
     /// Sparks streaking out round <paramref name="direction"/> (within <paramref name="spread"/> degrees) at about
     /// <paramref name="speed"/> m/s, each a thin streak about <paramref name="size"/> metres long along its flight,
-    /// falling as they go and cooling from white-hot to the colour.
+    /// falling as they go, bouncing off the ground, and cooling from white-hot to the colour.
     /// </summary>
     private void Sparks(Vector3 at, Color colour, int amount, Vector3 direction, float spread, float speed, float lifetime, float size) =>
-        Burst(at, amount, lifetime, FxShaders.SparkQuad.Value, new ParticleProcessMaterial
+        Burst(at, amount, lifetime, FxShaders.SparkQuad.Value, Bouncing(new ParticleProcessMaterial
         {
             ParticleFlagAlignY = true,
             Direction = new Vector3(0, 0, -1),
@@ -281,7 +283,7 @@ public partial class Effects
             ScaleMin = size * 0.6f,
             ScaleMax = size * 1.3f,
             ColorRamp = Ramp(new Color(colour.Lerp(Colors.White, 0.5f) * 3.5f, 1), new Color(colour * 2.2f, 1), new Color(colour * 1.2f, 0)),
-        }, explosiveness: 0.95f, facing: direction);
+        }, bounce: 0.35f), explosiveness: 0.95f, facing: direction);
 
     /// <summary>A ball of light (<see cref="FxShaders.Orb"/>) that flares and fades over <paramref name="duration"/>.</summary>
     private void FlashOrb(Vector3 at, Color colour, float size, float duration, float grow = 1.4f)

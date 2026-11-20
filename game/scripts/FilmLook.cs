@@ -95,6 +95,8 @@ public partial class FilmLook : CanvasLayer
         if (camera.Attributes is not CameraAttributesPractical attributes)
         {
             camera.Attributes = attributes = new CameraAttributesPractical();
+            // These replace the environment's, its eye adaptation with them.
+            PlanetLook.Adapt(attributes);
             RenderingServer.CameraAttributesSetDofBlurQuality(RenderingServer.DofBlurQuality.High, false);
             RenderingServer.CameraAttributesSetDofBlurBokehShape(RenderingServer.DofBokehShape.Circle);
         }

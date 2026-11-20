@@ -130,6 +130,10 @@ public partial class PlanetLook : Node
             .FirstOrDefault(p => p.Key == "colour table").Value?.Text;
 
         look.ReadGoggles();
+        var fogStill = env.Fog is { } fogBlock && env.ColourTables.TryGetValue(fogBlock.ColourTable, out var fogTable) && fogTable.Count > 0
+            ? Lookup(fogTable, 60).Luminance : 0;
+        Enclosed = GraphicsSettings.Lighting && (look._sunOrbit is { } fixedSun && fixedSun.MinElevation == fixedSun.MaxElevation
+            || look._uniformSky is not null && fogStill < BlackHaze);
         look._sun = new DirectionalLight3D { ShadowEnabled = !PaintedShadows, Name = "Sun" };
         look._sky = new ProceduralSkyMaterial { SunAngleMax = 8, GroundCurve = 0.02f };
         look._environment = new Godot.Environment
@@ -217,10 +221,13 @@ public partial class PlanetLook : Node
             look.AddChild(look._skylineView);
         }
 
+        _adapting = false;
         if (GraphicsSettings.Lighting)
             look.Enhance();
         look.AddChild(look._sun);
-        look.AddChild(new WorldEnvironment { Environment = look._environment });
+        var attributes = new CameraAttributesPractical();
+        Adapt(attributes);
+        look.AddChild(new WorldEnvironment { Environment = look._environment, CameraAttributes = attributes });
         look.Update();
         return look;
     }
@@ -242,6 +249,9 @@ public partial class PlanetLook : Node
         _environment.GlowBloom = 0.04f;
         _environment.GlowHdrThreshold = 1.1f;
         _environment.GlowBlendMode = Godot.Environment.GlowBlendModeEnum.Softlight;
+        // Each kind of planet has its own grade: the shade and the light tinted apart (ColourGrade).
+        _environment.AdjustmentColorCorrection = ColourGrade.For(_planet);
+        _adapting = true;
         // Metres: the machines stand a few metres tall, the buildings ten and more. Seen from the strategy camera a
         // small radius barely shows, and occlusion that only darkens the ambient light is lost in the sun: it reaches
         // further, and takes a share of the direct light too.
@@ -402,8 +412,27 @@ public partial class PlanetLook : Node
         return new Vector3(Mathf.Cos(elevation) * Mathf.Cos(heading), Mathf.Sin(elevation), Mathf.Cos(elevation) * Mathf.Sin(heading));
     }
 
-    /// <summary>How dark it is, from 0 by day to 1 at night, by the sun's height; lamps follow it.</summary>
+    /// <summary>How dark it is, from 0 by day to 1 at night, by the sun's height.</summary>
     public static float Night { get; private set; }
+
+    /// <summary>
+    /// How much the lamps are wanted, 0 to 1: at night, and always indoors (<see cref="Enclosed"/>), in the remake's
+    /// light. The machines' headlights and the buildings' lamps follow it.
+    /// </summary>
+    public static float Dark { get; private set; }
+
+    /// <summary>
+    /// Whether the planet is a place indoors or a station in space: lit by a lamp fixed overhead (kidnap, sat, control,
+    /// m_contrl) or under a black sky of one colour (guns, space, suicide, deepspac). The moons' black sky is a real one,
+    /// with a real sun in it.
+    /// </summary>
+    public static bool Enclosed { get; private set; }
+
+    /// <summary>The ambient light indoors, as a share of what it would be: the shade there is darker, so lamps tell.</summary>
+    private const float EnclosedAmbient = 0.55f;
+
+    /// <summary>The light overhead indoors, as a share of what it would be.</summary>
+    private const float EnclosedLight = 0.6f;
 
     /// <summary>
     /// How far a wave of a Wired run has forced the night on, 0 to 1. The sun of many a planet never sets and its tables know
@@ -425,6 +454,9 @@ public partial class PlanetLook : Node
 
     /// <summary>The sun's height above the horizon now, degrees (morning mist follows it; see Weather).</summary>
     public static float SunElevation { get; private set; } = 60;
+
+    /// <summary>Towards the light that casts the shadows, as last set (the clouds' shadows fall along it; see CloudShadows).</summary>
+    public static Vector3 TowardsSun { get; private set; } = new Vector3(0, 1, 0.6f).Normalized();
 
     /// <summary>A starfield on the sky (equirectangular), the same every time.</summary>
     private static readonly Lazy<Texture2D> Stars = new(() =>
@@ -450,6 +482,49 @@ public partial class PlanetLook : Node
     private Vector3? _sunSet;
 
     public override void _Process(double delta) => Update();
+
+    /// <summary>Whether the eye adapts to the light (the remake's light, not in a film; see <see cref="Adapt"/>).</summary>
+    private static bool _adapting;
+
+    /// <summary>
+    /// The eye adapts to what it looks at, within a stop either way of the light as set: a canyon's shade, the night or a
+    /// dark station opens up a little over a few seconds, the glare of a burning base or a nuclear blast closes it down.
+    /// A film keeps the exposure its shots were graded for. Camera attributes of their own (the depth of field, see
+    /// FilmLook.Focus) take these over too, as they replace the environment's.
+    /// </summary>
+    public static void Adapt(CameraAttributesPractical attributes)
+    {
+        attributes.AutoExposureEnabled = _adapting && Cinematic.Asked is null;
+        // Godot's sensitivity here bounds the scene's measured brightness: about 310 gives the exposure the light was set
+        // for, lower opens up (220, half a stop), higher closes down (450, half a stop). The scale is set so a sunlit
+        // desert by day stays where it was.
+        // Indoors the eye does not open up: the dark there is meant, and the lamps are to tell.
+        attributes.AutoExposureMinSensitivity = Enclosed ? 310 : 220;
+        attributes.AutoExposureMaxSensitivity = 450;
+        attributes.AutoExposureSpeed = 0.6f;
+        attributes.AutoExposureScale = 0.5f;
+    }
+
+    public override void _Ready()
+    {
+        // A film draws itself larger and multisampled (Cinematic.Quality).
+        if (Cinematic.Asked is null)
+            Smooth(GetViewport(), _softShadows);
+    }
+
+    /// <summary>
+    /// The remake's light is smoothed over time (FSR 2 at the window's own size): edges, the grass's cut-out blades
+    /// (alpha to coverage, which without multisampling shimmered) and sparkling highlights stay still from frame to
+    /// frame, and the screen effects' noise (occlusion, bounced light, reflections) settles. The original's look keeps
+    /// the project's edge smoothing (SMAA) on a picture as sharp as the original's. MACHINES_TAA=0 leaves it out for a run.
+    /// </summary>
+    public static void Smooth(Viewport viewport, bool temporal)
+    {
+        temporal &= System.Environment.GetEnvironmentVariable("MACHINES_TAA") != "0";
+        viewport.Scaling3DMode = temporal ? Viewport.Scaling3DModeEnum.Fsr2 : Viewport.Scaling3DModeEnum.Bilinear;
+        viewport.Scaling3DScale = 1;
+        viewport.ScreenSpaceAA = temporal ? Viewport.ScreenSpaceAAEnum.Disabled : Viewport.ScreenSpaceAAEnum.Smaa;
+    }
 
     /// <summary>The first game time the sun stands highest (0 on a planet without one).</summary>
     public static float Noon(PlanetEnvironment env)
@@ -526,6 +601,7 @@ public partial class PlanetLook : Node
         // Turned in small steps, not every frame: each turn makes every shadow edge snap anew to the shadow map, and a
         // sun creeping on frame by frame made them shimmer.
         var shining = -(level * Mathf.Cos(lit) + Vector3.Up * Mathf.Sin(lit));
+        TowardsSun = -shining;
         if (_sunSet is not { } was || was.AngleTo(shining) > Mathf.DegToRad(0.15f))
         {
             _sunSet = shining;
@@ -539,6 +615,9 @@ public partial class PlanetLook : Node
         _sun.LightEnergy = Mathf.Lerp(_sun.LightEnergy, _softShadows ? RemakeMoon : MoonEnergy, ForcedNight);
         // A storm's thick air dims the sun (Weather).
         _sun.LightEnergy *= 1 - 0.35f * Weather.Haze;
+        // Indoors the light overhead is dimmer too: the lamps of machines and buildings carry the place.
+        if (Enclosed)
+            _sun.LightEnergy *= EnclosedLight;
         // Every satellite adds its ambient light by its own height in the sky: the sun by day, the moon by night.
         var ambient = Colors.Black;
         foreach (var satellite in _env.Satellites)
@@ -560,10 +639,14 @@ public partial class PlanetLook : Node
         if (_softShadows)
             floor = new Color(Mathf.Max(floor.R, 0.04f), Mathf.Max(floor.G, 0.05f), Mathf.Max(floor.B, 0.085f));
         _environment.AmbientLightColor = new Color(Mathf.Max(ambient.R, floor.R), Mathf.Max(ambient.G, floor.G), Mathf.Max(ambient.B, floor.B));
+        // Indoors the shade is darker, and the lamps of machines and buildings light it (Dark).
+        if (Enclosed)
+            _environment.AmbientLightColor *= EnclosedAmbient;
         if (PaintedShadows)
             ShadowPlate.SetShaderParameter("strength", Mathf.Clamp(direct.V - ambient.V, 0.2f, 0.75f));
 
         Night = Mathf.Clamp((4 - elevation) / 6, 0, 1);
+        Dark = Enclosed ? 1 : Night;
         if (NightVision)
         {
             // The goggles multiply the ambient light; by day it is blinding, whatever the planet's (planet.cpp, accumulateAmbient).

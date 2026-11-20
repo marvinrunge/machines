@@ -435,6 +435,8 @@ public partial class Game : Node3D
         HeightField.Current = _assets.PlanetHeights(request.Planet) is { } heights
             ? HeightField.FromExport(heights, surface.Width, surface.Depth)
             : new HeightField(surface);
+        // How much sky each point of the painted ground sees, in the remake's light (SkyView).
+        SkyView.Bake(GraphicsSettings.Lighting && GraphicsSettings.Terrain == TerrainLook.Painted ? HeightField.Current : null);
         // The simulation stops shots at the same ground, from the same game copy. A match played together, watched
         // or carried on uses the ground it was played with (MatchInfo.Terrain): online, every player's alike or none.
         var recorded = request.Replay?.Match ?? request.Saved?.Match ?? request.Network;
@@ -1362,6 +1364,12 @@ public partial class Game : Node3D
         // MACHINES_SCREENSHOT_CHAT=<said>|<typed> in a multiplayer match: says one to everyone, then types the other.
         if (_runTime == 0 && Online && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_CHAT")?.Split('|') is [var said, var typed])
             _hud.Chat.Automate(said, typed);
+        // MACHINES_SCREENSHOT_EXPLODE=<seconds>,<size>: something that size blows up where the camera looks, that far in.
+        if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_EXPLODE")?.Split(',') is [var explodeAt, var explodeSize]
+            && _runTime < double.Parse(explodeAt, System.Globalization.CultureInfo.InvariantCulture)
+            && _runTime + delta >= double.Parse(explodeAt, System.Globalization.CultureInfo.InvariantCulture))
+            _effects.Explosion(new Vector3(_rig.Position.X, HeightField.Current?.At(_rig.Position.X, _rig.Position.Z) ?? 0, _rig.Position.Z),
+                float.Parse(explodeSize, System.Globalization.CultureInfo.InvariantCulture));
         _runTime += delta;
         var after = double.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_AFTER"),
             System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 4;

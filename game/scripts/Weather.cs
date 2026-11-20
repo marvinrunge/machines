@@ -4,7 +4,7 @@ namespace Machines.Game;
 
 /// <summary>
 /// Weather in the remake look, purely for the eye (the simulation knows nothing of it), as the player chose on the
-/// planet page: on the desert sand drifting over the ground, dust devils and sandstorms; on the ice snowfall, snow
+/// planet page: on the desert sand blowing off ridges and cliff edges, and sandstorms; on the ice snowfall, snow
 /// drifts and blizzards; on the green planets, hills and forts rain showers that wet the ground, and morning mist; on
 /// Gracko and the red moons ash and embers; on the airless grey moons shooting stars. Light weather comes and goes
 /// almost all the time, a storm every ten to fifteen minutes. When is drawn from the match's seed, so every player
@@ -14,7 +14,10 @@ namespace Machines.Game;
 /// </summary>
 public partial class Weather : Node3D
 {
-    private enum Kind { Desert, Green, Ice, Ash, Moon }
+    internal enum Kind { Desert, Green, Ice, Ash, Moon }
+
+    /// <summary>The kind of planet <paramref name="planet"/> is, for its weather and its colour grade; null for stations and industrial worlds.</summary>
+    internal static Kind? KindOf(string planet) => Planets.TryGetValue(planet, out var kind) ? kind : null;
 
     private static readonly Dictionary<string, Kind> Planets = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -48,15 +51,15 @@ public partial class Weather : Node3D
     private Func<float> _distance = null!;
     private (float Start, float Length)[] _storms = [];
     private float[] _phases = [];
-    private float _windAngle, _wet, _nextMeteor, _nextDevil;
+    private float _windAngle, _wet, _nextMeteor;
     private Random _random = null!;
 
     private GpuParticles3D? _fall, _fallNear, _splash, _embers, _drift, _clouds;
+    private CloudShadows? _cloudShadows;
     private Color _cloudColour = Colors.White;
     private ShaderMaterial? _driftMaterial;
     private FogVolume? _mist;
     private FogMaterial? _mistMaterial;
-    private readonly List<(MeshInstance3D Mesh, ShaderMaterial Material, Vector3 At, float Born, float Life)> _devils = [];
     private AudioStreamPlayer? _windSound, _rainSound;
     private bool _raining;
 
@@ -67,6 +70,9 @@ public partial class Weather : Node3D
     public static Weather? Create(string planet, int seed, Func<float> time, Func<Vector3> focus, Func<float> distance)
     {
         EnsureGlobals();
+        // The dust on the machines is the ground's (ModelGrime), whatever the weather.
+        var dust = Planets.TryGetValue(planet, out var ground) ? Dust[ground] : ModelGrime.NeutralDust;
+        RenderingServer.GlobalShaderParameterSet("planet_dust", new Vector3(dust.R, dust.G, dust.B));
         if (!GraphicsSettings.Weather || !Planets.TryGetValue(planet, out var kind))
             return null;
         Effects.DustTint = Dust[kind];
@@ -74,14 +80,15 @@ public partial class Weather : Node3D
         weather._random = new Random(seed ^ 0x5eed);
         weather.Plan();
         if (float.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_WEATHER"), System.Globalization.CultureInfo.InvariantCulture, out var forced))
-            (weather._forced, weather._nextDevil) = (Mathf.Clamp(forced, 0, 1), 1);
+            weather._forced = Mathf.Clamp(forced, 0, 1);
         weather.Build();
         return weather;
     }
 
     /// <summary>
-    /// The shader values the weather sets for every material that reads them: the wind (grass) and how wet the
-    /// ground is (TerrainMaterials). Added once, before any shader that reads them is made.
+    /// The shader values the weather sets for every material that reads them: the wind (grass), how wet the
+    /// ground is (TerrainMaterials, ModelGrime) and the colour of its dust (ModelGrime). Added once, before any shader
+    /// that reads them is made.
     /// </summary>
     public static void EnsureGlobals()
     {
@@ -94,6 +101,8 @@ public partial class Weather : Node3D
         _globals = true;
         RenderingServer.GlobalShaderParameterAdd("weather_wind", RenderingServer.GlobalShaderParameterType.Vec2, Wind);
         RenderingServer.GlobalShaderParameterAdd("weather_wetness", RenderingServer.GlobalShaderParameterType.Float, 0f);
+        var dust = ModelGrime.NeutralDust;
+        RenderingServer.GlobalShaderParameterAdd("planet_dust", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(dust.R, dust.G, dust.B));
     }
 
     private static bool _globals;
@@ -118,7 +127,6 @@ public partial class Weather : Node3D
         _phases = [.. Enumerable.Range(0, 4).Select(_ => (float)_random.NextDouble() * Mathf.Tau)];
         _windAngle = (float)_random.NextDouble() * Mathf.Tau;
         _nextMeteor = 5;
-        _nextDevil = 20;
     }
 
     /// <summary>How strong the storm is at a time: rising and falling over 25 seconds at its ends.</summary>
@@ -170,7 +178,10 @@ public partial class Weather : Node3D
                 _clouds = Clouds(_cloudColour = new Color(0.5f, 0.4f, 0.35f));
                 break;
         }
-        foreach (var node in new Node?[] { _fall, _fallNear, _splash, _embers, _drift, _clouds })
+        // Clouds pass over the sun where there is air, their shadows drifting over the land, in the remake's light.
+        if (_kind != Kind.Moon && GraphicsSettings.Lighting)
+            _cloudShadows = new CloudShadows();
+        foreach (var node in new Node?[] { _fall, _fallNear, _splash, _embers, _drift, _clouds, _cloudShadows })
             if (node is not null)
                 AddChild(node);
         if (_fall is not null)
@@ -229,9 +240,9 @@ public partial class Weather : Node3D
 
         if (_drift is not null && _driftMaterial is not null)
         {
-            // Over the ground in the wind: always a little on the desert, more as it freshens.
-            // In a storm the billows and the haze carry it; the wisps belong to the windy days between.
-            var drift = _kind == Kind.Desert ? 0.25f + 0.45f * light + 0.2f * storm : 0.15f + 0.4f * light + 0.3f * storm;
+            // Off the ridges and cliff edges in the wind, faintly, a little more as it freshens. In a storm the
+            // billows and the haze carry it; the wisps belong to the windy days between.
+            var drift = _kind == Kind.Desert ? 0.12f + 0.2f * light + 0.1f * storm : 0.08f + 0.18f * light + 0.12f * storm;
             _drift.GlobalPosition = focus;
             _drift.AmountRatio = Mathf.Clamp(drift, 0.05f, 1);
             _driftMaterial.SetShaderParameter("wind", Wind);
@@ -255,6 +266,16 @@ public partial class Weather : Node3D
             // As bright as the day, dark at night.
             if (_clouds.DrawPass1 is QuadMesh { Material: StandardMaterial3D cloudLook })
                 cloudLook.AlbedoColor = _cloudColour * Mathf.Lerp(1, 0.18f, PlanetLook.Night);
+        }
+
+        if (_cloudShadows is not null)
+        {
+            // Some clouds on most days, more as the weather freshens; a storm covers the sky whole and dims the sun
+            // itself (Haze, below), and its shadows go into the gloom. The desert's sky is the clearest.
+            var cover = _kind switch { Kind.Green => 0.3f, Kind.Ice => 0.28f, Kind.Ash => 0.26f, _ => 0.18f } + 0.14f * light;
+            var ground = HeightField.Current?.At(focus.X, focus.Z) ?? focus.Y;
+            _cloudShadows.Set(Mathf.Clamp(cover, 0, 0.8f), 0.33f * (1 - Mathf.Clamp(storm * 1.5f, 0, 1)), Wind, dt, ground,
+                Mathf.Clamp(distance * 5, 450, 1600));
         }
 
         // Rain wets the ground over a minute; it dries over three.
@@ -281,8 +302,6 @@ public partial class Weather : Node3D
             _mistMaterial.Density = 0.025f * mist;
         }
 
-        if (_kind == Kind.Desert)
-            DustDevils(t, light, storm, focus, distance);
         if (_kind == Kind.Moon && camera is not null)
             ShootingStars(t, storm, camera);
 
@@ -459,8 +478,10 @@ public partial class Weather : Node3D
     };
 
     /// <summary>
-    /// Sand or snow drifting over the ground: wisps that run with the wind, each laid on the ground's height (from
-    /// the height field) where it is, over the area round the view.
+    /// Sand or snow blown off the land's edges: wisps that start where the ground drops away downwind (a ridge, the lip
+    /// of a cliff or a dune) and run with the wind, laid on the ground's height (from the height field) and carried out
+    /// over the drop, sinking and fading as they go. Each looks at a few places round the view and starts at the one
+    /// most on an edge; the open flats get few.
     /// </summary>
     private GpuParticles3D Drift(Color colour)
     {
@@ -480,7 +501,7 @@ public partial class Weather : Node3D
         _driftMaterial.SetShaderParameter("tint", colour);
         return new GpuParticles3D
         {
-            Name = "Drift", Amount = 700, Lifetime = 3.5f, LocalCoords = false,
+            Name = "Drift", Amount = 220, Lifetime = 4f, LocalCoords = false,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, VisibilityAabb = new Aabb(-Vector3.One * 400, Vector3.One * 800),
             ProcessMaterial = _driftMaterial,
             DrawPass1 = new PlaneMesh
@@ -515,103 +536,53 @@ public partial class Weather : Node3D
             }
             float ground(vec2 p) { return texture(height_map, (p / spacing + 0.5) / vertices).r; }
 
+            // How far the ground drops away downwind of a point, from none (flat, or rising) to a cliff's lip.
+            float edge(vec2 p, vec2 d) {
+                float here = ground(p);
+                float drop = here - min(ground(p + d * 4.0), min(ground(p + d * 8.0), ground(p + d * 14.0)));
+                return smoothstep(1.0, 5.0, drop);
+            }
+
             void start() {
                 uint s = NUMBER * 1664525u + RANDOM_SEED * 22695477u + 1u;
-                vec2 p = EMISSION_TRANSFORM[3].xz + (vec2(rnd(s), rnd(s)) - 0.5) * 2.0 * area;
-                CUSTOM = vec4(rnd(s), 0.0, 0.6 + rnd(s) * 0.9, 0.0);
+                vec2 d = normalize(wind + vec2(1e-4, 0.0));
+                // The place most on an edge of a few round the view.
+                vec2 p = EMISSION_TRANSFORM[3].xz;
+                float best = -1.0;
+                for (int i = 0; i < 6; i++) {
+                    vec2 q = EMISSION_TRANSFORM[3].xz + (vec2(rnd(s), rnd(s)) - 0.5) * 2.0 * area;
+                    float e = edge(q, d);
+                    if (e > best) {
+                        best = e;
+                        p = q;
+                    }
+                }
+                // x: phase, y: age, z: size, w: how much of an edge it started on.
+                CUSTOM = vec4(rnd(s), 0.0, 0.5 + rnd(s) * 0.7, best);
                 TRANSFORM = mat4(1.0);
-                TRANSFORM[3].xyz = vec3(p.x, ground(p), p.y);
+                TRANSFORM[3].xyz = vec3(p.x, ground(p) + 0.15, p.y);
                 VELOCITY = vec3(wind.x, 0.0, wind.y) * (0.8 + 0.5 * rnd(s));
             }
 
             void process() {
                 CUSTOM.y += DELTA / LIFETIME;
                 vec3 pos = TRANSFORM[3].xyz + VELOCITY * DELTA;
-                pos.y = ground(pos.xz) + 0.18 + 0.06 * sin(TIME * 2.7 + CUSTOM.x * 30.0);
+                // Over the ground, or out over a drop it was blown off, sinking slowly.
+                float floor_at = ground(pos.xz) + 0.15;
+                pos.y = max(floor_at + 0.04 * sin(TIME * 2.3 + CUSTOM.x * 30.0), TRANSFORM[3].y - DELTA * 1.2);
                 vec2 d = normalize(wind + vec2(1e-4, 0.0));
-                float along = (3.0 + length(wind) * 0.35) * CUSTOM.z * size;
-                float across = 0.9 * CUSTOM.z * size;
+                float along = (2.5 + length(wind) * 0.25) * CUSTOM.z * size;
+                float across = 0.7 * CUSTOM.z * size;
                 TRANSFORM[0] = vec4(d.x * along, 0.0, d.y * along, 0.0);
                 TRANSFORM[1] = vec4(0.0, 1.0, 0.0, 0.0);
                 TRANSFORM[2] = vec4(-d.y * across, 0.0, d.x * across, 0.0);
                 TRANSFORM[3].xyz = pos;
-                float fade = smoothstep(0.0, 0.25, CUSTOM.y) * (1.0 - smoothstep(0.65, 1.0, CUSTOM.y));
-                // Only over gentle ground: a flat wisp over a slope would hang in the air.
-                vec2 slope = vec2(ground(pos.xz + vec2(2.0, 0.0)) - ground(pos.xz - vec2(2.0, 0.0)),
-                    ground(pos.xz + vec2(0.0, 2.0)) - ground(pos.xz - vec2(0.0, 2.0))) / 4.0;
-                fade *= 1.0 - smoothstep(0.12, 0.3, length(slope));
+                // Fading in and out slowly, so no wisp pops; gone a few metres out over a drop.
+                float fade = smoothstep(0.0, 0.35, CUSTOM.y) * (1.0 - smoothstep(0.55, 1.0, CUSTOM.y));
+                fade *= 1.0 - smoothstep(1.5, 5.0, pos.y - floor_at);
+                // On an edge a wisp shows whole; on the open flats hardly.
+                fade *= mix(0.1, 1.5, CUSTOM.w);
                 COLOR = vec4(tint.rgb, tint.a * fade * strength);
-            }
-            """,
-    });
-
-    /// <summary>Now and then a dust devil wanders over the desert with the wind, more of them when it blows.</summary>
-    private void DustDevils(float t, float light, float storm, Vector3 focus, float distance)
-    {
-        var now = Time.GetTicksMsec() / 1000f;
-        for (var i = _devils.Count - 1; i >= 0; i--)
-        {
-            var (mesh, material, at, born, life) = _devils[i];
-            var age = (now - born) / life;
-            if (age >= 1)
-            {
-                mesh.QueueFree();
-                _devils.RemoveAt(i);
-                continue;
-            }
-            var here = at + new Vector3(Wind.X, 0, Wind.Y) * 0.6f * (now - born);
-            mesh.GlobalPosition = new Vector3(here.X, HeightField.Current?.At(here.X, here.Z) ?? 0, here.Z);
-            material.SetShaderParameter("strength", Mathf.SmoothStep(0, 1, age * 6) * Mathf.SmoothStep(0, 1, (1 - age) * 5));
-        }
-        if (t < _nextDevil || _devils.Count >= 2 || storm > 0.5f)
-            return;
-        _nextDevil = t + 40 + (float)_random.NextDouble() * (light > 0.5f ? 50 : 120);
-        var r = Mathf.Clamp(distance * 0.5f, 30, 160);
-        var start = focus + new Vector3(((float)_random.NextDouble() - 0.5f) * 2 * r, 0, ((float)_random.NextDouble() - 0.5f) * 2 * r);
-        // For automated checks (a forced storm) the first one starts where the camera looks.
-        if (_forced is not null && _devils.Count == 0)
-            start = focus;
-        var shader = new ShaderMaterial { Shader = DevilShader.Value };
-        shader.SetShaderParameter("frames", Effects.Particle("flipbooks/devil"));
-        shader.SetShaderParameter("tint", Effects.DustTint.Lightened(0.2f));
-        shader.SetShaderParameter("phase", (float)_random.NextDouble() * 16);
-        var size = 0.7f + (float)_random.NextDouble() * 0.6f;
-        // An upright picture turning to face the view, playing the turning funnel rendered in Blender.
-        var devil = new MeshInstance3D
-        {
-            Mesh = new QuadMesh { Size = new Vector2(15 * size, 30 * size) },
-            MaterialOverride = shader, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Name = "DustDevil",
-        };
-        devil.Position = Vector3.Up * 14.5f * size;
-        var holder = new MeshInstance3D { Name = "DustDevilBase" };
-        AddChild(holder);
-        holder.AddChild(devil);
-        _devils.Add((holder, shader, start, Time.GetTicksMsec() / 1000f, 20 + (float)_random.NextDouble() * 15));
-    }
-
-    private static readonly Lazy<Shader> DevilShader = new(() => new Shader
-    {
-        Code = """
-            shader_type spatial;
-            render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled;
-            uniform sampler2D frames : source_color, filter_linear_mipmap;
-            uniform vec3 tint = vec3(0.72, 0.62, 0.48);
-            uniform float strength = 0.0;
-            uniform float phase = 0.0;
-            void vertex() {
-                // Stands upright and turns about its own up to face the view.
-                vec3 up = MODEL_MATRIX[1].xyz;
-                vec3 side = normalize(cross(up, INV_VIEW_MATRIX[2].xyz));
-                MODELVIEW_MATRIX = VIEW_MATRIX * mat4(vec4(side * length(MODEL_MATRIX[0].xyz), 0.0), vec4(up, 0.0),
-                    vec4(normalize(cross(side, up)), 0.0), MODEL_MATRIX[3]);
-            }
-            void fragment() {
-                // The funnel turns once round in sixteen frames, twelve a second.
-                int frame = int(mod(floor(TIME * 12.0 + phase), 16.0));
-                vec2 cell = vec2(float(frame % 4), float(frame / 4));
-                vec4 picture = texture(frames, (UV + cell) / 4.0);
-                ALBEDO = tint * picture.rgb;
-                ALPHA = clamp(picture.a * 1.7, 0.0, 1.0) * strength;
             }
             """,
     });

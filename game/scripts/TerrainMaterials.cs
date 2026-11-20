@@ -1018,9 +1018,13 @@ public static class TerrainMaterials
     /// normal (deeper on rock), and the hollows of the height map darken the colour, most on rock. What no slot covers
     /// shows the old picture, as before. The map is looked up a little off true by a slow noise, so the borders wander.
     /// </summary>
-    private static readonly Lazy<Shader> Shader = new(() => new Shader
+    private static readonly Lazy<Shader> Shader = new(() =>
     {
-        Code = $$"""
+        SkyView.EnsureGlobals();
+        return new Shader { Code = ShaderCode };
+    });
+
+    private const string ShaderCode = $$"""
             shader_type spatial;
             render_mode cull_disabled;
             uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic;
@@ -1060,6 +1064,8 @@ public static class TerrainMaterials
             uniform vec2 context_size = vec2(1600.0);
             uniform float patches = 0.12;
             global uniform float weather_wetness;
+            global uniform sampler2D sky_view : filter_linear;
+            global uniform vec2 sky_view_size;
             uniform float shade_strength = 1.0;
             uniform float relief = 0.9;
             uniform float rock_relief = 1.8;
@@ -1319,7 +1325,11 @@ public static class TerrainMaterials
                 ALBEDO *= mix(1.0, 0.55, wet);
                 ROUGHNESS = mix(ROUGHNESS, 0.15, wet * 0.85);
                 SPECULAR = mix(0.35, 0.5, water);
+                // The sky this point sees (SkyView): canyons and hollows get less of its light, the sun's stays whole. Squared,
+                // as the shade at a canyon's foot is lit by the sky alone and should read as deep.
+                float sky = texture(sky_view, world_pos.xz / sky_view_size).r;
+                AO = sky * sky;
+                AO_LIGHT_AFFECT = 0.0;
             }
-            """,
-    });
+            """;
 }

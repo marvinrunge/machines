@@ -53,7 +53,7 @@ public partial class GraphicsPage(Action back, bool inGame) : MenuPage(back)
         string[] modelNotes =
         [
             "The original's models and textures.",
-            "The original's models with rounded edges, baked shading, sharper textures and a little sheen.",
+            "The original's models with rounded edges, baked shading, sharper textures, a little sheen and the field's dust and grime.",
             "The remade models in the original's rigs; those not remade yet show overhauled.",
         ];
         var offered = GraphicsSettings.HdModels ? 3 : 2;
@@ -61,17 +61,17 @@ public partial class GraphicsPage(Action back, bool inGame) : MenuPage(back)
         rows.AddChild(Choice("Lighting & sky", ["Original", "Remake"], p => p.Lighting ? 1 : 0, (p, i) => p with { Lighting = i == 1 },
         [
             "The original's light.",
-            "Tone mapping, glow, ambient occlusion, soft shadows, photographed skies and lamps at night.",
+            "Tone mapping, a colour grade for each planet, eyes that adapt to the light, glow, ambient occlusion, soft shadows, smooth edges, photographed skies, deeper shade in canyons and hollows, darker halls indoors and headlights and lamps at night and indoors.",
         ]));
         rows.AddChild(Choice("Effects", ["Original", "Remake"], p => p.Effects ? 1 : 0, (p, i) => p with { Effects = i == 1 },
         [
             "The original's explosions and shots.",
-            "Explosions, machines flying apart, smoke, tracks, scorch marks and the light of fire.",
+            "Explosions that bend the air, machines flying apart, sparks and debris bouncing off the ground, hulls rocking on their springs, grass pressed down, smoke, tracks, scorch marks and the light of fire.",
         ]));
         rows.AddChild(Choice("Weather", ["Off", "On"], p => p.Weather ? 1 : 0, (p, i) => p with { Weather = i == 1 },
         [
             "No weather, as in the original.",
-            "Sand, snow, rain or ash as the planet has them, and storms now and then.",
+            "Sand, snow, rain or ash as the planet has them, clouds whose shadows drift over the land, and storms now and then.",
         ]));
         rows.AddChild(Choice("Trees & rocks", ["Original", "Remake"], p => p.Scenery ? 1 : 0, (p, i) => p with { Scenery = i == 1 },
         [

@@ -117,7 +117,7 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   (moons, Gracko, the dark forts, ice) keep their painted pictures. The same `fetch.sh` downloads them (about
   55 MB). The air's haze now thins with the planet's view distance, so planets that fade to black far off no
   longer look like night by day.
-- **Weather (remake look, only for the eye):** sand drifting over the desert, dust devils and sandstorms; snowfall,
+- **Weather (remake look, only for the eye):** sand blowing off the desert's ridges and cliff edges, and sandstorms; snowfall,
   snow drifts and blizzards on the ice; rain showers on the green planets, hills and forts that darken and wet
   the ground, and mist in the hollows when the sun is low; ash and embers over Gracko and the red moons; shooting
   stars over the airless moons. Light weather comes and goes, a storm every ten to fifteen minutes, all drawn from
@@ -294,6 +294,8 @@ for the campaign's current player, and with it `MACHINES_SCREENSHOT_MENU=briefin
 briefing or debriefing; the menu pages `campaign`, `missions` and `briefing` can be saved as above.
 `MACHINES_MISSION_RUNS=<report.txt> dotnet test --filter CampaignRunTests` plays every mission for ten minutes,
 the AI against a simple driver of the player's side, and writes how each went.
+`MACHINES_TAA=0` leaves the remake light's temporal smoothing out for a run (see `PlanetLook.Smooth`), and
+`MACHINES_SCREENSHOT_EXPLODE=<seconds>,<size>` blows something of that size up where the camera looks, that far into the match.
 `MACHINES_OPTIONS=gamma=1.8,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,dof=strong,film=on` sets
 the options (see `GameOptions.cs`) for one run without saving them, `MACHINES_LANG=de` or `en` the language,
 and `MACHINES_AI=easy`, `normal` or `hard` how well the AIs of a `MACHINES_MAP` run play. `MACHINES_PERF=<seconds>`

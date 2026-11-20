@@ -3,8 +3,7 @@
     blender --background --factory-startup --python tools/blender/flipbooks.py -- <output folder> [frames] [size] [name ...]
 
 Each flipbook is a square sheet of 4 x 4 frames (16 by default), white on a transparent background, so the game
-tints it: a billowing cloud for storms (grows and thins over its life), a dust devil's funnel turning once round
-(it loops), and a splash ring for rain. For the weapons, coloured as they burn (the game does not tint them): a
+tints it: a billowing cloud for storms (grows and thins over its life) and a splash ring for rain. For the weapons, coloured as they burn (the game does not tint them): a
 fireball (a burst of fire cooling into smoke) and a flame (a tongue of fire licking up and dying away). Names pick
 some of them; all are made without. Rendered with Cycles, on the GPU when there is one.
 """
@@ -125,76 +124,6 @@ def billow(scene, frames):
         noise.inputs["W"].default_value = t * 1.6
         threshold.inputs["From Min"].default_value = 0.42 + 0.12 * t
         strength.inputs[1].default_value = 7.0 * (1 - 0.6 * t)
-        yield f
-
-
-def devil(scene, frames):
-    """A dust devil's funnel: twisted noise in a cone, turning once round over the flipbook so that it loops."""
-    bpy.ops.mesh.primitive_cone_add(vertices=48, radius1=0.25, radius2=1.4, depth=6, location=(0, 0, 3))
-    funnel = bpy.context.active_object
-    mat, tree, volume = volume_material("Devil", (1, 1, 1))
-    coords = tree.nodes.new("ShaderNodeTexCoord")
-    # Turn each height by an angle that grows with it (the twist); the object turns as a whole for the spin.
-    separate = tree.nodes.new("ShaderNodeSeparateXYZ")
-    tree.links.new(coords.outputs["Object"], separate.inputs["Vector"])
-    twist = tree.nodes.new("ShaderNodeVectorRotate")
-    twist.rotation_type = "Z_AXIS"
-    angle = tree.nodes.new("ShaderNodeMath")
-    angle.operation = "MULTIPLY"
-    angle.inputs[1].default_value = 1.1
-    tree.links.new(separate.outputs["Z"], angle.inputs[0])
-    tree.links.new(angle.outputs["Value"], twist.inputs["Angle"])
-    tree.links.new(coords.outputs["Object"], twist.inputs["Vector"])
-    stretch = tree.nodes.new("ShaderNodeVectorMath")
-    stretch.operation = "MULTIPLY"
-    stretch.inputs[1].default_value = (3.0, 3.0, 0.6)
-    tree.links.new(twist.outputs["Vector"], stretch.inputs[0])
-    noise = node(tree, "ShaderNodeTexNoise", Scale=1.3, Detail=5.0, Roughness=0.6)
-    tree.links.new(stretch.outputs["Vector"], noise.inputs["Vector"])
-    threshold = node(tree, "ShaderNodeMapRange", **{"From Min": 0.48, "From Max": 0.72, "To Min": 0.0, "To Max": 1.0})
-    tree.links.new(noise.outputs["Fac"], threshold.inputs["Value"])
-    # Thicker at the bottom, thin at the top.
-    height = node(tree, "ShaderNodeMapRange", **{"From Min": -3.0, "From Max": 3.0, "To Min": 1.0, "To Max": 0.0})
-    tree.links.new(separate.outputs["Z"], height.inputs["Value"])
-    # Soft at its wall and thinner in its eye: the distance from the axis against the funnel's radius at that height.
-    across = tree.nodes.new("ShaderNodeCombineXYZ")
-    tree.links.new(separate.outputs["X"], across.inputs["X"])
-    tree.links.new(separate.outputs["Y"], across.inputs["Y"])
-    off_axis = tree.nodes.new("ShaderNodeVectorMath")
-    off_axis.operation = "LENGTH"
-    tree.links.new(across.outputs["Vector"], off_axis.inputs[0])
-    radius = node(tree, "ShaderNodeMapRange", **{"From Min": -3.0, "From Max": 3.0, "To Min": 0.25, "To Max": 1.4})
-    tree.links.new(separate.outputs["Z"], radius.inputs["Value"])
-    share = tree.nodes.new("ShaderNodeMath")
-    share.operation = "DIVIDE"
-    tree.links.new(off_axis.outputs["Value"], share.inputs[0])
-    tree.links.new(radius.outputs["Result"], share.inputs[1])
-    wall = node(tree, "ShaderNodeFloatCurve")
-    curve = wall.mapping.curves[0]
-    curve.points[0].location = (0.0, 0.35)
-    curve.points[1].location = (1.0, 0.0)
-    curve.points.new(0.5, 1.0)
-    curve.points.new(0.8, 0.55)
-    wall.mapping.update()
-    tree.links.new(share.outputs["Value"], wall.inputs["Value"])
-    shaped = tree.nodes.new("ShaderNodeMath")
-    shaped.operation = "MULTIPLY"
-    tree.links.new(height.outputs["Result"], shaped.inputs[0])
-    tree.links.new(wall.outputs["Value"], shaped.inputs[1])
-    times = tree.nodes.new("ShaderNodeMath")
-    times.operation = "MULTIPLY"
-    tree.links.new(threshold.outputs["Result"], times.inputs[0])
-    tree.links.new(shaped.outputs["Value"], times.inputs[1])
-    strength = tree.nodes.new("ShaderNodeMath")
-    strength.operation = "MULTIPLY"
-    strength.inputs[1].default_value = 6.0
-    tree.links.new(times.outputs["Value"], strength.inputs[0])
-    tree.links.new(strength.outputs["Value"], volume.inputs["Density"])
-    funnel.data.materials.append(mat)
-    camera(scene, 3.2, 6.4, 3)
-    for f in range(frames):
-        scene.frame_set(f + 1)
-        funnel.rotation_euler = (0, 0, -math.tau * f / frames)
         yield f
 
 
@@ -381,7 +310,7 @@ def sheet(paths, out, columns, gain):
 def main():
     out, frames, size, only = arguments()
     os.makedirs(out, exist_ok=True)
-    for name, make, (rx, ry), gain in (("billow", billow, (1, 1), 1.8), ("devil", devil, (1, 2), 1.5), ("splash", splash, (1, 1), 1.0),
+    for name, make, (rx, ry), gain in (("billow", billow, (1, 1), 1.8), ("splash", splash, (1, 1), 1.0),
                                         ("fireball", fireball, (1, 1), 1.0), ("flame", flame, (1, 2), 1.0)):
         if only and name not in only:
             continue
@@ -389,7 +318,7 @@ def main():
         # Fire glows inside: more samples, or its edge stays grainy.
         if name in ("fireball", "flame"):
             scene.cycles.samples = 256
-        # The devil is twice as tall as wide; its frames are too.
+        # The flame is twice as tall as wide; its frames are too.
         scene.render.resolution_x = size * rx // ry
         scene.render.resolution_y = size
         paths = []

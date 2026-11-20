@@ -386,13 +386,55 @@ public partial class GroundScatter : Node3D
         return ImageTexture.CreateFromImage(image);
     });
 
+    /// <summary>The group machines that press the grass down are in (ActorView), and how many of them it feels at once.</summary>
+    public const string Trampling = "trampling";
+    private const int MostTrampling = 16;
+
+    private static Image? _trampleImage;
+    private static ImageTexture? _trample;
+
+    /// <summary>
+    /// Adds the grass's table of the machines pressing it (one texel each: x, z, reach), once, before the shader that
+    /// reads it is made; returns nothing to put in the code.
+    /// </summary>
+    private static string EnsureTrample()
+    {
+        if (_trample is not null)
+            return "";
+        _trampleImage = Image.CreateEmpty(MostTrampling, 1, false, Image.Format.Rgbaf);
+        _trample = ImageTexture.CreateFromImage(_trampleImage);
+        RenderingServer.GlobalShaderParameterAdd("grass_trample", RenderingServer.GlobalShaderParameterType.Sampler2D, _trample);
+        return "";
+    }
+
+    /// <summary>The machines nearest the camera that press the grass, written to its table each frame.</summary>
+    private static void Trample(SceneTree tree, Vector3 camera)
+    {
+        if (_trample is null || _trampleImage is null)
+            return;
+        var near = tree.GetNodesInGroup(Trampling).OfType<ActorView>().Where(v => v.Visible)
+            .OrderBy(v => v.GlobalPosition.DistanceSquaredTo(camera)).Take(MostTrampling).ToList();
+        for (var i = 0; i < MostTrampling; i++)
+            _trampleImage.SetPixel(i, 0, i < near.Count
+                ? new Color(near[i].GlobalPosition.X, near[i].GlobalPosition.Z, Mathf.Max(1.5f, near[i].Size * 0.5f), 0)
+                : new Color(0, 0, 0, 0));
+        _trample.Update(_trampleImage);
+    }
+
+    public override void _Process(double delta)
+    {
+        if (GetViewport().GetCamera3D() is { } camera)
+            Trample(GetTree(), camera.GlobalPosition);
+    }
+
     /// <summary>
     /// Grass: the blades cut out of their picture, tinted by the instance's colour, lit as the ground beneath them is
     /// (their normals point up) and swaying in a wind that runs across the planet; the tips move, the roots stay.
+    /// Machines driving through press it down and aside (<see cref="Trample"/>).
     /// </summary>
     private static readonly Lazy<Shader> GrassShader = new(() => new Shader
     {
-        Code = """
+        Code = EnsureTrample() + """
             shader_type spatial;
             render_mode cull_disabled;
             uniform sampler2D blades : source_color, filter_linear_mipmap;
@@ -400,6 +442,7 @@ public partial class GroundScatter : Node3D
             uniform float fade_to = 250.0;
             uniform float fade_jitter = 30.0;
             global uniform vec2 weather_wind;
+            global uniform sampler2D grass_trample : filter_nearest;
             void vertex() {
                 vec3 world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
                 // Far off the tuft shrinks into the ground, each a little nearer or further than its neighbours.
@@ -412,6 +455,26 @@ public partial class GroundScatter : Node3D
                 float sway = sin(TIME * (1.7 + strength * 0.15) + world.x * 0.21 + world.z * 0.17) + 0.5 * sin(TIME * 3.1 + world.z * 0.43);
                 vec2 bend = along * (0.02 * strength) + vec2(0.06, 0.04) * sway * (0.6 + strength * 0.08);
                 VERTEX.xz += bend * min(1.0, 0.5 + strength * 0.05) * (1.0 - UV.y);
+                // Pressed down and aside by the machines near it (x, z, reach of each; none where the reach is 0).
+                vec2 push = vec2(0.0);
+                float pressed = 0.0;
+                for (int i = 0; i < 16; i++) {
+                    vec4 machine = texelFetch(grass_trample, ivec2(i, 0), 0);
+                    if (machine.z <= 0.0)
+                        continue;
+                    vec2 away = root.xz - machine.xy;
+                    float d = length(away);
+                    float near = 1.0 - smoothstep(machine.z * 0.6, machine.z * 1.4, d);
+                    push += away / max(d, 0.01) * near;
+                    pressed = max(pressed, near);
+                }
+                if (pressed > 0.0) {
+                    // Into the tuft's own space (turned and sized as it was set down).
+                    mat3 placed = mat3(MODEL_MATRIX);
+                    vec3 aside = transpose(placed) * vec3(push.x, 0.0, push.y) / dot(placed[0], placed[0]);
+                    VERTEX += aside * 0.7 * (1.0 - UV.y);
+                    VERTEX.y *= 1.0 - 0.6 * pressed;
+                }
                 NORMAL = vec3(0.0, 1.0, 0.0);
             }
             void fragment() {

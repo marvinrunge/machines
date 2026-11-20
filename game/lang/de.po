@@ -451,14 +451,14 @@ msgstr "Jeder Teil der Grafik wie unter Anpassen gewählt."
 msgid "Everything as the original had it."
 msgstr "Alles wie im Original."
 
-msgid "Explosions, machines flying apart, smoke, tracks, scorch marks and the light of fire."
-msgstr "Explosionen, zerberstende Maschinen, Rauch, Spuren, Brandflecken und der Schein des Feuers."
+msgid "Explosions that bend the air, machines flying apart, sparks and debris bouncing off the ground, hulls rocking on their springs, grass pressed down, smoke, tracks, scorch marks and the light of fire."
+msgstr "Explosionen, die die Luft flimmern lassen, zerberstende Maschinen, Funken und Trümmer, die vom Boden abprallen, federnde Fahrwerke, niedergedrücktes Gras, Rauch, Spuren, Brandflecken und der Schein des Feuers."
 
 msgid "No weather, as in the original."
 msgstr "Kein Wetter, wie im Original."
 
-msgid "Sand, snow, rain or ash as the planet has them, and storms now and then."
-msgstr "Sand, Schnee, Regen oder Asche, wie der Planet sie hat, und ab und zu Stürme."
+msgid "Sand, snow, rain or ash as the planet has them, clouds whose shadows drift over the land, and storms now and then."
+msgstr "Sand, Schnee, Regen oder Asche, wie der Planet sie hat, Wolken, deren Schatten übers Land ziehen, und ab und zu Stürme."
 
 msgid "The new look shows from the next match."
 msgstr "Die neue Grafik gilt ab dem nächsten Match."
@@ -484,8 +484,8 @@ msgstr "Das Licht des Originals."
 msgid "The original's models and textures."
 msgstr "Die Modelle und Texturen des Originals."
 
-msgid "The original's models with rounded edges, baked shading, sharper textures and a little sheen."
-msgstr "Die Modelle des Originals mit gerundeten Kanten, eingebrannter Schattierung, schärferen Texturen und etwas Glanz."
+msgid "The original's models with rounded edges, baked shading, sharper textures, a little sheen and the field's dust and grime."
+msgstr "Die Modelle des Originals mit gerundeten Kanten, eingebrannter Schattierung, schärferen Texturen, etwas Glanz sowie Staub und Schmutz vom Feld."
 
 msgid "The original's models, ground, lighting and effects."
 msgstr "Modelle, Boden, Licht und Effekte des Originals."
@@ -496,8 +496,8 @@ msgstr "Die Bäume und Felsen des Originals."
 msgid "The remade models on the painted ground, with the rest of the remake."
 msgstr "Die neu gemachten Modelle auf dem gemalten Boden, mit dem Rest des Remakes."
 
-msgid "Tone mapping, glow, ambient occlusion, soft shadows, photographed skies and lamps at night."
-msgstr "Tone Mapping, Glühen, Umgebungsverdeckung, weiche Schatten, fotografierte Himmel und Lampen bei Nacht."
+msgid "Tone mapping, a colour grade for each planet, eyes that adapt to the light, glow, ambient occlusion, soft shadows, smooth edges, photographed skies, deeper shade in canyons and hollows, darker halls indoors and headlights and lamps at night and indoors."
+msgstr "Tone Mapping, eine Farbstimmung je Planet, Augen, die sich ans Licht gewöhnen, Glühen, Umgebungsverdeckung, weiche Schatten, glatte Kanten, fotografierte Himmel, tieferer Schatten in Schluchten und Senken, dunklere Hallen in Innenräumen und Scheinwerfer und Lampen bei Nacht und drinnen."
 
 msgid "A finer shape that casts shadows; the natural planets painted with photographed ground."
 msgstr "Eine feinere Form, die Schatten wirft; die natürlichen Planeten mit fotografiertem Boden bemalt."

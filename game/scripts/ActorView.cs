@@ -157,6 +157,24 @@ public partial class ActorView : Node3D
     public Vector3 Eye => _rigView?.Eye
         ?? GlobalTransform * new Vector3(_bounds.End.X, _bounds.Position.Y + _bounds.Size.Y * 0.8f, _bounds.GetCenter().Z);
 
+    /// <summary>
+    /// Puts the headlight at the machine's eyes, looking where its faceplate looks (the hull's heading turned by the
+    /// upper body, as first person looks), tipped down to the ground ahead.
+    /// </summary>
+    private void Beam(SpotLight3D beam)
+    {
+        var heading = _yaw - UpperBodyNow;
+        var ahead = new Vector3(Mathf.Cos(heading), 0, -Mathf.Sin(heading));
+        var eye = _rigView?.Eye ?? GlobalTransform * new Vector3(Mathf.Max(0.5f, _fore), 1.6f, 0);
+        // Tipped down so the light lands about ten metres ahead, however high the eyes stand.
+        var tilt = Mathf.Clamp(Mathf.Atan2(eye.Y - GlobalPosition.Y, BeamReach), 0.1f, 0.6f);
+        var along = (ahead * Mathf.Cos(tilt) + Vector3.Down * Mathf.Sin(tilt)).Normalized();
+        beam.GlobalTransform = new Transform3D(Basis.LookingAt(along, Vector3.Up), eye + ahead * 0.15f);
+    }
+
+    /// <summary>How far ahead the middle of the headlight's cone meets the ground, metres.</summary>
+    private const float BeamReach = 10;
+
     /// <summary>The Gorilla's punch: one of its two plans, picked at random as the original did (MachPhysPunchWeapon).</summary>
     public void Punch() => Play(Random.Shared.Next(2) == 0 ? "punchA" : "punchB");
 
@@ -548,7 +566,7 @@ public partial class ActorView : Node3D
             view._plateTurns = actor is Construction { Stats.HardwareLevel: var level, Spec: { Type: "MISSILE_EMPLACEMENT", SubType: var kind } } && (kind == "TURRET" && level != 1 || kind == "SENTRY" && level == 3);
         }
 
-        // At night buildings light their surroundings and machines switch on headlights.
+        // At night and indoors buildings light their surroundings and machines switch on headlights.
         if (GraphicsSettings.Lighting)
         {
             if (actor is Construction)
@@ -557,27 +575,30 @@ public partial class ActorView : Node3D
                 {
                     LightColor = new Color(1, 0.75f, 0.45f),
                     OmniRange = view.Size * 1.2f + 8,
+                    // Falling off gently over its reach: by the square of the distance it lit hardly more than the wall it hung on.
+                    OmniAttenuation = 0.5f,
                     Position = new Vector3(0, Mathf.Max(4, size.Y * 0.8f), 0),
                     Visible = false,
                 };
             }
             else
             {
-                // A spot looks down its -z; turned to the machine's front (+x) and tipped a little down.
+                // A cone of light from the machine's eyes, where its faceplate looks (see Beam); a little warm, softly
+                // edged, brightest along its middle, carrying far: by the square of the distance (Godot's usual falloff)
+                // it was spent before it reached the ground.
                 view._lamp = new SpotLight3D
                 {
                     LightColor = new Color(1, 0.95f, 0.82f),
-                    SpotRange = 32,
-                    SpotAngle = 32,
-                    Position = new Vector3(Mathf.Max(0.5f, view._fore), 1.6f, 0),
-                    Rotation = new Vector3(0, -Mathf.Pi / 2, 0),
+                    SpotRange = 36,
+                    SpotAngle = 24,
+                    SpotAngleAttenuation = 1.6f,
+                    SpotAttenuation = 0.4f,
                     Visible = false,
                     // A faint beam in the haze; at full strength it washed the ground out at night.
                     LightVolumetricFogEnergy = 0.25f,
                 };
-                view._lamp.RotateObjectLocal(Vector3.Right, -0.25f);
             }
-            view._lampEnergy = actor is Construction ? 2.2f : 4f;
+            view._lampEnergy = actor is Construction ? 3f : 12f;
             view.AddChild(view._lamp);
         }
 
@@ -607,6 +628,9 @@ public partial class ActorView : Node3D
         if (_rigView is not null && actor is Machine floating)
             _locomotion = LocomotionView.For(floating, _rigView);
         _followsGround = actor is Machine { Stats.Locomotion: Locomotion.Wheels or Locomotion.Tracks or Locomotion.Spider };
+        // Machines on the ground press the grass down as they pass (GroundScatter).
+        if (actor is Machine { Stats.Locomotion: not Locomotion.Glider })
+            AddToGroup(GroundScatter.Trampling);
         // The original takes the ends from the machine's bounding box along its facing (x).
         if (_followsGround)
             (_fore, _aft) = bounds is { } b && b.End.X > 0.01f && b.Position.X < -0.01f
@@ -1061,11 +1085,14 @@ public partial class ActorView : Node3D
         Position = Position.Lerp(_target, t);
         _yaw = Mathf.LerpAngle(_yaw, _targetYaw, t);
         Stand();
+        Sway((float)delta);
         Smoke();
         if (_lamp is not null)
         {
-            _lamp.Visible = PlanetLook.Night > 0.05f;
-            _lamp.LightEnergy = PlanetLook.Night * _lampEnergy;
+            _lamp.Visible = Visible && PlanetLook.Dark > 0.05f;
+            _lamp.LightEnergy = PlanetLook.Dark * _lampEnergy;
+            if (_lamp.Visible && _lamp is SpotLight3D beam)
+                Beam(beam);
         }
         if (_dust is not null && delta > 0)
             _dust.Emitting = Visible && new Vector2(Position.X - _lastPosition.X, Position.Z - _lastPosition.Z).Length() / (float)delta > 1.5f;
@@ -1134,6 +1161,37 @@ public partial class ActorView : Node3D
         // The model faces +x; the basis keeps Godot's handedness (z = x × y).
         var z = along.Cross(up).Normalized();
         Basis = new Basis(along, z.Cross(along), z).Scaled(Scale);
+    }
+
+    // How the hull sways on its springs (see Sway): its speed and change of speed as last seen, and its pitch and roll
+    // with the rate each changes at.
+    private float _swaySpeed, _swayAccel, _pitch, _pitchRate, _roll, _rollRate;
+
+    /// <summary>
+    /// In the remake's effects a machine on wheels, tracks or spider legs rides on springs: its nose dips as it brakes and lifts as it
+    /// pulls away, and it leans out of a turn, a little more the faster it goes, swinging back past level once or twice
+    /// as it settles. Only the view leans; where it stands and faces is the simulation's.
+    /// </summary>
+    private void Sway(float delta)
+    {
+        if (!GraphicsSettings.Effects || !_followsGround || Floor is not null || delta <= 0)
+            return;
+        var facing = new Vector3(Mathf.Cos(-_yaw), 0, Mathf.Sin(-_yaw));
+        var speed = new Vector3(Position.X - _lastPosition.X, 0, Position.Z - _lastPosition.Z).Dot(facing) / delta;
+        _swayAccel = Mathf.Lerp(_swayAccel, (speed - _swaySpeed) / delta, 1 - Mathf.Exp(-8 * delta));
+        _swaySpeed = speed;
+        // Turning to its right (a positive rate), it leans to its left.
+        var turnRate = -Mathf.AngleDifference(_lastYaw, _yaw) / delta;
+        var pitch = Mathf.Clamp(_swayAccel * 0.01f, -0.06f, 0.06f);
+        var roll = Mathf.Clamp(-turnRate * Mathf.Abs(speed) * 0.006f, -0.05f, 0.05f);
+        // A spring a little short of damped: stiff enough to follow, soft enough to rock.
+        const float stiffness = 60, damping = 9;
+        _pitchRate += ((pitch - _pitch) * stiffness - _pitchRate * damping) * delta;
+        _rollRate += ((roll - _roll) * stiffness - _rollRate * damping) * delta;
+        _pitch += _pitchRate * delta;
+        _roll += _rollRate * delta;
+        // The model faces +x with its right along +z: the nose turns about z, the lean about x.
+        Basis *= new Basis(Vector3.Back, _pitch) * new Basis(Vector3.Right, _roll);
     }
 
     // Hovering and gliding machines move their boots or body with each move as it begins (see LocomotionView), on
