@@ -104,6 +104,8 @@ public partial class MenuScreens : Control
         else if (Setting("MACHINES_MP") is null)
         {
             OptionsPage.ApplyWindow();
+            // The next start's splash: the loading screen's first frame, from this game copy.
+            BootSplash.Update(_assets.GameFolder);
         }
 
         _stage = new MenuStage();

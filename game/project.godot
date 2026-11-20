@@ -14,6 +14,13 @@ config/name="Machines Remake"
 config/description="Ground-up remake of Machines: Wired for War (1999)."
 run/main_scene="res://scenes/Menu.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+config/project_settings_override="user://boot.cfg"
+boot_splash/bg_color=Color(0, 0, 0, 1)
+boot_splash/show_image=false
+boot_splash/stretch_mode=1
+boot_splash/use_filter=true
+config/icon="res://assets/icon.png"
+config/windows_native_icon="res://assets/icon.ico"
 
 [dotnet]
 
