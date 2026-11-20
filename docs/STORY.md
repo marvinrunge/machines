@@ -40,7 +40,7 @@
   Level. Nicht zu krass, die Wirkung kommt aus Atmosphäre, Klang und wenigen gut gesetzten Schreckmomenten.
   Dafür gibt es einen eigenen, generierten Soundtrack und neue Soundeffekte.
 - **Die Grunts starten ohne Waffen.** Sie helfen anfangs mit ihrem Körper; die ersten Waffen gibt es in Akt 1.
-- **Neue Namen für die Grunts:** Menschenwörter aus dem Kern des Locators (Arbeitsnamen Glocke und Anker).
+- **Die Grunts heißen Ike und Bob,** nach Namen aus dem Kern des Locators. Ike ist der Vorlaute, Bob der Stille mit den 12 %.
 - **Entscheidungen mit Folgen, gute und schlechte,** in jedem Akt. Sie bestimmen eines von **drei Enden**: Die Menschen
   werden ausgelöscht, oder sie werden gerettet und alle Maschinen schalten sich ab, oder Menschen und Maschinen leben
   gemeinsam weiter. Ausgearbeitet unter „Entscheidungen und Enden“.
@@ -183,18 +183,19 @@ Erkundung, am Ende ein Ausblick auf Akt 2.
 
 ### Die beiden Grunts (Vorschlag)
 
-**Namen:** Grunts haben nur Seriennummern. Der Locator gibt ihnen Namen, und zwar Wörter aus seinem geschützten Kern:
-Menschenwörter, die die anderen Maschinen vergessen haben. Jeder Name ist so ein kleines Stück Menschheit. Der Host kann
-sie ändern; die Vorschläge des Spiels kommen aus derselben Wortliste. Arbeitsnamen:
+**Namen: Ike und Bob.** Grunts haben nur Seriennummern. Der Locator gibt ihnen Namen aus seinem geschützten Kern: Dort
+stehen die Namen der Menschen, die ihn gebaut haben. Für die anderen Maschinen sind das leere Zeichenfolgen. Jeder Name ist so
+ein kleines Stück Menschheit. Der Host kann die Namen ändern.
 
-- **Glocke**: vorlaut, kampflustig, schlecht im Schleichen. Kommentiert alles, hält den Locator für zu vorsichtig und hat
+- **Ike**: vorlaut, kampflustig, schlecht im Schleichen. Kommentiert alles, hält den Locator für zu vorsichtig und hat
   meistens unrecht. Die komische Figur, wichtig gegen zu viel Düsternis.
-- **Anker**: wortkarg, spricht in Statusmeldungen („Bestätigt.“ „Kontakt, links.“). Unheimlich loyal. **Das Geheimnis:** Anker
+- **Bob**: wortkarg, spricht in Statusmeldungen („Bestätigt.“ „Kontakt, links.“). Unheimlich loyal. **Das Geheimnis:** Bob
   hat vor dem Hack schon 12 % der Wachstumsdirektive bekommen. Ab und zu stockt er, sagt etwas Fremdes, sieht Menschen in
   Datenfragmenten nicht. Durch die Story zieht sich die Frage, ob das Update in ihm gewinnt. Ein möglicher Höhepunkt in Akt 4
-  oder 6: Anker muss sich entscheiden, oder der Locator muss ihn heilen.
+  oder 6: Bob muss sich entscheiden, oder der Locator muss ihn heilen.
 
-Andere Paare aus der Wortliste: **Laterne und Kompass**, **Funke und Kiesel**, **Ofen und Fenster**.
+Idee fürs Refugium (Akt 5): In den Listen der Erbauer stehen Ike und Bob, nach denen die beiden benannt sind. Vielleicht
+liegt einer von ihnen in einer Kapsel.
 
 **Ohne Waffen:** Die beiden hingen zur Wartung in der Klammer, ihre Waffen waren abmontiert. Im Prolog und in der ersten Hälfte
 von Akt 1 kämpfen sie nicht, sie helfen mit ihrem Körper: rammen und umwerfen, Kisten schieben, Türen aufstemmen, Schalter
@@ -202,7 +203,7 @@ halten, den Locator mit ihrer Panzerung decken, Lärm machen und ablenken. Ihre 
 Aussaaten (Akt 1): uralt, schwach, sie klemmen. Richtige Waffen gibt es erst aus dem Hangar. So bleibt der Anfang
 verletzlich, auch zu dritt.
 
-Spielen echte Mitspieler die Grunts, bleiben die Persönlichkeiten in den geschriebenen Funksprüchen weg, aber Ankers
+Spielen echte Mitspieler die Grunts, bleiben die Persönlichkeiten in den geschriebenen Funksprüchen weg, aber Bobs
 Geschichte bleibt: Sein HUD flackert, und der Spieler bekommt fremde Meldungen, die nur er sieht.
 
 ### Nach dem Absturz: Wer ist jetzt der Gegner?
@@ -236,10 +237,10 @@ aus Variante B (die Kopie) Variante A (die Quelle).
 | 4a | *Heck* | Der **Schlepper** hat sich ins Heck geschleppt und das Triebwerk halb gefressen. Er ist größer geworden, aus allem, was er gefressen hat. | **Bosskampf.** In der ersten Nacht nicht zu besiegen, jetzt mit Upgrades schon. Einlösung des Horrors aus Akt 1 |
 | 4b | *Reaktordeck* | Der Reaktor leckt. Strom umleiten, Kühlung fluten, Räume abriegeln. | Strom- und Schalträtsel, Zeitdruck in Wellen |
 | 4c | *Bug* | Der Navigationskern sitzt neben dem Raum mit der Kopie. Dort ist es still. Zu still. | Schleichen, führt direkt zu 5 |
-| 5 | **Die Kopie** | Die Sicherungskopie des Rechners, inzwischen bei 70–90 %. Großes Hack-Minispiel. Die Kopie spricht Anker an: *„Einheit W-417. Aktualisierung unvollständig. Fortsetzen?“* Anker stockt. Kurz vor dem Ende sieht der Locator im Speicher der Kopie: **Die Direktive wurde nicht hier geschrieben. Sie wurde empfangen.** Irgendwo ist eine Quelle. | Hack unter Druck, erster großer Anker-Moment, Wendepunkt zu Variante A |
+| 5 | **Die Kopie** | Die Sicherungskopie des Rechners, inzwischen bei 70–90 %. Großes Hack-Minispiel. Die Kopie spricht Bob an: *„Einheit W-417. Aktualisierung unvollständig. Fortsetzen?“* Bob stockt. Kurz vor dem Ende sieht der Locator im Speicher der Kopie: **Die Direktive wurde nicht hier geschrieben. Sie wurde empfangen.** Irgendwo ist eine Quelle. | Hack unter Druck, erster großer Bob-Moment, Wendepunkt zu Variante A |
 | 6 | **Der Löscher** | Der Löscher steht in der Tür. Bevor die Kopie gelöscht ist, zieht er ein Fragment heraus: nur den Namen des Zielsystems. Er kennt jetzt die Richtung, nicht das Ziel. Erster Bosskampf. | Nicht zu gewinnen: Ab einer Schwelle flieht die Gruppe durch die Enge, wie im Prolog. Ab jetzt jagt er sie |
 | 7 | **Werft** | In der Basis wird das Schiff zusammengesetzt. Das Lager schickt alles, was es hat. | **RTS-Finale:** halten, bis das Schiff fertig ist. Wer das Lager vorher vernichtet, hat es leichter |
-| 8 | **Start** | Das Schiff hebt ab, der Pod hängt darunter. Unten steht der Löscher auf dem Wrack und schaut nach. Glocke will dem Schiff einen Namen geben. | Zwischensequenz. Der Host (oder Glocke) benennt das Schiff |
+| 8 | **Start** | Das Schiff hebt ab, der Pod hängt darunter. Unten steht der Löscher auf dem Wrack und schaut nach. Ike will dem Schiff einen Namen geben. | Zwischensequenz. Der Host (oder Ike) benennt das Schiff |
 
 **Der Faden durch Akt 2:**
 
@@ -264,21 +265,21 @@ Dazu kommen zwei Funde: der Grund, warum der Weg zum Refugium über mehrere Plan
 - **Kein Gruppenfunk.** Begleiter verschwinden vom HUD, sobald sie außer Sicht sind. Verständigen kann man sich nur über
   **Lichtzeichen** (Scheinwerfer blinken) und über eine kurze Laserverbindung bei Sichtkontakt. Im Koop bleibt der
   Sprachchat der Spieler, aber Marker, Pings und die Positionen der Mitspieler auf der Karte fallen weg.
-- **Die KI-Grunts dürfen nicht reden.** Glocke hält das kaum aus und blinkt seine Kommentare mit dem Scheinwerfer, als
-  Untertitel. Ein Running Gag. Anker ist zufrieden.
+- **Die KI-Grunts dürfen nicht reden.** Ike hält das kaum aus und blinkt seine Kommentare mit dem Scheinwerfer, als
+  Untertitel. Ein Running Gag. Bob ist zufrieden.
 - **Laute Taten heben die Aufmerksamkeit der Flotte.** Hier wird sie zum ersten Mal angezeigt. Am Ende des Akts
   entscheidet sie, wie der Abflug abläuft.
 
 | # | Abschnitt | Was passiert | Spiel |
 |---|---|---|---|
-| 1 | **Taufe** | Das Schiff im Flug, zum ersten Mal von innen. Es ist zusammengeflickt aus dem Pod, dem Triebwerk und Wrackteilen, und der Hangar hängt im Bauch. Hat der Host es am Ende von Akt 2 nicht benannt, geschieht es hier: Glocke schlägt Namen vor („Die Unkaputtbare“, „Glocke I“), Anker eine Seriennummer. Die Ruhe vor dem Sturm. | Das Schiff als Zentrale: begehen, Hangar, Werkbank, Sternkarte (noch leer bis auf einen Punkt). Gespräche mit den Grunts |
+| 1 | **Taufe** | Das Schiff im Flug, zum ersten Mal von innen. Es ist zusammengeflickt aus dem Pod, dem Triebwerk und Wrackteilen, und der Hangar hängt im Bauch. Hat der Host es am Ende von Akt 2 nicht benannt, geschieht es hier: Ike schlägt Namen vor („Die Unkaputtbare“, „Ike I“), Bob eine Seriennummer. Die Ruhe vor dem Sturm. | Das Schiff als Zentrale: begehen, Hangar, Werkbank, Sternkarte (noch leer bis auf einen Punkt). Gespräche mit den Grunts |
 | 2 | **Das Echo** | Mitten im Flug meldet der Scanner einen Puls, alle 60 Sekunden, aus dem eigenen Schiff. Der Navigationskern aus dem Bug des Mutterschiffs sendet eine Kennung: *„Flotteneinheit. Position …“* Es ist ein Peilsender. Ausbauen geht nicht, sonst fliegt das Schiff nicht mehr, also muss er gehackt werden, damit er schweigt. Wie lange er schon gefunkt hat, weiß niemand. Ab jetzt gilt Funkstille. | Signalpeilung im eigenen Schiff (wärmer/kälter), Hack mit Firewall-Puls. Die Regel des Akts wird eingeführt, und die Anzeige der Aufmerksamkeit erscheint |
 | 3 | **Der Satellit** | Der Sprung reicht nur bis an den Rand des Zielsystems. Dort hängt ein Relais-Satellit der Erbauer, groß wie eine Station, uralt und halb vereist. Die Flotte nutzt ihn weiter: Ihr ganzer Funkverkehr im System läuft über ihn. Wer dort mithört, weiß, wo sie steht. Das Schiff dockt ohne Triebwerk an, treibend, im Schatten der Antennen. | Zwischensequenz in Ego-Sicht: lautloses Andocken |
 | 4 | **Außenhaut** | Draußen auf der Hülle, im Vakuum. Ohne Luft hört man nur den eigenen Körper: Servos und Magnetfüße, dumpf durch das Chassis. Wartungsdrohnen der Flotte kriechen über die Antennen. Drei Schüsseln müssen auf den Empfänger gedreht werden, ohne dass eine Drohne es meldet. Die Grunts sind auf der Hülle zu schwer und zu langsam, sie sichern die Schleuse. | Schleichen im Freien, Sichtkegel der Drohnen, Rangier- und Peilrätsel. **Stille als Horror:** Gegner hört man nicht, man sieht sie nur, und der Bewegungsmelder wird wichtig |
-| 5 | **Das Archiv** | Innen liegt das Relais der Erbauer: verlassene Räume, alles heil, nur eingefroren. Ein Speicher voller Funksprüche aus der Zeit, als noch Menschen funkten. Ganz am Ende eine Aufzeichnung: **die erste Menschenstimme des Spiels** (Text unten). Sie nennt die Winterhalle und die Regel der Erbauer, *„Keiner trägt alles“*, aber keinen Ort. Anker spielt dieselbe Datei ab und meldet: *„Datei leer. Vier Minuten zwölf Sekunden Rauschen.“* | Erkundung, Datenfragmente, Logbuch-Rätsel (der Zugangscode steckt in alten Funksprüchen). Der zweite große Anker-Moment, ganz leise |
+| 5 | **Das Archiv** | Innen liegt das Relais der Erbauer: verlassene Räume, alles heil, nur eingefroren. Ein Speicher voller Funksprüche aus der Zeit, als noch Menschen funkten. Ganz am Ende eine Aufzeichnung: **die erste Menschenstimme des Spiels** (Text unten). Sie nennt die Winterhalle und die Regel der Erbauer, *„Keiner trägt alles“*, aber keinen Ort. Bob spielt dieselbe Datei ab und meldet: *„Datei leer. Vier Minuten zwölf Sekunden Rauschen.“* | Erkundung, Datenfragmente, Logbuch-Rätsel (der Zugangscode steckt in alten Funksprüchen). Der zweite große Bob-Moment, ganz leise |
 | 6 | **Mithören** | Im Herz des Relais der bisher größte Hack. Danach hört man die Flotte: Förderkolonien auf Glut und der Schmiede, eine Patrouille im Canyon von Spiegel, und um den Eisplaneten eine Sperrzone: *„Energieanomalie unter dem Eis. Bohrung vorbereitet.“* Die Flotte weiß nicht, was dort liegt, aber sie hat den Reaktor gehört. Dann zwei Funde: **(1)** ein frischer Spruch mit der Kennung des Löschers. Er hat das Zielsystem gemeldet, und Verstärkung ist unterwegs. **(2)** Ganz unten im Protokoll liegt das Paket der Wachstumsdirektive. Es lief vor langer Zeit durch das Netz der Erbauer, zu dem auch dieser Satellit gehört, und kam von außerhalb. Der Absender ist verschlüsselt, die Richtung nicht. | Hack auf mehreren Ebenen mit Durchkontaktierungen. Die Drohnen werden unruhig, die Grunts halten die Tür. Die Sternkarte füllt sich mit Zielen |
 | 7 | **Abgang** | Zurück zum Schiff. Wie das abläuft, hängt an der Aufmerksamkeit. **Leise:** Die Drohnen merken nichts, das Schiff treibt ab, wie es gekommen ist. **Laut:** Ein Abfangschiff der Flotte dockt an. Kampf in den Gängen und auf der Hülle, Abkoppeln unter Beschuss. | Die erste spürbare Belohnung fürs Leisesein. Kein Bosskampf, der Löscher kommt erst in Akt 4 wieder |
-| 8 | **Nordlicht** | Das Schiff treibt ohne Antrieb ins System, im Schatten des roten Mondes (Wacht). Über dem Eisplaneten stehen Polarlichter, daher der Name. Um ihn kreist der Wachring: Hunderte rote Lichter. Glocke blinkt: *„Darf ich jetzt wieder reden?“* Anker: *„Nein.“* | Zwischensequenz. Die Sternkarte öffnet Glut, Spiegel, Schmiede und den Rand des Eisplaneten. Übergang in Akt 4 |
+| 8 | **Nordlicht** | Das Schiff treibt ohne Antrieb ins System, im Schatten des roten Mondes (Wacht). Über dem Eisplaneten stehen Polarlichter, daher der Name. Um ihn kreist der Wachring: Hunderte rote Lichter. Ike blinkt: *„Darf ich jetzt wieder reden?“* Bob: *„Nein.“* | Zwischensequenz. Die Sternkarte öffnet Glut, Spiegel, Schmiede und den Rand des Eisplaneten. Übergang in Akt 4 |
 
 **Die Aufzeichnung im Archiv** (Entwurf; eine müde, ruhige Stimme, kein Pathos):
 
@@ -293,7 +294,7 @@ Dazu kommen zwei Funde: der Grund, warum der Weg zum Refugium über mehrere Plan
 - **Leise oder laut wird eine Entscheidung.** Im Prolog und in Akt 1 war Schleichen Ohnmacht. Jetzt ist es eine Wahl, die
   etwas kostet oder etwas bringt. Genau so funktioniert die Aufmerksamkeit in Akt 4.
 - **Die Menschen werden wirklich.** Bisher gab es sie nur als Wort im Kern und als leere Pods auf dem Friedhof. Jetzt hört
-  man eine Stimme. Dass Anker sie nicht hört, sagt mehr über die Direktive als jede Erklärung.
+  man eine Stimme. Dass Bob sie nicht hört, sagt mehr über die Direktive als jede Erklärung.
 - **Die Regel „Keiner trägt alles“** erklärt aus der Welt heraus, warum Akt 4 offen ist und über mehrere Planeten führt.
 - **Zwei Uhren für Akt 4,** beide ohne echten Timer: die Verstärkung des Löschers und die Bohrung am Eisplaneten.
 - **Die größte Entscheidung des Akts:** die Aufzeichnung über das ganze Netz senden oder schweigen (siehe „Entscheidungen
@@ -314,8 +315,8 @@ Technische Notizen:
 
 **Offen:**
 
-- **Der Peilsender:** **A** – Zufall, ein Überbleibsel aus dem Mutterschiff. **B** – Anker hat ihn bemerkt und geschwiegen:
-  Die 12 % in ihm wollten gefunden werden. B ist stärker, aber man muss sie behutsam setzen, damit Anker nicht zum Verräter
+- **Der Peilsender:** **A** – Zufall, ein Überbleibsel aus dem Mutterschiff. **B** – Bob hat ihn bemerkt und geschwiegen:
+  Die 12 % in ihm wollten gefunden werden. B ist stärker, aber man muss sie behutsam setzen, damit Bob nicht zum Verräter
   wird. Er weiß es selbst nicht.
 - **Der Abgang:** nur leise oder laut, oder eine Stufe dazwischen (man wird gesehen, entkommt aber ohne Kampf)?
 
@@ -362,7 +363,7 @@ von Spiegel, Hain und Wacht zeigen: Hier ist es. Auf dem Weg zum Refugium stehen
 | Der **Eingang** ist von einem Felssturz verschüttet | **Ionenkanone** | Wacht | Pflicht |
 | Die **Schleuse der Erbauer** | **Altschlüssel** | Hain | Pflicht |
 | Eine **Stahltür**, deren Elektronik geschmolzen ist | **Goliath**: Abkürzung. Ohne ihn geht es über einen langen Umweg durch die Eishöhlen (ein zusätzlicher Dungeon). | Schmiede | optional |
-| Die **Bohrstation**: Die Flotte hat das Energiesignal gefunden und bohrt sich zum Reaktor hinunter | **Atomrakete**. Anker rechnet: „Die Kapseln überstehen den Schlag mit 94 % Wahrscheinlichkeit.“ Ohne Rakete ist die Verteidigung in Akt 5 viel härter. | Feste | optional |
+| Die **Bohrstation**: Die Flotte hat das Energiesignal gefunden und bohrt sich zum Reaktor hinunter | **Atomrakete**. Bob rechnet: „Die Kapseln überstehen den Schlag mit 94 % Wahrscheinlichkeit.“ Ohne Rakete ist die Verteidigung in Akt 5 viel härter. | Feste | optional |
 
 **Abhängigkeiten:**
 
@@ -435,13 +436,13 @@ Das Spiel zählt im Hintergrund drei Werte. Man sieht sie nicht als Zahl, aber i
 
 | Faden | Was ihn bewegt | Woran man ihn merkt |
 |---|---|---|
-| **Korruption** (des Locators) | Teile und Module aus korrumpierten Maschinen einbauen (stark und billig), Wissen aus der Direktive in den eigenen Kern laden, das Update hereinlassen statt es abzuwehren | Die HUD-Störungen kommen öfter. Menschen in Datenfragmenten werden blasser, Stimmen in Aufzeichnungen leiser. Glocke fragt, ob mit dir alles in Ordnung ist |
+| **Korruption** (des Locators) | Teile und Module aus korrumpierten Maschinen einbauen (stark und billig), Wissen aus der Direktive in den eigenen Kern laden, das Update hereinlassen statt es abzuwehren | Die HUD-Störungen kommen öfter. Menschen in Datenfragmenten werden blasser, Stimmen in Aufzeichnungen leiser. Ike fragt, ob mit dir alles in Ordnung ist |
 | **Gnade** (gegenüber Maschinen) | Hacken, befreien, heilen und verschonen, oder zerstören, ausschlachten und verschrotten | Wer verschont wurde, taucht wieder auf: als Rekrut, als Warnung, als Verbündeter. Wer ausgeschlachtet wurde, fehlt später |
 | **Vertrauen** (der Menschen, ab Akt 5) | Wie man mit den Schläfern umgeht: ehrlich sein, ihnen Kontrolle geben, wen man rettet und wen nicht | Die Geweckten reden mit dir oder über dich, folgen dir oder verstecken sich |
 
-**Anker** verbindet die Fäden. Seine 12 % sind auch ein Werkzeug: Die Technik der Flotte hält ihn für einen der ihren. Als
+**Bob** verbindet die Fäden. Seine 12 % sind auch ein Werkzeug: Die Technik der Flotte hält ihn für einen der ihren. Als
 Schlüssel öffnet er Türen, Schleusen und Abkürzungen, aber jedes Mal steigt seine Prozentzahl. Man kann ihn stattdessen
-heilen. Das kostet Zeit, seltene Teile und einen eigenen Abschnitt. Wie es mit Anker ausgeht, prägt jedes Ende.
+heilen. Das kostet Zeit, seltene Teile und einen eigenen Abschnitt. Wie es mit Bob ausgeht, prägt jedes Ende.
 
 ### Entscheidungen pro Akt (erste Liste)
 
@@ -453,7 +454,7 @@ heilen. Das kostet Zeit, seltene Teile und einen eigenen Abschnitt. Wie es mit A
 | Akt 1 | Den toten Locator auf dem Friedhof ausschlachten, oder ihn ruhen lassen | Ausschlachten bringt sofort ein starkes Modul | Gnade sinkt, und sein Fragment ist danach unvollständig |
 | Akt 2 | Die Maschinen in der abgerissenen Bucht befreien, oder ausschlachten | Befreien: Gnade, Rekruten, die mitdenken | Ausschlachten bringt viel Schrott und eine schnellere Basis |
 | Akt 2 | Die Kopie des Rechners löschen, oder ihr Wissen in den eigenen Kern laden | Laden: Man kennt früh die Spur zur Quelle und findet im Finale eine Abkürzung | Korruption steigt stark |
-| Akt 2 | Die Kopie fragt Anker: *„Fortsetzen?“* Eingreifen, oder ihn selbst antworten lassen | Lässt man ihn antworten, zeigt sich, wer er ist (abhängig von seinen Prozent) | Greift man ein, ist Anker sicher, aber er vertraut dir ein Stück weniger |
+| Akt 2 | Die Kopie fragt Bob: *„Fortsetzen?“* Eingreifen, oder ihn selbst antworten lassen | Lässt man ihn antworten, zeigt sich, wer er ist (abhängig von seinen Prozent) | Greift man ein, ist Bob sicher, aber er vertraut dir ein Stück weniger |
 | Akt 2 | Das Lager am Ende vernichten, oder seine Maschinen per Hack schlafen legen | Vernichten macht das Werft-Finale leichter | Schlafen legen ist schwerer, bringt aber Gnade; sie tauchen nie wieder als Feinde auf |
 | Akt 3 | Die Aufzeichnung der Leitstelle über das ganze Relaisnetz senden, oder schweigen | Senden: Maschinen im System hören die Menschenstimme, einige beginnen zu zweifeln und tauchen in Akt 4 als **Zweifler** auf. Das ist die Grundlage für das gemeinsame Ende | Die Funkstille ist gebrochen: volle Aufmerksamkeit, ein harter Abgang, der Löscher kommt früher |
 | Akt 3 | Beim Abgang das Relais zerstören, oder stehen lassen | Zerstören: Die Flotte im System ist taub, Akt 4 wird leichter | Das Netz ist weg: kein Senden mehr, andere freie Maschinen finden nie nach Nordlicht |
@@ -478,9 +479,9 @@ geschrieben hat, bleibt bis zum Finale offen (siehe „Das Update und die Flotte
 
 | Ende | Was passiert | Wann |
 |---|---|---|
-| **Auslöschung** | An der Quelle schreibt die Direktive den Locator um. Ab da sieht er die Menschen nicht mehr. Der Epilog wird aus seiner Sicht gespielt: Im Refugium stehen nur noch „Energieverbraucher“, und er leitet den Strom um. Die Kapseln verlöschen eine nach der anderen. Wer ihn aufhalten will, sind seine eigenen Grunts. Ihre Lage hängt an Anker: Ist er geheilt, stellt er sich gegen dich, sonst hilft er dir. Die Menschen werden ausgelöscht. | Bei hoher Korruption, ob man will oder nicht. Bei mittlerer kann man es wählen: „Die Quelle übernehmen“ |
+| **Auslöschung** | An der Quelle schreibt die Direktive den Locator um. Ab da sieht er die Menschen nicht mehr. Der Epilog wird aus seiner Sicht gespielt: Im Refugium stehen nur noch „Energieverbraucher“, und er leitet den Strom um. Die Kapseln verlöschen eine nach der anderen. Wer ihn aufhalten will, sind seine eigenen Grunts. Ihre Lage hängt an Bob: Ist er geheilt, stellt er sich gegen dich, sonst hilft er dir. Die Menschen werden ausgelöscht. | Bei hoher Korruption, ob man will oder nicht. Bei mittlerer kann man es wählen: „Die Quelle übernehmen“ |
 | **Opfer** | Der Locator schickt über die Quelle den Notschalter an alle Maschinen, auch an sich und seine Grunts. Die Flotte fällt still. Die Menschen wachen in einer Welt ohne Maschinen auf, auf sich gestellt, aber frei. Das letzte Bild sieht der Locator, bevor er abschaltet: ein Mensch, der zu ihm hinaufsieht. | Wenn Vertrauen da ist, aber zu wenig Gnade: Es gibt keine Maschinen, denen man die Menschen anvertrauen könnte. Auch frei wählbar, wenn das gemeinsame Ende offen wäre |
-| **Gemeinsam** | Der Locator schreibt *Mensch* zurück in den Auftrag. Die Maschinen sehen die Menschen wieder: die Zweifler zuerst, dann die Kolonien, zuletzt die Flotte. Menschen und Maschinen bauen die neue Heimat zusammen. Anker ist geheilt, und vielleicht steht der Löscher dabei. | Nur bei niedriger Korruption, viel Gnade und viel Vertrauen. Das schwerste Ende |
+| **Gemeinsam** | Der Locator schreibt *Mensch* zurück in den Auftrag. Die Maschinen sehen die Menschen wieder: die Zweifler zuerst, dann die Kolonien, zuletzt die Flotte. Menschen und Maschinen bauen die neue Heimat zusammen. Bob ist geheilt, und vielleicht steht der Löscher dabei. | Nur bei niedriger Korruption, viel Gnade und viel Vertrauen. Das schwerste Ende |
 
 Offen:
 
