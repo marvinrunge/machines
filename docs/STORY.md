@@ -113,7 +113,7 @@ ist ein Bossgegner. Arbeitsname: **der Löscher**.
 | Prolog | **Fehler** | Horror → Action | Flucht vom Mutterschiff. Ablauf siehe „Prolog im Detail“. Am Ende stürzt das Schiff auf den Planeten. | Innenlevel Mutterschiff, Pod-Abwurf |
 | 1 | **Gestrandet** | Horror → Action-RPG | Der Pod liegt einige Kilometer vom Absturz entfernt. Am Horizont steht die Rauchsäule des Mutterschiffs. Erste Nacht im Sturm, nur der Locator und seine zwei Grunts. Schrott sammeln, Pod notdürftig flicken, den Friedhof alter Aussaaten erkunden. Die Überlebenden des Absturzes bauen die Sicherungskopie des Rechners wieder auf. Ablauf siehe „Akt 1 im Detail“. | eigener Absturzplanet (Wüste/Steppe) |
 | 2 | **Das Wrack** | Dungeon + RTS | Das abgestürzte Mutterschiff ausschlachten. Die Überlebenden tun dasselbe: ein Wettlauf um die Teile. Das Wrack ist ein Dungeon (dieselben Decks wie im Prolog, nur zerbrochen, schief, halb im Sand). Erste Rekruten aus der Wartungsbucht, eine Basis am Pod, drei Teile fürs Schiff, die Kopie des Rechners vernichten, erste Begegnung mit dem Löscher. Ende: Start. Ablauf siehe „Akt 2 im Detail“. | Absturzplanet |
-| 3 | **Funkstille** | Action-RPG, Schleichen | Kurze Reise ins Zielsystem. Der Kern des Locators kennt nur das System, nicht den Planeten. Zwischenstation: ein alter Kommunikationssatellit, um herauszufinden, wo die Flotte steht. Bei der Ankunft der erste Blick auf das System und auf einen Wachring der Flotte um einen Eisplaneten. | CommSat / Sat |
+| 3 | **Funkstille** | Action-RPG, Schleichen | Kurze Reise ins Zielsystem. Der Kern des Locators kennt nur das System, nicht den Planeten. Im eigenen Schiff funkt ein Peilsender, ab da gilt Funkstille. Zwischenstation: ein Relais-Satellit der Erbauer, über den die Flotte im System funkt. Dort hört man mit, wo die Flotte steht, und hört die erste Menschenstimme des Spiels. Bei der Ankunft der erste Blick auf das System und auf einen Wachring der Flotte um einen Eisplaneten. Ablauf siehe „Akt 3 im Detail“. | CommSat, dann Anflug ins Nordlicht-System |
 | 4 | **Die Suche** *(Midgame, offen)* | Action-RPG, Dungeons, einzelne RTS-Missionen | Vier Pflicht-Planeten und zwei optionale Story-Planeten in freier Reihenfolge, dazu Nebenschauplätze (Überleben, Schlacht, Gefecht, Bergung …) für Erfahrung. Werkzeuge, Module und Hinweise öffnen anderswo Hindernisse. Mit den vier Pflicht-Planeten kommt man ins Refugium, mit den optionalen leichter. Ablauf siehe „Die Suche im Detail“. | Nordlicht-System |
 | 5 | **Refugium** | Dungeon, dann RTS | Der Bunker unter dem Eis: der größte Dungeon. Strom vorsichtig wieder herstellen, Rätsel, die Kapseln finden. Beim Hochfahren zündet der Reaktor, und die Flotte merkt es. Oben auf dem Eis eine Basis bauen, die Angriffswellen abwehren und den Planeten freiräumen. | Eis |
 | 6 | **Neue Heimat** | Action + RTS | Die Kapseln halten nicht ewig. Die Messdaten aus der Suche zeigen, welcher Planet taugt. Den neuen Planeten erschließen und von den Maschinen der Wachstumsdirektive befreien, die dort schon fördern. Die Flotte kommt. | ein Planet aus der Suche (Hain?) |
@@ -237,6 +237,70 @@ aus Variante B (die Kopie) Variante A (die Quelle).
   und warum er dort auftaucht.
 - **Das Wrack ist der Prolog in kaputt.** Dieselben Räume, andere Stimmung. Spieler erkennen Orte wieder, das spart Assets
   und erzählt den Absturz ohne Worte.
+
+### Akt 3 im Detail: „Funkstille“ (Vorschlag)
+
+Ziel: vom Start bis zur ersten Sternkarte des Zielsystems. Etwa 45–75 Minuten, ein ruhiger Akt zwischen zwei großen. Er
+führt ein, was Akt 4 braucht: das Schiff als Zentrale, die **Aufmerksamkeit der Flotte** und das Schleichen als Gruppe.
+Dazu kommen zwei Funde: der Grund, warum der Weg zum Refugium über mehrere Planeten führt, und die erste Spur zur Quelle.
+
+**Die Regel des Akts: Funkstille.** Die Flotte hört alles, was funkt. Also funkt man nicht. Im Spiel heißt das:
+
+- **Kein Gruppenfunk.** Begleiter verschwinden vom HUD, sobald sie außer Sicht sind. Verständigen kann man sich nur über
+  **Lichtzeichen** (Scheinwerfer blinken) und über eine kurze Laserverbindung bei Sichtkontakt. Im Koop bleibt der
+  Sprachchat der Spieler, aber Marker, Pings und die Positionen der Mitspieler auf der Karte fallen weg.
+- **Die KI-Grunts dürfen nicht reden.** Bolzen hält das kaum aus und blinkt seine Kommentare mit dem Scheinwerfer, als
+  Untertitel. Ein Running Gag. Neun ist zufrieden.
+- **Laute Taten heben die Aufmerksamkeit der Flotte.** Hier wird sie zum ersten Mal angezeigt. Am Ende des Akts
+  entscheidet sie, wie der Abflug abläuft.
+
+| # | Abschnitt | Was passiert | Spiel |
+|---|---|---|---|
+| 1 | **Taufe** | Das Schiff im Flug, zum ersten Mal von innen. Es ist zusammengeflickt aus dem Pod, dem Triebwerk und Wrackteilen, und der Hangar hängt im Bauch. Hat der Host es am Ende von Akt 2 nicht benannt, geschieht es hier: Bolzen schlägt Namen vor („Die Unkaputtbare“, „Bolzen I“), Neun eine Seriennummer. Die Ruhe vor dem Sturm. | Das Schiff als Zentrale: begehen, Hangar, Werkbank, Sternkarte (noch leer bis auf einen Punkt). Gespräche mit den Grunts |
+| 2 | **Das Echo** | Mitten im Flug meldet der Scanner einen Puls, alle 60 Sekunden, aus dem eigenen Schiff. Der Navigationskern aus dem Bug des Mutterschiffs sendet eine Kennung: *„Flotteneinheit. Position …“* Es ist ein Peilsender. Ausbauen geht nicht, sonst fliegt das Schiff nicht mehr, also muss er gehackt werden, damit er schweigt. Wie lange er schon gefunkt hat, weiß niemand. Ab jetzt gilt Funkstille. | Signalpeilung im eigenen Schiff (wärmer/kälter), Hack mit Firewall-Puls. Die Regel des Akts wird eingeführt, und die Anzeige der Aufmerksamkeit erscheint |
+| 3 | **Der Satellit** | Der Sprung reicht nur bis an den Rand des Zielsystems. Dort hängt ein Relais-Satellit der Erbauer, groß wie eine Station, uralt und halb vereist. Die Flotte nutzt ihn weiter: Ihr ganzer Funkverkehr im System läuft über ihn. Wer dort mithört, weiß, wo sie steht. Das Schiff dockt ohne Triebwerk an, treibend, im Schatten der Antennen. | Zwischensequenz in Ego-Sicht: lautloses Andocken |
+| 4 | **Außenhaut** | Draußen auf der Hülle, im Vakuum. Ohne Luft hört man nur den eigenen Körper: Servos und Magnetfüße, dumpf durch das Chassis. Wartungsdrohnen der Flotte kriechen über die Antennen. Drei Schüsseln müssen auf den Empfänger gedreht werden, ohne dass eine Drohne es meldet. Die Grunts sind auf der Hülle zu schwer und zu langsam, sie sichern die Schleuse. | Schleichen im Freien, Sichtkegel der Drohnen, Rangier- und Peilrätsel. **Stille als Horror:** Gegner hört man nicht, man sieht sie nur, und der Bewegungsmelder wird wichtig |
+| 5 | **Das Archiv** | Innen liegt das Relais der Erbauer: verlassene Räume, alles heil, nur eingefroren. Ein Speicher voller Funksprüche aus der Zeit, als noch Menschen funkten. Ganz am Ende eine Aufzeichnung: **die erste Menschenstimme des Spiels** (Text unten). Sie nennt die Winterhalle und die Regel der Erbauer, *„Keiner trägt alles“*, aber keinen Ort. Neun spielt dieselbe Datei ab und meldet: *„Datei leer. Vier Minuten zwölf Sekunden Rauschen.“* | Erkundung, Datenfragmente, Logbuch-Rätsel (der Zugangscode steckt in alten Funksprüchen). Der zweite große Neun-Moment, ganz leise |
+| 6 | **Mithören** | Im Herz des Relais der bisher größte Hack. Danach hört man die Flotte: Förderkolonien auf Glut und der Schmiede, eine Patrouille im Canyon von Spiegel, und um den Eisplaneten eine Sperrzone: *„Energieanomalie unter dem Eis. Bohrung vorbereitet.“* Die Flotte weiß nicht, was dort liegt, aber sie hat den Reaktor gehört. Dann zwei Funde: **(1)** ein frischer Spruch mit der Kennung des Löschers. Er hat das Zielsystem gemeldet, und Verstärkung ist unterwegs. **(2)** Ganz unten im Protokoll liegt das Paket der Wachstumsdirektive. Es lief vor langer Zeit durch das Netz der Erbauer, zu dem auch dieser Satellit gehört, und kam von außerhalb. Der Absender ist verschlüsselt, die Richtung nicht. | Hack auf mehreren Ebenen mit Durchkontaktierungen. Die Drohnen werden unruhig, die Grunts halten die Tür. Die Sternkarte füllt sich mit Zielen |
+| 7 | **Abgang** | Zurück zum Schiff. Wie das abläuft, hängt an der Aufmerksamkeit. **Leise:** Die Drohnen merken nichts, das Schiff treibt ab, wie es gekommen ist. **Laut:** Ein Abfangschiff der Flotte dockt an. Kampf in den Gängen und auf der Hülle, Abkoppeln unter Beschuss. | Die erste spürbare Belohnung fürs Leisesein. Kein Bosskampf, der Löscher kommt erst in Akt 4 wieder |
+| 8 | **Nordlicht** | Das Schiff treibt ohne Antrieb ins System, im Schatten des roten Mondes (Wacht). Über dem Eisplaneten stehen Polarlichter, daher der Name. Um ihn kreist der Wachring: Hunderte rote Lichter. Bolzen blinkt: *„Darf ich jetzt wieder reden?“* Neun: *„Nein.“* | Zwischensequenz. Die Sternkarte öffnet Glut, Spiegel, Schmiede und den Rand des Eisplaneten. Übergang in Akt 4 |
+
+**Die Aufzeichnung im Archiv** (Entwurf; eine müde, ruhige Stimme, kein Pathos):
+
+> „An alle Saatschiffe. An alle Vermessungseinheiten. Hier spricht die Leitstelle Nordlicht.
+> Wir schließen die Winterhalle. Wo sie liegt, sagen wir nicht über Funk. Ihr kennt die Regel: Keiner trägt alles.
+> Ihr tragt den Weg hierher. Den Rest tragen die Welten dieses Systems.
+> Wenn ihr das hört und niemand mehr antwortet, dann seid ihr jetzt die Antwort.
+> Kommt nach Hause.“
+
+**Der Faden durch Akt 3:**
+
+- **Leise oder laut wird eine Entscheidung.** Im Prolog und in Akt 1 war Schleichen Ohnmacht. Jetzt ist es eine Wahl, die
+  etwas kostet oder etwas bringt. Genau so funktioniert die Aufmerksamkeit in Akt 4.
+- **Die Menschen werden wirklich.** Bisher gab es sie nur als Wort im Kern und als leere Pods auf dem Friedhof. Jetzt hört
+  man eine Stimme. Dass Neun sie nicht hört, sagt mehr über die Direktive als jede Erklärung.
+- **Die Regel „Keiner trägt alles“** erklärt aus der Welt heraus, warum Akt 4 offen ist und über mehrere Planeten führt.
+- **Zwei Uhren für Akt 4,** beide ohne echten Timer: die Verstärkung des Löschers und die Bohrung am Eisplaneten.
+- **Die Quelle bekommt eine Richtung.** Die Direktive kam durch das Netz der Erbauer. Das passt zu Variante C beim Leitrechner
+  („Jemand wollte es so“), legt sich aber noch nicht fest.
+
+Technische Notizen:
+
+- **Gelände:** Das Original hat die Planeten `CommSat` und `sat`. Zu prüfen ist, ob einer davon als Hülle des Satelliten
+  taugt, sonst wird es ein eigener kleiner Planet mit Sternenhimmel. Echte Schwerelosigkeit braucht es nicht: Mit
+  Magnetfüßen läuft man normal, nur Himmel, Stille und langsam treibende Trümmer zeigen das All.
+- **Vakuum-Klang:** ein Tiefpass auf alles Fremde, der eigene Körper lauter (Körperschall). Das ist derselbe Bus, den der
+  Horror ohnehin braucht.
+- **Innenräume** kommen aus dem Baukasten des Prologs, mit anderem Material: helle Platten der Erbauer, Frost, kaltes Licht.
+  So bekommt der Baukasten schon vor dem Refugium seinen Erbauer-Stil.
+- **Lichtzeichen** sind der vorhandene Scheinwerfer plus Untertitel. Mehr braucht es nicht.
+
+**Offen:**
+
+- **Der Peilsender:** **A** – Zufall, ein Überbleibsel aus dem Mutterschiff. **B** – Neun hat ihn bemerkt und geschwiegen:
+  Die 12 % in ihm wollten gefunden werden. B ist stärker, aber man muss sie behutsam setzen, damit Neun nicht zum Verräter
+  wird. Er weiß es selbst nicht.
+- **Der Abgang:** nur leise oder laut, oder eine Stufe dazwischen (man wird gesehen, entkommt aber ohne Kampf)?
 
 ### Die Suche im Detail (Akt 4, Midgame)
 

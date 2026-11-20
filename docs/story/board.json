@@ -26,8 +26,8 @@
     {
       "id": "akt3",
       "title": "Akt 3 – Funkstille",
-      "summary": "Kurze Reise ins Zielsystem. Der Kern kennt nur das System.",
-      "notes": "Zwischenstation Kommunikationssatellit. Ankunft: erster Blick auf das Nordlicht-System und den Wachring um den Eisplaneten."
+      "summary": "Funkstille auf dem Weg ins Zielsystem: Peilsender im eigenen Schiff, ein Relais-Satellit der Erbauer, die erste Menschenstimme, der Wachring um den Eisplaneten.",
+      "notes": "Ruhiger Akt zwischen zwei großen, 45–75 Minuten. Führt das Schiff als Zentrale, die Aufmerksamkeit der Flotte und Schleichen als Gruppe ohne Funk ein. Zwei Funde: „Keiner trägt alles“ (warum Akt 4 offen ist) und die Richtung, aus der die Direktive kam."
     },
     {
       "id": "akt4",
@@ -76,7 +76,18 @@
         "a-ki-grunts"
       ],
       "prompt": "First-person view from a small scout robot held in a maintenance clamp inside a vast dark spaceship maintenance bay. Red emergency lighting, rows of deactivated combat robots in the shadows, a monitor in the foreground showing a progress bar, cables hanging, coolant dripping. Oppressive, horror atmosphere.",
-      "images": [],
+      "images": [
+        {
+          "file": "20261120-162721-1.png",
+          "prompt": "First-person view from a small scout robot held in a maintenance clamp inside a vast dark spaceship maintenance bay. Red emergency lighting, rows of deactivated combat robots in the shadows, a monitor in the foreground showing a progress bar, cables hanging, coolant dripping. Oppressive, horror atmosphere.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:27:21.367Z"
+        }
+      ],
       "refs": []
     },
     {
@@ -95,7 +106,18 @@
         "a-bewegungsmelder"
       ],
       "prompt": "A small scout robot hiding behind crates in a dark spaceship corridor while a large armoured patrol robot passes with a searchlight cone sweeping through dusty air. Long row of deactivated robots along the wall, one of them faintly glowing. Horror, suspense.",
-      "images": [],
+      "images": [
+        {
+          "file": "20261120-162827-1.png",
+          "prompt": "A small scout robot hiding behind crates in a dark spaceship corridor while a large armoured patrol robot passes with a searchlight cone sweeping through dusty air. Long row of deactivated robots along the wall, one of them faintly glowing. Horror, suspense.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:28:27.360261+00:00"
+        }
+      ],
       "refs": []
     },
     {
@@ -112,7 +134,18 @@
         "a-hack"
       ],
       "prompt": "A tiny scout robot plugged into an enormous cylindrical ship computer core in a cathedral-like chamber, data light pulsing up the core, warning lights starting to flash red. Low angle, sense of scale.",
-      "images": [],
+      "images": [
+        {
+          "file": "20261120-162836-1.png",
+          "prompt": "A tiny scout robot plugged into an enormous cylindrical ship computer core in a cathedral-like chamber, data light pulsing up the core, warning lights starting to flash red. Low angle, sense of scale.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:28:36.983465+00:00"
+        }
+      ],
       "refs": []
     },
     {
@@ -129,7 +162,18 @@
         "a-durchsagen"
       ],
       "prompt": "Heavy combat robots bursting into a computer core chamber firing plasma weapons, the giant computer core exploding in sparks and fire behind a small fleeing scout robot. Chaos, motion blur, dramatic lighting.",
-      "images": [],
+      "images": [
+        {
+          "file": "20261120-162846-1.png",
+          "prompt": "Heavy combat robots bursting into a computer core chamber firing plasma weapons, the giant computer core exploding in sparks and fire behind a small fleeing scout robot. Chaos, motion blur, dramatic lighting.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:28:46.606204+00:00"
+        }
+      ],
       "refs": []
     },
     {
@@ -146,7 +190,18 @@
         "a-hack"
       ],
       "prompt": "First-person view from inside a narrow maintenance duct, looking back through a grate where a massive robot claw is reaching in, light strobing through the slats, sparks. Claustrophobic horror.",
-      "images": [],
+      "images": [
+        {
+          "file": "20261120-162856-1.png",
+          "prompt": "First-person view from inside a narrow maintenance duct, looking back through a grate where a massive robot claw is reaching in, light strobing through the slats, sparks. Claustrophobic horror.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:28:56.620651+00:00"
+        }
+      ],
       "refs": []
     },
     {
@@ -163,7 +218,18 @@
         "a-wiederbeleben"
       ],
       "prompt": "A small scout robot with a improvised bolter weapon fighting two stocky infantry robots in a damaged ship corridor, muzzle flashes, smoke, a glowing repair station in the background.",
-      "images": [],
+      "images": [
+        {
+          "file": "20261120-162955-1.png",
+          "prompt": "A small scout robot with a improvised bolter weapon fighting two stocky infantry robots in a damaged ship corridor, muzzle flashes, smoke, a glowing repair station in the background.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:29:55.244056+00:00"
+        }
+      ],
       "refs": []
     },
     {
@@ -180,7 +246,18 @@
         "a-hack"
       ],
       "prompt": "A spaceship pod bay tilting during atmospheric re-entry, walls glowing orange from heat, rows of landing pods hanging in clamps, a small robot racing toward one pod while debris falls. Epic disaster scene.",
-      "images": [],
+      "images": [
+        {
+          "file": "20261120-163108-1.png",
+          "prompt": "A spaceship pod bay tilting during atmospheric re-entry, walls glowing orange from heat, rows of landing pods hanging in clamps, a small robot racing toward one pod while debris falls. Epic disaster scene.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:31:08.390542+00:00"
+        }
+      ],
       "refs": []
     },
     {
@@ -197,7 +274,18 @@
         "a-rauchsaeule"
       ],
       "prompt": "A huge burning mothership streaking through the sky of an alien desert planet like a meteor, a small landing pod separating from it trailing smoke, seen from the ground at dusk. Awe and dread.",
-      "images": [],
+      "images": [
+        {
+          "file": "20261120-163217-1.png",
+          "prompt": "A huge burning mothership streaking through the sky of an alien desert planet like a meteor, a small landing pod separating from it trailing smoke, seen from the ground at dusk. Awe and dread.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:32:17.278652+00:00"
+        }
+      ],
       "refs": []
     },
     {
@@ -481,20 +569,237 @@
       "refs": []
     },
     {
+      "id": "s-taufe",
+      "act": "akt3",
+      "title": "Taufe",
+      "status": "entwurf",
+      "text": "Das Schiff im Flug, zum ersten Mal von innen: zusammengeflickt aus Pod, Triebwerk und Wrackteilen, der Hangar hängt im Bauch. Hat der Host es in Akt 2 nicht benannt, geschieht es hier. Ruhe vor dem Sturm.",
+      "gameplay": "Das Schiff als Zentrale: begehen, Hangar, Werkbank, Sternkarte (noch leer bis auf einen Punkt). Gespräche mit den Grunts.",
+      "mood": "Warmes Werkstattlicht, Brummen des Triebwerks, Sterne hinter einem geflickten Fenster.",
+      "dialog": "Bolzen: „Die Unkaputtbare! Nein: Bolzen I.“ Neun: „Vorschlag: Einheit S-1.“",
+      "assets": [
+        "a-schiff",
+        "a-sternkarte",
+        "a-grunts"
+      ],
+      "prompt": "Interior of a small improvised spaceship cobbled together from an escape pod, a salvaged engine and wreck plates, welded seams, cables, a workshop corner with tools. A small spindly scout robot and two stocky tracked combat robots stand by a patched viewport full of stars. Warm workshop light against cold space, cosy and fragile.",
+      "images": [
+        {
+          "file": "20261120-164140-1.png",
+          "prompt": "Interior of a small improvised spaceship cobbled together from an escape pod, a salvaged engine and wreck plates, welded seams, cables, a workshop corner with tools. A small spindly scout robot and two stocky tracked combat robots stand by a patched viewport full of stars. Warm workshop light against cold space, cosy and fragile.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:41:40.368392+00:00"
+        }
+      ],
+      "refs": []
+    },
+    {
+      "id": "s-echo",
+      "act": "akt3",
+      "title": "Das Echo",
+      "status": "entwurf",
+      "text": "Der Scanner meldet alle 60 Sekunden einen Puls aus dem eigenen Schiff. Der Navigationskern aus dem Mutterschiff sendet eine Kennung: ein Peilsender. Ausbauen geht nicht, er muss gehackt werden. Ab jetzt gilt Funkstille.",
+      "gameplay": "Signalpeilung im eigenen Schiff (wärmer/kälter), Hack mit Firewall-Puls. Die Regel des Akts wird eingeführt, die Anzeige der Aufmerksamkeit erscheint.",
+      "mood": "Gedämpftes Licht, ein Piepen, das mit jedem Schritt lauter wird. Paranoia statt Horror.",
+      "dialog": "Navigationskern (monoton): „Flotteneinheit. Position …“",
+      "assets": [
+        "a-navkern",
+        "a-peilsender",
+        "a-hack",
+        "a-aufmerksamkeit"
+      ],
+      "prompt": "Close-up inside a cramped spaceship engine bay: a salvaged navigation core, a heavy armoured cylinder with red status lights, wired into improvised cables. A faint red pulse of light ripples out from it like a radio wave. A small scout robot crouches in front of it with a probe arm extended into an open panel. Tense, dim, red and teal light.",
+      "images": [
+        {
+          "file": "20261120-164151-1.png",
+          "prompt": "Close-up inside a cramped spaceship engine bay: a salvaged navigation core, a heavy armoured cylinder with red status lights, wired into improvised cables. A faint red pulse of light ripples out from it like a radio wave. A small scout robot crouches in front of it with a probe arm extended into an open panel. Tense, dim, red and teal light.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:41:51.317266+00:00"
+        }
+      ],
+      "refs": []
+    },
+    {
+      "id": "s-satellit",
+      "act": "akt3",
+      "title": "Der Satellit",
+      "status": "entwurf",
+      "text": "Am Rand des Zielsystems hängt ein Relais-Satellit der Erbauer, groß wie eine Station, uralt und halb vereist. Die Flotte funkt über ihn. Das Schiff dockt ohne Triebwerk an, treibend, im Schatten der Antennen.",
+      "gameplay": "Zwischensequenz in Ego-Sicht: lautloses Andocken.",
+      "mood": "Absolute Stille, nur das eigene Chassis. Kaltes Sternenlicht, Eis auf den Antennen.",
+      "dialog": "",
+      "assets": [
+        "a-relais",
+        "a-schiff"
+      ],
+      "prompt": "A huge ancient communications relay satellite drifting in deep space, the size of a space station, with enormous dish antennas partly crusted with ice and frost. A tiny improvised spaceship drifts silently toward its docking arm with engines off, in the shadow of a dish. Distant pale star, a faint aurora-lit ice planet far away. Vast, cold, silent.",
+      "images": [
+        {
+          "file": "20261120-164202-1.png",
+          "prompt": "A huge ancient communications relay satellite drifting in deep space, the size of a space station, with enormous dish antennas partly crusted with ice and frost. A tiny improvised spaceship drifts silently toward its docking arm with engines off, in the shadow of a dish. Distant pale star, a faint aurora-lit ice planet far away. Vast, cold, silent.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:42:02.220765+00:00"
+        }
+      ],
+      "refs": []
+    },
+    {
+      "id": "s-aussenhaut",
+      "act": "akt3",
+      "title": "Außenhaut",
+      "status": "entwurf",
+      "text": "Draußen auf der Hülle, im Vakuum. Man hört nur den eigenen Körper. Wartungsdrohnen der Flotte kriechen über die Antennen. Drei Schüsseln müssen ausgerichtet werden, ohne dass eine Drohne es meldet. Die Grunts sichern die Schleuse.",
+      "gameplay": "Schleichen im Freien, Sichtkegel der Drohnen, Rangier- und Peilrätsel. Stille als Horror: Gegner hört man nicht, nur der Bewegungsmelder hilft.",
+      "mood": "Kein Ton außer Servos und Magnetfüßen. Sterne, langsam treibende Eissplitter, harte Schatten.",
+      "dialog": "Bolzen blinkt (Untertitel): „Langweilig.“",
+      "assets": [
+        "a-relais",
+        "a-drohne",
+        "a-vakuum-klang",
+        "a-bewegungsmelder",
+        "a-lichtzeichen"
+      ],
+      "prompt": "A small spindly scout robot with a single headlight walks on magnetic feet across the outer hull of a giant ancient satellite in space, between huge frosted dish antennas. Spider-like maintenance drones with red searchlight cones crawl over the antennas nearby. Black sky full of stars, hard white starlight, deep shadows, drifting ice crystals. Silent and tense.",
+      "images": [
+        {
+          "file": "20261120-164211-1.png",
+          "prompt": "A small spindly scout robot with a single headlight walks on magnetic feet across the outer hull of a giant ancient satellite in space, between huge frosted dish antennas. Spider-like maintenance drones with red searchlight cones crawl over the antennas nearby. Black sky full of stars, hard white starlight, deep shadows, drifting ice crystals. Silent and tense.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:42:11.750576+00:00"
+        }
+      ],
+      "refs": []
+    },
+    {
+      "id": "s-archiv",
+      "act": "akt3",
+      "title": "Das Archiv",
+      "status": "entwurf",
+      "text": "Innen das Relais der Erbauer: verlassene Räume, alles heil, nur eingefroren. Ein Speicher voller Funksprüche aus der Zeit, als noch Menschen funkten. Am Ende eine Aufzeichnung: die erste Menschenstimme des Spiels. Neun hört nur Rauschen.",
+      "gameplay": "Erkundung, Datenfragmente, Logbuch-Rätsel (Zugangscode aus alten Funksprüchen). Der zweite große Neun-Moment.",
+      "mood": "Frost auf hellen Platten, kaltes blaues Licht, eine Stimme aus einem alten Lautsprecher. Traurig, nicht gruselig.",
+      "dialog": "Aufzeichnung: „… Wenn ihr das hört und niemand mehr antwortet, dann seid ihr jetzt die Antwort. Kommt nach Hause.“ Neun: „Datei leer. Vier Minuten zwölf Sekunden Rauschen.“",
+      "assets": [
+        "a-erbauer-baukasten",
+        "a-aufzeichnung",
+        "a-datenfragmente"
+      ],
+      "prompt": "Interior of an abandoned control room of an ancient human-built relay station, clean pale wall panels covered in frost, rows of old consoles, a frozen coffee cup and a chair left turned. One console glows, playing an audio recording, a waveform on its screen. A small scout robot stands listening; behind it a stocky combat robot stands still with its head tilted. Cold blue light, quiet, melancholic.",
+      "images": [
+        {
+          "file": "20261120-164220-1.png",
+          "prompt": "Interior of an abandoned control room of an ancient human-built relay station, clean pale wall panels covered in frost, rows of old consoles, a frozen coffee cup and a chair left turned. One console glows, playing an audio recording, a waveform on its screen. A small scout robot stands listening; behind it a stocky combat robot stands still with its head tilted. Cold blue light, quiet, melancholic.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:42:20.809973+00:00"
+        }
+      ],
+      "refs": []
+    },
+    {
+      "id": "s-mithoeren",
+      "act": "akt3",
+      "title": "Mithören",
+      "status": "entwurf",
+      "text": "Im Herz des Relais der bisher größte Hack. Danach hört man die Flotte: Kolonien auf Glut und der Schmiede, eine Patrouille auf Spiegel, eine Sperrzone um den Eisplaneten mit vorbereiteter Bohrung. Ein frischer Spruch des Löschers: Verstärkung ist unterwegs. Ganz unten im Protokoll: das Paket der Wachstumsdirektive, gekommen von außerhalb.",
+      "gameplay": "Hack auf mehreren Ebenen mit Durchkontaktierungen. Die Drohnen werden unruhig, die Grunts halten die Tür. Die Sternkarte füllt sich mit Zielen.",
+      "mood": "Platinen-Optik, Pulse auf Leiterbahnen, Funkfetzen. Steigende Spannung.",
+      "dialog": "Flottenfunk: „Sperrzone Eisplanet. Energieanomalie unter dem Eis. Bohrung vorbereitet.“",
+      "assets": [
+        "a-hack",
+        "a-relais",
+        "a-sternkarte",
+        "a-loescher"
+      ],
+      "prompt": "A huge cylindrical data core in the heart of an ancient satellite, glowing circuit traces running up its walls like a circuit board, pulses of light racing along them. A small scout robot is plugged into a socket at its base, while two stocky combat robots guard a doorway against approaching red drone lights. Holographic fragments of a star map and radio waveforms float in the air. Green and amber circuit light, tense.",
+      "images": [
+        {
+          "file": "20261120-164253-1.png",
+          "prompt": "A huge cylindrical data core in the heart of an ancient satellite, glowing circuit traces running up its walls like a circuit board, pulses of light racing along them. A small scout robot is plugged into a socket at its base, while two stocky combat robots guard a doorway against approaching red drone lights. Holographic fragments of a star map and radio waveforms float in the air. Green and amber circuit light, tense.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:42:53.143379+00:00"
+        }
+      ],
+      "refs": []
+    },
+    {
+      "id": "s-abgang",
+      "act": "akt3",
+      "title": "Abgang",
+      "status": "entwurf",
+      "text": "Zurück zum Schiff. Leise: Die Drohnen merken nichts, das Schiff treibt ab. Laut: Ein Abfangschiff der Flotte dockt an, Kampf in den Gängen und auf der Hülle, Abkoppeln unter Beschuss.",
+      "gameplay": "Hängt an der Aufmerksamkeit der Flotte. Erste spürbare Belohnung fürs Leisesein. Kein Bosskampf.",
+      "mood": "Leise: angehaltener Atem. Laut: Alarmlicht, Laserfeuer, Trümmer im All.",
+      "dialog": "",
+      "assets": [
+        "a-aufmerksamkeit",
+        "a-abfangschiff",
+        "a-schiff"
+      ],
+      "prompt": "An improvised small spaceship undocking in a hurry from a giant frosted relay satellite while a sleek red-lit fleet interceptor ship approaches and fires lasers. Two stocky combat robots on the hull shoot back, a small scout robot leaps for the open hatch. Debris and ice shards spin in space. Dynamic, red warning lights against cold starlight.",
+      "images": [
+        {
+          "file": "20261120-164302-1.png",
+          "prompt": "An improvised small spaceship undocking in a hurry from a giant frosted relay satellite while a sleek red-lit fleet interceptor ship approaches and fires lasers. Two stocky combat robots on the hull shoot back, a small scout robot leaps for the open hatch. Debris and ice shards spin in space. Dynamic, red warning lights against cold starlight.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:43:02.063171+00:00"
+        }
+      ],
+      "refs": []
+    },
+    {
       "id": "s-ankunft",
       "act": "akt3",
-      "title": "Ankunft im Nordlicht-System",
-      "status": "idee",
-      "text": "Das Schiff fällt aus dem Sprung. Vor dem Fenster sieben Planeten, und um einen Eisplaneten kreist ein Wachring der Flotte. Der Kern des Locators kennt nur dieses System.",
-      "gameplay": "Zwischensequenz, dann Sternkarte zum ersten Mal.",
-      "mood": "",
-      "dialog": "",
+      "title": "Nordlicht",
+      "status": "entwurf",
+      "text": "Das Schiff treibt ohne Antrieb ins System, im Schatten des roten Mondes (Wacht). Über dem Eisplaneten stehen Polarlichter, daher der Name. Um ihn kreist der Wachring der Flotte: Hunderte rote Lichter.",
+      "gameplay": "Zwischensequenz. Die Sternkarte öffnet Glut, Spiegel, Schmiede und den Rand des Eisplaneten. Übergang in Akt 4.",
+      "mood": "Stille, Staunen, grünes Polarlicht gegen rote Wachlichter.",
+      "dialog": "Bolzen blinkt: „Darf ich jetzt wieder reden?“ Neun: „Nein.“",
       "assets": [
         "a-schiff",
         "a-sternkarte"
       ],
-      "prompt": "View from the cockpit of an improvised spaceship arriving in a star system: several planets of different colours, one icy planet circled by a ring of small red-lit patrol ships, a pale star, cold and vast.",
-      "images": [],
+      "prompt": "View from the patched cockpit of an improvised spaceship drifting with engines off in the shadow of a dark red moon. Ahead lies a white ice planet with green auroras over its pole, circled by a ring of hundreds of small red-lit patrol ships. Several other planets of different colours in the distance, a pale star. Cold, vast, awe and dread.",
+      "images": [
+        {
+          "file": "20261120-164413-1.png",
+          "prompt": "View from the patched cockpit of an improvised spaceship drifting with engines off in the shadow of a dark red moon. Ahead lies a white ice planet with green auroras over its pole, circled by a ring of hundreds of small red-lit patrol ships. Several other planets of different colours in the distance, a pale star. Cold, vast, awe and dread.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:44:13.185820+00:00"
+        }
+      ],
       "refs": []
     },
     {
@@ -1394,6 +1699,123 @@
       "sourcePrompt": "",
       "notes": "",
       "prompt": "An improvised robot shipyard in a desert at night: a half-built spaceship cobbled together from wreck parts on scaffolding, welding sparks, a landing pod clamped underneath, defensive turrets around, enemy robots approaching on the horizon.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-relais",
+      "name": "Relais-Satellit der Erbauer",
+      "kind": "karte",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Schauplatz von Akt 3: riesige vereiste Antennen, Hülle zum Begehen, innen Archiv und Datenkern. Prüfen, ob die Original-Planeten CommSat oder sat als Hülle taugen.",
+      "sourcePrompt": "",
+      "notes": "Akt 3",
+      "prompt": "Concept art of a giant ancient communications relay satellite, station-sized, with huge dish antennas, docking arms, walkways on its hull, partly crusted with ice. Side view on a black starfield.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-drohne",
+      "name": "Wartungsdrohne der Flotte",
+      "kind": "modell",
+      "source": "meshy",
+      "status": "idee",
+      "text": "Kleine Spinnen-Drohne, kriecht über Hüllen, Suchscheinwerfer mit Sichtkegel. Meldet, statt zu kämpfen.",
+      "sourcePrompt": "",
+      "notes": "Akt 3",
+      "prompt": "Character sheet of a small spider-like maintenance drone robot with six thin legs, a round body and one red searchlight eye, worn red paint. Front, side and back view on neutral grey background.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-erbauer-baukasten",
+      "name": "Baukasten im Erbauer-Stil",
+      "kind": "level",
+      "source": "meshy",
+      "status": "idee",
+      "text": "Der Schiffs-Baukasten mit anderem Material: helle Platten, Frost, kaltes Licht. Für das Archiv in Akt 3 und später das Refugium.",
+      "sourcePrompt": "",
+      "notes": "Akt 3",
+      "prompt": "Modular sci-fi corridor and room kit built by humans long ago: clean pale wall panels, rounded doorways, frosted surfaces, cold blue strip lights, old consoles. Several modules shown on a neutral background.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-aufzeichnung",
+      "name": "Aufzeichnung der Leitstelle Nordlicht",
+      "kind": "stimme",
+      "source": "tts",
+      "status": "idee",
+      "text": "Die erste Menschenstimme des Spiels. Müde, ruhig, kein Pathos. Text in STORY.md (Akt 3).",
+      "sourcePrompt": "",
+      "notes": "Akt 3",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-peilsender",
+      "name": "Peilsender im Navigationskern",
+      "kind": "system",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Puls alle 60 s, mit dem Scanner peilen, per Hack zum Schweigen bringen. Führt die Funkstille ein.",
+      "sourcePrompt": "",
+      "notes": "Akt 3",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-lichtzeichen",
+      "name": "Lichtzeichen statt Funk",
+      "kind": "system",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Verständigung bei Funkstille über blinkende Scheinwerfer (Untertitel) und eine Laserverbindung bei Sichtkontakt. Bolzens Running Gag.",
+      "sourcePrompt": "",
+      "notes": "Akt 3",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-vakuum-klang",
+      "name": "SFX: Vakuum und Körperschall",
+      "kind": "sound",
+      "source": "sfxgenerator",
+      "status": "idee",
+      "text": "Tiefpass auf alles Fremde, eigene Servos und Magnetfüße dumpf und laut. Derselbe Bus wie der Horror-Tiefpass.",
+      "sourcePrompt": "",
+      "notes": "Akt 3",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-abfangschiff",
+      "name": "Abfangschiff der Flotte",
+      "kind": "modell",
+      "source": "meshy",
+      "status": "idee",
+      "text": "Kommt nur beim lauten Abgang in Akt 3. Später als Jagdtrupp-Schiff in Akt 4 wiederverwendbar.",
+      "sourcePrompt": "",
+      "notes": "Akt 3",
+      "prompt": "Concept art of a sleek armoured interceptor spaceship of a robot fleet, angular hull, red faction markings, red running lights, docking clamps at the front. Side view on a black starfield.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-mus-funkstille",
+      "name": "Musik: Funkstille",
+      "kind": "musik",
+      "source": "musikgenerator",
+      "status": "idee",
+      "text": "Kalt, weit, leise Spannung. Stichworte: sparse space ambient, cold drones, distant radio static, slow pulse, no drums.",
+      "sourcePrompt": "",
+      "notes": "Akt 3",
+      "prompt": "",
       "images": [],
       "refs": []
     }
