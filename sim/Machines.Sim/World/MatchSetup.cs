@@ -80,7 +80,11 @@ public static class MatchSetup
                 var boundary = type.Boundary.Select(p => at + new Vector2(p.X * cos - p.Y * sin, p.X * sin + p.Y * cos)).ToList();
                 var artefact = world.AddArtefact(i, at, type, subType, boundary);
                 if (placement.Id is { } tag)
+                {
                     tagged[tag] = artefact;
+                    // (WP-B) A deck's doors are opened by their tag (GameWorld.OpenDoor).
+                    artefact.Tag = tag;
+                }
             }
             foreach (var link in artefacts.OnDestroy)
             {

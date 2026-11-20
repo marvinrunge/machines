@@ -494,7 +494,7 @@ public partial class WiredDriver
     private static bool Clear(NavGrid nav, NVector2 a, NVector2 b)
     {
         var length = NVector2.Distance(a, b);
-        for (var at = 3f; at < length; at += NavGrid.CellSize / 2)
+        for (var at = 3f; at < length; at += nav.CellSize / 2)
         {
             if (!nav.IsFree(NVector2.Lerp(a, b, at / length), false))
                 return false;

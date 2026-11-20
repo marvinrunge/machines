@@ -20,8 +20,8 @@ public sealed partial class GameWorld
         _ => null,
     };
 
-    private static bool InReach(Machine machine, Construction building) =>
-        building.DistanceFrom(machine.Position) <= InteractionDistance + machine.Radius + Navigation.NavGrid.CellSize * 1.5f;
+    private bool InReach(Machine machine, Construction building) =>
+        building.DistanceFrom(machine.Position) <= InteractionDistance + machine.Radius + Nav.CellSize * 1.5f;
 
     private readonly Dictionary<int, (Vector2 Position, float Since)> _progress = [];
 
@@ -85,7 +85,7 @@ public sealed partial class GameWorld
     /// </summary>
     private bool CanDriveTo(Machine machine, Vector2 next)
     {
-        var water = CrossesWater(machine);
+        var water = MobilityOf(machine);
         if (!Nav.OnPlanet(next))
             return false;
         if (Nav.IsFree(next, water) || WayInAt(machine, next) is not null)
@@ -301,12 +301,12 @@ public sealed partial class GameWorld
 
         // Plan again when the waypoint itself got blocked (usually by a new building), or when the machine
         // has made no headway for a few seconds.
-        if (machine.PathIndex < machine.Path.Count && !Nav.IsFree(machine.Path[machine.PathIndex], CrossesWater(machine)) || Stuck(machine))
+        if (machine.PathIndex < machine.Path.Count && !Nav.IsFree(machine.Path[machine.PathIndex], MobilityOf(machine)) || Stuck(machine))
         {
             var goal = machine.Path[^1];
             machine.Path.Clear();
             machine.PathIndex = 0;
-            machine.Path.AddRange(Nav.FindPath(machine.Position, goal, CrossesWater(machine)));
+            machine.Path.AddRange(Nav.FindPath(machine.Position, goal, MobilityOf(machine)));
             return machine.Path.Count > 0;
         }
         return true;
@@ -334,7 +334,7 @@ public sealed partial class GameWorld
         {
             machine.Path.Clear();
             machine.PathIndex = 0;
-            machine.Path.AddRange(Nav.FindPath(machine.Position, goal, CrossesWater(machine)));
+            machine.Path.AddRange(Nav.FindPath(machine.Position, goal, MobilityOf(machine)));
             _nextRepath[machine.Id] = Time + RepathInterval;
         }
         FollowPath(machine);
@@ -525,7 +525,7 @@ public sealed partial class GameWorld
     private List<int> SitesOnTheWay(Machine locator, Vector2 target)
     {
         var range = locator.Stats.ScannerRange;
-        var water = CrossesWater(locator);
+        var water = MobilityOf(locator);
         return Sites.Where(s => !s.DiscoveredBy.Contains(locator.Race) && Nav.IsFree(s.Position, water)
                 && DistanceToSegment(s.Position, locator.Position, target) < range)
             .Select(s => s.Id)

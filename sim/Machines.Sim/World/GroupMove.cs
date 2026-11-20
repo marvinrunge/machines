@@ -47,8 +47,8 @@ internal static class GroupMove
 
         bool TryPlace(Machine machine, Vector2 destination)
         {
-            var crossesWater = GameWorld.CrossesWater(machine);
-            if (!nav.IsFree(destination, crossesWater) || !SameArea(destination, crossesWater))
+            var mobility = GameWorld.MobilityOf(machine);
+            if (!nav.IsFree(destination, mobility) || !SameArea(destination, mobility))
                 return false;
             foreach (var (other, at) in placed)
             {
@@ -61,12 +61,12 @@ internal static class GroupMove
         }
 
         // A place cut off from the target (over a cliff, across water) would send a machine elsewhere.
-        bool SameArea(Vector2 destination, bool crossesWater)
+        bool SameArea(Vector2 destination, Mobility mobility)
         {
             var (tx, ty) = nav.Cell(target);
-            var targetArea = nav.Region(tx, ty, crossesWater);
+            var targetArea = nav.Region(tx, ty, mobility);
             var (x, y) = nav.Cell(destination);
-            return targetArea == 0 || nav.Region(x, y, crossesWater) == targetArea;
+            return targetArea == 0 || nav.Region(x, y, mobility) == targetArea;
         }
     }
 

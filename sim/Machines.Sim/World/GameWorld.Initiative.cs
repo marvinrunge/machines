@@ -25,7 +25,7 @@ public sealed partial class GameWorld
     /// An enemy a machine can neither shoot from where it stands nor come at: it stands where no machine can stand, on a
     /// building's footprint, and the line to it is blocked, so no place round it gives a better shot.
     /// </summary>
-    private bool OutOfReach(Machine machine, Actor enemy) => !Nav.IsFree(enemy.Position, CrossesWater(machine)) && !ClearShot(machine, enemy);
+    private bool OutOfReach(Machine machine, Actor enemy) => !Nav.IsFree(enemy.Position, MobilityOf(machine)) && !ClearShot(machine, enemy);
 
     private bool WorthTakingOn(Machine machine, Actor enemy)
     {

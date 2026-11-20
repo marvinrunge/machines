@@ -338,6 +338,12 @@ public enum GameEventKind
 
     /// <summary>A story chapter is lost (Other: the trio's race; Player: the Locator's; Detail: the name of its <c>StoryEnding</c>).</summary>
     StoryFailed,
+
+    /// <summary>
+    /// An artefact was taken off the map whole, not destroyed: a deck's door opened (Actor: the artefact; Position: where it
+    /// stood; Other: its scenario tag, where it has one). Its ground is free; a view takes its model away without a blast.
+    /// </summary>
+    ArtefactRemoved,
 }
 
 /// <param name="Mark">Where a round fired in first person really went, height and all, when that is not under the crosshair (a Wired run).</param>

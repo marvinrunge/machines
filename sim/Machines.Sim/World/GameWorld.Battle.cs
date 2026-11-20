@@ -105,7 +105,7 @@ public sealed partial class GameWorld
         var travel = to - from;
         if (travel.LengthSquared() < 1e-6f)
             return null;
-        var water = CrossesWater(machine);
+        var water = MobilityOf(machine);
         var direction = Vector2.Normalize(travel);
         var clearance = machine.Radius + standing.Radius;
         var hit = ContactPoint(from, direction, standing.Position, clearance);

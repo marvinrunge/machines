@@ -102,7 +102,7 @@ public sealed partial class GameWorld
             || scavenger.Order is EvadeOrder or StandGroundOrder or ScavengeOrder or EnterGarrisonOrder || VirtualDefCon(scavenger) == DefCon.High)
             return;
         var range = scavenger.DefCon == DefCon.Low ? LowDefConScavengingRange : ScavengingRange;
-        var water = CrossesWater(scavenger);
+        var water = MobilityOf(scavenger);
         var wreck = Debris
             .Where(d => Vector2.DistanceSquared(d.Position, scavenger.Position) < range * range && Nav.IsFree(d.Position, water))
             .MinBy(d => Vector2.DistanceSquared(d.Position, scavenger.Position));
