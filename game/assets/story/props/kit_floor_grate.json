@@ -21,7 +21,7 @@
     ]
   },
   "height": 0.3,
-  "tris": 443,
+  "tris": 540,
   "footprint": [
     [
       -2.0,
@@ -41,35 +41,14 @@
     ]
   ],
   "footprint_below_m": 0.5,
-  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/kit_floor_grate/model.glb",
-  "target_polycount": 500,
-  "tris_raw": 443,
-  "decimated_from": null,
-  "islands": 16,
-  "dropped_scraps": 0,
-  "yaw": 0,
-  "flip": false,
-  "fit": {
-    "scale": [
-      4.2205,
-      4.1563,
-      3.8886
-    ],
-    "snapped": {
-      "-x": 32,
-      "+x": 30,
-      "-y": 27,
-      "+y": 35,
-      "-z": 97,
-      "+z": 168
-    }
-  },
+  "source": "Blender, tools/blender/grate_floor.py: bars built to size, kit_floor's material",
+  "islands": 45,
   "textures": [
     [
       1024,
       1024
     ]
   ],
-  "glb_bytes": 366608,
-  "note": "Meshy made the grate as flat slabs with the bars only painted on and the white backdrop painted into the gaps (pink and cream cells); dark_white only blackens the whitest of them. It cannot be seen through: listed for a Blender rebuild."
+  "glb_bytes": 495756,
+  "note": "Rebuilt in Blender: Meshy's grate was flat slabs with painted bars (it could not be seen through)."
 }
