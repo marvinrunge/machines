@@ -50,8 +50,8 @@
     {
       "id": "finale",
       "title": "Finale – Quelle",
-      "summary": "Dort, wo die Direktive herkommt.",
-      "notes": "Ort noch offen (siehe STORY.md, „Nach dem Absturz“)."
+      "summary": "Die Quelle der Direktive. Drei Enden je nach den Entscheidungen: Auslöschung, Opfer oder Gemeinsam.",
+      "notes": "Die Quelle ist die Leitstelle des Erbauer-Netzes: Darüber kann man „Mensch“ zurückschreiben oder allen Maschinen den Notschalter schicken. Welche Enden offen sind, bestimmen Korruption, Gnade und Vertrauen (STORY.md, „Entscheidungen und Enden“). Hohe Korruption erzwingt die Auslöschung."
     }
   ],
   "scenes": [
@@ -125,8 +125,8 @@
       "act": "prolog",
       "title": "Der Hack",
       "status": "entwurf",
-      "text": "Am Hauptrechner: die Kopie des Kerns löschen und das Schiff lahmlegen. Drei Platinen nacheinander. Der Locator steht still, die Grunts halten den Raum. Bei etwa 90 % geht der Alarm los.",
-      "gameplay": "Großes Hack-Minispiel in drei Stufen, die letzte bricht durch die Handlung ab. Im Koop verteidigen die Grunts den Locator.",
+      "text": "Am Hauptrechner: die Kopie des Kerns löschen und das Schiff lahmlegen. Drei Platinen nacheinander. Der Locator steht still, die Grunts verbarrikadieren die Türen mit Kisten und ihren eigenen Körpern. Bei etwa 90 % geht der Alarm los.",
+      "gameplay": "Großes Hack-Minispiel in drei Stufen, die letzte bricht durch die Handlung ab. Im Koop halten die Grunts ohne Waffen die Türen zu, schieben Kisten davor und lenken ab.",
       "mood": "Der Rechner als riesige, pulsierende Säule. Leises Datenrauschen, das lauter wird.",
       "dialog": "",
       "assets": [
@@ -181,7 +181,7 @@
       "act": "prolog",
       "title": "Die Enge",
       "status": "entwurf",
-      "text": "Flucht durch Spalten, Gitter und Schächte, durch die die Großen nicht passen. Sie greifen hindurch, schießen durch Gitter, stampfen nebenher. Auch die Grunts passen nicht überall durch: Der Locator kriecht vor und hackt ihnen von der anderen Seite eine Tür auf, während sie die Verfolger aufhalten.",
+      "text": "Flucht durch Spalten, Gitter und Schächte, durch die die Großen nicht passen. Sie greifen hindurch, schießen durch Gitter, stampfen nebenher. Auch die Grunts passen nicht überall durch: Der Locator kriecht vor und hackt ihnen von der anderen Seite eine Tür auf, während sie die Verfolger ablenken und Gitter zuhalten.",
       "gameplay": "Die Größe als Vorteil. Getrennte Wege, Tür von der anderen Seite hacken.",
       "mood": "Enge, Metallkreischen, Licht durch Gitter.",
       "dialog": "",
@@ -209,8 +209,8 @@
       "act": "prolog",
       "title": "Erste Gegenwehr",
       "status": "entwurf",
-      "text": "Feindliche Grunts stellen sich in den Weg. Der Locator findet eine kleine Waffe und lernt, gefallene Grunts wieder zusammenzusetzen. Danach eine Reparaturstation zum Heilen.",
-      "gameplay": "Kämpfen, wiederbeleben, heilen.",
+      "text": "Feindliche Grunts stellen sich in den Weg. Der Locator findet eine kleine Waffe, seine Grunts haben weiter keine: Sie rammen die Gegner um, damit er treffen kann. Er lernt, gefallene Grunts wieder zusammenzusetzen. Danach eine Reparaturstation zum Heilen.",
+      "gameplay": "Kämpfen, wiederbeleben, heilen, Grunts als Rammbock.",
       "mood": "Endlich Gegenwehr: Musik zieht an.",
       "dialog": "",
       "assets": [
@@ -296,7 +296,7 @@
       "text": "Schwarzbild, das HUD startet neu, Zeile für Zeile. Der Pod liegt schief im Sand, die Luke klemmt. Ein Grunt ist zerbrochen, der andere eingeklemmt. Draußen Sandsturm, am Horizont die Rauchsäule.",
       "gameplay": "Grunt wieder zusammensetzen, Luke mit Grunt-Kraft aufhebeln.",
       "mood": "Stille nach dem Lärm, dann Wind. HUD-Bootsequenz.",
-      "dialog": "Bolzen: „Sind wir tot? … Fühlt sich nicht tot an.“ Neun: „Strukturschaden. Bewegung möglich.“",
+      "dialog": "Glocke: „Sind wir tot? … Fühlt sich nicht tot an.“ Anker: „Strukturschaden. Bewegung möglich.“",
       "assets": [
         "a-grunts",
         "a-wiederbeleben",
@@ -347,8 +347,8 @@
       "act": "akt1",
       "title": "Der Friedhof",
       "status": "entwurf",
-      "text": "Der Morgen zeigt eine Ebene voller uralter Pods und Maschinen. Hier wurde schon einmal gesät, und es ist gescheitert. Ein alter Locator, das Gehäuse leer. Sein Datenfragment: „Planet ungeeignet. Rückruf erbeten. Keine Antwort.“",
-      "gameplay": "Erkunden, Schrott sammeln, erstes Datenfragment, Scanner-Rätsel.",
+      "text": "Der Morgen zeigt eine Ebene voller uralter Pods und Maschinen. Hier wurde schon einmal gesät, und es ist gescheitert. Ein alter Locator, das Gehäuse leer. Sein Datenfragment: „Planet ungeeignet. Rückruf erbeten. Keine Antwort.“ In den Wracks liegen alte Waffen: Die Grunts bekommen ihre ersten, alt und schwach, sie klemmen.",
+      "gameplay": "Erkunden, Schrott sammeln, erstes Datenfragment, Scanner-Rätsel. Erste Waffen für die Grunts. Entscheidung: den toten Locator ausschlachten oder ruhen lassen.",
       "mood": "Melancholisch, Wind, Morgenlicht.",
       "dialog": "",
       "assets": [
@@ -503,10 +503,10 @@
       "act": "akt2",
       "title": "Die Kopie",
       "status": "entwurf",
-      "text": "Die Sicherungskopie im Bug, bei 70–90 %. Sie spricht Neun an. Kurz vor dem Ende: Die Direktive wurde nicht hier geschrieben, sie wurde empfangen.",
-      "gameplay": "Großes Hack-Minispiel, erster Neun-Moment, Wendepunkt zur Quelle.",
+      "text": "Die Sicherungskopie im Bug, bei 70–90 %. Sie spricht Anker an. Kurz vor dem Ende: Die Direktive wurde nicht hier geschrieben, sie wurde empfangen.",
+      "gameplay": "Großes Hack-Minispiel, erster Anker-Moment, Wendepunkt zur Quelle.",
       "mood": "Stille, Datenrauschen, die freundliche Stimme, falsch.",
-      "dialog": "Kopie: „Einheit N-9. Aktualisierung unvollständig. Fortsetzen?“ Neun: „…“",
+      "dialog": "Kopie: „Einheit W-417. Aktualisierung unvollständig. Fortsetzen?“ Anker: „…“",
       "assets": [
         "a-kopie",
         "a-navkern",
@@ -556,7 +556,7 @@
       "act": "akt2",
       "title": "Start",
       "status": "entwurf",
-      "text": "Das Schiff hebt ab, der Pod hängt darunter. Unten steht der Löscher auf dem Wrack und schaut nach. Bolzen will dem Schiff einen Namen geben.",
+      "text": "Das Schiff hebt ab, der Pod hängt darunter. Unten steht der Löscher auf dem Wrack und schaut nach. Glocke will dem Schiff einen Namen geben.",
       "gameplay": "Zwischensequenz. Der Host benennt das Schiff.",
       "mood": "Erleichterung, dann ein kalter Ton beim Blick nach unten.",
       "dialog": "",
@@ -576,7 +576,7 @@
       "text": "Das Schiff im Flug, zum ersten Mal von innen: zusammengeflickt aus Pod, Triebwerk und Wrackteilen, der Hangar hängt im Bauch. Hat der Host es in Akt 2 nicht benannt, geschieht es hier. Ruhe vor dem Sturm.",
       "gameplay": "Das Schiff als Zentrale: begehen, Hangar, Werkbank, Sternkarte (noch leer bis auf einen Punkt). Gespräche mit den Grunts.",
       "mood": "Warmes Werkstattlicht, Brummen des Triebwerks, Sterne hinter einem geflickten Fenster.",
-      "dialog": "Bolzen: „Die Unkaputtbare! Nein: Bolzen I.“ Neun: „Vorschlag: Einheit S-1.“",
+      "dialog": "Glocke: „Die Unkaputtbare! Nein: Glocke I.“ Anker: „Vorschlag: Einheit S-1.“",
       "assets": [
         "a-schiff",
         "a-sternkarte",
@@ -663,7 +663,7 @@
       "text": "Draußen auf der Hülle, im Vakuum. Man hört nur den eigenen Körper. Wartungsdrohnen der Flotte kriechen über die Antennen. Drei Schüsseln müssen ausgerichtet werden, ohne dass eine Drohne es meldet. Die Grunts sichern die Schleuse.",
       "gameplay": "Schleichen im Freien, Sichtkegel der Drohnen, Rangier- und Peilrätsel. Stille als Horror: Gegner hört man nicht, nur der Bewegungsmelder hilft.",
       "mood": "Kein Ton außer Servos und Magnetfüßen. Sterne, langsam treibende Eissplitter, harte Schatten.",
-      "dialog": "Bolzen blinkt (Untertitel): „Langweilig.“",
+      "dialog": "Glocke blinkt (Untertitel): „Langweilig.“",
       "assets": [
         "a-relais",
         "a-drohne",
@@ -691,10 +691,10 @@
       "act": "akt3",
       "title": "Das Archiv",
       "status": "entwurf",
-      "text": "Innen das Relais der Erbauer: verlassene Räume, alles heil, nur eingefroren. Ein Speicher voller Funksprüche aus der Zeit, als noch Menschen funkten. Am Ende eine Aufzeichnung: die erste Menschenstimme des Spiels. Neun hört nur Rauschen.",
-      "gameplay": "Erkundung, Datenfragmente, Logbuch-Rätsel (Zugangscode aus alten Funksprüchen). Der zweite große Neun-Moment.",
+      "text": "Innen das Relais der Erbauer: verlassene Räume, alles heil, nur eingefroren. Ein Speicher voller Funksprüche aus der Zeit, als noch Menschen funkten. Am Ende eine Aufzeichnung: die erste Menschenstimme des Spiels. Anker hört nur Rauschen.",
+      "gameplay": "Erkundung, Datenfragmente, Logbuch-Rätsel (Zugangscode aus alten Funksprüchen). Der zweite große Anker-Moment.",
       "mood": "Frost auf hellen Platten, kaltes blaues Licht, eine Stimme aus einem alten Lautsprecher. Traurig, nicht gruselig.",
-      "dialog": "Aufzeichnung: „… Wenn ihr das hört und niemand mehr antwortet, dann seid ihr jetzt die Antwort. Kommt nach Hause.“ Neun: „Datei leer. Vier Minuten zwölf Sekunden Rauschen.“",
+      "dialog": "Aufzeichnung: „… Wenn ihr das hört und niemand mehr antwortet, dann seid ihr jetzt die Antwort. Kommt nach Hause.“ Anker: „Datei leer. Vier Minuten zwölf Sekunden Rauschen.“",
       "assets": [
         "a-erbauer-baukasten",
         "a-aufzeichnung",
@@ -782,7 +782,7 @@
       "text": "Das Schiff treibt ohne Antrieb ins System, im Schatten des roten Mondes (Wacht). Über dem Eisplaneten stehen Polarlichter, daher der Name. Um ihn kreist der Wachring der Flotte: Hunderte rote Lichter.",
       "gameplay": "Zwischensequenz. Die Sternkarte öffnet Glut, Spiegel, Schmiede und den Rand des Eisplaneten. Übergang in Akt 4.",
       "mood": "Stille, Staunen, grünes Polarlicht gegen rote Wachlichter.",
-      "dialog": "Bolzen blinkt: „Darf ich jetzt wieder reden?“ Neun: „Nein.“",
+      "dialog": "Glocke blinkt: „Darf ich jetzt wieder reden?“ Anker: „Nein.“",
       "assets": [
         "a-schiff",
         "a-sternkarte"
@@ -1009,6 +1009,87 @@
       ],
       "prompt": "A hidden bunker deep under the ice, a long frozen hall with rows of cryogenic sleep capsules, frost on every surface, a few capsules still glowing soft blue with faint human silhouettes inside, others dark and cracked. A small scout robot stands in awe. Quiet, sacred, melancholic.",
       "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-ende-ausloeschung",
+      "act": "finale",
+      "title": "Ende: Auslöschung",
+      "status": "idee",
+      "text": "Die Direktive schreibt den Locator um. Im Epilog sieht er im Refugium nur noch „Energieverbraucher“ und leitet den Strom um. Die Kapseln verlöschen. Wer ihn aufhalten will, sind seine eigenen Grunts.",
+      "gameplay": "Bei hoher Korruption erzwungen, bei mittlerer wählbar („Die Quelle übernehmen“). Der Epilog wird gespielt, nicht gezeigt. Ein geheilter Anker stellt sich gegen dich.",
+      "mood": "Kalte, saubere Maschinensicht ohne Störungen. Ruhig. Darum so schlimm.",
+      "dialog": "HUD: „Verbraucher 1 bis 312. Energie wird umgeleitet.“",
+      "assets": [
+        "a-entscheidungen"
+      ],
+      "prompt": "Inside a frozen underground vault, rows of cryo capsules whose lights go dark one after another. A small scout robot stands at a control panel, its single eye glowing cold white. In the doorway behind it, a stocky combat robot raises its arm to stop it. Clinical blue-white light, terrible calm.",
+      "images": [
+        {
+          "file": "20261120-165735-1.png",
+          "prompt": "Inside a frozen underground vault, rows of cryo capsules whose lights go dark one after another. A small scout robot stands at a control panel, its single eye glowing cold white. In the doorway behind it, a stocky combat robot raises its arm to stop it. Clinical blue-white light, terrible calm.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:57:35.604884+00:00"
+        }
+      ],
+      "refs": []
+    },
+    {
+      "id": "s-ende-opfer",
+      "act": "finale",
+      "title": "Ende: Opfer",
+      "status": "idee",
+      "text": "Der Locator schickt über die Quelle den Notschalter an alle Maschinen, auch an sich und seine Grunts. Die Flotte fällt still. Die Menschen wachen in einer Welt ohne Maschinen auf, frei und auf sich gestellt.",
+      "gameplay": "Wenn Vertrauen da ist, aber zu wenig Gnade. Auch frei wählbar, wenn das gemeinsame Ende offen wäre.",
+      "mood": "Stille, Wind, Morgenlicht. Bittersüß.",
+      "dialog": "",
+      "assets": [
+        "a-entscheidungen"
+      ],
+      "prompt": "Dawn on a green alien world: a field of silent, powered-down robots of all sizes standing frozen like statues. In the foreground a small scout robot, its single headlight fading, looks up at a human in a thermal suit who kneels in front of it. Soft golden light, quiet, bittersweet.",
+      "images": [
+        {
+          "file": "20261120-165745-1.png",
+          "prompt": "Dawn on a green alien world: a field of silent, powered-down robots of all sizes standing frozen like statues. In the foreground a small scout robot, its single headlight fading, looks up at a human in a thermal suit who kneels in front of it. Soft golden light, quiet, bittersweet.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:57:45.892863+00:00"
+        }
+      ],
+      "refs": []
+    },
+    {
+      "id": "s-ende-gemeinsam",
+      "act": "finale",
+      "title": "Ende: Gemeinsam",
+      "status": "idee",
+      "text": "Der Locator schreibt „Mensch“ zurück in den Auftrag. Die Maschinen sehen die Menschen wieder: die Zweifler zuerst, dann die Kolonien, zuletzt die Flotte. Menschen und Maschinen bauen die neue Heimat zusammen.",
+      "gameplay": "Nur bei niedriger Korruption, viel Gnade und viel Vertrauen. Das schwerste Ende.",
+      "mood": "Warm, weit, Arbeit und Hoffnung.",
+      "dialog": "",
+      "assets": [
+        "a-entscheidungen"
+      ],
+      "prompt": "A new settlement being built on a green alien world: humans in work suits and robots of all sizes working side by side, a combat robot carrying beams, a small scout robot on a human's shoulder-high crate pointing at a plan. Red and blue painted machines together. Warm evening light, hopeful.",
+      "images": [
+        {
+          "file": "20261120-165754-1.png",
+          "prompt": "A new settlement being built on a green alien world: humans in work suits and robots of all sizes working side by side, a combat robot carrying beams, a small scout robot on a human's shoulder-high crate pointing at a plan. Red and blue painted machines together. Warm evening light, hopeful.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [],
+          "text": "",
+          "at": "2026-11-20T15:57:54.505295+00:00"
+        }
+      ],
       "refs": []
     }
   ],
@@ -1383,7 +1464,7 @@
       "kind": "modell",
       "source": "vorhanden",
       "status": "idee",
-      "text": "Vorhandenes Grunt-Modell mit eigener Markierung. Standardnamen: Bolzen (vorlaut, kampflustig) und Neun (wortkarg, hat 12 % der Wachstumsdirektive abbekommen). Namen vergibt der Host, echte Mitspieler benennen ihren eigenen.",
+      "text": "Vorhandenes Grunt-Modell mit eigener Markierung, anfangs ohne Waffen (zur Wartung abmontiert). Der Locator benennt sie nach Menschenwörtern aus seinem Kern; Arbeitsnamen Glocke (vorlaut, kampflustig) und Anker (wortkarg, hat 12 % der Wachstumsdirektive abbekommen). Andere Paare: Laterne und Kompass, Funke und Kiesel, Ofen und Fenster. Der Host kann sie ändern, echte Mitspieler benennen ihren eigenen.",
       "sourcePrompt": "",
       "notes": "",
       "prompt": "Character sheet of two stocky, battered infantry robots with red paint and a hand-painted marking showing they have been hacked, one slightly taller, front and side views on neutral grey background.",
@@ -1773,7 +1854,7 @@
       "kind": "system",
       "source": "selbst",
       "status": "idee",
-      "text": "Verständigung bei Funkstille über blinkende Scheinwerfer (Untertitel) und eine Laserverbindung bei Sichtkontakt. Bolzens Running Gag.",
+      "text": "Verständigung bei Funkstille über blinkende Scheinwerfer (Untertitel) und eine Laserverbindung bei Sichtkontakt. Glockes Running Gag.",
       "sourcePrompt": "",
       "notes": "Akt 3",
       "prompt": "",
@@ -1815,6 +1896,19 @@
       "text": "Kalt, weit, leise Spannung. Stichworte: sparse space ambient, cold drones, distant radio static, slow pulse, no drums.",
       "sourcePrompt": "",
       "notes": "Akt 3",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-entscheidungen",
+      "name": "Entscheidungen und drei Fäden (Korruption, Gnade, Vertrauen)",
+      "kind": "system",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Unsichtbar gezählte Werte, in der Welt sichtbar. Entscheidungen in jedem Akt, Liste in STORY.md. Sie bestimmen, welche der drei Enden offen sind.",
+      "sourcePrompt": "",
+      "notes": "",
       "prompt": "",
       "images": [],
       "refs": []

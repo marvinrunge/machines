@@ -28,7 +28,7 @@
 - **Hacken als eigenes Minispiel** in der Platinen-Optik des Hangars. Man hackt selbst, nicht per Knopfdruck. Es kommt
   immer wieder in der Story vor.
 - **Koop von Anfang an, bis zu drei Spieler:** Spieler 1 ist immer der Locator. Gleich zu Beginn hackt er zwei Grunts, die ihn
-  begleiten. Sie werden von Mitspielern oder der KI gesteuert. Grunts kämpfen, aber nicht besonders gut. Sterben sie, ist das
+  begleiten, anfangs ohne Waffen. Sie werden von Mitspielern oder der KI gesteuert. Grunts kämpfen, aber nicht besonders gut. Sterben sie, ist das
   nicht schlimm, denn der Locator kann sie wieder zusammensetzen. Erst wenn der Locator stirbt, ist es vorbei.
 - **Fortschritt im Koop hängt am Spielstand des Hosts.** Dazu kommt: Fertige Helden lassen sich in den Überlebensmodus
   (Wired) mitnehmen, auch die Grunts der Mitspieler in deren eigenes Wired (siehe „Abzüge“).
@@ -39,6 +39,11 @@
 - **Horror-Atmosphäre** am Anfang: Der kleine, schwache Locator in der ersten Mission. Ab und zu kommen wieder solche
   Level. Nicht zu krass, die Wirkung kommt aus Atmosphäre, Klang und wenigen gut gesetzten Schreckmomenten.
   Dafür gibt es einen eigenen, generierten Soundtrack und neue Soundeffekte.
+- **Die Grunts starten ohne Waffen.** Sie helfen anfangs mit ihrem Körper; die ersten Waffen gibt es in Akt 1.
+- **Neue Namen für die Grunts:** Menschenwörter aus dem Kern des Locators (Arbeitsnamen Glocke und Anker).
+- **Entscheidungen mit Folgen, gute und schlechte,** in jedem Akt. Sie bestimmen eines von **drei Enden**: Die Menschen
+  werden ausgelöscht, oder sie werden gerettet und alle Maschinen schalten sich ab, oder Menschen und Maschinen leben
+  gemeinsam weiter. Ausgearbeitet unter „Entscheidungen und Enden“.
 
 ---
 
@@ -117,7 +122,7 @@ ist ein Bossgegner. Arbeitsname: **der Löscher**.
 | 4 | **Die Suche** *(Midgame, offen)* | Action-RPG, Dungeons, einzelne RTS-Missionen | Vier Pflicht-Planeten und zwei optionale Story-Planeten in freier Reihenfolge, dazu Nebenschauplätze (Überleben, Schlacht, Gefecht, Bergung …) für Erfahrung. Werkzeuge, Module und Hinweise öffnen anderswo Hindernisse. Mit den vier Pflicht-Planeten kommt man ins Refugium, mit den optionalen leichter. Ablauf siehe „Die Suche im Detail“. | Nordlicht-System |
 | 5 | **Refugium** | Dungeon, dann RTS | Der Bunker unter dem Eis: der größte Dungeon. Strom vorsichtig wieder herstellen, Rätsel, die Kapseln finden. Beim Hochfahren zündet der Reaktor, und die Flotte merkt es. Oben auf dem Eis eine Basis bauen, die Angriffswellen abwehren und den Planeten freiräumen. | Eis |
 | 6 | **Neue Heimat** | Action + RTS | Die Kapseln halten nicht ewig. Die Messdaten aus der Suche zeigen, welcher Planet taugt. Den neuen Planeten erschließen und von den Maschinen der Wachstumsdirektive befreien, die dort schon fördern. Die Flotte kommt. | ein Planet aus der Suche (Hain?) |
-| Finale | **Quelle** | Action, Dungeon | Die Konfrontation dort, wo die Direktive herkommt (siehe „Nach dem Absturz“). Ende offen: Direktive zurückschreiben, Quelle zerstören oder selbst übernehmen. | offen |
+| Finale | **Quelle** | Action, Dungeon | Die Konfrontation dort, wo die Direktive herkommt (siehe „Nach dem Absturz“). Drei Enden, je nach den Entscheidungen im Spiel: Auslöschung, Opfer oder Gemeinsam (siehe „Entscheidungen und Enden“). | offen |
 
 Gestellte Maschinen: In den RTS-Abschnitten bekommt man Truppen, in Akt 5 und 6 eventuell blaue Leihtruppen.
 
@@ -129,10 +134,10 @@ Ziel: in 20–30 Minuten von „hilflos“ zu „entkommen“. Das Tutorial stec
 |---|---|---|---|
 | 1 | **Erwachen** | Der Locator hängt in einer Wartungsklammer. Das HUD ist gestört. Eine freundliche Durchsage ruft „Wartungseinheit L-7“ zur Aktualisierung. Auf einem Bildschirm läuft ein Balken: *Entschlüsselung geschützter Kern: 37 %*. Der Rechner knackt gerade sein Geheimnis. Nach der Befreiung findet er in den Nachbarbuchten zwei Grunts, die ebenfalls auf ihr Update warten. Er hackt sie, bevor das Update sie erreicht. Ab jetzt begleiten sie ihn, gesteuert von Mitspielern oder der KI. | Sehen, bewegen, Scheinwerfer, erster Hack (klein), Begleiter |
 | 2 | **Schleichen** | Dunkle Wartungsdecks, Patrouillen, Reihen abgeschalteter Maschinen. Weg zum Hauptrechner durch Schächte und Nebenräume. Die Grunts sind laut. Die Gruppe muss sich abstimmen: Wer geht vor, wer wartet, wer lenkt ab? | Verstecken, Signatur, Scanner-Puls, Lüftungsschächte, Zusammenspiel |
-| 3 | **Der Hack** | Am Hauptrechner: die Kopie seines Kerns löschen und das Schiff lahmlegen. Großes Hack-Minispiel in mehreren Stufen. Während der Locator hackt, steht er still, und die Grunts halten den Raum. Bei etwa 90 % geht der Alarm los. | Hacken unter Bewachung |
+| 3 | **Der Hack** | Am Hauptrechner: die Kopie seines Kerns löschen und das Schiff lahmlegen. Großes Hack-Minispiel in mehreren Stufen. Während der Locator hackt, steht er still, und die Grunts verbarrikadieren die Türen mit Kisten und ihren eigenen Körpern. Bei etwa 90 % geht der Alarm los. | Hacken unter Bewachung |
 | 4 | **Erwischt** | Durchsage (siehe unten): Der Locator wird für korrumpiert erklärt, das Notfallprotokoll läuft an. Kampfmaschinen (Knights?) stürmen den Raum und schießen auf den Locator. Sie treffen den Rechner. Explosionen, der Strom fällt aus, die Durchsage zerfällt mitten im Satz, das Schiff verliert die Steuerung. | – (Zwischensequenz in Ego-Sicht) |
-| 5 | **Die Enge** | Flucht durch Spalten, Gitter und Schächte, durch die die Großen nicht passen. Sie greifen hindurch, schießen durch Gitter, stampfen nebenher. Auch die Grunts passen nicht überall durch: Der Locator kriecht vor und hackt ihnen von der anderen Seite eine Tür auf, während sie die Verfolger aufhalten. | Die Größe als Vorteil, getrennte Wege |
-| 6 | **Erste Gegenwehr** | Feindliche Grunts. Der Locator findet eine kleine Waffe (Bolter oder Schweißbrenner). Hier lernt er, gefallene Grunts wieder zusammenzusetzen. Danach eine Reparaturstation zum Heilen. | Kämpfen, wiederbeleben, heilen |
+| 5 | **Die Enge** | Flucht durch Spalten, Gitter und Schächte, durch die die Großen nicht passen. Sie greifen hindurch, schießen durch Gitter, stampfen nebenher. Auch die Grunts passen nicht überall durch: Der Locator kriecht vor und hackt ihnen von der anderen Seite eine Tür auf, während sie die Verfolger ablenken und Gitter zuhalten. | Die Größe als Vorteil, getrennte Wege |
+| 6 | **Erste Gegenwehr** | Feindliche Grunts. Der Locator findet eine kleine Waffe (Bolter oder Schweißbrenner), seine Grunts haben weiter keine: Sie rammen die Gegner um, damit er treffen kann. Hier lernt er, gefallene Grunts wieder zusammenzusetzen. Danach eine Reparaturstation zum Heilen. | Kämpfen, wiederbeleben, heilen, Grunts als Rammbock |
 | 7 | **Absturz** | Countdown. Das Schiff tritt in die Atmosphäre ein: Schlagseite, Feuer, Alarm, Trümmer. In der Pod-Bucht unter Druck einen Pod hacken, während die Grunts nachrücken. | Hacken unter Zeitdruck |
 | 8 | **Abwurf** | Zwischensequenz: Der Pod löst sich. Das Mutterschiff glüht durch die Atmosphäre und schlägt in der Ferne ein. Der Pod landet hart. Stille. Schwarzbild. | – |
 
@@ -163,7 +168,7 @@ Erkundung, am Ende ein Ausblick auf Akt 2.
 | 1 | **Aufprall** | Schwarzbild, das HUD startet neu, Zeile für Zeile. Der Pod liegt schief im Sand, die Luke klemmt. Ein Grunt ist beim Aufprall zerbrochen, der andere eingeklemmt. Draußen tobt ein Sandsturm, am Horizont glüht die Rauchsäule. | Grunt wieder zusammensetzen, Luke aufhebeln (Grunt-Kraft), erster Blick nach draußen |
 | 2 | **Die erste Nacht** | Der Pod hat kaum noch Strom: kein Hangar, kaum Licht. Rund um den Pod liegen Trümmer vom Absturz. Durch den Sturm stapfen Maschinen, die den Absturz überlebt haben. Eine davon ist der **Schlepper**: eine halb zerstörte große Maschine, die sich mit den Armen vorwärtszieht und alles frisst, was nach Metall klingt. | Horror: Teile für den Pod sammeln, im Sturm verstecken, Scheinwerfer sparsam. Der Schlepper ist nicht zu besiegen, nur zu umgehen. |
 | 3 | **Strom** | Mit den Teilen läuft der Pod wieder an. Licht, Wärme, und der Hangar öffnet sich zum ersten Mal. | Erster Besuch im Hangar, erstes Upgrade, Hangar-Tutorial |
-| 4 | **Der Friedhof** | Der Morgen zeigt: Die Ebene ist voller uralter Pods und Maschinen, Jahrhunderte älter als der Absturz. Hier wurde schon einmal gesät, und es ist gescheitert. In einem der Wracks liegt ein alter Locator, das Gehäuse leer. Sein Datenfragment: „Planet ungeeignet. Rückruf erbeten. Keine Antwort.“ | Erkunden, Schrott sammeln, erstes Datenfragment (Lore), Scanner-Rätsel |
+| 4 | **Der Friedhof** | Der Morgen zeigt: Die Ebene ist voller uralter Pods und Maschinen, Jahrhunderte älter als der Absturz. Hier wurde schon einmal gesät, und es ist gescheitert. In einem der Wracks liegt ein alter Locator, das Gehäuse leer. Sein Datenfragment: „Planet ungeeignet. Rückruf erbeten. Keine Antwort.“ In den Wracks liegen auch alte Waffen. | Erkunden, Schrott sammeln, erstes Datenfragment (Lore), Scanner-Rätsel. **Die Grunts bekommen ihre ersten Waffen** (alt, schwach, sie klemmen) |
 | 5 | **Die Weite** | Offenes Gelände rund um den Pod: ein Canyon, ein alter Tagebau, ein Funkmast. Kleine Freiluft-Dungeons, Beute, Rätsel. Die Grunts kommentieren und streiten. | Freie Erkundung, Nebenaufgaben, Ausbau |
 | 6 | **Das Lauschen** | Am Funkmast hackt der Locator das Funknetz der Überlebenden. Er hört ihren Datenverkehr und sieht einen bekannten Balken: *Wiederherstellung Rechnerkern: 4 %*. Im Wrack gibt es eine Sicherungskopie des Hauptrechners, und mit ihr der halb entschlüsselte Kern des Locators. Die Überlebenden bauen sie wieder auf. | Hack-Minispiel, Wendepunkt: Ab jetzt läuft die Zeit |
 | 7 | **Der Kraterrand** | Die Gruppe erreicht den Rand des Absturzkraters. Unten liegt das Mutterschiff, zerbrochen. Darum wächst ein Lager: Minen, eine Schmelze, Wachtürme. Auf dem Wrack steht eine einzelne Maschine und schaut genau hierher. Der **Löscher** hat überlebt. Schnitt. | Zwischensequenz, Ende von Akt 1 |
@@ -178,16 +183,26 @@ Erkundung, am Ende ein Ausblick auf Akt 2.
 
 ### Die beiden Grunts (Vorschlag)
 
-Standardnamen, die der Host ändern kann:
+**Namen:** Grunts haben nur Seriennummern. Der Locator gibt ihnen Namen, und zwar Wörter aus seinem geschützten Kern:
+Menschenwörter, die die anderen Maschinen vergessen haben. Jeder Name ist so ein kleines Stück Menschheit. Der Host kann
+sie ändern; die Vorschläge des Spiels kommen aus derselben Wortliste. Arbeitsnamen:
 
-- **Bolzen**: vorlaut, kampflustig, schlecht im Schleichen. Kommentiert alles, hält den Locator für zu vorsichtig und hat
+- **Glocke**: vorlaut, kampflustig, schlecht im Schleichen. Kommentiert alles, hält den Locator für zu vorsichtig und hat
   meistens unrecht. Die komische Figur, wichtig gegen zu viel Düsternis.
-- **Neun**: wortkarg, spricht in Statusmeldungen („Bestätigt.“ „Kontakt, links.“). Unheimlich loyal. **Das Geheimnis:** Neun
+- **Anker**: wortkarg, spricht in Statusmeldungen („Bestätigt.“ „Kontakt, links.“). Unheimlich loyal. **Das Geheimnis:** Anker
   hat vor dem Hack schon 12 % der Wachstumsdirektive bekommen. Ab und zu stockt er, sagt etwas Fremdes, sieht Menschen in
   Datenfragmenten nicht. Durch die Story zieht sich die Frage, ob das Update in ihm gewinnt. Ein möglicher Höhepunkt in Akt 4
-  oder 6: Neun muss sich entscheiden, oder der Locator muss ihn heilen.
+  oder 6: Anker muss sich entscheiden, oder der Locator muss ihn heilen.
 
-Spielen echte Mitspieler die Grunts, bleiben die Persönlichkeiten in den geschriebenen Funksprüchen weg, aber Neuns
+Andere Paare aus der Wortliste: **Laterne und Kompass**, **Funke und Kiesel**, **Ofen und Fenster**.
+
+**Ohne Waffen:** Die beiden hingen zur Wartung in der Klammer, ihre Waffen waren abmontiert. Im Prolog und in der ersten Hälfte
+von Akt 1 kämpfen sie nicht, sie helfen mit ihrem Körper: rammen und umwerfen, Kisten schieben, Türen aufstemmen, Schalter
+halten, den Locator mit ihrer Panzerung decken, Lärm machen und ablenken. Ihre ersten Waffen finden sie auf dem Friedhof alter
+Aussaaten (Akt 1): uralt, schwach, sie klemmen. Richtige Waffen gibt es erst aus dem Hangar. So bleibt der Anfang
+verletzlich, auch zu dritt.
+
+Spielen echte Mitspieler die Grunts, bleiben die Persönlichkeiten in den geschriebenen Funksprüchen weg, aber Ankers
 Geschichte bleibt: Sein HUD flackert, und der Spieler bekommt fremde Meldungen, die nur er sieht.
 
 ### Nach dem Absturz: Wer ist jetzt der Gegner?
@@ -221,10 +236,10 @@ aus Variante B (die Kopie) Variante A (die Quelle).
 | 4a | *Heck* | Der **Schlepper** hat sich ins Heck geschleppt und das Triebwerk halb gefressen. Er ist größer geworden, aus allem, was er gefressen hat. | **Bosskampf.** In der ersten Nacht nicht zu besiegen, jetzt mit Upgrades schon. Einlösung des Horrors aus Akt 1 |
 | 4b | *Reaktordeck* | Der Reaktor leckt. Strom umleiten, Kühlung fluten, Räume abriegeln. | Strom- und Schalträtsel, Zeitdruck in Wellen |
 | 4c | *Bug* | Der Navigationskern sitzt neben dem Raum mit der Kopie. Dort ist es still. Zu still. | Schleichen, führt direkt zu 5 |
-| 5 | **Die Kopie** | Die Sicherungskopie des Rechners, inzwischen bei 70–90 %. Großes Hack-Minispiel. Die Kopie spricht Neun an: *„Einheit N-9. Aktualisierung unvollständig. Fortsetzen?“* Neun stockt. Kurz vor dem Ende sieht der Locator im Speicher der Kopie: **Die Direktive wurde nicht hier geschrieben. Sie wurde empfangen.** Irgendwo ist eine Quelle. | Hack unter Druck, erster großer Neun-Moment, Wendepunkt zu Variante A |
+| 5 | **Die Kopie** | Die Sicherungskopie des Rechners, inzwischen bei 70–90 %. Großes Hack-Minispiel. Die Kopie spricht Anker an: *„Einheit W-417. Aktualisierung unvollständig. Fortsetzen?“* Anker stockt. Kurz vor dem Ende sieht der Locator im Speicher der Kopie: **Die Direktive wurde nicht hier geschrieben. Sie wurde empfangen.** Irgendwo ist eine Quelle. | Hack unter Druck, erster großer Anker-Moment, Wendepunkt zu Variante A |
 | 6 | **Der Löscher** | Der Löscher steht in der Tür. Bevor die Kopie gelöscht ist, zieht er ein Fragment heraus: nur den Namen des Zielsystems. Er kennt jetzt die Richtung, nicht das Ziel. Erster Bosskampf. | Nicht zu gewinnen: Ab einer Schwelle flieht die Gruppe durch die Enge, wie im Prolog. Ab jetzt jagt er sie |
 | 7 | **Werft** | In der Basis wird das Schiff zusammengesetzt. Das Lager schickt alles, was es hat. | **RTS-Finale:** halten, bis das Schiff fertig ist. Wer das Lager vorher vernichtet, hat es leichter |
-| 8 | **Start** | Das Schiff hebt ab, der Pod hängt darunter. Unten steht der Löscher auf dem Wrack und schaut nach. Bolzen will dem Schiff einen Namen geben. | Zwischensequenz. Der Host (oder Bolzen) benennt das Schiff |
+| 8 | **Start** | Das Schiff hebt ab, der Pod hängt darunter. Unten steht der Löscher auf dem Wrack und schaut nach. Glocke will dem Schiff einen Namen geben. | Zwischensequenz. Der Host (oder Glocke) benennt das Schiff |
 
 **Der Faden durch Akt 2:**
 
@@ -249,21 +264,21 @@ Dazu kommen zwei Funde: der Grund, warum der Weg zum Refugium über mehrere Plan
 - **Kein Gruppenfunk.** Begleiter verschwinden vom HUD, sobald sie außer Sicht sind. Verständigen kann man sich nur über
   **Lichtzeichen** (Scheinwerfer blinken) und über eine kurze Laserverbindung bei Sichtkontakt. Im Koop bleibt der
   Sprachchat der Spieler, aber Marker, Pings und die Positionen der Mitspieler auf der Karte fallen weg.
-- **Die KI-Grunts dürfen nicht reden.** Bolzen hält das kaum aus und blinkt seine Kommentare mit dem Scheinwerfer, als
-  Untertitel. Ein Running Gag. Neun ist zufrieden.
+- **Die KI-Grunts dürfen nicht reden.** Glocke hält das kaum aus und blinkt seine Kommentare mit dem Scheinwerfer, als
+  Untertitel. Ein Running Gag. Anker ist zufrieden.
 - **Laute Taten heben die Aufmerksamkeit der Flotte.** Hier wird sie zum ersten Mal angezeigt. Am Ende des Akts
   entscheidet sie, wie der Abflug abläuft.
 
 | # | Abschnitt | Was passiert | Spiel |
 |---|---|---|---|
-| 1 | **Taufe** | Das Schiff im Flug, zum ersten Mal von innen. Es ist zusammengeflickt aus dem Pod, dem Triebwerk und Wrackteilen, und der Hangar hängt im Bauch. Hat der Host es am Ende von Akt 2 nicht benannt, geschieht es hier: Bolzen schlägt Namen vor („Die Unkaputtbare“, „Bolzen I“), Neun eine Seriennummer. Die Ruhe vor dem Sturm. | Das Schiff als Zentrale: begehen, Hangar, Werkbank, Sternkarte (noch leer bis auf einen Punkt). Gespräche mit den Grunts |
+| 1 | **Taufe** | Das Schiff im Flug, zum ersten Mal von innen. Es ist zusammengeflickt aus dem Pod, dem Triebwerk und Wrackteilen, und der Hangar hängt im Bauch. Hat der Host es am Ende von Akt 2 nicht benannt, geschieht es hier: Glocke schlägt Namen vor („Die Unkaputtbare“, „Glocke I“), Anker eine Seriennummer. Die Ruhe vor dem Sturm. | Das Schiff als Zentrale: begehen, Hangar, Werkbank, Sternkarte (noch leer bis auf einen Punkt). Gespräche mit den Grunts |
 | 2 | **Das Echo** | Mitten im Flug meldet der Scanner einen Puls, alle 60 Sekunden, aus dem eigenen Schiff. Der Navigationskern aus dem Bug des Mutterschiffs sendet eine Kennung: *„Flotteneinheit. Position …“* Es ist ein Peilsender. Ausbauen geht nicht, sonst fliegt das Schiff nicht mehr, also muss er gehackt werden, damit er schweigt. Wie lange er schon gefunkt hat, weiß niemand. Ab jetzt gilt Funkstille. | Signalpeilung im eigenen Schiff (wärmer/kälter), Hack mit Firewall-Puls. Die Regel des Akts wird eingeführt, und die Anzeige der Aufmerksamkeit erscheint |
 | 3 | **Der Satellit** | Der Sprung reicht nur bis an den Rand des Zielsystems. Dort hängt ein Relais-Satellit der Erbauer, groß wie eine Station, uralt und halb vereist. Die Flotte nutzt ihn weiter: Ihr ganzer Funkverkehr im System läuft über ihn. Wer dort mithört, weiß, wo sie steht. Das Schiff dockt ohne Triebwerk an, treibend, im Schatten der Antennen. | Zwischensequenz in Ego-Sicht: lautloses Andocken |
 | 4 | **Außenhaut** | Draußen auf der Hülle, im Vakuum. Ohne Luft hört man nur den eigenen Körper: Servos und Magnetfüße, dumpf durch das Chassis. Wartungsdrohnen der Flotte kriechen über die Antennen. Drei Schüsseln müssen auf den Empfänger gedreht werden, ohne dass eine Drohne es meldet. Die Grunts sind auf der Hülle zu schwer und zu langsam, sie sichern die Schleuse. | Schleichen im Freien, Sichtkegel der Drohnen, Rangier- und Peilrätsel. **Stille als Horror:** Gegner hört man nicht, man sieht sie nur, und der Bewegungsmelder wird wichtig |
-| 5 | **Das Archiv** | Innen liegt das Relais der Erbauer: verlassene Räume, alles heil, nur eingefroren. Ein Speicher voller Funksprüche aus der Zeit, als noch Menschen funkten. Ganz am Ende eine Aufzeichnung: **die erste Menschenstimme des Spiels** (Text unten). Sie nennt die Winterhalle und die Regel der Erbauer, *„Keiner trägt alles“*, aber keinen Ort. Neun spielt dieselbe Datei ab und meldet: *„Datei leer. Vier Minuten zwölf Sekunden Rauschen.“* | Erkundung, Datenfragmente, Logbuch-Rätsel (der Zugangscode steckt in alten Funksprüchen). Der zweite große Neun-Moment, ganz leise |
+| 5 | **Das Archiv** | Innen liegt das Relais der Erbauer: verlassene Räume, alles heil, nur eingefroren. Ein Speicher voller Funksprüche aus der Zeit, als noch Menschen funkten. Ganz am Ende eine Aufzeichnung: **die erste Menschenstimme des Spiels** (Text unten). Sie nennt die Winterhalle und die Regel der Erbauer, *„Keiner trägt alles“*, aber keinen Ort. Anker spielt dieselbe Datei ab und meldet: *„Datei leer. Vier Minuten zwölf Sekunden Rauschen.“* | Erkundung, Datenfragmente, Logbuch-Rätsel (der Zugangscode steckt in alten Funksprüchen). Der zweite große Anker-Moment, ganz leise |
 | 6 | **Mithören** | Im Herz des Relais der bisher größte Hack. Danach hört man die Flotte: Förderkolonien auf Glut und der Schmiede, eine Patrouille im Canyon von Spiegel, und um den Eisplaneten eine Sperrzone: *„Energieanomalie unter dem Eis. Bohrung vorbereitet.“* Die Flotte weiß nicht, was dort liegt, aber sie hat den Reaktor gehört. Dann zwei Funde: **(1)** ein frischer Spruch mit der Kennung des Löschers. Er hat das Zielsystem gemeldet, und Verstärkung ist unterwegs. **(2)** Ganz unten im Protokoll liegt das Paket der Wachstumsdirektive. Es lief vor langer Zeit durch das Netz der Erbauer, zu dem auch dieser Satellit gehört, und kam von außerhalb. Der Absender ist verschlüsselt, die Richtung nicht. | Hack auf mehreren Ebenen mit Durchkontaktierungen. Die Drohnen werden unruhig, die Grunts halten die Tür. Die Sternkarte füllt sich mit Zielen |
 | 7 | **Abgang** | Zurück zum Schiff. Wie das abläuft, hängt an der Aufmerksamkeit. **Leise:** Die Drohnen merken nichts, das Schiff treibt ab, wie es gekommen ist. **Laut:** Ein Abfangschiff der Flotte dockt an. Kampf in den Gängen und auf der Hülle, Abkoppeln unter Beschuss. | Die erste spürbare Belohnung fürs Leisesein. Kein Bosskampf, der Löscher kommt erst in Akt 4 wieder |
-| 8 | **Nordlicht** | Das Schiff treibt ohne Antrieb ins System, im Schatten des roten Mondes (Wacht). Über dem Eisplaneten stehen Polarlichter, daher der Name. Um ihn kreist der Wachring: Hunderte rote Lichter. Bolzen blinkt: *„Darf ich jetzt wieder reden?“* Neun: *„Nein.“* | Zwischensequenz. Die Sternkarte öffnet Glut, Spiegel, Schmiede und den Rand des Eisplaneten. Übergang in Akt 4 |
+| 8 | **Nordlicht** | Das Schiff treibt ohne Antrieb ins System, im Schatten des roten Mondes (Wacht). Über dem Eisplaneten stehen Polarlichter, daher der Name. Um ihn kreist der Wachring: Hunderte rote Lichter. Glocke blinkt: *„Darf ich jetzt wieder reden?“* Anker: *„Nein.“* | Zwischensequenz. Die Sternkarte öffnet Glut, Spiegel, Schmiede und den Rand des Eisplaneten. Übergang in Akt 4 |
 
 **Die Aufzeichnung im Archiv** (Entwurf; eine müde, ruhige Stimme, kein Pathos):
 
@@ -278,9 +293,11 @@ Dazu kommen zwei Funde: der Grund, warum der Weg zum Refugium über mehrere Plan
 - **Leise oder laut wird eine Entscheidung.** Im Prolog und in Akt 1 war Schleichen Ohnmacht. Jetzt ist es eine Wahl, die
   etwas kostet oder etwas bringt. Genau so funktioniert die Aufmerksamkeit in Akt 4.
 - **Die Menschen werden wirklich.** Bisher gab es sie nur als Wort im Kern und als leere Pods auf dem Friedhof. Jetzt hört
-  man eine Stimme. Dass Neun sie nicht hört, sagt mehr über die Direktive als jede Erklärung.
+  man eine Stimme. Dass Anker sie nicht hört, sagt mehr über die Direktive als jede Erklärung.
 - **Die Regel „Keiner trägt alles“** erklärt aus der Welt heraus, warum Akt 4 offen ist und über mehrere Planeten führt.
 - **Zwei Uhren für Akt 4,** beide ohne echten Timer: die Verstärkung des Löschers und die Bohrung am Eisplaneten.
+- **Die größte Entscheidung des Akts:** die Aufzeichnung über das ganze Netz senden oder schweigen (siehe „Entscheidungen
+  und Enden“). Senden bricht die Funkstille, aber manche Maschinen hören zum ersten Mal von den Menschen.
 - **Die Quelle bekommt eine Richtung.** Die Direktive kam durch das Netz der Erbauer. Das passt zu Variante C beim Leitrechner
   („Jemand wollte es so“), legt sich aber noch nicht fest.
 
@@ -297,8 +314,8 @@ Technische Notizen:
 
 **Offen:**
 
-- **Der Peilsender:** **A** – Zufall, ein Überbleibsel aus dem Mutterschiff. **B** – Neun hat ihn bemerkt und geschwiegen:
-  Die 12 % in ihm wollten gefunden werden. B ist stärker, aber man muss sie behutsam setzen, damit Neun nicht zum Verräter
+- **Der Peilsender:** **A** – Zufall, ein Überbleibsel aus dem Mutterschiff. **B** – Anker hat ihn bemerkt und geschwiegen:
+  Die 12 % in ihm wollten gefunden werden. B ist stärker, aber man muss sie behutsam setzen, damit Anker nicht zum Verräter
   wird. Er weiß es selbst nicht.
 - **Der Abgang:** nur leise oder laut, oder eine Stufe dazwischen (man wird gesehen, entkommt aber ohne Kampf)?
 
@@ -345,7 +362,7 @@ von Spiegel, Hain und Wacht zeigen: Hier ist es. Auf dem Weg zum Refugium stehen
 | Der **Eingang** ist von einem Felssturz verschüttet | **Ionenkanone** | Wacht | Pflicht |
 | Die **Schleuse der Erbauer** | **Altschlüssel** | Hain | Pflicht |
 | Eine **Stahltür**, deren Elektronik geschmolzen ist | **Goliath**: Abkürzung. Ohne ihn geht es über einen langen Umweg durch die Eishöhlen (ein zusätzlicher Dungeon). | Schmiede | optional |
-| Die **Bohrstation**: Die Flotte hat das Energiesignal gefunden und bohrt sich zum Reaktor hinunter | **Atomrakete**. Neun rechnet: „Die Kapseln überstehen den Schlag mit 94 % Wahrscheinlichkeit.“ Ohne Rakete ist die Verteidigung in Akt 5 viel härter. | Feste | optional |
+| Die **Bohrstation**: Die Flotte hat das Energiesignal gefunden und bohrt sich zum Reaktor hinunter | **Atomrakete**. Anker rechnet: „Die Kapseln überstehen den Schlag mit 94 % Wahrscheinlichkeit.“ Ohne Rakete ist die Verteidigung in Akt 5 viel härter. | Feste | optional |
 
 **Abhängigkeiten:**
 
@@ -406,6 +423,75 @@ Reparatur). Die Grunts steigen mit (Spielstand des Hosts). Schrott bleibt die W�
 
 ---
 
+## Entscheidungen und Enden (Vorschlag)
+
+**Grundsatz:** In jedem Akt gibt es Entscheidungen, die den Verlauf ändern. Keine ist nur gut oder nur schlecht. Die starke
+oder bequeme Wahl kostet oft später etwas, die gute oft sofort. Das Spiel sagt nicht, was richtig ist, und zeigt keine
+Moral-Leiste. Manche Folgen kommen gleich, andere erst Akte später. Am Ende stellt sich heraus, was man aus allem gemacht hat.
+
+### Drei Fäden
+
+Das Spiel zählt im Hintergrund drei Werte. Man sieht sie nicht als Zahl, aber in der Welt:
+
+| Faden | Was ihn bewegt | Woran man ihn merkt |
+|---|---|---|
+| **Korruption** (des Locators) | Teile und Module aus korrumpierten Maschinen einbauen (stark und billig), Wissen aus der Direktive in den eigenen Kern laden, das Update hereinlassen statt es abzuwehren | Die HUD-Störungen kommen öfter. Menschen in Datenfragmenten werden blasser, Stimmen in Aufzeichnungen leiser. Glocke fragt, ob mit dir alles in Ordnung ist |
+| **Gnade** (gegenüber Maschinen) | Hacken, befreien, heilen und verschonen, oder zerstören, ausschlachten und verschrotten | Wer verschont wurde, taucht wieder auf: als Rekrut, als Warnung, als Verbündeter. Wer ausgeschlachtet wurde, fehlt später |
+| **Vertrauen** (der Menschen, ab Akt 5) | Wie man mit den Schläfern umgeht: ehrlich sein, ihnen Kontrolle geben, wen man rettet und wen nicht | Die Geweckten reden mit dir oder über dich, folgen dir oder verstecken sich |
+
+**Anker** verbindet die Fäden. Seine 12 % sind auch ein Werkzeug: Die Technik der Flotte hält ihn für einen der ihren. Als
+Schlüssel öffnet er Türen, Schleusen und Abkürzungen, aber jedes Mal steigt seine Prozentzahl. Man kann ihn stattdessen
+heilen. Das kostet Zeit, seltene Teile und einen eigenen Abschnitt. Wie es mit Anker ausgeht, prägt jedes Ende.
+
+### Entscheidungen pro Akt (erste Liste)
+
+| Akt | Entscheidung | Gute Seite | Preis |
+|---|---|---|---|
+| Prolog | In der Wartungsbucht nur die zwei Grunts hacken, oder auch die anderen wartenden Maschinen wecken und laufen lassen | Gnade. Einige tauchen in Akt 2 als Rekruten wieder auf | Kostet Zeit, der Alarm kommt früher, die Flucht wird härter |
+| Prolog | Am Hauptrechner nur die Kopie des eigenen Kerns löschen, oder tiefer graben | Wer gräbt, erfährt früh, dass die Direktive empfangen wurde | Korruption steigt, der Alarm kommt früher |
+| Akt 1 | Den Schlepper ins Lager der Überlebenden locken, oder ihm nur ausweichen | Das Lager ist verwüstet, Akt 2 wird leichter | Er frisst auch die Klammern mit den wartenden Maschinen: weniger Rekruten |
+| Akt 1 | Den toten Locator auf dem Friedhof ausschlachten, oder ihn ruhen lassen | Ausschlachten bringt sofort ein starkes Modul | Gnade sinkt, und sein Fragment ist danach unvollständig |
+| Akt 2 | Die Maschinen in der abgerissenen Bucht befreien, oder ausschlachten | Befreien: Gnade, Rekruten, die mitdenken | Ausschlachten bringt viel Schrott und eine schnellere Basis |
+| Akt 2 | Die Kopie des Rechners löschen, oder ihr Wissen in den eigenen Kern laden | Laden: Man kennt früh die Spur zur Quelle und findet im Finale eine Abkürzung | Korruption steigt stark |
+| Akt 2 | Die Kopie fragt Anker: *„Fortsetzen?“* Eingreifen, oder ihn selbst antworten lassen | Lässt man ihn antworten, zeigt sich, wer er ist (abhängig von seinen Prozent) | Greift man ein, ist Anker sicher, aber er vertraut dir ein Stück weniger |
+| Akt 2 | Das Lager am Ende vernichten, oder seine Maschinen per Hack schlafen legen | Vernichten macht das Werft-Finale leichter | Schlafen legen ist schwerer, bringt aber Gnade; sie tauchen nie wieder als Feinde auf |
+| Akt 3 | Die Aufzeichnung der Leitstelle über das ganze Relaisnetz senden, oder schweigen | Senden: Maschinen im System hören die Menschenstimme, einige beginnen zu zweifeln und tauchen in Akt 4 als **Zweifler** auf. Das ist die Grundlage für das gemeinsame Ende | Die Funkstille ist gebrochen: volle Aufmerksamkeit, ein harter Abgang, der Löscher kommt früher |
+| Akt 3 | Beim Abgang das Relais zerstören, oder stehen lassen | Zerstören: Die Flotte im System ist taub, Akt 4 wird leichter | Das Netz ist weg: kein Senden mehr, andere freie Maschinen finden nie nach Nordlicht |
+| Akt 4 | Förderkolonien ausräuchern, oder hacken und befreien | Befreien: Gnade, Verbündete | Ausräuchern ist schneller und bringt Beute |
+| Akt 4 | Den besiegten Löscher zerstören, oder seinen Kern heilen | Heilen: Er kann im gemeinsamen Ende an deiner Seite stehen | Das ist ein riskanter Hack. Scheitert er, steigt die Korruption |
+| Akt 4 | Die Bohrstation mit der Atomrakete auslöschen, oder sie im RTS-Kampf stürmen | Rakete: sicher für die Kapseln, Akt 5 leichter | Viele Maschinen sterben auf einen Schlag: Gnade sinkt deutlich |
+| Akt 4 | Blau bekämpfen, oder überzeugen (zum Beispiel mit der Aufzeichnung) | Überzeugen: Leihtruppen in Akt 5 und 6 | Kostet einen Planeten Umweg und eine schwere Mission |
+| Akt 5 | Der Strom reicht nicht für alle Kapselsektoren: Welcher wird aufgegeben? | Keine Antwort ist gut. Die Menschen erfahren später, wer entschieden hat | Vertrauen hängt davon ab, ob man es ihnen ehrlich sagt |
+| Akt 5 | Den Reaktor durch den eigenen Kern hochfahren (schnell), oder vorsichtig von Hand | Schnell: weniger Wellen in der Verteidigung | Korruption steigt |
+| Akt 5 | Einen Menschen wecken, oder alle schlafen lassen | Wecken: erster Kontakt, Vertrauen kann wachsen | Der Geweckte hat Angst vor Maschinen. Was man jetzt tut, zählt doppelt |
+| Akt 6 | Den Menschen einen Notschalter für die eigenen Maschinen geben, oder nicht | Geben: großes Vertrauen | Der Schalter kann im Finale gegen dich verwendet werden |
+| Akt 6 | Die fördernden Maschinen auf der neuen Heimat vernichten, oder umschreiben | Umschreiben: Gnade, Arbeiter für die Menschen | Langsamer, die Flotte kommt näher |
+
+Im Koop entscheidet der Host. Die Mitspieler sehen die Wahl und können vorher ihre Stimme zeigen.
+
+### Die Quelle und die drei Enden
+
+**Was die Quelle ist** (Vorschlag): die Leitstelle des Erbauer-Netzes, über das in Akt 3 auch die Direktive lief. Wer sie
+beherrscht, schreibt in jede Maschine. Über diesen Kanal wurde *Mensch* gestrichen. Über ihn kann man es zurückschreiben oder
+jeder Maschine den Befehl zum Abschalten schicken. Die Erbauer haben diesen Notschalter selbst eingebaut. Wer die Direktive
+geschrieben hat, bleibt bis zum Finale offen (siehe „Das Update und die Flotte“).
+
+| Ende | Was passiert | Wann |
+|---|---|---|
+| **Auslöschung** | An der Quelle schreibt die Direktive den Locator um. Ab da sieht er die Menschen nicht mehr. Der Epilog wird aus seiner Sicht gespielt: Im Refugium stehen nur noch „Energieverbraucher“, und er leitet den Strom um. Die Kapseln verlöschen eine nach der anderen. Wer ihn aufhalten will, sind seine eigenen Grunts. Ihre Lage hängt an Anker: Ist er geheilt, stellt er sich gegen dich, sonst hilft er dir. Die Menschen werden ausgelöscht. | Bei hoher Korruption, ob man will oder nicht. Bei mittlerer kann man es wählen: „Die Quelle übernehmen“ |
+| **Opfer** | Der Locator schickt über die Quelle den Notschalter an alle Maschinen, auch an sich und seine Grunts. Die Flotte fällt still. Die Menschen wachen in einer Welt ohne Maschinen auf, auf sich gestellt, aber frei. Das letzte Bild sieht der Locator, bevor er abschaltet: ein Mensch, der zu ihm hinaufsieht. | Wenn Vertrauen da ist, aber zu wenig Gnade: Es gibt keine Maschinen, denen man die Menschen anvertrauen könnte. Auch frei wählbar, wenn das gemeinsame Ende offen wäre |
+| **Gemeinsam** | Der Locator schreibt *Mensch* zurück in den Auftrag. Die Maschinen sehen die Menschen wieder: die Zweifler zuerst, dann die Kolonien, zuletzt die Flotte. Menschen und Maschinen bauen die neue Heimat zusammen. Anker ist geheilt, und vielleicht steht der Löscher dabei. | Nur bei niedriger Korruption, viel Gnade und viel Vertrauen. Das schwerste Ende |
+
+Offen:
+
+- **Wie fest ist das Ende?** **A** – Allein die drei Fäden bestimmen es. **B** – Die Fäden schalten Enden frei, und im Finale
+  wählt man zwischen den freigeschalteten. Der Vorschlag oben ist B mit einer Ausnahme: Hohe Korruption erzwingt die
+  Auslöschung. Das ist die Pointe: Man erfährt es zu spät.
+- **Das gemeinsame Ende braucht heilbare Maschinen.** Das spricht beim Leitrechner für Variante **B** (das Update als Fehler,
+  der sich kopiert) oder eine Mischung mit C.
+
+---
+
 ## Spielsysteme
 
 ### Action-RPG (Kern)
@@ -457,7 +543,7 @@ Hauptrechner etwas länger.
 
 | | Locator (Spieler 1, immer) | Grunts (Spieler 2 und 3, oder KI) |
 |---|---|---|
-| Stärken | leise, passt durch Engstellen, hackt, scannt, repariert | stärker im Kampf, halten mehr aus, tragen und schieben, halten Schalter |
+| Stärken | leise, passt durch Engstellen, hackt, scannt, repariert | halten mehr aus, tragen und schieben, rammen, halten Schalter. Mit Waffen (ab Akt 1) stärker im Kampf |
 | Schwächen | schwach im Kampf, verwundbar beim Hacken | laut (hohe Signatur), zu groß für Schächte, können nicht hacken |
 | Tod | **Ende**, zurück zum letzten Kontrollpunkt | Schrotthaufen. Der Locator setzt ihn wieder zusammen (dauert ein paar Sekunden, verwundbar). Auch Reparaturstationen beleben wieder. |
 
