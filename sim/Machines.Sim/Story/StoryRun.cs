@@ -32,6 +32,12 @@ public sealed class StoryRun(StoryOptions options)
     /// <summary>The Locator's player: the host's person.</summary>
     public PlayerId Locator => Seats[0];
 
+    /// <summary>
+    /// The Grunts' seats the computer plays now, in id order: a bot's seat nobody joined, and one whose person left (co-op,
+    /// GameWorld.StoryCoop). Their heroes are the companions' (plan WP-F); a person who joins or comes back takes theirs over.
+    /// </summary>
+    public SortedSet<PlayerId> Bots { get; } = [];
+
     /// <summary>What the director has noted (a door hacked, a scare played), by name.</summary>
     public SortedSet<string> Flags { get; } = new(StringComparer.Ordinal);
 
@@ -53,6 +59,9 @@ public sealed class StoryRun(StoryOptions options)
         hash.Mix(Ending is { } ending ? (int)ending : -1);
         foreach (var seat in Seats)
             hash.Mix(seat.Value);
+        hash.Mix(Bots.Count);
+        foreach (var bot in Bots)
+            hash.Mix(bot.Value);
         foreach (var flag in Flags)
             hash.Mix(flag);
         foreach (var (name, at) in Timers)

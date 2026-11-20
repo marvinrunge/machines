@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Machines.Import.Model;
+using Machines.Sim.Story;
 using Machines.Sim.Survival;
 using Machines.Sim.World;
 
@@ -67,15 +68,18 @@ public sealed record ListRooms : NetMessage;
 
 public sealed record RoomList(IReadOnlyList<RoomSummary> Rooms) : NetMessage;
 
-/// <summary>A room in the lobby's list. <paramref name="Mode"/> is "battle" for a battle room (null for a normal one), and
-/// <paramref name="Tier"/> the top of its bracket (0 for a normal room). <paramref name="Joinable"/> counts the seats a bot has
-/// played since the start of a running battle that a player may still join (P2 design §6.2): while the relay keeps the
-/// battle's beat and nothing is decided.</summary>
+/// <summary>A room in the lobby's list. <paramref name="Mode"/> is "battle" for a battle room, "story" for a story room (the
+/// scenario its chapter), null for a normal one; <paramref name="Tier"/> the top of a battle's bracket (0 elsewhere).
+/// <paramref name="Joinable"/> counts the seats a bot has played since the start of a running battle or story that a player
+/// may still join (P2 design §6.2): while the relay keeps the match's beat and nothing is decided.</summary>
 public sealed record RoomSummary(int Id, string Name, string Scenario, string Planet, int Players, int MaxPlayers, bool Started,
     string? Mode = null, int Tier = 0, int Joinable = 0)
 {
     /// <summary>The <see cref="Mode"/> of a battle room.</summary>
     public const string Battle = "battle";
+
+    /// <summary>The <see cref="Mode"/> of a story room: the Locator and its two Grunts, people or the computer's bots.</summary>
+    public const string Story = "story";
 }
 
 /// <summary>
@@ -167,15 +171,17 @@ public sealed record MatchInfo(string Scenario, string Planet, MatchOptions Opti
     /// The players of the match, a row for each of <see cref="Players"/> in its order: each its own
     /// <see cref="MatchPlayer.Player"/>, and where a row names none, the number <see cref="PlayerTable.Number"/> gives it
     /// over the rows' slots in their order; a person for a row that is no AI's, a bot for the computer's rows in a battle
-    /// (<see cref="MatchOptions.IsBattle"/>), else the AI playing the whole race. A world is built from exactly this table
+    /// (<see cref="MatchOptions.IsBattle"/>) and for those of the story's trio (<see cref="StoryOptions.Race"/>: a Grunt's seat
+    /// nobody sits at), else the AI playing the whole race. A world is built from exactly this table
     /// (<see cref="Replay.BuildWorld"/>, the game's match), in its rows' order.
     /// </summary>
     public PlayerTable Table()
     {
         var ids = PlayerTable.Number([.. Players.Select(p => p.Slot)]);
         var battle = Options.IsBattle;
+        Race? trio = Options.IsStory ? (Options.Story ?? new StoryOptions()).Race : null;
         return new PlayerTable(Players.Select((p, i) =>
-            new PlayerSeat(p.Player ?? ids[i], p.Slot, !p.Ai ? PlayerKind.Human : battle ? PlayerKind.Bot : PlayerKind.Ai, p.Name)));
+            new PlayerSeat(p.Player ?? ids[i], p.Slot, !p.Ai ? PlayerKind.Human : battle || p.Slot == trio ? PlayerKind.Bot : PlayerKind.Ai, p.Name)));
     }
 }
 

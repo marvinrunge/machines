@@ -1,6 +1,7 @@
 using Machines.Import.Model;
 using Machines.Net;
 using Machines.Relay;
+using Machines.Sim.Story;
 using Machines.Sim.Survival;
 using Machines.Sim.World;
 
@@ -84,6 +85,16 @@ public static class RoomOptions
         BroadcastAlliances = chosen.BroadcastAlliances,
         DisableFirstPerson = chosen.DisableFirstPerson,
     };
+
+    /// <summary>
+    /// A story room (decision 5 of the prologue's build): <paramref name="story"/> as the host's progress has it (chapter,
+    /// checkpoint, the Grunts' names), played by up to three, the host the Locator and the other two seats Ike's and Bob's,
+    /// bots where nobody sits. The relay makes the chapter its scenario and planet and seats the story's three
+    /// (<see cref="RelayServer.AsStory(MatchOptions)"/>).
+    /// </summary>
+    public static CreateRoom StoryRoom(string name, StoryOptions story) =>
+        new(name, story.Chapter, story.Chapter, [story.Race], RelayServer.AsStory(new MatchOptions { Story = story }), FillWithAi: true,
+            StorySeats.Count);
 
     /// <returns>
     /// Why a hero may not play in a battle room whose bracket is topped by <paramref name="tier"/>, in the relay's words (so
@@ -171,6 +182,9 @@ public static class RoomSeating
     {
         if (seat < 0 || seat >= state.Seats.Count)
             return [];
+        // The story: the Locator's seat is the host's, a Grunt's is a person's or the computer's bot's.
+        if (state.Options.IsStory)
+            return seat == 0 ? [] : [SeatUse.Open, SeatUse.Computer];
         if (state.Options.Battle is not null)
             return [SeatUse.Open, SeatUse.Computer];
         var race = state.Seats[seat].Race;
@@ -192,5 +206,24 @@ public static class RoomSeating
     /// <summary>Whether the player <paramref name="clientId"/> may take a seat: one nobody sits at that waits for a player (<see cref="TakeSeat"/>).</summary>
     public static bool MayTake(RoomState state, int clientId, int seat) =>
         seat >= 0 && seat < state.Seats.Count && state.Seats[seat] is { ClientId: null, Use: SeatUse.Open }
-        && state.Players.Any(p => p.ClientId == clientId);
+        && state.Players.Any(p => p.ClientId == clientId)
+        // In a story room the host keeps the Locator's seat, and nobody else takes it.
+        && !(state.Options.IsStory && (seat == 0 || clientId == state.HostId));
+
+    /// <summary>
+    /// What a seat of a story room is, in the list's words (to be translated): the Locator's, or the Grunt's with the name the
+    /// host gave it; null in every other room.
+    /// </summary>
+    public static string? StoryRole(RoomState state, int seat)
+    {
+        if (!state.Options.IsStory || seat < 0 || seat >= StoryCoop.Roles.Count)
+            return null;
+        var story = state.Options.Story ?? new StoryOptions();
+        return seat switch
+        {
+            0 => StoryCoop.Roles[0],
+            1 => story.IkeName,
+            _ => story.BobName,
+        };
+    }
 }

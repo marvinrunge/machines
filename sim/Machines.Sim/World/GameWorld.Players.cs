@@ -99,6 +99,12 @@ public sealed partial class GameWorld
     /// </summary>
     private void Settle(Race race)
     {
+        // The story's trio: a Grunt's seat whose person is away is the computer's companion (GameWorld.StoryCoop).
+        if (Story is { } story && race == story.Options.Race)
+        {
+            SettleStory(race);
+            return;
+        }
         if (Battle is not null)
         {
             SettleBattle(race);
