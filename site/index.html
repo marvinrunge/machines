@@ -222,12 +222,15 @@
     overflow: hidden;
   }
   .shot img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 0.25s; }
-  /* The trailer, framed as the pictures are. */
+  /* The trailer, framed as the pictures are. It is shot 2.39:1 inside a 16:9 frame (Cinematic's black bars),
+     so the frame takes the picture's shape and the bars are cut off; full screen shows the whole frame. */
   .film {
     display: block;
     width: 100%;
     max-width: 100%;
-    aspect-ratio: 16 / 9;
+    height: auto; /* not the 1080 of its height attribute */
+    aspect-ratio: 2.39 / 1;
+    object-fit: cover;
     border: 3px solid #2b302b;
     box-shadow: inset 0 0 0 1px #0d120d, 0 4px 10px rgba(0, 0, 0, 0.5);
     background: #000;
