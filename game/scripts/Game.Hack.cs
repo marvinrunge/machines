@@ -49,7 +49,8 @@ public partial class Game
             _hackKey = true;
             AddChild(new HackKey(this) { Name = "HackKey" });
         }
-        var session = Watching ? null : story.Hacks.OpenBy(Me);
+        // A chapter that has ended takes the board down with it.
+        var session = Watching || MatchOver ? null : story.Hacks.OpenBy(Me);
         if (HackShown && session?.Target != _hack!.Target)
             TakeDownHack();
         if (session is not null && !HackShown)
