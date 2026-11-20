@@ -761,6 +761,9 @@ Stimmen: Durchsagen des Schiffs (ruhig, freundlich, monoton), der Löscher (verz
 
 ### Neue Karten
 
+Das Vorgehen, mit dem wir neue Karten erzeugen (Karten-Brief, Skizze, Höhen mit Erosion, berechnete Materialien und
+Hindernisse, Meshy-Requisiten, Prüfen), steht in [MAPS.md](MAPS.md).
+
 Heute laufen alle Karten auf den Planeten des Originals. Ein Planet besteht aus `heights.bin`, `terrain.json`,
 `textures.txt`, Himmel und Artefakten. Das Remake malt den Boden schon selbst aus Materialien (Sand, Fels, Schnee, Eis …).
 
