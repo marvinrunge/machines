@@ -273,6 +273,21 @@ public class StoryRunTests
     }
 
     [Fact]
+    public void The_story_has_no_hangar_and_no_waves_to_ready_for()
+    {
+        var world = Prologue();
+        var state = world.Wired!.Heroes[world.Story!.Locator];
+        world.Issue(new WiredHangarCommand(Race.Red, true));
+        world.Issue(new WiredReadyCommand(Race.Red));
+        world.Step();
+
+        Assert.Equal(["there is no hangar in the story", "there is no hangar in the story"], world.Rejected.Select(r => r.Reason));
+        Assert.Equal("there is no hangar in the story", world.WhyNoHangar(state));
+        Assert.False(state.HangarOpen);
+        Assert.Equal(WiredPhase.Story, world.Wired.Phase);
+    }
+
+    [Fact]
     public void Bots_sit_only_in_a_battle_or_the_story()
     {
         var rows = new PlayerTable([new PlayerSeat(PlayerId.Of(Race.Red), Race.Red, PlayerKind.Human, "Me"), new PlayerSeat(new PlayerId(4), Race.Red, PlayerKind.Bot, "Ike")]);

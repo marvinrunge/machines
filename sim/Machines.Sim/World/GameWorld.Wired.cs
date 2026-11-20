@@ -690,6 +690,8 @@ public sealed partial class GameWorld
     {
         if (Battle is not null)
             return "there is no hangar in a battle";
+        if (Story is not null)
+            return "there is no hangar in the story";
         if (!Wired!.Waiting)
             return "the hangar opens only between waves";
         if (HeroOf(state) is not { } hero)
@@ -796,6 +798,9 @@ public sealed partial class GameWorld
             return command.Issuer is null ? "this is not a Wired match" : "you have no hero";
         if (Battle is not null && command is not (WiredAbilityCommand or WiredDashCommand or WiredSpecialCommand or WiredTowerCommand or WiredScrapTowerCommand))
             return "there is no hangar in a battle";
+        // The story's heroes may use what they carry (a dash, an ability); there is no hangar, shop or tower to build.
+        if (Story is not null && command is not (WiredAbilityCommand or WiredDashCommand or WiredSpecialCommand))
+            return "there is no hangar in the story";
         return command switch
         {
             WiredHangarCommand hangar => SetHangar(state, hangar.Open),
