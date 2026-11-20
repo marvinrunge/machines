@@ -18,7 +18,7 @@ const state = {
   asset: null,     // id of the asset open on the assets tab
   assetFilter: { kind: "", status: "", text: "" },
   galleryFilter: "",
-  models: [], hasKey: false, modelError: "",
+  models: [], hasKey: false, route: "", modelError: "",
   shots: [],
   story: null,
   busy: {},        // owner id -> number of pictures being made
@@ -93,7 +93,7 @@ async function load() {
   try { state.tab = localStorage.getItem("storyboard.tab") || state.tab; } catch { /* ignore */ }
   render();
   api("/api/models").then((m) => {
-    state.models = m.models; state.hasKey = m.key; state.modelError = m.error || "";
+    state.models = m.models; state.hasKey = m.key; state.route = m.route || ""; state.modelError = m.error || "";
     if (!prefs.model || !state.models.includes(prefs.model)) prefs.model = state.models.includes(m.default) ? m.default : state.models[0];
     render();
   }).catch((e) => { state.modelError = e.message; });
@@ -268,7 +268,7 @@ function generator(item) {
         <button class="primary fixed" data-action="generate" data-owner="${item.id}" ${busy || !state.hasKey ? "disabled" : ""}>
           ${busy ? `<span class="spin"></span> ${busy} Bild(er) …` : "Bild generieren"}</button>
       </div>
-      ${state.hasKey ? "" : `<div class="error">Kein Gemini-Schlüssel: GEMINI_API_KEY setzen und den Server neu starten.</div>`}
+      ${state.hasKey ? "" : `<div class="error">Kein Zugang zu Gemini: GEMINI_API_KEY setzen oder gcloud anmelden und den Server neu starten.</div>`}
       ${state.errors[item.id] ? `<div class="error">${h(state.errors[item.id])}</div>` : ""}
     </div>
     <div class="pics">${pics || ""}</div>`;
@@ -324,7 +324,7 @@ function viewStyle() {
     <label>Stil-Referenzen (gehen bei jedem Bild mit)</label>
     <div class="refs">${refs}<button data-action="pick-style-refs">+ Referenzbild</button></div>
     <h3>Gemini</h3>
-    <p>${state.hasKey ? "Schlüssel gefunden (aus GEMINI_API_KEY)." : "Kein Schlüssel: GEMINI_API_KEY setzen und den Server neu starten."}
+    <p>${state.hasKey ? `Bilder über ${h(state.route)}.` : "Kein Zugang: GEMINI_API_KEY setzen oder gcloud anmelden (gcloud auth application-default login) und den Server neu starten."}
       ${state.modelError ? `<span class="error">${h(state.modelError)}</span>` : ""}</p>
     <p class="hint">Bildmodelle: ${state.models.map(h).join(", ") || "…"}. Die Flash-Modelle sind schnell und günstig, „pro“ ist genauer, besonders bei Text im Bild und bei Referenzen.</p>
     <p class="hint">Bilder landen in docs/story/images, die Daten in docs/story/board.json.</p>

@@ -6,14 +6,18 @@ shows it.
     python tools/storyboard/server.py            # http://127.0.0.1:8766
 
 The Gemini key comes from the environment (GEMINI_API_KEY, or GOOGLE_API_KEY) and never reaches the page or the
-repository: the page asks this server, the server asks Gemini. Without a key everything but making pictures works.
-The server listens on this computer only."""
+repository: the page asks this server, the server asks Gemini. Without a key the server asks Vertex AI instead when the
+Google Cloud SDK is signed in on this computer (gcloud auth application-default login): the project is
+GOOGLE_CLOUD_PROJECT or gcloud's own, and the token comes from gcloud and stays in the server. With neither, everything
+but making pictures works. The server listens on this computer only."""
 import base64
 import json
 import mimetypes
 import os
 import re
+import shutil
 import socket
+import subprocess
 import sys
 import time
 import urllib.error
@@ -33,7 +37,10 @@ PAGE_FILES = {"/": "index.html", "/index.html": "index.html", "/app.js": "app.js
 PAGE_TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css"}
 
 API = "https://generativelanguage.googleapis.com/v1beta"
+VERTEX = "https://aiplatform.googleapis.com/v1/projects/{project}/locations/global/publishers/google/models"
 DEFAULT_MODEL = "gemini-3.1-flash-image"
+# Vertex AI lists its models per publisher, without the methods they serve: the picture models are named here.
+VERTEX_MODELS = ["gemini-3.1-flash-image", "gemini-3-pro-image"]
 PORT = int(os.environ.get("STORYBOARD_PORT") or os.environ.get("PORT") or "8766")
 SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 PICTURE = (".png", ".jpg", ".jpeg", ".webp")
@@ -43,6 +50,59 @@ EMPTY_BOARD = {"version": 1, "style": {"prompt": "", "refs": []}, "acts": [], "s
 
 def key():
     return os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+
+
+def gcloud_path():
+    found = shutil.which("gcloud")
+    if found:
+        return found
+    # The installer's default place on Windows, which programs started outside a shell often lack on their PATH.
+    local = Path(os.environ.get("LOCALAPPDATA", "")) / "Google" / "Cloud SDK" / "google-cloud-sdk" / "bin" / "gcloud.cmd"
+    return str(local) if local.is_file() else None
+
+
+def gcloud(*args):
+    """What gcloud prints for these arguments, or "" when there is no gcloud or it fails."""
+    path = gcloud_path()
+    if not path:
+        return ""
+    try:
+        done = subprocess.run([path, *args], capture_output=True, text=True, timeout=60,
+                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return done.stdout.strip() if done.returncode == 0 else ""
+
+
+_vertex = {"project": None, "token": "", "until": 0.0}
+
+
+def vertex_project():
+    if _vertex["project"] is None:
+        _vertex["project"] = os.environ.get("GOOGLE_CLOUD_PROJECT") or gcloud("config", "get-value", "project")
+    return _vertex["project"]
+
+
+def vertex_token():
+    """An access token from gcloud's application default sign-in, kept for 45 minutes (they last an hour)."""
+    if not _vertex["token"] or time.time() > _vertex["until"]:
+        _vertex["token"] = gcloud("auth", "application-default", "print-access-token")
+        _vertex["until"] = time.time() + 45 * 60
+    return _vertex["token"]
+
+
+def route():
+    """Which way pictures are made: "gemini" with a key, "vertex" with a signed-in gcloud, or "" with neither."""
+    if key():
+        return "gemini"
+    if vertex_project() and vertex_token():
+        return "vertex"
+    return ""
+
+
+ROUTE_NAMES = {"gemini": "Gemini-API (Schlüssel aus GEMINI_API_KEY)", "vertex": "Vertex AI (Anmeldung von gcloud)"}
+NO_ROUTE = ("Kein Zugang zu Gemini: GEMINI_API_KEY setzen oder gcloud anmelden "
+            "(gcloud auth application-default login) und den Server neu starten.")
 
 
 def board_rev():
@@ -62,12 +122,23 @@ def picture_file(url):
 
 
 def gemini(path, body=None, timeout=60):
-    request = urllib.request.Request(f"{API}/{path}", method="POST" if body is not None else "GET",
-                                     data=json.dumps(body).encode() if body is not None else None,
-                                     headers={"x-goog-api-key": key() or "", "Content-Type": "application/json"})
+    if route() == "vertex":
+        url = VERTEX.format(project=vertex_project()) + "/" + path.removeprefix("models/")
+        headers = {"Authorization": f"Bearer {vertex_token()}", "Content-Type": "application/json"}
+    else:
+        url, headers = f"{API}/{path}", {"x-goog-api-key": key() or "", "Content-Type": "application/json"}
+    request = urllib.request.Request(url, method="POST" if body is not None else "GET",
+                                     data=json.dumps(body).encode() if body is not None else None, headers=headers)
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return json.loads(response.read())
+        # Vertex answers 429 when pictures come quickly one after another (its shared quota); it passes in a minute.
+        for wait in (15, 30, 60, None):
+            try:
+                with urllib.request.urlopen(request, timeout=timeout) as response:
+                    return json.loads(response.read())
+            except urllib.error.HTTPError as error:
+                if error.code != 429 or wait is None:
+                    raise
+                time.sleep(wait)
     except urllib.error.HTTPError as error:
         text = error.read().decode("utf-8", "replace")
         try:
@@ -79,6 +150,8 @@ def gemini(path, body=None, timeout=60):
 
 def image_models():
     """The Gemini models that make pictures, newest names first; the default alone without a key."""
+    if route() == "vertex":
+        return VERTEX_MODELS
     if not key():
         return [DEFAULT_MODEL]
     found = gemini("models?pageSize=200").get("models", [])
@@ -90,8 +163,8 @@ def image_models():
 def generate(prompt, model, aspect, size, refs):
     """Asks Gemini for a picture of the prompt, with the reference pictures before it; saves what comes back in
     docs/story/images and returns the saved names and any text the model added."""
-    if not key():
-        raise RuntimeError("Kein Gemini-Schlüssel: GEMINI_API_KEY setzen und den Server neu starten.")
+    if not route():
+        raise RuntimeError(NO_ROUTE)
     if not SAFE_NAME.match(model):
         raise RuntimeError("Unbekanntes Modell.")
     parts = []
@@ -177,10 +250,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, [{"url": f"/refs/{name}", "label": f"Spiel: {name}"} for name in shots])
         if path == "/api/models":
             try:
-                return self.send(200, {"models": image_models(), "default": DEFAULT_MODEL, "key": bool(key())})
+                return self.send(200, {"models": image_models(), "default": DEFAULT_MODEL, "key": bool(route()),
+                                       "route": ROUTE_NAMES.get(route(), "")})
             except (RuntimeError, OSError) as error:
-                return self.send(200, {"models": [DEFAULT_MODEL], "default": DEFAULT_MODEL, "key": bool(key()),
-                                       "error": str(error)})
+                return self.send(200, {"models": [DEFAULT_MODEL], "default": DEFAULT_MODEL, "key": bool(route()),
+                                       "route": ROUTE_NAMES.get(route(), ""), "error": str(error)})
         self.send(404, {"error": "Nicht gefunden."})
 
     def do_PUT(self):
@@ -242,5 +316,5 @@ if __name__ == "__main__":
     except OSError:
         sys.exit(f"Port {PORT} ist schon belegt, vermutlich von einem anderen Story-Board-Server. Den beenden oder "
                  "mit PORT=<nummer> einen anderen wählen.")
-    print(f"Story-Board auf http://127.0.0.1:{PORT}" + ("" if key() else " (ohne Gemini-Schlüssel)"), flush=True)
+    print(f"Story-Board auf http://127.0.0.1:{PORT}" + (f" über {ROUTE_NAMES[route()]}" if route() else " (ohne Zugang zu Gemini)"), flush=True)
     server.serve_forever()
