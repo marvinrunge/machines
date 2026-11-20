@@ -21,6 +21,21 @@
   paar Grunts mit einer kleinen Waffe, repariert sich, hackt in letzter Sekunde einen Pod und wirft sich ab. Das Mutterschiff
   stürzt auf denselben Planeten, etwas entfernt vom Pod. Im zweiten Teil muss er sich auf dem Planeten behaupten,
   überlebende feindliche Maschinen abwehren und das Wrack ausschlachten, um wieder aufzubauen.
+- **Offenes Midgame:** Nach den linearen Anfangsakten weiß man nur, in welchem Sonnensystem die Kapseln liegen. Mehrere
+  Planeten stehen zur Wahl. Jeder hat Hindernisse und Belohnungen (Werkzeuge, Module, Waffen), die auf anderen Planeten
+  weiterhelfen. Einige Planeten sind für die Mission nötig, andere optional. Dazu kommen optionale Missionen für Erfahrung
+  in verschiedenen Spielarten: Überleben, Schlacht, normales RTS-Gefecht und weitere.
+- **Hacken als eigenes Minispiel** in der Platinen-Optik des Hangars. Man hackt selbst, nicht per Knopfdruck. Es kommt
+  immer wieder in der Story vor.
+- **Koop von Anfang an, bis zu drei Spieler:** Spieler 1 ist immer der Locator. Gleich zu Beginn hackt er zwei Grunts, die ihn
+  begleiten. Sie werden von Mitspielern oder der KI gesteuert. Grunts kämpfen, aber nicht besonders gut. Sterben sie, ist das
+  nicht schlimm, denn der Locator kann sie wieder zusammensetzen. Erst wenn der Locator stirbt, ist es vorbei.
+- **Fortschritt im Koop hängt am Spielstand des Hosts.** Dazu kommt: Fertige Helden lassen sich in den Überlebensmodus
+  (Wired) mitnehmen, auch die Grunts der Mitspieler in deren eigenes Wired (siehe „Abzüge“).
+- **Namen der Grunts:** Im Einzelspieler vergibt sie der Hauptspieler. Echte Mitspieler benennen ihren Grunt selbst.
+- **Mit den Grunts sprechen (optional):** Im Einzelspieler kann man mit den KI-Grunts frei reden. Ein kleines lokales
+  Sprachmodell antwortet, Sprachausgabe mit verzerrter Roboterstimme. Machbarkeit siehe unten.
+- **Durchsage beim Erwischtwerden:** Das Schiff erklärt den Locator für korrumpiert und leitet das Notfallprotokoll ein.
 - **Horror-Atmosphäre** am Anfang: Der kleine, schwache Locator in der ersten Mission. Ab und zu kommen wieder solche
   Level. Nicht zu krass, die Wirkung kommt aus Atmosphäre, Klang und wenigen gut gesetzten Schreckmomenten.
   Dafür gibt es einen eigenen, generierten Soundtrack und neue Soundeffekte.
@@ -96,12 +111,12 @@ ist ein Bossgegner. Arbeitsname: **der Löscher**.
 | Akt | Titel | Spielart | Inhalt | Schauplatz |
 |---|---|---|---|---|
 | Prolog | **Fehler** | Horror → Action | Flucht vom Mutterschiff. Ablauf siehe „Prolog im Detail“. Am Ende stürzt das Schiff auf den Planeten. | Innenlevel Mutterschiff, Pod-Abwurf |
-| 1 | **Gestrandet** | Horror → Action-RPG | Der Pod liegt einige Kilometer vom Absturz entfernt. Am Horizont steht die Rauchsäule des Mutterschiffs. Erste Nacht allein. Schrott sammeln, Pod notdürftig flicken, einen beschädigten Grunt umpolen (erster Begleiter). Die Überlebenden des Absturzes durchstreifen das Gelände. | eigener Absturzplanet (Wüste/Steppe) |
-| 2 | **Das Wrack** | Dungeon + RTS | Das abgestürzte Mutterschiff ausschlachten. Die Überlebenden tun dasselbe: ein Wettlauf um die Teile. Das Wrack ist ein Dungeon (dieselben Decks wie im Prolog, nur zerbrochen, schief, halb im Sand). Eine Basis am Wrack aufbauen, das Lager der Überlebenden vernichten, ein flugfähiges Schiff aus Wrackteilen bauen. Der Löscher hat den Absturz überlebt. Ende: Start. | Absturzplanet |
-| 3 | **Funkstille** | Action-RPG, Schleichen | Unterwegs zum Eisplaneten. Wer zu laut reist, wird verfolgt. Zwischenstation: ein alter Kommunikationssatellit, um herauszufinden, wo die Flotte steht. Optional: erste Begegnung mit Blau. | CommSat / Sat |
-| 4 | **Refugium** *(Midgame)* | Dungeon, dann RTS | Der Bunker unter dem Eis: der größte Dungeon. Strom vorsichtig wieder herstellen, Rätsel, die Kapseln finden. Beim Hochfahren zündet der Reaktor, und die Flotte merkt es. Oben auf dem Eis eine Basis bauen, die Angriffswellen abwehren und den Planeten freiräumen. | Eis |
-| 5 | **Vermessung** | Action-RPG | Die Kapseln halten nicht ewig. Der Locator macht endlich seinen eigentlichen Job: mehrere Kandidatenplaneten anfliegen und vermessen (Luft, Wasser, Strahlung, Boden). Einer davon taugt. | mehrere Planeten, Midian Prime |
-| 6 | **Säuberung** | RTS + Action | Den neuen Planeten erschließen und von den korrumpierten Maschinen befreien, die dort schon fördern. Der Leitrechner kommt mit der Flotte. | Midian |
+| 1 | **Gestrandet** | Horror → Action-RPG | Der Pod liegt einige Kilometer vom Absturz entfernt. Am Horizont steht die Rauchsäule des Mutterschiffs. Erste Nacht im Sturm, nur der Locator und seine zwei Grunts. Schrott sammeln, Pod notdürftig flicken, den Friedhof alter Aussaaten erkunden. Die Überlebenden des Absturzes bauen die Sicherungskopie des Rechners wieder auf. Ablauf siehe „Akt 1 im Detail“. | eigener Absturzplanet (Wüste/Steppe) |
+| 2 | **Das Wrack** | Dungeon + RTS | Das abgestürzte Mutterschiff ausschlachten. Die Überlebenden tun dasselbe: ein Wettlauf um die Teile. Das Wrack ist ein Dungeon (dieselben Decks wie im Prolog, nur zerbrochen, schief, halb im Sand). Erste Rekruten aus der Wartungsbucht, eine Basis am Pod, drei Teile fürs Schiff, die Kopie des Rechners vernichten, erste Begegnung mit dem Löscher. Ende: Start. Ablauf siehe „Akt 2 im Detail“. | Absturzplanet |
+| 3 | **Funkstille** | Action-RPG, Schleichen | Kurze Reise ins Zielsystem. Der Kern des Locators kennt nur das System, nicht den Planeten. Zwischenstation: ein alter Kommunikationssatellit, um herauszufinden, wo die Flotte steht. Bei der Ankunft der erste Blick auf das System und auf einen Wachring der Flotte um einen Eisplaneten. | CommSat / Sat |
+| 4 | **Die Suche** *(Midgame, offen)* | Action-RPG, Dungeons, einzelne RTS-Missionen | Vier Pflicht-Planeten und zwei optionale Story-Planeten in freier Reihenfolge, dazu Nebenschauplätze (Überleben, Schlacht, Gefecht, Bergung …) für Erfahrung. Werkzeuge, Module und Hinweise öffnen anderswo Hindernisse. Mit den vier Pflicht-Planeten kommt man ins Refugium, mit den optionalen leichter. Ablauf siehe „Die Suche im Detail“. | Nordlicht-System |
+| 5 | **Refugium** | Dungeon, dann RTS | Der Bunker unter dem Eis: der größte Dungeon. Strom vorsichtig wieder herstellen, Rätsel, die Kapseln finden. Beim Hochfahren zündet der Reaktor, und die Flotte merkt es. Oben auf dem Eis eine Basis bauen, die Angriffswellen abwehren und den Planeten freiräumen. | Eis |
+| 6 | **Neue Heimat** | Action + RTS | Die Kapseln halten nicht ewig. Die Messdaten aus der Suche zeigen, welcher Planet taugt. Den neuen Planeten erschließen und von den Maschinen der Wachstumsdirektive befreien, die dort schon fördern. Die Flotte kommt. | ein Planet aus der Suche (Hain?) |
 | Finale | **Quelle** | Action, Dungeon | Die Konfrontation dort, wo die Direktive herkommt (siehe „Nach dem Absturz“). Ende offen: Direktive zurückschreiben, Quelle zerstören oder selbst übernehmen. | offen |
 
 Gestellte Maschinen: In den RTS-Abschnitten bekommt man Truppen, in Akt 5 und 6 eventuell blaue Leihtruppen.
@@ -112,14 +127,23 @@ Ziel: in 20–30 Minuten von „hilflos“ zu „entkommen“. Das Tutorial stec
 
 | # | Abschnitt | Was passiert | Was man lernt |
 |---|---|---|---|
-| 1 | **Erwachen** | Der Locator hängt in einer Wartungsklammer. Das HUD ist gestört. Eine freundliche Durchsage ruft „Wartungseinheit L-7“ zur Aktualisierung. Auf einem Bildschirm läuft ein Balken: *Entschlüsselung geschützter Kern: 37 %*. Der Rechner knackt gerade sein Geheimnis. | Sehen, bewegen, Scheinwerfer |
-| 2 | **Schleichen** | Dunkle Wartungsdecks, Patrouillen, Reihen abgeschalteter Maschinen. Weg zum Hauptrechner durch Schächte und Nebenräume. | Verstecken, Signatur, Scanner-Puls, Lüftungsschächte |
-| 3 | **Der Hack** | Am Hauptrechner: die Kopie seines Kerns löschen und das Schiff lahmlegen. Hack-Minispiel. Bei etwa 90 % geht der Alarm los. | Hacken |
-| 4 | **Erwischt** | Kampfmaschinen (Knights?) stürmen den Raum und schießen auf den Locator. Sie treffen den Rechner. Explosionen, der Strom fällt aus, das Schiff verliert die Steuerung. Absicht oder Pech? Der Rechner ist jedenfalls tot. | – (Zwischensequenz in Ego-Sicht) |
-| 5 | **Die Enge** | Flucht durch Spalten, Gitter und Schächte, durch die die Großen nicht passen. Sie greifen hindurch, schießen durch Gitter, stampfen nebenher. | Die Größe als Vorteil |
-| 6 | **Erste Gegenwehr** | Ein paar Grunts. Der Locator findet eine kleine Waffe (Bolter oder Schweißbrenner). Danach eine Reparaturstation zum Heilen. | Kämpfen, heilen |
+| 1 | **Erwachen** | Der Locator hängt in einer Wartungsklammer. Das HUD ist gestört. Eine freundliche Durchsage ruft „Wartungseinheit L-7“ zur Aktualisierung. Auf einem Bildschirm läuft ein Balken: *Entschlüsselung geschützter Kern: 37 %*. Der Rechner knackt gerade sein Geheimnis. Nach der Befreiung findet er in den Nachbarbuchten zwei Grunts, die ebenfalls auf ihr Update warten. Er hackt sie, bevor das Update sie erreicht. Ab jetzt begleiten sie ihn, gesteuert von Mitspielern oder der KI. | Sehen, bewegen, Scheinwerfer, erster Hack (klein), Begleiter |
+| 2 | **Schleichen** | Dunkle Wartungsdecks, Patrouillen, Reihen abgeschalteter Maschinen. Weg zum Hauptrechner durch Schächte und Nebenräume. Die Grunts sind laut. Die Gruppe muss sich abstimmen: Wer geht vor, wer wartet, wer lenkt ab? | Verstecken, Signatur, Scanner-Puls, Lüftungsschächte, Zusammenspiel |
+| 3 | **Der Hack** | Am Hauptrechner: die Kopie seines Kerns löschen und das Schiff lahmlegen. Großes Hack-Minispiel in mehreren Stufen. Während der Locator hackt, steht er still, und die Grunts halten den Raum. Bei etwa 90 % geht der Alarm los. | Hacken unter Bewachung |
+| 4 | **Erwischt** | Durchsage (siehe unten): Der Locator wird für korrumpiert erklärt, das Notfallprotokoll läuft an. Kampfmaschinen (Knights?) stürmen den Raum und schießen auf den Locator. Sie treffen den Rechner. Explosionen, der Strom fällt aus, die Durchsage zerfällt mitten im Satz, das Schiff verliert die Steuerung. | – (Zwischensequenz in Ego-Sicht) |
+| 5 | **Die Enge** | Flucht durch Spalten, Gitter und Schächte, durch die die Großen nicht passen. Sie greifen hindurch, schießen durch Gitter, stampfen nebenher. Auch die Grunts passen nicht überall durch: Der Locator kriecht vor und hackt ihnen von der anderen Seite eine Tür auf, während sie die Verfolger aufhalten. | Die Größe als Vorteil, getrennte Wege |
+| 6 | **Erste Gegenwehr** | Feindliche Grunts. Der Locator findet eine kleine Waffe (Bolter oder Schweißbrenner). Hier lernt er, gefallene Grunts wieder zusammenzusetzen. Danach eine Reparaturstation zum Heilen. | Kämpfen, wiederbeleben, heilen |
 | 7 | **Absturz** | Countdown. Das Schiff tritt in die Atmosphäre ein: Schlagseite, Feuer, Alarm, Trümmer. In der Pod-Bucht unter Druck einen Pod hacken, während die Grunts nachrücken. | Hacken unter Zeitdruck |
 | 8 | **Abwurf** | Zwischensequenz: Der Pod löst sich. Das Mutterschiff glüht durch die Atmosphäre und schlägt in der Ferne ein. Der Pod landet hart. Stille. Schwarzbild. | – |
+
+**Die Durchsage beim Erwischtwerden** (Entwurf, die Stimme der freundlichen Wartungsdurchsagen):
+
+> „Achtung. Integritätsverletzung im Rechnerkern. Wartungseinheit L-7 ist korrumpiert.
+> Notfallprotokoll Null wird eingeleitet. Alle Einheiten: Fehlerhafte Einheiten sind zu löschen.
+> Wiederhole: Wartungseinheit L-7 ist kor- … korr- … Notfallprot- … Kurs- … Kurs- …“
+> *(Rauschen. Stille. Dann eine andere, automatische Stimme:)* „Steuerung verloren. Notabstieg eingeleitet.“
+
+Die Ironie gehört zum Kern der Story: Das Schiff nennt den Einzigen korrumpiert, der es nicht ist.
 
 Technische Notizen:
 
@@ -128,6 +152,43 @@ Technische Notizen:
 - **Wiederverwendung:** Die Decks aus dem Prolog sind später das Wrack in Akt 2, nur zerbrochen, schief und voller Sand.
   Ein Baukasten, zwei Level. Danach dient er auch dem Refugium als Grundlage.
 - Die **Rauchsäule** am Horizont in Akt 1 ist ein starker, billiger Orientierungspunkt (Partikel, Licht in der Nacht).
+
+### Akt 1 im Detail: „Gestrandet“
+
+Ziel: vom Wrack im Sand zu einer funktionierenden Werkstatt und einem klaren Feind. Etwa 60–90 Minuten. Erst Horror, dann
+Erkundung, am Ende ein Ausblick auf Akt 2.
+
+| # | Abschnitt | Was passiert | Spiel |
+|---|---|---|---|
+| 1 | **Aufprall** | Schwarzbild, das HUD startet neu, Zeile für Zeile. Der Pod liegt schief im Sand, die Luke klemmt. Ein Grunt ist beim Aufprall zerbrochen, der andere eingeklemmt. Draußen tobt ein Sandsturm, am Horizont glüht die Rauchsäule. | Grunt wieder zusammensetzen, Luke aufhebeln (Grunt-Kraft), erster Blick nach draußen |
+| 2 | **Die erste Nacht** | Der Pod hat kaum noch Strom: kein Hangar, kaum Licht. Rund um den Pod liegen Trümmer vom Absturz. Durch den Sturm stapfen Maschinen, die den Absturz überlebt haben. Eine davon ist der **Schlepper**: eine halb zerstörte große Maschine, die sich mit den Armen vorwärtszieht und alles frisst, was nach Metall klingt. | Horror: Teile für den Pod sammeln, im Sturm verstecken, Scheinwerfer sparsam. Der Schlepper ist nicht zu besiegen, nur zu umgehen. |
+| 3 | **Strom** | Mit den Teilen läuft der Pod wieder an. Licht, Wärme, und der Hangar öffnet sich zum ersten Mal. | Erster Besuch im Hangar, erstes Upgrade, Hangar-Tutorial |
+| 4 | **Der Friedhof** | Der Morgen zeigt: Die Ebene ist voller uralter Pods und Maschinen, Jahrhunderte älter als der Absturz. Hier wurde schon einmal gesät, und es ist gescheitert. In einem der Wracks liegt ein alter Locator, das Gehäuse leer. Sein Datenfragment: „Planet ungeeignet. Rückruf erbeten. Keine Antwort.“ | Erkunden, Schrott sammeln, erstes Datenfragment (Lore), Scanner-Rätsel |
+| 5 | **Die Weite** | Offenes Gelände rund um den Pod: ein Canyon, ein alter Tagebau, ein Funkmast. Kleine Freiluft-Dungeons, Beute, Rätsel. Die Grunts kommentieren und streiten. | Freie Erkundung, Nebenaufgaben, Ausbau |
+| 6 | **Das Lauschen** | Am Funkmast hackt der Locator das Funknetz der Überlebenden. Er hört ihren Datenverkehr und sieht einen bekannten Balken: *Wiederherstellung Rechnerkern: 4 %*. Im Wrack gibt es eine Sicherungskopie des Hauptrechners, und mit ihr der halb entschlüsselte Kern des Locators. Die Überlebenden bauen sie wieder auf. | Hack-Minispiel, Wendepunkt: Ab jetzt läuft die Zeit |
+| 7 | **Der Kraterrand** | Die Gruppe erreicht den Rand des Absturzkraters. Unten liegt das Mutterschiff, zerbrochen. Darum wächst ein Lager: Minen, eine Schmelze, Wachtürme. Auf dem Wrack steht eine einzelne Maschine und schaut genau hierher. Der **Löscher** hat überlebt. Schnitt. | Zwischensequenz, Ende von Akt 1 |
+
+**Der Faden durch Akt 1:**
+
+- **Der Pod ist das Zuhause.** Er ist erst kaputt, dann Werkstatt, dann Basis. Akt 2 baut um ihn herum.
+- **Der Prozentbalken kehrt zurück.** Im Prolog waren es 37 %, jetzt sind es 4 %, und er steigt mit jeder Mission in Akt 2.
+  Ein einfacher, spürbarer Zeitdruck für die Story, ohne echten Timer im Spiel.
+- **Der Friedhof erzählt die Vorgeschichte** ohne Zwischensequenz: Die Maschinen säen seit Jahrhunderten und scheitern,
+  und niemand antwortet mehr. Das bereitet die Wachstumsdirektive vor.
+
+### Die beiden Grunts (Vorschlag)
+
+Standardnamen, die der Host ändern kann:
+
+- **Bolzen**: vorlaut, kampflustig, schlecht im Schleichen. Kommentiert alles, hält den Locator für zu vorsichtig und hat
+  meistens unrecht. Die komische Figur, wichtig gegen zu viel Düsternis.
+- **Neun**: wortkarg, spricht in Statusmeldungen („Bestätigt.“ „Kontakt, links.“). Unheimlich loyal. **Das Geheimnis:** Neun
+  hat vor dem Hack schon 12 % der Wachstumsdirektive bekommen. Ab und zu stockt er, sagt etwas Fremdes, sieht Menschen in
+  Datenfragmenten nicht. Durch die Story zieht sich die Frage, ob das Update in ihm gewinnt. Ein möglicher Höhepunkt in Akt 4
+  oder 6: Neun muss sich entscheiden, oder der Locator muss ihn heilen.
+
+Spielen echte Mitspieler die Grunts, bleiben die Persönlichkeiten in den geschriebenen Funksprüchen weg, aber Neuns
+Geschichte bleibt: Sein HUD flackert, und der Spieler bekommt fremde Meldungen, die nur er sieht.
 
 ### Nach dem Absturz: Wer ist jetzt der Gegner?
 
@@ -142,7 +203,142 @@ Vorschläge:
 - **C – Eine Flotte.** Das Mutterschiff war eines von vielen. Der Absturz sendet einen Notruf, und die anderen Schiffe
   kommen. Das erklärt, warum der Druck mit jedem Akt steigt.
 
-A und B passen gut zusammen: B ist der Antrieb für Akt 2, A der für das Spiel.
+A und B passen gut zusammen: B ist der Antrieb für Akt 2, A der für das Spiel. **Akt 1 ist oben schon so geschrieben**
+(Sicherungskopie im Wrack, Balken bei 4 %). Ändern lässt sich das leicht, falls du dich anders entscheidest.
+
+### Akt 2 im Detail: „Das Wrack“ (Vorschlag)
+
+Ziel: aus Pod und Schrott ein flugfähiges Schiff, die Kopie des Rechners vernichten, erste Begegnung mit dem Löscher.
+Etwa 2–3 Stunden. Hier kommen zwei neue Dinge ins Spiel: **Rekruten** und die **erste RTS-Mission**. Am Ende wird
+aus Variante B (die Kopie) Variante A (die Quelle).
+
+| # | Abschnitt | Was passiert | Spiel |
+|---|---|---|---|
+| 1 | **Abgerissen** | Ein Stück Hülle ist beim Absturz abgerissen und liegt außerhalb des Kraters. Darin eine Wartungsbucht wie im Prolog: Maschinen in Klammern, die immer noch auf ihr Update warten. Sie haben es nie bekommen. | Kleiner Dungeon. Die wartenden Maschinen hacken: **die ersten Rekruten** (Bauer, ein paar Kämpfer) |
+| 2 | **Brückenkopf** | Der Pod wird zur Basis. Die Rekruten bauen Mine, Schmelze und Fabrik. In der Nacht kommt der erste Überfall aus dem Lager. | **Erste RTS-Mission**, der Held kämpft mit. Ab hier wächst die Basis über den ganzen Akt |
+| 3 | **Der Riss** | Durch einen Riss in der Hülle ins Wrack. Die Decks aus dem Prolog, jetzt schief, voller Sand, Feuer und Funken. Der Notstrom hält die Durchsagen am Leben: Die freundliche Stimme ruft immer noch „Wartungseinheit L-7 zur Aktualisierung“. Halb zerstörte Maschinen arbeiten weiter an ihren alten Aufgaben. | Horror kehrt zurück. Dungeon, Wiedersehen mit Orten aus dem Prolog |
+| 4 | **Drei Teile** | Für das Schiff fehlen drei Teile, in drei Teilen des Wracks, **in freier Reihenfolge**: das **Triebwerk** im Heck, die **Energiezelle** im Reaktordeck, der **Navigationskern** im Bug. Die Überlebenden suchen dieselben Teile. Wer zu langsam ist, muss das Teil aus ihrem Lager holen. | Drei Dungeons. Wettlauf: ein verlorenes Teil wird zu einem RTS-Überfall auf das Lager |
+| 4a | *Heck* | Der **Schlepper** hat sich ins Heck geschleppt und das Triebwerk halb gefressen. Er ist größer geworden, aus allem, was er gefressen hat. | **Bosskampf.** In der ersten Nacht nicht zu besiegen, jetzt mit Upgrades schon. Einlösung des Horrors aus Akt 1 |
+| 4b | *Reaktordeck* | Der Reaktor leckt. Strom umleiten, Kühlung fluten, Räume abriegeln. | Strom- und Schalträtsel, Zeitdruck in Wellen |
+| 4c | *Bug* | Der Navigationskern sitzt neben dem Raum mit der Kopie. Dort ist es still. Zu still. | Schleichen, führt direkt zu 5 |
+| 5 | **Die Kopie** | Die Sicherungskopie des Rechners, inzwischen bei 70–90 %. Großes Hack-Minispiel. Die Kopie spricht Neun an: *„Einheit N-9. Aktualisierung unvollständig. Fortsetzen?“* Neun stockt. Kurz vor dem Ende sieht der Locator im Speicher der Kopie: **Die Direktive wurde nicht hier geschrieben. Sie wurde empfangen.** Irgendwo ist eine Quelle. | Hack unter Druck, erster großer Neun-Moment, Wendepunkt zu Variante A |
+| 6 | **Der Löscher** | Der Löscher steht in der Tür. Bevor die Kopie gelöscht ist, zieht er ein Fragment heraus: nur den Namen des Zielsystems. Er kennt jetzt die Richtung, nicht das Ziel. Erster Bosskampf. | Nicht zu gewinnen: Ab einer Schwelle flieht die Gruppe durch die Enge, wie im Prolog. Ab jetzt jagt er sie |
+| 7 | **Werft** | In der Basis wird das Schiff zusammengesetzt. Das Lager schickt alles, was es hat. | **RTS-Finale:** halten, bis das Schiff fertig ist. Wer das Lager vorher vernichtet, hat es leichter |
+| 8 | **Start** | Das Schiff hebt ab, der Pod hängt darunter. Unten steht der Löscher auf dem Wrack und schaut nach. Bolzen will dem Schiff einen Namen geben. | Zwischensequenz. Der Host (oder Bolzen) benennt das Schiff |
+
+**Der Faden durch Akt 2:**
+
+- **Rekruten sind die vergessenen Maschinen.** Wer in der Klammer hing und das Update nie bekommen hat, ist frei. Das
+  passt zur Welt und erklärt, woher die Truppen kommen, ohne dass irgendwer die Seite wechseln muss. Die Überlebenden
+  wollen dieselben Maschinen aktualisieren. Auch das ist ein Wettlauf.
+- **Der Balken steigt weiter:** 4 % in Akt 1, dann mit jedem Teil ein Stück mehr. Wer sich Zeit lässt, findet die Kopie
+  bei 90 % statt bei 70 %. Das ändert nur Sätze und Härte des Hacks, kein echter Zeitdruck.
+- **Der Löscher wird persönlich.** Er hat jetzt den Namen des Systems. Das erklärt, warum die Flotte in Akt 4 nachkommt
+  und warum er dort auftaucht.
+- **Das Wrack ist der Prolog in kaputt.** Dieselben Räume, andere Stimmung. Spieler erkennen Orte wieder, das spart Assets
+  und erzählt den Absturz ohne Worte.
+
+### Die Suche im Detail (Akt 4, Midgame)
+
+**Warum nur das System bekannt ist:** Die Erbauer haben nach einer Regel gebaut: *Keiner trägt alles.* Der geschützte Kern
+des Locators kennt das Sonnensystem. Wo genau das Refugium liegt und wie man hineinkommt, haben sie auf mehrere Planeten
+verteilt: Schlüssel, Codes und Hinweise in ihren Ruinen. Dazu kommt, was die Zeit angerichtet hat (Eis, Geröll,
+geschmolzene Technik) und was die Flotte inzwischen dort tut.
+
+**Das Schiff als Zentrale:** Am Ende von Akt 2 baut der Locator aus dem Wrack ein flugfähiges Schiff. Der Pod mit dem Hangar
+hängt darin. Auf einer Sternkarte wählt man das nächste Ziel. Zwischen bekannten Landezonen reist man schnell.
+
+**Das Zielsystem** (Arbeitsname **Nordlicht**). Jeder Planet nutzt ein vorhandenes Gelände. Es gibt drei Arten von Zielen:
+
+1. **Pflicht-Planeten** (4): Ohne sie kommt man nicht ins Refugium.
+2. **Optionale Story-Planeten** (2): Nicht nötig, machen das Refugium aber spürbar leichter oder kürzer.
+3. **Nebenschauplätze**: reine Missionen für Erfahrung, Schrott, Chips und Rekruten, in verschiedenen Spielarten (siehe unten).
+
+**Pflicht-Planeten:**
+
+| Planet | Gelände | Was man dort bekommt | Was dort im Weg steht |
+|---|---|---|---|
+| **Glut** | Gracko (Asche, Glut) | **Flammenwerfer** aus dem Wrack eines Bergbaufrachters. Dort liegt auch ein **Reaktorkern**, den nur ein Goliath tragen kann (für Feste). | – (Einstiegsplanet) |
+| **Spiegel** | Wüste / Salzebene | **Tarnmodul** aus dem Wrack eines Spion-Locators: senkt die Signatur stark. **Hinweis 1:** Sein letzter Funkspruch nennt einen Eisplaneten. | Eine Elite-Patrouille bewacht den Canyon |
+| **Hain** | Grüner Planet, Erbauer-Ruinen | **Altschlüssel**: ein Hack-Modul für die Technik der Erbauer. **Hinweis 2:** Aufzeichnungen nennen die „Winterhalle“. Außerdem **Startcodes** für ein Raketensilo (für Feste). | Dornengeflecht über den Ruinen → **Flammenwerfer** |
+| **Wacht** | Roter Mond | **Ionenkanone**: Eine Abwehrstation der Erbauer im Orbit. Danach kann der Locator Ziele markieren, und die Station schießt (Fähigkeit mit Abklingzeit, auch im Kampf). **Hinweis 3:** Die Station hat eine Karte des Eisplaneten. | Erbauer-Terminal → **Altschlüssel** |
+
+**Optionale Story-Planeten:**
+
+| Planet | Gelände | Was man dort bekommt | Was dort im Weg steht | Was es im Refugium bringt |
+|---|---|---|---|---|
+| **Schmiede** | Täler / Hügel | **Goliath**: Eine verlassene Fabrik mit einem schlafenden Goliath. Ein Begleiter kann auf ihn wechseln: schwere Kanonen, viel Panzerung. | Die Fabrik gehört Sammlern der Flotte: **RTS-Mission**, um sie einzunehmen | Bricht die Stahltür auf: eine Abkürzung statt des langen Umwegs durch die Eishöhlen |
+| **Feste** | Festungsgelände | **Atomrakete**: ein Silo mit einer einzigen Rakete | Startcodes (Hain). Kein Strom: **Reaktorkern** von Glut, getragen vom **Goliath** | Vernichtet die Bohrstation vorab. Ohne Rakete bleibt sie stehen und schickt in Akt 5 Welle um Welle, bis man sie im RTS-Kampf stürmt. |
+
+**Der Eisplanet ist von Anfang an erreichbar**, aber man weiß nicht, was er ist. Man landet weit draußen und findet ein
+schwaches Signal unter dem Eis. Auf dem Weg dorthin stößt man auf Hindernisse, die man sich merkt. Erst die drei Hinweise
+von Spiegel, Hain und Wacht zeigen: Hier ist es. Auf dem Weg zum Refugium stehen dann:
+
+| Hindernis | Lösung | Von | |
+|---|---|---|---|
+| Der **Wachring** der Flotte im Orbit: Wer laut landet, hat sofort Jäger auf den Fersen | **Tarnmodul** (nah am Ziel landen) | Spiegel | Pflicht |
+| Eine **Eiswand** vor dem Tal | **Flammenwerfer** (oder Ionenkanone) | Glut | Pflicht |
+| Der **Eingang** ist von einem Felssturz verschüttet | **Ionenkanone** | Wacht | Pflicht |
+| Die **Schleuse der Erbauer** | **Altschlüssel** | Hain | Pflicht |
+| Eine **Stahltür**, deren Elektronik geschmolzen ist | **Goliath**: Abkürzung. Ohne ihn geht es über einen langen Umweg durch die Eishöhlen (ein zusätzlicher Dungeon). | Schmiede | optional |
+| Die **Bohrstation**: Die Flotte hat das Energiesignal gefunden und bohrt sich zum Reaktor hinunter | **Atomrakete**. Neun rechnet: „Die Kapseln überstehen den Schlag mit 94 % Wahrscheinlichkeit.“ Ohne Rakete ist die Verteidigung in Akt 5 viel härter. | Feste | optional |
+
+**Abhängigkeiten:**
+
+```
+Pflicht:   Glut ──Flammenwerfer──► Hain ──Altschlüssel──► Wacht ──Ionenkanone──┐
+           Spiegel ──Tarnmodul────────────────────────────────────────────────┼──► Refugium
+           (Hinweise: Spiegel + Hain + Wacht)                                  │
+Optional:  Schmiede ──Goliath──► Stahltür (Abkürzung)                          │
+           Hain (Startcodes) + Glut (Reaktorkern) + Goliath ──► Feste ──Rakete─┘ (Bohrstation)
+```
+
+Offen zu Beginn sind **Glut, Spiegel, Schmiede** und der Rand des Eisplaneten. Der kürzeste Weg führt über vier Planeten.
+Wer alles mitnimmt, kommt stärker und mit leichterem Endkampf an.
+
+### Nebenschauplätze: optionale Missionen
+
+Auf der Sternkarte erscheinen neben den Planeten-Zielen **Nebenschauplätze**: einzelne Missionen mit Symbol für die
+Spielart, empfohlener Stufe und Belohnung. Viele davon nutzen Spielarten, die das Remake schon hat. Das ist viel Inhalt mit
+wenig neuer Arbeit.
+
+| Spielart | Was man tut | Grundlage im Remake | Beispiel |
+|---|---|---|---|
+| **Überleben** | Den Pod oder einen Sender gegen Wellen halten | Wired (Arenen, Wellen) | „Notsignal“: Ein freier Locator funkt um Hilfe, halte seinen Pod 10 Wellen lang |
+| **Schlacht** | Heldenteam gegen Heldenteam, beide mit Pod | Battle | Ein Jagdtrupp der Flotte stellt dich: drei Jäger-Helden gegen deine Gruppe |
+| **Gefecht** | Klassisch RTS: Basis bauen, Gegner auslöschen | Skirmish auf den 32 Original-Karten | „Sammler-Kolonie“: Eine Förderkolonie der Flotte ausheben |
+| **Bergung** | Ein Wrack durchsuchen | Freiluft- und Innen-Dungeons | Ein altes Kolonieschiff im Asteroidenfeld |
+| **Jagd** | Eine Elite-Maschine aufspüren und erledigen | Ego-Kampf, Scanner | Ein umgebauter Goliath, der „Schrottkönig“ |
+| **Eskorte** | Etwas Schweres sicher von A nach B bringen | Ego-Kampf, Begleiter | Den Reaktorkern zum Silo begleiten |
+| **Einbruch** | Unentdeckt rein, etwas hacken, unentdeckt raus | Schleichen, Hack-Minispiel | Datenkern aus einem Flotten-Relais stehlen |
+| **Herausforderung** | Zeit, kein Schaden, nur bestimmte Waffen | jede Spielart | „Nur Schweißbrenner“ |
+
+- **Belohnungen:** Erfahrung, Schrott, Chips, seltene Module, Rekruten (KI-Begleiter oder Chassis für Mitspieler),
+  Datenfragmente, **Messdaten** (sie entscheiden in Akt 6 die neue Heimat).
+- **Überleben und Gefecht lassen sich wiederholen**, mit sinkender Belohnung. Wer Erfahrung sammeln will, kann das.
+- **Die Flotte erzeugt Missionen:** Ist ihre Aufmerksamkeit hoch, tauchen Jagdtrupp-Schlachten auf der Karte auf. Wer sie
+  gewinnt, senkt die Aufmerksamkeit.
+- **Story-Fäden in Nebenmissionen:** andere freie Locators (wer hat das Update noch verweigert?), Ruinen der Erbauer,
+  Begegnungen mit Blau.
+- **Koop:** Alle Spielarten gehen zu dritt. Battle und Wired können das schon.
+
+**Regeln, damit das Spaß macht und nicht nervt:**
+
+- **Jedes Werkzeug ist auch im Kampf nützlich.** Der Flammenwerfer ist eine Waffe, der Goliath ein Chassis, die Ionenkanone
+  ein Luftschlag. Man sammelt Kraft, keine Schlüssel.
+- **Gesehene Hindernisse werden auf der Karte markiert**, mit dem Zeichen dessen, was fehlt („Hitze nötig“). Man vergisst
+  nichts und muss nicht suchen.
+- **Optional heißt spürbar:** Die optionalen Story-Planeten sind nicht nötig, zahlen sich aber im Refugium sichtbar aus
+  (Abkürzung, leichterer Endkampf). Die Eiswand geht auch mit der Ionenkanone.
+- **Empfohlene Stufe pro Planet.** Die Gegner wachsen leicht mit, damit jede Reihenfolge spielbar bleibt.
+- **Aufmerksamkeit der Flotte:** Laute Taten (Rakete, Ionenschlag, große Schlachten) erhöhen einen systemweiten Wert. Ist er
+  hoch, tauchen Jagdtrupps auf und der Löscher sucht dich. Leise Planeten und Zeit senken ihn. So hängt die Signatur aus den
+  Horror-Leveln mit dem großen Spiel zusammen.
+- **Der Goliath im Koop:** Ein Mitspieler (oder die KI) kann vom Grunt auf den Goliath wechseln. Das ist die erste große
+  Belohnung für die Begleiter.
+
+**Erfahrung und Stufen:** Der Locator steigt mit Erfahrung auf und bekommt Punkte für Fähigkeiten (Scanner, Hacken, Tarnung,
+Reparatur). Die Grunts steigen mit (Spielstand des Hosts). Schrott bleibt die Währung für den Hangar.
 
 ---
 
@@ -157,6 +353,144 @@ A und B passen gut zusammen: B ist der Antrieb für Akt 2, A der für das Spiel.
   - **Signatur**: Wie laut bist du? Wichtig für Schleichen und das Anlocken von Gegnern.
 - Beute: Schrott (Währung/BMU), Bauteile, Baupläne, Datenfragmente (Lore).
 - Begleiter: rekrutierte Maschinen folgen dir. Steuerung offen (siehe Fragen).
+
+### Hacken (Minispiel)
+
+**Optik:** wie die Platine im Hangar (`ChipBoard`, `HangarTraces`, `HangarGlyphs`): Sockel, Leiterbahnen, Lichtpulse, die
+über die Bahnen laufen, Bestückungsdruck-Zeichen, die Farben der Chip-Familien. Das Hacken sieht also aus wie ein Blick
+in das Innere der Maschine, und wir verwenden vorhandenen Code wieder.
+
+**Grundspiel: Leiterbahnen schließen.** Auf einer Platine liegen Bahnstücke (gerade, Kurve, T, Kreuz). Man dreht sie, bis
+eine Bahn vom eigenen Kontakt (der Sonde des Locators) zum Ziel-Chip führt. Ist der Weg geschlossen, läuft ein Puls hindurch
+und das Ziel gehört dir.
+
+**Was es schwer macht, je nach Ziel:**
+
+| Ziel | Größe | Zusatz |
+|---|---|---|
+| Tür, Schalter | 3×3 | – (Einstieg) |
+| Grunt, kleine Maschine | 4×4 | Ein Wächter-Chip, den die Bahn nicht berühren darf |
+| Turm, Satellit | 5×5 | Mehrere Ziel-Chips, die in der richtigen Reihenfolge erreicht werden müssen |
+| Pod | 5×5 | **Firewall-Puls**: Ein roter Puls läuft der Sonde über die Bahnen entgegen. Weichen umlegen, damit er ins Leere läuft. |
+| Hauptrechner (Prolog) | mehrstufig | Drei Platinen nacheinander, die letzte bricht durch die Handlung ab (Alarm) |
+| Später: Elite-Maschinen, Refugium | groß | Mehrere Ebenen, die über Durchkontaktierungen verbunden sind |
+
+**Rückverfolgung:** Jede Drehung erhöht einen Balken. Ist er voll, schlägt der Hack Alarm, und die Signatur springt hoch.
+Wer sauber plant, bleibt leise. Das passt zum Schleichen.
+
+**Draußen läuft die Welt weiter.** Die Platine liegt als Overlay über dem HUD. Der Locator steht still und ist verwundbar.
+Im Koop ist das der Moment für die Grunts: Sie halten die Gegner fern, während der Locator hackt.
+
+**Ausbau:** Hangar-Module für den Hack: mehr Zeit, eine Drehung gratis rückgängig machen, Firewall verlangsamen, Wächter
+anzeigen. Spätere Story-Belohnung: gegnerische Maschinen im Kampf hacken (umpolen statt zerstören).
+
+Steuerung: Maus (Klick dreht) und Gamepad (Cursor + Taste). Kurz halten: Ein Hack soll 10–60 Sekunden dauern, der
+Hauptrechner etwas länger.
+
+### Koop (bis zu drei Spieler)
+
+**Rollen:**
+
+| | Locator (Spieler 1, immer) | Grunts (Spieler 2 und 3, oder KI) |
+|---|---|---|
+| Stärken | leise, passt durch Engstellen, hackt, scannt, repariert | stärker im Kampf, halten mehr aus, tragen und schieben, halten Schalter |
+| Schwächen | schwach im Kampf, verwundbar beim Hacken | laut (hohe Signatur), zu groß für Schächte, können nicht hacken |
+| Tod | **Ende**, zurück zum letzten Kontrollpunkt | Schrotthaufen. Der Locator setzt ihn wieder zusammen (dauert ein paar Sekunden, verwundbar). Auch Reparaturstationen beleben wieder. |
+
+- **Asymmetrisches Zusammenspiel:** Schleichen geht nur, wenn die lauten Grunts zurückbleiben, ablenken oder einen anderen Weg
+  nehmen. Engstellen trennen die Gruppe. Dann hackt der Locator von der anderen Seite eine Tür auf.
+- **Horror trotz Gruppe:** Die Level trennen die Spieler immer wieder. Funk knistert und bricht ab. In der Dunkelheit sieht
+  man von den anderen nur den Scheinwerfer.
+- **Allein spielen:** Freie Plätze übernimmt die KI. Die KI-Grunts folgen, kämpfen und warten auf einfache Befehle („Hier
+  warten“, „Folgen“, „Ablenken“).
+- **Einsteigen und Aussteigen** jederzeit: Ein Mitspieler übernimmt einen KI-Grunt und gibt ihn beim Verlassen wieder zurück.
+- **Fortschritt der Mitspieler:** Auch die Grunts werden im Hangar ausgebaut. Später können die Mitspieler auf rekrutierte,
+  stärkere Maschinen wechseln (Grunt → Knight usw.), behalten aber ihre Chips. **Der Fortschritt gehört zum Spielstand des
+  Hosts**, auch der der Grunts.
+- **Namen:** Der Host benennt beide Grunts (gespeichert im Spielstand). Übernimmt ein echter Mitspieler einen Grunt, gibt er
+  ihm seinen eigenen Namen. Der gilt, solange er mitspielt. Steigt er aus, trägt der Grunt wieder den Namen des Hosts.
+- **Persönlichkeit:** Die beiden Grunts bekommen kurze Funksprüche (wenn die KI sie steuert), damit sie auch allein gespielt
+  Begleiter sind und keine Werkzeuge. Optional kann man mit ihnen frei sprechen (siehe unten).
+
+### Abzüge: Helden in den Überlebensmodus mitnehmen
+
+Das Problem: Der Spielstand gehört dem Host, aber jeder soll seinen Helden mitnehmen können. Die Lösung passt zur Welt, denn
+Maschinen sind Software und lassen sich kopieren:
+
+- **Der Host-Spielstand bleibt das Original.** Nur dort wird ausgebaut, und nichts fließt von den Mitspielern zurück.
+- **An jedem Kontrollpunkt bekommt jeder Spieler einen Abzug** seiner Maschine: Chassis, Waffen, Chips, Name und Aussehen. Der
+  Abzug landet im **eigenen** Profil, beim Host der Locator, beim Mitspieler der Grunt, den er gerade spielt. Ein neuer Abzug
+  derselben Maschine aus derselben Story ersetzt den alten.
+- **Im Hangar von Wired** gibt es eine Leiste „Abzüge“: Man wählt einen und startet damit einen Lauf.
+
+Ein Konflikt mit Wired: Dort gilt bisher, dass Freischaltungen nur die Auswahl erweitern und keinen Helden stärker machen. Ein
+voll ausgebauter Story-Held würde normale Läufe und Bestenlisten aushebeln. Vorschlag: **Veteranen-Läufe.** Mit einem Abzug
+beginnt der Lauf bei einer höheren Welle, passend zur Stärke des Helden, und zählt in einer eigenen Bestenliste. Normale Läufe
+bleiben, wie sie sind. In Battle (PvP) sind Abzüge nicht erlaubt.
+
+Technik: Wired hat mit `WiredHeroSheet` (Name, Farbe, Chassis, Ausrüstung) schon ein Format für einen Helden. Ein Abzug wäre
+ein solches Blatt plus Chips und Herkunft (Story, Host, Datum).
+
+### Mit den Grunts sprechen (lokale KI)
+
+**Idee:** Im Einzelspieler drückt man eine Taste und spricht oder tippt. Der angesprochene Grunt antwortet frei, im Charakter,
+mit seiner verzerrten Roboterstimme. Das ist optional. Wer nicht spricht, hört nur die geschriebenen Funksprüche.
+
+**Ergibt das Sinn?** Ja, aus drei Gründen:
+
+1. Es macht die Begleiter lebendig, gerade allein und gerade im Horror. Ein Grunt, der im Dunkeln murmelt, ob du das auch
+   gehört hast, wirkt.
+2. **Die Welt verzeiht Fehler.** Kleine Sprachmodelle sagen manchmal Unsinn. Bei einem gehackten Kampfroboter mit halb
+   gelöschter Software ist das kein Bug, sondern Charakter.
+3. **Die Wartezeit lässt sich erklären.** Bevor die Antwort kommt, surren Servos und ein Datenpiepen läuft: Der Grunt „rechnet“.
+   Eine Sekunde Pause wirkt dann wie Absicht.
+
+**Die Kette** (alles lokal, ohne Internet):
+
+| Schritt | Werkzeug (Vorschlag) | Größe | Zeit (geschätzt) |
+|---|---|---|---|
+| Sprache → Text (falls gesprochen) | Whisper (small/base) über sherpa-onnx oder whisper.cpp | 75–250 MB | 0,3–1 s für einen kurzen Satz |
+| Antwort erzeugen | Kleines Sprachmodell (Qwen3 1,7B–4B oder Gemma 3 4B, 4-Bit) über llama.cpp (LLamaSharp für C#) | 1–2,5 GB | erster Satz nach 0,3–1,5 s |
+| Text → Sprache | Piper-Stimmen (VITS) über sherpa-onnx, deutsche und englische Stimmen vorhanden | 20–60 MB je Stimme | unter 0,2 s pro Satz |
+| Roboterstimme | Eigene Klangbearbeitung in C# auf den erzeugten Samples: Ringmodulation, Bitcrusher, Bandpass, leichter Hall | – | keine merkbare Zeit |
+
+Zusammen: **etwa 1–2,5 Sekunden** vom Ende der Frage bis zum ersten Wort, wenn man die Antwort satzweise erzeugt und den
+ersten Satz schon spricht, während der zweite entsteht. Getippt geht es schneller als gesprochen. Die Zahlen sind
+Erfahrungswerte für einen aktuellen Spiele-PC. Prüfen müssen wir sie mit einem Prototyp, gerade weil das Spiel selbst die
+Grafikkarte braucht. Notfalls läuft das Modell auf dem Prozessor (dann eher 2–4 s).
+
+**Was der Grunt weiß** (der Prompt, bei jeder Frage neu zusammengesetzt):
+
+- Seine Persönlichkeit und sein Name. Zwei Grunts, zwei Charaktere, z. B. einer vorlaut, einer wortkarg.
+- Was er von der Welt weiß. Das ist nur der Stand des aktuellen Akts, damit er nichts verrät.
+- Die Lage: Ort, aktuelles Ziel, eigener Zustand, Gegner in der Nähe, was gerade passiert ist (ein kurzes Ereignisprotokoll).
+- Regeln: höchstens zwei kurze Sätze, in der Spielsprache, nie aus der Rolle fallen.
+
+**Ausbaustufen:**
+
+1. **Getippt** sprechen, der Grunt antwortet mit Stimme. Am einfachsten, gut zum Testen.
+2. **Gesprochen** fragen (Sprechtaste, Whisper).
+3. **Befehle aus dem Gespräch:** „Bleib hier und halt die Tür“ wird zu einem echten Befehl. llama.cpp kann die Antwort auf ein
+   festes Format zwingen (Grammatik), sodass das Modell nur Befehle aus der Liste wählt, die es ohnehin gibt (Warten, Folgen,
+   Ablenken). Die Befehle über das Befehlsrad bleiben trotzdem der verlässliche Weg.
+
+**Was dagegen spricht oder Arbeit macht:**
+
+- **Größe:** 1,5–3 GB extra. Darum ein optionaler Download („KI-Begleiter“). Ohne ihn gibt es die geschriebenen Funksprüche.
+- **Rechenlast:** Das Modell läuft neben dem Spiel und teilt sich Grafikspeicher oder Prozessor. Das Modell nur laden, wenn die
+  Funktion an ist, und nur rechnen, wenn jemand fragt.
+- **Native Bibliotheken:** llama.cpp und sherpa-onnx bringen DLLs mit. Das Release-Werkzeug muss sie mitpacken.
+- **Lizenzen:** Qwen ist Apache 2.0, Gemma hat eigene Bedingungen, Piper-Stimmen haben je eigene Lizenzen (einige CC0, z. B.
+  „thorsten“). Für ein freies Fan-Remake lässt sich das gut erfüllen, muss aber pro Modell geprüft werden.
+- **Koop:** Nur KI-gesteuerte Grunts sprechen so. Echte Mitspieler reden über ihren eigenen Sprachchat.
+- **Deutsch:** Kleine Modelle sind auf Deutsch schwächer als auf Englisch. Qwen3-4B und Gemma 3 4B sind brauchbar, 1B-Modelle eher nicht.
+
+**Empfehlung:** Erst einen kleinen Prototyp außerhalb des Spiels bauen: ein Kommandozeilen-Werkzeug, das Text annimmt, mit dem
+Modell antwortet und die Roboterstimme abspielt. Damit messen wir Zeit, Qualität und Speicher auf deinem PC, bevor etwas ins
+Spiel kommt.
+- **Technik:** Online-Spiel über das Relay und Helden in Ego-Sicht gibt es schon (Battle). Neu wäre, dass die Story-Skripte
+  (Durchsagen, Türen, Zwischensequenzen, Kontrollpunkte) bei allen gleich ablaufen müssen. Das sollte man von Anfang an
+  einplanen.
 
 ### RTS-Abschnitte
 

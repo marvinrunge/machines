@@ -52,23 +52,44 @@ function save() {
   $("#saved").textContent = "Ungespeichert …";
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
-    try {
-      await api("/api/board", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(state.board) });
+    saveTimer = null;
+    const response = await fetch("/api/board", {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rev: state.rev, board: state.board }),
+    }).catch((error) => ({ ok: false, status: 0, json: async () => ({ error: error.message }) }));
+    const body = await response.json().catch(() => ({}));
+    if (response.ok) {
+      state.rev = body.rev;
       $("#saved").textContent = "Gespeichert " + new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-    } catch (error) {
-      $("#saved").textContent = "Speichern fehlgeschlagen: " + error.message;
+    } else if (response.status === 409) {
+      // The file changed elsewhere since this page read it: take that version rather than writing over it.
+      await refresh();
+      $("#saved").textContent = "Das Board wurde woanders geändert und neu geladen. Deine letzte Änderung bitte wiederholen.";
+    } else {
+      $("#saved").textContent = "Speichern fehlgeschlagen: " + (body.error || response.status);
     }
   }, 600);
 }
 
-async function load() {
-  state.board = await api("/api/board");
+function adopt(data) {
+  state.rev = data.rev;
+  state.board = data.board;
   const b = state.board;
   b.style ??= { prompt: "", refs: [] };
   b.style.refs ??= [];
   for (const key of ["acts", "scenes", "assets"]) b[key] ??= [];
   for (const item of [...b.scenes, ...b.assets]) { item.images ??= []; item.refs ??= []; }
   for (const s of b.scenes) s.assets ??= [];
+}
+
+// Takes the board from disk when it changed there and nothing here waits to be saved.
+async function refresh() {
+  const data = await api("/api/board");
+  if (data.rev !== state.rev) { adopt(data); render(); }
+}
+window.addEventListener("focus", () => { if (!saveTimer && state.board && $("#overlay").hidden) refresh().catch(() => {}); });
+
+async function load() {
+  adopt(await api("/api/board"));
   try { state.tab = localStorage.getItem("storyboard.tab") || state.tab; } catch { /* ignore */ }
   render();
   api("/api/models").then((m) => {

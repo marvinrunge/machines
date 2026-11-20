@@ -13,6 +13,7 @@ import json
 import mimetypes
 import os
 import re
+import socket
 import sys
 import time
 import urllib.error
@@ -33,7 +34,7 @@ PAGE_TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css"
 
 API = "https://generativelanguage.googleapis.com/v1beta"
 DEFAULT_MODEL = "gemini-3.1-flash-image"
-PORT = int(os.environ.get("STORYBOARD_PORT", "8766"))
+PORT = int(os.environ.get("STORYBOARD_PORT") or os.environ.get("PORT") or "8766")
 SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 PICTURE = (".png", ".jpg", ".jpeg", ".webp")
 
@@ -42,6 +43,11 @@ EMPTY_BOARD = {"version": 1, "style": {"prompt": "", "refs": []}, "acts": [], "s
 
 def key():
     return os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+
+
+def board_rev():
+    """Which version of board.json is on disk: its modification time, or "" while there is none."""
+    return str(BOARD.stat().st_mtime_ns) if BOARD.is_file() else ""
 
 
 def picture_file(url):
@@ -162,7 +168,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, file.read_bytes(), mimetypes.guess_type(file.name)[0] or "application/octet-stream")
         if path == "/api/board":
             board = json.loads(BOARD.read_text("utf-8")) if BOARD.is_file() else EMPTY_BOARD
-            return self.send(200, board)
+            return self.send(200, {"rev": board_rev(), "board": board})
         if path == "/api/story":
             return self.send(200, STORY_TEXT.read_text("utf-8") if STORY_TEXT.is_file() else "",
                              "text/markdown; charset=utf-8")
@@ -181,16 +187,20 @@ class Handler(BaseHTTPRequestHandler):
         if self.path != "/api/board":
             return self.send(404, {"error": "Nicht gefunden."})
         try:
-            board = self.body()
+            request = self.body()
+            board = request.get("board") if isinstance(request, dict) else None
             if not isinstance(board, dict) or not isinstance(board.get("scenes"), list):
                 raise ValueError("Kein Story-Board.")
         except ValueError as error:
             return self.send(400, {"error": str(error)})
+        # A page that loaded an older board would write over what was changed since (by another window, or by hand).
+        if request.get("rev") != board_rev():
+            return self.send(409, {"error": "Das Board wurde inzwischen woanders geändert."})
         STORY.mkdir(parents=True, exist_ok=True)
         temporary = BOARD.with_suffix(".tmp")
         temporary.write_text(json.dumps(board, ensure_ascii=False, indent=2) + "\n", "utf-8")
         temporary.replace(BOARD)
-        self.send(200, {"ok": True})
+        self.send(200, {"rev": board_rev()})
 
     def do_POST(self):
         if self.path != "/api/generate":
@@ -215,6 +225,22 @@ class Handler(BaseHTTPRequestHandler):
         self.send(200, {"ok": True})
 
 
+class Server(ThreadingHTTPServer):
+    # On Windows, SO_REUSEADDR lets a second server bind a port another one already listens on, and the requests keep
+    # going to the first: a fresh server would sit beside an old one without ever being asked. Claim the port alone.
+    allow_reuse_address = os.name != "nt"
+
+    def server_bind(self):
+        if os.name == "nt":
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
+
 if __name__ == "__main__":
+    try:
+        server = Server(("127.0.0.1", PORT), Handler)
+    except OSError:
+        sys.exit(f"Port {PORT} ist schon belegt, vermutlich von einem anderen Story-Board-Server. Den beenden oder "
+                 "mit PORT=<nummer> einen anderen wählen.")
     print(f"Story-Board auf http://127.0.0.1:{PORT}" + ("" if key() else " (ohne Gemini-Schlüssel)"), flush=True)
-    ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+    server.serve_forever()

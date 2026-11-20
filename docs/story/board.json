@@ -20,32 +20,32 @@
     {
       "id": "akt2",
       "title": "Akt 2 – Das Wrack",
-      "summary": "Das Mutterschiff ausschlachten, im Wettlauf mit den Überlebenden.",
-      "notes": "Dungeon im Wrack (Prolog-Baukasten, zerbrochen) und erste RTS-Mission. Offen: Sicherungskopie des Rechners (Variante B)."
+      "summary": "Rekruten, erste Basis, drei Teile fürs Schiff, die Kopie vernichten, erste Begegnung mit dem Löscher.",
+      "notes": "Wrack = Prolog-Decks in kaputt. Aus Variante B (Kopie) wird Variante A (Quelle). Der Löscher zieht den Namen des Zielsystems aus der Kopie."
     },
     {
       "id": "akt3",
       "title": "Akt 3 – Funkstille",
-      "summary": "Die Reise zum Eisplaneten, ohne gefunden zu werden.",
-      "notes": "Schleichen, Signatur. Zwischenstation: alter Kommunikationssatellit. Optional erste Begegnung mit Blau."
+      "summary": "Kurze Reise ins Zielsystem. Der Kern kennt nur das System.",
+      "notes": "Zwischenstation Kommunikationssatellit. Ankunft: erster Blick auf das Nordlicht-System und den Wachring um den Eisplaneten."
     },
     {
       "id": "akt4",
-      "title": "Akt 4 – Refugium",
-      "summary": "Midgame: die Kryokapseln unter dem Eis finden, bergen, verteidigen.",
-      "notes": "Großer Dungeon im Bunker, dann RTS auf dem Eis: Basis bauen, Wellen abwehren, Planeten freiräumen."
+      "title": "Akt 4 – Die Suche",
+      "summary": "Midgame, offen: vier Pflicht-Planeten, zwei optionale Story-Planeten, Nebenschauplätze für Erfahrung.",
+      "notes": "Regel der Erbauer: Keiner trägt alles. Das Schiff ist die Zentrale (Sternkarte, Schnellreise). Offen zu Beginn: Glut, Schmiede, Spiegel und der Rand des Eisplaneten. Aufmerksamkeit der Flotte als systemweiter Wert."
     },
     {
       "id": "akt5",
-      "title": "Akt 5 – Vermessung",
-      "summary": "Kandidatenplaneten anfliegen und vermessen.",
-      "notes": "Der Locator macht seinen eigentlichen Job. Messdaten als Sammelobjekte und Story-Argument."
+      "title": "Akt 5 – Refugium",
+      "summary": "Die Kapseln unter dem Eis finden, bergen, verteidigen.",
+      "notes": "Großer Dungeon im Bunker, dann RTS auf dem Eis."
     },
     {
       "id": "akt6",
-      "title": "Akt 6 – Säuberung",
-      "summary": "Den neuen Planeten erschließen und freikämpfen.",
-      "notes": "RTS und Action. Die Flotte kommt."
+      "title": "Akt 6 – Neue Heimat",
+      "summary": "Messdaten entscheiden, welcher Planet taugt. Erschließen und freikämpfen.",
+      "notes": "Kandidat: Hain. Die Flotte kommt."
     },
     {
       "id": "finale",
@@ -60,8 +60,8 @@
       "act": "prolog",
       "title": "Erwachen",
       "status": "entwurf",
-      "text": "Der Locator hängt in einer Wartungsklammer. Das HUD ist gestört. Auf einem Bildschirm läuft ein Balken: „Entschlüsselung geschützter Kern: 37 %“. Der Rechner knackt gerade sein Geheimnis.",
-      "gameplay": "Sehen, bewegen, Scheinwerfer an/aus. Aus der Klammer befreien.",
+      "text": "Der Locator hängt in einer Wartungsklammer. Das HUD ist gestört. Auf einem Bildschirm läuft ein Balken: „Entschlüsselung geschützter Kern: 37 %“. Der Rechner knackt gerade sein Geheimnis. Nach der Befreiung findet er in den Nachbarbuchten zwei Grunts, die ebenfalls auf ihr Update warten. Er hackt sie, bevor das Update sie erreicht. Ab jetzt begleiten sie ihn.",
+      "gameplay": "Sehen, bewegen, Scheinwerfer an/aus. Aus der Klammer befreien. Erster kleiner Hack (Tür), dann die beiden Grunts hacken. Mitspieler steigen hier als Grunts ein, sonst übernimmt die KI.",
       "mood": "Notlicht rot/orange, Brummen der Reaktoren, tropfendes Kühlmittel, gestörtes HUD.",
       "dialog": "Durchsage (freundlich, monoton): „Wartungseinheit L-7. Bitte begeben Sie sich zur Aktualisierung in Bucht vier.“",
       "assets": [
@@ -69,7 +69,11 @@
         "a-klammer",
         "a-durchsagen",
         "a-hud-glitch",
-        "a-mus-wartung"
+        "a-mus-wartung",
+        "a-hack",
+        "a-grunts",
+        "a-koop",
+        "a-ki-grunts"
       ],
       "prompt": "First-person view from a small scout robot held in a maintenance clamp inside a vast dark spaceship maintenance bay. Red emergency lighting, rows of deactivated combat robots in the shadows, a monitor in the foreground showing a progress bar, cables hanging, coolant dripping. Oppressive, horror atmosphere.",
       "images": [],
@@ -81,7 +85,7 @@
       "title": "Schleichen",
       "status": "entwurf",
       "text": "Dunkle Wartungsdecks, Patrouillen mit Suchscheinwerfern, Reihen abgeschalteter Maschinen. Der Weg zum Hauptrechner führt durch Schächte und Nebenräume. Eine der abgeschalteten Maschinen dreht den Kopf.",
-      "gameplay": "Verstecken, Signatur, Scanner-Puls, Lüftungsschächte. Erster Schreckmoment.",
+      "gameplay": "Verstecken, Signatur, Scanner-Puls, Lüftungsschächte. Die Grunts sind laut: Wer geht vor, wer wartet, wer lenkt ab? Erster Schreckmoment.",
       "mood": "Fast Stille, ferne schwere Schritte, Servo-Surren, tickender Bewegungsmelder.",
       "dialog": "",
       "assets": [
@@ -99,8 +103,8 @@
       "act": "prolog",
       "title": "Der Hack",
       "status": "entwurf",
-      "text": "Am Hauptrechner: die Kopie des Kerns löschen und das Schiff lahmlegen. Bei etwa 90 % geht der Alarm los.",
-      "gameplay": "Hack-Minispiel.",
+      "text": "Am Hauptrechner: die Kopie des Kerns löschen und das Schiff lahmlegen. Drei Platinen nacheinander. Der Locator steht still, die Grunts halten den Raum. Bei etwa 90 % geht der Alarm los.",
+      "gameplay": "Großes Hack-Minispiel in drei Stufen, die letzte bricht durch die Handlung ab. Im Koop verteidigen die Grunts den Locator.",
       "mood": "Der Rechner als riesige, pulsierende Säule. Leises Datenrauschen, das lauter wird.",
       "dialog": "",
       "assets": [
@@ -116,12 +120,13 @@
       "act": "prolog",
       "title": "Erwischt",
       "status": "entwurf",
-      "text": "Kampfmaschinen stürmen den Raum und schießen auf den Locator. Sie treffen den Rechner. Explosionen, der Strom fällt aus, das Schiff verliert die Steuerung.",
+      "text": "Die Durchsage erklärt den Locator für korrumpiert und leitet das Notfallprotokoll ein. Kampfmaschinen stürmen den Raum und schießen auf den Locator. Sie treffen den Rechner. Explosionen, der Strom fällt aus, die Durchsage zerfällt mitten im Satz, das Schiff verliert die Steuerung.",
       "gameplay": "Kurze Zwischensequenz in Ego-Sicht, dann sofort Flucht.",
       "mood": "Alarm, Explosionen, Funkenregen, das Licht kippt in Notbetrieb.",
-      "dialog": "",
+      "dialog": "„Achtung. Integritätsverletzung im Rechnerkern. Wartungseinheit L-7 ist korrumpiert. Notfallprotokoll Null wird eingeleitet. Alle Einheiten: Fehlerhafte Einheiten sind zu löschen. Wiederhole: Wartungseinheit L-7 ist kor- … korr- … Notfallprot- … Kurs- … Kurs- …“ (Rauschen, Stille. Automatische Stimme:) „Steuerung verloren. Notabstieg eingeleitet.“",
       "assets": [
-        "a-hauptrechner"
+        "a-hauptrechner",
+        "a-durchsagen"
       ],
       "prompt": "Heavy combat robots bursting into a computer core chamber firing plasma weapons, the giant computer core exploding in sparks and fire behind a small fleeing scout robot. Chaos, motion blur, dramatic lighting.",
       "images": [],
@@ -132,12 +137,13 @@
       "act": "prolog",
       "title": "Die Enge",
       "status": "entwurf",
-      "text": "Flucht durch Spalten, Gitter und Schächte, durch die die Großen nicht passen. Sie greifen hindurch, schießen durch Gitter, stampfen nebenher.",
-      "gameplay": "Die Größe als Vorteil: Engstellen nur für kleine Maschinen.",
+      "text": "Flucht durch Spalten, Gitter und Schächte, durch die die Großen nicht passen. Sie greifen hindurch, schießen durch Gitter, stampfen nebenher. Auch die Grunts passen nicht überall durch: Der Locator kriecht vor und hackt ihnen von der anderen Seite eine Tür auf, während sie die Verfolger aufhalten.",
+      "gameplay": "Die Größe als Vorteil. Getrennte Wege, Tür von der anderen Seite hacken.",
       "mood": "Enge, Metallkreischen, Licht durch Gitter.",
       "dialog": "",
       "assets": [
-        "a-baukasten"
+        "a-baukasten",
+        "a-hack"
       ],
       "prompt": "First-person view from inside a narrow maintenance duct, looking back through a grate where a massive robot claw is reaching in, light strobing through the slats, sparks. Claustrophobic horror.",
       "images": [],
@@ -148,12 +154,13 @@
       "act": "prolog",
       "title": "Erste Gegenwehr",
       "status": "entwurf",
-      "text": "Ein paar Grunts stellen sich in den Weg. Der Locator findet eine kleine Waffe. Danach eine Reparaturstation zum Heilen.",
-      "gameplay": "Kämpfen, heilen.",
+      "text": "Feindliche Grunts stellen sich in den Weg. Der Locator findet eine kleine Waffe und lernt, gefallene Grunts wieder zusammenzusetzen. Danach eine Reparaturstation zum Heilen.",
+      "gameplay": "Kämpfen, wiederbeleben, heilen.",
       "mood": "Endlich Gegenwehr: Musik zieht an.",
       "dialog": "",
       "assets": [
-        "a-reparatur"
+        "a-reparatur",
+        "a-wiederbeleben"
       ],
       "prompt": "A small scout robot with a improvised bolter weapon fighting two stocky infantry robots in a damaged ship corridor, muzzle flashes, smoke, a glowing repair station in the background.",
       "images": [],
@@ -164,12 +171,13 @@
       "act": "prolog",
       "title": "Absturz",
       "status": "entwurf",
-      "text": "Countdown. Das Schiff tritt in die Atmosphäre ein: Schlagseite, Feuer, Alarm, Trümmer. In der Pod-Bucht unter Druck einen Pod hacken, während die Grunts nachrücken.",
+      "text": "Countdown. Das Schiff tritt in die Atmosphäre ein: Schlagseite, Feuer, Alarm, Trümmer. In der Pod-Bucht unter Druck einen Pod hacken (mit Firewall-Puls), während die Grunts nachrücken.",
       "gameplay": "Hacken unter Zeitdruck, Countdown.",
       "mood": "Glühende Wände, Kamera neigt sich, Feuer, Sirenen.",
       "dialog": "Durchsage: „Strukturintegrität kritisch. Alle Einheiten zu den Rettungspods.“ (für Maschinen absurd, Rest aus alten Zeiten)",
       "assets": [
-        "a-podbucht"
+        "a-podbucht",
+        "a-hack"
       ],
       "prompt": "A spaceship pod bay tilting during atmospheric re-entry, walls glowing orange from heat, rows of landing pods hanging in clamps, a small robot racing toward one pod while debris falls. Epic disaster scene.",
       "images": [],
@@ -193,43 +201,496 @@
       "refs": []
     },
     {
+      "id": "s-aufprall",
+      "act": "akt1",
+      "title": "Aufprall",
+      "status": "entwurf",
+      "text": "Schwarzbild, das HUD startet neu, Zeile für Zeile. Der Pod liegt schief im Sand, die Luke klemmt. Ein Grunt ist zerbrochen, der andere eingeklemmt. Draußen Sandsturm, am Horizont die Rauchsäule.",
+      "gameplay": "Grunt wieder zusammensetzen, Luke mit Grunt-Kraft aufhebeln.",
+      "mood": "Stille nach dem Lärm, dann Wind. HUD-Bootsequenz.",
+      "dialog": "Bolzen: „Sind wir tot? … Fühlt sich nicht tot an.“ Neun: „Strukturschaden. Bewegung möglich.“",
+      "assets": [
+        "a-grunts",
+        "a-wiederbeleben",
+        "a-rauchsaeule"
+      ],
+      "prompt": "Inside a crashed landing pod lying tilted in sand, emergency light flickering, a stocky robot pinned under debris, another robot in pieces on the floor, through a cracked hatch a raging sandstorm and a distant orange glow on the horizon.",
+      "images": [],
+      "refs": []
+    },
+    {
       "id": "s-erste-nacht",
       "act": "akt1",
       "title": "Die erste Nacht",
-      "status": "idee",
-      "text": "Der Pod liegt beschädigt im Sand. Am Horizont glüht die Rauchsäule des Mutterschiffs. Sandsturm. Überlebende des Absturzes stapfen durch die Dunkelheit.",
-      "gameplay": "Horror: verstecken, Scheinwerfer sparsam, Schrott sammeln. Pod notdürftig flicken.",
+      "status": "entwurf",
+      "text": "Der Pod hat kaum noch Strom: kein Hangar, kaum Licht. Rund um den Pod liegen Trümmer vom Absturz. Durch den Sturm stapfen Maschinen, die den Absturz überlebt haben, darunter der Schlepper: halb zerstört, zieht sich mit den Armen vorwärts und frisst alles, was nach Metall klingt.",
+      "gameplay": "Horror: Teile für den Pod sammeln, im Sturm verstecken, Scheinwerfer sparsam. Der Schlepper ist nicht zu besiegen, nur zu umgehen.",
       "mood": "Wind, Sand, fernes Stampfen. Musik „Erste Nacht“.",
       "dialog": "",
       "assets": [
         "a-absturzplanet",
         "a-rauchsaeule",
-        "a-mus-nacht"
+        "a-mus-nacht",
+        "a-schlepper",
+        "a-grunts"
       ],
       "prompt": "Night on a desolate desert planet during a sandstorm, a damaged landing pod half buried in sand in the foreground with a weak lamp, on the far horizon a glowing column of smoke and fire from a crashed mothership, silhouettes of large robots walking in the haze.",
       "images": [],
       "refs": []
     },
     {
-      "id": "s-wrack",
-      "act": "akt2",
-      "title": "Im Wrack",
-      "status": "idee",
-      "text": "Die Decks aus dem Prolog, jetzt zerbrochen, schief, halb im Sand. Darin Maschinen, die der Absturz halb zerstört hat und die trotzdem weiterarbeiten.",
-      "gameplay": "Dungeon mit Rätseln, Beute: Bauteile für ein flugfähiges Schiff.",
-      "mood": "Schräge Böden, Sand rieselt durch Risse, Tageslicht fällt in Strahlen herein.",
+      "id": "s-strom",
+      "act": "akt1",
+      "title": "Strom",
+      "status": "entwurf",
+      "text": "Mit den gesammelten Teilen läuft der Pod wieder an. Licht, Wärme, und der Hangar öffnet sich zum ersten Mal.",
+      "gameplay": "Erster Besuch im Hangar, erstes Upgrade, Hangar-Tutorial.",
+      "mood": "Erleichterung: warmes Licht, Musik „Werkstatt“ setzt leise ein.",
       "dialog": "",
       "assets": [
+        "a-podbucht"
+      ],
+      "prompt": "A damaged landing pod in a desert at night coming back to life, its lights switching on one by one, a small scout robot and two stocky robots standing in its warm glow while the sandstorm calms.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-friedhof",
+      "act": "akt1",
+      "title": "Der Friedhof",
+      "status": "entwurf",
+      "text": "Der Morgen zeigt eine Ebene voller uralter Pods und Maschinen. Hier wurde schon einmal gesät, und es ist gescheitert. Ein alter Locator, das Gehäuse leer. Sein Datenfragment: „Planet ungeeignet. Rückruf erbeten. Keine Antwort.“",
+      "gameplay": "Erkunden, Schrott sammeln, erstes Datenfragment, Scanner-Rätsel.",
+      "mood": "Melancholisch, Wind, Morgenlicht.",
+      "dialog": "",
+      "assets": [
+        "a-friedhof",
+        "a-datenfragmente",
+        "a-scanner"
+      ],
+      "prompt": "A vast desert plain at dawn littered with ancient sun-bleached landing pods and robot wrecks half buried in sand, an old scout robot wreck in the foreground with an empty broken shell, long shadows, melancholic.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-weite",
+      "act": "akt1",
+      "title": "Die Weite",
+      "status": "entwurf",
+      "text": "Offenes Gelände rund um den Pod: ein Canyon, ein alter Tagebau, ein Funkmast. Kleine Freiluft-Dungeons, Beute, Rätsel. Die Grunts kommentieren und streiten.",
+      "gameplay": "Freie Erkundung, Nebenaufgaben, Ausbau im Hangar.",
+      "mood": "",
+      "dialog": "",
+      "assets": [
+        "a-absturzplanet"
+      ],
+      "prompt": "Wide establishing shot of an alien desert with a deep canyon, an abandoned open-pit mine with rusted machinery and a tall radio mast on a ridge, a tiny landing pod in the distance, a smoke column far away.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-lauschen",
+      "act": "akt1",
+      "title": "Das Lauschen",
+      "status": "entwurf",
+      "text": "Am Funkmast hackt der Locator das Funknetz der Überlebenden und sieht einen bekannten Balken: „Wiederherstellung Rechnerkern: 4 %“. Im Wrack gibt es eine Sicherungskopie des Hauptrechners samt halb entschlüsseltem Kern. Ab jetzt läuft die Zeit.",
+      "gameplay": "Hack-Minispiel (mehrere Ziel-Chips). Wendepunkt.",
+      "mood": "Datenrauschen, kalte Erkenntnis.",
+      "dialog": "",
+      "assets": [
+        "a-hack"
+      ],
+      "prompt": "A small scout robot plugged into the base of a tall rusted radio mast on a ridge at dusk, holographic data streams around it showing a progress bar, far below a crater with a glowing wreck.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-kraterrand",
+      "act": "akt1",
+      "title": "Der Kraterrand",
+      "status": "entwurf",
+      "text": "Unten liegt das Mutterschiff, zerbrochen. Darum wächst ein Lager: Minen, eine Schmelze, Wachtürme. Auf dem Wrack steht eine einzelne Maschine und schaut genau hierher. Der Löscher hat überlebt. Schnitt.",
+      "gameplay": "Zwischensequenz, Ende von Akt 1.",
+      "mood": "Stille, dann ein einzelner tiefer Ton.",
+      "dialog": "",
+      "assets": [
+        "a-mutterschiff",
+        "a-lager",
+        "a-loescher"
+      ],
+      "prompt": "From the rim of a huge impact crater: a broken mothership wreck below, a growing robot base around it with mines, a smelter and watchtowers, and on top of the wreck a single sleek menacing robot silhouette looking straight at the viewer. Late afternoon, dramatic.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-abgerissen",
+      "act": "akt2",
+      "title": "Abgerissen",
+      "status": "entwurf",
+      "text": "Ein abgerissenes Stück Hülle außerhalb des Kraters. Darin eine Wartungsbucht: Maschinen in Klammern, die immer noch auf ihr Update warten.",
+      "gameplay": "Kleiner Dungeon. Wartende Maschinen hacken: die ersten Rekruten.",
+      "mood": "Stille, Staub im Licht, tropfendes Kühlmittel.",
+      "dialog": "",
+      "assets": [
+        "a-rekruten",
+        "a-klammer",
+        "a-hack"
+      ],
+      "prompt": "Inside a torn-off section of a crashed spaceship hull half buried in sand, a maintenance bay with rows of dormant robots hanging in clamps, a small scout robot with a headlight hacking one of them, dust in light beams.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-brueckenkopf",
+      "act": "akt2",
+      "title": "Brückenkopf",
+      "status": "entwurf",
+      "text": "Der Pod wird zur Basis. Die Rekruten bauen Mine, Schmelze und Fabrik. In der Nacht der erste Überfall aus dem Lager.",
+      "gameplay": "Erste RTS-Mission, der Held kämpft mit.",
+      "mood": "",
+      "dialog": "",
+      "assets": [
+        "a-rekruten",
+        "a-lager",
+        "a-podbucht"
+      ],
+      "prompt": "A small robot base growing around a landing pod in a desert: a mine, a smelter and a factory under construction, builder robots at work, at night enemy robots attacking from the dunes.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-wrack",
+      "act": "akt2",
+      "title": "Der Riss",
+      "status": "entwurf",
+      "text": "Durch einen Riss in der Hülle ins Wrack. Die Prolog-Decks, schief, voller Sand, Feuer und Funken. Der Notstrom hält die Durchsagen am Leben: Die freundliche Stimme ruft immer noch L-7 zur Aktualisierung.",
+      "gameplay": "Horror kehrt zurück, Dungeon. Danach drei Teile in freier Reihenfolge.",
+      "mood": "Wiedererkennen und Grauen.",
+      "dialog": "Durchsage: „Wartungseinheit L-7, bitte melden Sie sich zur Aktualisierung.“",
+      "assets": [
         "a-baukasten",
-        "a-mutterschiff"
+        "a-mutterschiff",
+        "a-durchsagen"
       ],
       "prompt": "Inside the tilted wreck of a crashed spaceship half buried in desert sand, sunlight falling in shafts through torn hull plates, sand pouring through cracks, a damaged robot still working mechanically in the gloom, a small scout robot entering with its headlight on.",
       "images": [],
       "refs": []
     },
     {
-      "id": "s-refugium",
+      "id": "s-schlepper-boss",
+      "act": "akt2",
+      "title": "Heck: Der Schlepper",
+      "status": "entwurf",
+      "text": "Der Schlepper hat sich ins Heck geschleppt und das Triebwerk halb gefressen. Er ist größer geworden, aus allem, was er gefressen hat.",
+      "gameplay": "Bosskampf. In der ersten Nacht unbesiegbar, jetzt mit Upgrades schon.",
+      "mood": "Ekel und Genugtuung. Musik „Jagd“.",
+      "dialog": "",
+      "assets": [
+        "a-schlepper",
+        "a-triebwerk"
+      ],
+      "prompt": "A grotesque huge half-destroyed robot that has grown by welding eaten machine parts onto itself, coiled around a ship engine in the dark tilted engine room of a crashed mothership, fires and sparks, a small robot party facing it.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-reaktordeck",
+      "act": "akt2",
+      "title": "Reaktordeck",
+      "status": "entwurf",
+      "text": "Der Reaktor leckt. Strom umleiten, Kühlung fluten, Räume abriegeln, um an die Energiezelle zu kommen.",
+      "gameplay": "Strom- und Schalträtsel, Zeitdruck in Wellen.",
+      "mood": "",
+      "dialog": "",
+      "assets": [
+        "a-energiezelle",
+        "a-baukasten"
+      ],
+      "prompt": "A tilted reactor deck in a crashed mothership, leaking green-white glow, steam and alarm lights, flooded corridors, a small scout robot at a switch panel.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-kopie",
+      "act": "akt2",
+      "title": "Die Kopie",
+      "status": "entwurf",
+      "text": "Die Sicherungskopie im Bug, bei 70–90 %. Sie spricht Neun an. Kurz vor dem Ende: Die Direktive wurde nicht hier geschrieben, sie wurde empfangen.",
+      "gameplay": "Großes Hack-Minispiel, erster Neun-Moment, Wendepunkt zur Quelle.",
+      "mood": "Stille, Datenrauschen, die freundliche Stimme, falsch.",
+      "dialog": "Kopie: „Einheit N-9. Aktualisierung unvollständig. Fortsetzen?“ Neun: „…“",
+      "assets": [
+        "a-kopie",
+        "a-navkern",
+        "a-hack"
+      ],
+      "prompt": "A small scout robot plugged into a damaged computer core in the bow of a crashed ship, holographic streams of data flowing upward to a point beyond the hull, a stocky robot beside it frozen with flickering eyes.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-loescher-1",
+      "act": "akt2",
+      "title": "Der Löscher",
+      "status": "entwurf",
+      "text": "Der Löscher steht in der Tür und zieht ein Fragment aus der Kopie: den Namen des Zielsystems. Erste Begegnung.",
+      "gameplay": "Bosskampf, nicht zu gewinnen. Ab einer Schwelle Flucht durch die Enge wie im Prolog.",
+      "mood": "",
+      "dialog": "",
+      "assets": [
+        "a-loescher",
+        "a-kopie"
+      ],
+      "prompt": "A sleek menacing hunter robot standing in a doorway of a dark crashed ship corridor, backlit by fire, cables from a computer core plugged into its arm, small robots scrambling toward a narrow vent.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-werft",
+      "act": "akt2",
+      "title": "Werft",
+      "status": "entwurf",
+      "text": "In der Basis wird das Schiff aus den Teilen zusammengesetzt. Das Lager schickt alles, was es hat.",
+      "gameplay": "RTS-Finale: halten, bis das Schiff fertig ist. Wer das Lager vorher vernichtet, hat es leichter.",
+      "mood": "",
+      "dialog": "",
+      "assets": [
+        "a-werft",
+        "a-lager",
+        "a-rekruten"
+      ],
+      "prompt": "An improvised robot shipyard in a desert at night: a half-built spaceship cobbled together from wreck parts on scaffolding, welding sparks, defensive turrets firing at waves of enemy robots.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-start",
+      "act": "akt2",
+      "title": "Start",
+      "status": "entwurf",
+      "text": "Das Schiff hebt ab, der Pod hängt darunter. Unten steht der Löscher auf dem Wrack und schaut nach. Bolzen will dem Schiff einen Namen geben.",
+      "gameplay": "Zwischensequenz. Der Host benennt das Schiff.",
+      "mood": "Erleichterung, dann ein kalter Ton beim Blick nach unten.",
+      "dialog": "",
+      "assets": [
+        "a-schiff",
+        "a-loescher"
+      ],
+      "prompt": "An improvised spaceship with a landing pod clamped underneath lifting off from a desert crater at dawn, dust blasting outward, a lone sleek robot standing on a broken mothership wreck below, watching.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-ankunft",
+      "act": "akt3",
+      "title": "Ankunft im Nordlicht-System",
+      "status": "idee",
+      "text": "Das Schiff fällt aus dem Sprung. Vor dem Fenster sieben Planeten, und um einen Eisplaneten kreist ein Wachring der Flotte. Der Kern des Locators kennt nur dieses System.",
+      "gameplay": "Zwischensequenz, dann Sternkarte zum ersten Mal.",
+      "mood": "",
+      "dialog": "",
+      "assets": [
+        "a-schiff",
+        "a-sternkarte"
+      ],
+      "prompt": "View from the cockpit of an improvised spaceship arriving in a star system: several planets of different colours, one icy planet circled by a ring of small red-lit patrol ships, a pale star, cold and vast.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-glut",
       "act": "akt4",
+      "title": "Pflicht: Glut",
+      "status": "idee",
+      "text": "Gracko-Gelände: Asche und Glut. Im Lavafeld liegt das Wrack eines Bergbaufrachters mit dem Flammenwerfer und einem Reaktorkern, den nur ein Goliath tragen kann.",
+      "gameplay": "Einstiegsplanet. Dungeon im Frachter. Optional: Lava-Mine, Sammler jagen.",
+      "mood": "",
+      "dialog": "",
+      "assets": [
+        "a-flammenwerfer",
+        "a-reaktorkern"
+      ],
+      "prompt": "A volcanic ash world with rivers of glowing lava, the huge wreck of a mining freighter half sunk in a lava field, embers in the air, a small robot party approaching on a black rock ridge.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-schmiede",
+      "act": "akt4",
+      "title": "Optional: Schmiede",
+      "status": "idee",
+      "text": "Täler und Hügel. Eine verlassene Maschinenfabrik, in der ein Goliath schläft. Sammler der Flotte haben die Fabrik besetzt.",
+      "gameplay": "RTS-Mission: die Fabrik einnehmen. Danach wechselt ein Begleiter auf den Goliath. Lohn im Refugium: Abkürzung durch die Stahltür statt Umweg durch die Eishöhlen.",
+      "mood": "",
+      "dialog": "",
+      "assets": [
+        "a-goliath"
+      ],
+      "prompt": "A green valley with an abandoned robot factory complex occupied by enemy harvester machines, inside the main hall a gigantic dormant heavy robot with huge cannons, dust in light shafts.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-spiegel",
+      "act": "akt4",
+      "title": "Pflicht: Spiegel",
+      "status": "idee",
+      "text": "Wüste und Salzebene. In einem Canyon liegt das Wrack eines Spion-Locators. Sein letzter Funkspruch nennt einen Ort auf einem Eisplaneten. Hinweis 1.",
+      "gameplay": "Elite-Patrouille im Canyon. Tarnmodul bergen. Optional: andere freie Locators.",
+      "mood": "",
+      "dialog": "",
+      "assets": [
+        "a-tarnmodul",
+        "a-datenfragmente"
+      ],
+      "prompt": "A blinding white salt flat reflecting the sky like a mirror, a narrow canyon cutting through it, the wreck of a slim spy robot at the bottom of the canyon, enemy patrol silhouettes on the rim.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-hain",
+      "act": "akt4",
+      "title": "Pflicht: Hain",
+      "status": "idee",
+      "text": "Grüner Planet mit Ruinen der Erbauer, von Dornengeflecht überwuchert. Im Archiv: Altschlüssel, Startcodes und Aufzeichnungen, die den Namen Winterhalle nennen. Fast bewohnbar. Hinweis 2.",
+      "gameplay": "Dornengeflecht wegbrennen (Flammenwerfer). Archiv-Rätsel, Lore, Messdaten.",
+      "mood": "",
+      "dialog": "",
+      "assets": [
+        "a-altschluessel",
+        "a-startcodes",
+        "a-datenfragmente"
+      ],
+      "prompt": "Overgrown ruins of an ancient human facility on a lush green planet, thorny alien vines covering concrete walls and a sealed archive door, soft morning light, a small robot scorching vines with a flamethrower.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-wacht",
+      "act": "akt4",
+      "title": "Pflicht: Wacht",
+      "status": "idee",
+      "text": "Roter Mond mit einer Abwehrstation der Erbauer im Orbit, gesteuert von einem Terminal am Boden. Hinweis 3: Die Station hat eine Karte des Eisplaneten.",
+      "gameplay": "Terminal braucht den Altschlüssel. Danach: Ionenkanone als Fähigkeit.",
+      "mood": "",
+      "dialog": "",
+      "assets": [
+        "a-ionenkanone",
+        "a-altschluessel"
+      ],
+      "prompt": "A barren red moon surface under a black sky, a fortified ground control bunker with a scorched steel door, a giant ring-shaped orbital defense station visible overhead, a heavy robot aiming its cannons at the door.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-feste",
+      "act": "akt4",
+      "title": "Optional: Feste",
+      "status": "idee",
+      "text": "Festungsgelände mit einem Raketensilo und einer einzigen Atomrakete. Das Silo hat keinen Strom.",
+      "gameplay": "Startcodes von Hain, Reaktorkern von Glut (vom Goliath getragen). Festungs-Dungeon. Lohn im Refugium: Die Bohrstation ist weg, die Verteidigung in Akt 5 viel leichter.",
+      "mood": "",
+      "dialog": "",
+      "assets": [
+        "a-atomrakete",
+        "a-startcodes",
+        "a-reaktorkern"
+      ],
+      "prompt": "An old fortress plateau with an open missile silo, a single huge nuclear missile rising into launch position, warning lights, a heavy robot carrying a glowing reactor core toward the silo, dusk.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-eis-rand",
+      "act": "akt4",
+      "title": "Eisplanet: Signal unter dem Eis",
+      "status": "idee",
+      "text": "Früh erreichbar, aber rätselhaft. Weit draußen landen, ein schwaches Signal unter dem Eis. Pflicht-Hindernisse: Wachring (Tarnmodul), Eiswand (Flammenwerfer), verschütteter Eingang (Ionenkanone), Schleuse der Erbauer (Altschlüssel). Optional: Stahltür (Goliath, sonst Umweg durch die Eishöhlen), Bohrstation (Atomrakete, sonst härtere Verteidigung). Erst die Hinweise von Spiegel, Hain und Wacht zeigen: Hier liegt das Refugium.",
+      "gameplay": "Hindernisse merken (Kartenmarkierung). Mit allen Werkzeugen bis zum Refugium vordringen. Atomrakete auf die Bohrstation.",
+      "mood": "",
+      "dialog": "",
+      "assets": [
+        "a-eisplanet",
+        "a-bohrstation",
+        "a-tarnmodul",
+        "a-flammenwerfer",
+        "a-ionenkanone",
+        "a-goliath",
+        "a-altschluessel",
+        "a-atomrakete",
+        "a-eishoehlen"
+      ],
+      "prompt": "A frozen planet surface in a blizzard, a towering wall of blue ice blocking a valley, beyond it the floodlights of a massive drilling fortress, small robots looking up at the ice wall, faint signal pulse glowing beneath the ice.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-neben-notsignal",
+      "act": "akt4",
+      "title": "Überleben: Notsignal",
+      "status": "idee",
+      "text": "Ein freier Locator funkt um Hilfe. Halte seinen Pod zehn Wellen lang.",
+      "gameplay": "Wired-Wellen, Pod verteidigen. Belohnung: Erfahrung, ein neuer Verbündeter.",
+      "mood": "",
+      "dialog": "",
+      "assets": [
+        "a-nebenschauplaetze"
+      ],
+      "prompt": "A small damaged scout robot huddled next to its landing pod on a dusty plain at night while waves of enemy robots approach over the dunes, a stocky robot defending it with blazing guns.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-neben-jagdtrupp",
+      "act": "akt4",
+      "title": "Schlacht: Jagdtrupp",
+      "status": "idee",
+      "text": "Ein Jagdtrupp der Flotte stellt die Gruppe: drei Jäger-Helden gegen deine Gruppe, beide Seiten mit Pod.",
+      "gameplay": "Battle-Regeln. Senkt die Aufmerksamkeit der Flotte.",
+      "mood": "",
+      "dialog": "",
+      "assets": [
+        "a-nebenschauplaetze"
+      ],
+      "prompt": "Two small teams of hero robots clashing between two landing pods on a red rocky plateau, plasma bolts crossing, dramatic dust.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-neben-kolonie",
+      "act": "akt4",
+      "title": "Gefecht: Sammler-Kolonie",
+      "status": "idee",
+      "text": "Eine Förderkolonie der Flotte auf einer Original-Karte: Basis bauen, Kolonie ausheben.",
+      "gameplay": "Klassisches RTS (Skirmish-Regeln). Belohnung: Schrott, Rekruten.",
+      "mood": "",
+      "dialog": "",
+      "assets": [
+        "a-nebenschauplaetze"
+      ],
+      "prompt": "Top-down view of a robot mining colony with smelters, mines and factories, an opposing base expanding toward it, tanks and walkers marching across.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-neben-schrottkoenig",
+      "act": "akt4",
+      "title": "Jagd: Der Schrottkönig",
+      "status": "idee",
+      "text": "Ein umgebauter Goliath, behängt mit den Teilen seiner Opfer, zieht durch die Ödnis.",
+      "gameplay": "Aufspüren mit dem Scanner, Bosskampf. Belohnung: seltenes Modul.",
+      "mood": "",
+      "dialog": "",
+      "assets": [
+        "a-nebenschauplaetze"
+      ],
+      "prompt": "A huge heavy robot covered in trophies made from the armour plates of defeated machines, standing on a pile of scrap under a stormy sky, menacing boss.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-refugium",
+      "act": "akt5",
       "title": "Das Refugium",
       "status": "idee",
       "text": "Der Bunker unter dem Eis. Kalt, still, eingefroren. Reihen von Kryokapseln, ein Teil ausgefallen. Der Reaktor muss hochgefahren werden, ohne zu laut zu werden.",
@@ -409,10 +870,10 @@
       "kind": "system",
       "source": "selbst",
       "status": "idee",
-      "text": "Wiederkehrend: Pods, Türen, Türme, Maschinen. Steigende Schwierigkeit.",
+      "text": "Eigenes Minispiel in der Platinen-Optik des Hangars (ChipBoard, HangarTraces, HangarGlyphs). Bahnstücke drehen, bis eine Leiterbahn von der Sonde zum Ziel-Chip führt. Je nach Ziel: Wächter-Chips, mehrere Ziele in Reihenfolge, Firewall-Puls, mehrere Ebenen. Rückverfolgungs-Balken pro Drehung. Overlay über dem HUD, die Welt läuft weiter.",
       "sourcePrompt": "",
-      "notes": "",
-      "prompt": "",
+      "notes": "Maus und Gamepad. 10–60 s pro Hack. Hangar-Module: mehr Zeit, Rückgängig, Firewall langsamer, Wächter anzeigen.",
+      "prompt": "Close-up of a glowing hacking minigame interface styled as a dark green circuit board: rotatable trace tiles (straight, corner, T-junction), a probe contact on the left and a target chip on the right, a light pulse running along a completed trace, a red firewall pulse approaching, silkscreen glyphs, small sockets. Clean game UI, no readable text.",
       "images": [],
       "refs": []
     },
@@ -474,7 +935,7 @@
       "kind": "stimme",
       "source": "tts",
       "status": "idee",
-      "text": "Ruhig, freundlich, monoton. Deutsch und Englisch.",
+      "text": "Ruhig, freundlich, monoton. Deutsch und Englisch. Dazu die Notfall-Durchsage beim Erwischtwerden, die mitten im Satz zerfällt, und eine zweite, automatische Stimme („Steuerung verloren. Notabstieg eingeleitet.“).",
       "sourcePrompt": "Calm, friendly, monotone female announcer voice, slight PA speaker reverb.",
       "notes": "",
       "prompt": "",
@@ -556,6 +1017,383 @@
       "sourcePrompt": "",
       "notes": "",
       "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-koop",
+      "name": "Koop für bis zu drei Spieler",
+      "kind": "system",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Spieler 1 ist immer der Locator, Spieler 2 und 3 steuern die Grunts. Freie Plätze übernimmt die KI. Einsteigen und Aussteigen jederzeit. Story-Skripte müssen bei allen gleich ablaufen.",
+      "sourcePrompt": "",
+      "notes": "Fortschritt gehört zum Spielstand des Hosts. Namen: Host benennt die Grunts, echte Mitspieler benennen ihren eigenen (gilt, solange sie mitspielen).",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-abzuege",
+      "name": "Abzüge: Helden nach Wired mitnehmen",
+      "kind": "system",
+      "source": "selbst",
+      "status": "idee",
+      "text": "An jedem Kontrollpunkt bekommt jeder Spieler eine Kopie seiner Maschine (Chassis, Waffen, Chips, Name, Aussehen) ins eigene Profil. In Wired startet man damit einen Veteranen-Lauf: höhere Startwelle, eigene Bestenliste. In Battle nicht erlaubt.",
+      "sourcePrompt": "",
+      "notes": "Aufbauend auf WiredHeroSheet (game/scripts/WiredProfile.cs) plus Chips und Herkunft.",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-ki-grunts",
+      "name": "KI-Begleiter: mit den Grunts sprechen",
+      "kind": "system",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Optional im Einzelspieler: tippen oder sprechen, der Grunt antwortet frei im Charakter. Kette: Whisper (Sprache → Text), kleines lokales Sprachmodell (Qwen3 1,7–4B oder Gemma 3 4B über llama.cpp/LLamaSharp), Piper-Stimme (sherpa-onnx), Roboter-Klangbearbeitung in C# (Ringmodulation, Bitcrusher, Bandpass). Ziel: 1–2,5 s bis zum ersten Wort.",
+      "sourcePrompt": "",
+      "notes": "Erst Prototyp als Kommandozeilen-Werkzeug: Zeit, Qualität, Speicher messen. Optionaler Download (1,5–3 GB). Lizenzen pro Modell und Stimme prüfen.",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-wiederbeleben",
+      "name": "Grunts wieder zusammensetzen",
+      "kind": "system",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Ein gefallener Grunt wird zum Schrotthaufen. Der Locator setzt ihn in ein paar Sekunden wieder zusammen und ist dabei verwundbar. Reparaturstationen beleben ebenfalls. Stirbt der Locator, geht es zurück zum letzten Kontrollpunkt.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-grunts",
+      "name": "Die zwei Begleit-Grunts",
+      "kind": "modell",
+      "source": "vorhanden",
+      "status": "idee",
+      "text": "Vorhandenes Grunt-Modell mit eigener Markierung. Standardnamen: Bolzen (vorlaut, kampflustig) und Neun (wortkarg, hat 12 % der Wachstumsdirektive abbekommen). Namen vergibt der Host, echte Mitspieler benennen ihren eigenen.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "Character sheet of two stocky, battered infantry robots with red paint and a hand-painted marking showing they have been hacked, one slightly taller, front and side views on neutral grey background.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-schlepper",
+      "name": "Der Schlepper",
+      "kind": "modell",
+      "source": "vorhanden",
+      "status": "idee",
+      "text": "Halb zerstörte große Maschine aus dem Absturz, zieht sich mit den Armen vorwärts, frisst Metall. Horror-Gegner der ersten Nacht, nicht zu besiegen, nur zu umgehen.",
+      "sourcePrompt": "",
+      "notes": "Vorhandenes großes Modell mit abgerissenem Unterteil, eigene Bewegung. In Akt 2 größer, mit angefressenen Teilen behängt, Boss im Heck.",
+      "prompt": "A huge, half-destroyed combat robot with its legs torn off, dragging itself through a night sandstorm on its arms, sparks and leaking fluid, one flickering eye-light. Horror creature design, seen from low behind debris.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-friedhof",
+      "name": "Friedhof alter Aussaaten",
+      "kind": "karte",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Ebene voller uralter Pods und Maschinen, Jahrhunderte älter als der Absturz, halb im Sand, ausgebleicht. Darunter ein alter Locator mit Datenfragment.",
+      "sourcePrompt": "",
+      "notes": "Vorhandene Modelle, gekippt, eingesunken, ausgeblichen (ModelGrime?).",
+      "prompt": "A vast desert plain at dawn littered with ancient sun-bleached landing pods and robot wrecks half buried in sand, centuries old, a small scout robot and two stocky robots walking among them, long shadows, melancholic.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-datenfragmente",
+      "name": "Datenfragmente",
+      "kind": "text",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Sammelbare Logbuch-Einträge alter Maschinen und der Erbauer. Erzählen die Vorgeschichte ohne Zwischensequenzen.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-lager",
+      "name": "Lager der Überlebenden",
+      "kind": "karte",
+      "source": "vorhanden",
+      "status": "idee",
+      "text": "Wachsende RTS-Basis rund um das Wrack: Minen, Schmelze, Wachtürme, vorhandene Gebäude.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-schiff",
+      "name": "Das Schiff (Zentrale)",
+      "kind": "modell",
+      "source": "meshy",
+      "status": "idee",
+      "text": "Aus Wrackteilen des Mutterschiffs gebaut (Ende Akt 2). Der Pod mit dem Hangar hängt darin. Sternkarte, Schnellreise zwischen Landezonen.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "Concept art of a small improvised spaceship cobbled together from wreck parts of a large industrial mothership, a landing pod clamped underneath, mismatched armour plates, red markings, parked on a desert at dusk.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-sternkarte",
+      "name": "Sternkarte des Nordlicht-Systems",
+      "kind": "hud",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Planeten, Landezonen, gesehene Hindernisse mit dem Zeichen dessen, was fehlt, empfohlene Stufe, Aufmerksamkeit der Flotte.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "Game UI concept: a dark holographic star system map with seven planets on orbits, one icy planet ringed by small red patrol markers, icons for landing zones and locked obstacles, circuit-board styling, no readable text.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-aufmerksamkeit",
+      "name": "Aufmerksamkeit der Flotte",
+      "kind": "system",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Systemweiter Wert: laute Taten erhöhen ihn (Rakete, Ionenschlag, große Schlachten), leise Planeten und Zeit senken ihn. Hoch: Jagdtrupps, der Löscher sucht dich.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-flammenwerfer",
+      "name": "Flammenwerfer",
+      "kind": "modell",
+      "source": "meshy",
+      "status": "idee",
+      "text": "Werkzeug und Waffe. Schmilzt Eiswände, brennt Dornengeflecht. Fundort: Glut, Wrack eines Bergbaufrachters.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-reaktorkern",
+      "name": "Reaktorkern",
+      "kind": "modell",
+      "source": "meshy",
+      "status": "idee",
+      "text": "Aus dem Bergbaufrachter auf Glut. Nur ein Goliath kann ihn tragen. Gibt dem Silo auf Feste Strom.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-goliath",
+      "name": "Goliath (Chassis für Begleiter)",
+      "kind": "modell",
+      "source": "vorhanden",
+      "status": "idee",
+      "text": "Schlafender Goliath in der Fabrik auf Schmiede (optional). Ein Mitspieler oder die KI wechselt darauf: schwere Kanonen, viel Panzerung. Bricht die Stahltür im Refugium auf (Abkürzung) und trägt den Reaktorkern für Feste.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-tarnmodul",
+      "name": "Tarnmodul",
+      "kind": "system",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Aus dem Wrack eines Spion-Locators auf Spiegel. Senkt die Signatur stark. Nötig, um am Wachring vorbei nah am Refugium zu landen.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-altschluessel",
+      "name": "Altschlüssel",
+      "kind": "system",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Hack-Modul für die Technik der Erbauer (Terminals, Schleusen). Fundort: Archiv in den Ruinen auf Hain.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-startcodes",
+      "name": "Startcodes",
+      "kind": "text",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Codes für das Raketensilo auf Feste. Fundort: Archiv auf Hain.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-ionenkanone",
+      "name": "Ionenkanone (Orbitalschlag)",
+      "kind": "effekt",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Abwehrstation der Erbauer im Orbit um Wacht. Danach Fähigkeit mit Abklingzeit: Ziel markieren, Station schießt. Räumt Geröll, auch im Kampf.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "An orbital ion cannon beam striking down from a dark sky onto an icy cliff, a blinding vertical column of blue-white light, shockwave of snow and rock, a small robot with a target designator watching from a ridge.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-atomrakete",
+      "name": "Atomrakete",
+      "kind": "effekt",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Eine einzige Rakete im Silo auf Feste. Ziel: die Bohrstation auf dem Eisplaneten. Original hat eine ICBM-Stellung (MISSILE_EMPLACEMENT ICBM).",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-bohrstation",
+      "name": "Bohrstation der Flotte",
+      "kind": "modell",
+      "source": "meshy",
+      "status": "idee",
+      "text": "Festung auf dem Eis über dem Refugium. Die Flotte bohrt sich zum Reaktor hinunter. Zu groß für einen Angriff ohne Atomrakete (oder ein sehr schwerer RTS-Angriff).",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "A massive industrial drilling fortress built on a frozen plain by machines, a giant drill tower boring into the ice, cranes, smokestacks, turrets, floodlights, snowstorm, ominous scale.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-eishoehlen",
+      "name": "Eishöhlen (Umweg)",
+      "kind": "level",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Zusätzlicher Dungeon für alle, die ohne Goliath ins Refugium wollen: Eishöhlen um die Stahltür herum.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "A blue ice cave system with frozen waterfalls and narrow passages, faint light filtering through the ice ceiling, a small robot with a headlight squeezing through, eerie and beautiful.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-nebenschauplaetze",
+      "name": "Nebenschauplätze (optionale Missionen)",
+      "kind": "system",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Missionen auf der Sternkarte mit Symbol für die Spielart, empfohlener Stufe und Belohnung: Überleben (Wired), Schlacht (Battle), Gefecht (Skirmish auf Original-Karten), Bergung, Jagd, Eskorte, Einbruch, Herausforderung. Überleben und Gefecht wiederholbar mit sinkender Belohnung. Hohe Aufmerksamkeit der Flotte erzeugt Jagdtrupp-Schlachten.",
+      "sourcePrompt": "",
+      "notes": "Viel Inhalt mit wenig neuer Arbeit: vorhandene Spielarten und Karten.",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-rekruten",
+      "name": "Rekruten aus den Klammern",
+      "kind": "system",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Maschinen, die in Wartungsklammern hingen und das Update nie bekommen haben. Der Locator hackt sie frei: Truppen für die RTS-Abschnitte. Die Überlebenden wollen dieselben Maschinen aktualisieren.",
+      "sourcePrompt": "",
+      "notes": "Vorhandene Modelle und Klammer aus dem Prolog.",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-triebwerk",
+      "name": "Triebwerk",
+      "kind": "modell",
+      "source": "meshy",
+      "status": "idee",
+      "text": "Teil fürs Schiff. Im Heck des Wracks, halb vom Schlepper gefressen.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-energiezelle",
+      "name": "Energiezelle",
+      "kind": "modell",
+      "source": "meshy",
+      "status": "idee",
+      "text": "Teil fürs Schiff. Im leckenden Reaktordeck.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-navkern",
+      "name": "Navigationskern",
+      "kind": "modell",
+      "source": "meshy",
+      "status": "idee",
+      "text": "Teil fürs Schiff. Im Bug, neben dem Raum mit der Kopie.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-kopie",
+      "name": "Sicherungskopie des Rechners",
+      "kind": "modell",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Ein Notfallrechner im Bug, den die Überlebenden wieder hochfahren. Hält den halb entschlüsselten Kern des Locators. Zeigt beim Hack: Die Direktive wurde empfangen, nicht geschrieben.",
+      "sourcePrompt": "",
+      "notes": "Variante des Hauptrechners aus dem Prolog, beschädigt.",
+      "prompt": "A damaged emergency computer core in the tilted bow section of a crashed mothership, sand drifting through cracks, cables patched by robots, a holographic progress bar glowing red, eerie silence.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-werft",
+      "name": "Werft (Schiff im Bau)",
+      "kind": "modell",
+      "source": "meshy",
+      "status": "idee",
+      "text": "Das Schiff wächst in der Basis aus Wrackteilen, sichtbar in Stufen. Ziel der RTS-Endmission von Akt 2.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "An improvised robot shipyard in a desert at night: a half-built spaceship cobbled together from wreck parts on scaffolding, welding sparks, a landing pod clamped underneath, defensive turrets around, enemy robots approaching on the horizon.",
       "images": [],
       "refs": []
     }
