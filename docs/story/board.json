@@ -75,7 +75,7 @@
         "a-koop",
         "a-ki-grunts"
       ],
-      "prompt": "First-person view from a small scout robot held in a maintenance clamp inside a vast dark spaceship maintenance bay. Red emergency lighting, rows of deactivated combat robots in the shadows, a monitor in the foreground showing a progress bar, cables hanging, coolant dripping. Oppressive, horror atmosphere.",
+      "prompt": "First-person view from a small scout robot held in a maintenance clamp inside a vast dark spaceship maintenance bay. Red emergency lighting, rows of deactivated combat robots in the shadows, a monitor in the foreground showing a progress bar, cables hanging, coolant dripping. Oppressive, horror atmosphere. Use the reference pictures for the machines: the small scout robot is the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture); the companion robots are Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed). Keep their shapes and proportions; the scene's light and wear may change their look.",
       "images": [
         {
           "file": "20261120-162721-1.png",
@@ -88,7 +88,10 @@
           "at": "2026-11-20T15:27:21.367Z"
         }
       ],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg",
+        "/refs/grunt.jpg"
+      ]
     },
     {
       "id": "s-schleichen",
@@ -105,7 +108,7 @@
         "a-scanner",
         "a-bewegungsmelder"
       ],
-      "prompt": "A small scout robot hiding behind crates in a dark spaceship corridor while a large armoured patrol robot passes with a searchlight cone sweeping through dusty air. Long row of deactivated robots along the wall, one of them faintly glowing. Horror, suspense.",
+      "prompt": "A small scout robot hiding behind crates in a dark spaceship corridor while a large armoured patrol robot passes with a searchlight cone sweeping through dusty air. Long row of deactivated robots along the wall, one of them faintly glowing. Horror, suspense. Use the reference pictures for the machines: the small scout robot is the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture); the companion robots are Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed). Keep their shapes and proportions; the scene's light and wear may change their look.",
       "images": [
         {
           "file": "20261120-162827-1.png",
@@ -118,7 +121,9 @@
           "at": "2026-11-20T15:28:27.360261+00:00"
         }
       ],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg"
+      ]
     },
     {
       "id": "s-hack",
@@ -133,7 +138,7 @@
         "a-hauptrechner",
         "a-hack"
       ],
-      "prompt": "A tiny scout robot plugged into an enormous cylindrical ship computer core in a cathedral-like chamber, data light pulsing up the core, warning lights starting to flash red. Low angle, sense of scale.",
+      "prompt": "A tiny scout robot plugged into an enormous cylindrical ship computer core in a cathedral-like chamber, data light pulsing up the core, warning lights starting to flash red. Low angle, sense of scale. Use the reference pictures for the machines: the small scout robot is the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture); the companion robots are Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed). Keep their shapes and proportions; the scene's light and wear may change their look.",
       "images": [
         {
           "file": "20261120-162836-1.png",
@@ -146,7 +151,9 @@
           "at": "2026-11-20T15:28:36.983465+00:00"
         }
       ],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg"
+      ]
     },
     {
       "id": "s-erwischt",
@@ -161,7 +168,7 @@
         "a-hauptrechner",
         "a-durchsagen"
       ],
-      "prompt": "Heavy combat robots bursting into a computer core chamber firing plasma weapons, the giant computer core exploding in sparks and fire behind a small fleeing scout robot. Chaos, motion blur, dramatic lighting.",
+      "prompt": "Heavy combat robots bursting into a computer core chamber firing plasma weapons, the giant computer core exploding in sparks and fire behind a small fleeing scout robot. Chaos, motion blur, dramatic lighting. Use the reference pictures for the machines: the small scout robot is the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture); the companion robots are Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed). Keep their shapes and proportions; the scene's light and wear may change their look.",
       "images": [
         {
           "file": "20261120-162846-1.png",
@@ -174,7 +181,10 @@
           "at": "2026-11-20T15:28:46.606204+00:00"
         }
       ],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg",
+        "/refs/grunt.jpg"
+      ]
     },
     {
       "id": "s-enge",
@@ -217,7 +227,7 @@
         "a-reparatur",
         "a-wiederbeleben"
       ],
-      "prompt": "A small scout robot with a improvised bolter weapon fighting two stocky infantry robots in a damaged ship corridor, muzzle flashes, smoke, a glowing repair station in the background.",
+      "prompt": "In a damaged ship corridor full of smoke, the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) fires a small improvised bolter at two hostile Grunts (the same small red four-wheeled robots as in the Grunt reference picture, but armed with guns and with red glowing eyes). Its own two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) have no weapons and ram the enemies from the side. Muzzle flashes, sparks, a glowing repair station in the background.",
       "images": [
         {
           "file": "20261120-162955-1.png",
@@ -230,7 +240,10 @@
           "at": "2026-11-20T15:29:55.244056+00:00"
         }
       ],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg",
+        "/refs/grunt.jpg"
+      ]
     },
     {
       "id": "s-absturz",
@@ -302,9 +315,26 @@
         "a-wiederbeleben",
         "a-rauchsaeule"
       ],
-      "prompt": "Inside a crashed landing pod lying tilted in sand, emergency light flickering, a stocky robot pinned under debris, another robot in pieces on the floor, through a cracked hatch a raging sandstorm and a distant orange glow on the horizon.",
-      "images": [],
-      "refs": []
+      "prompt": "Inside a crashed landing pod lying tilted in sand, emergency light flickering. The Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) crouches over one of the two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed), which lies broken in pieces on the floor, while the other Grunt is pinned under fallen debris. Through a cracked hatch a raging sandstorm and a distant orange glow on the horizon.",
+      "images": [
+        {
+          "file": "20261120-172109-1.png",
+          "prompt": "Inside a crashed landing pod lying tilted in sand, emergency light flickering. The Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) crouches over one of the two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed), which lies broken in pieces on the floor, while the other Grunt is pinned under fallen debris. Through a cracked hatch a raging sandstorm and a distant orange glow on the horizon.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [
+            "/refs/locator.jpg",
+            "/refs/grunt.jpg"
+          ],
+          "text": "",
+          "at": "2026-11-20T16:21:09.546359+00:00"
+        }
+      ],
+      "refs": [
+        "/refs/locator.jpg",
+        "/refs/grunt.jpg"
+      ]
     },
     {
       "id": "s-erste-nacht",
@@ -322,9 +352,26 @@
         "a-schlepper",
         "a-grunts"
       ],
-      "prompt": "Night on a desolate desert planet during a sandstorm, a damaged landing pod half buried in sand in the foreground with a weak lamp, on the far horizon a glowing column of smoke and fire from a crashed mothership, silhouettes of large robots walking in the haze.",
-      "images": [],
-      "refs": []
+      "prompt": "Night on a desolate desert planet during a sandstorm. A damaged landing pod half buried in sand with a weak lamp. In the foreground the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) hides behind wreckage with its light off, two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) pressed against the pod behind it. On the far horizon a glowing column of smoke and fire from a crashed mothership. In the haze a huge half-destroyed robot with its legs torn off drags itself forward on its arms, one eye-light flickering. Dread.",
+      "images": [
+        {
+          "file": "20261120-172119-1.png",
+          "prompt": "Night on a desolate desert planet during a sandstorm. A damaged landing pod half buried in sand with a weak lamp. In the foreground the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) hides behind wreckage with its light off, two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) pressed against the pod behind it. On the far horizon a glowing column of smoke and fire from a crashed mothership. In the haze a huge half-destroyed robot with its legs torn off drags itself forward on its arms, one eye-light flickering. Dread.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [
+            "/refs/locator.jpg",
+            "/refs/grunt.jpg"
+          ],
+          "text": "",
+          "at": "2026-11-20T16:21:19.443613+00:00"
+        }
+      ],
+      "refs": [
+        "/refs/locator.jpg",
+        "/refs/grunt.jpg"
+      ]
     },
     {
       "id": "s-strom",
@@ -338,9 +385,26 @@
       "assets": [
         "a-podbucht"
       ],
-      "prompt": "A damaged landing pod in a desert at night coming back to life, its lights switching on one by one, a small scout robot and two stocky robots standing in its warm glow while the sandstorm calms.",
-      "images": [],
-      "refs": []
+      "prompt": "A damaged landing pod in a desert at night coming back to life, its lights switching on one by one, a hangar hatch opening with warm light. The Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) and two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) stand in its warm glow while the sandstorm calms. Relief, small hope.",
+      "images": [
+        {
+          "file": "20261120-172226-1.png",
+          "prompt": "A damaged landing pod in a desert at night coming back to life, its lights switching on one by one, a hangar hatch opening with warm light. The Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) and two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) stand in its warm glow while the sandstorm calms. Relief, small hope.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [
+            "/refs/locator.jpg",
+            "/refs/grunt.jpg"
+          ],
+          "text": "",
+          "at": "2026-11-20T16:22:26.981934+00:00"
+        }
+      ],
+      "refs": [
+        "/refs/locator.jpg",
+        "/refs/grunt.jpg"
+      ]
     },
     {
       "id": "s-friedhof",
@@ -356,9 +420,26 @@
         "a-datenfragmente",
         "a-scanner"
       ],
-      "prompt": "A vast desert plain at dawn littered with ancient sun-bleached landing pods and robot wrecks half buried in sand, an old scout robot wreck in the foreground with an empty broken shell, long shadows, melancholic.",
-      "images": [],
-      "refs": []
+      "prompt": "A vast desert plain at dawn littered with ancient sun-bleached landing pods and robot wrecks half buried in sand. In the foreground lies a centuries-old wreck of the same kind as the Locator, its paint bleached almost white, its box head open and empty. The Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) stands before it, two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) behind, one of them holding up an old rusted gun pulled from the sand. Long shadows, melancholic.",
+      "images": [
+        {
+          "file": "20261120-172334-1.png",
+          "prompt": "A vast desert plain at dawn littered with ancient sun-bleached landing pods and robot wrecks half buried in sand. In the foreground lies a centuries-old wreck of the same kind as the Locator, its paint bleached almost white, its box head open and empty. The Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) stands before it, two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) behind, one of them holding up an old rusted gun pulled from the sand. Long shadows, melancholic.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [
+            "/refs/locator.jpg",
+            "/refs/grunt.jpg"
+          ],
+          "text": "",
+          "at": "2026-11-20T16:23:34.559592+00:00"
+        }
+      ],
+      "refs": [
+        "/refs/locator.jpg",
+        "/refs/grunt.jpg"
+      ]
     },
     {
       "id": "s-weite",
@@ -372,9 +453,26 @@
       "assets": [
         "a-absturzplanet"
       ],
-      "prompt": "Wide establishing shot of an alien desert with a deep canyon, an abandoned open-pit mine with rusted machinery and a tall radio mast on a ridge, a tiny landing pod in the distance, a smoke column far away.",
-      "images": [],
-      "refs": []
+      "prompt": "Wide establishing shot of an alien desert: a deep canyon, an abandoned open-pit mine with rusted machinery and a tall radio mast on a ridge, a tiny landing pod in the distance, a smoke column far away. On a rock in the foreground, small against the landscape, the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) and two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) look out over it. Adventure, vastness.",
+      "images": [
+        {
+          "file": "20261120-172345-1.png",
+          "prompt": "Wide establishing shot of an alien desert: a deep canyon, an abandoned open-pit mine with rusted machinery and a tall radio mast on a ridge, a tiny landing pod in the distance, a smoke column far away. On a rock in the foreground, small against the landscape, the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) and two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) look out over it. Adventure, vastness.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [
+            "/refs/locator.jpg",
+            "/refs/grunt.jpg"
+          ],
+          "text": "",
+          "at": "2026-11-20T16:23:45.888921+00:00"
+        }
+      ],
+      "refs": [
+        "/refs/locator.jpg",
+        "/refs/grunt.jpg"
+      ]
     },
     {
       "id": "s-lauschen",
@@ -388,9 +486,26 @@
       "assets": [
         "a-hack"
       ],
-      "prompt": "A small scout robot plugged into the base of a tall rusted radio mast on a ridge at dusk, holographic data streams around it showing a progress bar, far below a crater with a glowing wreck.",
-      "images": [],
-      "refs": []
+      "prompt": "Dusk on a ridge: the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) is plugged into the base of a tall rusted radio mast, holographic data streams around it showing a progress bar at 4 %. Two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) keep watch at the edge. Far below a crater with a glowing wreck.",
+      "images": [
+        {
+          "file": "20261120-172418-1.png",
+          "prompt": "Dusk on a ridge: the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) is plugged into the base of a tall rusted radio mast, holographic data streams around it showing a progress bar at 4 %. Two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed) keep watch at the edge. Far below a crater with a glowing wreck.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [
+            "/refs/locator.jpg",
+            "/refs/grunt.jpg"
+          ],
+          "text": "",
+          "at": "2026-11-20T16:24:18.473019+00:00"
+        }
+      ],
+      "refs": [
+        "/refs/locator.jpg",
+        "/refs/grunt.jpg"
+      ]
     },
     {
       "id": "s-kraterrand",
@@ -406,9 +521,26 @@
         "a-lager",
         "a-loescher"
       ],
-      "prompt": "From the rim of a huge impact crater: a broken mothership wreck below, a growing robot base around it with mines, a smelter and watchtowers, and on top of the wreck a single sleek menacing robot silhouette looking straight at the viewer. Late afternoon, dramatic.",
-      "images": [],
-      "refs": []
+      "prompt": "From behind and low: at the rim of a huge impact crater stand the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) and two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed), seen from the back. Below lies a broken mothership wreck, a growing robot base around it with mines, a smelter and watchtowers, and on top of the wreck a single sleek menacing robot silhouette looks straight at them. Late afternoon, dramatic.",
+      "images": [
+        {
+          "file": "20261120-172431-1.png",
+          "prompt": "From behind and low: at the rim of a huge impact crater stand the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture) and two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed), seen from the back. Below lies a broken mothership wreck, a growing robot base around it with mines, a smelter and watchtowers, and on top of the wreck a single sleek menacing robot silhouette looks straight at them. Late afternoon, dramatic.",
+          "style": true,
+          "model": "gemini-3.1-flash-image",
+          "aspect": "16:9",
+          "refs": [
+            "/refs/locator.jpg",
+            "/refs/grunt.jpg"
+          ],
+          "text": "",
+          "at": "2026-11-20T16:24:31.311762+00:00"
+        }
+      ],
+      "refs": [
+        "/refs/locator.jpg",
+        "/refs/grunt.jpg"
+      ]
     },
     {
       "id": "s-abgerissen",
@@ -424,9 +556,11 @@
         "a-klammer",
         "a-hack"
       ],
-      "prompt": "Inside a torn-off section of a crashed spaceship hull half buried in sand, a maintenance bay with rows of dormant robots hanging in clamps, a small scout robot with a headlight hacking one of them, dust in light beams.",
+      "prompt": "Inside a torn-off section of a crashed spaceship hull half buried in sand, a maintenance bay with rows of dormant robots hanging in clamps, a small scout robot with a headlight hacking one of them, dust in light beams. Use the reference pictures for the machines: the small scout robot is the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture); the companion robots are Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed). Keep their shapes and proportions; the scene's light and wear may change their look.",
       "images": [],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg"
+      ]
     },
     {
       "id": "s-brueckenkopf",
@@ -460,9 +594,11 @@
         "a-mutterschiff",
         "a-durchsagen"
       ],
-      "prompt": "Inside the tilted wreck of a crashed spaceship half buried in desert sand, sunlight falling in shafts through torn hull plates, sand pouring through cracks, a damaged robot still working mechanically in the gloom, a small scout robot entering with its headlight on.",
+      "prompt": "Inside the tilted wreck of a crashed spaceship half buried in desert sand, sunlight falling in shafts through torn hull plates, sand pouring through cracks, a damaged robot still working mechanically in the gloom, a small scout robot entering with its headlight on. Use the reference pictures for the machines: the small scout robot is the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture); the companion robots are Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed). Keep their shapes and proportions; the scene's light and wear may change their look.",
       "images": [],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg"
+      ]
     },
     {
       "id": "s-schlepper-boss",
@@ -494,9 +630,11 @@
         "a-energiezelle",
         "a-baukasten"
       ],
-      "prompt": "A tilted reactor deck in a crashed mothership, leaking green-white glow, steam and alarm lights, flooded corridors, a small scout robot at a switch panel.",
+      "prompt": "A tilted reactor deck in a crashed mothership, leaking green-white glow, steam and alarm lights, flooded corridors, a small scout robot at a switch panel. Use the reference pictures for the machines: the small scout robot is the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture); the companion robots are Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed). Keep their shapes and proportions; the scene's light and wear may change their look.",
       "images": [],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg"
+      ]
     },
     {
       "id": "s-kopie",
@@ -512,9 +650,12 @@
         "a-navkern",
         "a-hack"
       ],
-      "prompt": "A small scout robot plugged into a damaged computer core in the bow of a crashed ship, holographic streams of data flowing upward to a point beyond the hull, a stocky robot beside it frozen with flickering eyes.",
+      "prompt": "A small scout robot plugged into a damaged computer core in the bow of a crashed ship, holographic streams of data flowing upward to a point beyond the hull, a stocky robot beside it frozen with flickering eyes. Use the reference pictures for the machines: the small scout robot is the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture); the companion robots are Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed). Keep their shapes and proportions; the scene's light and wear may change their look.",
       "images": [],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg",
+        "/refs/grunt.jpg"
+      ]
     },
     {
       "id": "s-loescher-1",
@@ -582,7 +723,7 @@
         "a-sternkarte",
         "a-grunts"
       ],
-      "prompt": "Interior of a small improvised spaceship cobbled together from an escape pod, a salvaged engine and wreck plates, welded seams, cables, a workshop corner with tools. A small spindly scout robot and two stocky tracked combat robots stand by a patched viewport full of stars. Warm workshop light against cold space, cosy and fragile.",
+      "prompt": "Interior of a small improvised spaceship cobbled together from an escape pod, a salvaged engine and wreck plates, welded seams, cables, a workshop corner with tools. A small spindly scout robot and two stocky wheeled robots stand by a patched viewport full of stars. Warm workshop light against cold space, cosy and fragile. Use the reference pictures for the machines: the small scout robot is the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture); the companion robots are Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed). Keep their shapes and proportions; the scene's light and wear may change their look.",
       "images": [
         {
           "file": "20261120-164140-1.png",
@@ -595,7 +736,10 @@
           "at": "2026-11-20T15:41:40.368392+00:00"
         }
       ],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg",
+        "/refs/grunt.jpg"
+      ]
     },
     {
       "id": "s-echo",
@@ -612,7 +756,7 @@
         "a-hack",
         "a-aufmerksamkeit"
       ],
-      "prompt": "Close-up inside a cramped spaceship engine bay: a salvaged navigation core, a heavy armoured cylinder with red status lights, wired into improvised cables. A faint red pulse of light ripples out from it like a radio wave. A small scout robot crouches in front of it with a probe arm extended into an open panel. Tense, dim, red and teal light.",
+      "prompt": "Close-up inside a cramped spaceship engine bay: a salvaged navigation core, a heavy armoured cylinder with red status lights, wired into improvised cables. A faint red pulse of light ripples out from it like a radio wave. A small scout robot crouches in front of it with a probe arm extended into an open panel. Tense, dim, red and teal light. Use the reference pictures for the machines: the small scout robot is the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture); the companion robots are Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed). Keep their shapes and proportions; the scene's light and wear may change their look.",
       "images": [
         {
           "file": "20261120-164151-1.png",
@@ -625,7 +769,9 @@
           "at": "2026-11-20T15:41:51.317266+00:00"
         }
       ],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg"
+      ]
     },
     {
       "id": "s-satellit",
@@ -671,7 +817,7 @@
         "a-bewegungsmelder",
         "a-lichtzeichen"
       ],
-      "prompt": "A small spindly scout robot with a single headlight walks on magnetic feet across the outer hull of a giant ancient satellite in space, between huge frosted dish antennas. Spider-like maintenance drones with red searchlight cones crawl over the antennas nearby. Black sky full of stars, hard white starlight, deep shadows, drifting ice crystals. Silent and tense.",
+      "prompt": "A small spindly scout robot with a single headlight walks on magnetic feet across the outer hull of a giant ancient satellite in space, between huge frosted dish antennas. Spider-like maintenance drones with red searchlight cones crawl over the antennas nearby. Black sky full of stars, hard white starlight, deep shadows, drifting ice crystals. Silent and tense. Use the reference pictures for the machines: the small scout robot is the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture); the companion robots are Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed). Keep their shapes and proportions; the scene's light and wear may change their look.",
       "images": [
         {
           "file": "20261120-164211-1.png",
@@ -684,7 +830,9 @@
           "at": "2026-11-20T15:42:11.750576+00:00"
         }
       ],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg"
+      ]
     },
     {
       "id": "s-archiv",
@@ -700,7 +848,7 @@
         "a-aufzeichnung",
         "a-datenfragmente"
       ],
-      "prompt": "Interior of an abandoned control room of an ancient human-built relay station, clean pale wall panels covered in frost, rows of old consoles, a frozen coffee cup and a chair left turned. One console glows, playing an audio recording, a waveform on its screen. A small scout robot stands listening; behind it a stocky combat robot stands still with its head tilted. Cold blue light, quiet, melancholic.",
+      "prompt": "Interior of an abandoned control room of an ancient human-built relay station, clean pale wall panels covered in frost, rows of old consoles, a frozen coffee cup and a chair left turned. One console glows, playing an audio recording, a waveform on its screen. A small scout robot stands listening; behind it a stocky combat robot stands still with its head tilted. Cold blue light, quiet, melancholic. Use the reference pictures for the machines: the small scout robot is the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture); the companion robots are Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed). Keep their shapes and proportions; the scene's light and wear may change their look.",
       "images": [
         {
           "file": "20261120-164220-1.png",
@@ -713,7 +861,10 @@
           "at": "2026-11-20T15:42:20.809973+00:00"
         }
       ],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg",
+        "/refs/grunt.jpg"
+      ]
     },
     {
       "id": "s-mithoeren",
@@ -730,7 +881,7 @@
         "a-sternkarte",
         "a-loescher"
       ],
-      "prompt": "A huge cylindrical data core in the heart of an ancient satellite, glowing circuit traces running up its walls like a circuit board, pulses of light racing along them. A small scout robot is plugged into a socket at its base, while two stocky combat robots guard a doorway against approaching red drone lights. Holographic fragments of a star map and radio waveforms float in the air. Green and amber circuit light, tense.",
+      "prompt": "A huge cylindrical data core in the heart of an ancient satellite, glowing circuit traces running up its walls like a circuit board, pulses of light racing along them. A small scout robot is plugged into a socket at its base, while two stocky combat robots guard a doorway against approaching red drone lights. Holographic fragments of a star map and radio waveforms float in the air. Green and amber circuit light, tense. Use the reference pictures for the machines: the small scout robot is the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture); the companion robots are Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed). Keep their shapes and proportions; the scene's light and wear may change their look.",
       "images": [
         {
           "file": "20261120-164253-1.png",
@@ -743,7 +894,10 @@
           "at": "2026-11-20T15:42:53.143379+00:00"
         }
       ],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg",
+        "/refs/grunt.jpg"
+      ]
     },
     {
       "id": "s-abgang",
@@ -759,7 +913,7 @@
         "a-abfangschiff",
         "a-schiff"
       ],
-      "prompt": "An improvised small spaceship undocking in a hurry from a giant frosted relay satellite while a sleek red-lit fleet interceptor ship approaches and fires lasers. Two stocky combat robots on the hull shoot back, a small scout robot leaps for the open hatch. Debris and ice shards spin in space. Dynamic, red warning lights against cold starlight.",
+      "prompt": "An improvised small spaceship undocking in a hurry from a giant frosted relay satellite while a sleek red-lit fleet interceptor ship approaches and fires lasers. Two stocky combat robots on the hull shoot back, a small scout robot leaps for the open hatch. Debris and ice shards spin in space. Dynamic, red warning lights against cold starlight. Use the reference pictures for the machines: the small scout robot is the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture); the companion robots are Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed). Keep their shapes and proportions; the scene's light and wear may change their look.",
       "images": [
         {
           "file": "20261120-164302-1.png",
@@ -772,7 +926,10 @@
           "at": "2026-11-20T15:43:02.063171+00:00"
         }
       ],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg",
+        "/refs/grunt.jpg"
+      ]
     },
     {
       "id": "s-ankunft",
@@ -1023,7 +1180,7 @@
       "assets": [
         "a-entscheidungen"
       ],
-      "prompt": "Inside a frozen underground vault, rows of cryo capsules whose lights go dark one after another. A small scout robot stands at a control panel, its single eye glowing cold white. In the doorway behind it, a stocky combat robot raises its arm to stop it. Clinical blue-white light, terrible calm.",
+      "prompt": "Inside a frozen underground vault, rows of cryo capsules whose lights go dark one after another. A small scout robot stands at a control panel, its single eye glowing cold white. In the doorway behind it, a stocky combat robot raises its arm to stop it. Clinical blue-white light, terrible calm. Use the reference pictures for the machines: the small scout robot is the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture); the companion robots are Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed). Keep their shapes and proportions; the scene's light and wear may change their look.",
       "images": [
         {
           "file": "20261120-165735-1.png",
@@ -1036,7 +1193,10 @@
           "at": "2026-11-20T15:57:35.604884+00:00"
         }
       ],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg",
+        "/refs/grunt.jpg"
+      ]
     },
     {
       "id": "s-ende-opfer",
@@ -1050,7 +1210,7 @@
       "assets": [
         "a-entscheidungen"
       ],
-      "prompt": "Dawn on a green alien world: a field of silent, powered-down robots of all sizes standing frozen like statues. In the foreground a small scout robot, its single headlight fading, looks up at a human in a thermal suit who kneels in front of it. Soft golden light, quiet, bittersweet.",
+      "prompt": "Dawn on a green alien world: a field of silent, powered-down robots of all sizes standing frozen like statues. In the foreground a small scout robot, its single headlight fading, looks up at a human in a thermal suit who kneels in front of it. Soft golden light, quiet, bittersweet. Use the reference pictures for the machines: the small scout robot is the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture); the companion robots are Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed). Keep their shapes and proportions; the scene's light and wear may change their look.",
       "images": [
         {
           "file": "20261120-165745-1.png",
@@ -1063,7 +1223,9 @@
           "at": "2026-11-20T15:57:45.892863+00:00"
         }
       ],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg"
+      ]
     },
     {
       "id": "s-ende-gemeinsam",
@@ -1077,7 +1239,7 @@
       "assets": [
         "a-entscheidungen"
       ],
-      "prompt": "A new settlement being built on a green alien world: humans in work suits and robots of all sizes working side by side, a combat robot carrying beams, a small scout robot on a human's shoulder-high crate pointing at a plan. Red and blue painted machines together. Warm evening light, hopeful.",
+      "prompt": "A new settlement being built on a green alien world: humans in work suits and robots of all sizes working side by side, a combat robot carrying beams, a small scout robot on a human's shoulder-high crate pointing at a plan. Red and blue painted machines together. Warm evening light, hopeful. Use the reference pictures for the machines: the small scout robot is the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture); the companion robots are Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed). Keep their shapes and proportions; the scene's light and wear may change their look.",
       "images": [
         {
           "file": "20261120-165754-1.png",
@@ -1090,7 +1252,10 @@
           "at": "2026-11-20T15:57:54.505295+00:00"
         }
       ],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg",
+        "/refs/grunt.jpg"
+      ]
     }
   ],
   "assets": [
@@ -1103,9 +1268,11 @@
       "text": "Das vorhandene Locator-Modell. Evtl. Story-Variante mit Gebrauchsspuren und Kennung L-7.",
       "sourcePrompt": "",
       "notes": "",
-      "prompt": "Character sheet of a small scout robot on spindly legs with a sensor head and a single headlight, worn red paint, designation L-7 stencilled on the side. Front, side and back view on neutral grey background.",
+      "prompt": "Character sheet of the Locator (the small red six-legged spider robot with an angular box body, a yellow band, thin blade antennas, a small eye box on its side and a short scanner barrel, exactly as in the Locator reference picture): worn red paint, scratches and dust, the designation L-7 stencilled on the side of its head. Front, side and back view on a neutral grey background.",
       "images": [],
-      "refs": []
+      "refs": [
+        "/refs/locator.jpg"
+      ]
     },
     {
       "id": "a-loescher",
@@ -1467,9 +1634,11 @@
       "text": "Vorhandenes Grunt-Modell mit eigener Markierung, anfangs ohne Waffen (zur Wartung abmontiert). Der Locator benennt sie nach Namen der Erbauer aus seinem Kern: Ike (vorlaut, kampflustig) und Bob (wortkarg, hat 12 % der Wachstumsdirektive abbekommen). Der Host kann sie ändern, echte Mitspieler benennen ihren eigenen.",
       "sourcePrompt": "",
       "notes": "",
-      "prompt": "Character sheet of two stocky, battered infantry robots with red paint and a hand-painted marking showing they have been hacked, one slightly taller, front and side views on neutral grey background.",
+      "prompt": "Character sheet of two Grunts (small red four-wheeled robots with chunky tyres and a little red eye box with two antennas at the front, exactly as in the Grunt reference picture, but with the big grey gun on their back removed): battered red paint, each with a different hand-painted marking that shows it has been hacked, one with a dented front plate. Front and side views on a neutral grey background.",
       "images": [],
-      "refs": []
+      "refs": [
+        "/refs/grunt.jpg"
+      ]
     },
     {
       "id": "a-schlepper",

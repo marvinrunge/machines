@@ -31,7 +31,9 @@ STORY = REPO / "docs" / "story"
 BOARD = STORY / "board.json"
 IMAGES = STORY / "images"
 STORY_TEXT = REPO / "docs" / "STORY.md"
-# Pictures the page may hand Gemini as references besides its own: the website's screenshots of the game.
+# Pictures the page may hand Gemini as references besides its own: the game's machines as they look (docs/story/refs,
+# kept small, so Gemini draws the Locator and the Grunts and not just any robots) and the website's screenshots.
+MODELS = STORY / "refs"
 SHOTS = REPO / "site" / "shots"
 PAGE_FILES = {"/": "index.html", "/index.html": "index.html", "/app.js": "app.js", "/style.css": "style.css"}
 PAGE_TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css"}
@@ -112,12 +114,11 @@ def board_rev():
 
 def picture_file(url):
     """The file behind a picture's address on this page (/images/<name> or /refs/<name>), or None."""
-    for prefix, folder in (("/images/", IMAGES), ("/refs/", SHOTS)):
+    for prefix, folders in (("/images/", (IMAGES,)), ("/refs/", (MODELS, SHOTS))):
         if url.startswith(prefix):
             name = url[len(prefix):]
             if SAFE_NAME.match(name) and name.lower().endswith(PICTURE):
-                path = folder / name
-                return path if path.is_file() else None
+                return next((folder / name for folder in folders if (folder / name).is_file()), None)
     return None
 
 
@@ -246,8 +247,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, STORY_TEXT.read_text("utf-8") if STORY_TEXT.is_file() else "",
                              "text/markdown; charset=utf-8")
         if path == "/api/refs":
-            shots = sorted(p.name for p in SHOTS.glob("*") if p.suffix.lower() in PICTURE) if SHOTS.is_dir() else []
-            return self.send(200, [{"url": f"/refs/{name}", "label": f"Spiel: {name}"} for name in shots])
+            def names(folder):
+                return sorted(p.name for p in folder.glob("*") if p.suffix.lower() in PICTURE) if folder.is_dir() else []
+            models = names(MODELS)
+            shots = [name for name in names(SHOTS) if name not in models]
+            return self.send(200, [{"url": f"/refs/{name}", "label": f"Modell: {name}"} for name in models] +
+                             [{"url": f"/refs/{name}", "label": f"Spiel: {name}"} for name in shots])
         if path == "/api/models":
             try:
                 return self.send(200, {"models": image_models(), "default": DEFAULT_MODEL, "key": bool(route()),
