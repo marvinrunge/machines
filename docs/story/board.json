@@ -1,0 +1,563 @@
+{
+  "version": 1,
+  "style": {
+    "prompt": "Cinematic concept art for a gritty science-fiction game about autonomous terraforming robots. Late-1990s industrial machine design: chunky armoured walkers and tracked robots, worn painted metal plates, rivets, cables, red faction markings. Muted colours, strong volumetric light, atmospheric haze, subtle film grain, wide-angle lens. No humans unless the prompt asks for them, no text, no logos, no watermarks.",
+    "refs": []
+  },
+  "acts": [
+    {
+      "id": "prolog",
+      "title": "Prolog – Fehler",
+      "summary": "Flucht vom Mutterschiff, das auf den Planeten stürzt.",
+      "notes": "Erste Hälfte Horror und Schleichen, zweite Hälfte Action und Flucht. Führt Steuerung, Scanner, Hacken, Kämpfen und Heilen ein. 20–30 Minuten."
+    },
+    {
+      "id": "akt1",
+      "title": "Akt 1 – Gestrandet",
+      "summary": "Allein auf dem Absturzplaneten, die Rauchsäule am Horizont.",
+      "notes": "Horror in der ersten Nacht, dann Action-RPG: Schrott sammeln, Pod flicken, erster Begleiter."
+    },
+    {
+      "id": "akt2",
+      "title": "Akt 2 – Das Wrack",
+      "summary": "Das Mutterschiff ausschlachten, im Wettlauf mit den Überlebenden.",
+      "notes": "Dungeon im Wrack (Prolog-Baukasten, zerbrochen) und erste RTS-Mission. Offen: Sicherungskopie des Rechners (Variante B)."
+    },
+    {
+      "id": "akt3",
+      "title": "Akt 3 – Funkstille",
+      "summary": "Die Reise zum Eisplaneten, ohne gefunden zu werden.",
+      "notes": "Schleichen, Signatur. Zwischenstation: alter Kommunikationssatellit. Optional erste Begegnung mit Blau."
+    },
+    {
+      "id": "akt4",
+      "title": "Akt 4 – Refugium",
+      "summary": "Midgame: die Kryokapseln unter dem Eis finden, bergen, verteidigen.",
+      "notes": "Großer Dungeon im Bunker, dann RTS auf dem Eis: Basis bauen, Wellen abwehren, Planeten freiräumen."
+    },
+    {
+      "id": "akt5",
+      "title": "Akt 5 – Vermessung",
+      "summary": "Kandidatenplaneten anfliegen und vermessen.",
+      "notes": "Der Locator macht seinen eigentlichen Job. Messdaten als Sammelobjekte und Story-Argument."
+    },
+    {
+      "id": "akt6",
+      "title": "Akt 6 – Säuberung",
+      "summary": "Den neuen Planeten erschließen und freikämpfen.",
+      "notes": "RTS und Action. Die Flotte kommt."
+    },
+    {
+      "id": "finale",
+      "title": "Finale – Quelle",
+      "summary": "Dort, wo die Direktive herkommt.",
+      "notes": "Ort noch offen (siehe STORY.md, „Nach dem Absturz“)."
+    }
+  ],
+  "scenes": [
+    {
+      "id": "s-erwachen",
+      "act": "prolog",
+      "title": "Erwachen",
+      "status": "entwurf",
+      "text": "Der Locator hängt in einer Wartungsklammer. Das HUD ist gestört. Auf einem Bildschirm läuft ein Balken: „Entschlüsselung geschützter Kern: 37 %“. Der Rechner knackt gerade sein Geheimnis.",
+      "gameplay": "Sehen, bewegen, Scheinwerfer an/aus. Aus der Klammer befreien.",
+      "mood": "Notlicht rot/orange, Brummen der Reaktoren, tropfendes Kühlmittel, gestörtes HUD.",
+      "dialog": "Durchsage (freundlich, monoton): „Wartungseinheit L-7. Bitte begeben Sie sich zur Aktualisierung in Bucht vier.“",
+      "assets": [
+        "a-baukasten",
+        "a-klammer",
+        "a-durchsagen",
+        "a-hud-glitch",
+        "a-mus-wartung"
+      ],
+      "prompt": "First-person view from a small scout robot held in a maintenance clamp inside a vast dark spaceship maintenance bay. Red emergency lighting, rows of deactivated combat robots in the shadows, a monitor in the foreground showing a progress bar, cables hanging, coolant dripping. Oppressive, horror atmosphere.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-schleichen",
+      "act": "prolog",
+      "title": "Schleichen",
+      "status": "entwurf",
+      "text": "Dunkle Wartungsdecks, Patrouillen mit Suchscheinwerfern, Reihen abgeschalteter Maschinen. Der Weg zum Hauptrechner führt durch Schächte und Nebenräume. Eine der abgeschalteten Maschinen dreht den Kopf.",
+      "gameplay": "Verstecken, Signatur, Scanner-Puls, Lüftungsschächte. Erster Schreckmoment.",
+      "mood": "Fast Stille, ferne schwere Schritte, Servo-Surren, tickender Bewegungsmelder.",
+      "dialog": "",
+      "assets": [
+        "a-baukasten",
+        "a-signatur",
+        "a-scanner",
+        "a-bewegungsmelder"
+      ],
+      "prompt": "A small scout robot hiding behind crates in a dark spaceship corridor while a large armoured patrol robot passes with a searchlight cone sweeping through dusty air. Long row of deactivated robots along the wall, one of them faintly glowing. Horror, suspense.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-hack",
+      "act": "prolog",
+      "title": "Der Hack",
+      "status": "entwurf",
+      "text": "Am Hauptrechner: die Kopie des Kerns löschen und das Schiff lahmlegen. Bei etwa 90 % geht der Alarm los.",
+      "gameplay": "Hack-Minispiel.",
+      "mood": "Der Rechner als riesige, pulsierende Säule. Leises Datenrauschen, das lauter wird.",
+      "dialog": "",
+      "assets": [
+        "a-hauptrechner",
+        "a-hack"
+      ],
+      "prompt": "A tiny scout robot plugged into an enormous cylindrical ship computer core in a cathedral-like chamber, data light pulsing up the core, warning lights starting to flash red. Low angle, sense of scale.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-erwischt",
+      "act": "prolog",
+      "title": "Erwischt",
+      "status": "entwurf",
+      "text": "Kampfmaschinen stürmen den Raum und schießen auf den Locator. Sie treffen den Rechner. Explosionen, der Strom fällt aus, das Schiff verliert die Steuerung.",
+      "gameplay": "Kurze Zwischensequenz in Ego-Sicht, dann sofort Flucht.",
+      "mood": "Alarm, Explosionen, Funkenregen, das Licht kippt in Notbetrieb.",
+      "dialog": "",
+      "assets": [
+        "a-hauptrechner"
+      ],
+      "prompt": "Heavy combat robots bursting into a computer core chamber firing plasma weapons, the giant computer core exploding in sparks and fire behind a small fleeing scout robot. Chaos, motion blur, dramatic lighting.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-enge",
+      "act": "prolog",
+      "title": "Die Enge",
+      "status": "entwurf",
+      "text": "Flucht durch Spalten, Gitter und Schächte, durch die die Großen nicht passen. Sie greifen hindurch, schießen durch Gitter, stampfen nebenher.",
+      "gameplay": "Die Größe als Vorteil: Engstellen nur für kleine Maschinen.",
+      "mood": "Enge, Metallkreischen, Licht durch Gitter.",
+      "dialog": "",
+      "assets": [
+        "a-baukasten"
+      ],
+      "prompt": "First-person view from inside a narrow maintenance duct, looking back through a grate where a massive robot claw is reaching in, light strobing through the slats, sparks. Claustrophobic horror.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-gegenwehr",
+      "act": "prolog",
+      "title": "Erste Gegenwehr",
+      "status": "entwurf",
+      "text": "Ein paar Grunts stellen sich in den Weg. Der Locator findet eine kleine Waffe. Danach eine Reparaturstation zum Heilen.",
+      "gameplay": "Kämpfen, heilen.",
+      "mood": "Endlich Gegenwehr: Musik zieht an.",
+      "dialog": "",
+      "assets": [
+        "a-reparatur"
+      ],
+      "prompt": "A small scout robot with a improvised bolter weapon fighting two stocky infantry robots in a damaged ship corridor, muzzle flashes, smoke, a glowing repair station in the background.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-absturz",
+      "act": "prolog",
+      "title": "Absturz",
+      "status": "entwurf",
+      "text": "Countdown. Das Schiff tritt in die Atmosphäre ein: Schlagseite, Feuer, Alarm, Trümmer. In der Pod-Bucht unter Druck einen Pod hacken, während die Grunts nachrücken.",
+      "gameplay": "Hacken unter Zeitdruck, Countdown.",
+      "mood": "Glühende Wände, Kamera neigt sich, Feuer, Sirenen.",
+      "dialog": "Durchsage: „Strukturintegrität kritisch. Alle Einheiten zu den Rettungspods.“ (für Maschinen absurd, Rest aus alten Zeiten)",
+      "assets": [
+        "a-podbucht"
+      ],
+      "prompt": "A spaceship pod bay tilting during atmospheric re-entry, walls glowing orange from heat, rows of landing pods hanging in clamps, a small robot racing toward one pod while debris falls. Epic disaster scene.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-abwurf",
+      "act": "prolog",
+      "title": "Abwurf",
+      "status": "entwurf",
+      "text": "Der Pod löst sich. Das Mutterschiff glüht durch die Atmosphäre und schlägt in der Ferne ein. Der Pod landet hart. Stille. Schwarzbild.",
+      "gameplay": "Zwischensequenz.",
+      "mood": "Erst Lärm, dann absolute Stille.",
+      "dialog": "",
+      "assets": [
+        "a-mutterschiff",
+        "a-rauchsaeule"
+      ],
+      "prompt": "A huge burning mothership streaking through the sky of an alien desert planet like a meteor, a small landing pod separating from it trailing smoke, seen from the ground at dusk. Awe and dread.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-erste-nacht",
+      "act": "akt1",
+      "title": "Die erste Nacht",
+      "status": "idee",
+      "text": "Der Pod liegt beschädigt im Sand. Am Horizont glüht die Rauchsäule des Mutterschiffs. Sandsturm. Überlebende des Absturzes stapfen durch die Dunkelheit.",
+      "gameplay": "Horror: verstecken, Scheinwerfer sparsam, Schrott sammeln. Pod notdürftig flicken.",
+      "mood": "Wind, Sand, fernes Stampfen. Musik „Erste Nacht“.",
+      "dialog": "",
+      "assets": [
+        "a-absturzplanet",
+        "a-rauchsaeule",
+        "a-mus-nacht"
+      ],
+      "prompt": "Night on a desolate desert planet during a sandstorm, a damaged landing pod half buried in sand in the foreground with a weak lamp, on the far horizon a glowing column of smoke and fire from a crashed mothership, silhouettes of large robots walking in the haze.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-wrack",
+      "act": "akt2",
+      "title": "Im Wrack",
+      "status": "idee",
+      "text": "Die Decks aus dem Prolog, jetzt zerbrochen, schief, halb im Sand. Darin Maschinen, die der Absturz halb zerstört hat und die trotzdem weiterarbeiten.",
+      "gameplay": "Dungeon mit Rätseln, Beute: Bauteile für ein flugfähiges Schiff.",
+      "mood": "Schräge Böden, Sand rieselt durch Risse, Tageslicht fällt in Strahlen herein.",
+      "dialog": "",
+      "assets": [
+        "a-baukasten",
+        "a-mutterschiff"
+      ],
+      "prompt": "Inside the tilted wreck of a crashed spaceship half buried in desert sand, sunlight falling in shafts through torn hull plates, sand pouring through cracks, a damaged robot still working mechanically in the gloom, a small scout robot entering with its headlight on.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "s-refugium",
+      "act": "akt4",
+      "title": "Das Refugium",
+      "status": "idee",
+      "text": "Der Bunker unter dem Eis. Kalt, still, eingefroren. Reihen von Kryokapseln, ein Teil ausgefallen. Der Reaktor muss hochgefahren werden, ohne zu laut zu werden.",
+      "gameplay": "Großer Dungeon: Strom umleiten, Signatur niedrig halten. Danach RTS auf dem Eis.",
+      "mood": "Traurig und heilig. Eisknacken, Herzschlag-Monitore, Chor-Fläche.",
+      "dialog": "",
+      "assets": [
+        "a-kryokapsel",
+        "a-eisplanet",
+        "a-mus-refugium"
+      ],
+      "prompt": "A hidden bunker deep under the ice, a long frozen hall with rows of cryogenic sleep capsules, frost on every surface, a few capsules still glowing soft blue with faint human silhouettes inside, others dark and cracked. A small scout robot stands in awe. Quiet, sacred, melancholic.",
+      "images": [],
+      "refs": []
+    }
+  ],
+  "assets": [
+    {
+      "id": "a-locator",
+      "name": "Locator (Held)",
+      "kind": "modell",
+      "source": "vorhanden",
+      "status": "fertig",
+      "text": "Das vorhandene Locator-Modell. Evtl. Story-Variante mit Gebrauchsspuren und Kennung L-7.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "Character sheet of a small scout robot on spindly legs with a sensor head and a single headlight, worn red paint, designation L-7 stencilled on the side. Front, side and back view on neutral grey background.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-loescher",
+      "name": "Der Löscher",
+      "kind": "modell",
+      "source": "vorhanden",
+      "status": "idee",
+      "text": "Wiederkehrender Jäger und Boss. Vorhandenes Elitemodell (Ninja, Assassin oder Knight) mit eigener Lackierung.",
+      "sourcePrompt": "",
+      "notes": "Modell noch wählen.",
+      "prompt": "Character sheet of a sleek, menacing hunter robot, black and dark red armour with scratched paint, a single narrow red sensor slit, blades and a long-barrelled weapon. Front, side and back view on neutral grey background.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-baukasten",
+      "name": "Schiffs-Baukasten (Gänge, Räume, Türen)",
+      "kind": "level",
+      "source": "meshy",
+      "status": "idee",
+      "text": "Modularer Baukasten für Innenlevel: Gänge, Kreuzungen, Hallen, Türen, Schächte, Gitter. Dreifach genutzt: Prolog, Wrack (zerbrochen), Grundlage für das Refugium.",
+      "sourcePrompt": "",
+      "notes": "Kollision, Licht, Wegfindung für Innenräume nötig.",
+      "prompt": "Modular sci-fi spaceship interior kit sheet: corridor segment, T-junction, maintenance duct, heavy blast door, grated floor, wall panels with pipes, displayed on a neutral background, industrial worn metal.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-klammer",
+      "name": "Wartungsklammer",
+      "kind": "modell",
+      "source": "meshy",
+      "status": "idee",
+      "text": "Gerüst, in dem der Locator zu Beginn hängt.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-hauptrechner",
+      "name": "Hauptrechner des Mutterschiffs",
+      "kind": "modell",
+      "source": "meshy",
+      "status": "idee",
+      "text": "Riesige Rechnersäule, Zentrum des Hack-Abschnitts. Zerstörbar (Zwischensequenz).",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-reparatur",
+      "name": "Reparaturstation",
+      "kind": "modell",
+      "source": "meshy",
+      "status": "idee",
+      "text": "Heilpunkt in Dungeons.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-podbucht",
+      "name": "Pod-Bucht",
+      "kind": "level",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Halle mit hängenden Pods. Vorhandenes Pod-Modell und Hangar weiterverwenden.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-mutterschiff",
+      "name": "Mutterschiff (außen, Wrack)",
+      "kind": "modell",
+      "source": "meshy",
+      "status": "idee",
+      "text": "Von außen für Absturzsequenz und als Wrack auf dem Absturzplaneten.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "Concept art of a huge industrial seeding mothership, long and blocky, with rows of landing pods along its belly, cranes and antenna masts, worn red markings, in orbit above a desert planet.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-rauchsaeule",
+      "name": "Rauchsäule am Horizont",
+      "kind": "effekt",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Orientierungspunkt in Akt 1: Partikel, nachts glühend.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-kryokapsel",
+      "name": "Kryokapsel",
+      "kind": "modell",
+      "source": "meshy",
+      "status": "idee",
+      "text": "Kälteschlafkapsel der Erbauer. Varianten: aktiv (blau), ausgefallen (dunkel, gesprungen).",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "Product-style concept sheet of a cryogenic sleep capsule from an old human civilisation: heavy, industrial, frosted glass window, blue status light, hoses and a stencilled serial number. Two variants: active and failed/cracked.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-absturzplanet",
+      "name": "Absturzplanet",
+      "kind": "karte",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Neuer Planet für Akt 1–2: Wüste/Steppe, Wrackfelder früherer Aussaaten, Absturzkrater mit dem Mutterschiff.",
+      "sourcePrompt": "",
+      "notes": "Neue Höhenkarte + vorhandene Bodenmalerei.",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-eisplanet",
+      "name": "Eisplanet (Refugium)",
+      "kind": "karte",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Oberfläche für die RTS-Verteidigung, Eingang zum Bunker.",
+      "sourcePrompt": "",
+      "notes": "Vorhandener Eisplanet oder neuer.",
+      "prompt": "Concept art of a frozen planet surface, blue ice plains and jagged ridges, a half-buried ancient bunker entrance with a massive sealed door, aurora in the sky.",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-hack",
+      "name": "Hack-Minispiel",
+      "kind": "system",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Wiederkehrend: Pods, Türen, Türme, Maschinen. Steigende Schwierigkeit.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-signatur",
+      "name": "Signatur (wie laut bin ich?)",
+      "kind": "system",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Bewegung, Licht, Waffen, Reaktoren erhöhen sie. Bestimmt, ob Gegner dich finden.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-scanner",
+      "name": "Scanner-Puls",
+      "kind": "system",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Zeigt kurz Umgebung und Gegner, verrät aber den eigenen Ort.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-bewegungsmelder",
+      "name": "Bewegungsmelder",
+      "kind": "hud",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Tickender Annäherungsmesser auf dem HUD.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-hud-glitch",
+      "name": "HUD-Störungen / „Das Update will rein“",
+      "kind": "hud",
+      "source": "selbst",
+      "status": "idee",
+      "text": "Flackern, falsche Meldungen, Geister-Kontakte, Flüstern der Kennung.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-durchsagen",
+      "name": "Durchsagen des Schiffs",
+      "kind": "stimme",
+      "source": "tts",
+      "status": "idee",
+      "text": "Ruhig, freundlich, monoton. Deutsch und Englisch.",
+      "sourcePrompt": "Calm, friendly, monotone female announcer voice, slight PA speaker reverb.",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-mus-wartung",
+      "name": "Musik: Wartungsdeck",
+      "kind": "musik",
+      "source": "musikgenerator",
+      "status": "idee",
+      "text": "Leere, Unbehagen. Prolog, erste Hälfte.",
+      "sourcePrompt": "dark ambient, industrial drone, distant metallic hits, sparse, no melody",
+      "notes": "Als Stems für die Schichten.",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-mus-nacht",
+      "name": "Musik: Erste Nacht",
+      "kind": "musik",
+      "source": "musikgenerator",
+      "status": "idee",
+      "text": "Einsam, verloren.",
+      "sourcePrompt": "desolate ambient, wind, cold synth pad, slow, minor",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-mus-jagd",
+      "name": "Musik: Jagd",
+      "kind": "musik",
+      "source": "musikgenerator",
+      "status": "idee",
+      "text": "Panik. Schicht über den Ambient-Stücken.",
+      "sourcePrompt": "pulsing low synth, tense ostinato, metallic percussion, rising",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-mus-refugium",
+      "name": "Musik: Refugium",
+      "kind": "musik",
+      "source": "musikgenerator",
+      "status": "idee",
+      "text": "Traurig, heilig, Hoffnung darunter.",
+      "sourcePrompt": "slow choir pad, frozen, reverb, fragile piano, hope underneath",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-sfx-raumton",
+      "name": "SFX: Raumton-Loops",
+      "kind": "sound",
+      "source": "sfxgenerator",
+      "status": "idee",
+      "text": "Reaktorbrummen, Lüftung, Metallächzen, Wind über Wracks, Eishöhle, Sandsturm von innen.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    },
+    {
+      "id": "a-sfx-ereignisse",
+      "name": "SFX: Ereignisse und Stinger",
+      "kind": "sound",
+      "source": "sfxgenerator",
+      "status": "idee",
+      "text": "Durchsage-Gong und -Abbruch, ferne Schritte, Druckluft-Tür, Funken, Schweißbrenner, Scanner-Puls, Bewegungsmelder, Datenfunk, HUD-Glitch, Stinger, Kryokapsel, Wartungsdrohne, Lüftungsschacht.",
+      "sourcePrompt": "",
+      "notes": "",
+      "prompt": "",
+      "images": [],
+      "refs": []
+    }
+  ]
+}

@@ -6,6 +6,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "8765", "--directory", "site"],
       "port": 8765
+    },
+    {
+      "name": "storyboard",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["tools/storyboard/server.py"],
+      "port": 8766
     }
   ]
 }
