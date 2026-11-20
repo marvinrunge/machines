@@ -106,8 +106,35 @@ Offen. Zwei Richtungen:
 ### Wiederkehrender Gegner
 
 Für ein Action-RPG ist ein Gesicht hilfreich: ein **Jäger**, den der Leitrechner dem Locator hinterherschickt. Er nutzt ein
-vorhandenes Elitemodell (Ninja, Assassin oder Knight) mit eigener Lackierung. Er taucht in jedem Akt auf, wird stärker und
+vorhandenes Elitemodell: eine **Widow**, die Spitze der Reaper-Reihe aus Wired, schwarz-rot lackiert. Er taucht in jedem Akt auf, wird stärker und
 ist ein Bossgegner. Arbeitsname: **der Löscher**.
+
+### Besetzung
+
+Jede Maschine der Geschichte ist eine Maschine des Spiels: die Typen des Originals oder die eigenen Maschinen von Wired.
+Für die Bilder liegt von jeder ein Studio-Render in `docs/story/refs`. Neue Rollen werden erst besetzt, wenn sie abgestimmt
+sind.
+
+| Rolle | Maschine | Wo |
+|---|---|---|
+| Der Locator, L-7 | Geo Locator 1 | überall |
+| Ike und Bob | Grunt 1, anfangs ohne Waffe | überall |
+| Horror-Patrouille im Mutterschiff | Thresher (Wired) | Prolog |
+| Eingreiftrupp beim Alarm | Reaper mit Plasmagewehren, angeführt von einem Commander 5 | Prolog |
+| Feindliche Grunts, schon aktualisiert | Grunt 1 mit Waffe | Prolog, Akt 2 |
+| **Der Löscher** | Widow (Wired), schwarz-rot lackiert | ab Akt 1 |
+| **Der Schlepper** | Behemoth 5 ohne Ketten, der sich auf den Armen schleppt und gefressene Teile anschweißt | Akt 1, Akt 2 |
+| Rekruten, wartende Maschinen in den Klammern | Grunt 2–3, Reaper 2, dazu Builder und Engineer für die Basis | Prolog, Akt 2 |
+| Angreifer aus dem Lager der Überlebenden | Grunts, Reaper und Knights, geführt vom Löscher | Akt 2 |
+| Wartungsdrohnen des Relais | Spy Locator 3 mit Suchlicht | Akt 3 |
+| Enterkommando des Abfangschiffs | Reaper und Hornets (Wired) | Akt 3 |
+| Abfangschiff, Wachring, Mutterschiff, Pods | keine Maschinen, sondern Kulisse | Akt 3 und später |
+| **Der Goliath** | Colossus (Wired) | Akt 4 |
+| Sammler der Flotte | Harvester (Wired) und Resource Carrier | Akt 4, Nebenschauplätze |
+| Jagdtrupp | Sarge, Thresher und Hornet (alle Wired) | Nebenschauplätze |
+| Schrottkönig | ein Colossus voller Trophäen aus Panzerplatten | Nebenschauplätze |
+| Maschinen in den Enden | Grunts, Reaper, Builder, Resource Carrier, ein Behemoth, dazu Ike, Bob und der Locator | Finale |
+
 
 ---
 
@@ -166,7 +193,7 @@ Erkundung, am Ende ein Ausblick auf Akt 2.
 | # | Abschnitt | Was passiert | Spiel |
 |---|---|---|---|
 | 1 | **Aufprall** | Schwarzbild, das HUD startet neu, Zeile für Zeile. Der Pod liegt schief im Sand, die Luke klemmt. Ein Grunt ist beim Aufprall zerbrochen, der andere eingeklemmt. Draußen tobt ein Sandsturm, am Horizont glüht die Rauchsäule. | Grunt wieder zusammensetzen, Luke aufhebeln (Grunt-Kraft), erster Blick nach draußen |
-| 2 | **Die erste Nacht** | Der Pod hat kaum noch Strom: kein Hangar, kaum Licht. Rund um den Pod liegen Trümmer vom Absturz. Durch den Sturm stapfen Maschinen, die den Absturz überlebt haben. Eine davon ist der **Schlepper**: eine halb zerstörte große Maschine, die sich mit den Armen vorwärtszieht und alles frisst, was nach Metall klingt. | Horror: Teile für den Pod sammeln, im Sturm verstecken, Scheinwerfer sparsam. Der Schlepper ist nicht zu besiegen, nur zu umgehen. |
+| 2 | **Die erste Nacht** | Der Pod hat kaum noch Strom: kein Hangar, kaum Licht. Rund um den Pod liegen Trümmer vom Absturz. Durch den Sturm stapfen Maschinen, die den Absturz überlebt haben. Eine davon ist der **Schlepper**: ein halb zerstörter Behemoth ohne Ketten, die sich mit den Armen vorwärtszieht und alles frisst, was nach Metall klingt. | Horror: Teile für den Pod sammeln, im Sturm verstecken, Scheinwerfer sparsam. Der Schlepper ist nicht zu besiegen, nur zu umgehen. |
 | 3 | **Strom** | Mit den Teilen läuft der Pod wieder an. Licht, Wärme, und der Hangar öffnet sich zum ersten Mal. | Erster Besuch im Hangar, erstes Upgrade, Hangar-Tutorial |
 | 4 | **Der Friedhof** | Der Morgen zeigt: Die Ebene ist voller uralter Pods und Maschinen, Jahrhunderte älter als der Absturz. Hier wurde schon einmal gesät, und es ist gescheitert. In einem der Wracks liegt ein alter Locator, das Gehäuse leer. Sein Datenfragment: „Planet ungeeignet. Rückruf erbeten. Keine Antwort.“ In den Wracks liegen auch alte Waffen. | Erkunden, Schrott sammeln, erstes Datenfragment (Lore), Scanner-Rätsel. **Die Grunts bekommen ihre ersten Waffen** (alt, schwach, sie klemmen) |
 | 5 | **Die Weite** | Offenes Gelände rund um den Pod: ein Canyon, ein alter Tagebau, ein Funkmast. Kleine Freiluft-Dungeons, Beute, Rätsel. Die Grunts kommentieren und streiten. | Freie Erkundung, Nebenaufgaben, Ausbau |
@@ -275,10 +302,10 @@ Dazu kommen zwei Funde: der Grund, warum der Weg zum Refugium über mehrere Plan
 | 1 | **Taufe** | Das Schiff im Flug, zum ersten Mal von innen. Es ist zusammengeflickt aus dem Pod, dem Triebwerk und Wrackteilen, und der Hangar hängt im Bauch. Hat der Host es am Ende von Akt 2 nicht benannt, geschieht es hier: Ike schlägt Namen vor („Die Unkaputtbare“, „Ike I“), Bob eine Seriennummer. Die Ruhe vor dem Sturm. | Das Schiff als Zentrale: begehen, Hangar, Werkbank, Sternkarte (noch leer bis auf einen Punkt). Gespräche mit den Grunts |
 | 2 | **Das Echo** | Mitten im Flug meldet der Scanner einen Puls, alle 60 Sekunden, aus dem eigenen Schiff. Der Navigationskern aus dem Bug des Mutterschiffs sendet eine Kennung: *„Flotteneinheit. Position …“* Es ist ein Peilsender. Ausbauen geht nicht, sonst fliegt das Schiff nicht mehr, also muss er gehackt werden, damit er schweigt. Wie lange er schon gefunkt hat, weiß niemand. Ab jetzt gilt Funkstille. | Signalpeilung im eigenen Schiff (wärmer/kälter), Hack mit Firewall-Puls. Die Regel des Akts wird eingeführt, und die Anzeige der Aufmerksamkeit erscheint |
 | 3 | **Der Satellit** | Der Sprung reicht nur bis an den Rand des Zielsystems. Dort hängt ein Relais-Satellit der Erbauer, groß wie eine Station, uralt und halb vereist. Die Flotte nutzt ihn weiter: Ihr ganzer Funkverkehr im System läuft über ihn. Wer dort mithört, weiß, wo sie steht. Das Schiff dockt ohne Triebwerk an, treibend, im Schatten der Antennen. | Zwischensequenz in Ego-Sicht: lautloses Andocken |
-| 4 | **Außenhaut** | Draußen auf der Hülle, im Vakuum. Ohne Luft hört man nur den eigenen Körper: Servos und Magnetfüße, dumpf durch das Chassis. Wartungsdrohnen der Flotte kriechen über die Antennen. Drei Schüsseln müssen auf den Empfänger gedreht werden, ohne dass eine Drohne es meldet. Die Grunts sind auf der Hülle zu schwer und zu langsam, sie sichern die Schleuse. | Schleichen im Freien, Sichtkegel der Drohnen, Rangier- und Peilrätsel. **Stille als Horror:** Gegner hört man nicht, man sieht sie nur, und der Bewegungsmelder wird wichtig |
+| 4 | **Außenhaut** | Draußen auf der Hülle, im Vakuum. Ohne Luft hört man nur den eigenen Körper: Servos und Magnetfüße, dumpf durch das Chassis. Spy Locators der Flotte kriechen als Wartungsdrohnen mit Suchlicht über die Antennen. Drei Schüsseln müssen auf den Empfänger gedreht werden, ohne dass eine Drohne es meldet. Die Grunts sind auf der Hülle zu schwer und zu langsam, sie sichern die Schleuse. | Schleichen im Freien, Sichtkegel der Drohnen, Rangier- und Peilrätsel. **Stille als Horror:** Gegner hört man nicht, man sieht sie nur, und der Bewegungsmelder wird wichtig |
 | 5 | **Das Archiv** | Innen liegt das Relais der Erbauer: verlassene Räume, alles heil, nur eingefroren. Ein Speicher voller Funksprüche aus der Zeit, als noch Menschen funkten. Ganz am Ende eine Aufzeichnung: **die erste Menschenstimme des Spiels** (Text unten). Sie nennt die Winterhalle und die Regel der Erbauer, *„Keiner trägt alles“*, aber keinen Ort. Bob spielt dieselbe Datei ab und meldet: *„Datei leer. Vier Minuten zwölf Sekunden Rauschen.“* | Erkundung, Datenfragmente, Logbuch-Rätsel (der Zugangscode steckt in alten Funksprüchen). Der zweite große Bob-Moment, ganz leise |
 | 6 | **Mithören** | Im Herz des Relais der bisher größte Hack. Danach hört man die Flotte: Förderkolonien auf Glut und der Schmiede, eine Patrouille im Canyon von Spiegel, und um den Eisplaneten eine Sperrzone: *„Energieanomalie unter dem Eis. Bohrung vorbereitet.“* Die Flotte weiß nicht, was dort liegt, aber sie hat den Reaktor gehört. Dann zwei Funde: **(1)** ein frischer Spruch mit der Kennung des Löschers. Er hat das Zielsystem gemeldet, und Verstärkung ist unterwegs. **(2)** Ganz unten im Protokoll liegt das Paket der Wachstumsdirektive. Es lief vor langer Zeit durch das Netz der Erbauer, zu dem auch dieser Satellit gehört, und kam von außerhalb. Der Absender ist verschlüsselt, die Richtung nicht. | Hack auf mehreren Ebenen mit Durchkontaktierungen. Die Drohnen werden unruhig, die Grunts halten die Tür. Die Sternkarte füllt sich mit Zielen |
-| 7 | **Abgang** | Zurück zum Schiff. Wie das abläuft, hängt an der Aufmerksamkeit. **Leise:** Die Drohnen merken nichts, das Schiff treibt ab, wie es gekommen ist. **Laut:** Ein Abfangschiff der Flotte dockt an. Kampf in den Gängen und auf der Hülle, Abkoppeln unter Beschuss. | Die erste spürbare Belohnung fürs Leisesein. Kein Bosskampf, der Löscher kommt erst in Akt 4 wieder |
+| 7 | **Abgang** | Zurück zum Schiff. Wie das abläuft, hängt an der Aufmerksamkeit. **Leise:** Die Drohnen merken nichts, das Schiff treibt ab, wie es gekommen ist. **Laut:** Ein Abfangschiff der Flotte dockt an, Reaper und Hornets entern. Kampf in den Gängen und auf der Hülle, Abkoppeln unter Beschuss. | Die erste spürbare Belohnung fürs Leisesein. Kein Bosskampf, der Löscher kommt erst in Akt 4 wieder |
 | 8 | **Nordlicht** | Das Schiff treibt ohne Antrieb ins System, im Schatten des roten Mondes (Wacht). Über dem Eisplaneten stehen Polarlichter, daher der Name. Um ihn kreist der Wachring: Hunderte rote Lichter. Ike blinkt: *„Darf ich jetzt wieder reden?“* Bob: *„Nein.“* | Zwischensequenz. Die Sternkarte öffnet Glut, Spiegel, Schmiede und den Rand des Eisplaneten. Übergang in Akt 4 |
 
 **Die Aufzeichnung im Archiv** (Entwurf; eine müde, ruhige Stimme, kein Pathos):
@@ -349,7 +376,7 @@ hängt darin. Auf einer Sternkarte wählt man das nächste Ziel. Zwischen bekann
 
 | Planet | Gelände | Was man dort bekommt | Was dort im Weg steht | Was es im Refugium bringt |
 |---|---|---|---|---|
-| **Schmiede** | Täler / Hügel | **Goliath**: Eine verlassene Fabrik mit einem schlafenden Goliath. Ein Begleiter kann auf ihn wechseln: schwere Kanonen, viel Panzerung. | Die Fabrik gehört Sammlern der Flotte: **RTS-Mission**, um sie einzunehmen | Bricht die Stahltür auf: eine Abkürzung statt des langen Umwegs durch die Eishöhlen |
+| **Schmiede** | Täler / Hügel | **Goliath**: Eine verlassene Fabrik mit einem schlafenden Goliath, einem Colossus. Ein Begleiter kann auf ihn wechseln: schwere Kanonen, viel Panzerung. | Die Fabrik gehört Sammlern der Flotte (Harvester und Resource Carrier): **RTS-Mission**, um sie einzunehmen | Bricht die Stahltür auf: eine Abkürzung statt des langen Umwegs durch die Eishöhlen |
 | **Feste** | Festungsgelände | **Atomrakete**: ein Silo mit einer einzigen Rakete | Startcodes (Hain). Kein Strom: **Reaktorkern** von Glut, getragen vom **Goliath** | Vernichtet die Bohrstation vorab. Ohne Rakete bleibt sie stehen und schickt in Akt 5 Welle um Welle, bis man sie im RTS-Kampf stürmt. |
 
 **Der Eisplanet ist von Anfang an erreichbar**, aber man weiß nicht, was er ist. Man landet weit draußen und findet ein
@@ -387,7 +414,7 @@ wenig neuer Arbeit.
 | Spielart | Was man tut | Grundlage im Remake | Beispiel |
 |---|---|---|---|
 | **Überleben** | Den Pod oder einen Sender gegen Wellen halten | Wired (Arenen, Wellen) | „Notsignal“: Ein freier Locator funkt um Hilfe, halte seinen Pod 10 Wellen lang |
-| **Schlacht** | Heldenteam gegen Heldenteam, beide mit Pod | Battle | Ein Jagdtrupp der Flotte stellt dich: drei Jäger-Helden gegen deine Gruppe |
+| **Schlacht** | Heldenteam gegen Heldenteam, beide mit Pod | Battle | Ein Jagdtrupp der Flotte stellt dich: drei Jäger-Helden (Sarge, Thresher, Hornet) gegen deine Gruppe |
 | **Gefecht** | Klassisch RTS: Basis bauen, Gegner auslöschen | Skirmish auf den 32 Original-Karten | „Sammler-Kolonie“: Eine Förderkolonie der Flotte ausheben |
 | **Bergung** | Ein Wrack durchsuchen | Freiluft- und Innen-Dungeons | Ein altes Kolonieschiff im Asteroidenfeld |
 | **Jagd** | Eine Elite-Maschine aufspüren und erledigen | Ego-Kampf, Scanner | Ein umgebauter Goliath, der „Schrottkönig“ |
