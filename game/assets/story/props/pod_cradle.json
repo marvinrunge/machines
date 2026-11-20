@@ -1,0 +1,78 @@
+{
+  "name": "pod_cradle",
+  "id": "P18",
+  "kind": "set",
+  "size_m": [
+    10,
+    10,
+    6
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -4.982,
+      0.0,
+      -5.0
+    ],
+    "max": [
+      4.982,
+      6.672,
+      5.0
+    ]
+  },
+  "height": 6.672,
+  "tris": 2393,
+  "footprint": [
+    [
+      -5.022,
+      0.025
+    ],
+    [
+      -4.798,
+      -4.814
+    ],
+    [
+      -0.018,
+      -5.036
+    ],
+    [
+      4.798,
+      -4.815
+    ],
+    [
+      5.022,
+      0.025
+    ],
+    [
+      4.778,
+      4.779
+    ],
+    [
+      -0.029,
+      5.001
+    ],
+    [
+      -4.778,
+      4.779
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/pod_cradle/model.glb",
+  "target_polycount": 2500,
+  "tris_raw": 2393,
+  "decimated_from": null,
+  "islands": 78,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": 10.5676
+  },
+  "textures": [
+    [
+      2048,
+      2048
+    ]
+  ],
+  "glb_bytes": 2263084
+}

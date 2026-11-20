@@ -1,0 +1,76 @@
+{
+  "name": "kit_door_small",
+  "id": "K9",
+  "kind": "kit",
+  "size_m": [
+    4,
+    1,
+    4
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -2.0,
+      0.0,
+      -0.5
+    ],
+    "max": [
+      2.0,
+      4.0,
+      0.5
+    ]
+  },
+  "height": 4.0,
+  "tris": 678,
+  "footprint": [
+    [
+      -2.0,
+      -0.5
+    ],
+    [
+      2.0,
+      -0.498
+    ],
+    [
+      2.0,
+      0.497
+    ],
+    [
+      1.777,
+      0.5
+    ],
+    [
+      -2.0,
+      0.5
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/kit_door_small/model.glb",
+  "target_polycount": 700,
+  "tris_raw": 678,
+  "decimated_from": null,
+  "islands": 15,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": [
+      4.1478,
+      3.19,
+      4.227
+    ],
+    "snapped": {
+      "-x": 64,
+      "+x": 54,
+      "-z": 60,
+      "+z": 58
+    }
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 477392
+}

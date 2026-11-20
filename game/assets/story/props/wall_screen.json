@@ -1,0 +1,78 @@
+{
+  "name": "wall_screen",
+  "id": "P5",
+  "kind": "set",
+  "size_m": [
+    3,
+    0.4,
+    2
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -1.5,
+      0.0,
+      -0.335
+    ],
+    "max": [
+      1.5,
+      2.901,
+      0.335
+    ]
+  },
+  "height": 2.901,
+  "tris": 416,
+  "footprint": [
+    [
+      -0.656,
+      -0.278
+    ],
+    [
+      0.621,
+      -0.278
+    ],
+    [
+      0.672,
+      -0.242
+    ],
+    [
+      0.7,
+      -0.16
+    ],
+    [
+      0.672,
+      -0.083
+    ],
+    [
+      0.618,
+      -0.048
+    ],
+    [
+      -0.655,
+      -0.048
+    ],
+    [
+      -0.707,
+      -0.16
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/wall_screen/model.glb",
+  "target_polycount": 400,
+  "tris_raw": 416,
+  "decimated_from": null,
+  "islands": 2,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": 3.1589
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 726684
+}

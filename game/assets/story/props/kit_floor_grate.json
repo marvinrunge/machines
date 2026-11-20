@@ -1,0 +1,75 @@
+{
+  "name": "kit_floor_grate",
+  "id": "K2",
+  "kind": "kit",
+  "size_m": [
+    4,
+    4,
+    0.3
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -2.0,
+      0.0,
+      -2.0
+    ],
+    "max": [
+      2.0,
+      0.3,
+      2.0
+    ]
+  },
+  "height": 0.3,
+  "tris": 443,
+  "footprint": [
+    [
+      -2.0,
+      -2.0
+    ],
+    [
+      2.0,
+      -2.0
+    ],
+    [
+      2.0,
+      2.0
+    ],
+    [
+      -2.0,
+      2.0
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/kit_floor_grate/model.glb",
+  "target_polycount": 500,
+  "tris_raw": 443,
+  "decimated_from": null,
+  "islands": 16,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": [
+      4.2205,
+      4.1563,
+      3.8886
+    ],
+    "snapped": {
+      "-x": 32,
+      "+x": 30,
+      "-y": 27,
+      "+y": 35,
+      "-z": 97,
+      "+z": 168
+    }
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 366608,
+  "note": "Meshy made the grate as flat slabs with the bars only painted on and the white backdrop painted into the gaps (pink and cream cells); dark_white only blackens the whitest of them. It cannot be seen through: listed for a Blender rebuild."
+}

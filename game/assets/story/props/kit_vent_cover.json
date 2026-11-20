@@ -1,0 +1,82 @@
+{
+  "name": "kit_vent_cover",
+  "id": "K11",
+  "kind": "kit",
+  "size_m": [
+    3.5,
+    0.6,
+    3
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -1.75,
+      0.0,
+      -0.3
+    ],
+    "max": [
+      1.75,
+      3.0,
+      0.3
+    ]
+  },
+  "height": 3.0,
+  "tris": 308,
+  "footprint": [
+    [
+      -1.75,
+      -0.3
+    ],
+    [
+      1.75,
+      -0.3
+    ],
+    [
+      1.75,
+      -0.091
+    ],
+    [
+      1.192,
+      -0.088
+    ],
+    [
+      -1.219,
+      -0.088
+    ],
+    [
+      -1.75,
+      -0.094
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/kit_vent_cover/model.glb",
+  "target_polycount": 300,
+  "tris_raw": 308,
+  "decimated_from": null,
+  "islands": 11,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": [
+      3.6257,
+      1.9081,
+      3.154
+    ],
+    "snapped": {
+      "-x": 12,
+      "+x": 12,
+      "-z": 12,
+      "+z": 12,
+      "+y": 90
+    }
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 442492,
+  "note": "The kicked-open slat flap sticks out in front, so the box is 0.6 m deep instead of 0.3 m: the frame keeps its thickness and its back is flush."
+}

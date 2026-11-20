@@ -1,0 +1,81 @@
+{
+  "name": "kit_ceiling",
+  "id": "K6",
+  "kind": "kit",
+  "size_m": [
+    4,
+    4,
+    1
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -2.0,
+      0.0,
+      -2.0
+    ],
+    "max": [
+      2.0,
+      1.0,
+      2.0
+    ]
+  },
+  "height": 1.0,
+  "tris": 399,
+  "footprint": [
+    [
+      -1.845,
+      -0.921
+    ],
+    [
+      -1.839,
+      -1.289
+    ],
+    [
+      1.841,
+      -1.289
+    ],
+    [
+      1.841,
+      1.272
+    ],
+    [
+      -1.839,
+      1.272
+    ],
+    [
+      -1.845,
+      -0.749
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/kit_ceiling/model.glb",
+  "target_polycount": 400,
+  "tris_raw": 399,
+  "decimated_from": null,
+  "islands": 7,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": true,
+  "fit": {
+    "scale": [
+      4.1753,
+      4.186,
+      7.2883
+    ],
+    "snapped": {
+      "-x": 12,
+      "+x": 16,
+      "-y": 15,
+      "+y": 13,
+      "+z": 12
+    }
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 441856
+}

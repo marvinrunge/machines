@@ -1,0 +1,78 @@
+{
+  "name": "crate_large",
+  "id": "P7",
+  "kind": "set",
+  "size_m": [
+    3,
+    2,
+    2.2
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -1.5,
+      0.0,
+      -1.031
+    ],
+    "max": [
+      1.5,
+      2.078,
+      1.031
+    ]
+  },
+  "height": 2.078,
+  "tris": 491,
+  "footprint": [
+    [
+      -1.491,
+      -0.961
+    ],
+    [
+      -1.436,
+      -1.014
+    ],
+    [
+      1.434,
+      -1.014
+    ],
+    [
+      1.489,
+      -0.961
+    ],
+    [
+      1.489,
+      0.961
+    ],
+    [
+      1.434,
+      1.014
+    ],
+    [
+      -1.436,
+      1.014
+    ],
+    [
+      -1.491,
+      0.961
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/crate_large/model.glb",
+  "target_polycount": 600,
+  "tris_raw": 491,
+  "decimated_from": null,
+  "islands": 37,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": 3.131
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 663160
+}

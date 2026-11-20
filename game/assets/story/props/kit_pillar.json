@@ -1,0 +1,86 @@
+{
+  "name": "kit_pillar",
+  "id": "K5",
+  "kind": "kit",
+  "size_m": [
+    1,
+    1,
+    8
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -0.5,
+      0.0,
+      -0.5
+    ],
+    "max": [
+      0.5,
+      8.0,
+      0.5
+    ]
+  },
+  "height": 8.0,
+  "tris": 300,
+  "footprint": [
+    [
+      -0.5,
+      -0.436
+    ],
+    [
+      -0.439,
+      -0.5
+    ],
+    [
+      0.439,
+      -0.5
+    ],
+    [
+      0.5,
+      -0.436
+    ],
+    [
+      0.5,
+      0.436
+    ],
+    [
+      0.439,
+      0.5
+    ],
+    [
+      -0.439,
+      0.5
+    ],
+    [
+      -0.5,
+      0.436
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/kit_pillar/model.glb",
+  "target_polycount": 300,
+  "tris_raw": 300,
+  "decimated_from": null,
+  "islands": 6,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": [
+      5.0073,
+      5.0073,
+      8.4107
+    ],
+    "snapped": {
+      "-z": 121,
+      "+z": 50
+    }
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 485492
+}

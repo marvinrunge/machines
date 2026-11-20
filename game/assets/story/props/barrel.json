@@ -1,0 +1,78 @@
+{
+  "name": "barrel",
+  "id": "P8",
+  "kind": "set",
+  "size_m": [
+    1,
+    1,
+    1.4
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -0.416,
+      0.0,
+      -0.418
+    ],
+    "max": [
+      0.416,
+      1.4,
+      0.418
+    ]
+  },
+  "height": 1.4,
+  "tris": 414,
+  "footprint": [
+    [
+      -0.365,
+      -0.247
+    ],
+    [
+      -0.086,
+      -0.435
+    ],
+    [
+      0.162,
+      -0.388
+    ],
+    [
+      0.454,
+      -0.181
+    ],
+    [
+      0.365,
+      0.247
+    ],
+    [
+      0.003,
+      0.492
+    ],
+    [
+      -0.366,
+      0.242
+    ],
+    [
+      -0.416,
+      -0.002
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/barrel/model.glb",
+  "target_polycount": 400,
+  "tris_raw": 414,
+  "decimated_from": null,
+  "islands": 4,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": 1.4711
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 453208
+}

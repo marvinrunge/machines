@@ -1,0 +1,72 @@
+{
+  "name": "kit_duct",
+  "id": "K10",
+  "kind": "kit",
+  "size_m": [
+    3.5,
+    4,
+    3
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -1.75,
+      0.0,
+      -2.0
+    ],
+    "max": [
+      1.75,
+      3.0,
+      2.0
+    ]
+  },
+  "height": 3.0,
+  "tris": 642,
+  "footprint": [
+    [
+      -1.75,
+      -2.0
+    ],
+    [
+      1.729,
+      -2.0
+    ],
+    [
+      1.75,
+      2.0
+    ],
+    [
+      -1.75,
+      2.0
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/kit_duct/model.glb",
+  "target_polycount": 600,
+  "tris_raw": 642,
+  "decimated_from": null,
+  "islands": 1,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": [
+      5.3136,
+      4.2097,
+      5.3659
+    ],
+    "snapped": {
+      "-y": 229,
+      "+y": 267,
+      "-z": 87,
+      "+z": 89
+    }
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 594836
+}

@@ -42,6 +42,11 @@ def prompt_for(plan, prop):
     if prop["kind"] == "kit" and plan.get("kit_style_swap"):
         # Hoses arching over a floor or across a tile's edge would break the grid; kit tiles keep them inside.
         style = style.replace(*plan["kit_style_swap"])
+    # A prop's own swaps: one [old, new] pair or a list of them (crates get "no hoses or cables", the mothership a view
+    # from below).
+    swaps = prop.get("style_swap") or []
+    for old, new in ([swaps] if swaps and isinstance(swaps[0], str) else swaps):
+        style = style.replace(old, new)
     parts += [
         plan["geometry"],
         style,
@@ -88,10 +93,11 @@ def main(argv):
         resolved = {r: board_lookup(r) for r in prop.get("refs", [])}
         refs_found = [r for r, path in resolved.items() if path]
         server.IMAGES, server.picture_file = folder, resolved.get
+        aspect = prop.get("aspect", g["aspect"])  # tall kit pieces ask for 9:16 so nothing has to be stretched later
         started = time.time()
         calls += 1
         try:
-            saved, text = server.generate(prompt, g["model"], g["aspect"], g.get("size"), refs_found)
+            saved, text = server.generate(prompt, g["model"], aspect, g.get("size"), refs_found)
         except RuntimeError as error:
             print(f"{prop['name']}: ERROR {error}", flush=True)
             continue
@@ -111,7 +117,7 @@ def main(argv):
             (folder / draft).unlink()
         log = folder / "picture.json"
         history = json.loads(log.read_text("utf-8")).get("history", []) if log.is_file() else []
-        record = {"id": prop["id"], "name": prop["name"], "model": g["model"], "aspect": g["aspect"],
+        record = {"id": prop["id"], "name": prop["name"], "model": g["model"], "aspect": aspect,
                   "size": g.get("size"), "refs": refs_found, "prompt": prompt, "text": text, "file": raw.name,
                   "at": datetime.now(timezone.utc).isoformat()}
         log.write_text(json.dumps({**record, "history": history + [record]}, ensure_ascii=False, indent=2) + "\n",

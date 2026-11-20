@@ -1,0 +1,78 @@
+{
+  "name": "cable_hang",
+  "id": "P17",
+  "kind": "set",
+  "size_m": [
+    3,
+    1,
+    4
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -2.0,
+      0.0,
+      -0.388
+    ],
+    "max": [
+      2.0,
+      3.186,
+      0.388
+    ]
+  },
+  "height": 3.186,
+  "tris": 487,
+  "footprint": [
+    [
+      -1.247,
+      -0.273
+    ],
+    [
+      -0.905,
+      -0.322
+    ],
+    [
+      0.356,
+      -0.339
+    ],
+    [
+      1.114,
+      -0.339
+    ],
+    [
+      1.143,
+      -0.206
+    ],
+    [
+      0.748,
+      0.308
+    ],
+    [
+      -1.059,
+      0.331
+    ],
+    [
+      -1.251,
+      0.206
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/cable_hang/model.glb",
+  "target_polycount": 500,
+  "tris_raw": 487,
+  "decimated_from": null,
+  "islands": 11,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": 4.1775
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 662924
+}

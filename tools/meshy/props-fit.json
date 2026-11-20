@@ -1,0 +1,32 @@
+{
+  "about": "How tools/blender/prop_pack.py fits each Meshy prop. yaw: degrees about the up axis that turn the model's front to -Y in Blender (+Z in the GLB); every Meshy run of 2026-11-20 already faced -Y (renders/meshy/props/<name>/raw-views.png). flip: turned upside down (the ceiling was drawn beam side up). tile: the box faces a kit module meets its neighbours with; vertices within snap_share of the module's size (at most snap_max metres) of such a face are put exactly onto it. tex: 2k keeps 2048 maps, everything else gets 1024. dark_white: near-white texels Meshy painted into closed holes become black (true, or [mean brightness above, at most this much colour]). clear: faces centred in these boxes [x0, y0, z0, x1, y1, z1] (fitted metres, Blender axes) are deleted. fit_height/lift/lift_top/ring: the clamp hangs from the ceiling over a plain floor ring made here.",
+  "defaults": {
+    "kit": {"snap_share": 0.04, "snap_max": 0.12},
+    "set": {},
+    "exterior": {"tex": "2k"}
+  },
+  "props": {
+    "kit_floor": {"tile": ["-x", "+x", "-y", "+y", "-z", "+z"]},
+    "kit_floor_grate": {"tile": ["-x", "+x", "-y", "+y", "-z", "+z"], "dark_white": true,
+                        "note": "Meshy made the grate as flat slabs with the bars only painted on and the white backdrop painted into the gaps (pink and cream cells); dark_white only blackens the whitest of them. It cannot be seen through: listed for a Blender rebuild."},
+    "kit_wall": {"tile": ["-x", "+x", "-z", "+z"]},
+    "kit_wall_low": {"tile": ["-x", "+x", "-z", "+z"]},
+    "kit_pillar": {"tile": ["-z", "+z"]},
+    "kit_ceiling": {"flip": true, "tile": ["-x", "+x", "-y", "+y", "+z"]},
+    "kit_door_frame": {"tile": ["-x", "+x", "-z", "+z"], "clear": [[-1.0, -1, 0.1, 1.25, 1, 5.2]],
+                       "note": "Meshy put a slanted slab into the lower left of the opening; clear deletes it. The opening is about 2.6 m wide and 5.4 m tall, a little right of centre (x -1.17 to 1.45)."},
+    "kit_door_leaf": {"tile": ["-z", "+z"]},
+    "kit_door_small": {"tile": ["-x", "+x", "-z", "+z"], "dark_white": true},
+    "kit_duct": {"tile": ["-y", "+y", "-z", "+z"]},
+    "kit_vent_cover": {"tile": ["-x", "+x", "-z", "+z", "+y"], "size_m": [3.5, 0.6, 3],
+                       "note": "The kicked-open slat flap sticks out in front, so the box is 0.6 m deep instead of 0.3 m: the frame keeps its thickness and its back is flush."},
+    "kit_grate_wall": {"tile": ["-x", "+x", "-z", "+z"]},
+    "clamp": {"tex": "2k", "fit_height": 5.6, "lift": 7.0, "lift_top": true,
+              "ring": {"radius": 2.0, "width": 0.45, "height": 0.3, "segments": 40},
+              "note": "Meshy made the hoist and the two arms; the floor ring is a plain dark steel ring added by prop_pack.py. The hoist's top is at 7 m, where it meets the ceiling."},
+    "core": {"tex": "2k"},
+    "pod_cradle": {"tex": "2k"},
+    "bay_crane": {"tex": "2k"},
+    "mothership": {"tex": "2k"}
+  }
+}

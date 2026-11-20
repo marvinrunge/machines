@@ -1,0 +1,78 @@
+{
+  "name": "pipe_run",
+  "id": "P16",
+  "kind": "set",
+  "size_m": [
+    4,
+    1,
+    2
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -2.0,
+      0.0,
+      -0.347
+    ],
+    "max": [
+      2.0,
+      1.915,
+      0.347
+    ]
+  },
+  "height": 1.915,
+  "tris": 740,
+  "footprint": [
+    [
+      -2.0,
+      -0.21
+    ],
+    [
+      -1.984,
+      -0.337
+    ],
+    [
+      1.984,
+      -0.339
+    ],
+    [
+      2.0,
+      -0.21
+    ],
+    [
+      2.0,
+      0.135
+    ],
+    [
+      1.382,
+      0.202
+    ],
+    [
+      -1.382,
+      0.202
+    ],
+    [
+      -2.0,
+      0.135
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/pipe_run/model.glb",
+  "target_polycount": 700,
+  "tris_raw": 740,
+  "decimated_from": null,
+  "islands": 17,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": 4.1775
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 488032
+}

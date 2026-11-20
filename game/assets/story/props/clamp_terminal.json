@@ -1,0 +1,78 @@
+{
+  "name": "clamp_terminal",
+  "id": "P2",
+  "kind": "set",
+  "size_m": [
+    1.2,
+    0.6,
+    2
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -0.506,
+      0.0,
+      -0.478
+    ],
+    "max": [
+      0.506,
+      2.0,
+      0.478
+    ]
+  },
+  "height": 2.0,
+  "tris": 488,
+  "footprint": [
+    [
+      -0.244,
+      -0.11
+    ],
+    [
+      -0.071,
+      -0.239
+    ],
+    [
+      0.071,
+      -0.239
+    ],
+    [
+      0.244,
+      -0.11
+    ],
+    [
+      0.244,
+      0.104
+    ],
+    [
+      0.071,
+      0.235
+    ],
+    [
+      -0.071,
+      0.235
+    ],
+    [
+      -0.244,
+      0.104
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/clamp_terminal/model.glb",
+  "target_polycount": 500,
+  "tris_raw": 488,
+  "decimated_from": null,
+  "islands": 14,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": 2.1027
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 587696
+}

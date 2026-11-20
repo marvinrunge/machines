@@ -1,0 +1,78 @@
+{
+  "name": "debris_panel",
+  "id": "P21",
+  "kind": "set",
+  "size_m": [
+    4,
+    0.5,
+    3
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -2.0,
+      0.0,
+      -1.393
+    ],
+    "max": [
+      2.0,
+      2.138,
+      1.393
+    ]
+  },
+  "height": 2.138,
+  "tris": 562,
+  "footprint": [
+    [
+      -1.968,
+      0.761
+    ],
+    [
+      -1.455,
+      0.712
+    ],
+    [
+      1.457,
+      0.718
+    ],
+    [
+      1.966,
+      0.749
+    ],
+    [
+      1.966,
+      1.138
+    ],
+    [
+      0.823,
+      1.393
+    ],
+    [
+      -0.821,
+      1.393
+    ],
+    [
+      -1.97,
+      1.112
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/debris_panel/model.glb",
+  "target_polycount": 600,
+  "tris_raw": 562,
+  "decimated_from": null,
+  "islands": 19,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": 4.15
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 518264
+}

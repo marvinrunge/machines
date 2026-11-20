@@ -1,0 +1,78 @@
+{
+  "name": "lamp_emergency",
+  "id": "P13",
+  "kind": "set",
+  "size_m": [
+    0.6,
+    0.4,
+    0.5
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -0.299,
+      0.0,
+      -0.111
+    ],
+    "max": [
+      0.299,
+      0.6,
+      0.111
+    ]
+  },
+  "height": 0.6,
+  "tris": 310,
+  "footprint": [
+    [
+      -0.299,
+      -0.111
+    ],
+    [
+      0.297,
+      -0.111
+    ],
+    [
+      0.299,
+      -0.083
+    ],
+    [
+      0.238,
+      0.047
+    ],
+    [
+      0.136,
+      0.111
+    ],
+    [
+      -0.139,
+      0.111
+    ],
+    [
+      -0.238,
+      0.047
+    ],
+    [
+      -0.299,
+      -0.083
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/lamp_emergency/model.glb",
+  "target_polycount": 300,
+  "tris_raw": 310,
+  "decimated_from": null,
+  "islands": 3,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": 0.6302
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 493876
+}

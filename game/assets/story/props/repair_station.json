@@ -1,0 +1,78 @@
+{
+  "name": "repair_station",
+  "id": "P10",
+  "kind": "set",
+  "size_m": [
+    5,
+    5,
+    4
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -2.497,
+      0.0,
+      -2.5
+    ],
+    "max": [
+      2.497,
+      3.602,
+      2.5
+    ]
+  },
+  "height": 3.602,
+  "tris": 1994,
+  "footprint": [
+    [
+      -2.387,
+      -1.036
+    ],
+    [
+      -0.913,
+      -2.729
+    ],
+    [
+      1.296,
+      -2.289
+    ],
+    [
+      2.581,
+      -0.812
+    ],
+    [
+      2.354,
+      1.399
+    ],
+    [
+      0.524,
+      2.662
+    ],
+    [
+      -1.575,
+      2.227
+    ],
+    [
+      -2.557,
+      0.554
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/repair_station/model.glb",
+  "target_polycount": 2000,
+  "tris_raw": 1994,
+  "decimated_from": null,
+  "islands": 42,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": 5.2165
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 723472
+}

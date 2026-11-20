@@ -1,0 +1,78 @@
+{
+  "name": "debris_beam",
+  "id": "P20",
+  "kind": "set",
+  "size_m": [
+    8,
+    1.5,
+    1.5
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -4.0,
+      0.0,
+      -0.887
+    ],
+    "max": [
+      4.0,
+      2.051,
+      0.887
+    ]
+  },
+  "height": 2.051,
+  "tris": 809,
+  "footprint": [
+    [
+      -3.981,
+      -0.887
+    ],
+    [
+      -1.137,
+      -0.887
+    ],
+    [
+      3.951,
+      -0.859
+    ],
+    [
+      3.972,
+      -0.258
+    ],
+    [
+      3.951,
+      0.177
+    ],
+    [
+      -1.299,
+      0.892
+    ],
+    [
+      -3.996,
+      0.327
+    ],
+    [
+      -4.0,
+      -0.25
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/debris_beam/model.glb",
+  "target_polycount": 800,
+  "tris_raw": 809,
+  "decimated_from": null,
+  "islands": 10,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": 8.3168
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 533456
+}

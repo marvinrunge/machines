@@ -1,0 +1,79 @@
+{
+  "name": "clamp",
+  "id": "P1",
+  "kind": "set",
+  "size_m": [
+    5,
+    4,
+    7
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -2.476,
+      0.0,
+      -2.0
+    ],
+    "max": [
+      2.476,
+      7.0,
+      2.0
+    ]
+  },
+  "height": 7.0,
+  "tris": 2532,
+  "footprint": [
+    [
+      -2.158,
+      0.0
+    ],
+    [
+      -1.526,
+      -1.526
+    ],
+    [
+      -0.0,
+      -2.158
+    ],
+    [
+      1.526,
+      -1.526
+    ],
+    [
+      2.158,
+      -0.0
+    ],
+    [
+      1.526,
+      1.526
+    ],
+    [
+      0.0,
+      2.158
+    ],
+    [
+      -1.526,
+      1.526
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/clamp/model.glb",
+  "target_polycount": 2200,
+  "tris_raw": 2212,
+  "decimated_from": null,
+  "islands": 28,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": 5.8784
+  },
+  "textures": [
+    [
+      2048,
+      2048
+    ]
+  ],
+  "glb_bytes": 2040636,
+  "note": "Meshy made the hoist and the two arms; the floor ring is a plain dark steel ring added by prop_pack.py. The hoist's top is at 7 m, where it meets the ceiling."
+}

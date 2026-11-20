@@ -1,0 +1,62 @@
+{
+  "name": "mothership",
+  "id": "P22",
+  "kind": "exterior",
+  "size_m": [
+    1200,
+    260,
+    220
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -600.0,
+      0.0,
+      -136.95
+    ],
+    "max": [
+      600.0,
+      482.087,
+      136.95
+    ]
+  },
+  "height": 482.087,
+  "tris": 3861,
+  "footprint": [
+    [
+      23.951,
+      -61.412
+    ],
+    [
+      176.868,
+      -61.412
+    ],
+    [
+      176.254,
+      61.412
+    ],
+    [
+      20.266,
+      61.412
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/mothership/model.glb",
+  "target_polycount": 4000,
+  "tris_raw": 3973,
+  "decimated_from": null,
+  "islands": 99,
+  "dropped_scraps": 6,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": 1257.7271
+  },
+  "textures": [
+    [
+      2048,
+      2048
+    ]
+  ],
+  "glb_bytes": 2153288
+}

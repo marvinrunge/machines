@@ -1,0 +1,74 @@
+{
+  "name": "kit_floor",
+  "id": "K1",
+  "kind": "kit",
+  "size_m": [
+    4,
+    4,
+    0.3
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -2.0,
+      0.0,
+      -2.0
+    ],
+    "max": [
+      2.0,
+      0.3,
+      2.0
+    ]
+  },
+  "height": 0.3,
+  "tris": 383,
+  "footprint": [
+    [
+      -2.0,
+      -2.0
+    ],
+    [
+      2.0,
+      -2.0
+    ],
+    [
+      2.0,
+      2.0
+    ],
+    [
+      -2.0,
+      2.0
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/kit_floor/model.glb",
+  "target_polycount": 400,
+  "tris_raw": 383,
+  "decimated_from": null,
+  "islands": 2,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": [
+      4.2118,
+      4.1437,
+      3.9638
+    ],
+    "snapped": {
+      "-x": 47,
+      "+x": 47,
+      "-y": 48,
+      "+y": 46,
+      "-z": 35,
+      "+z": 258
+    }
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 491916
+}

@@ -1,0 +1,74 @@
+{
+  "name": "kit_door_frame",
+  "id": "K7",
+  "kind": "kit",
+  "size_m": [
+    7,
+    1.5,
+    8
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -3.5,
+      0.0,
+      -0.75
+    ],
+    "max": [
+      3.5,
+      8.0,
+      0.75
+    ]
+  },
+  "height": 8.0,
+  "tris": 761,
+  "footprint": [
+    [
+      -3.5,
+      -0.611
+    ],
+    [
+      3.5,
+      -0.614
+    ],
+    [
+      3.5,
+      0.586
+    ],
+    [
+      -3.5,
+      0.602
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/kit_door_frame/model.glb",
+  "target_polycount": 800,
+  "tris_raw": 763,
+  "decimated_from": null,
+  "islands": 22,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": [
+      7.2809,
+      4.7334,
+      8.4107
+    ],
+    "snapped": {
+      "-x": 27,
+      "+x": 25,
+      "-z": 241,
+      "+z": 31
+    },
+    "cleared_faces": 2
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 575044,
+  "note": "Meshy put a slanted slab into the lower left of the opening; clear deletes it. The opening is about 2.6 m wide and 5.4 m tall, a little right of centre (x -1.17 to 1.45)."
+}

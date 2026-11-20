@@ -1,0 +1,78 @@
+{
+  "name": "core",
+  "id": "P3",
+  "kind": "set",
+  "size_m": [
+    8,
+    8,
+    14
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -4.655,
+      0.0,
+      -4.698
+    ],
+    "max": [
+      4.655,
+      14.0,
+      4.698
+    ]
+  },
+  "height": 14.0,
+  "tris": 3148,
+  "footprint": [
+    [
+      -4.924,
+      -1.642
+    ],
+    [
+      -1.567,
+      -4.954
+    ],
+    [
+      2.189,
+      -4.34
+    ],
+    [
+      4.272,
+      -2.257
+    ],
+    [
+      4.904,
+      1.632
+    ],
+    [
+      1.588,
+      4.948
+    ],
+    [
+      -2.192,
+      4.352
+    ],
+    [
+      -4.287,
+      2.257
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/core/model.glb",
+  "target_polycount": 3000,
+  "tris_raw": 3148,
+  "decimated_from": null,
+  "islands": 19,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": 14.7111
+  },
+  "textures": [
+    [
+      2048,
+      2048
+    ]
+  ],
+  "glb_bytes": 2640800
+}

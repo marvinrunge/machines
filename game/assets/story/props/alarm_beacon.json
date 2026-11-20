@@ -1,0 +1,78 @@
+{
+  "name": "alarm_beacon",
+  "id": "P14",
+  "kind": "set",
+  "size_m": [
+    0.6,
+    0.6,
+    0.8
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -0.333,
+      0.0,
+      -0.335
+    ],
+    "max": [
+      0.333,
+      0.8,
+      0.335
+    ]
+  },
+  "height": 0.8,
+  "tris": 262,
+  "footprint": [
+    [
+      -0.333,
+      -0.286
+    ],
+    [
+      -0.281,
+      -0.332
+    ],
+    [
+      0.285,
+      -0.335
+    ],
+    [
+      0.333,
+      -0.287
+    ],
+    [
+      0.333,
+      0.28
+    ],
+    [
+      0.301,
+      0.335
+    ],
+    [
+      -0.285,
+      0.335
+    ],
+    [
+      -0.333,
+      0.279
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/alarm_beacon/model.glb",
+  "target_polycount": 300,
+  "tris_raw": 262,
+  "decimated_from": null,
+  "islands": 2,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": 0.8411
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 586248
+}

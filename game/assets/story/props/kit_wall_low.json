@@ -1,0 +1,72 @@
+{
+  "name": "kit_wall_low",
+  "id": "K4",
+  "kind": "kit",
+  "size_m": [
+    4,
+    1,
+    4
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -2.0,
+      0.0,
+      -0.5
+    ],
+    "max": [
+      2.0,
+      4.0,
+      0.5
+    ]
+  },
+  "height": 4.0,
+  "tris": 408,
+  "footprint": [
+    [
+      -2.0,
+      -0.5
+    ],
+    [
+      2.0,
+      -0.498
+    ],
+    [
+      2.0,
+      0.309
+    ],
+    [
+      -2.0,
+      0.311
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/kit_wall_low/model.glb",
+  "target_polycount": 400,
+  "tris_raw": 408,
+  "decimated_from": null,
+  "islands": 6,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": [
+      4.1437,
+      4.1542,
+      4.1967
+    ],
+    "snapped": {
+      "-x": 33,
+      "+x": 27,
+      "-z": 23,
+      "+z": 26
+    }
+  },
+  "textures": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "glb_bytes": 354488
+}
