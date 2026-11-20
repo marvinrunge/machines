@@ -41,3 +41,7 @@ __pycache__/
 # A trailer and a soundtrack put beside the game (StartupFilms, Music); never committed
 /films/
 /music/
+
+# Textures Godot extracts from the story props' .glb files on import (gltf/embedded_image_handling); the .glb holds them
+/game/assets/story/props/*_[0-9].jpg
+/game/assets/story/props/*_[0-9].jpg.import

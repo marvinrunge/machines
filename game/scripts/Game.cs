@@ -1149,6 +1149,7 @@ public partial class Game : Node3D
             return;
         _rig.EdgePan = false;
         ScriptRefit();
+        PlaceStoryTrioIfAsked();
         if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_FOCUS") is { } focus)
         {
             // "-,-,pitch,distance" keeps the camera where it starts.

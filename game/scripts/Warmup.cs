@@ -358,7 +358,9 @@ public partial class Warmup : Node3D
         var since = Stopwatch.GetTimestamp();
         try
         {
-            var players = request.Starts.Players.ToDictionary(p => p.Key, _ => Controller.Ai);
+            // A story's Locator is always a person's (StorySeats); its Grunts and the ship are the computer's anyway.
+            var players = request.Starts.Players.ToDictionary(p => p.Key,
+                p => request.Options.Story is { } story && p.Key == story.Race ? Controller.Player : Controller.Ai);
             var copy = MatchSetup.Create(data, request.Scenario, request.Planet, players, 1, request.Options);
             for (var tick = 0; tick < RehearsedTicks; tick++)
                 copy.Step();

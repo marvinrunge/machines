@@ -11,12 +11,13 @@ GAME = os.path.join(REPO, "game")
 
 
 def _uid_text(n):
-    # Godot's ResourceUID::id_to_text: base 35, digits a-z then 0-8, least significant first reversed.
-    chars = "abcdefghijklmnopqrstuvwxyz012345678"
+    # Godot's ResourceUID::id_to_text as 4.7 writes it: base 34, digits a-y then 0-8 (Godot rewrote every "z" this
+    # wrote as "0" on its first import; no uid in the repo has a "z" or a "9").
+    chars = "abcdefghijklmnopqrstuvwxy012345678"
     s = ""
     while True:
-        s = chars[n % 35] + s
-        n //= 35
+        s = chars[n % 34] + s
+        n //= 34
         if n == 0:
             break
     return "uid://" + s
