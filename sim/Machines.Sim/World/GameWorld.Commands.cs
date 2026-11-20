@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Numerics;
 using Machines.Import.Model;
+using Machines.Sim.Story;
 
 namespace Machines.Sim.World;
 
@@ -26,6 +27,9 @@ public sealed partial class GameWorld
             return barred;
         switch (command)
         {
+            case StoryCommand story:
+                return ApplyStory(story);
+
             case MoveCommand move:
             {
                 var group = Own<Machine>(move, move.Machines).ToList();

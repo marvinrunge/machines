@@ -15,6 +15,8 @@ public enum WiredPhase
     Ended,
     /// <summary>Not a run at all: a battle (<see cref="BattleRun"/>) borrows the heroes. No waves, no shop, no hangar.</summary>
     Battle,
+    /// <summary>Not a run at all: the story (<see cref="Story.StoryRun"/>) borrows the heroes. No waves, no shop, no hangar, no pod.</summary>
+    Story,
 }
 
 /// <summary>How a Wired run came to its end.</summary>
@@ -607,6 +609,13 @@ public sealed class WiredState
         }
         return state;
     }
+
+    /// <summary>
+    /// A hero of the story, the twin of <see cref="ForBattle"/>: the bare chassis and nothing else (the story's heroes start
+    /// unarmed and find what they carry), no spare body (a fall is the story's to deal with), its player's.
+    /// </summary>
+    public static WiredState ForStory(Race race, string chassis, PlayerId player) =>
+        new(race, WiredDifficulty.Normal, chassis) { SpareBodies = 0, Player = player };
 
     /// <summary>The first empty weapon slot an item fits, or null.</summary>
     private WiredSlot? FreeSlotFor(WiredItem item) => Enum.GetValues<Mounting>()

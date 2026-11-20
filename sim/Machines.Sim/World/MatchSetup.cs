@@ -1,5 +1,6 @@
 using System.Numerics;
 using Machines.Import.Model;
+using Machines.Sim.Story;
 using Machines.Sim.Survival;
 
 namespace Machines.Sim.World;
@@ -24,9 +25,19 @@ public static class MatchSetup
         options ??= new MatchOptions();
         if (options is { IsBattle: true, Battle: null })
             options = options with { Battle = new BattleOptions() };
+        if (options is { IsStory: true, Story: null })
+            options = options with { Story = new StoryOptions() };
         IReadOnlyList<Race> races = players.Races;
+        // A story keeps of the scenario only the ground and its artefacts (doors, crates, the core): its seats are the trio's
+        // three, a bot's where nobody sits, and the ship is the computer's. No pods, no machines: the director sets them down.
+        if (options.Story is { } chapter)
+        {
+            options = options with { Victory = VictoryCondition.Story, Wired = null, Battle = null };
+            players = StorySeats.Seated(players, chapter);
+            races = players.Races;
+        }
         // A battle keeps of the scenario the ground, its artefacts and one pod per team; it is no Wired run.
-        if (options.Battle is { } fight)
+        else if (options.Battle is { } fight)
         {
             var (teamA, teamB) = BattleSeats.Teams(fight, BattleCatalogue.Map(scenarioName));
             options = options with
@@ -43,11 +54,12 @@ public static class MatchSetup
         // A Wired run keeps of the scenario only the ground, its artefacts and each player's pod.
         else if (options.Wired is not null || options.Victory == VictoryCondition.Wired)
             options = options with { Wired = options.Wired ?? new WiredOptions(), Victory = VictoryCondition.Wired };
-        if (options.Battle is null && players.Rows.FirstOrDefault(r => r.Kind == PlayerKind.Bot) is { } bot)
-            throw new ArgumentException($"player {bot.Id} is a bot, which only a battle has");
+        if (options.Battle is null && options.Story is null && players.Rows.FirstOrDefault(r => r.Kind == PlayerKind.Bot) is { } bot)
+            throw new ArgumentException($"player {bot.Id} is a bot, which only a battle or the story has");
         var wired = options.Wired is not null;
         var battle = options.Battle;
-        var bare = wired || battle is not null;
+        var story = options.Story;
+        var bare = wired || battle is not null || story is not null;
         var scenario = data.LoadScenario(scenarioName);
         var world = new GameWorld(data, data.LoadPlanet(planetName), seed) { Options = options, Players = players.Fresh() };
 
@@ -98,7 +110,7 @@ public static class MatchSetup
             world.Races[race] = state;
             world.BuildingPlans[race] = [];
 
-            foreach (var building in battle is not null ? BattlePod(setup, race, battle) : wired ? WiredBuildings(setup, players.HasHuman(race)) : setup.Constructions)
+            foreach (var building in story is not null ? Enumerable.Empty<ScenarioConstruction>() : battle is not null ? BattlePod(setup, race, battle) : wired ? WiredBuildings(setup, players.HasHuman(race)) : setup.Constructions)
             {
                 if (building.NotBuilt)
                 {
@@ -170,7 +182,9 @@ public static class MatchSetup
                 world.Script = script;
         }
 
-        if (battle is not null)
+        if (story is not null)
+            world.StartStory(story);
+        else if (battle is not null)
             world.StartBattle(battle, scenarioName);
         else if (options.Wired is { } run)
         {

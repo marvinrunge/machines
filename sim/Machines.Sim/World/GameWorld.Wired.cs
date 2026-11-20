@@ -267,6 +267,11 @@ public sealed partial class GameWorld
     /// </summary>
     private void HeroDown(WiredRun run, WiredState state, int id)
     {
+        if (Story is { } story)
+        {
+            StoryHeroDown(story, state, id);
+            return;
+        }
         var fell = _events.Find(e => e.Kind == GameEventKind.Destroyed && e.Actor == id);
         state.Hero = null;
         state.HangarOpen = false;
