@@ -22,6 +22,8 @@ take freigabe 3.5 cam cam_abwurf_1 look=pod_3@3 fov=52 blur=0.8
 take abwurf 3.5 cam cam_abwurf_1 look=pod@2|pod_3@-6 rate=4 fov=52 blur=0.8
 
 at 0.0 prop pod pod pod_3 pod_3 3.5 scale=0.154
+// The shaft lit from above, so the pod and its drop read in the middle of the take (it stood black between two lamp pools).
+at 0.0 light pod_3 34 above=14 energy=9 angle=26
 at 0.0 line P_AUTO_POD_GO
 at 0.0 rumble 1.2 ease=0.5
 at 0.0 tilt 8 -2 sway=2 ease=0.5
@@ -44,9 +46,10 @@ take boden 11 fixed 1010,835,1.8 look=ship rate=1.2 fov=70 blur=0.3
 // It goes down behind the rim; the flash; the column of smoke; the shock comes late; the pod streaks in.
 take einschlag 7.6 fixed 1010,835,1.8 look=1400,5200,40 rate=0.9 fov=56 blur=0.3
 // The pod lands hard, close by.
-take landung 4 fixed 1012,838,1.6 look=pod@2|1060,905,2 rate=3 fov=45 blur=1
+// The pod lands hard, close by: framed whole, its tip below the bar (it was cut flat at pod@2 and fov 42-45).
+take landung 4 fixed 1012,838,1.6 look=pod@12|1060,905,12 rate=3 fov=58 blur=1
 // Silence. A tick of cooling metal. Black.
-take stille 3.4 fixed 1012,838,1.6 look=pod@1.5|1060,905,1.5 rate=1 fov=42 blur=1.2
+take stille 3.4 fixed 1012,838,1.6 look=pod@12|1060,905,12 rate=1 fov=56 blur=1.2
 
 at 0.0 dusk 0.9 dim=0.7
 at 0.0 prop ship mothership 300,-1500,2800 1500,7000,-400 22 nose=-x glow=2 trail=260

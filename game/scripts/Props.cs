@@ -64,6 +64,7 @@ public static class Props
             if (FirstMesh(root) is not { Mesh: ArrayMesh imported } part)
                 return null;
             var mesh = Turned(imported);
+            var jambs = name == "kit_door_frame" && Darken(mesh, JambFaces);
             // Where the mesh stands in the prop: its node's transform and its parents' up to the scene's root.
             var offset = Transform3D.Identity;
             for (Node? node = part; node is not null && node != root; node = node.GetParent())
@@ -71,7 +72,11 @@ public static class Props
                     offset = spatial.Transform * offset;
             for (var surface = 0; surface < mesh.GetSurfaceCount(); surface++)
                 if ((part.GetSurfaceOverrideMaterial(surface) ?? mesh.SurfaceGetMaterial(surface)) is BaseMaterial3D material)
-                    mesh.SurfaceSetMaterial(surface, Remade(material));
+                {
+                    var remade = Remade(material);
+                    remade.VertexColorUseAsAlbedo = jambs;
+                    mesh.SurfaceSetMaterial(surface, remade);
+                }
             return new Model(mesh, offset, offset * mesh.GetAabb());
         }
         finally
@@ -124,6 +129,47 @@ public static class Props
         return turned > 0 ? mesh : imported;
     }
 
+    /// <summary>
+    /// The faces inside the door frame's opening (kit_door_frame, 7 m wide, its posts open 5.58 m apart under a lintel at
+    /// 6.32 m, DeckLayout.FrameOpening): its posts' inner sides and the lintel's underside, not their outer sides at ±3.5 m.
+    /// Meshy painted them with the bare grey of its metal, and under a door's lamp they showed white beside the red frame.
+    /// </summary>
+    private static bool JambFaces(Vector3 at, Vector3 normal) =>
+        Mathf.Abs(at.X) < 3.42f && (Mathf.Abs(normal.X) > 0.6f && at.Y < 6.6f || normal.Y < -0.6f && at.Y > 5.6f && at.Y < 7f);
+
+    /// <summary>Gives a mesh vertex colours: dark where <paramref name="which"/> says, else white. False when nothing was darkened.</summary>
+    private static bool Darken(ArrayMesh mesh, Func<Vector3, Vector3, bool> which)
+    {
+        var any = false;
+        var surfaces = new List<(Godot.Collections.Array Arrays, Material? Material, Mesh.PrimitiveType Kind)>();
+        for (var surface = 0; surface < mesh.GetSurfaceCount(); surface++)
+        {
+            var arrays = mesh.SurfaceGetArrays(surface);
+            if (arrays[(int)Mesh.ArrayType.Vertex].As<Vector3[]>() is { Length: > 0 } vertices
+                && arrays[(int)Mesh.ArrayType.Normal].As<Vector3[]>() is { } normals && normals.Length == vertices.Length)
+            {
+                var colours = new Color[vertices.Length];
+                for (var v = 0; v < vertices.Length; v++)
+                {
+                    var dark = which(vertices[v], normals[v]);
+                    any |= dark;
+                    colours[v] = dark ? new Color(0.32f, 0.3f, 0.3f) : Colors.White;
+                }
+                arrays[(int)Mesh.ArrayType.Color] = colours;
+            }
+            surfaces.Add((arrays, mesh.SurfaceGetMaterial(surface), mesh.SurfaceGetPrimitiveType(surface)));
+        }
+        if (!any)
+            return false;
+        mesh.ClearSurfaces();
+        foreach (var (arrays, material, kind) in surfaces)
+        {
+            mesh.AddSurfaceFromArrays(kind, arrays);
+            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, material);
+        }
+        return true;
+    }
+
     private static MeshInstance3D? FirstMesh(Node node)
     {
         if (node is MeshInstance3D mesh)
@@ -141,6 +187,17 @@ public static class Props
         material.Metallic = Math.Min(material.Metallic, Metal);
         material.CullMode = BaseMaterial3D.CullModeEnum.Back;
         material.TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic;
+        // The clamp's floor ring (tools/blender/prop_pack.py adds it plain, without UVs) wears the deck plates' steel,
+        // laid on from above and the sides: a flat grey torus under Ike's wheels looked like greybox.
+        if (imported.ResourceName == "ring_steel" && ResourceLoader.Exists($"{Folder}/kit_floor_0.jpg"))
+        {
+            material.AlbedoTexture = GD.Load<Texture2D>($"{Folder}/kit_floor_0.jpg");
+            material.AlbedoColor = new Color(0.62f, 0.6f, 0.6f);
+            material.Uv1Triplanar = true;
+            material.Uv1WorldTriplanar = true;
+            material.Uv1Scale = Vector3.One * 0.35f;
+            material.Roughness = 0.65f;
+        }
         return material;
     }
 

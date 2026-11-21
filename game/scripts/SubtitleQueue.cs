@@ -23,7 +23,9 @@ public sealed record SubtitleLine(StorySpeaker Speaker, string? Name, string Tex
 /// The story's subtitles as they come and go, Godot-free so that the tests can time them. A line shows as long as its voice
 /// file plays and a little after, or, without one (the voices are recorded later; until then many lines have none), for
 /// <see cref="Least"/> seconds and <see cref="PerCharacter"/> more for every character, enough to read it. A line waits for the
-/// one before of the same speaker to end; at most <see cref="Most"/> show at once, the oldest giving way.
+/// one before of the same speaker to end; at most <see cref="Most"/> show at once, the oldest giving way once it has shown
+/// for <see cref="Least"/> seconds: before that a line that would make one too many waits (three lines starting within a
+/// frame, as Erwischt ends, swept the automatic voice's away the moment it came).
 /// </summary>
 public sealed class SubtitleQueue
 {
@@ -72,12 +74,23 @@ public sealed class SubtitleQueue
     {
         _lines.RemoveAll(l => l.Until <= now);
         var showing = _lines.Where(l => l.From <= now).OrderBy(l => l.From).ToList();
-        // The newest stay: an older line that would make one too many gives way at once.
-        if (showing.Count > Most)
+        // The newest stay: an older line that would make one too many gives way, once it has been up long enough to read
+        // its start; until then the newest waits, and its speaker's later lines with it.
+        while (showing.Count > Most)
         {
-            foreach (var old in showing.Take(showing.Count - Most))
-                _lines.Remove(old);
-            showing = showing.Skip(showing.Count - Most).ToList();
+            var oldest = showing[0];
+            if (now - oldest.From >= Least)
+            {
+                _lines.Remove(oldest);
+                showing.RemoveAt(0);
+                continue;
+            }
+            var newest = showing[^1];
+            var later = oldest.From + Least - newest.From;
+            for (var i = 0; i < _lines.Count; i++)
+                if (_lines[i].Speaker == newest.Speaker && _lines[i].From >= newest.From)
+                    _lines[i] = _lines[i] with { From = _lines[i].From + later, Until = _lines[i].Until + later };
+            showing.RemoveAt(showing.Count - 1);
         }
         return showing.Select(l => (l, (float)Math.Clamp(Math.Min((now - l.From) / Fade, (l.Until - now) / Fade), 0, 1))).ToList();
     }

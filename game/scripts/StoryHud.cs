@@ -148,11 +148,14 @@ public partial class StoryHud : Control
             var text = Lang.T(objective);
             var distance = now.WayLength ?? (now.ObjectiveDistance is { } d ? Mathf.RoundToInt(d) : (int?)null);
             var far = distance is { } metres ? $"{metres} m" : "";
-            var width = Mathf.Clamp(_ink.Width(text, 22) / _u + _ink.Width(far, 18) / _u + 60, 360, 760);
+            // The words, the distance and the margins round them: the words were fitted into less room than the card was
+            // made for, and long objectives lost their last word.
+            var farWidth = _ink.Width(far, 18) / _u;
+            var width = Mathf.Clamp(_ink.Width(text, 22) / _u + farWidth + 56, 360, 900);
             var box = new Rect2(middle - width * _u / 2, y, width * _u, 58 * _u);
             _ink.Plate(_ink.Corners(box, 0, 0, 14, 14), HudInk.Plating, MenuTheme.Edge, 1.5f);
             _ink.Say(box.Position + new Vector2(16, 20) * _u, Lang.T("Objective").Caps(), 13, MenuTheme.Dim);
-            _ink.Say(box.Position + new Vector2(16, 45) * _u, _ink.Fit(text, 22, width - 90), 22, MenuTheme.Text);
+            _ink.Say(box.Position + new Vector2(16, 45) * _u, _ink.Fit(text, 22, width - 52 - farWidth), 22, MenuTheme.Text);
             _ink.Say(new Vector2(box.End.X - 16 * _u, box.Position.Y + 45 * _u), far, 18, HudInk.Gold, 1);
             y = box.End.Y + 6 * _u;
         }

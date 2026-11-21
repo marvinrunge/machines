@@ -388,13 +388,8 @@ public sealed partial class GameWorld
                 // Seen beyond its fire, it goes on looking from nearer before it hunts (a hunt there would stand and aim).
                 if (glimpse == StoryGlimpse.Seen && !BeyondFire(seeker, quarry))
                     Hunt(seeker, eyes, quarry, search.Back);
-                else if (glimpse == StoryGlimpse.Seen)
-                {
-                    if (Vector2.DistanceSquared(quarry.Position, search.Spot) > SearchMoves * SearchMoves)
-                        Search(seeker, quarry.Position, search.Back);
-                }
-                else if (Vector2.DistanceSquared(quarry.Position, search.Spot) > SearchMoves * SearchMoves)
-                    // It hears it somewhere else now: it looks there instead.
+                else if (Moved(seeker, quarry.Position, search))
+                    // It sees or hears it somewhere else now: it looks there instead.
                     Search(seeker, quarry.Position, search.Back);
                 break;
 
@@ -557,6 +552,16 @@ public sealed partial class GameWorld
         Send(seeker, new SearchOrder(spot, Time + searchFor, back), spot);
         seeker.OrderedAt = orderedAt;
     }
+
+    /// <summary>
+    /// Whether what a seeker searches for is now so far from where it looks that it should look there instead. The search's
+    /// spot is the nearest place the seeker can get to (<see cref="Search"/>), so a quarry it cannot get to (deep in a duct)
+    /// is measured by that place too: measured as it stands, it would be "elsewhere" on every tick, and each new search
+    /// would start the walk afresh, never sweeping, never running out.
+    /// </summary>
+    private bool Moved(Machine seeker, Vector2 quarry, SearchOrder search) =>
+        Vector2.DistanceSquared(quarry, search.Spot) > SearchMoves * SearchMoves
+        && Vector2.DistanceSquared(ReachableSpot(seeker, quarry), search.Spot) > SearchMoves * SearchMoves;
 
     /// <summary>The spot itself if a machine can drive there, else the nearest place of the area it can drive in (its own spot when there is none).</summary>
     private Vector2 ReachableSpot(Machine machine, Vector2 spot)

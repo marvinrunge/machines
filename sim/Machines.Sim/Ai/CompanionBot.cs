@@ -353,6 +353,11 @@ public sealed class CompanionBot(GameWorld world, PlayerId seat)
         if (companion.Step == CompanionStep.Standing)
             return;
         companion.Step = CompanionStep.Standing;
-        world.CompanionBark(run, seat, CompanionBarks.Cue.Pod, urgent: true);
+        // Ike urges the others in ("In, in, in!"): the last of the trio aboard launches the pod, and his urging then came
+        // as it dropped. Bob only says he is aboard.
+        var urges = run.Seats.IndexOf(seat) == 1;
+        var everyone = world.CompanionsAboard() && world.HeroOf(run.Locator) is { } locator && pod.Contains(locator.Position);
+        if (!urges || !everyone)
+            world.CompanionBark(run, seat, CompanionBarks.Cue.Pod, urgent: true);
     }
 }

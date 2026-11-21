@@ -259,13 +259,19 @@ public class CompanionTests
         Assert.True(RunUntil(world, () => !world.SwitchHeld("switch_g1"), 20));
     }
 
-    [Fact]
-    public void The_grunts_follow_the_locator_into_the_pod_once_it_opens_the_hatch()
+    /// <summary>
+    /// Ike, aboard first, urges the others in; aboard last, with the Locator and Bob in already, he says nothing: the pod
+    /// launches at once, and his "In, in, in!" came as it dropped. Bob says he is aboard either way.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void The_grunts_follow_the_locator_into_the_pod_once_it_opens_the_hatch(bool ikeFirst)
     {
         var world = Prologue();
         Place(world, Locator, new Vector2(242, 27));
-        Place(world, Ike, new Vector2(220, 40));
-        Place(world, Bob, new Vector2(226, 42));
+        Place(world, Ike, ikeFirst ? new Vector2(234, 30) : new Vector2(220, 40));
+        Place(world, Bob, ikeFirst ? new Vector2(214, 42) : new Vector2(226, 42));
         Run(world, 1);
         Assert.False(world.CompanionsAboard());
 
@@ -276,7 +282,10 @@ public class CompanionTests
 
         Assert.True(RunUntil(world, world.CompanionsAboard, 30));
         Run(world, 1);
-        Assert.Contains("P_IKE_POD", Barked(world));
+        if (ikeFirst)
+            Assert.Contains("P_IKE_POD", Barked(world));
+        else
+            Assert.DoesNotContain("P_IKE_POD", Barked(world));
         Assert.Contains("P_BOB_POD", Barked(world));
     }
 

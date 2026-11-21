@@ -69,6 +69,23 @@ public partial class StoryVoice(StoryAudio audio) : Node
         Apply(_queue.Add(line, audio.Clock));
     }
 
+    /// <summary>
+    /// A cutscene's line, said now, as its script times it, on its own channel (the PA's band and hall, the radio's), so speech
+    /// ducks the world under it as in play; its subtitle comes with it for as long as its voice. What speaks is cut off, and
+    /// the lines waiting (a Grunt's bark as control comes back) are said after it.
+    /// </summary>
+    public void SayNow(string id)
+    {
+        var (path, seconds, preset) = Resolve(id);
+        if (StorySoundscape.Channel(id, preset) is var channel && channel == StoryVoiceChannel.Text)
+        {
+            Say(id);
+            return;
+        }
+        var voiced = path is not null;
+        Apply(_queue.Force(new StoryQueuedLine(id, channel, voiced ? seconds : StorySoundscape.UnvoicedSeconds, audio.Clock, voiced), audio.Clock));
+    }
+
     /// <summary>The waiting lines of an id are dropped.</summary>
     public void Withdraw(string id) => Apply(_queue.Withdraw(id));
 

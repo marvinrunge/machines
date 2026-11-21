@@ -264,14 +264,14 @@ public partial class Warmup : Node3D
         yield return true;
     }
 
+    /// <summary>The story's props a film's warm-up drew, kept loaded so the film shows the same meshes.</summary>
+    private static readonly HashSet<PackedScene> FilmProps = [];
+
     /// <summary>
     /// What a hero wears now and, on a story's deck, after taking each weapon from its racks (the markers pickup_&lt;weapon&gt;),
     /// in the first free socket that takes it, as the world fits it (GameWorld.TakeUp): putting the Locator together with
     /// the workshop's Bolter took 110 ms, and its first drawing as long again, as the Bolter was taken.
     /// </summary>
-    /// <summary>The story's props a film's warm-up drew, kept loaded so the film shows the same meshes.</summary>
-    private static readonly HashSet<PackedScene> FilmProps = [];
-
     private IEnumerable<Machines.Sim.Survival.HeroLoadout> Worn(Machines.Sim.Survival.HeroLoadout now)
     {
         yield return now;

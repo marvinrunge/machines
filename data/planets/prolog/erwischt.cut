@@ -17,6 +17,9 @@
 cutscene erwischt
 bars 0.12
 blend 0.6
+// The Reapers' plasma fire and the blasts ran near full scale, 15 dB over the rest of the chapter, and buried the
+// announcement: the match's sounds go 10 dB down while it plays (the voices are not on that bus).
+world -10
 
 part kern deck
 // The alarm: the view lifts from the board to the core. The core chamber keeps its light until the core blows (the
@@ -83,7 +86,8 @@ at 25.5 sound hull_breach
 at 25.5 shake core@4 12 2
 at 25.6 glitch 1 1.8
 at 25.7 event lights off
-at 25.8 fire core@1 6 8
+// Kept in the core's own footprint: 6 m wide and 8 m high its flames stood as a flat wall right at the view as control came back.
+at 25.8 fire core@1 3 4.5
 at 26.2 explosion core@8 6
 at 26.4 line P_ANN_C6
 at 26.9 explosion 92,118,4 4

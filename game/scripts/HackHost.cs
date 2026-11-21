@@ -133,6 +133,7 @@ public partial class HackHost : Control
         MouseFilter = MouseFilterEnum.Stop;
         _panel.MouseBehaviorRecursive = MouseBehaviorRecursiveEnum.Inherited;
         ProcessMode = ProcessModeEnum.Inherit;
+        Modulate = Colors.White;
         Visible = true;
         if (Session is { } session)
             _panel.Show(session.Stage, session.Boards.Count, session.Broken, _pad);
@@ -275,8 +276,12 @@ public partial class HackHost : Control
             wait = 0.7;
         }
         _panel.SwitchOff(wait);
+        // The chip fades with its screen: its frame stood empty and black for a few frames after the screen went out
+        // (Erwischt opened on it).
         _going = CreateTween();
-        _going.TweenInterval(wait + 0.3);
+        _going.TweenInterval(wait);
+        _going.TweenProperty(this, "modulate:a", 0f, 0.15);
+        _going.TweenInterval(0.15);
         _going.TweenCallback(Callable.From(PutAway));
     }
 

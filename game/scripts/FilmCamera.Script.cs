@@ -348,6 +348,10 @@ public abstract partial class FilmCamera
                 Flash(at, cue.Number(1), cue.Number("light", cue.Number(1) * 2), cue.Number("for", 1.2f),
                     cue.Text("colour") is { } colour ? CutscenePoint.Parse(colour)[0] : null);
                 break;
+            case "light" when Point(cue.Args[0]) is { } at:
+                Light(at, cue.Number(1), cue.Number("above", 10), cue.Number("energy", 6), cue.Number("angle", 35),
+                    cue.Text("colour") is { } tint ? CutscenePoint.Parse(tint)[0] : null);
+                break;
             case "prop":
                 Prop(cue);
                 break;
@@ -496,6 +500,25 @@ public abstract partial class FilmCamera
             flash.QueueFree();
             light.QueueFree();
         }));
+    }
+
+    // A lamp over a point, shining down on it until the scene ends (it goes with the camera); without shadows, so a ceiling
+    // between does not stop it: the pod bay's shaft, where pod 3 is let go, stood black in the middle of the take.
+    private void Light(Vector3 at, float range, float above, float energy, float angle, CutscenePoint? rgb)
+    {
+        var colour = rgb is { } c ? new Color(c.X, c.Y, c.Up) : new Color(1, 0.9f, 0.78f);
+        var lamp = new SpotLight3D
+        {
+            LightColor = colour,
+            LightEnergy = 0,
+            SpotRange = Mathf.Max(range, above + 1),
+            SpotAngle = angle,
+            SpotAttenuation = 0.6f,
+            ShadowEnabled = false,
+        };
+        AddChild(lamp);
+        lamp.GlobalTransform = new Transform3D(Basis.LookingAt(Vector3.Down, Vector3.Forward), at + Vector3.Up * above);
+        CreateTween().TweenProperty(lamp, "light_energy", energy, 0.4f);
     }
 
     // A model of the scene, set moving.

@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Text.RegularExpressions;
+using Machines.Game;
 using Machines.Import.Model;
 using Machines.Sim;
 using Machines.Sim.Story;
@@ -176,6 +177,9 @@ public class PrologueScriptTests
         Assert.Equal(locator.MaxHitPoints, locator.HitPoints);
         Assert.False(world.HeldByStory(locator.Id));
         Assert.Null(run.Hacks.OpenBy(run.Locator));
+        // The core it stands at, its link cut, offers no hack any more (the key would not take it).
+        Assert.True(run.Hacks.Session("hack_core")!.Broken);
+        Assert.DoesNotContain(StoryReadout.Of(world, run.Locator, null)!.Prompts, p => p.Kind == StoryPromptKind.Hack);
     }
 
     [Fact]

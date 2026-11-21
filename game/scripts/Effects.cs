@@ -544,13 +544,19 @@ public partial class Effects : Node3D
         tween.TweenCallback(Callable.From(sprite.QueueFree));
     }
 
+    /// <summary>
+    /// How much a shot's or a blast's light shows in the volumetric fog: on a story's smoky deck the plasma's green flashes lit
+    /// the whole fogged chamber, and Erwischt's emergency darkness read as green flashes; elsewhere as before.
+    /// </summary>
+    private static float FogShare => GraphicsSettings.Story ? 0.15f : 1f;
+
     /// <summary>A short flash of light; only a few at a time, as lights are the costly part.</summary>
     private void Light(Vector3 at, Color colour, float energy, float range, float duration)
     {
         if (_lights >= MaxLights)
             return;
         _lights++;
-        var light = new OmniLight3D { LightColor = colour, LightEnergy = energy, OmniRange = range, ShadowEnabled = false };
+        var light = new OmniLight3D { LightColor = colour, LightEnergy = energy, OmniRange = range, ShadowEnabled = false, LightVolumetricFogEnergy = FogShare };
         AddChild(light);
         light.GlobalPosition = at;
         var tween = light.CreateTween();
@@ -575,6 +581,7 @@ public partial class Effects : Node3D
             LightEnergy = 2 * Mathf.Sqrt(strength),
             OmniRange = range,
             ShadowEnabled = false,
+            LightVolumetricFogEnergy = FogShare,
         };
         AddChild(light);
         light.GlobalPosition = at;

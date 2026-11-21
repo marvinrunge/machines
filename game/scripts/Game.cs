@@ -3627,6 +3627,38 @@ public partial class Game : Node3D
     /// <summary>Where the driven machine's upper body has turned to so far, radians anticlockwise from its hull.</summary>
     private float HeadNow(Machine machine) => machine.CanTurnUpperBody && _views.TryGetValue(machine.Id, out var view) ? view.UpperBodyNow : 0;
 
+    // How far the view has drawn back over a Grunt being put together, 0 to 1.
+    private float _reviveView;
+    private Vector3 _reviveAt;
+
+    /// <summary>
+    /// While the Locator holds Use on a fallen Grunt, its view draws back and up and looks down at it, eased in and out:
+    /// from its own eyes it stood right against the Grunt's tipped hull, and the player saw a red slab and a tyre instead of
+    /// the Grunt coming together (stage 5).
+    /// </summary>
+    private void DrawBackToRevive(Machine machine)
+    {
+        Vector3? wreck = null;
+        if (World.Story is { } run && run.Crew.Holding.TryGetValue(Me.Value, out var what)
+            && what.StartsWith(GameWorld.SeatTarget, StringComparison.Ordinal)
+            && int.TryParse(what[GameWorld.SeatTarget.Length..], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var id)
+            && World.HeroOf(new PlayerId(id)) is { } grunt && _views.TryGetValue(grunt.Id, out var gruntView))
+            wreck = gruntView.Centre;
+        if (wreck is { } at)
+            _reviveAt = at;
+        _reviveView = Mathf.MoveToward(_reviveView, wreck is null ? 0 : 1, (float)GetProcessDeltaTime() * 1.6f);
+        if (_reviveView <= 0)
+            return;
+        var share = Mathf.SmoothStep(0, 1, _reviveView);
+        var eye = _firstPersonCamera.GlobalPosition;
+        var away = (eye - _reviveAt) with { Y = 0 };
+        away = away.LengthSquared() > 0.01f ? away.Normalized() : -_firstPersonCamera.GlobalBasis.Z with { Y = 0 };
+        var drawn = eye + away * 2.6f + Vector3.Up * 2.6f;
+        _firstPersonCamera.GlobalPosition = eye.Lerp(drawn, share);
+        var look = Basis.LookingAt((_reviveAt - _firstPersonCamera.GlobalPosition).Normalized(), Vector3.Up);
+        _firstPersonCamera.GlobalBasis = _firstPersonCamera.GlobalBasis.Slerp(look, share);
+    }
+
     private void UpdateFirstPersonCamera()
     {
         if (_driven is not { } machine || !_views.TryGetValue(machine.Id, out var view))
@@ -3657,6 +3689,7 @@ public partial class Game : Node3D
         var yaw = FreeLook ? -_aimYaw : view.Yaw - head;
         _firstPersonCamera.GlobalRotation = new Vector3(_lookPitch, yaw - Mathf.Pi / 2, 0);
         _firstPersonCamera.Basis *= CameraRig.ShakeAt(_firstPersonCamera.GlobalPosition);
+        DrawBackToRevive(machine);
         // The ship lists on its way down: the view leans, the panel stays level.
         _firstPersonCamera.Basis *= Leaning();
 

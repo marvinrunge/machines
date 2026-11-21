@@ -256,14 +256,15 @@ public sealed record StoryReadout
     }
 
     /// <summary>
-    /// What a marker offers to a seat: hacking is the Locator's, holding a switch anyone's. A hack done, or closed for now,
-    /// offers nothing (the key would not take it); a hatch that is a hack offers the hack first and its use once hacked.
+    /// What a marker offers to a seat: hacking is the Locator's, holding a switch anyone's. A hack done, closed for now, or
+    /// broken off by the story (the core after Erwischt: its link is cut) offers nothing (the key would not take it); a hatch
+    /// that is a hack offers the hack first and its use once hacked.
     /// </summary>
     private static StoryPromptKind? KindOf(DeckMarker marker, int seat, StoryRun run, Deck deck)
     {
         bool Tagged(string tag) => marker.Tags.Contains(tag);
         if (seat == 0 && run.Hacks.Find(marker.Name, deck) is not null && !run.Hacks.Done.Contains(marker.Name))
-            return run.Hacks.Locked.Contains(marker.Name) ? null : StoryPromptKind.Hack;
+            return run.Hacks.Locked.Contains(marker.Name) || run.Hacks.Session(marker.Name) is { Broken: true } ? null : StoryPromptKind.Hack;
         if (seat == 0 && (Tagged("hack") || Tagged("terminal") || marker.Name == OwnClamp))
             return null;
         if (seat == 0 && Tagged("pickup"))

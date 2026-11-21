@@ -54,6 +54,7 @@ public sealed class CutsceneScript
         ["fire"] = (3, 3),        // point width height: flames left burning
         ["smoke"] = (2, 2),       // point size: a column of smoke left rising
         ["flash"] = (2, 2),       // point size: a blinding flash and its light; light=range, colour=r,g,b
+        ["light"] = (2, 2),       // point range: a lamp (no shadows) shining down on the point from above= metres over it, for the rest of the cutscene; energy=, angle=, colour=r,g,b
         ["prop"] = (5, 5),        // name model from to seconds: a model of the scene moved; ease=, glow=, trail=, scale=, yaw=, nose=, land=, until=
         ["silence"] = (1, 1),     // seconds: every sound of the match fades to nothing
         ["dusk"] = (1, 1),        // share 0 to 1: the day dims towards night (PlanetLook.ForcedNight); dim= darkens the picture besides (PlanetLook.Dim)
@@ -77,13 +78,17 @@ public sealed class CutsceneScript
     public string Name { get; }
     public float Bars { get; }
     public float Blend { get; }
+
+    /// <summary>How many dB the match's sounds (the story's World bus) are taken down while it plays (its <c>world</c> line); 0 leaves them.</summary>
+    public float World { get; }
     public IReadOnlyList<CutscenePart> Parts { get; }
 
-    private CutsceneScript(string name, float bars, float blend, IReadOnlyList<CutscenePart> parts)
+    private CutsceneScript(string name, float bars, float blend, float world, IReadOnlyList<CutscenePart> parts)
     {
         Name = name;
         Bars = bars;
         Blend = blend;
+        World = world;
         Parts = parts;
     }
 
@@ -97,6 +102,7 @@ public sealed class CutsceneScript
         string? name = null;
         var bars = 0.12f;
         var blend = 0.5f;
+        var world = 0f;
         var parts = new List<CutscenePart>();
         (string Name, bool Deck, List<CutsceneTake> Takes, List<CutsceneCue> Cues)? part = null;
         void Close()
@@ -131,6 +137,9 @@ public sealed class CutsceneScript
                     break;
                 case "blend":
                     blend = Number(positional.FirstOrDefault() ?? throw Wrong("blend needs seconds"));
+                    break;
+                case "world":
+                    world = Number(positional.FirstOrDefault() ?? throw Wrong("world needs decibels"));
                     break;
                 case "part":
                     Close();
@@ -171,7 +180,7 @@ public sealed class CutsceneScript
                     break;
                 }
                 default:
-                    throw Wrong($"'{words[0]}' is not a cutscene line (cutscene, bars, blend, part, take, at)");
+                    throw Wrong($"'{words[0]}' is not a cutscene line (cutscene, bars, blend, world, part, take, at)");
             }
         }
         Close();
@@ -179,7 +188,7 @@ public sealed class CutsceneScript
             throw new FormatException($"{file}: no 'cutscene <name>' line");
         if (parts.Count == 0 || parts.Any(p => p.Takes.Count == 0))
             throw new FormatException($"{file}: every part needs a take");
-        return new CutsceneScript(name, bars, blend, parts);
+        return new CutsceneScript(name, bars, blend, world, parts);
     }
 }
 

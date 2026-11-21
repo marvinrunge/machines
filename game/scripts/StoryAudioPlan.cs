@@ -165,6 +165,26 @@ public sealed class StoryLineQueue
         return events;
     }
 
+    /// <summary>
+    /// A line said at once, at the time a cutscene's script gives it (the announcement Erwischt turns on is timed to the core
+    /// blowing): whatever speaks is cut off, and the lines waiting wait behind it.
+    /// </summary>
+    public List<StoryQueueEvent> Force(StoryQueuedLine line, double now)
+    {
+        var events = new List<StoryQueueEvent>();
+        if (Current is { } current)
+        {
+            if (current.Announcement)
+                _lastAnnouncement = now;
+            events.Add(new(StoryQueueChange.Interrupted, current));
+        }
+        Current = line;
+        StartedAt = now;
+        _endsAt = now + line.Lead + line.Seconds;
+        events.Add(new(StoryQueueChange.Started, line));
+        return events;
+    }
+
     /// <summary>The lines of an id waiting are dropped (what they say is no longer true); the line speaking goes on.</summary>
     public List<StoryQueueEvent> Withdraw(string id)
     {

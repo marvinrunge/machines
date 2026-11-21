@@ -153,6 +153,13 @@ public partial class StoryAudio : Node
     /// <summary>The silence before a scare: the world and the music drop by 30 dB for so many seconds.</summary>
     public static void Hush(float seconds) => Current?.HushHere(seconds);
 
+    /// <summary>
+    /// The world's level under a cutscene that asks for it (its script's <c>world</c> line), eased to <paramref name="db"/>
+    /// over <paramref name="seconds"/>: Erwischt's plasma fire and blasts ran near full scale, 15 dB over the rest of the
+    /// chapter, and buried the announcement it turns on. Back to 0 as the cutscene gives the view back.
+    /// </summary>
+    public static void FilmLevel(float db, float seconds) => Current?.FilmLevelHere(db, seconds);
+
     /// <summary>The world heard as through a wall (hiding, damaged, the update intruding): on while any reason holds.</summary>
     public static void SetMuffled(string reason, bool on) => Current?.SetMuffledHere(reason, on);
 
@@ -164,7 +171,8 @@ public partial class StoryAudio : Node
 
     // ---- buses --------------------------------------------------------------------------------
 
-    private AudioEffectAmplify _worldHush = null!, _musicHush = null!;
+    private AudioEffectAmplify _worldHush = null!, _musicHush = null!, _worldFilm = null!;
+    private Tween? _film;
     private AudioEffectLowPassFilter _worldMuffle = null!;
     private AudioEffectReverb _worldReverb = null!;
 
@@ -198,6 +206,8 @@ public partial class StoryAudio : Node
         AudioServer.AddBusEffect(world, _worldMuffle);
         AudioServer.AddBusEffect(world, Duck());
         AudioServer.AddBusEffect(world, _worldHush);
+        _worldFilm = new AudioEffectAmplify { VolumeDb = 0 };
+        AudioServer.AddBusEffect(world, _worldFilm);
 
         var music = Index(MusicBus);
         _musicHush = new AudioEffectAmplify { VolumeDb = 0 };
@@ -263,6 +273,14 @@ public partial class StoryAudio : Node
         _muffle = CreateTween();
         _muffle.TweenProperty(_worldMuffle, "cutoff_hz", target, on ? 0.35 : 0.8).SetTrans(Tween.TransitionType.Expo);
         Trace($"muffle {reason} {(on ? "on" : "off")}");
+    }
+
+    private void FilmLevelHere(float db, float seconds)
+    {
+        _film?.Kill();
+        _film = CreateTween();
+        _film.TweenProperty(_worldFilm, "volume_db", db, Mathf.Max(seconds, 0.01f)).SetTrans(Tween.TransitionType.Sine);
+        Trace($"film level {db:0.#} dB");
     }
 
     private void HushHere(float seconds)

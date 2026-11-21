@@ -246,16 +246,48 @@ public class StoryHudTests
     }
 
     [Fact]
-    public void No_more_than_two_lines_show_at_once_and_the_newest_stay()
+    public void No_more_than_two_lines_show_at_once_and_the_newest_stay_once_the_oldest_was_read()
     {
         var queue = new SubtitleQueue();
-        queue.Add(StorySpeaker.Ship, null, "One.", 0);
-        queue.Add(StorySpeaker.Auto, null, "Two.", 0.1);
-        var three = queue.Add(StorySpeaker.Whisper, null, "Three.", 0.2);
+        var one = queue.Add(StorySpeaker.Ship, null, "One.", 0);
+        var two = queue.Add(StorySpeaker.Auto, null, "Two.", 0.1);
+        queue.Add(StorySpeaker.Whisper, null, "Three.", 0.2);
 
+        // The oldest has not been up long enough to read: the third waits.
         var shown = queue.Shown(0.5);
+        Assert.Equal([one, two], shown.Select(s => s.Line));
+        // Then the oldest gives way, and the third shows for as long as it would have.
+        shown = queue.Shown(SubtitleQueue.Least + 0.1);
         Assert.Equal(SubtitleQueue.Most, shown.Count);
-        Assert.Equal(three, shown[^1].Line);
+        Assert.Equal(two, shown[0].Line);
+        var three = shown[^1].Line;
+        Assert.Equal(StorySpeaker.Whisper, three.Speaker);
+        Assert.Equal(SubtitleQueue.Least, three.From, 6);
+        Assert.Equal(SubtitleQueue.Seconds("Three.", null), three.Until - three.From, 6);
+    }
+
+    /// <summary>
+    /// As Erwischt ends the ship's last fragment, the automatic voice and Ike's bark all start within a frame: the automatic
+    /// voice's line, the chapter's turn, was swept away the moment it came. Now the last to come waits.
+    /// </summary>
+    [Fact]
+    public void Three_lines_starting_at_once_lose_none()
+    {
+        var queue = new SubtitleQueue();
+        queue.Add(StorySpeaker.Ship, "SCHIFF", "Kurs- … Kurs- …", 30.57, clip: 1.11);
+        var auto = queue.Add(StorySpeaker.Auto, "AUTOMATIK", "Steuerung verloren. Notabstieg eingeleitet.", 30.8, clip: 4.12);
+        queue.Add(StorySpeaker.Ike, "IKE", "Das waren wir, oder? Das waren wir.", 31.0, clip: 3.32);
+        var seen = new HashSet<StorySpeaker>();
+        for (var t = 30.6; t < 40; t += 1 / 30.0)
+        {
+            var shown = queue.Shown(t);
+            Assert.True(shown.Count <= SubtitleQueue.Most);
+            foreach (var (line, _) in shown)
+                seen.Add(line.Speaker);
+            if (t >= auto.From && t < auto.Until - 0.1)
+                Assert.Contains(shown, s => s.Line.Speaker == StorySpeaker.Auto);
+        }
+        Assert.Equal([StorySpeaker.Ship, StorySpeaker.Auto, StorySpeaker.Ike], seen.OrderBy(s => s));
     }
 
     [Fact]

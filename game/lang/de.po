@@ -5179,8 +5179,8 @@ msgstr "Hacke den Hauptrechner"
 msgid "Escape through the vent"
 msgstr "Flieh durch den Lüftungsschacht"
 
-msgid "Open door D5 for the Grunts"
-msgstr "Öffne Tür D5 für die Grunts"
+msgid "Open the Grunts' door"
+msgstr "Öffne den Grunts die Tür"
 
 msgid "Wait for the Grunts at the crossing"
 msgstr "Warte an der Kreuzung auf die Grunts"

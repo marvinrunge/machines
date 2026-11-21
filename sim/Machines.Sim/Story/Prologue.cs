@@ -238,7 +238,7 @@ public static class Prologue
         new("gates", 3, new Not(new Flagged(Sealed)), [new ForceGates(ReaperRole, GateForce, "O:switch_g2|switch_g2k")], After: ["control_lost"],
             Repeat: true),
         new("gate_g", 3, new Not(new Flagged(Sealed)), [new ForceGates(ReaperRole, GateForce, "G:switch_g1")], After: ["d5"], Repeat: true),
-        new("crossing", 3, new InZone("R12"), [new Hackable(true, "hack_d5"), new Objective("Open door D5 for the Grunts", "hack_d5")]),
+        new("crossing", 3, new InZone("R12"), [new Hackable(true, "hack_d5"), new Objective("Open the Grunts' door", "hack_d5")]),
         new("d5", 3, new HackDone("hack_d5"), [new OpenDoors("Q"), new Objective("Wait for the Grunts at the crossing", "R12"),
             new Assign(1, CompanionTask.HoldSwitch, "switch_g2"), new Assign(2, CompanionTask.HoldSwitch, "switch_g1")]),
         new("together", 3, new InZone("R12", StoryWho.All), [new Checkpoint(4), new Section(6), new AutoDoors("R"),

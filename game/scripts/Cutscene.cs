@@ -106,6 +106,8 @@ public partial class Cutscene : FilmCamera
         ActorView.Bars = false;
         // Every sound heard from where the camera is; the machines' own voices keep quiet.
         GameAudio.Film = true;
+        if (_script.World != 0)
+            StoryAudio.FilmLevel(_script.World, 0.5f);
         _stage.Rig.Active = false;
         _stage.ShowPanel(false);
         if (_stage.Look is { } look && !GameOptions.FilmLook)
@@ -295,6 +297,8 @@ public partial class Cutscene : FilmCamera
         EndScene();
         ActorView.Bars = _bars;
         GameAudio.Film = _film;
+        if (_script.World != 0)
+            StoryAudio.FilmLevel(0, 2.5f);
         if (IsInstanceValid(_stage.Rig))
             _stage.Rig.Active = _rigActive;
         _stage.ShowPanel(true);

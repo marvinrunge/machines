@@ -136,6 +136,13 @@ public sealed class NavGrid
     /// </summary>
     public void SetArea(IReadOnlyList<Vector2> polygon, bool present)
     {
+        var (x0, y0, x1, y1) = Cover(polygon, present ? 1 : -1);
+        Changed(x0, y0, x1, y1);
+    }
+
+    /// <summary>Adds <paramref name="by"/> to the building count of each cell a polygon covers; the box it covered.</summary>
+    private (int X0, int Y0, int X1, int Y1) Cover(IReadOnlyList<Vector2> polygon, int by)
+    {
         var (x0, y0) = Cell(new Vector2(polygon.Min(p => p.X), polygon.Min(p => p.Y)));
         var (x1, y1) = Cell(new Vector2(polygon.Max(p => p.X), polygon.Max(p => p.Y)));
         var covered = 0;
@@ -143,7 +150,7 @@ public sealed class NavGrid
             for (var x = x0; x <= x1; x++)
                 if (Contains(polygon, Centre(x, y)))
                 {
-                    _buildings[y * Width + x] += present ? 1 : -1;
+                    _buildings[y * Width + x] += by;
                     covered++;
                 }
         // A polygon smaller than a cell (a palm's trunk) still blocks the cell it stands in.
@@ -151,43 +158,93 @@ public sealed class NavGrid
         {
             var middle = polygon.Aggregate(Vector2.Zero, (sum, p) => sum + p) / polygon.Count;
             var (x, y) = Cell(middle);
-            _buildings[y * Width + x] += present ? 1 : -1;
+            _buildings[y * Width + x] += by;
         }
-        Changed(x0, y0, x1, y1);
+        return (x0, y0, x1, y1);
     }
 
     /// <summary>
     /// Whether blocking the cells a polygon covers (as <see cref="SetArea"/> would) cuts a way: free cells round it that were
     /// one connected area for a way of moving fall into two or more. Asked before something is set down on open floor (a
     /// story's falling debris beside a machine), so it does not shut a lane or a doorway; the grid is left as it was.
+    /// The cells are blocked for the question alone: the room round them is measured again and put back, but the regions
+    /// and the machines' flow fields are kept (the grid comes back exactly as it was), and the cells round the polygon are
+    /// found again by a flood from one of them that stops once it has reached the others. A ring search for a place to set
+    /// a piece down asks this a couple of hundred times in one tick; labelling the whole deck each time stalled the tick.
     /// </summary>
     public bool Cuts(IReadOnlyList<Vector2> polygon, Mobility mobility, int margin = 4)
     {
         var (x0, y0) = Cell(new Vector2(polygon.Min(p => p.X), polygon.Min(p => p.Y)));
         var (x1, y1) = Cell(new Vector2(polygon.Max(p => p.X), polygon.Max(p => p.Y)));
         (x0, y0, x1, y1) = (Math.Max(0, x0 - margin), Math.Max(0, y0 - margin), Math.Min(Width - 1, x1 + margin), Math.Min(Depth - 1, y1 + margin));
-        var before = new Dictionary<int, int>();
+        var before = new SortedDictionary<int, List<int>>();
         for (var y = y0; y <= y1; y++)
             for (var x = x0; x <= x1; x++)
                 if (Region(x, y, mobility) is var region and not 0)
-                    before[y * Width + x] = region;
-        SetArea(polygon, present: true);
-        var split = new Dictionary<int, int>();
-        var cuts = false;
-        foreach (var (cell, region) in before)
+                {
+                    if (!before.TryGetValue(region, out var cells))
+                        before[region] = cells = [];
+                    cells.Add(y * Width + x);
+                }
+        var (bx0, by0, bx1, by1) = Cover(polygon, 1);
+        if (_roomLand is not null)
+            Measure(bx0 - RoomReach, by0 - RoomReach, bx1 + RoomReach, by1 + RoomReach);
+        try
         {
-            var after = Region(cell % Width, cell / Width, mobility);
-            if (after == 0)
-                continue;
-            if (split.TryGetValue(region, out var seen) && seen != after)
+            foreach (var cells in before.Values)
             {
-                cuts = true;
-                break;
+                var free = cells.Where(c => IsFree(c % Width, c / Width, mobility)).ToList();
+                if (free.Count > 1 && !Joined(free, mobility))
+                    return true;
             }
-            split[region] = after;
+            return false;
         }
-        SetArea(polygon, present: false);
-        return cuts;
+        finally
+        {
+            Cover(polygon, -1);
+            if (_roomLand is not null)
+                Measure(bx0 - RoomReach, by0 - RoomReach, bx1 + RoomReach, by1 + RoomReach);
+        }
+    }
+
+    // The flood's marks: a cell is seen in the flood whose number it holds.
+    private int[]? _floodSeen;
+    private int _flood;
+
+    /// <summary>Whether free cells are all one connected area, moving as the path search does: a flood from the first until it has reached every other.</summary>
+    private bool Joined(List<int> cells, Mobility mobility)
+    {
+        _floodSeen ??= new int[Width * Depth];
+        if (++_flood == int.MaxValue)
+        {
+            Array.Clear(_floodSeen);
+            _flood = 1;
+        }
+        var targets = new HashSet<int>(cells);
+        var queue = new Queue<int>();
+        _floodSeen[cells[0]] = _flood;
+        targets.Remove(cells[0]);
+        queue.Enqueue(cells[0]);
+        while (queue.Count > 0 && targets.Count > 0)
+        {
+            var current = queue.Dequeue();
+            var (cx, cy) = (current % Width, current / Width);
+            for (var dy = -1; dy <= 1; dy++)
+            {
+                for (var dx = -1; dx <= 1; dx++)
+                {
+                    var (nx, ny) = (cx + dx, cy + dy);
+                    if ((dx == 0 && dy == 0) || !IsFree(nx, ny, mobility) || _floodSeen[ny * Width + nx] == _flood)
+                        continue;
+                    if (dx != 0 && dy != 0 && (!IsFree(cx + dx, cy, mobility) || !IsFree(cx, cy + dy, mobility)))
+                        continue;
+                    _floodSeen[ny * Width + nx] = _flood;
+                    targets.Remove(ny * Width + nx);
+                    queue.Enqueue(ny * Width + nx);
+                }
+            }
+        }
+        return targets.Count == 0;
     }
 
     /// <summary>Cells in a box were blocked or opened: the room round them is measured again, and the regions and fields forgotten.</summary>

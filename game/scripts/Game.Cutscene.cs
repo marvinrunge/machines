@@ -37,6 +37,9 @@ public partial class Game
             GD.PrintErr($"cutscene: '{name}' has no part to play {(World.Deck is not null ? "on a deck" : "outside")}");
             return null;
         }
+        // What the Grunts were still waiting to say is stale once it plays (Ike's urging came as the pod dropped).
+        foreach (var bark in Machines.Sim.Story.CompanionBarks.English.Keys)
+            StoryAudio.Withdraw(bark);
         var (panel, screen) = (_hud.Visible, _screen.Visible);
         var stage = new Cutscene.Stage(
             _rig,
@@ -56,10 +59,16 @@ public partial class Game
             _driven?.Id,
             () => TiltNow,
             TiltTo,
-            // Its lines play as the script times them, and show as subtitles (on their own layer, which the cutscene
-            // leaves up): the announcement Erwischt turns on was heard and never read.
+            // Its lines play as the script times them, on the story's voice channels (the PA's band and hall; speech ducks
+            // the world), and show as subtitles for as long as their voices (on their own layer, which the cutscene leaves
+            // up): the announcement Erwischt turns on was heard and never read. Without the story's audio only the subtitle.
             Speak: id =>
             {
+                if (StoryAudio.Current is { } audio)
+                {
+                    audio.Voice.SayNow(id);
+                    return true;
+                }
                 ShowStoryLine(id, null);
                 return false;
             },

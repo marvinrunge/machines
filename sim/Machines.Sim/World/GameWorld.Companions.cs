@@ -87,7 +87,7 @@ public sealed partial class GameWorld
         return HeroOf(run.Locator)?.Id == machine && run.Crew.Holding.TryGetValue(run.Locator.Value, out var what) && what.StartsWith(SeatTarget, StringComparison.Ordinal);
     }
 
-    private const string SeatTarget = "seat:";
+    public const string SeatTarget = "seat:";
 
     // ---- the director's hand ------------------------------------------------------------------------
 
