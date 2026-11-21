@@ -24,6 +24,9 @@ public partial class ActorView : Node3D
 
     public int ActorId { get; private set; }
 
+    /// <summary>The model it shows, by its id (AGGRESSOR_1_GRUNT_R_BOLTER ...), for the hitch log.</summary>
+    public string ModelId { get; private set; } = "";
+
     /// <summary>
     /// On a ship deck (the story's), whether a machine's lamp may shine, by its actor's id: the rows of switched-off machines
     /// stay dark however dark it is, and a hero's Lamp key switches its own (the sim's, GameWorld.StoryLampOn). Null in
@@ -493,7 +496,7 @@ public partial class ActorView : Node3D
     /// <summary>Render layer of a machine being driven: the first-person camera does not draw it, so it never blocks the view.</summary>
     public const uint DrivenLayer = 2;
 
-    /// <summary>Hides the model from the first-person camera (it still casts its shadow and shows elsewhere); its lamp still lights the view.</summary>
+    /// <summary>Hides the model from the first-person camera (it still casts its shadow and shows elsewhere); in a story its lamp still lights the view.</summary>
     public void SetDriven(bool driven)
     {
         SetLayers(this, driven ? DrivenLayer : 1);
@@ -508,13 +511,14 @@ public partial class ActorView : Node3D
     // Embodied, it idles to the sound of its cabin until it first moves (MachGuiFirstPerson::embodyActor).
     private bool _inHead;
 
-    // Its lights stay on the usual layer: a light on a layer the camera culls lights nothing for that camera, so the driven
-    // machine's own headlight left the first-person view dark (Godot 4's cull mask counts for lights too).
+    // In a story its lights stay on the usual layer: a light on a layer the camera culls lights nothing for that camera, so
+    // the Locator's own lamp left the first-person view of a dark deck black (Godot 4's cull mask counts for lights too).
+    // Elsewhere the driven machine's headlight goes with it as before, so first person at night looks as it always did.
     private static void SetLayers(Node node, uint layers)
     {
         foreach (var child in node.GetChildren())
         {
-            if (child is VisualInstance3D visual and not Light3D)
+            if (child is VisualInstance3D visual && (visual is not Light3D || !GraphicsSettings.Story))
                 visual.Layers = layers;
             SetLayers(child, layers);
         }
@@ -525,6 +529,7 @@ public partial class ActorView : Node3D
     {
         var view = new ActorView { ActorId = actor.Id, Race = actor.Race, Shown = actor.ShownRace, OwnedBy = actor.Owner, Name = $"Actor{actor.Id}", IsBuilding = actor is Construction };
         var (id, size) = ModelOf(actor);
+        view.ModelId = id;
         view.Size = Mathf.Max(size.X, size.Z);
         if (actor is Machine machine)
         {
