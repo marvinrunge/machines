@@ -3,28 +3,33 @@
 # runs it as the service machines-relay in Frankfurt (europe-west3): one instance at most, asleep while no match runs,
 # WebSockets held up to the 60 minutes Cloud Run allows (the game moves to a new socket before that).
 #
-#   server/Machines.Relay/deploy-cloudrun.sh <project-id> [--with-secrets] [--local-docker]
+#   server/Machines.Relay/deploy-cloudrun.sh <project-id> [--with-secrets] [--local-docker] [--service <name>]
 #
 # Needs gcloud signed in (gcloud auth login) to a project with billing; see docs/DEVELOPMENT.md, "The relay online". The image
 # is built from the committed state (HEAD) of the projects the relay is made of. --with-secrets also hands the service
 # the relay's admin secret and token key from Secret Manager (machines-relay-admin, machines-relay-token-key). With
-# --local-docker the image is built and pushed by Docker on this computer instead of Cloud Build.
+# --local-docker the image is built and pushed by Docker on this computer instead of Cloud Build. --service names the
+# Cloud Run service (machines-relay by default): a relay that speaks another protocol, such as the story branch's, runs
+# beside the public one as a service of its own (machines-relay-story) at an address of its own.
 set -euo pipefail
 
 if [[ $# -lt 1 || "$1" == -* ]]; then
-  sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
   exit 1
 fi
 PROJECT="$1"
 shift
 SECRETS=0
 LOCAL_DOCKER=0
-for arg in "$@"; do
-  case "$arg" in
+SERVICE=machines-relay
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     --with-secrets) SECRETS=1 ;;
     --local-docker) LOCAL_DOCKER=1 ;;
-    *) echo "unknown option: $arg" >&2; exit 1 ;;
+    --service) SERVICE="${2:?--service needs a name}"; shift ;;
+    *) echo "unknown option: $1" >&2; exit 1 ;;
   esac
+  shift
 done
 
 # In Git Bash on Windows gcloud finds no Python of its own; the one that comes with the Cloud SDK does.
@@ -34,7 +39,6 @@ if [[ -z "${CLOUDSDK_PYTHON:-}" ]] && command -v gcloud >/dev/null; then
 fi
 
 REGION=europe-west3
-SERVICE=machines-relay
 REPOSITORY=machines
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TAG="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)"
