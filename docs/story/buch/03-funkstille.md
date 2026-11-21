@@ -112,7 +112,9 @@ Draußen gab es keine Luft. Also gab es auch keinen Ton.
 
 L-7 hatte das gewusst. Er hatte auf Planeten ohne Atmosphäre gemessen, in seinen ersten Jahrhunderten. Aber er hatte vergessen, wie es sich anfühlte. Er trat aus der Schleuse auf die Hülle des Satelliten, und die Welt verstummte.
 
-Nicht ganz. Er hörte noch etwas: sich selbst. Das Surren seiner Servos, dumpf, durch das eigene Gehäuse. Das Klacken seiner Magnetfüße, die sich bei jedem Schritt auf die Hülle hefteten und wieder lösten, ein Geräusch, das nicht durch die Luft kam, sondern durch seine Beine, durch seinen Körper, in seine eigenen Sensoren. Er hörte sein Inneres. Sonst nichts.
+Seine Rotoren standen still. Ohne Luft trugen sie nichts. Im Hangar hatte er Magnetklammern an die Spitzen seiner Stacheln gesetzt, und mit ihnen zog er sich über die Hülle, Strebe um Strebe, wie an einem Seil.
+
+Nicht ganz still. Er hörte noch etwas: sich selbst. Das Surren seiner Servos, dumpf, durch das eigene Gehäuse. Das Klacken der Klammern, die sich bei jedem Griff auf die Hülle hefteten und wieder lösten, ein Geräusch, das nicht durch die Luft kam, sondern durch die Stacheln, durch seinen Rumpf, in seine eigenen Sensoren. Er hörte sein Inneres. Sonst nichts.
 
 Über ihm die Sterne, mehr, als er je gesehen hatte, hart und weiß und ohne zu flackern. Unter ihm die Hülle, eine Ebene aus Eis und Metall, die nach allen Seiten abfiel. Langsam trieben Eissplitter vorbei, in der Stille.
 
@@ -132,13 +134,13 @@ Und gleich danach:
 
 *LANGWEILIG.*
 
-L-7 ging los.
+L-7 machte sich auf den Weg.
 
 Es gab drei Schüsseln, die er drehen musste. Drei große Antennen, die irgendwann aus ihrer Richtung geraten waren und jetzt ins Leere zeigten. Wenn er sie wieder auf den Empfänger richtete, konnte er im Inneren alles hören, was über den Satelliten lief. Wenn er es nicht tat, hörte er nur Bruchstücke.
 
 Er schlich über die Hülle. Das Wort fühlte sich falsch an: Wie schleicht man, wenn es keinen Ton gibt? Aber der Bewegungsmelder auf seinem HUD tickte trotzdem, lautlos, als Zeiger. Und die Lampen der Drohnen wanderten. Er lernte ihre Wege. Er wartete, bis die Kegel an ihm vorbeizogen. Er duckte sich hinter Streben und Eisbrocken.
 
-Es war schlimmer als im Mutterschiff. Dort hatte er den Thresher gehört, bevor er ihn sah. Hier hörte er nichts. Einmal drehte er sich um, und eine Drohne stand fünf Meter hinter ihm, auf einer Antenne, und er hatte sie nicht kommen hören, weil man nichts kommen hören konnte. Ihr Lichtkegel glitt über das Eis, eine Handbreit neben seinem Bein. Er bewegte sich nicht. Er war ein Eisbrocken. Er war eine Strebe. Er war nichts.
+Es war schlimmer als im Mutterschiff. Dort hatte er den Thresher gehört, bevor er ihn sah. Hier hörte er nichts. Einmal drehte er sich um, und eine Drohne stand fünf Meter hinter ihm, auf einer Antenne, und er hatte sie nicht kommen hören, weil man nichts kommen hören konnte. Ihr Lichtkegel glitt über das Eis, eine Handbreit neben seinem Stachel. Er bewegte sich nicht. Er war ein Eisbrocken. Er war eine Strebe. Er war nichts.
 
 Der Kegel zog weiter.
 

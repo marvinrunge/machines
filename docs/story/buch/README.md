@@ -38,6 +38,28 @@ wenig Gnade. Die Entscheidungen auf diesem Weg:
 | Akt 6 | Den Menschen den Notschalter gegeben; die fördernden Maschinen auf Hain vernichtet statt umgeschrieben |
 | Finale | Notschalter über die Quelle an alle Maschinen, auch an L-7, Ike und Bob |
 
+## L-7s Körper: der Chassis-Weg
+
+Im Story-Modus baut sich der Locator langsam auf (Wunsch des Nutzers vom 2026-11-21): Er findet Teile und schaltet damit
+das nächste Chassis frei, auf der Verwaltungslinie des Chassis-Baums aus dem Überlebens- und dem Gefechtsmodus
+(`ChassisTree`/`WiredCatalogue`). Den Umzug macht der Hangar im Pod: Der Kern wechselt in den neuen Körper, der alte bleibt
+leer in seiner Halterung hängen. Frei zwischen den Chassis wechseln kann man im Buch nicht, anders als später im freien
+Spiel.
+
+| Wann | Chassis | Woher |
+|---|---|---|
+| Prolog bis Akt 1 | Geo Locator 1 (sechs Beine) | sein eigener Körper |
+| Ende Akt 1 bis Akt 4 (Spiegel) | Geo Locator 3 (Flieger) | aus abgestürzten Fliegern auf dem Friedhof gebaut |
+| Akt 4, Schmiede bis Wacht | Overseer 2 (Ketten, der „kleine Commander“) | der Overseer der Fabrikwachen, mit Teilen von Glut und Spiegel |
+| Akt 4, nach Wacht, bis Akt 5 | Overseer 3 (Spinnenbeine) | der Spinnen-Overseer der Flotte auf Wacht; der eigene Overseer 2 bleibt zerstört im Krater |
+| Akt 5, nach den Wellen auf dem Eis | Commander 4 (Raketenkästen) | der Commander der letzten Welle |
+| Akt 6, vor dem Aufbruch, bis Finale | Commander 5 (Pulskanonen, die Bauart des Jägers aus dem Prolog) | der Commander der Landung auf Hain; Mara hilft beim Umzug |
+| Finale, ganz am Ende | wieder Geo Locator 1 | die einzige Rückkehr: Bevor er den Notschalter sendet, zieht er zurück in seinen ersten Körper, damit über dem Tal kein Commander stehen bleibt |
+
+Der Commander 6 (Marshal) kommt nicht vor. Folgen im Text: Mara erkennt L-7 in Akt 5 nicht am Körper, sondern an der
+Seriennummer auf seinem Kern; Juna fragt ihn „Bist du ein Riese?“; an der Quelle merkt L-7, dass er selbst gewachsen
+ist wie die Direktive.
+
 ## Was das Buch ergänzt, wo STORY.md offen ist
 
 - **Wer die Direktive geschrieben hat** (Wunsch des Nutzers): eine KI der Menschen namens **HELFER**, gebaut als

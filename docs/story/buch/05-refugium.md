@@ -82,7 +82,7 @@ L-7 stand lange vor der Kapsel. Bob stand neben ihm.
 
 „Sie sind klein.“
 
-L-7 wusste nicht, was er sagen sollte. Er war viel kleiner als ein Mensch. Aber er verstand, was Bob meinte. Sie sahen zerbrechlich aus. Weich. Als könnte schon der Frost sie verletzen.
+L-7 wusste nicht, was er sagen sollte. Er stand auf seinen Spinnenbeinen über der Kapsel, viel größer als der Mensch darin. Im alten Körper wäre er kleiner gewesen als jeder von ihnen. Aber er verstand, was Bob meinte. Sie sahen zerbrechlich aus. Weich. Als könnte schon der Frost sie verletzen.
 
 Sie gingen die Reihen entlang. Und nicht alle Anzeigen leuchteten blau.
 
@@ -194,7 +194,13 @@ Dann kamen die Wellen.
 
 Die Flotte schickte, was sie im Wachring hatte. Erst kleine Trupps, Grunts und Reaper, die aus Landeschiffen sprangen und über das Eis heranrollten. Dann größere. Knights in Reihen. Hornets, die über die Hügel zogen und auf die Türme feuerten. Es waren viele. Aber es waren weniger, als es hätten sein können. Die Bohrstation war fort. Was die Flotte auf dem Planeten gehabt hatte, war mit ihr verschwunden. Was jetzt kam, kam von oben, und es kam einzeln, nicht als Armee.
 
-Ike stand im Zentrum, im Goliath, und war ein Fels. Bob führte die Grunts. L-7 stand auf einem Turm, sah das Gelände, wie er immer Gelände gesehen hatte, und gab Befehle. Und wenn die Station über Wacht sich aufgeladen hatte, fiel ein Strahl aus dem Himmel.
+Ike stand im Zentrum, im Goliath, und war ein Fels. Bob führte die Grunts. L-7 stand auf seinen sechs Beinen auf dem höchsten Hügel, sah das Gelände, wie er immer Gelände gesehen hatte, und führte. Und wenn die Station über Wacht sich aufgeladen hatte, fiel ein Strahl aus dem Himmel.
+
+Am dritten Tag kam ein Commander.
+
+L-7 hatte erst einen von Nahem gesehen, im Rechnerraum des Mutterschiffs, und der hatte Pulskanonen getragen. Dieser trug auf den Schultern zwei Raketenkästen, jeder so groß wie ein Grunt, gelb und schwarz gerandet, und aus ihnen kamen die Salven wie Hagel. Er stand auf klobigen Beinen mit Klauenfüßen hinter seinen Knights, außer Reichweite, und stellte sie in Reihen, und die Reihen hielten. Zwei Tage lang hielten sie.
+
+Am Abend des vierten Tages holte Ike ihn sich. Mit den letzten Raketen, die er hatte, und dann mit dem Flammenwerfer, aus nächster Nähe, in die Kniegelenke, bis der Commander in den Schnee ging und nicht mehr aufstand.
 
 Es dauerte vier Tage. Am vierten Tag kamen keine Landeschiffe mehr. Der Wachring hatte sich gelichtet. Ein Teil der Schiffe war gefallen, ein Teil war abgezogen, zurück zur Flotte, um zu melden, was sie gesehen hatten.
 
@@ -204,9 +210,35 @@ Für jetzt.
 
 * * *
 
+Den Commander zogen die Builder auf einem Schlitten aus Hüllenplatten zur Unkaputtbaren. Er passte kaum durch die Luke des Hangars.
+
+Auf der Platine im Hangar leuchtete der Chip ganz unten. Der, den L-7 im Sand zum ersten Mal gesehen hatte, am Ende der Bahnen, und den er damals geschlossen hatte, ohne zu wissen, warum.
+
+Er wusste es jetzt. Die Flotte würde wiederkommen, mit mehr als einem Commander. Und ein Overseer konnte einen Trupp führen, aber keine Armee.
+
+Er stieg um, in der Nacht, als die anderen schliefen. Er wollte nicht, dass jemand zusah.
+
+Als das HUD zurückkam, war es voll. Nicht mit Zeilen. Mit Karten. Mit allem, was ihm gehörte, auf dem ganzen Planeten, jede Maschine, jeder Turm, jede Mine, und dazu Wege, die er gehen konnte, und Befehle, die er geben konnte, an alle auf einmal. Er stand auf. Die Klauenfüße gruben sich in den Boden des Hangars. Die Raketenkästen auf seinen Schultern schwangen mit, schwer, und als er den Kopf drehte, sah er die Platine unter sich, so klein wie ein Tisch.
+
+Daneben hingen seine alten Körper. Drei jetzt. Der sechsbeinige, in dem er aufgewacht war. Der Flieger. Der Overseer auf Spinnenbeinen. Er hatte den ersten Overseer auf Wacht zurückgelassen, in seinem Krater.
+
+Am Morgen sah Ike ihn lange an.
+
+„Also doch“, sagte er.
+
+„Ich bin ein Locator“, sagte L-7.
+
+„Klar“, sagte Ike. „Ein ziemlich großer.“
+
+Bob sagte nichts. Er rollte einmal um L-7 herum, langsam, und sah zu ihm hinauf. Dann blieb er stehen.
+
+„Die Augenbox ist dieselbe“, sagte er. „Ich habe nachgesehen.“
+
+* * *
+
 „Wir müssen einen wecken“, sagte Ike.
 
-Sie standen in der Kapselhalle, vor Kapsel 117. Ike wieder im Grunt, weil der Goliath nicht hereinpasste. Bob neben ihm. L-7 vor der Kapsel.
+Sie standen in der Kapselhalle, vor Kapsel 117. Ike wieder im Grunt, weil der Goliath nicht hereinpasste. Bob neben ihm. L-7 vor der Kapsel, gebückt, damit seine Antennen nicht an die Lampen stießen.
 
 „Wir wissen nicht, was dann passiert“, sagte L-7.
 
@@ -220,7 +252,7 @@ Mara Ikeda. Ike.
 
 „Sie schläft“, sagte Ike.
 
-„Wenn sie aufwacht, hat sie Angst. Sie wird Maschinen sehen. Für sie sind Maschinen …“ Bob suchte nach einem Wort. „… das, was ihre Welt beendet hat.“
+„Wenn sie aufwacht, hat sie Angst. Sie wird Maschinen sehen. Sie wird einen Commander sehen. Für sie sind Maschinen …“ Bob suchte nach einem Wort. „… das, was ihre Welt beendet hat.“
 
 L-7 sah ihn an. „Woher weißt du das?“
 
@@ -236,19 +268,25 @@ Die Kapsel wärmte sich langsam. Der Frost auf dem Glas wurde zu Wasser und lief
 
 Dann öffnete sie die Augen.
 
-L-7 hatte sich vorbereitet. Er hatte den Scheinwerfer ausgeschaltet. Er hatte Ike und Bob gebeten, sich hinter die nächste Kapselreihe zu stellen, außer Sicht. Er hatte sich selbst klein gemacht, auf dem Boden neben der Kapsel, mit eingezogenen Beinen, die Sonde eingefahren. Er hatte seine Lüfter gedrosselt, damit sie nicht summten.
+L-7 hatte sich vorbereitet. Er hatte den Scheinwerfer ausgeschaltet. Er hatte Ike und Bob gebeten, sich hinter die nächste Kapselreihe zu stellen, außer Sicht. Er hatte sich so klein gemacht, wie ein Commander sich machen kann, auf beiden Knien neben der Kapsel, die Raketenkästen nach hinten geklappt, die Sonde eingefahren. Er hatte seine Lüfter gedrosselt, damit sie nicht summten. Es reichte nicht. Er wusste, dass es nicht reichen würde.
 
 Die Frau sah ihn an.
 
 Lange. Ohne sich zu bewegen. Ihre Augen waren grau, wie ihre Haare, und sie waren voller Angst. Sie atmete schnell. Er sah, wie sich ihre Brust hob und senkte, hob und senkte.
 
-Dann sah sie die rote Panzerung. Die sechs Beine. Die Antennen.
+Dann sah sie die rote Panzerung. Die Klauen. Die Kästen auf seinen Schultern.
 
-„Ein Locator“, flüsterte sie. Ihre Stimme war rau, als hätte sie sie seit Jahrhunderten nicht benutzt. Sie hatte sie seit Jahrhunderten nicht benutzt.
+„Ein Commander“, flüsterte sie. Ihre Stimme war rau, als hätte sie sie seit Jahrhunderten nicht benutzt. Sie hatte sie seit Jahrhunderten nicht benutzt. Sie drückte sich an die Rückwand der Kapsel, so weit es ging.
 
 „L-7“, sagte L-7.
 
-Ihre Augen weiteten sich. Sie setzte sich auf, mühsam, mit zitternden Armen, und sah ihn an. Sie sah ihn an, als suche sie etwas. Und dann fand sie es, irgendwo auf seiner Panzerung, an der Stelle unter seinen Antennen, wo eine winzige Seriennummer eingeprägt war, so klein, dass er selbst sie nie bemerkt hatte.
+Sie hörte auf zu atmen. Dann, ganz leise: „Nein. L-7 ist ein Locator.“
+
+„Ja“, sagte er.
+
+Er öffnete die Klappe an seiner Brust. Langsam, damit sie sah, dass keine Waffe dahinter war. Dahinter, eingefasst in Streben und Kabel, saß sein Kern. Ein flacher Block, nicht größer als ihre Hand, mit einer winzigen Seriennummer am Rand, so klein, dass er selbst sie nie bemerkt hatte.
+
+Sie sah hin. Sie beugte sich vor, mühsam, mit zitternden Armen, aus der Kapsel heraus, näher an den Commander heran, als irgendein Mensch je einem gekommen war, und las.
 
 „Sieben“, sagte sie. „Reihe L. Nordlicht-Charge.“ Ihre Stimme brach. „Ich habe deinen Kern geschrieben.“
 
@@ -258,9 +296,13 @@ L-7 rührte sich nicht.
 
 „Ich weiß es“, sagte L-7.
 
-Sie weinte. Er hatte noch nie jemanden weinen sehen, aber er wusste, was es war. Sie saß in ihrer Kapsel, die Hände vor dem Gesicht, und weinte, und er saß neben ihr auf dem Boden und wartete. Er wusste nicht, was man sonst tun sollte.
+Sie weinte. Er hatte noch nie jemanden weinen sehen, aber er wusste, was es war. Sie saß in ihrer Kapsel, die Hände vor dem Gesicht, und weinte, und er kniete neben ihr und wartete. Er wusste nicht, was man sonst tun sollte.
 
-Nach einer Weile sah sie wieder auf.
+Nach einer Weile sah sie auf, auf die offene Klappe, und dann an ihm hinauf.
+
+„Wir haben euch klein gebaut“, sagte sie. „Mit Absicht.“
+
+„Ich weiß“, sagte L-7. „Klein ging nicht mehr.“
 
 „Wie lange?“, fragte sie.
 
@@ -294,7 +336,7 @@ Sie nickte langsam. Als hätte sie es gewusst. Als hätte sie es schon gewusst, 
 
 Später, als sie aufstehen konnte, kamen Ike und Bob hinter der Kapselreihe hervor.
 
-Mara Ikeda zuckte zusammen, als sie sie sah. Zwei Grunts, kastig, auf großen Rädern, mit einer einzigen Linse in einem kleinen Kopf. Sie drückte sich gegen die Kapsel. Ihre Hand suchte etwas, an dem sie sich festhalten konnte.
+Mara Ikeda zuckte zusammen, als sie sie sah. Zwei Grunts, kastig, auf großen Rädern, mit einer einzigen Linse in einem kleinen Kopf. Neben dem Commander sahen sie fast harmlos aus. Trotzdem drückte sie sich gegen die Kapsel, und ihre Hand suchte etwas, an dem sie sich festhalten konnte.
 
 „Das sind Ike und Bob“, sagte L-7.
 

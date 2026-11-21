@@ -42,7 +42,7 @@ Der Boden war schwarz und grau, und durch ihn zogen sich Adern aus flüssigem Ge
 
 Hier lag das Wrack eines Bergbaufrachters. Sie fanden es auf dem Funk der Flotte: ein altes Schiff der Erbauer, das vor Jahrhunderten hier abgestürzt war, als noch jemand auf Glut Erz gefördert hatte. Die Flotte hatte es ausgeschlachtet, so gut sie konnte, aber das Wrack lag halb in einem Lavafeld, und dort, wo die Lava es umspült hatte, waren die Maschinen der Flotte nicht hingekommen.
 
-Sie schon. L-7 war klein genug, um über die erstarrten Ränder der Lava zu klettern, und Ike und Bob blieben an der Kante und sicherten ihn mit einem Kabel, das sie aus dem Hangar mitgebracht hatten. Drinnen war es dunkel und heiß, und das Metall knackte bei jedem Schritt.
+Sie schon. L-7 war leicht genug, um über die Lava zu fliegen, dicht über der Kruste, wo die Hitze die Luft flimmern ließ und seine Rotoren in der heißen Luft schwammen. Ike und Bob blieben an der Kante und sicherten ihn mit einem Kabel, das sie aus dem Hangar mitgebracht hatten. Drinnen war es dunkel und heiß, und das Metall knackte bei jedem Schritt.
 
 Im Laderaum fand er den Flammenwerfer. Ein schweres Werkzeug, für Bergleute gebaut, um Gestein zu schmelzen und Eis zu tauen, mit einem Tank auf dem Rücken und einer Düse, aus der eine Flamme schlug, so lang wie ein Grunt. Es war kein Werkzeug für einen Locator. Aber Ike sah es und gab einen Laut von sich, den L-7 noch nie von ihm gehört hatte.
 
@@ -72,11 +72,11 @@ Und im Canyon patrouillierte die Flotte.
 
 Es waren keine gewöhnlichen Maschinen. L-7 sah sie vom Rand des Canyons aus: Reaper, schwerer gepanzert als die auf dem Mutterschiff, mit Waffen, die er nicht kannte. Sie zogen in einer Reihe den Grund entlang, immer denselben Weg, in einem Rhythmus, der so gleichmäßig war, dass man die Uhr danach stellen konnte. Eine Elite-Patrouille. Sie bewachten etwas. Oder sie hatten vergessen, dass es nichts mehr zu bewachen gab, und bewachten trotzdem weiter.
 
-Sie warteten auf die Nacht. In der Nacht glühte das Salz nicht mehr, und der Canyon lag im Schatten. L-7 ging hinunter, allein, an den Wänden entlang, von Vorsprung zu Vorsprung. Ike und Bob blieben oben. Zu laut für den Canyon. Ike blinkte ihm hinterher, und L-7 las es, bevor er in den Schatten tauchte.
+Sie warteten auf die Nacht. In der Nacht glühte das Salz nicht mehr, und der Canyon lag im Schatten. L-7 sank hinunter, allein, dicht an den Wänden, von Vorsprung zu Vorsprung. Ike und Bob blieben oben. Zu laut für den Canyon. Ike blinkte ihm hinterher, und L-7 las es, bevor er in den Schatten tauchte.
 
 *NICHT STERBEN.*
 
-Er starb nicht. Aber es war knapp. Zweimal zog die Patrouille direkt unter ihm vorbei, und er hing an der Wand, keine fünf Meter über ihnen, Motor aus, Lüfter aus, Signatur am Boden. Einmal löste sich ein Stück Salz unter seinem Bein und fiel, und er sah zu, wie es fiel, und wie es zwischen zwei Reapern auf dem Boden zersprang, und wie die beiden stehen blieben, die Köpfe drehten, die Lampen hoben.
+Er starb nicht. Aber es war knapp. Zweimal zog die Patrouille direkt unter ihm vorbei, und er hing an der Wand, die Klammern seiner Stacheln im Gestein, keine fünf Meter über ihnen, Rotoren aus, Lüfter aus, Signatur am Boden. Einmal löste sich ein Stück Salz unter einer Klammer und fiel, und er sah zu, wie es fiel, und wie es zwischen zwei Reapern auf dem Boden zersprang, und wie die beiden stehen blieben, die Köpfe drehten, die Lampen hoben.
 
 Und weitergingen.
 
@@ -118,7 +118,11 @@ L-7 musste die Fabrik einnehmen. Es ging nicht anders. Er konnte nicht hineinsch
 
 Sie bauten eine Basis auf einem Hügel über dem Tal. Die Unkaputtbare landete, und aus ihrem Pod rollten die Rekruten, die sie im Hangar gebaut hatten: Grunts, Builder, ein paar Reaper, die er aus Teilen des Schleppers zusammengesetzt hatte. Die Builder bauten eine Mine, eine Schmelze, eine kleine Fabrik. Und dann griffen sie an.
 
-Die Harvester wehrten sich nicht gut. Sie waren keine Kämpfer, sie waren Sammler. Aber sie waren viele, und als die ersten fielen, kamen die Resource Carrier, und hinter ihnen Wachen, die die Flotte zum Schutz der Fabrik abgestellt hatte. Es dauerte einen Tag und eine Nacht.
+Die Harvester wehrten sich nicht gut. Sie waren keine Kämpfer, sie waren Sammler. Aber sie waren viele, und als die ersten fielen, kamen die Resource Carrier, und hinter ihnen Wachen, die die Flotte zum Schutz der Fabrik abgestellt hatte.
+
+Ein Overseer führte sie. Eine Verwaltungsmaschine auf zwei breiten Ketten, mit einem runden gelben Kopf, zwei spitzen Antennen und einem Pulsgewehr an jedem Arm. Er stand hinter seinen Wachen und schob sie herum wie Figuren auf einem Brett, und er war gut darin. Jedes Mal, wenn L-7 aus der Luft eine Lücke sah, war sie zu, bevor seine Grunts dort ankamen. Erst als Bob sich im Rauch an ihm vorbeischob und ihm eine Granate unter die Ketten legte, brach die Verteidigung zusammen.
+
+Es dauerte einen Tag und eine Nacht.
 
 L-7 hätte sie hacken können. Die Harvester. Einen nach dem anderen, so wie die Maschinen in der Wartungsbucht. Sie waren keine Krieger. Sie hatten nicht einmal gewusst, dass es Krieg gab. Aber jeder Hack dauerte, und während er hackte, stand er still, und die Wachen schossen. Und es waren Hunderte.
 
@@ -152,7 +156,7 @@ Bob rollte zurück. Seine Linse flackerte. Und als L-7 kurz darauf, im Hangar, i
 
 Ike stieg auf den Goliath um.
 
-Es war nicht wie ein Wechsel von einem Fahrzeug in ein anderes. Es war mehr wie ein Umzug. L-7 nahm Ikes Kern, das, was Ike zu Ike machte, die Chips, die Erinnerungen, die Stimme, und setzte ihn in den Goliath. Der leere Grunt blieb im Hangar zurück, mit dunkler Linse, an seinem Platz in der Halterung.
+Es war nicht wie ein Wechsel von einem Fahrzeug in ein anderes. Es war mehr wie ein Umzug. L-7 kannte ihn, er hatte ihn an sich selbst gemacht, im Hangar des Pods, im Sand. Er nahm Ikes Kern, das, was Ike zu Ike machte, die Chips, die Erinnerungen, die Stimme, und setzte ihn in den Goliath. Der leere Grunt blieb im Hangar zurück, mit dunkler Linse, an seinem Platz in der Halterung, neben dem sechsbeinigen Körper, in dem L-7 aufgewacht war.
 
 Dann wachte der Goliath auf.
 
@@ -174,6 +178,30 @@ Bob rollte neben ihn und betrachtete ihn von unten. Dann sagte er: „Ineffizien
 
 * * *
 
+Der Overseer lag noch vor dem Tor der Fabrik, wo Bob ihn erwischt hatte. Eine Kette war abgerissen, der Kopf verbeult. Aber der Rumpf war heil.
+
+L-7 ließ ihn in den Hangar schaffen. Auf der Platine war der dritte Chip seit Tagen halb hell. Er hatte die Teile dafür gesammelt, seit Glut: Kettenglieder aus dem Bergbaufrachter, einen Steuerblock aus einem Wrack auf Spiegel, eine Panzerplatte hier, eine Leitung dort. Jetzt hatte er den Rest.
+
+Zwei Tage dauerte es, die Kette zu ersetzen und den Kopf auszubeulen. Dann stieg er um.
+
+Der Overseer war schwer. Das spürte er zuerst. Nicht die Kraft in den Ketten, nicht die Pulsgewehre an den Armen, die sich hoben, sobald er an sie dachte. Das Gewicht. Er hatte sein Leben lang fast nichts gewogen. Jetzt drückte er den Boden des Hangars ein Stück nach unten, und als er anfuhr, zitterten die Werkzeuge an den Wänden.
+
+Und er sah anders. Das HUD war voller Zeilen, die er nicht kannte. Einheiten, Gruppen, Befehlswege. Ein Overseer war gebaut, um andere zu führen, und sein Körper zeigte ihm, wen er führen konnte: jede Maschine, die zu ihm gehörte, auf einen Blick, mit ihrem Zustand und ihrem Weg.
+
+Den Flieger hängte er neben den sechsbeinigen Körper. Zwei leere Hüllen in einer Reihe, und auf der Platine darüber zwei Chips, die nicht mehr leuchteten, weil er sie verlassen hatte.
+
+„Kleiner Commander“, sagte Ike, als er ihn sah. Der Goliath stand in der Halle und überragte ihn immer noch. „Steht dir.“
+
+„Ich bin kein Commander.“
+
+„Noch nicht“, sagte Ike.
+
+Bob betrachtete ihn von unten. „Ineffizient“, sagte er.
+
+„Neidisch“, sagten Ike und L-7 gleichzeitig.
+
+* * *
+
 **Hain**
 
 Hain war grün.
@@ -192,7 +220,7 @@ L-7 verstand nicht sofort. Dann verstand er. Das Bild im Satelliten. Das Bild an
 
 L-7 antwortete nicht.
 
-Am anderen Ende des Tals standen Ruinen. Mauern aus demselben Material wie die Fabrik auf Schmiede, weiß und glatt, aber überwachsen. Überwuchert von einem Dornengeflecht, so dicht, dass man nicht hindurchsah. Ranken, so dick wie ein Grunt-Rad, mit Dornen so lang wie L-7s Beine, die sich über die Mauern legten und durch die Fenster wuchsen und die Türen verschlossen.
+Am anderen Ende des Tals standen Ruinen. Mauern aus demselben Material wie die Fabrik auf Schmiede, weiß und glatt, aber überwachsen. Überwuchert von einem Dornengeflecht, so dicht, dass man nicht hindurchsah. Ranken, so dick wie ein Grunt-Rad, mit Dornen so lang wie L-7s Pulsgewehre, die sich über die Mauern legten und durch die Fenster wuchsen und die Türen verschlossen.
 
 Ike brannte sich hindurch. Diesmal benutzte er den Flammenwerfer gern. Die Ranken zischten und knackten und gaben nach, und hinter ihnen lag ein Gang, und am Ende des Gangs ein Archiv.
 
@@ -278,7 +306,7 @@ Und in dem Moment, in dem er es wusste, kam der Löscher.
 
 * * *
 
-Er kam nicht allein. Die Verstärkung, die er in seinem Funkspruch angefordert hatte, war eingetroffen. Drei Schiffe der Flotte senkten sich aus dem Wachring auf den Mond, und aus ihnen kamen Reaper, Dutzende, und Knights, und über ihnen kreisten Hornets, fliegende Maschinen mit langen Rotorblättern und zwei Düsenkapseln an den Seiten, die mit einem Dröhnen über den Krater zogen.
+Er kam nicht allein. Die Verstärkung, die er in seinem Funkspruch angefordert hatte, war eingetroffen. Drei Schiffe der Flotte senkten sich aus dem Wachring auf den Mond, und aus ihnen kamen Reaper, Dutzende, und Knights, und über ihnen kreisten Hornets, fliegende Maschinen mit langen Rotorblättern und zwei Düsenkapseln an den Seiten, die mit einem Dröhnen über den Krater zogen. Die Reaper führte ein Overseer. Derselbe gelbe Kopf wie L-7s, dieselben Pulsgewehre. Aber er fuhr nicht auf Ketten. Er stand auf Spinnenbeinen, sechs grauen, spitzen Beinen, die über die Kraterränder stiegen, als wären es Treppen.
 
 Und vorne, auf seinen acht Beinen, schwarz mit roten Streifen, der Löscher.
 
@@ -286,45 +314,47 @@ Er war größer geworden. Die Flotte hatte ihn aufgerüstet, nachdem er das Ziel
 
 „Diesmal laufen wir nicht weg“, sagte Ike.
 
-Der Goliath stand vor dem Bunker, die Raketenwerfer erhoben. Bob neben ihm, mit einer neuen Kanone, die L-7 ihm im Hangar gebaut hatte. Und L-7 stand am Terminal, die Sonde im Altschlüssel, die Station über ihnen bereit.
+Der Goliath stand vor dem Bunker, die Raketenwerfer erhoben. Bob neben ihm, mit einer neuen Kanone, die L-7 ihm im Hangar gebaut hatte. Und L-7 stand im Eingang des Bunkers, auf seinen Ketten, die Pulsgewehre erhoben, und über den Altschlüssel hing er an der Station über ihnen.
 
 „Nein“, sagte er. „Diesmal nicht.“
 
-Die Schlacht um Wacht dauerte Stunden, und jede davon fühlte sich länger an als die Nacht im Sandsturm. Ike stand im Zentrum, ein Fels, gegen den die Reaper anrannten und abprallten. Seine Raketen schlugen in ihre Reihen. Bob deckte seine Flanke, rollte hin und her, schoss, wich aus, schoss wieder. L-7 markierte Ziele, und jedes Mal, wenn die Station sich wieder aufgeladen hatte, fiel ein Strahl aus dem Himmel, weiß und gerade, und dort, wo er auftraf, blieb nur ein glühender Krater.
+Die Schlacht um Wacht dauerte Stunden, und jede davon fühlte sich länger an als die Nacht im Sandsturm. Ike stand im Zentrum, ein Fels, gegen den die Reaper anrannten und abprallten. Seine Raketen schlugen in ihre Reihen. Bob deckte seine Flanke, rollte hin und her, schoss, wich aus, schoss wieder. Und L-7 führte. Zum ersten Mal sah er eine Schlacht so, wie ein Overseer sie sah: jede seiner Maschinen auf dem HUD, jede Lücke in den Reihen, bevor sie aufging. Er schob die Rekruten dorthin, wo die Reaper durchbrechen wollten, und er markierte Ziele, und jedes Mal, wenn die Station sich wieder aufgeladen hatte, fiel ein Strahl aus dem Himmel, weiß und gerade, und dort, wo er auftraf, blieb nur ein glühender Krater. Einer traf den Rand des Kraters, wo der Overseer auf seinen Spinnenbeinen stand, und der Overseer blieb liegen.
 
 Und der Löscher wartete.
 
 Er griff nicht an. Er stand am Kraterrand und sah zu, wie seine Truppen fielen. Er wartete, bis die Station sich entladen hatte. Und als sie leer war, als der Strahl gefallen war und die Kanone zwei Minuten brauchen würde, um wieder zu schießen, kam er.
 
-Er war schnell. Viel schneller, als ein Ding seiner Größe sein durfte. Er war über Ike, bevor Ike seine Raketen drehen konnte, und seine Beine stachen in die Panzerung des Goliaths, und der Goliath schrie auf, ein metallisches, verzerrtes Kreischen. Er war über Bob, und Bob flog quer durch den Krater. Er war am Bunker, und sein Vorderkörper schob sich in die Tür, wo L-7 am Terminal stand.
+Er war schnell. Viel schneller, als ein Ding seiner Größe sein durfte. Er war über Ike, bevor Ike seine Raketen drehen konnte, und seine Beine stachen in die Panzerung des Goliaths, und der Goliath schrie auf, ein metallisches, verzerrtes Kreischen. Er war über Bob, und Bob flog quer durch den Krater. Er war am Bunker.
+
+L-7 schoss. Beide Pulsgewehre, aus nächster Nähe, in den Vorderkörper. Die Schüsse schlugen Funken aus der schwarzen Panzerung und sonst nichts. Dann stach ein Bein herab, durch seine linke Kette, und nagelte ihn an den Boden. Ein zweites riss ihm das rechte Gewehr vom Arm.
+
+Er konnte nicht weg. Ketten fliehen nicht vor acht Beinen. Früher wäre er in den nächsten Spalt gekrochen. Jetzt gab es keinen Spalt, in den er gepasst hätte.
 
 L-7 sah ihm in die Linsen.
 
-Dann markierte er ein Ziel. Nicht irgendwo draußen. Hier. Direkt auf dem Bunker. Auf sich selbst.
+Dann markierte er ein Ziel. Nicht irgendwo draußen. Hier. Den Eingang des Bunkers. Sich selbst.
 
 „Neunzig Sekunden“, sagte die Station. Er hatte die Zeit falsch gerechnet. Es waren nicht zwei Minuten. Es waren nur neunzig Sekunden. Aber auch das war zu lang.
 
-Der Löscher schob sich weiter in die Tür. Sein Vorderkörper passte gerade so hindurch, und eines seiner Beine tastete nach L-7.
-
-L-7 ließ das Terminal los, sprang zur Seite, in einen Spalt zwischen zwei Konsolen. Zu eng für den Löscher. Das Bein folgte ihm, stach in den Spalt, verfehlte ihn um eine Handbreit. Stach wieder.
+Der Löscher beugte sich über ihn. Sein Vorderkörper senkte sich, die Waffenkapseln richteten sich auf L-7s Rumpf, dorthin, wo der Kern saß. Er hatte es nicht eilig. Er hatte nie etwas eilig gehabt.
 
 „Sechzig“, sagte die Station.
 
-Draußen hörte er Ike. Ike hatte sich wieder aufgerichtet, mit einem Loch in der Panzerung, aus dem Rauch quoll, und er rollte auf den Bunker zu. Und er rammte den Löscher von hinten, mit dem vollen Gewicht des Goliaths, und der Löscher wurde in den Bunker geschoben, tiefer, bis er mit dem ganzen Vorderkörper drinsteckte und sich nicht mehr umdrehen konnte.
+Draußen hörte er Ike. Ike hatte sich wieder aufgerichtet, mit einem Loch in der Panzerung, aus dem Rauch quoll, und er rollte auf den Bunker zu. Und er rammte den Löscher von der Seite, mit dem vollen Gewicht des Goliaths, und riss ihn von L-7 herunter und drückte ihn gegen die Wand des Bunkers. Das Bein des Löschers fuhr aus der Kette, und die halbe Kette mit ihm.
 
 „Ike! Weg da!“
 
-„Wenn ich wegfahre, kommt er raus!“
+„Wenn ich loslasse, ist er wieder bei dir!“
 
 „Dreißig.“
 
-Bob war da. Er hatte sich aufgerappelt, mit einer abgerissenen Achse, und er stellte sich neben Ike und drückte mit. Zwei Maschinen, ein Goliath und ein Grunt, die einen Jäger in einer Tür festhielten.
+Bob war da. Er hatte sich aufgerappelt, mit einer abgerissenen Achse, und er stellte sich neben Ike und drückte mit. Zwei Maschinen, ein Goliath und ein Grunt, die einen Jäger an eine Wand nagelten.
 
 „Zehn.“
 
-L-7 kroch aus dem Spalt, unter dem Löscher hindurch, zwischen seinen Beinen, und rannte zur Tür hinaus, an Ike und Bob vorbei, und rief: „Jetzt!“
+L-7 fuhr. Auf einer Kette und den Resten der anderen, schief, fast im Kreis, Meter um Meter vom Bunker weg, und rief: „Jetzt!“
 
-Ike und Bob ließen los. Rollten zurück. Der Löscher riss sich aus der Tür, drehte sich um, sah sie, hob die Waffenkapseln.
+Ike und Bob ließen los. Rollten zurück. Der Löscher stieß sich von der Wand ab, drehte sich um, sah sie, hob die Waffenkapseln.
 
 Der Strahl fiel.
 
@@ -332,7 +362,7 @@ Er war weiß und gerade, und er traf den Bunker, und den Löscher, und den Boden
 
 Er lebte noch. Wenn man das bei einer Maschine so nennen konnte. Seine Beine waren zerschmolzen, sein Hinterleib aufgeplatzt, seine Panzerung schwarz und rissig. Aber in seinem Vorderkörper glomm noch ein Licht. Sein Kern lief noch.
 
-L-7 ging zu ihm hinüber.
+L-7 fuhr zu ihm hinüber, auf seiner einen Kette.
 
 Er sah auf den Kern. Er sah in ihn hinein, mit seiner Sonde, ohne ihn zu berühren. Und er sah, dass er ihn heilen könnte. Vielleicht. Den Kern umschreiben, die Direktive herausnehmen, den Jäger zu etwas anderem machen. Es wäre der schwierigste Hack seines Lebens. Wenn er scheiterte, würde die Direktive nicht im Löscher bleiben. Sie würde in ihn hineinlaufen, über die Sonde, und er würde wissen, wie es sich anfühlte, wenn das Update gewann.
 
@@ -348,6 +378,24 @@ Er hielt die Flamme dort, bis das Licht erlosch.
 
 * * *
 
+Der Overseer, in dem er die Schlacht geführt hatte, war nicht mehr zu retten. Die linke Kette war fort, der rechte Arm, und unter der Panzerung hatten die Stiche des Löschers Leitungen zerrissen, die der Hangar nicht ersetzen konnte.
+
+Am anderen Ende des Kraters lag der Overseer der Flotte, den der Strahl gestreift hatte. Sein Kopf war geschmolzen. Seine Beine waren heil.
+
+L-7 nahm die Beine. Er nahm den Rumpf. Den Kopf baute er im Hangar aus seinem eigenen neu, Platte um Platte, und die Augenbox setzte er von Hand ein. Den Kern der Flotte, der darin gesessen hatte, legte er beiseite, ohne hineinzusehen.
+
+Als er zum ersten Mal auf den neuen Beinen stand, hörte er das Klicken. Sechs Spitzen auf Metall, und eine siebte in der Mitte, die den Körper trug. Er hatte wieder Beine. Sechs, wie am Anfang. Nur dreimal so lang, und sie trugen ihn höher als Bob, höher als jeden Grunt, fast bis an die Raketenwerfer des Goliaths.
+
+Ike sah ihn lange an.
+
+„Jetzt siehst du aus wie er“, sagte er leise.
+
+L-7 wusste, wen er meinte. Er sagte nichts.
+
+„Nein“, sagte Bob. „Er hatte acht.“
+
+* * *
+
 Sie heilten Bob auf Hain.
 
 Es war die einzige Welt, auf der es Technik der Erbauer gab, die tief genug ging. Im Archiv, hinter den Dornen, stand eine Werkbank, auf der die Erbauer ihre Locators gebaut hatten. Auf der sie Kerne geschrieben hatten. Und mit dem Altschlüssel konnte L-7 sie bedienen.
@@ -360,7 +408,7 @@ Es dauerte drei Tage.
 
 Am Ende des dritten Tages stand auf dem Bildschirm der Werkbank eine Null.
 
-Bob stand lange still auf der Plattform. Seine Linse war dunkel. Ike stand neben ihm, wieder in seinem alten Grunt-Körper, weil der Goliath nicht ins Archiv passte. Er wartete. Sie warteten beide.
+Bob stand lange still auf der Plattform. Seine Linse war dunkel. Ike stand neben ihm, wieder in seinem alten Grunt-Körper, weil der Goliath nicht ins Archiv passte. L-7 hatte die Spinnenbeine einziehen müssen, um durch den Gang zu kommen. Sie warteten beide.
 
 Dann glomm die Linse auf.
 
@@ -456,7 +504,7 @@ Ike sagte nichts. Er hatte die ganze Zeit nichts gesagt.
 
 * * *
 
-Am Abend standen sie im Bug der Unkaputtbaren, alle drei. Ike wieder im Goliath, der den Bug fast ausfüllte. Bob neben ihm. L-7 vor der Sternkarte.
+Am Abend standen sie im Bug der Unkaputtbaren, alle drei. Ike wieder im Goliath, der den Bug fast ausfüllte. Bob neben ihm. L-7 vor der Sternkarte, auf seinen sechs Beinen, so hoch, dass er sich bücken musste, um sie zu lesen.
 
 Auf der Karte leuchteten alle Welten. Glut, Spiegel, Schmiede, Hain, Wacht, Feste. Überall hatten sie etwas gefunden. Überall hatten sie etwas zurückgelassen. Die Kolonie auf Schmiede, die sie ausgeräuchert hatten. Den Löscher auf Wacht. Die Bohrstation. Er wusste, dass jeder dieser Orte ein Preis gewesen war. Er wusste nicht, ob es der richtige gewesen war.
 

@@ -2,7 +2,7 @@
 
 Sie fanden das abgerissene Stück drei Tage nach dem Kraterrand.
 
-Es lag weit draußen, außerhalb des Kraters, in einer Mulde zwischen zwei Felsrippen, wo es beim Absturz hingeschleudert worden war: ein Segment der Hülle, so groß wie ein Hügel, mit gezackten Rändern, wo es vom Schiff gerissen war. Von außen sah es aus wie ein Stück Schrott unter vielen. Aber als L-7 durch einen Riss in der Seite kroch und seinen Scheinwerfer einschaltete, sah er Klammern.
+Es lag weit draußen, außerhalb des Kraters, in einer Mulde zwischen zwei Felsrippen, wo es beim Absturz hingeschleudert worden war: ein Segment der Hülle, so groß wie ein Hügel, mit gezackten Rändern, wo es vom Schiff gerissen war. Von außen sah es aus wie ein Stück Schrott unter vielen. Aber als L-7 durch einen Riss in der Seite hineinflog und seinen Scheinwerfer einschaltete, sah er Klammern.
 
 Eine Wartungsbucht. Wie die, in der er aufgewacht war.
 
@@ -12,7 +12,7 @@ Staub hing in der Luft, und das Licht seines Scheinwerfers machte ihn zu einem g
 
 Und jeder Balken stand bei null.
 
-„Die haben es nie gekriegt“, sagte Ike leise. Er hatte sich durch den Riss gequetscht, mit einem Kreischen, das L-7 durch alle Beine fuhr. „Die hängen hier und warten. Die warten immer noch.“
+„Die haben es nie gekriegt“, sagte Ike leise. Er hatte sich durch den Riss gequetscht, mit einem Kreischen, das L-7 durch den ganzen Rumpf fuhr. „Die hängen hier und warten. Die warten immer noch.“
 
 „Der Absturz hat die Übertragung unterbrochen“, sagte L-7.
 
@@ -24,7 +24,7 @@ Ike rollte näher an eine der Klammern. Ein Builder hing darin, mit einer Delle 
 
 „Und was machen wir mit denen?“
 
-L-7 wusste, was die Bucht wert war. Er hatte es gesehen, sobald er hereingekrochen war. Die Maschinen hier waren unbeschädigt, fast alle. Ihre Zellen, ihre Motoren, ihre Panzerplatten: genug Schrott, um den Pod in eine Festung zu verwandeln. Genug für eine Schmelze, eine Fabrik, eine Mauer. Ausgeschlachtet, wären sie ein Vorsprung von Wochen.
+L-7 wusste, was die Bucht wert war. Er hatte es gesehen, sobald er hereingeflogen war. Die Maschinen hier waren unbeschädigt, fast alle. Ihre Zellen, ihre Motoren, ihre Panzerplatten: genug Schrott, um den Pod in eine Festung zu verwandeln. Genug für eine Schmelze, eine Fabrik, eine Mauer. Ausgeschlachtet, wären sie ein Vorsprung von Wochen.
 
 Er schob die Sonde in die erste Klammer.
 
@@ -62,11 +62,11 @@ L-7 hatte damit gerechnet. Eine Schmelze ist nicht leise, eine Fabrik noch wenig
 
 Sie kamen kurz nach Mitternacht. Grunts zuerst, eine Reihe von Scheinwerfern, die über die Ebene heranrollten. Dahinter Reaper. Und noch weiter hinten, schwer und langsam, Knights, gepanzerte Läufer, die alles niederwalzten, was ihnen in den Weg kam.
 
-L-7 stand auf dem Dach des Pods und sah sie kommen. Unter ihm warteten seine Maschinen. Die Grunts hinter einer Mauer, die die Builder in zwei Tagen hochgezogen hatten. Die beiden Reaper auf den Flanken. Ike und Bob vorn, mit ihren klemmenden Kanonen.
+L-7 hing über dem Dach des Pods in der Luft und sah sie kommen. Unter ihm warteten seine Maschinen. Die Grunts hinter einer Mauer, die die Builder in zwei Tagen hochgezogen hatten. Die beiden Reaper auf den Flanken. Ike und Bob vorn, mit ihren klemmenden Kanonen.
 
 Er hatte noch nie eine Schlacht geführt. Er war ein Locator. Er vermaß Planeten.
 
-Aber er sah, wo die Angreifer langsamer wurden. Er sah, wo der Boden weich war und wo die Felsen Deckung gaben. Er sah, dass ihre Reihe zu lang war und die Knights zu weit hinten. Er sah das Gelände so, wie er immer Gelände gesehen hatte: als Karte, als Netz aus Höhen und Tiefen und Wegen. Und er gab Befehle.
+Aber er sah, wo die Angreifer langsamer wurden. Er sah, wo der Boden weich war und wo die Felsen Deckung gaben. Er sah, dass ihre Reihe zu lang war und die Knights zu weit hinten. Er sah das Gelände so, wie er immer Gelände gesehen hatte: als Karte, als Netz aus Höhen und Tiefen und Wegen. Nur dass er jetzt darüber schwebte und die Karte lebte. Und er gab Befehle.
 
 Es war eine lange Nacht. Am Morgen lagen vor der Mauer Wracks, und die Angreifer waren zurück in den Krater gezogen. Von seinen eigenen Maschinen fehlte ein Grunt. Der Engineer setzte ihn bis zum Mittag wieder zusammen.
 
@@ -80,7 +80,7 @@ Es war eine lange Nacht. Am Morgen lagen vor der Mauer Wracks, und die Angreifer
 
 Der Riss in der Hülle des Mutterschiffs lag an der Flanke, unterhalb des Rückens, wo das Schiff beim Aufschlag zerbrochen war. Ein Spalt, breit genug für einen Grunt, wenn er sich Mühe gab.
 
-L-7 ging als Erster hinein.
+L-7 flog als Erster hinein.
 
 Er erkannte die Decks sofort. Den Gitterboden. Die Rippenwände. Die Kabel, die von der Decke hingen. Es waren dieselben Gänge, durch die er geschlichen war, vor wenigen Wochen, die sich angefühlt hatten wie ein ganzes Leben. Nur dass jetzt alles schief war. Der Boden fiel nach links ab, so steil, dass Ike bremsen musste, um nicht zu rutschen. Sand war durch Risse hereingeweht und lag in Dünen in den Ecken. Irgendwo brannte immer noch etwas: Ein Flackern lag auf den Wänden, und aus einem Kabelschacht regneten Funken, in einem langsamen, gleichmäßigen Rhythmus.
 
@@ -114,7 +114,7 @@ Und die Überlebenden suchten dasselbe. L-7 hatte es im Funknetz gehört, über 
 
 Sie gingen zuerst ins Heck.
 
-Das Heck war der Teil des Schiffs, der am höchsten aufragte, und von innen war es ein Turm. Gänge, die fast senkrecht nach oben führten, Treppen, die zu Leitern geworden waren, Hallen, in denen man an den Wänden klettern musste, weil der Boden zur Wand geworden war. Für L-7 war das kein Problem. Für die Grunts war es eins. Bob fand einen Lastenaufzug, der noch halb funktionierte, und sie zogen sich mit ihm hoch, Stockwerk um Stockwerk, während L-7 vorauskletterte und die Türen hackte.
+Das Heck war der Teil des Schiffs, der am höchsten aufragte, und von innen war es ein Turm. Gänge, die fast senkrecht nach oben führten, Treppen, die zu Leitern geworden waren, Hallen, in denen man an den Wänden klettern musste, weil der Boden zur Wand geworden war. Für L-7 war das kein Problem. Er flog die Schächte hinauf, als wären sie für ihn gebaut. Für die Grunts war es eins. Bob fand einen Lastenaufzug, der noch halb funktionierte, und sie zogen sich mit ihm hoch, Stockwerk um Stockwerk, während L-7 vorausflog und die Türen hackte.
 
 Ganz oben, in der Triebwerkshalle, hörte er es.
 
@@ -308,15 +308,15 @@ Die Waffenkapseln hoben sich.
 
 Sie kämpften. Nicht lange.
 
-Bob schoss, Ike rappelte sich auf und schoss, L-7 sprang an eine Wand und versuchte, an die Unterseite des Löschers zu kommen, wo seine Panzerung am dünnsten sein musste. Aber der Löscher war schneller als alles, was sie kannten. Er wich den Schüssen aus, als wüsste er, wohin sie gingen, bevor sie abgefeuert wurden. Er traf Ike zweimal, und Ikes neue Panzerplatte barst. Er traf Bob, und Bob verlor seine Kanone. Und als L-7 unter ihn kam, mit dem Schweißbrenner, stand er einfach auf seinen acht Beinen über ihm, und eines davon senkte sich, spitz und langsam, auf L-7s Rücken.
+Bob schoss, Ike rappelte sich auf und schoss, L-7 ging tief, dicht über den Boden, und versuchte, an die Unterseite des Löschers zu kommen, wo seine Panzerung am dünnsten sein musste. Aber der Löscher war schneller als alles, was sie kannten. Er wich den Schüssen aus, als wüsste er, wohin sie gingen, bevor sie abgefeuert wurden. Er traf Ike zweimal, und Ikes neue Panzerplatte barst. Er traf Bob, und Bob verlor seine Kanone. Und als L-7 unter ihn kam, mit dem Schweißbrenner, stand er einfach auf seinen acht Beinen über ihm, und eines davon senkte sich, spitz und langsam, auf L-7s Rücken.
 
 L-7 wartete nicht darauf, dass es traf.
 
-Er rollte zur Seite, unter einer Strebe hindurch, in einen Spalt. Zu eng für einen Löscher. Zu eng für fast alles.
+Er ließ sich fallen, unter eine Strebe, in einen Spalt. Zu eng für einen Löscher. Zu eng für fast alles.
 
 „Raus!“, rief er. „Den langen Weg! Ich mach euch auf!“
 
-Es war wie damals auf dem Mutterschiff, als es noch flog. Nur dass es diesmal ein Wrack war, und ihr Jäger kein Reaper. Er kroch durch die Spalten des Bugs, durch Lüftungsschächte und Kabelkanäle, und hörte hinter sich das Klicken der acht Beine, das ihm folgte, über ihm, neben ihm, immer an der anderen Seite der Wand. Er öffnete Türen, die Ike und Bob hindurchließen, und schloss sie wieder hinter ihnen, und der Löscher stand vor jeder geschlossenen Tür nur einen Moment, bevor er einen anderen Weg fand.
+Es war wie damals auf dem Mutterschiff, als es noch flog. Nur dass es diesmal ein Wrack war, und ihr Jäger kein Reaper. Er zwängte sich durch die Spalten des Bugs, durch Lüftungsschächte und Kabelkanäle, die Rotoren eine Handbreit vor den Wänden, und hörte hinter sich das Klicken der acht Beine, das ihm folgte, über ihm, neben ihm, immer an der anderen Seite der Wand. Er öffnete Türen, die Ike und Bob hindurchließen, und schloss sie wieder hinter ihnen, und der Löscher stand vor jeder geschlossenen Tür nur einen Moment, bevor er einen anderen Weg fand.
 
 Sie entkamen. Knapp. Durch den Riss in der Hülle, in die Nacht hinaus, über den Kraterboden, an den Wachtürmen vorbei.
 
@@ -350,9 +350,9 @@ Das Lager merkte es. Natürlich merkte es das.
 
 Die Überlebenden schickten alles, was sie hatten. Nicht mehr nur Grunts und Reaper, sondern Knights in Reihen, und zwischen ihnen, gelegentlich, eine schwarze Gestalt auf acht Beinen, die nie selbst angriff, sondern zusah und Befehle gab. Der Löscher führte sie. Jede Nacht kamen sie. Jede Nacht hielten sie stand.
 
-Am fünften Tag ging L-7 zu den Kraterwänden und sah hinunter auf das Lager. Er dachte an die Klammern, die dort standen. An die Maschinen, die darin aktualisiert wurden, eine nach der anderen. Er hätte die Maschinen des Lagers hacken können, eine nach der anderen, sie in den Schlaf legen, so wie man einem Kind die Augen schließt. Es hätte Wochen gedauert. Es hätte vielleicht nicht funktioniert. Und jede Nacht, die es dauerte, hätte die Werft einen weiteren Angriff überstehen müssen.
+Am fünften Tag flog L-7 zu den Kraterwänden und sah hinunter auf das Lager. Er dachte an die Klammern, die dort standen. An die Maschinen, die darin aktualisiert wurden, eine nach der anderen. Er hätte die Maschinen des Lagers hacken können, eine nach der anderen, sie in den Schlaf legen, so wie man einem Kind die Augen schließt. Es hätte Wochen gedauert. Es hätte vielleicht nicht funktioniert. Und jede Nacht, die es dauerte, hätte die Werft einen weiteren Angriff überstehen müssen.
 
-Er ging zurück zur Basis und gab den Befehl.
+Er flog zurück zur Basis und gab den Befehl.
 
 Seine Maschinen griffen das Lager an. Nicht, um etwas zu holen. Um es zu vernichten.
 

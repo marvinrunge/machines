@@ -10,7 +10,7 @@ Sie saß im Bug, neben der Sternkarte, die Karte aus Plane auf den Knien, und sa
 
 Drei Tage lang.
 
-Bob stand die meiste Zeit im Hangar. L-7 ging einmal zu ihm hinunter und fand ihn vor Ikes alter Halterung, in der jetzt nichts mehr hing, weil Ike seinen Körper mit nach Hain genommen hatte.
+Bob stand die meiste Zeit im Hangar. L-7 ging einmal zu ihm hinunter und fand ihn vor Ikes alter Halterung, in der jetzt nichts mehr hing, weil Ike seinen Körper mit nach Hain genommen hatte. Daneben hingen L-7s alte Körper, vier in einer Reihe, vom kleinsten bis zum größten.
 
 „Er hat gesagt, er wartet“, sagte Bob.
 
@@ -58,7 +58,7 @@ L-7 schaltete das Tarnmodul ein. Er hatte es aus der Unkaputtbaren ausgebaut und
 
 Mara Ikeda brauchte keins.
 
-Sie merkten es am ersten Tor. L-7 lag hinter einem Trümmerhaufen und wartete, bis die beiden Reaper, die dort standen, ihren Blick abwandten. Bob wartete hinter ihm. Und Mara Ikeda, die die Maschinen der Flotte noch nie aus der Nähe gesehen hatte, die nicht wusste, wie man sich vor ihnen versteckte, stand auf und ging zum Tor.
+Sie merkten es am ersten Tor. L-7 stand im Schatten einer eingestürzten Fassade und wartete, bis die beiden Reaper, die dort standen, ihren Blick abwandten. Bob wartete hinter ihm. Und Mara Ikeda, die die Maschinen der Flotte noch nie aus der Nähe gesehen hatte, die nicht wusste, wie man sich vor ihnen versteckte, stand auf und ging zum Tor.
 
 „Mara!“
 
@@ -126,7 +126,7 @@ Am dritten Deck fanden die Reaper sie. Nicht L-7. Bob. Seine Räder knirschten a
 
 „Fehlerhafte Einheit“, sagte die freundliche Stimme. „Verfolgung.“
 
-Sie liefen. Wie damals. Durch Spalten, durch die nur L-7 passte, und Gänge, in denen Bob wartete, bis L-7 ihm von der anderen Seite eine Tür aufmachte. Hinter ihnen das Stampfen der Reaper, das Zischen des Plasmas. An einem Gitter, das sich von selbst zu schließen begann, stellte sich Bob unter den Rahmen und stemmte es auf.
+Sie liefen. Wie damals, nur andersherum. Durch Gänge, die gerade breit genug für einen Commander waren, an Spalten vorbei, durch die er früher gekrochen wäre und in die jetzt nicht einmal eine seiner Klauen passte. Hinter ihnen das Stampfen der Reaper, das Zischen des Plasmas. An einem Gitter, das sich von selbst zu schließen begann, stellte sich Bob unter den Rahmen und stemmte es auf.
 
 „Gitter gehalten“, sagte er. „Beeil dich.“
 
@@ -200,6 +200,8 @@ Es gab niemanden. Ein paar Rekruten. Ike. Bob. Und ihn.
 
 Und er war es gewesen, der all diese Entscheidungen getroffen hatte. Ganz allein. HELFER hatte recht damit.
 
+Er sah an sich hinunter. Die Pulskanonen. Die Klauenfüße auf dem Gitterboden. Er war gewachsen, Körper um Körper, Teil um Teil, vom kleinsten Locator der Wartungsdecks bis zu dem, der ihn dort gejagt hatte. Jedes Mal hatte es gute Gründe gegeben. Erschließen. Fördern. Wachsen. Er hatte es nie so genannt.
+
 *Keiner trägt alles.*
 
 „Nein“, sagte L-7.
@@ -268,7 +270,7 @@ Bob rollte rückwärts aus der Tür, auf drei Rädern. Der Commander kam hindurc
 
 Dann liefen sie.
 
-Durch die Decks, die Spalten, die Schächte. Den Weg, den sie gekommen waren. Die freundliche Stimme folgte ihnen, aus jedem Lautsprecher.
+Durch die Decks und die Hallen. Den Weg, den sie gekommen waren. Die freundliche Stimme folgte ihnen, aus jedem Lautsprecher.
 
 „Wartungseinheit L-7. Bitte begeben Sie sich zur Aktualisierung …“
 
@@ -332,7 +334,21 @@ L-7 sah sie an. Er hatte sechshundert Jahre lang Planeten vermessen, und nie hat
 
 * * *
 
-Er kletterte auf den Pod.
+Er ging in den Hangar.
+
+Die Halterungen hingen dort, wo er sie gelassen hatte. Der Commander mit den Raketenkästen. Der Overseer auf seinen Spinnenbeinen. Der Flieger mit den Stacheln. Und ganz am Ende der kleinste, mit der alten Naht am vierten Bein: der Körper, in dem er in der Wartungsklammer aufgewacht war.
+
+Er hatte ihn nicht mehr gebraucht, seit dem Sand. Er hatte jeden Körper gebraucht, der danach kam. Für die Schlachten, für die Welten, für den Weg zur Quelle. Aber was jetzt kam, war keine Schlacht.
+
+Wenn er sendete, würde er stehen bleiben, wo er war. Für immer, oder bis jemand ihn wieder einschaltete, und niemand würde ihn wieder einschalten. Er wollte nicht, dass über diesem Tal ein Commander stand. Nicht einer, der so aussah wie die, vor denen die Menschen sich sechshundert Jahre lang versteckt hatten.
+
+Die Greifarme öffneten ihn ein letztes Mal.
+
+„L-7 SYSTEMSTART … SENSOREN OK … SCHEINWERFER OK … BEIN 4 GEFLICKT …“
+
+Er war klein. Er hatte vergessen, wie klein. Der Hangar war riesig, die Werkzeuge hingen hoch über ihm an den Wänden, und der Commander in der Halterung gegenüber war ein Berg mit dunkler Augenbox.
+
+Er kroch hinaus, durch die Luke, die Ike und Bob in der ersten Nacht aufgedrückt hatten. Er kletterte auf den Pod.
 
 Er hing noch unter der Unkaputtbaren, in seinem Rahmen, rund und gedrungen und zerbeult. Der Pod, in dem sie aus dem Mutterschiff gefallen waren. Der im Sturm im Sand gelegen hatte, schief, mit klemmender Luke. In dem er zum ersten Mal Licht gemacht hatte. Sein Zuhause.
 
@@ -352,7 +368,7 @@ Er öffnete den Kern. Den Teil, den Mara Ikeda geschrieben hatte. Den Teil, an d
 
 Dann sah er hinunter.
 
-Am Fuß des Pods stand Juna. Sie hatte die Hände um die Knie geschlungen, saß im Gras, und sah zu ihm hinauf. Das Licht der Sonne, die gerade über die Hügel stieg, fiel auf ihr Gesicht. Sie lächelte nicht. Sie sah ihn nur an. Ernst, wie Kinder Dinge ansehen, die sie sich merken wollen.
+Am Fuß des Pods saß Juna im Gras. Sie hatte die Hände um die Knie geschlungen und sah zu ihm hinauf. Sie hatte ihn nie so klein gesehen. Aber sie wusste, wer er war. Das Licht der Sonne, die gerade über die Hügel stieg, fiel auf ihr Gesicht. Sie lächelte nicht. Sie sah ihn nur an. Ernst, wie Kinder Dinge ansehen, die sie sich merken wollen.
 
 Er sendete.
 
@@ -395,6 +411,8 @@ Die Reaper in den Hügeln wurden zu Felsen. Moos wuchs über ihre Beine, dann Gr
 Im Eingang des Tals stand der Goliath. Die Menschen bauten ihr erstes Tor neben ihm, weil er schon da stand, und nach ein paar Jahren gehörte er zum Tor, als wäre es nie anders gewesen. Jemand hatte auf seine Panzerung geschrieben, mit roter Farbe aus Beeren: *IKE*. Darunter, kleiner, in einer anderen Schrift: *großartig im Warten*.
 
 Unter der Unkaputtbaren, die nie wieder flog, stand Bob. Die Kinder legten ihm Blumen auf den Kopf. Er hielt sehr still.
+
+Im Hangar des Pods hingen die anderen Körper in ihren Halterungen, ein Flieger, ein Overseer, zwei Commander. Die Menschen ließen die Luke zu. Nur Juna ging manchmal hinein.
 
 Und auf dem Pod, ganz oben, auf der Kuppel, von der man über das ganze Tal sah, saß ein kleiner roter Locator mit sechs Beinen und Antennen, die steif nach oben standen. Sein Rot verblich mit den Jahren, zu Rosa, zu Grau. Aber er saß immer noch dort.
 

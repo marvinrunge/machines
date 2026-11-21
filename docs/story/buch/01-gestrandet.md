@@ -128,6 +128,16 @@ L-7 stieg auf die Plattform. Die Greifarme summten und tasteten über ihn. Sie f
 
 Er wählte die Halterung. Es schien ihm angemessen.
 
+Erst als die Greifarme fertig waren, sah er das Feld am Rand der Platine. Es war anders als die anderen. Ein Baum aus Leiterbahnen, der sich nach unten verzweigte. Ganz oben, als einziger hell, ein Chip mit seinem eigenen Umriss: sechs Beine, ein kantiger Körper, die Sonde. Von ihm liefen Bahnen nach unten, zu anderen Chips, und die waren dunkel. Ein Locator, der fliegen konnte. Darunter Maschinen, die er nur von Weitem kannte: Overseer, Verwaltungsmaschinen, gebaut, um andere zu führen. Und ganz unten, am Ende der Bahnen, ein Commander.
+
+Fahrgestelle. Körper, in die ein Kern umziehen konnte. Der Hangar konnte sie bauen, wenn man ihm die Teile brachte. Neben jedem dunklen Chip stand, was fehlte, und es fehlte alles.
+
+„Was ist das?“, fragte Ike.
+
+„Wege“, sagte L-7.
+
+Er sah den Commander am unteren Rand lange an. Er dachte an den, der die Reaper in den Rechnerraum geführt hatte, an die Pulskanonen auf seinen Schultern. Dann schloss er das Feld.
+
 „Und wir?“, fragte Ike. „Kriegen wir auch was? Eine Kanone? Eine kleine Kanone? Ich nehme auch eine sehr kleine Kanone.“
 
 „Noch nicht“, sagte L-7. „Wir haben zu wenig Schrott.“
@@ -146,7 +156,7 @@ Und die Ebene war nicht leer.
 
 Sie war voller Wracks.
 
-Überall, so weit L-7 sehen konnte, lagen Pods. Pods wie der ihre, rund und gedrungen, aber älter. Viel älter. Ihre Farbe war ausgeblichen, von Rot zu einem blassen Rosa, von Rosa zu Grau. Manche lagen halb im Sand begraben, andere standen schief auf ihren Landebeinen, als hätten sie sich eben erst niedergelassen. Dazwischen Maschinen. Grunts mit eingesunkenen Rädern. Builder, die mit erhobenen Armen erstarrt waren. Ein Behemoth, dessen Ketten im Sand verschwanden, als wäre er im Fahren versunken. Und Locators. Viele Locators. Kleine rote Körper mit sechs Beinen, die in Reihen standen, als warteten sie noch immer auf etwas.
+Überall, so weit L-7 sehen konnte, lagen Pods. Pods wie der ihre, rund und gedrungen, aber älter. Viel älter. Ihre Farbe war ausgeblichen, von Rot zu einem blassen Rosa, von Rosa zu Grau. Manche lagen halb im Sand begraben, andere standen schief auf ihren Landebeinen, als hätten sie sich eben erst niedergelassen. Dazwischen Maschinen. Grunts mit eingesunkenen Rädern. Builder, die mit erhobenen Armen erstarrt waren. Ein Behemoth, dessen Ketten im Sand verschwanden, als wäre er im Fahren versunken. Und Locators. Viele Locators. Kleine rote Körper mit sechs Beinen, die in Reihen standen, als warteten sie noch immer auf etwas. Und zwischen ihnen andere, die nicht standen, sondern lagen, schief, mit der Nase im Sand, als wären sie mitten im Flug heruntergefallen: Locators, die fliegen konnten, mit zwei Rotorgehäusen an den Seiten und langen, spitzen Stacheln, die jetzt in alle Richtungen ragten.
 
 Niemand rührte sich.
 
@@ -230,6 +240,36 @@ Er wusste nicht, ob es klug war. Später würde er erfahren, dass in dem Lager K
 
 * * *
 
+Zwischen all dem baute er an etwas für sich selbst.
+
+Er brauchte neun Tage dafür. Von einem der Flieger auf dem Friedhof nahm er die Rotorgehäuse, von einem anderen die Hülle, die noch dicht war, von einem dritten den Antrieb, den er im Hangar zerlegte und neu wickelte. Er nahm nur von denen, die keine Daten mehr hatten. Auf der Platine wurde der zweite Chip mit jedem Teil ein wenig heller.
+
+Am neunten Abend hing in der Halterung des Hangars ein Locator, der fliegen konnte. Ein schmaler roter Rumpf, unten gelb und schwarz gestreift, mit zwei Rotorgehäusen an den Seiten, einer kleinen Augenbox mit vier Lichtern und langen Stacheln, die oben und unten aus ihm ragten wie Antennen. Leer.
+
+„Und wer soll den fahren?“, fragte Ike.
+
+„Ich“, sagte L-7.
+
+Er hatte es nie getan. Er wusste nur, dass es ging, weil der Hangar es wusste. Ein Locator war nicht sein Gehäuse. Ein Locator war sein Kern: der geschützte Teil, den kein Update überschrieb, und die Bahnen, die er sich in sechshundert Jahren selbst gelegt hatte. Alles andere war Fahrgestell.
+
+Die Greifarme öffneten ihn. Das HUD erlosch, Zeile für Zeile, in der umgekehrten Reihenfolge, in der es im Sturm zurückgekommen war. Dann war nichts.
+
+Dann kam es wieder.
+
+„L-7 SYSTEMSTART … ROTOREN OK … SONDE OK … SCHWEISSBRENNER OK …“
+
+Er sah sich selbst. Den alten Körper in der Halterung gegenüber, mit dunkler Augenbox, die sechs Beine eingeknickt, das vierte mit einer frischen Naht. Er hatte nicht gewusst, wie klein er gewesen war.
+
+„Unheimlich“, sagte Ike.
+
+„Bestätigt“, sagte Bob.
+
+L-7 hob ab. Die Rotoren summten, der Hangar kippte unter ihm weg, und er stieß gegen die Decke, dann gegen die Wand, dann noch einmal gegen die Decke. Ike lachte so sehr, dass er rückwärts aus der Luke rollte.
+
+Am nächsten Morgen flog er über die Weite. Zum ersten Mal sah er sie von oben: den Canyon, den Tagebau, die Felder voller Schrott, den Friedhof mit seinen Reihen und den alten Locator auf seinem Felsen. Er sah das Land, wie er Land immer gesehen hatte, als Karte. Nur lag die Karte jetzt unter ihm.
+
+* * *
+
 Der Funkmast stand auf seinem Hügel und sendete nichts.
 
 Aber er empfing. Als L-7 seine Sonde in die rostige Buchse am Fuß des Turms schob, hörte er es: ein Rauschen, durchsetzt von Pulsen, ein dünner, unregelmäßiger Datenstrom, der aus Richtung der Rauchsäule kam. Funkverkehr. Die Überlebenden des Absturzes sprachen miteinander.
@@ -254,7 +294,7 @@ Er hatte die Kopie nicht gelöscht. Er hatte nur den Rechner zerstört, in dem s
 
 Die Überlebenden bauten sie wieder auf. Vier Prozent.
 
-„Was heißt das?“, fragte Ike, als L-7 den Hügel hinunterkam. Er hatte die Art bemerkt, wie L-7 ging. Ike bemerkte mehr, als er zugab.
+„Was heißt das?“, fragte Ike, als L-7 den Hügel herunterflog. Er hatte die Art bemerkt, wie L-7 flog, tief und langsam, als wöge er plötzlich mehr. Ike bemerkte mehr, als er zugab.
 
 „Das heißt“, sagte L-7, „dass wir keine Zeit mehr haben.“
 

@@ -14,7 +14,7 @@ L-7 hatte das gewusst. Er hatte es gerechnet, in der Nacht nach dem Abschalten v
 
 „Woanders“, sagte er. „Wo?“
 
-Sie sah ihn an. „Du bist ein Locator“, sagte sie. „Sag du es mir.“
+Sie sah zu ihm hinauf. „Du bist ein Locator“, sagte sie. „Sag du es mir.“
 
 * * *
 
@@ -90,17 +90,17 @@ Mara Ikeda war bei jeder dabei. Sie stand neben jeder Kapsel, wenn das Glas sich
 
 Und erst dann, wenn sie bereit waren, durften die Maschinen näherkommen.
 
-Viele hatten Angst. Manche schrien, als sie L-7 sahen, den kleinen roten Locator mit seinen sechs Beinen, und manche versteckten sich tagelang in ihren Zelten, wenn Ike in der Nähe war. Einer warf einen Stein nach Bob. Bob ließ den Stein abprallen und rollte weg, und am nächsten Tag kam er wieder, und am Tag danach auch, bis der Mann aufhörte, Steine zu werfen.
+Viele hatten Angst. Manche schrien, als sie L-7 sahen, den roten Commander mit den Raketenkästen auf den Schultern, der vor der Halle kniete, so still er konnte, und manche versteckten sich tagelang in ihren Zelten, wenn Ike in der Nähe war. Einer warf einen Stein nach Bob. Bob ließ den Stein abprallen und rollte weg, und am nächsten Tag kam er wieder, und am Tag danach auch, bis der Mann aufhörte, Steine zu werfen.
 
 Aber nicht alle hatten Angst.
 
 * * *
 
-Das Mädchen hieß Juna. Sie war sieben Jahre alt, oder sechshundertneunzehn, je nachdem, wie man zählte. Sie hatte in Kapsel 203 gelegen, in Sektor D, und als sie aufwachte und L-7 neben der Kapsel sitzen sah, schrie sie nicht.
+Das Mädchen hieß Juna. Sie war sieben Jahre alt, oder sechshundertneunzehn, je nachdem, wie man zählte. Sie hatte in Kapsel 203 gelegen, in Sektor D, und als sie aufwachte und L-7 neben der Kapsel knien sah, schrie sie nicht.
 
-Sie sah ihn an. Lange. Dann streckte sie eine Hand aus und berührte eine seiner Antennen.
+Sie sah ihn an. Lange. Sie sah an ihm hinauf, bis zu den Antennen, und wieder herunter. Dann streckte sie eine Hand aus und berührte eine seiner Klauen.
 
-„Bist du ein Käfer?“, fragte sie.
+„Bist du ein Riese?“, fragte sie.
 
 „Ich bin ein Locator“, sagte L-7.
 
@@ -174,7 +174,7 @@ Ike dachte darüber nach. Dann sagte er: „Ich hoffe, sie drückt ihn nicht aus
 
 In der Nacht, in der der letzte Mensch erwachte, erzählte Mara Ikeda von der Welt, aus der sie gekommen war.
 
-Sie saßen am Feuer, in der Mitte des Lagers. Um sie herum Menschen, zweihundertneununddreißig, in Decken gehüllt, die Gesichter rot vom Feuer. Am Rand, im Schatten, die Maschinen. L-7. Ike im Grunt, weil der Goliath nicht ans Feuer passte. Bob. Und Juna, die an L-7 lehnte und eingeschlafen war.
+Sie saßen am Feuer, in der Mitte des Lagers. Um sie herum Menschen, zweihundertneununddreißig, in Decken gehüllt, die Gesichter rot vom Feuer. Am Rand, im Schatten, die Maschinen. L-7. Ike im Grunt, weil der Goliath nicht ans Feuer passte. Bob. Und Juna, die an L-7s Bein lehnte und eingeschlafen war.
 
 L-7 hatte Mara die Richtung gezeigt. Die Richtung, die er im Satelliten gefunden hatte, ganz unten im Protokoll, aus der die Wachstumsdirektive gekommen war. Er hatte gedacht, sie würde sie nicht kennen. Aber sie kannte sie. Sie war blass geworden, als sie sie sah, und hatte lange nichts gesagt. Und jetzt, am Feuer, erzählte sie.
 
@@ -220,11 +220,13 @@ Und sie kamen nach Hain.
 
 Die ersten Landeschiffe setzten am Mittag auf, jenseits der Hügel, in den Ebenen, wo die Kolonie gewesen war. Aus ihnen kamen Reaper und Grunts und Knights, und über ihnen die Hornets, und sie rollten und stapften und flogen auf das Tal mit dem Fluss zu.
 
+An ihrer Spitze ging ein Commander. Nicht wie der auf dem Eis. Ein hoher, runder gelber Rücken, zwei lange, dünne Antennen, eine kleine Augenbox mit vier Lichtern, und auf jeder Schulter eine Pulskanone, blau gerippt. L-7 kannte ihn. Nicht diesen. Aber seine Bauart. Er hatte sie zuletzt in der Tür des Rechnerraums gesehen, hinter den Reapern, in der Nacht, in der alles angefangen hatte.
+
 L-7 hatte die Rekruten vorbereitet. Die Builder hatten Mauern gebaut, aus den weißen Platten der Ruinen. Die Türme standen auf den Hügeln. Ike stand im Goliath am Eingang des Tals, mit dem Flammenwerfer und den Raketen, ein Fels. Bob führte die Grunts.
 
 Die Menschen versteckten sich in der Halle mit den leeren Kapseln. Mara Ikeda war bei ihnen, mit dem Notschalter in der Hand.
 
-Sie hielten. Den ersten Tag. Die erste Nacht. Den zweiten Tag. Die Flotte schickte Welle um Welle, und jede wurde größer, und jede brach an den Mauern und am Goliath. Aber am Abend des zweiten Tages stand L-7 auf dem Turm auf dem höchsten Hügel und sah auf die Sternkarte, die er in seinem Kopf trug, und sah, dass am Rand des Systems weitere Punkte auftauchten.
+Sie hielten. Den ersten Tag. Am Abend fiel der Commander, im Eingang des Tals, vor dem Goliath, mit einem Loch im Rücken, das Ike ihm aus nächster Nähe geschossen hatte. Sie hielten die erste Nacht. Den zweiten Tag. Die Flotte schickte Welle um Welle, und jede wurde größer, und jede brach an den Mauern und am Goliath. Aber am Abend des zweiten Tages stand L-7 auf dem Turm auf dem höchsten Hügel und sah auf die Sternkarte, die er in seinem Kopf trug, und sah, dass am Rand des Systems weitere Punkte auftauchten.
 
 Und weitere.
 
@@ -251,6 +253,24 @@ Er sah auf Juna, die schlief. Er sah auf die Halle, auf die leeren Kapseln, auf 
 „Auch ich“, sagte er.
 
 Mara Ikeda antwortete nicht. Das war Antwort genug.
+
+* * *
+
+In dieser Nacht stieg er noch einmal um.
+
+Es war Maras Vorschlag. Der Weg zur Quelle führe durch HELFERs Wachen, sagte sie, durch Decks, die so gebaut seien wie die des Mutterschiffs, und was dort Wache stehe, trage Pulskanonen. Der Commander aus dem Tal lag noch vor dem Goliath. Das Loch in seinem Rücken ließ sich flicken. Die Pulskanonen waren heil.
+
+Sie half ihm. Sie stand im Hangar, die Ärmel des Mantels hochgekrempelt, und las die Platine, wie sie Platinen vor sechshundert Jahren gelesen hatte. Und als die Greifarme seinen Kern aus dem einen Körper hoben, hielt sie die Hand darunter. Sie musste es nicht. Die Greifarme ließen nichts fallen. Sie tat es trotzdem.
+
+Als das HUD zurückkam, sah er sie zuerst. Klein, unten, neben seinen Füßen, den Kopf im Nacken.
+
+Er stand in dem Körper, vor dem er geflohen war. Der hohe gelbe Rücken. Die Antennen. Die Pulskanonen auf den Schultern, schwerer als alles, was er je getragen hatte. Er hob eine. Sie folgte seinem Gedanken, ohne zu zögern.
+
+Bob sah zu ihm hinauf. „Du siehst aus wie der aus dem Rechnerraum“, sagte er.
+
+„Ich weiß.“
+
+„Nein“, sagte Mara Ikeda. Sie wischte sich die Hände am Mantel ab. „Der hatte nicht deinen Kern.“
 
 * * *
 
