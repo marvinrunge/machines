@@ -26,9 +26,19 @@ public partial class ActorView : Node3D
 
     /// <summary>
     /// On a ship deck (the story's), whether a machine's lamp may shine, by its actor's id: the rows of switched-off machines
-    /// stay dark however dark it is (Game.StoryLamp). Null in every other match, where the lamps follow the dark alone.
+    /// stay dark however dark it is, and a hero's Lamp key switches its own (the sim's, GameWorld.StoryLampOn). Null in
+    /// every other match, where the lamps follow the dark alone.
     /// </summary>
     public static Func<int, bool>? LampAllowed { get; set; }
+
+    /// <summary>
+    /// On a ship deck, whether a machine carries a searchlight (the Thresher, GameWorld.StorySight): its lamp is a long,
+    /// narrow, shadowed beam carried level ahead, the cone the sim sees by. Null in every other match.
+    /// </summary>
+    public static Func<int, bool>? Searchlight { get; set; }
+
+    // Whether this view's lamp was made a searchlight.
+    private bool _searchlight;
 
     /// <summary>The race the view was built for; a view is rebuilt when its actor changes sides.</summary>
     public Race Race { get; private set; }
@@ -172,14 +182,33 @@ public partial class ActorView : Node3D
         var heading = _yaw - UpperBodyNow;
         var ahead = new Vector3(Mathf.Cos(heading), 0, -Mathf.Sin(heading));
         var eye = _rigView?.Eye ?? GlobalTransform * new Vector3(Mathf.Max(0.5f, _fore), 1.6f, 0);
-        // Tipped down so the light lands about ten metres ahead, however high the eyes stand.
-        var tilt = Mathf.Clamp(Mathf.Atan2(eye.Y - GlobalPosition.Y, BeamReach), 0.1f, 0.6f);
+        // Tipped down so the light lands about ten metres ahead, however high the eyes stand; a searchlight's much further.
+        var tilt = _searchlight
+            ? Mathf.Clamp(Mathf.Atan2(eye.Y - GlobalPosition.Y, SearchlightReach), 0.03f, 0.3f)
+            : Mathf.Clamp(Mathf.Atan2(eye.Y - GlobalPosition.Y, BeamReach), 0.1f, 0.6f);
         var along = (ahead * Mathf.Cos(tilt) + Vector3.Down * Mathf.Sin(tilt)).Normalized();
         beam.GlobalTransform = new Transform3D(Basis.LookingAt(along, Vector3.Up), eye + ahead * 0.15f);
     }
 
     /// <summary>How far ahead the middle of the headlight's cone meets the ground, metres.</summary>
     private const float BeamReach = 10;
+
+    /// <summary>A searchlight's: where the middle of its cone meets the ground, and how far it lights (the sim's beam is 40 m, StorySight.BeamLength).</summary>
+    private const float SearchlightReach = 28, SearchlightRange = 46;
+
+    /// <summary>Makes the lamp the searchlight the sim sees by: narrower (the sim's 25° either way), longer, brighter, and stopped by the deck's walls.</summary>
+    private void MakeSearchlight(SpotLight3D beam)
+    {
+        _searchlight = true;
+        beam.SpotRange = SearchlightRange;
+        beam.SpotAngle = 25;
+        beam.SpotAngleAttenuation = 0.8f;
+        beam.SpotAttenuation = 0.3f;
+        beam.ShadowEnabled = true;
+        beam.LightColor = new Color(0.85f, 0.92f, 1f);
+        beam.LightVolumetricFogEnergy = 0.8f;
+        _lampEnergy = 30;
+    }
 
     /// <summary>The Gorilla's punch: one of its two plans, picked at random as the original did (MachPhysPunchWeapon).</summary>
     public void Punch() => Play(Random.Shared.Next(2) == 0 ? "punchA" : "punchB");
@@ -1095,6 +1124,8 @@ public partial class ActorView : Node3D
         Smoke();
         if (_lamp is not null)
         {
+            if (!_searchlight && _lamp is SpotLight3D searching && Searchlight?.Invoke(ActorId) == true)
+                MakeSearchlight(searching);
             _lamp.Visible = Visible && PlanetLook.Dark > 0.05f && (LampAllowed?.Invoke(ActorId) ?? true);
             _lamp.LightEnergy = PlanetLook.Dark * _lampEnergy;
             if (_lamp.Visible && _lamp is SpotLight3D beam)

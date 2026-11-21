@@ -190,10 +190,17 @@ public sealed record StoryReadout
 
     /// <summary>
     /// How loud and visible a hero is: still and dark it is all but gone, moving it shows by its speed (half that, creeping),
-    /// and just after a shot it is plain. A stand-in until the sim keeps a hero's signature of its own (plan WP-D), which
-    /// adds the lamp, the scanner's pulse and the Grunts' wheels.
+    /// and just after a shot it is plain. The sim's own signature (GameWorld.StorySignature, by which the seekers hear and
+    /// see it) adds the lamp, the scanner's pulse, a hack's alarm and the Grunts' wheels; the meter shows the higher of the
+    /// two, so it answers the stick at once and the rest as the sim has it.
     /// </summary>
     public static float SignatureOf(GameWorld world, PlayerId player, Machine hero)
+    {
+        var level = MathF.Max(InputSignature(world, player, hero), world.StorySignature(hero.Id));
+        return Math.Clamp(level, 0, 1);
+    }
+
+    private static float InputSignature(GameWorld world, PlayerId player, Machine hero)
     {
         var level = 0.05f;
         if (world.DriveInput.TryGetValue(hero.Id, out var drive))

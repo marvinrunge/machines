@@ -25,8 +25,10 @@ public partial class Game
         PlanetLook.Interior = deck is not null;
         // Occlusion culling only pays where walls hide most of the world; on open ground it would only cost.
         GetViewport().UseOcclusionCulling = deck is not null;
-        ActorView.LampAllowed = deck is null ? null : StoryLamp;
-        _clampSpots = deck is null ? [] : [.. deck.Markers.Where(m => m.Tags.Contains("clamp")).Select(m => m.Position)];
+        // Whose lamp shines and who carries a searchlight is the sim's (GameWorld.StorySight): every client shows the same.
+        ActorView.LampAllowed = deck is null ? null : World.StoryLampOn;
+        ActorView.Searchlight = deck is null ? null : id => World.StorySeekerOf(id)?.Searchlight == true;
+        _deckLights.Clear();
         if (deck is null)
             return TerrainBuilder.Build(World.Planet, HeightField.Current!, map, _assets.PlanetTerrain(request.Planet));
         _deckView = DeckView.Build(deck);
@@ -80,24 +82,38 @@ public partial class Game
         return root;
     }
 
-    // Where the deck's clamps hold their machines.
-    private System.Numerics.Vector2[] _clampSpots = [];
+    // How the sim had each light group when the view last followed it.
+    private readonly Dictionary<string, string> _deckLights = new(StringComparer.Ordinal);
 
     /// <summary>
-    /// Whether a machine's lamp may shine in a story: not while it hangs switched off in a clamp (the dark rows of the
-    /// maintenance decks, Ike and Bob before they are woken), the Locator's always. Until the sim keeps each machine's lamp
-    /// (plan WP-D, StoryLampCommand) this is the view's rule; the director's lamp state is to take its place here.
+    /// Each frame of a match on a deck: the deck's light groups follow the sim's (GameWorld.StoryLightState, which the director
+    /// switches), a group only when the sim changed it, so what a cutscene's words lit in the view (DeckHears) stays until
+    /// then. The machines' lamps follow the sim by themselves (ActorView.LampAllowed). And the stealth check, if asked.
     /// </summary>
-    private bool StoryLamp(int id)
+    private void FollowDeck(double delta)
     {
-        if (World.Find(id) is not Machine machine)
-            return true;
-        if (World.Story is { Seats.Count: > 0 } story && World.HeroOf(story.Locator)?.Id == id)
-            return true;
-        var at = machine.Position;
-        foreach (var spot in _clampSpots)
-            if (System.Numerics.Vector2.DistanceSquared(spot, at) < 1.5f * 1.5f)
-                return false;
-        return true;
+        if (_deckView is null || World.Deck is not { } deck)
+            return;
+        foreach (var light in deck.Lights)
+        {
+            if (World.StoryLightState(light.Name) is not { } state)
+                continue;
+            if (!_deckLights.TryGetValue(light.Name, out var shown))
+                _deckLights[light.Name] = shown = light.State;
+            if (shown == state)
+                continue;
+            _deckLights[light.Name] = state;
+            _deckView.SetLights(light.Name, state);
+        }
+        SightTestIfAsked(delta);
+    }
+
+    /// <summary>A hero's Lamp key in the story: switches its lamp, the sim's (StoryLampCommand), with the switch's click.</summary>
+    private void SwitchStoryLamp()
+    {
+        if (World.Story is null || RefusesOrders() || World.HeroOf(Me) is null)
+            return;
+        Issue(new Machines.Sim.Story.StoryLampCommand(Player));
+        _audio.PlayGui("gui/sounds/igclick.wav");
     }
 }

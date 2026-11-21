@@ -52,6 +52,9 @@ public sealed class StoryRun(StoryOptions options)
     /// <summary>The chapter's hacks: what can be hacked, the boards under way, what is done (<see cref="HackDesk"/>).</summary>
     public HackDesk Hacks { get; } = new();
 
+    /// <summary>The chapter's stealth: the ship's seekers and their suspicion, the heroes' signatures, lamps and lights (<see cref="StorySight"/>).</summary>
+    public StorySight Sight { get; } = new();
+
     /// <summary>A fingerprint of the run for the world's checksum.</summary>
     public long Fingerprint()
     {
@@ -73,6 +76,7 @@ public sealed class StoryRun(StoryOptions options)
             hash.Mix(BitConverter.SingleToInt32Bits(at));
         }
         hash.Mix(Hacks.Fingerprint());
+        hash.Mix(Sight.Fingerprint());
         return hash.Value;
     }
 }

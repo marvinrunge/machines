@@ -50,8 +50,9 @@ public partial class Game
 
     /// <summary>
     /// The keys of a chapter, driving or down: the Locator tells its Grunts to follow, wait or distract, sends out its
-    /// scanner's pulse (the chassis' special), and dashes or uses an ability where its chassis has one. None of Wired's squad
-    /// orders and no hangar: the story has neither (GameWorld.Borrowed). Hacking and using are the hack's key (HackHost).
+    /// scanner's pulse (the chassis' special), switches its lamp (any hero of the trio), and dashes or uses an ability where
+    /// its chassis has one. None of Wired's squad orders and no hangar: the story has neither (GameWorld.Borrowed). Hacking
+    /// and using are the hack's key (HackHost).
     /// </summary>
     private void StoryInput(Godot.InputEvent @event)
     {
@@ -63,6 +64,8 @@ public partial class Game
             GruntOrder(KeyMap.Act.GruntDistract);
         else if (KeyMap.Is(@event, KeyMap.Act.Scan))
             UseSpecial();
+        else if (KeyMap.Is(@event, KeyMap.Act.Light))
+            SwitchStoryLamp();
         else if (KeyMap.Is(@event, KeyMap.Act.Ability1))
             UseAbility(0);
         else if (KeyMap.Is(@event, KeyMap.Act.Ability2))
