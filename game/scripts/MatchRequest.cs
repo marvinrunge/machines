@@ -143,7 +143,10 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
         var parts = setting.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         var chapter = parts.Length > 0 ? parts[0] : StoryOptions.Prologue;
         var checkpoint = parts.Length > 1 && int.TryParse(parts[1], out var number) ? Math.Max(0, number) : 0;
-        return ForStory(new StoryOptions { Chapter = chapter, Checkpoint = checkpoint });
+        // The checks of the sight and the companions set their own scene up: the chapter without its director's script.
+        static bool Asked(string name) => System.Environment.GetEnvironmentVariable(name) is { Length: > 0 } value && value != "0";
+        var unscripted = Asked("MACHINES_STORY_SIGHT_TEST") || Asked("MACHINES_STORY_COMPANION_TEST");
+        return ForStory(new StoryOptions { Chapter = chapter, Checkpoint = checkpoint, Unscripted = unscripted });
     }
 
     /// <summary>

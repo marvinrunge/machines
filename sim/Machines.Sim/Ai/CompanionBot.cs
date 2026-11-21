@@ -75,7 +75,11 @@ public sealed class CompanionBot(GameWorld world, PlayerId seat)
             return;
         if (companion.RamReadyAt <= world.Tick && world.CompanionFoe(run, grunt, FightReach) is { } foe)
         {
-            world.CompanionMove(grunt, foe.Position);
+            // To within its ram's reach on this side of the foe, not onto it: a foe that hunts is on the move, and one heading
+            // onto a machine that moves waits for it to get out of the way (GameWorld.HeldUp).
+            var away = grunt.Position - foe.Position;
+            var reach = GameWorld.RamDistance(grunt, foe) - 0.5f;
+            world.CompanionMove(grunt, away.LengthSquared() > reach * reach ? foe.Position + Vector2.Normalize(away) * reach : grunt.Position);
             return;
         }
         world.CarryOut(run, companion, grunt);

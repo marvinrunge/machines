@@ -31,7 +31,7 @@ public class CompanionTests
             new PlayerSeat(Locator, Race.Red, PlayerKind.Human, "Host"),
             new PlayerSeat(Ike, Race.Red, ike, ike == PlayerKind.Human ? "Anna" : "Ike"),
             new PlayerSeat(Bob, Race.Red, bob, bob == PlayerKind.Human ? "Ben" : "Bob"),
-            new PlayerSeat(PlayerId.Of(Race.Blue), Race.Blue, PlayerKind.Ai, "Ship")]), seed, new MatchOptions { Story = new StoryOptions(), FogOfWar = false });
+            new PlayerSeat(PlayerId.Of(Race.Blue), Race.Blue, PlayerKind.Ai, "Ship")]), seed, new MatchOptions { Story = new StoryOptions { Unscripted = true }, FogOfWar = false });
 
     private static void Run(GameWorld world, float seconds)
     {

@@ -633,8 +633,8 @@ public static class Then
 
     /// <summary>
     /// A Grunt hacked awake: no longer dormant (<see cref="GameWorld.SetCompanionDormant"/>, which says its waking bark and
-    /// sets it to follow; the companions wake it by its terminal's hack already) nor held. The computer's companion
-    /// (<see cref="Ai.CompanionBot"/>) then keeps it with the Locator.
+    /// sets it to follow; the companions wake it by its terminal's hack already) nor held; the computer's Grunt follows the
+    /// Locator at once, and its companion (<see cref="Ai.CompanionBot"/>) keeps it with the Locator from then on.
     /// </summary>
     public sealed record Wake(int Seat) : StoryAction
     {
@@ -644,8 +644,12 @@ public static class Then
                 return;
             var seat = run.Seats[Seat];
             world.SetCompanionDormant(seat, false);
-            if (world.HeroOf(seat) is { } grunt)
-                director.Held.Remove(grunt.Id);
+            if (world.HeroOf(seat) is not { } grunt)
+                return;
+            director.Held.Remove(grunt.Id);
+            // At once, as the computer's companion would at its next look (CompanionBot follows by a FollowOrder too).
+            if (world.StoryBotPlays(seat) && world.HeroOf(run.Locator) is { } locator)
+                world.SendForStory(grunt, new FollowOrder(locator.Id), locator.Position);
         }
     }
 

@@ -23,7 +23,7 @@ public class StorySightTests
     private static GameWorld Prologue(int seed = 3) =>
         MatchSetup.Create(Data, StoryOptions.Prologue, StoryOptions.Prologue,
             new Dictionary<Race, Controller> { [Race.Red] = Controller.Player, [Race.Blue] = Controller.Ai }, seed,
-            new MatchOptions { Story = new StoryOptions(), FogOfWar = false });
+            new MatchOptions { Story = new StoryOptions { Unscripted = true }, FogOfWar = false });
 
     private static Machine Locator(GameWorld world) => world.HeroOf(world.Story!.Locator)!;
 

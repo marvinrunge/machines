@@ -45,7 +45,8 @@ public sealed partial class GameWorld
         SettleStorySeats(run);
         // The director sets the world up for the checkpoint the chapter starts from (StoryDirector, StoryScripts).
         run.Director.LearnTypes(Artefacts);
-        StoryScripts.SetUp(this, run);
+        if (!run.Options.Unscripted)
+            StoryScripts.SetUp(this, run);
     }
 
     /// <summary>A tick of the story: the sight, the hacks, the companions, then the director and its script (<see cref="StoryDirector"/>).</summary>

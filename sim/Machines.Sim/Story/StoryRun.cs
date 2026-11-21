@@ -72,7 +72,7 @@ public sealed class StoryRun(StoryOptions options)
     public IReadOnlyList<StoryBark> Barks => Crew.Barks;
 
     /// <summary>The chapter's director: its script and what it keeps between ticks (<see cref="StoryDirector"/>).</summary>
-    public StoryDirector Director { get; } = new(StoryScripts.Of(options.Chapter));
+    public StoryDirector Director { get; } = new(options.Unscripted ? [] : StoryScripts.Of(options.Chapter));
 
     /// <summary>A fingerprint of the run for the world's checksum.</summary>
     public long Fingerprint()

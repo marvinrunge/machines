@@ -29,6 +29,12 @@ public sealed record StoryOptions
 
     /// <summary>The ship's race: every machine that hunts the trio.</summary>
     public Race Ship { get; init; } = Race.Blue;
+
+    /// <summary>
+    /// The chapter without its director's script (tests of the sight and the companions, and checks that set their own scene
+    /// up): the trio awake and free at its spawns, nothing of the ship's set down, no beats.
+    /// </summary>
+    public bool Unscripted { get; init; }
 }
 
 /// <summary>
