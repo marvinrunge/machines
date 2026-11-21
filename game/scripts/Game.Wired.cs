@@ -256,8 +256,8 @@ public partial class Game
     /// </summary>
     private bool KeptInFirstPerson => World.Wired is { Phase: not WiredPhase.Ended } && World.Battle is not { Over: true } && !MatchOver && !Watching;
 
-    /// <summary>A screen over first person, the hangar's or the menus': behind it the hero stands, and the mouse does not look.</summary>
-    private bool ScreenOver => HangarOpen || MenuShown is not null;
+    /// <summary>A screen over first person, the hangar's, the menus' or a hack's: behind it the hero stands, and the mouse does not look.</summary>
+    private bool ScreenOver => HangarOpen || MenuShown is not null || HackShown;
 
     /// <summary>While the hero is down, the view has nothing to steer: Esc opens the menus (in a run) or leaves.</summary>
     private void DownInput(InputEvent @event)

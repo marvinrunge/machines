@@ -83,6 +83,12 @@ public partial class MenuScreens : Control
             AddChild(new HeroStudio(heroShot, heroes));
             return;
         }
+        // MACHINES_HACK_SHOT=<png>,<kind>,<seed>[,<turns>] pictures a hack's board (see HackShot) and quits.
+        if (Setting("MACHINES_HACK_SHOT")?.Split(',', StringSplitOptions.TrimEntries) is [var hackShot, var hackKind, var hackSeed, .. var hackTurns])
+        {
+            AddChild(new HackShot(hackShot, hackKind, int.Parse(hackSeed), hackTurns.Length > 0 ? int.Parse(hackTurns[0]) : null));
+            return;
+        }
 
         _assets = new ClassicAssets(Paths.Root);
         var stringsPath = System.IO.Path.Combine(Paths.OriginalData, "machstrg.xml");

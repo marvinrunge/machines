@@ -43,6 +43,9 @@ public sealed class StoryRun(StoryOptions options)
 
     public bool Over => Ending is not null;
 
+    /// <summary>The chapter's hacks: what can be hacked, the boards under way, what is done (<see cref="HackDesk"/>).</summary>
+    public HackDesk Hacks { get; } = new();
+
     /// <summary>A fingerprint of the run for the world's checksum.</summary>
     public long Fingerprint()
     {
@@ -60,6 +63,7 @@ public sealed class StoryRun(StoryOptions options)
             hash.Mix(name);
             hash.Mix(BitConverter.SingleToInt32Bits(at));
         }
+        hash.Mix(Hacks.Fingerprint());
         return hash.Value;
     }
 }
