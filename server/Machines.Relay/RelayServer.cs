@@ -25,10 +25,10 @@ namespace Machines.Relay;
 /// socket (see <see cref="Connection"/>): its seat waits for it, and the match never notices. One thread of the relay's own
 /// closes the bundles of every room when they are due (<see cref="Beat"/>).
 /// </remarks>
-public sealed class RelayServer : IAsyncDisposable
+public sealed partial class RelayServer : IAsyncDisposable
 {
     /// <summary>The relay's version, told to every client in its <see cref="Welcome"/> and shown by /health. Raise it when the relay changes.</summary>
-    public const string Version = "1.2";
+    public const string Version = "1.3";
 
     /// <summary>How long a new socket may stay silent before its first message.</summary>
     private static readonly TimeSpan FirstMessage = TimeSpan.FromSeconds(30);
@@ -259,7 +259,7 @@ public sealed class RelayServer : IAsyncDisposable
                     break;
                 }
                 Leave(member);
-                var room = new Room(_nextRoom++, AsBattle(create), member.Id);
+                var room = new Room(_nextRoom++, AsStory(AsBattle(create)), member.Id);
                 _rooms[room.Id] = room;
                 Join(member, room);
                 break;
@@ -317,8 +317,8 @@ public sealed class RelayServer : IAsyncDisposable
                     SendTo(member, new Refused("only the host changes the seats"));
                 else if (seat.Seat >= 0 && seat.Seat < room.Seats.Count && room.Seats[seat.Seat].Member != member)
                 {
-                    // A battle has a hero for every seat of its teams: a seat nobody plays is the computer's.
-                    room.Seats[seat.Seat].Use = room.Setup.Options.Battle is not null && seat.Use == SeatUse.Closed ? SeatUse.Computer : seat.Use;
+                    // A battle has a hero for every seat of its teams, a story for each of its three: a seat nobody plays is the computer's.
+                    room.Seats[seat.Seat].Use = HeroesEverySeat(room.Setup.Options) && seat.Use == SeatUse.Closed ? SeatUse.Computer : seat.Use;
                     if (room.Seats[seat.Seat].Member is { } sitting)
                         TakeOut(sitting, room);
                     else
@@ -329,6 +329,8 @@ public sealed class RelayServer : IAsyncDisposable
             case TakeSeat take when member.Room is { Match: null } room:
                 if (take.Seat < 0 || take.Seat >= room.Seats.Count)
                     SendTo(member, new Refused("no such seat"));
+                else if (WhyNotStorySeat(room, member, take.Seat) is { } notThere)
+                    SendTo(member, new Refused(notThere));
                 else if (room.Seats[take.Seat].Member != member)
                 {
                     if (!room.Seats[take.Seat].IsFree)
@@ -348,7 +350,7 @@ public sealed class RelayServer : IAsyncDisposable
                     SendTo(member, new Refused(why));
                 else
                 {
-                    foreach (var removed in room.Change(AsBattle(change)))
+                    foreach (var removed in room.Change(AsStory(AsBattle(change))))
                         TakeOut(removed, room);
                     Broadcast(room, room.State());
                 }
@@ -473,7 +475,12 @@ public sealed class RelayServer : IAsyncDisposable
         if (room.Match is null)
         {
             if (room.HostId == member.Id)
+            {
                 room.HostId = room.Members[0].Id;
+                // In a story room the host is the Locator: the new host moves to its seat.
+                if (room.Setup.Options.IsStory)
+                    Sit(room, room.Members[0], room.Seats[0], keepColour: true);
+            }
             Broadcast(room, room.State());
         }
     }
@@ -565,8 +572,10 @@ public sealed class RelayServer : IAsyncDisposable
     /// </summary>
     private void JoinLate(Member member, Room room, JoinRoom join)
     {
-        // A member of the match itself comes back to it by RejoinMatch.
-        if (room.Match!.Options.Battle is not { } battle || member.Room == room)
+        // A member of the match itself comes back to it by RejoinMatch. A story takes joiners as a battle does, into a Grunt's seat.
+        var battle = room.Match!.Options.Battle;
+        var what = battle is null ? "story" : "battle";
+        if (battle is null && !room.Match.Options.IsStory || member.Room == room)
         {
             SendTo(member, new Refused("that match has already started"));
             return;
@@ -580,7 +589,7 @@ public sealed class RelayServer : IAsyncDisposable
         }
         if (Joinable(room) == 0)
         {
-            SendTo(member, new Refused("no seat to join in that battle"));
+            SendTo(member, new Refused($"no seat to join in that {what}"));
             return;
         }
         var beat = room.Beat!;
@@ -603,16 +612,16 @@ public sealed class RelayServer : IAsyncDisposable
         // resyncs, and out.
         if (room.Match.Terrain is { } ground && join.Terrain != ground)
         {
-            SendTo(member, new Refused("your game's ground differs from that battle's"));
+            SendTo(member, new Refused($"your game's ground differs from that {what}'s"));
             return;
         }
         if (member.Room is not null)
             Leave(member);
         // Leaving its own seat may have changed the seats (a joiner joining again), or dropped the room it was the last of.
-        var player = named is { } seat && beat.Seat(seat)?.State == SeatState.Bot ? seat : named is null ? JoinSeat(room, battle) : null;
+        var player = named is { } seat && beat.Seat(seat)?.State == SeatState.Bot ? seat : named is null ? (battle is null ? StoryJoinSeat(room) : JoinSeat(room, battle)) : null;
         if (!_rooms.ContainsKey(room.Id) || player is null)
         {
-            SendTo(member, new Refused(_rooms.ContainsKey(room.Id) ? "no seat to join in that battle" : "that match is not running"));
+            SendTo(member, new Refused(_rooms.ContainsKey(room.Id) ? $"no seat to join in that {what}" : "that match is not running"));
             return;
         }
         var key = NewKey();
@@ -639,11 +648,11 @@ public sealed class RelayServer : IAsyncDisposable
     }
 
     /// <summary>
-    /// How many seats of a running battle a player may join late (<see cref="RoomSummary.Joinable"/>): the bots' seats, while
-    /// the beat runs and the end is not agreed; none in any other room.
+    /// How many seats of a running battle or story a player may join late (<see cref="RoomSummary.Joinable"/>): the bots' seats,
+    /// while the beat runs and the end is not agreed; none in any other room.
     /// </summary>
     private static int Joinable(Room room) =>
-        room is { Match.Options.Battle: not null, Beat: { Anchor: not null, Stopped: false, DecidedAt: null } beat, Failed: false }
+        room is { Match.Options: var played, Beat: { Anchor: not null, Stopped: false, DecidedAt: null } beat, Failed: false } && HeroesEverySeat(played)
             ? beat.Seats.Count(s => s.State == SeatState.Bot)
             : 0;
 
@@ -705,6 +714,11 @@ public sealed class RelayServer : IAsyncDisposable
         if (room.Setup.Options.Battle is { } battle)
         {
             StartBattle(room, battle);
+            return;
+        }
+        if (room.Setup.Options.IsStory)
+        {
+            StartStory(room);
             return;
         }
         var rows = new List<MatchPlayer>();
@@ -794,10 +808,13 @@ public sealed class RelayServer : IAsyncDisposable
     /// <returns>
     /// Why a room cannot be opened or changed so, or null: it needs two start positions or more, each a race there is; a
     /// battle must be one the battle maps fight (<see cref="WhyNotBattle"/>); a normal room seats one or two people a race;
-    /// and no room has more than <see cref="PlayerId.MostPlayers"/> seats.
+    /// and no room has more than <see cref="PlayerId.MostPlayers"/> seats. A story room is a chapter there is and nothing
+    /// else (<see cref="WhyNotStory"/>); its seats are the story's three, whatever start positions it names.
     /// </returns>
     private static string? WhyNotRoom(string scenario, IReadOnlyList<Race> slots, MatchOptions options, int seatsPerSlot)
     {
+        if (options.IsStory)
+            return WhyNotStory(options);
         if (slots.Any(slot => !Enum.IsDefined(slot)))
             return "no such start position";
         if (slots.Distinct().Count() < 2)
@@ -1499,10 +1516,13 @@ public sealed class RelayServer : IAsyncDisposable
         /// <summary>
         /// The seats of a room: in a normal room and a battle of today's layout the start positions in race order, as many
         /// seats each as <see cref="CreateRoom.SeatsPerSlot"/> says (a battle one); in a battle with a team size the seats of
-        /// <see cref="BattleSeats.Of"/>, that many of team A's anchor, then as many of team B's.
+        /// <see cref="BattleSeats.Of"/>, that many of team A's anchor, then as many of team B's; in a story room the story's
+        /// three (<see cref="StorySeatPlan"/>).
         /// </summary>
         public static List<Seat> SeatPlan(CreateRoom setup)
         {
+            if (setup.Options.IsStory)
+                return StorySeatPlan(setup.Options);
             if (setup.Options.Battle is { } battle && BattleSeats.Size(battle) > 0)
                 return [.. BattleSeats.Of(battle).Select(s => new Seat(s.Race, s.Place, s.Player))];
             var battleRoom = setup.Options.Battle is not null;
@@ -1547,7 +1567,7 @@ public sealed class RelayServer : IAsyncDisposable
 
         public RoomSummary Summary() => new(Id, Setup.Name, Setup.Scenario, Setup.Planet, Members.Count,
             Seats.Count(s => s.Member is not null || s.Use == SeatUse.Open), Match is not null,
-            Setup.Options.Battle is null ? null : RoomSummary.Battle, Setup.Options.Battle?.Tier ?? 0, Joinable(this));
+            Setup.Options.Battle is not null ? RoomSummary.Battle : Setup.Options.IsStory ? RoomSummary.Story : null, Setup.Options.Battle?.Tier ?? 0, Joinable(this));
 
         public RoomState State() => new(Id, Setup.Name, Setup.Scenario, Setup.Planet, Setup.Slots, Setup.Options, Setup.FillWithAi, HostId,
             Members.Select(m => new LobbyPlayer(m.Id, m.RoomName, m.Colour, m.Ready, m.Terrain, m.Hero)).ToList(),
@@ -1603,7 +1623,7 @@ public sealed class RelayServer : IAsyncDisposable
             }
             foreach (var member in Members)
                 (member.Ready, member.Terrain) = (false, null);
-            if (change.Options.Battle is not null)
+            if (HeroesEverySeat(change.Options))
             {
                 foreach (var seat in Seats.Where(s => s.Use == SeatUse.Closed))
                     seat.Use = SeatUse.Computer;

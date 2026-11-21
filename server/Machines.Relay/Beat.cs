@@ -304,7 +304,7 @@ public sealed class Beat
     public Beat(BeatTimings timings, MatchInfo match, TimeSpan started)
     {
         Timings = timings;
-        Battle = match.Options.IsBattle;
+        Battle = match.Options.IsBattle || match.Options.IsStory;
         Started = started;
         Delay = Math.Clamp(timings.StartDelay, timings.MinDelay, timings.MaxDelay);
         foreach (var row in match.Table().ById.Where(r => r.Kind != PlayerKind.Ai))
@@ -314,7 +314,10 @@ public sealed class Beat
 
     public BeatTimings Timings { get; }
 
-    /// <summary>Whether the match is a battle: a rebuild there hands the hero to a bot at once; elsewhere it is held.</summary>
+    /// <summary>
+    /// Whether the match is a battle or the story: a rebuild there hands the hero to a bot at once (in the story a Grunt to the
+    /// computer's companion, the Locator to standing); elsewhere it is held.
+    /// </summary>
     public bool Battle { get; }
 
     public TimeSpan Started { get; }

@@ -41,13 +41,8 @@ public sealed partial class GameWorld
             hero.Facing = marker.Angle * MathF.PI / 180;
             state.Hero = hero.Id;
         }
-        if (HeroOf(run.Locator) is not { } locator)
-            return;
-        foreach (var bot in seats.Skip(1).Where(id => Players[id].Kind == PlayerKind.Bot))
-        {
-            if (HeroOf(bot) is { } grunt)
-                Send(grunt, new FollowOrder(locator.Id), locator.Position);
-        }
+        // The computer plays every Grunt's seat no person sits at (co-op, GameWorld.StoryCoop).
+        SettleStorySeats(run);
     }
 
     /// <summary>A tick of the story. The director (plan WP-C) will tick here; the skeleton only keeps the run.</summary>

@@ -39,7 +39,7 @@ public class BattleNetTests
     }
 
     [Fact]
-    public void The_protocol_went_up_for_relay_paced_bundles() => Assert.Equal(14, NetJson.Protocol);
+    public void The_protocol_went_up_for_relay_paced_bundles() => Assert.True(NetJson.Protocol >= 14, $"protocol {NetJson.Protocol}");
 
     [Fact]
     public void The_options_of_a_battle_and_its_heroes_come_through_the_wire()

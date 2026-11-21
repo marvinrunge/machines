@@ -143,6 +143,7 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             MenuTheme.Label("ROOMS", 26, MenuTheme.Bright),
             _rooms,
             Line(16, Button("Refresh", () => NetLink.Send(new ListRooms()), 70, 26), _join, Spring(),
+                Button("Story together", () => NetLink.Send(StoryRoom()), 70, 26),
                 Button("Open a room", () => screens.ShowSkirmish(forRoom: true), 70, 26)));
 
         _roomTitle = MenuTheme.Paragraph("", 26, MenuTheme.Bright);
@@ -442,7 +443,10 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
         screens.At(MenuTransition.Room);
         (_offline.Visible, _lobby.Visible, _room.Visible) = (false, false, true);
         var battle = state.Options.Battle;
-        _roomTitle.Text = battle is not null && BattleCatalogue.Map(state.Scenario) is { } map
+        _roomTitle.Text = state.Options.IsStory
+            ? Lang.T("{0}   ·   Story: {1}   ·   {2}/{3} players", state.Name, StoryChapterName(state.Scenario), state.Players.Count, state.Seats.Count)
+              + Lang.T(", the rest bots")
+            : battle is not null && BattleCatalogue.Map(state.Scenario) is { } map
             ? Lang.T("{0}   ·   Battle on {1}   ·   {2}   ·   {3}/{4} players", state.Name, BattlePod.MapName(map), SkirmishPage.BracketName(battle.Tier),
                 state.Players.Count, state.Seats.Count) + Lang.T(", the rest bots")
             : Lang.T("{0}   ·   {1} on {2}   ·   {3}/{4} players", state.Name, state.Scenario, state.Planet, state.Players.Count,
@@ -450,7 +454,9 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
               (state.FillWithAi ? Lang.T(", the rest AI") : "");
         _pod.Visible = battle is not null;
         ShowSeats(state);
-        _settings.Text = SkirmishPage.Summary(state.Options, state.SeatsPerSlot);
+        _settings.Text = state.Options.Story is { } story
+            ? Lang.T("From checkpoint {0}   ·   the host's story, the progress is theirs", story.Checkpoint)
+            : SkirmishPage.Summary(state.Options, state.SeatsPerSlot);
         // The ground counts only when everyone has the same export of it (MatchInfo.Terrain).
         if (state.Players.Where(p => p.Ready).Select(p => p.Terrain).Distinct().Count() > 1)
             _roomTitle.Text += "\n" + Lang.T("The players' classic terrain exports differ: hills will not stop shots in this match");
@@ -459,6 +465,8 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
         _ready.ButtonPressed = me.Ready;
         _ready.SetBlockSignals(false);
         _start.Visible = _change.Visible = state.HostId == NetLink.ClientId;
+        // A story room's settings are the host's progress, not the skirmish page's.
+        _change.Visible &= !state.Options.IsStory;
         _start.Disabled = state.Players.Any(p => !p.Ready);
         // In a battle room the hero comes from the pod by itself, once for each map and bracket the room has.
         if (battle is not null && me.Hero is null && $"{state.Id}/{state.Scenario}/{battle.Tier}" is var key && key != _heroSentFor)
@@ -565,6 +573,9 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
         // column is at its least width).
         if (battle)
             text += "   ·   " + (player is null ? Lang.T(RoomSeating.BotSeat(state)) : HeroText(player.Hero));
+        // A story seat says whose it is: the Locator's, or the Grunt's the host named; a Grunt nobody plays is a bot.
+        if (RoomSeating.StoryRole(state, line.Index) is { } role)
+            text = $"{Lang.T(role)}   ·   " + (player is null ? Lang.T(line.Seat.Use == SeatUse.Open ? "open, else a bot" : "a bot") : text);
         var label = MenuTheme.Label(text, compact ? 18 : 22, player is null ? MenuTheme.Dim : MenuTheme.Text);
         label.AutoTranslateMode = AutoTranslateModeEnum.Disabled;
         label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -601,10 +612,25 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
         ? Lang.T("no hero yet")
         : $"{HangarText.Name(hero.Chassis)}, {Lang.T("Tier {0}", BattleDraft.Roman(BattleCatalogue.Tier(hero.Chassis)))}";
 
-    /// <summary>A room in the lobby's list; a battle room with its map and bracket.</summary>
+    /// <summary>
+    /// The story room this player opens as host (decision 5 of the prologue's build): the chapter, checkpoint and Grunts' names
+    /// of their own story (the host's progress, plan WP-K; the prologue from its start until that is kept), for up to three.
+    /// MACHINES_MP's story=&lt;chapter&gt;[,checkpoint=&lt;n&gt;] asks for another chapter or checkpoint.
+    /// </summary>
+    private static CreateRoom StoryRoom(string? chapter = null, int checkpoint = 0) =>
+        RoomOptions.StoryRoom(Lang.T("{0}'s story", NetLink.Name),
+            new Machines.Sim.Story.StoryOptions { Chapter = chapter ?? Machines.Sim.Story.StoryOptions.Prologue, Checkpoint = Math.Max(0, checkpoint) });
+
+    /// <summary>A story chapter's name in the lobby: the prologue's title, else the chapter as the room names it.</summary>
+    private static string StoryChapterName(string chapter) =>
+        chapter == Machines.Sim.Story.StoryOptions.Prologue ? Lang.T("Prologue, \"Error\"") : chapter;
+
+    /// <summary>A room in the lobby's list; a battle room with its map and bracket, a story room with its chapter.</summary>
     private static string RoomLine(RoomSummary room)
     {
-        var line = room.Mode == RoomSummary.Battle && BattleCatalogue.Map(room.Scenario) is { } map
+        var line = room.Mode == RoomSummary.Story
+            ? Lang.T("{0}   ·   Story: {1}   ·   {2}/{3}", room.Name, StoryChapterName(room.Scenario), room.Players, room.MaxPlayers)
+            : room.Mode == RoomSummary.Battle && BattleCatalogue.Map(room.Scenario) is { } map
             ? Lang.T("{0}   ·   Battle on {1}   ·   {2}   ·   {3}/{4}", room.Name, BattlePod.MapName(map), SkirmishPage.BracketName(room.Tier), room.Players, room.MaxPlayers)
             : Lang.T("{0}   ·   {1} on {2}   ·   {3}/{4}", room.Name, room.Scenario, room.Planet, room.Players, room.MaxPlayers);
         // A running battle with bots' seats a player may join late says how many (P2 design §6.2).
@@ -701,10 +727,10 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             return true;
         }
         if (!_lateJoining && reason.StartsWith("no player called ", StringComparison.Ordinal)
-                          && _roomList?.Rooms.FirstOrDefault(r => r.Id == room) is { Mode: RoomSummary.Battle, Joinable: > 0 } battle)
+                          && _roomList?.Rooms.FirstOrDefault(r => r.Id == room) is { Mode: RoomSummary.Battle or RoomSummary.Story, Joinable: > 0 } battle)
         {
             _lateJoining = true;
-            GD.Print($"mp: nobody of this name left room {room}: joining its battle late");
+            GD.Print($"mp: nobody of this name left room {room}: joining its {battle.Mode} late");
             NetLink.Send(new JoinRoom(room, Terrain: TerrainPrint(battle.Planet)));
             return true;
         }
@@ -856,7 +882,10 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
     /// MACHINES_MP_LOBBY_SHOT=&lt;png&gt; the list of rooms the joining side sees. The host or server opens a battle room
     /// instead with battle=&lt;map&gt;[,tier=1-8][,lives=1-5][,win=both|wipe|capture][,team=5|10|15] after the address (for
     /// example MACHINES_MP=serve,127.0.0.1:7777,battle=m_desert,tier=2): both bring the hero of their own pod, the other
-    /// seats are bots; team=n seats n heroes a team (15, which the menus do not offer, too). A normal room has two commanders
+    /// seats are bots; team=n seats n heroes a team (15, which the menus do not offer, too). With story=&lt;chapter&gt;
+    /// [,checkpoint=&lt;n&gt;] after the address (story=prolog) the host or server opens a story room instead: the host the
+    /// Locator, the joining sides Ike and Bob, bots in the seats nobody takes; players=3 waits for both Grunts, and a joining
+    /// side with late=1 takes a bot's Grunt over once the story runs. A normal room has two commanders
     /// a side with seats=2. The joining side with seat=&lt;n&gt; moves to the room's seat n (counted from 0) once in, keeping
     /// the colour it is given there (seat=1 in a room of two a side sits beside the host); with pod=1 it goes to the pod from
     /// the room and comes back by its Ready (MACHINES_MP_POD_SHOT=&lt;png&gt; saves the pod on the way). Where the first
@@ -896,7 +925,8 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
                 return;
             if (host)
             {
-                if ((BattleRoom() ?? SkirmishPage.LastRoom(Number("seats", 1))) is { } room)
+                var story = asked.TryGetValue("story", out var chapter) ? StoryRoom(chapter, Number("checkpoint", 0)) : null;
+                if ((story ?? BattleRoom() ?? SkirmishPage.LastRoom(Number("seats", 1))) is { } room)
                     NetLink.Send(room);
                 var players = Math.Max(2, Number("players", 2));
                 while (_state is null || _state.Players.Count < players)
