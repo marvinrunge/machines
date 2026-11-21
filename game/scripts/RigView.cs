@@ -36,7 +36,8 @@ public partial class RigView : Node3D
     private Rig _rig = null!;
     private Node3D[] _nodes = [];
     private string _cycle = "rest";
-    private float _phase;
+    // A machine comes into the world standing still: its resting plan plays only when it stops (see Animate).
+    private float _phase = 1;
     private float _leftWheel, _rightWheel;
     private float _upperBody;
     private float _idleTime = (float)GD.RandRange(0, 10);
@@ -742,7 +743,9 @@ public partial class RigView : Node3D
                 // Legs keep pace with the ground: the walk cycle runs at the machine's share of its top speed.
                 var rate = moving && _cycle == "walk" ? Mathf.Clamp(Mathf.Sqrt(speed * speed + sideways * sideways) / Mathf.Max(1, maxSpeed), 0.5f, fastest) : 1;
                 _phase += delta * rate / animation.Duration;
-                _phase = _cycle is "startWalking" or "stopWalking" ? Mathf.Min(_phase, 1) : _phase % 1;
+                // The resting plan is played once when the legs stop, "so we don't carry on waggling on the spot"
+                // (MachPhysSpiderLegs::moveAnimations, nRepetitions 0); looped, an Assassin seemed to breathe.
+                _phase = _cycle is "startWalking" or "stopWalking" or "rest" ? Mathf.Min(_phase, 1) : _phase % 1;
                 foreach (var track in animation.Tracks)
                     if (track.Node < _nodes.Length)
                         _nodes[track.Node].Transform = track.At(_phase);
