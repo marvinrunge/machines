@@ -131,7 +131,8 @@ public partial class Game
         // driver is back on the static, waiting for the new body.
         if (World.HeroOf(Me) is not { } hero)
         {
-            if (World.Wired?.Heroes.GetValueOrDefault(Me) is { RespawnAt: not null } or { WaitsForWave: true })
+            // In the story no body comes, and the static is its death view all the same.
+            if (World.Story is not null || World.Wired?.Heroes.GetValueOrDefault(Me) is { RespawnAt: not null } or { WaitsForWave: true })
             {
                 LookOnNoLonger();
                 WaitForBody();
@@ -201,6 +202,12 @@ public partial class Game
     /// </summary>
     private void DriverLost()
     {
+        // The story's fallen hero is looked at from where it fell, under the static: it never leaves for the field.
+        if (World.Story is not null)
+        {
+            HoldStoryDeathView();
+            return;
+        }
         if (World.Wired?.Heroes.GetValueOrDefault(Me) is not ({ RespawnAt: not null } or { WaitsForWave: true }))
         {
             LeaveFirstPerson();
@@ -215,13 +222,18 @@ public partial class Game
         _hud.HeroDown();
     }
 
-    /// <summary>A driver who comes into a run with the hero down: the same static as if it had just fallen, looked at from the pod.</summary>
+    /// <summary>
+    /// A driver who comes into a run with the hero down: the same static as if it had just fallen, looked at from the pod. In
+    /// the story, which has no pod, it is the death view from the hero's marker (<see cref="StoryDeathSpot"/>).
+    /// </summary>
     private void WaitForBody()
     {
         _firstPersonFromGround = !ZenithCamera;
         _rig.Active = false;
         _firstPersonCamera.Current = true;
-        if (World.WiredPod(Me) is { } pod)
+        if (StoryDeathSpot() is { } spot)
+            _firstPersonCamera.GlobalPosition = spot;
+        else if (World.WiredPod(Me) is { } pod)
             _firstPersonCamera.GlobalPosition = ActorView.World(pod.Position) + Vector3.Up * 4;
         Input.MouseMode = Input.MouseModeEnum.Captured;
         _hud.FirstPerson = true;
@@ -232,7 +244,8 @@ public partial class Game
     /// <summary>The new body has its view by now: a driver waiting on the static gets in, one up in the air gets it selected.</summary>
     private void FollowBody(WiredRun run)
     {
-        if (_heroDown && (run.Phase == WiredPhase.Ended || World.Battle is { Over: true }))
+        // The story's death view stays at the chapter's end: its card asks for the checkpoint over it.
+        if (_heroDown && World.Story is null && (run.Phase == WiredPhase.Ended || World.Battle is { Over: true }))
         {
             _heroDown = false;
             LeaveFirstPerson();
@@ -252,10 +265,11 @@ public partial class Game
     /// <summary>
     /// A run or battle going on keeps its driver in the hero, on the static while it is down and looking on through a
     /// team-mate once a battle has no body left for them: no view from above, which in a battle would look over the
-    /// whole field. Esc opens the menus over it; the end of the run, and a match that is not a run, leave as ever.
+    /// whole field. Esc opens the menus over it; the end of the run, and a match that is not a run, leave as ever. A story
+    /// is played in first person alone, its end too (the death view under the checkpoint's card); only a replay leaves.
     /// </summary>
-    private bool KeptInFirstPerson => (World.Wired is { Phase: not WiredPhase.Ended } && World.Battle is not { Over: true } || World.Story is { Over: false })
-        && !MatchOver && !Watching;
+    private bool KeptInFirstPerson => World.Story is not null ? !Watching
+        : World.Wired is { Phase: not WiredPhase.Ended } && World.Battle is not { Over: true } && !MatchOver && !Watching;
 
     /// <summary>A screen over first person, the hangar's, the menus' or a hack's: behind it the hero stands, and the mouse does not look.</summary>
     private bool ScreenOver => HangarOpen || MenuShown is not null || HackShown;

@@ -511,7 +511,8 @@ public partial class Game : Node3D
         // The fog of war is the player's: a replay shows everything. Automated screenshots look anywhere, so
         // they leave it out unless MACHINES_FOG=1 asks for it.
         var screenshot = System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT") is { Length: > 0 };
-        if (!Watching && Cinematic.Asked is null && World.Options.FogOfWar && (!screenshot || System.Environment.GetEnvironmentVariable("MACHINES_FOG") == "1"))
+        // The story has none, whatever its options say: its decks are known ground, and its HUD has the motion tracker.
+        if (!Watching && Cinematic.Asked is null && World.Options.FogOfWar && World.Story is null && (!screenshot || System.Environment.GetEnvironmentVariable("MACHINES_FOG") == "1"))
         {
             // The original uncovered and tested its map image, one pixel at a time.
             Fog = new FogOfWar(World, Player, map is null ? 6 : surface.Width / map.GetWidth());
@@ -807,7 +808,9 @@ public partial class Game : Node3D
             // The cursor is gone while the world stands still (MachInGameScreen::update).
             if (MatchOver && !_statisticsShown && _driven is null)
                 Input.MouseMode = Input.MouseModeEnum.Hidden;
-            if (!_statisticsShown && (now - _decidedAt > wait || _endSkipped) && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT") is not { Length: > 0 } && Cinematic.Asked is null)
+            // A chapter lost on this machine waits under its death view for the checkpoint's card (StoryHud), Esc for the menus.
+            var storyCard = World.Story is not null && !Online && !Watching;
+            if (!_statisticsShown && !storyCard && (now - _decidedAt > wait || _endSkipped) && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT") is not { Length: > 0 } && Cinematic.Asked is null)
             {
                 _statisticsShown = true;
                 Input.MouseMode = Input.MouseModeEnum.Visible;
@@ -2152,9 +2155,17 @@ public partial class Game : Node3D
         }
     }
 
-    /// <summary>A seat as a notice names what it plays: in a battle its hero ("3 · Torque"), else the name its row started with.</summary>
+    /// <summary>
+    /// A seat as a notice names what it plays: in a battle its hero ("3 · Torque"), in the story the Grunt by the host's name
+    /// for it, else the name its row started with.
+    /// </summary>
     private string HeroOrSeatName(PlayerId player) =>
-        World.Battle is { } run ? HeroLabel(run, player) : World.Players.Rows.FirstOrDefault(r => r.Id == player)?.Name ?? player.ToString();
+        World.Battle is { } run ? HeroLabel(run, player) : StoryGruntName(player) ?? World.Players.Rows.FirstOrDefault(r => r.Id == player)?.Name ?? player.ToString();
+
+    /// <summary>The name the host gave the Grunt at a seat of the story (Ike's, Bob's); null for the Locator's and outside a story.</summary>
+    private string? StoryGruntName(PlayerId player) => World.Story is { } story && story.Seats.IndexOf(player) is > 0 and var seat
+        ? seat == 1 ? story.Options.IkeName : story.Options.BobName
+        : null;
 
     /// <summary>
     /// This player's turns came too late for too long and the relay handed them over (P2 design §2.6): in a battle a bot
@@ -2186,6 +2197,9 @@ public partial class Game : Node3D
             return;
         if (joined && World.Battle is { } run)
             _hud.Message(Lang.T("You take over {0}", HeroLabel(run, Me)));
+        // A story's late joiner takes over a Grunt the computer played, by the name the host gave it.
+        else if (joined && StoryGruntName(Me) is { } grunt)
+            _hud.Message(Lang.T("You take over {0}", grunt));
         if (World.Wired is not null)
         {
             if (_watched is not null)

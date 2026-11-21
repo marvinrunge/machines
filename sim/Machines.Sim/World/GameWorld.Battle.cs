@@ -375,16 +375,28 @@ public sealed partial class GameWorld
     {
         if (Battle is not { } run)
             return null;
-        if (command is AllianceCommand)
-            return "teams are fixed in a battle";
-        // A pod blown up by its own side could be neither taken nor its team wiped, and a hero that blew itself up would
-        // rob its killer of the kill.
-        if (command is SelfDestructCommand)
-            return "nothing self-destructs in a battle";
+        if (WhyNotBorrowed(command) is { } refused)
+            return refused;
         if (run.InOpening(Time) && command is not (DriveCommand or DefConCommand))
             return "the battle has not begun yet";
         return null;
     }
+
+    /// <returns>null if the story takes the command, otherwise why not: what a battle refuses of every match that borrows the heroes.</returns>
+    private string? WhyNotInStory(Command command) => WhyNotBorrowed(command);
+
+    /// <returns>
+    /// What a battle and the story refuse alike, each in its own words: the sides are fixed (a battle's teams; the trio and the
+    /// ship), and nothing self-destructs. In a battle a pod blown up by its own side could be neither taken nor its team
+    /// wiped, and a hero that blew itself up would rob its killer of the kill; in the story the Locator's own end would be a
+    /// way out of the chapter.
+    /// </returns>
+    private string? WhyNotBorrowed(Command command) => command switch
+    {
+        AllianceCommand => Battle is not null ? "teams are fixed in a battle" : "sides are fixed in the story",
+        SelfDestructCommand => Battle is not null ? "nothing self-destructs in a battle" : "nothing self-destructs in the story",
+        _ => null,
+    };
 
     /// <summary>In the opening a driver may look about but neither drive nor fire.</summary>
     private DriveCommand HeldInOpening(DriveCommand drive) =>

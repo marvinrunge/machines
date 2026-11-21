@@ -17,7 +17,8 @@ public sealed record WiredTowerKind(WiredTower Tower, int Price, string? Why);
 /// </summary>
 public sealed partial class GameWorld
 {
-    private const string NoTowersInBattle = "no towers in a battle";
+    /// <summary>Why a battle or the story has no towers to raise or pull down.</summary>
+    private string NoTowersBorrowed => Battle is not null ? "no towers in a battle" : "no towers in the story";
 
     /// <summary>The towers each chassis builds, by its id, worked out once.</summary>
     private readonly Dictionary<string, IReadOnlyList<WiredTower>> _towersFor = [];
@@ -73,8 +74,8 @@ public sealed partial class GameWorld
     /// <returns>null if the hero is where it can deal with towers, otherwise why not: in a battle, down, in the pod or at its door.</returns>
     private string? WhyNoTowers(WiredState state)
     {
-        if (Battle is not null)
-            return NoTowersInBattle;
+        if (Borrowed)
+            return NoTowersBorrowed;
         if (HeroOf(state) is not { } hero)
             return "the hero is down";
         if (hero.Inside is not null)
@@ -121,8 +122,8 @@ public sealed partial class GameWorld
     /// <returns>null if the hero can pull down a tower of its own now, otherwise why not.</returns>
     public string? WhyNoScrap(WiredState state, int tower)
     {
-        if (Battle is not null)
-            return NoTowersInBattle;
+        if (Borrowed)
+            return NoTowersBorrowed;
         if (HeroOf(state) is not { } hero)
             return "the hero is down";
         if (hero.Inside is not null)
@@ -197,7 +198,7 @@ public sealed partial class GameWorld
     /// </summary>
     private Construction? TowerWork(WiredState state, Machine hero)
     {
-        if (Battle is not null || hero.IsDead || hero.Inside is not null || (hero.Stats.ConstructionRate ?? 0) <= 0)
+        if (Borrowed || hero.IsDead || hero.Inside is not null || (hero.Stats.ConstructionRate ?? 0) <= 0)
             return null;
         Construction? site = null, damaged = null;
         float siteGap = 0, damagedGap = 0;

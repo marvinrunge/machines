@@ -23,8 +23,13 @@ public sealed partial class GameWorld
             if (command is DriveCommand held)
                 command = HeldInOpening(held);
         }
-        if (Story is not null && command is DriveCommand hacking)
-            command = HeldWhileHacking(hacking);
+        if (Story is not null)
+        {
+            if (WhyNotInStory(command) is { } refused)
+                return refused;
+            if (command is DriveCommand hacking)
+                command = HeldWhileHacking(hacking);
+        }
         if (Wired is not null && WhyNotInWired(command) is { } barred)
             return barred;
         switch (command)

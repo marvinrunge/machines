@@ -227,8 +227,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
             : "Left click to look there, right click to send the selection"));
 
         var x = 136;
-        // A battle has no money and no squadrons: a hero is all a player has.
-        var battle = world.Battle is not null;
+        // A battle has no money and no squadrons: a hero is all a player has. The story neither.
+        var battle = world.Borrowed;
         if (!battle)
             _widgets.Add(new Widget(R(x, 0, 20, 20), rect => DrawBitmap(rect, "navigate/bmus.bmp", "BMU"), () => _showBmus = !_showBmus,
                 world.Wired is null ? $"BMUs {world.Races[Game.Player].Bmu:F0} of {world.BmuCapacity(Game.Player)}" : $"{RunBank():F0} BMU"));
@@ -379,8 +379,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     public void PressSelfDestruct()
     {
         var selected = game.Selection.Select(game.World.Find).OfType<Actor>().Where(a => a.Race == Game.Player && game.MayOrder(a)).ToList();
-        // Nothing self-destructs in a battle (the simulation refuses it).
-        if (selected.Count > 0 && !game.Watching && game.World.Battle is null && !game.RefusesOrders())
+        // Nothing self-destructs in a battle or the story (the simulation refuses it).
+        if (selected.Count > 0 && !game.Watching && !game.World.Borrowed && !game.RefusesOrders())
             SelfDestruct(selected).Act();
     }
 
@@ -399,8 +399,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         var selected = game.Selection.Select(world.Find).OfType<Actor>().Where(a => a.Race == Game.Player && game.MayOrder(a)).ToList();
         var machines = selected.OfType<Machine>().ToList();
         var ids = machines.Select(m => m.Id).ToList();
-        // A battle has no self-destruct (the simulation refuses it) and no squadrons.
-        var battle = world.Battle is not null;
+        // A battle and the story have no self-destruct (the simulation refuses it) and no squadrons.
+        var battle = world.Borrowed;
         if (selected.Count > 0 && !battle)
             bars.Add(SelfDestruct(selected));
         // A Wired hero raises its towers, lays its mines and sends out its pulse by the special's key: the original's
@@ -930,7 +930,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                     DrawCircle(at, 2 * _scale, Colors.White);
             }
         }
-        if (_showBmus && world.Battle is null)
+        if (_showBmus && !world.Borrowed)
         {
             var state = world.Races[Game.Player];
             // A run has no ceiling to the bank, and a hero of a run with its own purse spends that (World.Bank).

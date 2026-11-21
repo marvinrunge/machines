@@ -80,8 +80,8 @@ public partial class Game
     /// </summary>
     public void OpenHangar()
     {
-        // A battle has no hangar: what a hero wears is chosen in the pod before it.
-        if (HangarOpen || Watching || World.Battle is not null || World.Wired?.Heroes.GetValueOrDefault(Me) is not { } state)
+        // A battle has no hangar: what a hero wears is chosen in the pod before it. Nor has the story, whose heroes wear what they find.
+        if (HangarOpen || Watching || World.Borrowed || World.Wired?.Heroes.GetValueOrDefault(Me) is not { } state)
             return;
         if ((Paused && !Online ? "not while the game is paused" : World.WhyNoHangar(state)) is { } why)
         {
@@ -219,7 +219,7 @@ public partial class Game
     /// </summary>
     private void GiftForChecks()
     {
-        if (World.Battle is not null || World.Wired?.Heroes.GetValueOrDefault(Me) is not { } state || System.Environment.GetEnvironmentVariable("MACHINES_WIRED_GIFT") is not { Length: > 0 } gift)
+        if (World.Borrowed || World.Wired?.Heroes.GetValueOrDefault(Me) is not { } state || System.Environment.GetEnvironmentVariable("MACHINES_WIRED_GIFT") is not { Length: > 0 } gift)
             return;
         var words = gift.Split(',');
         World.Races[Player].Bmu = int.Parse(words[0]);

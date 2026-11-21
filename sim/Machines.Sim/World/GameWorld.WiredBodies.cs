@@ -219,7 +219,7 @@ public sealed partial class GameWorld
         var gained = armour - harvester.Armour;
         harvester.Durability = harvester.Durability with { Armour = armour };
         Raise(new GameEvent(GameEventKind.WiredHarvest, harvester.Id, harvester.Position, victim.Id, gained.ToString()));
-        if (Battle is null && HeroStateOf(harvester) is { } state)
+        if (!Borrowed && HeroStateOf(harvester) is { } state)
             state.Harvests.Add(victim.Position);
     }
 
@@ -569,8 +569,8 @@ public sealed partial class GameWorld
     /// <returns>null if the hero's Marshal can call its squad in now, otherwise why not.</returns>
     public string? WhyNoRally(WiredState state)
     {
-        if (Battle is not null)
-            return "there is no squad in a battle";
+        if (Borrowed)
+            return Battle is not null ? "there is no squad in a battle" : "there is no squad in the story";
         if (HeroOf(state) is null)
             return "the hero is down";
         if ((WornSpecial(state) & ChassisSpecial.Field) == 0)

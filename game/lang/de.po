@@ -5086,3 +5086,18 @@ msgstr "Story von {0}"
 
 msgid "Prologue, \"Error\""
 msgstr "Prolog „Fehler“"
+
+msgid "there is no hangar in the story"
+msgstr "in der Story gibt es keinen Hangar"
+
+msgid "there is no squad in the story"
+msgstr "in der Story gibt es keinen Trupp"
+
+msgid "no towers in the story"
+msgstr "keine Türme in der Story"
+
+msgid "sides are fixed in the story"
+msgstr "in der Story stehen die Seiten fest"
+
+msgid "nothing self-destructs in the story"
+msgstr "in der Story sprengt sich nichts selbst"

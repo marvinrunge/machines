@@ -169,8 +169,8 @@ public partial class WiredMarks : Node3D
         var world = _game.World;
         if (world.Wired is not { } run)
             return;
-        // Nothing is collected in a battle: its wrecks do not glint and there are no crates.
-        if (world.Battle is null)
+        // Nothing is collected in a battle or the story: their wrecks do not glint and there are no crates.
+        if (!world.Borrowed)
         {
             ShowGlints(world, hero);
             ShowCrates(world);

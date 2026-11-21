@@ -103,6 +103,12 @@ public partial class Game
     {
         if (World.Wired is null || Watching || MatchOver)
             return;
+        // The story has no squad and no hangar either: its keys give the Grunts their own orders, never Wired's.
+        if (World.Story is not null)
+        {
+            StoryInput(@event);
+            return;
+        }
         // A battle has no squad and no hangar: only the abilities, the dash and the special.
         if (World.Battle is not null)
         {
@@ -150,8 +156,8 @@ public partial class Game
         var special = state.Build(World.Data).Chassis.Special;
         if ((special & ChassisSpecial.Towers) != 0)
         {
-            if (World.Battle is not null)
-                RunRefused(HangarText.Reason("no towers in a battle"));
+            if (World.Borrowed)
+                RunRefused(HangarText.Reason(World.Battle is not null ? "no towers in a battle" : "no towers in the story"));
             else
                 ToggleTowerMode();
         }

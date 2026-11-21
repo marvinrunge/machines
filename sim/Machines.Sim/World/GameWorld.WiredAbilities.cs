@@ -83,7 +83,8 @@ public sealed partial class GameWorld
         // What hurts gives the hero away: a Phantom's shadow starts over.
         if (ability.Id is "vortex" or "discharge" or "ionstrike")
             Reveal(state);
-        if (Battle is not null && ability.Id == "ionstrike")
+        // A battle and the story have no waves to count a cooldown in.
+        if (Borrowed && ability.Id == "ionstrike")
             state.AbilityReadyAt[item.Id] = Time + BattleBalance.IonCooldown;
         else if (ability.CooldownWaves > 0)
             state.AbilityReadyWave[item.Id] = Wired!.Wave + ability.CooldownWaves;

@@ -102,7 +102,7 @@ public partial class Game
     {
         state = World.Wired?.Heroes.GetValueOrDefault(Me);
         hero = World.HeroOf(Me);
-        return state is not null && hero is not null && World.Battle is null && !Watching && !MatchOver && !_heroDown && !HangarOpen
+        return state is not null && hero is not null && !World.Borrowed && !Watching && !MatchOver && !_heroDown && !HangarOpen
             && _driven?.Id == hero.Id && hero.Inside is null && (state.Build(World.Data).Chassis.Special & ChassisSpecial.Towers) != 0;
     }
 

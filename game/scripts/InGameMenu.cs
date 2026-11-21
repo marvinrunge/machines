@@ -250,6 +250,12 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
             ("Fire left, right, top", string.Join(", ", KeyMap.Name(KeyMap.Act.FireLeft), KeyMap.Name(KeyMap.Act.FireRight), KeyMap.Name(KeyMap.Act.FireTop))),
             // A run or battle keeps its driver in the hero: there is no leaving it.
             .. game.World.Wired is null ? new[] { ("Fire all", "Space"), ("Leave first person", LeaveKeys) } :
+            // The story's: the Locator's hands, scanner and lamp, and its Grunts' orders; no squad and no hangar.
+            game.World.Story is not null ?
+            [
+                ("Hack / use", K(KeyMap.Act.Use)), ("Scanner pulse", K(KeyMap.Act.Scan)), ("Lamp", K(KeyMap.Act.Light)),
+                ("Grunts: follow", K(KeyMap.Act.GruntFollow)), ("Grunts: wait here", K(KeyMap.Act.GruntWait)), ("Grunts: distract", K(KeyMap.Act.GruntDistract)),
+            ] :
             game.World.Battle is not null ?
             [
                 ("Abilities, dash", K(KeyMap.Act.Ability1, KeyMap.Act.Ability2, KeyMap.Act.Dash)), ("Chassis special", K(KeyMap.Act.Special)),

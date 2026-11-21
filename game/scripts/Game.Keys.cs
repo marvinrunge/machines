@@ -75,22 +75,23 @@ public partial class Game
                 _hud.Panel.CancelMarked();
                 return;
             // Ctrl and a number forms the selection into that squadron, the number alone selects it
-            // (MachGuiSquadronBank). A battle has no squadrons.
+            // (MachGuiSquadronBank). A battle and the story have no squadrons.
             case >= Key.Key0 and <= Key.Key9 when ctrl:
-                if (World.Battle is null)
+                if (!World.Borrowed)
                     FormSquadron((int)(key.Keycode - Key.Key0));
                 return;
             case >= Key.Key0 and <= Key.Key9:
-                if (World.Battle is null)
+                if (!World.Borrowed)
                     SelectSquadron((int)(key.Keycode - Key.Key0));
                 return;
             // F1 to F3 start a chat message to another player, F4 one to everyone (MachPromptText).
             case >= Key.F1 and <= Key.F4 when Online && !shift && !ctrl:
                 _hud.Chat.Begin((int)(key.Keycode - Key.F1));
                 return;
-            // With Ctrl, F1 to F3 make that other side an ally or no longer one (MachPromptText); a battle's teams are fixed.
+            // With Ctrl, F1 to F3 make that other side an ally or no longer one (MachPromptText); a battle's teams are fixed, as
+            // the story's sides are.
             case >= Key.F1 and <= Key.F3 when Online && ctrl:
-                if (World.Battle is null)
+                if (!World.Borrowed)
                     ToggleAlliance((int)(key.Keycode - Key.F1));
                 return;
             // Ctrl and F4, the remake's own: a chat message to the team, where the player has a teammate.
@@ -129,7 +130,7 @@ public partial class Game
             UseZenithCamera(true);
         else if (KeyMap.Is(key, KeyMap.Act.GroundView))
             UseZenithCamera(false);
-        else if (World.Wired is not null && World.Battle is null && KeyMap.Is(key, KeyMap.Act.Hangar))
+        else if (World.Wired is not null && !World.Borrowed && KeyMap.Is(key, KeyMap.Act.Hangar))
             OpenHangar();
         // A bare letter the layout leaves free is the command that has it, when the panel shows that command.
         else if (!ctrl && !shift && !alt && !KeyMap.Taken(key.Keycode, firstPerson: false))

@@ -15,6 +15,14 @@ public sealed partial class GameWorld
     /// <summary>The run, in a Wired match; null in every other.</summary>
     public WiredRun? Wired { get; private set; }
 
+    /// <summary>
+    /// Whether the match borrows Wired's heroes without being a run: a battle (<see cref="Battle"/>) or the story
+    /// (<see cref="Story"/>). Neither has waves, a shop, a hangar, towers, a squad, a bank or wrecks and crates to take
+    /// up; what is a battle's alone (its teams, its tally, its opening, its pods) asks for <see cref="Battle"/> itself.
+    /// The gates are listed in the story's gate audit (plan WP-A2).
+    /// </summary>
+    public bool Borrowed => Battle is not null || Story is not null;
+
     private int _nextPickupId = 1;
 
     /// <summary>The crates on the ground, oldest first.</summary>
@@ -244,14 +252,16 @@ public sealed partial class GameWorld
     {
         if (state.Hero is { } id && HeroOf(state) is null)
             HeroDown(run, state, id);
-        if (state.RespawnAt is { } back && Time >= back && WiredPod(state) is { } pod && Battle is not { Over: true })
+        // The story has no pod to come back at: its fallen stay down (GameWorld.StoryHeroDown).
+        if (state.RespawnAt is { } back && Time >= back && WiredPod(state) is { } pod && Battle is not { Over: true } && Story is null)
             Respawn(state, pod);
         if (HeroOf(state) is { } alive)
             WiredChips.Ticking(this, state, alive);
         if (HeroOf(state) is { Inside: null } hero)
         {
             UpdateDash(state, hero);
-            if (Battle is null)
+            // Neither a battle nor the story has towers or a bank: nothing is built, and wrecks and crates stay where they lie.
+            if (!Borrowed)
             {
                 UpdateTowerWork(state, hero);
                 Collect(state, hero);
@@ -688,10 +698,8 @@ public sealed partial class GameWorld
     /// <returns>null if the hangar can be opened now, otherwise why not.</returns>
     public string? WhyNoHangar(WiredState state)
     {
-        if (Battle is not null)
-            return "there is no hangar in a battle";
-        if (Story is not null)
-            return "there is no hangar in the story";
+        if (Borrowed)
+            return Battle is not null ? "there is no hangar in a battle" : "there is no hangar in the story";
         if (!Wired!.Waiting)
             return "the hangar opens only between waves";
         if (HeroOf(state) is not { } hero)
@@ -796,11 +804,11 @@ public sealed partial class GameWorld
             return "this is not a Wired match";
         if (Wired.Heroes.GetValueOrDefault(command.Issuer ?? PlayerId.Of(command.Race)) is not { } state)
             return command.Issuer is null ? "this is not a Wired match" : "you have no hero";
-        if (Battle is not null && command is not (WiredAbilityCommand or WiredDashCommand or WiredSpecialCommand or WiredTowerCommand or WiredScrapTowerCommand))
-            return "there is no hangar in a battle";
-        // The story's heroes may use what they carry (a dash, an ability); there is no hangar, shop or tower to build.
-        if (Story is not null && command is not (WiredAbilityCommand or WiredDashCommand or WiredSpecialCommand))
-            return "there is no hangar in the story";
+        // A battle's and the story's heroes may use what they carry (a dash, an ability, the chassis' special); there is no
+        // hangar or shop. A battle's tower commands go on to be refused by the towers themselves, with their own reason.
+        if (Borrowed && command is not (WiredAbilityCommand or WiredDashCommand or WiredSpecialCommand)
+            && !(Battle is not null && command is WiredTowerCommand or WiredScrapTowerCommand))
+            return Battle is not null ? "there is no hangar in a battle" : "there is no hangar in the story";
         return command switch
         {
             WiredHangarCommand hangar => SetHangar(state, hangar.Open),
