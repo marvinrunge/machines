@@ -556,6 +556,16 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         var world = game.World;
         var selected = game.Selection.Select(world.Find).OfType<Actor>().Where(a => a.Race == Game.Player && game.MayOrder(a)).ToList();
         var icons = new List<(string Bitmap, string Short, string Prompt, Action Act)>();
+        var menu = _buildMenu ? "build" : string.Join(',', selected.Select(a => a.Id));
+        if (menu != _iconMenu)
+        {
+            _iconMenu = menu;
+            _scrolled = 0;
+            _queueScrolled = 0;
+        }
+        // A factory's or lab's queue lies along the panel's foot (MachInGameScreen::setupActorBank), so it never moves
+        // the menu above; the icons end where it begins.
+        var bottom = (int)(Size.Y / _scale) - 30;
         if (_buildMenu && selected.OfType<Machine>().Any(m => m.Spec.Type == "CONSTRUCTOR" && !game.IsHero(m)))
         {
             _contextPrompt = Text(14, "Select construction to build");
@@ -579,7 +589,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                         Text(1840, "Build %1", KeyName(key)) + "\n" + Text(2000, "COST %1", Price(key)),
                         () => game.Issue(new BuildMachineCommand(Game.Player, building.Id, key))));
                 if (building.ProductionQueue.Count > 0)
-                    y = AddQueue(building.ProductionQueue, y, key => building.ProductionSpent / Math.Max(1, Price(key)),
+                    bottom = AddQueue(building.ProductionQueue, bottom, key => building.ProductionSpent / Math.Max(1, Price(key)),
                         (key, share) => KeyName(key) + "\n" + Text(2000, "COST %1", Price(key)) + ", " + Text(2560, "Built %1%%", (int)(share * 100))
                             + (world.MaxUnitsExist(Game.Player) ? ". " + Text(2570, "Max units already exist") : ""),
                         index => game.Issue(new CancelProductionCommand(Game.Player, building.Id, index)));
@@ -595,19 +605,13 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
                         Text(1850, "Research %1", KeyName(item.Key)) + "\n" + Cost(item),
                         () => game.Issue(new ResearchCommand(Game.Player, building.Id, item.Key))));
                 if (building.ResearchQueue.Count > 0)
-                    y = AddQueue(building.ResearchQueue, y, key =>
+                    bottom = AddQueue(building.ResearchQueue, bottom, key =>
                     {
                         state.ResearchProgress.TryGetValue(key, out var progress);
                         return progress / Math.Max(1, world.ResearchCost(Game.Player, world.Data.ResearchTree.Get(key)));
                     }, (key, share) => KeyName(key) + "\n" + Cost(world.Data.ResearchTree.Get(key)) + ", " + Text(2550, "Researched %1%%", (int)(share * 100)),
                     index => game.Issue(new CancelResearchCommand(Game.Player, building.Id, index)));
             }
-        }
-        var menu = _buildMenu ? "build" : string.Join(',', selected.Select(a => a.Id));
-        if (menu != _iconMenu)
-        {
-            _iconMenu = menu;
-            _scrolled = 0;
         }
         _iconArea = null;
         if (icons.Count == 0)
@@ -617,7 +621,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         // scroll buttons, to the first and last row on the left and a row up or down on the right; a button lights
         // up while it can scroll. The mouse wheel scrolls a row too.
         const int columns = 3;
-        var rows = Math.Max(1, ((int)(Size.Y / _scale) - 30 - y) / ButtonWidth);
+        var rows = Math.Max(1, (bottom - y) / ButtonWidth);
         var visible = rows * columns;
         var last = Math.Max(0, (icons.Count + columns - 1) / columns * columns - visible);
         _scrolled = Math.Clamp(_scrolled, 0, last);
@@ -705,7 +709,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         if (commander is not null && game.HeroPicture(commander) is { } hero)
             DrawTextureRect(hero, inner, false);
         else if (commander is not null)
-            DrawBitmap(inner, MachineBitmap(commander.Key, Game.Look(commander.ShownRace)), "Adm");
+            DrawBitmap(inner, MachineBitmap(commander.Key, commander.ShownRace), "Adm");
         // No commander: the screen shows static, a new frame each time (nosquad1 to nosquad5).
         else if (ClassicGui.Bitmap($"misc/nosquad{Random.Shared.Next(1, 6)}.bmp") is { } noise)
             DrawTextureRect(noise, inner, false);
@@ -751,13 +755,20 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     private int _queueLength;
     private Action<int>? _cancelQueued;
 
+    // How many places of the queue on show are scrolled off to the left.
+    private int _queueScrolled;
+
     /// <summary>
-    /// A factory's or lab's whole queue (MachGuiProductionBank), three to a row: the first in work with its progress.
-    /// A click marks an icon, or unmarks it, and Backspace cancels what is marked. Returns where the rows end.
+    /// A factory's or lab's queue as the original's production bank (MachProductionBank, MachHWResearchBank): one row
+    /// of three icons resting on <paramref name="bottom"/>, the panel's foot, between a scroll button to the left and
+    /// one to the right that move it a place (MachGuiBufferScrollButton), lit while they can; the first in work shows
+    /// its progress. A click marks an icon, or unmarks it, and Backspace cancels what is marked. However long the queue,
+    /// it takes that one row, so the menu above stays where it is. Returns where the row begins.
     /// </summary>
-    private int AddQueue(List<ResearchKey> queue, int y, Func<ResearchKey, float> progress, Func<ResearchKey, float, string> prompt, Action<int> cancel)
+    private int AddQueue(List<ResearchKey> queue, int bottom, Func<ResearchKey, float> progress, Func<ResearchKey, float, string> prompt, Action<int> cancel)
     {
         const int columns = 3;
+        var y = bottom - ButtonWidth;
         // What is finished leaves the front of the queue, and the marks move up with the rest.
         if (queue.Count < _queueLength)
         {
@@ -767,16 +778,24 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
         }
         _queueLength = queue.Count;
         _cancelQueued = cancel;
-        for (var i = 0; i < queue.Count; i++)
+        var last = Math.Max(0, queue.Count - columns);
+        _queueScrolled = Math.Clamp(_queueScrolled, 0, last);
+        for (var i = _queueScrolled; i < Math.Min(queue.Count, _queueScrolled + columns); i++)
         {
             var key = queue[i];
             var index = i;
             var share = i == 0 ? progress(key) : 0;
-            _widgets.Add(new Widget(R(14 + i % columns * ButtonWidth, y + i / columns * ButtonWidth, ButtonWidth, ButtonWidth),
+            _widgets.Add(new Widget(R(ScrollBarWidth + 1 + (i - _queueScrolled) * ButtonWidth, y, ButtonWidth, ButtonWidth),
                 rect => DrawIcon(rect, MachineBitmap(key, Game.Player), Short(key), index == 0 ? share : null, _marked.Contains(index)),
                 () => { if (!_marked.Remove(index)) _marked.Add(index); }, prompt(key, share), ClicksUp: true));
         }
-        return y + (queue.Count + columns - 1) / columns * ButtonWidth + 4;
+        var (back, forward) = (_queueScrolled > 0, _queueScrolled < last);
+        void ScrollButton(int x, string bitmap, bool lit, string label, Action act) =>
+            _widgets.Add(new Widget(R(x, y, ScrollBarWidth, ButtonWidth), rect => DrawBitmap(rect, $"misc/{bitmap}{(lit ? "H" : "")}.bmp", label),
+                lit ? act : null, lit ? (label == "←" ? "Scroll left" : "Scroll right") : null));
+        ScrollButton(1, "scrolll", back, "←", () => _queueScrolled--);
+        ScrollButton(ScrollBarWidth + 1 + columns * ButtonWidth, "scrollr", forward, "→", () => _queueScrolled++);
+        return y - 4;
     }
 
     /// <summary>Backspace: what is marked in the queue on show comes off it (CANCEL_SELECTED_PRODUCTIONS, CANCEL_SELECTED_RESEARCH).</summary>
@@ -1050,8 +1069,8 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
     {
         var path = actor switch
         {
-            Machine m => MachineBitmap(m.Key, Game.Look(m.ShownRace)),
-            Construction c => $"construc/{RaceFolder(Game.Look(c.ShownRace))}/{ConstructionPrefix(c.Spec.Type, c.Spec.SubType)}{c.Stats.HardwareLevel}.bmp",
+            Machine m => MachineBitmap(m.Key, m.ShownRace),
+            Construction c => $"construc/{RaceFolder(c.ShownRace)}/{ConstructionPrefix(c.Spec.Type, c.Spec.SubType)}{c.Stats.HardwareLevel}.bmp",
             _ => "",
         };
         var inner = new Rect2(rect.Position + Vector2.One * 2 * _scale, Vector2.One * IconSize * _scale);
@@ -1599,6 +1618,7 @@ public partial class ClassicPanel(Game game, Texture2D? planetMap) : Control
 
     private static string Short(ResearchKey key) => (key.SubType ?? key.Type)[..3] + key.HardwareLevel;
 
+    /// <summary>The bitmap folder of a race's colour; takes the race (start position), not its colour, as it looks the colour up itself.</summary>
     internal static string RaceFolder(Race race) => Game.Look(race).ToString().ToLowerInvariant();
 
     // ---- original bitmap names (MachActorBitmaps) -------------------------------------------------

@@ -1213,6 +1213,20 @@ public partial class Game : Node3D
             SyncViews();
             if (built.IsType("HARDWARE_LAB") && World.Races[Player].Available.FirstOrDefault(k => World.WhyCannotResearch(Player, k, built) is null) is { } item)
                 Issue(new ResearchCommand(Player, built.Id, item));
+            // MACHINES_SCREENSHOT_QUEUE=5: a factory gets that many of the first machine it offers queued, a lab that
+            // much of what it can research, to look at the queue.
+            if (int.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_QUEUE"), out var queued))
+            {
+                if (built.IsType("FACTORY") && World.Data.FactoryOffer(built.Spec.SubType!, built.Stats.HardwareLevel).FirstOrDefault() is { } offered)
+                {
+                    World.Races[Player].Researched.Add(offered);
+                    for (var i = 0; i < queued; i++)
+                        Issue(new BuildMachineCommand(Player, built.Id, offered));
+                }
+                else if (built.IsType("HARDWARE_LAB"))
+                    foreach (var more in World.Races[Player].Available.Where(k => World.WhyCannotResearch(Player, k, built) is null).Skip(1).Take(queued))
+                        Issue(new ResearchCommand(Player, built.Id, more));
+            }
             if (built.IsType("HARDWARE_LAB"))
                 Issue(new EnterLabCommand(Player, World.Machines.Where(m => m.Race == Player && m.Spec.Type == "TECHNICIAN").Select(m => m.Id).ToList(), built.Id));
         }
@@ -1260,9 +1274,9 @@ public partial class Game : Node3D
         if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_SELECT") is { Length: > 0 } select)
         {
             // e.g. "CONSTRUCTOR" or "AGGRESSOR"; with MACHINES_SCREENSHOT_FIRSTPERSON=1 the first one is driven.
-            // A building type (FACTORY, HARDWARE_LAB ...) selects the first such building instead.
+            // A building type (FACTORY, HARDWARE_LAB ...) selects the newest such building instead (one MACHINES_SCREENSHOT_BUILT put down).
             var machines = World.Machines.Where(m => m.Race == Player && (m.Spec.Type == select || m.Spec.SubType == select)).OrderByDescending(m => m.Id).Select(m => m.Id).ToList();
-            Select(machines.Count > 0 ? machines : World.Constructions.Where(c => c.Race == Player && c.Spec.Type == select).Take(1).Select(c => c.Id).ToList());
+            Select(machines.Count > 0 ? machines : World.Constructions.Where(c => c.Race == Player && c.Spec.Type == select).OrderByDescending(c => c.Id).Take(1).Select(c => c.Id).ToList());
             // MACHINES_SCREENSHOT_MENU=build,2: the selected constructors' build menu, scrolled down two rows.
             if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU")?.Split(',') is ["build", .. var scroll])
                 _hud.Panel.OpenBuildMenu(scroll.Length > 0 ? int.Parse(scroll[0]) : 0);

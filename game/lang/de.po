@@ -1581,6 +1581,12 @@ msgstr "Erste Reihe"
 msgid "Last row"
 msgstr "Letzte Reihe"
 
+msgid "Scroll left"
+msgstr "Nach links"
+
+msgid "Scroll right"
+msgstr "Nach rechts"
+
 msgid "Production"
 msgstr "Produktion"
 

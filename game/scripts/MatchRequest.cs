@@ -186,7 +186,23 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
         var scenario = parts[0];
         var planet = parts.Length > 1 ? parts[1] : scenario;
         var slots = Paths.Data.LoadScenario(scenario).Races.Select(r => r.Race).ToList();
-        return new MatchRequest(scenario, planet, StartPositions.Assign(slots, slots.Count, slots.Min(), random: false, new Random(0)),
+        var starts = StartPositions.Assign(slots, slots.Count, slots.Min(), random: false, new Random(0));
+        // MACHINES_START=Blue,Red: the player takes start position Blue in red, as random starts can deal it; the
+        // computer races take the colours left in order, a free one of their own first (StartPositions.Assign).
+        if (System.Environment.GetEnvironmentVariable("MACHINES_START")?.Split(',') is [var slotName, var colourName]
+            && Enum.TryParse<Race>(slotName, true, out var slot) && slots.Contains(slot) && Enum.TryParse<Race>(colourName, true, out var colour))
+        {
+            var colours = new Dictionary<Race, Race> { [slot] = colour };
+            var unused = Enum.GetValues<Race>().Where(c => c != colour).ToList();
+            foreach (var other in slots.Where(r => r != slot).OrderBy(r => r))
+            {
+                var look = unused.Contains(other) ? other : unused[0];
+                colours[other] = look;
+                unused.Remove(look);
+            }
+            starts = new StartPositions(slot, slots.ToDictionary(r => r, r => r == slot ? Controller.Player : Controller.Ai), colours);
+        }
+        return new MatchRequest(scenario, planet, starts,
             new MatchOptions
             {
                 Resources = ResourceLevel.High,
