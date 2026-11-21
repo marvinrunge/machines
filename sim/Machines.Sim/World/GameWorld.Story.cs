@@ -51,6 +51,7 @@ public sealed partial class GameWorld
         if (Story is not { Over: false })
             return;
         UpdateHacks();
+        UpdateCompanions();
     }
 
     /// <summary>

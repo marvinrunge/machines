@@ -52,6 +52,15 @@ public sealed class StoryRun(StoryOptions options)
     /// <summary>The chapter's hacks: what can be hacked, the boards under way, what is done (<see cref="HackDesk"/>).</summary>
     public HackDesk Hacks { get; } = new();
 
+    /// <summary>The companions: each Grunt's orders and job, rams' stuns, noises (<see cref="StoryCrew"/>; plan WP-F).</summary>
+    public StoryCrew Crew { get; } = new();
+
+    /// <summary>
+    /// The Grunts' radio barks, the newest last (line id, speaker, tick): only the computer's Grunts bark. The director turns
+    /// those of each tick into the story's lines; <see cref="CompanionBarks.English"/> has their subtitles.
+    /// </summary>
+    public IReadOnlyList<StoryBark> Barks => Crew.Barks;
+
     /// <summary>A fingerprint of the run for the world's checksum.</summary>
     public long Fingerprint()
     {
@@ -73,6 +82,7 @@ public sealed class StoryRun(StoryOptions options)
             hash.Mix(BitConverter.SingleToInt32Bits(at));
         }
         hash.Mix(Hacks.Fingerprint());
+        hash.Mix(Crew.Fingerprint());
         return hash.Value;
     }
 }

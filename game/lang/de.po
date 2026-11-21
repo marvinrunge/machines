@@ -5007,6 +5007,24 @@ msgstr "Rein da, rein da, rein da!"
 msgid "Aboard."
 msgstr "An Bord."
 
+msgid "Right behind you."
+msgstr "Bin direkt hinter dir."
+
+msgid "Drawing them off."
+msgstr "Lenke ab."
+
+msgid "Moving crates."
+msgstr "Bewege Kisten."
+
+msgid "Crates are in. Nobody gets past me."
+msgstr "Kisten stehen. An mir kommt keiner vorbei."
+
+msgid "I've got the gate. Go, go!"
+msgstr "Ich hab das Gitter. Los, los!"
+
+msgid "Damage critical. Shutting d-"
+msgstr "Schaden kritisch. Schalte a-"
+
 msgid "L-7 BOOT … SENSORS 61 % … LAMP OK"
 msgstr "L-7 SYSTEMSTART … SENSOREN 61 % … SCHEINWERFER OK"
 

@@ -122,7 +122,8 @@ public sealed partial class GameWorld
         AimGuns();
         // In a battle's opening no hero fires, nor once it is over.
         var held = Battle is { } battle && (battle.InOpening(Time) || battle.Over);
-        foreach (var machine in Machines.Where(m => m.CanFight && !m.IsDead && m.Inside is null && !held).ToList())
+        // In the story a machine a Grunt rammed holds its fire for a moment (GameWorld.Companions).
+        foreach (var machine in Machines.Where(m => m.CanFight && !m.IsDead && m.Inside is null && !held && (Story is null || !Stunned(m))).ToList())
         {
             // MachLogCanAttack::diminishAlertnessAndInaccuracy.
             GunneryOf(machine).Settle(Dt / 4);
@@ -249,6 +250,9 @@ public sealed partial class GameWorld
         // Once a battle is over nothing is hurt any more: rounds still in the air and blasts land harmlessly.
         if (Battle is { } fought && (fought.Over || !BattleHits(target, by)))
             return;
+        // In the story a Grunt lying downed or still dormant takes nothing (GameWorld.Companions).
+        if (Story is not null && !StoryHit(target))
+            return;
         var dealer = shooter ?? (Wired is not null && blaster is { } id ? Find(id) : null);
         if (Wired is not null && !WiredHit(target, ref damage, dealer, weapon))
             return;
@@ -256,6 +260,9 @@ public sealed partial class GameWorld
         var before = target.HitPoints;
         var armour = target.Armour;
         target.Durability = ArmourModel.ApplyHit(target.Durability, damage);
+        // A Grunt of the story is never destroyed: it lies downed at one hit point instead.
+        if (Story is not null)
+            StoryStruck(target);
         if (Wired is not null)
         {
             WiredStruck(target, armour, shooter, weapon);

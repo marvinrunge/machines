@@ -129,6 +129,9 @@ public sealed partial class GameWorld
             return sentry.Stats.HardwareLevel == 4 == flyer;
         if (flyer)
             return MaximumWeaponRange(shooter) is 0 or > 20 && !(shooter is Machine bee && bee.IsType("ADMINISTRATOR", "BOSS") && bee.Stats.HardwareLevel == 2);
+        // A Grunt of the story lying downed or dormant is nobody's target (GameWorld.Companions).
+        if (Story is not null && StoryInert(target))
+            return false;
         return target is not Machine { Inside: not null } || shooter is Machine;
     }
 
