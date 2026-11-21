@@ -15,6 +15,12 @@ namespace Machines.Sim.World;
 /// or searches where it heard it, and a hunt that loses sight of its quarry searches where it was last seen
 /// (<see cref="SearchOrder"/>), then takes up its round again. Being hit always gives the shooter away.
 /// <para>
+/// A fair hunt (docs/STORY.md, Technische Notizen of the prologue): a seeker that spots a hero calls the others near it by
+/// data link (<see cref="Call"/>; while the trio still sneaks the ship stays alert for a while, <see cref="StoryMarks.Alert"/>);
+/// it draws before it fires and holds its fire beyond <see cref="StorySight.FireReach"/> (<see cref="StoryHoldsFire"/>),
+/// its hits on the trio weigh <see cref="StorySeeker.Harm"/>, and a caller (the Commander) never fires at all.
+/// </para>
+/// <para>
 /// The seams, as the Phantom's shadow has them (GameWorld.WiredShadow): <see cref="NearestEnemy"/> passes over a hero its
 /// seeker has not spotted, a patrol stops when wary and dwells at its points, a hit tells who fired. The lamps of the
 /// machines and the deck's light groups are the sim's here, so the view follows them. Nothing here runs without
@@ -186,10 +192,15 @@ public sealed partial class GameWorld
         if (sight.Seekers.TryGetValue(machine.Id, out var known))
             return known;
         var thresher = machine.Spec.TypeName == "AGGRESSOR ASSASSIN" && machine.Stats.HardwareLevel == 4;
+        var prologue = run.Options.Chapter == StoryOptions.Prologue;
         var seeker = new StorySeeker(machine.Id)
         {
             Searchlight = thresher,
-            Unkillable = thresher && run.Options.Chapter == StoryOptions.Prologue,
+            Unkillable = thresher && prologue,
+            // The horror of the decks draws fast and hits whole; the Commander leads his squad and leaves the killing to it.
+            Draw = thresher ? StorySight.ThresherDraw : StorySight.Draw,
+            Harm = thresher ? 1 : StorySight.HunterHarm,
+            Caller = prologue && machine.Spec.TypeName == "ADMINISTRATOR COMMANDER",
         };
         sight.Seekers[machine.Id] = seeker;
         return seeker;
@@ -281,6 +292,8 @@ public sealed partial class GameWorld
             sight.Seekers.Remove(gone);
 
         var spotted = false;
+        // The ship alert after a call while the trio sneaks: suspicion lingers (StoryMarks.Alert).
+        var alert = StoryMarks.Alerted(run, Time);
         foreach (var eyes in sight.Seekers.Values)
         {
             var seeker = Find<Machine>(eyes.Id)!;
@@ -303,8 +316,17 @@ public sealed partial class GameWorld
             {
                 StoryGlimpse.Seen => StorySight.RiseSeen,
                 StoryGlimpse.Heard => StorySight.RiseHeard,
-                _ => -StorySight.Fall,
+                _ => -StorySight.Fall * (alert ? StorySight.AlertFall : 1),
             }, 0, 1);
+            // Since when it has each hero it sees in its sights, sure of it (its spotting's stinger comes then): it draws on
+            // one before it fires (StoryHoldsFire), and a hero out of its sight gets that moment again.
+            foreach (var gone in eyes.SightSince.Keys.Where(id => !eyes.Sees.Contains(id)).ToList())
+                eyes.SightSince.Remove(gone);
+            if (eyes.Suspicion >= 1)
+            {
+                foreach (var seen in eyes.Sees)
+                    eyes.SightSince.TryAdd(seen, Time);
+            }
             if (quarry is not null)
             {
                 eyes.Quarry = quarry.Id;
@@ -366,7 +388,22 @@ public sealed partial class GameWorld
                 break;
 
             default:
-                if (eyes.Suspicion >= 1 && quarry is not null)
+                if (eyes.Caller)
+                {
+                    // The leader does not hunt: it turns to what it sees and calls it out to its squad.
+                    if (eyes.Suspicion >= 1 && quarry is not null && glimpse == StoryGlimpse.Seen)
+                    {
+                        Face(seeker, quarry.Position);
+                        if (Call(run, seeker, eyes, quarry))
+                            Tell(StorySightKind.Spotted, eyes);
+                    }
+                    else if (eyes.Wary && eyes.Suspicion <= 0)
+                    {
+                        eyes.Wary = false;
+                        Tell(StorySightKind.Calm, eyes);
+                    }
+                }
+                else if (eyes.Suspicion >= 1 && quarry is not null)
                 {
                     if (glimpse == StoryGlimpse.Seen)
                         Hunt(seeker, eyes, quarry, PutAside(seeker));
@@ -408,6 +445,71 @@ public sealed partial class GameWorld
         else
             Search(seeker, hero.Position, back);
         Tell(StorySightKind.Spotted, eyes);
+        Call(Story!, seeker, eyes, hero);
+    }
+
+    /// <summary>
+    /// A seeker that spotted a hero calls the others by its data link (docs/STORY.md, Klang: Datenfunk): every other seeker
+    /// of the ship within <see cref="StorySight.CallReach"/> that is not hunting one of the trio already turns to the spot,
+    /// wary; those within half the reach that can come go to search it. While the trio still sneaks (before the core's
+    /// alarm) the ship stays alert for <see cref="StorySight.AlertFor"/> seconds (<see cref="StoryMarks.Alert"/>). The view
+    /// hears a cue (<c>datalink</c>: the modem's screech) at the caller. A seeker calls at most once in
+    /// <see cref="StorySight.CallEvery"/> seconds; false when it did not call now.
+    /// </summary>
+    private bool Call(StoryRun run, Machine caller, StorySeeker eyes, Machine hero)
+    {
+        if (eyes.CalledAt >= 0 && Time - eyes.CalledAt < StorySight.CallEvery)
+            return false;
+        eyes.CalledAt = Time;
+        var spot = hero.Position;
+        foreach (var other in run.Sight.Seekers.Values)
+        {
+            if (other.Id == eyes.Id || other.Blind || Find<Machine>(other.Id) is not { IsDead: false, DrivenByPlayer: false, Inside: null } machine
+                || Vector2.Distance(machine.Position, caller.Position) > StorySight.CallReach
+                || machine.Order is AttackOrder { Target: var aim } && run.Seats.Any(seat => Wired?.Heroes.GetValueOrDefault(seat)?.Hero == aim))
+                continue;
+            (other.Quarry, other.Spot) = (hero.Id, spot);
+            other.Suspicion = MathF.Max(other.Suspicion, StorySight.WaryAt);
+            if (!other.Wary)
+            {
+                other.Wary = true;
+                Tell(StorySightKind.Suspicious, other);
+            }
+            if (!other.Caller && machine.Order is not SearchOrder && Vector2.Distance(machine.Position, caller.Position) <= StorySight.CallReach / 2)
+                Search(machine, spot, PutAside(machine));
+        }
+        if (!run.Flags.Contains(StoryMarks.Alarm))
+            run.Timers[StoryMarks.Alert] = Time + StorySight.AlertFor;
+        StoryEvents.Cue(this, "datalink", spot, caller.Id);
+        return true;
+    }
+
+    /// <summary>Whether a machine is the hero of one of the trio's seats.</summary>
+    private bool IsTrioHero(StoryRun run, Machine machine) => run.Seats.Any(seat => Wired?.Heroes.GetValueOrDefault(seat)?.Hero == machine.Id);
+
+    /// <summary>
+    /// The seam in <see cref="UpdateCombat"/>: a seeker of the ship's holds its fire at a hero of the trio until it has drawn
+    /// on it, <see cref="StorySeeker.Draw"/> seconds of seeing it without a break (the stinger of its spotting comes first,
+    /// and a hero that breaks the line gets that moment again); one it does not see now, or further than
+    /// <see cref="StorySight.FireReach"/>, it does not fire at; a caller (the Commander) never fires at the trio. It still
+    /// aims, so the Grunts know whom to ram. Any other shot goes as ever.
+    /// </summary>
+    private bool StoryHoldsFire(Machine shooter, Actor? target)
+    {
+        if (Story is not { } run || target is not Machine hero || !IsTrioHero(run, hero) || run.Sight.Seekers.GetValueOrDefault(shooter.Id) is not { } eyes)
+            return false;
+        if (eyes.Caller || Vector2.Distance(shooter.Position, hero.Position) > StorySight.FireReach)
+            return true;
+        return !eyes.SightSince.TryGetValue(hero.Id, out var since) || Time - since < eyes.Draw;
+    }
+
+    /// <summary>The share of a hit a hero of the trio takes from a seeker of the ship's (<see cref="StorySeeker.Harm"/>): the story's difficulty; 1 for any other hit.</summary>
+    private float StoryHarm(Actor target, Actor? dealer)
+    {
+        if (Story is not { } run || target is not Machine hero || dealer is null || !IsTrioHero(run, hero)
+            || run.Sight.Seekers.GetValueOrDefault(dealer.Id) is not { } eyes)
+            return 1;
+        return eyes.Harm;
     }
 
     /// <summary>What a seeker puts aside to search: its round where it was going, an order with the end of its way, or where it stood.</summary>

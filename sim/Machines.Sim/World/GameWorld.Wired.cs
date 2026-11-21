@@ -512,6 +512,9 @@ public sealed partial class GameWorld
         share *= BodyShare(target, shooter);
         // A located machine takes more from its enemies; exactly 1 for one that is not and for a hit without a dealer.
         share *= LocatedShare(target, shooter);
+        // The story's hunters hit the trio by its difficulty (GameWorld.StorySight); exactly 1 elsewhere.
+        if (Story is not null)
+            share *= StoryHarm(target, shooter);
         if (share != 1 && damage > 0)
             damage = Math.Max(1, WholeDamage(damage * share));
         return true;

@@ -53,6 +53,24 @@ public sealed class StorySeeker(int id)
     /// <summary>Nothing hurts it (the prologue's Thresher: one must not meet it, and one cannot beat it).</summary>
     public bool Unkillable { get; set; }
 
+    /// <summary>
+    /// It leads, it does not hunt (the prologue's Commander): what it spots it calls out to the others (<see cref="StorySight.CallReach"/>)
+    /// and its own guns stay off the trio; its night eyes still lend its squad their sight.
+    /// </summary>
+    public bool Caller { get; set; }
+
+    /// <summary>The share of its hits the trio takes (the story's difficulty, <see cref="StorySight.HunterHarm"/>; the Thresher's are whole).</summary>
+    public float Harm { get; set; } = StorySight.HunterHarm;
+
+    /// <summary>Seconds it takes to draw on a hero it has just come to see before it fires (<see cref="StorySight.Draw"/>).</summary>
+    public float Draw { get; set; } = StorySight.Draw;
+
+    /// <summary>The game time it last called the others, -1 for never (so it calls once per <see cref="StorySight.CallEvery"/>).</summary>
+    public float CalledAt { get; set; } = -1;
+
+    /// <summary>Since when it has seen each hero it sees now without a break, by actor id: it fires at one only once it has drawn on it.</summary>
+    public SortedDictionary<int, float> SightSince { get; } = [];
+
     /// <summary>How sure it is that something is there, 0 to 1. At 1 it hunts what it sees, or searches where it heard it.</summary>
     public float Suspicion { get; set; }
 
@@ -83,7 +101,15 @@ public sealed class StorySeeker(int id)
     {
         var hash = new WiredHash();
         hash.Mix(Id);
-        hash.Mix((Searchlight ? 1 : 0) | (Blind ? 2 : 0) | (Unkillable ? 4 : 0) | (Wary ? 8 : 0));
+        hash.Mix((Searchlight ? 1 : 0) | (Blind ? 2 : 0) | (Unkillable ? 4 : 0) | (Wary ? 8 : 0) | (Caller ? 16 : 0));
+        hash.Mix(BitConverter.SingleToInt32Bits(Harm));
+        hash.Mix(BitConverter.SingleToInt32Bits(Draw));
+        hash.Mix(BitConverter.SingleToInt32Bits(CalledAt));
+        foreach (var (hero, since) in SightSince)
+        {
+            hash.Mix(hero);
+            hash.Mix(BitConverter.SingleToInt32Bits(since));
+        }
         hash.Mix(BitConverter.SingleToInt32Bits(Suspicion));
         hash.Mix(Quarry);
         hash.Mix(BitConverter.SingleToInt32Bits(Spot.X));
@@ -155,6 +181,36 @@ public sealed class StorySight
 
     /// <summary>What wheels do to the moving part of a signature: the Grunts are loud.</summary>
     public const float Wheels = 2;
+
+    // The story's difficulty: the hunters are deadly, but give the trio a fair moment to get away.
+
+    /// <summary>
+    /// Seconds a hunter draws on a hero it has just come to see before it fires (after the stinger of its spotting): each
+    /// time the hero breaks the line and shows again, it draws anew. The Thresher, the horror of the decks, draws faster.
+    /// </summary>
+    public const float Draw = 1.2f, ThresherDraw = 0.6f;
+
+    /// <summary>The share of a hunter's hits the trio takes (the Thresher's are whole: one must not meet it).</summary>
+    public const float HunterHarm = 0.5f;
+
+    /// <summary>
+    /// How far a hunter fires at one of the trio, metres, whatever its guns reach: in the dark decks it closes in first, and
+    /// a Grunt at the far end of a long straight duct is out of its fire.
+    /// </summary>
+    public const float FireReach = 40;
+
+    /// <summary>
+    /// The data link (docs/STORY.md, Klang: "Datenfunk, zerhackte Stimmen, die deine Kennung sagen"): a hunter that spots one
+    /// of the trio calls the others within this reach, metres: they turn to the spot, and those within half of it come to
+    /// search it. A caller calls at most once in so many seconds.
+    /// </summary>
+    public const float CallReach = 80, CallEvery = 5;
+
+    /// <summary>
+    /// How long the ship stays alert after a call while the trio still sneaks (before the core's alarm), seconds: its
+    /// hunters' suspicion falls at <see cref="AlertFall"/> of its rate meanwhile (the HUD and the music read StoryMarks.Alert).
+    /// </summary>
+    public const float AlertFor = 30, AlertFall = 0.5f;
 
     // ---- the state ------------------------------------------------------------------------------------
 

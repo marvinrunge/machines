@@ -52,6 +52,9 @@ public sealed class CompanionBot(GameWorld world, PlayerId seat)
             case CompanionTask.Board:
                 Board(run, companion, grunt);
                 return;
+            case CompanionTask.Go:
+                GoTo(run, companion, grunt);
+                return;
         }
         switch (companion.Order)
         {
@@ -296,6 +299,32 @@ public sealed class CompanionBot(GameWorld world, PlayerId seat)
             return;
         companion.Step = CompanionStep.Standing;
         world.CompanionBark(run, seat, CompanionBarks.Cue.Gate, urgent: true);
+    }
+
+    /// <summary>
+    /// To the job's place by its own way (the cable duct while the Locator crawls ahead), and waits there; on the way and
+    /// there it rams an enemy firing at the trio that comes within its ram's reach.
+    /// </summary>
+    private void GoTo(StoryRun run, Companion companion, Machine grunt)
+    {
+        if (StoryMarks.Locate(world.Deck, companion.Place) is not { } spot)
+        {
+            world.AssignCompanion(seat, CompanionTask.None);
+            return;
+        }
+        if (RamIfNear(run, grunt))
+            return;
+        // Once there (or as near as its way goes) it stays unless pushed well off.
+        var off = Vector2.Distance(grunt.Position, spot);
+        var stays = companion.Step == CompanionStep.Standing && off <= 3 * There || companion.Step == CompanionStep.Going && GameWorld.Arrived(grunt);
+        if (off > There && !stays)
+        {
+            companion.Step = CompanionStep.Going;
+            world.CompanionMove(grunt, spot);
+            return;
+        }
+        world.CompanionStand(grunt);
+        companion.Step = CompanionStep.Standing;
     }
 
     /// <summary>Follows the Locator into the escape pod: to its place in the pod's zone beside the hatch, and stays there.</summary>

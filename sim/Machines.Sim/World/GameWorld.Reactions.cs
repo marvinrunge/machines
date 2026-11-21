@@ -320,6 +320,7 @@ public sealed partial class GameWorld
     /// <summary>
     /// MachLogAIController::handleEnemyContact: for each hit on an AI's machine outside a building, its first idle
     /// aggressor within 100 m, else its first such administrator, heads there. What it does then is up to its own eyes.
+    /// In a story a machine the director called off (a blind seeker of the story's sight) does not come.
     /// </summary>
     private void HandleEnemyContact(Machine caller)
     {
@@ -327,6 +328,7 @@ public sealed partial class GameWorld
             return;
         var near = FiledNear(caller.Position, 100).OfType<Machine>()
             .Where(m => m.Race == caller.Race && !m.IsDead && m.Order is IdleOrder && m.Inside is null
+                && (Story is null || StorySeekerOf(m.Id) is not { Blind: true })
                 && Vector2.DistanceSquared(m.Position, caller.Position) < 100 * 100)
             .OrderBy(m => m.Id).ToList();
         var helper = near.FirstOrDefault(m => m.Spec.Type == "AGGRESSOR") ?? near.FirstOrDefault(m => m.Spec.Type == "ADMINISTRATOR");

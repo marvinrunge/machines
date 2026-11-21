@@ -5164,6 +5164,12 @@ msgstr "Kommt durch die Werkstatt"
 msgid "Take the weapon from the rack"
 msgstr "Nimm die Waffe aus dem Gestell"
 
+msgid "Stop the armed Grunts"
+msgstr "Halte die bewaffneten Grunts auf"
+
+msgid "Put the fallen Grunt back together"
+msgstr "Setz den gefallenen Grunt wieder zusammen"
+
 msgid "Reach the repair station"
 msgstr "Erreicht die Reparaturstation"
 

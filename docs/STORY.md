@@ -180,6 +180,8 @@ Die Ironie gehört zum Kern der Story: Das Schiff nennt den Einzigen korrumpiert
 Technische Notizen:
 
 - **Klein sein als Mechanik:** Engstellen, durch die nur kleine Maschinen passen. In einem Innenlevel ist das einfach eine Frage der Kollisionsgrößen.
+- **Entdeckt beim Schleichen:** Sieht eine Maschine des Schiffs einen der drei, ruft sie per Datenfunk (das Modemkreischen) alle Maschinen im Umkreis von 80 m. Sie drehen sich zu der Stelle, die nahen (bis 40 m) suchen sie ab. Vor dem Kernalarm bleibt das Schiff danach 30 Sekunden wachsam: Der Verdacht klingt nur halb so schnell ab. Einen schiffsweiten Alarm löst das nicht aus, und nach dem Kernalarm jagt ohnehin alles.
+- **Faire Flucht:** Ein Jäger schießt erst, wenn er sich sicher ist (der Warnton „entdeckt“ kommt zuerst) und das Ziel 1,2 Sekunden ohne Unterbrechung im Blick hatte, der Thresher 0,6 Sekunden. Wer die Sichtlinie bricht, bekommt diesen Moment neu. Über 40 m schießen die Jäger nicht, und der Commander schießt gar nicht: Er führt und ruft. Reaper treffen die drei mit halber Wucht, der Thresher mit voller.
 - **Schlagseite:** Statt das Level wirklich zu kippen, reichen Kamera-Neigung, Wackeln, rutschende Trümmer, Feuer und Funken. Das ist günstiger und wirkt genauso.
 - **Wiederverwendung:** Die Decks aus dem Prolog sind später das Wrack in Akt 2, nur zerbrochen, schief und voller Sand.
   Ein Baukasten, zwei Level. Danach dient er auch dem Refugium als Grundlage.

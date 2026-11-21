@@ -18,6 +18,15 @@ public static class StoryMarks
     /// <summary>Set while a hunter sees the trio: the HUD says SIGNATURE DETECTED.</summary>
     public const string Spotted = "spotted";
 
+    /// <summary>
+    /// The timer of the ship's alertness while the trio still sneaks: a hunter that spotted one of them called the others by its
+    /// data link (StorySight.CallReach), and until this game time their suspicion falls slower. The music's hunt layer reads it.
+    /// </summary>
+    public const string Alert = "alert";
+
+    /// <summary>Whether the ship is alert at a game time (<see cref="Alert"/>).</summary>
+    public static bool Alerted(StoryRun run, float now) => run.Timers.TryGetValue(Alert, out var until) && now < until;
+
     /// <summary>The timer of the countdown to the crash: the game time it runs out.</summary>
     public const string Countdown = "countdown";
 

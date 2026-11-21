@@ -1,4 +1,5 @@
 using System.Numerics;
+using Machines.Import.Model;
 using Machines.Sim.World;
 using static Machines.Sim.Story.Then;
 using static Machines.Sim.Story.When;
@@ -25,9 +26,11 @@ public static class StoryScripts
 /// (where the trio stands, which Grunts are awake, which doors are open and hacks done, which machines exist, the lights,
 /// the alarm, the countdown). Seats: 0 the Locator, 1 Ike, 2 Bob.
 /// <para>
-/// Placeholders for stage 4 (each marked TODO): the Reapers', the Commander's and the hostile Grunts' fighting is held back
-/// (they fire only when fired at, and see by the story's sight) until the alarm's assault (WP-H) and the weapon (WP-G) give
-/// them their rules; the gate switches (the companions' HoldSwitch job) are the assault's (WP-H).
+/// The hunters see by the story's sight and fight by its difficulty (GameWorld.StorySight: they draw before they fire, hit
+/// the trio by half, the Thresher whole; the Commander leads and calls, his squad shoots). After the core the Commander
+/// splits his Reapers into the parallel corridors (WP-H), they fire through the grates and force the gates unless a Grunt
+/// holds a switch; the workshop's armed Grunts fight for real once the Locator has its Bolter (WP-G). A Grunt lying down is
+/// never left behind: the objective points at it, and the pod does not launch without it.
 /// </para>
 /// </summary>
 public static class Prologue
@@ -50,9 +53,9 @@ public static class Prologue
         RowRole = "row", ScareRole = "scare";
 
     /// <summary>
-    /// How ready the hunters stand. The story's sight decides when they see the trio (they pick a hero out only once they
-    /// spotted it, GameWorld.StoryHides) and sends them hunting by itself. TODO(WP-H/WP-G): High keeps the original's
-    /// reactions to fire returned; the assault and the hostile Grunts may go to Low once their own rules are in.
+    /// How ready the Thresher, the Reapers and the Commander stand. The story's sight decides when they see the trio (they pick a
+    /// hero out only once they spotted it, GameWorld.StoryHides) and sends them hunting by itself; High keeps the original's
+    /// own reactions to what they cannot see out of it. The workshop's armed Grunts stand at Low: they go for what they see.
     /// </summary>
     public const Machines.Sim.World.DefCon Hunters = Machines.Sim.World.DefCon.High;
 
@@ -67,7 +70,7 @@ public static class Prologue
         ([new(27, 23.5f), new(11, 23.5f), new(42, 23.5f)], 90),
         ([new(44, 37), new(40, 37), new(36, 37)], 0),
         ([new(88, 95), new(86, 92), new(90, 92)], 90),
-        ([new(101, 118), new(100, 104), new(100, 108)], 0),
+        ([new(101, 118), new(100, 102), new(96, 102)], 0),
         ([new(180, 104), new(178, 108), new(182, 108)], 0),
         ([new(230, 108), new(226, 106), new(226, 110)], 180),
         ([new(240, 92), new(238.5f, 95), new(241.5f, 95)], 270),
@@ -93,7 +96,7 @@ public static class Prologue
     public static readonly IReadOnlyList<string> DoorsOpen = ["", "ABC", "ABCDEH", "ABCDEHIJVKM", "ABCDEHIJVKMQ", "ABCDEHIJVKMQRU", "ABCDEHIJVKMQRUT"];
 
     /// <summary>The doors that open by themselves as the trio comes, at each checkpoint.</summary>
-    public static readonly IReadOnlyList<string> DoorsAuto = ["", "D", "I", "", "RTU", "T", ""];
+    public static readonly IReadOnlyList<string> DoorsAuto = ["", "D", "I", "", "R", "T", ""];
 
     /// <summary>The ship's announcements that come round in the first two sections.</summary>
     public static readonly IReadOnlyList<string> Announcements = [Lines.Wake2, Lines.Deck2, Lines.Deck3, Lines.Deck4];
@@ -116,6 +119,27 @@ public static class Prologue
 
     /// <summary>How long after the launch the chapter is over (the pod bay's part of abwurf.cut).</summary>
     public const float Away = 8;
+
+    /// <summary>
+    /// How many seconds after the control is lost the Locator (to reach the vent) and the Grunts (to get into the cable duct)
+    /// are still spared the Reapers' fire.
+    /// </summary>
+    public const float LocatorSpared = 3, GruntsSpared = 8;
+
+    /// <summary>How long the Reapers push at an unheld gate before it gives way (plan WP-H; the plan's 30 s, eased for hands).</summary>
+    public const float GateForce = 40;
+
+    /// <summary>Where the Grunts wait by the cable duct's door during Erwischt, and where they wait at its far end, before D5.</summary>
+    public const string IkeAtCable = "100,102", BobAtCable = "96,102", IkeAtD5 = "166,102", BobAtD5 = "161,102";
+
+    /// <summary>Where the Commander sends his Reapers after the core (by way of the spine, P1; by way of the core's east door, P2), before the gates.</summary>
+    public const string AtG1 = "164,125.5", AtG2 = "164,109.5";
+
+    /// <summary>The flag of the hunt shut out: the trio is through the crossing into the workshop, and the Commander called his squad off.</summary>
+    public const string Sealed = "sealed";
+
+    /// <summary>The objective while a Grunt lies down (<see cref="Then.Rally"/>).</summary>
+    public const string RallyText = "Put the fallen Grunt back together";
 
     private const StoryAudience Bark = StoryAudience.Companion;
 
@@ -162,10 +186,12 @@ public static class Prologue
         new("core_open", 2, new HackOpen("hack_core"), [new Say(Lines.Core), new Assign(1, CompanionTask.Barricade, "J"),
             new Assign(2, CompanionTask.Barricade, "I")]),
 
-        // ---- 4 Erwischt: at 90 % the alarm; the cutscene films what the director does on these ticks (erwischt.cut).
+        // ---- 4 Erwischt: at 90 % the alarm; the cutscene films what the director does on these ticks (erwischt.cut). The core
+        // chamber keeps its light until the core blows; the Grunts leave their barricades for the cable duct's door, spared
+        // until they are well inside it.
         new("alarm", 2, new HackAt("hack_core", 1), [new BreakHack("hack_core"), new Alarm(true), new Section(4), new Objective(null),
-            new Hold(true, 0), new Spare(0, ControlLost + 2), new Spare(1, ControlLost + 2), new Spare(2, ControlLost + 2),
-            new ShieldProp(CoreTag), new Lights("emergency", "core"), new Assign(1, CompanionTask.None), new Assign(2, CompanionTask.None),
+            new Hold(true, 0), new Spare(0, ControlLost + LocatorSpared), new Spare(1, ControlLost + GruntsSpared), new Spare(2, ControlLost + GruntsSpared),
+            new ShieldProp(CoreTag), new Assign(1, CompanionTask.Go, IkeAtCable), new Assign(2, CompanionTask.Go, BobAtCable),
             new Cue("cutscene erwischt", "core"),
             new MoveTo(ThresherRole, ThresherAway), new Spawn(ReaperRole, Reaper3, ["82,137", "94,137"], Hunters),
             new Spawn(ReaperRole, Reaper2, ["100,139"], Hunters),
@@ -174,23 +200,35 @@ public static class Prologue
         new("door_j", 2,new Since("alarm", DoorBursts), [new OpenDoors("J"), new ClearBarricade("J"), new MoveTo(ReaperRole, "82,124", "94,124", "88,128"),
             new MoveTo(CommanderRole, "88,130")]),
         new("fire_core", 2, new Since("alarm", ReapersFire), [new AttackArtefact(ReaperRole, CoreTag)]),
-        new("core_blows", 2, new Since("alarm", CoreBlows), [new HarmProp(CoreTag)]),
-        new("power_fails", 2, new Since("alarm", PowerFails), [new Lights("emergency", "*"), new Lights("emergency", "core")]),
+        new("core_blows", 2, new Since("alarm", CoreBlows), [new HarmProp(CoreTag), new Lights("emergency", "core")]),
+        new("power_fails", 2, new Since("alarm", PowerFails), [new Lights("emergency", "*")]),
         new("control_lost", 2, new Since("alarm", ControlLost), [new Section(5), new Checkpoint(3), new Hold(false, 0), new OpenDoors("VKM"),
             new Objective("Escape through the vent", "105,118"), new Say(Lines.IkeAlarm, Bark, 1), .. Pursuit]),
 
-        // ---- 5 Die Enge: the Locator crawls ahead and hacks D5 open for the Grunts, who come along the cable duct.
+        // ---- 5 Die Enge: the Locator crawls ahead and hacks D5 open for the Grunts, who come along the cable duct; the Reapers
+        // fire through the grates and push at the gates G1 and G2, which give way unless one of the trio stands on its switch.
         new("pursuit_call", 3, new Since("control_lost", 3), [new Say(Lines.Auto2)]),
+        new("gates", 3, new Not(new Flagged(Sealed)), [new ForceGates(ReaperRole, GateForce, "G:switch_g1", "O:switch_g2")], After: ["control_lost"],
+            Repeat: true),
         new("crossing", 3, new InZone("R12"), [new Hackable(true, "hack_d5"), new Objective("Open door D5 for the Grunts", "hack_d5")]),
-        new("d5", 3, new HackDone("hack_d5"), [new OpenDoors("Q"), new Objective("Wait for the Grunts at the crossing", "R12")]),
-        new("together", 3, new InZone("R12", StoryWho.All), [new Checkpoint(4), new Section(6), new AutoDoors("RTU"),
+        new("d5", 3, new HackDone("hack_d5"), [new OpenDoors("Q"), new Objective("Wait for the Grunts at the crossing", "R12"),
+            new Assign(1, CompanionTask.HoldSwitch, "switch_g1"), new Assign(2, CompanionTask.HoldSwitch, "switch_g2")]),
+        new("together", 3, new InZone("R12", StoryWho.All), [new Checkpoint(4), new Section(6), new AutoDoors("R"),
             new Objective("Get through the workshop", "pickup_bolter"), .. Hostiles], After: ["d5"]),
 
-        // ---- 6 Erste Gegenwehr: the weapon on its rack (WP-G equips it), the hostile Grunts, the repair station.
-        new("workshop", 4, new InZone("R13"), [new SayToSeat(Lines.BobGlitch, 2), new Objective("Take the weapon from the rack", "pickup_bolter")]),
-        new("weapon", 4, new Near("pickup_bolter", 2.5f), [new Flag(StoryMarks.Done("pickup_bolter")), new Cue("pickup bolter", "pickup_bolter"),
-            new Objective("Reach the repair station", "repair_station")]),
+        // ---- 6 Erste Gegenwehr: the Grunts let go of the gates once the Locator is through; the door shuts the hunt out behind
+        // the trio; the weapon on its rack (Use), the armed Grunts, then the repair station.
+        new("workshop", 4, new InZone("R13"), [new SayToSeat(Lines.BobGlitch, 2), new Objective("Take the weapon from the rack", "pickup_bolter"),
+            new Assign(1, CompanionTask.None), new Assign(2, CompanionTask.None)]),
+        new("sealed", 4, new InZone("R13", StoryWho.Everyone), [new Flag(Sealed), new StopGates("GO"),
+            new Withdraw(ReaperRole), new Withdraw(CommanderRole)], After: ["workshop"]),
+        new("weapon", 4, new Flagged(StoryMarks.Done("pickup_bolter")), [new Cue("pickup bolter", "pickup_bolter"),
+            new Objective("Stop the armed Grunts", "R13")]),
+        new("cleared", 4, new Dead(HostileRole), [new AutoDoors("TU"), new Objective("Reach the repair station", "repair_station")], After: ["weapon"]),
         new("repaired", 4, new InZone("repair"), [new Checkpoint(5), new Objective("Get to the escape pods", "R15")]),
+
+        // A Grunt down anywhere is not left behind: the objective points at it until the Locator has put it together.
+        new("rally", 1, new Always(), [new Rally(RallyText, GameWorld.PodZone)], After: ["grunts_awake"], Repeat: true),
 
         // ---- 7 Absturz: the countdown from the Notgang, debris, the ship listing; the pod's hack under the firewall.
         new("notgang", 5, new InZone("R15"), [new Checkpoint(6), new Section(7), new Countdown(CountdownFull), new Say(Lines.Auto3),
@@ -205,9 +243,13 @@ public static class Prologue
         new("pod_denied", 6, new AllOf(new Near("pod_3_hatch", 6), new Not(new HackDone("pod_3_hatch"))), [new Say(Lines.PodNo)]),
         new("pod_hacked", 6, new HackDone("pod_3_hatch"), [new Objective("Get everyone into the pod", "pod_zone"),
             new Assign(1, CompanionTask.Board, "pod_3_hatch"), new Assign(2, CompanionTask.Board, "pod_3_hatch")]),
+        // A Grunt put back together (or one that dropped its job) boards again.
+        new("reboard", 6, new Not(new InSection(8)), [new Assign(1, CompanionTask.Board, "pod_3_hatch", IfFree: true),
+            new Assign(2, CompanionTask.Board, "pod_3_hatch", IfFree: true)], After: ["pod_hacked"], Repeat: true, Every: 1),
 
-        // ---- 8 Abwurf: everyone in, the pod drops (abwurf.cut); the chapter is won once the bay's part is over.
-        new("launch", 6, new InZone("pod_zone", StoryWho.All), [new Section(8), new Countdown(null), new Objective(null), new Hold(true, 0, 1, 2),
+        // ---- 8 Abwurf: everyone in, the pod drops (abwurf.cut); the chapter is won once the bay's part is over. Nobody is left
+        // behind: a Grunt lying down outside the pod must be put together first (the rally above says so), one down inside counts.
+        new("launch", 6, new InZone("pod_zone", StoryWho.Everyone), [new Section(8), new Countdown(null), new Objective(null), new Hold(true, 0, 1, 2),
             new Spare(0, Away + 5), new Spare(1, Away + 5), new Spare(2, Away + 5), new Cue("cutscene abwurf", "pod_3")],
             After: ["pod_hacked"]),
         new("away", 6, new Since("launch", Away), [new End(StoryEnding.Escaped)]),
@@ -227,22 +269,28 @@ public static class Prologue
     public const string ThresherAway = "patrol_thresher_2";
 
     /// <summary>
-    /// The hunt after the core: the Commander sends a Reaper along each parallel corridor and takes the spine himself.
-    /// TODO(WP-H): the squad hunts by the story's sight, the gates G1/G2 and their switches.
+    /// The hunt after the core (plan WP-H): the Commander splits his Reapers, the first half by way of the spine into P1, the
+    /// rest by the core's east door into P2, both to the gates at their ends, and takes the spine himself. On the way they hunt
+    /// by the story's sight: they stand at the grate windows and fire through, as neither the ducts nor the cable duct let
+    /// them in. The Grunts make for the cable duct's far end, before D5, while the Locator crawls ahead.
     /// </summary>
     private static StoryAction[] Pursuit =>
     [
-        new MoveTo(ReaperRole, "150,125", "150,109", "160,109"),
+        new Flank(ReaperRole, ["88,139", "123.5,137"], AtG1, ["100,109"], AtG2),
         new MoveTo(CommanderRole, "commander_2"),
+        new Assign(1, CompanionTask.Go, IkeAtD5),
+        new Assign(2, CompanionTask.Go, BobAtD5),
     ];
 
     /// <summary>
-    /// The three hostile Grunts of the workshop, standing where they wait. TODO(WP-G): they see by the story's sight and fight; until
-    /// then they stand switched off (inert, unarmed), since armed ones at any DefCon shoot the unarmed trio down at once.
+    /// The three armed Grunts of the workshop (plan WP-G): already updated, painted as the trio's own, ready to go for what
+    /// they see (by the story's sight); two stand their posts, the third walks the room.
     /// </summary>
     private static StoryAction[] Hostiles =>
     [
-        new Spawn(HostileRole, HostileGrunt, ["hostile_grunt_1", "hostile_grunt_2", "hostile_grunt_3"], Hunters, Inert: true),
+        new Spawn(HostileRole, HostileGrunt, ["hostile_grunt_1", "hostile_grunt_2", "hostile_grunt_3"], DefCon.Low, Looks: Race.Red),
+        new StandFast(HostileRole),
+        new PatrolRoute(HostileRole, 2, "hostile_grunt_3", "209,103"),
     ];
 
     /// <summary>The dark rows: switched-off machines in the clamps of both decks, and the one on deck A that wakes for a moment.</summary>
@@ -312,18 +360,26 @@ public static class Prologue
         }
         if (cp == 3)
         {
+            // As the control is lost: the squad in the core chamber, the trio given its moment to get going.
             Do(new Spawn(ReaperRole, Reaper3, ["82,124", "94,124"], Hunters), new Spawn(ReaperRole, Reaper2, ["88,128"], Hunters),
                 new Spawn(CommanderRole, Commander, ["88,139"], Hunters));
             Do(Pursuit);
+            Do(new Spare(0, LocatorSpared), new Spare(1, GruntsSpared), new Spare(2, GruntsSpared));
         }
         if (cp == 4)
         {
-            Do(new Spawn(ReaperRole, Reaper3, ["150,125", "150,109"], Hunters), new Spawn(ReaperRole, Reaper2, ["160,109"], Hunters),
+            // All three at the crossing, the Grunts holding the gates, the Reapers at the gates' far side.
+            Do(new Spawn(ReaperRole, Reaper3, [AtG1, "154,125.5"], Hunters), new Spawn(ReaperRole, Reaper2, [AtG2], Hunters),
                 new Spawn(CommanderRole, Commander, ["commander_2"], Hunters));
+            Do(new Assign(1, CompanionTask.HoldSwitch, "switch_g1"), new Assign(2, CompanionTask.HoldSwitch, "switch_g2"));
             Do(Hostiles);
         }
         if (cp >= 5)
-            run.Flags.Add(StoryMarks.Done("pickup_bolter"));
+        {
+            // The Bolter taken from its rack before.
+            world.TakeUpForStory(run.Locator, "pickup_bolter");
+            run.Flags.Add(Sealed);
+        }
         if (cp == LastCheckpoint)
             Do(new Countdown(CountdownAtCheckpoint), new Tilt(5, 0, 0.5f));
         Do(cp switch

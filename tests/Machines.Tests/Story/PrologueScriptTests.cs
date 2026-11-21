@@ -74,6 +74,11 @@ public class PrologueScriptTests
         Assert.Equal(checkpoint is 3 or 4 ? 3 : 0, Count(world, Prologue.ReaperRole));
         Assert.Equal(checkpoint is 3 or 4 ? 1 : 0, Count(world, Prologue.CommanderRole));
         Assert.Equal(checkpoint == 4 ? 3 : 0, Count(world, Prologue.HostileRole));
+        // The workshop's Grunts armed and painted as the trio's own; the Locator wears the Bolter once it was taken.
+        Assert.All(director.Of(world, Prologue.HostileRole), m => Assert.Equal((Race?)Race.Red, m.DisplayAs));
+        Assert.All(director.Of(world, Prologue.HostileRole), m => Assert.NotEmpty(m.Weapons));
+        Assert.Equal(checkpoint >= 5, world.HeroOf(run.Locator)!.Weapons.Count > 0);
+        Assert.Equal(checkpoint >= 5, run.Flags.Contains(Prologue.Sealed));
         Assert.All(world.Machines.Where(m => run.Seats.All(s => world.HeroOf(s)?.Id != m.Id)), m => Assert.Equal(Race.Blue, m.Race));
         // After Erwischt: the core gone, the alarm on, the lights at emergency.
         Assert.Equal(checkpoint < 3, world.Artefacts.Any(a => a.Tag == Prologue.CoreTag && !a.IsDead));
@@ -152,6 +157,11 @@ public class PrologueScriptTests
         var locator = world.HeroOf(run.Locator)!;
         var at = locator.Position;
 
+        // The core chamber keeps its light while the Reapers come in and fire at the core; it goes to emergency as the core blows.
+        rider.Until(() => run.Director.Has("fire_core"), Prologue.ReapersFire + 1);
+        Assert.Equal("on", world.StoryLightState("core"));
+        rider.Until(() => run.Director.Has("core_blows"), Prologue.CoreBlows + 1);
+        Assert.Equal("emergency", world.StoryLightState("core"));
         rider.Until(() => run.Section == 5, Prologue.ControlLost + 1);
 
         Assert.Equal(3, Count(world, Prologue.ReaperRole));
@@ -369,6 +379,30 @@ public class PrologueScriptTests
             Step();
         }
 
+        /// <summary>To a weapon's rack, used (the use key's command).</summary>
+        public void TakeUp(string rack)
+        {
+            Go(world.Deck!.Marker(rack).Position + new Vector2(-1.5f, -1.5f));
+            Assert.Null(Do(new StoryUseCommand(Race.Red, rack)));
+        }
+
+        /// <summary>
+        /// The workshop's armed Grunts shot at, the nearest first, with the trigger held on it as a player aims (the Grunts
+        /// fight along), until none is left standing.
+        /// </summary>
+        public void Fight()
+        {
+            var hostiles = Run.Director.Of(world, Prologue.HostileRole);
+            for (var i = 0; i < 60 * GameWorld.TicksPerSecond && !Run.Over && hostiles.Any(m => !m.IsDead); i++)
+            {
+                var foe = hostiles.Where(m => !m.IsDead).OrderBy(m => Vector2.DistanceSquared(m.Position, Locator.Position)).ThenBy(m => m.Id).First();
+                world.Issue(new DriveCommand(Race.Red, Locator.Id, Driving: true, Aim: foe.Position));
+                Step();
+            }
+            world.Issue(new DriveCommand(Race.Red, Locator.Id, Driving: true));
+            Step();
+        }
+
         /// <summary>The chapter from where it stands to its end, leg by leg.</summary>
         public void Play()
         {
@@ -400,10 +434,12 @@ public class PrologueScriptTests
                     Hack("hack_d5");
                 else if (!director.Has("together"))
                     All("R12");
-                else if (!director.Has("workshop"))
-                    Go(Zone("R13"));
+                else if (!director.Has("sealed"))
+                    All("R13");
                 else if (!director.Has("weapon"))
-                    Go(world.Deck!.Marker("pickup_bolter").Position);
+                    TakeUp("pickup_bolter");
+                else if (!director.Has("cleared"))
+                    Fight();
                 else if (!director.Has("repaired"))
                     Go(Zone("repair"));
                 else if (!director.Has("notgang"))

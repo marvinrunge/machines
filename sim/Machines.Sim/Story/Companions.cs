@@ -26,6 +26,8 @@ public enum CompanionTask
     HoldSwitch,
     /// <summary>Follow the Locator into the escape pod: go to a place inside the pod zone and stay there.</summary>
     Board,
+    /// <summary>Drive to a place (a marker, a zone or "x,y") by its own way and wait there: the Grunts down the cable duct while the Locator crawls ahead.</summary>
+    Go,
 }
 
 /// <summary>Where a Grunt is in a distraction or a barricade (the steps of the job it is on).</summary>
