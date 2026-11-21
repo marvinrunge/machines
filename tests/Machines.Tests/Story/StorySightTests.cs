@@ -347,9 +347,9 @@ public class StorySightTests
         // Spotted, the hero is the Thresher's to pick out.
         Assert.Same(hero, world.NearestEnemy(thresher, 200));
 
-        // It slips away into its bay behind the walls, its lamp off: the hunt goes on blind for a while, then is lost.
+        // It slips away far behind the walls, its lamp off: the hunt goes on blind for a while, then is lost.
         var lastSeen = hero.Position;
-        hero.Position = new Vector2(27, 23.5f);
+        hero.Position = new Vector2(11, 23.5f);
         world.SetStoryLamp(hero.Id, false);
         news = Run(world, StorySight.LoseAfter + 0.5f);
         Assert.Contains(news, n => n.Kind == StorySightKind.Lost && n.Seeker == thresher.Id);

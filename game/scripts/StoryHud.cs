@@ -69,7 +69,8 @@ public partial class StoryHud : Control
         QueueRedraw();
     }
 
-    // The checkpoint last seen: a later one is called out and noted as the one to continue from.
+    // The checkpoint last seen: a later one is called out, and noted as the one to continue from in the progress of the
+    // Locator's player, the host's (plan WP-K: in co-op the story is the host's; the others keep their own).
     private int? _checkpoint;
 
     private void FollowCheckpoint(StoryReadout now)
@@ -77,9 +78,12 @@ public partial class StoryHud : Control
         if (_checkpoint is { } last && now.Checkpoint > last && _demo is null && !_game.Watching)
         {
             CheckpointReached();
-            var progress = StoryProgress.Load();
-            progress.Reached(now.Chapter, now.Checkpoint);
-            progress.Save();
+            if (now.IsLocator)
+            {
+                var progress = StoryProgress.Load();
+                progress.Reached(now.Chapter, now.Checkpoint);
+                progress.Save();
+            }
         }
         _checkpoint = now.Checkpoint;
     }
@@ -562,24 +566,33 @@ public partial class StoryHud : Control
 
     // ---- the end -----------------------------------------------------------------------------------------
 
-    /// <summary>The Locator is lost: the chapter goes on from its last checkpoint, by a key.</summary>
+    /// <summary>What the card says when the chapter is lost: its heading, the line under it and the key's prompt (online: back to the room).</summary>
+    public static (string Title, string Line, string Prompt) EndWords(StoryEnding ending, bool online, bool host) => (
+        ending == StoryEnding.Crashed ? Lang.T("Crashed") : Lang.T("{0} lost", StoryReadout.LocatorName),
+        ending == StoryEnding.Crashed ? Lang.T("The ship went down before the pod was away.") : Lang.T("Without the Locator there is no way out."),
+        !online ? Lang.T("From the checkpoint ({0})", Lang.T("Space"))
+            : host ? Lang.T("To the room, on from the checkpoint ({0})", Lang.T("Space"))
+            : Lang.T("To the room, the host goes on from the checkpoint ({0})", Lang.T("Space")));
+
+    /// <summary>The chapter is lost (the Locator fell, or the ship came down first): it goes on from its last checkpoint, by a key.</summary>
     private void DrawEnd(StoryReadout now)
     {
-        if (now.Ending is not StoryEnding.LocatorLost)
+        if (now.Ending is not ({ } ending and (StoryEnding.LocatorLost or StoryEnding.Crashed)))
             return;
+        var (title, line, prompt) = EndWords(ending, _game.Online, _game.StoryHost);
         var middle = Left + (_size.X - Left) / 2;
-        var box = new Rect2(middle - 320 * _u, _size.Y * 0.5f - 120 * _u, 640 * _u, 240 * _u);
+        var box = new Rect2(middle - 340 * _u, _size.Y * 0.5f - 120 * _u, 680 * _u, 240 * _u);
         _ink.Plate(box, new Color(0, 0, 0, 0.84f), HudInk.Danger, 16);
-        _ink.Say(new Vector2(middle, box.Position.Y + 56 * _u), Lang.T("{0} lost", StoryReadout.LocatorName).Caps(), 40, HudInk.Danger, 0.5f);
-        _ink.Say(new Vector2(middle, box.Position.Y + 108 * _u), Lang.T("Without the Locator there is no way out."), 22, MenuTheme.Text, 0.5f);
+        _ink.Say(new Vector2(middle, box.Position.Y + 56 * _u), title.Caps(), 40, HudInk.Danger, 0.5f);
+        _ink.Say(new Vector2(middle, box.Position.Y + 108 * _u), _ink.Fit(line, 22, 640), 22, MenuTheme.Text, 0.5f);
         var beat = 0.75f + 0.25f * MathF.Sin((float)_time * 4);
-        _ink.Prompt(new Vector2(middle, box.Position.Y + 146 * _u), Lang.T("From the checkpoint ({0})", Lang.T("Space")), new Color(MenuTheme.Glow, beat), 24);
+        _ink.Prompt(new Vector2(middle, box.Position.Y + 146 * _u), prompt, new Color(MenuTheme.Glow, beat), 24);
         _ink.Say(new Vector2(middle, box.End.Y - 14 * _u), Lang.T("Checkpoint {0}", now.Checkpoint), 15, MenuTheme.Dim, 0.5f);
     }
 
     public override void _Input(InputEvent @event)
     {
-        if (_now is not { Ending: StoryEnding.LocatorLost } || _demo is not null || _game.Watching || _game.Online)
+        if (_now is not { Ending: StoryEnding.LocatorLost or StoryEnding.Crashed } || _demo is not null || _game.Watching)
             return;
         if (@event is InputEventKey { Pressed: true, Echo: false } key && key.Keycode is Key.Space or Key.Enter or Key.KpEnter)
         {

@@ -135,6 +135,23 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
     }
 
     /// <summary>
+    /// The end of a story chapter played as a film on a map of its own (<see cref="StoryFilm"/>): its scenario and planet,
+    /// the person at this computer its first race, nobody to play; the film takes the camera from the start.
+    /// </summary>
+    public static MatchRequest ForStoryFilm(StoryFilm film)
+    {
+        var slots = Paths.Data.LoadScenario(film.Scenario).Races.Select(r => r.Race).ToList();
+        return new MatchRequest(film.Scenario, film.Planet, StartPositions.Assign(slots, slots.Count, slots.Min(), random: false, new Random(0)),
+            new MatchOptions { FogOfWar = false })
+        {
+            Film = film,
+        };
+    }
+
+    /// <summary>The end of a story chapter this match only films (<see cref="ForStoryFilm"/>); null for every match played.</summary>
+    public StoryFilm? Film { get; init; }
+
+    /// <summary>
     /// For automated checks: MACHINES_STORY=&lt;chapter&gt;[,&lt;checkpoint&gt;] plays a chapter of the story (prolog) from a
     /// checkpoint (0, its start, when not given).
     /// </summary>
@@ -211,6 +228,9 @@ public sealed record MatchRequest(string Scenario, string Planet, StartPositions
         // MACHINES_CAMPAIGN=<mission> plays a campaign mission (tut01, commsat ...) for the campaign's current player.
         if (System.Environment.GetEnvironmentVariable("MACHINES_CAMPAIGN") is { Length: > 0 } mission && Campaign.Entry(mission) is { } entry)
             return Campaign.Request(entry, CampaignProgress.Load().CurrentPlayer ?? new CampaignPlayer());
+        // MACHINES_STORY_FILM=<chapter> plays the film a chapter ends with, then its card (StoryFilm).
+        if (System.Environment.GetEnvironmentVariable("MACHINES_STORY_FILM") is { Length: > 0 } ending && StoryFilm.Of(ending, online: false) is { } film)
+            return ForStoryFilm(film);
         // MACHINES_STORY=<chapter>[,<checkpoint>] plays the story (see StoryFromEnvironment).
         if (System.Environment.GetEnvironmentVariable("MACHINES_STORY") is { Length: > 0 } story)
             return StoryFromEnvironment(story);

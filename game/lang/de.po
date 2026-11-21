@@ -4722,6 +4722,30 @@ msgstr "Ohne den Locator gibt es keinen Weg hinaus."
 msgid "From the checkpoint ({0})"
 msgstr "Ab dem Kontrollpunkt ({0})"
 
+msgid "Crashed"
+msgstr "Abgestürzt"
+
+msgid "The ship went down before the pod was away."
+msgstr "Das Schiff stürzte ab, bevor die Kapsel fort war."
+
+msgid "To the room, on from the checkpoint ({0})"
+msgstr "Zum Raum, weiter ab dem Kontrollpunkt ({0})"
+
+msgid "To the room, the host goes on from the checkpoint ({0})"
+msgstr "Zum Raum, der Host macht ab dem Kontrollpunkt weiter ({0})"
+
+msgid "Prologue complete"
+msgstr "Prolog abgeschlossen"
+
+msgid "Chapter complete"
+msgstr "Kapitel abgeschlossen"
+
+msgid "Act 1 is still to come."
+msgstr "Akt 1 folgt noch."
+
+msgid "Continue ({0})"
+msgstr "Weiter ({0})"
+
 msgid "Space"
 msgstr "Leertaste"
 
@@ -4919,6 +4943,9 @@ msgstr "Strukturintegrität kritisch. Alle Einheiten zu den Rettungspods."
 
 msgid "Hull breach in section four."
 msgstr "Rumpfbruch in Sektion vier."
+
+msgid "Two minutes."
+msgstr "Zwei Minuten."
 
 msgid "Ninety seconds."
 msgstr "Neunzig Sekunden."
@@ -5164,6 +5191,12 @@ msgstr "Kommt durch die Werkstatt"
 msgid "Take the weapon from the rack"
 msgstr "Nimm die Waffe aus dem Gestell"
 
+msgid "Stop the armed Grunts"
+msgstr "Halte die bewaffneten Grunts auf"
+
+msgid "Put the fallen Grunt back together"
+msgstr "Setz den gefallenen Grunt wieder zusammen"
+
 msgid "Reach the repair station"
 msgstr "Erreicht die Reparaturstation"
 
@@ -5175,3 +5208,6 @@ msgstr "Erreicht die Rettungskapseln"
 
 msgid "Get everyone into the pod"
 msgstr "Alle in die Kapsel"
+
+msgid "Open the hatch"
+msgstr "Öffnet die Luke"

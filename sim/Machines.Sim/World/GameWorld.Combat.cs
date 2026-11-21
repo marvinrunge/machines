@@ -143,6 +143,9 @@ public sealed partial class GameWorld
             else
                 _machineAims[machine.Id] = target.Id;
             TurnHead(machine, target);
+            // In the story a hunter draws on one of the trio before it fires (GameWorld.StorySight).
+            if (Story is not null && StoryHoldsFire(machine, target))
+                continue;
             Fire(machine, machine.Weapons, target);
         }
 

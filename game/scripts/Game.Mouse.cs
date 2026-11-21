@@ -30,8 +30,8 @@ public partial class Game
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        // The match is not shown yet.
-        if (Hidden)
+        // The match is not shown yet; or it only films a story chapter's end, whose cutscene and card have the keys.
+        if (Hidden || FilmingStoryEnd)
             return;
         if (_heroDown)
         {

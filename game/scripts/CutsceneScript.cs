@@ -56,7 +56,7 @@ public sealed class CutsceneScript
         ["flash"] = (2, 2),       // point size: a blinding flash and its light; light=range, colour=r,g,b
         ["prop"] = (5, 5),        // name model from to seconds: a model of the scene moved; ease=, glow=, trail=, scale=, yaw=, nose=, land=, until=
         ["silence"] = (1, 1),     // seconds: every sound of the match fades to nothing
-        ["dusk"] = (1, 1),        // share 0 to 1: the day dims towards night (PlanetLook.ForcedNight)
+        ["dusk"] = (1, 1),        // share 0 to 1: the day dims towards night (PlanetLook.ForcedNight); dim= darkens the picture besides (PlanetLook.Dim)
         ["event"] = (1, 8),       // words for the story (lights, doors ...), passed on
     };
 

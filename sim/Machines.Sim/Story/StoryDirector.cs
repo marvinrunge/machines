@@ -13,6 +13,8 @@ public enum StoryWho
     AnyHero,
     /// <summary>Every hero of the trio that lives and is not down (a Grunt down is waited for by nobody).</summary>
     All,
+    /// <summary>Every hero of the trio, a Grunt lying down too: nobody is left behind (the pod's launch).</summary>
+    Everyone,
 }
 
 /// <summary>
@@ -72,6 +74,15 @@ public sealed class StoryDirector
     /// <summary>How many artefacts the director has set down.</summary>
     public int Placed { get; internal set; }
 
+    /// <summary>
+    /// Debris on its way down (<see cref="Then.Fall"/>), by the order it was let go: it lands at its game time, harms what
+    /// stands under it and lies where it landed.
+    /// </summary>
+    public SortedDictionary<int, StoryFall> Falling { get; } = [];
+
+    /// <summary>How many pieces of debris the director has let fall.</summary>
+    public int Fallen { get; internal set; }
+
     /// <summary>A beat has fired.</summary>
     public bool Has(string beat) => Fired.ContainsKey(beat);
 
@@ -108,6 +119,7 @@ public sealed class StoryDirector
         _inbox.Clear();
         WatchHacks(world, run);
         OpenNearDoors(world, run);
+        Land(world);
         foreach (var id in Shielded)
             if (world.FindTarget(id) is { IsDead: false } kept)
                 kept.HitPoints = kept.MaxHitPoints;
@@ -184,6 +196,24 @@ public sealed class StoryDirector
         }
     }
 
+    /// <summary>
+    /// Debris whose time has come lands (<see cref="Then.Fall"/>): it harms whatever stands within its reach, then lies
+    /// there as an artefact of its type, blocking the ground, unless a machine stands right where it would lie (it breaks
+    /// on it and only its blow is left). The view hears "debris landed &lt;n&gt;".
+    /// </summary>
+    private void Land(GameWorld world)
+    {
+        foreach (var (number, fall) in Falling.Where(f => f.Value.At <= world.Time).ToList())
+        {
+            Falling.Remove(number);
+            world.ScriptExplosion(fall.Where, StoryFall.Reach, fall.Harm, 1.2f);
+            var under = world.Machines.Any(m => !m.IsDead && m.Inside is null && Vector2.Distance(m.Position, fall.Where) < m.Radius + StoryFall.Lies);
+            if (!under)
+                world.PlaceArtefact(fall.Type, fall.Where, fall.Angle);
+            StoryEvents.Cue(world, $"debris landed {number}", fall.Where);
+        }
+    }
+
     // ---- the checksum ---------------------------------------------------------------------------------
 
     /// <summary>A fingerprint of what the director keeps, for the world's checksum.</summary>
@@ -220,8 +250,26 @@ public sealed class StoryDirector
             hash.Mix(seen.Alarms);
         }
         hash.Mix(Placed);
+        foreach (var (number, fall) in Falling)
+        {
+            hash.Mix(number);
+            hash.Mix(BitConverter.SingleToInt32Bits(fall.At));
+            hash.Mix(fall.Type);
+            hash.Mix(BitConverter.SingleToInt32Bits(fall.Where.X));
+            hash.Mix(BitConverter.SingleToInt32Bits(fall.Where.Y));
+            hash.Mix(BitConverter.SingleToInt32Bits(fall.Angle));
+            hash.Mix(fall.Harm);
+        }
+        hash.Mix(Fallen);
         return hash.Value;
     }
+}
+
+/// <summary>A piece of debris on its way down: when it lands (game time), what it is (the scenario's artefact type), where, turned how far (degrees) and how hard it hits.</summary>
+public sealed record StoryFall(float At, string Type, Vector2 Where, float Angle, int Harm)
+{
+    /// <summary>How far its blow reaches, metres from where it lands; and within how much of a machine's radius it would lie on one.</summary>
+    public const float Reach = 3, Lies = 1.5f;
 }
 
 // ---- triggers ------------------------------------------------------------------------------------------
@@ -246,10 +294,10 @@ public abstract record StoryTrigger
         }
     }
 
-    /// <summary>Whether the heroes <paramref name="who"/> asks for are where <paramref name="inside"/> says: all of them (and at least the Locator) for <see cref="StoryWho.All"/>, any one otherwise.</summary>
+    /// <summary>Whether the heroes <paramref name="who"/> asks for are where <paramref name="inside"/> says: all of them (and at least the Locator) for <see cref="StoryWho.All"/> and <see cref="StoryWho.Everyone"/>, any one otherwise.</summary>
     internal static bool Present(GameWorld world, StoryRun run, StoryWho who, Func<Machine, bool> inside)
     {
-        if (who != StoryWho.All)
+        if (who is not (StoryWho.All or StoryWho.Everyone))
             return Heroes(world, run, who).Any(inside);
         if (world.HeroOf(run.Locator) is null)
             return false;
@@ -331,6 +379,15 @@ public static class When
     {
         internal override bool Holds(GameWorld world, StoryRun run, StoryDirector director) =>
             run.Timers.TryGetValue(StoryMarks.Countdown, out var ends) && ends - world.Time <= Seconds;
+    }
+
+    /// <summary>
+    /// Both Grunts are aboard the pod (<see cref="GameWorld.CompanionsAboard"/>): standing in its zone, or lying down in its
+    /// bay, where they are carried in (plan WP-I).
+    /// </summary>
+    public sealed record Aboard : StoryTrigger
+    {
+        internal override bool Holds(GameWorld world, StoryRun run, StoryDirector director) => world.CompanionsAboard();
     }
 
     /// <summary>The chapter is in a section.</summary>
@@ -510,12 +567,17 @@ public static class Then
     /// switch (its marker), board the pod (its hatch marker); <see cref="CompanionTask.None"/> ends it. The computer carries
     /// it out while it plays the seat.
     /// </summary>
-    public sealed record Assign(int Seat, CompanionTask Task, string? Place = null) : StoryAction
+    /// <param name="IfFree">Only a Grunt with no job now, up and about, takes it (a repeating beat that gives a revived Grunt its job back).</param>
+    public sealed record Assign(int Seat, CompanionTask Task, string? Place = null, bool IfFree = false) : StoryAction
     {
         internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
         {
-            if (Seat > 0 && Seat < run.Seats.Count)
-                world.AssignCompanion(run.Seats[Seat], Task, Place);
+            if (Seat <= 0 || Seat >= run.Seats.Count)
+                return;
+            var seat = run.Seats[Seat];
+            if (IfFree && (run.Crew.Of(seat).Task != CompanionTask.None || world.CompanionDown(seat) || world.CompanionDormant(seat)))
+                return;
+            world.AssignCompanion(seat, Task, Place);
         }
     }
 
@@ -672,7 +734,8 @@ public static class Then
     /// nearest free ground to it), facing as its marker does. <paramref name="Inert"/> ones are switched off: no weapons to
     /// fire, standing, never moving (the dark rows in the clamps).
     /// </summary>
-    public sealed record Spawn(string Role, StoryUnit Unit, IReadOnlyList<string> Places, DefCon DefCon = DefCon.Low, bool Inert = false) : StoryAction
+    /// <param name="Looks">The race whose colours it wears (<see cref="Actor.DisplayAs"/>): the hostile Grunts painted as the trio's own.</param>
+    public sealed record Spawn(string Role, StoryUnit Unit, IReadOnlyList<string> Places, DefCon DefCon = DefCon.Low, bool Inert = false, Race? Looks = null) : StoryAction
     {
         internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
         {
@@ -684,6 +747,7 @@ public static class Then
                 var machine = world.SpawnForStory(run.Options.Ship, at, Unit, exact: Inert);
                 if (world.Deck?.Markers.FirstOrDefault(m => m.Name == place) is { } marker)
                     machine.Facing = marker.Angle * MathF.PI / 180;
+                machine.DisplayAs = Looks;
                 machine.DefCon = Inert ? DefCon.High : DefCon;
                 if (Inert)
                 {
@@ -749,6 +813,188 @@ public static class Then
         }
     }
 
+    /// <summary>
+    /// The Commander splits a role's machines between two ways (plan WP-H; docs/STORY.md, Die Enge: "der Commander schickt sie
+    /// die Parallelgänge entlang"): the first half in id order (the odd one with them) to <paramref name="ToA"/> by way of
+    /// <paramref name="ViaA"/>, the rest to <paramref name="ToB"/> by way of <paramref name="ViaB"/>, each half as one of the
+    /// ship's MoveCommands with its Via. A hunt the sight gives them on the way comes back to that move afterwards.
+    /// </summary>
+    public sealed record Flank(string Role, string[] ViaA, string ToA, string[] ViaB, string ToB) : StoryAction
+    {
+        internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            var machines = director.Of(world, Role).Select(m => m.Id).ToList();
+            var first = (machines.Count + 1) / 2;
+            Send(world, run, machines.Take(first).ToList(), ViaA, ToA);
+            Send(world, run, machines.Skip(first).ToList(), ViaB, ToB);
+        }
+
+        private static void Send(GameWorld world, StoryRun run, List<int> ids, string[] via, string to)
+        {
+            if (ids.Count > 0)
+                world.DirectForStory(new MoveCommand(run.Options.Ship, ids, Where(world, to), [.. via.Select(v => Where(world, v))]));
+        }
+    }
+
+    /// <summary>The machines of a role stand their ground where they are: they fire at what they see from there (the hostile Grunts at their posts).</summary>
+    public sealed record StandFast(string Role) : StoryAction
+    {
+        internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            foreach (var machine in director.Of(world, Role).ToList())
+                world.SendForStory(machine, new StandGroundOrder(), null);
+        }
+    }
+
+    /// <summary>The <paramref name="Which"/>-th standing machine of a role (id order) sent on a round of places, over and over (a hostile Grunt's beat).</summary>
+    public sealed record PatrolRoute(string Role, int Which, params string[] Places) : StoryAction
+    {
+        internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            if (director.Of(world, Role).Skip(Which).FirstOrDefault() is not { } machine)
+                return;
+            var patrol = new PatrolOrder([.. Places.Select(p => Where(world, p))], 0);
+            world.SendForStory(machine, patrol, patrol.Points[0]);
+        }
+    }
+
+    /// <summary>
+    /// Gates the hunters force (plan WP-H, Die Enge), each named "letter:switch" (G:switch_g1): a closed gate with a machine
+    /// of the role at it (within <see cref="Reach"/> metres of its middle) and nobody of the trio on its switch
+    /// (<see cref="GameWorld.SwitchHeld"/>) gives way after <paramref name="Seconds"/> of that; its clock stands while the
+    /// switch is held or nobody pushes. The clock is the run's timer <c>gate_&lt;letter&gt;</c> (the game time the gate gives
+    /// way). The view hears "gate &lt;letter&gt; strain" as the pushing starts and again with <see cref="WarnAt"/> seconds left,
+    /// and "gate &lt;letter&gt; forced" as it opens. Its beat repeats every tick while the hunt is on.
+    /// </summary>
+    public sealed record ForceGates(string Role, float Seconds, params string[] Gates) : StoryAction
+    {
+        public const float Reach = 10, WarnAt = 10;
+
+        /// <summary>The timer of a gate's clock.</summary>
+        public static string Clock(char letter) => $"gate_{letter}";
+
+        internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            foreach (var gate in Gates)
+            {
+                var (letter, at) = (gate[0], gate[2..]);
+                var clock = Clock(letter);
+                var leaves = world.DoorLeaves(letter);
+                if (leaves.Count == 0)
+                {
+                    run.Timers.Remove(clock);
+                    continue;
+                }
+                var middle = leaves.Aggregate(Vector2.Zero, (sum, leaf) => sum + leaf.Position) / leaves.Count;
+                var pushed = director.Of(world, Role).Any(m => Vector2.Distance(m.Position, middle) <= Reach + m.Radius);
+                var held = world.SwitchHeld(at);
+                if (!run.Timers.TryGetValue(clock, out var gives))
+                {
+                    if (pushed && !held)
+                    {
+                        run.Timers[clock] = world.Time + Seconds;
+                        StoryEvents.Cue(world, $"gate {letter} strain", middle);
+                    }
+                    continue;
+                }
+                if (!pushed || held)
+                {
+                    run.Timers[clock] = gives + GameWorld.Dt;
+                    continue;
+                }
+                var warned = $"gate_warned_{letter}";
+                if (gives - world.Time <= WarnAt && director.Counters.TryAdd(warned, 1))
+                    StoryEvents.Cue(world, $"gate {letter} strain", middle);
+                if (world.Time < gives)
+                    continue;
+                world.OpenDoor(letter);
+                run.Timers.Remove(clock);
+                StoryEvents.Cue(world, $"gate {letter} forced", middle);
+            }
+        }
+    }
+
+    /// <summary>The gates' clocks stopped for good (<see cref="ForceGates"/>): the trio got away from them.</summary>
+    public sealed record StopGates(string Letters) : StoryAction
+    {
+        internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            foreach (var letter in Letters)
+                run.Timers.Remove(ForceGates.Clock(letter));
+        }
+    }
+
+    /// <summary>
+    /// The machines of a role give the hunt up (the Commander calls his squad off once the trio is through): they forget what
+    /// they suspected, see nothing from now on and drive to the places, the first to the first and the rest to the last; with
+    /// no places they stand their ground where they are (nor does a hit on one of their own nearby draw them, GameWorld.Reactions).
+    /// </summary>
+    public sealed record Withdraw(string Role, params string[] Places) : StoryAction
+    {
+        internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            foreach (var machine in director.Of(world, Role))
+            {
+                var eyes = world.StoryWatch(machine);
+                (eyes.Suspicion, eyes.Wary, eyes.Blind) = (0, false, true);
+                eyes.Sees.Clear();
+                eyes.SightSince.Clear();
+                if (Places.Length == 0)
+                    world.SendForStory(machine, new StandGroundOrder(), null);
+            }
+            if (Places.Length > 0)
+                new MoveTo(Role, Places).Do(world, run, director);
+        }
+    }
+
+    /// <summary>
+    /// A Grunt lying down is never left behind (docs/STORY.md, Erste Gegenwehr: "gefallene Grunts wieder zusammenzusetzen"): while
+    /// one lies down (outside <paramref name="Aboard"/>, where it counts as in the pod), the objective is to put it back together,
+    /// pointing at it; the objective it pushed aside comes back once it is up again. A newer objective the director sets meanwhile
+    /// is the one that comes back. Its beat repeats every tick.
+    /// </summary>
+    public sealed record Rally(string Text, string? Aboard = null) : StoryAction
+    {
+        private const string Back = "rally_back:";
+
+        internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            var aboard = world.Deck?.Zone(Aboard ?? "");
+            Machine? fallen = null;
+            foreach (var seat in run.Seats.Skip(1))
+            {
+                if (world.CompanionDown(seat) && world.HeroOf(seat) is { } grunt && aboard?.Contains(grunt.Position) != true)
+                {
+                    fallen = grunt;
+                    break;
+                }
+            }
+            var now = StoryMarks.Objective(run);
+            if (fallen is not null)
+            {
+                var place = FormattableString.Invariant($"{MathF.Round(fallen.Position.X)},{MathF.Round(fallen.Position.Y)}");
+                if (now is { } shown && shown.Text == Text && shown.Place == place)
+                    return;
+                if (now?.Text != Text)
+                {
+                    run.Flags.RemoveWhere(f => f.StartsWith(Back, StringComparison.Ordinal));
+                    run.Flags.Add(Back + (now is { } pushed ? pushed.Text + "@" + pushed.Place : ""));
+                }
+                new Objective(Text, place).Do(world, run, director);
+                return;
+            }
+            if (now?.Text != Text)
+                return;
+            var back = run.Flags.FirstOrDefault(f => f.StartsWith(Back, StringComparison.Ordinal))?[Back.Length..] ?? "";
+            run.Flags.RemoveWhere(f => f.StartsWith(Back, StringComparison.Ordinal));
+            var at = back.LastIndexOf('@');
+            if (at < 0)
+                new Objective(null).Do(world, run, director);
+            else
+                new Objective(back[..at], back[(at + 1)..] is { Length: > 0 } where ? where : null).Do(world, run, director);
+        }
+    }
+
     /// <summary>A tagged artefact (a door leaf, a crate, the core) taken off the map whole.</summary>
     public sealed record RemoveProp(int Tag) : StoryAction
     {
@@ -795,6 +1041,24 @@ public static class Then
     {
         internal override void Do(GameWorld world, StoryRun run, StoryDirector director) =>
             world.PlaceArtefact(Type, Where(world, Place) + new Vector2(Aside, 0), Angle);
+    }
+
+    /// <summary>
+    /// Debris let fall into a lane (plan WP-I: <see cref="PlaceProp"/> with a delay): the view hears "debris falling &lt;n&gt;
+    /// &lt;seconds&gt;" at once at the spot (sparks, a groan overhead), and after <paramref name="Delay"/> seconds it lands
+    /// there (<see cref="StoryDirector.Falling"/>), harming what stands within <see cref="StoryFall.Reach"/> by up to
+    /// <paramref name="Harm"/>, and lies as an artefact of <paramref name="Type"/>, turned by <paramref name="Angle"/> degrees,
+    /// <paramref name="Aside"/> metres east of the place.
+    /// </summary>
+    public sealed record Fall(string Type, string Place, float Delay, float Angle = 0, float Aside = 0, int Harm = 25) : StoryAction
+    {
+        internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            var at = Where(world, Place) + new Vector2(Aside, 0);
+            var number = director.Fallen++;
+            director.Falling[number] = new StoryFall(world.Time + Delay, Type, at, Angle, Harm);
+            StoryEvents.Cue(world, FormattableString.Invariant($"debris falling {number} {Delay}"), at);
+        }
     }
 
     /// <summary>An explosion at a place (GameWorld.ScriptExplosion): everything within its range takes the damage, less the further off.</summary>

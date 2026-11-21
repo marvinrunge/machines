@@ -118,6 +118,19 @@ public sealed partial class GameWorld
         }
     }
 
+    /// <summary>
+    /// The weapon on a rack (a marker tagged <c>pickup</c>) taken up by a hero as if it had used the rack (a checkpoint after the
+    /// Bolter was found): the hero wears it and the rack is done with. Null when it took it, otherwise why not.
+    /// </summary>
+    internal string? TakeUpForStory(PlayerId player, string rack)
+    {
+        if (Story is not { } run || Deck?.Markers.FirstOrDefault(m => m.Name == rack && m.Tags.Contains("pickup")) is not { } marker)
+            return "no such rack";
+        if (run.Flags.Contains(StoryMarks.Done(rack)))
+            return "that is done with";
+        return Wired?.Heroes.ContainsKey(player) == true ? TakeUp(run, player, marker) : "not one of the trio";
+    }
+
     /// <summary>A hero of the story kept from harm until a game time (the Locator while the core's alarm plays out).</summary>
     internal void SpareHeroUntil(PlayerId seat, float until)
     {

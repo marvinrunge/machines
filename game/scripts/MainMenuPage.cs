@@ -55,7 +55,7 @@ public partial class MainMenuPage(MenuScreens screens) : MenuPage(screens.Quit)
         row.AddChild(right);
         // The story first: it is where a new player begins.
         var story = Button("Story", screens.ShowStory, height, 30);
-        if (!StoryProgress.Load().CanContinue)
+        if (StoryProgress.Load().Chapter is null)
             story.Tag = Lang.T("New");
         right.AddChild(story);
         var campaign = Button("Campaign", screens.ShowCampaign, height, 30);

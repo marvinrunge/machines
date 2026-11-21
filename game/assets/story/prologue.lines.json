@@ -128,6 +128,12 @@
    "en": "Hull breach in section four."
   },
   {
+   "id": "P_AUTO_T120",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Two minutes."
+  },
+  {
    "id": "P_AUTO_T90",
    "speaker": "auto",
    "channel": "pa",

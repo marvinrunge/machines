@@ -21,7 +21,7 @@ public partial class LoadingScreen : CanvasLayer
     private readonly string _title, _detail;
     private readonly Action _change;
     private Node? _from;
-    private bool _changed, _mapped, _mapping, _fading;
+    private bool _changed, _mapped, _mapping, _fading, _black;
     private int _frames, _shown;
 
     /// <summary>Whether a loading screen is up; a second press of Start meanwhile does nothing.</summary>
@@ -53,6 +53,20 @@ public partial class LoadingScreen : CanvasLayer
     }
 
     /// <summary>
+    /// The same with nothing on it but black, for a film that goes on from black into the next match (the story's end,
+    /// <see cref="StoryFilm"/>): no card, no bar, no map taken.
+    /// </summary>
+    public static void ShowBlack(SceneTree tree)
+    {
+        if (Busy)
+            return;
+        Busy = true;
+        (Progress, Step) = (0, "Map");
+        var screen = new LoadingScreen("", "", () => tree.ChangeSceneToFile(MatchScene)) { _from = tree.CurrentScene, _black = true };
+        tree.Root.CallDeferred(Node.MethodName.AddChild, screen);
+    }
+
+    /// <summary>
     /// The match's scenario, and its planet when that is another name, as the screens print it; a battle's map by its
     /// name in the player's language, a story's chapter by its title ("PROLOGUE – FAULT").
     /// </summary>
@@ -63,6 +77,13 @@ public partial class LoadingScreen : CanvasLayer
 
     public override void _Ready()
     {
+        if (_black)
+        {
+            var black = new ColorRect { Color = Colors.Black, MouseFilter = Control.MouseFilterEnum.Stop };
+            black.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+            AddChild(black);
+            return;
+        }
         var stage = new MenuStage();
         AddChild(stage);
         var request = MatchRequest.Current;
@@ -94,7 +115,7 @@ public partial class LoadingScreen : CanvasLayer
         _shown = arrived ? _shown + 1 : 0;
         if (_fading || (arrived ? _shown < ShownFrames : _frames < GiveUpFrames) || scene is Game { Hidden: true })
             return;
-        if (scene is Game game && !_mapped && MiniMaps.Missing(MatchRequest.Current.Scenario))
+        if (scene is Game game && !_mapped && !_black && MiniMaps.Missing(MatchRequest.Current.Scenario))
         {
             _mapped = _mapping = true;
             MiniMaps.Take(game, MatchRequest.Current.Scenario, () => _mapping = false);

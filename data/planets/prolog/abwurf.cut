@@ -47,7 +47,7 @@ take landung 4 fixed 1012,838,1.6 look=pod@2|1060,905,2 rate=3 fov=45 blur=1
 // Silence. A tick of cooling metal. Black.
 take stille 3.4 fixed 1012,838,1.6 look=pod@1.5|1060,905,1.5 rate=1 fov=42 blur=1.2
 
-at 0.0 dusk 0.75
+at 0.0 dusk 0.9 dim=0.7
 at 0.0 prop ship mothership 300,-1500,2800 1500,7000,-400 22 nose=-x glow=2 trail=260
 at 0.0 sound amb_reentry for=21
 at 0.0 rumble 0.5 ease=0.3

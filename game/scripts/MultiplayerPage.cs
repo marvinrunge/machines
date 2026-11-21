@@ -46,6 +46,9 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
     private static RoomState? _matchRoom;
     private static bool _returning;
 
+    // A story room goes back from this chapter and checkpoint (a chapter lost online), not from where its match began.
+    private static (string Chapter, int Checkpoint)? _storyFrom;
+
     // The room of the match this game plays now: started from here, or come back into (rejoined or joined late).
     private static int? _playing;
 
@@ -614,12 +617,15 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
 
     /// <summary>
     /// The story room this player opens as host (decision 5 of the prologue's build): the chapter, checkpoint and Grunts' names
-    /// of their own story (the host's progress, plan WP-K; the prologue from its start until that is kept), for up to three.
-    /// MACHINES_MP's story=&lt;chapter&gt;[,checkpoint=&lt;n&gt;] asks for another chapter or checkpoint.
+    /// of their own story (the host's progress, plan WP-K: <see cref="StoryProgress.Next"/>, where the story page's Continue
+    /// goes on), for up to three. MACHINES_MP's story=&lt;chapter&gt;[,checkpoint=&lt;n&gt;] asks for another chapter or checkpoint.
     /// </summary>
-    private static CreateRoom StoryRoom(string? chapter = null, int checkpoint = 0) =>
-        RoomOptions.StoryRoom(Lang.T("{0}'s story", NetLink.Name),
-            new Machines.Sim.Story.StoryOptions { Chapter = chapter ?? Machines.Sim.Story.StoryOptions.Prologue, Checkpoint = Math.Max(0, checkpoint) });
+    private static CreateRoom StoryRoom(string? chapter = null, int checkpoint = 0)
+    {
+        var progress = StoryProgress.Load();
+        var (next, from) = chapter is null ? progress.Next : (chapter, Math.Max(0, checkpoint));
+        return RoomOptions.StoryRoom(Lang.T("{0}'s story", NetLink.Name), progress.Options(next, from));
+    }
 
     /// <summary>A story chapter's name in the lobby: the prologue's title, else the chapter as the room names it.</summary>
     private static string StoryChapterName(string chapter) =>
@@ -831,14 +837,28 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
     public static void BackToRoom() => _returning = true;
 
     /// <summary>
+    /// A story chapter lost online: back to a room like it, which its host opens again to go on from
+    /// <paramref name="checkpoint"/> (the last reached; StoryHud's card). The others join it as after any match.
+    /// </summary>
+    public static void BackToStoryRoom(string chapter, int checkpoint)
+    {
+        _returning = true;
+        _storyFrom = (chapter, checkpoint);
+    }
+
+    /// <summary>
     /// After a match, into a room like the one it was started from: its host opens it again with the same name and settings,
     /// the others wait for it to show in the list (two minutes at most) and join it. The relay keeps no room past its match.
     /// </summary>
     private async Task Return(RoomState was)
     {
+        var options = was.Options;
+        if (_storyFrom is { } from && options.Story is { } story)
+            options = options with { Story = story with { Chapter = from.Chapter, Checkpoint = from.Checkpoint } };
+        _storyFrom = null;
         if (was.HostId == NetLink.ClientId)
         {
-            NetLink.Send(new CreateRoom(was.Name, was.Scenario, was.Planet, was.Slots, was.Options, was.FillWithAi, was.SeatsPerSlot));
+            NetLink.Send(new CreateRoom(was.Name, was.Scenario, was.Planet, was.Slots, options, was.FillWithAi, was.SeatsPerSlot));
             return;
         }
         var host = was.Players.FirstOrDefault(p => p.ClientId == was.HostId)?.Name ?? "";

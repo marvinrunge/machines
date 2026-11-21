@@ -23,7 +23,7 @@ public abstract partial class FilmCamera
     private bool _rumbled;
     private CameraTilt _tiltFrom, _tiltTo;
     private float _tiltStart, _tiltEase;
-    private float? _duskWas;
+    private float? _duskWas, _dimWas;
     private Effects? _effects;
 
     /// <summary>
@@ -356,7 +356,10 @@ public abstract partial class FilmCamera
                 break;
             case "dusk" when PlanetLookNode() is { } planet:
                 _duskWas ??= planet.ForcedNight;
+                _dimWas ??= planet.Dim;
                 planet.ForcedNight = Mathf.Clamp(cue.Number(0), 0, 1);
+                // dim=: the picture darker besides (PlanetLook.Dim), as the forced night's moonlight alone keeps it bright.
+                planet.Dim = cue.Number("dim", 0);
                 break;
             case "event":
                 Event(string.Join(' ', cue.Args));
@@ -533,7 +536,9 @@ public abstract partial class FilmCamera
             look.Glitch = 0;
         if (_duskWas is { } dusk && PlanetLookNode() is { } planet)
             planet.ForcedNight = dusk;
-        _duskWas = null;
+        if (_dimWas is { } dim && PlanetLookNode() is { } dimmed)
+            dimmed.Dim = dim;
+        (_duskWas, _dimWas) = (null, null);
         foreach (var (bus, db) in _hushed)
             if (bus < AudioServer.BusCount)
                 AudioServer.SetBusVolumeDb(bus, db);
