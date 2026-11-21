@@ -15,9 +15,10 @@ public static class NetLink
     /// <summary>
     /// The public relay this build offers when the settings and MACHINES_RELAY name none (see
     /// <see cref="GameOptions.PublicRelay"/>): the address Cloud Run gives server/Machines.Relay/deploy-cloudrun.sh, as
-    /// <c>wss://…</c>: the service machines-relay of the project machines-remake-online in europe-west3 (Frankfurt).
+    /// <c>wss://…</c>: the service machines-relay-story of the project machines-remake-online in europe-west3 (Frankfurt).
+    /// The story's protocol (15) has a relay of its own beside the released builds' machines-relay (14) until it is merged.
     /// </summary>
-    public const string PublicRelay = "wss://machines-relay-yeoescsibq-ey.a.run.app";
+    public const string PublicRelay = "wss://machines-relay-story-yeoescsibq-ey.a.run.app";
 
     /// <summary>How long a web address may take to answer: a relay asleep on Cloud Run first has to wake up.</summary>
     public static readonly TimeSpan WebTimeout = TimeSpan.FromSeconds(30);
