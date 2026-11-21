@@ -301,7 +301,7 @@ spawn_reaper_1 198 137 180 reaper
 spawn_reaper_2 198 141 180 reaper
 spawn_reaper_3 202 137 180 reaper
 spawn_commander 202 141 180 commander
-commander_1 88 139 270 route
+commander_1 88 141.5 270 route
 commander_2 123.5 139 270 route
 switch_g1 175 126 0 switch
 switch_g2 175 110 0 switch

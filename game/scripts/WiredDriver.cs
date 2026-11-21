@@ -274,6 +274,7 @@ public partial class WiredDriver(string folder, WiredDriver.Plan plan) : Node
     {
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
         var path = System.IO.Path.Combine(folder, $"{++_shots:000}-{name}.png");
+        HitchLog.Saving();
         GetViewport().GetTexture().GetImage().SavePng(path);
         Say($"picture {path}");
     }

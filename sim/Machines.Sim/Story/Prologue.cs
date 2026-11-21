@@ -70,7 +70,8 @@ public static class Prologue
         ([new(44, 37), new(40, 37), new(36, 37)], 0),
         ([new(88, 95), new(86, 92), new(90, 92)], 90),
         ([new(101, 118), new(100, 102), new(96, 102)], 0),
-        ([new(180, 104), new(178, 108), new(182, 108)], 0),
+        // In the crossing, looking straight through door R into the workshop; the Grunts behind, clear of the view.
+        ([new(180, 106), new(177, 103.5f), new(177, 108.5f)], 0),
         // At the repair station the Grunts stand behind the Locator, east of it: the way out (door U) is west, and between it
         // and the Locator they wedged it in.
         ([new(230, 108), new(232.5f, 105.5f), new(232.5f, 110.5f)], 180),
@@ -125,7 +126,7 @@ public static class Prologue
     // ---- the script -----------------------------------------------------------------------------------
 
     /// <summary>When the core's alarm breaks the hack off, and how long after it the world's part of "Erwischt" comes (erwischt.cut).</summary>
-    public const float DoorBursts = 4.8f, ReapersFire = 9, CoreBlows = 25.5f, PowerFails = 27.4f, ControlLost = 31;
+    public const float DoorBursts = 4.8f, CommanderIn = 8.8f, ReapersFire = 13, CoreBlows = 25.5f, PowerFails = 27.4f, ControlLost = 31;
 
     /// <summary>How long after the launch the chapter is over (the pod bay's part of abwurf.cut).</summary>
     public const float Away = 8;
@@ -210,18 +211,19 @@ public static class Prologue
 
         // ---- 4 Erwischt: at 90 % the alarm; the cutscene films what the director does on these ticks (erwischt.cut). The core
         // chamber keeps its light until the core blows; the Grunts leave their barricades for the cable duct's door, spared
-        // until they are well inside it.
+        // until they are well inside it. The Reapers storm round the core seeing nothing (Sight) until they fire: a Grunt
+        // still in the doorway had turned them to search door J. The Commander, set down clear of J, follows once they are through.
         new("alarm", 2, new HackAt("hack_core", 1), [new BreakHack("hack_core"), new Alarm(true), new Section(4), new Objective(null),
             new Hold(true, 0), new Spare(0, ControlLost + LocatorSpared), new Spare(1, ControlLost + GruntsSpared), new Spare(2, ControlLost + GruntsSpared),
             new ShieldProp(CoreTag), new Assign(1, CompanionTask.Go, IkeAtCable), new Assign(2, CompanionTask.Go, BobAtCable),
             new Cue("cutscene erwischt", "core"),
             new MoveTo(ThresherRole, ThresherAway), new Spawn(ReaperRole, Reaper3, ["82,137", "94,137"], Hunters),
             new Spawn(ReaperRole, Reaper2, ["100,139"], Hunters),
-            new Spawn(CommanderRole, Commander, ["commander_1"], Hunters)]),
+            new Spawn(CommanderRole, Commander, ["commander_1"], Hunters), new Sight(ReaperRole, false), new Sight(CommanderRole, false)]),
         new("unplug", 2, new Since("alarm", 1.2f), [new Unplug("hack_core")]),
-        new("door_j", 2,new Since("alarm", DoorBursts), [new OpenDoors("J"), new ClearBarricade("J"), new MoveTo(ReaperRole, ReapersAtCore),
-            new MoveTo(CommanderRole, "88,130")]),
-        new("fire_core", 2, new Since("alarm", ReapersFire), [new AttackArtefact(ReaperRole, CoreTag)]),
+        new("door_j", 2,new Since("alarm", DoorBursts), [new OpenDoors("J"), new ClearBarricade("J"), new MoveTo(ReaperRole, ReapersAtCore)]),
+        new("commander_in", 2, new Since("alarm", CommanderIn), [new MoveTo(CommanderRole, "88,130")]),
+        new("fire_core", 2, new Since("alarm", ReapersFire), [new Sight(ReaperRole, true), new Sight(CommanderRole, true), new AttackArtefact(ReaperRole, CoreTag)]),
         new("core_blows", 2, new Since("alarm", CoreBlows), [new HarmProp(CoreTag), new Lights("emergency", "core")]),
         new("power_fails", 2, new Since("alarm", PowerFails), [new Lights("emergency", "*")]),
         new("control_lost", 2, new Since("alarm", ControlLost), [new Section(5), new Checkpoint(3), new Hold(false, 0), new OpenDoors("VKM"),

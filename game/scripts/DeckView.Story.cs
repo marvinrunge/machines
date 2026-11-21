@@ -12,6 +12,12 @@ public partial class DeckView
     /// <summary>How fast a beacon turns while the alarm sounds, turns a second, and how far its two beams reach.</summary>
     private const float BeaconTurns = 0.9f, BeaconReach = 15;
 
+    /// <summary>
+    /// How brightly a lit beacon's glass glows (it flashes between 0.4 and 1.2 times this): bright enough to read as a
+    /// red alarm light under a lit room's ceiling lamps too, where a glow of 3 was a dull red dot.
+    /// </summary>
+    private const float BeaconGlow = 7;
+
     private readonly List<Node3D> _beaconTurners = [];
     private readonly List<Light3D> _beaconBeams = [];
     private StandardMaterial3D? _beaconGlass;
@@ -52,7 +58,7 @@ public partial class DeckView
                 var beam = new SpotLight3D
                 {
                     LightColor = AlarmColour,
-                    LightEnergy = 8,
+                    LightEnergy = 12,
                     SpotRange = BeaconReach,
                     SpotAngle = 22,
                     SpotAttenuation = 0.8f,
@@ -70,7 +76,7 @@ public partial class DeckView
         }
     }
 
-    private static readonly SphereMesh BeaconDome = new() { Radius = 0.25f, Height = 0.4f, RadialSegments = 12, Rings = 6 };
+    private static readonly SphereMesh BeaconDome = new() { Radius = 0.36f, Height = 0.56f, RadialSegments = 12, Rings = 6 };
 
     /// <summary>The beacons' red glass, dark until the alarm (one material for all, so they flash together).</summary>
     private static StandardMaterial3D BeaconGlass() => new()
@@ -87,7 +93,7 @@ public partial class DeckView
     public static MeshInstance3D WarmBeacon()
     {
         var glass = BeaconGlass();
-        glass.EmissionEnergyMultiplier = 3;
+        glass.EmissionEnergyMultiplier = BeaconGlow;
         return new MeshInstance3D { Mesh = BeaconDome, MaterialOverride = glass };
     }
 
@@ -100,7 +106,7 @@ public partial class DeckView
         foreach (var turner in _beaconTurners)
             turner.Visible = on;
         if (_beaconGlass is not null)
-            _beaconGlass.EmissionEnergyMultiplier = on ? 3 : 0;
+            _beaconGlass.EmissionEnergyMultiplier = on ? BeaconGlow : 0;
     }
 
     public override void _Process(double delta)
@@ -115,7 +121,7 @@ public partial class DeckView
             turner.RotateY(turn);
         // The dome flashes as a beam passes the eye: twice a turn, never quite dark.
         if (_beaconGlass is not null)
-            _beaconGlass.EmissionEnergyMultiplier = 1.5f + 2.5f * Mathf.Abs(Mathf.Sin((float)_alarmTime * BeaconTurns * Mathf.Pi));
+            _beaconGlass.EmissionEnergyMultiplier = BeaconGlow * (0.4f + 0.8f * Mathf.Abs(Mathf.Sin((float)_alarmTime * BeaconTurns * Mathf.Pi)));
     }
 
     // ---- the crash: fires, and what falls and slides ----------------------------------------------------

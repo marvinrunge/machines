@@ -196,6 +196,19 @@ public partial class Warmup : Node3D
         _groups = [.. Enumerable.Range(0, Groups).Select(group => new Node3D { Name = $"Group{group}" })];
         foreach (var group in _groups)
             stage.AddChild(group);
+        // A ship's deck has no sun: its shadows come from its ceiling lamps and searchlights, spots that draw what they
+        // light into a shadow of their own. One such over the stage, so that each model's shadow is drawn once too (the
+        // Locator's Bolter, first drawn so in the workshop, held that frame up by some 100 ms).
+        if (_world.Deck is not null)
+            stage.AddChild(new SpotLight3D
+            {
+                Name = "ShadowLamp",
+                ShadowEnabled = true,
+                SpotRange = 60,
+                SpotAngle = 80,
+                LightEnergy = 0.5f,
+                Transform = new Transform3D(Basis.LookingAt(Vector3.Down, Vector3.Back), at + Vector3.Up * 20),
+            });
         // The warm-up's own world: actors made in it are never in the match.
         var world = new GameWorld(_world.Data, _world.Planet, 0);
         var views = new List<(Actor Actor, ActorView View)>();
@@ -210,6 +223,15 @@ public partial class Warmup : Node3D
             yield return step;
         foreach (var screen in _screens)
             screen.Visible = true;
+        // A story's hack board, drawn once as the hack puts it up (its code, letters and sounds).
+        CanvasLayer? hack = null;
+        if (_world.Story is not null)
+        {
+            HackSounds.Preload();
+            hack = new CanvasLayer { Layer = 10, Name = "WarmHack" };
+            AddChild(hack);
+            hack.AddChild(HackHost.Warm());
+        }
 
         // Drawn until Godot has built every pipeline it needed: some frames in a row without a new one.
         var shown = Stopwatch.StartNew();
@@ -233,12 +255,38 @@ public partial class Warmup : Node3D
             screen.Visible = false;
         _groups = [];
         stage.QueueFree();
+        hack?.QueueFree();
         // The stage goes before the match is shown, and the garbage of all that loading with it: collected later, it
         // held up a frame of the match for a third of a second.
         yield return true;
         GC.Collect();
         GC.WaitForPendingFinalizers();
         yield return true;
+    }
+
+    /// <summary>
+    /// What a hero wears now and, on a story's deck, after taking each weapon from its racks (the markers pickup_&lt;weapon&gt;),
+    /// in the first free socket that takes it, as the world fits it (GameWorld.TakeUp): putting the Locator together with
+    /// the workshop's Bolter took 110 ms, and its first drawing as long again, as the Bolter was taken.
+    /// </summary>
+    /// <summary>The story's props a film's warm-up drew, kept loaded so the film shows the same meshes.</summary>
+    private static readonly HashSet<PackedScene> FilmProps = [];
+
+    private IEnumerable<Machines.Sim.Survival.HeroLoadout> Worn(Machines.Sim.Survival.HeroLoadout now)
+    {
+        yield return now;
+        if (_world.Story is null || _world.Deck is not { } deck)
+            yield break;
+        foreach (var rack in deck.Markers.Where(m => m.Tags.Contains("pickup") && m.Name.StartsWith("pickup_", StringComparison.Ordinal)))
+        {
+            var weapon = new Machines.Sim.Survival.WiredItem(-1, Machines.Sim.Survival.WiredKind.Weapon, rack.Name["pickup_".Length..].ToUpperInvariant());
+            if (Machines.Sim.Survival.WiredCatalogue.KindOf(weapon.Catalogue) != Machines.Sim.Survival.WiredKind.Weapon)
+                continue;
+            var socket = Enum.GetValues<Mounting>().Select(Machines.Sim.Survival.WiredSlot.Weapon)
+                .FirstOrDefault(s => now.At(s) is null && now.WhyNotFit(weapon, s) is null);
+            if (socket is not null)
+                yield return now.With(socket, weapon);
+        }
     }
 
     /// <summary>
@@ -355,15 +403,16 @@ public partial class Warmup : Node3D
         }
         // Each hero as it stands, put together from those (kept by what it wears, so its view takes the same).
         foreach (var (_, state) in _world.Wired?.Heroes ?? [])
-        {
-            if (HeroRig.Compose(_assets, Game.Look(state.Race), state.Loadout) is { } rig)
+            foreach (var loadout in Worn(state.Loadout))
             {
-                var hero = RigView.Create(rig);
-                NextGroup().AddChild(hero);
-                hero.GlobalPosition = ActorView.World(ground);
+                if (HeroRig.Compose(_assets, Game.Look(state.Race), loadout) is { } rig)
+                {
+                    var hero = RigView.Create(rig);
+                    NextGroup().AddChild(hero);
+                    hero.GlobalPosition = ActorView.World(ground);
+                }
+                yield return false;
             }
-            yield return false;
-        }
         // A deck's props, one of each (the deck itself stands mostly out of sight), the hull of the mothership made small.
         if (_world.Deck is not null)
             foreach (var name in Props.Names())
@@ -385,6 +434,19 @@ public partial class Warmup : Node3D
             {
                 NextGroup().AddChild(piece);
                 piece.GlobalPosition = ActorView.World(ground) + Vector3.Up;
+            }
+        // A story's film shows the story's props as they were made (FilmCamera.SceneModel), not as the deck shows them:
+        // the mothership the film opens on held its first frame up for 200 ms. Each is kept loaded for the film.
+        if (MatchRequest.Current.Film is not null)
+            foreach (var name in Props.Names())
+            {
+                if (GD.Load<PackedScene>($"{Props.Folder}/{name}.glb") is { } scene && scene.Instantiate() is Node3D prop)
+                {
+                    FilmProps.Add(scene);
+                    NextGroup().AddChild(prop);
+                    prop.GlobalPosition = ActorView.World(ground);
+                }
+                yield return false;
             }
         Note($"{actors.Count + bare.Count} put up", since);
         if (views.Count == 0)

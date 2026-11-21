@@ -408,7 +408,19 @@ public partial class HackPanel : ChipPanel
         AddChild(column);
     }
 
-    public HackKind Kind { get; }
+    /// <summary>What the hack is aimed at: the chip's title and the board's targets (the host's chip serves every hack).</summary>
+    public HackKind Kind
+    {
+        get => _kind;
+        set
+        {
+            _kind = value;
+            if (Board is not null)
+                Board.Kind = value;
+        }
+    }
+
+    private HackKind _kind;
 
     public HackBoard Board { get; }
 

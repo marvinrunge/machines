@@ -25,6 +25,28 @@ public partial class HitchLog : Node
 
     private static readonly List<string> Loads = [];
 
+    /// <summary>
+    /// What is being played, for the frame times by part (a driver's section, a cutscene ...); the summary gives each part's
+    /// median, 95th percentile and worst frame. Kept over reloads.
+    /// </summary>
+    public static string Phase { get; set; } = "";
+
+    private static readonly Dictionary<string, List<double>> Frames = [];
+    private static readonly List<string> Order = [];
+    private static bool _saving;
+
+    /// <summary>The next frame saves a picture (a driver's): it is told apart and kept out of the frame times.</summary>
+    public static void Saving() => _saving = On;
+
+    private static readonly List<string> Marks = [];
+
+    /// <summary>Something done this frame that may cost it (a hack board put up ...): told with the frame if it is a hitch.</summary>
+    public static void Mark(string what)
+    {
+        if (On && Marks.Count < 8)
+            Marks.Add(what);
+    }
+
     // The pipelines that hold a frame up until they are built, and the ones built in the background.
     private static readonly (Performance.Monitor Monitor, string Name)[] Stalling =
     [
@@ -80,6 +102,15 @@ public partial class HitchLog : Node
             _added.Add(node);
     }
 
+    // Whose part a node is: the machine or building it belongs to (an ActorView, by its actor's model), if any.
+    private static string Whose(Node node)
+    {
+        for (var up = node.GetParent(); up is not null; up = up.GetParent())
+            if (up is ActorView view)
+                return $"{view.Name} ({view.ModelId}) ";
+        return "";
+    }
+
     // What a node is drawn with, as far as it tells which pipeline it needs: its material's kind, blending and shading.
     private static string Drawn(Node node)
     {
@@ -116,21 +147,36 @@ public partial class HitchLog : Node
     {
         var (milliseconds, built, collected) = Measure();
         // Told as they are drawn: a mesh or material is often given just after the node came in.
-        var added = _added.Where(IsInstanceValid).Select(n => $"{n.GetParent()?.Name}/{n.Name}{Drawn(n)}").ToList();
+        var added = _added.Where(IsInstanceValid).Select(n => $"{Whose(n)}{n.GetParent()?.Name}/{n.Name}{Drawn(n)}").ToList();
         _added.Clear();
         if (!Playing)
         {
             Loads.Clear();
+            Marks.Clear();
+            _saving = false;
             return;
+        }
+        var picture = _saving;
+        _saving = false;
+        if (!picture && milliseconds > 0)
+        {
+            if (!Frames.TryGetValue(Phase, out var times))
+            {
+                Frames[Phase] = times = [];
+                Order.Add(Phase);
+            }
+            times.Add(milliseconds);
         }
         // A frame is a hitch when it takes longer than the limit and twice as long as the frames before it.
         var usual = _usual;
         _usual = _usual == 0 ? milliseconds : _usual * 0.95 + Math.Min(milliseconds, 2 * _usual) * 0.05;
         var slow = milliseconds > Limit && milliseconds > 2 * usual;
         var stalled = built.Sum(b => b.Count);
+        var marked = Marks.Count > 0 ? $", after {string.Join(", ", Marks)}" : "";
+        Marks.Clear();
         if (!slow && stalled == 0 && Loads.Count == 0)
             return;
-        var line = $"hitch: {milliseconds:F1} ms (usual {usual:F1})";
+        var line = $"hitch: {milliseconds:F1} ms (usual {usual:F1}){(Phase.Length > 0 ? $" in {Phase}" : "")}{(picture ? ", a picture saved" : "")}{marked}";
         if (stalled > 0)
             line += $", pipelines {string.Join(", ", built.Where(b => b.Count > 0).Select(b => $"{b.Name} {b.Count}"))} for {string.Join(" ", added)}";
         if (collected.Length > 0)
@@ -138,11 +184,21 @@ public partial class HitchLog : Node
         if (Loads.Count > 0)
             line += $", loaded {string.Join(", ", Loads)}";
         GD.Print(line);
-        _hitches += slow ? 1 : 0;
-        _worst = Math.Max(_worst, milliseconds);
+        _hitches += slow && !picture ? 1 : 0;
+        _worst = picture ? _worst : Math.Max(_worst, milliseconds);
         _pipelines += stalled;
         _cold += Loads.Count;
         Loads.Clear();
+    }
+
+    /// <summary>A part's frames: how many, the median, the 95th percentile and the worst, in milliseconds.</summary>
+    public static string Summary(IReadOnlyCollection<double> times)
+    {
+        if (times.Count == 0)
+            return "no frames";
+        var sorted = times.Order().ToList();
+        double At(double share) => sorted[Math.Min(sorted.Count - 1, (int)(share * sorted.Count))];
+        return $"{sorted.Count} frames, median {At(0.5):F1} ms, p95 {At(0.95):F1} ms, worst {sorted[^1]:F1} ms";
     }
 
     private (double Milliseconds, List<(string Name, int Count)> Built, string Collected) Measure()
@@ -171,7 +227,11 @@ public partial class HitchLog : Node
     public override void _ExitTree()
     {
         if (Playing)
+        {
             GD.Print($"hitch summary: {_hitches} frames over {Limit:F0} ms (worst {_worst:F1} ms), {_pipelines} pipelines built while playing, {_cold} first loads while playing");
+            foreach (var phase in Order)
+                GD.Print($"frame times{(phase.Length > 0 ? $" in {phase}" : "")}: {Summary(Frames[phase])}");
+        }
         Playing = false;
     }
 }

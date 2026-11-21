@@ -281,7 +281,7 @@ public static class MenuTheme
     private const int IconSize = 30;
 
     /// <summary>A round LED in a dark ring: lit green, or dark.</summary>
-    private static Texture2D Led(bool on, bool hot = false) => Icon(IconSize, p =>
+    private static Texture2D Led(bool on, bool hot = false) => Icon($"led {on} {hot}", IconSize, p =>
     {
         var r = p.Length();
         Color lens = on
@@ -296,7 +296,7 @@ public static class MenuTheme
     });
 
     /// <summary>A small solid triangle pointing <paramref name="way"/>, for the map tree's branches.</summary>
-    private static Texture2D Arrow(Vector2 way) => Icon(20, p =>
+    private static Texture2D Arrow(Vector2 way) => Icon($"arrow {way}", 20, p =>
     {
         // In the arrow's own frame: x along the way it points, y across.
         var along = p.Dot(way);
@@ -306,9 +306,19 @@ public static class MenuTheme
 
     /// <summary>
     /// A picture <paramref name="size"/> menu pixels square, drawn by a function of the point (-1 to 1 across) with
-    /// four by four samples a pixel at twice that size, and shown at <paramref name="size"/>.
+    /// four by four samples a pixel at twice that size, and shown at <paramref name="size"/>. Drawn once by its
+    /// <paramref name="name"/>: drawing a theme's dozen afresh took some 70 ms, a hitch each time a hack's board came up.
     /// </summary>
-    private static Texture2D Icon(int size, Func<Vector2, Color> shade)
+    private static Texture2D Icon(string name, int size, Func<Vector2, Color> shade)
+    {
+        if (Icons.TryGetValue(name, out var known))
+            return known;
+        return Icons[name] = Draw(size, shade);
+    }
+
+    private static readonly Dictionary<string, Texture2D> Icons = [];
+
+    private static Texture2D Draw(int size, Func<Vector2, Color> shade)
     {
         var pixels = size * 2;
         var image = Image.CreateEmpty(pixels, pixels, false, Image.Format.Rgba8);
