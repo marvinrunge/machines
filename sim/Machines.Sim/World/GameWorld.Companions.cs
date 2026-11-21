@@ -172,15 +172,18 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// The ship's machines that hear a noise of the trio, in id order: within <see cref="HearingReach"/> times its loudness. A
-    /// stub of the hearing of plan WP-D (searchlight detection and suspicion), which is to turn them toward it.
+    /// The ship's machines that hear a noise of the trio, in id order: within <see cref="HearingReach"/> times its loudness,
+    /// half that through a wall, as the sight hears (<see cref="StoryPerceives"/>; the sight takes the noise up as the maker's
+    /// signature, <see cref="StorySight.Noise"/>). A machine switched off (Blind) hears nothing.
     /// </summary>
     public IReadOnlyList<Machine> HeardBy(StoryNoise noise)
     {
         if (Story is not { } run)
             return [];
         var reach = HearingReach * noise.Loudness;
-        return Machines.Where(m => !m.IsDead && m.Race == run.Options.Ship && m.Inside is null && Vector2.Distance(m.Position, noise.Position) <= reach)
+        var maker = Find<Machine>(noise.Source);
+        return Machines.Where(m => !m.IsDead && m.Race == run.Options.Ship && m.Inside is null && StorySeekerOf(m.Id) is not { Blind: true }
+                && Vector2.Distance(m.Position, noise.Position) <= (maker is null || ClearShot(m, maker) ? reach : reach / 2))
             .OrderBy(m => m.Id).ToList();
     }
 
@@ -299,12 +302,9 @@ public sealed partial class GameWorld
     internal void Honk(StoryRun run, Machine grunt)
     {
         var noise = new StoryNoise(grunt.Position, 1, Tick, grunt.Id);
+        // The sight hears it: it adds to the Grunt's signature for a while (GameWorld.UpdateSignatures, StorySight.Noise).
         run.Crew.Noise(noise);
-        StoryNoiseMade(noise);
     }
-
-    /// <summary>Where the hearing of plan WP-D takes a noise of the trio up (suspicion toward it); nothing until it is there.</summary>
-    partial void StoryNoiseMade(StoryNoise noise);
 
     /// <summary>
     /// The enemy a Grunt goes for: the nearest machine of the ship within <paramref name="reach"/> of it that fires at one of

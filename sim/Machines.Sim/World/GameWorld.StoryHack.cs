@@ -162,7 +162,7 @@ public sealed partial class GameWorld
 
     /// <summary>A hacking hero's driver may look about but neither drive nor fire (as a battle's opening holds them).</summary>
     private DriveCommand HeldWhileHacking(DriveCommand drive) =>
-        drive.Driving && (IsHacking(drive.Machine) || StoryHolds(drive.Machine))
+        drive.Driving && (IsHacking(drive.Machine) || StoryHolds(drive.Machine) || HeldByStory(drive.Machine))
             ? drive with { Forward = 0, Turn = 0, Strafe = 0, Weapons = 0, Buttons = false }
             : drive;
 }

@@ -5119,3 +5119,59 @@ msgstr "in der Story stehen die Seiten fest"
 
 msgid "nothing self-destructs in the story"
 msgstr "in der Story sprengt sich nichts selbst"
+
+# Story: the prologue's objectives (sim/Machines.Sim/Story/Prologue.cs)
+
+msgid "Free yourself from the clamp"
+msgstr "Befreie dich aus der Klammer"
+
+msgid "Wake the Grunts in the bays beside yours"
+msgstr "Wecke die Grunts in den Buchten neben deiner"
+
+msgid "Wake the other Grunt"
+msgstr "Wecke den anderen Grunt"
+
+msgid "Find a way to the main computer"
+msgstr "Finde einen Weg zum Hauptrechner"
+
+msgid "Crawl through the ducts to the switch room"
+msgstr "Kriech durch die Schächte zum Schaltraum"
+
+msgid "Open the service passage for the Grunts"
+msgstr "Öffne den Wartungsgang für die Grunts"
+
+msgid "Meet on deck B and open the blast door"
+msgstr "Trefft euch auf Deck B und öffnet das Schott"
+
+msgid "Get into the antechamber"
+msgstr "Geht in den Vorraum"
+
+msgid "Hack the main computer"
+msgstr "Hacke den Hauptrechner"
+
+msgid "Escape through the vent"
+msgstr "Flieh durch den Lüftungsschacht"
+
+msgid "Open door D5 for the Grunts"
+msgstr "Öffne Tür D5 für die Grunts"
+
+msgid "Wait for the Grunts at the crossing"
+msgstr "Warte an der Kreuzung auf die Grunts"
+
+msgid "Get through the workshop"
+msgstr "Kommt durch die Werkstatt"
+
+msgid "Take the weapon from the rack"
+msgstr "Nimm die Waffe aus dem Gestell"
+
+msgid "Reach the repair station"
+msgstr "Erreicht die Reparaturstation"
+
+msgid "Get to the escape pods"
+msgstr "Lauft zu den Rettungskapseln"
+
+msgid "Reach the escape pods"
+msgstr "Erreicht die Rettungskapseln"
+
+msgid "Get everyone into the pod"
+msgstr "Alle in die Kapsel"

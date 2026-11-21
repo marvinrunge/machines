@@ -344,6 +344,44 @@ public enum GameEventKind
     /// stood; Other: its scenario tag, where it has one). Its ground is free; a view takes its model away without a blast.
     /// </summary>
     ArtefactRemoved,
+
+    // ---- the story's director (Story/StoryDirector.cs; Story/StoryEvents.cs writes and reads them) ----
+
+    /// <summary>
+    /// A line of the story is said (Detail: its id in the line table; Other: its <c>StoryAudience</c>; Actor: the machine
+    /// that says it, 0 for the ship; Player: the seat it is about, for a Grunt's or a private line).
+    /// </summary>
+    StoryLine,
+
+    /// <summary>The trio's objective changed (Detail: its English text, none when it is taken away; Position: where it lies, if anywhere).</summary>
+    StoryObjective,
+
+    /// <summary>A checkpoint of the chapter is reached (Other: its number; Position: where the Locator stands).</summary>
+    StoryCheckpoint,
+
+    /// <summary>The director asks the view to show something (Detail: the words, e.g. <c>cutscene erwischt</c> or <c>tilt 5 0 2</c>; Position: where).</summary>
+    StoryCue,
+
+    /// <summary>A hunter sees one of the trio (Actor: the hunter; Player: whom it sees; Position: where).</summary>
+    StorySpotted,
+
+    /// <summary>A hunter lost the trio from sight (Actor: the hunter; Position: where it saw them last).</summary>
+    StoryLost,
+
+    /// <summary>A hunter grows suspicious (Actor: the hunter; Position: what it turns to; Other: its suspicion in hundredths).</summary>
+    StorySuspicious,
+
+    /// <summary>The ship's alarm starts or stops (Other: 1 on, 0 off).</summary>
+    StoryAlarm,
+
+    /// <summary>The countdown to the crash started, reached a stage or stopped (Other: the whole seconds left; Detail: <c>start</c>, <c>stage</c> or <c>stop</c>).</summary>
+    StoryCountdown,
+
+    /// <summary>
+    /// A hack went on (Detail: <c>open</c>, <c>board</c>, <c>done</c>, <c>traced</c>, <c>broken</c> or <c>left</c>, a space, then
+    /// its target; Position: the target's; Player: the hacker).
+    /// </summary>
+    StoryHack,
 }
 
 /// <param name="Mark">Where a round fired in first person really went, height and all, when that is not under the crosshair (a Wired run).</param>

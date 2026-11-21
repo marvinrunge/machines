@@ -22,6 +22,8 @@ public partial class Game
         {
             Deck = World.Deck,
             ThresherDistance = listener => ThresherDistance(listener, World.Players.RaceOf(locator)),
+            // The most suspicious seeker's suspicion of this player's hero (the sight's, GameWorld.StorySuspicionOf).
+            Suspicion = () => World.HeroOf(Me) is { } mine ? World.StorySuspicionOf(mine.Id) : 0,
             Section = () => World.Story?.Section ?? 1,
             LocatorHealth = () => World.HeroOf(locator) is { MaxHitPoints: > 0 } hero ? (float)hero.HitPoints / hero.MaxHitPoints : 1,
             Shown = () => !Hidden,

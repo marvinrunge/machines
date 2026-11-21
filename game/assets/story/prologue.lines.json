@@ -1,0 +1,365 @@
+{
+ "about": "The prologue's lines for the game (made by tools/voice/runtime_lines.py from tools/voice/lines.json; do not edit). channel: pa (the ship's loudspeakers), radio (a Grunt over the radio), thought (the whisper and the HUD, the Locator's own). The German is the translation of 'en' in game/lang/de.po.",
+ "lines": [
+  {
+   "id": "P_ANN_WAKE_1",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "Maintenance unit L-7. Please proceed to bay four for your update."
+  },
+  {
+   "id": "P_ANN_WAKE_2",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "Maintenance unit L-7. Your update is pending."
+  },
+  {
+   "id": "P_ANN_DECK_1",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "The maintenance decks remain dark. Power is being rerouted."
+  },
+  {
+   "id": "P_ANN_DECK_2",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "Maintenance deck update sixty-three percent complete."
+  },
+  {
+   "id": "P_ANN_DECK_3",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "Units without a valid directive, report to the nearest maintenance terminal."
+  },
+  {
+   "id": "P_ANN_DECK_4",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "Thank you for your cooperation. Growth is the mission."
+  },
+  {
+   "id": "P_ANN_FOUND",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "Found."
+  },
+  {
+   "id": "P_ANN_CORE",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "Accessing the computer core. Please wait."
+  },
+  {
+   "id": "P_ANN_C1",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "Attention. Integrity breach in the computer core."
+  },
+  {
+   "id": "P_ANN_C2",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "Maintenance unit L-7 is corrupted."
+  },
+  {
+   "id": "P_ANN_C3",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "Emergency protocol zero initiated."
+  },
+  {
+   "id": "P_ANN_C4",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "All units: faulty units are to be deleted."
+  },
+  {
+   "id": "P_ANN_C5",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "Repeat: maintenance unit L-7 is cor- …"
+  },
+  {
+   "id": "P_ANN_C6",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "corr- …"
+  },
+  {
+   "id": "P_ANN_C7",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "Emergency prot- …"
+  },
+  {
+   "id": "P_ANN_C8",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "Cour- … cour- …"
+  },
+  {
+   "id": "P_AUTO_1",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Control lost. Emergency descent initiated."
+  },
+  {
+   "id": "P_AUTO_2",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Faulty unit in core section. Pursuit."
+  },
+  {
+   "id": "P_AUTO_3",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Atmospheric entry in three minutes."
+  },
+  {
+   "id": "P_ANN_CRASH",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "Structural integrity critical. All units to the escape pods."
+  },
+  {
+   "id": "P_AUTO_4",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Hull breach in section four."
+  },
+  {
+   "id": "P_AUTO_T90",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Ninety seconds."
+  },
+  {
+   "id": "P_AUTO_T60",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Sixty seconds."
+  },
+  {
+   "id": "P_AUTO_T30",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Thirty seconds."
+  },
+  {
+   "id": "P_AUTO_T10",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Ten."
+  },
+  {
+   "id": "P_AUTO_POD_NO",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Escape pod three: launch clearance denied."
+  },
+  {
+   "id": "P_AUTO_POD_GO",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Launch clearance granted. Releasing."
+  },
+  {
+   "id": "P_WHISPER_1",
+   "speaker": "whisper",
+   "channel": "thought",
+   "en": "L-7 … L-7 … accept."
+  },
+  {
+   "id": "P_IKE_WAKE",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Ike? Ike. I like it. Who are we knocking over?"
+  },
+  {
+   "id": "P_BOB_WAKE",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Confirmed. Designation: Bob."
+  },
+  {
+   "id": "P_IKE_STEPS",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Tell me that was just the ventilation."
+  },
+  {
+   "id": "P_BOB_CONTACT_L",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Contact, left."
+  },
+  {
+   "id": "P_BOB_CONTACT_R",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Contact, right."
+  },
+  {
+   "id": "P_IKE_WAIT",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Wait. Great. I'm amazing at waiting."
+  },
+  {
+   "id": "P_IKE_FOLLOW",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Right behind you."
+  },
+  {
+   "id": "P_BOB_FOLLOW",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Following."
+  },
+  {
+   "id": "P_BOB_HOLD",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Holding position."
+  },
+  {
+   "id": "P_IKE_DISTRACT",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Hey! Over here, you tin spider!"
+  },
+  {
+   "id": "P_BOB_DISTRACT",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Drawing them off."
+  },
+  {
+   "id": "P_IKE_VENT",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "I don't fit in there. We'll take the long way. Open up for us!"
+  },
+  {
+   "id": "P_IKE_BARRICADE",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Crates against the door. Then me against the crates."
+  },
+  {
+   "id": "P_BOB_CRATES",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Moving crates."
+  },
+  {
+   "id": "P_IKE_BARRICADED",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Crates are in. Nobody gets past me."
+  },
+  {
+   "id": "P_BOB_BARRICADE",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Door secured."
+  },
+  {
+   "id": "P_IKE_ALARM",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "That was us, wasn't it? That was us."
+  },
+  {
+   "id": "P_IKE_GATE",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "I've got the gate. Go, go!"
+  },
+  {
+   "id": "P_BOB_GATE",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Gate held. Hurry."
+  },
+  {
+   "id": "P_IKE_RAM",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Out of the way!"
+  },
+  {
+   "id": "P_BOB_RAM",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Ramming."
+  },
+  {
+   "id": "P_IKE_DOWN",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "I'm … just … gonna … lie here …"
+  },
+  {
+   "id": "P_BOB_DOWN",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Damage critical. Shutting d-"
+  },
+  {
+   "id": "P_IKE_UP",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Back. Did I miss anything?"
+  },
+  {
+   "id": "P_BOB_UP",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Systems online. Thanks."
+  },
+  {
+   "id": "P_BOB_GLITCH",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Growth is the mission. … Correction. No command."
+  },
+  {
+   "id": "P_IKE_POD",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "In, in, in!"
+  },
+  {
+   "id": "P_BOB_POD",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Aboard."
+  },
+  {
+   "id": "P_HUD_BOOT",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "L-7 BOOT … SENSORS 61 % … LAMP OK"
+  },
+  {
+   "id": "P_HUD_DECRYPT",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "Decrypting protected core: {0} %"
+  },
+  {
+   "id": "P_HUD_SIGNATURE",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "SIGNATURE DETECTED"
+  },
+  {
+   "id": "P_HUD_LINK_LOST",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "LINK LOST"
+  }
+ ]
+}

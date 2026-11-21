@@ -150,6 +150,9 @@ public sealed class StorySight
     /// <summary>How long a shot, the pulse and a hack's alarm stay in the signature, seconds.</summary>
     public const float ShotFor = 3, PulseFor = 2, TracedFor = 5;
 
+    /// <summary>What a noise the trio makes on purpose (a Grunt's honk, StoryCrew.Noises) adds to its maker's signature per loudness, and for how long, seconds.</summary>
+    public const float Noise = 1, NoiseFor = 3;
+
     /// <summary>What wheels do to the moving part of a signature: the Grunts are loud.</summary>
     public const float Wheels = 2;
 

@@ -156,6 +156,9 @@ public sealed partial class GameWorld
                 signature += StorySight.Pulse;
             if (run.Hacks.LastAlarmBy == seat && run.Hacks.LastAlarmTick >= 0 && (Tick - run.Hacks.LastAlarmTick) * Dt < StorySight.TracedFor)
                 signature += StorySight.Traced;
+            // A honk (the companions' distraction) is heard as far as its loudness carries, and drawn to its maker.
+            if (run.Crew.Noises.LastOrDefault(n => n.Source == hero.Id) is { } noise && (Tick - noise.Tick) * Dt < StorySight.NoiseFor)
+                signature += StorySight.Noise * noise.Loudness;
             sight.Signatures[hero.Id] = signature;
             sight.Last[hero.Id] = hero.Position;
         }

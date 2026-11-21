@@ -140,7 +140,9 @@ public class StoryRunTests
         Assert.Equal(VictoryCondition.Story, world.Options.Victory);
         Assert.Equal(WiredPhase.Story, world.Wired!.Phase);
         Assert.Empty(world.Constructions);
-        Assert.DoesNotContain(world.Machines, m => world.Wired.Heroes.Values.All(s => s.Hero != m.Id));
+        // Besides the heroes only the ship's switched-off rows the director sets into the clamps (Prologue.Rows).
+        Assert.All(world.Machines.Where(m => world.Wired.Heroes.Values.All(s => s.Hero != m.Id)),
+            m => Assert.True(m.Race == Race.Blue && m.Weapons.Count == 0, m.ToString()));
         // The Locator a person's, Ike and Bob the computer's, the ship the computer's as a whole.
         Assert.Equal([(PlayerId.Of(Race.Red), PlayerKind.Human), (new PlayerId(4), PlayerKind.Bot), (new PlayerId(5), PlayerKind.Bot)],
             story.Seats.Select(id => (id, world.Players[id].Kind)));
@@ -169,7 +171,8 @@ public class StoryRunTests
     [Fact]
     public void The_computers_grunts_follow_the_locator_for_now()
     {
-        var world = Prologue();
+        // Once awake: before the first checkpoint the director keeps them asleep in their clamps.
+        var world = Prologue(story: new StoryOptions { Checkpoint = 1 });
         var locator = world.HeroOf(world.Story!.Locator)!;
 
         Assert.All(world.Story.Seats.Skip(1), id => Assert.Equal(new FollowOrder(locator.Id), world.HeroOf(id)!.Order));

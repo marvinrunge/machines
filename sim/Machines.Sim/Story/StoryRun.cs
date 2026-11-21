@@ -1,3 +1,4 @@
+using Machines.Import.Model;
 using Machines.Sim.Survival;
 using Machines.Sim.World;
 
@@ -8,6 +9,12 @@ public enum StoryEnding
 {
     /// <summary>The Locator fell: the chapter starts again from its last checkpoint.</summary>
     LocatorLost,
+
+    /// <summary>The countdown ran out before the pod was away: the ship took the trio down with it (from the last checkpoint again).</summary>
+    Crashed,
+
+    /// <summary>The trio got away: the chapter is won.</summary>
+    Escaped,
 }
 
 /// <summary>
@@ -64,6 +71,9 @@ public sealed class StoryRun(StoryOptions options)
     /// </summary>
     public IReadOnlyList<StoryBark> Barks => Crew.Barks;
 
+    /// <summary>The chapter's director: its script and what it keeps between ticks (<see cref="StoryDirector"/>).</summary>
+    public StoryDirector Director { get; } = new(StoryScripts.Of(options.Chapter));
+
     /// <summary>A fingerprint of the run for the world's checksum.</summary>
     public long Fingerprint()
     {
@@ -87,6 +97,7 @@ public sealed class StoryRun(StoryOptions options)
         hash.Mix(Hacks.Fingerprint());
         hash.Mix(Sight.Fingerprint());
         hash.Mix(Crew.Fingerprint());
+        hash.Mix(Director.Fingerprint());
         return hash.Value;
     }
 }

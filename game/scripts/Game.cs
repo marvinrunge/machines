@@ -872,6 +872,7 @@ public partial class Game : Node3D
         }
         ShowEvents();
         ShowRunEvents();
+        ShowStoryEvents();
         SyncBlasts();
         SyncViews();
         Ticked?.Invoke();
