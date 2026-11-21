@@ -170,7 +170,9 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
             _reviving = false;
             Hold(KeyMap.Act.Use, false);
         }
-        if (director.Has("control_lost") && !director.Has("launch") && Fallen(game, story) is { } fallen)
+        // A fallen Grunt is put together, but in the workshop only once its armed Grunts are down (the Bolter first, as a player would).
+        var workshopFight = director.Has("together") && !director.Has("cleared");
+        if (director.Has("control_lost") && !director.Has("launch") && !workshopFight && Fallen(game, story) is { } fallen)
             Revive(game, hero, fallen);
         else if (!Done("clamp_l7"))
             await Hack(game, story, hero, "clamp_l7");
