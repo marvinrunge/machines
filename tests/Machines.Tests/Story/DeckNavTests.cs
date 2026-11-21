@@ -386,11 +386,12 @@ public class DeckNavTests
     {
         var world = Prologue();
         var cast = Cast(world);
-        // The story opens the core's doors to the spine and to P2 for the assault; the blast doors to the decks (H, I) and the
-        // gates into the crossing (G, O) stay shut.
+        // The story opens the core's doors to the spine and to P2 for the assault, and W for the way round by the west service
+        // corridors (R11, R11a) to the antechamber's door I; the blast doors to the decks (H, I) and the gates into the crossing
+        // (G, O) stay shut.
         foreach (var door in world.Deck!.Doors.Where(d => d.Letter is not ('H' or 'I' or 'G' or 'O')))
             world.OpenDoor(door.Letter);
-        string[] confined = ["R9", "R10", "R10a", "P1", "P1s", "P2"];
+        string[] confined = ["R9", "R10", "R10a", "P1", "P1s", "P2", "R11", "R11a"];
 
         Assert.Equal(confined.Order(StringComparer.Ordinal), Reached(world, cast.Reaper, "spawn_reaper_1").Order(StringComparer.Ordinal));
         Assert.Equal(confined.Order(StringComparer.Ordinal), Reached(world, cast.Commander, "spawn_commander").Order(StringComparer.Ordinal));

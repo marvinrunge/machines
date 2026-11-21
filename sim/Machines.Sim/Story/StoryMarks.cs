@@ -12,8 +12,14 @@ namespace Machines.Sim.Story;
 /// </summary>
 public static class StoryMarks
 {
-    /// <summary>Set while the ship's alarm sounds (from the break at 90 % on).</summary>
+    /// <summary>Set while the ship's alarm sounds (from the squad at the core chamber's first door on).</summary>
     public const string Alarm = "alarm";
+
+    /// <summary>
+    /// Set while the Commander's squad is on its way to the core chamber and not yet in (Der Hack): the HUD points at where
+    /// it comes from (the Commander's place).
+    /// </summary>
+    public const string Squad = "squad";
 
     /// <summary>Set while a hunter sees the trio: the HUD says SIGNATURE DETECTED.</summary>
     public const string Spotted = "spotted";

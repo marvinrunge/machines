@@ -48,6 +48,8 @@ public enum CompanionStep
     ToStand,
     /// <summary>Any job: at its place, standing.</summary>
     Standing,
+    /// <summary>A person's Grunt pushing a crate it drove into (GameWorld.PushCrates).</summary>
+    Pushing,
 }
 
 /// <summary>A line a Grunt says over the radio (docs/STORY.md, Koop: "kurze Funksprüche, wenn die KI sie steuert"): its id in the line table, who says it, on which tick.</summary>

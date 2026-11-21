@@ -221,7 +221,7 @@ public sealed class CompanionBot(GameWorld world, PlayerId seat)
                 return;
         }
         // Between trips: the next crate into the next free slot, or stand.
-        if (FreeSlot(run, slots) is { } free && FreeCrate(run, grunt) is { } next)
+        if (FreeSlot(run, slots) is { } free && FreeCrate(run, grunt, free) is { } next)
         {
             companion.Slot = free.Name;
             companion.Crate = next.Id;
@@ -260,12 +260,14 @@ public sealed class CompanionBot(GameWorld world, PlayerId seat)
                 && c.Step is CompanionStep.ToPile or CompanionStep.ToSlot));
 
     /// <summary>
-    /// The first crate of the pile no other Grunt goes for and this one can get to: once two crates stand in a doorway the
-    /// Grunts behind them cannot get back to the pile, and the barricade is what they built.
+    /// The crate nearest the slot (the loose ones by the door first, then the pile) that no other Grunt goes for and this one
+    /// can get to: once two crates stand in a doorway the Grunts behind them cannot get back to the pile, and the barricade
+    /// is what they built.
     /// </summary>
-    private Artefact? FreeCrate(StoryRun run, Machine grunt) =>
-        world.PileCrates().FirstOrDefault(crate => !run.Crew.Grunts.Values.Any(c => c.Seat != seat && c.Crate == crate.Id)
-            && world.CompanionReaches(grunt, crate.Position, crate.Radius + grunt.Radius + There));
+    private Artefact? FreeCrate(StoryRun run, Machine grunt, DeckMarker slot) =>
+        world.PileCrates().OrderBy(crate => Vector2.DistanceSquared(crate.Position, slot.Position)).ThenBy(crate => crate.Id)
+            .FirstOrDefault(crate => !run.Crew.Grunts.Values.Any(c => c.Seat != seat && c.Crate == crate.Id)
+                && world.CompanionReaches(grunt, crate.Position, crate.Radius + grunt.Radius + There));
 
     /// <summary>A point beside a crate on the Grunt's side, where it can take it.</summary>
     private static Vector2 Beside(Artefact crate, Machine grunt)

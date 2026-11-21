@@ -63,8 +63,14 @@ public sealed class StoryDirector
     /// <summary>The deck's doors that open by themselves once a hero of the trio comes near, by letter.</summary>
     public SortedSet<char> AutoDoors { get; } = [];
 
-    /// <summary>Artefacts (by id) that take no lasting harm until the director lets them go: the core until its scripted end.</summary>
+    /// <summary>Artefacts (by id) that take no lasting harm until the director lets them go.</summary>
     public SortedSet<int> Shielded { get; } = [];
+
+    /// <summary>
+    /// Artefacts (by id) that take harm but go no lower than so many hit points until the director lets them go
+    /// (GameWorld.StoryStruck): the core the Reapers hit until it blows, the crates of a barricade they shoot until they throw them.
+    /// </summary>
+    public SortedDictionary<int, int> Floors { get; } = [];
 
     /// <summary>The director's counters (which line of a cycle comes next ...), by name.</summary>
     public SortedDictionary<string, int> Counters { get; } = new(StringComparer.Ordinal);
@@ -270,6 +276,11 @@ public sealed class StoryDirector
             hash.Mix(letter);
         foreach (var id in Shielded)
             hash.Mix(id);
+        foreach (var (id, floor) in Floors)
+        {
+            hash.Mix(id);
+            hash.Mix(floor);
+        }
         foreach (var (name, count) in Counters)
         {
             hash.Mix(name);
@@ -382,6 +393,33 @@ public static class When
     public sealed record HackOpen(string Target) : StoryTrigger
     {
         internal override bool Holds(GameWorld world, StoryRun run, StoryDirector director) => run.Hacks.Session(Target) is { Open: true };
+    }
+
+    /// <summary>A hack has come to a board (from 0: 1 is its second), or is won.</summary>
+    public sealed record HackBoard(string Target, int Stage) : StoryTrigger
+    {
+        internal override bool Holds(GameWorld world, StoryRun run, StoryDirector director) =>
+            run.Hacks.Done.Contains(Target) || run.Hacks.Session(Target) is { } session && session.Stage >= Stage;
+    }
+
+    /// <summary>A hack's target locked its board (<see cref="HackSession.Held"/>), or the hack is won.</summary>
+    public sealed record HackHeld(string Target) : StoryTrigger
+    {
+        internal override bool Holds(GameWorld world, StoryRun run, StoryDirector director) =>
+            run.Hacks.Done.Contains(Target) || run.Hacks.Session(Target) is { Held: true };
+    }
+
+    /// <summary>
+    /// A door is barricaded: crates stand in at least <paramref name="Crates"/> of its barricade slots (0: in all of them),
+    /// which is when the Reapers cannot get through it.
+    /// </summary>
+    public sealed record Barricaded(string Door, int Crates = 0) : StoryTrigger
+    {
+        internal override bool Holds(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            var slots = world.BarricadeSlots(Door);
+            return slots.Count > 0 && slots.Count(world.SlotFilled) >= (Crates > 0 ? Crates : slots.Count);
+        }
     }
 
     /// <summary>A beat fired at least so many seconds ago.</summary>
@@ -633,13 +671,11 @@ public static class Then
     {
         internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
         {
-            foreach (var slot in world.BarricadeSlots(Door))
+            foreach (var crate in world.BarricadeCrates(Door))
             {
-                foreach (var crate in world.Artefacts.Where(a => !a.IsDead && Vector2.DistanceSquared(a.Position, slot.Position) < 0.25f).OrderBy(a => a.Id).ToList())
-                {
-                    world.RemoveArtefact(crate.Id);
-                    StoryEvents.Cue(world, $"thrown {crate.Id - Artefact.IdBase} {crate.Type.Name}", crate.Position);
-                }
+                director.Floors.Remove(crate.Id);
+                world.RemoveArtefact(crate.Id);
+                StoryEvents.Cue(world, $"thrown {crate.Id - Artefact.IdBase} {crate.Type.Name}", crate.Position);
             }
         }
     }
@@ -883,6 +919,43 @@ public static class Then
         }
     }
 
+    /// <summary>
+    /// The machines of a role sent to a place by way of others, as one of the ship's MoveCommands with its Via (the squad round
+    /// the long way to another door). A hunt the sight gives them on the way comes back to that move afterwards.
+    /// </summary>
+    public sealed record Route(string Role, string To, params string[] Via) : StoryAction
+    {
+        internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            var ids = director.Of(world, Role).Select(m => m.Id).ToList();
+            if (ids.Count > 0)
+                world.DirectForStory(new MoveCommand(run.Options.Ship, ids, Where(world, To), [.. Via.Select(v => Where(world, v))]));
+        }
+    }
+
+    /// <summary>
+    /// The machines of a role fire at the crates in a door's barricade slots, each at one in turn (id order). The crates take
+    /// harm but stand (<see cref="StoryDirector.Floors"/>, at <paramref name="Floor"/> of their hit points) until the
+    /// director throws them (<see cref="ClearBarricade"/>).
+    /// </summary>
+    public sealed record FireAtBarricade(string Role, string Door, float Floor = 0.15f) : StoryAction
+    {
+        internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            var crates = world.BarricadeCrates(Door);
+            if (crates.Count == 0)
+                return;
+            foreach (var crate in crates)
+                director.Floors[crate.Id] = Math.Max(1, (int)(crate.MaxHitPoints * Floor));
+            var i = 0;
+            foreach (var machine in director.Of(world, Role).ToList())
+            {
+                var crate = crates[i++ % crates.Count];
+                world.SendForStory(machine, new AttackOrder(crate.Id), crate.Position);
+            }
+        }
+    }
+
     /// <summary>The machines of a role stand their ground where they are: they fire at what they see from there (the hostile Grunts at their posts).</summary>
     public sealed record StandFast(string Role) : StoryAction
     {
@@ -998,7 +1071,7 @@ public static class Then
     /// <summary>
     /// The machines of a role keep to the script for a while (<paramref name="On"/> false): they see nothing and forget what
     /// they suspected, so a Grunt in a doorway does not turn them from where the director sends them; with true they see
-    /// again. Erwischt's Reapers storm the core chamber this way, as its cutscene films them.
+    /// again. The Commander's squad goes to the core chamber's doors this way, until the core blows.
     /// </summary>
     public sealed record Sight(string Role, bool On) : StoryAction
     {
@@ -1073,6 +1146,7 @@ public static class Then
             foreach (var artefact in world.Artefacts.Where(a => a.Tag == Tag).OrderBy(a => a.Id).ToList())
             {
                 director.Shielded.Remove(artefact.Id);
+                director.Floors.Remove(artefact.Id);
                 world.RemoveArtefact(artefact.Id);
             }
         }
@@ -1086,7 +1160,41 @@ public static class Then
             foreach (var artefact in world.Artefacts.Where(a => a.Tag == Tag && !a.IsDead).OrderBy(a => a.Id).ToList())
             {
                 director.Shielded.Remove(artefact.Id);
+                director.Floors.Remove(artefact.Id);
                 world.Damage(artefact, Damage ?? artefact.HitPoints + artefact.Armour + 1, null);
+            }
+        }
+    }
+
+    /// <summary>
+    /// A tagged artefact takes harm from now on but keeps at least <paramref name="Share"/> of its hit points
+    /// (<see cref="StoryDirector.Floors"/>) until <see cref="HarmProp"/> or <see cref="RemoveProp"/> lets it go: the core under the Reapers' fire.
+    /// </summary>
+    public sealed record KeepProp(int Tag, float Share) : StoryAction
+    {
+        internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            foreach (var artefact in world.Artefacts.Where(a => a.Tag == Tag && !a.IsDead))
+            {
+                director.Shielded.Remove(artefact.Id);
+                director.Floors[artefact.Id] = Math.Max(1, (int)(artefact.MaxHitPoints * Share));
+            }
+        }
+    }
+
+    /// <summary>
+    /// A tagged artefact worn down to <paramref name="Share"/> of its hit points if it stands higher (the core cracking under
+    /// the hits, whatever the rounds did by then): its damage shows as the view shows an artefact's.
+    /// </summary>
+    public sealed record WearProp(int Tag, float Share) : StoryAction
+    {
+        internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            foreach (var artefact in world.Artefacts.Where(a => a.Tag == Tag && !a.IsDead).OrderBy(a => a.Id).ToList())
+            {
+                var down = artefact.HitPoints - Math.Max(1, (int)(artefact.MaxHitPoints * Share));
+                if (down > 0)
+                    artefact.HitPoints -= down;
             }
         }
     }

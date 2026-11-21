@@ -95,7 +95,10 @@ public class StoryWayTests
     {
         var world = Chapter(3);
         var run = world.Story!;
-        world.Step();
+        // Checkpoint 3 is the break-in: the hunt is on once the core has blown.
+        for (var i = 0; i < (Prologue.CoreBlows + 15) * GameWorld.TicksPerSecond && !run.Director.Has("core_blows"); i++)
+            world.Step();
+        Assert.True(run.Director.Has("core_blows"));
         // The Locator through to the crossing already, out of the hunt's way.
         Hero(world, 0).Position = new Vector2(401, 241);
         var bob = Hero(world, 2);

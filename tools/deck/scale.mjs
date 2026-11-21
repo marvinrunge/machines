@@ -22,7 +22,8 @@
 //   only wall, floor and ducts along their length (no door, grate or cover is copied).
 // - ZONES height= grows F times, but ducts keep theirs; the plan can set a room's height outright.
 // - The plan's own edits come last, in the new deck's coordinates: fill (cells), marker, zone, prop and cam (each moves or
-//   replaces the one of that name, or adds it).
+//   replaces the one of that name, or adds it), door (letter name kind state) and light (name zone state), each changing
+//   the one of that letter or name or adding it, and drop marker|prop|zone|cam|rail <name>, which leaves one out.
 // The mapping of an old point (x, y) is x' = F x + the cells of every x stretch at or west of x, y' likewise; a zone's
 // far edge only moves with stretches it lies beyond.
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -33,7 +34,7 @@ const fail = (why) => { console.error(`scale: ${why}`); process.exit(1); };
 // ---- the plan ----------------------------------------------------------------------------------
 
 function readPlan(path) {
-  const plan = { factor: 0, stretches: [], pad: null, heights: new Map(), fills: [], markers: [], zones: [], props: [], cams: [], header: [] };
+  const plan = { factor: 0, stretches: [], pad: null, heights: new Map(), fills: [], markers: [], zones: [], props: [], cams: [], header: [], doors: [], lights: [], drops: [] };
   for (const [i, raw] of readFileSync(path, 'utf8').split(/\r?\n/).entries()) {
     const line = raw.replace(/\/\/.*$/, '').trim();
     if (!line) continue;
@@ -50,6 +51,9 @@ function readPlan(path) {
       case 'prop': plan.props.push({ name: w[1], type: w[2], x: n(3), y: n(4), angle: n(5), id: n(6) }); break;
       case 'cam': plan.cams.push({ name: w[1], x: n(2), y: n(3), z: n(4), yaw: n(5), pitch: n(6) }); break;
       case 'header': plan.header.push(raw.replace(/^\s*header\s?/, '')); break;
+      case 'door': plan.doors.push({ letter: w[1], name: w[2], kind: w[3], state: w[4] }); break;
+      case 'light': plan.lights.push({ name: w[1], zone: w[2], state: w[3] }); break;
+      case 'drop': plan.drops.push({ what: w[1], name: w[2] }); break;
       default: fail(`${path}:${i + 1}: unknown '${w[0]}'`);
     }
   }
@@ -236,7 +240,19 @@ function transform(deck, plan, ductList) {
     const c = cams.find((k) => k.name === e.name);
     if (c) Object.assign(c, e); else cams.push({ ...e });
   }
-  return { markers, props, zones, cams, rails };
+  // Doors and light groups the plan adds (or changes, by letter or name), and what it drops of the old deck's.
+  const doors = deck.doors.map((d) => ({ ...d }));
+  for (const e of plan.doors) {
+    const d = doors.find((k) => k.letter === e.letter);
+    if (d) Object.assign(d, e); else doors.push({ ...e });
+  }
+  const lights = deck.lights.map((l) => ({ ...l }));
+  for (const e of plan.lights) {
+    const l = lights.find((k) => k.name === e.name);
+    if (l) Object.assign(l, e); else lights.push({ ...e });
+  }
+  const drop = (what, list) => list.filter((k) => !plan.drops.some((d) => d.what === what && d.name === k.name));
+  return { markers: drop('marker', markers), props: drop('prop', props), zones: drop('zone', zones), cams: drop('cam', cams), rails: drop('rail', rails), doors, lights };
 }
 
 // ---- writing ---------------------------------------------------------------------------------
@@ -251,11 +267,11 @@ function write(oldText, deck, plan, grid, W, H, s) {
   }
   const out = [...head, ...plan.header.map((l) => `// ${l}`.trimEnd()), '', `DECK ${deck.name} ${W} ${H} ${plan.factor}`, 'GRID'];
   for (let y = H - 1; y >= 0; y--) out.push(grid[y].join(''));
-  out.push('ENDGRID', '', 'DOORS', ...deck.doors.map((d) => `${d.letter} ${d.name} ${d.kind} ${d.state}`), 'ENDDOORS', '');
+  out.push('ENDGRID', '', 'DOORS', ...s.doors.map((d) => `${d.letter} ${d.name} ${d.kind} ${d.state}`), 'ENDDOORS', '');
   out.push('MARKERS', ...s.markers.map((m) => [m.name, fmt(m.x), fmt(m.y), fmt(m.angle), ...m.tags].join(' ')), 'ENDMARKERS', '');
   out.push('PROPS', ...s.props.map((p) => [p.name, p.type, fmt(p.x), fmt(p.y), fmt(p.angle), p.id].join(' ')), 'ENDPROPS', '');
   out.push('ZONES', ...s.zones.map((z) => [z.name, fmt(z.x0), fmt(z.y0), fmt(z.x1), fmt(z.y1), ...z.tags].join(' ')), 'ENDZONES', '');
-  out.push('LIGHTS', ...deck.lights.map((l) => `${l.name} ${l.zone} ${l.state}`), 'ENDLIGHTS', '');
+  out.push('LIGHTS', ...s.lights.map((l) => `${l.name} ${l.zone} ${l.state}`), 'ENDLIGHTS', '');
   out.push('CAMS', ...s.cams.map((c) => [c.name, fmt(c.x), fmt(c.y), fmt(c.z), fmt(c.yaw), fmt(c.pitch)].join(' ')), 'ENDCAMS', '');
   out.push('RAILS', ...s.rails.map((r) => [r.name, ...r.points.map(fmt)].join(' ')), 'ENDRAILS', '');
   return out.join('\n');
@@ -335,9 +351,10 @@ function report(oldDeck, newDeck, plan) {
     const [o, n] = [oldRects.get(door.letter), newRects.get(door.letter)];
     // Across the way: the longer side, but a vent's slot can be as deep as it is wide; then the old door says which side.
     const across = (r, alongX) => (alongX ? r.x1 - r.x0 : r.y1 - r.y0);
-    const oldAlongX = o.x1 - o.x0 >= o.y1 - o.y0;
-    const [ow, nw] = [across(o, oldAlongX), across(n, oldAlongX)];
-    out.push(`  ${door.letter} ${door.name.padEnd(20)} ${door.kind.padEnd(5)} ${door.state.padEnd(6)} ${String(ow).padStart(2)} m -> ${String(nw).padStart(2)} m  at ${n.x0},${n.y0}-${n.x1},${n.y1}  passes: ${passes(nw, door.kind === 'vent')}`);
+    // A door the plan added has no old one: its own shape says which way it is crossed.
+    const oldAlongX = o ? o.x1 - o.x0 >= o.y1 - o.y0 : n.x1 - n.x0 >= n.y1 - n.y0;
+    const [ow, nw] = [o ? across(o, oldAlongX) : 'new', across(n, oldAlongX)];
+    out.push(`  ${door.letter} ${door.name.padEnd(20)} ${door.kind.padEnd(5)} ${door.state.padEnd(6)} ${String(ow).padStart(3)} m -> ${String(nw).padStart(2)} m  at ${n.x0},${n.y0}-${n.x1},${n.y1}  passes: ${passes(nw, door.kind === 'vent')}`);
   }
   out.push('', 'rooms (x0 y0 x1 y1, size, height):');
   for (const z of newDeck.zones.filter((k) => k.tags.includes('room'))) {

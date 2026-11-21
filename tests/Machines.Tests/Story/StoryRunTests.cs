@@ -63,7 +63,9 @@ public class StoryRunTests
         Assert.Equal(6, deck.Markers.Count(m => m.Tags.Contains("patrol")));
         Assert.Equal(24, deck.Markers.Count(m => m.Name.StartsWith("clampA_", StringComparison.Ordinal) || m.Name.StartsWith("clampB_", StringComparison.Ordinal)));
         Assert.Equal(9, deck.Markers.Count(m => m.Tags.Contains("barricade")));
-        Assert.Contains(deck.Cameras, c => c.Name == "cam_erwischt_3");
+        Assert.Equal("locked", deck.Door('W')!.State);
+        Assert.Contains(deck.Cameras, c => c.Name == "cam_abwurf_1");
+        Assert.DoesNotContain(deck.Cameras, c => c.Name.StartsWith("cam_erwischt", StringComparison.Ordinal));
         // Each spawn stands in its own bay, and the bays are shut by locked doors.
         Assert.True(deck.Zone("R1")!.Contains(deck.Marker("spawn_l7").Position));
         Assert.True(deck.Zone("R2")!.Contains(deck.Marker("spawn_ike").Position));

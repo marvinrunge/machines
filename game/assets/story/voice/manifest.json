@@ -271,6 +271,24 @@
     "hash": "5f1c85b4ab9e"
    }
   },
+  "P_ANN_SQUAD": {
+   "de": {
+    "file": "de/P_ANN_SQUAD.ogg",
+    "seconds": 7.49,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "cc3eade0f49e"
+   },
+   "en": {
+    "file": "en/P_ANN_SQUAD.ogg",
+    "seconds": 7.09,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "7f18db4c08d8"
+   }
+  },
   "P_ANN_WAKE_1": {
    "de": {
     "file": "de/P_ANN_WAKE_1.ogg",
@@ -559,6 +577,24 @@
     "hash": "b8ca10330a73"
    }
   },
+  "P_BOB_FIRE": {
+   "de": {
+    "file": "de/P_BOB_FIRE.ogg",
+    "seconds": 2.31,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "66ca62f8015a"
+   },
+   "en": {
+    "file": "en/P_BOB_FIRE.ogg",
+    "seconds": 2.07,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "7c7a8c98e850"
+   }
+  },
   "P_BOB_FOLLOW": {
    "de": {
     "file": "de/P_BOB_FOLLOW.ogg",
@@ -667,6 +703,42 @@
     "hash": "e033dd8737a4"
    }
   },
+  "P_BOB_ROUND": {
+   "de": {
+    "file": "de/P_BOB_ROUND.ogg",
+    "seconds": 5.01,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "7aeafa0988d6"
+   },
+   "en": {
+    "file": "en/P_BOB_ROUND.ogg",
+    "seconds": 4.59,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "f862876caf24"
+   }
+  },
+  "P_BOB_SQUAD": {
+   "de": {
+    "file": "de/P_BOB_SQUAD.ogg",
+    "seconds": 4.19,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "ace71cbd03aa"
+   },
+   "en": {
+    "file": "en/P_BOB_SQUAD.ogg",
+    "seconds": 4.58,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "b7b5b97e6f82"
+   }
+  },
   "P_BOB_UP": {
    "de": {
     "file": "de/P_BOB_UP.ogg",
@@ -773,6 +845,24 @@
     "preset": "ike",
     "source": "sapi",
     "hash": "ee5ae15656df"
+   }
+  },
+  "P_IKE_HAMMER": {
+   "de": {
+    "file": "de/P_IKE_HAMMER.ogg",
+    "seconds": 4.46,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "7205bc1d8942"
+   },
+   "en": {
+    "file": "en/P_IKE_HAMMER.ogg",
+    "seconds": 4.05,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "2fbd132225dd"
    }
   },
   "P_IKE_POD": {

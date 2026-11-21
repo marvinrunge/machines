@@ -202,6 +202,8 @@ public class CompanionTests
         Place(world, Bob, new Vector2(196, 220));
         if (barricade)
         {
+            // The crates for the barricades: the pile in the antechamber and the loose ones about the core room.
+            var crates = world.PileCrates().Count;
             world.AssignCompanion(Ike, CompanionTask.Barricade, "I");
             world.AssignCompanion(Bob, CompanionTask.Barricade, "I");
             var standing = RunUntil(world, () => world.Story!.Crew.Of(Ike).Step == CompanionStep.Standing && world.Story.Crew.Of(Bob).Step == CompanionStep.Standing, 90);
@@ -211,7 +213,7 @@ public class CompanionTests
             // crates across their own barricade and they went through it).
             var filled = world.BarricadeSlots("I").Count(world.SlotFilled);
             Assert.Equal(3, filled);
-            Assert.Equal(4 - filled, world.PileCrates().Count);
+            Assert.Equal(crates - filled, world.PileCrates().Count);
             Assert.All(new[] { Ike, Bob }, seat => Assert.True(Hero(world, seat).Position.Y > 233, $"{seat} at {Hero(world, seat).Position}"));
             // Each stands before the crates, close to a slot (the doorway is 12 m).
             Assert.All(new[] { Ike, Bob }, seat => Assert.True(world.BarricadeSlots("I").Any(slot => Vector2.Distance(slot.Position, Hero(world, seat).Position) < 10), $"{seat} at {Hero(world, seat).Position}"));

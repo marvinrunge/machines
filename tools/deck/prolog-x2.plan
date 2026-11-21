@@ -43,14 +43,16 @@ fill c 178 282 181 285
 fill c 203 282 206 285
 marker console_r9_w 167.5 260 180 terminal
 marker console_r9_e 216.5 276 0 terminal
-// Loose crates near the chamber's doors for the barricades (the old pile in R8 stays): two by I, two by J, and two in the NE
-// corner behind the east console bank (in front of M they shut the Reapers out of P2).
+// Loose crates near the chamber's doors for the barricades (the old pile in R8 stays): two by I, three by J (Ike has the
+// further way to the pile); and two in the NE corner behind the east console bank (in front of M they shut the Reapers out
+// of P2), named cover_ as they are the Locator's cover by the vent and no Grunt carries them off.
 prop crate_r9_1 crate_large 176 236 0 305
 prop crate_r9_2 crate_large 208 236 0 306
 prop crate_r9_3 crate_large 176 291 0 307
 prop crate_r9_4 crate_large 208 291 0 308
-prop crate_r9_5 crate_large 218 284 90 309
-prop crate_r9_6 crate_large 218 289 90 310
+prop crate_r9_5 crate_large 192 287 0 313
+prop cover_r9_1 crate_large 218 284 90 309
+prop cover_r9_2 crate_large 218 289 90 310
 
 // The pod bay R16 (432-600 x 24-120, the Notgang's mouth R15a at 512-528 in the north wall, the catwalk at y 108-113):
 // three of the game's pods at their own size, 52 m apart and 8 m from the walls; pod 3 (the one that launches) in the east.
@@ -61,3 +63,33 @@ marker pod_3_hatch 568 74 270
 zone pod_zone 544 64 592 96 trigger
 // The Abwurf film's camera on the catwalk, looking down at pod 3 (its old place was beside a 7 m pod).
 cam cam_abwurf_1 520 110 48 311 -25
+
+// The core fight played (stage 6, docs/STORY.md Der Hack and Erwischt): the security squad comes from the barracks lift along
+// the spine to the core's north blast door J. Where the Grunts have barricaded it, the Commander sends them the long way
+// round: through the blast door W at the spine's west end, down the west service corridor R11 and along R11a into the
+// antechamber R8, to the door I the trio came in by. W is shut (locked) until then, so the Thresher's ring and the decks
+// stay apart from the spine. 14 m wide like the parallel corridors, so the Reapers pass and the Thresher has no way in.
+fill . 134 214 148 296
+fill . 148 214 176 228
+fill W 134 296 148 300
+door W spine_service blast locked
+zone R11 134 214 148 296 room height=16 section=3
+zone R11a 148 214 176 228 room height=16 section=3
+light service_w R11 emergency
+light service_wa R11a emergency
+// Where the squad stands at J (outside, on the spine) and at I (in the antechamber), and the corners of the way round.
+marker squad_j_1 186 305 270 route
+marker squad_j_2 198 305 270 route
+marker squad_j_3 192 310 270 route
+marker squad_w_1 141 309 270 route
+marker squad_w_2 141 221 0 route
+marker squad_i_1 186 222 90 route
+marker squad_i_2 196 222 90 route
+marker squad_i_3 191 216 90 route
+marker commander_i 160 221 0 route
+// Erwischt is played, not filmed: its cameras and rail are gone with erwischt.cut.
+drop cam cam_erwischt_1
+drop cam cam_erwischt_2
+drop cam cam_erwischt_3
+drop cam cam_erwischt_4
+drop rail rail_erwischt_door

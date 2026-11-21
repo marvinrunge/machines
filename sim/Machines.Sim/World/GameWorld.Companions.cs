@@ -2,6 +2,7 @@ using System.Numerics;
 using Machines.Import.Model;
 using Machines.Sim.Ai;
 using Machines.Sim.Combat;
+using Machines.Sim.Navigation;
 using Machines.Sim.Story;
 using Machines.Sim.Survival;
 
@@ -527,16 +528,29 @@ public sealed partial class GameWorld
     // ---- crates -------------------------------------------------------------------------------------------
 
     /// <summary>
-    /// The crates of a deck's pile still standing on it, in id order: the artefacts of the props named <c>pile_*</c> where the
-    /// deck put them (one carried off into a slot is no longer the pile's).
+    /// The crates for the barricades still standing where the deck put them, in id order: the artefacts of the props named
+    /// <c>pile_*</c> (the pile) and <c>crate_*</c> (loose ones about the room); one carried off into a slot is no longer
+    /// among them.
     /// </summary>
     public List<Artefact> PileCrates()
     {
         if (Deck is not { } deck)
             return [];
-        var piled = deck.Props.Where(p => p.Name.StartsWith("pile_", StringComparison.Ordinal)).ToDictionary(p => p.Id, p => p.Position);
+        var piled = deck.Props.Where(Carryable).ToDictionary(p => p.Id, p => p.Position);
         return _artefacts.Values
             .Where(a => !a.IsDead && a.Tag is { } tag && piled.TryGetValue(tag, out var home) && Vector2.DistanceSquared(a.Position, home) < 1)
+            .OrderBy(a => a.Id).ToList();
+    }
+
+    /// <summary>A deck's prop the Grunts carry into a barricade: the pile's and the loose crates (not the Locator's cover).</summary>
+    private static bool Carryable(DeckProp prop) =>
+        prop.Name.StartsWith("pile_", StringComparison.Ordinal) || prop.Name.StartsWith("crate_", StringComparison.Ordinal);
+
+    /// <summary>The crates standing in a door's barricade slots, in id order.</summary>
+    public List<Artefact> BarricadeCrates(string door)
+    {
+        var slots = BarricadeSlots(door);
+        return _artefacts.Values.Where(a => !a.IsDead && slots.Any(s => Vector2.DistanceSquared(a.Position, s.Position) < 0.5f * 0.5f))
             .OrderBy(a => a.Id).ToList();
     }
 
@@ -620,6 +634,9 @@ public sealed partial class GameWorld
     private void StoryStruck(Actor target)
     {
         var run = Story!;
+        // An artefact the director keeps standing (the core under fire, a barricade's crate) goes no lower than its floor.
+        if (target is Artefact && run.Director.Floors.TryGetValue(target.Id, out var floor) && target.HitPoints < floor)
+            target.HitPoints = floor;
         if (target is not Machine machine)
             return;
         if (HeroOf(run.Locator)?.Id == machine.Id)
@@ -695,16 +712,92 @@ public sealed partial class GameWorld
         WakeTerminals(run);
         UpdateHolds(run);
         UpdateRepairStation(run);
-        // A Grunt a person took over carries no crate in the computer's hands.
+        // A Grunt a person took over carries no crate in the computer's hands; a person pushes crates by driving into them.
         foreach (var seat in run.Seats.Skip(1))
         {
-            if (!StoryBotPlays(seat) && crew.Grunts.TryGetValue(seat.Value, out var companion) && companion.Carrying is not null)
+            if (StoryBotPlays(seat))
+                continue;
+            if (crew.Grunts.TryGetValue(seat.Value, out var companion) && companion.Carrying is not null && companion.Step != CompanionStep.Pushing)
                 EndJob(run, companion);
+            PushCrates(run, seat);
         }
         if (Tick % CompanionBot.ThinkEvery != 0)
             return;
         foreach (var seat in run.Bots)
             new CompanionBot(this, seat).Think();
+    }
+
+    /// <summary>
+    /// How near the front of a Grunt a crate must stand to be pushed (metres between their edges), how far from a free
+    /// barricade slot a pushed crate locks into it, and how far ahead of the Grunt it is set down.
+    /// </summary>
+    public const float PushReach = 1.2f, SlotSnap = 6, PushAhead = 0.6f;
+
+    /// <summary>
+    /// A Grunt a person drives pushes crates (docs/STORY.md, Der Hack: the Grunts barricade the doors): driving forward into a
+    /// crate for the barricades it takes it up before it; near a free barricade slot of any door it locks the crate into it;
+    /// backing up sets it down ahead where there is room. A Grunt that goes down drops it where it stands. The view hears
+    /// "crate pushed" and "crate set".
+    /// </summary>
+    private void PushCrates(StoryRun run, PlayerId seat)
+    {
+        if (HeroOf(seat) is not { } grunt || Deck is null)
+            return;
+        var companion = run.Crew.Of(seat);
+        var input = DriveInput.GetValueOrDefault(grunt.Id);
+        var ahead = new Vector2(DetMath.Cos(grunt.Facing), DetMath.Sin(grunt.Facing));
+        if (companion.Step == CompanionStep.Pushing && companion.Carrying is { } pushed)
+        {
+            var size = Reach(pushed);
+            var front = grunt.Position + ahead * (grunt.Radius + size + PushAhead);
+            if (CompanionDown(seat) || CompanionDormant(seat))
+            {
+                SetPushed(companion, PushedDown(grunt, pushed, front), grunt);
+                return;
+            }
+            var slot = Deck.Markers.Where(m => m.Name.StartsWith("barricade_", StringComparison.Ordinal) && !SlotFilled(m)
+                    && Vector2.Distance(m.Position, front) <= SlotSnap)
+                .OrderBy(m => Vector2.DistanceSquared(m.Position, front)).ThenBy(m => m.Name, StringComparer.Ordinal).FirstOrDefault();
+            if (slot is not null && !Machines.Any(m => !m.IsDead && m.Id != grunt.Id && Vector2.Distance(m.Position, slot.Position) < m.Radius + size))
+            {
+                SetPushed(companion, slot.Position, grunt);
+                return;
+            }
+            if (input.Forward < -0.1f && Nav.OnPlanet(front) && Nav.IsFree(front, Mobility.Land)
+                && !Machines.Any(m => !m.IsDead && m.Id != grunt.Id && Vector2.Distance(m.Position, front) < m.Radius + size))
+                SetPushed(companion, front, grunt);
+            return;
+        }
+        if (companion.Carrying is not null || companion.Task != CompanionTask.None && companion.Task != CompanionTask.Barricade
+            || input.Forward <= 0.1f || CompanionDown(seat) || CompanionDormant(seat))
+            return;
+        var crate = PileCrates()
+            .Where(c => Vector2.Dot(c.Position - grunt.Position, ahead) > 0
+                && Vector2.Distance(c.Position, grunt.Position) <= c.Radius + grunt.Radius + PushReach
+                && Vector2.Dot(Vector2.Normalize(c.Position - grunt.Position), ahead) > 0.6f)
+            .OrderBy(c => Vector2.DistanceSquared(c.Position, grunt.Position)).ThenBy(c => c.Id).FirstOrDefault();
+        if (crate is null || TakeCrate(crate.Id) is not { } taken)
+            return;
+        companion.Carrying = taken;
+        companion.Step = CompanionStep.Pushing;
+        StoryEvents.Cue(this, "crate pushed", grunt.Position);
+    }
+
+    /// <summary>How far a carried crate reaches from its middle.</summary>
+    private static float Reach(CarriedCrate crate) => crate.Shape.Count == 0 ? 1 : crate.Shape.Max(p => p.Length());
+
+    /// <summary>Where a downed Grunt's crate is set down: ahead of it where there is room, else back where it was taken.</summary>
+    private Vector2 PushedDown(Machine grunt, CarriedCrate crate, Vector2 front) =>
+        Nav.OnPlanet(front) && Nav.IsFree(front, Mobility.Land) ? front : crate.From;
+
+    private void SetPushed(Companion companion, Vector2 at, Machine grunt)
+    {
+        if (companion.Carrying is not { } crate)
+            return;
+        SetCrate(crate, at);
+        companion.Carrying = null;
+        companion.Step = CompanionStep.None;
+        StoryEvents.Cue(this, "crate set", at);
     }
 
     /// <summary>The terminal by each Grunt's clamp, in seat order: hacking it wakes that Grunt (docs/STORY.md, Erwachen).</summary>

@@ -7,7 +7,7 @@ using Machines.Import.Scenarios;
 namespace Machines.Tests.Story;
 
 /// <summary>
-/// The story's cutscenes as data (plan WP-N): the script format, and the prologue's two scripts, "Erwischt" and "Abwurf",
+/// The story's cutscenes as data (plan WP-N): the script format, and the prologue's script, "Abwurf" (Erwischt is played now, not filmed),
 /// checked against the deck, the voice lines, the sounds and the props they name.
 /// </summary>
 public class CutsceneScriptTests
@@ -20,7 +20,7 @@ public class CutsceneScriptTests
 
     private static readonly Lazy<Deck> DeckLoader = new(() => DeckParser.Load(Prologue("prolog.deck")));
 
-    private static readonly string[] Names = ["erwischt", "abwurf"];
+    private static readonly string[] Names = ["abwurf"];
 
     // ---- the format ------------------------------------------------------------------------------
 
@@ -96,40 +96,6 @@ public class CutsceneScriptTests
     }
 
     // ---- the prologue's scripts --------------------------------------------------------------------
-
-    [Fact]
-    public void Erwischt_is_seen_from_inside_L7_but_for_one_wide_take_on_the_Commander()
-    {
-        var script = Script("erwischt");
-        Assert.Equal("erwischt", script.Name);
-        var part = script.Part(onDeck: true)!;
-        Assert.Null(script.Part(onDeck: false));
-        Assert.InRange(part.Length, 20, 35);
-        Assert.Equal("cockpit", part.Takes[0].Kind);
-        Assert.Equal("cockpit", part.Takes[^1].Kind);
-        var wide = Assert.Single(part.Takes, t => t.Kind != "cockpit");
-        Assert.Equal("cam", wide.Kind);
-        Assert.StartsWith("commander", wide.Text("look"));
-        Assert.All(part.Takes.Where(t => t.Kind == "cockpit"), t => Assert.Equal("locator", t.Subject));
-        // The whole announcement, in its order, and the automatic voice last.
-        Assert.Equal(["P_ANN_C1", "P_ANN_C2", "P_ANN_C3", "P_ANN_C4", "P_ANN_C5", "P_ANN_C6", "P_ANN_C7", "P_ANN_C8", "P_AUTO_1"],
-            part.Cues.Where(c => c.Kind == "line").Select(c => c.Args[0]));
-        // The core blows after the Reapers' rounds hit it, and the lights fail then.
-        var blast = part.Cues.First(c => c.Kind == "explosion" && c.Args[0].StartsWith("core"));
-        Assert.Contains(part.Cues, c => c.Kind == "shot" && c.Args[2].StartsWith("core") && c.At < blast.At);
-        Assert.Contains(part.Cues, c => c is { Kind: "event" } && string.Join(' ', c.Args) == "lights off" && c.At >= blast.At);
-    }
-
-    [Fact]
-    public void Erwischts_lines_do_not_overlap_at_their_German_lengths()
-    {
-        var part = Script("erwischt").Part(onDeck: true)!;
-        var lengths = VoiceLines();
-        var lines = part.Cues.Where(c => c.Kind == "line").ToList();
-        foreach (var (line, next) in lines.Zip(lines.Skip(1)))
-            Assert.True(line.At + lengths[line.Args[0]] <= next.At + 0.35f,
-                $"{line.Args[0]} ({lengths[line.Args[0]]:0.00} s from {line.At} s) runs into {next.Args[0]} at {next.At} s");
-    }
 
     [Fact]
     public void Abwurf_drops_the_pod_in_the_bay_then_shows_the_ship_burning_down_outside()

@@ -33,16 +33,22 @@ public sealed class HackSession(string target, HackKind kind)
     /// <summary>The world's tick of the firewall's next step.</summary>
     public int NextPulse { get; internal set; }
 
-    /// <summary>The story broke the hack off (the main computer's alarm at 90 %): the board stands, no turn goes in.</summary>
+    /// <summary>The story broke the hack off (the Reapers bursting into the core chamber): the board stands, no turn goes in.</summary>
     public bool Broken { get; internal set; }
+
+    /// <summary>
+    /// The target locked its board (<see cref="HackSpec.HoldAt"/>: the core's last at 90 %): the board stands and takes no
+    /// more turns, though the Locator stays plugged in, until the story breaks the hack off.
+    /// </summary>
+    public bool Held { get; internal set; }
 
     /// <summary>How many times its trace-back ran full.</summary>
     public int Alarms { get; internal set; }
 
     public bool Open => Hacker is not null;
 
-    /// <summary>How far the whole hack has come, its boards counted: 0 to 1.</summary>
-    public float Progress => Math.Clamp((Stage + (Puzzle?.Progress ?? 0)) / Boards.Count, 0, 1);
+    /// <summary>How far the whole hack has come, its boards counted: 0 to 1; a board locked counts as far as its hold.</summary>
+    public float Progress => Math.Clamp((Stage + Math.Max(Puzzle?.Progress ?? 0, Held ? Boards[Stage].HoldAt : 0)) / Boards.Count, 0, 1);
 
     internal long Fingerprint()
     {
@@ -54,7 +60,7 @@ public sealed class HackSession(string target, HackKind kind)
         hash.Mix(Hacker?.Value ?? -1);
         hash.Mix(Hero);
         hash.Mix(NextPulse);
-        hash.Mix(Broken ? 1 : 0);
+        hash.Mix((Broken ? 1 : 0) | (Held ? 2 : 0));
         hash.Mix(Alarms);
         return hash.Value;
     }

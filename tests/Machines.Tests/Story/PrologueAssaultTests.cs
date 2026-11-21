@@ -58,6 +58,27 @@ public class PrologueAssaultTests
         hero.Position = at;
     }
 
+    /// <summary>
+    /// The chapter from the break-in's checkpoint until the core has blown and the vent stands open, the Locator in cover at
+    /// the vent's mouth facing it, the hunt after it begun (where Die Enge starts; before the core fight was played this
+    /// was checkpoint 3 itself): it looked into the vent for a tick, which sets the Commander's pursuit off.
+    /// </summary>
+    private static GameWorld AfterCore(int seed = 3)
+    {
+        var world = Chapter(3, seed);
+        var locator = Hero(world, 0);
+        SetDown(world, locator, new Vector2(218, 268));
+        locator.Facing = 0;
+        Assert.True(RunUntil(world, () => world.Story!.Director.Has("core_blows"), Prologue.CoreBlows + 15,
+            () => world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true))));
+        SetDown(world, locator, new Vector2(232, 268));
+        world.Step();
+        Assert.True(world.Story!.Director.Has("fled"));
+        SetDown(world, locator, new Vector2(218, 268));
+        locator.Facing = 0;
+        return world;
+    }
+
     /// <summary>A hack played by the board's own solution from where its target is.</summary>
     private static void Hack(GameWorld world, string target)
     {
@@ -96,7 +117,7 @@ public class PrologueAssaultTests
     [Fact]
     public void A_hunter_draws_before_it_fires_and_its_spotting_comes_first()
     {
-        var world = Chapter(3);
+        var world = AfterCore();
         var run = world.Story!;
         var locator = Hero(world, 0);
         var spotted = new Dictionary<int, float>();
@@ -128,7 +149,7 @@ public class PrologueAssaultTests
     [Fact]
     public void The_locator_fleeing_along_the_vent_reaches_the_crossing()
     {
-        var world = Chapter(3);
+        var world = AfterCore();
         var run = world.Story!;
         var locator = Hero(world, 0);
 
@@ -143,7 +164,7 @@ public class PrologueAssaultTests
     [Fact]
     public void The_reapers_keep_out_of_the_cable_duct_and_the_vent_and_spare_the_grunts_at_its_end()
     {
-        var world = Chapter(3);
+        var world = AfterCore();
         var run = world.Story!;
         // The Locator through already, at the crossing; the Grunts make for the cable duct's far end.
         SetDown(world, Hero(world, 0), new Vector2(400, 240));
@@ -174,7 +195,7 @@ public class PrologueAssaultTests
     [Fact]
     public void A_hunter_searching_for_a_grunt_in_the_cable_duct_stays_on_its_side_of_the_wall()
     {
-        var world = Chapter(3);
+        var world = AfterCore();
         var run = world.Story!;
         var locator = Hero(world, 0);
         var hunters = Cast(world, Prologue.ReaperRole).Concat(Cast(world, Prologue.CommanderRole)).ToList();
@@ -210,7 +231,7 @@ public class PrologueAssaultTests
     [Fact]
     public void A_hunter_that_loses_the_locator_in_the_vent_searches_from_its_own_side_and_never_jumps_through()
     {
-        var world = Chapter(3);
+        var world = AfterCore();
         var run = world.Story!;
         Run(world, Prologue.LocatorSpared + 1);
         var hunters = Cast(world, Prologue.ReaperRole);
@@ -280,7 +301,7 @@ public class PrologueAssaultTests
     [Fact]
     public void The_commander_splits_his_squad_between_the_passages_and_only_calls()
     {
-        var world = Chapter(3);
+        var world = AfterCore();
         var reapers = Cast(world, Prologue.ReaperRole).OrderBy(m => m.Id).ToList();
         var commander = Cast(world, Prologue.CommanderRole).Single();
         Vector2 Place(string xy) => new(float.Parse(xy.Split(',')[0], System.Globalization.CultureInfo.InvariantCulture),
@@ -339,7 +360,7 @@ public class PrologueAssaultTests
     [Fact]
     public void Door_d5_opens_by_the_locators_hack_from_the_crossing()
     {
-        var world = Chapter(3);
+        var world = AfterCore();
         var run = world.Story!;
         Assert.Contains("hack_d5", run.Hacks.Locked);
         SetDown(world, Hero(world, 0), new Vector2(400, 252));

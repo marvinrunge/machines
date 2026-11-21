@@ -5226,3 +5226,33 @@ msgstr "[{0}] Scanner-Puls: zeigt die Jäger in deiner Nähe, aber sie hören ih
 
 msgid "Only you fit through the ducts: the Grunts take the long way"
 msgstr "Nur du passt durch die Schächte: die Grunts nehmen den langen Weg"
+
+msgid "Unauthorised access to the computer core. Security squad dispatched."
+msgstr "Unbefugter Zugriff auf den Rechnerkern. Sicherheitstrupp ist unterwegs."
+
+msgid "They're hammering at the crates! Hold! They're holding!"
+msgstr "Die hämmern gegen die Kisten! Halten! Noch halten sie!"
+
+msgid "Something's coming down the spine. A lot of something."
+msgstr "Da kommt was den Hauptgang runter. Viel was."
+
+msgid "They're backing off … going round. To the south door."
+msgstr "Die lassen ab … die gehen außen rum. Zur Südtür."
+
+msgid "They're shooting through the crates!"
+msgstr "Die schießen sich durch die Kisten!"
+
+msgid "MEMORY LAYER LOCKED: THE CORE IS FIGHTING BACK. KEEP THE PROBE IN."
+msgstr "SPEICHEREBENE GESPERRT: DER KERN WEHRT SICH. SONDE STECKEN LASSEN."
+
+msgid "Take cover from the Reapers"
+msgstr "Geh vor den Reapern in Deckung"
+
+msgid "Core locked"
+msgstr "Kern gesperrt"
+
+msgid "Drive into a crate to push it; at a door's barricade it locks into place. Back up to set it down"
+msgstr "Fahr gegen eine Kiste, um sie zu schieben; an der Barrikade einer Tür rastet sie ein. Zurücksetzen stellt sie ab"
+
+msgid "Into cover: the Reapers take aim for a moment before they fire"
+msgstr "In Deckung: Die Reaper zielen einen Moment, bevor sie feuern"
