@@ -1441,8 +1441,10 @@ public partial class Game : Node3D
                 view.SplatMesh = _assets.EffectMesh("groundsplat");
                 view.FirePictures = _support.FirePictures;
                 // A machine new to the world, from a factory or as reinforcements, teleports in; one that came while the world
-                // caught up stands there (P2 design §5.4: no sounds or effects of the ticks passed over).
-                if (_viewsSynced && turned is null && actor is Machine && _catchingUpSince is null)
+                // caught up stands there (P2 design §5.4: no sounds or effects of the ticks passed over). A story's machines
+                // are set on its deck by its director as if they had been there, or came through a door: none glows in
+                // (the workshop's armed Grunts stood as white shapes in the Locator's lamp).
+                if (_viewsSynced && turned is null && actor is Machine && _catchingUpSince is null && World.Story is null)
                     view.TeleportIn();
                 // A machine turned traitor flickers between its old and new colours.
                 if (turned is { } old && actor is Machine && _catchingUpSince is null)
