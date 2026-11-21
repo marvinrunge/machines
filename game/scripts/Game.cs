@@ -837,6 +837,7 @@ public partial class Game : Node3D
         FollowRun(delta);
         FollowHack();
         FollowDeck(delta);
+        FollowCrates();
         UpdateGhost();
         UpdateSightScript(delta);
         UpdateFirstPersonCamera();

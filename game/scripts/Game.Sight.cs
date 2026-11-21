@@ -67,6 +67,9 @@ public partial class Game
     /// </summary>
     private void Landed(long stamp, long tick) => GunPrediction.Land(_turnsDue, stamp, tick);
 
+    // Radians off the view below which a hull counts as looking where the view does (FollowTurn).
+    private const float FollowTurnDeadZone = 1e-4f;
+
     /// <summary>
     /// How a hull without an upper body turns to where the view looks, as fast as it can, counting the turns already on
     /// their way so as to stop there: the command's turn before its sign is put right, and the most a tick turns.
@@ -77,6 +80,10 @@ public partial class Game
         DropDue();
         var coming = GunPrediction.Turning(_turnsDue, World.Tick, Sighted ? NextDue : long.MinValue);
         var behind = Mathf.Wrap(_aimYaw - machine.Facing - coming, -Mathf.Pi, Mathf.Pi);
+        // A hull that already looks where the view does sends no turn: the rounding left over (a millionth of a radian)
+        // would count as turning in the world, and one who stands still would never be a resting obstacle to go round.
+        if (MathF.Abs(behind) < FollowTurnDeadZone)
+            return 0;
         return -Mathf.Clamp(behind / step, -1, 1);
     }
 

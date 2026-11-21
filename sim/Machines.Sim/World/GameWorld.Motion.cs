@@ -524,6 +524,9 @@ public sealed partial class GameWorld
         {
             if (actor is not Machine other || other == machine || other.IsDead || other.Inside is not null)
                 continue;
+            // A downed Grunt of the story lies flat: it stands in nobody's way (GameWorld.Companions).
+            if (Story is not null && StoryLies(other))
+                continue;
             var clearance = machine.Radius + other.Radius + Touch;
             var already = Vector2.DistanceSquared(from, other.Position);
             if (already < clearance * clearance || restingOnly && !IsResting(other))
@@ -558,8 +561,9 @@ public sealed partial class GameWorld
         var resting = IsResting(blocker);
         // One driven in first person is never asked to make way: the other stops and waits. In a battle a hero at the wheel
         // may stand for minutes (a player holding the pod's door), so one held up by it goes round it, or, when it stands on
-        // the goal itself, takes a place near the goal as with any machine resting there.
-        var roundTheWheel = blocker.DrivenByPlayer && Battle is not null && resting && way == Way.Order;
+        // the goal itself, takes a place near the goal as with any machine resting there. So in a story: the Locator stands
+        // at the wheel the whole chapter, and its Grunts go round it (GameWorld.Companions).
+        var roundTheWheel = blocker.DrivenByPlayer && (Battle is not null || Story is not null) && resting && way == Way.Order;
         if (roundTheWheel && RoundTheWheel(machine, path[index], blocker) is { } round)
         {
             path.InsertRange(index, round);

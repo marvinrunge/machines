@@ -53,6 +53,7 @@ public sealed partial class GameWorld
         // First, so what came of the seekers' looks is there for the rest of the tick to read (StorySight.News).
         UpdateSight();
         UpdateHacks();
+        UpdateCompanions();
     }
 
     /// <summary>

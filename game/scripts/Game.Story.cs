@@ -56,6 +56,9 @@ public partial class Game
     /// </summary>
     private void StoryInput(Godot.InputEvent @event)
     {
+        // Use held for a downed Grunt, a switch, a rack or the hatch (the companions', Game.Companions).
+        if (StoryUse(@event))
+            return;
         if (KeyMap.Is(@event, KeyMap.Act.GruntFollow))
             GruntOrder(KeyMap.Act.GruntFollow);
         else if (KeyMap.Is(@event, KeyMap.Act.GruntWait))
@@ -71,7 +74,7 @@ public partial class Game
         else if (KeyMap.Is(@event, KeyMap.Act.Ability2))
             UseAbility(1);
         else if (KeyMap.Is(@event, KeyMap.Act.Dash))
-            Dash();
+            StoryDash();
     }
 
     /// <summary>
@@ -100,8 +103,7 @@ public partial class Game
 
     /// <summary>
     /// Sends the Grunts' order (Follow, Wait or Distract, by <paramref name="act"/>) as the story's command, with the point
-    /// the sight rests on. The companions' package (plan WP-F, Story/CompanionCommands) gives it its body; until then no
-    /// command goes out and only the tab lights up.
+    /// the sight rests on (Game.Companions: StoryOrderCommand).
     /// </summary>
     partial void SendGruntOrder(KeyMap.Act act, System.Numerics.Vector2 point);
 
