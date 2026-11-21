@@ -33,5 +33,5 @@ PASS Grunts reach every room but the ducts and the Schaltraum (R7, ducts only)
 PASS Reapers and the Commander never enter K, S, the ducts, the bays, the Lager, the Schaltraum or R13-R16
 PASS the Thresher keeps to its ring R4 WL R6 EL
 
-Note: with every door open the Reapers reach the decks through R8 (6 m doors); in the story the blast doors H and I
+Note: with every door open the Reapers reach the decks through R8 (12 m doors); in the story the blast doors H and I
 and the barricades keep them in R9, R10, P1, P2 and R12.

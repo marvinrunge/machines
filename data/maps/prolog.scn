@@ -9,56 +9,73 @@ ENDRACES_DEFAULT
 
 ARTEFACTS
 MODELS models/planet/prolog/prolog.arf
-ACTIVE door_small COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 4 BOUNDARY 2 -1 2 1 -2 1 -2 -1
-AT 19 26 0 90 ID 100	// door A bay7_bay6 (locked)
-AT 35 26 0 90 ID 110	// door B bay7_bay8 (locked)
-AT 26 33 0 0 ID 120	// door C bay7_corridor (locked)
-AT 51 38 0 90 ID 130	// door D corridor_deckA (closed)
-AT 110 41 0 0 ID 140	// door E service_passage (locked)
-AT 61 50 0 90 ID 150	// door F lager_westlink (locked)
-AT 105 102 0 90 ID 190	// door K core_cable (closed)
-AT 171 102 0 90 ID 230	// door Q d5 (locked)
-AT 189 106 0 90 ID 260	// door R kreuzung_werkstatt (closed)
-AT 221 98 0 90 ID 270	// door T werkstatt_gang (closed)
-AT 221 106 0 90 ID 280	// door U werkstatt_repair (closed)
-ACTIVE door_leaf_3 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 7 BOUNDARY 1.5 -1 1.5 1 -1.5 1 -1.5 -1
-AT 85.5 89 0 0 ID 160	// door H deckB_vorraum (locked)
-AT 88.5 89 0 0 ID 161	// door H deckB_vorraum (locked)
-AT 85.5 99 0 0 ID 170	// door I vorraum_core (closed)
-AT 88.5 99 0 0 ID 171	// door I vorraum_core (closed)
-ACTIVE door_leaf_35 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 7 BOUNDARY 1.75 -1 1.75 1 -1.75 1 -1.75 -1
-AT 105 107.75 0 90 ID 200	// door M core_p2 (closed)
-AT 105 111.25 0 90 ID 201	// door M core_p2 (closed)
-ACTIVE door_leaf_4 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 8 BOUNDARY 2 -1 2 1 -2 1 -2 -1
-AT 86 133 0 0 ID 180	// door J core_spine (closed)
-AT 90 133 0 0 ID 181	// door J core_spine (closed)
-ACTIVE gate_leaf_35 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 7 BOUNDARY 1.75 -1 1.75 1 -1.75 1 -1.75 -1
-AT 171 107.75 0 90 ID 240	// door O g2 (closed)
-AT 171 111.25 0 90 ID 241	// door O g2 (closed)
-AT 171 123.75 0 90 ID 250	// door G g1 (closed)
-AT 171 127.25 0 90 ID 251	// door G g1 (closed)
 ACTIVE vent_cover COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 3 BOUNDARY 2 -1 2 1 -2 1 -2 -1
-AT 105 118 0 90 ID 220	// door V core_vent (closed)
+AT 225 268 0 90 ID 220	// door V core_vent (closed)
 ACTIVE crate_large COST 0 HP 150 ARMOUR 5 IDS 0 HEIGHT 2.2 BOUNDARY 1.5 -1 1.5 1 -1.5 1 -1.5 -1
-AT 82.5 95 0 0 ID 301	// prop pile_1
-AT 82.5 91.5 0 0 ID 302	// prop pile_2
-AT 93.5 95 0 0 ID 303	// prop pile_3
-AT 93.5 91.5 0 0 ID 304	// prop pile_4
+AT 181 222 0 0 ID 301	// prop pile_1
+AT 181 215 0 0 ID 302	// prop pile_2
+AT 203 222 0 0 ID 303	// prop pile_3
+AT 203 215 0 0 ID 304	// prop pile_4
+AT 176 236 0 0 ID 305	// prop crate_r9_1
+AT 208 236 0 0 ID 306	// prop crate_r9_2
+AT 176 291 0 0 ID 307	// prop crate_r9_3
+AT 208 291 0 0 ID 308	// prop crate_r9_4
+AT 216 247 0 90 ID 309	// prop crate_r9_5
+AT 216 252 0 90 ID 310	// prop crate_r9_6
 ACTIVE crate_small COST 0 HP 60 ARMOUR 2 IDS 0 HEIGHT 1.5 BOUNDARY 0.75 -0.75 0.75 0.75 -0.75 0.75 -0.75 -0.75
-AT 75.2 54.8 0 0 ID 311	// prop stack_1
-AT 76.8 54.8 0 0 ID 312	// prop stack_2
-ACTIVE core COST 0 HP 2000 ARMOUR 10 IDS 0 HEIGHT 14 BOUNDARY 4 1.657 1.657 4 -1.657 4 -4 1.657 -4 -1.657 -1.657 -4 1.657 -4 4 -1.657
-AT 88 116 0 0 ID 400	// prop core
+AT 166.4 125.6 0 0 ID 311	// prop stack_1
+AT 169.6 125.6 0 0 ID 312	// prop stack_2
+ACTIVE core COST 0 HP 2000 ARMOUR 10 IDS 0 HEIGHT 28 BOUNDARY 8 3.314 3.314 8 -3.314 8 -8 3.314 -8 -3.314 -3.314 -8 3.314 -8 8 -3.314
+AT 192 264 0 0 ID 400	// prop core
+ACTIVE door_leaf_4 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 8 BOUNDARY 2 -1 2 1 -2 1 -2 -1
+AT 38 50 0 90 ID 100	// door A bay7_bay6 (locked)
+AT 38 54 0 90 ID 101	// door A bay7_bay6 (locked)
+AT 70 50 0 90 ID 110	// door B bay7_bay8 (locked)
+AT 70 54 0 90 ID 111	// door B bay7_bay8 (locked)
+AT 50 66 0 0 ID 120	// door C bay7_corridor (locked)
+AT 54 66 0 0 ID 121	// door C bay7_corridor (locked)
+AT 118 74 0 90 ID 130	// door D corridor_deckA (closed)
+AT 118 78 0 90 ID 131	// door D corridor_deckA (closed)
+AT 234 82 0 0 ID 140	// door E service_passage (locked)
+AT 238 82 0 0 ID 141	// door E service_passage (locked)
+AT 138 114 0 90 ID 150	// door F lager_westlink (locked)
+AT 138 118 0 90 ID 151	// door F lager_westlink (locked)
+AT 226 234 0 90 ID 190	// door K core_cable (closed)
+AT 226 238 0 90 ID 191	// door K core_cable (closed)
+AT 382 234 0 90 ID 230	// door Q d5 (locked)
+AT 382 238 0 90 ID 231	// door Q d5 (locked)
+AT 418 242 0 90 ID 260	// door R kreuzung_werkstatt (closed)
+AT 418 246 0 90 ID 261	// door R kreuzung_werkstatt (closed)
+AT 482 226 0 90 ID 270	// door T werkstatt_gang (closed)
+AT 482 230 0 90 ID 271	// door T werkstatt_gang (closed)
+AT 482 242 0 90 ID 280	// door U werkstatt_repair (closed)
+AT 482 246 0 90 ID 281	// door U werkstatt_repair (closed)
+ACTIVE door_leaf_6 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 14 BOUNDARY 3 -1 3 1 -3 1 -3 -1
+AT 187 210 0 0 ID 160	// door H deckB_vorraum (locked)
+AT 193 210 0 0 ID 161	// door H deckB_vorraum (locked)
+AT 187 230 0 0 ID 170	// door I vorraum_core (closed)
+AT 193 230 0 0 ID 171	// door I vorraum_core (closed)
+ACTIVE door_leaf_8 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 16 BOUNDARY 4 -1 4 1 -4 1 -4 -1
+AT 188 298 0 0 ID 180	// door J core_spine (closed)
+AT 196 298 0 0 ID 181	// door J core_spine (closed)
+ACTIVE door_leaf_7 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 14 BOUNDARY 3.5 -1 3.5 1 -3.5 1 -3.5 -1
+AT 226 247.5 0 90 ID 200	// door M core_p2 (closed)
+AT 226 254.5 0 90 ID 201	// door M core_p2 (closed)
+ACTIVE gate_leaf_7 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 14 BOUNDARY 3.5 -1 3.5 1 -3.5 1 -3.5 -1
+AT 382 247.5 0 90 ID 240	// door O g2 (closed)
+AT 382 254.5 0 90 ID 241	// door O g2 (closed)
+AT 382 279.5 0 90 ID 250	// door G g1 (closed)
+AT 382 286.5 0 90 ID 251	// door G g1 (closed)
 ENDARTEFACTS
 
 RACE RED none
-CAMERA_POS 27 23.5 1.5 90 0 0 GROUND
+CAMERA_POS 54 47 1.5 90 0 0 GROUND
 NBMU 0
 NORE 0
 ENDRACE
 
 RACE BLUE none
-CAMERA_POS 135 90 100 -90 55 0 ZENITH
+CAMERA_POS 315 210 100 -90 55 0 ZENITH
 NBMU 0
 NORE 0
 ENDRACE

@@ -1,0 +1,60 @@
+// The plan tools/deck/scale.mjs scaled the prologue's deck by (stage 6, 2026-11-21; docs/story/deck/scale.md says why):
+//   git show 65a7b84:data/planets/prolog/prolog.deck > old.deck
+//   node tools/deck/scale.mjs tools/deck/prolog-x2.plan old.deck data/planets/prolog/prolog.deck
+// Stretches are at old coordinates (a cell boundary of the stage 5 deck); fills, markers, zones, props and cams after them
+// are in the new deck's coordinates.
+
+header
+header Scaled 2x as a whole from the stage 5 deck (65a7b84) by tools/deck/scale.mjs with tools/deck/prolog-x2.plan, with
+header extra way in five places (docs/story/deck/scale.md: why, the mapping of old points, the doors, rooms and the pod size).
+header The Grunts' doors are 8 m, the Reapers' blast doors 12-16 m; the crawl ducts kept their 4 m cross-section.
+
+factor 2
+
+// Extra way (old x or y, new cells put in): the order of the sections and the story's beats stay as they were.
+stretch x 49 16    // the Buchtengang R0 (bays to deck A) 16 m longer
+stretch y 44 16    // the links WL, EL, the service passage S and duct V1a 16 m longer; the pod bay R16 16 m deeper
+stretch y 70 16    // deck B (R6) 16 m deeper; the Notgang R15 16 m longer
+stretch x 141 24   // the spine R10, the parallel corridors P1, P2, the cable corridor K and duct V2 24 m longer
+stretch x 250 48   // the pod bay R16 48 m wider: three of the game's pods (47.5 m across) side by side
+
+// 21 x 14 tiles of 30 m (prolog.psf), as the old 270 x 180 was 9 x 6.
+pad 630 420
+
+// Heights: twice the old, but the core chamber 2.5 times (it must feel huge) and the pod bay as tall as a pod (43.5 m) needs.
+height R9 40
+height R16 56
+
+// The core chamber R9 (160-224 x 232-296, the core at 192,264, 8 m round) gets cover for a fight that is played:
+// four pillars from floor to ceiling round the core, a console bank on the west and on the east wall (the east one beside
+// the vent V the Locator crawls in by), two crate stacks in the side lanes and two by the door J. Every way round the core
+// and through I, J, K and M stays 9 m wide or more, so the Reapers still get round (deck.mjs checks it).
+fill # 172 240 176 244
+fill # 208 240 212 244
+fill # 172 284 176 288
+fill # 208 284 212 288
+fill c 160 258 166 262
+fill c 218 274 224 278
+fill c 168 270 171 273
+fill c 213 254 216 257
+fill c 178 282 181 285
+fill c 203 282 206 285
+marker console_r9_w 167.5 260 180 terminal
+marker console_r9_e 216.5 276 0 terminal
+// Loose crates near the chamber's doors for the barricades (the old pile in R8 stays): two by I, two by J, two by K and M.
+prop crate_r9_1 crate_large 176 236 0 305
+prop crate_r9_2 crate_large 208 236 0 306
+prop crate_r9_3 crate_large 176 291 0 307
+prop crate_r9_4 crate_large 208 291 0 308
+prop crate_r9_5 crate_large 216 247 90 309
+prop crate_r9_6 crate_large 216 252 90 310
+
+// The pod bay R16 (432-600 x 24-120, the Notgang's mouth R15a at 512-528 in the north wall, the catwalk at y 108-113):
+// three of the game's pods at their own size, 52 m apart and 8 m from the walls; pod 3 (the one that launches) in the east.
+marker pod_1 464 54 90
+marker pod_2 516 54 90
+marker pod_3 568 54 90
+marker pod_3_hatch 568 74 270
+zone pod_zone 544 64 592 96 trigger
+// The Abwurf film's camera on the catwalk, looking down at pod 3 (its old place was beside a 7 m pod).
+cam cam_abwurf_1 520 110 48 311 -25

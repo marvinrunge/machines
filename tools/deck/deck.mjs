@@ -7,14 +7,13 @@
 //   docs/story/deck/<p>.png     a picture of the deck: cells, doors by state, rooms, markers
 //   docs/story/deck/<p>-reach.txt  which rooms each mobility class reaches (plan §1.2), with doors as they start and all open
 // Usage: node tools/deck/deck.mjs [deck file]   (default data/planets/prolog/prolog.deck)
-// Every output is written from the deck alone, so the deck is the one file to edit.
+// Every output is written from the deck alone, so the deck is the one file to edit. tools/deck/scale.mjs imports parseDeck.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, basename, join, resolve } from 'node:path';
 import { deflateSync } from 'node:zlib';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const deckPath = resolve(process.argv[2] ?? join(repo, 'data', 'planets', 'prolog', 'prolog.deck'));
 
 // ---- reading ---------------------------------------------------------------------------------
 
@@ -163,17 +162,27 @@ function csp(deck, rects) {
 
 // The artefact types the deck's doors and props become: footprint (width along the door, depth through the wall), height,
 // hit points and armour. Doors are not to be shot open (the director opens them); the core and crates can be destroyed.
+// Door leaves are made for any width (door_leaf_<w>, gate_leaf_<w>, w in metres with the point dropped: 35 is 3.5 m):
+// a door's two leaves are as tall as the machines that use it need (DoorLeafHeight). Since the deck was scaled 2x
+// (tools/deck/scale.mjs, docs/story/deck/scale.md) the Grunts' doors are 8 m wide, the Reapers' blast doors 12-16 m, and
+// the computer core is twice the size it was (8 m round, 28 m tall); crates keep their real size.
 const Types = {
   door_small: { w: 4, d: 2, h: 4, hp: 30000, armour: 100 },
-  door_leaf_3: { w: 3, d: 2, h: 7, hp: 30000, armour: 100 },
-  door_leaf_35: { w: 3.5, d: 2, h: 7, hp: 30000, armour: 100 },
-  door_leaf_4: { w: 4, d: 2, h: 8, hp: 30000, armour: 100 },
-  gate_leaf_35: { w: 3.5, d: 2, h: 7, hp: 30000, armour: 100 },
   vent_cover: { w: 4, d: 2, h: 3, hp: 30000, armour: 100 },
   crate_large: { w: 3, d: 2, h: 2.2, hp: 150, armour: 5 },
   crate_small: { w: 1.5, d: 1.5, h: 1.5, hp: 60, armour: 2 },
-  core: { round: 4, h: 14, hp: 2000, armour: 10 },
+  core: { round: 8, h: 28, hp: 2000, armour: 10 },
 };
+
+/** How tall a door's leaves stand for a door of this width: a Grunt's door 8 m, a Reaper's blast door or gate 14-16 m. */
+const DoorLeafHeight = (width) => (width <= 8 ? 8 : width <= 14 ? 14 : 16);
+
+/** The type of a door leaf of this width, made on first use. */
+function leafType(kind, width, leaf) {
+  const type = `${kind === 'gate' ? 'gate_leaf_' : 'door_leaf_'}${String(leaf).replace('.', '')}`;
+  Types[type] ??= { w: leaf, d: 2, h: DoorLeafHeight(width), hp: 30000, armour: 100 };
+  return type;
+}
 
 const fmt = (v) => String(Math.round(v * 1000) / 1000);
 
@@ -204,8 +213,7 @@ function doorArtefacts(deck, rects) {
     if (door.kind === 'vent') { out.push({ type: 'vent_cover', x: cx, y: cy, angle, id, door }); return; }
     if (width <= 4) { out.push({ type: 'door_small', x: cx, y: cy, angle, id, door }); return; }
     const leaf = width / 2;
-    const type = `${door.kind === 'gate' ? 'gate_leaf_' : 'door_leaf_'}${String(leaf).replace('.', '')}`;
-    if (!Types[type]) throw new Error(`door ${door.letter} is ${width} m wide: no leaf type ${type}`);
+    const type = leafType(door.kind, width, leaf);
     for (const [k, side] of [[0, -1], [1, 1]]) {
       const off = side * leaf / 2;
       out.push({ type, x: alongX ? cx + off : cx, y: alongX ? cy : cy + off, angle, id: id + k, door });
@@ -245,11 +253,17 @@ function scn(deck, rects) {
 
 // The mobility classes of plan §1.2: the clearance a machine needs at a cell's centre (distance to the nearest blocked
 // cell), and whether it crawls through ducts. Measured on the 1 m cells, as the sim's fine grid does (NavGrid.Room).
+// The deck was scaled by GapScale (docs/story/deck/scale.md): every gap is that many times as wide as the plan's, so the
+// classes' gaps grow with it. A class that passed a gap of g m on the old deck passes (g x GapScale - 1) m now: Grunts 5,
+// Reapers and the Commander 9, the Thresher 13 (their drawn bodies are about 4.5-6.5, 10-11 and 15 m wide). The ducts kept
+// their 4 m cross-section, so the crawling Locator keeps its old need of 1.5 m (a 3 m gap).
+export const GapScale = 2;
+const need = (gap) => (gap * GapScale - 1) / 2;
 const Classes = [
   { name: 'Locator (A, crawls)', need: 1.5, crawl: true, from: 'spawn_l7' },
-  { name: 'Grunt (A, wheels)', need: 1.5, crawl: false, from: 'spawn_ike' },
-  { name: 'Reaper/Commander (B)', need: 2.5, crawl: false, from: 'spawn_reaper_1' },
-  { name: 'Thresher (C)', need: 3.5, crawl: false, from: 'spawn_thresher' },
+  { name: 'Grunt (A, wheels)', need: need(3), crawl: false, from: 'spawn_ike' },
+  { name: 'Reaper/Commander (B)', need: need(5), crawl: false, from: 'spawn_reaper_1' },
+  { name: 'Thresher (C)', need: need(7), crawl: false, from: 'spawn_thresher' },
 ];
 
 function blockedFor(deck, cls, doorsOpen) {
@@ -265,11 +279,11 @@ function blockedFor(deck, cls, doorsOpen) {
   return b;
 }
 
-/** Each cell's distance from its centre to the nearest blocked cell (or the edge), up to 6 m. */
+/** Each cell's distance from its centre to the nearest blocked cell (or the edge), up to 8 m. */
 function clearance(deck, blocked) {
   const { width: w, height: h } = deck;
   const out = new Float32Array(w * h);
-  const reach = 6;
+  const reach = 8;
   for (let y = 0; y < h; y++)
     for (let x = 0; x < w; x++) {
       if (blocked[y * w + x]) continue;
@@ -393,7 +407,7 @@ function reachReport(deck, coarseGrid) {
   ];
   lines.push('## Checks (every door open)');
   for (const [what, wrong] of checks) lines.push(`${wrong.length === 0 ? 'PASS' : 'FAIL'} ${what}${wrong.length ? `: ${wrong.join(' ')}` : ''}`);
-  lines.push('', 'Note: with every door open the Reapers reach the decks through R8 (6 m doors); in the story the blast doors H and I',
+  lines.push('', 'Note: with every door open the Reapers reach the decks through R8 (12 m doors); in the story the blast doors H and I',
     'and the barricades keep them in R9, R10, P1, P2 and R12.');
   return { text: lines.join('\n') + '\n', failed: checks.filter(([, wrong]) => wrong.length > 0).length };
 }
@@ -420,7 +434,7 @@ const Font = {
 };
 
 function png(deck, rects) {
-  const scale = 4;
+  const scale = deck.width > 400 ? 2 : 4;
   const [w, h] = [deck.width * scale, deck.height * scale];
   const px = new Uint8Array(w * h * 3);
   const put = (x, y, [r, g, b]) => { if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 3; px[i] = r; px[i + 1] = g; px[i + 2] = b; };
@@ -470,23 +484,29 @@ function png(deck, rects) {
 
 // ---- main ------------------------------------------------------------------------------------
 
-const deck = parseDeck(readFileSync(deckPath, 'utf8'));
-const rects = doorRects(deck);
-const problems = check(deck, rects);
-for (const p of problems) console.error(`deck: ${p}`);
-if (problems.length) process.exit(1);
-const grid = coarse(deck);
-const planetFolder = dirname(deckPath);
-const name = basename(deckPath, '.deck');
-const outputs = [
-  [join(planetFolder, `${name}.csp`), csp(deck, rectangles(grid))],
-  [join(repo, 'data', 'maps', `${name}.scn`), scn(deck, rects)],
-];
-const report = reachReport(deck, grid);
-mkdirSync(join(repo, 'docs', 'story', 'deck'), { recursive: true });
-outputs.push([join(repo, 'docs', 'story', 'deck', `${name}-reach.txt`), report.text]);
-for (const [file, text] of outputs) writeFileSync(file, text);
-writeFileSync(join(repo, 'docs', 'story', 'deck', `${name}.png`), png(deck, rects));
-console.log(report.text);
-console.log(`wrote ${outputs.map(([f]) => f).join(', ')} and ${name}.png`);
-if (report.failed) process.exitCode = 2;
+// Run as a script (not when scale.mjs imports parseDeck).
+if (process.argv[1] && import.meta.url.toLowerCase() === pathToFileURL(resolve(process.argv[1])).href.toLowerCase()) main();
+
+function main() {
+  const deckPath = resolve(process.argv[2] ?? join(repo, 'data', 'planets', 'prolog', 'prolog.deck'));
+  const deck = parseDeck(readFileSync(deckPath, 'utf8'));
+  const rects = doorRects(deck);
+  const problems = check(deck, rects);
+  for (const p of problems) console.error(`deck: ${p}`);
+  if (problems.length) process.exit(1);
+  const grid = coarse(deck);
+  const planetFolder = dirname(deckPath);
+  const name = basename(deckPath, '.deck');
+  const outputs = [
+    [join(planetFolder, `${name}.csp`), csp(deck, rectangles(grid))],
+    [join(repo, 'data', 'maps', `${name}.scn`), scn(deck, rects)],
+  ];
+  const report = reachReport(deck, grid);
+  mkdirSync(join(repo, 'docs', 'story', 'deck'), { recursive: true });
+  outputs.push([join(repo, 'docs', 'story', 'deck', `${name}-reach.txt`), report.text]);
+  for (const [file, text] of outputs) writeFileSync(file, text);
+  writeFileSync(join(repo, 'docs', 'story', 'deck', `${name}.png`), png(deck, rects));
+  console.log(report.text);
+  console.log(`wrote ${outputs.map(([f]) => f).join(', ')} and ${name}.png`);
+  if (report.failed) process.exitCode = 2;
+}
