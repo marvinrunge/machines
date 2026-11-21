@@ -86,6 +86,68 @@ public partial class Game
             _pods[_pods.Count] = pod;
             pod.SetMeta("marker", marker.Name);
         }
+        // The weapon on each rack (the markers pickup_<weapon>), until it is taken.
+        _rackWeapons.Clear();
+        foreach (var marker in deck.Markers.Where(m => m.Tags.Contains("pickup") && m.Name.StartsWith("pickup_", StringComparison.Ordinal)))
+        {
+            if (RackWeapon(marker) is not { } shown)
+                continue;
+            _deckView.AddChild(shown);
+            _rackWeapons[marker.Name] = shown;
+        }
+    }
+
+    private readonly Dictionary<string, Node3D> _rackWeapons = [];
+
+    /// <summary>
+    /// The weapon a rack holds, as the machines carry it (the mount of the model it is taken from, Wired's hangar pictures
+    /// do the same), lying on the rack beside the marker with its barrel along the rack.
+    /// </summary>
+    private Node3D? RackWeapon(Machines.Import.Model.DeckMarker marker)
+    {
+        var id = marker.Name["pickup_".Length..].ToUpperInvariant();
+        if ((HeroDonors.For(id, Machines.Sim.Combat.Mounting.Left) ?? HeroDonors.For(id, Machines.Sim.Combat.Mounting.Right)
+                ?? HeroDonors.For(id, Machines.Sim.Combat.Mounting.Top)) is not { } donor
+            || _assets.RigFor(donor.Model, Look(Player)) is not { } rig || _deckView is null || Props.Get("weapon_rack") is not { } rackModel)
+            return null;
+        var rack = _deckView.Layout.Pieces.Where(p => p.Prop == "weapon_rack")
+            .MinBy(p => System.Numerics.Vector2.DistanceSquared(new System.Numerics.Vector2(p.Position.X, p.Position.Y), marker.Position));
+        if (rack is null)
+            return null;
+        var view = RigView.Create(rig);
+        view.Animate(0.016f, 0, 0, 0, 0);
+        var parts = rig.Nodes.Select(n => new RigPart(n.Parent, n.Name)).ToArray();
+        var mount = RigGraft.MountOf(parts, donor.Mount);
+        var (box, any) = (new Aabb(), false);
+        for (var i = 1; i < rig.Nodes.Length; i++)
+        {
+            if (view.FindChild($"Part{i}", true, false) is not Node3D part || part.GetNodeOrNull<MeshInstance3D>("Mesh") is not { } mesh)
+                continue;
+            var under = false;
+            for (var at = i; at >= 0 && !under; at = rig.Nodes[at].Parent)
+                under = at == mount;
+            mesh.Visible = under;
+            if (!under || mesh.Mesh is null)
+                continue;
+            // Where the part's mesh lies in the view, through the parts above it.
+            var frame = mesh.Transform;
+            for (Node? up = part; up is Node3D spatial && up != view; up = up.GetParent())
+                frame = spatial.Transform * frame;
+            var aabb = frame * mesh.Mesh.GetAabb();
+            (box, any) = (any ? box.Merge(aabb) : aabb, true);
+        }
+        if (!any)
+        {
+            view.Free();
+            return null;
+        }
+        // The barrel (the long side of the weapon's box) along the rack, the weapon's middle over the rack's, lying on it.
+        var top = rackModel.Size.Y * rack.Scale.Y;
+        var holder = new Node3D { Name = marker.Name, Position = Props.World(new System.Numerics.Vector3(rack.Position.X, rack.Position.Y, top)) };
+        holder.Rotation = new Vector3(0, Mathf.DegToRad(90 - marker.Angle) + (box.Size.X >= box.Size.Z ? 0 : Mathf.Pi / 2), 0);
+        view.Position = -new Vector3(box.GetCenter().X, box.Position.Y, box.GetCenter().Z);
+        holder.AddChild(view);
+        return holder;
     }
 
     /// <summary>How wide a pod is shown on its cradle (pod_cradle's ring is 10 m across), metres.</summary>
@@ -167,6 +229,8 @@ public partial class Game
             _alarmShown = alarm;
             _deckView.SetAlarm(alarm);
         }
+        foreach (var (marker, weapon) in _rackWeapons)
+            weapon.Visible = !story.Flags.Contains(StoryMarks.Done(marker));
         for (var i = 1; i < story.Seats.Count; i++)
             ShowGrunt(story, story.Seats[i], delta);
         // The trio pushes what lies loose out of its way (it is the view's only; the world has no such pieces).
