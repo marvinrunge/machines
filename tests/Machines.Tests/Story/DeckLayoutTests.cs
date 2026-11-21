@@ -173,7 +173,7 @@ public class DeckLayoutTests
         Assert.Equal(2, pieces.Count(p => p.Prop == "plate"));
         // What stands on the floor and is not driven into (clamps, cradles, the repair station, plates) or built into the
         // wall (pillars) stands on high cover, which the sim blocks.
-        var driveIn = new HashSet<string> { "clamp", "pod_cradle", "repair_station", "plate", "kit_pillar" };
+        var driveIn = new HashSet<string> { "clamp", "pod_cradle", "repair_station", "plate", "kit_pillar", "kit_door_frame" };
         foreach (var piece in pieces.Where(p => p.Position.Z == 0 && !driveIn.Contains(p.Prop)))
         {
             var cell = Deck.Cell((int)MathF.Floor(piece.Position.X), (int)MathF.Floor(piece.Position.Y));
@@ -183,6 +183,28 @@ public class DeckLayoutTests
         Assert.All(pieces.Where(p => p.Prop is "pa_speaker" or "pipe_run" or "cable_hang"), p => Assert.True(p.Position.Z >= 2.5f, $"{p.Prop} at {p.Position} hangs too low"));
         // Every piece of cover holds something.
         Assert.All(Layout.Covers, cover => Assert.Contains(pieces, p => cover.Contains((int)MathF.Floor(p.Position.X), (int)MathF.Floor(p.Position.Y))));
+    }
+
+    [Fact]
+    public void Every_blast_door_door_and_gate_has_a_frame_that_leaves_its_way_open()
+    {
+        foreach (var opening in Layout.Openings.Where(o => o.Kind is "blast" or "door" or "gate"))
+        {
+            var centre = opening.Rect.Centre;
+            var frame = Assert.Single(Layout.Pieces, p => p.Prop == "kit_door_frame" && new Vector2(p.Position.X, p.Position.Y) == centre);
+            // Its opening is the slot's, and its lintel over the slot unless the room beside is too low for its top.
+            Assert.Equal(opening.Width, frame.Scale.X * DeckLayout.FrameOpening, 3);
+            Assert.True(frame.Scale.Y * DeckLayout.FrameLintel >= opening.Height - 0.01f || frame.Scale.Y * 8 < opening.Height / DeckLayout.FrameLintel * 8,
+                $"the frame of door {opening.Letter} hangs into its way");
+        }
+    }
+
+    [Fact]
+    public void Every_room_a_machine_stands_up_in_has_an_alarm_beacon_on_a_wall_over_the_machines()
+    {
+        foreach (var room in Layout.Rooms.Where(r => (DeckLayout.ZoneHeight(r) ?? DeckLayout.DefaultHeight) >= 5))
+            Assert.Contains(Layout.Beacons, b => room.Contains(new Vector2(b.Position.X, b.Position.Y)));
+        Assert.All(Layout.Beacons, b => Assert.True(b.Position.Z >= 3.5f, $"beacon at {b.Position} hangs too low"));
     }
 
     [Fact]

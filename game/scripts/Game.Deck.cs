@@ -30,10 +30,14 @@ public partial class Game
         ActorView.Searchlight = deck is null ? null : id => World.StorySeekerOf(id)?.Searchlight == true;
         _deckLights.Clear();
         if (deck is null)
+        {
+            Ticked -= DeckTicked;
             return TerrainBuilder.Build(World.Planet, HeightField.Current!, map, _assets.PlanetTerrain(request.Planet));
+        }
         _deckView = DeckView.Build(deck);
         CutsceneTold -= DeckHears;
         CutsceneTold += DeckHears;
+        StartDeckShow();
         return _deckView;
     }
 
@@ -105,6 +109,7 @@ public partial class Game
             _deckLights[light.Name] = state;
             _deckView.SetLights(light.Name, state);
         }
+        ShowDeckStory(delta);
         SightTestIfAsked(delta);
     }
 

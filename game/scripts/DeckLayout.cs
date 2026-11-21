@@ -101,7 +101,40 @@ public sealed class DeckLayout
         Rooms = [.. Deck.Zones.Where(z => z.Tags.Contains("room"))];
         Lamps = FindLamps();
         Pieces = Dress();
+        Beacons = FindBeacons();
+        CrashFires = FindCrashFires();
     }
+
+    /// <summary>
+    /// Where fires break out as the ship goes down (deck metres, on the floor), in the order they catch: the broken pods first
+    /// (every pod but the one with the hatch), then by the walls of the crash's rooms (section 7: the Notgang, the pod bay),
+    /// a little out from the wall every 11 m along each side.
+    /// </summary>
+    public IReadOnlyList<Vector3> CrashFires { get; }
+
+    private List<Vector3> FindCrashFires()
+    {
+        var fires = new List<Vector3>();
+        var hatch = Deck.Markers.FirstOrDefault(m => m.Tags.Contains("hatch"));
+        foreach (var pod in Deck.Markers.Where(m => m.Tags.Contains("pod")))
+            if (hatch is null || Vector2.Distance(pod.Position, hatch.Position) > 10)
+                fires.Add(new Vector3(pod.Position + new Vector2(0, 4), 0));
+        var walls = new List<Vector3>();
+        foreach (var room in Rooms.Where(r => r.Tag("section") == "7"))
+            foreach (var (start, along, inward, length) in Sides(room))
+                for (var t = 5f; t < length - 3; t += 11)
+                    if (OnWall(start, along, inward, t, length) is { } at)
+                        walls.Add(new Vector3(at + inward * 1.2f, 0));
+        // Not side by side as they catch: spread over the rooms.
+        fires.AddRange(walls.OrderBy(p => Hash((int)p.X, (int)p.Y, 3)));
+        return fires;
+    }
+
+    /// <summary>
+    /// The alarm's beacons (prop <c>alarm_beacon</c>), high on the walls of every room a machine stands up in: one in a small
+    /// room, two facing each other across a large one. Dark until the ship's alarm, when they turn and flash red (DeckView).
+    /// </summary>
+    public IReadOnlyList<DeckPiece> Beacons { get; }
 
     public Deck Deck { get; }
 
@@ -619,7 +652,69 @@ public sealed class DeckLayout
             pieces.AddRange(Crates(cover));
         foreach (var room in Rooms)
             pieces.AddRange(Fittings(room));
+        pieces.AddRange(Frames());
         return pieces;
+    }
+
+    /// <summary>How wide the kit's door frame is open between its posts, and how high under its lintel, metres (kit_door_frame).</summary>
+    public const float FrameOpening = 5.58f, FrameLintel = 6.32f;
+
+    /// <summary>
+    /// A heavy frame (kit_door_frame) round every blast door, door and grate gate, fitted so its opening is the slot's and its
+    /// lintel over the slot's height, no taller than the lower room beside it; it stays when its door opens, so the way
+    /// through still reads as a doorway. Vents keep their own cover.
+    /// </summary>
+    private IEnumerable<DeckPiece> Frames()
+    {
+        foreach (var opening in Openings.Where(o => o.Kind is "blast" or "door" or "gate"))
+        {
+            var rect = opening.Rect;
+            var (thick, centre) = (opening.AlongX ? rect.Depth : rect.Width, rect.Centre);
+            var room = Math.Min(Beside(rect, opening.AlongX, -1), Beside(rect, opening.AlongX, 1));
+            var tall = Math.Min(opening.Height / FrameLintel * 8, room) / 8;
+            // Its front along the way through, its body as deep as the wall and a little proud of both faces.
+            yield return new DeckPiece("kit_door_frame", new Vector3(centre, 0), opening.AlongX ? 90 : 0,
+                new Vector3(opening.Width / FrameOpening, tall, (thick + 0.3f) / 1.5f));
+        }
+    }
+
+    /// <summary>The ceiling of the open cell just beyond a slot on one side (<paramref name="side"/> -1 or 1) of its way through.</summary>
+    private float Beside(DeckRect rect, bool alongX, int side)
+    {
+        var centre = rect.Centre;
+        var (x, y) = alongX
+            ? ((int)MathF.Floor(centre.X), side < 0 ? rect.Y0 - 1 : rect.Y1)
+            : (side < 0 ? rect.X0 - 1 : rect.X1, (int)MathF.Floor(centre.Y));
+        return IsOpen(x, y) && Deck.Cell(x, y) is not (DeckCell.Door or DeckCell.Grate) ? Height(x, y) : DefaultHeight;
+    }
+
+    /// <summary>The alarm beacons (see <see cref="Beacons"/>).</summary>
+    private List<DeckPiece> FindBeacons()
+    {
+        var beacons = new List<DeckPiece>();
+        foreach (var room in Rooms)
+        {
+            var height = ZoneHeight(room) ?? DefaultHeight;
+            if (height < 5)
+                continue;
+            var size = room.Max - room.Min;
+            var sides = Sides(room).OrderByDescending(s => s.Length).ToList();
+            var wanted = size.X * size.Y >= 300 ? 2 : 1;
+            // The longest side at a quarter of its length, then the side across from it at three quarters; where a door or a
+            // passage leaves no wall there, the next place that has one.
+            var found = 0;
+            foreach (var (side, share) in new[] { (0, 0.25f), (1, 0.75f), (0, 0.5f), (1, 0.5f), (2, 0.5f), (3, 0.5f), (0, 0.75f), (1, 0.25f) })
+            {
+                var (start, along, inward, length) = sides[side];
+                if (found == wanted || found > 0 && side == 0 && wanted == 2)
+                    continue;
+                if (OnWall(start, along, inward, length * share, length) is not { } at)
+                    continue;
+                beacons.Add(new DeckPiece("alarm_beacon", new Vector3(at + inward * 0.35f, Math.Min(height - 1.3f, 4.6f)), Degrees(inward), Vector3.One));
+                found++;
+            }
+        }
+        return beacons;
     }
 
     /// <summary>How a cover piece is scaled to sit on its block: across its front along the block's long side.</summary>
@@ -671,6 +766,25 @@ public sealed class DeckLayout
         var (length, across) = alongX ? (cover.Width, cover.Depth) : (cover.Depth, cover.Width);
         var count = Math.Max(1, (int)MathF.Round(length / 3f));
         var low = Height(cover.X0, cover.Y0) <= 6;
+        var facingAlong = alongX ? 90f : 0f;
+        // A block a metre across holds a row of coolant drums; a long block now and then a generator; the rest crates.
+        if (across <= 1)
+        {
+            var drums = Math.Max(1, (int)(length / 1.05f));
+            for (var i = 0; i < drums; i++)
+            {
+                var t = (i + 0.5f) * length / drums;
+                var at = alongX ? new Vector2(cover.X0 + t, cover.Centre.Y) : new Vector2(cover.Centre.X, cover.Y0 + t);
+                yield return new DeckPiece("barrel", new Vector3(at, 0), Hash(cover.X0, cover.Y0, i) % 360, new Vector3(1.15f, 1.35f, 1.15f));
+            }
+            yield break;
+        }
+        if (length >= 4 && Hash(cover.X0, cover.Y0, 7) % 4 == 0)
+        {
+            yield return new DeckPiece("generator", new Vector3(cover.Centre, 0), facingAlong + (Hash(cover.Y0, cover.X0, 7) % 2 == 0 ? 0 : 180),
+                new Vector3(Math.Min(length, 6) / 4.4f, 0.75f, across / 3.66f));
+            yield break;
+        }
         for (var i = 0; i < count; i++)
         {
             var t = (i + 0.5f) * length / count;

@@ -14,7 +14,7 @@ public partial class Game
     private static void SetUpStoryLook(MatchRequest request) => GraphicsSettings.Story = request.Options.IsStory;
 
     /// <summary>
-    /// For pictures of a chapter: MACHINES_SCREENSHOT_STORY=x,y[,angle] sets the trio down at that point of the deck (metres,
+    /// For pictures of a chapter: MACHINES_SCREENSHOT_STORY=x,y[,angle[,ahead]] sets the trio down at that point of the deck (metres,
     /// the deck's x east and y north), the Locator looking at that angle (degrees, 0 east, 90 north), Ike and Bob 7 m ahead
     /// of it to either side, in sight. Doors and walls are not asked; pick a floor cell. MACHINES_SCREENSHOT_GOGGLES=1 puts
     /// the night vision goggles on once the Locator is driven, as the deck is dark.
@@ -35,11 +35,13 @@ public partial class Game
         var facing = at.Length > 2 ? Godot.Mathf.DegToRad(Number(at[2])) : 0f;
         var forward = new System.Numerics.Vector2(MathF.Cos(facing), MathF.Sin(facing));
         var side = new System.Numerics.Vector2(-forward.Y, forward.X);
+        // A fourth number sets Ike and Bob that far ahead instead (behind when negative), to keep them out of a picture.
+        var ahead = at.Length > 3 ? Number(at[3]) : 7f;
         for (var i = 0; i < story.Seats.Count; i++)
         {
             if (World.HeroOf(story.Seats[i]) is not { } hero)
                 continue;
-            hero.Position = i == 0 ? spot : spot + forward * 7 + side * (i == 1 ? 2.5f : -2.5f);
+            hero.Position = i == 0 ? spot : spot + forward * ahead + side * (i == 1 ? 2.5f : -2.5f);
             hero.Facing = facing;
         }
         _aimYaw = facing;

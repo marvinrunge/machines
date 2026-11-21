@@ -379,6 +379,13 @@ public partial class Warmup : Node3D
                 }
                 yield return false;
             }
+        // And what the deck shows of the story: the alarm's beacons lit, a downed Grunt's revive ring.
+        if (_world.Deck is not null)
+            foreach (var piece in Game.DeckShowPieces())
+            {
+                NextGroup().AddChild(piece);
+                piece.GlobalPosition = ActorView.World(ground) + Vector3.Up;
+            }
         Note($"{actors.Count + bare.Count} put up", since);
         if (views.Count == 0)
             yield break;
