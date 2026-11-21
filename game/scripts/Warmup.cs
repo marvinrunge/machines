@@ -249,6 +249,31 @@ public partial class Warmup : Node3D
         {
             var look = Game.Look(race);
             var shown = new HashSet<string>();
+            // A story puts up only its cast: the research tree and every chassis of Wired (some 180 models) are not in it.
+            if (_world.Story is not null)
+            {
+                foreach (var (type, sub, level, combo) in StoryCast)
+                    if (Add(world, race, ResearchKind.Machine, new ResearchKey(type, sub, level, combo), ground) is { } actor)
+                    {
+                        actors.Add(actor);
+                        if (ActorView.ModelOf(actor) is var (id, size) && shown.Add(id))
+                            models.Add((id, look, size));
+                    }
+                foreach (var pod in _world.Data.ResearchTree.Items.Where(i => i.Kind == ResearchKind.Construction && i.Key.Type == "POD").Take(1))
+                    if (Add(world, race, pod.Kind, pod.Key, ground) is { } built)
+                        actors.Add(built);
+                // What the world cannot make by itself (Wired's own Thresher) by its model.
+                foreach (var (type, sub, level, combo) in StoryCast)
+                {
+                    var id = string.Join('_', new[] { type, level.ToString(System.Globalization.CultureInfo.InvariantCulture), sub, combo }.Where(p => p is { Length: > 0 }));
+                    if (shown.Add(id))
+                    {
+                        models.Add((id, look, Vector3.One * 3));
+                        bare.Add((id, look));
+                    }
+                }
+                continue;
+            }
             foreach (var item in _world.Data.ResearchTree.Items)
             {
                 if (Add(world, race, item.Kind, item.Key, ground) is { } actor)
@@ -332,6 +357,21 @@ public partial class Warmup : Node3D
             }
             yield return false;
         }
+        // A deck's props, one of each (the deck itself stands mostly out of sight), the hull of the mothership made small.
+        if (_world.Deck is not null)
+            foreach (var name in Props.Names())
+            {
+                if (Props.Get(name) is { } prop)
+                {
+                    var shrink = 4 / Mathf.Max(4, Mathf.Max(prop.Size.X, Mathf.Max(prop.Size.Y, prop.Size.Z)));
+                    NextGroup().AddChild(new MeshInstance3D
+                    {
+                        Mesh = prop.Mesh,
+                        Transform = new Transform3D(Basis.FromScale(Vector3.One * shrink), ActorView.World(ground)) * prop.Offset,
+                    });
+                }
+                yield return false;
+            }
         Note($"{actors.Count + bare.Count} put up", since);
         if (views.Count == 0)
             yield break;
@@ -380,6 +420,25 @@ public partial class Warmup : Node3D
         }
         return Stopwatch.GetElapsedTime(since).TotalSeconds;
     });
+
+    /// <summary>
+    /// The machines a story chapter shows besides its heroes (docs/STORY.md, the prologue's cast): the Thresher (Wired's own
+    /// Reaper 4), the Reapers with plasma rifles and the Commander of the alarm, the armed Grunt of the workshop, and the
+    /// switched-off machines in the clamp rows (Grunt 2 and 3, Reaper 2, a Builder and a technician).
+    /// </summary>
+    private static readonly (string Type, string? SubType, int Level, string? Combo)[] StoryCast =
+    [
+        ("GEO_LOCATOR", null, 1, null),
+        ("AGGRESSOR", "GRUNT", 1, "R_BOLTER"),
+        ("AGGRESSOR", "GRUNT", 2, "L_BOLTER"),
+        ("AGGRESSOR", "GRUNT", 3, "LR_HEAVY_BOLTER1_X2"),
+        ("AGGRESSOR", "ASSASSIN", 2, "L_PLASMA_RIFLE"),
+        ("AGGRESSOR", "ASSASSIN", 3, "LR_PLASMA_RIFLE_X2"),
+        ("AGGRESSOR", "ASSASSIN", 4, "LR_PLASMA_RIFLE_X2"),
+        ("ADMINISTRATOR", "COMMANDER", 5, "LR_PULSE_CANNON_X2"),
+        ("CONSTRUCTOR", "BUILDER", 3, null),
+        ("TECHNICIAN", "LAB_TECH", 2, null),
+    ];
 
     /// <summary>Loads on a worker thread; what fails is told and left to load when the match needs it.</summary>
     private static void Load(Action load)

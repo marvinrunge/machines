@@ -24,6 +24,12 @@ public partial class ActorView : Node3D
 
     public int ActorId { get; private set; }
 
+    /// <summary>
+    /// On a ship deck (the story's), whether a machine's lamp may shine, by its actor's id: the rows of switched-off machines
+    /// stay dark however dark it is (Game.StoryLamp). Null in every other match, where the lamps follow the dark alone.
+    /// </summary>
+    public static Func<int, bool>? LampAllowed { get; set; }
+
     /// <summary>The race the view was built for; a view is rebuilt when its actor changes sides.</summary>
     public Race Race { get; private set; }
 
@@ -602,8 +608,8 @@ public partial class ActorView : Node3D
             view.AddChild(view._lamp);
         }
 
-        // Ground machines kick up dust as they go.
-        if (GraphicsSettings.Effects && view._followsGround)
+        // Ground machines kick up dust as they go; a ship's metal deck has none.
+        if (GraphicsSettings.Effects && view._followsGround && !PlanetLook.Interior)
         {
             view._dust = Effects.DustTrail();
             view._dust.Position = new Vector3(view._aft * 0.6f, 0.3f, 0);
@@ -1089,7 +1095,7 @@ public partial class ActorView : Node3D
         Smoke();
         if (_lamp is not null)
         {
-            _lamp.Visible = Visible && PlanetLook.Dark > 0.05f;
+            _lamp.Visible = Visible && PlanetLook.Dark > 0.05f && (LampAllowed?.Invoke(ActorId) ?? true);
             _lamp.LightEnergy = PlanetLook.Dark * _lampEnergy;
             if (_lamp.Visible && _lamp is SpotLight3D beam)
                 Beam(beam);

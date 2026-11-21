@@ -12,8 +12,9 @@ public partial class Effects
     public override void _Ready()
     {
         // The ground under the view, for what falls to land on: the weather brings one on most planets (rain splashing
-        // on it); elsewhere the effects lay their own.
-        if (GraphicsSettings.Effects && GetTree().Root.FindChildren("*", nameof(GpuParticlesCollisionHeightField3D), true, false).Count == 0)
+        // on it); elsewhere the effects lay their own. Indoors it would take the ceilings for ground: a deck lays its own
+        // floor and ceilings (DeckView).
+        if (GraphicsSettings.Effects && !PlanetLook.Interior && GetTree().Root.FindChildren("*", nameof(GpuParticlesCollisionHeightField3D), true, false).Count == 0)
             AddChild(new GpuParticlesCollisionHeightField3D
             {
                 Size = new Vector3(420, 900, 420),

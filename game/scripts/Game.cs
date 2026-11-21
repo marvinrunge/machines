@@ -457,7 +457,7 @@ public partial class Game : Node3D
         }
         // The ground's and the grass's shaders read the weather's values (wind, wetness): they must exist first.
         Weather.EnsureGlobals();
-        AddChild(TerrainBuilder.Build(World.Planet, HeightField.Current, map, _assets.PlanetTerrain(request.Planet)));
+        AddChild(BuildGround(request, map));
         if (data.LoadScenario(request.Scenario).Artefacts is { } artefacts)
             AddChild(Artefacts(artefacts));
         AddLighting();
@@ -584,6 +584,8 @@ public partial class Game : Node3D
     /// </summary>
     private Node3D Artefacts(ArtefactSection section)
     {
+        if (World.Deck is not null)
+            return DeckArtefacts(section);
         var root = new Node3D { Name = "Artefacts" };
         if (section.ModelsPath is not { } models)
             return root;
