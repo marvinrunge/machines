@@ -85,6 +85,12 @@ public static class Prologue
     /// <summary>The seconds on the countdown when the chapter starts again from the last checkpoint (it starts at 180 in the Notgang).</summary>
     public const float CountdownFull = 180, CountdownAtCheckpoint = 150;
 
+    /// <summary>How long the sparks warn of falling debris before it lands, seconds.</summary>
+    public const float FallWarning = 1.5f;
+
+    /// <summary>The countdown's stages: the seconds left when each comes.</summary>
+    public static readonly IReadOnlyList<float> CountdownStages = [120, 60, 30, 10];
+
     /// <summary>The prologue's hacks in their order, and the checkpoint from which each is done.</summary>
     public static readonly IReadOnlyList<(string Target, int DoneFrom)> Hacks =
     [
@@ -106,7 +112,7 @@ public static class Prologue
     {
         public const string Wake1 = "P_ANN_WAKE_1", Wake2 = "P_ANN_WAKE_2", Deck1 = "P_ANN_DECK_1", Deck2 = "P_ANN_DECK_2", Deck3 = "P_ANN_DECK_3",
             Deck4 = "P_ANN_DECK_4", Found = "P_ANN_FOUND", Core = "P_ANN_CORE", Auto2 = "P_AUTO_2", Auto3 = "P_AUTO_3", Crash = "P_ANN_CRASH",
-            Breach = "P_AUTO_4", T90 = "P_AUTO_T90", T60 = "P_AUTO_T60", T30 = "P_AUTO_T30", T10 = "P_AUTO_T10", PodNo = "P_AUTO_POD_NO",
+            Breach = "P_AUTO_4", T120 = "P_AUTO_T120", T90 = "P_AUTO_T90", T60 = "P_AUTO_T60", T30 = "P_AUTO_T30", T10 = "P_AUTO_T10", PodNo = "P_AUTO_POD_NO",
             Whisper = "P_WHISPER_1", IkeWake = "P_IKE_WAKE", BobWake = "P_BOB_WAKE", IkeSteps = "P_IKE_STEPS", IkeVent = "P_IKE_VENT",
             IkeBarricade = "P_IKE_BARRICADE", BobBarricade = "P_BOB_BARRICADE", IkeAlarm = "P_IKE_ALARM", BobGlitch = "P_BOB_GLITCH",
             IkePod = "P_IKE_POD", BobPod = "P_BOB_POD", HudBoot = "P_HUD_BOOT", HudDecrypt = "P_HUD_DECRYPT";
@@ -228,30 +234,42 @@ public static class Prologue
         new("repaired", 4, new InZone("repair"), [new Checkpoint(5), new Objective("Get to the escape pods", "R15")]),
 
         // A Grunt down anywhere is not left behind: the objective points at it until the Locator has put it together.
-        new("rally", 1, new Always(), [new Rally(RallyText, GameWorld.PodZone)], After: ["grunts_awake"], Repeat: true),
+        new("rally", 1, new Always(), [new Rally(RallyText, GameWorld.PodBay)], After: ["grunts_awake"], Repeat: true),
 
         // ---- 7 Absturz: the countdown from the Notgang, debris, the ship listing; the pod's hack under the firewall.
+        // Its stages at 120, 60, 30 and 10 seconds left (and the hull breach at 90): the automatic voice, the ship listing
+        // further (the view's alone), blasts where the ship tears and debris falling into the lanes, warned of by its sparks a
+        // moment before it lands; nobody stands where it lies.
         new("notgang", 5, new InZone("R15"), [new Checkpoint(6), new Section(7), new Countdown(CountdownFull), new Say(Lines.Auto3),
-            new Hackable(true, "pod_3_hatch"), new Objective("Reach the escape pods", "pod_3_hatch"), new Tilt(5, 0, 3), new Cue("rumble 0.4")]),
-        new("t90", 6, new CountdownAt(90), [new CountdownStage(), new Say(Lines.T90), new PlaceProp("crate_large", "debris_1", 0, -2), new Tilt(7, 1, 2)]),
-        new("breach", 6, new CountdownAt(75), [new Say(Lines.Breach)]),
-        new("t60", 6, new CountdownAt(60), [new CountdownStage(), new Say(Lines.T60), new PlaceProp("crate_large", "debris_2", 0, 2), new Tilt(9, -1, 2)]),
-        new("t30", 6, new CountdownAt(30), [new CountdownStage(), new Say(Lines.T30), new PlaceProp("crate_large", "debris_3", 0, -2), new Tilt(12, 2, 2)]),
-        new("t10", 6, new CountdownAt(10), [new CountdownStage(), new Say(Lines.T10)]),
+            new Hackable(true, "pod_3_hatch"), new Objective("Reach the escape pods", "pod_3_hatch"), new Tilt(5, 0, 3), new Cue("rumble 0.4"),
+            new Fall("crate_large", "debris_1", FallWarning, 0, 2.5f)]),
+        new("t120", 6, new CountdownAt(120), [new CountdownStage(), new Say(Lines.T120), new Blast("pod_1", 6, 40, 3),
+            new Fall("crate_large", "debris_2", FallWarning, 0, -2.5f), new Tilt(7, 1, 2)]),
+        new("breach", 6, new CountdownAt(90), [new Say(Lines.Breach), new Blast("236,88", 4, 30, 2.5f), new Cue("rumble 0.7"),
+            new Fall("crate_large", "235,40", FallWarning, 30)]),
+        new("t60", 6, new CountdownAt(60), [new CountdownStage(), new Say(Lines.T60), new Blast("pod_2", 5, 40, 3),
+            new Fall("crate_large", "debris_3", FallWarning, 0, 2.5f), new Tilt(9, -1, 2)]),
+        new("t30", 6, new CountdownAt(30), [new CountdownStage(), new Say(Lines.T30), new Blast("254,46", 4, 30, 3),
+            new Fall("crate_large", "249,38", FallWarning, -20), new Tilt(12, 2, 2)]),
+        new("t10", 6, new CountdownAt(10), [new CountdownStage(), new Say(Lines.T10), new Cue("rumble 1")]),
         new("crash", 6, new CountdownAt(0), [new End(StoryEnding.Crashed)]),
         new("pod_bay", 6, new InZone("R16"), [new Say(Lines.Crash)]),
         new("pod_denied", 6, new AllOf(new Near("pod_3_hatch", 6), new Not(new HackDone("pod_3_hatch"))), [new Say(Lines.PodNo)]),
-        new("pod_hacked", 6, new HackDone("pod_3_hatch"), [new Objective("Get everyone into the pod", "pod_zone"),
-            new Assign(1, CompanionTask.Board, "pod_3_hatch"), new Assign(2, CompanionTask.Board, "pod_3_hatch")]),
+        new("pod_hacked", 6, new HackDone("pod_3_hatch"), [new Objective("Open the hatch", "pod_3_hatch")]),
+        // The hatch open (the Locator's Use, GameWorld.UseForStory), the Grunts board.
+        new("hatch", 6, new Flagged(StoryMarks.Done("pod_3_hatch")), [new Objective("Get everyone into the pod", "pod_zone"),
+            new Assign(1, CompanionTask.Board, "pod_3_hatch"), new Assign(2, CompanionTask.Board, "pod_3_hatch")], After: ["pod_hacked"]),
         // A Grunt put back together (or one that dropped its job) boards again.
         new("reboard", 6, new Not(new InSection(8)), [new Assign(1, CompanionTask.Board, "pod_3_hatch", IfFree: true),
-            new Assign(2, CompanionTask.Board, "pod_3_hatch", IfFree: true)], After: ["pod_hacked"], Repeat: true, Every: 1),
+            new Assign(2, CompanionTask.Board, "pod_3_hatch", IfFree: true)], After: ["hatch"], Repeat: true, Every: 1),
 
-        // ---- 8 Abwurf: everyone in, the pod drops (abwurf.cut); the chapter is won once the bay's part is over. Nobody is left
-        // behind: a Grunt lying down outside the pod must be put together first (the rally above says so), one down inside counts.
-        new("launch", 6, new InZone("pod_zone", StoryWho.Everyone), [new Section(8), new Countdown(null), new Objective(null), new Hold(true, 0, 1, 2),
-            new Spare(0, Away + 5), new Spare(1, Away + 5), new Spare(2, Away + 5), new Cue("cutscene abwurf", "pod_3")],
-            After: ["pod_hacked"]),
+        // ---- 8 Abwurf: the hack done, the hatch opened by the Locator, the Locator at the pod and both Grunts aboard (standing in
+        // the pod's zone, or lying down in its bay: act 1 starts with one Grunt broken anyway), the pod drops (abwurf.cut); the
+        // chapter is won once the bay's part is over. A Grunt lying down outside the bay must be put together first (the rally
+        // above says so).
+        new("launch", 6, new AllOf(new InZone("pod_zone"), new Aboard()), [new Section(8), new Countdown(null), new Objective(null),
+            new Hold(true, 0, 1, 2), new Spare(0, Away + 5), new Spare(1, Away + 5), new Spare(2, Away + 5), new Cue("cutscene abwurf", "pod_3")],
+            After: ["hatch"]),
         new("away", 6, new Since("launch", Away), [new End(StoryEnding.Escaped)]),
     ];
 

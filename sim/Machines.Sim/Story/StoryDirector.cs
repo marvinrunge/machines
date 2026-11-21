@@ -74,6 +74,15 @@ public sealed class StoryDirector
     /// <summary>How many artefacts the director has set down.</summary>
     public int Placed { get; internal set; }
 
+    /// <summary>
+    /// Debris on its way down (<see cref="Then.Fall"/>), by the order it was let go: it lands at its game time, harms what
+    /// stands under it and lies where it landed.
+    /// </summary>
+    public SortedDictionary<int, StoryFall> Falling { get; } = [];
+
+    /// <summary>How many pieces of debris the director has let fall.</summary>
+    public int Fallen { get; internal set; }
+
     /// <summary>A beat has fired.</summary>
     public bool Has(string beat) => Fired.ContainsKey(beat);
 
@@ -110,6 +119,7 @@ public sealed class StoryDirector
         _inbox.Clear();
         WatchHacks(world, run);
         OpenNearDoors(world, run);
+        Land(world);
         foreach (var id in Shielded)
             if (world.FindTarget(id) is { IsDead: false } kept)
                 kept.HitPoints = kept.MaxHitPoints;
@@ -186,6 +196,24 @@ public sealed class StoryDirector
         }
     }
 
+    /// <summary>
+    /// Debris whose time has come lands (<see cref="Then.Fall"/>): it harms whatever stands within its reach, then lies
+    /// there as an artefact of its type, blocking the ground, unless a machine stands right where it would lie (it breaks
+    /// on it and only its blow is left). The view hears "debris landed &lt;n&gt;".
+    /// </summary>
+    private void Land(GameWorld world)
+    {
+        foreach (var (number, fall) in Falling.Where(f => f.Value.At <= world.Time).ToList())
+        {
+            Falling.Remove(number);
+            world.ScriptExplosion(fall.Where, StoryFall.Reach, fall.Harm, 1.2f);
+            var under = world.Machines.Any(m => !m.IsDead && m.Inside is null && Vector2.Distance(m.Position, fall.Where) < m.Radius + StoryFall.Lies);
+            if (!under)
+                world.PlaceArtefact(fall.Type, fall.Where, fall.Angle);
+            StoryEvents.Cue(world, $"debris landed {number}", fall.Where);
+        }
+    }
+
     // ---- the checksum ---------------------------------------------------------------------------------
 
     /// <summary>A fingerprint of what the director keeps, for the world's checksum.</summary>
@@ -222,8 +250,26 @@ public sealed class StoryDirector
             hash.Mix(seen.Alarms);
         }
         hash.Mix(Placed);
+        foreach (var (number, fall) in Falling)
+        {
+            hash.Mix(number);
+            hash.Mix(BitConverter.SingleToInt32Bits(fall.At));
+            hash.Mix(fall.Type);
+            hash.Mix(BitConverter.SingleToInt32Bits(fall.Where.X));
+            hash.Mix(BitConverter.SingleToInt32Bits(fall.Where.Y));
+            hash.Mix(BitConverter.SingleToInt32Bits(fall.Angle));
+            hash.Mix(fall.Harm);
+        }
+        hash.Mix(Fallen);
         return hash.Value;
     }
+}
+
+/// <summary>A piece of debris on its way down: when it lands (game time), what it is (the scenario's artefact type), where, turned how far (degrees) and how hard it hits.</summary>
+public sealed record StoryFall(float At, string Type, Vector2 Where, float Angle, int Harm)
+{
+    /// <summary>How far its blow reaches, metres from where it lands; and within how much of a machine's radius it would lie on one.</summary>
+    public const float Reach = 3, Lies = 1.5f;
 }
 
 // ---- triggers ------------------------------------------------------------------------------------------
@@ -333,6 +379,15 @@ public static class When
     {
         internal override bool Holds(GameWorld world, StoryRun run, StoryDirector director) =>
             run.Timers.TryGetValue(StoryMarks.Countdown, out var ends) && ends - world.Time <= Seconds;
+    }
+
+    /// <summary>
+    /// Both Grunts are aboard the pod (<see cref="GameWorld.CompanionsAboard"/>): standing in its zone, or lying down in its
+    /// bay, where they are carried in (plan WP-I).
+    /// </summary>
+    public sealed record Aboard : StoryTrigger
+    {
+        internal override bool Holds(GameWorld world, StoryRun run, StoryDirector director) => world.CompanionsAboard();
     }
 
     /// <summary>The chapter is in a section.</summary>
@@ -986,6 +1041,24 @@ public static class Then
     {
         internal override void Do(GameWorld world, StoryRun run, StoryDirector director) =>
             world.PlaceArtefact(Type, Where(world, Place) + new Vector2(Aside, 0), Angle);
+    }
+
+    /// <summary>
+    /// Debris let fall into a lane (plan WP-I: <see cref="PlaceProp"/> with a delay): the view hears "debris falling &lt;n&gt;
+    /// &lt;seconds&gt;" at once at the spot (sparks, a groan overhead), and after <paramref name="Delay"/> seconds it lands
+    /// there (<see cref="StoryDirector.Falling"/>), harming what stands within <see cref="StoryFall.Reach"/> by up to
+    /// <paramref name="Harm"/>, and lies as an artefact of <paramref name="Type"/>, turned by <paramref name="Angle"/> degrees,
+    /// <paramref name="Aside"/> metres east of the place.
+    /// </summary>
+    public sealed record Fall(string Type, string Place, float Delay, float Angle = 0, float Aside = 0, int Harm = 25) : StoryAction
+    {
+        internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            var at = Where(world, Place) + new Vector2(Aside, 0);
+            var number = director.Fallen++;
+            director.Falling[number] = new StoryFall(world.Time + Delay, Type, at, Angle, Harm);
+            StoryEvents.Cue(world, FormattableString.Invariant($"debris falling {number} {Delay}"), at);
+        }
     }
 
     /// <summary>An explosion at a place (GameWorld.ScriptExplosion): everything within its range takes the damage, less the further off.</summary>

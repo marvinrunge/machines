@@ -358,10 +358,12 @@ public class PrologueAssaultTests
         var world = Chapter(6);
         var run = world.Story!;
         Hack(world, "pod_3_hatch");
+        var (locator, ike, bob) = (Hero(world, 0), Hero(world, 1), Hero(world, 2));
+        SetDown(world, locator, world.Deck!.Marker("pod_3_hatch").Position + new Vector2(0, 1.5f));
+        world.Issue(new StoryUseCommand(Race.Red, "pod_3_hatch"));
         Run(world, 0.5f);
         var pod = world.Deck!.Zone(GameWorld.PodZone)!;
         var middle = (pod.Min + pod.Max) / 2;
-        var (locator, ike, bob) = (Hero(world, 0), Hero(world, 1), Hero(world, 2));
 
         // Ike falls outside the pod: the objective points at him, and the others in the pod do not launch it.
         SetDown(world, ike, new Vector2(240, 60));

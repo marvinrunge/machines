@@ -433,6 +433,24 @@
     "hash": "5e0d686bd86d"
    }
   },
+  "P_AUTO_T120": {
+   "de": {
+    "file": "de/P_AUTO_T120.ogg",
+    "seconds": 1.24,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "ea32491abef6"
+   },
+   "en": {
+    "file": "en/P_AUTO_T120.ogg",
+    "seconds": 1.12,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "c03f7da619d8"
+   }
+  },
   "P_AUTO_T30": {
    "de": {
     "file": "de/P_AUTO_T30.ogg",

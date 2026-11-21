@@ -386,6 +386,13 @@ public class PrologueScriptTests
             Assert.Null(Do(new StoryUseCommand(Race.Red, rack)));
         }
 
+        /// <summary>To a marker (the pod's hatch), used.</summary>
+        public void Use(string marker)
+        {
+            Go(world.Deck!.Marker(marker).Position + new Vector2(0, 1.5f));
+            Assert.Null(Do(new StoryUseCommand(Race.Red, marker)));
+        }
+
         /// <summary>
         /// The workshop's armed Grunts shot at, the nearest first, with the trigger held on it as a player aims (the Grunts
         /// fight along), until none is left standing.
@@ -446,6 +453,8 @@ public class PrologueScriptTests
                     Go(new Vector2(240, 100));
                 else if (!Done("pod_3_hatch"))
                     Hack("pod_3_hatch");
+                else if (!Run.Flags.Contains(StoryMarks.Done("pod_3_hatch")))
+                    Use("pod_3_hatch");
                 else if (!director.Has("launch"))
                     All("pod_zone");
                 else

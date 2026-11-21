@@ -30,6 +30,7 @@
     {"id": "P_AUTO_3", "speaker": "auto", "de": "Atmosphäreneintritt in drei Minuten.", "en": "Atmospheric entry in three minutes.", "when": "R15"},
     {"id": "P_ANN_CRASH", "speaker": "ship", "preset": "ship-old", "de": "Strukturintegrität kritisch. Alle Einheiten zu den Rettungspods.", "en": "Structural integrity critical. All units to the escape pods.", "when": "R15/R16 (board.json s-absturz); distorted old recording"},
     {"id": "P_AUTO_4", "speaker": "auto", "de": "Rumpfbruch in Sektion vier.", "en": "Hull breach in section four.", "when": "countdown stage"},
+    {"id": "P_AUTO_T120", "speaker": "auto", "de": "Zwei Minuten.", "en": "Two minutes.", "when": "countdown"},
     {"id": "P_AUTO_T90", "speaker": "auto", "de": "Neunzig Sekunden.", "en": "Ninety seconds.", "when": "countdown"},
     {"id": "P_AUTO_T60", "speaker": "auto", "de": "Sechzig Sekunden.", "en": "Sixty seconds.", "when": "countdown"},
     {"id": "P_AUTO_T30", "speaker": "auto", "de": "Dreißig Sekunden.", "en": "Thirty seconds.", "when": "countdown"},
