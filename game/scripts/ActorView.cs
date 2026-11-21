@@ -115,7 +115,10 @@ public partial class ActorView : Node3D
         return shown;
     }
 
-    /// <summary>A machine in a building shows to first person looking round the same interior, and to no one else.</summary>
+    /// <summary>Whether a point lies in the building's interior (see <see cref="RigView.InInterior"/>).</summary>
+    public bool Encloses(Vector3 point) => _rigView?.InInterior(point) ?? false;
+
+    /// <summary>A machine in a building shows to an eye looking round the same interior, and to no one else.</summary>
     public bool SeenInside { get; set; }
 
     /// <summary>The height of the floor a machine in a building stands on, in place of the ground; null out on the ground.</summary>

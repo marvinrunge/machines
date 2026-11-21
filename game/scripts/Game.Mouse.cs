@@ -198,7 +198,9 @@ public partial class Game
             var at = _views.TryGetValue(actor.Id, out var view) ? view.Centre : ActorView.World(actor.Position);
             return !camera.IsPositionBehind(at) && rect.HasPoint(camera.UnprojectPosition(at));
         }
-        return World.Actors.Where(a => a.Race == Player && a is Machine { Inside: null } or Construction && !a.IsDead && MayOrder(a) && Shown(a))
+        // From inside a building the box takes the machines in there (see ActorAt).
+        return World.Actors.Where(a => a.Race == Player && (a is Machine m ? m.Inside == _cameraInside : _cameraInside is null && a is Construction)
+                && !a.IsDead && MayOrder(a) && Shown(a))
             .OrderBy(a => a switch
             {
                 Machine { CanFight: true } => 0,
@@ -250,7 +252,7 @@ public partial class Game
     /// <summary>
     /// For automated checks: MACHINES_SCREENSHOT_INPUT=2:L:own;3:R:400,300;4:M:400,300;5:L:ground;6:K:M;7:Lp:own;8:Lr:own;9:Kp:J;10:Kr:J
     /// plays clicks (L, R, M for the middle button, with p and r for press and release alone) on a screen point, the player's
-    /// first machine, the first enemy or the ground before the panel, and keys (K, with p and r likewise), at the seconds
+    /// first machine, the first enemy, the player's first machine in a building (inside) or the ground before the panel, and keys (K, with p and r likewise), at the seconds
     /// given, without touching the real mouse, and logs what stands selected and ordered after each. In first person, where
     /// what counts is what is held, they go through Input; and every shot of the driven machine is logged by the triggers it answered.
     /// </summary>
@@ -309,6 +311,7 @@ public partial class Game
         {
             "own" => Of(World.Machines.FirstOrDefault(m => m.Race == Player)) ?? default,
             "enemy" => Of(World.Machines.FirstOrDefault(m => World.AreEnemies(Player, m.Race))) ?? default,
+            "inside" => Of(World.Machines.FirstOrDefault(m => m.Race == Player && m.Inside is { } room && World.Find<Construction>(room) is not null)) ?? default,
             "ground" => GetViewport().GetVisibleRect().Size * new Vector2(0.6f, 0.5f),
             _ when point.Split(',') is [var x, var y] => new Vector2(float.Parse(x), float.Parse(y)),
             _ => default,
