@@ -164,6 +164,13 @@ public sealed class StorySight
     /// <summary>Seconds a seeker looks about where it lost or heard a hero (at least this long once there).</summary>
     public const float SearchFor = 15, SweepAtLeast = 6;
 
+    /// <summary>
+    /// Seconds a search lasts once the ship's alarm is on (the pursuit): the hunters look about briefly and go back to what
+    /// they were sent to do, the gates (stage 4: searches beside the vent kept the Reapers in Parallelgang 2 for 30 s and
+    /// more, and they reached the gates a minute after the alarm).
+    /// </summary>
+    public const float SearchForHunting = 6;
+
     /// <summary>A patrol's dwell: seconds it stands, and how far its beam sweeps either way, degrees.</summary>
     public const float DwellTime = 3, DwellSweep = 40;
 

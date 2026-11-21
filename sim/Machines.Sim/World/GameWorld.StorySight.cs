@@ -93,6 +93,11 @@ public sealed partial class GameWorld
             if (Vector2.DistanceSquared(clamp, machine.Position) < ClampReach * ClampReach)
                 return false;
         }
+        // A Grunt of the trio that has not switched its own lamp keeps it as the Locator does: the Locator dims its lamp to
+        // sneak, and the Grunts' on behind it gave the trio away all the same (docs/STORY.md, Schleichen: the group has to
+        // keep together). One whose seat pressed its own Lamp key keeps its own (run.Sight.Lamps, above).
+        if (run.Seats.Count > 0 && CompanionSeat(machine) is not null && HeroOf(run.Locator) is { } locator)
+            return StoryLampOn(locator.Id);
         return true;
     }
 
@@ -365,6 +370,10 @@ public sealed partial class GameWorld
                 {
                     (eyes.Spot, eyes.SeenAt, eyes.Suspicion) = (hunted.Position, Time, 1);
                     eyes.Wary = true;
+                    // In sight but beyond its fire, at the end of its way (a Grunt far down a duct it cannot get into): it does not
+                    // stand there aiming for as long as the Grunt stays, it goes to look from the nearest place it can get to.
+                    if (BeyondFire(seeker, hunted) && seeker.PathIndex >= seeker.Path.Count)
+                        Search(seeker, hunted.Position, attack.Back);
                 }
                 else if (Time - eyes.SeenAt >= StorySight.LoseAfter)
                 {
@@ -376,8 +385,14 @@ public sealed partial class GameWorld
             case SearchOrder search:
                 if (eyes.Suspicion < 1 || quarry is null)
                     break;
-                if (glimpse == StoryGlimpse.Seen)
+                // Seen beyond its fire, it goes on looking from nearer before it hunts (a hunt there would stand and aim).
+                if (glimpse == StoryGlimpse.Seen && !BeyondFire(seeker, quarry))
                     Hunt(seeker, eyes, quarry, search.Back);
+                else if (glimpse == StoryGlimpse.Seen)
+                {
+                    if (Vector2.DistanceSquared(quarry.Position, search.Spot) > SearchMoves * SearchMoves)
+                        Search(seeker, quarry.Position, search.Back);
+                }
                 else if (Vector2.DistanceSquared(quarry.Position, search.Spot) > SearchMoves * SearchMoves)
                     // It hears it somewhere else now: it looks there instead.
                     Search(seeker, quarry.Position, search.Back);
@@ -421,6 +436,13 @@ public sealed partial class GameWorld
                 break;
         }
     }
+
+    /// <summary>
+    /// Whether a hero is beyond a seeker's fire (<see cref="StorySight.FireReach"/>, <see cref="StoryHoldsFire"/>): a hunter at
+    /// the end of its way would stand and aim there without a shot.
+    /// </summary>
+    private bool BeyondFire(Machine seeker, Machine hero) =>
+        Vector2.Distance(seeker.Position, hero.Position) > StorySight.FireReach;
 
     /// <summary>How far from where it searches a seeker must hear a hero again to go and look there instead, metres.</summary>
     private const float SearchMoves = 8;
@@ -531,7 +553,8 @@ public sealed partial class GameWorld
             back = older.Back;
         spot = ReachableSpot(seeker, spot);
         var orderedAt = seeker.OrderedAt;
-        Send(seeker, new SearchOrder(spot, Time + StorySight.SearchFor, back), spot);
+        var searchFor = Story!.Flags.Contains(StoryMarks.Alarm) ? StorySight.SearchForHunting : StorySight.SearchFor;
+        Send(seeker, new SearchOrder(spot, Time + searchFor, back), spot);
         seeker.OrderedAt = orderedAt;
     }
 
