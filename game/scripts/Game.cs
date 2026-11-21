@@ -493,9 +493,10 @@ public partial class Game : Node3D
         AddChild(_audio);
         if (data.LoadScenario(request.Scenario).Artefacts is { } humming)
             ArtefactHums(humming);
-        // A film gets its music afterwards (tools/cinematic/render.sh).
-        if (Cinematic.Asked is null)
+        // A film gets its music afterwards (tools/cinematic/render.sh); a story has its own (StoryAudio).
+        if (Cinematic.Asked is null && World.Story is null)
             Music.Match(this, ScenarioMusic(request.Scenario));
+        SetUpStoryAudio();
 
         _screen = FirstPersonScreen.Create(_planetLook, _assets.Texture("models/texture4/static.bmp"));
         AddChild(_screen);

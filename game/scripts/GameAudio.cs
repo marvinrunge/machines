@@ -73,6 +73,7 @@ public partial class GameAudio : Node
             config.Save("user://settings.cfg");
             if (AudioServer.GetBusIndex("Effects") is var index and >= 0)
                 AudioServer.SetBusVolumeDb(index, Mathf.LinearToDb(Mathf.Max(0.001f, value)));
+            StoryAudio.SoundVolumeChanged(value);
         }
     }
 

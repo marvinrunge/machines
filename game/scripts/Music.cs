@@ -82,6 +82,7 @@ public partial class Music : Node
         set
         {
             Store("music_volume", value);
+            StoryAudio.MusicVolumeChanged(value);
             if (_instance is not null && IsInstanceValid(_instance) && _instance._fade is null && _instance.IsInsideTree())
                 _instance._player.VolumeDb = Mathf.LinearToDb(value);
         }
