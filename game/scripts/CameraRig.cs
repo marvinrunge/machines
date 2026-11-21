@@ -324,6 +324,32 @@ public partial class CameraRig : Node3D
     /// </summary>
     public static Basis ShakeAt(Vector3 camera)
     {
+        var shaken = Shaken(camera);
+        return Rumble > 0 ? shaken * Rumbling() : shaken;
+    }
+
+    /// <summary>
+    /// A steady rumble everywhere, as of a ship's hull shuddering through the air (the remake's own): the view trembles
+    /// by up to about this many degrees, with no epicentre and no end, until it is set back to 0 (a match starts without).
+    /// It comes on top of <see cref="Shake"/>; every camera that takes <see cref="ShakeAt"/> feels it.
+    /// </summary>
+    public static float Rumble { get; set; }
+
+    // The rumble's turn now: three slow-beating sways on each axis, never repeating, smooth from frame to frame.
+    private static Basis Rumbling()
+    {
+        var t = (float)FrameClock.Now;
+        float Sway(float a, float b, float c) =>
+            0.5f * Mathf.Sin(13.1f * t + a) + 0.3f * Mathf.Sin(23.7f * t + b) + 0.2f * Mathf.Sin(37.3f * t + c);
+        var angle = Mathf.DegToRad(Rumble);
+        return new Basis(Quaternion.FromEuler(new Vector3(Sway(0, 1.7f, 4.1f), Sway(2.3f, 0.4f, 5.2f) * 0.5f, Sway(5.9f, 3.1f, 0.8f)) * angle));
+    }
+
+    public override void _ExitTree() => Rumble = 0;
+
+    // The turn of the shaking under way, without the rumble.
+    private static Basis Shaken(Vector3 camera)
+    {
         var t = ((float)FrameClock.Now - _shakeStart) / Mathf.Max(_shakeTime, 0.01f);
         if (_shake.Length == 0 || t is < 0 or >= 1)
             return Basis.Identity;

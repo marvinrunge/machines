@@ -528,7 +528,7 @@ public partial class Game : Node3D
         if (Cinematic.Asked is not null)
         {
             _hud.Visible = false;
-            var film = new Cinematic(World, id => _views.GetValueOrDefault(id), _projectiles.ViewOf, _rig);
+            var film = new Cinematic(World, id => _views.GetValueOrDefault(id), _projectiles.ViewOf, _rig) { Models = SceneModel };
             Ticked += film.OnTick;
             AddChild(film);
         }
@@ -836,13 +836,15 @@ public partial class Game : Node3D
         UpdateGhost();
         UpdateSightScript(delta);
         UpdateFirstPersonCamera();
+        CutsceneIfAsked(delta);
         UpdateTowerMode();
         ShowFilmLook();
         ShowInteriors();
         ShowHealing();
         if (Fog is not null)
         {
-            Fog.Update(delta, new NVector2(_rig.Position.X, _rig.Position.Z), _driven is not null);
+            // A cutscene is seen and heard as from inside a machine: the fog of war does not darken it.
+            Fog.Update(delta, new NVector2(_rig.Position.X, _rig.Position.Z), _driven is not null || InCutscene);
             _audio.Muted = Fog.Blind;
         }
         UpdateHover();
@@ -3463,8 +3465,9 @@ public partial class Game : Node3D
     {
         if (_driven is not { } machine || _screen.Lost)
             return;
-        // Behind the hangar's screen (or a run's menus) the hero stands: its keys and buttons are the screen's.
-        if (ScreenOver)
+        // Behind the hangar's screen (or a run's menus) the hero stands: its keys and buttons are the screen's; so it does
+        // while a cutscene plays.
+        if (ScreenOver || InCutscene)
         {
             Issue(new DriveCommand(Player, machine.Id, Driving: true, Weapons: SelectedWeapons(machine), Head: _headTarget, Yaw: SentYaw));
             if (Sighted)
@@ -3603,10 +3606,11 @@ public partial class Game : Node3D
     {
         if (_driven is not { } machine || !_views.TryGetValue(machine.Id, out var view))
             return;
-        LookWithKeys();
+        if (!InCutscene)
+            LookWithKeys();
         // With the modern keys a machine without an upper body turns its view with the keys, smoothly, and the hull
         // follows it at the same rate.
-        if (FreeLook && !machine.CanTurnUpperBody && (!Paused || Online) && !ScreenOver)
+        if (FreeLook && !machine.CanTurnUpperBody && (!Paused || Online) && !ScreenOver && !InCutscene)
             _aimYaw = Mathf.Wrap(_aimYaw - KeyTurn(machine) * HullTurnRate(machine, Input.IsKeyPressed(Key.Ctrl)) * (float)GetProcessDeltaTime(),
                 -Mathf.Pi, Mathf.Pi);
         // A sighted driver's gun as it will stand, and where its sight is drawn; the upper body points there at once.
@@ -3628,6 +3632,8 @@ public partial class Game : Node3D
         var yaw = FreeLook ? -_aimYaw : view.Yaw - head;
         _firstPersonCamera.GlobalRotation = new Vector3(_lookPitch, yaw - Mathf.Pi / 2, 0);
         _firstPersonCamera.Basis *= CameraRig.ShakeAt(_firstPersonCamera.GlobalPosition);
+        // The ship lists on its way down: the view leans, the panel stays level.
+        _firstPersonCamera.Basis *= Leaning();
 
         _hud.Weapons.Show(machine.Weapons, SelectedWeapons(machine));
         _hud.Weapons.Held = ActHeld;

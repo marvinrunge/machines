@@ -14,26 +14,18 @@ namespace Machines.Game;
 /// every frame rate. MACHINES_CINEMATIC_STILLS=&lt;folder&gt;;&lt;seconds&gt;,... saves the picture at those moments of
 /// the film instead and quits after the last.
 /// </summary>
-public partial class Cinematic : Node
+public partial class Cinematic : FilmCamera
 {
     /// <summary>The film asked for, if any.</summary>
     public static string? Asked => System.Environment.GetEnvironmentVariable("MACHINES_CINEMATIC") is { Length: > 0 } name ? name : null;
 
-    /// <summary>A take: how long it lasts, the camera at each moment of it (0 to 1), and how fast time runs then.</summary>
-    private sealed record Shot(string Name, float Length, Func<float, Frame> At, Func<float, float>? Speed = null);
-
-    /// <summary>Where the camera is and looks, its field of view (degrees), its focus (metres) and how much it blurs.</summary>
-    private readonly record struct Frame(Vector3 Eye, Vector3 Target, float Fov = 40, float? Focus = null, float Blur = 1.5f);
-
     // Black bars that make the 16:9 picture 2.39:1.
     private const float Bars = (1 - 16f / 9 / 2.39f) / 2;
 
-    private readonly GameWorld _world;
-    private readonly Func<int, Node3D?> _view;
     private readonly Func<int, Node3D?> _round;
     private readonly CameraRig _rig;
-    private readonly Camera3D _camera = new() { Far = 6000, Near = 0.25f, Fov = 40, Name = "FilmCamera" };
     private readonly FilmLook _look = new();
+    protected override FilmLook? Look => _look;
     private readonly CanvasLayer _titles = new() { Layer = 0, Name = "Titles" };
     private Control? _title;
     private Shot[] _shots = [];
@@ -49,23 +41,10 @@ public partial class Cinematic : Node
     // The film's own time, which slowed time does not slow; the take it is in.
     private double _time;
     private int _shot = -1;
-    private float _step;
-
-    // Metres to the sharp zone as shown, following the take's own.
-    private float _focus;
 
     // The orders, by the tick after which they are given, and what is done after every tick.
     private readonly List<(int Tick, Action Do)> _cues = [];
     private readonly List<Action> _everyTick = [];
-
-    // Points the camera follows smoothly, or holds from the start of a take, and who a take picked to film.
-    private readonly Dictionary<string, Vector3> _followed = [];
-    private readonly Dictionary<string, int?> _picked = [];
-
-    // The machine the camera rides in (hidden from it), and the one whose upper body the film turns.
-    private int? _inside;
-    private int? _steered;
-    private Frame _last;
 
     private readonly SortedSet<float> _stills = [];
     private string? _stillFolder;
@@ -73,9 +52,8 @@ public partial class Cinematic : Node
     /// <param name="view">The view of a machine or building by its id.</param>
     /// <param name="round">The view of a flying projectile by its id.</param>
     public Cinematic(GameWorld world, Func<int, Node3D?> view, Func<int, Node3D?> round, CameraRig rig)
+        : base(world, view, new Camera3D { Far = 6000, Near = 0.25f, Fov = 40, Name = "FilmCamera" })
     {
-        _world = world;
-        _view = view;
         _round = round;
         _rig = rig;
         Name = "Cinematic";
@@ -112,6 +90,7 @@ public partial class Cinematic : Node
             "build" => Build(),
             "ice" => Ice(pass),
             "strike" => Strike(pass),
+            _ when film.StartsWith("prolog-", StringComparison.Ordinal) => Scripted(film["prolog-".Length..]),
             _ => throw new InvalidOperationException($"There is no film '{Asked}' (see tools/cinematic/films.txt)."),
         };
         Quality();
@@ -198,28 +177,18 @@ public partial class Cinematic : Node
         {
             // A cut: what was followed is picked up afresh.
             _shot = index;
-            _followed.Clear();
-            _picked.Clear();
-            Leave();
-            Steer(null);
+            Enter(index);
             GD.Print($"cinematic: take {index + 1} ({shot.Name}) at {_time:0.00} s, tick {_world.Tick}");
         }
         var u = Mathf.Clamp((float)(_time - start) / shot.Length, 0, 1);
+        Scene((float)_time);
         var frame = _last = shot.At(u);
         var speed = shot.Speed?.Invoke(u) ?? 1;
         Engine.TimeScale = speed;
         // Slowed time sounds lower, though less slowed than it is.
         AudioServer.PlaybackSpeedScale = Mathf.Lerp(1, speed, 0.6f);
 
-        _camera.Fov = frame.Fov;
-        _camera.LookAtFromPosition(frame.Eye, frame.Target, Vector3.Up);
-        var shake = CameraRig.ShakeAt(frame.Eye).GetRotationQuaternion();
-        _camera.Basis *= new Basis(Quaternion.Identity.Slerp(shake, _inside is null ? 0.5f : 1));
-        // The focus follows its frame smoothly within a take: a followed machine's every jolt moved the sharp zone, and
-        // the blur behind it pulsed.
-        var focus = frame.Focus ?? frame.Eye.DistanceTo(frame.Target);
-        _focus = cut ? focus : Mathf.Lerp(_focus, focus, 1 - Mathf.Exp(-_step / 0.15f));
-        FilmLook.Focus(_camera, _focus, frame.Blur);
+        Show(frame, cut);
 
         // The weather and the shadows' reach follow what the camera looks at.
         _rig.Position = Ground(frame.Target.X, frame.Target.Z);
@@ -227,7 +196,7 @@ public partial class Cinematic : Node
 
         // Fades from and to black, the title coming on its beat.
         var t = (float)_time;
-        _look.Fade = 1 - Mathf.SmoothStep(0, _fadeIn, t) * (_fadeOut ? 1 - Mathf.SmoothStep(_length - 1.8f, _length, t) : 1);
+        _look.Fade = Mathf.Max(1 - Mathf.SmoothStep(0, _fadeIn, t) * (_fadeOut ? 1 - Mathf.SmoothStep(_length - 1.8f, _length, t) : 1), ScriptFade);
         if (_title is not null && _titleAt is { } titleAt)
             _title.Modulate = new Color(1, 1, 1, Mathf.SmoothStep(titleAt - 0.1f, titleAt + 0.3f, t) * (1 - Mathf.SmoothStep(_length - 0.6f, _length, t)));
 
@@ -254,125 +223,6 @@ public partial class Cinematic : Node
         if (_stills.Count == 0)
             GetTree().Quit();
     }
-
-    // ---- who is in it --------------------------------------------------------------------------
-
-    private List<int> Of(Race race, string type, string? sub = null) =>
-        _world.Machines.Where(m => m.Race == race && m.IsType(type, sub)).Select(m => m.Id).ToList();
-
-    private static int Nearest(IEnumerable<Actor> actors, float x, float y) =>
-        actors.OrderBy(a => NVector2.Distance(a.Position, new NVector2(x, y))).FirstOrDefault()?.Id ?? -1;
-
-    // The one of those machines nearest a point.
-    private int NearestOf(IEnumerable<int> ids, float x, float y) =>
-        Nearest(ids.Select(_world.FindTarget).OfType<Actor>(), x, y);
-
-    // A race's building of that type nearest a point.
-    private int Building(Race race, string type, float x, float y, string? sub = null) =>
-        Nearest(_world.Constructions.Where(c => c.Race == race && c.IsType(type, sub)), x, y);
-
-    // The middle of those of a group still alive, as the simulation has them: orders aimed by the views, which move
-    // with the frames, would play out differently at another frame rate.
-    private NVector2? SimCentre(IEnumerable<int> ids)
-    {
-        var alive = ids.Select(_world.FindTarget).OfType<Actor>().Where(a => !a.IsDead).ToList();
-        return alive.Count == 0 ? null : alive.Aggregate(NVector2.Zero, (sum, a) => sum + a.Position) / alive.Count;
-    }
-
-    // ---- where things are ----------------------------------------------------------------------
-
-    // A point on the ground (or the water) at an original position, lifted by up metres.
-    private static Vector3 Ground(float x, float y, float up = 0) => new(x, Mathf.Max(HeightField.Current?.At(x, y) ?? 0, 0) + up, y);
-
-    // The same point at up metres over the ground beneath it.
-    private static Vector3 Lift(Vector3 at, float up) => Ground(at.X, at.Z, up);
-
-    private static float Ease(float u) => u * u * (3 - 2 * u);
-
-    private Vector3? Position(int id) => _world.FindTarget(id) is not null ? _view(id)?.GlobalPosition : null;
-
-    // The middle of those of a group still alive.
-    private Vector3? Centre(IEnumerable<int> ids)
-    {
-        var alive = ids.Select(Position).OfType<Vector3>().ToList();
-        return alive.Count == 0 ? null : alive.Aggregate(Vector3.Zero, (sum, p) => sum + p) / alive.Count;
-    }
-
-    // A point the camera follows smoothly within a take (rate: how quickly it catches up); it keeps the last place
-    // when the point is gone.
-    private Vector3 Follow(string name, Vector3? at, float rate = 3)
-    {
-        if (!_followed.TryGetValue(name, out var was))
-            return _followed[name] = at ?? Vector3.Zero;
-        if (at is not { } now)
-            return was;
-        return _followed[name] = was.Lerp(now, 1 - Mathf.Exp(-rate * _step));
-    }
-
-    // A machine a take picks once, when it begins, and keeps.
-    private int? Pick(string name, Func<int?> choose) =>
-        _picked.TryGetValue(name, out var id) ? id : _picked[name] = choose();
-
-    // The way along the ground from one point to another.
-    private static Vector3 Flat(Vector3 way) => new Vector3(way.X, 0, way.Z).Normalized();
-
-    // A point kept at least up metres over the ground.
-    private static Vector3 Above(Vector3 at, float up) => at with { Y = Mathf.Max(at.Y, Ground(at.X, at.Z, up).Y) };
-
-    // A point fixed where it was when the take began.
-    private Vector3 Hold(string name, Vector3? at) =>
-        _followed.TryGetValue(name, out var was) ? was : _followed[name] = at ?? Vector3.Zero;
-
-    // Around a point at a radius, an angle (radians) and a height over the ground there.
-    private static Vector3 Around(Vector3 centre, float radius, float angle, float up) =>
-        Lift(centre + new Vector3(Mathf.Cos(angle) * radius, 0, Mathf.Sin(angle) * radius), up);
-
-    /// <summary>
-    /// From inside a machine, as the first person sees it: from its faceplate, turning with its upper body, level
-    /// whatever it leans; the machine itself is hidden from the camera until the cut. Pitch in radians, up positive.
-    /// </summary>
-    private Frame Cockpit(int id, float pitch = -0.04f, float fov = 62)
-    {
-        if (_world.FindTarget(id) is null || _view(id) is not ActorView view)
-            return _last;
-        if (_inside != id)
-        {
-            Leave();
-            view.SetDriven(true);
-            _inside = id;
-            _camera.CullMask = ~ActorView.DrivenLayer & 0xFFFFF;
-        }
-        var eye = view.Eye;
-        var look = new Basis(Vector3.Up, view.Yaw - view.UpperBodyNow - Mathf.Pi / 2) * new Basis(Vector3.Right, pitch) * Vector3.Forward;
-        return new Frame(eye, eye + look * 40, fov, 25, 0.5f);
-    }
-
-    // Out of the machine the camera rode in.
-    private void Leave()
-    {
-        if (_inside is { } id && _view(id) is ActorView view)
-            view.SetDriven(false);
-        _inside = null;
-        _camera.CullMask = 0xFFFFF;
-    }
-
-    // Turns a machine's upper body (radians from its hull, as ActorView.UpperBodyAngle), or leaves it to its target.
-    private void Steer(int? id, float? angle = null)
-    {
-        if (_steered is { } was && was != id && _view(was) is ActorView old)
-            old.Steered = null;
-        _steered = id;
-        if (id is not { } machine || _view(machine) is not ActorView view)
-            return;
-        view.Steered = angle;
-        if (angle is { } a)
-            view.UpperBodyAngle = a;
-    }
-
-    // The angle from a machine's hull to a point, as ActorView.UpperBodyAngle.
-    private float Toward(int id, Vector3 at) => _world.FindTarget(id) is Machine m
-        ? Mathf.Wrap(MathF.Atan2(at.Z - m.Position.Y, at.X - m.Position.X) - m.Facing, -Mathf.Pi, Mathf.Pi)
-        : 0;
 
     private Control Title()
     {
