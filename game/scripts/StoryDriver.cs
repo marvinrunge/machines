@@ -165,7 +165,14 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         NVector2 Zone(string name) => world.Deck?.Zones.FirstOrDefault(z => z.Name == name) is { } zone ? (zone.Min + zone.Max) / 2 : hero.Position;
         NVector2 Marker(string name) => world.Deck!.Marker(name).Position;
 
-        if (!Done("clamp_l7"))
+        if (_reviving && Fallen(game, story) is null)
+        {
+            _reviving = false;
+            Hold(KeyMap.Act.Use, false);
+        }
+        if (director.Has("control_lost") && !director.Has("launch") && Fallen(game, story) is { } fallen)
+            Revive(game, hero, fallen);
+        else if (!Done("clamp_l7"))
             await Hack(game, story, hero, "clamp_l7");
         else if (!Done("terminal_ike"))
             await Hack(game, story, hero, "terminal_ike");
@@ -188,9 +195,14 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         else if (!director.Has("together"))
             await Gather(game, story, hero, "together", "R12");
         else if (!director.Has("weapon"))
-            Go(game, hero, "weapon", Marker("pickup_bolter"), 1.5f);
+            await TakeUp(game, hero, "pickup_bolter", Marker("pickup_bolter"));
+        else if (!director.Has("cleared"))
+            Fight(game, story, hero);
         else if (!director.Has("repaired"))
+        {
+            Fire(game, hero, 0, false);
             Go(game, hero, "repair", Zone("repair"), 1.5f);
+        }
         else if (!director.Has("notgang"))
             Go(game, hero, "notgang", new NVector2(240, 100), 2);
         else if (!Done("pod_3_hatch"))
@@ -199,6 +211,72 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
             await Gather(game, story, hero, "launch", "pod_zone");
         else
             Wait(game, hero, "the pod");
+    }
+
+    private bool _reviving;
+
+    /// <summary>A Grunt of the trio lying down outside the pod (the director's rally points at it), or null.</summary>
+    private static Machine? Fallen(Game game, StoryRun story)
+    {
+        var world = game.World;
+        var pod = world.Deck?.Zone(GameWorld.PodZone);
+        foreach (var seat in story.Seats.Skip(1))
+        {
+            if (world.CompanionDown(seat) && world.HeroOf(seat) is { } grunt && pod?.Contains(grunt.Position) != true)
+                return grunt;
+        }
+        return null;
+    }
+
+    /// <summary>To a fallen Grunt, then the use key held until it is up again (GameWorld.ReviveReach, four seconds).</summary>
+    private void Revive(Game game, Machine hero, Machine fallen)
+    {
+        Fire(game, hero, 0, false);
+        if (!Go(game, hero, "revive " + fallen.Id, fallen.Position, GameWorld.ReviveReach - 1.5f))
+        {
+            if (_reviving)
+                Hold(KeyMap.Act.Use, _reviving = false);
+            return;
+        }
+        Look(game, Heading(hero.Position, fallen.Position), -0.1f);
+        _reviving = true;
+        Hold(KeyMap.Act.Use, true);
+    }
+
+    /// <summary>To a weapon's rack, then its use key (StoryUseCommand) until the hero wears the weapon.</summary>
+    private async Task TakeUp(Game game, Machine hero, string rack, NVector2 at)
+    {
+        if (!Go(game, hero, "take up " + rack, at, 1.5f))
+            return;
+        var now = Time.GetTicksMsec() / 1000.0;
+        if (now - _lastUse > 1.5)
+        {
+            _lastUse = now;
+            await Tap(KeyMap.Of(KeyMap.Act.Use));
+        }
+    }
+
+    /// <summary>
+    /// The workshop's armed Grunts, the nearest first: closed in on and shot at through the real triggers (WiredDriver's
+    /// Attack). With none of them left standing in sight the hero waits for the director.
+    /// </summary>
+    private void Fight(Game game, StoryRun story, Machine hero)
+    {
+        var world = game.World;
+        var foe = story.Director.Of(world, Prologue.HostileRole).Where(m => !m.IsDead)
+            .OrderBy(m => NVector2.DistanceSquared(m.Position, hero.Position)).ThenBy(m => m.Id).FirstOrDefault();
+        if (foe is null)
+        {
+            Fire(game, hero, 0, false);
+            Wait(game, hero, "the workshop cleared");
+            return;
+        }
+        if (Overdue("fight", 150))
+        {
+            Tell($"the fight in the workshop took too long: {foe.Id} at {foe.Position.X:0.0},{foe.Position.Y:0.0} still stands");
+            _legSince = Time.GetTicksMsec() / 1000.0;
+        }
+        Attack(game, hero, foe);
     }
 
     /// <summary>Starts a leg's clock when the leg changes; true once it has run longer than so many seconds.</summary>

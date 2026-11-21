@@ -281,8 +281,10 @@ public partial class Game
                     StoryAudio.Play(sound, at);
                 break;
             case ["pickup", _]:
-                // TODO(merge, WP-G): the weapon goes onto the Locator's chassis.
+                // The weapon is on the Locator's chassis already (the refit shows it); its driver hears and reads what it took.
                 StoryAudio.Play("clamp_release", at);
+                if (World.Story is { } taken && Me == taken.Locator)
+                    _hud.Story?.Float("+ " + Lang.T("Bolter"));
                 break;
             case ["rumble", ..]:
                 StoryAudio.Play("metal_groan_big");
