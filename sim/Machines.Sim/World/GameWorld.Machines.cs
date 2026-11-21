@@ -443,6 +443,8 @@ public sealed partial class GameWorld
                 machine.Order = Order.Idle;
             return;
         }
+        if (Story is not null && StoryFollow(machine, follow, leader))
+            return;
         var gap = 2 * (machine.Stats.HighClearance + leader.Stats.HighClearance);
         var way = leader.Position - machine.Position;
         var distance = way.Length();

@@ -531,7 +531,7 @@ public sealed partial class GameWorld
             var already = Vector2.DistanceSquared(from, other.Position);
             if (already < clearance * clearance || restingOnly && !IsResting(other))
                 continue;
-            var end = other.DrivenByPlayer ? to + ahead : to;
+            var end = other.DrivenByPlayer && !(Story is not null && FollowsInStory(machine, other)) ? to + ahead : to;
             if (DistanceToSegment(other.Position, from, end) >= clearance)
                 continue;
             if (already < best || already == best && other.Id < nearest!.Id)
@@ -896,6 +896,10 @@ public sealed partial class GameWorld
             // post on the way out of the pod), makes way as a resting machine of its own side does for one on an order.
             if (Battle is not null && blocker.Race != machine.Race && !AreEnemies(machine.Race, blocker.Race))
                 MakeWay(blocker, machine.Position, machine.Position + Vector2.Normalize(step) * (4 * (machine.Radius + blocker.Radius)), machine.Radius);
+            // In a story a Grunt the computer drives makes way for the Locator likewise (one that followed it into a bay
+            // stands between it and the door), half a metre further than touching, or it stands on the Locator's way's edge.
+            else if (Story is not null && MakesWayInStory(blocker))
+                MakeWay(blocker, machine.Position, machine.Position + Vector2.Normalize(step) * (4 * (machine.Radius + blocker.Radius)), machine.Radius + 0.5f);
             StopDead(motion);
         }
         else if (!SlideOn(machine, step))

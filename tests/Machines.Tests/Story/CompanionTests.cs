@@ -93,13 +93,14 @@ public class CompanionTests
 
         Run(world, 20);
 
+        // In a queue (GameWorld.StoryMotion): the nearer keeps its distance to the Locator, the other to its mate.
         var locator = Hero(world, Locator);
-        foreach (var seat in new[] { Ike, Bob })
-        {
-            var distance = Vector2.Distance(Hero(world, seat).Position, locator.Position);
-            Assert.InRange(distance, 3, 9);
-            Assert.Equal(new FollowOrder(locator.Id), Hero(world, seat).Order);
-        }
+        var (ike, bob) = (Hero(world, Ike), Hero(world, Bob));
+        var (first, second) = Vector2.Distance(ike.Position, locator.Position) < Vector2.Distance(bob.Position, locator.Position) ? (ike, bob) : (bob, ike);
+        Assert.InRange(Vector2.Distance(first.Position, locator.Position), 3, 9);
+        Assert.InRange(Vector2.Distance(second.Position, first.Position), 3, 9);
+        foreach (var grunt in new[] { ike, bob })
+            Assert.Equal(new FollowOrder(locator.Id), grunt.Order);
     }
 
     [Fact]
