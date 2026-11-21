@@ -77,13 +77,13 @@ public sealed class DeckLayout
     public const int Module = 4;
 
     /// <summary>Ceilings where no room says: inside ducts, of a room the deck gives no height, and the doors by kind.</summary>
-    public const float DuctHeight = 3, DefaultHeight = 8, DoorHeight = 4, VentHeight = 3, GateHeight = 7, BlastHeight = 7, WideBlastHeight = 8;
+    public const float DuctHeight = 3, DefaultHeight = 16, DoorHeight = 8, VentHeight = 3, GateHeight = 14, BlastHeight = 14, WideBlastHeight = 16;
 
     /// <summary>How far apart a lit room's ceiling lamps hang, and an emergency lamp on the walls at most.</summary>
-    public const float LampSpacing = 8, WallLampSpacing = 12;
+    public const float LampSpacing = 16, WallLampSpacing = 24;
 
     /// <summary>Rooms at least this tall get a shadowed lamp in their middle (the computer core, the pod bay).</summary>
-    public const float ShadowedRoom = 12;
+    public const float ShadowedRoom = 30;
 
     private readonly float[] _height;
 
@@ -112,13 +112,22 @@ public sealed class DeckLayout
     /// </summary>
     public IReadOnlyList<Vector3> CrashFires { get; }
 
+    /// <summary>
+    /// A pod within this many metres of the hatch is the one that launches (pod 3's hatch is 20 m from its middle); a broken
+    /// pod burns this far north of its middle, beside its 47.5 m hull (the game's Pod at its own size).
+    /// </summary>
+    public const float PodHatchReach = 30, PodFireOffset = 26;
+
+    /// <summary>How many times its 10 m the pods' cradle ring is drawn, to hold the game's Pod at its own size.</summary>
+    public const float PodCradle = 5;
+
     private List<Vector3> FindCrashFires()
     {
         var fires = new List<Vector3>();
         var hatch = Deck.Markers.FirstOrDefault(m => m.Tags.Contains("hatch"));
         foreach (var pod in Deck.Markers.Where(m => m.Tags.Contains("pod")))
-            if (hatch is null || Vector2.Distance(pod.Position, hatch.Position) > 10)
-                fires.Add(new Vector3(pod.Position + new Vector2(0, 4), 0));
+            if (hatch is null || Vector2.Distance(pod.Position, hatch.Position) > PodHatchReach)
+                fires.Add(new Vector3(pod.Position + new Vector2(0, PodFireOffset), 0));
         var walls = new List<Vector3>();
         foreach (var room in Rooms.Where(r => r.Tag("section") == "7"))
             foreach (var (start, along, inward, length) in Sides(room))
@@ -241,7 +250,7 @@ public sealed class DeckLayout
             {
                 "vent" => VentHeight,
                 "gate" => GateHeight,
-                "blast" => width >= 8 ? WideBlastHeight : BlastHeight,
+                "blast" => width >= 16 ? WideBlastHeight : BlastHeight,
                 _ => DoorHeight,
             };
             openings.Add(new DeckOpening(door.Letter, door.Kind, rect, alongX, Math.Min(kind, LowestBeside(rect, alongX))));
@@ -458,10 +467,10 @@ public sealed class DeckLayout
             var height = ZoneHeight(zone) ?? Height((int)zone.Centre().X, (int)zone.Centre().Y);
             var (min, max) = (zone.Min, zone.Max);
             var size = max - min;
-            // Ceiling lamps hang under the ceiling, in tall rooms on drop cables at most 9 m up; they reach the floor.
+            // Ceiling lamps hang under the ceiling, in tall rooms on drop cables at most 12 m up; they reach the floor.
             var nx = Math.Max(1, (int)MathF.Round(size.X / LampSpacing));
             var ny = Math.Max(1, (int)MathF.Round(size.Y / LampSpacing));
-            var hang = Math.Min(height - 0.35f, 9f);
+            var hang = Math.Min(height - 0.35f, 12f);
             var ceiling = new List<DeckLamp>();
             for (var j = 0; j < ny; j++)
                 for (var i = 0; i < nx; i++)
@@ -512,7 +521,7 @@ public sealed class DeckLayout
     public const float MinSpread = 25, MaxSpread = 70, ShadowedSpread = 65, WallLampSpread = 60;
 
     /// <summary>How far a wall lamp reaches at most, metres.</summary>
-    public const float WallLampRange = 9;
+    public const float WallLampRange = 14;
 
     /// <summary>
     /// How far from <paramref name="from"/> (at most <paramref name="limit"/> metres, along the floor) light goes before it
@@ -628,15 +637,17 @@ public sealed class DeckLayout
             {
                 var room = Height((int)MathF.Floor(at.X), (int)MathF.Floor(at.Y));
                 // The clamp's hoist meets the ceiling: stretched a little in taller rooms.
-                var stretch = tag == "clamp" ? Math.Clamp(room / 7, 1, 1.3f) : 1;
-                pieces.Add(new DeckPiece(floorPiece, new Vector3(at, 0), marker.Angle, new Vector3(1, stretch, 1)));
+                var stretch = tag == "clamp" ? Math.Clamp(room / 14, 1, 1.3f) : 1;
+                // The pod's cradle is a ring round the game's Pod at its own size (docs/story/deck/scale.md §6).
+                var scale = tag == "pod" ? new Vector3(PodCradle, PodCradle / 2, PodCradle) : new Vector3(1, stretch, 1);
+                pieces.Add(new DeckPiece(floorPiece, new Vector3(at, 0), marker.Angle, scale));
             }
             else if (tag == "screen")
                 pieces.Add(new DeckPiece("wall_screen", new Vector3(at, 1.4f), marker.Angle, Vector3.One));
             else if (tag == "switch")
                 pieces.Add(new DeckPiece("plate", new Vector3(at, 0), marker.Angle, new Vector3(3, 0.08f, 3)));
             else if (Covers.Where(c => !claimed.Contains(c)).OrderBy(c => Distance(c, at)).FirstOrDefault() is var cover
-                     && cover.Width > 0 && Distance(cover, at) <= 2.5f)
+                     && cover.Width > 0 && Distance(cover, at) <= 4)
             {
                 claimed.Add(cover);
                 var prop = CoverPieces[tag];
@@ -809,7 +820,7 @@ public sealed class DeckLayout
         foreach (var (start, along, inward, length) in sides)
             if (OnWall(start, along, inward, length / 2, length) is { } at)
             {
-                yield return new DeckPiece("pa_speaker", new Vector3(at + inward * 0.5f, Math.Min(height - 1.2f, 5.5f)), Degrees(inward), Vector3.One);
+                yield return new DeckPiece("pa_speaker", new Vector3(at + inward * 0.5f, Math.Min(height - 1.2f, 10f)), Degrees(inward), Vector3.One);
                 break;
             }
         // Pipes and pillars in turn along the long sides of the larger rooms.
@@ -818,24 +829,24 @@ public sealed class DeckLayout
         {
             if (height < 6 || length < 12 || length < Math.Max(size.X, size.Y) - 0.01f)
                 continue;
-            for (var t = 2f; t + 4 <= length - 2; t += 8)
+            for (var t = 4f; t + 4 <= length - 4; t += 12)
                 if (WallBehind(start, along, inward, t, t + 4))
-                    yield return new DeckPiece("pipe_run", new Vector3(start + along * (t + 2) + inward * 0.35f, Math.Min(height - 2.5f, 4.5f)), Degrees(inward), Vector3.One);
+                    yield return new DeckPiece("pipe_run", new Vector3(start + along * (t + 2) + inward * 0.35f, Math.Min(height - 2.5f, 9f)), Degrees(inward), Vector3.One);
             if (height < 8)
                 continue;
-            for (var t = 8f; t <= length - 4; t += 8)
+            for (var t = 10f; t <= length - 6; t += 12)
                 if (WallBehind(start, along, inward, t - 0.5f, t + 0.5f))
                     yield return new DeckPiece("kit_pillar", new Vector3(start + along * t, 0), Degrees(inward), new Vector3(1, height / 8, 1));
         }
         // A bundle of cables hanging by a wall of a small room, where it clears a machine's head.
-        if (height - 3.19f >= 2.5f && size.X * size.Y <= 700)
+        if (height - 3.19f >= 7f && size.X * size.Y <= 2800)
         {
             var (start, along, inward, length) = sides.OrderByDescending(s => s.Length).First();
             if (OnWall(start, along, inward, length * 0.3f, length) is { } at)
                 yield return new DeckPiece("cable_hang", new Vector3(at + inward * 0.6f, height - 3.19f), Degrees(inward), Vector3.One);
         }
         // A hall gets a gantry crane across it under the ceiling.
-        if (height >= 18 && Math.Min(size.X, size.Y) >= 30)
+        if (height >= 44 && Math.Min(size.X, size.Y) >= 60)
         {
             var shortAcrossX = size.X < size.Y;
             var span = Math.Min(size.X, size.Y) - 2;

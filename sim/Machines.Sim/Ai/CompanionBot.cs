@@ -25,7 +25,7 @@ public sealed class CompanionBot(GameWorld world, PlayerId seat)
     private const float There = 3;
 
     /// <summary>How far behind the Locator a following Grunt may fall where it does not fit before it says so.</summary>
-    private const float LeftBehind = 10;
+    private const float LeftBehind = 16;
 
     /// <summary>How long a honk lasts, and how long a trip of a job may take before the Grunt gives the job up.</summary>
     private const float HonkSeconds = 2, TripSeconds = 40;

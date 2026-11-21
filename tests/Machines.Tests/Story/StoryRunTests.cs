@@ -41,12 +41,12 @@ public class StoryRunTests
     {
         var planet = Data.LoadPlanet(StoryOptions.Prologue);
 
-        Assert.Equal(270, planet.Surface.Width);
-        Assert.Equal(180, planet.Surface.Depth);
+        Assert.Equal(630, planet.Surface.Width);
+        Assert.Equal(420, planet.Surface.Depth);
         Assert.All(planet.Surface.Tiles, tile => Assert.Equal(0, tile.Height));
         Assert.NotEmpty(planet.ConfigSpace.Obstacles);
         Assert.NotNull(planet.Deck);
-        Assert.Equal((270, 180), (planet.Deck!.Width, planet.Deck.Depth));
+        Assert.Equal((630, 420), (planet.Deck!.Width, planet.Deck.Depth));
         // The original's planets have no deck and still load from data/original.
         Assert.Null(Data.LoadPlanet("m_desert").Deck);
     }
@@ -70,10 +70,10 @@ public class StoryRunTests
         Assert.True(deck.Zone("R3")!.Contains(deck.Marker("spawn_bob").Position));
         Assert.All("ABC", letter => Assert.Equal("locked", deck.Door(letter)!.State));
         // Ducts have lips at their mouths and grates look from the escape duct into both parallel corridors.
-        Assert.Equal(DeckCell.Lip, deck.Cell(106, 117));
-        Assert.Equal(DeckCell.Duct, deck.Cell(140, 117));
-        Assert.Equal(DeckCell.Grate, deck.Cell(112, 114));
-        Assert.Equal(DeckCell.Grate, deck.Cell(112, 121));
+        Assert.Equal(DeckCell.Lip, deck.Cell(228, 266));
+        Assert.Equal(DeckCell.Duct, deck.Cell(296, 266));
+        Assert.Equal(DeckCell.Grate, deck.Cell(240, 260));
+        Assert.Equal(DeckCell.Grate, deck.Cell(240, 274));
     }
 
     [Fact]

@@ -33,9 +33,9 @@ public class StoryWayTests
     /// for the goal's own blocked ground (a building one drives up to) and handed back the spot itself, across the wall.
     /// </summary>
     [Theory]
-    [InlineData(158.5f, 108.5f, 158.8f, 102.0f)]
-    [InlineData(158.5f, 109.5f, 158.8f, 102.5f)]
-    [InlineData(130.5f, 109.5f, 130.5f, 103.0f)]
+    [InlineData(357f, 249f, 357.6f, 236f)]
+    [InlineData(357f, 251f, 357.6f, 237f)]
+    [InlineData(277f, 251f, 277f, 238f)]
     public void A_way_from_the_parallel_corridor_never_ends_in_the_cable_duct_behind_its_wall(float x, float y, float toX, float toY)
     {
         var world = Chapter(3);
@@ -45,7 +45,7 @@ public class StoryWayTests
 
         var path = world.Nav.FindPath(reaper.Position, new Vector2(toX, toY), mobility);
 
-        Assert.DoesNotContain(path, p => Inside(p, 106, 100, 170, 104.99f));
+        Assert.DoesNotContain(path, p => Inside(p, 228, 232, 380, 241.98f));
     }
 
     /// <summary>
@@ -54,8 +54,8 @@ public class StoryWayTests
     /// its side. Before, the end of its run set it down in the duct in one tick.
     /// </summary>
     [Theory]
-    [InlineData(158.5f, 108.5f, 158.8f, 102.0f)]
-    [InlineData(130.5f, 109.5f, 130.5f, 103.0f)]
+    [InlineData(357f, 249f, 357.6f, 236f)]
+    [InlineData(277f, 251f, 277f, 238f)]
     public void A_reaper_sent_into_the_cable_duct_from_the_corridor_beside_it_stays_on_its_side_of_the_wall(float x, float y, float toX, float toY)
     {
         var world = new GameWorld(DataLoader.Value, DataLoader.Value.LoadPlanet(StoryOptions.Prologue), 1);
@@ -76,7 +76,7 @@ public class StoryWayTests
             world.Step();
             if (Vector2.Distance(reaper.Position, last) > 1)
                 jumps.Add($"{last} -> {reaper.Position} t={world.Time:0.00}");
-            if (Inside(reaper.Position, 106, 100, 170, 104.99f))
+            if (Inside(reaper.Position, 228, 232, 380, 241.98f))
                 inside.Add($"{reaper.Position} t={world.Time:0.00}");
             last = reaper.Position;
         }
@@ -97,10 +97,10 @@ public class StoryWayTests
         var run = world.Story!;
         world.Step();
         // The Locator through to the crossing already, out of the hunt's way.
-        Hero(world, 0).Position = new Vector2(180.5f, 104.5f);
+        Hero(world, 0).Position = new Vector2(401, 241);
         var bob = Hero(world, 2);
-        var spot = new Vector2(160, 102.5f);
-        var door = new Vector2(101, 102.5f);
+        var spot = new Vector2(360, 237);
+        var door = new Vector2(218, 237);
         var reaper = world.AddMachine(Race.Blue, door, "AGGRESSOR", "ASSASSIN", 2, "L_PLASMA_RIFLE");
         reaper.Facing = 0;
         world.Step();
@@ -130,9 +130,9 @@ public class StoryWayTests
     /// door and door T stay one area for the Locator and the Grunts (before, a crate there left the Notgang out of reach).
     /// </summary>
     [Theory]
-    [InlineData(217.5f, 101.5f)]
-    [InlineData(218.5f, 105.5f)]
-    [InlineData(222.5f, 97.5f)]
+    [InlineData(475f, 235f)]
+    [InlineData(477f, 243f)]
+    [InlineData(485f, 227f)]
     public void The_crate_knocked_onto_a_grunt_in_the_workshop_never_shuts_the_way_on(float x, float y)
     {
         var world = Chapter(4);
@@ -159,7 +159,7 @@ public class StoryWayTests
         Assert.True(run.Director.Has("knocked"));
         var crate = Assert.Single(world.Artefacts, a => a.Id >= Artefact.IdBase + StoryDirector.PlacedBase);
         Assert.True(Vector2.Distance(crate.Position, bob.Position) >= bob.Radius + StoryFall.Lies, $"crate at {crate.Position}, Bob at {bob.Position}");
-        Vector2[] places = [new(205.5f, 108.5f), new(217.5f, 107.5f), new(218.5f, 97.5f), new(226.5f, 108.5f), new(232.5f, 97.5f)];
+        Vector2[] places = [new(451, 249), new(475, 247), new(477, 227), new(493, 249), new(505, 227)];
         foreach (var mobility in new[] { GameWorld.MobilityOf(locator), GameWorld.MobilityOf(bob) })
         {
             var regions = places.Select(p => world.Nav.Cell(p)).Select(c => world.Nav.Region(c.X, c.Y, mobility)).ToList();
@@ -172,15 +172,15 @@ public class StoryWayTests
     public void A_crate_beside_a_machine_on_the_deck_is_still_driven_up_to()
     {
         var world = Chapter(3);
-        var grunt = world.AddMachine(Race.Blue, new Vector2(180.5f, 112.5f), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
-        var crate = world.PlaceArtefact("crate_small", new Vector2(182.5f, 112.5f), 0);
+        var grunt = world.AddMachine(Race.Blue, new Vector2(401, 257), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+        var crate = world.PlaceArtefact("crate_small", new Vector2(405, 257), 0);
         Assert.NotNull(crate);
         var mobility = GameWorld.MobilityOf(grunt);
-        Assert.False(world.Nav.IsFree(new Vector2(182.5f, 112.5f), mobility));
+        Assert.False(world.Nav.IsFree(new Vector2(405, 257), mobility));
 
-        var path = world.Nav.FindPath(grunt.Position, new Vector2(182.5f, 112.5f), mobility);
+        var path = world.Nav.FindPath(grunt.Position, new Vector2(405, 257), mobility);
 
         Assert.NotEmpty(path);
-        Assert.True(Vector2.Distance(path[^1], new Vector2(182.5f, 112.5f)) < 2.5f, $"ends at {path[^1]}");
+        Assert.True(Vector2.Distance(path[^1], new Vector2(405, 257)) < 4, $"ends at {path[^1]}");
     }
 }

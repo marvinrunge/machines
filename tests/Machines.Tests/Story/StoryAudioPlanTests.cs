@@ -166,10 +166,10 @@ public class StoryAudioPlanTests
             Assert.All(layers, l => Assert.True(sfx.Loops(l.Sound), $"{room.Name}: {l.Sound} is no loop of the sfx set"));
         }
         // A duct inside deck A is heard as the duct, deck A as a hall, the core as the biggest hall of all.
-        var duct = StorySoundscape.RoomAt(deck, new Vector2(84, 52));
+        var duct = StorySoundscape.RoomAt(deck, new Vector2(184, 120));
         Assert.Equal("V1b", duct?.Name);
         Assert.Equal(StorySoundscape.Duct, StorySoundscape.Reverb(duct));
-        Assert.Equal(StorySoundscape.Hall, StorySoundscape.Reverb(StorySoundscape.RoomAt(deck, new Vector2(70, 30))));
+        Assert.Equal(StorySoundscape.Hall, StorySoundscape.Reverb(StorySoundscape.RoomAt(deck, new Vector2(156, 60))));
         Assert.Equal(StorySoundscape.Cathedral, StorySoundscape.Reverb(deck.Zone("R9")));
         Assert.Equal(StorySoundscape.Room, StorySoundscape.Reverb(null));
     }

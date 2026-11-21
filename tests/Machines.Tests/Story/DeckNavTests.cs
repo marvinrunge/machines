@@ -98,7 +98,8 @@ public class DeckNavTests
         Assert.Equal(new Mobility(false, 2, false), GameWorld.MobilityOf(Reaper(world, East)));
         Assert.Equal(new Mobility(true, 2, false), GameWorld.MobilityOf(Commander(world, East)));
         Assert.Equal(new Mobility(false, 3, false), GameWorld.MobilityOf(Thresher(world, East)));
-        Assert.Equal([0f, 1.5f, 2.5f, 3.5f], Enumerable.Range(0, 4).Select(Mobility.Room));
+        Assert.Equal([0f, 1.5f, 2.5f, 3.5f], Enumerable.Range(0, 4).Select(size => Mobility.Room(size)));
+        Assert.Equal([0f, 2.5f, 4.5f, 6.5f], Enumerable.Range(0, 4).Select(size => Mobility.Room(size, 2)));
     }
 
     [Fact]
@@ -218,12 +219,12 @@ public class DeckNavTests
     public void A_wall_blocks_a_clear_shot_and_a_grate_does_not()
     {
         var world = Prologue();
-        // From the second parallel corridor (P2) up into the escape duct: through the grate window at x 112-114, or through the
-        // wall beside it at x 117.
-        var throughGrate = (Reaper(world, new Vector2(113.5f, 109.5f)), Locator(world, new Vector2(113.5f, 117.5f)));
-        var throughWall = (Reaper(world, new Vector2(117.5f, 109.5f)), Locator(world, new Vector2(117.5f, 117.5f)));
-        Assert.Equal(DeckCell.Grate, world.Deck!.Cell(113, 114));
-        Assert.Equal(DeckCell.Wall, world.Deck.Cell(117, 114));
+        // From the second parallel corridor (P2) up into the escape duct: through the grate window at x 240-246, or through the
+        // wall beside it at x 251.
+        var throughGrate = (Reaper(world, new Vector2(243, 251)), Locator(world, new Vector2(243, 267)));
+        var throughWall = (Reaper(world, new Vector2(251, 251)), Locator(world, new Vector2(251, 267)));
+        Assert.Equal(DeckCell.Grate, world.Deck!.Cell(242, 260));
+        Assert.Equal(DeckCell.Wall, world.Deck.Cell(250, 260));
 
         Assert.True(world.ClearShot(throughGrate.Item1, throughGrate.Item2));
         Assert.True(world.ClearShot(throughGrate.Item2, throughGrate.Item1));
@@ -440,7 +441,7 @@ public class DeckNavTests
         // The same tick on another deck (a door cell walled up) gives another checksum.
         var planet = ProloguePlanet.Value;
         var text = File.ReadAllText(Path.Combine(RepoPaths.OriginalDataFolder(), "..", "planets", StoryOptions.Prologue, StoryOptions.Prologue + ".deck"));
-        var other = DeckParser.Parse(text.Replace("spawn_l7 27 23.5 90 hero", "spawn_l7 27 24.5 90 hero", StringComparison.Ordinal));
+        var other = DeckParser.Parse(text.Replace("spawn_l7 54 47 90 hero", "spawn_l7 54 48 90 hero", StringComparison.Ordinal));
         Assert.NotEqual(planet.Deck!.Fingerprint, other.Fingerprint);
         Assert.NotEqual(new GameWorld(Data, planet, 1).Checksum(), new GameWorld(Data, planet with { Deck = other }, 1).Checksum());
     }

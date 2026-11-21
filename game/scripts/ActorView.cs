@@ -35,6 +35,18 @@ public partial class ActorView : Node3D
     public static Func<int, bool>? LampAllowed { get; set; }
 
     /// <summary>
+    /// On the story's deck, whether a machine's lamp is damaged, by its actor's id (the trio's: the Locator's and the Grunts'
+    /// lamps came through the update badly): it shines dimmer and flickers now and then (<see cref="LampFlicker"/>). The
+    /// view's alone, so the sim, its sight and every client stay as they are. Null in every other match.
+    /// </summary>
+    public static Func<int, bool>? LampDamaged { get; set; }
+
+    /// <summary>How bright a damaged lamp shines at most, as a share of a sound one.</summary>
+    public const float DamagedLampShare = 0.4f;
+
+    private LampFlicker? _flicker;
+
+    /// <summary>
     /// On a ship deck, whether a machine carries a searchlight (the Thresher, GameWorld.StorySight): its lamp is a long,
     /// narrow, shadowed beam carried level ahead, the cone the sim sees by. Null in every other match.
     /// </summary>
@@ -1135,6 +1147,11 @@ public partial class ActorView : Node3D
                 MakeSearchlight(searching);
             _lamp.Visible = Visible && PlanetLook.Dark > 0.05f && (LampAllowed?.Invoke(ActorId) ?? true);
             _lamp.LightEnergy = PlanetLook.Dark * _lampEnergy;
+            if (_lamp.Visible && !_searchlight && LampDamaged?.Invoke(ActorId) == true)
+            {
+                _flicker ??= new LampFlicker(ActorId);
+                _lamp.LightEnergy *= DamagedLampShare * _flicker.At(Time.GetTicksMsec() / 1000.0);
+            }
             if (_lamp.Visible && _lamp is SpotLight3D beam)
                 Beam(beam);
         }

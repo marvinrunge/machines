@@ -30,7 +30,7 @@ public static class DeckParser
     {
         var lines = TextLines.Read(text).ToList();
         string? name = null;
-        int width = 0, depth = 0;
+        int width = 0, depth = 0, gapScale = 1;
         char[]? cells = null;
         List<DeckDoor> doors = [];
         List<DeckMarker> markers = [];
@@ -46,9 +46,12 @@ public static class DeckParser
             switch (line.Keyword)
             {
                 case "DECK":
-                    Count(line, 3, 3);
+                    Count(line, 3, 4);
                     name = line.Args[0];
                     (width, depth) = (Int(line, 1), Int(line, 2));
+                    gapScale = line.Args.Count > 3 ? Int(line, 3) : 1;
+                    if (gapScale < 1)
+                        throw new ParmFormatException("a deck's scale is 1 or more", line.LineNumber);
                     if (width <= 0 || depth <= 0)
                         throw new ParmFormatException("a deck needs a size above 0", line.LineNumber);
                     break;
@@ -153,7 +156,7 @@ public static class DeckParser
         if (name is null || cells is null)
             throw new ParmFormatException("a deck needs DECK and GRID", lines.Count > 0 ? lines[^1].LineNumber : 0);
         Check(cells, doors, zones, lights);
-        return new Deck(name, width, depth, cells, doors, markers, props, zones, lights, cameras, rails);
+        return new Deck(name, width, depth, cells, doors, markers, props, zones, lights, cameras, rails, gapScale);
     }
 
     private static void Check(char[] cells, List<DeckDoor> doors, List<DeckZone> zones, List<DeckLight> lights)

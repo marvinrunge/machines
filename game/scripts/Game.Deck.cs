@@ -23,11 +23,16 @@ public partial class Game
     {
         var deck = World.Deck;
         PlanetLook.Interior = deck is not null;
+        PlanetLook.Gloom = 1;
+        _gloomKnown = false;
         // Occlusion culling only pays where walls hide most of the world; on open ground it would only cost.
         GetViewport().UseOcclusionCulling = deck is not null;
         // Whose lamp shines and who carries a searchlight is the sim's (GameWorld.StorySight): every client shows the same.
         ActorView.LampAllowed = deck is null ? null : World.StoryLampOn;
         ActorView.Searchlight = deck is null ? null : id => World.StorySeekerOf(id)?.Searchlight == true;
+        // The trio's lamps came through the update damaged: dim, flickering now and then (the view's alone).
+        ActorView.LampDamaged = deck is null ? null
+            : id => World.Story is { } run && run.Seats.Any(seat => World.HeroOf(seat)?.Id == id);
         _deckLights.Clear();
         if (deck is null)
         {
@@ -120,5 +125,34 @@ public partial class Game
             return;
         Issue(new Machines.Sim.Story.StoryLampCommand(Player));
         _audio.PlayGui("gui/sounds/igclick.wav");
+    }
+
+    /// <summary>How far the first-person view keeps from a deck's walls, metres.</summary>
+    private const float WallClearance = 0.4f;
+
+    /// <summary>
+    /// The first-person view's place on a ship deck, clear of its walls and grates: where <paramref name="eye"/> or the ground
+    /// round it within <see cref="WallClearance"/> is in one, the eye drawn back along the way to <paramref name="pivot"/> (the
+    /// machine's middle) to the first place that is clear, at the same height.
+    /// </summary>
+    private static Vector3 ClearOfWalls(Machines.Import.Model.Deck deck, Vector3 eye, Vector3 pivot)
+    {
+        bool Clear(float x, float z)
+        {
+            foreach (var (dx, dz) in new[] { (0f, 0f), (WallClearance, 0f), (-WallClearance, 0f), (0f, WallClearance), (0f, -WallClearance) })
+                if (deck.Cell((int)MathF.Floor(x + dx), (int)MathF.Floor(z + dz)) is Machines.Import.Model.DeckCell.Wall or Machines.Import.Model.DeckCell.Grate)
+                    return false;
+            return true;
+        }
+        if (Clear(eye.X, eye.Z))
+            return eye;
+        for (var step = 1; step <= 10; step++)
+        {
+            var t = step / 10f;
+            var (x, z) = (Mathf.Lerp(eye.X, pivot.X, t), Mathf.Lerp(eye.Z, pivot.Z, t));
+            if (Clear(x, z))
+                return new Vector3(x, eye.Y, z);
+        }
+        return new Vector3(pivot.X, eye.Y, pivot.Z);
     }
 }

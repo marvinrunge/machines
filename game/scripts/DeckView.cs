@@ -22,7 +22,7 @@ public partial class DeckView : Node3D
     private const float WallOverlap = 0.5f;
 
     /// <summary>Lamps further than this from the camera fade out (metres), and the fade's length.</summary>
-    private const float LampFade = 48, LampFadeLength = 16;
+    private const float LampFade = 72, LampFadeLength = 24;
 
     private static readonly Color LampColour = new(1f, 0.88f, 0.72f), EmergencyColour = new(1f, 0.12f, 0.07f);
     private const float LampEnergy = 1.7f, EmergencyEnergy = 0.7f;
@@ -366,6 +366,24 @@ public partial class DeckView : Node3D
             light.Visible = state == "emergency";
         group.Fixture.EmissionEnabled = state == "on";
         group.Glass.EmissionEnabled = state == "emergency";
+    }
+
+    private float _gloom = 1;
+
+    /// <summary>
+    /// The dark start's emergency lamps (the story's sections 1 and 2): their light and their glass at this share of full.
+    /// </summary>
+    public void SetGloom(float share)
+    {
+        if (Mathf.Abs(share - _gloom) < 0.005f)
+            return;
+        _gloom = share;
+        foreach (var group in _groups.Values)
+        {
+            foreach (var light in group.Wall)
+                light.LightEnergy = EmergencyEnergy * share;
+            group.Glass.EmissionEnergyMultiplier = 4 * Mathf.Max(share, 0.5f);
+        }
     }
 
     // ---- culling and particles ---------------------------------------------------------------------

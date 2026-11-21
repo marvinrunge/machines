@@ -8,6 +8,8 @@ header
 header Scaled 2x as a whole from the stage 5 deck (65a7b84) by tools/deck/scale.mjs with tools/deck/prolog-x2.plan, with
 header extra way in five places (docs/story/deck/scale.md: why, the mapping of old points, the doors, rooms and the pod size).
 header The Grunts' doors are 8 m, the Reapers' blast doors 12-16 m; the crawl ducts kept their 4 m cross-section.
+header The 2 on the DECK line is that scale: the sim's size classes need twice their room (Deck.GapScale, NavGrid). Grate windows
+header into a duct reach the duct's kept band.
 
 factor 2
 
@@ -41,13 +43,14 @@ fill c 178 282 181 285
 fill c 203 282 206 285
 marker console_r9_w 167.5 260 180 terminal
 marker console_r9_e 216.5 276 0 terminal
-// Loose crates near the chamber's doors for the barricades (the old pile in R8 stays): two by I, two by J, two by K and M.
+// Loose crates near the chamber's doors for the barricades (the old pile in R8 stays): two by I, two by J, and two in the NE
+// corner behind the east console bank (in front of M they shut the Reapers out of P2).
 prop crate_r9_1 crate_large 176 236 0 305
 prop crate_r9_2 crate_large 208 236 0 306
 prop crate_r9_3 crate_large 176 291 0 307
 prop crate_r9_4 crate_large 208 291 0 308
-prop crate_r9_5 crate_large 216 247 90 309
-prop crate_r9_6 crate_large 216 252 90 310
+prop crate_r9_5 crate_large 218 284 90 309
+prop crate_r9_6 crate_large 218 289 90 310
 
 // The pod bay R16 (432-600 x 24-120, the Notgang's mouth R15a at 512-528 in the north wall, the catwalk at y 108-113):
 // three of the game's pods at their own size, 52 m apart and 8 m from the walls; pod 3 (the one that launches) in the east.

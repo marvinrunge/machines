@@ -433,7 +433,7 @@ public partial class StoryHud : Control
     }
 
     /// <summary>
-    /// The motion tracker: rings every ten metres out to its reach, the view's way up, and a blip for each of the ship's machines
+    /// The motion tracker: four rings out to its reach (15 m apart), the view's way up, and a blip for each of the ship's machines
     /// that moves within it, lit at each ping and fading after; the nearest's distance under it.
     /// </summary>
     private void DrawTracker(StoryReadout now)

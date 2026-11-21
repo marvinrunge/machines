@@ -34,17 +34,17 @@ public class DeckLayoutTests
     [Fact]
     public void Rooms_ducts_doors_and_grates_are_as_tall_as_the_deck_says()
     {
-        Assert.Equal(7, HeightAt("spawn_l7"));
-        Assert.Equal(9, HeightAt("spawn_thresher"));
-        Assert.Equal(16, HeightAt("hack_core"));
-        Assert.Equal(20, HeightAt("pod_3"));
+        Assert.Equal(14, HeightAt("spawn_l7"));
+        Assert.Equal(18, HeightAt("spawn_thresher"));
+        Assert.Equal(40, HeightAt("hack_core"));
+        Assert.Equal(56, HeightAt("pod_3"));
         Assert.All(Cells().Where(c => Deck.Cell(c.X, c.Y) is DeckCell.Duct or DeckCell.Lip), c => Assert.Equal(DeckLayout.DuctHeight, Layout.Height(c.X, c.Y)));
         Assert.All(Cells().Where(c => Layout.IsOpen(c.X, c.Y)), c => Assert.True(Layout.Height(c.X, c.Y) > 0, $"cell {c} has no ceiling height"));
         // A small door, the wide blast door to the spine, the blast doors of the core's anteroom, and a grate into a duct.
         Assert.Equal(DeckLayout.DoorHeight, Opening('A').Height);
-        Assert.Equal((8, DeckLayout.WideBlastHeight), (Opening('J').Width, Opening('J').Height));
-        Assert.Equal((6, DeckLayout.BlastHeight), (Opening('I').Width, Opening('I').Height));
-        Assert.All(Layout.Openings.Where(o => o.Kind == "grate"), o => Assert.True(o.Height <= 4, $"grate at {o.Rect} is {o.Height} m"));
+        Assert.Equal((16, DeckLayout.WideBlastHeight), (Opening('J').Width, Opening('J').Height));
+        Assert.Equal((12, DeckLayout.BlastHeight), (Opening('I').Width, Opening('I').Height));
+        Assert.All(Layout.Openings.Where(o => o.Kind == "grate"), o => Assert.True(o.Height <= 8, $"grate at {o.Rect} is {o.Height} m"));
     }
 
     private static DeckOpening Opening(char letter) => Layout.Openings.Single(o => o.Letter == letter);
@@ -169,7 +169,7 @@ public class DeckLayoutTests
         Assert.Single(pieces, p => p.Prop == "weapon_rack");
         Assert.Single(pieces, p => p.Prop == "bay_crane");
         Assert.Contains(pieces, p => p.Prop == "core_console");
-        Assert.Equal(2, pieces.Count(p => p.Prop == "clamp_terminal"));
+        Assert.Equal(4, pieces.Count(p => p.Prop == "clamp_terminal")); // Ike's and Bob's, and the core chamber's two console banks
         Assert.Equal(3, pieces.Count(p => p.Prop == "plate"));
         // What stands on the floor and is not driven into (clamps, cradles, the repair station, plates) or built into the
         // wall (pillars) stands on high cover, which the sim blocks.

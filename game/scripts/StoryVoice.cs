@@ -254,8 +254,8 @@ public partial class StoryVoice(StoryAudio audio) : Node
             var player = new AudioStreamPlayer3D
             {
                 Name = $"Speaker{_speakers.Count}",
-                UnitSize = 10,
-                MaxDistance = 90,
+                UnitSize = 14,
+                MaxDistance = 150,
                 AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance,
                 PanningStrength = 1,
             };

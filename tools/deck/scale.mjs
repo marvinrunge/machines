@@ -121,7 +121,12 @@ function scaleGrid(deck, plan, ductList) {
     for (let y = d.y0 * F; y < d.y1 * F; y++)
       for (let x = d.x0 * F; x < d.x1 * F; x++) {
         const across = d.alongX ? y : x;
-        if (across < b0 || across >= b1) grid[y][x] = '#';
+        if (across >= b0 && across < b1) continue;
+        // Beside the band it is wall, but where a grate window looked into the duct the grate reaches the band, so the
+        // window still looks in (sight and shots pass, nobody does).
+        const low = across < b0;
+        const [ox, oy] = d.alongX ? [Math.floor(x / F), low ? d.y0 - 1 : d.y1] : [low ? d.x0 - 1 : d.x1, Math.floor(y / F)];
+        grid[y][x] = ox >= 0 && oy >= 0 && ox < w && oy < h && at(ox, oy) === 'g' ? 'g' : '#';
       }
     for (const letter of d.letters) {
       const cells = d.vents.filter(([cx, cy]) => at(cx, cy) === letter);
@@ -244,7 +249,7 @@ function write(oldText, deck, plan, grid, W, H, s) {
     if (!line.startsWith('//')) break;
     head.push(line.replace(/\(y = \d+\)/, `(y = ${H - 1})`));
   }
-  const out = [...head, ...plan.header.map((l) => `// ${l}`.trimEnd()), '', `DECK ${deck.name} ${W} ${H}`, 'GRID'];
+  const out = [...head, ...plan.header.map((l) => `// ${l}`.trimEnd()), '', `DECK ${deck.name} ${W} ${H} ${plan.factor}`, 'GRID'];
   for (let y = H - 1; y >= 0; y--) out.push(grid[y].join(''));
   out.push('ENDGRID', '', 'DOORS', ...deck.doors.map((d) => `${d.letter} ${d.name} ${d.kind} ${d.state}`), 'ENDDOORS', '');
   out.push('MARKERS', ...s.markers.map((m) => [m.name, fmt(m.x), fmt(m.y), fmt(m.angle), ...m.tags].join(' ')), 'ENDMARKERS', '');

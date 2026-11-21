@@ -20,8 +20,8 @@ AT 176 236 0 0 ID 305	// prop crate_r9_1
 AT 208 236 0 0 ID 306	// prop crate_r9_2
 AT 176 291 0 0 ID 307	// prop crate_r9_3
 AT 208 291 0 0 ID 308	// prop crate_r9_4
-AT 216 247 0 90 ID 309	// prop crate_r9_5
-AT 216 252 0 90 ID 310	// prop crate_r9_6
+AT 218 284 0 90 ID 309	// prop crate_r9_5
+AT 218 289 0 90 ID 310	// prop crate_r9_6
 ACTIVE crate_small COST 0 HP 60 ARMOUR 2 IDS 0 HEIGHT 1.5 BOUNDARY 0.75 -0.75 0.75 0.75 -0.75 0.75 -0.75 -0.75
 AT 166.4 125.6 0 0 ID 311	// prop stack_1
 AT 169.6 125.6 0 0 ID 312	// prop stack_2

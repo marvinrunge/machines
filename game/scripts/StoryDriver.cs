@@ -232,7 +232,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
             Go(game, hero, "repair", Zone("repair"), 1.5f);
         }
         else if (!director.Has("notgang"))
-            Go(game, hero, "notgang", new NVector2(240, 100), 2);
+            Go(game, hero, "notgang", new NVector2(520, 232), 2);
         else if (CrashFirst && _falls == 0)
             Wait(game, hero, "the crash");
         else if (!Done("pod_3_hatch"))

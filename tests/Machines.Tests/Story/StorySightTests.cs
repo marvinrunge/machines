@@ -68,7 +68,7 @@ public class StorySightTests
     }
 
     // The middle of the Thresher's lane on deck A (R4), which the deck leaves dark.
-    private static readonly Vector2 Lane = new(88, 26);
+    private static readonly Vector2 Lane = new(192, 52);
 
     // ---- seeing ----------------------------------------------------------------------------------------
 
@@ -120,18 +120,18 @@ public class StorySightTests
         foreach (var door in world.Deck!.Doors)
             world.OpenDoor(door.Letter);
         // From the parallel corridor P1 into the escape duct V2: through a grate window at x 112-114, a wall at x 110.
-        var hero = Place(world, new Vector2(113.5f, 117.5f), lamp: true);
-        var throughGrate = Reaper(world, new Vector2(113.5f, 126), facing: -MathF.PI / 2);
+        var hero = Place(world, new Vector2(243, 267), lamp: true);
+        var throughGrate = Reaper(world, new Vector2(243, 284), facing: -MathF.PI / 2);
         Assert.Equal(StoryGlimpse.Seen, world.StoryPerceives(throughGrate, hero));
-        hero.Position = new Vector2(109.5f, 117.5f);
+        hero.Position = new Vector2(235, 267);
         world.Step();
         world.Step();
-        var throughWall = Reaper(world, new Vector2(109.5f, 126), facing: -MathF.PI / 2);
+        var throughWall = Reaper(world, new Vector2(235, 284), facing: -MathF.PI / 2);
         Assert.Equal(StoryGlimpse.None, world.StoryPerceives(throughWall, hero));
 
         // Deck A's lane against the store room R5 behind its north wall, in the Thresher's beam were the wall not there.
-        var behind = Place(world, new Vector2(66, 50), lamp: true);
-        var thresher = Thresher(world, new Vector2(66, 26), facing: MathF.PI / 2);
+        var behind = Place(world, new Vector2(148, 116), lamp: true);
+        var thresher = Thresher(world, new Vector2(148, 52), facing: MathF.PI / 2);
         Assert.Equal(StoryGlimpse.None, world.StoryPerceives(thresher, behind));
     }
 
@@ -164,7 +164,7 @@ public class StorySightTests
         Assert.False(world.SetStoryLights("nowhere", "on"));
 
         // A searchlight's beam lights 35 m along it, but not 45 (the Reaper out of its way, on deck B).
-        reaper.Position = new Vector2(100, 76);
+        reaper.Position = new Vector2(216, 184);
         world.SetStoryLights("deckA", "off");
         var thresher = Thresher(world, Lane, facing: 0);
         hero = Place(world, Lane + new Vector2(35, 0), lamp: false);
@@ -298,8 +298,8 @@ public class StorySightTests
         var locator = Locator(world);
         var (ike, bob) = (world.HeroOf(story.Seats[1])!, world.HeroOf(story.Seats[2])!);
         // Out of their clamps, both shine with the Locator.
-        ike.Position = new Vector2(30, 40);
-        bob.Position = new Vector2(34, 40);
+        ike.Position = new Vector2(60, 80);
+        bob.Position = new Vector2(68, 80);
         Assert.True(world.StoryLampOn(ike.Id) && world.StoryLampOn(bob.Id));
 
         // The Locator dims its lamp to sneak: theirs go dark with it, and their signatures lose the lamp's share.
@@ -332,7 +332,7 @@ public class StorySightTests
         var patrol = world.StoryPatrol(thresher, "patrol_thresher");
         Assert.Equal(6, patrol.Points.Count);
         Assert.Equal(new[] { 0, 3 }, patrol.Pauses);
-        Place(world, new Vector2(27, 23.5f), lamp: false);
+        Place(world, new Vector2(54, 47), lamp: false);
 
         // It walks to its first point (32 m west) and stands there sweeping about south, then goes on.
         var eyes = world.StorySeekerOf(thresher.Id)!;
@@ -364,7 +364,7 @@ public class StorySightTests
         var thresher = Thresher(world, world.Deck!.Marker("spawn_thresher").Position);
         world.StoryPatrol(thresher, "patrol_thresher");
         // Lit by its own lamp, ahead of the Thresher in the lane.
-        var hero = Place(world, new Vector2(66, 25), lamp: true);
+        var hero = Place(world, new Vector2(148, 50), lamp: true);
         var eyes = world.StorySeekerOf(thresher.Id)!;
 
         var news = Run(world, 20, () => { });
@@ -381,7 +381,7 @@ public class StorySightTests
 
         // It slips away far behind the walls, its lamp off: the hunt goes on blind for a while, then is lost.
         var lastSeen = hero.Position;
-        hero.Position = new Vector2(11, 23.5f);
+        hero.Position = new Vector2(22, 47);
         world.SetStoryLamp(hero.Id, false);
         news = Run(world, StorySight.LoseAfter + 0.5f);
         Assert.Contains(news, n => n.Kind == StorySightKind.Lost && n.Seeker == thresher.Id);
@@ -481,14 +481,14 @@ public class StorySightTests
             var world = Prologue(seed: 11);
             var thresher = Thresher(world, world.Deck!.Marker("spawn_thresher").Position);
             world.StoryPatrol(thresher, "patrol_thresher");
-            var reaper = Reaper(world, new Vector2(100, 70));
+            var reaper = Reaper(world, new Vector2(216, 172));
             world.StoryPatrol(reaper, "patrol_thresher");
-            var hero = Place(world, new Vector2(60, 14), lamp: false);
+            var hero = Place(world, new Vector2(136, 28), lamp: false);
             var news = new List<StorySightNews>();
             for (var i = 0; i < 60 * GameWorld.TicksPerSecond; i++)
             {
                 // The Locator creeps along the south aisle and back, its lamp now and then on.
-                hero.Position = new Vector2(60 + 50 * MathF.Abs(MathF.Sin(i / 400f)), 14);
+                hero.Position = new Vector2(136 + 100 * MathF.Abs(MathF.Sin(i / 400f)), 28);
                 if (i % 200 == 0)
                     world.SetStoryLamp(hero.Id, i % 400 == 0);
                 world.Step();

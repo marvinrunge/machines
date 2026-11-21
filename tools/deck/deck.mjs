@@ -29,7 +29,7 @@ export function parseDeck(text) {
     if (head.length === 0) continue;
     const [key] = head;
     if (key === 'DECK') {
-      if (head.length !== 4) fail(i, 'expected DECK name width depth');
+      if (head.length !== 4 && head.length !== 5) fail(i, 'expected DECK name width depth [scale]');
       [deck.name, deck.width, deck.height] = [head[1], num(i, head[2]), num(i, head[3])];
       continue;
     }
@@ -257,6 +257,7 @@ function scn(deck, rects) {
 // classes' gaps grow with it. A class that passed a gap of g m on the old deck passes (g x GapScale - 1) m now: Grunts 5,
 // Reapers and the Commander 9, the Thresher 13 (their drawn bodies are about 4.5-6.5, 10-11 and 15 m wide). The ducts kept
 // their 4 m cross-section, so the crawling Locator keeps its old need of 1.5 m (a 3 m gap).
+// The deck says so on its DECK line (DECK prolog 630 420 2), which the sim reads (Deck.GapScale, NavGrid.Room).
 export const GapScale = 2;
 const need = (gap) => (gap * GapScale - 1) / 2;
 const Classes = [

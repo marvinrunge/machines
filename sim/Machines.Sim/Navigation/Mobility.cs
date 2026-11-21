@@ -27,10 +27,16 @@ public readonly record struct Mobility(bool Water, int Size, bool Crawl)
     public const int Largest = 3;
 
     /// <summary>The room (metres from a cell's middle to the nearest blocked cell) each size class needs: 0, 1.5, 2.5, 3.5.</summary>
-    public static float Room(int size) => size <= 0 ? 0 : size + 0.5f;
+    public static float Room(int size) => Room(size, 1);
 
-    /// <summary>The same, doubled and squared (the integers the grid compares): 0, 9, 25, 49.</summary>
-    internal static int RoomSquared4(int size) => size <= 0 ? 0 : (2 * size + 1) * (2 * size + 1);
+    /// <summary>
+    /// The room a size class needs on a deck scaled <paramref name="scale"/> times its plan (<see cref="NavGrid.GapScale"/>):
+    /// scale x size + 0.5, so 2.5, 4.5 and 6.5 m on the prologue's 2x deck, where its gaps grew from 3, 5, 7 to 5, 9, 13 m.
+    /// </summary>
+    public static float Room(int size, int scale) => size <= 0 ? 0 : scale * size + 0.5f;
+
+    /// <summary>The same, doubled and squared (the integers the grid compares): 0, 9, 25, 49 (scale 1); 0, 25, 81, 169 (scale 2).</summary>
+    internal static int RoomSquared4(int size, int scale = 1) => size <= 0 ? 0 : (2 * scale * size + 1) * (2 * scale * size + 1);
 
     /// <summary>The size class of a machine of a radius: the smallest whose room is at least the radius.</summary>
     public static int SizeOf(float radius) => radius <= 1.5f ? 1 : radius <= 2.5f ? 2 : Largest;

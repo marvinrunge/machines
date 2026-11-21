@@ -63,6 +63,7 @@ public sealed class NavGrid
                 };
             }
         }
+        GapScale = deck.GapScale;
         _roomLand = new byte[Width * Depth];
         _roomCrawl = new byte[Width * Depth];
         Measure(0, 0, Width - 1, Depth - 1);
@@ -73,6 +74,13 @@ public sealed class NavGrid
 
     /// <summary>Whether this is a ship deck's fine grid, where machines need room for their size and only crawlers enter ducts.</summary>
     public bool Fine { get; }
+
+    /// <summary>
+    /// How many times its plan the deck was scaled (<see cref="Deck.GapScale"/>; 1 on the original planets): a size class needs
+    /// that many times its room on land (<see cref="Mobility.Room(int, int)"/>), while a crawler keeps its own, as the crawl
+    /// ducts keep their cross-section.
+    /// </summary>
+    public int GapScale { get; } = 1;
 
     public int Width { get; }
     public int Depth { get; }
@@ -259,8 +267,8 @@ public sealed class NavGrid
     // ---- room (fine grids) ----------------------------------------------------------------------
 
     // How far round a cell a blocked cell can take room from the largest class: one 4 cells off is 3.5 m from the middle,
-    // which the largest class still accepts.
-    private const int RoomReach = Mobility.Largest;
+    // which the largest class still accepts (on a deck scaled 2x, one 7 cells off is 6.5 m).
+    private int RoomReach => Mobility.Largest * GapScale;
 
     /// <summary>
     /// Works out the room of the cells in a box: for each, the distance from its middle to the nearest point of a blocked
@@ -274,8 +282,8 @@ public sealed class NavGrid
         {
             for (var x = x0; x <= x1; x++)
             {
-                _roomLand![y * Width + x] = Room(x, y, crawl: false);
-                _roomCrawl![y * Width + x] = Room(x, y, crawl: true);
+                _roomLand![y * Width + x] = Room(x, y, crawl: false, GapScale);
+                _roomCrawl![y * Width + x] = Room(x, y, crawl: true, 1);
             }
         }
     }
@@ -288,14 +296,15 @@ public sealed class NavGrid
         return _buildings[index] != 0 || _static[index] switch { 0 => false, 3 => !crawl, _ => true };
     }
 
-    private byte Room(int x, int y, bool crawl)
+    private byte Room(int x, int y, bool crawl, int scale)
     {
         if (BlocksRoom(x, y, crawl))
             return 0;
         var nearest = int.MaxValue;
-        for (var dy = -RoomReach; dy <= RoomReach; dy++)
+        var reach = Mobility.Largest * scale;
+        for (var dy = -reach; dy <= reach; dy++)
         {
-            for (var dx = -RoomReach; dx <= RoomReach; dx++)
+            for (var dx = -reach; dx <= reach; dx++)
             {
                 if (!BlocksRoom(x + dx, y + dy, crawl))
                     continue;
@@ -306,7 +315,7 @@ public sealed class NavGrid
         }
         for (var size = Mobility.Largest; size > 0; size--)
         {
-            if (nearest >= Mobility.RoomSquared4(size))
+            if (nearest >= Mobility.RoomSquared4(size, scale))
                 return (byte)size;
         }
         return 0;

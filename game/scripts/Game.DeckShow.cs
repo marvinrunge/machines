@@ -76,12 +76,10 @@ public partial class Game
             pod.Name = marker.Name;
             pod.Position = Props.World(new System.Numerics.Vector3(marker.Position, 0));
             pod.Rotation = new Vector3(0, Mathf.DegToRad(90 - marker.Angle), 0);
-            // The pod (a building of the game, made to stand on a planet) is shown as big as its cradle's ring holds.
-            var size = Extent(pod, Transform3D.Identity);
-            var scale = Mathf.Min(PodWidth / Mathf.Max(size.Size.X, size.Size.Z), 1);
+            // The pod (a building of the game) stands at its own size, as on a planet: a Grunt beside it is as small as the game
+            // has it (docs/story/deck/scale.md §6), and the pod that lands outside is the same.
             if (_pods.Count == 0)
-                GD.Print($"deck: pod model {size.Size} shown at {scale:0.###}");
-            pod.Scale = Vector3.One * scale;
+                GD.Print($"deck: pod model {Extent(pod, Transform3D.Identity).Size} shown at its own size");
             _deckView.AddChild(pod);
             _pods[_pods.Count] = pod;
             pod.SetMeta("marker", marker.Name);
@@ -150,9 +148,6 @@ public partial class Game
         return holder;
     }
 
-    /// <summary>How wide a pod is shown on its cradle (pod_cradle's ring is 10 m across), metres.</summary>
-    internal const float PodWidth = 7;
-
     /// <summary>The bounds of the meshes under a node, in the frame <paramref name="frame"/> puts it in.</summary>
     private static Aabb Extent(Node node, Transform3D frame)
     {
@@ -219,6 +214,12 @@ public partial class Game
     }
 
     /// <summary>Each frame of a story on a deck: the alarm's beacons, the Grunts down or carrying, the crash.</summary>
+    /// <summary>How much of the ambient and of the emergency lamps' light the dark start keeps.</summary>
+    private const float GloomShare = 0.45f;
+
+    // Whether the gloom was set this match: at first it is set at once, after that it changes slowly.
+    private bool _gloomKnown;
+
     private void ShowDeckStory(double delta)
     {
         if (_deckView is null || World.Story is not { } story)
@@ -231,6 +232,12 @@ public partial class Game
         }
         foreach (var (marker, weapon) in _rackWeapons)
             weapon.Visible = !story.Flags.Contains(StoryMarks.Done(marker));
+        // The dark start (sections 1 and 2, the bays and the dark maintenance decks): the ambient lower and the emergency
+        // lamps weaker, a few of them dead; it lifts over a few seconds once the trio is through to the core.
+        var gloom = story.Section <= 2 ? GloomShare : 1;
+        PlanetLook.Gloom = _gloomKnown ? Mathf.MoveToward(PlanetLook.Gloom, gloom, (float)delta * 0.2f) : gloom;
+        _gloomKnown = true;
+        _deckView.SetGloom(PlanetLook.Gloom);
         for (var i = 1; i < story.Seats.Count; i++)
             ShowGrunt(story, story.Seats[i], delta);
         // The trio pushes what lies loose out of its way (it is the view's only; the world has no such pieces).

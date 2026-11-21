@@ -38,7 +38,7 @@ public sealed record StoryBeat(string Name, int Span, StoryTrigger When, IReadOn
 public sealed class StoryDirector
 {
     /// <summary>How near a hero of the trio must come to a door that opens by itself, in metres from the door's middle.</summary>
-    public const float DoorReach = 4.5f;
+    public const float DoorReach = 8;
 
     /// <summary>The placements of artefacts the director sets down are counted from here (the scenario's are far fewer).</summary>
     public const int PlacedBase = 10_000;
@@ -916,7 +916,7 @@ public static class Then
     /// </summary>
     public sealed record ForceGates(string Role, float Seconds, params string[] Gates) : StoryAction
     {
-        public const float Reach = 10, WarnAt = 10;
+        public const float Reach = 14, WarnAt = 10;
 
         /// <summary>The timer of a gate's clock.</summary>
         public static string Clock(char letter) => $"gate_{letter}";

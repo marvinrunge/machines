@@ -211,7 +211,7 @@ public sealed class StorySight
     /// of the trio calls the others within this reach, metres: they turn to the spot, and those within half of it come to
     /// search it. A caller calls at most once in so many seconds.
     /// </summary>
-    public const float CallReach = 80, CallEvery = 5;
+    public const float CallReach = 120, CallEvery = 5;
 
     /// <summary>
     /// How long the ship stays alert after a call while the trio still sneaks (before the core's alarm), seconds: its

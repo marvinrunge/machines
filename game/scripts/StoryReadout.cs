@@ -57,7 +57,7 @@ public sealed record StoryReadout
     public const string LocatorName = "L-7";
 
     /// <summary>How far the motion tracker reaches, in metres.</summary>
-    public const float TrackerRange = 40;
+    public const float TrackerRange = 60;
 
     /// <summary>How near a marker the hero must stand for its prompt, in metres; a downed Grunt is put together from a little further.</summary>
     public const float PromptReach = 3, ReviveReach = 4;

@@ -454,7 +454,7 @@ public class PrologueScriptTests
                 else if (!director.Has("repaired"))
                     Go(Zone("repair"));
                 else if (!director.Has("notgang"))
-                    Go(new Vector2(240, 100));
+                    Go(new Vector2(520, 232));
                 else if (!Done("pod_3_hatch"))
                     Hack("pod_3_hatch");
                 else if (!Run.Flags.Contains(StoryMarks.Done("pod_3_hatch")))

@@ -107,7 +107,8 @@ The grid is padded with wall to 630 x 420, which is 21 x 14 tiles of 30 m.
     `console_r9_w` and `console_r9_e` tagged `terminal`, so the kit dresses them as consoles;
   - crate stacks `c` 168-171 x 270-273, 213-216 x 254-257, 178-181 x 282-285 and 203-206 x 282-285;
   - six loose crates (props `crate_r9_1` to `crate_r9_6`, crate_large, ids 305-310): two by I (176,236 and 208,236), two by
-    J (176,291 and 208,291), and two by K and M (216,247 and 216,252).
+    J (176,291 and 208,291), and two in the NE corner behind the east console bank (218,284 and 218,289); in front of M
+    (216,247 and 216,252, as first placed) they left the Reapers no way into P2.
 
   Every way round the core and through I, J, K and M stays at least 9 m wide, so the Reapers still get round. The NE
   corner behind the east console bank is too narrow for Reapers, which makes it a Grunt and Locator hiding spot by the vent.
@@ -242,3 +243,40 @@ coordinates, widths or heights. The parse and the nav map test pass, and the nav
 - **Performance.** The fine nav grid has 264,600 cells, 5.4 times as many (48,600 before). Check sim-bench `story` and
   `prologue` after the port.
 - Old prologue replays and saved checkpoints are void (accepted).
+
+## 8. The port (stage 6, second step)
+
+What reads the deck now goes by the 2x deck:
+
+- **Size classes.** The deck says its scale on its DECK line (`DECK prolog 630 420 2`; `Deck.GapScale`, 1 when left out).
+  `NavGrid` measures the room on land with `Mobility.Room(size, scale)` = scale x size + 0.5 (2.5 / 4.5 / 6.5 m here), and
+  a crawler's room with the plain classes (1.5 m), as the ducts kept their cross-section. Every other deck, planet and
+  test deck is scale 1 and unchanged. The scale is in the deck's fingerprint only when it is not 1.
+- **Grate windows into ducts.** `tools/deck/scale.mjs` now lets a grate beside a duct reach the duct's kept band; the first
+  2x deck had 2 m of wall between the V2 duct and the grate windows of P1 and P2, so nobody saw or shot through them.
+- **Coordinates** moved with the mapping above: `Prologue.cs` (starts, Reapers at the core, Grunts at the cable duct and
+  D5, gate places, the Flank and patrol points, blasts and falls), the driver's Notgang point, `erwischt.cut` (places;
+  heights in the room doubled, heights on machines kept), the story tests. The cp3 Grunts stand at 219 / 213, 236 (208,236
+  is crate_r9_2). crate_r9_5 and crate_r9_6 moved from door M's mouth (they shut the Reapers out of P2) to 218,284 and
+  218,289.
+- **Distances** (machines kept their size, so what belongs to a machine stayed, what belongs to a room grew):
+  the director's door reach 4.5 -> 8 m (doors are 4 m deep), the gates' push reach 10 -> 14 m, the data link's call
+  reach 80 -> 120 m, a Grunt left behind at a duct 10 -> 16 m, the falls' lane offset 2.5 -> 5 m, the blasts' reach and
+  size doubled, the scare's trigger 9 -> 16 m, the Thresher at the false-alarm stack 30 -> 60 m, the pod's refusal 6 ->
+  10 m. **Fire reach stays 40 m** (STORY.md's fair rule): the Reapers and the trio kept their size and speed, so 40 m is
+  still the same number of body lengths and the same seconds of driving out of it; the bigger rooms give the trio more
+  ways out of a line of fire rather than fewer, which is what the player asked for in the core. The 1.2 s lock, the
+  Thresher's searchlight (40 m), hearing (30 m a point) and touch (6 m) stay for the same reason.
+- **View:** door, gate and blast heights 8 / 14 / 14 / 16 m (a blast door counts as wide from 16 m), rooms without a height
+  16 m, ceiling lamps every 16 m hanging at most 12 m up, wall lamps every 24 m reaching 14 m, a shadowed middle lamp in
+  rooms from 30 m (R9, R16), lamps fading from 72 m; pipes, pillars, the speaker and cables spaced for the bigger rooms;
+  the crane only in the pod bay; consoles and racks find their cover within 4 m. The tracker reaches 60 m, sounds 140 m
+  (voices 150 m), the hunted / uneasy music 20 / 50 m, the reverb by the doubled sizes, the beacons' beams 24 m. On a deck
+  the first-person view is drawn back from a wall it noses into.
+- **Pods** at scale 1 in the bay (`Game.DeckShow`) and in `abwurf.cut` (its look, light, sparks and fall heights for a
+  43.5 m pod), the cradle ring 5x, fires 26 m north of a broken pod, the launched one found within 30 m of the hatch.
+- **The dark start** (sections 1 and 2): the ambient light at 45 % and the emergency lamps at 45 % (`PlanetLook.Gloom`,
+  `DeckView.SetGloom`), lifting over about 3 s once the trio is through to the core. **The trio's lamps** are damaged
+  (`ActorView.LampDamaged`, `LampFlicker`): 40 % of a sound lamp, with an unsteady hum and every 3 to 10 s a dip, a stutter
+  or now and then a cut-out of up to a second, each lamp its own rhythm. The view's alone: the sim's lamp, the signature
+  and the hunters' sight do not flicker.

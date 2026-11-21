@@ -194,7 +194,7 @@ public class StoryHudTests
         Assert.Empty(Readout(world).Contacts);
         var near = world.AddMachine(Race.Blue, locator.Position + new Vector2(0, 8), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
         var far = world.AddMachine(Race.Blue, locator.Position + new Vector2(0, 30), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
-        var beyond = world.AddMachine(Race.Blue, locator.Position + new Vector2(0, 60), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+        var beyond = world.AddMachine(Race.Blue, locator.Position + new Vector2(0, 90), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
         // Standing still they are not heard.
         Assert.Empty(Readout(world).Contacts);
 

@@ -3685,6 +3685,10 @@ public partial class Game : Node3D
         // does not slide sideways while the hull swings round under it.
         if (aimsGun && !machine.CanTurnUpperBody)
             _firstPersonCamera.GlobalPosition = new Vector3(view.GlobalPosition.X, view.Eye.Y, view.GlobalPosition.Z);
+        // On a ship deck a machine that noses into a wall has its faceplate in it: the view is drawn back towards the pivot
+        // until it is clear of the wall, so it never looks out of the wall's inside.
+        if (World.Deck is { } deck)
+            _firstPersonCamera.GlobalPosition = ClearOfWalls(deck, _firstPersonCamera.GlobalPosition, view.GlobalPosition);
         // With the modern keys the view looks where the mouse turned it, not waiting for the machine to follow.
         var yaw = FreeLook ? -_aimYaw : view.Yaw - head;
         _firstPersonCamera.GlobalRotation = new Vector3(_lookPitch, yaw - Mathf.Pi / 2, 0);

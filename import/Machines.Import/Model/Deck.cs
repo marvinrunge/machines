@@ -61,16 +61,24 @@ public sealed class Deck
 
     public Deck(string name, int width, int depth, char[] cells, IReadOnlyList<DeckDoor> doors, IReadOnlyList<DeckMarker> markers,
         IReadOnlyList<DeckProp> props, IReadOnlyList<DeckZone> zones, IReadOnlyList<DeckLight> lights, IReadOnlyList<DeckCamera> cameras,
-        IReadOnlyList<DeckRail> rails)
+        IReadOnlyList<DeckRail> rails, int gapScale = 1)
     {
         if (cells.Length != width * depth)
             throw new ArgumentException($"a {width} x {depth} deck needs {width * depth} cells, not {cells.Length}");
         (Name, Width, Depth, _cells) = (name, width, depth, cells);
         (Doors, Markers, Props, Zones, Lights, Cameras, Rails) = (doors, markers, props, zones, lights, cameras, rails);
+        GapScale = Math.Max(1, gapScale);
         Fingerprint = Hash();
     }
 
     public string Name { get; }
+
+    /// <summary>
+    /// How many times its plan the deck was scaled as a whole (DECK name width depth [scale]; docs/story/deck/scale.md): every
+    /// gap but the crawl ducts' is that many times as wide, so a size class needs that many times its room
+    /// (the sim's NavGrid). 1 for a deck drawn at the plan's size.
+    /// </summary>
+    public int GapScale { get; }
 
     /// <summary>The grid's size in cells, which are 1 m: east-west and south-north.</summary>
     public int Width { get; }
@@ -144,6 +152,8 @@ public sealed class Deck
         void Float(float value) => Mix(BitConverter.SingleToInt32Bits(value));
         Mix(Width);
         Mix(Depth);
+        if (GapScale != 1)
+            Mix(GapScale);
         foreach (var c in _cells)
             Mix(c);
         foreach (var door in Doors)

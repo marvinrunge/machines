@@ -44,9 +44,9 @@ public class StoryMotionTests
     public void The_grunts_roll_on_behind_a_locator_that_drives_on_in_a_queue()
     {
         var world = Prologue();
-        Place(world, Locator, new Vector2(62, 26));
-        Place(world, Ike, new Vector2(56, 28));
-        Place(world, Bob, new Vector2(56, 24));
+        Place(world, Locator, new Vector2(140, 52));
+        Place(world, Ike, new Vector2(128, 56));
+        Place(world, Bob, new Vector2(128, 48));
         for (var i = 0; i < 20; i++)
             world.Step();
 
@@ -83,19 +83,19 @@ public class StoryMotionTests
         var world = Prologue();
         world.OpenDoor('B');
         // Bob's bay: the Locator at the terminal, Ike told to wait between it and the door to the Locator's bay.
-        Place(world, Locator, new Vector2(45, 26), MathF.PI);
-        Place(world, Ike, new Vector2(39, 26), MathF.PI);
-        Place(world, Bob, new Vector2(44, 30.5f), MathF.PI);
+        Place(world, Locator, new Vector2(90, 52), MathF.PI);
+        Place(world, Ike, new Vector2(78, 52), MathF.PI);
+        Place(world, Bob, new Vector2(88, 61), MathF.PI);
         world.Issue(new StoryOrderCommand(Race.Red, CompanionOrder.Wait, Vector2.Zero) { Issuer = Locator });
         for (var i = 0; i < 20; i++)
             world.Step();
 
-        for (var tick = 0; tick < 8 * GameWorld.TicksPerSecond && Hero(world, Locator).Position.X > 32; tick++)
+        for (var tick = 0; tick < 8 * GameWorld.TicksPerSecond && Hero(world, Locator).Position.X > 64; tick++)
         {
             Drive(world, 1);
             world.Step();
         }
 
-        Assert.True(Hero(world, Locator).Position.X <= 32, $"the Locator stands at {Hero(world, Locator).Position}, Ike at {Hero(world, Ike).Position}, Bob at {Hero(world, Bob).Position}");
+        Assert.True(Hero(world, Locator).Position.X <= 64, $"the Locator stands at {Hero(world, Locator).Position}, Ike at {Hero(world, Ike).Position}, Bob at {Hero(world, Bob).Position}");
     }
 }

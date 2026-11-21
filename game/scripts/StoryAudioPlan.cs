@@ -218,7 +218,7 @@ public sealed class StoryLineQueue
 public sealed class StoryThreat
 {
     /// <summary>Closer than this to the Thresher, or as suspected as this, is hunted; then uneasy.</summary>
-    public const float HuntedWithin = 14, UneasyWithin = 36, HuntedSuspicion = 0.66f, UneasySuspicion = 0.25f;
+    public const float HuntedWithin = 20, UneasyWithin = 50, HuntedSuspicion = 0.66f, UneasySuspicion = 0.25f;
 
     /// <summary>A lower level is held this long before the music calms down (it rises at once).</summary>
     public const double CalmAfter = 5;
@@ -324,11 +324,11 @@ public static class StorySoundscape
         var narrow = MathF.Min(size.X, size.Y);
         if (height <= 4 || narrow <= 4)
             return Duct;
-        if (height >= 14)
+        if (height >= 28)
             return Cathedral;
-        if (height >= 9 || size.X * size.Y >= 1200)
+        if (height >= 18 || size.X * size.Y >= 4800)
             return Hall;
-        return narrow <= 10 ? Corridor : Room;
+        return narrow <= 20 ? Corridor : Room;
     }
 
     public static readonly StoryReverb Duct = new("duct", 0.2f, 0.25f, 0.28f, 8);
