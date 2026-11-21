@@ -180,9 +180,9 @@ public partial class Game
     /// <summary>
     /// After every tick of a story (Stepped): what the director told (StoryDirector, StoryEvents) is shown and heard. Its
     /// lines are spoken by the story's audio for whoever is to hear them, with their subtitles; the others' hacks are heard
-    /// where they stand; its cues play the cutscenes (Erwischt, Abwurf), lean the view, show the props it set down and the
-    /// scares; a new objective is announced; the alarm sounds; and the deck's lights follow the run's. Nothing here changes
-    /// the world.
+    /// where they stand; its cues play the cutscene (Abwurf) and the core fight (the barricades straining and thrown aside,
+    /// the break-in, the core hit and blowing), lean the view, show the props it set down and the scares; a new objective
+    /// is announced; the alarm sounds; and the deck's lights follow the run's. Nothing here changes the world.
     /// </summary>
     private void ShowStoryEvents()
     {
@@ -304,7 +304,51 @@ public partial class Game
                 StoryAudio.Play("clamp_release", at);
                 break;
             case ["hint", var hint]:
-                _hud.Story?.Hint(hint);
+                // How to push crates is for a Grunt's player, how to take cover for the Locator's.
+                if (World.Story is { } told && (hint, Me == told.Locator) is not ("crates", true) and not ("cover", false))
+                    _hud.Story?.Hint(hint);
+                break;
+            case ["alarm"]:
+                StoryAudio.Sting("sting_alarm");
+                break;
+            case ["squad"]:
+                // The lift's doors open far down the spine.
+                StoryAudio.Play("door_open", at);
+                break;
+            case ["crate", "pushed"]:
+                StoryAudio.Play("crate_push", at);
+                break;
+            case ["crate", "set"]:
+                StoryAudio.Play("crate_fall", at);
+                break;
+            case ["barricade", var door, "strain"]:
+                ShakeBarricade(door, at);
+                break;
+            case ["burst", _]:
+                // The squad through a door: a blast in the doorway (the crates fly by their own cue, "thrown").
+                _effects.Explosion(at + Godot.Vector3.Up * 2, 6);
+                StoryAudio.Play("hull_breach", at);
+                CameraRig.Shake(at, 6, 0.8f);
+                break;
+            case ["break", "in"]:
+                StoryAudio.Sting("sting_found");
+                _screen.Interference(GameOptions.SoftScares ? 0.2f : 0.45f, 0.8f);
+                break;
+            case ["barricade", _, "fire"]:
+                StoryAudio.Sting("sting_dread");
+                break;
+            case ["thrown", var thrown, _] when int.TryParse(thrown, out var index):
+                ThrowCrate(index, at);
+                break;
+            case ["core", "hit", _]:
+                CoreHit(at, (int)Number(2));
+                break;
+            case ["core", "blows"]:
+                CoreBlows(at);
+                break;
+            case ["control", "lost"]:
+                StoryAudio.Play("pa_cutoff");
+                _screen.Interference(GameOptions.SoftScares ? 0.25f : 0.5f, 1.2f);
                 break;
             case ["steps"]:
                 StoryAudio.Play("thresher_step", at);
@@ -327,6 +371,95 @@ public partial class Game
                     CameraRig.Shake(ActorView.World(hero.Position), 3 * Math.Max(0.2f, Number(1)), 2);
                 break;
         }
+    }
+
+    /// <summary>
+    /// The squad at a barricade (hammering, then shooting): its crates jolt where they stand, the blows boom and grind, sparks
+    /// fly off them and the floor shakes a little.
+    /// </summary>
+    private void ShakeBarricade(string door, Godot.Vector3 at)
+    {
+        StoryAudio.Play(Godot.GD.Randf() < 0.5f ? "door_jammed" : "gate_slam", at);
+        CameraRig.Shake(at, 1.6f, 0.35f);
+        foreach (var crate in World.BarricadeCrates(door))
+        {
+            if (!_artefactModels.TryGetValue(crate.Placement, out var model) || !IsInstanceValid(model))
+                continue;
+            var rest = model.Position;
+            var jolt = new Godot.Vector3((float)Godot.GD.RandRange(-0.25, 0.25), (float)Godot.GD.RandRange(0, 0.15), (float)Godot.GD.RandRange(-0.25, 0.25));
+            var tween = model.CreateTween();
+            tween.TweenProperty(model, "position", rest + jolt, 0.06);
+            tween.TweenProperty(model, "position", rest, 0.18).SetTrans(Godot.Tween.TransitionType.Bounce).SetEase(Godot.Tween.EaseType.Out);
+            _effects.SparkShower(ActorView.World(crate.Position) + Godot.Vector3.Up * 1.2f, null, 12);
+        }
+    }
+
+    /// <summary>Crates taken off whole this frame, by placement, until a "thrown" cue sends them flying (or FollowCrates frees them).</summary>
+    private readonly Dictionary<int, Godot.Node3D> _justRemoved = [];
+
+    /// <summary>
+    /// A barricade's crate blown aside as the squad bursts in: it tumbles away from the doorway into the room, lands with a
+    /// crash and lies where it fell (the world has it no more).
+    /// </summary>
+    private void ThrowCrate(int placement, Godot.Vector3 at)
+    {
+        if (!_justRemoved.Remove(placement, out var model) || !IsInstanceValid(model))
+            return;
+        var into = World.HeroOf(Me) is { } hero ? ActorView.World(hero.Position) - at : Godot.Vector3.Forward;
+        into.Y = 0;
+        into = into.LengthSquared() < 0.01f ? Godot.Vector3.Forward : into.Normalized();
+        var side = new Godot.Vector3(-into.Z, 0, into.X) * (float)Godot.GD.RandRange(-0.6, 0.6);
+        var start = model.Position;
+        var land = start + (into + side).Normalized() * (float)Godot.GD.RandRange(4.0, 7.0);
+        var spin = model.Rotation + new Godot.Vector3((float)Godot.GD.RandRange(-2.5, 2.5), (float)Godot.GD.RandRange(-3.0, 3.0), (float)Godot.GD.RandRange(-2.5, 2.5));
+        var flight = model.CreateTween().SetParallel();
+        flight.TweenMethod(Godot.Callable.From((float t) => model.Position = start.Lerp(land, t) + Godot.Vector3.Up * 3.5f * 4 * t * (1 - t)), 0f, 1f, 0.7);
+        flight.TweenProperty(model, "rotation", new Godot.Vector3(Godot.Mathf.Round(spin.X / Godot.Mathf.Pi * 2) * Godot.Mathf.Pi / 2, spin.Y, Godot.Mathf.Round(spin.Z / Godot.Mathf.Pi * 2) * Godot.Mathf.Pi / 2), 0.7);
+        GetTree().CreateTimer(0.7).Timeout += () => StoryAudio.Play("crate_fall", land);
+    }
+
+    /// <summary>The Reapers' rounds crack the core: sparks off it, the higher the more; at the third, fire breaks out on it.</summary>
+    private void CoreHit(Godot.Vector3 at, int hit)
+    {
+        StoryAudio.Play("sparks", at);
+        _effects.SparkShower(at + Godot.Vector3.Up * (6 + 3 * hit), null, 40 + 20 * hit);
+        if (hit >= 3)
+        {
+            Burn(at + Godot.Vector3.Up * 3, 2, 3);
+            _screen.Interference(GameOptions.SoftScares ? 0.15f : 0.35f, 0.6f);
+        }
+    }
+
+    /// <summary>
+    /// The core blows: the ship's announcement breaks off mid-word, a great blast and a second, the deck shakes, the view
+    /// breaks up, and the core's wreck burns on in the red emergency light.
+    /// </summary>
+    private void CoreBlows(Godot.Vector3 at)
+    {
+        StoryAudio.CutVoice();
+        _effects.Explosion(at + Godot.Vector3.Up * 4, 18);
+        StoryAudio.Play("hull_breach", at);
+        CameraRig.Shake(at, 12, 2);
+        Burn(at + Godot.Vector3.Up * 2, 3, 4.5f);
+        // The blast is seen first; the second, higher up, breaks the Locator's view up for a moment.
+        GetTree().CreateTimer(0.7).Timeout += () =>
+        {
+            if (!IsInstanceValid(this) || !IsInstanceValid(_effects))
+                return;
+            _effects.Explosion(at + Godot.Vector3.Up * 16, 12);
+            _screen.Interference(GameOptions.SoftScares ? 0.4f : 0.75f, 1.4f);
+        };
+        StoryAudio.SetLayer("amb_fire", true, -16);
+    }
+
+    /// <summary>Flames left burning for good under the match's effects.</summary>
+    private void Burn(Godot.Vector3 at, float width, float height)
+    {
+        if (Effects.DamageFire(width, height) is not { } fire)
+            return;
+        _effects.AddChild(fire);
+        fire.GlobalPosition = at;
+        fire.Emitting = true;
     }
 
     /// <summary>A prop the director set down (debris in the Notgang), shown as the deck's artefacts are and kept by its placement.</summary>

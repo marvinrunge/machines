@@ -90,6 +90,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                 if (!IsInstanceValid(game))
                     break;
                 Sections(game, story);
+                Beats(game, story);
                 HitchLog.Phase = $"section {_section}{(game.InCutscene ? " cutscene" : game.HackShown ? " hack" : "")}";
                 if (_pictureAt is { } when && Time.GetTicksMsec() / 1000.0 >= when)
                 {
@@ -142,7 +143,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
     }
 
     // MACHINES_STORY_DRIVE_SHOTS=<beat>:<seconds>[,...]: more pictures, each that many game seconds after a beat of the
-    // director's fired (alarm:12 is Erwischt with the Reapers in the core chamber), named after the beat and the seconds.
+    // director's fired (break_in:3 is the Reapers storming the core chamber), named after the beat and the seconds.
     private List<(string Beat, float Seconds)>? _beatShots;
 
     private string? ShotDue(Game game, StoryRun story)
@@ -162,6 +163,21 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
             }
         }
         return null;
+    }
+
+    // The core fight's beats, told with the game seconds they fired at (the fight's timeline).
+    private static readonly string[] CoreBeats = ["core_open", "squad", "squad_go", "at_j", "alarm", "hammer_j", "burst_j", "go_round",
+        "held", "at_i", "hammer_i", "shoot_i", "burst_i", "break_in", "core_hit_1", "core_hit_2", "core_hit_3", "core_blows",
+        "power_fails", "control_lost", "fled"];
+    private readonly HashSet<string> _toldBeats = [];
+
+    private void Beats(Game game, StoryRun story)
+    {
+        foreach (var beat in CoreBeats)
+        {
+            if (story.Director.Fired.TryGetValue(beat, out var at) && _toldBeats.Add(beat))
+                Tell(FormattableString.Invariant($"beat {beat} at {at:0.0} s (hack {story.Hacks.Session("hack_core")?.Progress ?? 0:0.00})"));
+        }
     }
 
     /// <summary>A section begun: its line and, a moment later, its picture.</summary>
@@ -212,10 +228,26 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
             await Hack(game, story, hero, "hack_h");
         else if (!director.Has("antechamber"))
             Go(game, hero, "antechamber", Zone("R8"), 2);
-        else if (!director.Has("alarm"))
+        else if (!director.Has("break_in"))
+        {
+            // Nobody barricades: the Grunts are told to wait where they are as the core's hack begins.
+            if (NoBarricade && director.Has("core_open") && !_toldWait)
+            {
+                _toldWait = true;
+                await Tap(KeyMap.Of(KeyMap.Act.GruntWait));
+            }
             await Hack(game, story, hero, "hack_core");
-        else if (!director.Has("control_lost"))
-            Wait(game, hero, "the alarm");
+        }
+        else if (!director.Has("core_blows"))
+        {
+            // In cover it looks back up at the core the Reapers are shooting to pieces, and watches it blow for a moment.
+            if (Go(game, hero, "cover", Cover, 1.5f))
+                Look(game, Heading(hero.Position, new NVector2(192, 264)), 0.18f);
+        }
+        else if (!director.Has("fled") && game.World.Time < director.Fired["core_blows"] + 2)
+            Look(game, Heading(hero.Position, new NVector2(192, 264)), 0.18f);
+        else if (!director.Has("fled"))
+            Go(game, hero, "the vent", Zone("V2"), 1.5f);
         else if (desk.Locked.Contains("hack_d5"))
             Go(game, hero, "crossing", Zone("R12"), 3);
         else if (!Done("hack_d5"))
@@ -282,6 +314,13 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
     /// MACHINES_STORY_DRIVE_CRASH=1: the first time in the Notgang the hero waits until the countdown runs out, so the chapter
     /// is lost as Crashed (its card, its way back to the checkpoint); after that it plays on as ever.
     /// </summary>
+    // MACHINES_STORY_DRIVE_NOBARRICADE=1: the Grunts are told to wait as the core's hack begins, so no door is barricaded.
+    private static bool NoBarricade => System.Environment.GetEnvironmentVariable("MACHINES_STORY_DRIVE_NOBARRICADE") is { Length: > 0 } no && no != "0";
+    private bool _toldWait;
+
+    /// <summary>The cover in the core chamber the Locator takes at the break-in (the director's objective there).</summary>
+    private static NVector2 Cover => new(219, 262);
+
     private static bool CrashFirst => System.Environment.GetEnvironmentVariable("MACHINES_STORY_DRIVE_CRASH") is { Length: > 0 } crash && crash != "0";
 
     // "on, off, on" once the Lamp key was seen to switch the Locator's lamp both ways; null before the check.
@@ -481,7 +520,8 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
             (_board, _boardOpened, _clickAt) = (host, host.Opened, now + 0.8);
             return;
         }
-        if (now < _clickAt || story.Hacks.Session(target) is not { Open: true, Broken: false, Puzzle: { } puzzle })
+        // A board its target locked (the core's last, at 90 %) is not clicked: the Locator waits at it.
+        if (now < _clickAt || story.Hacks.Session(target) is not { Open: true, Broken: false, Held: false, Puzzle: { } puzzle })
             return;
         var turns = puzzle.SolutionTurns().Take(1).ToList();
         if (turns.Count == 0)
@@ -492,7 +532,8 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         GetViewport().PushInput(new InputEventMouseMotion { Position = at, GlobalPosition = at });
         GetViewport().PushInput(new InputEventMouseButton { ButtonIndex = button, Pressed = true, Position = at, GlobalPosition = at });
         GetViewport().PushInput(new InputEventMouseButton { ButtonIndex = button, Pressed = false, Position = at, GlobalPosition = at });
-        _clickAt = now + 0.4;
+        // The core's boards are played at a person's pace, a turn every 2 s (the squad's timing is tuned to it).
+        _clickAt = now + (target == "hack_core" ? 2 : 0.4);
         if (++_clicks % 20 == 0)
             Tell($"hack {target}: {_clicks} clicks, board {story.Hacks.Session(target)?.Stage + 1}, progress {puzzle.Progress:0.00}");
     }

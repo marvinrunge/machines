@@ -20,6 +20,10 @@ public partial class StoryHud
         ["still"] = (null, "Standing still in the dark, you are all but unseen"),
         ["pulse"] = (KeyMap.Act.Scan, "[{0}] Scanner pulse: shows the hunters near you, and they hear it"),
         ["duct"] = (null, "Only you fit through the ducts: the Grunts take the long way"),
+        // For a Grunt's player only (Game.StoryCue), as the Locator starts on the core.
+        ["crates"] = (null, "Drive into a crate to push it; at a door's barricade it locks into place. Back up to set it down"),
+        // For the Locator's player only, at the break-in.
+        ["cover"] = (null, "Into cover: the Reapers take aim for a moment before they fire"),
     };
 
     private sealed record ConsoleLine(string Text, double Since, float Seconds, float? Bar);

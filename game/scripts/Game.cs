@@ -1667,8 +1667,14 @@ public partial class Game : Node3D
                     break;
                 case GameEventKind.ArtefactRemoved:
                     // Taken off whole (a deck's door opened): its model goes without a blast.
+                    // In a story a barricade's crate may be thrown aside in the same tick ("thrown", Game.Story): it waits for that.
                     if (_artefactModels.Remove(e.Actor - Artefact.IdBase, out var removed))
-                        removed.QueueFree();
+                    {
+                        if (World.Story is not null)
+                            _justRemoved[e.Actor - Artefact.IdBase] = removed;
+                        else
+                            removed.QueueFree();
+                    }
                     break;
                 case GameEventKind.Recycled:
                     _vaporised.Add(e.Actor);

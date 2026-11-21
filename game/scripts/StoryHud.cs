@@ -101,7 +101,10 @@ public partial class StoryHud : Control
             return;
         DrawDanger(now);
         if (Shows(BootPart.Way))
+        {
             DrawWay(now);
+            DrawSquad(now);
+        }
         DrawFloats();
         if (Driving && now.Ending is null)
             DrawPrompts(now);
@@ -223,6 +226,15 @@ public partial class StoryHud : Control
         }
         var distance = Mathf.RoundToInt(System.Numerics.Vector2.Distance(goal, hero.Position));
         Pointer(camera, ActorView.World(goal) + Vector3.Up * 2, HudInk.Gold, $"{Lang.T("Objective")}  {distance} m", strong: true);
+    }
+
+    /// <summary>Where the Commander's squad comes from while it is on its way to the core chamber: a red mark, or an arrow at the edge.</summary>
+    private void DrawSquad(StoryReadout now)
+    {
+        if (now.Squad is not { } squad || now.Ending is not null || GetViewport().GetCamera3D() is not { } camera || _game.World.HeroOf(Game.Me) is not { } hero)
+            return;
+        var metres = Mathf.RoundToInt(System.Numerics.Vector2.Distance(squad, hero.Position));
+        Pointer(camera, ActorView.World(squad) + Vector3.Up * 4, HudInk.Danger, $"{Lang.T("Squad")}  {metres} m", strong: false);
     }
 
     /// <summary>A mark on a place in view, or an arrow at the edge of the view towards one that is not (as Wired's pointers, <see cref="WiredHud"/>).</summary>

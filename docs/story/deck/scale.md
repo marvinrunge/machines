@@ -106,9 +106,10 @@ The grid is padded with wall to 630 x 420, which is 21 x 14 tiles of 30 m.
   - console banks `c` 160-166 x 258-262 (west wall) and 218-224 x 274-278 (east wall, beside vent V), with markers
     `console_r9_w` and `console_r9_e` tagged `terminal`, so the kit dresses them as consoles;
   - crate stacks `c` 168-171 x 270-273, 213-216 x 254-257, 178-181 x 282-285 and 203-206 x 282-285;
-  - six loose crates (props `crate_r9_1` to `crate_r9_6`, crate_large, ids 305-310): two by I (176,236 and 208,236), two by
-    J (176,291 and 208,291), and two in the NE corner behind the east console bank (218,284 and 218,289); in front of M
-    (216,247 and 216,252, as first placed) they left the Reapers no way into P2.
+  - five loose crates for the barricades (props `crate_r9_1` to `crate_r9_5`, crate_large, ids 305-308 and 313): two by I
+    (176,236 and 208,236), three by J (176,291, 208,291 and 192,287); and two the Grunts leave alone, the Locator's cover in
+    the NE corner behind the east console bank (`cover_r9_1` and `cover_r9_2` at 218,284 and 218,289, ids 309-310); in
+    front of M (216,247 and 216,252, as first placed) they left the Reapers no way into P2.
 
   Every way round the core and through I, J, K and M stays at least 9 m wide, so the Reapers still get round. The NE
   corner behind the east console bank is too narrow for Reapers, which makes it a Grunt and Locator hiding spot by the vent.
@@ -280,3 +281,16 @@ What reads the deck now goes by the 2x deck:
   (`ActorView.LampDamaged`, `LampFlicker`): 40 % of a sound lamp, with an unsteady hum and every 3 to 10 s a dip, a stutter
   or now and then a cut-out of up to a second, each lamp its own rhythm. The view's alone: the sim's lamp, the signature
   and the hunters' sight do not flicker.
+
+## 9. The core fight (stage 6, third step)
+
+Sections 3 and 4 are played, not filmed (STORY.md, Der Hack and Erwischt). What the deck got for it:
+
+- **The way round.** Blast door `W` (`spine_service`, locked) at the spine's west end, 134-148 x 296-300, opens into the
+  west service corridor `R11` (134-148 x 214-296) and `R11a` (148-176 x 214-228) to the antechamber by door I; both 14 m
+  wide, emergency lit, section 3. The Thresher has no way in, and W stays shut until the Commander sends his squad round.
+- **The squad's places:** `squad_j_1..3` outside J on the spine, `squad_w_1..2` the corners of the way round,
+  `squad_i_1..3` and `commander_i` in the antechamber before I.
+- **Crates:** the loose crate `crate_r9_5` moved to 192,287 by J (Ike's way to the pile is the longer, so J gets three
+  crates near it); the NE corner's two are now `cover_r9_1/2` and no Grunt carries them off.
+- **Cameras:** `erwischt.cut` is gone, and with it the cameras `cam_erwischt_1..4` and the rail `rail_erwischt_door`.

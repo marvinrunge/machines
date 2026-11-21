@@ -49,7 +49,7 @@ public partial class Game
     /// <summary>
     /// A cutscene's word for the deck: "lights &lt;on|off|emergency&gt; [group ...]" lights the named groups (LIGHTS), or else
     /// those of the rooms the camera and the Locator are in. Until the director keeps the lights (plan WP-C) this is how a
-    /// cutscene (Erwischt) switches them.
+    /// cutscene switches them.
     /// </summary>
     private void DeckHears(string words)
     {

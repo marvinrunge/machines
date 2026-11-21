@@ -136,7 +136,7 @@ public partial class HackHost : Control
         Modulate = Colors.White;
         Visible = true;
         if (Session is { } session)
-            _panel.Show(session.Stage, session.Boards.Count, session.Broken, _pad);
+            _panel.Show(session.Stage, session.Boards.Count, session.Broken, _pad, session.Held);
         _panel.SwitchOn(0);
         HackSounds.Play(this, HackSounds.Click);
     }
@@ -214,7 +214,7 @@ public partial class HackHost : Control
     {
         if (Closing || Session is not { } session)
             return;
-        _panel.Show(session.Stage, session.Boards.Count, session.Broken, _pad);
+        _panel.Show(session.Stage, session.Boards.Count, session.Broken, _pad, session.Held);
         _panel.Board.Cursor = _pad ? Math.Max(0, _panel.Board.Cursor) : _panel.Board.Cursor;
         Listen(session);
         Stick(delta);

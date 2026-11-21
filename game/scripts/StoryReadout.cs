@@ -121,6 +121,12 @@ public sealed record StoryReadout
     /// <summary>The Locator's HUD boots in its clamp (<see cref="StoryMarks.Boot"/>).</summary>
     public required bool Boot { get; init; }
 
+    /// <summary>
+    /// Where the Commander's squad is while it is on its way to the core chamber (<see cref="StoryMarks.Squad"/>): the HUD
+    /// points at it; null otherwise.
+    /// </summary>
+    public Vector2? Squad { get; init; }
+
     /// <summary>How the chapter ended; null while it lasts.</summary>
     public required StoryEnding? Ending { get; init; }
 
@@ -160,6 +166,9 @@ public sealed record StoryReadout
             Prompts = hero is null ? [] : PromptsOf(world, run, seat, hero),
             Boot = run.Flags.Contains(StoryMarks.Boot),
             Ending = run.Ending,
+            Squad = run.Flags.Contains(StoryMarks.Squad)
+                ? run.Director.Of(world, Prologue.CommanderRole).Concat(run.Director.Of(world, Prologue.ReaperRole)).FirstOrDefault()?.Position
+                : null,
         };
     }
 
