@@ -36,6 +36,9 @@ public partial class Hud : CanvasLayer
     /// <summary>The screen of a story chapter; null in any other match.</summary>
     public StoryHud? Story { get; private set; }
 
+    /// <summary>The story's lines at the foot of the view; null in any other match.</summary>
+    public Subtitles? Subtitles { get; private set; }
+
     public Hud(Game game, Texture2D? map)
     {
         _game = game;
@@ -62,7 +65,8 @@ public partial class Hud : CanvasLayer
                 Radar.Start();
             }
             Weapons.Visible = value;
-            Radar.Visible = value;
+            // The story has the motion tracker in the radar's place: the radar would show the hunters through the walls.
+            Radar.Visible = value && Story is null;
             _panel.Visible = !value;
         }
     }
@@ -115,8 +119,11 @@ public partial class Hud : CanvasLayer
         // The story borrows Wired's heroes but none of its plates: it has its own screen.
         if (_game.World.Story is not null)
         {
-            Story = new StoryHud(_game);
+            Story = new StoryHud(_game, this);
             root.AddChild(Story);
+            var names = _game.World.Story.Options;
+            Subtitles = new Subtitles { IkeName = names.IkeName, BobName = names.BobName };
+            root.AddChild(Subtitles);
         }
         else if (_game.World.Wired is not null)
         {
@@ -206,8 +213,13 @@ public partial class Hud : CanvasLayer
         // In first person the weapon panels take the top left; the text goes below them.
         var screen = GetViewport().GetVisibleRect().Size;
         // The panels start below a Wired run's plates where those reach over them (at a large HUD size).
-        Weapons.Top = Wired?.PanelsTop ?? 0;
+        Weapons.Top = Wired?.PanelsTop ?? Story?.PanelsTop ?? 0;
         var top = Weapons.Visible ? Math.Max(Weapons.Bottom, Math.Max(screen.Y * 0.05f, Weapons.Top) + 90 * HudScale.Of(screen)) : 0;
+        if (Story is { } chapter)
+        {
+            chapter.Left = left - 12;
+            chapter.Driving = _firstPerson;
+        }
         if (Wired is { } run)
         {
             run.Left = left - 12;

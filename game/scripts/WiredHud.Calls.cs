@@ -205,7 +205,7 @@ public partial class WiredHud
                 tint = new Color(tint, tint.A * Mathf.Lerp(0.25f, 1, Mathf.SmoothStep(SightClear * 0.35f * _u, SightClear * _u, off)));
                 over = new Vector2(over.X, Mathf.Min(over.Y, _size.Y / 2 - SightClear * _u));
             }
-            DrawPolyline([at + new Vector2(0, -r), at + new Vector2(r, 0), at + new Vector2(0, r), at + new Vector2(-r, 0), at + new Vector2(0, -r)], tint, 2 * _u, true);
+            Ink.Mark(at, r, tint);
             Tag(over, label, tint);
             return;
         }
@@ -228,11 +228,7 @@ public partial class WiredHud
             tip = new Vector2(right ? band.End.X + room * 0.6f : band.Position.X - room * 0.6f, band.GetCenter().Y);
         }
         tip = Clear(tip, Kept(plates: true).Select(k => k.Grow(room)).ToList());
-        var side = new Vector2(-way.Y, way.X);
-        var back = tip - way * size;
-        Vector2[] arrow = [tip, back + side * size * 0.6f, back + way * size * 0.3f, back - side * size * 0.6f];
-        DrawColoredPolygon(arrow, tint);
-        DrawPolyline([.. arrow, tip], new Color(Plating, 1), 2 * _u, true);
+        var back = Ink.Arrow(tip, way, size, tint);
         Tag(back - way * (Width(label, 15) / 2 + 14 * _u) * new Vector2(1, 0.4f), label, tint);
     }
 
@@ -276,14 +272,7 @@ public partial class WiredHud
         : null;
 
     /// <summary>A pointer's word on a dark ground, so that it reads on sand as on snow, whole in the view.</summary>
-    private void Tag(Vector2 middle, string label, Color tint)
-    {
-        var half = new Vector2(Width(label, 15) / 2 + 8 * _u, 12 * _u);
-        // In a view narrower than the word (a run without a screen has a tiny one) it stands at the left edge.
-        middle = new Vector2(Mathf.Clamp(middle.X, Left + half.X, Mathf.Max(Left + half.X, _size.X - half.X)), Mathf.Clamp(middle.Y, half.Y, Mathf.Max(half.Y, _size.Y - half.Y)));
-        DrawRect(new Rect2(middle - half, half * 2), new Color(Plating, 0.72f));
-        Say(middle + new Vector2(0, 5.5f * _u), label, 15, new Color(tint, 1), 0.5f);
-    }
+    private void Tag(Vector2 middle, string label, Color tint) => Ink.Tag(middle, label, tint, new Rect2(Left, 0, _size.X - Left, _size.Y));
 
     /// <summary>What rises from pickups: from the place while it is in view, otherwise from under the sight, each below those before it.</summary>
     private void DrawFloats()
@@ -347,15 +336,7 @@ public partial class WiredHud
             Prompt(new Vector2(middle, RefusalAt), refused, new Color(Danger.Lerp(Colors.White, 0.2f), Mathf.Min(alpha * 2, 1)), 20);
     }
 
-    private void Prompt(Vector2 at, string text, Color colour, float size)
-    {
-        var width = Width(text, size) + 40 * _u;
-        var height = (size + 20) * _u;
-        var box = new Rect2(at - new Vector2(width / 2, 0), new Vector2(width, height));
-        _prompting.Add(box);
-        Plate(box, new Color(Plating, Plating.A * colour.A), colour, 10);
-        Say(box.GetCenter() + new Vector2(0, size * 0.36f * _u), text, size, colour, 0.5f);
-    }
+    private void Prompt(Vector2 at, string text, Color colour, float size) => _prompting.Add(Ink.Prompt(at, text, colour, size));
 
     /// <summary>The call under way: a band across the view, its title and a line, coming in from the middle.</summary>
     private void DrawCall()
@@ -373,7 +354,6 @@ public partial class WiredHud
         if (_battle is not null)
             y = Mathf.Max(y, BattleHanging - Gap * _u);
         var width = (_size.X - Left) * 0.42f * (1 - (1 - opening) * (1 - opening));
-        var height = (call.Line is null ? 92 : 128) * _u;
         // Where the weapons' panels of first person and their triggers reach this far down (at a large HUD size), the
         // banner starts right of them.
         var weapons = _hud.Weapons;
@@ -383,16 +363,7 @@ public partial class WiredHud
             (middle, width) = ((from + middle + width) / 2, Mathf.Max(0, (middle + width - from) / 2));
         }
         // Dark across the middle and clear towards the ends, to read on any ground.
-        var left = new Color(0, 0, 0, 0);
-        var dark = new Color(0, 0, 0, 0.62f * alpha);
-        DrawPolygon([new Vector2(middle - width, y), new Vector2(middle, y), new Vector2(middle, y + height), new Vector2(middle - width, y + height)], [left, dark, dark, left]);
-        DrawPolygon([new Vector2(middle, y), new Vector2(middle + width, y), new Vector2(middle + width, y + height), new Vector2(middle, y + height)], [dark, left, left, dark]);
-        var tint = new Color(call.Colour, alpha);
-        DrawLine(new Vector2(middle - width, y), new Vector2(middle + width, y), tint, 2 * _u);
-        DrawLine(new Vector2(middle - width, y + height), new Vector2(middle + width, y + height), tint, 2 * _u);
-        Say(new Vector2(middle, y + 66 * _u), call.Title, 58, new Color(Colors.White, alpha), 0.5f, outline: 2);
-        if (call.Line is { } line)
-            Say(new Vector2(middle, y + 106 * _u), Fit(line, 25, (_size.X - Left) / _u * 0.8f), 25, tint, 0.5f, outline: 2);
+        Ink.Call(middle, y, width, call.Title, call.Line, call.Colour, alpha, (_size.X - Left) / _u * 0.8f);
     }
 
     /// <summary>

@@ -13,8 +13,8 @@ namespace Machines.Game;
 /// and drives the lobby (see <see cref="MultiplayerPage"/>), MACHINES_MENU_SELECT=&lt;scenario&gt;,&lt;planet&gt; picks a
 /// map and MACHINES_MENU_START=1 starts it from the skirmish page (MACHINES_LOADING_SCREENSHOT, see
 /// <see cref="LoadingScreen"/>). MACHINES_MENU_SCREENSHOT=&lt;png&gt;[,page[,WxH]] saves a page (main, skirmish, room,
-/// room-battle, multiplayer, load, replays, options, graphics, keys, models, pod, pod-path, pod-modules, pod-chassis, pod-room,
-/// campaign, missions, briefing or quit), at that size if one
+/// room-battle, multiplayer, load, replays, options, graphics, keys, keys-run, keys-story, models, pod, pod-path, pod-modules, pod-chassis, pod-room,
+/// campaign, missions, briefing, story or quit), at that size if one
 /// is given, and quits. The first start's questions (setup, setup-import, setup-look, setup-music) come before the main menu until
 /// they are answered (<see cref="SetupPage"/>). MACHINES_MENU_GO=&lt;page&gt;[,seconds] skips the first films and goes from the main
 /// menu to that page as a click would (after that many seconds), with the transition (main stays there, to wait for the logos).
@@ -225,6 +225,7 @@ public partial class MenuScreens : Control
             case "graphics": _stage.Show(new GraphicsPage(ShowOptions, inGame: false)); break;
             case "keys": _stage.Show(new KeysPage(ShowOptions)); break;
             case "keys-run": _stage.Show(new KeysPage(ShowOptions, run: true)); break;
+            case "keys-story": _stage.Show(new KeysPage(ShowOptions, story: true)); break;
             case "models": ShowModels(); break;
             case "hangar": ShowHangar(); break;
             case "pod": ShowPod(); break;
@@ -236,6 +237,7 @@ public partial class MenuScreens : Control
             case "setup-look": ShowSetup(SetupPage.Step.Look); break;
             case "setup-music": ShowSetup(SetupPage.Step.Music); break;
             case "campaign": ShowCampaign(); break;
+            case "story": ShowStory(); break;
             case "missions": ShowMissions(); break;
             case "briefing": ShowBriefing(Campaign.Entry(CampaignProgress.Load().CurrentPlayer?.LastScenario ?? "tut01") ?? Campaign.Catalogue.CampaignScenarios.First()); break;
             case "quit":
@@ -287,6 +289,9 @@ public partial class MenuScreens : Control
     public void ShowPod(RoomState room) => _stage.Show(BattlePod.Page(this, HangarShelf.Weapons, room));
 
     /// <summary>The campaign's players.</summary>
+    /// <summary>The story: its chapters, the checkpoint reached, the Grunts' names (<see cref="StoryPage"/>).</summary>
+    public void ShowStory() => Go(MenuTransition.SinglePlayer, () => new StoryPage(this));
+
     public void ShowCampaign() => Go(MenuTransition.CampaignPlayers, () => new CampaignPlayersPage(this));
 
     /// <summary>The choice of mission for the campaign's current player, or the players when there is none.</summary>

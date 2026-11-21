@@ -113,6 +113,20 @@ public partial class FirstPersonScreen : CanvasLayer
         return true;
     }
 
+    /// <summary>
+    /// Static over the view at <paramref name="level"/> (0 to 1, as a hit's) for <paramref name="seconds"/>, whatever the dice
+    /// say: the story's HUD booting in its clamp, the update trying to get in (the remake's own). A burst under way is
+    /// lengthened and takes the stronger level; nothing comes while the machine dies or is held on the static.
+    /// </summary>
+    public void Interference(float level, float seconds)
+    {
+        if (!Visible || _starting || _dying is not null || _held || seconds <= 0)
+            return;
+        _level = _flickering ? Mathf.Max(_level, Mathf.Clamp(level, 0, 1)) : Mathf.Clamp(level, 0, 1);
+        _left = _flickering ? Mathf.Max(_left, seconds) : seconds;
+        _flickering = true;
+    }
+
     /// <summary>The machine is gone or lost to the enemy: static rises over the view for half a second, then <paramref name="gone"/>.</summary>
     public void Die(Action gone)
     {
@@ -193,7 +207,7 @@ public partial class FirstPersonScreen : CanvasLayer
         var height = Mathf.Max(GetViewport().GetVisibleRect().Size.Y, 1);
         var border = _age >= Startup ? Border : Mathf.Max(Border, 0.5f - 10 / height - (0.5f - Border) * _age / Startup);
         var bands = new Vector4[MostBands];
-        var count = _noise && _level > 0.001f ? Interference(bands) : 0;
+        var count = _noise && _level > 0.001f ? Bands(bands) : 0;
         _material.SetShaderParameter("border", border);
         _material.SetShaderParameter("bands", bands);
         _material.SetShaderParameter("count", count);
@@ -209,7 +223,7 @@ public partial class FirstPersonScreen : CanvasLayer
     /// three bands, stronger static covers all, and from 0.8 on it is even. As in the original the bands are as high as
     /// their bottom edge is far down, as if that were their height.
     /// </summary>
-    private int Interference(Vector4[] bands)
+    private int Bands(Vector4[] bands)
     {
         var level = _level;
         if (level < 0.2f && Random.Shared.Next(3) == 0)

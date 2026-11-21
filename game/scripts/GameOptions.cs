@@ -6,8 +6,9 @@ namespace Machines.Game;
 /// The switches of the original's options screen (MachGuiCtxOptions) beside the volumes and the look: the up and down
 /// keys reversed, the first-person mouse reversed, the 2D selection box, 3D sound and the gamma correction. They are
 /// kept in <c>user://settings.cfg</c> and take at once. MACHINES_OPTIONS sets them for one run (screenshots, checks),
-/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic,dof=strong,film=on,mouse_speed=1.5,classic_mouse=on,classic_keys=on,weapon_buttons=on,fire_waits=off,hud_size=1.25</c>.
-/// Depth of field, the film look, the first-person mouse speed, the choice of mouse and keys, the triggers of the weapons, fire waiting for the gun and the HUD's size are the remake's own.
+/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic,dof=strong,film=on,mouse_speed=1.5,classic_mouse=on,classic_keys=on,weapon_buttons=on,fire_waits=off,hud_size=1.25,subtitles=large,soft_scares=on</c>.
+/// Depth of field, the film look, the first-person mouse speed, the choice of mouse and keys, the triggers of the weapons, fire waiting for the gun, the HUD's size
+/// and the story's subtitles and softened scares are the remake's own.
 /// </summary>
 public static class GameOptions
 {
@@ -19,7 +20,8 @@ public static class GameOptions
     /// <summary>The first-person mouse speed's range, times the standard speed.</summary>
     public const float MouseSpeedLowest = 0.25f, MouseSpeedHighest = 2.5f;
 
-    private static bool _read, _reverseKeys, _reverseMouse, _selection2d, _sound3d = true, _classicDriving, _filmLook, _classicMouse, _classicKeys, _weaponButtons, _transitions = true, _fireWaits = true;
+    private static bool _read, _reverseKeys, _reverseMouse, _selection2d, _sound3d = true, _classicDriving, _filmLook, _classicMouse, _classicKeys, _weaponButtons, _transitions = true, _fireWaits = true, _softScares;
+    private static Captions _subtitles = Captions.Normal;
     private static float _gamma = 1, _mouseSpeed = 1, _hudSize = 1;
     private static Blur _depthOfField;
     private static string? _playerName, _publicRelay;
@@ -44,6 +46,46 @@ public static class GameOptions
             config.SetValue("display", "depth_of_field", value.ToString().ToLowerInvariant());
             config.Save(Settings);
         }
+    }
+
+    /// <summary>How the story's subtitles show: not at all, or small, normal or large.</summary>
+    public enum Captions { Off, Small, Normal, Large }
+
+    /// <summary>
+    /// Whether the story's lines show as subtitles at the foot of the view, and how large; the voices play either way, and a
+    /// line without a voice file shows all the same. Kept as <c>story/subtitles</c>.
+    /// </summary>
+    public static Captions Subtitles
+    {
+        get { Read(); return _subtitles; }
+        set
+        {
+            Read();
+            _subtitles = value;
+            var config = new ConfigFile();
+            config.Load(Settings);
+            config.SetValue("story", "subtitles", value.ToString().ToLowerInvariant());
+            config.Save(Settings);
+        }
+    }
+
+    /// <summary>The subtitles' size, times the standard; 0 while they are off.</summary>
+    public static float SubtitleScale => Subtitles switch
+    {
+        Captions.Small => 0.8f,
+        Captions.Normal => 1f,
+        Captions.Large => 1.3f,
+        _ => 0,
+    };
+
+    /// <summary>
+    /// Whether the story's scares come softened (Soften scares, docs/STORY.md "Horror-Level"): no loud stinger and no picture
+    /// flashing up. Kept as <c>story/soft_scares</c>.
+    /// </summary>
+    public static bool SoftScares
+    {
+        get { Read(); return _softScares; }
+        set => Keep(ref _softScares, value, "story", "soft_scares");
     }
 
     /// <summary>The sizes the HUD can be shown at, times its standard size (<see cref="HudSize"/>).</summary>
@@ -261,6 +303,8 @@ public static class GameOptions
             _hudSize = Mathf.Clamp((float)(double)config.GetValue("display", "hud_size", 1.0), HudSizes[0], HudSizes[^1]);
             _playerName = (string)config.GetValue("multiplayer", "name", "") is { Length: > 0 } name ? name : null;
             _publicRelay = ((string)config.GetValue("multiplayer", "public_relay", "")).Trim();
+            _subtitles = Enum.TryParse<Captions>((string)config.GetValue("story", "subtitles", "normal"), true, out var captions) ? captions : Captions.Normal;
+            _softScares = (bool)config.GetValue("story", "soft_scares", false);
         }
         foreach (var part in (System.Environment.GetEnvironmentVariable("MACHINES_OPTIONS") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
@@ -279,6 +323,8 @@ public static class GameOptions
                 case "classic_keys": _classicKeys = on; break;
                 case "weapon_buttons": _weaponButtons = on; break;
                 case "fire_waits": _fireWaits = on; break;
+                case "soft_scares": _softScares = on; break;
+                case "subtitles" when Enum.TryParse<Captions>(value, true, out var shown): _subtitles = shown; break;
                 case "gamma" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var gamma):
                     _gamma = Mathf.Clamp(gamma, GammaLowest, GammaHighest);
                     break;

@@ -9,8 +9,10 @@ namespace Machines.Game;
 /// <c>[keys]</c>. The rest stay where they are (<see cref="Reserved"/>): the arrows beside the moves, Esc, the numbers
 /// of the squadrons, F1 to F4 of the chat, Enter and Ctrl, Shift and Alt with what they change. The options' Classic
 /// Keys set the original's whole layout over them (<see cref="Original"/>) without touching what the player picked.
-/// The triggers of the weapons and the keys of a Wired run are the remake's own, and Classic Keys leave those as they are.
-/// They alone may also lie on a mouse button, which stands in the map as a key no keyboard has (<see cref="Mouse"/>).
+/// The triggers of the weapons and the keys of a Wired run and of the story are the remake's own, and Classic Keys leave those
+/// as they are. They alone may also lie on a mouse button, which stands in the map as a key no keyboard has (<see cref="Mouse"/>).
+/// The story's keys work only in a story, which never leaves first person and has no use for a run's squad or hangar: they may
+/// share a key with those and with the way into first person.
 /// </summary>
 public static class KeyMap
 {
@@ -47,6 +49,12 @@ public static class KeyMap
         Ability2,
         Dash,
         Special,
+        Use,
+        Scan,
+        Light,
+        GruntFollow,
+        GruntWait,
+        GruntDistract,
     }
 
     /// <summary>Where an action's key works. Two actions that work in the same place cannot share a key.</summary>
@@ -62,6 +70,9 @@ public static class KeyMap
 
         /// <summary>Only while each weapon has its own trigger (the options' Mouse button per weapon, always in Wired).</summary>
         Buttons = 8,
+
+        /// <summary>Only in a story chapter (the remake's own): everywhere else the key stays free.</summary>
+        Story = 16,
     }
 
     /// <summary>
@@ -109,6 +120,15 @@ public static class KeyMap
         [Act.Dash] = new("Dash", Key.Space, Where.FirstPerson | Where.Run),
         // What the hero's chassis has of its own: an anchor, a rally, a mine, towers, a pulse.
         [Act.Special] = new("Special", Key.J, Where.FirstPerson | Where.Run),
+        // The story's: what the Locator does with its hands, its scanner and its lamp, and what it tells its two Grunts. A story
+        // stays in first person, so F is free for using; the scanner's pulse is J as a run's special is, the Grunts' orders lie
+        // where a run's squad has its own.
+        [Act.Use] = new("Hack / use", Key.F, Where.FirstPerson | Where.Story),
+        [Act.Scan] = new("Scanner pulse", Key.J, Where.FirstPerson | Where.Story),
+        [Act.Light] = new("Lamp", Key.L, Where.FirstPerson | Where.Story),
+        [Act.GruntFollow] = new("Grunts: follow", Key.Z, Where.FirstPerson | Where.Story),
+        [Act.GruntWait] = new("Grunts: wait here", Key.V, Where.FirstPerson | Where.Story),
+        [Act.GruntDistract] = new("Grunts: distract", Key.X, Where.FirstPerson | Where.Story),
     };
 
     /// <summary>
@@ -147,8 +167,11 @@ public static class KeyMap
     /// <summary>The moves, which work on the ground and in first person alike.</summary>
     public static bool IsMove(Act act) => act <= Act.TurnRight;
 
-    /// <summary>What came with Wired and its triggers, on a page of its own.</summary>
-    public static bool IsRun(Act act) => (Entries[act].Where & (Where.Run | Where.Buttons)) != 0;
+    /// <summary>What came with Wired and its triggers, and the story's, on a page of their own.</summary>
+    public static bool IsRun(Act act) => (Entries[act].Where & (Where.Run | Where.Buttons | Where.Story)) != 0;
+
+    /// <summary>What works only in a story chapter.</summary>
+    public static bool IsStory(Act act) => (Entries[act].Where & Where.Story) != 0;
 
     /// <summary>A mouse button as the map keeps it.</summary>
     public static Key Mouse(MouseButton button) => (Key)(MouseKeys + (long)button);
@@ -219,11 +242,12 @@ public static class KeyMap
     /// <summary>
     /// Whether an action has the key where the player is: on the ground, or with <paramref name="firstPerson"/> driving.
     /// Those of a run count only in <paramref name="run"/>, the hangar's in both views, the weapons' triggers only with
-    /// <paramref name="buttons"/>.
+    /// <paramref name="buttons"/>, the story's only in <paramref name="story"/>.
     /// </summary>
-    public static bool Taken(Key key, bool firstPerson, bool run = false, bool buttons = false) =>
+    public static bool Taken(Key key, bool firstPerson, bool run = false, bool buttons = false, bool story = false) =>
         All.Any(act => Of(act) == key && (Views(act) & (firstPerson ? Where.FirstPerson : Where.Ground)) != 0
-            && (run || (Entries[act].Where & Where.Run) == 0) && (buttons || (Entries[act].Where & Where.Buttons) == 0));
+            && (run || (Entries[act].Where & Where.Run) == 0) && (buttons || (Entries[act].Where & Where.Buttons) == 0)
+            && (story || (Entries[act].Where & Where.Story) == 0));
 
     /// <summary>Whether the key keeps its own use and no action can have it.</summary>
     public static bool Reserved(Key key) => key is Key.None or Key.Unknown or Key.Escape or Key.Enter or Key.KpEnter
@@ -333,7 +357,14 @@ public static class KeyMap
     private static Where Views(Act act) => (Entries[act].Where & Where.Both) is var views && views != 0 ? views : Where.Both;
 
     /// <summary>A run has the ground and first person too: what is picked now keeps out of the way of its key, though old choices that share it stand.</summary>
-    private static bool Crosses(Act a, Act b) => (Views(a) & Views(b)) != 0;
+    private static bool Crosses(Act a, Act b) => (Views(a) & Views(b)) != 0 && !Apart(a, b) && !Apart(b, a);
+
+    /// <summary>
+    /// Whether two actions never work at once though both work in first person: a story's and a run's own (its squad, its
+    /// hangar, its abilities: a story keeps none of them), and a story's and the way into first person, which a story never leaves.
+    /// </summary>
+    private static bool Apart(Act story, Act other) =>
+        IsStory(story) && !IsStory(other) && ((Entries[other].Where & Where.Run) != 0 || other == Act.FirstPerson);
 
     private static string Setting(Act act) =>
         string.Concat(act.ToString().Select((c, i) => i > 0 && char.IsUpper(c) ? "_" + char.ToLowerInvariant(c) : char.ToLowerInvariant(c).ToString()));

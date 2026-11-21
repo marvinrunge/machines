@@ -246,6 +246,12 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         rows.AddChild(Setting(Text(6996, "2D Selection box"), Line(28, Switch(GameOptions.Selection2d, on => GameOptions.Selection2d = on), fireWaits), 260));
         var classicKeys = Setting("Classic Keys", Switch(GameOptions.ClassicKeys, on => GameOptions.ClassicKeys = on), 0);
         rows.AddChild(Setting("Classic Mouse", Line(28, Switch(GameOptions.ClassicMouse, on => GameOptions.ClassicMouse = on), classicKeys), 260));
+        // The story's: its lines at the foot of the view, and its frights made milder (less static, softer stings).
+        var subtitles = new ChipChoice(["Off", "Small", "Normal", "Large"], (int)GameOptions.Subtitles);
+        subtitles.ItemSelected += i => GameOptions.Subtitles = (GameOptions.Captions)i;
+        var softScares = Setting("Soften scares", Switch(GameOptions.SoftScares, on => GameOptions.SoftScares = on), 0);
+        rows.AddChild(Setting("Subtitles", Line(28, subtitles, softScares), 260));
+        subtitles.SizeFlagsHorizontal = softScares.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         // The keys themselves are on their own page.
         rows.AddChild(MenuTheme.Paragraph("Classic F.P. Keys drive as the original did, Classic Mouse gives orders with the left button, Classic Keys puts commands on their letters.", 20, MenuTheme.Dim));
         rows.AddChild(MenuTheme.Paragraph("Mouse button per weapon: left, right and the wheel each fire a weapon; always on in Wired.", 20, MenuTheme.Dim));
