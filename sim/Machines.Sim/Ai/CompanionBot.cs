@@ -143,7 +143,8 @@ public sealed class CompanionBot(GameWorld world, PlayerId seat)
 
     /// <summary>
     /// Carries crates from the pile into the free slots before the door, one at a time, the two Grunts never after the same
-    /// crate or slot; once the slots are full or the pile is empty it stands its ground before the last slot it filled.
+    /// crate or slot; once the slots are full, the pile is empty or out of its reach (behind the crates it set down) it stands
+    /// its ground before the last slot it filled.
     /// </summary>
     private void Barricade(StoryRun run, Companion companion, Machine grunt)
     {
@@ -220,7 +221,7 @@ public sealed class CompanionBot(GameWorld world, PlayerId seat)
                 return;
         }
         // Between trips: the next crate into the next free slot, or stand.
-        if (FreeSlot(run, slots) is { } free && FreeCrate(run) is { } next)
+        if (FreeSlot(run, slots) is { } free && FreeCrate(run, grunt) is { } next)
         {
             companion.Slot = free.Name;
             companion.Crate = next.Id;
@@ -258,9 +259,13 @@ public sealed class CompanionBot(GameWorld world, PlayerId seat)
             && !run.Crew.Grunts.Values.Any(c => c.Seat != seat && c.Task == CompanionTask.Barricade && c.Slot == s.Name
                 && c.Step is CompanionStep.ToPile or CompanionStep.ToSlot));
 
-    /// <summary>The first crate of the pile no other Grunt goes for.</summary>
-    private Artefact? FreeCrate(StoryRun run) =>
-        world.PileCrates().FirstOrDefault(crate => !run.Crew.Grunts.Values.Any(c => c.Seat != seat && c.Crate == crate.Id));
+    /// <summary>
+    /// The first crate of the pile no other Grunt goes for and this one can get to: once two crates stand in a doorway the
+    /// Grunts behind them cannot get back to the pile, and the barricade is what they built.
+    /// </summary>
+    private Artefact? FreeCrate(StoryRun run, Machine grunt) =>
+        world.PileCrates().FirstOrDefault(crate => !run.Crew.Grunts.Values.Any(c => c.Seat != seat && c.Crate == crate.Id)
+            && world.CompanionReaches(grunt, crate.Position, crate.Radius + grunt.Radius + There));
 
     /// <summary>A point beside a crate on the Grunt's side, where it can take it.</summary>
     private static Vector2 Beside(Artefact crate, Machine grunt)

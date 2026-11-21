@@ -206,8 +206,12 @@ public class CompanionTests
             world.AssignCompanion(Bob, CompanionTask.Barricade, "I");
             var standing = RunUntil(world, () => world.Story!.Crew.Of(Ike).Step == CompanionStep.Standing && world.Story.Crew.Of(Bob).Step == CompanionStep.Standing, 90);
             Assert.True(standing, string.Join(" / ", new[] { Ike, Bob }.Select(s => $"{s}: {world.Story!.Crew.Of(s).Step} slot {world.Story.Crew.Of(s).Slot} crate {world.Story.Crew.Of(s).Crate} carry {world.Story.Crew.Of(s).Carrying?.Placement} at {Hero(world, s).Position} order {Hero(world, s).Order}")) + " filled " + string.Join(",", world.BarricadeSlots("I").Select(world.SlotFilled)) + " pile " + world.PileCrates().Count);
-            Assert.All(world.BarricadeSlots("I"), slot => Assert.True(world.SlotFilled(slot), slot.Name));
-            Assert.Single(world.PileCrates());
+            // Two crates shut the doorway, the Grunts on the core's side of them: the pile is out of their reach from there, so
+            // they stand (before, the way handed them the pile's crates across their own barricade and they went through it).
+            var filled = world.BarricadeSlots("I").Count(world.SlotFilled);
+            Assert.Equal(2, filled);
+            Assert.Equal(4 - filled, world.PileCrates().Count);
+            Assert.All(new[] { Ike, Bob }, seat => Assert.True(Hero(world, seat).Position.Y > 100.5f, $"{seat} at {Hero(world, seat).Position}"));
             // Each stands before the crates, close to a slot.
             Assert.All(new[] { Ike, Bob }, seat => Assert.True(world.BarricadeSlots("I").Any(slot => Vector2.Distance(slot.Position, Hero(world, seat).Position) < 6), $"{seat} at {Hero(world, seat).Position}"));
         }
