@@ -15,7 +15,10 @@ namespace Machines.Game;
 /// the Grunts to follow with their key, sits through the cutscenes, and after a fall goes on from the checkpoint by the death
 /// card's way. Which leg comes next it reads from the world (the hacks done, the director's beats fired), so it can start
 /// from any checkpoint. It prints "story drive: section N tick T checksum X" as each section begins, and takes one picture
-/// a section into the folder, then one at the end.
+/// a section into the folder, then one at the end. Once a run it switches the Locator's lamp with the Lamp key, off and on
+/// again, and says whether the sim's lamp followed. After the pod is away it sits through the chapter's film outside, takes
+/// a picture of it and of the chapter's card, goes on with Space and says whether the story page came.
+/// MACHINES_STORY_DRIVE_CRASH=1 lets the countdown run out once first, for the Crashed card.
 /// <para>
 /// Where its way fails for a long time (90 s on one leg, 150 s waiting for the Grunts) it sets the hero, or the Grunts, down
 /// at the leg's end and says so: the only time it touches the world, so the run goes on to the end; the checksums of such a
@@ -89,15 +92,17 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                     LetGo();
                     if (story.Ending == StoryEnding.Escaped)
                     {
-                        Tell($"escaped: tick {game.World.Tick} checksum {game.World.Checksum():x16} falls {_falls}");
+                        Tell($"escaped: tick {game.World.Tick} checksum {game.World.Checksum():x16} falls {_falls} lamp {_lampChecked ?? "unchecked"}");
                         await Wait(2);
                         await Picture("end");
+                        await Film(game);
                         return;
                     }
                     if (++_falls > 4)
                         throw new InvalidOperationException($"lost the chapter {_falls} times ({story.Ending}); giving up");
                     Tell($"lost ({story.Ending}) at tick {game.World.Tick} in section {story.Section}: on from checkpoint {story.Checkpoint}");
                     await Wait(4);
+                    await Picture($"lost-{story.Ending}");
                     await Tap(Key.Space);
                     await Wait(3);
                     if (IsInstanceValid(game) && Scene == game)
@@ -113,6 +118,11 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                 if (game.Driven is null)
                 {
                     await GetIn(game);
+                    continue;
+                }
+                if (_lampChecked is null)
+                {
+                    await Lamp(game, hero);
                     continue;
                 }
                 await Leg(game, story, hero);
@@ -207,8 +217,12 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         }
         else if (!director.Has("notgang"))
             Go(game, hero, "notgang", new NVector2(240, 100), 2);
+        else if (CrashFirst && _falls == 0)
+            Wait(game, hero, "the crash");
         else if (!Done("pod_3_hatch"))
             await Hack(game, story, hero, "pod_3_hatch");
+        else if (!story.Flags.Contains(StoryMarks.Done("pod_3_hatch")))
+            await TakeUp(game, hero, "pod_3_hatch", story.Hacks.Find("pod_3_hatch", world.Deck)!.Value.Position, GameWorld.UseReach - 1);
         else if (!director.Has("launch"))
             await Gather(game, story, hero, "launch", "pod_zone");
         else
@@ -216,6 +230,71 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
     }
 
     private bool _reviving;
+
+    /// <summary>
+    /// MACHINES_STORY_DRIVE_CRASH=1: the first time in the Notgang the hero waits until the countdown runs out, so the chapter
+    /// is lost as Crashed (its card, its way back to the checkpoint); after that it plays on as ever.
+    /// </summary>
+    private static bool CrashFirst => System.Environment.GetEnvironmentVariable("MACHINES_STORY_DRIVE_CRASH") is { Length: > 0 } crash && crash != "0";
+
+    // "on, off, on" once the Lamp key was seen to switch the Locator's lamp both ways; null before the check.
+    private string? _lampChecked;
+
+    /// <summary>
+    /// Once a run, as soon as the hero is driven: the Lamp key (KeyMap.Act.Light) tapped twice, the sim's lamp of the hero
+    /// (GameWorld.StoryLampOn, switched by StoryLampCommand) read after each, so it goes out and comes on again.
+    /// </summary>
+    private async Task Lamp(Game game, Machine hero)
+    {
+        Stop(hero);
+        // A moment in the hero first, as a hand would: the view and its keys settle.
+        await Wait(1.5);
+        if (!IsInstanceValid(game))
+            return;
+        var seen = new List<bool> { game.World.StoryLampOn(hero.Id) };
+        for (var i = 0; i < 2; i++)
+        {
+            var was = seen[^1];
+            await Tap(KeyMap.Of(KeyMap.Act.Light));
+            await Until(() => !IsInstanceValid(game) || game.World.StoryLampOn(hero.Id) != was, 2);
+            if (!IsInstanceValid(game))
+                return;
+            seen.Add(game.World.StoryLampOn(hero.Id));
+        }
+        _lampChecked = string.Join(", ", seen.Select(on => on ? "on" : "off"));
+        var switched = seen[1] != seen[0] && seen[2] == seen[0];
+        Tell($"lamp key: {_lampChecked}{(switched ? "" : " (did not switch)")}");
+    }
+
+    /// <summary>
+    /// After the trio got away: the chapter's film outside on its own map (StoryFilm), its picture a while in, then the
+    /// chapter's card (StoryDoneCard), its picture, and Space to the menus, where the run ends.
+    /// </summary>
+    private async Task Film(Game deck)
+    {
+        if (await Until(() => Scene is Game { World.Story: null, FilmingStoryEnd: true } found && found != deck && found.IsNodeReady() ? found : null, 90) is not { } film)
+            throw new InvalidOperationException("the chapter's film did not come");
+        Tell($"film: {MatchRequest.Current.Film?.Cutscene} on {MatchRequest.Current.Film?.Planet}");
+        await Until(() => !IsInstanceValid(film) || film.InCutscene, 20);
+        var began = Time.GetTicksMsec() / 1000.0;
+        await Wait(12);
+        if (IsInstanceValid(film) && film.InCutscene)
+            await Picture("film");
+        await Until(() => !IsInstanceValid(film) || film.GetNodeOrNull("StoryDoneLayer/StoryDoneCard") is not null, 120);
+        if (!IsInstanceValid(film) || film.GetNodeOrNull("StoryDoneLayer/StoryDoneCard") is null)
+            throw new InvalidOperationException("the chapter's card did not come");
+        Tell($"film over after {Time.GetTicksMsec() / 1000.0 - began:0.0} s: the chapter's card");
+        await Wait(3);
+        await Picture("card");
+        // The menus would start the match again straight away for an automated run (MenuScreens): the run is over now.
+        foreach (var name in new[] { "MACHINES_MAP", "MACHINES_STORY" })
+            System.Environment.SetEnvironmentVariable(name, null);
+        await Tap(Key.Space);
+        await Until(() => Find<StoryPage>() is not null, 30);
+        await Wait(1.5);
+        Tell($"back at the menus: story page {(Find<StoryPage>() is not null ? "shown" : "missing")}");
+        await Picture("menus");
+    }
 
     /// <summary>A Grunt of the trio lying down outside the pod (the director's rally points at it), or null.</summary>
     private static Machine? Fallen(Game game, StoryRun story)
@@ -245,10 +324,10 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         Hold(KeyMap.Act.Use, true);
     }
 
-    /// <summary>To a weapon's rack, then its use key (StoryUseCommand) until the hero wears the weapon.</summary>
-    private async Task TakeUp(Game game, Machine hero, string rack, NVector2 at)
+    /// <summary>To a weapon's rack or the pod's hatch, then its use key (StoryUseCommand) until the world says it is done.</summary>
+    private async Task TakeUp(Game game, Machine hero, string rack, NVector2 at, float near = 1.5f)
     {
-        if (!Go(game, hero, "take up " + rack, at, 1.5f))
+        if (!Go(game, hero, "use " + rack, at, near))
             return;
         var now = Time.GetTicksMsec() / 1000.0;
         if (now - _lastUse > 1.5)
