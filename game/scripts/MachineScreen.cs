@@ -11,6 +11,13 @@ public partial class MachineScreen : TextureRect
 {
     protected const float Fov = 26;
 
+    /// <summary>
+    /// The scene's least side in pixels, however small the screen is drawn (a board flying in, a page laid out): Godot's
+    /// ambient occlusion works on a half-size depth with five mipmaps, which a side under 32 pixels cannot hold, and then
+    /// fails with "Too many mipmaps requested" and a run of invalid textures and uniform sets.
+    /// </summary>
+    private const int Smallest = 32;
+
     // The camera looks from the front, turned towards the machine's left.
     private static readonly float Azimuth = 0.5f;
 
@@ -61,7 +68,7 @@ public partial class MachineScreen : TextureRect
         StretchMode = StretchModeEnum.Scale;
         TextureFilter = TextureFilterEnum.Linear;
         // The scene renders at the screen's own pixels, however far the menus are scaled (see _Process).
-        _viewport = new SubViewport { OwnWorld3D = true, Msaa3D = Viewport.Msaa.Msaa4X, TransparentBg = false, Size = new Vector2I(16, 16) };
+        _viewport = new SubViewport { OwnWorld3D = true, Msaa3D = Viewport.Msaa.Msaa4X, TransparentBg = false, Size = new Vector2I(Smallest, Smallest) };
         AddChild(_viewport);
         Texture = _viewport.GetTexture();
         _camera = new Camera3D { Fov = Fov, Near = 0.05f, Far = 500, Current = true };
@@ -113,8 +120,8 @@ public partial class MachineScreen : TextureRect
 
     public override void _Process(double delta)
     {
-        var pixels = (Vector2I)(Size * GetGlobalTransformWithCanvas().Scale).Round();
-        if (pixels.X > 0 && pixels.Y > 0 && pixels != _viewport.Size)
+        var pixels = ((Vector2I)(Size * GetGlobalTransformWithCanvas().Scale).Round()).Max(new Vector2I(Smallest, Smallest));
+        if (pixels != _viewport.Size)
             _viewport.Size = pixels;
         if (Turntable is not null)
             Turntable.Rotation = new Vector3(0, Yaw, 0);
