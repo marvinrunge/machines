@@ -54,13 +54,14 @@ public sealed partial class GameWorld
     {
         if (Story is not { Over: false } run)
             return;
-        // First, so what came of the seekers' looks is there for the rest of the tick to read (StorySight.News).
-        UpdateSight();
-        UpdateHacks();
-        UpdateCompanions();
+        // First, so what came of the seekers' looks is there for the rest of the tick to read (StorySight.News). Each part
+        // timed on its own for tools/sim-bench (prologue).
+        Timed("  story sight", UpdateSight);
+        Timed("  story hacks", UpdateHacks);
+        Timed("  story companions", UpdateCompanions);
         // What the sight and the companions told this tick, for the director (Hear).
         TellDirector(run);
-        run.Director.Update(this, run);
+        Timed("  story director", () => run.Director.Update(this, run));
     }
 
     /// <summary>

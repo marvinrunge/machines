@@ -288,6 +288,16 @@ public sealed partial class GameWorld
         Send(grunt, new MoveOrder(point), point);
     }
 
+    /// <summary>
+    /// Whether a Grunt's way over the grid gets it within <paramref name="within"/> metres of a point: a crate of the pile
+    /// behind the barricade it built itself is out of its reach (before, the way handed it the crate across the crates).
+    /// </summary>
+    internal bool CompanionReaches(Machine grunt, Vector2 point, float within)
+    {
+        var path = Nav.FindPath(grunt.Position, point, MobilityOf(grunt));
+        return Vector2.Distance(path.Count > 0 ? path[^1] : grunt.Position, point) <= within;
+    }
+
     /// <summary>A Grunt stands its ground where it is.</summary>
     internal void CompanionStand(Machine grunt)
     {

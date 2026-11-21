@@ -125,8 +125,8 @@ public partial class Game
                     _deckView.SetAlarm(e.Other == 1);
                     break;
                 case GameEventKind.StoryCue when StoryEvents.CueOf(e) is var words:
-                    if (words is ["thrown", _])
-                        ThrowCrate(ActorView.World(e.Position));
+                    if (words is ["thrown", _, ..])
+                        ThrowCrate(ActorView.World(e.Position), words.Length > 2 ? words[2] : null);
                     else if (words is ["cutscene", "abwurf"])
                         foreach (var pod in _pods.Values.Where(p => p.GetMeta("marker").AsString() == "pod_3"))
                             pod.Visible = false;
@@ -137,9 +137,9 @@ public partial class Game
 
     /// <summary>
     /// A crate of the barricade thrown aside as the assault bursts through its door: it flies away from the doorway into the
-    /// room, tumbling, lands and slides.
+    /// room, tumbling, lands and slides: the crate of the type that stood there (the pile has large and small ones).
     /// </summary>
-    private void ThrowCrate(Vector3 at)
+    private void ThrowCrate(Vector3 at, string? type)
     {
         if (_deckView is null)
             return;
@@ -152,7 +152,7 @@ public partial class Game
         var speed = random.RandfRange(7, 11);
         var velocity = new Vector3(away.X * speed + random.RandfRange(-2, 2), random.RandfRange(4, 6.5f), away.Y * speed + random.RandfRange(-2, 2));
         var spin = new Vector3(random.RandfRange(-5, 5), random.RandfRange(-3, 3), random.RandfRange(-5, 5));
-        _deckView.Throw("crate_large", at + Vector3.Up * 0.3f, velocity, spin);
+        _deckView.Throw(type is null ? "crate_large" : Props.ForArtefact(type) ?? "crate_large", at + Vector3.Up * 0.3f, velocity, spin);
         _effects.SparkShower(at + Vector3.Up * 1.2f, new Vector3(away.X, 0.6f, away.Y), 30);
     }
 

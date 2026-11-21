@@ -73,13 +73,36 @@ public sealed partial class GameWorld
     {
         if (Story is not { } run || run.Director.TypeOf(typeName) is not { } known)
             return null;
-        var (sin, cos) = (DetMath.Sin(degrees * MathF.PI / 180), DetMath.Cos(degrees * MathF.PI / 180));
-        var boundary = known.Type.Boundary.Select(p => at + new Vector2(p.X * cos - p.Y * sin, p.X * sin + p.Y * cos)).ToList();
+        var boundary = Footprint(known.Type, at, degrees);
         var placement = StoryDirector.PlacedBase + run.Director.Placed++;
         var artefact = AddArtefact(placement, at, known.Type, known.SubType, boundary);
         _artefactsFiled = -1;
         StoryEvents.Cue(this, FormattableString.Invariant($"artefact {placement} {typeName} {at.X} {at.Y} {degrees}"), at);
         return artefact;
+    }
+
+    /// <summary>The ground an artefact of a type covers set down at a place, turned by degrees.</summary>
+    private static List<Vector2> Footprint(ArtefactType type, Vector2 at, float degrees)
+    {
+        var (sin, cos) = (DetMath.Sin(degrees * MathF.PI / 180), DetMath.Cos(degrees * MathF.PI / 180));
+        return type.Boundary.Select(p => at + new Vector2(p.X * cos - p.Y * sin, p.X * sin + p.Y * cos)).ToList();
+    }
+
+    // How the trio gets about, the ways a piece set down must not cut: the Grunts' and the Locator's, which crawls.
+    private static readonly Navigation.Mobility[] TrioWays = [new(false, 1, false), new(false, 1, true)];
+
+    /// <summary>
+    /// Whether an artefact of a type set down at a place would cut a way of the trio's (<see cref="Navigation.NavGrid.Cuts"/>):
+    /// a lane, a doorway or a door's mouth it would shut, so that a room or the way on falls out of reach. Falling debris that
+    /// has to lie beside a machine does not lie there (stage 5: a crate knocked off the workshop's shelves onto a Grunt lay in
+    /// the lane to door T, and nobody got on to the Notgang).
+    /// </summary>
+    internal bool CutsTheWay(string typeName, Vector2 at, float degrees)
+    {
+        if (Story is not { } run || run.Director.TypeOf(typeName) is not { } known || !Nav.Fine)
+            return false;
+        var footprint = Footprint(known.Type, at, degrees);
+        return TrioWays.Any(way => Nav.Cuts(footprint, way));
     }
 
     /// <summary>

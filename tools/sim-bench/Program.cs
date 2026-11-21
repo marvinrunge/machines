@@ -6,6 +6,10 @@
 // three heroes and <machines> of the ship's (Reapers, the Commander, the Thresher, armed Grunts), every door open, all
 // hunting the trio across the deck:
 //   dotnet run -c Release --project tools/sim-bench -- story [<machines, 20>] [<seconds, 60>]
+// The prologue itself as it is played, from a checkpoint, with the director, the sight, the companions and the cast it sets
+// down (from checkpoint 3 the Locator crawls the vent to the crossing and waits there, as the hunt goes on; from any other
+// it stands still where the checkpoint puts it); the story's parts are timed on their own:
+//   dotnet run -c Release --project tools/sim-bench -- prologue [<checkpoint, 3>] [<seconds, 60>]
 using System.Diagnostics;
 using System.Numerics;
 using Machines.Import.Model;
@@ -14,6 +18,7 @@ using Machines.Sim.Story;
 using Machines.Sim.World;
 
 var story = args.Length > 0 && args[0] == "story";
+var prologue = args.Length > 0 && args[0] == "prologue";
 var scenario = args.Length > 0 ? args[0] : "m_green";
 var planet = args.Length > 1 ? args[1] : scenario;
 var perRace = args.Length > 2 ? int.Parse(args[2]) : 200;
@@ -23,6 +28,24 @@ var repo = AppContext.BaseDirectory;
 while (!File.Exists(Path.Combine(repo, "Machines.sln")))
     repo = Path.GetDirectoryName(repo) ?? throw new InvalidOperationException("run inside the repository");
 var data = GameData.Load(Path.Combine(repo, "data", "original"));
+
+if (prologue)
+{
+    var checkpoint = args.Length > 1 ? int.Parse(args[1]) : 3;
+    seconds = args.Length > 2 ? int.Parse(args[2]) : 60;
+    var chapter = MatchSetup.Create(data, StoryOptions.Prologue, StoryOptions.Prologue,
+        new Dictionary<Race, Controller> { [Race.Red] = Controller.Player, [Race.Blue] = Controller.Ai }, seed: 7,
+        new MatchOptions { Story = new StoryOptions { Checkpoint = checkpoint }, FogOfWar = false });
+    var run = chapter.Story!;
+    Console.WriteLine($"prologue from checkpoint {checkpoint}: {chapter.Machines.Count()} machines, {chapter.Artefacts.Count()} artefacts");
+    Time(chapter, seconds, () =>
+    {
+        if (chapter.HeroOf(run.Locator) is { } locator)
+            chapter.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true, Forward: checkpoint == 3 && locator.Position.X < 173 ? 1 : 0));
+    });
+    Console.WriteLine($"chapter: section {run.Section}, over {run.Over} ({run.Ending}), beats fired {run.Director.Fired.Count}");
+    return;
+}
 
 if (story)
 {
@@ -108,13 +131,14 @@ foreach (var race in races)
 
 Time(world, seconds);
 
-static void Time(GameWorld world, int seconds)
+static void Time(GameWorld world, int seconds, Action? each = null)
 {
     world.Profile = [];
     var times = new List<double>();
     var clock = new Stopwatch();
     for (var tick = 0; tick < seconds * 20; tick++)
     {
+        each?.Invoke();
         clock.Restart();
         world.Step();
         times.Add(clock.Elapsed.TotalMilliseconds);

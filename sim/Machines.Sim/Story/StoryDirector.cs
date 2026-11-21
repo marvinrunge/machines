@@ -212,7 +212,7 @@ public sealed class StoryDirector
             world.ScriptExplosion(where, StoryFall.Reach, fall.Harm, 1.2f);
             if (fall.Downs != 0)
                 world.KnockDownForStory(fall.Downs);
-            if (Beside(world, where) is { } lies)
+            if (Beside(world, where, fall.Type, fall.Angle) is { } lies)
                 world.PlaceArtefact(fall.Type, lies, fall.Angle);
             StoryEvents.Cue(world, $"debris landed {number}", where);
         }
@@ -220,25 +220,27 @@ public sealed class StoryDirector
 
     /// <summary>
     /// Where a piece landing at <paramref name="at"/> lies: there, or, with a machine under it, on the nearest free ground
-    /// beside the machines there, away from them; null when there is none within a few metres.
+    /// beside the machines there, away from them; null when there is none within a few metres. Nor does it lie where it would
+    /// cut a way of the trio's (<see cref="GameWorld.CutsTheWay"/>: a lane, a doorway), there or beside: then it lies on.
     /// </summary>
-    private static Vector2? Beside(GameWorld world, Vector2 at)
+    private static Vector2? Beside(GameWorld world, Vector2 at, string type, float angle)
     {
         bool Clear(Vector2 p) => !world.Machines.Any(m => !m.IsDead && m.Inside is null && Vector2.Distance(m.Position, p) < m.Radius + StoryFall.Lies);
-        if (Clear(at))
+        if (Clear(at) && !world.CutsTheWay(type, at, angle))
             return at;
         var under = world.Machines.Where(m => !m.IsDead && m.Inside is null && Vector2.Distance(m.Position, at) < m.Radius + StoryFall.Lies)
-            .OrderBy(m => Vector2.DistanceSquared(m.Position, at)).ThenBy(m => m.Id).First();
-        var away = at - under.Position;
+            .OrderBy(m => Vector2.DistanceSquared(m.Position, at)).ThenBy(m => m.Id).FirstOrDefault();
+        var (centre, near) = under is null ? (at, 0f) : (under.Position, under.Radius + StoryFall.Lies);
+        var away = at - centre;
         var start = away.LengthSquared() > 1e-4f ? DetMath.Atan2(away.Y, away.X) : 0;
-        for (var r = under.Radius + StoryFall.Lies + 0.5f; r <= under.Radius + 6; r += 0.5f)
+        for (var r = near + 0.5f; r <= near + 6; r += 0.5f)
         {
             for (var k = 0; k < 16; k++)
             {
                 // Round from straight away from the machine, by turns either side.
-                var angle = start + (k % 2 == 0 ? 1 : -1) * ((k + 1) / 2) * MathF.PI / 8;
-                var p = under.Position + r * new Vector2(DetMath.Cos(angle), DetMath.Sin(angle));
-                if (world.Nav.OnPlanet(p) && world.Nav.IsFree(p, Mobility.Land) && Clear(p))
+                var turn = start + (k % 2 == 0 ? 1 : -1) * ((k + 1) / 2) * MathF.PI / 8;
+                var p = centre + r * new Vector2(DetMath.Cos(turn), DetMath.Sin(turn));
+                if (world.Nav.OnPlanet(p) && world.Nav.IsFree(p, Mobility.Land) && Clear(p) && !world.CutsTheWay(type, p, angle))
                     return p;
             }
         }
@@ -623,7 +625,10 @@ public static class Then
         }
     }
 
-    /// <summary>The crates the Grunts set in a door's barricade slots thrown aside (the assault bursting in): the doorway is free.</summary>
+    /// <summary>
+    /// The crates the Grunts set in a door's barricade slots thrown aside (the assault bursting in): the doorway is free. The
+    /// view hears "thrown &lt;placement&gt; &lt;type&gt;" for each, and throws a crate of that type.
+    /// </summary>
     public sealed record ClearBarricade(string Door) : StoryAction
     {
         internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
@@ -633,7 +638,7 @@ public static class Then
                 foreach (var crate in world.Artefacts.Where(a => !a.IsDead && Vector2.DistanceSquared(a.Position, slot.Position) < 0.25f).OrderBy(a => a.Id).ToList())
                 {
                     world.RemoveArtefact(crate.Id);
-                    StoryEvents.Cue(world, $"thrown {crate.Id - Artefact.IdBase}", crate.Position);
+                    StoryEvents.Cue(world, $"thrown {crate.Id - Artefact.IdBase} {crate.Type.Name}", crate.Position);
                 }
             }
         }

@@ -156,6 +156,40 @@ public sealed class NavGrid
         Changed(x0, y0, x1, y1);
     }
 
+    /// <summary>
+    /// Whether blocking the cells a polygon covers (as <see cref="SetArea"/> would) cuts a way: free cells round it that were
+    /// one connected area for a way of moving fall into two or more. Asked before something is set down on open floor (a
+    /// story's falling debris beside a machine), so it does not shut a lane or a doorway; the grid is left as it was.
+    /// </summary>
+    public bool Cuts(IReadOnlyList<Vector2> polygon, Mobility mobility, int margin = 4)
+    {
+        var (x0, y0) = Cell(new Vector2(polygon.Min(p => p.X), polygon.Min(p => p.Y)));
+        var (x1, y1) = Cell(new Vector2(polygon.Max(p => p.X), polygon.Max(p => p.Y)));
+        (x0, y0, x1, y1) = (Math.Max(0, x0 - margin), Math.Max(0, y0 - margin), Math.Min(Width - 1, x1 + margin), Math.Min(Depth - 1, y1 + margin));
+        var before = new Dictionary<int, int>();
+        for (var y = y0; y <= y1; y++)
+            for (var x = x0; x <= x1; x++)
+                if (Region(x, y, mobility) is var region and not 0)
+                    before[y * Width + x] = region;
+        SetArea(polygon, present: true);
+        var split = new Dictionary<int, int>();
+        var cuts = false;
+        foreach (var (cell, region) in before)
+        {
+            var after = Region(cell % Width, cell / Width, mobility);
+            if (after == 0)
+                continue;
+            if (split.TryGetValue(region, out var seen) && seen != after)
+            {
+                cuts = true;
+                break;
+            }
+            split[region] = after;
+        }
+        SetArea(polygon, present: false);
+        return cuts;
+    }
+
     /// <summary>Cells in a box were blocked or opened: the room round them is measured again, and the regions and fields forgotten.</summary>
     private void Changed(int x0, int y0, int x1, int y1)
     {
@@ -626,11 +660,20 @@ public sealed class NavGrid
         for (var i = 1; i <= steps; i++)
         {
             var (x, y) = Cell(Vector2.Lerp(from, point, i / (float)steps));
-            if ((x, y) != cell && IsFree(x, y, mobility))
+            if ((x, y) != cell && (IsFree(x, y, mobility) || Fine && Walled(x, y, mobility)))
                 return false;
         }
         return true;
     }
+
+    /// <summary>
+    /// On a deck's fine grid, whether a cell is shut to a way of moving by the deck itself (a wall, a grate, high cover, a duct
+    /// it cannot crawl into) rather than by something standing on open floor (an artefact, a building) or by want of room: a
+    /// goal behind such a cell lies beyond a wall, not inside what the machine is to drive up to (stage 4's finding 20: a
+    /// Reaper in Parallelgang 2 was handed a spot in the cable duct behind the wall, and the end of its run set it down there).
+    /// </summary>
+    private bool Walled(int x, int y, Mobility mobility) =>
+        _static[y * Width + x] switch { 0 => false, 2 => !mobility.Water, 3 => !mobility.Crawl, _ => true };
 
     private List<Vector2> Smooth(Vector2 start, List<Vector2> points, Mobility mobility)
     {

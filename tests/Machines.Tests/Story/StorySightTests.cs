@@ -290,6 +290,38 @@ public class StorySightTests
         Assert.True(skirmish.StoryLampOn(1));
     }
 
+    [Fact]
+    public void The_grunts_lamps_follow_the_locators_until_a_grunts_own_key_switches_it()
+    {
+        var world = Prologue();
+        var story = world.Story!;
+        var locator = Locator(world);
+        var (ike, bob) = (world.HeroOf(story.Seats[1])!, world.HeroOf(story.Seats[2])!);
+        // Out of their clamps, both shine with the Locator.
+        ike.Position = new Vector2(30, 40);
+        bob.Position = new Vector2(34, 40);
+        Assert.True(world.StoryLampOn(ike.Id) && world.StoryLampOn(bob.Id));
+
+        // The Locator dims its lamp to sneak: theirs go dark with it, and their signatures lose the lamp's share.
+        world.Issue(new StoryLampCommand(Race.Red, false) { Issuer = story.Locator });
+        world.Step();
+        Assert.False(world.StoryLampOn(ike.Id));
+        Assert.False(world.StoryLampOn(bob.Id));
+        world.Step();
+        Assert.True(world.StorySignature(ike.Id) < StorySight.Lamp, $"Ike's signature {world.StorySignature(ike.Id)}");
+
+        // Bob's own key: his lamp is his from then on, the Locator's switch no longer moves it; Ike's still follows.
+        world.Issue(new StoryLampCommand(Race.Red, true) { Issuer = story.Seats[2] });
+        world.Step();
+        Assert.True(world.StoryLampOn(bob.Id));
+        Assert.False(world.StoryLampOn(ike.Id));
+        world.Issue(new StoryLampCommand(Race.Red, true) { Issuer = story.Locator });
+        world.Issue(new StoryLampCommand(Race.Red, false) { Issuer = story.Seats[2] });
+        world.Step();
+        Assert.True(world.StoryLampOn(ike.Id));
+        Assert.False(world.StoryLampOn(bob.Id));
+    }
+
     // ---- suspicion, hunt, search -------------------------------------------------------------------------
 
     [Fact]

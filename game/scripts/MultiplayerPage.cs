@@ -220,7 +220,11 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
         {
             _returning = false;
             if (NetLink.Connected && _matchRoom is { } was)
+            {
                 _ = Return(was);
+                if (_automated)
+                    _ = ReadyAgain(was.HostId == NetLink.ClientId, was.Players.Count);
+            }
         }
         Automate();
     }
@@ -878,6 +882,29 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
         }
         if (IsInstanceValid(this) && _state is null)
             Say(Lang.T("{0} has not opened the room again.", host));
+    }
+
+    /// <summary>
+    /// MACHINES_MP's run back in a room after its match (a story chapter lost online, say): ready again once in it, as its
+    /// players would, and the host starts it once as many as before are in and ready.
+    /// </summary>
+    private async Task ReadyAgain(bool host, int before)
+    {
+        for (var waited = 0.0; _state is null || host && (_state.Players.Count < Math.Max(2, before)
+            || _state.Players.Any(p => p.ClientId != NetLink.ClientId && !p.Ready)); waited += 0.2)
+        {
+            if (!IsInstanceValid(this) || waited > 150)
+                return;
+            await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
+        }
+        GD.Print($"mp: back in the room with {_state.Players.Count}, ready");
+        _ready.ButtonPressed = true;
+        if (!host)
+            return;
+        while (IsInstanceValid(this) && (_state is null || _state.Players.Any(p => !p.Ready)))
+            await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
+        if (IsInstanceValid(this))
+            NetLink.Send(new StartMatch());
     }
 
     private static readonly Dictionary<string, long?> TerrainPrints = [];
