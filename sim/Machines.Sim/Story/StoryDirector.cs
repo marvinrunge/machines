@@ -991,6 +991,28 @@ public static class Then
     }
 
     /// <summary>
+    /// The machines of a role keep to the script for a while (<paramref name="On"/> false): they see nothing and forget what
+    /// they suspected, so a Grunt in a doorway does not turn them from where the director sends them; with true they see
+    /// again. Erwischt's Reapers storm the core chamber this way, as its cutscene films them.
+    /// </summary>
+    public sealed record Sight(string Role, bool On) : StoryAction
+    {
+        internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            foreach (var machine in director.Of(world, Role))
+            {
+                var eyes = world.StoryWatch(machine);
+                eyes.Blind = !On;
+                if (On)
+                    continue;
+                (eyes.Suspicion, eyes.Wary) = (0, false);
+                eyes.Sees.Clear();
+                eyes.SightSince.Clear();
+            }
+        }
+    }
+
+    /// <summary>
     /// A Grunt lying down is never left behind (docs/STORY.md, Erste Gegenwehr: "gefallene Grunts wieder zusammenzusetzen"): while
     /// one lies down (outside <paramref name="Aboard"/>, where it counts as in the pod), the objective is to put it back together,
     /// pointing at it; the objective it pushed aside comes back once it is up again. A newer objective the director sets meanwhile
