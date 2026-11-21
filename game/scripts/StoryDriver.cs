@@ -82,6 +82,8 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                     _pictureAt = null;
                     await Picture($"section{story.Section}");
                 }
+                if (ShotDue(game, story) is { } shot)
+                    await Picture(shot);
                 if (story.Over)
                 {
                     LetGo();
@@ -116,6 +118,29 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                 await Leg(game, story, hero);
             }
         }
+    }
+
+    // MACHINES_STORY_DRIVE_SHOTS=<beat>:<seconds>[,...]: more pictures, each that many game seconds after a beat of the
+    // director's fired (alarm:12 is Erwischt with the Reapers in the core chamber), named after the beat and the seconds.
+    private List<(string Beat, float Seconds)>? _beatShots;
+
+    private string? ShotDue(Game game, StoryRun story)
+    {
+        _beatShots ??= (System.Environment.GetEnvironmentVariable("MACHINES_STORY_DRIVE_SHOTS") ?? "")
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Split(':'))
+            .Where(p => p.Length == 2 && float.TryParse(p[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _))
+            .Select(p => (p[0], float.Parse(p[1], System.Globalization.CultureInfo.InvariantCulture)))
+            .ToList();
+        foreach (var shot in _beatShots)
+        {
+            if (story.Director.Fired.TryGetValue(shot.Beat, out var at) && game.World.Time >= at + shot.Seconds)
+            {
+                _beatShots.Remove(shot);
+                return FormattableString.Invariant($"{shot.Beat}+{shot.Seconds}");
+            }
+        }
+        return null;
     }
 
     /// <summary>A section begun: its line and, a moment later, its picture.</summary>
