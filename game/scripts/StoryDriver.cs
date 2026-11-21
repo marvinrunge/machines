@@ -19,7 +19,8 @@ namespace Machines.Game;
 /// <para>
 /// Where its way fails for a long time (90 s on one leg, 150 s waiting for the Grunts) it sets the hero, or the Grunts, down
 /// at the leg's end and says so: the only time it touches the world, so the run goes on to the end; the checksums of such a
-/// run are its own.
+/// run are its own. At the end it prints "fallbacks: N", the times it did so; a sound run has none, and where the way
+/// stalls it says where, which way it wanted and who stood near.
 /// </para>
 /// </summary>
 public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("Driver", int.MaxValue, null, 0, new HashSet<string>(), "menu", "squad"))
@@ -42,7 +43,8 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
     private double _legSince, _wayAt, _lastUse, _lastFollow, _clickAt, _reverseUntil, _progressAt;
     private NVector2 _wayTo, _progressFrom;
     private List<NVector2> _route = [];
-    private int _section, _falls, _clicks;
+    // The times its way failed and it set someone down (the goal is none), and the stalls logged on this leg.
+    private int _section, _falls, _clicks, _fallbacks, _stalls;
     private double? _pictureAt;
     private HackHost? _board;
 
@@ -59,6 +61,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         {
             Tell($"failed: {exception}");
         }
+        Tell($"fallbacks: {_fallbacks}");
         Tell("over");
         GetTree().Quit();
     }
@@ -207,7 +210,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         var now = Time.GetTicksMsec() / 1000.0;
         if (_leg != leg)
         {
-            (_leg, _legSince, _route, _clicks) = (leg, now, [], 0);
+            (_leg, _legSince, _route, _clicks, _stalls) = (leg, now, [], 0, 0);
             Tell($"leg: {leg}");
         }
         return now - _legSince > seconds;
@@ -226,6 +229,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         if (Overdue(leg, 90))
         {
             Tell($"stuck on '{leg}' at {hero.Position.X:0.0},{hero.Position.Y:0.0}: set down at {place.X:0.0},{place.Y:0.0}");
+            _fallbacks++;
             hero.Position = place;
             _legSince = Time.GetTicksMsec() / 1000.0;
             return false;
@@ -288,7 +292,8 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
             {
                 if (world.HeroOf(seat) is { } grunt && !area.Contains(grunt.Position))
                 {
-                    Tell($"the Grunt of {seat} did not come into {zone}: set down beside the Locator");
+                    Tell(FormattableString.Invariant($"the Grunt of {seat} did not come into {zone} (at {grunt.Position.X:0.0},{grunt.Position.Y:0.0}, {grunt.Order.GetType().Name}): set down beside the Locator"));
+                    _fallbacks++;
                     grunt.Position = hero.Position + new NVector2(story.Seats.IndexOf(seat) == 1 ? -2 : 2, 0);
                 }
             }
@@ -297,8 +302,12 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         }
         if (!Steer(game, hero, middle, 2))
             return;
+        // Told to follow only while one of those still out has no job of its own: a follow order ends a job, and the pod's
+        // boarding brings them to their places beside the hatch, while one following keeps its distance in the queue.
         var now = Time.GetTicksMsec() / 1000.0;
-        if (now - _lastFollow > 20)
+        var idle = story.Seats.Skip(1).Any(seat => world.HeroOf(seat) is { } grunt && !area.Contains(grunt.Position)
+            && story.Crew.Of(seat).Task == CompanionTask.None);
+        if (idle && now - _lastFollow > 20)
         {
             _lastFollow = now;
             await Tap(KeyMap.Of(KeyMap.Act.GruntFollow));
@@ -341,6 +350,13 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
             (_progressFrom, _progressAt) = (hero.Position, now);
         else if (now - _progressAt > 3)
         {
+            // Where it stalls, for the log: the first few times a leg, with the way's next points and who stands near.
+            if (++_stalls <= 3)
+            {
+                var by = game.World.Machines.Where(m => m.Id != hero.Id && !m.IsDead && NVector2.Distance(m.Position, hero.Position) < 8)
+                    .Select(m => FormattableString.Invariant($"{m.Spec.TypeName}#{m.Id} {m.Position.X:0.0},{m.Position.Y:0.0}"));
+                Tell(FormattableString.Invariant($"no headway on '{_leg}' at {hero.Position.X:0.0},{hero.Position.Y:0.0} facing {hero.Facing:0.00}, way {string.Join(" ", _route.Take(3).Select(p => $"{p.X:0.0},{p.Y:0.0}"))} of {_route.Count}, near: {string.Join("; ", by)}"));
+            }
             (_reverseUntil, _progressAt, _route) = (now + 0.7, now, []);
         }
         return false;
@@ -375,14 +391,16 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         return cells;
     }
 
-    /// <summary>The cells other machines stand on (the dark rows, the Grunts), with room for the hero to pass: the way goes round them.</summary>
+    /// <summary>The cells other machines stand on (the dark rows, the Thresher), with room for the hero to pass: the way goes round them.</summary>
     private static HashSet<int> Standing(GameWorld world, Machine hero)
     {
         var nav = world.Nav;
         var cells = new HashSet<int>();
         foreach (var machine in world.Machines)
         {
-            if (machine.Id == hero.Id || machine.IsDead)
+            // The Grunts the computer drives step aside when the Locator runs into them (GameWorld.MakesWayInStory), as
+            // they do for a player: the way goes through them, or two Grunts that followed it into a bay shut it in.
+            if (machine.Id == hero.Id || machine.IsDead || !machine.DrivenByPlayer && world.CompanionSeat(machine) is not null)
                 continue;
             var reach = machine.Radius + hero.Radius + 0.5f;
             for (var y = (int)(machine.Position.Y - reach); y <= (int)(machine.Position.Y + reach); y++)
@@ -452,7 +470,8 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         var points = cells.Select(c => nav.Centre(c % width, c / width)).ToList();
         if (best == goal && points.Count > 0)
             points[^1] = to;
-        // Straightened: from each point on to the furthest one in a clear line over free cells.
+        // Straightened: from each point on to the furthest one in a clear line over the cells the search took as free, so
+        // the line does not cut past a machine standing beside the way (a hostile Grunt before the repair niche's door).
         var straight = new List<NVector2>();
         var from0 = from;
         for (var i = 0; i < points.Count;)
@@ -460,7 +479,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
             var far = i;
             for (var j = points.Count - 1; j > i; j--)
             {
-                if (Clear(nav, mobility, from0, points[j]))
+                if (Clear(nav, Free, from0, points[j]))
                 {
                     far = j;
                     break;
@@ -474,13 +493,13 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
     }
 
     /// <summary>Whether the line between two points crosses only free cells (sampled every half cell).</summary>
-    private static bool Clear(NavGrid nav, Mobility mobility, NVector2 a, NVector2 b)
+    private static bool Clear(NavGrid nav, Func<int, int, bool> free, NVector2 a, NVector2 b)
     {
         var steps = (int)MathF.Ceiling(NVector2.Distance(a, b) / (nav.CellSize * 0.5f));
         for (var i = 1; i < steps; i++)
         {
             var (x, y) = nav.Cell(NVector2.Lerp(a, b, (float)i / steps));
-            if (!nav.IsFree(x, y, mobility))
+            if (!free(x, y))
                 return false;
         }
         return true;
