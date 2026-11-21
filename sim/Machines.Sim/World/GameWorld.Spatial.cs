@@ -94,7 +94,8 @@ public sealed partial class GameWorld
                 {
                     if (actor.IsDead || !AreEnemies(from.Race, actor.Race) || actor is Machine { Inside: not null } || Battle is not null && actor is Construction
                         || !seeCamouflage && actor is Machine { Camouflaged: true }
-                        || !seeCamouflage && Wired is not null && Shadowed(from, actor))
+                        || !seeCamouflage && Wired is not null && Shadowed(from, actor)
+                        || Story is not null && StoryHides(from, actor))
                         continue;
                     var distance = from.DistanceTo(actor);
                     if (distance > range)

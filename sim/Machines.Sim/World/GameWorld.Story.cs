@@ -50,6 +50,8 @@ public sealed partial class GameWorld
     {
         if (Story is not { Over: false })
             return;
+        // First, so what came of the seekers' looks is there for the rest of the tick to read (StorySight.News).
+        UpdateSight();
         UpdateHacks();
     }
 

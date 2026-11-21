@@ -288,6 +288,9 @@ public sealed partial class GameWorld
         }
         if (shooter is null)
             return;
+        // In the story a hit gives the shooter away to a seeker that had not seen it (GameWorld.StorySight).
+        if (Story is not null)
+            StoryStruck(target, shooter);
         var enemy = AreEnemies(target.Race, shooter.Race);
         if (enemy && shooter is Machine { DrivenByPlayer: true } && Time > target.Alert.NextFirstPersonSos)
         {

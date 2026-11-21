@@ -77,8 +77,8 @@ public sealed record TransportOrder(int Mine, int Smelter, bool Delivering = fal
 /// <summary>Walk into a lab and work there as a researcher.</summary>
 public sealed record EnterLabOrder(int Lab) : Order;
 
-/// <summary>Walk the points in a loop.</summary>
-public sealed record PatrolOrder(IReadOnlyList<Vector2> Points, int Next) : Order;
+/// <summary>Walk the points in a loop; in a story a seeker stands a while sweeping its beam at the points whose indices are in <paramref name="Pauses"/> (GameWorld.StorySight).</summary>
+public sealed record PatrolOrder(IReadOnlyList<Vector2> Points, int Next, IReadOnlyList<int>? Pauses = null) : Order;
 
 /// <summary>Restore a friendly machine's hit points with a supercharger (administrators).</summary>
 public sealed record HealOrder(int Target) : Order;

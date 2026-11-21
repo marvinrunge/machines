@@ -137,9 +137,16 @@ public sealed partial class GameWorld
                 machine.Order = Order.Idle;
             return;
         }
+        // A seeker of the story that noticed something stops and turns to it, or stands sweeping at a point of its round (GameWorld.StorySight).
+        if (Story is not null && StoryHolds(machine))
+            return;
 
         switch (machine.Order)
         {
+            case SearchOrder search:
+                UpdateSearch(machine, search);
+                break;
+
             case MoveOrder:
                 if (!FollowPath(machine))
                     machine.Order = Order.Idle;
@@ -198,6 +205,8 @@ public sealed partial class GameWorld
             case PatrolOrder patrol:
                 if (!FollowPath(machine))
                 {
+                    if (Story is not null && StoryDwells(machine, patrol))
+                        break;
                     var next = (patrol.Next + 1) % patrol.Points.Count;
                     Send(machine, patrol with { Next = next }, patrol.Points[next]);
                 }

@@ -496,6 +496,9 @@ public sealed partial class GameWorld
     /// </summary>
     private bool WiredHit(Actor target, ref int damage, Actor? shooter, string? weapon)
     {
+        // Nothing hurts the prologue's Thresher (GameWorld.StorySight); the hit still gives its dealer away.
+        if (Story is not null && StoryShrugs(target, shooter))
+            return false;
         var share = 1f;
         if (OnTheWavesSide(target) && shooter is Machine dealing && HeroStateOf(dealing) is { } own)
             share *= WiredChips.Dealing(this, own, dealing, new ChipHit(target, shooter, weapon, target.Armour));
