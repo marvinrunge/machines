@@ -1,0 +1,96 @@
+// "Erwischt" (docs/STORY.md, Prolog im Detail, section 4): the alarm at 90 % of the core hack. Seen from inside L-7
+// (first person) but for one wide take on the Commander. The announcement (tools/voice/lines.json P_ANN_C1-C8, P_AUTO_1)
+// sets the length: 31 s with the German placeholder voices, which are the longer. Read by game/scripts/CutsceneScript.cs,
+// played live by Cutscene.cs (MACHINES_CUTSCENE_STILLS=<folder>;erwischt;... with MACHINES_STORY=prolog).
+//
+// The world's part is the story director's, on ticks (plan WP-H): the Reapers and the Commander come in through J, the
+// Reapers fire at the core artefact, the core is destroyed, the lights go to emergency. This script only films it and
+// adds what is seen and heard; the shots below fly without a sim behind them, so the outcome never changes, and where the
+// Reapers or the Commander are not (yet) there the camera looks at the point after "|".
+//
+// Places on the deck (metres, x east, y north, height over the floor): L-7 hacks at hack_core (88, 106.5) facing north;
+// the core (8 x 8 m) stands at 88,116; door J (to the spine) is behind it at x 84-91, y 132-133, so the Reapers come round
+// both sides of the core (x 76-84 and 92-100).
+
+cutscene erwischt
+bars 0.12
+blend 0.6
+
+part kern deck
+// The alarm: the view lifts from the board to the core as the lights turn red.
+take alarm 5.5 cockpit locator look=core@4 rate=2
+// The door bursts behind the core: the view snaps to the left passage.
+take tuer 4.5 cockpit locator look=80,126,3 rate=1.6
+// The Reapers stride round the core, firing; rounds go past.
+take sturm 5.5 cockpit locator look=reaper@3|82,124,3 rate=2.2
+// The one wide take: from the north-west corner, low on the Commander coming in behind them.
+take kommandant 4.5 cam cam_erwischt_3 look=commander@5|88,131,4 rate=1.5 fov=38 blur=1.2
+// They hit the core instead.
+take treffer 5.5 cockpit locator look=core@4 rate=2.5
+// The core blows, the power fails, the announcement breaks up.
+take ausfall 5.5 cockpit locator look=core@7 rate=0.8 fov=66
+
+at 0.0 sound sting_alarm
+at 0.0 glitch 0.7 1.2
+at 0.1 event alarm
+at 0.1 event lights emergency
+at 0.3 line P_ANN_C1
+at 0.4 sound amb_alarm_klaxon db=-8 for=30
+
+// Door J bursts.
+at 4.8 sound hull_breach
+at 4.9 explosion 88,133,0 3
+at 4.9 shake 88,133,3 4 0.5
+at 5.0 sparks 88,133,7 amount=70
+at 5.2 sparks 85,133,5 amount=40
+at 5.6 sound metal_groan_big db=-4
+at 6.4 line P_ANN_C2
+at 7.0 event reapers in
+
+// Rounds past L-7 (near misses), then at the core.
+at 10.4 shot PLASMA_RIFLE reaper@3.2|80,125,3.2 86.6,108.6,2.4 speed=80
+at 11.0 shot PLASMA_RIFLE reaper@3.2|96,125,3.2 90.2,107.6,1.7 speed=80
+at 11.2 line P_ANN_C3
+at 11.7 shot PLASMA_RIFLE reaper@3.2|80,125,3.2 85.9,107.2,3.1 speed=80
+at 12.4 shot PLASMA_RIFLE reaper@3.2|96,125,3.2 core@3 speed=80
+at 13.1 shot PLASMA_RIFLE reaper@3.2|80,125,3.2 core@2 speed=80
+at 13.8 shot PLASMA_RIFLE reaper@3.2|96,125,3.2 89.4,108.1,2.2 speed=80
+at 14.6 shot PLASMA_RIFLE reaper@3.2|80,125,3.2 core@4 speed=80
+at 15.8 line P_ANN_C4
+at 16.2 shot PLASMA_RIFLE reaper@3.2|82,126,3.2 core@3 speed=80
+at 16.9 shot PLASMA_RIFLE reaper@3.2|95,126,3.2 core@5 speed=80
+at 17.5 shot PLASMA_RIFLE reaper@3.2|82,126,3.2 core@2 speed=80
+at 18.6 shot PLASMA_RIFLE reaper@3.2|95,126,3.2 core@4 speed=80
+at 19.2 shot PLASMA_RIFLE reaper@3.2|82,126,3.2 core@6 speed=80
+at 20.4 shot PLASMA_RIFLE reaper@3.2|80,125,3.2 core@3 speed=80
+at 21.0 shot PLASMA_RIFLE reaper@3.2|96,125,3.2 core@5 speed=80
+at 21.2 sparks core@7 amount=50
+at 21.2 sound sparks
+at 21.5 shot PLASMA_RIFLE reaper@3.2|80,125,3.2 core@2 speed=80
+at 21.8 line P_ANN_C5
+at 22.3 shot PLASMA_RIFLE reaper@3.2|96,125,3.2 core@4 speed=80
+at 22.8 sparks core@9 amount=60
+at 22.9 glitch 0.35 0.6
+at 23.0 shot PLASMA_RIFLE reaper@3.2|80,125,3.2 core@6 speed=80
+at 23.6 shot PLASMA_RIFLE reaper@3.2|96,125,3.2 core@3 speed=80
+at 24.4 shot PLASMA_RIFLE reaper@3.2|80,125,3.2 core@5 speed=80
+
+// The core blows on "kor-": the power fails, then only the red emergency light and the fire.
+at 25.5 explosion core@2 9
+at 25.5 sound hull_breach
+at 25.5 shake core@4 12 2
+at 25.6 glitch 1 1.8
+at 25.7 event lights off
+at 25.8 fire core@1 6 8
+at 26.2 explosion core@8 6
+at 26.4 line P_ANN_C6
+at 26.9 explosion 92,118,4 4
+at 27.4 event lights emergency
+at 27.6 line P_ANN_C7
+at 28.0 sound sparks
+at 28.2 sparks core@11 amount=80
+at 29.3 line P_ANN_C8
+at 30.4 sound pa_cutoff
+at 30.6 event control lost
+// The automatic voice comes as the view returns, and runs on into the flight.
+at 30.8 line P_AUTO_1

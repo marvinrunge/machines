@@ -8,3 +8,4 @@ ice trailer-ice,micey 0.7 -
 ice2 trailer-ice,micey 0.7 -
 strike trailer-moon,m_moon 0 -
 strike2 trailer-moon,m_moon 0 -
+prolog-abwurf prolog-abwurf,m_desert 0 -

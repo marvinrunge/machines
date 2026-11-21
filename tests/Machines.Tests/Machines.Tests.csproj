@@ -54,4 +54,9 @@
     <Compile Include="..\..\game\scripts\GameDisc.cs" Link="Import\GameDisc.cs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The story's cutscenes as data (data/planets/<chapter>/<name>.cut), Godot-free so the scripts can be checked here. -->
+    <Compile Include="..\..\game\scripts\CutsceneScript.cs" Link="Story\CutsceneScript.cs" />
+  </ItemGroup>
+
 </Project>

@@ -1,0 +1,68 @@
+// "Abwurf" (docs/STORY.md, Prolog im Detail, section 8; board scene s-abwurf): the pod is released, the mothership burns
+// through the atmosphere and strikes far away, the pod lands hard. Silence. Black. Read by game/scripts/CutsceneScript.cs.
+//
+// Two parts. "bucht" plays live on the deck when pod 3 launches (MACHINES_STORY=prolog), and ends black: the story then
+// loads the outside. "aussen" plays outside, for now on m_desert at dusk (data/maps/prolog-abwurf.scn) until the crash
+// planet of act 1 exists: live (MACHINES_MAP=prolog-abwurf,m_desert with MACHINES_CUTSCENE=abwurf) and as a film
+// (MACHINES_CINEMATIC=prolog-abwurf, tools/cinematic/films.txt).
+//
+// Outside, points are metres on the map (x east, y north, height over the ground below). The camera stands on the high
+// plateau near 1010,835 looking north over the low ground to the map's northern rim (about 30 m high, 700 m off), behind
+// which the ship goes down. The mothership (game/assets/story/props/mothership.glb, 1200 m long) flies from high in the
+// south-west to far beyond the rim in 22 s; its nose is taken to be the model's -x.
+
+cutscene abwurf
+bars 0.12
+blend 0.5
+
+part bucht deck
+// From the catwalk over the pod bay (cam_abwurf_1): the clamps let go of pod 3, it drops down its shaft.
+take freigabe 3.5 cam cam_abwurf_1 look=pod_3@3 fov=52 blur=0.8
+take abwurf 3.5 cam cam_abwurf_1 look=pod@2|pod_3@-6 rate=4 fov=52 blur=0.8
+
+at 0.0 prop pod pod pod_3 pod_3 3.5
+at 0.0 line P_AUTO_POD_GO
+at 0.0 rumble 1.2 ease=0.5
+at 0.0 tilt 8 -2 sway=2 ease=0.5
+at 0.3 sound pod_clamps
+at 1.0 sparks pod_3@9 amount=50
+at 1.5 sound metal_groan_big
+at 3.3 sound clamp_release
+at 3.5 prop pod pod pod_3 pod_3@-40 2.2 ease=in
+at 3.6 shake pod_3@2 6 0.6
+at 3.6 sparks pod_3@1 amount=90
+at 4.0 sound pod_drop_wind
+at 5.4 fade 1 0.4
+at 6.0 silence 0.5
+
+part aussen outside
+// High in the sky beside the burning ship, the pod falling away from it as a small dark dot.
+take hoehe 6 chase ship offset=700,-650,-260 fov=50 blur=0
+// From the ground at dusk, a wide lens: the ship streaks over and down to the north.
+take boden 11 fixed 1010,835,1.8 look=ship rate=1.2 fov=70 blur=0.3
+// It goes down behind the rim; the flash; the column of smoke; the shock comes late; the pod streaks in.
+take einschlag 7.6 fixed 1010,835,1.8 look=1400,5200,40 rate=0.9 fov=56 blur=0.3
+// The pod lands hard, close by.
+take landung 4 fixed 1012,838,1.6 look=pod@2|1060,905,2 rate=3 fov=45 blur=1
+// Silence. A tick of cooling metal. Black.
+take stille 3.4 fixed 1012,838,1.6 look=pod@1.5|1060,905,1.5 rate=1 fov=42 blur=1.2
+
+at 0.0 dusk 0.75
+at 0.0 prop ship mothership 300,-1500,2800 1500,7000,-400 22 nose=-x glow=2 trail=260
+at 0.0 sound amb_reentry for=21
+at 0.0 rumble 0.5 ease=0.3
+at 2.5 prop pod1 pod 436,-534,2316 380,-200,1600 4 ease=in until=6.2 glow=1
+at 6.0 rumble 0 ease=1
+at 21.0 flash 1450,6600,0 1400 light=7000 for=1.6
+at 21.2 smoke 1450,6600,0 180 rise=24
+at 21.6 prop pod pod 1150,1300,900 1060,905,0 3.0 ease=in glow=1.5 trail=6 land=5
+at 22.4 sound pod_drop_wind
+at 23.4 sound hull_breach db=-3
+at 23.5 shake camera 4 1.5
+at 23.5 rumble 0.8 ease=0.1
+at 24.6 sound pod_impact
+at 24.8 rumble 0 ease=2
+at 25.0 smoke pod 3 rise=9
+at 28.6 silence 0.2
+at 29.2 sound cooling_tick
+at 30.0 fade 1 2

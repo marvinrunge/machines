@@ -17,13 +17,26 @@ public partial class FilmLook : CanvasLayer
         uniform float grade = 0.0;
         uniform float bars = 0.0;
         uniform float fade = 0.0;
+        uniform float glitch = 0.0;
 
         float noise(vec2 at) {
             return fract(sin(dot(at, vec2(12.9898, 78.233))) * 43758.5453);
         }
 
         void fragment() {
-            vec3 colour = texture(screen, SCREEN_UV).rgb;
+            vec3 colour;
+            if (glitch > 0.0) {
+                // A broken signal: bands of lines torn sideways, the colours split, the picture flickering.
+                float flick = floor(TIME * 19.0);
+                float band = floor(SCREEN_UV.y * 54.0);
+                float torn = step(1.0 - 0.4 * glitch, noise(vec2(band, flick)));
+                vec2 uv = SCREEN_UV + vec2((noise(vec2(band * 1.3, flick + 7.0)) - 0.5) * 0.09 * glitch * torn, 0.0);
+                float split = 0.007 * glitch * (0.6 + 0.8 * noise(vec2(flick, 2.0)));
+                colour = vec3(texture(screen, uv + vec2(split, 0.0)).r, texture(screen, uv).g, texture(screen, uv - vec2(split, 0.0)).b);
+                colour *= 1.0 - 0.25 * glitch * step(0.85, noise(vec2(flick, band)));
+                colour += (noise(FRAGCOORD.xy + flick) - 0.5) * 0.18 * glitch;
+            } else
+                colour = texture(screen, SCREEN_UV).rgb;
             float light = dot(colour, vec3(0.2126, 0.7152, 0.0722));
             // Cool shadows, warm light, a little more contrast and colour.
             vec3 graded = colour * mix(vec3(0.93, 1.0, 1.07), vec3(1.07, 1.0, 0.9), smoothstep(0.1, 0.75, light));
@@ -60,6 +73,9 @@ public partial class FilmLook : CanvasLayer
 
     /// <summary>How far the picture has faded to black, 0 to 1.</summary>
     public float Fade { set => _material.SetShaderParameter("fade", value); }
+
+    /// <summary>How broken the picture is, 0 to 1: lines torn sideways, the colours split (a cutscene's interference).</summary>
+    public float Glitch { set => _material.SetShaderParameter("glitch", value); }
 
     public FilmLook()
     {
