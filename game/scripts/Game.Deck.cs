@@ -30,7 +30,34 @@ public partial class Game
         if (deck is null)
             return TerrainBuilder.Build(World.Planet, HeightField.Current!, map, _assets.PlanetTerrain(request.Planet));
         _deckView = DeckView.Build(deck);
+        CutsceneTold -= DeckHears;
+        CutsceneTold += DeckHears;
         return _deckView;
+    }
+
+    /// <summary>
+    /// A cutscene's word for the deck: "lights &lt;on|off|emergency&gt; [group ...]" lights the named groups (LIGHTS), or else
+    /// those of the rooms the camera and the Locator are in. Until the director keeps the lights (plan WP-C) this is how a
+    /// cutscene (Erwischt) switches them.
+    /// </summary>
+    private void DeckHears(string words)
+    {
+        var parts = words.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (_deckView is null || World.Deck is not { } deck || parts.Length < 2 || parts[0] != "lights")
+            return;
+        IEnumerable<string> groups = parts[2..];
+        if (parts.Length == 2)
+        {
+            var places = new List<System.Numerics.Vector2>();
+            if (GetViewport().GetCamera3D() is { } camera)
+                places.Add(new(camera.GlobalPosition.X, camera.GlobalPosition.Z));
+            if (World.Story is { Seats.Count: > 0 } story && World.HeroOf(story.Locator) is { } hero)
+                places.Add(hero.Position);
+            var zones = deck.Zones.Where(z => places.Any(z.Contains)).Select(z => z.Name).ToHashSet();
+            groups = deck.Lights.Where(l => zones.Contains(l.Zone)).Select(l => l.Name);
+        }
+        foreach (var group in groups.ToList())
+            _deckView.SetLights(group, parts[1]);
     }
 
     /// <summary>

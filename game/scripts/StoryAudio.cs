@@ -39,8 +39,8 @@ public partial class StoryAudio : Node
     /// <summary>A line has ended, cut off or not.</summary>
     public static event Action<StoryLineCue>? LineEnded;
 
-    /// <summary>"Schreckmomente mildern": the stingers play much quieter.</summary>
-    public static bool MildScares { get; set; }
+    /// <summary>"Schreckmomente mildern": the stingers play much quieter. Follows the options' "Soften scares".</summary>
+    public static bool MildScares => GameOptions.SoftScares;
 
     private static readonly Dictionary<string, AudioStream?> Streams = [];
     private static StorySfxManifest? _sfx;

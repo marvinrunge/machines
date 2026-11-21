@@ -254,7 +254,8 @@ public partial class Game
     /// team-mate once a battle has no body left for them: no view from above, which in a battle would look over the
     /// whole field. Esc opens the menus over it; the end of the run, and a match that is not a run, leave as ever.
     /// </summary>
-    private bool KeptInFirstPerson => World.Wired is { Phase: not WiredPhase.Ended } && World.Battle is not { Over: true } && !MatchOver && !Watching;
+    private bool KeptInFirstPerson => (World.Wired is { Phase: not WiredPhase.Ended } && World.Battle is not { Over: true } || World.Story is { Over: false })
+        && !MatchOver && !Watching;
 
     /// <summary>A screen over first person, the hangar's, the menus' or a hack's: behind it the hero stands, and the mouse does not look.</summary>
     private bool ScreenOver => HangarOpen || MenuShown is not null || HackShown;

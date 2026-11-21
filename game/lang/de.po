@@ -5018,3 +5018,71 @@ msgstr "SIGNATUR ERKANNT"
 
 msgid "LINK LOST"
 msgstr "VERBINDUNG UNTERBROCHEN"
+
+# Story: the hack's board, the cutscenes and story co-op
+
+msgid "Hack: {0}"
+msgstr "Hack: {0}"
+
+msgid "Maintenance clamp"
+msgstr "Wartungsklammer"
+
+msgid "Grunt"
+msgstr "Grunt"
+
+msgid "Tower"
+msgstr "Turm"
+
+msgid "Escape pod"
+msgstr "Rettungskapsel"
+
+msgid "Main computer"
+msgstr "Hauptrechner"
+
+msgid "Door"
+msgstr "Tür"
+
+msgid "Link cut"
+msgstr "Verbindung getrennt"
+
+msgid "Board {0}/{1}"
+msgstr "Platine {0}/{1}"
+
+msgid "Trace-back"
+msgstr "Rückverfolgung"
+
+msgid "Click: turn   Right click: turn back   Esc: pull out"
+msgstr "Klick: drehen   Rechtsklick: zurückdrehen   Esc: abkoppeln"
+
+msgid "A: turn   X: turn back   B: pull out"
+msgstr "A: drehen   X: zurückdrehen   B: abkoppeln"
+
+msgid "Hold Esc to skip"
+msgstr "Esc halten zum Überspringen"
+
+msgid "Story together"
+msgstr "Story zusammen"
+
+msgid "{0}   ·   Story: {1}   ·   {2}/{3} players"
+msgstr "{0}   ·   Story: {1}   ·   {2}/{3} Spieler"
+
+msgid "{0}   ·   Story: {1}   ·   {2}/{3}"
+msgstr "{0}   ·   Story: {1}   ·   {2}/{3}"
+
+msgid "From checkpoint {0}   ·   the host's story, the progress is theirs"
+msgstr "Ab Kontrollpunkt {0}   ·   die Story des Hosts, der Fortschritt gehört ihm"
+
+msgid "open, else a bot"
+msgstr "offen, sonst ein Bot"
+
+msgid "a bot"
+msgstr "ein Bot"
+
+msgid "Locator"
+msgstr "Locator"
+
+msgid "{0}'s story"
+msgstr "Story von {0}"
+
+msgid "Prologue, \"Error\""
+msgstr "Prolog „Fehler“"

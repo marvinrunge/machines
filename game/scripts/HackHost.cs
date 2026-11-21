@@ -317,7 +317,7 @@ public partial class HackKey(Game game) : Node
 {
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (@event is InputEventKey { Pressed: true, Echo: false, Keycode: Key.U } or InputEventJoypadButton { Pressed: true, ButtonIndex: JoyButton.Y }
+        if ((KeyMap.Is(@event, KeyMap.Act.Use) || @event is InputEventKey { Pressed: true, Echo: false, Keycode: Key.U } or InputEventJoypadButton { Pressed: true, ButtonIndex: JoyButton.Y })
             && game.TryOpenHack())
             GetViewport().SetInputAsHandled();
     }
