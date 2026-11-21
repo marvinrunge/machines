@@ -16,11 +16,12 @@ bars 0.12
 blend 0.5
 
 part bucht deck
-// From the catwalk over the pod bay (cam_abwurf_1): the clamps let go of pod 3, it drops down its shaft.
+// From the catwalk over the pod bay (cam_abwurf_1): the clamps let go of pod 3, it drops down its shaft. The pod model is the
+// game's POD at the 7 m the cradles show it (scale 0.154, Game.DeckShow).
 take freigabe 3.5 cam cam_abwurf_1 look=pod_3@3 fov=52 blur=0.8
 take abwurf 3.5 cam cam_abwurf_1 look=pod@2|pod_3@-6 rate=4 fov=52 blur=0.8
 
-at 0.0 prop pod pod pod_3 pod_3 3.5
+at 0.0 prop pod pod pod_3 pod_3 3.5 scale=0.154
 at 0.0 line P_AUTO_POD_GO
 at 0.0 rumble 1.2 ease=0.5
 at 0.0 tilt 8 -2 sway=2 ease=0.5
@@ -28,7 +29,7 @@ at 0.3 sound pod_clamps
 at 1.0 sparks pod_3@9 amount=50
 at 1.5 sound metal_groan_big
 at 3.3 sound clamp_release
-at 3.5 prop pod pod pod_3 pod_3@-40 2.2 ease=in
+at 3.5 prop pod pod pod_3 pod_3@-40 2.2 ease=in scale=0.154
 at 3.6 shake pod_3@2 6 0.6
 at 3.6 sparks pod_3@1 amount=90
 at 4.0 sound pod_drop_wind

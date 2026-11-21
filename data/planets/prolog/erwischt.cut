@@ -17,7 +17,8 @@ bars 0.12
 blend 0.6
 
 part kern deck
-// The alarm: the view lifts from the board to the core as the lights turn red.
+// The alarm: the view lifts from the board to the core. The core chamber keeps its light until the core blows (the
+// director's core_blows; the rest of the ship at power_fails).
 take alarm 5.5 cockpit locator look=core@4 rate=2
 // The door bursts behind the core: the view snaps to the left passage.
 take tuer 4.5 cockpit locator look=80,126,3 rate=1.6
@@ -33,7 +34,6 @@ take ausfall 5.5 cockpit locator look=core@7 rate=0.8 fov=66
 at 0.0 sound sting_alarm
 at 0.0 glitch 0.7 1.2
 at 0.1 event alarm
-at 0.1 event lights emergency
 at 0.3 line P_ANN_C1
 at 0.4 sound amb_alarm_klaxon db=-8 for=30
 

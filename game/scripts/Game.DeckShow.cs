@@ -12,12 +12,14 @@ namespace Machines.Game;
 public partial class Game
 {
     /// <summary>
-    /// The crash's stages as the view shows them, by the seconds left on the countdown (the director's stages at 90, 60, 30
-    /// and 10 s, Prologue.cs): from the most seconds down, the first whose bound is under the time left. Each gives the hull's
-    /// rumble (degrees), the share of the fires burning, the seconds between showers of sparks, and between pieces falling.
+    /// The crash's stages as the view shows them, by the seconds left on the countdown (the director's stages at 120, 60, 30
+    /// and 10 s and the hull breach at 90, Prologue.cs): from the most seconds down, the first whose bound is under the time
+    /// left. Each gives the hull's rumble (degrees), the share of the fires burning, the seconds between showers of sparks,
+    /// and between pieces falling.
     /// </summary>
     internal static readonly (float Above, float Rumble, float Fires, float Sparks, float Drops)[] CrashStages =
     [
+        (120, 0.25f, 0.15f, 5.0f, 18),
         (90, 0.35f, 0.25f, 4.0f, 14),
         (60, 0.55f, 0.45f, 2.5f, 9),
         (30, 0.8f, 0.7f, 1.6f, 6),
