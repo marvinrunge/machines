@@ -62,6 +62,8 @@
   <ItemGroup>
     <!-- The story's cutscenes as data (data/planets/<chapter>/<name>.cut), Godot-free so the scripts can be checked here. -->
     <Compile Include="..\..\game\scripts\CutsceneScript.cs" Link="Story\CutsceneScript.cs" />
+    <!-- The story's progress as plain data and rules (its file and menus stay in StoryProgress.Files.cs). -->
+    <Compile Include="..\..\game\scripts\StoryProgress.cs" Link="Story\StoryProgress.cs" />
   </ItemGroup>
 
 </Project>

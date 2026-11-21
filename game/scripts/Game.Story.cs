@@ -257,7 +257,19 @@ public partial class Game
         switch (words)
         {
             case ["cutscene", var name]:
-                PlayCutscene(name);
+                // The chapter's last cutscene (the pod's drop in the bay) ends black, and black it stays until its film goes on outside.
+                var last = World.Story is { } ending && StoryFilm.Of(ending.Options.Chapter, Online)?.Cutscene == name;
+                PlayCutscene(name, last ? _ => HoldStoryBlack() : null);
+                break;
+            case ["debris", "falling", ..]:
+                // Debris on its way down (the director's Fall): sparks where it tears loose and a groan overhead, a moment before it lands.
+                _effects.SparkShower(at + Godot.Vector3.Up * 7, Godot.Vector3.Down, 60);
+                StoryAudio.Play("metal_groan_big", at);
+                break;
+            case ["debris", "landed", _]:
+                StoryAudio.Play("crate_fall", at);
+                CameraRig.Shake(at, 2.5f, 0.5f);
+                _effects.SparkShower(at + Godot.Vector3.Up * 0.5f, Godot.Vector3.Up, 40);
                 break;
             case ["artefact", var placement, var type, ..] when int.TryParse(placement, out var index):
                 ShowPlacedArtefact(index, type, new System.Numerics.Vector2(Number(3), Number(4)), Number(5));

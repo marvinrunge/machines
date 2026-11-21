@@ -183,6 +183,16 @@ Technische Notizen:
 - **Entdeckt beim Schleichen:** Sieht eine Maschine des Schiffs einen der drei, ruft sie per Datenfunk (das Modemkreischen) alle Maschinen im Umkreis von 80 m. Sie drehen sich zu der Stelle, die nahen (bis 40 m) suchen sie ab. Vor dem Kernalarm bleibt das Schiff danach 30 Sekunden wachsam: Der Verdacht klingt nur halb so schnell ab. Einen schiffsweiten Alarm löst das nicht aus, und nach dem Kernalarm jagt ohnehin alles.
 - **Faire Flucht:** Ein Jäger schießt erst, wenn er sich sicher ist (der Warnton „entdeckt“ kommt zuerst) und das Ziel 1,2 Sekunden ohne Unterbrechung im Blick hatte, der Thresher 0,6 Sekunden. Wer die Sichtlinie bricht, bekommt diesen Moment neu. Über 40 m schießen die Jäger nicht, und der Commander schießt gar nicht: Er führt und ruft. Reaper treffen die drei mit halber Wucht, der Thresher mit voller.
 - **Schlagseite:** Statt das Level wirklich zu kippen, reichen Kamera-Neigung, Wackeln, rutschende Trümmer, Feuer und Funken. Das ist günstiger und wirkt genauso.
+- **Absturz (umgesetzt):** Der Notgang startet 180 Sekunden (ab Checkpoint 6: 150). Bei 120, 60, 30 und 10 Sekunden sagt
+  die Schiffsstimme die Zeit, es gibt Explosionen und Trümmer, die nach einer kurzen Warnung (Funken, Ächzen) in die Gänge
+  fallen: Wer darunter steht, nimmt Schaden, und das Stück bleibt neben ihm liegen, nie auf ihm. Die Neigung ist nur ein
+  Ereignis für die Ansicht, die Simulation kippt nicht. Der Pod 3 ist ein 5×5-Brett mit Firewall; erst danach öffnet die
+  Luke (Benutzen), und der Pod startet, wenn der Locator in der Pod-Zone ist und beide Grunts drin sind (oder in der Bucht
+  am Boden liegen). Bei 0 ist das Kapitel verloren („Abgestürzt“), weiter geht es vom Checkpoint.
+- **Fortschritt und Ende (umgesetzt):** Den Checkpoint speichert nur das Spiel des Hosts (des Locators); „Weiter“ auf der
+  Story-Seite und der Koop-Raum des Hosts gehen von dort weiter, auch online führt die Karte nach einem Verlust zurück in
+  den Raum mit diesem Checkpoint. Nach dem Start des Pods läuft „Abwurf“: der Teil in der Bucht live, dann der Teil draußen
+  auf m_desert in einer dunkleren Dämmerung, danach die Karte „Prolog abgeschlossen“ und die Story-Seite. Akt 1 fehlt noch.
 - **Wiederverwendung:** Die Decks aus dem Prolog sind später das Wrack in Akt 2, nur zerbrochen, schief und voller Sand.
   Ein Baukasten, zwei Level. Danach dient er auch dem Refugium als Grundlage.
 - Die **Rauchsäule** am Horizont in Akt 1 ist ein starker, billiger Orientierungspunkt (Partikel, Licht in der Nacht).

@@ -808,8 +808,9 @@ public partial class Game : Node3D
             // The cursor is gone while the world stands still (MachInGameScreen::update).
             if (MatchOver && !_statisticsShown && _driven is null)
                 Input.MouseMode = Input.MouseModeEnum.Hidden;
-            // A chapter lost on this machine waits under its death view for the checkpoint's card (StoryHud), Esc for the menus.
-            var storyCard = World.Story is not null && !Online && !Watching;
+            // A chapter lost waits under its death view for the checkpoint's card (StoryHud), online as offline, Esc for the
+            // menus; one won goes on to its film (Game.StoryFilm). Neither has the debriefing.
+            var storyCard = World.Story is not null && !Watching;
             if (!_statisticsShown && !storyCard && (now - _decidedAt > wait || _endSkipped) && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT") is not { Length: > 0 } && Cinematic.Asked is null)
             {
                 _statisticsShown = true;
@@ -828,7 +829,8 @@ public partial class Game : Node3D
         if (!_musicEnded && MatchOver)
         {
             _musicEnded = true;
-            if (!Training)
+            // A story's chapter has its own sound (StoryAudio), and its end its film.
+            if (!Training && World.Story is null)
                 Music.End(this, World.Won(Player));
         }
         if (World.Winner is not null || World.Battle is { Over: true })
@@ -842,6 +844,8 @@ public partial class Game : Node3D
         UpdateSightScript(delta);
         UpdateFirstPersonCamera();
         CutsceneIfAsked(delta);
+        FollowStoryEnd(delta);
+        FollowStoryFilm(delta);
         UpdateTowerMode();
         ShowFilmLook();
         ShowInteriors();

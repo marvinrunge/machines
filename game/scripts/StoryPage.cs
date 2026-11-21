@@ -24,13 +24,14 @@ public partial class StoryPage(MenuScreens screens) : MenuPage(screens.ShowMain)
 
         var chapter = _progress.Chapter ?? StoryOptions.Prologue;
         var about = new ChipPanel { SizeFlagsHorizontal = SizeFlags.ExpandFill, Padding = 28 };
-        var status = _progress.CanContinue
+        var status = _progress.Ended ? StoryDoneCard.Words(chapter).Title
+            : _progress.CanContinue
             ? _progress.Checkpoint > 0 ? Lang.T("Last checkpoint reached: {0}", _progress.Checkpoint) : Lang.T("Begun, no checkpoint reached yet")
             : Lang.T("Not begun yet");
         about.AddChild(Column(22,
             MenuTheme.Label(StoryProgress.Heading(chapter), 34, MenuTheme.Bright),
             MenuTheme.Paragraph(Lang.T("A maintenance unit wakes in its clamp aboard a ship of the machines. Its update is pending. Two Grunts in the bays beside it wake with it."), 24, MenuTheme.Text),
-            MenuTheme.Label(status, 24, _progress.CanContinue ? MenuTheme.Glow : MenuTheme.Dim)));
+            MenuTheme.Label(status, 24, _progress.CanContinue || _progress.Ended ? MenuTheme.Glow : MenuTheme.Dim)));
         columns.AddChild(about);
 
         var trio = new ChipPanel { CustomMinimumSize = new Vector2(600, 0), Padding = 28 };
@@ -84,7 +85,7 @@ public partial class StoryPage(MenuScreens screens) : MenuPage(screens.ShowMain)
     /// <summary>The prologue from its start; asked first when that gives up a checkpoint reached.</summary>
     private void New()
     {
-        if (_progress.Checkpoint > 0)
+        if (_progress.CanContinue && _progress.Checkpoint > 0)
             Stage.Message(Lang.T("Start the prologue anew? The checkpoint reached is given up."),
                 (Lang.T("New"), () => Play(StoryOptions.Prologue, 0)), (Lang.T("Cancel"), null));
         else

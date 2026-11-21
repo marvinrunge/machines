@@ -517,6 +517,24 @@ public partial class PlanetLook : Node
     /// </summary>
     public float ForcedNight { get; set; }
 
+    private float _dim;
+
+    /// <summary>
+    /// How much a cutscene's dusk darkens the whole picture besides (0 none, at most 0.9): the exposure falls by that share,
+    /// so the sky, the ground and the forced night's strong moonlight go dark together while what glows still stands out
+    /// (the prologue's Abwurf on m_desert at dusk, abwurf.cut's <c>dusk … dim=</c>).
+    /// </summary>
+    public float Dim
+    {
+        get => _dim;
+        set
+        {
+            var dim = Mathf.Clamp(value, 0, 0.9f);
+            _environment.TonemapExposure *= (1 - dim) / (1 - _dim);
+            _dim = dim;
+        }
+    }
+
     /// <summary><see cref="ForcedNight"/> as of the last frame, for what glows by itself and has to fade with the day.</summary>
     public static float ForcedDark { get; private set; }
 
