@@ -25,6 +25,12 @@ namespace Machines.Game;
 /// run are its own. At the end it prints "fallbacks: N", the times it did so; a sound run has none, and where the way
 /// stalls it says where, which way it wanted and who stood near.
 /// </para>
+/// <para>
+/// Online (a story room of MACHINES_MP) the host's instance drives the Locator so; an instance at a Grunt's seat drives its
+/// Grunt after the Locator and, once the pod's hatch is open, aboard. Online it never sets anyone down (that would be its own
+/// world's alone): a way that fails long only says so ("stuck online"). A chapter lost online goes back to the room by the
+/// card's way, and the run goes on once the host has started the room again.
+/// </para>
 /// </summary>
 public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("Driver", int.MaxValue, null, 0, new HashSet<string>(), "menu", "squad"))
 {
@@ -47,7 +53,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
     private NVector2 _wayTo, _progressFrom;
     private List<NVector2> _route = [];
     // The times its way failed and it set someone down (the goal is none), and the stalls logged on this leg.
-    private int _section, _falls, _clicks, _fallbacks, _stalls;
+    private int _section, _falls, _clicks, _fallbacks, _stalls, _stuckOnline;
     private double? _pictureAt;
     private HackHost? _board;
 
@@ -64,7 +70,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         {
             Tell($"failed: {exception}");
         }
-        Tell($"fallbacks: {_fallbacks}");
+        Tell($"fallbacks: {_fallbacks}{(_stuckOnline > 0 ? $", stuck online {_stuckOnline}" : "")}");
         Tell("over");
         GetTree().Quit();
     }
@@ -174,6 +180,11 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         var world = game.World;
         var desk = story.Hacks;
         var director = story.Director;
+        if (Game.Me != story.Locator)
+        {
+            Accompany(game, story, hero);
+            return;
+        }
         bool Done(string target) => desk.Done.Contains(target);
         NVector2 Zone(string name) => world.Deck?.Zones.FirstOrDefault(z => z.Name == name) is { } zone ? (zone.Min + zone.Max) / 2 : hero.Position;
         NVector2 Marker(string name) => world.Deck!.Marker(name).Position;
@@ -235,6 +246,37 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
     private bool _reviving;
 
     /// <summary>
+    /// A Grunt's seat online: after the Locator, a few metres behind it, and into the pod's zone once its hatch is open (the
+    /// launch waits for both Grunts aboard).
+    /// </summary>
+    private void Accompany(Game game, StoryRun story, Machine hero)
+    {
+        var world = game.World;
+        if (story.Flags.Contains(StoryMarks.Done("pod_3_hatch")) && world.Deck?.Zone(GameWorld.PodZone) is { } pod)
+        {
+            if (pod.Contains(hero.Position))
+                Wait(game, hero, "the launch, aboard");
+            else
+                Go(game, hero, "aboard", (pod.Min + pod.Max) / 2, 1);
+            return;
+        }
+        if (world.HeroOf(story.Locator) is not { } locator)
+        {
+            Wait(game, hero, "the Locator");
+            return;
+        }
+        // Near it, it stands (on the same leg, so the log does not count each stop as one).
+        if (NVector2.Distance(hero.Position, locator.Position) <= 5)
+        {
+            Overdue("after the Locator", double.MaxValue);
+            _legSince = Time.GetTicksMsec() / 1000.0;
+            Stop(hero);
+        }
+        else
+            Go(game, hero, "after the Locator", locator.Position, 4);
+    }
+
+    /// <summary>
     /// MACHINES_STORY_DRIVE_CRASH=1: the first time in the Notgang the hero waits until the countdown runs out, so the chapter
     /// is lost as Crashed (its card, its way back to the checkpoint); after that it plays on as ever.
     /// </summary>
@@ -275,6 +317,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
     /// </summary>
     private async Task Film(Game deck)
     {
+        var online = deck.Online;
         if (await Until(() => Scene is Game { World.Story: null, FilmingStoryEnd: true } found && found != deck && found.IsNodeReady() ? found : null, 90) is not { } film)
             throw new InvalidOperationException("the chapter's film did not come");
         Tell($"film: {MatchRequest.Current.Film?.Cutscene} on {MatchRequest.Current.Film?.Planet}");
@@ -293,6 +336,14 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         foreach (var name in new[] { "MACHINES_MAP", "MACHINES_STORY" })
             System.Environment.SetEnvironmentVariable(name, null);
         await Tap(Key.Space);
+        // Played online the card goes on to the rooms (Game.LeaveStoryFilm), else to the story's page.
+        if (online)
+        {
+            await Until(() => Find<MultiplayerPage>() is not null, 30);
+            await Wait(1.5);
+            Tell($"back at the menus: rooms {(Find<MultiplayerPage>() is not null ? "shown" : "missing")}");
+            return;
+        }
         await Until(() => Find<StoryPage>() is not null, 30);
         await Wait(1.5);
         Tell($"back at the menus: story page {(Find<StoryPage>() is not null ? "shown" : "missing")}");
@@ -387,10 +438,17 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
     {
         if (Overdue(leg, 90))
         {
+            _legSince = Time.GetTicksMsec() / 1000.0;
+            // Online the world is every instance's: one set down here alone would part this world from the others'.
+            if (game.Online)
+            {
+                Tell($"stuck online on '{leg}' at {hero.Position.X:0.0},{hero.Position.Y:0.0}, not set down");
+                _stuckOnline++;
+                return false;
+            }
             Tell($"stuck on '{leg}' at {hero.Position.X:0.0},{hero.Position.Y:0.0}: set down at {place.X:0.0},{place.Y:0.0}");
             _fallbacks++;
             hero.Position = place;
-            _legSince = Time.GetTicksMsec() / 1000.0;
             return false;
         }
         return Steer(game, hero, place, near);
@@ -445,7 +503,13 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         var world = game.World;
         var area = world.Deck!.Zones.First(z => z.Name == zone);
         var middle = (area.Min + area.Max) / 2;
-        if (Overdue(leg, 150))
+        if (Overdue(leg, 150) && game.Online)
+        {
+            Tell($"the Grunts did not all come into {zone} online in 150 s: not set down");
+            _stuckOnline++;
+            _legSince = Time.GetTicksMsec() / 1000.0;
+        }
+        else if (Overdue(leg, 150))
         {
             foreach (var seat in story.Seats.Skip(1))
             {
@@ -493,7 +557,8 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         Hold(KeyMap.Act.Back, false);
         if (_route.Count == 0 || NVector2.Distance(_wayTo, place) > 1 || now - _wayAt > 2.5)
         {
-            _route = FindWay(game.World.Nav, GameWorld.MobilityOf(hero), hero.Position, place, Openable(game.World), Standing(game.World, hero));
+            var mobility = GameWorld.MobilityOf(hero);
+            _route = FindWay(game.World.Nav, mobility, hero.Position, place, Openable(game.World, mobility), Standing(game.World, hero));
             (_wayTo, _wayAt) = (place, now);
         }
         while (_route.Count > 1 && NVector2.Distance(_route[0], hero.Position) < 1.2f)
@@ -523,14 +588,37 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
 
     /// <summary>
     /// The floor cells in and before the doors that open by themselves as the trio comes (the director's AutoDoors): the way
-    /// may lead through them, as a player walks up to such a door.
+    /// may lead through them, as a player walks up to such a door. Only those with the hero's room once the door is open
+    /// (its leaves taken as floor, the walls as ever): taking every floor cell near the door, the way hugged the wall beside
+    /// door T, where the hero does not fit, and the hero pushed at that wall for 90 s until it was set down (the intermittent
+    /// 'notgang' stall: door T opens only once one of the trio is near it, and sometimes no Grunt had come by).
     /// </summary>
-    private static HashSet<int> Openable(GameWorld world)
+    private static HashSet<int> Openable(GameWorld world, Mobility mobility)
     {
         var cells = new HashSet<int>();
         if (world.Story is not { } story || world.Deck is not { } deck)
             return cells;
         var nav = world.Nav;
+        var point = mobility with { Size = 0 };
+        bool Blocks(int x, int y) => x < 0 || y < 0 || x >= nav.Width || y >= nav.Depth
+            || !nav.IsFree(x, y, point) && deck.CellAt(nav.Centre(x, y)) != DeckCell.Door;
+        // The room a cell would have with the doors open, as the grid measures it: twice the distance to the nearest blocked
+        // cell, squared, against (2 size + 1) squared.
+        bool Roomy(int x, int y)
+        {
+            var need = (2 * mobility.Size + 1) * (2 * mobility.Size + 1);
+            var reach = mobility.Size + 1;
+            for (var dy = -reach; dy <= reach; dy++)
+            {
+                for (var dx = -reach; dx <= reach; dx++)
+                {
+                    var (ax, ay) = (Math.Max(0, 2 * Math.Abs(dx) - 1), Math.Max(0, 2 * Math.Abs(dy) - 1));
+                    if (ax * ax + ay * ay < need && Blocks(x + dx, y + dy))
+                        return false;
+                }
+            }
+            return true;
+        }
         foreach (var letter in story.Director.AutoDoors)
         {
             var corners = world.DoorLeaves(letter).SelectMany(a => a.Boundary).ToList();
@@ -542,7 +630,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                 for (var x = (int)min.X; x <= (int)max.X; x++)
                 {
                     var (cx, cy) = nav.Cell(new NVector2(x + 0.5f, y + 0.5f));
-                    if (deck.CellAt(new NVector2(x + 0.5f, y + 0.5f)) is DeckCell.Floor or DeckCell.Door)
+                    if (deck.CellAt(new NVector2(x + 0.5f, y + 0.5f)) is DeckCell.Floor or DeckCell.Door && !Blocks(cx, cy) && Roomy(cx, cy))
                         cells.Add(cy * nav.Width + cx);
                 }
             }
@@ -562,12 +650,17 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
             if (machine.Id == hero.Id || machine.IsDead || !machine.DrivenByPlayer && world.CompanionSeat(machine) is not null)
                 continue;
             var reach = machine.Radius + hero.Radius + 0.5f;
+            var apart = NVector2.Distance(hero.Position, machine.Position);
             for (var y = (int)(machine.Position.Y - reach); y <= (int)(machine.Position.Y + reach); y++)
             {
                 for (var x = (int)(machine.Position.X - reach); x <= (int)(machine.Position.X + reach); x++)
                 {
                     var middle = new NVector2(x + 0.5f, y + 0.5f);
-                    if (NVector2.Distance(middle, machine.Position) > reach || NVector2.Distance(middle, hero.Position) < hero.Radius + 1)
+                    // The cells round the hero stay open so it can get away from one it already stands close to, but only
+                    // those no nearer to that machine: before, the way led past it from there (a hostile Grunt beside the
+                    // lane to the Bolter's rack), and the hero ran into it and backed off by turns.
+                    var away = NVector2.Distance(middle, hero.Position) < hero.Radius + 1 && NVector2.Distance(middle, machine.Position) >= apart;
+                    if (NVector2.Distance(middle, machine.Position) > reach || away)
                         continue;
                     var (cx, cy) = nav.Cell(middle);
                     cells.Add(cy * nav.Width + cx);
