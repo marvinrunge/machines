@@ -27,7 +27,15 @@ public sealed partial class GameWorld
         Data = data;
         Planet = planet;
         Random = new Random(seed);
-        Nav = new NavGrid(planet.Surface.Width, planet.Surface.Depth, planet.ConfigSpace.Obstacles);
+        // A ship deck (the story's interiors) is walked on its own fine grid, and its walls stop shots and sight as the ground
+        // does; the .csp beside it is only the greybox drawn without the deck. Every original planet stays as it was.
+        if (planet.Deck is { } deck)
+        {
+            Nav = new NavGrid(deck);
+            Terrain = TerrainHeights.FromDeck(deck);
+        }
+        else
+            Nav = new NavGrid(planet.Surface.Width, planet.Surface.Depth, planet.ConfigSpace.Obstacles);
     }
 
     public GameData Data { get; }

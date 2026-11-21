@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Reads a ship deck (data/planets/<p>/<p>.deck, 1 m a character; the format is described at the top of the file and in
 // import/Machines.Import/Planets/DeckParser.cs) and writes what is made from it:
-//   data/planets/<p>/<p>.csp    the greybox: the deck's walls as obstacles on the sim's 4 m grid of today, so that walls
-//                               exist and TerrainBuilder draws them as prisms until the fine 1 m grid comes (plan WP-B)
+//   data/planets/<p>/<p>.csp    the greybox: the deck's walls as obstacles on 4 m cells, which TerrainBuilder draws as
+//                               prisms; the sim walks the deck itself on its fine 1 m grid (NavGrid(Deck)) and ignores it
 //   data/maps/<p>.scn           the scenario: races, and the doors (closed ones) and props of the deck as artefacts
 //   docs/story/deck/<p>.png     a picture of the deck: cells, doors by state, rooms, markers
 //   docs/story/deck/<p>-reach.txt  which rooms each mobility class reaches (plan §1.2), with doors as they start and all open
@@ -244,7 +244,7 @@ function scn(deck, rects) {
 // ---- reachability ------------------------------------------------------------------------------
 
 // The mobility classes of plan §1.2: the clearance a machine needs at a cell's centre (distance to the nearest blocked
-// cell), and whether it crawls through ducts. Measured on the 1 m cells, as the fine grid (WP-B) will.
+// cell), and whether it crawls through ducts. Measured on the 1 m cells, as the sim's fine grid does (NavGrid.Room).
 const Classes = [
   { name: 'Locator (A, crawls)', need: 1.5, crawl: true, from: 'spawn_l7' },
   { name: 'Grunt (A, wheels)', need: 1.5, crawl: false, from: 'spawn_ike' },

@@ -377,7 +377,7 @@ public sealed partial class GameWorld
         machine.Order = evade with { Goal = kind, Refuge = refuge?.Id };
         machine.Path.Clear();
         machine.PathIndex = 0;
-        machine.Path.AddRange(Nav.FindPath(machine.Position, goal, CrossesWater(machine)));
+        machine.Path.AddRange(Nav.FindPath(machine.Position, goal, MobilityOf(machine)));
     }
 
     /// <summary>

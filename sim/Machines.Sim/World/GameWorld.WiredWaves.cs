@@ -67,7 +67,7 @@ public sealed partial class GameWorld
     /// <summary>Points on the ring round the pod, those off the map left out.</summary>
     private IEnumerable<Vector2> RingPoints(Vector2 goal)
     {
-        var (width, depth) = (Nav.Width * NavGrid.CellSize - WiredBalance.EdgeInset, Nav.Depth * NavGrid.CellSize - WiredBalance.EdgeInset);
+        var (width, depth) = (Nav.Width * Nav.CellSize - WiredBalance.EdgeInset, Nav.Depth * Nav.CellSize - WiredBalance.EdgeInset);
         for (var i = 0; i < WiredBalance.RingPoints; i++)
         {
             var angle = 2 * MathF.PI * i / WiredBalance.RingPoints;
@@ -97,7 +97,7 @@ public sealed partial class GameWorld
     /// <summary>Points along the map's four edges, a little way in.</summary>
     private IEnumerable<Vector2> EdgePoints()
     {
-        var (near, width, depth) = (WiredBalance.EdgeInset, Nav.Width * NavGrid.CellSize - WiredBalance.EdgeInset, Nav.Depth * NavGrid.CellSize - WiredBalance.EdgeInset);
+        var (near, width, depth) = (WiredBalance.EdgeInset, Nav.Width * Nav.CellSize - WiredBalance.EdgeInset, Nav.Depth * Nav.CellSize - WiredBalance.EdgeInset);
         for (var x = near; x < width; x += WiredBalance.EdgeSpacing)
         {
             yield return new Vector2(x, near);
@@ -116,7 +116,7 @@ public sealed partial class GameWorld
         var (start, goal) = (Nav.Cell(from), Nav.Cell(to));
         if (Nav.Region(start.X, start.Y, crossesWater: false) != Nav.Region(goal.X, goal.Y, crossesWater: false)
             || Nav.FindPath(from, to, crossesWater: false, maxExpanded: int.MaxValue) is not { Count: > 0 } path
-            || Vector2.Distance(path[^1], to) > 2 * NavGrid.CellSize)
+            || Vector2.Distance(path[^1], to) > 2 * Nav.CellSize)
             return null;
         var (length, at) = (0f, from);
         foreach (var point in path)

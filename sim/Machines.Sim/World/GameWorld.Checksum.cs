@@ -25,6 +25,9 @@ public sealed partial class GameWorld
         Mix(Tick);
         // Shots are stopped by the ground: worlds with different ground go apart.
         Mix(_terrainFingerprint ??= Terrain?.Fingerprint() ?? 0);
+        // A ship deck is walked and shot across by its cells, doors and markers: worlds on different decks go apart.
+        if (Planet.Deck is { } deck)
+            Mix(deck.Fingerprint);
         foreach (var actor in _actors.Values.OrderBy(a => a.Id))
         {
             Mix(actor.Id);

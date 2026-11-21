@@ -317,7 +317,7 @@ public sealed partial class GameWorld
         var angles = AnglesOf(weapon.Spec);
         var (min, max) = BoxOf(target);
         var height = AimPoint(shooter).Z;
-        var pitch = shooter is Machine { Stats.Locomotion: not Locomotion.Glider } && Terrain is { } ground
+        var pitch = shooter is Machine { Stats.Locomotion: not Locomotion.Glider } && Terrain is { } ground && !Nav.Fine
             ? DetMath.Atan2(ground.At(shooter.Position + forward * 2) - ground.At(shooter.Position - forward * 2), 4)
             : 0;
         const float nearlyStraight = 1.55f;

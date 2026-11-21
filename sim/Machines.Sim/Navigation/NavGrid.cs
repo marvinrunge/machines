@@ -5,21 +5,31 @@ namespace Machines.Sim.Navigation;
 
 /// <summary>
 /// A walkability grid over the planet, built from the original obstacle polygons (<c>.csp</c>) and the
-/// footprints of buildings. Paths are found with A* and then straightened.
+/// footprints of buildings, or from a ship deck's cells (<see cref="Deck"/>). Paths are found with A* and then straightened.
 /// </summary>
 /// <remarks>
 /// The original used a visibility graph over the same polygons; a grid gives the same walls with far less code.
 /// Water obstacles block everything except hover and glider machines (a remake rule).
+/// A deck's grid is fine (1 m cells, <see cref="Fine"/>): there a machine also needs room for its size (<see cref="Mobility.Size"/>:
+/// each cell knows how far its middle is from the nearest blocked cell), and the ducts admit only machines that crawl.
+/// The original planets' grid is coarse (4 m) and knows only the water, so every query on it is what it always was.
 /// </remarks>
 public sealed class NavGrid
 {
-    public const float CellSize = 4f;
+    /// <summary>The cell size of the original planets' grid.</summary>
+    public const float CoarseCellSize = 4f;
 
-    private readonly byte[] _static;   // 0 free, 1 obstacle, 2 water
+    private readonly byte[] _static;   // 0 free, 1 obstacle, 2 water, 3 duct (crawl only)
     private readonly int[] _buildings; // number of building footprints covering the cell
+
+    // On a fine grid: the largest size class (Mobility.Size) each cell has room for, for machines that keep out of ducts
+    // (ducts count as blocked) and for machines that crawl (ducts count as open). Null on a coarse grid.
+    private readonly byte[]? _roomLand;
+    private readonly byte[]? _roomCrawl;
 
     public NavGrid(float width, float depth, IEnumerable<Obstacle> obstacles)
     {
+        CellSize = CoarseCellSize;
         Width = (int)MathF.Ceiling(width / CellSize);
         Depth = (int)MathF.Ceiling(depth / CellSize);
         _static = new byte[Width * Depth];
@@ -29,6 +39,41 @@ public sealed class NavGrid
             Rasterise(obstacle);
     }
 
+    /// <summary>
+    /// The fine grid of a ship deck: a cell for each of its 1 m cells. Walls, grates and cover block; ducts and their lips
+    /// admit only machines that crawl; floor, catwalks and door slots are open (a closed door is an artefact on its slot).
+    /// </summary>
+    public NavGrid(Deck deck)
+    {
+        CellSize = 1;
+        Fine = true;
+        Width = deck.Width;
+        Depth = deck.Depth;
+        _static = new byte[Width * Depth];
+        _buildings = new int[Width * Depth];
+        for (var y = 0; y < Depth; y++)
+        {
+            for (var x = 0; x < Width; x++)
+            {
+                _static[y * Width + x] = deck.Cell(x, y) switch
+                {
+                    DeckCell.Floor or DeckCell.Catwalk or DeckCell.Door => 0,
+                    DeckCell.Duct or DeckCell.Lip => 3,
+                    _ => 1,
+                };
+            }
+        }
+        _roomLand = new byte[Width * Depth];
+        _roomCrawl = new byte[Width * Depth];
+        Measure(0, 0, Width - 1, Depth - 1);
+    }
+
+    /// <summary>A cell's side in metres: 4 on the original planets, 1 on a ship deck.</summary>
+    public float CellSize { get; }
+
+    /// <summary>Whether this is a ship deck's fine grid, where machines need room for their size and only crawlers enter ducts.</summary>
+    public bool Fine { get; }
+
     public int Width { get; }
     public int Depth { get; }
 
@@ -37,23 +82,42 @@ public sealed class NavGrid
 
     public Vector2 Centre(int x, int y) => new((x + 0.5f) * CellSize, (y + 0.5f) * CellSize);
 
-    public bool IsFree(int x, int y, bool crossesWater) =>
-        x >= 0 && y >= 0 && x < Width && y < Depth
-        && _buildings[y * Width + x] == 0
-        && _static[y * Width + x] switch { 0 => true, 2 => crossesWater, _ => false };
+    public bool IsFree(int x, int y, bool crossesWater) => IsFree(x, y, crossesWater ? Mobility.Waterborne : Mobility.Land);
 
-    public bool IsFree(Vector2 p, bool crossesWater)
+    public bool IsFree(int x, int y, Mobility mobility)
+    {
+        if (x < 0 || y < 0 || x >= Width || y >= Depth)
+            return false;
+        var index = y * Width + x;
+        if (_buildings[index] != 0)
+            return false;
+        var open = _static[index] switch { 0 => true, 2 => mobility.Water, 3 => mobility.Crawl, _ => false };
+        if (!open || mobility.Size <= 0 || _roomLand is null)
+            return open;
+        return (mobility.Crawl ? _roomCrawl! : _roomLand)[index] >= mobility.Size;
+    }
+
+    public bool IsFree(Vector2 p, bool crossesWater) => IsFree(p, crossesWater ? Mobility.Waterborne : Mobility.Land);
+
+    public bool IsFree(Vector2 p, Mobility mobility)
     {
         var (x, y) = Cell(p);
-        return IsFree(x, y, crossesWater);
+        return IsFree(x, y, mobility);
     }
 
     /// <summary>Whether the ground itself is passable at a point, whatever building stands on it.</summary>
-    public bool IsGround(Vector2 p, bool crossesWater)
+    public bool IsGround(Vector2 p, bool crossesWater) => IsGround(p, crossesWater ? Mobility.Waterborne : Mobility.Land);
+
+    /// <summary>Whether the ground itself is passable at a point, whatever building stands on it.</summary>
+    public bool IsGround(Vector2 p, Mobility mobility)
     {
         var (x, y) = Cell(p);
-        return _static[y * Width + x] switch { 0 => true, 2 => crossesWater, _ => false };
+        return _static[y * Width + x] switch { 0 => true, 2 => mobility.Water, 3 => mobility.Crawl, _ => false };
     }
+
+    /// <summary>On a fine grid, the largest size class (<see cref="Mobility.Size"/>) a cell has room for; 0 for a blocked one.</summary>
+    public int RoomAt(int x, int y, bool crawl) =>
+        _roomLand is null || x < 0 || y < 0 || x >= Width || y >= Depth ? 0 : (crawl ? _roomCrawl! : _roomLand)[y * Width + x];
 
     /// <summary>Marks (or unmarks) a building footprint as blocked.</summary>
     public void SetBuilding((Vector2 Min, Vector2 Max) footprint, bool present)
@@ -63,8 +127,7 @@ public sealed class NavGrid
         for (var y = y0; y <= y1; y++)
             for (var x = x0; x <= x1; x++)
                 _buildings[y * Width + x] += present ? 1 : -1;
-        ForgetRegions();
-        ReleaseFields();
+        Changed(x0, y0, x1, y1);
     }
 
     /// <summary>
@@ -90,31 +153,101 @@ public sealed class NavGrid
             var (x, y) = Cell(middle);
             _buildings[y * Width + x] += present ? 1 : -1;
         }
+        Changed(x0, y0, x1, y1);
+    }
+
+    /// <summary>Cells in a box were blocked or opened: the room round them is measured again, and the regions and fields forgotten.</summary>
+    private void Changed(int x0, int y0, int x1, int y1)
+    {
+        if (_roomLand is not null)
+            Measure(x0 - RoomReach, y0 - RoomReach, x1 + RoomReach, y1 + RoomReach);
         ForgetRegions();
         ReleaseFields();
+    }
+
+    // ---- room (fine grids) ----------------------------------------------------------------------
+
+    // How far round a cell a blocked cell can take room from the largest class: one 4 cells off is 3.5 m from the middle,
+    // which the largest class still accepts.
+    private const int RoomReach = Mobility.Largest;
+
+    /// <summary>
+    /// Works out the room of the cells in a box: for each, the distance from its middle to the nearest point of a blocked
+    /// cell (or the grid's edge), as the largest size class it admits. In whole numbers (twice the distance, squared), so it
+    /// is the same on every machine, and as tools/deck/deck.mjs measures it.
+    /// </summary>
+    private void Measure(int x0, int y0, int x1, int y1)
+    {
+        (x0, y0, x1, y1) = (Math.Max(0, x0), Math.Max(0, y0), Math.Min(Width - 1, x1), Math.Min(Depth - 1, y1));
+        for (var y = y0; y <= y1; y++)
+        {
+            for (var x = x0; x <= x1; x++)
+            {
+                _roomLand![y * Width + x] = Room(x, y, crawl: false);
+                _roomCrawl![y * Width + x] = Room(x, y, crawl: true);
+            }
+        }
+    }
+
+    private bool BlocksRoom(int x, int y, bool crawl)
+    {
+        if (x < 0 || y < 0 || x >= Width || y >= Depth)
+            return true;
+        var index = y * Width + x;
+        return _buildings[index] != 0 || _static[index] switch { 0 => false, 3 => !crawl, _ => true };
+    }
+
+    private byte Room(int x, int y, bool crawl)
+    {
+        if (BlocksRoom(x, y, crawl))
+            return 0;
+        var nearest = int.MaxValue;
+        for (var dy = -RoomReach; dy <= RoomReach; dy++)
+        {
+            for (var dx = -RoomReach; dx <= RoomReach; dx++)
+            {
+                if (!BlocksRoom(x + dx, y + dy, crawl))
+                    continue;
+                // From the middle to the nearest point of the blocked square, doubled: 2|d| - 1 along each axis.
+                var (ax, ay) = (Math.Max(0, 2 * Math.Abs(dx) - 1), Math.Max(0, 2 * Math.Abs(dy) - 1));
+                nearest = Math.Min(nearest, ax * ax + ay * ay);
+            }
+        }
+        for (var size = Mobility.Largest; size > 0; size--)
+        {
+            if (nearest >= Mobility.RoomSquared4(size))
+                return (byte)size;
+        }
+        return 0;
     }
 
     // ---- regions --------------------------------------------------------------------------------
 
     // For each way of moving (on land; across water too), the connected area each free cell belongs to,
     // numbered from 1 (0: blocked). Worked out again after buildings change.
-    private readonly int[]?[] _regions = new int[]?[2];
+    private readonly int[]?[] _regions = new int[]?[16];
 
     /// <summary>The connected area a free cell belongs to (0 for a blocked one), moving as the path search does.</summary>
-    public int Region(int x, int y, bool crossesWater)
+    public int Region(int x, int y, bool crossesWater) => Region(x, y, crossesWater ? Mobility.Waterborne : Mobility.Land);
+
+    /// <summary>The connected area a free cell belongs to (0 for a blocked one), moving as the path search does.</summary>
+    public int Region(int x, int y, Mobility mobility)
     {
-        var regions = _regions[crossesWater ? 1 : 0] ??= Label(crossesWater);
+        var regions = _regions[KeyOf(mobility)] ??= Label(mobility);
         return regions[y * Width + x];
     }
 
-    private int[] Label(bool crossesWater)
+    /// <summary>The caches' key for a way of moving: on a coarse grid only the water tells them apart.</summary>
+    private int KeyOf(Mobility mobility) => Fine ? mobility.Key : mobility.Water ? 1 : 0;
+
+    private int[] Label(Mobility mobility)
     {
         var regions = new int[Width * Depth];
         var stack = new Stack<int>();
         var next = 0;
         for (var start = 0; start < regions.Length; start++)
         {
-            if (regions[start] != 0 || !IsFree(start % Width, start / Width, crossesWater))
+            if (regions[start] != 0 || !IsFree(start % Width, start / Width, mobility))
                 continue;
             regions[start] = ++next;
             stack.Push(start);
@@ -127,9 +260,9 @@ public sealed class NavGrid
                     for (var dx = -1; dx <= 1; dx++)
                     {
                         var (nx, ny) = (cx + dx, cy + dy);
-                        if ((dx == 0 && dy == 0) || !IsFree(nx, ny, crossesWater) || regions[ny * Width + nx] != 0)
+                        if ((dx == 0 && dy == 0) || !IsFree(nx, ny, mobility) || regions[ny * Width + nx] != 0)
                             continue;
-                        if (dx != 0 && dy != 0 && (!IsFree(cx + dx, cy, crossesWater) || !IsFree(cx, cy + dy, crossesWater)))
+                        if (dx != 0 && dy != 0 && (!IsFree(cx + dx, cy, mobility) || !IsFree(cx, cy + dy, mobility)))
                             continue;
                         regions[ny * Width + nx] = next;
                         stack.Push(ny * Width + nx);
@@ -142,40 +275,47 @@ public sealed class NavGrid
 
     private void ForgetRegions()
     {
-        _regions[0] = _regions[1] = null;
+        Array.Clear(_regions);
         _nearestIn.Clear();
     }
 
     // The answers of NearestIn until the regions change: machines sent at something out of reach (across a gap
     // in space on deepspac) ask the same again every tick, and from far away the rings are many.
-    private readonly Dictionary<(int Cell, int Region, bool Water), (int X, int Y)?> _nearestIn = [];
+    private readonly Dictionary<(int Cell, int Region, int Mobility), (int X, int Y)?> _nearestIn = [];
 
     /// <summary>The cell nearest to <paramref name="cell"/> in a region, searching ring by ring.</summary>
-    private (int X, int Y)? NearestIn((int X, int Y) cell, int region, bool crossesWater)
+    private (int X, int Y)? NearestIn((int X, int Y) cell, int region, Mobility mobility)
     {
-        var key = (Index(cell), region, crossesWater);
+        var key = (Index(cell), region, KeyOf(mobility));
         if (_nearestIn.TryGetValue(key, out var nearest))
             return nearest;
         if (_nearestIn.Count >= 4096)
             _nearestIn.Clear();
-        return _nearestIn[key] = Nearest(cell, (x, y) => Region(x, y, crossesWater) == region, Math.Max(Width, Depth));
+        return _nearestIn[key] = Nearest(cell, (x, y) => Region(x, y, mobility) == region, Math.Max(Width, Depth));
     }
 
     /// <summary>The free cell nearest to <paramref name="cell"/>, at most 40 cells away.</summary>
-    private (int X, int Y)? NearestFree((int X, int Y) cell, bool crossesWater) =>
-        Nearest(cell, (x, y) => IsFree(x, y, crossesWater), 40);
+    private (int X, int Y)? NearestFree((int X, int Y) cell, Mobility mobility) =>
+        Nearest(cell, (x, y) => IsFree(x, y, mobility), 40);
 
     /// <summary>The middle of the free cell nearest to <paramref name="p"/>, at most 40 cells away, or null.</summary>
-    public Vector2? NearestFreePoint(Vector2 p, bool crossesWater) =>
-        NearestFree(Cell(p), crossesWater) is { } cell ? Centre(cell.X, cell.Y) : null;
+    public Vector2? NearestFreePoint(Vector2 p, bool crossesWater) => NearestFreePoint(p, crossesWater ? Mobility.Waterborne : Mobility.Land);
+
+    /// <summary>The middle of the free cell nearest to <paramref name="p"/>, at most 40 cells away, or null.</summary>
+    public Vector2? NearestFreePoint(Vector2 p, Mobility mobility) =>
+        NearestFree(Cell(p), mobility) is { } cell ? Centre(cell.X, cell.Y) : null;
 
     /// <summary>A point itself if it lies in a region, or else the middle of the region's nearest cell; null if there is none.</summary>
-    public Vector2? NearestPointIn(Vector2 p, int region, bool crossesWater)
+    public Vector2? NearestPointIn(Vector2 p, int region, bool crossesWater) =>
+        NearestPointIn(p, region, crossesWater ? Mobility.Waterborne : Mobility.Land);
+
+    /// <summary>A point itself if it lies in a region, or else the middle of the region's nearest cell; null if there is none.</summary>
+    public Vector2? NearestPointIn(Vector2 p, int region, Mobility mobility)
     {
         var cell = Cell(p);
-        if (Region(cell.X, cell.Y, crossesWater) == region)
+        if (Region(cell.X, cell.Y, mobility) == region)
             return p;
-        return NearestIn(cell, region, crossesWater) is { } near ? Centre(near.X, near.Y) : null;
+        return NearestIn(cell, region, mobility) is { } near ? Centre(near.X, near.Y) : null;
     }
 
     /// <summary>Whether a point lies on the planet.</summary>
@@ -217,7 +357,7 @@ public sealed class NavGrid
         var (x1, y1) = Cell(area.Max);
         for (var y = y0; y <= y1; y++)
             for (var x = x0; x <= x1; x++)
-                if (!IsFree(x, y, crossesWater: false))
+                if (!IsFree(x, y, Mobility.Land))
                     return false;
         return area.Min.X >= 0 && area.Min.Y >= 0 && area.Max.X <= Width * CellSize && area.Max.Y <= Depth * CellSize;
     }
@@ -227,50 +367,54 @@ public sealed class NavGrid
     /// (blocked, or cut off by water or cliffs), the path ends at the nearest cell that can. Returns an empty list
     /// when nothing is reachable.
     /// </summary>
-    public List<Vector2> FindPath(Vector2 start, Vector2 goal, bool crossesWater, int maxExpanded = 60_000)
+    public List<Vector2> FindPath(Vector2 start, Vector2 goal, bool crossesWater, int maxExpanded = 60_000) =>
+        FindPath(start, goal, crossesWater ? Mobility.Waterborne : Mobility.Land, maxExpanded);
+
+    /// <summary>The same for a way of moving that may need room and crawl (on a deck's fine grid).</summary>
+    public List<Vector2> FindPath(Vector2 start, Vector2 goal, Mobility mobility, int maxExpanded = 60_000)
     {
         Calls++;
         var from = Cell(start);
 
         // A machine standing in a blocked cell (next to a fresh building, or set down on rock) first walks out to
         // the nearest free cell.
-        if (!IsFree(from.X, from.Y, crossesWater))
+        if (!IsFree(from.X, from.Y, mobility))
         {
-            if (NearestFree(from, crossesWater) is not { } exit)
+            if (NearestFree(from, mobility) is not { } exit)
                 return [];
             var outside = Centre(exit.X, exit.Y);
-            return [outside, .. FindPath(outside, goal, crossesWater, maxExpanded)];
+            return [outside, .. FindPath(outside, goal, mobility, maxExpanded)];
         }
 
         // A goal in another area would have the search comb through everything reachable; aim for the nearest
         // reachable cell instead.
-        var reachable = Region(from.X, from.Y, crossesWater);
+        var reachable = Region(from.X, from.Y, mobility);
         var goalCell = Cell(goal);
-        var goalReachable = Region(goalCell.X, goalCell.Y, crossesWater) == reachable;
-        if (NearestIn(goalCell, reachable, crossesWater) is not { } to)
+        var goalReachable = Region(goalCell.X, goalCell.Y, mobility) == reachable;
+        if (NearestIn(goalCell, reachable, mobility) is not { } to)
             return [];
         // A blocked goal right beside it (a building to attack or work on) it drives up to; one across a gap it
         // cannot cross it leaves be.
         if (from == to)
-            return goalReachable || !IsFree(goalCell.X, goalCell.Y, crossesWater) && Borders(to, goal, crossesWater) ? [goal] : [];
+            return goalReachable || !IsFree(goalCell.X, goalCell.Y, mobility) && Borders(to, goal, mobility) ? [goal] : [];
 
         // In the open, the search and straightening below end in the straight line anyway.
-        if (goalReachable && LineOfSight(start, goal, crossesWater))
+        if (goalReachable && LineOfSight(start, goal, mobility))
             return [goal];
 
         var goalIndex = Index(to);
-        var cells = FieldPath(from, to, crossesWater) ?? SearchPath(from, to, crossesWater, maxExpanded);
+        var cells = FieldPath(from, to, mobility) ?? SearchPath(from, to, mobility, maxExpanded);
         if (cells.Count == 0)
             return [];
 
         var points = cells.Select(c => Centre(c % Width, c / Width)).ToList();
         if (cells[^1] == goalIndex && goalReachable)
             points[^1] = goal;
-        return Smooth(start, points, crossesWater);
+        return Smooth(start, points, mobility);
     }
 
     /// <summary>A* from one cell towards another: the cells walked (without the start), ending as near as it got.</summary>
-    private List<int> SearchPath((int X, int Y) from, (int X, int Y) to, bool crossesWater, int maxExpanded)
+    private List<int> SearchPath((int X, int Y) from, (int X, int Y) to, Mobility mobility, int maxExpanded)
     {
         // The search's bookkeeping lives in arrays reused from search to search; a cell's entries count only
         // when it was touched in this search.
@@ -310,10 +454,10 @@ public sealed class NavGrid
                     if (dx == 0 && dy == 0)
                         continue;
                     var (nx, ny) = (cx + dx, cy + dy);
-                    if (!IsFree(nx, ny, crossesWater))
+                    if (!IsFree(nx, ny, mobility))
                         continue;
                     // No cutting corners past blocked cells.
-                    if (dx != 0 && dy != 0 && (!IsFree(cx + dx, cy, crossesWater) || !IsFree(cx, cy + dy, crossesWater)))
+                    if (dx != 0 && dy != 0 && (!IsFree(cx + dx, cy, mobility) || !IsFree(cx, cy + dy, mobility)))
                         continue;
 
                     var next = ny * Width + nx;
@@ -349,8 +493,8 @@ public sealed class NavGrid
         public readonly PriorityQueue<int, float> Open = new();
     }
 
-    private readonly Dictionary<(int Goal, bool Water), int> _asked = [];
-    private readonly Dictionary<(int Goal, bool Water), SharedField> _fields = [];
+    private readonly Dictionary<(int Goal, int Mobility), int> _asked = [];
+    private readonly Dictionary<(int Goal, int Mobility), SharedField> _fields = [];
 
     /// <summary>Forgets the shared searches; the world calls it every tick.</summary>
     public void NewTick()
@@ -369,9 +513,9 @@ public sealed class NavGrid
         _fields.Clear();
     }
 
-    private List<int>? FieldPath((int X, int Y) from, (int X, int Y) to, bool crossesWater)
+    private List<int>? FieldPath((int X, int Y) from, (int X, int Y) to, Mobility mobility)
     {
-        var key = (Index(to), crossesWater);
+        var key = (Index(to), KeyOf(mobility));
         _asked[key] = _asked.GetValueOrDefault(key) + 1;
         if (_asked[key] < 2)
             return null;
@@ -385,7 +529,7 @@ public sealed class NavGrid
             _fields[key] = field;
             Searches++;
         }
-        Spread(field, Index(from), crossesWater);
+        Spread(field, Index(from), mobility);
         var cost = field.Cost;
         if (!field.Settled[Index(from)])
             return null;
@@ -402,9 +546,9 @@ public sealed class NavGrid
                 for (var dx = -1; dx <= 1; dx++)
                 {
                     var (nx, ny) = (current.X + dx, current.Y + dy);
-                    if ((dx == 0 && dy == 0) || !IsFree(nx, ny, crossesWater))
+                    if ((dx == 0 && dy == 0) || !IsFree(nx, ny, mobility))
                         continue;
-                    if (dx != 0 && dy != 0 && (!IsFree(current.X + dx, current.Y, crossesWater) || !IsFree(current.X, current.Y + dy, crossesWater)))
+                    if (dx != 0 && dy != 0 && (!IsFree(current.X + dx, current.Y, mobility) || !IsFree(current.X, current.Y + dy, mobility)))
                         continue;
                     var through = cost[ny * Width + nx] + (dx != 0 && dy != 0 ? 1.4142f : 1f);
                     if (through < nextCost)
@@ -423,7 +567,7 @@ public sealed class NavGrid
     }
 
     /// <summary>Carries a shared search on (Dijkstra from its goal) until a cell's cost is final.</summary>
-    private void Spread(SharedField field, int until, bool crossesWater)
+    private void Spread(SharedField field, int until, Mobility mobility)
     {
         var (cost, settled, open) = (field.Cost, field.Settled, field.Open);
         while (!settled[until] && open.TryDequeue(out var current, out var known))
@@ -438,9 +582,9 @@ public sealed class NavGrid
                 for (var dx = -1; dx <= 1; dx++)
                 {
                     var (nx, ny) = (cx + dx, cy + dy);
-                    if ((dx == 0 && dy == 0) || !IsFree(nx, ny, crossesWater))
+                    if ((dx == 0 && dy == 0) || !IsFree(nx, ny, mobility))
                         continue;
-                    if (dx != 0 && dy != 0 && (!IsFree(cx + dx, cy, crossesWater) || !IsFree(cx, cy + dy, crossesWater)))
+                    if (dx != 0 && dy != 0 && (!IsFree(cx + dx, cy, mobility) || !IsFree(cx, cy + dy, mobility)))
                         continue;
                     var next = ny * Width + nx;
                     var nextCost = known + (dx != 0 && dy != 0 ? 1.4142f : 1f);
@@ -455,14 +599,17 @@ public sealed class NavGrid
 
 
     /// <summary>True when a straight walk between two points crosses no blocked cell.</summary>
-    public bool LineOfSight(Vector2 a, Vector2 b, bool crossesWater)
+    public bool LineOfSight(Vector2 a, Vector2 b, bool crossesWater) => LineOfSight(a, b, crossesWater ? Mobility.Waterborne : Mobility.Land);
+
+    /// <summary>True when a straight walk between two points crosses no cell blocked to a way of moving.</summary>
+    public bool LineOfSight(Vector2 a, Vector2 b, Mobility mobility)
     {
         var distance = Vector2.Distance(a, b);
         var steps = (int)(distance / (CellSize * 0.5f)) + 1;
         SightSteps += steps;
         for (var i = 1; i <= steps; i++)
         {
-            if (!IsFree(Vector2.Lerp(a, b, i / (float)steps), crossesWater))
+            if (!IsFree(Vector2.Lerp(a, b, i / (float)steps), mobility))
                 return false;
         }
         return true;
@@ -472,20 +619,20 @@ public sealed class NavGrid
     /// True when only blocked cells lie between a cell and a point: the point is inside the building or rock the
     /// cell borders, not somewhere beyond open ground.
     /// </summary>
-    private bool Borders((int X, int Y) cell, Vector2 point, bool crossesWater)
+    private bool Borders((int X, int Y) cell, Vector2 point, Mobility mobility)
     {
         var from = Centre(cell.X, cell.Y);
         var steps = (int)(Vector2.Distance(from, point) / (CellSize * 0.5f)) + 1;
         for (var i = 1; i <= steps; i++)
         {
             var (x, y) = Cell(Vector2.Lerp(from, point, i / (float)steps));
-            if ((x, y) != cell && IsFree(x, y, crossesWater))
+            if ((x, y) != cell && IsFree(x, y, mobility))
                 return false;
         }
         return true;
     }
 
-    private List<Vector2> Smooth(Vector2 start, List<Vector2> points, bool crossesWater)
+    private List<Vector2> Smooth(Vector2 start, List<Vector2> points, Mobility mobility)
     {
         var result = new List<Vector2>();
         var anchor = start;
@@ -497,7 +644,7 @@ public sealed class NavGrid
             var furthest = i;
             var leap = 1;
             var blocked = points.Count;
-            while (furthest + leap < points.Count && LineOfSight(anchor, points[furthest + leap], crossesWater))
+            while (furthest + leap < points.Count && LineOfSight(anchor, points[furthest + leap], mobility))
             {
                 furthest += leap;
                 leap *= 2;
@@ -506,7 +653,7 @@ public sealed class NavGrid
             while (blocked - furthest > 1)
             {
                 var middle = (furthest + blocked) / 2;
-                if (LineOfSight(anchor, points[middle], crossesWater))
+                if (LineOfSight(anchor, points[middle], mobility))
                     furthest = middle;
                 else
                     blocked = middle;

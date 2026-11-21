@@ -561,6 +561,9 @@ public sealed class Artefact : Actor
     /// <summary>The ground it blocks, turned as it stands (empty for one without a boundary).</summary>
     public IReadOnlyList<Vector2> Boundary { get; }
 
+    /// <summary>The scenario's ID clause for it (what ONDESTROY links and a deck's doors are named by), or null.</summary>
+    public int? Tag { get; set; }
+
     public override float Radius { get; }
 
     public override int Cost => Type.Cost ?? 0;

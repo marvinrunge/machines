@@ -63,6 +63,12 @@ public sealed partial class GameWorld
     public TerrainHeights? Terrain { get; set; }
 
     /// <summary>
+    /// How much of a shot's line, at either end, the ground may rise into without stopping it (where shooter and target stand
+    /// on their slopes): 3 m on the planets, half a metre on a ship deck, whose walls stand right beside the machines.
+    /// </summary>
+    private float ShotEnds => Nav.Fine ? 0.5f : 3;
+
+    /// <summary>
     /// Whether a shot from one actor at another has a clear way: the straight line between their middles
     /// (MachLogCanAttack::IHaveClearWeaponPathToHim, testActorBehindCover). The ground, buildings, artefacts and the shooter's own
     /// and its allies' machines stand in the way; an enemy's machines do not, it is glad to hit those (MachLogAttackFilter).
@@ -72,7 +78,7 @@ public sealed partial class GameWorld
     public bool ClearShot(Actor shooter, Actor target)
     {
         var (from, to) = (AimPoint(shooter), AimPoint(target));
-        if (Terrain is { } ground && ground.FirstBlocked(from, to, ends: 3) is not null)
+        if (Terrain is { } ground && ground.FirstBlocked(from, to, ends: ShotEnds) is not null)
             return false;
         var holding = Wired is not null && target is Machine && shooter is Machine hero && !Nav.IsFree(target.Position, true) && IsWiredHero(hero)
             ? Holding(target, shooter.Race) : null;
@@ -501,7 +507,7 @@ public sealed partial class GameWorld
             return;
         }
         if (!offSight && !Flies(weapon) && !weapon.IsArea && Terrain is { } ground
-            && ground.FirstBlocked(AimPoint(shooter), new Vector3(point, aimHeight), ends: 3) is { } share)
+            && ground.FirstBlocked(AimPoint(shooter), new Vector3(point, aimHeight), ends: ShotEnds) is { } share)
         {
             Raise(new GameEvent(GameEventKind.Fired, shooter.Id, shooter.Position, null, weapon.Spec.TypeName, Gun: GunOf(shooter, weapon)));
             Raise(new GameEvent(GameEventKind.Impact, shooter.Id, Vector2.Lerp(shooter.Position, point, share), null, weapon.Spec.TypeName));
@@ -534,7 +540,7 @@ public sealed partial class GameWorld
         var through = new Vector3(point, aimHeight);
         var across = Vector2.Distance(shooter.Position, point);
         var end = across < 0.01f ? through : from + (through - from) * (weapon.Spec.Range / across);
-        var share = Terrain?.FirstBlocked(from, end, ends: 3);
+        var share = Terrain?.FirstBlocked(from, end, ends: ShotEnds);
         var met = FirstOnLine(from, end, a => a.Id != shooter.Id);
         Vector3 mark;
         if (met is { } struck && (share is not { } ground || struck.Along < ground))

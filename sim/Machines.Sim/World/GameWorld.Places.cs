@@ -38,7 +38,7 @@ public sealed partial class GameWorld
         float depth = FreeSpaceDepth, Pattern pattern = Pattern.Clock, Machine? asker = null, Actor? target = null)
     {
         var heading = axis.LengthSquared() > 1e-12f ? DetMath.Atan2(axis.Y, axis.X) : 0;
-        var water = asker is not null && CrossesWater(asker);
+        var water = asker is not null ? MobilityOf(asker) : Navigation.Mobility.Land;
         var found = default(Vector2);
         var radius = inner;
         while (!(pattern == Pattern.Clock ? OnClock(radius) : OnFlank(radius)) && radius < inner + depth)
@@ -98,7 +98,7 @@ public sealed partial class GameWorld
     /// MachLogSpacialManipulation::pointIsFree: a circle a hair wider than the clearance clear of obstacles and of the
     /// squares resting machines take up in the original's configuration space. Moving machines do not count.
     /// </summary>
-    private bool PointFree(Vector2 point, float clearance, bool water, Machine? asker, Actor? target)
+    private bool PointFree(Vector2 point, float clearance, Navigation.Mobility water, Machine? asker, Actor? target)
     {
         var radius = clearance * 1.01f;
         if (!Nav.OnPlanet(point) || !Nav.IsGround(point, water))
@@ -226,7 +226,7 @@ public sealed partial class GameWorld
             approaching.RetryAt = Time + 1;
             return;
         }
-        var path = Nav.FindPath(machine.Position, place, CrossesWater(machine));
+        var path = Nav.FindPath(machine.Position, place, MobilityOf(machine));
         if (_formation.TryGetValue(machine.Id, out var keep) && ReferenceEquals(keep.For, machine.Order))
             KeepPlace(machine, path, keep.Offset, keep.Radius);
         machine.Path.Clear();
@@ -357,7 +357,7 @@ public sealed partial class GameWorld
     {
         machine.Path.Clear();
         machine.PathIndex = 0;
-        machine.Path.AddRange(Nav.FindPath(machine.Position, place, CrossesWater(machine)));
+        machine.Path.AddRange(Nav.FindPath(machine.Position, place, MobilityOf(machine)));
         labour.Going = true;
         labour.NextMove = Time + 2;
     }

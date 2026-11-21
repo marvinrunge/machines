@@ -20,6 +20,50 @@ public sealed class TerrainHeights
         _spacing = spacing;
     }
 
+    /// <summary>How high a deck's wall stands to shots and sight, in metres.</summary>
+    public const float DeckWallHeight = 8;
+
+    /// <summary>How high a deck's high cover stands (crates, consoles): over the aim point of any machine behind it.</summary>
+    public const float DeckCoverHeight = 2;
+
+    /// <summary>
+    /// The longest step <see cref="FirstBlocked"/> samples a line with: no limit for the planets' ground, half a metre for a
+    /// deck's walls, so that none is stepped over.
+    /// </summary>
+    public float MaxStep { get; private init; } = float.MaxValue;
+
+    /// <summary>
+    /// A ship deck's walls as heights for shots and sight: walls 8 m, high cover 2 m, everything else (floor, ducts, grates,
+    /// door slots) the floor at 0. Vertices every half metre, at the cells' corners, edges and middles: a vertex in a cell's
+    /// middle has the cell's height, one on an edge or corner the lowest of the cells it touches, so the floor stays flat up to
+    /// a wall's face and even a wall one cell thick rises to its full height in its middle. Outside the deck is wall.
+    /// </summary>
+    public static TerrainHeights FromDeck(Deck deck)
+    {
+        static float HeightOf(DeckCell cell) => cell switch
+        {
+            DeckCell.Wall => DeckWallHeight,
+            DeckCell.Cover => DeckCoverHeight,
+            _ => 0,
+        };
+        var heights = new float[2 * deck.Width + 1, 2 * deck.Depth + 1];
+        for (var vx = 0; vx < heights.GetLength(0); vx++)
+        {
+            for (var vy = 0; vy < heights.GetLength(1); vy++)
+            {
+                // The cells a vertex touches along each axis: its own in a middle, both neighbours on an edge.
+                var (x0, x1) = vx % 2 == 1 ? (vx / 2, vx / 2) : (vx / 2 - 1, vx / 2);
+                var (y0, y1) = vy % 2 == 1 ? (vy / 2, vy / 2) : (vy / 2 - 1, vy / 2);
+                var lowest = float.MaxValue;
+                for (var x = x0; x <= x1; x++)
+                    for (var y = y0; y <= y1; y++)
+                        lowest = MathF.Min(lowest, HeightOf(deck.Cell(x, y)));
+                heights[vx, vy] = lowest;
+            }
+        }
+        return new TerrainHeights(heights, 0.5f) { MaxStep = 0.5f };
+    }
+
     public static TerrainHeights FromSurface(PlanetSurface surface)
     {
         var cellsPerTile = Math.Max(2, surface.TileCellsX);
@@ -104,10 +148,11 @@ public sealed class TerrainHeights
     /// <summary>
     /// Where along a straight line through the air the ground first rises above it, as a share of the way
     /// (0 to 1), or null when the line stays clear; sampled every <paramref name="step"/> metres, leaving out the
-    /// ends, where shooter and target stand.
+    /// ends, where shooter and target stand. A deck's walls are sampled at least every <see cref="MaxStep"/>.
     /// </summary>
     public float? FirstBlocked(Vector3 from, Vector3 to, float step = 2, float ends = 1)
     {
+        step = MathF.Min(step, MaxStep);
         var flat = new Vector2(to.X - from.X, to.Y - from.Y);
         var length = flat.Length();
         if (length <= 2 * ends)

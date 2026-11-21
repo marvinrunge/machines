@@ -342,7 +342,7 @@ public sealed partial class GameWorld
     /// </summary>
     private bool PlanRun(Machine machine, Motion motion, List<Vector2> path, ref int index, Way way)
     {
-        var water = CrossesWater(machine);
+        var water = MobilityOf(machine);
         // A machine moved off its way (stepping sideways or aside, a new goal) plans it again when it cannot see the
         // next point (MachLogMachineMotionSequencer's movedOffPath).
         var offWay = motion.OffWay;
@@ -700,7 +700,7 @@ public sealed partial class GameWorld
     {
         if (depth >= 3)
             return null;
-        var water = CrossesWater(machine);
+        var water = MobilityOf(machine);
         var travel = to - from;
         if (travel.LengthSquared() < 1e-6f)
             return null;
@@ -751,7 +751,7 @@ public sealed partial class GameWorld
     /// <summary>Whether a machine can drive straight to a point: open ground in sight, and nobody in the way.</summary>
     private bool CanMoveTo(Machine machine, Vector2 from, Vector2 to)
     {
-        var water = CrossesWater(machine);
+        var water = MobilityOf(machine);
         return Nav.OnPlanet(to) && Nav.IsFree(to, water) && Nav.LineOfSight(from, to, water) && Blocker(machine, from, to) is null;
     }
 
@@ -782,7 +782,7 @@ public sealed partial class GameWorld
     {
         if (path.Count < 2)
             return;
-        var water = CrossesWater(machine);
+        var water = MobilityOf(machine);
         var first = path[0] - machine.Position;
         if (first.LengthSquared() < 1e-6f)
             return;
@@ -816,14 +816,14 @@ public sealed partial class GameWorld
     }
 
     /// <summary>Whether a circle is open ground: its middle and eight points round its edge.</summary>
-    private bool SpaceFree(Vector2 centre, float radius, bool water)
+    private bool SpaceFree(Vector2 centre, float radius, Navigation.Mobility water)
     {
         if (!Nav.OnPlanet(centre) || !Nav.IsFree(centre, water))
             return false;
         for (var i = 0; i < 8; i++)
         {
             var edge = centre + new Vector2(DetMath.Cos(i * MathF.PI / 4), DetMath.Sin(i * MathF.PI / 4)) * radius;
-            if (!Nav.OnPlanet(edge) || !Nav.IsFree(edge, water))
+            if (!Nav.OnPlanet(edge) || !Nav.IsFree(edge, water with { Size = 0 }))
                 return false;
         }
         return true;
@@ -940,10 +940,13 @@ public sealed partial class GameWorld
         return distance;
     }
 
-    /// <summary>The sine of the ground's slope along a direction under a machine, uphill positive; 0 without the ground.</summary>
+    /// <summary>
+    /// The sine of the ground's slope along a direction under a machine, uphill positive; 0 without the ground, and on a ship
+    /// deck, whose floor is flat and whose "ground" is only its walls.
+    /// </summary>
     private float Slope(Machine machine, Vector2 direction)
     {
-        if (Terrain is not { } ground)
+        if (Terrain is not { } ground || Nav.Fine)
             return 0;
         var reach = machine.Radius;
         var rise = ground.At(machine.Position + direction * reach) - ground.At(machine.Position - direction * reach);

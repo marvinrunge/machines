@@ -1645,6 +1645,11 @@ public partial class Game : Node3D
                     if (_artefactModels.Remove(e.Actor - Artefact.IdBase, out var standing))
                         BlowUpArtefact(e.Actor - Artefact.IdBase, standing, at);
                     break;
+                case GameEventKind.ArtefactRemoved:
+                    // Taken off whole (a deck's door opened): its model goes without a blast.
+                    if (_artefactModels.Remove(e.Actor - Artefact.IdBase, out var removed))
+                        removed.QueueFree();
+                    break;
                 case GameEventKind.Recycled:
                     _vaporised.Add(e.Actor);
                     _audio.Play("SID_RECYCLE", at);

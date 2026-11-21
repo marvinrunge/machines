@@ -374,15 +374,15 @@ public sealed partial class GameWorld
     /// </summary>
     private Vector2 DoorOf(Construction building, Machine machine)
     {
-        if (building.EntranceOutside is { } outside && Nav.IsFree(outside, CrossesWater(machine)))
+        if (building.EntranceOutside is { } outside && Nav.IsFree(outside, MobilityOf(machine)))
             return outside;
         var angle = building.Orientation * MathF.PI / 180;
         var outward = new Vector2(DetMath.Cos(angle), DetMath.Sin(angle));
         var far = building.Position + outward * (building.Radius + 20);
         for (var ring = 0; ring < 6; ring++)
         {
-            var candidate = ClosestPointOutside(building, far) + outward * (ring * Navigation.NavGrid.CellSize);
-            if (Nav.IsFree(candidate, CrossesWater(machine)))
+            var candidate = ClosestPointOutside(building, far) + outward * (ring * Nav.CellSize);
+            if (Nav.IsFree(candidate, MobilityOf(machine)))
                 return candidate;
         }
         return ClosestPointOutside(building, far);

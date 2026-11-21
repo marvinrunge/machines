@@ -501,7 +501,7 @@ public sealed partial class GameWorld
         if (destination is { } goal)
             machine.Path.AddRange(groupTarget is { } shared && shared != goal
                 ? PathVia(machine, shared, goal, formation)
-                : Nav.FindPath(machine.Position, goal, CrossesWater(machine)));
+                : Nav.FindPath(machine.Position, goal, MobilityOf(machine)));
     }
 
     /// <summary>
@@ -510,22 +510,29 @@ public sealed partial class GameWorld
     /// </summary>
     private List<Vector2> PathVia(Machine machine, Vector2 shared, Vector2 goal, (Vector2 Offset, float Radius)? formation)
     {
-        var crossesWater = CrossesWater(machine);
-        var path = Nav.FindPath(machine.Position, shared, crossesWater);
+        var mobility = MobilityOf(machine);
+        var path = Nav.FindPath(machine.Position, shared, mobility);
         if (path.Count == 0)
-            return Nav.FindPath(machine.Position, goal, crossesWater);
+            return Nav.FindPath(machine.Position, goal, mobility);
         // With the original's motion each keeps its place in the group round the corners.
         if (Options.OriginalMotion && formation is { } place)
             KeepPlace(machine, path, place.Offset, place.Radius);
         var before = path.Count > 1 ? path[^2] : machine.Position;
-        if (Nav.LineOfSight(before, goal, crossesWater))
+        if (Nav.LineOfSight(before, goal, mobility))
             path[^1] = goal;
         else
-            path.AddRange(Nav.FindPath(path[^1], goal, crossesWater));
+            path.AddRange(Nav.FindPath(path[^1], goal, mobility));
         return path;
     }
 
     public static bool CrossesWater(Machine machine) => machine.Stats.Locomotion is Locomotion.Hover or Locomotion.Glider;
+
+    /// <summary>
+    /// How a machine gets about, for the navigation grid: across water if it hovers or glides, and on a ship deck how much
+    /// room it needs and whether it crawls through ducts (<see cref="Navigation.Mobility"/>). The original planets' grid
+    /// asks only the water of it.
+    /// </summary>
+    public static Navigation.Mobility MobilityOf(Machine machine) => Navigation.Mobility.Of(machine.Stats, machine.Radius);
 
     // ---- constructions --------------------------------------------------------------------------
 

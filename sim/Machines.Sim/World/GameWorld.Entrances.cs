@@ -101,7 +101,7 @@ public sealed partial class GameWorld
                 && building.Garrisoned.Remove(machine.Id))
                 building.Technicians.Add(machine.Id);
         }
-        else if (doorway is { } way && Find<Construction>(way) is { } door && !Nav.IsFree(machine.Position, CrossesWater(machine)))
+        else if (doorway is { } way && Find<Construction>(way) is { } door && !Nav.IsFree(machine.Position, MobilityOf(machine)))
         {
             machine.Position = DoorOf(door, machine);
         }

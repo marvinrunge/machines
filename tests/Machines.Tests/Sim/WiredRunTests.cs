@@ -301,7 +301,7 @@ public class WiredRunTests
             Assert.True(Vector2.Distance(point, door) >= WiredBalance.SpawnDistance);
             Assert.True(world.Nav.IsFree(point, crossesWater: false));
             var way = world.Nav.FindPath(point, door, crossesWater: false, int.MaxValue);
-            Assert.True(Vector2.Distance(way[^1], door) <= 2 * NavGrid.CellSize);
+            Assert.True(Vector2.Distance(way[^1], door) <= 2 * world.Nav.CellSize);
         }
     }
 

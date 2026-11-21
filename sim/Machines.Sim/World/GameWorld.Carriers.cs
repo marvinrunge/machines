@@ -318,7 +318,7 @@ public sealed partial class GameWorld
         if (distance <= 0.05f)
             return true;
         // The grid blocks the cells round a building; a pad lying in one is driven onto straight.
-        if (!Nav.IsFree(pad, CrossesWater(carrier)) && distance < Navigation.NavGrid.CellSize * 2.5f)
+        if (!Nav.IsFree(pad, MobilityOf(carrier)) && distance < Nav.CellSize * 2.5f)
         {
             carrier.Path.Clear();
             carrier.PathIndex = 0;

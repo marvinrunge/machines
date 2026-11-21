@@ -70,7 +70,7 @@ public sealed partial class GameWorld
         var from = machine.Position;
         foreach (var point in via.Append(destination))
         {
-            var stretch = Nav.FindPath(from, point, CrossesWater(machine));
+            var stretch = Nav.FindPath(from, point, MobilityOf(machine));
             machine.Path.AddRange(stretch);
             if (stretch.Count > 0)
                 from = stretch[^1];
