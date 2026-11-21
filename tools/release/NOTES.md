@@ -2,7 +2,15 @@ A **test build** of the Machines: Wired for War remake, for Windows 10/11 (64-bi
 
 **Download** the `setup.exe` below and run it, or the `windows.zip`, unzip it anywhere and run `Machines.exe`. `README.txt` lists the controls.
 
-**New in 0.7.5:**
+**New in 0.7.6:**
+- **HUD icons wear your colour.** In skirmish with random starts, a player dealt another colour's start saw the icons of the selected machines and the squad's commander in that start's colour, often blue. They now show the player's own colour.
+- **The production queue stays at the foot of the panel**, one row with arrows to scroll it, as in the original, instead of pushing the build menu down.
+- **Machines inside buildings can be selected again:** steer the ground camera into a lab or another building with an interior, and the view shows the inside and clicks pick the machines in there.
+- **Reapers and other legged machines no longer "breathe" on the spot:** they play their resting motion once when they stop, as the original does.
+- **A richer look:** each kind of planet has its own colour grade, the eye adapts to the light, edges are smoothed over time (FSR 2), canyons lie in deeper shade, and indoor maps are darker, lit by headlights and lamps. Explosions make the air shimmer, sparks and debris bounce, machines rock on their springs and press the grass down, clouds cast drifting shadows, sand blows off ridges, and the overhauled models carry the planet's dust.
+- **Online play works again** with the public relay (0.7.0 to 0.7.6 play together).
+
+**From 0.7.5:**
 - **Importing from CD 1 and 2 works again.** The import stopped with "Failed loading SDL3 library."; the importer now brings the library it was missing.
 - **The game has its own icon**, and the start goes from the splash straight into the loading screen, the same picture without a jump (once the original has been imported). A full-screen game is full screen from the first frame.
 - **Water in the Overhauled look:** lakes and rivers are clear, dark water under drifting waves that mirrors the sky, with foam along the banks. Waterfalls run downhill and throw up spray where they land.
@@ -19,7 +27,7 @@ A **test build** of the Machines: Wired for War remake, for Windows 10/11 (64-bi
 - **The campaign's films** come along when CD 2 is in a drive or its image lies beside CD 1's; later, **From CD** in the options adds them.
 - An installed copy still works as before (**Folder** picks it by hand).
 
-**0.7.0 to 0.7.5 play together online.**
+**0.7.0 to 0.7.6 play together online.**
 
 **From 0.7.0: online play**
 - **A public relay.** Under **Multiplayer** the relay is already filled in: type a name, press **Connect**, join a room or open one. Nobody has to open a port. The relay sleeps while nobody plays, so the first connection after a break takes a few seconds.
