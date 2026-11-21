@@ -42,7 +42,8 @@ public partial class StoryHud
     /// </summary>
     private void FollowBoot(StoryReadout now)
     {
-        _bootWaits ??= now.Checkpoint == 0 && now.Section <= 1 && now.Ending is null;
+        // A chapter run without its director's script (the checks of the sight and the companions) has no wake-up scene.
+        _bootWaits ??= now.Checkpoint == 0 && now.Section <= 1 && now.Ending is null && _game.World.Story?.Options.Unscripted != true;
         if (now.Boot && !_bootFlag)
             _bootWaits = true;
         _bootFlag = now.Boot;
@@ -71,7 +72,8 @@ public partial class StoryHud
     private void DrawBoot()
     {
         var clock = (float)BootClock;
-        if (clock > BootLength + 0.6f || _bootWaits is true && _demo is null && !Driving)
+        // Only while a boot runs (or the demo holds one): waiting for the hero to be driven, or after, nothing is written.
+        if (clock > BootLength + 0.6f || _demo is null && _bootFrom is null)
             return;
         var alpha = Mathf.Clamp((BootLength + 0.6f - clock) / 0.6f, 0, 1);
         var at = new Vector2(Left + 48 * _u, _size.Y * 0.36f);

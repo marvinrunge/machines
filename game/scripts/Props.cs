@@ -61,8 +61,9 @@ public static class Props
         var root = scene.Instantiate<Node3D>();
         try
         {
-            if (FirstMesh(root) is not { Mesh: { } mesh } part)
+            if (FirstMesh(root) is not { Mesh: ArrayMesh imported } part)
                 return null;
+            var mesh = Turned(imported);
             // Where the mesh stands in the prop: its node's transform and its parents' up to the scene's root.
             var offset = Transform3D.Identity;
             for (Node? node = part; node is not null && node != root; node = node.GetParent())
@@ -77,6 +78,50 @@ public static class Props
         {
             root.Free();
         }
+    }
+
+    /// <summary>
+    /// The mesh with its normals turned the way its faces are wound where Meshy left them pointing into the model: such a
+    /// face (the clamp's inner faces, a crate's lid) faces the eye but catches the light of the side it hides, and shows
+    /// white under a ceiling lamp. Which way a face is wound outward is what most of the model's faces say.
+    /// </summary>
+    private static ArrayMesh Turned(ArrayMesh imported)
+    {
+        var mesh = new ArrayMesh { ResourceName = imported.ResourceName };
+        var turned = 0;
+        for (var surface = 0; surface < imported.GetSurfaceCount(); surface++)
+        {
+            var arrays = imported.SurfaceGetArrays(surface);
+            var material = imported.SurfaceGetMaterial(surface);
+            if (imported.SurfaceGetPrimitiveType(surface) == Mesh.PrimitiveType.Triangles
+                && arrays[(int)Mesh.ArrayType.Vertex].As<Vector3[]>() is { Length: > 0 } vertices
+                && arrays[(int)Mesh.ArrayType.Normal].As<Vector3[]>() is { } normals && normals.Length == vertices.Length)
+            {
+                var indices = arrays[(int)Mesh.ArrayType.Index].As<int[]>() is { Length: > 0 } given ? given : Enumerable.Range(0, vertices.Length).ToArray();
+                var faces = new Vector3[vertices.Length];
+                var outward = 0;
+                for (var t = 0; t + 2 < indices.Length; t += 3)
+                {
+                    var (a, b, c) = (indices[t], indices[t + 1], indices[t + 2]);
+                    var face = (vertices[b] - vertices[a]).Cross(vertices[c] - vertices[a]);
+                    faces[a] += face;
+                    faces[b] += face;
+                    faces[c] += face;
+                    outward += Math.Sign(face.Dot(normals[a] + normals[b] + normals[c]));
+                }
+                var sign = outward >= 0 ? 1 : -1;
+                for (var v = 0; v < normals.Length; v++)
+                    if (normals[v].Dot(faces[v]) * sign < 0)
+                    {
+                        normals[v] = -normals[v];
+                        turned++;
+                    }
+                arrays[(int)Mesh.ArrayType.Normal] = normals;
+            }
+            mesh.AddSurfaceFromArrays(imported.SurfaceGetPrimitiveType(surface), arrays);
+            mesh.SurfaceSetMaterial(surface, material);
+        }
+        return turned > 0 ? mesh : imported;
     }
 
     private static MeshInstance3D? FirstMesh(Node node)

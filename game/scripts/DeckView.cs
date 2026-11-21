@@ -83,6 +83,7 @@ public partial class DeckView : Node3D
                 Add(piece.Prop, piece.Position, piece.Angle, new Vector3(piece.Scale.X, piece.Scale.Y, piece.Scale.Z));
         }
         Lamps();
+        StoryFittings();
         foreach (var (key, places) in _batches)
             AddChild(Batch(key.Prop, places, key.Shadow, key.Ground));
         _batches.Clear();
@@ -96,6 +97,9 @@ public partial class DeckView : Node3D
                 if (pair.Split('=') is [var group, var state])
                     foreach (var name in group == "*" ? _groups.Keys.ToList() : [group])
                         SetLights(name, state);
+        // For pictures: MACHINES_DECK_ALARM=1 sounds the alarm, as the director does at the core's 90 %.
+        if (System.Environment.GetEnvironmentVariable("MACHINES_DECK_ALARM") == "1")
+            SetAlarm(true);
     }
 
     // ---- modules --------------------------------------------------------------------------------
@@ -113,9 +117,35 @@ public partial class DeckView : Node3D
             var scale = new Vector3(DeckLayout.Module / size.X, 1, DeckLayout.Module / size.Z);
             Add(prop, Props.Place(model, Props.World(at) - new Vector3(0, size.Y, 0), 90, scale), shadow: false, ground: true);
             if (floor.Grate && Props.Get("kit_floor") is { } under)
-                Add("kit_floor", Props.Place(under, Props.World(at) - new Vector3(0, under.Size.Y + 1.2f, 0), 90,
+                Add("kit_floor", Props.Place(under, Props.World(at) - new Vector3(0, under.Size.Y + GratePit, 0), 90,
                     new Vector3(DeckLayout.Module / under.Size.X, 1, DeckLayout.Module / under.Size.Z)), shadow: false);
         }
+        GrateSkirts();
+    }
+
+    /// <summary>How deep the pit under a grate is: the plain floor lies this far below the grate's top.</summary>
+    private const float GratePit = 1.2f;
+
+    /// <summary>
+    /// The sides of the pits under the grates, where a grate meets plain floor or a wall: a steel skirt from the pit's
+    /// floor up under the grate's edge, so no open edge shows down into the void beneath the plain floor's slabs.
+    /// </summary>
+    private void GrateSkirts()
+    {
+        if (Props.Get("kit_wall_low") is not { } model)
+            return;
+        var grates = Layout.Floors.Where(f => f.Grate).Select(f => (f.X, f.Y)).ToHashSet();
+        const int m = DeckLayout.Module;
+        foreach (var (x, y) in grates)
+            foreach (var (dx, dy) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+            {
+                if (grates.Contains((x + dx * m, y + dy * m)))
+                    continue;
+                // On the block's edge towards the neighbour, its front facing back into the pit.
+                var edge = new NVector2(x + m / 2f + dx * m / 2f, y + m / 2f + dy * m / 2f) - new NVector2(dx, dy) * 0.08f;
+                var scale = new Vector3(m / model.Size.X, (GratePit + 0.1f) / model.Size.Y, 0.12f / model.Size.Z);
+                Add("kit_wall_low", new NVector3(edge, -GratePit - 0.05f), DeckLayout.Degrees(new NVector2(-dx, -dy)), scale, shadow: false);
+            }
     }
 
     private void Walls()
