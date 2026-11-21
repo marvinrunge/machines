@@ -39,6 +39,9 @@ public partial class Hud : CanvasLayer
     /// <summary>The story's lines at the foot of the view; null in any other match.</summary>
     public Subtitles? Subtitles { get; private set; }
 
+    /// <summary>The story's subtitles' own layer (null outside a story): hidden with the panel only where the panel goes for good.</summary>
+    public CanvasLayer? Captions { get; private set; }
+
     public Hud(Game game, Texture2D? map)
     {
         _game = game;
@@ -123,7 +126,14 @@ public partial class Hud : CanvasLayer
             root.AddChild(Story);
             var names = _game.World.Story.Options;
             Subtitles = new Subtitles { IkeName = names.IkeName, BobName = names.BobName };
-            root.AddChild(Subtitles);
+            // On a layer of their own: above the hack's board (layer 10), which hid the lines said while it was up, and
+            // standing while a cutscene hides the panel (a CanvasLayer's visibility does not reach the layers under it).
+            Captions = new CanvasLayer { Layer = 11, Name = "Captions" };
+            AddChild(Captions);
+            var captions = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
+            captions.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+            Captions.AddChild(captions);
+            captions.AddChild(Subtitles);
         }
         else if (_game.World.Wired is not null)
         {

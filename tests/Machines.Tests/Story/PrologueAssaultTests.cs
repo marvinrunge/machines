@@ -79,6 +79,18 @@ public class PrologueAssaultTests
 
     private static bool Inside(Vector2 at, float x0, float y0, float x1, float y1) => at.X >= x0 && at.X <= x1 && at.Y >= y0 && at.Y <= y1;
 
+    /// <summary>Drives the Locator one tick towards a point, turning as a player at the keys would; whether it is there.</summary>
+    private static bool Steer(GameWorld world, Machine hero, Vector2 to, float within = 1.5f)
+    {
+        var way = to - hero.Position;
+        if (way.Length() <= within)
+            return true;
+        var off = MathF.Atan2(way.Y, way.X) - hero.Facing;
+        off = MathF.Atan2(MathF.Sin(off), MathF.Cos(off));
+        world.Issue(new DriveCommand(Race.Red, hero.Id, Driving: true, Forward: MathF.Abs(off) < 0.6f ? 1 : 0.2f, Turn: Math.Clamp(off * 2, -1, 1)));
+        return false;
+    }
+
     // ---- Die Enge ------------------------------------------------------------------------------------
 
     [Fact]
@@ -160,6 +172,112 @@ public class PrologueAssaultTests
     }
 
     [Fact]
+    public void A_hunter_searching_for_a_grunt_in_the_cable_duct_stays_on_its_side_of_the_wall()
+    {
+        var world = Chapter(3);
+        var run = world.Story!;
+        var locator = Hero(world, 0);
+        var hunters = Cast(world, Prologue.ReaperRole).Concat(Cast(world, Prologue.CommanderRole)).ToList();
+        var inside = new List<string>();
+        void Watch()
+        {
+            foreach (var m in hunters.Where(m => !m.IsDead))
+            {
+                if (Inside(m.Position, 106, 100, 170, 104))
+                    inside.Add($"{m.Id} at {m.Position} t={world.Time:0.00}");
+            }
+        }
+
+        // The Locator along the vent to the crossing, then still there without hacking D5, while the Grunts wait in the duct
+        // and the Reapers search the corridor beside it for them.
+        Assert.True(RunUntil(world, () => locator.Position.X > 173 || run.Over, 20, () =>
+        {
+            world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true, Forward: 1));
+            Watch();
+        }));
+        Run(world, 60, () =>
+        {
+            world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true));
+            Watch();
+        });
+
+        Assert.Empty(inside);
+        // Ike holds gate O from the duct's side all the while; gate G is not pushed before D5 is open.
+        Assert.True(world.DoorClosed('O'), "gate O forced");
+        Assert.True(world.DoorClosed('G'), "gate G forced");
+    }
+
+    [Fact]
+    public void A_hunter_that_loses_the_locator_in_the_vent_searches_from_its_own_side_and_never_jumps_through()
+    {
+        var world = Chapter(3);
+        var run = world.Story!;
+        Run(world, Prologue.LocatorSpared + 1);
+        var hunters = Cast(world, Prologue.ReaperRole);
+        var locator = Hero(world, 0);
+        // The Locator crawls in the vent beside P1, a Reaper right at the wall between them, sure of it; then it is gone
+        // (on through the vent), and the Reaper searches where it saw it last, which it cannot get to.
+        var reaper = hunters[0];
+        SetDown(world, reaper, new Vector2(140, 123.5f));
+        SetDown(world, locator, new Vector2(140, 118));
+        var eyes = world.StorySeekerOf(reaper.Id)!;
+        var last = reaper.Position;
+        var jumps = new List<string>();
+        var inside = new List<string>();
+        var searched = false;
+        Run(world, 25, () =>
+        {
+            world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true));
+            if (world.Time < 9)
+            {
+                SetDown(world, locator, new Vector2(140 + (world.Tick % 20 < 10 ? 0.3f : -0.3f), 118));
+                (eyes.Suspicion, eyes.Quarry) = (1, locator.Id);
+            }
+            else if (world.Time < 9.2f)
+                SetDown(world, locator, new Vector2(182, 120));
+            searched |= reaper.Order is SearchOrder;
+            if (!reaper.IsDead)
+            {
+                if (Vector2.Distance(reaper.Position, last) > 1)
+                    jumps.Add($"{last} -> {reaper.Position} t={world.Time:0.00}");
+                if (Inside(reaper.Position, 106, 116, 171, 120.2f))
+                    inside.Add($"{reaper.Position} t={world.Time:0.00}");
+                last = reaper.Position;
+            }
+        });
+
+        Assert.True(searched, "it never searched");
+        Assert.Empty(jumps);
+        Assert.Empty(inside);
+    }
+
+    [Fact]
+    public void From_the_repair_station_the_locator_drives_out_through_door_u_past_its_grunts()
+    {
+        var world = Chapter(5);
+        var run = world.Story!;
+        var locator = Hero(world, 0);
+        Run(world, 1);
+        var legs = new Queue<Vector2>([new Vector2(223, 105.5f), new Vector2(217, 105.5f), new Vector2(212, 104)]);
+        Assert.True(RunUntil(world, () => legs.Count == 0 || run.Over, 25, () =>
+        {
+            if (Steer(world, locator, legs.Peek()))
+                legs.Dequeue();
+        }), $"the Locator stands at {locator.Position}, Ike at {Hero(world, 1).Position}, Bob at {Hero(world, 2).Position}");
+    }
+
+    [Fact]
+    public void The_notgang_has_its_crate_at_the_last_checkpoint_clear_of_the_trio()
+    {
+        var world = Chapter(Prologue.LastCheckpoint);
+        var crate = world.Artefacts.Where(a => a.Id >= Artefact.IdBase + StoryDirector.PlacedBase)
+            .SingleOrDefault(a => Vector2.Distance(a.Position, world.Deck!.Marker("debris_1").Position + new Vector2(2.5f, 0)) < 0.5f);
+        Assert.NotNull(crate);
+        for (var seat = 0; seat < 3; seat++)
+            Assert.True(Vector2.Distance(Hero(world, seat).Position, crate!.Position) > Hero(world, seat).Radius + 1, $"seat {seat} at {Hero(world, seat).Position}");
+    }
+
+    [Fact]
     public void The_commander_splits_his_squad_between_the_passages_and_only_calls()
     {
         var world = Chapter(3);
@@ -204,18 +322,18 @@ public class PrologueAssaultTests
         var world = Chapter(4);
         var run = world.Story!;
         var cues = new List<string>();
-        // Bob is told to wait where he stands, off his switch; Ike holds G1.
+        // Bob is told to wait where he stands, off his switch; Ike holds G2 (gate O).
         world.Issue(new StoryOrderCommand(Race.Red, CompanionOrder.Wait, Vector2.Zero, run.Seats[2]));
         Run(world, Prologue.GateForce + 3, () => cues.AddRange(world.Events.Where(e => e.Kind == GameEventKind.StoryCue).Select(e => e.Detail!)));
 
-        Assert.True(world.SwitchHeld("switch_g1"));
-        Assert.False(world.SwitchHeld("switch_g2"));
-        Assert.True(world.DoorClosed('G'));
-        Assert.False(world.DoorClosed('O'));
-        Assert.Contains("gate O strain", cues);
-        Assert.Equal(2, cues.Count(c => c == "gate O strain"));
-        Assert.Contains("gate O forced", cues);
-        Assert.DoesNotContain("gate G forced", cues);
+        Assert.True(world.SwitchHeld("switch_g2"));
+        Assert.False(world.SwitchHeld("switch_g1"));
+        Assert.True(world.DoorClosed('O'));
+        Assert.False(world.DoorClosed('G'));
+        Assert.Contains("gate G strain", cues);
+        Assert.Equal(2, cues.Count(c => c == "gate G strain"));
+        Assert.Contains("gate G forced", cues);
+        Assert.DoesNotContain("gate O forced", cues);
     }
 
     [Fact]
@@ -307,6 +425,22 @@ public class PrologueAssaultTests
         Assert.True(locator.HitPoints < locator.MaxHitPoints, "they never fired back");
         world.Step();
         Assert.True(run.Director.Has("cleared"));
+
+        // A crate came down on a Grunt in the fight (the lesson of putting a fallen Grunt together comes for sure): it lies
+        // beside the Grunt, not on it, and the objective points at the Grunt until the Locator has put it together.
+        Assert.True(run.Director.Has("knocked"));
+        var fallen = run.Seats.Skip(1).Where(world.CompanionDown).Select(s => world.HeroOf(s)!).ToList();
+        Assert.NotEmpty(fallen);
+        Assert.Equal(Prologue.RallyText, StoryMarks.Objective(run)!.Value.Text);
+        var crates = world.Artefacts.Where(a => a.Id >= Artefact.IdBase + StoryDirector.PlacedBase).ToList();
+        Assert.Single(crates);
+        Assert.True(Vector2.Distance(crates[0].Position, fallen[0].Position) >= fallen[0].Radius + StoryFall.Lies, $"crate at {crates[0].Position}, Grunt at {fallen[0].Position}");
+        var seat = run.Seats.First(s => world.HeroOf(s) == fallen[0]);
+        SetDown(world, locator, fallen[0].Position + new Vector2(0, 3));
+        world.Issue(new StoryUseCommand(Race.Red, $"seat:{seat.Value}"));
+        Assert.True(RunUntil(world, () => !world.CompanionDown(seat), GameWorld.ReviveSeconds + 1));
+        world.Issue(new StoryUseCommand(Race.Red, Held: false));
+        Run(world, 0.2f);
         Assert.Equal("repair_station", StoryMarks.Objective(run)!.Value.Place);
     }
 

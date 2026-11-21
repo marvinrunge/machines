@@ -45,7 +45,6 @@ public static class Prologue
     public static readonly StoryUnit Grunt2 = new("AGGRESSOR", "GRUNT", 2, "L_BOLTER");
     public static readonly StoryUnit Grunt3 = new("AGGRESSOR", "GRUNT", 3, "LR_HEAVY_BOLTER1_X2");
     public static readonly StoryUnit Builder = new("CONSTRUCTOR", "BUILDER", 3, null);
-    public static readonly StoryUnit LabTech = new("TECHNICIAN", "LAB_TECH", 2, null);
     public static readonly StoryUnit TechBoy = new("TECHNICIAN", "TECH_BOY", 3, null);
 
     /// <summary>The roles the director casts.</summary>
@@ -72,8 +71,10 @@ public static class Prologue
         ([new(88, 95), new(86, 92), new(90, 92)], 90),
         ([new(101, 118), new(100, 102), new(96, 102)], 0),
         ([new(180, 104), new(178, 108), new(182, 108)], 0),
-        ([new(230, 108), new(226, 106), new(226, 110)], 180),
-        ([new(240, 92), new(238.5f, 95), new(241.5f, 95)], 270),
+        // At the repair station the Grunts stand behind the Locator, east of it: the way out (door U) is west, and between it
+        // and the Locator they wedged it in.
+        ([new(230, 108), new(232.5f, 105.5f), new(232.5f, 110.5f)], 180),
+        ([new(240, 92), new(237.8f, 94), new(242.2f, 93)], 270),
     ];
 
     /// <summary>The last checkpoint of the prologue.</summary>
@@ -103,6 +104,9 @@ public static class Prologue
 
     /// <summary>The doors that open by themselves as the trio comes, at each checkpoint.</summary>
     public static readonly IReadOnlyList<string> DoorsAuto = ["", "D", "I", "", "R", "T", ""];
+
+    /// <summary>Lines the view does not say once a hack is done, if they still wait on the loudspeakers: the pod's refusal once it is hacked.</summary>
+    public static readonly IReadOnlyDictionary<string, string> StaleOnceHacked = new Dictionary<string, string> { ["pod_3_hatch"] = Lines.PodNo };
 
     /// <summary>The ship's announcements that come round in the first two sections.</summary>
     public static readonly IReadOnlyList<string> Announcements = [Lines.Wake2, Lines.Deck2, Lines.Deck3, Lines.Deck4];
@@ -135,6 +139,12 @@ public static class Prologue
     /// <summary>How long the Reapers push at an unheld gate before it gives way (plan WP-H; the plan's 30 s, eased for hands).</summary>
     public const float GateForce = 40;
 
+    /// <summary>
+    /// Where the Reapers stand in the core chamber after bursting in through J, firing at the core: round both its sides, where
+    /// L-7 at its console sees them past the core (behind it, they were hidden from its eyes for the whole cutscene).
+    /// </summary>
+    public static readonly string[] ReapersAtCore = ["78,119", "98,119", "99,113"];
+
     /// <summary>Where the Grunts wait by the cable duct's door during Erwischt, and where they wait at its far end, before D5.</summary>
     public const string IkeAtCable = "100,102", BobAtCable = "96,102", IkeAtD5 = "166,102", BobAtD5 = "161,102";
 
@@ -154,7 +164,7 @@ public static class Prologue
         // ---- 1 Erwachen: the Locator hangs in its clamp, its HUD boots; it hacks itself free, then Ike and Bob awake.
         new("boot", 0, new Always(), [new Flag(StoryMarks.Boot), new Hold(true, 0), new Say(Lines.HudBoot),
             new Objective("Free yourself from the clamp", "clamp_l7")]),
-        new("boot_done", 0, new Since("boot", 6), [new Flag(StoryMarks.Boot, false)]),
+        new("boot_done", 0, new Since("boot", 6), [new Flag(StoryMarks.Boot, false), new Cue("hint lamp")]),
         new("wake_call", 0, new Since("boot", 3), [new Say(Lines.Wake1)]),
         new("decrypt", 0, new Since("boot", 9), [new Say(Lines.HudDecrypt)]),
         new("free", 0, new HackDone("clamp_l7"), [new Hold(false, 0), new OpenDoors("AB"), new Cue("clamp clamp_l7", "clamp_l7"),
@@ -170,10 +180,16 @@ public static class Prologue
         new("announce", 0, new AllOf(new Since("boot", 45), new AnyOf(new InSection(1), new InSection(2))), [new SayNext("announce", Announcements)],
             Repeat: true, Every: 80),
 
+        // "Das Update will rein" (docs/STORY.md, Horror): the update whispers the unit's code in the Locator's head, the HUD
+        // breaking up as it does: once in the dark decks, and once when the Locator is first badly hurt.
+        new("whisper", 1, new AllOf(new Since("deck_a", 20), new InSection(2)), [new Say(Lines.Whisper, StoryAudience.Private, 0)]),
+        new("whisper_hurt", 5, new AllOf(new Hurt(0.35f), new Not(new InSection(8))), [new Say(Lines.Whisper, StoryAudience.Private, 0)]),
+
         // ---- 2 Schleichen: through the dark decks past the Thresher, the Locator by the ducts, the Grunts the long way round.
-        new("steps", 1, new Since("grunts_awake", 5), [new CueCast("steps", ThresherRole), new Say(Lines.IkeSteps, Bark, 1)]),
+        new("steps", 1, new Since("grunts_awake", 5), [new CueCast("steps", ThresherRole), new Say(Lines.IkeSteps, Bark, 1), new Cue("hint still")]),
         new("deck_a", 1, new InZone("R4", StoryWho.AnyHero), [new Say(Lines.Deck1),
-            new Objective("Crawl through the ducts to the switch room", "hack_s")]),
+            new Objective("Crawl through the ducts to the switch room", "hack_s"), new Cue("hint pulse")]),
+        new("duct", 1, new InZone("V1a"), [new Cue("hint duct")]),
         // Ike's "I don't fit in there" is the companions' own bark, once the Locator crawls off into a duct (CompanionBot).
         new("scare_grunt2", 1, new Near("scare_grunt2", 9), [new CueCast("scare wake", ScareRole), new Lamp(ScareRole, true)]),
         new("scare_dark", 1, new Since("scare_grunt2", 1.5f), [new Lamp(ScareRole, null)]),
@@ -203,7 +219,7 @@ public static class Prologue
             new Spawn(ReaperRole, Reaper2, ["100,139"], Hunters),
             new Spawn(CommanderRole, Commander, ["commander_1"], Hunters)]),
         new("unplug", 2, new Since("alarm", 1.2f), [new Unplug("hack_core")]),
-        new("door_j", 2,new Since("alarm", DoorBursts), [new OpenDoors("J"), new ClearBarricade("J"), new MoveTo(ReaperRole, "82,124", "94,124", "88,128"),
+        new("door_j", 2,new Since("alarm", DoorBursts), [new OpenDoors("J"), new ClearBarricade("J"), new MoveTo(ReaperRole, ReapersAtCore),
             new MoveTo(CommanderRole, "88,130")]),
         new("fire_core", 2, new Since("alarm", ReapersFire), [new AttackArtefact(ReaperRole, CoreTag)]),
         new("core_blows", 2, new Since("alarm", CoreBlows), [new HarmProp(CoreTag), new Lights("emergency", "core")]),
@@ -213,12 +229,16 @@ public static class Prologue
 
         // ---- 5 Die Enge: the Locator crawls ahead and hacks D5 open for the Grunts, who come along the cable duct; the Reapers
         // fire through the grates and push at the gates G1 and G2, which give way unless one of the trio stands on its switch.
+        // While the Locator crawls and hacks, Ike holds gate O shut from the cable duct's side (switch_g2k, by the gate's
+        // works behind the duct's wall) and Bob waits by D5; gate G, whose switches are all on the crossing's side, is
+        // pushed only once D5 is open and the Grunts can get to it.
         new("pursuit_call", 3, new Since("control_lost", 3), [new Say(Lines.Auto2)]),
-        new("gates", 3, new Not(new Flagged(Sealed)), [new ForceGates(ReaperRole, GateForce, "G:switch_g1", "O:switch_g2")], After: ["control_lost"],
+        new("gates", 3, new Not(new Flagged(Sealed)), [new ForceGates(ReaperRole, GateForce, "O:switch_g2|switch_g2k")], After: ["control_lost"],
             Repeat: true),
+        new("gate_g", 3, new Not(new Flagged(Sealed)), [new ForceGates(ReaperRole, GateForce, "G:switch_g1")], After: ["d5"], Repeat: true),
         new("crossing", 3, new InZone("R12"), [new Hackable(true, "hack_d5"), new Objective("Open door D5 for the Grunts", "hack_d5")]),
         new("d5", 3, new HackDone("hack_d5"), [new OpenDoors("Q"), new Objective("Wait for the Grunts at the crossing", "R12"),
-            new Assign(1, CompanionTask.HoldSwitch, "switch_g1"), new Assign(2, CompanionTask.HoldSwitch, "switch_g2")]),
+            new Assign(1, CompanionTask.HoldSwitch, "switch_g2"), new Assign(2, CompanionTask.HoldSwitch, "switch_g1")]),
         new("together", 3, new InZone("R12", StoryWho.All), [new Checkpoint(4), new Section(6), new AutoDoors("R"),
             new Objective("Get through the workshop", "pickup_bolter"), .. Hostiles], After: ["d5"]),
 
@@ -230,6 +250,8 @@ public static class Prologue
             new Withdraw(ReaperRole), new Withdraw(CommanderRole)], After: ["workshop"]),
         new("weapon", 4, new Flagged(StoryMarks.Done("pickup_bolter")), [new Cue("pickup bolter", "pickup_bolter"),
             new Objective("Stop the armed Grunts", "R13")]),
+        // The firefight brings a crate down off the shelves onto a Grunt: the Locator learns here to put a fallen Grunt together.
+        new("knocked", 4, new AllOf(new Since("weapon", 3), new InZone("R13", StoryWho.AnyCompanion)), [new KnockDown("crate_small", 1, "R13", 2, 1)]),
         new("cleared", 4, new Dead(HostileRole), [new AutoDoors("TU"), new Objective("Reach the repair station", "repair_station")], After: ["weapon"]),
         new("repaired", 4, new InZone("repair"), [new Checkpoint(5), new Objective("Get to the escape pods", "R15")]),
 
@@ -251,9 +273,10 @@ public static class Prologue
             new Fall("crate_large", "debris_3", FallWarning, 0, 2.5f), new Tilt(9, -1, 2)]),
         new("t30", 6, new CountdownAt(30), [new CountdownStage(), new Say(Lines.T30), new Blast("254,46", 4, 30, 3),
             new Fall("crate_large", "249,38", FallWarning, -20), new Tilt(12, 2, 2)]),
-        new("t10", 6, new CountdownAt(10), [new CountdownStage(), new Say(Lines.T10), new Cue("rumble 1")]),
+        new("t10", 6, new CountdownAt(10), [new CountdownStage(), new Say(Lines.T10), new Cue("rumble 1"), new Blast("228,36", 4, 30, 3.5f),
+            new Fall("crate_large", "252,38", FallWarning, 35)]),
         new("crash", 6, new CountdownAt(0), [new End(StoryEnding.Crashed)]),
-        new("pod_bay", 6, new InZone("R16"), [new Say(Lines.Crash)]),
+        new("pod_bay", 6, new InZone("R16"), [new Say(Lines.Crash), new Objective("Hack escape pod three", "pod_3_hatch")], After: ["notgang"]),
         new("pod_denied", 6, new AllOf(new Near("pod_3_hatch", 6), new Not(new HackDone("pod_3_hatch"))), [new Say(Lines.PodNo)]),
         new("pod_hacked", 6, new HackDone("pod_3_hatch"), [new Objective("Open the hatch", "pod_3_hatch")]),
         // The hatch open (the Locator's Use, GameWorld.UseForStory), the Grunts board.
@@ -290,13 +313,14 @@ public static class Prologue
     /// The hunt after the core (plan WP-H): the Commander splits his Reapers, the first half by way of the spine into P1, the
     /// rest by the core's east door into P2, both to the gates at their ends, and takes the spine himself. On the way they hunt
     /// by the story's sight: they stand at the grate windows and fire through, as neither the ducts nor the cable duct let
-    /// them in. The Grunts make for the cable duct's far end, before D5, while the Locator crawls ahead.
+    /// them in. The Grunts make for the cable duct's far end while the Locator crawls ahead: Ike to gate O's switch on the
+    /// duct's side, which he holds, Bob before D5.
     /// </summary>
     private static StoryAction[] Pursuit =>
     [
         new Flank(ReaperRole, ["88,139", "123.5,137"], AtG1, ["100,109"], AtG2),
         new MoveTo(CommanderRole, "commander_2"),
-        new Assign(1, CompanionTask.Go, IkeAtD5),
+        new Assign(1, CompanionTask.HoldSwitch, "switch_g2k"),
         new Assign(2, CompanionTask.Go, BobAtD5),
     ];
 
@@ -318,8 +342,8 @@ public static class Prologue
         new Spawn(RowRole, Grunt3, ["clampA_s2", "clampA_n7", "clampB_2", "clampB_8"], Inert: true),
         new Spawn(RowRole, Reaper2, ["clampA_s5", "clampA_n1"], Inert: true),
         new Spawn(RowRole, Builder, ["clampA_s8", "clampA_n5", "clampB_4"], Inert: true),
-        new Spawn(RowRole, LabTech, ["clampA_s7"], Inert: true),
-        new Spawn(RowRole, TechBoy, ["clampA_n8", "clampB_7"], Inert: true),
+        // The cast's rows (docs/STORY.md, Besetzung): Grunts, Reapers, Builders and Engineers (the Tech Boy), nothing else.
+        new Spawn(RowRole, TechBoy, ["clampA_s7", "clampA_n8", "clampB_7"], Inert: true),
         new Spawn(ScareRole, Grunt2, ["scare_grunt2"], Inert: true),
     ];
 
@@ -379,7 +403,7 @@ public static class Prologue
         if (cp == 3)
         {
             // As the control is lost: the squad in the core chamber, the trio given its moment to get going.
-            Do(new Spawn(ReaperRole, Reaper3, ["82,124", "94,124"], Hunters), new Spawn(ReaperRole, Reaper2, ["88,128"], Hunters),
+            Do(new Spawn(ReaperRole, Reaper3, ReapersAtCore[..2], Hunters), new Spawn(ReaperRole, Reaper2, ReapersAtCore[2..], Hunters),
                 new Spawn(CommanderRole, Commander, ["88,139"], Hunters));
             Do(Pursuit);
             Do(new Spare(0, LocatorSpared), new Spare(1, GruntsSpared), new Spare(2, GruntsSpared));
@@ -389,7 +413,7 @@ public static class Prologue
             // All three at the crossing, the Grunts holding the gates, the Reapers at the gates' far side.
             Do(new Spawn(ReaperRole, Reaper3, [AtG1, "154,125.5"], Hunters), new Spawn(ReaperRole, Reaper2, [AtG2], Hunters),
                 new Spawn(CommanderRole, Commander, ["commander_2"], Hunters));
-            Do(new Assign(1, CompanionTask.HoldSwitch, "switch_g1"), new Assign(2, CompanionTask.HoldSwitch, "switch_g2"));
+            Do(new Assign(1, CompanionTask.HoldSwitch, "switch_g2"), new Assign(2, CompanionTask.HoldSwitch, "switch_g1"));
             Do(Hostiles);
         }
         if (cp >= 5)
@@ -399,7 +423,10 @@ public static class Prologue
             run.Flags.Add(Sealed);
         }
         if (cp == LastCheckpoint)
-            Do(new Countdown(CountdownAtCheckpoint), new Tilt(5, 0, 0.5f));
+        {
+            // The Notgang as a run played through has it: the crate its beat let fall lies in the lane.
+            Do(new Countdown(CountdownAtCheckpoint), new Tilt(5, 0, 0.5f), new PlaceProp("crate_large", "debris_1", 0, 2.5f));
+        }
         Do(cp switch
         {
             1 => new Objective("Find a way to the main computer", "enter_deckA"),

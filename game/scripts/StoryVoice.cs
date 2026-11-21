@@ -69,6 +69,9 @@ public partial class StoryVoice(StoryAudio audio) : Node
         Apply(_queue.Add(line, audio.Clock));
     }
 
+    /// <summary>The waiting lines of an id are dropped.</summary>
+    public void Withdraw(string id) => Apply(_queue.Withdraw(id));
+
     public void Cut(bool clear, bool crackle)
     {
         var speaking = _queue.Current;

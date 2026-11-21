@@ -620,6 +620,24 @@ public sealed partial class GameWorld
         }
         if (machine.HitPoints > 0 || CompanionSeat(machine) is not { } seat)
             return;
+        LayDown(run, machine, seat);
+    }
+
+    /// <summary>
+    /// The director knocks a Grunt down (<see cref="Story.Then.KnockDown"/>): it lies downed as if a hit had destroyed it.
+    /// False when the machine is no Grunt of the trio standing up.
+    /// </summary>
+    internal bool KnockDownForStory(int id)
+    {
+        if (Story is not { } run || Find<Machine>(id) is not { IsDead: false } machine || CompanionSeat(machine) is not { } seat
+            || CompanionDown(seat) || CompanionDormant(seat))
+            return false;
+        LayDown(run, machine, seat);
+        return true;
+    }
+
+    private void LayDown(StoryRun run, Machine machine, PlayerId seat)
+    {
         machine.HitPoints = 1;
         machine.Armour = 0;
         machine.ArmourRegen = 0;

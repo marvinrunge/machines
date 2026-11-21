@@ -118,6 +118,7 @@ public partial class StoryHud : Control
             DrawSignature(now);
         }
         DrawBoot();
+        DrawConsole();
         DrawEnd(now);
     }
 
@@ -512,9 +513,18 @@ public partial class StoryHud : Control
 
     private readonly List<Rising> _rising = [];
 
-    /// <summary>A call across the view: a section's title, the alarm, a checkpoint reached.</summary>
+    /// <summary>
+    /// A call across the view: a section's title, the alarm, a checkpoint reached. A newer call under the same title (the next
+    /// objective) takes the place of one still waiting and cuts one showing short, so the card never shows a step already done.
+    /// </summary>
     public void Announce(string title, string? line, Color colour, float seconds = 3)
     {
+        _calls.RemoveAll(call => call.Title == title && !ReferenceEquals(call, _calls[0]));
+        if (_calls.Count > 0 && _calls[0].Title == title && _calls[0].Line != line)
+        {
+            _calls.RemoveAt(0);
+            _callStarted = _time;
+        }
         if (_calls.Count > 2)
             _calls.RemoveAt(1);
         _calls.Add(new Shout(title, line, colour, seconds));

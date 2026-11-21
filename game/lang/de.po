@@ -5211,3 +5211,18 @@ msgstr "Alle in die Kapsel"
 
 msgid "Open the hatch"
 msgstr "Öffnet die Luke"
+
+msgid "Hack escape pod three"
+msgstr "Hackt Rettungskapsel drei"
+
+msgid "[{0}] Lamp: lights your way, and gives you away"
+msgstr "[{0}] Lampe: leuchtet dir den Weg und verrät dich"
+
+msgid "Standing still in the dark, you are all but unseen"
+msgstr "Wer im Dunkeln stillsteht, bleibt so gut wie unsichtbar"
+
+msgid "[{0}] Scanner pulse: shows the hunters near you, and they hear it"
+msgstr "[{0}] Scanner-Puls: zeigt die Jäger in deiner Nähe, aber sie hören ihn"
+
+msgid "Only you fit through the ducts: the Grunts take the long way"
+msgstr "Nur du passt durch die Schächte: die Grunts nehmen den langen Weg"

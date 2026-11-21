@@ -56,6 +56,13 @@ public partial class Game
             _driven?.Id,
             () => TiltNow,
             TiltTo,
+            // Its lines play as the script times them, and show as subtitles (on their own layer, which the cutscene
+            // leaves up): the announcement Erwischt turns on was heard and never read.
+            Speak: id =>
+            {
+                ShowStoryLine(id, null);
+                return false;
+            },
             Tell: words => CutsceneTold?.Invoke(words));
         var cutscene = new Cutscene(World, id => _views.GetValueOrDefault(id), script, part, stage) { Models = SceneModel };
         cutscene.Finished += skipped =>

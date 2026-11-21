@@ -235,7 +235,7 @@ public sealed record StoryReadout
             foreach (var marker in deck.Markers)
             {
                 var distance = Vector2.Distance(marker.Position, hero.Position);
-                if (distance > PromptReach || run.Flags.Contains(StoryMarks.Done(marker.Name)) || KindOf(marker, seat) is not { } kind)
+                if (distance > PromptReach || run.Flags.Contains(StoryMarks.Done(marker.Name)) || KindOf(marker, seat, run, deck) is not { } kind)
                     continue;
                 prompts.Add(new StoryPrompt(kind, marker.Name, distance));
             }
@@ -255,12 +255,17 @@ public sealed record StoryReadout
         return prompts.OrderBy(p => p.Distance).ThenBy(p => p.Target, StringComparer.Ordinal).ToList();
     }
 
-    /// <summary>What a marker offers to a seat: hacking is the Locator's, holding a switch anyone's.</summary>
-    private static StoryPromptKind? KindOf(DeckMarker marker, int seat)
+    /// <summary>
+    /// What a marker offers to a seat: hacking is the Locator's, holding a switch anyone's. A hack done, or closed for now,
+    /// offers nothing (the key would not take it); a hatch that is a hack offers the hack first and its use once hacked.
+    /// </summary>
+    private static StoryPromptKind? KindOf(DeckMarker marker, int seat, StoryRun run, Deck deck)
     {
         bool Tagged(string tag) => marker.Tags.Contains(tag);
+        if (seat == 0 && run.Hacks.Find(marker.Name, deck) is not null && !run.Hacks.Done.Contains(marker.Name))
+            return run.Hacks.Locked.Contains(marker.Name) ? null : StoryPromptKind.Hack;
         if (seat == 0 && (Tagged("hack") || Tagged("terminal") || marker.Name == OwnClamp))
-            return StoryPromptKind.Hack;
+            return null;
         if (seat == 0 && Tagged("pickup"))
             return StoryPromptKind.Take;
         if (seat == 0 && Tagged("hatch"))

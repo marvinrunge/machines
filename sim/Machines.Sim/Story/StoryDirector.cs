@@ -1,6 +1,7 @@
 using System.Numerics;
 using Machines.Import.Model;
 using Machines.Sim.Survival;
+using Machines.Sim.Navigation;
 using Machines.Sim.World;
 
 namespace Machines.Sim.Story;
@@ -198,20 +199,50 @@ public sealed class StoryDirector
 
     /// <summary>
     /// Debris whose time has come lands (<see cref="Then.Fall"/>): it harms whatever stands within its reach, then lies
-    /// there as an artefact of its type, blocking the ground, unless a machine stands right where it would lie (it breaks
-    /// on it and only its blow is left). The view hears "debris landed &lt;n&gt;".
+    /// there as an artefact of its type, blocking the ground; where a machine stands right under it, it lies beside it, never
+    /// on it (docs/STORY.md, Absturz). A piece let fall on a Grunt (<see cref="Then.KnockDown"/>) lands where that Grunt
+    /// is and knocks it down. The view hears "debris landed &lt;n&gt;".
     /// </summary>
     private void Land(GameWorld world)
     {
         foreach (var (number, fall) in Falling.Where(f => f.Value.At <= world.Time).ToList())
         {
             Falling.Remove(number);
-            world.ScriptExplosion(fall.Where, StoryFall.Reach, fall.Harm, 1.2f);
-            var under = world.Machines.Any(m => !m.IsDead && m.Inside is null && Vector2.Distance(m.Position, fall.Where) < m.Radius + StoryFall.Lies);
-            if (!under)
-                world.PlaceArtefact(fall.Type, fall.Where, fall.Angle);
-            StoryEvents.Cue(world, $"debris landed {number}", fall.Where);
+            var where = fall.Downs != 0 && world.Find<Machine>(fall.Downs) is { IsDead: false } target ? target.Position : fall.Where;
+            world.ScriptExplosion(where, StoryFall.Reach, fall.Harm, 1.2f);
+            if (fall.Downs != 0)
+                world.KnockDownForStory(fall.Downs);
+            if (Beside(world, where) is { } lies)
+                world.PlaceArtefact(fall.Type, lies, fall.Angle);
+            StoryEvents.Cue(world, $"debris landed {number}", where);
         }
+    }
+
+    /// <summary>
+    /// Where a piece landing at <paramref name="at"/> lies: there, or, with a machine under it, on the nearest free ground
+    /// beside the machines there, away from them; null when there is none within a few metres.
+    /// </summary>
+    private static Vector2? Beside(GameWorld world, Vector2 at)
+    {
+        bool Clear(Vector2 p) => !world.Machines.Any(m => !m.IsDead && m.Inside is null && Vector2.Distance(m.Position, p) < m.Radius + StoryFall.Lies);
+        if (Clear(at))
+            return at;
+        var under = world.Machines.Where(m => !m.IsDead && m.Inside is null && Vector2.Distance(m.Position, at) < m.Radius + StoryFall.Lies)
+            .OrderBy(m => Vector2.DistanceSquared(m.Position, at)).ThenBy(m => m.Id).First();
+        var away = at - under.Position;
+        var start = away.LengthSquared() > 1e-4f ? DetMath.Atan2(away.Y, away.X) : 0;
+        for (var r = under.Radius + StoryFall.Lies + 0.5f; r <= under.Radius + 6; r += 0.5f)
+        {
+            for (var k = 0; k < 16; k++)
+            {
+                // Round from straight away from the machine, by turns either side.
+                var angle = start + (k % 2 == 0 ? 1 : -1) * ((k + 1) / 2) * MathF.PI / 8;
+                var p = under.Position + r * new Vector2(DetMath.Cos(angle), DetMath.Sin(angle));
+                if (world.Nav.OnPlanet(p) && world.Nav.IsFree(p, Mobility.Land) && Clear(p))
+                    return p;
+            }
+        }
+        return null;
     }
 
     // ---- the checksum ---------------------------------------------------------------------------------
@@ -259,14 +290,18 @@ public sealed class StoryDirector
             hash.Mix(BitConverter.SingleToInt32Bits(fall.Where.Y));
             hash.Mix(BitConverter.SingleToInt32Bits(fall.Angle));
             hash.Mix(fall.Harm);
+            hash.Mix(fall.Downs);
         }
         hash.Mix(Fallen);
         return hash.Value;
     }
 }
 
-/// <summary>A piece of debris on its way down: when it lands (game time), what it is (the scenario's artefact type), where, turned how far (degrees) and how hard it hits.</summary>
-public sealed record StoryFall(float At, string Type, Vector2 Where, float Angle, int Harm)
+/// <summary>
+/// A piece of debris on its way down: when it lands (game time), what it is (the scenario's artefact type), where, turned how
+/// far (degrees) and how hard it hits; and the Grunt it is let fall on, which it follows and knocks down (0: none).
+/// </summary>
+public sealed record StoryFall(float At, string Type, Vector2 Where, float Angle, int Harm, int Downs = 0)
 {
     /// <summary>How far its blow reaches, metres from where it lands; and within how much of a machine's radius it would lie on one.</summary>
     public const float Reach = 3, Lies = 1.5f;
@@ -352,6 +387,13 @@ public static class When
     {
         internal override bool Holds(GameWorld world, StoryRun run, StoryDirector director) =>
             director.Fired.TryGetValue(Beat, out var at) && world.Time - at >= Seconds;
+    }
+
+    /// <summary>The Locator stands, having lost at least <paramref name="Share"/> of its hit points.</summary>
+    public sealed record Hurt(float Share) : StoryTrigger
+    {
+        internal override bool Holds(GameWorld world, StoryRun run, StoryDirector director) =>
+            world.HeroOf(run.Locator) is { IsDead: false } hero && hero.HitPoints <= hero.MaxHitPoints * (1 - Share);
     }
 
     /// <summary>A flag of the run is set (the director's own, or one the companions or the sight set).</summary>
@@ -859,7 +901,8 @@ public static class Then
     }
 
     /// <summary>
-    /// Gates the hunters force (plan WP-H, Die Enge), each named "letter:switch" (G:switch_g1): a closed gate with a machine
+    /// Gates the hunters force (plan WP-H, Die Enge), each named "letter:switch" (G:switch_g1; several switches, any of which
+    /// holds it, split by '|': O:switch_g2|switch_g2k): a closed gate with a machine
     /// of the role at it (within <see cref="Reach"/> metres of its middle) and nobody of the trio on its switch
     /// (<see cref="GameWorld.SwitchHeld"/>) gives way after <paramref name="Seconds"/> of that; its clock stands while the
     /// switch is held or nobody pushes. The clock is the run's timer <c>gate_&lt;letter&gt;</c> (the game time the gate gives
@@ -887,7 +930,7 @@ public static class Then
                 }
                 var middle = leaves.Aggregate(Vector2.Zero, (sum, leaf) => sum + leaf.Position) / leaves.Count;
                 var pushed = director.Of(world, Role).Any(m => Vector2.Distance(m.Position, middle) <= Reach + m.Radius);
-                var held = world.SwitchHeld(at);
+                var held = at.Split('|').Any(world.SwitchHeld);
                 if (!run.Timers.TryGetValue(clock, out var gives))
                 {
                     if (pushed && !held)
@@ -1058,6 +1101,30 @@ public static class Then
             var number = director.Fallen++;
             director.Falling[number] = new StoryFall(world.Time + Delay, Type, at, Angle, Harm);
             StoryEvents.Cue(world, FormattableString.Invariant($"debris falling {number} {Delay}"), at);
+        }
+    }
+
+    /// <summary>
+    /// A Grunt knocked down by a piece falling on it (docs/STORY.md, Erste Gegenwehr: here the Locator learns to put a fallen
+    /// Grunt back together, so it falls for sure): the first of <paramref name="Seats"/> whose Grunt stands up (inside
+    /// <paramref name="Zone"/>, if named) has the piece let fall on it as <see cref="Fall"/> does, sparks first; it lands
+    /// where the Grunt is after <paramref name="Delay"/> seconds, knocks it down and lies beside it. Nothing when none stands.
+    /// </summary>
+    public sealed record KnockDown(string Type, float Delay, string? Zone, params int[] Seats) : StoryAction
+    {
+        internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            var zone = Zone is null ? null : world.Deck?.Zone(Zone);
+            foreach (var seat in Seats)
+            {
+                if (seat < 1 || seat >= run.Seats.Count || world.CompanionDown(run.Seats[seat]) || world.CompanionDormant(run.Seats[seat])
+                    || world.HeroOf(run.Seats[seat]) is not { } grunt || zone?.Contains(grunt.Position) == false)
+                    continue;
+                var number = director.Fallen++;
+                director.Falling[number] = new StoryFall(world.Time + Delay, Type, grunt.Position, 0, 25, grunt.Id);
+                StoryEvents.Cue(world, FormattableString.Invariant($"debris falling {number} {Delay}"), grunt.Position);
+                return;
+            }
         }
     }
 

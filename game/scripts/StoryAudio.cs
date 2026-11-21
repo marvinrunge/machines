@@ -159,6 +159,9 @@ public partial class StoryAudio : Node
     /// <summary>What is speaking is cut off with a crackle (the PA dying); with <paramref name="clear"/> nothing waiting is said either.</summary>
     public static void CutVoice(bool clear = true) => Current?._voice.Cut(clear, crackle: true);
 
+    /// <summary>A line waiting to be said is not said after all (what it says is no longer true); one speaking goes on.</summary>
+    public static void Withdraw(string lineId) => Current?._voice.Withdraw(lineId);
+
     // ---- buses --------------------------------------------------------------------------------
 
     private AudioEffectAmplify _worldHush = null!, _musicHush = null!;

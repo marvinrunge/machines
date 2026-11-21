@@ -165,6 +165,14 @@ public sealed class StoryLineQueue
         return events;
     }
 
+    /// <summary>The lines of an id waiting are dropped (what they say is no longer true); the line speaking goes on.</summary>
+    public List<StoryQueueEvent> Withdraw(string id)
+    {
+        var events = _waiting.Where(w => w.Id == id).Select(w => new StoryQueueEvent(StoryQueueChange.Dropped, w)).ToList();
+        _waiting.RemoveAll(w => w.Id == id);
+        return events;
+    }
+
     /// <summary>The line speaking is cut off; with <paramref name="clear"/> every line waiting is dropped too.</summary>
     public List<StoryQueueEvent> Cut(double now, bool clear)
     {

@@ -529,6 +529,8 @@ public partial class Game : Node3D
         if (Cinematic.Asked is not null)
         {
             _hud.Visible = false;
+            if (_hud.Captions is { } captions)
+                captions.Visible = false;
             var film = new Cinematic(World, id => _views.GetValueOrDefault(id), _projectiles.ViewOf, _rig) { Models = SceneModel };
             Ticked += film.OnTick;
             AddChild(film);

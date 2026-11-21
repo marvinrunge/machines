@@ -10,7 +10,9 @@
 //
 // Places on the deck (metres, x east, y north, height over the floor): L-7 hacks at hack_core (88, 106.5) facing north;
 // the core (8 x 8 m) stands at 88,116; door J (to the spine) is behind it at x 84-91, y 132-133, so the Reapers come round
-// both sides of the core (x 76-84 and 92-100).
+// both sides of the core to 78,119, 98,119 and 99,113 (Prologue.ReapersAtCore), where L-7 sees them past it: anything
+// behind the core within about 0.7 m sideways per metre beyond L-7 is hidden. Looking north, the west (small x) is on the
+// right of the view.
 
 cutscene erwischt
 bars 0.12
@@ -20,11 +22,11 @@ part kern deck
 // The alarm: the view lifts from the board to the core. The core chamber keeps its light until the core blows (the
 // director's core_blows; the rest of the ship at power_fails).
 take alarm 5.5 cockpit locator look=core@4 rate=2
-// The door bursts behind the core: the view snaps to the left passage.
-take tuer 4.5 cockpit locator look=80,126,3 rate=1.6
+// The door bursts behind the core: the view snaps to the east passage (left of the core), where they come round.
+take tuer 4.5 cockpit locator look=97,118,3 rate=1.6
 // The Reapers stride round the core, firing; rounds go past.
-take sturm 5.5 cockpit locator look=reaper@3|82,124,3 rate=2.2
-// The one wide take: from the north-west corner, low on the Commander coming in behind them.
+take sturm 5.5 cockpit locator look=reaper@3|99,113,3 rate=2.2
+// The one wide take: from the east side behind the core, where the chamber's light falls, on the Commander coming in behind them.
 take kommandant 4.5 cam cam_erwischt_3 look=commander@5|88,131,4 rate=1.5 fov=38 blur=1.2
 // They hit the core instead.
 take treffer 5.5 cockpit locator look=core@4 rate=2.5
@@ -48,32 +50,32 @@ at 6.4 line P_ANN_C2
 at 7.0 event reapers in
 
 // Rounds past L-7 (near misses), then at the core.
-at 10.4 shot PLASMA_RIFLE reaper@3.2|80,125,3.2 86.6,108.6,2.4 speed=80
-at 11.0 shot PLASMA_RIFLE reaper@3.2|96,125,3.2 90.2,107.6,1.7 speed=80
+at 10.4 shot PLASMA_RIFLE reaper@3.2|78,119,3.2 86.6,108.6,2.4 speed=80
+at 11.0 shot PLASMA_RIFLE reaper@3.2|98,119,3.2 90.2,107.6,1.7 speed=80
 at 11.2 line P_ANN_C3
-at 11.7 shot PLASMA_RIFLE reaper@3.2|80,125,3.2 85.9,107.2,3.1 speed=80
-at 12.4 shot PLASMA_RIFLE reaper@3.2|96,125,3.2 core@3 speed=80
-at 13.1 shot PLASMA_RIFLE reaper@3.2|80,125,3.2 core@2 speed=80
-at 13.8 shot PLASMA_RIFLE reaper@3.2|96,125,3.2 89.4,108.1,2.2 speed=80
-at 14.6 shot PLASMA_RIFLE reaper@3.2|80,125,3.2 core@4 speed=80
+at 11.7 shot PLASMA_RIFLE reaper@3.2|78,119,3.2 85.9,107.2,3.1 speed=80
+at 12.4 shot PLASMA_RIFLE reaper@3.2|98,119,3.2 core@3 speed=80
+at 13.1 shot PLASMA_RIFLE reaper@3.2|78,119,3.2 core@2 speed=80
+at 13.8 shot PLASMA_RIFLE reaper@3.2|98,119,3.2 89.4,108.1,2.2 speed=80
+at 14.6 shot PLASMA_RIFLE reaper@3.2|78,119,3.2 core@4 speed=80
 at 15.8 line P_ANN_C4
-at 16.2 shot PLASMA_RIFLE reaper@3.2|82,126,3.2 core@3 speed=80
-at 16.9 shot PLASMA_RIFLE reaper@3.2|95,126,3.2 core@5 speed=80
-at 17.5 shot PLASMA_RIFLE reaper@3.2|82,126,3.2 core@2 speed=80
-at 18.6 shot PLASMA_RIFLE reaper@3.2|95,126,3.2 core@4 speed=80
-at 19.2 shot PLASMA_RIFLE reaper@3.2|82,126,3.2 core@6 speed=80
-at 20.4 shot PLASMA_RIFLE reaper@3.2|80,125,3.2 core@3 speed=80
-at 21.0 shot PLASMA_RIFLE reaper@3.2|96,125,3.2 core@5 speed=80
+at 16.2 shot PLASMA_RIFLE reaper@3.2|78,119,3.2 core@3 speed=80
+at 16.9 shot PLASMA_RIFLE reaper@3.2|98,119,3.2 core@5 speed=80
+at 17.5 shot PLASMA_RIFLE reaper@3.2|78,119,3.2 core@2 speed=80
+at 18.6 shot PLASMA_RIFLE reaper@3.2|98,119,3.2 core@4 speed=80
+at 19.2 shot PLASMA_RIFLE reaper@3.2|78,119,3.2 core@6 speed=80
+at 20.4 shot PLASMA_RIFLE reaper@3.2|78,119,3.2 core@3 speed=80
+at 21.0 shot PLASMA_RIFLE reaper@3.2|98,119,3.2 core@5 speed=80
 at 21.2 sparks core@7 amount=50
 at 21.2 sound sparks
-at 21.5 shot PLASMA_RIFLE reaper@3.2|80,125,3.2 core@2 speed=80
+at 21.5 shot PLASMA_RIFLE reaper@3.2|78,119,3.2 core@2 speed=80
 at 21.8 line P_ANN_C5
-at 22.3 shot PLASMA_RIFLE reaper@3.2|96,125,3.2 core@4 speed=80
+at 22.3 shot PLASMA_RIFLE reaper@3.2|98,119,3.2 core@4 speed=80
 at 22.8 sparks core@9 amount=60
 at 22.9 glitch 0.35 0.6
-at 23.0 shot PLASMA_RIFLE reaper@3.2|80,125,3.2 core@6 speed=80
-at 23.6 shot PLASMA_RIFLE reaper@3.2|96,125,3.2 core@3 speed=80
-at 24.4 shot PLASMA_RIFLE reaper@3.2|80,125,3.2 core@5 speed=80
+at 23.0 shot PLASMA_RIFLE reaper@3.2|78,119,3.2 core@6 speed=80
+at 23.6 shot PLASMA_RIFLE reaper@3.2|98,119,3.2 core@3 speed=80
+at 24.4 shot PLASMA_RIFLE reaper@3.2|78,119,3.2 core@5 speed=80
 
 // The core blows on "kor-": the power fails, then only the red emergency light and the fire.
 at 25.5 explosion core@2 9

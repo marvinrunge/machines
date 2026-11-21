@@ -14,8 +14,9 @@ public partial class Game
     /// <summary>
     /// The crash's stages as the view shows them, by the seconds left on the countdown (the director's stages at 120, 60, 30
     /// and 10 s and the hull breach at 90, Prologue.cs): from the most seconds down, the first whose bound is under the time
-    /// left. Each gives the hull's rumble (degrees), the share of the fires burning, the seconds between showers of sparks,
-    /// and between pieces falling.
+    /// left. The first is the Notgang's run-up before the director's first stage at 120 s: the ship already groans and burns
+    /// a little. Each gives the hull's rumble (degrees), the share of the fires burning, the seconds between showers of
+    /// sparks, and between pieces falling.
     /// </summary>
     internal static readonly (float Above, float Rumble, float Fires, float Sparks, float Drops)[] CrashStages =
     [
@@ -27,7 +28,7 @@ public partial class Game
         (float.MinValue, 1.5f, 1, 0.6f, 2.5f),
     ];
 
-    /// <summary>Which crash stage the countdown is at (1 to 5), or 0 while it does not run.</summary>
+    /// <summary>Which crash stage the countdown is at (1 to 6: 1 before 120 s left, 6 in the last 10), or 0 while it does not run.</summary>
     internal static int CrashStage(float? secondsLeft)
     {
         if (secondsLeft is not { } left)
@@ -314,7 +315,7 @@ public partial class Game
             if (_deckView.Layout.IsOpen((int)MathF.Floor(at.X), (int)MathF.Floor(at.Z)))
             {
                 var ceiling = _deckView.Layout.Height((int)MathF.Floor(at.X), (int)MathF.Floor(at.Z));
-                _effects.SparkShower(at with { Y = Mathf.Max(2.5f, ceiling - 0.6f) }, null, 30 + 10 * stage);
+                _effects.SparkShower(at with { Y = Mathf.Max(2.5f, ceiling - 0.6f) }, null, 20 + 10 * stage);
             }
         }
         if (FrameClock.Now >= _nextCrashDrop)
@@ -337,7 +338,7 @@ public partial class Game
         var ceiling = _deckView.Layout.Height(x, y);
         var (prop, scale) = Falling[(int)(GD.Randi() % Falling.Length)];
         var spin = new Vector3((float)GD.RandRange(-3.0, 3.0), (float)GD.RandRange(-2.0, 2.0), (float)GD.RandRange(-3.0, 3.0));
-        _deckView.Throw(prop, at with { Y = Mathf.Max(3, ceiling - 1) }, new Vector3(0, -1, 0), spin, scale * (stage >= 4 ? 1.2f : 1));
+        _deckView.Throw(prop, at with { Y = Mathf.Max(3, ceiling - 1) }, new Vector3(0, -1, 0), spin, scale * (CrashStages[stage - 1].Above <= 10 ? 1.2f : 1));
         _effects.SparkShower(at with { Y = Mathf.Max(3, ceiling - 0.5f) }, null, 40);
         StoryAudio.Play("crate_fall", at);
     }

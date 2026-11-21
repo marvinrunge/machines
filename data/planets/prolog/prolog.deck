@@ -305,6 +305,7 @@ commander_1 88 139 270 route
 commander_2 123.5 139 270 route
 switch_g1 175 126 0 switch
 switch_g2 175 110 0 switch
+switch_g2k 167 102 0 switch
 hack_d5 174 102 180 hack
 pickup_bolter 205.5 113.5 90 pickup
 hostile_grunt_1 210 101 180 hostile
@@ -365,6 +366,7 @@ dust_fall 82 50 90 54 trigger
 enter_deckA 52 34 60 40 trigger
 switch_g1_zone 173 123 178 129 trigger
 switch_g2_zone 173 107 178 113 trigger
+switch_g2k_zone 165 100 169 104 trigger
 repair 224 105 233 111 trigger
 notgang_start 236 100 244 112 trigger
 pod_zone 232 12 252 32 trigger
@@ -400,7 +402,7 @@ ENDLIGHTS
 CAMS
 cam_erwischt_1 88 107.5 2.2 90 5
 cam_erwischt_2 88 104 3 90 8
-cam_erwischt_3 76 127 8 23 -12
+cam_erwischt_3 100 121 5 160 -8
 cam_erwischt_4 100 103 4 135 12
 cam_abwurf_1 226 46 12 300 -25
 ENDCAMS

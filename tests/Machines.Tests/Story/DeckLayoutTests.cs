@@ -170,7 +170,7 @@ public class DeckLayoutTests
         Assert.Single(pieces, p => p.Prop == "bay_crane");
         Assert.Contains(pieces, p => p.Prop == "core_console");
         Assert.Equal(2, pieces.Count(p => p.Prop == "clamp_terminal"));
-        Assert.Equal(2, pieces.Count(p => p.Prop == "plate"));
+        Assert.Equal(3, pieces.Count(p => p.Prop == "plate"));
         // What stands on the floor and is not driven into (clamps, cradles, the repair station, plates) or built into the
         // wall (pillars) stands on high cover, which the sim blocks.
         var driveIn = new HashSet<string> { "clamp", "pod_cradle", "repair_station", "plate", "kit_pillar", "kit_door_frame" };

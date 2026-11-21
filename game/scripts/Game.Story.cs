@@ -204,9 +204,12 @@ public partial class Game
                     if (Machines.Sim.Story.StoryAudiences.Shows(World, line.Audience, line.Seat, Me))
                         SayStoryLine(line.Id);
                     break;
-                case GameEventKind.StoryHack when Machines.Sim.Story.StoryEvents.HackOf(e) is { } hack && e.Player != Me:
+                case GameEventKind.StoryHack when Machines.Sim.Story.StoryEvents.HackOf(e) is { } hack:
+                    // A line waiting on the loudspeakers that the hack made untrue ("launch clearance denied") is not said.
+                    if (hack.What == "done" && Machines.Sim.Story.Prologue.StaleOnceHacked.TryGetValue(hack.Target, out var stale))
+                        StoryAudio.Withdraw(stale);
                     // This player's own hack sounds from its board; another's is heard at the target.
-                    if (hack.What switch { "open" or "done" or "board" => HackSounds.Connect, "traced" => HackSounds.TraceBack, "broken" => HackSounds.Fail, _ => null } is { } sound)
+                    if (e.Player != Me && hack.What switch { "open" or "done" or "board" => HackSounds.Connect, "traced" => HackSounds.TraceBack, "broken" => HackSounds.Fail, _ => null } is { } sound)
                         StoryAudio.Play(sound, at);
                     break;
                 case GameEventKind.StoryCue:
@@ -241,16 +244,31 @@ public partial class Game
     {
         if (StoryAudio.Current is not null)
             StoryAudio.Say(id);
-        else if (StoryLines.Find(id) is { } line && SubtitleQueue.Parse(line.Speaker) is { } speaker)
-            _hud.Subtitles?.Say(speaker, line.English);
+        else
+            ShowStoryLine(id, null);
     }
 
     /// <summary>A line's voice starts (or, without one, its turn): its subtitle, timed by the voice file when there is one.</summary>
-    private void StoryLineStarted(StoryLineCue cue)
+    private void StoryLineStarted(StoryLineCue cue) => ShowStoryLine(cue.Id, cue.Voiced ? cue.Seconds : null);
+
+    /// <summary>
+    /// What a line shows as it starts: its subtitle; the core's decryption is the HUD's own bar instead (it says what the
+    /// subtitle would, with its share); the update's whisper breaks the view up with static as it comes.
+    /// </summary>
+    private void ShowStoryLine(string id, double? clip)
     {
-        if (StoryLines.Find(cue.Id) is { } line && SubtitleQueue.Parse(line.Speaker) is { } speaker)
-            _hud.Subtitles?.Say(speaker, line.English, cue.Voiced ? cue.Seconds : null);
+        if (id == Machines.Sim.Story.Prologue.Lines.HudDecrypt && _hud.Story is { } hud)
+        {
+            hud.Decrypt();
+            return;
+        }
+        if (StoryLines.Find(id) is not { } line || SubtitleQueue.Parse(line.Speaker) is not { } speaker)
+            return;
+        if (speaker == StorySpeaker.Whisper)
+            _screen.Interference(GameOptions.SoftScares ? 0.3f : 0.6f, 0.9f);
+        _hud.Subtitles?.Say(speaker, line.English, clip);
     }
+
 
     /// <summary>The words of a director's cue: what the view shows and plays of it.</summary>
     private void StoryCue(string[] words, Godot.Vector3 at)
@@ -284,6 +302,9 @@ public partial class Game
                 break;
             case ["clamp", _]:
                 StoryAudio.Play("clamp_release", at);
+                break;
+            case ["hint", var hint]:
+                _hud.Story?.Hint(hint);
                 break;
             case ["steps"]:
                 StoryAudio.Play("thresher_step", at);

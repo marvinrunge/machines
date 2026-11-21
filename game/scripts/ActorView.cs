@@ -493,7 +493,7 @@ public partial class ActorView : Node3D
     /// <summary>Render layer of a machine being driven: the first-person camera does not draw it, so it never blocks the view.</summary>
     public const uint DrivenLayer = 2;
 
-    /// <summary>Hides the model from the first-person camera (it still casts its shadow and shows elsewhere).</summary>
+    /// <summary>Hides the model from the first-person camera (it still casts its shadow and shows elsewhere); its lamp still lights the view.</summary>
     public void SetDriven(bool driven)
     {
         SetLayers(this, driven ? DrivenLayer : 1);
@@ -508,11 +508,13 @@ public partial class ActorView : Node3D
     // Embodied, it idles to the sound of its cabin until it first moves (MachGuiFirstPerson::embodyActor).
     private bool _inHead;
 
+    // Its lights stay on the usual layer: a light on a layer the camera culls lights nothing for that camera, so the driven
+    // machine's own headlight left the first-person view dark (Godot 4's cull mask counts for lights too).
     private static void SetLayers(Node node, uint layers)
     {
         foreach (var child in node.GetChildren())
         {
-            if (child is VisualInstance3D visual)
+            if (child is VisualInstance3D visual and not Light3D)
                 visual.Layers = layers;
             SetLayers(child, layers);
         }

@@ -520,14 +520,32 @@ public sealed partial class GameWorld
         _ => new Interrupted(machine.Order, machine.PathIndex < machine.Path.Count ? machine.Path[^1] : machine.Position, Chases: false),
     };
 
-    /// <summary>Sends a seeker to look about <paramref name="spot"/>; what a search broke off is what this one comes back to.</summary>
+    /// <summary>
+    /// Sends a seeker to look about <paramref name="spot"/>; what a search broke off is what this one comes back to. A spot
+    /// it cannot get to (a Grunt seen in the cable duct from the corridor beside it) it looks about from the nearest place of
+    /// its own reach: sent onto the spot itself, the end of its run set it down there through the wall.
+    /// </summary>
     private void Search(Machine seeker, Vector2 spot, Interrupted? back)
     {
         if (back?.Order is SearchOrder older)
             back = older.Back;
+        spot = ReachableSpot(seeker, spot);
         var orderedAt = seeker.OrderedAt;
         Send(seeker, new SearchOrder(spot, Time + StorySight.SearchFor, back), spot);
         seeker.OrderedAt = orderedAt;
+    }
+
+    /// <summary>The spot itself if a machine can drive there, else the nearest place of the area it can drive in (its own spot when there is none).</summary>
+    private Vector2 ReachableSpot(Machine machine, Vector2 spot)
+    {
+        if (!Nav.OnPlanet(machine.Position) || !Nav.OnPlanet(spot))
+            return spot;
+        var mobility = MobilityOf(machine);
+        var (x, y) = Nav.Cell(machine.Position);
+        var region = Nav.Region(x, y, mobility);
+        if (region == 0)
+            return spot;
+        return Nav.NearestPointIn(spot, region, mobility) ?? machine.Position;
     }
 
     /// <summary>A searching machine walks to the spot, then looks about it, sweeping, and when its time is up takes up what it put aside.</summary>

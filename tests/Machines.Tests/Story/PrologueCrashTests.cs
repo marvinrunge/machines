@@ -104,14 +104,16 @@ public class PrologueCrashTests
             Lines(events).Where(l => l.StartsWith("P_AUTO_", StringComparison.Ordinal)));
         // The ship lists further at each stage (the view's lean: the world stays level), and it tears: blasts, debris.
         Assert.Equal(["tilt 7 1 2", "tilt 9 -1 2", "tilt 12 2 2"], Cues(events).Where(c => c.StartsWith("tilt ", StringComparison.Ordinal)));
-        Assert.True(events.Count(e => e.Kind == GameEventKind.Explosion) >= 4);
+        // Blasts and debris at every stage, the last (10 s) too (docs/STORY.md: "bei 120, 60, 30 und 10 Sekunden").
+        Assert.True(events.Count(e => e.Kind == GameEventKind.Explosion) >= 5);
         var falling = Cues(events).Where(c => c.StartsWith("debris falling", StringComparison.Ordinal)).ToList();
         var landed = Cues(events).Where(c => c.StartsWith("debris landed", StringComparison.Ordinal)).ToList();
-        Assert.Equal(4, falling.Count);
-        Assert.Equal(4, landed.Count);
+        Assert.Equal(5, falling.Count);
+        Assert.Equal(5, landed.Count);
         Assert.Empty(run.Director.Falling);
+        // The five, and the Notgang's crate the checkpoint starts with.
         var debris = world.Artefacts.Where(a => a.Id - Artefact.IdBase >= StoryDirector.PlacedBase && !a.IsDead).ToList();
-        Assert.Equal(4, debris.Count);
+        Assert.Equal(6, debris.Count);
         Assert.All(debris, a => Assert.Equal("crate_large", a.Type.Name));
         Assert.All(debris, a => Assert.False(world.Nav.IsFree(a.Position, GameWorld.MobilityOf(Hero(world, 0)))));
 
@@ -149,7 +151,7 @@ public class PrologueCrashTests
     }
 
     [Fact]
-    public void Debris_harms_what_stands_under_it_and_breaks_on_a_machine_rather_than_lie_on_it()
+    public void Debris_harms_what_stands_under_it_and_lies_beside_a_machine_rather_than_on_it()
     {
         var world = Chapter(Prologue.LastCheckpoint);
         var run = world.Story!;
@@ -164,7 +166,10 @@ public class PrologueCrashTests
 
         Assert.True(locator.HitPoints + locator.Armour < health, "the debris did not hit the Locator");
         Assert.False(locator.IsDead);
-        Assert.Equal(placed, run.Director.Placed);
+        Assert.Equal(placed + 1, run.Director.Placed);
+        var piece = world.Artefacts.Single(a => a.Id == Artefact.IdBase + StoryDirector.PlacedBase + placed);
+        Assert.True(Vector2.Distance(piece.Position, locator.Position) >= locator.Radius + StoryFall.Lies, $"{piece.Position} by the Locator at {locator.Position}");
+        Assert.True(Vector2.Distance(piece.Position, fall.Where) < locator.Radius + 7);
         Assert.True(world.Nav.IsFree(locator.Position, GameWorld.MobilityOf(locator)));
     }
 
