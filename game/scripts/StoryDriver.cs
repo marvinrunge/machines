@@ -50,6 +50,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
     private int _section, _falls, _clicks, _fallbacks, _stalls;
     private double? _pictureAt;
     private HackHost? _board;
+    private int _boardOpened;
 
     public override async void _Ready()
     {
@@ -83,6 +84,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                 if (!IsInstanceValid(game))
                     break;
                 Sections(game, story);
+                HitchLog.Phase = $"section {_section}{(game.InCutscene ? " cutscene" : game.HackShown ? " hack" : "")}";
                 if (_pictureAt is { } when && Time.GetTicksMsec() / 1000.0 >= when)
                 {
                     _pictureAt = null;
@@ -278,6 +280,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         if (await Until(() => Scene is Game { World.Story: null, FilmingStoryEnd: true } found && found != deck && found.IsNodeReady() ? found : null, 90) is not { } film)
             throw new InvalidOperationException("the chapter's film did not come");
         Tell($"film: {MatchRequest.Current.Film?.Cutscene} on {MatchRequest.Current.Film?.Planet}");
+        HitchLog.Phase = "film";
         await Until(() => !IsInstanceValid(film) || film.InCutscene, 20);
         var began = Time.GetTicksMsec() / 1000.0;
         await Wait(12);
@@ -415,9 +418,9 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
             return;
         }
         // A board just put up is drawn on a later frame: the first click waits a moment, as a hand would.
-        if (!ReferenceEquals(host, _board))
+        if (!ReferenceEquals(host, _board) || host.Opened != _boardOpened)
         {
-            (_board, _clickAt) = (host, now + 0.8);
+            (_board, _boardOpened, _clickAt) = (host, host.Opened, now + 0.8);
             return;
         }
         if (now < _clickAt || story.Hacks.Session(target) is not { Open: true, Broken: false, Puzzle: { } puzzle })
