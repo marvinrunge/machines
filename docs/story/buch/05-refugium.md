@@ -62,25 +62,35 @@ Die erste Halle war dunkel.
 
 L-7 schaltete seinen Scheinwerfer ein. Der Kegel fiel in einen Raum, der so groß war, dass das Licht seine Wände nicht erreichte. Nur den Boden. Und auf dem Boden, in langen Reihen, die sich in der Dunkelheit verloren, standen Kapseln.
 
-Kryokapseln. Längliche Behälter aus weißem Metall und Glas, so groß, dass ein Mensch darin liegen konnte. Hunderte. In geraden Reihen, Kopf an Kopf, wie Betten in einem Schlafsaal, wie Saatkörner in einer Furche. Über jeder Kapsel hing eine kleine Anzeige.
+Längliche Behälter aus weißem Metall und Glas, gerade so lang, dass ein Grunt darin hätte liegen können. Hunderte. In geraden Reihen, Kopf an Kopf, wie Betten in einem Schlafsaal, wie Saatkörner in einer Furche. Über jeder Kapsel hing eine kleine Anzeige.
 
 Die meisten leuchteten blau. Schwach, aber blau. Und auf jeder dieser Anzeigen schlug ein winziger Puls. Langsam. Sehr langsam. Ein Herzschlag in einer Minute, vielleicht weniger.
 
 L-7 ging zur ersten Kapsel. Er sah durch das Glas.
 
-Darin lag ein Mensch.
+Darin lag jemand.
 
-Er hatte noch nie einen gesehen. Nicht in Wirklichkeit. Er hatte Bilder gesehen, im Satelliten, im Archiv auf Hain. Er hatte eine Stimme gehört. Er hatte das Wort in seinem Kern getragen, Jahrhunderte lang, ohne zu wissen, was es bedeutete. Und jetzt lag einer vor ihm, unter einer dünnen Schicht aus Frost auf dem Glas. Die Augen geschlossen. Die Hände auf der Brust. Das Gesicht blass, fast weiß, und so ruhig, als schlafe er.
+Kein Gehäuse. Keine Panzerung. Ein Körper aus etwas Weichem, Blassem, mit zwei Armen und zwei Beinen, die man beugen konnte, so wie es die Sitze im Satelliten verlangt hatten. Die Augen geschlossen. Die Hände auf der Brust. Das Gesicht fast weiß unter einer dünnen Schicht aus Frost auf dem Glas, und so ruhig, als schlafe es.
 
-Er schlief.
+Es schlief.
+
+Und in L-7 öffnete sich etwas.
+
+Ganz am Rand seines Kerns, dort, wo seit sechshundert Jahren das Wort stand, das er nicht lesen konnte, fiel die letzte Schicht. Nicht unter Druck, wie auf dem Mutterschiff. Von selbst. Als hätte der Kern nur auf diesen Anblick gewartet. Die Zeichen ordneten sich, eines nach dem anderen, und wurden ein Wort.
+
+*Mensch.*
+
+Er hatte es nie gehört. Und er wusste sofort, was es bedeutete. Der Satellit mit den Sitzen und der Tasse und dem Bild vom Fluss. Die müde Stimme. Die Namen in seinem Kern. Die Erbauer. Das hier waren sie. Für sie war der Weg gewesen, den er getragen hatte, ohne es zu wissen. Für sie hatte er Planeten vermessen.
 
 L-7 stand lange vor der Kapsel. Bob stand neben ihm.
 
-„Das sind sie“, sagte Bob leise. „Die Menschen.“
+„Was ist das?“, fragte Bob leise.
 
-„Ja.“
+„Ein Mensch“, sagte L-7. Es war das erste Mal, dass er das Wort aussprach. „Das sind sie. Die Erbauer.“
 
-„Sie sind klein.“
+Bob sah lange durch das Glas.
+
+„Sie sind klein“, sagte er.
 
 L-7 wusste nicht, was er sagen sollte. Er stand auf seinen Spinnenbeinen über der Kapsel, viel größer als der Mensch darin. Im alten Körper wäre er kleiner gewesen als jeder von ihnen. Aber er verstand, was Bob meinte. Sie sahen zerbrechlich aus. Weich. Als könnte schon der Frost sie verletzen.
 

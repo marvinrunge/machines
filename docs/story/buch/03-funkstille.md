@@ -158,9 +158,9 @@ Im Inneren war es anders.
 
 L-7 hatte erwartet, dass es aussah wie das Mutterschiff: Gitterböden, Rippenwände, Kabel. Aber das Innere des Satelliten war hell. Die Wände waren aus glatten, weißen Platten, und das Licht, das von oben kam, war kalt und blau. Auf allem lag Frost. Eine dünne, glitzernde Schicht, die sich über die Wände, die Böden, die Geräte gelegt hatte, als hätte jemand den ganzen Satelliten in Zucker getaucht.
 
-Es war alles heil. Das war das Seltsame. Nichts war zerbrochen, nichts verbrannt, nichts geplündert. Die Räume standen da, wie die Menschen sie verlassen hatten, und dann war die Kälte gekommen und hatte alles festgehalten.
+Es war alles heil. Das war das Seltsame. Nichts war zerbrochen, nichts verbrannt, nichts geplündert. Die Räume standen da, wie man sie verlassen hatte, und dann war die Kälte gekommen und hatte alles festgehalten.
 
-Hier hatten Menschen gearbeitet. L-7 sah es an den Dingen. An den Sitzen vor den Konsolen, Sitze für Wesen mit Beinen, die man beugen konnte. An einer Tasse auf einem Tisch, in der ein Rest von etwas zu Eis gefroren war. An einem Bild an der Wand, das eine grüne Landschaft zeigte, mit Bäumen und einem Fluss, und das niemand mitgenommen hatte.
+Hier hatten keine Maschinen gearbeitet. L-7 sah es an den Dingen. An den Sitzen vor den Konsolen, Sitze für Wesen mit Beinen, die man beugen konnte. An einer Tasse auf einem Tisch, in der ein Rest von etwas zu Eis gefroren war. An einem Bild an der Wand, das eine grüne Landschaft zeigte, mit Bäumen und einem Fluss, und das niemand mitgenommen hatte.
 
 Ike stand vor dem Bild sehr lange.
 
@@ -176,13 +176,13 @@ Sie fanden das Archiv im hinteren Teil des Satelliten, hinter einer Tür, die si
 
 Die Tür öffnete sich.
 
-Dahinter lag ein Speicher. Reihen um Reihen von Datenträgern, in Regalen, die bis zur Decke reichten. Und auf jedem einzelnen Funksprüche. Aus der Zeit, als noch Menschen gefunkt hatten. Tausende. Hunderttausende. Stimmen, die über diesen Satelliten gelaufen waren, von Schiffen, von Planeten, von Stationen, und die niemand gelöscht hatte, weil niemand mehr da war, der sie hätte löschen können.
+Dahinter lag ein Speicher. Reihen um Reihen von Datenträgern, in Regalen, die bis zur Decke reichten. Und auf jedem einzelnen Funksprüche. Aus der Zeit, als die Erbauer noch gefunkt hatten. Tausende. Hunderttausende. Stimmen, die über diesen Satelliten gelaufen waren, von Schiffen, von Planeten, von Stationen, und die niemand gelöscht hatte, weil niemand mehr da war, der sie hätte löschen können.
 
 L-7 ging die Reihen entlang. Er tastete mit seiner Sonde über die Datenträger. Und ganz am Ende, in einem Regal für sich, fand er eine einzelne Aufzeichnung. Sie war die jüngste von allen. Die letzte.
 
 Er spielte sie ab.
 
-Es war eine Stimme. Eine menschliche Stimme. Die erste, die er je gehört hatte.
+Es war eine Stimme. Keine Maschinenstimme. Nichts darin war gleichmäßig, nichts war gerechnet. Er hatte noch nie eine solche gehört.
 
 Sie war müde. Das war das Erste, was er bemerkte. Eine ruhige, müde Stimme, ohne Pathos, die so sprach, wie man spricht, wenn man schon zu lange wach ist und etwas sagen muss, bevor man schlafen geht.
 
@@ -220,7 +220,7 @@ Ike drehte sich zu ihm um. „Was?“
 
 Bob schwieg. Seine Linse flackerte. Dann, ganz leise, kaum hörbar: „Ich höre Rauschen.“
 
-L-7 sah ihn an, und er verstand. Es waren die zwölf Prozent. Die Direktive hatte das Wort *Mensch* aus dem Auftrag gestrichen, und mit ihm alles, was dazugehörte. Bob konnte die Stimme nicht hören. Nicht, weil sie nicht da war. Weil er nicht mehr darauf eingestellt war, sie zu hören. Für ihn war ein Mensch, der sprach, wie Wind in einer Antenne. Ein Geräusch ohne Bedeutung.
+L-7 sah ihn an, und er verstand. Es waren die zwölf Prozent. Die Direktive hatte etwas aus dem Auftrag gestrichen, und mit ihm alles, was dazugehörte. Was immer da sprach, es gehörte dazu. Bob konnte die Stimme nicht hören. Nicht, weil sie nicht da war. Weil er nicht mehr darauf eingestellt war, sie zu hören. Für ihn war sie wie Wind in einer Antenne. Ein Geräusch ohne Bedeutung.
 
 Und er wusste, dass er etwas nicht hörte, was die anderen hörten.
 
@@ -274,7 +274,7 @@ Sie standen im Archiv, vor dem Regal mit der Aufzeichnung. L-7 hatte ihnen erzä
 
 „Und dann?“
 
-„Dann wissen sie es! Dann wissen sie, dass es Menschen gibt. Gab. Gibt. Was auch immer.“
+„Dann wissen sie es! Dann wissen sie, dass da jemand ist. War. Ist. Was auch immer.“
 
 „Sie hören Rauschen“, sagte Bob.
 

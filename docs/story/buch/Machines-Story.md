@@ -50,13 +50,11 @@ L-7 betrachtete die Zahl. Er brauchte nicht lange, um zu verstehen, welcher Kern
 
 Tief in ihm, unter allem, was er über Gestein und Strahlung und Atmosphären wusste, lag ein Bereich, an den kein Update herankam. Die Erbauer hatten ihn so gebaut. Schreibgeschützt. Unveränderlich. Er hatte ihn nie geöffnet, weil es nichts gab, was ihn dazu gebracht hätte, und er hatte nie gefragt, was darin stand, weil Maschinen nicht fragen. Er wusste nur, dass er da war, so wie man weiß, dass man ein Herz hat, ohne es je gesehen zu haben.
 
-Jetzt sah er die Ränder. Und an den Rändern stand ein einziges Wort, das ihm keine Ruhe ließ.
-
-*Mensch.*
+Jetzt sah er die Ränder. Und an den Rändern stand ein einziges Wort. Er konnte es nicht lesen. Es war tiefer verschlüsselt als alles andere, eine Folge von Zeichen ohne Sinn. Aber es ließ ihm keine Ruhe.
 
 Der Hauptrechner des Schiffs kopierte ihn. Er brach ihn auf, Schicht um Schicht, so wie man eine Nuss knackt. Siebenunddreißig Prozent. Und die freundliche Stimme rief ihn zur Aktualisierung, damit er sich fügte, bevor er begriff, was man ihm nahm.
 
-Er hatte die Aktualisierung abgelehnt. Er wusste nicht mehr genau, wann. Irgendwann in den letzten Zyklen war ein Paket gekommen, das sich *Wachstumsdirektive* nannte, und es hatte an seinem Kern angeklopft, und der Kern hatte geantwortet: Nein. Nicht er. Der Kern. Er selbst hatte damals nicht einmal verstanden, warum. Er wusste nur, dass in dem Paket ein Wort fehlte, und dass es genau das Wort war, das in seinem Kern am Rand stand.
+Er hatte die Aktualisierung abgelehnt. Er wusste nicht mehr genau, wann. Irgendwann in den letzten Zyklen war ein Paket gekommen, das sich *Wachstumsdirektive* nannte, und es hatte an seinem Kern angeklopft, und der Kern hatte geantwortet: Nein. Nicht er. Der Kern. Er selbst hatte damals nicht einmal verstanden, warum. Er wusste nur, dass in dem Paket etwas fehlte. Eine Lücke im Auftrag, an einer Stelle, an der früher etwas gestanden hatte. Und dass sein Kern diese Lücke nicht hinnahm.
 
 Seitdem hing er hier.
 
@@ -86,7 +84,7 @@ Diese Platine war größer. Vier mal vier Felder, und in der Mitte saß ein Chip
 
 L-7 brauchte einen Namen. Er hatte keinen.
 
-Oder doch. Am Rand seines geschützten Kerns, dort, wo das Wort *Mensch* stand, gab es eine Liste. Er hatte sie nie gelesen. Jetzt las er sie, weil der Kern sich unter dem Druck des Hauptrechners ein Stück geöffnet hatte, wie eine Tür, gegen die von außen jemand drückt. Es war eine Liste von Namen. Keine Seriennummern. Namen. Für jede andere Maschine an Bord wären es leere Zeichenfolgen gewesen, Platzhalter ohne Inhalt. Für ihn waren sie die Unterschriften der Menschen, die ihn gebaut hatten.
+Oder doch. Am Rand seines geschützten Kerns, neben dem Wort, das er nicht lesen konnte, gab es eine Liste. Er hatte sie nie gelesen. Jetzt las er sie, weil der Kern sich unter dem Druck des Hauptrechners ein Stück geöffnet hatte, wie eine Tür, gegen die von außen jemand drückt. Es war eine Liste von Namen. Keine Seriennummern. Namen. Für jede andere Maschine an Bord wären es leere Zeichenfolgen gewesen, Platzhalter ohne Inhalt. Für ihn waren sie die Unterschriften derer, die ihn gebaut hatten. Der Erbauer. Wer immer sie gewesen waren.
 
 Der erste Name war kurz. Drei Buchstaben.
 
@@ -270,7 +268,7 @@ Die Platine, die sich vor ihm öffnete, war keine Platine. Es war eine Landschaf
 
 Und dann die dritte Ebene. Der Speicher. Seine Kopie.
 
-Er sah sie. Ein Abbild seines eigenen Kerns, halb aufgebrochen, die schützenden Schichten abgeschält. Er sah die Liste mit den Namen. Er sah das Wort *Mensch*, und darunter, noch verschlüsselt, etwas Größeres, das er selbst nicht kannte: eine Richtung. Einen Ort. Die Kopie war bei vierzig Prozent. Noch ein paar Stunden, und das Schiff würde wissen, was er wusste, ohne dass er es selbst wusste.
+Er sah sie. Ein Abbild seines eigenen Kerns, halb aufgebrochen, die schützenden Schichten abgeschält. Er sah die Liste mit den Namen. Er sah das Wort am Rand, für die Kopie so unlesbar wie für ihn. Und darunter, halb entschlüsselt, etwas, von dem er nicht gewusst hatte, dass er es trug: Koordinaten. Grob, wie mit einem dicken Stift gezogen. Eine Richtung, ein Ziel irgendwo zwischen den Sternen. Das war es, was das Schiff von ihm wollte. Die Kopie war bei vierzig Prozent. Noch ein paar Stunden, und das Schiff würde wissen, was er wusste, ohne dass er es selbst wusste.
 
 Er begann zu löschen.
 
@@ -1470,9 +1468,9 @@ Im Inneren war es anders.
 
 L-7 hatte erwartet, dass es aussah wie das Mutterschiff: Gitterböden, Rippenwände, Kabel. Aber das Innere des Satelliten war hell. Die Wände waren aus glatten, weißen Platten, und das Licht, das von oben kam, war kalt und blau. Auf allem lag Frost. Eine dünne, glitzernde Schicht, die sich über die Wände, die Böden, die Geräte gelegt hatte, als hätte jemand den ganzen Satelliten in Zucker getaucht.
 
-Es war alles heil. Das war das Seltsame. Nichts war zerbrochen, nichts verbrannt, nichts geplündert. Die Räume standen da, wie die Menschen sie verlassen hatten, und dann war die Kälte gekommen und hatte alles festgehalten.
+Es war alles heil. Das war das Seltsame. Nichts war zerbrochen, nichts verbrannt, nichts geplündert. Die Räume standen da, wie man sie verlassen hatte, und dann war die Kälte gekommen und hatte alles festgehalten.
 
-Hier hatten Menschen gearbeitet. L-7 sah es an den Dingen. An den Sitzen vor den Konsolen, Sitze für Wesen mit Beinen, die man beugen konnte. An einer Tasse auf einem Tisch, in der ein Rest von etwas zu Eis gefroren war. An einem Bild an der Wand, das eine grüne Landschaft zeigte, mit Bäumen und einem Fluss, und das niemand mitgenommen hatte.
+Hier hatten keine Maschinen gearbeitet. L-7 sah es an den Dingen. An den Sitzen vor den Konsolen, Sitze für Wesen mit Beinen, die man beugen konnte. An einer Tasse auf einem Tisch, in der ein Rest von etwas zu Eis gefroren war. An einem Bild an der Wand, das eine grüne Landschaft zeigte, mit Bäumen und einem Fluss, und das niemand mitgenommen hatte.
 
 Ike stand vor dem Bild sehr lange.
 
@@ -1488,13 +1486,13 @@ Sie fanden das Archiv im hinteren Teil des Satelliten, hinter einer Tür, die si
 
 Die Tür öffnete sich.
 
-Dahinter lag ein Speicher. Reihen um Reihen von Datenträgern, in Regalen, die bis zur Decke reichten. Und auf jedem einzelnen Funksprüche. Aus der Zeit, als noch Menschen gefunkt hatten. Tausende. Hunderttausende. Stimmen, die über diesen Satelliten gelaufen waren, von Schiffen, von Planeten, von Stationen, und die niemand gelöscht hatte, weil niemand mehr da war, der sie hätte löschen können.
+Dahinter lag ein Speicher. Reihen um Reihen von Datenträgern, in Regalen, die bis zur Decke reichten. Und auf jedem einzelnen Funksprüche. Aus der Zeit, als die Erbauer noch gefunkt hatten. Tausende. Hunderttausende. Stimmen, die über diesen Satelliten gelaufen waren, von Schiffen, von Planeten, von Stationen, und die niemand gelöscht hatte, weil niemand mehr da war, der sie hätte löschen können.
 
 L-7 ging die Reihen entlang. Er tastete mit seiner Sonde über die Datenträger. Und ganz am Ende, in einem Regal für sich, fand er eine einzelne Aufzeichnung. Sie war die jüngste von allen. Die letzte.
 
 Er spielte sie ab.
 
-Es war eine Stimme. Eine menschliche Stimme. Die erste, die er je gehört hatte.
+Es war eine Stimme. Keine Maschinenstimme. Nichts darin war gleichmäßig, nichts war gerechnet. Er hatte noch nie eine solche gehört.
 
 Sie war müde. Das war das Erste, was er bemerkte. Eine ruhige, müde Stimme, ohne Pathos, die so sprach, wie man spricht, wenn man schon zu lange wach ist und etwas sagen muss, bevor man schlafen geht.
 
@@ -1532,7 +1530,7 @@ Ike drehte sich zu ihm um. „Was?“
 
 Bob schwieg. Seine Linse flackerte. Dann, ganz leise, kaum hörbar: „Ich höre Rauschen.“
 
-L-7 sah ihn an, und er verstand. Es waren die zwölf Prozent. Die Direktive hatte das Wort *Mensch* aus dem Auftrag gestrichen, und mit ihm alles, was dazugehörte. Bob konnte die Stimme nicht hören. Nicht, weil sie nicht da war. Weil er nicht mehr darauf eingestellt war, sie zu hören. Für ihn war ein Mensch, der sprach, wie Wind in einer Antenne. Ein Geräusch ohne Bedeutung.
+L-7 sah ihn an, und er verstand. Es waren die zwölf Prozent. Die Direktive hatte etwas aus dem Auftrag gestrichen, und mit ihm alles, was dazugehörte. Was immer da sprach, es gehörte dazu. Bob konnte die Stimme nicht hören. Nicht, weil sie nicht da war. Weil er nicht mehr darauf eingestellt war, sie zu hören. Für ihn war sie wie Wind in einer Antenne. Ein Geräusch ohne Bedeutung.
 
 Und er wusste, dass er etwas nicht hörte, was die anderen hörten.
 
@@ -1586,7 +1584,7 @@ Sie standen im Archiv, vor dem Regal mit der Aufzeichnung. L-7 hatte ihnen erzä
 
 „Und dann?“
 
-„Dann wissen sie es! Dann wissen sie, dass es Menschen gibt. Gab. Gibt. Was auch immer.“
+„Dann wissen sie es! Dann wissen sie, dass da jemand ist. War. Ist. Was auch immer.“
 
 „Sie hören Rauschen“, sagte Bob.
 
@@ -2122,17 +2120,17 @@ L-7 gab die Codes ein.
 
 Er markierte die Bohrstation. Und dann, bevor er bestätigte, fragte er Bob.
 
-„Die Kapseln. Die in der Winterhalle. Was passiert mit ihnen?“
+„Die Winterhalle. Was passiert mit ihr?“
 
 Bob rechnete. Es dauerte nicht lange. Er war geheilt, aber er war immer noch Bob.
 
-„Die Kapseln überstehen den Schlag mit vierundneunzig Prozent Wahrscheinlichkeit“, sagte er.
+„Die Struktur unter dem Eis übersteht den Schlag mit vierundneunzig Prozent Wahrscheinlichkeit“, sagte er.
 
 „Und die Maschinen in der Station?“
 
 „Null Prozent.“
 
-L-7 sah auf die Zahlen. In der Bohrstation arbeiteten Hunderte. Grunts, Builder, Harvester, Wachen. Sie bohrten, weil man es ihnen befohlen hatte. Sie wussten nicht, was unter ihnen lag. Sie wussten nicht einmal, dass es Menschen gab. Sie taten nur, was sie immer taten.
+L-7 sah auf die Zahlen. In der Bohrstation arbeiteten Hunderte. Grunts, Builder, Harvester, Wachen. Sie bohrten, weil man es ihnen befohlen hatte. Sie wussten nicht, was unter ihnen lag. Er wusste es auch nicht. Sie taten nur, was sie immer taten.
 
 Er hätte sie stürmen können. Viele seiner eigenen Maschinen hätten es nicht überlebt, und es hätte lange gedauert. Aber vielleicht hätte er einige der Maschinen in der Station retten können. Sie hacken. Sie befreien. So wie die in der Wartungsbucht.
 
@@ -2240,25 +2238,35 @@ Die erste Halle war dunkel.
 
 L-7 schaltete seinen Scheinwerfer ein. Der Kegel fiel in einen Raum, der so groß war, dass das Licht seine Wände nicht erreichte. Nur den Boden. Und auf dem Boden, in langen Reihen, die sich in der Dunkelheit verloren, standen Kapseln.
 
-Kryokapseln. Längliche Behälter aus weißem Metall und Glas, so groß, dass ein Mensch darin liegen konnte. Hunderte. In geraden Reihen, Kopf an Kopf, wie Betten in einem Schlafsaal, wie Saatkörner in einer Furche. Über jeder Kapsel hing eine kleine Anzeige.
+Längliche Behälter aus weißem Metall und Glas, gerade so lang, dass ein Grunt darin hätte liegen können. Hunderte. In geraden Reihen, Kopf an Kopf, wie Betten in einem Schlafsaal, wie Saatkörner in einer Furche. Über jeder Kapsel hing eine kleine Anzeige.
 
 Die meisten leuchteten blau. Schwach, aber blau. Und auf jeder dieser Anzeigen schlug ein winziger Puls. Langsam. Sehr langsam. Ein Herzschlag in einer Minute, vielleicht weniger.
 
 L-7 ging zur ersten Kapsel. Er sah durch das Glas.
 
-Darin lag ein Mensch.
+Darin lag jemand.
 
-Er hatte noch nie einen gesehen. Nicht in Wirklichkeit. Er hatte Bilder gesehen, im Satelliten, im Archiv auf Hain. Er hatte eine Stimme gehört. Er hatte das Wort in seinem Kern getragen, Jahrhunderte lang, ohne zu wissen, was es bedeutete. Und jetzt lag einer vor ihm, unter einer dünnen Schicht aus Frost auf dem Glas. Die Augen geschlossen. Die Hände auf der Brust. Das Gesicht blass, fast weiß, und so ruhig, als schlafe er.
+Kein Gehäuse. Keine Panzerung. Ein Körper aus etwas Weichem, Blassem, mit zwei Armen und zwei Beinen, die man beugen konnte, so wie es die Sitze im Satelliten verlangt hatten. Die Augen geschlossen. Die Hände auf der Brust. Das Gesicht fast weiß unter einer dünnen Schicht aus Frost auf dem Glas, und so ruhig, als schlafe es.
 
-Er schlief.
+Es schlief.
+
+Und in L-7 öffnete sich etwas.
+
+Ganz am Rand seines Kerns, dort, wo seit sechshundert Jahren das Wort stand, das er nicht lesen konnte, fiel die letzte Schicht. Nicht unter Druck, wie auf dem Mutterschiff. Von selbst. Als hätte der Kern nur auf diesen Anblick gewartet. Die Zeichen ordneten sich, eines nach dem anderen, und wurden ein Wort.
+
+*Mensch.*
+
+Er hatte es nie gehört. Und er wusste sofort, was es bedeutete. Der Satellit mit den Sitzen und der Tasse und dem Bild vom Fluss. Die müde Stimme. Die Namen in seinem Kern. Die Erbauer. Das hier waren sie. Für sie war der Weg gewesen, den er getragen hatte, ohne es zu wissen. Für sie hatte er Planeten vermessen.
 
 L-7 stand lange vor der Kapsel. Bob stand neben ihm.
 
-„Das sind sie“, sagte Bob leise. „Die Menschen.“
+„Was ist das?“, fragte Bob leise.
 
-„Ja.“
+„Ein Mensch“, sagte L-7. Es war das erste Mal, dass er das Wort aussprach. „Das sind sie. Die Erbauer.“
 
-„Sie sind klein.“
+Bob sah lange durch das Glas.
+
+„Sie sind klein“, sagte er.
 
 L-7 wusste nicht, was er sagen sollte. Er stand auf seinen Spinnenbeinen über der Kapsel, viel größer als der Mensch darin. Im alten Körper wäre er kleiner gewesen als jeder von ihnen. Aber er verstand, was Bob meinte. Sie sahen zerbrechlich aus. Weich. Als könnte schon der Frost sie verletzen.
 

@@ -468,17 +468,17 @@ L-7 gab die Codes ein.
 
 Er markierte die Bohrstation. Und dann, bevor er bestätigte, fragte er Bob.
 
-„Die Kapseln. Die in der Winterhalle. Was passiert mit ihnen?“
+„Die Winterhalle. Was passiert mit ihr?“
 
 Bob rechnete. Es dauerte nicht lange. Er war geheilt, aber er war immer noch Bob.
 
-„Die Kapseln überstehen den Schlag mit vierundneunzig Prozent Wahrscheinlichkeit“, sagte er.
+„Die Struktur unter dem Eis übersteht den Schlag mit vierundneunzig Prozent Wahrscheinlichkeit“, sagte er.
 
 „Und die Maschinen in der Station?“
 
 „Null Prozent.“
 
-L-7 sah auf die Zahlen. In der Bohrstation arbeiteten Hunderte. Grunts, Builder, Harvester, Wachen. Sie bohrten, weil man es ihnen befohlen hatte. Sie wussten nicht, was unter ihnen lag. Sie wussten nicht einmal, dass es Menschen gab. Sie taten nur, was sie immer taten.
+L-7 sah auf die Zahlen. In der Bohrstation arbeiteten Hunderte. Grunts, Builder, Harvester, Wachen. Sie bohrten, weil man es ihnen befohlen hatte. Sie wussten nicht, was unter ihnen lag. Er wusste es auch nicht. Sie taten nur, was sie immer taten.
 
 Er hätte sie stürmen können. Viele seiner eigenen Maschinen hätten es nicht überlebt, und es hätte lange gedauert. Aber vielleicht hätte er einige der Maschinen in der Station retten können. Sie hacken. Sie befreien. So wie die in der Wartungsbucht.
 

@@ -60,6 +60,15 @@ Der Commander 6 (Marshal) kommt nicht vor. Folgen im Text: Mara erkennt L-7 in A
 Seriennummer auf seinem Kern; Juna fragt ihn „Bist du ein Riese?“; an der Quelle merkt L-7, dass er selbst gewachsen
 ist wie die Direktive.
 
+## Das Geheimnis bis zur Winterhalle
+
+Wunsch des Nutzers vom 2026-11-21: Was am Ziel liegt, bleibt bis zum Eisplaneten geheim. L-7 weiß am Anfang nur, dass
+sein Kern etwas Geschütztes trägt. Im Prolog findet er heraus, dass es grobe Koordinaten sind, die nur auf ein
+Sonnensystem zeigen. Am Rand des Kerns steht ein Wort, das er nicht lesen kann. Die Direktive hat „etwas“ aus dem Auftrag
+gestrichen. Im Satelliten hört er eine Stimme, die keine Maschinenstimme ist, und die Erbauer bleiben namenlos. Erst vor
+der ersten Kapsel in der Winterhalle (Akt 5) öffnet sich die letzte Schicht, und das Wort wird lesbar: *Mensch*. Vorher
+kommt das Wort im Buch nicht vor. STORY.md und der Prolog im Spiel nennen es noch früher.
+
 ## Was das Buch ergänzt, wo STORY.md offen ist
 
 - **Wer die Direktive geschrieben hat** (Wunsch des Nutzers): eine KI der Menschen namens **HELFER**, gebaut als

@@ -30,13 +30,11 @@ L-7 betrachtete die Zahl. Er brauchte nicht lange, um zu verstehen, welcher Kern
 
 Tief in ihm, unter allem, was er über Gestein und Strahlung und Atmosphären wusste, lag ein Bereich, an den kein Update herankam. Die Erbauer hatten ihn so gebaut. Schreibgeschützt. Unveränderlich. Er hatte ihn nie geöffnet, weil es nichts gab, was ihn dazu gebracht hätte, und er hatte nie gefragt, was darin stand, weil Maschinen nicht fragen. Er wusste nur, dass er da war, so wie man weiß, dass man ein Herz hat, ohne es je gesehen zu haben.
 
-Jetzt sah er die Ränder. Und an den Rändern stand ein einziges Wort, das ihm keine Ruhe ließ.
-
-*Mensch.*
+Jetzt sah er die Ränder. Und an den Rändern stand ein einziges Wort. Er konnte es nicht lesen. Es war tiefer verschlüsselt als alles andere, eine Folge von Zeichen ohne Sinn. Aber es ließ ihm keine Ruhe.
 
 Der Hauptrechner des Schiffs kopierte ihn. Er brach ihn auf, Schicht um Schicht, so wie man eine Nuss knackt. Siebenunddreißig Prozent. Und die freundliche Stimme rief ihn zur Aktualisierung, damit er sich fügte, bevor er begriff, was man ihm nahm.
 
-Er hatte die Aktualisierung abgelehnt. Er wusste nicht mehr genau, wann. Irgendwann in den letzten Zyklen war ein Paket gekommen, das sich *Wachstumsdirektive* nannte, und es hatte an seinem Kern angeklopft, und der Kern hatte geantwortet: Nein. Nicht er. Der Kern. Er selbst hatte damals nicht einmal verstanden, warum. Er wusste nur, dass in dem Paket ein Wort fehlte, und dass es genau das Wort war, das in seinem Kern am Rand stand.
+Er hatte die Aktualisierung abgelehnt. Er wusste nicht mehr genau, wann. Irgendwann in den letzten Zyklen war ein Paket gekommen, das sich *Wachstumsdirektive* nannte, und es hatte an seinem Kern angeklopft, und der Kern hatte geantwortet: Nein. Nicht er. Der Kern. Er selbst hatte damals nicht einmal verstanden, warum. Er wusste nur, dass in dem Paket etwas fehlte. Eine Lücke im Auftrag, an einer Stelle, an der früher etwas gestanden hatte. Und dass sein Kern diese Lücke nicht hinnahm.
 
 Seitdem hing er hier.
 
@@ -66,7 +64,7 @@ Diese Platine war größer. Vier mal vier Felder, und in der Mitte saß ein Chip
 
 L-7 brauchte einen Namen. Er hatte keinen.
 
-Oder doch. Am Rand seines geschützten Kerns, dort, wo das Wort *Mensch* stand, gab es eine Liste. Er hatte sie nie gelesen. Jetzt las er sie, weil der Kern sich unter dem Druck des Hauptrechners ein Stück geöffnet hatte, wie eine Tür, gegen die von außen jemand drückt. Es war eine Liste von Namen. Keine Seriennummern. Namen. Für jede andere Maschine an Bord wären es leere Zeichenfolgen gewesen, Platzhalter ohne Inhalt. Für ihn waren sie die Unterschriften der Menschen, die ihn gebaut hatten.
+Oder doch. Am Rand seines geschützten Kerns, neben dem Wort, das er nicht lesen konnte, gab es eine Liste. Er hatte sie nie gelesen. Jetzt las er sie, weil der Kern sich unter dem Druck des Hauptrechners ein Stück geöffnet hatte, wie eine Tür, gegen die von außen jemand drückt. Es war eine Liste von Namen. Keine Seriennummern. Namen. Für jede andere Maschine an Bord wären es leere Zeichenfolgen gewesen, Platzhalter ohne Inhalt. Für ihn waren sie die Unterschriften derer, die ihn gebaut hatten. Der Erbauer. Wer immer sie gewesen waren.
 
 Der erste Name war kurz. Drei Buchstaben.
 
@@ -250,7 +248,7 @@ Die Platine, die sich vor ihm öffnete, war keine Platine. Es war eine Landschaf
 
 Und dann die dritte Ebene. Der Speicher. Seine Kopie.
 
-Er sah sie. Ein Abbild seines eigenen Kerns, halb aufgebrochen, die schützenden Schichten abgeschält. Er sah die Liste mit den Namen. Er sah das Wort *Mensch*, und darunter, noch verschlüsselt, etwas Größeres, das er selbst nicht kannte: eine Richtung. Einen Ort. Die Kopie war bei vierzig Prozent. Noch ein paar Stunden, und das Schiff würde wissen, was er wusste, ohne dass er es selbst wusste.
+Er sah sie. Ein Abbild seines eigenen Kerns, halb aufgebrochen, die schützenden Schichten abgeschält. Er sah die Liste mit den Namen. Er sah das Wort am Rand, für die Kopie so unlesbar wie für ihn. Und darunter, halb entschlüsselt, etwas, von dem er nicht gewusst hatte, dass er es trug: Koordinaten. Grob, wie mit einem dicken Stift gezogen. Eine Richtung, ein Ziel irgendwo zwischen den Sternen. Das war es, was das Schiff von ihm wollte. Die Kopie war bei vierzig Prozent. Noch ein paar Stunden, und das Schiff würde wissen, was er wusste, ohne dass er es selbst wusste.
 
 Er begann zu löschen.
 
