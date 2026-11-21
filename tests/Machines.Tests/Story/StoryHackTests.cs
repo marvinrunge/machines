@@ -107,7 +107,11 @@ public class StoryHackTests
     {
         var world = Prologue();
         var locator = Locator(world);
+        // Out of its clamp first: the director holds the Locator in it until it is hacked free.
         Assert.Null(Do(world, new StoryHackOpenCommand(Race.Red, "clamp_l7")));
+        SolveBoard(world, "clamp_l7");
+        GoTo(world, "terminal_ike");
+        Assert.Null(Do(world, new StoryHackOpenCommand(Race.Red, "terminal_ike")));
         var at = locator.Position;
 
         world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true, Forward: 1, Turn: 0.5f, Weapons: -1, Buttons: true));
@@ -223,6 +227,8 @@ public class StoryHackTests
     {
         var world = Prologue();
         GoTo(world, "pod_3_hatch");
+        // The director opens the pod's hatch to hacking in the Notgang.
+        world.Story!.Hacks.Locked.Remove("pod_3_hatch");
         Assert.Null(Do(world, new StoryHackOpenCommand(Race.Red, "pod_3_hatch")));
         var session = world.Story!.Hacks.Session("pod_3_hatch")!;
         Assert.True(session.Puzzle!.Spec.Firewall);
@@ -256,6 +262,7 @@ public class StoryHackTests
             var (cell, clockwise) = puzzle.SolutionTurns().First();
             Assert.Null(Do(world, new StoryHackTurnCommand(Race.Red, "clamp_l7", cell, clockwise)));
             GoTo(world, "pod_3_hatch");
+            world.Story.Hacks.Locked.Remove("pod_3_hatch");
             Assert.Null(Do(world, new StoryHackAbortCommand(Race.Red)));
             Assert.Null(Do(world, new StoryHackOpenCommand(Race.Red, "pod_3_hatch")));
             Run(world, 10);

@@ -26,7 +26,8 @@ public class StoryCoopTests
 
     private static readonly PlayerId Locator = P(0), Ike = P(4), Bob = P(5);
 
-    private static readonly StoryOptions Named = new() { IkeName = "Rust", BobName = "Bolt" };
+    // From the first checkpoint, where Ike and Bob are awake (the director keeps them asleep in their clamps before it).
+    private static readonly StoryOptions Named = new() { IkeName = "Rust", BobName = "Bolt", Checkpoint = 1 };
 
     /// <summary>The prologue with the Locator a person's and Ike and Bob as <paramref name="ike"/> and <paramref name="bob"/> say, the ship the computer's.</summary>
     private static GameWorld Prologue(PlayerKind ike = PlayerKind.Bot, PlayerKind bob = PlayerKind.Bot, int seed = 5) =>
@@ -280,7 +281,8 @@ public class StoryCoopTests
     [Fact]
     public void A_recording_of_a_three_seat_story_with_a_join_and_a_leave_plays_back_the_same()
     {
-        var match = new MatchInfo(StoryOptions.Prologue, StoryOptions.Prologue, new MatchOptions { Story = Named, FogOfWar = false }, 21, 2,
+        // From the repair station, where no hunter is near: a Grunt driven about on deck A would meet the Thresher.
+        var match = new MatchInfo(StoryOptions.Prologue, StoryOptions.Prologue, new MatchOptions { Story = Named with { Checkpoint = 5 }, FogOfWar = false }, 21, 2,
         [
             new MatchPlayer(1, "Host", Race.Red, Race.Red, Ai: false, Locator),
             new MatchPlayer(2, "Anna", Race.Red, Race.Red, Ai: false, Ike),

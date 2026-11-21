@@ -56,9 +56,9 @@ public class StoryHudTests
     [Fact]
     public void The_Grunts_cards_follow_their_orders_and_the_directors_marks()
     {
-        var world = Prologue();
+        var world = Prologue(new StoryOptions { Checkpoint = 1 });
         var run = world.Story!;
-        // The computer's Grunts follow the Locator from the start.
+        // The computer's Grunts follow the Locator once they are awake (the first checkpoint).
         Assert.All(Readout(world).Grunts, g => Assert.Equal(GruntDoing.Following, g.Doing));
 
         run.Flags.Add(StoryMarks.Distracting(run.Seats[1]));

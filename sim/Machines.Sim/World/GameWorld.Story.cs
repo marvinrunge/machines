@@ -43,14 +43,18 @@ public sealed partial class GameWorld
         }
         // The computer plays every Grunt's seat no person sits at (co-op, GameWorld.StoryCoop).
         SettleStorySeats(run);
+        // The director sets the world up for the checkpoint the chapter starts from (StoryDirector, StoryScripts).
+        run.Director.LearnTypes(Artefacts);
+        StoryScripts.SetUp(this, run);
     }
 
-    /// <summary>A tick of the story. The director (plan WP-C) will tick here; the skeleton only keeps the run.</summary>
+    /// <summary>A tick of the story: the hacks, then the director and its script (<see cref="StoryDirector"/>).</summary>
     private void UpdateStory()
     {
-        if (Story is not { Over: false })
+        if (Story is not { Over: false } run)
             return;
         UpdateHacks();
+        run.Director.Update(this, run);
     }
 
     /// <summary>
@@ -76,6 +80,12 @@ public sealed partial class GameWorld
         if (Story is not { Over: true } run || Wired is not { Phase: not WiredPhase.Ended } heroes)
             return;
         heroes.Phase = WiredPhase.Ended;
+        // Got away: the trio's race wins the chapter.
+        if (run.Ending == StoryEnding.Escaped)
+        {
+            Winner = run.Options.Race;
+            return;
+        }
         if (!Races[run.Options.Race].Defeated)
         {
             Races[run.Options.Race].Defeated = true;

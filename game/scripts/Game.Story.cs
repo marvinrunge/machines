@@ -1,3 +1,5 @@
+using Machines.Sim.World;
+
 namespace Machines.Game;
 
 // A story chapter in the match: the remake's own. It plays through Wired's paths (the hero driven in first person from the
@@ -133,6 +135,174 @@ public partial class Game
     {
         // The menus after a chapter show the look as the player chose it.
         GraphicsSettings.Story = false;
+        if (_storyHeard)
+        {
+            StoryAudio.LineStarted -= StoryLineStarted;
+            HackSounds.Player = null;
+        }
         base._ExitTree();
+    }
+
+    // ---- what the director tells ------------------------------------------------------------------------
+
+    private bool _storyHeard;
+    private readonly Dictionary<string, string> _storyLightsShown = new(StringComparer.Ordinal);
+    private static Machines.Sim.Story.StoryLines? _storyLines;
+
+    /// <summary>The game's line table (game/assets/story/prologue.lines.json), read once; empty without it.</summary>
+    public static Machines.Sim.Story.StoryLines StoryLines
+    {
+        get
+        {
+            if (_storyLines is null)
+            {
+                try
+                {
+                    var text = Godot.FileAccess.GetFileAsString("res://assets/story/prologue.lines.json");
+                    _storyLines = text.Length > 0 ? Machines.Sim.Story.StoryLines.Parse(text) : Machines.Sim.Story.StoryLines.Empty;
+                }
+                catch (FormatException e)
+                {
+                    Godot.GD.PushError($"story lines: {e.Message}");
+                    _storyLines = Machines.Sim.Story.StoryLines.Empty;
+                }
+            }
+            return _storyLines;
+        }
+    }
+
+    /// <summary>
+    /// After every tick of a story (Stepped): what the director told (StoryDirector, StoryEvents) is shown and heard. Its
+    /// lines are spoken by the story's audio for whoever is to hear them, with their subtitles; the others' hacks are heard
+    /// where they stand; its cues play the cutscenes (Erwischt, Abwurf), lean the view, show the props it set down and the
+    /// scares; a new objective is announced; the alarm sounds; and the deck's lights follow the run's. Nothing here changes
+    /// the world.
+    /// </summary>
+    private void ShowStoryEvents()
+    {
+        if (World.Story is not { } story)
+            return;
+        if (!_storyHeard)
+        {
+            _storyHeard = true;
+            StoryAudio.LineStarted += StoryLineStarted;
+            HackSounds.Player = id => StoryAudio.Play(id);
+            StoryDriver.Attend(this);
+        }
+        foreach (var e in World.Events)
+        {
+            var at = ActorView.World(e.Position);
+            switch (e.Kind)
+            {
+                case GameEventKind.StoryLine when Machines.Sim.Story.StoryEvents.LineOf(World, e) is { } line:
+                    if (Machines.Sim.Story.StoryAudiences.Shows(World, line.Audience, line.Seat, Me))
+                        SayStoryLine(line.Id);
+                    break;
+                case GameEventKind.StoryHack when Machines.Sim.Story.StoryEvents.HackOf(e) is { } hack && e.Player != Me:
+                    // This player's own hack sounds from its board; another's is heard at the target.
+                    if (hack.What switch { "open" or "done" or "board" => HackSounds.Connect, "traced" => HackSounds.TraceBack, "broken" => HackSounds.Fail, _ => null } is { } sound)
+                        StoryAudio.Play(sound, at);
+                    break;
+                case GameEventKind.StoryCue:
+                    StoryCue(Machines.Sim.Story.StoryEvents.CueOf(e), at);
+                    break;
+                case GameEventKind.StoryObjective when e.Detail is { Length: > 0 } text:
+                    _hud.Story?.Announce(Lang.T("Objective").Caps(), Lang.T(text), MenuTheme.Glow, 2.5f);
+                    break;
+                case GameEventKind.StoryAlarm:
+                    StoryAudio.SetLayer("amb_alarm_klaxon", e.Other == 1, -14);
+                    break;
+                case GameEventKind.StoryCountdown when e.Detail == "stage":
+                    StoryAudio.Play("metal_groan_big");
+                    if (World.HeroOf(Me) is { } hero)
+                        CameraRig.Shake(ActorView.World(hero.Position), 1.5f, 1.2f);
+                    break;
+            }
+        }
+        FollowStoryLights(story);
+    }
+
+    /// <summary>A line of the line table spoken (its subtitle comes as it starts); without the story's audio only its subtitle.</summary>
+    private void SayStoryLine(string id)
+    {
+        if (StoryAudio.Current is not null)
+            StoryAudio.Say(id);
+        else if (StoryLines.Find(id) is { } line && SubtitleQueue.Parse(line.Speaker) is { } speaker)
+            _hud.Subtitles?.Say(speaker, line.English);
+    }
+
+    /// <summary>A line's voice starts (or, without one, its turn): its subtitle, timed by the voice file when there is one.</summary>
+    private void StoryLineStarted(StoryLineCue cue)
+    {
+        if (StoryLines.Find(cue.Id) is { } line && SubtitleQueue.Parse(line.Speaker) is { } speaker)
+            _hud.Subtitles?.Say(speaker, line.English, cue.Voiced ? cue.Seconds : null);
+    }
+
+    /// <summary>The words of a director's cue: what the view shows and plays of it.</summary>
+    private void StoryCue(string[] words, Godot.Vector3 at)
+    {
+        float Number(int i) => words.Length > i && float.TryParse(words[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var n) ? n : 0;
+        switch (words)
+        {
+            case ["cutscene", var name]:
+                PlayCutscene(name);
+                break;
+            case ["artefact", var placement, var type, ..] when int.TryParse(placement, out var index):
+                ShowPlacedArtefact(index, type, new System.Numerics.Vector2(Number(3), Number(4)), Number(5));
+                break;
+            case ["tilt", ..]:
+                TiltTo(new CameraTilt(Number(1), Number(2), Sway: Number(1) > 6 ? 0.8f : 0), Number(3));
+                break;
+            case ["door", _]:
+                StoryAudio.Play("door_open", at);
+                break;
+            case ["clamp", _]:
+                StoryAudio.Play("clamp_release", at);
+                break;
+            case ["steps"]:
+                StoryAudio.Play("thresher_step", at);
+                break;
+            case ["scare", var what]:
+                // TODO(merge, WP-D): "scare wake" flickers the scare Grunt's lamp once the sim keeps the lamps.
+                StoryAudio.Sting(what == "found" ? "sting_found" : "sting_dread");
+                if (what switch { "crates" => "crate_fall", "dust" => "amb_duct_rumble", "wake" => "searchlight_servo", _ => null } is { } sound)
+                    StoryAudio.Play(sound, at);
+                break;
+            case ["pickup", _]:
+                // TODO(merge, WP-G): the weapon goes onto the Locator's chassis.
+                StoryAudio.Play("clamp_release", at);
+                break;
+            case ["rumble", ..]:
+                StoryAudio.Play("metal_groan_big");
+                if (World.HeroOf(Me) is { } hero)
+                    CameraRig.Shake(ActorView.World(hero.Position), 3 * Math.Max(0.2f, Number(1)), 2);
+                break;
+        }
+    }
+
+    /// <summary>A prop the director set down (debris in the Notgang), shown as the deck's artefacts are and kept by its placement.</summary>
+    private void ShowPlacedArtefact(int placement, string type, System.Numerics.Vector2 position, float degrees)
+    {
+        if (_artefactModels.ContainsKey(placement) || World.FindTarget(Machines.Sim.World.Artefact.IdBase + placement) is not Machines.Sim.World.Artefact artefact)
+            return;
+        var place = new Machines.Import.Model.ArtefactPlacement(type, new System.Numerics.Vector3(position.X, position.Y, 0), degrees, null, 0);
+        if (Props.Artefact(artefact.Type, place, new Godot.Vector3(position.X, 0, position.Y)) is not { } model)
+            return;
+        AddChild(model);
+        _artefactModels[placement] = model;
+    }
+
+    /// <summary>The deck's light groups as the run keeps them (StoryRun.Lights): each group that changed is switched.</summary>
+    private void FollowStoryLights(Machines.Sim.Story.StoryRun story)
+    {
+        if (_deckView is null)
+            return;
+        foreach (var (group, state) in story.Lights)
+        {
+            if (_storyLightsShown.TryGetValue(group, out var shown) && shown == state)
+                continue;
+            _storyLightsShown[group] = state;
+            _deckView.SetLights(group, state);
+        }
     }
 }

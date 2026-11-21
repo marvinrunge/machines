@@ -18,7 +18,8 @@ public class StoryRoomTests
 {
     private static PlayerId P(int value) => new(value);
 
-    private static readonly StoryOptions Named = new() { IkeName = "Rust", BobName = "Bolt" };
+    // From the repair station: Ike and Bob awake (the director keeps them asleep before the first checkpoint) and no hunter near.
+    private static readonly StoryOptions Named = new() { IkeName = "Rust", BobName = "Bolt", Checkpoint = 5 };
 
     private static CreateRoom Room(StoryOptions? story = null) => RoomOptions.StoryRoom("Story", story ?? Named);
 
@@ -121,7 +122,7 @@ public class StoryRoomTests
         Assert.Equal((P(0), P(4)), (host.Me, anna.Me));
         Assert.Equal([PlayerKind.Human, PlayerKind.Human, PlayerKind.Bot, PlayerKind.Ai], match.Table().Rows.Select(r => r.Kind));
         Assert.Equal(SeatState.Bot, relay.Relay.WithBeat(room.Id, beat => beat.Seat(P(5))!.State));
-        Assert.Contains($"room {room.Id} started the story's prolog at checkpoint 0 with 2 players", relay.Lines);
+        Assert.Contains($"room {room.Id} started the story's prolog at checkpoint 5 with 2 players", relay.Lines);
 
         await RelayClients.PlayTo(400, clients);
         foreach (var client in clients)

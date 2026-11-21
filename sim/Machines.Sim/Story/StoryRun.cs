@@ -1,3 +1,4 @@
+using Machines.Import.Model;
 using Machines.Sim.Survival;
 using Machines.Sim.World;
 
@@ -8,6 +9,12 @@ public enum StoryEnding
 {
     /// <summary>The Locator fell: the chapter starts again from its last checkpoint.</summary>
     LocatorLost,
+
+    /// <summary>The countdown ran out before the pod was away: the ship took the trio down with it (from the last checkpoint again).</summary>
+    Crashed,
+
+    /// <summary>The trio got away: the chapter is won.</summary>
+    Escaped,
 }
 
 /// <summary>
@@ -52,6 +59,20 @@ public sealed class StoryRun(StoryOptions options)
     /// <summary>The chapter's hacks: what can be hacked, the boards under way, what is done (<see cref="HackDesk"/>).</summary>
     public HackDesk Hacks { get; } = new();
 
+    /// <summary>The chapter's director: its script and what it keeps between ticks (<see cref="StoryDirector"/>).</summary>
+    public StoryDirector Director { get; } = new(StoryScripts.Of(options.Chapter));
+
+    /// <summary>
+    /// The deck's light groups (its LIGHTS) the director switched, by name: on, off or emergency; a group not here is as the
+    /// deck starts it. The view follows them. TODO(merge, WP-D): the sight keeps lamp state in the sim per machine and per
+    /// light group; one of the two keeps the groups, and its lit zones read them.
+    /// </summary>
+    public SortedDictionary<string, string> Lights { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>How a light group of the deck is now: as the director switched it, else as the deck starts it; null for none.</summary>
+    public string? LightOf(Deck? deck, string group) =>
+        Lights.TryGetValue(group, out var state) ? state : deck?.Lights.FirstOrDefault(l => l.Name == group)?.State;
+
     /// <summary>A fingerprint of the run for the world's checksum.</summary>
     public long Fingerprint()
     {
@@ -73,6 +94,12 @@ public sealed class StoryRun(StoryOptions options)
             hash.Mix(BitConverter.SingleToInt32Bits(at));
         }
         hash.Mix(Hacks.Fingerprint());
+        foreach (var (group, state) in Lights)
+        {
+            hash.Mix(group);
+            hash.Mix(state);
+        }
+        hash.Mix(Director.Fingerprint());
         return hash.Value;
     }
 }
