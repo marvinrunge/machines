@@ -54,9 +54,9 @@ public partial class LoadingScreen : CanvasLayer
 
     /// <summary>
     /// The match's scenario, and its planet when that is another name, as the screens print it; a battle's map by its
-    /// name in the player's language.
+    /// name in the player's language, a story's chapter by its title ("PROLOGUE – FAULT").
     /// </summary>
-    public static string MapName(MatchRequest request) =>
+    public static string MapName(MatchRequest request) => request.Options.Story is { } story ? StoryProgress.Heading(story.Chapter) :
         (request.Options.Battle is not null && Machines.Sim.Survival.BattleCatalogue.Map(request.Scenario) is { } battle ? BattlePod.MapName(battle)
             : request.Scenario.Equals(request.Planet, StringComparison.OrdinalIgnoreCase) ? request.Scenario : $"{request.Scenario}   ·   {request.Planet}")
             .ToUpperInvariant();

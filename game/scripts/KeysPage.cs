@@ -6,11 +6,11 @@ namespace Machines.Game;
 /// The keys the player can choose (<see cref="KeyMap"/>), opened from the options, the same before a match and over
 /// one: the moves on the left, the commands on the right, each with a button that shows its key. A click on one waits
 /// for the new key, Esc keeps the old; an action that had the key where this one works takes the old one in
-/// exchange. Defaults puts every key back. A second page holds the weapons' triggers and the keys of a Wired run, which
-/// can lie on a mouse button as well: there the button pressed while it waits is taken. MACHINES_MENU_SCREENSHOT=&lt;png&gt;,keys
-/// or keys-run shows them.
+/// exchange. Defaults puts every key back. A second page holds the weapons' triggers and the keys of a Wired run, a third
+/// the story's, which can lie on a mouse button as well: there the button pressed while it waits is taken.
+/// MACHINES_MENU_SCREENSHOT=&lt;png&gt;,keys, keys-run or keys-story shows them.
 /// </summary>
-public partial class KeysPage(Action back, bool run = false) : MenuPage(back)
+public partial class KeysPage(Action back, bool run = false, bool story = false) : MenuPage(back)
 {
     private readonly Action _back = back;
     private readonly Dictionary<KeyMap.Act, ChipButton> _buttons = [];
@@ -23,17 +23,19 @@ public partial class KeysPage(Action back, bool run = false) : MenuPage(back)
     {
         var page = Column(Gap);
         AddChild(page);
-        page.AddChild(Heading(run ? "Keys of Wired" : "Keys"));
+        page.AddChild(Heading(story ? "Keys of the story" : run ? "Keys of Wired" : "Keys"));
 
         var columns = Line(Gap);
         columns.SizeFlagsVertical = SizeFlags.ExpandFill;
         page.AddChild(columns);
-        if (run)
+        if (story)
+            BuildStory(columns);
+        else if (run)
             BuildRun(columns);
         else
             BuildMain(columns);
 
-        _status = MenuTheme.Label(run && KeyMap.GaveWay.Count > 0 ? KeyMap.GaveWayNote() : Hint, 24, MenuTheme.Bright);
+        _status = MenuTheme.Label((run || story) && KeyMap.GaveWay.Count > 0 ? KeyMap.GaveWayNote() : Hint, 24, MenuTheme.Bright);
         page.AddChild(_status);
 
         var backButton = Button("Back", Back);
@@ -46,17 +48,20 @@ public partial class KeysPage(Action back, bool run = false) : MenuPage(back)
         });
         backButton.CustomMinimumSize = defaults.CustomMinimumSize = new Vector2(400, 76);
         var foot = Line(Gap, backButton, defaults);
-        if (!run)
+        if (!run && !story)
         {
             var stage = Stage;
             var more = Button("Keys of Wired", () => stage.Show(new KeysPage(() => stage.Show(new KeysPage(_back)), run: true)));
             more.CustomMinimumSize = new Vector2(400, 76);
             foot.AddChild(more);
+            var told = Button("Story", () => stage.Show(new KeysPage(() => stage.Show(new KeysPage(_back)), story: true)));
+            told.CustomMinimumSize = new Vector2(300, 76);
+            foot.AddChild(told);
         }
         page.AddChild(foot);
         Refresh();
         SwitchOn();
-        Focus(_buttons[run ? KeyMap.Act.FireLeft : KeyMap.Act.Forward]);
+        Focus(_buttons[story ? KeyMap.Act.Use : run ? KeyMap.Act.FireLeft : KeyMap.Act.Forward]);
     }
 
     private void BuildMain(Control columns)
@@ -76,6 +81,15 @@ public partial class KeysPage(Action back, bool run = false) : MenuPage(back)
             "One trigger for each weapon in first person, with the options' Mouse button per weapon and always in Wired. Held ones fire together. A key or a mouse button will do; while these are on the mouse, the right button neither turns the upper body nor leaves by a double click."));
         columns.AddChild(List("WIRED", [KeyMap.Act.SquadFollow, KeyMap.Act.SquadAttack, KeyMap.Act.SquadHold, KeyMap.Act.SquadBack, KeyMap.Act.Ability1, KeyMap.Act.Ability2, KeyMap.Act.Dash, KeyMap.Act.Special, KeyMap.Act.Hangar],
             "These work in the hero, in first person, which a run and a battle do not leave; the hangar at the pod between the waves. The options' Classic Keys leave them as they are."));
+    }
+
+    /// <summary>The story's own: what the Locator does with its hands, scanner and lamp, and its orders to the two Grunts.</summary>
+    private void BuildStory(Control columns)
+    {
+        columns.AddChild(List("LOCATOR", [KeyMap.Act.Use, KeyMap.Act.Scan, KeyMap.Act.Light],
+            "Hack a terminal, take or use what lies before you, send a scanner pulse, switch the lamp. The weapons' triggers are those of Wired's page."));
+        columns.AddChild(List("GRUNTS", [KeyMap.Act.GruntFollow, KeyMap.Act.GruntWait, KeyMap.Act.GruntDistract],
+            "Orders to both Grunts. These work only in the story, which never leaves first person: they may share a key with Wired's, which the story does not use."));
     }
 
     /// <summary>A chip of actions, each a row with its name and its key's button, and a line under them.</summary>

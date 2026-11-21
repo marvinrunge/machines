@@ -2476,7 +2476,7 @@ public partial class Game : Node3D
         }
         // The menus open where the match was set up: the choice of mission, the skirmish setup or the rooms.
         if (!Watching && !home)
-            MenuScreens.StartPage = Online ? "multiplayer" : World.Battle is not null ? "pod" : World.Wired is not null ? "hangar" : Campaign.IsCampaign(MatchRequest.Current) ? "missions" : "skirmish";
+            MenuScreens.StartPage = Online ? "multiplayer" : World.Story is not null ? "story" : World.Battle is not null ? "pod" : World.Wired is not null ? "hangar" : Campaign.IsCampaign(MatchRequest.Current) ? "missions" : "skirmish";
         GetTree().ChangeSceneToFile("res://scenes/Menu.tscn");
     }
 

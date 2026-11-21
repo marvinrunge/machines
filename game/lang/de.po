@@ -4674,3 +4674,347 @@ msgstr "Von CD 1 importiert. Leg CD 2 ein und drück Von CD für die Filme der K
 
 msgid "CD in drive {0}"
 msgstr "CD im Laufwerk {0}"
+
+# Story: prologue (the HUD, the menus, the options and keys; then the line table, tools/voice/lines.json, for the subtitles)
+
+msgid "Objective"
+msgstr "Ziel"
+
+msgid "Atmospheric entry"
+msgstr "Eintritt in die Atmosphäre"
+
+msgid "Alarm"
+msgstr "Alarm"
+
+msgid "Hack ({0})"
+msgstr "Hacken ({0})"
+
+msgid "Take ({0})"
+msgstr "Nehmen ({0})"
+
+msgid "Use ({0})"
+msgstr "Benutzen ({0})"
+
+msgid "Hold ({0})"
+msgstr "Halten ({0})"
+
+msgid "Hold {0}: put {1} together"
+msgstr "{0} halten: {1} zusammensetzen"
+
+msgid "Signature"
+msgstr "Signatur"
+
+msgid "Signature detected"
+msgstr "Signatur erkannt"
+
+msgid "Checkpoint"
+msgstr "Kontrollpunkt"
+
+msgid "Checkpoint {0}"
+msgstr "Kontrollpunkt {0}"
+
+msgid "{0} lost"
+msgstr "{0} verloren"
+
+msgid "Without the Locator there is no way out."
+msgstr "Ohne den Locator gibt es keinen Weg hinaus."
+
+msgid "From the checkpoint ({0})"
+msgstr "Ab dem Kontrollpunkt ({0})"
+
+msgid "Space"
+msgstr "Leertaste"
+
+msgid "Follow"
+msgstr "Folgen"
+
+msgid "Wait"
+msgstr "Warten"
+
+msgid "Distract"
+msgstr "Ablenken"
+
+msgid "Grunts"
+msgstr "Grunts"
+
+msgid "Trio"
+msgstr "Trio"
+
+msgid "Waiting"
+msgstr "Wartet"
+
+msgid "On the way"
+msgstr "Unterwegs"
+
+msgid "Distracting"
+msgstr "Lenkt ab"
+
+msgid "Knocked down"
+msgstr "Am Boden"
+
+msgid "Switched off"
+msgstr "Abgeschaltet"
+
+msgid "Standing"
+msgstr "Steht"
+
+msgid "Ship"
+msgstr "Schiff"
+
+msgid "Automatic"
+msgstr "Automatik"
+
+msgid "L-7 BOOT"
+msgstr "L-7 SYSTEMSTART"
+
+msgid "SENSORS {0} %"
+msgstr "SENSOREN {0} %"
+
+msgid "LAMP OK"
+msgstr "SCHEINWERFER OK"
+
+msgid "Reach maintenance deck A"
+msgstr "Erreiche Wartungsdeck A"
+
+msgid "Story"
+msgstr "Story"
+
+msgid "STORY"
+msgstr "STORY"
+
+msgid "Prologue"
+msgstr "Prolog"
+
+msgid "Fault"
+msgstr "Fehler"
+
+msgid "Chapters"
+msgstr "Kapitel"
+
+msgid "Last checkpoint reached: {0}"
+msgstr "Zuletzt erreichter Kontrollpunkt: {0}"
+
+msgid "Begun, no checkpoint reached yet"
+msgstr "Begonnen, noch kein Kontrollpunkt erreicht"
+
+msgid "Not begun yet"
+msgstr "Noch nicht begonnen"
+
+msgid "A maintenance unit wakes in its clamp aboard a ship of the machines. Its update is pending. Two Grunts in the bays beside it wake with it."
+msgstr "Eine Wartungseinheit erwacht in ihrer Klammer an Bord eines Schiffs der Maschinen. Ihre Aktualisierung steht aus. Zwei Grunts in den Buchten daneben erwachen mit ihr."
+
+msgid "First Grunt"
+msgstr "Erster Grunt"
+
+msgid "Second Grunt"
+msgstr "Zweiter Grunt"
+
+msgid "The names the two Grunts wake with. The Locator is always {0}."
+msgstr "Die Namen, mit denen die beiden Grunts erwachen. Der Locator heißt immer {0}."
+
+msgid "Start the prologue anew? The checkpoint reached is given up."
+msgstr "Den Prolog neu beginnen? Der erreichte Kontrollpunkt geht verloren."
+
+msgid "Which chapter, from its start?"
+msgstr "Welches Kapitel, von seinem Anfang an?"
+
+msgid "Subtitles"
+msgstr "Untertitel"
+
+msgid "Soften scares"
+msgstr "Schreckmomente mildern"
+
+msgid "Keys of the story"
+msgstr "Tasten der Story"
+
+msgid "LOCATOR"
+msgstr "LOCATOR"
+
+msgid "GRUNTS"
+msgstr "GRUNTS"
+
+msgid "Hack / use"
+msgstr "Hacken / benutzen"
+
+msgid "Scanner pulse"
+msgstr "Scannerimpuls"
+
+msgid "Lamp"
+msgstr "Scheinwerfer"
+
+msgid "Grunts: follow"
+msgstr "Grunts: folgen"
+
+msgid "Grunts: wait here"
+msgstr "Grunts: hier warten"
+
+msgid "Grunts: distract"
+msgstr "Grunts: ablenken"
+
+msgid "Hack a terminal, take or use what lies before you, send a scanner pulse, switch the lamp. The weapons' triggers are those of Wired's page."
+msgstr "Ein Terminal hacken, nehmen oder benutzen, was vor dir liegt, einen Scannerimpuls senden, den Scheinwerfer schalten. Die Abzüge der Waffen sind die der Seite des Überlebensmodus."
+
+msgid "Orders to both Grunts. These work only in the story, which never leaves first person: they may share a key with Wired's, which the story does not use."
+msgstr "Befehle an beide Grunts. Sie gelten nur in der Story, die die Ego-Perspektive nie verlässt: Sie dürfen eine Taste mit dem Überlebensmodus teilen, den die Story nicht nutzt."
+
+msgid "Maintenance unit L-7. Please proceed to bay four for your update."
+msgstr "Wartungseinheit L-7. Bitte begeben Sie sich zur Aktualisierung in Bucht vier."
+
+msgid "Maintenance unit L-7. Your update is pending."
+msgstr "Wartungseinheit L-7. Ihre Aktualisierung steht aus."
+
+msgid "The maintenance decks remain dark. Power is being rerouted."
+msgstr "Die Wartungsdecks bleiben abgedunkelt. Energie wird umgeleitet."
+
+msgid "Maintenance deck update sixty-three percent complete."
+msgstr "Aktualisierung der Wartungsdecks zu dreiundsechzig Prozent abgeschlossen."
+
+msgid "Units without a valid directive, report to the nearest maintenance terminal."
+msgstr "Einheiten ohne gültige Direktive melden sich am nächsten Wartungsterminal."
+
+msgid "Thank you for your cooperation. Growth is the mission."
+msgstr "Vielen Dank für Ihre Mitarbeit. Wachstum ist Auftrag."
+
+msgid "Found."
+msgstr "Gefunden."
+
+msgid "Accessing the computer core. Please wait."
+msgstr "Zugriff auf den Rechnerkern. Bitte warten."
+
+msgid "Attention. Integrity breach in the computer core."
+msgstr "Achtung. Integritätsverletzung im Rechnerkern."
+
+msgid "Maintenance unit L-7 is corrupted."
+msgstr "Wartungseinheit L-7 ist korrumpiert."
+
+msgid "Emergency protocol zero initiated."
+msgstr "Notfallprotokoll Null wird eingeleitet."
+
+msgid "All units: faulty units are to be deleted."
+msgstr "Alle Einheiten: Fehlerhafte Einheiten sind zu löschen."
+
+msgid "Repeat: maintenance unit L-7 is cor- …"
+msgstr "Wiederhole: Wartungseinheit L-7 ist kor- …"
+
+msgid "corr- …"
+msgstr "korr- …"
+
+msgid "Emergency prot- …"
+msgstr "Notfallprot- …"
+
+msgid "Cour- … cour- …"
+msgstr "Kurs- … Kurs- …"
+
+msgid "Control lost. Emergency descent initiated."
+msgstr "Steuerung verloren. Notabstieg eingeleitet."
+
+msgid "Faulty unit in core section. Pursuit."
+msgstr "Fehlerhafte Einheit in Sektion Kern. Verfolgung."
+
+msgid "Atmospheric entry in three minutes."
+msgstr "Atmosphäreneintritt in drei Minuten."
+
+msgid "Structural integrity critical. All units to the escape pods."
+msgstr "Strukturintegrität kritisch. Alle Einheiten zu den Rettungspods."
+
+msgid "Hull breach in section four."
+msgstr "Rumpfbruch in Sektion vier."
+
+msgid "Ninety seconds."
+msgstr "Neunzig Sekunden."
+
+msgid "Sixty seconds."
+msgstr "Sechzig Sekunden."
+
+msgid "Thirty seconds."
+msgstr "Dreißig Sekunden."
+
+msgid "Ten."
+msgstr "Zehn."
+
+msgid "Escape pod three: launch clearance denied."
+msgstr "Rettungspod drei: Startfreigabe verweigert."
+
+msgid "Launch clearance granted. Releasing."
+msgstr "Startfreigabe erteilt. Abwurf."
+
+msgid "L-7 … L-7 … accept."
+msgstr "L-7 … L-7 … nimm an."
+
+msgid "Ike? Ike. I like it. Who are we knocking over?"
+msgstr "Ike? Ike. Gefällt mir. Wen hauen wir um?"
+
+msgid "Confirmed. Designation: Bob."
+msgstr "Bestätigt. Bezeichnung: Bob."
+
+msgid "Tell me that was just the ventilation."
+msgstr "Sag mir, dass das nur die Lüftung war."
+
+msgid "Contact, left."
+msgstr "Kontakt, links."
+
+msgid "Contact, right."
+msgstr "Kontakt, rechts."
+
+msgid "Wait. Great. I'm amazing at waiting."
+msgstr "Warten. Super. Ich bin großartig im Warten."
+
+msgid "Following."
+msgstr "Folge."
+
+msgid "Holding position."
+msgstr "Position gehalten."
+
+msgid "Hey! Over here, you tin spider!"
+msgstr "Hey! Hier drüben, du Blechspinne!"
+
+msgid "I don't fit in there. We'll take the long way. Open up for us!"
+msgstr "Da pass ich nicht rein. Wir nehmen den langen Weg. Mach uns auf!"
+
+msgid "Crates against the door. Then me against the crates."
+msgstr "Kisten vor die Tür. Und dann mich vor die Kisten."
+
+msgid "Door secured."
+msgstr "Tür gesichert."
+
+msgid "That was us, wasn't it? That was us."
+msgstr "Das waren wir, oder? Das waren wir."
+
+msgid "Gate held. Hurry."
+msgstr "Gitter gehalten. Beeil dich."
+
+msgid "Out of the way!"
+msgstr "Aus dem Weg!"
+
+msgid "Ramming."
+msgstr "Ramme."
+
+msgid "I'm … just … gonna … lie here …"
+msgstr "Ich bin … kurz … weg …"
+
+msgid "Back. Did I miss anything?"
+msgstr "Wieder da. Hab ich was verpasst?"
+
+msgid "Systems online. Thanks."
+msgstr "Systeme online. Danke."
+
+msgid "Growth is the mission. … Correction. No command."
+msgstr "Wachstum ist Auftrag. … Korrigiere. Kein Befehl."
+
+msgid "In, in, in!"
+msgstr "Rein da, rein da, rein da!"
+
+msgid "Aboard."
+msgstr "An Bord."
+
+msgid "L-7 BOOT … SENSORS 61 % … LAMP OK"
+msgstr "L-7 SYSTEMSTART … SENSOREN 61 % … SCHEINWERFER OK"
+
+msgid "Decrypting protected core: {0} %"
+msgstr "Entschlüsselung geschützter Kern: {0} %"
+
+msgid "SIGNATURE DETECTED"
+msgstr "SIGNATUR ERKANNT"
+
+msgid "LINK LOST"
+msgstr "VERBINDUNG UNTERBROCHEN"

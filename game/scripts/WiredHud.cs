@@ -38,8 +38,8 @@ public static class Capitals
 public partial class WiredHud : Control
 {
     // Colours of the run's own, beside the menus'.
-    private static readonly Color Danger = new(1f, 0.26f, 0.16f), Warning = new(1f, 0.7f, 0.2f), Ice = new(0.48f, 0.8f, 1f), Gold = new(1f, 0.84f, 0.36f);
-    private static readonly Color Plating = new(0.006f, 0.028f, 0.012f, 0.9f), Sheen = new(0.03f, 0.085f, 0.04f, 0.9f);
+    private static readonly Color Danger = HudInk.Danger, Warning = HudInk.Warning, Ice = HudInk.Ice, Gold = HudInk.Gold;
+    private static readonly Color Plating = HudInk.Plating;
 
     // Sizes in pixels of a window 1080 high: the bars' height, how far the plates rise above the lower one, the top plate.
     private const float Bar = 54, WavePlateWidth = 430, WavePlateHeight = 110, Rise = 96, Gap = 14;
@@ -671,78 +671,38 @@ public partial class WiredHud : Control
 
     private static string Thousands(long figure) => figure.ToString("#,0", System.Globalization.CultureInfo.InvariantCulture).Replace(',', ' ');
 
-    private int Px(float size) => Math.Max(9, Mathf.RoundToInt(size * _u));
-
-    private float Width(string text, float size) => MenuTheme.Font.GetStringSize(text, HorizontalAlignment.Left, -1, Px(size)).X;
-
-    /// <summary>Text from its baseline: <paramref name="align"/> says which part of it stands there, 0 its start, 0.5 its middle, 1 its end.</summary>
-    private void Say(Vector2 at, string text, float size, Color colour, float align = 0, int outline = 0)
+    // The drawing itself is the remake's HUDs' own (HudInk), at this HUD's scale as it stands.
+    private HudInk Ink
     {
-        var px = Px(size);
-        var font = MenuTheme.Font;
-        var place = at - new Vector2(font.GetStringSize(text, HorizontalAlignment.Left, -1, px).X * align, 0);
-        if (outline > 0)
-            DrawStringOutline(font, place, text, HorizontalAlignment.Left, -1, px, Math.Max(2, Mathf.RoundToInt(outline * 2 * _u)), new Color(0, 0, 0, colour.A * 0.85f));
-        DrawString(font, place, text, HorizontalAlignment.Left, -1, px, colour);
-    }
-
-    /// <summary>A text cut with dots to a width in the HUD's pixels, as a hero's name can be long.</summary>
-    private string Fit(string text, float size, float width)
-    {
-        if (Width(text, size) <= width * _u)
-            return text;
-        var cut = text.Length;
-        while (cut > 1 && Width(text[..cut] + "...", size) > width * _u)
-            cut--;
-        return text[..cut].TrimEnd() + "...";
-    }
-
-    /// <summary>A rectangle's outline with its corners cut, by how much each: top left, top right, bottom right, bottom left.</summary>
-    private Vector2[] Corners(Rect2 box, float a, float b, float c, float d)
-    {
-        var (p, e) = (box.Position, box.End);
-        var (ca, cb, cc, cd) = (a * _u, b * _u, c * _u, d * _u);
-        return
-        [
-            new(p.X + ca, p.Y), new(e.X - cb, p.Y), new(e.X, p.Y + cb), new(e.X, e.Y - cc),
-            new(e.X - cc, e.Y), new(p.X + cd, e.Y), new(p.X, e.Y - cd), new(p.X, p.Y + ca),
-        ];
-    }
-
-    private void Plate(Rect2 box, Color fill, Color edge, float cut) => Plate(Corners(box, cut, 0, cut, 0), fill, edge, 1.5f);
-
-    private void Plate(Vector2[] points, Color fill, Color edge, float line)
-    {
-        // A plating with a little sheen at its top; a light of one colour stays that colour.
-        var top = points.Min(p => p.Y);
-        var height = Mathf.Max(points.Max(p => p.Y) - top, 1);
-        var plain = fill != Plating;
-        var colours = points.Select(p => plain ? fill : Sheen.Lerp(Plating, Mathf.Clamp((p.Y - top) / height * 1.6f, 0, 1))).ToArray();
-        DrawPolygon(points, colours);
-        DrawPolyline([.. points, points[0]], edge, Mathf.Max(line * _u, 1), true);
-    }
-
-    private void Thin(Rect2 bar, float share, Color colour)
-    {
-        DrawRect(bar, new Color(colour, 0.18f));
-        var width = bar.Size.X * Mathf.Clamp(share, 0, 1);
-        DrawRect(new Rect2(bar.Position + new Vector2((bar.Size.X - width) / 2, 0), new Vector2(width, bar.Size.Y)), colour);
-    }
-
-    private void Glyph(float[][]? lines, Rect2 box, Color colour)
-    {
-        if (lines is null)
-            return;
-        var scale = box.Size / HangarGlyphs.Grid;
-        foreach (var line in lines)
+        get
         {
-            var points = new Vector2[line.Length / 2];
-            for (var i = 0; i < points.Length; i++)
-                points[i] = box.Position + new Vector2(line[i * 2], line[i * 2 + 1]) * scale;
-            DrawPolyline(points, new Color(colour, 0.22f), 5 * _u, true);
-            DrawPolyline(points, colour, Mathf.Max(2 * _u, 1), true);
+            _ink ??= new HudInk(this);
+            _ink.U = _u;
+            return _ink;
         }
     }
+
+    private HudInk? _ink;
+
+    private int Px(float size) => Ink.Px(size);
+
+    private float Width(string text, float size) => Ink.Width(text, size);
+
+    /// <inheritdoc cref="HudInk.Say"/>
+    private void Say(Vector2 at, string text, float size, Color colour, float align = 0, int outline = 0) => Ink.Say(at, text, size, colour, align, outline);
+
+    /// <inheritdoc cref="HudInk.Fit"/>
+    private string Fit(string text, float size, float width) => Ink.Fit(text, size, width);
+
+    private Vector2[] Corners(Rect2 box, float a, float b, float c, float d) => Ink.Corners(box, a, b, c, d);
+
+    private void Plate(Rect2 box, Color fill, Color edge, float cut) => Ink.Plate(box, fill, edge, cut);
+
+    private void Plate(Vector2[] points, Color fill, Color edge, float line) => Ink.Plate(points, fill, edge, line);
+
+    private void Thin(Rect2 bar, float share, Color colour) => Ink.Thin(bar, share, colour);
+
+    private void Glyph(float[][]? lines, Rect2 box, Color colour) => Ink.Glyph(lines, box, colour);
 
     /// <summary>What of a slot is still cooling, darkened as a hand going round from the top.</summary>
     private void Sweep(Rect2 box, float share)
@@ -773,14 +733,5 @@ public partial class WiredHud : Control
     });
 
     /// <summary>A key's cap on the corner of a slot.</summary>
-    private void Cap(Rect2 box, string? key)
-    {
-        if (key is null)
-            return;
-        var width = Mathf.Max(Width(key, 15) + 10 * _u, 22 * _u);
-        var cap = new Rect2(box.Position + new Vector2(box.Size.X - width - 3 * _u, 3 * _u), new Vector2(width, 21 * _u));
-        DrawRect(cap, MenuTheme.Well);
-        DrawRect(cap, MenuTheme.Edge, false, 1);
-        Say(cap.Position + new Vector2(width / 2, 16 * _u), key, 15, MenuTheme.Text, 0.5f);
-    }
+    private void Cap(Rect2 box, string? key) => Ink.Cap(box, key);
 }

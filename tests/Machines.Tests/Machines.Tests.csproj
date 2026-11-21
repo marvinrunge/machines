@@ -52,6 +52,9 @@
     <Compile Include="..\..\game\scripts\KeyClash.cs" Link="Sim\KeyClash.cs" />
     <Compile Include="..\..\game\scripts\GameLocator.cs" Link="Import\GameLocator.cs" />
     <Compile Include="..\..\game\scripts\GameDisc.cs" Link="Import\GameDisc.cs" />
+    <Compile Include="..\..\game\scripts\DeckRoute.cs" Link="Story\DeckRoute.cs" />
+    <Compile Include="..\..\game\scripts\StoryReadout.cs" Link="Story\StoryReadout.cs" />
+    <Compile Include="..\..\game\scripts\SubtitleQueue.cs" Link="Story\SubtitleQueue.cs" />
   </ItemGroup>
 
 </Project>

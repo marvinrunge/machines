@@ -48,11 +48,16 @@ public partial class MainMenuPage(MenuScreens screens) : MenuPage(screens.Quit)
         display.AddChild(layers);
         row.AddChild(display);
 
-        // Nine buttons of this size stand no higher than the eight before them did (740 against 748), so the page still fits at a large interface size.
-        const float height = 68;
+        // Ten buttons of this size stand no higher than the nine before them did (708 against 740), so the page still fits at a large interface size.
+        const float height = 60;
         var right = new VBoxContainer { CustomMinimumSize = new Vector2(360, 0), Alignment = BoxContainer.AlignmentMode.Center };
-        right.AddThemeConstantOverride("separation", 16);
+        right.AddThemeConstantOverride("separation", 12);
         row.AddChild(right);
+        // The story first: it is where a new player begins.
+        var story = Button("Story", screens.ShowStory, height, 30);
+        if (!StoryProgress.Load().CanContinue)
+            story.Tag = Lang.T("New");
+        right.AddChild(story);
         var campaign = Button("Campaign", screens.ShowCampaign, height, 30);
         right.AddChild(campaign);
         var skirmish = Button("Skirmish", () => screens.ShowSkirmish(), height, 30);
@@ -76,6 +81,6 @@ public partial class MainMenuPage(MenuScreens screens) : MenuPage(screens.Quit)
         right.AddChild(Button("Options", screens.ShowOptions, height, 30));
 
         SwitchOn();
-        Focus(skirmish);
+        Focus(story);
     }
 }

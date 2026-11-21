@@ -36,17 +36,32 @@ public static class HeroRig
     /// </summary>
     public static Rig? Compose(ClassicAssets assets, Race race, string chassis, IReadOnlyList<string?> weapons)
     {
-        var key = HeroDonors.Worn(race, chassis, weapons);
+        var unarmed = Unarmed(chassis, weapons);
+        var key = HeroDonors.Worn(race, chassis, weapons) + (unarmed ? "/unarmed" : "");
         if (assets.HeroRigs.TryGetValue(key, out var kept))
             return kept;
         var start = HitchLog.Start;
-        var rig = Build(assets, race, chassis, weapons);
+        var rig = Build(assets, race, chassis, weapons, unarmed);
         HitchLog.Loaded($"hero {key}", start);
         assets.HeroRigs[key] = rig;
         return rig;
     }
 
-    private static Rig? Build(ClassicAssets assets, Race race, string chassis, IReadOnlyList<string?> weapons)
+    /// <summary>
+    /// Whether a hero is shown unarmed: in a story, a chassis whose hull carries its gun's cradle (<see cref="Cradles"/>) with
+    /// nothing on any slot. Ike and Bob wake without weapons and must not look as if they had one (the Grunt 1's hull holds
+    /// up its bolter on a raised arm at the right). Anywhere else an empty slot shows the bare mount as before.
+    /// </summary>
+    private static bool Unarmed(string chassis, IReadOnlyList<string?> weapons) =>
+        GraphicsSettings.Story && Cradles.Contains(chassis) && weapons.All(w => w is null);
+
+    /// <summary>The chassis whose hull reaches out to a mount to hold the gun there: what of it lies at the mount comes off when unarmed.</summary>
+    private static readonly HashSet<string> Cradles = ["grunt1"];
+
+    // How far in from a mount, across the machine, the hull's cradle for it reaches (the Grunt 1's body is 0.66 m to a side, its mount 0.79 m out).
+    private const float CradleReach = 0.12f;
+
+    private static Rig? Build(ClassicAssets assets, Race race, string chassis, IReadOnlyList<string?> weapons, bool unarmed = false)
     {
         if (WiredCatalogue.FindChassis(chassis) is not { } entry || !HeroDonors.Chassis.TryGetValue(chassis, out var model)
             || assets.RigFor(model, race) is not { } body)
@@ -89,6 +104,10 @@ public static class HeroRig
             nodes[wheel] = nodes[wheel] with { Mesh = Hubbed(assets, nodes[wheel].Mesh) };
         if (HeroSeat.Shoulder(chassis, shapes) is { } shoulder && graft.Chassis(shoulder.Part) is >= 0 and var shouldered)
             nodes[shouldered] = nodes[shouldered] with { Mesh = WithShoulder(assets, nodes[shouldered].Mesh, shoulder) };
+        if (unarmed)
+            foreach (var side in slots.Keys)
+                if (RigGraft.MountOf(Parts(body), side) is >= 0 and var mount && graft.Chassis(body.Nodes[mount].Parent) is >= 0 and var holder)
+                    nodes[holder] = nodes[holder] with { Mesh = Uncradled(nodes[holder].Mesh, body.Nodes[mount].Rest.Origin) };
         return new Rig
         {
             Nodes = nodes,
@@ -302,6 +321,33 @@ public static class HeroRig
             if (shoulder.Triangles[s].Length > 0)
                 AddTurnedOver(both, whole, s, shoulder.Triangles[s]);
         return assets.HeroMeshes[whole] = both;
+    }
+
+    /// <summary>
+    /// A hull without the cradle it holds a gun up on: every triangle with a corner out at the mount, across the machine
+    /// (<see cref="CradleReach"/>), comes off. The hull's own sides lie further in, so they stay whole under it.
+    /// </summary>
+    private static Mesh? Uncradled(Mesh? mesh, Vector3 mount)
+    {
+        if (mesh is not ArrayMesh whole || Mathf.Abs(mount.Z) < CradleReach)
+            return mesh;
+        var (side, from) = (Mathf.Sign(mount.Z), Mathf.Abs(mount.Z) - CradleReach);
+        var kept = new ArrayMesh();
+        for (var s = 0; s < whole.GetSurfaceCount(); s++)
+        {
+            var arrays = whole.SurfaceGetArrays(s);
+            var points = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
+            var corners = arrays[(int)Mesh.ArrayType.Index].AsInt32Array() is { Length: > 0 } given ? given : Enumerable.Range(0, points.Length).ToArray();
+            var left = Enumerable.Range(0, corners.Length / 3)
+                .Where(t => !Enumerable.Range(0, 3).Any(c => points[corners[t * 3 + c]].Z * side >= from))
+                .SelectMany(t => new[] { corners[t * 3], corners[t * 3 + 1], corners[t * 3 + 2] }).ToArray();
+            if (left.Length == 0)
+                continue;
+            arrays[(int)Mesh.ArrayType.Index] = left;
+            kept.AddSurfaceFromArrays(whole.SurfaceGetPrimitiveType(s), arrays);
+            kept.SurfaceSetMaterial(kept.GetSurfaceCount() - 1, whole.SurfaceGetMaterial(s));
+        }
+        return kept;
     }
 
     /// <summary>A surface across its z axis, all of it or the triangles named: corners, normals and tangents turn, and its triangles wind the other way.</summary>
