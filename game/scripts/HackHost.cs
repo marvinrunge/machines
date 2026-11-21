@@ -36,6 +36,13 @@ public static class HackSounds
         sound.Play();
     }
 
+    /// <summary>Loads the hack's sounds before a match begins (the warm-up), so the first board does not wait for them.</summary>
+    public static void Preload()
+    {
+        foreach (var id in new[] { Click, Connect, TraceBack, Firewall, Fail })
+            Stream(id);
+    }
+
     private static AudioStream? Stream(string id)
     {
         if (Streams.TryGetValue(id, out var known))
@@ -65,21 +72,28 @@ public partial class HackHost : Control
     private int _seenStage, _seenClaimed, _alarms;
     private bool _warned, _pulsing, _pad;
     private double _stickWait;
+    private Tween? _going;
 
-    public HackHost(Game game, string target, HackKind kind)
+    /// <summary>
+    /// The chip, made once a story match begins and hidden until a hack opens (<see cref="Open"/>): made afresh for each
+    /// hack, its controls, theme and first layout held that frame up by 40 to 120 ms.
+    /// </summary>
+    public HackHost(Game game)
     {
         _game = game;
-        Target = target;
-        Kind = kind;
         Name = "HackHost";
     }
 
-    public string Target { get; }
+    /// <summary>The hack's target while it is up, or the last one.</summary>
+    public string Target { get; private set; } = "";
 
-    public HackKind Kind { get; }
+    public HackKind Kind { get; private set; }
 
-    /// <summary>The hack has ended and the chip is going.</summary>
-    public bool Closing { get; private set; }
+    /// <summary>The hack has ended and the chip is going, or is put away.</summary>
+    public bool Closing { get; private set; } = true;
+
+    /// <summary>How many times the chip came up: a new count is a new hack, for automated checks.</summary>
+    public int Opened { get; private set; }
 
     /// <summary>For automated checks.</summary>
     public HackBoard Board => _panel.Board;
@@ -89,7 +103,6 @@ public partial class HackHost : Control
     public override void _Ready()
     {
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        MouseFilter = MouseFilterEnum.Stop;
         _stage = new Control { Theme = MenuTheme.Build(), MouseFilter = MouseFilterEnum.Ignore };
         AddChild(_stage);
         _panel = new HackPanel(Kind, BoardSide);
@@ -101,9 +114,73 @@ public partial class HackHost : Control
         Fit();
         _panel.Board.Source = () => Session?.Puzzle;
         _panel.Board.Turned += Turn;
+        PutAway();
+    }
+
+    /// <summary>Puts the chip up for the hack at <paramref name="target"/>, switching its screen on.</summary>
+    public void Open(string target, HackKind kind)
+    {
+        _going?.Kill();
+        _going = null;
+        (Target, Kind, Closing) = (target, kind, false);
+        Opened++;
+        (_seen, _seenStage, _seenClaimed, _warned, _pulsing, _pad, _stickWait) = (null, 0, 0, false, false, false, 0);
         _alarms = Session?.Alarms ?? 0;
+        _panel.Kind = kind;
+        _panel.Board.Cursor = -1;
+        _panel.Trace.Value = 0;
+        _panel.Trace.Snap();
+        MouseFilter = MouseFilterEnum.Stop;
+        _panel.MouseBehaviorRecursive = MouseBehaviorRecursiveEnum.Inherited;
+        ProcessMode = ProcessModeEnum.Inherit;
+        Visible = true;
+        if (Session is { } session)
+            _panel.Show(session.Stage, session.Boards.Count, session.Broken, _pad);
         _panel.SwitchOn(0);
         HackSounds.Play(this, HackSounds.Click);
+    }
+
+    /// <summary>Hidden and still until the next hack.</summary>
+    private void PutAway()
+    {
+        Visible = false;
+        MouseFilter = MouseFilterEnum.Ignore;
+        ProcessMode = ProcessModeEnum.Disabled;
+        _going = null;
+    }
+
+    /// <summary>
+    /// A board as the hack puts it up, half played, for the warm-up to draw behind the loading screen: the board's code, its
+    /// letters at their sizes and its drawing are then ready when the first hack comes up.
+    /// </summary>
+    public static Control Warm()
+    {
+        var root = new Control { Name = "WarmHack", MouseFilter = MouseFilterEnum.Ignore };
+        root.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        var stage = new Control { Theme = MenuTheme.Build(), MouseFilter = MouseFilterEnum.Ignore };
+        root.AddChild(stage);
+        var specs = HackSpec.Boards(HackKind.Pod);
+        var puzzle = HackPuzzle.Generate(specs[0], 1);
+        foreach (var (cell, clockwise) in puzzle.SolutionTurns().Take(3))
+            puzzle.Turn(cell, clockwise);
+        var panel = new HackPanel(HackKind.Pod, BoardSide);
+        panel.Board.Source = () => puzzle;
+        panel.Show(0, specs.Count, false, pad: false);
+        panel.Trace.Value = 0.5f;
+        var centre = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
+        centre.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        centre.AddChild(panel);
+        stage.AddChild(centre);
+        root.Resized += () =>
+        {
+            if (root.Size.Y <= 0)
+                return;
+            var scale = root.Size.Y / MenuStage.DesignHeight * MenuTheme.UiScale;
+            stage.Scale = new Vector2(scale, scale);
+            stage.Size = root.Size / scale;
+            MenuTheme.FitFont(scale);
+        };
+        return root;
     }
 
     /// <summary>Scales the chip as the menus' stage is, so it is sharp at any window size.</summary>
@@ -198,9 +275,9 @@ public partial class HackHost : Control
             wait = 0.7;
         }
         _panel.SwitchOff(wait);
-        var tween = CreateTween();
-        tween.TweenInterval(wait + 0.3);
-        tween.TweenCallback(Callable.From(() => GetParent().QueueFree()));
+        _going = CreateTween();
+        _going.TweenInterval(wait + 0.3);
+        _going.TweenCallback(Callable.From(PutAway));
     }
 
     // ---- keys and the gamepad ----------------------------------------------------------------------

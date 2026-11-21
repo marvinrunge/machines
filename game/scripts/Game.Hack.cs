@@ -48,6 +48,11 @@ public partial class Game
         {
             _hackKey = true;
             AddChild(new HackKey(this) { Name = "HackKey" });
+            // The board's chip is made now, hidden (in the warm-up's hidden frames when there is one), and put up for each hack.
+            var layer = new CanvasLayer { Layer = 10, Name = "Hack" };
+            AddChild(layer);
+            _hack = new HackHost(this);
+            layer.AddChild(_hack);
         }
         // A chapter that has ended takes the board down with it.
         var session = Watching || MatchOver ? null : story.Hacks.OpenBy(Me);
@@ -64,12 +69,13 @@ public partial class Game
         EndBand();
         _rightPress = null;
         _rig.Drag = Vector2I.Zero;
-        var layer = new CanvasLayer { Layer = 10, Name = "Hack" };
-        AddChild(layer);
-        _hack = new HackHost(this, session.Target, session.Kind);
-        layer.AddChild(_hack);
+        var since = HitchLog.Start;
+        _hack!.Open(session.Target, session.Kind);
+        var made = HitchLog.Start;
         _rig.Active = false;
         Input.MouseMode = Input.MouseModeEnum.Visible;
+        if (HitchLog.On)
+            HitchLog.Mark($"hack board up ({System.Diagnostics.Stopwatch.GetElapsedTime(since, made).TotalMilliseconds:F1} ms, mouse {System.Diagnostics.Stopwatch.GetElapsedTime(made).TotalMilliseconds:F1} ms)");
     }
 
     /// <summary>The board plays out how the hack ended and goes; the mouse goes back to driving at once.</summary>

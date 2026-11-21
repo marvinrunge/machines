@@ -53,11 +53,20 @@ public partial class ChipPanel : Container
 
     public override void _Draw() => ChipArt.Draw(this, new Rect2(Vector2.Zero, Size), ArtScale, power: _power);
 
+    private Tween? _switching;
+
+    /// <summary>A switching's tween, in place of one still under way (a chip switched on again as it goes off).</summary>
+    private Tween Switching()
+    {
+        _switching?.Kill();
+        return _switching = CreateTween();
+    }
+
     /// <summary>Switches the screen on after the delay, flickering on its way.</summary>
     public void SwitchOn(double delay)
     {
         Power = 0;
-        var tween = CreateTween();
+        var tween = Switching();
         tween.TweenInterval(delay);
         foreach (var (level, time) in new[] { (0.55f, 0.05), (0.1f, 0.06), (0.8f, 0.04), (0.35f, 0.07), (1f, 0.12) })
             tween.TweenProperty(this, "Power", level, time);
@@ -66,7 +75,7 @@ public partial class ChipPanel : Container
     /// <summary>Switches the screen off after the delay, flickering out.</summary>
     public void SwitchOff(double delay)
     {
-        var tween = CreateTween();
+        var tween = Switching();
         tween.TweenInterval(delay);
         foreach (var (level, time) in new[] { (0.35f, 0.03), (0.8f, 0.03), (0.15f, 0.04), (0f, 0.05) })
             tween.TweenProperty(this, "Power", level, time);
