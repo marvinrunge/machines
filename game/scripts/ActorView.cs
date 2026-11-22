@@ -168,6 +168,9 @@ public partial class ActorView : Node3D
     /// <summary>The middle of the model, where rounds fired at it fly to (high up for a flyer).</summary>
     public Vector3 Centre => GlobalTransform * _bounds.GetCenter();
 
+    /// <summary>How high the top of the model stands, as it is shown.</summary>
+    public float Top => (GlobalTransform * new Vector3(_bounds.GetCenter().X, _bounds.End.Y, _bounds.GetCenter().Z)).Y;
+
     /// <summary>The top of its faceplate and the plate's width, if it has one.</summary>
     public (Vector3 Top, float Width)? FaceplateTop => _rigView?.FaceplateTop;
 

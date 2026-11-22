@@ -110,7 +110,7 @@ public class WiredSightTests
     private static int Worth(Machine machine) => machine.HitPoints + machine.Armour;
 
     /// <summary>
-    /// The rules as before the guns' arcs (recordings of protocol 14 and earlier play so): a hull-only hero's gun lies along
+    /// The rules as before the guns' arcs (recordings of protocol 15 and earlier play so): a hull-only hero's gun lies along
     /// its hull. With the arcs its gun lies along the arc's edge instead, and the same rules hold from there (GunArcTests).
     /// </summary>
     private static void BeforeTheArcs(GameWorld world) => world.Options = world.Options with { HeroGunArc = false };

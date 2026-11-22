@@ -99,9 +99,32 @@ public class ChaseCameraTests
         Assert.Equal(8.25f, ChaseCamera.Arm(1.5f, 1), 3);
         Assert.Equal(8.25f * 1.4f, ChaseCamera.Arm(1.5f, 1.4f), 3);
         Assert.True(ChaseCamera.Arm(8.8f, 1) > 30);
-        Assert.Equal(2.5f, ChaseCamera.Lift(10), 4);
+        // A short hero: a quarter of the arm. A tall one (its top 6 m over its middle): its top and the clearance over it.
+        Assert.Equal(2.5f, ChaseCamera.Lift(10, 10, 1), 4);
+        Assert.Equal(6 + ChaseCamera.Clearance * 24, ChaseCamera.Lift(24, 24, 6), 4);
+        // A wall or hill that brings the arm in to a third brings the pivot down with it.
+        Assert.Equal((6 + ChaseCamera.Clearance * 24) / 3, ChaseCamera.Lift(8, 24, 6), 4);
+        Assert.Equal(0.25f * 4, ChaseCamera.Lift(4, 12, 0.5f), 4);
         Assert.Equal(3.3f, ChaseCamera.ShortestArm(1.5f), 4);
         Assert.True(ChaseCamera.ShortestArm(1.5f) > 1.3f * 1.5f, "the shortest arm leaves the camera outside a level hero");
+    }
+
+    [Fact]
+    public void A_camera_raised_over_a_hill_tips_down_to_keep_the_hero_in_the_picture()
+    {
+        var fov = 70 * Degree;
+        // On the line through the pivot, a quarter of the arm over the hero: the view's own pitch.
+        var spot = ChaseCamera.Place(Pivot, 0, ChaseCamera.StartPitch, 8, 3, float.MaxValue, null);
+        var centre = Pivot - new Vector3(0, 2, 0);
+        Assert.Equal(ChaseCamera.StartPitch, ChaseCamera.Tipped(ChaseCamera.StartPitch, spot.Camera, centre, fov));
+        // Raised 3 m straight up at the shortest arm (3.3 m): the hero's middle 30 degrees below the level, so the camera
+        // tips down until it stands at most 0.6 of the half picture below the middle.
+        var raised = new Vector3(Pivot.X - 3.3f, centre.Y + 3.3f * MathF.Tan(30 * Degree), Pivot.Z);
+        var tipped = ChaseCamera.Tipped(ChaseCamera.StartPitch, raised, centre, fov);
+        Assert.Equal(0.6f * 35 * Degree - 30 * Degree, tipped, 4);
+        Assert.True(tipped < ChaseCamera.StartPitch);
+        // Looking further down than that is the driver's own.
+        Assert.Equal(ChaseCamera.MostDown, ChaseCamera.Tipped(ChaseCamera.MostDown, raised, centre, fov));
     }
 
     [Fact]

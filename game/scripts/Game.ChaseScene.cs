@@ -69,6 +69,7 @@ public partial class Game
             await ChaseSightOn(foe);
             await Seconds(1.2);
             ChaseSnap(folder, $"chase-{chassis}-aim", hero);
+            ChaseSeen(hero, foe);
             Press(MouseButton.Left, true);
             await Seconds(0.7);
             ChaseSnap(folder, $"chase-{chassis}-fire", hero);
@@ -137,6 +138,17 @@ public partial class Game
             (_aimYaw, _lookPitch) = LookTo(view.Centre);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
         }
+    }
+
+    /// <summary>Logs whether the hero's own model stands between the camera and the foe the dot rests on, and how high the pivot stands over the hero's top.</summary>
+    private void ChaseSeen(Machine hero, Machine foe)
+    {
+        if (_chaseSpot is not { } spot || !_views.TryGetValue(hero.Id, out var mine) || !_views.TryGetValue(foe.Id, out var theirs))
+            return;
+        var to = theirs.Centre - spot.Camera;
+        var hidden = mine.Hit(spot.Camera, to.Normalized()) is { } at && at < to.Length();
+        GD.Print($"scene: chase: hero {hero.Id} foe {(hidden ? "hidden behind the hero" : "seen")}, {Mathf.Sqrt(to.X * to.X + to.Z * to.Z):0.0} m off, " +
+                 $"hero top {mine.Top - mine.GlobalPosition.Y:0.0} m, pivot {spot.Pivot.Y - mine.Top:0.0} m over it");
     }
 
     private void ChaseSnap(string folder, string name, Machine hero)

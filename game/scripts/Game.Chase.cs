@@ -91,24 +91,35 @@ public partial class Game
         var wanted = ChaseCamera.Arm(radius, GameOptions.ChaseDistance * ChaseCamera.Zooms[_chaseZoom]);
         var pitch = ChasePitch;
         var centre = view.Centre;
-        var pivotY = centre.Y + ChaseCamera.Lift(wanted);
-        _chasePivotY = _chaseArm < 0 ? pivotY : Mathf.Lerp(_chasePivotY, pivotY, 1 - Mathf.Exp(-8 * (float)delta));
-        var pivot = new Vector3(view.GlobalPosition.X, _chasePivotY, view.GlobalPosition.Z);
+        var top = view.Top - centre.Y;
+        var fresh = _chaseArm < 0;
         var ahead = ChaseCamera.Ahead(_aimYaw, pitch);
         // The buildings are tested on the ground plan, where the arm is shorter by the pitch.
         var flat = Mathf.Max(0.2f, Mathf.Cos(pitch));
-        var walls = Arm(pivot, new Vector3(-ahead.X, 0, -ahead.Z).Normalized(), wanted * flat) / flat;
         var ground = HeightField.Current;
-        var spot = ChaseCamera.Place(Of(pivot), _aimYaw, pitch, wanted, ChaseCamera.ShortestArm(radius), walls,
-            ground is null ? null : (x, z) => ground.At(x, z), ground is null ? null : at => GroundNear(ground, at.X, at.Z));
-        // Shorter at once (a wall or hill came between), longer slowly.
-        _chaseArm = _chaseArm < 0 || spot.Arm < _chaseArm ? spot.Arm : Mathf.Lerp(_chaseArm, spot.Arm, 1 - Mathf.Exp(-4 * (float)delta));
-        var placed = _chaseArm >= spot.Arm - 0.01f ? spot
-            : ChaseCamera.Place(Of(pivot), _aimYaw, pitch, _chaseArm, ChaseCamera.ShortestArm(radius), _chaseArm,
+        ChaseCamera.Spot Out(float pivotY, float arm)
+        {
+            var from = new Vector3(view.GlobalPosition.X, pivotY, view.GlobalPosition.Z);
+            var walls = Arm(from, new Vector3(-ahead.X, 0, -ahead.Z).Normalized(), arm * flat) / flat;
+            return ChaseCamera.Place(Of(from), _aimYaw, pitch, arm, ChaseCamera.ShortestArm(radius), walls,
                 ground is null ? null : (x, z) => ground.At(x, z), ground is null ? null : at => GroundNear(ground, at.X, at.Z));
+        }
+        // How far the arm comes out from the pivot at its full height; where a wall or hill brings it in, the pivot comes
+        // down with it and the arm is tried again from there.
+        var spot = Out(centre.Y + ChaseCamera.Lift(wanted, wanted, top), wanted);
+        if (spot.Arm < wanted - 0.01f)
+            spot = Out(centre.Y + ChaseCamera.Lift(spot.Arm, wanted, top), wanted);
+        // Shorter at once (a wall or hill came between), longer slowly; the pivot follows the arm, leaving out a walker's bobbing.
+        _chaseArm = _chaseArm < 0 || spot.Arm < _chaseArm ? spot.Arm : Mathf.Lerp(_chaseArm, spot.Arm, 1 - Mathf.Exp(-4 * (float)delta));
+        var pivotY = centre.Y + ChaseCamera.Lift(_chaseArm, wanted, top);
+        _chasePivotY = fresh ? pivotY : Mathf.Lerp(_chasePivotY, pivotY, 1 - Mathf.Exp(-8 * (float)delta));
+        var pivot = new Vector3(view.GlobalPosition.X, _chasePivotY, view.GlobalPosition.Z);
+        var placed = Out(_chasePivotY, _chaseArm);
         var camera = new Vector3(placed.Camera.X, placed.Camera.Y, placed.Camera.Z);
         _firstPersonCamera.GlobalPosition = camera;
-        _firstPersonCamera.GlobalRotation = new Vector3(pitch, -_aimYaw - Mathf.Pi / 2, 0);
+        // Raised over a hill behind a small hero, the camera tips down as far as keeps the hero in the picture.
+        _firstPersonCamera.GlobalRotation = new Vector3(ChaseCamera.Tipped(pitch, Of(camera), Of(centre), _firstPersonCamera.Fov * Mathf.Pi / 180),
+            -_aimYaw - Mathf.Pi / 2, 0);
         _firstPersonCamera.Basis *= CameraRig.ShakeAt(camera);
         var inside = ChaseCamera.InsideHero(Of(camera), Of(centre), radius);
         _firstPersonCamera.CullMask = inside ? ~ActorView.DrivenLayer & 0xFFFFF : 0xFFFFF;

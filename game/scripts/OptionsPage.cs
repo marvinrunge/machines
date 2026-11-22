@@ -219,7 +219,8 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         title.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         var change = Button("Change keys", keys, 56, 22);
         change.CustomMinimumSize = new Vector2(240, 56);
-        var rows = Column(20, Line(18, title, change));
+        // Closer than the other panels' rows, and its notes in one paragraph, so that Back stays on the screen.
+        var rows = Column(14, Line(18, title, change));
         chip.AddChild(rows);
 
         var gamma = Slider(GameOptions.Gamma, value => GameOptions.Gamma = value, GameOptions.GammaLowest, GameOptions.GammaHighest);
@@ -255,8 +256,8 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         var classicKeys = Setting("Classic Keys", Switch(GameOptions.ClassicKeys, on => GameOptions.ClassicKeys = on), 0);
         rows.AddChild(Setting("Classic Mouse", Line(28, Switch(GameOptions.ClassicMouse, on => GameOptions.ClassicMouse = on), classicKeys), 260));
         // The keys themselves are on their own page.
-        rows.AddChild(MenuTheme.Paragraph("Classic F.P. Keys drive as the original did, Classic Mouse gives orders with the left button, Classic Keys puts commands on their letters.", 20, MenuTheme.Dim));
-        rows.AddChild(MenuTheme.Paragraph("Mouse button per weapon: left, right and the wheel each fire a weapon; always on in Wired.", 20, MenuTheme.Dim));
+        rows.AddChild(MenuTheme.Paragraph(Lang.T("Classic F.P. Keys drive as the original did, Classic Mouse gives orders with the left button, Classic Keys puts commands on their letters.")
+            + " " + Lang.T("Mouse button per weapon: left, right and the wheel each fire a weapon; always on in Wired."), 18, MenuTheme.Dim));
         return chip;
     }
 

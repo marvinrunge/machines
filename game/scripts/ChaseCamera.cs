@@ -12,7 +12,7 @@ namespace Machines.Game;
 public static class ChaseCamera
 {
     /// <summary>The pitch the view starts at, and the most it looks down and up, radians (down negative).</summary>
-    public const float StartPitch = -6 * MathF.PI / 180, MostDown = -35 * MathF.PI / 180, MostUp = 20 * MathF.PI / 180;
+    public const float StartPitch = -6 * MathF.PI / 180, MostDown = -45 * MathF.PI / 180, MostUp = 20 * MathF.PI / 180;
 
     /// <summary>The steps of the mouse wheel, times the arm the options set.</summary>
     public static readonly float[] Zooms = [0.7f, 1f, 1.4f];
@@ -26,8 +26,18 @@ public static class ChaseCamera
     /// </summary>
     public static float Arm(float radius, float distance) => (3 + 3.5f * radius) * distance;
 
-    /// <summary>How far above the hero's middle the pivot stands: a quarter of the arm, so the hero sits below the crosshair.</summary>
-    public static float Lift(float arm) => 0.25f * arm;
+    /// <summary>How far over the hero's top the pivot stands at least, times the arm at its full length.</summary>
+    public const float Clearance = 0.15f;
+
+    /// <summary>
+    /// How far above the hero's middle the pivot stands for an arm of <paramref name="arm"/> metres (<paramref name="full"/>
+    /// at its full length) and a hero whose top stands <paramref name="top"/> metres over its middle: a quarter of the arm,
+    /// and at full length at least <see cref="Clearance"/> of the arm over the hero's top, so that the hero sits below the
+    /// crosshair and a foe the crosshair rests on beyond it is seen over its back, however tall the hero. A shorter arm (a
+    /// wall or a hill behind) brings the pivot down with it, so that the hero stays in the picture.
+    /// </summary>
+    public static float Lift(float arm, float full, float top) =>
+        MathF.Max(0.25f * arm, (MathF.Max(0, top) + Clearance * full) * Math.Clamp(arm / MathF.Max(full, 0.01f), 0, 1));
 
     /// <summary>The shortest the arm becomes before walls and hills; nearer, the camera would stand in the hero.</summary>
     public static float ShortestArm(float radius) => 1.2f * radius + 1.5f;
@@ -76,6 +86,23 @@ public static class ChaseCamera
         var floor = floorAt?.Invoke(camera) + Floor;
         var raised = floor is { } least && camera.Y < least ? least - camera.Y : 0;
         return new Spot(camera + new Vector3(0, raised, 0), length, raised);
+    }
+
+    /// <summary>The most the hero's middle stands below the picture's middle, of half the picture's height.</summary>
+    public const float LowestShare = 0.6f;
+
+    /// <summary>
+    /// The pitch the camera looks at from <paramref name="camera"/>: the view's, or tipped down where the hero's middle
+    /// (<paramref name="centre"/>) would stand lower in the picture than <see cref="LowestShare"/> of half its height
+    /// (<paramref name="fov"/>, radians, the camera's height). On the line through the pivot this never happens; raised
+    /// straight up over a hill behind the hero, it keeps the hero in the picture. The aim goes through the middle of the
+    /// picture whatever its pitch, so the crosshair still means where the rounds go.
+    /// </summary>
+    public static float Tipped(float pitch, Vector3 camera, Vector3 centre, float fov)
+    {
+        var flat = MathF.Max(0.1f, MathF.Sqrt((centre.X - camera.X) * (centre.X - camera.X) + (centre.Z - camera.Z) * (centre.Z - camera.Z)));
+        var below = MathF.Atan2(camera.Y - centre.Y, flat);
+        return MathF.Min(pitch, LowestShare * fov / 2 - below);
     }
 
     /// <summary>

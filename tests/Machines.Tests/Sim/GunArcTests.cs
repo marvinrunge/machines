@@ -157,10 +157,15 @@ public class GunArcTests
             new Replay(match, [], 10).Save(path);
             Assert.True(Replay.Load(path).Match.Options.HeroGunArc);
 
-            // The same recording stamped with protocol 14, the last before the arcs, whose options said nothing of them.
-            var old = Path.Combine(folder, "old" + Replay.Extension);
-            File.WriteAllBytes(old, System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new Replay(match, [], 10, Format: 14), NetJson.Options));
-            Assert.False(Replay.Load(old).Match.Options.HeroGunArc);
+            // The same recording stamped with protocol 14 or 15 (fitted bodies), the last before the arcs, whose options said nothing of them.
+            foreach (var format in new[] { 14, 15 })
+            {
+                var old = Path.Combine(folder, $"old{format}" + Replay.Extension);
+                File.WriteAllBytes(old, System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new Replay(match, [], 10, Format: format), NetJson.Options));
+                var loaded = Replay.Load(old).Match.Options;
+                Assert.False(loaded.HeroGunArc);
+                Assert.True(loaded.FittedBodies);
+            }
         }
         finally
         {
