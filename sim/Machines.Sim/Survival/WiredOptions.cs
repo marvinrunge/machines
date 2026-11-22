@@ -36,6 +36,13 @@ public sealed record WiredOptions
     /// </summary>
     public IReadOnlyList<WiredHero> Heroes { get; init; } = [];
 
+    /// <summary>
+    /// Whether the waves from the sixth on without a boss are brisk ones (<see cref="WiredBalance.Brisk"/>): more machines,
+    /// each the weaker, from nearer and closer together. On for every new run; recordings and saved games from before say
+    /// false (<c>Replay.Load</c> reads a run without the field so), so they play back as they were played.
+    /// </summary>
+    public bool BriskWaves { get; init; } = true;
+
     /// <summary>The hero a player starts the run with: its entry in <see cref="Heroes"/>, else the run's own.</summary>
     public WiredHero HeroFor(PlayerId player) =>
         Heroes.FirstOrDefault(h => h.Player == player) ?? new WiredHero(player, HeroName, Chassis, Items);

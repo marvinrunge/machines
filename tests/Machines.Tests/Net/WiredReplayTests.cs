@@ -310,6 +310,30 @@ public class WiredReplayTests
     }
 
     [Fact]
+    public void A_run_recorded_before_brisk_waves_plays_back_without_them()
+    {
+        Assert.True(Run().Options.Wired!.BriskWaves);
+        var path = Path.Combine(Path.GetTempPath(), $"brisk-{Guid.NewGuid():N}.mreplay");
+        try
+        {
+            new Replay(Run(), [], 0).Save(path);
+            Assert.True(Replay.Load(path).Match.Options.Wired!.BriskWaves);
+
+            // The file as one from before reads without the field: its waves were planned without brisk ones.
+            var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+            Assert.True(json["Match"]!["Options"]!["Wired"]!.AsObject().Remove(nameof(WiredOptions.BriskWaves)));
+            File.WriteAllText(path, json.ToJsonString());
+            var old = Replay.Load(path);
+            Assert.False(old.Match.Options.Wired!.BriskWaves);
+            Assert.Equal((true, WiredDifficulty.Hard, "grunt2"), (old.Match.Options.FittedBodies, old.Match.Options.Wired.Difficulty, old.Match.Options.Wired.Chassis));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void A_recording_from_before_wired_loads_without_a_run()
     {
         var match = new MatchInfo("m_desert", "m_desert", new MatchOptions(), 4, 1, [new MatchPlayer(0, "Anna", Race.Red, Race.Red, Ai: false)]);

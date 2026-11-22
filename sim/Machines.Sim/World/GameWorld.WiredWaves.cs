@@ -87,7 +87,7 @@ public sealed partial class GameWorld
             return run.SpawnPoints[Random.Next(run.SpawnPoints.Count)];
         var goal = Doorstep(pod);
         float Way(Vector2 p) => run.SpawnWays.TryGetValue(p, out var way) ? way : Vector2.Distance(p, goal);
-        var reach = WiredBalance.SpawnReach(run.Wave);
+        var reach = WiredBalance.SpawnReach(run.Wave, run.Options.BriskWaves);
         var choice = run.SpawnPoints.Where(p => Way(p) <= reach).ToList();
         if (choice.Count < WiredBalance.FewestSpawnChoices)
             choice = run.SpawnPoints.OrderBy(Way).Take(WiredBalance.FewestSpawnChoices).ToList();
@@ -138,7 +138,7 @@ public sealed partial class GameWorld
             state.HangarOpen = false;
             RefillMines(state);
         }
-        var plan = WiredDirector.Plan(Data, run.Wave, run.Options.Difficulty, Random, run.NextSpecial, run.Heroes.Count);
+        var plan = WiredDirector.Plan(Data, run.Wave, run.Options.Difficulty, Random, run.NextSpecial, run.Heroes.Count, run.Options.BriskWaves);
         run.Boss = plan.Boss;
         run.WaveStarted = run.LastGroupAt = Time;
         run.NextReview = Time + WiredBalance.OrdersEvery;
