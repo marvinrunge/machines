@@ -30,6 +30,52 @@ public partial class RigView : Node3D
         set => _upperBody = value;
     }
 
+    /// <summary>
+    /// How far the weapons stand angled on their mounts, radians anticlockwise in the original's axes: a sighted hero without
+    /// an upper body angles them within their arc towards where its driver looks (GameWorld.GunAngleOf). Each mounting part
+    /// (r_gun, l_gun, gun) turns about its own upright, over whatever else moves it.
+    /// </summary>
+    public float GunSwing { get; set; }
+
+    // The mounting parts, found once; what each stood at before its swing was laid over it, and what the swing made of it.
+    private int[]? _mounts;
+    private readonly Dictionary<int, (Transform3D Before, Transform3D Swung)> _swung = [];
+
+    /// <summary>Takes last frame's swing off the mounting parts that nothing else has moved since, so that it is not laid on twice.</summary>
+    private void Unswing()
+    {
+        foreach (var (node, (before, swung)) in _swung)
+            if (_nodes[node].Transform.IsEqualApprox(swung))
+                _nodes[node].Transform = before;
+        _swung.Clear();
+    }
+
+    // A weapon's mount (as HeroParts names them); what hangs from another mount, as the autocannon's "gun", swings with it.
+    private bool IsMount(int node) => _rig.Nodes[node].Name.ToLowerInvariant() is "l_gun" or "r_gun" or "gun" or "t_gun";
+
+    private bool UnderMount(int node)
+    {
+        for (var up = _rig.Nodes[node].Parent; up >= 0 && up < _rig.Nodes.Length; up = _rig.Nodes[up].Parent)
+            if (IsMount(up))
+                return true;
+        return false;
+    }
+
+    /// <summary>Lays the swing over the mounting parts as they stand after this frame's motions.</summary>
+    private void Swing()
+    {
+        if (Mathf.IsZeroApprox(GunSwing))
+            return;
+        _mounts ??= Enumerable.Range(0, Math.Min(_rig.Nodes.Length, _nodes.Length)).Where(i => IsMount(i) && !UnderMount(i) && i != _rig.UpperBody).ToArray();
+        foreach (var node in _mounts)
+        {
+            var before = _nodes[node].Transform;
+            var swung = before * new Transform3D(new Basis(Vector3.Up, -GunSwing), Vector3.Zero);
+            _nodes[node].Transform = swung;
+            _swung[node] = (before, swung);
+        }
+    }
+
     /// <summary>What it draws: its parts, cycles, actions and weapons.</summary>
     public Rig Rig => _rig;
 
@@ -675,6 +721,7 @@ public partial class RigView : Node3D
     /// </summary>
     public void Animate(float delta, float speed, float turnRate, float maxSpeed, float aim, float sideways = 0, float fastest = FastestWalk)
     {
+        Unswing();
         // Legs walk whichever way the machine goes, sideways too in first person.
         var moving = Mathf.Abs(speed) > 0.3f || Mathf.Abs(sideways) > 0.3f;
         var turning = !moving && Mathf.Abs(turnRate) > 0.3f;
@@ -796,6 +843,7 @@ public partial class RigView : Node3D
             _nodes[_rig.UpperBody].Transform = (_head ?? _rig.Nodes[_rig.UpperBody].Rest) * new Transform3D(new Basis(Vector3.Up, -_upperBody), Vector3.Zero);
         }
         MoveShake(delta);
+        Swing();
     }
 
     // The positions a shake goes through and how far along it is.

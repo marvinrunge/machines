@@ -20,7 +20,9 @@ public static class NetJson
     /// 14: relay-paced bundles (P2: the relay keeps the beat and sends a bundle a tick; lag marks, late joins, seat keys,
     /// rebuilds from the relay's log; recordings may hold joins and lag marks). 15: fitted bodies (the options'
     /// FittedBodies: machines stand and are hit in bodies fitted to their models, so a client of 14 would play another match).
-    /// 16: the computers' skirmish rules (the options' SkirmishAi: a client of 15 would play the computers as before).
+    /// 16: the computers' skirmish rules and the heroes' gun arcs (the options' SkirmishAi, a client of 15
+    /// would play the computers as before; and a sighted hero without an upper body angles its guns within their arcs,
+    /// <see cref="MatchOptions.HeroGunArc"/>, recordings from before play without).
     /// </summary>
     public const int Protocol = 16;
 

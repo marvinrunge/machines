@@ -151,8 +151,25 @@ public partial class ActorView : Node3D
     /// <summary>Where the upper body has turned to so far (it turns at its own rate), radians as <see cref="UpperBodyAngle"/>.</summary>
     public float UpperBodyNow => _rigView?.UpperBody ?? 0;
 
+    /// <summary>
+    /// How far a sighted hero without an upper body has its weapons angled on their mounts, radians as
+    /// <see cref="UpperBodyAngle"/> (see <see cref="RigView.GunSwing"/>); 0 for any other machine.
+    /// </summary>
+    public float GunSwing
+    {
+        get => _rigView?.GunSwing ?? 0;
+        set
+        {
+            if (_rigView is not null)
+                _rigView.GunSwing = value;
+        }
+    }
+
     /// <summary>The middle of the model, where rounds fired at it fly to (high up for a flyer).</summary>
     public Vector3 Centre => GlobalTransform * _bounds.GetCenter();
+
+    /// <summary>How high the top of the model stands, as it is shown.</summary>
+    public float Top => (GlobalTransform * new Vector3(_bounds.GetCenter().X, _bounds.End.Y, _bounds.GetCenter().Z)).Y;
 
     /// <summary>The top of its faceplate and the plate's width, if it has one.</summary>
     public (Vector3 Top, float Width)? FaceplateTop => _rigView?.FaceplateTop;
@@ -468,6 +485,15 @@ public partial class ActorView : Node3D
         if (driven || _inHead)
             Hum = driven ? "SID_INHEAD" : null;
         _inHead = _driven = driven;
+    }
+
+    /// <summary>The cabin's sound stops, as when the machine first moves: its driver sees it from behind (Game.Chase.cs).</summary>
+    public void LeaveCabinSound()
+    {
+        if (!_inHead)
+            return;
+        _inHead = false;
+        Hum = null;
     }
 
     // Whether the player sits in it, from first to last.

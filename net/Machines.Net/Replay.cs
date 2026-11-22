@@ -43,8 +43,14 @@ public sealed record Replay(MatchInfo Match, IReadOnlyList<Turn> Turns, long Tic
             options = options with { SkirmishAi = false };
         if (options.Wired is { } wired && stamp.Match?.Options?.Wired?.BriskWaves is null)
             options = options with { Wired = wired with { BriskWaves = false } };
+        // A recording from before the heroes' guns had their arc plays back without it, as it was played.
+        if (stamp.Format < GunArcFormat)
+            options = options with { HeroGunArc = false };
         return options == replay.Match.Options ? replay : replay with { Match = replay.Match with { Options = options } };
     }
+
+    /// <summary>The first protocol whose sighted heroes' guns angle within their arcs (<see cref="MatchOptions.HeroGunArc"/>).</summary>
+    public const int GunArcFormat = 16;
 
     /// <summary>
     /// The fields of a recording read before the rest: its format, and which of the options added since its options name

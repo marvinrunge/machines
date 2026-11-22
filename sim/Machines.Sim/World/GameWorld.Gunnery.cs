@@ -180,8 +180,8 @@ public sealed partial class GameWorld
     /// <summary>Where an actor's head stands, radians anticlockwise from its hull: 0 for a machine without one.</summary>
     public float HeadOf(int actor) => _heads.GetValueOrDefault(actor);
 
-    /// <summary>Which way a machine's gun points, radians anticlockwise: its hull and its upper body together.</summary>
-    public float GunHeading(Machine machine) => Heading(machine);
+    /// <summary>Which way a machine's gun points, radians anticlockwise: its hull and its upper body together, or its guns angled in their arc (<see cref="GunAngleOf"/>).</summary>
+    public float GunHeading(Machine machine) => Heading(machine) + GunAngleOf(machine);
 
     /// <summary>How far a sighted machine's gun lags behind where its driver looks, radians anticlockwise, ±π.</summary>
     private float GunLag(Machine machine, float yaw) => MathF.IEEERemainder(Heading(machine) - yaw, 2 * MathF.PI);

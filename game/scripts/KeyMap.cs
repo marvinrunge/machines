@@ -47,6 +47,7 @@ public static class KeyMap
         Ability2,
         Dash,
         Special,
+        ChaseView,
     }
 
     /// <summary>Where an action's key works. Two actions that work in the same place cannot share a key.</summary>
@@ -109,6 +110,8 @@ public static class KeyMap
         [Act.Dash] = new("Dash", Key.Space, Where.FirstPerson | Where.Run),
         // What the hero's chassis has of its own: an anchor, a rally, a mine, towers, a pulse.
         [Act.Special] = new("Special", Key.J, Where.FirstPerson | Where.Run),
+        // First or third person for the hero: on the key that leaves first person elsewhere, which a run keeps the driver in.
+        [Act.ChaseView] = new("Third person", Key.F, Where.FirstPerson | Where.Run),
     };
 
     /// <summary>
@@ -332,8 +335,17 @@ public static class KeyMap
     // The views an action's key works in; the hangar's in both.
     private static Where Views(Act act) => (Entries[act].Where & Where.Both) is var views && views != 0 ? views : Where.Both;
 
-    /// <summary>A run has the ground and first person too: what is picked now keeps out of the way of its key, though old choices that share it stand.</summary>
-    private static bool Crosses(Act a, Act b) => (Views(a) & Views(b)) != 0;
+    /// <summary>
+    /// A run has the ground and first person too: what is picked now keeps out of the way of its key, though old choices that
+    /// share it stand. First person's key and the hero's view never meet (<see cref="Apart"/>), and may share one.
+    /// </summary>
+    private static bool Crosses(Act a, Act b) => (Views(a) & Views(b)) != 0 && !Apart(a, b);
+
+    /// <summary>
+    /// Two actions that never work at the same time: first person's key leaves first person only where nothing keeps the
+    /// driver in it, and the hero's view switches only in a run or a battle, which keeps the driver in the hero.
+    /// </summary>
+    private static bool Apart(Act a, Act b) => (a, b) is (Act.FirstPerson, Act.ChaseView) or (Act.ChaseView, Act.FirstPerson);
 
     private static string Setting(Act act) =>
         string.Concat(act.ToString().Select((c, i) => i > 0 && char.IsUpper(c) ? "_" + char.ToLowerInvariant(c) : char.ToLowerInvariant(c).ToString()));

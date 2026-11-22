@@ -6,7 +6,7 @@ namespace Machines.Game;
 /// The switches of the original's options screen (MachGuiCtxOptions) beside the volumes and the look: the up and down
 /// keys reversed, the first-person mouse reversed, the 2D selection box, 3D sound and the gamma correction. They are
 /// kept in <c>user://settings.cfg</c> and take at once. MACHINES_OPTIONS sets them for one run (screenshots, checks),
-/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic,dof=strong,film=on,mouse_speed=1.5,classic_mouse=on,classic_keys=on,weapon_buttons=on,fire_waits=off,hud_size=1.25</c>.
+/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic,dof=strong,film=on,mouse_speed=1.5,classic_mouse=on,classic_keys=on,weapon_buttons=on,fire_waits=off,hud_size=1.25,hero_view=first,chase_distance=1.2</c>.
 /// Depth of field, the film look, the first-person mouse speed, the choice of mouse and keys, the triggers of the weapons, fire waiting for the gun and the HUD's size are the remake's own.
 /// </summary>
 public static class GameOptions
@@ -19,8 +19,12 @@ public static class GameOptions
     /// <summary>The first-person mouse speed's range, times the standard speed.</summary>
     public const float MouseSpeedLowest = 0.25f, MouseSpeedHighest = 2.5f;
 
+    /// <summary>The third-person camera's distance's range, times its standard arm.</summary>
+    public const float ChaseDistanceLowest = 0.7f, ChaseDistanceHighest = 1.5f;
+
     private static bool _read, _reverseKeys, _reverseMouse, _selection2d, _sound3d = true, _classicDriving, _filmLook, _classicMouse, _classicKeys, _weaponButtons, _transitions = true, _fireWaits = true;
-    private static float _gamma = 1, _mouseSpeed = 1, _hudSize = 1;
+    private static float _gamma = 1, _mouseSpeed = 1, _hudSize = 1, _chaseDistance = 1;
+    private static bool _thirdPerson = true;
     private static Blur _depthOfField;
     private static string? _playerName, _publicRelay;
 
@@ -99,6 +103,34 @@ public static class GameOptions
     {
         get { Read(); return _mouseSpeed; }
         set => Keep(ref _mouseSpeed, Mathf.Clamp(value, MouseSpeedLowest, MouseSpeedHighest), "controls", "mouse_speed");
+    }
+
+    /// <summary>
+    /// Whether the hero of a Wired run or a battle is driven from behind and above (third person, the default) rather than
+    /// from its faceplate, with the Modern layout; switched in the match with its key (<see cref="KeyMap.Act.ChaseView"/>) or
+    /// the mouse wheel, and kept as last used. Not in the original. Kept as <c>hero_view = third</c> or <c>first</c>.
+    /// </summary>
+    public static bool ThirdPerson
+    {
+        get { Read(); return _thirdPerson; }
+        set
+        {
+            Read();
+            if (_thirdPerson == value)
+                return;
+            _thirdPerson = value;
+            var config = new ConfigFile();
+            config.Load(Settings);
+            config.SetValue("controls", "hero_view", value ? "third" : "first");
+            config.Save(Settings);
+        }
+    }
+
+    /// <summary>How far behind the hero the third-person camera stands, times its standard arm (Camera distance). Kept as <c>chase_distance</c>.</summary>
+    public static float ChaseDistance
+    {
+        get { Read(); return _chaseDistance; }
+        set => Keep(ref _chaseDistance, Mathf.Clamp(value, ChaseDistanceLowest, ChaseDistanceHighest), "controls", "chase_distance");
     }
 
     /// <summary>
@@ -258,6 +290,8 @@ public static class GameOptions
             _classicKeys = (bool)config.GetValue("controls", "classic_keys", false);
             _weaponButtons = (bool)config.GetValue("controls", "weapon_buttons", false);
             _fireWaits = (bool)config.GetValue("controls", "fire_waits_for_gun", true);
+            _thirdPerson = (string)config.GetValue("controls", "hero_view", "third") != "first";
+            _chaseDistance = Mathf.Clamp((float)(double)config.GetValue("controls", "chase_distance", 1.0), ChaseDistanceLowest, ChaseDistanceHighest);
             _hudSize = Mathf.Clamp((float)(double)config.GetValue("display", "hud_size", 1.0), HudSizes[0], HudSizes[^1]);
             _playerName = (string)config.GetValue("multiplayer", "name", "") is { Length: > 0 } name ? name : null;
             _publicRelay = ((string)config.GetValue("multiplayer", "public_relay", "")).Trim();
@@ -279,6 +313,10 @@ public static class GameOptions
                 case "classic_keys": _classicKeys = on; break;
                 case "weapon_buttons": _weaponButtons = on; break;
                 case "fire_waits": _fireWaits = on; break;
+                case "hero_view": _thirdPerson = value != "first"; break;
+                case "chase_distance" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var chase):
+                    _chaseDistance = Mathf.Clamp(chase, ChaseDistanceLowest, ChaseDistanceHighest);
+                    break;
                 case "gamma" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var gamma):
                     _gamma = Mathf.Clamp(gamma, GammaLowest, GammaHighest);
                     break;

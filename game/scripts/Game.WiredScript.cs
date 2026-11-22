@@ -18,7 +18,7 @@ public partial class Game
 
     /// <summary>
     /// Plays a scene of a run through and prints its figures, with pictures in the folder: hud, boss, twins, night, ion, pickup,
-    /// down, intermission, refit, load, groundload, refused, triggers, squad, keys, specials, towers, leave, bay, turret, turrethull. The last nine press what a player presses,
+    /// down, intermission, refit, load, groundload, refused, triggers, squad, keys, specials, towers, leave, bay, turret, turrethull, chase (Game.ChaseScene.cs). The last ten press what a player presses,
     /// through Input. The hero wears full gear and, unless the scene is about its death, does not fall. losepod, losebody, plainend,
     /// unlock and unlock20 end the run and leave the game open for its end screen, plainsave saves it half way and quits; several
     /// joined by + go with the runs one after the other.
@@ -70,6 +70,7 @@ public partial class Game
             "refused" => SceneRefused(folder, run),
             "turret" => SceneTurret(folder, run, hullOnly: false),
             "turrethull" => SceneTurret(folder, run, hullOnly: true),
+            "chase" => SceneChase(folder, run),
             "stray" => SceneStray(folder, run),
             "podhit" => ScenePodHit(folder, run),
             "podfire" => ScenePodFire(folder, run),
