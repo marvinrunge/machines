@@ -31,7 +31,7 @@ public class WiredReplayTests
     ]);
 
     [Fact]
-    public void The_protocol_went_up_for_relay_paced_bundles() => Assert.Equal(14, NetJson.Protocol);
+    public void The_protocol_went_up_for_fitted_bodies() => Assert.Equal(15, NetJson.Protocol);
 
     [Fact]
     public void Every_wired_command_comes_through_the_wire_as_it_went_in()

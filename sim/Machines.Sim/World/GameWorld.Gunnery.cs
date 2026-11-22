@@ -246,10 +246,13 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// The space an actor fills (its bounding volume), for what hits it and what it hides: from the ground to twice the
-    /// height of its middle; a flyer's in the air, as high as it is long.
+    /// height of its middle; a flyer's in the air, as high as it is long. With fitted bodies a machine's is the box round
+    /// its body on the map's axes (GameWorld.Bodies).
     /// </summary>
     private (Vector3 Min, Vector3 Max) BoxOf(Actor actor)
     {
+        if (FittedBodyOf(actor) is { } body)
+            return body.Bounds();
         var (ground, top) = (Terrain?.At(actor.Position) ?? 0, AimPoint(actor).Z);
         if (actor is Construction building)
             return (new Vector3(building.Footprint.Min, ground), new Vector3(building.Footprint.Max, 2 * top - ground));
@@ -370,8 +373,14 @@ public sealed partial class GameWorld
         {
             if (actor.IsDead || actor is Machine { Inside: not null } || !counts(actor))
                 return;
-            var (min, max) = BoxOf(actor);
-            if (EntryInto(from, to, min, max) is not { } along)
+            // With fitted bodies a machine is met in its body (GameWorld.Bodies).
+            float? entry;
+            if (!EntryIntoBody(actor, from, to, out entry))
+            {
+                var (min, max) = BoxOf(actor);
+                entry = EntryInto(from, to, min, max);
+            }
+            if (entry is not { } along)
                 return;
             if (first is not { } best || along < best.Along || along == best.Along && actor.Id < best.Actor.Id)
                 first = (actor, along);
@@ -425,12 +434,21 @@ public sealed partial class GameWorld
         {
             if (actor.IsDead || actor is Machine { Inside: not null } || spares && actor.Id == shooter)
                 return;
-            var (min, max) = BoxOf(actor);
-            var off = Vector3.DistanceSquared(point, Vector3.Clamp(point, min, max));
+            float off, foot;
+            // With fitted bodies it is measured to a machine's body (GameWorld.Bodies).
+            if (OffBody(actor, point) is { } toBody)
+            {
+                (off, foot) = (toBody, Terrain?.At(actor.Position) ?? 0);
+            }
+            else
+            {
+                var (min, max) = BoxOf(actor);
+                (off, foot) = (Vector3.DistanceSquared(point, Vector3.Clamp(point, min, max)), min.Z);
+            }
             if (off >= radius * radius)
                 return;
             var hit = damage;
-            if (actor is Machine && fallsOff && off > 1e-4f && Vector3.Distance(point, new Vector3(actor.Position, min.Z)) is > 1 and var distance)
+            if (actor is Machine && fallsOff && off > 1e-4f && Vector3.Distance(point, new Vector3(actor.Position, foot)) is > 1 and var distance)
                 hit = Math.Max(1, (int)(damage - distance * damage / radius));
             Damage(actor, hit, race, by, WeaponOf(weapon), player: owner);
             Raise(new GameEvent(GameEventKind.Hit, actor.Id, actor.Position, shooter, weapon.TypeName));

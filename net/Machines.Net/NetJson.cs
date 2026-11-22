@@ -18,9 +18,10 @@ public static class NetJson
     /// options' Battle). 12: Wired's chassis specials (special, tower and scrap commands). 13: players apart from races (turns,
     /// checksums, leaving and coming back by player; seats with their race, several a race; recordings stamped with it).
     /// 14: relay-paced bundles (P2: the relay keeps the beat and sends a bundle a tick; lag marks, late joins, seat keys,
-    /// rebuilds from the relay's log; recordings may hold joins and lag marks).
+    /// rebuilds from the relay's log; recordings may hold joins and lag marks). 15: fitted bodies (the options'
+    /// FittedBodies: machines stand and are hit in bodies fitted to their models, so a client of 14 would play another match).
     /// </summary>
-    public const int Protocol = 14;
+    public const int Protocol = 15;
 
     public static readonly JsonSerializerOptions Options = Create();
 

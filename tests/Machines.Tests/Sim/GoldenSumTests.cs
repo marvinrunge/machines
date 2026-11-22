@@ -17,7 +17,9 @@ namespace Machines.Tests.Sim;
 /// seat order, then the computer's rows in seat order) and built through <see cref="Replay.BuildWorld"/>, so the sums pin
 /// the actor order of a real online match; one lockstep session plays it, every human's turn coming through the wire as
 /// the relay brings it, the commands made by the players' scripts (<see cref="GoldenScript"/>). Each match's recording is
-/// saved, loaded and played back to the same sums.
+/// saved, loaded and played back to the same sums. G1 to G9 were taken before machines had fitted bodies and keep the
+/// original's circles (<see cref="MatchOptions.FittedBodies"/> false, as a recording from then plays back); G10 to G12 play
+/// G1, G3 and G4 in fitted bodies, as every match since does.
 /// </summary>
 /// <remarks>
 /// The constants were copied from the printed <c>0x…UL</c> and held three runs in a row. Later changes may adapt the calls
@@ -150,6 +152,20 @@ public class GoldenSumTests(ITestOutputHelper output)
         Assert.Equal((WiredPhase.Wave, 5), (match.World.Wired!.Phase, match.World.Wired.Wave));
     }
 
+    [Fact]
+    public void A_skirmish_in_fitted_bodies_keeps_its_sums() => Play(GoldenCase.FittedSkirmish, FittedSkirmishSums);
+
+    [Fact]
+    public void A_wired_run_in_fitted_bodies_keeps_its_sums() => Play(GoldenCase.FittedWired, FittedWiredSums);
+
+    [Fact]
+    public void A_battle_in_fitted_bodies_keeps_its_sums_and_result()
+    {
+        var match = Play(GoldenCase.FittedBattle, FittedBattleSums);
+
+        Assert.Equal(FittedBattleEnded, match.World.Battle!.Result);
+    }
+
     // Taken at e915579 (branch online, P0 committed, nothing of P1 built).
     private static readonly ulong[] SkirmishSums = [0x4267B178A96649D3UL, 0x9E440FFF9F1190A5UL];
     private static readonly ulong[] FourWaySums = [0xCE853B3BB625E2ADUL, 0xE9C8E3683C9106F2UL, 0x640F9E9E5D6727C5UL];
@@ -165,4 +181,11 @@ public class GoldenSumTests(ITestOutputHelper output)
     private static readonly BattleResult ReturningBattleEnded = new(0, BattleEnd.Wipe, 538.7f);
     private static readonly ulong[] OrdersSums = [0x8A125333E713E7BFUL, 0x6D33FD9711139C1FUL, 0x2FD0D33A99C8B818UL];
     private static readonly ulong[] WiredOrdersSums = [0x062822930B5E3B47UL, 0x7D60C49AF3349580UL, 0x021D50BFEDE74C78UL];
+    // G1 to G9 keep the original's circles (MatchOptions.FittedBodies false, as a recording from before plays back); G10 to
+    // G12 are G1, G3 and G4 in fitted bodies, as every match since plays, taken on fit/bodies and held three runs. G10 parts
+    // from G1 after its first sum, G12 from G4 after its second, as their armies meet; G11 from the first.
+    private static readonly ulong[] FittedSkirmishSums = [0x4267B178A96649D3UL, 0x3EF8C95339E9833CUL];
+    private static readonly ulong[] FittedWiredSums = [0x1C76934880D9A3AEUL, 0x256447DCE64C3DB2UL, 0x0CA3C903AB0292F4UL];
+    private static readonly ulong[] FittedBattleSums = [0xE142FCCC97986C2BUL, 0x8D3C8E387ECDB623UL, 0x321387CCEE7FB575UL, 0xB08337D69BEC8611UL];
+    private static readonly BattleResult FittedBattleEnded = new(1, BattleEnd.Wipe, 533.10004f);
 }

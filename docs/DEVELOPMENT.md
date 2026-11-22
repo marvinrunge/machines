@@ -397,7 +397,7 @@ The public relay is the same `server/Machines.Relay`, reached over WebSocket: pl
 (`wss://…`, or the `https://…` Cloud Run shows) where they would type host:port, and the game takes WebSocket for a web
 address and TCP for anything else. Beside the TCP port the relay serves HTTP on the port of the `PORT` environment
 variable (Cloud Run sets it) or of `--http-port`: `GET /health` answers
-`{"status":"ok","version":"1.0","protocol":14,"rooms":0,"players":0}`, and `/ws` takes the games' WebSockets into the
+`{"status":"ok","version":"1.0","protocol":15,"rooms":0,"players":0}`, and `/ws` takes the games' WebSockets into the
 same rooms as TCP. It logs to standard output.
 
 A dropped line costs the match nothing. A game asks the relay for a session as it connects; both sides count their

@@ -35,6 +35,9 @@ public class GoldenBundleTests(ITestOutputHelper output)
         [GoldenCase.ReturningBattle.Name] = ("ReturningBattleSums", "ReturningBattleEnded"),
         [GoldenCase.Orders.Name] = ("OrdersSums", null),
         [GoldenCase.WiredOrders.Name] = ("WiredOrdersSums", null),
+        [GoldenCase.FittedSkirmish.Name] = ("FittedSkirmishSums", null),
+        [GoldenCase.FittedWired.Name] = ("FittedWiredSums", null),
+        [GoldenCase.FittedBattle.Name] = ("FittedBattleSums", "FittedBattleEnded"),
     };
 
     private static T PinnedIn<T>(string field) =>

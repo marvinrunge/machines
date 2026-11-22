@@ -103,6 +103,19 @@ public partial class Studio : Node
         _assets = new ClassicAssets(Paths.Root);
         BuildStage();
 
+        // MACHINES_STUDIO_HITBOX=numbers: every machine measured in every look for its body; =1: pictured against its shapes (Studio.Hitbox).
+        var hitbox = System.Environment.GetEnvironmentVariable("MACHINES_STUDIO_HITBOX");
+        if (hitbox is "1" or "numbers")
+        {
+            Directory.CreateDirectory(output);
+            if (hitbox == "numbers")
+                await HitboxNumbers(output);
+            else
+                await HitboxSheets(output);
+            GetTree().Quit();
+            return;
+        }
+
         // MACHINES_STUDIO_WALK=<model id>[,<frames>]: the machine walking on the spot instead, a picture a frame.
         if (System.Environment.GetEnvironmentVariable("MACHINES_STUDIO_WALK") is { Length: > 0 } walk)
         {

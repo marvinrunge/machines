@@ -21,16 +21,16 @@ internal sealed record GoldenCase(string Name, MatchInfo Match, int[] Ticks, Fun
     private static readonly string[] Names = ["Anna", "Ben", "Cleo", "Dan"];
 
     /// <summary>G1: two commanders on Canyon Attack, Red and Blue.</summary>
-    public static GoldenCase Skirmish => new("G1 skirmish", Relayed("m_desert", "m_desert", new MatchOptions(), 11, [Race.Red, Race.Blue], []),
+    public static GoldenCase Skirmish => new("G1 skirmish", Relayed("m_desert", "m_desert", Circles, 11, [Race.Red, Race.Blue], []),
         [1000, 3000], () => [new SkirmishScript(Race.Red, 101), new SkirmishScript(Race.Blue, 102)]);
 
     /// <summary>G2: four races on Central Dominance, Red and Yellow commanded (with alliances), Blue and Green the computer's; Yellow leaves and comes back.</summary>
-    public static GoldenCase FourWay => new("G2 four-way", Relayed("fortmult", "fortmult", new MatchOptions(), 3, [Race.Red, Race.Yellow], [Race.Blue, Race.Green]),
+    public static GoldenCase FourWay => new("G2 four-way", Relayed("fortmult", "fortmult", Circles, 3, [Race.Red, Race.Yellow], [Race.Blue, Race.Green]),
         [1000, 2000, 4000], () => [new SkirmishScript(Race.Red, 201, alliances: true), new SkirmishScript(Race.Yellow, 202, alliances: true)],
         new PlayerLeft(PlayerId.Of(Race.Yellow), 600), new PlayerReturned(PlayerId.Of(Race.Yellow), 1400));
 
     /// <summary>G3: a Wired run on Canyon Attack, Red's hero commanded, Blue the computer's.</summary>
-    public static GoldenCase Wired => new("G3 Wired", Relayed("m_desert", "m_desert", new MatchOptions { Wired = new WiredOptions() }, 7, [Race.Red], [Race.Blue]),
+    public static GoldenCase Wired => new("G3 Wired", Relayed("m_desert", "m_desert", Circles with { Wired = new WiredOptions() }, 7, [Race.Red], [Race.Blue]),
         [1000, 4000, 8000], () => [new WiredScript(Race.Red, 301)]);
 
     /// <summary>
@@ -41,7 +41,7 @@ internal sealed record GoldenCase(string Name, MatchInfo Match, int[] Ticks, Fun
         () => [new BattleScript(Race.Red, 401), new BattleScript(Race.Green, 402)]);
 
     /// <summary>G5: a battle of bots only on Central Dominance at tier V, one life each; it ends before the last sum.</summary>
-    public static GoldenCase BotBattle => new("G5 bot battle", RelayedBattle("fortmult", new BattleOptions { Tier = 5 }, 9), [2000, 6000], () => []);
+    public static GoldenCase BotBattle => new("G5 bot battle", RelayedBattle("fortmult", new BattleOptions { Tier = 5 }, 9, fitted: false), [2000, 6000], () => []);
 
     /// <summary>G6: G4 whose Green player leaves at tick 800, a bot driving their hero from then on; its last sum is taken after its end.</summary>
     public static GoldenCase LeaverBattle => new("G6 battle with a leaver", CommandedBattle(), [2000, 4000, 12000],
@@ -62,7 +62,7 @@ internal sealed record GoldenCase(string Name, MatchInfo Match, int[] Ticks, Fun
     /// order the next slices check machine by machine; Red leaves and comes back in the same tick, 1200, Blue leaves for good
     /// at 2600.
     /// </summary>
-    public static GoldenCase Orders => new("G8 skirmish of many orders", Relayed("m_desert", "m_desert", new MatchOptions(), 17, [Race.Red, Race.Blue], []),
+    public static GoldenCase Orders => new("G8 skirmish of many orders", Relayed("m_desert", "m_desert", Circles, 17, [Race.Red, Race.Blue], []),
         [1000, 2000, 4000], () => [new OrdersScript(Race.Red, 801), new OrdersScript(Race.Blue, 802)],
         new PlayerLeft(PlayerId.Of(Race.Red), 1200), new PlayerReturned(PlayerId.Of(Race.Red), 1200), new PlayerLeft(PlayerId.Of(Race.Blue), 2600));
 
@@ -72,12 +72,31 @@ internal sealed record GoldenCase(string Name, MatchInfo Match, int[] Ticks, Fun
     /// the computer's.
     /// </summary>
     public static GoldenCase WiredOrders => new("G9 Wired of many orders",
-        Relayed("m_desert", "m_desert", new MatchOptions { Wired = new WiredOptions { Chassis = "spy3" } }, 19, [Race.Red], [Race.Blue]),
+        Relayed("m_desert", "m_desert", Circles with { Wired = new WiredOptions { Chassis = "spy3" } }, 19, [Race.Red], [Race.Blue]),
         [2000, 6000, 10000], () => [new WiredOrdersScript(Race.Red, 901)]);
 
-    public static IReadOnlyList<GoldenCase> All => [Skirmish, FourWay, Wired, Battle, BotBattle, LeaverBattle, ReturningBattle, Orders, WiredOrders];
+    /// <summary>G10: G1 with machines in their fitted bodies (<see cref="MatchOptions.FittedBodies"/>), as every match since plays.</summary>
+    public static GoldenCase FittedSkirmish => new("G10 skirmish in fitted bodies", Relayed("m_desert", "m_desert", new MatchOptions(), 11, [Race.Red, Race.Blue], []),
+        [1000, 3000], () => [new SkirmishScript(Race.Red, 101), new SkirmishScript(Race.Blue, 102)]);
 
-    private static MatchInfo CommandedBattle() => RelayedBattle("m_desert", new BattleOptions { Tier = 3, Lives = 2 }, 5, (Race.Red, 3), (Race.Green, 2));
+    /// <summary>G11: G3 with fitted bodies.</summary>
+    public static GoldenCase FittedWired => new("G11 Wired in fitted bodies", Relayed("m_desert", "m_desert", new MatchOptions { Wired = new WiredOptions() }, 7, [Race.Red], [Race.Blue]),
+        [1000, 4000, 8000], () => [new WiredScript(Race.Red, 301)]);
+
+    /// <summary>G12: G4 with fitted bodies; its last sum is taken after its end.</summary>
+    public static GoldenCase FittedBattle => new("G12 battle in fitted bodies", CommandedBattle(fitted: true), [400, 2000, 4000, 12000],
+        () => [new BattleScript(Race.Red, 401), new BattleScript(Race.Green, 402)]);
+
+    public static IReadOnlyList<GoldenCase> All => [Skirmish, FourWay, Wired, Battle, BotBattle, LeaverBattle, ReturningBattle, Orders, WiredOrders, FittedSkirmish, FittedWired, FittedBattle];
+
+    /// <summary>
+    /// The options of G1 to G9, taken before machines had fitted bodies: the original's circles, as a recording from then
+    /// plays back (<see cref="Replay.Load"/>), so their sums stay as they were taken.
+    /// </summary>
+    private static MatchOptions Circles => new() { FittedBodies = false };
+
+    private static MatchInfo CommandedBattle(bool fitted = false) =>
+        RelayedBattle("m_desert", new BattleOptions { Tier = 3, Lives = 2 }, 5, fitted, (Race.Red, 3), (Race.Green, 2));
 
     /// <summary>
     /// A match as the relay starts it (<c>RelayServer.Start</c>): its seats are the slots in race order; the seated humans
@@ -96,13 +115,13 @@ internal sealed record GoldenCase(string Name, MatchInfo Match, int[] Ticks, Fun
     /// the map's planet and teams, the seated players' heroes on the races of their seats, a bot hero composed for every
     /// other race of the teams. Each human brings a hero of the given tier, as a pod sends one.
     /// </summary>
-    private static MatchInfo RelayedBattle(string scenario, BattleOptions settings, int seed, params (Race Race, int Tier)[] humans)
+    private static MatchInfo RelayedBattle(string scenario, BattleOptions settings, int seed, bool fitted, params (Race Race, int Tier)[] humans)
     {
         var map = BattleCatalogue.Map(scenario)!;
         var seated = humans.OrderBy(h => h.Race).ToList();
         var heroes = seated.Select((h, i) => BattleBots.Bot(scenario, h.Tier, Race.Red, i) with { Race = h.Race, Name = Names[i], Bot = false }).ToList();
         var battle = BattleBots.Compose(settings with { TeamA = map.TeamA, TeamB = map.TeamB, Heroes = [] }, heroes, map.Scenario);
-        var options = new MatchOptions { Victory = VictoryCondition.Battle, FogOfWar = false, Battle = battle };
+        var options = new MatchOptions { Victory = VictoryCondition.Battle, FogOfWar = false, Battle = battle, FittedBodies = fitted };
         var races = map.TeamA.Concat(map.TeamB).ToList();
         return Relayed(scenario, map.Planet, options, seed, seated.Select(h => h.Race), races.Where(r => seated.All(h => h.Race != r)));
     }
