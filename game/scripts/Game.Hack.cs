@@ -11,8 +11,11 @@ public partial class Game
     private HackHost? _hack;
     private bool _hackKey;
 
-    /// <summary>Whether the hack's board is up over the world, taking the mouse and the keys.</summary>
-    public bool HackShown => _hack is not null && IsInstanceValid(_hack) && !_hack.Closing;
+    /// <summary>
+    /// Whether the hack's board is up over the world, taking the mouse and the keys: while it is played, and while a won
+    /// one stands lit a moment before it goes (<see cref="HackHost.Holding"/>).
+    /// </summary>
+    public bool HackShown => _hack is not null && IsInstanceValid(_hack) && (!_hack.Closing || _hack.Holding);
 
     /// <summary>The hack's board while it is up, for automated checks.</summary>
     public HackHost? HackBoardShown => HackShown ? _hack : null;
@@ -52,13 +55,15 @@ public partial class Game
             var layer = new CanvasLayer { Layer = 10, Name = "Hack" };
             AddChild(layer);
             _hack = new HackHost(this);
+            _hack.Released += GiveBackFromHack;
             layer.AddChild(_hack);
         }
         // A chapter that has ended takes the board down with it.
         var session = Watching || MatchOver ? null : story.Hacks.OpenBy(Me);
-        if (HackShown && session?.Target != _hack!.Target)
+        if (HackShown && !_hack!.Closing && session?.Target != _hack.Target)
             TakeDownHack();
-        if (session is not null && !HackShown)
+        // A new hack while a won board still stands lit puts its own board up at once.
+        if (session is not null && (!HackShown || _hack!.Holding))
             PutUpHack(session);
         ScriptHack();
     }
@@ -78,10 +83,17 @@ public partial class Game
             HitchLog.Mark($"hack board up ({System.Diagnostics.Stopwatch.GetElapsedTime(since, made).TotalMilliseconds:F1} ms, mouse {System.Diagnostics.Stopwatch.GetElapsedTime(made).TotalMilliseconds:F1} ms)");
     }
 
-    /// <summary>The board plays out how the hack ended and goes; the mouse goes back to driving at once.</summary>
-    private void TakeDownHack()
+    /// <summary>
+    /// The board plays out how the hack ended and goes; the mouse goes back to driving at once, or after a won board has
+    /// stood lit its moment (<see cref="GiveBackFromHack"/>).
+    /// </summary>
+    private void TakeDownHack() => _hack!.Finish();
+
+    /// <summary>The chip let go of the mouse and the keys: back to driving, unless another board or a cutscene has them now.</summary>
+    private void GiveBackFromHack()
     {
-        _hack!.Finish();
+        if (HackShown || InCutscene)
+            return;
         _rig.Active = _driven is null;
         if (_driven is not null)
             Input.MouseMode = Input.MouseModeEnum.Captured;
@@ -96,13 +108,16 @@ public partial class Game
     private double _hackNext, _hackShotAt = -1;
     private int _hackClicks;
     private string? _hackShot;
+    private (int Stage, HackPuzzle? Board) _hackLast;
+    private readonly List<(double At, string Path)> _hackFrames = [];
 
     /// <summary>
     /// For automated checks in a story match: MACHINES_HACK_SCRIPT=&lt;target&gt;[,&lt;png&gt;] sets the Locator down at that
     /// target's marker (clamp_l7, terminal_ike, hack_s, hack_core, pod_3_hatch …) after two seconds, plugs in, and plays the
     /// board's own solution with real mouse clicks on the board (the right button for a turn back) until the hack is won,
     /// traced or broken off; it prints how it went and the world's checksum. With a picture it saves the window half way
-    /// through the first board and quits at the end. The match must start without the menus, e.g. with
+    /// through the first board, and around each board's last turn &lt;png&gt;-b&lt;n&gt;-1-before, -2-turning, -3-held, -4-held-late
+    /// and -5-closed (the last board) or -5-next, and quits at the end. The match must start without the menus, e.g. with
     /// MACHINES_STORY=prolog MACHINES_SCREENSHOT=&lt;png&gt; MACHINES_SCREENSHOT_AFTER=90.
     /// </summary>
     private void ScriptHack()
@@ -134,10 +149,17 @@ public partial class Game
                     EndHackScript($"hack script: the hack at {target} did not open");
                 return;
         }
+        // The pictures around a board's last turn, each when its time comes.
+        foreach (var frame in _hackFrames.Where(f => now >= f.At).ToList())
+        {
+            GetViewport().GetTexture().GetImage().SavePng(frame.Path);
+            GD.Print($"hack script: picture saved to {frame.Path} (board {(HackShown ? _hack!.Holding ? "held" : "up" : "gone")}, tick {World.Tick})");
+            _hackFrames.Remove(frame);
+        }
         var session = desk.Session(target);
         if (session is null || !session.Open || session.Broken)
         {
-            if (now < _hackNext)
+            if (now < _hackNext || _hackFrames.Count > 0)
                 return;
             var how = desk.Done.Contains(target) ? "won" : session?.Broken == true ? "broken off" : session?.Alarms > 0 ? "traced" : "left";
             EndHackScript($"hack script: {target} {how} after {_hackClicks} clicks, trace {session?.Puzzle?.Trace}, checksum {World.Checksum():x16}");
@@ -159,6 +181,20 @@ public partial class Game
         {
             _hackShotAt = now + 0.35;
             _hackNext = now + 0.8;
+            return;
+        }
+        // A board's last turn with a picture asked for: the board before it, then as the tile turns, as the won board
+        // stands lit, and after the chip has gone (the next board, or the world).
+        if (_hackShot is not null && turns.Count == 1 && _hackLast != (session.Stage, puzzle))
+        {
+            _hackLast = (session.Stage, puzzle);
+            var name = $"{System.IO.Path.ChangeExtension(_hackShot, null)}-b{session.Stage + 1}";
+            GetViewport().GetTexture().GetImage().SavePng($"{name}-1-before.png");
+            GD.Print($"hack script: picture saved to {name}-1-before.png");
+            var last = session.Stage == session.Boards.Count - 1;
+            foreach (var (after, what) in new[] { (0.15, "2-turning"), (0.9, "3-held"), (1.8, "4-held-late"), (last ? 3.2 : 1.6, last ? "5-closed" : "5-next") })
+                _hackFrames.Add((now + 0.05 + after, $"{name}-{what}.png"));
+            _hackNext = now + 0.05;
             return;
         }
         var (cell, clockwise) = turns[0];

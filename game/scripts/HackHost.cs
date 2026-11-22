@@ -77,6 +77,18 @@ public partial class HackHost : Control
     private Tween? _going;
 
     /// <summary>
+    /// How long a won board waits for its last tile to come to rest at most, and stands lit after its light has run
+    /// through: the last board of a hack (with ACCESS GRANTED on it) before the chip goes, one of several before the next.
+    /// </summary>
+    public const double SettleWait = 0.5, WonHold = 1.7, BoardHold = 0.9;
+
+    // The won board held on the chip (the world has gone on to the next board, or let go of the hack), its stage, and the
+    // hold's clock: since it began, and when its light began to run (-1: its last tile still turning).
+    private HackPuzzle? _held;
+    private int _heldStage;
+    private double _holdTime, _sweptAt = -1;
+
+    /// <summary>
     /// The chip, made once a story match begins and hidden until a hack opens (<see cref="Open"/>): made afresh for each
     /// hack, its controls, theme and first layout held that frame up by 40 to 120 ms.
     /// </summary>
@@ -93,6 +105,15 @@ public partial class HackHost : Control
 
     /// <summary>The hack has ended and the chip is going, or is put away.</summary>
     public bool Closing { get; private set; } = true;
+
+    /// <summary>
+    /// The hack is won and its board stands lit a moment (<see cref="WonHold"/>) before the chip goes: still up over the
+    /// world and taking the keys and the mouse, but no turn; Esc or the pad's B lets it go at once.
+    /// </summary>
+    public bool Holding { get; private set; }
+
+    /// <summary>The chip gives the mouse and the keys back: when a hack ends, or after a won board's hold.</summary>
+    public event Action? Released;
 
     /// <summary>How many times the chip came up: a new count is a new hack, for automated checks.</summary>
     public int Opened { get; private set; }
@@ -116,7 +137,7 @@ public partial class HackHost : Control
         _stage.AddChild(_feed);
         Resized += Fit;
         Fit();
-        _panel.Board.Source = () => Session?.Puzzle;
+        _panel.Board.Source = () => _held ?? Session?.Puzzle;
         _panel.Board.Turned += Turn;
         PutAway();
     }
@@ -126,8 +147,10 @@ public partial class HackHost : Control
     {
         _going?.Kill();
         _going = null;
-        (Target, Kind, Closing) = (target, kind, false);
+        (Target, Kind, Closing, Holding, _held) = (target, kind, false, false, null);
         Opened++;
+        _panel.Board.Win(false);
+        _panel.Board.Stamp = null;
         (_seen, _seenStage, _seenClaimed, _warned, _pulsing, _pad, _stickWait) = (null, 0, 0, false, false, false, 0);
         _alarms = Session?.Alarms ?? 0;
         _panel.Kind = kind;
@@ -217,7 +240,8 @@ public partial class HackHost : Control
 
     private void Turn(int cell, bool clockwise)
     {
-        if (Closing || Session is not { Open: true, Broken: false })
+        // Not on a won board held a moment: the world's next board is not the one shown.
+        if (Closing || _held is not null || Session is not { Open: true, Broken: false })
             return;
         _game.Issue(new StoryHackTurnCommand(Game.Player, Target, cell, clockwise));
         HackSounds.Play(this, HackSounds.Click);
@@ -232,27 +256,65 @@ public partial class HackHost : Control
 
     public override void _Process(double delta)
     {
+        if (Holding)
+        {
+            Feed(delta);
+            if (Swept(delta, WonHold))
+                Leave(0);
+            return;
+        }
         if (Closing || Session is not { } session)
             return;
-        _panel.Show(session.Stage, session.Boards.Count, session.Broken, _pad, session.Held);
+        _panel.Show(_held is null ? session.Stage : _heldStage, session.Boards.Count, session.Broken, _pad, session.Held, won: _held is not null);
         Feed(delta);
-        _panel.Board.Cursor = _pad ? Math.Max(0, _panel.Board.Cursor) : _panel.Board.Cursor;
-        Listen(session);
+        _panel.Board.Cursor = _held is not null ? -1 : _pad ? Math.Max(0, _panel.Board.Cursor) : _panel.Board.Cursor;
+        Listen(session, delta);
         Stick(delta);
     }
 
-    /// <summary>Sounds and light for what the world did since the last frame.</summary>
-    private void Listen(HackSession session)
+    /// <summary>
+    /// A won board held on the chip: its last tile turns to rest, then its light runs through from the probe to the targets
+    /// and the connect sounds; true once it has stood lit for <paramref name="hold"/> seconds.
+    /// </summary>
+    private bool Swept(double delta, double hold)
     {
+        _holdTime += delta;
+        if (_sweptAt < 0 && (_panel.Board.Settled || _holdTime >= SettleWait))
+        {
+            _sweptAt = _holdTime;
+            _panel.Board.Win();
+            HackSounds.Play(this, HackSounds.Connect);
+        }
+        return _sweptAt >= 0 && _holdTime - _sweptAt >= hold;
+    }
+
+    /// <summary>Holds a won board on the chip, as it lies after its last turn; the last of a hack with ACCESS GRANTED.</summary>
+    private void Hold(HackPuzzle won, int stage, bool last)
+    {
+        (_held, _heldStage, _holdTime, _sweptAt) = (won, stage, 0, -1);
+        _panel.Board.Cursor = -1;
+        _panel.Board.Stamp = last ? Lang.T("Access granted") : null;
+    }
+
+    /// <summary>Sounds and light for what the world did since the last frame.</summary>
+    private void Listen(HackSession session, double delta)
+    {
+        // A board of several won: it stands lit a moment, then the next comes up (the world's has been waiting, untouched).
+        if (_held is not null)
+        {
+            if (Swept(delta, BoardHold))
+                (_held, _seen) = (null, null);
+            return;
+        }
         if (session.Puzzle is not { } puzzle)
             return;
         if (!ReferenceEquals(puzzle, _seen))
         {
-            // The next board of several: the last one was won.
-            if (_seen is not null && session.Stage > _seenStage)
+            // The next board of several: the last one was won, and is held as its last turn left it.
+            if (_seen is { Complete: true } won && session.Stage > _seenStage)
             {
-                _panel.Board.Surge();
-                HackSounds.Play(this, HackSounds.Connect);
+                Hold(won, _seenStage, last: false);
+                return;
             }
             (_seen, _seenStage, _seenClaimed, _warned, _pulsing) = (puzzle, session.Stage, puzzle.Claimed, false, false);
             _panel.Trace.Snap();
@@ -272,16 +334,28 @@ public partial class HackHost : Control
         _panel.Trace.Value = puzzle.TraceShare;
     }
 
-    /// <summary>The hack ended in the world: won (a surge), traced (the alarm) or left; the chip plays it out and goes.</summary>
+    /// <summary>
+    /// The hack ended in the world: won, traced (the alarm) or left; the chip plays it out and goes. A won board is held
+    /// (<see cref="Holding"/>): its last tile turns to rest, its light runs through to the targets, ACCESS GRANTED comes up
+    /// and it stands lit for <see cref="WonHold"/> before the chip goes and gives the mouse back. The world is not kept
+    /// waiting: what the hack opens opens on the tick it was won, round the chip.
+    /// </summary>
     public void Finish()
     {
         if (Closing)
             return;
         Closing = true;
-        MouseFilter = MouseFilterEnum.Ignore;
         _panel.MouseBehaviorRecursive = MouseBehaviorRecursiveEnum.Disabled;
         var won = _game.World.Story?.Hacks.Done.Contains(Target) == true;
         var traced = (Session?.Alarms ?? 0) > _alarms;
+        if (won && (Session?.Puzzle ?? _seen) is { } board)
+        {
+            // The chip still lies over the world and takes the clicks, so that none goes to the field.
+            Holding = true;
+            Hold(board, Session?.Stage ?? _seenStage, last: true);
+            _panel.Show(_heldStage, Session?.Boards.Count ?? 1, false, _pad, won: true);
+            return;
+        }
         var wait = 0.0;
         if (won)
         {
@@ -296,6 +370,16 @@ public partial class HackHost : Control
             HackSounds.Play(this, HackSounds.Fail);
             wait = 0.7;
         }
+        Leave(wait);
+    }
+
+    /// <summary>The chip switches off after <paramref name="wait"/> and fades, and the mouse and keys go back at once.</summary>
+    private void Leave(double wait)
+    {
+        Holding = false;
+        MouseFilter = MouseFilterEnum.Ignore;
+        _panel.MouseBehaviorRecursive = MouseBehaviorRecursiveEnum.Disabled;
+        Released?.Invoke();
         _panel.SwitchOff(wait);
         // The chip fades with its screen: its frame stood empty and black for a few frames after the screen went out
         // (Erwischt opened on it).
@@ -320,6 +404,14 @@ public partial class HackHost : Control
 
     public override void _UnhandledInput(InputEvent @event)
     {
+        // A won board held a moment takes every key and button; Esc or B lets it go at once.
+        if (Holding && @event is InputEventKey or InputEventJoypadButton)
+        {
+            GetViewport().SetInputAsHandled();
+            if (@event is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape } or InputEventJoypadButton { Pressed: true, ButtonIndex: JoyButton.B or JoyButton.Back })
+                Leave(0);
+            return;
+        }
         if (Closing || @event is not (InputEventKey or InputEventJoypadButton))
             return;
         GetViewport().SetInputAsHandled();

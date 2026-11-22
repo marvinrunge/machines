@@ -23,8 +23,11 @@ public partial class HackBoard : Control
     private HackPuzzle? _shown;
     private float[] _angle = [], _goal = [];
     private int[] _rotation = [];
-    private float _time, _surge, _alarm;
+    private float _time, _surge, _alarm, _win = -1;
     private int _hover = -1;
+
+    /// <summary>How fast the light of a won board runs out from the probe, in cells a second.</summary>
+    private const float SweepSpeed = 12;
 
     public HackBoard()
     {
@@ -53,6 +56,18 @@ public partial class HackBoard : Control
 
     /// <summary>The board flashes red: the hack is traced.</summary>
     public void Alarm() => _alarm = 1;
+
+    /// <summary>
+    /// The board is won and held a moment: light runs from the probe along the whole circuit to the targets, which ring
+    /// out as it reaches them, then the circuit stays lit and <see cref="Stamp"/> comes up over it. Off again with false.
+    /// </summary>
+    public void Win(bool on = true) => (_win, _hover) = (on ? 0 : -1, -1);
+
+    /// <summary>Printed on a plate over a won board once its light has run through (ACCESS GRANTED), or nothing.</summary>
+    public string? Stamp { get; set; }
+
+    /// <summary>Every tile has come to rest from its last turn.</summary>
+    public bool Settled => _shown is null || _angle.Zip(_goal).All(a => Mathf.Abs(a.First - a.Second) < 0.05f);
 
     // ---- geometry ----------------------------------------------------------------------------------
 
@@ -123,6 +138,8 @@ public partial class HackBoard : Control
         _time += dt;
         _surge = Mathf.Max(0, _surge - dt / 0.9f);
         _alarm = Mathf.Max(0, _alarm - dt / 0.8f);
+        if (_win >= 0)
+            _win += dt;
         var puzzle = Source();
         if (!ReferenceEquals(puzzle, _shown))
             Take(puzzle);
@@ -148,6 +165,7 @@ public partial class HackBoard : Control
     private void Take(HackPuzzle? puzzle)
     {
         _shown = puzzle;
+        _win = -1;
         var cells = puzzle?.Cells ?? 0;
         _rotation = new int[cells];
         _angle = new float[cells];
@@ -177,7 +195,7 @@ public partial class HackBoard : Control
             DrawSocket(puzzle, cell, size);
 
         // The chips on the edges, and the short traces from them into their cells.
-        DrawPort(puzzle.Probe, "probe", MenuTheme.Glow, 1, network[puzzle.Probe.Cell] && (puzzle.Mask(puzzle.Probe.Cell) & puzzle.Probe.Side) != 0, null);
+        DrawPort(puzzle.Probe, "probe", MenuTheme.Glow, 1, network[puzzle.Probe.Cell] && (puzzle.Mask(puzzle.Probe.Cell) & puzzle.Probe.Side) != 0, null, 0);
         for (var i = 0; i < puzzle.Targets.Count; i++)
         {
             var target = puzzle.Targets[i];
@@ -185,17 +203,17 @@ public partial class HackBoard : Control
             var next = i == puzzle.Claimed;
             var light = claimed ? 1 : next ? 0.35f + 0.25f * Mathf.Sin(_time * 4) : 0;
             DrawPort(target, Glyph(Kind), claimed ? MenuTheme.Bright : next ? MenuTheme.Glow : MenuTheme.Dim, light,
-                claimed || puzzle.Touches(network, target), puzzle.Targets.Count > 1 ? (i + 1).ToString() : null);
+                claimed || puzzle.Touches(network, target), puzzle.Targets.Count > 1 ? (i + 1).ToString() : null, depth[target.Cell] + 1);
         }
         if (puzzle.Firewall is { } wall)
-            DrawPort(wall, "firewall", Danger, 0, puzzle.PulseCell == wall.Cell, null, red: 0.45f + 0.3f * Mathf.Sin(_time * 5));
+            DrawPort(wall, "firewall", Danger, 0, puzzle.PulseCell == wall.Cell, null, -1, red: 0.45f + 0.3f * Mathf.Sin(_time * 5));
 
         // The tiles' traces, then the light running on those the probe reaches.
         for (var cell = 0; cell < puzzle.Cells; cell++)
         {
             if (puzzle.IsWarden(cell) || puzzle.Base(cell) == 0)
                 continue;
-            DrawTile(puzzle, cell, network[cell], size);
+            DrawTile(puzzle, cell, network[cell], depth[cell], size);
         }
         for (var cell = 0; cell < puzzle.Cells; cell++)
             if (network[cell] && !puzzle.IsWarden(cell))
@@ -210,7 +228,11 @@ public partial class HackBoard : Control
             DrawCircle(at, size * 0.045f, new Color(1, 0.85f, 0.7f));
         }
 
-        // The cursor and the tile under the mouse.
+        DrawStamp(board, depth.Max());
+
+        // The cursor and the tile under the mouse (not on a won board, which takes no more turns).
+        if (_win >= 0)
+            return;
         foreach (var (cell, colour, width) in new[] { (_hover, new Color(MenuTheme.Glow, 0.55f), 2f), (Cursor, MenuTheme.Bright, 3f) })
         {
             if (cell < 0 || cell >= puzzle.Cells)
@@ -275,7 +297,40 @@ public partial class HackBoard : Control
             DrawCircle(rect.GetCenter() + Direction(side) * (size * 0.5f - size * 0.05f), size * 0.03f, new Color(0.64f, 0.56f, 0.22f, 0.5f));
     }
 
-    private void DrawTile(HackPuzzle puzzle, int cell, bool live, float size)
+    /// <summary>
+    /// How strongly a won board's light lies on what is <paramref name="depth"/> steps from the probe: nothing before its
+    /// front gets there, full at the front, then a steady glow behind it; at least the surge of a won target.
+    /// </summary>
+    private float Lit(int depth)
+    {
+        if (_win < 0 || depth < 0)
+            return _surge;
+        var behind = _win * SweepSpeed - depth;
+        return behind < 0 ? _surge : Mathf.Max(_surge, 0.3f + 0.7f * Mathf.Exp(-behind * 0.45f));
+    }
+
+    /// <summary>The plate over a won board, faded in once the light has reached the farthest tile.</summary>
+    private void DrawStamp(Rect2 board, int farthest)
+    {
+        if (_win < 0 || string.IsNullOrEmpty(Stamp))
+            return;
+        var shown = Mathf.Clamp((_win * SweepSpeed - farthest - 1) / (SweepSpeed * 0.2f), 0, 1);
+        if (shown <= 0)
+            return;
+        var text = Stamp.ToUpperInvariant();
+        var width = board.Size.X * 0.84f;
+        var font = Mathf.RoundToInt(Mathf.Min(board.Size.X * 0.08f, width * 0.92f / Mathf.Max(1, text.Length * 0.62f)));
+        var plate = new Rect2(board.GetCenter() - new Vector2(width, font * 2.1f) / 2, new Vector2(width, font * 2.1f));
+        DrawRect(plate.Grow(font * 0.35f), new Color(MenuTheme.Glow, 0.12f * shown));
+        DrawRect(plate, new Color(MenuTheme.Well, 0.92f * shown));
+        DrawRect(plate, new Color(MenuTheme.Bright, shown), false, 2);
+        DrawRect(plate.Grow(-font * 0.18f), new Color(MenuTheme.Edge, 0.6f * shown), false, 1);
+        // Whiter as it comes up, settling to the bright green of a lit chip.
+        DrawString(MenuTheme.Font, new Vector2(plate.Position.X, plate.GetCenter().Y + font * 0.36f), text, HorizontalAlignment.Center, width, font,
+            new Color(MenuTheme.Bright.Lerp(new Color(1, 1, 0.85f), 1 - shown), shown));
+    }
+
+    private void DrawTile(HackPuzzle puzzle, int cell, bool live, int depth, float size)
     {
         var centre = CellRect(cell).GetCenter();
         var turn = _angle[cell] * Mathf.Pi / 2;
@@ -294,7 +349,7 @@ public partial class HackBoard : Control
             var onWarden = live && settled && puzzle.Next(cell, lying) is var next && next >= 0 && puzzle.IsWarden(next);
             var colour = pulse || onWarden ? Danger : Broken && live ? MenuTheme.Bright : live ? MenuTheme.Glow : Unlit;
             var strength = live || pulse ? 1f : 0.7f;
-            Trace([centre, end], colour.Lerp(Danger, _alarm), strength, size, live ? _surge : 0);
+            Trace([centre, end], colour.Lerp(Danger, _alarm), strength, size, live ? Lit(depth) : 0);
         }
         DrawCircle(centre, size * 0.075f, live ? new Color(MenuTheme.Glow, 0.9f) : new Color(Unlit, 0.8f));
         DrawCircle(centre, size * 0.035f, MenuTheme.Well);
@@ -335,14 +390,20 @@ public partial class HackBoard : Control
         DrawPolyline(route, new Color(colour, 0.85f * strength + 0.15f * surge), 2.6f * width, true);
     }
 
-    private void DrawPort(HackPort port, string glyph, Color colour, float light, bool joined, string? number, float red = 0)
+    /// <summary>A chip on the edge; <paramref name="depth"/> is how far a won board's light runs to reach it (-1: never).</summary>
+    private void DrawPort(HackPort port, string glyph, Color colour, float light, bool joined, string? number, int depth, float red = 0)
     {
         var size = CellSize;
+        var surge = joined ? Lit(depth) : 0;
+        // The ring going out from the chip: the surge of a won board, or a won board's light arriving at it.
+        var ring = _surge;
+        if (joined && _win >= 0 && depth >= 0 && _win * SweepSpeed - depth is >= 0f and var behind)
+            ring = Mathf.Max(ring, 1 - behind / (SweepSpeed * 0.9f));
         var chip = PortChip(port);
         // The short trace from the chip into its cell's edge.
         var edge = CellRect(port.Cell).GetCenter() + Direction(port.Side) * size * 0.5f;
         var from = chip.GetCenter() - Direction(port.Side) * chip.Size.X * 0.5f;
-        Trace([from, edge], joined ? colour : Unlit, joined ? 1 : 0.6f, size, joined ? _surge : 0);
+        Trace([from, edge], joined ? colour : Unlit, joined ? 1 : 0.6f, size, surge);
         ChipArt.Draw(this, chip, size / 560, light, dim: light <= 0 && red <= 0);
         if (red > 0)
             DrawRect(chip.Grow(-size * 0.02f), new Color(Danger, red * 0.45f));
@@ -355,8 +416,8 @@ public partial class HackBoard : Control
             var at = chip.GetCenter() + beside;
             DrawString(MenuTheme.Font, new Vector2(at.X - font, at.Y + font * 0.36f), number, HorizontalAlignment.Center, font * 2, font, colour);
         }
-        if (joined && _surge > 0)
-            DrawArc(chip.GetCenter(), chip.Size.X * 0.5f + (1 - _surge) * size * 1.2f, 0, Mathf.Tau, 48, new Color(1, 1, 0.75f, _surge * 0.8f), 2.5f, true);
+        if (joined && ring > 0)
+            DrawArc(chip.GetCenter(), chip.Size.X * 0.5f + (1 - ring) * size * 1.2f, 0, Mathf.Tau, 48, new Color(1, 1, 0.75f, ring * 0.8f), 2.5f, true);
     }
 
     private void DrawGlyph(string name, Rect2 box, Color colour, float strength)
@@ -439,9 +500,10 @@ public partial class HackPanel : ChipPanel
 
     /// <summary>
     /// Shows where the hack stands: its board of how many, broken off or not, locked by its target (the core's last board at
-    /// 90 %) or not, and the hint for the pad or the mouse.
+    /// 90 %) or not, and the hint for the pad or the mouse; none while a <paramref name="won"/> board is held a moment, as
+    /// it takes no more turns.
     /// </summary>
-    public void Show(int stage, int stages, bool broken, bool pad, bool held = false)
+    public void Show(int stage, int stages, bool broken, bool pad, bool held = false, bool won = false)
     {
         _title.Text = Lang.T("Hack: {0}", Lang.T(Called(Kind))).ToUpperInvariant();
         _stage.Text = broken ? Lang.T("Link cut").ToUpperInvariant()
@@ -449,7 +511,7 @@ public partial class HackPanel : ChipPanel
             : stages > 1 ? Lang.T("Board {0}/{1}", stage + 1, stages).ToUpperInvariant() : "";
         _stage.Modulate = broken || held ? HackBoard.Danger : Colors.White;
         Board.Broken = broken;
-        _hint.Text = pad
+        _hint.Text = won ? "" : pad
             ? Lang.T("A: turn   X: turn back   B: pull out")
             : Lang.T("Click: turn   Right click: turn back   Esc: pull out");
     }

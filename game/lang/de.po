@@ -5228,6 +5228,9 @@ msgstr "Verbindung getrennt"
 msgid "Board {0}/{1}"
 msgstr "Platine {0}/{1}"
 
+msgid "Access granted"
+msgstr "Zugang erteilt"
+
 msgid "Trace-back"
 msgstr "Rückverfolgung"
 
