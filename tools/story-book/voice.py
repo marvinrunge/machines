@@ -1,6 +1,7 @@
 """Reads the story book (docs/story/buch/*.md) aloud as German MP3s.
 
     python tools/story-book/voice.py [--voice de-DE-Chirp3-HD-Charon] [--only 03] [--sample FILE.txt OUT.mp3]
+    python tools/story-book/voice.py --dry-run     counts the paragraphs and characters that are not voiced yet
 
 Backends:
   google (default)  Google Cloud Text-to-Speech, Chirp 3 HD voices. Uses the gcloud login and its project
@@ -9,8 +10,9 @@ Backends:
   edge              Microsoft Edge online voices through the `edge-tts` package (pip install edge-tts),
                     e.g. --backend edge --voice de-DE-ChristophNeural. The text goes to Microsoft.
 
-Each paragraph is one request. Results are cached by hash in renders/story-book/cache, so a re-run only
-voices paragraphs that changed. Output: renders/story-book/audio/<chapter>.mp3, one long file
+Each paragraph is one request. Results are cached by the hash of the spoken text in renders/story-book/cache, so a
+re-run only voices paragraphs whose spoken text changed. PRONOUNCE says how names are spoken (Ike -> Eik,
+L-7 -> Ell sieben); the book text itself keeps the names. Output: renders/story-book/audio/<chapter>.mp3, one long file
 Machines-Story-komplett.mp3 and a playlist Machines-Story.m3u. Needs ffmpeg (tools/film-upscale/bin/ffmpeg or PATH).
 """
 import argparse, base64, concurrent.futures as cf, hashlib, json, os, re, shutil, subprocess, sys, time, urllib.request, urllib.error, wave
@@ -33,6 +35,23 @@ def ffmpeg():
 
 # ---------------------------------------------------------------- text
 
+# How names are said (user's wish of 2026-11-22: Ike always "Eik", L-7 always "Ell sieben"). Only the text sent to
+# the voice changes; the book, the EPUB and the Markdown keep "Ike" and "L-7". Every form that occurs in the book:
+PRONOUNCE = [
+    (r"\bL-7s\b", "Ell Siebens"),   # genitive: "L-7s Kern", "wie L-7s"
+    (r"\bL-7\b", "Ell sieben"),
+    (r"\bIKE\b", "Eik"),            # painted on the Goliath in the finale
+    (r"\bIkes\b", "Eiks"),          # genitive: "Ikes Räder"
+    (r"\bIke\b", "Eik"),            # also Mara Ikeda's nickname; "Ikeda" itself stays
+]
+
+
+def pronounce(text):
+    for pat, said in PRONOUNCE:
+        text = re.sub(pat, said, text)
+    return text
+
+
 def speakable(md):
     """Markdown chapter -> list of (kind, text): kind is 'title', 'para' or 'break'."""
     out = []
@@ -52,7 +71,8 @@ def speakable(md):
         b = re.sub(r"[*_`]", "", b)                       # emphasis
         b = re.sub(r"\s*\n\s*", " ", b)
         b = b.replace(" %", " Prozent").replace("%", " Prozent")
-        b = b.replace("L-7", "L 7").replace("W-417", "W 4 1 7").replace("S-1", "S 1")
+        b = pronounce(b)
+        b = b.replace("W-417", "W 4 1 7").replace("S-1", "S 1")
         b = b.replace("…", "...")
         # HUD lines and light signals are in capitals; read them as words, not letter by letter
         b = re.sub(r"\b([A-ZÄÖÜ]{3,})\b", lambda m: m.group(1) if m.group(1) == "HUD" else m.group(1).capitalize(), b)
@@ -139,9 +159,27 @@ def silence(sec):
     return b"\0\0" * int(RATE * sec)
 
 
-def voice_piece(text, args, cache):
+def cache_path(text, args, cache):
+    """The cache is keyed on the spoken text, so a paragraph is voiced again exactly when what is said changes."""
     key = hashlib.sha1(f"{args.backend}|{args.voice}|{args.speed}|{text}".encode("utf-8")).hexdigest()
-    path = os.path.join(cache, key + ".pcm")
+    return os.path.join(cache, key + ".pcm")
+
+
+def missing(items, args, cache):
+    """(paragraphs, pieces, characters) that are not in the cache yet and would be sent to the voice."""
+    paras, pieces, chars = set(), 0, 0
+    for i, (kind, text) in enumerate(items):
+        if kind != "break":
+            for c in chunks(text):
+                if not os.path.exists(cache_path(c, args, cache)):
+                    paras.add(i)
+                    pieces += 1
+                    chars += len(c)
+    return len(paras), pieces, chars
+
+
+def voice_piece(text, args, cache):
+    path = cache_path(text, args, cache)
     if os.path.exists(path):
         return open(path, "rb").read()
     if args.backend == "google":
@@ -205,6 +243,7 @@ def main():
     ap.add_argument("--only", help="voice only chapters whose file name starts with this")
     ap.add_argument("--sample", nargs=2, metavar=("TEXT", "MP3"), help="voice one text file, for trying voices")
     ap.add_argument("--no-full", action="store_true", help="skip the one long file")
+    ap.add_argument("--dry-run", action="store_true", help="only count what is not cached yet and would be billed")
     args = ap.parse_args()
 
     cache = os.path.join(OUT, "cache")
@@ -219,6 +258,16 @@ def main():
     audio_dir = os.path.join(OUT, "audio")
     os.makedirs(audio_dir, exist_ok=True)
     files = sorted(f for f in os.listdir(BOOK) if re.match(r"\d\d-.*\.md$", f))
+    if args.dry_run:
+        tp = tc = 0
+        for f in files:
+            if args.only and not f.startswith(args.only):
+                continue
+            paras, pieces, chars = missing(speakable(open(os.path.join(BOOK, f), encoding="utf-8").read()), args, cache)
+            tp, tc = tp + paras, tc + chars
+            print(f"{f}: {paras} paragraphs ({pieces} pieces), {chars} characters to voice")
+        print(f"total: {tp} paragraphs, {tc} characters to voice")
+        return
     total_chars, total_sec, playlist, parts = 0, 0.0, ["#EXTM3U"], []
     for n, f in enumerate(files, 1):
         md = open(os.path.join(BOOK, f), encoding="utf-8").read()

@@ -87,7 +87,9 @@ kommt das Wort im Buch nicht vor. STORY.md und der Prolog im Spiel nennen es noc
 
 ## Hörbuch
 
-Vorgelesen von der Google-Stimme *Chirp 3 HD Orus* (de-DE). Neu vertonen mit:
+Vorgelesen von der Google-Stimme *Chirp 3 HD Orus* (de-DE). Ike wird „Eik“ gesprochen und L-7 „Ell sieben“
+(Wunsch des Nutzers vom 2026-11-22); das steht in der Tabelle `PRONOUNCE` in `voice.py`, der Buchtext behält „Ike“ und
+„L-7“. Neu vertonen mit:
 
 ```
 python tools/story-book/voice.py
