@@ -186,16 +186,43 @@ public class DeckLayoutTests
     }
 
     [Fact]
-    public void Every_blast_door_door_and_gate_has_a_frame_that_leaves_its_way_open()
+    public void Every_blast_door_door_and_gate_has_a_frame_that_looks_as_wide_and_tall_as_its_slot_and_stays_in_its_wall()
     {
         foreach (var opening in Layout.Openings.Where(o => o.Kind is "blast" or "door" or "gate"))
         {
             var centre = opening.Rect.Centre;
-            var frame = Assert.Single(Layout.Pieces, p => p.Prop == "kit_door_frame" && new Vector2(p.Position.X, p.Position.Y) == centre);
-            // Its opening is the slot's, and its lintel over the slot unless the room beside is too low for its top.
-            Assert.Equal(opening.Width, frame.Scale.X * DeckLayout.FrameOpening, 3);
-            Assert.True(frame.Scale.Y * DeckLayout.FrameLintel >= opening.Height - 0.01f || frame.Scale.Y * 8 < opening.Height / DeckLayout.FrameLintel * 8,
-                $"the frame of door {opening.Letter} hangs into its way");
+            var frame = Assert.Single(Layout.Frames, f => f.Centre == centre);
+            // The posts' inner sides (1.32 to 1.39 m out in the kit) fall just behind the slot's sides: the reveal is the jamb.
+            foreach (var jamb in new[] { -1.39f, -1.32f, 1.32f, 1.39f })
+            {
+                var x = MathF.Abs(frame.Fit(new Vector3(jamb, 3, 0)).At.X);
+                Assert.InRange(x, opening.Width / 2f, opening.Width / 2f + 0.03f);
+            }
+            // The lintel's underside a centimetre under the ceiling's slab in the slot.
+            Assert.Equal(opening.Height - DeckLayout.CeilingSlab(opening.Height) - DeckFrame.Gap, frame.Fit(new Vector3(0, DeckFrame.KitLintel, 0)).At.Y, 3);
+            // The front plates a little proud of both faces of the wall.
+            var thick = opening.AlongX ? opening.Rect.Depth : opening.Rect.Width;
+            Assert.Equal(thick / 2f + DeckFrame.Proud, frame.Fit(new Vector3(2, 3, DeckFrame.Plate)).At.Z, 3);
+            // Its posts' outer edges stay in the wall beside the slot, its top under the lower room's ceiling beside.
+            foreach (var side in new[] { -1, 1 })
+            {
+                var edge = frame.Fit(new Vector3(side * (DeckFrame.Outer - 0.01f), 3, 0)).At.X;
+                var deck = opening.AlongX ? centre + new Vector2(edge, 0) : centre + new Vector2(0, -edge);
+                var depth = opening.AlongX ? new Vector2(0, 1) : new Vector2(1, 0);
+                foreach (var across in new[] { -0.45f, 0, 0.45f })
+                {
+                    var at = deck + depth * (across * thick);
+                    Assert.False(Layout.IsOpen((int)MathF.Floor(at.X), (int)MathF.Floor(at.Y)), $"the frame of door {opening.Letter} reaches into the open at {at}");
+                }
+            }
+            var top = frame.Fit(new Vector3(0, DeckFrame.Top, 0)).At.Y;
+            var r = opening.Rect;
+            var beside = opening.AlongX
+                ? new[] { ((int)MathF.Floor(centre.X), r.Y0 - 1), ((int)MathF.Floor(centre.X), r.Y1) }
+                : new[] { (r.X0 - 1, (int)MathF.Floor(centre.Y)), (r.X1, (int)MathF.Floor(centre.Y)) };
+            var room = beside.Where(c => Layout.IsOpen(c.Item1, c.Item2) && Deck.Cell(c.Item1, c.Item2) is not (DeckCell.Door or DeckCell.Grate))
+                .Select(c => Layout.Height(c.Item1, c.Item2)).DefaultIfEmpty(DeckLayout.DefaultHeight).Min();
+            Assert.InRange(top, frame.Open, room);
         }
     }
 
@@ -212,7 +239,7 @@ public class DeckLayoutTests
     {
         var folder = Repo("game", "assets", "story", "props");
         var named = Layout.Pieces.Select(p => p.Prop).Where(p => p != "plate")
-            .Concat(["kit_floor", "kit_floor_grate", "kit_wall", "kit_wall_low", "kit_ceiling", "kit_grate_wall", "lamp_emergency"])
+            .Concat(["kit_door_frame", "kit_floor", "kit_floor_grate", "kit_wall", "kit_wall_low", "kit_ceiling", "kit_grate_wall", "lamp_emergency"])
             .Distinct();
         Assert.All(named, prop => Assert.True(File.Exists(Path.Combine(folder, prop + ".glb")), $"{prop}.glb is missing"));
     }

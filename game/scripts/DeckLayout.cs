@@ -48,6 +48,61 @@ public sealed record DeckOpening(char Letter, string Kind, DeckRect Rect, bool A
 /// </summary>
 public sealed record DeckPiece(string Prop, Vector3 Position, float Angle, Vector3 Scale);
 
+/// <summary>
+/// The heavy frame (kit_door_frame) round a door slot, its bottom centre at <see cref="Centre"/>, its front facing
+/// <see cref="Angle"/>, bent to the slot rather than scaled (<see cref="Fit"/>): its posts' inner faces just behind the slot's
+/// sides (<see cref="Half"/> either side of the middle), so the wall's reveal is the jamb and the way through looks as wide as
+/// the sim's slot; its lintel's underside a centimetre under the ceiling's slab in the slot (<see cref="Open"/> high); its
+/// front plates a little proud of both faces of a wall <see cref="Depth"/> thick. Its posts reach along the wall
+/// <see cref="PostMinus"/> and <see cref="PostPlus"/> times the kit's own width (on its -x and +x), its lintel up
+/// <see cref="Lintel"/> times the kit's own height, so neither leaves the wall.
+/// </summary>
+public sealed record DeckFrame(char Letter, Vector2 Centre, float Angle, float Half, float Open, float Depth, float PostMinus, float PostPlus, float Lintel)
+{
+    // The kit's own measures (kit_door_frame, metres, x across its front, y up, z out of its front): its posts' inner sides
+    // lie 1.32 to 1.39 m from the middle (Jamb a little inside them, so they fall behind the reveal), their fronts begin past
+    // a bevel at Face and end at Outer; the lintel's underside is at Lintel, its top at Top; the front plates stand at Plate
+    // either side of its middle. Its sill (Props.Footless) and a slab Meshy left in the opening's left are dropped.
+
+    /// <summary>The kit's measures: the pivot of its posts, their fronts' inner edge, its outer edge.</summary>
+    public const float Jamb = 1.30f, Face = 1.72f, Outer = 3.5f;
+
+    /// <summary>The kit's measures: its lintel's underside and its top; its front plates' distance from its middle.</summary>
+    public const float KitLintel = 5.548f, Top = 8, Plate = 0.577f;
+
+    /// <summary>How wide the bevel from the jamb to the front plate is drawn, how far the plates stand proud of the wall, and the gap under the slab, metres.</summary>
+    public const float Inset = 0.08f, Proud = 0.05f, Gap = 0.01f;
+
+    /// <summary>Whether a point of the kit lies inside its opening (below the lintel, between the posts): no face may reach in there.</summary>
+    public static bool InOpening(Vector3 point) => MathF.Abs(point.X) < Jamb - 0.02f && point.Y < KitLintel - 0.02f;
+
+    /// <summary>
+    /// Where a point of the kit goes on this frame, and how much its neighbourhood is stretched along each axis there (to turn
+    /// its normal): the opening's span stretched to the slot, the bevel to <see cref="Inset"/>, the posts outside it at
+    /// their reach; under the lintel stretched to the opening's height, the lintel above at its own; the depth to the wall's.
+    /// </summary>
+    public (Vector3 At, Vector3 Stretch) Fit(Vector3 kit)
+    {
+        var side = kit.X < 0 ? -1 : 1;
+        var across = MathF.Abs(kit.X);
+        float x, sx;
+        if (across <= Jamb)
+            (x, sx) = (across * Half / Jamb, Half / Jamb);
+        else if (across <= Face)
+            (x, sx) = (Half + (across - Jamb) * Inset / (Face - Jamb), Inset / (Face - Jamb));
+        else
+        {
+            var reach = side < 0 ? PostMinus : PostPlus;
+            (x, sx) = (Half + Inset + (across - Face) * reach, reach);
+        }
+        var (y, sy) = kit.Y <= KitLintel ? (kit.Y * Open / KitLintel, Open / KitLintel) : (Open + (kit.Y - KitLintel) * Lintel, Lintel);
+        var deep = MathF.Abs(kit.Z);
+        var face = Depth / 2 + Proud;
+        var (z, sz) = deep <= Plate ? (deep * face / Plate, face / Plate) : (face + deep - Plate, 1f);
+        return (new Vector3(side * x, y, MathF.Sign(kit.Z) * z), new Vector3(sx, sy, sz));
+    }
+}
+
 public enum DeckLampKind
 {
     /// <summary>A lamp under the ceiling, lit while its group is on.</summary>
@@ -101,6 +156,7 @@ public sealed class DeckLayout
         Rooms = [.. Deck.Zones.Where(z => z.Tags.Contains("room"))];
         Lamps = FindLamps();
         Pieces = Dress();
+        Frames = FindFrames();
         Beacons = FindBeacons();
         CrashFires = FindCrashFires();
     }
@@ -663,30 +719,62 @@ public sealed class DeckLayout
             pieces.AddRange(Crates(cover));
         foreach (var room in Rooms)
             pieces.AddRange(Fittings(room));
-        pieces.AddRange(Frames());
         return pieces;
     }
 
-    /// <summary>How wide the kit's door frame is open between its posts, and how high under its lintel, metres (kit_door_frame).</summary>
-    public const float FrameOpening = 5.58f, FrameLintel = 6.32f;
+    /// <summary>The heavy frames round the blast doors, doors and gates (<see cref="DeckFrame"/>).</summary>
+    public IReadOnlyList<DeckFrame> Frames { get; }
+
+    /// <summary>How thick the ceiling's slab is over open cells this high, in kit_ceiling's own metre: thinner over ducts and low doorways.</summary>
+    public static float CeilingSlab(float height) => height <= 4 ? 0.4f : 1;
+
+    /// <summary>How far along a wall a frame's posts may reach beside a slot at most, metres.</summary>
+    private const int FrameReach = 6;
 
     /// <summary>
-    /// A heavy frame (kit_door_frame) round every blast door, door and grate gate, fitted so its opening is the slot's and its
-    /// lintel over the slot's height, no taller than the lower room beside it; it stays when its door opens, so the way
-    /// through still reads as a doorway. Vents keep their own cover.
+    /// A heavy frame (kit_door_frame) round every blast door, door and grate gate, fitted so the way through looks as wide and
+    /// as tall as the sim's slot: its posts in the wall beside the slot, its lintel over the ceiling's slab in the slot, its
+    /// front a little proud of both faces. The posts reach no further along the wall than the wall goes, the lintel no
+    /// higher than the lower room beside. It stays when its door opens, so the way through still reads as a doorway. Vents
+    /// keep their own cover.
     /// </summary>
-    private IEnumerable<DeckPiece> Frames()
+    private List<DeckFrame> FindFrames()
     {
+        var frames = new List<DeckFrame>();
         foreach (var opening in Openings.Where(o => o.Kind is "blast" or "door" or "gate"))
         {
             var rect = opening.Rect;
             var (thick, centre) = (opening.AlongX ? rect.Depth : rect.Width, rect.Centre);
             var room = Math.Min(Beside(rect, opening.AlongX, -1), Beside(rect, opening.AlongX, 1));
-            var tall = Math.Min(opening.Height / FrameLintel * 8, room) / 8;
-            // Its front along the way through, its body as deep as the wall and a little proud of both faces.
-            yield return new DeckPiece("kit_door_frame", new Vector3(centre, 0), opening.AlongX ? 90 : 0,
-                new Vector3(opening.Width / FrameOpening, tall, (thick + 0.3f) / 1.5f));
+            var open = opening.Height - CeilingSlab(opening.Height) - DeckFrame.Gap;
+            var size = Math.Clamp(opening.Width / 8f, 1, 2);
+            float Post(int side) => Math.Clamp((WallBeside(rect, opening.AlongX, side) - DeckFrame.Inset - 0.05f) / (DeckFrame.Outer - DeckFrame.Face), 0, size);
+            var lintel = Math.Clamp((room - open - 0.05f) / (DeckFrame.Top - DeckFrame.KitLintel), 0, size);
+            frames.Add(new DeckFrame(opening.Letter, centre, opening.AlongX ? 90 : 0, opening.Width / 2f, open, thick,
+                Post(-1), Post(1), lintel));
         }
+        return frames;
+    }
+
+    /// <summary>
+    /// How many metres of wall run on beside a slot along its line, on the frame's own side <paramref name="side"/> (-1 its -x,
+    /// 1 its +x: east and west of a slot along x, south and north of one along y), as deep as the slot, up to <see cref="FrameReach"/>.
+    /// </summary>
+    private int WallBeside(DeckRect rect, bool alongX, int side)
+    {
+        for (var step = 0; step < FrameReach; step++)
+        {
+            for (var across = alongX ? rect.Y0 : rect.X0; across < (alongX ? rect.Y1 : rect.X1); across++)
+            {
+                // The frame's +x is the deck's +x for a slot along x (turned 90°), the deck's -y for one along y (turned 0°).
+                var (x, y) = alongX
+                    ? (side > 0 ? rect.X1 + step : rect.X0 - 1 - step, across)
+                    : (across, side > 0 ? rect.Y0 - 1 - step : rect.Y1 + step);
+                if (IsOpen(x, y))
+                    return step;
+            }
+        }
+        return FrameReach;
     }
 
     /// <summary>The ceiling of the open cell just beyond a slot on one side (<paramref name="side"/> -1 or 1) of its way through.</summary>
