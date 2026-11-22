@@ -1,5 +1,5 @@
 {
- "about": "Voice files per line id and language. placeholder=true: Windows SAPI voice through tools/voice/robot.py, to be replaced by the user's recordings (tools/voice/README.md). seconds: length of the Ogg file.",
+ "about": "Voice files per line id and language, each through a robot-voice preset of tools/voice/robot.py. source: recording (the user's own, placeholder=false), google (Google Chirp 3 HD voice named in 'voice', tools/voice/google_tts.py, placeholder=false) or sapi (Windows SAPI stand-in, placeholder=true). A recording wins over a Google voice, which wins over SAPI (tools/voice/README.md). seconds: length of the Ogg file.",
  "lines": {
   "P_ANN_C1": {
    "de": {
@@ -26,7 +26,7 @@
     "placeholder": true,
     "preset": "ship",
     "source": "sapi",
-    "hash": "92ad91fe9d15"
+    "hash": "fe62dd8146f5"
    },
    "en": {
     "file": "en/P_ANN_C2.ogg",
@@ -34,7 +34,7 @@
     "placeholder": true,
     "preset": "ship",
     "source": "sapi",
-    "hash": "308b4122e815"
+    "hash": "8de74b4b5816"
    }
   },
   "P_ANN_C3": {
@@ -80,15 +80,15 @@
     "placeholder": true,
     "preset": "ship",
     "source": "sapi",
-    "hash": "877b6bacd6a6"
+    "hash": "ca4fe8ff774e"
    },
    "en": {
     "file": "en/P_ANN_C5.ogg",
-    "seconds": 3.7,
+    "seconds": 3.74,
     "placeholder": true,
     "preset": "ship",
     "source": "sapi",
-    "hash": "f03b8e341b6e"
+    "hash": "56695a2d1338"
    }
   },
   "P_ANN_C6": {
@@ -292,11 +292,11 @@
   "P_ANN_WAKE_1": {
    "de": {
     "file": "de/P_ANN_WAKE_1.ogg",
-    "seconds": 8.04,
+    "seconds": 8.07,
     "placeholder": true,
     "preset": "ship",
     "source": "sapi",
-    "hash": "13c3e866223a"
+    "hash": "23f8ed7ddd54"
    },
    "en": {
     "file": "en/P_ANN_WAKE_1.ogg",
@@ -304,17 +304,17 @@
     "placeholder": true,
     "preset": "ship",
     "source": "sapi",
-    "hash": "8e3254d45b7e"
+    "hash": "a089e5ccbf00"
    }
   },
   "P_ANN_WAKE_2": {
    "de": {
     "file": "de/P_ANN_WAKE_2.ogg",
-    "seconds": 6.76,
+    "seconds": 6.8,
     "placeholder": true,
     "preset": "ship",
     "source": "sapi",
-    "hash": "3176d35e9231"
+    "hash": "5b6c426cc6bd"
    },
    "en": {
     "file": "en/P_ANN_WAKE_2.ogg",
@@ -322,7 +322,7 @@
     "placeholder": true,
     "preset": "ship",
     "source": "sapi",
-    "hash": "febcfbd52d49"
+    "hash": "a422e7696400"
    }
   },
   "P_AUTO_1": {
@@ -526,703 +526,901 @@
   "P_BOB_BARRICADE": {
    "de": {
     "file": "de/P_BOB_BARRICADE.ogg",
-    "seconds": 1.37,
-    "placeholder": true,
+    "seconds": 1.17,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "516f245e7d1d"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "f23c1ed5523f"
    },
    "en": {
     "file": "en/P_BOB_BARRICADE.ogg",
-    "seconds": 1.37,
-    "placeholder": true,
+    "seconds": 1.18,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "ba1c9371b435"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "c45c22a581b5"
    }
   },
   "P_BOB_CONTACT_L": {
    "de": {
     "file": "de/P_BOB_CONTACT_L.ogg",
-    "seconds": 2.27,
-    "placeholder": true,
+    "seconds": 1.76,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "8fa4c6639253"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "36fe54bd7c3f"
    },
    "en": {
     "file": "en/P_BOB_CONTACT_L.ogg",
-    "seconds": 2.05,
-    "placeholder": true,
+    "seconds": 1.89,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "4cf48a2b7ad4"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "b8f435a1e790"
    }
   },
   "P_BOB_CONTACT_R": {
    "de": {
     "file": "de/P_BOB_CONTACT_R.ogg",
-    "seconds": 2.18,
-    "placeholder": true,
+    "seconds": 1.65,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "8e667b7fb5e6"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "683d879f584b"
    },
    "en": {
     "file": "en/P_BOB_CONTACT_R.ogg",
-    "seconds": 2.04,
-    "placeholder": true,
+    "seconds": 1.47,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "b8ca10330a73"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "a1238010c6ba"
+   }
+  },
+  "P_BOB_CRATES": {
+   "de": {
+    "file": "de/P_BOB_CRATES.ogg",
+    "seconds": 1.38,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "54584f228054"
+   },
+   "en": {
+    "file": "en/P_BOB_CRATES.ogg",
+    "seconds": 1.31,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "55f4844a314f"
+   }
+  },
+  "P_BOB_DISTRACT": {
+   "de": {
+    "file": "de/P_BOB_DISTRACT.ogg",
+    "seconds": 1.1,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "0904028cefe1"
+   },
+   "en": {
+    "file": "en/P_BOB_DISTRACT.ogg",
+    "seconds": 1.25,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "0ff09a1c9c31"
+   }
+  },
+  "P_BOB_DOWN": {
+   "de": {
+    "file": "de/P_BOB_DOWN.ogg",
+    "seconds": 2.44,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "3dc6a95259b8"
+   },
+   "en": {
+    "file": "en/P_BOB_DOWN.ogg",
+    "seconds": 2.88,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "bccc8c82b31a"
    }
   },
   "P_BOB_FIRE": {
    "de": {
     "file": "de/P_BOB_FIRE.ogg",
-    "seconds": 2.31,
-    "placeholder": true,
+    "seconds": 1.91,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "66ca62f8015a"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "08a1f32298b6"
    },
    "en": {
     "file": "en/P_BOB_FIRE.ogg",
-    "seconds": 2.07,
-    "placeholder": true,
+    "seconds": 1.78,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "7c7a8c98e850"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "5fe9072ca567"
    }
   },
   "P_BOB_FOLLOW": {
    "de": {
     "file": "de/P_BOB_FOLLOW.ogg",
-    "seconds": 0.94,
-    "placeholder": true,
+    "seconds": 0.86,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "51d00dcb3271"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "eb41ec4c19c4"
    },
    "en": {
     "file": "en/P_BOB_FOLLOW.ogg",
-    "seconds": 1.13,
-    "placeholder": true,
+    "seconds": 0.93,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "6762c370b7c0"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "e53d22fc4474"
    }
   },
   "P_BOB_GATE": {
    "de": {
     "file": "de/P_BOB_GATE.ogg",
-    "seconds": 3.2,
-    "placeholder": true,
+    "seconds": 2.47,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "638e68783da1"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "f1fd9789866a"
    },
    "en": {
     "file": "en/P_BOB_GATE.ogg",
-    "seconds": 2.51,
-    "placeholder": true,
+    "seconds": 1.47,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "3e653b6c2677"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "150ab6ec504d"
    }
   },
   "P_BOB_GLITCH": {
    "de": {
     "file": "de/P_BOB_GLITCH.ogg",
-    "seconds": 5.84,
-    "placeholder": true,
+    "seconds": 3.9,
+    "placeholder": false,
     "preset": "bob-radio",
-    "source": "sapi",
-    "hash": "8c1bb8006294"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "14629267723c"
    },
    "en": {
     "file": "en/P_BOB_GLITCH.ogg",
-    "seconds": 5.13,
-    "placeholder": true,
+    "seconds": 3.58,
+    "placeholder": false,
     "preset": "bob-radio",
-    "source": "sapi",
-    "hash": "0c4487c21219"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "bbea4f09b1c4"
    }
   },
   "P_BOB_HOLD": {
    "de": {
     "file": "de/P_BOB_HOLD.ogg",
-    "seconds": 1.83,
-    "placeholder": true,
+    "seconds": 1.5,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "20e9480dc36e"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "0b23c08b6fa3"
    },
    "en": {
     "file": "en/P_BOB_HOLD.ogg",
-    "seconds": 1.62,
-    "placeholder": true,
+    "seconds": 1.29,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "1c4f6cfb17a2"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "847c0807745a"
    }
   },
   "P_BOB_POD": {
    "de": {
     "file": "de/P_BOB_POD.ogg",
-    "seconds": 1.09,
-    "placeholder": true,
+    "seconds": 1.06,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "c4ec1f82f78c"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "7ba377d8298d"
    },
    "en": {
     "file": "en/P_BOB_POD.ogg",
-    "seconds": 0.97,
-    "placeholder": true,
+    "seconds": 0.9,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "592ad6fb0dcd"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "7e7181e11b5f"
    }
   },
   "P_BOB_RAM": {
    "de": {
     "file": "de/P_BOB_RAM.ogg",
     "seconds": 0.96,
-    "placeholder": true,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "04b16b63d74e"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "6b5f41ad9593"
    },
    "en": {
     "file": "en/P_BOB_RAM.ogg",
-    "seconds": 1.14,
-    "placeholder": true,
+    "seconds": 0.91,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "e033dd8737a4"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "a3578cbe7a73"
    }
   },
   "P_BOB_ROUND": {
    "de": {
     "file": "de/P_BOB_ROUND.ogg",
-    "seconds": 5.01,
-    "placeholder": true,
+    "seconds": 4.21,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "7aeafa0988d6"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "f9077bb0a911"
    },
    "en": {
     "file": "en/P_BOB_ROUND.ogg",
-    "seconds": 4.59,
-    "placeholder": true,
+    "seconds": 4.22,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "f862876caf24"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "dac6981a75ca"
    }
   },
   "P_BOB_SQUAD": {
    "de": {
     "file": "de/P_BOB_SQUAD.ogg",
-    "seconds": 4.19,
-    "placeholder": true,
+    "seconds": 3.14,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "ace71cbd03aa"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "c7b173a732fa"
    },
    "en": {
     "file": "en/P_BOB_SQUAD.ogg",
-    "seconds": 4.58,
-    "placeholder": true,
+    "seconds": 3.23,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "b7b5b97e6f82"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "0356229fe805"
    }
   },
   "P_BOB_UP": {
    "de": {
     "file": "de/P_BOB_UP.ogg",
-    "seconds": 3.37,
-    "placeholder": true,
+    "seconds": 2.2,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "d9479c0f3e1e"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "fa8adb300c57"
    },
    "en": {
     "file": "en/P_BOB_UP.ogg",
-    "seconds": 3.38,
-    "placeholder": true,
+    "seconds": 2.09,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "15419a7cefee"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "fceee4970096"
    }
   },
   "P_BOB_WAKE": {
    "de": {
     "file": "de/P_BOB_WAKE.ogg",
-    "seconds": 4.15,
-    "placeholder": true,
+    "seconds": 2.98,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "9359c527721b"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "16c116e25979"
    },
    "en": {
     "file": "en/P_BOB_WAKE.ogg",
-    "seconds": 3.78,
-    "placeholder": true,
+    "seconds": 3.12,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "23bdae280137"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "d519c5e81dd4"
    }
   },
   "P_IKE_ALARM": {
    "de": {
     "file": "de/P_IKE_ALARM.ogg",
-    "seconds": 3.32,
-    "placeholder": true,
+    "seconds": 2.63,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "a51c72298943"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "7a0ea11ff248"
    },
    "en": {
     "file": "en/P_IKE_ALARM.ogg",
-    "seconds": 3.14,
-    "placeholder": true,
+    "seconds": 2.05,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "a5222f763568"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "2cd9d6235cca"
    }
   },
   "P_IKE_BARRICADE": {
    "de": {
     "file": "de/P_IKE_BARRICADE.ogg",
-    "seconds": 3.28,
-    "placeholder": true,
+    "seconds": 3.15,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "5521f1828b5e"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "ba97e69e9827"
    },
    "en": {
     "file": "en/P_IKE_BARRICADE.ogg",
-    "seconds": 3.28,
-    "placeholder": true,
+    "seconds": 2.99,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "696ca962a7bb"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "fbb00060fef1"
+   }
+  },
+  "P_IKE_BARRICADED": {
+   "de": {
+    "file": "de/P_IKE_BARRICADED.ogg",
+    "seconds": 3.17,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "e6d3c0e38302"
+   },
+   "en": {
+    "file": "en/P_IKE_BARRICADED.ogg",
+    "seconds": 2.21,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "900673ccd384"
    }
   },
   "P_IKE_DISTRACT": {
    "de": {
     "file": "de/P_IKE_DISTRACT.ogg",
-    "seconds": 3.23,
-    "placeholder": true,
+    "seconds": 2.34,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "e210287ae006"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "218be17ca361"
    },
    "en": {
     "file": "en/P_IKE_DISTRACT.ogg",
-    "seconds": 3.06,
-    "placeholder": true,
+    "seconds": 2.28,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "1ab89859f0dd"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "fb4335350967"
    }
   },
   "P_IKE_DOWN": {
    "de": {
     "file": "de/P_IKE_DOWN.ogg",
-    "seconds": 2.26,
-    "placeholder": true,
+    "seconds": 3.01,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "695e54760ad8"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "bcdd8023bccd"
    },
    "en": {
     "file": "en/P_IKE_DOWN.ogg",
-    "seconds": 2.85,
-    "placeholder": true,
+    "seconds": 4.63,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "ee5ae15656df"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "3438ac52c0ca"
+   }
+  },
+  "P_IKE_FOLLOW": {
+   "de": {
+    "file": "de/P_IKE_FOLLOW.ogg",
+    "seconds": 1.39,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "fbc540ad2fea"
+   },
+   "en": {
+    "file": "en/P_IKE_FOLLOW.ogg",
+    "seconds": 1.01,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "fe5fa0a1521a"
+   }
+  },
+  "P_IKE_GATE": {
+   "de": {
+    "file": "de/P_IKE_GATE.ogg",
+    "seconds": 2.49,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "4f0e7fe80a59"
+   },
+   "en": {
+    "file": "en/P_IKE_GATE.ogg",
+    "seconds": 2.29,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "3f110871675a"
    }
   },
   "P_IKE_HAMMER": {
    "de": {
     "file": "de/P_IKE_HAMMER.ogg",
-    "seconds": 4.46,
-    "placeholder": true,
+    "seconds": 4.08,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "7205bc1d8942"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "ca58e4395b95"
    },
    "en": {
     "file": "en/P_IKE_HAMMER.ogg",
-    "seconds": 4.05,
-    "placeholder": true,
+    "seconds": 3.89,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "2fbd132225dd"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "5e488d7b91b0"
    }
   },
   "P_IKE_LIMITER": {
    "de": {
     "file": "de/P_IKE_LIMITER.ogg",
-    "seconds": 3.39,
-    "placeholder": true,
+    "seconds": 2.75,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "b644a45a91ab"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "3ce717600330"
    },
    "en": {
     "file": "en/P_IKE_LIMITER.ogg",
-    "seconds": 3.13,
-    "placeholder": true,
+    "seconds": 2.4,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "750d8478769d"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "67036e113b9f"
    }
   },
   "P_IKE_POD": {
    "de": {
     "file": "de/P_IKE_POD.ogg",
-    "seconds": 2.7,
-    "placeholder": true,
+    "seconds": 1.83,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "516cd822786a"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "0524fa9c273f"
    },
    "en": {
     "file": "en/P_IKE_POD.ogg",
-    "seconds": 1.88,
-    "placeholder": true,
+    "seconds": 1.73,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "2beac8aac54f"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "2389aa6e23e3"
    }
   },
   "P_IKE_RAM": {
    "de": {
     "file": "de/P_IKE_RAM.ogg",
-    "seconds": 0.91,
-    "placeholder": true,
+    "seconds": 0.92,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "109978df4acd"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "32915180755b"
    },
    "en": {
     "file": "en/P_IKE_RAM.ogg",
-    "seconds": 0.9,
-    "placeholder": true,
+    "seconds": 0.97,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "740570ef88ed"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "36237151d7b8"
    }
   },
   "P_IKE_STEPS": {
    "de": {
     "file": "de/P_IKE_STEPS.ogg",
-    "seconds": 2.67,
-    "placeholder": true,
+    "seconds": 1.81,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "6143cd9f5a58"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "7b5224791182"
    },
    "en": {
     "file": "en/P_IKE_STEPS.ogg",
-    "seconds": 1.93,
-    "placeholder": true,
+    "seconds": 1.97,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "4c951e445263"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "762f987aeaaf"
    }
   },
   "P_IKE_UP": {
    "de": {
     "file": "de/P_IKE_UP.ogg",
-    "seconds": 2.62,
-    "placeholder": true,
+    "seconds": 2.27,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "ccffe3f579d2"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "7b2f8b90a282"
    },
    "en": {
     "file": "en/P_IKE_UP.ogg",
-    "seconds": 2.32,
-    "placeholder": true,
+    "seconds": 1.89,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "f9f6ae926f5a"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "bc4eb8f85255"
    }
   },
   "P_IKE_VENT": {
    "de": {
     "file": "de/P_IKE_VENT.ogg",
-    "seconds": 5.01,
-    "placeholder": true,
+    "seconds": 4.18,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "5d462e91051c"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "07ed5f423aab"
    },
    "en": {
     "file": "en/P_IKE_VENT.ogg",
-    "seconds": 4.61,
-    "placeholder": true,
+    "seconds": 3.15,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "b39b0c56ad50"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "cfbfeb7ce317"
    }
   },
   "P_IKE_WAIT": {
    "de": {
     "file": "de/P_IKE_WAIT.ogg",
-    "seconds": 4.55,
-    "placeholder": true,
+    "seconds": 4.16,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "debc6a2dfea3"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "328c654d08fb"
    },
    "en": {
     "file": "en/P_IKE_WAIT.ogg",
-    "seconds": 3.6,
-    "placeholder": true,
+    "seconds": 3.49,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "cb1ce353ea7b"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "b0f50df27dc9"
    }
   },
   "P_IKE_WAKE": {
    "de": {
     "file": "de/P_IKE_WAKE.ogg",
-    "seconds": 4.97,
-    "placeholder": true,
+    "seconds": 4.41,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "2aa74b571304"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "1684410056f0"
    },
    "en": {
     "file": "en/P_IKE_WAKE.ogg",
-    "seconds": 4.7,
-    "placeholder": true,
+    "seconds": 3.65,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "f6fa53257960"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "0e0614cb1e40"
    }
   },
   "P_L7_BOOT_CORE": {
    "de": {
     "file": "de/P_L7_BOOT_CORE.ogg",
-    "seconds": 6.82,
-    "placeholder": true,
+    "seconds": 5.62,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "691bd28b74d9"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "31a88e967ae8"
    },
    "en": {
     "file": "en/P_L7_BOOT_CORE.ogg",
-    "seconds": 5.5,
-    "placeholder": true,
+    "seconds": 5.15,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "9895c21c977b"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "24f369f4fba6"
    }
   },
   "P_L7_BOOT_DRIVE": {
    "de": {
     "file": "de/P_L7_BOOT_DRIVE.ogg",
-    "seconds": 3.78,
-    "placeholder": true,
+    "seconds": 3.29,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "c0beb38e930e"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "0343b4ea7b22"
    },
    "en": {
     "file": "en/P_L7_BOOT_DRIVE.ogg",
-    "seconds": 3.59,
-    "placeholder": true,
+    "seconds": 2.65,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "b16a6c4a22c2"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "378e383515c6"
    }
   },
   "P_L7_BOOT_EYES": {
    "de": {
     "file": "de/P_L7_BOOT_EYES.ogg",
-    "seconds": 10.14,
-    "placeholder": true,
+    "seconds": 7.62,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "74b689b240f5"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "faeba0683dbc"
    },
    "en": {
     "file": "en/P_L7_BOOT_EYES.ogg",
-    "seconds": 9.52,
-    "placeholder": true,
+    "seconds": 9.47,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "7ca2824c8fcb"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "3c313f6f59ae"
    }
   },
   "P_L7_BOOT_FEAR": {
    "de": {
     "file": "de/P_L7_BOOT_FEAR.ogg",
-    "seconds": 9.47,
-    "placeholder": true,
+    "seconds": 6.66,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "bbfb145d19f1"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "0719ccaa1e12"
    },
    "en": {
     "file": "en/P_L7_BOOT_FEAR.ogg",
-    "seconds": 6.86,
-    "placeholder": true,
+    "seconds": 6.23,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "9b4cbf1d8982"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "9598df7b7884"
    }
   },
   "P_L7_BOOT_GAP": {
    "de": {
     "file": "de/P_L7_BOOT_GAP.ogg",
-    "seconds": 5.55,
-    "placeholder": true,
+    "seconds": 5.11,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "9c1cbd6ffb9f"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "3de82ef8d68b"
    },
    "en": {
     "file": "en/P_L7_BOOT_GAP.ogg",
-    "seconds": 4.69,
-    "placeholder": true,
+    "seconds": 4.76,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "2b18ad10aeb7"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "fedd7f39c134"
    }
   },
   "P_L7_BOOT_HANG": {
    "de": {
     "file": "de/P_L7_BOOT_HANG.ogg",
-    "seconds": 5.26,
-    "placeholder": true,
+    "seconds": 5.17,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "39ed4f39c27c"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "e2b38cad5b74"
    },
    "en": {
     "file": "en/P_L7_BOOT_HANG.ogg",
-    "seconds": 5.19,
-    "placeholder": true,
+    "seconds": 4.47,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "8ae4322a851f"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "f769e2968cbf"
    }
   },
   "P_L7_BOOT_HUM": {
    "de": {
     "file": "de/P_L7_BOOT_HUM.ogg",
-    "seconds": 8.68,
-    "placeholder": true,
+    "seconds": 8.24,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "a8d0d08ae411"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "e18624462d29"
    },
    "en": {
     "file": "en/P_L7_BOOT_HUM.ogg",
-    "seconds": 7.02,
-    "placeholder": true,
+    "seconds": 7.49,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "f34ffab13b33"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "55341b3bc642"
    }
   },
   "P_L7_BOOT_LEGS": {
    "de": {
     "file": "de/P_L7_BOOT_LEGS.ogg",
-    "seconds": 2.41,
-    "placeholder": true,
+    "seconds": 2.1,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "60e67bb377ee"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "2f0e4744d4e4"
    },
    "en": {
     "file": "en/P_L7_BOOT_LEGS.ogg",
-    "seconds": 2.51,
-    "placeholder": true,
+    "seconds": 2.33,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "e0299e87a939"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "295561c84169"
    }
   },
   "P_L7_BOOT_LIGHT": {
    "de": {
     "file": "de/P_L7_BOOT_LIGHT.ogg",
-    "seconds": 1.3,
-    "placeholder": true,
+    "seconds": 1.15,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "d9ab734c4667"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "6764fce85edc"
    },
    "en": {
     "file": "en/P_L7_BOOT_LIGHT.ogg",
-    "seconds": 1.08,
-    "placeholder": true,
+    "seconds": 1.49,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "d54220766d48"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "f439f89edfa4"
    }
   },
   "P_L7_BOOT_NO": {
    "de": {
     "file": "de/P_L7_BOOT_NO.ogg",
-    "seconds": 8.44,
-    "placeholder": true,
+    "seconds": 7.36,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "fad99514b1aa"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "7baad037da17"
    },
    "en": {
     "file": "en/P_L7_BOOT_NO.ogg",
-    "seconds": 6.4,
-    "placeholder": true,
+    "seconds": 5.93,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "e17e5a7393a6"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "7e3a4e0f74ec"
    }
   },
   "P_L7_BOOT_VOICE": {
    "de": {
     "file": "de/P_L7_BOOT_VOICE.ogg",
-    "seconds": 5.85,
-    "placeholder": true,
+    "seconds": 4.85,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "dc5c46948378"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "395b02a4a429"
    },
    "en": {
     "file": "en/P_L7_BOOT_VOICE.ogg",
-    "seconds": 5.04,
-    "placeholder": true,
+    "seconds": 4.67,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "d7ab8ad6c646"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "3f39e12152b4"
    }
   },
   "P_L7_BOOT_WORD": {
    "de": {
     "file": "de/P_L7_BOOT_WORD.ogg",
-    "seconds": 8.18,
-    "placeholder": true,
+    "seconds": 6.04,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "80338b6d1fa9"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "826a27215a8c"
    },
    "en": {
     "file": "en/P_L7_BOOT_WORD.ogg",
-    "seconds": 6.91,
-    "placeholder": true,
+    "seconds": 5.97,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "c006865111df"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "0916b98ae098"
    }
   },
   "P_WHISPER_1": {
@@ -1232,7 +1430,7 @@
     "placeholder": true,
     "preset": "whisper",
     "source": "sapi",
-    "hash": "16df1975bf57"
+    "hash": "553ab5f86bef"
    },
    "en": {
     "file": "en/P_WHISPER_1.ogg",
@@ -1240,7 +1438,7 @@
     "placeholder": true,
     "preset": "whisper",
     "source": "sapi",
-    "hash": "0e379beda2df"
+    "hash": "68758aecb8ac"
    }
   }
  }

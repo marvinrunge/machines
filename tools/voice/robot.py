@@ -1,7 +1,8 @@
 """Robot-voice filter for the story's voice lines.
 
 Turns a human voice recording into one of the story's robot voices with ffmpeg,
-loudness-normalises it to -18 LUFS (true peak -1.5 dBTP) and writes Ogg Vorbis.
+loudness-normalises it to -18 LUFS (sample peaks at most -1.5 dBFS, measured on the decoded Ogg; the
+true peak between samples can come out a little higher, up to about -0.8 dBTP) and writes Ogg Vorbis.
 
     python tools/voice/robot.py <preset> <in.wav> <out.ogg> [--pitch 1.0] [--cut]
     python tools/voice/robot.py --batch [--lang de|en] [--only ID[,ID...]] [--force]
@@ -9,8 +10,11 @@ loudness-normalises it to -18 LUFS (true peak -1.5 dBTP) and writes Ogg Vorbis.
 
 --batch reads the user's recordings tools/voice/recordings/<lang>/<id>.wav for every
 voiced line of tools/voice/lines.json, writes game/assets/story/voice/<lang>/<id>.ogg
-and marks them "placeholder": false in game/assets/story/voice/manifest.json.
-A recording replaces a placeholder; lines without a recording keep theirs.
+and marks them "placeholder": false, "source": "recording" in game/assets/story/voice/manifest.json.
+A recording replaces a Google voice (google_tts.py) and a SAPI placeholder (placeholders.py);
+lines without a recording keep theirs.
+
+<out> may end in .wav (16-bit PCM) instead of .ogg.
 
 Presets (speaker names from lines.json, plus per-line variants):
   ship      calm friendly PA: band-pass 300-3400 Hz, faint ring-mod shimmer, chorus, hall
@@ -22,6 +26,7 @@ Presets (speaker names from lines.json, plus per-line variants):
   bob-radio bob over a glitching radio: telephone band, dropouts, hiss
   whisper   the update: pitched down, whispered (random phase), reversed reverb swell
   l7        the Locator's thoughts: close, dry, thin and a little hoarse, lightly robotized
+  plain     no robot: only trimmed and levelled (for comparisons and spoken labels)
 
 ffmpeg: FFMPEG env var, else tools/film-upscale/bin/ffmpeg/ffmpeg.exe in this checkout,
 else the main checkout's copy, else ffmpeg on PATH.
@@ -150,10 +155,12 @@ def graph(preset, p=1.0, cut=False):
                 "highpass=f=170,lowpass=f=7200,equalizer=f=3200:t=q:w=1.5:g=3,equalizer=f=250:t=q:w=1:g=-3,"
                 "acrusher=bits=10:mode=log:mix=0.12:aa=1,{tail}aecho=0.8:0.22:11:0.14[out]").format(
                     pre=PRE, pit=pitch(0.97 * p), rob=ROBOTIZE.format(w=512), wh=WHISPERIZE, tail=tail(0.2))
+    if preset == "plain":
+        return "[0:a]{pre},{pit}[out]".format(pre=PRE, pit=pitch(p))
     raise SystemExit("unknown preset %r (see --list)" % preset)
 
 
-PRESETS = ["ship", "ship-dry", "ship-old", "auto", "ike", "bob", "bob-radio", "whisper", "l7"]
+PRESETS = ["ship", "ship-dry", "ship-old", "auto", "ike", "bob", "bob-radio", "whisper", "l7", "plain"]
 
 
 def run(args):
@@ -189,7 +196,8 @@ def limiter(tp=TARGET_TP):
 
 
 def process(preset, src, dst, p=1.0, cut=False, lufs=TARGET_LUFS):
-    """Filter src through preset into dst (Ogg Vorbis) at `lufs` LUFS, peaks limited to -1.5 dBFS.
+    """Filter src through preset into dst (Ogg Vorbis, or 16-bit WAV for a .wav dst) at `lufs` LUFS, peaks limited
+    to -1.5 dBFS.
     Returns (seconds, {"input_i": loudness after the filter, "gain_db": gain applied})."""
     g = graph(preset, p, cut)
     i0, pk0 = measure(src, g)
@@ -205,10 +213,22 @@ def process(preset, src, dst, p=1.0, cut=False, lufs=TARGET_LUFS):
         gain = min(first + 6.0, gain + (lufs - i1))  # a peaky voice: push into the limiter, but not far
     end = "afade=t=in:d=0.004,areverse,afade=t=in:d=0.006,areverse"  # no clicks at either end
     os.makedirs(os.path.dirname(os.path.abspath(dst)), exist_ok=True)
-    run(["-y", "-i", src, "-filter_complex",
-         g + ";[out]volume=%.2fdB,%saresample=%d,%s[f]" % (gain, limiter(), RATE, end),
-         "-map", "[f]", "-ac", "1", "-c:a", "libvorbis", "-q:a", "5", "-map_metadata", "-1", dst])
-    if os.path.abspath(dst).startswith(os.path.join(REPO, "game") + os.sep):
+    wav = dst.lower().endswith(".wav")
+    codec = ["-c:a", "pcm_s16le"] if wav else ["-c:a", "libvorbis", "-q:a", "5"]
+    tp = TARGET_TP
+    for _ in range(4):
+        run(["-y", "-i", src, "-filter_complex",
+             g + ";[out]volume=%.2fdB,%saresample=%d,%s[f]" % (gain, limiter(tp), RATE, end),
+             "-map", "[f]", "-ac", "1"] + codec + ["-map_metadata", "-1", dst])
+        if wav:
+            break
+        # Vorbis overshoots the limiter a little (often 0.1-0.2 dB, on some voices 1 dB): measure the decoded
+        # file and limit lower until it stays at TARGET_TP
+        pk = re.search(r"max_volume:\s*(-?[\d.]+) dB", run(["-i", dst, "-af", "volumedetect", "-f", "null", "-"]))
+        if not pk or float(pk.group(1)) <= TARGET_TP:
+            break
+        tp -= float(pk.group(1)) - TARGET_TP + 0.1
+    if not wav and os.path.abspath(dst).startswith(os.path.join(REPO, "game") + os.sep):
         godot_import.write(dst)
     return duration(dst), {"input_i": i0, "gain_db": round(gain, 2)}
 
@@ -222,6 +242,11 @@ def preset_of(line):
     return line.get("preset") or line["speaker"]
 
 
+def is_recording(entry):
+    """A manifest entry made from the user's own recording (robot.py --batch), not from a voice generator."""
+    return bool(entry) and not entry.get("placeholder", True) and entry.get("source") not in ("google", "sapi")
+
+
 def load_manifest():
     if os.path.isfile(MANIFEST):
         with open(MANIFEST, encoding="utf-8") as f:
@@ -230,9 +255,11 @@ def load_manifest():
 
 
 def save_manifest(man):
-    man["about"] = ("Voice files per line id and language. placeholder=true: Windows SAPI voice through "
-                    "tools/voice/robot.py, to be replaced by the user's recordings (tools/voice/README.md). "
-                    "seconds: length of the Ogg file.")
+    man["about"] = ("Voice files per line id and language, each through a robot-voice preset of tools/voice/robot.py. "
+                    "source: recording (the user's own, placeholder=false), google (Google Chirp 3 HD voice named in "
+                    "'voice', tools/voice/google_tts.py, placeholder=false) or sapi (Windows SAPI stand-in, "
+                    "placeholder=true). A recording wins over a Google voice, which wins over SAPI "
+                    "(tools/voice/README.md). seconds: length of the Ogg file.")
     man["lines"] = dict(sorted(man["lines"].items()))
     with open(MANIFEST, "w", encoding="utf-8", newline="\n") as f:
         json.dump(man, f, ensure_ascii=False, indent=1)
@@ -253,12 +280,13 @@ def batch(langs, only, force):
             entry = man["lines"].setdefault(line["id"], {})
             rec_mtime = int(os.path.getmtime(src))
             old = entry.get(lang, {})
-            if not force and not old.get("placeholder", True) and old.get("source_mtime") == rec_mtime \
+            if not force and is_recording(old) and old.get("source_mtime") == rec_mtime \
                     and old.get("preset") == preset_of(line) and os.path.isfile(dst):
                 continue
             secs, _ = process(preset_of(line), src, dst, cut=line.get("cut", False))
             entry[lang] = {"file": "%s/%s.ogg" % (lang, line["id"]), "seconds": round(secs, 3),
-                           "placeholder": False, "preset": preset_of(line), "source_mtime": rec_mtime}
+                           "placeholder": False, "preset": preset_of(line), "source": "recording",
+                           "source_mtime": rec_mtime}
             done += 1
             print("%-16s %s %.2f s" % (line["id"], lang, secs))
     save_manifest(man)

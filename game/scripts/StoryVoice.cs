@@ -6,7 +6,7 @@ namespace Machines.Game;
 /// <summary>
 /// The story's lines (plan 5.4): a line id becomes <c>res://assets/story/voice/&lt;lang&gt;/&lt;id&gt;.ogg</c> (English when the
 /// player's language has none, only the subtitle when neither has), spoken in turn by <see cref="StoryLineQueue"/> (an
-/// announcement beats the radio, stale radio is dropped). The PA speaks on the Announcer bus and from the 1 to 3 nearest
+/// announcement goes ahead of the radio, the radio has its turn between announcements, stale radio is dropped). The PA speaks on the Announcer bus and from the 1 to 3 nearest
 /// ship loudspeakers in the world, 30 to 80 ms apart, so the hall echoes and the voice can be placed; "Gefunden." comes
 /// from the one loudspeaker beside the Locator, dry; Ike and Bob speak over the radio with a click; the update's whisper
 /// muffles the world while it speaks. Unlike <see cref="GameAudio.Say"/> it speaks in a film (GameAudio.Film) too, so the
@@ -71,8 +71,9 @@ public partial class StoryVoice(StoryAudio audio) : Node
 
     /// <summary>
     /// A cutscene's line, said now, as its script times it, on its own channel (the PA's band and hall, the radio's), so speech
-    /// ducks the world under it as in play; its subtitle comes with it for as long as its voice. What speaks is cut off, and
-    /// the lines waiting (a Grunt's bark as control comes back) are said after it.
+    /// ducks the world under it as in play; its subtitle comes with it for as long as its voice. An announcement or thought
+    /// speaking is cut off; a Grunt's bark speaking is let finish and the line follows it (StoryLineQueue.Force). The lines
+    /// waiting (a Grunt's bark as control comes back) are said after it.
     /// </summary>
     public void SayNow(string id)
     {
@@ -89,10 +90,10 @@ public partial class StoryVoice(StoryAudio audio) : Node
     /// <summary>The waiting lines of an id are dropped.</summary>
     public void Withdraw(string id) => Apply(_queue.Withdraw(id));
 
-    public void Cut(bool clear, bool crackle)
+    public void Cut(bool clear, bool crackle, bool onlyAnnouncements = false)
     {
         var speaking = _queue.Current;
-        Apply(_queue.Cut(audio.Clock, clear));
+        Apply(_queue.Cut(audio.Clock, clear, onlyAnnouncements));
         if (crackle && speaking is { Channel: StoryVoiceChannel.Announcer or StoryVoiceChannel.Local })
             StoryAudio.Play("pa_cutoff");
         // A thought cut short (the boot skipped) breaks off in the HUD's crackle.

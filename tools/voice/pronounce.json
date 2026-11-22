@@ -1,0 +1,13 @@
+{
+  "about": "How names are said: whole-word replacements applied only to the text sent to a speech engine (Google in google_tts.py, Windows SAPI in placeholders.py), never to the subtitles or shown text. Per language, longest key first; a key matches only as a whole word (no letter, digit or hyphen-joined letter right before it, no letter or digit right after it). German: Ike is said 'Eik', L-7 'Ell sieben' (the user, 2026-11-22). English: Ike is already said /aIk/; L-7 is spelled out as 'L seven' so no engine reads 'L minus seven' or 'L dash seven'.",
+  "de": {
+    "Ike": "Eik",
+    "Ikes": "Eiks",
+    "L-7": "Ell sieben",
+    "L-7s": "Ell siebens"
+  },
+  "en": {
+    "L-7": "L seven",
+    "L-7's": "L seven's"
+  }
+}

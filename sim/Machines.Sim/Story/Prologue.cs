@@ -151,7 +151,7 @@ public static class Prologue
     /// clamp, the drive's maintenance limiter, the cracked wall screen, the protected core's edge, the update refused, the
     /// radio, the lamp's test and the lamp off again. The director cues each (<c>boot &lt;step&gt;</c>); the HUD writes its
     /// lines by the same table, so co-op peers and replays show the same boot. Timed so each thought ends before the next
-    /// step's line (with the placeholder voices, the German the longest).
+    /// step's line (with the voices of the manifest in both languages: Google's for the Locator, PrologueBootTests checks).
     /// </summary>
     public static readonly IReadOnlyList<(float At, string Step)> BootSteps =
     [
@@ -482,7 +482,8 @@ public static class Prologue
     /// The break-in (docs/STORY.md, Erwischt, played): the checkpoint; the probe pulled and the hack cut off where it stood;
     /// the Locator free to move at once and spared while the Reapers' first volleys go into the core at whose foot it stands
     /// (<see cref="StormIn"/>; the core takes harm but stands, <see cref="KeepProp"/>, until it blows); the Grunts off their barricades to the cable
-    /// duct's door. The ship's "Wiederhole: ... kor-" is broken off as the core blows.
+    /// duct's door. The ship's "Wiederhole: ... kor-" follows the alarm's announcements and breaks off by itself; the blast
+    /// (<see cref="CoreBlows"/> later) brings its stutter "korr-" and cuts whatever the PA is still saying.
     /// </summary>
     private static StoryAction[] BreakIn =>
     [
