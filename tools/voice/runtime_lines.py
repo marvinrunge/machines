@@ -2,9 +2,9 @@
 
     python tools/voice/runtime_lines.py [--check]
 
-Per line: its id, its speaker (ship, auto, ike, bob, whisper, hud), the channel it comes
-through (pa: the ship's loudspeakers, radio: a Grunt over the radio, thought: the whisper and
-the HUD's own lines, which only the Locator hears or sees) and its English text. The German
+Per line: its id, its speaker (ship, auto, ike, bob, whisper, hud, l7), the channel it comes
+through (pa: the ship's loudspeakers, radio: a Grunt over the radio, thought: the whisper, the
+HUD's own lines and the Locator's own thoughts, which only the Locator hears or sees) and its English text. The German
 is the translation of that text in game/lang/de.po (the subtitles translate as every string
 does). --check only tells whether the table is up to date (exit code 1 if not).
 """
@@ -18,7 +18,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 SOURCE = os.path.join(HERE, "lines.json")
 TARGET = os.path.join(ROOT, "game", "assets", "story", "prologue.lines.json")
 
-CHANNELS = {"ship": "pa", "auto": "pa", "ike": "radio", "bob": "radio", "whisper": "thought", "hud": "thought"}
+CHANNELS = {"ship": "pa", "auto": "pa", "ike": "radio", "bob": "radio", "whisper": "thought", "hud": "thought", "l7": "thought"}
 
 
 def build():

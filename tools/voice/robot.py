@@ -21,6 +21,7 @@ Presets (speaker names from lines.json, plus per-line variants):
   bob       terse robot: lower, metallic comb filter, short echo
   bob-radio bob over a glitching radio: telephone band, dropouts, hiss
   whisper   the update: pitched down, whispered (random phase), reversed reverb swell
+  l7        the Locator's thoughts: close, dry, thin and a little hoarse, lightly robotized
 
 ffmpeg: FFMPEG env var, else tools/film-upscale/bin/ffmpeg/ffmpeg.exe in this checkout,
 else the main checkout's copy, else ffmpeg on PATH.
@@ -140,10 +141,19 @@ def graph(preset, p=1.0, cut=False):
                 "[d]aecho=0.8:0.4:97|173:0.25|0.15[dw];"
                 "[dw][rv]amix=inputs=2:normalize=0[out]").format(
                     pre=PRE, pit=pitch(0.82 * p), wh=WHISPERIZE)
+    if preset == "l7":
+        # The Locator's thoughts: close and dry, thin and a little hoarse (a breath of the whisper under it), lightly
+        # robotized (a faint monotone buzz and a touch of crush), no radio band, no hall.
+        return ("[0:a]{pre},{pit},acompressor=threshold=-24dB:ratio=3:attack=5:release=100,asplit=3[d][r][w];"
+                "[r]{rob}[rb];[w]{wh},highpass=f=900[wb];"
+                "[d][rb][wb]amix=inputs=3:weights='0.85 0.2 0.16':normalize=0,"
+                "highpass=f=170,lowpass=f=7200,equalizer=f=3200:t=q:w=1.5:g=3,equalizer=f=250:t=q:w=1:g=-3,"
+                "acrusher=bits=10:mode=log:mix=0.12:aa=1,{tail}aecho=0.8:0.22:11:0.14[out]").format(
+                    pre=PRE, pit=pitch(0.97 * p), rob=ROBOTIZE.format(w=512), wh=WHISPERIZE, tail=tail(0.2))
     raise SystemExit("unknown preset %r (see --list)" % preset)
 
 
-PRESETS = ["ship", "ship-dry", "ship-old", "auto", "ike", "bob", "bob-radio", "whisper"]
+PRESETS = ["ship", "ship-dry", "ship-old", "auto", "ike", "bob", "bob-radio", "whisper", "l7"]
 
 
 def run(args):

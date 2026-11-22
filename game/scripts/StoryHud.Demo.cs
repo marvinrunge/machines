@@ -5,7 +5,7 @@ namespace Machines.Game;
 
 /// <summary>
 /// MACHINES_STORY_HUD puts the story's HUD into states for pictures, before the director, the hunters and the Grunts' orders
-/// exist to bring them: a comma list of boot (held 2.6 s into the boot), sneak (an objective with its way, a signature, two
+/// exist to bring them: a comma list of boot (held 80.6 s into the boot, or boot:&lt;seconds&gt;), sneak (an objective with its way, a signature, two
 /// contacts on the tracker), grunts (one drawing the hunters off, one down), alarm (and spotted), countdown, dead (the
 /// Locator lost), subtitles (two lines held on the screen) and prompt (hack and hold). Only what it names is changed; the
 /// rest stays as the match has it. With MACHINES_STORY=prolog and MACHINES_SCREENSHOT_STORY to set the trio down, e.g.
@@ -24,8 +24,12 @@ public partial class StoryHud
 
         private bool Has(string part) => parts.Contains(part);
 
-        /// <summary>The boot held at one moment: the hero's plate and the tracker up, the lines typed.</summary>
-        public double? BootAt => Has("boot") ? 2.6 : null;
+        /// <summary>
+        /// The boot held at one moment: "boot" 80 s in (the update refused, most lines up), "boot:&lt;seconds&gt;" at that moment.
+        /// </summary>
+        public double? BootAt => Has("boot") ? 80.6
+            : parts.FirstOrDefault(p => p.StartsWith("boot:", StringComparison.Ordinal)) is { } at
+              && double.TryParse(at[5..], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var seconds) ? seconds : null;
 
         private bool _ordered;
 

@@ -36,7 +36,7 @@ public partial class Game
     {
         _limiterShown = true;
         StoryAudio.Play("hack_connect");
-        _hud.Story?.Readout(Lang.T("SPEED LIMITER ... OVERRIDDEN"), MenuTheme.Glow);
+        _hud.Story?.Readout(Lang.T("MAINTENANCE LIMITER ... OVERRIDDEN"), MenuTheme.Glow);
         _hud.Story?.SprintHint();
     }
 

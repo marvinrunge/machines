@@ -18,7 +18,8 @@ namespace Machines.Game;
 /// a section into the folder, then one at the end. Once a run it switches the Locator's lamp with the Lamp key, off and on
 /// again, and says whether the sim's lamp followed. After the pod is away it sits through the chapter's film outside, takes
 /// a picture of it and of the chapter's card, goes on with Space and says whether the story page came.
-/// MACHINES_STORY_DRIVE_CRASH=1 lets the countdown run out once first, for the Crashed card.
+/// MACHINES_STORY_DRIVE_CRASH=1 lets the countdown run out once first, for the Crashed card. At checkpoint 0 it waits through
+/// the Locator's boot in its clamp (about 105 s) as a first player must; MACHINES_STORY_SKIP_BOOT=1 skips it at once.
 /// <para>
 /// Where its way fails for a long time (90 s on one leg, 150 s waiting for the Grunts) it sets the hero, or the Grunts, down
 /// at the leg's end and says so: the only time it touches the world, so the run goes on to the end; the checksums of such a
@@ -132,6 +133,8 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                     await GetIn(game);
                     continue;
                 }
+                if (Booting(game, story))
+                    continue;
                 if (_lampChecked is null)
                 {
                     await Lamp(game, hero);
@@ -143,6 +146,34 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                 await DriveWatched(game, hero);
             }
         }
+    }
+
+    // Whether the skip was sent, and whether the boot's end was told.
+    private bool _bootSkipSent, _bootTold;
+
+    /// <summary>
+    /// The Locator's boot in its clamp: waited through, as a first player must, or with MACHINES_STORY_SKIP_BOOT=1 skipped at
+    /// once by the Locator's driver (the Use command Esc held sends). Its end is told with the tick and whether it was skipped.
+    /// </summary>
+    private bool Booting(Game game, StoryRun story)
+    {
+        if (!story.Flags.Contains(StoryMarks.Boot))
+        {
+            if (!_bootTold && story.Director.Fired.TryGetValue("boot_done", out var done) && story.Options.Checkpoint == 0)
+            {
+                _bootTold = true;
+                Tell(FormattableString.Invariant($"boot over at {done:0.0} s, tick {game.World.Tick}{(story.Flags.Contains(StoryMarks.BootSkip) ? ", skipped" : "")}"));
+            }
+            return false;
+        }
+        LetGo();
+        if (!_bootSkipSent && Game.Me == story.Locator && System.Environment.GetEnvironmentVariable("MACHINES_STORY_SKIP_BOOT") == "1")
+        {
+            _bootSkipSent = true;
+            game.SkipStoryBoot();
+            Tell($"boot skipped at tick {game.World.Tick}");
+        }
+        return true;
     }
 
     // MACHINES_STORY_DRIVE_SHOTS=<beat>:<seconds>[,...]: more pictures, each that many game seconds after a beat of the

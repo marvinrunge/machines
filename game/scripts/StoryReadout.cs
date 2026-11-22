@@ -121,6 +121,12 @@ public sealed record StoryReadout
     /// <summary>The Locator's HUD boots in its clamp (<see cref="StoryMarks.Boot"/>).</summary>
     public required bool Boot { get; init; }
 
+    /// <summary>Seconds into the boot while it runs (game time since the director's beat <c>boot</c>, as Prologue.BootSteps counts); null otherwise.</summary>
+    public float? BootSeconds { get; init; }
+
+    /// <summary>The Locator's player skipped the boot (<see cref="StoryMarks.BootSkip"/>).</summary>
+    public bool BootSkipped { get; init; }
+
     /// <summary>
     /// Where the Commander's squad is while it is on its way to the core chamber (<see cref="StoryMarks.Squad"/>): the HUD
     /// points at it; null otherwise.
@@ -174,6 +180,8 @@ public sealed record StoryReadout
             Grunts = run.Seats.Where(s => s != player).Select(s => GruntOf(world, run, s, hero)).ToList(),
             Prompts = hero is null ? [] : PromptsOf(world, run, seat, hero),
             Boot = run.Flags.Contains(StoryMarks.Boot),
+            BootSeconds = run.Flags.Contains(StoryMarks.Boot) && run.Director.Fired.TryGetValue("boot", out var booted) ? world.Time - booted : null,
+            BootSkipped = run.Flags.Contains(StoryMarks.BootSkip),
             Ending = run.Ending,
             DriveHeat = hero is not null && world.StoryDriveOf(hero.Id) is { } heat ? heat.Heat : 0,
             DriveHot = hero is not null && world.StoryDriveOf(hero.Id) is { Blocked: true },

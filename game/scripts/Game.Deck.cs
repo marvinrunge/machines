@@ -28,7 +28,8 @@ public partial class Game
         // Occlusion culling only pays where walls hide most of the world; on open ground it would only cost.
         GetViewport().UseOcclusionCulling = deck is not null;
         // Whose lamp shines and who carries a searchlight is the sim's (GameWorld.StorySight): every client shows the same.
-        ActorView.LampAllowed = deck is null ? null : World.StoryLampOn;
+        // While the Locator boots its lamp is dark until the boot tests it, in the view alone (Game.StoryBoot).
+        ActorView.LampAllowed = deck is null ? null : id => BootLamp(id) ?? World.StoryLampOn(id);
         ActorView.Searchlight = deck is null ? null : id => World.StorySeekerOf(id)?.Searchlight == true;
         // The trio's lamps came through the update damaged: dim, flickering now and then (the view's alone).
         ActorView.LampDamaged = deck is null ? null

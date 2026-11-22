@@ -16,10 +16,16 @@ public class StoryHackTests
 
     private static GameData Data => DataLoader.Value;
 
-    private static GameWorld Prologue(int seed = 3) =>
-        MatchSetup.Create(Data, StoryOptions.Prologue, StoryOptions.Prologue,
+    /// <summary>The prologue from its start, the Locator's boot in the clamp skipped (its hack opens at the boot's end).</summary>
+    private static GameWorld Prologue(int seed = 3)
+    {
+        var world = MatchSetup.Create(Data, StoryOptions.Prologue, StoryOptions.Prologue,
             new Dictionary<Race, Controller> { [Race.Red] = Controller.Player, [Race.Blue] = Controller.Ai }, seed,
             new MatchOptions { Story = new StoryOptions(), FogOfWar = false });
+        world.Step();
+        Assert.Null(Do(world, new StoryUseCommand(Race.Red, StoryMarks.SkipBoot)));
+        return world;
+    }
 
     private static void Run(GameWorld world, float seconds)
     {
@@ -287,7 +293,7 @@ public class StoryHackTests
         Assert.Equal(a.Story!.Hacks.Session("pod_3_hatch")!.Puzzle!.Fingerprint(), b.Story!.Hacks.Session("pod_3_hatch")!.Puzzle!.Fingerprint());
 
         var idle = Prologue(seed: 21);
-        Run(idle, a.Tick / (float)GameWorld.TicksPerSecond);
+        Run(idle, (a.Tick - idle.Tick) / (float)GameWorld.TicksPerSecond);
         Assert.Equal(a.Tick, idle.Tick);
         Assert.NotEqual(a.Checksum(), idle.Checksum());
     }

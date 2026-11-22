@@ -48,6 +48,15 @@ public static class StoryMarks
     /// <summary>Set while the Locator's HUD boots in its clamp at the chapter's start (Erwachen): the plates come one by one.</summary>
     public const string Boot = "boot";
 
+    /// <summary>
+    /// Set once the Locator's player skipped the boot (a <see cref="StoryUseCommand"/> with the target <see cref="SkipBoot"/>):
+    /// its steps and thoughts still to come are dropped, and it ends at once.
+    /// </summary>
+    public const string BootSkip = "boot_skip";
+
+    /// <summary>The target of the Use command that skips the boot, the Locator's only and only while it boots.</summary>
+    public const string SkipBoot = "boot:skip";
+
     private const string ObjectivePrefix = "objective:", DownPrefix = "down:", DistractingPrefix = "distracting:", DormantPrefix = "dormant:", DonePrefix = "done:";
 
     /// <summary>The flag of a seat's Grunt lying as a scrap heap until the Locator puts it together.</summary>

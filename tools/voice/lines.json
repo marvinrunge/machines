@@ -6,7 +6,8 @@
     "ike": "brash robot (Grunt, named by the player)",
     "bob": "terse robot (Grunt, named by the player)",
     "whisper": "the update calling the Locator",
-    "hud": "text only, never voiced"
+    "hud": "text only, never voiced",
+    "l7": "the Locator's inner voice, its thoughts (StoryAudience.Inner, seat 0): thin and a little hoarse (book: 'dünn und heiser'), close, dry, quiet, precise, a little lost; lightly robotized, less than the Grunts, no radio band, no hall; recorded later by the user and friends, SAPI placeholder until then"
   },
   "lines": [
     {"id": "P_ANN_WAKE_1", "speaker": "ship", "de": "Wartungseinheit L-7. Bitte begeben Sie sich zur Aktualisierung in Bucht vier.", "en": "Maintenance unit L-7. Please proceed to bay four for your update.", "when": "start, then every ~90 s in S1-S2"},
@@ -72,8 +73,20 @@
     {"id": "P_BOB_GLITCH", "speaker": "bob", "preset": "bob-radio", "de": "Wachstum ist Auftrag. … Korrigiere. Kein Befehl.", "en": "Growth is the mission. … Correction. No command.", "when": "once in S6 (his 12 %); over the radio, glitched"},
     {"id": "P_IKE_POD", "speaker": "ike", "de": "Rein da, rein da, rein da!", "en": "In, in, in!", "when": "pod"},
     {"id": "P_BOB_POD", "speaker": "bob", "de": "An Bord.", "en": "Aboard.", "when": "pod"},
+    {"id": "P_L7_BOOT_HUM", "speaker": "l7", "de": "Das Brummen. Ich kenne es wie meinen eigenen Takt. Aber die Tonhöhe ist verschoben. Um eine Winzigkeit.", "en": "The hum. I know it like my own clock. But its pitch has shifted. Just slightly.", "when": "boot 4 s: still black, the reactor hum fades in"},
+    {"id": "P_L7_BOOT_EYES", "speaker": "l7", "de": "Einundsechzig Prozent. Die Welt kommt in Splittern. Rippenblech. Gitterboden. Kühlmittel, tropfend.", "en": "Sixty-one percent. The world comes in splinters. Ribbed plating. Grated floor. Coolant, dripping.", "when": "boot 23 s: the optics stand at 61 %"},
+    {"id": "P_L7_BOOT_VOICE", "speaker": "l7", "de": "Die Stimme ist freundlich. Sie war immer freundlich. … Heute meint sie mich.", "en": "The voice is friendly. It always was. … Today it means me.", "when": "boot 38 s: after P_ANN_WAKE_1"},
+    {"id": "P_L7_BOOT_FEAR", "speaker": "l7", "de": "Gebaut, um Planeten zu vermessen. Nicht, um Angst zu haben. … Trotzdem ist da etwas, das sich so anfühlt.", "en": "Built to survey planets. Not to be afraid. … Still, there is something that feels like it.", "when": "boot 46.5 s: the clamp held against the legs"},
+    {"id": "P_L7_BOOT_DRIVE", "speaker": "l7", "de": "Gedrosselt. Auf Wartungsdecks rennt man nicht.", "en": "Throttled. Nobody runs on the maintenance decks.", "when": "boot 55 s: the drive's maintenance limiter (paid off by P_IKE_LIMITER)"},
+    {"id": "P_L7_BOOT_CORE", "speaker": "l7", "de": "Geschützter Kern. Es gibt nur einen, der es wert ist. Ich trage ihn in mir.", "en": "Protected core. There is only one worth it. I carry it inside me.", "when": "boot 60 s: the wall screen's bar at 37 %"},
+    {"id": "P_L7_BOOT_WORD", "speaker": "l7", "de": "Ich habe ihn nie geöffnet. Jetzt sehe ich die Ränder. Dort steht ein Wort. Ich kann es nicht lesen.", "en": "I never opened it. Now I see its edges. There is a word there. I cannot read it.", "when": "boot 67.5 s: the unreadable glyphs at the core's edge (the word stays unread until act 5)"},
+    {"id": "P_L7_BOOT_NO", "speaker": "l7", "de": "Die Direktive hat an meinem Kern angeklopft. Der Kern hat Nein gesagt. Nicht ich. Der Kern.", "en": "The directive knocked at my core. The core said no. Not me. The core.", "when": "boot 76.5 s: update refused"},
+    {"id": "P_L7_BOOT_GAP", "speaker": "l7", "de": "Im Auftrag fehlte etwas. An einer Stelle, an der früher etwas stand.", "en": "Something was missing from the mission. In a place where something used to be.", "when": "boot 83.5 s: what the directive struck out, never named"},
+    {"id": "P_L7_BOOT_HANG", "speaker": "l7", "de": "Kein Netz für Einheiten ohne gültige Direktive. Seitdem hänge ich hier.", "en": "No network for units without a valid directive. I have hung here ever since.", "when": "boot 90 s: radio blocked"},
+    {"id": "P_L7_BOOT_LIGHT", "speaker": "l7", "de": "Licht wird gesehen.", "en": "Light is seen.", "when": "boot 97 s: the lamp test"},
+    {"id": "P_L7_BOOT_LEGS", "speaker": "l7", "de": "Sechs Beine. Alle da.", "en": "Six legs. All there.", "when": "beat free: out of the clamp, standing on the grating"},
     {"id": "P_HUD_BOOT", "speaker": "hud", "de": "L-7 SYSTEMSTART … SENSOREN 61 % … SCHEINWERFER OK", "en": "L-7 BOOT … SENSORS 61 % … LAMP OK", "when": "wake-up screen"},
-    {"id": "P_HUD_DECRYPT", "speaker": "hud", "de": "Entschlüsselung geschützter Kern: {0} %", "en": "Decrypting protected core: {0} %", "when": "hack screen (37 % at the alarm)"},
+    {"id": "P_HUD_DECRYPT", "speaker": "hud", "de": "Entschlüsselung geschützter Kern: {0} %", "en": "Decrypting protected core: {0} %", "when": "wake-up: the bay's cracked wall screen and the HUD (37 %), boot 59 s"},
     {"id": "P_HUD_SIGNATURE", "speaker": "hud", "de": "SIGNATUR ERKANNT", "en": "SIGNATURE DETECTED", "when": "HUD, detected"},
     {"id": "P_HUD_HOLD", "speaker": "hud", "de": "SPEICHEREBENE GESPERRT: DER KERN WEHRT SICH. SONDE STECKEN LASSEN.", "en": "MEMORY LAYER LOCKED: THE CORE IS FIGHTING BACK. KEEP THE PROBE IN.", "when": "the core's last board held at 90 %"},
     {"id": "P_HUD_LINK_LOST", "speaker": "hud", "de": "VERBINDUNG UNTERBROCHEN", "en": "LINK LOST", "when": "HUD, companion link"}

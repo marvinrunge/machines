@@ -189,7 +189,7 @@ public partial class StoryMusic(StoryAudio audio) : Node
         switch (score.Follow(section, countdownLeft))
         {
             case StoryScorePart.Playlist:
-                _listDb = StoryScore.PlaylistDb(section, _threat.Level);
+                _listDb = StoryScore.PlaylistDb(section, _threat.Level, audio.Booting());
                 if (_list is null)
                     ResumeList();
                 else if (_list.Target != _listDb)

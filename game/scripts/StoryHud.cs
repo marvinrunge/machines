@@ -11,7 +11,7 @@ namespace Machines.Game;
 /// other two of the trio on cards (following, waiting, drawing the hunters off, down as a scrap heap, still switched off), the
 /// signature meter and the motion tracker in the radar's corner (the radar would show the hunters through the walls), what
 /// can be done where the hero stands, calls across the view, and the card when the Locator is lost. At the chapter's start the
-/// HUD boots in the clamp, its plates coming one by one through static. Everything it says comes from <see cref="StoryReadout"/>;
+/// Locator boots in its clamp, system after system, its plates coming one by one through static (StoryHud.Boot). Everything it says comes from <see cref="StoryReadout"/>;
 /// MACHINES_STORY_HUD puts it into a state for pictures (<see cref="Demo"/>).
 /// </summary>
 public partial class StoryHud : Control
@@ -100,6 +100,7 @@ public partial class StoryHud : Control
     {
         if (_size == Vector2.Zero || _now is not { } now)
             return;
+        DrawBootView(now);
         DrawDanger(now);
         if (Shows(BootPart.Way))
         {
@@ -121,7 +122,7 @@ public partial class StoryHud : Control
             DrawTracker(now);
             DrawSignature(now);
         }
-        DrawBoot();
+        DrawBoot(now);
         DrawConsole();
         DrawEnd(now);
     }
@@ -643,6 +644,11 @@ public partial class StoryHud : Control
 
     public override void _Input(InputEvent @event)
     {
+        if (BootInput(@event))
+        {
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         if (_now is not { Ending: StoryEnding.LocatorLost or StoryEnding.Crashed } || _demo is not null || _game.Watching)
             return;
         if (@event is InputEventKey { Pressed: true, Echo: false } key && key.Keycode is Key.Space or Key.Enter or Key.KpEnter)

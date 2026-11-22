@@ -244,6 +244,7 @@ public partial class Game
                     break;
             }
         }
+        BootDrips();
         // The deck's light groups follow the sight's (GameWorld.StoryLightState) in FollowDeck.
     }
 
@@ -311,6 +312,9 @@ public partial class Game
                 break;
             case ["door", _]:
                 StoryAudio.Play("door_open", at);
+                break;
+            case ["boot", var step]:
+                BootCue(step);
                 break;
             case ["clamp", _]:
                 StoryAudio.Play("clamp_release", at);

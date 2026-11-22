@@ -25,6 +25,7 @@ public partial class Game
             // The most suspicious seeker's suspicion of this player's hero (the sight's, GameWorld.StorySuspicionOf).
             Suspicion = () => World.HeroOf(Me) is { } mine ? World.StorySuspicionOf(mine.Id) : 0,
             Section = () => World.Story?.Section ?? 1,
+            Booting = () => World.Story?.Flags.Contains(Machines.Sim.Story.StoryMarks.Boot) == true,
             LocatorHealth = () => World.HeroOf(locator) is { MaxHitPoints: > 0 } hero ? (float)hero.HitPoints / hero.MaxHitPoints : 1,
             Shown = () => !Hidden,
             Over = () => World.Story?.Over ?? true,

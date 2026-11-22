@@ -415,6 +415,8 @@ public sealed partial class GameWorld
         var seat = run.Seats.IndexOf(player);
         if (seat < 0)
             return "not one of the trio";
+        if (command.Target == StoryMarks.SkipBoot)
+            return SkipBoot(run, seat);
         if (!command.Held)
         {
             LetGoOfUse(run, player);
@@ -466,6 +468,20 @@ public sealed partial class GameWorld
             return null;
         }
         return "nothing to use there";
+    }
+
+    /// <summary>
+    /// The Locator's player skips its boot in the clamp (<see cref="StoryMarks.SkipBoot"/>): only while it boots, and only the
+    /// Locator's; the director drops the steps still to come and ends the boot on this tick.
+    /// </summary>
+    private static string? SkipBoot(StoryRun run, int seat)
+    {
+        if (seat != 0)
+            return "only the Locator skips its boot";
+        if (!run.Flags.Contains(StoryMarks.Boot))
+            return "no boot to skip";
+        run.Flags.Add(StoryMarks.BootSkip);
+        return null;
     }
 
     /// <summary>

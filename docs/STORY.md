@@ -170,6 +170,16 @@ Ziel: in 20–30 Minuten von „hilflos“ zu „entkommen“. Das Tutorial stec
 
 **Gehen und Sprinten.** L-7 und die Grunts gehen mit gut der Hälfte ihrer Höchstgeschwindigkeit (55 %), ziehen gemächlich an und drehen langsamer: schwer und vorsichtig. Mit gehaltener Umschalt-Taste (am Gamepad dem Klick des linken Sticks) sprinten sie mit ihrer vollen Geschwindigkeit, der von früher. Zuerst geht das nicht: L-7 ist eine Wartungseinheit mit Wartungsbegrenzer, und die Grunts sind ebenso gedrosselt; wer es trotzdem versucht, liest einmal „ANTRIEB: WARTUNGSBEGRENZER AKTIV“. Erst wenn es nötig wird, beim Einbruch der Reaper in den Rechnerraum, mit ihrem ersten Treffer am Kern, wird der Begrenzer überbrückt, und das HUD sagt einmal „[Umschalt] halten: Sprinten“, bis man zum ersten Mal sprintet. Ab dem Checkpoint des Einbruchs ist der Sprint von Anfang an frei. Sprinten heizt den Antrieb auf (die Anzeige ANTRIEB neben L-7s Plakette): nach etwa 7 Sekunden ist er heiß, stottert und lässt sich erst wieder treiben, wenn er auf ein Drittel abgekühlt ist (etwa 3 Sekunden). Sprinten ist außerdem lauter: In den Schleichabschnitten bleibt Gehen der richtige Weg. Die KI-Grunts sprinten mit, wenn der Locator sprintet, wenn sie zurückfallen und auf der Flucht, mit derselben Hitze; wo sie dem Locator im Weg stehen, weichen sie aus. Solange der Begrenzer greift, gehen auch die sehenden Jäger des Schiffs (der Thresher auf seiner Runde) im selben Maß langsamer: Die dunklen Decks behalten ihr Verhältnis, ein gehender Grunt ist dem Thresher noch immer davon. Den Trupp schickt das Schiff erst, wenn die Grunts an ihren Barrikaden sind (sie kommen zu Fuß den langen Weg), damit ihnen die Zeit für die Kisten bleibt.
 
+**Systemstart (umgesetzt).** Der Prolog beginnt in der Klammer mit dem Hochfahren des Locators, gut 100 Sekunden lang:
+erst Schwärze und das gedämpfte Summen, dann tippt das HUD seine Zeilen (Kern, Schreibschutz, Speicher, Optik, Sensoren,
+Beine, Wartungsklammer, Antrieb mit Wartungsbegrenzer, geschützter Kern, Kernrand, abgelehnte Aktualisierung, Funk,
+Nahfunk, Scheinwerfer). Die Optik kommt durch Rauschen, das Bild in Splittern, die Lampe stottert zum Test an. Dazwischen
+hört man L-7s Gedanken (P_L7_BOOT_*, leise, ohne Sprechernamen im Untertitel) und die erste Weckdurchsage. Danach erst ist
+die Klammer hackbar. Wer den Start schon einmal gesehen hat, kann ihn mit gehaltenem Esc überspringen; jeder Checkpoint
+nach 0 beginnt ohne ihn. Koop-Grunts sehen solange ihr eigenes Standby. Kanon aus dem Buch: Das Wort *Mensch* fällt im
+Prolog nicht, weder gesprochen noch geschrieben. Der Locator sieht am Rand seines Kerns nur ein Wort, das er nicht lesen
+kann.
+
 **Die Durchsage beim Erwischtwerden** (Entwurf, die Stimme der freundlichen Wartungsdurchsagen):
 
 > „Achtung. Integritätsverletzung im Rechnerkern. Wartungseinheit L-7 ist korrumpiert.

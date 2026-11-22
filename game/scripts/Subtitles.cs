@@ -60,6 +60,7 @@ public partial class Subtitles : Control
         StorySpeaker.Auto => HudInk.Danger,
         StorySpeaker.Whisper => new Color(0.78f, 0.72f, 0.95f),
         StorySpeaker.Locator => HudInk.Warning,
+        StorySpeaker.Thought => MenuTheme.Glow,
         _ => MenuTheme.Text,
     };
 
@@ -105,7 +106,13 @@ public partial class Subtitles : Control
                 var row = rows[i];
                 var start = size.X / 2 - _ink.Width(row, text) / 2;
                 var at = new Vector2(start, y);
-                var body = line.Speaker == StorySpeaker.Whisper ? new Color(0.86f, 0.82f, 1f, alpha * 0.85f) : new Color(0.95f, 0.96f, 0.93f, alpha);
+                var body = line.Speaker switch
+                {
+                    StorySpeaker.Whisper => new Color(0.86f, 0.82f, 1f, alpha * 0.85f),
+                    // A thought: the HUD's glow, a little faint, no name before it.
+                    StorySpeaker.Thought => new Color(MenuTheme.Glow.Lerp(Colors.White, 0.35f), alpha * 0.8f),
+                    _ => new Color(0.95f, 0.96f, 0.93f, alpha),
+                };
                 if (i == 0 && name.Length > 0 && row.StartsWith(name, StringComparison.Ordinal))
                 {
                     _ink.Say(at, name, text, new Color(ColourOf(line.Speaker), alpha), outline: 1);

@@ -4797,6 +4797,96 @@ msgstr "SENSOREN {0} %"
 msgid "LAMP OK"
 msgstr "SCHEINWERFER OK"
 
+msgid "CORE"
+msgstr "KERN"
+
+msgid "WRITE PROTECTION"
+msgstr "SCHREIBSCHUTZ"
+
+msgid "ACTIVE"
+msgstr "AKTIV"
+
+msgid "MEMORY"
+msgstr "SPEICHER"
+
+msgid "2 ERRORS"
+msgstr "2 FEHLER"
+
+msgid "LAST ENTRY"
+msgstr "LETZTER EINTRAG"
+
+msgid "OPTICS"
+msgstr "OPTIK"
+
+msgid "LEGS"
+msgstr "BEINE"
+
+msgid "6/6 OK"
+msgstr "6/6 OK"
+
+msgid "MAINTENANCE CLAMP"
+msgstr "WARTUNGSKLAMMER"
+
+msgid "LOCKED"
+msgstr "VERRIEGELT"
+
+msgid "DRIVE"
+msgstr "ANTRIEB"
+
+msgid "THROTTLED"
+msgstr "GEDROSSELT"
+
+msgid "MAINTENANCE LIMITER ACTIVE"
+msgstr "WARTUNGSBEGRENZER AKTIV"
+
+msgid "PROTECTED CORE"
+msgstr "GESCHÜTZTER KERN"
+
+msgid "EXTERNAL ACCESS"
+msgstr "ZUGRIFF VON AUSSEN"
+
+msgid "CORE EDGE: {0}"
+msgstr "KERNRAND: {0}"
+
+msgid "UPDATE: GROWTH DIRECTIVE"
+msgstr "AKTUALISIERUNG: WACHSTUMSDIREKTIVE"
+
+msgid "REFUSED"
+msgstr "ABGELEHNT"
+
+msgid "REASON: CORE"
+msgstr "GRUND: KERN"
+
+msgid "RADIO: SHIP NETWORK"
+msgstr "FUNK: SCHIFFSNETZ"
+
+msgid "BLOCKED"
+msgstr "GESPERRT"
+
+msgid "SHORT LINK"
+msgstr "NAHFUNK"
+
+msgid "2 SIGNALS (STANDBY)"
+msgstr "2 SIGNALE (STANDBY)"
+
+msgid "LAMP"
+msgstr "SCHEINWERFER"
+
+msgid "TEST"
+msgstr "TEST"
+
+msgid "BOOT COMPLETE"
+msgstr "SYSTEMSTART ABGESCHLOSSEN"
+
+msgid "Standby"
+msgstr "Standby"
+
+msgid "{0} · STANDBY · UPDATE PENDING {1} %"
+msgstr "{0} · STANDBY · AKTUALISIERUNG AUSSTEHEND {1} %"
+
+msgid "Hold Esc to skip the boot"
+msgstr "Esc halten: Systemstart überspringen"
+
 msgid "Reach maintenance deck A"
 msgstr "Erreiche Wartungsdeck A"
 
@@ -5058,6 +5148,42 @@ msgstr "L-7 SYSTEMSTART … SENSOREN 61 % … SCHEINWERFER OK"
 msgid "Decrypting protected core: {0} %"
 msgstr "Entschlüsselung geschützter Kern: {0} %"
 
+msgid "The hum. I know it like my own clock. But its pitch has shifted. Just slightly."
+msgstr "Das Brummen. Ich kenne es wie meinen eigenen Takt. Aber die Tonhöhe ist verschoben. Um eine Winzigkeit."
+
+msgid "Sixty-one percent. The world comes in splinters. Ribbed plating. Grated floor. Coolant, dripping."
+msgstr "Einundsechzig Prozent. Die Welt kommt in Splittern. Rippenblech. Gitterboden. Kühlmittel, tropfend."
+
+msgid "The voice is friendly. It always was. … Today it means me."
+msgstr "Die Stimme ist freundlich. Sie war immer freundlich. … Heute meint sie mich."
+
+msgid "Built to survey planets. Not to be afraid. … Still, there is something that feels like it."
+msgstr "Gebaut, um Planeten zu vermessen. Nicht, um Angst zu haben. … Trotzdem ist da etwas, das sich so anfühlt."
+
+msgid "Throttled. Nobody runs on the maintenance decks."
+msgstr "Gedrosselt. Auf Wartungsdecks rennt man nicht."
+
+msgid "Protected core. There is only one worth it. I carry it inside me."
+msgstr "Geschützter Kern. Es gibt nur einen, der es wert ist. Ich trage ihn in mir."
+
+msgid "I never opened it. Now I see its edges. There is a word there. I cannot read it."
+msgstr "Ich habe ihn nie geöffnet. Jetzt sehe ich die Ränder. Dort steht ein Wort. Ich kann es nicht lesen."
+
+msgid "The directive knocked at my core. The core said no. Not me. The core."
+msgstr "Die Direktive hat an meinem Kern angeklopft. Der Kern hat Nein gesagt. Nicht ich. Der Kern."
+
+msgid "Something was missing from the mission. In a place where something used to be."
+msgstr "Im Auftrag fehlte etwas. An einer Stelle, an der früher etwas stand."
+
+msgid "No network for units without a valid directive. I have hung here ever since."
+msgstr "Kein Netz für Einheiten ohne gültige Direktive. Seitdem hänge ich hier."
+
+msgid "Light is seen."
+msgstr "Licht wird gesehen."
+
+msgid "Six legs. All there."
+msgstr "Sechs Beine. Alle da."
+
 msgid "SIGNATURE DETECTED"
 msgstr "SIGNATUR ERKANNT"
 
@@ -5263,8 +5389,8 @@ msgstr "Begrenzer raus, L-7! Lauf!"
 msgid "DRIVE: MAINTENANCE LIMITER ACTIVE"
 msgstr "ANTRIEB: WARTUNGSBEGRENZER AKTIV"
 
-msgid "SPEED LIMITER ... OVERRIDDEN"
-msgstr "DREHZAHLBEGRENZER ... ÜBERBRÜCKT"
+msgid "MAINTENANCE LIMITER ... OVERRIDDEN"
+msgstr "WARTUNGSBEGRENZER ... ÜBERBRÜCKT"
 
 msgid "[{0}] hold: Sprint"
 msgstr "[{0}] halten: Sprinten"

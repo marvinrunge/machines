@@ -31,6 +31,8 @@ public class StoryAudioPlanTests
     [InlineData("P_AUTO_1", null, StoryVoiceChannel.Announcer)]
     [InlineData("P_BOB_UP", null, StoryVoiceChannel.Radio)]
     [InlineData("P_HUD_BOOT", null, StoryVoiceChannel.Text)]
+    [InlineData("P_L7_BOOT_HUM", "l7", StoryVoiceChannel.Inner)]
+    [InlineData("P_L7_BOOT_LEGS", null, StoryVoiceChannel.Inner)]
     public void LinesGoToTheirChannel(string line, string? preset, StoryVoiceChannel channel) =>
         Assert.Equal(channel, StorySoundscape.Channel(line, preset));
 

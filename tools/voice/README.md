@@ -17,6 +17,8 @@ seconds, preset, and `placeholder: true` for SAPI lines, `false` for recordings)
    - **ike**: brash and quick, a grin in the voice.
    - **bob**: short, dry, a soldier reporting.
    - **whisper**: whispered or breathy, slow, close to the microphone.
+   - **l7**: the Locator thinking: quiet, close, precise, a little lost; thin and a little hoarse.
+     The pauses "…" are about 0.8 s.
    - Lines marked `"cut": true` (`P_ANN_C5` to `P_ANN_C8`) break off mid-word: stop sharply.
 2. Save as **WAV, 48 kHz, mono (or stereo), 16 or 24 bit**, named by the line id, one folder per
    language:
@@ -57,6 +59,7 @@ lower). `python tools/voice/robot.py --list` names the presets.
 | `bob` | Bob | pitch x0.86, metallic comb filter (3/6/9 ms), presence peak, 85 ms echo |
 | `bob-radio` | `P_BOB_GLITCH` | bob over a breaking radio: telephone band, crush, dropouts, hiss |
 | `whisper` | the update | pitch x0.82, whispered (random-phase FFT), reversed reverb swelling into the words |
+| `l7` | the Locator's thoughts (`P_L7_`) | pitch x0.97, a faint monotone buzz and a breath of whisper under the voice, light crush, close and dry |
 
 The game adds the room on top later (announcer bus, 3D speakers), so the presets stay fairly
 dry apart from the PA's hall.

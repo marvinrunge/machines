@@ -21,6 +21,8 @@ public enum StoryVoiceChannel
     Whisper,
     /// <summary>Text on the HUD only, never voiced (the P_HUD_ lines).</summary>
     Text,
+    /// <summary>The Locator's own thoughts (P_L7_): on the Voice bus, close and dry, the world a few dB lower while they speak.</summary>
+    Inner,
 }
 
 /// <summary>One voice file of a line in a language (game/assets/story/voice/manifest.json).</summary>
@@ -81,7 +83,10 @@ public sealed record StoryQueuedLine(string Id, StoryVoiceChannel Channel, doubl
     /// <summary>Whether the PA's gong comes first, should the PA have been quiet long enough (a cut fragment never has one).</summary>
     public bool Gong { get; init; }
 
-    public bool Announcement => Channel is StoryVoiceChannel.Announcer or StoryVoiceChannel.Local or StoryVoiceChannel.Whisper;
+    public bool Announcement => Channel is StoryVoiceChannel.Announcer or StoryVoiceChannel.Local or StoryVoiceChannel.Whisper or StoryVoiceChannel.Inner;
+
+    /// <summary>Whether the line is the ship's or the update's (not the Locator's own thought): its end counts for the PA's quiet before a gong.</summary>
+    public bool Loudspeaker => Announcement && Channel != StoryVoiceChannel.Inner;
 }
 
 /// <summary>What the line queue did.</summary>
@@ -142,7 +147,7 @@ public sealed class StoryLineQueue
         {
             Current = null;
             _freeAt = now + Gap;
-            if (current.Announcement)
+            if (current.Loudspeaker)
                 _lastAnnouncement = now;
             events.Add(new(StoryQueueChange.Ended, current));
         }
@@ -174,7 +179,7 @@ public sealed class StoryLineQueue
         var events = new List<StoryQueueEvent>();
         if (Current is { } current)
         {
-            if (current.Announcement)
+            if (current.Loudspeaker)
                 _lastAnnouncement = now;
             events.Add(new(StoryQueueChange.Interrupted, current));
         }
@@ -201,7 +206,7 @@ public sealed class StoryLineQueue
         {
             Current = null;
             _freeAt = now + Gap;
-            if (current.Announcement)
+            if (current.Loudspeaker)
                 _lastAnnouncement = now;
             events.Add(new(StoryQueueChange.Interrupted, current));
         }
@@ -386,12 +391,14 @@ public static class StorySoundscape
         "ship-dry" => StoryVoiceChannel.Local,
         "ike" or "bob" or "bob-radio" => StoryVoiceChannel.Radio,
         "whisper" => StoryVoiceChannel.Whisper,
+        "l7" => StoryVoiceChannel.Inner,
         _ => line switch
         {
             "P_ANN_FOUND" => StoryVoiceChannel.Local,
             _ when line.StartsWith("P_ANN_", StringComparison.Ordinal) || line.StartsWith("P_AUTO_", StringComparison.Ordinal) => StoryVoiceChannel.Announcer,
             _ when line.StartsWith("P_IKE_", StringComparison.Ordinal) || line.StartsWith("P_BOB_", StringComparison.Ordinal) => StoryVoiceChannel.Radio,
             _ when line.StartsWith("P_WHISPER", StringComparison.Ordinal) => StoryVoiceChannel.Whisper,
+            _ when line.StartsWith("P_L7_", StringComparison.Ordinal) => StoryVoiceChannel.Inner,
             _ => StoryVoiceChannel.Text,
         },
     };
@@ -514,6 +521,9 @@ public sealed class StoryScore
     /// </summary>
     public const float AfterCaughtDb = -3, UneasyDb = -1.5f, HuntedDb = -4;
 
+    /// <summary>The playlist's level (dB) while the Locator boots in its clamp: softly under its thoughts, up to its own level once free.</summary>
+    public const float BootDb = -9;
+
     private bool _caughtEnded;
 
     public StoryScorePart Part { get; private set; } = StoryScorePart.Playlist;
@@ -556,9 +566,9 @@ public sealed class StoryScore
     /// </summary>
     public static double EscapeOffset(float left, double length) => Math.Clamp(length - left, 0, Math.Max(0, length - 1));
 
-    /// <summary>The playlist's level (dB) in a section at a threat level (0 calm, 1 uneasy, 2 hunted).</summary>
-    public static float PlaylistDb(int section, int threat) =>
-        (section >= 5 ? AfterCaughtDb : 0) + threat switch { >= 2 => HuntedDb, 1 => UneasyDb, _ => 0 };
+    /// <summary>The playlist's level (dB) in a section at a threat level (0 calm, 1 uneasy, 2 hunted), and while the Locator boots.</summary>
+    public static float PlaylistDb(int section, int threat, bool booting = false) =>
+        (section >= 5 ? AfterCaughtDb : 0) + threat switch { >= 2 => HuntedDb, 1 => UneasyDb, _ => 0 } + (booting ? BootDb : 0);
 
     /// <summary>The playlist's piece after <paramref name="track"/>: the next, or the first again after the last.</summary>
     public static int Next(int track) => (track + 1) % Playlist.Length;

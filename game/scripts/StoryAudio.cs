@@ -52,6 +52,8 @@ public partial class StoryAudio : Node
     public Func<Vector3, float?> ThresherDistance { get; init; } = _ => null;
     public Func<float> Suspicion { get; init; } = () => 0;
     public Func<int> Section { get; init; } = () => 1;
+    /// <summary>Whether the Locator boots in its clamp (the score's playlist plays softly under it).</summary>
+    public Func<bool> Booting { get; init; } = () => false;
     public Func<float> LocatorHealth { get; init; } = () => 1;
     public Func<bool> Shown { get; init; } = () => true;
     public Func<bool> Over { get; init; } = () => false;

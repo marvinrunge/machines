@@ -94,30 +94,48 @@ public class PrologueScriptTests
         Assert.All(Prologue.Script.Where(b => !b.Repeat), b => Assert.Equal(b.Span < checkpoint, director.Has(b.Name)));
         Assert.Equal(checkpoint > 0, StoryMarks.Objective(run) is not null);
 
-        // It plays on from there.
+        // It plays on from there (at the start the Locator boots in its clamp, with no objective until its end).
         for (var i = 0; i < 2 * GameWorld.TicksPerSecond; i++)
             world.Step();
         Assert.False(run.Over);
-        Assert.NotNull(StoryMarks.Objective(run));
+        Assert.Equal(checkpoint == 0, run.Flags.Contains(StoryMarks.Boot));
+        Assert.Equal(checkpoint > 0, StoryMarks.Objective(run) is not null);
     }
 
     [Fact]
-    public void At_the_start_the_locator_hangs_in_its_clamp_until_it_hacks_itself_free()
+    public void At_the_start_the_locator_boots_in_its_clamp_and_then_hacks_itself_free()
     {
         var world = Chapter();
         var run = world.Story!;
         var locator = world.HeroOf(run.Locator)!;
-        world.Step();
+        var rider = new Rider(world);
+        rider.Step();
 
+        // The boot: held, the clamp's hack shut, no objective, until its end.
         Assert.True(world.HeldByStory(locator.Id));
         Assert.Contains(StoryMarks.Boot, run.Flags);
+        Assert.Contains("clamp_l7", run.Hacks.Locked);
+        Assert.Null(StoryMarks.Objective(run));
+        Assert.Equal("that cannot be hacked yet", Refused(world, new StoryHackOpenCommand(Race.Red, "clamp_l7")));
+        rider.Until(() => run.Director.Has("boot_done"), Prologue.BootLength + 1);
+        Assert.InRange(world.Time - run.Director.Fired["boot"], Prologue.BootLength - 0.01f, Prologue.BootLength + 0.2f);
+        Assert.DoesNotContain(StoryMarks.Boot, run.Flags);
+        Assert.DoesNotContain("clamp_l7", run.Hacks.Locked);
         Assert.Equal(("Free yourself from the clamp", (string?)"clamp_l7"), StoryMarks.Objective(run));
-        var rider = new Rider(world);
-        rider.Hack("clamp_l7");
+        Assert.True(world.HeldByStory(locator.Id));
 
+        rider.Hack("clamp_l7");
         Assert.False(world.HeldByStory(locator.Id));
         Assert.False(world.DoorClosed('A'));
         Assert.Equal("terminal_ike", StoryMarks.Objective(run)!.Value.Place);
+    }
+
+    /// <summary>The world's reason for refusing a command given and stepped once; null when it took it.</summary>
+    private static string? Refused(GameWorld world, Command command)
+    {
+        world.Issue(command);
+        world.Step();
+        return world.Rejected.FirstOrDefault(r => ReferenceEquals(r.Command, command))?.Reason;
     }
 
     // ---- a run of the chapter ---------------------------------------------------------------------------
@@ -358,6 +376,13 @@ public class PrologueScriptTests
         {
             var director = Run.Director;
             bool Done(string target) => Run.Hacks.Done.Contains(target);
+            // The Locator's boot in its clamp is skipped, as a player who has seen it may (its own tests: PrologueBootTests).
+            if (Run.Checkpoint == 0 && !director.Has("boot_done"))
+            {
+                Step();
+                Assert.Null(Do(new StoryUseCommand(Race.Red, StoryMarks.SkipBoot)));
+                Assert.True(director.Has("boot_done"));
+            }
             for (var legs = 0; legs < 60 && !Run.Over; legs++)
             {
                 if (!Done("clamp_l7"))

@@ -77,6 +77,9 @@ public partial class Hud : CanvasLayer
     // In first person, with the hero down too, when the sight and the guns are gone from it.
     private bool _firstPerson;
 
+    // Whether the story's boot holds the weapon panels back (StoryHud.BootLinesUp).
+    private bool _weaponsHeld;
+
     /// <summary>The hero is down with the view still on it: there is nothing to sight, fire or scan with until the next body.</summary>
     public void HeroDown()
     {
@@ -230,6 +233,12 @@ public partial class Hud : CanvasLayer
             chapter.Left = left - 12;
             chapter.Driving = _firstPerson;
         }
+        // While the story's boot lines are up there, the weapon panels wait; then they drop in, one after another.
+        var held = Story?.BootLinesUp == true;
+        if (_weaponsHeld && !held && Weapons.Visible)
+            Weapons.Start();
+        _weaponsHeld = held;
+        Weapons.Modulate = held ? Colors.Transparent : Colors.White;
         if (Wired is { } run)
         {
             run.Left = left - 12;

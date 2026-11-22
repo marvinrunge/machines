@@ -124,7 +124,53 @@ public static class Prologue
             Whisper = "P_WHISPER_1", IkeWake = "P_IKE_WAKE", BobWake = "P_BOB_WAKE", IkeSteps = "P_IKE_STEPS", IkeVent = "P_IKE_VENT",
             IkeBarricade = "P_IKE_BARRICADE", BobBarricade = "P_BOB_BARRICADE", IkeAlarm = "P_IKE_ALARM", BobGlitch = "P_BOB_GLITCH",
             IkePod = "P_IKE_POD", BobPod = "P_BOB_POD", HudBoot = "P_HUD_BOOT", HudDecrypt = "P_HUD_DECRYPT", IkeLimiter = "P_IKE_LIMITER";
+
+        /// <summary>The Locator's thoughts as it boots in its clamp, and the one as it stands free (speaker l7, <see cref="StoryAudience.Inner"/>).</summary>
+        public const string L7Hum = "P_L7_BOOT_HUM", L7Eyes = "P_L7_BOOT_EYES", L7Voice = "P_L7_BOOT_VOICE", L7Fear = "P_L7_BOOT_FEAR",
+            L7Drive = "P_L7_BOOT_DRIVE", L7Core = "P_L7_BOOT_CORE", L7Word = "P_L7_BOOT_WORD", L7No = "P_L7_BOOT_NO", L7Gap = "P_L7_BOOT_GAP",
+            L7Hang = "P_L7_BOOT_HANG", L7Light = "P_L7_BOOT_LIGHT", L7Legs = "P_L7_BOOT_LEGS";
     }
+
+    // ---- the boot (Erwachen) ----------------------------------------------------------------------------
+
+    /// <summary>
+    /// How long the Locator boots in its clamp at the chapter's start before it can hack itself free, seconds from the beat
+    /// <c>boot</c> (tick 0 at checkpoint 0). Every later checkpoint starts after it.
+    /// </summary>
+    public const float BootLength = 105.5f;
+
+    /// <summary>
+    /// The boot's steps, seconds into it, one system after the other coming online: the reactor's hum, a relay in the clamp,
+    /// the HUD's first line, the core, the memory, the optics (black, static, splinters, the picture), the legs against the
+    /// clamp, the drive's maintenance limiter, the cracked wall screen, the protected core's edge, the update refused, the
+    /// radio, the lamp's test and the lamp off again. The director cues each (<c>boot &lt;step&gt;</c>); the HUD writes its
+    /// lines by the same table, so co-op peers and replays show the same boot. Timed so each thought ends before the next
+    /// step's line (with the placeholder voices, the German the longest).
+    /// </summary>
+    public static readonly IReadOnlyList<(float At, string Step)> BootSteps =
+    [
+        (1.5f, "hum"), (3, "relay"), (12.5f, "start"), (13.5f, "core"), (15, "memory"), (16.5f, "optics"), (47.5f, "legs"), (58.8f, "drive"),
+        (63.3f, "screen"), (71, "edge"), (80, "update"), (95.2f, "radio"), (101.3f, "lamp"), (104.5f, "lamp_off"),
+    ];
+
+    /// <summary>How long after the optics' step the picture stands (static, three splinters, the sensors counting up), seconds.</summary>
+    public const float OpticsClear = 4.6f;
+
+    /// <summary>The Locator's thoughts while it boots, seconds into the boot (each waits for the one before to end).</summary>
+    public static readonly IReadOnlyList<(float At, string Line)> BootThoughts =
+    [
+        (3.5f, Lines.L7Hum), (21.5f, Lines.L7Eyes), (41.6f, Lines.L7Voice), (49, Lines.L7Fear), (59.2f, Lines.L7Drive), (63.8f, Lines.L7Core),
+        (71.4f, Lines.L7Word), (80.4f, Lines.L7No), (89.2f, Lines.L7Gap), (95.6f, Lines.L7Hang), (102.6f, Lines.L7Light),
+    ];
+
+    /// <summary>When the ship calls the Locator to bay four (its gong first), and when the cracked wall screen shows the core's decryption, seconds into the boot.</summary>
+    public const float WakeCallAt = 32, DecryptAt = 63.3f;
+
+    /// <summary>A boot's step or thought is due: so many seconds into the boot, which was not skipped.</summary>
+    private static StoryTrigger Booting(float at) => new AllOf(new Since("boot", at), new Not(new Flagged(StoryMarks.BootSkip)));
+
+    /// <summary>Due so many seconds into the boot, or at once once the boot was skipped (what comes all the same).</summary>
+    private static StoryTrigger BootOr(float at) => new AnyOf(new Since("boot", at), new Flagged(StoryMarks.BootSkip));
 
     // ---- the script -----------------------------------------------------------------------------------
 
@@ -203,13 +249,22 @@ public static class Prologue
     public static readonly IReadOnlyList<StoryBeat> Script =
     [
         // ---- 1 Erwachen: the Locator hangs in its clamp, its HUD boots; it hacks itself free, then Ike and Bob awake.
-        new("boot", 0, new Always(), [new Flag(StoryMarks.Boot), new Hold(true, 0), new Say(Lines.HudBoot),
-            new Objective("Free yourself from the clamp", "clamp_l7")]),
-        new("boot_done", 0, new Since("boot", 6), [new Flag(StoryMarks.Boot, false), new Cue("hint lamp")]),
-        new("wake_call", 0, new Since("boot", 3), [new Say(Lines.Wake1)]),
-        new("decrypt", 0, new Since("boot", 9), [new Say(Lines.HudDecrypt)]),
+        // The boot (Erwachen, about 105 s): black, the reactor's hum, then system after system coming online with the HUD's
+        // lines, the optics' static and splinters, the ship's call, the clamp holding the legs, the drive limited, the core's
+        // edge, the update refused, the radio blocked, the lamp tested; the Locator's thoughts between. The clamp's hack opens
+        // only at its end. The Locator's player may skip it (StoryMarks.SkipBoot, a Use command, so every peer and every replay
+        // skips in the same tick): the steps and thoughts still to come are dropped, the call, the decryption and the objective
+        // come all the same.
+        new("boot", 0, new Always(), [new Flag(StoryMarks.Boot), new Hold(true, 0), new Hackable(false, "clamp_l7"), new Cue("boot dark")]),
+        .. BootSteps.Select(s => new StoryBeat("boot_" + s.Step, 0, Booting(s.At), [new Cue("boot " + s.Step)])),
+        .. BootThoughts.Select(t => new StoryBeat("think_" + t.Line, 0, Booting(t.At), [new Say(t.Line, StoryAudience.Inner, 0)])),
+        // Before the call and the decryption: a skip cuts the thought speaking (the view's), and they come after it.
+        new("boot_done", 0, BootOr(BootLength), [new Flag(StoryMarks.Boot, false), new Hackable(true, "clamp_l7"), new Cue("boot done"),
+            new Objective("Free yourself from the clamp", "clamp_l7"), new Cue("hint lamp")]),
+        new("wake_call", 0, BootOr(WakeCallAt), [new Say(Lines.Wake1)]),
+        new("decrypt", 0, BootOr(DecryptAt), [new Say(Lines.HudDecrypt)]),
         new("free", 0, new HackDone("clamp_l7"), [new Hold(false, 0), new OpenDoors("AB"), new Cue("clamp clamp_l7", "clamp_l7"),
-            new Objective("Wake the Grunts in the bays beside yours", "terminal_ike")]),
+            new Say(Lines.L7Legs, StoryAudience.Inner, 0), new Objective("Wake the Grunts in the bays beside yours", "terminal_ike")]),
         new("ike_awake", 0, new HackDone("terminal_ike"), [new Wake(1), new Cue("clamp clamp_ike", "clamp_ike")]),
         new("bob_awake", 0, new HackDone("terminal_bob"), [new Wake(2), new Cue("clamp clamp_bob", "clamp_bob")]),
         new("next_bob", 0, new AllOf(new HackDone("terminal_ike"), new Not(new HackDone("terminal_bob"))), [new Objective("Wake the other Grunt", "terminal_bob")]),
@@ -218,7 +273,7 @@ public static class Prologue
             new Objective("Find a way to the main computer", "enter_deckA"), .. ThresherOnPatrol], After: ["ike_awake", "bob_awake"]),
 
         // The ship's announcements come round while the decks are dark (sections 1 and 2).
-        new("announce", 0, new AllOf(new Since("boot", 45), new AnyOf(new InSection(1), new InSection(2))), [new SayNext("announce", Announcements)],
+        new("announce", 0, new AllOf(new Since("boot_done", 40), new AnyOf(new InSection(1), new InSection(2))), [new SayNext("announce", Announcements)],
             Repeat: true, Every: 80),
 
         // "Das Update will rein" (docs/STORY.md, Horror): the update whispers the unit's code in the Locator's head, the HUD
@@ -488,6 +543,9 @@ public static class Prologue
             if (cp >= from)
                 run.Hacks.Done.Add(target);
         }
+        // At the start the clamp's hack waits for the boot's end (the beat boot_done), from the first tick on.
+        if (cp == 0)
+            run.Hacks.Locked.Add("clamp_l7");
         if (cp < 4)
             run.Hacks.Locked.Add("hack_d5");
         if (cp < 6)
