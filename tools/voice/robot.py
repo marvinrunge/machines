@@ -25,7 +25,7 @@ Presets (speaker names from lines.json, plus per-line variants):
   bob       terse robot: lower, metallic comb filter, short echo
   bob-radio bob over a glitching radio: telephone band, dropouts, hiss
   whisper   the update: pitched down, whispered (random phase), reversed reverb swell
-  l7        the Locator's thoughts: close, dry, thin and a little hoarse, lightly robotized
+  l7        the Locator's thoughts: close, dry, thin and a little hoarse, robotized, two semitones up
   plain     no robot: only trimmed and levelled (for comparisons and spoken labels)
 
 ffmpeg: FFMPEG env var, else tools/film-upscale/bin/ffmpeg/ffmpeg.exe in this checkout,
@@ -79,6 +79,15 @@ HALL = "aecho=0.85:0.55:43|71|109|157|229|311:0.32|0.27|0.21|0.16|0.12|0.08"
 
 def pitch(p):
     return "anull" if abs(p - 1.0) < 1e-3 else "rubberband=pitch=%.4f" % p
+
+
+# L-7 two semitones over the Iapetus voice's own pitch (0.97 before 2026-11-22), its formants kept where they are, so it
+# sounds higher and smaller without turning into a cartoon.
+L7_PITCH = 0.97 * 2 ** (2 / 12)
+
+
+def pitch_formant(p):
+    return "anull" if abs(p - 1.0) < 1e-3 else "rubberband=pitch=%.4f:formant=preserved:pitchq=quality" % p
 
 
 def graph(preset, p=1.0, cut=False):
@@ -147,14 +156,17 @@ def graph(preset, p=1.0, cut=False):
                 "[dw][rv]amix=inputs=2:normalize=0[out]").format(
                     pre=PRE, pit=pitch(0.82 * p), wh=WHISPERIZE)
     if preset == "l7":
-        # The Locator's thoughts: close and dry, thin and a little hoarse (a breath of the whisper under it), lightly
-        # robotized (a faint monotone buzz and a touch of crush), no radio band, no hall.
-        return ("[0:a]{pre},{pit},acompressor=threshold=-24dB:ratio=3:attack=5:release=100,asplit=3[d][r][w];"
+        # The Locator's thoughts: close and dry, thin and a little hoarse (a breath of the whisper under it), robotized
+        # (a monotone buzz, a faint 95 Hz ring modulation, a short metallic comb and a touch of crush), pitched up two
+        # semitones with its formants kept, no radio band, no hall.
+        return ("[0:a]{pre},{pit},acompressor=threshold=-24dB:ratio=3:attack=5:release=100,asplit=4[d][r][w][m];"
                 "[r]{rob}[rb];[w]{wh},highpass=f=900[wb];"
-                "[d][rb][wb]amix=inputs=3:weights='0.85 0.2 0.16':normalize=0,"
+                "[m]aeval=exprs='val(0)*sin(2*PI*95*t)':channel_layout=mono[rm];"
+                "[d][rb][wb][rm]amix=inputs=4:weights='0.8 0.3 0.14 0.12':normalize=0,"
+                "aecho=0.9:0.9:4.3|8.6:0.2|0.1,"
                 "highpass=f=170,lowpass=f=7200,equalizer=f=3200:t=q:w=1.5:g=3,equalizer=f=250:t=q:w=1:g=-3,"
-                "acrusher=bits=10:mode=log:mix=0.12:aa=1,{tail}aecho=0.8:0.22:11:0.14[out]").format(
-                    pre=PRE, pit=pitch(0.97 * p), rob=ROBOTIZE.format(w=512), wh=WHISPERIZE, tail=tail(0.2))
+                "acrusher=bits=9:mode=log:mix=0.18:aa=1,{tail}aecho=0.8:0.22:11:0.14[out]").format(
+                    pre=PRE, pit=pitch_formant(L7_PITCH * p), rob=ROBOTIZE.format(w=512), wh=WHISPERIZE, tail=tail(0.2))
     if preset == "plain":
         return "[0:a]{pre},{pit}[out]".format(pre=PRE, pit=pitch(p))
     raise SystemExit("unknown preset %r (see --list)" % preset)
