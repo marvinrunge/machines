@@ -21,7 +21,14 @@ public enum GruntDoing
 }
 
 /// <summary>One of the trio beside the player's own hero: its seat, its name, its health 0 to 1, what it is about, whether a person plays it, and how far off it is.</summary>
-public readonly record struct GruntReadout(PlayerId Seat, string Name, float Health, GruntDoing Doing, bool Person, float? Distance);
+public readonly record struct GruntReadout(PlayerId Seat, string Name, float Health, GruntDoing Doing, bool Person, float? Distance)
+{
+    /// <summary>Its machine (the scrap heap while it is down), for its label over it in the view; null when there is none.</summary>
+    public int? Actor { get; init; }
+
+    /// <summary>Where that machine stands on the deck.</summary>
+    public Vector2? Position { get; init; }
+}
 
 /// <summary>A machine the motion tracker picks up: where it is, which way it lies from the hero (radians, 0 east, counter-clockwise as the sim's angles) and how far.</summary>
 public readonly record struct TrackerContact(Vector2 Position, float Bearing, float Distance);
@@ -214,8 +221,14 @@ public sealed record StoryReadout
                 _ => GruntDoing.Idle,
             };
         var person = world.Players.Contains(seat) && world.Players[seat].Kind == PlayerKind.Human;
+        // Down, its machine is the scrap heap the Locator puts together again (as the revive's prompt finds it).
+        var body = grunt ?? world.Find<Machine>(world.Wired?.Heroes.GetValueOrDefault(seat)?.Hero ?? -1);
         return new GruntReadout(seat, NameOf(world, run, seat), grunt is null || doing == GruntDoing.Down ? 0 : Share(grunt.HitPoints, grunt.MaxHitPoints), doing, person,
-            grunt is not null && from is not null ? Vector2.Distance(grunt.Position, from.Position) : null);
+            body is not null && from is not null ? Vector2.Distance(body.Position, from.Position) : null)
+        {
+            Actor = body?.Id,
+            Position = body?.Position,
+        };
     }
 
     /// <summary>
