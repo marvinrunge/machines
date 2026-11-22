@@ -156,21 +156,41 @@ public class WiredRunTests
     }
 
     [Fact]
-    public void A_wave_arrives_in_small_groups_over_a_minute_to_a_minute_and_a_half()
+    public void A_wave_arrives_in_small_groups_within_half_a_minute_and_a_boss_wave_over_a_minute_and_a_half()
     {
         for (var seed = 1; seed <= 20; seed++)
         {
             var plan = WiredDirector.Plan(Data, seed + 8, WiredDifficulty.Normal, new Random(seed));
-            if (plan.Boss is not null)
-                continue;
 
+            Assert.Equal(0, plan.Groups[0].After);
+            Assert.Equal(plan.Groups.Select(g => g.After).Order(), plan.Groups.Select(g => g.After));
+            if (plan.Boss is not null)
+            {
+                // The boss comes with the first group, and an escort of one with it.
+                Assert.False(WiredBalance.Brisk(plan.Wave));
+                if (plan.Groups.Count > 1)
+                    Assert.InRange(plan.Groups[^1].After, WiredBalance.LeastSpread, WiredBalance.MostSpread);
+                continue;
+            }
             Assert.True(plan.Groups.Count >= Math.Min(WiredBalance.FewestGroups, plan.Groups.Sum(g => g.Machines.Count)));
             Assert.True(plan.Groups.Count > 1);
-            Assert.Equal(0, plan.Groups[0].After);
-            Assert.InRange(plan.Groups[^1].After, WiredBalance.LeastSpread, WiredBalance.MostSpread);
+            Assert.True(WiredBalance.Brisk(plan.Wave));
+            Assert.InRange(plan.Groups[^1].After, WiredBalance.BriskLeastSpread, WiredBalance.BriskMostSpread);
             Assert.All(plan.Groups, g => Assert.InRange(g.Machines.Count, 1, WiredBalance.GroupSize));
-            Assert.Equal(plan.Groups.Select(g => g.After).Order(), plan.Groups.Select(g => g.After));
         }
+    }
+
+    [Fact]
+    public void A_brisk_wave_comes_from_nearer_than_a_boss_wave()
+    {
+        Assert.False(WiredBalance.Brisk(WiredBalance.BriskFrom - 1));
+        Assert.Equal(WiredBalance.BriskSpawnReach, WiredBalance.SpawnReach(WiredBalance.BriskFrom));
+        Assert.Equal(WiredBalance.BriskSpawnReach, WiredBalance.SpawnReach(29));
+        Assert.Equal(WiredBalance.MostSpawnReach, WiredBalance.SpawnReach(10));
+        Assert.True(WiredBalance.BriskSpawnReach < WiredBalance.MostSpawnReach);
+        // The first five waves walk as far as they did.
+        for (var wave = 1; wave < WiredBalance.BriskFrom; wave++)
+            Assert.Equal(MathF.Min(400 + 200 * (wave - 1), WiredBalance.MostSpawnReach), WiredBalance.SpawnReach(wave));
     }
 
     [Fact]
@@ -624,7 +644,8 @@ public class WiredRunTests
         for (var seed = 1; ; seed++)
         {
             Assert.True(seed < 40, "no elite came");
-            var world = AtWave(11, seed: seed);
+            // A boss's escort: a brisk wave's crowd is the weaker.
+            var world = AtWave(10, seed: seed);
             Run(world, WiredBalance.MostSpread + 1);
             if (world.Wired!.Foes.FirstOrDefault(f => f.Plan.Elite) is not { } elite)
                 continue;

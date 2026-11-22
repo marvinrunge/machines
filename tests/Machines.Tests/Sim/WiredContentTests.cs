@@ -1083,22 +1083,64 @@ public class WiredContentTests
                 Assert.True(crowd.Sum(m => m.HitPoints) <= WiredBalance.CrowdStrength(wave) * bought.Count + 0.001f);
             }
         }
+        // The boss's wave after them brings what it bought.
         var later = WiredBalance.CrowdUntil + 1;
+        Assert.True(WiredDirector.IsBossWave(later));
         Assert.All(Machines(WiredDirector.Plan(Data, later, WiredDifficulty.Normal, new Random(later))), m => Assert.Equal(1, m.Worth));
+    }
+
+    [Fact]
+    public void A_brisk_wave_brings_a_crowd_of_half_the_strength_worth_what_the_budget_bought()
+    {
+        var crowded = 0;
+        foreach (var difficulty in Enum.GetValues<WiredDifficulty>())
+        {
+            for (var wave = WiredBalance.BriskFrom; wave <= 40; wave++)
+            {
+                var bought = WiredDirector.Buy(Data, wave, WiredBalance.Budget(wave, difficulty), new Random(wave));
+                var plan = WiredDirector.Plan(Data, wave, difficulty, new Random(wave));
+                var foes = Machines(plan).Where(m => m.Boss is null && !IsGuard(m, plan.Boss)).ToList();
+                if (!WiredBalance.Brisk(wave))
+                {
+                    // A boss's escort is what the budget bought, at full strength.
+                    Assert.Equal(bought.Count, foes.Count);
+                    Assert.All(foes, m => Assert.Equal(1, m.Worth));
+                    continue;
+                }
+
+                Assert.Equal(Math.Max(bought.Count, WiredBalance.BriskCrowd(wave)), foes.Count);
+                Assert.Equal(bought.Sum(m => Cost(m)), foes.Sum(m => Cost(m) * m.Worth), 1);
+                if (bought.Count >= WiredBalance.BriskCrowd(wave))
+                {
+                    Assert.All(foes, m => Assert.Equal(1, m.Worth));
+                    continue;
+                }
+                crowded++;
+                var share = WiredBalance.BriskCrowdStrength * bought.Count / foes.Count;
+                Assert.All(foes.Where(m => !m.Elite), m => Assert.Equal((share, share), (m.HitPoints, m.Damage)));
+                Assert.All(foes.Where(m => m.Elite), m => Assert.True(m.HitPoints < WiredBalance.EliteHitPoints * WiredBalance.EliteStrength(wave)));
+            }
+        }
+        Assert.True(crowded > 20, $"{crowded} crowded waves");
+
+        static float Cost(WiredFoePlan machine) => Data.Parm.Machine(machine.Key.TypeName).Level(machine.Key.HardwareLevel).Cost;
+        static bool IsGuard(WiredFoePlan machine, WiredBoss? boss) => boss?.Guard == machine.Key && machine is { Elite: false };
     }
 
     [Fact]
     public void A_storm_brings_twice_as_many_of_the_fastest_on_the_ground()
     {
-        // From the wave on that a plain wave brings what it bought and no crowd of weaker machines.
+        // Twice what the budget buys, each at full strength: from the wave on that a plain wave would bring them as a crowd
+        // of weaker machines, a storm brings fewer than such a crowd, but stronger.
         for (var wave = WiredBalance.CrowdUntil + 1; wave <= 60; wave++)
         {
             if (WiredDirector.IsBossWave(wave))
                 continue;
-            var usual = Machines(WiredDirector.Plan(Data, wave, WiredDifficulty.Normal, new Random(wave)));
+            var usual = WiredDirector.Buy(Data, wave, WiredBalance.Budget(wave, WiredDifficulty.Normal), new Random(wave));
             var storm = Machines(WiredDirector.Plan(Data, wave, WiredDifficulty.Normal, new Random(wave), WiredSpecial.Storm));
 
             Assert.Equal(Math.Min(WiredBalance.MostInWave, usual.Count * WiredBalance.StormShare), storm.Count);
+            Assert.All(storm, m => Assert.Equal(1, m.Worth));
             Assert.All(storm, m => Assert.NotEqual("BOSS", m.Key.SubType));
             Assert.True(storm.Select(m => m.Key.TypeName + m.Key.HardwareLevel).Distinct().Count() <= WiredBalance.StormKinds);
         }
