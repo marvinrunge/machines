@@ -42,7 +42,7 @@ public sealed partial class GameWorld
             _spatial[y * _spatialX + x].Add(actor);
             var reach = actor is Construction building
                 ? Vector2.Distance(building.Footprint.Min, building.Footprint.Max) / 2 + Vector2.Distance(building.Position, (building.Footprint.Min + building.Footprint.Max) / 2)
-                : actor.Radius;
+                : ReachOf(actor);
             _spatialReach = MathF.Max(_spatialReach, reach);
             if (actor is Machine)
                 _machineReach = MathF.Max(_machineReach, reach);

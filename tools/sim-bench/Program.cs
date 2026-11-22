@@ -19,7 +19,9 @@ while (!File.Exists(Path.Combine(repo, "Machines.sln")))
 var data = GameData.Load(Path.Combine(repo, "data", "original"));
 
 var races = data.LoadScenario(scenario).Races.Select(r => r.Race).Take(4).ToList();
-var world = MatchSetup.Create(data, scenario, planet, races.ToDictionary(r => r, _ => Controller.Ai), seed: 7);
+// SIM_BENCH_CIRCLES=1 plays with the original's circles instead of the fitted bodies (MatchOptions.FittedBodies), to compare.
+var world = MatchSetup.Create(data, scenario, planet, races.ToDictionary(r => r, _ => Controller.Ai), seed: 7,
+    new MatchOptions { FittedBodies = Environment.GetEnvironmentVariable("SIM_BENCH_CIRCLES") != "1" });
 // With the original terrain exported (tools/classic-export), shots are checked against the ground as in a real
 // match; SIM_BENCH_TERRAIN=0 leaves it out.
 var heights = Path.Combine(repo, "classic", "planets", planet, "heights.bin");

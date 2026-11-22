@@ -1768,14 +1768,15 @@ public class WiredHeroTests
     [Theory]
     [InlineData("AGGRESSOR", "ASSASSIN", 3, "LR_AUTO_CANNON_X2")]
     [InlineData("AGGRESSOR", "KNIGHT", 3, "LR_HEAVY_BOLTER2_X2")]
-    public void A_sight_on_the_top_of_a_tall_foe_is_taken_into_its_box(string type, string subType, int level, string combo)
+    public void A_sight_on_the_top_of_a_tall_foe_is_taken_into_its_body(string type, string subType, int level, string combo)
     {
         var world = Waiting();
         var at = Away(world, 22);
         var foe = world.AddMachine(Race.Blue, at, type, subType, level, combo);
-        var top = world.AimPoint(foe).Z * 2 - (world.Terrain?.At(foe.Position) ?? 0);
+        // The top of its body (MachineBodies), which stands higher than the old box of twice the aim point.
+        var top = (world.Terrain?.At(foe.Position) ?? 0) + foe.FittedBody!.Value.Height;
 
-        // Over the box the rounds go past; taken in, they stop in it.
+        // Over the body the rounds go past; taken in, they stop in it.
         Assert.Equal(0, HitsOn(world, foe, () => (foe.Position, top + 3), 8));
         Assert.True(HitsOn(world, foe, () => world.AimInside(foe, foe.Position, top + 3), 8) >= 6);
     }
@@ -1795,17 +1796,20 @@ public class WiredHeroTests
     }
 
     [Fact]
-    public void A_point_already_in_the_box_stays_where_the_sight_put_it()
+    public void A_point_already_in_the_body_stays_where_the_sight_put_it()
     {
         var world = Waiting();
         var foe = Spy(world, Away(world, 22));
         var ground = world.Terrain?.At(foe.Position) ?? 0;
-        var (point, height) = world.AimInside(foe, foe.Position + new Vector2(foe.Radius / 2, 0), ground + 0.4f);
-        Assert.Equal(foe.Position + new Vector2(foe.Radius / 2, 0), point);
+        // Facing east, its body reaching Fore ahead of its middle (MachineBodies).
+        var fore = foe.FittedBody!.Value.Fore;
+        var (point, height) = world.AimInside(foe, foe.Position + new Vector2(fore / 2, 0), ground + 0.4f);
+        Assert.Equal(foe.Position.X + fore / 2, point.X, 3);
+        Assert.Equal(foe.Position.Y, point.Y, 3);
         Assert.Equal(ground + 0.4f, height);
 
         // Beside it, the nearest of it.
-        Assert.Equal(foe.Position + new Vector2(foe.Radius, 0), world.AimInside(foe, foe.Position + new Vector2(foe.Radius + 3, 0), ground + 0.4f).Point);
+        Assert.Equal(foe.Position.X + fore, world.AimInside(foe, foe.Position + new Vector2(fore + 3, 0), ground + 0.4f).Point.X, 3);
     }
 
     /// <summary>How far the rounds went from a point on average, and at most.</summary>

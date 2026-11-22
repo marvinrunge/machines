@@ -511,26 +511,39 @@ public sealed partial class GameWorld
     /// <summary>
     /// The machine a step from <paramref name="from"/> to <paramref name="to"/> runs into, nearest first and the lower
     /// id on a tie. Machines it already overlaps where it stands are passed over, so those can drive apart
-    /// (PhysConfigSpace2d's intersecting ids); one driven in first person is seen half a second ahead.
+    /// (PhysConfigSpace2d's intersecting ids); one driven in first person is seen half a second ahead. With
+    /// <paramref name="bodies"/> (a machine driven in first person, <see cref="BodiesBlock"/>) two stop where their fitted
+    /// bodies would meet; otherwise where their circles would, which the motion sequencer's places, formations and ways
+    /// round one another are measured in.
     /// </summary>
-    private Machine? Blocker(Machine machine, Vector2 from, Vector2 to, bool restingOnly = false)
+    private Machine? Blocker(Machine machine, Vector2 from, Vector2 to, bool restingOnly = false, bool bodies = false)
     {
         Machine? nearest = null;
         var best = float.MaxValue;
         var step = to - from;
         var stepLength = step.Length();
         var ahead = stepLength > 1e-6f ? step / stepLength * (MotionOf(machine).Speed * DrivenLookAhead) : Vector2.Zero;
-        foreach (var actor in FiledNear(from, stepLength + machine.Radius + _machineReach + ahead.Length()))
+        // A body may reach further from its middle than its circle (GameWorld.Bodies).
+        foreach (var actor in FiledNear(from, stepLength + ReachOf(machine) + _machineReach + ahead.Length()))
         {
             if (actor is not Machine other || other == machine || other.IsDead || other.Inside is not null)
                 continue;
-            var clearance = machine.Radius + other.Radius + Touch;
             var already = Vector2.DistanceSquared(from, other.Position);
-            if (already < clearance * clearance || restingOnly && !IsResting(other))
+            if (restingOnly && !IsResting(other))
                 continue;
             var end = other.DrivenByPlayer ? to + ahead : to;
-            if (DistanceToSegment(other.Position, from, end) >= clearance)
-                continue;
+            // In fitted bodies, where their bodies would meet, not their circles (GameWorld.Bodies).
+            if (bodies && BodiesMeet(machine, other, from, end) is { } meets)
+            {
+                if (!meets)
+                    continue;
+            }
+            else
+            {
+                var clearance = machine.Radius + other.Radius + Touch;
+                if (already < clearance * clearance || DistanceToSegment(other.Position, from, end) >= clearance)
+                    continue;
+            }
             if (already < best || already == best && other.Id < nearest!.Id)
             {
                 best = already;
@@ -886,7 +899,7 @@ public sealed partial class GameWorld
         var step = ahead * forward + left * sideways;
         if (step == Vector2.Zero)
             return;
-        if (Blocker(machine, machine.Position, machine.Position + step) is { } blocker)
+        if (Blocker(machine, machine.Position, machine.Position + step, bodies: BodiesBlock(machine)) is { } blocker)
         {
             // In a battle a team-mate the computer drives, standing in the way of a player at the wheel (a guard at its
             // post on the way out of the pod), makes way as a resting machine of its own side does for one on an order.
