@@ -32,11 +32,20 @@ public sealed record Replay(MatchInfo Match, IReadOnlyList<Turn> Turns, long Tic
         var stamp = JsonSerializer.Deserialize<Stamp>(json, NetJson.Options) ?? throw new JsonException("empty replay");
         if (stamp.Format < OldestFormat)
             throw new RecordingTooOldException();
-        return JsonSerializer.Deserialize<Replay>(json, NetJson.Options) ?? throw new JsonException("empty replay");
+        var replay = JsonSerializer.Deserialize<Replay>(json, NetJson.Options) ?? throw new JsonException("empty replay");
+        // A match recorded before machines had fitted bodies played with the original's circles, and plays back so: its
+        // options lack the field, which would otherwise read as today's default.
+        return stamp.Match?.Options?.FittedBodies is null
+            ? replay with { Match = replay.Match with { Options = replay.Match.Options with { FittedBodies = false } } }
+            : replay;
     }
 
-    /// <summary>The one field of a recording read before the rest.</summary>
-    private sealed record Stamp(int Format = 0);
+    /// <summary>The fields of a recording read before the rest: its format, and whether its options say how machines' bodies are shaped.</summary>
+    private sealed record Stamp(int Format = 0, StampedMatch? Match = null);
+
+    private sealed record StampedMatch(StampedOptions? Options = null);
+
+    private sealed record StampedOptions(bool? FittedBodies = null);
 
     /// <summary>
     /// The saved games in a folder that belong to a campaign player, which go when the player does. Files that do not

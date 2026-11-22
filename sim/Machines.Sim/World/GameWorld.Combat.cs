@@ -91,7 +91,8 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// An actor's middle in the air, as the original aimed between its bounding box's corners: a little over a
-    /// machine's own height, higher for a flyer, a few metres up a building.
+    /// machine's own height, higher for a flyer, a few metres up a building. With fitted bodies it stays where it was: it
+    /// lies inside every measured body, at most 0.71 of its height (a Resource Carrier 4; FittedBodyTests hold it there).
     /// </summary>
     public Vector3 AimPoint(Actor actor)
     {

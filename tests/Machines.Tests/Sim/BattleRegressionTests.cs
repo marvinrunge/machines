@@ -26,19 +26,22 @@ public class BattleRegressionTests(ITestOutputHelper output)
         return [.. sums];
     }
 
+    /// <summary>The original's circles, as the constants were taken before machines had fitted bodies (MatchOptions.FittedBodies).</summary>
+    private static MatchOptions Circles => new() { FittedBodies = false };
+
     private static GameWorld Normal() => MatchSetup.Create(Data, "m_desert", "m_desert",
-        new Dictionary<Race, Controller> { [Race.Red] = Controller.Ai, [Race.Blue] = Controller.Ai }, seed: 11);
+        new Dictionary<Race, Controller> { [Race.Red] = Controller.Ai, [Race.Blue] = Controller.Ai }, seed: 11, Circles);
 
     private static GameWorld FourWay() => MatchSetup.Create(Data, "fortmult", "fortmult",
         new Dictionary<Race, Controller>
         {
             [Race.Red] = Controller.Player, [Race.Blue] = Controller.Ai, [Race.Green] = Controller.Ai,
             [Race.Yellow] = Controller.Ai,
-        }, seed: 3);
+        }, seed: 3, Circles);
 
     private static GameWorld Wired() => MatchSetup.Create(Data, "m_desert", "m_desert",
         new Dictionary<Race, Controller> { [Race.Red] = Controller.Player, [Race.Blue] = Controller.Ai }, seed: 7,
-        new MatchOptions { Wired = new WiredOptions() });
+        Circles with { Wired = new WiredOptions() });
 
     [Fact]
     public void A_normal_match_keeps_its_checksums()

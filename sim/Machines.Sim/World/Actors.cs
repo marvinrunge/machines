@@ -119,6 +119,7 @@ public sealed class Machine : Actor
         Spec = spec;
         Stats = stats;
         WeaponCombo = weaponCombo;
+        FittedBody = BodyOf(spec, stats);
         MaxHitPoints = HitPoints = stats.HitPoints;
         MaxArmour = Armour = stats.Armour;
     }
@@ -126,6 +127,16 @@ public sealed class Machine : Actor
     public MachineSpec Spec { get; private set; }
     public MachineLevel Stats { get; private set; }
     public string? WeaponCombo { get; private set; }
+
+    /// <summary>
+    /// Its body fitted to its model (<see cref="MachineBodies"/>), which it stands and is hit in where the match's options
+    /// say <see cref="MatchOptions.FittedBodies"/>; null for a flyer and one without a body, which keep their circle and box.
+    /// </summary>
+    public MachineBodies.Body? FittedBody { get; private set; }
+
+    private static MachineBodies.Body? BodyOf(MachineSpec spec, MachineLevel stats) =>
+        stats.Locomotion == Locomotion.Glider ? null : MachineBodies.Of(spec.Type, spec.SubType, stats.HardwareLevel);
+
     public List<WeaponMount> Weapons { get; } = [];
 
     /// <summary>How often it was refitted: a Wired hero's rig is rebuilt by the view when this changes.</summary>
@@ -139,6 +150,7 @@ public sealed class Machine : Actor
     {
         var (hitPoints, armour) = (Share(HitPoints, MaxHitPoints, stats.HitPoints), Share(Armour, MaxArmour, stats.Armour));
         (Spec, Stats, WeaponCombo) = (spec, stats, weaponCombo);
+        FittedBody = BodyOf(spec, stats);
         (MaxHitPoints, MaxArmour) = (stats.HitPoints, stats.Armour);
         (HitPoints, Armour) = (hitPoints, armour);
         Weapons.Clear();

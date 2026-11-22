@@ -261,10 +261,13 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// The space an actor fills (its bounding volume), for what hits it and what it hides: from the ground to twice the
-    /// height of its middle; a flyer's in the air, as high as it is long.
+    /// height of its middle; a flyer's in the air, as high as it is long. With fitted bodies a machine's is the box round
+    /// its body on the map's axes (GameWorld.Bodies).
     /// </summary>
     private (Vector3 Min, Vector3 Max) BoxOf(Actor actor)
     {
+        if (FittedBodyOf(actor) is { } body)
+            return body.Bounds();
         var (ground, top) = (Terrain?.At(actor.Position) ?? 0, AimPoint(actor).Z);
         if (actor is Construction building)
             return (new Vector3(building.Footprint.Min, ground), new Vector3(building.Footprint.Max, 2 * top - ground));
@@ -385,9 +388,9 @@ public sealed partial class GameWorld
         {
             if (actor.IsDead || actor is Machine { Inside: not null } || !counts(actor))
                 return;
-            // In a story a machine is met in its body (GameWorld.StoryBodies).
+            // With fitted bodies a machine is met in its body (GameWorld.Bodies).
             float? entry;
-            if (Story is null || !EntryIntoBody(actor, from, to, out entry))
+            if (!EntryIntoBody(actor, from, to, out entry))
             {
                 var (min, max) = BoxOf(actor);
                 entry = EntryInto(from, to, min, max);
@@ -448,12 +451,12 @@ public sealed partial class GameWorld
                 return;
             float off, foot;
             var reach = radius;
-            // In a story it is measured to a machine's body, and a round that does not fall off reaches it only by
-            // StorySplash (GameWorld.StoryBodies).
-            if (Story is not null && OffBody(actor, point) is { } toBody)
+            // With fitted bodies it is measured to a machine's body (GameWorld.Bodies); in a story a round that does not
+            // fall off reaches a body only by StorySplash (GameWorld.StoryBodies).
+            if (OffBody(actor, point) is { } toBody)
             {
                 (off, foot) = (toBody, Terrain?.At(actor.Position) ?? 0);
-                if (!fallsOff)
+                if (Story is not null && !fallsOff)
                     reach = MathF.Min(radius, StorySplash);
             }
             else

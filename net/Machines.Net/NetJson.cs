@@ -20,8 +20,10 @@ public static class NetJson
     /// 14: relay-paced bundles (P2: the relay keeps the beat and sends a bundle a tick; lag marks, late joins, seat keys,
     /// rebuilds from the relay's log; recordings may hold joins and lag marks). 15: the story (its options in a match, story
     /// rooms of three seats, bots' seats of the trio, story commands, every <c>StoryCommand</c> found here as any other).
+    /// 16: fitted bodies (the options' FittedBodies: machines stand and are hit in bodies fitted to their models in every
+    /// mode, so a client of 15 would play another match; main's 15 is the same change without the story).
     /// </summary>
-    public const int Protocol = 15;
+    public const int Protocol = 16;
 
     public static readonly JsonSerializerOptions Options = Create();
 

@@ -8,8 +8,9 @@ using Machines.Sim.World;
 namespace Machines.Tests.Story;
 
 /// <summary>
-/// In a story the machines stand and are hit in bodies fitted to the models the story draws (Story/StoryBodies,
-/// GameWorld.StoryBodies), not in the original's circle and the square box round it: the Locator drives up to a Grunt's
+/// In a story the machines stand and are hit in bodies fitted to their models (World/MachineBodies, GameWorld.Bodies; a
+/// few of the cast as the story draws them, Story/StoryBodies, GameWorld.StoryBodies), not in the original's circle and
+/// the square box round it: the Locator drives up to a Grunt's
 /// nose and stops at its tail as the models meet, a bolt over a Grunt's back or short of its nose goes past, and the size
 /// classes the doors let through are the circle's as before.
 /// </summary>
@@ -97,6 +98,38 @@ public class StoryBodyTests
             Assert.True(body is { Fore: > 0, Aft: > 0, Half: > 0, Height: > 1 }, unit.ToString());
         }
         Assert.NotNull(StoryBodies.Of("GEO_LOCATOR", null, 1));
+    }
+
+    [Fact]
+    public void The_story_keeps_its_own_bodies_only_where_it_draws_a_machine_smaller_than_the_general_table()
+    {
+        Assert.NotEmpty(StoryBodies.All);
+        foreach (var ((type, subType, level), own) in StoryBodies.All)
+        {
+            var general = MachineBodies.Of(type, subType, level);
+            Assert.True(general is not null, $"{type} {subType} {level}");
+            Assert.NotEqual(general!.Value, own);
+            Assert.True(own.Fore <= general.Value.Fore && own.Aft <= general.Value.Aft && own.Half <= general.Value.Half && own.Height <= general.Value.Height,
+                $"{type} {subType} {level}: {own} against {general}");
+        }
+        // The rest of the cast has the general body.
+        Assert.Equal(MachineBodies.Of("AGGRESSOR", "ASSASSIN", 4), StoryBodies.Of("AGGRESSOR", "ASSASSIN", 4));
+        Assert.Null(StoryBodies.Own("AGGRESSOR", "ASSASSIN", 4));
+    }
+
+    [Fact]
+    public void A_story_plays_in_bodies_even_where_its_options_say_circles()
+    {
+        // A story recorded before its options carried FittedBodies loads with it false, and still played in bodies.
+        var world = MatchSetup.Create(DataLoader.Value, StoryOptions.Prologue, StoryOptions.Prologue, new PlayerTable([
+            new PlayerSeat(Locator, Race.Red, PlayerKind.Human, "Host"),
+            new PlayerSeat(Ike, Race.Red, PlayerKind.Human, "Anna"),
+            new PlayerSeat(Bob, Race.Red, PlayerKind.Human, "Ben"),
+            new PlayerSeat(PlayerId.Of(Race.Blue), Race.Blue, PlayerKind.Ai, "Ship")]), 7,
+            new MatchOptions { Story = new StoryOptions { Unscripted = true }, FogOfWar = false, FittedBodies = false });
+        var reaper = world.AddMachine(Race.Blue, new Vector2(200, 52), "AGGRESSOR", "ASSASSIN", 2, "L_PLASMA_RIFLE");
+        reaper.Facing = 0;
+        Assert.Equal(5f, world.AimInside(reaper, reaper.Position, 5).Height);
     }
 
     /// <summary>The Locator armed with the Bolter from its rack, standing at <paramref name="at"/> facing east, and a hostile Grunt 8 m ahead facing it.</summary>

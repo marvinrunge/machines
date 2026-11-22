@@ -103,11 +103,15 @@ public partial class Studio : Node
         _assets = new ClassicAssets(Paths.Root);
         BuildStage();
 
-        // MACHINES_STUDIO_HITBOX=1: the story's machines against their hitboxes instead (Studio.Hitbox).
-        if (System.Environment.GetEnvironmentVariable("MACHINES_STUDIO_HITBOX") == "1")
+        // MACHINES_STUDIO_HITBOX=numbers: every machine measured in every look for its body; =1: pictured against its shapes (Studio.Hitbox).
+        var hitbox = System.Environment.GetEnvironmentVariable("MACHINES_STUDIO_HITBOX");
+        if (hitbox is "1" or "numbers")
         {
             Directory.CreateDirectory(output);
-            await HitboxSheets(output);
+            if (hitbox == "numbers")
+                await HitboxNumbers(output);
+            else
+                await HitboxSheets(output);
             GetTree().Quit();
             return;
         }

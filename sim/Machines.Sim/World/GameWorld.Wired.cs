@@ -548,8 +548,8 @@ public sealed partial class GameWorld
     /// </summary>
     public (Vector2 Point, float Height) AimInside(Actor actor, Vector2 seen, float height)
     {
-        // In a story, into the machine's body (GameWorld.StoryBodies).
-        if (StoryBodyOf(actor) is { } body)
+        // With fitted bodies, into the machine's body (GameWorld.Bodies).
+        if (FittedBodyOf(actor) is { } body)
         {
             var local = Vector3.Clamp(body.Local(new Vector3(seen, height)), body.Min, body.Max);
             return (body.Centre + body.Forward * local.X + body.Left * local.Y, height >= body.Bottom && height <= body.Top ? height : AimPoint(actor).Z);

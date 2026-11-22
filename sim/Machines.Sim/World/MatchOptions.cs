@@ -92,6 +92,17 @@ public sealed record MatchOptions
     public bool OriginalMotion { get; init; } = true;
 
     /// <summary>
+    /// Whether machines are hit in bodies fitted to their models (<see cref="MachineBodies"/>, GameWorld.Bodies): a round
+    /// meets a machine where it meets its body, a burst is measured to it, and a machine driven in first person stops
+    /// where its body would meet another's. Without it, as in the original, a machine is hit in the square box round its
+    /// circle. This is the remake's own, chosen over the original's shapes for every mode; it does not go with
+    /// <see cref="OriginalMotion"/>, whose sequencer keeps machines on orders apart by their circles either way.
+    /// Recordings and saved games made before say false (<c>Replay.Load</c> reads a file without it so), so they play
+    /// back as they were played.
+    /// </summary>
+    public bool FittedBodies { get; init; } = true;
+
+    /// <summary>
     /// Whether a captured building changes hands as in the original (MachLogSmelter/MachLogPod::assignToDifferentRace,
     /// MachLogCaptureOperation): a smelter or pod brings its share of the loser's BMUs, a factory pays back what was
     /// spent on the machine it was building, and carriers stop serving a mine or smelter that changed sides
