@@ -1,5 +1,6 @@
 using System.Numerics;
 using Machines.Import.Model;
+using Machines.Sim.Combat;
 using Machines.Sim.Story;
 using Machines.Sim.Survival;
 
@@ -212,6 +213,8 @@ public sealed partial class GameWorld
             // The horror of the decks draws fast and hits whole; the Commander leads his squad and leaves the killing to it.
             Draw = thresher ? StorySight.ThresherDraw : StorySight.Draw,
             Harm = thresher ? 1 : StorySight.HunterHarm,
+            // ... and aims worse the further off the trio is, so that one caught close dies and one far off can run.
+            Wild = thresher,
             Caller = prologue && machine.Spec.TypeName == "ADMINISTRATOR COMMANDER",
         };
         sight.Seekers[machine.Id] = seeker;
@@ -534,6 +537,39 @@ public sealed partial class GameWorld
             || run.Sight.Seekers.GetValueOrDefault(dealer.Id) is not { } eyes)
             return 1;
         return eyes.Harm;
+    }
+
+    /// <summary>
+    /// The seam in <see cref="TakeAim"/>: a seeker whose aim falls off with the distance (<see cref="StorySeeker.Wild"/>, the
+    /// Thresher) sends a burst at one of the trio wide by the chance <see cref="StorySight.WildChance"/> gives for how far off
+    /// the hero is, to one side or the other, low or high, rolled on the sim's dice; any other burst stays as it was taken.
+    /// </summary>
+    private FireData StoryAim(Actor shooter, Actor target, FireData data)
+    {
+        if (Story is not { } run || target is not Machine hero || !IsTrioHero(run, hero)
+            || run.Sight.Seekers.GetValueOrDefault(shooter.Id) is not { Wild: true })
+            return data;
+        var chance = StorySight.WildChance(Vector2.Distance(shooter.Position, hero.Position));
+        if (chance <= 0 || Random.NextSingle() >= chance)
+            return data;
+        var side = Random.Next(2) == 0 ? -1 : 1;
+        return data with { Wide = side, WideBy = Random.NextSingle(), Lift = Random.NextSingle() };
+    }
+
+    /// <summary>
+    /// Where a round of a burst sent wide (<see cref="StoryAim"/>) is aimed: beside the target's <paramref name="mark"/>, square to
+    /// the line from <paramref name="from"/>, so far out that neither the round nor its burst touches the target
+    /// (<see cref="StorySight.WideClear"/>, <see cref="StorySight.WideSpread"/>), and between the floor and the target's
+    /// middle, so that it strikes the floor beside the target or the wall beyond it rather than fly over the deck's walls.
+    /// </summary>
+    private Vector3 WideOf(Actor target, WeaponSpec weapon, FireData burst, Vector2 from, Vector3 mark)
+    {
+        var at = new Vector2(mark.X, mark.Y);
+        var way = at - from;
+        var left = way.LengthSquared() > 1e-4f ? Vector2.Normalize(new Vector2(-way.Y, way.X)) : Vector2.UnitY;
+        var by = target.Radius + BurstOf(weapon.TypeName).Radius + StorySight.WideClear + burst.WideBy * StorySight.WideSpread;
+        var floor = Terrain?.At(target.Position) ?? 0;
+        return new Vector3(at + left * (burst.Wide * by), floor + burst.Lift * MathF.Max(0, mark.Z - floor));
     }
 
     /// <summary>What a seeker puts aside to search: its round where it was going, an order with the end of its way, or where it stood.</summary>
