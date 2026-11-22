@@ -385,8 +385,14 @@ public sealed partial class GameWorld
         {
             if (actor.IsDead || actor is Machine { Inside: not null } || !counts(actor))
                 return;
-            var (min, max) = BoxOf(actor);
-            if (EntryInto(from, to, min, max) is not { } along)
+            // In a story a machine is met in its body (GameWorld.StoryBodies).
+            float? entry;
+            if (Story is null || !EntryIntoBody(actor, from, to, out entry))
+            {
+                var (min, max) = BoxOf(actor);
+                entry = EntryInto(from, to, min, max);
+            }
+            if (entry is not { } along)
                 return;
             if (first is not { } best || along < best.Along || along == best.Along && actor.Id < best.Actor.Id)
                 first = (actor, along);
@@ -440,12 +446,25 @@ public sealed partial class GameWorld
         {
             if (actor.IsDead || actor is Machine { Inside: not null } || spares && actor.Id == shooter)
                 return;
-            var (min, max) = BoxOf(actor);
-            var off = Vector3.DistanceSquared(point, Vector3.Clamp(point, min, max));
-            if (off >= radius * radius)
+            float off, foot;
+            var reach = radius;
+            // In a story it is measured to a machine's body, and a round that does not fall off reaches it only by
+            // StorySplash (GameWorld.StoryBodies).
+            if (Story is not null && OffBody(actor, point) is { } toBody)
+            {
+                (off, foot) = (toBody, Terrain?.At(actor.Position) ?? 0);
+                if (!fallsOff)
+                    reach = MathF.Min(radius, StorySplash);
+            }
+            else
+            {
+                var (min, max) = BoxOf(actor);
+                (off, foot) = (Vector3.DistanceSquared(point, Vector3.Clamp(point, min, max)), min.Z);
+            }
+            if (off >= reach * reach)
                 return;
             var hit = damage;
-            if (actor is Machine && fallsOff && off > 1e-4f && Vector3.Distance(point, new Vector3(actor.Position, min.Z)) is > 1 and var distance)
+            if (actor is Machine && fallsOff && off > 1e-4f && Vector3.Distance(point, new Vector3(actor.Position, foot)) is > 1 and var distance)
                 hit = Math.Max(1, (int)(damage - distance * damage / radius));
             Damage(actor, hit, race, by, WeaponOf(weapon), player: owner);
             Raise(new GameEvent(GameEventKind.Hit, actor.Id, actor.Position, shooter, weapon.TypeName));

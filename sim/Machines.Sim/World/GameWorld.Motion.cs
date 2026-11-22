@@ -540,20 +540,31 @@ public sealed partial class GameWorld
         var step = to - from;
         var stepLength = step.Length();
         var ahead = stepLength > 1e-6f ? step / stepLength * (MotionOf(machine).Speed * DrivenLookAhead) : Vector2.Zero;
-        foreach (var actor in FiledNear(from, stepLength + machine.Radius + _machineReach + ahead.Length()))
+        // In a story a body may reach further from its middle than its circle (GameWorld.StoryBodies).
+        var own = Story is null ? machine.Radius : StoryReach(machine);
+        foreach (var actor in FiledNear(from, stepLength + own + _machineReach + ahead.Length()))
         {
             if (actor is not Machine other || other == machine || other.IsDead || other.Inside is not null)
                 continue;
             // A downed Grunt of the story lies flat: it stands in nobody's way (GameWorld.Companions).
             if (Story is not null && StoryLies(other))
                 continue;
-            var clearance = machine.Radius + other.Radius + Touch;
             var already = Vector2.DistanceSquared(from, other.Position);
-            if (already < clearance * clearance || restingOnly && !IsResting(other))
+            if (restingOnly && !IsResting(other))
                 continue;
             var end = other.DrivenByPlayer && !(Story is not null && FollowsInStory(machine, other)) ? to + ahead : to;
-            if (DistanceToSegment(other.Position, from, end) >= clearance)
-                continue;
+            // In a story two machines stop where their bodies would meet, not their circles (GameWorld.StoryBodies).
+            if (Story is not null && BodiesMeet(machine, other, from, end) is { } meets)
+            {
+                if (!meets)
+                    continue;
+            }
+            else
+            {
+                var clearance = machine.Radius + other.Radius + Touch;
+                if (already < clearance * clearance || DistanceToSegment(other.Position, from, end) >= clearance)
+                    continue;
+            }
             if (already < best || already == best && other.Id < nearest!.Id)
             {
                 best = already;
