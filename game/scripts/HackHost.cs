@@ -68,6 +68,8 @@ public partial class HackHost : Control
     private readonly Game _game;
     private Control _stage = null!;
     private HackPanel _panel = null!;
+    private ShipFeed _feed = null!;
+    private float _scale = 1;
     private HackPuzzle? _seen;
     private int _seenStage, _seenClaimed, _alarms;
     private bool _warned, _pulsing, _pad;
@@ -110,6 +112,8 @@ public partial class HackHost : Control
         centre.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         centre.AddChild(_panel);
         _stage.AddChild(centre);
+        _feed = new ShipFeed(_game);
+        _stage.AddChild(_feed);
         Resized += Fit;
         Fit();
         _panel.Board.Source = () => Session?.Puzzle;
@@ -144,6 +148,7 @@ public partial class HackHost : Control
     /// <summary>Hidden and still until the next hack.</summary>
     private void PutAway()
     {
+        _feed.Follow(false, _scale, 0);
         Visible = false;
         MouseFilter = MouseFilterEnum.Ignore;
         ProcessMode = ProcessModeEnum.Disabled;
@@ -192,7 +197,22 @@ public partial class HackHost : Control
         var scale = Size.Y / MenuStage.DesignHeight * MenuTheme.UiScale;
         _stage.Scale = new Vector2(scale, scale);
         _stage.Size = Size / scale;
+        _scale = scale;
         MenuTheme.FitFont(scale);
+    }
+
+    /// <summary>
+    /// The ship's camera beside the core's board (<see cref="ShipFeed"/>), to its right with the same gap as the window
+    /// leaves; up while the core is hacked and the chip is not going, and only where the window is wide enough for both.
+    /// </summary>
+    private void Feed(double delta)
+    {
+        var right = _stage.Size.X / 2 + _panel.Size.X / 2;
+        var room = _stage.Size.X - right;
+        var size = _feed.GetCombinedMinimumSize();
+        _feed.Follow(!Closing && Target == "hack_core" && room >= size.X + 40, _scale, delta);
+        if (_feed.Visible)
+            _feed.Position = new Vector2(right + (room - size.X) / 2, (_stage.Size.Y - size.Y) / 2);
     }
 
     private void Turn(int cell, bool clockwise)
@@ -215,6 +235,7 @@ public partial class HackHost : Control
         if (Closing || Session is not { } session)
             return;
         _panel.Show(session.Stage, session.Boards.Count, session.Broken, _pad, session.Held);
+        Feed(delta);
         _panel.Board.Cursor = _pad ? Math.Max(0, _panel.Board.Cursor) : _panel.Board.Cursor;
         Listen(session);
         Stick(delta);

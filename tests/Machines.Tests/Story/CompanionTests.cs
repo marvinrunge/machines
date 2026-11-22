@@ -272,7 +272,7 @@ public class CompanionTests
     public void The_grunts_follow_the_locator_into_the_pod_once_it_opens_the_hatch(bool ikeFirst)
     {
         var world = Prologue();
-        Place(world, Locator, new Vector2(568, 76));
+        Place(world, Locator, new Vector2(568, 90));
         Place(world, Ike, ikeFirst ? new Vector2(556, 82) : new Vector2(520, 100));
         Place(world, Bob, ikeFirst ? new Vector2(500, 104) : new Vector2(540, 104));
         Run(world, 1);

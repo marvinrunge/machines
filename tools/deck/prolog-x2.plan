@@ -59,7 +59,8 @@ prop cover_r9_2 crate_large 218 289 90 310
 marker pod_1 464 54 90
 marker pod_2 516 54 90
 marker pod_3 568 54 90
-marker pod_3_hatch 568 74 270
+// The hatch stands 34 m before pod 3's middle, outside its 24 m hull and cradle, so the view at it sees the pod whole.
+marker pod_3_hatch 568 88 270
 zone pod_zone 544 64 592 96 trigger
 // The Abwurf film's camera on the catwalk, looking down at pod 3 (its old place was beside a 7 m pod).
 cam cam_abwurf_1 520 110 48 311 -25
@@ -88,6 +89,11 @@ marker squad_i_2 196 222 90 route
 marker squad_i_3 191 216 90 route
 marker commander_i 160 221 0 route
 // Erwischt is played, not filmed: its cameras and rail are gone with erwischt.cut.
+// No barricade slots before door K: it is the Grunts' own way out by the cable duct after the break-in, and a crate a
+// person pushed into them could never be cleared.
+drop marker barricade_K_1
+drop marker barricade_K_2
+drop marker barricade_K_3
 drop cam cam_erwischt_1
 drop cam cam_erwischt_2
 drop cam cam_erwischt_3

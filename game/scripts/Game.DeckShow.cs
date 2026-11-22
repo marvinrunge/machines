@@ -83,6 +83,7 @@ public partial class Game
             _deckView.AddChild(pod);
             _pods[_pods.Count] = pod;
             pod.SetMeta("marker", marker.Name);
+            PodLamps(_deckView, marker.Position);
         }
         // The weapon on each rack (the markers pickup_<weapon>), until it is taken.
         _rackWeapons.Clear();
@@ -94,6 +95,30 @@ public partial class Game
             _rackWeapons[marker.Name] = shown;
         }
     }
+
+    /// <summary>
+    /// The cradle's floodlights: two lamps on the floor before each pod (on the side the bay is entered from) throw a cold
+    /// light up its hull, on the pods' own power, so the pods stand out at their own size in the bay's dark red after the
+    /// ship's power has failed.
+    /// </summary>
+    private static void PodLamps(Node3D under, System.Numerics.Vector2 pod)
+    {
+        foreach (var side in new[] { -1f, 1f })
+        {
+            var at = Props.World(new System.Numerics.Vector3(pod.X + side * PodLampSide, pod.Y + PodLampOut, 1.2f));
+            var toward = Props.World(new System.Numerics.Vector3(pod.X + side * 6, pod.Y, PodLampAim));
+            var lamp = new SpotLight3D
+            {
+                LightColor = new Color(0.72f, 0.84f, 1f), LightEnergy = 5.5f, SpotRange = 75, SpotAngle = 32, SpotAngleAttenuation = 0.7f,
+                SpotAttenuation = 0.35f, ShadowEnabled = false, LightVolumetricFogEnergy = 0.2f, Name = "PodLamp",
+            };
+            under.AddChild(lamp);
+            lamp.LookAtFromPosition(at, toward, Vector3.Up);
+        }
+    }
+
+    /// <summary>Where a pod's floodlights stand (metres to its side and out before it, deck metres) and how high up its hull they aim.</summary>
+    private const float PodLampSide = 18, PodLampOut = 34, PodLampAim = 14;
 
     private readonly Dictionary<string, Node3D> _rackWeapons = [];
 

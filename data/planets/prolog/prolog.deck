@@ -541,9 +541,6 @@ barricade_I_3 194 235 0 barricade
 barricade_J_1 188 293 0 barricade
 barricade_J_2 192 293 0 barricade
 barricade_J_3 196 293 0 barricade
-barricade_K_1 221 233.6 0 barricade
-barricade_K_2 221 236 0 barricade
-barricade_K_3 221 238.4 0 barricade
 spawn_reaper_1 436 306 180 reaper
 spawn_reaper_2 436 314 180 reaper
 spawn_reaper_3 444 306 180 reaper
@@ -565,7 +562,7 @@ debris_3 520 144 0 debris
 pod_1 464 54 90 pod
 pod_2 516 54 90 pod
 pod_3 568 54 90 pod
-pod_3_hatch 568 74 270 hatch
+pod_3_hatch 568 88 270 hatch
 console_r9_w 167.5 260 180 terminal
 console_r9_e 216.5 276 0 terminal
 squad_j_1 186 305 270 route

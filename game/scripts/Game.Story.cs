@@ -50,6 +50,9 @@ public partial class Game
 
     private bool _storyGoggles;
 
+    /// <summary>The objective last called out, and in which world (a checkpoint's world calls its objective out afresh).</summary>
+    private (string? Text, object? World) _calledObjective;
+
     // ---- the story's keys ----------------------------------------------------------------------------
 
     /// <summary>
@@ -147,6 +150,7 @@ public partial class Game
     {
         // The menus after a chapter show the look as the player chose it.
         GraphicsSettings.Story = false;
+        FilmLimiter(false);
         if (_storyHeard)
         {
             StoryAudio.LineStarted -= StoryLineStarted;
@@ -224,7 +228,10 @@ public partial class Game
                     StoryCue(Machines.Sim.Story.StoryEvents.CueOf(e), at);
                     break;
                 case GameEventKind.StoryObjective when e.Detail is { Length: > 0 } text:
-                    _hud.Story?.Announce(Lang.T("Objective").Caps(), Lang.T(text), MenuTheme.Glow, 2.5f);
+                    // The same objective set again (a beat that only moves its place) is not called out a second time.
+                    if (text != _calledObjective.Text || !ReferenceEquals(World, _calledObjective.World))
+                        _hud.Story?.Announce(Lang.T("Objective").Caps(), Lang.T(text), MenuTheme.Glow, 2.5f);
+                    _calledObjective = (text, World);
                     break;
                 case GameEventKind.StoryAlarm:
                     StoryAudio.SetLayer("amb_alarm_klaxon", e.Other == 1, -14);

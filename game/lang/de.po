@@ -4726,7 +4726,7 @@ msgid "Crashed"
 msgstr "Abgestürzt"
 
 msgid "The ship went down before the pod was away."
-msgstr "Das Schiff stürzte ab, bevor die Kapsel fort war."
+msgstr "Das Schiff stürzte ab, bevor der Pod fort war."
 
 msgid "To the room, on from the checkpoint ({0})"
 msgstr "Zum Raum, weiter ab dem Kontrollpunkt ({0})"
@@ -5205,7 +5205,7 @@ msgid "Tower"
 msgstr "Turm"
 
 msgid "Escape pod"
-msgstr "Rettungskapsel"
+msgstr "Rettungspod"
 
 msgid "Main computer"
 msgstr "Hauptrechner"
@@ -5294,10 +5294,10 @@ msgid "Open the service passage for the Grunts"
 msgstr "Öffne den Wartungsgang für die Grunts"
 
 msgid "Meet on deck B and open the blast door"
-msgstr "Trefft euch auf Deck B und öffnet das Schott"
+msgstr "Triff die Grunts auf Deck B und öffne das Schott"
 
 msgid "Get into the antechamber"
-msgstr "Geht in den Vorraum"
+msgstr "Geh in den Vorraum"
 
 msgid "Hack the main computer"
 msgstr "Hacke den Hauptrechner"
@@ -5312,7 +5312,7 @@ msgid "Wait for the Grunts at the crossing"
 msgstr "Warte an der Kreuzung auf die Grunts"
 
 msgid "Get through the workshop"
-msgstr "Kommt durch die Werkstatt"
+msgstr "Komm durch die Werkstatt"
 
 msgid "Take the weapon from the rack"
 msgstr "Nimm die Waffe aus dem Gestell"
@@ -5324,22 +5324,22 @@ msgid "Put the fallen Grunt back together"
 msgstr "Setz den gefallenen Grunt wieder zusammen"
 
 msgid "Reach the repair station"
-msgstr "Erreicht die Reparaturstation"
+msgstr "Erreiche die Reparaturstation"
 
 msgid "Get to the escape pods"
-msgstr "Lauft zu den Rettungskapseln"
+msgstr "Lauf zu den Rettungspods"
 
 msgid "Reach the escape pods"
-msgstr "Erreicht die Rettungskapseln"
+msgstr "Erreiche die Rettungspods"
 
 msgid "Get everyone into the pod"
-msgstr "Alle in die Kapsel"
+msgstr "Bring alle in den Rettungspod"
 
 msgid "Open the hatch"
-msgstr "Öffnet die Luke"
+msgstr "Öffne die Luke"
 
 msgid "Hack escape pod three"
-msgstr "Hackt Rettungskapsel drei"
+msgstr "Hacke Rettungspod drei"
 
 msgid "[{0}] Lamp: lights your way, and gives you away"
 msgstr "[{0}] Lampe: leuchtet dir den Weg und verrät dich"
@@ -5409,3 +5409,54 @@ msgstr "Heiß"
 
 msgid "Shift"
 msgstr "Umschalt"
+
+msgid "Ship camera"
+msgstr "Schiffskamera"
+
+msgid "Core J"
+msgstr "Kern Tür J"
+
+msgid "Core I"
+msgstr "Kern Tür I"
+
+msgid "Core E"
+msgstr "Kern Ost"
+
+msgid "Core W"
+msgstr "Kern West"
+
+msgid "Spine 1"
+msgstr "Rückgrat 1"
+
+msgid "Spine J"
+msgstr "Rückgrat Tür J"
+
+msgid "Spine 2"
+msgstr "Rückgrat 2"
+
+msgid "Spine 3"
+msgstr "Rückgrat 3"
+
+msgid "Spine 4"
+msgstr "Rückgrat 4"
+
+msgid "Spine 5"
+msgstr "Rückgrat 5"
+
+msgid "Lift"
+msgstr "Aufzug"
+
+msgid "Service 1"
+msgstr "Wartung 1"
+
+msgid "Service 2"
+msgstr "Wartung 2"
+
+msgid "Service 3"
+msgstr "Wartung 3"
+
+msgid "Antechamber W"
+msgstr "Vorraum W"
+
+msgid "Antechamber E"
+msgstr "Vorraum O"

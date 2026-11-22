@@ -32,6 +32,10 @@ public partial class ActorView
     private readonly List<(StandardMaterial3D Material, Color Albedo, Color Emission)> _eyeParts = [];
     private readonly List<(ShaderMaterial Material, Vector3 Colour)> _eyeGlows = [];
 
+    // The model's other lights (a rifle's charge panels, lit strips), given materials of their own the first time it shows red.
+    private List<(StandardMaterial3D Material, Color Emission)>? _otherLights;
+    private List<(ShaderMaterial Material, Vector3 Colour)>? _otherGlows;
+
     // Whether the eyes are on, since when (the view's clock), whether they glow red, and how bright they were last shown.
     private bool _eyesOn;
     private double _eyesSince = double.MinValue;
@@ -67,6 +71,7 @@ public partial class ActorView
             _eyesOn = look != EyeLook.Off;
             _eyesSince = double.MinValue;
             _eyesShown = -1;
+            (_otherLights, _otherGlows) = (null, null);
         }
         var on = look != EyeLook.Off;
         if (on != _eyesOn)
@@ -89,6 +94,13 @@ public partial class ActorView
             }
             foreach (var (material, colour) in _eyeGlows)
                 material.SetShaderParameter("colour", (_eyesRed ? HostileGlow : colour) * level);
+            if (_eyesRed && _otherLights is null)
+                FindOtherLights();
+            // Its other lights burn the same corrupted red, at their own brightness, so nothing green or white glows beside the eyes.
+            foreach (var (material, emission) in _otherLights ?? [])
+                material.Emission = _eyesRed ? HostileEye * (Brightness(emission) * 0.45f * Mathf.Clamp(level, 0, 1)) : emission;
+            foreach (var (material, colour) in _otherGlows ?? [])
+                material.SetShaderParameter("colour", _eyesRed ? HostileGlow * (Mathf.Max(colour.X, Mathf.Max(colour.Y, colour.Z)) * 0.6f * Mathf.Clamp(level, 0, 1)) : colour);
         }
         return (on ? look : EyeLook.Off, level);
     }
@@ -161,6 +173,47 @@ public partial class ActorView
             }
         }
     }
+
+    /// <summary>
+    /// Gives the model's other glowing parts materials of their own (its eyes aside): lit panels and strips, and glow sprites
+    /// that are not the eyes' white, for a corrupted machine to show them red.
+    /// </summary>
+    private void FindOtherLights()
+    {
+        (_otherLights, _otherGlows) = ([], []);
+        if (_model is null)
+            return;
+        var meshes = _model.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>()
+            .Append(_model as MeshInstance3D).OfType<MeshInstance3D>();
+        foreach (var instance in meshes)
+        {
+            if (instance.Mesh is not { } mesh || instance.MaterialOverride is not null)
+                continue;
+            for (var s = 0; s < mesh.GetSurfaceCount(); s++)
+            {
+                var shared = instance.GetSurfaceOverrideMaterial(s) ?? mesh.SurfaceGetMaterial(s);
+                if (shared?.HasMeta(EyeMark) == true)
+                    continue;
+                if (shared is StandardMaterial3D { EmissionEnabled: true } part && Brightness(part.Emission) > 0.05f)
+                {
+                    var own = (StandardMaterial3D)part.Duplicate();
+                    own.SetMeta(EyeMark, true);
+                    instance.SetSurfaceOverrideMaterial(s, own);
+                    _otherLights.Add((own, part.Emission));
+                }
+                else if (shared is ShaderMaterial glow && ClassicAssets.IsGlowSprite(glow) && glow.GetShaderParameter("colour").AsVector3() is var colour
+                    && colour.LengthSquared() > 0.01f)
+                {
+                    var own = (ShaderMaterial)glow.Duplicate();
+                    own.SetMeta(EyeMark, true);
+                    instance.SetSurfaceOverrideMaterial(s, own);
+                    _otherGlows.Add((own, colour));
+                }
+            }
+        }
+    }
+
+    private static float Brightness(Color colour) => Mathf.Max(colour.R, Mathf.Max(colour.G, colour.B));
 
     /// <summary>The texture of the machines' eyes: black with white circles, glowing white.</summary>
     private const string EyeTexture = "mach_b.bmp";

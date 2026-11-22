@@ -114,7 +114,7 @@ The grid is padded with wall to 630 x 420, which is 21 x 14 tiles of 30 m.
   Every way round the core and through I, J, K and M stays at least 9 m wide, so the Reapers still get round. The NE
   corner behind the east console bank is too narrow for Reapers, which makes it a Grunt and Locator hiding spot by the vent.
 - **Pods** at their real size: `pod_1` 464,54, `pod_2` 516,54 and `pod_3` 568,54. They are 52 m apart, 8 m of drawn pod
-  stands clear of each wall, and pod_2 sits under the Notgang's mouth. `pod_3_hatch` is at 568,74 (facing 270) and
+  stands clear of each wall, and pod_2 sits under the Notgang's mouth. `pod_3_hatch` is at 568,88 (facing 270, 34 m from the middle: outside the hull, so the view at the hatch sees the pod whole) and
   `pod_zone` at 544,64-592,96.
 - **cam_abwurf_1** moved to 520,110 at 48 m height, yaw 311, pitch -25: from the catwalk, looking down at pod 3.
 
@@ -275,7 +275,7 @@ What reads the deck now goes by the 2x deck:
   (voices 150 m), the hunted / uneasy music 20 / 50 m, the reverb by the doubled sizes, the beacons' beams 24 m. On a deck
   the first-person view is drawn back from a wall it noses into.
 - **Pods** at scale 1 in the bay (`Game.DeckShow`) and in `abwurf.cut` (its look, light, sparks and fall heights for a
-  43.5 m pod), the cradle ring 5x, fires 26 m north of a broken pod, the launched one found within 30 m of the hatch.
+  43.5 m pod), the cradle ring 5x, fires 26 m north of a broken pod, the launched one found within 40 m of the hatch.
 - **The dark start** (sections 1 and 2): the ambient light at 45 % and the emergency lamps at 45 % (`PlanetLook.Gloom`,
   `DeckView.SetGloom`), lifting over about 3 s once the trio is through to the core. **The trio's lamps** are damaged
   (`ActorView.LampDamaged`, `LampFlicker`): 40 % of a sound lamp, with an unsteady hum and every 3 to 10 s a dip, a stutter

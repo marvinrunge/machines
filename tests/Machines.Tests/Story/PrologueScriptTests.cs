@@ -403,6 +403,9 @@ public class PrologueScriptTests
                     Hack("hack_core");
                 else if (!director.Has("break_in"))
                     Until(() => director.Has("break_in"), Prologue.ShootMax + 10);
+                else if (!director.Has("core_blows") && Vector2.Distance(Locator.Position, new Vector2(219, 262)) > 7)
+                    // In cover from the Reapers' fire by the vent, before they storm in.
+                    Go(new Vector2(219, 262));
                 else if (!director.Has("core_blows"))
                     Until(() => director.Has("core_blows"), Prologue.CoreBlows + 1);
                 else if (!director.Has("fled"))

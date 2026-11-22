@@ -24,9 +24,16 @@ public partial class StoryAudio : Node
 {
     public const string MusicBus = "Music", WorldBus = "World", VoiceBus = "Voice", AnnouncerBus = "Announcer", RadioBus = "Radio";
 
+    /// <summary>
+    /// The bus the story's music, world and voices meet on before Master: a gentle compressor and a limiter keep the sum
+    /// under full scale when the loud music, the gunfire and the blasts come together (the break-in, the core, the
+    /// workshop's fight, the drop), where it clipped before.
+    /// </summary>
+    public const string MixBus = "StoryMix";
+
     // Left to right after Master; each sends to one on its left, and the ducking's sidechain (Voice) is mixed before the
     // buses it ducks (Godot mixes the buses from the last to the first).
-    private static readonly string[] Buses = [MusicBus, WorldBus, VoiceBus, AnnouncerBus, RadioBus];
+    private static readonly string[] Buses = [MixBus, MusicBus, WorldBus, VoiceBus, AnnouncerBus, RadioBus];
 
     public const string SfxFolder = "res://assets/story/sfx", VoiceFolder = "res://assets/story/voice", MusicFolder = "res://assets/story/music";
 
@@ -201,9 +208,13 @@ public partial class StoryAudio : Node
             AudioServer.SetBusName(1, Buses[i]);
         }
         int Index(string name) => AudioServer.GetBusIndex(name);
-        AudioServer.SetBusSend(Index(MusicBus), "Master");
-        AudioServer.SetBusSend(Index(WorldBus), "Master");
-        AudioServer.SetBusSend(Index(VoiceBus), "Master");
+        AudioServer.SetBusSend(Index(MixBus), "Master");
+        AudioServer.SetBusSend(Index(MusicBus), MixBus);
+        AudioServer.SetBusSend(Index(WorldBus), MixBus);
+        AudioServer.SetBusSend(Index(VoiceBus), MixBus);
+        var mix = Index(MixBus);
+        AudioServer.AddBusEffect(mix, new AudioEffectCompressor { Threshold = -10, Ratio = 3, AttackUs = 5000, ReleaseMs = 250, Gain = 0 });
+        AudioServer.AddBusEffect(mix, new AudioEffectHardLimiter { CeilingDb = -1.0f, PreGainDb = 0, Release = 0.1f });
         AudioServer.SetBusSend(Index(AnnouncerBus), VoiceBus);
         AudioServer.SetBusSend(Index(RadioBus), VoiceBus);
         AudioServer.SetBusSend(Index(GameAudio.EffectsBus), WorldBus);

@@ -78,14 +78,17 @@ public partial class Game
                 StoryAudio.Play("loc_fan", at);
                 break;
             case "screen":
-                // The cracked wall screen across the bay flickers on.
+                // The cracked wall screen across the bay flickers on: the core's decryption, a cold glow ahead in the dark.
                 StoryAudio.Play("sparks", at + ahead * 6);
+                BootScreen();
                 break;
             case "edge":
+                TearBootScreen(0.4);
                 StoryAudio.Play("data_squeal");
                 _screen.Interference(GameOptions.SoftScares ? 0.15f : 0.3f, 0.3f);
                 break;
             case "update":
+                TearBootScreen(0.4);
                 StoryAudio.Play("hack_fail");
                 StoryAudio.Play("hud_glitch");
                 _screen.Interference(GameOptions.SoftScares ? 0.25f : 0.5f, 0.4f);
@@ -114,6 +117,78 @@ public partial class Game
                 break;
         }
     }
+
+    private ShaderMaterial? _bootScreenLook;
+
+    private const string BootScreenShader = """
+        shader_type spatial;
+        render_mode unshaded, cull_disabled;
+        uniform float since;
+        uniform float tear = 0.0;
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+        void fragment() {
+            float t = TIME - since;
+            // It flickers on, then holds with a faint unsteadiness.
+            float on = t < 0.15 ? 0.8 : t < 0.4 ? 0.05 : t < 0.5 ? 1.0 : t < 0.8 ? 0.2 : min(1.0, 0.5 + t * 0.5);
+            vec2 uv = UV;
+            // Rows of glyphs scrolling up: blocks of on and off cells, a crack across the glass.
+            float row = floor((uv.y + t * 0.02) * 9.0);
+            float col = floor(uv.x * 26.0);
+            float glyph = step(0.42, hash(vec2(col, row + floor(t * 3.0) * step(0.8, hash(vec2(row, 7.0))))));
+            float line = step(hash(vec2(row, 3.0)) * 0.9 + 0.1, uv.x) < 0.5 ? glyph : 0.0;
+            float rowMask = step(0.35, fract((uv.y + t * 0.02) * 9.0)) * step(0.2, fract(uv.x * 26.0)) * step(0.08, uv.x) * step(uv.x, 0.92);
+            float text = line * rowMask * step(0.3, uv.y);
+            // The decryption's bar along the foot, creeping on.
+            float bar = step(0.1, uv.y) * step(uv.y, 0.18) * step(0.08, uv.x) * step(uv.x, 0.08 + 0.84 * clamp(t / 60.0, 0.0, 0.37));
+            float frame = step(0.1, uv.y) * step(uv.y, 0.18) * (step(uv.x, 0.085) + step(0.915, uv.x)) * step(0.075, uv.x) * step(uv.x, 0.925);
+            float crack = smoothstep(0.012, 0.0, abs(uv.y - (0.72 - uv.x * 0.45 + sin(uv.x * 31.0) * 0.02)));
+            float scan = 0.82 + 0.18 * sin(uv.y * 400.0 + TIME * 9.0);
+            float noise = hash(uv * 300.0 + TIME) * 0.04;
+            float level = (0.03 + text * 0.4 + bar * 0.75 + frame * 0.4 + noise) * scan * on * (1.0 - crack * 0.85);
+            level *= 1.0 - tear * step(0.5, hash(vec2(floor(uv.y * 30.0), floor(TIME * 20.0))));
+            ALBEDO = vec3(0.08, 0.75, 0.3) * level;
+        }
+        """;
+
+    /// <summary>
+    /// The cracked wall screen across the Locator's bay comes on (the boot's step "screen"): a glowing face over the screen's
+    /// prop with the core's decryption running on it, and a little cold light round it, the first thing the optics see.
+    /// </summary>
+    private void BootScreen()
+    {
+        if (_deckView is null || World.Deck?.Markers.FirstOrDefault(m => m.Tags.Contains("screen")) is not { } marker)
+            return;
+        var facing = new Vector3(Mathf.Cos(Mathf.DegToRad(marker.Angle)), 0, Mathf.Sin(Mathf.DegToRad(marker.Angle)));
+        var foot = ActorView.World(marker.Position);
+        _bootScreenLook = new ShaderMaterial { Shader = new Shader { Code = BootScreenShader } };
+        _bootScreenLook.SetShaderParameter("since", Time.GetTicksMsec() / 1000f);
+        var face = new MeshInstance3D
+        {
+            Name = "BootScreen", Mesh = new QuadMesh { Size = new Vector2(BootScreenSize.X, BootScreenSize.Y) }, MaterialOverride = _bootScreenLook,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+        _deckView.AddChild(face);
+        face.LookAtFromPosition(foot + Vector3.Up * BootScreenHigh + facing * BootScreenOut, foot + Vector3.Up * BootScreenHigh - facing, Vector3.Up);
+        _deckView.AddChild(new OmniLight3D
+        {
+            Name = "BootScreenGlow", LightColor = new Color(0.4f, 1f, 0.65f), LightEnergy = 0.9f, OmniRange = 12, OmniAttenuation = 1.2f,
+            Position = foot + Vector3.Up * BootScreenHigh + facing * 2.5f, ShadowEnabled = false,
+        });
+        TearBootScreen(0.4);
+    }
+
+    /// <summary>The boot screen's picture tears for a moment (the core's edge, the update failing).</summary>
+    private void TearBootScreen(double seconds)
+    {
+        _bootScreenLook?.SetShaderParameter("tear", 1f);
+        GetTree().CreateTimer(seconds).Timeout += () => _bootScreenLook?.SetShaderParameter("tear", 0f);
+    }
+
+    /// <summary>The screen's glowing face, metres, and how high its middle hangs.</summary>
+    private static readonly Vector2 BootScreenSize = new(2.6f, 1.6f);
+
+    /// <summary>How high the face's middle hangs, and how far before the wall (in front of the prop's dark glass).</summary>
+    private const float BootScreenHigh = 3.25f, BootScreenOut = 0.95f;
 
     /// <summary>While the Locator boots: now and then a drop of coolant falls on the grating beside it.</summary>
     private void BootDrips()

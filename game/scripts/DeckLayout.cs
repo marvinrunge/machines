@@ -169,10 +169,10 @@ public sealed class DeckLayout
     public IReadOnlyList<Vector3> CrashFires { get; }
 
     /// <summary>
-    /// A pod within this many metres of the hatch is the one that launches (pod 3's hatch is 20 m from its middle); a broken
+    /// A pod within this many metres of the hatch is the one that launches (pod 3's hatch is 34 m from its middle, outside its hull and cradle); a broken
     /// pod burns this far north of its middle, beside its 47.5 m hull (the game's Pod at its own size).
     /// </summary>
-    public const float PodHatchReach = 30, PodFireOffset = 26;
+    public const float PodHatchReach = 40, PodFireOffset = 26;
 
     /// <summary>How many times its 10 m the pods' cradle ring is drawn, to hold the game's Pod at its own size.</summary>
     public const float PodCradle = 5;

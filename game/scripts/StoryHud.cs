@@ -59,6 +59,8 @@ public partial class StoryHud : Control
             _now = now = _demo.Apply(now, world, this);
         if (_now is { } shown)
         {
+            // In the thick of it (the alarm up or a hunter on the trio) a call is small and high, out of the way of the room.
+            _busy = shown.Alarm || shown.Spotted;
             FollowCheckpoint(shown);
             FollowBoot(shown);
             FollowTracker(shown);
@@ -549,6 +551,7 @@ public partial class StoryHud : Control
     private sealed record Shout(string Title, string? Line, Color Colour, float Seconds);
 
     private readonly List<Shout> _calls = [];
+    private bool _busy;
     private double _callStarted;
 
     private sealed record Rising(string Text, Color Colour, double Since);
@@ -599,8 +602,9 @@ public partial class StoryHud : Control
         var opening = Mathf.Clamp(age / 0.22f, 0, 1);
         var alpha = opening * Mathf.Clamp((call.Seconds - age) / 0.45f, 0, 1);
         var middle = Left + (_size.X - Left) / 2;
-        var width = (_size.X - Left) * 0.42f * (1 - (1 - opening) * (1 - opening));
-        _ink.Call(middle, _size.Y * 0.28f, width, call.Title, call.Line, call.Colour, alpha, (_size.X - Left) / _u * 0.8f);
+        var width = (_size.X - Left) * (_busy ? 0.24f : 0.42f) * (1 - (1 - opening) * (1 - opening));
+        _ink.Call(middle, _size.Y * (_busy ? 0.19f : 0.28f), width, call.Title, call.Line, call.Colour, alpha,
+            (_size.X - Left) / _u * (_busy ? 0.45f : 0.8f), _busy ? 0.5f : 1);
     }
 
     private void DrawFloats()

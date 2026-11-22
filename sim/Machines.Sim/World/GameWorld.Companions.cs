@@ -751,7 +751,8 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// A Grunt a person drives pushes crates (docs/STORY.md, Der Hack: the Grunts barricade the doors): driving forward into a
-    /// crate for the barricades it takes it up before it; near a free barricade slot of any door it locks the crate into it;
+    /// crate for the barricades it takes it up before it; near a free barricade slot of any door (the deck has them before J
+    /// and I alone: never before door K, the Grunts' own way out by the cable duct) it locks the crate into it;
     /// backing up sets it down ahead where there is room. A Grunt that goes down drops it where it stands. The view hears
     /// "crate pushed" and "crate set".
     /// </summary>
@@ -805,6 +806,18 @@ public sealed partial class GameWorld
     /// <summary>Where a downed Grunt's crate is set down: ahead of it where there is room, else back where it was taken.</summary>
     private Vector2 PushedDown(Machine grunt, CarriedCrate crate, Vector2 front) =>
         Nav.OnPlanet(front) && Nav.IsFree(front, Mobility.Land) ? front : crate.From;
+
+    /// <summary>
+    /// A Grunt pushing a crate lets go of it (the computer took its seat from a person): the crate is set down ahead of it
+    /// where there is room, else back where it was taken, so it is neither lost nor carried on unseen.
+    /// </summary>
+    internal void DropPushed(Companion companion, Machine grunt)
+    {
+        if (companion.Step != CompanionStep.Pushing || companion.Carrying is not { } pushed)
+            return;
+        var ahead = new Vector2(DetMath.Cos(grunt.Facing), DetMath.Sin(grunt.Facing));
+        SetPushed(companion, PushedDown(grunt, pushed, grunt.Position + ahead * (grunt.Radius + Reach(pushed) + PushAhead)), grunt);
+    }
 
     private void SetPushed(Companion companion, Vector2 at, Machine grunt)
     {

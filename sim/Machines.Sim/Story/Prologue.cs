@@ -60,6 +60,12 @@ public static class Prologue
 
     // ---- the deck ----------------------------------------------------------------------------------
 
+    /// <summary>
+    /// How near the scare Grunt the Locator must come in R4 for it to glare up, and how near the store room's crate stack the
+    /// Thresher must be on its round (most of it) for the stack to fall while the Locator crosses R5, metres (the deck doubled).
+    /// </summary>
+    public const float ScareReach = 32, FalseAlarmReach = 100;
+
     /// <summary>The scenario tags of the computer core and of the crate stack that falls in the store room.</summary>
     public const int CoreTag = 400, StackTag1 = 311, StackTag2 = 312;
 
@@ -197,7 +203,7 @@ public static class Prologue
     /// <see cref="ShootMin"/>, until the core has locked the hack's last board (or the Locator left it), at most <see cref="ShootMax"/>.
     /// Tuned so the break-in comes as the Locator's last board stands at 90 % (PrologueCoreTests.Timeline prints the timings).
     /// </summary>
-    public const float HammerJ = 6, HammerI = 2.5f, ShootMin = 6, ShootMax = 20;
+    public const float HammerJ = 6, HammerI = 2.5f, ShootMin = 8, ShootMax = 20;
 
     /// <summary>
     /// After the break-in: the Reapers' rounds crack the core (three hits), it blows, the power fails, the ship's control is
@@ -224,10 +230,21 @@ public static class Prologue
     public const float Away = 8;
 
     /// <summary>
-    /// How many seconds after the core blows the Locator is still spared the Reapers' fire (until then they fire at the core),
-    /// and the Grunts, to get into the cable duct.
+    /// How many seconds after the core blows the Locator is still spared the Reapers' fire (the blast's moment), and the
+    /// Grunts, to get into the cable duct.
     /// </summary>
     public const float LocatorSpared = 1.5f, GruntsSpared = 10;
+
+    /// <summary>
+    /// How long after the break-in the Reapers' first volleys go only at the core, past the Locator at its foot; then they
+    /// storm into the chamber, and <see cref="StormSight"/> seconds later, through the door, they hunt the trio by their
+    /// sight (the Locator is spared until then), while the core cracks on under the rounds: the Locator must be in cover or
+    /// running.
+    /// </summary>
+    public const float StormIn = 3, StormSight = 2;
+
+    /// <summary>Where the Reapers spread into the core chamber when they storm it, either side of door I and before it.</summary>
+    public static readonly string[] StormPlaces = ["174,242", "210,242", "192,238"];
 
     /// <summary>How long the Reapers push at an unheld gate before it gives way (plan WP-H; the plan's 30 s, eased for hands).</summary>
     public const float GateForce = 40;
@@ -287,10 +304,13 @@ public static class Prologue
             new Objective("Crawl through the ducts to the switch room", "hack_s"), new Cue("hint pulse")]),
         new("duct", 1, new InZone("V1a"), [new Cue("hint duct")]),
         // Ike's "I don't fit in there" is the companions' own bark, once the Locator crawls off into a duct (CompanionBot).
-        new("scare_grunt2", 1, new Near("scare_grunt2", 16), [new CueCast("scare wake", ScareRole), new Lamp(ScareRole, true)]),
+        // The scare Grunt glares up as the Locator comes by on its way from R4's west door to duct V1a (whose mouth is about
+        // 27 m from it on the doubled deck).
+        new("scare_grunt2", 1, new AllOf(new InZone("R4"), new Near("scare_grunt2", ScareReach)), [new CueCast("scare wake", ScareRole),
+            new Lamp(ScareRole, true)]),
         new("scare_dark", 1, new Since("scare_grunt2", 1.5f), [new Lamp(ScareRole, null)]),
         new("dust", 1, new InZone("dust_fall"), [new Cue("scare dust", "dust_fall")]),
-        new("false_alarm", 1, new AllOf(new InZone("R5"), new CastNear(ThresherRole, "false_alarm_stack", 60)),
+        new("false_alarm", 1, new AllOf(new InZone("R5"), new CastNear(ThresherRole, "false_alarm_stack", FalseAlarmReach)),
             [new HarmProp(StackTag1), new HarmProp(StackTag2), new Cue("scare crates", "false_alarm_stack")]),
         new("switch_room", 1, new InZone("R7"), [new Objective("Open the service passage for the Grunts", "hack_s")]),
         new("passage", 1, new HackDone("hack_s"), [new OpenDoors("E"), new Objective("Meet on deck B and open the blast door", "hack_h")]),
@@ -353,6 +373,10 @@ public static class Prologue
         // Locator stands (their first volleys hit the core); the player has the Locator again at once and takes cover.
         new("break_in", 3, new Flagged(Burst), [.. BreakIn]),
         new("core_hit_1", 3, new Since("break_in", CoreHit1), [new WearProp(CoreTag, 0.7f), new Cue("core hit 1", "core")]),
+        // Then they storm in, spread through the chamber and turn on the trio (by the fair rules: a warning tone, the lock,
+        // half their harm, the Commander never fires); the Locator, spared no longer, takes cover or runs.
+        new("storm_in", 3, new Since("break_in", StormIn), [new MoveTo(ReaperRole, StormPlaces)]),
+        new("storm_sight", 3, new Since("storm_in", StormSight), [new Sight(ReaperRole, true), new Sight(CommanderRole, true)]),
         // The first rounds into the core beside it: walking will not get the Locator out of here. Its drive's maintenance limiter
         // is overridden (StoryDrive): from now on the trio can sprint, and the HUD says how, once.
         new("limiter", 3, new Since("break_in", CoreHit1), [new Flag(StoryMarks.SprintFree), new Cue("sprint free"), new Say(Lines.IkeLimiter, Bark, 1)]),
@@ -457,13 +481,13 @@ public static class Prologue
     /// <summary>
     /// The break-in (docs/STORY.md, Erwischt, played): the checkpoint; the probe pulled and the hack cut off where it stood;
     /// the Locator free to move at once and spared while the Reapers' first volleys go into the core at whose foot it stands
-    /// (the core takes harm but stands, <see cref="KeepProp"/>, until it blows); the Grunts off their barricades to the cable
+    /// (<see cref="StormIn"/>; the core takes harm but stands, <see cref="KeepProp"/>, until it blows); the Grunts off their barricades to the cable
     /// duct's door. The ship's "Wiederhole: ... kor-" is broken off as the core blows.
     /// </summary>
     private static StoryAction[] BreakIn =>
     [
         new Checkpoint(3), new Section(4), new Flag(StoryMarks.Squad, false), new BreakHack("hack_core"), new Unplug("hack_core"),
-        new Alarm(true), new Say(Lines.C5), new Spare(0, CoreBlows + LocatorSpared), new Spare(1, CoreBlows + GruntsSpared),
+        new Alarm(true), new Say(Lines.C5), new Spare(0, StormIn + StormSight), new Spare(1, CoreBlows + GruntsSpared),
         new Spare(2, CoreBlows + GruntsSpared), new KeepProp(CoreTag, 0.1f), new AttackArtefact(ReaperRole, CoreTag),
         new Objective("Take cover from the Reapers", Cover), new Assign(1, CompanionTask.Go, IkeAtCable),
         new Assign(2, CompanionTask.Go, BobAtCable), new Cue("break in", "core"), new Cue("hint cover"),

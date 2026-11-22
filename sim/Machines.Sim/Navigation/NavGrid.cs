@@ -302,16 +302,29 @@ public sealed class NavGrid
             return 0;
         var nearest = int.MaxValue;
         var reach = Mobility.Largest * scale;
-        for (var dy = -reach; dy <= reach; dy++)
+        // Ring by ring outward (the same answer as the whole square, sooner by a wall, where most cells of a deck are): a cell
+        // r rings out is at least (2r - 1)^2 away, so once that is no nearer than the nearest blocked cell found (or than the
+        // largest class needs) nothing further out can change the class; and one too near for the smallest class is 0 at once.
+        var enough = Mobility.RoomSquared4(Mobility.Largest, scale);
+        var least = Mobility.RoomSquared4(1, scale);
+        for (var r = 1; r <= reach; r++)
         {
-            for (var dx = -reach; dx <= reach; dx++)
+            if ((2 * r - 1) * (2 * r - 1) >= Math.Min(nearest, enough))
+                break;
+            for (var dy = -r; dy <= r; dy++)
             {
-                if (!BlocksRoom(x + dx, y + dy, crawl))
-                    continue;
-                // From the middle to the nearest point of the blocked square, doubled: 2|d| - 1 along each axis.
-                var (ax, ay) = (Math.Max(0, 2 * Math.Abs(dx) - 1), Math.Max(0, 2 * Math.Abs(dy) - 1));
-                nearest = Math.Min(nearest, ax * ax + ay * ay);
+                var step = dy == -r || dy == r ? 1 : 2 * r;
+                for (var dx = -r; dx <= r; dx += step)
+                {
+                    if (!BlocksRoom(x + dx, y + dy, crawl))
+                        continue;
+                    // From the middle to the nearest point of the blocked square, doubled: 2|d| - 1 along each axis.
+                    var (ax, ay) = (Math.Max(0, 2 * Math.Abs(dx) - 1), Math.Max(0, 2 * Math.Abs(dy) - 1));
+                    nearest = Math.Min(nearest, ax * ax + ay * ay);
+                }
             }
+            if (nearest < least)
+                return 0;
         }
         for (var size = Mobility.Largest; size > 0; size--)
         {

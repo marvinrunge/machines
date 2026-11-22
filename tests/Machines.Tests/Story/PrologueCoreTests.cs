@@ -202,12 +202,15 @@ public class PrologueCoreTests(ITestOutputHelper output)
         var core = world.Artefacts.First(a => a.Tag == Prologue.CoreTag);
         var locator = Hero(world, 0);
 
-        // Their first rounds after the break-in were at the core; the Locator at its foot took none.
+        // Their first rounds after the break-in were at the core, past the Locator at its foot; only once they had stormed in
+        // did they turn on it (Erwischt is played: the Locator takes cover or runs).
         var reapers = Cast(world, Prologue.ReaperRole).Select(r => r.Id).ToHashSet();
-        var crates = hacker.Fired.Where(f => reapers.Contains(f.Actor)).Select(f => f.Other).ToHashSet();
-        var after = hacker.Fired.Where(f => reapers.Contains(f.Actor) && f.Other == core.Id).ToList();
-        Assert.True(after.Count >= 3, $"{after.Count} rounds at the core");
-        Assert.Equal(locator.MaxHitPoints, locator.HitPoints);
+        var rounds = hacker.Fired.Where(f => reapers.Contains(f.Actor)).ToList();
+        var first = rounds.FindIndex(f => f.Other == locator.Id);
+        var before = rounds.Take(first < 0 ? rounds.Count : first).Count(f => f.Other == core.Id);
+        Assert.True(before >= 3, $"{before} rounds at the core before any at the Locator");
+        Assert.True(hacker.At["storm_sight"] - hacker.At["break_in"] >= Prologue.StormIn + Prologue.StormSight - 0.1f);
+        Assert.False(locator.IsDead);
         Assert.Equal(["core hit 1", "core hit 2", "core hit 3", "core blows"], hacker.Cues.Where(c => c.StartsWith("core ", StringComparison.Ordinal)));
         Assert.Equal(Prologue.CoreBlows, hacker.At["core_blows"] - hacker.At["break_in"], 1);
         // Blown: the chamber in red light, the vent and the cable duct open.
@@ -244,13 +247,22 @@ public class PrologueCoreTests(ITestOutputHelper output)
         Assert.Contains(StoryMarks.Alarm, run.Flags);
         var cues = new List<string>();
         var locator = Hero(world, 0);
-        float? broken = null;
+        float? broken = null, stormed = null;
+        int? whole = null, open = null;
         for (var i = 0; i < 20 * GameWorld.TicksPerSecond && !run.Director.Has("core_blows"); i++)
         {
             world.Step();
             cues.AddRange(world.Events.Where(e => e.Kind == GameEventKind.StoryCue).Select(e => e.Detail!));
             if (run.Director.Has("break_in"))
                 broken ??= world.Time;
+            if (run.Director.Has("storm_sight") && stormed is null)
+                (stormed, whole) = (world.Time, locator.HitPoints);
+            // The Locator stands in the open at the console a few seconds after they storm in, then takes cover by the vent.
+            if (stormed is { } since && open is null && world.Time >= since + 3)
+            {
+                open = locator.HitPoints;
+                locator.Position = new Vector2(219, 262);
+            }
         }
 
         // In within a few seconds, the crates thrown, and on as a run played through has it.
@@ -259,7 +271,14 @@ public class PrologueCoreTests(ITestOutputHelper output)
         Assert.Contains("break in", cues);
         Assert.Equal(3, cues.Count(c => c.StartsWith("thrown ", StringComparison.Ordinal)));
         Assert.True(run.Director.Has("core_blows"));
-        Assert.Equal(locator.MaxHitPoints, locator.HitPoints);
+        // Their first volleys went at the core past the Locator; once they stormed in, the Locator in the open was fired at,
+        // and in cover it lived to see the core blow.
+        Assert.Equal(Prologue.StormIn + Prologue.StormSight, stormed!.Value - broken!.Value, 1);
+        Assert.Equal(locator.MaxHitPoints, whole);
+        Assert.True(open < locator.MaxHitPoints, $"{open} of {locator.MaxHitPoints} in the open");
+        Assert.False(locator.IsDead);
+        var inside = Cast(world, Prologue.ReaperRole).Where(m => !m.IsDead && Inside(m.Position, 160, 228, 224, 296)).ToList();
+        Assert.True(inside.Count >= 2, string.Join(", ", Cast(world, Prologue.ReaperRole).Select(m => $"{m.Id} at {m.Position}")));
         Assert.Equal(3, run.Checkpoint);
     }
 
@@ -356,6 +375,62 @@ public class PrologueCoreTests(ITestOutputHelper output)
         Drive(-1, 2);
         Assert.Null(companion.Carrying);
         Assert.Contains(world.Artefacts, a => a.Tag == 308 && !a.IsDead && Vector2.Distance(a.Position, new Vector2(200, 250)) < 6);
+    }
+
+    [Fact]
+    public void A_crate_a_person_was_pushing_is_set_down_when_the_computer_takes_the_grunt_over()
+    {
+        PlayerId locator = new(0), ike = new(4), bob = new(5);
+        var world = MatchSetup.Create(DataLoader.Value, StoryOptions.Prologue, StoryOptions.Prologue, new PlayerTable([
+                new PlayerSeat(locator, Race.Red, PlayerKind.Human, "Host"), new PlayerSeat(ike, Race.Red, PlayerKind.Human, "Anna"),
+                new PlayerSeat(bob, Race.Red, PlayerKind.Bot, "Bolt"), new PlayerSeat(PlayerId.Of(Race.Blue), Race.Blue, PlayerKind.Ai, "Ship")]),
+            3, new MatchOptions { Story = new StoryOptions { Checkpoint = 2 }, FogOfWar = false });
+        var run = world.Story!;
+        var grunt = world.HeroOf(ike)!;
+        var crate = world.Artefacts.Single(a => a.Tag == 307);
+        grunt.Position = crate.Position + new Vector2(5, 0);
+        grunt.Facing = MathF.PI;
+        for (var i = 0; i < 40; i++)
+        {
+            world.Issue(new DriveCommand(Race.Red, grunt.Id, true, 1) { Issuer = ike });
+            world.Step();
+        }
+        var companion = run.Crew.Of(ike);
+        Assert.Equal(307, companion.Carrying?.Tag);
+
+        // Anna goes away: the computer takes Ike, and the crate he pushed stands in the world again, nobody carrying it.
+        world.ChangePresence([new PresenceChange(ike, Away: true)]);
+        world.Step();
+        Assert.True(world.StoryBotPlays(ike));
+        Assert.Null(companion.Carrying);
+        Assert.NotEqual(CompanionStep.Pushing, companion.Step);
+        Assert.Contains(world.Artefacts, a => a.Tag == 307 && !a.IsDead);
+    }
+
+    [Fact]
+    public void The_scare_grunt_glares_up_as_the_locator_comes_to_the_duct_mouth_on_deck_a()
+    {
+        var world = Chapter(1);
+        var run = world.Story!;
+        var locator = Hero(world, 0);
+        // Along R4 from its west door toward duct V1a: nothing yet at the door, the glare at the duct's mouth.
+        locator.Position = new Vector2(124, 52);
+        for (var i = 0; i < 5; i++)
+            world.Step();
+        Assert.False(run.Director.Has("scare_grunt2"));
+        locator.Position = new Vector2(160, 78);
+        for (var i = 0; i < 5; i++)
+            world.Step();
+        Assert.True(run.Director.Has("scare_grunt2"));
+    }
+
+    [Fact]
+    public void No_barricade_slot_stands_before_door_k_the_grunts_way_out()
+    {
+        var world = Chapter(2);
+        Assert.DoesNotContain(world.Deck!.Markers, m => m.Name.StartsWith("barricade_K", StringComparison.Ordinal));
+        Assert.Equal(3, world.BarricadeSlots("J").Count);
+        Assert.Equal(3, world.BarricadeSlots("I").Count);
     }
 
     /// <summary>The core fight's timeline as a person playing a turn every 1.5 s and every 3 s meets it (it prints; the checks are above).</summary>
