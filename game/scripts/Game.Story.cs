@@ -459,12 +459,13 @@ public partial class Game
     }
 
     /// <summary>
-    /// The core blows: the ship's announcement breaks off mid-word, a great blast and a second, the deck shakes, the view
+    /// The core blows: the ship's announcement breaks off mid-word (what the PA had still to say is dropped; the Grunts'
+    /// radio, Ike's "Run!" among it, is not the PA and is still said), a great blast and a second, the deck shakes, the view
     /// breaks up, and the core's wreck burns on in the red emergency light.
     /// </summary>
     private void CoreBlows(Godot.Vector3 at)
     {
-        StoryAudio.CutVoice();
+        StoryAudio.CutVoice(onlyAnnouncements: true);
         _effects.Explosion(at + Godot.Vector3.Up * 4, 18);
         StoryAudio.Play("hull_breach", at);
         CameraRig.Shake(at, 12, 2);

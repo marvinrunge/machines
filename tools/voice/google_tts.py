@@ -3,6 +3,7 @@
 preset and written to game/assets/story/voice/<lang>/<id>.ogg, marked "source": "google" in the manifest.
 
     python tools/voice/google_tts.py [--speaker ike,bob,l7] [--only ID[,ID...]] [--lang de|en] [--force] [--dry-run]
+    python tools/voice/google_tts.py --fresh --only ID[,ID...] [--lang de|en]
     python tools/voice/google_tts.py --sampler [--out DIR]
     python tools/voice/google_tts.py --say VOICE "text" out.wav [--preset ike]
 
@@ -10,15 +11,17 @@ Order of precedence: a recording in tools/voice/recordings/<lang>/<id>.wav (robo
 Google line, which wins over the SAPI stand-in (placeholders.py). Lines with a recording are skipped here.
 
 The cast file voices.json names per speaker the voice in each language, its speakingRate and how long a
-"…" inside a line pauses. The text goes to Google as markup: a "…" becomes a [pause long] tag, and the
+"…" inside a line pauses; a line of lines.json may set its own speakingRate per language ("rate": {"en": 0.8}). The text goes to Google as markup: a "…" becomes a [pause long] tag, and the
 pause it leaves is then set to exactly the cast's length. A word broken off with "-" ("kor- …",
 "Schalte a-") is spoken as its fragment and cut off sharply; lines marked "cut": true lose their reverb
 tail as before. The robot presets are applied as they are (they were tuned for human recordings, and the
 Chirp voices are human-like); the SAPI pre-pitching of placeholders.py does not apply.
 
-Every answer from Google is kept in tools/voice/cache/google (git-ignored) under a hash of the text, the
-voice and the settings, so reruns and preset changes cost no characters. Reruns redo only lines whose
-text, voice, settings or preset changed (hash in the manifest); --force redoes them all from the cache.
+Every answer from Google is kept in the main checkout's tools/voice/cache/google (git-ignored, shared by
+every worktree, so it outlives them) under a hash of the text, the voice and the settings, so reruns and
+preset changes cost no characters, and a line keeps its take (Chirp gives a different one on every call).
+Reruns redo only lines whose text, voice, settings or preset changed (hash in the manifest); --force redoes
+them all from the cache; --fresh drops the cached answers of the --only lines and asks Google for new takes.
 
 --sampler voices a few lines of each speaker with each candidate voice of the cast file, robot-filtered,
 with a spoken label before each voice, into <out>/<speaker>-stimmen.mp3, and the cast voice with and
@@ -52,8 +55,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import robot  # noqa: E402
 
 CAST = os.path.join(robot.HERE, "voices.json")
-CACHE = os.path.join(robot.HERE, "cache", "google")
 MAIN = robot.REPO.split(os.sep + ".claude" + os.sep)[0]
+CACHE = os.path.join(MAIN, "tools", "voice", "cache", "google")  # the main checkout's: worktrees come and go
 SAMPLER_OUT = os.path.join(MAIN, "renders", "prologue", "stimmen")
 RATE = robot.RATE  # 48 kHz from Google, as the presets expect
 VERSION = 3  # bump when the text preparation or the pause/cut shaping changes
@@ -73,6 +76,12 @@ def load_cast():
 def cast_voice(cast, speaker, lang):
     s = cast["speakers"].get(speaker)
     return s and s.get(lang)
+
+
+def line_rate(line, lang, spk):
+    """The line's speakingRate in lang: its own ("rate": {"en": 0.8} in lines.json), else its speaker's."""
+    own = line.get("rate")
+    return own.get(lang, spk.get("rate", 1.0)) if isinstance(own, dict) else spk.get("rate", 1.0)
 
 
 # ---------------------------------------------------------------- Google
@@ -102,6 +111,16 @@ def cache_path(markup, voice, rate, field="markup"):
     key = json.dumps(["chirp3-hd", voice, round(rate, 3), RATE, "LINEAR16", GAIN_DB, markup]
                      + ([] if field == "markup" else [field]), ensure_ascii=False)
     return os.path.join(CACHE, hashlib.sha1(key.encode("utf-8")).hexdigest() + ".wav")
+
+
+def make_cache():
+    """The cache folder, ignored by git on its own (a "*" .gitignore inside it), so the main checkout never offers the
+    takes for a commit, even on a branch whose tools/voice/.gitignore does not list cache/ yet."""
+    os.makedirs(CACHE, exist_ok=True)
+    ignore = os.path.join(os.path.dirname(CACHE), ".gitignore")
+    if not os.path.isfile(ignore):
+        with open(ignore, "w", encoding="utf-8", newline="\n") as f:
+            f.write("# Google voice answers (google_tts.py): kept here, never committed\n*\n")
 
 
 def synth(markup, voice, rate=1.0, field="markup"):
@@ -137,7 +156,7 @@ def synth(markup, voice, rate=1.0, field="markup"):
     with _chars_lock:
         _chars["sent"] += len(markup)
     pcm = pcm_of(audio)
-    os.makedirs(CACHE, exist_ok=True)
+    make_cache()
     write_wav(path + ".tmp", pcm)
     os.replace(path + ".tmp", path)
     return pcm
@@ -288,7 +307,7 @@ def raw_take(line, lang, voice, spk):
     became of the pauses: the old lengths of the gaps set, or "split" when the tags left too few of them and the
     parts between the "…" were voiced one by one and joined with the pause."""
     markup, pauses, broken = prepare(line[lang], lang)
-    rate, pause = spk.get("rate", 1.0), spk.get("pause", 0.6)
+    rate, pause = line_rate(line, lang, spk), spk.get("pause", 0.6)
     pcm = synth(markup, voice, rate)
     pcm, gaps = shape_pauses(pcm, pauses, pause)
     if len(gaps) < pauses:
@@ -309,10 +328,21 @@ def raw_take(line, lang, voice, spk):
     return pcm, markup, gaps
 
 
+def requests(line, lang):
+    """Every text raw_take may send for the line: (text, field) of the markup, and with "…" inside also of the plain
+    text and of each part (the fallbacks when Chirp runs fragments together)."""
+    markup, pauses, _ = prepare(line[lang], lang)
+    out = [(markup, "markup")]
+    if pauses:
+        out.append((markup.replace(" %s " % PAUSE_TAG, "... "), "text"))
+        out += [(p if re.search(r"[.!?,;:]$", p) else p + ".", "markup") for p in (q.strip() for q in markup.split(PAUSE_TAG))]
+    return out
+
+
 def line_hash(line, lang, voice, spk):
     markup, pauses, broken = prepare(line[lang], lang)
     preset = robot.preset_of(line)
-    return hashlib.sha1(json.dumps([VERSION, markup, voice, spk.get("rate", 1.0), GAIN_DB, spk.get("pause", 0.6), preset,
+    return hashlib.sha1(json.dumps([VERSION, markup, voice, line_rate(line, lang, spk), GAIN_DB, spk.get("pause", 0.6), preset,
                                     line.get("cut", False), broken, robot.graph(preset, 1.0, line.get("cut", False))],
                                    ensure_ascii=False).encode("utf-8")).hexdigest()[:12]
 
@@ -341,24 +371,37 @@ def batch(a):
                 continue  # the user's recording wins
             h = line_hash(line, lang, voice, spk)
             dst = os.path.join(robot.VOICE_OUT, lang, line["id"] + ".ogg")
-            if not a.force and old.get("source") == "google" and old.get("hash") == h and os.path.isfile(dst):
+            if not (a.force or a.fresh) and old.get("source") == "google" and old.get("hash") == h and os.path.isfile(dst):
                 continue
             todo.append((line, lang, voice, spk, h, dst))
     if a.dry_run:
-        new_chars = 0
+        new_chars = worst = 0
         for line, lang, voice, spk, h, dst in todo:
+            rate = line_rate(line, lang, spk)
             markup = prepare(line[lang], lang)[0]
-            cached = os.path.isfile(cache_path(markup, voice, spk.get("rate", 1.0)))
+            cached = not a.fresh and os.path.isfile(cache_path(markup, voice, rate))
             new_chars += 0 if cached else len(markup)
+            # the fallbacks for a "…" inside the line (plain text, then part by part) are billed too when they run (a
+            # cached take needs none it has not already fetched)
+            worst += 0 if cached else sum(len(t) for t, field in requests(line, lang)
+                                          if a.fresh or not os.path.isfile(cache_path(t, voice, rate, field)))
             print("%-16s %s %-28s %s %s" % (line["id"], lang, voice, "cached" if cached else "NEW   ", markup))
-        print("%d line(s) to voice, %d characters not cached yet; %d with a recording kept" % (len(todo), new_chars, kept))
+        print("%d line(s) to voice, %d characters not cached yet (up to %d if the pause fallbacks run); %d with a "
+              "recording kept" % (len(todo), new_chars, worst, kept))
         return
+    if a.fresh:
+        # new takes: forget what Google said for these lines before
+        for line, lang, voice, spk, h, dst in todo:
+            for t, field in requests(line, lang):
+                path = cache_path(t, voice, line_rate(line, lang, spk), field)
+                if os.path.isfile(path):
+                    os.remove(path)
     if not todo:
         print("all Google lines up to date (%d with a recording kept)" % kept)
         return
     # fetch in parallel (Google), then filter in parallel (ffmpeg)
     with cf.ThreadPoolExecutor(4) as ex:
-        list(ex.map(lambda t: synth(prepare(t[0][t[1]], t[1])[0], t[2], t[3].get("rate", 1.0)), todo))
+        list(ex.map(lambda t: synth(prepare(t[0][t[1]], t[1])[0], t[2], line_rate(t[0], t[1], t[3])), todo))
 
     def render(t):
         line, lang, voice, spk, h, dst = t
@@ -495,12 +538,15 @@ def main():
     ap.add_argument("--only", help="comma-separated line ids")
     ap.add_argument("--lang", choices=["de", "en"])
     ap.add_argument("--force", action="store_true", help="redo every line (from the cache where it can)")
+    ap.add_argument("--fresh", action="store_true", help="new takes from Google for the --only lines (their cache dropped)")
     ap.add_argument("--dry-run", action="store_true", help="only list what would be voiced and what it costs")
     ap.add_argument("--sampler", action="store_true", help="voice the candidate voices for the user to pick")
     ap.add_argument("--out", help="folder for --sampler (default: the main checkout's renders/prologue/stimmen)")
     ap.add_argument("--say", nargs=3, metavar=("VOICE", "TEXT", "OUT"), help="voice one text with any voice")
     ap.add_argument("--preset", default="plain", help="robot preset for --say (default: plain)")
     a = ap.parse_args()
+    if a.fresh and not a.only:
+        ap.error("--fresh needs --only: every line would get a new take")
     if a.say:
         voice, text, out = a.say
         markup, pauses, broken = prepare(text, voice[:2])

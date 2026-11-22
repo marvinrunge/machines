@@ -185,8 +185,12 @@ public partial class StoryAudio : Node
     /// <summary>The world heard as through a wall (hiding, damaged, the update intruding): on while any reason holds.</summary>
     public static void SetMuffled(string reason, bool on) => Current?.SetMuffledHere(reason, on);
 
-    /// <summary>What is speaking is cut off with a crackle (the PA dying); with <paramref name="clear"/> nothing waiting is said either.</summary>
-    public static void CutVoice(bool clear = true) => Current?._voice.Cut(clear, crackle: true);
+    /// <summary>
+    /// What is speaking is cut off with a crackle (the PA dying); with <paramref name="clear"/> nothing waiting is said either.
+    /// With <paramref name="onlyAnnouncements"/> the trio's radio is left alone: its line speaking goes on, its lines waiting
+    /// keep their turn.
+    /// </summary>
+    public static void CutVoice(bool clear = true, bool onlyAnnouncements = false) => Current?._voice.Cut(clear, crackle: true, onlyAnnouncements);
 
     /// <summary>A line waiting to be said is not said after all (what it says is no longer true); one speaking goes on.</summary>
     public static void Withdraw(string lineId) => Current?._voice.Withdraw(lineId);

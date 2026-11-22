@@ -1,7 +1,8 @@
 """Robot-voice filter for the story's voice lines.
 
 Turns a human voice recording into one of the story's robot voices with ffmpeg,
-loudness-normalises it to -18 LUFS (true peak -1.5 dBTP) and writes Ogg Vorbis.
+loudness-normalises it to -18 LUFS (sample peaks at most -1.5 dBFS, measured on the decoded Ogg; the
+true peak between samples can come out a little higher, up to about -0.8 dBTP) and writes Ogg Vorbis.
 
     python tools/voice/robot.py <preset> <in.wav> <out.ogg> [--pitch 1.0] [--cut]
     python tools/voice/robot.py --batch [--lang de|en] [--only ID[,ID...]] [--force]

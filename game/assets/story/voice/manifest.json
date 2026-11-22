@@ -1275,12 +1275,12 @@
    },
    "en": {
     "file": "en/P_L7_BOOT_GAP.ogg",
-    "seconds": 4.24,
+    "seconds": 5.2,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "en-US-Chirp3-HD-Enceladus",
-    "hash": "e55feb00a845"
+    "hash": "07f45277134a"
    }
   },
   "P_L7_BOOT_HANG": {
@@ -1295,12 +1295,12 @@
    },
    "en": {
     "file": "en/P_L7_BOOT_HANG.ogg",
-    "seconds": 4.14,
+    "seconds": 5.1,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "en-US-Chirp3-HD-Enceladus",
-    "hash": "49e02659469e"
+    "hash": "781f8ab00113"
    }
   },
   "P_L7_BOOT_HUM": {

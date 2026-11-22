@@ -87,22 +87,32 @@ python tools/voice/google_tts.py --dry-run                 # what would be voice
 python tools/voice/google_tts.py                           # all cast speakers, both languages
 python tools/voice/google_tts.py --speaker l7 --lang de --only P_L7_BOOT_VOICE
 python tools/voice/google_tts.py --force                   # redo all (from the cache: free)
+python tools/voice/google_tts.py --fresh --only P_IKE_WAKE --lang de   # a new take of a line (billed)
 python tools/voice/google_tts.py --sampler                 # candidate voices for picking by ear
 python tools/voice/google_tts.py --say de-DE-Chirp3-HD-Puck "Wen hauen wir um?" try.ogg --preset ike
 ```
 
 - **Cast** (`voices.json`): per speaker the voice per language, `rate` (speakingRate; Chirp 3 HD has no
   pitch setting, the presets pitch), `pause` (seconds a "…" inside a line lasts: 0.8 for L-7, 0.6 for Ike
-  and Bob), the sampler's `candidates` and `sampler` lines. A preset variant (`bob-radio`) uses its
+  and Bob), the sampler's `candidates` and `sampler` lines. A line in `lines.json` can set its own
+  speakingRate per language, `"rate": {"en": 0.8}` (L-7's English `P_L7_BOOT_GAP` and `P_L7_BOOT_HANG`, which
+  Chirp spoke about a third faster than its other thoughts). A preset variant (`bob-radio`) uses its
   speaker's voice. A speaker taken out of the cast goes back to SAPI with `placeholders.py --force --only …`.
 - **Pauses**: a "…" goes to Google as a `[pause long]` markup tag (about 1.2-1.5 s); the gap it leaves is
   then set to the cast's `pause`. When Chirp runs short fragments together anyway (Ike's "Ich bin … kurz …
   weg …"), the plain text with "..." is tried, then the parts are voiced one by one and joined with the pause.
 - **Broken-off words** ("kor- …", "Schalte a-") are spoken as the fragment and cut 70 ms before the end of
   their sound; lines marked `"cut": true` lose the preset's tail as before.
-- **Cache**: every answer from Google stays in `tools/voice/cache/google` (not committed), keyed by text,
-  voice and settings, so reruns cost nothing. Chirp gives a different take on every call, so the cache is
-  also what keeps a line the same. Delete a line's cache file (or change its text) for a new take.
+- **Cache**: every answer from Google stays in the main checkout's `tools/voice/cache/google` (not
+  committed: `tools/voice/cache/` holds its own `.gitignore` with `*`, which the tool writes, so it stays
+  ignored on any branch; worktrees use the main checkout's too, so it outlives them), keyed by text, voice and settings,
+  so reruns cost nothing. Chirp gives a different take on every call, so the cache is also what keeps a line
+  the same: do not delete it. For a new take of a line run `--fresh --only ID [--lang xx]`, which drops that
+  line's cached answers and asks Google again (deleting a cache file alone does nothing: the line is up to
+  date by its hash and is skipped). Changing a line's text, voice or rate also gives a new take.
+- **Characters**: `--dry-run` counts the characters of each line's markup not cached yet, and in brackets
+  the worst case: for a line with a "…" inside, the plain-text and part-by-part fallbacks are billed too
+  when Chirp runs the fragments together (up to about 2 to 3 times that line's characters).
 - Requests ask for -6 dB (`volumeGainDb`): some Chirp voices otherwise come back clipped at full scale.
 - Reruns redo only lines whose text, voice, settings or preset changed (hash in the manifest); lines with a
   recording (in the manifest or in `recordings/`) are skipped.

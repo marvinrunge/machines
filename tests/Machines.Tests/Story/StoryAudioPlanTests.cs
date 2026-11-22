@@ -52,25 +52,70 @@ public class StoryAudioPlanTests
         new(id, channel, seconds, asked) { Gong = gong };
 
     [Fact]
-    public void AnAnnouncementCutsTheRadioAndGoesFirst()
+    public void AnAnnouncementWaitsForTheRadioAndGoesFirst()
     {
         var queue = new StoryLineQueue();
         var started = queue.Add(Line("P_IKE_WAKE", StoryVoiceChannel.Radio, 3, 0), 0);
         Assert.Equal(StoryQueueChange.Started, Assert.Single(started).Change);
         queue.Add(Line("P_BOB_WAKE", StoryVoiceChannel.Radio, 2, 0.5), 0.5);
 
-        var events = queue.Add(Line("P_ANN_WAKE_1", StoryVoiceChannel.Announcer, 4, 1), 1);
-        Assert.Equal([(StoryQueueChange.Interrupted, "P_IKE_WAKE"), (StoryQueueChange.Started, "P_ANN_WAKE_1")],
-            events.Select(e => (e.Change, e.Line.Id)));
-        Assert.Equal("P_BOB_WAKE", Assert.Single(queue.Waiting).Id);
+        // Ike is not cut off: the announcement waits for him, ahead of Bob.
+        Assert.Empty(queue.Add(Line("P_ANN_WAKE_1", StoryVoiceChannel.Announcer, 4, 1), 1));
+        Assert.Equal(["P_ANN_WAKE_1", "P_BOB_WAKE"], queue.Waiting.Select(w => w.Id));
+        var ike = queue.Update(3.0);
+        Assert.Equal((StoryQueueChange.Ended, "P_IKE_WAKE"), (Assert.Single(ike).Change, ike[0].Line.Id));
+        var announcement = queue.Update(3.0 + StoryLineQueue.Gap);
+        Assert.Equal((StoryQueueChange.Started, "P_ANN_WAKE_1"), (Assert.Single(announcement).Change, announcement[0].Line.Id));
 
         // Bob waits for the announcement and the gap after it.
-        Assert.Empty(queue.Update(4.9));
-        var ended = queue.Update(5.0);
-        Assert.Equal((StoryQueueChange.Ended, "P_ANN_WAKE_1"), (ended[0].Change, ended[0].Line.Id));
-        Assert.Single(ended);
-        var bob = queue.Update(5.0 + StoryLineQueue.Gap);
+        var end = 3.0 + StoryLineQueue.Gap + 4;
+        Assert.Empty(queue.Update(end - 0.1));
+        var ended = queue.Update(end);
+        Assert.Equal((StoryQueueChange.Ended, "P_ANN_WAKE_1"), (Assert.Single(ended).Change, ended[0].Line.Id));
+        var bob = queue.Update(end + StoryLineQueue.Gap);
         Assert.Equal((StoryQueueChange.Started, "P_BOB_WAKE"), (bob[0].Change, bob[0].Line.Id));
+    }
+
+    [Fact]
+    public void TheLocatorsOwnLoudspeakerCutsTheRadio()
+    {
+        var queue = new StoryLineQueue();
+        queue.Add(Line("P_IKE_STEPS", StoryVoiceChannel.Radio, 3, 0), 0);
+        var events = queue.Add(Line("P_ANN_FOUND", StoryVoiceChannel.Local, 1, 1), 1);
+        Assert.Equal([(StoryQueueChange.Interrupted, "P_IKE_STEPS"), (StoryQueueChange.Started, "P_ANN_FOUND")],
+            events.Select(e => (e.Change, e.Line.Id)));
+    }
+
+    [Fact]
+    public void TheRadioHasATurnBetweenAnnouncements()
+    {
+        // The alarm: two announcements asked at once, Ike's bark, then two more; Ike and Bob each come after the
+        // announcement speaking, not after all of them (which would leave them stale).
+        var queue = new StoryLineQueue();
+        var order = new List<string>();
+        void Note(IEnumerable<StoryQueueEvent> events) => order.AddRange(events.Where(e => e.Change == StoryQueueChange.Started).Select(e => e.Line.Id));
+        Note(queue.Add(Line("C1", StoryVoiceChannel.Announcer, 5, 0), 0));
+        Note(queue.Add(Line("C2", StoryVoiceChannel.Announcer, 4, 0), 0));
+        var asks = new (double At, StoryQueuedLine Line)[]
+        {
+            (1.5, Line("P_IKE_HAMMER", StoryVoiceChannel.Radio, 3, 1.5)),
+            (6.5, Line("C3", StoryVoiceChannel.Announcer, 3, 6.5)),
+            (7.5, Line("P_BOB_ROUND", StoryVoiceChannel.Radio, 3, 7.5)),
+            (11, Line("C4", StoryVoiceChannel.Announcer, 4, 11)),
+        };
+        var dropped = new List<string>();
+        var next = 0;
+        for (var now = 0.0; now < 40; now += 0.05)
+        {
+            var events = new List<StoryQueueEvent>();
+            while (next < asks.Length && asks[next].At <= now)
+                events.AddRange(queue.Add(asks[next++].Line, now));
+            events.AddRange(queue.Update(now));
+            Note(events);
+            dropped.AddRange(events.Where(e => e.Change is StoryQueueChange.Dropped or StoryQueueChange.Interrupted).Select(e => e.Line.Id));
+        }
+        Assert.Empty(dropped);
+        Assert.Equal(["C1", "P_IKE_HAMMER", "C2", "P_BOB_ROUND", "C3", "C4"], order);
     }
 
     [Fact]
@@ -87,8 +132,10 @@ public class StoryAudioPlanTests
     [Fact]
     public void StaleRadioIsDropped()
     {
+        // A radio line that waits behind the radio longer than RadioStale is dropped (the time an announcement speaks
+        // does not count, see TheShipTalkingDoesNotMakeABarkStale).
         var queue = new StoryLineQueue();
-        queue.Add(Line("A1", StoryVoiceChannel.Announcer, StoryLineQueue.RadioStale + 2, 0), 0);
+        queue.Add(Line("R0", StoryVoiceChannel.Radio, StoryLineQueue.RadioStale + 2, 0), 0);
         queue.Add(Line("R1", StoryVoiceChannel.Radio, 1, 0.1), 0.1);
         queue.Update(StoryLineQueue.RadioStale + 2);
         var events = queue.Update(StoryLineQueue.RadioStale + 2 + StoryLineQueue.Gap);
@@ -110,6 +157,43 @@ public class StoryAudioPlanTests
         // After a quiet while: the gong again.
         var third = queue.Add(Line("P_ANN_DECK_1", StoryVoiceChannel.Announcer, 3, 40, gong: true), 40);
         Assert.Equal(StoryLineQueue.GongLead, third.Single().Line.Lead);
+    }
+
+    [Fact]
+    public void TheShipTalkingDoesNotMakeABarkStale()
+    {
+        // The squad: the ship's announcement (with its gong), Bob's "the squad" behind it, and his "Door secured." asked
+        // as the announcement starts. The bark waits more than RadioStale in all, most of it under the PA, and is still said.
+        var queue = new StoryLineQueue();
+        queue.Add(Line("P_ANN_SQUAD", StoryVoiceChannel.Announcer, 7.1, 0, gong: true), 0);
+        queue.Add(Line("P_BOB_SQUAD", StoryVoiceChannel.Radio, 3.9, 0.2), 0.2);
+        queue.Add(Line("P_BOB_BARRICADE", StoryVoiceChannel.Radio, 1.3, 1.5), 1.5);
+        var started = new List<string>();
+        for (var now = 1.5; now < 30; now += 0.05)
+        {
+            var events = queue.Update(now);
+            Assert.DoesNotContain(events, e => e.Change == StoryQueueChange.Dropped);
+            started.AddRange(events.Where(e => e.Change == StoryQueueChange.Started).Select(e => e.Line.Id));
+        }
+        Assert.Equal(["P_BOB_SQUAD", "P_BOB_BARRICADE"], started);
+    }
+
+    [Fact]
+    public void ACutOfTheAnnouncementsLeavesTheRadio()
+    {
+        // The core blows: the PA breaks off and what it had still to say goes, Ike's "Run!" waiting does not.
+        var queue = new StoryLineQueue();
+        queue.Add(Line("C5", StoryVoiceChannel.Announcer, 4, 0), 0);
+        queue.Add(Line("C9", StoryVoiceChannel.Announcer, 2, 0), 0);
+        queue.Add(Line("P_IKE_LIMITER", StoryVoiceChannel.Radio, 2, 0.5), 0.5);
+        var events = queue.Cut(1, clear: true, onlyAnnouncements: true);
+        Assert.Equal([(StoryQueueChange.Interrupted, "C5"), (StoryQueueChange.Dropped, "C9")], events.Select(e => (e.Change, e.Line.Id)));
+        Assert.Equal("P_IKE_LIMITER", Assert.Single(queue.Waiting).Id);
+        Assert.Equal("P_IKE_LIMITER", queue.Update(1 + StoryLineQueue.Gap).Single().Line.Id);
+
+        // A radio line speaking goes on through such a cut.
+        Assert.Empty(queue.Cut(2, clear: true, onlyAnnouncements: true));
+        Assert.Equal("P_IKE_LIMITER", queue.Current?.Id);
     }
 
     [Fact]

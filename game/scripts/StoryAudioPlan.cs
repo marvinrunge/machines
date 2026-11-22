@@ -83,6 +83,12 @@ public sealed record StoryQueuedLine(string Id, StoryVoiceChannel Channel, doubl
     /// <summary>Whether the PA's gong comes first, should the PA have been quiet long enough (a cut fragment never has one).</summary>
     public bool Gong { get; init; }
 
+    /// <summary>
+    /// The seconds a radio line has waited while an announcement spoke: the ship talking does not count against its
+    /// <see cref="StoryLineQueue.RadioStale"/> (it lost its turn to the PA, its news is no older for that).
+    /// </summary>
+    public double Held { get; init; }
+
     public bool Announcement => Channel is StoryVoiceChannel.Announcer or StoryVoiceChannel.Local or StoryVoiceChannel.Whisper or StoryVoiceChannel.Inner;
 
     /// <summary>Whether the line is the ship's or the update's (not the Locator's own thought): its end counts for the PA's quiet before a gong.</summary>
@@ -96,7 +102,7 @@ public enum StoryQueueChange
     Started,
     /// <summary>The line has been spoken to its end.</summary>
     Ended,
-    /// <summary>The line was cut off while speaking: an announcement came over the radio, or the voice was cut.</summary>
+    /// <summary>The line was cut off while speaking: the Locator's own loudspeaker came over the radio, or the voice was cut.</summary>
     Interrupted,
     /// <summary>The line waited too long, or was cleared, and is never spoken.</summary>
     Dropped,
@@ -105,10 +111,14 @@ public enum StoryQueueChange
 public readonly record struct StoryQueueEvent(StoryQueueChange Change, StoryQueuedLine Line);
 
 /// <summary>
-/// The order the story's lines are spoken in, one at a time: an announcement beats the radio (it cuts off a radio line
-/// speaking, and goes ahead of radio lines waiting), lines of a kind keep their order, and a radio line that has waited
-/// longer than <see cref="RadioStale"/> is dropped (what Bob saw a while ago is no news). The PA's gong goes before an
-/// announcement after <see cref="GongAfterQuiet"/> seconds of a quiet PA. Times are the caller's clock in seconds.
+/// The order the story's lines are spoken in, one at a time: an announcement goes ahead of radio lines waiting and lines
+/// of a kind keep their order, but the radio is not starved by the PA: after an announcement a radio line waiting has the
+/// next turn, so the trio's barks come between the ship's announcements (the alarm's four would otherwise hold Ike's and
+/// Bob's lines until they are stale). An announcement waits for a radio line speaking (barks are short); only the
+/// loudspeaker beside the Locator ("Gefunden.", timed to its scare) cuts one off. A radio line that has waited longer than
+/// <see cref="RadioStale"/>, not counting the time an announcement spoke meanwhile, is dropped (what Bob saw a while ago is
+/// no news; that the ship talked over it does not make it old). The PA's gong goes before an announcement
+/// after <see cref="GongAfterQuiet"/> seconds of a quiet PA. Times are the caller's clock in seconds.
 /// </summary>
 public sealed class StoryLineQueue
 {
@@ -116,6 +126,9 @@ public sealed class StoryLineQueue
 
     private readonly List<StoryQueuedLine> _waiting = [];
     private double _endsAt, _freeAt = double.NegativeInfinity, _lastAnnouncement = double.NegativeInfinity;
+
+    // Whether the line spoken last was an announcement: then a radio line waiting goes next.
+    private bool _radioTurn;
 
     /// <summary>The line speaking, or null.</summary>
     public StoryQueuedLine? Current { get; private set; }
@@ -128,9 +141,10 @@ public sealed class StoryLineQueue
     public List<StoryQueueEvent> Add(StoryQueuedLine line, double now)
     {
         var events = new List<StoryQueueEvent>();
-        if (Current is { Announcement: false } radio && line.Announcement)
+        if (Current is { Announcement: false } radio && line.Channel == StoryVoiceChannel.Local)
         {
             Current = null;
+            _radioTurn = false;
             events.Add(new(StoryQueueChange.Interrupted, radio));
         }
         // Announcements go ahead of the radio waiting, behind the announcements waiting.
@@ -145,17 +159,19 @@ public sealed class StoryLineQueue
         var events = new List<StoryQueueEvent>();
         if (Current is { } current && now >= _endsAt)
         {
-            Current = null;
+            Leave(current, now);
             _freeAt = now + Gap;
+            _radioTurn = current.Announcement;
             if (current.Loudspeaker)
                 _lastAnnouncement = now;
             events.Add(new(StoryQueueChange.Ended, current));
         }
         while (Current is null && _waiting.Count > 0 && now >= _freeAt)
         {
-            var next = _waiting[0];
-            _waiting.RemoveAt(0);
-            if (now - next.Asked > (next.Announcement ? AnnouncementStale : RadioStale))
+            var at = _radioTurn ? Math.Max(0, _waiting.FindIndex(w => !w.Announcement)) : 0;
+            var next = _waiting[at];
+            _waiting.RemoveAt(at);
+            if (now - next.Asked - next.Held > (next.Announcement ? AnnouncementStale : RadioStale))
             {
                 events.Add(new(StoryQueueChange.Dropped, next));
                 continue;
@@ -179,10 +195,12 @@ public sealed class StoryLineQueue
         var events = new List<StoryQueueEvent>();
         if (Current is { } current)
         {
+            Leave(current, now);
             if (current.Loudspeaker)
                 _lastAnnouncement = now;
             events.Add(new(StoryQueueChange.Interrupted, current));
         }
+        _radioTurn = false;
         Current = line;
         StartedAt = now;
         _endsAt = now + line.Lead + line.Seconds;
@@ -198,24 +216,41 @@ public sealed class StoryLineQueue
         return events;
     }
 
-    /// <summary>The line speaking is cut off; with <paramref name="clear"/> every line waiting is dropped too.</summary>
-    public List<StoryQueueEvent> Cut(double now, bool clear)
+    /// <summary>
+    /// The line speaking is cut off; with <paramref name="clear"/> every line waiting is dropped too. With
+    /// <paramref name="onlyAnnouncements"/> only the ship and the Locator's head go silent (the PA breaking off as the core
+    /// blows): a radio line speaking goes on and the radio lines waiting keep their turn.
+    /// </summary>
+    public List<StoryQueueEvent> Cut(double now, bool clear, bool onlyAnnouncements = false)
     {
         var events = new List<StoryQueueEvent>();
-        if (Current is { } current)
+        if (Current is { } current && (current.Announcement || !onlyAnnouncements))
         {
-            Current = null;
+            Leave(current, now);
             _freeAt = now + Gap;
+            _radioTurn = current.Announcement;
             if (current.Loudspeaker)
                 _lastAnnouncement = now;
             events.Add(new(StoryQueueChange.Interrupted, current));
         }
         if (clear)
         {
-            events.AddRange(_waiting.Select(w => new StoryQueueEvent(StoryQueueChange.Dropped, w)));
-            _waiting.Clear();
+            var dropped = _waiting.Where(w => w.Announcement || !onlyAnnouncements).ToList();
+            events.AddRange(dropped.Select(w => new StoryQueueEvent(StoryQueueChange.Dropped, w)));
+            _waiting.RemoveAll(dropped.Contains);
         }
         return events;
+    }
+
+    // The line speaking stops: an announcement's time (its gong too) is booked to the radio lines that waited through it.
+    private void Leave(StoryQueuedLine current, double now)
+    {
+        Current = null;
+        if (!current.Announcement)
+            return;
+        for (var i = 0; i < _waiting.Count; i++)
+            if (_waiting[i] is { Announcement: false } radio)
+                _waiting[i] = radio with { Held = radio.Held + Math.Max(0, Math.Min(now, _endsAt) - Math.Max(StartedAt, radio.Asked)) };
     }
 }
 
