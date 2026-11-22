@@ -60,8 +60,18 @@ public sealed partial class GameWorld
         return penalty;
     }
 
-    /// <summary>The burst from an aim: one that fell short of the inaccuracy drifts by the difference, split at random between sideways and up or down.</summary>
+    /// <summary>
+    /// The burst from an aim: one that fell short of the inaccuracy drifts by the difference, split at random between
+    /// sideways and up or down. In the story a hunter may then send it wide of one of the trio by the distance (<see cref="StoryAim"/>).
+    /// </summary>
     private FireData TakeAim(Actor shooter, Actor target)
+    {
+        var data = FaithfulAim(shooter, target);
+        return Story is null ? data : StoryAim(shooter, target, data);
+    }
+
+    /// <summary>The original's burst (MachLogCanAttack::createFireData), the same everywhere.</summary>
+    private FireData FaithfulAim(Actor shooter, Actor target)
     {
         if (shooter is not Machine)
             Steady(shooter, target);
@@ -105,6 +115,8 @@ public sealed partial class GameWorld
         var mark = Predicted(target, Vector2.Distance(shooter.Position, target.Position) / MathF.Max(1, spec.ProjectileSpeed));
         var way = mark - from;
         var distance = way.Length();
+        if (weapon.Burst.Wide != 0)
+            return WideOf(target, spec, weapon.Burst, new Vector2(from.X, from.Y), mark);
         if (!weapon.Burst.Missed || distance < 0.01f)
             return mark;
         var (sideways, upwards) = (weapon.Burst.FirstDrift / 150, MathF.Max(-0.05f, weapon.Burst.SecondDrift / 300));
@@ -473,7 +485,9 @@ public sealed partial class GameWorld
     private void Bolt(Actor shooter, WeaponMount weapon, Actor target)
     {
         var point = AimPoint(target);
-        if (weapon.Burst.Missed)
+        if (weapon.Burst.Wide != 0)
+            point = WideOf(target, weapon.Spec, weapon.Burst, shooter.Position, point);
+        else if (weapon.Burst.Missed)
         {
             var way = point - new Vector3(shooter.Position, Terrain?.At(shooter.Position) ?? 0);
             point += new Vector3(weapon.Burst.FirstDrift / 10, weapon.Burst.SecondDrift / 10, 0);

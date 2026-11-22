@@ -31,6 +31,11 @@ public sealed class Gunnery(int accuracy)
 
 /// <summary>
 /// How one burst goes, the same for all the weapons fired together so that guns miss together
-/// (MachLogFireData): the seed for how many rounds a VARIABLE burst has, and how far off it drifts.
+/// (MachLogFireData): the seed for how many rounds a VARIABLE burst has, and how far off it drifts. In the story a hunter
+/// whose aim falls off with the distance (the prologue's Thresher) may send a burst wide of one of the trio: to the
+/// <paramref name="Wide"/> side (1 left, -1 right, 0 not wide), <paramref name="WideBy"/> of the way across the band beside
+/// the target that its rounds strike, and <paramref name="Lift"/> of the way from the floor up to the target's middle
+/// (GameWorld.StoryAim, StorySight.WildChance).
 /// </summary>
-public readonly record struct FireData(float BurstSeed, bool Missed = false, float FirstDrift = 0, float SecondDrift = 0);
+public readonly record struct FireData(float BurstSeed, bool Missed = false, float FirstDrift = 0, float SecondDrift = 0, int Wide = 0, float WideBy = 0,
+    float Lift = 0);

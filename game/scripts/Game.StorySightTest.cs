@@ -8,13 +8,15 @@ namespace Machines.Game;
 // south clamp row, looking out at the lane, its lamp off and nothing able to hurt it. Every second the console says how
 // suspicious the Thresher is, of whom, what it does and the Locator's signature; what its suspicion comes to (suspicious,
 // spotted, lost, searching, calm) as it happens. MACHINES_STORY_SIGHT_TEST=x,y[,angle] hides the Locator elsewhere (metres
-// of the deck, degrees: 0 east, 90 north). Offline only; with MACHINES_SCREENSHOT it makes the picture for the merge.
+// of the deck, degrees: 0 east, 90 north); MACHINES_STORY_SIGHT_TEST=x,y,angle,lit leaves its lamp on, so that the Thresher
+// finds it and fires at it from where it is (its aim by the distance, StorySight.WildChance): the console says where each
+// round strikes, how far from the Locator. Offline only; with MACHINES_SCREENSHOT it makes the picture for the merge.
 public partial class Game
 {
     private bool _sightTestSet;
     private int? _sightThresher;
     private double _sightLogAt;
-    private int _sightNewsTick = -1;
+    private int _sightNewsTick = -1, _sightShotTick = -1;
 
     private void SightTestIfAsked(double delta)
     {
@@ -40,7 +42,7 @@ public partial class Game
             _sightThresher = thresher.Id;
             locator.Position = at;
             locator.Facing = facing;
-            World.SetStoryLamp(locator.Id, false);
+            World.SetStoryLamp(locator.Id, asked.Split(',') is { Length: >= 4 } lit && lit[3] == "lit");
             if (World.Wired?.Heroes.GetValueOrDefault(story.Locator) is { } state)
                 state.InvulnerableUntil = float.MaxValue;
             _aimYaw = facing;
@@ -50,6 +52,13 @@ public partial class Game
         }
 
         var sight = story.Sight;
+        if (World.Tick != _sightShotTick && World.HeroOf(story.Locator) is { } target && World.Find(_sightThresher!.Value) is { } shooter)
+        {
+            _sightShotTick = World.Tick;
+            foreach (var e in World.Events.Where(e => e.Kind == GameEventKind.Impact && e.Actor == shooter.Id || e.Kind == GameEventKind.Hit && e.Actor == target.Id && e.Other == shooter.Id))
+                Godot.GD.Print($"sight: t={World.Time:0.0} {(e.Kind == GameEventKind.Hit ? "hit" : "struck")} at ({e.Position.X:0.0},{e.Position.Y:0.0}),"
+                    + $" {System.Numerics.Vector2.Distance(e.Position, target.Position):0.0} m from the Locator, the Thresher {System.Numerics.Vector2.Distance(shooter.Position, target.Position):0.0} m away");
+        }
         foreach (var news in sight.News.Where(n => n.Tick > _sightNewsTick))
             Godot.GD.Print($"sight: t={World.Time:0.0} {news.Kind} seeker {news.Seeker} of {news.Hero} at ({news.Where.X:0},{news.Where.Y:0}) suspicion {news.Suspicion:0.00}");
         if (sight.News.Count > 0)

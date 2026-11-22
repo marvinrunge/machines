@@ -65,6 +65,9 @@ public sealed class StorySeeker(int id)
     /// <summary>Seconds it takes to draw on a hero it has just come to see before it fires (<see cref="StorySight.Draw"/>).</summary>
     public float Draw { get; set; } = StorySight.Draw;
 
+    /// <summary>Its aim at the trio falls off with the distance (the Thresher): sure up close, mostly wide far off (<see cref="StorySight.WildChance"/>).</summary>
+    public bool Wild { get; set; }
+
     /// <summary>The game time it last called the others, -1 for never (so it calls once per <see cref="StorySight.CallEvery"/>).</summary>
     public float CalledAt { get; set; } = -1;
 
@@ -101,7 +104,7 @@ public sealed class StorySeeker(int id)
     {
         var hash = new WiredHash();
         hash.Mix(Id);
-        hash.Mix((Searchlight ? 1 : 0) | (Blind ? 2 : 0) | (Unkillable ? 4 : 0) | (Wary ? 8 : 0) | (Caller ? 16 : 0));
+        hash.Mix((Searchlight ? 1 : 0) | (Blind ? 2 : 0) | (Unkillable ? 4 : 0) | (Wary ? 8 : 0) | (Caller ? 16 : 0) | (Wild ? 32 : 0));
         hash.Mix(BitConverter.SingleToInt32Bits(Harm));
         hash.Mix(BitConverter.SingleToInt32Bits(Draw));
         hash.Mix(BitConverter.SingleToInt32Bits(CalledAt));
@@ -211,6 +214,24 @@ public sealed class StorySight
     /// a Grunt at the far end of a long straight duct is out of its fire.
     /// </summary>
     public const float FireReach = 40;
+
+    /// <summary>
+    /// How the Thresher's aim at the trio falls off with the distance (<see cref="StorySeeker.Wild"/>), metres: up to
+    /// <see cref="SureAim"/> (its own length) it misses no more than its gunnery makes it, and from there on a burst goes wide
+    /// the more often the further off its target is, <see cref="WildMiss"/> of them at <see cref="WildAim"/> (the end of
+    /// its fire, <see cref="FireReach"/>). Caught close it kills; far off the trio runs through its fire.
+    /// </summary>
+    public const float SureAim = 15, WildAim = 40, WildMiss = 0.9f;
+
+    /// <summary>
+    /// Where a burst sent wide strikes, metres beside its target: clear of the target and of the round's burst by
+    /// <see cref="WideClear"/>, and up to <see cref="WideSpread"/> further, on the floor or the wall behind, where the trio sees it.
+    /// </summary>
+    public const float WideClear = 2, WideSpread = 4;
+
+    /// <summary>The share of the Thresher's bursts at one of the trio that go wide at a distance (<see cref="SureAim"/>, <see cref="WildAim"/>).</summary>
+    public static float WildChance(float distance) =>
+        WildMiss * Math.Clamp((distance - SureAim) / (WildAim - SureAim), 0, 1);
 
     /// <summary>
     /// The data link (docs/STORY.md, Klang: "Datenfunk, zerhackte Stimmen, die deine Kennung sagen"): a hunter that spots one
