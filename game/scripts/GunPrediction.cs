@@ -97,8 +97,12 @@ public static class GunPrediction
     /// <param name="head">The upper body's turn from the hull now (<see cref="GameWorld.HeadOf"/>).</param>
     /// <param name="headStep">One tick of the upper body's turn (<see cref="GameWorld.HeadStep"/>); 0 for a machine without one.</param>
     /// <param name="carried">What the world holds from its last command, for ticks before the first due: its turn and yaw (NaN for none).</param>
+    /// <param name="arc">
+    /// For a machine without an upper body, the arc its guns angle within (<see cref="GameWorld.GunArcOf(Machine)"/>), radians:
+    /// at the end they stand angled towards the yaw as far as it lets them, outside a building.
+    /// </param>
     public static Gun Predict(float facing, float head, float headStep, bool busy, bool inside, long tick, IReadOnlyList<Due> due,
-        Func<long, bool> held, Due? next = null, (float Turn, float Yaw)? carried = null)
+        Func<long, bool> held, Due? next = null, (float Turn, float Yaw)? carried = null, float arc = 0)
     {
         var (turn, yaw) = carried ?? (0f, float.NaN);
         var last = next?.Tick ?? (due.Count > 0 ? due[^1].Tick : tick - 1);
@@ -115,6 +119,8 @@ public static class GunPrediction
             if (!inside && headStep > 0 && float.IsFinite(yaw))
                 head = GameWorld.GunStep(head, MathF.IEEERemainder(yaw - facing, 2 * MathF.PI), headStep).Head;
         }
+        if (headStep <= 0 && arc > 0 && !inside && float.IsFinite(yaw))
+            head = Math.Clamp(MathF.IEEERemainder(yaw - facing, 2 * MathF.PI), -arc, arc);
         var heading = facing + head;
         var lag = float.IsFinite(yaw) ? MathF.IEEERemainder(heading - yaw, 2 * MathF.PI) : 0;
         return new Gun(facing, head, heading, lag, !inside && float.IsFinite(yaw) && MathF.Abs(lag) <= WiredBalance.GunPlay);

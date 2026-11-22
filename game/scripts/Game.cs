@@ -1477,8 +1477,16 @@ public partial class Game : Node3D
             if (actor is Machine)
                 view.Moving(World.MoveOf(actor.Id), World.Time);
             if (actor is Machine { DrivenByPlayer: true } driven)
+            {
                 view.UpperBodyAngle = driven.Id == _driven?.Id ? _headTarget
                     : World.HasYaw(driven.Id) ? World.HeadOf(driven.Id) : World.PlayerHeads.GetValueOrDefault(driven.Id);
+                // Another player's hero without an upper body angles its guns within their arc as the world has them; the
+                // driver's own as its gun sight is drawn (TurnDrawnGun).
+                if (driven.Id != _driven?.Id)
+                    view.GunSwing = World.GunAngleOf(driven);
+            }
+            else if (actor is Machine && view.GunSwing != 0)
+                view.GunSwing = 0;
             // In the remake tracks and wheels leave their marks on the ground behind them.
             if (GraphicsSettings.Effects && actor is Machine { Inside: null, Stats.Locomotion: Locomotion.Tracks or Locomotion.Wheels } rolling)
             {
@@ -3294,9 +3302,11 @@ public partial class Game : Node3D
         {
             view.SetDriven(false);
             view.UpperBodySnaps = false;
+            view.GunSwing = 0;
         }
         _driven = null;
         ForgetGun();
+        DropChaseCamera();
         _hands.LetGo();
         _headTarget = 0;
         _rightButtonTurnedHead = false;
@@ -3417,6 +3427,12 @@ public partial class Game : Node3D
                 if (_driven is { } centred)
                     _aimYaw = centred.Facing;
                 break;
+            // In a run or a battle the hero is seen from its faceplate or from behind (Game.Chase.cs): its key, or the wheel.
+            case var pressed when KeptInFirstPerson && KeyMap.Is(pressed, KeyMap.Act.ChaseView):
+                ToggleChase();
+                break;
+            case InputEventMouseButton { Pressed: true } wheel when KeptInFirstPerson && ChaseWheel(wheel):
+                break;
             case InputEventMouseMotion motion when FreeLook:
                 _aimYaw = Mathf.Wrap(_aimYaw + motion.Relative.X * LookPerPixel, -Mathf.Pi, Mathf.Pi);
                 LookUpDown(motion);
@@ -3469,6 +3485,9 @@ public partial class Game : Node3D
         var limits = World.Data.Parm.General;
         _lookPitch = Mathf.Clamp(_lookPitch + radians,
             -Mathf.DegToRad(limits.FirstPersonLookMaxAngle), Mathf.DegToRad(-limits.FirstPersonLookMinAngle));
+        // From behind the hero the view looks down and up less far (ChaseCamera.MostDown, MostUp).
+        if (ChaseShown)
+            _lookPitch = Mathf.Clamp(_lookPitch, ChaseCamera.MostDown - ChaseCamera.StartPitch, ChaseCamera.MostUp - ChaseCamera.StartPitch);
     }
 
     // Which weapons fire in first person (MachGuiFirstPerson::doWeaponSelect): one of them by its index, or all
@@ -3509,6 +3528,7 @@ public partial class Game : Node3D
         // Behind the hangar's screen (or a run's menus) the hero stands: its keys and buttons are the screen's.
         if (ScreenOver)
         {
+            _driveShown = Vector2.Zero;
             Issue(new DriveCommand(Player, machine.Id, Driving: true, Weapons: SelectedWeapons(machine), Head: _headTarget, Yaw: SentYaw));
             if (Sighted)
                 SendingGun(machine, 0);
@@ -3537,10 +3557,17 @@ public partial class Game : Node3D
                     _aimYaw = Mathf.Wrap(_aimYaw - arrows * HeadKeySpeed(machine) * GameWorld.Dt, -Mathf.Pi, Mathf.Pi);
                 _headTarget = Mathf.Wrap(_aimYaw - machine.Facing, -Mathf.Pi, Mathf.Pi);
             }
+            else if (GunArc(machine) > 0 && KeyTurn(machine) is not 0 and var keyed)
+            {
+                // A sighted hero whose guns angle in their arc: the keys turn the hull itself, on the spot, and the view
+                // turns with it (frame by frame), so where the guns look on the hull stays.
+                turn = keyed;
+            }
             else
             {
                 // Without one the hull turns to where the view looks (the keys turn the view, frame by frame), as
-                // fast as it can, counting the turns already on their way so as to stop there.
+                // fast as it can, counting the turns already on their way so as to stop there; with the guns' arc only
+                // as far as brings the view back within it.
                 turn = FollowTurn(machine, out var step);
                 // At the tick the next turn goes for; online a drive queued again in a slot without a bundle replaces the
                 // one still queued, and so does its prediction.
@@ -3553,6 +3580,9 @@ public partial class Game : Node3D
             _headTarget = Mathf.Wrap(_headTarget - (keys + arrows) * HeadKeySpeed(machine) * GameWorld.Dt, -Mathf.Pi, Mathf.Pi);
         else
             turn += keys + (shift ? 0 : arrows);
+
+        // The hull glyph under the sight shows which way the keys drive (Game.Sight.cs): ahead or back, and sideways on the screen.
+        _driveShown = new Vector2(-strafe, forward);
 
         // While the left button or Space is held the weapons fire at the very point under the crosshair, as the original's
         // did (MachGuiFirstPerson, MachPhys1stPersonDriver::aimData): where the line of sight first meets a model or
@@ -3620,6 +3650,8 @@ public partial class Game : Node3D
     {
         var camera = GetViewport().GetCamera3D();
         var (from, direction) = (camera.ProjectRayOrigin(screen), camera.ProjectRayNormal(screen));
+        // From behind the hero the line of sight is aimed along only from the hero on (Game.Chase.cs).
+        from += direction * AimSkip(from, direction);
         var nearest = HeightField.Current?.Hit(from, direction) is { } ground ? Mathf.Min(range, from.DistanceTo(ground)) : range;
         ActorView? met = null;
         if (Fog?.Blind != true)
@@ -3645,7 +3677,11 @@ public partial class Game : Node3D
     private void UpdateFirstPersonCamera()
     {
         if (_driven is not { } machine || !_views.TryGetValue(machine.Id, out var view))
+        {
+            if (_chaseSpot is not null)
+                DropChaseCamera();
             return;
+        }
         LookWithKeys();
         // With the modern keys a machine without an upper body turns its view with the keys, smoothly, and the hull
         // follows it at the same rate.
@@ -3662,22 +3698,37 @@ public partial class Game : Node3D
         if (machine.CanTurnUpperBody && !aimsGun)
             view.UpperBodyAngle = _headTarget;
         var head = HeadNow(machine);
-        _firstPersonCamera.GlobalPosition = view.Eye;
-        // A sighted machine without an upper body looks from above its pivot at the eye's height, so that the view
-        // does not slide sideways while the hull swings round under it.
-        if (aimsGun && !machine.CanTurnUpperBody)
-            _firstPersonCamera.GlobalPosition = new Vector3(view.GlobalPosition.X, view.Eye.Y, view.GlobalPosition.Z);
-        // With the modern keys the view looks where the mouse turned it, not waiting for the machine to follow.
-        var yaw = FreeLook ? -_aimYaw : view.Yaw - head;
-        _firstPersonCamera.GlobalRotation = new Vector3(_lookPitch, yaw - Mathf.Pi / 2, 0);
-        _firstPersonCamera.Basis *= CameraRig.ShakeAt(_firstPersonCamera.GlobalPosition);
+        // From behind the hero (Game.Chase.cs), or from its faceplate.
+        var chased = ChaseShown;
+        if (chased)
+            PlaceChaseCamera(machine, view, GetProcessDeltaTime());
+        else
+        {
+            if (_chaseSpot is not null)
+                DropChaseCamera();
+            _firstPersonCamera.GlobalPosition = view.Eye;
+            // A sighted machine without an upper body looks from above its pivot at the eye's height, so that the view
+            // does not slide sideways while the hull swings round under it.
+            if (aimsGun && !machine.CanTurnUpperBody)
+                _firstPersonCamera.GlobalPosition = new Vector3(view.GlobalPosition.X, view.Eye.Y, view.GlobalPosition.Z);
+            // With the modern keys the view looks where the mouse turned it, not waiting for the machine to follow.
+            var yaw = FreeLook ? -_aimYaw : view.Yaw - head;
+            _firstPersonCamera.GlobalRotation = new Vector3(_lookPitch, yaw - Mathf.Pi / 2, 0);
+            _firstPersonCamera.Basis *= CameraRig.ShakeAt(_firstPersonCamera.GlobalPosition);
+        }
+        // A vortex or an ion strike right beside the hero seen from behind is drawn lighter, as for the battle's watch camera.
+        if (chased)
+            GroundBlast.Onlooker = true;
+        else if (_watched is null)
+            GroundBlast.Onlooker = false;
 
         _hud.Weapons.Show(machine.Weapons, SelectedWeapons(machine));
         _hud.Weapons.Held = ActHeld;
         _hud.Weapons.Waiting = act => aimsGun && _waiting.Contains(act);
         _hud.Weapons.ShowTriggers(WeaponButtons ? GunPlaces(machine) : null);
         _hud.Radar.Driven = machine;
-        _hud.Radar.Head = head;
+        // A sighted driver's radar turns with the view, its arrow showing where the hull goes from there.
+        _hud.Radar.Head = aimsGun ? Mathf.Wrap(_aimYaw - machine.Facing, -Mathf.Pi, Mathf.Pi) : head;
         // In a run the sight opens as far as its rounds stray.
         if (World.Wired is not null)
         {

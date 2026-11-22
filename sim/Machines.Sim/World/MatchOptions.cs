@@ -124,6 +124,15 @@ public sealed record MatchOptions
     public bool RestrictConstruction { get; init; } = true;
 
     /// <summary>
+    /// Whether, in a Wired run or a battle, the guns of a sighted hero without an upper body angle within each weapon's
+    /// own DEVIATION_ANGLES of its facing (MachPhysWeaponData's horizontal deviation angle, as the original's first person let
+    /// them, MachPhys1stPersonDriver::targetPointAnglesValid), so that its rounds go where the driver looks without the hull
+    /// turning all the way, as a World of Tanks gun has its arc. Recordings made before say false, so they play back as they
+    /// were played; any other match has no sighted hero.
+    /// </summary>
+    public bool HeroGunArc { get; init; } = true;
+
+    /// <summary>
     /// How well the AIs play; the original's played their scripts one way only. Easy ones think every other second,
     /// get two thirds of the BMUs for their ore and their pods' trickle, and attack and patrol half as late again;
     /// hard ones get half as much again and set out at three fifths of the scripts' delays. Normal plays the scripts

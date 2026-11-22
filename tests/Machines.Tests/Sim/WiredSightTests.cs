@@ -109,6 +109,12 @@ public class WiredSightTests
 
     private static int Worth(Machine machine) => machine.HitPoints + machine.Armour;
 
+    /// <summary>
+    /// The rules as before the guns' arcs (recordings of protocol 14 and earlier play so): a hull-only hero's gun lies along
+    /// its hull. With the arcs its gun lies along the arc's edge instead, and the same rules hold from there (GunArcTests).
+    /// </summary>
+    private static void BeforeTheArcs(GameWorld world) => world.Options = world.Options with { HeroGunArc = false };
+
     // How far a round may lie off its line: the spread, and a little for what the next tick makes of it.
     private static float Spread(GameWorld world, Machine hero) => (world.AimSpread(hero) + 0.5f) * Degree;
 
@@ -284,6 +290,7 @@ public class WiredSightTests
     public void A_bolt_off_the_sight_stops_at_the_first_machine_on_the_gun_line()
     {
         var (world, hero, way) = Run();
+        BeforeTheArcs(world);
         var dummy = Dummy(world, Along(hero, way, 20));
         var (worth, yaw) = (Worth(dummy), way + 60 * Degree);
 
@@ -295,6 +302,7 @@ public class WiredSightTests
 
         // With nothing on the line the bolt goes as far as the bolter reaches, not to where the driver looks.
         (world, hero, way) = Run();
+        BeforeTheArcs(world);
         yaw = way + 60 * Degree;
         round = FirstRound(world, hero, yaw, Along(hero, yaw, 60), world.AimPoint(hero).Z);
         Near(Data.Parm.Weapon("BOLTER").Range, Vector2.Distance(hero.Position, Flat(round.Mark!.Value)), 0.05f);
@@ -305,6 +313,7 @@ public class WiredSightTests
     public void A_bolt_off_the_sight_hits_a_machine_before_the_hill()
     {
         var (world, hero, way) = Run("grunt1", (Right, "AUTO_CANNON"));
+        BeforeTheArcs(world);
         var line = new Vector2(MathF.Cos(way), MathF.Sin(way));
         // A ridge 12 m high across the gun line 28 to 40 m out, flat ground everywhere else.
         const float spacing = 2;
@@ -337,6 +346,7 @@ public class WiredSightTests
     public void A_flying_round_off_the_sight_flies_along_the_gun_line()
     {
         var (world, hero, way) = Run("grunt1", (Right, "PLASMA_RIFLE"));
+        BeforeTheArcs(world);
         var yaw = way + 60 * Degree;
 
         FirstRound(world, hero, yaw, Along(hero, yaw, 40), world.AimPoint(hero).Z);
@@ -351,6 +361,7 @@ public class WiredSightTests
     public void A_hull_only_hero_fires_along_its_hull()
     {
         var (world, hero, way) = Run();
+        BeforeTheArcs(world);
         var yaw = way + 60 * Degree;
 
         var round = FirstRound(world, hero, yaw, Along(hero, yaw, 30), world.AimPoint(hero).Z);

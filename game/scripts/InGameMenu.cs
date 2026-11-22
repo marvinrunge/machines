@@ -252,12 +252,12 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
             game.World.Battle is not null ?
             [
                 ("Abilities, dash", K(KeyMap.Act.Ability1, KeyMap.Act.Ability2, KeyMap.Act.Dash)), ("Chassis special", K(KeyMap.Act.Special)),
-                ("Next team-mate, once destroyed", "Tab"),
+                ("Next team-mate, once destroyed", "Tab"), ("First or third person", ChaseKeys),
             ] :
             [
                 ("Squad: follow, attack, hold, back", K(KeyMap.Act.SquadFollow, KeyMap.Act.SquadAttack, KeyMap.Act.SquadHold, KeyMap.Act.SquadBack)),
                 ("Abilities, dash", K(KeyMap.Act.Ability1, KeyMap.Act.Ability2, KeyMap.Act.Dash)), ("Chassis special", K(KeyMap.Act.Special)),
-                ("Hangar", K(KeyMap.Act.Hangar)),
+                ("Hangar", K(KeyMap.Act.Hangar)), ("First or third person", ChaseKeys),
             ],
         ]
         :
@@ -268,6 +268,9 @@ public partial class InGameMenu(Game game, bool statistics = false, bool debrief
     private static string DriveKeys => GameOptions.ClassicKeys ? "Up and down arrows" : Lang.T("{0}, arrows", K(KeyMap.Act.Forward, KeyMap.Act.Back));
 
     private static string LeaveKeys => Lang.T("{0}, Esc, Num 0, Num 2", K(KeyMap.Act.FirstPerson));
+
+    // The hero seen from its faceplate or from behind, in a run or a battle (Game.Chase.cs).
+    private static string ChaseKeys => Lang.T("{0}, mouse wheel", K(KeyMap.Act.ChaseView));
 
     private static (string Action, string Keys)[] GeneralKeys =>
     [

@@ -20,8 +20,10 @@ public static class NetJson
     /// 14: relay-paced bundles (P2: the relay keeps the beat and sends a bundle a tick; lag marks, late joins, seat keys,
     /// rebuilds from the relay's log; recordings may hold joins and lag marks). 15: fitted bodies (the options'
     /// FittedBodies: machines stand and are hit in bodies fitted to their models, so a client of 14 would play another match).
+    /// 16: a sighted hero without an upper body angles its guns within their arcs (<see cref="MatchOptions.HeroGunArc"/>;
+    /// recordings from before play without).
     /// </summary>
-    public const int Protocol = 15;
+    public const int Protocol = 16;
 
     public static readonly JsonSerializerOptions Options = Create();
 

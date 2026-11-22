@@ -69,10 +69,12 @@ internal sealed record GoldenCase(string Name, MatchInfo Match, int[] Ticks, Fun
     /// <summary>
     /// G9: a Wired run on Canyon Attack whose hero starts as a spy, whose special lays mines, and whose player, beside G3's
     /// shopping and driving, uses the rest of the hangar and the hero's own powers (<see cref="WiredOrdersScript"/>); Blue
-    /// the computer's.
+    /// the computer's. It is played without the guns' arcs (<see cref="MatchOptions.HeroGunArc"/>), as a recording from before
+    /// them plays: its sums were taken before them, and what it covers (the hangar and the hero's powers) does not lean on
+    /// them, while with them its run was only in its second wave by its last sum, not its fifth, and left most of the hangar unused.
     /// </summary>
     public static GoldenCase WiredOrders => new("G9 Wired of many orders",
-        Relayed("m_desert", "m_desert", Circles with { Wired = new WiredOptions { Chassis = "spy3" } }, 19, [Race.Red], [Race.Blue]),
+        Relayed("m_desert", "m_desert", Circles with { Wired = new WiredOptions { Chassis = "spy3" }, HeroGunArc = false }, 19, [Race.Red], [Race.Blue]),
         [2000, 6000, 10000], () => [new WiredOrdersScript(Race.Red, 901)]);
 
     /// <summary>G10: G1 with machines in their fitted bodies (<see cref="MatchOptions.FittedBodies"/>), as every match since plays.</summary>

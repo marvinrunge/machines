@@ -240,6 +240,14 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         rows.AddChild(Setting("F.P. Mouse Speed", Line(28, mouseSpeed, hudSize), 260));
         mouseSpeed.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         mouseSpeed.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        // A run's and a battle's hero from its faceplate or from behind, and how far behind (the remake's own).
+        var heroView = new ChipChoice(["First person", "Third person"], GameOptions.ThirdPerson ? 1 : 0);
+        heroView.ItemSelected += i => GameOptions.ThirdPerson = i == 1;
+        var chaseDistance = Slider(GameOptions.ChaseDistance, value => GameOptions.ChaseDistance = value, GameOptions.ChaseDistanceLowest, GameOptions.ChaseDistanceHighest);
+        var distanceRow = Setting("Camera distance", chaseDistance, 0);
+        rows.AddChild(Setting("Hero view", Line(28, heroView, distanceRow), 260));
+        distanceRow.SizeFlagsHorizontal = chaseDistance.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        chaseDistance.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         var weaponButtons = Setting("Mouse button per weapon", Switch(GameOptions.WeaponButtons, on => GameOptions.WeaponButtons = on), 0);
         var fireWaits = Setting("Fire waits for the gun", Switch(GameOptions.FireWaitsForGun, on => GameOptions.FireWaitsForGun = on), 0);
         rows.AddChild(Setting("Classic F.P. Keys", Line(28, Switch(GameOptions.ClassicDriving, on => GameOptions.ClassicDriving = on), weaponButtons), 260));

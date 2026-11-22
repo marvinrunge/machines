@@ -35,10 +35,16 @@ public sealed record Replay(MatchInfo Match, IReadOnlyList<Turn> Turns, long Tic
         var replay = JsonSerializer.Deserialize<Replay>(json, NetJson.Options) ?? throw new JsonException("empty replay");
         // A match recorded before machines had fitted bodies played with the original's circles, and plays back so: its
         // options lack the field, which would otherwise read as today's default.
-        return stamp.Match?.Options?.FittedBodies is null
-            ? replay with { Match = replay.Match with { Options = replay.Match.Options with { FittedBodies = false } } }
-            : replay;
+        if (stamp.Match?.Options?.FittedBodies is null)
+            replay = replay with { Match = replay.Match with { Options = replay.Match.Options with { FittedBodies = false } } };
+        // A recording from before the heroes' guns had their arc plays back without it, as it was played.
+        if (stamp.Format < GunArcFormat)
+            replay = replay with { Match = replay.Match with { Options = replay.Match.Options with { HeroGunArc = false } } };
+        return replay;
     }
+
+    /// <summary>The first protocol whose sighted heroes' guns angle within their arcs (<see cref="MatchOptions.HeroGunArc"/>).</summary>
+    public const int GunArcFormat = 16;
 
     /// <summary>The fields of a recording read before the rest: its format, and whether its options say how machines' bodies are shaped.</summary>
     private sealed record Stamp(int Format = 0, StampedMatch? Match = null);

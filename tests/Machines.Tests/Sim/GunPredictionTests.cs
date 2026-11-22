@@ -64,7 +64,7 @@ public class GunPredictionTests
                     ? (GameWorld.HullTurnOf(input.Turn, world.DrivenTurnRate(hero, input.Slow, world.HasYaw(hero.Id))), world.PlayerYaws.TryGetValue(hero.Id, out var held) ? held : float.NaN)
                     : null;
                 predicted[(hero.Id, tick)] = GunPrediction.Predict(hero.Facing, world.HeadOf(hero.Id), GameWorld.HeadStep(hero), world.Busy(hero),
-                    hero.Inside is not null, now, entries, t => world.Battle!.InOpening(t * GameWorld.Dt), null, carried);
+                    hero.Inside is not null, now, entries, t => world.Battle!.InOpening(t * GameWorld.Dt), null, carried, world.GunArcOf(hero));
                 sent.Add((tick, new DriveCommand(hero.Race, hero.Id, true, 0, turn, null, 0, Slow: slow, Yaw: yaw)));
             }
             foreach (var (_, command) in sent.Where(s => s.Tick == now))
