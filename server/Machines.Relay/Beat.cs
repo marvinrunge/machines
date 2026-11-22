@@ -16,6 +16,9 @@ public sealed record BeatTimings
     /// tests run fast. Else a bundle waits for its due time on the anchored schedule of a second a bundle: once the beat has
     /// run ahead of that schedule by closing early, a player who stays silent (without leaving) holds the next bundle back
     /// until the schedule catches up, which may be minutes.
+    /// No backlog takes anyone out: the limit counts bundles, meant as 60 s of the relay's 20 a second, but a scripted beat
+    /// closes several hundred a second while a client acknowledges once a second, so a member's backlog stands at 700 to 800
+    /// on a quick computer and a slow one's late acknowledgement took a client out of the match.
     /// </summary>
     public static BeatTimings Scripted { get; } = new()
     {
@@ -26,6 +29,7 @@ public sealed record BeatTimings
         RelayLate = TimeSpan.FromDays(1),
         LoadTimeout = TimeSpan.FromSeconds(10),
         DecidedHold = TimeSpan.FromSeconds(5),
+        MostBacklog = 10_000_000,
     };
 
     /// <summary>Tests of lateness on the real clock: marks, handovers and returns within seconds.</summary>
