@@ -6,16 +6,18 @@ namespace Machines.Sim.World;
 /// Where the match's options say <see cref="MatchOptions.FittedBodies"/>, machines are hit in their bodies
 /// (<see cref="MachineBodies"/>): a box along each one's facing, fitted to its model, instead of the original's circle and
 /// the square box round it. A round's line meets a machine where it meets its body (<see cref="FirstOnLine"/>), what a
-/// round's end reaches is measured to the body (<see cref="Burst"/>), a sight is taken into it (<see cref="AimInside"/>),
-/// and a round is aimed no higher than <see cref="BodyAimShare"/> of its height (<see cref="AimPoint"/>), so that it meets
-/// it. Whether a weapon's arc and tilt take a machine in (<see cref="InArc"/>) and whom treachery's rounds go for go by the
-/// box round its body on the map's axes (<see cref="BoxOf"/>).
+/// round's end reaches is measured to the body (<see cref="Burst"/>) and a sight is taken into it (<see cref="AimInside"/>);
+/// rounds are aimed where they were (<see cref="AimPoint"/>), which lies inside every body. Whether a weapon's arc and
+/// tilt take a machine in (<see cref="InArc"/>) and whom treachery's rounds go for go by the box round its body on the
+/// map's axes (<see cref="BoxOf"/>).
 /// <para>
 /// A machine driven in first person stops where its body would meet another's (<see cref="BodiesBlock"/>): it drives up to
 /// a Grunt's nose and stops at its tail. Machines on orders keep standing in their circles: the original's motion
 /// sequencer (<see cref="MatchOptions.OriginalMotion"/>) places them, keeps them in formation, makes way and steps aside
 /// by the circle, and a body that turns sweeps round where a circle does not, so with bodies in its way groups drove into
-/// one another and stuck at places measured for circles. A flyer, and a machine without a body, keep their circle and box;
+/// one another and stuck at places measured for circles. Only where two circles already overlap but their bodies do not,
+/// as when a first-person driver stopped nose to nose with another, does one on an order stop where the bodies would meet
+/// instead of passing the other over and driving through it (<see cref="Blocker"/>). A flyer, and a machine without a body, keep their circle and box;
 /// how far weapons reach and which doors a machine fits through go by the circle as before.
 /// </para>
 /// </summary>
@@ -23,9 +25,6 @@ public sealed partial class GameWorld
 {
     /// <summary>The steps a move is looked along for bodies in the way, at most this long, metres.</summary>
     private const float BodyStep = 0.5f;
-
-    /// <summary>How high up its body a machine is aimed at, at most, as a share of its height: the original's aim point, unless that lies over it.</summary>
-    public const float BodyAimShare = 0.75f;
 
     /// <summary>Whether machines are hit in their fitted bodies in this match.</summary>
     private bool FittedBodies => Options.FittedBodies;

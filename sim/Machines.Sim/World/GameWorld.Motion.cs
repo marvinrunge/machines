@@ -514,7 +514,8 @@ public sealed partial class GameWorld
     /// (PhysConfigSpace2d's intersecting ids); one driven in first person is seen half a second ahead. With
     /// <paramref name="bodies"/> (a machine driven in first person, <see cref="BodiesBlock"/>) two stop where their fitted
     /// bodies would meet; otherwise where their circles would, which the motion sequencer's places, formations and ways
-    /// round one another are measured in.
+    /// round one another are measured in, and where the circles already overlap but the bodies do not (one driven in first
+    /// person stopped there) where the bodies would.
     /// </summary>
     private Machine? Blocker(Machine machine, Vector2 from, Vector2 to, bool restingOnly = false, bool bodies = false)
     {
@@ -541,7 +542,15 @@ public sealed partial class GameWorld
             else
             {
                 var clearance = machine.Radius + other.Radius + Touch;
-                if (already < clearance * clearance || DistanceToSegment(other.Position, from, end) >= clearance)
+                if (already < clearance * clearance)
+                {
+                    // Their circles overlap. In fitted bodies one driven in first person may have stopped closer than the
+                    // circles, where the bodies meet: one passing it on an order must not drive through it, so it stops
+                    // where the bodies would meet, and only one whose body it already overlaps is passed over.
+                    if (!FittedBodies || BodiesMeet(machine, other, from, end) is not true)
+                        continue;
+                }
+                else if (DistanceToSegment(other.Position, from, end) >= clearance)
                     continue;
             }
             if (already < best || already == best && other.Id < nearest!.Id)

@@ -85,8 +85,8 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// An actor's middle in the air, as the original aimed between its bounding box's corners: a little over a
-    /// machine's own height, higher for a flyer, a few metres up a building. With fitted bodies a machine is aimed at no
-    /// higher than <see cref="BodyAimShare"/> up its body, where a big, low machine's old aim point stood over it.
+    /// machine's own height, higher for a flyer, a few metres up a building. With fitted bodies it stays where it was: it
+    /// lies inside every measured body, at most 0.71 of its height (a Resource Carrier 4; FittedBodyTests hold it there).
     /// </summary>
     public Vector3 AimPoint(Actor actor)
     {
@@ -94,7 +94,6 @@ public sealed partial class GameWorld
         var up = actor switch
         {
             Machine { Stats.Locomotion: Locomotion.Glider } => 10,
-            Machine { FittedBody: { } body } machine when FittedBodies => MathF.Min(MathF.Max(1.2f, machine.Radius * 0.6f), body.Height * BodyAimShare),
             Machine machine => MathF.Max(1.2f, machine.Radius * 0.6f),
             Construction building => MathF.Min(6, 1 + building.Radius * 0.3f),
             Artefact artefact => MathF.Max(1, (artefact.Type.Height ?? 2) * 0.5f),

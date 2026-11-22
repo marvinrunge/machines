@@ -98,7 +98,8 @@ public class FittedBodyTests
         Assert.Equal(body.Height - 0.05f, world.AimInside(machine, at, body.Height - 0.05f).Height);
         var aim = world.AimInside(machine, at, body.Height + 1).Height;
         Assert.Equal(world.AimPoint(machine).Z, aim);
-        Assert.InRange(aim, 0.1f, body.Height * GameWorld.BodyAimShare + 1e-4f);
+        // The original's aim point, unchanged, stands in every body's lower three quarters (a Resource Carrier 4's at 0.71).
+        Assert.InRange(aim, 0.1f, body.Height * 0.75f);
 
         // In the circles a sight ahead is taken to the square box's edge, at the radius.
         var circles = NewMatch(fitted: false);
@@ -159,6 +160,46 @@ public class FittedBodyTests
         driver = Standing(world, Race.Red, at, 0, "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
         other = Standing(world, Race.Red, at + new Vector2(12, 0), MathF.PI, "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
         Assert.InRange(DriveInto(world, driver, other), 3f, 3.3f);
+    }
+
+    /// <summary>
+    /// A Grunt driven nose to nose with another, held there (or let go of with <paramref name="letGo"/>), and the other then
+    /// sent on an order to a point 15 m behind the driver, straight through it: the least distance between their middles.
+    /// </summary>
+    private static (float Parked, float Least) SentThrough(bool fitted, bool letGo)
+    {
+        var world = NewMatch(fitted);
+        var at = OpenGround(world);
+        var driver = Standing(world, Race.Red, at, 0, "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+        var other = Standing(world, Race.Red, at + new Vector2(12, 0), MathF.PI, "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+        var parked = DriveInto(world, driver, other);
+        world.Issue(new DriveCommand(driver.Race, driver.Id, Driving: !letGo));
+        world.Step();
+        world.Issue(new MoveCommand(other.Race, [other.Id], driver.Position - new Vector2(15, 0)));
+        var least = float.MaxValue;
+        for (var i = 0; i < 20 * 20; i++)
+        {
+            if (!letGo)
+                world.Issue(new DriveCommand(driver.Race, driver.Id, Driving: true));
+            world.Step();
+            least = MathF.Min(least, Vector2.Distance(driver.Position, other.Position));
+        }
+        return (parked, least);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void One_on_an_order_does_not_drive_through_a_machine_parked_nose_to_nose_closer_than_the_circles(bool letGo)
+    {
+        var grunt = MachineBodies.Of("AGGRESSOR", "GRUNT", 1)!.Value;
+        var (parked, least) = SentThrough(fitted: true, letGo);
+        Assert.True(parked < 3, $"parked {parked} m apart, inside the circles");
+        // It does not come closer than where their bodies meet nose to nose (it drove through to 0.17 m before).
+        Assert.True(least >= 2 * grunt.Fore - 0.2f, $"least {least} m");
+
+        (parked, least) = SentThrough(fitted: false, letGo);
+        Assert.True(least >= 3, $"circles: least {least} m");
     }
 
     // ---- rounds -------------------------------------------------------------------------------------
