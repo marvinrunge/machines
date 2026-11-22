@@ -62,6 +62,7 @@ public partial class StoryHud : Control
             FollowCheckpoint(shown);
             FollowBoot(shown);
             FollowTracker(shown);
+            FollowSprint(shown);
             if (_hud.Subtitles is { } subtitles && shown.Grunts.Count >= 2)
                 (subtitles.IkeName, subtitles.BobName) = Names(shown);
         }
@@ -139,6 +140,31 @@ public partial class StoryHud : Control
         var health = new Rect2(at + new Vector2(56, 31) * _u, new Vector2(228, 8) * _u);
         _ink.Bar(health, now.Health, hurt ? HudInk.Danger : now.Health < 0.6f ? HudInk.Warning : MenuTheme.Glow);
         _ink.Thin(new Rect2(at + new Vector2(56, 43) * _u, new Vector2(228, 3) * _u), now.Armour, HudInk.Ice);
+        DrawDrive(now, at + new Vector2(308, 0) * _u);
+    }
+
+    /// <summary>
+    /// The drive's plate beside the hero's (<see cref="StoryDrive"/>): LIMITED while the maintenance limiter holds the sprint,
+    /// then its heat, which a sprint fills and walking cools; overheated it flashes until it may sprint again.
+    /// </summary>
+    private void DrawDrive(StoryReadout now, Vector2 at)
+    {
+        var box = new Rect2(at, new Vector2(132, 52) * _u);
+        var hot = now.DriveHot;
+        var flash = hot && (int)(_time * 4) % 2 == 0;
+        var colour = hot ? HudInk.Danger : now.DriveHeat > 0.66f ? HudInk.Warning : MenuTheme.Glow;
+        _ink.Plate(box, HudInk.Plating, flash ? HudInk.Danger : MenuTheme.Edge, 8);
+        _ink.Say(at + new Vector2(10, 18) * _u, Lang.T("Engine").Caps(), 13, MenuTheme.Dim);
+        if (!now.SprintFree)
+        {
+            _ink.Say(at + new Vector2(10, 40) * _u, Lang.T("Limited").Caps(), 15, MenuTheme.Dim);
+            return;
+        }
+        if (now.Sprinting)
+            _ink.Say(at + new Vector2(122, 18) * _u, ">>", 13, HudInk.Gold, 1);
+        else if (hot)
+            _ink.Say(at + new Vector2(122, 18) * _u, Lang.T("Hot").Caps(), 13, flash ? HudInk.Danger : HudInk.Warning, 1);
+        _ink.Leds(new Rect2(at + new Vector2(10, 28) * _u, new Vector2(112, 14) * _u), now.DriveHeat, colour, (float)_time, 12);
     }
 
     /// <summary>The objective at the top middle, and under it the alarm and the countdown.</summary>

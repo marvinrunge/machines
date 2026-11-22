@@ -87,7 +87,7 @@ public partial class KeysPage(Action back, bool run = false, bool story = false)
     private void BuildStory(Control columns)
     {
         columns.AddChild(List("LOCATOR", [KeyMap.Act.Use, KeyMap.Act.Scan, KeyMap.Act.Light],
-            "Hack a terminal, take or use what lies before you, send a scanner pulse, switch the lamp. The weapons' triggers are those of Wired's page."));
+            "Hack a terminal, take or use what lies before you, send a scanner pulse, switch the lamp. Shift held sprints (the left stick's click on a pad) once the story lifts the drive's limiter; it heats the drive. The weapons' triggers are those of Wired's page."));
         columns.AddChild(List("GRUNTS", [KeyMap.Act.GruntFollow, KeyMap.Act.GruntWait, KeyMap.Act.GruntDistract],
             "Orders to both Grunts. These work only in the story, which never leaves first person: they may share a key with Wired's, which the story does not use."));
     }

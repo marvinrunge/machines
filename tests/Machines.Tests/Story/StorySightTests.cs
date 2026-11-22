@@ -231,7 +231,7 @@ public class StorySightTests
         Run(world, StorySight.PulseFor + 0.1f);
         Assert.Equal(StorySight.Still, world.StorySignature(hero.Id), 4);
 
-        // A Grunt at full speed is twice as loud as the Locator would be.
+        // A Grunt at its walk's full speed (StoryDrive) is twice as loud as the Locator would be.
         var story = world.Story!;
         var grunt = world.HeroOf(story.Seats[1])!;
         Assert.Equal(Locomotion.Wheels, grunt.Stats.Locomotion);
@@ -240,11 +240,11 @@ public class StorySightTests
         world.Step();
         for (var i = 0; i < 3; i++)
         {
-            grunt.Position += new Vector2(grunt.Stats.Speed * GameWorld.Dt, 0);
+            grunt.Position += new Vector2(grunt.Stats.Speed * StoryDrive.Walk * GameWorld.Dt, 0);
             world.Step();
         }
         Assert.Equal(StorySight.Still + StorySight.Moving * StorySight.Wheels, world.StorySignature(grunt.Id), 3);
-        grunt.Position += new Vector2(grunt.Stats.Speed * GameWorld.Dt / 2, 0);
+        grunt.Position += new Vector2(grunt.Stats.Speed * StoryDrive.Walk * GameWorld.Dt / 2, 0);
         world.Step();
         Assert.Equal(StorySight.Still + StorySight.Moving * StorySight.Wheels / 2, world.StorySignature(grunt.Id), 3);
     }

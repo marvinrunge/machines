@@ -865,6 +865,24 @@
     "hash": "2fbd132225dd"
    }
   },
+  "P_IKE_LIMITER": {
+   "de": {
+    "file": "de/P_IKE_LIMITER.ogg",
+    "seconds": 3.39,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "b644a45a91ab"
+   },
+   "en": {
+    "file": "en/P_IKE_LIMITER.ogg",
+    "seconds": 3.13,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "750d8478769d"
+   }
+  },
   "P_IKE_POD": {
    "de": {
     "file": "de/P_IKE_POD.ogg",

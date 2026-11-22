@@ -1,6 +1,7 @@
 using System.Numerics;
 using Machines.Import.Model;
 using Machines.Sim.Survival;
+using Machines.Sim.Story;
 
 namespace Machines.Sim.World;
 
@@ -159,6 +160,8 @@ public sealed partial class GameWorld
         // Times it was held up by a moving machine since it last got going, and the share of its speed it tries.
         public int Tries;
         public float SpeedShare = 1;
+        // The share of its top speed its run was planned at (a story's hero walking or sprinting, StoryDrive); 1 for all others.
+        public float Pace = 1;
         // Moved off its way (stepping sideways or aside, a new goal): it plans the way again if it cannot see on.
         public bool OffWay;
         // Times it stepped sideways for its goal, and that goal.
@@ -254,6 +257,9 @@ public sealed partial class GameWorld
             return index;
 
         var end = motion.Driving ? path.IndexOf(motion.RunGoal, index) : -1;
+        // A story's hero that set off walking and now sprints (or the other way) plans its run again from where it is.
+        if (end >= 0 && !motion.Turning && Story is not null && motion.Pace != StoryPace(machine))
+            end = -1;
         if (end < 0)
         {
             if (!PlanRun(machine, motion, path, ref index, way))
@@ -392,7 +398,9 @@ public sealed partial class GameWorld
         var top = machine.Stats.Speed * motion.SpeedShare * (machine.Order is LocateOrder ? 0.5f : 1);
         if (Wired is not null)
             top *= WiredChips.Pace(this, machine);
-        motion.Run = new Ramp(length, start, top, machine.Stats.Acceleration);
+        // A story's hero the computer drives walks or sprints as a person's does (StoryDrive); a new pace plans the run again.
+        var pace = motion.Pace = StoryPace(machine);
+        motion.Run = new Ramp(length, start, top * pace, (StoryRate(machine) ?? machine.Stats.Acceleration) * pace);
         motion.ChunkEnds = [.. chunkEnds];
         motion.Driving = true;
         motion.RunGoal = path[end];
@@ -401,7 +409,7 @@ public sealed partial class GameWorld
         motion.Speed = start;
         motion.Turning = false;
         if (start == 0)
-            StartTurn(machine, motion, heading, machine.Stats.RotationSpeed);
+            StartTurn(machine, motion, heading, machine.Stats.RotationSpeed * StoryTurnPace(machine));
         // A run that first turns on the spot is told of once it has turned.
         if (!motion.Turning)
             AnnounceRun(machine, motion);
@@ -852,7 +860,8 @@ public sealed partial class GameWorld
         if (HeroStateOf(machine) is not { } state)
             return MathF.Min(machine.Stats.RotationSpeed, limit);
         var build = state.Build(Data);
-        return hasYaw && !slow && !machine.CanTurnUpperBody ? build.HullAimRate : build.DrivenTurnRate(limit);
+        // A story's hero turns at a share of its rate (StoryDrive.Turn), walking or sprinting alike, so the client foresees it.
+        return (hasYaw && !slow && !machine.CanTurnUpperBody ? build.HullAimRate : build.DrivenTurnRate(limit)) * StoryTurnPace(machine);
     }
 
     /// <summary>
@@ -882,8 +891,13 @@ public sealed partial class GameWorld
         var ahead = new Vector2(DetMath.Cos(machine.Facing), DetMath.Sin(machine.Facing));
         var left = new Vector2(-ahead.Y, ahead.X);
         var share = MathF.Max(1, MathF.Sqrt(input.Forward * input.Forward + input.Strafe * input.Strafe));
-        var forward = DrivenRamp(ref motion.Speed, input.Forward / share, Slope(machine, ahead), machine.Stats, reverse: 0.25f);
-        var sideways = DrivenRamp(ref motion.Side, input.Strafe / share, Slope(machine, left), machine.Stats, reverse: 1);
+        // A story's hero walks, or sprints (StoryDrive); every other machine goes at its pace of 1, as ever.
+        // Off the sprint (or in an overheated drive's stutter) it slows to its lower pace at its whole rate, not at once.
+        var pace = StoryPace(machine);
+        var ease = pace < 1;
+        var rate = StoryRate(machine);
+        var forward = DrivenRamp(ref motion.Speed, input.Forward / share, Slope(machine, ahead), machine.Stats, reverse: 0.25f, pace, ease, rate);
+        var sideways = DrivenRamp(ref motion.Side, input.Strafe / share, Slope(machine, left), machine.Stats, reverse: 1, pace, ease, rate);
         if (input.Turn != 0 || motion.Speed != 0 || motion.Side != 0)
             motion.MovedTick = Tick;
 
@@ -908,17 +922,27 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// One tick of a driven machine's speed along one direction (PhysRampAcceleration::distanceAtTime): towards the
-    /// speed the input asks for at its ACCELERATION; returns the way covered.
+    /// speed the input asks for at its ACCELERATION; returns the way covered. A story's hero goes at a <paramref name="pace"/>
+    /// of its top speed and acceleration (StoryDrive), and with <paramref name="ease"/> coming off its sprint (or in an
+    /// overheated drive's stutter) it slows down at its whole rate rather than at once; its <paramref name="rate"/> stands
+    /// for its ACCELERATION. Without them
+    /// everything is as it ever was.
     /// </summary>
-    private static float DrivenRamp(ref float speed, float input, float slope, MachineLevel stats, float reverse)
+    private static float DrivenRamp(ref float speed, float input, float slope, MachineLevel stats, float reverse, float pace = 1, bool ease = false,
+        float? rate = null)
     {
         var gradient = slope > SteepSlope ? (input > 0 ? 0.8f : 1.2f) : slope < -SteepSlope ? (input > 0 ? 1.2f : 0.8f) : 1;
-        var acceleration = stats.Acceleration;
-        var top = stats.Speed * gradient * MathF.Abs(input);
+        var acceleration = (rate ?? stats.Acceleration) * pace;
+        var top = stats.Speed * pace * gradient * MathF.Abs(input);
         if (input < 0)
         {
             acceleration = -acceleration;
             top *= -reverse;
+        }
+        else if (ease && input > 0 && speed > top)
+        {
+            // Off the sprint: down to the slower pace at its whole rate.
+            acceleration = -(rate ?? stats.Acceleration);
         }
         else if (input == 0)
         {

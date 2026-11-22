@@ -26,7 +26,43 @@ public partial class StoryHud
         ["cover"] = (null, "Into cover: the Reapers take aim for a moment before they fire"),
     };
 
-    private sealed record ConsoleLine(string Text, double Since, float Seconds, float? Bar);
+    private sealed record ConsoleLine(string Text, double Since, float Seconds, float? Bar)
+    {
+        /// <summary>Its colour: the console's glow, else a readout's warning.</summary>
+        public Color? Colour { get; init; }
+
+        /// <summary>A hint that goes once done (the sprint's, once the player sprinted), by its word.</summary>
+        public string? Tag { get; init; }
+
+        public float Seconds { get; set; } = Seconds;
+    }
+
+    /// <summary>A readout of the hero's own systems on the console (the drive's limiter, its heat), in its colour.</summary>
+    public void Readout(string text, Color colour) => _console.Add(new ConsoleLine(text, _time, 5, null) { Colour = colour });
+
+    /// <summary>How long the sprint's hint stays at most, if the player does not sprint before.</summary>
+    public const float SprintHintSeconds = 12;
+
+    /// <summary>The sprint freed: how to sprint, until the player has sprinted (or <see cref="SprintHintSeconds"/>).</summary>
+    public void SprintHint()
+    {
+        if (_sprinted)
+            return;
+        _console.Add(new ConsoleLine(Lang.T("[{0}] hold: Sprint", Lang.T("Shift")), _time, SprintHintSeconds, null) { Tag = "sprint", Colour = HudInk.Gold });
+    }
+
+    // Whether the player has sprinted once this chapter: the sprint's hint then goes, and does not come again.
+    private bool _sprinted;
+
+    /// <summary>The player sprints: the sprint's hint fades out.</summary>
+    private void FollowSprint(StoryReadout now)
+    {
+        if (!now.Sprinting || _sprinted)
+            return;
+        _sprinted = true;
+        foreach (var line in _console.Where(l => l.Tag == "sprint"))
+            line.Seconds = MathF.Min(line.Seconds, (float)(_time - line.Since) + 0.6f);
+    }
 
     private readonly List<ConsoleLine> _console = [];
 
@@ -62,7 +98,7 @@ public partial class StoryHud
             }
             var typed = text[..Mathf.Clamp(Mathf.CeilToInt(age / 0.025f), 0, text.Length)];
             var cursor = typed.Length < text.Length || (int)(_time * 3) % 2 == 0 ? "_" : " ";
-            _ink.Say(at, "> " + typed + cursor, 20, new Color(MenuTheme.Glow, alpha), outline: 1);
+            _ink.Say(at, "> " + typed + cursor, 20, new Color(line.Colour ?? MenuTheme.Glow, alpha), outline: 1);
             at.Y += 26 * _u;
             if (line.Bar is not null)
             {

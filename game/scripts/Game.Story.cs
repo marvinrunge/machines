@@ -60,6 +60,11 @@ public partial class Game
     /// </summary>
     private void StoryInput(Godot.InputEvent @event)
     {
+        // Shift (or the left stick's click) is the sprint, held while driving (StorySprintHeld); pressed while the limiter
+        // holds it, the HUD says why, once.
+        if (@event is Godot.InputEventKey { Pressed: true, Echo: false, Keycode: Godot.Key.Shift }
+            or Godot.InputEventJoypadButton { Pressed: true, ButtonIndex: Godot.JoyButton.LeftStick })
+            StorySprintPressed();
         // Use held for a downed Grunt, a switch, a rack or the hatch (the companions', Game.Companions).
         if (StoryUse(@event))
             return;
@@ -212,6 +217,9 @@ public partial class Game
                     if (e.Player != Me && hack.What switch { "open" or "done" or "board" => HackSounds.Connect, "traced" => HackSounds.TraceBack, "broken" => HackSounds.Fail, _ => null } is { } sound)
                         StoryAudio.Play(sound, at);
                     break;
+                case GameEventKind.StoryCue when Machines.Sim.Story.StoryEvents.CueOf(e) is ["drive", var state]:
+                    DriveCue(state, e.Actor, at);
+                    break;
                 case GameEventKind.StoryCue:
                     StoryCue(Machines.Sim.Story.StoryEvents.CueOf(e), at);
                     break;
@@ -302,6 +310,9 @@ public partial class Game
                 break;
             case ["clamp", _]:
                 StoryAudio.Play("clamp_release", at);
+                break;
+            case ["sprint", "free"]:
+                SprintFreed();
                 break;
             case ["hint", var hint]:
                 // How to push crates is for a Grunt's player, how to take cover for the Locator's.

@@ -130,6 +130,15 @@ public sealed record StoryReadout
     /// <summary>How the chapter ended; null while it lasts.</summary>
     public required StoryEnding? Ending { get; init; }
 
+    /// <summary>The hero's drive (<see cref="StoryDrive"/>): its heat 0 to 1, overheated, sprinting now, and whether the sprint is free at all.</summary>
+    public float DriveHeat { get; init; }
+
+    public bool DriveHot { get; init; }
+
+    public bool Sprinting { get; init; }
+
+    public bool SprintFree { get; init; }
+
     /// <summary>The figures for a player of a story; null without a story or for a player without a seat in it.</summary>
     public static StoryReadout? Of(GameWorld world, PlayerId player, DeckRoute? route = null)
     {
@@ -166,6 +175,10 @@ public sealed record StoryReadout
             Prompts = hero is null ? [] : PromptsOf(world, run, seat, hero),
             Boot = run.Flags.Contains(StoryMarks.Boot),
             Ending = run.Ending,
+            DriveHeat = hero is not null && world.StoryDriveOf(hero.Id) is { } heat ? heat.Heat : 0,
+            DriveHot = hero is not null && world.StoryDriveOf(hero.Id) is { Blocked: true },
+            Sprinting = hero is not null && world.StoryDriveOf(hero.Id) is { Sprinting: true },
+            SprintFree = world.StorySprintFree,
             Squad = run.Flags.Contains(StoryMarks.Squad)
                 ? run.Director.Of(world, Prologue.CommanderRole).Concat(run.Director.Of(world, Prologue.ReaperRole)).FirstOrDefault()?.Position
                 : null,
@@ -216,6 +229,9 @@ public sealed record StoryReadout
             level += 0.5f * MathF.Max(MathF.Abs(drive.Forward), MathF.Abs(drive.Strafe)) * (drive.Slow ? 0.5f : 1);
         else if (hero.Path.Count > hero.PathIndex)
             level += 0.5f;
+        // The sprint's whining drive is heard on top (StorySight.Sprint).
+        if (world.StoryDriveOf(hero.Id) is { Sprinting: true })
+            level += StorySight.Sprint;
         if (world.Wired?.Heroes.GetValueOrDefault(player) is { } state && world.Time - state.LastShotAt < 3)
             level = 1;
         return Math.Clamp(level, 0, 1);

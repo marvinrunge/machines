@@ -135,10 +135,12 @@ public sealed record ScavengeCommand(Race Race, IReadOnlyList<int> Scavengers, I
 /// reloading (the remake's addition). <paramref name="Yaw"/> is the heading the driver looks along, radians anticlockwise
 /// in the simulation's axes as <see cref="Machine.Facing"/>: in a Wired run or battle the simulation turns the machine's
 /// gun to it at the gun's own rate and sends its rounds along where the gun points (the remake's addition, as World of
-/// Tanks aims); null, or in any other match, the rounds go to the aim point. <paramref name="Driving"/> false hands it back.
+/// Tanks aims); null, or in any other match, the rounds go to the aim point. <paramref name="Sprint"/> says the sprint is
+/// held (Shift): only a story's heroes have one (Story/StoryDrive), and only once the story freed it; elsewhere it is
+/// never sent and means nothing. <paramref name="Driving"/> false hands it back.
 /// </summary>
 public sealed record DriveCommand(Race Race, int Machine, bool Driving, float Forward = 0, float Turn = 0, Vector2? Aim = null, int Weapons = -1,
-    float Head = 0, float Strafe = 0, bool Slow = false, float? AimHeight = null, bool Buttons = false, float? Yaw = null) : Command(Race);
+    float Head = 0, float Strafe = 0, bool Slow = false, float? AimHeight = null, bool Buttons = false, float? Yaw = null, bool Sprint = false) : Command(Race);
 
 /// <summary>Why a command was refused, for the client to show.</summary>
 public sealed record CommandRejected(Command Command, string Reason);

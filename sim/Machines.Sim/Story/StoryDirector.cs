@@ -410,6 +410,28 @@ public static class When
     }
 
     /// <summary>
+    /// Every Grunt that is up and has a door to barricade is at work on it: within <paramref name="Radius"/> metres of the
+    /// door's barricade, or a crate of it stands already. A Grunt without that job (told to wait, say) is not waited for.
+    /// </summary>
+    public sealed record AtBarricades(float Radius) : StoryTrigger
+    {
+        internal override bool Holds(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            foreach (var seat in run.Seats.Skip(1))
+            {
+                var companion = run.Crew.Of(seat);
+                if (companion.Task != CompanionTask.Barricade || companion.Place is not { } door || world.HeroOf(seat) is not { } grunt
+                    || world.CompanionDown(seat) || world.CompanionDormant(seat))
+                    continue;
+                var slots = world.BarricadeSlots(door);
+                if (slots.Count > 0 && !slots.Any(world.SlotFilled) && !slots.Any(s => Vector2.Distance(s.Position, grunt.Position) <= Radius))
+                    return false;
+            }
+            return true;
+        }
+    }
+
+    /// <summary>
     /// A door is barricaded: crates stand in at least <paramref name="Crates"/> of its barricade slots (0: in all of them),
     /// which is when the Reapers cannot get through it.
     /// </summary>

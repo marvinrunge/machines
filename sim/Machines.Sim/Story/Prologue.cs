@@ -123,19 +123,27 @@ public static class Prologue
             Breach = "P_AUTO_4", T120 = "P_AUTO_T120", T90 = "P_AUTO_T90", T60 = "P_AUTO_T60", T30 = "P_AUTO_T30", T10 = "P_AUTO_T10", PodNo = "P_AUTO_POD_NO",
             Whisper = "P_WHISPER_1", IkeWake = "P_IKE_WAKE", BobWake = "P_BOB_WAKE", IkeSteps = "P_IKE_STEPS", IkeVent = "P_IKE_VENT",
             IkeBarricade = "P_IKE_BARRICADE", BobBarricade = "P_BOB_BARRICADE", IkeAlarm = "P_IKE_ALARM", BobGlitch = "P_BOB_GLITCH",
-            IkePod = "P_IKE_POD", BobPod = "P_BOB_POD", HudBoot = "P_HUD_BOOT", HudDecrypt = "P_HUD_DECRYPT";
+            IkePod = "P_IKE_POD", BobPod = "P_BOB_POD", HudBoot = "P_HUD_BOOT", HudDecrypt = "P_HUD_DECRYPT", IkeLimiter = "P_IKE_LIMITER";
     }
 
     // ---- the script -----------------------------------------------------------------------------------
 
     /// <summary>
-    /// The squad sets out once the Locator is on the core's second board, or this many seconds after it plugged in, whichever
-    /// comes first; and how near the door's markers a Reaper must be to count as at it.
+    /// The squad sets out once the Locator is on the core's second board but not before <see cref="SquadEarliest"/> seconds
+    /// after the Grunts are at their barricades (<see cref="CrewNear"/>: they walk the long way), or <see cref="SquadLate"/>
+    /// seconds after the Locator plugged in, whichever comes first; and how near the door's markers a Reaper must be to count
+    /// as at it.
     /// </summary>
-    public const float SquadLate = 75, AtDoor = 12;
+    public const float SquadEarliest = 10, SquadLate = 75, AtDoor = 12;
 
-    /// <summary>How long the squad musters at the lift before it sets off down the spine (the Grunts' time for the crates).</summary>
-    public const float SquadMuster = 6;
+    /// <summary>How near its door's barricade each Grunt that is up must be for the squad's time to start (the beat crew_in), metres.</summary>
+    public const float CrewNear = 20;
+
+    /// <summary>
+    /// How long the squad musters at the lift before it sets off down the spine (the Grunts' time for the crates, which they
+    /// carry at their walk: the sprint is locked until the break-in, StoryDrive).
+    /// </summary>
+    public const float SquadMuster = 8;
 
     /// <summary>
     /// How long the Reapers hammer at a full barricade before door J before the Commander sends them round by door W; how
@@ -241,8 +249,11 @@ public static class Prologue
         // Ike the north blast door J, Bob the door they came in by, I.
         new("core_open", 2, new HackOpen("hack_core"), [new Say(Lines.Core), new Assign(1, CompanionTask.Barricade, "J"),
             new Assign(2, CompanionTask.Barricade, "I"), new Cue("hint crates")]),
+        // The Grunts walk (their sprint is locked) and come the long way: the squad gives them their time from when they are at
+        // their doors' barricades (a Grunt told to wait is not waited for), not from when the Locator plugged in.
+        new("crew_in", 2, new AtBarricades(CrewNear), [], After: ["core_open"]),
         // On the second board the ship sends the Commander's squad from the lift down the spine to door J; the HUD points at it.
-        new("squad", 2, new AnyOf(new HackBoard("hack_core", 1), new Since("core_open", SquadLate)), [
+        new("squad", 2, new AnyOf(new AllOf(new HackBoard("hack_core", 1), new Since("crew_in", SquadEarliest)), new Since("core_open", SquadLate)), [
             new Spawn(ReaperRole, Reaper3, ["spawn_reaper_1", "spawn_reaper_2"], Hunters), new Spawn(ReaperRole, Reaper2, ["spawn_reaper_3"], Hunters),
             new Spawn(CommanderRole, Commander, ["spawn_commander"], Hunters), new Sight(ReaperRole, false), new Sight(CommanderRole, false),
             new MoveTo(ThresherRole, ThresherAway), new Flag(StoryMarks.Squad), new Say(Lines.Squad), new Say(Lines.BobSquad, Bark, 2),
@@ -287,6 +298,9 @@ public static class Prologue
         // Locator stands (their first volleys hit the core); the player has the Locator again at once and takes cover.
         new("break_in", 3, new Flagged(Burst), [.. BreakIn]),
         new("core_hit_1", 3, new Since("break_in", CoreHit1), [new WearProp(CoreTag, 0.7f), new Cue("core hit 1", "core")]),
+        // The first rounds into the core beside it: walking will not get the Locator out of here. Its drive's maintenance limiter
+        // is overridden (StoryDrive): from now on the trio can sprint, and the HUD says how, once.
+        new("limiter", 3, new Since("break_in", CoreHit1), [new Flag(StoryMarks.SprintFree), new Cue("sprint free"), new Say(Lines.IkeLimiter, Bark, 1)]),
         new("core_hit_2", 3, new Since("break_in", CoreHit2), [new WearProp(CoreTag, 0.45f), new Cue("core hit 2", "core")]),
         new("core_hit_3", 3, new Since("break_in", CoreHit3), [new WearProp(CoreTag, 0.2f), new Cue("core hit 3", "core")]),
         // The core blows: the PA breaks off, the chamber burns in red light; the Reapers turn to the trio (by the fair rules:
@@ -486,6 +500,9 @@ public static class Prologue
             Do(new Spawn(ThresherRole, Thresher, [ThresherAway], Hunters));
         if (cp >= 3)
             run.Flags.Add(StoryMarks.Alarm);
+        // From the break-in on the maintenance limiter is overridden: the trio may sprint (StoryDrive).
+        if (cp >= 3)
+            run.Flags.Add(StoryMarks.SprintFree);
         if (cp >= 4)
             Do(new RemoveProp(CoreTag), new Lights("emergency", "*"), new Lights("emergency", "core"));
         if (cp == 3)

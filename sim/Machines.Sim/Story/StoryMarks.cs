@@ -21,6 +21,12 @@ public static class StoryMarks
     /// </summary>
     public const string Squad = "squad";
 
+    /// <summary>
+    /// Set once the trio's drives may sprint (<see cref="StoryDrive"/>): the maintenance limiter overridden. In the prologue as the
+    /// Reapers' first rounds hit the core, and from the break-in's checkpoint on.
+    /// </summary>
+    public const string SprintFree = "sprint";
+
     /// <summary>Set while a hunter sees the trio: the HUD says SIGNATURE DETECTED.</summary>
     public const string Spotted = "spotted";
 

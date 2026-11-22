@@ -302,6 +302,12 @@
    "en": "Door secured."
   },
   {
+   "id": "P_IKE_LIMITER",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Limiter's off, L-7! Run!"
+  },
+  {
    "id": "P_IKE_ALARM",
    "speaker": "ike",
    "channel": "radio",

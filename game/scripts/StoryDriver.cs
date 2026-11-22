@@ -104,7 +104,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                     LetGo();
                     if (story.Ending == StoryEnding.Escaped)
                     {
-                        Tell($"escaped: tick {game.World.Tick} checksum {game.World.Checksum():x16} falls {_falls} lamp {_lampChecked ?? "unchecked"}");
+                        Tell($"escaped: tick {game.World.Tick} checksum {game.World.Checksum():x16} falls {_falls} lamp {_lampChecked ?? "unchecked"} sprinted {_sprinted:0.0} s overheats {_overheats} limiter {(_limiterTried ? "tried" : "untried")}");
                         await Wait(2);
                         await Picture("end");
                         await Film(game);
@@ -137,7 +137,10 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                     await Lamp(game, hero);
                     continue;
                 }
+                if (await LimiterTried(game, story, hero))
+                    continue;
                 await Leg(game, story, hero);
+                await DriveWatched(game, hero);
             }
         }
     }
@@ -166,9 +169,9 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
     }
 
     // The core fight's beats, told with the game seconds they fired at (the fight's timeline).
-    private static readonly string[] CoreBeats = ["core_open", "squad", "squad_go", "at_j", "alarm", "hammer_j", "burst_j", "go_round",
+    private static readonly string[] CoreBeats = ["core_open", "crew_in", "squad", "squad_go", "at_j", "alarm", "hammer_j", "burst_j", "go_round",
         "held", "at_i", "hammer_i", "shoot_i", "burst_i", "break_in", "core_hit_1", "core_hit_2", "core_hit_3", "core_blows",
-        "power_fails", "control_lost", "fled"];
+        "power_fails", "control_lost", "fled", "limiter", "together", "repaired", "notgang", "pod_bay", "launch"];
     private readonly HashSet<string> _toldBeats = [];
 
     private void Beats(Game game, StoryRun story)
@@ -176,7 +179,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         foreach (var beat in CoreBeats)
         {
             if (story.Director.Fired.TryGetValue(beat, out var at) && _toldBeats.Add(beat))
-                Tell(FormattableString.Invariant($"beat {beat} at {at:0.0} s (hack {story.Hacks.Session("hack_core")?.Progress ?? 0:0.00})"));
+                Tell(FormattableString.Invariant($"beat {beat} at {at:0.0} s (hack {story.Hacks.Session("hack_core")?.Progress ?? 0:0.00}{(story.Director.Has("break_in") ? "" : $", crates J {game.World.BarricadeCrates("J").Count} I {game.World.BarricadeCrates("I").Count}")})"));
         }
     }
 
@@ -278,6 +281,95 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
     }
 
     private bool _reviving;
+
+    // ---- the sprint -------------------------------------------------------------------------------
+
+    // Shift tried once while the limiter held it; the sprint seconds, the overheats, and whether the first one's picture was taken.
+    private bool _limiterTried, _hotShot, _cooling;
+    private int _overheats, _lastBlockedAt = -1;
+    private readonly HashSet<int> _downSeats = [];
+    private double _sprinted, _sprintFrom = -1;
+
+    /// <summary>
+    /// Once a run, as soon as the Locator is free of its clamp and the limiter still holds: Shift pressed, as a player tries
+    /// it, the drive's answer read and pictured. True when it did so this frame.
+    /// </summary>
+    private async Task<bool> LimiterTried(Game game, StoryRun story, Machine hero)
+    {
+        if (_limiterTried || !story.Director.Has("free") || game.World.StorySprintFree || game.HackShown)
+            return false;
+        _limiterTried = true;
+        Stop(hero);
+        await Tap(Key.Shift);
+        await Wait(1.2);
+        await Picture("limiter-locked");
+        Tell("tried the sprint while the limiter holds it");
+        return true;
+    }
+
+    /// <summary>
+    /// The sprint held as a player would once it is free: while driving ahead, let go when the drive's heat nears full and
+    /// taken up again once it has cooled to a third, except the first time, when it is run until it overheats (its picture).
+    /// </summary>
+    private void Sprint(Game game, Machine hero, bool ahead)
+    {
+        if (game.World.StoryDriveOf(hero.Id) is not { } drive || !game.World.StorySprintFree)
+        {
+            HoldKey(Key.Shift, false);
+            return;
+        }
+        if (_overheats > 0 && drive.Heat >= 0.85f || drive.Blocked)
+            _cooling = true;
+        else if (drive.Heat <= StoryDrive.Resume)
+            _cooling = false;
+        // As a person would, it reads the freed limiter's hint for a moment before it first sprints.
+        var reading = game.World.Story?.Director.Fired.TryGetValue("limiter", out var freed) == true && game.World.Time < freed + 2;
+        HoldKey(Key.Shift, ahead && !_cooling && !reading);
+    }
+
+    /// <summary>After each frame's leg: the sprint's seconds counted, an overheat told and its first one pictured.</summary>
+    private async Task DriveWatched(Game game, Machine hero)
+    {
+        if (game.World.StoryDriveOf(hero.Id) is not { } drive)
+            return;
+        var now = game.World.Time;
+        if (drive.Sprinting && _sprintFrom < 0)
+            _sprintFrom = now;
+        else if (!drive.Sprinting && _sprintFrom >= 0)
+        {
+            _sprinted += now - _sprintFrom;
+            _sprintFrom = -1;
+        }
+        if (drive.Blocked && drive.BlockedAt != _lastBlockedAt)
+        {
+            _lastBlockedAt = drive.BlockedAt;
+            _overheats++;
+            Tell(FormattableString.Invariant($"drive overheated at {now:0.0} s ({_overheats}), sprinted {_sprinted:0.0} s so far"));
+        }
+        // A Grunt goes down: where, and who was nearest (the chases' fairness at the walk).
+        if (game.World.Story is { } run)
+        {
+            foreach (var seat in run.Seats.Skip(1))
+            {
+                if (!game.World.CompanionDown(seat))
+                {
+                    _downSeats.Remove(seat.Value);
+                    continue;
+                }
+                if (!_downSeats.Add(seat.Value) || game.World.HeroOf(seat) is not { } grunt)
+                    continue;
+                var near = new[] { Prologue.ThresherRole, Prologue.ReaperRole, Prologue.CommanderRole, Prologue.HostileRole }.SelectMany(r => run.Director.Of(game.World, r)).Where(m => !m.IsDead)
+                    .OrderBy(m => NVector2.Distance(m.Position, grunt.Position)).FirstOrDefault();
+                Tell(FormattableString.Invariant($"grunt {seat.Value} down at {now:0.0} s at {grunt.Position.X:0.0},{grunt.Position.Y:0.0}, nearest {near?.Spec.TypeName ?? "-"}#{near?.Id} {(near is null ? 0 : NVector2.Distance(near.Position, grunt.Position)):0.0} m"));
+            }
+        }
+        if (drive.Blocked && !_hotShot)
+        {
+            _hotShot = true;
+            await Wait(0.4);
+            await Picture("drive-hot");
+        }
+    }
 
     /// <summary>
     /// A Grunt's seat online: after the Locator, a few metres behind it, and into the pod's zone once its hatch is open (the
@@ -502,6 +594,9 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         var world = game.World;
         if (story.Hacks.Find(target, world.Deck) is not { } found)
             throw new InvalidOperationException($"no hack target {target}");
+        // Plugged in, the leg's clock waits: the core's last board holds for as long as the squad takes to get in.
+        if (_leg == "hack " + target && story.Hacks.Session(target) is { Open: true })
+            _legSince = Time.GetTicksMsec() / 1000.0;
         if (!Go(game, hero, "hack " + target, found.Position, GameWorld.HackReach - 1.5f))
             return;
         var now = Time.GetTicksMsec() / 1000.0;
@@ -590,6 +685,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         if (NVector2.Distance(hero.Position, place) <= near)
         {
             Stop(hero);
+            HoldKey(Key.Shift, false);
             return true;
         }
         if (now < _reverseUntil)
@@ -613,6 +709,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         TurnHull(hero, heading);
         var off = MathF.Abs(Mathf.Wrap(heading - hero.Facing, -Mathf.Pi, Mathf.Pi));
         Hold(KeyMap.Act.Forward, off < 0.6f);
+        Sprint(game, hero, off < 0.3f && NVector2.Distance(hero.Position, place) > near + 3);
         // No headway for three seconds: a moment backwards, then the way again.
         if (NVector2.Distance(hero.Position, _progressFrom) > 0.6f)
             (_progressFrom, _progressAt) = (hero.Position, now);

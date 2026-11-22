@@ -65,6 +65,9 @@ public sealed class StoryRun(StoryOptions options)
     /// <summary>The companions: each Grunt's orders and job, rams' stuns, noises (<see cref="StoryCrew"/>; plan WP-F).</summary>
     public StoryCrew Crew { get; } = new();
 
+    /// <summary>The trio's drives: walking pace, the sprint, its heat (<see cref="StoryDrive"/>).</summary>
+    public StoryDrives Drives { get; } = new();
+
     /// <summary>
     /// The Grunts' radio barks, the newest last (line id, speaker, tick): only the computer's Grunts bark. The director turns
     /// those of each tick into the story's lines; <see cref="CompanionBarks.English"/> has their subtitles.
@@ -97,6 +100,7 @@ public sealed class StoryRun(StoryOptions options)
         hash.Mix(Hacks.Fingerprint());
         hash.Mix(Sight.Fingerprint());
         hash.Mix(Crew.Fingerprint());
+        hash.Mix(Drives.Fingerprint());
         hash.Mix(Director.Fingerprint());
         return hash.Value;
     }

@@ -4875,8 +4875,8 @@ msgstr "Grunts: hier warten"
 msgid "Grunts: distract"
 msgstr "Grunts: ablenken"
 
-msgid "Hack a terminal, take or use what lies before you, send a scanner pulse, switch the lamp. The weapons' triggers are those of Wired's page."
-msgstr "Ein Terminal hacken, nehmen oder benutzen, was vor dir liegt, einen Scannerimpuls senden, den Scheinwerfer schalten. Die Abzüge der Waffen sind die der Seite des Überlebensmodus."
+msgid "Hack a terminal, take or use what lies before you, send a scanner pulse, switch the lamp. Shift held sprints (the left stick's click on a pad) once the story lifts the drive's limiter; it heats the drive. The weapons' triggers are those of Wired's page."
+msgstr "Ein Terminal hacken, nehmen oder benutzen, was vor dir liegt, einen Scannerimpuls senden, den Scheinwerfer schalten. Umschalt gehalten sprintet (am Gamepad der Klick des linken Sticks), sobald die Geschichte den Begrenzer des Antriebs löst; der Sprint heizt den Antrieb auf. Die Abzüge der Waffen sind die der Seite des Überlebensmodus."
 
 msgid "Orders to both Grunts. These work only in the story, which never leaves first person: they may share a key with Wired's, which the story does not use."
 msgstr "Befehle an beide Grunts. Sie gelten nur in der Story, die die Ego-Perspektive nie verlässt: Sie dürfen eine Taste mit dem Überlebensmodus teilen, den die Story nicht nutzt."
@@ -5256,3 +5256,30 @@ msgstr "Fahr gegen eine Kiste, um sie zu schieben; an der Barrikade einer Tür r
 
 msgid "Into cover: the Reapers take aim for a moment before they fire"
 msgstr "In Deckung: Die Reaper zielen einen Moment, bevor sie feuern"
+
+msgid "Limiter's off, L-7! Run!"
+msgstr "Begrenzer raus, L-7! Lauf!"
+
+msgid "DRIVE: MAINTENANCE LIMITER ACTIVE"
+msgstr "ANTRIEB: WARTUNGSBEGRENZER AKTIV"
+
+msgid "SPEED LIMITER ... OVERRIDDEN"
+msgstr "DREHZAHLBEGRENZER ... ÜBERBRÜCKT"
+
+msgid "[{0}] hold: Sprint"
+msgstr "[{0}] halten: Sprinten"
+
+msgid "DRIVE OVERHEATED"
+msgstr "ANTRIEB ÜBERHITZT"
+
+msgid "Engine"
+msgstr "Antrieb"
+
+msgid "Limited"
+msgstr "Begrenzt"
+
+msgid "Hot"
+msgstr "Heiß"
+
+msgid "Shift"
+msgstr "Umschalt"
