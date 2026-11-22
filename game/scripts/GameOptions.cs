@@ -103,8 +103,8 @@ public static class GameOptions
 
     /// <summary>
     /// How strongly the first-person sight is drawn, from 0.1 to 1 (<see cref="Machines.Game.CrosshairOpacity"/>): its rings
-    /// and marks, the spread marks and the dot in the middle; the target's bars, the compass and the brackets of a located
-    /// enemy stay as they are. Half at first. Not in the original. Kept as <c>crosshair_opacity</c>.
+    /// and marks, the target's bars, the compass under it, the spread marks and the dot in the middle; only the brackets of a
+    /// located enemy stay as they are. Half at first. Not in the original. Kept as <c>crosshair_opacity</c>.
     /// </summary>
     public static float CrosshairOpacity
     {

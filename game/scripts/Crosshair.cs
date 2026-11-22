@@ -11,9 +11,9 @@ namespace Machines.Game;
 /// match brackets stand round it over an enemy a geo locator has located. A sighted driver of Wired (the Modern layout) sees
 /// two marks: this sight where the gun points (<see cref="At"/>), with its colour, sounds and spread marks, and a dot in the
 /// middle where the view looks (<see cref="Dot"/>), with the bars and brackets of what it rests on. Left unset, those draw
-/// and sound as the original's single sight. The sight, its spread marks and the dot are drawn as strongly as the options
-/// say (<see cref="GameOptions.CrosshairOpacity"/>, half at first), read every frame so a change shows at once; the target's
-/// bars, the compass and the brackets round a located enemy are read-outs and stay whole.
+/// and sound as the original's single sight. The sight, the target's bars, the compass, the spread marks and the dot are
+/// drawn as strongly as the options say (<see cref="GameOptions.CrosshairOpacity"/>, half at first), read every frame so a
+/// change shows at once; only the brackets round a located enemy, a warning, stay whole.
 /// </summary>
 public partial class Crosshair : Control
 {
@@ -160,7 +160,7 @@ public partial class Crosshair : Control
         {
             _edge = edge;
             // MachGuiFirstPerson::displayHealthArmour: two upright bars beside the sight, filled from the bottom.
-            _strength = 1;
+            _strength = opacity;
             if (Target is { } target)
             {
                 Bar(HealthShades, target.Health, (centre + new Vector2(-33, -9) * scale).Round());
@@ -371,7 +371,7 @@ public partial class Crosshair : Control
     {
         const float Wide = 48, Turn = 160;
         if (Outlined && _edge)
-            DrawRect(new Rect2(topLeft, new Vector2(Wide, 9) * _s).Grow(_s), new Color(0, 0, 0, 0.6f));
+            DrawRect(new Rect2(topLeft, new Vector2(Wide, 9) * _s).Grow(_s), new Color(0, 0, 0, 0.6f * _strength));
         // The strip's left end, in pixels east of north.
         var start = Mathf.PosMod(Heading, 360) / 360 * Turn - Wide / 2;
         var size = Mathf.RoundToInt(7 * _s);
