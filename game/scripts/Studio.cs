@@ -103,6 +103,15 @@ public partial class Studio : Node
         _assets = new ClassicAssets(Paths.Root);
         BuildStage();
 
+        // MACHINES_STUDIO_HITBOX=1: the story's machines against their hitboxes instead (Studio.Hitbox).
+        if (System.Environment.GetEnvironmentVariable("MACHINES_STUDIO_HITBOX") == "1")
+        {
+            Directory.CreateDirectory(output);
+            await HitboxSheets(output);
+            GetTree().Quit();
+            return;
+        }
+
         // MACHINES_STUDIO_WALK=<model id>[,<frames>]: the machine walking on the spot instead, a picture a frame.
         if (System.Environment.GetEnvironmentVariable("MACHINES_STUDIO_WALK") is { Length: > 0 } walk)
         {

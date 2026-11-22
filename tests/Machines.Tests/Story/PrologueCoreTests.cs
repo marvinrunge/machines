@@ -257,8 +257,9 @@ public class PrologueCoreTests(ITestOutputHelper output)
                 broken ??= world.Time;
             if (run.Director.Has("storm_sight") && stormed is null)
                 (stormed, whole) = (world.Time, locator.HitPoints);
-            // The Locator stands in the open at the console a few seconds after they storm in, then takes cover by the vent.
-            if (stormed is { } since && open is null && world.Time >= since + 3)
+            // The Locator stands in the open at the console a few seconds after they storm in, then takes cover by the vent
+            // (four: their rounds hurt only where they meet its body, and the first to do so came after three).
+            if (stormed is { } since && open is null && world.Time >= since + 4)
             {
                 open = locator.HitPoints;
                 locator.Position = new Vector2(219, 262);
