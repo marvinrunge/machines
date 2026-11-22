@@ -26,8 +26,8 @@ public class SimulationTests
 {
     private static readonly Lazy<GameData> DataLoader = new(() => GameData.Load(RepoPaths.OriginalDataFolder()));
 
-    private static GameWorld NewMatch(Controller red = Controller.Ai, int seed = 7) =>
-        MatchSetup.Create(DataLoader.Value, "m_desert", "m_desert", new Dictionary<Race, Controller> { [Race.Red] = red, [Race.Blue] = Controller.Ai }, seed);
+    private static GameWorld NewMatch(Controller red = Controller.Ai, int seed = 7, Controller blue = Controller.Ai) =>
+        MatchSetup.Create(DataLoader.Value, "m_desert", "m_desert", new Dictionary<Race, Controller> { [Race.Red] = red, [Race.Blue] = blue }, seed);
 
     [Fact]
     public void Match_starts_as_the_scenario_says()
@@ -320,7 +320,8 @@ public class SimulationTests
     [Fact]
     public void Machines_that_turn_their_upper_body_aim_with_it_the_others_turn_to_face()
     {
-        var world = NewMatch(red: Controller.Player);
+        // Blue played by a person: its computer would take the target into a squad that lacks a Grunt 1 and drive it off.
+        var world = NewMatch(red: Controller.Player, blue: Controller.Player);
         // BODY_TURN_LINK: none for a level-1 Grunt, "body" for a level-2 one.
         var twister = world.AddMachine(Race.Red, new Vector2(800, 800), "AGGRESSOR", "GRUNT", 2, "L_BOLTER");
         var stiff = world.AddMachine(Race.Red, new Vector2(800, 820), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");

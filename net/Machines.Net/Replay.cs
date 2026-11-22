@@ -33,26 +33,28 @@ public sealed record Replay(MatchInfo Match, IReadOnlyList<Turn> Turns, long Tic
         if (stamp.Format < OldestFormat)
             throw new RecordingTooOldException();
         var replay = JsonSerializer.Deserialize<Replay>(json, NetJson.Options) ?? throw new JsonException("empty replay");
-        // A match recorded before machines had fitted bodies played with the original's circles, and plays back so: its
-        // options lack the field, which would otherwise read as today's default.
+        // A match recorded before machines had fitted bodies played with the original's circles, one recorded before the
+        // computers' skirmish rules with the AI as it was, and a Wired run recorded before brisk waves had none; each plays
+        // back so: its options lack the field, which would otherwise read as today's default.
         var options = replay.Match.Options;
         if (stamp.Match?.Options?.FittedBodies is null)
             options = options with { FittedBodies = false };
-        // A Wired run recorded before brisk waves had none, and plays back so, for the same reason.
+        if (stamp.Match?.Options?.SkirmishAi is null)
+            options = options with { SkirmishAi = false };
         if (options.Wired is { } wired && stamp.Match?.Options?.Wired?.BriskWaves is null)
             options = options with { Wired = wired with { BriskWaves = false } };
         return options == replay.Match.Options ? replay : replay with { Match = replay.Match with { Options = options } };
     }
 
     /// <summary>
-    /// The fields of a recording read before the rest: its format, and whether its options say how machines' bodies are
-    /// shaped and whether a Wired run's waves are brisk ones.
+    /// The fields of a recording read before the rest: its format, and which of the options added since its options name
+    /// (machines' fitted bodies, the computers' skirmish rules, and whether a Wired run's waves are brisk ones).
     /// </summary>
     private sealed record Stamp(int Format = 0, StampedMatch? Match = null);
 
     private sealed record StampedMatch(StampedOptions? Options = null);
 
-    private sealed record StampedOptions(bool? FittedBodies = null, StampedWired? Wired = null);
+    private sealed record StampedOptions(bool? FittedBodies = null, bool? SkirmishAi = null, StampedWired? Wired = null);
 
     private sealed record StampedWired(bool? BriskWaves = null);
 

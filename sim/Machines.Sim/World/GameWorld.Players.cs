@@ -128,7 +128,11 @@ public sealed partial class GameWorld
             {
                 state.Controller = Controller.Ai;
                 if (!AiControllers.Any(ai => ai.Race == race))
-                    AiControllers.Add(standIn());
+                {
+                    var stand = standIn();
+                    stand.StandsIn = true;
+                    AiControllers.Add(stand);
+                }
             }
         }
         LetGoOfAwayWheels(race);

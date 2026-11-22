@@ -83,6 +83,9 @@ public sealed partial class GameWorld
             return;
 
         var key = factory.ProductionQueue[0];
+        // A computer saving for a mine builds only what brings money in, and nothing while a mine is being built (MatchOptions.TunedAi).
+        if (AiHolds(factory.Race) && !Ai.AiController.BuildsWhileSaving(Races[factory.Race], key))
+            return;
         var item = Data.ResearchTree.Find(key);
         if (item is null)
         {
@@ -199,14 +202,16 @@ public sealed partial class GameWorld
         var item = Data.ResearchTree.Get(key);
         var cost = ResearchCost(lab.Race, item);
 
-        var units = TotalResearchRate(lab) / 60f * Dt;
+        // A hard computer researches half as fast again (MatchOptions.TunedAi), as it earns half as much again.
+        var units = TotalResearchRate(lab) / 60f * Dt * (Options.TunedAi && AiPlays(lab.Race) ? MatchOptions.AiResearch(Options.AiLevel) : 1);
         state.ResearchProgress.TryGetValue(key, out var progress);
         units = MathF.Min(units, MathF.Max(0, cost - progress));
 
         // BUILDING_COST is drawn in step with progress. The original let research run on an empty bank
-        // (a stray semicolon in hwlab.cpp); the remake pauses it instead.
+        // (a stray semicolon in hwlab.cpp); the remake pauses it instead, but for a computer in a skirmish
+        // (MatchOptions.TunedAi), which pays what there is and goes on, unless it is saving for a mine.
         var bmu = cost == 0 ? 0 : item.BuildingCost * units / cost;
-        if (bmu > state.Bmu)
+        if (Options.TunedAi && state.HoldResearch && AiPlays(lab.Race) || bmu > state.Bmu && !(Options.TunedAi && AiPlays(lab.Race)))
             return;
         SpendBmu(lab.Race, bmu);
         state.Score.ResearchUnits += units;
@@ -223,6 +228,12 @@ public sealed partial class GameWorld
                 SendVoiceMail(lab.Race, "VID_TECHNICIAN_RESEARCHING_NEXT");
         }
     }
+
+    /// <summary>Whether a computer of its own plays the race now, not a stand-in for a player who left (Ai.AiController.StandsIn).</summary>
+    private bool AiPlays(Race race) => AiControllers.Any(ai => ai.Race == race && !ai.StandsIn);
+
+    /// <summary>Whether the race's computer holds its factories and labs to save for a mine (<see cref="RaceState.Hold"/>).</summary>
+    private bool AiHolds(Race race) => Options.TunedAi && Races[race].Hold && AiPlays(race);
 
     private void RegrowArmour()
     {

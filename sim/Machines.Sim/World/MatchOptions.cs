@@ -131,6 +131,22 @@ public sealed record MatchOptions
     /// </summary>
     public AiLevel AiLevel { get; init; } = AiLevel.Normal;
 
+    /// <summary>
+    /// Whether the computers of a skirmish play as since 0.7.7 (<see cref="TunedAi"/>): a machine joins the squad that
+    /// still lacks its kind, as the original put a new machine into the squad that ordered it, so no squad orders the
+    /// same machine over and over; a geo locator drives straight to the nearest deposit it has not found, as the
+    /// original's did (MachLogTaskLocateOperation), and gives up on one it cannot reach; a computer without a mine
+    /// working holds its factories and labs to save for one; each computer goes for a rival of its own rather than the
+    /// nearest of all, so that no two fall upon one race together; and its labs research on an empty bank, as the
+    /// original's did for everyone (hwlab.cpp). Campaign missions keep the computers as they were. Recordings made
+    /// before say false, so they play back as they were played.
+    /// </summary>
+    public bool SkirmishAi { get; init; } = true;
+
+    /// <summary>Whether the computers play as <see cref="SkirmishAi"/> says: in a skirmish, never in a campaign mission.</summary>
+    [JsonIgnore]
+    public bool TunedAi => SkirmishAi && Victory != VictoryCondition.Scripted;
+
     /// <summary>For a campaign mission: what it takes over from the missions the player won before.</summary>
     public CampaignCarry? Campaign { get; init; }
 
@@ -154,6 +170,9 @@ public sealed record MatchOptions
         AiLevel.Hard => 1.5f,
         _ => 1,
     };
+
+    /// <summary>How fast an AI race researches, at <paramref name="level"/>, where <see cref="TunedAi"/> holds: a hard one half as fast again.</summary>
+    public static float AiResearch(AiLevel level) => level == AiLevel.Hard ? 1.5f : 1;
 
     /// <summary>How much later than the script says an AI squad sets out, at <paramref name="level"/>.</summary>
     public static float AiDelay(AiLevel level) => level switch

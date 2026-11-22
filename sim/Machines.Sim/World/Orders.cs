@@ -147,6 +147,23 @@ public sealed class RaceState(Race race, Controller controller)
     public int ConstructionsReached { get; set; } = -1;
 
     public bool Defeated { get; set; }
+
+    /// <summary>
+    /// A computer saving for a mine holds its factories (but for locators, constructors and carriers), so its BMUs go into
+    /// one (<see cref="MatchOptions.TunedAi"/>). Only the race's AI sets it; it holds while one plays the race.
+    /// </summary>
+    public bool Hold { get; set; }
+
+    /// <summary>While a mine waits for its BMUs the computer's labs hold too (<see cref="Hold"/>).</summary>
+    public bool HoldResearch { get; set; }
+
+    /// <summary>
+    /// While a mine is being built the computer's factories hold the machines that bring money in as well, else a
+    /// constructor or carrier takes the trickle the mine waits for (<see cref="Hold"/>). A race without a constructor
+    /// still builds one.
+    /// </summary>
+    public bool HoldEarners { get; set; }
+
     public bool StartedWithPod { get; set; }
 
     /// <summary>The level of beacon the scenario's VIRTUAL_BEACON gives the race without building one; 0 for none.</summary>

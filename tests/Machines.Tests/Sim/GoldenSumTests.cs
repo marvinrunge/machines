@@ -19,7 +19,9 @@ namespace Machines.Tests.Sim;
 /// the relay brings it, the commands made by the players' scripts (<see cref="GoldenScript"/>). Each match's recording is
 /// saved, loaded and played back to the same sums. G1 to G9 were taken before machines had fitted bodies and keep the
 /// original's circles (<see cref="MatchOptions.FittedBodies"/> false, as a recording from then plays back); G10 to G12 play
-/// G1, G3 and G4 in fitted bodies, as every match since does.
+/// G1, G3 and G4 in fitted bodies, as every match since does. G2, the one of G1 to G12 with computers in a skirmish, keeps
+/// them as they played before their skirmish rules (<see cref="MatchOptions.SkirmishAi"/> false); G13 plays G2 with them,
+/// in fitted bodies, on hard.
 /// </summary>
 /// <remarks>
 /// The constants were copied from the printed <c>0x…UL</c> and held three runs in a row. Later changes may adapt the calls
@@ -159,6 +161,9 @@ public class GoldenSumTests(ITestOutputHelper output)
     public void A_wired_run_in_fitted_bodies_keeps_its_sums() => Play(GoldenCase.FittedWired, FittedWiredSums);
 
     [Fact]
+    public void A_four_way_skirmish_of_the_skirmish_ai_keeps_its_sums() => Play(GoldenCase.SkirmishAiFourWay, SkirmishAiFourWaySums);
+
+    [Fact]
     public void A_battle_in_fitted_bodies_keeps_its_sums_and_result()
     {
         var match = Play(GoldenCase.FittedBattle, FittedBattleSums);
@@ -188,4 +193,7 @@ public class GoldenSumTests(ITestOutputHelper output)
     private static readonly ulong[] FittedWiredSums = [0x1C76934880D9A3AEUL, 0x256447DCE64C3DB2UL, 0x0CA3C903AB0292F4UL];
     private static readonly ulong[] FittedBattleSums = [0xE142FCCC97986C2BUL, 0x8D3C8E387ECDB623UL, 0x321387CCEE7FB575UL, 0xB08337D69BEC8611UL];
     private static readonly BattleResult FittedBattleEnded = new(1, BattleEnd.Wipe, 533.10004f);
+    // G13 is G2 as matches play since the computers' skirmish rules (MatchOptions.SkirmishAi), in fitted bodies and on hard,
+    // taken on community/skirmish-ai and held three runs; taken again once computers took rivals and held three runs.
+    private static readonly ulong[] SkirmishAiFourWaySums = [0xA2A24E06F100B9C2UL, 0x78EE3A7B1A0BAB93UL, 0x439ED5EF36FA0FECUL, 0x8250910FB8821657UL];
 }

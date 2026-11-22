@@ -69,7 +69,9 @@ public sealed partial class GameWorld
         if (!Races.TryGetValue(race, out var state) || state.Controller == Controller.Ai || !StandIns.TryGetValue(race, out var standIn))
             return;
         state.Controller = Controller.Ai;
-        AiControllers.Add(standIn());
+        var stand = standIn();
+        stand.StandsIn = true;
+        AiControllers.Add(stand);
     }
 
     /// <summary>A player takes their race back from the AI (they rejoined a network match).</summary>

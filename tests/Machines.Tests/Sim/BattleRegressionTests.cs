@@ -26,8 +26,11 @@ public class BattleRegressionTests(ITestOutputHelper output)
         return [.. sums];
     }
 
-    /// <summary>The original's circles, as the constants were taken before machines had fitted bodies (MatchOptions.FittedBodies).</summary>
-    private static MatchOptions Circles => new() { FittedBodies = false };
+    /// <summary>
+    /// The original's circles and the computers as they played, as the constants were taken before machines had fitted bodies
+    /// (MatchOptions.FittedBodies) and before the computers' skirmish rules (MatchOptions.SkirmishAi).
+    /// </summary>
+    private static MatchOptions Circles => new() { FittedBodies = false, SkirmishAi = false };
 
     private static GameWorld Normal() => MatchSetup.Create(Data, "m_desert", "m_desert",
         new Dictionary<Race, Controller> { [Race.Red] = Controller.Ai, [Race.Blue] = Controller.Ai }, seed: 11, Circles);
