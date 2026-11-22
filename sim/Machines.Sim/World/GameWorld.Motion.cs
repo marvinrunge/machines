@@ -651,7 +651,7 @@ public sealed partial class GameWorld
     private bool MakeWay(Machine machine, Vector2 from, Vector2 to, float askerClearance)
     {
         if (!IsResting(machine) || machine.DrivenByPlayer || machine.Inside is not null || machine.Doorway is not null
-            || _aside.ContainsKey(machine.Id))
+            || _aside.ContainsKey(machine.Id) || Story is not null && StoryStill(machine))
             return false;
         var direction = to - from;
         if (direction.LengthSquared() < 1e-12f)
@@ -772,6 +772,12 @@ public sealed partial class GameWorld
     {
         if (!_aside.TryGetValue(machine.Id, out var aside))
             return false;
+        // Held by the story since it was asked (put to sleep, held for the pod): it stays.
+        if (Story is not null && StoryStill(machine))
+        {
+            _aside.Remove(machine.Id);
+            return false;
+        }
         if (machine.DrivenByPlayer || Travel(machine, aside, 0, Way.Aside) >= aside.Count)
         {
             _aside.Remove(machine.Id);

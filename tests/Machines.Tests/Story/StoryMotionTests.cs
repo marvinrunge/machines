@@ -98,4 +98,62 @@ public class StoryMotionTests
 
         Assert.True(Hero(world, Locator).Position.X <= 64, $"the Locator stands at {Hero(world, Locator).Position}, Ike at {Hero(world, Ike).Position}, Bob at {Hero(world, Bob).Position}");
     }
+
+    [Fact]
+    public void A_grunt_still_asleep_in_its_clamp_never_steps_aside()
+    {
+        var world = Prologue();
+        world.OpenDoor('B');
+        // Bob hangs asleep in its clamp, which the bot plays; the Locator drives straight into it, and Ike, awake and sent
+        // past it, runs into it as well.
+        world.SetCompanionDormant(Bob, true);
+        Place(world, Locator, new Vector2(93, 47), MathF.PI);
+        Place(world, Bob, new Vector2(84, 47), MathF.PI / 2);
+        Place(world, Ike, new Vector2(75, 47));
+        var bob = Hero(world, Bob);
+        for (var i = 0; i < 20; i++)
+            world.Step();
+        var (clamped, facing) = (bob.Position, bob.Facing);
+
+        for (var tick = 0; tick < 6 * GameWorld.TicksPerSecond; tick++)
+        {
+            Drive(world, 1);
+            world.Step();
+            Assert.True(bob.Position == clamped && bob.Facing == facing, $"tick {tick}: Bob left its clamp for {bob.Position.X:F3}, {bob.Position.Y:F3} facing {bob.Facing:F3}");
+        }
+        Assert.True(Hero(world, Locator).Position.X > clamped.X, "the Locator drove through Bob");
+        Place(world, Locator, new Vector2(90, 58), MathF.PI);
+
+        // Ike on an order across the bay through where Bob hangs.
+        world.Issue(new MoveCommand(Race.Red, [Hero(world, Ike).Id], new Vector2(93, 47)) { Issuer = Ike });
+        for (var tick = 0; tick < 10 * GameWorld.TicksPerSecond; tick++)
+        {
+            world.Step();
+            Assert.True(bob.Position == clamped && bob.Facing == facing, $"tick {tick}: Bob left its clamp for {bob.Position.X:F3}, {bob.Position.Y:F3} facing {bob.Facing:F3}");
+        }
+        Assert.IsNotType<EvadeOrder>(bob.Order);
+    }
+
+    [Fact]
+    public void A_machine_the_story_holds_still_is_not_asked_to_make_way()
+    {
+        var world = Prologue();
+        world.OpenDoor('B');
+        // Bob awake and computer-driven, but held by the director (as all three are while the pod is boarded).
+        Place(world, Locator, new Vector2(93, 47), MathF.PI);
+        Place(world, Bob, new Vector2(84, 47), MathF.PI / 2);
+        world.Issue(new StoryOrderCommand(Race.Red, CompanionOrder.Wait, Vector2.Zero) { Issuer = Locator });
+        for (var i = 0; i < 20; i++)
+            world.Step();
+        var bob = Hero(world, Bob);
+        world.Story!.Director.Held.Add(bob.Id);
+        var still = bob.Position;
+
+        for (var tick = 0; tick < 6 * GameWorld.TicksPerSecond; tick++)
+        {
+            Drive(world, 1);
+            world.Step();
+        }
+        Assert.Equal(still, bob.Position);
+    }
 }
