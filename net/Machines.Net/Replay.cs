@@ -33,19 +33,23 @@ public sealed record Replay(MatchInfo Match, IReadOnlyList<Turn> Turns, long Tic
         if (stamp.Format < OldestFormat)
             throw new RecordingTooOldException();
         var replay = JsonSerializer.Deserialize<Replay>(json, NetJson.Options) ?? throw new JsonException("empty replay");
-        // A match recorded before machines had fitted bodies played with the original's circles, and plays back so: its
-        // options lack the field, which would otherwise read as today's default.
-        return stamp.Match?.Options?.FittedBodies is null
-            ? replay with { Match = replay.Match with { Options = replay.Match.Options with { FittedBodies = false } } }
-            : replay;
+        // A match recorded before machines had fitted bodies played with the original's circles, and one recorded before the
+        // computers' skirmish rules with the AI as it was; each plays back so: its options lack the field, which would
+        // otherwise read as today's default.
+        var options = replay.Match.Options;
+        if (stamp.Match?.Options?.FittedBodies is null)
+            options = options with { FittedBodies = false };
+        if (stamp.Match?.Options?.SkirmishAi is null)
+            options = options with { SkirmishAi = false };
+        return options == replay.Match.Options ? replay : replay with { Match = replay.Match with { Options = options } };
     }
 
-    /// <summary>The fields of a recording read before the rest: its format, and whether its options say how machines' bodies are shaped.</summary>
+    /// <summary>The fields of a recording read before the rest: its format, and which of the options added since its options name.</summary>
     private sealed record Stamp(int Format = 0, StampedMatch? Match = null);
 
     private sealed record StampedMatch(StampedOptions? Options = null);
 
-    private sealed record StampedOptions(bool? FittedBodies = null);
+    private sealed record StampedOptions(bool? FittedBodies = null, bool? SkirmishAi = null);
 
     /// <summary>
     /// The saved games in a folder that belong to a campaign player, which go when the player does. Files that do not

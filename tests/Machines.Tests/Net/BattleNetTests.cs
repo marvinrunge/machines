@@ -39,7 +39,7 @@ public class BattleNetTests
     }
 
     [Fact]
-    public void The_protocol_went_up_for_fitted_bodies() => Assert.Equal(15, NetJson.Protocol);
+    public void The_protocol_went_up_for_the_skirmish_ai() => Assert.Equal(16, NetJson.Protocol);
 
     [Fact]
     public void The_options_of_a_battle_and_its_heroes_come_through_the_wire()

@@ -87,13 +87,22 @@ internal sealed record GoldenCase(string Name, MatchInfo Match, int[] Ticks, Fun
     public static GoldenCase FittedBattle => new("G12 battle in fitted bodies", CommandedBattle(fitted: true), [400, 2000, 4000, 12000],
         () => [new BattleScript(Race.Red, 401), new BattleScript(Race.Green, 402)]);
 
-    public static IReadOnlyList<GoldenCase> All => [Skirmish, FourWay, Wired, Battle, BotBattle, LeaverBattle, ReturningBattle, Orders, WiredOrders, FittedSkirmish, FittedWired, FittedBattle];
+    /// <summary>
+    /// G13: G2 as a match plays since the computers' skirmish rules (<see cref="MatchOptions.SkirmishAi"/>), in fitted
+    /// bodies, with the computers on hard; ten minutes, so they find their deposits, save for mines and build.
+    /// </summary>
+    public static GoldenCase SkirmishAiFourWay => new("G13 four-way of the skirmish AI", Relayed("fortmult", "fortmult", new MatchOptions { AiLevel = AiLevel.Hard }, 3, [Race.Red, Race.Yellow], [Race.Blue, Race.Green]),
+        [1000, 2000, 4000, 12000], () => [new SkirmishScript(Race.Red, 201, alliances: true), new SkirmishScript(Race.Yellow, 202, alliances: true)],
+        new PlayerLeft(PlayerId.Of(Race.Yellow), 600), new PlayerReturned(PlayerId.Of(Race.Yellow), 1400));
+
+    public static IReadOnlyList<GoldenCase> All => [Skirmish, FourWay, Wired, Battle, BotBattle, LeaverBattle, ReturningBattle, Orders, WiredOrders, FittedSkirmish, FittedWired, FittedBattle, SkirmishAiFourWay];
 
     /// <summary>
-    /// The options of G1 to G9, taken before machines had fitted bodies: the original's circles, as a recording from then
-    /// plays back (<see cref="Replay.Load"/>), so their sums stay as they were taken.
+    /// The options of G1 to G9, taken before machines had fitted bodies and before the computers' skirmish rules: the
+    /// original's circles and the AI as it was, as a recording from then plays back (<see cref="Replay.Load"/>), so their
+    /// sums stay as they were taken.
     /// </summary>
-    private static MatchOptions Circles => new() { FittedBodies = false };
+    private static MatchOptions Circles => new() { FittedBodies = false, SkirmishAi = false };
 
     private static MatchInfo CommandedBattle(bool fitted = false) =>
         RelayedBattle("m_desert", new BattleOptions { Tier = 3, Lives = 2 }, 5, fitted, (Race.Red, 3), (Race.Green, 2));

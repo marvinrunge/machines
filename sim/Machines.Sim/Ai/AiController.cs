@@ -57,7 +57,11 @@ public sealed partial class AiController(Race race, AiScript script, RaceSetup s
             return;
 
         var mine = world.Machines.Where(m => m.Race == Race && !m.IsDead).ToList();
-        AssignToSquads(mine);
+        _tuned = world.Options.TunedAi;
+        if (_tuned)
+            SaveForMine(world);
+        _upgrades = _tuned && world.Options.AiLevel == AiLevel.Hard;
+        AssignToSquads(world, mine);
         SetDefCons(mine);
         StaffLabs(world, mine);
         Research(world);
@@ -88,7 +92,7 @@ public sealed partial class AiController(Race race, AiScript script, RaceSetup s
 
     // ---- squads and production ------------------------------------------------------------------
 
-    private void AssignToSquads(List<Machine> machines)
+    private void AssignToSquads(GameWorld world, List<Machine> machines)
     {
         // Each squad's members that fill one of its places, counted once and kept up as machines join.
         var have = _squads.Values.ToDictionary(s => s.Squad.Number,
@@ -98,7 +102,7 @@ public sealed partial class AiController(Race race, AiScript script, RaceSetup s
             foreach (var state in _squads.Values.Where(s => !s.Abandoned))
             {
                 var wanted = state.Squad.Members.Where(o => Matches(o.Machine, machine)).Sum(o => o.Count);
-                if (wanted > have[state.Squad.Number])
+                if (_tuned ? Lacks(state, machine, machines) : wanted > have[state.Squad.Number])
                 {
                     machine.Squad = state.Squad.Number;
                     have[state.Squad.Number]++;
@@ -107,6 +111,95 @@ public sealed partial class AiController(Race race, AiScript script, RaceSetup s
             }
         }
     }
+
+    /// <summary>
+    /// Whether the squad still lacks a machine of this one's kind, counted place by place as <see cref="Produce"/>
+    /// orders them. Without <see cref="MatchOptions.TunedAi"/> the squad's other members filled the place too: in a
+    /// squad of several kinds the machine never joined, and the squad ordered it again and again.
+    /// </summary>
+    private bool Lacks(SquadState state, Machine machine, List<Machine> machines) =>
+        state.Squad.Members.Where(o => Fills(state, o.Machine, KeyOf(machine))).GroupBy(o => o.Machine)
+            .Any(places => machines.Count(m => m.Squad == state.Squad.Number && Fills(state, places.Key, KeyOf(m))) < places.Sum(o => o.Count));
+
+    private static ResearchKey KeyOf(Machine machine) =>
+        new(machine.Spec.Type, machine.Spec.SubType, machine.Stats.HardwareLevel, machine.WeaponCombo);
+
+    /// <summary>Whether a hard computer builds better machines than its script asks for (<see cref="Upgrade"/>); set each think.</summary>
+    private bool _upgrades;
+
+    /// <summary>
+    /// Whether a machine of this kind fills the squad's place. With <see cref="MatchOptions.TunedAi"/> a locating squad
+    /// takes a geo locator of any level: a script that asks for a level its race cannot build yet (mmoony's yellow
+    /// wants a level 2) otherwise leaves the race's level-1 locator standing, and the race never finds a deposit. A
+    /// hard computer's fighter of a higher level fills a lower one's place (<see cref="Upgrade"/>).
+    /// </summary>
+    private bool Fills(SquadState state, ResearchKey place, ResearchKey kind) =>
+        place.Type == kind.Type && place.SubType == kind.SubType
+        && (place.HardwareLevel == kind.HardwareLevel && (place.WeaponCombo is null || place.WeaponCombo == kind.WeaponCombo)
+            || _tuned && place.Type == "GEO_LOCATOR" && state.Squad.Operations.Any(o => o is LocateOperation)
+            || _upgrades && Fighter(place) && kind.HardwareLevel > place.HardwareLevel);
+
+    /// <summary>Whether the match plays by <see cref="MatchOptions.TunedAi"/>; set each think.</summary>
+    private bool _tuned;
+
+    private static bool Fighter(ResearchKey key) => key.Type is "AGGRESSOR" or "ADMINISTRATOR";
+
+    /// <summary>
+    /// What a hard computer builds for a fighter's place (<see cref="MatchOptions.TunedAi"/>): the highest level of the
+    /// same machine its race has researched and a factory of its can build, with the place's weapons where that level
+    /// has them, else the first that level has in the research tree. The scripts ask for the levels the original
+    /// could afford with its free BMUs; without them the squads asked for early stay at level 1 and 2 all game.
+    /// </summary>
+    private ResearchKey Upgrade(GameWorld world, RaceState state, List<Construction> factories, ResearchKey place)
+    {
+        if (!_upgrades || state.Hold || !Fighter(place))
+            return place;
+        ResearchKey? best = null;
+        foreach (var item in world.Data.ResearchTree.Items)
+        {
+            var key = item.Key;
+            if (key.Type != place.Type || key.SubType != place.SubType || key.HardwareLevel <= place.HardwareLevel
+                || best is { } so && (key.HardwareLevel < so.HardwareLevel || key.HardwareLevel == so.HardwareLevel && (so.WeaponCombo == place.WeaponCombo || key.WeaponCombo != place.WeaponCombo))
+                || !state.Researched.Contains(key) || !factories.Any(f => world.Data.FactoryOffer(f.Spec.SubType!, f.Stats.HardwareLevel).Contains(key)))
+                continue;
+            best = key;
+        }
+        return best ?? place;
+    }
+
+    /// <summary>What a computer saving for a mine still builds: the machines that find, build and fetch its money.</summary>
+    public static bool Earns(ResearchKey key) => key.Type is "GEO_LOCATOR" or "CONSTRUCTOR" or "RESOURCE_CARRIER";
+
+    /// <summary>
+    /// The 1999 AI could not run dry (its factories had free BMUs), so it never had to save; the remake's does
+    /// (<see cref="MatchOptions.TunedAi"/>). Without a mine working and with under 200 BMUs, or nearly broke with a mine
+    /// to place or finish, its factories hold (<see cref="RaceState.Hold"/>) and what is queued and not yet started is
+    /// taken off, but for the machines that bring money in; while a mine waits for its BMUs its labs hold too
+    /// (<see cref="RaceState.HoldResearch"/>). Else they take the pod's trickle as it comes and the bank never holds the
+    /// price of a mine.
+    /// </summary>
+    private void SaveForMine(GameWorld world)
+    {
+        var state = world.Races[Race];
+        var working = world.Constructions.Any(c => c.Race == Race && c.Complete && c.IsType("MINE"));
+        var mineWaits = world.Constructions.Any(c => c.Race == Race && !c.Complete && c.IsType("MINE"))
+            || Plans(world).Any(p => p.Type == "MINE" && p.Sites.Any(s => world.Sites.Any(x => x.DiscoveredBy.Contains(Race) && Vector2.DistanceSquared(x.Position, s.Position) < 1)));
+        state.Hold = !working && state.Bmu < SavingFloor || state.Bmu < GameWorld.MinimumBmuToPlace * 2 && mineWaits;
+        state.HoldResearch = state.Hold && mineWaits;
+        if (!state.Hold)
+            return;
+        foreach (var factory in world.Constructions.Where(c => c.Race == Race && c.Complete && c.IsType("FACTORY")))
+        {
+            for (var i = factory.ProductionQueue.Count - 1; i >= 0; i--)
+            {
+                if (!Earns(factory.ProductionQueue[i]) && (i > 0 || factory.ProductionSpent == 0))
+                    world.Issue(new CancelProductionCommand(Race, factory.Id, i));
+            }
+        }
+    }
+
+    /// <summary>The BMUs a computer without a mine keeps in hand (<see cref="SaveForMine"/>).</summary>
+    private const float SavingFloor = 200;
 
     /// <summary>A squad's DEFCON line holds for every machine that joins it (MachLogSquadron::autoSetDefCon, addToControl).</summary>
     private void SetDefCons(List<Machine> machines)
@@ -139,14 +232,24 @@ public sealed partial class AiController(Race race, AiScript script, RaceSetup s
 
         // Each squad sees to its own places (MachLogSquadron::update); what is on order goes to the first that needs it.
         var onOrder = queued.GroupBy(k => k).ToDictionary(g => g.Key, g => g.Count());
+        // With TunedAi what is on order is matched to places as the machines will be (Fills), so an upgraded one counts.
+        var pending = queued.ToList();
         foreach (var squad in _squads.Values.Where(s => !s.Abandoned).OrderBy(s => s.Squad.Number))
         {
             foreach (var places in squad.Squad.Members.OrderBy(o => o.Priority).GroupBy(o => o.Machine))
             {
-                var have = machines.Count(m => m.Squad == squad.Squad.Number && Matches(places.Key, m));
+                var have = machines.Count(m => m.Squad == squad.Squad.Number && Fills(squad, places.Key, KeyOf(m)));
                 for (var i = have; i < places.Sum(o => o.Count); i++)
                 {
-                    if (onOrder.GetValueOrDefault(places.Key) > 0)
+                    if (_tuned)
+                    {
+                        var ordered = pending.FindIndex(k => Fills(squad, places.Key, k));
+                        if (ordered >= 0)
+                            pending.RemoveAt(ordered);
+                        else
+                            wants.Add(Upgrade(world, state, factories, places.Key));
+                    }
+                    else if (onOrder.GetValueOrDefault(places.Key) > 0)
                         onOrder[places.Key]--;
                     else
                         wants.Add(places.Key);
@@ -156,7 +259,7 @@ public sealed partial class AiController(Race race, AiScript script, RaceSetup s
 
         foreach (var key in wants.Distinct())
         {
-            if (!state.Researched.Contains(key))
+            if (!state.Researched.Contains(key) || world.Options.TunedAi && state.Hold && !Earns(key))
                 continue;
 
             var factory = factories
@@ -248,6 +351,12 @@ public sealed partial class AiController(Race race, AiScript script, RaceSetup s
         if (found >= locate.DesiredSites)
             return;
 
+        if (world.Options.TunedAi)
+        {
+            LocateNearest(world, locate, members);
+            return;
+        }
+
         var pod = Pod(world);
         if (pod is null)
             return;
@@ -262,6 +371,54 @@ public sealed partial class AiController(Race race, AiScript script, RaceSetup s
             var target = pod.Position + new Vector2(DetMath.Cos(angle), DetMath.Sin(angle)) * radius;
             target = Vector2.Clamp(target, new Vector2(10, 10), new Vector2(world.Planet.Surface.Width - 10, world.Planet.Surface.Depth - 10));
             world.Issue(new LocateCommand(Race, [locator.Id], target));
+        }
+    }
+
+    /// <summary>Where each locator was sent and by when it should be there (<see cref="LocateNearest"/>).</summary>
+    private readonly Dictionary<int, (int Site, float Until)> _locating = [];
+
+    /// <summary>Deposits a locator was sent to and did not reach in time; they are not tried again.</summary>
+    private readonly HashSet<int> _unreachable = [];
+
+    /// <summary>
+    /// MachLogTaskLocateOperation::doUpdate: the original's AI knew where the deposits were and sent its locator straight
+    /// to the nearest one not yet found, within RANGE_POD of it. One it does not reach in thrice the drive there (at the
+    /// half speed of a locator searching) and a minute more is given up, so it goes on to the next.
+    /// </summary>
+    private void LocateNearest(GameWorld world, LocateOperation locate, List<Machine> members)
+    {
+        foreach (var locator in members.Where(m => m.Spec.Type == "GEO_LOCATOR"))
+        {
+            if (locator.Order is not (IdleOrder or LocateOrder))
+                continue;
+            if (_locating.TryGetValue(locator.Id, out var sent))
+            {
+                // Found, it drives on to the point it was sent to; not found, it is given up once it stops short or is late.
+                var found = world.Sites[sent.Site].DiscoveredBy.Contains(Race);
+                if (locator.Order is LocateOrder && (found || world.Time < sent.Until))
+                    continue;
+                if (!found)
+                    _unreachable.Add(sent.Site);
+            }
+            else if (locator.Order is not IdleOrder)
+            {
+                continue;
+            }
+            _locating.Remove(locator.Id);
+
+            var nearest = world.Sites.Where(s => !s.DiscoveredBy.Contains(Race) && s.Ore > 0 && !_unreachable.Contains(s.Id)
+                    && Vector2.Distance(s.Position, locator.Position) < locate.MaxRangeFromPod)
+                .MinBy(s => Vector2.DistanceSquared(s.Position, locator.Position));
+            if (nearest is null)
+            {
+                // Nothing left in reach: it leaves the deposit it stands on, else no mine can go there (handleIdleGeoLocator).
+                if (locator.Order is IdleOrder && world.Sites.Any(s => s.DiscoveredBy.Contains(Race) && Vector2.DistanceSquared(s.Position, locator.Position) < 25 * 25))
+                    MoveOutOfTheWay(world, locator);
+                continue;
+            }
+            var drive = Vector2.Distance(locator.Position, nearest.Position) / MathF.Max(1, locator.Stats.Speed * 0.5f);
+            _locating[locator.Id] = (nearest.Id, world.Time + 60 + 3 * drive);
+            world.Issue(new LocateCommand(Race, [locator.Id], nearest.Position));
         }
     }
 
@@ -295,11 +452,15 @@ public sealed partial class AiController(Race race, AiScript script, RaceSetup s
         // MachLogAIController::getHighestPriorityConstruction: the highest priority entry the race can build and
         // place, the first of equals; it leaves the list once started.
         var buildable = world.Buildable(Race);
+        // A mine brings nothing in while the bank is at least half full, so then it waits behind the scenario's plans
+        // (TunedAi): else a race starting rich puts all its constructors on mines and stands with no base when attacked.
+        var minesFirst = !world.Options.TunedAi || state.Bmu < world.BmuCapacity(Race) / 2;
+        int PriorityOf(Planned plan) => plan.Type == "MINE" && !minesFirst ? 0 : plan.Priority;
         Planned? best = null;
         (Vector2 Position, int Orientation) bestSite = default;
         foreach (var plan in Plans(world))
         {
-            if (best is not null && plan.Priority <= best.Priority)
+            if (best is not null && PriorityOf(plan) <= PriorityOf(best))
                 continue;
             if (!buildable.Any(e => e.Type == plan.Type && e.SubType == plan.SubType && e.HardwareLevel == plan.Level))
                 continue;
@@ -388,7 +549,10 @@ public sealed partial class AiController(Race race, AiScript script, RaceSetup s
         foreach (var site in world.Sites.Where(s => s.DiscoveredBy.Contains(Race) && s.Ore > 100
                      && !world.Constructions.Any(c => c.Race == Race && c.MineralSite == s.Id)))
         {
-            if (plans.Any(p => p.Type == "MINE" && Vector2.Distance(p.Sites[0].Position, site.Position) < 1))
+            // A plan for a mine its constructors cannot build yet (a scenario's level-3 one, say) does not keep it from
+            // planning one it can (TunedAi): the original's list told plans apart by level too (MachLogProductionUnit::operator==).
+            if (plans.Any(p => p.Type == "MINE" && Vector2.Distance(p.Sites[0].Position, site.Position) < 1
+                    && (!world.Options.TunedAi || buildable.Any(e => e.Type == "MINE" && e.HardwareLevel == p.Level))))
                 continue;
             if (world.WhyCannotPlace(Race, "MINE", null, 1, site.Position, 0) is "obstacles or uneven terrain")
                 continue; // occupied
