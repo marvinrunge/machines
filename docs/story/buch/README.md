@@ -95,3 +95,16 @@ python tools/story-book/voice.py
 
 Die MP3s landen in `renders/story-book/audio/` (nicht im Repository). Mehr steht oben in
 [`tools/story-book/voice.py`](../../../tools/story-book/voice.py).
+
+## Versionen in Google Drive
+
+Wunsch des Nutzers vom 2026-11-22: Nach jeder Änderung kommt das Buch als neue Version in sein Google Drive, die alten
+Versionen bleiben liegen. Ordner: `G:\Meine Ablage\Machines Remake\Buch\Version X.Y` mit E-Book (EPUB), dem Buch als
+Markdown, den Kapiteln und dem Hörbuch, dazu `Versionen.txt` mit einer Zeile pro Version. Erst `build_book.py` und
+`voice.py`, dann:
+
+```
+python tools/story-book/publish.py --note "Was sich geändert hat"
+```
+
+Die Nummer steigt von selbst um 0.1. Eine vorhandene Version wird nie überschrieben.
