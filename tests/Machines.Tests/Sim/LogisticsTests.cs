@@ -657,6 +657,57 @@ public class LogisticsTests
         Assert.True(Vector2.Distance(idle.Position, pad) >= 5);
     }
 
+    /// <summary>
+    /// A tester's report: with a full store the bank stuck at its limit however much was queued. Spending is not blocked
+    /// there: a factory draws its BUILD_RATE (75 BMUs a minute at level 1) whatever the bank holds and however long its
+    /// queue, as the original's (MachLogFactory::update); carriers waiting with ore top the bank up at once (smartAddBMUs),
+    /// so while they bring more than that it reads full. When they stop, it falls by the factory's rate.
+    /// </summary>
+    [Fact]
+    public void A_full_bank_still_pays_a_factory_its_rate_and_falls_once_income_stops()
+    {
+        var world = NewMatch();
+        var at = Open(world);
+        var smelter = Smelter(world, at);
+        var mine = Mine(world, at + new Vector2(80, 0));
+        var carriers = Enumerable.Range(0, 4).Select(i => Carrier(world, at + new Vector2(40, 12 * i))).ToList();
+        var factory = world.AddConstruction(Race.Red, at + new Vector2(0, 140), "FACTORY", "CIVILIAN", 1, 0, complete: true);
+        var key = world.Data.FactoryOffer("CIVILIAN", 1).First();
+        var price = ResearchTree.FactoryPrice(world.Data.ResearchTree.Get(key), world.Data.Parm);
+        world.Races[Race.Red].Researched.Add(key);
+        var state = world.Races[Race.Red];
+        var cap = world.BmuCapacity(Race.Red);
+        state.Bmu = cap;
+        world.Issue(new TransportCommand(Race.Red, carriers.Select(c => c.Id).ToList(), mine.Id, smelter.Id));
+        for (var i = 0; i < 30; i++)
+            world.Issue(new BuildMachineCommand(Race.Red, factory.Id, key));
+        float Paid() => (30 - factory.ProductionQueue.Count) * price + factory.ProductionSpent;
+        void RunFed(float seconds)
+        {
+            for (var i = 0; i < seconds * GameWorld.TicksPerSecond; i++)
+            {
+                mine.Ore = mine.Stats.Capacity ?? 0;
+                world.Step();
+            }
+        }
+
+        // Fed faster than one factory spends, the bank reads full, yet the factory is paid its rate all along.
+        RunFed(60);
+        var paid = Paid();
+        RunFed(120);
+        Assert.InRange(state.Bmu, cap - 5, cap);
+        Assert.InRange(Paid() - paid, 2 * 75 - 3, 2 * 75 + 3);
+
+        // Without income it falls by that rate, less the pod's trickle.
+        world.Issue(new StopCommand(Race.Red, carriers.Select(c => c.Id).ToList()));
+        foreach (var carrier in carriers)
+            carrier.HitPoints = 0;
+        world.Step();
+        var full = state.Bmu;
+        Run(world, 60);
+        Assert.InRange(full - state.Bmu, 75 - 15, 75 + 3);
+    }
+
     [Fact]
     public void A_new_machine_comes_out_on_full_alert()
     {

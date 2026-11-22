@@ -1233,6 +1233,20 @@ public partial class Game : Node3D
             SyncViews();
             if (built.IsType("HARDWARE_LAB") && World.Races[Player].Available.FirstOrDefault(k => World.WhyCannotResearch(Player, k, built) is null) is { } item)
                 Issue(new ResearchCommand(Player, built.Id, item));
+            // MACHINES_SCREENSHOT_QUEUE=5: a factory gets that many of the first machine it offers queued, a lab that
+            // much of what it can research, to look at the queue.
+            if (int.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_QUEUE"), out var queued))
+            {
+                if (built.IsType("FACTORY") && World.Data.FactoryOffer(built.Spec.SubType!, built.Stats.HardwareLevel).FirstOrDefault() is { } offered)
+                {
+                    World.Races[Player].Researched.Add(offered);
+                    for (var i = 0; i < queued; i++)
+                        Issue(new BuildMachineCommand(Player, built.Id, offered));
+                }
+                else if (built.IsType("HARDWARE_LAB"))
+                    foreach (var more in World.Races[Player].Available.Where(k => World.WhyCannotResearch(Player, k, built) is null).Skip(1).Take(queued))
+                        Issue(new ResearchCommand(Player, built.Id, more));
+            }
             if (built.IsType("HARDWARE_LAB"))
                 Issue(new EnterLabCommand(Player, World.Machines.Where(m => m.Race == Player && m.Spec.Type == "TECHNICIAN").Select(m => m.Id).ToList(), built.Id));
         }
@@ -1243,6 +1257,24 @@ public partial class Game : Node3D
         {
             foreach (var view in _views.Values)
                 view.Play(play);
+        }
+        // MACHINES_SCREENSHOT_CAMERA_IN=8: 8 s in, the ground camera goes into the player's newest building with machines
+        // in it (a lab MACHINES_SCREENSHOT_BUILT put down), its eye in the interior looking across it.
+        if (double.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_CAMERA_IN"), System.Globalization.CultureInfo.InvariantCulture, out var inAt)
+            && _runTime < inAt && _runTime + delta >= inAt
+            && World.Constructions.Where(c => c.Race == Player && World.Machines.Any(m => m.Inside == c.Id)).MaxBy(c => c.Id) is { } room
+            && _views.TryGetValue(room.Id, out var roomView))
+        {
+            UseZenithCamera(false);
+            var centre = roomView.Centre;
+            var ground = HeightField.Current?.At(centre.X, centre.Z) ?? 0;
+            const float pitch = 20;
+            var placed = Enumerable.Range(0, 12).SelectMany(d => Enumerable.Range(0, 16).Select(y => (Distance: 16f - d, Yaw: y * Mathf.Tau / 16)))
+                .FirstOrDefault(c => roomView.Encloses(new Vector3(centre.X, ground, centre.Z)
+                    + new Vector3(Mathf.Sin(c.Yaw), 0, Mathf.Cos(c.Yaw)) * Mathf.Cos(Mathf.DegToRad(pitch)) * c.Distance + Vector3.Up * Mathf.Sin(Mathf.DegToRad(pitch)) * c.Distance));
+            // Half way out to the wall, so the eye stands well inside the room.
+            _rig.Position = new Vector3(centre.X, 0, centre.Z);
+            (_rig.Pitch, _rig.Distance, _rig.Yaw) = (pitch, placed.Distance / 2, placed.Yaw);
         }
         PlayScriptedInput();
         // e.g. "MINE,-,1": the player is placing that building, at MACHINES_SCREENSHOT_POINT.
@@ -1280,9 +1312,9 @@ public partial class Game : Node3D
         if (_runTime == 0 && System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_SELECT") is { Length: > 0 } select)
         {
             // e.g. "CONSTRUCTOR" or "AGGRESSOR"; with MACHINES_SCREENSHOT_FIRSTPERSON=1 the first one is driven.
-            // A building type (FACTORY, HARDWARE_LAB ...) selects the first such building instead.
+            // A building type (FACTORY, HARDWARE_LAB ...) selects the newest such building instead (one MACHINES_SCREENSHOT_BUILT put down).
             var machines = World.Machines.Where(m => m.Race == Player && (m.Spec.Type == select || m.Spec.SubType == select)).OrderByDescending(m => m.Id).Select(m => m.Id).ToList();
-            Select(machines.Count > 0 ? machines : World.Constructions.Where(c => c.Race == Player && c.Spec.Type == select).Take(1).Select(c => c.Id).ToList());
+            Select(machines.Count > 0 ? machines : World.Constructions.Where(c => c.Race == Player && c.Spec.Type == select).OrderByDescending(c => c.Id).Take(1).Select(c => c.Id).ToList());
             // MACHINES_SCREENSHOT_MENU=build,2: the selected constructors' build menu, scrolled down two rows.
             if (System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT_MENU")?.Split(',') is ["build", .. var scroll])
                 _hud.Panel.OpenBuildMenu(scroll.Length > 0 ? int.Parse(scroll[0]) : 0);
@@ -1907,14 +1939,24 @@ public partial class Game : Node3D
         _support.ShowHealing(healing);
     }
 
-    /// <summary>Building interiors, and the machines in them, show only to first person looking out from inside them.</summary>
+    /// <summary>
+    /// The building the ground camera has gone into, whose interior it shows; the cursor picks only the machines in
+    /// there (the original's camera in the interior domain), so technicians at work in a lab can be selected.
+    /// </summary>
+    private int? _cameraInside;
+
+    /// <summary>
+    /// Building interiors, and the machines in them, show only to an eye inside them: first person looking out from
+    /// inside, or the ground camera gone in (MachLogCamera::checkThreshold, enterConstruction).
+    /// </summary>
     private void ShowInteriors()
     {
-        Vector3? eye = _driven is not null ? _firstPersonCamera.GlobalPosition : null;
+        Vector3? eye = _driven is not null ? _firstPersonCamera.GlobalPosition : _rig.Ground && _watched is null ? _rig.Camera.GlobalPosition : null;
         var seen = new HashSet<int>();
         foreach (var (id, view) in _views)
-            if (view.HasInterior && view.ShowInteriorFrom(eye, _driven?.Inside == id))
+            if (view.HasInterior && view.ShowInteriorFrom(_driven is not null || view.Visible ? eye : null, _driven?.Inside == id))
                 seen.Add(id);
+        _cameraInside = _driven is null && seen.Count > 0 ? seen.First() : null;
         foreach (var machine in World.Machines)
             if (_views.TryGetValue(machine.Id, out var inside))
             {
@@ -2634,8 +2676,20 @@ public partial class Game : Node3D
             return null;
         var camera = GetViewport().GetCamera3D();
         var (from, direction) = (camera.ProjectRayOrigin(screen), camera.ProjectRayNormal(screen));
-        var nearest = HeightField.Current?.Hit(from, direction) is { } ground ? from.DistanceTo(ground) : camera.Far;
         ActorView? best = null;
+        // The ground camera in a building sees only what is in there: the machines inside, nearest first.
+        if (_cameraInside is { } room)
+        {
+            var near = camera.Far;
+            foreach (var machine in World.Machines.Where(m => m.Inside == room))
+                if (_views.TryGetValue(machine.Id, out var view) && view.Hit(from, direction) is { } distance && distance < near)
+                {
+                    near = distance;
+                    best = view;
+                }
+            return best is null ? null : World.Find(best.ActorId);
+        }
+        var nearest = HeightField.Current?.Hit(from, direction) is { } ground ? from.DistanceTo(ground) : camera.Far;
         foreach (var view in _views.Values)
         {
             if (view.ActorId != _driven?.Id && view.Hit(from, direction) is { } distance && distance < nearest)
