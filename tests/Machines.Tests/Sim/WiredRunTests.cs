@@ -194,6 +194,25 @@ public class WiredRunTests
     }
 
     [Fact]
+    public void A_run_recorded_before_brisk_waves_has_none()
+    {
+        Assert.True(new WiredOptions().BriskWaves);
+        for (var wave = WiredBalance.BriskFrom; wave < 30; wave++)
+        {
+            Assert.False(WiredBalance.Brisk(wave, briskWaves: false));
+            Assert.Equal(MathF.Min(400 + 200 * (wave - 1), WiredBalance.MostSpawnReach), WiredBalance.SpawnReach(wave, briskWaves: false));
+            if (WiredDirector.IsBossWave(wave))
+                continue;
+            // What the budget bought, at full strength, over a minute to a minute and a half.
+            var plan = WiredDirector.Plan(Data, wave, WiredDifficulty.Normal, new Random(wave), brisk: false);
+            var bought = WiredDirector.Buy(Data, wave, WiredBalance.Budget(wave, WiredDifficulty.Normal), new Random(wave));
+            Assert.Equal(bought, plan.Groups.SelectMany(g => g.Machines));
+            if (plan.Groups.Count > 1)
+                Assert.InRange(plan.Groups[^1].After, WiredBalance.LeastSpread, WiredBalance.MostSpread);
+        }
+    }
+
+    [Fact]
     public void The_first_wave_arrives_in_two_groups_close_together()
     {
         var plan = WiredDirector.Plan(Data, 1, WiredDifficulty.Normal, new Random(1));
@@ -644,7 +663,7 @@ public class WiredRunTests
         for (var seed = 1; ; seed++)
         {
             Assert.True(seed < 40, "no elite came");
-            // A boss's escort: a brisk wave's crowd is the weaker.
+            // A boss's escort: in a brisk wave's crowd an elite is thinned to a whole machine of its kind.
             var world = AtWave(10, seed: seed);
             Run(world, WiredBalance.MostSpread + 1);
             if (world.Wired!.Foes.FirstOrDefault(f => f.Plan.Elite) is not { } elite)
