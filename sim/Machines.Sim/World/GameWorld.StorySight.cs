@@ -157,11 +157,13 @@ public sealed partial class GameWorld
         {
             standing.Add(hero.Id);
             var was = sight.Last.TryGetValue(hero.Id, out var last) ? last : hero.Position;
-            // Moving counts against its walk (StoryDrive): walking as fast as it walks is as loud as moving ever was, and the
-            // sprint's whining drive is louder on top, so in the dark decks walking stays the way to go.
+            // Moving counts against the walk of stage 6 (StorySight.MovingAt): walking at that pace is as loud as moving ever
+            // was, the trio's walk now (StoryDrive.Walk, half of it) half as loud, and the sprint's whining drive is louder on
+            // top, so in the dark decks walking stays the way to go.
             var drive = run.Drives.Of.GetValueOrDefault(hero.Id);
-            var top = hero.Stats.Speed * (drive is null ? 1 : StoryDrive.Walk);
-            var share = Math.Clamp(Vector2.Distance(was, hero.Position) / Dt / MathF.Max(drive is null ? 1 : StoryDrive.Walk, top), 0, 1);
+            var loud = drive is null ? 1 : StorySight.MovingAt;
+            var top = hero.Stats.Speed * loud;
+            var share = Math.Clamp(Vector2.Distance(was, hero.Position) / Dt / MathF.Max(loud, top), 0, 1);
             var wheels = hero.Stats.Locomotion == Locomotion.Wheels ? StorySight.Wheels : 1;
             var signature = StorySight.Still + StorySight.Moving * share * wheels;
             if (drive is { Sprinting: true } && share > 0)

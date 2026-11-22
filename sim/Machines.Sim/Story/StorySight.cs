@@ -181,7 +181,15 @@ public sealed class StorySight
     public const float Still = 0.05f, Moving = 0.5f, Lamp = 0.4f, Shot = 1, Pulse = 1, Traced = 1;
 
     /// <summary>
-    /// What a sprinting hero's drive adds at its full speed (StoryDrive), on top of moving at its walk's: the sprint is heard
+    /// The share of its top speed at which one of the trio's heroes makes the whole of <see cref="Moving"/>: the walk of
+    /// stage 6. Since the walk was halved (StoryDrive.Walk) the trio walking is half as loud, so a hunter hears it half as
+    /// far for twice as long, and the dark decks hold as many moments in a hunter's ear per metre as they did; at the
+    /// faster walk a Grunt the computer drives, slow on its long way round, was heard by the Thresher and killed.
+    /// </summary>
+    public const float MovingAt = 0.55f;
+
+    /// <summary>
+    /// What a sprinting hero's drive adds at its full speed (StoryDrive), on top of the whole of moving: the sprint is heard
     /// and seen as a lamp is, so walking stays the right way through the dark.
     /// </summary>
     public const float Sprint = 0.5f;

@@ -55,6 +55,10 @@ public partial class WiredDriver
     private NVector2 _aside;
     private int _stucks;
     private bool _forward;
+
+    /// <summary>Whether the way under way holds the forward key this frame.</summary>
+    private protected bool Forward => _forward;
+
     private int? _orderedAt;
     private int _heldAt = -1;
 

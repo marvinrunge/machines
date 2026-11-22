@@ -17,8 +17,13 @@ namespace Machines.Sim.Story;
 /// </summary>
 public sealed class StoryDrive
 {
-    /// <summary>The share of the top speed (and of the acceleration) the trio walks at.</summary>
-    public const float Walk = 0.55f;
+    /// <summary>
+    /// The share of the top speed (and of the acceleration) the trio walks at: the Locator 4.4 m/s, a Grunt 4.1. Stage 6 had
+    /// 0.55; the user, having played it, found that still far too fast ("man kann halb so schnell sein im standard"), so the
+    /// walk is half of it and the sprint, the whole top speed, now well over three times the walk. As the acceleration is
+    /// the same share, the walk is still reached in <see cref="RampSeconds"/>.
+    /// </summary>
+    public const float Walk = 0.275f;
 
     /// <summary>
     /// The least time the trio's drives take from a standstill to their speed (walk or sprint alike): their acceleration

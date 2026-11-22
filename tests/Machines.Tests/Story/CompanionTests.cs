@@ -124,7 +124,7 @@ public class CompanionTests
 
         // Follow again: they come after it.
         Assert.Null(Do(world, new StoryOrderCommand(Race.Red, CompanionOrder.Follow, Vector2.Zero)));
-        Run(world, 15);
+        Run(world, 30);
         Assert.InRange(Vector2.Distance(Hero(world, Ike).Position, Hero(world, Locator).Position), 3, 9);
     }
 

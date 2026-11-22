@@ -90,7 +90,7 @@ public class StoryMotionTests
         for (var i = 0; i < 20; i++)
             world.Step();
 
-        for (var tick = 0; tick < 8 * GameWorld.TicksPerSecond && Hero(world, Locator).Position.X > 64; tick++)
+        for (var tick = 0; tick < 16 * GameWorld.TicksPerSecond && Hero(world, Locator).Position.X > 64; tick++)
         {
             Drive(world, 1);
             world.Step();
