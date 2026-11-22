@@ -482,7 +482,8 @@ public static class Prologue
     /// The break-in (docs/STORY.md, Erwischt, played): the checkpoint; the probe pulled and the hack cut off where it stood;
     /// the Locator free to move at once and spared while the Reapers' first volleys go into the core at whose foot it stands
     /// (<see cref="StormIn"/>; the core takes harm but stands, <see cref="KeepProp"/>, until it blows); the Grunts off their barricades to the cable
-    /// duct's door. The ship's "Wiederhole: ... kor-" is broken off as the core blows.
+    /// duct's door. The ship's "Wiederhole: ... kor-" follows the alarm's announcements and breaks off by itself; the blast
+    /// (<see cref="CoreBlows"/> later) brings its stutter "korr-" and cuts whatever the PA is still saying.
     /// </summary>
     private static StoryAction[] BreakIn =>
     [

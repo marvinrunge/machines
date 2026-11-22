@@ -119,6 +119,46 @@ public class StoryAudioPlanTests
     }
 
     [Fact]
+    public void BarksDuringTheAlarmDoNotMakeItsLastAnnouncementStale()
+    {
+        // The alarm (asks relative to it, the PA's lengths from the German manifest) with a bark in every turn the radio
+        // gets: one still speaking as the alarm goes (Ike told to wait), Ike's hammering, Bob's going round and an order a
+        // co-op peer gives after C3. Each is 5 s, as a recording may well be. C4 then starts some 27 s after it was asked,
+        // most of it under the barks; that time does not count against AnnouncementStale, so the ship still says it.
+        var queue = new StoryLineQueue();
+        var order = new List<string>();
+        var dropped = new List<string>();
+        var asks = new (double At, StoryQueuedLine Line)[]
+        {
+            (-0.5, Line("P_IKE_WAIT", StoryVoiceChannel.Radio, 5, -0.5)),
+            (0, Line("C1", StoryVoiceChannel.Announcer, 5.97, 0, gong: true)),
+            (0, Line("C2", StoryVoiceChannel.Announcer, 4.72, 0)),
+            (1.5, Line("P_IKE_HAMMER", StoryVoiceChannel.Radio, 5, 1.5)),
+            (6.5, Line("C3", StoryVoiceChannel.Announcer, 4.51, 6.5)),
+            (7.5, Line("P_BOB_ROUND", StoryVoiceChannel.Radio, 5, 7.5)),
+            (11, Line("C4", StoryVoiceChannel.Announcer, 5.86, 11)),
+            (20, Line("P_BOB_FOLLOW", StoryVoiceChannel.Radio, 5, 20)),
+            (30, Line("P_BOB_FIRE", StoryVoiceChannel.Radio, 1.91, 30)),
+        };
+        var next = 0;
+        var c4 = double.NaN;
+        for (var now = -1.0; now < 80; now += 0.05)
+        {
+            var events = new List<StoryQueueEvent>();
+            while (next < asks.Length && asks[next].At <= now)
+                events.AddRange(queue.Add(asks[next++].Line, now));
+            events.AddRange(queue.Update(now));
+            order.AddRange(events.Where(e => e.Change == StoryQueueChange.Started).Select(e => e.Line.Id));
+            dropped.AddRange(events.Where(e => e.Change is StoryQueueChange.Dropped or StoryQueueChange.Interrupted).Select(e => e.Line.Id));
+            if (events.Any(e => e is { Change: StoryQueueChange.Started, Line.Id: "C4" }))
+                c4 = now;
+        }
+        Assert.Empty(dropped);
+        Assert.Equal(["P_IKE_WAIT", "C1", "P_IKE_HAMMER", "C2", "P_BOB_ROUND", "C3", "P_BOB_FOLLOW", "C4", "P_BOB_FIRE"], order);
+        Assert.True(c4 - 11 > StoryLineQueue.AnnouncementStale, $"C4 waited only {c4 - 11:0.00} s: the case no longer tests the booking");
+    }
+
+    [Fact]
     public void AnnouncementsKeepTheirOrderAheadOfTheRadio()
     {
         var queue = new StoryLineQueue();

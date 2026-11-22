@@ -84,8 +84,10 @@ public sealed record StoryQueuedLine(string Id, StoryVoiceChannel Channel, doubl
     public bool Gong { get; init; }
 
     /// <summary>
-    /// The seconds a radio line has waited while an announcement spoke: the ship talking does not count against its
-    /// <see cref="StoryLineQueue.RadioStale"/> (it lost its turn to the PA, its news is no older for that).
+    /// The seconds a line has waited while a line of the other kind spoke: the ship talking does not count against a radio
+    /// line's <see cref="StoryLineQueue.RadioStale"/> (it lost its turn to the PA, its news is no older for that), nor a
+    /// bark against an announcement's <see cref="StoryLineQueue.AnnouncementStale"/> (the alarm's four announcements give the
+    /// barks a turn between them, and orders barked meanwhile must not cost the last one its turn).
     /// </summary>
     public double Held { get; init; }
 
@@ -117,7 +119,8 @@ public readonly record struct StoryQueueEvent(StoryQueueChange Change, StoryQueu
 /// Bob's lines until they are stale). An announcement waits for a radio line speaking (barks are short); only the
 /// loudspeaker beside the Locator ("Gefunden.", timed to its scare) cuts one off. A radio line that has waited longer than
 /// <see cref="RadioStale"/>, not counting the time an announcement spoke meanwhile, is dropped (what Bob saw a while ago is
-/// no news; that the ship talked over it does not make it old). The PA's gong goes before an announcement
+/// no news; that the ship talked over it does not make it old); an announcement after <see cref="AnnouncementStale"/>, not
+/// counting the time barks spoke meanwhile. The PA's gong goes before an announcement
 /// after <see cref="GongAfterQuiet"/> seconds of a quiet PA. Times are the caller's clock in seconds.
 /// </summary>
 public sealed class StoryLineQueue
@@ -250,15 +253,14 @@ public sealed class StoryLineQueue
         return events;
     }
 
-    // The line speaking stops: an announcement's time (its gong too) is booked to the radio lines that waited through it.
+    // The line speaking stops: its time is booked to the lines of the other kind that waited through it, an announcement's
+    // (its gong too) to the radio lines, a bark's to the announcements.
     private void Leave(StoryQueuedLine current, double now)
     {
         Current = null;
-        if (!current.Announcement)
-            return;
         for (var i = 0; i < _waiting.Count; i++)
-            if (_waiting[i] is { Announcement: false } radio)
-                _waiting[i] = radio with { Held = radio.Held + Math.Max(0, Math.Min(now, _endsAt) - Math.Max(StartedAt, radio.Asked)) };
+            if (_waiting[i] is { } other && other.Announcement != current.Announcement)
+                _waiting[i] = other with { Held = other.Held + Math.Max(0, Math.Min(now, _endsAt) - Math.Max(StartedAt, other.Asked)) };
     }
 }
 
