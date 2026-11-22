@@ -702,15 +702,18 @@ public static class Then
         }
     }
 
-    /// <summary>Deck doors opened now.</summary>
-    public sealed record OpenDoors(string Letters) : StoryAction
+    /// <summary>
+    /// Deck doors opened now: their leaves slide into the walls (GameWorld.OpenDoor). With <paramref name="Instant"/> they
+    /// stand open at once: a checkpoint's world has the doors opened before it open from its first tick.
+    /// </summary>
+    public sealed record OpenDoors(string Letters, bool Instant = false) : StoryAction
     {
         internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
         {
             foreach (var letter in Letters)
             {
                 director.AutoDoors.Remove(letter);
-                world.OpenDoor(letter);
+                world.OpenDoor(letter, Instant);
             }
         }
     }

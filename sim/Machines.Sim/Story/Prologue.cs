@@ -574,7 +574,8 @@ public static class Prologue
             run.Hacks.Locked.Add("hack_d5");
         if (cp < 6)
             run.Hacks.Locked.Add("pod_3_hatch");
-        Do(new OpenDoors(DoorsOpen[cp]), new AutoDoors(DoorsAuto[cp]));
+        // The doors opened before the checkpoint stand open from its first tick, none of them sliding (GameWorld.OpenDoor).
+        Do(new OpenDoors(DoorsOpen[cp], Instant: true), new AutoDoors(DoorsAuto[cp]));
         Do(Rows);
         if (cp is 1 or 2)
             Do(ThresherOnPatrol);

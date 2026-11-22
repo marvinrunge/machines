@@ -320,7 +320,7 @@ public partial class Game
                 TiltTo(new CameraTilt(Number(1), Number(2), Sway: Number(1) > 6 ? 0.8f : 0), Number(3));
                 break;
             case ["door", _]:
-                StoryAudio.Play("door_open", at);
+                // The door's sound comes with its leaves sliding open (Game.Deck, SlideDoorLeaf).
                 break;
             case ["boot", var step]:
                 BootCue(step);

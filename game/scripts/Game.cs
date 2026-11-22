@@ -1698,7 +1698,13 @@ public partial class Game : Node3D
                         BlowUpArtefact(e.Actor - Artefact.IdBase, standing, at);
                     break;
                 case GameEventKind.ArtefactRemoved:
-                    // Taken off whole (a deck's door opened): its model goes without a blast.
+                    // A deck door's leaf slides into the wall, as the sim has it (GameWorld.DoorSwings, Game.Deck).
+                    if (World.SwingOf(e.Actor) is { } swing && _artefactModels.Remove(e.Actor - Artefact.IdBase, out var leaf))
+                    {
+                        SlideDoorLeaf(swing, leaf);
+                        break;
+                    }
+                    // Taken off whole (a crate carried away, a prop gone): its model goes without a blast.
                     // In a story a barricade's crate may be thrown aside in the same tick ("thrown", Game.Story): it waits for that.
                     if (_artefactModels.Remove(e.Actor - Artefact.IdBase, out var removed))
                     {
