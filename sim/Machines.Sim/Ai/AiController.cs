@@ -21,6 +21,13 @@ public sealed partial class AiController(Race race, AiScript script, RaceSetup s
     public Race Race { get; } = race;
     public AiScript Script { get; } = script;
 
+    /// <summary>
+    /// Whether it plays a race for a player who left a network match, until they come back: it then keeps to the
+    /// original's rules for money and research (<see cref="MatchOptions.TunedAi"/>), so the player finds their queues as
+    /// they left them.
+    /// </summary>
+    public bool StandsIn { get; internal set; }
+
     private sealed class SquadState(AiSquad squad)
     {
         public AiSquad Squad { get; } = squad;
@@ -59,8 +66,9 @@ public sealed partial class AiController(Race race, AiScript script, RaceSetup s
         var mine = world.Machines.Where(m => m.Race == Race && !m.IsDead).ToList();
         _tuned = world.Options.TunedAi;
         if (_tuned)
-            SaveForMine(world);
-        _upgrades = _tuned && world.Options.AiLevel == AiLevel.Hard;
+            SaveForMine(world, mine);
+        _upgrades = _tuned && world.Options.AiLevel == AiLevel.Hard && !StandsIn;
+        _rival = _tuned ? RivalOf(world) : null;
         AssignToSquads(world, mine);
         SetDefCons(mine);
         StaffLabs(world, mine);
@@ -170,33 +178,52 @@ public sealed partial class AiController(Race race, AiScript script, RaceSetup s
     /// <summary>What a computer saving for a mine still builds: the machines that find, build and fetch its money.</summary>
     public static bool Earns(ResearchKey key) => key.Type is "GEO_LOCATOR" or "CONSTRUCTOR" or "RESOURCE_CARRIER";
 
+    /// <summary>Whether a race's factories build this machine now, saving for a mine or not (<see cref="SaveForMine"/>).</summary>
+    public static bool BuildsWhileSaving(RaceState state, ResearchKey key) => !state.Hold || !state.HoldEarners && Earns(key);
+
     /// <summary>
     /// The 1999 AI could not run dry (its factories had free BMUs), so it never had to save; the remake's does
     /// (<see cref="MatchOptions.TunedAi"/>). Without a mine working and with under 200 BMUs, or nearly broke with a mine
     /// to place or finish, its factories hold (<see cref="RaceState.Hold"/>) and what is queued and not yet started is
     /// taken off, but for the machines that bring money in; while a mine waits for its BMUs its labs hold too
-    /// (<see cref="RaceState.HoldResearch"/>). Else they take the pod's trickle as it comes and the bank never holds the
-    /// price of a mine.
+    /// (<see cref="RaceState.HoldResearch"/>), and while one is being built the machines that bring money in as well,
+    /// but for a constructor where the race has none (<see cref="RaceState.HoldEarners"/>). Else they take the pod's
+    /// trickle as it comes and the bank never holds the price of a mine. A stand-in for a player who left does not
+    /// save: it leaves the player's queues as they were.
     /// </summary>
-    private void SaveForMine(GameWorld world)
+    private void SaveForMine(GameWorld world, List<Machine> machines)
     {
         var state = world.Races[Race];
+        if (StandsIn)
+        {
+            state.Hold = state.HoldResearch = state.HoldEarners = false;
+            return;
+        }
         var working = world.Constructions.Any(c => c.Race == Race && c.Complete && c.IsType("MINE"));
-        var mineWaits = world.Constructions.Any(c => c.Race == Race && !c.Complete && c.IsType("MINE"))
+        var building = world.Constructions.Any(c => c.Race == Race && !c.Complete && c.IsType("MINE"));
+        var mineWaits = building
             || Plans(world).Any(p => p.Type == "MINE" && p.Sites.Any(s => world.Sites.Any(x => x.DiscoveredBy.Contains(Race) && Vector2.DistanceSquared(x.Position, s.Position) < 1)));
         state.Hold = !working && state.Bmu < SavingFloor || state.Bmu < GameWorld.MinimumBmuToPlace * 2 && mineWaits;
         state.HoldResearch = state.Hold && mineWaits;
+        state.HoldEarners = state.Hold && building && machines.Any(m => m.Spec.Type == "CONSTRUCTOR");
         if (!state.Hold)
             return;
         foreach (var factory in world.Constructions.Where(c => c.Race == Race && c.Complete && c.IsType("FACTORY")))
         {
+            // What has not started and does not build now goes; so does what would build but waits behind a machine
+            // half built that holds, so that it is ordered again from a factory free to build it.
+            var blocked = HeldHalfBuilt(state, factory);
             for (var i = factory.ProductionQueue.Count - 1; i >= 0; i--)
             {
-                if (!Earns(factory.ProductionQueue[i]) && (i > 0 || factory.ProductionSpent == 0))
+                if ((!BuildsWhileSaving(state, factory.ProductionQueue[i]) || blocked) && (i > 0 || factory.ProductionSpent == 0))
                     world.Issue(new CancelProductionCommand(Race, factory.Id, i));
             }
         }
     }
+
+    /// <summary>Whether a factory's first machine is half built and held while the race saves (<see cref="SaveForMine"/>).</summary>
+    private static bool HeldHalfBuilt(RaceState state, Construction factory) =>
+        factory.ProductionQueue.Count > 0 && factory.ProductionSpent > 0 && !BuildsWhileSaving(state, factory.ProductionQueue[0]);
 
     /// <summary>The BMUs a computer without a mine keeps in hand (<see cref="SaveForMine"/>).</summary>
     private const float SavingFloor = 200;
@@ -259,11 +286,11 @@ public sealed partial class AiController(Race race, AiScript script, RaceSetup s
 
         foreach (var key in wants.Distinct())
         {
-            if (!state.Researched.Contains(key) || world.Options.TunedAi && state.Hold && !Earns(key))
+            if (!state.Researched.Contains(key) || _tuned && !BuildsWhileSaving(state, key))
                 continue;
 
             var factory = factories
-                .Where(f => f.ProductionQueue.Count < 2 && world.Data.FactoryOffer(f.Spec.SubType!, f.Stats.HardwareLevel).Contains(key))
+                .Where(f => f.ProductionQueue.Count < 2 && world.Data.FactoryOffer(f.Spec.SubType!, f.Stats.HardwareLevel).Contains(key) && !(_tuned && HeldHalfBuilt(state, f)))
                 .MinBy(f => f.ProductionQueue.Count);
             if (factory is not null)
             {

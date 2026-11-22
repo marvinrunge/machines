@@ -194,6 +194,6 @@ public class GoldenSumTests(ITestOutputHelper output)
     private static readonly ulong[] FittedBattleSums = [0xE142FCCC97986C2BUL, 0x8D3C8E387ECDB623UL, 0x321387CCEE7FB575UL, 0xB08337D69BEC8611UL];
     private static readonly BattleResult FittedBattleEnded = new(1, BattleEnd.Wipe, 533.10004f);
     // G13 is G2 as matches play since the computers' skirmish rules (MatchOptions.SkirmishAi), in fitted bodies and on hard,
-    // taken on community/skirmish-ai and held three runs.
-    private static readonly ulong[] SkirmishAiFourWaySums = [0xA2A24E06F100B9C2UL, 0x78EE3A7B1A0BAB93UL, 0x5F6D54545471917CUL, 0xBF58D72F410EAA33UL];
+    // taken on community/skirmish-ai and held three runs; taken again once computers took rivals and held three runs.
+    private static readonly ulong[] SkirmishAiFourWaySums = [0xA2A24E06F100B9C2UL, 0x78EE3A7B1A0BAB93UL, 0x439ED5EF36FA0FECUL, 0x8250910FB8821657UL];
 }

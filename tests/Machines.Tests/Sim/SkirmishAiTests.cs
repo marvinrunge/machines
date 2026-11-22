@@ -95,6 +95,70 @@ public class SkirmishAiTests
         Assert.False(world.Races[Race.Red].Hold);
     }
 
+    [Fact]
+    public void A_computer_building_its_mine_builds_no_constructor_while_it_has_one()
+    {
+        // m_contrl's blue, seed 6 on hard, once stood six minutes at an empty bank with its mine half built while its
+        // factory built a constructor with the trickle the mine waited for.
+        var world = NewMatch("m_desert", tuned: true);
+        Run(world, 1);
+        var blue = world.Races[Race.Blue];
+        var pod = world.Constructions.First(c => c.Race == Race.Blue && c.IsType("POD"));
+        world.AddConstruction(Race.Blue, pod.Position + new Vector2(40, 40), "MINE", null, 1, 0, complete: false);
+        Assert.Contains(world.Machines, m => m.Race == Race.Blue && m.Spec.Type == "CONSTRUCTOR");
+        var factory = world.Constructions.First(c => c.Race == Race.Blue && c.Complete && c.IsType("FACTORY") && c.Spec.SubType == "CIVILIAN");
+        var constructor = Data.FactoryOffer("CIVILIAN", factory.Stats.HardwareLevel).First(k => k.Type == "CONSTRUCTOR");
+        blue.Researched.Add(constructor);
+        blue.Bmu = 50;
+        Run(world, 2);
+        Assert.True(blue.Hold && blue.HoldEarners);
+
+        var spent = factory.ProductionSpent;
+        var had = factory.ProductionQueue.Count(k => k.Type == "CONSTRUCTOR");
+        world.Issue(new BuildMachineCommand(Race.Blue, factory.Id, constructor));
+        Run(world, 3);
+        Assert.Equal(spent, factory.ProductionSpent);
+        Assert.Equal(had, factory.ProductionQueue.Count(k => k.Type == "CONSTRUCTOR"));
+    }
+
+    [Fact]
+    public void A_stand_in_for_a_player_who_left_leaves_their_queues_as_they_were()
+    {
+        var world = NewMatch("m_desert", tuned: true);
+        Run(world, 1);
+        var red = world.Races[Race.Red];
+        var factory = world.Constructions.First(c => c.Race == Race.Red && c.Complete && c.IsType("FACTORY"));
+        var grunt = Data.FactoryOffer(factory.Spec.SubType!, factory.Stats.HardwareLevel).First(k => !Machines.Sim.Ai.AiController.Earns(k));
+        red.Researched.Add(grunt);
+        world.Issue(new BuildMachineCommand(Race.Red, factory.Id, grunt));
+        world.Issue(new BuildMachineCommand(Race.Red, factory.Id, grunt));
+        Run(world, 1);
+        red.Bmu = 0;
+
+        world.HandOverToAi(Race.Red);
+        Run(world, 5);
+
+        Assert.Contains(world.AiControllers, ai => ai.Race == Race.Red && ai.StandsIn);
+        Assert.False(red.Hold);
+        Assert.Equal(2, factory.ProductionQueue.Count(k => k == grunt));
+    }
+
+    [Fact]
+    public void Computers_take_different_rivals_and_a_campaign_keeps_the_nearest()
+    {
+        var everyone = new Dictionary<Race, Controller> { [Race.Red] = Controller.Ai, [Race.Blue] = Controller.Ai, [Race.Green] = Controller.Ai, [Race.Yellow] = Controller.Ai };
+        var world = MatchSetup.Create(Data, "m_desert", "m_desert", everyone, seed: 7, new MatchOptions { AiLevel = AiLevel.Hard });
+        Run(world, 2);
+        var rivals = world.AiControllers.Select(ai => ai.Rival).ToList();
+        Assert.All(rivals, r => Assert.NotNull(r));
+        Assert.Equal(rivals.Count, rivals.Distinct().Count());
+        Assert.All(world.AiControllers, ai => Assert.NotEqual(ai.Race, ai.Rival));
+
+        var old = MatchSetup.Create(Data, "m_desert", "m_desert", everyone, seed: 7, new MatchOptions { AiLevel = AiLevel.Hard, SkirmishAi = false });
+        Run(old, 2);
+        Assert.All(old.AiControllers, ai => Assert.Null(ai.Rival));
+    }
+
     [Theory]
     [InlineData(AiLevel.Hard)]
     [InlineData(AiLevel.Normal)]

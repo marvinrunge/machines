@@ -83,8 +83,8 @@ public sealed partial class GameWorld
             return;
 
         var key = factory.ProductionQueue[0];
-        // A computer saving for a mine builds only what brings money in (MatchOptions.TunedAi).
-        if (AiHolds(factory.Race) && !Ai.AiController.Earns(key))
+        // A computer saving for a mine builds only what brings money in, and nothing while a mine is being built (MatchOptions.TunedAi).
+        if (AiHolds(factory.Race) && !Ai.AiController.BuildsWhileSaving(Races[factory.Race], key))
             return;
         var item = Data.ResearchTree.Find(key);
         if (item is null)
@@ -229,8 +229,8 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>Whether a computer plays the race now, a stand-in for a player who left included.</summary>
-    private bool AiPlays(Race race) => AiControllers.Any(ai => ai.Race == race);
+    /// <summary>Whether a computer of its own plays the race now, not a stand-in for a player who left (Ai.AiController.StandsIn).</summary>
+    private bool AiPlays(Race race) => AiControllers.Any(ai => ai.Race == race && !ai.StandsIn);
 
     /// <summary>Whether the race's computer holds its factories and labs to save for a mine (<see cref="RaceState.Hold"/>).</summary>
     private bool AiHolds(Race race) => Options.TunedAi && Races[race].Hold && AiPlays(race);

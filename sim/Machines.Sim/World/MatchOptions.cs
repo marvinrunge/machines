@@ -136,7 +136,8 @@ public sealed record MatchOptions
     /// still lacks its kind, as the original put a new machine into the squad that ordered it, so no squad orders the
     /// same machine over and over; a geo locator drives straight to the nearest deposit it has not found, as the
     /// original's did (MachLogTaskLocateOperation), and gives up on one it cannot reach; a computer without a mine
-    /// working holds its factories and labs to save for one; and its labs research on an empty bank, as the
+    /// working holds its factories and labs to save for one; each computer goes for a rival of its own rather than the
+    /// nearest of all, so that no two fall upon one race together; and its labs research on an empty bank, as the
     /// original's did for everyone (hwlab.cpp). Campaign missions keep the computers as they were. Recordings made
     /// before say false, so they play back as they were played.
     /// </summary>
