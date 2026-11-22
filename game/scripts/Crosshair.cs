@@ -11,7 +11,9 @@ namespace Machines.Game;
 /// match brackets stand round it over an enemy a geo locator has located. A sighted driver of Wired (the Modern layout) sees
 /// two marks: this sight where the gun points (<see cref="At"/>), with its colour, sounds and spread marks, and a dot in the
 /// middle where the view looks (<see cref="Dot"/>), with the bars and brackets of what it rests on. Left unset, those draw
-/// and sound as the original's single sight.
+/// and sound as the original's single sight. The sight, its spread marks and the dot are drawn as strongly as the options
+/// say (<see cref="GameOptions.CrosshairOpacity"/>, half at first), read every frame so a change shows at once; the target's
+/// bars, the compass and the brackets round a located enemy are read-outs and stay whole.
 /// </summary>
 public partial class Crosshair : Control
 {
@@ -148,8 +150,9 @@ public partial class Crosshair : Control
         var centre = (size / 2).Floor();
         var sight = At is { } placed ? placed.Floor() : centre;
         var showSight = !(Dot && SightHidden);
+        var opacity = GameOptions.CrosshairOpacity;
         if (Spread is not null && showSight && !Clamped)
-            DrawSpread(sight, size.Y);
+            DrawSpread(sight, size.Y, opacity);
         _s = scale;
 
         // Each part twice under the goggles: first its dark edge, then itself.
@@ -168,7 +171,7 @@ public partial class Crosshair : Control
                 DrawCompass((centre + new Vector2(-24, 26) * scale).Round());
             if (showSight)
             {
-                _strength = Clamped ? 0.5f : 1;
+                _strength = (Clamped ? 0.5f : 1) * opacity;
                 DrawSight(sight, name, frame);
             }
         }
@@ -181,8 +184,8 @@ public partial class Crosshair : Control
         if (Dot)
         {
             var radius = 1.5f * scale;
-            DrawCircle(centre, radius + 1, new Color(0, 0, 0, 0.9f));
-            DrawCircle(centre, radius, new Color(1, 1, 1, 0.9f));
+            DrawCircle(centre, radius + 1, new Color(0, 0, 0, 0.9f * opacity));
+            DrawCircle(centre, radius, new Color(1, 1, 1, 0.9f * opacity));
         }
     }
 
@@ -435,11 +438,11 @@ public partial class Crosshair : Control
     }
 
     /// <summary>The marks at the edge of the cone a round flies in, on the screen as the driver's camera shows it.</summary>
-    private void DrawSpread(Vector2 centre, float height)
+    private void DrawSpread(Vector2 centre, float height, float opacity)
     {
         var radius = Mathf.Tan(Mathf.DegToRad(_spreadShown)) / Mathf.Tan(Mathf.DegToRad(FieldOfView / 2)) * height / 2;
         var (length, line) = (height * 0.012f, Mathf.Max(height / 540, 1));
-        var colour = _sight == Sight.Enemy ? new Color(1, 0.5f, 0.3f, 0.9f) : new Color(0.55f, 1, 0.45f, 0.75f);
+        var colour = _sight == Sight.Enemy ? new Color(1, 0.5f, 0.3f, 0.9f * opacity) : new Color(0.55f, 1, 0.45f, 0.75f * opacity);
         foreach (var way in new[] { Vector2.Up, Vector2.Right, Vector2.Down, Vector2.Left })
             DrawLine(centre + way * radius, centre + way * (radius + length), colour, line);
     }

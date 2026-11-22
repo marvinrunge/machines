@@ -281,6 +281,9 @@ msgstr "Menügröße"
 msgid "HUD size"
 msgstr "HUD-Größe"
 
+msgid "Crosshair opacity"
+msgstr "Fadenkreuz-Deckkraft"
+
 msgid "Gamma"
 msgstr "Gamma"
 
