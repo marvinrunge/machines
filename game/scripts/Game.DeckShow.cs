@@ -357,7 +357,7 @@ public partial class Game
     private DownedView DownedViewOf(ActorView view)
     {
         var smoke = Effects.Plume(3, 3, 5, 1.4f, new Color(0.08f, 0.08f, 0.08f, 0.7f));
-        smoke.Position = new Vector3(view.Bounds.GetCenter().X, view.Top * 0.7f, view.Bounds.GetCenter().Z);
+        smoke.Position = new Vector3(view.Bounds.GetCenter().X, view.TopOverFeet * 0.7f, view.Bounds.GetCenter().Z);
         view.AddChild(smoke);
         var material = new ShaderMaterial { Shader = RingShader.Value };
         var reach = GameWorld.ReviveReach;

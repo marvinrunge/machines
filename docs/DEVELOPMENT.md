@@ -344,7 +344,7 @@ hero has no spare body left (2 on Normal, 1 on Hard, none on Hardcore).
 | G, H | The two abilities |
 | J | The chassis' special: anchor, rally, mine, towers, locate |
 | I | The hangar, at the pod between waves |
-| F | Back into the hero, whatever is selected |
+| F | Back into the hero, whatever is selected; while driving, first or third person (as the mouse wheel) |
 | Z, X, V, T | The squad: follow, attack my target, hold, back to the pod |
 
 **Keys of Wired** in the options moves all of these, and a trigger may lie on a key or a mouse button. **Mouse button per
@@ -354,6 +354,20 @@ the left button and Tab stay as in the original, and always on in a run).
 With the Modern layout your gun follows the view at its turret rate (a hull-only machine's hull at its own turn rate): the
 sight shows where the gun points, the dot where you look; rounds go where the gun points. A held trigger waits for the gun,
 a click fires at once (option 'Fire waits for the gun').
+
+A hero without an upper body (Grunt 1, Ballista, Gorilla, Boss, Titan, the spies and locators ...) turns on the spot as a
+whole, but its guns angle within each weapon's own DEVIATION_ANGLES, as the original's first person let them (Bolter 30
+degrees, Plasma Rifle 15, 10 for a weapon that names none): while the view lies within the narrowest arc the hull stays put
+and the rounds go where you look; past it the hull turns until the view is back inside, and the brackets either side of the
+dot mark the arc's edges. Q and E still turn the hull itself. Recordings from before (protocol 15 and earlier, and the story branch's 16) play without the arcs. A story's heroes have none: L-7 and the Grunts drive as the original's first person did, the hull following the view.
+
+Runs and battles are seen from behind and above the hero by default (third person, as in a tank game; **Hero view** and
+**Camera distance** in the options, `hero_view=first|third`, `chase_distance=0.7-1.5`): F or the mouse wheel switches, and
+the wheel steps the camera nearer or further. The camera keeps behind the hero on the line of the view, so the crosshair
+still means exactly where the hero aims; it stands over the hero's top by at least 0.15 of its arm, so a foe beyond a tall hero is seen over its back, and buildings and hills bring it closer (the pivot coming down with it, the camera tipping down when a hill lifts it, so the hero stays in the picture). The hull glyph under the crosshair shows the
+hull, the gun and the way the keys drive, a red cross where a hill stops the gun's line short of the dot. With the Classic
+layout, and inside buildings, it is first person. A story's prologue and first act are played from the faceplate alone, whatever the option says (F is Hack / use there, the wheel does nothing): the story lets its hero out later, when L-7 finds a small flying machine (the one switch `StoryMarks.ThirdPerson`, set by nothing yet). `MACHINES_WIRED_SCENE=<folder>,chase` pictures a row of chassis from
+behind (Game.ChaseScene.cs).
 
 The hangar's tree holds the original's chassis and Wired's own, each of these with something of its own: Sarge's third slot,
 Old Iron's ram plough, the Thresher's heavy slot, the Harvester's harvest, the Widow's lurk, the Colossus' anchor (J), the
@@ -397,7 +411,7 @@ The public relay is the same `server/Machines.Relay`, reached over WebSocket: pl
 (`wss://…`, or the `https://…` Cloud Run shows) where they would type host:port, and the game takes WebSocket for a web
 address and TCP for anything else. Beside the TCP port the relay serves HTTP on the port of the `PORT` environment
 variable (Cloud Run sets it) or of `--http-port`: `GET /health` answers
-`{"status":"ok","version":"1.0","protocol":16,"rooms":0,"players":0}`, and `/ws` takes the games' WebSockets into the
+`{"status":"ok","version":"1.0","protocol":17,"rooms":0,"players":0}`, and `/ws` takes the games' WebSockets into the
 same rooms as TCP. It logs to standard output.
 
 A dropped line costs the match nothing. A game asks the relay for a session as it connects; both sides count their

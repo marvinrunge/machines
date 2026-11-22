@@ -272,14 +272,16 @@ public static class WiredDirector
     }
 
     /// <summary>
-    /// A wave by its budget: machines in groups of a few, the first at once and the last after 60 to 90 s. On a boss wave
+    /// A wave by its budget: machines in groups of a few, the first at once and the last after 60 to 90 s; on a brisk wave
+    /// (<see cref="WiredBalance.Brisk"/>) more of them, each the weaker, the last after 25 to 40 s. On a boss wave
     /// the budget pays for the boss's escort; the boss itself comes on top, with the first group. A special wave spends
     /// the budget in its own way: spies are paid out of it and arrive ahead of the others, a storm, a raid or a siege has
     /// machines of its own, a turncoat comes on top like a boss. A run of more than one hero has a larger budget, room for
     /// more machines and a stronger boss (<see cref="WiredBalance.CoopFoes"/>, <see cref="WiredBalance.CoopBoss"/>); one
-    /// hero's wave is planned exactly as it always was.
+    /// hero's wave is planned exactly as it always was. Without <paramref name="brisk"/> (a run recorded before brisk waves,
+    /// <see cref="WiredOptions.BriskWaves"/>) no wave is a brisk one.
     /// </summary>
-    public static WiredWavePlan Plan(GameData data, int wave, WiredDifficulty difficulty, Random random, WiredSpecial special = WiredSpecial.None, int heroes = 1)
+    public static WiredWavePlan Plan(GameData data, int wave, WiredDifficulty difficulty, Random random, WiredSpecial special = WiredSpecial.None, int heroes = 1, bool brisk = true)
     {
         var budget = WiredBalance.Budget(wave, difficulty);
         if (heroes > 1)
@@ -291,12 +293,14 @@ public static class WiredDirector
             WiredSpecial.Storm => Storm(data, wave, budget, random, most),
             WiredSpecial.AirRaid => AirRaid(data, wave, budget, random, most),
             WiredSpecial.Siege => Siege(data, wave, budget, random, most),
-            _ => Crowded(wave, Buy(data, wave, MathF.Max(0, budget - spies.Sum(s => Cost(data, s.Key))), random, most)),
+            _ => Crowded(data, wave, Buy(data, wave, MathF.Max(0, budget - spies.Sum(s => Cost(data, s.Key))), random, most), brisk && spies.Count == 0, heroes),
         };
         var count = Math.Min(machines.Count, Math.Max(WiredBalance.FewestGroups, (machines.Count + WiredBalance.GroupSize - 1) / WiredBalance.GroupSize));
-        var spread = WiredBalance.LeastSpread + random.Next(WiredBalance.MostSpread - WiredBalance.LeastSpread + 1);
-        // A crowd of weak machines comes close together: one by one, each fell at once and the hero waited for the next.
-        if (machines.Any(m => m.Worth < 1))
+        var (least, longest) = WiredBalance.Brisk(wave, brisk) ? (WiredBalance.BriskLeastSpread, WiredBalance.BriskMostSpread) : (WiredBalance.LeastSpread, WiredBalance.MostSpread);
+        var spread = least + random.Next(longest - least + 1);
+        // A crowd of the first waves comes close together: one by one, each fell at once and the hero waited for the next.
+        // A brisk wave's crowd, larger and already quick, comes in the usual groups.
+        if (wave <= WiredBalance.CrowdUntil && machines.Any(m => m.Worth < 1))
             (count, spread) = (Math.Min(machines.Count, WiredBalance.CrowdGroups), WiredBalance.CrowdSpread);
         var boss = BossOf(wave);
         var groups = new List<WiredGroup>();
@@ -318,17 +322,47 @@ public static class WiredDirector
     /// <summary>
     /// The first waves as more machines, each the weaker: what the budget bought comes as <see cref="WiredBalance.CrowdSize"/>
     /// machines, together <see cref="WiredBalance.CrowdStrength"/> times as strong (none stronger than bought) and worth
-    /// what the bought ones were. The owner found the start of a run empty, one Grunt to a wave.
+    /// what the bought ones were. The owner found the start of a run empty, one Grunt to a wave. A brisk wave
+    /// (<see cref="WiredBalance.Brisk"/>) likewise, as at least <see cref="WiredBalance.BriskCrowd(int, int)"/> machines
+    /// together <see cref="WiredBalance.BriskStrength"/> times as strong, unless it is <paramref name="brisk"/> no more (a
+    /// spies' wave, whose spies are its crowd and whose budget went to them); a boss's wave brings what it bought. An elite
+    /// comes once, thinned as the rest but never weaker than a whole machine of its kind, and the crowd's copies of it are
+    /// plain ones: it neither comes more often nor leaves more crates than bought. (An elite at its full strength among the
+    /// thinned ones ended the bench's Normal runs 0.15 waves sooner and Hard ones 0.2.)
     /// </summary>
-    private static List<WiredFoePlan> Crowded(int wave, List<WiredFoePlan> machines)
+    private static List<WiredFoePlan> Crowded(GameData data, int wave, List<WiredFoePlan> machines, bool brisk, int heroes)
     {
-        if (wave > WiredBalance.CrowdUntil || machines.Count == 0 || machines.Count >= WiredBalance.CrowdSize)
+        int count;
+        float share;
+        if (machines.Count == 0)
             return machines;
-        var count = WiredBalance.CrowdSize;
-        var share = MathF.Min(1, WiredBalance.CrowdStrength(wave) * machines.Count / count);
-        var worth = machines.Count / (float)count;
-        return Enumerable.Range(0, count).Select(i => machines[i % machines.Count])
-            .Select(plan => plan with { HitPoints = plan.HitPoints * share, Damage = plan.Damage * share, Worth = plan.Worth * worth }).ToList();
+        if (wave <= WiredBalance.CrowdUntil)
+        {
+            if (machines.Count >= WiredBalance.CrowdSize)
+                return machines;
+            count = WiredBalance.CrowdSize;
+            share = MathF.Min(1, WiredBalance.CrowdStrength(wave) * machines.Count / count);
+        }
+        else if (brisk && WiredBalance.Brisk(wave))
+        {
+            var least = WiredBalance.BriskCrowd(wave, heroes);
+            var strength = WiredBalance.BriskStrength(machines.Count, least);
+            if (strength >= 1)
+                return machines;
+            count = Math.Max(least, machines.Count);
+            share = strength * machines.Count / count;
+        }
+        else
+            return machines;
+        var crowd = Enumerable.Range(0, count).Select(i => i < machines.Count ? machines[i] : Plain(machines[i % machines.Count])).ToList();
+        // Worth goes by cost: when the bought differ, one of them comes once more often than another, and the crowd is still
+        // worth exactly what was paid. Of a single kind this is what it always was, the share of the crowd that was bought.
+        float Paid(IEnumerable<WiredFoePlan> plans) => plans.Sum(plan => Cost(data, plan.Key) * plan.Worth);
+        var worth = Paid(machines) / Paid(crowd);
+        return crowd.Select(plan => plan.Elite ? plan with { HitPoints = MathF.Max(1, plan.HitPoints * share), Damage = MathF.Max(1, plan.Damage * share), Worth = plan.Worth * worth }
+            : plan with { HitPoints = plan.HitPoints * share, Damage = plan.Damage * share, Worth = plan.Worth * worth }).ToList();
+
+        static WiredFoePlan Plain(WiredFoePlan plan) => plan.Elite ? plan with { Elite = false, HitPoints = 1, Damage = 1 } : plan;
     }
 
     /// <summary>What a boss below half calls in: a small group from a part of the wave's budget, a larger part in a run of more than one hero.</summary>

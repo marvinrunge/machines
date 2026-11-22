@@ -38,6 +38,7 @@ public class GoldenBundleTests(ITestOutputHelper output)
         [GoldenCase.FittedSkirmish.Name] = ("FittedSkirmishSums", null),
         [GoldenCase.FittedWired.Name] = ("FittedWiredSums", null),
         [GoldenCase.FittedBattle.Name] = ("FittedBattleSums", "FittedBattleEnded"),
+        [GoldenCase.SkirmishAiFourWay.Name] = ("SkirmishAiFourWaySums", null),
     };
 
     private static T PinnedIn<T>(string field) =>

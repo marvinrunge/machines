@@ -31,7 +31,7 @@ public partial class StoryHud
                 continue;
             var view = grunt.Actor is { } actor ? _game.ViewOf(actor) : null;
             var place = view is not null && IsInstanceValid(view)
-                ? view.GlobalPosition + Vector3.Up * (view.Top + 0.25f)
+                ? view.GlobalPosition + Vector3.Up * (view.TopOverFeet + 0.25f)
                 : ActorView.World(position) + Vector3.Up * 2.6f;
             Label(camera, grunt, place, distance, GruntLabels.PlainView(_game.World, hero.Position, position));
         }

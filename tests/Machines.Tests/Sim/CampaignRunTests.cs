@@ -14,7 +14,7 @@ namespace Machines.Tests.Sim;
 /// driver, who sends every machine to the script's REACHED_LOCATION points one after the other, a minute each, and
 /// then at the nearest enemy. Nothing may throw, and every voice mail must be one the game has. Long (some minutes):
 /// it runs only when MACHINES_MISSION_RUNS names a file, which gets a line per mission: how it ended, the script lines
-/// that fired, the mails and the tasks.
+/// that fired, the mails and the tasks, and the world's checksum at the end, so two builds' runs can be compared.
 /// </summary>
 public class CampaignRunTests
 {
@@ -90,7 +90,7 @@ public class CampaignRunTests
             File.AppendAllText(Report!,
                 $"{name,-8} {outcome,-9} at {(decidedAt < 0 ? world.Time : decidedAt),5:0}s  fired {script.Fired.Count}/{script.Fired.Count + script.ActionsLeft} [{string.Join(",", script.Fired)}]" +
                 $"  tasks [{string.Join(" ", tasks)}]  mails {mails.Count} [{string.Join(" ", mails.Distinct())}]  flags [{string.Join(",", script.FlagsSet)}]  {standing}" +
-                $"  ({clock.Elapsed.TotalSeconds:0}s)\n");
+                $"  sum 0x{world.Checksum():X16}  ({clock.Elapsed.TotalSeconds:0}s)\n");
     }
 
     /// <summary>The player's side: a minute at each of the script's points in turn, then at the nearest enemy.</summary>

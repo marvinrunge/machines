@@ -238,9 +238,63 @@ public sealed partial class AiController
     /// OBJECT only that kind, the artefact the nearest standing one (POINT was read but never used). Otherwise the
     /// nearest of everything, with fighters and towers looked at first: with one within 150 m and the scanner, nine
     /// times in ten the rest of that race is not looked at. RESEARCH names no object, so the original's default stands
-    /// and only aggressors are found.
+    /// and only aggressors are found. A computer with a rival (<see cref="RivalOf"/>) takes the nearest of the rival's
+    /// instead, unless what is nearest of all is within the scanner.
     /// </summary>
     private Actor? FindTargetClosestTo(GameWorld world, Actor actor, AttackOperation attack, Vector2 from, float minimum = 0)
+    {
+        var nearest = FindTargetClosestTo(world, actor, attack, from, minimum, null);
+        if (_rival is not { } rival || attack.Target != AttackTarget.Default || nearest is null || nearest.Race == rival)
+            return nearest;
+        var scanner = actor is Machine machine ? machine.Stats.ScannerRange * machine.Stats.ScannerRange : DefaultScanner;
+        if (Vector2.DistanceSquared(from, nearest.Position) < MathF.Min(scanner, GoodTargetRange))
+            return nearest;
+        return FindTargetClosestTo(world, actor, attack, from, minimum, rival) ?? nearest;
+    }
+
+    /// <summary>The race this computer's attacks go for (<see cref="RivalOf"/>); null for the nearest of all, as the original's.</summary>
+    private Race? _rival;
+
+    /// <summary>The race its attacks go for (<see cref="RivalOf"/>); null where they go for the nearest of all, as the original's.</summary>
+    public Race? Rival => _rival;
+
+    /// <summary>
+    /// The original's squads went for whatever was nearest, so in a skirmish of several races two or three computers fell
+    /// upon the same neighbour and took it out. With <see cref="MatchOptions.TunedAi"/> each computer has a rival instead:
+    /// the computers, in race order, each take the nearest enemy race (pod to pod) that the fewest computers before it
+    /// have taken, so that no race is set upon by two while another is left alone. Its squads fight what comes within
+    /// their scanners, whoever it is, and otherwise go for the rival. Every computer works out the same table.
+    /// </summary>
+    private Race? RivalOf(GameWorld world)
+    {
+        var homes = new Dictionary<Race, Vector2>();
+        foreach (var (race, state) in world.Races.OrderBy(p => p.Key))
+        {
+            if (state.Defeated)
+                continue;
+            Actor? home = world.Constructions.FirstOrDefault(c => c.Race == race && c.IsType("POD") && !c.IsDead)
+                ?? world.Constructions.FirstOrDefault(c => c.Race == race && !c.IsDead)
+                ?? (Actor?)world.Machines.FirstOrDefault(m => m.Race == race && !m.IsDead);
+            if (home is not null)
+                homes[race] = home.Position;
+        }
+        var taken = homes.Keys.ToDictionary(r => r, _ => 0);
+        foreach (var ai in world.AiControllers.Where(a => homes.ContainsKey(a.Race)).OrderBy(a => a.Race))
+        {
+            var from = homes[ai.Race];
+            Race? rival = homes.Keys.Where(r => world.AreEnemies(ai.Race, r))
+                .OrderBy(r => taken[r]).ThenBy(r => Vector2.DistanceSquared(from, homes[r])).ThenBy(r => r)
+                .Select(r => (Race?)r).FirstOrDefault();
+            if (ai.Race == Race)
+                return rival;
+            if (rival is { } taker)
+                taken[taker]++;
+        }
+        return null;
+    }
+
+    /// <summary>findTargetClosestTo over every enemy race, or over <paramref name="only"/> alone.</summary>
+    private Actor? FindTargetClosestTo(GameWorld world, Actor actor, AttackOperation attack, Vector2 from, float minimum, Race? only)
     {
         Actor? closest = null;
         var closestDistance = float.MaxValue;
@@ -263,7 +317,7 @@ public sealed partial class AiController
         }
 
         var enemies = world.Actors.Where(a => world.AreEnemies(Race, a.Race) && a is not Machine { Inside: not null } and not Machine { Camouflaged: true }).ToLookup(Kind);
-        var races = world.Races.Keys.Order().Where(r => world.AreEnemies(Race, r));
+        var races = world.Races.Keys.Order().Where(r => world.AreEnemies(Race, r) && (only is null || r == only));
         if (attack.Target == AttackTarget.Resource)
         {
             foreach (var race in races)

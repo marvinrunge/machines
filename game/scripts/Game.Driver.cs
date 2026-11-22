@@ -26,6 +26,26 @@ public partial class Game
     /// <summary>Where the first person camera stands.</summary>
     public Vector3 Eye => _firstPersonCamera.GlobalPosition;
 
+    /// <summary>Whether the hero is seen from behind (Game.Chase.cs).</summary>
+    public bool ChaseView => _chaseSpot is not null;
+
+    /// <summary>
+    /// The view's heading and look up and down that put the dot in the middle on <paramref name="point"/>, radians as
+    /// <see cref="AimYaw"/> and <see cref="LookPitch"/>: from the faceplate straight there; from behind the heading from
+    /// the hero (the camera stands on that line) and the pitch from the camera, less the chase camera's own tilt.
+    /// </summary>
+    public (float Yaw, float Pitch) LookTo(Vector3 point)
+    {
+        if (_chaseSpot is not { } spot)
+        {
+            var to = point - Eye;
+            return (Mathf.Atan2(to.Z, to.X), Mathf.Atan2(to.Y, new Vector2(to.X, to.Z).Length()));
+        }
+        var from = point - spot.Pivot;
+        var seen = point - spot.Camera;
+        return (Mathf.Atan2(from.Z, from.X), Mathf.Atan2(seen.Y, new Vector2(seen.X, seen.Z).Length()) - ChaseCamera.StartPitch);
+    }
+
     /// <summary>The middle of an actor's model as it is shown, if it is shown.</summary>
     public Vector3? CentreOf(int actor) => _views.TryGetValue(actor, out var view) ? view.Centre : null;
 

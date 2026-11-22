@@ -55,6 +55,7 @@ public static class KeyMap
         GruntFollow,
         GruntWait,
         GruntDistract,
+        ChaseView,
     }
 
     /// <summary>Where an action's key works. Two actions that work in the same place cannot share a key.</summary>
@@ -129,6 +130,9 @@ public static class KeyMap
         [Act.GruntFollow] = new("Grunts: follow", Key.Z, Where.FirstPerson | Where.Story),
         [Act.GruntWait] = new("Grunts: wait here", Key.V, Where.FirstPerson | Where.Story),
         [Act.GruntDistract] = new("Grunts: distract", Key.X, Where.FirstPerson | Where.Story),
+        // First or third person for the hero: on the key that leaves first person elsewhere, which a run keeps the driver in.
+        // A story's Hack / use shares it: a story is played from the faceplate until it lets the hero out (Game.StoryView).
+        [Act.ChaseView] = new("Third person", Key.F, Where.FirstPerson | Where.Run),
     };
 
     /// <summary>
@@ -356,15 +360,21 @@ public static class KeyMap
     // The views an action's key works in; the hangar's in both.
     private static Where Views(Act act) => (Entries[act].Where & Where.Both) is var views && views != 0 ? views : Where.Both;
 
-    /// <summary>A run has the ground and first person too: what is picked now keeps out of the way of its key, though old choices that share it stand.</summary>
+    /// <summary>
+    /// A run has the ground and first person too: what is picked now keeps out of the way of its key, though old choices that
+    /// share it stand. Actions that never work at once (<see cref="Apart"/>) may share one.
+    /// </summary>
     private static bool Crosses(Act a, Act b) => (Views(a) & Views(b)) != 0 && !Apart(a, b) && !Apart(b, a);
 
     /// <summary>
     /// Whether two actions never work at once though both work in first person: a story's and a run's own (its squad, its
-    /// hangar, its abilities: a story keeps none of them), and a story's and the way into first person, which a story never leaves.
+    /// hangar, its abilities, the hero's view: a story keeps none of them), and a story's and the way into first person, which
+    /// a story never leaves; and first person's key and the hero's view, as first person's key leaves first person only where
+    /// nothing keeps the driver in it, and the hero's view switches only in a run or a battle, which keeps the driver in the hero.
     /// </summary>
     private static bool Apart(Act story, Act other) =>
-        IsStory(story) && !IsStory(other) && ((Entries[other].Where & Where.Run) != 0 || other == Act.FirstPerson);
+        (story, other) is (Act.FirstPerson, Act.ChaseView) or (Act.ChaseView, Act.FirstPerson)
+        || IsStory(story) && !IsStory(other) && ((Entries[other].Where & Where.Run) != 0 || other == Act.FirstPerson);
 
     private static string Setting(Act act) =>
         string.Concat(act.ToString().Select((c, i) => i > 0 && char.IsUpper(c) ? "_" + char.ToLowerInvariant(c) : char.ToLowerInvariant(c).ToString()));

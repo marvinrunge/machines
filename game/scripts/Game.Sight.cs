@@ -1,7 +1,9 @@
 using Godot;
 using Machines.Net;
 using Machines.Sim.World;
+using Machines.Sim.Survival;
 using NVector2 = System.Numerics.Vector2;
+using NVector3 = System.Numerics.Vector3;
 
 namespace Machines.Game;
 
@@ -80,12 +82,25 @@ public partial class Game
         DropDue();
         var coming = GunPrediction.Turning(_turnsDue, World.Tick, Sighted ? NextDue : long.MinValue);
         var behind = Mathf.Wrap(_aimYaw - machine.Facing - coming, -Mathf.Pi, Mathf.Pi);
+        // Guns that angle in their arc keep the hull still while the view lies within it, and past it the hull turns on
+        // the spot only until the view is back within it, a little inside the edge (GameWorld.GunArc.cs).
+        if (GunArc(machine) is > 0 and var arc)
+            behind = GameWorld.BeyondArc(behind, arc - Mathf.Min(ArcMargin, arc * 0.2f));
         // A hull that already looks where the view does sends no turn: the rounding left over (a millionth of a radian)
         // would count as turning in the world, and one who stands still would never be a resting obstacle to go round.
         if (MathF.Abs(behind) < FollowTurnDeadZone)
             return 0;
         return -Mathf.Clamp(behind / step, -1, 1);
     }
+
+    /// <summary>How far inside its arc's edge a hull turning after the view leaves the view, radians (a degree), so the guns stay on it.</summary>
+    private const float ArcMargin = Mathf.Pi / 180;
+
+    /// <summary>
+    /// The arc of the driven machine's narrowest weapon that angles, radians, while it is sighted (<see cref="GameWorld.GunArcOf(Machine)"/>):
+    /// within it the hull stays and the guns angle towards the view. 0 for a machine with an upper body, unsighted, or a match without the arcs.
+    /// </summary>
+    private float GunArc(Machine machine) => Sighted ? World.GunArcOf(machine) : 0;
 
     /// <summary>The hull turn a command's <paramref name="turn"/> makes in the world, radians, worked out as the world does.</summary>
     private float HullTurnFor(Machine machine, float turn, bool slow, bool hasYaw) =>
@@ -109,7 +124,7 @@ public partial class Game
             ? (HullTurnFor(machine, input.Turn, input.Slow, World.HasYaw(machine.Id)), World.PlayerYaws.TryGetValue(machine.Id, out var yaw) ? yaw : float.NaN)
             : null;
         return GunPrediction.Predict(machine.Facing, World.HeadOf(machine.Id), GameWorld.HeadStep(machine), World.Busy(machine),
-            machine.Inside is not null, World.Tick, _turnsDue, tick => World.Battle?.InOpening(tick * GameWorld.Dt) == true, next, carried);
+            machine.Inside is not null, World.Tick, _turnsDue, tick => World.Battle?.InOpening(tick * GameWorld.Dt) == true, next, carried, GunArc(machine));
     }
 
     /// <summary>
@@ -129,7 +144,7 @@ public partial class Game
 
     /// <summary>The turn the next command will carry, as <see cref="UpdateDriving"/> works it out (before its sign is put right).</summary>
     private float NextTurn(Machine machine) =>
-        ScreenOver ? 0 : machine.CanTurnUpperBody ? KeyTurn(machine) : FollowTurn(machine, out _);
+        ScreenOver ? 0 : machine.CanTurnUpperBody || GunArc(machine) > 0 && KeyTurn(machine) != 0 ? KeyTurn(machine) : FollowTurn(machine, out _);
 
     /// <summary>
     /// The held weapons whose bits go into the command, with "Fire waits for the gun" (<see cref="GunPrediction.Gate"/>);
@@ -150,7 +165,11 @@ public partial class Game
             var weapon = machine.Weapons[i];
             var triggers = WeaponTriggers.Of(weapon.Mounting, places);
             var pressed = triggers.Max(_hands.PressedAt);
-            var goes = GunPrediction.Gate(GameOptions.FireWaitsForGun, weapon.Spec.TypeName, gun.On, enemy, now - pressed, hullLag);
+            // A weapon that angles is on while the view lies within its own arc, which may be wider than the narrowest's.
+            var on = World.GunArcOf(machine, weapon.Spec) is > 0 and var arc
+                ? machine.Inside is null && MathF.Abs(GameWorld.BeyondArc(hullLag, arc)) <= WiredBalance.GunPlay
+                : gun.On;
+            var goes = GunPrediction.Gate(GameOptions.FireWaitsForGun, weapon.Spec.TypeName, on, enemy, now - pressed, hullLag);
             if (goes)
                 sent |= 1 << i;
             foreach (var trigger in triggers.Where(_hands.Down))
@@ -176,6 +195,9 @@ public partial class Game
         var most = 1.25f * rate * (float)GetProcessDeltaTime();
         _gunDrawn = _gun.On || MathF.Abs(rest) <= Mathf.DegToRad(0.05f) ? _gun.Heading : _gunDrawn + Mathf.Clamp(rest, -most, most);
         view.GunBearing = _gunDrawn;
+        // Guns that angle in their arc stand towards the drawn gun from the hull as it is drawn (its yaw is the facing's negative).
+        var arc = GunArc(machine);
+        view.GunSwing = arc > 0 ? Mathf.Clamp(Mathf.Wrap(_gunDrawn + view.Yaw, -Mathf.Pi, Mathf.Pi), -arc, arc) : 0;
     }
 
     /// <summary>
@@ -229,8 +251,66 @@ public partial class Game
                 (cross.At, cross.Clamped) = (edge ?? at, edge is not null);
             }
         }
+        ShowArcAndHull(machine, view, seen, size);
         cross.Show(Kind(onGun), _gun.On);
     }
+
+    /// <summary>
+    /// What the sighted driver is told of the hull and the gun beside the two marks: the edges of the guns' arc (the view
+    /// past them turns the hull), the hull glyph under the compass (the hull and the gun from above, the view up, and the way
+    /// the keys drive), where the ground stops the gun's line before the point looked at, and from behind the hero how wide
+    /// the rounds' cone shows at the point.
+    /// </summary>
+    private void ShowArcAndHull(Machine machine, ActorView view, Vector3 seen, Vector2 size)
+    {
+        var cross = _hud.Crosshair;
+        var camera = _firstPersonCamera;
+        var hero = new NVector2(view.GlobalPosition.X, view.GlobalPosition.Z);
+        var dot = new NVector2(seen.X, seen.Z);
+        var facing = -view.Yaw;
+        // The arc's edges at the dot's distance (at least 15 m), where the camera sees them.
+        cross.ArcEdges = null;
+        if (GunArc(machine) is > 0 and var arc && !_towersUp)
+        {
+            var away = MathF.Max(15, NVector2.Distance(hero, dot));
+            float? Edge(float side)
+            {
+                var bearing = facing + side * arc;
+                var point = new Vector3(hero.X + MathF.Cos(bearing) * away, seen.Y, hero.Y + MathF.Sin(bearing) * away);
+                if (camera.IsPositionBehind(point))
+                    return null;
+                var x = camera.UnprojectPosition(point).X;
+                return x > 0 && x < size.X ? x : null;
+            }
+            cross.ArcEdges = (Edge(1), Edge(-1));
+        }
+        cross.HullAngle = Mathf.Wrap(facing - _aimYaw, -Mathf.Pi, Mathf.Pi);
+        cross.GunAngle = Mathf.Wrap(_gunDrawn - _aimYaw, -Mathf.Pi, Mathf.Pi);
+        cross.Drive = _driveShown;
+        // The ground between the gun and where it sends its rounds stops them there (GameWorld.Projectiles): marked, as from
+        // behind the hero the view sees over crests its gun cannot clear.
+        cross.BlockedAt = null;
+        if (World.Terrain is { } terrain && !_towersUp)
+        {
+            var aim = _gun.On ? dot : GameWorld.GunPoint(machine.Position, _gun.Lag, dot);
+            var from = World.AimPoint(machine);
+            var to = new NVector3(aim.X, aim.Y, seen.Y);
+            if (terrain.FirstBlocked(from, to, step: 1.5f, ends: 0) is { } share)
+            {
+                var hit = NVector3.Lerp(from, to, share);
+                var point = new Vector3(hit.X, hit.Z, hit.Y);
+                if (!camera.IsPositionBehind(point) && point.DistanceTo(seen) > 2)
+                    cross.BlockedAt = camera.UnprojectPosition(point);
+            }
+        }
+        // The rounds' cone opens at the hero; from behind it the camera sees it from further away, narrower.
+        cross.SpreadShare = _chaseSpot is { } spot
+            ? ChaseCamera.SpreadShare(view.Centre.DistanceTo(seen), spot.Camera.DistanceTo(seen))
+            : 1;
+    }
+
+    // What the keys drive this frame, for the hull glyph: ahead (1) or back (-1), and to the right on the screen.
+    private Vector2 _driveShown;
 
     /// <summary>What a sight resting on an actor shows: an enemy, a friend, or nothing.</summary>
     private Crosshair.Sight Kind(Actor? actor) =>

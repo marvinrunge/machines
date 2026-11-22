@@ -43,7 +43,7 @@ public partial class ActorView
     private MeshInstance3D? _carried;
 
     /// <summary>The height of the machine's top over its feet, metres, as its model measures.</summary>
-    public float Top => _bounds.End.Y;
+    public float TopOverFeet => _bounds.End.Y;
 
     /// <summary>A crate (a story prop) carried on the machine's back, or none.</summary>
     public void Carry(string? prop)

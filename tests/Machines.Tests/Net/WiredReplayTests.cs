@@ -31,7 +31,7 @@ public class WiredReplayTests
     ]);
 
     [Fact]
-    public void The_protocol_went_up_for_fitted_bodies() => Assert.True(NetJson.Protocol >= 15, $"protocol {NetJson.Protocol}");
+    public void The_protocol_went_up_for_the_skirmish_ai_and_the_guns_arcs() => Assert.True(NetJson.Protocol >= 17, $"protocol {NetJson.Protocol}");
 
     [Fact]
     public void Every_wired_command_comes_through_the_wire_as_it_went_in()
@@ -307,6 +307,30 @@ public class WiredReplayTests
             Assert.True(resumed.TryStep());
         }
         Assert.Equal(live.World.Checksum(), resumed.World.Checksum());
+    }
+
+    [Fact]
+    public void A_run_recorded_before_brisk_waves_plays_back_without_them()
+    {
+        Assert.True(Run().Options.Wired!.BriskWaves);
+        var path = Path.Combine(Path.GetTempPath(), $"brisk-{Guid.NewGuid():N}.mreplay");
+        try
+        {
+            new Replay(Run(), [], 0).Save(path);
+            Assert.True(Replay.Load(path).Match.Options.Wired!.BriskWaves);
+
+            // The file as one from before reads without the field: its waves were planned without brisk ones.
+            var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+            Assert.True(json["Match"]!["Options"]!["Wired"]!.AsObject().Remove(nameof(WiredOptions.BriskWaves)));
+            File.WriteAllText(path, json.ToJsonString());
+            var old = Replay.Load(path);
+            Assert.False(old.Match.Options.Wired!.BriskWaves);
+            Assert.Equal((true, WiredDifficulty.Hard, "grunt2"), (old.Match.Options.FittedBodies, old.Match.Options.Wired.Difficulty, old.Match.Options.Wired.Chassis));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     [Fact]

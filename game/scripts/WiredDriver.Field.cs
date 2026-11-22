@@ -366,10 +366,14 @@ public partial class WiredDriver
         _stuck = null;
     }
 
-    /// <summary>A machine whose upper body follows the view has its hull turned by the keys; any other follows the view by itself.</summary>
+    /// <summary>
+    /// A machine whose upper body follows the view has its hull turned by the keys, and so has one whose guns angle in their
+    /// arc (GameWorld.GunArc.cs: its hull follows the view only once the view leaves the arc); any other follows the view by itself.
+    /// </summary>
     private protected void TurnHull(Machine hero, float? heading)
     {
-        var off = heading is { } way && hero.CanTurnUpperBody ? Wrap(way - hero.Facing) : 0;
+        var keyed = hero.CanTurnUpperBody || Scene is Game game && game.World.GunArcOf(hero) > 0;
+        var off = heading is { } way && keyed ? Wrap(way - hero.Facing) : 0;
         Hold(KeyMap.Act.TurnRight, off > 0.08f);
         Hold(KeyMap.Act.TurnLeft, off < -0.08f);
     }
@@ -665,8 +669,8 @@ public partial class WiredDriver
 
     private protected void LookAt(Game game, Vector3 point)
     {
-        var to = point - game.Eye;
-        Look(game, MathF.Atan2(to.Z, to.X), MathF.Atan2(to.Y, new Vector2(to.X, to.Z).Length()));
+        var (yaw, pitch) = game.LookTo(point);
+        Look(game, yaw, pitch);
     }
 
     // ---- one press --------------------------------------------------------------------------------
@@ -702,8 +706,8 @@ public partial class WiredDriver
                 var point = foe is not null && game.CentreOf(foe.Id) is { } centre ? centre : ActorView.World(aim);
                 LookAt(game, point);
                 await Frames(1);
-                var to = point - game.Eye;
-                if (foe is not null && game.DotSight == Crosshair.Sight.Enemy || MathF.Abs(Wrap(MathF.Atan2(to.Z, to.X) - game.AimYaw)) < 0.02f)
+                var yaw = game.LookTo(point).Yaw;
+                if (foe is not null && game.DotSight == Crosshair.Sight.Enemy || MathF.Abs(Wrap(yaw - game.AimYaw)) < 0.02f)
                     break;
             }
         }

@@ -196,6 +196,53 @@ public static class WiredBalance
     /// <summary>How strong such a crowd is together against what the budget bought: as one Grunt in the first wave, rising with each.</summary>
     public static float CrowdStrength(int wave) => 1 + 0.1f * (wave - 1);
 
+    /// <summary>
+    /// From this wave on a wave without a boss is a brisk one (<see cref="Brisk"/>): it comes as a crowd too, from nearer
+    /// and closer together. A tester of 0.7.6 found Wired too slow with too few machines: waves 6 to 14 bought two or
+    /// three, which came one by one from up to 1200 m off over a minute and a half, about one alive at a time and the
+    /// first shot after 45 s. Waves 1 to 5 stay as they were: the fourth is a special one, often a storm, and the bench's
+    /// Hard and Hardcore runs ended sooner when it came closer together.
+    /// </summary>
+    public const int BriskFrom = 6;
+
+    /// <summary>
+    /// Whether a wave is a brisk one: from <see cref="BriskFrom"/> on, a boss's wave keeps its long walk and its minute and
+    /// a half. A run whose options say no <see cref="WiredOptions.BriskWaves"/> (one recorded before them) has none.
+    /// </summary>
+    public static bool Brisk(int wave, bool briskWaves = true) => briskWaves && wave >= BriskFrom && !WiredDirector.IsBossWave(wave);
+
+    /// <summary>
+    /// The fewest machines a brisk wave brings: five from wave 6, one more each four waves. What the budget bought comes
+    /// as that many, together <see cref="BriskStrength"/> times as strong and worth what the bought ones were.
+    /// </summary>
+    public static int BriskCrowd(int wave) => 4 + (wave - 1) / 4;
+
+    /// <summary>
+    /// The same for a run of <paramref name="heroes"/> heroes: larger by the square root of what its budget is larger
+    /// (<see cref="CoopFoes"/>), so that a co-op wave is crowded and thinned too and not merely quicker at full strength:
+    /// six at wave 6 for two heroes, eight for four. In the bench's runs of four heroes a crowd as much larger as the budget
+    /// (fourteen) lost 46 of the 71 runs that got past wave 5 in waves 6 to 9, against 17 before; with the square root 17.
+    /// For one hero <see cref="BriskCrowd(int)"/>.
+    /// </summary>
+    public static int BriskCrowd(int wave, int heroes) =>
+        heroes > 1 ? Math.Min(MostInWaveFor(heroes), (int)MathF.Round(BriskCrowd(wave) * MathF.Sqrt(CoopFoes(heroes)))) : BriskCrowd(wave);
+
+    /// <summary>
+    /// How strong a brisk wave's crowd is together against what the budget bought. In the bench's runs a crowd as strong
+    /// as bought ended Normal runs one and a half waves sooner; at half of it they end where they did.
+    /// </summary>
+    public const float BriskCrowdStrength = 0.5f;
+
+    /// <summary>
+    /// How strong a brisk wave is together against what its budget bought, <paramref name="bought"/> machines against the
+    /// <paramref name="crowd"/> it comes as at least (<see cref="BriskCrowd(int, int)"/>): <see cref="BriskCrowdStrength"/>
+    /// while it bought no more than that crowd, then growing with what it bought, until at twice the crowd it is as strong
+    /// as bought. A wave that already brings twice the crowd is busy enough and is not thinned, and one machine more never
+    /// doubles a wave, as it did when the thinning stopped at once where the crowd was bought (wave 9: five bought came as
+    /// six of 2.5 together, six bought as six of 6).
+    /// </summary>
+    public static float BriskStrength(int bought, int crowd) => MathF.Min(1, BriskCrowdStrength * MathF.Max(1, bought / (float)crowd));
+
     /// <summary>The most machines a wave's budget buys.</summary>
     public const int MostInWave = 60;
 
@@ -216,6 +263,9 @@ public static class WiredBalance
 
     /// <summary>The seconds between a wave's first group and its last, at least and at most.</summary>
     public const int LeastSpread = 60, MostSpread = 90;
+
+    /// <summary>The same for a brisk wave (<see cref="Brisk"/>): its last group is there within 25 to 40 s.</summary>
+    public const int BriskLeastSpread = 25, BriskMostSpread = 40;
 
     /// <summary>
     /// How many tiers a wave draws on: the newest in the catalogue's order, and from the first wave of Wired's own machines
@@ -315,10 +365,13 @@ public static class WiredBalance
     /// Growing by 80 m a wave the bench's runs ended a wave or two sooner; by 200 m they end about where they did.
     /// It goes by the way, not the straight line: on Oasis a place 480 m off across the river is a 1.7 km walk round it.
     /// </summary>
-    public static float SpawnReach(int wave) => MathF.Min(400 + 200 * Math.Max(0, wave - 1), MostSpawnReach);
+    public static float SpawnReach(int wave, bool briskWaves = true) => Brisk(wave, briskWaves) ? BriskSpawnReach : MathF.Min(400 + 200 * Math.Max(0, wave - 1), MostSpawnReach);
 
     /// <summary>The longest walk a group is given, from wave 5 on: further off, the wait for it is what the player gets.</summary>
     public const float MostSpawnReach = 1200;
+
+    /// <summary>The longest walk a brisk wave's groups are given (<see cref="Brisk"/>); a boss's wave keeps <see cref="MostSpawnReach"/>.</summary>
+    public const float BriskSpawnReach = 800;
 
     /// <summary>The fewest places a group chooses from, the nearest ones when the reach holds fewer.</summary>
     public const int FewestSpawnChoices = 3;

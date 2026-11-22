@@ -207,7 +207,8 @@ public sealed partial class GameWorld
             var yaw = PlayerYaws[id];
             if (HeadStep(machine) is > 0 and var step)
                 _heads[id] = GunStep(_heads.GetValueOrDefault(id), MathF.IEEERemainder(yaw - machine.Facing, 2 * MathF.PI), step).Head;
-            if (MathF.Abs(GunLag(machine, yaw)) <= WiredBalance.GunPlay)
+            // A gun that angles stands on the line while the view lies within its narrowest weapon's arc (GameWorld.GunArc.cs).
+            if (MathF.Abs(BeyondArc(GunLag(machine, yaw), GunArcOf(machine))) <= WiredBalance.GunPlay)
                 _onSight.Add(id);
         }
     }
@@ -484,8 +485,9 @@ public sealed partial class GameWorld
     /// </summary>
     private void FireAtPoint(Actor shooter, WeaponMount weapon, Vector2 point, float? height = null)
     {
-        float? lag = shooter is Machine sighted && PlayerYaws.TryGetValue(sighted.Id, out var yaw) && !OnSight(sighted.Id) && !Placed(weapon.Spec)
-            ? GunLag(sighted, yaw) : null;
+        // A gun without an upper body angles within its weapon's arc, and past it goes along the arc's edge (GameWorld.GunArc.cs).
+        float? lag = shooter is Machine sighted && PlayerYaws.TryGetValue(sighted.Id, out var yaw) && !Placed(weapon.Spec)
+            ? OffTheSight(sighted, yaw, weapon.Spec) : null;
         var offSight = lag is not null;
         if (lag is { } turned)
             point = GunPoint(shooter.Position, turned, point);

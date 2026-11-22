@@ -27,6 +27,18 @@ public static class StoryMarks
     /// </summary>
     public const string SprintFree = "sprint";
 
+    /// <summary>
+    /// The story's one switch for the view from behind (the third person of runs and battles, Game.Chase.cs): set once the
+    /// story lets its hero out of the faceplate. The prologue and the first act are played in first person alone, so nothing
+    /// sets it yet; a later act will, when L-7 finds the small flying machine that serves as its camera (not built yet, its
+    /// casting open). Until then, in a story, the Hero view option, the view's key (F, there the story's Hack / use) and the
+    /// mouse wheel leave the view at the faceplate.
+    /// </summary>
+    public const string ThirdPerson = "third_person";
+
+    /// <summary>Whether the story has let its hero be seen from behind (<see cref="ThirdPerson"/>).</summary>
+    public static bool ThirdPersonUnlocked(StoryRun run) => run.Flags.Contains(ThirdPerson);
+
     /// <summary>Set while a hunter sees the trio: the HUD says SIGNATURE DETECTED.</summary>
     public const string Spotted = "spotted";
 

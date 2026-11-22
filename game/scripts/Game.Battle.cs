@@ -168,8 +168,8 @@ public partial class Game
     /// </summary>
     private void FollowWatch(double delta)
     {
-        // A vortex or an ion strike right beside the camera that looks on is drawn lighter (GroundBlast.Onlooker).
-        GroundBlast.Onlooker = _watched is not null;
+        // A vortex or an ion strike right beside the camera that looks on, or follows the hero from behind, is drawn lighter (GroundBlast.Onlooker).
+        GroundBlast.Onlooker = _watched is not null || _chaseSpot is not null;
         if (_watched is not { } id)
             return;
         if (World.Find<Machine>(id) is not { IsDead: false } machine)

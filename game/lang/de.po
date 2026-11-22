@@ -5469,3 +5469,21 @@ msgstr "Vorraum W"
 
 msgid "Antechamber E"
 msgstr "Vorraum O"
+
+msgid "Third person"
+msgstr "Verfolgerperspektive"
+
+msgid "First or third person"
+msgstr "Ego- oder Verfolgerperspektive"
+
+msgid "{0}, mouse wheel"
+msgstr "{0}, Mausrad"
+
+msgid "Hero view"
+msgstr "Heldenansicht"
+
+msgid "Camera distance"
+msgstr "Kameraabstand"
+
+msgid "Third person needs the Modern layout (Options, Classic F.P. Keys off)"
+msgstr "Die Verfolgerperspektive braucht die moderne Belegung (Optionen, Klassische Ego-Tasten aus)"

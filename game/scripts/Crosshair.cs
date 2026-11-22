@@ -96,7 +96,32 @@ public partial class Crosshair : Control
     public void Single()
     {
         (At, Clamped, Dot, SightHidden, _gunOn) = (null, false, false, false, true);
+        (ArcEdges, HullAngle, BlockedAt, SpreadShare) = (null, null, null, 1);
     }
+
+    /// <summary>
+    /// For a sighted hero whose guns angle in their arc: where on the screen the arc's two edges stand, across at the
+    /// sight's height (null for one off the screen); past them the hull turns. Null draws none.
+    /// </summary>
+    public (float? A, float? B)? ArcEdges { get; set; }
+
+    /// <summary>
+    /// For a sighted driver, how far the hull stands turned from where the view looks, radians, clockwise on the screen: the
+    /// hull glyph under the compass shows it from above with the view up. Null draws no glyph.
+    /// </summary>
+    public float? HullAngle { get; set; }
+
+    /// <summary>How far the gun stands turned from where the view looks, radians as <see cref="HullAngle"/>: the glyph's barrel.</summary>
+    public float GunAngle { get; set; }
+
+    /// <summary>Which way the keys drive: ahead (y 1) or back, and to the right on the screen (x 1) for a machine that steps sideways.</summary>
+    public Vector2 Drive { get; set; }
+
+    /// <summary>Where the ground stops the gun's line before the point looked at, on the screen; null where it is clear.</summary>
+    public Vector2? BlockedAt { get; set; }
+
+    /// <summary>The share the spread's marks are drawn at: from behind the hero the cone, which opens at the hero, is seen from further away.</summary>
+    public float SpreadShare { get; set; } = 1;
 
     /// <summary>Where on the screen the sight stands, its bitmap and spread marks: null for the middle.</summary>
     public Vector2? At { get; set; }
@@ -179,6 +204,12 @@ public partial class Crosshair : Control
         _strength = 1;
         if (Target is not null && Located)
             DrawLocated(centre, scale);
+        if (Dot && ArcEdges is { } edges)
+            DrawArcEdges(centre, edges, scale);
+        if (Dot && HullAngle is { } hull)
+            DrawHull((centre + new Vector2(0, 62) * scale).Round(), hull, scale);
+        if (Dot && BlockedAt is { } blocked && showSight)
+            DrawBlocked(blocked.Floor(), scale);
 
         // The dot where the view looks, over everything: white with a dark ring, six pixels across at 1080 lines.
         if (Dot)
@@ -437,10 +468,76 @@ public partial class Crosshair : Control
             [Ink(Shade(top)), Ink(Shade(top)), Ink(Shade(High * _s)), Ink(Shade(High * _s))]);
     }
 
+    /// <summary>
+    /// The edges of the guns' arc, either side of the dot: an upright bracket opening towards the middle. One the dot has
+    /// come within a few pixels of shows amber, as from there the hull turns.
+    /// </summary>
+    private void DrawArcEdges(Vector2 centre, (float? A, float? B) edges, float scale)
+    {
+        var (half, hook, line) = (11 * scale, 4 * scale, Mathf.Max(1.5f * scale, 1));
+        foreach (var edge in new[] { edges.A, edges.B })
+        {
+            if (edge is not { } x)
+                continue;
+            var at = new Vector2(Mathf.Round(x), centre.Y);
+            var inward = x < centre.X ? 1 : -1;
+            var near = Mathf.Abs(x - centre.X) < 6 * scale;
+            var colour = near ? new Color(1, 0.7f, 0.2f, 0.95f) : new Color(0.55f, 1, 0.45f, 0.7f);
+            Vector2[] stroke = [at + new Vector2(inward * hook, -half), at + new Vector2(0, -half), at + new Vector2(0, half), at + new Vector2(inward * hook, half)];
+            DrawPolyline(stroke, new Color(0, 0, 0, 0.6f), line + 2, true);
+            DrawPolyline(stroke, colour, line, true);
+        }
+    }
+
+    /// <summary>
+    /// The hull glyph: the hull seen from above with the view up (turned by <see cref="HullAngle"/>), its front marked,
+    /// the gun's barrel from its middle (<see cref="GunAngle"/>), and a chevron the way the keys drive.
+    /// </summary>
+    private void DrawHull(Vector2 at, float hull, float scale)
+    {
+        var s = scale;
+        Vector2 P(float x, float y, float turn) => at + new Vector2(x, y).Rotated(turn) * s;
+        var dark = new Color(0, 0, 0, 0.65f);
+        var green = new Color(Bright, 0.9f);
+        var line = Mathf.Max(1.5f * s, 1);
+        // The hull, its nose a point at the front.
+        Vector2[] body = [P(-5, -5, hull), P(0, -9, hull), P(5, -5, hull), P(5, 8, hull), P(-5, 8, hull), P(-5, -5, hull)];
+        DrawPolyline(body, dark, line + 2, true);
+        DrawPolyline(body, green, line, true);
+        // The gun, from the middle.
+        Vector2[] barrel = [P(0, 0, GunAngle), P(0, -14, GunAngle)];
+        DrawPolyline(barrel, dark, line + 2, true);
+        DrawPolyline(barrel, new Color(Pale, 0.95f), line, true);
+        DrawCircle(at, 2 * s, new Color(Pale, 0.95f));
+        // The way it drives: ahead or back along the hull, sideways across it.
+        if (Drive.LengthSquared() > 0.01f)
+        {
+            var way = new Vector2(Drive.X, -Drive.Y).Normalized().Rotated(hull);
+            var tip = at + way * 15 * s;
+            var side = way.Orthogonal() * 3 * s;
+            Vector2[] chevron = [tip - way * 3 * s + side, tip, tip - way * 3 * s - side];
+            DrawPolyline(chevron, dark, line + 2, true);
+            DrawPolyline(chevron, new Color(1, 0.8f, 0.3f, 0.95f), line, true);
+        }
+    }
+
+    /// <summary>A cross where the ground stops the gun's line: the rounds land there, short of the point looked at.</summary>
+    private void DrawBlocked(Vector2 at, float scale)
+    {
+        var arm = 5 * scale;
+        var line = Mathf.Max(2 * scale, 1);
+        foreach (var colour in new[] { new Color(0, 0, 0, 0.7f), new Color(1, 0.35f, 0.2f, 0.95f) })
+        {
+            var width = colour.R == 0 ? line + 2 : line;
+            DrawLine(at + new Vector2(-arm, -arm), at + new Vector2(arm, arm), colour, width, true);
+            DrawLine(at + new Vector2(-arm, arm), at + new Vector2(arm, -arm), colour, width, true);
+        }
+    }
+
     /// <summary>The marks at the edge of the cone a round flies in, on the screen as the driver's camera shows it.</summary>
     private void DrawSpread(Vector2 centre, float height, float opacity)
     {
-        var radius = Mathf.Tan(Mathf.DegToRad(_spreadShown)) / Mathf.Tan(Mathf.DegToRad(FieldOfView / 2)) * height / 2;
+        var radius = Mathf.Tan(Mathf.DegToRad(_spreadShown)) * SpreadShare / Mathf.Tan(Mathf.DegToRad(FieldOfView / 2)) * height / 2;
         var (length, line) = (height * 0.012f, Mathf.Max(height / 540, 1));
         var colour = _sight == Sight.Enemy ? new Color(1, 0.5f, 0.3f, 0.9f * opacity) : new Color(0.55f, 1, 0.45f, 0.75f * opacity);
         foreach (var way in new[] { Vector2.Up, Vector2.Right, Vector2.Down, Vector2.Left })

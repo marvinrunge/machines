@@ -21,9 +21,12 @@ public static class NetJson
     /// rebuilds from the relay's log; recordings may hold joins and lag marks). 15: the story (its options in a match, story
     /// rooms of three seats, bots' seats of the trio, story commands, every <c>StoryCommand</c> found here as any other).
     /// 16: fitted bodies (the options' FittedBodies: machines stand and are hit in bodies fitted to their models in every
-    /// mode, so a client of 15 would play another match; main's 15 is the same change without the story).
+    /// mode, so a client of 15 would play another match; main's 15 is the same change without the story). 17: the
+    /// computers' skirmish rules and the heroes' gun arcs (the options' SkirmishAi, a client of 16 would play the computers
+    /// as before; and a sighted hero without an upper body angles its guns within their arcs, <see cref="MatchOptions.HeroGunArc"/>,
+    /// recordings whose options do not name them play without); main's 16 is the same change without the story.
     /// </summary>
-    public const int Protocol = 16;
+    public const int Protocol = 17;
 
     public static readonly JsonSerializerOptions Options = Create();
 

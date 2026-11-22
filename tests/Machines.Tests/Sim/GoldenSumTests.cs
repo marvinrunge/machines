@@ -19,7 +19,9 @@ namespace Machines.Tests.Sim;
 /// the relay brings it, the commands made by the players' scripts (<see cref="GoldenScript"/>). Each match's recording is
 /// saved, loaded and played back to the same sums. G1 to G9 were taken before machines had fitted bodies and keep the
 /// original's circles (<see cref="MatchOptions.FittedBodies"/> false, as a recording from then plays back); G10 to G12 play
-/// G1, G3 and G4 in fitted bodies, as every match since does.
+/// G1, G3 and G4 in fitted bodies, as every match since does. G2, the one of G1 to G12 with computers in a skirmish, keeps
+/// them as they played before their skirmish rules (<see cref="MatchOptions.SkirmishAi"/> false); G13 plays G2 with them,
+/// in fitted bodies, on hard.
 /// </summary>
 /// <remarks>
 /// The constants were copied from the printed <c>0x…UL</c> and held three runs in a row. Later changes may adapt the calls
@@ -98,6 +100,17 @@ public class GoldenSumTests(ITestOutputHelper output)
         Assert.Equal((WiredPhase.Wave, 4), (match.World.Wired!.Phase, match.World.Wired.Wave));
     }
 
+    /// <summary>
+    /// G3 without the guns' arcs (<see cref="MatchOptions.HeroGunArc"/>), as a recording from before them plays back, keeps
+    /// the sums G3 had before them (as G9 does throughout).
+    /// </summary>
+    [Fact]
+    public void A_commanded_wired_run_without_the_guns_arcs_keeps_its_sums_from_before_them()
+    {
+        var golden = GoldenCase.Wired;
+        Play(golden with { Match = golden.Match with { Options = golden.Match.Options with { HeroGunArc = false } } }, WiredSumsBeforeTheArcs);
+    }
+
     [Fact]
     public void A_commanded_battle_keeps_its_sums_and_result()
     {
@@ -158,6 +171,20 @@ public class GoldenSumTests(ITestOutputHelper output)
     [Fact]
     public void A_wired_run_in_fitted_bodies_keeps_its_sums() => Play(GoldenCase.FittedWired, FittedWiredSums);
 
+    /// <summary>
+    /// G11 without the guns' arcs, as a recording made in fitted bodies before them (protocol 15) plays back, keeps the sums
+    /// G11 had before them.
+    /// </summary>
+    [Fact]
+    public void A_wired_run_in_fitted_bodies_without_the_guns_arcs_keeps_its_sums_from_before_them()
+    {
+        var golden = GoldenCase.FittedWired;
+        Play(golden with { Match = golden.Match with { Options = golden.Match.Options with { HeroGunArc = false } } }, FittedWiredSumsBeforeTheArcs);
+    }
+
+    [Fact]
+    public void A_four_way_skirmish_of_the_skirmish_ai_keeps_its_sums() => Play(GoldenCase.SkirmishAiFourWay, SkirmishAiFourWaySums);
+
     [Fact]
     public void A_battle_in_fitted_bodies_keeps_its_sums_and_result()
     {
@@ -169,7 +196,10 @@ public class GoldenSumTests(ITestOutputHelper output)
     // Taken at e915579 (branch online, P0 committed, nothing of P1 built).
     private static readonly ulong[] SkirmishSums = [0x4267B178A96649D3UL, 0x9E440FFF9F1190A5UL];
     private static readonly ulong[] FourWaySums = [0xCE853B3BB625E2ADUL, 0xE9C8E3683C9106F2UL, 0x640F9E9E5D6727C5UL];
-    private static readonly ulong[] WiredSums = [0x881BB78F4E3B5B32UL, 0xEF7D6E9EEBF36063UL, 0xC4224CC350D3CA13UL];
+    // G3 taken again for the guns' arcs (protocol 16), its Grunt 1 hero having no upper body; the sums before them, which G3
+    // without the arcs keeps, as a recording from before them plays.
+    private static readonly ulong[] WiredSums = [0x881BB78F4E3B5B32UL, 0x962F60FCCF9D1B19UL, 0x6845D6853EB81E97UL];
+    private static readonly ulong[] WiredSumsBeforeTheArcs = [0x881BB78F4E3B5B32UL, 0xEF7D6E9EEBF36063UL, 0xC4224CC350D3CA13UL];
     private static readonly ulong[] BattleSums = [0xE142FCCC97986C2BUL, 0x8D3C8E387ECDB623UL, 0x66C5B8C42BC1BC49UL, 0xE10B269A928D93C7UL];
     private static readonly BattleResult BattleEnded = new(1, BattleEnd.Wipe, 569.65f);
     private static readonly ulong[] BotBattleSums = [0xF9ED19CA3D2D2464UL, 0x9236EE3B615D8E8FUL];
@@ -185,7 +215,12 @@ public class GoldenSumTests(ITestOutputHelper output)
     // G12 are G1, G3 and G4 in fitted bodies, as every match since plays, taken on fit/bodies and held three runs. G10 parts
     // from G1 after its first sum, G12 from G4 after its second, as their armies meet; G11 from the first.
     private static readonly ulong[] FittedSkirmishSums = [0x4267B178A96649D3UL, 0x3EF8C95339E9833CUL];
-    private static readonly ulong[] FittedWiredSums = [0x1C76934880D9A3AEUL, 0x256447DCE64C3DB2UL, 0x0CA3C903AB0292F4UL];
+    // G11 taken again for the guns' arcs (protocol 16), as G3 was; the sums before them, which G11 without the arcs keeps.
+    private static readonly ulong[] FittedWiredSums = [0x1C76934880D9A3AEUL, 0xA971C34B85663EB1UL, 0xC5E7726CB0D8AC24UL];
+    private static readonly ulong[] FittedWiredSumsBeforeTheArcs = [0x1C76934880D9A3AEUL, 0x256447DCE64C3DB2UL, 0x0CA3C903AB0292F4UL];
     private static readonly ulong[] FittedBattleSums = [0xE142FCCC97986C2BUL, 0x8D3C8E387ECDB623UL, 0x321387CCEE7FB575UL, 0xB08337D69BEC8611UL];
     private static readonly BattleResult FittedBattleEnded = new(1, BattleEnd.Wipe, 533.10004f);
+    // G13 is G2 as matches play since the computers' skirmish rules (MatchOptions.SkirmishAi), in fitted bodies and on hard,
+    // taken on community/skirmish-ai and held three runs; taken again once computers took rivals and held three runs.
+    private static readonly ulong[] SkirmishAiFourWaySums = [0xA2A24E06F100B9C2UL, 0x78EE3A7B1A0BAB93UL, 0x439ED5EF36FA0FECUL, 0x8250910FB8821657UL];
 }
