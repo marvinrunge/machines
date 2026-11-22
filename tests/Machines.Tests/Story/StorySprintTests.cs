@@ -264,8 +264,9 @@ public class StorySprintTests(ITestOutputHelper output)
         var walking = Signature(false);
         var sprinting = Signature(true);
         output.WriteLine($"walking {walking:0.00}, sprinting {sprinting:0.00}");
-        // Walking flat out is as loud as moving ever was; the sprint adds its drive's whine.
-        Assert.Equal(StorySight.Still + StorySight.Moving, walking, 2);
+        // Walking flat out is half as loud as moving at the walk of stage 6 was (StorySight.MovingAt); the sprint is the whole
+        // of moving and adds its drive's whine.
+        Assert.Equal(StorySight.Still + StorySight.Moving * StoryDrive.Walk / StorySight.MovingAt, walking, 2);
         Assert.Equal(StorySight.Still + StorySight.Moving + StorySight.Sprint, sprinting, 2);
     }
 
@@ -315,7 +316,7 @@ public class StorySprintTests(ITestOutputHelper output)
         world.Step();
         var locator = Hero(world, Locator);
         var start = locator.Position;
-        for (var tick = 0; tick < 6 * GameWorld.TicksPerSecond; tick++)
+        for (var tick = 0; tick < 12 * GameWorld.TicksPerSecond; tick++)
         {
             Drive(world, sprint: false);
             world.Step();

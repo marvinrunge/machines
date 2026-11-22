@@ -231,7 +231,8 @@ public class StorySightTests
         Run(world, StorySight.PulseFor + 0.1f);
         Assert.Equal(StorySight.Still, world.StorySignature(hero.Id), 4);
 
-        // A Grunt at its walk's full speed (StoryDrive) is twice as loud as the Locator would be.
+        // A Grunt at the walk of stage 6 (StorySight.MovingAt) is twice as loud as the Locator would be; at its walk now
+        // (StoryDrive.Walk, half that) half as loud, and at half its walk a quarter.
         var story = world.Story!;
         var grunt = world.HeroOf(story.Seats[1])!;
         Assert.Equal(Locomotion.Wheels, grunt.Stats.Locomotion);
@@ -240,13 +241,18 @@ public class StorySightTests
         world.Step();
         for (var i = 0; i < 3; i++)
         {
-            grunt.Position += new Vector2(grunt.Stats.Speed * StoryDrive.Walk * GameWorld.Dt, 0);
+            grunt.Position += new Vector2(grunt.Stats.Speed * StorySight.MovingAt * GameWorld.Dt, 0);
             world.Step();
         }
         Assert.Equal(StorySight.Still + StorySight.Moving * StorySight.Wheels, world.StorySignature(grunt.Id), 3);
+        var walk = StoryDrive.Walk / StorySight.MovingAt;
+        Assert.Equal(0.5f, walk, 3);
+        grunt.Position += new Vector2(grunt.Stats.Speed * StoryDrive.Walk * GameWorld.Dt, 0);
+        world.Step();
+        Assert.Equal(StorySight.Still + StorySight.Moving * StorySight.Wheels * walk, world.StorySignature(grunt.Id), 3);
         grunt.Position += new Vector2(grunt.Stats.Speed * StoryDrive.Walk * GameWorld.Dt / 2, 0);
         world.Step();
-        Assert.Equal(StorySight.Still + StorySight.Moving * StorySight.Wheels / 2, world.StorySignature(grunt.Id), 3);
+        Assert.Equal(StorySight.Still + StorySight.Moving * StorySight.Wheels * walk / 2, world.StorySignature(grunt.Id), 3);
     }
 
     // ---- lamps --------------------------------------------------------------------------------------------
@@ -367,7 +373,7 @@ public class StorySightTests
         var hero = Place(world, new Vector2(148, 50), lamp: true);
         var eyes = world.StorySeekerOf(thresher.Id)!;
 
-        var news = Run(world, 20, () => { });
+        var news = Run(world, 40, () => { });
         var spotted = news.FindIndex(n => n.Kind == StorySightKind.Spotted);
         Assert.True(spotted >= 0, string.Join(", ", news.Select(n => n.Kind)));
         Assert.Contains(news.Take(spotted), n => n.Kind == StorySightKind.Suspicious && n.Hero == hero.Id);
@@ -485,9 +491,10 @@ public class StorySightTests
             world.StoryPatrol(reaper, "patrol_thresher");
             var hero = Place(world, new Vector2(136, 28), lamp: false);
             var news = new List<StorySightNews>();
-            for (var i = 0; i < 60 * GameWorld.TicksPerSecond; i++)
+            for (var i = 0; i < 120 * GameWorld.TicksPerSecond; i++)
             {
-                // The Locator creeps along the south aisle and back, its lamp now and then on.
+                // The Locator creeps along the south aisle and back, its lamp now and then on (two minutes: creeping is quieter
+                // since the walk was halved, StorySight.MovingAt).
                 hero.Position = new Vector2(136 + 100 * MathF.Abs(MathF.Sin(i / 400f)), 28);
                 if (i % 200 == 0)
                     world.SetStoryLamp(hero.Id, i % 400 == 0);

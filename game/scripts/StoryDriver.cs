@@ -632,6 +632,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         if (foe is null)
         {
             Fire(game, hero, 0, false);
+            Sprint(game, hero, false);
             Wait(game, hero, "the workshop cleared");
             return;
         }
@@ -641,6 +642,9 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
             _legSince = Time.GetTicksMsec() / 1000.0;
         }
         Attack(game, hero, foe);
+        // Closing in, or round to where it sees its foe, it sprints as a player would: at the trio's walk it stood in the
+        // armed Grunts' fire for so long that it was lost there, run after run.
+        Sprint(game, hero, Forward);
     }
 
     /// <summary>Starts a leg's clock when the leg changes; true once it has run longer than so many seconds.</summary>
@@ -692,7 +696,14 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         // Plugged in, the leg's clock waits: the core's last board holds for as long as the squad takes to get in.
         if (_leg == "hack " + target && story.Hacks.Session(target) is { Open: true })
             _legSince = Time.GetTicksMsec() / 1000.0;
-        if (!Go(game, hero, "hack " + target, found.Position, GameWorld.HackReach - 1.5f))
+        // A board already up is played where the Locator stands: plugged in a step further off than the way's end (pushed
+        // back after its key, as at D5 once), it would walk on forever, the clock waiting, and never click.
+        if (story.Hacks.Session(target) is { Open: true } && game.HackBoardShown is not null)
+        {
+            Overdue("hack " + target, double.MaxValue);
+            Stop(hero);
+        }
+        else if (!Go(game, hero, "hack " + target, found.Position, GameWorld.HackReach - 1.5f))
             return;
         var now = Time.GetTicksMsec() / 1000.0;
         if (game.HackBoardShown is not { } host)

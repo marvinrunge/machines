@@ -153,9 +153,10 @@ public class PrologueAssaultTests
         var run = world.Story!;
         var locator = Hero(world, 0);
 
-        // Facing east at the vent's mouth: full ahead along the duct, past the grate windows, out at its end.
+        // Facing east at the vent's mouth: full ahead along the duct at a sprint (free since the core), past the grate windows, out
+        // at its end.
         Assert.True(RunUntil(world, () => locator.Position.X > 384 || run.Over, 20,
-            () => world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true, Forward: 1))));
+            () => world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true, Forward: 1, Sprint: true))));
 
         Assert.False(run.Over);
         Assert.True(locator.HitPoints > locator.MaxHitPoints / 2, $"{locator.HitPoints} HP left");
@@ -209,11 +210,11 @@ public class PrologueAssaultTests
             }
         }
 
-        // The Locator along the vent to the crossing, then still there without hacking D5, while the Grunts wait in the duct
-        // and the Reapers search the corridor beside it for them.
+        // The Locator along the vent to the crossing at a sprint, then still there without hacking D5, while the Grunts wait in
+        // the duct and the Reapers search the corridor beside it for them.
         Assert.True(RunUntil(world, () => locator.Position.X > 386 || run.Over, 20, () =>
         {
-            world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true, Forward: 1));
+            world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true, Forward: 1, Sprint: true));
             Watch();
         }));
         Run(world, 60, () =>
