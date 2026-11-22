@@ -1,0 +1,30 @@
+{
+  "about": "Google Cloud Text-to-Speech voices for the prologue's speakers (tools/voice/google_tts.py). Per speaker the voice in each language, its speakingRate, the pause in seconds that a '…' inside a line becomes, and the candidates the sampler (google_tts.py --sampler) plays. Speakers not listed here keep their Windows SAPI stand-in (placeholders.py). A speaker's preset variants (bob-radio) use the speaker's voice. A recording in tools/voice/recordings always wins.",
+  "speakers": {
+    "ike": {
+      "de": "de-DE-Chirp3-HD-Fenrir",
+      "en": "en-US-Chirp3-HD-Fenrir",
+      "rate": 1.0,
+      "pause": 0.6,
+      "candidates": ["Fenrir", "Puck", "Sadachbia"],
+      "sampler": ["P_IKE_WAKE", "P_IKE_WAIT", "P_IKE_DISTRACT"]
+    },
+    "bob": {
+      "de": "de-DE-Chirp3-HD-Algenib",
+      "en": "en-US-Chirp3-HD-Algenib",
+      "rate": 1.0,
+      "pause": 0.6,
+      "candidates": ["Algenib", "Alnilam", "Schedar"],
+      "sampler": ["P_BOB_WAKE", "P_BOB_SQUAD", "P_BOB_ROUND"]
+    },
+    "l7": {
+      "de": "de-DE-Chirp3-HD-Enceladus",
+      "en": "en-US-Chirp3-HD-Enceladus",
+      "rate": 1.0,
+      "pause": 0.8,
+      "candidates": ["Enceladus", "Iapetus", "Umbriel"],
+      "sampler": ["P_L7_BOOT_VOICE", "P_L7_BOOT_NO", "P_L7_BOOT_LEGS"]
+    }
+  },
+  "label_voice": "de-DE-Chirp3-HD-Orus"
+}

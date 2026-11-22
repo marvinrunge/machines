@@ -4,7 +4,8 @@ game/assets/story/voice/<lang>/<id>.ogg, marked "placeholder": true in the manif
 
     python tools/voice/placeholders.py [--force] [--only ID[,ID...]]
 
-Lines the user has recorded (manifest placeholder=false) are never overwritten.
+Lines the user has recorded are never overwritten, nor lines voiced by Google (google_tts.py) for a speaker
+still cast in voices.json: a recording wins over a Google voice, which wins over SAPI.
 Reruns redo only lines whose text, preset or tuning changed (hash in the manifest).
 """
 import argparse
@@ -18,6 +19,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import robot  # noqa: E402
+import google_tts  # noqa: E402
 
 CULTURE = {"de": "de-DE", "en": "en-US"}
 # SAPI only has female voices here (Hedda, Zira): pre-pitch per speaker so the robots differ.
@@ -47,6 +49,7 @@ def main():
     a = ap.parse_args()
     only = set(a.only.split(",")) if a.only else None
     man = robot.load_manifest()
+    cast = google_tts.load_cast()
     todo = []
     for line in robot.load_lines():
         if line["speaker"] == "hud" or (only and line["id"] not in only):
@@ -54,8 +57,10 @@ def main():
         pitch, rate = TUNING[line["speaker"]]
         for lang in ("de", "en"):
             old = man["lines"].get(line["id"], {}).get(lang, {})
-            if old and not old.get("placeholder", True):
+            if robot.is_recording(old):
                 continue  # the user's recording
+            if old.get("source") == "google" and google_tts.cast_voice(cast, line["speaker"], lang):
+                continue  # a Google voice
             h = hashlib.sha1(json.dumps([VERSION, line[lang], robot.preset_of(line), pitch, rate,
                                          line.get("cut", False), robot.graph(robot.preset_of(line), pitch,
                                                                               line.get("cut", False))],

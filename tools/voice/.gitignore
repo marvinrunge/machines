@@ -1,2 +1,4 @@
 recordings/
 __pycache__/
+# Google voice answers (google_tts.py), so reruns cost no characters
+cache/
