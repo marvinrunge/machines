@@ -63,13 +63,13 @@ public static class Props
         {
             if (FirstMesh(root) is not { Mesh: ArrayMesh imported } part)
                 return null;
-            var mesh = Turned(imported);
-            var jambs = name == "kit_door_frame" && Darken(mesh, JambFaces);
             // Where the mesh stands in the prop: its node's transform and its parents' up to the scene's root.
             var offset = Transform3D.Identity;
             for (Node? node = part; node is not null && node != root; node = node.GetParent())
                 if (node is Node3D spatial)
                     offset = spatial.Transform * offset;
+            var mesh = Footless(Turned(imported), offset);
+            var jambs = name == "kit_door_frame" && Darken(mesh, JambFaces);
             for (var surface = 0; surface < mesh.GetSurfaceCount(); surface++)
                 if ((part.GetSurfaceOverrideMaterial(surface) ?? mesh.SurfaceGetMaterial(surface)) is BaseMaterial3D material)
                 {
@@ -127,6 +127,55 @@ public static class Props
             mesh.SurfaceSetMaterial(surface, material);
         }
         return turned > 0 ? mesh : imported;
+    }
+
+    /// <summary>How close to a prop's foot a face lies flat to count as its sole (<see cref="Footless"/>), metres.</summary>
+    private const float Sole = 0.01f;
+
+    /// <summary>
+    /// The mesh without the faces that lie flat at its foot and look up: the door frame's sill across its opening, the
+    /// pillars' base rims, the walls' plinth step. A prop stands with its foot on the deck's floor, so these lay in the
+    /// floor's own plane; the two fought over each pixel, and as the eye or the screen's smoothing moved by a hair the
+    /// floor and the sill took turns (a black bar across every doorway, flickering). The floor shows there instead. The
+    /// vertices stay, so the prop's bounds and fitting do not change.
+    /// </summary>
+    private static ArrayMesh Footless(ArrayMesh mesh, Transform3D offset)
+    {
+        var foot = float.MaxValue;
+        for (var surface = 0; surface < mesh.GetSurfaceCount(); surface++)
+            if (mesh.SurfaceGetArrays(surface)[(int)Mesh.ArrayType.Vertex].As<Vector3[]>() is { } vertices)
+                foreach (var vertex in vertices)
+                    foot = Mathf.Min(foot, (offset * vertex).Y);
+        var footless = new ArrayMesh { ResourceName = mesh.ResourceName };
+        var dropped = 0;
+        for (var surface = 0; surface < mesh.GetSurfaceCount(); surface++)
+        {
+            var arrays = mesh.SurfaceGetArrays(surface);
+            if (mesh.SurfaceGetPrimitiveType(surface) == Mesh.PrimitiveType.Triangles
+                && arrays[(int)Mesh.ArrayType.Vertex].As<Vector3[]>() is { Length: > 0 } vertices)
+            {
+                var indices = arrays[(int)Mesh.ArrayType.Index].As<int[]>() is { Length: > 0 } given ? given : Enumerable.Range(0, vertices.Length).ToArray();
+                var kept = new List<int>(indices.Length);
+                for (var t = 0; t + 2 < indices.Length; t += 3)
+                {
+                    var (a, b, c) = (offset * vertices[indices[t]], offset * vertices[indices[t + 1]], offset * vertices[indices[t + 2]]);
+                    var up = (b - a).Cross(c - a);
+                    // Up by its normals (Turned has them agree with the winding), by its winding where it has none.
+                    var flat = Mathf.Max(a.Y, Mathf.Max(b.Y, c.Y)) < foot + Sole && Mathf.Abs(up.Y) > 0.9f * up.Length();
+                    var looksUp = arrays[(int)Mesh.ArrayType.Normal].As<Vector3[]>() is { } normals && normals.Length == vertices.Length
+                        ? offset.Basis * (normals[indices[t]] + normals[indices[t + 1]] + normals[indices[t + 2]]) is var n && n.Y > 0
+                        : up.Y > 0;
+                    if (flat && looksUp)
+                        dropped++;
+                    else
+                        kept.AddRange([indices[t], indices[t + 1], indices[t + 2]]);
+                }
+                arrays[(int)Mesh.ArrayType.Index] = kept.ToArray();
+            }
+            footless.AddSurfaceFromArrays(mesh.SurfaceGetPrimitiveType(surface), arrays);
+            footless.SurfaceSetMaterial(surface, mesh.SurfaceGetMaterial(surface));
+        }
+        return dropped > 0 ? footless : mesh;
     }
 
     /// <summary>
