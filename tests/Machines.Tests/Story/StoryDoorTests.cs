@@ -184,11 +184,13 @@ public class StoryDoorTests
             Place(world, Ike, new Vector2(54, 47));
             Place(world, Bob, new Vector2(90, 58));
             world.Issue(new StoryOrderCommand(Race.Red, CompanionOrder.Wait, Vector2.Zero) { Issuer = Locator });
+            // At a sprint: at the trio's walk (StoryDrive.Walk) the Locator would come to the door only once its leaves are apart.
+            world.Story!.Flags.Add(StoryMarks.SprintFree);
             world.Step();
             world.OpenDoor('B', instant);
             var hero = world.HeroOf(Locator)!;
             return Through(world, hero, 10 * GameWorld.TicksPerSecond,
-                () => world.Issue(new DriveCommand(Race.Red, hero.Id, true, 1, 0) { Issuer = Locator }));
+                () => world.Issue(new DriveCommand(Race.Red, hero.Id, true, 1, 0, Sprint: true) { Issuer = Locator }));
         }
 
         var open = Run(instant: true);
