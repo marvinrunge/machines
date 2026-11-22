@@ -11,8 +11,8 @@ namespace Machines.Tests.Story;
 /// <summary>
 /// The prologue's script and its director (plan WP-C): each checkpoint's set-up gives the world the chapter has there; a
 /// run of scripted inputs (the Locator set down where it must go, the hacks played by the board's own solution through the
-/// lockstep commands) passes every section's triggers from any checkpoint to the escape; the cutscene is the view's, so
-/// whatever the player does while it plays the world's Erwischt is the same; the same inputs give the same checksum; and
+/// lockstep commands) passes every section's triggers from any checkpoint to the escape (the core fight itself is
+/// PrologueCoreTests'); the same inputs give the same checksum; and
 /// every line the director says is in the line table the subtitles read, every objective in de.po.
 /// </summary>
 public class PrologueScriptTests
@@ -81,10 +81,10 @@ public class PrologueScriptTests
         Assert.Equal(checkpoint >= 5, world.HeroOf(run.Locator)!.Weapons.Count > 0);
         Assert.Equal(checkpoint >= 5, run.Flags.Contains(Prologue.Sealed));
         Assert.All(world.Machines.Where(m => run.Seats.All(s => world.HeroOf(s)?.Id != m.Id)), m => Assert.Equal(Race.Blue, m.Race));
-        // After Erwischt: the core gone, the alarm on, the lights at emergency.
-        Assert.Equal(checkpoint < 3, world.Artefacts.Any(a => a.Tag == Prologue.CoreTag && !a.IsDead));
+        // From the break-in the alarm is on; after Erwischt the core is gone and the lights at emergency.
+        Assert.Equal(checkpoint < 4, world.Artefacts.Any(a => a.Tag == Prologue.CoreTag && !a.IsDead));
         Assert.Equal(checkpoint >= 3, run.Flags.Contains(StoryMarks.Alarm));
-        Assert.Equal(checkpoint >= 3 ? "emergency" : "on", world.StoryLightState("core"));
+        Assert.Equal(checkpoint >= 4 ? "emergency" : "on", world.StoryLightState("core"));
         Assert.Equal(checkpoint >= 5, run.Flags.Contains(StoryMarks.Done("pickup_bolter")));
         if (checkpoint == Prologue.LastCheckpoint)
             Assert.Equal(Prologue.CountdownAtCheckpoint, run.Timers[StoryMarks.Countdown] - world.Time, 2);
@@ -94,30 +94,48 @@ public class PrologueScriptTests
         Assert.All(Prologue.Script.Where(b => !b.Repeat), b => Assert.Equal(b.Span < checkpoint, director.Has(b.Name)));
         Assert.Equal(checkpoint > 0, StoryMarks.Objective(run) is not null);
 
-        // It plays on from there.
+        // It plays on from there (at the start the Locator boots in its clamp, with no objective until its end).
         for (var i = 0; i < 2 * GameWorld.TicksPerSecond; i++)
             world.Step();
         Assert.False(run.Over);
-        Assert.NotNull(StoryMarks.Objective(run));
+        Assert.Equal(checkpoint == 0, run.Flags.Contains(StoryMarks.Boot));
+        Assert.Equal(checkpoint > 0, StoryMarks.Objective(run) is not null);
     }
 
     [Fact]
-    public void At_the_start_the_locator_hangs_in_its_clamp_until_it_hacks_itself_free()
+    public void At_the_start_the_locator_boots_in_its_clamp_and_then_hacks_itself_free()
     {
         var world = Chapter();
         var run = world.Story!;
         var locator = world.HeroOf(run.Locator)!;
-        world.Step();
+        var rider = new Rider(world);
+        rider.Step();
 
+        // The boot: held, the clamp's hack shut, no objective, until its end.
         Assert.True(world.HeldByStory(locator.Id));
         Assert.Contains(StoryMarks.Boot, run.Flags);
+        Assert.Contains("clamp_l7", run.Hacks.Locked);
+        Assert.Null(StoryMarks.Objective(run));
+        Assert.Equal("that cannot be hacked yet", Refused(world, new StoryHackOpenCommand(Race.Red, "clamp_l7")));
+        rider.Until(() => run.Director.Has("boot_done"), Prologue.BootLength + 1);
+        Assert.InRange(world.Time - run.Director.Fired["boot"], Prologue.BootLength - 0.01f, Prologue.BootLength + 0.2f);
+        Assert.DoesNotContain(StoryMarks.Boot, run.Flags);
+        Assert.DoesNotContain("clamp_l7", run.Hacks.Locked);
         Assert.Equal(("Free yourself from the clamp", (string?)"clamp_l7"), StoryMarks.Objective(run));
-        var rider = new Rider(world);
-        rider.Hack("clamp_l7");
+        Assert.True(world.HeldByStory(locator.Id));
 
+        rider.Hack("clamp_l7");
         Assert.False(world.HeldByStory(locator.Id));
         Assert.False(world.DoorClosed('A'));
         Assert.Equal("terminal_ike", StoryMarks.Objective(run)!.Value.Place);
+    }
+
+    /// <summary>The world's reason for refusing a command given and stepped once; null when it took it.</summary>
+    private static string? Refused(GameWorld world, Command command)
+    {
+        world.Issue(command);
+        world.Step();
+        return world.Rejected.FirstOrDefault(r => ReferenceEquals(r.Command, command))?.Reason;
     }
 
     // ---- a run of the chapter ---------------------------------------------------------------------------
@@ -143,70 +161,6 @@ public class PrologueScriptTests
         Assert.Equal(Enumerable.Range(Prologue.SectionAt[checkpoint] + 1, 8 - Prologue.SectionAt[checkpoint]), rider.Sections.Select(s => s.Section));
         Assert.Equal(Enumerable.Range(checkpoint + 1, Prologue.LastCheckpoint - checkpoint), rider.Checkpoints);
         Assert.All(run.Seats, seat => Assert.NotNull(world.HeroOf(seat)));
-    }
-
-    [Fact]
-    public void Erwischt_happens_in_the_world_on_ticks_reapers_commander_core_and_lights()
-    {
-        var world = Chapter(2);
-        var run = world.Story!;
-        var rider = new Rider(world);
-        rider.Hack("hack_core");
-        Assert.True(run.Director.Has("alarm"));
-        Assert.Equal(4, run.Section);
-        Assert.Contains("cutscene erwischt", rider.Cues);
-        var locator = world.HeroOf(run.Locator)!;
-        var at = locator.Position;
-
-        // The core chamber keeps its light while the Reapers come in and fire at the core; it goes to emergency as the core blows.
-        rider.Until(() => run.Director.Has("fire_core"), Prologue.ReapersFire + 1);
-        Assert.Equal("on", world.StoryLightState("core"));
-        rider.Until(() => run.Director.Has("core_blows"), Prologue.CoreBlows + 1);
-        Assert.Equal("emergency", world.StoryLightState("core"));
-        rider.Until(() => run.Section == 5, Prologue.ControlLost + 1);
-
-        Assert.Equal(3, Count(world, Prologue.ReaperRole));
-        Assert.Equal(1, Count(world, Prologue.CommanderRole));
-        Assert.DoesNotContain(world.Artefacts, a => a.Tag == Prologue.CoreTag && !a.IsDead);
-        Assert.Contains(StoryMarks.Alarm, run.Flags);
-        Assert.Equal("emergency", world.StoryLightState("core"));
-        Assert.False(world.DoorClosed('J'));
-        Assert.Equal(3, run.Checkpoint);
-        // Held through it, and spared.
-        Assert.Equal(at, locator.Position);
-        Assert.Equal(locator.MaxHitPoints, locator.HitPoints);
-        Assert.False(world.HeldByStory(locator.Id));
-        Assert.Null(run.Hacks.OpenBy(run.Locator));
-        // The core it stands at, its link cut, offers no hack any more (the key would not take it).
-        Assert.True(run.Hacks.Session("hack_core")!.Broken);
-        Assert.DoesNotContain(StoryReadout.Of(world, run.Locator, null)!.Prompts, p => p.Kind == StoryPromptKind.Hack);
-    }
-
-    [Fact]
-    public void Skipping_a_cutscene_cannot_change_the_world()
-    {
-        // The cutscene and its skip are the view's alone; a player who skips and drives at once is held as one who watches.
-        GameWorld Play(bool skips)
-        {
-            var world = Chapter(2, seed: 9);
-            var run = world.Story!;
-            var rider = new Rider(world);
-            rider.Drive(0, 0);
-            rider.Hack("hack_core");
-            for (var tick = 0; run.Section < 5 && tick < (Prologue.ControlLost + 2) * GameWorld.TicksPerSecond; tick++)
-            {
-                if (skips)
-                    rider.Drive(1, tick % 40 < 20 ? 1 : -1);
-                world.Step();
-            }
-            return world;
-        }
-
-        var (watched, skipped) = (Play(false), Play(true));
-        Assert.Equal(5, watched.Story!.Section);
-        Assert.Equal(watched.Tick, skipped.Tick);
-        Assert.Equal(watched.Story.Director.Fingerprint(), skipped.Story!.Director.Fingerprint());
-        Assert.Equal(watched.Checksum(), skipped.Checksum());
     }
 
     [Fact]
@@ -369,7 +323,8 @@ public class PrologueScriptTests
             for (var turns = 0; turns < 3000 && session.Open && !session.Broken; turns++)
             {
                 var next = session.Puzzle!.SolutionTurns().Take(1).ToList();
-                if (next.Count == 0)
+                // The core locked its last board: the Locator waits at it until the Reapers are in.
+                if (next.Count == 0 || session.Held)
                 {
                     Step();
                     continue;
@@ -410,7 +365,9 @@ public class PrologueScriptTests
                 world.Issue(new DriveCommand(Race.Red, Locator.Id, Driving: true, Aim: foe.Position));
                 Step();
             }
-            world.Issue(new DriveCommand(Race.Red, Locator.Id, Driving: true));
+            // A Locator lost in the firefight ends the chapter (StoryEnding.LocatorLost): nothing left to drive.
+            if (world.HeroOf(Run.Locator) is { } locator)
+                world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true));
             Step();
         }
 
@@ -419,6 +376,13 @@ public class PrologueScriptTests
         {
             var director = Run.Director;
             bool Done(string target) => Run.Hacks.Done.Contains(target);
+            // The Locator's boot in its clamp is skipped, as a player who has seen it may (its own tests: PrologueBootTests).
+            if (Run.Checkpoint == 0 && !director.Has("boot_done"))
+            {
+                Step();
+                Assert.Null(Do(new StoryUseCommand(Race.Red, StoryMarks.SkipBoot)));
+                Assert.True(director.Has("boot_done"));
+            }
             for (var legs = 0; legs < 60 && !Run.Over; legs++)
             {
                 if (!Done("clamp_l7"))
@@ -435,10 +399,17 @@ public class PrologueScriptTests
                     Hack("hack_h");
                 else if (!director.Has("antechamber"))
                     Go(Zone("R8"));
-                else if (!director.Has("alarm"))
+                else if (!director.Has("break_in") && !Done("hack_core"))
                     Hack("hack_core");
-                else if (!director.Has("control_lost"))
-                    Until(() => director.Has("control_lost"), Prologue.ControlLost + 1);
+                else if (!director.Has("break_in"))
+                    Until(() => director.Has("break_in"), Prologue.ShootMax + 10);
+                else if (!director.Has("core_blows") && Vector2.Distance(Locator.Position, new Vector2(219, 262)) > 7)
+                    // In cover from the Reapers' fire by the vent, before they storm in.
+                    Go(new Vector2(219, 262));
+                else if (!director.Has("core_blows"))
+                    Until(() => director.Has("core_blows"), Prologue.CoreBlows + 1);
+                else if (!director.Has("fled"))
+                    Go(Zone("V2"));
                 else if (Run.Hacks.Locked.Contains("hack_d5"))
                     Go(Zone("R12"));
                 else if (!Done("hack_d5"))
@@ -454,7 +425,7 @@ public class PrologueScriptTests
                 else if (!director.Has("repaired"))
                     Go(Zone("repair"));
                 else if (!director.Has("notgang"))
-                    Go(new Vector2(240, 100));
+                    Go(new Vector2(520, 232));
                 else if (!Done("pod_3_hatch"))
                     Hack("pod_3_hatch");
                 else if (!Run.Flags.Contains(StoryMarks.Done("pod_3_hatch")))

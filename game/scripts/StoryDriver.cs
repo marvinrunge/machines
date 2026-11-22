@@ -18,7 +18,8 @@ namespace Machines.Game;
 /// a section into the folder, then one at the end. Once a run it switches the Locator's lamp with the Lamp key, off and on
 /// again, and says whether the sim's lamp followed. After the pod is away it sits through the chapter's film outside, takes
 /// a picture of it and of the chapter's card, goes on with Space and says whether the story page came.
-/// MACHINES_STORY_DRIVE_CRASH=1 lets the countdown run out once first, for the Crashed card.
+/// MACHINES_STORY_DRIVE_CRASH=1 lets the countdown run out once first, for the Crashed card. At checkpoint 0 it waits through
+/// the Locator's boot in its clamp (about 105 s) as a first player must; MACHINES_STORY_SKIP_BOOT=1 skips it at once.
 /// <para>
 /// Where its way fails for a long time (90 s on one leg, 150 s waiting for the Grunts) it sets the hero, or the Grunts, down
 /// at the leg's end and says so: the only time it touches the world, so the run goes on to the end; the checksums of such a
@@ -90,6 +91,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                 if (!IsInstanceValid(game))
                     break;
                 Sections(game, story);
+                Beats(game, story);
                 HitchLog.Phase = $"section {_section}{(game.InCutscene ? " cutscene" : game.HackShown ? " hack" : "")}";
                 if (_pictureAt is { } when && Time.GetTicksMsec() / 1000.0 >= when)
                 {
@@ -97,13 +99,13 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                     await Picture($"section{story.Section}");
                 }
                 if (ShotDue(game, story) is { } shot)
-                    await Picture(shot);
+                    await BeatPicture(game, story, shot);
                 if (story.Over)
                 {
                     LetGo();
                     if (story.Ending == StoryEnding.Escaped)
                     {
-                        Tell($"escaped: tick {game.World.Tick} checksum {game.World.Checksum():x16} falls {_falls} lamp {_lampChecked ?? "unchecked"}");
+                        Tell($"escaped: tick {game.World.Tick} checksum {game.World.Checksum():x16} falls {_falls} lamp {_lampChecked ?? "unchecked"} sprinted {_sprinted:0.0} s overheats {_overheats} limiter {(_limiterTried ? "tried" : "untried")}");
                         await Wait(2);
                         await Picture("end");
                         await Film(game);
@@ -131,37 +133,149 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                     await GetIn(game);
                     continue;
                 }
+                if (Booting(game, story))
+                    continue;
                 if (_lampChecked is null)
                 {
                     await Lamp(game, hero);
                     continue;
                 }
+                if (await LimiterTried(game, story, hero))
+                    continue;
                 await Leg(game, story, hero);
+                await DriveWatched(game, hero);
             }
         }
     }
 
-    // MACHINES_STORY_DRIVE_SHOTS=<beat>:<seconds>[,...]: more pictures, each that many game seconds after a beat of the
-    // director's fired (alarm:12 is Erwischt with the Reapers in the core chamber), named after the beat and the seconds.
-    private List<(string Beat, float Seconds)>? _beatShots;
+    // Whether the skip was sent, and whether the boot's end was told.
+    private bool _bootSkipSent, _bootTold;
+
+    /// <summary>
+    /// The Locator's boot in its clamp: waited through, as a first player must, or with MACHINES_STORY_SKIP_BOOT=1 skipped at
+    /// once by the Locator's driver (the Use command Esc held sends). Its end is told with the tick and whether it was skipped.
+    /// </summary>
+    private bool Booting(Game game, StoryRun story)
+    {
+        if (!story.Flags.Contains(StoryMarks.Boot))
+        {
+            if (!_bootTold && story.Director.Fired.TryGetValue("boot_done", out var done) && story.Options.Checkpoint == 0)
+            {
+                _bootTold = true;
+                Tell(FormattableString.Invariant($"boot over at {done:0.0} s, tick {game.World.Tick}{(story.Flags.Contains(StoryMarks.BootSkip) ? ", skipped" : "")}"));
+            }
+            return false;
+        }
+        LetGo();
+        if (!_bootSkipSent && Game.Me == story.Locator && System.Environment.GetEnvironmentVariable("MACHINES_STORY_SKIP_BOOT") == "1")
+        {
+            _bootSkipSent = true;
+            game.SkipStoryBoot();
+            Tell($"boot skipped at tick {game.World.Tick}");
+        }
+        return true;
+    }
+
+    // MACHINES_STORY_DRIVE_SHOTS=<beat>:<seconds>[@<camera>][,...]: more pictures, each that many game seconds after a beat of
+    // the director's fired (break_in:3 is the Reapers storming the core chamber), named after the beat and the seconds. A
+    // camera takes the picture from elsewhere for that frame alone: "@x/y/height/towardX/towardY/towardHeight" (deck metres) or
+    // "@<role>/<distance>/<height>[/<side>]", that far before the first standing machine the director cast in that role (thresher,
+    // reaper, commander, hostile, row, scare) or a seat of the trio ("seat0" the Locator, "seat1" Ike, "seat2" Bob), looking at its eyes.
+    // Such a picture leaves out the HUD and the first-person screen; a camera ending in "!" brings a soft light of its own along.
+    private List<(string Beat, float Seconds, string? Camera)>? _beatShots;
+    private string? _shotCamera;
 
     private string? ShotDue(Game game, StoryRun story)
     {
         _beatShots ??= (System.Environment.GetEnvironmentVariable("MACHINES_STORY_DRIVE_SHOTS") ?? "")
             .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Select(s => s.Split(':'))
-            .Where(p => p.Length == 2 && float.TryParse(p[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _))
-            .Select(p => (p[0], float.Parse(p[1], System.Globalization.CultureInfo.InvariantCulture)))
+            .Select(s => s.Split('@', 2))
+            .Select(s => (Parts: s[0].Split(':'), Camera: s.Length > 1 ? s[1] : null))
+            .Where(p => p.Parts.Length == 2 && float.TryParse(p.Parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _))
+            .Select(p => (p.Parts[0], float.Parse(p.Parts[1], System.Globalization.CultureInfo.InvariantCulture), p.Camera))
             .ToList();
         foreach (var shot in _beatShots)
         {
             if (story.Director.Fired.TryGetValue(shot.Beat, out var at) && game.World.Time >= at + shot.Seconds)
             {
                 _beatShots.Remove(shot);
-                return FormattableString.Invariant($"{shot.Beat}+{shot.Seconds}");
+                _shotCamera = shot.Camera;
+                return FormattableString.Invariant($"{shot.Beat}+{shot.Seconds}{(shot.Camera is null ? "" : "-" + shot.Camera.Split('/')[0])}");
             }
         }
         return null;
+    }
+
+    /// <summary>A beat's picture, from the camera it asked for (<see cref="ShotDue"/>) if any, the view's own camera again afterwards.</summary>
+    private async Task BeatPicture(Game game, StoryRun story, string name)
+    {
+        var spec = _shotCamera;
+        _shotCamera = null;
+        var fill = spec?.EndsWith('!') == true;
+        if (spec is null || ShotCamera(game, story, spec.TrimEnd('!')) is not { } placed)
+        {
+            await Picture(name);
+            return;
+        }
+        var (from, toward) = placed;
+        var before = GetViewport().GetCamera3D();
+        var camera = new Camera3D { Fov = 55, Far = 400 };
+        game.AddChild(camera);
+        camera.GlobalPosition = from;
+        camera.LookAt(toward, Vector3.Up);
+        camera.MakeCurrent();
+        if (fill)
+            camera.AddChild(new OmniLight3D { LightEnergy = 1.2f, OmniRange = 30, LightColor = new Color(0.8f, 0.85f, 1f) });
+        var shown = GetTree().Root.FindChildren("*", nameof(CanvasLayer), true, false).OfType<CanvasLayer>().Where(layer => layer.Visible).ToList();
+        foreach (var layer in shown)
+            layer.Visible = false;
+        await Frames(2);
+        await Picture(name);
+        foreach (var layer in shown.Where(IsInstanceValid))
+            layer.Visible = true;
+        camera.ClearCurrent(false);
+        camera.QueueFree();
+        if (IsInstanceValid(before))
+            before.MakeCurrent();
+    }
+
+    private static (Vector3 From, Vector3 Toward)? ShotCamera(Game game, StoryRun story, string spec)
+    {
+        var parts = spec.Split('/');
+        static float Number(string text) => float.Parse(text, System.Globalization.CultureInfo.InvariantCulture);
+        if (parts.Length == 6 && float.TryParse(parts[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _))
+            return (new Vector3(Number(parts[0]), Number(parts[2]), Number(parts[1])), new Vector3(Number(parts[3]), Number(parts[5]), Number(parts[4])));
+        if (parts.Length < 3)
+            return null;
+        Machine? machine = parts[0].StartsWith("seat", StringComparison.Ordinal) && int.TryParse(parts[0][4..], out var seat) && seat < story.Seats.Count
+            ? game.World.HeroOf(story.Seats[seat])
+            : story.Director.Of(game.World, parts[0]).FirstOrDefault();
+        if (machine is null)
+            return null;
+        var view = game.ViewOf(machine.Id);
+        var eye = view?.Eye ?? ActorView.World(machine.Position) + Vector3.Up * 2;
+        var ahead = new Vector3(MathF.Cos(machine.Facing), 0, MathF.Sin(machine.Facing));
+        // Where its eyes look (its lamp's way, the upper body turned), when it has a lamp.
+        if (view?.GetChildren().OfType<SpotLight3D>().FirstOrDefault() is { } lamp && -lamp.GlobalBasis.Z with { Y = 0 } is { } along && along.LengthSquared() > 0.01f)
+            ahead = along.Normalized();
+        var side = new Vector3(-ahead.Z, 0, ahead.X) * (parts.Length > 3 ? Number(parts[3]) : 0);
+        var from = ActorView.World(machine.Position) + ahead * Number(parts[1]) + side;
+        return (new Vector3(from.X, ActorView.World(machine.Position).Y + Number(parts[2]), from.Z), eye);
+    }
+
+    // The core fight's beats, told with the game seconds they fired at (the fight's timeline).
+    private static readonly string[] CoreBeats = ["core_open", "crew_in", "squad", "squad_go", "at_j", "alarm", "hammer_j", "burst_j", "go_round",
+        "held", "at_i", "hammer_i", "shoot_i", "burst_i", "break_in", "core_hit_1", "core_hit_2", "core_hit_3", "core_blows",
+        "power_fails", "control_lost", "fled", "limiter", "together", "repaired", "notgang", "pod_bay", "launch"];
+    private readonly HashSet<string> _toldBeats = [];
+
+    private void Beats(Game game, StoryRun story)
+    {
+        foreach (var beat in CoreBeats)
+        {
+            if (story.Director.Fired.TryGetValue(beat, out var at) && _toldBeats.Add(beat))
+                Tell(FormattableString.Invariant($"beat {beat} at {at:0.0} s (hack {story.Hacks.Session("hack_core")?.Progress ?? 0:0.00}{(story.Director.Has("break_in") ? "" : $", crates J {game.World.BarricadeCrates("J").Count} I {game.World.BarricadeCrates("I").Count}")})"));
+        }
     }
 
     /// <summary>A section begun: its line and, a moment later, its picture.</summary>
@@ -212,10 +326,26 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
             await Hack(game, story, hero, "hack_h");
         else if (!director.Has("antechamber"))
             Go(game, hero, "antechamber", Zone("R8"), 2);
-        else if (!director.Has("alarm"))
+        else if (!director.Has("break_in"))
+        {
+            // Nobody barricades: the Grunts are told to wait where they are as the core's hack begins.
+            if (NoBarricade && director.Has("core_open") && !_toldWait)
+            {
+                _toldWait = true;
+                await Tap(KeyMap.Of(KeyMap.Act.GruntWait));
+            }
             await Hack(game, story, hero, "hack_core");
-        else if (!director.Has("control_lost"))
-            Wait(game, hero, "the alarm");
+        }
+        else if (!director.Has("core_blows"))
+        {
+            // In cover it looks back up at the core the Reapers are shooting to pieces, and watches it blow for a moment.
+            if (Go(game, hero, "cover", Cover, 1.5f))
+                Look(game, Heading(hero.Position, new NVector2(192, 264)), 0.18f);
+        }
+        else if (!director.Has("fled") && game.World.Time < director.Fired["core_blows"] + 2)
+            Look(game, Heading(hero.Position, new NVector2(192, 264)), 0.18f);
+        else if (!director.Has("fled"))
+            Go(game, hero, "the vent", Zone("V2"), 1.5f);
         else if (desk.Locked.Contains("hack_d5"))
             Go(game, hero, "crossing", Zone("R12"), 3);
         else if (!Done("hack_d5"))
@@ -232,7 +362,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
             Go(game, hero, "repair", Zone("repair"), 1.5f);
         }
         else if (!director.Has("notgang"))
-            Go(game, hero, "notgang", new NVector2(240, 100), 2);
+            Go(game, hero, "notgang", new NVector2(520, 232), 2);
         else if (CrashFirst && _falls == 0)
             Wait(game, hero, "the crash");
         else if (!Done("pod_3_hatch"))
@@ -246,6 +376,95 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
     }
 
     private bool _reviving;
+
+    // ---- the sprint -------------------------------------------------------------------------------
+
+    // Shift tried once while the limiter held it; the sprint seconds, the overheats, and whether the first one's picture was taken.
+    private bool _limiterTried, _hotShot, _cooling;
+    private int _overheats, _lastBlockedAt = -1;
+    private readonly HashSet<int> _downSeats = [];
+    private double _sprinted, _sprintFrom = -1;
+
+    /// <summary>
+    /// Once a run, as soon as the Locator is free of its clamp and the limiter still holds: Shift pressed, as a player tries
+    /// it, the drive's answer read and pictured. True when it did so this frame.
+    /// </summary>
+    private async Task<bool> LimiterTried(Game game, StoryRun story, Machine hero)
+    {
+        if (_limiterTried || !story.Director.Has("free") || game.World.StorySprintFree || game.HackShown)
+            return false;
+        _limiterTried = true;
+        Stop(hero);
+        await Tap(Key.Shift);
+        await Wait(1.2);
+        await Picture("limiter-locked");
+        Tell("tried the sprint while the limiter holds it");
+        return true;
+    }
+
+    /// <summary>
+    /// The sprint held as a player would once it is free: while driving ahead, let go when the drive's heat nears full and
+    /// taken up again once it has cooled to a third, except the first time, when it is run until it overheats (its picture).
+    /// </summary>
+    private void Sprint(Game game, Machine hero, bool ahead)
+    {
+        if (game.World.StoryDriveOf(hero.Id) is not { } drive || !game.World.StorySprintFree)
+        {
+            HoldKey(Key.Shift, false);
+            return;
+        }
+        if (_overheats > 0 && drive.Heat >= 0.85f || drive.Blocked)
+            _cooling = true;
+        else if (drive.Heat <= StoryDrive.Resume)
+            _cooling = false;
+        // As a person would, it reads the freed limiter's hint for a moment before it first sprints.
+        var reading = game.World.Story?.Director.Fired.TryGetValue("limiter", out var freed) == true && game.World.Time < freed + 2;
+        HoldKey(Key.Shift, ahead && !_cooling && !reading);
+    }
+
+    /// <summary>After each frame's leg: the sprint's seconds counted, an overheat told and its first one pictured.</summary>
+    private async Task DriveWatched(Game game, Machine hero)
+    {
+        if (game.World.StoryDriveOf(hero.Id) is not { } drive)
+            return;
+        var now = game.World.Time;
+        if (drive.Sprinting && _sprintFrom < 0)
+            _sprintFrom = now;
+        else if (!drive.Sprinting && _sprintFrom >= 0)
+        {
+            _sprinted += now - _sprintFrom;
+            _sprintFrom = -1;
+        }
+        if (drive.Blocked && drive.BlockedAt != _lastBlockedAt)
+        {
+            _lastBlockedAt = drive.BlockedAt;
+            _overheats++;
+            Tell(FormattableString.Invariant($"drive overheated at {now:0.0} s ({_overheats}), sprinted {_sprinted:0.0} s so far"));
+        }
+        // A Grunt goes down: where, and who was nearest (the chases' fairness at the walk).
+        if (game.World.Story is { } run)
+        {
+            foreach (var seat in run.Seats.Skip(1))
+            {
+                if (!game.World.CompanionDown(seat))
+                {
+                    _downSeats.Remove(seat.Value);
+                    continue;
+                }
+                if (!_downSeats.Add(seat.Value) || game.World.HeroOf(seat) is not { } grunt)
+                    continue;
+                var near = new[] { Prologue.ThresherRole, Prologue.ReaperRole, Prologue.CommanderRole, Prologue.HostileRole }.SelectMany(r => run.Director.Of(game.World, r)).Where(m => !m.IsDead)
+                    .OrderBy(m => NVector2.Distance(m.Position, grunt.Position)).FirstOrDefault();
+                Tell(FormattableString.Invariant($"grunt {seat.Value} down at {now:0.0} s at {grunt.Position.X:0.0},{grunt.Position.Y:0.0}, nearest {near?.Spec.TypeName ?? "-"}#{near?.Id} {(near is null ? 0 : NVector2.Distance(near.Position, grunt.Position)):0.0} m"));
+            }
+        }
+        if (drive.Blocked && !_hotShot)
+        {
+            _hotShot = true;
+            await Wait(0.4);
+            await Picture("drive-hot");
+        }
+    }
 
     /// <summary>
     /// A Grunt's seat online: after the Locator, a few metres behind it, and into the pod's zone once its hatch is open (the
@@ -282,6 +501,13 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
     /// MACHINES_STORY_DRIVE_CRASH=1: the first time in the Notgang the hero waits until the countdown runs out, so the chapter
     /// is lost as Crashed (its card, its way back to the checkpoint); after that it plays on as ever.
     /// </summary>
+    // MACHINES_STORY_DRIVE_NOBARRICADE=1: the Grunts are told to wait as the core's hack begins, so no door is barricaded.
+    private static bool NoBarricade => System.Environment.GetEnvironmentVariable("MACHINES_STORY_DRIVE_NOBARRICADE") is { Length: > 0 } no && no != "0";
+    private bool _toldWait;
+
+    /// <summary>The cover in the core chamber the Locator takes at the break-in (the director's objective there).</summary>
+    private static NVector2 Cover => new(219, 262);
+
     private static bool CrashFirst => System.Environment.GetEnvironmentVariable("MACHINES_STORY_DRIVE_CRASH") is { Length: > 0 } crash && crash != "0";
 
     // "on, off, on" once the Lamp key was seen to switch the Locator's lamp both ways; null before the check.
@@ -463,6 +689,9 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         var world = game.World;
         if (story.Hacks.Find(target, world.Deck) is not { } found)
             throw new InvalidOperationException($"no hack target {target}");
+        // Plugged in, the leg's clock waits: the core's last board holds for as long as the squad takes to get in.
+        if (_leg == "hack " + target && story.Hacks.Session(target) is { Open: true })
+            _legSince = Time.GetTicksMsec() / 1000.0;
         if (!Go(game, hero, "hack " + target, found.Position, GameWorld.HackReach - 1.5f))
             return;
         var now = Time.GetTicksMsec() / 1000.0;
@@ -481,7 +710,8 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
             (_board, _boardOpened, _clickAt) = (host, host.Opened, now + 0.8);
             return;
         }
-        if (now < _clickAt || story.Hacks.Session(target) is not { Open: true, Broken: false, Puzzle: { } puzzle })
+        // A board its target locked (the core's last, at 90 %) is not clicked: the Locator waits at it.
+        if (now < _clickAt || story.Hacks.Session(target) is not { Open: true, Broken: false, Held: false, Puzzle: { } puzzle })
             return;
         var turns = puzzle.SolutionTurns().Take(1).ToList();
         if (turns.Count == 0)
@@ -492,7 +722,8 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         GetViewport().PushInput(new InputEventMouseMotion { Position = at, GlobalPosition = at });
         GetViewport().PushInput(new InputEventMouseButton { ButtonIndex = button, Pressed = true, Position = at, GlobalPosition = at });
         GetViewport().PushInput(new InputEventMouseButton { ButtonIndex = button, Pressed = false, Position = at, GlobalPosition = at });
-        _clickAt = now + 0.4;
+        // The core's boards are played at a person's pace, a turn every 2 s (the squad's timing is tuned to it).
+        _clickAt = now + (target == "hack_core" ? 2 : 0.4);
         if (++_clicks % 20 == 0)
             Tell($"hack {target}: {_clicks} clicks, board {story.Hacks.Session(target)?.Stage + 1}, progress {puzzle.Progress:0.00}");
     }
@@ -549,6 +780,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         if (NVector2.Distance(hero.Position, place) <= near)
         {
             Stop(hero);
+            HoldKey(Key.Shift, false);
             return true;
         }
         if (now < _reverseUntil)
@@ -572,6 +804,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         TurnHull(hero, heading);
         var off = MathF.Abs(Mathf.Wrap(heading - hero.Facing, -Mathf.Pi, Mathf.Pi));
         Hold(KeyMap.Act.Forward, off < 0.6f);
+        Sprint(game, hero, off < 0.3f && NVector2.Distance(hero.Position, place) > near + 3);
         // No headway for three seconds: a moment backwards, then the way again.
         if (NVector2.Distance(hero.Position, _progressFrom) > 0.6f)
             (_progressFrom, _progressAt) = (hero.Position, now);

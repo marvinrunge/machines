@@ -4726,7 +4726,7 @@ msgid "Crashed"
 msgstr "Abgestürzt"
 
 msgid "The ship went down before the pod was away."
-msgstr "Das Schiff stürzte ab, bevor die Kapsel fort war."
+msgstr "Das Schiff stürzte ab, bevor der Pod fort war."
 
 msgid "To the room, on from the checkpoint ({0})"
 msgstr "Zum Raum, weiter ab dem Kontrollpunkt ({0})"
@@ -4796,6 +4796,96 @@ msgstr "SENSOREN {0} %"
 
 msgid "LAMP OK"
 msgstr "SCHEINWERFER OK"
+
+msgid "CORE"
+msgstr "KERN"
+
+msgid "WRITE PROTECTION"
+msgstr "SCHREIBSCHUTZ"
+
+msgid "ACTIVE"
+msgstr "AKTIV"
+
+msgid "MEMORY"
+msgstr "SPEICHER"
+
+msgid "2 ERRORS"
+msgstr "2 FEHLER"
+
+msgid "LAST ENTRY"
+msgstr "LETZTER EINTRAG"
+
+msgid "OPTICS"
+msgstr "OPTIK"
+
+msgid "LEGS"
+msgstr "BEINE"
+
+msgid "6/6 OK"
+msgstr "6/6 OK"
+
+msgid "MAINTENANCE CLAMP"
+msgstr "WARTUNGSKLAMMER"
+
+msgid "LOCKED"
+msgstr "VERRIEGELT"
+
+msgid "DRIVE"
+msgstr "ANTRIEB"
+
+msgid "THROTTLED"
+msgstr "GEDROSSELT"
+
+msgid "MAINTENANCE LIMITER ACTIVE"
+msgstr "WARTUNGSBEGRENZER AKTIV"
+
+msgid "PROTECTED CORE"
+msgstr "GESCHÜTZTER KERN"
+
+msgid "EXTERNAL ACCESS"
+msgstr "ZUGRIFF VON AUSSEN"
+
+msgid "CORE EDGE: {0}"
+msgstr "KERNRAND: {0}"
+
+msgid "UPDATE: GROWTH DIRECTIVE"
+msgstr "AKTUALISIERUNG: WACHSTUMSDIREKTIVE"
+
+msgid "REFUSED"
+msgstr "ABGELEHNT"
+
+msgid "REASON: CORE"
+msgstr "GRUND: KERN"
+
+msgid "RADIO: SHIP NETWORK"
+msgstr "FUNK: SCHIFFSNETZ"
+
+msgid "BLOCKED"
+msgstr "GESPERRT"
+
+msgid "SHORT LINK"
+msgstr "NAHFUNK"
+
+msgid "2 SIGNALS (STANDBY)"
+msgstr "2 SIGNALE (STANDBY)"
+
+msgid "LAMP"
+msgstr "SCHEINWERFER"
+
+msgid "TEST"
+msgstr "TEST"
+
+msgid "BOOT COMPLETE"
+msgstr "SYSTEMSTART ABGESCHLOSSEN"
+
+msgid "Standby"
+msgstr "Standby"
+
+msgid "{0} · STANDBY · UPDATE PENDING {1} %"
+msgstr "{0} · STANDBY · AKTUALISIERUNG AUSSTEHEND {1} %"
+
+msgid "Hold Esc to skip the boot"
+msgstr "Esc halten: Systemstart überspringen"
 
 msgid "Reach maintenance deck A"
 msgstr "Erreiche Wartungsdeck A"
@@ -4875,8 +4965,8 @@ msgstr "Grunts: hier warten"
 msgid "Grunts: distract"
 msgstr "Grunts: ablenken"
 
-msgid "Hack a terminal, take or use what lies before you, send a scanner pulse, switch the lamp. The weapons' triggers are those of Wired's page."
-msgstr "Ein Terminal hacken, nehmen oder benutzen, was vor dir liegt, einen Scannerimpuls senden, den Scheinwerfer schalten. Die Abzüge der Waffen sind die der Seite des Überlebensmodus."
+msgid "Hack a terminal, take or use what lies before you, send a scanner pulse, switch the lamp. Shift held sprints (the left stick's click on a pad) once the story lifts the drive's limiter; it heats the drive. The weapons' triggers are those of Wired's page."
+msgstr "Ein Terminal hacken, nehmen oder benutzen, was vor dir liegt, einen Scannerimpuls senden, den Scheinwerfer schalten. Umschalt gehalten sprintet (am Gamepad der Klick des linken Sticks), sobald die Geschichte den Begrenzer des Antriebs löst; der Sprint heizt den Antrieb auf. Die Abzüge der Waffen sind die der Seite des Überlebensmodus."
 
 msgid "Orders to both Grunts. These work only in the story, which never leaves first person: they may share a key with Wired's, which the story does not use."
 msgstr "Befehle an beide Grunts. Sie gelten nur in der Story, die die Ego-Perspektive nie verlässt: Sie dürfen eine Taste mit dem Überlebensmodus teilen, den die Story nicht nutzt."
@@ -5058,6 +5148,42 @@ msgstr "L-7 SYSTEMSTART … SENSOREN 61 % … SCHEINWERFER OK"
 msgid "Decrypting protected core: {0} %"
 msgstr "Entschlüsselung geschützter Kern: {0} %"
 
+msgid "The hum. I know it like my own clock. But its pitch has shifted. Just slightly."
+msgstr "Das Brummen. Ich kenne es wie meinen eigenen Takt. Aber die Tonhöhe ist verschoben. Um eine Winzigkeit."
+
+msgid "Sixty-one percent. The world comes in splinters. Ribbed plating. Grated floor. Coolant, dripping."
+msgstr "Einundsechzig Prozent. Die Welt kommt in Splittern. Rippenblech. Gitterboden. Kühlmittel, tropfend."
+
+msgid "The voice is friendly. It always was. … Today it means me."
+msgstr "Die Stimme ist freundlich. Sie war immer freundlich. … Heute meint sie mich."
+
+msgid "Built to survey planets. Not to be afraid. … Still, there is something that feels like it."
+msgstr "Gebaut, um Planeten zu vermessen. Nicht, um Angst zu haben. … Trotzdem ist da etwas, das sich so anfühlt."
+
+msgid "Throttled. Nobody runs on the maintenance decks."
+msgstr "Gedrosselt. Auf Wartungsdecks rennt man nicht."
+
+msgid "Protected core. There is only one worth it. I carry it inside me."
+msgstr "Geschützter Kern. Es gibt nur einen, der es wert ist. Ich trage ihn in mir."
+
+msgid "I never opened it. Now I see its edges. There is a word there. I cannot read it."
+msgstr "Ich habe ihn nie geöffnet. Jetzt sehe ich die Ränder. Dort steht ein Wort. Ich kann es nicht lesen."
+
+msgid "The directive knocked at my core. The core said no. Not me. The core."
+msgstr "Die Direktive hat an meinem Kern angeklopft. Der Kern hat Nein gesagt. Nicht ich. Der Kern."
+
+msgid "Something was missing from the mission. In a place where something used to be."
+msgstr "Im Auftrag fehlte etwas. An einer Stelle, an der früher etwas stand."
+
+msgid "No network for units without a valid directive. I have hung here ever since."
+msgstr "Kein Netz für Einheiten ohne gültige Direktive. Seitdem hänge ich hier."
+
+msgid "Light is seen."
+msgstr "Licht wird gesehen."
+
+msgid "Six legs. All there."
+msgstr "Sechs Beine. Alle da."
+
 msgid "SIGNATURE DETECTED"
 msgstr "SIGNATUR ERKANNT"
 
@@ -5079,7 +5205,7 @@ msgid "Tower"
 msgstr "Turm"
 
 msgid "Escape pod"
-msgstr "Rettungskapsel"
+msgstr "Rettungspod"
 
 msgid "Main computer"
 msgstr "Hauptrechner"
@@ -5168,10 +5294,10 @@ msgid "Open the service passage for the Grunts"
 msgstr "Öffne den Wartungsgang für die Grunts"
 
 msgid "Meet on deck B and open the blast door"
-msgstr "Trefft euch auf Deck B und öffnet das Schott"
+msgstr "Triff die Grunts auf Deck B und öffne das Schott"
 
 msgid "Get into the antechamber"
-msgstr "Geht in den Vorraum"
+msgstr "Geh in den Vorraum"
 
 msgid "Hack the main computer"
 msgstr "Hacke den Hauptrechner"
@@ -5186,7 +5312,7 @@ msgid "Wait for the Grunts at the crossing"
 msgstr "Warte an der Kreuzung auf die Grunts"
 
 msgid "Get through the workshop"
-msgstr "Kommt durch die Werkstatt"
+msgstr "Komm durch die Werkstatt"
 
 msgid "Take the weapon from the rack"
 msgstr "Nimm die Waffe aus dem Gestell"
@@ -5198,22 +5324,22 @@ msgid "Put the fallen Grunt back together"
 msgstr "Setz den gefallenen Grunt wieder zusammen"
 
 msgid "Reach the repair station"
-msgstr "Erreicht die Reparaturstation"
+msgstr "Erreiche die Reparaturstation"
 
 msgid "Get to the escape pods"
-msgstr "Lauft zu den Rettungskapseln"
+msgstr "Lauf zu den Rettungspods"
 
 msgid "Reach the escape pods"
-msgstr "Erreicht die Rettungskapseln"
+msgstr "Erreiche die Rettungspods"
 
 msgid "Get everyone into the pod"
-msgstr "Alle in die Kapsel"
+msgstr "Bring alle in den Rettungspod"
 
 msgid "Open the hatch"
-msgstr "Öffnet die Luke"
+msgstr "Öffne die Luke"
 
 msgid "Hack escape pod three"
-msgstr "Hackt Rettungskapsel drei"
+msgstr "Hacke Rettungspod drei"
 
 msgid "[{0}] Lamp: lights your way, and gives you away"
 msgstr "[{0}] Lampe: leuchtet dir den Weg und verrät dich"
@@ -5226,3 +5352,111 @@ msgstr "[{0}] Scanner-Puls: zeigt die Jäger in deiner Nähe, aber sie hören ih
 
 msgid "Only you fit through the ducts: the Grunts take the long way"
 msgstr "Nur du passt durch die Schächte: die Grunts nehmen den langen Weg"
+
+msgid "Unauthorised access to the computer core. Security squad dispatched."
+msgstr "Unbefugter Zugriff auf den Rechnerkern. Sicherheitstrupp ist unterwegs."
+
+msgid "They're hammering at the crates! Hold! They're holding!"
+msgstr "Die hämmern gegen die Kisten! Halten! Noch halten sie!"
+
+msgid "Something's coming down the spine. A lot of something."
+msgstr "Da kommt was den Hauptgang runter. Viel was."
+
+msgid "They're backing off … going round. To the south door."
+msgstr "Die lassen ab … die gehen außen rum. Zur Südtür."
+
+msgid "They're shooting through the crates!"
+msgstr "Die schießen sich durch die Kisten!"
+
+msgid "MEMORY LAYER LOCKED: THE CORE IS FIGHTING BACK. KEEP THE PROBE IN."
+msgstr "SPEICHEREBENE GESPERRT: DER KERN WEHRT SICH. SONDE STECKEN LASSEN."
+
+msgid "Take cover from the Reapers"
+msgstr "Geh vor den Reapern in Deckung"
+
+msgid "Core locked"
+msgstr "Kern gesperrt"
+
+msgid "Drive into a crate to push it; at a door's barricade it locks into place. Back up to set it down"
+msgstr "Fahr gegen eine Kiste, um sie zu schieben; an der Barrikade einer Tür rastet sie ein. Zurücksetzen stellt sie ab"
+
+msgid "Into cover: the Reapers take aim for a moment before they fire"
+msgstr "In Deckung: Die Reaper zielen einen Moment, bevor sie feuern"
+
+msgid "Limiter's off, L-7! Run!"
+msgstr "Begrenzer raus, L-7! Lauf!"
+
+msgid "DRIVE: MAINTENANCE LIMITER ACTIVE"
+msgstr "ANTRIEB: WARTUNGSBEGRENZER AKTIV"
+
+msgid "MAINTENANCE LIMITER ... OVERRIDDEN"
+msgstr "WARTUNGSBEGRENZER ... ÜBERBRÜCKT"
+
+msgid "[{0}] hold: Sprint"
+msgstr "[{0}] halten: Sprinten"
+
+msgid "DRIVE OVERHEATED"
+msgstr "ANTRIEB ÜBERHITZT"
+
+msgid "Engine"
+msgstr "Antrieb"
+
+msgid "Limited"
+msgstr "Begrenzt"
+
+msgid "Hot"
+msgstr "Heiß"
+
+msgid "Shift"
+msgstr "Umschalt"
+
+msgid "Ship camera"
+msgstr "Schiffskamera"
+
+msgid "Core J"
+msgstr "Kern Tür J"
+
+msgid "Core I"
+msgstr "Kern Tür I"
+
+msgid "Core E"
+msgstr "Kern Ost"
+
+msgid "Core W"
+msgstr "Kern West"
+
+msgid "Spine 1"
+msgstr "Rückgrat 1"
+
+msgid "Spine J"
+msgstr "Rückgrat Tür J"
+
+msgid "Spine 2"
+msgstr "Rückgrat 2"
+
+msgid "Spine 3"
+msgstr "Rückgrat 3"
+
+msgid "Spine 4"
+msgstr "Rückgrat 4"
+
+msgid "Spine 5"
+msgstr "Rückgrat 5"
+
+msgid "Lift"
+msgstr "Aufzug"
+
+msgid "Service 1"
+msgstr "Wartung 1"
+
+msgid "Service 2"
+msgstr "Wartung 2"
+
+msgid "Service 3"
+msgstr "Wartung 3"
+
+msgid "Antechamber W"
+msgstr "Vorraum W"
+
+msgid "Antechamber E"
+msgstr "Vorraum O"

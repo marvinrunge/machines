@@ -64,7 +64,7 @@ public sealed partial class GameWorld
 
     /// <summary>
     /// The computer takes a Grunt's hero: whoever drove it lets go of the wheel (their last input goes with it), it stands and
-    /// then follows the Locator, while the Locator's hero stands. The companions' own mind (plan WP-F, CompanionBot) takes
+    /// then follows the Locator, while the Locator's hero stands; a crate it was pushing is set down. The companions' own mind (plan WP-F, CompanionBot) takes
     /// the seats of <see cref="StoryRun.Bots"/> from here.
     /// </summary>
     private void HandToCompanion(StoryRun run, PlayerId seat)
@@ -73,6 +73,7 @@ public sealed partial class GameWorld
             return;
         if (grunt.DrivenByPlayer)
             LetGoOfWheel(grunt);
+        DropPushed(run.Crew.Of(seat), grunt);
         StartAfresh(grunt);
         if (HeroOf(run.Locator) is { } locator)
             Send(grunt, new FollowOrder(locator.Id), locator.Position);

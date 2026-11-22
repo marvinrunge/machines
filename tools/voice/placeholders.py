@@ -27,6 +27,7 @@ TUNING = {  # speaker: (extra pitch, SAPI rate -10..10)
     "ike": (0.80, 1),
     "bob": (0.74, -1),
     "whisper": (0.96, -3),
+    "l7": (0.90, 0),
 }
 VERSION = 3  # 2: measured gain + limiter instead of loudnorm; 3: limiter without delay
 

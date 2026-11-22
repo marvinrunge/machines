@@ -81,6 +81,7 @@ public partial class Game
         if (_storyFilmWait < 0.5)
             return;
         _storyFilmStarted = true;
+        FilmLimiter(true);
         if (_sceneScripted)
             GD.Print($"scene: the film {film.Cutscene} of {film.Chapter} begins");
         if (PlayCutscene(film.Cutscene, _ => ShowStoryDone(film)) is null)
@@ -94,6 +95,30 @@ public partial class Game
         var layer = new CanvasLayer { Layer = 95, Name = "StoryDoneLayer" };
         layer.AddChild(new StoryDoneCard(film, () => LeaveStoryFilm(film.Online)));
         AddChild(layer);
+    }
+
+    // The limiter on Master while a chapter's film plays outside, null while none is on.
+    private static AudioEffectHardLimiter? _filmLimiter;
+
+    /// <summary>
+    /// A limiter on Master while a chapter's end is filmed outside (the music of the map and the pod's drop and impact come
+    /// together there and clipped); off again when the film's match is left. Only the film's match has it: every other
+    /// match sounds as before.
+    /// </summary>
+    private static void FilmLimiter(bool on)
+    {
+        var master = AudioServer.GetBusIndex("Master");
+        if (_filmLimiter is { } old)
+        {
+            for (var i = AudioServer.GetBusEffectCount(master) - 1; i >= 0; i--)
+                if (AudioServer.GetBusEffect(master, i) == old)
+                    AudioServer.RemoveBusEffect(master, i);
+            _filmLimiter = null;
+        }
+        if (!on)
+            return;
+        _filmLimiter = new AudioEffectHardLimiter { CeilingDb = -1, PreGainDb = -3, Release = 0.12f };
+        AudioServer.AddBusEffect(master, _filmLimiter);
     }
 
     /// <summary>On from the chapter's end to the menus: the story's page, or the rooms when it was played online.</summary>

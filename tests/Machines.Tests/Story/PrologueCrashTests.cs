@@ -133,7 +133,7 @@ public class PrologueCrashTests
         var world = Chapter(5);
         var run = world.Story!;
         var events = new List<GameEvent>();
-        SetDown(world, Hero(world, 0), new Vector2(240, 104));
+        SetDown(world, Hero(world, 0), new Vector2(520, 240));
         Run(world, 0.2f, events);
 
         Assert.True(run.Director.Has("notgang"));
@@ -144,7 +144,7 @@ public class PrologueCrashTests
         var fall = Assert.Single(run.Director.Falling).Value;
         Assert.Contains(Cues(events), c => c.StartsWith("debris falling 0", StringComparison.Ordinal));
         Assert.DoesNotContain(Cues(events), c => c.StartsWith("debris landed", StringComparison.Ordinal));
-        Assert.Equal(world.Deck!.Marker("debris_1").Position + new Vector2(2.5f, 0), fall.Where);
+        Assert.Equal(world.Deck!.Marker("debris_1").Position + new Vector2(5, 0), fall.Where);
         Run(world, Prologue.FallWarning, events);
         Assert.Contains("debris landed 0", Cues(events));
         Assert.Contains(world.Artefacts, a => !a.IsDead && a.Position == fall.Where && a.Type.Name == "crate_large");
@@ -226,23 +226,23 @@ public class PrologueCrashTests
         // The hatch opened, but Ike stands out in the Notgang (held there): none.
         SetDown(world, locator, world.Deck.Marker("pod_3_hatch").Position + new Vector2(0, 1.5f));
         world.Issue(new StoryUseCommand(Race.Red, "pod_3_hatch"));
-        Run(world, 0.2f, each: () => SetDown(world, ike, new Vector2(240, 60)));
+        Run(world, 0.2f, each: () => SetDown(world, ike, new Vector2(520, 136)));
         Assert.Contains(StoryMarks.Done("pod_3_hatch"), run.Flags);
         Assert.Equal("Get everyone into the pod", StoryMarks.Objective(run)!.Value.Text);
         Assert.Equal(CompanionTask.Board, run.Crew.Of(run.Seats[2]).Task);
-        Run(world, 1, each: () => SetDown(world, ike, new Vector2(240, 60)));
+        Run(world, 1, each: () => SetDown(world, ike, new Vector2(520, 136)));
         Assert.False(director.Has("launch"));
 
         // Both Grunts in, the Locator off at the bay's far side: none.
         Run(world, 1, each: () =>
         {
             AllIn();
-            SetDown(world, locator, new Vector2(205, 45));
+            SetDown(world, locator, new Vector2(450, 106));
         });
         Assert.False(director.Has("launch"));
 
         // Ike lies down in the bay outside the pod's zone, Bob and the Locator at the pod: he is carried in, the pod goes.
-        SetDown(world, ike, new Vector2(214, 40));
+        SetDown(world, ike, new Vector2(468, 80));
         world.Damage(ike, 100000, Race.Blue);
         Assert.True(world.CompanionDown(run.Seats[1]));
         AllInButIke();

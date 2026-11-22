@@ -437,12 +437,17 @@ public partial class HackPanel : ChipPanel
         _ => "Door",
     };
 
-    /// <summary>Shows where the hack stands: its board of how many, broken off or not, and the hint for the pad or the mouse.</summary>
-    public void Show(int stage, int stages, bool broken, bool pad)
+    /// <summary>
+    /// Shows where the hack stands: its board of how many, broken off or not, locked by its target (the core's last board at
+    /// 90 %) or not, and the hint for the pad or the mouse.
+    /// </summary>
+    public void Show(int stage, int stages, bool broken, bool pad, bool held = false)
     {
         _title.Text = Lang.T("Hack: {0}", Lang.T(Called(Kind))).ToUpperInvariant();
-        _stage.Text = broken ? Lang.T("Link cut").ToUpperInvariant() : stages > 1 ? Lang.T("Board {0}/{1}", stage + 1, stages).ToUpperInvariant() : "";
-        _stage.Modulate = broken ? HackBoard.Danger : Colors.White;
+        _stage.Text = broken ? Lang.T("Link cut").ToUpperInvariant()
+            : held ? Lang.T("Core locked").ToUpperInvariant()
+            : stages > 1 ? Lang.T("Board {0}/{1}", stage + 1, stages).ToUpperInvariant() : "";
+        _stage.Modulate = broken || held ? HackBoard.Danger : Colors.White;
         Board.Broken = broken;
         _hint.Text = pad
             ? Lang.T("A: turn   X: turn back   B: pull out")

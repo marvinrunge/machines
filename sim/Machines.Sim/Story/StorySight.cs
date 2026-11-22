@@ -180,6 +180,12 @@ public sealed class StorySight
     /// <summary>A hero's signature still and dark; what moving at full speed, the lamp, a shot (3 s), the scanner's pulse (2 s) and a hack's alarm (5 s) add.</summary>
     public const float Still = 0.05f, Moving = 0.5f, Lamp = 0.4f, Shot = 1, Pulse = 1, Traced = 1;
 
+    /// <summary>
+    /// What a sprinting hero's drive adds at its full speed (StoryDrive), on top of moving at its walk's: the sprint is heard
+    /// and seen as a lamp is, so walking stays the right way through the dark.
+    /// </summary>
+    public const float Sprint = 0.5f;
+
     /// <summary>How long a shot, the pulse and a hack's alarm stay in the signature, seconds.</summary>
     public const float ShotFor = 3, PulseFor = 2, TracedFor = 5;
 
@@ -211,7 +217,7 @@ public sealed class StorySight
     /// of the trio calls the others within this reach, metres: they turn to the spot, and those within half of it come to
     /// search it. A caller calls at most once in so many seconds.
     /// </summary>
-    public const float CallReach = 80, CallEvery = 5;
+    public const float CallReach = 120, CallEvery = 5;
 
     /// <summary>
     /// How long the ship stays alert after a call while the trio still sneaks (before the core's alarm), seconds: its

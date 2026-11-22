@@ -57,7 +57,7 @@ public sealed record StoryReadout
     public const string LocatorName = "L-7";
 
     /// <summary>How far the motion tracker reaches, in metres.</summary>
-    public const float TrackerRange = 40;
+    public const float TrackerRange = 60;
 
     /// <summary>How near a marker the hero must stand for its prompt, in metres; a downed Grunt is put together from a little further.</summary>
     public const float PromptReach = 3, ReviveReach = 4;
@@ -121,8 +121,29 @@ public sealed record StoryReadout
     /// <summary>The Locator's HUD boots in its clamp (<see cref="StoryMarks.Boot"/>).</summary>
     public required bool Boot { get; init; }
 
+    /// <summary>Seconds into the boot while it runs (game time since the director's beat <c>boot</c>, as Prologue.BootSteps counts); null otherwise.</summary>
+    public float? BootSeconds { get; init; }
+
+    /// <summary>The Locator's player skipped the boot (<see cref="StoryMarks.BootSkip"/>).</summary>
+    public bool BootSkipped { get; init; }
+
+    /// <summary>
+    /// Where the Commander's squad is while it is on its way to the core chamber (<see cref="StoryMarks.Squad"/>): the HUD
+    /// points at it; null otherwise.
+    /// </summary>
+    public Vector2? Squad { get; init; }
+
     /// <summary>How the chapter ended; null while it lasts.</summary>
     public required StoryEnding? Ending { get; init; }
+
+    /// <summary>The hero's drive (<see cref="StoryDrive"/>): its heat 0 to 1, overheated, sprinting now, and whether the sprint is free at all.</summary>
+    public float DriveHeat { get; init; }
+
+    public bool DriveHot { get; init; }
+
+    public bool Sprinting { get; init; }
+
+    public bool SprintFree { get; init; }
 
     /// <summary>The figures for a player of a story; null without a story or for a player without a seat in it.</summary>
     public static StoryReadout? Of(GameWorld world, PlayerId player, DeckRoute? route = null)
@@ -159,7 +180,16 @@ public sealed record StoryReadout
             Grunts = run.Seats.Where(s => s != player).Select(s => GruntOf(world, run, s, hero)).ToList(),
             Prompts = hero is null ? [] : PromptsOf(world, run, seat, hero),
             Boot = run.Flags.Contains(StoryMarks.Boot),
+            BootSeconds = run.Flags.Contains(StoryMarks.Boot) && run.Director.Fired.TryGetValue("boot", out var booted) ? world.Time - booted : null,
+            BootSkipped = run.Flags.Contains(StoryMarks.BootSkip),
             Ending = run.Ending,
+            DriveHeat = hero is not null && world.StoryDriveOf(hero.Id) is { } heat ? heat.Heat : 0,
+            DriveHot = hero is not null && world.StoryDriveOf(hero.Id) is { Blocked: true },
+            Sprinting = hero is not null && world.StoryDriveOf(hero.Id) is { Sprinting: true },
+            SprintFree = world.StorySprintFree,
+            Squad = run.Flags.Contains(StoryMarks.Squad)
+                ? run.Director.Of(world, Prologue.CommanderRole).Concat(run.Director.Of(world, Prologue.ReaperRole)).FirstOrDefault()?.Position
+                : null,
         };
     }
 
@@ -207,6 +237,9 @@ public sealed record StoryReadout
             level += 0.5f * MathF.Max(MathF.Abs(drive.Forward), MathF.Abs(drive.Strafe)) * (drive.Slow ? 0.5f : 1);
         else if (hero.Path.Count > hero.PathIndex)
             level += 0.5f;
+        // The sprint's whining drive is heard on top (StorySight.Sprint).
+        if (world.StoryDriveOf(hero.Id) is { Sprinting: true })
+            level += StorySight.Sprint;
         if (world.Wired?.Heroes.GetValueOrDefault(player) is { } state && world.Time - state.LastShotAt < 3)
             level = 1;
         return Math.Clamp(level, 0, 1);

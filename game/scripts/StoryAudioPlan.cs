@@ -21,6 +21,8 @@ public enum StoryVoiceChannel
     Whisper,
     /// <summary>Text on the HUD only, never voiced (the P_HUD_ lines).</summary>
     Text,
+    /// <summary>The Locator's own thoughts (P_L7_): on the Voice bus, close and dry, the world a few dB lower while they speak.</summary>
+    Inner,
 }
 
 /// <summary>One voice file of a line in a language (game/assets/story/voice/manifest.json).</summary>
@@ -81,7 +83,10 @@ public sealed record StoryQueuedLine(string Id, StoryVoiceChannel Channel, doubl
     /// <summary>Whether the PA's gong comes first, should the PA have been quiet long enough (a cut fragment never has one).</summary>
     public bool Gong { get; init; }
 
-    public bool Announcement => Channel is StoryVoiceChannel.Announcer or StoryVoiceChannel.Local or StoryVoiceChannel.Whisper;
+    public bool Announcement => Channel is StoryVoiceChannel.Announcer or StoryVoiceChannel.Local or StoryVoiceChannel.Whisper or StoryVoiceChannel.Inner;
+
+    /// <summary>Whether the line is the ship's or the update's (not the Locator's own thought): its end counts for the PA's quiet before a gong.</summary>
+    public bool Loudspeaker => Announcement && Channel != StoryVoiceChannel.Inner;
 }
 
 /// <summary>What the line queue did.</summary>
@@ -142,7 +147,7 @@ public sealed class StoryLineQueue
         {
             Current = null;
             _freeAt = now + Gap;
-            if (current.Announcement)
+            if (current.Loudspeaker)
                 _lastAnnouncement = now;
             events.Add(new(StoryQueueChange.Ended, current));
         }
@@ -174,7 +179,7 @@ public sealed class StoryLineQueue
         var events = new List<StoryQueueEvent>();
         if (Current is { } current)
         {
-            if (current.Announcement)
+            if (current.Loudspeaker)
                 _lastAnnouncement = now;
             events.Add(new(StoryQueueChange.Interrupted, current));
         }
@@ -201,7 +206,7 @@ public sealed class StoryLineQueue
         {
             Current = null;
             _freeAt = now + Gap;
-            if (current.Announcement)
+            if (current.Loudspeaker)
                 _lastAnnouncement = now;
             events.Add(new(StoryQueueChange.Interrupted, current));
         }
@@ -218,7 +223,7 @@ public sealed class StoryLineQueue
 public sealed class StoryThreat
 {
     /// <summary>Closer than this to the Thresher, or as suspected as this, is hunted; then uneasy.</summary>
-    public const float HuntedWithin = 14, UneasyWithin = 36, HuntedSuspicion = 0.66f, UneasySuspicion = 0.25f;
+    public const float HuntedWithin = 20, UneasyWithin = 50, HuntedSuspicion = 0.66f, UneasySuspicion = 0.25f;
 
     /// <summary>A lower level is held this long before the music calms down (it rises at once).</summary>
     public const double CalmAfter = 5;
@@ -267,8 +272,8 @@ public sealed record StoryReverb(string Name, float RoomSize, float Damping, flo
 
 /// <summary>
 /// What the deck sounds like where one is: each room's ambience loops (by its name in the deck's ZONES, else by its
-/// section) and its reverb (by the room's height and size), and the music's cues. No music has been made (ElevenLabs
-/// refused it): a cue is a few of the ambience loops pitched down and layered by threat, until a file
+/// section) and its reverb (by the room's height and size), and the music's cues. No cue's music has been made (the prologue
+/// has its own score instead, <see cref="StoryScore"/>): a cue is a few of the ambience loops pitched down and layered by threat, until a file
 /// <c>game/assets/story/music/&lt;cue&gt;.ogg</c> (and its stems <c>&lt;cue&gt;_1.ogg</c>, <c>&lt;cue&gt;_2.ogg</c>, which come in at
 /// threat 1 and 2) takes its place.
 /// </summary>
@@ -324,11 +329,11 @@ public static class StorySoundscape
         var narrow = MathF.Min(size.X, size.Y);
         if (height <= 4 || narrow <= 4)
             return Duct;
-        if (height >= 14)
+        if (height >= 28)
             return Cathedral;
-        if (height >= 9 || size.X * size.Y >= 1200)
+        if (height >= 18 || size.X * size.Y >= 4800)
             return Hall;
-        return narrow <= 10 ? Corridor : Room;
+        return narrow <= 20 ? Corridor : Room;
     }
 
     public static readonly StoryReverb Duct = new("duct", 0.2f, 0.25f, 0.28f, 8);
@@ -386,12 +391,14 @@ public static class StorySoundscape
         "ship-dry" => StoryVoiceChannel.Local,
         "ike" or "bob" or "bob-radio" => StoryVoiceChannel.Radio,
         "whisper" => StoryVoiceChannel.Whisper,
+        "l7" => StoryVoiceChannel.Inner,
         _ => line switch
         {
             "P_ANN_FOUND" => StoryVoiceChannel.Local,
             _ when line.StartsWith("P_ANN_", StringComparison.Ordinal) || line.StartsWith("P_AUTO_", StringComparison.Ordinal) => StoryVoiceChannel.Announcer,
             _ when line.StartsWith("P_IKE_", StringComparison.Ordinal) || line.StartsWith("P_BOB_", StringComparison.Ordinal) => StoryVoiceChannel.Radio,
             _ when line.StartsWith("P_WHISPER", StringComparison.Ordinal) => StoryVoiceChannel.Whisper,
+            _ when line.StartsWith("P_L7_", StringComparison.Ordinal) => StoryVoiceChannel.Inner,
             _ => StoryVoiceChannel.Text,
         },
     };
@@ -454,5 +461,130 @@ public sealed class StorySfxManifest
             return id;
         var variants = _sounds.Keys.Where(k => k.Length > id.Length + 1 && k.StartsWith(id + "_", StringComparison.Ordinal) && k[(id.Length + 1)..].All(char.IsDigit)).ToList();
         return variants.Count == 0 ? null : variants[Math.Clamp(pick(variants.Count), 0, variants.Count - 1)];
+    }
+}
+
+/// <summary>A piece of the story's score: its file (game/assets/story/music/&lt;name&gt;.ogg) and its length in seconds.</summary>
+public sealed record StoryPiece(string Name, double Seconds);
+
+/// <summary>What the story's score plays: the background playlist, the loud part as the trio is caught, the escape's piece, or nothing.</summary>
+public enum StoryScorePart
+{
+    Playlist,
+    Caught,
+    Escape,
+    Silence,
+}
+
+/// <summary>
+/// The prologue's score, the user's own pieces (game/assets/story/music, made from their MP3s with ffmpeg and levelled to
+/// one loudness, as its README says): from the start a playlist in the background, Lost In The Void, Lost Vessel, Drift Into The Black and the
+/// calm part of Lost In The Dark, each after the other (with a short overlap) and round again from the first should it run
+/// out, through sections 1–3 and the hack, never restarted by a section or a checkpoint (<see cref="Start"/>). At the
+/// break-in (Erwischt) the playlist is cut and the loud part of Lost In The Dark plays once from its entry; when it has
+/// ended and the trio is out of the core chamber (section 5), the playlist goes on where it was, a little quieter. From the
+/// crash countdown on, Pressure At Sector Nine plays, started so that its end lands where the countdown runs out
+/// (<see cref="EscapeOffset"/>); the pod's launch keeps it, and it fades out over the first seconds of the
+/// pod's cutscene (StoryAudio.MusicOut). The threat lowers the
+/// playlist a little (<see cref="PlaylistDb"/>); the stand-ins' drones never play over it. View only: nothing here touches
+/// the sim; each machine plays it from the shared beats.
+/// </summary>
+public sealed class StoryScore
+{
+    /// <summary>The background, in order.</summary>
+    public static readonly StoryPiece[] Playlist =
+    [
+        new("lost_in_the_void", 147.65),
+        new("lost_vessel", 148.52),
+        new("drift_into_the_black", 239.02),
+        new("lost_in_the_dark_calm", 156.20),
+    ];
+
+    /// <summary>The loud part of Lost In The Dark, from its entry (157.2 s into the original) to its own fade.</summary>
+    public static readonly StoryPiece Caught = new("lost_in_the_dark_loud", 61.90);
+
+    /// <summary>Pressure At Sector Nine, its last silence trimmed.</summary>
+    public static readonly StoryPiece Escape = new("pressure_at_sector_nine", 179.90);
+
+    /// <summary>Every piece of the score.</summary>
+    public static IEnumerable<StoryPiece> Pieces => [.. Playlist, Caught, Escape];
+
+    /// <summary>
+    /// Seconds: the overlap of one playlist piece's end with the next one's start; the playlist's cut at the break-in; its
+    /// fade back in afterwards (and after a checkpoint); the playlist's fade out under the escape's piece.
+    /// </summary>
+    public const double Overlap = 2, CutFade = 0.3, ResumeFade = 4, EscapeFade = 1.5;
+
+    /// <summary>
+    /// The playlist's level in dB after the trio was caught (sections 5 and on), and its dips while uneasy and hunted, so the
+    /// Thresher's steps and the stings come through.
+    /// </summary>
+    public const float AfterCaughtDb = -3, UneasyDb = -1.5f, HuntedDb = -4;
+
+    /// <summary>The playlist's level (dB) while the Locator boots in its clamp: softly under its thoughts, up to its own level once free.</summary>
+    public const float BootDb = -9;
+
+    private bool _caughtEnded;
+
+    public StoryScorePart Part { get; private set; } = StoryScorePart.Playlist;
+
+    /// <summary>The break-in: the loud part starts (true), unless the escape has begun or the score is over.</summary>
+    public bool BreakIn()
+    {
+        if (Part is StoryScorePart.Escape or StoryScorePart.Silence)
+            return false;
+        Part = StoryScorePart.Caught;
+        _caughtEnded = false;
+        return true;
+    }
+
+    /// <summary>The loud part has played to its end.</summary>
+    public void CaughtEnded() => _caughtEnded = true;
+
+    /// <summary>The score falls silent for good (the chapter is over).</summary>
+    public void Stop() => Part = StoryScorePart.Silence;
+
+    /// <summary>
+    /// Four times a second, from the section the trio is in and the seconds left on the crash countdown (null while it is
+    /// not running): what should play now. The escape's piece starts with the countdown and is kept after the launch stops
+    /// it; the playlist comes back after the loud part once that has ended and the trio is out of the core chamber.
+    /// </summary>
+    public StoryScorePart Follow(int section, float? countdownLeft)
+    {
+        if (Part == StoryScorePart.Silence)
+            return Part;
+        if (countdownLeft is not null)
+            Part = StoryScorePart.Escape;
+        else if (Part == StoryScorePart.Caught && _caughtEnded && section >= 5)
+            Part = StoryScorePart.Playlist;
+        return Part;
+    }
+
+    /// <summary>
+    /// Where the escape's piece starts with <paramref name="left"/> seconds on the countdown: so that it ends as the countdown
+    /// runs out (at 180 s from its start, its last note a moment before zero; at a checkpoint's 150 s, 29.9 s in).
+    /// </summary>
+    public static double EscapeOffset(float left, double length) => Math.Clamp(length - left, 0, Math.Max(0, length - 1));
+
+    /// <summary>The playlist's level (dB) in a section at a threat level (0 calm, 1 uneasy, 2 hunted), and while the Locator boots.</summary>
+    public static float PlaylistDb(int section, int threat, bool booting = false) =>
+        (section >= 5 ? AfterCaughtDb : 0) + threat switch { >= 2 => HuntedDb, 1 => UneasyDb, _ => 0 } + (booting ? BootDb : 0);
+
+    /// <summary>The playlist's piece after <paramref name="track"/>: the next, or the first again after the last.</summary>
+    public static int Next(int track) => (track + 1) % Playlist.Length;
+
+    /// <summary>
+    /// Where the playlist starts in a chapter begun at <paramref name="checkpoint"/>: from the beginning at checkpoint 0;
+    /// else where it was when the chapter was played last in this session (<paramref name="remembered"/>: a checkpoint loaded
+    /// after a fall goes on with the piece that played); else at the piece a run usually hears there (the start of Lost
+    /// Vessel at the antechamber, of Drift Into The Black from the break-in on).
+    /// </summary>
+    public static (int Track, double At) Start(int checkpoint, (int Track, double At)? remembered)
+    {
+        if (checkpoint <= 0)
+            return (0, 0);
+        if (remembered is { } was && was.Track >= 0 && was.Track < Playlist.Length)
+            return (was.Track, Math.Max(0, was.At));
+        return (checkpoint switch { 1 => 0, 2 => 1, _ => 2 }, 0);
     }
 }

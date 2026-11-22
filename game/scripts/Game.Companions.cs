@@ -75,6 +75,10 @@ public partial class Game
     private void FollowCrates()
     {
         CompanionTestIfAsked();
+        // Crates taken off whole that no "thrown" cue sent flying went with the frame they were taken in.
+        foreach (var gone in _justRemoved.Values)
+            gone.QueueFree();
+        _justRemoved.Clear();
         if (World.Story is null || GetNodeOrNull<Node3D>("Artefacts") is not { } root)
             return;
         foreach (var artefact in World.Artefacts)

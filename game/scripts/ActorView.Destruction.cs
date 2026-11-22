@@ -36,6 +36,7 @@ public partial class ActorView
     /// </summary>
     public void BlowUp(Effects effects, ClassicAssets assets)
     {
+        EyesOut();
         if (IsBuilding)
         {
             if (GraphicsSettings.Effects)

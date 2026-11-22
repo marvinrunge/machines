@@ -2,29 +2,29 @@ Reachability on prolog.deck (tools/deck/deck.mjs). Rooms are the ZONES tagged ro
 
 ## Doors as they start (only DOORS marked open)
 - Locator (A, crawls) from spawn_l7: reaches R1
-    not: R2 R3 R0 R4 WL EL R5 R7 S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2
+    not: R2 R3 R0 R4 WL EL R5 R7 S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a
 - Grunt (A, wheels) from spawn_ike: reaches R2
-    not: R1 R3 R0 R4 WL EL R5 R7 S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2
+    not: R1 R3 R0 R4 WL EL R5 R7 S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a
 - Reaper/Commander (B) from spawn_reaper_1: reaches R10 R10a P1 P1s
-    not: R2 R1 R3 R0 R4 WL EL R5 R7 S R6 R8 R9 P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2
+    not: R2 R1 R3 R0 R4 WL EL R5 R7 S R6 R8 R9 P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a
 - Thresher (C) from spawn_thresher: reaches R4 WL EL R6
-    not: R2 R1 R3 R0 R5 R7 S R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2
+    not: R2 R1 R3 R0 R5 R7 S R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a
 
 ## Every door open
-- Locator (A, crawls) from spawn_l7: reaches R2 R1 R3 R0 R4 WL EL R5 R7 S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2
+- Locator (A, crawls) from spawn_l7: reaches R2 R1 R3 R0 R4 WL EL R5 R7 S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a
     not: -
-- Grunt (A, wheels) from spawn_ike: reaches R2 R1 R3 R0 R4 WL EL R5 S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16
+- Grunt (A, wheels) from spawn_ike: reaches R2 R1 R3 R0 R4 WL EL R5 S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 R11 R11a
     not: R7 V1a V1b V1c V2
-- Reaper/Commander (B) from spawn_reaper_1: reaches R4 WL EL R6 R8 R9 R10 R10a P1 P1s P2 R12
+- Reaper/Commander (B) from spawn_reaper_1: reaches R4 WL EL R6 R8 R9 R10 R10a P1 P1s P2 R12 R11 R11a
     not: R2 R1 R3 R0 R5 R7 S K R13 R13a R14 R15 R15a R16 V1a V1b V1c V2
 - Thresher (C) from spawn_thresher: reaches R4 WL EL R6
-    not: R2 R1 R3 R0 R5 R7 S R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2
+    not: R2 R1 R3 R0 R5 R7 S R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a
 
 ## Greybox (4 m cells of the .csp), Locator from spawn_l7, doors as they start
 - reaches R1
 
 ## Greybox (4 m cells of the .csp), Locator from spawn_l7, every door open
-- reaches R2 R1 R3 R0 R4 WL EL R5 S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16
+- reaches R2 R1 R3 R0 R4 WL EL R5 S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 R11 R11a
 
 ## Checks (every door open)
 PASS the Locator reaches every room
@@ -33,5 +33,5 @@ PASS Grunts reach every room but the ducts and the Schaltraum (R7, ducts only)
 PASS Reapers and the Commander never enter K, S, the ducts, the bays, the Lager, the Schaltraum or R13-R16
 PASS the Thresher keeps to its ring R4 WL R6 EL
 
-Note: with every door open the Reapers reach the decks through R8 (6 m doors); in the story the blast doors H and I
+Note: with every door open the Reapers reach the decks through R8 (12 m doors); in the story the blast doors H and I
 and the barricades keep them in R9, R10, P1, P2 and R12.

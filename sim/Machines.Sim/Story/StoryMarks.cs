@@ -12,8 +12,20 @@ namespace Machines.Sim.Story;
 /// </summary>
 public static class StoryMarks
 {
-    /// <summary>Set while the ship's alarm sounds (from the break at 90 % on).</summary>
+    /// <summary>Set while the ship's alarm sounds (from the squad at the core chamber's first door on).</summary>
     public const string Alarm = "alarm";
+
+    /// <summary>
+    /// Set while the Commander's squad is on its way to the core chamber and not yet in (Der Hack): the HUD points at where
+    /// it comes from (the Commander's place).
+    /// </summary>
+    public const string Squad = "squad";
+
+    /// <summary>
+    /// Set once the trio's drives may sprint (<see cref="StoryDrive"/>): the maintenance limiter overridden. In the prologue as the
+    /// Reapers' first rounds hit the core, and from the break-in's checkpoint on.
+    /// </summary>
+    public const string SprintFree = "sprint";
 
     /// <summary>Set while a hunter sees the trio: the HUD says SIGNATURE DETECTED.</summary>
     public const string Spotted = "spotted";
@@ -35,6 +47,15 @@ public static class StoryMarks
 
     /// <summary>Set while the Locator's HUD boots in its clamp at the chapter's start (Erwachen): the plates come one by one.</summary>
     public const string Boot = "boot";
+
+    /// <summary>
+    /// Set once the Locator's player skipped the boot (a <see cref="StoryUseCommand"/> with the target <see cref="SkipBoot"/>):
+    /// its steps and thoughts still to come are dropped, and it ends at once.
+    /// </summary>
+    public const string BootSkip = "boot_skip";
+
+    /// <summary>The target of the Use command that skips the boot, the Locator's only and only while it boots.</summary>
+    public const string SkipBoot = "boot:skip";
 
     private const string ObjectivePrefix = "objective:", DownPrefix = "down:", DistractingPrefix = "distracting:", DormantPrefix = "dormant:", DonePrefix = "done:";
 

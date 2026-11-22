@@ -38,7 +38,7 @@ public class HackPuzzleTests
         var core = HackSpec.Boards(HackKind.Core);
         Assert.Equal([4, 5, 5], core.Select(b => b.Size));
         Assert.Equal(3, core[1].Targets);
-        Assert.Equal(0.9f, core[2].BreakAt);
+        Assert.Equal(0.9f, core[2].HoldAt);
     }
 
     [Fact]

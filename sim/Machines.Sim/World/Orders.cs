@@ -359,7 +359,7 @@ public enum GameEventKind
     /// <summary>A checkpoint of the chapter is reached (Other: its number; Position: where the Locator stands).</summary>
     StoryCheckpoint,
 
-    /// <summary>The director asks the view to show something (Detail: the words, e.g. <c>cutscene erwischt</c> or <c>tilt 5 0 2</c>; Position: where).</summary>
+    /// <summary>The director asks the view to show something (Detail: the words, e.g. <c>cutscene abwurf</c> or <c>tilt 5 0 2</c>; Position: where).</summary>
     StoryCue,
 
     /// <summary>A hunter sees one of the trio (Actor: the hunter; Player: whom it sees; Position: where).</summary>

@@ -64,7 +64,7 @@ public class CompanionTests
     /// <summary>Sets the trio down in the lane of maintenance deck A, the Locator at <paramref name="at"/> and the Grunts behind it.</summary>
     private static void OnDeckA(GameWorld world, Vector2? at = null)
     {
-        var spot = at ?? new Vector2(80, 26);
+        var spot = at ?? new Vector2(176, 52);
         Place(world, Locator, spot);
         Place(world, Ike, spot + new Vector2(-6, 2));
         Place(world, Bob, spot + new Vector2(-6, -2));
@@ -89,7 +89,7 @@ public class CompanionTests
         var world = Prologue();
         OnDeckA(world);
         Run(world, 1);
-        Place(world, Locator, new Vector2(110, 26));
+        Place(world, Locator, new Vector2(236, 52));
 
         Run(world, 20);
 
@@ -112,7 +112,7 @@ public class CompanionTests
         var (ike, bob) = (Hero(world, Ike).Position, Hero(world, Bob).Position);
 
         Assert.Null(Do(world, new StoryOrderCommand(Race.Red, CompanionOrder.Wait, Vector2.Zero)));
-        Place(world, Locator, new Vector2(112, 26));
+        Place(world, Locator, new Vector2(240, 52));
         Run(world, 10);
 
         Assert.True(Vector2.Distance(ike, Hero(world, Ike).Position) < 1.5f);
@@ -150,11 +150,11 @@ public class CompanionTests
         var world = Prologue();
         OnDeckA(world);
         // Two of the ship's machines, unarmed: one within hearing of the point, one far off.
-        var near = world.AddMachine(Race.Blue, new Vector2(112, 20), "GEO_LOCATOR", null, 1, null);
-        var far = world.AddMachine(Race.Blue, new Vector2(56, 74), "GEO_LOCATOR", null, 1, null);
+        var near = world.AddMachine(Race.Blue, new Vector2(240, 40), "GEO_LOCATOR", null, 1, null);
+        var far = world.AddMachine(Race.Blue, new Vector2(128, 180), "GEO_LOCATOR", null, 1, null);
         Run(world, 1);
         var back = Hero(world, Ike).Position;
-        var point = new Vector2(104, 26);
+        var point = new Vector2(224, 52);
 
         Assert.Null(Do(world, new StoryOrderCommand(Race.Red, CompanionOrder.Distract, point, Ike)));
         Assert.Contains(StoryMarks.Distracting(Ike), world.Story!.Flags);
@@ -182,7 +182,7 @@ public class CompanionTests
         Run(world, 1);
 
         // Bob stands south of the Locator, Ike north: a point to the south is Bob's.
-        Assert.Null(Do(world, new StoryOrderCommand(Race.Red, CompanionOrder.Distract, new Vector2(92, 22))));
+        Assert.Null(Do(world, new StoryOrderCommand(Race.Red, CompanionOrder.Distract, new Vector2(200, 44))));
 
         Assert.Equal(CompanionOrder.Distract, world.Story!.Crew.Of(Bob).Order);
         Assert.Equal(CompanionOrder.Follow, world.Story.Crew.Of(Ike).Order);
@@ -197,29 +197,32 @@ public class CompanionTests
     {
         var world = Prologue();
         Assert.True(world.OpenDoor('I'));
-        Place(world, Locator, new Vector2(88, 116));
-        Place(world, Ike, new Vector2(86, 94));
-        Place(world, Bob, new Vector2(90, 94));
+        Place(world, Locator, new Vector2(192, 264));
+        Place(world, Ike, new Vector2(188, 220));
+        Place(world, Bob, new Vector2(196, 220));
         if (barricade)
         {
+            // The crates for the barricades: the pile in the antechamber and the loose ones about the core room.
+            var crates = world.PileCrates().Count;
             world.AssignCompanion(Ike, CompanionTask.Barricade, "I");
             world.AssignCompanion(Bob, CompanionTask.Barricade, "I");
             var standing = RunUntil(world, () => world.Story!.Crew.Of(Ike).Step == CompanionStep.Standing && world.Story.Crew.Of(Bob).Step == CompanionStep.Standing, 90);
             Assert.True(standing, string.Join(" / ", new[] { Ike, Bob }.Select(s => $"{s}: {world.Story!.Crew.Of(s).Step} slot {world.Story.Crew.Of(s).Slot} crate {world.Story.Crew.Of(s).Crate} carry {world.Story.Crew.Of(s).Carrying?.Placement} at {Hero(world, s).Position} order {Hero(world, s).Order}")) + " filled " + string.Join(",", world.BarricadeSlots("I").Select(world.SlotFilled)) + " pile " + world.PileCrates().Count);
-            // Two crates shut the doorway, the Grunts on the core's side of them: the pile is out of their reach from there, so
-            // they stand (before, the way handed them the pile's crates across their own barricade and they went through it).
+            // Three crates shut the 12 m doorway (two left a way to the pile, and they fetched a third), the Grunts on the core's
+            // side of them: the pile is out of their reach from there, so they stand (before, the way handed them the pile's
+            // crates across their own barricade and they went through it).
             var filled = world.BarricadeSlots("I").Count(world.SlotFilled);
-            Assert.Equal(2, filled);
-            Assert.Equal(4 - filled, world.PileCrates().Count);
-            Assert.All(new[] { Ike, Bob }, seat => Assert.True(Hero(world, seat).Position.Y > 100.5f, $"{seat} at {Hero(world, seat).Position}"));
-            // Each stands before the crates, close to a slot.
-            Assert.All(new[] { Ike, Bob }, seat => Assert.True(world.BarricadeSlots("I").Any(slot => Vector2.Distance(slot.Position, Hero(world, seat).Position) < 6), $"{seat} at {Hero(world, seat).Position}"));
+            Assert.Equal(3, filled);
+            Assert.Equal(crates - filled, world.PileCrates().Count);
+            Assert.All(new[] { Ike, Bob }, seat => Assert.True(Hero(world, seat).Position.Y > 233, $"{seat} at {Hero(world, seat).Position}"));
+            // Each stands before the crates, close to a slot (the doorway is 12 m).
+            Assert.All(new[] { Ike, Bob }, seat => Assert.True(world.BarricadeSlots("I").Any(slot => Vector2.Distance(slot.Position, Hero(world, seat).Position) < 10), $"{seat} at {Hero(world, seat).Position}"));
         }
         else
             Run(world, 1);
         // An unarmed one, so that the test is about the way and not a fight.
-        var reaper = world.AddMachine(Race.Blue, new Vector2(88, 92), "AGGRESSOR", "ASSASSIN", 2, null);
-        world.Issue(new MoveCommand(Race.Blue, [reaper.Id], new Vector2(88, 112)));
+        var reaper = world.AddMachine(Race.Blue, new Vector2(192, 216), "AGGRESSOR", "ASSASSIN", 2, null);
+        world.Issue(new MoveCommand(Race.Blue, [reaper.Id], new Vector2(192, 256)));
         Run(world, 20);
         return (world, reaper);
     }
@@ -228,10 +231,10 @@ public class CompanionTests
     public void A_barricade_of_crates_and_grunts_keeps_a_reaper_out_of_the_core()
     {
         var (open, through) = Assault(barricade: false);
-        Assert.True(through.Position.Y > 103, $"without a barricade the Reaper comes in ({through.Position})");
+        Assert.True(through.Position.Y > 238, $"without a barricade the Reaper comes in ({through.Position})");
 
         var (world, reaper) = Assault(barricade: true);
-        Assert.True(reaper.Position.Y < 99.5f, $"the barricade holds ({reaper.Position})");
+        Assert.True(reaper.Position.Y < 231, $"the barricade holds ({reaper.Position})");
         Assert.Contains("P_IKE_BARRICADE", Barked(world));
         Assert.Contains("P_BOB_BARRICADE", Barked(world));
         Assert.NotEqual(open.Checksum(), world.Checksum());
@@ -241,9 +244,9 @@ public class CompanionTests
     public void A_grunt_holds_a_gate_switch_by_standing_on_it()
     {
         var world = Prologue();
-        Place(world, Locator, new Vector2(180, 100));
-        Place(world, Ike, new Vector2(180, 120));
-        Place(world, Bob, new Vector2(182, 104));
+        Place(world, Locator, new Vector2(400, 232));
+        Place(world, Ike, new Vector2(400, 272));
+        Place(world, Bob, new Vector2(404, 240));
         Run(world, 1);
         Assert.False(world.SwitchHeld("switch_g1"));
 
@@ -269,9 +272,9 @@ public class CompanionTests
     public void The_grunts_follow_the_locator_into_the_pod_once_it_opens_the_hatch(bool ikeFirst)
     {
         var world = Prologue();
-        Place(world, Locator, new Vector2(242, 27));
-        Place(world, Ike, ikeFirst ? new Vector2(234, 30) : new Vector2(220, 40));
-        Place(world, Bob, ikeFirst ? new Vector2(214, 42) : new Vector2(226, 42));
+        Place(world, Locator, new Vector2(568, 90));
+        Place(world, Ike, ikeFirst ? new Vector2(556, 82) : new Vector2(520, 100));
+        Place(world, Bob, ikeFirst ? new Vector2(500, 104) : new Vector2(540, 104));
         Run(world, 1);
         Assert.False(world.CompanionsAboard());
 
@@ -281,7 +284,7 @@ public class CompanionTests
         Assert.Contains(StoryMarks.Done("pod_3_hatch"), world.Story.Flags);
 
         Assert.True(RunUntil(world, world.CompanionsAboard, 30));
-        Run(world, 1);
+        Run(world, 10);
         if (ikeFirst)
             Assert.Contains("P_IKE_POD", Barked(world));
         else
@@ -295,9 +298,9 @@ public class CompanionTests
     public void A_ram_hurts_throws_back_and_stuns_so_the_enemy_holds_its_fire()
     {
         var world = Prologue(ike: PlayerKind.Human);
-        OnDeckA(world, new Vector2(70, 26));
-        Place(world, Ike, new Vector2(90, 26));
-        var foe = world.AddMachine(Race.Blue, new Vector2(94.5f, 26), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+        OnDeckA(world, new Vector2(156, 52));
+        Place(world, Ike, new Vector2(176, 52));
+        var foe = world.AddMachine(Race.Blue, new Vector2(180.5f, 52), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
         // Facing the Grunt, so that its gun bears.
         foe.Facing = MathF.PI;
         world.Issue(new StandGroundCommand(Race.Blue, [foe.Id]));
@@ -311,7 +314,7 @@ public class CompanionTests
         Assert.Null(Do(world, new StoryRamCommand(Race.Red), Ike));
 
         Assert.True(foe.HitPoints + foe.Armour < before);
-        Assert.True(Vector2.Distance(foe.Position, Hero(world, Ike).Position) > Vector2.Distance(at, new Vector2(90, 26)) - 3);
+        Assert.True(Vector2.Distance(foe.Position, Hero(world, Ike).Position) > Vector2.Distance(at, new Vector2(176, 52)) - 3);
         Assert.True(foe.Position.X > at.X, $"thrown back along the ram: {at} -> {foe.Position}, Ike {Hero(world, Ike).Position}, order {foe.Order}");
         Assert.True(world.Stunned(foe));
         Assert.Equal("that is not ready yet", Do(world, new StoryRamCommand(Race.Red), Ike));
@@ -333,8 +336,8 @@ public class CompanionTests
     public void The_computers_grunt_rams_an_enemy_that_fires_at_the_trio()
     {
         var world = Prologue();
-        OnDeckA(world, new Vector2(80, 26));
-        var foe = world.AddMachine(Race.Blue, new Vector2(88, 26), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+        OnDeckA(world, new Vector2(176, 52));
+        var foe = world.AddMachine(Race.Blue, new Vector2(184, 52), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
         world.Issue(new StandGroundCommand(Race.Blue, [foe.Id]));
 
         var fired = 0;
@@ -422,9 +425,9 @@ public class CompanionTests
     public void The_repair_station_mends_the_trio_and_brings_a_downed_grunt_back()
     {
         var world = Prologue(bob: PlayerKind.Human);
-        Place(world, Locator, new Vector2(226, 108));
-        Place(world, Ike, new Vector2(230, 108));
-        Place(world, Bob, new Vector2(212, 106));
+        Place(world, Locator, new Vector2(492, 248));
+        Place(world, Ike, new Vector2(500, 248));
+        Place(world, Bob, new Vector2(464, 244));
         Run(world, 0.5f);
         var locator = Hero(world, Locator);
         world.Damage(locator, locator.MaxHitPoints / 2 + locator.Armour, Race.Blue);
@@ -514,13 +517,13 @@ public class CompanionTests
     {
         var world = Prologue(seed: seed);
         OnDeckA(world);
-        var foe = world.AddMachine(Race.Blue, new Vector2(98, 26), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+        var foe = world.AddMachine(Race.Blue, new Vector2(212, 52), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
         world.Issue(new StandGroundCommand(Race.Blue, [foe.Id]));
         var sums = new List<ulong>();
         for (var tick = 0; tick < 600; tick++)
         {
             if (tick == 100)
-                world.Issue(new StoryOrderCommand(Race.Red, CompanionOrder.Distract, new Vector2(110, 20), Bob) { Issuer = Locator });
+                world.Issue(new StoryOrderCommand(Race.Red, CompanionOrder.Distract, new Vector2(236, 40), Bob) { Issuer = Locator });
             if (tick == 300)
                 world.Issue(new StoryOrderCommand(Race.Red, CompanionOrder.Wait, Vector2.Zero) { Issuer = Locator });
             if (tick == 400)

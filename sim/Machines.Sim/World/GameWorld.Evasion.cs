@@ -44,7 +44,7 @@ public sealed partial class GameWorld
 
         foreach (var machine in Machines.ToList())
         {
-            if (machine.IsDead || machine.DrivenByPlayer)
+            if (machine.IsDead || machine.DrivenByPlayer || Story is not null && StoryStill(machine))
                 continue;
             if (machine.Order is EvadeOrder evade)
             {

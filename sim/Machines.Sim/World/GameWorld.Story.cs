@@ -40,6 +40,7 @@ public sealed partial class GameWorld
             var hero = AddHero(options.Race, marker.Position, HeroBuild.Resolve(Data, state.Loadout), player);
             hero.Facing = marker.Angle * MathF.PI / 180;
             state.Hero = hero.Id;
+            GiveStoryDrive(run, hero);
         }
         // The computer plays every Grunt's seat no person sits at (co-op, GameWorld.StoryCoop).
         SettleStorySeats(run);
@@ -62,6 +63,8 @@ public sealed partial class GameWorld
         // What the sight and the companions told this tick, for the director (Hear).
         TellDirector(run);
         Timed("  story director", () => run.Director.Update(this, run));
+        // Last, so the sprint the director freed this tick and the heat of this tick's moves count from the next.
+        Timed("  story drives", UpdateDrives);
     }
 
     /// <summary>

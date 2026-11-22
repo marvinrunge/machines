@@ -59,6 +59,16 @@ public sealed partial class GameWorld
             return "not at that hack";
         if (session.Broken)
             return "the link is cut";
+        if (session.Held)
+            return "the board is locked";
+        // A board that holds (the core's last): a turn that would win it is refused and locks it; one that brings it as far
+        // as its hold goes in and locks it after.
+        if (session.Boards[session.Stage].HoldAt is > 0 and var holdAt
+            && puzzle.Copy().Turn(command.Cell, command.Clockwise) is { Refused: null, Complete: true })
+        {
+            session.Held = true;
+            return "the board is locked";
+        }
         var turn = puzzle.Turn(command.Cell, command.Clockwise);
         if (turn.Refused is { } why)
             return why;
@@ -66,8 +76,8 @@ public sealed partial class GameWorld
             Solved(run, session);
         else if (turn.Overflow)
             Traced(run, session);
-        else if (session.Boards[session.Stage].BreakAt is > 0 and var breakAt && puzzle.Progress >= breakAt)
-            session.Broken = true;
+        else if (session.Boards[session.Stage].HoldAt is > 0 and var hold && puzzle.Progress >= hold)
+            session.Held = true;
         return null;
     }
 
@@ -76,8 +86,8 @@ public sealed partial class GameWorld
         var run = Story!;
         if (run.Hacks.OpenBy(Hacker(run, command)) is not { } session)
             return "not at a hack";
-        // A broken-off hack is left at no cost: the story took it away.
-        if (!session.Broken && session.Puzzle is { } puzzle && puzzle.AddTrace(HackPuzzle.AbortCost))
+        // A broken-off or locked hack is left at no cost: the story took it away.
+        if (!session.Broken && !session.Held && session.Puzzle is { } puzzle && puzzle.AddTrace(HackPuzzle.AbortCost))
             Traced(run, session);
         else
             session.Hacker = null;
@@ -85,7 +95,7 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// The director breaks a hack off (the main computer's at 90 %): its board stands as it is and takes no more turns; the
+    /// The director breaks a hack off (the core's, as the Reapers burst in): its board stands as it is and takes no more turns; the
     /// Locator stays plugged in until it walks away. False when there is no such hack.
     /// </summary>
     public bool BreakHack(string target)
@@ -141,7 +151,7 @@ public sealed partial class GameWorld
                 continue;
             }
             HoldStill(hero.Id);
-            if (!puzzle.Spec.Firewall || session.Broken || Tick < session.NextPulse)
+            if (!puzzle.Spec.Firewall || session.Broken || session.Held || Tick < session.NextPulse)
                 continue;
             session.NextPulse = Tick + HackPulseTicks;
             if (puzzle.StepFirewall() == HackPulse.Reached)

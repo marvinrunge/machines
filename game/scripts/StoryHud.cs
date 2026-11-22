@@ -11,7 +11,7 @@ namespace Machines.Game;
 /// other two of the trio on cards (following, waiting, drawing the hunters off, down as a scrap heap, still switched off), the
 /// signature meter and the motion tracker in the radar's corner (the radar would show the hunters through the walls), what
 /// can be done where the hero stands, calls across the view, and the card when the Locator is lost. At the chapter's start the
-/// HUD boots in the clamp, its plates coming one by one through static. Everything it says comes from <see cref="StoryReadout"/>;
+/// Locator boots in its clamp, system after system, its plates coming one by one through static (StoryHud.Boot). Everything it says comes from <see cref="StoryReadout"/>;
 /// MACHINES_STORY_HUD puts it into a state for pictures (<see cref="Demo"/>).
 /// </summary>
 public partial class StoryHud : Control
@@ -59,9 +59,12 @@ public partial class StoryHud : Control
             _now = now = _demo.Apply(now, world, this);
         if (_now is { } shown)
         {
+            // In the thick of it (the alarm up or a hunter on the trio) a call is small and high, out of the way of the room.
+            _busy = shown.Alarm || shown.Spotted;
             FollowCheckpoint(shown);
             FollowBoot(shown);
             FollowTracker(shown);
+            FollowSprint(shown);
             if (_hud.Subtitles is { } subtitles && shown.Grunts.Count >= 2)
                 (subtitles.IkeName, subtitles.BobName) = Names(shown);
         }
@@ -99,9 +102,13 @@ public partial class StoryHud : Control
     {
         if (_size == Vector2.Zero || _now is not { } now)
             return;
+        DrawBootView(now);
         DrawDanger(now);
         if (Shows(BootPart.Way))
+        {
             DrawWay(now);
+            DrawSquad(now);
+        }
         DrawFloats();
         if (Driving && now.Ending is null)
             DrawPrompts(now);
@@ -117,7 +124,7 @@ public partial class StoryHud : Control
             DrawTracker(now);
             DrawSignature(now);
         }
-        DrawBoot();
+        DrawBoot(now);
         DrawConsole();
         DrawEnd(now);
     }
@@ -136,6 +143,31 @@ public partial class StoryHud : Control
         var health = new Rect2(at + new Vector2(56, 31) * _u, new Vector2(228, 8) * _u);
         _ink.Bar(health, now.Health, hurt ? HudInk.Danger : now.Health < 0.6f ? HudInk.Warning : MenuTheme.Glow);
         _ink.Thin(new Rect2(at + new Vector2(56, 43) * _u, new Vector2(228, 3) * _u), now.Armour, HudInk.Ice);
+        DrawDrive(now, at + new Vector2(308, 0) * _u);
+    }
+
+    /// <summary>
+    /// The drive's plate beside the hero's (<see cref="StoryDrive"/>): LIMITED while the maintenance limiter holds the sprint,
+    /// then its heat, which a sprint fills and walking cools; overheated it flashes until it may sprint again.
+    /// </summary>
+    private void DrawDrive(StoryReadout now, Vector2 at)
+    {
+        var box = new Rect2(at, new Vector2(132, 52) * _u);
+        var hot = now.DriveHot;
+        var flash = hot && (int)(_time * 4) % 2 == 0;
+        var colour = hot ? HudInk.Danger : now.DriveHeat > 0.66f ? HudInk.Warning : MenuTheme.Glow;
+        _ink.Plate(box, HudInk.Plating, flash ? HudInk.Danger : MenuTheme.Edge, 8);
+        _ink.Say(at + new Vector2(10, 18) * _u, Lang.T("Engine").Caps(), 13, MenuTheme.Dim);
+        if (!now.SprintFree)
+        {
+            _ink.Say(at + new Vector2(10, 40) * _u, Lang.T("Limited").Caps(), 15, MenuTheme.Dim);
+            return;
+        }
+        if (now.Sprinting)
+            _ink.Say(at + new Vector2(122, 18) * _u, ">>", 13, HudInk.Gold, 1);
+        else if (hot)
+            _ink.Say(at + new Vector2(122, 18) * _u, Lang.T("Hot").Caps(), 13, flash ? HudInk.Danger : HudInk.Warning, 1);
+        _ink.Leds(new Rect2(at + new Vector2(10, 28) * _u, new Vector2(112, 14) * _u), now.DriveHeat, colour, (float)_time, 12);
     }
 
     /// <summary>The objective at the top middle, and under it the alarm and the countdown.</summary>
@@ -223,6 +255,15 @@ public partial class StoryHud : Control
         }
         var distance = Mathf.RoundToInt(System.Numerics.Vector2.Distance(goal, hero.Position));
         Pointer(camera, ActorView.World(goal) + Vector3.Up * 2, HudInk.Gold, $"{Lang.T("Objective")}  {distance} m", strong: true);
+    }
+
+    /// <summary>Where the Commander's squad comes from while it is on its way to the core chamber: a red mark, or an arrow at the edge.</summary>
+    private void DrawSquad(StoryReadout now)
+    {
+        if (now.Squad is not { } squad || now.Ending is not null || GetViewport().GetCamera3D() is not { } camera || _game.World.HeroOf(Game.Me) is not { } hero)
+            return;
+        var metres = Mathf.RoundToInt(System.Numerics.Vector2.Distance(squad, hero.Position));
+        Pointer(camera, ActorView.World(squad) + Vector3.Up * 4, HudInk.Danger, $"{Lang.T("Squad")}  {metres} m", strong: false);
     }
 
     /// <summary>A mark on a place in view, or an arrow at the edge of the view towards one that is not (as Wired's pointers, <see cref="WiredHud"/>).</summary>
@@ -433,7 +474,7 @@ public partial class StoryHud : Control
     }
 
     /// <summary>
-    /// The motion tracker: rings every ten metres out to its reach, the view's way up, and a blip for each of the ship's machines
+    /// The motion tracker: four rings out to its reach (15 m apart), the view's way up, and a blip for each of the ship's machines
     /// that moves within it, lit at each ping and fading after; the nearest's distance under it.
     /// </summary>
     private void DrawTracker(StoryReadout now)
@@ -510,6 +551,7 @@ public partial class StoryHud : Control
     private sealed record Shout(string Title, string? Line, Color Colour, float Seconds);
 
     private readonly List<Shout> _calls = [];
+    private bool _busy;
     private double _callStarted;
 
     private sealed record Rising(string Text, Color Colour, double Since);
@@ -560,8 +602,9 @@ public partial class StoryHud : Control
         var opening = Mathf.Clamp(age / 0.22f, 0, 1);
         var alpha = opening * Mathf.Clamp((call.Seconds - age) / 0.45f, 0, 1);
         var middle = Left + (_size.X - Left) / 2;
-        var width = (_size.X - Left) * 0.42f * (1 - (1 - opening) * (1 - opening));
-        _ink.Call(middle, _size.Y * 0.28f, width, call.Title, call.Line, call.Colour, alpha, (_size.X - Left) / _u * 0.8f);
+        var width = (_size.X - Left) * (_busy ? 0.24f : 0.42f) * (1 - (1 - opening) * (1 - opening));
+        _ink.Call(middle, _size.Y * (_busy ? 0.19f : 0.28f), width, call.Title, call.Line, call.Colour, alpha,
+            (_size.X - Left) / _u * (_busy ? 0.45f : 0.8f), _busy ? 0.5f : 1);
     }
 
     private void DrawFloats()
@@ -605,6 +648,11 @@ public partial class StoryHud : Control
 
     public override void _Input(InputEvent @event)
     {
+        if (BootInput(@event))
+        {
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         if (_now is not { Ending: StoryEnding.LocatorLost or StoryEnding.Crashed } || _demo is not null || _game.Watching)
             return;
         if (@event is InputEventKey { Pressed: true, Echo: false } key && key.Keycode is Key.Space or Key.Enter or Key.KpEnter)

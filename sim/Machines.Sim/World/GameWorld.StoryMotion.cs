@@ -84,4 +84,11 @@ public sealed partial class GameWorld
     /// </summary>
     private bool MakesWayInStory(Machine blocker) =>
         !blocker.DrivenByPlayer && CompanionSeat(blocker) is { } seat && !CompanionDown(seat);
+
+    /// <summary>
+    /// Whether the story holds a machine where it stands: a Grunt asleep in its clamp or lying downed, or one the director
+    /// holds (the Locator in its clamp, the trio as it boards the pod). It neither makes way for anyone nor evades: a Grunt
+    /// the computer plays drove out of its clamp when the Locator ran into it or Ike's way led past it.
+    /// </summary>
+    private bool StoryStill(Machine machine) => Story is not null && (StoryInert(machine) || HeldByStory(machine.Id));
 }

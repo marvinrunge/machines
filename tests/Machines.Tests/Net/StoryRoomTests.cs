@@ -128,7 +128,10 @@ public class StoryRoomTests
         foreach (var client in clients)
         {
             Assert.Equal([P(5)], client.World.Story!.Bots);
-            Assert.Equal(new FollowOrder(client.World.HeroOf(P(0))!.Id), client.World.HeroOf(P(5))!.Order);
+            // Bob follows the Locator (stepping out of its way where it drives at him: a move aside, then the follow again).
+            Assert.Equal(CompanionOrder.Follow, client.World.Story.Crew.Of(P(5)).Order);
+            Assert.True(client.World.HeroOf(P(5))!.Order is FollowOrder { Target: var target } ? target == client.World.HeroOf(P(0))!.Id : client.World.HeroOf(P(5))!.Order is MoveOrder,
+                $"Bob's order {client.World.HeroOf(P(5))!.Order}");
         }
         // Only the host's game keeps the progress.
         Assert.Equal([true, false], clients.Select(c => StoryCoop.KeepsProgress(c.World.Players, c.World.Story!.Options, c.Me)));

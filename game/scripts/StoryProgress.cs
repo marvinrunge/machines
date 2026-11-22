@@ -26,6 +26,12 @@ public sealed partial class StoryProgress
     /// <summary>Whether <see cref="Chapter"/> was played to its end the last time: nothing of it is left to continue.</summary>
     public bool Ended { get; set; }
 
+    /// <summary>
+    /// Whether this player has seen the Locator's boot in its clamp to its end once: from then on it may be skipped (Esc held),
+    /// the first time not.
+    /// </summary>
+    public bool BootSeen { get; set; }
+
     public string IkeName { get; set; } = "Ike";
 
     public string BobName { get; set; } = "Bob";

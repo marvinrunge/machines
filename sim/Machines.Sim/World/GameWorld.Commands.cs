@@ -344,6 +344,8 @@ public sealed partial class GameWorld
                 else
                     PlayerButtons.Remove(driven.Id);
                 PlayerHeads[driven.Id] = drive.Head;
+                if (Story is not null)
+                    HoldSprint(driven, drive.Sprint);
                 // Only Wired turns a gun to the view; a yaw that is no number is none.
                 if (Wired is not null && drive.Yaw is { } yaw && float.IsFinite(yaw))
                     PlayerYaws[driven.Id] = MathF.IEEERemainder(yaw, 2 * MathF.PI);
@@ -477,6 +479,8 @@ public sealed partial class GameWorld
         PlayerButtons.Remove(machine.Id);
         PlayerHeads.Remove(machine.Id);
         PlayerYaws.Remove(machine.Id);
+        if (Story is not null)
+            HoldSprint(machine, false);
     }
 
     // Commands numbered as they are applied: the one being applied, else 0 (orders the world gives of its own accord

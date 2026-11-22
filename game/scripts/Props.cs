@@ -54,6 +54,76 @@ public static class Props
         }
     }
 
+    /// <summary>
+    /// The door frame bent to a slot (<see cref="DeckFrame.Fit"/>), made once for each fit and kept under its own name with the
+    /// props, so frames alike share one mesh; null when there is no kit_door_frame.
+    /// </summary>
+    public static (string Name, Model Model)? Frame(DeckFrame frame)
+    {
+        var name = string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"kit_door_frame@{frame.Half:F2},{frame.Open:F2},{frame.Depth:F2},{frame.PostMinus:F3},{frame.PostPlus:F3},{frame.Lintel:F3}");
+        lock (Lock)
+        {
+            if (Loaded.TryGetValue(name, out var known))
+                return known is null ? null : (name, known);
+        }
+        if (Get("kit_door_frame") is not { Mesh: ArrayMesh kit } model)
+            return null;
+        var bent = new ArrayMesh { ResourceName = name };
+        var back = model.Offset.AffineInverse();
+        for (var surface = 0; surface < kit.GetSurfaceCount(); surface++)
+        {
+            var arrays = kit.SurfaceGetArrays(surface);
+            if (arrays[(int)Mesh.ArrayType.Vertex].As<Vector3[]>() is { Length: > 0 } vertices)
+            {
+                var normals = arrays[(int)Mesh.ArrayType.Normal].As<Vector3[]>();
+                var tangents = arrays[(int)Mesh.ArrayType.Tangent].As<float[]>();
+                var placed = new Vector3[vertices.Length];
+                for (var v = 0; v < vertices.Length; v++)
+                {
+                    var at = model.Offset * vertices[v];
+                    var (fitted, stretch) = frame.Fit(new System.Numerics.Vector3(at.X, at.Y, at.Z));
+                    placed[v] = at;
+                    vertices[v] = back * new Vector3(fitted.X, fitted.Y, fitted.Z);
+                    // A stretch turns a normal the other way (by the inverse), a tangent along with it; a post squeezed flat keeps a direction.
+                    var s = new Vector3(Mathf.Max(stretch.X, 1e-3f), Mathf.Max(stretch.Y, 1e-3f), Mathf.Max(stretch.Z, 1e-3f));
+                    if (normals is { } n && n.Length == vertices.Length)
+                        n[v] = (n[v] / s).Normalized();
+                    if (tangents is { } t && t.Length == vertices.Length * 4)
+                    {
+                        var turned = (new Vector3(t[4 * v], t[4 * v + 1], t[4 * v + 2]) * s).Normalized();
+                        (t[4 * v], t[4 * v + 1], t[4 * v + 2]) = (turned.X, turned.Y, turned.Z);
+                    }
+                }
+                arrays[(int)Mesh.ArrayType.Vertex] = vertices;
+                if (normals is { Length: > 0 })
+                    arrays[(int)Mesh.ArrayType.Normal] = normals;
+                if (tangents is { Length: > 0 })
+                    arrays[(int)Mesh.ArrayType.Tangent] = tangents;
+                // Nothing stands in the opening: a slab Meshy left in its left half would be stretched across the way, and a
+                // face reaching in from a post with one corner (one does, 5 m tall) would stand in it as a wedge.
+                if (kit.SurfaceGetPrimitiveType(surface) == Mesh.PrimitiveType.Triangles
+                    && arrays[(int)Mesh.ArrayType.Index].As<int[]>() is { Length: > 0 } indices)
+                {
+                    bool Inside(int corner) => DeckFrame.InOpening(new System.Numerics.Vector3(placed[corner].X, placed[corner].Y, placed[corner].Z));
+                    var kept = new List<int>(indices.Length);
+                    for (var i = 0; i + 2 < indices.Length; i += 3)
+                    {
+                        if (!Inside(indices[i]) && !Inside(indices[i + 1]) && !Inside(indices[i + 2]))
+                            kept.AddRange([indices[i], indices[i + 1], indices[i + 2]]);
+                    }
+                    arrays[(int)Mesh.ArrayType.Index] = kept.ToArray();
+                }
+            }
+            bent.AddSurfaceFromArrays(kit.SurfaceGetPrimitiveType(surface), arrays);
+            bent.SurfaceSetMaterial(surface, kit.SurfaceGetMaterial(surface));
+        }
+        var made = new Model(bent, model.Offset, model.Offset * bent.GetAabb());
+        lock (Lock)
+            Loaded[name] = made;
+        return (name, made);
+    }
+
     private static Model? Load(string name)
     {
         if (!Exists(name) || GD.Load<PackedScene>($"{Folder}/{name}.glb") is not { } scene)
@@ -63,13 +133,13 @@ public static class Props
         {
             if (FirstMesh(root) is not { Mesh: ArrayMesh imported } part)
                 return null;
-            var mesh = Turned(imported);
-            var jambs = name == "kit_door_frame" && Darken(mesh, JambFaces);
             // Where the mesh stands in the prop: its node's transform and its parents' up to the scene's root.
             var offset = Transform3D.Identity;
             for (Node? node = part; node is not null && node != root; node = node.GetParent())
                 if (node is Node3D spatial)
                     offset = spatial.Transform * offset;
+            var mesh = Footless(Turned(imported), offset);
+            var jambs = name == "kit_door_frame" && Darken(mesh, JambFaces);
             for (var surface = 0; surface < mesh.GetSurfaceCount(); surface++)
                 if ((part.GetSurfaceOverrideMaterial(surface) ?? mesh.SurfaceGetMaterial(surface)) is BaseMaterial3D material)
                 {
@@ -129,9 +199,59 @@ public static class Props
         return turned > 0 ? mesh : imported;
     }
 
+    /// <summary>How close to a prop's foot a face lies flat to count as its sole (<see cref="Footless"/>), metres.</summary>
+    private const float Sole = 0.01f;
+
     /// <summary>
-    /// The faces inside the door frame's opening (kit_door_frame, 7 m wide, its posts open 5.58 m apart under a lintel at
-    /// 6.32 m, DeckLayout.FrameOpening): its posts' inner sides and the lintel's underside, not their outer sides at ±3.5 m.
+    /// The mesh without the faces that lie flat at its foot and look up: the door frame's sill across its opening, the
+    /// pillars' base rims, the walls' plinth step. A prop stands with its foot on the deck's floor, so these lay in the
+    /// floor's own plane; the two fought over each pixel, and as the eye or the screen's smoothing moved by a hair the
+    /// floor and the sill took turns (a black bar across every doorway, flickering). The floor shows there instead. The
+    /// vertices stay, so the prop's bounds and fitting do not change.
+    /// </summary>
+    private static ArrayMesh Footless(ArrayMesh mesh, Transform3D offset)
+    {
+        var foot = float.MaxValue;
+        for (var surface = 0; surface < mesh.GetSurfaceCount(); surface++)
+            if (mesh.SurfaceGetArrays(surface)[(int)Mesh.ArrayType.Vertex].As<Vector3[]>() is { } vertices)
+                foreach (var vertex in vertices)
+                    foot = Mathf.Min(foot, (offset * vertex).Y);
+        var footless = new ArrayMesh { ResourceName = mesh.ResourceName };
+        var dropped = 0;
+        for (var surface = 0; surface < mesh.GetSurfaceCount(); surface++)
+        {
+            var arrays = mesh.SurfaceGetArrays(surface);
+            if (mesh.SurfaceGetPrimitiveType(surface) == Mesh.PrimitiveType.Triangles
+                && arrays[(int)Mesh.ArrayType.Vertex].As<Vector3[]>() is { Length: > 0 } vertices)
+            {
+                var indices = arrays[(int)Mesh.ArrayType.Index].As<int[]>() is { Length: > 0 } given ? given : Enumerable.Range(0, vertices.Length).ToArray();
+                var kept = new List<int>(indices.Length);
+                for (var t = 0; t + 2 < indices.Length; t += 3)
+                {
+                    var (a, b, c) = (offset * vertices[indices[t]], offset * vertices[indices[t + 1]], offset * vertices[indices[t + 2]]);
+                    var up = (b - a).Cross(c - a);
+                    // Up by its normals (Turned has them agree with the winding), by its winding where it has none.
+                    var flat = Mathf.Max(a.Y, Mathf.Max(b.Y, c.Y)) < foot + Sole && Mathf.Abs(up.Y) > 0.9f * up.Length();
+                    var looksUp = arrays[(int)Mesh.ArrayType.Normal].As<Vector3[]>() is { } normals && normals.Length == vertices.Length
+                        ? offset.Basis * (normals[indices[t]] + normals[indices[t + 1]] + normals[indices[t + 2]]) is var n && n.Y > 0
+                        : up.Y > 0;
+                    if (flat && looksUp)
+                        dropped++;
+                    else
+                        kept.AddRange([indices[t], indices[t + 1], indices[t + 2]]);
+                }
+                arrays[(int)Mesh.ArrayType.Index] = kept.ToArray();
+            }
+            footless.AddSurfaceFromArrays(mesh.SurfaceGetPrimitiveType(surface), arrays);
+            footless.SurfaceSetMaterial(surface, mesh.SurfaceGetMaterial(surface));
+        }
+        return dropped > 0 ? footless : mesh;
+    }
+
+    /// <summary>
+    /// The faces inside the door frame's opening (kit_door_frame, 7 m wide, its posts' inner sides about 1.3 m either side of
+    /// its middle under a lintel at 5.55 m, see DeckFrame): its posts' inner sides and the lintel's underside, not their
+    /// outer sides at ±3.5 m.
     /// Meshy painted them with the bare grey of its metal, and under a door's lamp they showed white beside the red frame.
     /// </summary>
     private static bool JambFaces(Vector3 at, Vector3 normal) =>

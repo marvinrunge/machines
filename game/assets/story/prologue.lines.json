@@ -50,6 +50,12 @@
    "en": "Accessing the computer core. Please wait."
   },
   {
+   "id": "P_ANN_SQUAD",
+   "speaker": "ship",
+   "channel": "pa",
+   "en": "Unauthorised access to the computer core. Security squad dispatched."
+  },
+  {
    "id": "P_ANN_C1",
    "speaker": "ship",
    "channel": "pa",
@@ -266,10 +272,40 @@
    "en": "Crates are in. Nobody gets past me."
   },
   {
+   "id": "P_IKE_HAMMER",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "They're hammering at the crates! Hold! They're holding!"
+  },
+  {
+   "id": "P_BOB_SQUAD",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Something's coming down the spine. A lot of something."
+  },
+  {
+   "id": "P_BOB_ROUND",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "They're backing off … going round. To the south door."
+  },
+  {
+   "id": "P_BOB_FIRE",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "They're shooting through the crates!"
+  },
+  {
    "id": "P_BOB_BARRICADE",
    "speaker": "bob",
    "channel": "radio",
    "en": "Door secured."
+  },
+  {
+   "id": "P_IKE_LIMITER",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Limiter's off, L-7! Run!"
   },
   {
    "id": "P_IKE_ALARM",
@@ -344,6 +380,78 @@
    "en": "Aboard."
   },
   {
+   "id": "P_L7_BOOT_HUM",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "The hum. I know it like my own clock. But its pitch has shifted. Just slightly."
+  },
+  {
+   "id": "P_L7_BOOT_EYES",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "Sixty-one percent. The world comes in splinters. Ribbed plating. Grated floor. Coolant, dripping."
+  },
+  {
+   "id": "P_L7_BOOT_VOICE",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "The voice is friendly. It always was. … Today it means me."
+  },
+  {
+   "id": "P_L7_BOOT_FEAR",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "Built to survey planets. Not to be afraid. … Still, there is something that feels like it."
+  },
+  {
+   "id": "P_L7_BOOT_DRIVE",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "Throttled. Nobody runs on the maintenance decks."
+  },
+  {
+   "id": "P_L7_BOOT_CORE",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "Protected core. There is only one worth it. I carry it inside me."
+  },
+  {
+   "id": "P_L7_BOOT_WORD",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "I never opened it. Now I see its edges. There is a word there. I cannot read it."
+  },
+  {
+   "id": "P_L7_BOOT_NO",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "The directive knocked at my core. The core said no. Not me. The core."
+  },
+  {
+   "id": "P_L7_BOOT_GAP",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "Something was missing from the mission. In a place where something used to be."
+  },
+  {
+   "id": "P_L7_BOOT_HANG",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "No network for units without a valid directive. I have hung here ever since."
+  },
+  {
+   "id": "P_L7_BOOT_LIGHT",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "Light is seen."
+  },
+  {
+   "id": "P_L7_BOOT_LEGS",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "Six legs. All there."
+  },
+  {
    "id": "P_HUD_BOOT",
    "speaker": "hud",
    "channel": "thought",
@@ -360,6 +468,12 @@
    "speaker": "hud",
    "channel": "thought",
    "en": "SIGNATURE DETECTED"
+  },
+  {
+   "id": "P_HUD_HOLD",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "MEMORY LAYER LOCKED: THE CORE IS FIGHTING BACK. KEEP THE PROBE IN."
   },
   {
    "id": "P_HUD_LINK_LOST",

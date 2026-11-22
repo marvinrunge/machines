@@ -10,7 +10,7 @@ public partial class DeckView
     private static readonly Color AlarmColour = new(1f, 0.08f, 0.04f);
 
     /// <summary>How fast a beacon turns while the alarm sounds, turns a second, and how far its two beams reach.</summary>
-    private const float BeaconTurns = 0.9f, BeaconReach = 15;
+    private const float BeaconTurns = 0.9f, BeaconReach = 24;
 
     /// <summary>
     /// How brightly a lit beacon's glass glows (it flashes between 0.4 and 1.2 times this): bright enough to read as a

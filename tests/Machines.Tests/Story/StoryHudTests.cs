@@ -156,11 +156,21 @@ public class StoryHudTests
     }
 
     [Fact]
-    public void The_Locator_in_its_clamp_may_hack_its_way_out_until_that_is_done()
+    public void The_Locator_in_its_clamp_may_hack_its_way_out_once_booted_until_that_is_done()
     {
         var world = Prologue();
         var run = world.Story!;
+        // While it boots, the clock runs and the clamp's hack is not offered.
+        for (var i = 0; i < 2 * GameWorld.TicksPerSecond; i++)
+            world.Step();
+        var booting = Readout(world);
+        Assert.True(booting.Boot);
+        Assert.InRange(booting.BootSeconds ?? -1, 1.8f, 2.01f);
+        Assert.DoesNotContain(booting.Prompts, p => p.Target == StoryReadout.OwnClamp);
+        world.Issue(new StoryUseCommand(Race.Red, StoryMarks.SkipBoot));
+        world.Step();
         var now = Readout(world);
+        Assert.Equal((false, (float?)null, true), (now.Boot, now.BootSeconds, now.BootSkipped));
         Assert.Contains(now.Prompts, p => p is { Kind: StoryPromptKind.Hack, Target: StoryReadout.OwnClamp });
         // A Grunt hacks nothing.
         Assert.DoesNotContain(Readout(world, 1).Prompts, p => p.Kind == StoryPromptKind.Hack);
@@ -194,7 +204,7 @@ public class StoryHudTests
         Assert.Empty(Readout(world).Contacts);
         var near = world.AddMachine(Race.Blue, locator.Position + new Vector2(0, 8), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
         var far = world.AddMachine(Race.Blue, locator.Position + new Vector2(0, 30), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
-        var beyond = world.AddMachine(Race.Blue, locator.Position + new Vector2(0, 60), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
+        var beyond = world.AddMachine(Race.Blue, locator.Position + new Vector2(0, 90), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
         // Standing still they are not heard.
         Assert.Empty(Readout(world).Contacts);
 

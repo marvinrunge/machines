@@ -33,6 +33,12 @@ public partial class Debris : Node3D
             if (mesh.Mesh is null || !mesh.IsVisibleInTree())
                 continue;
             var piece = new MeshInstance3D { Mesh = mesh.Mesh, MaterialOverride = mesh.MaterialOverride, Layers = 1 };
+            // The story's dead eyes stay dark on the parts that fly (ActorView.EyesOut); nothing else is overridden.
+            for (var s = 0; s < mesh.Mesh.GetSurfaceCount(); s++)
+            {
+                if (mesh.GetSurfaceOverrideMaterial(s) is { } own && own.HasMeta(ActorView.EyeMark))
+                    piece.SetSurfaceOverrideMaterial(s, own);
+            }
             debris.AddChild(piece);
             debris._pieces.Add(new Piece(piece, Vector3.Zero, Vector3.Zero));
             piece.GlobalTransform = mesh.GlobalTransform;

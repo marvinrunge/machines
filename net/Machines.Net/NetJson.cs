@@ -68,6 +68,13 @@ public static class NetJson
                     property.ShouldSerialize = static (_, value) => value is not LeaveReason.Left;
                 return;
             }
+            if (info.Type == typeof(DriveCommand))
+            {
+                // The story's sprint goes only where it is held: every other drive reads, and is written, as before it was.
+                foreach (var property in info.Properties.Where(p => p.Name == nameof(DriveCommand.Sprint)))
+                    property.ShouldSerialize = static (_, value) => value is true;
+                return;
+            }
             if (info.Type != typeof(Command))
                 return;
             info.PolymorphismOptions = new JsonPolymorphismOptions { TypeDiscriminatorPropertyName = "$command" };

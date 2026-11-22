@@ -52,6 +52,12 @@ public partial class FirstPersonScreen : CanvasLayer
     private float? _dying;
     private Action? _gone;
 
+    /// <summary>
+    /// Static the view never goes below, 0 to 1 (the story's boot: the optics coming up through static), whatever the bursts
+    /// do; 0 leaves the view to them.
+    /// </summary>
+    public float Floor { get; set; }
+
     /// <summary>The machine is lost and the view is about to go: the controls no longer do anything.</summary>
     public bool Lost => _dying is not null || _held;
 
@@ -207,7 +213,8 @@ public partial class FirstPersonScreen : CanvasLayer
         var height = Mathf.Max(GetViewport().GetVisibleRect().Size.Y, 1);
         var border = _age >= Startup ? Border : Mathf.Max(Border, 0.5f - 10 / height - (0.5f - Border) * _age / Startup);
         var bands = new Vector4[MostBands];
-        var count = _noise && _level > 0.001f ? Bands(bands) : 0;
+        var level = Mathf.Max(_level, Floor);
+        var count = _noise && level > 0.001f ? Bands(bands, level) : 0;
         _material.SetShaderParameter("border", border);
         _material.SetShaderParameter("bands", bands);
         _material.SetShaderParameter("count", count);
@@ -223,9 +230,8 @@ public partial class FirstPersonScreen : CanvasLayer
     /// three bands, stronger static covers all, and from 0.8 on it is even. As in the original the bands are as high as
     /// their bottom edge is far down, as if that were their height.
     /// </summary>
-    private int Bands(Vector4[] bands)
+    private int Bands(Vector4[] bands, float level)
     {
-        var level = _level;
         if (level < 0.2f && Random.Shared.Next(3) == 0)
             return 0;
         if (level >= 0.8f)

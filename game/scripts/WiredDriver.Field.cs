@@ -802,7 +802,7 @@ public partial class WiredDriver
             _pulled[act] = Now;
     }
 
-    private void HoldKey(Key key, bool down)
+    private protected void HoldKey(Key key, bool down)
     {
         if (down ? _keys.Add(key) : _keys.Remove(key))
             Input.ParseInputEvent(new InputEventKey { Keycode = key, PhysicalKeycode = key, Pressed = down });

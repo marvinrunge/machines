@@ -16,10 +16,16 @@ public class StoryHackTests
 
     private static GameData Data => DataLoader.Value;
 
-    private static GameWorld Prologue(int seed = 3) =>
-        MatchSetup.Create(Data, StoryOptions.Prologue, StoryOptions.Prologue,
+    /// <summary>The prologue from its start, the Locator's boot in the clamp skipped (its hack opens at the boot's end).</summary>
+    private static GameWorld Prologue(int seed = 3)
+    {
+        var world = MatchSetup.Create(Data, StoryOptions.Prologue, StoryOptions.Prologue,
             new Dictionary<Race, Controller> { [Race.Red] = Controller.Player, [Race.Blue] = Controller.Ai }, seed,
             new MatchOptions { Story = new StoryOptions(), FogOfWar = false });
+        world.Step();
+        Assert.Null(Do(world, new StoryUseCommand(Race.Red, StoryMarks.SkipBoot)));
+        return world;
+    }
 
     private static void Run(GameWorld world, float seconds)
     {
@@ -48,8 +54,14 @@ public class StoryHackTests
         var (puzzle, stage) = (session.Puzzle!, session.Stage);
         foreach (var (cell, clockwise) in puzzle.SolutionTurns().ToList())
         {
-            Assert.Null(Do(world, new StoryHackTurnCommand(Race.Red, target, cell, clockwise)));
-            if (!session.Open || session.Stage != stage || session.Broken)
+            // The core's last board locks short of the win (HackSpec.HoldAt).
+            if (Do(world, new StoryHackTurnCommand(Race.Red, target, cell, clockwise)) is { } refused)
+            {
+                Assert.Equal("the board is locked", refused);
+                Assert.True(session.Held);
+                return;
+            }
+            if (!session.Open || session.Stage != stage || session.Broken || session.Held)
                 return;
         }
     }
@@ -171,7 +183,7 @@ public class StoryHackTests
     }
 
     [Fact]
-    public void The_main_computer_is_three_boards_and_the_last_breaks_off()
+    public void The_main_computer_is_three_boards_and_the_last_holds_at_90_percent_until_the_story_breaks_it_off()
     {
         var world = Prologue();
         GoTo(world, "hack_core");
@@ -185,14 +197,21 @@ public class StoryHackTests
         Assert.Equal((5, 2), (session.Puzzle!.Size, session.Stage));
         SolveBoard(world, "hack_core");
 
-        Assert.True(session.Broken);
+        // Locked at 90 %: plugged in still, no turn goes in, none wins it; leaving it costs nothing and it can be taken up again.
+        Assert.True(session.Held);
+        Assert.False(session.Broken);
         Assert.True(session.Open);
         Assert.True(session.Progress >= 2.9f / 3);
         Assert.DoesNotContain("hack_core", world.Story.Hacks.Done);
-        Assert.Equal("the link is cut", Do(world, new StoryHackTurnCommand(Race.Red, "hack_core", 0)));
+        Assert.Equal("the board is locked", Do(world, new StoryHackTurnCommand(Race.Red, "hack_core", 0)));
         var trace = session.Puzzle!.Trace;
         Assert.Null(Do(world, new StoryHackAbortCommand(Race.Red)));
         Assert.Equal(trace, session.Puzzle.Trace);
+        Assert.Null(Do(world, new StoryHackOpenCommand(Race.Red, "hack_core")));
+        // The story breaks it off (the Reapers in): the link is cut.
+        Assert.True(world.BreakHack("hack_core"));
+        Assert.Equal("the link is cut", Do(world, new StoryHackTurnCommand(Race.Red, "hack_core", 0)));
+        Assert.Null(Do(world, new StoryHackAbortCommand(Race.Red)));
         Assert.Equal("the link is cut", Do(world, new StoryHackOpenCommand(Race.Red, "hack_core")));
     }
 
@@ -274,7 +293,7 @@ public class StoryHackTests
         Assert.Equal(a.Story!.Hacks.Session("pod_3_hatch")!.Puzzle!.Fingerprint(), b.Story!.Hacks.Session("pod_3_hatch")!.Puzzle!.Fingerprint());
 
         var idle = Prologue(seed: 21);
-        Run(idle, a.Tick / (float)GameWorld.TicksPerSecond);
+        Run(idle, (a.Tick - idle.Tick) / (float)GameWorld.TicksPerSecond);
         Assert.Equal(a.Tick, idle.Tick);
         Assert.NotEqual(a.Checksum(), idle.Checksum());
     }

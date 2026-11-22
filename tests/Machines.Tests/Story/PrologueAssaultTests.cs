@@ -58,6 +58,27 @@ public class PrologueAssaultTests
         hero.Position = at;
     }
 
+    /// <summary>
+    /// The chapter from the break-in's checkpoint until the core has blown and the vent stands open, the Locator in cover at
+    /// the vent's mouth facing it, the hunt after it begun (where Die Enge starts; before the core fight was played this
+    /// was checkpoint 3 itself): it looked into the vent for a tick, which sets the Commander's pursuit off.
+    /// </summary>
+    private static GameWorld AfterCore(int seed = 3)
+    {
+        var world = Chapter(3, seed);
+        var locator = Hero(world, 0);
+        SetDown(world, locator, new Vector2(218, 268));
+        locator.Facing = 0;
+        Assert.True(RunUntil(world, () => world.Story!.Director.Has("core_blows"), Prologue.CoreBlows + 15,
+            () => world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true))));
+        SetDown(world, locator, new Vector2(232, 268));
+        world.Step();
+        Assert.True(world.Story!.Director.Has("fled"));
+        SetDown(world, locator, new Vector2(218, 268));
+        locator.Facing = 0;
+        return world;
+    }
+
     /// <summary>A hack played by the board's own solution from where its target is.</summary>
     private static void Hack(GameWorld world, string target)
     {
@@ -96,7 +117,7 @@ public class PrologueAssaultTests
     [Fact]
     public void A_hunter_draws_before_it_fires_and_its_spotting_comes_first()
     {
-        var world = Chapter(3);
+        var world = AfterCore();
         var run = world.Story!;
         var locator = Hero(world, 0);
         var spotted = new Dictionary<int, float>();
@@ -128,12 +149,12 @@ public class PrologueAssaultTests
     [Fact]
     public void The_locator_fleeing_along_the_vent_reaches_the_crossing()
     {
-        var world = Chapter(3);
+        var world = AfterCore();
         var run = world.Story!;
         var locator = Hero(world, 0);
 
         // Facing east at the vent's mouth: full ahead along the duct, past the grate windows, out at its end.
-        Assert.True(RunUntil(world, () => locator.Position.X > 172 || run.Over, 20,
+        Assert.True(RunUntil(world, () => locator.Position.X > 384 || run.Over, 20,
             () => world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true, Forward: 1))));
 
         Assert.False(run.Over);
@@ -143,10 +164,10 @@ public class PrologueAssaultTests
     [Fact]
     public void The_reapers_keep_out_of_the_cable_duct_and_the_vent_and_spare_the_grunts_at_its_end()
     {
-        var world = Chapter(3);
+        var world = AfterCore();
         var run = world.Story!;
         // The Locator through already, at the crossing; the Grunts make for the cable duct's far end.
-        SetDown(world, Hero(world, 0), new Vector2(180, 104));
+        SetDown(world, Hero(world, 0), new Vector2(400, 240));
         var hunters = Cast(world, Prologue.ReaperRole).Concat(Cast(world, Prologue.CommanderRole)).ToList();
         var inside = new List<string>();
 
@@ -157,7 +178,7 @@ public class PrologueAssaultTests
             world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true));
             foreach (var m in hunters.Where(m => !m.IsDead))
             {
-                if (Inside(m.Position, 106, 100, 169, 103.5f) || Inside(m.Position, 106, 116, 171, 119.5f))
+                if (Inside(m.Position, 228, 232, 378, 239) || Inside(m.Position, 228, 264, 382, 271))
                     inside.Add($"{m.Id} at {m.Position}");
             }
         });
@@ -167,14 +188,14 @@ public class PrologueAssaultTests
         for (var seat = 1; seat <= 2; seat++)
         {
             Assert.False(world.CompanionDown(run.Seats[seat]), $"seat {seat} down");
-            Assert.True(Hero(world, seat).Position.X > 150, $"seat {seat} at {Hero(world, seat).Position}");
+            Assert.True(Hero(world, seat).Position.X > 340, $"seat {seat} at {Hero(world, seat).Position}");
         }
     }
 
     [Fact]
     public void A_hunter_searching_for_a_grunt_in_the_cable_duct_stays_on_its_side_of_the_wall()
     {
-        var world = Chapter(3);
+        var world = AfterCore();
         var run = world.Story!;
         var locator = Hero(world, 0);
         var hunters = Cast(world, Prologue.ReaperRole).Concat(Cast(world, Prologue.CommanderRole)).ToList();
@@ -183,14 +204,14 @@ public class PrologueAssaultTests
         {
             foreach (var m in hunters.Where(m => !m.IsDead))
             {
-                if (Inside(m.Position, 106, 100, 170, 104))
+                if (Inside(m.Position, 228, 232, 380, 240))
                     inside.Add($"{m.Id} at {m.Position} t={world.Time:0.00}");
             }
         }
 
         // The Locator along the vent to the crossing, then still there without hacking D5, while the Grunts wait in the duct
         // and the Reapers search the corridor beside it for them.
-        Assert.True(RunUntil(world, () => locator.Position.X > 173 || run.Over, 20, () =>
+        Assert.True(RunUntil(world, () => locator.Position.X > 386 || run.Over, 20, () =>
         {
             world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true, Forward: 1));
             Watch();
@@ -210,7 +231,7 @@ public class PrologueAssaultTests
     [Fact]
     public void A_hunter_that_loses_the_locator_in_the_vent_searches_from_its_own_side_and_never_jumps_through()
     {
-        var world = Chapter(3);
+        var world = AfterCore();
         var run = world.Story!;
         Run(world, Prologue.LocatorSpared + 1);
         var hunters = Cast(world, Prologue.ReaperRole);
@@ -218,8 +239,8 @@ public class PrologueAssaultTests
         // The Locator crawls in the vent beside P1, a Reaper right at the wall between them, sure of it; then it is gone
         // (on through the vent), and the Reaper searches where it saw it last, which it cannot get to.
         var reaper = hunters[0];
-        SetDown(world, reaper, new Vector2(140, 123.5f));
-        SetDown(world, locator, new Vector2(140, 118));
+        SetDown(world, reaper, new Vector2(296, 279));
+        SetDown(world, locator, new Vector2(296, 268));
         var eyes = world.StorySeekerOf(reaper.Id)!;
         var last = reaper.Position;
         var jumps = new List<string>();
@@ -234,13 +255,13 @@ public class PrologueAssaultTests
                 (eyes.Suspicion, eyes.Quarry) = (1, locator.Id);
             }
             else if (world.Time < 9.2f)
-                SetDown(world, locator, new Vector2(182, 120));
+                SetDown(world, locator, new Vector2(404, 272));
             searched |= reaper.Order is SearchOrder;
             if (!reaper.IsDead)
             {
                 if (Vector2.Distance(reaper.Position, last) > 1)
                     jumps.Add($"{last} -> {reaper.Position} t={world.Time:0.00}");
-                if (Inside(reaper.Position, 106, 116, 171, 120.2f))
+                if (Inside(reaper.Position, 228, 264, 382, 272.4f))
                     inside.Add($"{reaper.Position} t={world.Time:0.00}");
                 last = reaper.Position;
             }
@@ -258,7 +279,7 @@ public class PrologueAssaultTests
         var run = world.Story!;
         var locator = Hero(world, 0);
         Run(world, 1);
-        var legs = new Queue<Vector2>([new Vector2(223, 105.5f), new Vector2(217, 105.5f), new Vector2(212, 104)]);
+        var legs = new Queue<Vector2>([new Vector2(486, 243), new Vector2(474, 243), new Vector2(464, 240)]);
         Assert.True(RunUntil(world, () => legs.Count == 0 || run.Over, 25, () =>
         {
             if (Steer(world, locator, legs.Peek()))
@@ -271,7 +292,7 @@ public class PrologueAssaultTests
     {
         var world = Chapter(Prologue.LastCheckpoint);
         var crate = world.Artefacts.Where(a => a.Id >= Artefact.IdBase + StoryDirector.PlacedBase)
-            .SingleOrDefault(a => Vector2.Distance(a.Position, world.Deck!.Marker("debris_1").Position + new Vector2(2.5f, 0)) < 0.5f);
+            .SingleOrDefault(a => Vector2.Distance(a.Position, world.Deck!.Marker("debris_1").Position + new Vector2(5, 0)) < 0.5f);
         Assert.NotNull(crate);
         for (var seat = 0; seat < 3; seat++)
             Assert.True(Vector2.Distance(Hero(world, seat).Position, crate!.Position) > Hero(world, seat).Radius + 1, $"seat {seat} at {Hero(world, seat).Position}");
@@ -280,7 +301,7 @@ public class PrologueAssaultTests
     [Fact]
     public void The_commander_splits_his_squad_between_the_passages_and_only_calls()
     {
-        var world = Chapter(3);
+        var world = AfterCore();
         var reapers = Cast(world, Prologue.ReaperRole).OrderBy(m => m.Id).ToList();
         var commander = Cast(world, Prologue.CommanderRole).Single();
         Vector2 Place(string xy) => new(float.Parse(xy.Split(',')[0], System.Globalization.CultureInfo.InvariantCulture),
@@ -289,8 +310,8 @@ public class PrologueAssaultTests
 
         // Two by the spine into P1, one by the core's east door into P2 (MoveCommand with its way).
         Assert.Equal(3, reapers.Count);
-        bool InP1(Vector2 at) => Inside(at, 108, 121.5f, 169.5f, 128.5f) && Vector2.Distance(at, g1) < 12;
-        bool InP2(Vector2 at) => Inside(at, 106, 105.5f, 169.5f, 112.5f) && Vector2.Distance(at, g2) < 12;
+        bool InP1(Vector2 at) => Inside(at, 232, 275, 379, 289) && Vector2.Distance(at, g1) < 12;
+        bool InP2(Vector2 at) => Inside(at, 228, 243, 379, 257) && Vector2.Distance(at, g2) < 12;
         Assert.All(reapers.Take(2), m => Assert.True(m.Order is MoveOrder move && InP1(move.Target), $"{m.Id}: {m.Order}"));
         Assert.True(reapers[2].Order is MoveOrder last && InP2(last.Target), $"{reapers[2].Id}: {reapers[2].Order}");
         world.Step();
@@ -339,10 +360,10 @@ public class PrologueAssaultTests
     [Fact]
     public void Door_d5_opens_by_the_locators_hack_from_the_crossing()
     {
-        var world = Chapter(3);
+        var world = AfterCore();
         var run = world.Story!;
         Assert.Contains("hack_d5", run.Hacks.Locked);
-        SetDown(world, Hero(world, 0), new Vector2(180, 110));
+        SetDown(world, Hero(world, 0), new Vector2(400, 252));
         Run(world, 0.5f);
         Assert.True(run.Director.Has("crossing"));
         Assert.DoesNotContain("hack_d5", run.Hacks.Locked);
@@ -500,7 +521,7 @@ public class PrologueAssaultTests
         var middle = (pod.Min + pod.Max) / 2;
 
         // Ike falls outside the pod: the objective points at him, and the others in the pod do not launch it.
-        SetDown(world, ike, new Vector2(240, 60));
+        SetDown(world, ike, new Vector2(520, 136));
         world.Damage(ike, 100000, Race.Blue);
         Run(world, 0.5f);
         Assert.True(world.CompanionDown(run.Seats[1]));

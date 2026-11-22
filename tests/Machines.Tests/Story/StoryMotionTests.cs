@@ -44,9 +44,9 @@ public class StoryMotionTests
     public void The_grunts_roll_on_behind_a_locator_that_drives_on_in_a_queue()
     {
         var world = Prologue();
-        Place(world, Locator, new Vector2(62, 26));
-        Place(world, Ike, new Vector2(56, 28));
-        Place(world, Bob, new Vector2(56, 24));
+        Place(world, Locator, new Vector2(140, 52));
+        Place(world, Ike, new Vector2(128, 56));
+        Place(world, Bob, new Vector2(128, 48));
         for (var i = 0; i < 20; i++)
             world.Step();
 
@@ -83,19 +83,77 @@ public class StoryMotionTests
         var world = Prologue();
         world.OpenDoor('B');
         // Bob's bay: the Locator at the terminal, Ike told to wait between it and the door to the Locator's bay.
-        Place(world, Locator, new Vector2(45, 26), MathF.PI);
-        Place(world, Ike, new Vector2(39, 26), MathF.PI);
-        Place(world, Bob, new Vector2(44, 30.5f), MathF.PI);
+        Place(world, Locator, new Vector2(90, 52), MathF.PI);
+        Place(world, Ike, new Vector2(78, 52), MathF.PI);
+        Place(world, Bob, new Vector2(88, 61), MathF.PI);
         world.Issue(new StoryOrderCommand(Race.Red, CompanionOrder.Wait, Vector2.Zero) { Issuer = Locator });
         for (var i = 0; i < 20; i++)
             world.Step();
 
-        for (var tick = 0; tick < 8 * GameWorld.TicksPerSecond && Hero(world, Locator).Position.X > 32; tick++)
+        for (var tick = 0; tick < 8 * GameWorld.TicksPerSecond && Hero(world, Locator).Position.X > 64; tick++)
         {
             Drive(world, 1);
             world.Step();
         }
 
-        Assert.True(Hero(world, Locator).Position.X <= 32, $"the Locator stands at {Hero(world, Locator).Position}, Ike at {Hero(world, Ike).Position}, Bob at {Hero(world, Bob).Position}");
+        Assert.True(Hero(world, Locator).Position.X <= 64, $"the Locator stands at {Hero(world, Locator).Position}, Ike at {Hero(world, Ike).Position}, Bob at {Hero(world, Bob).Position}");
+    }
+
+    [Fact]
+    public void A_grunt_still_asleep_in_its_clamp_never_steps_aside()
+    {
+        var world = Prologue();
+        world.OpenDoor('B');
+        // Bob hangs asleep in its clamp, which the bot plays; the Locator drives straight into it, and Ike, awake and sent
+        // past it, runs into it as well.
+        world.SetCompanionDormant(Bob, true);
+        Place(world, Locator, new Vector2(93, 47), MathF.PI);
+        Place(world, Bob, new Vector2(84, 47), MathF.PI / 2);
+        Place(world, Ike, new Vector2(75, 47));
+        var bob = Hero(world, Bob);
+        for (var i = 0; i < 20; i++)
+            world.Step();
+        var (clamped, facing) = (bob.Position, bob.Facing);
+
+        for (var tick = 0; tick < 6 * GameWorld.TicksPerSecond; tick++)
+        {
+            Drive(world, 1);
+            world.Step();
+            Assert.True(bob.Position == clamped && bob.Facing == facing, $"tick {tick}: Bob left its clamp for {bob.Position.X:F3}, {bob.Position.Y:F3} facing {bob.Facing:F3}");
+        }
+        Assert.True(Hero(world, Locator).Position.X > clamped.X, "the Locator drove through Bob");
+        Place(world, Locator, new Vector2(90, 58), MathF.PI);
+
+        // Ike on an order across the bay through where Bob hangs.
+        world.Issue(new MoveCommand(Race.Red, [Hero(world, Ike).Id], new Vector2(93, 47)) { Issuer = Ike });
+        for (var tick = 0; tick < 10 * GameWorld.TicksPerSecond; tick++)
+        {
+            world.Step();
+            Assert.True(bob.Position == clamped && bob.Facing == facing, $"tick {tick}: Bob left its clamp for {bob.Position.X:F3}, {bob.Position.Y:F3} facing {bob.Facing:F3}");
+        }
+        Assert.IsNotType<EvadeOrder>(bob.Order);
+    }
+
+    [Fact]
+    public void A_machine_the_story_holds_still_is_not_asked_to_make_way()
+    {
+        var world = Prologue();
+        world.OpenDoor('B');
+        // Bob awake and computer-driven, but held by the director (as all three are while the pod is boarded).
+        Place(world, Locator, new Vector2(93, 47), MathF.PI);
+        Place(world, Bob, new Vector2(84, 47), MathF.PI / 2);
+        world.Issue(new StoryOrderCommand(Race.Red, CompanionOrder.Wait, Vector2.Zero) { Issuer = Locator });
+        for (var i = 0; i < 20; i++)
+            world.Step();
+        var bob = Hero(world, Bob);
+        world.Story!.Director.Held.Add(bob.Id);
+        var still = bob.Position;
+
+        for (var tick = 0; tick < 6 * GameWorld.TicksPerSecond; tick++)
+        {
+            Drive(world, 1);
+            world.Step();
+        }
+        Assert.Equal(still, bob.Position);
     }
 }

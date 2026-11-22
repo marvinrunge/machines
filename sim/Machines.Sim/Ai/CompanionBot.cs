@@ -25,7 +25,7 @@ public sealed class CompanionBot(GameWorld world, PlayerId seat)
     private const float There = 3;
 
     /// <summary>How far behind the Locator a following Grunt may fall where it does not fit before it says so.</summary>
-    private const float LeftBehind = 10;
+    private const float LeftBehind = 16;
 
     /// <summary>How long a honk lasts, and how long a trip of a job may take before the Grunt gives the job up.</summary>
     private const float HonkSeconds = 2, TripSeconds = 40;
@@ -85,11 +85,44 @@ public sealed class CompanionBot(GameWorld world, PlayerId seat)
             world.CompanionMove(grunt, away.LengthSquared() > reach * reach ? foe.Position + Vector2.Normalize(away) * reach : grunt.Position);
             return;
         }
+        if (MakeWay(run, grunt))
+            return;
         world.CarryOut(run, companion, grunt);
         // The Locator crawled where a Grunt does not fit: Ike says so, once.
         if (world.HeroOf(run.Locator) is { } locator && world.Deck?.CellAt(locator.Position) is DeckCell.Duct or DeckCell.Lip
             && Vector2.Distance(locator.Position, grunt.Position) > LeftBehind)
             world.CompanionBark(run, seat, CompanionBarks.Cue.Vent, once: true);
+    }
+
+    /// <summary>How far ahead of the Locator's bumper a following Grunt stands in its way, metres.</summary>
+    private const float InTheWay = 4;
+
+    /// <summary>
+    /// A following Grunt that stands in the way the Locator drives (in a corridor, as it turns back past the Grunts that
+    /// followed it) gets out of it: aside if there is room, else on ahead of it, and follows again once clear. At the trio's
+    /// walk a Grunt in the way held the Locator up for long (stage 6).
+    /// </summary>
+    private bool MakeWay(StoryRun run, Machine grunt)
+    {
+        if (world.HeroOf(run.Locator) is not { } locator || !world.DriveInput.TryGetValue(locator.Id, out var input) || input.Forward == 0)
+            return false;
+        var way = new Vector2(DetMath.Cos(locator.Facing), DetMath.Sin(locator.Facing)) * MathF.Sign(input.Forward);
+        var rel = grunt.Position - locator.Position;
+        var along = Vector2.Dot(rel, way);
+        var across = MathF.Abs(rel.X * way.Y - rel.Y * way.X);
+        var touch = locator.Radius + grunt.Radius;
+        if (along <= 0 || along > touch + InTheWay || across > touch + 0.5f)
+            return false;
+        var side = new Vector2(-way.Y, way.X) * (rel.X * way.Y - rel.Y * way.X > 0 ? -1 : 1);
+        foreach (var to in (Vector2[])[grunt.Position + side * (touch + 1), grunt.Position - side * (touch + 1), locator.Position + way * (along + touch + 8)])
+        {
+            if (world.CompanionReaches(grunt, to, 1.5f))
+            {
+                world.CompanionMove(grunt, to);
+                return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>Rams the enemy firing at the trio that is within its ram's reach, if any and the ram is ready.</summary>
@@ -221,7 +254,7 @@ public sealed class CompanionBot(GameWorld world, PlayerId seat)
                 return;
         }
         // Between trips: the next crate into the next free slot, or stand.
-        if (FreeSlot(run, slots) is { } free && FreeCrate(run, grunt) is { } next)
+        if (FreeSlot(run, slots) is { } free && FreeCrate(run, grunt, free) is { } next)
         {
             companion.Slot = free.Name;
             companion.Crate = next.Id;
@@ -260,12 +293,14 @@ public sealed class CompanionBot(GameWorld world, PlayerId seat)
                 && c.Step is CompanionStep.ToPile or CompanionStep.ToSlot));
 
     /// <summary>
-    /// The first crate of the pile no other Grunt goes for and this one can get to: once two crates stand in a doorway the
-    /// Grunts behind them cannot get back to the pile, and the barricade is what they built.
+    /// The crate nearest the slot (the loose ones by the door first, then the pile) that no other Grunt goes for and this one
+    /// can get to: once two crates stand in a doorway the Grunts behind them cannot get back to the pile, and the barricade
+    /// is what they built.
     /// </summary>
-    private Artefact? FreeCrate(StoryRun run, Machine grunt) =>
-        world.PileCrates().FirstOrDefault(crate => !run.Crew.Grunts.Values.Any(c => c.Seat != seat && c.Crate == crate.Id)
-            && world.CompanionReaches(grunt, crate.Position, crate.Radius + grunt.Radius + There));
+    private Artefact? FreeCrate(StoryRun run, Machine grunt, DeckMarker slot) =>
+        world.PileCrates().OrderBy(crate => Vector2.DistanceSquared(crate.Position, slot.Position)).ThenBy(crate => crate.Id)
+            .FirstOrDefault(crate => !run.Crew.Grunts.Values.Any(c => c.Seat != seat && c.Crate == crate.Id)
+                && world.CompanionReaches(grunt, crate.Position, crate.Radius + grunt.Radius + There));
 
     /// <summary>A point beside a crate on the Grunt's side, where it can take it.</summary>
     private static Vector2 Beside(Artefact crate, Machine grunt)

@@ -157,9 +157,10 @@ public sealed class HudInk(CanvasItem canvas)
     /// its top and foot, from <paramref name="middle"/> out by <paramref name="width"/> either way, its title and a line in it
     /// (cut to <paramref name="lineWidth"/> interface pixels). <paramref name="alpha"/> says how much of it shows.
     /// </summary>
-    public void Call(float middle, float y, float width, string title, string? line, Color colour, float alpha, float lineWidth)
+    public void Call(float middle, float y, float width, string title, string? line, Color colour, float alpha, float lineWidth, float size = 1)
     {
-        var height = (line is null ? 92 : 128) * U;
+        var u = U * size;
+        var height = (line is null ? 92 : 128) * u;
         var left = new Color(0, 0, 0, 0);
         var dark = new Color(0, 0, 0, 0.62f * alpha);
         canvas.DrawPolygon([new Vector2(middle - width, y), new Vector2(middle, y), new Vector2(middle, y + height), new Vector2(middle - width, y + height)], [left, dark, dark, left]);
@@ -167,9 +168,9 @@ public sealed class HudInk(CanvasItem canvas)
         var tint = new Color(colour, alpha);
         canvas.DrawLine(new Vector2(middle - width, y), new Vector2(middle + width, y), tint, 2 * U);
         canvas.DrawLine(new Vector2(middle - width, y + height), new Vector2(middle + width, y + height), tint, 2 * U);
-        Say(new Vector2(middle, y + 66 * U), title, 58, new Color(Colors.White, alpha), 0.5f, outline: 2);
+        Say(new Vector2(middle, y + 66 * u), title, 58 * size, new Color(Colors.White, alpha), 0.5f, outline: 2);
         if (line is not null)
-            Say(new Vector2(middle, y + 106 * U), Fit(line, 25, lineWidth), 25, tint, 0.5f, outline: 2);
+            Say(new Vector2(middle, y + 106 * u), Fit(line, 25 * size * (size < 1 ? 1.5f : 1), lineWidth), 25 * size * (size < 1 ? 1.5f : 1), tint, 0.5f, outline: 2);
     }
 
     /// <summary>

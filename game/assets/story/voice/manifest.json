@@ -271,6 +271,24 @@
     "hash": "5f1c85b4ab9e"
    }
   },
+  "P_ANN_SQUAD": {
+   "de": {
+    "file": "de/P_ANN_SQUAD.ogg",
+    "seconds": 7.49,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "cc3eade0f49e"
+   },
+   "en": {
+    "file": "en/P_ANN_SQUAD.ogg",
+    "seconds": 7.09,
+    "placeholder": true,
+    "preset": "ship",
+    "source": "sapi",
+    "hash": "7f18db4c08d8"
+   }
+  },
   "P_ANN_WAKE_1": {
    "de": {
     "file": "de/P_ANN_WAKE_1.ogg",
@@ -559,6 +577,24 @@
     "hash": "b8ca10330a73"
    }
   },
+  "P_BOB_FIRE": {
+   "de": {
+    "file": "de/P_BOB_FIRE.ogg",
+    "seconds": 2.31,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "66ca62f8015a"
+   },
+   "en": {
+    "file": "en/P_BOB_FIRE.ogg",
+    "seconds": 2.07,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "7c7a8c98e850"
+   }
+  },
   "P_BOB_FOLLOW": {
    "de": {
     "file": "de/P_BOB_FOLLOW.ogg",
@@ -667,6 +703,42 @@
     "hash": "e033dd8737a4"
    }
   },
+  "P_BOB_ROUND": {
+   "de": {
+    "file": "de/P_BOB_ROUND.ogg",
+    "seconds": 5.01,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "7aeafa0988d6"
+   },
+   "en": {
+    "file": "en/P_BOB_ROUND.ogg",
+    "seconds": 4.59,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "f862876caf24"
+   }
+  },
+  "P_BOB_SQUAD": {
+   "de": {
+    "file": "de/P_BOB_SQUAD.ogg",
+    "seconds": 4.19,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "ace71cbd03aa"
+   },
+   "en": {
+    "file": "en/P_BOB_SQUAD.ogg",
+    "seconds": 4.58,
+    "placeholder": true,
+    "preset": "bob",
+    "source": "sapi",
+    "hash": "b7b5b97e6f82"
+   }
+  },
   "P_BOB_UP": {
    "de": {
     "file": "de/P_BOB_UP.ogg",
@@ -773,6 +845,42 @@
     "preset": "ike",
     "source": "sapi",
     "hash": "ee5ae15656df"
+   }
+  },
+  "P_IKE_HAMMER": {
+   "de": {
+    "file": "de/P_IKE_HAMMER.ogg",
+    "seconds": 4.46,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "7205bc1d8942"
+   },
+   "en": {
+    "file": "en/P_IKE_HAMMER.ogg",
+    "seconds": 4.05,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "2fbd132225dd"
+   }
+  },
+  "P_IKE_LIMITER": {
+   "de": {
+    "file": "de/P_IKE_LIMITER.ogg",
+    "seconds": 3.39,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "b644a45a91ab"
+   },
+   "en": {
+    "file": "en/P_IKE_LIMITER.ogg",
+    "seconds": 3.13,
+    "placeholder": true,
+    "preset": "ike",
+    "source": "sapi",
+    "hash": "750d8478769d"
    }
   },
   "P_IKE_POD": {
@@ -899,6 +1007,222 @@
     "preset": "ike",
     "source": "sapi",
     "hash": "f6fa53257960"
+   }
+  },
+  "P_L7_BOOT_CORE": {
+   "de": {
+    "file": "de/P_L7_BOOT_CORE.ogg",
+    "seconds": 6.82,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "691bd28b74d9"
+   },
+   "en": {
+    "file": "en/P_L7_BOOT_CORE.ogg",
+    "seconds": 5.5,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "9895c21c977b"
+   }
+  },
+  "P_L7_BOOT_DRIVE": {
+   "de": {
+    "file": "de/P_L7_BOOT_DRIVE.ogg",
+    "seconds": 3.78,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "c0beb38e930e"
+   },
+   "en": {
+    "file": "en/P_L7_BOOT_DRIVE.ogg",
+    "seconds": 3.59,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "b16a6c4a22c2"
+   }
+  },
+  "P_L7_BOOT_EYES": {
+   "de": {
+    "file": "de/P_L7_BOOT_EYES.ogg",
+    "seconds": 10.14,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "74b689b240f5"
+   },
+   "en": {
+    "file": "en/P_L7_BOOT_EYES.ogg",
+    "seconds": 9.52,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "7ca2824c8fcb"
+   }
+  },
+  "P_L7_BOOT_FEAR": {
+   "de": {
+    "file": "de/P_L7_BOOT_FEAR.ogg",
+    "seconds": 9.47,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "bbfb145d19f1"
+   },
+   "en": {
+    "file": "en/P_L7_BOOT_FEAR.ogg",
+    "seconds": 6.86,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "9b4cbf1d8982"
+   }
+  },
+  "P_L7_BOOT_GAP": {
+   "de": {
+    "file": "de/P_L7_BOOT_GAP.ogg",
+    "seconds": 5.55,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "9c1cbd6ffb9f"
+   },
+   "en": {
+    "file": "en/P_L7_BOOT_GAP.ogg",
+    "seconds": 4.69,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "2b18ad10aeb7"
+   }
+  },
+  "P_L7_BOOT_HANG": {
+   "de": {
+    "file": "de/P_L7_BOOT_HANG.ogg",
+    "seconds": 5.26,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "39ed4f39c27c"
+   },
+   "en": {
+    "file": "en/P_L7_BOOT_HANG.ogg",
+    "seconds": 5.19,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "8ae4322a851f"
+   }
+  },
+  "P_L7_BOOT_HUM": {
+   "de": {
+    "file": "de/P_L7_BOOT_HUM.ogg",
+    "seconds": 8.68,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "a8d0d08ae411"
+   },
+   "en": {
+    "file": "en/P_L7_BOOT_HUM.ogg",
+    "seconds": 7.02,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "f34ffab13b33"
+   }
+  },
+  "P_L7_BOOT_LEGS": {
+   "de": {
+    "file": "de/P_L7_BOOT_LEGS.ogg",
+    "seconds": 2.41,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "60e67bb377ee"
+   },
+   "en": {
+    "file": "en/P_L7_BOOT_LEGS.ogg",
+    "seconds": 2.51,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "e0299e87a939"
+   }
+  },
+  "P_L7_BOOT_LIGHT": {
+   "de": {
+    "file": "de/P_L7_BOOT_LIGHT.ogg",
+    "seconds": 1.3,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "d9ab734c4667"
+   },
+   "en": {
+    "file": "en/P_L7_BOOT_LIGHT.ogg",
+    "seconds": 1.08,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "d54220766d48"
+   }
+  },
+  "P_L7_BOOT_NO": {
+   "de": {
+    "file": "de/P_L7_BOOT_NO.ogg",
+    "seconds": 8.44,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "fad99514b1aa"
+   },
+   "en": {
+    "file": "en/P_L7_BOOT_NO.ogg",
+    "seconds": 6.4,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "e17e5a7393a6"
+   }
+  },
+  "P_L7_BOOT_VOICE": {
+   "de": {
+    "file": "de/P_L7_BOOT_VOICE.ogg",
+    "seconds": 5.85,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "dc5c46948378"
+   },
+   "en": {
+    "file": "en/P_L7_BOOT_VOICE.ogg",
+    "seconds": 5.04,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "d7ab8ad6c646"
+   }
+  },
+  "P_L7_BOOT_WORD": {
+   "de": {
+    "file": "de/P_L7_BOOT_WORD.ogg",
+    "seconds": 8.18,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "80338b6d1fa9"
+   },
+   "en": {
+    "file": "en/P_L7_BOOT_WORD.ogg",
+    "seconds": 6.91,
+    "placeholder": true,
+    "preset": "l7",
+    "source": "sapi",
+    "hash": "c006865111df"
    }
   },
   "P_WHISPER_1": {

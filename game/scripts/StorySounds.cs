@@ -34,8 +34,8 @@ public partial class StorySounds(StoryAudio audio) : Node
         {
             var player = Voice<AudioStreamPlayer3D>();
             player.Stream = stream;
-            player.UnitSize = 6;
-            player.MaxDistance = 80;
+            player.UnitSize = 10;
+            player.MaxDistance = 140;
             player.AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance;
             player.PanningStrength = 1;
             player.GlobalPosition = place;

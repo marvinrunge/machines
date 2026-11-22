@@ -14,6 +14,8 @@ public enum StorySpeaker
     /// <summary>A line the HUD writes, never spoken.</summary>
     Hud,
     Locator,
+    /// <summary>The Locator's own thoughts (speaker l7): shown without a name, in the HUD's glow, apart from what is said aloud.</summary>
+    Thought,
 }
 
 /// <summary>A subtitle: who says it, the name it is shown under (none for the whisper and the HUD), the words, and when it shows.</summary>
@@ -52,7 +54,8 @@ public sealed class SubtitleQueue
         "bob" => StorySpeaker.Bob,
         "whisper" => StorySpeaker.Whisper,
         "hud" => StorySpeaker.Hud,
-        "locator" or "l7" => StorySpeaker.Locator,
+        "locator" => StorySpeaker.Locator,
+        "l7" => StorySpeaker.Thought,
         _ => null,
     };
 

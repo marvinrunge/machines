@@ -95,6 +95,9 @@ public partial class StoryVoice(StoryAudio audio) : Node
         Apply(_queue.Cut(audio.Clock, clear));
         if (crackle && speaking is { Channel: StoryVoiceChannel.Announcer or StoryVoiceChannel.Local })
             StoryAudio.Play("pa_cutoff");
+        // A thought cut short (the boot skipped) breaks off in the HUD's crackle.
+        else if (crackle && speaking is { Channel: StoryVoiceChannel.Inner })
+            StoryAudio.Play("hud_glitch");
     }
 
     // A line's file in the player's language, else English; its length from the stream (the manifest's when it cannot tell).
@@ -208,6 +211,14 @@ public partial class StoryVoice(StoryAudio audio) : Node
                 _pending.Add((audio.Clock + 0.08, line.Id, () => _flat.Play()));
                 audio.Trace($"line {line.Id} radio {Lang.Code} {line.Seconds:0.00}s");
                 break;
+            case StoryVoiceChannel.Inner:
+                // The Locator's own thought: in the middle, close and dry; speech ducks the world and the music by itself.
+                _flat.Bus = StoryAudio.VoiceBus;
+                _flat.VolumeDb = 0;
+                _flat.Stream = stream;
+                _flat.Play();
+                audio.Trace($"line {line.Id} inner {Lang.Code} {line.Seconds:0.00}s");
+                break;
             case StoryVoiceChannel.Whisper:
                 _flat.Bus = StoryAudio.VoiceBus;
                 _flat.VolumeDb = 0;
@@ -254,8 +265,8 @@ public partial class StoryVoice(StoryAudio audio) : Node
             var player = new AudioStreamPlayer3D
             {
                 Name = $"Speaker{_speakers.Count}",
-                UnitSize = 10,
-                MaxDistance = 90,
+                UnitSize = 14,
+                MaxDistance = 150,
                 AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance,
                 PanningStrength = 1,
             };

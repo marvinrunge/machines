@@ -313,6 +313,11 @@ public partial class PlanetLook : Node
     /// </summary>
     public static bool Interior { get; set; }
 
+    /// <summary>
+    /// Indoors, the share of the ambient light the deck has now (1 at full; lower in the story's dark start, Game.ShowDeckStory).
+    /// </summary>
+    public static float Gloom { get; set; } = 1;
+
     // Indoors: the ambient light, the dark the far end of a corridor fades into (metres), occlusion and bounced light about
     // the size of a machine, and the haze.
     private static readonly Color InteriorAmbient = new(0.04f, 0.042f, 0.05f);
@@ -363,7 +368,7 @@ public partial class PlanetLook : Node
         if (!NightVision)
         {
             _environment.AmbientLightColor = InteriorAmbient;
-            _environment.AmbientLightEnergy = 1;
+            _environment.AmbientLightEnergy = Gloom;
         }
         _environment.FogLightColor = NightVision ? _nvgFog * 0.25f : Colors.Black;
         _environment.FogDensity = 1;

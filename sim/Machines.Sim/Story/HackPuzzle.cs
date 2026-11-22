@@ -18,16 +18,18 @@ public enum HackKind
     /// <summary>A pod: a firewall chip sends red pulses over the traces toward the probe.</summary>
     Pod,
 
-    /// <summary>The ship's main computer: three boards in a row, the last broken off by the story.</summary>
+    /// <summary>The ship's main computer: three boards in a row, the last held at 90 % until the story breaks it off.</summary>
     Core,
 }
 
 /// <summary>
 /// One board of a hack: its size, how many target chips (more than one are reached in order), warden chips, whether a
 /// firewall sends pulses, how many turns its solution lies away at most and at least, and how many turns the trace-back
-/// takes before it raises the alarm. A board with <see cref="BreakAt"/> is broken off once it is solved that far.
+/// takes before it raises the alarm. A board with <see cref="HoldAt"/> holds once it is solved that far: the target locks it
+/// (<see cref="HackSession.Held"/>), and no turn goes in that would win it (the core's last board, held until the story
+/// breaks the hack off).
 /// </summary>
-public sealed record HackSpec(int Size, int Targets, int Wardens, bool Firewall, int MostTurns, int LeastTurns, int Trace, float BreakAt = 0)
+public sealed record HackSpec(int Size, int Targets, int Wardens, bool Firewall, int MostTurns, int LeastTurns, int Trace, float HoldAt = 0)
 {
     /// <summary>The boards of a kind of target, in the order they are played.</summary>
     public static IReadOnlyList<HackSpec> Boards(HackKind kind) => kind switch
@@ -36,7 +38,7 @@ public sealed record HackSpec(int Size, int Targets, int Wardens, bool Firewall,
         HackKind.Grunt => [new(4, 1, 1, false, 8, 4, 18)],
         HackKind.Tower => [new(5, 3, 0, false, 12, 7, 26)],
         HackKind.Pod => [new(5, 1, 0, true, 10, 6, 24)],
-        HackKind.Core => [new(4, 1, 1, false, 8, 4, 18), new(5, 3, 0, false, 12, 7, 26), new(5, 1, 1, false, 12, 7, 26, BreakAt: 0.9f)],
+        HackKind.Core => [new(4, 1, 1, false, 8, 4, 18), new(5, 3, 0, false, 12, 7, 26), new(5, 1, 1, false, 12, 7, 26, HoldAt: 0.9f)],
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
 }

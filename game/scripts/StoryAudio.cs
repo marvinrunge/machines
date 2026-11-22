@@ -24,9 +24,16 @@ public partial class StoryAudio : Node
 {
     public const string MusicBus = "Music", WorldBus = "World", VoiceBus = "Voice", AnnouncerBus = "Announcer", RadioBus = "Radio";
 
+    /// <summary>
+    /// The bus the story's music, world and voices meet on before Master: a gentle compressor and a limiter keep the sum
+    /// under full scale when the loud music, the gunfire and the blasts come together (the break-in, the core, the
+    /// workshop's fight, the drop), where it clipped before.
+    /// </summary>
+    public const string MixBus = "StoryMix";
+
     // Left to right after Master; each sends to one on its left, and the ducking's sidechain (Voice) is mixed before the
     // buses it ducks (Godot mixes the buses from the last to the first).
-    private static readonly string[] Buses = [MusicBus, WorldBus, VoiceBus, AnnouncerBus, RadioBus];
+    private static readonly string[] Buses = [MixBus, MusicBus, WorldBus, VoiceBus, AnnouncerBus, RadioBus];
 
     public const string SfxFolder = "res://assets/story/sfx", VoiceFolder = "res://assets/story/voice", MusicFolder = "res://assets/story/music";
 
@@ -52,9 +59,18 @@ public partial class StoryAudio : Node
     public Func<Vector3, float?> ThresherDistance { get; init; } = _ => null;
     public Func<float> Suspicion { get; init; } = () => 0;
     public Func<int> Section { get; init; } = () => 1;
+    /// <summary>Whether the Locator boots in its clamp (the score's playlist plays softly under it).</summary>
+    public Func<bool> Booting { get; init; } = () => false;
     public Func<float> LocatorHealth { get; init; } = () => 1;
     public Func<bool> Shown { get; init; } = () => true;
     public Func<bool> Over { get; init; } = () => false;
+
+    /// <summary>The chapter played (its score, StoryScore) and the checkpoint it was started from.</summary>
+    public string Chapter { get; init; } = "";
+    public int StartCheckpoint { get; init; }
+
+    /// <summary>The seconds left on the crash countdown, null while it is not running (the escape's piece follows it).</summary>
+    public Func<float?> CountdownLeft { get; init; } = () => null;
 
     private StoryVoice _voice = null!;
     private StorySounds _sounds = null!;
@@ -119,7 +135,7 @@ public partial class StoryAudio : Node
             return;
         _nextLook = _clock + 0.25;
         var listener = Listener;
-        _music.Look(ThresherDistance(listener), Suspicion(), Section());
+        _music.Look(ThresherDistance(listener), Suspicion(), Section(), CountdownLeft());
         _sounds.Look(listener, Section());
         SetMuffledHere("damaged", LocatorHealth() < 0.25f);
     }
@@ -146,6 +162,12 @@ public partial class StoryAudio : Node
 
     /// <summary>The music's cue (wartung, jagd, gegenwehr, absturz, silence); null follows the section.</summary>
     public static void Cue(string? cue) => Current?._music.Cue(cue);
+
+    /// <summary>The music fades out over so many seconds and stays silent for the rest of the chapter.</summary>
+    public static void MusicOut(float seconds) => Current?._music.Out(seconds);
+
+    /// <summary>The trio is caught (the break-in): the score's loud part plays, the playlist cut (StoryScore).</summary>
+    public static void Caught() => Current?._music.Caught();
 
     /// <summary>A stinger (sting_dread, sting_found, sting_alarm) over the music; quiet with "Schreckmomente mildern".</summary>
     public static void Sting(string sfxId) => Current?._music.Sting(sfxId);
@@ -186,9 +208,13 @@ public partial class StoryAudio : Node
             AudioServer.SetBusName(1, Buses[i]);
         }
         int Index(string name) => AudioServer.GetBusIndex(name);
-        AudioServer.SetBusSend(Index(MusicBus), "Master");
-        AudioServer.SetBusSend(Index(WorldBus), "Master");
-        AudioServer.SetBusSend(Index(VoiceBus), "Master");
+        AudioServer.SetBusSend(Index(MixBus), "Master");
+        AudioServer.SetBusSend(Index(MusicBus), MixBus);
+        AudioServer.SetBusSend(Index(WorldBus), MixBus);
+        AudioServer.SetBusSend(Index(VoiceBus), MixBus);
+        var mix = Index(MixBus);
+        AudioServer.AddBusEffect(mix, new AudioEffectCompressor { Threshold = -10, Ratio = 3, AttackUs = 5000, ReleaseMs = 250, Gain = 0 });
+        AudioServer.AddBusEffect(mix, new AudioEffectHardLimiter { CeilingDb = -1.0f, PreGainDb = 0, Release = 0.1f });
         AudioServer.SetBusSend(Index(AnnouncerBus), VoiceBus);
         AudioServer.SetBusSend(Index(RadioBus), VoiceBus);
         AudioServer.SetBusSend(Index(GameAudio.EffectsBus), WorldBus);
@@ -353,6 +379,9 @@ public partial class StoryAudio : Node
             foreach (var part in new[] { cue, cue + "_1", cue + "_2" })
                 if (ResourceLoader.Exists($"{MusicFolder}/{part}.ogg"))
                     yield return $"{MusicFolder}/{part}.ogg";
+        foreach (var piece in StoryScore.Pieces)
+            if (ResourceLoader.Exists($"{MusicFolder}/{piece.Name}.ogg"))
+                yield return $"{MusicFolder}/{piece.Name}.ogg";
     }
 
     /// <summary>Loads a story stream now (<see cref="Warmup"/>), so that it plays at once when its time comes.</summary>

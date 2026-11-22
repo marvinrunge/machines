@@ -1667,8 +1667,14 @@ public partial class Game : Node3D
                     break;
                 case GameEventKind.ArtefactRemoved:
                     // Taken off whole (a deck's door opened): its model goes without a blast.
+                    // In a story a barricade's crate may be thrown aside in the same tick ("thrown", Game.Story): it waits for that.
                     if (_artefactModels.Remove(e.Actor - Artefact.IdBase, out var removed))
-                        removed.QueueFree();
+                    {
+                        if (World.Story is not null)
+                            _justRemoved[e.Actor - Artefact.IdBase] = removed;
+                        else
+                            removed.QueueFree();
+                    }
                     break;
                 case GameEventKind.Recycled:
                     _vaporised.Add(e.Actor);
@@ -3334,7 +3340,7 @@ public partial class Game : Node3D
     private static float KeyTurn(Machine machine)
     {
         var turn = (KeyMap.Held(KeyMap.Act.TurnLeft) ? 1f : 0f) - (KeyMap.Held(KeyMap.Act.TurnRight) ? 1f : 0f);
-        if (!Input.IsKeyPressed(Key.Shift))
+        if (!ShiftLooks)
             turn += ArrowTurn();
         if (!machine.CanStrafe && !GameOptions.ClassicKeys)
             turn += (KeyMap.Held(KeyMap.Act.Left) ? 1f : 0f) - (KeyMap.Held(KeyMap.Act.Right) ? 1f : 0f);
@@ -3355,7 +3361,7 @@ public partial class Game : Node3D
     /// The right button is a trigger while each weapon has its own.
     /// </summary>
     private bool TurningHead => GameOptions.ClassicDriving && _driven is { CanTurnUpperBody: true }
-        && (Input.IsKeyPressed(Key.Shift) || !WeaponButtons && Input.IsMouseButtonPressed(MouseButton.Right));
+        && (ShiftLooks || !WeaponButtons && Input.IsMouseButtonPressed(MouseButton.Right));
 
     private void FirstPersonInput(InputEvent @event)
     {
@@ -3442,7 +3448,7 @@ public partial class Game : Node3D
     // LOOKDOWN and LOOKUP keys); the options' Reverse Up/Down Keys swaps the arrows.
     private void LookWithKeys()
     {
-        if (!Input.IsKeyPressed(Key.Shift) || Input.IsKeyPressed(Key.Up) == Input.IsKeyPressed(Key.Down) || ScreenOver)
+        if (!ShiftLooks || Input.IsKeyPressed(Key.Up) == Input.IsKeyPressed(Key.Down) || ScreenOver)
             return;
         var step = Mathf.DegToRad(Input.IsKeyPressed(Key.Ctrl) ? 15 : 150) * (float)GetProcessDeltaTime();
         LookBy(Input.IsKeyPressed(Key.Up) != GameOptions.ReverseKeys ? -step : step);
@@ -3480,7 +3486,7 @@ public partial class Game : Node3D
     /// <summary>What the keys held say of going ahead (1), back (-1) or neither.</summary>
     private static float ForwardKeys()
     {
-        var shift = Input.IsKeyPressed(Key.Shift);
+        var shift = ShiftLooks;
         var moves = !GameOptions.ClassicKeys;
         return (moves && KeyMap.Held(KeyMap.Act.Forward) || !shift && (Input.IsKeyPressed(Key.Up) || Input.IsKeyPressed(Key.Kp8)) ? 1f : 0f)
             - (moves && KeyMap.Held(KeyMap.Act.Back) || !shift && Input.IsKeyPressed(Key.Down) ? 1f : 0f);
@@ -3501,7 +3507,7 @@ public partial class Game : Node3D
         }
         // The arrows drive and turn whatever the moves' keys are, and the up arrow on the number pad too; the one down
         // there leaves (MachGuiFirstPerson's keys). With Shift they turn the upper body and look instead.
-        var shift = Input.IsKeyPressed(Key.Shift);
+        var shift = ShiftLooks;
         var moves = !GameOptions.ClassicKeys;
         var forward = ForwardKeys();
         var keys = moves ? (KeyMap.Held(KeyMap.Act.Left) ? 1f : 0f) - (KeyMap.Held(KeyMap.Act.Right) ? 1f : 0f) : 0;
@@ -3575,7 +3581,7 @@ public partial class Game : Node3D
         // positive strafe; the client shows the world with y and z swapped, which mirrors it, so on screen both go
         // right. Ctrl turns slowly (FIRST_PERSON_MAX_SLOW_TURN_RATE).
         Issue(new DriveCommand(Player, machine.Id, Driving: true, forward, Mathf.Clamp(-turn, -1, 1), aimAt, sent, _headTarget,
-            -strafe, Input.IsKeyPressed(Key.Ctrl), aimHeight, buttons, SentYaw));
+            -strafe, Input.IsKeyPressed(Key.Ctrl), aimHeight, buttons, SentYaw, Sprint: StorySprintHeld()));
     }
 
     /// <summary>
@@ -3685,6 +3691,10 @@ public partial class Game : Node3D
         // does not slide sideways while the hull swings round under it.
         if (aimsGun && !machine.CanTurnUpperBody)
             _firstPersonCamera.GlobalPosition = new Vector3(view.GlobalPosition.X, view.Eye.Y, view.GlobalPosition.Z);
+        // On a ship deck a machine that noses into a wall has its faceplate in it: the view is drawn back towards the pivot
+        // until it is clear of the wall, so it never looks out of the wall's inside.
+        if (World.Deck is { } deck)
+            _firstPersonCamera.GlobalPosition = ClearOfWalls(deck, _firstPersonCamera.GlobalPosition, view.GlobalPosition);
         // With the modern keys the view looks where the mouse turned it, not waiting for the machine to follow.
         var yaw = FreeLook ? -_aimYaw : view.Yaw - head;
         _firstPersonCamera.GlobalRotation = new Vector3(_lookPitch, yaw - Mathf.Pi / 2, 0);

@@ -51,7 +51,7 @@ public sealed partial class GameWorld
         var turnRate = Data.Parm.General.FirstPersonMaxFastTurnRate * MathF.PI / 180;
         machine.Facing += input.Turn * turnRate * Dt;
         var direction = new Vector2(DetMath.Cos(machine.Facing), DetMath.Sin(machine.Facing));
-        var step = direction * (input.Forward * machine.Stats.Speed * Dt);
+        var step = direction * (input.Forward * machine.Stats.Speed * StoryPace(machine) * Dt);
         if (step == Vector2.Zero)
             return;
         SlideOn(machine, step);
