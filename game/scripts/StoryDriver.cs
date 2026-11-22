@@ -99,7 +99,7 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                     await Picture($"section{story.Section}");
                 }
                 if (ShotDue(game, story) is { } shot)
-                    await Picture(shot);
+                    await BeatPicture(game, story, shot);
                 if (story.Over)
                 {
                     LetGo();
@@ -176,27 +176,91 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
         return true;
     }
 
-    // MACHINES_STORY_DRIVE_SHOTS=<beat>:<seconds>[,...]: more pictures, each that many game seconds after a beat of the
-    // director's fired (break_in:3 is the Reapers storming the core chamber), named after the beat and the seconds.
-    private List<(string Beat, float Seconds)>? _beatShots;
+    // MACHINES_STORY_DRIVE_SHOTS=<beat>:<seconds>[@<camera>][,...]: more pictures, each that many game seconds after a beat of
+    // the director's fired (break_in:3 is the Reapers storming the core chamber), named after the beat and the seconds. A
+    // camera takes the picture from elsewhere for that frame alone: "@x/y/height/towardX/towardY/towardHeight" (deck metres) or
+    // "@<role>/<distance>/<height>[/<side>]", that far before the first standing machine the director cast in that role (thresher,
+    // reaper, commander, hostile, row, scare) or a seat of the trio ("seat0" the Locator, "seat1" Ike, "seat2" Bob), looking at its eyes.
+    // Such a picture leaves out the HUD and the first-person screen; a camera ending in "!" brings a soft light of its own along.
+    private List<(string Beat, float Seconds, string? Camera)>? _beatShots;
+    private string? _shotCamera;
 
     private string? ShotDue(Game game, StoryRun story)
     {
         _beatShots ??= (System.Environment.GetEnvironmentVariable("MACHINES_STORY_DRIVE_SHOTS") ?? "")
             .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Select(s => s.Split(':'))
-            .Where(p => p.Length == 2 && float.TryParse(p[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _))
-            .Select(p => (p[0], float.Parse(p[1], System.Globalization.CultureInfo.InvariantCulture)))
+            .Select(s => s.Split('@', 2))
+            .Select(s => (Parts: s[0].Split(':'), Camera: s.Length > 1 ? s[1] : null))
+            .Where(p => p.Parts.Length == 2 && float.TryParse(p.Parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _))
+            .Select(p => (p.Parts[0], float.Parse(p.Parts[1], System.Globalization.CultureInfo.InvariantCulture), p.Camera))
             .ToList();
         foreach (var shot in _beatShots)
         {
             if (story.Director.Fired.TryGetValue(shot.Beat, out var at) && game.World.Time >= at + shot.Seconds)
             {
                 _beatShots.Remove(shot);
-                return FormattableString.Invariant($"{shot.Beat}+{shot.Seconds}");
+                _shotCamera = shot.Camera;
+                return FormattableString.Invariant($"{shot.Beat}+{shot.Seconds}{(shot.Camera is null ? "" : "-" + shot.Camera.Split('/')[0])}");
             }
         }
         return null;
+    }
+
+    /// <summary>A beat's picture, from the camera it asked for (<see cref="ShotDue"/>) if any, the view's own camera again afterwards.</summary>
+    private async Task BeatPicture(Game game, StoryRun story, string name)
+    {
+        var spec = _shotCamera;
+        _shotCamera = null;
+        var fill = spec?.EndsWith('!') == true;
+        if (spec is null || ShotCamera(game, story, spec.TrimEnd('!')) is not { } placed)
+        {
+            await Picture(name);
+            return;
+        }
+        var (from, toward) = placed;
+        var before = GetViewport().GetCamera3D();
+        var camera = new Camera3D { Fov = 55, Far = 400 };
+        game.AddChild(camera);
+        camera.GlobalPosition = from;
+        camera.LookAt(toward, Vector3.Up);
+        camera.MakeCurrent();
+        if (fill)
+            camera.AddChild(new OmniLight3D { LightEnergy = 1.2f, OmniRange = 30, LightColor = new Color(0.8f, 0.85f, 1f) });
+        var shown = GetTree().Root.FindChildren("*", nameof(CanvasLayer), true, false).OfType<CanvasLayer>().Where(layer => layer.Visible).ToList();
+        foreach (var layer in shown)
+            layer.Visible = false;
+        await Frames(2);
+        await Picture(name);
+        foreach (var layer in shown.Where(IsInstanceValid))
+            layer.Visible = true;
+        camera.ClearCurrent(false);
+        camera.QueueFree();
+        if (IsInstanceValid(before))
+            before.MakeCurrent();
+    }
+
+    private static (Vector3 From, Vector3 Toward)? ShotCamera(Game game, StoryRun story, string spec)
+    {
+        var parts = spec.Split('/');
+        static float Number(string text) => float.Parse(text, System.Globalization.CultureInfo.InvariantCulture);
+        if (parts.Length == 6 && float.TryParse(parts[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _))
+            return (new Vector3(Number(parts[0]), Number(parts[2]), Number(parts[1])), new Vector3(Number(parts[3]), Number(parts[5]), Number(parts[4])));
+        if (parts.Length < 3)
+            return null;
+        Machine? machine = parts[0].StartsWith("seat", StringComparison.Ordinal) && int.TryParse(parts[0][4..], out var seat) && seat < story.Seats.Count
+            ? game.World.HeroOf(story.Seats[seat])
+            : story.Director.Of(game.World, parts[0]).FirstOrDefault();
+        if (machine is null)
+            return null;
+        var view = game.ViewOf(machine.Id);
+        var eye = view?.Eye ?? ActorView.World(machine.Position) + Vector3.Up * 2;
+        var ahead = new Vector3(MathF.Cos(machine.Facing), 0, MathF.Sin(machine.Facing));
+        // Where its eyes look (its lamp's way, the upper body turned), when it has a lamp.
+        if (view?.GetChildren().OfType<SpotLight3D>().FirstOrDefault() is { } lamp && -lamp.GlobalBasis.Z with { Y = 0 } is { } along && along.LengthSquared() > 0.01f)
+            ahead = along.Normalized();
+        var side = new Vector3(-ahead.Z, 0, ahead.X) * (parts.Length > 3 ? Number(parts[3]) : 0);
+        var from = ActorView.World(machine.Position) + ahead * Number(parts[1]) + side;
+        return (new Vector3(from.X, ActorView.World(machine.Position).Y + Number(parts[2]), from.Z), eye);
     }
 
     // The core fight's beats, told with the game seconds they fired at (the fight's timeline).

@@ -34,6 +34,8 @@ public partial class Game
         // The trio's lamps came through the update damaged: dim, flickering now and then (the view's alone).
         ActorView.LampDamaged = deck is null ? null
             : id => World.Story is { } run && run.Seats.Any(seat => World.HeroOf(seat)?.Id == id);
+        // Switched-off machines have dark eyes and no lamp, the trio's enemies red ones and a red lamp (the view's, Game.StoryEyes).
+        ActorView.EyesOf = deck is null ? null : StoryEyes;
         _deckLights.Clear();
         if (deck is null)
         {

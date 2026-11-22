@@ -211,6 +211,10 @@ public partial class ActorView : Node3D
     /// <summary>A searchlight's: where the middle of its cone meets the ground, and how far it lights (the sim's beam is 40 m, StorySight.BeamLength).</summary>
     private const float SearchlightReach = 28, SearchlightRange = 46;
 
+    /// <summary>A headlamp's light, a little warm, and how much of it the haze shows; a searchlight's, cold white and thicker.</summary>
+    private static readonly Color HeadlampColour = new(1, 0.95f, 0.82f), SearchlightColour = new(0.85f, 0.92f, 1f);
+    private const float HeadlampFog = 0.25f, SearchlightFog = 0.8f;
+
     /// <summary>Makes the lamp the searchlight the sim sees by: narrower (the sim's 25° either way), longer, brighter, and stopped by the deck's walls.</summary>
     private void MakeSearchlight(SpotLight3D beam)
     {
@@ -220,8 +224,8 @@ public partial class ActorView : Node3D
         beam.SpotAngleAttenuation = 0.8f;
         beam.SpotAttenuation = 0.3f;
         beam.ShadowEnabled = true;
-        beam.LightColor = new Color(0.85f, 0.92f, 1f);
-        beam.LightVolumetricFogEnergy = 0.8f;
+        beam.LightColor = SearchlightColour;
+        beam.LightVolumetricFogEnergy = SearchlightFog;
         _lampEnergy = 30;
     }
 
@@ -642,14 +646,14 @@ public partial class ActorView : Node3D
                 // it was spent before it reached the ground.
                 view._lamp = new SpotLight3D
                 {
-                    LightColor = new Color(1, 0.95f, 0.82f),
+                    LightColor = HeadlampColour,
                     SpotRange = 36,
                     SpotAngle = 24,
                     SpotAngleAttenuation = 1.6f,
                     SpotAttenuation = 0.4f,
                     Visible = false,
                     // A faint beam in the haze; at full strength it washed the ground out at night.
-                    LightVolumetricFogEnergy = 0.25f,
+                    LightVolumetricFogEnergy = HeadlampFog,
                 };
             }
             view._lampEnergy = actor is Construction ? 3f : 12f;
@@ -1141,17 +1145,21 @@ public partial class ActorView : Node3D
         Stand();
         Sway((float)delta);
         Smoke();
+        var (eyes, eyeLevel) = ShowEyes();
         if (_lamp is not null)
         {
             if (!_searchlight && _lamp is SpotLight3D searching && Searchlight?.Invoke(ActorId) == true)
                 MakeSearchlight(searching);
-            _lamp.Visible = Visible && PlanetLook.Dark > 0.05f && (LampAllowed?.Invoke(ActorId) ?? true);
+            // A machine switched off shows no lamp, whatever the sim keeps for it.
+            _lamp.Visible = Visible && PlanetLook.Dark > 0.05f && (LampAllowed?.Invoke(ActorId) ?? true) && eyes != EyeLook.Off;
             _lamp.LightEnergy = PlanetLook.Dark * _lampEnergy;
             if (_lamp.Visible && !_searchlight && LampDamaged?.Invoke(ActorId) == true)
             {
                 _flicker ??= new LampFlicker(ActorId);
                 _lamp.LightEnergy *= DamagedLampShare * _flicker.At(Time.GetTicksMsec() / 1000.0);
             }
+            if (EyesOf is not null && _lamp is SpotLight3D cone)
+                HostileCone(cone, eyes == EyeLook.Hostile, eyeLevel);
             if (_lamp.Visible && _lamp is SpotLight3D beam)
                 Beam(beam);
         }

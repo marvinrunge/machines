@@ -697,6 +697,9 @@ public sealed class ClassicAssets
         """;
 
     /// <summary>A sprite that gives light: added on top, its black background vanishing.</summary>
+    /// <summary>Whether a material is a glowing sprite's (a machine's eye glow, a flare), drawn by <see cref="GlowSpriteShader"/>.</summary>
+    public static bool IsGlowSprite(Material material) => material is ShaderMaterial { Shader: var shader } && GlowSpriteShader.IsValueCreated && shader == GlowSpriteShader.Value;
+
     private static readonly Lazy<Shader> GlowSpriteShader = new(() => new Shader
     {
         Code = $$"""
