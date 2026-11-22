@@ -199,7 +199,7 @@ public class CutsceneScriptTests
         Assert.DoesNotContain(File.ReadAllLines(Path.Combine(Repo, "data", "maps", "maps.txt")), l => l.Contains("prolog-abwurf"));
     }
 
-    // The voice lines by id, with their German placeholder's seconds (game/assets/story/voice/manifest.json).
+    // The voice lines by id, with their German voice's seconds (game/assets/story/voice/manifest.json).
     private static Dictionary<string, float> VoiceLines()
     {
         using var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(Repo, "game", "assets", "story", "voice", "manifest.json")));

@@ -11,7 +11,7 @@ namespace Machines.Tests.Story;
 /// The prologue's opening (Erwachen): the Locator boots in its clamp for about a hundred seconds, system after system with
 /// its thoughts between, on the world's ticks; the clamp's hack opens only at its end; the Locator's player may skip it by a
 /// Use command (every peer the same tick), a Grunt's not; the thoughts are for the Locator's screen and anyone looking on,
-/// never a Grunt's player's; every checkpoint after the start has no boot; with the placeholder voices no thought runs into
+/// never a Grunt's player's; every checkpoint after the start has no boot; with the manifest's voices no thought runs into
 /// the next; and no line of the prologue names the builders (the book's canon: "Mensch" is never said in the prologue).
 /// </summary>
 public class PrologueBootTests
@@ -194,7 +194,7 @@ public class PrologueBootTests
     [Theory]
     [InlineData("de")]
     [InlineData("en")]
-    public void With_the_placeholder_voices_no_thought_runs_into_the_next(string lang)
+    public void With_the_manifests_voices_no_thought_runs_into_the_next(string lang)
     {
         var voices = StoryVoiceManifest.Parse(File.ReadAllText(Repo("game/assets/story/voice/manifest.json")));
         var said = Prologue.BootThoughts.Select(t => (At: t.At, Line: t.Line)).Append((At: Prologue.WakeCallAt, Line: Prologue.Lines.Wake1)).OrderBy(l => l.At).ToList();

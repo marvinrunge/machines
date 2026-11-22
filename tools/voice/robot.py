@@ -214,9 +214,19 @@ def process(preset, src, dst, p=1.0, cut=False, lufs=TARGET_LUFS):
     os.makedirs(os.path.dirname(os.path.abspath(dst)), exist_ok=True)
     wav = dst.lower().endswith(".wav")
     codec = ["-c:a", "pcm_s16le"] if wav else ["-c:a", "libvorbis", "-q:a", "5"]
-    run(["-y", "-i", src, "-filter_complex",
-         g + ";[out]volume=%.2fdB,%saresample=%d,%s[f]" % (gain, limiter(), RATE, end),
-         "-map", "[f]", "-ac", "1"] + codec + ["-map_metadata", "-1", dst])
+    tp = TARGET_TP
+    for _ in range(4):
+        run(["-y", "-i", src, "-filter_complex",
+             g + ";[out]volume=%.2fdB,%saresample=%d,%s[f]" % (gain, limiter(tp), RATE, end),
+             "-map", "[f]", "-ac", "1"] + codec + ["-map_metadata", "-1", dst])
+        if wav:
+            break
+        # Vorbis overshoots the limiter a little (often 0.1-0.2 dB, on some voices 1 dB): measure the decoded
+        # file and limit lower until it stays at TARGET_TP
+        pk = re.search(r"max_volume:\s*(-?[\d.]+) dB", run(["-i", dst, "-af", "volumedetect", "-f", "null", "-"]))
+        if not pk or float(pk.group(1)) <= TARGET_TP:
+            break
+        tp -= float(pk.group(1)) - TARGET_TP + 0.1
     if not wav and os.path.abspath(dst).startswith(os.path.join(REPO, "game") + os.sep):
         godot_import.write(dst)
     return duration(dst), {"input_i": i0, "gain_db": round(gain, 2)}

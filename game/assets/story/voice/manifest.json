@@ -1,5 +1,5 @@
 {
- "about": "Voice files per line id and language. placeholder=true: Windows SAPI voice through tools/voice/robot.py, to be replaced by the user's recordings (tools/voice/README.md). seconds: length of the Ogg file.",
+ "about": "Voice files per line id and language, each through a robot-voice preset of tools/voice/robot.py. source: recording (the user's own, placeholder=false), google (Google Chirp 3 HD voice named in 'voice', tools/voice/google_tts.py, placeholder=false) or sapi (Windows SAPI stand-in, placeholder=true). A recording wins over a Google voice, which wins over SAPI (tools/voice/README.md). seconds: length of the Ogg file.",
  "lines": {
   "P_ANN_C1": {
    "de": {
@@ -526,703 +526,901 @@
   "P_BOB_BARRICADE": {
    "de": {
     "file": "de/P_BOB_BARRICADE.ogg",
-    "seconds": 1.37,
-    "placeholder": true,
+    "seconds": 1.27,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "516f245e7d1d"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Algenib",
+    "hash": "0db78b1c6ccb"
    },
    "en": {
     "file": "en/P_BOB_BARRICADE.ogg",
-    "seconds": 1.37,
-    "placeholder": true,
+    "seconds": 1.63,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "ba1c9371b435"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Algenib",
+    "hash": "e627eb519d6f"
    }
   },
   "P_BOB_CONTACT_L": {
    "de": {
     "file": "de/P_BOB_CONTACT_L.ogg",
-    "seconds": 2.27,
-    "placeholder": true,
+    "seconds": 1.57,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "8fa4c6639253"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Algenib",
+    "hash": "aa7505dc4f66"
    },
    "en": {
     "file": "en/P_BOB_CONTACT_L.ogg",
-    "seconds": 2.05,
-    "placeholder": true,
+    "seconds": 1.9,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "4cf48a2b7ad4"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Algenib",
+    "hash": "2bc5860f462a"
    }
   },
   "P_BOB_CONTACT_R": {
    "de": {
     "file": "de/P_BOB_CONTACT_R.ogg",
-    "seconds": 2.18,
-    "placeholder": true,
+    "seconds": 1.97,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "8e667b7fb5e6"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Algenib",
+    "hash": "6e2addb84d4d"
    },
    "en": {
     "file": "en/P_BOB_CONTACT_R.ogg",
-    "seconds": 2.04,
-    "placeholder": true,
+    "seconds": 1.3,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "b8ca10330a73"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Algenib",
+    "hash": "2f05b5174991"
+   }
+  },
+  "P_BOB_CRATES": {
+   "de": {
+    "file": "de/P_BOB_CRATES.ogg",
+    "seconds": 1.43,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Algenib",
+    "hash": "8506f6cbfd2e"
+   },
+   "en": {
+    "file": "en/P_BOB_CRATES.ogg",
+    "seconds": 1.5,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Algenib",
+    "hash": "cb0b1b84657f"
+   }
+  },
+  "P_BOB_DISTRACT": {
+   "de": {
+    "file": "de/P_BOB_DISTRACT.ogg",
+    "seconds": 1.05,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Algenib",
+    "hash": "575990109897"
+   },
+   "en": {
+    "file": "en/P_BOB_DISTRACT.ogg",
+    "seconds": 1.2,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Algenib",
+    "hash": "cc0b8738b8fa"
+   }
+  },
+  "P_BOB_DOWN": {
+   "de": {
+    "file": "de/P_BOB_DOWN.ogg",
+    "seconds": 2.47,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Algenib",
+    "hash": "49be372f5e61"
+   },
+   "en": {
+    "file": "en/P_BOB_DOWN.ogg",
+    "seconds": 2.91,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Algenib",
+    "hash": "61e2d3b64095"
    }
   },
   "P_BOB_FIRE": {
    "de": {
     "file": "de/P_BOB_FIRE.ogg",
-    "seconds": 2.31,
-    "placeholder": true,
+    "seconds": 1.89,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "66ca62f8015a"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Algenib",
+    "hash": "f124978ca9b8"
    },
    "en": {
     "file": "en/P_BOB_FIRE.ogg",
-    "seconds": 2.07,
-    "placeholder": true,
+    "seconds": 1.74,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "7c7a8c98e850"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Algenib",
+    "hash": "b0a04ad5c0b4"
    }
   },
   "P_BOB_FOLLOW": {
    "de": {
     "file": "de/P_BOB_FOLLOW.ogg",
-    "seconds": 0.94,
-    "placeholder": true,
+    "seconds": 0.83,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "51d00dcb3271"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Algenib",
+    "hash": "41c65eaa973c"
    },
    "en": {
     "file": "en/P_BOB_FOLLOW.ogg",
-    "seconds": 1.13,
-    "placeholder": true,
+    "seconds": 0.95,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "6762c370b7c0"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Algenib",
+    "hash": "b7b9dc28135e"
    }
   },
   "P_BOB_GATE": {
    "de": {
     "file": "de/P_BOB_GATE.ogg",
-    "seconds": 3.2,
-    "placeholder": true,
+    "seconds": 2.28,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "638e68783da1"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Algenib",
+    "hash": "f10c66fb123e"
    },
    "en": {
     "file": "en/P_BOB_GATE.ogg",
-    "seconds": 2.51,
-    "placeholder": true,
+    "seconds": 1.62,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "3e653b6c2677"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Algenib",
+    "hash": "66e971b70d71"
    }
   },
   "P_BOB_GLITCH": {
    "de": {
     "file": "de/P_BOB_GLITCH.ogg",
-    "seconds": 5.84,
-    "placeholder": true,
+    "seconds": 3.99,
+    "placeholder": false,
     "preset": "bob-radio",
-    "source": "sapi",
-    "hash": "8c1bb8006294"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Algenib",
+    "hash": "e53bca7473a9"
    },
    "en": {
     "file": "en/P_BOB_GLITCH.ogg",
-    "seconds": 5.13,
-    "placeholder": true,
+    "seconds": 3.61,
+    "placeholder": false,
     "preset": "bob-radio",
-    "source": "sapi",
-    "hash": "0c4487c21219"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Algenib",
+    "hash": "4df9085ba8c0"
    }
   },
   "P_BOB_HOLD": {
    "de": {
     "file": "de/P_BOB_HOLD.ogg",
-    "seconds": 1.83,
-    "placeholder": true,
+    "seconds": 1.5,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "20e9480dc36e"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Algenib",
+    "hash": "6eae08b29596"
    },
    "en": {
     "file": "en/P_BOB_HOLD.ogg",
-    "seconds": 1.62,
-    "placeholder": true,
+    "seconds": 1.32,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "1c4f6cfb17a2"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Algenib",
+    "hash": "10b8ef3d2515"
    }
   },
   "P_BOB_POD": {
    "de": {
     "file": "de/P_BOB_POD.ogg",
-    "seconds": 1.09,
-    "placeholder": true,
+    "seconds": 1.16,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "c4ec1f82f78c"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Algenib",
+    "hash": "c671d2e036f4"
    },
    "en": {
     "file": "en/P_BOB_POD.ogg",
-    "seconds": 0.97,
-    "placeholder": true,
+    "seconds": 1.02,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "592ad6fb0dcd"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Algenib",
+    "hash": "abf3c17fee47"
    }
   },
   "P_BOB_RAM": {
    "de": {
     "file": "de/P_BOB_RAM.ogg",
-    "seconds": 0.96,
-    "placeholder": true,
+    "seconds": 0.87,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "04b16b63d74e"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Algenib",
+    "hash": "6aa57904079b"
    },
    "en": {
     "file": "en/P_BOB_RAM.ogg",
-    "seconds": 1.14,
-    "placeholder": true,
+    "seconds": 0.96,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "e033dd8737a4"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Algenib",
+    "hash": "fba422a8148a"
    }
   },
   "P_BOB_ROUND": {
    "de": {
     "file": "de/P_BOB_ROUND.ogg",
-    "seconds": 5.01,
-    "placeholder": true,
+    "seconds": 3.98,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "7aeafa0988d6"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Algenib",
+    "hash": "0eb9941596bf"
    },
    "en": {
     "file": "en/P_BOB_ROUND.ogg",
-    "seconds": 4.59,
-    "placeholder": true,
+    "seconds": 3.97,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "f862876caf24"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Algenib",
+    "hash": "34384e7ceb41"
    }
   },
   "P_BOB_SQUAD": {
    "de": {
     "file": "de/P_BOB_SQUAD.ogg",
-    "seconds": 4.19,
-    "placeholder": true,
+    "seconds": 3.5,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "ace71cbd03aa"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Algenib",
+    "hash": "1784ecdccf77"
    },
    "en": {
     "file": "en/P_BOB_SQUAD.ogg",
-    "seconds": 4.58,
-    "placeholder": true,
+    "seconds": 3.84,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "b7b5b97e6f82"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Algenib",
+    "hash": "dce42c338af3"
    }
   },
   "P_BOB_UP": {
    "de": {
     "file": "de/P_BOB_UP.ogg",
-    "seconds": 3.37,
-    "placeholder": true,
+    "seconds": 2.47,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "d9479c0f3e1e"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Algenib",
+    "hash": "ab52ee92a300"
    },
    "en": {
     "file": "en/P_BOB_UP.ogg",
-    "seconds": 3.38,
-    "placeholder": true,
+    "seconds": 1.96,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "15419a7cefee"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Algenib",
+    "hash": "46e867a836fc"
    }
   },
   "P_BOB_WAKE": {
    "de": {
     "file": "de/P_BOB_WAKE.ogg",
-    "seconds": 4.15,
-    "placeholder": true,
+    "seconds": 2.94,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "9359c527721b"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Algenib",
+    "hash": "fe92941adf87"
    },
    "en": {
     "file": "en/P_BOB_WAKE.ogg",
-    "seconds": 3.78,
-    "placeholder": true,
+    "seconds": 2.87,
+    "placeholder": false,
     "preset": "bob",
-    "source": "sapi",
-    "hash": "23bdae280137"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Algenib",
+    "hash": "adbe110d000c"
    }
   },
   "P_IKE_ALARM": {
    "de": {
     "file": "de/P_IKE_ALARM.ogg",
-    "seconds": 3.32,
-    "placeholder": true,
+    "seconds": 2.86,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "a51c72298943"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Fenrir",
+    "hash": "480733d24e28"
    },
    "en": {
     "file": "en/P_IKE_ALARM.ogg",
-    "seconds": 3.14,
-    "placeholder": true,
+    "seconds": 2.54,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "a5222f763568"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Fenrir",
+    "hash": "549fc29943f1"
    }
   },
   "P_IKE_BARRICADE": {
    "de": {
     "file": "de/P_IKE_BARRICADE.ogg",
-    "seconds": 3.28,
-    "placeholder": true,
+    "seconds": 3.05,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "5521f1828b5e"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Fenrir",
+    "hash": "ed35d189f830"
    },
    "en": {
     "file": "en/P_IKE_BARRICADE.ogg",
-    "seconds": 3.28,
-    "placeholder": true,
+    "seconds": 4.04,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "696ca962a7bb"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Fenrir",
+    "hash": "9f13968f04dd"
+   }
+  },
+  "P_IKE_BARRICADED": {
+   "de": {
+    "file": "de/P_IKE_BARRICADED.ogg",
+    "seconds": 2.91,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Fenrir",
+    "hash": "9edcb1c66dcc"
+   },
+   "en": {
+    "file": "en/P_IKE_BARRICADED.ogg",
+    "seconds": 3.05,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Fenrir",
+    "hash": "ec699607fc36"
    }
   },
   "P_IKE_DISTRACT": {
    "de": {
     "file": "de/P_IKE_DISTRACT.ogg",
-    "seconds": 3.23,
-    "placeholder": true,
+    "seconds": 2.52,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "e210287ae006"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Fenrir",
+    "hash": "c4569c3456c8"
    },
    "en": {
     "file": "en/P_IKE_DISTRACT.ogg",
-    "seconds": 3.06,
-    "placeholder": true,
+    "seconds": 2.27,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "1ab89859f0dd"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Fenrir",
+    "hash": "947c1ded1921"
    }
   },
   "P_IKE_DOWN": {
    "de": {
     "file": "de/P_IKE_DOWN.ogg",
-    "seconds": 2.26,
-    "placeholder": true,
+    "seconds": 2.84,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "695e54760ad8"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Fenrir",
+    "hash": "7a4cf88deeca"
    },
    "en": {
     "file": "en/P_IKE_DOWN.ogg",
-    "seconds": 2.85,
-    "placeholder": true,
+    "seconds": 4.89,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "ee5ae15656df"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Fenrir",
+    "hash": "368ddce7279f"
+   }
+  },
+  "P_IKE_FOLLOW": {
+   "de": {
+    "file": "de/P_IKE_FOLLOW.ogg",
+    "seconds": 1.43,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Fenrir",
+    "hash": "9e9f85bd8492"
+   },
+   "en": {
+    "file": "en/P_IKE_FOLLOW.ogg",
+    "seconds": 1.15,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Fenrir",
+    "hash": "dfc3d831f307"
+   }
+  },
+  "P_IKE_GATE": {
+   "de": {
+    "file": "de/P_IKE_GATE.ogg",
+    "seconds": 2.54,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Fenrir",
+    "hash": "7898c3bf511e"
+   },
+   "en": {
+    "file": "en/P_IKE_GATE.ogg",
+    "seconds": 1.66,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Fenrir",
+    "hash": "952800b56ad4"
    }
   },
   "P_IKE_HAMMER": {
    "de": {
     "file": "de/P_IKE_HAMMER.ogg",
-    "seconds": 4.46,
-    "placeholder": true,
+    "seconds": 3.36,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "7205bc1d8942"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Fenrir",
+    "hash": "1c01517e05fc"
    },
    "en": {
     "file": "en/P_IKE_HAMMER.ogg",
-    "seconds": 4.05,
-    "placeholder": true,
+    "seconds": 2.89,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "2fbd132225dd"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Fenrir",
+    "hash": "8c37159d1d15"
    }
   },
   "P_IKE_LIMITER": {
    "de": {
     "file": "de/P_IKE_LIMITER.ogg",
-    "seconds": 3.39,
-    "placeholder": true,
+    "seconds": 2.35,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "b644a45a91ab"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Fenrir",
+    "hash": "7567e73bc4b4"
    },
    "en": {
     "file": "en/P_IKE_LIMITER.ogg",
-    "seconds": 3.13,
-    "placeholder": true,
+    "seconds": 2.37,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "750d8478769d"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Fenrir",
+    "hash": "1cf919b7d40a"
    }
   },
   "P_IKE_POD": {
    "de": {
     "file": "de/P_IKE_POD.ogg",
-    "seconds": 2.7,
-    "placeholder": true,
+    "seconds": 2.03,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "516cd822786a"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Fenrir",
+    "hash": "c08291cab3cb"
    },
    "en": {
     "file": "en/P_IKE_POD.ogg",
-    "seconds": 1.88,
-    "placeholder": true,
+    "seconds": 1.83,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "2beac8aac54f"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Fenrir",
+    "hash": "18eb9908ffae"
    }
   },
   "P_IKE_RAM": {
    "de": {
     "file": "de/P_IKE_RAM.ogg",
-    "seconds": 0.91,
-    "placeholder": true,
+    "seconds": 1.06,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "109978df4acd"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Fenrir",
+    "hash": "4fdddaaeadf8"
    },
    "en": {
     "file": "en/P_IKE_RAM.ogg",
-    "seconds": 0.9,
-    "placeholder": true,
+    "seconds": 0.81,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "740570ef88ed"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Fenrir",
+    "hash": "53f745b0be46"
    }
   },
   "P_IKE_STEPS": {
    "de": {
     "file": "de/P_IKE_STEPS.ogg",
-    "seconds": 2.67,
-    "placeholder": true,
+    "seconds": 1.96,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "6143cd9f5a58"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Fenrir",
+    "hash": "8ea95328f1d9"
    },
    "en": {
     "file": "en/P_IKE_STEPS.ogg",
-    "seconds": 1.93,
-    "placeholder": true,
+    "seconds": 1.57,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "4c951e445263"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Fenrir",
+    "hash": "b7cb67ffae45"
    }
   },
   "P_IKE_UP": {
    "de": {
     "file": "de/P_IKE_UP.ogg",
-    "seconds": 2.62,
-    "placeholder": true,
+    "seconds": 2.08,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "ccffe3f579d2"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Fenrir",
+    "hash": "bbf7128b9aec"
    },
    "en": {
     "file": "en/P_IKE_UP.ogg",
-    "seconds": 2.32,
-    "placeholder": true,
+    "seconds": 1.89,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "f9f6ae926f5a"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Fenrir",
+    "hash": "12928d40bb48"
    }
   },
   "P_IKE_VENT": {
    "de": {
     "file": "de/P_IKE_VENT.ogg",
-    "seconds": 5.01,
-    "placeholder": true,
+    "seconds": 4.23,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "5d462e91051c"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Fenrir",
+    "hash": "e5c04ca61fd5"
    },
    "en": {
     "file": "en/P_IKE_VENT.ogg",
-    "seconds": 4.61,
-    "placeholder": true,
+    "seconds": 3.32,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "b39b0c56ad50"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Fenrir",
+    "hash": "6375a1bdd1cc"
    }
   },
   "P_IKE_WAIT": {
    "de": {
     "file": "de/P_IKE_WAIT.ogg",
-    "seconds": 4.55,
-    "placeholder": true,
+    "seconds": 3.75,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "debc6a2dfea3"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Fenrir",
+    "hash": "a5ca5b856d99"
    },
    "en": {
     "file": "en/P_IKE_WAIT.ogg",
-    "seconds": 3.6,
-    "placeholder": true,
+    "seconds": 3.41,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "cb1ce353ea7b"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Fenrir",
+    "hash": "9ed362823e1a"
    }
   },
   "P_IKE_WAKE": {
    "de": {
     "file": "de/P_IKE_WAKE.ogg",
-    "seconds": 4.97,
-    "placeholder": true,
+    "seconds": 4.2,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "2aa74b571304"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Fenrir",
+    "hash": "30fcb736e487"
    },
    "en": {
     "file": "en/P_IKE_WAKE.ogg",
-    "seconds": 4.7,
-    "placeholder": true,
+    "seconds": 3.73,
+    "placeholder": false,
     "preset": "ike",
-    "source": "sapi",
-    "hash": "f6fa53257960"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Fenrir",
+    "hash": "403d7710a75d"
    }
   },
   "P_L7_BOOT_CORE": {
    "de": {
     "file": "de/P_L7_BOOT_CORE.ogg",
-    "seconds": 6.82,
-    "placeholder": true,
+    "seconds": 4.81,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "691bd28b74d9"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Enceladus",
+    "hash": "30c6aeccd45d"
    },
    "en": {
     "file": "en/P_L7_BOOT_CORE.ogg",
-    "seconds": 5.5,
-    "placeholder": true,
+    "seconds": 5.37,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "9895c21c977b"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Enceladus",
+    "hash": "aaf035913768"
    }
   },
   "P_L7_BOOT_DRIVE": {
    "de": {
     "file": "de/P_L7_BOOT_DRIVE.ogg",
-    "seconds": 3.78,
-    "placeholder": true,
+    "seconds": 3.19,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "c0beb38e930e"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Enceladus",
+    "hash": "585f0d34b94f"
    },
    "en": {
     "file": "en/P_L7_BOOT_DRIVE.ogg",
-    "seconds": 3.59,
-    "placeholder": true,
+    "seconds": 2.82,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "b16a6c4a22c2"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Enceladus",
+    "hash": "8015d8d4066c"
    }
   },
   "P_L7_BOOT_EYES": {
    "de": {
     "file": "de/P_L7_BOOT_EYES.ogg",
-    "seconds": 10.14,
-    "placeholder": true,
+    "seconds": 6.99,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "74b689b240f5"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Enceladus",
+    "hash": "b58dbe7e5841"
    },
    "en": {
     "file": "en/P_L7_BOOT_EYES.ogg",
-    "seconds": 9.52,
-    "placeholder": true,
+    "seconds": 8.09,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "7ca2824c8fcb"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Enceladus",
+    "hash": "c258ea50373a"
    }
   },
   "P_L7_BOOT_FEAR": {
    "de": {
     "file": "de/P_L7_BOOT_FEAR.ogg",
-    "seconds": 9.47,
-    "placeholder": true,
+    "seconds": 6.8,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "bbfb145d19f1"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Enceladus",
+    "hash": "e6af439c1213"
    },
    "en": {
     "file": "en/P_L7_BOOT_FEAR.ogg",
-    "seconds": 6.86,
-    "placeholder": true,
+    "seconds": 7.13,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "9b4cbf1d8982"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Enceladus",
+    "hash": "d47a5225a0e5"
    }
   },
   "P_L7_BOOT_GAP": {
    "de": {
     "file": "de/P_L7_BOOT_GAP.ogg",
-    "seconds": 5.55,
-    "placeholder": true,
+    "seconds": 5.29,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "9c1cbd6ffb9f"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Enceladus",
+    "hash": "890b8b233b10"
    },
    "en": {
     "file": "en/P_L7_BOOT_GAP.ogg",
-    "seconds": 4.69,
-    "placeholder": true,
+    "seconds": 4.24,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "2b18ad10aeb7"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Enceladus",
+    "hash": "e55feb00a845"
    }
   },
   "P_L7_BOOT_HANG": {
    "de": {
     "file": "de/P_L7_BOOT_HANG.ogg",
-    "seconds": 5.26,
-    "placeholder": true,
+    "seconds": 4.66,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "39ed4f39c27c"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Enceladus",
+    "hash": "915170c22e01"
    },
    "en": {
     "file": "en/P_L7_BOOT_HANG.ogg",
-    "seconds": 5.19,
-    "placeholder": true,
+    "seconds": 4.14,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "8ae4322a851f"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Enceladus",
+    "hash": "49e02659469e"
    }
   },
   "P_L7_BOOT_HUM": {
    "de": {
     "file": "de/P_L7_BOOT_HUM.ogg",
-    "seconds": 8.68,
-    "placeholder": true,
+    "seconds": 7.55,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "a8d0d08ae411"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Enceladus",
+    "hash": "b88799f2a915"
    },
    "en": {
     "file": "en/P_L7_BOOT_HUM.ogg",
-    "seconds": 7.02,
-    "placeholder": true,
+    "seconds": 6.61,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "f34ffab13b33"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Enceladus",
+    "hash": "ec7ac4321016"
    }
   },
   "P_L7_BOOT_LEGS": {
    "de": {
     "file": "de/P_L7_BOOT_LEGS.ogg",
-    "seconds": 2.41,
-    "placeholder": true,
+    "seconds": 2.53,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "60e67bb377ee"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Enceladus",
+    "hash": "850b6a0517ac"
    },
    "en": {
     "file": "en/P_L7_BOOT_LEGS.ogg",
-    "seconds": 2.51,
-    "placeholder": true,
+    "seconds": 2.32,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "e0299e87a939"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Enceladus",
+    "hash": "b5ea3298de56"
    }
   },
   "P_L7_BOOT_LIGHT": {
    "de": {
     "file": "de/P_L7_BOOT_LIGHT.ogg",
-    "seconds": 1.3,
-    "placeholder": true,
+    "seconds": 1.33,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "d9ab734c4667"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Enceladus",
+    "hash": "94ce1522839a"
    },
    "en": {
     "file": "en/P_L7_BOOT_LIGHT.ogg",
-    "seconds": 1.08,
-    "placeholder": true,
+    "seconds": 1.41,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "d54220766d48"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Enceladus",
+    "hash": "e9a72dc0e3d7"
    }
   },
   "P_L7_BOOT_NO": {
    "de": {
     "file": "de/P_L7_BOOT_NO.ogg",
-    "seconds": 8.44,
-    "placeholder": true,
+    "seconds": 6.83,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "fad99514b1aa"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Enceladus",
+    "hash": "d0d3e3cdf317"
    },
    "en": {
     "file": "en/P_L7_BOOT_NO.ogg",
-    "seconds": 6.4,
-    "placeholder": true,
+    "seconds": 6.61,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "e17e5a7393a6"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Enceladus",
+    "hash": "6983c27a36dc"
    }
   },
   "P_L7_BOOT_VOICE": {
    "de": {
     "file": "de/P_L7_BOOT_VOICE.ogg",
-    "seconds": 5.85,
-    "placeholder": true,
+    "seconds": 5.07,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "dc5c46948378"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Enceladus",
+    "hash": "12f23ae2ba60"
    },
    "en": {
     "file": "en/P_L7_BOOT_VOICE.ogg",
-    "seconds": 5.04,
-    "placeholder": true,
+    "seconds": 4.83,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "d7ab8ad6c646"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Enceladus",
+    "hash": "90a4f9708dd6"
    }
   },
   "P_L7_BOOT_WORD": {
    "de": {
     "file": "de/P_L7_BOOT_WORD.ogg",
-    "seconds": 8.18,
-    "placeholder": true,
+    "seconds": 6.09,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "80338b6d1fa9"
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Enceladus",
+    "hash": "f07427d00a69"
    },
    "en": {
     "file": "en/P_L7_BOOT_WORD.ogg",
-    "seconds": 6.91,
-    "placeholder": true,
+    "seconds": 6.51,
+    "placeholder": false,
     "preset": "l7",
-    "source": "sapi",
-    "hash": "c006865111df"
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Enceladus",
+    "hash": "0ff80140e84a"
    }
   },
   "P_WHISPER_1": {
