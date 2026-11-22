@@ -163,6 +163,8 @@ public sealed partial class GameWorld
 
         Nav.NewTick();
         Timed("index", IndexActors);
+        // Deck doors whose leaves have slid into the walls stand open for good (GameWorld.Deck).
+        SettleDoorSwings();
 
         if (Tick % TicksPerSecond == 0)
         {

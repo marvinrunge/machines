@@ -86,7 +86,7 @@ public sealed partial class GameWorld
     private bool CanDriveTo(Machine machine, Vector2 next)
     {
         var water = MobilityOf(machine);
-        if (!Nav.OnPlanet(next))
+        if (!Nav.OnPlanet(next) || LeafInWay(machine, machine.Position, next))
             return false;
         if (Nav.IsFree(next, water) || WayInAt(machine, next) is not null)
             return true;
@@ -295,6 +295,9 @@ public sealed partial class GameWorld
             var offset = target - machine.Position;
             var distance = offset.Length();
 
+            // A deck door's leaf still sliding open in the way: it waits before it (GameWorld.Deck).
+            if (LeafInWay(machine, machine.Position, distance <= step ? target : machine.Position + offset / distance * step))
+                return true;
             if (distance <= step)
             {
                 machine.Position = target;

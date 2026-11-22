@@ -35,6 +35,9 @@ public sealed partial class GameWorld
     // The player's machines first try again this much later (MachLogMachineMotionSequencer::reserveChunk).
     private const float PlayerRetry = 0.5f;
 
+    // How soon one stopped before a deck door's leaf still sliding open tries again, seconds.
+    private const float LeafRetry = 0.2f;
+
     // How long a machine makes no headway before it plans a new way (the remake's 3 s are too short among waiting machines).
     private const float StuckWaiting = 10;
 
@@ -307,6 +310,15 @@ public sealed partial class GameWorld
             next = end + 1;
         }
 
+        // A deck door's leaf still sliding open in the way: it stops before it and tries again a moment later (GameWorld.Deck).
+        if (LeafInWay(machine, machine.Position, position))
+        {
+            AnnounceStop(machine, motion);
+            StopDead(motion);
+            motion.MovedTick = Tick;
+            motion.WaitUntil = Time + LeafRetry;
+            return index;
+        }
         if (Blocker(machine, machine.Position, position) is { } blocker)
             return HeldUp(machine, motion, blocker, path, index, way);
 
@@ -764,7 +776,8 @@ public sealed partial class GameWorld
     private bool CanMoveTo(Machine machine, Vector2 from, Vector2 to)
     {
         var water = MobilityOf(machine);
-        return Nav.OnPlanet(to) && Nav.IsFree(to, water) && Nav.LineOfSight(from, to, water) && Blocker(machine, from, to) is null;
+        return Nav.OnPlanet(to) && Nav.IsFree(to, water) && Nav.LineOfSight(from, to, water) && Blocker(machine, from, to) is null
+            && !LeafInWay(machine, from, to);
     }
 
     /// <summary>A machine asked to make way steps aside before it goes on with its order; true while it does.</summary>

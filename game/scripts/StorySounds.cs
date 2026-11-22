@@ -22,7 +22,11 @@ public partial class StorySounds(StoryAudio audio) : Node
     private string? _pinned;
     private string? _room = "";
 
-    public void Play(string id, Vector3? at)
+    /// <summary>
+    /// A one-shot by its id, at a place in the world or not; <paramref name="from"/> seconds into the sound and at a
+    /// <paramref name="pitch"/> (a door sliding open has its stop land as its leaves come to rest, Game.Deck).
+    /// </summary>
+    public void Play(string id, Vector3? at, float from = 0, float pitch = 1)
     {
         var sound = StoryAudio.Sfx.Resolve(id, count => _random.RandiRange(0, count - 1));
         if (sound is null || StoryAudio.SfxPath(sound) is not { } path || StoryAudio.Stream(path) is not { } stream)
@@ -39,14 +43,16 @@ public partial class StorySounds(StoryAudio audio) : Node
             player.AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance;
             player.PanningStrength = 1;
             player.GlobalPosition = place;
-            player.Play();
+            player.PitchScale = pitch;
+            player.Play(from);
             audio.Trace($"sfx {sound} at {place.X:0.#},{place.Y:0.#},{place.Z:0.#}");
         }
         else
         {
             var player = Voice<AudioStreamPlayer>();
             player.Stream = stream;
-            player.Play();
+            player.PitchScale = pitch;
+            player.Play(from);
             audio.Trace($"sfx {sound}");
         }
     }

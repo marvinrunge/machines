@@ -75,6 +75,12 @@ public sealed partial class GameWorld
             Mix(BattleFingerprint());
         if (Story is not null)
             Mix(StoryFingerprint());
+        // Deck doors sliding open: nothing in a match without one.
+        foreach (var swing in _doorSwings)
+        {
+            Mix(swing.Leaf);
+            MixFloat(swing.Until);
+        }
         // The sighted drivers' views and their guns: nothing in a match without one.
         foreach (var (id, yaw) in PlayerYaws)
         {

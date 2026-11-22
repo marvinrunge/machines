@@ -76,7 +76,10 @@ public partial class Game
 
     /// <summary>
     /// The scenario's artefacts on a deck (its doors, gates, vent covers, crates and the computer core), each shown by the
-    /// story prop of its name, fitted to its box; kept by their place in the list as every artefact is.
+    /// story prop of its name, fitted to its box; kept by their place in the list as every artefact is. Only what the sim
+    /// still has where the scenario put it: a checkpoint's world has the doors opened before it open and the core gone from
+    /// its first tick (their removal came before the view could hear it), and a crate it set elsewhere (a barricade's) gets
+    /// its model there from FollowCrates.
     /// </summary>
     private Node3D DeckArtefacts(ArtefactSection section)
     {
@@ -85,6 +88,9 @@ public partial class Game
         for (var index = 0; index < section.Placements.Count; index++)
         {
             var placement = section.Placements[index];
+            if (World.FindTarget(Machines.Sim.World.Artefact.IdBase + index) is not Machines.Sim.World.Artefact { IsDead: false } standing
+                || System.Numerics.Vector2.DistanceSquared(standing.Position, new(placement.Position.X, placement.Position.Y)) > 0.01f)
+                continue;
             var at = new Vector3(placement.Position.X, 0, placement.Position.Y);
             if (Props.Artefact(types.GetValueOrDefault(placement.TypeName), placement, at) is not { } model)
                 continue;
@@ -117,8 +123,57 @@ public partial class Game
             _deckLights[light.Name] = state;
             _deckView.SetLights(light.Name, state);
         }
+        SlideDoors();
         ShowDeckStory(delta);
         SightTestIfAsked(delta);
+    }
+
+    // The deck doors' leaves sliding open: the sim's slide, the model and where it stood closed.
+    private readonly List<(DoorSwing Swing, Node3D Model, Vector3 Closed)> _doorSlides = [];
+
+    // The doors whose sound has played, by letter and the game time they began to open (a door sounds once, not per leaf).
+    private readonly HashSet<(char, float)> _doorsSounded = [];
+
+    /// <summary>When the stop's thud comes in door_open (game/assets/story/sfx), seconds into the sound.</summary>
+    private const float DoorThudAt = 1.7f;
+
+    /// <summary>
+    /// A deck door's leaf the sim took off the map as the door began to open (GameWorld.OpenDoor): its model slides into the
+    /// wall beside the doorway as the sim's leaf does (<see cref="DoorSwing"/>), and the door's sound plays once for its
+    /// leaves, started or slowed so that the thud of its stop lands as the leaves come to rest (a blast door's deeper).
+    /// </summary>
+    private void SlideDoorLeaf(DoorSwing swing, Node3D model)
+    {
+        _doorSlides.Add((swing, model, model.Position));
+        if (!_doorsSounded.Add((swing.Letter, swing.From)))
+            return;
+        var leaves = World.DoorSwings.Where(s => s.Letter == swing.Letter && s.From == swing.From).ToList();
+        var middle = leaves.SelectMany(s => s.Boundary).Aggregate(System.Numerics.Vector2.Zero, (sum, p) => sum + p)
+            / Math.Max(1, leaves.Sum(s => s.Boundary.Count));
+        var seconds = swing.Until - swing.From;
+        var (from, pitch) = seconds <= DoorThudAt ? (DoorThudAt - seconds, 1f) : (0f, DoorThudAt / seconds);
+        StoryAudio.Play("door_open", new Vector3(middle.X, 2, middle.Y), from, pitch);
+    }
+
+    /// <summary>Each frame: the sliding leaves where the sim's slide has them now; one at rest in the wall is gone.</summary>
+    private void SlideDoors()
+    {
+        if (_doorSlides.Count == 0)
+            return;
+        var now = World.Time + (float)_accumulator;
+        for (var i = _doorSlides.Count - 1; i >= 0; i--)
+        {
+            var (swing, model, closed) = _doorSlides[i];
+            var share = IsInstanceValid(model) ? swing.Share(now) : 1;
+            if (share >= 1)
+            {
+                if (IsInstanceValid(model))
+                    model.QueueFree();
+                _doorSlides.RemoveAt(i);
+                continue;
+            }
+            model.Position = closed + new Vector3(swing.Slide.X, 0, swing.Slide.Y) * share;
+        }
     }
 
     /// <summary>A hero's Lamp key in the story: switches its lamp, the sim's (StoryLampCommand), with the switch's click.</summary>
