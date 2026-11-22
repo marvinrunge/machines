@@ -6,7 +6,8 @@ game/assets/story/voice/<lang>/<id>.ogg, marked "placeholder": true in the manif
 
 Lines the user has recorded are never overwritten, nor lines voiced by Google (google_tts.py) for a speaker
 still cast in voices.json: a recording wins over a Google voice, which wins over SAPI.
-Reruns redo only lines whose text, preset or tuning changed (hash in the manifest).
+Reruns redo only lines whose text, preset or tuning changed (hash in the manifest), or whose spoken text changed
+by tools/voice/pronounce.json (German: Ike "Eik", L-7 "Ell sieben"; the subtitles keep the names as written).
 """
 import argparse
 import hashlib
@@ -20,6 +21,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import robot  # noqa: E402
 import google_tts  # noqa: E402
+import pronounce  # noqa: E402
 
 CULTURE = {"de": "de-DE", "en": "en-US"}
 # SAPI only has female voices here (Hedda, Zira): pre-pitch per speaker so the robots differ.
@@ -34,8 +36,12 @@ TUNING = {  # speaker: (extra pitch, SAPI rate -10..10)
 VERSION = 3  # 2: measured gain + limiter instead of loudnorm; 3: limiter without delay
 
 
-def tts_text(text):
+def tts_text(text, lang=None):
+    """The text SAPI speaks: names as pronounce.json says them in lang (German "Ike" -> "Eik", "L-7" ->
+    "Ell sieben"), quotes dropped, a "…" a comma pause, a broken-off word its fragment."""
     t = text.replace("„", "").replace("“", "").replace('"', "")
+    if lang:
+        t = pronounce.spoken(t, lang)
     t = t.replace("L-7", "L 7")
     t = re.sub(r"(\w)-\s*…", r"\1", t)   # broken-off words: "kor- …" -> "kor"
     t = t.replace("…", ",")
@@ -61,9 +67,13 @@ def main():
                 continue  # the user's recording
             if old.get("source") == "google" and google_tts.cast_voice(cast, line["speaker"], lang):
                 continue  # a Google voice
+            say = tts_text(line[lang], lang)
+            # the spoken text joins the hash only where pronounce.json changes it, so every other line keeps its hash
+            # (and its file, byte for byte)
             h = hashlib.sha1(json.dumps([VERSION, line[lang], robot.preset_of(line), pitch, rate,
                                          line.get("cut", False), robot.graph(robot.preset_of(line), pitch,
-                                                                              line.get("cut", False))],
+                                                                              line.get("cut", False))]
+                                        + ([say] if say != tts_text(line[lang]) else []),
                                         ensure_ascii=False).encode("utf-8")).hexdigest()[:12]
             dst = os.path.join(robot.VOICE_OUT, lang, line["id"] + ".ogg")
             if not a.force and old.get("hash") == h and os.path.isfile(dst):
@@ -75,7 +85,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="voice-ph-") as tmp:
         jobs = []
         for i, (line, lang, pitch, rate, h, dst) in enumerate(todo):
-            jobs.append({"text": tts_text(line[lang]), "culture": CULTURE[lang], "rate": rate,
+            jobs.append({"text": tts_text(line[lang], lang), "culture": CULTURE[lang], "rate": rate,
                          "out": os.path.join(tmp, "%03d.wav" % i).replace("\\", "/")})
         jf = os.path.join(tmp, "jobs.json")
         with open(jf, "w", encoding="utf-8") as f:

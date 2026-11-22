@@ -71,8 +71,9 @@ public partial class StoryVoice(StoryAudio audio) : Node
 
     /// <summary>
     /// A cutscene's line, said now, as its script times it, on its own channel (the PA's band and hall, the radio's), so speech
-    /// ducks the world under it as in play; its subtitle comes with it for as long as its voice. What speaks is cut off, and
-    /// the lines waiting (a Grunt's bark as control comes back) are said after it.
+    /// ducks the world under it as in play; its subtitle comes with it for as long as its voice. An announcement or thought
+    /// speaking is cut off; a Grunt's bark speaking is let finish and the line follows it (StoryLineQueue.Force). The lines
+    /// waiting (a Grunt's bark as control comes back) are said after it.
     /// </summary>
     public void SayNow(string id)
     {

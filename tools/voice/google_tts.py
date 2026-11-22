@@ -12,7 +12,8 @@ Google line, which wins over the SAPI stand-in (placeholders.py). Lines with a r
 
 The cast file voices.json names per speaker the voice in each language, its speakingRate and how long a
 "…" inside a line pauses; a line of lines.json may set its own speakingRate per language ("rate": {"en": 0.8}). The text goes to Google as markup: a "…" becomes a [pause long] tag, and the
-pause it leaves is then set to exactly the cast's length. A word broken off with "-" ("kor- …",
+pause it leaves is then set to exactly the cast's length. Names are said as tools/voice/pronounce.json has them
+(German: Ike "Eik", L-7 "Ell sieben"); only the text sent to Google changes, not the subtitles. A word broken off with "-" ("kor- …",
 "Schalte a-") is spoken as its fragment and cut off sharply; lines marked "cut": true lose their reverb
 tail as before. The robot presets are applied as they are (they were tuned for human recordings, and the
 Chirp voices are human-like); the SAPI pre-pitching of placeholders.py does not apply.
@@ -53,6 +54,7 @@ import wave
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import robot  # noqa: E402
+import pronounce  # noqa: E402
 
 CAST = os.path.join(robot.HERE, "voices.json")
 MAIN = robot.REPO.split(os.sep + ".claude" + os.sep)[0]
@@ -278,6 +280,36 @@ def shape_pauses(pcm, count, seconds):
     return b"".join(out), old
 
 
+def cap_gaps(pcm, longest):
+    """Shorten every silent gap inside the speech that is longer than `longest` seconds to that length (the same
+    30 dB rule as shape_pauses). Sadachbia's German leaves 1.2 to 1.7 s between sentences ("Begrenzer raus, L-7!
+    … Lauf!"), too slow for Ike; the "…" pauses are set before this and are shorter than the cap. Returns (pcm,
+    [old lengths of the gaps shortened])."""
+    sm = smoothed(frame_db(pcm))
+    ends = sm and speech_ends(sm, max(sm))
+    if not ends:
+        return pcm, []
+    top = max(sm)
+    loud = [d > top - 30 for d in sm]
+    gaps, start = [], None
+    for i in range(ends[0], ends[1] + 1):
+        if not loud[i] and start is None:
+            start = i
+        elif loud[i] and start is not None:
+            if (i - start) / 100.0 > longest:
+                gaps.append((start, i))
+            start = None
+    keep = 4
+    out, pos, old = [], 0, []
+    for a, b in gaps:
+        old.append((b - a) / 100.0)
+        out.append(pcm[pos:(a + keep) * FRAME * 2])
+        out.append(silence(max(0.0, longest - 2 * keep / 100.0)))
+        pos = (b - keep) * FRAME * 2
+    out.append(pcm[pos:])
+    return b"".join(out), old
+
+
 def chop_end(pcm, ms=CUT_MS):
     """Cut a broken-off word: end the audio `ms` before the last voiced frame ends."""
     v = voiced(frame_db(pcm))
@@ -291,9 +323,11 @@ def chop_end(pcm, ms=CUT_MS):
 # ---------------------------------------------------------------- text
 
 def prepare(text, lang):
-    """Line text -> (markup for Google, number of "…" pauses in it, whether it ends in a broken-off word)."""
+    """Line text -> (markup for Google, number of "…" pauses in it, whether it ends in a broken-off word). Names are
+    said as pronounce.json has them (German "Ike" -> "Eik", "L-7" -> "Ell sieben"); the markup is part of the cache
+    key and the line's hash, so a changed pronunciation gives the line a new take."""
     t = text.replace("„", "").replace("“", "").replace("”", "").replace('"', "")
-    t = t.replace("L-7", "L 7")
+    t = pronounce.spoken(t, lang).replace("L-7", "L 7")  # names as pronounce.json says them
     broken = bool(re.search(r"\w-\s*…?\s*$", t))
     t = re.sub(r"(\w)-(?=\s*…|\s*$)", r"\1", t)   # "kor- …" -> "kor …", "Schalte a-" -> "Schalte a"
     t = re.sub(r"\s*…\s*$", "", t.strip())       # a trailing "…" is the end of the line
@@ -323,6 +357,8 @@ def raw_take(line, lang, voice, spk):
                 joined.append(silence(pause))
             joined.append(trim(synth(part if re.search(r"[.!?,;:]$", part) else part + ".", voice, rate)))
         pcm, gaps = b"".join(joined + [silence(0.1)]), "split"
+    if spk.get("gap"):
+        pcm, _ = cap_gaps(pcm, spk["gap"])  # no silence between sentences longer than the cast's "gap"
     if broken or line.get("cut"):
         pcm = chop_end(pcm)
     return pcm, markup, gaps
@@ -343,7 +379,8 @@ def line_hash(line, lang, voice, spk):
     markup, pauses, broken = prepare(line[lang], lang)
     preset = robot.preset_of(line)
     return hashlib.sha1(json.dumps([VERSION, markup, voice, line_rate(line, lang, spk), GAIN_DB, spk.get("pause", 0.6), preset,
-                                    line.get("cut", False), broken, robot.graph(preset, 1.0, line.get("cut", False))],
+                                    line.get("cut", False), broken, robot.graph(preset, 1.0, line.get("cut", False))]
+                                   + ([spk["gap"]] if spk.get("gap") else []),
                                    ensure_ascii=False).encode("utf-8")).hexdigest()[:12]
 
 

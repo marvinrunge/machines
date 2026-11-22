@@ -197,6 +197,27 @@ public class StoryAudioPlanTests
     }
 
     [Fact]
+    public void ACutscenesLineLetsABarkFinishButCutsTheShip()
+    {
+        // Ike urges the others into the pod a moment before it drops: his bark is let finish, the drop's line comes next,
+        // ahead of Bob's bark waiting.
+        var queue = new StoryLineQueue();
+        queue.Add(Line("P_IKE_POD", StoryVoiceChannel.Radio, 1.74, 0), 0);
+        queue.Add(Line("P_BOB_POD", StoryVoiceChannel.Radio, 0.9, 0.5), 0.5);
+        Assert.Empty(queue.Force(Line("P_AUTO_POD_GO", StoryVoiceChannel.Announcer, 3.3, 1), 1));
+        Assert.Equal("P_IKE_POD", queue.Current?.Id);
+        Assert.Equal([(StoryQueueChange.Ended, "P_IKE_POD")], queue.Update(1.74).Select(e => (e.Change, e.Line.Id)));
+        Assert.Equal([(StoryQueueChange.Started, "P_AUTO_POD_GO")], queue.Update(1.74 + StoryLineQueue.Gap).Select(e => (e.Change, e.Line.Id)));
+        Assert.Equal("P_BOB_POD", Assert.Single(queue.Waiting).Id);
+
+        // An announcement speaking is cut off by it.
+        var ship = new StoryLineQueue();
+        ship.Add(Line("P_AUTO_POD_NO", StoryVoiceChannel.Announcer, 3, 0), 0);
+        Assert.Equal([(StoryQueueChange.Interrupted, "P_AUTO_POD_NO"), (StoryQueueChange.Started, "P_AUTO_POD_GO")],
+            ship.Force(Line("P_AUTO_POD_GO", StoryVoiceChannel.Announcer, 3.3, 1), 1).Select(e => (e.Change, e.Line.Id)));
+    }
+
+    [Fact]
     public void ACutClearsTheQueue()
     {
         var queue = new StoryLineQueue();

@@ -4,11 +4,20 @@ The prologue's spoken lines (`lines.json`) are turned into robot voices by `robo
 filter chain. Each line's voice comes from one of three sources, the first one there is winning:
 
 1. **a recording** by people (`tools/voice/recordings`, `robot.py --batch`),
-2. **a Google voice** (Chirp 3 HD, `google_tts.py`) for the speakers cast in `voices.json`: Ike, Bob, L-7,
+2. **a Google voice** (Chirp 3 HD, `google_tts.py`) for the speakers cast in `voices.json`: Ike (Sadachbia), Bob
+   (Alnilam), L-7 (Iapetus), picked by ear from the sampler,
 3. **a SAPI stand-in** spoken by Windows' own voice (`placeholders.py`) for everyone else (the ship's PA,
    the automatic voice, the whisper).
 
 All three go through the same preset of the line, and the subtitles always work.
+
+## Names
+
+`pronounce.json` says how names are spoken: whole-word replacements applied only to the text a speech engine gets
+(Google and SAPI alike), never to the subtitles. In German Ike is said "Eik" and L-7 "Ell sieben" (also "Ikes",
+"L-7s"); in English L-7 goes to the engine as "L seven" and Ike stays "Ike". A new name or form goes into the table;
+`google_tts.py` and `placeholders.py` then voice again exactly the lines whose spoken text changed. A recording of a
+line should say the names the same way.
 
 Output: `game/assets/story/voice/<lang>/<id>.ogg` (Ogg Vorbis, mono, 48 kHz, -18 LUFS, peaks
 at most -1.5 dBFS) and `game/assets/story/voice/manifest.json` (per line and language: file,
@@ -95,8 +104,9 @@ python tools/voice/google_tts.py --say de-DE-Chirp3-HD-Puck "Wen hauen wir um?" 
 - **Cast** (`voices.json`): per speaker the voice per language, `rate` (speakingRate; Chirp 3 HD has no
   pitch setting, the presets pitch), `pause` (seconds a "…" inside a line lasts: 0.8 for L-7, 0.6 for Ike
   and Bob), the sampler's `candidates` and `sampler` lines. A line in `lines.json` can set its own
-  speakingRate per language, `"rate": {"en": 0.8}` (L-7's English `P_L7_BOOT_GAP` and `P_L7_BOOT_HANG`, which
-  Chirp spoke about a third faster than its other thoughts). A preset variant (`bob-radio`) uses its
+  speakingRate per language, `"rate": {"en": 0.8}` (L-7's English `P_L7_BOOT_GAP`, which Chirp spoke faster than
+  its other thoughts). Ike's `gap` (0.7) is the longest silence left between his sentences: Sadachbia's German
+  otherwise waits up to 1.7 s, too slow for him. A preset variant (`bob-radio`) uses its
   speaker's voice. A speaker taken out of the cast goes back to SAPI with `placeholders.py --force --only …`.
 - **Pauses**: a "…" goes to Google as a `[pause long]` markup tag (about 1.2-1.5 s); the gap it leaves is
   then set to the cast's `pause`. When Chirp runs short fragments together anyway (Ike's "Ich bin … kurz …

@@ -187,12 +187,20 @@ public sealed class StoryLineQueue
     }
 
     /// <summary>
-    /// A line said at once, at the time a cutscene's script gives it (the announcement Erwischt turns on is timed to the core
-    /// blowing): whatever speaks is cut off, and the lines waiting wait behind it.
+    /// A line said at once, at the time a cutscene's script gives it (the automatic voice's "pod away" as pod 3 drops):
+    /// an announcement or a thought speaking is cut off, and the lines waiting wait behind it. A radio bark speaking is
+    /// short and is let finish (Ike's "In, in, in!" comes as the last of the trio boards, a moment before the launch); the
+    /// line then goes next, after the usual gap, ahead of everything waiting.
     /// </summary>
     public List<StoryQueueEvent> Force(StoryQueuedLine line, double now)
     {
         var events = new List<StoryQueueEvent>();
+        if (Current is { Announcement: false } && line.Channel != StoryVoiceChannel.Local)
+        {
+            _waiting.Insert(0, line);
+            _radioTurn = false;
+            return events;
+        }
         if (Current is { } current)
         {
             Leave(current, now);
