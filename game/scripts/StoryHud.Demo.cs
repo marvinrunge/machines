@@ -6,7 +6,7 @@ namespace Machines.Game;
 /// <summary>
 /// MACHINES_STORY_HUD puts the story's HUD into states for pictures, before the director, the hunters and the Grunts' orders
 /// exist to bring them: a comma list of boot (held 80.6 s into the boot, or boot:&lt;seconds&gt;), sneak (an objective with its way, a signature, two
-/// contacts on the tracker), grunts (one drawing the hunters off, one down), alarm (and spotted), countdown, dead (the
+/// contacts on the tracker), grunts (one drawing the hunters off, one down), coop (a person plays Ike), alarm (and spotted), countdown, dead (the
 /// Locator lost), subtitles (two lines held on the screen) and prompt (hack and hold). Only what it names is changed; the
 /// rest stays as the match has it. With MACHINES_STORY=prolog and MACHINES_SCREENSHOT_STORY to set the trio down, e.g.
 /// MACHINES_STORY=prolog MACHINES_SCREENSHOT_STORY=27,27,90 MACHINES_STORY_HUD=sneak,grunts,subtitles.
@@ -74,6 +74,9 @@ public partial class StoryHud
                     hud.OrderGiven(KeyMap.Act.GruntDistract);
                 }
             }
+            // In co-op a person plays Ike: the card's P, and the label over it without the orders' word.
+            if (Has("coop") && now.Grunts.Count >= 1)
+                now = now with { Grunts = [now.Grunts[0] with { Person = true }, .. now.Grunts.Skip(1)] };
             if (Has("alarm"))
                 now = now with { Alarm = true, Spotted = true, Signature = 0.92f };
             if (Has("countdown"))

@@ -104,6 +104,7 @@ public partial class StoryHud : Control
             return;
         DrawBootView(now);
         DrawDanger(now);
+        DrawLabels(now);
         if (Shows(BootPart.Way))
         {
             DrawWay(now);
@@ -417,32 +418,34 @@ public partial class StoryHud : Control
         }
     }
 
-    /// <summary>A little sign of what a Grunt is about: an arrow behind the hero, a shield where it waits, a horn, a cross.</summary>
-    private void DrawDoing(GruntDoing doing, Vector2 at)
+    /// <summary>A little sign of what a Grunt is about: an arrow behind the hero, a shield where it waits, a horn, a cross (at a scale and a strength for its label in the view).</summary>
+    private void DrawDoing(GruntDoing doing, Vector2 at, float scale = 1, float alpha = 1)
     {
-        var r = 7 * _u;
+        var r = 7 * _u * scale;
+        var line = 2 * _u * scale;
+        Color Lit(Color colour) => new(colour, colour.A * alpha);
         switch (doing)
         {
             case GruntDoing.Following:
-                DrawPolyline([at + new Vector2(-r, r * 0.5f), at + new Vector2(0, -r * 0.5f), at + new Vector2(r, r * 0.5f)], MenuTheme.Text, 2 * _u, true);
+                DrawPolyline([at + new Vector2(-r, r * 0.5f), at + new Vector2(0, -r * 0.5f), at + new Vector2(r, r * 0.5f)], Lit(MenuTheme.Text), line, true);
                 break;
             case GruntDoing.Waiting:
-                DrawPolyline([at + new Vector2(-r, -r * 0.7f), at + new Vector2(r, -r * 0.7f), at + new Vector2(r, r * 0.1f), at + new Vector2(0, r), at + new Vector2(-r, r * 0.1f), at + new Vector2(-r, -r * 0.7f)], HudInk.Ice, 2 * _u, true);
+                DrawPolyline([at + new Vector2(-r, -r * 0.7f), at + new Vector2(r, -r * 0.7f), at + new Vector2(r, r * 0.1f), at + new Vector2(0, r), at + new Vector2(-r, r * 0.1f), at + new Vector2(-r, -r * 0.7f)], Lit(HudInk.Ice), line, true);
                 break;
             case GruntDoing.Moving:
-                DrawPolyline([at + new Vector2(-r * 0.5f, -r), at + new Vector2(r * 0.5f, 0), at + new Vector2(-r * 0.5f, r)], HudInk.Gold, 2 * _u, true);
+                DrawPolyline([at + new Vector2(-r * 0.5f, -r), at + new Vector2(r * 0.5f, 0), at + new Vector2(-r * 0.5f, r)], Lit(HudInk.Gold), line, true);
                 break;
             case GruntDoing.Distracting:
                 // A horn, sounding.
-                DrawPolyline([at + new Vector2(-r, -r * 0.3f), at + new Vector2(-r * 0.3f, -r * 0.3f), at + new Vector2(r * 0.5f, -r), at + new Vector2(r * 0.5f, r), at + new Vector2(-r * 0.3f, r * 0.3f), at + new Vector2(-r, r * 0.3f), at + new Vector2(-r, -r * 0.3f)], HudInk.Gold, 2 * _u, true);
-                DrawArc(at + new Vector2(r * 0.5f, 0), r * 0.8f, -0.8f, 0.8f, 8, HudInk.Gold, 1.5f * _u, true);
+                DrawPolyline([at + new Vector2(-r, -r * 0.3f), at + new Vector2(-r * 0.3f, -r * 0.3f), at + new Vector2(r * 0.5f, -r), at + new Vector2(r * 0.5f, r), at + new Vector2(-r * 0.3f, r * 0.3f), at + new Vector2(-r, r * 0.3f), at + new Vector2(-r, -r * 0.3f)], Lit(HudInk.Gold), line, true);
+                DrawArc(at + new Vector2(r * 0.5f, 0), r * 0.8f, -0.8f, 0.8f, 8, Lit(HudInk.Gold), 0.75f * line, true);
                 break;
             case GruntDoing.Down:
-                DrawLine(at - new Vector2(r, r), at + new Vector2(r, r), HudInk.Danger, 2 * _u, true);
-                DrawLine(at + new Vector2(-r, r), at + new Vector2(r, -r), HudInk.Danger, 2 * _u, true);
+                DrawLine(at - new Vector2(r, r), at + new Vector2(r, r), Lit(HudInk.Danger), line, true);
+                DrawLine(at + new Vector2(-r, r), at + new Vector2(r, -r), Lit(HudInk.Danger), line, true);
                 break;
             default:
-                DrawCircle(at, 2.5f * _u, MenuTheme.Dim);
+                DrawCircle(at, 2.5f * _u * scale, Lit(MenuTheme.Dim));
                 break;
         }
     }

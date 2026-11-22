@@ -56,6 +56,7 @@
     <Compile Include="..\..\game\scripts\DeckLayout.cs" Link="Story\DeckLayout.cs" />
     <Compile Include="..\..\game\scripts\DeckRoute.cs" Link="Story\DeckRoute.cs" />
     <Compile Include="..\..\game\scripts\StoryReadout.cs" Link="Story\StoryReadout.cs" />
+    <Compile Include="..\..\game\scripts\GruntLabels.cs" Link="Story\GruntLabels.cs" />
     <Compile Include="..\..\game\scripts\SubtitleQueue.cs" Link="Story\SubtitleQueue.cs" />
     <Compile Include="..\..\game\scripts\StoryAudioPlan.cs" Link="Story\StoryAudioPlan.cs" />
   </ItemGroup>

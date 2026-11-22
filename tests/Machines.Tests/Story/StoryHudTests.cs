@@ -231,6 +231,93 @@ public class StoryHudTests
         Assert.InRange(still, 0, 0.1f);
     }
 
+    // ---- the Grunts' labels ------------------------------------------------------------------------------
+
+    [Fact]
+    public void Each_of_the_others_has_its_machine_and_place_for_its_label_the_scrap_heap_while_down()
+    {
+        var world = Prologue(new StoryOptions { Checkpoint = 1, IkeName = "Rusty" });
+        var run = world.Story!;
+        var locator = world.HeroOf(run.Locator)!;
+        var ike = world.HeroOf(run.Seats[1])!;
+        ike.Position = locator.Position + new Vector2(5, 0);
+
+        var label = Readout(world).Grunts[0];
+        Assert.Equal("Rusty", label.Name);
+        Assert.Equal(ike.Id, label.Actor);
+        Assert.Equal(ike.Position, label.Position);
+        Assert.Equal(5, label.Distance!.Value, 3);
+        // Down, the label stays on its heap, so the Locator can find it.
+        run.Flags.Add(StoryMarks.Down(run.Seats[1]));
+        label = Readout(world).Grunts[0];
+        Assert.Equal(GruntDoing.Down, label.Doing);
+        Assert.Equal(ike.Id, label.Actor);
+        Assert.Equal(5, label.Distance!.Value, 3);
+        // A Grunt playing has the Locator labelled L-7, at its own place.
+        var l7 = Readout(world, 2).Grunts[0];
+        Assert.Equal(StoryReadout.LocatorName, l7.Name);
+        Assert.Equal(locator.Id, l7.Actor);
+    }
+
+    [Fact]
+    public void A_label_fades_near_in_plain_view_shrinks_far_off_and_has_an_arrow_off_screen_only_when_far_or_down()
+    {
+        // Near and in plain view it is gone; far off, or behind a wall, whole.
+        Assert.Equal(0, GruntLabels.Alpha(3, plainView: true, GruntDoing.Following));
+        Assert.Equal(1, GruntLabels.Alpha(GruntLabels.Clear, plainView: true, GruntDoing.Following));
+        Assert.Equal(1, GruntLabels.Alpha(3, plainView: false, GruntDoing.Following));
+        var between = GruntLabels.Alpha((GruntLabels.Near + GruntLabels.Clear) / 2, plainView: true, GruntDoing.Waiting);
+        Assert.InRange(between, 0.3f, 0.7f);
+        // A Grunt down keeps half its label even beside the Locator.
+        Assert.Equal(0.5f, GruntLabels.Alpha(2, plainView: true, GruntDoing.Down));
+
+        Assert.Equal(1, GruntLabels.Scale(4));
+        Assert.Equal(GruntLabels.Smallest, GruntLabels.Scale(80), 4);
+        Assert.InRange(GruntLabels.Scale(20), GruntLabels.Smallest, 1);
+        Assert.True(GruntLabels.Scale(30) < GruntLabels.Scale(15));
+
+        // One following at the hero's back has no arrow; one far off or down has.
+        Assert.False(GruntLabels.Arrow(4, GruntDoing.Following));
+        Assert.True(GruntLabels.Arrow(GruntLabels.ArrowFrom, GruntDoing.Waiting));
+        Assert.True(GruntLabels.Arrow(3, GruntDoing.Down));
+        Assert.False(GruntLabels.Arrow(40, GruntDoing.Dormant));
+    }
+
+    [Fact]
+    public void Plain_view_on_the_deck_is_blocked_by_walls_and_closed_doors_not_by_grates()
+    {
+        var world = Prologue();
+        var deck = world.Deck!;
+        static Vector2 Middle(int x, int y) => new(x + 0.5f, y + 0.5f);
+        // Floor, one to four cells of what is asked, floor: along a row or down a column; the two floors' middles and the first cell between.
+        (Vector2 From, Vector2 To, int X, int Y)? Find(Func<DeckCell, bool> between, Func<int, int, bool>? also = null)
+        {
+            foreach (var (dx, dy) in new[] { (1, 0), (0, 1) })
+                for (var span = 1; span <= 4; span++)
+                    for (var y = dy; y + dy * span < deck.Depth; y++)
+                        for (var x = dx; x + dx * span < deck.Width; x++)
+                        {
+                            if (deck.Cell(x - dx, y - dy) != DeckCell.Floor || deck.Cell(x + dx * span, y + dy * span) != DeckCell.Floor || !(also?.Invoke(x, y) ?? true))
+                                continue;
+                            if (Enumerable.Range(0, span).All(i => between(deck.Cell(x + dx * i, y + dy * i))))
+                                return (Middle(x - dx, y - dy), Middle(x + dx * span, y + dy * span), x, y);
+                        }
+            return null;
+        }
+
+        var open = Find(c => c == DeckCell.Floor)!.Value;
+        Assert.True(GruntLabels.PlainView(world, open.From, open.To));
+        var wall = Find(c => c == DeckCell.Wall)!.Value;
+        Assert.False(GruntLabels.PlainView(world, wall.From, wall.To));
+        if (Find(c => c == DeckCell.Grate) is { } grate)
+            Assert.True(GruntLabels.PlainView(world, grate.From, grate.To));
+
+        var door = Find(c => c == DeckCell.Door, (x, y) => world.DoorClosed(deck.At(x, y)))!.Value;
+        Assert.False(GruntLabels.PlainView(world, door.From, door.To));
+        world.OpenDoor(deck.At(door.X, door.Y));
+        Assert.True(GruntLabels.PlainView(world, door.From, door.To));
+    }
+
     // ---- subtitles ---------------------------------------------------------------------------------------
 
     [Fact]
@@ -312,7 +399,7 @@ public class StoryHudTests
 
     /// <summary>The story's screens: every English word they put through the translation is in de.po.</summary>
     private static readonly string[] StoryScreens =
-        ["StoryHud.cs", "StoryHud.Boot.cs", "StoryHud.Demo.cs", "StoryPage.cs", "StoryProgress.cs", "StoryFilm.cs", "Subtitles.cs"];
+        ["StoryHud.cs", "StoryHud.Boot.cs", "StoryHud.Demo.cs", "StoryHud.Labels.cs", "StoryPage.cs", "StoryProgress.cs", "StoryFilm.cs", "Subtitles.cs"];
 
     [Fact]
     public void Every_word_of_the_storys_screens_and_every_line_of_the_table_has_its_German()
