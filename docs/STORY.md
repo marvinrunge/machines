@@ -792,6 +792,17 @@ Die Originalmusik bleibt für Kampagne und Schlachten. Der Story-Modus bekommt e
 Für die Schichten sollte jedes Stück als **Stems** vorliegen (Ambient, Spannung, Perkussion). Wenn der Generator keine
 liefert, trennt ein Stem-Splitter wie Demucs sie nachträglich. Lizenzbedingungen des Generators für die Weitergabe prüfen.
 
+**Die Musik des Prologs** (eigene Stücke, `game/assets/story/music`, `StoryScore`): Ab dem Start läuft im Hintergrund eine
+Playlist, ein Stück nach dem anderen mit kurzer Überblendung: *Lost In The Void*, *Lost Vessel*, *Drift Into The Black* und
+der ruhige Teil von *Lost In The Dark*; reicht sie nicht bis zum Einbruch, beginnt sie von vorn. Abschnitte und Checkpoints
+starten sie nicht neu: Nach einem Sturz geht es mit dem Stück weiter, das lief. Ist das Trio gejagt, tritt sie ein paar
+Dezibel zurück, damit die Schritte des Threshers durchkommen. Beim Einbruch der Reaper (Erwischt) bricht sie ab, und der
+laute Teil von *Lost In The Dark* setzt mit seinem Einsatz ein, einmal. Ist er zu Ende und das Trio aus dem Rechnerraum,
+geht die Playlist leiser weiter, wo sie war (Abschnitte 5 und 6). Mit dem Countdown im Notgang („Atmosphäreneintritt in drei
+Minuten“) beginnt *Pressure At Sector Nine*, so gelegt, dass sein letzter Ton kurz vor null fällt (vom Checkpoint mit 150 s
+ein Stück weiter drin); beim Abwurf läuft er in die Szene und klingt in ihren ersten sechs Sekunden aus. Die Musik ist reine Ansicht: Jeder
+Rechner spielt sie im Koop selbst nach den gemeinsamen Beats.
+
 ### Neue Soundeffekte (erste Liste)
 
 Raumton-Loops: Reaktorbrummen, Lüftung, Metallächzen, Wind über Wracks, Eishöhle mit Tropfen und Knacken, Sandsturm von innen.

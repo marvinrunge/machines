@@ -33,7 +33,8 @@ public partial class StoryAudioTest(StoryAudio audio) : Node
         At(0.0, "bay ambience, calm music", () =>
         {
             StoryAudio.SetAmbience("R1");
-            StoryAudio.Cue("wartung");
+            // The section's music: the score's playlist where its files are there, else the cue's stand-in.
+            StoryAudio.Cue(null);
             StoryAudio.SetThreat(0);
         });
         At(1.0, "PA line", () => StoryAudio.Say("P_ANN_WAKE_1"));
@@ -57,6 +58,8 @@ public partial class StoryAudioTest(StoryAudio audio) : Node
             StoryAudio.SetAmbience("R4");
             StoryAudio.SetLayer("amb_alarm_klaxon", true, -12);
             StoryAudio.SetThreat(1);
+            // Erwischt: the score's loud part over the cut playlist.
+            StoryAudio.Caught();
         });
         At(23.0, "PA fragment", () => StoryAudio.Say("P_ANN_C5"));
         At(24.2, "PA cut off", () => StoryAudio.CutVoice());

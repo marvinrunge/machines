@@ -28,6 +28,9 @@ public partial class Game
             LocatorHealth = () => World.HeroOf(locator) is { MaxHitPoints: > 0 } hero ? (float)hero.HitPoints / hero.MaxHitPoints : 1,
             Shown = () => !Hidden,
             Over = () => World.Story?.Over ?? true,
+            Chapter = story.Options.Chapter,
+            StartCheckpoint = story.Options.Checkpoint,
+            CountdownLeft = () => World.Story?.Timers.TryGetValue(Machines.Sim.Story.StoryMarks.Countdown, out var ends) == true ? MathF.Max(0, ends - World.Time) : null,
         };
         AddChild(_storyAudio);
     }

@@ -287,6 +287,10 @@ public partial class Game
             case ["cutscene", var name]:
                 // The chapter's last cutscene (the pod's drop in the bay) ends black, and black it stays until its film goes on outside.
                 var last = World.Story is { } ending && StoryFilm.Of(ending.Options.Chapter, Online)?.Cutscene == name;
+                // The music runs into the last cutscene and out over its first seconds (its silence would let the buses
+                // back up as it ends, music and all, under the black).
+                if (last)
+                    StoryAudio.MusicOut(6);
                 PlayCutscene(name, last ? _ => HoldStoryBlack() : null);
                 break;
             case ["debris", "falling", ..]:
@@ -342,6 +346,8 @@ public partial class Game
                 CameraRig.Shake(at, 6, 0.8f);
                 break;
             case ["break", "in"]:
+                // Erwischt: the score cuts to the loud part of Lost In The Dark.
+                StoryAudio.Caught();
                 StoryAudio.Sting("sting_found");
                 _screen.Interference(GameOptions.SoftScares ? 0.2f : 0.45f, 0.8f);
                 break;

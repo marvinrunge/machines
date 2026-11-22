@@ -56,6 +56,13 @@ public partial class StoryAudio : Node
     public Func<bool> Shown { get; init; } = () => true;
     public Func<bool> Over { get; init; } = () => false;
 
+    /// <summary>The chapter played (its score, StoryScore) and the checkpoint it was started from.</summary>
+    public string Chapter { get; init; } = "";
+    public int StartCheckpoint { get; init; }
+
+    /// <summary>The seconds left on the crash countdown, null while it is not running (the escape's piece follows it).</summary>
+    public Func<float?> CountdownLeft { get; init; } = () => null;
+
     private StoryVoice _voice = null!;
     private StorySounds _sounds = null!;
     private StoryMusic _music = null!;
@@ -119,7 +126,7 @@ public partial class StoryAudio : Node
             return;
         _nextLook = _clock + 0.25;
         var listener = Listener;
-        _music.Look(ThresherDistance(listener), Suspicion(), Section());
+        _music.Look(ThresherDistance(listener), Suspicion(), Section(), CountdownLeft());
         _sounds.Look(listener, Section());
         SetMuffledHere("damaged", LocatorHealth() < 0.25f);
     }
@@ -146,6 +153,12 @@ public partial class StoryAudio : Node
 
     /// <summary>The music's cue (wartung, jagd, gegenwehr, absturz, silence); null follows the section.</summary>
     public static void Cue(string? cue) => Current?._music.Cue(cue);
+
+    /// <summary>The music fades out over so many seconds and stays silent for the rest of the chapter.</summary>
+    public static void MusicOut(float seconds) => Current?._music.Out(seconds);
+
+    /// <summary>The trio is caught (the break-in): the score's loud part plays, the playlist cut (StoryScore).</summary>
+    public static void Caught() => Current?._music.Caught();
 
     /// <summary>A stinger (sting_dread, sting_found, sting_alarm) over the music; quiet with "Schreckmomente mildern".</summary>
     public static void Sting(string sfxId) => Current?._music.Sting(sfxId);
@@ -353,6 +366,9 @@ public partial class StoryAudio : Node
             foreach (var part in new[] { cue, cue + "_1", cue + "_2" })
                 if (ResourceLoader.Exists($"{MusicFolder}/{part}.ogg"))
                     yield return $"{MusicFolder}/{part}.ogg";
+        foreach (var piece in StoryScore.Pieces)
+            if (ResourceLoader.Exists($"{MusicFolder}/{piece.Name}.ogg"))
+                yield return $"{MusicFolder}/{piece.Name}.ogg";
     }
 
     /// <summary>Loads a story stream now (<see cref="Warmup"/>), so that it plays at once when its time comes.</summary>
