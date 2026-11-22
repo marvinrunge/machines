@@ -94,6 +94,8 @@ public partial class StoryAudio : Node
         Name = "StoryAudio";
         Current = this;
         BuildBuses();
+        if (StoryStems.Folder is { } stems && StoryStems.Tap(stems) is { } tap)
+            AddChild(tap);
         _voice = new StoryVoice(this) { Name = "StoryVoice" };
         _sounds = new StorySounds(this) { Name = "StorySounds" };
         _music = new StoryMusic(this) { Name = "StoryMusic" };
@@ -228,8 +230,20 @@ public partial class StoryAudio : Node
         AudioServer.SetBusVolumeDb(Index(MusicBus), Mathf.LinearToDb(Mathf.Max(0.001f, global::Machines.Game.Music.Volume)));
         AudioServer.SetBusVolumeDb(Index(VoiceBus), Mathf.LinearToDb(Mathf.Max(0.001f, GameAudio.SoundVolume)));
 
-        // Speech pushes the world and the music down by itself.
-        AudioEffectCompressor Duck() => new() { Sidechain = VoiceBus, Threshold = -28, Ratio = 4, AttackUs = 20000, ReleaseMs = 450 };
+        // The voices come through the music and the fight (the play-test: "die Stimmen kommen nicht durch"): a gentle
+        // compressor with 4 dB of makeup lifts the quiet lines (the PA from afar, the trio's radio) more than the close
+        // ones (L-7's thoughts lose about 1 dB), and the radio no longer loses 3 dB in its crush (below). Measured over a
+        // whole run from checkpoint 0 in German (MACHINES_STORY_STEMS), every line now sits at least 15 dB over the music
+        // in the speech band (300-3400 Hz; Ike's wake line 19 dB, from 2 before), the music between the lines as loud as
+        // before.
+        var voice = Index(VoiceBus);
+        AudioServer.AddBusEffect(voice, new AudioEffectCompressor { Threshold = -16, Ratio = 1.6f, AttackUs = 2000, ReleaseMs = 150, Gain = 4 });
+
+        // Speech pushes the world and the music down by itself (the sidechain hears the voices after their compressor):
+        // within 5 ms, so a line that starts with a stinger ("Gefunden.") is not buried under its first blow, and from 4 dB
+        // lower than before; the world (the gunfire and blasts of the core and the workshop) from lower still.
+        AudioEffectCompressor Duck() => new() { Sidechain = VoiceBus, Threshold = -32, Ratio = 4, AttackUs = 5000, ReleaseMs = 450 };
+        AudioEffectCompressor WorldDuck() => new() { Sidechain = VoiceBus, Threshold = -34, Ratio = 4, AttackUs = 5000, ReleaseMs = 450 };
 
         var world = Index(WorldBus);
         _worldReverb = new AudioEffectReverb { RoomSize = StorySoundscape.Room.RoomSize, Damping = StorySoundscape.Room.Damping, Wet = StorySoundscape.Room.Wet, Dry = 1, PredelayMsec = StorySoundscape.Room.PredelayMs, Spread = 0.8f, Hipass = 0.1f };
@@ -237,7 +251,7 @@ public partial class StoryAudio : Node
         _worldHush = new AudioEffectAmplify { VolumeDb = 0 };
         AudioServer.AddBusEffect(world, _worldReverb);
         AudioServer.AddBusEffect(world, _worldMuffle);
-        AudioServer.AddBusEffect(world, Duck());
+        AudioServer.AddBusEffect(world, WorldDuck());
         AudioServer.AddBusEffect(world, _worldHush);
         _worldFilm = new AudioEffectAmplify { VolumeDb = 0 };
         AudioServer.AddBusEffect(world, _worldFilm);
@@ -257,7 +271,7 @@ public partial class StoryAudio : Node
         var radio = Index(RadioBus);
         AudioServer.AddBusEffect(radio, new AudioEffectHighPassFilter { CutoffHz = 450 });
         AudioServer.AddBusEffect(radio, new AudioEffectLowPassFilter { CutoffHz = 3000 });
-        AudioServer.AddBusEffect(radio, new AudioEffectDistortion { Mode = AudioEffectDistortion.ModeEnum.Lofi, Drive = 0.25f, PreGain = 0, PostGain = -3, KeepHfHz = 16000 });
+        AudioServer.AddBusEffect(radio, new AudioEffectDistortion { Mode = AudioEffectDistortion.ModeEnum.Lofi, Drive = 0.25f, PreGain = 0, PostGain = 0, KeepHfHz = 16000 });
     }
 
     // The story's buses go when the chapter ends: the game's effects send to Master again, as in every other match.

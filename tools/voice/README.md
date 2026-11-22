@@ -75,11 +75,16 @@ lower). `python tools/voice/robot.py --list` names the presets.
 | `bob` | Bob | pitch x0.86, metallic comb filter (3/6/9 ms), presence peak, 85 ms echo |
 | `bob-radio` | `P_BOB_GLITCH` | bob over a breaking radio: telephone band, crush, dropouts, hiss |
 | `whisper` | the update | pitch x0.82, whispered (random-phase FFT), reversed reverb swelling into the words |
-| `l7` | the Locator's thoughts (`P_L7_`) | pitch x0.97, a faint monotone buzz and a breath of whisper under the voice, light crush, close and dry |
+| `l7` | the Locator's thoughts (`P_L7_`) | two semitones up (x1.089, formants kept), a monotone buzz, a faint 95 Hz ring modulation, a short metallic comb and a breath of whisper under the voice, light crush, close and dry |
 | `plain` | comparisons, spoken labels | no robot: only trimmed and levelled |
 
 The game adds the room on top later (announcer bus, 3D speakers), so the presets stay fairly
 dry apart from the PA's hall.
+
+In the game the voices go through a gentle compressor with 4 dB of makeup on the story's `Voice` bus, and speech ducks
+the music and the world (`StoryAudio.BuildBuses`). To check the mix, `MACHINES_STORY_STEMS=<folder>` records the music
+(before and after the duck), the world and the voices of a story run on their own, with each line's start and end
+(`StoryStems`), for measuring each line against the music in the speech band.
 
 ## Google voices
 
