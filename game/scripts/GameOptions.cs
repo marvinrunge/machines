@@ -6,9 +6,9 @@ namespace Machines.Game;
 /// The switches of the original's options screen (MachGuiCtxOptions) beside the volumes and the look: the up and down
 /// keys reversed, the first-person mouse reversed, the 2D selection box, 3D sound and the gamma correction. They are
 /// kept in <c>user://settings.cfg</c> and take at once. MACHINES_OPTIONS sets them for one run (screenshots, checks),
-/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic,dof=strong,film=on,mouse_speed=1.5,classic_mouse=on,classic_keys=on,weapon_buttons=on,fire_waits=off,hud_size=1.25,subtitles=large,soft_scares=on</c>.
-/// Depth of field, the film look, the first-person mouse speed, the choice of mouse and keys, the triggers of the weapons, fire waiting for the gun, the HUD's size
-/// and the story's subtitles and softened scares are the remake's own.
+/// unsaved, e.g. <c>gamma=1.6,reverse_keys=on,reverse_mouse=on,selection_2d=on,sound_3d=off,layout=classic,dof=strong,film=on,mouse_speed=1.5,classic_mouse=on,classic_keys=on,weapon_buttons=on,fire_waits=off,hud_size=1.25,crosshair_opacity=0.8,subtitles=large,soft_scares=on</c>.
+/// Depth of field, the film look, the first-person mouse speed, the choice of mouse and keys, the triggers of the weapons, fire waiting for the gun, the HUD's size,
+/// the crosshair's opacity and the story's subtitles and softened scares are the remake's own.
 /// </summary>
 public static class GameOptions
 {
@@ -22,7 +22,7 @@ public static class GameOptions
 
     private static bool _read, _reverseKeys, _reverseMouse, _selection2d, _sound3d = true, _classicDriving, _filmLook, _classicMouse, _classicKeys, _weaponButtons, _transitions = true, _fireWaits = true, _softScares;
     private static Captions _subtitles = Captions.Normal;
-    private static float _gamma = 1, _mouseSpeed = 1, _hudSize = 1;
+    private static float _gamma = 1, _mouseSpeed = 1, _hudSize = 1, _crosshairOpacity = Machines.Game.CrosshairOpacity.Default;
     private static Blur _depthOfField;
     private static string? _playerName, _publicRelay;
 
@@ -99,6 +99,17 @@ public static class GameOptions
     {
         get { Read(); return _hudSize; }
         set => Keep(ref _hudSize, Mathf.Clamp(value, HudSizes[0], HudSizes[^1]), "display", "hud_size");
+    }
+
+    /// <summary>
+    /// How strongly the first-person sight is drawn, from 0.1 to 1 (<see cref="Machines.Game.CrosshairOpacity"/>): its rings
+    /// and marks, the target's bars, the compass under it, the spread marks and the dot in the middle; only the brackets of a
+    /// located enemy stay as they are. Half at first. Not in the original. Kept as <c>crosshair_opacity</c>.
+    /// </summary>
+    public static float CrosshairOpacity
+    {
+        get { Read(); return _crosshairOpacity; }
+        set => Keep(ref _crosshairOpacity, Machines.Game.CrosshairOpacity.Clamp(value), "display", "crosshair_opacity");
     }
 
     /// <summary>Whether a transition leads between the menus' screens (Menu Transitions, see <see cref="MenuTransition"/>).</summary>
@@ -301,6 +312,10 @@ public static class GameOptions
             _weaponButtons = (bool)config.GetValue("controls", "weapon_buttons", false);
             _fireWaits = (bool)config.GetValue("controls", "fire_waits_for_gun", true);
             _hudSize = Mathf.Clamp((float)(double)config.GetValue("display", "hud_size", 1.0), HudSizes[0], HudSizes[^1]);
+            // Settings saved before the crosshair's opacity was there read the default.
+            var opacity = config.GetValue("display", "crosshair_opacity", (double)Machines.Game.CrosshairOpacity.Default);
+            _crosshairOpacity = opacity.VariantType is Variant.Type.Float or Variant.Type.Int
+                ? Machines.Game.CrosshairOpacity.Clamp((float)opacity.AsDouble()) : Machines.Game.CrosshairOpacity.Default;
             _playerName = (string)config.GetValue("multiplayer", "name", "") is { Length: > 0 } name ? name : null;
             _publicRelay = ((string)config.GetValue("multiplayer", "public_relay", "")).Trim();
             _subtitles = Enum.TryParse<Captions>((string)config.GetValue("story", "subtitles", "normal"), true, out var captions) ? captions : Captions.Normal;
@@ -330,6 +345,9 @@ public static class GameOptions
                     break;
                 case "hud_size" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var hud):
                     _hudSize = Mathf.Clamp(hud, HudSizes[0], HudSizes[^1]);
+                    break;
+                case "crosshair_opacity" when Machines.Game.CrosshairOpacity.Parse(value) is { } opacity:
+                    _crosshairOpacity = opacity;
                     break;
                 case "mouse_speed" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var speed):
                     _mouseSpeed = Mathf.Clamp(speed, MouseSpeedLowest, MouseSpeedHighest);

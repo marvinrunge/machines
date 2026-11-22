@@ -50,6 +50,7 @@
     <Compile Include="..\..\game\scripts\RoomOptions.cs" Link="Net\RoomOptions.cs" />
     <Compile Include="..\..\game\scripts\WeaponTriggers.cs" Link="Sim\WeaponTriggers.cs" />
     <Compile Include="..\..\game\scripts\KeyClash.cs" Link="Sim\KeyClash.cs" />
+    <Compile Include="..\..\game\scripts\CrosshairOpacity.cs" Link="Sim\CrosshairOpacity.cs" />
     <Compile Include="..\..\game\scripts\GameLocator.cs" Link="Import\GameLocator.cs" />
     <Compile Include="..\..\game\scripts\GameDisc.cs" Link="Import\GameDisc.cs" />
     <Compile Include="..\..\game\scripts\DeckLayout.cs" Link="Story\DeckLayout.cs" />

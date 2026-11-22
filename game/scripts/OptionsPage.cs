@@ -146,6 +146,7 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         var film = Setting("Film look", Switch(GameOptions.FilmLook, on => GameOptions.FilmLook = on), 0);
         rows.AddChild(Setting("Depth of field", Line(28, blur, film)));
         blur.SizeFlagsHorizontal = film.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        rows.AddChild(CrosshairOpacity());
 
         columns.AddChild(Controls(() => stage.Show(new KeysPage(() => stage.Show(new OptionsPage(_back, inGame)))), HudSize()));
 
@@ -171,6 +172,28 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
                 HudArt.Prepare(HudScale.Of(GetViewportRect().Size));
         };
         return Setting("HUD size", choice, 0);
+    }
+
+    /// <summary>
+    /// How strongly the first-person sight is drawn (<see cref="GameOptions.CrosshairOpacity"/>), 10 to 100 % in steps of 5,
+    /// its share beside the slider; over a match the sight shows the change at once. In the left column, which ends above the
+    /// right one, so the page grows no taller.
+    /// </summary>
+    private static Control CrosshairOpacity()
+    {
+        var shown = MenuTheme.Label(Machines.Game.CrosshairOpacity.Percent(GameOptions.CrosshairOpacity), 22, MenuTheme.Text, HorizontalAlignment.Right);
+        shown.CustomMinimumSize = new Vector2(90, 0);
+        shown.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        var slider = Slider(GameOptions.CrosshairOpacity, value =>
+        {
+            GameOptions.CrosshairOpacity = value;
+            shown.Text = Machines.Game.CrosshairOpacity.Percent(GameOptions.CrosshairOpacity);
+        }, Machines.Game.CrosshairOpacity.Lowest, Machines.Game.CrosshairOpacity.Highest);
+        slider.Step = Machines.Game.CrosshairOpacity.Step;
+        var row = Setting("Crosshair opacity", Line(18, slider, shown));
+        slider.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        slider.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        return row;
     }
 
     private static string Describe(Look look) => look switch
