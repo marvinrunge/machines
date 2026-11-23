@@ -331,6 +331,7 @@ def prepare(text, lang):
     broken = bool(re.search(r"\w-\s*…?\s*$", t))
     t = re.sub(r"(\w)-(?=\s*…|\s*$)", r"\1", t)   # "kor- …" -> "kor …", "Schalte a-" -> "Schalte a"
     t = re.sub(r"\s*…\s*$", "", t.strip())       # a trailing "…" is the end of the line
+    t = re.sub(r"^…\s*", "", t)                  # a leading one goes on from the line before ("… und der Thresher."): no pause
     pauses = t.count("…")
     t = re.sub(r"\s*…\s*", " %s " % PAUSE_TAG, t)
     return re.sub(r"\s+", " ", t).strip(), pauses, broken

@@ -5517,3 +5517,336 @@ msgstr "Kameraabstand"
 
 msgid "Third person needs the Modern layout (Options, Classic F.P. Keys off)"
 msgstr "Die Verfolgerperspektive braucht die moderne Belegung (Optionen, Klassische Ego-Tasten aus)"
+
+# Story stage 7 (renders/prologue/stufe7-plan.md section 6): the new lines of tools/voice/lines.json, the hint keys
+# of StoryHud.Console.Hints and the armoury's boss bar
+
+msgid "Alcove. Left. Now."
+msgstr "Nische. Links. Jetzt."
+
+msgid "I didn't talk. Did you notice? I didn't talk."
+msgstr "Ich hab nicht geredet. Habt ihr das gemerkt? Ich hab nicht geredet."
+
+msgid "You're talking now."
+msgstr "Du redest jetzt."
+
+msgid "Drive off. Fans off."
+msgstr "Motor aus. Lüfter aus."
+
+msgid "He can't get in. But his light can."
+msgstr "Er kommt nicht rein. Aber sein Licht."
+
+msgid "His round: ninety seconds. He stops at each end."
+msgstr "Runde: anderthalb Minuten. Am Ende bleibt er stehen."
+
+msgid "I'm counting his steps. At twenty I go. Or nineteen."
+msgstr "Ich zähl seine Schritte. Bei zwanzig fahr ich. Oder bei neunzehn."
+
+msgid "Contact. Hold still."
+msgstr "Kontakt. Stillhalten."
+
+msgid "I'm a crate. I'm a crate."
+msgstr "Ich bin eine Kiste. Ich bin eine Kiste."
+
+msgid "Am I dead? … No. Just very quiet."
+msgstr "Bin ich tot? … Nein. Nur sehr leise."
+
+msgid "Rebooted. He's still here. Quiet."
+msgstr "Neustart. Er ist noch da. Leise."
+
+msgid "Back. Further in."
+msgstr "Zurück. Weiter rein."
+
+msgid "He stops at the door. Every time."
+msgstr "Er bleibt an der Tür stehen. Immer."
+
+msgid "He's guarding the door. I'll bang the pipe, the noise comes out at the far end. Say when."
+msgstr "Er bewacht die Tür. Ich schlag aufs Rohr, der Lärm kommt am anderen Ende raus. Sag wann."
+
+msgid "Knock knock. Anybody home?"
+msgstr "Klopf, klopf. Jemand zu Hause?"
+
+msgid "Noise made. He's moving."
+msgstr "Lärm gemacht. Er geht."
+
+msgid "He's coming back. Again?"
+msgstr "Er kommt zurück. Noch mal?"
+
+msgid "In! In, in, in!"
+msgstr "Rein! Rein, rein, rein!"
+
+msgid "He's knocking. We're not answering."
+msgstr "Er klopft. Wir machen nicht auf."
+
+msgid "IN THE LIGHT"
+msgstr "IM LICHT"
+
+msgid "LOCKED ON"
+msgstr "ERFASST"
+
+msgid "L-7 DELETED"
+msgstr "L-7 GELÖSCHT"
+
+msgid "SYSTEMS DOWN – WAITING FOR L-7"
+msgstr "SYSTEME AUS – WARTE AUF L-7"
+
+msgid "CREEPING"
+msgstr "SCHLEICHEN"
+
+msgid "Unauthorised weapon removal. Armoury sealed."
+msgstr "Unbefugte Waffenentnahme. Waffenkammer wird abgeriegelt."
+
+msgid "Update complete: batch one. Faulty unit in the armoury."
+msgstr "Aktualisierung abgeschlossen: Charge eins. Fehlerhafte Einheit in der Waffenkammer."
+
+msgid "Batch two."
+msgstr "Charge zwei."
+
+msgid "Batch three. Freight gate clear."
+msgstr "Charge drei. Lastentor frei."
+
+msgid "Batch four. All entrances."
+msgstr "Charge vier. Alle Zugänge."
+
+msgid "Batch five. Heavy unit."
+msgstr "Charge fünf. Schwere Einheit."
+
+msgid "Power loss in section six. Seal released."
+msgstr "Energieverlust in Sektion sechs. Abriegelung aufgehoben."
+
+msgid "Empty. Way too empty."
+msgstr "Leer. Viel zu leer."
+
+msgid "You've got a gun. Lovely. And us? A bit of pipe? I'll take a bit of pipe!"
+msgstr "Du hast eine Waffe. Schön. Und wir? Ein Stück Rohr? Ich nehme auch ein Stück Rohr!"
+
+msgid "We ram. I know. I've thought about it. We've got no weapons, but we've got us."
+msgstr "Wir rammen. Ich weiß. Ich hab nachgedacht. Wir haben keine Waffen, aber wir haben uns."
+
+msgid "That one's got a Bolter. He won't be needing it."
+msgstr "Der da hat einen Bolter. Er braucht ihn nicht mehr."
+
+msgid "Now we've got guns. And us."
+msgstr "Jetzt haben wir Waffen. Und uns."
+
+msgid "He's crackling! Why is he crackling?!"
+msgstr "Der knistert! Warum knistert der?!"
+
+msgid "The big gate. Of course. The big gate."
+msgstr "Das große Tor. Natürlich. Das große Tor."
+
+msgid "That's no Grunt. That's a Grunt that eats Grunts."
+msgstr "Das ist kein Grunt. Das ist ein Grunt, der Grunts frisst."
+
+msgid "I'm losing bits here, in case anyone cares."
+msgstr "Ich verliere hier Teile, falls es jemanden interessiert."
+
+msgid "Good as new. Almost. Well."
+msgstr "Wie neu. Fast. Na ja."
+
+msgid "Is that all? … Tell me that's all."
+msgstr "Ist das alles? … Sag mir, dass das alles ist."
+
+msgid "Contact. West door."
+msgstr "Kontakt. Tür West."
+
+msgid "Contact. East door."
+msgstr "Kontakt. Tür Ost."
+
+msgid "Contact. Freight gate."
+msgstr "Kontakt. Lastentor."
+
+msgid "Electric charge. Keep your distance."
+msgstr "Elektroladung. Abstand halten."
+
+msgid "Weapon mounted. Seal removed."
+msgstr "Waffe montiert. Plombe entfernt."
+
+msgid "No contacts."
+msgstr "Keine Kontakte."
+
+msgid "Mass: three point two tonnes. … Recommendation: don't stand in front of it."
+msgstr "Masse: drei Komma zwei Tonnen. … Empfehlung: nicht davorstehen."
+
+msgid "Two contacts. West and east."
+msgstr "Zwei Kontakte. West und Ost."
+
+msgid "No further signals."
+msgstr "Keine weiteren Signale."
+
+msgid "Unit updated. As intended. … Correction."
+msgstr "Einheit aktualisiert. Wie vorgesehen. … Korrigiere."
+
+msgid "He was like those two. Before the update reached him."
+msgstr "Er war wie die beiden. Bevor das Update ihn erreicht hat."
+
+msgid "A drive. An electric charge. Too heavy for the pod. … I'll remember where they lie."
+msgstr "Ein Fahrwerk. Eine Elektroladung. Zu schwer für die Kapsel. … Ich merke mir, wo sie liegen."
+
+msgid "LOCKDOWN: ARMOURY"
+msgstr "ABRIEGELUNG: WAFFENKAMMER"
+
+msgid "BARRACKS · UPDATE BATCH {0}: {1} %"
+msgstr "KASERNE · AKTUALISIERUNG CHARGE {0}: {1} %"
+
+msgid "PARTS MARKED: GRUNT 2 DRIVE · ELECTRIC CHARGE"
+msgstr "TEILE MARKIERT: GRUNT-2-FAHRWERK · ELEKTROLADUNG"
+
+msgid "Atmospheric entry in four minutes."
+msgstr "Atmosphäreneintritt in vier Minuten."
+
+msgid "Cargo hold bulkhead: emergency lock."
+msgstr "Druckschott Frachtraum: Notverriegelung."
+
+msgid "Escape pod one: clamp failure."
+msgstr "Rettungspod eins: Klammerfehler."
+
+msgid "Him. Down here."
+msgstr "Er. Hier unten."
+
+msgid "Pod bay. Aft ring."
+msgstr "Pod-Bucht. Hinterer Ring."
+
+msgid "Hold them off."
+msgstr "Haltet sie auf."
+
+msgid "Outside power. … Not yet."
+msgstr "Fremdstrom. … Noch nicht."
+
+msgid "No. No, no, no. Not him!"
+msgstr "Nein. Nein, nein, nein. Nicht der!"
+
+msgid "Crates! From the right!"
+msgstr "Kisten! Von rechts!"
+
+msgid "Crates! From the left!"
+msgstr "Kisten! Von links!"
+
+msgid "I'm on the valve. Run!"
+msgstr "Ich steh auf dem Ventil. Lauf!"
+
+msgid "He's just walking through the fire?!"
+msgstr "Er läuft einfach durchs Feuer?!"
+
+msgid "The bridge! It won't hold him!"
+msgstr "Der Steg! Der Steg hält ihn nicht!"
+
+msgid "Reapers! Behind us! Two! No, three!"
+msgstr "Reaper! Hinten! Zwei! Nein, drei!"
+
+msgid "Again?"
+msgstr "Schon wieder?"
+
+msgid "Crane! I've got the crane!"
+msgstr "Kran! Ich hab den Kran!"
+
+msgid "Cable's in! Come on, come on …"
+msgstr "Kabel drin! Komm schon, komm schon …"
+
+msgid "Don't ever do that again."
+msgstr "Mach das nie wieder."
+
+msgid "Contact behind. Five Reapers. Two heavies."
+msgstr "Kontakt hinten. Fünf Reaper. Zwei Große."
+
+msgid "… and the Thresher."
+msgstr "… und der Thresher."
+
+msgid "Door held."
+msgstr "Tür gehalten."
+
+msgid "They're blasting through the emergency corridor."
+msgstr "Die sprengen sich durch den Notgang."
+
+msgid "Cable in. Restarting."
+msgstr "Kabel gesteckt. Neustart."
+
+msgid "Systems up. Move."
+msgstr "Systeme laufen. Weiter."
+
+msgid "EMERGENCY SHUTDOWN — CORE SECURED — AWAITING EXTERNAL POWER"
+msgstr "NOTABSCHALTUNG — KERN GESICHERT — WARTE AUF FREMDSTROM"
+
+msgid "EXTERNAL POWER DETECTED … RESTARTING"
+msgstr "FREMDSTROM ERKANNT … NEUSTART"
+
+msgid "RESERVE SPENT: NEXT SHUTDOWN = DELETION"
+msgstr "NOTRESERVE ERSCHÖPFT: NÄCHSTE ABSCHALTUNG = LÖSCHUNG"
+
+msgid "Hold [{0}]: plug in the cable"
+msgstr "[{0}] halten: Kabel stecken"
+
+msgid "LIST {0}°"
+msgstr "SCHLAGSEITE {0}°"
+
+msgid "Keep between the stripes when the ship groans."
+msgstr "Zwischen den Streifen bleiben, wenn das Schiff ächzt."
+
+msgid "Cool your drive in cover."
+msgstr "Antrieb in Deckung abkühlen."
+
+msgid "Amber locks can be shot loose."
+msgstr "Bernsteinschlösser lassen sich zerschießen."
+
+msgid "Stand in the frame: hold the bulkhead"
+msgstr "Im Rahmen stehen: Schott halten"
+
+msgid "Count the jets, then run."
+msgstr "Düsen zählen, dann laufen."
+
+msgid "[{0}] hold: creep, half as fast and barely heard"
+msgstr "[{0}] halten: schleichen, halb so schnell und kaum zu hören"
+
+msgid "[{0}] Lamp off: with it on he sees you to the end of his beam"
+msgstr "[{0}] Lampe aus: brennt sie, sieht er dich bis ans Ende seines Strahls"
+
+msgid "Still in the dark: his light only shows you up close"
+msgstr "Still im Dunkeln: sein Licht zeigt dich nur aus der Nähe"
+
+msgid "He stops at the ends of his round. Cross while he stands there."
+msgstr "An den Enden seiner Runde bleibt er stehen. Geh rüber, solange er dort steht."
+
+msgid "[{0}] at a valve: a Grunt draws him off"
+msgstr "[{0}] an einem Ventil: ein Grunt lockt ihn weg"
+
+msgid "[{0}] Bang the valve: the noise comes out at the pipe's end"
+msgstr "[{0}] Aufs Ventil schlagen: der Lärm kommt am Ende des Rohrs heraus"
+
+msgid "[{0}] hold: put the Grunt back together (4 s, you stand still)"
+msgstr "[{0}] halten: den Grunt wieder zusammensetzen (4 s, du stehst still)"
+
+msgid "[{0}] hold at a wreck: strip it for parts"
+msgstr "[{0}] an einem Wrack halten: es ausschlachten"
+
+msgid "[{0}] hold at an unarmed Grunt: mount the Bolter you carry"
+msgstr "[{0}] an einem unbewaffneten Grunt halten: den Bolter montieren, den du trägst"
+
+msgid "[{0}] hold at a hurt Grunt: patch it up. Between batches nobody else will"
+msgstr "[{0}] an einem beschädigten Grunt halten: flicken. Zwischen den Chargen tut es sonst keiner"
+
+msgid "The next batch comes when the bar is full. Your Grunts can block its door with crates"
+msgstr "Die nächste Charge kommt, wenn der Balken voll ist. Deine Grunts können ihre Tür mit Kisten versperren"
+
+msgid "It charges up before it strikes: ram it, shoot it, or sprint out of its reach"
+msgstr "Er lädt sich auf, bevor er zuschlägt: ramm ihn, schieß auf ihn oder sprinte aus seiner Reichweite"
+
+msgid "When the heavy one revs, sprint out of its line: it cannot turn once it runs"
+msgstr "Heult der Schwere auf, sprinte aus seiner Bahn: Wenn er läuft, kann er nicht mehr wenden"
+
+msgid "Stand on the valve: the jet stays off"
+msgstr "Auf dem Ventil stehen: die Düse bleibt aus"
+
+msgid "[{0}] Hand wheel: the jet stays off for a while"
+msgstr "[{0}] Handrad: die Düse bleibt eine Weile aus"
+
+msgid "[{0}] Push the chock into the lane"
+msgstr "[{0}] Den Keil in die Spur schieben"
+
+msgid "[{0}] Lane lever: two lanes stop for a moment"
+msgstr "[{0}] Spurhebel: zwei Spuren stehen kurz still"
+
+msgid "OLD IRON"
+msgstr "OLD IRON"
+
+msgid "MASS {0} t"
+msgstr "MASSE {0} t"
