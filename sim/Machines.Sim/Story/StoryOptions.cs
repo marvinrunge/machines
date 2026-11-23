@@ -35,6 +35,24 @@ public sealed record StoryOptions
     /// up): the trio awake and free at its spawns, nothing of the ship's set down, no beats.
     /// </summary>
     public bool Unscripted { get; init; }
+
+    /// <summary>
+    /// How hard the chapter is (stufe7 §4 F item 3; design-escape's table): Normal as it always was; Easy gives the crash run
+    /// <see cref="EasyCountdown"/> more at every start of its countdown. Sections read it for their own numbers (the plug's
+    /// time, the deadline, the hazards). It goes to every player of a match with the rest of the options.
+    /// </summary>
+    public StoryDifficulty Difficulty { get; init; } = StoryDifficulty.Normal;
+
+    /// <summary>The seconds Easy adds to the countdown at each of its starts (the Notgang and the checkpoints 12–14).</summary>
+    public const float EasyCountdown = 60;
+}
+
+/// <summary>How hard a story chapter is (<see cref="StoryOptions.Difficulty"/>).</summary>
+public enum StoryDifficulty
+{
+    Easy,
+    Normal,
+    Hard,
 }
 
 /// <summary>

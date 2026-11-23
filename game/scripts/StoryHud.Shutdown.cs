@@ -9,8 +9,19 @@ namespace Machines.Game;
 // pip in red. Drawn over everything (C21: the shutdown screen, then the death card, the boss bar, the rest).
 public partial class StoryHud
 {
-    /// <summary>The systems the shutdown switches off, last booted first (the boot run backwards), one every 0.35 s.</summary>
-    private static readonly string[] ShutdownSystems = ["LAMP", "RADIO", "DRIVE", "OPTICS", "SENSORS", "MEMORY"];
+    /// <summary>How many systems the shutdown switches off (<see cref="ShutdownSystem"/>).</summary>
+    private const int ShutdownSystems = 6;
+
+    /// <summary>The systems the shutdown switches off, last booted first (the boot run backwards), one every 0.35 s, in the player's language.</summary>
+    private static string ShutdownSystem(int i) => i switch
+    {
+        0 => Lang.T("LAMP"),
+        1 => Lang.T("RADIO"),
+        2 => Lang.T("DRIVE"),
+        3 => Lang.T("OPTICS"),
+        4 => Lang.T("SENSORS"),
+        _ => Lang.T("MEMORY"),
+    };
 
     private double? _downSince;
 
@@ -49,12 +60,12 @@ public partial class StoryHud
         var since = _time - (_downSince ?? _time);
         DrawRect(new Rect2(Vector2.Zero, _size), new Color(0, 0, 0, Mathf.Clamp((float)since * 2, 0, 0.92f)));
         var y = _size.Y * 0.32f;
-        for (var i = 0; i < ShutdownSystems.Length; i++)
+        for (var i = 0; i < ShutdownSystems; i++)
         {
             var off = since >= 0.35 * (i + 1);
-            _ink.Say(new Vector2(middle, y + i * 26 * _u), $"{ShutdownSystems[i]} … {(off ? "OFF" : "OK")}", 17, off ? MenuTheme.Dim : MenuTheme.Text, 0.5f);
+            _ink.Say(new Vector2(middle, y + i * 26 * _u), $"{ShutdownSystem(i)} … {(off ? Lang.T("OFF") : Lang.T("OK"))}", 17, off ? MenuTheme.Dim : MenuTheme.Text, 0.5f);
         }
-        y += (ShutdownSystems.Length + 1) * 26 * _u;
+        y += (ShutdownSystems + 1) * 26 * _u;
         if (cable is { } share)
         {
             _ink.Say(new Vector2(middle, y), Lang.T("EXTERNAL POWER DETECTED … RESTARTING"), 24, MenuTheme.Glow, 0.5f);

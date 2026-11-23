@@ -1011,6 +1011,9 @@ public partial class ActorView : Node3D
     public void Sync(Actor actor, Actor? aimAt = null)
     {
         OwnedBy = actor.Owner;
+        StorySyncStealth(actor);
+        StorySyncArmoury(actor);
+        StorySyncEscape(actor);
         _target = World(actor.Position);
         // The upper body's (or a tower head's) angle relative to the hull, in the original's sense
         // (counter-clockwise); with nothing to aim at it turns back to the front.
@@ -1146,8 +1149,20 @@ public partial class ActorView : Node3D
     /// <summary>A hit shakes the machine's head and body (MachPhysMachine::shake).</summary>
     public void Shake() => _rigView?.Shake();
 
+    // Stage 7's hooks for its packages' own ActorView files (plan stufe7 §4 F item 1): each frame, and each sync with the sim.
+    // Nothing until a package writes ActorView.Stealth, .Armoury or .Escape.
+    partial void StoryFrameStealth(double delta);
+    partial void StoryFrameArmoury(double delta);
+    partial void StoryFrameEscape(double delta);
+    partial void StorySyncStealth(Actor actor);
+    partial void StorySyncArmoury(Actor actor);
+    partial void StorySyncEscape(Actor actor);
+
     public override void _Process(double delta)
     {
+        StoryFrameStealth(delta);
+        StoryFrameArmoury(delta);
+        StoryFrameEscape(delta);
         UpdateJets(delta);
         UpdateTeleport(delta);
         UpdateScan(delta);

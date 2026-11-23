@@ -108,6 +108,13 @@ public sealed class StoryDrives
 {
     public SortedDictionary<int, StoryDrive> Of { get; } = [];
 
+    /// <summary>
+    /// The pace table (stufe7 C12): the share of their top speed and acceleration the machines of a cast role go at, by role
+    /// (<see cref="Then.Pace"/>; the armoury's units, the escape's leash). A role not in it goes as it would. The Thresher's
+    /// order paces and the creep are package S's.
+    /// </summary>
+    public SortedDictionary<string, float> Paces { get; } = new(StringComparer.Ordinal);
+
     public StoryDrive For(int hero)
     {
         if (!Of.TryGetValue(hero, out var drive))
@@ -122,6 +129,12 @@ public sealed class StoryDrives
         {
             hash.Mix(id);
             drive.MixInto(hash);
+        }
+        // The pace table only once a role is in it, so a run without one keeps its checksum.
+        foreach (var (role, share) in Paces)
+        {
+            hash.Mix(role);
+            hash.Mix(BitConverter.SingleToInt32Bits(share));
         }
         return hash.Value;
     }

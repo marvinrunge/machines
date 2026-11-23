@@ -459,7 +459,7 @@ public partial class Game : Node3D
         Weather.EnsureGlobals();
         AddChild(BuildGround(request, map));
         if (data.LoadScenario(request.Scenario).Artefacts is { } artefacts)
-            AddChild(Artefacts(artefacts));
+            AddChild(Artefacts(_artefactSection = artefacts));
         AddLighting();
         // The weather follows what the camera looks at (or the camera, driving), and its own time is the match's.
         if (Weather.Create(request.Planet, _seed, () => World.Time, () => _driven is not null ? _firstPersonCamera.GlobalPosition : _rig.GlobalPosition,

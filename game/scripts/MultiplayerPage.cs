@@ -221,9 +221,12 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             _returning = false;
             if (NetLink.Connected && _matchRoom is { } was)
             {
+                var storyLost = _storyFrom is not null && was.Options.IsStory;
                 _ = Return(was);
                 if (_automated)
                     _ = ReadyAgain(was.HostId == NetLink.ClientId, was.Players.Count);
+                else if (storyLost)
+                    _ = StoryAgain(was.HostId == NetLink.ClientId, was.Players.Count);
             }
         }
         Automate();
@@ -905,6 +908,44 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
         if (IsInstanceValid(this))
             NetLink.Send(new StartMatch());
+    }
+
+    /// <summary>How long a story room waits, once every seat is back and ready after a loss, before it goes on by itself.</summary>
+    private const int StoryAgainSeconds = 5;
+
+    /// <summary>
+    /// A story chapter lost online (plan stufe7 C22): back in the room the host opens again, every player is ready by
+    /// themselves, and once as many are in as before and all are ready the host's game starts the chapter again after
+    /// <see cref="StoryAgainSeconds"/> from the checkpoint, unless someone takes their ready back meanwhile. No protocol change:
+    /// it is the room's ordinary ready and start.
+    /// </summary>
+    private async Task StoryAgain(bool host, int before)
+    {
+        for (var waited = 0.0; _state is null; waited += 0.2)
+        {
+            if (!IsInstanceValid(this) || !NetLink.Connected || waited > 150)
+                return;
+            await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
+        }
+        _ready.ButtonPressed = true;
+        if (!host)
+            return;
+        var since = -1.0;
+        for (var waited = 0.0; waited < 300; waited += 0.2)
+        {
+            if (!IsInstanceValid(this) || !NetLink.Connected || _state is not { } room || !room.Options.IsStory)
+                return;
+            var all = room.Players.Count >= Math.Max(2, before) && room.Players.All(p => p.Ready);
+            since = all ? (since < 0 ? 0 : since + 0.2) : -1;
+            if (all)
+                Say(Lang.T("Everyone is back: on in {0} s…", Math.Max(1, (int)Math.Ceiling(StoryAgainSeconds - since))));
+            if (since >= StoryAgainSeconds)
+            {
+                NetLink.Send(new StartMatch());
+                return;
+            }
+            await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
+        }
     }
 
     private static readonly Dictionary<string, long?> TerrainPrints = [];
