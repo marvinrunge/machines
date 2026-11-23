@@ -189,7 +189,10 @@ public sealed class ClassicAssets
                     own.SetMeta("scroll", new Vector2(scroll[0].GetSingle(), scroll[1].GetSingle()));
                 if (motion.TryGetProperty("frames", out var frames))
                 {
-                    own.SetMeta("frames", new Godot.Collections.Array<Texture2D>(frames.EnumerateArray().Select(f => Texture(f.GetString() ?? "")).OfType<Texture2D>()));
+                    // An untyped array: this runs on the warm-up's loading threads, and a typed one of objects
+                    // (Array<Texture2D>) writes Godot's table of type names, which has no lock; two at once broke it
+                    // for the rest of the run (every new C# node then failed).
+                    own.SetMeta("frames", new Godot.Collections.Array(frames.EnumerateArray().Select(f => Texture(f.GetString() ?? "")).OfType<Texture2D>().Select(t => (Variant)t)));
                     own.SetMeta("repeats", motion.GetProperty("repeats").GetInt32());
                 }
                 mesh.SurfaceSetMaterial(s, own);

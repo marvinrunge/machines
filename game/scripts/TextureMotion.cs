@@ -30,8 +30,8 @@ public static class TextureMotion
         }
         if (material.HasMeta("frames"))
         {
-            var frames = material.GetMeta("frames").AsGodotArray<Texture2D>();
-            material.AlbedoTexture = frames[(int)(age * FrameRate) / material.GetMeta("repeats").AsInt32() % frames.Count];
+            var frames = material.GetMeta("frames").AsGodotArray();
+            material.AlbedoTexture = frames[(int)(age * FrameRate) / material.GetMeta("repeats").AsInt32() % frames.Count].As<Texture2D>();
         }
     }
 }
