@@ -41,7 +41,7 @@ of the core chamber.
   and the stealth's two staged silences (the window's pause 1.5 s, the 2 s after H slams; -60 dB is silence).
 - The cue stand-ins no longer play fake Thresher steps: steps that are not his would ruin finding him by ear.
 
-The music reads these cues (`StoryMusic.Hear`, the words as `Game.StoryCue` has them; every other cue is left to its
+The music reads these cues (`StoryMusic.Hear`, called first in `Game.StoryCue` with its words, so every cue of a real game reaches it; every other cue is left to its
 section):
 
 | Cue | Sent by | Does |
