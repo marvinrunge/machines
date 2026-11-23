@@ -21,6 +21,11 @@ public sealed partial class CompanionBot
         // Shut out by the shutter, a job beyond it (J4's valve) waits too; a chock in the hold it still pushes.
         if (run.Hazards.Shutter == ShutterState.Shut && GameWorld.OnHoldSide(grunt.Position) && companion.Task != CompanionTask.Chock)
             return WaitAtShutter(run, grunt);
+        // Lost far behind unseen, on its own or on its way to J4's valve: set down behind the Locator (the frame and the
+        // chock are jobs where it is).
+        if (companion.Task is CompanionTask.None or CompanionTask.Valve && world.HeroOf(run.Locator) is { } lead
+            && CatchUpUnseen(companion, grunt, lead))
+            return true;
         switch (companion.Task)
         {
             case CompanionTask.HoldFrame:
@@ -93,6 +98,43 @@ public sealed partial class CompanionBot
         }
         if (!FireIfArmed(run, grunt))
             world.CompanionStand(grunt);
+        return true;
+    }
+
+    /// <summary>How far behind the Locator a computer's Grunt may fall unseen before it is set down behind it, and how far behind.</summary>
+    private const float LostBehind = 30, SetBehind = 8;
+
+    /// <summary>Beyond this a Grunt counts as out of the Locator's sight even in the open.</summary>
+    private const float OutOfSight = 45;
+
+    /// <summary>How long it must stay lost so before it is set down, ticks: a moment out of sight round a corner is no matter.</summary>
+    private const int LostFor = 6 * GameWorld.TicksPerSecond;
+
+    /// <summary>
+    /// The computer's Grunt fallen far behind where the Locator cannot see it is set down a few metres behind the Locator
+    /// (the user's word: bots may cheat where it makes things simpler) once it has stayed so for six seconds. It stood waiting at lanes and in doorways while a
+    /// sprinting Locator ran on, and the pack caught it. Only on its own (no job), not downed; true when it was moved.
+    /// </summary>
+    private bool CatchUpUnseen(Companion companion, Machine grunt, Machine locator)
+    {
+        var apart = Vector2.Distance(grunt.Position, locator.Position);
+        var mobility = GameWorld.MobilityOf(grunt);
+        if (apart <= LostBehind || locator.Inside is not null || world.Story!.Director.Held.Contains(grunt.Id)
+            || apart <= OutOfSight && world.Nav.LineOfSight(locator.Position, grunt.Position, mobility))
+        {
+            companion.LostSince = -1;
+            return false;
+        }
+        if (companion.LostSince < 0)
+            companion.LostSince = world.Tick;
+        if (world.Tick - companion.LostSince < LostFor)
+            return false;
+        companion.LostSince = -1;
+        var back = new Vector2(MathF.Cos(locator.Facing), MathF.Sin(locator.Facing)) * -SetBehind;
+        var spot = locator.Position + back;
+        if (!world.Nav.IsFree(spot, mobility) || !world.Nav.LineOfSight(locator.Position, spot, mobility))
+            spot = locator.Position;
+        world.SetBackForStory(grunt, spot);
         return true;
     }
 

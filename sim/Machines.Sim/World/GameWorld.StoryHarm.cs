@@ -30,7 +30,7 @@ public sealed partial class GameWorld
         }
         if (share is { } whole)
         {
-            var harm = Math.Max(1, (int)MathF.Ceiling(whole * target.MaxHitPoints));
+            var harm = BotEase(run, target, Math.Max(1, (int)MathF.Ceiling(whole * target.MaxHitPoints)));
             if (trio)
                 harm = run.Budget.Filter(target, harm);
             if (harm <= 0)
@@ -41,12 +41,20 @@ public sealed partial class GameWorld
         }
         if (trio)
         {
-            damage = run.Budget.Filter(target, damage);
+            damage = run.Budget.Filter(target, BotEase(run, target, damage));
             if (damage <= 0)
                 return StoryHarmVerdict.Veto;
         }
         return StoryHarmVerdict.Pass;
     }
+
+    /// <summary>
+    /// The computer's Grunts are let off lightly in the escape (the user's word: bots may cheat where it makes things
+    /// simpler): half of a hit, at least 1. A person's Grunt takes it whole.
+    /// </summary>
+    private int BotEase(StoryRun run, Actor target, int harm) =>
+        target is Machine hero && run.Flags.Contains(StoryMarks.Escape) && CompanionSeat(hero) is { } seat && StoryBotPlays(seat)
+            ? Math.Max(1, harm / 2) : harm;
 
     /// <summary>
     /// Whether a hit by <paramref name="dealer"/> falls under the Thresher's rule: null when not (not his role, or no section

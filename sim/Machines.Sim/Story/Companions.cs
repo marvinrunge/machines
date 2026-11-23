@@ -137,6 +137,9 @@ public sealed class Companion(PlayerId seat)
     /// <summary>The tick of its last bark, for the cooldown.</summary>
     public int LastBark { get; set; } = int.MinValue / 2;
 
+    /// <summary>The tick the computer's Grunt fell far behind the Locator out of its sight in the escape; -1 while it is not.</summary>
+    public int LostSince { get; set; } = -1;
+
     /// <summary>Lines said once at most (by id), and the tick of the last "I don't fit in there".</summary>
     public SortedSet<string> Said { get; } = new(StringComparer.Ordinal);
 
@@ -159,6 +162,9 @@ public sealed class Companion(PlayerId seat)
         hash.Mix(ReviveTicks);
         hash.Mix(RepairTicks);
         hash.Mix(LastBark);
+        // Only while it is lost, so a run without it keeps its checksum.
+        if (LostSince >= 0)
+            hash.Mix(LostSince);
         foreach (var line in Said)
             hash.Mix(line);
     }

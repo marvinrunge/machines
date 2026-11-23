@@ -366,4 +366,20 @@ public class PrologueEscapeTests
         Assert.True(HackShutter(world, locator));
         Assert.True(RunUntil(world, () => run.Hazards.Shutter != ShutterState.Shut, 2), $"shutter {run.Hazards.Shutter}");
     }
+
+    /// <summary>
+    /// The computer's Grunts may cheat in the escape (the user's word): one far behind the Locator and out of its sight
+    /// for six seconds is set down behind it, and a hit on it does half the harm.
+    /// </summary>
+    [Fact]
+    public void A_computers_grunt_lost_far_behind_unseen_is_set_down_behind_the_locator()
+    {
+        var world = Chapter(12);
+        Run(world, 1);
+        var locator = Hero(world, 0);
+        SetDown(world, locator, new Vector2(340, 120));
+        var grunt = Hero(world, 1);
+        SetDown(world, grunt, new Vector2(480, 168));
+        Assert.True(RunUntil(world, () => Vector2.Distance(grunt.Position, locator.Position) < 12, 10), $"grunt at {grunt.Position}, locator at {locator.Position} task {world.Story!.Crew.Of(world.Story.Seats[1]).Task} escape {world.Story.Flags.Contains(StoryMarks.Escape)} held {world.Story.Director.Held.Contains(grunt.Id)} lost {world.Story.Crew.Of(world.Story.Seats[1]).LostSince} tick {world.Tick}");
+    }
 }
