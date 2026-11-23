@@ -5931,3 +5931,16 @@ msgstr "Im Wrack markiert: {0}"
 
 msgid "[{0}] hold at a marked wreck: take the part along for later"
 msgstr "[{0}] an einem markierten Wrack halten: das Teil für später mitnehmen"
+
+# Stage 7, package E: the escape run's objectives and its options row.
+msgid "Run to the escape pods"
+msgstr "Renn zu den Rettungspods"
+
+msgid "Through the cargo hold"
+msgstr "Durch den Frachtraum"
+
+msgid "Through the gallery"
+msgstr "Durch die Rohrgalerie"
+
+msgid "Soften the list"
+msgstr "Schlagseite mildern"

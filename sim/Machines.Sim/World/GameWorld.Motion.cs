@@ -310,8 +310,9 @@ public sealed partial class GameWorld
             next = end + 1;
         }
 
-        // A deck door's leaf still sliding open in the way: it stops before it and tries again a moment later (GameWorld.Deck).
-        if (LeafInWay(machine, machine.Position, position))
+        // A deck door's leaf still sliding open in the way, or a container sliding on its rail in the escape's hold: it stops before
+        // it and tries again a moment later (GameWorld.Deck, GameWorld.StoryHazards).
+        if (LeafInWay(machine, machine.Position, position) || RailInWay(machine, machine.Position, position))
         {
             AnnounceStop(machine, motion);
             StopDead(motion);
@@ -800,7 +801,7 @@ public sealed partial class GameWorld
     {
         var water = MobilityOf(machine);
         return Nav.OnPlanet(to) && Nav.IsFree(to, water) && Nav.LineOfSight(from, to, water) && Blocker(machine, from, to) is null
-            && !LeafInWay(machine, from, to);
+            && !LeafInWay(machine, from, to) && !RailInWay(machine, from, to);
     }
 
     /// <summary>A machine asked to make way steps aside before it goes on with its order; true while it does.</summary>

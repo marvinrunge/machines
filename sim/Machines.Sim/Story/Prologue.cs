@@ -109,10 +109,11 @@ public static partial class Prologue
         // 11 Reparatur: at the repair station the Grunts stand behind the Locator, east of it: the way out (door U) is west,
         // and between it and the Locator they wedged it in.
         ([new(500, 248), new(505, 243), new(505, 253)], 180),
-        // 12 Notgang; 13 Galerie and 14 Bucht as 12 until package E places them.
-        ([new(520, 216), new(515.5f, 220), new(524.5f, 218)], 270),
-        ([new(520, 216), new(515.5f, 220), new(524.5f, 218)], 270),
-        ([new(520, 216), new(515.5f, 220), new(524.5f, 218)], 270),
+        // 12 Notgang: at the east end of R13a, facing the Notgang (the countdown starts on the first tick there); 13 Galerie:
+        // in the gallery under X, facing south; 14 Bucht: in the pod bay by Z, facing east (design-escape §9).
+        ([new(500, 228), new(494, 228), new(488, 228)], 0),
+        ([new(340, 146), new(336, 148), new(344, 148)], 270),
+        ([new(440, 92), new(436, 86), new(436, 98)], 0),
     ];
 
     /// <summary>The last checkpoint of the prologue.</summary>
@@ -123,7 +124,7 @@ public static partial class Prologue
     /// other is set up as the nearest built one before it (<see cref="SetUpAs"/>); the packages of stage 7 add theirs as they
     /// build them (S: 2–5, W: 9–10, E: 13–14).
     /// </summary>
-    public static readonly IReadOnlySet<int> Built = new SortedSet<int> { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
+    public static readonly IReadOnlySet<int> Built = new SortedSet<int> { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 };
 
     /// <summary>The checkpoint a chapter started from <paramref name="checkpoint"/> is set up as: itself once built, else the nearest built one before it.</summary>
     public static int SetUpAs(int checkpoint)
@@ -137,12 +138,11 @@ public static partial class Prologue
     /// <summary>The section (1 to 8) each checkpoint starts in.</summary>
     public static readonly IReadOnlyList<int> SectionAt = [1, 2, 2, 2, 2, 2, 3, 4, 6, 6, 6, 6, 7, 7, 7];
 
-    /// <summary>The seconds on the countdown when the chapter starts again from the Notgang's checkpoint (it starts at 180 in the Notgang).</summary>
-    public const float CountdownFull = 180, CountdownAtCheckpoint = 150;
+    /// <summary>The seconds on the countdown in the Notgang (design-escape: "vier Minuten"), from the run and from its checkpoint alike.</summary>
+    public const float CountdownFull = 240, CountdownAtCheckpoint = 240;
 
     /// <summary>
-    /// The seconds on the countdown at each checkpoint's start; null where none runs yet. 12 keeps today's
-    /// <see cref="CountdownAtCheckpoint"/> until package E starts the Notgang's countdown at 240 (then 12: 240, 13: 170, 14: 120).
+    /// The seconds on the countdown at each checkpoint's start; null where none runs yet (12: 240, 13 Galerie: 170, 14 Bucht: 120).
     /// </summary>
     public static readonly IReadOnlyList<float?> CountdownFrom =
         [null, null, null, null, null, null, null, null, null, null, null, null, CountdownAtCheckpoint, 170, 120];
@@ -151,7 +151,7 @@ public static partial class Prologue
     public const float FallWarning = 1.5f;
 
     /// <summary>The countdown's stages: the seconds left when each comes.</summary>
-    public static readonly IReadOnlyList<float> CountdownStages = [120, 60, 30, 10];
+    public static readonly IReadOnlyList<float> CountdownStages = [180, 120, 90, 60, 30, 10];
 
     /// <summary>The prologue's hacks in their order, and the checkpoint from which each is done (99: never, the run does it).</summary>
     public static readonly IReadOnlyList<(string Target, int DoneFrom)> Hacks =
@@ -168,7 +168,7 @@ public static partial class Prologue
     public static readonly IReadOnlyList<string> DoorsOpen =
     [
         "", "ABCF", "ABCF", "ABCEF", "ABCEF", "ABCEF", "ABCDEF", "ABCDEFIJW", "ABCDEFIJVKMQW", "ABCDEFIJVKMQW", "ABCDEFIJVKMQW", "ABCDEFIJVKMNQRUW",
-        "ABCDEFIJVKMNQRUTW", "ABCDEFIJVKMNQRUTW", "ABCDEFIJVKMNQRUTW",
+        "ABCDEFIJVKMNQRUTW", "ABCDEFIJVKMNQRUTWPSZ", "ABCDEFIJVKMNQRUTWPSXZ",
     ];
 
     /// <summary>The doors that open by themselves as the trio comes, at each checkpoint.</summary>
@@ -606,7 +606,9 @@ public static partial class Prologue
             8 => new Objective("Get through the workshop", "pickup_bolter"),
             9 or 10 => new Objective("Hold the armoury", "R13"),
             11 => new Objective("Get to the escape pods", "R15"),
-            12 => new Objective("Reach the escape pods", "pod_3_hatch"),
+            12 => new Objective("Run to the escape pods", "pod_3_hatch"),
+            13 => new Objective("Through the gallery", "thresher_edge"),
+            14 => new Objective("Hack escape pod three", "pod_3_hatch"),
             _ => new Objective(null),
         });
     }
