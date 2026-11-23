@@ -510,6 +510,10 @@ public partial class Warmup : Node3D
     private static readonly (string Type, string? SubType, int Level, string? Combo)[] StoryCast =
     [
         ("GEO_LOCATOR", null, 1, null),
+        // The armoury's: the Locator with the Bolter it picks up, the electric Grunts of batches 2-4.
+        ("GEO_LOCATOR", null, 1, "T_BOLTER"),
+        ("AGGRESSOR", "GRUNT", 1, "R_ELECTRIC_CHARGE"),
+        ("AGGRESSOR", "GRUNT", 2, "L_ELECTRIC_CHARGE"),
         ("AGGRESSOR", "GRUNT", 1, "R_BOLTER"),
         ("AGGRESSOR", "GRUNT", 2, "L_BOLTER"),
         ("AGGRESSOR", "GRUNT", 3, "LR_HEAVY_BOLTER1_X2"),
