@@ -23,6 +23,13 @@ public partial class StoryAudioTest(StoryAudio audio) : Node
     public override void _Ready()
     {
         Name = "StoryAudioTest";
+        // MACHINES_STORY_AUDIO_TEST=music: stage 7's music rules instead (StoryMusic.Rehearsal).
+        if (System.Environment.GetEnvironmentVariable("MACHINES_STORY_AUDIO_TEST") == "music")
+        {
+            At(audio.MusicCues.Rehearse(At), "end", Finish);
+            _steps.Sort((a, b) => a.At.CompareTo(b.At));
+            return;
+        }
         Vector3 Ahead(float metres, float right = 0)
         {
             var camera = GetViewport()?.GetCamera3D();
@@ -86,7 +93,8 @@ public partial class StoryAudioTest(StoryAudio audio) : Node
         while (_next < _steps.Count && audio.Clock - _start >= _steps[_next].At)
         {
             var (_, what, action) = _steps[_next++];
-            audio.Trace($"test {what}");
+            if (what.Length > 0)
+                audio.Trace($"test {what}");
             action();
         }
     }

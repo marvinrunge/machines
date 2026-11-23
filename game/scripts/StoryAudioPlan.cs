@@ -404,19 +404,16 @@ public static class StorySoundscape
             new("amb_metal_groans", -8, 0.6f, Threat: 1),
             new("tracker_tick", -16, 0.5f, Every: 1.2f, Threat: 1),
             new("amb_duct_rumble", -6, 0.5f, Threat: 2),
-            new("thresher_step_1", -10, 0.6f, Every: 0.9f, Threat: 2),
         ],
         "jagd" =>
         [
             new("amb_duct_rumble", -4, 0.6f),
             new("amb_metal_groans", -8, 0.7f),
-            new("thresher_step_2", -9, 0.55f, Every: 0.75f, Threat: 1),
             new("amb_alarm_klaxon", -18, 0.5f, Threat: 2),
         ],
         "gegenwehr" =>
         [
             new("amb_reactor_hum", -4, 0.7f),
-            new("thresher_step_1", -9, 0.8f, Every: 0.5f),
             new("amb_alarm_klaxon", -16, 0.5f, Threat: 1),
             new("amb_metal_groans", -8, 0.8f, Threat: 2),
         ],
@@ -424,7 +421,7 @@ public static class StorySoundscape
         [
             new("amb_reentry", -4, 0.6f),
             new("amb_metal_groans", -6, 0.5f, Threat: 1),
-            new("thresher_step_3", -9, 0.5f, Every: 0.6f, Threat: 2),
+            new("amb_alarm_klaxon", -16, 0.55f, Threat: 2),
         ],
         _ => [],
     };
@@ -512,27 +509,146 @@ public sealed class StorySfxManifest
 /// <summary>A piece of the story's score: its file (game/assets/story/music/&lt;name&gt;.ogg) and its length in seconds.</summary>
 public sealed record StoryPiece(string Name, double Seconds);
 
-/// <summary>What the story's score plays: the background playlist, the loud part as the trio is caught, the escape's piece, or nothing.</summary>
+/// <summary>What the story's score plays: the background playlist, the loud part (the break-in, the armoury's boss), the escape's piece, a staged rest of a few seconds, or nothing.</summary>
 public enum StoryScorePart
 {
     Playlist,
     Caught,
     Escape,
     Silence,
+    /// <summary>A short staged silence (the 2 s after the armoury's boss falls); the playlist comes back after it.</summary>
+    Rest,
+}
+
+/// <summary>Where the armoury stands for the music (stage 7, section 6): before or after the fight, a wave alive, a pause between waves, the boss.</summary>
+public enum StoryArmouryMusic
+{
+    None,
+    Wave,
+    Pause,
+    Boss,
+}
+
+/// <summary>What a director's cue (or a view's own word) tells the music, stage 7 (plan section 4, package M).</summary>
+public enum StoryMusicCueKind
+{
+    /// <summary><c>thresher near &lt;m&gt;</c>: the Thresher is so many metres from the Locator.</summary>
+    ThresherNear,
+    /// <summary><c>thresher state &lt;calm|dwell|wary|draw|fire|lost&gt;</c>: what he is doing.</summary>
+    ThresherState,
+    /// <summary><c>wave &lt;n&gt; alive</c>: the armoury's wave n is on the floor.</summary>
+    WaveAlive,
+    /// <summary><c>wave pause</c>: the pause between two waves.</summary>
+    WavePause,
+    /// <summary><c>boss in</c>: gate N bursts and the big Grunt rolls in.</summary>
+    BossIn,
+    /// <summary><c>boss down</c>: the big Grunt is a wreck.</summary>
+    BossDown,
+    /// <summary><c>score escape &lt;s&gt;</c>: the lift bursts with s seconds left on the countdown (Pressure's anchor).</summary>
+    ScoreEscape,
+    /// <summary><c>hush &lt;s&gt; &lt;dB&gt;</c>: the music dips by dB for s seconds and comes back (-60 dB and below is silence).</summary>
+    Hush,
+    /// <summary><c>launch</c>: the pod is away.</summary>
+    Launch,
+}
+
+/// <summary>A cue the music reads: its kind, its number (metres, wave, seconds) and, for a hush, its dB; for a state, the state.</summary>
+public readonly record struct StoryMusicCue(StoryMusicCueKind Kind, float Number = 0, float Db = 0, string? State = null)
+{
+    /// <summary>The Thresher's states the music knows (anything else is read as calm).</summary>
+    public static readonly string[] States = ["calm", "dwell", "wary", "draw", "fire", "lost"];
+
+    /// <summary>The cue in a director cue's words, or null when the music does not read it.</summary>
+    public static StoryMusicCue? Parse(IReadOnlyList<string> words)
+    {
+        static float? N(string s) => float.TryParse(s, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var n) && float.IsFinite(n) ? n : null;
+        return words switch
+        {
+            ["thresher", "near", var m] when N(m) is { } metres => new(StoryMusicCueKind.ThresherNear, Math.Max(0, metres)),
+            ["thresher", "state", var state] => new(StoryMusicCueKind.ThresherState, State: States.Contains(state) ? state : "calm"),
+            ["wave", var n, "alive"] when N(n) is { } wave => new(StoryMusicCueKind.WaveAlive, wave),
+            ["wave", "pause"] => new(StoryMusicCueKind.WavePause),
+            ["boss", "in"] => new(StoryMusicCueKind.BossIn),
+            ["boss", "down"] => new(StoryMusicCueKind.BossDown),
+            ["score", "escape", var s] when N(s) is { } left => new(StoryMusicCueKind.ScoreEscape, left),
+            ["hush", var s, var db] when N(s) is { } seconds && N(db) is { } dip => new(StoryMusicCueKind.Hush, Math.Clamp(seconds, 0, 10), Math.Clamp(dip, -80, 0)),
+            ["launch"] => new(StoryMusicCueKind.Launch),
+            _ => null,
+        };
+    }
+}
+
+/// <summary>
+/// The playlist under the Thresher while the trio sneaks (stage 7, section 2; design-stealth 9.3): ducked, never cut. He
+/// beyond 120 m, or the Locator sheltered (a duct, R5, R7, the Leitstand), is -6 dB; his steps audible, -10 dB; within 40 m
+/// or wary, -18 dB with a 1.2 kHz low-pass, reached in 2 s; locked on (draw) or firing, -24 dB. A deeper level comes at
+/// once (faded over 2 s); a shallower one only 8 s after the deeper one last held, and then over 6 s. The two staged
+/// silences (the window's pause, the slam of H) are hushes (<see cref="StoryMusicCueKind.Hush"/>), not this.
+/// </summary>
+public sealed class StoryDuck
+{
+    public const float FarDb = -6, StepsDb = -10, NearDb = -18, LockDb = -24, FilterHz = 1200, OpenHz = 20000;
+
+    /// <summary>Metres: beyond this his steps are not heard; within this he is near.</summary>
+    public const float StepsWithin = 120, NearWithin = 40;
+
+    /// <summary>Seconds: a shallower level waits this long after the deeper one last held, then the playlist comes back over this long; down it goes over this long.</summary>
+    public const double CalmAfter = 8, BackOver = 6, DownOver = 2;
+
+    private double _deepSince = double.NegativeInfinity;
+
+    /// <summary>The level held now (dB).</summary>
+    public float Db { get; private set; } = FarDb;
+
+    /// <summary>The low-pass is on (near, wary, locked on or firing).</summary>
+    public bool Filter => Db <= NearDb;
+
+    /// <summary>The level the Thresher at <paramref name="distance"/> (null: none on the deck) in <paramref name="state"/> asks for, the Locator <paramref name="sheltered"/> or not.</summary>
+    public static float Raw(float? distance, string? state, bool sheltered) =>
+        state is "draw" or "fire" ? LockDb
+        : distance < NearWithin || state == "wary" ? NearDb
+        : sheltered || distance is null || distance > StepsWithin || state == "dwell" ? FarDb
+        : StepsDb;
+
+    /// <summary>Follows the level asked for at <paramref name="now"/> (seconds); the level held.</summary>
+    public float Update(float? distance, string? state, bool sheltered, double now)
+    {
+        var wanted = Raw(distance, state, sheltered);
+        if (wanted <= Db)
+        {
+            Db = wanted;
+            _deepSince = now;
+        }
+        else if (now - _deepSince >= CalmAfter)
+        {
+            Db = wanted;
+            _deepSince = now;
+        }
+        return Db;
+    }
+
+    /// <summary>How fast (dB a second) the playlist moves from <paramref name="from"/> to the held level: down over 2 s, up over 6 s, never slower than 3 dB/s down.</summary>
+    public static float Speed(float from, float to) =>
+        to < from ? MathF.Max(3, (from - to) / (float)DownOver) : MathF.Max(0.5f, (to - from) / (float)BackOver);
+
+    /// <summary>Whether a room shelters the Locator from him (he cannot come in): a duct, R5, R7 or the Leitstand (A1).</summary>
+    public static bool Sheltered(Machines.Import.Model.DeckZone? room) =>
+        room is not null && (room.Name is "R5" or "R7" or "A1" || StorySoundscape.Reverb(room) == StorySoundscape.Duct);
 }
 
 /// <summary>
 /// The prologue's score, the user's own pieces (game/assets/story/music, made from their MP3s with ffmpeg and levelled to
 /// one loudness, as its README says): from the start a playlist in the background, Lost In The Void, Lost Vessel, Drift Into The Black and the
 /// calm part of Lost In The Dark, each after the other (with a short overlap) and round again from the first should it run
-/// out, through sections 1–3 and the hack, never restarted by a section or a checkpoint (<see cref="Start"/>). At the
-/// break-in (Erwischt) the playlist is cut and the loud part of Lost In The Dark plays once from its entry; when it has
-/// ended and the trio is out of the core chamber (section 5), the playlist goes on where it was, a little quieter. From the
-/// crash countdown on, Pressure At Sector Nine plays, started so that its end lands where the countdown runs out
-/// (<see cref="EscapeOffset"/>); the pod's launch keeps it, and it fades out over the first seconds of the
-/// pod's cutscene (StoryAudio.MusicOut). The threat lowers the
-/// playlist a little (<see cref="PlaylistDb"/>); the stand-ins' drones never play over it. View only: nothing here touches
-/// the sim; each machine plays it from the shared beats.
+/// out, never restarted by a section or a checkpoint (<see cref="Start"/>). Under the Thresher (section 2) it is ducked
+/// (<see cref="StoryDuck"/>). At the break-in (Erwischt) the playlist is cut and the loud part of Lost In The Dark plays once
+/// from its entry; when it has ended and the trio is out of the core chamber (section 5), the playlist goes on where it was,
+/// a little quieter. In the armoury (section 6) it holds its level while a wave is alive, drops to -10 dB in the pauses, and
+/// the loud part plays once more as the boss bursts in; the boss's fall is 2 s of silence, then the playlist again. At the
+/// Notgang (section 7) the playlist fades out for good; Pressure At Sector Nine starts from its beginning as the lift bursts
+/// (<see cref="EscapeFrom"/>), plays through and loops its last section (<see cref="HoldFrom"/> to <see cref="HoldTo"/>)
+/// until the launch; it fades out over the first seconds of the pod's cutscene (StoryAudio.MusicOut). View only: nothing
+/// here touches the sim; each machine plays it from the shared beats.
 /// </summary>
 public sealed class StoryScore
 {
@@ -556,9 +672,9 @@ public sealed class StoryScore
 
     /// <summary>
     /// Seconds: the overlap of one playlist piece's end with the next one's start; the playlist's cut at the break-in; its
-    /// fade back in afterwards (and after a checkpoint); the playlist's fade out under the escape's piece.
+    /// fade back in afterwards (and after a checkpoint); the playlist's fade out at the Notgang.
     /// </summary>
-    public const double Overlap = 2, CutFade = 0.3, ResumeFade = 4, EscapeFade = 1.5;
+    public const double Overlap = 2, CutFade = 0.3, ResumeFade = 4, EscapeFade = 2;
 
     /// <summary>
     /// The playlist's level in dB after the trio was caught (sections 5 and on), and its dips while uneasy and hunted, so the
@@ -569,9 +685,46 @@ public sealed class StoryScore
     /// <summary>The playlist's level (dB) while the Locator boots in its clamp: softly under its thoughts, up to its own level once free.</summary>
     public const float BootDb = -9;
 
+    /// <summary>The playlist's level (dB) in the armoury's pauses: the lift's hum and the batch bar's tick carry the quiet.</summary>
+    public const float PauseDb = -10;
+
+    /// <summary>Seconds of silence when the armoury's boss falls, before the playlist comes back.</summary>
+    public const double BossRest = 2;
+
+    /// <summary>
+    /// Pressure's tempo and its loop, measured from the file (tools: librosa beat and novelty analysis, see the music
+    /// README): 140 BPM, the first beat at 0.531 s, bars of four. The hold loops bars 72 to 88 (16 bars): from 123.960 s
+    /// (in the piece's last third) to 151.388 s, where its loud section gives way to the outro.
+    /// </summary>
+    public const double HoldFrom = 123.960, HoldTo = 151.388;
+
+    /// <summary>Beats from the file's start to <see cref="HoldTo"/>, for Godot's beat loop (it loops at BeatCount beats at its BPM).</summary>
+    public const int HoldBeats = 353;
+
+    /// <summary>The BPM that puts beat <see cref="HoldBeats"/> exactly at <see cref="HoldTo"/> (139.9 against the measured 140.0).</summary>
+    public static double HoldBpm => HoldBeats * 60 / HoldTo;
+
+    /// <summary>Seconds from the countdown's start to the lift's burst (T-234 of 240): Pressure waits for the burst.</summary>
+    public const double BurstDelay = 6;
+
+    /// <summary>Seconds the music waits past <see cref="BurstDelay"/> for the burst's cue before it starts by the countdown alone.</summary>
+    public const double BurstGrace = 2;
+
+    /// <summary>
+    /// Where Pressure starts at a retry from the escape's later checkpoints: where a typical run hears it there (234 - the
+    /// checkpoint's seconds left: 13 Galerie with 170, 14 Bucht with 120). From the Notgang (12) it starts with the burst.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<int, double> RetryAt = new Dictionary<int, double> { [13] = 64, [14] = 114 };
+
     private bool _caughtEnded;
+    private double _restUntil = double.NegativeInfinity;
+    private double? _burstAt;
+    private float? _countFrom;
 
     public StoryScorePart Part { get; private set; } = StoryScorePart.Playlist;
+
+    /// <summary>The armoury's state for the playlist's level.</summary>
+    public StoryArmouryMusic Armoury { get; private set; }
 
     /// <summary>The break-in: the loud part starts (true), unless the escape has begun or the score is over.</summary>
     public bool BreakIn()
@@ -589,31 +742,108 @@ public sealed class StoryScore
     /// <summary>The score falls silent for good (the chapter is over).</summary>
     public void Stop() => Part = StoryScorePart.Silence;
 
+    /// <summary>The armoury's wave is alive: the playlist holds its after-caught level, the threat's dips off.</summary>
+    public void Wave()
+    {
+        if (Armoury != StoryArmouryMusic.Boss)
+            Armoury = StoryArmouryMusic.Wave;
+    }
+
+    /// <summary>A pause between the armoury's waves: the playlist drops to <see cref="PauseDb"/>.</summary>
+    public void Pause()
+    {
+        if (Armoury != StoryArmouryMusic.Boss)
+            Armoury = StoryArmouryMusic.Pause;
+    }
+
+    /// <summary>The boss bursts in: the loud part once more from its entry (true), unless it plays already or the escape has begun.</summary>
+    public bool BossIn()
+    {
+        if (Armoury == StoryArmouryMusic.Boss || Part is not StoryScorePart.Playlist)
+            return false;
+        Armoury = StoryArmouryMusic.Boss;
+        return BreakIn();
+    }
+
+    /// <summary>The boss falls at <paramref name="now"/>: 2 s of silence (true while the boss was on), then the playlist at the armoury's after level.</summary>
+    public bool BossDown(double now)
+    {
+        if (Armoury != StoryArmouryMusic.Boss || Part is StoryScorePart.Escape or StoryScorePart.Silence)
+            return false;
+        Armoury = StoryArmouryMusic.None;
+        Part = StoryScorePart.Rest;
+        _restUntil = now + BossRest;
+        return true;
+    }
+
+    /// <summary>The lift bursts at <paramref name="now"/> (the cue <c>score escape</c>): Pressure's anchor.</summary>
+    public void Burst(double now)
+    {
+        if (Part != StoryScorePart.Silence)
+            _burstAt ??= now;
+    }
+
     /// <summary>
-    /// Four times a second, from the section the trio is in and the seconds left on the crash countdown (null while it is
-    /// not running): what should play now. The escape's piece starts with the countdown and is kept after the launch stops
-    /// it; the playlist comes back after the loud part once that has ended and the trio is out of the core chamber.
+    /// Four times a second, from the section the trio is in, the seconds left on the crash countdown (null while it is not
+    /// running) and the clock: what should play now. From the Notgang (section 7) or the countdown on it is the escape, kept
+    /// after the launch stops the countdown; the playlist comes back after the loud part once that has ended and the trio is
+    /// out of the core chamber, and after the boss's rest.
     /// </summary>
-    public StoryScorePart Follow(int section, float? countdownLeft)
+    public StoryScorePart Follow(int section, float? countdownLeft, double now = 0)
     {
         if (Part == StoryScorePart.Silence)
             return Part;
-        if (countdownLeft is not null)
+        if (countdownLeft is not null || section >= 7 || _burstAt is not null)
+        {
             Part = StoryScorePart.Escape;
+            Armoury = StoryArmouryMusic.None;
+        }
         else if (Part == StoryScorePart.Caught && _caughtEnded && section >= 5)
+            Part = StoryScorePart.Playlist;
+        else if (Part == StoryScorePart.Rest && now >= _restUntil)
             Part = StoryScorePart.Playlist;
         return Part;
     }
 
     /// <summary>
-    /// Where the escape's piece starts with <paramref name="left"/> seconds on the countdown: so that it ends as the countdown
-    /// runs out (at 180 s from its start, its last note a moment before zero; at a checkpoint's 150 s, 29.9 s in).
+    /// In the escape, where Pressure starts now (seconds into it), or null while it waits for the lift's burst: from the burst's
+    /// cue (<see cref="Burst"/>), else by the countdown, <see cref="BurstDelay"/> after it began (and <see cref="BurstGrace"/>
+    /// more for the cue); at once from a later checkpoint (<see cref="RetryAt"/>). Late starts begin as far in as they are late.
     /// </summary>
-    public static double EscapeOffset(float left, double length) => Math.Clamp(length - left, 0, Math.Max(0, length - 1));
+    public double? EscapeFrom(int checkpoint, float? countdownLeft, double now)
+    {
+        if (Part != StoryScorePart.Escape)
+            return null;
+        if (_burstAt is { } burst)
+            return EscapeOffset(checkpoint, now - burst);
+        if (countdownLeft is not { } left)
+            return null;
+        _countFrom ??= left;
+        var run = _countFrom.Value - left;
+        if (RetryAt.ContainsKey(checkpoint))
+            return EscapeOffset(checkpoint, run);
+        return run >= BurstDelay + BurstGrace ? EscapeOffset(checkpoint, run - BurstDelay) : null;
+    }
 
-    /// <summary>The playlist's level (dB) in a section at a threat level (0 calm, 1 uneasy, 2 hunted), and while the Locator boots.</summary>
-    public static float PlaylistDb(int section, int threat, bool booting = false) =>
-        (section >= 5 ? AfterCaughtDb : 0) + threat switch { >= 2 => HuntedDb, 1 => UneasyDb, _ => 0 } + (booting ? BootDb : 0);
+    /// <summary>Where Pressure is <paramref name="since"/> seconds after the burst in a chapter begun at <paramref name="checkpoint"/>: from its start (or a retry's place), into the hold once past its end.</summary>
+    public static double EscapeOffset(int checkpoint, double since) =>
+        IntoHold((RetryAt.TryGetValue(checkpoint, out var at) ? at : 0) + Math.Max(0, since));
+
+    /// <summary>A place in Pressure, wrapped into the hold (<see cref="HoldFrom"/> to <see cref="HoldTo"/>) once past its end.</summary>
+    public static double IntoHold(double at) => at < HoldTo ? Math.Max(0, at) : HoldFrom + (at - HoldFrom) % (HoldTo - HoldFrom);
+
+    /// <summary>
+    /// The playlist's level (dB) in a section at a threat level (0 calm, 1 uneasy, 2 hunted), and while the Locator boots;
+    /// in the armoury by its state (a wave or the boss: the after-caught level without the threat's dips; a pause: -10 dB);
+    /// under the Thresher (<paramref name="duck"/>, section 2) the duck's level in place of the threat's dips.
+    /// </summary>
+    public static float PlaylistDb(int section, int threat, bool booting = false, StoryArmouryMusic armoury = StoryArmouryMusic.None, float? duck = null) =>
+        armoury switch
+        {
+            StoryArmouryMusic.Wave or StoryArmouryMusic.Boss => AfterCaughtDb,
+            StoryArmouryMusic.Pause => PauseDb,
+            _ => duck ?? (section >= 5 ? AfterCaughtDb : 0) + threat switch { >= 2 => HuntedDb, 1 => UneasyDb, _ => 0 },
+        } + (booting ? BootDb : 0);
 
     /// <summary>The playlist's piece after <paramref name="track"/>: the next, or the first again after the last.</summary>
     public static int Next(int track) => (track + 1) % Playlist.Length;

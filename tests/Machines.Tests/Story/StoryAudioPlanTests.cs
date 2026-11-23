@@ -337,6 +337,8 @@ public class StoryAudioPlanTests
             Assert.Contains(layers, l => l.Threat == 2);
             Assert.All(layers, l => Assert.True(sfx.Has(l.Sound), $"{cue}: {l.Sound} missing"));
             Assert.All(layers.Where(l => l.Every == 0), l => Assert.True(sfx.Loops(l.Sound), $"{cue}: {l.Sound} does not loop"));
+            // No steps that are not his: they would ruin finding the Thresher by ear (stage 7).
+            Assert.DoesNotContain(layers, l => l.Sound.StartsWith("thresher_", StringComparison.Ordinal));
         }
     }
 
