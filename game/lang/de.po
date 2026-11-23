@@ -305,8 +305,35 @@ msgstr "Soundtrack"
 msgid "{0} tracks"
 msgstr "{0} Stücke"
 
+msgid "Both"
+msgstr "Beides"
+
+msgid "Original MP3s"
+msgstr "Original-MP3s"
+
+msgid "Original: the original soundtrack from your own MP3s. Remake: the remake's own soundtrack. Both: the two mixed."
+msgstr "Original: der Original-Soundtrack aus deinen eigenen MP3s. Remake: der eigene Soundtrack des Remakes. Beides: die zwei gemischt."
+
 msgid "Pick the folder with the soundtrack's MP3s"
-msgstr "Wähle den Ordner mit den MP3s des Soundtracks"
+msgstr "Wähle den Ordner mit deinen MP3s"
+
+msgid "{0} tracks, mixed with the remake's"
+msgstr "{0} Stücke, mit dem Remake gemischt"
+
+msgid "No folder: only the remake's tracks play"
+msgstr "Kein Ordner: nur die Stücke des Remakes"
+
+msgid "{0} tracks, for Original or Both"
+msgstr "{0} Stücke, für Original oder Beides"
+
+msgid "Not needed: the remake's music plays"
+msgstr "Nicht nötig: die Musik des Remakes läuft"
+
+msgid "The remake has a soundtrack of its own, made for it: it comes with the game and plays over the menus and in every match."
+msgstr "Das Remake hat einen eigenen Soundtrack, eigens dafür gemacht: er kommt mit dem Spiel und läuft in den Menüs und in jedem Match."
+
+msgid "If you have the original soundtrack as MP3s (Track 00 - Intro.mp3 and the others), you can pick their folder and play the original's tracks instead, or both mixed. Without them nothing is missing. The options change it at any time."
+msgstr "Wenn du den Original-Soundtrack als MP3s hast (Track 00 - Intro.mp3 und die anderen), kannst du ihren Ordner wählen und stattdessen die Stücke des Originals spielen, oder beide gemischt. Ohne sie fehlt nichts. Die Optionen ändern es jederzeit."
 
 msgid "Change keys"
 msgstr "Tasten ändern"

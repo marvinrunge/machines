@@ -492,9 +492,9 @@ public partial class Game : Node3D
         AddChild(_audio);
         if (data.LoadScenario(request.Scenario).Artefacts is { } humming)
             ArtefactHums(humming);
-        // A film gets its music afterwards (tools/cinematic/render.sh).
+        // A film gets its music afterwards (tools/cinematic/render.sh). A battle plays the remake's tracks marked for it.
         if (Cinematic.Asked is null)
-            Music.Match(this, ScenarioMusic(request.Scenario));
+            Music.Match(this, ScenarioMusic(request.Scenario), battle: request.Options.IsBattle);
 
         _screen = FirstPersonScreen.Create(_planetLook, _assets.Texture("models/texture4/static.bmp"));
         AddChild(_screen);
@@ -824,6 +824,9 @@ public partial class Game : Node3D
             if (!Training)
                 Music.End(this, World.Won(Player));
         }
+        // Wired's boss waves: the remake's boss tracks play while a boss stands on the map.
+        else if (!_musicEnded && Cinematic.Asked is null)
+            Music.Boss(World.Wired is { Phase: Machines.Sim.Survival.WiredPhase.Wave } run && run.Bosses.Any());
         if (World.Winner is not null || World.Battle is { Over: true })
             SaveReplay();
 

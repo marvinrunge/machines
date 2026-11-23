@@ -5,9 +5,10 @@ namespace Machines.Game;
 /// <summary>
 /// The first start's few questions, one page each, before the main menu: the import from the player's own copy of the
 /// game (without it there are no models to choose a look by), the look, Classic or Overhauled, each shown on the same
-/// machines turning side by side, and the soundtrack's folder. Each can be left for later, and the options change
-/// every answer at any time. They come once, until <see cref="Done"/> is kept in <c>user://settings.cfg</c>; an
-/// import reopens the menus, the intro films play, and the questions go on with the look.
+/// machines turning side by side, and the soundtrack (with the classic look the original's folder, with the remake's
+/// its own music). Each can be left for later, and the options change every answer at any time. They come once,
+/// until <see cref="Done"/> is kept in <c>user://settings.cfg</c>; an import reopens the menus, the intro films play,
+/// and the questions go on with the look.
 /// MACHINES_MENU_SCREENSHOT=&lt;png&gt;,setup (or setup-import, setup-look, setup-music) shows them.
 /// </summary>
 public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
@@ -225,18 +226,59 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
         return button;
     }
 
+    /// <summary>
+    /// The soundtrack: with the classic look the original's from MP3s of the player's own, whose folder this asks for;
+    /// with a look of the remake the remake's own, which comes with the game, the original's folder being only for
+    /// playing the original's tracks instead or as well (chosen here or in the options).
+    /// </summary>
     private void MusicStep(VBoxContainer page)
     {
         page.AddChild(Top("Music"));
-        page.AddChild(Words(
-            "The remake plays the original soundtrack from MP3s of your own, as the original played its CD: the intro, " +
-            "the menu tune, each planet's own track and the victory and defeat tunes.",
-            "Pick the folder that holds them (Track 00 - Intro.mp3 and the others). Without it the game plays without music."));
-        static string Tracks(string? folder) => Music.TrackCount(folder) is var count and > 0
-            ? Lang.T("{0} tracks found.", count)
-            : Lang.T("No soundtrack picked yet.");
-        var tracks = MenuTheme.Label(Tracks(Music.Folder), 24, MenuTheme.Bright);
-        page.AddChild(tracks);
+        var remake = GraphicsSettings.Look != Look.Classic;
+        Label tracks;
+        if (!remake)
+        {
+            page.AddChild(Words(
+                "The remake plays the original soundtrack from MP3s of your own, as the original played its CD: the intro, " +
+                "the menu tune, each planet's own track and the victory and defeat tunes.",
+                "Pick the folder that holds them (Track 00 - Intro.mp3 and the others). Without it the game plays without music."));
+            tracks = MenuTheme.Label("", 24, MenuTheme.Bright);
+            ShowTracks(Music.Folder);
+            page.AddChild(tracks);
+        }
+        else
+        {
+            page.AddChild(Words(
+                "The remake has a soundtrack of its own, made for it: it comes with the game and plays over the menus and in every match.",
+                "If you have the original soundtrack as MP3s (Track 00 - Intro.mp3 and the others), you can pick their folder " +
+                "and play the original's tracks instead, or both mixed. Without them nothing is missing. The options change it at any time."));
+            var soundtracks = Enum.GetValues<Soundtrack>();
+            var soundtrack = new ChipChoice(soundtracks.Select(s => s.ToString()), Array.IndexOf(soundtracks, Music.Mode))
+            {
+                CustomMinimumSize = new Vector2(360, 64),
+            };
+            tracks = MenuTheme.Label("", 24, MenuTheme.Bright);
+            soundtrack.ItemSelected += i =>
+            {
+                Music.Mode = soundtracks[i];
+                ShowTracks(Music.Folder);
+            };
+            var row = Setting("Soundtrack", soundtrack);
+            soundtrack.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+            page.AddChild(row);
+            ShowTracks(Music.Folder);
+            page.AddChild(tracks);
+        }
+        // Bright where something is missing (with the classic look, until a folder is picked), else quiet.
+        void ShowTracks(string? folder)
+        {
+            var count = Music.TrackCount(folder);
+            var (text, missing) = remake
+                ? OptionsPage.Tracks(Music.Mode, count)
+                : count > 0 ? (Lang.T("{0} tracks found.", count), false) : (Lang.T("No soundtrack picked yet."), true);
+            tracks.Text = text;
+            tracks.AddThemeColorOverride("font_color", missing || !remake ? MenuTheme.Bright : MenuTheme.Dim);
+        }
         page.AddChild(Spring(across: false));
 
         var dialog = new FileDialog
@@ -250,7 +292,7 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
         dialog.DirSelected += folder =>
         {
             Music.Folder = folder;
-            tracks.Text = Tracks(folder);
+            ShowTracks(folder);
         };
         var pick = Button("Pick folder", () => dialog.PopupCentered(new Vector2I(900, 600)));
         var finish = Button("Finish", () =>
@@ -261,6 +303,7 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
         var back = Button("Back", Back);
         pick.CustomMinimumSize = finish.CustomMinimumSize = back.CustomMinimumSize = new Vector2(400, 76);
         page.AddChild(Line(Gap, back, pick, finish));
-        Focus(Music.Folder is null ? pick : finish);
+        // With the remake's own soundtrack nothing needs picking.
+        Focus(Music.Folder is null && !remake ? pick : finish);
     }
 }
