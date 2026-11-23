@@ -169,6 +169,9 @@ public sealed partial class GameWorld
         public bool OffWay;
         // Times it stepped sideways for its goal, and that goal.
         public int Sidesteps;
+        // Which machine held it up last, and since when (a story's hunter shoulders it aside after ShoveAfter).
+        public int HeldBy;
+        public float HeldSince;
         public Vector2 SidestepGoal;
     }
 
@@ -603,10 +606,12 @@ public sealed partial class GameWorld
         if (way == Way.Aside)
             return path.Count;
         var resting = IsResting(blocker);
-        // A story's unkillable hunter (the Thresher) on his round shoulders a machine standing still in its way aside: a computer's Grunt
+        // A story's unkillable hunter (the Thresher) on his round, held up for a while, shoulders a machine standing still in its way aside: a computer's Grunt
         // frozen on his round (or kept unseen by the offscreen grace) once stopped him for good, as it makes way for nobody.
+        if (motion.HeldBy != blocker.Id)
+            (motion.HeldBy, motion.HeldSince) = (blocker.Id, Time);
         if (Story is not null && way == Way.Order && machine.Order is PatrolOrder && resting && !blocker.DrivenByPlayer && StorySeekerOf(machine.Id) is { Unkillable: true }
-            && Shove(machine, blocker, path[index]))
+            && Time - motion.HeldSince >= ShoveAfter && Shove(machine, blocker, path[index]))
         {
             motion.WaitUntil = Time + Dt;
             return index;
@@ -703,6 +708,9 @@ public sealed partial class GameWorld
         }
         return false;
     }
+
+    /// <summary>How long a story's hunter waits before a machine standing in its way before he shoulders it aside, seconds.</summary>
+    private const float ShoveAfter = 3;
 
     /// <summary>The least a shove moves a machine a tick, metres.</summary>
     private const float ShoulderStep = 0.2f;
