@@ -73,6 +73,9 @@ public class StoryDoorTests
         foreach (var letter in Prologue.DoorsOpen[checkpoint])
         {
             Assert.False(world.DoorClosed(letter), $"door {letter}");
+            // A door the deck starts open (F beside its grate) has no leaves to measure its middle by.
+            if (!Middles.Value.ContainsKey(letter))
+                continue;
             Assert.True(world.Nav.IsFree(Middles.Value[letter], GameWorld.MobilityOf(world.HeroOf(world.Story!.Locator)!)), $"door {letter}'s middle is not free ground");
         }
         // On its first tick only a door that opens by itself as the trio comes may begin to slide (door I beside checkpoint 2's start).
@@ -102,7 +105,8 @@ public class StoryDoorTests
         // themselves as the trio came: each open at the checkpoint, or one that still opens as the trio comes. The gates the
         // hunters force (Then.ForceGates) are a lost fight, not progress: the Grunts hold them again at checkpoint 4.
         var before = Prologue.Script.Where(b => b.Span < Prologue.SetUpAs(checkpoint)).SelectMany(b => b.Then).ToList();
-        var opened = before.OfType<Then.OpenDoors>().SelectMany(o => o.Letters).ToHashSet();
+        // A door shut again behind the trio (H, stage 7) is not progress the checkpoint keeps open.
+        var opened = before.OfType<Then.OpenDoors>().SelectMany(o => o.Letters).Except(before.OfType<Then.CloseDoors>().SelectMany(c => c.Letters)).ToHashSet();
         var auto = before.OfType<Then.AutoDoors>().SelectMany(o => o.Letters).ToHashSet();
 
         Assert.All(opened, letter => Assert.Contains(letter, Prologue.DoorsOpen[checkpoint]));

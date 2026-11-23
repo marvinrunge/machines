@@ -25,6 +25,9 @@ public sealed partial class GameWorld
             return 1;
         if (run.Drives.Of.TryGetValue(machine.Id, out var drive))
             return drive.Pace(Tick);
+        // Section 2's Thresher goes at a pace by what he does, out of the walk's coupling (design-stealth §3.1).
+        if (StalkerPace(run, machine) is { } stalking)
+            return stalking;
         // A role the director paced (stufe7 C12, Then.Pace) goes at its share.
         foreach (var (role, share) in run.Drives.Paces)
         {
@@ -38,7 +41,7 @@ public sealed partial class GameWorld
 
     /// <summary>The share of its turn rate a machine turns at: <see cref="StoryDrive.Turn"/> for the trio's heroes in a story, else 1.</summary>
     public float StoryTurnPace(Machine machine) =>
-        Story is { } run && run.Drives.Of.ContainsKey(machine.Id) ? StoryDrive.Turn : 1;
+        Story is not { } run ? 1 : run.Drives.Of.ContainsKey(machine.Id) ? StoryDrive.Turn : StalkerTurn(run, machine) ?? 1;
 
     /// <summary>
     /// The acceleration of one of the trio's heroes in a story, at a pace of 1: its own, but never more than takes it from a
@@ -95,7 +98,12 @@ public sealed partial class GameWorld
             var wants = hero.DrivenByPlayer
                 ? drive.Held && DriveInput.TryGetValue(hero.Id, out var input) && (input.Forward != 0 || input.Strafe != 0)
                 : StoryBotPlays(seat) && BotSprints(run, seat, hero, drive, locator);
-            drive.Sprinting = free && wants && !drive.Blocked && hero.Inside is null && !StoryLies(hero) && !HeldByStory(hero.Id);
+            // The creep: a person's Ctrl (the drive command's slow flag) or the pad's creep, the computer's Grunt as it sneaks
+            // (CompanionBot.Stealth); it beats the sprint.
+            drive.Creeping = hero.DrivenByPlayer
+                ? DriveInput.TryGetValue(hero.Id, out var held) && held.Slow
+                : StoryBotPlays(seat) && run.Stealth.Creep.Contains(seat.Value);
+            drive.Sprinting = free && wants && !drive.Creeping && !drive.Blocked && hero.Inside is null && !StoryLies(hero) && !HeldByStory(hero.Id);
         }
         // A hero made anew (a refit) drives on with a drive of its own; the old one's goes.
         foreach (var gone in run.Drives.Of.Keys.Where(id => !run.Seats.Any(seat => HeroOf(seat)?.Id == id)).ToList())

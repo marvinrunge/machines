@@ -5869,3 +5869,10 @@ msgstr "AUS"
 
 msgid "Everyone is back: on in {0} s…"
 msgstr "Alle wieder da: weiter in {0} s …"
+
+# Stage 7, package S: section 2's objectives and its HUD (the Thresher's suspicion, the valves).
+msgid "Hide in the alcove"
+msgstr "Versteck dich in der Nische"
+
+msgid "Cross deck A"
+msgstr "Überquere Deck A"

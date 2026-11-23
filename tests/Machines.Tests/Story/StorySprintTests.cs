@@ -346,12 +346,56 @@ public class StorySprintTests(ITestOutputHelper output)
         output.WriteLine($"thresher: {thresher.Stats.Speed:0.0} m/s; Locator {Hero(world, new PlayerId(0)).Stats.Speed:0.0}, turn {Hero(world, new PlayerId(0)).Stats.RotationSpeed:0}");
         Assert.Null(world.StoryDriveOf(thresher.Id));
         Assert.Equal(3, world.Story.Drives.Of.Count);
-        // While the sprint is locked the Thresher's round and chase go at the trio's walk, so a walking Grunt still outgoes it as
-        // a Grunt outwent it before; once the sprint is free the ship's machines go at their whole pace.
+        // Section 2's Thresher goes by what he does, out of the walk's coupling (design-stealth §3.1): on his way and his round
+        // a quarter of his top speed, so the walking trio is a little faster behind him; searching 0.4, hunting 0.7.
+        Assert.Contains(StoryMarks.Stealth, world.Story.Flags);
+        Assert.Equal(StorySight.PatrolPace, world.StoryPace(thresher));
+        Assert.True(thresher.Stats.Speed * world.StoryPace(thresher) < Hero(world, new PlayerId(0)).Stats.Speed * StoryDrive.Walk);
+        Assert.Equal(StorySight.PatrolTurn, world.StoryTurnPace(thresher));
+        thresher.Order = new SearchOrder(thresher.Position, world.Time + 5, null);
+        Assert.Equal(StorySight.SearchPace, world.StoryPace(thresher));
+        thresher.Order = new AttackOrder(Hero(world, Ike).Id);
+        Assert.Equal(StorySight.HuntPace, world.StoryPace(thresher));
+        Assert.Equal(1, world.StoryTurnPace(thresher));
+        Assert.True(thresher.Stats.Speed * world.StoryPace(thresher) > Hero(world, Ike).Stats.Speed * StoryDrive.Walk);
+        // Out of section 2 (H shut behind the trio) the seeing hunters walk at the trio's walk while the sprint is locked, and
+        // go at their whole pace once it is free.
+        world.Story.Flags.Remove(StoryMarks.Stealth);
         Assert.Equal(StoryDrive.Walk, world.StoryPace(thresher));
-        Assert.True(thresher.Stats.Speed * world.StoryPace(thresher) < Hero(world, Ike).Stats.Speed * StoryDrive.Walk);
         world.Story.Flags.Add(StoryMarks.SprintFree);
         Assert.Equal(1, world.StoryPace(thresher));
         Assert.All(reapers.Story!.Director.Of(reapers, Prologue.ReaperRole), m => Assert.Equal(1, reapers.StoryPace(m)));
+    }
+    [Fact]
+    public void The_creep_from_slow_goes_at_half_the_walk_beats_the_sprint_and_halves_the_signature()
+    {
+        // Section 2's creep (design-stealth §3.1, §3.2): the drive command's slow flag (Ctrl, the pad's R3) is the creep.
+        var world = OnTheLane(free: true);
+        world.Story!.Flags.Add(StoryMarks.Stealth);
+        var locator = Hero(world, Locator);
+        (float Speed, float Signature) Over(bool slow)
+        {
+            var mark = locator.Position;
+            for (var tick = 0; tick < 3 * GameWorld.TicksPerSecond; tick++)
+            {
+                if (tick == 2 * GameWorld.TicksPerSecond)
+                    mark = locator.Position;
+                world.Issue(new DriveCommand(Race.Red, locator.Id, true, 1, Slow: slow, Sprint: true) { Issuer = Locator });
+                world.Step();
+            }
+            return (Vector2.Distance(mark, locator.Position), world.Story.Sight.Signatures[locator.Id]);
+        }
+        var creep = Over(slow: true);
+        var drive = world.StoryDriveOf(locator.Id)!;
+        Assert.True(drive.Creeping);
+        Assert.False(drive.Sprinting);
+        Assert.Equal(StoryDrive.Walk * StoryDrive.Creep, world.StoryPace(locator), 3);
+        var sprint = Over(slow: false);
+        Assert.False(drive.Creeping);
+        Assert.True(drive.Sprinting);
+        output.WriteLine($"creep {creep.Speed:0.00} m/s, signature {creep.Signature:0.000}; sprint {sprint.Speed:0.00} m/s, {sprint.Signature:0.000}");
+        Assert.InRange(creep.Speed, locator.Stats.Speed * StoryDrive.Walk * StoryDrive.Creep * 0.9f, locator.Stats.Speed * StoryDrive.Walk * StoryDrive.Creep * 1.1f);
+        // Creeping, the moving part of the signature is a quarter of the walk's (half the share, halved again).
+        Assert.InRange(creep.Signature, StorySight.Still + StorySight.Moving * 0.25f * 0.9f, StorySight.Still + StorySight.Moving * 0.25f * 1.1f);
     }
 }

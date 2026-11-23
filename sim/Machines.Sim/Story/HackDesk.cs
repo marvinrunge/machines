@@ -82,6 +82,8 @@ public sealed class HackDesk
         ["terminal_bob"] = HackKind.Grunt,
         ["hack_s"] = HackKind.Door,
         ["hack_h"] = HackKind.Door,
+        // Section 2's noise terminal in the switch room (design-stealth §2.2): a 3×3 board, F rattles when it is done.
+        ["hack_noise"] = HackKind.Door,
         ["hack_d5"] = HackKind.Door,
         ["hack_core"] = HackKind.Core,
         ["pod_3_hatch"] = HackKind.Pod,

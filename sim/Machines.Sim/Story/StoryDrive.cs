@@ -52,6 +52,16 @@ public sealed class StoryDrive
     /// </summary>
     public const float CatchUpFrom = 12, CatchUpTo = 7;
 
+    /// <summary>
+    /// The creep (plan stufe7 C12, design-stealth §3.1): held (Ctrl, carried by the drive command's slow flag; the pad's
+    /// creep button), the drive goes at this share of the walk, and the moving part of the signature is halved. It beats the
+    /// sprint: the safe key wins.
+    /// </summary>
+    public const float Creep = 0.5f;
+
+    /// <summary>It creeps this tick (its driver holds the creep, or the computer's Grunt sneaks). Set at the end of each tick for the next one's moves.</summary>
+    public bool Creeping { get; set; }
+
     /// <summary>How full the drive is, 0 (cold) to 1 (overheated).</summary>
     public float Heat { get; set; }
 
@@ -81,6 +91,8 @@ public sealed class StoryDrive
     {
         if (Sprinting)
             return 1;
+        if (Creeping)
+            return Walk * Creep;
         if (Blocked && BlockedAt >= 0 && tick - BlockedAt < StutterTicks && (tick - BlockedAt) / BeatTicks % 2 == 1)
             return Walk * StutterShare;
         return Walk;
@@ -100,6 +112,9 @@ public sealed class StoryDrive
         hash.Mix(Sprinting ? 1 : 0);
         hash.Mix(BitConverter.SingleToInt32Bits(Last.X));
         hash.Mix(BitConverter.SingleToInt32Bits(Last.Y));
+        // Only while it creeps, so a run without the creep keeps its checksum.
+        if (Creeping)
+            hash.Mix(0x43524550);
     }
 }
 
