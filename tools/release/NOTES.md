@@ -2,7 +2,11 @@ A **test build** of the Machines: Wired for War remake, for Windows 10/11 (64-bi
 
 **Download** the `setup.exe` below and run it, or the `windows.zip`, unzip it anywhere and run `Machines.exe`. `README.txt` lists the controls.
 
-**New in 0.7.7:**
+**New in 0.7.8:**
+- **Games no longer break or hang behind the loading screen.** About one start in three could go wrong while the game loaded: errors piled up from then on, and in the worst case a later load, such as going back to a checkpoint, never finished. Loading takes as long as before.
+- **Online: 0.7.7 and 0.7.8 play together.** Online play is unchanged, so a player on 0.7.7 can still play with one on 0.7.8.
+
+**From 0.7.7:**
 - **Third person in Survival and Battle.** Press **F** or turn the **mouse wheel** to switch between the faceplate and a camera behind and above your hero. Third person is the default; **Hero view** and **Camera distance** are in the options. The mouse turns the view and the guns, the keys drive the hull, and the shots land where the crosshair points. The camera pulls in at buildings and hills and never sinks into the ground. Under the crosshair, a small sign shows where the hull points and drives, and a red cross shows when a wall stands between your gun and what you aim at.
 - **Guns swing within their arc, as in the original.** A hero without a turning top no longer turns its whole hull for every small aim. Within each weapon's arc from the original's data (10 degrees for most weapons, 30 for the Bolter) the guns angle on their mounts and the hull stays put. Brackets beside the crosshair mark the arc's edges. Aim past them, and the hull turns on the spot.
 - **Survival is faster and busier.** From wave 6 on, waves without a boss come sooner and bring more machines, each of them weaker. On Normal the first shot falls after about 25 seconds instead of 40, a wave lasts about 80 seconds instead of 125, and 5 to 7 machines come instead of 2 to 4. How far you get is the same as before. Waves 1 to 5 and the boss waves are unchanged.
@@ -35,7 +39,7 @@ A **test build** of the Machines: Wired for War remake, for Windows 10/11 (64-bi
 - **The campaign's films** come along when CD 2 is in a drive or its image lies beside CD 1's; later, **From CD** in the options adds them.
 - An installed copy still works as before (**Folder** picks it by hand).
 
-**Online, 0.7.7 plays only with 0.7.7.**
+**Online, 0.7.7 and 0.7.8 play together, but not with earlier versions.**
 
 **From 0.7.0: online play**
 - **A public relay.** Under **Multiplayer** the relay is already filled in: type a name, press **Connect**, join a room or open one. Nobody has to open a port. The relay sleeps while nobody plays, so the first connection after a break takes a few seconds.
