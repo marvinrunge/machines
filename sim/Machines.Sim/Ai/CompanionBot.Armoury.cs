@@ -10,9 +10,11 @@ namespace Machines.Sim.Ai;
 // fights a batch from the nearest free defence post.
 public sealed partial class CompanionBot
 {
-    /// <summary>The defence posts of the armoury (deck markers), and how far from another hero a Grunt takes one.</summary>
+    /// <summary>The defence posts of the armoury (deck markers).</summary>
     private static readonly string[] DefencePosts = ["def_1", "def_2", "def_3", "def_4"];
-    private const float PostApart = 4, Dodge = 6, ComeNear = 5;
+
+    /// <summary>How far from another hero a Grunt takes a post; how far beyond the boss's body it steps out of a charge's line; how near L-7 it comes for a Bolter.</summary>
+    private const float PostApart = 4, Dodge = 2, ComeNear = 5;
 
     /// <summary>This section's behaviour for the Grunt; true when it acted this look (nothing after it runs).</summary>
     /// <summary>Before any job (a barricade, a post): held still while L-7 works on it, out of the charge's line, to L-7 for a carried Bolter.</summary>
@@ -65,9 +67,14 @@ public sealed partial class CompanionBot
         var across = rel.X * waves.RunWay.Y - rel.Y * waves.RunWay.X;
         if (ahead < 0 || ahead > GameWorld.ChargeLength + boss.Radius || MathF.Abs(across) > boss.Radius + grunt.Radius + 1 && waves.RunTarget != grunt.Id)
             return false;
+        // To a point clear of the boss's body beside the line, its own side first: fixed while the line is, so the order is
+        // given once and not again every look as the Grunt moves.
         var side = new Vector2(waves.RunWay.Y, -waves.RunWay.X) * (across >= 0 ? 1 : -1);
-        var to = grunt.Position + side * Dodge;
-        world.CompanionMove(grunt, world.Nav.IsFree(to, GameWorld.MobilityOf(grunt)) ? to : grunt.Position - side * Dodge);
+        var clear = boss.Radius + grunt.Radius + Dodge;
+        var to = grunt.Position + side * (clear - MathF.Abs(across));
+        if (!world.Nav.IsFree(to, GameWorld.MobilityOf(grunt)))
+            to = grunt.Position - side * (clear + MathF.Abs(across));
+        world.CompanionMove(grunt, to);
         return true;
     }
 

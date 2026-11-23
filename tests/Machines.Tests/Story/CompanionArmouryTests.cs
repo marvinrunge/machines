@@ -65,26 +65,47 @@ public sealed class CompanionArmouryTests
         var play = new ArmouryPlay(10) { Fire = 0, Works = false };
         Assert.True(play.Until(() => play.Waves.Boss != 0, 60));
         var world = play.World;
-        var boss = world.Find<Machine>(play.Waves.Boss)!;
-        var dodged = 0;
-        var aimed = 0;
-        Machine? target = null;
-        var lastPhase = play.Waves.Phase;
-        play.Until(() => aimed >= 3, 120, play: false, each: () =>
+        var waves = play.Waves;
+        var boss = world.Find<Machine>(waves.Boss)!;
+        var ike = play.Hero(1);
+        var mobility = GameWorld.MobilityOf(ike);
+        // Ike and the boss set down 15 m apart on a clear line in the armoury, with room on either hand of Ike to step aside.
+        (Vector2 Ike, Vector2 Boss)? spots = null;
+        for (var x = 444f; x <= 478 && spots is null; x += 2)
+        {
+            for (var y = 228f; y <= 256 && spots is null; y += 2)
+            {
+                var at = new Vector2(x, y);
+                if (!world.Nav.IsFree(at, mobility))
+                    continue;
+                for (var k = 0; k < 16 && spots is null; k++)
+                {
+                    var dir = new Vector2(MathF.Cos(k * MathF.PI / 8), MathF.Sin(k * MathF.PI / 8));
+                    var p = at + 15 * dir;
+                    var aside = new Vector2(-dir.Y, dir.X) * (boss.Radius + ike.Radius + 2);
+                    if (world.Nav.OnPlanet(p) && world.Nav.IsFree(p, mobility) && world.Nav.LineOfSight(p, at, mobility)
+                        && world.Nav.LineOfSight(at, at + aside, mobility) && world.Nav.LineOfSight(at, at - aside, mobility))
+                        spots = (at, p);
+                }
+            }
+        }
+        Assert.NotNull(spots);
+        ike.Position = spots.Value.Ike;
+        boss.Position = spots.Value.Boss;
+        var way = Vector2.Normalize(ike.Position - boss.Position);
+        // The boss revs at Ike, as UpdateCharge begins a charge, and keeps revving (the run is not what is tested here).
+        (waves.RunWay, waves.RunFrom, waves.RunTarget) = (way, boss.Position, ike.Id);
+        (waves.Phase, waves.PhaseSince) = (StoryChargePhase.Telegraph, world.Time + 10);
+        play.Run.Director.Held.Add(boss.Id);
+        // The Locator is kept whole: a shut-down Locator calls the Grunts to its cable before all else.
+        play.Until(() => false, 3, play: false, each: () =>
         {
             boss.HitPoints = boss.MaxHitPoints;
-            if (play.Waves.Phase == StoryChargePhase.Telegraph && lastPhase != StoryChargePhase.Telegraph)
-                target = play.Run.Seats.Skip(1).Select(s => world.HeroOf(s)).FirstOrDefault(h => h?.Id == play.Waves.RunTarget);
-            if (play.Waves.Phase == StoryChargePhase.Run && lastPhase == StoryChargePhase.Telegraph && target is not null)
-            {
-                aimed++;
-                var rel = target.Position - boss.Position;
-                if (MathF.Abs(rel.X * play.Waves.RunWay.Y - rel.Y * play.Waves.RunWay.X) > boss.Radius + target.Radius)
-                    dodged++;
-                target = null;
-            }
-            lastPhase = play.Waves.Phase;
+            play.Hero(0).HitPoints = play.Hero(0).MaxHitPoints;
         });
-        Assert.True(aimed == 0 || dodged >= 1, $"{dodged} of {aimed} charges at a Grunt dodged");
+        Assert.Equal(StoryChargePhase.Telegraph, waves.Phase);
+        var rel = ike.Position - boss.Position;
+        Assert.True(MathF.Abs(rel.X * way.Y - rel.Y * way.X) > boss.Radius + ike.Radius,
+            $"Ike at {ike.Position} (from {spots.Value.Ike}) still in the line of the boss at {boss.Position} revving {way}");
     }
 }

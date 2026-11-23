@@ -33,7 +33,8 @@ public sealed class PrologueWaveTests(ITestOutputHelper output)
         Assert.Equal(StoryWaves.Plan.Count, play.Batches.Count);
         foreach (var (wave, (start, end)) in play.Batches)
             Assert.True(end - start <= LongestBatch, $"batch {wave} took {end - start:0} s");
-        // Both Grunts armed from stripped Bolters, the boss charged and hit somebody at least once.
+        // Both Grunts armed from stripped Bolters, and the boss began a charge at least once (its hits are not asked: see
+        // StoryChargeTests; in the armoury as built its runs end in a crash).
         Assert.Equal(2, play.Waves.Mounted.Count);
         Assert.True(play.Waves.Charges >= 1, "the boss never charged");
         Assert.NotNull(play.BossDown);

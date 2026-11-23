@@ -91,14 +91,15 @@ public sealed partial class GameWorld
     // How the trio gets about, the ways a piece set down must not cut: the Grunts' and the Locator's, which crawls.
     private static readonly Navigation.Mobility[] TrioWays = [new(false, 1, false), new(false, 1, true)];
 
+    /// <summary>How far from the middle of a door the story keeps locked nothing may fall (its mouth, metres).</summary>
+    private const float LockedMouth = 5;
+
     /// <summary>
     /// Whether an artefact of a type set down at a place would cut a way of the trio's (<see cref="Navigation.NavGrid.Cuts"/>):
     /// a lane, a doorway or a door's mouth it would shut, so that a room or the way on falls out of reach. Falling debris that
     /// has to lie beside a machine does not lie there (stage 5: a crate knocked off the workshop's shelves onto a Grunt lay in
     /// the lane to door T, and nobody got on to the Notgang).
     /// </summary>
-    private const float LockedMouth = 5;
-
     internal bool CutsTheWay(string typeName, Vector2 at, float degrees)
     {
         if (Story is not { } run || run.Director.TypeOf(typeName) is not { } known || !Nav.Fine)
