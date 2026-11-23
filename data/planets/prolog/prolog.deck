@@ -705,12 +705,6 @@ crate_r9_4 crate_large 208 291 0 308
 crate_r9_5 crate_large 192 287 0 313
 cover_r9_1 crate_large 218 284 90 309
 cover_r9_2 crate_large 218 289 90 310
-crate_r13_1 crate_large 428 230 0 314
-crate_r13_2 crate_large 430 258 0 315
-crate_r13_3 crate_large 466 244 0 316
-crate_r13_4 crate_large 470 243 0 317
-crate_r13_5 crate_large 446 236 0 318
-crate_r13_6 crate_large 458 252 0 319
 pile_bay_1 crate_large 556 108 0 320
 pile_bay_2 crate_large 556 104 0 321
 pile_bay_3 crate_large 560 108 0 322

@@ -23,12 +23,6 @@ AT 208 291 0 0 ID 308	// prop crate_r9_4
 AT 192 287 0 0 ID 313	// prop crate_r9_5
 AT 218 284 0 90 ID 309	// prop cover_r9_1
 AT 218 289 0 90 ID 310	// prop cover_r9_2
-AT 428 230 0 0 ID 314	// prop crate_r13_1
-AT 430 258 0 0 ID 315	// prop crate_r13_2
-AT 466 244 0 0 ID 316	// prop crate_r13_3
-AT 470 243 0 0 ID 317	// prop crate_r13_4
-AT 446 236 0 0 ID 318	// prop crate_r13_5
-AT 458 252 0 0 ID 319	// prop crate_r13_6
 AT 556 108 0 0 ID 320	// prop pile_bay_1
 AT 556 104 0 0 ID 321	// prop pile_bay_2
 AT 560 108 0 0 ID 322	// prop pile_bay_3
