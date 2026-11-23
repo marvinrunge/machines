@@ -86,7 +86,7 @@ public sealed partial class CompanionBot
         if (companion.Task != CompanionTask.None || companion.Order != CompanionOrder.Follow || world.HeroOf(run.Locator) is not { } leader)
             return false;
         // Following, it never stands on an exposed lane beside a Locator that stopped by it (a duct's mouth opens onto deck B's
-        // north lane), nor steps onto one only to close up: it waits off the lane until the Locator has gone on.
+        // north lane), nor steps onto one only to stand there by it: it waits off the lane until the Locator has gone on.
         if (thresher is not null && Vector2.Distance(thresher.Position, grunt.Position) <= 120 && !LeaderDrives(leader))
         {
             var apart = Vector2.Distance(leader.Position, grunt.Position);
@@ -95,7 +95,7 @@ public sealed partial class CompanionBot
                 if (OffTheLane(grunt) || world.StoryAtRest(grunt) && OffLane(grunt, StayOff) is { } off && Go(grunt, off))
                     return true;
             }
-            else if (!OnLane(grunt.Position) && apart <= WaitOff && LaneAhead(grunt, leader.Position) is not null)
+            else if (!OnLane(grunt.Position) && apart <= WaitOff && LaneAhead(grunt, leader.Position) is not null && EndsOnLane(grunt, leader))
             {
                 world.CompanionStand(grunt);
                 return true;
@@ -111,6 +111,19 @@ public sealed partial class CompanionBot
     /// <summary>Whether the Locator drives (its driver holds a key), so its Grunts keep up with it across a lane.</summary>
     private bool LeaderDrives(Machine leader) =>
         world.DriveInput.TryGetValue(leader.Id, out var input) && (input.Forward != 0 || input.Strafe != 0);
+
+    /// <summary>
+    /// Whether the Grunt would end up on a lane by the Locator: it stands on one, or the Grunt's way to it ends on one (the
+    /// Locator in a duct whose mouth opens onto a lane). A Locator on the floor across a lane the Grunt joins when the window
+    /// is open (<see cref="Hold"/>).
+    /// </summary>
+    private bool EndsOnLane(Machine grunt, Machine leader)
+    {
+        if (OnLane(leader.Position))
+            return true;
+        var path = world.Nav.FindPath(grunt.Position, leader.Position, GameWorld.MobilityOf(grunt));
+        return path.Count > 0 && OnLane(path[^1]);
+    }
 
     /// <summary>Whether the Grunt is on its way off a lane (sent to a point off the lanes).</summary>
     private static bool OffTheLane(Machine grunt) => grunt.Order is MoveOrder { Target: var to } && !OnLane(to);
