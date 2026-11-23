@@ -18,6 +18,9 @@ public sealed partial class GameWorld
     public bool StoryStalks(Machine machine) =>
         Story is { } run && run.Flags.Contains(StoryMarks.Stealth) && run.Sight.Seekers.TryGetValue(machine.Id, out var eyes) && eyes.Searchlight && !eyes.Blind;
 
+    /// <summary>Whether a machine stands at rest (neither driving nor turning, no way left to go), for the computer's Grunts' lane rule.</summary>
+    internal bool StoryAtRest(Machine machine) => !IsMoving(machine) && machine.PathIndex >= machine.Path.Count;
+
     // ---- his eye --------------------------------------------------------------------------------------
 
     /// <summary>
@@ -386,7 +389,11 @@ public sealed partial class GameWorld
         }
     }
 
-    /// <summary>Whether nothing but floor lies on the flat line between two points of the deck (walls and high stacks halve a sound).</summary>
+    /// <summary>
+    /// Whether no wall lies on the flat line between two points of the deck: a wall halves a lure's sound. The 8-m stacks do
+    /// not; a bang carries over them in the tall halls, or the valves by the Nordgang could never draw him off his guard
+    /// before H to their pipes' far ends 72 m away (design-stealth §3.5's window), with deck B's stacks between.
+    /// </summary>
     private bool Clear(Vector2 from, Vector2 to)
     {
         if (Deck is not { } deck)
@@ -396,7 +403,7 @@ public sealed partial class GameWorld
         for (var i = 1; i < samples; i++)
         {
             var at = Vector2.Lerp(from, to, i / (float)samples);
-            if (deck.Cell((int)MathF.Floor(at.X), (int)MathF.Floor(at.Y)) is DeckCell.Wall or DeckCell.High)
+            if (deck.Cell((int)MathF.Floor(at.X), (int)MathF.Floor(at.Y)) is DeckCell.Wall)
                 return false;
         }
         return true;

@@ -366,4 +366,36 @@ public class StorySprintTests(ITestOutputHelper output)
         Assert.Equal(1, world.StoryPace(thresher));
         Assert.All(reapers.Story!.Director.Of(reapers, Prologue.ReaperRole), m => Assert.Equal(1, reapers.StoryPace(m)));
     }
+    [Fact]
+    public void The_creep_from_slow_goes_at_half_the_walk_beats_the_sprint_and_halves_the_signature()
+    {
+        // Section 2's creep (design-stealth §3.1, §3.2): the drive command's slow flag (Ctrl, the pad's R3) is the creep.
+        var world = OnTheLane(free: true);
+        world.Story!.Flags.Add(StoryMarks.Stealth);
+        var locator = Hero(world, Locator);
+        (float Speed, float Signature) Over(bool slow)
+        {
+            var mark = locator.Position;
+            for (var tick = 0; tick < 3 * GameWorld.TicksPerSecond; tick++)
+            {
+                if (tick == 2 * GameWorld.TicksPerSecond)
+                    mark = locator.Position;
+                world.Issue(new DriveCommand(Race.Red, locator.Id, true, 1, Slow: slow, Sprint: true) { Issuer = Locator });
+                world.Step();
+            }
+            return (Vector2.Distance(mark, locator.Position), world.Story.Sight.Signatures[locator.Id]);
+        }
+        var creep = Over(slow: true);
+        var drive = world.StoryDriveOf(locator.Id)!;
+        Assert.True(drive.Creeping);
+        Assert.False(drive.Sprinting);
+        Assert.Equal(StoryDrive.Walk * StoryDrive.Creep, world.StoryPace(locator), 3);
+        var sprint = Over(slow: false);
+        Assert.False(drive.Creeping);
+        Assert.True(drive.Sprinting);
+        output.WriteLine($"creep {creep.Speed:0.00} m/s, signature {creep.Signature:0.000}; sprint {sprint.Speed:0.00} m/s, {sprint.Signature:0.000}");
+        Assert.InRange(creep.Speed, locator.Stats.Speed * StoryDrive.Walk * StoryDrive.Creep * 0.9f, locator.Stats.Speed * StoryDrive.Walk * StoryDrive.Creep * 1.1f);
+        // Creeping, the moving part of the signature is a quarter of the walk's (half the share, halved again).
+        Assert.InRange(creep.Signature, StorySight.Still + StorySight.Moving * 0.25f * 0.9f, StorySight.Still + StorySight.Moving * 0.25f * 1.1f);
+    }
 }

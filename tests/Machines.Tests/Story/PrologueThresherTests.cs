@@ -69,6 +69,8 @@ public class PrologueThresherTests(ITestOutputHelper output)
     {
         var world = Chapter(5);
         var thresher = Thresher(world);
+        // Bob bangs his valve on his own a minute after his offer, which draws him off his post: not here.
+        world.Story!.Director.Fired["auto_bang"] = 0;
         var post = StoryMarks.Locate(world.Deck, "guard_h")!.Value;
         Blind(world, 60, () => Vector2.Distance(thresher.Position, post) < 1.5f && thresher.Order is not MoveOrder);
         var backs = new List<float>();
@@ -168,13 +170,56 @@ public class PrologueThresherTests(ITestOutputHelper output)
     [Fact]
     public void A_valve_sounds_at_the_far_end_of_its_pipe()
     {
-        var world = Chapter(1);
+        // At his guard before H the valve by the Nordgang (40 m off, behind the row) is too quiet for him; its pipe's far end
+        // at N1 (72 m, in the open) draws him off 0.8 s later.
+        var world = Chapter(5);
         var run = world.Story!;
-        var valve = world.StoryNoiseSources().First(m => m.Tags.Any(t => t.StartsWith("far=", StringComparison.Ordinal)));
-        Assert.Null(world.StoryBang(valve.Name, world.HeroOf(run.Seats[1])!.Id));
+        var thresher = Thresher(world);
+        var post = StoryMarks.Locate(world.Deck, "guard_h")!.Value;
+        Blind(world, 60, () => Vector2.Distance(thresher.Position, post) < 1.5f && thresher.Order is not MoveOrder);
+        var far = StoryMarks.Locate(world.Deck, "far_n1")!.Value;
+        Assert.Null(world.StoryBang("valve_o", world.HeroOf(run.Seats[2])!.Id));
         Assert.Single(run.Stealth.Pipes);
-        Blind(world, StorySight.PipeDelay + 0.2f);
+        var cues = new List<GameEvent>();
+        var searchedAt = -1f;
+        var bangAt = world.Time;
+        for (var i = 0; i < 2 * GameWorld.TicksPerSecond; i++)
+        {
+            Blind(world, 1f / GameWorld.TicksPerSecond);
+            cues.AddRange(world.Events.Where(e => e.Kind == GameEventKind.StoryCue && e.Detail!.StartsWith("pipe far", StringComparison.Ordinal)));
+            if (searchedAt < 0 && thresher.Order is SearchOrder)
+                searchedAt = world.Time;
+        }
         Assert.Empty(run.Stealth.Pipes);
+        Assert.Equal("pipe far far_n1", Assert.Single(cues).Detail);
+        Assert.Equal(far, cues[0].Position);
+        Assert.InRange(searchedAt - bangAt, StorySight.PipeDelay - 0.1f, StorySight.PipeDelay + 0.2f);
+        Assert.Equal(far, world.StorySeekerOf(thresher.Id)!.Spot);
+        Assert.Contains(thresher.Id, run.Stealth.Guards.Keys);
+        // The window it opens for the hack (design-stealth §3.5: about 44 s): off to N1, a sweep there, back to his post.
+        Blind(world, 120, () => thresher.Order is not SearchOrder && Vector2.Distance(thresher.Position, post) < 1.5f);
+        var window = world.Time - bangAt;
+        output.WriteLine($"away from his post {window:0.0} s");
+        Assert.InRange(window, 35, 60);
+    }
+
+    [Fact]
+    public void At_checkpoint_four_the_computers_grunts_wait_off_deck_bs_lane()
+    {
+        // The Locator stands at V1c's mouth, which opens onto deck B's north lane: its Grunts wait in S, off the lane he walks,
+        // and he passes by without hurting them.
+        var world = Chapter(4);
+        var run = world.Story!;
+        for (var i = 0; i < 50 * GameWorld.TicksPerSecond; i++)
+        {
+            world.Step();
+            foreach (var seat in run.Seats.Skip(1))
+            {
+                var grunt = world.HeroOf(seat)!;
+                Assert.False(grunt.Position.X is >= 120 and <= 264 && grunt.Position.Y is >= 144 and <= 158, $"seat {seat.Value} on the lane at {grunt.Position}, {world.Time:0.0} s");
+                Assert.Equal(grunt.MaxHitPoints, grunt.HitPoints);
+            }
+        }
     }
 
     [Fact]

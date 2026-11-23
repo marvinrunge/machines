@@ -16,6 +16,9 @@ public sealed partial class CompanionBot
     /// <summary>A freeze ends this long after the danger passed; it is given up after <see cref="FreezeMost"/> if not in his beam, seconds.</summary>
     private const float FreezeAfter = 2, FreezeMost = 20;
 
+    /// <summary>A Grunt that freezes on a lane with him farther off than this first creeps off it, metres.</summary>
+    private const float FreezeRoll = 25;
+
     /// <summary>Within so many metres of him a Grunt creeps.</summary>
     private const float CreepNear = 30;
 
@@ -80,9 +83,62 @@ public sealed partial class CompanionBot
             world.CompanionMove(grunt, spot);
             return true;
         }
+        if (companion.Task != CompanionTask.None || companion.Order != CompanionOrder.Follow || world.HeroOf(run.Locator) is not { } leader)
+            return false;
+        // Following, it never stands on an exposed lane beside a Locator that stopped by it (a duct's mouth opens onto deck B's
+        // north lane), nor steps onto one only to close up: it waits off the lane until the Locator has gone on.
+        if (thresher is not null && Vector2.Distance(thresher.Position, grunt.Position) <= 120 && !LeaderDrives(leader))
+        {
+            var apart = Vector2.Distance(leader.Position, grunt.Position);
+            if (OnLane(grunt.Position) && apart <= StayOff)
+            {
+                if (OffTheLane(grunt) || world.StoryAtRest(grunt) && OffLane(grunt, StayOff) is { } off && Go(grunt, off))
+                    return true;
+            }
+            else if (!OnLane(grunt.Position) && apart <= WaitOff && LaneAhead(grunt, leader.Position) is not null)
+            {
+                world.CompanionStand(grunt);
+                return true;
+            }
+        }
         // Following: it waits before a lane for its window as it would on its way.
-        return companion.Task == CompanionTask.None && companion.Order == CompanionOrder.Follow && world.HeroOf(run.Locator) is { } leader
-            && Vector2.Distance(leader.Position, grunt.Position) > There * 2 && Hold(run, bot, grunt, thresher, leader.Position);
+        return Vector2.Distance(leader.Position, grunt.Position) > There * 2 && Hold(run, bot, grunt, thresher, leader.Position);
+    }
+
+    /// <summary>A following Grunt on a lane within so many metres of a Locator that stopped goes off it; one off the lanes within <see cref="WaitOff"/> waits there.</summary>
+    private const float StayOff = 16, WaitOff = 25;
+
+    /// <summary>Whether the Locator drives (its driver holds a key), so its Grunts keep up with it across a lane.</summary>
+    private bool LeaderDrives(Machine leader) =>
+        world.DriveInput.TryGetValue(leader.Id, out var input) && (input.Forward != 0 || input.Strafe != 0);
+
+    /// <summary>Whether the Grunt is on its way off a lane (sent to a point off the lanes).</summary>
+    private static bool OffTheLane(Machine grunt) => grunt.Order is MoveOrder { Target: var to } && !OnLane(to);
+
+    private bool Go(Machine grunt, Vector2 to)
+    {
+        world.CompanionMove(grunt, to);
+        return true;
+    }
+
+    /// <summary>
+    /// The nearest point off the exposed lanes the Grunt can reach within <paramref name="most"/> metres: rings of 2 m,
+    /// sixteen headings each, in a fixed order (deterministic); null for none.
+    /// </summary>
+    private Vector2? OffLane(Machine grunt, float most)
+    {
+        var mobility = GameWorld.MobilityOf(grunt);
+        for (var r = 2f; r <= most; r += 2)
+        {
+            for (var k = 0; k < 16; k++)
+            {
+                var angle = k * MathF.PI / 8;
+                var at = grunt.Position + new Vector2(DetMath.Cos(angle), DetMath.Sin(angle)) * r;
+                if (!OnLane(at) && world.Nav.IsFree(at, mobility) && world.CompanionReaches(grunt, at, 1.5f))
+                    return at;
+            }
+        }
+        return null;
     }
 
     /// <summary>The nearest searchlight seeker (the Thresher) that is up, null for none.</summary>
@@ -143,8 +199,12 @@ public sealed partial class CompanionBot
             bot.ClearAt = -1;
             if (world.Time - bot.FrozenAt < FreezeMost || beam)
             {
-                world.CompanionStand(grunt);
                 run.Stealth.Creep.Add(seat.Value);
+                // Caught on a lane with him still more than 25 m off: it creeps to cover within 10 m first (design-stealth §6.3).
+                if (OnLane(grunt.Position) && thresher is not null && Vector2.Distance(thresher.Position, grunt.Position) > FreezeRoll
+                    && (OffTheLane(grunt) || OffLane(grunt, 10) is { } cover && Go(grunt, cover)))
+                    return true;
+                world.CompanionStand(grunt);
                 return true;
             }
             return false;
