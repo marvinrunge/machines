@@ -321,6 +321,8 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         var softScares = Setting("Soften scares", Switch(GameOptions.SoftScares, on => GameOptions.SoftScares = on), 0);
         rows.AddChild(Setting("Subtitles", Line(28, subtitles, softScares), 260));
         subtitles.SizeFlagsHorizontal = softScares.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        // The escape's list leans the view less, for players the swaying makes queasy (GameOptions.SoftList).
+        rows.AddChild(Setting("Soften the list", Switch(GameOptions.SoftList, on => GameOptions.SoftList = on), 260));
         // The keys themselves are on their own page.
         rows.AddChild(MenuTheme.Paragraph(Lang.T("Classic F.P. Keys drive as the original did, Classic Mouse gives orders with the left button, Classic Keys puts commands on their letters.")
             + " " + Lang.T("Mouse button per weapon: left, right and the wheel each fire a weapon; always on in Wired."), 18, MenuTheme.Dim));
