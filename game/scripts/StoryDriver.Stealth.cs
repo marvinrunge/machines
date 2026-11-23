@@ -21,6 +21,7 @@ namespace Machines.Game;
 // MACHINES_STORY_DRIVE_STEALTH=caught: on the Bahnsprung the Grunts are told to wait on the lane once, so one goes down; the
 // driver puts it together again and says how long that took. =die: once the window is over L-7 switches its lamp on and
 // stands in his cone until it is lost; after the restart it says how far he is and whether he finds it again within 10 s.
+// =count: a spotting is only counted, so a full run goes on past it (the restart then plays as a player's would).
 public partial class StoryDriver
 {
     private static readonly string StealthMode = System.Environment.GetEnvironmentVariable("MACHINES_STORY_DRIVE_STEALTH")?.Trim().ToLowerInvariant() ?? "";
@@ -393,9 +394,9 @@ public partial class StoryDriver
             _diedOnce = true;
             return;
         }
-        if (StealthMode == "caught")
+        if (StealthMode is "caught" or "count")
         {
-            Tell(FormattableString.Invariant($"stealth: he is sure of L-7 ({how}) at {world.Time - _stealthFrom:0.0} s (caught mode: counted)"));
+            Tell(FormattableString.Invariant($"stealth: he is sure of L-7 ({how}) at {world.Time - _stealthFrom:0.0} s ({StealthMode} mode: counted)"));
             return;
         }
         throw new InvalidOperationException(FormattableString.Invariant(
