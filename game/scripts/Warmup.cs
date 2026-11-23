@@ -352,7 +352,8 @@ public partial class Warmup : Node3D
             }
         }
 
-        // Loaded on every core, while the loading screen goes on drawing.
+        // Loaded on every core, while the loading screen goes on drawing. What runs on these threads makes no typed Godot
+        // array or dictionary of objects and no C# node: both write Godot's table of type names, which has no lock.
         var shadows = PlanetLook.PaintedShadows;
         var effects = _assets.EffectNames().ToList();
         var loaded = 0;
