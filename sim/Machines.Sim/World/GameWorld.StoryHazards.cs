@@ -27,13 +27,9 @@ public sealed partial class GameWorld
     ];
 
     /// <summary>The escape's whole tick: the budget's clock, the staggered, the rails, the jets, the shutter, the fire, the plates, the bridge, the crane, the devices, the pack.</summary>
-    internal void UpdateEscape(StoryRun run)
+    public void UpdateEscape(StoryRun run)
     {
-        var budget = run.Budget;
-        budget.Active = run.Flags.Contains(StoryMarks.Escape);
-        budget.Used = true;
-        budget.Now = Tick;
-        budget.Share = StoryBudget.WindowShare(run.Options.Difficulty);
+        WindBudget(run);
         var hazards = run.Hazards;
         foreach (var (id, until) in hazards.Staggered.ToList())
         {
@@ -53,14 +49,25 @@ public sealed partial class GameWorld
         UpdatePack(run);
     }
 
+    /// <summary>The budget's clock set to now: whether it holds (the escape's flag), the tick, the difficulty's share.</summary>
+    private void WindBudget(StoryRun run)
+    {
+        var budget = run.Budget;
+        budget.Active = run.Flags.Contains(StoryMarks.Escape);
+        budget.Used = true;
+        budget.Now = Tick;
+        budget.Share = StoryBudget.WindowShare(run.Options.Difficulty);
+    }
+
     /// <summary>
     /// A hazard's hit: so much of the target's hit points (armour ignored), through the harm seam (<see cref="StoryPack.Pending"/>),
     /// on the trio through the budget as <paramref name="kind"/>.
     /// </summary>
-    internal void HazardHit(StoryRun run, Actor target, float share, StoryHarmKind kind = StoryHarmKind.Hazard)
+    public void HazardHit(StoryRun run, Actor target, float share, StoryHarmKind kind = StoryHarmKind.Hazard)
     {
         if (target.IsDead || share <= 0)
             return;
+        WindBudget(run);
         run.Pack.Pending = share;
         run.Budget.Kind = kind;
         try
@@ -75,7 +82,7 @@ public sealed partial class GameWorld
     }
 
     /// <summary>Stops a machine where it stands for so many ticks (a container's knock, a plate, the fire's flailing).</summary>
-    internal void Stagger(StoryRun run, Machine machine, int ticks)
+    public void Stagger(StoryRun run, Machine machine, int ticks)
     {
         if (machine.IsDead || ticks <= 0)
             return;
@@ -86,11 +93,11 @@ public sealed partial class GameWorld
     }
 
     /// <summary>The trio's heroes standing on the deck (not in the pod, not dormant), the Locator first.</summary>
-    internal IEnumerable<Machine> EscapeHeroes(StoryRun run) =>
+    public IEnumerable<Machine> EscapeHeroes(StoryRun run) =>
         StoryTrigger.Heroes(this, run, StoryWho.Everyone).Where(h => h.Inside is null);
 
     /// <summary>Whether a machine stands (with its body) in a zone of the deck.</summary>
-    internal static bool Overlaps(DeckZone zone, Vector2 p, float radius) =>
+    public static bool Overlaps(DeckZone zone, Vector2 p, float radius) =>
         p.X + radius * 0.5f >= zone.Min.X && p.X - radius * 0.5f < zone.Max.X && p.Y + radius * 0.5f >= zone.Min.Y && p.Y - radius * 0.5f < zone.Max.Y;
 
     /// <summary>The live machines in a zone of the deck, in id order.</summary>
@@ -152,7 +159,7 @@ public sealed partial class GameWorld
     /// Puts the hold's containers and the rack on their rails (the escape's start): their deck props come off the map, so the
     /// view draws them from the rails and the nav grid no longer counts them; nothing slides until the rolls start.
     /// </summary>
-    internal void StartRails(StoryRun run)
+    public void StartRails(StoryRun run)
     {
         var hazards = run.Hazards;
         if (hazards.Rails.Count > 0 || Deck is not { } deck)
@@ -166,14 +173,16 @@ public sealed partial class GameWorld
             var w = (int)(width * 500);
             var h = (int)(half * 1000);
             var centre = Math.Clamp((int)MathF.Round(prop.Position.Y * 1000), RailSouth + h, RailNorth - h);
-            hazards.Rails.Add(new StoryRail(name, lane, prop.Id, x - w, x + w, h, centre));
+            var rail = new StoryRail(name, lane, prop.Id, x - w, x + w, h, centre);
+            hazards.Rails.Add(rail);
             if (Artefacts.FirstOrDefault(a => a.Tag == prop.Id && !a.IsDead) is { } artefact)
                 RemoveArtefact(artefact.Id);
+            RailNav(rail, present: true);
         }
     }
 
     /// <summary>The rolls start: the first one in a moment (only L1 moves on it: show, then use), one every <see cref="StoryHazards.Cycle"/>.</summary>
-    internal void StartRolls(StoryRun run)
+    public void StartRolls(StoryRun run)
     {
         if (run.Hazards.RollsFrom < 0)
             run.Hazards.RollsFrom = Tick;
@@ -204,14 +213,15 @@ public sealed partial class GameWorld
             var locked = rail.Lane >= 3 && Tick < hazards.LeverUntil && !rail.IsRack;
             if (rail.State == RailState.Telegraph && Tick >= rail.SlideAt && !locked)
             {
-                rail.State = RailState.Slide;
+                SetRail(rail, RailState.Slide);
                 StoryEvents.Cue(this, $"rail slide {rail.Name}", rail.Middle);
             }
             if (rail.State == RailState.Slide)
             {
                 if (locked)
                 {
-                    (rail.State, rail.Speed) = (RailState.Rest, 0);
+                    SetRail(rail, RailState.Rest);
+                    rail.Speed = 0;
                     continue;
                 }
                 Slide(run, rail);
@@ -353,12 +363,39 @@ public sealed partial class GameWorld
         }
         rail.Speed = want - c;
         rail.Centre = want;
-        if (want == (way > 0 ? hi : lo) && rail.Speed == 0 || want == (way > 0 ? RailNorth - h : RailSouth + h))
+        // At the end of its rail, or stopped by what stands before it (a hero it stops short of, a member that survived it,
+        // another container): it comes to rest there until the next roll, its ground blocked again so the ways go round it.
+        if (want == c || want == (way > 0 ? RailNorth - h : RailSouth + h))
         {
             if (Math.Abs(want - c) > 0 || rail.Speed == 0)
                 StoryEvents.Cue(this, $"rail end {rail.Name}", rail.Middle);
-            (rail.State, rail.Speed, rail.Way) = (RailState.Rest, 0, 0);
+            SetRail(rail, RailState.Rest);
+            (rail.Speed, rail.Way) = (0, 0);
         }
+    }
+
+    /// <summary>
+    /// A rail's container changes state: standing (at rest or telegraphing) its ground is blocked to every way, so the pack and
+    /// the Grunts plan round it as round the deck's prop it was; sliding, the ground is let go and <see cref="RailInWay"/>
+    /// keeps machines out of it as it moves.
+    /// </summary>
+    public void SetRail(StoryRail rail, RailState state)
+    {
+        var was = rail.State != RailState.Slide;
+        var now = state != RailState.Slide;
+        if (was && !now)
+            RailNav(rail, present: false);
+        rail.State = state;
+        if (!was && now)
+            RailNav(rail, present: true);
+    }
+
+    /// <summary>Blocks (or lets go) the ground a rail's container covers where it stands.</summary>
+    private void RailNav(StoryRail rail, bool present)
+    {
+        var (x0, x1) = (rail.X0 / 1000f, rail.X1 / 1000f);
+        var (y0, y1) = ((rail.Centre - rail.HalfLength) / 1000f, (rail.Centre + rail.HalfLength) / 1000f);
+        Nav.SetArea([new(x0, y0), new(x1, y0), new(x1, y1), new(x0, y1)], present);
     }
 
     /// <summary>A hero a container brushed is shoved out of its lane, to the nearer side, where there is ground for it.</summary>
@@ -397,7 +434,7 @@ public sealed partial class GameWorld
     }
 
     /// <summary>How far a point is from a rail's container (0 inside it), metres.</summary>
-    internal static float RailApart(StoryRail rail, Vector2 p)
+    public static float RailApart(StoryRail rail, Vector2 p)
     {
         var dx = MathF.Max(0, MathF.Abs(p.X - (rail.X0 + rail.X1) / 2000f) - rail.HalfWidth);
         var dy = MathF.Max(0, MathF.Abs(p.Y - rail.Centre / 1000f) - rail.HalfLength / 1000f);
@@ -407,14 +444,14 @@ public sealed partial class GameWorld
     // ---- the jets -----------------------------------------------------------------------------------------
 
     /// <summary>The jets start their timetable (the trio at the shutter); J1's show waits for the gallery's entry.</summary>
-    internal void StartJets(StoryRun run)
+    public void StartJets(StoryRun run)
     {
         if (run.Hazards.JetsFrom < 0)
             run.Hazards.JetsFrom = Tick;
     }
 
     /// <summary>J1's show at the gallery's entry (design-escape §3 C4): the hush, the warning, the burn.</summary>
-    internal void ShowJ1(StoryRun run)
+    public void ShowJ1(StoryRun run)
     {
         StartJets(run);
         if (run.Hazards.J1From < 0)
@@ -449,7 +486,7 @@ public sealed partial class GameWorld
     // ---- the shutter X ------------------------------------------------------------------------------------
 
     /// <summary>The shutter starts lowering by itself (design-escape §3 C3): P_AUTO_SHUT, the klaxon, 10 s down.</summary>
-    internal void CloseShutter(StoryRun run)
+    public void CloseShutter(StoryRun run)
     {
         if (run.Hazards.Shutter == ShutterState.Open)
             run.Hazards.Shutter = ShutterState.Closing;
@@ -529,7 +566,7 @@ public sealed partial class GameWorld
     /// The Notgang caves in at the hull breach (design-escape §3 C1): its cells south of the fire face become wall, a pack
     /// member in them is destroyed; the fire face burns at its edge. Never with a hero in it or beyond it: false then.
     /// </summary>
-    internal bool Collapse(StoryRun run)
+    public bool Collapse(StoryRun run)
     {
         var hazards = run.Hazards;
         if (hazards.Collapsed)
@@ -553,7 +590,7 @@ public sealed partial class GameWorld
     }
 
     /// <summary>The pack blasts its way through the collapse (design-escape §3 C7): its cells free again, the fire out.</summary>
-    internal void Reopen(StoryRun run)
+    public void Reopen(StoryRun run)
     {
         var hazards = run.Hazards;
         if (!hazards.Collapsed || Deck?.Zone("collapse_notgang") is not { } zone)
@@ -580,7 +617,7 @@ public sealed partial class GameWorld
     // ---- plates on the pack ---------------------------------------------------------------------------------
 
     /// <summary>A plate let fall on a role of the pack (its first live member): it follows it and lands after its warning.</summary>
-    internal void FallOn(StoryRun run, string role)
+    public void FallOn(StoryRun run, string role)
     {
         if (run.Director.Of(this, role).FirstOrDefault() is not { } target)
             return;
@@ -606,7 +643,7 @@ public sealed partial class GameWorld
     // ---- the bridge ---------------------------------------------------------------------------------------
 
     /// <summary>The bridge creaks and falls once nobody of the trio is on it (design-escape §3 C5).</summary>
-    internal void LetBridgeFall(StoryRun run)
+    public void LetBridgeFall(StoryRun run)
     {
         if (run.Hazards.BridgeFallAt < 0 && !run.Hazards.BridgeFallen)
         {

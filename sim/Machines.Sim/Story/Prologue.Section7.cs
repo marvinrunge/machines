@@ -193,6 +193,7 @@ public static partial class Prologue
         run.Flags.Add(StoryMarks.Escape);
         Do([new Reserve(true), new Countdown(CountdownFrom[cp]), new CloseDoors("Y"), new LockDoors("Y"),
             new Run("rails", (w, r, _) => w.StartRails(r)), new Hackable(true, "pod_3_hatch"), Score]);
+        world.CloseDoor('Y');
         world.Collapse(run);
         world.StartJets(run);
         if (cp == 13)

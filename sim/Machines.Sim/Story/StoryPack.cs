@@ -51,7 +51,14 @@ public sealed class StoryPack
     // ---- the leash (design-escape §4, metres of way to the rearmost hero; speeds in m/s) ----------------------
 
     /// <summary>The leash's bands: beyond <see cref="Far"/> the pack runs, within <see cref="Near"/> it never runs a hero down.</summary>
-    public const float Far = 35, Near = 20, ThresherKeeps = 25;
+    public const float Far = 40, Near = 28, ThresherKeeps = 25;
+
+    /// <summary>
+    /// Within this many metres of a hero (or standing: held, jammed, staggered) a member of the pack sees and aims by the fair
+    /// rule; running further off it is blind to the trio (design-escape §4: wild fire while running, aimed fire only from a
+    /// stand or close by). The leash's <see cref="Near"/> keeps a running pack just outside it.
+    /// </summary>
+    public const float AimReach = 25;
 
     /// <summary>A straggler this far behind and out of every hero's sight for <see cref="CatchUpTicks"/> is set at the last door behind the trio.</summary>
     public const float CatchUp = 110, OutOfSight = 70;
@@ -72,7 +79,7 @@ public sealed class StoryPack
     {
         PackKind.Thresher => behind < ThresherKeeps ? 0 : behind > Far ? 13 : 9.5f,
         PackKind.Heavy => behind < Near ? 4 : top,
-        _ => behind > Far ? 13.5f : behind >= Near ? 9.5f : MathF.Max(4, 0.9f * heroSpeed),
+        _ => behind > Far ? 13.5f : behind >= Near ? 9.5f : 0.9f * heroSpeed,
     };
 
     // ---- state ------------------------------------------------------------------------------------------------

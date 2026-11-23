@@ -298,6 +298,13 @@ public sealed class StoryHazards
         var t = (tick - JetsFrom - (jet - 1) * JetOffset) % period;
         if (t < 0)
             t += period;
+        // A cycle that began before the jet was live (the timetable's start, J1's show, J4 turned off) is skipped whole: a jet
+        // never burns without its full flicker first.
+        var live = Math.Max(JetsFrom, jet == 4 ? J4OffUntil : -1);
+        if (jet == 1)
+            live = Math.Max(live, J1From + J1Warning + J1Burn);
+        if (tick - t < live)
+            return JetPhase.Off;
         return t < JetFlicker ? JetPhase.Flicker : t < JetFlicker + JetFire ? JetPhase.Fire : JetPhase.Off;
     }
 }

@@ -15,7 +15,7 @@ namespace Machines.Sim.World;
 public sealed partial class GameWorld
 {
     /// <summary>The pack's live members, not benched, in id order.</summary>
-    internal IEnumerable<Machine> PackAlive(StoryRun run)
+    public IEnumerable<Machine> PackAlive(StoryRun run)
     {
         foreach (var id in run.Pack.Members.Keys)
         {
@@ -25,7 +25,7 @@ public sealed partial class GameWorld
     }
 
     /// <summary>Counts the machines of the pack's roles the director cast as its members (after each spawn).</summary>
-    internal void MusterPack(StoryRun run)
+    public void MusterPack(StoryRun run)
     {
         foreach (var (role, kind) in StoryPack.Roster)
         {
@@ -69,6 +69,9 @@ public sealed partial class GameWorld
             }
             if (PackRole(run, id) is not { } role)
                 continue;
+            if (kind is PackKind.Heavy or PackKind.Thresher)
+                ShoveDebris(member);
+            var blind = AimGate(run, member, heroes, down);
             var behind = rearmost - StoryPack.Progress(member.Position);
             var top = MathF.Max(0.1f, member.Stats.Speed);
             float speed;
@@ -96,7 +99,7 @@ public sealed partial class GameWorld
                 || run.Director.Held.Contains(id))
                 continue;
             CatchUp(run, member, behind, heroes, rearmost);
-            if (member.Order is AttackOrder && !down)
+            if (member.Order is AttackOrder && !down && !blind)
                 continue;
             var goal = down ? locator!.Position : rear.Position;
             if (member.Order is MoveOrder move && Vector2.Distance(move.Target, goal) < 4)
@@ -104,6 +107,42 @@ public sealed partial class GameWorld
             SendForStory(member, new MoveOrder(goal), goal);
         }
         TellThresher(run, heroes);
+    }
+
+    /// <summary>
+    /// Whether a member of the pack may aim now (design-escape §4): standing (staggered, or hardly moving) or with a hero within
+    /// <see cref="StoryPack.AimReach"/>, it sees by the fair rule; running further off, or with the Locator shut down, it is
+    /// blind to the trio. Members the director holds (waiting at the collapse) keep what the director gave them. True when blind.
+    /// </summary>
+    private bool AimGate(StoryRun run, Machine member, List<Machine> heroes, bool down)
+    {
+        var eyes = StoryWatch(member);
+        if (run.Director.Held.Contains(member.Id))
+            return eyes.Blind;
+        var stands = run.Hazards.Staggered.ContainsKey(member.Id) || MotionOf(member).Speed < 1;
+        var near = heroes.Any(h => Vector2.Distance(h.Position, member.Position) <= StoryPack.AimReach);
+        var blind = down || !(stands || near);
+        if (blind && !eyes.Blind)
+            eyes.Sees.Clear();
+        eyes.Blind = blind;
+        return blind;
+    }
+
+    /// <summary>
+    /// The big ones' dozer blades (design-escape §4): debris the ship dropped into the Notgang (the slalom's crates) that lies
+    /// within reach of a big Grunt or the Thresher is shoved aside, out of the way, so the Notgang stays wide enough for them.
+    /// The view hears <c>shove &lt;placement&gt; &lt;id&gt;</c>.
+    /// </summary>
+    private void ShoveDebris(Machine member)
+    {
+        if (Deck?.Zone("R15") is not { } notgang)
+            return;
+        foreach (var piece in Artefacts.Where(a => !a.IsDead && a.Tag is null && a.Id >= Artefact.IdBase + StoryDirector.PlacedBase
+                     && notgang.Contains(a.Position) && Vector2.Distance(a.Position, member.Position) <= member.Radius + 14).ToList())
+        {
+            RemoveArtefact(piece.Id);
+            StoryEvents.Cue(this, FormattableString.Invariant($"shove {piece.Id - Artefact.IdBase} {member.Id}"), piece.Position, member.Id);
+        }
     }
 
     /// <summary>
@@ -163,7 +202,7 @@ public sealed partial class GameWorld
     /// one big Grunt wait north of the collapse, out of sight; the rest stay behind (benched: held, blind, out of the show).
     /// The Thresher stays at the bridgehead.
     /// </summary>
-    internal void SendPackRound(StoryRun run, params Vector2[] waits)
+    public void SendPackRound(StoryRun run, params Vector2[] waits)
     {
         var pack = run.Pack;
         if (pack.GoneRound)
@@ -195,7 +234,7 @@ public sealed partial class GameWorld
     }
 
     /// <summary>The survivors waiting at the collapse come on: they see again and make for door Y.</summary>
-    internal void LetPackThrough(StoryRun run, Vector2 to)
+    public void LetPackThrough(StoryRun run, Vector2 to)
     {
         foreach (var member in PackAlive(run).ToList())
         {
@@ -223,7 +262,7 @@ public sealed partial class GameWorld
     /// Door Y under the pack (design-escape §3 C7): while a hero holds its switch it stays shut; unheld with the pack at it, it
     /// gives after 12 s. True on the tick it gives.
     /// </summary>
-    internal bool PressY(StoryRun run)
+    public bool PressY(StoryRun run)
     {
         if (!DoorClosed('Y'))
             return false;

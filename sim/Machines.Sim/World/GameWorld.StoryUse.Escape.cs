@@ -69,12 +69,15 @@ public sealed partial class GameWorld
     }
 
     /// <summary>A chock pushed into its lane: the lane's container stops at it for <see cref="StoryHazards.ChockCycles"/> rolls.</summary>
-    internal void PushChock(StoryRun run, Artefact chock, int lane)
+    public void PushChock(StoryRun run, Artefact chock, int lane)
     {
         RemoveArtefact(chock.Id);
         run.Hazards.Chocked[lane] = StoryHazards.ChockCycles;
         foreach (var rail in run.Hazards.Rails.Where(r => r.Lane == lane && r.State != RailState.Rest))
-            (rail.State, rail.Speed, rail.Way) = (RailState.Rest, 0, 0);
+        {
+            SetRail(rail, RailState.Rest);
+            (rail.Speed, rail.Way) = (0, 0);
+        }
         StoryEvents.Cue(this, $"chock {lane}", chock.Position);
     }
 }
