@@ -121,8 +121,9 @@ public sealed class StoryWaves
     /// <summary>A strip takes so long; a mount so long.</summary>
     public const float StripSeconds = 3, MountSeconds = 2;
 
-    /// <summary>The share of the Locator's hit points an electric unit's strike takes (three kill it); the Grunts take the usual half harm.</summary>
-    public const float ZapShare = 0.35f;
+    /// <summary>The share of the Locator's hit points an electric unit's strike takes (four kill it; 0.35 before the driver's
+    /// run, where two Grunt 2 tanks and a zap downed it in batches 3 and 4 again and again); the Grunts take the usual half harm.</summary>
+    public const float ZapShare = 0.25f;
 
     /// <summary>Barricade: when the ship opens a door with this many crates or more in its slots, its units shoot at them this long (seconds; batches 1–2, then from 3 on).</summary>
     public const int BarricadeCrates = 2;
@@ -136,6 +137,7 @@ public sealed class StoryWaves
     {
         StoryWaveKind.Zap => 0.75f,
         StoryWaveKind.TankZap => 0.6f,
+        StoryWaveKind.Tank => 0.4f,
         StoryWaveKind.Heavy => StoryHeavy.Cruise,
         _ => 0.5f,
     };
@@ -183,7 +185,7 @@ public sealed class StoryWaves
         new(1, 10, [new(StoryWaveKind.Bolter, 'R', "wave_r_1", 0), new(StoryWaveKind.Bolter, 'R', "wave_r_2", 4), new(StoryWaveKind.Bolter, 'R', "wave_r_3", 8)]),
         new(2, 35, [new(StoryWaveKind.Bolter, 'T', "wave_t_1", 0), new(StoryWaveKind.Bolter, 'T', "wave_t_2", 3), new(StoryWaveKind.Bolter, 'R', "wave_r_1", 6),
             new(StoryWaveKind.Zap, 'R', "wave_r_2", 9)]),
-        new(3, 25, [new(StoryWaveKind.Tank, 'N', "wave_n_1", 0), new(StoryWaveKind.Tank, 'N', "wave_n_2", 5), new(StoryWaveKind.Zap, 'R', "wave_r_1", 8),
+        new(3, 25, [new(StoryWaveKind.Tank, 'N', "wave_n_1", 0), new(StoryWaveKind.Tank, 'N', "wave_n_2", 9), new(StoryWaveKind.Zap, 'R', "wave_r_1", 12),
             new(StoryWaveKind.Bolter, 'T', "wave_t_1", 10), new(StoryWaveKind.Bolter, 'T', "wave_t_2", 13)]),
         new(4, 25, [new(StoryWaveKind.Tank, 'N', "wave_n_1", 0), new(StoryWaveKind.Bolter, 'R', "wave_r_1", 3), new(StoryWaveKind.Bolter, 'T', "wave_t_1", 5),
             new(StoryWaveKind.TankZap, 'N', "wave_n_2", 6), new(StoryWaveKind.Bolter, 'R', "wave_r_2", 7), new(StoryWaveKind.Zap, 'T', "wave_t_2", 10)]),
