@@ -149,6 +149,47 @@ public static class GraphicsSettings
     public static bool Weather => Parts.Weather;
     public static bool Scenery => Parts.Scenery;
 
+    /// <summary>The glow round bright light: 0 off, 1 low, 2 high (see <see cref="PlanetLook.ApplyBloom"/>).</summary>
+    public static readonly string[] BloomLevels = ["Off", "Low", "High"];
+
+    /// <summary>
+    /// How much bright light glows (an index into <see cref="BloomLevels"/>). Not chosen yet, it is low with the remake's
+    /// lighting and off with the original's, which never glowed. MACHINES_BLOOM=off|low|high sets it for one run, unsaved.
+    /// </summary>
+    public static int Bloom
+    {
+        get => Array.FindIndex(BloomLevels, l => l.Equals(System.Environment.GetEnvironmentVariable("MACHINES_BLOOM"), StringComparison.OrdinalIgnoreCase)) is >= 0 and var asked
+            ? asked
+            : Math.Clamp((int)SavedValue("bloom", Lighting ? 1 : 0), 0, BloomLevels.Length - 1);
+        set => Save("bloom", value);
+    }
+
+    /// <summary>
+    /// Whether the glow shows the smudges of a dirty lens (on unless turned off; it shows only with <see cref="Bloom"/>
+    /// on). MACHINES_LENS_DIRT=on|off sets it for one run, unsaved.
+    /// </summary>
+    public static bool LensDirt
+    {
+        get => System.Environment.GetEnvironmentVariable("MACHINES_LENS_DIRT")?.ToLowerInvariant() is { } asked and ("on" or "off" or "1" or "0")
+            ? asked is "on" or "1"
+            : (bool)SavedValue("lens_dirt", true);
+        set => Save("lens_dirt", value);
+    }
+
+    private static Variant SavedValue(string key, Variant fallback)
+    {
+        var config = new ConfigFile();
+        return config.Load(File) == Error.Ok ? config.GetValue("graphics", key, fallback) : fallback;
+    }
+
+    private static void Save(string key, Variant value)
+    {
+        var config = new ConfigFile();
+        config.Load(File);
+        config.SetValue("graphics", key, value);
+        config.Save(File);
+    }
+
     private static GraphicsParts Saved()
     {
         var config = new ConfigFile();

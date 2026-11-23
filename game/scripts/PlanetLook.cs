@@ -224,6 +224,7 @@ public partial class PlanetLook : Node
         _adapting = false;
         if (GraphicsSettings.Lighting)
             look.Enhance();
+        ApplyBloom(look._environment);
         look.AddChild(look._sun);
         var attributes = new CameraAttributesPractical();
         Adapt(attributes);
@@ -233,8 +234,104 @@ public partial class PlanetLook : Node
     }
 
     /// <summary>
+    /// The glow round the brightest spots (muzzle flashes, explosions, glowing eyes, lamps, the sun) as the options
+    /// set it (<see cref="GraphicsSettings.Bloom"/>): low as the remake always glowed, high wider and stronger. With
+    /// the lens dirt on, the glow lights up the smudges of a dirty lens where it falls (<see cref="LensDirt"/>).
+    /// </summary>
+    public static void ApplyBloom(Godot.Environment environment)
+    {
+        var level = GraphicsSettings.Bloom;
+        environment.GlowEnabled = level > 0;
+        if (level == 0)
+            return;
+        var high = level == 2;
+        environment.GlowIntensity = high ? 0.9f : 0.6f;
+        environment.GlowBloom = high ? 0.1f : 0.04f;
+        environment.GlowHdrThreshold = high ? 0.95f : 1.1f;
+        environment.GlowBlendMode = Godot.Environment.GlowBlendModeEnum.Softlight;
+        // High glows wider: two more of the larger blurs carry it (Godot's own are levels 3 and 5).
+        if (high)
+        {
+            environment.SetGlowLevel(4, 1);
+            environment.SetGlowLevel(6, 0.5f);
+        }
+        if (GraphicsSettings.LensDirt)
+        {
+            // The map dims the glow where the lens is clean (by about half) and keeps it whole on the
+            // smudges; the glow is raised to match, so a clean spot glows as without the dirt.
+            environment.GlowMap = LensDirt.Value;
+            environment.GlowMapStrength = DirtStrength;
+            environment.GlowIntensity /= 1 - DirtStrength * (1 - DirtClean);
+        }
+    }
+
+    private const float DirtStrength = 0.8f;
+    private const float DirtClean = 0.4f;
+
+    /// <summary>
+    /// A dirty lens, made once: a grey where the glass is clean (<see cref="DirtClean"/>) with soft round smudges and
+    /// a few streaks of grime brighter on it, more of them towards the edges, a little warm. Seeded, so it is the
+    /// same every time.
+    /// </summary>
+    private static readonly Lazy<Texture2D> LensDirt = new(() =>
+    {
+        const int width = 480, height = 270;
+        var light = new float[width * height];
+        var random = new Random(1999);
+        void Smudge(float cx, float cy, float radius, float strength, float ring)
+        {
+            for (var y = (int)Math.Max(0, cy - radius); y < Math.Min(height, cy + radius + 1); y++)
+                for (var x = (int)Math.Max(0, cx - radius); x < Math.Min(width, cx + radius + 1); x++)
+                {
+                    var d = MathF.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy)) / radius;
+                    if (d >= 1)
+                        continue;
+                    // A soft disc, its rim a little brighter as a drop dried on glass leaves it.
+                    var fall = 1 - d * d;
+                    light[y * width + x] += strength * (fall * fall * (1 - ring) + ring * MathF.Exp(-MathF.Pow((d - 0.85f) / 0.08f, 2)));
+                }
+        }
+        // More towards the edges: the middle of a lens is wiped more often.
+        (float X, float Y) Spot()
+        {
+            var x = (float)random.NextDouble();
+            var y = (float)random.NextDouble();
+            if (random.NextDouble() < 0.6)
+                (x, y) = (x < 0.5f ? x * x * 2 : 1 - (1 - x) * (1 - x) * 2, y < 0.5f ? y * y * 2 : 1 - (1 - y) * (1 - y) * 2);
+            return (x * width, y * height);
+        }
+        for (var i = 0; i < 70; i++)
+        {
+            var (x, y) = Spot();
+            Smudge(x, y, 4 + (float)random.NextDouble() * 18, 0.15f + (float)random.NextDouble() * 0.35f, (float)random.NextDouble() * 0.5f);
+        }
+        for (var i = 0; i < 14; i++)
+        {
+            var (x, y) = Spot();
+            Smudge(x, y, 30 + (float)random.NextDouble() * 50, 0.1f + (float)random.NextDouble() * 0.15f, 0);
+        }
+        // Streaks wiped across the glass: a row of faint smudges along a slanting line.
+        for (var i = 0; i < 6; i++)
+        {
+            var (x, y) = Spot();
+            var angle = (float)random.NextDouble() * MathF.PI;
+            var length = 40 + (float)random.NextDouble() * 120;
+            for (var t = 0f; t < length; t += 3)
+                Smudge(x + MathF.Cos(angle) * t, y + MathF.Sin(angle) * t, 5, 0.06f, 0);
+        }
+        var image = Image.CreateEmpty(width, height, false, Image.Format.Rgb8);
+        for (var y = 0; y < height; y++)
+            for (var x = 0; x < width; x++)
+            {
+                var v = Math.Clamp(DirtClean + light[y * width + x] * (1 - DirtClean), 0, 1);
+                image.SetPixel(x, y, new Color(v, v * 0.97f, v * 0.92f));
+            }
+        return ImageTexture.CreateFromImage(image);
+    });
+
+    /// <summary>
     /// The remake's look over the original's light: filmic tone mapping (AgX) with a touch more saturation, glow
-    /// around the brightest spots (muzzle flashes, explosions, the sun), ambient occlusion where things meet the
+    /// around the brightest spots (muzzle flashes, explosions, the sun; see <see cref="ApplyBloom"/>), ambient occlusion where things meet the
     /// ground, and soft shadows that reach as far as the camera looks.
     /// </summary>
     private void Enhance()
@@ -244,11 +341,6 @@ public partial class PlanetLook : Node
         _environment.AdjustmentEnabled = true;
         _environment.AdjustmentSaturation = 1.1f;
         _environment.AdjustmentContrast = RemakeContrast;
-        _environment.GlowEnabled = true;
-        _environment.GlowIntensity = 0.6f;
-        _environment.GlowBloom = 0.04f;
-        _environment.GlowHdrThreshold = 1.1f;
-        _environment.GlowBlendMode = Godot.Environment.GlowBlendModeEnum.Softlight;
         // Each kind of planet has its own grade: the shade and the light tinted apart (ColourGrade).
         _environment.AdjustmentColorCorrection = ColourGrade.For(_planet);
         _adapting = true;

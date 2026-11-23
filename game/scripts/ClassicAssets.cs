@@ -480,7 +480,13 @@ public sealed class ClassicAssets
             {
                 using var document = JsonDocument.Parse(File.ReadAllBytes(path));
                 if (document.RootElement.TryGetProperty("rig", out var element))
-                    rig = Rig.Read(element, node => MeshFromParts(node, race));
+                {
+                    // The faceplate's eyes glow by their own plate's emission (the eye box texture), not by the original's
+                    // flare sprites on top: those showed as a light sprite stuck on the machine's cameras.
+                    var faceplate = element.TryGetProperty("faceplate", out var f) ? f.GetInt32() : -1;
+                    var node = 0;
+                    rig = Rig.Read(element, part => MeshFromParts(part, race, glowSprites: node++ != faceplate));
+                }
             }
             HitchLog.Loaded($"rig {key}", start);
             return rig;
@@ -540,7 +546,7 @@ public sealed class ClassicAssets
     /// (negative: nearer) for the depth test alone, as RenTTFPolygon::render did, so a big glow is not cut by the
     /// model it sits in.
     /// </summary>
-    private void AddSprites(ArrayMesh mesh, JsonElement sprites, Race? race)
+    private void AddSprites(ArrayMesh mesh, JsonElement sprites, Race? race, bool glowSprites = true)
     {
         // Corners in the original's order (a triangle fan): right-down, right-up, left-up, left-down.
         Vector2[] corners = [new(1, -1), new(1, 1), new(-1, 1), new(-1, -1)];
@@ -548,6 +554,8 @@ public sealed class ClassicAssets
         foreach (var group in sprites.EnumerateArray().GroupBy(s => s.GetProperty("texture").GetString() + "|"
                      + s.GetProperty("diffuse").GetRawText() + "|" + s.GetProperty("emissive").GetRawText() + "|" + DepthOffset(s)))
         {
+            if (!glowSprites && group.First().GetProperty("emissive").EnumerateArray().Any(e => e.GetSingle() > 0.03f))
+                continue;
             var vertices = new List<Vector3>();
             var uvs = new List<Vector2>();
             var offsets = new List<Vector2>();
@@ -741,7 +749,7 @@ public sealed class ClassicAssets
     /// face the camera. Parts are drawn from both sides, except the triangles that lie back to back on another (see
     /// <see cref="BackToBack"/>): those show their front alone, as the original showed them.
     /// </summary>
-    private Mesh? MeshFromParts(JsonElement model, Race? race = null)
+    private Mesh? MeshFromParts(JsonElement model, Race? race = null, bool glowSprites = true)
     {
         var mesh = new ArrayMesh();
         var parts = model.GetProperty("parts").EnumerateArray().ToArray();
@@ -857,7 +865,7 @@ public sealed class ClassicAssets
             }
         }
         if (model.TryGetProperty("sprites", out var sprites))
-            AddSprites(mesh, sprites, race);
+            AddSprites(mesh, sprites, race, glowSprites);
         if (model.TryGetProperty("spinners", out var spinners))
             AddSpinners(mesh, spinners, race);
         return mesh.GetSurfaceCount() > 0 ? mesh : null;
