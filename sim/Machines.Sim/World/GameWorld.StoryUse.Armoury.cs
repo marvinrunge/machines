@@ -26,6 +26,15 @@ public sealed partial class GameWorld
         if (seat != 0 || run.Section != 6)
             return;
         var waves = run.Waves;
+        // A wreck L-7 stands at is stripped, not the Grunt that followed it there: a mend is offered only for a Grunt nearer
+        // than the nearest wreck to strip (the priority, C9, would otherwise always take the Grunt).
+        var strip = float.MaxValue;
+        foreach (var (_, wreck) in waves.Wrecks)
+        {
+            var d = Vector2.Distance(wreck.Position, hero.Position);
+            if (d <= StoryWaves.Reach + hero.Radius && StripYield(run, wreck) is not null)
+                strip = MathF.Min(strip, d);
+        }
         foreach (var grunt in run.Seats.Skip(1))
         {
             if (CompanionDown(grunt) || CompanionDormant(grunt) || HeroOf(grunt) is not { } machine)
@@ -34,7 +43,7 @@ public sealed partial class GameWorld
             if (d > StoryWaves.Reach + hero.Radius + machine.Radius)
                 continue;
             var id = grunt.Value.ToString(CultureInfo.InvariantCulture);
-            if (machine.HitPoints < machine.MaxHitPoints || machine.Armour < machine.MaxArmour)
+            if ((machine.HitPoints < machine.MaxHitPoints || machine.Armour < machine.MaxArmour) && d - machine.Radius < strip)
                 near.Add(new(MendTarget + id, StoryUseKind.Mend, d));
             if (waves.Carried is not null && machine.Weapons.Count == 0)
                 near.Add(new(MountTarget + id, StoryUseKind.Mount, d));

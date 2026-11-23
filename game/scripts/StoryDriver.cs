@@ -100,6 +100,9 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                 }
                 if (ShotDue(game, story) is { } shot)
                     await BeatPicture(game, story, shot);
+                // The armoury's own pictures (StoryDriver.Armoury).
+                if (ArmouryShot() is { } armouryShot)
+                    await BeatPicture(game, story, armouryShot);
                 if (story.Over)
                 {
                     LetGo();
