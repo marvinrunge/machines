@@ -244,17 +244,16 @@ public partial class Game
                 (cross.At, cross.Clamped) = (edge ?? at, edge is not null);
             }
         }
-        ShowArcAndHull(machine, view, seen, size);
+        ShowArc(machine, view, seen, size);
         cross.Show(Kind(onGun), _gun.On);
     }
 
     /// <summary>
     /// What the sighted driver is told of the hull and the gun beside the two marks: the edges of the guns' arc (the view
-    /// past them turns the hull), the hull glyph under the compass (the hull and the gun from above, the view up, and the way
-    /// the keys drive), where the ground stops the gun's line before the point looked at, and from behind the hero how wide
-    /// the rounds' cone shows at the point.
+    /// past them turns the hull), where the ground stops the gun's line before the point looked at, and from behind the hero
+    /// how wide the rounds' cone shows at the point.
     /// </summary>
-    private void ShowArcAndHull(Machine machine, ActorView view, Vector3 seen, Vector2 size)
+    private void ShowArc(Machine machine, ActorView view, Vector3 seen, Vector2 size)
     {
         var cross = _hud.Crosshair;
         var camera = _firstPersonCamera;
@@ -277,9 +276,6 @@ public partial class Game
             }
             cross.ArcEdges = (Edge(1), Edge(-1));
         }
-        cross.HullAngle = Mathf.Wrap(facing - _aimYaw, -Mathf.Pi, Mathf.Pi);
-        cross.GunAngle = Mathf.Wrap(_gunDrawn - _aimYaw, -Mathf.Pi, Mathf.Pi);
-        cross.Drive = _driveShown;
         // The ground between the gun and where it sends its rounds stops them there (GameWorld.Projectiles): marked, as from
         // behind the hero the view sees over crests its gun cannot clear.
         cross.BlockedAt = null;
@@ -301,9 +297,6 @@ public partial class Game
             ? ChaseCamera.SpreadShare(view.Centre.DistanceTo(seen), spot.Camera.DistanceTo(seen))
             : 1;
     }
-
-    // What the keys drive this frame, for the hull glyph: ahead (1) or back (-1), and to the right on the screen.
-    private Vector2 _driveShown;
 
     /// <summary>What a sight resting on an actor shows: an enemy, a friend, or nothing.</summary>
     private Crosshair.Sight Kind(Actor? actor) =>

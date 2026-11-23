@@ -94,7 +94,7 @@ public partial class Crosshair : Control
     public void Single()
     {
         (At, Clamped, Dot, SightHidden, _gunOn) = (null, false, false, false, true);
-        (ArcEdges, HullAngle, BlockedAt, SpreadShare) = (null, null, null, 1);
+        (ArcEdges, BlockedAt, SpreadShare) = (null, null, 1);
     }
 
     /// <summary>
@@ -102,18 +102,6 @@ public partial class Crosshair : Control
     /// sight's height (null for one off the screen); past them the hull turns. Null draws none.
     /// </summary>
     public (float? A, float? B)? ArcEdges { get; set; }
-
-    /// <summary>
-    /// For a sighted driver, how far the hull stands turned from where the view looks, radians, clockwise on the screen: the
-    /// hull glyph under the compass shows it from above with the view up. Null draws no glyph.
-    /// </summary>
-    public float? HullAngle { get; set; }
-
-    /// <summary>How far the gun stands turned from where the view looks, radians as <see cref="HullAngle"/>: the glyph's barrel.</summary>
-    public float GunAngle { get; set; }
-
-    /// <summary>Which way the keys drive: ahead (y 1) or back, and to the right on the screen (x 1) for a machine that steps sideways.</summary>
-    public Vector2 Drive { get; set; }
 
     /// <summary>Where the ground stops the gun's line before the point looked at, on the screen; null where it is clear.</summary>
     public Vector2? BlockedAt { get; set; }
@@ -203,8 +191,6 @@ public partial class Crosshair : Control
             DrawLocated(centre, scale);
         if (Dot && ArcEdges is { } edges)
             DrawArcEdges(centre, edges, scale);
-        if (Dot && HullAngle is { } hull)
-            DrawHull((centre + new Vector2(0, 62) * scale).Round(), hull, scale);
         if (Dot && BlockedAt is { } blocked && showSight)
             DrawBlocked(blocked.Floor(), scale);
 
@@ -483,38 +469,6 @@ public partial class Crosshair : Control
             Vector2[] stroke = [at + new Vector2(inward * hook, -half), at + new Vector2(0, -half), at + new Vector2(0, half), at + new Vector2(inward * hook, half)];
             DrawPolyline(stroke, new Color(0, 0, 0, 0.6f), line + 2, true);
             DrawPolyline(stroke, colour, line, true);
-        }
-    }
-
-    /// <summary>
-    /// The hull glyph: the hull seen from above with the view up (turned by <see cref="HullAngle"/>), its front marked,
-    /// the gun's barrel from its middle (<see cref="GunAngle"/>), and a chevron the way the keys drive.
-    /// </summary>
-    private void DrawHull(Vector2 at, float hull, float scale)
-    {
-        var s = scale;
-        Vector2 P(float x, float y, float turn) => at + new Vector2(x, y).Rotated(turn) * s;
-        var dark = new Color(0, 0, 0, 0.65f);
-        var green = new Color(Bright, 0.9f);
-        var line = Mathf.Max(1.5f * s, 1);
-        // The hull, its nose a point at the front.
-        Vector2[] body = [P(-5, -5, hull), P(0, -9, hull), P(5, -5, hull), P(5, 8, hull), P(-5, 8, hull), P(-5, -5, hull)];
-        DrawPolyline(body, dark, line + 2, true);
-        DrawPolyline(body, green, line, true);
-        // The gun, from the middle.
-        Vector2[] barrel = [P(0, 0, GunAngle), P(0, -14, GunAngle)];
-        DrawPolyline(barrel, dark, line + 2, true);
-        DrawPolyline(barrel, new Color(Pale, 0.95f), line, true);
-        DrawCircle(at, 2 * s, new Color(Pale, 0.95f));
-        // The way it drives: ahead or back along the hull, sideways across it.
-        if (Drive.LengthSquared() > 0.01f)
-        {
-            var way = new Vector2(Drive.X, -Drive.Y).Normalized().Rotated(hull);
-            var tip = at + way * 15 * s;
-            var side = way.Orthogonal() * 3 * s;
-            Vector2[] chevron = [tip - way * 3 * s + side, tip, tip - way * 3 * s - side];
-            DrawPolyline(chevron, dark, line + 2, true);
-            DrawPolyline(chevron, new Color(1, 0.8f, 0.3f, 0.95f), line, true);
         }
     }
 

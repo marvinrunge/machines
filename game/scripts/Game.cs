@@ -3531,7 +3531,6 @@ public partial class Game : Node3D
         // Behind the hangar's screen (or a run's menus) the hero stands: its keys and buttons are the screen's.
         if (ScreenOver)
         {
-            _driveShown = Vector2.Zero;
             Issue(new DriveCommand(Player, machine.Id, Driving: true, Weapons: SelectedWeapons(machine), Head: _headTarget, Yaw: SentYaw));
             if (Sighted)
                 SendingGun(machine, 0);
@@ -3583,9 +3582,6 @@ public partial class Game : Node3D
             _headTarget = Mathf.Wrap(_headTarget - (keys + arrows) * HeadKeySpeed(machine) * GameWorld.Dt, -Mathf.Pi, Mathf.Pi);
         else
             turn += keys + (shift ? 0 : arrows);
-
-        // The hull glyph under the sight shows which way the keys drive (Game.Sight.cs): ahead or back, and sideways on the screen.
-        _driveShown = new Vector2(-strafe, forward);
 
         // While the left button or Space is held the weapons fire at the very point under the crosshair, as the original's
         // did (MachGuiFirstPerson, MachPhys1stPersonDriver::aimData): where the line of sight first meets a model or
