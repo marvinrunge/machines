@@ -65,7 +65,7 @@ public class PrologueAssaultTests
     /// </summary>
     private static GameWorld AfterCore(int seed = 3)
     {
-        var world = Chapter(3, seed);
+        var world = Chapter(7, seed);
         var locator = Hero(world, 0);
         SetDown(world, locator, new Vector2(218, 268));
         locator.Facing = 0;
@@ -276,7 +276,7 @@ public class PrologueAssaultTests
     [Fact]
     public void From_the_repair_station_the_locator_drives_out_through_door_u_past_its_grunts()
     {
-        var world = Chapter(5);
+        var world = Chapter(11);
         var run = world.Story!;
         var locator = Hero(world, 0);
         Run(world, 1);
@@ -320,7 +320,7 @@ public class PrologueAssaultTests
         Assert.All(reapers, m => Assert.False(world.StorySeekerOf(m.Id)!.Caller));
 
         // At the crossing's checkpoint, the Locator in the spine before him: he calls his squad by data link and never fires.
-        world = Chapter(4);
+        world = Chapter(8);
         commander = Cast(world, Prologue.CommanderRole).Single();
         var locator = Hero(world, 0);
         SetDown(world, locator, commander.Position + new Vector2(14, 0));
@@ -341,7 +341,7 @@ public class PrologueAssaultTests
     [Fact]
     public void A_gate_holds_while_a_grunt_stands_on_its_switch_and_gives_way_otherwise()
     {
-        var world = Chapter(4);
+        var world = Chapter(8);
         var run = world.Story!;
         var cues = new List<string>();
         // Bob is told to wait where he stands, off his switch; Ike holds G2 (gate O).
@@ -409,7 +409,7 @@ public class PrologueAssaultTests
     [Fact]
     public void The_bolter_is_taken_from_its_rack_and_the_armed_grunts_go_down_to_it()
     {
-        var world = Chapter(4);
+        var world = Chapter(8);
         var run = world.Story!;
         var locator = Hero(world, 0);
         var hostiles = Cast(world, Prologue.HostileRole);
@@ -469,7 +469,7 @@ public class PrologueAssaultTests
     [Fact]
     public void Without_a_weapon_the_armed_grunts_are_deadly()
     {
-        var world = Chapter(4);
+        var world = Chapter(8);
         var run = world.Story!;
         var locator = Hero(world, 0);
         SetDown(world, locator, world.Deck!.Marker("pickup_bolter").Position + new Vector2(-1.5f, -1.5f));
@@ -481,7 +481,7 @@ public class PrologueAssaultTests
     [Fact]
     public void The_squad_called_off_at_the_workshop_stays_off()
     {
-        var world = Chapter(4);
+        var world = Chapter(8);
         var run = world.Story!;
         var rack = world.Deck!.Marker("pickup_bolter").Position;
         for (var seat = 0; seat < 3; seat++)
@@ -511,7 +511,7 @@ public class PrologueAssaultTests
     [Fact]
     public void Nobody_is_left_behind_a_downed_grunt_outside_the_pod_holds_the_launch_until_put_together()
     {
-        var world = Chapter(6);
+        var world = Chapter(12);
         var run = world.Story!;
         Hack(world, "pod_3_hatch");
         var (locator, ike, bob) = (Hero(world, 0), Hero(world, 1), Hero(world, 2));

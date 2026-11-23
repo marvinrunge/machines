@@ -74,6 +74,23 @@ public sealed class StoryRun(StoryOptions options)
     /// </summary>
     public IReadOnlyList<StoryBark> Barks => Crew.Barks;
 
+    /// <summary>The Notabschaltung's clocks: the Locator shut down, the cable held (<see cref="StoryReserve"/>).</summary>
+    public StoryReserve Reserve { get; } = new();
+
+    /// <summary>Stage 7's parts, each filled by its package (plan stufe7 §4): section 2's stealth, the armoury's waves, the escape's pack, hazards and harm budget.</summary>
+    public StoryStealth Stealth { get; } = new();
+
+    public StoryWaves Waves { get; } = new();
+
+    public StoryPack Pack { get; } = new();
+
+    public StoryHazards Hazards { get; } = new();
+
+    public StoryBudget Budget { get; } = new();
+
+    /// <summary>What the Locator stripped and marked in the wreck for act 2 (plan stufe7 §7: <c>chassis:grunt2</c>, <c>weapon:ELECTRIC_CHARGE</c>).</summary>
+    public SortedSet<string> Salvage { get; } = new(StringComparer.Ordinal);
+
     /// <summary>The chapter's director: its script and what it keeps between ticks (<see cref="StoryDirector"/>).</summary>
     public StoryDirector Director { get; } = new(options.Unscripted ? [] : StoryScripts.Of(options.Chapter));
 
@@ -102,6 +119,14 @@ public sealed class StoryRun(StoryOptions options)
         hash.Mix(Crew.Fingerprint());
         hash.Mix(Drives.Fingerprint());
         hash.Mix(Director.Fingerprint());
+        hash.Mix(Reserve.Fingerprint());
+        hash.Mix(Stealth.Fingerprint());
+        hash.Mix(Waves.Fingerprint());
+        hash.Mix(Pack.Fingerprint());
+        hash.Mix(Hazards.Fingerprint());
+        hash.Mix(Budget.Fingerprint());
+        foreach (var part in Salvage)
+            hash.Mix(part);
         return hash.Value;
     }
 }

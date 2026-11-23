@@ -33,7 +33,7 @@ public static class StoryScripts
 /// never left behind: the objective points at it, and the pod does not launch without it.
 /// </para>
 /// </summary>
-public static class Prologue
+public static partial class Prologue
 {
     // ---- the cast ---------------------------------------------------------------------------------
 
@@ -69,30 +69,71 @@ public static class Prologue
     /// <summary>The scenario tags of the computer core and of the crate stack that falls in the store room.</summary>
     public const int CoreTag = 400, StackTag1 = 311, StackTag2 = 312;
 
-    /// <summary>Where the trio stands at each checkpoint (Locator, Ike, Bob) and which way they look (degrees).</summary>
+    /// <summary>
+    /// Where the trio stands at each checkpoint (Locator, Ike, Bob) and which way they look (degrees). Stage 7 numbers them
+    /// 0–14 (plan stufe7 §5); a checkpoint no beat reaches yet (not <see cref="Built"/>) repeats the row of the one it is set
+    /// up as, until its package (S: 2–5, W: 9–10, E: 13–14) gives it its own.
+    /// </summary>
     public static readonly IReadOnlyList<(Vector2[] At, float Facing)> Starts =
     [
+        // 0 Systemstart: in the clamps.
         ([new(54, 47), new(22, 47), new(84, 47)], 90),
+        // 1 Decks; 2 Schacht, 3 Schaltraum, 4 Deck B and 5 Wache as 1 until package S places them.
         ([new(88, 74), new(80, 74), new(72, 74)], 0),
+        ([new(88, 74), new(80, 74), new(72, 74)], 0),
+        ([new(88, 74), new(80, 74), new(72, 74)], 0),
+        ([new(88, 74), new(80, 74), new(72, 74)], 0),
+        ([new(88, 74), new(80, 74), new(72, 74)], 0),
+        // 6 Vorraum.
         ([new(192, 222), new(188, 216), new(196, 216)], 90),
-        // At the core's console as the Reapers break in; the Grunts by the cable duct's door, where the break-in sends them.
+        // 7 Erwischt: at the core's console as the Reapers break in; the Grunts by the cable duct's door, where the break-in
+        // sends them.
         ([new(192, 245), new(219, 236), new(213, 236)], 90),
-        // In the crossing, looking straight through door R into the workshop; the Grunts behind, clear of the view.
+        // 8 Kreuzung: in the crossing, looking straight through door R into the workshop; the Grunts behind, clear of the
+        // view. 9 and 10 (the armoury's pauses) as 8 until package W places them.
         ([new(400, 244), new(394, 239), new(394, 249)], 0),
-        // At the repair station the Grunts stand behind the Locator, east of it: the way out (door U) is west, and between it
-        // and the Locator they wedged it in.
+        ([new(400, 244), new(394, 239), new(394, 249)], 0),
+        ([new(400, 244), new(394, 239), new(394, 249)], 0),
+        // 11 Reparatur: at the repair station the Grunts stand behind the Locator, east of it: the way out (door U) is west,
+        // and between it and the Locator they wedged it in.
         ([new(500, 248), new(505, 243), new(505, 253)], 180),
+        // 12 Notgang; 13 Galerie and 14 Bucht as 12 until package E places them.
+        ([new(520, 216), new(515.5f, 220), new(524.5f, 218)], 270),
+        ([new(520, 216), new(515.5f, 220), new(524.5f, 218)], 270),
         ([new(520, 216), new(515.5f, 220), new(524.5f, 218)], 270),
     ];
 
     /// <summary>The last checkpoint of the prologue.</summary>
     public static int LastCheckpoint => Starts.Count - 1;
 
-    /// <summary>The section (1 to 8) each checkpoint starts in.</summary>
-    public static readonly IReadOnlyList<int> SectionAt = [1, 2, 3, 4, 6, 6, 7];
+    /// <summary>
+    /// The checkpoints whose stretch the script has built: a beat reaches each and <see cref="SetUp"/> builds its world. Any
+    /// other is set up as the nearest built one before it (<see cref="SetUpAs"/>); the packages of stage 7 add theirs as they
+    /// build them (S: 2–5, W: 9–10, E: 13–14).
+    /// </summary>
+    public static readonly IReadOnlySet<int> Built = new SortedSet<int> { 0, 1, 6, 7, 8, 11, 12 };
 
-    /// <summary>The seconds on the countdown when the chapter starts again from the last checkpoint (it starts at 180 in the Notgang).</summary>
+    /// <summary>The checkpoint a chapter started from <paramref name="checkpoint"/> is set up as: itself once built, else the nearest built one before it.</summary>
+    public static int SetUpAs(int checkpoint)
+    {
+        var cp = Math.Clamp(checkpoint, 0, LastCheckpoint);
+        while (cp > 0 && !Built.Contains(cp))
+            cp--;
+        return cp;
+    }
+
+    /// <summary>The section (1 to 8) each checkpoint starts in.</summary>
+    public static readonly IReadOnlyList<int> SectionAt = [1, 2, 2, 2, 2, 2, 3, 4, 6, 6, 6, 6, 7, 7, 7];
+
+    /// <summary>The seconds on the countdown when the chapter starts again from the Notgang's checkpoint (it starts at 180 in the Notgang).</summary>
     public const float CountdownFull = 180, CountdownAtCheckpoint = 150;
+
+    /// <summary>
+    /// The seconds on the countdown at each checkpoint's start; null where none runs yet. 12 keeps today's
+    /// <see cref="CountdownAtCheckpoint"/> until package E starts the Notgang's countdown at 240 (then 12: 240, 13: 170, 14: 120).
+    /// </summary>
+    public static readonly IReadOnlyList<float?> CountdownFrom =
+        [null, null, null, null, null, null, null, null, null, null, null, null, CountdownAtCheckpoint, 170, 120];
 
     /// <summary>How long the sparks warn of falling debris before it lands, seconds.</summary>
     public const float FallWarning = 1.5f;
@@ -100,18 +141,26 @@ public static class Prologue
     /// <summary>The countdown's stages: the seconds left when each comes.</summary>
     public static readonly IReadOnlyList<float> CountdownStages = [120, 60, 30, 10];
 
-    /// <summary>The prologue's hacks in their order, and the checkpoint from which each is done.</summary>
+    /// <summary>The prologue's hacks in their order, and the checkpoint from which each is done (99: never, the run does it).</summary>
     public static readonly IReadOnlyList<(string Target, int DoneFrom)> Hacks =
     [
-        ("clamp_l7", 1), ("terminal_ike", 1), ("terminal_bob", 1), ("hack_s", 2), ("hack_h", 2), ("hack_core", 3), ("hack_d5", 4),
-        ("pod_3_hatch", 99),
+        ("clamp_l7", 1), ("terminal_ike", 1), ("terminal_bob", 1), ("hack_s", 3), ("hack_h", 6), ("hack_core", 7), ("hack_d5", 8),
+        ("hack_noise", 99), ("hack_x", 99), ("pod_3_hatch", 99),
     ];
 
-    /// <summary>The doors open from each checkpoint on, by letter.</summary>
-    public static readonly IReadOnlyList<string> DoorsOpen = ["", "ABC", "ABCDEH", "ABCDEHIJW", "ABCDEHIJVKMQW", "ABCDEHIJVKMQRUW", "ABCDEHIJVKMQRUTW"];
+    /// <summary>
+    /// The doors open from each checkpoint on, by letter. A checkpoint not yet built repeats the row it is set up as; its
+    /// package writes its own (plan stufe7 §5: H shut from 6 on once S closes it behind the trio, F in every row once D has
+    /// made it the grate's open door, R, T and U locked at 9 and 10, N from 11, S, P and Z from 13, X at 14).
+    /// </summary>
+    public static readonly IReadOnlyList<string> DoorsOpen =
+    [
+        "", "ABC", "ABC", "ABC", "ABC", "ABC", "ABCDEH", "ABCDEHIJW", "ABCDEHIJVKMQW", "ABCDEHIJVKMQW", "ABCDEHIJVKMQW", "ABCDEHIJVKMQRUW",
+        "ABCDEHIJVKMQRUTW", "ABCDEHIJVKMQRUTW", "ABCDEHIJVKMQRUTW",
+    ];
 
     /// <summary>The doors that open by themselves as the trio comes, at each checkpoint.</summary>
-    public static readonly IReadOnlyList<string> DoorsAuto = ["", "D", "I", "", "R", "T", ""];
+    public static readonly IReadOnlyList<string> DoorsAuto = ["", "D", "D", "D", "D", "D", "I", "", "R", "R", "R", "T", "", "", ""];
 
     /// <summary>Lines the view does not say once a hack is done, if they still wait on the loudspeakers: the pod's refusal once it is hacked.</summary>
     public static readonly IReadOnlyDictionary<string, string> StaleOnceHacked = new Dictionary<string, string> { ["pod_3_hatch"] = Lines.PodNo };
@@ -135,6 +184,35 @@ public static class Prologue
         public const string L7Hum = "P_L7_BOOT_HUM", L7Eyes = "P_L7_BOOT_EYES", L7Voice = "P_L7_BOOT_VOICE", L7Fear = "P_L7_BOOT_FEAR",
             L7Drive = "P_L7_BOOT_DRIVE", L7Core = "P_L7_BOOT_CORE", L7Word = "P_L7_BOOT_WORD", L7No = "P_L7_BOOT_NO", L7Gap = "P_L7_BOOT_GAP",
             L7Hang = "P_L7_BOOT_HANG", L7Light = "P_L7_BOOT_LIGHT", L7Legs = "P_L7_BOOT_LEGS";
+
+        // ---- stage 7 (plan stufe7 §6; package V voices them, the section packages say them) ----
+
+        /// <summary>Section 2, Schleichen (package S).</summary>
+        public const string BobNiche = "P_BOB_NICHE", IkeQuiet = "P_IKE_QUIET", BobQuiet = "P_BOB_QUIET", L7Still = "P_L7_STILL",
+            L7Grate = "P_L7_GRATE", BobRoundA = "P_BOB_ROUND_A", IkeLane = "P_IKE_LANE", BobFreeze = "P_BOB_FREEZE", IkeFreeze = "P_IKE_FREEZE",
+            IkeUpDark = "P_IKE_UP_DARK", BobUpDark = "P_BOB_UP_DARK", BobRetreat = "P_BOB_RETREAT", BobDoorH = "P_BOB_DOOR_H",
+            BobBangOffer = "P_BOB_BANG_OFFER", IkeBang = "P_IKE_BANG", BobBang = "P_BOB_BANG", BobAgain = "P_BOB_AGAIN", IkeIn = "P_IKE_IN",
+            IkeKnock = "P_IKE_KNOCK", HudInLight = "P_HUD_INLIGHT", HudLocked = "P_HUD_LOCKED", HudDeleted = "P_HUD_DELETED",
+            HudDownWait = "P_HUD_DOWN_WAIT", HudCreep = "P_HUD_CREEP";
+
+        /// <summary>Section 6, the armoury (package W).</summary>
+        public const string AutoArmory = "P_AUTO_ARMORY", AutoWave1 = "P_AUTO_WAVE_1", AutoWave2 = "P_AUTO_WAVE_2", AutoWave3 = "P_AUTO_WAVE_3",
+            AutoWave4 = "P_AUTO_WAVE_4", AutoWave5 = "P_AUTO_WAVE_5", AutoUnseal = "P_AUTO_UNSEAL", IkeEmpty = "P_IKE_EMPTY", IkePipe = "P_IKE_PIPE",
+            IkeUs = "P_IKE_US", IkeStripHint = "P_IKE_STRIP_HINT", IkeArmed = "P_IKE_ARMED", IkeZap = "P_IKE_ZAP", IkeGateN = "P_IKE_GATE_N",
+            IkeBig = "P_IKE_BIG", IkeHurt = "P_IKE_HURT", IkeMended = "P_IKE_MENDED", IkeClear = "P_IKE_CLEAR", BobDoorR = "P_BOB_DOOR_R",
+            BobDoorT = "P_BOB_DOOR_T", BobDoorN = "P_BOB_DOOR_N", BobZap = "P_BOB_ZAP", BobMounted = "P_BOB_MOUNTED",
+            BobClearShort = "P_BOB_CLEAR_SHORT", BobBig = "P_BOB_BIG", BobTwo = "P_BOB_TWO", BobClear = "P_BOB_CLEAR", BobGlitch2 = "P_BOB_GLITCH_2",
+            L7Strip = "P_L7_STRIP", L7Stash = "P_L7_STASH", HudSealed = "P_HUD_SEALED", HudBatch = "P_HUD_BATCH", HudSalvage = "P_HUD_SALVAGE";
+
+        /// <summary>Section 7, the escape (package E), and the Notabschaltung (F: <see cref="L7Restart"/>, the cable lines, the shutdown's HUD).</summary>
+        public const string AutoT240 = "P_AUTO_T240", AutoShut = "P_AUTO_SHUT", AutoPod1 = "P_AUTO_POD1", L7Thresher = "P_L7_THRESHER",
+            L7PodBay = "P_L7_PODBAY", L7Hold = "P_L7_HOLD", L7Restart = "P_L7_RESTART", IkeThresher = "P_IKE_THRESHER", IkeCrates = "P_IKE_CRATES",
+            IkeCratesL = "P_IKE_CRATES_L", IkeValve = "P_IKE_VALVE", IkeFire = "P_IKE_FIRE", IkeBridge = "P_IKE_BRIDGE", IkeReapers = "P_IKE_REAPERS",
+            IkeAgain = "P_IKE_AGAIN", IkeCrane = "P_IKE_CRANE", IkeCable = "P_IKE_CABLE", IkeCableDone = "P_IKE_CABLE_DONE", BobLift = "P_BOB_LIFT",
+            BobThresher = "P_BOB_THRESHER", BobDoorY = "P_BOB_DOOR_Y", BobBlast = "P_BOB_BLAST", BobCable = "P_BOB_CABLE",
+            BobCableDone = "P_BOB_CABLE_DONE", HudShutdown = "P_HUD_SHUTDOWN", HudRestart = "P_HUD_RESTART", HudReserve = "P_HUD_RESERVE",
+            HudCable = "P_HUD_CABLE", HudHeel = "P_HUD_HEEL", HudLanes = "P_HUD_LANES", HudCool = "P_HUD_COOL", HudAmber = "P_HUD_AMBER",
+            HudHoldX = "P_HUD_HOLDX", HudJets = "P_HUD_JETS";
     }
 
     // ---- the boot (Erwachen) ----------------------------------------------------------------------------
@@ -212,7 +290,7 @@ public static class Prologue
     public const float CoreHit1 = 2.5f, CoreHit2 = 5, CoreHit3 = 7.5f, CoreBlows = 10, PowerFails = 1.5f, ControlLost = 5;
 
     /// <summary>
-    /// The flag of the chapter started again from the break-in (checkpoint 3): the Reapers at door I shoot its crates away at
+    /// The flag of the chapter started again from the break-in (checkpoint 7): the Reapers at door I shoot its crates away at
     /// once rather than at their own pace.
     /// </summary>
     public const string Retry = "core_retry";
@@ -296,74 +374,55 @@ public static class Prologue
         // "Das Update will rein" (docs/STORY.md, Horror): the update whispers the unit's code in the Locator's head, the HUD
         // breaking up as it does: once in the dark decks, and once when the Locator is first badly hurt.
         new("whisper", 1, new AllOf(new Since("deck_a", 20), new InSection(2)), [new Say(Lines.Whisper, StoryAudience.Private, 0)]),
-        new("whisper_hurt", 5, new AllOf(new Hurt(0.35f), new Not(new InSection(8))), [new Say(Lines.Whisper, StoryAudience.Private, 0)]),
+        new("whisper_hurt", 11, new AllOf(new Hurt(0.35f), new Not(new InSection(8))), [new Say(Lines.Whisper, StoryAudience.Private, 0)]),
 
-        // ---- 2 Schleichen: through the dark decks past the Thresher, the Locator by the ducts, the Grunts the long way round.
-        new("steps", 1, new Since("grunts_awake", 5), [new CueCast("steps", ThresherRole), new Say(Lines.IkeSteps, Bark, 1), new Cue("hint still")]),
-        new("deck_a", 1, new InZone("R4", StoryWho.AnyHero), [new Say(Lines.Deck1),
-            new Objective("Crawl through the ducts to the switch room", "hack_s"), new Cue("hint pulse")]),
-        new("duct", 1, new InZone("V1a"), [new Cue("hint duct")]),
-        // Ike's "I don't fit in there" is the companions' own bark, once the Locator crawls off into a duct (CompanionBot).
-        // The scare Grunt glares up as the Locator comes by on its way from R4's west door to duct V1a (whose mouth is about
-        // 27 m from it on the doubled deck).
-        new("scare_grunt2", 1, new AllOf(new InZone("R4"), new Near("scare_grunt2", ScareReach)), [new CueCast("scare wake", ScareRole),
-            new Lamp(ScareRole, true)]),
-        new("scare_dark", 1, new Since("scare_grunt2", 1.5f), [new Lamp(ScareRole, null)]),
-        new("dust", 1, new InZone("dust_fall"), [new Cue("scare dust", "dust_fall")]),
-        new("false_alarm", 1, new AllOf(new InZone("R5"), new CastNear(ThresherRole, "false_alarm_stack", FalseAlarmReach)),
-            [new HarmProp(StackTag1), new HarmProp(StackTag2), new Cue("scare crates", "false_alarm_stack")]),
-        new("switch_room", 1, new InZone("R7"), [new Objective("Open the service passage for the Grunts", "hack_s")]),
-        new("passage", 1, new HackDone("hack_s"), [new OpenDoors("E"), new Objective("Meet on deck B and open the blast door", "hack_h")]),
-        new("found", 1, new InZone("R6"), [new Cue("scare found"), new Say(Lines.Found)], After: ["passage"]),
-        new("blast_door", 1, new HackDone("hack_h"), [new OpenDoors("H"), new AutoDoors("I"), new Objective("Get into the antechamber", "R8")]),
-        new("antechamber", 1, new InZone("R8"), [new Checkpoint(2), new Section(3), new Objective("Hack the main computer", "hack_core")],
-            After: ["blast_door"]),
+        .. Section2,
 
         // ---- 3 Der Hack (played): the Locator at the core's console, three boards, standing still while it hacks. The Grunts
         // barricade the doors with crates (the companions' job; a Grunt a person drives pushes them by driving into them):
         // Ike the north blast door J, Bob the door they came in by, I.
-        new("core_open", 2, new HackOpen("hack_core"), [new Say(Lines.Core), new Assign(1, CompanionTask.Barricade, "J"),
+        new("core_open", 6, new HackOpen("hack_core"), [new Say(Lines.Core), new Assign(1, CompanionTask.Barricade, "J"),
             new Assign(2, CompanionTask.Barricade, "I"), new Cue("hint crates")]),
         // The Grunts walk (their sprint is locked) and come the long way: the squad gives them their time from when they are at
         // their doors' barricades (a Grunt told to wait is not waited for), not from when the Locator plugged in.
-        new("crew_in", 2, new AtBarricades(CrewNear), [], After: ["core_open"]),
+        new("crew_in", 6, new AtBarricades(CrewNear), [], After: ["core_open"]),
         // On the second board the ship sends the Commander's squad from the lift down the spine to door J; the HUD points at it.
-        new("squad", 2, new AnyOf(new AllOf(new HackBoard("hack_core", 1), new Since("crew_in", SquadEarliest)), new Since("core_open", SquadLate)), [
+        new("squad", 6, new AnyOf(new AllOf(new HackBoard("hack_core", 1), new Since("crew_in", SquadEarliest)), new Since("core_open", SquadLate)), [
             new Spawn(ReaperRole, Reaper3, ["spawn_reaper_1", "spawn_reaper_2"], Hunters), new Spawn(ReaperRole, Reaper2, ["spawn_reaper_3"], Hunters),
             new Spawn(CommanderRole, Commander, ["spawn_commander"], Hunters), new Sight(ReaperRole, false), new Sight(CommanderRole, false),
             new MoveTo(ThresherRole, ThresherAway), new Flag(StoryMarks.Squad), new Say(Lines.Squad), new Say(Lines.BobSquad, Bark, 2),
             new Cue("squad", "spawn_commander")]),
-        new("squad_go", 2, new Since("squad", SquadMuster), [new MoveTo(ReaperRole, "squad_j_1", "squad_j_2", "squad_j_3"),
+        new("squad_go", 6, new Since("squad", SquadMuster), [new MoveTo(ReaperRole, "squad_j_1", "squad_j_2", "squad_j_3"),
             new MoveTo(CommanderRole, "commander_1")]),
         // At door J the Commander opens the blast door; the alarm goes and the ship names the Locator.
-        new("at_j", 2, new CastNear(ReaperRole, "squad_j_3", AtDoor), [new OpenDoors("J")]),
-        new("alarm", 2, new AnyOf(new Since("at_j", 0), new Flagged(Burst)), [new Alarm(true), new Cue("alarm", "core"), new Say(Lines.C1),
+        new("at_j", 6, new CastNear(ReaperRole, "squad_j_3", AtDoor), [new OpenDoors("J")]),
+        new("alarm", 6, new AnyOf(new Since("at_j", 0), new Flagged(Burst)), [new Alarm(true), new Cue("alarm", "core"), new Say(Lines.C1),
             new Say(Lines.C2)]),
-        new("ann_c3", 2, new AllOf(new Since("alarm", 6.5f), new Not(new Flagged(Burst))), [new Say(Lines.C3)]),
-        new("ann_c4", 2, new AllOf(new Since("alarm", 11), new Not(new Flagged(Burst))), [new Say(Lines.C4)]),
+        new("ann_c3", 6, new AllOf(new Since("alarm", 6.5f), new Not(new Flagged(Burst))), [new Say(Lines.C3)]),
+        new("ann_c4", 6, new AllOf(new Since("alarm", 11), new Not(new Flagged(Burst))), [new Say(Lines.C4)]),
         // A full barricade at J: they hammer at it, then go round the long way, by door W, the service rooms and the antechamber,
         // to door I. No barricade (or too few crates): they are through at once.
-        new("burst_j", 2, new AllOf(new Since("at_j", 1.5f), new Not(new Barricaded("J")), new Not(new Since("hammer_j", 0)), new Not(new Flagged(Burst))),
+        new("burst_j", 6, new AllOf(new Since("at_j", 1.5f), new Not(new Barricaded("J")), new Not(new Since("hammer_j", 0)), new Not(new Flagged(Burst))),
             [new Cue("burst J", "barricade_J_2"), new ClearBarricade("J"), new Flag(Burst), new MoveTo(CommanderRole, "192,292")]),
-        new("hammer_j", 2, new AllOf(new Since("at_j", 1.5f), new Barricaded("J"), new Not(new Flagged(Burst))),
+        new("hammer_j", 6, new AllOf(new Since("at_j", 1.5f), new Barricaded("J"), new Not(new Flagged(Burst))),
             [new Cue("barricade J strain", "barricade_J_2"), new Say(Lines.IkeHammer, Bark, 1)]),
-        new("strain_j", 2, new AllOf(new Since("hammer_j", 0), new Not(new Since("go_round", 0))), [new Cue("barricade J strain", "barricade_J_2")],
+        new("strain_j", 6, new AllOf(new Since("hammer_j", 0), new Not(new Since("go_round", 0))), [new Cue("barricade J strain", "barricade_J_2")],
             Repeat: true, Every: 2),
-        new("go_round", 2, new Since("hammer_j", HammerJ), [new OpenDoors("W"), new Cue("door W", "squad_w_1"),
+        new("go_round", 6, new Since("hammer_j", HammerJ), [new OpenDoors("W"), new Cue("door W", "squad_w_1"),
             new Route(ReaperRole, "squad_i_3", "squad_w_1", "squad_w_2"), new Route(CommanderRole, "commander_i", "squad_w_1", "squad_w_2"),
             new Say(Lines.BobRound, Bark, 2)]),
-        new("held", 2, new AllOf(new HackHeld("hack_core"), new Not(new HackDone("hack_core")), new Not(new Flagged(Burst))), [new Say(Lines.HudHold)]),
+        new("held", 6, new AllOf(new HackHeld("hack_core"), new Not(new HackDone("hack_core")), new Not(new Flagged(Burst))), [new Say(Lines.HudHold)]),
 
         // ---- 4 Erwischt (played): door I barricaded too, they open fire on its crates until they fly; then they are in.
-        new("at_i", 3, new AllOf(new CastNear(ReaperRole, "squad_i_3", AtDoor), new Not(new Flagged(Burst))),
+        new("at_i", 7, new AllOf(new CastNear(ReaperRole, "squad_i_3", AtDoor), new Not(new Flagged(Burst))),
             [new MoveTo(ReaperRole, "squad_i_1", "squad_i_2", "squad_i_3")]),
-        new("hammer_i", 3, new AllOf(new Since("at_i", 1), new Barricaded("I", 2), new Not(new Flagged(Burst))),
+        new("hammer_i", 7, new AllOf(new Since("at_i", 1), new Barricaded("I", 2), new Not(new Flagged(Burst))),
             [new Cue("barricade I strain", "barricade_I_2")]),
-        new("shoot_i", 3, new AnyOf(new Since("hammer_i", HammerI), new AllOf(new Flagged(Retry), new Since("hammer_i", 0.5f))),
+        new("shoot_i", 7, new AnyOf(new Since("hammer_i", HammerI), new AllOf(new Flagged(Retry), new Since("hammer_i", 0.5f))),
             [new FireAtBarricade(ReaperRole, "I"), new Say(Lines.BobFire, Bark, 2), new Cue("barricade I fire", "barricade_I_2")]),
-        new("strain_i", 3, new AllOf(new Since("shoot_i", 0), new Not(new Flagged(Burst))), [new Cue("barricade I strain", "barricade_I_2")],
+        new("strain_i", 7, new AllOf(new Since("shoot_i", 0), new Not(new Flagged(Burst))), [new Cue("barricade I strain", "barricade_I_2")],
             Repeat: true, Every: 1.5f),
-        new("burst_i", 3, new AllOf(new Not(new Flagged(Burst)), new AnyOf(
+        new("burst_i", 7, new AllOf(new Not(new Flagged(Burst)), new AnyOf(
                 new AllOf(new Since("at_i", 1), new Not(new Barricaded("I", 2)), new Not(new Since("hammer_i", 0))),
                 new AllOf(new Since("shoot_i", ShootMin), new AnyOf(new HackHeld("hack_core"), new Not(new HackOpen("hack_core")))),
                 new Since("shoot_i", ShootMax),
@@ -371,29 +430,29 @@ public static class Prologue
             [new Cue("burst I", "barricade_I_2"), new ClearBarricade("I"), new Flag(Burst), new MoveTo(CommanderRole, "192,228")]),
         // The break-in: the probe is pulled, the hack cut off; the Reapers storm in and fire at the core, at whose foot the
         // Locator stands (their first volleys hit the core); the player has the Locator again at once and takes cover.
-        new("break_in", 3, new Flagged(Burst), [.. BreakIn]),
-        new("core_hit_1", 3, new Since("break_in", CoreHit1), [new WearProp(CoreTag, 0.7f), new Cue("core hit 1", "core")]),
+        new("break_in", 7, new Flagged(Burst), [.. BreakIn]),
+        new("core_hit_1", 7, new Since("break_in", CoreHit1), [new WearProp(CoreTag, 0.7f), new Cue("core hit 1", "core")]),
         // Then they storm in, spread through the chamber and turn on the trio (by the fair rules: a warning tone, the lock,
         // half their harm, the Commander never fires); the Locator, spared no longer, takes cover or runs.
-        new("storm_in", 3, new Since("break_in", StormIn), [new MoveTo(ReaperRole, StormPlaces)]),
-        new("storm_sight", 3, new Since("storm_in", StormSight), [new Sight(ReaperRole, true), new Sight(CommanderRole, true)]),
+        new("storm_in", 7, new Since("break_in", StormIn), [new MoveTo(ReaperRole, StormPlaces)]),
+        new("storm_sight", 7, new Since("storm_in", StormSight), [new Sight(ReaperRole, true), new Sight(CommanderRole, true)]),
         // The first rounds into the core beside it: walking will not get the Locator out of here. Its drive's maintenance limiter
         // is overridden (StoryDrive): from now on the trio can sprint, and the HUD says how, once.
-        new("limiter", 3, new Since("break_in", CoreHit1), [new Flag(StoryMarks.SprintFree), new Cue("sprint free"), new Say(Lines.IkeLimiter, Bark, 1)]),
-        new("core_hit_2", 3, new Since("break_in", CoreHit2), [new WearProp(CoreTag, 0.45f), new Cue("core hit 2", "core")]),
-        new("core_hit_3", 3, new Since("break_in", CoreHit3), [new WearProp(CoreTag, 0.2f), new Cue("core hit 3", "core")]),
+        new("limiter", 7, new Since("break_in", CoreHit1), [new Flag(StoryMarks.SprintFree), new Cue("sprint free"), new Say(Lines.IkeLimiter, Bark, 1)]),
+        new("core_hit_2", 7, new Since("break_in", CoreHit2), [new WearProp(CoreTag, 0.45f), new Cue("core hit 2", "core")]),
+        new("core_hit_3", 7, new Since("break_in", CoreHit3), [new WearProp(CoreTag, 0.2f), new Cue("core hit 3", "core")]),
         // The core blows: the PA breaks off, the chamber burns in red light; the Reapers turn to the trio (by the fair rules:
         // a warning tone, the lock, half their harm, the Commander never fires); the vent and the cable duct open.
-        new("core_blows", 3, new Since("break_in", CoreBlows), [new HarmProp(CoreTag), new Lights("emergency", "core"), new Cue("core blows", "core"),
+        new("core_blows", 7, new Since("break_in", CoreBlows), [new HarmProp(CoreTag), new Lights("emergency", "core"), new Cue("core blows", "core"),
             new Say(Lines.C6), new Sight(ReaperRole, true), new Sight(CommanderRole, true), new Spare(0, LocatorSpared), new Spare(1, GruntsSpared),
             new Spare(2, GruntsSpared), new OpenDoors("VK"), new Objective("Escape through the vent", "226,268"),
             new Assign(1, CompanionTask.HoldSwitch, "switch_g2k"), new Assign(2, CompanionTask.Go, BobAtD5)]),
-        new("power_fails", 3, new Since("core_blows", PowerFails), [new Lights("emergency", "*"), new Say(Lines.C7), new Say(Lines.C8)]),
-        new("control_lost", 3, new Since("core_blows", ControlLost), [new Cue("control lost"), new Say(Lines.Auto1), new Tilt(4, -1, 1.5f),
+        new("power_fails", 7, new Since("core_blows", PowerFails), [new Lights("emergency", "*"), new Say(Lines.C7), new Say(Lines.C8)]),
+        new("control_lost", 7, new Since("core_blows", ControlLost), [new Cue("control lost"), new Say(Lines.Auto1), new Tilt(4, -1, 1.5f),
             new Cue("rumble 0.8"), new Say(Lines.IkeAlarm, Bark, 1)]),
-        new("listing", 3, new Since("control_lost", 4), [new Tilt(1.5f, 0, 5)]),
+        new("listing", 7, new Since("control_lost", 4), [new Tilt(1.5f, 0, 5)]),
         // Out of the chamber, by the vent (or the cable duct): Die Enge; the Commander splits his squad after the trio.
-        new("fled", 3, new AnyOf(new InZone("V2"), new InZone("K"), new InZone("R12")), [new Section(5), new OpenDoors("M"), new Objective("Escape through the vent", "R12"),
+        new("fled", 7, new AnyOf(new InZone("V2"), new InZone("K"), new InZone("R12")), [new Section(5), new OpenDoors("M"), new Objective("Escape through the vent", "R12"),
             .. Pursuit], After: ["core_blows"]),
 
         // ---- 5 Die Enge: the Locator crawls ahead and hacks D5 open for the Grunts, who come along the cable duct; the Reapers
@@ -401,75 +460,20 @@ public static class Prologue
         // While the Locator crawls and hacks, Ike holds gate O shut from the cable duct's side (switch_g2k, by the gate's
         // works behind the duct's wall) and Bob waits by D5; gate G, whose switches are all on the crossing's side, is
         // pushed only once D5 is open and the Grunts can get to it.
-        new("pursuit_call", 3, new Since("fled", 3), [new Say(Lines.Auto2)]),
-        new("gates", 3, new Not(new Flagged(Sealed)), [new ForceGates(ReaperRole, GateForce, "O:switch_g2|switch_g2k")], After: ["fled"],
+        new("pursuit_call", 7, new Since("fled", 3), [new Say(Lines.Auto2)]),
+        new("gates", 7, new Not(new Flagged(Sealed)), [new ForceGates(ReaperRole, GateForce, "O:switch_g2|switch_g2k")], After: ["fled"],
             Repeat: true),
-        new("gate_g", 3, new Not(new Flagged(Sealed)), [new ForceGates(ReaperRole, GateForce, "G:switch_g1")], After: ["d5"], Repeat: true),
-        new("crossing", 3, new InZone("R12"), [new Hackable(true, "hack_d5"), new Objective("Open the Grunts' door", "hack_d5")]),
-        new("d5", 3, new HackDone("hack_d5"), [new OpenDoors("Q"), new Objective("Wait for the Grunts at the crossing", "R12"),
+        new("gate_g", 7, new Not(new Flagged(Sealed)), [new ForceGates(ReaperRole, GateForce, "G:switch_g1")], After: ["d5"], Repeat: true),
+        new("crossing", 7, new InZone("R12"), [new Hackable(true, "hack_d5"), new Objective("Open the Grunts' door", "hack_d5")]),
+        new("d5", 7, new HackDone("hack_d5"), [new OpenDoors("Q"), new Objective("Wait for the Grunts at the crossing", "R12"),
             new Assign(1, CompanionTask.HoldSwitch, "switch_g2"), new Assign(2, CompanionTask.HoldSwitch, "switch_g1")]),
-        new("together", 3, new InZone("R12", StoryWho.All), [new Checkpoint(4), new Section(6), new AutoDoors("R"),
-            new Objective("Get through the workshop", "pickup_bolter"), .. Hostiles], After: ["d5"]),
-
-        // ---- 6 Erste Gegenwehr: the Grunts let go of the gates once the Locator is through; the door shuts the hunt out behind
-        // the trio; the weapon on its rack (Use), the armed Grunts, then the repair station.
-        new("workshop", 4, new InZone("R13"), [new SayToSeat(Lines.BobGlitch, 2), new Objective("Take the weapon from the rack", "pickup_bolter"),
-            new Assign(1, CompanionTask.None), new Assign(2, CompanionTask.None)]),
-        new("sealed", 4, new InZone("R13", StoryWho.Everyone), [new Flag(Sealed), new StopGates("GO"),
-            new Withdraw(ReaperRole), new Withdraw(CommanderRole)], After: ["workshop"]),
-        new("weapon", 4, new Flagged(StoryMarks.Done("pickup_bolter")), [new Cue("pickup bolter", "pickup_bolter"),
-            new Objective("Stop the armed Grunts", "R13")]),
-        // The firefight brings a crate down off the shelves onto a Grunt: the Locator learns here to put a fallen Grunt together.
-        new("knocked", 4, new AllOf(new Since("weapon", 3), new InZone("R13", StoryWho.AnyCompanion)), [new KnockDown("crate_small", 1, "R13", 2, 1)]),
-        new("cleared", 4, new Dead(HostileRole), [new AutoDoors("TU"), new Objective("Reach the repair station", "repair_station")], After: ["weapon"]),
-        new("repaired", 4, new InZone("repair"), [new Checkpoint(5), new Objective("Get to the escape pods", "R15")]),
+        .. Section6,
 
         // A Grunt down anywhere is not left behind: the objective points at it until the Locator has put it together.
         new("rally", 1, new Always(), [new Rally(RallyText, GameWorld.PodBay)], After: ["grunts_awake"], Repeat: true),
 
-        // ---- 7 Absturz: the countdown from the Notgang, debris, the ship listing; the pod's hack under the firewall.
-        // Its stages at 120, 60, 30 and 10 seconds left (and the hull breach at 90): the automatic voice, the ship listing
-        // further (the view's alone), blasts where the ship tears and debris falling into the lanes, warned of by its sparks a
-        // moment before it lands; nobody stands where it lies.
-        new("notgang", 5, new InZone("R15"), [new Checkpoint(6), new Section(7), new Countdown(CountdownFull), new Say(Lines.Auto3),
-            new Hackable(true, "pod_3_hatch"), new Objective("Reach the escape pods", "pod_3_hatch"), new Tilt(5, 0, 3), new Cue("rumble 0.4"),
-            new Fall("crate_large", "debris_1", FallWarning, 0, 5)]),
-        new("t120", 6, new CountdownAt(120), [new CountdownStage(), new Say(Lines.T120), new Blast("pod_1", 12, 40, 8),
-            new Fall("crate_large", "debris_2", FallWarning, 0, -5), new Tilt(7, 1, 2)]),
-        new("breach", 6, new CountdownAt(90), [new Say(Lines.Breach), new Blast("512,208", 8, 30, 5), new Cue("rumble 0.7"),
-            new Fall("crate_large", "510,80", FallWarning, 30)]),
-        new("t60", 6, new CountdownAt(60), [new CountdownStage(), new Say(Lines.T60), new Blast("pod_2", 12, 40, 8),
-            new Fall("crate_large", "debris_3", FallWarning, 0, 5), new Tilt(9, -1, 2)]),
-        new("t30", 6, new CountdownAt(30), [new CountdownStage(), new Say(Lines.T30), new Blast("596,108", 8, 30, 6),
-            new Fall("crate_large", "538,76", FallWarning, -20), new Tilt(12, 2, 2)]),
-        new("t10", 6, new CountdownAt(10), [new CountdownStage(), new Say(Lines.T10), new Cue("rumble 1"), new Blast("496,72", 8, 30, 7),
-            new Fall("crate_large", "592,76", FallWarning, 35)]),
-        new("crash", 6, new CountdownAt(0), [new End(StoryEnding.Crashed)]),
-        new("pod_bay", 6, new InZone("R16"), [new Say(Lines.Crash), new Objective("Hack escape pod three", "pod_3_hatch")], After: ["notgang"]),
-        new("pod_denied", 6, new AllOf(new Near("pod_3_hatch", 10), new Not(new HackDone("pod_3_hatch"))), [new Say(Lines.PodNo)]),
-        new("pod_hacked", 6, new HackDone("pod_3_hatch"), [new Objective("Open the hatch", "pod_3_hatch")]),
-        // The hatch open (the Locator's Use, GameWorld.UseForStory), the Grunts board.
-        new("hatch", 6, new Flagged(StoryMarks.Done("pod_3_hatch")), [new Objective("Get everyone into the pod", "pod_zone"),
-            new Assign(1, CompanionTask.Board, "pod_3_hatch"), new Assign(2, CompanionTask.Board, "pod_3_hatch")], After: ["pod_hacked"]),
-        // A Grunt put back together (or one that dropped its job) boards again.
-        new("reboard", 6, new Not(new InSection(8)), [new Assign(1, CompanionTask.Board, "pod_3_hatch", IfFree: true),
-            new Assign(2, CompanionTask.Board, "pod_3_hatch", IfFree: true)], After: ["hatch"], Repeat: true, Every: 1),
 
-        // ---- 8 Abwurf: the hack done, the hatch opened by the Locator, the Locator at the pod and both Grunts aboard (standing in
-        // the pod's zone, or lying down in its bay: act 1 starts with one Grunt broken anyway), the pod drops (abwurf.cut); the
-        // chapter is won once the bay's part is over. A Grunt lying down outside the bay must be put together first (the rally
-        // above says so).
-        new("launch", 6, new AllOf(new InZone("pod_zone"), new Aboard()), [new Section(8), new Countdown(null), new Objective(null),
-            new Hold(true, 0, 1, 2), new Spare(0, Away + 5), new Spare(1, Away + 5), new Spare(2, Away + 5), new Cue("cutscene abwurf", "pod_3")],
-            After: ["hatch"]),
-        new("away", 6, new Since("launch", Away), [new End(StoryEnding.Escaped)]),
-    ];
-
-    /// <summary>The Thresher set down on deck A and on its round of both decks (the ring R4, West link, R6, East link).</summary>
-    private static StoryAction[] ThresherOnPatrol =>
-    [
-        new Spawn(ThresherRole, Thresher, ["spawn_thresher"], Hunters),
-        new Patrol(ThresherRole, "patrol_thresher"),
+        .. Section7,
     ];
 
     /// <summary>
@@ -487,7 +491,7 @@ public static class Prologue
     /// </summary>
     private static StoryAction[] BreakIn =>
     [
-        new Checkpoint(3), new Section(4), new Flag(StoryMarks.Squad, false), new BreakHack("hack_core"), new Unplug("hack_core"),
+        new Checkpoint(7), new Section(4), new Flag(StoryMarks.Squad, false), new BreakHack("hack_core"), new Unplug("hack_core"),
         new Alarm(true), new Say(Lines.C5), new Spare(0, StormIn + StormSight), new Spare(1, CoreBlows + GruntsSpared),
         new Spare(2, CoreBlows + GruntsSpared), new KeepProp(CoreTag, 0.1f), new AttackArtefact(ReaperRole, CoreTag),
         new Objective("Take cover from the Reapers", Cover), new Assign(1, CompanionTask.Go, IkeAtCable),
@@ -507,29 +511,6 @@ public static class Prologue
         new MoveTo(CommanderRole, "commander_2"),
     ];
 
-    /// <summary>
-    /// The three armed Grunts of the workshop (plan WP-G): already updated, painted as the trio's own, ready to go for what
-    /// they see (by the story's sight); two stand their posts, the third walks the room.
-    /// </summary>
-    private static StoryAction[] Hostiles =>
-    [
-        new Spawn(HostileRole, HostileGrunt, ["hostile_grunt_1", "hostile_grunt_2", "hostile_grunt_3"], DefCon.Low, Looks: Race.Red),
-        new StandFast(HostileRole),
-        new PatrolRoute(HostileRole, 2, "hostile_grunt_3", "458,238"),
-    ];
-
-    /// <summary>The dark rows: switched-off machines in the clamps of both decks, and the one on deck A that wakes for a moment.</summary>
-    private static StoryAction[] Rows =>
-    [
-        new Spawn(RowRole, Grunt2, ["clampA_s1", "clampA_s4", "clampA_s6", "clampA_n2", "clampA_n6", "clampB_5"], Inert: true),
-        new Spawn(RowRole, Grunt3, ["clampA_s2", "clampA_n7", "clampB_2", "clampB_8"], Inert: true),
-        new Spawn(RowRole, Reaper2, ["clampA_s5", "clampA_n1"], Inert: true),
-        new Spawn(RowRole, Builder, ["clampA_s8", "clampA_n5", "clampB_4"], Inert: true),
-        // The cast's rows (docs/STORY.md, Besetzung): Grunts, Reapers, Builders and Engineers (the Tech Boy), nothing else.
-        new Spawn(RowRole, TechBoy, ["clampA_s7", "clampA_n8", "clampB_7"], Inert: true),
-        new Spawn(ScareRole, Grunt2, ["scare_grunt2"], Inert: true),
-    ];
-
     // ---- the checkpoints ---------------------------------------------------------------------------
 
     /// <summary>
@@ -539,7 +520,9 @@ public static class Prologue
     /// </summary>
     internal static void SetUp(GameWorld world, StoryRun run, int checkpoint)
     {
-        var cp = Math.Clamp(checkpoint, 0, LastCheckpoint);
+        // A checkpoint whose stretch is not built yet is set up as the nearest built one before it (run.Checkpoint keeps the
+        // number asked for, so the next checkpoint reached still counts).
+        var cp = SetUpAs(checkpoint);
         var director = run.Director;
         void Do(params StoryAction[] actions)
         {
@@ -571,25 +554,25 @@ public static class Prologue
         // At the start the clamp's hack waits for the boot's end (the beat boot_done), from the first tick on.
         if (cp == 0)
             run.Hacks.Locked.Add("clamp_l7");
-        if (cp < 4)
+        if (cp < 8)
             run.Hacks.Locked.Add("hack_d5");
-        if (cp < 6)
+        if (cp < 12)
             run.Hacks.Locked.Add("pod_3_hatch");
         // The doors opened before the checkpoint stand open from its first tick, none of them sliding (GameWorld.OpenDoor).
         Do(new OpenDoors(DoorsOpen[cp], Instant: true), new AutoDoors(DoorsAuto[cp]));
-        Do(Rows);
-        if (cp is 1 or 2)
-            Do(ThresherOnPatrol);
-        if (cp >= 3)
+        // The Notabschaltung's reserve is whole again at every checkpoint (StoryReserve).
+        run.Reserve.Restore(run);
+        SetUpSection2(world, run, cp, Do);
+        if (cp >= 7)
             Do(new Spawn(ThresherRole, Thresher, [ThresherAway], Hunters));
-        if (cp >= 3)
+        if (cp >= 7)
             run.Flags.Add(StoryMarks.Alarm);
         // From the break-in on the maintenance limiter is overridden: the trio may sprint (StoryDrive).
-        if (cp >= 3)
+        if (cp >= 7)
             run.Flags.Add(StoryMarks.SprintFree);
-        if (cp >= 4)
+        if (cp >= 8)
             Do(new RemoveProp(CoreTag), new Lights("emergency", "*"), new Lights("emergency", "core"));
-        if (cp == 3)
+        if (cp == 7)
         {
             // The break-in, as the run played through has it a moment before: both doors barricaded (J's crates where Ike set
             // them, the Reapers came round), the squad at door I about to shoot its crates away, the Locator at the console.
@@ -599,36 +582,28 @@ public static class Prologue
                 new Spawn(CommanderRole, Commander, ["commander_i"], Hunters), new Sight(ReaperRole, false), new Sight(CommanderRole, false));
             run.Flags.Add(Retry);
         }
-        if (cp == 4)
-        {
-            // All three at the crossing, the Grunts holding the gates, the Reapers at the gates' far side.
-            Do(new Spawn(ReaperRole, Reaper3, [AtG1, "348,283"], Hunters), new Spawn(ReaperRole, Reaper2, [AtG2], Hunters),
-                new Spawn(CommanderRole, Commander, ["commander_2"], Hunters));
-            Do(new Assign(1, CompanionTask.HoldSwitch, "switch_g2"), new Assign(2, CompanionTask.HoldSwitch, "switch_g1"));
-            Do(Hostiles);
-        }
-        if (cp >= 5)
-        {
-            // The Bolter taken from its rack before.
-            world.TakeUpForStory(run.Locator, "pickup_bolter");
-            run.Flags.Add(Sealed);
-        }
-        if (cp == LastCheckpoint)
-        {
-            // The Notgang as a run played through has it: the crate its beat let fall lies in the lane.
-            Do(new Countdown(CountdownAtCheckpoint), new Tilt(5, 0, 0.5f), new PlaceProp("crate_large", "debris_1", 0, 5));
-        }
+        SetUpSection6(world, run, cp, Do);
+        SetUpSection7(world, run, cp, Do);
         Do(cp switch
         {
             1 => new Objective("Find a way to the main computer", "enter_deckA"),
-            2 => new Objective("Hack the main computer", "hack_core"),
-            3 => new Objective("Take cover from the Reapers", Cover),
-            4 => new Objective("Get through the workshop", "pickup_bolter"),
-            5 => new Objective("Get to the escape pods", "R15"),
-            6 => new Objective("Reach the escape pods", "pod_3_hatch"),
+            6 => new Objective("Hack the main computer", "hack_core"),
+            7 => new Objective("Take cover from the Reapers", Cover),
+            8 => new Objective("Get through the workshop", "pickup_bolter"),
+            11 => new Objective("Get to the escape pods", "R15"),
+            12 => new Objective("Reach the escape pods", "pod_3_hatch"),
             _ => new Objective(null),
         });
     }
+
+    /// <summary>Section 2's part of a checkpoint's set-up (Prologue.Section2.cs): the rows, the Thresher on his round.</summary>
+    static partial void SetUpSection2(GameWorld world, StoryRun run, int cp, Action<StoryAction[]> Do);
+
+    /// <summary>Section 6's part of a checkpoint's set-up (Prologue.Section6.cs): the crossing, the workshop, the Bolter.</summary>
+    static partial void SetUpSection6(GameWorld world, StoryRun run, int cp, Action<StoryAction[]> Do);
+
+    /// <summary>Section 7's part of a checkpoint's set-up (Prologue.Section7.cs): the Notgang's countdown and debris.</summary>
+    static partial void SetUpSection7(GameWorld world, StoryRun run, int cp, Action<StoryAction[]> Do);
 
     /// <summary>The crates of the props tagged so set into a door's barricade slots, in order (a checkpoint's barricade).</summary>
     private static void Barricade(GameWorld world, string door, params int[] tags)

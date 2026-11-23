@@ -199,6 +199,7 @@ public partial class Game
     {
         if (World.Story is not { } story)
             return;
+        StoryShutdownTest(story);
         if (!_storyHeard)
         {
             _storyHeard = true;
@@ -258,6 +259,18 @@ public partial class Game
     }
 
     /// <summary>A line of the line table spoken (its subtitle comes as it starts); without the story's audio only its subtitle.</summary>
+    private static readonly bool ShutdownTest = Godot.OS.GetEnvironment("MACHINES_STORY_SHUTDOWN_TEST") == "1";
+
+    /// <summary>
+    /// MACHINES_STORY_SHUTDOWN_TEST=1: the Notabschaltung's reserve is on in today's section 7, so it can be tried before
+    /// package E turns it on from the Notgang (a test switch for a single player: it sets the flag outside the commands).
+    /// </summary>
+    private void StoryShutdownTest(Machines.Sim.Story.StoryRun story)
+    {
+        if (ShutdownTest && story.Section == 7 && story.Flags.Add(Machines.Sim.Story.StoryMarks.Reserve))
+            Godot.GD.Print("story shutdown test: the reserve is on in section 7");
+    }
+
     private void SayStoryLine(string id)
     {
         if (StoryAudio.Current is not null)
@@ -399,6 +412,23 @@ public partial class Game
                 StoryAudio.Play("metal_groan_big");
                 if (World.HeroOf(Me) is { } hero)
                     CameraRig.Shake(ActorView.World(hero.Position), 3 * Math.Max(0.2f, Number(1)), 2);
+                break;
+            case ["l7", "shutdown"]:
+                // The Notabschaltung (GameWorld.StoryReserve): the Locator goes dark; its own view is the HUD's (StoryHud.Shutdown).
+                StoryAudio.Play("pa_cutoff", at);
+                if (World.Story is { } down && Me == down.Locator)
+                    _screen.Interference(GameOptions.SoftScares ? 0.3f : 0.7f, 1.0f);
+                break;
+            case ["l7", "restart", _]:
+                StoryAudio.Play("clamp_release", at);
+                if (World.Story is { } back && Me == back.Locator)
+                    _screen.Interference(0.3f, 0.6f);
+                break;
+            case ["l7", ..]:
+                break;
+            default:
+                // The cues of stage 7's sections, each package's own (Game.StoryStealth, .StoryArmoury, .StoryEscape).
+                _ = StoryCueStealth(words, at) || StoryCueArmoury(words, at) || StoryCueEscape(words, at);
                 break;
         }
     }

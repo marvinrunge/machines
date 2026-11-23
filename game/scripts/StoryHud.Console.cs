@@ -24,6 +24,29 @@ public partial class StoryHud
         ["crates"] = (null, "Drive into a crate to push it; at a door's barricade it locks into place. Back up to set it down"),
         // For the Locator's player only, at the break-in.
         ["cover"] = (null, "Into cover: the Reapers take aim for a moment before they fire"),
+
+        // Stage 7 (plan stufe7 §6.4; their German comes with package V's de.po, each said once).
+        // Section 2, the Thresher (package S). Creep rides on Ctrl until S binds it (Game.StoryCreepHeld).
+        ["creep"] = (null, "[Ctrl] hold: creep, half as fast and barely heard"),
+        ["lamp_off"] = (KeyMap.Act.Light, "[{0}] Lamp off: with it on he sees you to the end of his beam"),
+        ["shadow"] = (null, "Still in the dark: his light only shows you up close"),
+        ["lane"] = (null, "He stops at the ends of his round. Cross while he stands there."),
+        ["lure"] = (KeyMap.Act.GruntDistract, "[{0}] at a valve: a Grunt draws him off"),
+        // For a Grunt's player only.
+        ["pipe"] = (KeyMap.Act.Use, "[{0}] Bang the valve: the noise comes out at the pipe's end"),
+        // The armoury (package W), the Locator's.
+        ["assemble"] = (KeyMap.Act.Use, "[{0}] hold: put the Grunt back together (4 s, you stand still)"),
+        ["strip"] = (KeyMap.Act.Use, "[{0}] hold at a wreck: strip it for parts"),
+        ["mount"] = (KeyMap.Act.Use, "[{0}] hold at an unarmed Grunt: mount the Bolter you carry"),
+        ["mend"] = (KeyMap.Act.Use, "[{0}] hold at a hurt Grunt: patch it up. Between batches nobody else will"),
+        ["batch"] = (null, "The next batch comes when the bar is full. Your Grunts can block its door with crates"),
+        ["zap"] = (null, "It charges up before it strikes: ram it, shoot it, or sprint out of its reach"),
+        ["charge"] = (null, "When the heavy one revs, sprint out of its line: it cannot turn once it runs"),
+        // The escape (package E).
+        ["valve"] = (null, "Stand on the valve: the jet stays off"),
+        ["wheel"] = (KeyMap.Act.Use, "[{0}] Hand wheel: the jet stays off for a while"),
+        ["chock"] = (KeyMap.Act.Use, "[{0}] Push the chock into the lane"),
+        ["lever"] = (KeyMap.Act.Use, "[{0}] Lane lever: two lanes stop for a moment"),
     };
 
     private sealed record ConsoleLine(string Text, double Since, float Seconds, float? Bar)

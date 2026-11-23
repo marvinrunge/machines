@@ -168,7 +168,7 @@ public class StorySprintTests(ITestOutputHelper output)
     [Fact]
     public void The_sprint_is_freed_as_the_reapers_first_rounds_hit_the_core()
     {
-        var world = Chapter(2);
+        var world = Chapter(6);
         var run = world.Story!;
         Assert.False(world.StorySprintFree);
         // The squad bursts in (as the barricade at door I gives way): the break-in, then the first hit on the core.
@@ -194,7 +194,7 @@ public class StorySprintTests(ITestOutputHelper output)
     public void Checkpoints_from_the_break_in_on_start_with_the_sprint_free()
     {
         for (var checkpoint = 0; checkpoint <= Prologue.LastCheckpoint; checkpoint++)
-            Assert.Equal(checkpoint >= 3, Chapter(checkpoint).StorySprintFree);
+            Assert.Equal(Prologue.SetUpAs(checkpoint) >= 7, Chapter(checkpoint).StorySprintFree);
     }
 
     [Fact]
@@ -334,7 +334,7 @@ public class StorySprintTests(ITestOutputHelper output)
         var world = Chapter(1);
         world.Step();
         var thresher = world.Story!.Director.Of(world, Prologue.ThresherRole).Single();
-        var reapers = Chapter(3);
+        var reapers = Chapter(7);
         reapers.Step();
         foreach (var role in new[] { Prologue.ReaperRole, Prologue.CommanderRole })
         {

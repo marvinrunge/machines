@@ -185,6 +185,10 @@ public partial class Warmup : Node3D
                 StoryAudio.Preload(story);
                 yield return false;
             }
+        // Stage 7's sections, each package's own (Warmup.Stealth, .Armoury, .Escape).
+        if (_world.Story is not null)
+            foreach (var step in WarmStealth().Concat(WarmArmoury()).Concat(WarmEscape()))
+                yield return step;
         Note("sounds", since);
 
         // The stage stands where the camera looks; what is put on it is drawn under the loading screen.

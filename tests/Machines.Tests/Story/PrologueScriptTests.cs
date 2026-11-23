@@ -40,11 +40,21 @@ public class PrologueScriptTests
     [InlineData(4)]
     [InlineData(5)]
     [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    [InlineData(12)]
+    [InlineData(13)]
+    [InlineData(14)]
     public void Each_checkpoint_sets_the_world_up_as_the_chapter_has_it_there(int checkpoint)
     {
         var world = Chapter(checkpoint);
         var run = world.Story!;
         var director = run.Director;
+        // A checkpoint whose stretch is not built yet is set up as the nearest built one before it.
+        var cp = Prologue.SetUpAs(checkpoint);
 
         Assert.Equal((checkpoint, Prologue.SectionAt[checkpoint]), (run.Checkpoint, run.Section));
         // The trio where it stands there, each on ground its room lets it stand on; Ike and Bob asleep only at the start.
@@ -62,9 +72,9 @@ public class PrologueScriptTests
         }
         // The hacks done and the doors open so far; the rest shut.
         foreach (var (target, from) in Prologue.Hacks)
-            Assert.Equal(checkpoint >= from, run.Hacks.Done.Contains(target));
-        Assert.Equal(checkpoint < 4, run.Hacks.Locked.Contains("hack_d5"));
-        Assert.Equal(checkpoint < 6, run.Hacks.Locked.Contains("pod_3_hatch"));
+            Assert.Equal(cp >= from, run.Hacks.Done.Contains(target));
+        Assert.Equal(cp < 8, run.Hacks.Locked.Contains("hack_d5"));
+        Assert.Equal(cp < 12, run.Hacks.Locked.Contains("pod_3_hatch"));
         foreach (var letter in "ABCDEHIJKMQRTUV")
             Assert.True(Prologue.DoorsOpen[checkpoint].Contains(letter) != world.DoorClosed(letter), $"door {letter}");
         Assert.All(Prologue.DoorsAuto[checkpoint], letter => Assert.Contains(letter, director.AutoDoors));
@@ -72,26 +82,26 @@ public class PrologueScriptTests
         Assert.Equal(19, Count(world, Prologue.RowRole) + Count(world, Prologue.ScareRole));
         Assert.All(director.Of(world, Prologue.RowRole), m => Assert.Empty(m.Weapons));
         Assert.Equal(checkpoint >= 1 ? 1 : 0, Count(world, Prologue.ThresherRole));
-        Assert.Equal(checkpoint is 3 or 4 ? 3 : 0, Count(world, Prologue.ReaperRole));
-        Assert.Equal(checkpoint is 3 or 4 ? 1 : 0, Count(world, Prologue.CommanderRole));
-        Assert.Equal(checkpoint == 4 ? 3 : 0, Count(world, Prologue.HostileRole));
+        Assert.Equal(cp is 7 or 8 ? 3 : 0, Count(world, Prologue.ReaperRole));
+        Assert.Equal(cp is 7 or 8 ? 1 : 0, Count(world, Prologue.CommanderRole));
+        Assert.Equal(cp == 8 ? 3 : 0, Count(world, Prologue.HostileRole));
         // The workshop's Grunts armed and painted as the trio's own; the Locator wears the Bolter once it was taken.
         Assert.All(director.Of(world, Prologue.HostileRole), m => Assert.Equal((Race?)Race.Red, m.DisplayAs));
         Assert.All(director.Of(world, Prologue.HostileRole), m => Assert.NotEmpty(m.Weapons));
-        Assert.Equal(checkpoint >= 5, world.HeroOf(run.Locator)!.Weapons.Count > 0);
-        Assert.Equal(checkpoint >= 5, run.Flags.Contains(Prologue.Sealed));
+        Assert.Equal(cp >= 11, world.HeroOf(run.Locator)!.Weapons.Count > 0);
+        Assert.Equal(cp >= 11, run.Flags.Contains(Prologue.Sealed));
         Assert.All(world.Machines.Where(m => run.Seats.All(s => world.HeroOf(s)?.Id != m.Id)), m => Assert.Equal(Race.Blue, m.Race));
         // From the break-in the alarm is on; after Erwischt the core is gone and the lights at emergency.
-        Assert.Equal(checkpoint < 4, world.Artefacts.Any(a => a.Tag == Prologue.CoreTag && !a.IsDead));
-        Assert.Equal(checkpoint >= 3, run.Flags.Contains(StoryMarks.Alarm));
-        Assert.Equal(checkpoint >= 4 ? "emergency" : "on", world.StoryLightState("core"));
-        Assert.Equal(checkpoint >= 5, run.Flags.Contains(StoryMarks.Done("pickup_bolter")));
-        if (checkpoint == Prologue.LastCheckpoint)
-            Assert.Equal(Prologue.CountdownAtCheckpoint, run.Timers[StoryMarks.Countdown] - world.Time, 2);
+        Assert.Equal(cp < 8, world.Artefacts.Any(a => a.Tag == Prologue.CoreTag && !a.IsDead));
+        Assert.Equal(cp >= 7, run.Flags.Contains(StoryMarks.Alarm));
+        Assert.Equal(cp >= 8 ? "emergency" : "on", world.StoryLightState("core"));
+        Assert.Equal(cp >= 11, run.Flags.Contains(StoryMarks.Done("pickup_bolter")));
+        if (Prologue.CountdownFrom[cp] is { } left)
+            Assert.Equal(left, run.Timers[StoryMarks.Countdown] - world.Time, 2);
         else
             Assert.DoesNotContain(StoryMarks.Countdown, run.Timers.Keys);
         // The beats of the stretches before the checkpoint count as fired; none after.
-        Assert.All(Prologue.Script.Where(b => !b.Repeat), b => Assert.Equal(b.Span < checkpoint, director.Has(b.Name)));
+        Assert.All(Prologue.Script.Where(b => !b.Repeat), b => Assert.Equal(b.Span < cp, director.Has(b.Name)));
         Assert.Equal(checkpoint > 0, StoryMarks.Objective(run) is not null);
 
         // It plays on from there (at the start the Locator boots in its clamp, with no objective until its end).
@@ -138,15 +148,69 @@ public class PrologueScriptTests
         return world.Rejected.FirstOrDefault(r => ReferenceEquals(r.Command, command))?.Reason;
     }
 
+    [Fact]
+    public void The_checkpoint_tables_have_a_row_for_each_of_the_fifteen_and_agree()
+    {
+        Assert.Equal(15, Prologue.Starts.Count);
+        Assert.Equal(14, Prologue.LastCheckpoint);
+        foreach (var table in new[] { Prologue.SectionAt.Count, Prologue.DoorsOpen.Count, Prologue.DoorsAuto.Count, Prologue.CountdownFrom.Count })
+            Assert.Equal(15, table);
+        Assert.Equal([1, 2, 2, 2, 2, 2, 3, 4, 6, 6, 6, 6, 7, 7, 7], Prologue.SectionAt);
+        // The sections only go forward; the countdown runs from the Notgang on and only there.
+        Assert.True(Prologue.SectionAt.Zip(Prologue.SectionAt.Skip(1)).All(p => p.First <= p.Second));
+        for (var cp = 0; cp <= Prologue.LastCheckpoint; cp++)
+        {
+            Assert.Equal(Prologue.SectionAt[cp] == 7, Prologue.CountdownFrom[cp] is not null);
+            // A door open at a checkpoint stays open at every later one, unless a stage-7 package shuts or locks it (H, R, T, U).
+            if (cp > 0)
+                Assert.All(Prologue.DoorsOpen[cp - 1].Except("HRTU"), letter => Assert.Contains(letter, Prologue.DoorsOpen[cp]));
+            // A checkpoint not built yet repeats the rows of the one it is set up as.
+            var built = Prologue.SetUpAs(cp);
+            Assert.True(Prologue.Built.Contains(built) && built <= cp);
+            Assert.Equal(Prologue.Starts[built].At, Prologue.Starts[cp].At);
+            Assert.Equal((Prologue.Starts[built].Facing, Prologue.DoorsOpen[built], Prologue.DoorsAuto[built]),
+                (Prologue.Starts[cp].Facing, Prologue.DoorsOpen[cp], Prologue.DoorsAuto[cp]));
+        }
+        Assert.Equal([0, 1, 6, 7, 8, 11, 12], Prologue.Built);
+    }
+
+    [Fact]
+    public void Every_beats_span_and_every_checkpoint_it_reaches_is_one_of_the_fifteen_and_built()
+    {
+        foreach (var beat in Prologue.Script)
+        {
+            Assert.InRange(beat.Span, 0, Prologue.LastCheckpoint);
+            Assert.Contains(beat.Span, Prologue.Built);
+            foreach (var reached in beat.Then.OfType<Then.Checkpoint>())
+            {
+                Assert.Contains(reached.Number, Prologue.Built);
+                // A beat reaches its own stretch's checkpoint (the break-in) or a later one.
+                Assert.True(reached.Number >= beat.Span, beat.Name);
+            }
+        }
+        Assert.Equal([1, 6, 7, 8, 11, 12], Prologue.Script.SelectMany(b => b.Then.OfType<Then.Checkpoint>()).Select(c => c.Number).Order());
+    }
+
+    [Fact]
+    public void From_the_decks_checkpoint_the_thresher_steps_first()
+    {
+        // Checkpoint 1's stretch begins with his steps a few seconds in (the rider covers 1 from the start).
+        var world = Chapter(1);
+        for (var i = 0; i < 6 * GameWorld.TicksPerSecond; i++)
+            world.Step();
+        Assert.True(world.Story!.Director.Has("steps"));
+    }
+
     // ---- a run of the chapter ---------------------------------------------------------------------------
 
     [Theory]
-    [InlineData(0)]
-    [InlineData(2)]
-    [InlineData(3)]
-    [InlineData(5)]
-    [InlineData(6)]
-    public void Scripted_inputs_move_through_every_section_to_the_escape(int checkpoint)
+    [InlineData(0, "boot")]
+    [InlineData(6, "core_open")]
+    [InlineData(7, "at_i")]
+    [InlineData(8, "workshop")]
+    [InlineData(11, "notgang")]
+    [InlineData(12, "pod_bay")]
+    public void Scripted_inputs_move_through_every_section_to_the_escape(int checkpoint, string first)
     {
         var world = Chapter(checkpoint);
         var rider = new Rider(world);
@@ -154,12 +218,15 @@ public class PrologueScriptTests
         rider.Play();
 
         var run = world.Story!;
+        // From every built checkpoint the first beat of its stretch fires first (S, W and E add theirs as they build 2–5, 9–10, 13–14).
+        Assert.Equal(first, Prologue.Script.Where(b => b.Span == checkpoint && !b.Repeat && run.Director.Has(b.Name))
+            .OrderBy(b => run.Director.Fired[b.Name]).First().Name);
         Assert.Equal(StoryEnding.Escaped, run.Ending);
         Assert.Equal(Race.Red, world.Winner);
-        Assert.Equal(Prologue.LastCheckpoint, run.Checkpoint);
-        // Every section from the checkpoint's on, in order, and the checkpoints after it.
+        Assert.Equal(Prologue.Built.Max(), run.Checkpoint);
+        // Every section from the checkpoint's on, in order, and the built checkpoints after it.
         Assert.Equal(Enumerable.Range(Prologue.SectionAt[checkpoint] + 1, 8 - Prologue.SectionAt[checkpoint]), rider.Sections.Select(s => s.Section));
-        Assert.Equal(Enumerable.Range(checkpoint + 1, Prologue.LastCheckpoint - checkpoint), rider.Checkpoints);
+        Assert.Equal(Prologue.Built.Where(c => c > checkpoint), rider.Checkpoints);
         Assert.All(run.Seats, seat => Assert.NotNull(world.HeroOf(seat)));
     }
 
@@ -220,7 +287,7 @@ public class PrologueScriptTests
     {
         var po = File.ReadAllText(Repo("game/lang/de.po"));
         var known = Regex.Matches(po, @"^msgid ""((?:[^""\\]|\\.)*)""", RegexOptions.Multiline).Select(m => Regex.Unescape(m.Groups[1].Value)).ToHashSet();
-        var code = File.ReadAllText(Repo("sim/Machines.Sim/Story/Prologue.cs"));
+        var code = string.Concat(Directory.GetFiles(Repo("sim/Machines.Sim/Story"), "Prologue*.cs").Order(StringComparer.Ordinal).Select(File.ReadAllText));
         var objectives = Regex.Matches(code, @"Objective\(""([^""]+)""").Select(m => m.Groups[1].Value).Distinct().ToList();
         Assert.True(objectives.Count >= 15);
         Assert.All(objectives, text => Assert.Contains(text, known));

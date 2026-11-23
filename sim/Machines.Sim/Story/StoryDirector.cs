@@ -354,7 +354,7 @@ public abstract record StoryTrigger
 }
 
 /// <summary>The triggers a chapter's beats are written with (<c>using static Machines.Sim.Story.When;</c>).</summary>
-public static class When
+public static partial class When
 {
     /// <summary>Holds always: a beat that only waits for the beats it comes after.</summary>
     public sealed record Always : StoryTrigger
@@ -535,7 +535,7 @@ public abstract record StoryAction
 public sealed record StoryUnit(string Type, string? SubType, int Level, string? Weapons);
 
 /// <summary>The actions a chapter's beats are written with (<c>using static Machines.Sim.Story.Then;</c>).</summary>
-public static class Then
+public static partial class Then
 {
     /// <summary>A line is said: the ship's for everyone, a Grunt's as its bark (<see cref="StoryAudience.Companion"/>) or for its player alone.</summary>
     public sealed record Say(string Line, StoryAudience Audience = StoryAudience.Everyone, int Seat = -1) : StoryAction
@@ -584,6 +584,24 @@ public static class Then
         }
     }
 
+    /// <summary>
+    /// The Notabschaltung on or off (plan stufe7 C7; <see cref="StoryReserve"/>): on, the Locator at 0 hit points shuts down
+    /// and waits for a Grunt's cable instead of falling, and the reserve is whole again; off, it falls as before.
+    /// </summary>
+    public sealed record Reserve(bool On) : StoryAction
+    {
+        internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            if (!On)
+            {
+                run.Flags.Remove(StoryMarks.Reserve);
+                return;
+            }
+            run.Flags.Add(StoryMarks.Reserve);
+            run.Reserve.Restore(run);
+        }
+    }
+
     /// <summary>A checkpoint is reached: a later start of the chapter begins here (only ever forward).</summary>
     public sealed record Checkpoint(int Number) : StoryAction
     {
@@ -592,6 +610,8 @@ public static class Then
             if (Number <= run.Checkpoint)
                 return;
             run.Checkpoint = Number;
+            // The Notabschaltung's reserve is whole again (StoryReserve).
+            run.Reserve.Restore(run);
             StoryEvents.Checkpoint(world, Number, world.HeroOf(run.Locator)?.Position ?? Vector2.Zero);
         }
     }

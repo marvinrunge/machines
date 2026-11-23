@@ -127,7 +127,10 @@ public partial class StoryHud : Control
         }
         DrawBoot(now);
         DrawConsole();
+        DrawHolds();
         DrawEnd(now);
+        // Over everything: the Notabschaltung (StoryHud.Shutdown).
+        DrawShutdown(now);
     }
 
     // ---- the hero and the objective -----------------------------------------------------------------
