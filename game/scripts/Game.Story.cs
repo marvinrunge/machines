@@ -161,6 +161,45 @@ public partial class Game
         base._ExitTree();
     }
 
+    // ---- the section timer --------------------------------------------------------------------------------
+
+    /// <summary>Ticks spent in each section of this chapter, over every restart of it (a run that dies and tries again
+    /// adds its retries); only ticks count, so a pause and the death card (the sim stands still) are left out.</summary>
+    private readonly System.Collections.Generic.Dictionary<int, int> _sectionTicks = [];
+    private (int Section, int Tick, GameWorld? World) _sectionAt;
+    private GameWorld? _sectionDone;
+
+    /// <summary>
+    /// After every tick: the tick is counted to the run's section; when the section changes (or the chapter ends), the
+    /// one left is printed as <c>story time: section n mm:ss</c>, and after the last also the total, so the log of a run
+    /// keeps its times per section (stufe7 §1; the trims go by them).
+    /// </summary>
+    private void TimeStorySection(Machines.Sim.Story.StoryRun story)
+    {
+        var section = story.Section;
+        if (ReferenceEquals(_sectionDone, World))
+            return;
+        if (!ReferenceEquals(_sectionAt.World, World) || World.Tick < _sectionAt.Tick)
+            _sectionAt = (section, World.Tick, World);
+        var ticks = World.Tick - _sectionAt.Tick;
+        _sectionTicks[_sectionAt.Section] = _sectionTicks.GetValueOrDefault(_sectionAt.Section) + ticks;
+        var left = _sectionAt.Section;
+        _sectionAt = (section, World.Tick, World);
+        if (section == left && story.Ending is null)
+            return;
+        static string Clock(int ticks) { var s = ticks / GameWorld.TicksPerSecond; return $"{s / 60}:{s % 60:00}"; }
+        Godot.GD.Print($"story time: section {left} {Clock(_sectionTicks[left])}");
+        if (story.Ending is not null && section == left)
+        {
+            var total = 0;
+            foreach (var t in _sectionTicks.Values)
+                total += t;
+            Godot.GD.Print($"story time: total {Clock(total)}");
+            _sectionTicks.Clear();
+            _sectionDone = World;
+        }
+    }
+
     // ---- what the director tells ------------------------------------------------------------------------
 
     private bool _storyHeard;
@@ -200,6 +239,7 @@ public partial class Game
         if (World.Story is not { } story)
             return;
         StoryShutdownTest(story);
+        TimeStorySection(story);
         if (!_storyHeard)
         {
             _storyHeard = true;
@@ -304,6 +344,8 @@ public partial class Game
     /// <summary>The words of a director's cue: what the view shows and plays of it.</summary>
     private void StoryCue(string[] words, Godot.Vector3 at)
     {
+        // The music's rules hear every cue first (the Thresher's nearness, the waves, the boss, the escape's score).
+        StoryMusic.Hear(words);
         float Number(int i) => words.Length > i && float.TryParse(words[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var n) ? n : 0;
         switch (words)
         {
