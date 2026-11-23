@@ -111,6 +111,9 @@ public partial class DeckView : Node3D
     {
         foreach (var floor in Layout.Floors)
         {
+            // The footbridge's floor is the escape's own, so that it can fall (DeckView.Escape).
+            if (EscapeFloor(floor))
+                continue;
             var at = new NVector3(floor.X + DeckLayout.Module / 2f, floor.Y + DeckLayout.Module / 2f, 0);
             var prop = floor.Grate ? "kit_floor_grate" : "kit_floor";
             if (Props.Get(prop) is not { } model)

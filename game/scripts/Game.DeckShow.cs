@@ -271,6 +271,8 @@ public partial class Game
             if (World.HeroOf(seat) is { } hero && _views.TryGetValue(hero.Id, out var view))
                 _deckView.Shovers.Add(view.GlobalPosition);
         ShowCrash(story, delta);
+        // The escape's hazards (section 7, Game.StoryEscape).
+        ShowEscape(story, delta);
     }
 
     /// <summary>A Grunt of the trio: lying tipped, sparking and smoking while it is down, its ring filling as it is revived; a crate it carries on its back.</summary>

@@ -338,6 +338,11 @@ public static class Props
         "vent_cover" => "kit_vent_cover",
         _ when type.StartsWith("door_leaf", StringComparison.Ordinal) => "kit_door_leaf",
         _ when type.StartsWith("gate_leaf", StringComparison.Ordinal) => "kit_grate_wall",
+        // The escape's hold (package E): the containers and the rack until their rails take them over (DeckView.Escape),
+        // the lanes' chocks, and the crane's amber lock in the bay.
+        "container" or "rack" => "crate_large",
+        "chock" => "crate_small",
+        "lock_amber" => "junction_box",
         _ => Exists(type) ? type : null,
     };
 
