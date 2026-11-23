@@ -242,4 +242,25 @@ public class PrologueThresherTests(ITestOutputHelper output)
         }
         Assert.Equal(sums[0], sums[1]);
     }
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public void Each_checkpoint_of_section_two_sets_up_the_same_world_for_two_peers(int checkpoint)
+    {
+        var sums = new List<ulong>[2];
+        for (var peer = 0; peer < 2; peer++)
+        {
+            var world = Chapter(checkpoint);
+            sums[peer] = [world.Checksum()];
+            for (var second = 0; second < 40; second++)
+            {
+                for (var i = 0; i < GameWorld.TicksPerSecond; i++)
+                    world.Step();
+                sums[peer].Add(world.Checksum());
+            }
+        }
+        Assert.Equal(sums[0], sums[1]);
+    }
 }
