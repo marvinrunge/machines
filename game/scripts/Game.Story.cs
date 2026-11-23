@@ -394,7 +394,8 @@ public partial class Game
                 break;
             case ["hint", var hint]:
                 // How to push crates is for a Grunt's player, how to take cover for the Locator's.
-                if (World.Story is { } told && (hint, Me == told.Locator) is not ("crates", true) and not ("cover", false))
+                // Banging a valve is for a Grunt's player, ordering the lure for the Locator's (package S).
+                if (World.Story is { } told && (hint, Me == told.Locator) is not ("crates", true) and not ("cover", false) and not ("pipe", true) and not ("lure", false))
                     _hud.Story?.Hint(hint);
                 break;
             case ["alarm"]:

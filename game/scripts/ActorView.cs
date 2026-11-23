@@ -1157,6 +1157,8 @@ public partial class ActorView : Node3D
     partial void StorySyncStealth(Actor actor);
     partial void StorySyncArmoury(Actor actor);
     partial void StorySyncEscape(Actor actor);
+    // Package S: after the lamp is put at the eyes, the Thresher's beam states (ActorView.Stealth).
+    partial void StoryBeamStealth(SpotLight3D beam);
 
     public override void _Process(double delta)
     {
@@ -1205,7 +1207,10 @@ public partial class ActorView : Node3D
             if (EyesOf is not null && _lamp is SpotLight3D cone)
                 HostileCone(cone, eyes == EyeLook.Hostile, eyeLevel);
             if (_lamp.Visible && _lamp is SpotLight3D beam)
+            {
                 Beam(beam);
+                StoryBeamStealth(beam);
+            }
         }
         if (_dust is not null && delta > 0)
             _dust.Emitting = Visible && new Vector2(Position.X - _lastPosition.X, Position.Z - _lastPosition.Z).Length() / (float)delta > 1.5f;

@@ -128,6 +128,8 @@ public partial class StoryHud : Control
         DrawBoot(now);
         // The armoury's bar, boss bar, wreck marks and prompts (StoryHud.Armoury).
         DrawArmoury(now);
+        // Section 2's eye, IM LICHT, ERFASST, SCHLEICHEN and the Thresher's last place on the tracker (StoryHud.Stealth).
+        DrawStealth(now);
         DrawConsole();
         DrawHolds();
         DrawEnd(now);

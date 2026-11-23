@@ -301,6 +301,15 @@ the options (see `GameOptions.cs`) for one run without saving them, `MACHINES_LA
 and `MACHINES_AI=easy`, `normal` or `hard` how well the AIs of a `MACHINES_MAP` run play. `MACHINES_PERF=<seconds>`
 logs what each second's frames cost for that long, then sums it up and ends the game (see `PerfLog.cs`).
 
+The prologue's section 2 (the Thresher) has two switches of its own, with `MACHINES_STORY=prolog,<checkpoint>` and
+`MACHINES_MAP=prolog`. `MACHINES_STORY_STOMP_TEST=1` (offline) puts L-7 in the niche off deck A (`=x,y` elsewhere), its
+lamp off, unseen and unhurt, while the Thresher walks his round past it, and prints a line for each plant of his feet: the
+gap since the last, front or rear, distance, the walls and grates between, gain, low-pass and how much of the near samples
+(see `Game.StoryStealth.cs`, `StorySounds.Thresher.cs`). With `MACHINES_STORY_DRIVE`, `MACHINES_STORY_DRIVE_STEALTH=caught`
+tells the Grunts to wait on deck A's lane once, so one goes down and is put together again, and `=die` walks L-7 into his
+light with its lamp on until it is lost, then says how far he is after the restart; without it the driver fails the run
+when he is sure of L-7 (see `StoryDriver.Stealth.cs`).
+
 | Control | Does |
 | --- | --- |
 | Left click / drag | Select (Ctrl or Shift adds; Ctrl and a click takes one out); with a command in hand, its target |

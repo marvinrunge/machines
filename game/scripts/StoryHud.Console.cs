@@ -26,8 +26,8 @@ public partial class StoryHud
         ["cover"] = (null, "Into cover: the Reapers take aim for a moment before they fire"),
 
         // Stage 7 (plan stufe7 §6.4; their German comes with package V's de.po, each said once).
-        // Section 2, the Thresher (package S). Creep rides on Ctrl and the pad's R3 (Game.StoryCreepHeld).
-        ["creep"] = (null, "[Ctrl] hold: creep, half as fast and barely heard"),
+        // Section 2, the Thresher (package S). Creep is a key of its own (KeyMap.Act.Creep, Ctrl at first) and the pad's R3 (Game.StoryCreepHeld).
+        ["creep"] = (KeyMap.Act.Creep, "[{0}] hold: creep, half as fast and barely heard"),
         ["lamp_off"] = (KeyMap.Act.Light, "[{0}] Lamp off: with it on he sees you to the end of his beam"),
         ["shadow"] = (null, "Still in the dark: his light only shows you up close"),
         ["lane"] = (null, "He stops at the ends of his round. Cross while he stands there."),

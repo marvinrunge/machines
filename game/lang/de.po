@@ -612,6 +612,9 @@ msgstr "Hoch"
 msgid "Down"
 msgstr "Runter"
 
+msgid "Ctrl"
+msgstr "Strg"
+
 msgid "Turn left"
 msgstr "Links drehen"
 
@@ -5000,6 +5003,9 @@ msgstr "Grunts: hier warten"
 
 msgid "Grunts: distract"
 msgstr "Grunts: ablenken"
+
+msgid "Creep"
+msgstr "Schleichen"
 
 msgid "Hack a terminal, take or use what lies before you, send a scanner pulse, switch the lamp. Shift held sprints (the left stick's click on a pad) once the story lifts the drive's limiter; it heats the drive. The weapons' triggers are those of Wired's page."
 msgstr "Ein Terminal hacken, nehmen oder benutzen, was vor dir liegt, einen Scannerimpuls senden, den Scheinwerfer schalten. Umschalt gehalten sprintet (am Gamepad der Klick des linken Sticks), sobald die Geschichte den Begrenzer des Antriebs löst; der Sprint heizt den Antrieb auf. Die Abzüge der Waffen sind die der Seite des Überlebensmodus."

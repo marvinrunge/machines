@@ -78,7 +78,7 @@ public partial class Game
     /// </summary>
     private float FollowTurn(Machine machine, out float step)
     {
-        step = HullTurnRate(machine, Input.IsKeyPressed(Key.Ctrl)) * GameWorld.Dt;
+        step = HullTurnRate(machine, SlowHeld()) * GameWorld.Dt;
         DropDue();
         var coming = GunPrediction.Turning(_turnsDue, World.Tick, Sighted ? NextDue : long.MinValue);
         var behind = Mathf.Wrap(_aimYaw - machine.Facing - coming, -Mathf.Pi, Mathf.Pi);
@@ -135,7 +135,7 @@ public partial class Game
     {
         var due = NextDue;
         DropDue();
-        GunPrediction.Add(_turnsDue, new GunPrediction.Due(due, HullTurnFor(machine, turn, Input.IsKeyPressed(Key.Ctrl), true), _aimYaw));
+        GunPrediction.Add(_turnsDue, new GunPrediction.Due(due, HullTurnFor(machine, turn, SlowHeld(), true), _aimYaw));
         var gun = PredictGun(machine, null);
         if (SightLog)
             GD.Print($"sight: tick {due} predicted on {gun.On} gun {gun.Heading:0.00000}");
@@ -186,7 +186,7 @@ public partial class Game
     /// </summary>
     private void TurnDrawnGun(Machine machine, ActorView view)
     {
-        var next = new GunPrediction.Due(NextDue, HullTurnFor(machine, Mathf.Clamp(-NextTurn(machine), -1, 1), Input.IsKeyPressed(Key.Ctrl), true), _aimYaw);
+        var next = new GunPrediction.Due(NextDue, HullTurnFor(machine, Mathf.Clamp(-NextTurn(machine), -1, 1), SlowHeld(), true), _aimYaw);
         _gun = PredictGun(machine, next, SightTruth);
         if (_gunDrawnFor != machine.Id)
             (_gunDrawn, _gunDrawnFor) = (_gun.Heading, machine.Id);

@@ -56,6 +56,7 @@ public static class KeyMap
         GruntWait,
         GruntDistract,
         ChaseView,
+        Creep,
     }
 
     /// <summary>Where an action's key works. Two actions that work in the same place cannot share a key.</summary>
@@ -133,6 +134,9 @@ public static class KeyMap
         // First or third person for the hero: on the key that leaves first person elsewhere, which a run keeps the driver in.
         // A story's Hack / use shares it: a story is played from the faceplate until it lets the hero out (Game.StoryView).
         [Act.ChaseView] = new("Third person", Key.F, Where.FirstPerson | Where.Run),
+        // The story's creep (package S): held, the hero goes at half its pace and is barely heard. On Ctrl, which first person
+        // had hard-wired for going slow before: the one action that may keep that key (Refuses), or leave it for another.
+        [Act.Creep] = new("Creep", Key.Ctrl, Where.FirstPerson | Where.Story),
     };
 
     /// <summary>
@@ -199,7 +203,7 @@ public static class KeyMap
     public static string ChosenName(Act act) => Name(Keys[act]);
 
     public static string Name(Key key) => IsMouse(key) ? ButtonName(ButtonOf(key))
-        : key is Key.Left or Key.Right or Key.Up or Key.Down ? Lang.T(OS.GetKeycodeString(key)) : OS.GetKeycodeString(key).Replace("Kp ", "Num ");
+        : key is Key.Left or Key.Right or Key.Up or Key.Down or Key.Ctrl ? Lang.T(OS.GetKeycodeString(key)) : OS.GetKeycodeString(key).Replace("Kp ", "Num ");
 
     private static string ButtonName(MouseButton button) => button switch
     {
@@ -266,7 +270,7 @@ public static class KeyMap
         or Key.Kp6 or Key.Kp8 or >= Key.F5 and <= Key.F8;
 
     /// <summary>Whether the action cannot have the key. With the Classic Keys a run's action keeps off the original's keys as well.</summary>
-    public static bool Refuses(Act act, Key key) => Reserved(key) || IsRun(act) && (HardWired(key) || GameOptions.ClassicKeys && ClassicHas(act, key));
+    public static bool Refuses(Act act, Key key) => Reserved(key) && !(act == Act.Creep && key == Key.Ctrl) || IsRun(act) && (HardWired(key) || GameOptions.ClassicKeys && ClassicHas(act, key));
 
     /// <summary>Whether the original's layout puts the key on an action that works where <paramref name="act"/> does.</summary>
     private static bool ClassicHas(Act act, Key key) => Original.Any(original => original.Value == key && Crosses(original.Key, act));
