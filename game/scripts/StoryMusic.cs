@@ -301,7 +301,7 @@ public partial class StoryMusic(StoryAudio audio) : Node
 
     /// <summary>The piece of the score playing now and where it stands, for the checks: (name, seconds) or null.</summary>
     public (string Piece, double At)? ScorePlaying =>
-        (_escape ?? _caught ?? _list) is { Player: { Playing: true } player } ? (player.Name.ToString()["Score-".Length..], player.GetPlaybackPosition()) : null;
+        (_escape ?? _caught ?? _list) is { Player: { Playing: true } player } fader ? (fader.Piece, player.GetPlaybackPosition()) : null;
 
     /// <summary>The chapter's score while its files are there; null for the cues and their stand-ins.</summary>
     private StoryScore? Score()
@@ -372,7 +372,7 @@ public partial class StoryMusic(StoryAudio audio) : Node
     private void StartEscape(double at, float? left)
     {
         _escape = Play(StoryScore.Escape, at, 0, 0, ListSpeed, hold: !_launched);
-        audio.Trace($"score escape {StoryScore.Escape.Name} from {at:0.0} s{(left is { } l ? $" with {l:0.0} s left" : "")}, hold {StoryScore.HoldFrom:0.000}-{StoryScore.HoldTo:0.000} s");
+        audio.Trace($"score escape {StoryScore.Escape.Name} from {at:0.0} s{(left is { } l ? FormattableString.Invariant($" with {l:0.0} s left") : "")}, hold {StoryScore.HoldFrom:0.000}-{StoryScore.HoldTo:0.000} s");
     }
 
     /// <summary>For the music's check: Pressure from <paramref name="at"/> seconds in at once, as a retry would start it.</summary>
@@ -509,7 +509,7 @@ public partial class StoryMusic(StoryAudio audio) : Node
         var player = new AudioStreamPlayer { Name = $"Score-{piece.Name}", Stream = stream, Bus = StoryAudio.MusicBus, VolumeDb = fromDb };
         AddChild(player);
         player.Play((float)at);
-        var fader = new Fader(player);
+        var fader = new Fader(player) { Piece = piece.Name };
         fader.To(toDb, speed);
         return fader;
     }
@@ -520,6 +520,7 @@ public partial class StoryMusic(StoryAudio audio) : Node
     private sealed class Fader(AudioStreamPlayer player)
     {
         public AudioStreamPlayer Player { get; } = player;
+        public string Piece { get; init; } = "";
         public float Target { get; private set; } = player.VolumeDb;
         public float Speed { get; private set; } = ListSpeed;
         public bool Leaving { get; set; }
