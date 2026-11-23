@@ -86,7 +86,7 @@ public sealed partial class GameWorld
     private bool CanDriveTo(Machine machine, Vector2 next)
     {
         var water = MobilityOf(machine);
-        if (!Nav.OnPlanet(next) || LeafInWay(machine, machine.Position, next))
+        if (!Nav.OnPlanet(next) || LeafInWay(machine, machine.Position, next) || RailInWay(machine, machine.Position, next))
             return false;
         if (Nav.IsFree(next, water) || WayInAt(machine, next) is not null)
             return true;
