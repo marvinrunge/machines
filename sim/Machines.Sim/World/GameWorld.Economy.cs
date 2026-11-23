@@ -261,13 +261,13 @@ public sealed partial class GameWorld
     /// The nearest place to <paramref name="point"/> that no machine stands on or is heading for
     /// (MachLogSpacialManipulation::getNearestFreeSpacePoint), searched ring by ring.
     /// </summary>
-    internal Vector2 FreeSpotNear(Vector2 point, float clearance) => FreeSpotNear(point, clearance, Mobility.Land);
+    internal Vector2 FreeSpotNear(Vector2 point, float clearance) => FreeSpotFor(point, clearance, Mobility.Land);
 
     /// <summary>
     /// The same for a way of moving that needs room (a big machine on a deck's fine grid): the spot has room for its size
     /// class, so the machine set down there can find its way off it. Other machines are passed over as their own spots.
     /// </summary>
-    internal Vector2 FreeSpotNear(Vector2 point, float clearance, Mobility mobility, Machine? self = null)
+    internal Vector2 FreeSpotFor(Vector2 point, float clearance, Mobility mobility, Machine? self = null)
     {
         var taken = Machines.Where(m => m.Inside is null && m != self)
             .SelectMany(m => m.Path.Count > 0 ? new[] { m.Position, m.Path[^1] } : [m.Position])

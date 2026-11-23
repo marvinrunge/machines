@@ -154,7 +154,7 @@ public static partial class Then
                     // a spot it can drive off.
                     var mobility = GameWorld.MobilityOf(machine);
                     if (!world.Nav.IsFree(machine.Position, mobility))
-                        machine.Position = world.FreeSpotNear(machine.Position, MathF.Max(1, machine.Radius), mobility, machine);
+                        machine.Position = world.FreeSpotFor(machine.Position, MathF.Max(1, machine.Radius), mobility, machine);
                 }
             }
         }

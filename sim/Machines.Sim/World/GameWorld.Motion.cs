@@ -603,6 +603,14 @@ public sealed partial class GameWorld
         if (way == Way.Aside)
             return path.Count;
         var resting = IsResting(blocker);
+        // A story's unkillable hunter (the Thresher) on his round shoulders a machine standing still in its way aside: a computer's Grunt
+        // frozen on his round (or kept unseen by the offscreen grace) once stopped him for good, as it makes way for nobody.
+        if (Story is not null && way == Way.Order && machine.Order is PatrolOrder && resting && !blocker.DrivenByPlayer && StorySeekerOf(machine.Id) is { Unkillable: true }
+            && Shove(machine, blocker, path[index]))
+        {
+            motion.WaitUntil = Time + Dt;
+            return index;
+        }
         // One driven in first person is never asked to make way: the other stops and waits. In a battle a hero at the wheel
         // may stand for minutes (a player holding the pod's door), so one held up by it goes round it, or, when it stands on
         // the goal itself, takes a place near the goal as with any machine resting there. So in a story: the Locator stands
@@ -668,6 +676,36 @@ public sealed partial class GameWorld
         motion.WaitUntil = Time + BlockedRetry;
         return index;
     }
+
+    /// <summary>
+    /// Pushes <paramref name="blocker"/> a step out of the way of <paramref name="machine"/> going to <paramref name="toward"/>:
+    /// across that way to the side it already leans to, else the other side, else ahead; only onto ground with room for it.
+    /// False when no step is free.
+    /// </summary>
+    private bool Shove(Machine machine, Machine blocker, Vector2 toward)
+    {
+        var way = toward - machine.Position;
+        if (way.LengthSquared() < 1e-6f)
+            return false;
+        way = Vector2.Normalize(way);
+        var normal = new Vector2(way.Y, -way.X);
+        var side = Vector2.Dot(blocker.Position - machine.Position, normal) >= 0 ? 1 : -1;
+        var step = MathF.Max(ShoulderStep, machine.Stats.Speed * Dt);
+        var mobility = MobilityOf(blocker);
+        foreach (var push in new[] { normal * side, -normal * side, way })
+        {
+            var to = blocker.Position + push * step;
+            if (Nav.OnPlanet(to) && Nav.IsFree(to, mobility))
+            {
+                blocker.Position = to;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>The least a shove moves a machine a tick, metres.</summary>
+    private const float ShoulderStep = 0.2f;
 
     // The share of its speed a player's machine tries when a moving machine is in the way (speedProportion).
     /// <summary>

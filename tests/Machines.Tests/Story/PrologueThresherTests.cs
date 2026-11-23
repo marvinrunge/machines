@@ -64,6 +64,46 @@ public class PrologueThresherTests(ITestOutputHelper output)
         Assert.InRange(MathF.Abs(world.Time - first - 2 * lap), 0, 0.1f);
     }
 
+    [Theory]
+    [InlineData(160, 52)]
+    [InlineData(224, 52)]
+    public void A_grunt_standing_on_his_round_does_not_stop_him_for_good(float x, float y)
+    {
+        // A computer's Grunt hidden by the offscreen grace and standing still on his lane once held him up for ever.
+        var world = Chapter(1);
+        var run = world.Story!;
+        var thresher = Thresher(world);
+        for (var seat = 0; seat < run.Seats.Count; seat++)
+        {
+            var hero = world.HeroOf(run.Seats[seat])!;
+            hero.Position = seat == 1 ? new Vector2(x, y) : new Vector2(30 + 6 * seat, 74);
+            hero.Path.Clear();
+            hero.PathIndex = 0;
+            if (seat > 0)
+                run.Crew.Of(run.Seats[seat]).Order = CompanionOrder.Wait;
+        }
+        // Frozen where it stands (as a Grunt that freezes when he comes near): it makes way for nobody.
+        run.Director.Held.Add(world.HeroOf(run.Seats[1])!.Id);
+        Blind(world, 300, () => run.Stealth.Laps.GetValueOrDefault(thresher.Id) >= 2);
+        output.WriteLine($"laps {run.Stealth.Laps.GetValueOrDefault(thresher.Id)} at {world.Time:0} s, he at {thresher.Position}, Ike at {world.HeroOf(run.Seats[1])!.Position}");
+        Assert.True(run.Stealth.Laps.GetValueOrDefault(thresher.Id) >= 2, $"he stands at {thresher.Position} ({thresher.Order})");
+    }
+
+    [Fact]
+    public void At_checkpoint_four_a_locator_left_idle_in_its_duct_is_not_touched()
+    {
+        // Set down 3 m from V1c's mouth, an idle Locator was touched and shut down as he passed (about 58 s in). With its lamp
+        // on he sees it down the duct (the window taught to switch it off); dark, it is safe there.
+        var world = Chapter(4);
+        var run = world.Story!;
+        var locator = world.HeroOf(run.Locator)!;
+        world.SetStoryLamp(locator.Id, false);
+        for (var i = 0; i < 120 * GameWorld.TicksPerSecond && !run.Over; i++)
+            world.Step();
+        Assert.DoesNotContain(StoryMarks.L7Down, run.Flags);
+        Assert.False(run.Over, $"over: {run.Ending} at {world.Time:0.0} s, L at {locator.Position} hp {locator.HitPoints} dead {locator.IsDead}, he at {Thresher(world).Position}, flags {string.Join(",", run.Flags)}, beats {string.Join(",", run.Director.Fired.OrderBy(kv => kv.Value).Select(kv => kv.Key).TakeLast(4))}");
+    }
+
     [Fact]
     public void At_his_guard_he_looks_back_at_the_nordgang_once_in_forty_seconds()
     {

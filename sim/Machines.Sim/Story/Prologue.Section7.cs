@@ -180,7 +180,7 @@ public static partial class Prologue
             // Where his size class has room, so he can drive off; in a lift still crowded by the pack the nearest such ground
             // rather than a spot out of sight in another room (he shoulders his way out between them).
             var mobility = GameWorld.MobilityOf(thresher);
-            var spot = world.FreeSpotNear(at, MathF.Max(1, thresher.Radius), mobility, thresher);
+            var spot = world.FreeSpotFor(at, MathF.Max(1, thresher.Radius), mobility, thresher);
             if (Vector2.Distance(spot, at) > PlaceReach)
                 spot = world.Nav.NearestFreePoint(at, mobility) ?? at;
             world.SetHeroForStory(thresher, spot, 270);
