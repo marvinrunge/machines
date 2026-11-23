@@ -100,6 +100,10 @@ public sealed class StorySeeker(int id)
     /// <summary>The heading (degrees, 0 east, 90 north) it sweeps about at a dwell point of its round, by the point's index; the facing it arrived with otherwise.</summary>
     public SortedDictionary<int, float> DwellAngles { get; } = [];
 
+    /// <summary>Seconds it stands at a dwell point of its round, and how far its beam sweeps there (degrees), by the point's index, where the marker says (<c>dwell=</c>, <c>sweep=</c>).</summary>
+    public SortedDictionary<int, float> DwellTimes { get; } = [];
+    public SortedDictionary<int, float> DwellSweeps { get; } = [];
+
     internal long Fingerprint()
     {
         var hash = new WiredHash();
@@ -127,6 +131,16 @@ public sealed class StorySeeker(int id)
         {
             hash.Mix(index);
             hash.Mix(BitConverter.SingleToInt32Bits(angle));
+        }
+        foreach (var (index, seconds) in DwellTimes)
+        {
+            hash.Mix(index | 0x1000);
+            hash.Mix(BitConverter.SingleToInt32Bits(seconds));
+        }
+        foreach (var (index, sweep) in DwellSweeps)
+        {
+            hash.Mix(index | 0x2000);
+            hash.Mix(BitConverter.SingleToInt32Bits(sweep));
         }
         return hash.Value;
     }
@@ -253,6 +267,68 @@ public sealed class StorySight
     /// hunters' suspicion falls at <see cref="AlertFall"/> of its rate meanwhile (the HUD and the music read StoryMarks.Alert).
     /// </summary>
     public const float AlertFor = 30, AlertFall = 0.5f;
+
+    // ---- section 2's Thresher (plan stufe7 S, design-stealth §3) --------------------------------------
+    // Only for a searchlight while the story's StoryMarks.Stealth is set (C6): every other seeker, and the Thresher in any
+    // other section, goes by the rules above.
+
+    /// <summary>The shares of its top speed the Thresher goes at by its order: on its round, searching (a lure), hunting (and the rush to H).</summary>
+    public const float PatrolPace = 0.25f, SearchPace = 0.4f, HuntPace = 0.7f;
+
+    /// <summary>The shares of its turn rate on its round and searching; hunting, and the guard's look back, turn at the whole of it.</summary>
+    public const float PatrolTurn = 0.4f, SearchTurn = 0.6f;
+
+    /// <summary>Within so many metres of its beam suspicion rises <see cref="CloseRise"/> a second (wary in 0.08 s, sure in a third of one).</summary>
+    public const float CloseBeam = 18, CloseRise = 3;
+
+    /// <summary>
+    /// The edge of its eye: within <see cref="EdgeReach"/> metres and <see cref="EdgeAngle"/> degrees either way of its beam,
+    /// with a clear line, a hero of at least <see cref="EdgeSignature"/> (walking, not creeping) is noticed at
+    /// <see cref="EdgeRise"/> a second; it turns its beam there, it never fires from it.
+    /// </summary>
+    public const float EdgeReach = 15, EdgeAngle = 75, EdgeRise = 0.8f, EdgeSignature = 0.35f;
+
+    /// <summary>A hero standing still and dark (signature at most <see cref="ShadowStill"/>) in a zone tagged <c>shadow</c> is lit by its beam only within so many metres.</summary>
+    public const float ShadowLit = 10, ShadowStill = 0.1f;
+
+    /// <summary>A Grunt standing still with its lamp off in a clamp row (zone tag <c>row</c>) is taken for one of the row's: his suspicion of it stops here.</summary>
+    public const float CamoCap = 0.85f;
+
+    /// <summary>How far a lit lamp shows a hero inside his cone, metres ("Tod Nummer eins").</summary>
+    public const float LampSight = 65;
+
+    /// <summary>His touch: <see cref="Touch"/> × the deck's gap scale × (1 + signature) + the hero's radius.</summary>
+    public const float TouchScale = 2;
+
+    /// <summary>Seconds after he last saw or hit a hero that what he did to it heals (section 2 only).</summary>
+    public const float HealAfter = 25;
+
+    /// <summary>
+    /// A lure (a valve, a noise source, a director's <c>Lure</c>): heard within <see cref="LureHeard"/> metres a point of
+    /// loudness (half through walls) by a seeker not hunting; it goes to look at <see cref="LureSuspicion"/>, sweeping
+    /// <see cref="LureSearch"/> seconds, <see cref="LureSearchAgain"/> the second time within <see cref="Escalate"/> seconds
+    /// at that source; the <see cref="SpentAfter"/>th time he fires into it and it is spent.
+    /// </summary>
+    public const float LureHeard = 30, LureSuspicion = 0.9f, LureSearch = 14, LureSearchAgain = 19, Escalate = 90;
+
+    /// <summary>The bang at a source within so many of <see cref="Escalate"/>'s seconds that spends it.</summary>
+    public const int SpentAfter = 3;
+
+    /// <summary>Seconds a valve's clang takes along its pipe to its far end; how loud it is at the valve itself.</summary>
+    public const float PipeDelay = 0.8f, ValveLoud = 0.5f;
+
+    /// <summary>
+    /// His guard (Then.Guard): a sweep of the marker's <c>sweep=</c> degrees either way over <see cref="GuardPeriod"/> seconds,
+    /// and every <see cref="GuardEvery"/> seconds the look back: turned round in <see cref="GuardTurn"/> seconds, held
+    /// <see cref="GuardHold"/>, turned back.
+    /// </summary>
+    public const float GuardPeriod = 8, GuardEvery = 40, GuardTurn = 2, GuardHold = 3;
+
+    /// <summary>What putting a Grunt back together under his patrol adds to the Locator's signature; how loud its reboot chirps.</summary>
+    public const float Reassembly = 0.25f, RebootLoud = 0.6f;
+
+    /// <summary>The offscreen grace: a Grunt the computer plays is not seen by him while the Locator is in a duct or this far off, metres.</summary>
+    public const float GraceApart = 60;
 
     // ---- the state ------------------------------------------------------------------------------------
 

@@ -85,12 +85,16 @@ public static partial class Prologue
     [
         // 0 Systemstart: in the clamps.
         ([new(54, 47), new(22, 47), new(84, 47)], 90),
-        // 1 Decks; 2 Schacht, 3 Schaltraum, 4 Deck B and 5 Wache as 1 until package S places them.
+        // 1 Decks.
         ([new(88, 74), new(80, 74), new(72, 74)], 0),
-        ([new(88, 74), new(80, 74), new(72, 74)], 0),
-        ([new(88, 74), new(80, 74), new(72, 74)], 0),
-        ([new(88, 74), new(80, 74), new(72, 74)], 0),
-        ([new(88, 74), new(80, 74), new(72, 74)], 0),
+        // 2 Schacht: the Locator in V1a's new mouth, the Grunts in the Graben with their second jump still ahead (cp1a_*).
+        ([new(198, 84), new(190, 76), new(184, 76)], 90),
+        // 3 Schaltraum: the Locator at hack_s in R7, the Grunts in S (cp1b_*).
+        ([new(210, 118), new(236, 100), new(236, 92)], 0),
+        // 4 Deck B: the Locator in V1c, the Grunts at the foot of S (cp1c_*).
+        ([new(216, 140), new(236, 136), new(236, 128)], 90),
+        // 5 Wache: the trio in the Nordgang behind the row, at wait_c, wait_w and wait_o.
+        ([new(207, 199), new(158, 202), new(232, 202)], 270),
         // 6 Vorraum.
         ([new(192, 222), new(188, 216), new(196, 216)], 90),
         // 7 Erwischt: at the core's console as the Reapers break in; the Grunts by the cable duct's door, where the break-in
@@ -118,7 +122,7 @@ public static partial class Prologue
     /// other is set up as the nearest built one before it (<see cref="SetUpAs"/>); the packages of stage 7 add theirs as they
     /// build them (S: 2–5, W: 9–10, E: 13–14).
     /// </summary>
-    public static readonly IReadOnlySet<int> Built = new SortedSet<int> { 0, 1, 6, 7, 8, 11, 12 };
+    public static readonly IReadOnlySet<int> Built = new SortedSet<int> { 0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 12 };
 
     /// <summary>The checkpoint a chapter started from <paramref name="checkpoint"/> is set up as: itself once built, else the nearest built one before it.</summary>
     public static int SetUpAs(int checkpoint)
@@ -162,8 +166,8 @@ public static partial class Prologue
     /// </summary>
     public static readonly IReadOnlyList<string> DoorsOpen =
     [
-        "", "ABC", "ABC", "ABC", "ABC", "ABC", "ABCDEH", "ABCDEHIJW", "ABCDEHIJVKMQW", "ABCDEHIJVKMQW", "ABCDEHIJVKMQW", "ABCDEHIJVKMQRUW",
-        "ABCDEHIJVKMQRUTW", "ABCDEHIJVKMQRUTW", "ABCDEHIJVKMQRUTW",
+        "", "ABCF", "ABCF", "ABCEF", "ABCEF", "ABCEF", "ABCDEF", "ABCDEFIJW", "ABCDEFIJVKMQW", "ABCDEFIJVKMQW", "ABCDEFIJVKMQW", "ABCDEFIJVKMQRUW",
+        "ABCDEFIJVKMQRUTW", "ABCDEFIJVKMQRUTW", "ABCDEFIJVKMQRUTW",
     ];
 
     /// <summary>The doors that open by themselves as the trio comes, at each checkpoint.</summary>
@@ -594,6 +598,8 @@ public static partial class Prologue
         Do(cp switch
         {
             1 => new Objective("Find a way to the main computer", "enter_deckA"),
+            2 => new Objective("Crawl through the ducts to the switch room", "hack_s"),
+            3 or 4 or 5 => new Objective("Meet on deck B and open the blast door", "hack_h"),
             6 => new Objective("Hack the main computer", "hack_core"),
             7 => new Objective("Take cover from the Reapers", Cover),
             8 => new Objective("Get through the workshop", "pickup_bolter"),

@@ -79,7 +79,8 @@ public class PrologueScriptTests
             Assert.True(Prologue.DoorsOpen[checkpoint].Contains(letter) != world.DoorClosed(letter), $"door {letter}");
         Assert.All(Prologue.DoorsAuto[checkpoint], letter => Assert.Contains(letter, director.AutoDoors));
         // The ship's machines that exist there.
-        Assert.Equal(19, Count(world, Prologue.RowRole) + Count(world, Prologue.ScareRole));
+        // Stage 7's rows leave the gaps the Grunts cross by empty (design-stealth §2.1, §2.3).
+        Assert.Equal(15, Count(world, Prologue.RowRole) + Count(world, Prologue.ScareRole));
         Assert.All(director.Of(world, Prologue.RowRole), m => Assert.Empty(m.Weapons));
         Assert.Equal(checkpoint >= 1 ? 1 : 0, Count(world, Prologue.ThresherRole));
         Assert.Equal(cp is 7 or 8 ? 3 : 0, Count(world, Prologue.ReaperRole));
@@ -101,7 +102,8 @@ public class PrologueScriptTests
         else
             Assert.DoesNotContain(StoryMarks.Countdown, run.Timers.Keys);
         // The beats of the stretches before the checkpoint count as fired; none after.
-        Assert.All(Prologue.Script.Where(b => !b.Repeat), b => Assert.Equal(b.Span < cp, director.Has(b.Name)));
+        // (A checkpoint 1 start has section 2's window played: it plays once a save.)
+        Assert.All(Prologue.Script.Where(b => !b.Repeat), b => Assert.Equal(b.Span < cp || cp == 1 && Prologue.Window.Contains(b.Name), director.Has(b.Name)));
         Assert.Equal(checkpoint > 0, StoryMarks.Objective(run) is not null);
 
         // It plays on from there (at the start the Locator boots in its clamp, with no objective until its end).
@@ -171,7 +173,7 @@ public class PrologueScriptTests
             Assert.Equal((Prologue.Starts[built].Facing, Prologue.DoorsOpen[built], Prologue.DoorsAuto[built]),
                 (Prologue.Starts[cp].Facing, Prologue.DoorsOpen[cp], Prologue.DoorsAuto[cp]));
         }
-        Assert.Equal([0, 1, 6, 7, 8, 11, 12], Prologue.Built);
+        Assert.Equal([0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 12], Prologue.Built);
     }
 
     [Fact]
@@ -188,7 +190,7 @@ public class PrologueScriptTests
                 Assert.True(reached.Number >= beat.Span, beat.Name);
             }
         }
-        Assert.Equal([1, 6, 7, 8, 11, 12], Prologue.Script.SelectMany(b => b.Then.OfType<Then.Checkpoint>()).Select(c => c.Number).Order());
+        Assert.Equal([1, 2, 3, 4, 5, 6, 7, 8, 11, 12], Prologue.Script.SelectMany(b => b.Then.OfType<Then.Checkpoint>()).Select(c => c.Number).Order());
     }
 
     [Fact]
@@ -205,6 +207,8 @@ public class PrologueScriptTests
 
     [Theory]
     [InlineData(0, "boot")]
+    [InlineData(2, "switch_room")]
+    [InlineData(3, "ring_b")]
     [InlineData(6, "core_open")]
     [InlineData(7, "at_i")]
     [InlineData(8, "workshop")]
@@ -452,6 +456,10 @@ public class PrologueScriptTests
             }
             for (var legs = 0; legs < 60 && !Run.Over; legs++)
             {
+                // The rider goes from hack to hack where a player sneaks: section 2's Thresher looks the other way for it (his own
+                // tests: StorySightTests, PrologueThresherTests).
+                foreach (var eyes in Run.Sight.Seekers.Values.Where(e => e.Searchlight))
+                    eyes.Blind = Run.Section == 2;
                 if (!Done("clamp_l7"))
                     Hack("clamp_l7");
                 else if (!Done("terminal_ike"))
@@ -460,8 +468,14 @@ public class PrologueScriptTests
                     Hack("terminal_bob");
                 else if (!director.Has("deck_a"))
                     Go(Zone("R4"));
+                else if (!director.Has("schacht"))
+                    Go(Zone("V1am"));
                 else if (!Done("hack_s"))
                     Hack("hack_s");
+                else if (!director.Has("deck_b"))
+                    Go(Zone("R6"));
+                else if (!director.Has("guard"))
+                    All("nordgang");
                 else if (!Done("hack_h"))
                     Hack("hack_h");
                 else if (!director.Has("antechamber"))

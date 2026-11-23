@@ -162,11 +162,17 @@ public sealed partial class GameWorld
             // was, the trio's walk now (StoryDrive.Walk, half of it) half as loud, and the sprint's whining drive is louder on
             // top, so in the dark decks walking stays the way to go.
             var drive = run.Drives.Of.GetValueOrDefault(hero.Id);
-            var loud = drive is null ? 1 : StorySight.MovingAt;
+            // In section 2 the walk itself is the whole of moving (design-stealth §3.2): a walking Grunt is heard through a
+            // gap of the row, a creeping one not.
+            var stealth = run.Flags.Contains(StoryMarks.Stealth);
+            var loud = drive is null ? 1 : stealth ? StoryDrive.Walk : StorySight.MovingAt;
             var top = hero.Stats.Speed * loud;
             var share = Math.Clamp(Vector2.Distance(was, hero.Position) / Dt / MathF.Max(loud, top), 0, 1);
             var wheels = hero.Stats.Locomotion == Locomotion.Wheels ? StorySight.Wheels : 1;
-            var signature = StorySight.Still + StorySight.Moving * share * wheels;
+            var signature = StorySight.Still + StorySight.Moving * share * wheels * (drive is { Creeping: true } ? StoryDrive.Creep : 1);
+            // Putting a Grunt back together rattles (design-stealth §3.4).
+            if (stealth && run.Crew.Holding.TryGetValue(seat.Value, out var holding) && holding.StartsWith(SeatTarget, StringComparison.Ordinal))
+                signature += StorySight.Reassembly;
             if (drive is { Sprinting: true } && share > 0)
                 signature += StorySight.Sprint * share * wheels;
             if (StoryLampOn(hero.Id))
@@ -246,6 +252,9 @@ public sealed partial class GameWorld
         var eyes = run.Sight.Seekers.GetValueOrDefault(seeker.Id);
         if (eyes?.Blind == true)
             return StoryGlimpse.None;
+        // Section 2's Thresher looks by its own rule (GameWorld.StoryStealth).
+        if (eyes is { Searchlight: true } && run.Flags.Contains(StoryMarks.Stealth))
+            return StalkerPerceives(run, seeker, hero);
         var signature = StorySignature(hero.Id);
         var distance = Vector2.Distance(seeker.Position, hero.Position);
         var nightEyes = seeker.Stats.NightVision || CommanderFor(seeker) is { } commander && Vector2.Distance(commander.Position, seeker.Position) < 100;
@@ -329,12 +338,23 @@ public sealed partial class GameWorld
                         (glimpse, quarry) = (now, hero);
                 }
             }
+            // Section 2's Thresher: a Grunt still and dark in a clamp row he takes for one of the row's, staring at it a while
+            // (StorySight.CamoCap); what he sees close up he is sure of faster, what he catches at the edge of his eye slower.
+            var stalks = StoryStalks(seeker);
+            if (stalks && quarry is not null && glimpse == StoryGlimpse.Seen && StoryCamouflaged(quarry) && eyes.Suspicion >= StorySight.CamoCap)
+            {
+                glimpse = StoryGlimpse.None;
+                eyes.Sees.Remove(quarry.Id);
+            }
             eyes.Suspicion = Math.Clamp(eyes.Suspicion + Dt * glimpse switch
             {
+                StoryGlimpse.Seen or StoryGlimpse.Heard when stalks => StalkerRise(seeker, quarry!, glimpse),
                 StoryGlimpse.Seen => StorySight.RiseSeen,
                 StoryGlimpse.Heard => StorySight.RiseHeard,
                 _ => -StorySight.Fall * (alert ? StorySight.AlertFall : 1),
             }, 0, 1);
+            if (stalks && quarry is not null && StoryCamouflaged(quarry))
+                eyes.Suspicion = MathF.Min(eyes.Suspicion, StorySight.CamoCap);
             // Since when it has each hero it sees in its sights, sure of it (its spotting's stinger comes then): it draws on
             // one before it fires (StoryHoldsFire), and a hero out of its sight gets that moment again.
             foreach (var gone in eyes.SightSince.Keys.Where(id => !eyes.Sees.Contains(id)).ToList())
@@ -365,6 +385,8 @@ public sealed partial class GameWorld
             run.Flags.Add(StoryMarks.Spotted);
         else
             run.Flags.Remove(StoryMarks.Spotted);
+        // Section 2's rounds, guard, lures and healing (GameWorld.StoryStealth).
+        UpdateStealth(run);
     }
 
     /// <summary>What a seeker does with what it saw or heard this tick.</summary>
@@ -662,6 +684,9 @@ public sealed partial class GameWorld
     /// </summary>
     private bool StoryHolds(Machine machine)
     {
+        if (StorySeekerOf(machine.Id) is { Blind: false } stalker && stalker.Searchlight && Story!.Flags.Contains(StoryMarks.Stealth)
+            && (stalker.Suspicion < StorySight.WaryAt || stalker.Quarry == 0) && StalkerHolds(Story, machine))
+            return true;
         if (machine.Order is not (PatrolOrder or IdleOrder or StandGroundOrder or ReturnOrder) || StorySeekerOf(machine.Id) is not { } eyes || eyes.Blind)
             return false;
         if (eyes.Suspicion >= StorySight.WaryAt && eyes.Suspicion < 1 && eyes.Quarry != 0)
@@ -669,10 +694,14 @@ public sealed partial class GameWorld
             Face(machine, eyes.Spot);
             return true;
         }
-        if (machine.Order is PatrolOrder && Time < eyes.DwellUntil)
+        if (machine.Order is PatrolOrder dwelling && Time < eyes.DwellUntil)
         {
-            var since = eyes.DwellUntil - StorySight.DwellTime;
-            LookTowards(machine, eyes.DwellFacing + StorySight.DwellSweep * MathF.PI / 180 * DetMath.Sin(2 * MathF.PI * (Time - since) / StorySight.DwellTime));
+            var at = eyes.DwelledAt;
+            var length = eyes.DwellTimes.TryGetValue(at, out var seconds) ? seconds : StorySight.DwellTime;
+            var sweep = eyes.DwellSweeps.TryGetValue(at, out var degrees) ? degrees : StorySight.DwellSweep;
+            var since = eyes.DwellUntil - length;
+            LookTowards(machine, eyes.DwellFacing + sweep * MathF.PI / 180 * DetMath.Sin(2 * MathF.PI * (Time - since) / length));
+            _ = dwelling;
             return true;
         }
         return false;
@@ -685,6 +714,9 @@ public sealed partial class GameWorld
     /// </summary>
     private bool StoryDwells(Machine machine, PatrolOrder patrol)
     {
+        // Section 2's rounds switch at the point he reaches, and count their laps (GameWorld.StoryStealth).
+        if (StoryArrives(machine, patrol))
+            return true;
         if (patrol.Pauses is not { } pauses || !pauses.Contains(patrol.Next) || StorySeekerOf(machine.Id) is not { } eyes)
             return false;
         if (eyes.DwelledAt == patrol.Next)
@@ -693,7 +725,7 @@ public sealed partial class GameWorld
             return false;
         }
         eyes.DwelledAt = patrol.Next;
-        eyes.DwellUntil = Time + StorySight.DwellTime;
+        eyes.DwellUntil = Time + (eyes.DwellTimes.TryGetValue(patrol.Next, out var seconds) ? seconds : StorySight.DwellTime);
         eyes.DwellFacing = eyes.DwellAngles.TryGetValue(patrol.Next, out var angle) ? angle * MathF.PI / 180 : machine.Facing;
         return true;
     }

@@ -346,10 +346,22 @@ public class StorySprintTests(ITestOutputHelper output)
         output.WriteLine($"thresher: {thresher.Stats.Speed:0.0} m/s; Locator {Hero(world, new PlayerId(0)).Stats.Speed:0.0}, turn {Hero(world, new PlayerId(0)).Stats.RotationSpeed:0}");
         Assert.Null(world.StoryDriveOf(thresher.Id));
         Assert.Equal(3, world.Story.Drives.Of.Count);
-        // While the sprint is locked the Thresher's round and chase go at the trio's walk, so a walking Grunt still outgoes it as
-        // a Grunt outwent it before; once the sprint is free the ship's machines go at their whole pace.
+        // Section 2's Thresher goes by what he does, out of the walk's coupling (design-stealth §3.1): on his way and his round
+        // a quarter of his top speed, so the walking trio is a little faster behind him; searching 0.4, hunting 0.7.
+        Assert.Contains(StoryMarks.Stealth, world.Story.Flags);
+        Assert.Equal(StorySight.PatrolPace, world.StoryPace(thresher));
+        Assert.True(thresher.Stats.Speed * world.StoryPace(thresher) < Hero(world, new PlayerId(0)).Stats.Speed * StoryDrive.Walk);
+        Assert.Equal(StorySight.PatrolTurn, world.StoryTurnPace(thresher));
+        thresher.Order = new SearchOrder(thresher.Position, world.Time + 5, null);
+        Assert.Equal(StorySight.SearchPace, world.StoryPace(thresher));
+        thresher.Order = new AttackOrder(Hero(world, Ike).Id);
+        Assert.Equal(StorySight.HuntPace, world.StoryPace(thresher));
+        Assert.Equal(1, world.StoryTurnPace(thresher));
+        Assert.True(thresher.Stats.Speed * world.StoryPace(thresher) > Hero(world, Ike).Stats.Speed * StoryDrive.Walk);
+        // Out of section 2 (H shut behind the trio) the seeing hunters walk at the trio's walk while the sprint is locked, and
+        // go at their whole pace once it is free.
+        world.Story.Flags.Remove(StoryMarks.Stealth);
         Assert.Equal(StoryDrive.Walk, world.StoryPace(thresher));
-        Assert.True(thresher.Stats.Speed * world.StoryPace(thresher) < Hero(world, Ike).Stats.Speed * StoryDrive.Walk);
         world.Story.Flags.Add(StoryMarks.SprintFree);
         Assert.Equal(1, world.StoryPace(thresher));
         Assert.All(reapers.Story!.Director.Of(reapers, Prologue.ReaperRole), m => Assert.Equal(1, reapers.StoryPace(m)));

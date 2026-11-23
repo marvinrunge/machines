@@ -259,7 +259,8 @@ public class PrologueCoreTests(ITestOutputHelper output)
                 (stormed, whole) = (world.Time, locator.HitPoints);
             // The Locator stands in the open at the console a few seconds after they storm in, then takes cover by the vent
             // (four: their rounds hurt only where they meet its body, and the first to do so came after three).
-            if (stormed is { } since && open is null && world.Time >= since + 4)
+            // (Up to seven: which Reaper fires first goes by the machines' ids, and stage 7's emptier clamp rows moved them.)
+            if (stormed is { } since && open is null && (world.Time >= since + 4 && locator.HitPoints < locator.MaxHitPoints || world.Time >= since + 7))
             {
                 open = locator.HitPoints;
                 locator.Position = new Vector2(219, 262);
@@ -278,6 +279,9 @@ public class PrologueCoreTests(ITestOutputHelper output)
         Assert.Equal(locator.MaxHitPoints, whole);
         Assert.True(open < locator.MaxHitPoints, $"{open} of {locator.MaxHitPoints} in the open");
         Assert.False(locator.IsDead);
+        // In by the blast or a few seconds after it (which Reaper goes first goes by their ids).
+        for (var i = 0; i < 6 * GameWorld.TicksPerSecond && Cast(world, Prologue.ReaperRole).Count(m => !m.IsDead && Inside(m.Position, 160, 228, 224, 296)) < 2; i++)
+            world.Step();
         var inside = Cast(world, Prologue.ReaperRole).Where(m => !m.IsDead && Inside(m.Position, 160, 228, 224, 296)).ToList();
         Assert.True(inside.Count >= 2, string.Join(", ", Cast(world, Prologue.ReaperRole).Select(m => $"{m.Id} at {m.Position}")));
         Assert.Equal(7, run.Checkpoint);
