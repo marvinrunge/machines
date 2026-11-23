@@ -56,6 +56,7 @@ public sealed partial class GameWorld
                 if (ChargeTarget(run, boss) is not { } target)
                 {
                     waves.NextCharge = Time + 1;
+                    CloseIn(run, boss);
                     break;
                 }
                 var way = target.Position - boss.Position;
@@ -111,6 +112,28 @@ public sealed partial class GameWorld
     private Machine? StoryArmouryQuarry(StoryRun run, Vector2 from) => StoryArmoury.Quarry(this, run, from);
 
     /// <summary>The hero the boss charges: of the trio standing 12–35 m off in a clear line, the Locator first, else the nearest.</summary>
+    /// <summary>
+    /// A boss due to charge with no hero in a clear line drives at the nearest one (the Locator when as near) instead of
+    /// standing off at its guns' range: into the armoury, until a line opens. Once a second at most (the caller's look).
+    /// </summary>
+    private void CloseIn(StoryRun run, Machine boss)
+    {
+        Machine? nearest = null;
+        foreach (var seat in run.Seats)
+        {
+            if (HeroOf(seat) is not { IsDead: false } hero || StoryInert(hero))
+                continue;
+            if (nearest is null || Vector2.Distance(hero.Position, boss.Position) < Vector2.Distance(nearest.Position, boss.Position))
+                nearest = hero;
+        }
+        if (nearest is null || Vector2.Distance(nearest.Position, boss.Position) <= ChargeNearest)
+            return;
+        // Not sent again while it is on its way to about the same place: each new order would set it off from rest again.
+        if (boss.Order is MoveOrder { Target: var going } && boss.PathIndex < boss.Path.Count && Vector2.Distance(going, nearest.Position) < 6)
+            return;
+        SendForStory(boss, new MoveOrder(nearest.Position), nearest.Position);
+    }
+
     private Machine? ChargeTarget(StoryRun run, Machine boss)
     {
         Machine? best = null;
@@ -119,7 +142,7 @@ public sealed partial class GameWorld
             if (HeroOf(seat) is not { IsDead: false } hero || StoryInert(hero))
                 continue;
             var distance = Vector2.Distance(hero.Position, boss.Position);
-            // A clear line on the ground the hero stands on (the boss's own class sees no line across the armoury's clutter).
+            // A clear line the boss itself can run (its own class, which never crawls).
             if (distance < ChargeNearest || distance > ChargeFurthest || !Nav.LineOfSight(boss.Position, hero.Position, MobilityOf(hero)))
                 continue;
             if (seat == run.Locator)

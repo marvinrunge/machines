@@ -108,13 +108,15 @@ public class HeavyGruntTests
     }
 
     [Fact]
-    public void It_is_size_class_three_on_the_deck()
+    public void It_finds_its_way_as_size_class_two_on_the_deck()
     {
         var world = Prologue();
         var heavy = StoryHeavy.Spawn(world, Ahead, StoryHeavyPart.Pack);
         Assert.InRange(heavy.Radius, 3.0f, 3.2f);
         Assert.Equal(StoryHeavy.SizeClass, GameWorld.MobilityOf(heavy).Size);
-        Assert.Equal(3, StoryHeavy.SizeClass);
+        // Its radius's class is the largest, but it squeezes through the deck's gates as class 2 (the armoury's ramp, the lift).
+        Assert.Equal(3, Machines.Sim.Navigation.Mobility.SizeOf(heavy.Radius));
+        Assert.Equal(2, StoryHeavy.SizeClass);
         Assert.True(world.Nav.IsFree(heavy.Position, GameWorld.MobilityOf(heavy)));
     }
 

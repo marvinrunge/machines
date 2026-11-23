@@ -46,8 +46,12 @@ public static class StoryHeavy
     /// </summary>
     public const float Cruise = 0.45f, Charge = 1f;
 
-    /// <summary>Its size class on the prologue's deck (<see cref="Mobility.SizeOf"/> of its radius, 3.09 m): the largest, 13 m gaps.</summary>
-    public const int SizeClass = Mobility.Largest;
+    /// <summary>
+    /// The size class it finds its way and moves by on the prologue's deck (<see cref="Machine.NavSize"/>): 2, not its radius's
+    /// (3.09 m, the largest). As the largest it reached no further than y≈258 up the armoury's ramp from gate N and never out of
+    /// the freight lift; as class 2 its plough brushes the gates' frames, which the greybox deck lets pass.
+    /// </summary>
+    public const int SizeClass = 2;
 
     /// <summary>The roles it is cast in: the armoury's boss, the escape's first heavy (the hazards' planned victim) and second (the door breaker).</summary>
     public const string BossRole = "boss", PackRole1 = "heavy1", PackRole2 = "heavy2";
@@ -83,6 +87,7 @@ public static class StoryHeavy
         if (!Is(machine))
             throw new ArgumentException($"machine {machine.Id} is no big Grunt", nameof(machine));
         machine.Refit(machine.Spec, Tuned(machine.Stats, part, bolters), machine.WeaponCombo, machine.Weapons.ToList());
+        machine.NavSize = SizeClass;
         if (world.Wired is { } run)
         {
             if (!run.Bodies.TryGetValue(machine.Id, out var body))
