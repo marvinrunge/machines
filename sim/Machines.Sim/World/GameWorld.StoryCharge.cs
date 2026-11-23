@@ -419,7 +419,7 @@ public sealed partial class GameWorld
     /// <summary>A hung wave unit set back behind its door, out of sight, its order gone.</summary>
     internal void SetBackForStory(Machine machine, Vector2 at)
     {
-        machine.Position = FreeSpotNear(at, MathF.Max(1, machine.Radius));
+        machine.Position = FreeSpotNear(at, MathF.Max(1, machine.Radius), MobilityOf(machine), machine);
         StartAfresh(machine);
     }
 

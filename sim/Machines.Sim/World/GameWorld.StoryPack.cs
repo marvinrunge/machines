@@ -171,7 +171,7 @@ public sealed partial class GameWorld
         pack.Lost.Remove(member.Id);
         if (at is not { } spot || !Nav.IsFree(spot, MobilityOf(member)))
             return;
-        var to = FreeSpotNear(spot, MathF.Max(1, member.Radius));
+        var to = FreeSpotNear(spot, MathF.Max(1, member.Radius), MobilityOf(member), member);
         StartAfresh(member);
         member.Position = to;
         StoryEvents.Cue(this, FormattableString.Invariant($"pack catch up {member.Id}"), to, member.Id);
@@ -224,7 +224,7 @@ public sealed partial class GameWorld
                     continue;
                 }
                 StartAfresh(member);
-                member.Position = FreeSpotNear(waits[placed++], MathF.Max(1, member.Radius));
+                member.Position = FreeSpotNear(waits[placed++], MathF.Max(1, member.Radius), MobilityOf(member), member);
                 run.Director.Held.Add(member.Id);
                 var eyes = StoryWatch(member);
                 eyes.Blind = true;
@@ -254,7 +254,7 @@ public sealed partial class GameWorld
         eyes.Blind = true;
         eyes.Sees.Clear();
         StartAfresh(member);
-        member.Position = FreeSpotNear(new Vector2(520, 272), MathF.Max(1, member.Radius));
+        member.Position = FreeSpotNear(new Vector2(520, 272), MathF.Max(1, member.Radius), MobilityOf(member), member);
         HoldForStory(member.Id);
     }
 

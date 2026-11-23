@@ -115,7 +115,9 @@ public static partial class Prologue
         new("blast_collapse", 14, new HackAt("pod_3_hatch", 0.25f), [new Blast("520,146", 4, 0, 8), new Cue("rumble 0.6"),
             new Run("reopen", (world, run, _) => { world.Reopen(run); world.LetPackThrough(run, AtY); }), new Say(Lines.BobBlast, Bark, 2)],
             After: ["pack_round"]),
-        new("at_y", 14, new Check("pack at Y", (world, run) => world.PackAlive(run).Any(m => Vector2.Distance(m.Position, AtY) <= 16)),
+        // Not once the hatch is open: the Grunts then board, and holding Y would keep them out of the pod.
+        new("at_y", 14, new AllOf(new Check("pack at Y", (world, run) => world.PackAlive(run).Any(m => Vector2.Distance(m.Position, AtY) <= 16)),
+            new Not(new Flagged(StoryMarks.Done("pod_3_hatch")))),
             [new Say(Lines.IkeReapers, Bark, 1), new Assign(2, CompanionTask.HoldSwitch, "y_switch"), new Assign(1, CompanionTask.Barricade, "Y")],
             After: ["blast_collapse"]),
         new("hold_call", 14, new Since("at_y", 2.5f), [new Say(Lines.L7Hold, StoryAudience.Everyone, 0)]),
@@ -164,6 +166,9 @@ public static partial class Prologue
         return false;
     }
 
+    /// <summary>How far from his place the Thresher may be set down to keep clear of the pack, metres.</summary>
+    private const float PlaceReach = 8;
+
     /// <summary>
     /// The Thresher joins the pack (C5): the same cast throughout, set down at <paramref name="at"/> (spawned only if he is
     /// missing), seeing, hunting, unkillable as before.
@@ -172,7 +177,13 @@ public static partial class Prologue
     {
         if (director.Of(world, ThresherRole).FirstOrDefault() is { } thresher)
         {
-            world.SetHeroForStory(thresher, world.FreeSpotNear(at, MathF.Max(1, thresher.Radius)), 270);
+            // Where his size class has room, so he can drive off; in a lift still crowded by the pack the nearest such ground
+            // rather than a spot out of sight in another room (he shoulders his way out between them).
+            var mobility = GameWorld.MobilityOf(thresher);
+            var spot = world.FreeSpotNear(at, MathF.Max(1, thresher.Radius), mobility, thresher);
+            if (Vector2.Distance(spot, at) > PlaceReach)
+                spot = world.Nav.NearestFreePoint(at, mobility) ?? at;
+            world.SetHeroForStory(thresher, spot, 270);
             world.StoryWatch(thresher).Blind = false;
         }
         else

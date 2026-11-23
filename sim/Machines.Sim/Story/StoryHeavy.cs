@@ -148,7 +148,14 @@ public static partial class Then
             foreach (var id in director.Cast[Role].Skip(before))
             {
                 if (world.Find<Machine>(id) is { } machine)
+                {
                     StoryHeavy.Fit(world, machine, Part, Bolters);
+                    // Set down as a small machine, it may stand where its own class has no room (a crowded lift): moved to
+                    // a spot it can drive off.
+                    var mobility = GameWorld.MobilityOf(machine);
+                    if (!world.Nav.IsFree(machine.Position, mobility))
+                        machine.Position = world.FreeSpotNear(machine.Position, MathF.Max(1, machine.Radius), mobility, machine);
+                }
             }
         }
     }

@@ -27,8 +27,54 @@ public sealed partial class CompanionBot
             case CompanionTask.Chock:
                 return Chock(run, companion, grunt);
         }
-        return WaitOutHazards(run, grunt);
+        if (WaitOutHazards(run, grunt))
+            return true;
+        // Fallen behind the Locator, or badly hurt: it runs after it rather than stand and fire at the pack (design-escape §10:
+        // an armed Grunt fires when not on a job, and keeping with L-7 comes first). It fires again once it has caught up.
+        if (world.HeroOf(run.Locator) is { } locator && (Vector2.Distance(locator.Position, grunt.Position) > KeepUp
+            || grunt.HitPoints < grunt.MaxHitPoints * HurtShare))
+        {
+            world.CarryOut(run, companion, grunt);
+            return true;
+        }
+        return false;
     }
+
+    /// <summary>How far ahead a Grunt reads a jet's timetable before it crosses it, ticks.</summary>
+    private const int JetLead = GameWorld.TicksPerSecond / 2;
+
+    /// <summary>The gap a Grunt wants before it crosses a container's lane, ticks (design-escape §10: a predicted gap of 2 s).</summary>
+    private const int CrossingGap = 2 * GameWorld.TicksPerSecond;
+
+    /// <summary>
+    /// Whether a container may be at <paramref name="y"/> (within <paramref name="clear"/> metres) within the next
+    /// <see cref="CrossingGap"/>: where it stands, stretched by the most it can slide its way in that time (its slide starting
+    /// after its telegraph). A container far off up or down its lane leaves the crossing free; one waited out wholesale kept
+    /// the Grunts standing in the pack's fire.
+    /// </summary>
+    private bool RailSoonAt(StoryRail rail, float y, float clear)
+    {
+        var centre = rail.Centre / 1000f;
+        var half = rail.HalfLength / 1000f;
+        var (low, high) = (centre - half, centre + half);
+        if (rail.State != RailState.Rest)
+        {
+            var starts = rail.State == RailState.Telegraph ? Math.Max(0, rail.SlideAt - world.Tick) : 0;
+            var travel = Math.Max(0, CrossingGap - starts) * (rail.IsRack ? StoryHazards.RackSpeed : StoryHazards.TopSpeed) / 1000f;
+            var way = rail.Way != 0 ? rail.Way : Math.Sign(rail.Speed);
+            if (way >= 0)
+                high += travel;
+            if (way <= 0)
+                low -= travel;
+        }
+        return y + clear > low && y - clear < high;
+    }
+
+    /// <summary>Below this share of its hit points a Grunt in the escape no longer stops to fight: it runs with the Locator.</summary>
+    private const float HurtShare = 0.4f;
+
+    /// <summary>How far a Grunt in the escape may fall behind the Locator before it stops fighting and runs after it, metres.</summary>
+    private const float KeepUp = 12;
 
     /// <summary>Into the shutter's frame, and stands there until the rest of the trio is through; then after them.</summary>
     private bool HoldFrame(StoryRun run, Companion companion, Machine grunt)
@@ -38,7 +84,9 @@ public sealed partial class CompanionBot
             world.AssignCompanion(seat, CompanionTask.None);
             return false;
         }
-        var others = world.EscapeHeroes(run).Where(h => h != grunt).ToList();
+        // The rest of the trio, a downed Grunt too: one lying on the pack's side keeps the frame held until the Locator has
+        // put it together and both are through (letting go shut it out of the chapter).
+        var others = run.Seats.Select(world.HeroOf).OfType<Machine>().Where(h => h != grunt && h.Inside is null && !h.IsDead).ToList();
         if (others.All(h => h.Position.X < frame.Min.X - 2 && h.Position.Y < 160))
         {
             // The others are through: it leaves the frame last, and the shutter slams behind it.
@@ -122,7 +170,9 @@ public sealed partial class CompanionBot
         var look = grunt.Position + Vector2.Normalize(ahead) * MathF.Min(HazardLook, ahead.Length());
         for (var jet = 1; jet <= 5; jet++)
         {
-            if (hazards.Phase(jet, world.Tick) == StoryHazards.JetPhase.Off && hazards.Phase(jet, world.Tick + 20) == StoryHazards.JetPhase.Off)
+            // Only a jet that burns now or within half a second: a Grunt crosses a jet's few metres in a moment, and one that
+            // stood out every flicker stood in the pack's fire at its back.
+            if (hazards.Phase(jet, world.Tick) != StoryHazards.JetPhase.Fire && hazards.Phase(jet, world.Tick + JetLead) != StoryHazards.JetPhase.Fire)
                 continue;
             if (deck.Zone($"jet_j{jet}") is not { } zone || GameWorld.Overlaps(zone, grunt.Position, grunt.Radius))
                 continue;
@@ -139,7 +189,7 @@ public sealed partial class CompanionBot
             var laneMiddle = (rail.X0 + rail.X1) / 2000f;
             var outside = MathF.Abs(grunt.Position.X - laneMiddle) > rail.HalfWidth + grunt.Radius;
             if (outside && MathF.Abs(look.X - laneMiddle) <= rail.HalfWidth + grunt.Radius
-                && MathF.Abs(rail.Centre / 1000f - grunt.Position.Y) < 26)
+                && RailSoonAt(rail, grunt.Position.Y, grunt.Radius + 1))
             {
                 world.CompanionStand(grunt);
                 return true;

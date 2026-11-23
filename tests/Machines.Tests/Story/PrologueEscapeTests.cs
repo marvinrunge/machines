@@ -123,6 +123,23 @@ public class PrologueEscapeTests
     }
 
     [Fact]
+    public void The_pack_and_the_thresher_all_leave_the_freight_lift()
+    {
+        // Set down in a crowded lift, the big ones once stood where their size class had no room and never found a way off.
+        var world = Chapter(12);
+        var run = world.Story!;
+        Assert.True(RunUntil(world, () => run.Director.Has("thresher_out"), 15));
+        world.Step();
+        // He bursts out of the lift itself, not set down in a room beside it, on ground with room for his size.
+        var thresher = world.Find<Machine>(run.Pack.Members.First(kv => kv.Value == PackKind.Thresher).Key)!;
+        Assert.True(world.Deck!.Zone("R15b") is { } lift && GameWorld.Overlaps(lift, thresher.Position, 0), $"the Thresher at {thresher.Position}");
+        Assert.True(run.Pack.Members.Keys.All(id => world.Find<Machine>(id) is not { } m || world.Nav.IsFree(m.Position, GameWorld.MobilityOf(m))),
+            "a big one set down without room for its size");
+        bool Out() => run.Pack.Members.Keys.All(id => world.Find<Machine>(id) is not { IsDead: false } m || m.Position.Y < 256);
+        Assert.True(RunUntil(world, Out, 75), string.Join(" | ", run.Pack.Members.Select(kv => world.Find<Machine>(kv.Key) is { } m ? $"{kv.Value} {m.Position}" : "")));
+    }
+
+    [Fact]
     public void At_the_galerie_the_thresher_rams_the_shutter_open_within_fifteen_seconds()
     {
         var world = Chapter(13);
@@ -217,7 +234,7 @@ public class PrologueEscapeTests
     }
 
 
-    [Fact(Skip = "Not met (package E hand-off to I): on 2026-11-23 none of seeds 1-10 launches; in most the pack downs both Grunts in the hold (they stand to wait out the containers and the pack, standing or within 25 m, aims), and the Locator is lost. Needs tuning of the Grunts' WaitOutHazards and HoldFrame and of the pack's fire; the failure message names each seed's last state.")]
+    [Fact]
     public void A_locator_walked_along_the_route_with_its_grunts_on_their_own_reaches_the_pod_in_nine_seeds_of_ten()
     {
         var results = Enumerable.Range(1, 10).Select(seed => { var log = new List<string>(); var ok = Walk(seed, log.Add); return (seed, ok, last: string.Join(" | ", log.TakeLast(3))); }).ToList();
