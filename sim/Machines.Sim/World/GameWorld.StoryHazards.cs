@@ -123,6 +123,32 @@ public sealed partial class GameWorld
     // ---- the rails --------------------------------------------------------------------------------------
 
     /// <summary>
+    /// The leaves of the deck doors that stand open from the start and the escape shuts (X, the hold's shutter, and Y, the
+    /// Notgang's door into the bay): the scenario has no artefacts for an open door, so they are hung here, open (in the
+    /// walls, <see cref="OpenDoor"/> instant), for <see cref="CloseDoor"/> to slide them in. Each is set down as the deck tool
+    /// would (door_leaf_8, both halves of a 16 m blast door, tagged as the door) and the view hears it as a placed artefact.
+    /// </summary>
+    private void HangEscapeDoors()
+    {
+        foreach (var (letter, a, b, degrees) in EscapeLeaves)
+        {
+            if (Deck is not { } deck || DoorTag(deck, letter) is not { } tag || DoorLeaves(letter).Count > 0 || _openLeaves.ContainsKey(letter)
+                || Story is not { } run || run.Director.Blown.Contains(letter))
+                continue;
+            var leaves = new[] { PlaceArtefact("door_leaf_8", a, degrees), PlaceArtefact("door_leaf_8", b, degrees) };
+            if (leaves.Any(l => l is null))
+                continue;
+            leaves[0]!.Tag = tag;
+            leaves[1]!.Tag = tag + 1;
+            OpenDoor(letter, instant: true);
+        }
+    }
+
+    /// <summary>Where <see cref="HangEscapeDoors"/> hangs each door's two leaves, and how they are turned (deck.mjs's places).</summary>
+    private static readonly (char Letter, Vector2 A, Vector2 B, float Degrees)[] EscapeLeaves =
+        [('X', new(350, 140), new(350, 148), 90), ('Y', new(516, 122), new(524, 122), 0)];
+
+    /// <summary>
     /// Puts the hold's containers and the rack on their rails (the escape's start): their deck props come off the map, so the
     /// view draws them from the rails and the nav grid no longer counts them; nothing slides until the rolls start.
     /// </summary>
@@ -131,6 +157,7 @@ public sealed partial class GameWorld
         var hazards = run.Hazards;
         if (hazards.Rails.Count > 0 || Deck is not { } deck)
             return;
+        HangEscapeDoors();
         foreach (var (name, lane, width, half) in RailProps)
         {
             if (deck.Props.FirstOrDefault(p => p.Name == name) is not { } prop)

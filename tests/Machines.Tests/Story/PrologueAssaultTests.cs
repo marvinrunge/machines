@@ -289,14 +289,16 @@ public class PrologueAssaultTests
     }
 
     [Fact]
-    public void The_notgang_has_its_crate_at_the_last_checkpoint_clear_of_the_trio()
+    public void At_the_last_checkpoint_the_trio_stands_free_in_the_bay_clear_of_the_collapse()
     {
         var world = Chapter(Prologue.LastCheckpoint);
-        var crate = world.Artefacts.Where(a => a.Id >= Artefact.IdBase + StoryDirector.PlacedBase)
-            .SingleOrDefault(a => Vector2.Distance(a.Position, world.Deck!.Marker("debris_1").Position + new Vector2(5, 0)) < 0.5f);
-        Assert.NotNull(crate);
+        var collapse = world.Deck!.Zone("collapse_notgang")!;
         for (var seat = 0; seat < 3; seat++)
-            Assert.True(Vector2.Distance(Hero(world, seat).Position, crate!.Position) > Hero(world, seat).Radius + 1, $"seat {seat} at {Hero(world, seat).Position}");
+        {
+            var hero = Hero(world, seat);
+            Assert.True(world.Nav.IsFree(hero.Position, GameWorld.MobilityOf(hero)), $"seat {seat} at {hero.Position}");
+            Assert.False(hero.Position.X > collapse.Min.X - 4 && hero.Position.X < collapse.Max.X + 4 && hero.Position.Y > collapse.Min.Y - 4 && hero.Position.Y < collapse.Max.Y + 4, $"seat {seat} at {hero.Position}");
+        }
     }
 
     [Fact]

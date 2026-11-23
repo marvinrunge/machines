@@ -7,9 +7,9 @@ using Machines.Sim.World;
 namespace Machines.Tests.Story;
 
 /// <summary>
-/// The prologue's crash (plan WP-I, docs/STORY.md "Absturz" and "Abwurf"): the countdown from the Notgang (150 s from the
-/// last checkpoint) with its stages at 120, 60, 30 and 10 seconds left, each with its line, the ship listing further (the
-/// view's lean, never the sim's), blasts and debris falling into the lanes after its warning; the pod's hack a 5 × 5 board
+/// The prologue's crash (plan WP-I, docs/STORY.md "Absturz" and "Abwurf"): the countdown of the escape run (240 s from the
+/// freight lift, 120 s from the last checkpoint) with its stages at 180, 120, 90, 60, 30 and 10 seconds left, each with its
+/// line, the ship listing further (the view's lean, never the sim's) and blasts; the pod's hack a 5 × 5 board
 /// with a firewall; the launch only once the hack is done, the Locator opened the hatch and stands at the pod, and both
 /// Grunts are aboard (standing in the pod's zone, or lying down in its bay); and the chapter lost when the countdown runs
 /// out, told as the story's failure.
@@ -87,35 +87,25 @@ public class PrologueCrashTests
     // ---- the countdown ---------------------------------------------------------------------------------
 
     [Fact]
-    public void The_countdown_comes_in_stages_with_lines_lean_blasts_and_debris_and_running_out_crashes_the_chapter()
+    public void The_countdown_comes_in_stages_with_lines_lean_and_blasts_and_running_out_crashes_the_chapter()
     {
         var world = Chapter(Prologue.LastCheckpoint);
         var run = world.Story!;
-        Assert.Equal(Prologue.CountdownAtCheckpoint, Left(world), 2);
+        Assert.Equal(Prologue.CountdownFrom[Prologue.LastCheckpoint]!.Value, Left(world), 2);
         var events = new List<GameEvent>();
 
         // Nobody goes for the pod: the countdown runs out.
-        Assert.True(RunUntil(world, () => run.Over, Prologue.CountdownAtCheckpoint + 2, events));
+        Assert.True(RunUntil(world, () => run.Over, Prologue.CountdownFrom[Prologue.LastCheckpoint]!.Value + 2, events));
 
-        // Its stages, each told to the view with the seconds left, each with its line.
+        // Its stages from the Bucht on, each told to the view with the seconds left, each with its line.
         var stages = events.Where(e => e is { Kind: GameEventKind.StoryCountdown, Detail: "stage" }).Select(e => e.Other).ToList();
-        Assert.Equal(Prologue.CountdownStages.Select(s => (int?)s), stages);
-        Assert.Equal([Prologue.Lines.T120, Prologue.Lines.Breach, Prologue.Lines.T60, Prologue.Lines.T30, Prologue.Lines.T10],
-            Lines(events).Where(l => l.StartsWith("P_AUTO_", StringComparison.Ordinal)));
-        // The ship lists further at each stage (the view's lean: the world stays level), and it tears: blasts, debris.
+        Assert.Equal(Prologue.CountdownStages.Where(s => s <= 120).Select(s => (int?)s), stages);
+        Assert.Equal([Prologue.Lines.T120, Prologue.Lines.T90, Prologue.Lines.T60, Prologue.Lines.T30, Prologue.Lines.T10],
+            Lines(events).Where(l => l.StartsWith("P_AUTO_T", StringComparison.Ordinal)));
+        // The ship lists further (the view's lean: the world stays level), and it tears: the blast at 30 s, pod two at 45 s.
         Assert.Equal(["tilt 7 1 2", "tilt 9 -1 2", "tilt 12 2 2"], Cues(events).Where(c => c.StartsWith("tilt ", StringComparison.Ordinal)));
-        // Blasts and debris at every stage, the last (10 s) too (docs/STORY.md: "bei 120, 60, 30 und 10 Sekunden").
-        Assert.True(events.Count(e => e.Kind == GameEventKind.Explosion) >= 5);
-        var falling = Cues(events).Where(c => c.StartsWith("debris falling", StringComparison.Ordinal)).ToList();
-        var landed = Cues(events).Where(c => c.StartsWith("debris landed", StringComparison.Ordinal)).ToList();
-        Assert.Equal(5, falling.Count);
-        Assert.Equal(5, landed.Count);
-        Assert.Empty(run.Director.Falling);
-        // The five, and the Notgang's crate the checkpoint starts with.
-        var debris = world.Artefacts.Where(a => a.Id - Artefact.IdBase >= StoryDirector.PlacedBase && !a.IsDead).ToList();
-        Assert.Equal(6, debris.Count);
-        Assert.All(debris, a => Assert.Equal("crate_large", a.Type.Name));
-        Assert.All(debris, a => Assert.False(world.Nav.IsFree(a.Position, GameWorld.MobilityOf(Hero(world, 0)))));
+        Assert.True(events.Count(e => e.Kind == GameEventKind.Explosion) >= 2);
+        Assert.Contains("pod2 drop", Cues(events));
 
         // Run out: the ship took the trio down, the chapter lost and told as the story's failure.
         Assert.Equal(StoryEnding.Crashed, run.Ending);
@@ -128,7 +118,7 @@ public class PrologueCrashTests
     }
 
     [Fact]
-    public void From_the_notgang_the_countdown_starts_at_three_minutes_and_debris_lands_behind_its_warning()
+    public void From_the_notgang_the_countdown_starts_at_four_minutes_with_its_line()
     {
         var world = Chapter(11);
         var run = world.Story!;
@@ -136,41 +126,12 @@ public class PrologueCrashTests
         SetDown(world, Hero(world, 0), new Vector2(520, 240));
         Run(world, 0.2f, events);
 
-        Assert.True(run.Director.Has("notgang"));
+        Assert.True(run.Director.Has("escape"));
         Assert.Equal((12, 7), (run.Checkpoint, run.Section));
         Assert.InRange(Left(world), Prologue.CountdownFull - 0.5f, Prologue.CountdownFull);
-        Assert.Contains(Prologue.Lines.Auto3, Lines(events));
-        // The first debris is on its way, warned of; it lands after the warning, not before.
-        var fall = Assert.Single(run.Director.Falling).Value;
-        Assert.Contains(Cues(events), c => c.StartsWith("debris falling 0", StringComparison.Ordinal));
-        Assert.DoesNotContain(Cues(events), c => c.StartsWith("debris landed", StringComparison.Ordinal));
-        Assert.Equal(world.Deck!.Marker("debris_1").Position + new Vector2(5, 0), fall.Where);
-        Run(world, Prologue.FallWarning, events);
-        Assert.Contains("debris landed 0", Cues(events));
-        Assert.Contains(world.Artefacts, a => !a.IsDead && a.Position == fall.Where && a.Type.Name == "crate_large");
-    }
-
-    [Fact]
-    public void Debris_harms_what_stands_under_it_and_lies_beside_a_machine_rather_than_on_it()
-    {
-        var world = Chapter(Prologue.LastCheckpoint);
-        var run = world.Story!;
-        var locator = Hero(world, 0);
-        // The stage at 120 s lets debris fall at its marker in the Notgang; the Locator steps under it.
-        Assert.True(RunUntil(world, () => run.Director.Falling.Count > 0, 40));
-        var fall = run.Director.Falling.Values.Single();
-        locator.Position = fall.Where;
-        var health = locator.HitPoints + locator.Armour;
-        var placed = run.Director.Placed;
-        Assert.True(RunUntil(world, () => run.Director.Falling.Count == 0, Prologue.FallWarning + 0.5f, each: () => locator.Position = fall.Where));
-
-        Assert.True(locator.HitPoints + locator.Armour < health, "the debris did not hit the Locator");
-        Assert.False(locator.IsDead);
-        Assert.Equal(placed + 1, run.Director.Placed);
-        var piece = world.Artefacts.Single(a => a.Id == Artefact.IdBase + StoryDirector.PlacedBase + placed);
-        Assert.True(Vector2.Distance(piece.Position, locator.Position) >= locator.Radius + StoryFall.Lies, $"{piece.Position} by the Locator at {locator.Position}");
-        Assert.True(Vector2.Distance(piece.Position, fall.Where) < locator.Radius + 7);
-        Assert.True(world.Nav.IsFree(locator.Position, GameWorld.MobilityOf(locator)));
+        Assert.Contains(Prologue.Lines.AutoT240, Lines(events));
+        Assert.Contains(StoryMarks.Escape, run.Flags);
+        Assert.True(world.DoorClosed('Y'));
     }
 
     // ---- the pod --------------------------------------------------------------------------------------
@@ -223,14 +184,14 @@ public class PrologueCrashTests
         Assert.False(director.Has("launch"));
         Assert.Equal(("Open the hatch", (string?)"pod_3_hatch"), StoryMarks.Objective(run));
 
-        // The hatch opened, but Ike stands out in the Notgang (held there): none.
+        // The hatch opened, but Ike stands back in the bay's entrance (held there): none.
         SetDown(world, locator, world.Deck.Marker("pod_3_hatch").Position + new Vector2(0, 1.5f));
         world.Issue(new StoryUseCommand(Race.Red, "pod_3_hatch"));
-        Run(world, 0.2f, each: () => SetDown(world, ike, new Vector2(520, 136)));
+        Run(world, 0.2f, each: () => SetDown(world, ike, new Vector2(440, 92)));
         Assert.Contains(StoryMarks.Done("pod_3_hatch"), run.Flags);
         Assert.Equal("Get everyone into the pod", StoryMarks.Objective(run)!.Value.Text);
         Assert.Equal(CompanionTask.Board, run.Crew.Of(run.Seats[2]).Task);
-        Run(world, 1, each: () => SetDown(world, ike, new Vector2(520, 136)));
+        Run(world, 1, each: () => SetDown(world, ike, new Vector2(440, 92)));
         Assert.False(director.Has("launch"));
 
         // Both Grunts in, the Locator off at the bay's far side: none.
@@ -263,17 +224,17 @@ public class PrologueCrashTests
     }
 
     [Fact]
-    public void The_countdown_and_the_debris_go_into_the_checksum_and_play_the_same_twice()
+    public void The_countdown_and_the_hazards_go_into_the_checksum_and_play_the_same_twice()
     {
-        static (ulong Sum, int Placed) Play()
+        static (ulong Sum, float Left) Play()
         {
             var world = Chapter(Prologue.LastCheckpoint, seed: 7);
             Run(world, 40);
-            return (world.Checksum(), world.Story!.Director.Placed);
+            return (world.Checksum(), MathF.Round(Left(world)));
         }
 
         var (a, b) = (Play(), Play());
         Assert.Equal(a, b);
-        Assert.True(a.Placed >= 1);
+        Assert.Equal(80, a.Left);
     }
 }

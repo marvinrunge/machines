@@ -96,7 +96,7 @@ public static partial class Prologue
         new("bridge_edge", 13, new CastNear(ThresherRole, "thresher_edge", 14), [new HoldAt(ThresherRole, "thresher_edge"), new Say(Lines.IkeBridge, Bark, 1)],
             After: ["bridge"]),
         new("bridge_fall", 13, new InZone("R16", StoryWho.All), [new Cue("hush 1 -20"), new Run("bridge", (world, run, _) => world.LetBridgeFall(run))]),
-        new("bucht", 13, new InZone("R16", StoryWho.All), [new Checkpoint(14), new Objective("Hack escape pod three", "pod_3_hatch")]),
+        new("bucht", 13, new AllOf(new InZone("R16", StoryWho.All), new Not(new HackDone("pod_3_hatch"))), [new Checkpoint(14), new Objective("Hack escape pod three", "pod_3_hatch")]),
         new("pack_round", 13, new Check("bridge fallen", (_, run) => run.Hazards.BridgeFallen), [new HoldAt(ThresherRole, "thresher_edge"),
             new Run("round", (world, run, _) => world.SendPackRound(run, RoundWaits))]),
         // C6, the bay: pod 1 fails, off the lane.
@@ -109,7 +109,7 @@ public static partial class Prologue
         new("t30", 14, new CountdownAt(30), [new CountdownStage(), new Say(Lines.T30), new Blast("596,108", 6, 0, 6), new Tilt(12, 2, 2)]),
         new("t10", 14, new CountdownAt(10), [new CountdownStage(), new Say(Lines.T10), new Cue("rumble 1")]),
         new("crash", 14, new CountdownAt(0), [new End(StoryEnding.Crashed)]),
-        new("pod_bay", 13, new InZone("R16"), [new Objective("Hack escape pod three", "pod_3_hatch")], After: ["escape"]),
+        new("pod_bay", 13, new AllOf(new InZone("R16"), new Not(new HackDone("pod_3_hatch"))), [new Objective("Hack escape pod three", "pod_3_hatch")], After: ["escape"]),
         new("pod_denied", 14, new AllOf(new Near("pod_3_hatch", 10), new Not(new HackDone("pod_3_hatch"))), [new Say(Lines.PodNo)]),
         // C7: at a quarter of the hack the survivors blast through the Notgang and come to Y; Bob holds it, Ike barricades.
         new("blast_collapse", 14, new HackAt("pod_3_hatch", 0.25f), [new Blast("520,146", 4, 0, 8), new Cue("rumble 0.6"),
