@@ -63,7 +63,7 @@ public sealed record DoorSwing(char Letter, int Leaf, IReadOnlyList<Vector2> Bou
 
 /// <summary>
 /// A ship deck's doors (plan WP-B): a closed door is an active artefact on its slot (tools/deck/deck.mjs writes them into
-/// the scenario, tagged 100 + 10 × the door's place in the deck's DOORS, the second leaf one more). Opening one takes it off
+/// the scenario, tagged 1000 + 10 × the door's place in the deck's DOORS, the second leaf one more). Opening one takes it off
 /// the map whole: its cells are free again, and the room machines need round them is measured anew. Its leaves then slide
 /// into the walls over a second or two (<see cref="DoorSwing"/>), and only as far as they have slid can a machine pass.
 /// </summary>

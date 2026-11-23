@@ -5776,6 +5776,12 @@ msgstr "NOTRESERVE ERSCHÖPFT: NÄCHSTE ABSCHALTUNG = LÖSCHUNG"
 msgid "Hold [{0}]: plug in the cable"
 msgstr "[{0}] halten: Kabel stecken"
 
+msgid "L-7 SHUT DOWN – GET TO IT: {0} s"
+msgstr "L-7 ABGESCHALTET – HIN ZU IHM: {0} s"
+
+msgid "[Ctrl] hold: creep, half as fast and barely heard"
+msgstr "[Strg] halten: schleichen, halb so schnell und kaum zu hören"
+
 msgid "LIST {0}°"
 msgstr "SCHLAGSEITE {0}°"
 

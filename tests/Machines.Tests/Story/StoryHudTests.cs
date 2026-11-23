@@ -399,7 +399,7 @@ public class StoryHudTests
 
     /// <summary>The story's screens: every English word they put through the translation is in de.po.</summary>
     private static readonly string[] StoryScreens =
-        ["StoryHud.cs", "StoryHud.Boot.cs", "StoryHud.Demo.cs", "StoryHud.Labels.cs", "StoryPage.cs", "StoryProgress.cs", "StoryFilm.cs", "Subtitles.cs"];
+        ["StoryHud.cs", "StoryHud.Boot.cs", "StoryHud.Demo.cs", "StoryHud.Labels.cs", "StoryHud.Shutdown.cs", "StoryHud.Holds.cs", "StoryPage.cs", "StoryProgress.cs", "StoryFilm.cs", "Subtitles.cs"];
 
     [Fact]
     public void Every_word_of_the_storys_screens_and_every_line_of_the_table_has_its_German()

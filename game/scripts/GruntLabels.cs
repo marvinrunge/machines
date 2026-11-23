@@ -53,7 +53,7 @@ public static class GruntLabels
             return true;
         bool See(int x, int y) => deck.Cell(x, y) switch
         {
-            DeckCell.Wall or DeckCell.Cover => false,
+            DeckCell.Wall or DeckCell.High or DeckCell.Cover => false,
             DeckCell.Door => !world.DoorClosed(deck.At(x, y)),
             _ => true,
         };
