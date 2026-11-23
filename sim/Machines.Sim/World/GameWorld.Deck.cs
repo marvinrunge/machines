@@ -103,7 +103,7 @@ public sealed partial class GameWorld
         for (var i = 0; i < deck.Doors.Count; i++)
         {
             if (deck.Doors[i].Letter == letter)
-                return 100 + 10 * i;
+                return global::Machines.Import.Planets.DeckParser.DoorTagBase + 10 * i;
         }
         return null;
     }

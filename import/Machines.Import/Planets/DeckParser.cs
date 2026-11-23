@@ -18,15 +18,22 @@ namespace Machines.Import.Planets;
 /// LIGHTS   name zone on|off|emergency         ENDLIGHTS
 /// CAMS     name x y z yaw pitch               ENDCAMS
 /// RAILS    name x y z x y z ...               ENDRAILS
+/// SLIDES   name prop x0 y0 x1 y1 [tags]       ENDSLIDES
 /// </code>
 /// The grid's characters are <see cref="DeckCell"/>'s; <c>//</c> starts a comment. Every letter in the grid must be a
-/// door, every door in the grid, and every light's zone a zone. tools/deck/deck.mjs reads the same file.
+/// door, every door in the grid, every light's zone a zone, every slide's prop a prop, and every prop's id unique and below
+/// <see cref="DoorTagBase"/> (the doors' artefacts are tagged from there). A zone tagged <c>variant=name cells=c</c> is
+/// filled with the grid character c when the deck is read with that variant (off by default), so a deck can keep a
+/// second layout of a place ready (the prologue's deck B: <c>variant=short</c>). tools/deck/deck.mjs reads the same file.
 /// </summary>
 public static class DeckParser
 {
-    public static Deck Load(string path) => Planet.WithFileName(path, () => Parse(File.ReadAllText(path)));
+    /// <summary>The first scenario tag of the doors' artefacts: door i of DOORS is tagged DoorTagBase + 10 i (its second leaf one more).</summary>
+    public const int DoorTagBase = 1000;
 
-    public static Deck Parse(string text)
+    public static Deck Load(string path, string? variant = null) => Planet.WithFileName(path, () => Parse(File.ReadAllText(path), variant));
+
+    public static Deck Parse(string text, string? variant = null)
     {
         var lines = TextLines.Read(text).ToList();
         string? name = null;
@@ -39,6 +46,7 @@ public static class DeckParser
         List<DeckLight> lights = [];
         List<DeckCamera> cameras = [];
         List<DeckRail> rails = [];
+        List<DeckSlide> slides = [];
 
         for (var i = 0; i < lines.Count; i++)
         {
@@ -148,6 +156,15 @@ public static class DeckParser
                     }
                     break;
 
+                case "SLIDES":
+                    foreach (var entry in Section(lines, ref i, "ENDSLIDES"))
+                    {
+                        Count(entry, 5, int.MaxValue);
+                        slides.Add(new DeckSlide(entry.Keyword, entry.Args[0], new Vector2(Float(entry, 1), Float(entry, 2)),
+                            new Vector2(Float(entry, 3), Float(entry, 4)), entry.Args.Skip(5).ToList(), entry.LineNumber));
+                    }
+                    break;
+
                 default:
                     throw new ParmFormatException($"unexpected '{line.Keyword}'", line.LineNumber);
             }
@@ -155,8 +172,38 @@ public static class DeckParser
 
         if (name is null || cells is null)
             throw new ParmFormatException("a deck needs DECK and GRID", lines.Count > 0 ? lines[^1].LineNumber : 0);
+        if (variant is not null)
+            Fill(cells, width, depth, zones, variant);
         Check(cells, doors, zones, lights);
-        return new Deck(name, width, depth, cells, doors, markers, props, zones, lights, cameras, rails, gapScale);
+        CheckProps(props, slides);
+        return new Deck(name, width, depth, cells, doors, markers, props, zones, lights, cameras, rails, gapScale, slides, variant);
+    }
+
+    /// <summary>Fills the zones of a variant (<c>variant=name cells=c</c>) with their character.</summary>
+    private static void Fill(char[] cells, int width, int depth, List<DeckZone> zones, string variant)
+    {
+        var any = false;
+        foreach (var zone in zones.Where(z => z.Tag("variant") == variant))
+        {
+            any = true;
+            if (zone.Tag("cells") is not { Length: 1 } fill || !Deck.Known(fill[0]))
+                throw new ParmFormatException($"zone {zone.Name} of variant {variant} needs cells= one grid character", zone.LineNumber);
+            for (var y = Math.Max(0, (int)zone.Min.Y); y < Math.Min(depth, (int)MathF.Ceiling(zone.Max.Y)); y++)
+                for (var x = Math.Max(0, (int)zone.Min.X); x < Math.Min(width, (int)MathF.Ceiling(zone.Max.X)); x++)
+                    cells[y * width + x] = fill[0];
+        }
+        if (!any)
+            throw new ParmFormatException($"the deck has no variant {variant}", 0);
+    }
+
+    private static void CheckProps(List<DeckProp> props, List<DeckSlide> slides)
+    {
+        if (props.GroupBy(p => p.Id).FirstOrDefault(g => g.Count() > 1) is { } twice)
+            throw new ParmFormatException($"prop id {twice.Key} is given twice ({string.Join(", ", twice.Select(p => p.Name))})", twice.Last().LineNumber);
+        if (props.FirstOrDefault(p => p.Id >= DoorTagBase) is { } high)
+            throw new ParmFormatException($"prop {high.Name}'s id {high.Id} is {DoorTagBase} or more, where the doors' ids start", high.LineNumber);
+        if (slides.FirstOrDefault(s => props.All(p => p.Name != s.Prop)) is { } loose)
+            throw new ParmFormatException($"slide {loose.Name} carries no prop {loose.Prop}", loose.LineNumber);
     }
 
     private static void Check(char[] cells, List<DeckDoor> doors, List<DeckZone> zones, List<DeckLight> lights)

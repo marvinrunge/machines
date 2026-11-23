@@ -60,9 +60,9 @@ public class StoryRunTests
             Assert.Contains("room", deck.Zone(room)?.Tags ?? []);
         foreach (var marker in StorySeats.Spawns.Concat(["core", "hack_core", "pickup_bolter", "repair_station", "pod_3", "spawn_thresher", "spawn_commander"]))
             Assert.Equal(DeckCell.Floor, deck.CellAt(deck.Marker(marker).Position));
-        Assert.Equal(6, deck.Markers.Count(m => m.Tags.Contains("patrol")));
+        Assert.Equal(6, deck.Markers.Count(m => m.Name.StartsWith("patrol_thresher_", StringComparison.Ordinal)));
         Assert.Equal(24, deck.Markers.Count(m => m.Name.StartsWith("clampA_", StringComparison.Ordinal) || m.Name.StartsWith("clampB_", StringComparison.Ordinal)));
-        Assert.Equal(6, deck.Markers.Count(m => m.Tags.Contains("barricade"))); // three each before J and I; none before K, the Grunts' way out
+        Assert.Equal(6, deck.Markers.Count(m => m.Tags.Contains("barricade") && m.Name[^3] is 'I' or 'J')); // three each before J and I; none before K, the Grunts' way out
         Assert.Equal("locked", deck.Door('W')!.State);
         Assert.Contains(deck.Cameras, c => c.Name == "cam_abwurf_1");
         Assert.DoesNotContain(deck.Cameras, c => c.Name.StartsWith("cam_erwischt", StringComparison.Ordinal));

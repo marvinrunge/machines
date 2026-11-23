@@ -414,12 +414,13 @@ public class PrologueCoreTests(ITestOutputHelper output)
         var world = Chapter(1);
         var run = world.Story!;
         var locator = Hero(world, 0);
-        // Along R4 from its west door toward duct V1a: nothing yet at the door, the glare at the duct's mouth.
+        // Along R4 from its west door toward duct V1a: nothing yet at the door, the glare at the duct's mouth (moved east beside
+        // the scare Grunt in stage 7).
         locator.Position = new Vector2(124, 52);
         for (var i = 0; i < 5; i++)
             world.Step();
         Assert.False(run.Director.Has("scare_grunt2"));
-        locator.Position = new Vector2(160, 78);
+        locator.Position = new Vector2(198, 78);
         for (var i = 0; i < 5; i++)
             world.Step();
         Assert.True(run.Director.Has("scare_grunt2"));
