@@ -183,9 +183,9 @@ public class StoryRunTests
     [Fact]
     public void A_checkpoint_and_the_grunts_names_go_with_the_story()
     {
-        var world = Prologue(story: new StoryOptions { Checkpoint = 2, IkeName = "Kai", BobName = "Mo" });
+        var world = Prologue(story: new StoryOptions { Checkpoint = 6, IkeName = "Kai", BobName = "Mo" });
 
-        Assert.Equal(2, world.Story!.Checkpoint);
+        Assert.Equal(6, world.Story!.Checkpoint);
         Assert.Equal(["Kai", "Mo"], world.Story.Seats.Skip(1).Select(id => world.Players[id].Name));
     }
 

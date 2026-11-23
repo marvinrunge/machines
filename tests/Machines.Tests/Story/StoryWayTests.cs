@@ -38,7 +38,7 @@ public class StoryWayTests
     [InlineData(277f, 251f, 277f, 238f)]
     public void A_way_from_the_parallel_corridor_never_ends_in_the_cable_duct_behind_its_wall(float x, float y, float toX, float toY)
     {
-        var world = Chapter(3);
+        var world = Chapter(7);
         var reaper = world.AddMachine(Race.Blue, new Vector2(x, y), "AGGRESSOR", "ASSASSIN", 2, "L_PLASMA_RIFLE");
         var mobility = GameWorld.MobilityOf(reaper);
         Assert.Equal(2, mobility.Size);
@@ -93,7 +93,7 @@ public class StoryWayTests
     [Fact]
     public void A_reaper_that_sees_a_grunt_far_down_the_cable_duct_does_not_stand_aiming_at_the_door()
     {
-        var world = Chapter(3);
+        var world = Chapter(7);
         var run = world.Story!;
         // Checkpoint 3 is the break-in: the hunt is on once the core has blown.
         for (var i = 0; i < (Prologue.CoreBlows + 15) * GameWorld.TicksPerSecond && !run.Director.Has("core_blows"); i++)
@@ -138,7 +138,7 @@ public class StoryWayTests
     [InlineData(485f, 227f)]
     public void The_crate_knocked_onto_a_grunt_in_the_workshop_never_shuts_the_way_on(float x, float y)
     {
-        var world = Chapter(4);
+        var world = Chapter(8);
         var run = world.Story!;
         var locator = Hero(world, 0);
         var bob = Hero(world, 2);
@@ -174,7 +174,7 @@ public class StoryWayTests
     [Fact]
     public void A_crate_beside_a_machine_on_the_deck_is_still_driven_up_to()
     {
-        var world = Chapter(3);
+        var world = Chapter(7);
         var grunt = world.AddMachine(Race.Blue, new Vector2(401, 257), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
         var crate = world.PlaceArtefact("crate_small", new Vector2(405, 257), 0);
         Assert.NotNull(crate);

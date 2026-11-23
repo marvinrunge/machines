@@ -135,6 +135,12 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                 }
                 if (Booting(game, story))
                     continue;
+                // The Notabschaltung: the Locator shut down waits for its Grunt's cable (MACHINES_STORY_DRIVE_SHUTDOWN=1 forces one).
+                if (await ShutDown(game, story, hero))
+                    continue;
+                // Stage 7's sections drive by their own legs once their packages build them (StoryDriver.Stealth, .Armoury, .Escape).
+                if (DriveStealth(game) || DriveArmoury(game) || DriveEscape(game))
+                    continue;
                 if (_lampChecked is null)
                 {
                     await Lamp(game, hero);
@@ -146,6 +152,46 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                 await DriveWatched(game, hero);
             }
         }
+    }
+
+    private static readonly bool ForceShutdown = System.Environment.GetEnvironmentVariable("MACHINES_STORY_DRIVE_SHUTDOWN") == "1";
+    private bool _shutdownForced, _shutdownTold;
+
+    /// <summary>
+    /// The shared leg "wait while shut down" (plan stufe7 C23): while the Locator lies shut down the driver lets go and waits
+    /// for a Grunt's cable, telling the shutdown and the restart ("story drive: &lt;section&gt; shutdown|restart tick T seconds S")
+    /// with a picture of each. With MACHINES_STORY_DRIVE_SHUTDOWN=1 (and the reserve on, MACHINES_STORY_SHUTDOWN_TEST=1 in
+    /// section 7) it shoots its own Locator down once, a test of the Notabschaltung before package E lands.
+    /// </summary>
+    private async Task<bool> ShutDown(Game game, StoryRun story, Machine hero)
+    {
+        var world = game.World;
+        if (world.LocatorShutDown)
+        {
+            LetGo();
+            if (!_shutdownTold)
+            {
+                _shutdownTold = true;
+                Tell(FormattableString.Invariant($"story drive: {story.Section} shutdown tick {world.Tick} seconds {world.Time:0.0}"));
+                await Wait(1.5f);
+                await Picture("shutdown");
+            }
+            return true;
+        }
+        if (_shutdownTold)
+        {
+            _shutdownTold = false;
+            Tell(FormattableString.Invariant($"story drive: {story.Section} restart tick {world.Tick} seconds {world.Time:0.0} restarts {story.Reserve.Restarts}"));
+            await Picture("restart");
+        }
+        if (ForceShutdown && !_shutdownForced && Game.Me == story.Locator && story.Section == 7 && story.Flags.Contains(StoryMarks.Reserve))
+        {
+            _shutdownForced = true;
+            world.Damage(hero, 100000, story.Options.Ship);
+            Tell($"shot the Locator down at tick {world.Tick}");
+            return true;
+        }
+        return false;
     }
 
     // Whether the skip was sent, and whether the boot's end was told.

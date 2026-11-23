@@ -630,6 +630,6 @@ public sealed class StoryScore
             return (0, 0);
         if (remembered is { } was && was.Track >= 0 && was.Track < Playlist.Length)
             return (was.Track, Math.Max(0, was.At));
-        return (checkpoint switch { 1 => 0, 2 => 1, _ => 2 }, 0);
+        return (checkpoint switch { >= 1 and <= 5 => 0, 6 => 1, _ => 2 }, 0);
     }
 }

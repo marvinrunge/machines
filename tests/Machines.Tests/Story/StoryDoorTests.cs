@@ -56,6 +56,14 @@ public class StoryDoorTests
     [InlineData(4)]
     [InlineData(5)]
     [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    [InlineData(12)]
+    [InlineData(13)]
+    [InlineData(14)]
     public void A_checkpoint_has_every_door_opened_before_it_open_from_its_first_tick(int checkpoint)
     {
         var world = Chapter(checkpoint);
@@ -80,12 +88,20 @@ public class StoryDoorTests
     [InlineData(4)]
     [InlineData(5)]
     [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    [InlineData(12)]
+    [InlineData(13)]
+    [InlineData(14)]
     public void Every_door_the_script_opens_before_a_checkpoint_stands_open_or_opens_by_itself_there(int checkpoint)
     {
         // The doors the beats of the stretches before it open (hacked, unlocked, opened by the story), and those that opened by
         // themselves as the trio came: each open at the checkpoint, or one that still opens as the trio comes. The gates the
         // hunters force (Then.ForceGates) are a lost fight, not progress: the Grunts hold them again at checkpoint 4.
-        var before = Prologue.Script.Where(b => b.Span < checkpoint).SelectMany(b => b.Then).ToList();
+        var before = Prologue.Script.Where(b => b.Span < Prologue.SetUpAs(checkpoint)).SelectMany(b => b.Then).ToList();
         var opened = before.OfType<Then.OpenDoors>().SelectMany(o => o.Letters).ToHashSet();
         var auto = before.OfType<Then.AutoDoors>().SelectMany(o => o.Letters).ToHashSet();
 

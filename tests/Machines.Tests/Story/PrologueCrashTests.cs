@@ -130,14 +130,14 @@ public class PrologueCrashTests
     [Fact]
     public void From_the_notgang_the_countdown_starts_at_three_minutes_and_debris_lands_behind_its_warning()
     {
-        var world = Chapter(5);
+        var world = Chapter(11);
         var run = world.Story!;
         var events = new List<GameEvent>();
         SetDown(world, Hero(world, 0), new Vector2(520, 240));
         Run(world, 0.2f, events);
 
         Assert.True(run.Director.Has("notgang"));
-        Assert.Equal((Prologue.LastCheckpoint, 7), (run.Checkpoint, run.Section));
+        Assert.Equal((12, 7), (run.Checkpoint, run.Section));
         Assert.InRange(Left(world), Prologue.CountdownFull - 0.5f, Prologue.CountdownFull);
         Assert.Contains(Prologue.Lines.Auto3, Lines(events));
         // The first debris is on its way, warned of; it lands after the warning, not before.

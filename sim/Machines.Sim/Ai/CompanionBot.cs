@@ -13,7 +13,7 @@ namespace Machines.Sim.Ai;
 /// <see cref="StoryCrew"/>, so it keeps nothing of its own: it looks at the world inside the world's tick every
 /// <see cref="ThinkEvery"/> ticks, as a battle's bot does, and acts on the world directly, which every peer does alike.
 /// </summary>
-public sealed class CompanionBot(GameWorld world, PlayerId seat)
+public sealed partial class CompanionBot(GameWorld world, PlayerId seat)
 {
     /// <summary>The ticks between two looks at the world.</summary>
     public const int ThinkEvery = 10;
@@ -41,6 +41,9 @@ public sealed class CompanionBot(GameWorld world, PlayerId seat)
         // Unarmed and told to stay where it is put: it does not run from fire.
         grunt.DefCon = DefCon.High;
         var companion = run.Crew.Of(seat);
+        // The shut-down Locator first (the Notabschaltung, CompanionBot.Restart), then the job, the section's own, the order.
+        if (RestartLocator(run, grunt))
+            return;
         switch (companion.Task)
         {
             case CompanionTask.Barricade:
@@ -56,6 +59,9 @@ public sealed class CompanionBot(GameWorld world, PlayerId seat)
                 GoTo(run, companion, grunt);
                 return;
         }
+        // Stage 7: the section's own behaviour, then an armed Grunt fires (CompanionBot.Stealth, .Armoury, .Escape, .Fire).
+        if (ThinkStealth(run, companion, grunt) || ThinkArmoury(run, companion, grunt) || ThinkEscape(run, companion, grunt) || FireIfArmed(run, grunt))
+            return;
         switch (companion.Order)
         {
             case CompanionOrder.Distract:

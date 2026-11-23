@@ -95,11 +95,13 @@ public class StoryScoreTests
         // A checkpoint after a fall: where the last match left it.
         Assert.Equal((2, 40.0), StoryScore.Start(3, (2, 40)));
         Assert.Equal((1, 12.5), StoryScore.Start(1, (1, 12.5)));
-        // Without one: the piece a run usually hears there.
-        Assert.Equal((0, 0.0), StoryScore.Start(1, null));
-        Assert.Equal((1, 0.0), StoryScore.Start(2, null));
-        Assert.Equal((2, 0.0), StoryScore.Start(5, null));
-        Assert.Equal((2, 0.0), StoryScore.Start(3, (9, 10)));
+        // Without one: the piece a run usually hears there (stage 7's checkpoints: 1–5 section 2, 6 the antechamber, 7–14 on).
+        for (var checkpoint = 1; checkpoint <= 5; checkpoint++)
+            Assert.Equal((0, 0.0), StoryScore.Start(checkpoint, null));
+        Assert.Equal((1, 0.0), StoryScore.Start(6, null));
+        for (var checkpoint = 7; checkpoint <= 14; checkpoint++)
+            Assert.Equal((2, 0.0), StoryScore.Start(checkpoint, null));
+        Assert.Equal((2, 0.0), StoryScore.Start(7, (9, 10)));
     }
 
     [Fact]

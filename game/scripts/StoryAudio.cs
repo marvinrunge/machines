@@ -13,7 +13,9 @@ namespace Machines.Game;
 /// its left: <c>Music</c> (ducked under speech), <c>World</c> (the room's reverb, a low-pass when hiding, damaged or the
 /// update intrudes, ducked under speech; the game's <c>Effects</c> bus sends into it meanwhile), <c>Voice</c> (speech;
 /// the ducking's sidechain), <c>Announcer</c> (the PA: band-pass and hall, into Voice) and <c>Radio</c> (band-pass and
-/// lo-fi, into Voice).</para>
+/// lo-fi, into Voice); stage 7 adds <c>Thresher</c> (his steps and voice, a long metallic reverb, into StoryMix, package S
+/// fills it) and <c>Warning</c> (the escape's warnings, into StoryMix, which neither the music nor the blasts duck, package E
+/// fills it).</para>
 /// <para>MACHINES_AUDIO_TRACE=1 prints each story sound as <c>audio story-&lt;kind&gt; &lt;id&gt; ... @&lt;seconds&gt;</c>;
 /// MACHINES_STORY_AUDIO_TEST=1 (with MACHINES_STORY=prolog, and MACHINES_MAP=prolog so the menus are skipped) plays a
 /// short sequence once the chapter is shown (a PA line, a radio line, sounds, ambience,
@@ -22,7 +24,8 @@ namespace Machines.Game;
 /// </summary>
 public partial class StoryAudio : Node
 {
-    public const string MusicBus = "Music", WorldBus = "World", VoiceBus = "Voice", AnnouncerBus = "Announcer", RadioBus = "Radio";
+    public const string MusicBus = "Music", WorldBus = "World", VoiceBus = "Voice", AnnouncerBus = "Announcer", RadioBus = "Radio",
+        ThresherBus = "Thresher", WarningBus = "Warning";
 
     /// <summary>
     /// The bus the story's music, world and voices meet on before Master: a gentle compressor and a limiter keep the sum
@@ -33,7 +36,7 @@ public partial class StoryAudio : Node
 
     // Left to right after Master; each sends to one on its left, and the ducking's sidechain (Voice) is mixed before the
     // buses it ducks (Godot mixes the buses from the last to the first).
-    private static readonly string[] Buses = [MixBus, MusicBus, WorldBus, VoiceBus, AnnouncerBus, RadioBus];
+    private static readonly string[] Buses = [MixBus, MusicBus, WorldBus, VoiceBus, AnnouncerBus, RadioBus, ThresherBus, WarningBus];
 
     public const string SfxFolder = "res://assets/story/sfx", VoiceFolder = "res://assets/story/voice", MusicFolder = "res://assets/story/music";
 
@@ -272,6 +275,16 @@ public partial class StoryAudio : Node
         AudioServer.AddBusEffect(radio, new AudioEffectHighPassFilter { CutoffHz = 450 });
         AudioServer.AddBusEffect(radio, new AudioEffectLowPassFilter { CutoffHz = 3000 });
         AudioServer.AddBusEffect(radio, new AudioEffectDistortion { Mode = AudioEffectDistortion.ModeEnum.Lofi, Drive = 0.25f, PreGain = 0, PostGain = 0, KeepHfHz = 16000 });
+
+        // Stage 7: the Thresher's own bus, a long metallic hall that each step rings on in (package S sets its sounds), and the
+        // escape's warnings, straight into the mix so nothing ducks them (package E). Both at the sounds' volume, as World.
+        var thresher = Index(ThresherBus);
+        AudioServer.SetBusSend(thresher, MixBus);
+        AudioServer.SetBusVolumeDb(thresher, Mathf.LinearToDb(Mathf.Max(0.001f, GameAudio.SoundVolume)));
+        AudioServer.AddBusEffect(thresher, new AudioEffectReverb { RoomSize = 0.92f, Damping = 0.2f, Wet = 0.32f, Dry = 1, PredelayMsec = 40, Spread = 1 });
+        var warning = Index(WarningBus);
+        AudioServer.SetBusSend(warning, MixBus);
+        AudioServer.SetBusVolumeDb(warning, Mathf.LinearToDb(Mathf.Max(0.001f, GameAudio.SoundVolume)));
     }
 
     // The story's buses go when the chapter ends: the game's effects send to Master again, as in every other match.

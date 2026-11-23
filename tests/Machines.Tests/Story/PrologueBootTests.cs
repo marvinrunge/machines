@@ -179,6 +179,14 @@ public class PrologueBootTests
     [InlineData(4)]
     [InlineData(5)]
     [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    [InlineData(12)]
+    [InlineData(13)]
+    [InlineData(14)]
     public void Every_checkpoint_after_the_start_has_no_boot(int checkpoint)
     {
         var world = Chapter(checkpoint);

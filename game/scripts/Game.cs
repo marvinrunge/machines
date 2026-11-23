@@ -3676,7 +3676,7 @@ public partial class Game : Node3D
         // positive strafe; the client shows the world with y and z swapped, which mirrors it, so on screen both go
         // right. Ctrl turns slowly (FIRST_PERSON_MAX_SLOW_TURN_RATE).
         Issue(new DriveCommand(Player, machine.Id, Driving: true, forward, Mathf.Clamp(-turn, -1, 1), aimAt, sent, _headTarget,
-            -strafe, Input.IsKeyPressed(Key.Ctrl), aimHeight, buttons, SentYaw, Sprint: StorySprintHeld()));
+            -strafe, Input.IsKeyPressed(Key.Ctrl) || StoryCreepHeld(), aimHeight, buttons, SentYaw, Sprint: StorySprintHeld()));
     }
 
     /// <summary>
