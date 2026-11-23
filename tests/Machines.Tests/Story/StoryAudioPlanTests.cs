@@ -387,4 +387,15 @@ public class StoryAudioPlanTests
         Assert.InRange(StorySoundscape.SpeakerDelay(0), 0.03, 0.031);
         Assert.InRange(StorySoundscape.SpeakerDelay(2), 0.079, 0.081);
     }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(1, 0)]
+    [InlineData(5, 0)]
+    [InlineData(6, 1)]
+    [InlineData(7, 2)]
+    [InlineData(12, 2)]
+    [InlineData(14, 2)]
+    public void A_chapter_begun_at_a_checkpoint_starts_the_playlist_where_a_run_usually_hears_it(int checkpoint, int track) =>
+        Assert.Equal((track, 0d), StoryScore.Start(checkpoint, null));
 }
