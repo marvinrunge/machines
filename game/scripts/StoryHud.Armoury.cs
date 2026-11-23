@@ -39,7 +39,8 @@ public partial class StoryHud
     private float DrawBatch(GameWorld world, StoryRun run, float middle, float y)
     {
         var waves = run.Waves;
-        var box = new Rect2(middle - 230 * _u, y, 460 * _u, 54 * _u);
+        var next = !waves.Fighting && waves.Wave <= StoryWaves.Plan.Count;
+        var box = new Rect2(middle - 230 * _u, y, 460 * _u, (next ? 70 : 54) * _u);
         _ink.Plate(box, HudInk.Plating, MenuTheme.Edge, 10);
         var share = waves.Bar(world.Time);
         var title = waves.Fighting
@@ -48,13 +49,16 @@ public partial class StoryHud
         _ink.Say(box.Position + new Vector2(14, 20) * _u, title, 15, waves.Fighting ? HudInk.Danger : MenuTheme.Text);
         _ink.Say(new Vector2(box.End.X - 14 * _u, box.Position.Y + 20 * _u), $"{waves.Wave}/{StoryWaves.Plan.Count}", 13, MenuTheme.Dim, 1);
         _ink.Leds(new Rect2(box.Position + new Vector2(14, 28) * _u, new Vector2(240, 16) * _u), share, waves.Fighting ? HudInk.Danger : HudInk.Warning, (float)_time, 20);
-        if (!waves.Fighting && waves.Wave <= StoryWaves.Plan.Count)
+        if (next)
         {
             var doors = string.Join(" + ", StoryWaves.DoorsOf(waves.Wave).Select(d => Lang.T(d switch { 'R' => "WEST DOOR", 'T' => "EAST DOOR", _ => "FREIGHT GATE" })));
-            var next = waves.Wave == StoryWaves.Plan.Count
+            var line = waves.Wave == StoryWaves.Plan.Count
                 ? Lang.T("BATCH {0}: 1 UNIT · MASS {1} t", waves.Wave, Mass())
                 : Lang.T("NEXT BATCH: {0}", doors);
-            _ink.Say(new Vector2(box.End.X - 14 * _u, box.Position.Y + 44 * _u), next, 13, HudInk.Gold, 1);
+            // Under the bar, the doors it comes by, an arrow before them.
+            var tip = box.Position + new Vector2(24, 57) * _u;
+            DrawPolygon([tip + new Vector2(-9, -5) * _u, tip, tip + new Vector2(-9, 5) * _u], [HudInk.Gold]);
+            _ink.Say(box.Position + new Vector2(30, 62) * _u, line, 13, HudInk.Gold);
         }
         return box.End.Y + 6 * _u;
     }

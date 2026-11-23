@@ -22,6 +22,7 @@ public partial class StoryDriver
 
     private static readonly int? StopAt = int.TryParse(System.Environment.GetEnvironmentVariable("MACHINES_STORY_DRIVE_STOP"), out var stop) ? stop : null;
 
+    private GameWorld? _armouryWorld;
     private int _armouryWave;
     private bool _armouryFighting, _armouryBossTold;
     private float? _armouryBossIn;
@@ -104,8 +105,8 @@ public partial class StoryDriver
             Shoot("batch-bar");
         if (waves.Mounted.Count >= 2)
         {
-            Shoot("mounted-ike", "seat1/5/2.2");
-            Shoot("mounted-bob", "seat2/5/2.2");
+            Shoot("mounted-ike", "seat1/4.5/2.6!");
+            Shoot("mounted-bob", "seat2/4.5/2.6!");
         }
         return Workbench(game, story, hero);
     }
@@ -211,6 +212,13 @@ public partial class StoryDriver
     private void Batches(GameWorld world, StoryWaves waves)
     {
         var work = (_armouryRevived, waves.Mends, waves.Stripped, waves.Mounted.Count);
+        // A world started again (from a checkpoint): its batches are told from where it stands.
+        if (_armouryWorld != world)
+        {
+            _armouryWorld = world;
+            (_armouryWave, _armouryFighting, _armouryPause) = (waves.Wave, waves.Fighting, work);
+            (_armouryBossIn, _armouryBossTold, _armouryHold) = (null, false, null);
+        }
         if (waves.Fighting && !_armouryFighting)
         {
             if (waves.Wave > 1)
