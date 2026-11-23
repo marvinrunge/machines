@@ -151,15 +151,26 @@ public class StoryWayTests
         bob.Position = new Vector2(x, y);
         world.Step();
         world.Issue(new StoryUseCommand(Race.Red, "pickup_bolter"));
-        for (var i = 0; i < 6 * GameWorld.TicksPerSecond && !run.Over; i++)
+        // The armoury bolts shut (stage 7), the first batch comes, and the crate falls a few seconds into it.
+        for (var i = 0; i < 60 * GameWorld.TicksPerSecond && !run.Over && !run.Director.Has("knocked"); i++)
+        {
+            // Bob comes in with the others (the room seals with all three in it), then stands where the test puts him.
+            if (!world.CompanionDown(run.Seats[2]))
+                bob.Position = run.Director.Has("lockdown") ? new Vector2(x, y) : rack + new Vector2(-4, 2);
+            world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true));
+            world.Step();
+        }
+        for (var i = 0; i < 3 * GameWorld.TicksPerSecond && !run.Over; i++)
         {
             if (!world.CompanionDown(run.Seats[2]))
                 bob.Position = new Vector2(x, y);
-            world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true));
             world.Step();
         }
 
         Assert.True(run.Director.Has("knocked"));
+        // The lockdown shut T and U again; the way is measured with them open, as after the batches.
+        world.OpenDoor('T', instant: true);
+        world.OpenDoor('U', instant: true);
         var crate = Assert.Single(world.Artefacts, a => a.Id >= Artefact.IdBase + StoryDirector.PlacedBase);
         Assert.True(Vector2.Distance(crate.Position, bob.Position) >= bob.Radius + StoryFall.Lies, $"crate at {crate.Position}, Bob at {bob.Position}");
         Vector2[] places = [new(451, 249), new(475, 247), new(477, 227), new(493, 249), new(505, 227)];

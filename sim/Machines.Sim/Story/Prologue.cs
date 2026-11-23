@@ -97,10 +97,11 @@ public static partial class Prologue
         // sends them.
         ([new(192, 245), new(219, 236), new(213, 236)], 90),
         // 8 Kreuzung: in the crossing, looking straight through door R into the workshop; the Grunts behind, clear of the
-        // view. 9 and 10 (the armoury's pauses) as 8 until package W places them.
+        // view.
         ([new(400, 244), new(394, 239), new(394, 249)], 0),
-        ([new(400, 244), new(394, 239), new(394, 249)], 0),
-        ([new(400, 244), new(394, 239), new(394, 249)], 0),
+        // 9 and 10, the armoury's pauses 2 and 4: at the defence posts def_1, def_2 and def_4, facing south, then east.
+        ([new(455, 237), new(474, 246), new(466, 238)], 180),
+        ([new(455, 237), new(474, 246), new(466, 238)], 90),
         // 11 Reparatur: at the repair station the Grunts stand behind the Locator, east of it: the way out (door U) is west,
         // and between it and the Locator they wedged it in.
         ([new(500, 248), new(505, 243), new(505, 253)], 180),
@@ -162,12 +163,12 @@ public static partial class Prologue
     /// </summary>
     public static readonly IReadOnlyList<string> DoorsOpen =
     [
-        "", "ABC", "ABC", "ABC", "ABC", "ABC", "ABCDEH", "ABCDEHIJW", "ABCDEHIJVKMQW", "ABCDEHIJVKMQW", "ABCDEHIJVKMQW", "ABCDEHIJVKMQRUW",
-        "ABCDEHIJVKMQRUTW", "ABCDEHIJVKMQRUTW", "ABCDEHIJVKMQRUTW",
+        "", "ABC", "ABC", "ABC", "ABC", "ABC", "ABCDEH", "ABCDEHIJW", "ABCDEHIJVKMQW", "ABCDEHIJVKMQW", "ABCDEHIJVKMQW", "ABCDEHIJVKMNQRUW",
+        "ABCDEHIJVKMNQRUTW", "ABCDEHIJVKMNQRUTW", "ABCDEHIJVKMNQRUTW",
     ];
 
     /// <summary>The doors that open by themselves as the trio comes, at each checkpoint.</summary>
-    public static readonly IReadOnlyList<string> DoorsAuto = ["", "D", "D", "D", "D", "D", "I", "", "R", "R", "R", "T", "", "", ""];
+    public static readonly IReadOnlyList<string> DoorsAuto = ["", "D", "D", "D", "D", "D", "I", "", "R", "", "", "T", "", "", ""];
 
     /// <summary>Lines the view does not say once a hack is done, if they still wait on the loudspeakers: the pod's refusal once it is hacked.</summary>
     public static readonly IReadOnlyDictionary<string, string> StaleOnceHacked = new Dictionary<string, string> { ["pod_3_hatch"] = Lines.PodNo };

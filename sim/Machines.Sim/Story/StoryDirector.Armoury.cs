@@ -51,7 +51,7 @@ internal static class StoryArmoury
         waves.PauseEnds = world.Time + (seconds ?? plan.PauseBefore);
         waves.BarFrom = wave == 1 ? StoryWaves.FirstBarFrom : 0;
         waves.Called = false;
-        StoryEvents.Cue(world, $"wave pause {wave}");
+        StoryEvents.Cue(world, "wave pause");
         // The computer's Ike blocks the next door it can (R or T) with crates; Bob stays by the Locator to be mended and armed.
         if (wave < StoryWaves.Plan.Count && StoryWaves.DoorsOf(wave).FirstOrDefault(d => d is 'R' or 'T') is var door && door != default)
             new Then.Assign(1, CompanionTask.Barricade, door.ToString(), IfFree: true).Do(world, run, director);

@@ -97,11 +97,24 @@ public sealed partial class GameWorld
     /// has to lie beside a machine does not lie there (stage 5: a crate knocked off the workshop's shelves onto a Grunt lay in
     /// the lane to door T, and nobody got on to the Notgang).
     /// </summary>
+    private const float LockedMouth = 5;
+
     internal bool CutsTheWay(string typeName, Vector2 at, float degrees)
     {
         if (Story is not { } run || run.Director.TypeOf(typeName) is not { } known || !Nav.Fine)
             return false;
         var footprint = Footprint(known.Type, at, degrees);
+        // A door the story keeps locked for now (the armoury's lockdown) opens again later: its mouth stays clear, though the
+        // ground beyond it is not part of any way while it is shut.
+        foreach (var letter in run.Director.Locked)
+        {
+            var leaves = DoorLeaves(letter);
+            if (leaves.Count == 0)
+                continue;
+            var middle = leaves.Aggregate(Vector2.Zero, (sum, leaf) => sum + leaf.Position) / leaves.Count;
+            if (footprint.Any(corner => Vector2.Distance(corner, middle) < LockedMouth) || Vector2.Distance(at, middle) < LockedMouth)
+                return true;
+        }
         return TrioWays.Any(way => Nav.Cuts(footprint, way));
     }
 

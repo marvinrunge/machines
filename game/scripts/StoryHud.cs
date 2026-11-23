@@ -126,6 +126,8 @@ public partial class StoryHud : Control
             DrawSignature(now);
         }
         DrawBoot(now);
+        // The armoury's bar, boss bar, wreck marks and prompts (StoryHud.Armoury).
+        DrawArmoury(now);
         DrawConsole();
         DrawHolds();
         DrawEnd(now);

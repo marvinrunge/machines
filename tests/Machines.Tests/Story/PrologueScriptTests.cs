@@ -75,7 +75,7 @@ public class PrologueScriptTests
             Assert.Equal(cp >= from, run.Hacks.Done.Contains(target));
         Assert.Equal(cp < 8, run.Hacks.Locked.Contains("hack_d5"));
         Assert.Equal(cp < 12, run.Hacks.Locked.Contains("pod_3_hatch"));
-        foreach (var letter in "ABCDEHIJKMQRTUV")
+        foreach (var letter in "ABCDEHIJKMNQRTUV")
             Assert.True(Prologue.DoorsOpen[checkpoint].Contains(letter) != world.DoorClosed(letter), $"door {letter}");
         Assert.All(Prologue.DoorsAuto[checkpoint], letter => Assert.Contains(letter, director.AutoDoors));
         // The ship's machines that exist there.
@@ -84,18 +84,19 @@ public class PrologueScriptTests
         Assert.Equal(checkpoint >= 1 ? 1 : 0, Count(world, Prologue.ThresherRole));
         Assert.Equal(cp is 7 or 8 ? 3 : 0, Count(world, Prologue.ReaperRole));
         Assert.Equal(cp is 7 or 8 ? 1 : 0, Count(world, Prologue.CommanderRole));
-        Assert.Equal(cp == 8 ? 3 : 0, Count(world, Prologue.HostileRole));
-        // The workshop's Grunts armed and painted as the trio's own; the Locator wears the Bolter once it was taken.
-        Assert.All(director.Of(world, Prologue.HostileRole), m => Assert.Equal((Race?)Race.Red, m.DisplayAs));
-        Assert.All(director.Of(world, Prologue.HostileRole), m => Assert.NotEmpty(m.Weapons));
-        Assert.Equal(cp >= 11, world.HeroOf(run.Locator)!.Weapons.Count > 0);
-        Assert.Equal(cp >= 11, run.Flags.Contains(Prologue.Sealed));
+        // No posted Grunts in the armoury any more (its batches come once the Bolter is taken); the Locator wears the Bolter
+        // once it was taken, and from the armoury's second pause the Grunts the Bolters it stripped (C17).
+        Assert.Equal(0, Count(world, Prologue.HostileRole));
+        Assert.Equal(cp >= 9, world.HeroOf(run.Locator)!.Weapons.Count > 0);
+        Assert.All(run.Seats.Skip(1), seat => Assert.Equal(cp >= 9, world.HeroOf(seat)!.Weapons.Count > 0));
+        Assert.Equal(cp >= 9, run.Flags.Contains(Prologue.Sealed));
+        Assert.Equal(cp is 9 or 10, run.Flags.Contains(StoryMarks.ArmourySealed));
         Assert.All(world.Machines.Where(m => run.Seats.All(s => world.HeroOf(s)?.Id != m.Id)), m => Assert.Equal(Race.Blue, m.Race));
         // From the break-in the alarm is on; after Erwischt the core is gone and the lights at emergency.
         Assert.Equal(cp < 8, world.Artefacts.Any(a => a.Tag == Prologue.CoreTag && !a.IsDead));
         Assert.Equal(cp >= 7, run.Flags.Contains(StoryMarks.Alarm));
         Assert.Equal(cp >= 8 ? "emergency" : "on", world.StoryLightState("core"));
-        Assert.Equal(cp >= 11, run.Flags.Contains(StoryMarks.Done("pickup_bolter")));
+        Assert.Equal(cp >= 9, run.Flags.Contains(StoryMarks.Done("pickup_bolter")));
         if (Prologue.CountdownFrom[cp] is { } left)
             Assert.Equal(left, run.Timers[StoryMarks.Countdown] - world.Time, 2);
         else
@@ -171,7 +172,7 @@ public class PrologueScriptTests
             Assert.Equal((Prologue.Starts[built].Facing, Prologue.DoorsOpen[built], Prologue.DoorsAuto[built]),
                 (Prologue.Starts[cp].Facing, Prologue.DoorsOpen[cp], Prologue.DoorsAuto[cp]));
         }
-        Assert.Equal([0, 1, 6, 7, 8, 11, 12], Prologue.Built);
+        Assert.Equal([0, 1, 6, 7, 8, 9, 10, 11, 12], Prologue.Built);
     }
 
     [Fact]
@@ -420,22 +421,36 @@ public class PrologueScriptTests
         }
 
         /// <summary>
-        /// The workshop's armed Grunts shot at, the nearest first, with the trigger held on it as a player aims (the Grunts
-        /// fight along), until none is left standing.
+        /// The armoury's five batches, cut short (their own fights are PrologueWaveTests'): every unit is put down as it
+        /// comes in; in the pauses a Grunt down is put together and a hurt one mended with the use key, so the early call
+        /// brings the next batch on; until the bolts let go and the old flow's "cleared" fires.
         /// </summary>
-        public void Fight()
+        public void Armoury()
         {
-            var hostiles = Run.Director.Of(world, Prologue.HostileRole);
-            for (var i = 0; i < 60 * GameWorld.TicksPerSecond && !Run.Over && hostiles.Any(m => !m.IsDead); i++)
+            for (var i = 0; i < 600 * GameWorld.TicksPerSecond && !Run.Over && !Run.Director.Has("cleared"); i++)
             {
-                var foe = hostiles.Where(m => !m.IsDead).OrderBy(m => Vector2.DistanceSquared(m.Position, Locator.Position)).ThenBy(m => m.Id).First();
-                world.Issue(new DriveCommand(Race.Red, Locator.Id, Driving: true, Aim: foe.Position));
+                if (world.HeroOf(Run.Locator) is not { } locator || world.LocatorShutDown)
+                {
+                    Step();
+                    continue;
+                }
+                foreach (var id in Run.Waves.Foes.Keys.ToList())
+                {
+                    if (world.Find<Machine>(id) is { IsDead: false } foe)
+                        world.Damage(foe, 100000, Race.Red, locator, "BOLTER");
+                }
+                var seat = Run.Seats.Skip(1).FirstOrDefault(s => world.CompanionDown(s));
+                var hurt = Run.Seats.Skip(1).FirstOrDefault(s => !world.CompanionDown(s) && world.HeroOf(s) is { } g && g.HitPoints < g.MaxHitPoints * 0.95f);
+                var target = seat.Value != 0 ? GameWorld.SeatTarget + seat.Value : !Run.Waves.Fighting && hurt.Value != 0 ? GameWorld.MendTarget + hurt.Value : null;
+                if (target is not null && !Run.Crew.Holding.ContainsKey(Run.Locator.Value))
+                {
+                    var grunt = world.HeroOf(seat.Value != 0 ? seat : hurt)!;
+                    SetDown(locator, grunt.Position + Vector2.Normalize(locator.Position - grunt.Position + new Vector2(0.01f, 0)) * (grunt.Radius + locator.Radius + 1));
+                    world.Issue(new StoryUseCommand(Race.Red, target));
+                }
                 Step();
             }
-            // A Locator lost in the firefight ends the chapter (StoryEnding.LocatorLost): nothing left to drive.
-            if (world.HeroOf(Run.Locator) is { } locator)
-                world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true));
-            Step();
+            Assert.True(Run.Director.Has("cleared") || Run.Over, $"the armoury not cleared (batch {Run.Waves.Wave}, cleared {Run.Waves.Cleared})");
         }
 
         /// <summary>The chapter from where it stands to its end, leg by leg.</summary>
@@ -487,8 +502,10 @@ public class PrologueScriptTests
                     All("R13");
                 else if (!director.Has("weapon"))
                     TakeUp("pickup_bolter");
+                else if (!director.Has("lockdown"))
+                    All("armoury");
                 else if (!director.Has("cleared"))
-                    Fight();
+                    Armoury();
                 else if (!director.Has("repaired"))
                     Go(Zone("repair"));
                 else if (!director.Has("notgang"))

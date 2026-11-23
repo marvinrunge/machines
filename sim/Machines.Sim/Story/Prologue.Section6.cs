@@ -46,7 +46,7 @@ public static partial class Prologue
 
         // ---- 4.2 Batch 1, the lesson: a crate off a shelf downs a Grunt, L-7 learns to put it together under fire.
         new("wave_1", 8, new WaveOn(1), []),
-        new("knocked", 8, new AllOf(new Since("wave_1", 6), new InZone(ArmouryZone, StoryWho.AnyCompanion)), [new KnockDown("crate_small", 1, ArmouryZone, 1, 2)]),
+        new("knocked", 8, new AllOf(new Since("wave_1", 6), new InZone(ArmouryZone, StoryWho.AnyCompanion)), [new KnockDown("crate_small", 1, ArmouryZone, 2, 1)]),
         new("us", 8, new AllOf(new Since("wave_1", 16), new Not(new WaveClear(1))), [new SayToSeat(Lines.IkeUs, 1)]),
         // ---- 4.3 Pause 1, the workbench's lesson: strip, mount, mend.
         new("strip_hint", 8, new WaveClear(1), [new SayToSeat(Lines.IkeStripHint, 1), LocatorHint("strip")]),
@@ -71,8 +71,8 @@ public static partial class Prologue
         // ---- 4.10 Batch 5, the heavy Grunt: gate N bursts (StoryArmoury), its charge (GameWorld.StoryCharge).
         new("boss_in", 10, new WaveOn(5), [new SayToSeat(Lines.IkeBig, 1), new Cue("hint charge"), new Cue("boss in", "boss_n"),
             new Assign(1, CompanionTask.None), new Assign(2, CompanionTask.None)]),
-        new("boss_half", 10, new AllOf(new WaveOn(5), new CastHurt(StoryHeavy.BossRole, 0.5f)), [new Escort(), new SayToSeat(Lines.BobTwo, 2)]),
-        new("boss_quarter", 10, new AllOf(new WaveOn(5), new CastHurt(StoryHeavy.BossRole, 0.75f)), [new CueCast("boss smoke", StoryHeavy.BossRole)]),
+        new("boss_half", 10, new AllOf(new WaveOn(5), new Not(new WaveClear(5)), new CastHurt(StoryHeavy.BossRole, 0.5f)), [new Escort(), new SayToSeat(Lines.BobTwo, 2)]),
+        new("boss_quarter", 10, new AllOf(new WaveOn(5), new Not(new WaveClear(5)), new CastHurt(StoryHeavy.BossRole, 0.75f)), [new CueCast("boss smoke", StoryHeavy.BossRole)]),
         new("boss_down", 10, new AllOf(new WaveOn(5), new Dead(StoryHeavy.BossRole)), [new Cue("boss down")]),
 
         // ---- 4.11 Afterwards: the power goes in section six, the bolts let go; strip the marked wrecks and out.
@@ -89,9 +89,6 @@ public static partial class Prologue
 
     /// <summary>Flag: L-7 carried a stripped Bolter for the first time (the mount hint).</summary>
     public const string CarriedOnce = "armoury:carried";
-
-    /// <summary>Where the trio stands at checkpoints 9 and 10 (Locator, Ike, Bob): the defence posts, facing south at 9 and east at 10.</summary>
-    public static readonly IReadOnlyList<string> DefencePosts = ["def_1", "def_2", "def_4"];
 
     /// <summary>
     /// Section 6's part of a checkpoint's set-up: the crossing (8) with the gates held; the armoury's pauses 2 and 4 (9, 10)
@@ -112,22 +109,18 @@ public static partial class Prologue
             // The Bolter taken from its rack, and the two the Locator stripped mounted on its Grunts (C17).
             world.TakeUpForStory(run.Locator, "pickup_bolter");
             run.Flags.Add(Sealed);
-            foreach (var seat in run.Seats.Skip(1))
+            for (var i = 1; i < run.Seats.Count; i++)
             {
-                if (world.MountBolter(seat))
-                    run.Waves.Mounted.Add(seat.Value);
+                if (!world.MountBolter(run.Seats[i]))
+                    continue;
+                run.Waves.Mounted.Add(run.Seats[i].Value);
+                // The refit took its order: it follows again, as at any checkpoint.
+                Do([new Wake(i)]);
             }
         }
         if (cp is 9 or 10)
         {
-            var facing = cp == 9 ? 180f : 90f;
-            for (var i = 0; i < run.Seats.Count && i < DefencePosts.Count; i++)
-            {
-                if (world.HeroOf(run.Seats[i]) is { } hero)
-                    world.SetHeroForStory(hero, StoryAction.Where(world, DefencePosts[i]), facing);
-            }
-            // Sealed: R, T and U shut and locked, N shut (it opened in batches 3 and 4), the reserve whole.
-            run.Director.AutoDoors.Clear();
+            // At the defence posts (Starts). Sealed: R, T and U shut and locked, N shut (it opened in batches 3 and 4), the reserve whole.
             Do([new LockDoors("RTU"), new Flag(StoryMarks.ArmourySealed), new Reserve(true)]);
             // The wrecks of the batches before, their Bolters stripped (a Grunt 2 and an electric one left for the stash at 10).
             world.StoryWreckAt(StoryWaveKind.Bolter, 1, StoryAction.Where(world, "wreck_cp_1"), stripped: true);
