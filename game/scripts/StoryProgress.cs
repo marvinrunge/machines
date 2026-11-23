@@ -108,5 +108,17 @@ public sealed partial class StoryProgress
 
     /// <summary>The options a chapter starts with from <paramref name="checkpoint"/>, with the Grunts' names given.</summary>
     public StoryOptions Options(string chapter, int checkpoint) =>
-        new() { Chapter = chapter, Checkpoint = checkpoint, IkeName = StorySeats.Named(IkeName, "Ike"), BobName = StorySeats.Named(BobName, "Bob") };
+        new()
+        {
+            Chapter = chapter, Checkpoint = checkpoint, IkeName = StorySeats.Named(IkeName, "Ike"), BobName = StorySeats.Named(BobName, "Bob"),
+            Difficulty = AskedDifficulty,
+        };
+
+    /// <summary>
+    /// The story's difficulty (StoryOptions.Difficulty): Normal, or for one run what MACHINES_STORY_DIFFICULTY=easy|normal|hard
+    /// asks. The story page has no row for it yet.
+    /// </summary>
+    public static StoryDifficulty AskedDifficulty =>
+        Enum.TryParse<StoryDifficulty>(System.Environment.GetEnvironmentVariable("MACHINES_STORY_DIFFICULTY"), ignoreCase: true, out var asked)
+            ? asked : StoryDifficulty.Normal;
 }

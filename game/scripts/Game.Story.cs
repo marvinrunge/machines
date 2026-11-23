@@ -426,6 +426,21 @@ public partial class Game
                 break;
             case ["l7", ..]:
                 break;
+            case ["door", "shut", var shut] when shut.Length == 1:
+                // A door the director shut (Then.CloseDoors): its leaves slide back out of the walls.
+                ShowDoorShut(shut[0], at);
+                break;
+            case ["door", "blown", _]:
+                // A door blown out of its frame (Then.BlowDoor): the blast; its leaves fly by their own cue ("thrown").
+                StoryAudio.Play("gate_burst", at);
+                _effects.Explosion(at + Godot.Vector3.Up * 2, 5);
+                CameraRig.Shake(at, 10, 0.8f);
+                break;
+            case ["door", "locked", _]:
+                StoryAudio.Play("lockdown_bolt", at);
+                break;
+            case ["door", "unlocked", _]:
+                break;
             default:
                 // The cues of stage 7's sections, each package's own (Game.StoryStealth, .StoryArmoury, .StoryEscape).
                 _ = StoryCueStealth(words, at) || StoryCueArmoury(words, at) || StoryCueEscape(words, at);
@@ -452,6 +467,39 @@ public partial class Game
             tween.TweenProperty(model, "position", rest, 0.18).SetTrans(Godot.Tween.TransitionType.Bounce).SetEase(Godot.Tween.EaseType.Out);
             _effects.SparkShower(ActorView.World(crate.Position) + Godot.Vector3.Up * 1.2f, null, 12);
         }
+    }
+
+    /// <summary>The scenario's artefacts (on a deck its doors among them), kept so a door that shuts again gets its leaves back.</summary>
+    private Machines.Import.Model.ArtefactSection? _artefactSection;
+
+    /// <summary>
+    /// A deck door shut again (GameWorld.CloseDoor): each leaf's model stands where the scenario put it, slid out of the wall
+    /// over the door's time as it slid in, with the door's sound.
+    /// </summary>
+    private void ShowDoorShut(char letter, Godot.Vector3 at)
+    {
+        if (_artefactSection is not { } section || World.Deck is not { } deck || GetNodeOrNull<Godot.Node3D>("Artefacts") is not { } root)
+            return;
+        var leaves = World.DoorLeaves(letter);
+        var types = section.Types.GroupBy(t => t.Name).ToDictionary(g => g.Key, g => g.First());
+        var seconds = Machines.Sim.World.GameWorld.SwingSeconds(deck.Doors.First(d => d.Letter == letter).Kind);
+        foreach (var leaf in leaves)
+        {
+            if (leaf.Placement >= section.Placements.Count)
+                continue;
+            if (_artefactModels.Remove(leaf.Placement, out var old) && IsInstanceValid(old))
+                old.QueueFree();
+            var placement = section.Placements[leaf.Placement];
+            if (Props.Artefact(types.GetValueOrDefault(placement.TypeName), placement, new Godot.Vector3(placement.Position.X, 0, placement.Position.Y)) is not { } model)
+                continue;
+            root.AddChild(model);
+            _artefactModels[leaf.Placement] = model;
+            var closed = model.Position;
+            var slide = Machines.Sim.World.GameWorld.LeafSlide(leaf, leaves);
+            model.Position = closed + new Godot.Vector3(slide.X, 0, slide.Y);
+            model.CreateTween().TweenProperty(model, "position", closed, seconds).SetTrans(Godot.Tween.TransitionType.Sine).SetEase(Godot.Tween.EaseType.InOut);
+        }
+        StoryAudio.Play("door_open", at);
     }
 
     /// <summary>Crates taken off whole this frame, by placement, until a "thrown" cue sends them flying (or FollowCrates frees them).</summary>

@@ -5856,3 +5856,16 @@ msgstr "OLD IRON"
 
 msgid "MASS {0} t"
 msgstr "MASSE {0} t"
+
+# Stage 7, package F2: the shutdown screen's systems and the story room going on after a loss.
+msgid "RADIO"
+msgstr "FUNK"
+
+msgid "SENSORS"
+msgstr "SENSOREN"
+
+msgid "OFF"
+msgstr "AUS"
+
+msgid "Everyone is back: on in {0} s…"
+msgstr "Alle wieder da: weiter in {0} s …"
