@@ -11,13 +11,20 @@ public readonly record struct CameraTilt(float Roll, float Pitch, float Sway = 0
 {
     public bool Level => Roll == 0 && Pitch == 0 && Sway == 0;
 
-    /// <summary>The turn it gives a camera at <paramref name="time"/> seconds, in the camera's own frame.</summary>
+    /// <summary>The share of the lean a camera shows with Soften the list on (<see cref="GameOptions.SoftList"/>, design-escape §8).</summary>
+    public const float SoftShare = 0.3f;
+
+    /// <summary>
+    /// The turn it gives a camera at <paramref name="time"/> seconds, in the camera's own frame; with Soften the list on, at
+    /// <see cref="SoftShare"/> of the lean and sway (the list itself, what slides with it and the gyro stay as they are).
+    /// </summary>
     public Basis At(double time)
     {
+        var soft = GameOptions.SoftList ? SoftShare : 1;
         var period = Mathf.Max(Period, 0.5f);
         var swing = Sway * Mathf.Sin(Mathf.Tau * (float)(time / period));
         var nod = Sway * 0.4f * Mathf.Sin(Mathf.Tau * (float)(time / (period * 1.618)) + 1.3f);
-        return new Basis(Quaternion.FromEuler(new Vector3(Mathf.DegToRad(Pitch + nod), 0, Mathf.DegToRad(-(Roll + swing)))));
+        return new Basis(Quaternion.FromEuler(new Vector3(Mathf.DegToRad((Pitch + nod) * soft), 0, Mathf.DegToRad(-(Roll + swing) * soft))));
     }
 
     /// <summary>Part of the way from <paramref name="from"/> to <paramref name="to"/>.</summary>

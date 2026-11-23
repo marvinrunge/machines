@@ -128,6 +128,8 @@ public partial class StoryHud : Control
         DrawBoot(now);
         // The armoury's bar, boss bar, wreck marks and prompts (StoryHud.Armoury).
         DrawArmoury(now);
+        // The escape's gyro and rear arc (StoryHud.Escape).
+        DrawEscape(now);
         DrawConsole();
         DrawHolds();
         DrawEnd(now);

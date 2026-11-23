@@ -92,6 +92,19 @@ public static class GameOptions
         set => Keep(ref _softScares, value, "story", "soft_scares");
     }
 
+    private static bool _softList;
+
+    /// <summary>
+    /// Whether the ship's list leans the view less (Soften the list, design-escape §8): the horizon tilts at
+    /// <see cref="CameraTilt.SoftShare"/> of the list, for players whom the escape's swaying makes queasy; what slides
+    /// and drifts with the list is not changed, nor the HUD's gyro. Kept as <c>story/soft_list</c>.
+    /// </summary>
+    public static bool SoftList
+    {
+        get { Read(); return _softList; }
+        set => Keep(ref _softList, value, "story", "soft_list");
+    }
+
     /// <summary>The sizes the HUD can be shown at, times its standard size (<see cref="HudSize"/>).</summary>
     public static readonly float[] HudSizes = [0.75f, 1f, 1.25f, 1.5f];
 
@@ -354,6 +367,7 @@ public static class GameOptions
             _publicRelay = ((string)config.GetValue("multiplayer", "public_relay", "")).Trim();
             _subtitles = Enum.TryParse<Captions>((string)config.GetValue("story", "subtitles", "normal"), true, out var captions) ? captions : Captions.Normal;
             _softScares = (bool)config.GetValue("story", "soft_scares", false);
+            _softList = (bool)config.GetValue("story", "soft_list", false);
         }
         foreach (var part in (System.Environment.GetEnvironmentVariable("MACHINES_OPTIONS") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
@@ -373,6 +387,7 @@ public static class GameOptions
                 case "weapon_buttons": _weaponButtons = on; break;
                 case "fire_waits": _fireWaits = on; break;
                 case "soft_scares": _softScares = on; break;
+                case "soft_list": _softList = on; break;
                 case "subtitles" when Enum.TryParse<Captions>(value, true, out var shown): _subtitles = shown; break;
                 case "hero_view": _thirdPerson = value != "first"; break;
                 case "chase_distance" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var chase):
