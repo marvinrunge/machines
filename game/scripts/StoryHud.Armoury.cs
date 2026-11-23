@@ -24,6 +24,8 @@ public partial class StoryHud
         if (waves.Boss != 0 && world.Find<Machine>(waves.Boss) is { IsDead: false } boss)
             DrawBoss(boss, middle, y);
         DrawWrecks(world, run);
+        // The doors the next batch comes by, marked or pointed to at the edge (StoryHud.Arrow).
+        DrawBatchDoors(now, world, run);
         if (now.IsLocator)
         {
             if (waves.Carried is not null)
@@ -51,7 +53,7 @@ public partial class StoryHud
         _ink.Leds(new Rect2(box.Position + new Vector2(14, 28) * _u, new Vector2(240, 16) * _u), share, waves.Fighting ? HudInk.Danger : HudInk.Warning, (float)_time, 20);
         if (next)
         {
-            var doors = string.Join(" + ", StoryWaves.DoorsOf(waves.Wave).Select(d => Lang.T(d switch { 'R' => "WEST DOOR", 'T' => "EAST DOOR", _ => "FREIGHT GATE" })));
+            var doors = string.Join(" + ", StoryWaves.DoorsOf(waves.Wave).Select(DoorName));
             var line = waves.Wave == StoryWaves.Plan.Count
                 ? Lang.T("BATCH {0}: 1 UNIT · MASS {1} t", waves.Wave, Mass())
                 : Lang.T("NEXT BATCH: {0}", doors);
