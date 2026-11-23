@@ -144,7 +144,8 @@ public static partial class Prologue
                 Do([new Flag(StoryMarks.Stealth), new Spawn(ThresherRole, Thresher, [ThresherHold], Hunters), new Round(ThresherRole, "a", 1, Now: true)]);
                 break;
             case 2:
-                Do([new Flag(StoryMarks.Stealth), new Spawn(ThresherRole, Thresher, ["patrol_a_1"], Hunters), new Round(ThresherRole, "a", 1, Now: true),
+                // L-7 in the duct: he is on the ring (the schacht beat gave it), from deck A's west end.
+                Do([new Flag(StoryMarks.Stealth), new Spawn(ThresherRole, Thresher, ["patrol_a_1"], Hunters), new Round(ThresherRole, "ring", 1, Now: true),
                     new SneakTo(1, "hide_e"), new SneakTo(2, "ENi")]);
                 break;
             case 3:

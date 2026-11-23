@@ -697,7 +697,7 @@ public sealed partial class GameWorld
         if (machine.Order is PatrolOrder dwelling && Time < eyes.DwellUntil)
         {
             var at = eyes.DwelledAt;
-            var length = eyes.DwellTimes.TryGetValue(at, out var seconds) ? seconds : StorySight.DwellTime;
+            var length = eyes.DwellTimes.TryGetValue(at, out var seconds) ? MathF.Abs(seconds) : StorySight.DwellTime;
             var sweep = eyes.DwellSweeps.TryGetValue(at, out var degrees) ? degrees : StorySight.DwellSweep;
             var since = eyes.DwellUntil - length;
             LookTowards(machine, eyes.DwellFacing + sweep * MathF.PI / 180 * DetMath.Sin(2 * MathF.PI * (Time - since) / length));
@@ -724,8 +724,13 @@ public sealed partial class GameWorld
             eyes.DwelledAt = -1;
             return false;
         }
+        var seconds = eyes.DwellTimes.TryGetValue(patrol.Next, out var time) ? time : StorySight.DwellTime;
+        // A dwell kept for the way east (negative) is passed by on the way west.
+        var before = patrol.Points[(patrol.Next + patrol.Points.Count - 1) % patrol.Points.Count];
+        if (seconds < 0 && before.X > patrol.Points[patrol.Next].X)
+            return false;
         eyes.DwelledAt = patrol.Next;
-        eyes.DwellUntil = Time + (eyes.DwellTimes.TryGetValue(patrol.Next, out var seconds) ? seconds : StorySight.DwellTime);
+        eyes.DwellUntil = Time + MathF.Abs(seconds);
         eyes.DwellFacing = eyes.DwellAngles.TryGetValue(patrol.Next, out var angle) ? angle * MathF.PI / 180 : machine.Facing;
         return true;
     }

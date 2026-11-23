@@ -1,0 +1,200 @@
+using System.Numerics;
+using Machines.Game;
+using Machines.Import.Model;
+using Machines.Sim;
+using Machines.Sim.Story;
+using Machines.Sim.World;
+using Xunit.Abstractions;
+
+namespace Machines.Tests.Story;
+
+// Section 2's Thresher (plan stufe7 §4 S, design-stealth §3.6, §8, §13): his rounds take the time the design gives them,
+// the guard looks back, no checkpoint starts him near the trio or looking at it, he cannot get where the trio hides, and two
+// peers playing it keep the same checksum.
+public class PrologueThresherTests(ITestOutputHelper output)
+{
+    private static readonly Lazy<GameData> DataLoader = new(() => GameData.Load(RepoPaths.OriginalDataFolder()));
+
+    private static GameWorld Chapter(int checkpoint, int seed = 3) =>
+        MatchSetup.Create(DataLoader.Value, StoryOptions.Prologue, StoryOptions.Prologue,
+            new Dictionary<Race, Controller> { [Race.Red] = Controller.Player, [Race.Blue] = Controller.Ai }, seed,
+            new MatchOptions { Story = new StoryOptions { Checkpoint = checkpoint }, FogOfWar = false });
+
+    private static Machine Thresher(GameWorld world) => world.Story!.Director.Of(world, Prologue.ThresherRole).Single();
+
+    /// <summary>Steps with the trio kept out of his sight (the offscreen grace for every seat), so only his round plays.</summary>
+    private static void Blind(GameWorld world, float seconds, Func<bool>? until = null)
+    {
+        for (var i = 0; i < seconds * GameWorld.TicksPerSecond && until?.Invoke() != true; i++)
+        {
+            foreach (var seat in world.Story!.Seats)
+                world.Story.Stealth.Unseen.Add(seat.Value);
+            world.Step();
+        }
+    }
+
+    [Theory]
+    [InlineData(1, "a", 100)]
+    [InlineData(2, "ring", 150)]
+    [InlineData(4, "b", 95)]
+    public void His_rounds_take_the_time_the_design_gives_them(int checkpoint, string round, float seconds)
+    {
+        var world = Chapter(checkpoint);
+        var run = world.Story!;
+        var thresher = Thresher(world);
+        // The trio waits in the clamp hall, out of his way.
+        for (var seat = 0; seat < run.Seats.Count; seat++)
+        {
+            var hero = world.HeroOf(run.Seats[seat])!;
+            hero.Position = new Vector2(30 + 6 * seat, 74);
+            hero.Path.Clear();
+            hero.PathIndex = 0;
+        }
+        Blind(world, 400, () => run.Stealth.Laps.GetValueOrDefault(thresher.Id) >= 1);
+        Assert.Equal(round, run.Stealth.RoundOf[thresher.Id]);
+        // The first lap from where the checkpoint set him down differs; from the second on they are the same.
+        Blind(world, 400, () => run.Stealth.Laps.GetValueOrDefault(thresher.Id) >= 2);
+        var first = world.Time;
+        Blind(world, 400, () => run.Stealth.Laps.GetValueOrDefault(thresher.Id) >= 3);
+        var lap = world.Time - first;
+        output.WriteLine($"round {round}: {lap:0.0} s (design {seconds} s)");
+        Assert.InRange(lap, seconds - 5, seconds + 5);
+        // Every lap the same to the tick.
+        Blind(world, 400, () => run.Stealth.Laps.GetValueOrDefault(thresher.Id) >= 4);
+        Assert.InRange(MathF.Abs(world.Time - first - 2 * lap), 0, 0.1f);
+    }
+
+    [Fact]
+    public void At_his_guard_he_looks_back_at_the_nordgang_once_in_forty_seconds()
+    {
+        var world = Chapter(5);
+        var thresher = Thresher(world);
+        var post = StoryMarks.Locate(world.Deck, "guard_h")!.Value;
+        Blind(world, 60, () => Vector2.Distance(thresher.Position, post) < 1.5f && thresher.Order is not MoveOrder);
+        var backs = new List<float>();
+        var wasBack = false;
+        for (var i = 0; i < 90 * GameWorld.TicksPerSecond; i++)
+        {
+            Blind(world, 1f / GameWorld.TicksPerSecond);
+            // His back to the Nordgang (north, 90°) means looking south.
+            var back = MathF.Sin(thresher.Facing) < -0.7f;
+            if (back && !wasBack)
+                backs.Add(world.Time);
+            wasBack = back;
+        }
+        output.WriteLine($"at {thresher.Position} ({thresher.Order.GetType().Name}), post {post}");
+        output.WriteLine($"looks back at {string.Join(", ", backs.Select(t => t.ToString("0.0")))}");
+        Assert.InRange(backs.Count, 2, 3);
+        Assert.InRange(backs[1] - backs[0], StorySight.GuardEvery - 1, StorySight.GuardEvery + 1);
+        Assert.True(Vector2.Distance(thresher.Position, post) < 2);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public void No_checkpoint_starts_him_near_the_trio_or_looking_at_it(int checkpoint)
+    {
+        var world = Chapter(checkpoint);
+        var run = world.Story!;
+        var thresher = Thresher(world);
+        foreach (var seat in run.Seats)
+        {
+            var hero = world.HeroOf(seat)!;
+            var to = hero.Position - thresher.Position;
+            Assert.True(to.Length() >= 40, $"cp {checkpoint}: seat {seat.Value} {to.Length():0} m from him");
+            var off = MathF.Abs(MathF.IEEERemainder(MathF.Atan2(to.Y, to.X) - thresher.Facing, MathF.Tau)) * 180 / MathF.PI;
+            Assert.True(to.Length() > StorySight.LampSight || off > StorySight.BeamHalfAngle, $"cp {checkpoint}: seat {seat.Value} in his cone");
+        }
+        Assert.Contains(StoryMarks.Stealth, run.Flags);
+    }
+
+    [Theory]
+    [InlineData("graben")]
+    [InlineData("nordgang")]
+    [InlineData("A1")]
+    [InlineData("niche_l7")]
+    [InlineData("ENi")]
+    public void He_cannot_get_where_the_trio_hides(string place)
+    {
+        var world = Chapter(1);
+        var thresher = Thresher(world);
+        var at = StoryMarks.Locate(world.Deck, place)!.Value;
+        var path = world.Nav.FindPath(thresher.Position, at, GameWorld.MobilityOf(thresher));
+        var end = path.Count > 0 ? path[^1] : thresher.Position;
+        Assert.True(Vector2.Distance(end, at) > 3, $"he gets within {Vector2.Distance(end, at):0.0} m of {place}");
+    }
+
+    [Fact]
+    public void From_checkpoint_six_door_h_is_shut_and_locked_and_he_is_out_of_section_two()
+    {
+        foreach (var cp in new[] { 6, 7 })
+        {
+            var world = Chapter(cp);
+            Assert.True(world.DoorClosed('H'));
+            Assert.Contains('H', world.Story!.Director.Locked);
+            Assert.DoesNotContain(StoryMarks.Stealth, world.Story.Flags);
+        }
+    }
+
+    [Fact]
+    public void The_armourys_grunts_keep_the_old_sight()
+    {
+        // Section 2's rules hang on the stealth flag and on the searchlight; the armoury's Grunts have neither.
+        var world = Chapter(8);
+        Assert.DoesNotContain(StoryMarks.Stealth, world.Story!.Flags);
+        Assert.All(world.Story.Director.Of(world, Prologue.HostileRole), m => Assert.False(world.StorySeekerOf(m.Id)?.Searchlight ?? false));
+    }
+
+    [Fact]
+    public void A_third_bang_within_ninety_seconds_makes_him_fire_into_the_source()
+    {
+        var world = Chapter(1);
+        var run = world.Story!;
+        var source = world.StoryNoiseSources().First(m => !m.Tags.Any(t => t.StartsWith("far=", StringComparison.Ordinal)));
+        var grunt = world.HeroOf(run.Seats[1])!;
+        Assert.Null(world.StoryBang(source.Name, grunt.Id));
+        Blind(world, 20);
+        Assert.Null(world.StoryBang(source.Name, grunt.Id));
+        Assert.DoesNotContain(source.Name, run.Stealth.Spent);
+        Blind(world, 20);
+        Assert.Null(world.StoryBang(source.Name, grunt.Id));
+        Assert.Contains(source.Name, run.Stealth.Spent);
+        Assert.DoesNotContain(world.StoryNoiseSources(), m => m.Name == source.Name);
+    }
+
+    [Fact]
+    public void A_valve_sounds_at_the_far_end_of_its_pipe()
+    {
+        var world = Chapter(1);
+        var run = world.Story!;
+        var valve = world.StoryNoiseSources().First(m => m.Tags.Any(t => t.StartsWith("far=", StringComparison.Ordinal)));
+        Assert.Null(world.StoryBang(valve.Name, world.HeroOf(run.Seats[1])!.Id));
+        Assert.Single(run.Stealth.Pipes);
+        Blind(world, StorySight.PipeDelay + 0.2f);
+        Assert.Empty(run.Stealth.Pipes);
+    }
+
+    [Fact]
+    public void Two_peers_playing_section_two_keep_the_same_checksum()
+    {
+        var sums = new List<ulong>[2];
+        for (var peer = 0; peer < 2; peer++)
+        {
+            var world = Chapter(1);
+            sums[peer] = [];
+            var source = world.StoryNoiseSources().First();
+            for (var second = 0; second < 90; second++)
+            {
+                if (second == 30)
+                    world.StoryBang(source.Name, world.HeroOf(world.Story!.Seats[2])!.Id);
+                for (var i = 0; i < GameWorld.TicksPerSecond; i++)
+                    world.Step();
+                sums[peer].Add(world.Checksum());
+            }
+        }
+        Assert.Equal(sums[0], sums[1]);
+    }
+}

@@ -272,8 +272,12 @@ public sealed class StorySight
     // Only for a searchlight while the story's StoryMarks.Stealth is set (C6): every other seeker, and the Thresher in any
     // other section, goes by the rules above.
 
-    /// <summary>The shares of its top speed the Thresher goes at by its order: on its round, searching (a lure), hunting (and the rush to H).</summary>
-    public const float PatrolPace = 0.25f, SearchPace = 0.4f, HuntPace = 0.7f;
+    /// <summary>
+    /// The shares of its top speed the Thresher goes at by its order: on its round, searching (a lure), hunting (and the rush
+    /// to H). The round's share is the design's 0.25 tuned to 0.265, so the rounds take their approved 100, 150 and 95 s on the
+    /// deck as built (turns, starts and stops cost about a tenth); the walking trio stays a little faster.
+    /// </summary>
+    public const float PatrolPace = 0.265f, SearchPace = 0.4f, HuntPace = 0.7f;
 
     /// <summary>The shares of its turn rate on its round and searching; hunting, and the guard's look back, turn at the whole of it.</summary>
     public const float PatrolTurn = 0.4f, SearchTurn = 0.6f;

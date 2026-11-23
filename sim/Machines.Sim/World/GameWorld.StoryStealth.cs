@@ -63,10 +63,10 @@ public sealed partial class GameWorld
     /// </summary>
     private bool StoryGraced(StoryRun run, Machine hero)
     {
+        if (run.Stealth.Unseen.Count > 0 && run.Seats.Any(s => run.Stealth.Unseen.Contains(s.Value) && HeroOf(s)?.Id == hero.Id))
+            return true;
         if (CompanionSeat(hero) is not { } seat)
             return false;
-        if (run.Stealth.Unseen.Contains(seat.Value))
-            return true;
         if (!StoryBotPlays(seat) || HeroOf(run.Locator) is not { } locator)
             return false;
         return Deck?.CellAt(locator.Position) is DeckCell.Duct or DeckCell.Lip || Vector2.Distance(locator.Position, hero.Position) > StorySight.GraceApart;
@@ -147,6 +147,10 @@ public sealed partial class GameWorld
             return null;
         if (run.Stealth.Rushing.Contains(machine.Id) || machine.Order is AttackOrder || run.Stealth.Guards.ContainsKey(machine.Id) && machine.Order is IdleOrder)
             return 1;
+        // Standing at the end of a lane he pivots at his whole turn (as for the Rückblick); the patrol's slow turn is for
+        // the curves he walks.
+        if (machine.Order is PatrolOrder && (!_motion.TryGetValue(machine.Id, out var motion) || motion.Speed == 0))
+            return 1;
         return machine.Order is SearchOrder ? StorySight.SearchTurn : StorySight.PatrolTurn;
     }
 
@@ -171,7 +175,8 @@ public sealed partial class GameWorld
             if (Deck?.Markers.FirstOrDefault(m => m.Name == places[i]) is not { } marker || TagOf(marker, "dwell") is not { } dwell)
                 continue;
             pauses.Add(i);
-            eyes.DwellTimes[i] = Number(dwell, StorySight.DwellTime);
+            // A dwell only on the way east (a2's listening) is kept negative.
+            eyes.DwellTimes[i] = Number(dwell, StorySight.DwellTime) * (marker.Tags.Contains("eastbound") ? -1 : 1);
             eyes.DwellSweeps[i] = Number(TagOf(marker, "sweep"), StorySight.DwellSweep);
             eyes.DwellAngles[i] = Number(TagOf(marker, "look"), marker.Angle);
         }
