@@ -198,14 +198,16 @@ public static partial class Prologue
         world.StartJets(run);
         if (cp == 13)
         {
-            // Behind the shut shutter: the pack as a run that reached the gallery has it; the Thresher rams X in a moment.
+            // Behind the shut shutter: the pack as a run that reached the gallery has it, in the hold's west aisle at its leash
+            // distance, every one at least 40 m from the trio (no restart begins within 40 m of a hunter, plan stufe7 §5); the
+            // Thresher comes to X and rams it a few seconds in.
             world.CloseDoor('X');
             run.Hazards.Shutter = ShutterState.Shut;
             run.Hazards.ShutterDown = StoryHazards.ShutterLower;
             Do([new Spawn(StoryPack.R3a, Reaper3, ["372,192"], Hunters), new Spawn(StoryPack.R3b, Reaper3, ["378,198"], Hunters),
-                new Spawn(StoryPack.R2b, Reaper2, ["370,182"], Hunters), new Spawn(StoryPack.R2c, Reaper2, ["378,176"], Hunters),
-                new SpawnHeavy(StoryHeavy.PackRole1, StoryHeavyPart.Pack, ["368,204"]), new SpawnHeavy(StoryHeavy.PackRole2, StoryHeavyPart.Pack, ["376,150"])]);
-            Do([new Run("thresher", (w, r, d) => PlaceThresher(w, r, d, new Vector2(364, 146))), Muster]);
+                new Spawn(StoryPack.R2b, Reaper2, ["379,186"], Hunters), new Spawn(StoryPack.R2c, Reaper2, ["379,176"], Hunters),
+                new SpawnHeavy(StoryHeavy.PackRole1, StoryHeavyPart.Pack, ["368,204"]), new SpawnHeavy(StoryHeavy.PackRole2, StoryHeavyPart.Pack, ["360,194"])]);
+            Do([new Run("thresher", (w, r, d) => PlaceThresher(w, r, d, new Vector2(370, 180))), Muster]);
             foreach (var heavy in director.Of(world, StoryHeavy.PackRole1))
                 heavy.HitPoints = (int)(heavy.MaxHitPoints * 0.55f);
             return;

@@ -50,6 +50,8 @@ public class PrologueEscapeTests
     {
         var reached = Chapter(13);
         var run = reached.Story!;
+        // The gallery takes a run its 20 s or so: the Thresher has rammed X open behind them by then.
+        Assert.True(RunUntil(reached, () => run.Hazards.Shutter == ShutterState.Broken, 15));
         // Over the bridge and into the bay; the bridge falls behind them, the pack goes round.
         foreach (var at in new[] { new Vector2(340, 96), new Vector2(400, 92), new Vector2(452, 92) })
         {
@@ -78,24 +80,49 @@ public class PrologueEscapeTests
             var world = Chapter(12, seed: 11);
             var run = world.Story!;
             var sums = new List<ulong>();
-            var shut = false;
-            Carry(world, 200, each: along =>
+            void Sum()
             {
-                // In the hold, the Locator is shot down to nothing: he shuts down, and Ike restarts him.
-                if (!shut && along > 160)
-                {
-                    shut = true;
-                    world.Damage(Hero(world, 0), 100000, Race.Blue);
-                }
                 if (world.Tick % 20 == 0)
                     sums.Add(world.Checksum());
-            });
-            Assert.True(shut);
-            Assert.True(run.Reserve.Restarts >= 0);
+            }
+            // Carried into the hold, the Locator is shot down to nothing there: he shuts down (the reserve), and Ike's bot
+            // drives over and plugs him in again; then on.
+            Carry(world, 160, each: _ => Sum());
+            world.Damage(Hero(world, 0), 100000, Race.Blue);
+            Assert.Contains(StoryMarks.L7Down, run.Flags);
+            Assert.True(RunUntil(world, () => !run.Flags.Contains(StoryMarks.L7Down) || run.Over, 20, each: Sum));
+            Assert.False(run.Over, $"ended {run.Ending}");
+            Assert.Equal(1, run.Reserve.Restarts);
+            Run(world, 10, each: Sum);
             return sums;
         }
 
         Assert.Equal(Play(), Play());
+    }
+
+    [Fact]
+    public void No_escape_checkpoint_starts_within_40_metres_of_a_hunter()
+    {
+        foreach (var cp in new[] { 12, 13, 14 })
+        {
+            var world = Chapter(cp);
+            var heroes = Heroes(world).ToList();
+            foreach (var hunter in world.Machines.Where(m => !m.IsDead && m.Race != heroes[0].Race))
+            {
+                var near = heroes.Min(h => Vector2.Distance(h.Position, hunter.Position));
+                Assert.True(near >= 40, $"checkpoint {cp}: {hunter.Id} at {hunter.Position} is {near:0.#} m from the trio");
+            }
+        }
+    }
+
+    [Fact]
+    public void At_the_galerie_the_thresher_rams_the_shutter_open_within_fifteen_seconds()
+    {
+        var world = Chapter(13);
+        var events = new List<GameEvent>();
+        Assert.True(RunUntil(world, () => world.Story!.Hazards.Shutter == ShutterState.Broken, 15, events),
+            $"shutter {world.Story!.Hazards.Shutter}, rammed {world.Story.Hazards.ShutterRammed}");
+        Assert.Contains(Cues(events), c => c.StartsWith("shutter ram", StringComparison.Ordinal));
     }
 
     /// <summary>The Locator's way through the escape as a player walks it (move orders), checkpoint 12 to the pod.</summary>
