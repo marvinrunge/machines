@@ -301,6 +301,17 @@ the options (see `GameOptions.cs`) for one run without saving them, `MACHINES_LA
 and `MACHINES_AI=easy`, `normal` or `hard` how well the AIs of a `MACHINES_MAP` run play. `MACHINES_PERF=<seconds>`
 logs what each second's frames cost for that long, then sums it up and ends the game (see `PerfLog.cs`).
 
+The prologue's escape (section 7) has two switches of its own, both with `MACHINES_MAP=prolog` and
+`MACHINES_STORY=prolog,12` (or `13`, `14`). `MACHINES_STORY_ESCAPE_TEST=lift|breach|hold|shutter|jets|bridge|bay` (offline
+only) puts the unhurtable trio where that set piece plays, looking at it, a few ticks into the match, with the world as a
+run that got there has it (the Notgang caved in and door P blown from `hold` on, the jets started from `jets` on); the
+director's own beats then play it, and every second the console prints the hazards (`escape: t=... rails [...] shutter
+... jets [...] collapsed ... bridge ...`; see `Game.StoryEscape.cs`). With `MACHINES_STORY_DRIVE=<folder>` the driver
+runs section 7 on its own legs to the bay (`StoryDriver.Escape.cs`), printing each beat with the seconds left
+(`story drive: escape: <beat> at <s> s, T-<left>`) and the launch; `MACHINES_STORY_DRIVE_SHUTDOWN=1` or `2` has it stand
+in the hold's west landing until the Notabschaltung has come and gone that often (after 40 s without one it shoots its
+own Locator down, counted as a fallback). `MACHINES_OPTIONS=soft_list=on` turns on Soften the list for a run.
+
 | Control | Does |
 | --- | --- |
 | Left click / drag | Select (Ctrl or Shift adds; Ctrl and a click takes one out); with a command in hand, its target |
