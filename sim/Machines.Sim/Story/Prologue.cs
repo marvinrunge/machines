@@ -44,6 +44,13 @@ public static partial class Prologue
     public static readonly StoryUnit HostileGrunt = new("AGGRESSOR", "GRUNT", 1, "R_BOLTER");
     public static readonly StoryUnit Grunt2 = new("AGGRESSOR", "GRUNT", 2, "L_BOLTER");
     public static readonly StoryUnit Grunt3 = new("AGGRESSOR", "GRUNT", 3, "LR_HEAVY_BOLTER1_X2");
+
+    /// <summary>
+    /// The big Grunt (plan stufe7 C16, the user's answer to question 1): Old Iron, Wired's Grunt 5, drawn 1.5 times a Grunt 3
+    /// with its dozer blade, carrying only the Grunt 3's twin heavy Bolters. The armoury's boss and the escape's two pack
+    /// heavies; set down and tuned through <see cref="StoryHeavy"/>, never by a plain <see cref="Then.Spawn"/>.
+    /// </summary>
+    public static readonly StoryUnit HeavyGrunt = new("AGGRESSOR", "GRUNT", 5, "LR_HEAVY_BOLTER1_X2");
     public static readonly StoryUnit Builder = new("CONSTRUCTOR", "BUILDER", 3, null);
     public static readonly StoryUnit TechBoy = new("TECHNICIAN", "TECH_BOY", 3, null);
 
