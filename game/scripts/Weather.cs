@@ -70,9 +70,6 @@ public partial class Weather : Node3D
     public static Weather? Create(string planet, int seed, Func<float> time, Func<Vector3> focus, Func<float> distance)
     {
         EnsureGlobals();
-        // The dust on the machines is the ground's (ModelGrime), whatever the weather.
-        var dust = Planets.TryGetValue(planet, out var ground) ? Dust[ground] : ModelGrime.NeutralDust;
-        RenderingServer.GlobalShaderParameterSet("planet_dust", new Vector3(dust.R, dust.G, dust.B));
         if (!GraphicsSettings.Weather || !Planets.TryGetValue(planet, out var kind))
             return null;
         Effects.DustTint = Dust[kind];
@@ -87,8 +84,7 @@ public partial class Weather : Node3D
 
     /// <summary>
     /// The shader values the weather sets for every material that reads them: the wind (grass), how wet the
-    /// ground is (TerrainMaterials, ModelGrime) and the colour of its dust (ModelGrime). Added once, before any shader
-    /// that reads them is made.
+    /// ground is (TerrainMaterials). Added once, before any shader that reads them is made.
     /// </summary>
     public static void EnsureGlobals()
     {
@@ -101,8 +97,6 @@ public partial class Weather : Node3D
         _globals = true;
         RenderingServer.GlobalShaderParameterAdd("weather_wind", RenderingServer.GlobalShaderParameterType.Vec2, Wind);
         RenderingServer.GlobalShaderParameterAdd("weather_wetness", RenderingServer.GlobalShaderParameterType.Float, 0f);
-        var dust = ModelGrime.NeutralDust;
-        RenderingServer.GlobalShaderParameterAdd("planet_dust", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(dust.R, dust.G, dust.B));
     }
 
     private static bool _globals;

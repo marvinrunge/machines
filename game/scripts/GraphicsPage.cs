@@ -53,7 +53,7 @@ public partial class GraphicsPage(Action back, bool inGame) : MenuPage(back)
         string[] modelNotes =
         [
             "The original's models and textures.",
-            "The original's models with rounded edges, baked shading, sharper textures, a little sheen and the field's dust and grime.",
+            "The original's models with rounded edges, baked shading, sharper textures and a little sheen.",
             "The remade models in the original's rigs; those not remade yet show overhauled.",
         ];
         var offered = GraphicsSettings.HdModels ? 3 : 2;
