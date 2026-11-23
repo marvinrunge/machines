@@ -365,10 +365,12 @@ public sealed partial class GameWorld
         rail.Centre = want;
         // At the end of its rail, or stopped by what stands before it (a hero it stops short of, a member that survived it,
         // another container): it comes to rest there until the next roll, its ground blocked again so the ways go round it.
-        if (want == c || want == (way > 0 ? RailNorth - h : RailSouth + h))
+        var end = way > 0 ? RailNorth - h : RailSouth + h;
+        if (want == c || want == end)
         {
-            if (Math.Abs(want - c) > 0 || rail.Speed == 0)
-                StoryEvents.Cue(this, $"rail end {rail.Name}", rail.Middle);
+            // Run into the bulkhead at its rail's end it crashes ("rail end"); stopped short by what stands before it, it
+            // only stops ("rail stop"): the view crashes the one and scrapes the other to a halt.
+            StoryEvents.Cue(this, want == end ? $"rail end {rail.Name}" : $"rail stop {rail.Name}", rail.Middle);
             SetRail(rail, RailState.Rest);
             (rail.Speed, rail.Way) = (0, 0);
         }
@@ -709,6 +711,9 @@ public sealed partial class GameWorld
 
     // ---- the devices (Use): the hand wheel, the lever ---------------------------------------------------------
 
+    /// <summary>Where a marker of the deck stands, or the origin when the deck has none of that name (a cue's place only).</summary>
+    private Vector2 MarkerAt(string name) => Deck?.Markers.FirstOrDefault(m => m.Name == name)?.Position ?? default;
+
     private void UpdateEscapeDevices(StoryRun run)
     {
         var hazards = run.Hazards;
@@ -734,12 +739,12 @@ public sealed partial class GameWorld
             if (holding == "wheel_j4")
             {
                 hazards.J4OffUntil = Math.Max(hazards.J4OffUntil, Tick + StoryHazards.WheelOff);
-                StoryEvents.Cue(this, "wheel j4", Deck?.Marker("wheel_j4").Position ?? default);
+                StoryEvents.Cue(this, "wheel j4", MarkerAt("wheel_j4"));
             }
             else
             {
                 hazards.LeverUntil = Tick + StoryHazards.LeverLock;
-                StoryEvents.Cue(this, "lever lanes", Deck?.Marker("lever_f").Position ?? default);
+                StoryEvents.Cue(this, "lever lanes", MarkerAt("lever_f"));
             }
         }
     }
