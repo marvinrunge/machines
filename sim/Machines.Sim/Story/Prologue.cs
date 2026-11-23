@@ -118,7 +118,7 @@ public static partial class Prologue
     /// other is set up as the nearest built one before it (<see cref="SetUpAs"/>); the packages of stage 7 add theirs as they
     /// build them (S: 2–5, W: 9–10, E: 13–14).
     /// </summary>
-    public static readonly IReadOnlySet<int> Built = new SortedSet<int> { 0, 1, 6, 7, 8, 11, 12 };
+    public static readonly IReadOnlySet<int> Built = new SortedSet<int> { 0, 1, 6, 7, 8, 9, 10, 11, 12 };
 
     /// <summary>The checkpoint a chapter started from <paramref name="checkpoint"/> is set up as: itself once built, else the nearest built one before it.</summary>
     public static int SetUpAs(int checkpoint)
@@ -597,6 +597,7 @@ public static partial class Prologue
             6 => new Objective("Hack the main computer", "hack_core"),
             7 => new Objective("Take cover from the Reapers", Cover),
             8 => new Objective("Get through the workshop", "pickup_bolter"),
+            9 or 10 => new Objective("Hold the armoury", "R13"),
             11 => new Objective("Get to the escape pods", "R15"),
             12 => new Objective("Reach the escape pods", "pod_3_hatch"),
             _ => new Objective(null),
