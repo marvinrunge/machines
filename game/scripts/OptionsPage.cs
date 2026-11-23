@@ -5,8 +5,8 @@ namespace Machines.Game;
 
 /// <summary>
 /// The options (MachGuiCtxOptions), the same before a match and over one: the look, the music's and the sounds'
-/// volumes, 3D sound, the soundtrack's folder, window or full screen, the menus' and the HUD's size, and the original's gamma,
-/// reversed keys and mouse and 2D selection box (<see cref="GameOptions"/>). Before a match it also imports the
+/// volumes, 3D sound, which soundtrack plays (<see cref="Soundtrack"/>) and the original soundtrack's folder, window or
+/// full screen, the menus' and the HUD's size, and the original's gamma, reversed keys and mouse and 2D selection box (<see cref="GameOptions"/>). Before a match it also imports the
 /// original models and terrain from the player's own copy of the game (<see cref="ClassicImport"/>). Every change
 /// takes at once and is kept in <c>user://settings.cfg</c>.
 /// </summary>
@@ -85,15 +85,37 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         look.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         rows.AddChild(lookNote);
 
-        rows.AddChild(Setting("Music", Slider(Music.Volume, value => Music.Volume = value)));
+        // Which soundtrack plays shares the music's row: one more would push Back off the screen.
+        var soundtracks = Enum.GetValues<Soundtrack>();
+        var soundtrack = new ChipChoice(soundtracks.Select(s => s.ToString()), Array.IndexOf(soundtracks, Music.Mode));
+        soundtrack.TooltipText = Lang.T("Original: the original soundtrack from your own MP3s. Remake: the remake's own soundtrack. Both: the two mixed.");
+        var musicVolume = Slider(Music.Volume, value => Music.Volume = value);
+        var soundtrackRow = Setting("Soundtrack", soundtrack, 0);
+        rows.AddChild(Setting("Music", Line(28, musicVolume, soundtrackRow)));
+        musicVolume.SizeFlagsHorizontal = soundtrackRow.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         rows.AddChild(Setting("Sounds", Slider(GameAudio.SoundVolume, value => GameAudio.SoundVolume = value)));
         rows.AddChild(Setting(Text(7098, "3D Sound"), Switch(GameOptions.Sound3d, on => GameOptions.Sound3d = on)));
 
-        static string Tracks(string? folder) => Music.TrackCount(folder) is var count and > 0
-            ? Lang.T("{0} tracks", count)
-            : Lang.T("Pick the folder with the soundtrack's MP3s");
         // Two lines at most: on one it pushed the other column off the screen until a folder was picked, on three the page.
-        var tracks = MenuTheme.Label(Tracks(Music.Folder), 20, MenuTheme.Dim);
+        var tracks = MenuTheme.Label("", 20, MenuTheme.Dim);
+        void ShowTracks(string? folder)
+        {
+            var (text, missing) = Tracks(Music.Mode, Music.TrackCount(folder));
+            tracks.Text = text;
+            tracks.AddThemeColorOverride("font_color", missing ? MenuTheme.Bright : MenuTheme.Dim);
+        }
+        ShowTracks(Music.Folder);
+        soundtrack.ItemSelected += i =>
+        {
+            Music.Mode = soundtracks[i];
+            ShowTracks(Music.Folder);
+        };
+        // A soundtrack not chosen follows the look.
+        look.ItemSelected += _ =>
+        {
+            soundtrack.Selected = Array.IndexOf(soundtracks, Music.Mode);
+            ShowTracks(Music.Folder);
+        };
         tracks.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         tracks.MaxLinesVisible = 2;
         tracks.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
@@ -109,11 +131,11 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         music.DirSelected += folder =>
         {
             Music.Folder = folder;
-            tracks.Text = Tracks(folder);
+            ShowTracks(folder);
         };
         var pick = Button("Pick folder", () => music.PopupCentered(new Vector2I(900, 600)), 64, 22);
         pick.CustomMinimumSize = new Vector2(240, 64);
-        rows.AddChild(Setting("Soundtrack", Line(18, pick, tracks)));
+        rows.AddChild(Setting("Original MP3s", Line(18, pick, tracks)));
         tracks.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 
         var window = new ChipChoice(["Window", "Full screen"], FullScreen ? 1 : 0);
@@ -172,6 +194,20 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
         };
         return Setting("HUD size", choice, 0);
     }
+
+    /// <summary>
+    /// What the original soundtrack's folder gives the soundtrack chosen, with <paramref name="count"/> of its tracks
+    /// found, and whether the soundtrack misses it (the original's alone plays nothing without it).
+    /// </summary>
+    public static (string Text, bool Missing) Tracks(Soundtrack mode, int count) => (mode, count > 0) switch
+    {
+        (Soundtrack.Original, true) => (Lang.T("{0} tracks", count), false),
+        (Soundtrack.Original, false) => (Lang.T("Original plays your own MP3s of the soundtrack: pick their folder, or there is no music"), true),
+        (Soundtrack.Both, true) => (Lang.T("{0} tracks, mixed with the remake's", count), false),
+        (Soundtrack.Both, false) => (Lang.T("No folder picked: only the remake's tracks play"), true),
+        (_, true) => (Lang.T("{0} tracks, played under Original or Both", count), false),
+        _ => (Lang.T("Not needed: the remake's own soundtrack plays"), false),
+    };
 
     private static string Describe(Look look) => look switch
     {

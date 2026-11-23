@@ -43,8 +43,9 @@ the game installed from them (it is not sold anywhere today).
    have the game installed: the first start finds it, press **Import**. Found nothing? Pick the disc image with
    **Disc image** or the installed game's folder with **Folder**. With CD 2 in the drive or its image beside CD 1's,
    the campaign's films come along; later, **From CD** in the options adds them. The import takes a few minutes.
-4. **Music** (optional): pick a folder with the soundtrack as MP3s (`Track 00 - Intro.mp3` and the others), for
-   example ripped from the CD's audio tracks.
+4. **Music** (optional): the remake brings its own soundtrack. For the original's, pick a folder with it as MP3s
+   (`Track 00 - Intro.mp3` and the others), for example ripped from the CD's audio tracks; **Soundtrack** in the
+   options plays the original's, the remake's or both.
 
 Prefer no installer? Unzip `Machines-Remake-<version>-windows.zip` anywhere and run `Machines.exe`.
 

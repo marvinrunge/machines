@@ -1,0 +1,29 @@
+# Wofür jedes Stück des Remake-Soundtracks gedacht ist.
+#
+# Eine Zeile pro Stück:   name = markierungen
+#   name          der Dateiname ohne .ogg (wie in diesem Ordner)
+#   markierungen  durch Kommas getrennt, eine oder mehrere von:
+#                 menu      läuft in den Menüs (das erste so markierte Stück, in Dauerschleife)
+#                 normal    gewöhnliche Matches: Kampagne, Gefecht, online, Wired-Wellen
+#                 schlacht  der Modus Schlacht (Battle), wo es hektischer zugeht
+#                 boss      Wired-Bosswellen (jede 5.), solange ein Boss auf der Karte steht
+#   (menu, normal, battle und boss gehen auch auf Englisch)
+# Zeilen mit # sind Kommentare. Ein Stück, das hier fehlt oder nichts Bekanntes trägt, zählt als normal.
+# Gilt nur für die Soundtrack-Einstellung Remake oder Beides; Original spielt wie das Original.
+# Bei Beides mischen sich die Original-Stücke nur in normale Matches, nicht in Schlacht und Boss.
+#
+# Die Markierungen unten sind Vorschläge aus einer Messung (Anschläge pro Sekunde, Helligkeit,
+# Unruhe des Klangs): die hektischsten für schlacht und boss. Bitte nach Gehör korrigieren.
+
+deep_drift_v1 = menu
+deep_drift_v2 = normal
+warm_ticks = normal
+glitching_dark_v2 = normal
+static_dread_v1 = normal
+glitching_dark_v1 = normal
+static_dread_v2 = normal
+iron_gears_v1 = normal, schlacht
+iron_gears_v2 = schlacht
+circuitry_v1 = schlacht
+circuitry_v2 = schlacht, boss
+sovereign_circuit_v1 = schlacht, boss
