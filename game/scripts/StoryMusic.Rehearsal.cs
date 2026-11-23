@@ -7,8 +7,8 @@ namespace Machines.Game;
 /// rules one after the other, fed as the director's cues would come (<see cref="StoryMusic.Hear"/>), the section and the
 /// countdown set as if the trio were there. Once a second it traces what plays, the playlist's level, the low-pass and the
 /// hush, so the log shows each rule at work: the duck under the Thresher (far, steps, near with the low-pass, locked on,
-/// 8 s and back over 6 s), a staged silence, the armoury (threat dips, a wave, a pause, the boss's loud part, its fall's
-/// rest and the playlist back), the Notgang (playlist out), Pressure from the burst, J1's hush, the hold's loop and the
+/// 8 s and back over 6 s), a staged silence, the armoury (threat dips, a wave, a pause, the boss's piece, its fall's
+/// rest and the old playlist after it), the Notgang (playlist out), Circuitry from the burst, J1's hush, the hold's loop and the
 /// launch's fade.
 /// </summary>
 public partial class StoryMusic
@@ -25,7 +25,7 @@ public partial class StoryMusic
             Hear($"thresher state {state}");
             Hear(FormattableString.Invariant($"thresher near {metres}"));
         }
-        at(0.0, "section 2, the Thresher far", () =>
+        at(0.0, "section 2, the Thresher far (Silent Circuit)", () =>
         {
             SectionOverride = 2;
             Cue(null);
@@ -44,14 +44,14 @@ public partial class StoryMusic
             SectionOverride = 6;
             SetThreat(2);
         });
-        at(30.0, "wave 1 alive (no dips)", () => Hear("wave 1 alive"));
+        at(30.0, "wave 1 alive (Static Dread v2, no dips)", () => Hear("wave 1 alive"));
         at(34.0, "wave pause (-10 dB)", () => Hear("wave pause"));
-        at(39.0, "wave 5, boss in (loud part)", () =>
+        at(39.0, "wave 5, boss in (Static Dread v1)", () =>
         {
             Hear("wave 5 alive");
             Hear("boss in");
         });
-        at(47.0, "boss down (2 s rest, playlist back)", () => Hear("boss down"));
+        at(47.0, "boss down (2 s rest, the old playlist)", () => Hear("boss down"));
         at(54.0, "section 7, the Notgang (playlist out)", () =>
         {
             SetThreat(null);
@@ -64,7 +64,7 @@ public partial class StoryMusic
             Hear("score escape 234");
         });
         at(60.0, "J1 (hush 1.5 s -20 dB)", () => Hear("hush 1.5 -20"));
-        at(63.0, "Pressure 4 s before the hold's end", () => EscapeAt(StoryScore.HoldTo - 4));
+        at(63.0, "Circuitry 4 s before the hold's end", () => EscapeAt(StoryScore.HoldTo - 4));
         at(71.0, "launch", () => Hear("launch"));
         at(72.0, "the pod's cutscene: music out over 6 s", () => Out(6));
         for (var second = 0; second < 80; second++)

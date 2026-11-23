@@ -24,13 +24,17 @@ public class StoryScoreTests
     [Fact]
     public void ThePiecesAreThereAndPlayOnce()
     {
+        Assert.Equal(["silent_circuit_v1", "silent_circuit_v2"], StoryScore.Stealth.Select(p => p.Name));
         Assert.Equal(["lost_in_the_void", "lost_vessel", "drift_into_the_black", "lost_in_the_dark_calm"], StoryScore.Playlist.Select(p => p.Name));
+        Assert.Equal(["static_dread_v2"], StoryScore.Waves.Select(p => p.Name));
+        Assert.Equal("static_dread_v1", StoryScore.Boss.Name);
+        Assert.Equal("circuitry_v1", StoryScore.Escape.Name);
         foreach (var piece in StoryScore.Pieces)
         {
             var file = Music(piece.Name + ".ogg");
             Assert.True(File.Exists(file), file);
             Assert.InRange(OggSeconds(file), piece.Seconds - 0.05, piece.Seconds + 0.05);
-            // Imported without the loop flag: the playlist goes on to the next piece itself.
+            // Imported without the loop flag: the playlist goes on to the next piece itself, a hold is set by the code.
             Assert.Contains("loop=false", File.ReadAllText(file + ".import"));
         }
     }
@@ -38,9 +42,26 @@ public class StoryScoreTests
     [Fact]
     public void ThePlaylistGoesRoundAgain()
     {
-        Assert.Equal(1, StoryScore.Next(0));
-        Assert.Equal(3, StoryScore.Next(2));
-        Assert.Equal(0, StoryScore.Next(3));
+        Assert.Equal(1, StoryScore.Next(StoryList.Background, 0));
+        Assert.Equal(3, StoryScore.Next(StoryList.Background, 2));
+        Assert.Equal(0, StoryScore.Next(StoryList.Background, 3));
+        Assert.Equal(1, StoryScore.Next(StoryList.Stealth, 0));
+        Assert.Equal(0, StoryScore.Next(StoryList.Stealth, 1));
+        Assert.Equal(0, StoryScore.Next(StoryList.Waves, 0));
+    }
+
+    [Fact]
+    public void SilentCircuitPlaysUntilTheBreakInAndTheOldPlaylistAfterIt()
+    {
+        var score = new StoryScore();
+        Assert.Equal(StoryList.Stealth, score.List);
+        score.Follow(6, null);
+        Assert.Equal(StoryList.Stealth, score.List);
+        score.BreakIn();
+        Assert.Equal(StoryList.Background, score.List);
+        // A chapter begun after the break-in has no stealth left; one begun at the antechamber has.
+        Assert.Equal(StoryList.Background, new StoryScore(StoryScore.BrokenInFrom).List);
+        Assert.Equal(StoryList.Stealth, new StoryScore(6).List);
     }
 
     [Fact]
@@ -82,7 +103,7 @@ public class StoryScoreTests
     }
 
     [Fact]
-    public void PressureStartsWithTheLiftsBurst()
+    public void TheEscapesPieceStartsWithTheLiftsBurst()
     {
         var score = new StoryScore();
         Assert.Null(score.EscapeFrom(12, 240, 100));
@@ -100,7 +121,7 @@ public class StoryScoreTests
     [InlineData(0, 240)]
     [InlineData(12, 240)]
     [InlineData(12, 300)]
-    public void WithoutTheBurstsCuePressureStartsByTheCountdown(int checkpoint, float from)
+    public void WithoutTheBurstsCueTheEscapesPieceStartsByTheCountdown(int checkpoint, float from)
     {
         var score = new StoryScore();
         score.Follow(7, from);
@@ -114,7 +135,7 @@ public class StoryScoreTests
     [InlineData(13, 170, 64)]
     [InlineData(14, 120, 114)]
     [InlineData(13, 230, 64)]
-    public void ARetryStartsPressureWhereARunHearsItThere(int checkpoint, float left, double at)
+    public void ARetryStartsTheEscapesPieceWhereARunHearsItThere(int checkpoint, float left, double at)
     {
         var score = new StoryScore();
         score.Follow(7, left);
@@ -127,30 +148,48 @@ public class StoryScoreTests
     [Theory]
     [InlineData(0, 0)]
     [InlineData(100, 100)]
-    [InlineData(151.3, 151.3)]
-    [InlineData(151.388, 123.960)]
-    [InlineData(160, 132.572)]
-    [InlineData(151.388 + 27.428 * 3 + 1, 124.960)]
-    public void PressureLoopsItsHoldPastItsEnd(double at, double played) =>
+    [InlineData(182.4, 182.4)]
+    [InlineData(182.433, 138.219)]
+    [InlineData(190, 145.786)]
+    [InlineData(182.433 + 44.214 * 3 + 1, 139.219)]
+    public void TheEscapeLoopsItsHoldPastItsEnd(double at, double played) =>
         Assert.Equal(played, StoryScore.IntoHold(at), 3);
 
-    [Fact]
-    public void TheHoldIsSixteenBarsInThePiecesLastThird()
+    /// <summary>A hold's ends lie on bar lines of the grid measured from its file, and Godot's beat loop ends it at the hold's end.</summary>
+    private static void AssertHoldOnBars(StoryPiece piece, double bpm, double first, int bars, double bpmFrom, double bpmTo)
     {
-        // Measured: 140 BPM, the first beat at 0.531 s, bars of four (see the music README).
-        const double beat = 60 / 140.0, first = 0.531;
-        Assert.InRange(StoryScore.HoldFrom, StoryScore.Escape.Seconds * 2 / 3, StoryScore.Escape.Seconds);
-        Assert.InRange(StoryScore.HoldTo, StoryScore.HoldFrom + 4 * beat, StoryScore.Escape.Seconds - 1);
-        foreach (var bar in new[] { StoryScore.HoldFrom, StoryScore.HoldTo })
+        var beat = 60 / bpm;
+        foreach (var bar in new[] { piece.HoldFrom, piece.HoldTo })
         {
             var beats = (bar - first) / beat;
             Assert.Equal(0, Math.Round(beats) % 4);
             Assert.InRange(Math.Abs(beats - Math.Round(beats)) * beat, 0, 0.01);
         }
-        Assert.Equal(16 * 4 * beat, StoryScore.HoldTo - StoryScore.HoldFrom, 2);
-        // Godot's beat loop ends the stream at BeatCount beats of its BPM: that is the hold's end, the BPM a hair off 140.
-        Assert.Equal(StoryScore.HoldTo, StoryScore.HoldBeats * 60 / StoryScore.HoldBpm, 6);
-        Assert.InRange(StoryScore.HoldBpm, 139.8, 140.2);
+        Assert.Equal(bars * 4 * beat, piece.HoldTo - piece.HoldFrom, 2);
+        Assert.True(piece.HoldTo < piece.Seconds - 1);
+        Assert.Equal(piece.HoldTo, piece.HoldBeats * 60 / piece.HoldBpm, 6);
+        Assert.InRange(piece.HoldBpm, bpmFrom, bpmTo);
+    }
+
+    [Fact]
+    public void TheEscapesHoldIsThirtyTwoBarsInThePiecesLastThird()
+    {
+        // Measured: 173.7 BPM, the first beat at 0.049 s, bars of four (see the music README).
+        Assert.InRange(StoryScore.HoldFrom, StoryScore.Escape.Seconds * 2 / 3, StoryScore.Escape.Seconds);
+        AssertHoldOnBars(StoryScore.Escape, 173.7, 0.0494, 32, 173.5, 173.9);
+        Assert.Equal(StoryScore.Escape.HoldBpm, StoryScore.HoldBpm);
+    }
+
+    [Fact]
+    public void TheBossLoopsTheBodyOfStaticDread()
+    {
+        // Measured: 70 BPM, the first beat at 0.056 s; bars 8 to 48, after the intro and before the break-down.
+        AssertHoldOnBars(StoryScore.Boss, 70, 0.056, 40, 69.9, 70.1);
+        Assert.InRange(StoryScore.Boss.HoldFrom, 20, 40);
+        Assert.False(StoryScore.Caught.Holds);
+        Assert.All(StoryScore.Waves.Concat(StoryScore.Stealth).Concat(StoryScore.Playlist), p => Assert.False(p.Holds));
+        // Past the hold's end the boss's piece goes back to its body.
+        Assert.Equal(StoryScore.Boss.HoldFrom + 1, StoryScore.Boss.IntoHold(StoryScore.Boss.HoldTo + 1), 3);
     }
 
     [Fact]
@@ -160,17 +199,20 @@ public class StoryScoreTests
         Assert.Equal(StoryScore.AfterCaughtDb + StoryScore.HuntedDb, StoryScore.PlaylistDb(6, 2, armoury: score.Armoury));
         score.Wave();
         Assert.Equal(StoryArmouryMusic.Wave, score.Armoury);
+        // Static Dread v2 in place of the playlist while the waves run, pauses and all.
+        Assert.Equal(StoryList.Waves, score.List);
         // The threat's dips are off while a wave is alive.
         Assert.Equal(StoryScore.AfterCaughtDb, StoryScore.PlaylistDb(6, 2, armoury: score.Armoury));
         score.Pause();
+        Assert.Equal(StoryList.Waves, score.List);
         Assert.Equal(StoryScore.PauseDb, StoryScore.PlaylistDb(6, 2, armoury: score.Armoury));
         Assert.Equal(-10, StoryScore.PauseDb);
     }
 
     [Fact]
-    public void TheBossReplaysTheLoudPartAndItsFallIsTwoSecondsOfSilence()
+    public void TheBossPlaysStaticDreadAndItsFallIsTwoSecondsOfSilence()
     {
-        var score = new StoryScore();
+        var score = new StoryScore(9);
         score.Wave();
         Assert.True(score.BossIn());
         Assert.False(score.BossIn());
@@ -179,15 +221,16 @@ public class StoryScoreTests
         score.Wave();
         Assert.Equal(StoryArmouryMusic.Boss, score.Armoury);
         Assert.Equal(StoryScore.AfterCaughtDb, StoryScore.PlaylistDb(6, 2, armoury: score.Armoury));
-        // The loud part ends before he falls: the playlist under the fight.
-        score.CaughtEnded();
-        Assert.Equal(StoryScorePart.Playlist, score.Follow(6, null, 70));
-        Assert.True(score.BossDown(80));
-        Assert.False(score.BossDown(80));
-        Assert.Equal(StoryScorePart.Rest, score.Follow(6, null, 81.9));
-        Assert.Equal(StoryScorePart.Playlist, score.Follow(6, null, 82));
+        // His piece loops until he falls: no playlist under the fight however long it lasts.
+        Assert.Equal(StoryScorePart.Caught, score.Follow(6, null, 400));
+        Assert.True(score.BossDown(400));
+        Assert.False(score.BossDown(400));
+        Assert.Equal(StoryScorePart.Rest, score.Follow(6, null, 401.9));
+        Assert.Equal(StoryScorePart.Playlist, score.Follow(6, null, 402));
         Assert.Equal(StoryArmouryMusic.None, score.Armoury);
-        // Falling while the loud part still plays: the rest all the same.
+        // After him the old playlist, not the waves' piece.
+        Assert.Equal(StoryList.Background, score.List);
+        // Falling at once: the rest all the same.
         var quick = new StoryScore();
         quick.BossIn();
         Assert.True(quick.BossDown(20));
@@ -288,17 +331,19 @@ public class StoryScoreTests
     public void ACheckpointGoesOnWithThePieceThatPlayed()
     {
         // A new start always from the first piece.
-        Assert.Equal((0, 0.0), StoryScore.Start(0, (2, 40)));
+        Assert.Equal((0, 0.0), StoryScore.Start(StoryList.Stealth, 0, (1, 40)));
         // A checkpoint after a fall: where the last match left it.
-        Assert.Equal((2, 40.0), StoryScore.Start(3, (2, 40)));
-        Assert.Equal((1, 12.5), StoryScore.Start(1, (1, 12.5)));
+        Assert.Equal((1, 40.0), StoryScore.Start(StoryList.Stealth, 3, (1, 40)));
+        Assert.Equal((2, 40.0), StoryScore.Start(StoryList.Background, 8, (2, 40)));
+        Assert.Equal((0, 12.5), StoryScore.Start(StoryList.Waves, 9, (0, 12.5)));
         // Without one: the piece a run usually hears there (stage 7's checkpoints: 1–5 section 2, 6 the antechamber, 7–14 on).
         for (var checkpoint = 1; checkpoint <= 5; checkpoint++)
-            Assert.Equal((0, 0.0), StoryScore.Start(checkpoint, null));
-        Assert.Equal((1, 0.0), StoryScore.Start(6, null));
+            Assert.Equal((0, 0.0), StoryScore.Start(StoryList.Stealth, checkpoint, null));
+        Assert.Equal((1, 0.0), StoryScore.Start(StoryList.Stealth, 6, null));
         for (var checkpoint = 7; checkpoint <= 14; checkpoint++)
-            Assert.Equal((2, 0.0), StoryScore.Start(checkpoint, null));
-        Assert.Equal((2, 0.0), StoryScore.Start(7, (9, 10)));
+            Assert.Equal((0, 0.0), StoryScore.Start(StoryList.Background, checkpoint, null));
+        Assert.Equal((0, 0.0), StoryScore.Start(StoryList.Background, 7, (9, 10)));
+        Assert.Equal((0, 0.0), StoryScore.Start(StoryList.Waves, 9, (1, 10)));
     }
 
     [Fact]

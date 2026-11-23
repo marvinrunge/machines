@@ -395,9 +395,9 @@ public class StoryAudioPlanTests
     [InlineData(1, 0)]
     [InlineData(5, 0)]
     [InlineData(6, 1)]
-    [InlineData(7, 2)]
-    [InlineData(12, 2)]
-    [InlineData(14, 2)]
+    [InlineData(7, 0)]
+    [InlineData(12, 0)]
+    [InlineData(14, 0)]
     public void A_chapter_begun_at_a_checkpoint_starts_the_playlist_where_a_run_usually_hears_it(int checkpoint, int track) =>
-        Assert.Equal((track, 0d), StoryScore.Start(checkpoint, null));
+        Assert.Equal((track, 0d), StoryScore.Start(checkpoint >= StoryScore.BrokenInFrom ? StoryList.Background : StoryList.Stealth, checkpoint, null));
 }

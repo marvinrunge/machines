@@ -507,9 +507,36 @@ public sealed class StorySfxManifest
 }
 
 /// <summary>A piece of the story's score: its file (game/assets/story/music/&lt;name&gt;.ogg) and its length in seconds.</summary>
-public sealed record StoryPiece(string Name, double Seconds);
+/// <remarks>
+/// A piece with a hold (<see cref="HoldFrom"/> to <see cref="HoldTo"/>, bar lines measured from its file) loops that stretch
+/// for as long as it is held (the boss, the escape): Godot's beat loop ends the stream at <see cref="HoldBeats"/> beats of
+/// <see cref="HoldBpm"/>, which is <see cref="HoldTo"/>, and goes back to <see cref="HoldFrom"/>.
+/// </remarks>
+public sealed record StoryPiece(string Name, double Seconds, double HoldFrom = 0, double HoldTo = 0, int HoldBeats = 0)
+{
+    /// <summary>The piece loops a hold.</summary>
+    public bool Holds => HoldTo > HoldFrom && HoldBeats > 0;
 
-/// <summary>What the story's score plays: the background playlist, the loud part (the break-in, the armoury's boss), the escape's piece, a staged rest of a few seconds, or nothing.</summary>
+    /// <summary>The BPM that puts beat <see cref="HoldBeats"/> exactly at <see cref="HoldTo"/>.</summary>
+    public double HoldBpm => Holds ? HoldBeats * 60 / HoldTo : 0;
+
+    /// <summary>A place in the piece, wrapped into its hold once past the hold's end.</summary>
+    public double IntoHold(double at) =>
+        !Holds || at < HoldTo ? Math.Max(0, at) : HoldFrom + (at - HoldFrom) % (HoldTo - HoldFrom);
+}
+
+/// <summary>
+/// Which of the score's lists plays as the background: the stealth's two pieces from the start until the break-in, the
+/// old playlist after it, the armoury's fight piece while its waves run.
+/// </summary>
+public enum StoryList
+{
+    Stealth,
+    Background,
+    Waves,
+}
+
+/// <summary>What the story's score plays: the background playlist, the loud part (the break-in) or the armoury's boss's piece, the escape's piece, a staged rest of a few seconds, or nothing.</summary>
 public enum StoryScorePart
 {
     Playlist,
@@ -544,7 +571,7 @@ public enum StoryMusicCueKind
     BossIn,
     /// <summary><c>boss down</c>: the big Grunt is a wreck.</summary>
     BossDown,
-    /// <summary><c>score escape &lt;s&gt;</c>: the lift bursts with s seconds left on the countdown (Pressure's anchor).</summary>
+    /// <summary><c>score escape &lt;s&gt;</c>: the lift bursts with s seconds left on the countdown (the escape piece's anchor).</summary>
     ScoreEscape,
     /// <summary><c>hush &lt;s&gt; &lt;dB&gt;</c>: the music dips by dB for s seconds and comes back (-60 dB and below is silence).</summary>
     Hush,
@@ -638,21 +665,32 @@ public sealed class StoryDuck
 
 /// <summary>
 /// The prologue's score, the user's own pieces (game/assets/story/music, made from their MP3s with ffmpeg and levelled to
-/// one loudness, as its README says): from the start a playlist in the background, Lost In The Void, Lost Vessel, Drift Into The Black and the
-/// calm part of Lost In The Dark, each after the other (with a short overlap) and round again from the first should it run
-/// out, never restarted by a section or a checkpoint (<see cref="Start"/>). Under the Thresher (section 2) it is ducked
-/// (<see cref="StoryDuck"/>). At the break-in (Erwischt) the playlist is cut and the loud part of Lost In The Dark plays once
-/// from its entry; when it has ended and the trio is out of the core chamber (section 5), the playlist goes on where it was,
-/// a little quieter. In the armoury (section 6) it holds its level while a wave is alive, drops to -10 dB in the pauses, and
-/// the loud part plays once more as the boss bursts in; the boss's fall is 2 s of silence, then the playlist again. At the
-/// Notgang (section 7) the playlist fades out for good; Pressure At Sector Nine starts from its beginning as the lift bursts
-/// (<see cref="EscapeFrom"/>), plays through and loops its last section (<see cref="HoldFrom"/> to <see cref="HoldTo"/>)
-/// until the launch; it fades out over the first seconds of the pod's cutscene (StoryAudio.MusicOut). View only: nothing
-/// here touches the sim; each machine plays it from the shared beats.
+/// one loudness, as its README says). From the start the stealth's background, Silent Circuit v1 and v2, each after the
+/// other (with a short overlap) and round again, never restarted by a section or a checkpoint (<see cref="Start"/>); under
+/// the Thresher (section 2) it is ducked (<see cref="StoryDuck"/>). At the break-in (Erwischt) it is cut for good and the
+/// loud part of Lost In The Dark plays once from its entry; when that has ended and the trio is out of the core chamber
+/// (section 5), the old playlist follows, Lost In The Void, Lost Vessel, Drift Into The Black and the calm part of Lost In The
+/// Dark, a little quieter. In the armoury (section 6) Static Dread v2 takes the playlist's place while the waves run (a
+/// wave alive at the after-caught level, the pauses at -10 dB); the boss bursts in to Static Dread v1, which loops its body
+/// until he falls; his fall is 2 s of silence, then the playlist again where it was. At the Notgang (section 7) the
+/// playlist fades out for good; Circuitry v1 starts from its beginning as the lift bursts (<see cref="EscapeFrom"/>), plays
+/// through and loops its last section (<see cref="HoldFrom"/> to <see cref="HoldTo"/>) until the launch; it fades out over
+/// the first seconds of the pod's cutscene (StoryAudio.MusicOut). View only: nothing here touches the sim; each machine
+/// plays it from the shared beats.
 /// </summary>
-public sealed class StoryScore
+public sealed class StoryScore(int checkpoint = 0)
 {
-    /// <summary>The background, in order.</summary>
+    /// <summary>The first checkpoint after the break-in (7 Erwischt): a chapter begun there has no stealth left.</summary>
+    public const int BrokenInFrom = 7;
+
+    /// <summary>The stealth's background from the start until the break-in: Silent Circuit v1 and v2, one after the other and round again.</summary>
+    public static readonly StoryPiece[] Stealth =
+    [
+        new("silent_circuit_v1", 156.00),
+        new("silent_circuit_v2", 168.02),
+    ];
+
+    /// <summary>The background after the break-in, in order.</summary>
     public static readonly StoryPiece[] Playlist =
     [
         new("lost_in_the_void", 147.65),
@@ -661,14 +699,36 @@ public sealed class StoryScore
         new("lost_in_the_dark_calm", 156.20),
     ];
 
-    /// <summary>The loud part of Lost In The Dark, from its entry (157.2 s into the original) to its own fade.</summary>
+    /// <summary>The armoury's fights before the boss: Static Dread v2, round again from its start should the waves outlast it.</summary>
+    public static readonly StoryPiece[] Waves = [new("static_dread_v2", 229.01)];
+
+    /// <summary>The loud part of Lost In The Dark, from its entry (157.2 s into the original) to its own fade: the break-in.</summary>
     public static readonly StoryPiece Caught = new("lost_in_the_dark_loud", 61.90);
 
-    /// <summary>Pressure At Sector Nine, its last silence trimmed.</summary>
-    public static readonly StoryPiece Escape = new("pressure_at_sector_nine", 179.90);
+    /// <summary>
+    /// The armoury's boss: Static Dread v1, looping its loud body until he falls. Measured from the file (onset envelope,
+    /// see the music README): 70 BPM, the first beat at 0.056 s, bars of four; the hold is bars 8–48, from 27.485 s, where
+    /// the body comes in after the intro, to 164.627 s, where it breaks down before the end (40 bars, 137.14 s).
+    /// </summary>
+    public static readonly StoryPiece Boss = new("static_dread_v1", 183.92, 27.485, 164.627, 192);
+
+    /// <summary>
+    /// The escape: Circuitry v1. Measured from the file: 173.7 BPM, the first beat at 0.049 s, bars of four; the hold is
+    /// bars 100–132, from 138.219 s (in the piece's last third) to 182.433 s, where its last loud bar gives way to the fade
+    /// (32 bars, 44.21 s).
+    /// </summary>
+    public static readonly StoryPiece Escape = new("circuitry_v1", 187.00, 138.219, 182.433, 528);
 
     /// <summary>Every piece of the score.</summary>
-    public static IEnumerable<StoryPiece> Pieces => [.. Playlist, Caught, Escape];
+    public static IEnumerable<StoryPiece> Pieces => [.. Stealth, .. Playlist, .. Waves, Caught, Boss, Escape];
+
+    /// <summary>A list's pieces.</summary>
+    public static StoryPiece[] Of(StoryList list) => list switch
+    {
+        StoryList.Stealth => Stealth,
+        StoryList.Waves => Waves,
+        _ => Playlist,
+    };
 
     /// <summary>
     /// Seconds: the overlap of one playlist piece's end with the next one's start; the playlist's cut at the break-in; its
@@ -691,32 +751,31 @@ public sealed class StoryScore
     /// <summary>Seconds of silence when the armoury's boss falls, before the playlist comes back.</summary>
     public const double BossRest = 2;
 
-    /// <summary>
-    /// Pressure's tempo and its loop, measured from the file (tools: librosa beat and novelty analysis, see the music
-    /// README): 140 BPM, the first beat at 0.531 s, bars of four. The hold loops bars 72 to 88 (16 bars): from 123.960 s
-    /// (in the piece's last third) to 151.388 s, where its loud section gives way to the outro.
-    /// </summary>
-    public const double HoldFrom = 123.960, HoldTo = 151.388;
+    /// <summary>The escape's hold (<see cref="Escape"/>): bars 100 to 132 of Circuitry v1.</summary>
+    public static double HoldFrom => Escape.HoldFrom;
+
+    /// <summary>The end of the escape's hold.</summary>
+    public static double HoldTo => Escape.HoldTo;
 
     /// <summary>Beats from the file's start to <see cref="HoldTo"/>, for Godot's beat loop (it loops at BeatCount beats at its BPM).</summary>
-    public const int HoldBeats = 353;
+    public static int HoldBeats => Escape.HoldBeats;
 
-    /// <summary>The BPM that puts beat <see cref="HoldBeats"/> exactly at <see cref="HoldTo"/> (139.9 against the measured 140.0).</summary>
-    public static double HoldBpm => HoldBeats * 60 / HoldTo;
+    /// <summary>The BPM that puts beat <see cref="HoldBeats"/> exactly at <see cref="HoldTo"/> (173.65 against the measured 173.7).</summary>
+    public static double HoldBpm => Escape.HoldBpm;
 
-    /// <summary>Seconds from the countdown's start to the lift's burst (T-234 of 240): Pressure waits for the burst.</summary>
+    /// <summary>Seconds from the countdown's start to the lift's burst (T-234 of 240): the escape's piece waits for the burst.</summary>
     public const double BurstDelay = 6;
 
     /// <summary>Seconds the music waits past <see cref="BurstDelay"/> for the burst's cue before it starts by the countdown alone.</summary>
     public const double BurstGrace = 2;
 
     /// <summary>
-    /// Where Pressure starts at a retry from the escape's later checkpoints: where a typical run hears it there (234 - the
+    /// Where the escape's piece starts at a retry from the escape's later checkpoints: where a typical run hears it there (234 - the
     /// checkpoint's seconds left: 13 Galerie with 170, 14 Bucht with 120). From the Notgang (12) it starts with the burst.
     /// </summary>
     public static readonly IReadOnlyDictionary<int, double> RetryAt = new Dictionary<int, double> { [13] = 64, [14] = 114 };
 
-    private bool _caughtEnded;
+    private bool _caughtEnded, _brokenIn = checkpoint >= BrokenInFrom;
     private double _restUntil = double.NegativeInfinity;
     private double? _burstAt;
     private float? _countFrom;
@@ -733,8 +792,18 @@ public sealed class StoryScore
             return false;
         Part = StoryScorePart.Caught;
         _caughtEnded = false;
+        _brokenIn = true;
         return true;
     }
+
+    /// <summary>
+    /// The background list that plays now: Static Dread v2 while the armoury's waves run (a wave alive or a pause), the
+    /// stealth's pieces until the break-in, the old playlist after it.
+    /// </summary>
+    public StoryList List =>
+        Armoury is StoryArmouryMusic.Wave or StoryArmouryMusic.Pause ? StoryList.Waves
+        : _brokenIn ? StoryList.Background
+        : StoryList.Stealth;
 
     /// <summary>The loud part has played to its end.</summary>
     public void CaughtEnded() => _caughtEnded = true;
@@ -756,7 +825,7 @@ public sealed class StoryScore
             Armoury = StoryArmouryMusic.Pause;
     }
 
-    /// <summary>The boss bursts in: the loud part once more from its entry (true), unless it plays already or the escape has begun.</summary>
+    /// <summary>The boss bursts in: Static Dread v1 over the cut playlist (true), unless it plays already or the escape has begun.</summary>
     public bool BossIn()
     {
         if (Armoury == StoryArmouryMusic.Boss || Part is not StoryScorePart.Playlist)
@@ -776,7 +845,7 @@ public sealed class StoryScore
         return true;
     }
 
-    /// <summary>The lift bursts at <paramref name="now"/> (the cue <c>score escape</c>): Pressure's anchor.</summary>
+    /// <summary>The lift bursts at <paramref name="now"/> (the cue <c>score escape</c>): the escape piece's anchor.</summary>
     public void Burst(double now)
     {
         if (Part != StoryScorePart.Silence)
@@ -806,7 +875,7 @@ public sealed class StoryScore
     }
 
     /// <summary>
-    /// In the escape, where Pressure starts now (seconds into it), or null while it waits for the lift's burst: from the burst's
+    /// In the escape, where its piece starts now (seconds into it), or null while it waits for the lift's burst: from the burst's
     /// cue (<see cref="Burst"/>), else by the countdown, <see cref="BurstDelay"/> after it began (and <see cref="BurstGrace"/>
     /// more for the cue); at once from a later checkpoint (<see cref="RetryAt"/>). Late starts begin as far in as they are late.
     /// </summary>
@@ -825,12 +894,12 @@ public sealed class StoryScore
         return run >= BurstDelay + BurstGrace ? EscapeOffset(checkpoint, run - BurstDelay) : null;
     }
 
-    /// <summary>Where Pressure is <paramref name="since"/> seconds after the burst in a chapter begun at <paramref name="checkpoint"/>: from its start (or a retry's place), into the hold once past its end.</summary>
+    /// <summary>Where the escape's piece is <paramref name="since"/> seconds after the burst in a chapter begun at <paramref name="checkpoint"/>: from its start (or a retry's place), into the hold once past its end.</summary>
     public static double EscapeOffset(int checkpoint, double since) =>
         IntoHold((RetryAt.TryGetValue(checkpoint, out var at) ? at : 0) + Math.Max(0, since));
 
-    /// <summary>A place in Pressure, wrapped into the hold (<see cref="HoldFrom"/> to <see cref="HoldTo"/>) once past its end.</summary>
-    public static double IntoHold(double at) => at < HoldTo ? Math.Max(0, at) : HoldFrom + (at - HoldFrom) % (HoldTo - HoldFrom);
+    /// <summary>A place in the escape's piece, wrapped into the hold (<see cref="HoldFrom"/> to <see cref="HoldTo"/>) once past its end.</summary>
+    public static double IntoHold(double at) => Escape.IntoHold(at);
 
     /// <summary>
     /// The playlist's level (dB) in a section at a threat level (0 calm, 1 uneasy, 2 hunted), and while the Locator boots;
@@ -845,21 +914,21 @@ public sealed class StoryScore
             _ => duck ?? (section >= 5 ? AfterCaughtDb : 0) + threat switch { >= 2 => HuntedDb, 1 => UneasyDb, _ => 0 },
         } + (booting ? BootDb : 0);
 
-    /// <summary>The playlist's piece after <paramref name="track"/>: the next, or the first again after the last.</summary>
-    public static int Next(int track) => (track + 1) % Playlist.Length;
+    /// <summary>A list's piece after <paramref name="track"/>: the next, or the first again after the last.</summary>
+    public static int Next(StoryList list, int track) => (track + 1) % Of(list).Length;
 
     /// <summary>
-    /// Where the playlist starts in a chapter begun at <paramref name="checkpoint"/>: from the beginning at checkpoint 0;
-    /// else where it was when the chapter was played last in this session (<paramref name="remembered"/>: a checkpoint loaded
-    /// after a fall goes on with the piece that played); else at the piece a run usually hears there (the start of Lost
-    /// Vessel at the antechamber, of Drift Into The Black from the break-in on).
+    /// Where a list starts in a chapter begun at <paramref name="checkpoint"/>: from the beginning at checkpoint 0; else
+    /// where it was when the chapter was played last in this session (<paramref name="remembered"/>: a checkpoint loaded
+    /// after a fall goes on with the piece that played); else at the piece a run usually hears there (the stealth's second
+    /// piece at the antechamber, every other list from its first).
     /// </summary>
-    public static (int Track, double At) Start(int checkpoint, (int Track, double At)? remembered)
+    public static (int Track, double At) Start(StoryList list, int checkpoint, (int Track, double At)? remembered)
     {
         if (checkpoint <= 0)
             return (0, 0);
-        if (remembered is { } was && was.Track >= 0 && was.Track < Playlist.Length)
+        if (remembered is { } was && was.Track >= 0 && was.Track < Of(list).Length)
             return (was.Track, Math.Max(0, was.At));
-        return (checkpoint switch { >= 1 and <= 5 => 0, 6 => 1, _ => 2 }, 0);
+        return (list == StoryList.Stealth && checkpoint == 6 ? 1 : 0, 0);
     }
 }
