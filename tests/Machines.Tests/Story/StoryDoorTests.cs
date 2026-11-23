@@ -73,7 +73,9 @@ public class StoryDoorTests
         foreach (var letter in Prologue.DoorsOpen[checkpoint])
         {
             Assert.False(world.DoorClosed(letter), $"door {letter}");
-            Assert.True(world.Nav.IsFree(Middles.Value[letter], GameWorld.MobilityOf(world.HeroOf(world.Story!.Locator)!)), $"door {letter}'s middle is not free ground");
+            // A door open from the chapter's start (X, Z) has no closed leaves to measure its middle by.
+            if (Middles.Value.TryGetValue(letter, out var middle))
+                Assert.True(world.Nav.IsFree(middle, GameWorld.MobilityOf(world.HeroOf(world.Story!.Locator)!)), $"door {letter}'s middle is not free ground");
         }
         // On its first tick only a door that opens by itself as the trio comes may begin to slide (door I beside checkpoint 2's start).
         world.Step();

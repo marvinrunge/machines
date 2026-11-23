@@ -32,15 +32,24 @@ public static partial class Prologue
 
     private static Run Muster => new("muster", (world, run, _) => world.MusterPack(run));
 
+    /// <summary>
+    /// The escape's start (C0, design-escape §3): the countdown, the flags of the escape and the Notabschaltung, door Y shut
+    /// and locked, the hold's rails, the pod's hack open, the lift groaning ahead. The beat <c>escape</c> does it in a run,
+    /// the checkpoint 12's set-up from its first tick (the lift and the pack then play from the start, as in a run).
+    /// </summary>
+    private static StoryAction[] EscapeStart =>
+    [
+        new Section(7), new Flag(StoryMarks.Escape), new Reserve(true), new Countdown(CountdownFull), new Say(Lines.AutoT240),
+        new CloseDoors("Y"), new LockDoors("Y"), new Run("rails", (world, run, _) => world.StartRails(run)),
+        new Hackable(true, "pod_3_hatch"), new Objective("Run to the escape pods", "pod_3_hatch"), new Tilt(5, 0, 3),
+        new Cue("rumble 0.4"), new Cue("playlist fade 2"), new Cue("lift groan", "520,262"),
+    ];
+
     /// <summary>Section 7's beats and the launch of 8 (<see cref="Script"/> joins them in order).</summary>
     private static StoryBeat[] Section7 =>
     [
         // ---- C0, R13a: "vier Minuten". The countdown, the lift groaning ahead, the Thresher's steps in its shaft.
-        new("escape", 12, new AllOf(new InZone("R13a"), new Not(new InSection(8))), [new Checkpoint(12), new Section(7),
-            new Flag(StoryMarks.Escape), new Reserve(true), new Countdown(CountdownFull), new Say(Lines.AutoT240),
-            new CloseDoors("Y"), new LockDoors("Y"), new Run("rails", (world, run, _) => world.StartRails(run)),
-            new Hackable(true, "pod_3_hatch"), new Objective("Run to the escape pods", "pod_3_hatch"), new Tilt(5, 0, 3),
-            new Cue("rumble 0.4"), new Cue("playlist fade 2"), new Cue("lift groan", "520,262")]),
+        new("escape", 11, new AllOf(new AnyOf(new InZone("R13a"), new InZone("R15")), new Not(new InSection(8))), [new Checkpoint(12), .. EscapeStart]),
         // The escape's hazards and its pack, every tick while it runs (GameWorld.StoryHazards, GameWorld.StoryPack).
         new("escape_tick", 12, new Flagged(StoryMarks.Escape), [new Run("escape", (world, run, _) => world.UpdateEscape(run))], Repeat: true),
         new("lift_bulge", 12, new Since("escape", 3), [new Cue("lift bulge", "520,258"), new Say(Lines.IkeThresher, Bark, 1),
@@ -68,13 +77,13 @@ public static partial class Prologue
         new("crash_call", 12, new Since("breach", 3), [new Say(Lines.Crash)]),
         new("podbay_call", 12, new Since("crash_call", 4), [new Say(Lines.L7PodBay, StoryAudience.Everyone, 0)]),
         // C2, the hold: the rolls start; the hint once.
-        new("hold", 12, new InZone("R17", StoryWho.AnyHero), [new Run("rolls", (world, run, _) => world.StartRolls(run)), new Say(Lines.HudLanes)],
+        new("hold_entry", 12, new InZone("R17", StoryWho.AnyHero), [new Run("rolls", (world, run, _) => world.StartRolls(run)), new Say(Lines.HudLanes)],
             After: ["breach"]),
         // C3, the shutter X: it lowers by itself as the leader reaches the west landing; Bob holds it in its frame.
         new("shut_x", 12, new Check("west landing", (world, run) => world.EscapeHeroes(run).Any(h => h.Position.X < 384 && h.Position.Y > 132 && h.Position.Y < 212)),
             [new Say(Lines.AutoShut), new Run("shutter", (world, run, _) => { world.CloseShutter(run); world.StartJets(run); }),
             new Cue("shutter klaxon", "350,144"), new Assign(2, CompanionTask.HoldFrame, "x_frame"), new Say(Lines.HudHoldX, StoryAudience.Private, 2)],
-            After: ["hold"]),
+            After: ["hold_entry"]),
         new("galerie", 12, new InZone("R18", StoryWho.All), [new Checkpoint(13), new Objective("Through the gallery", "thresher_edge")]),
         // C4, the gallery: J1's show at the entry (the hush), the jets' rhythm, Ike on J4's valve; P_AUTO_3 at its true time.
         new("j1", 13, new InZone("R18", StoryWho.AnyHero), [new Run("j1", (world, run, _) => world.ShowJ1(run)), new Cue("hush 1.5 -20"),
@@ -88,24 +97,24 @@ public static partial class Prologue
             After: ["bridge"]),
         new("bridge_fall", 13, new InZone("R16", StoryWho.All), [new Cue("hush 1 -20"), new Run("bridge", (world, run, _) => world.LetBridgeFall(run))]),
         new("bucht", 13, new InZone("R16", StoryWho.All), [new Checkpoint(14), new Objective("Hack escape pod three", "pod_3_hatch")]),
-        new("go_round", 13, new Check("bridge fallen", (_, run) => run.Hazards.BridgeFallen), [new HoldAt(ThresherRole, "thresher_edge"),
+        new("pack_round", 13, new Check("bridge fallen", (_, run) => run.Hazards.BridgeFallen), [new HoldAt(ThresherRole, "thresher_edge"),
             new Run("round", (world, run, _) => world.SendPackRound(run, RoundWaits))]),
         // C6, the bay: pod 1 fails, off the lane.
         new("pod1", 14, new InZone("pod1_pass", StoryWho.AnyHero), [new Say(Lines.AutoPod1), new Cue("pod1 alarm", "pod_1")]),
         new("pod1_drop", 14, new Since("pod1", 3), [new Blast("pod_1", 10, 0, 8), new Cue("pod1 drop", "pod_1")]),
         // The countdown's stages by the clock: lines, the lean, blasts off the route.
-        new("t120", 12, new CountdownAt(120), [new CountdownStage(), new Say(Lines.T120), new Tilt(7, 1, 2)]),
-        new("t90", 12, new CountdownAt(90), [new CountdownStage(), new Say(Lines.T90), new Cue("rumble 0.6")]),
-        new("t60", 12, new CountdownAt(60), [new CountdownStage(), new Say(Lines.T60), new Tilt(9, -1, 2)]),
-        new("t30", 12, new CountdownAt(30), [new CountdownStage(), new Say(Lines.T30), new Blast("596,108", 6, 0, 6), new Tilt(12, 2, 2)]),
-        new("t10", 12, new CountdownAt(10), [new CountdownStage(), new Say(Lines.T10), new Cue("rumble 1")]),
-        new("crash", 12, new CountdownAt(0), [new End(StoryEnding.Crashed)]),
-        new("pod_bay", 12, new InZone("R16"), [new Objective("Hack escape pod three", "pod_3_hatch")], After: ["escape"]),
-        new("pod_denied", 12, new AllOf(new Near("pod_3_hatch", 10), new Not(new HackDone("pod_3_hatch"))), [new Say(Lines.PodNo)]),
+        new("t120", 14, new CountdownAt(120), [new CountdownStage(), new Say(Lines.T120), new Tilt(7, 1, 2)]),
+        new("t90", 14, new CountdownAt(90), [new CountdownStage(), new Say(Lines.T90), new Cue("rumble 0.6")]),
+        new("t60", 14, new CountdownAt(60), [new CountdownStage(), new Say(Lines.T60), new Tilt(9, -1, 2)]),
+        new("t30", 14, new CountdownAt(30), [new CountdownStage(), new Say(Lines.T30), new Blast("596,108", 6, 0, 6), new Tilt(12, 2, 2)]),
+        new("t10", 14, new CountdownAt(10), [new CountdownStage(), new Say(Lines.T10), new Cue("rumble 1")]),
+        new("crash", 14, new CountdownAt(0), [new End(StoryEnding.Crashed)]),
+        new("pod_bay", 13, new InZone("R16"), [new Objective("Hack escape pod three", "pod_3_hatch")], After: ["escape"]),
+        new("pod_denied", 14, new AllOf(new Near("pod_3_hatch", 10), new Not(new HackDone("pod_3_hatch"))), [new Say(Lines.PodNo)]),
         // C7: at a quarter of the hack the survivors blast through the Notgang and come to Y; Bob holds it, Ike barricades.
         new("blast_collapse", 14, new HackAt("pod_3_hatch", 0.25f), [new Blast("520,146", 4, 0, 8), new Cue("rumble 0.6"),
             new Run("reopen", (world, run, _) => { world.Reopen(run); world.LetPackThrough(run, AtY); }), new Say(Lines.BobBlast, Bark, 2)],
-            After: ["go_round"]),
+            After: ["pack_round"]),
         new("at_y", 14, new Check("pack at Y", (world, run) => world.PackAlive(run).Any(m => Vector2.Distance(m.Position, AtY) <= 16)),
             [new Say(Lines.IkeReapers, Bark, 1), new Assign(2, CompanionTask.HoldSwitch, "y_switch"), new Assign(1, CompanionTask.Barricade, "Y")],
             After: ["blast_collapse"]),
@@ -116,9 +125,9 @@ public static partial class Prologue
             [new Say(Lines.BobDoorY, Bark, 2)], After: ["at_y"]),
         new("y_press", 14, new Check("Y gives", (world, run) => world.PressY(run)), [new BlowDoor('Y'), new Flag(YBroken), new Cue("door Y burst", "520,122")],
             After: ["blast_collapse"]),
-        new("pod_hacked", 12, new HackDone("pod_3_hatch"), [new Objective("Open the hatch", "pod_3_hatch")]),
+        new("pod_hacked", 14, new HackDone("pod_3_hatch"), [new Objective("Open the hatch", "pod_3_hatch")]),
         // The hatch open (the Locator's Use, GameWorld.UseForStory), the Grunts board; Bob lets go of Y and it gives 3 s later.
-        new("hatch", 12, new Flagged(StoryMarks.Done("pod_3_hatch")), [new Objective("Get everyone into the pod", "pod_zone"),
+        new("hatch", 14, new Flagged(StoryMarks.Done("pod_3_hatch")), [new Objective("Get everyone into the pod", "pod_zone"),
             new Assign(1, CompanionTask.Board, "pod_3_hatch"), new Assign(2, CompanionTask.Board, "pod_3_hatch")], After: ["pod_hacked"]),
         new("y_gives", 14, new AllOf(new Since("hatch", 3), new Not(new Flagged(YBroken)), new Check("pack there", (world, run) => run.Pack.GoneRound)),
             [new BlowDoor('Y'), new Flag(YBroken), new Cue("door Y burst", "520,122")]),
@@ -128,18 +137,18 @@ public static partial class Prologue
         new("commander", 14, new AllOf(new Flagged(YBroken), new Flagged(StoryMarks.Done("pod_3_hatch"))),
             [new Spawn(CommanderRole, Commander, ["commander_y"], Hunters, Inert: true), new MoveTo(CommanderRole, "520,121"), new Cue("commander cameo", "520,124")]),
         // A Grunt put back together (or one that dropped its job) boards again.
-        new("reboard", 12, new Not(new InSection(8)), [new Assign(1, CompanionTask.Board, "pod_3_hatch", IfFree: true),
+        new("reboard", 14, new Not(new InSection(8)), [new Assign(1, CompanionTask.Board, "pod_3_hatch", IfFree: true),
             new Assign(2, CompanionTask.Board, "pod_3_hatch", IfFree: true)], After: ["hatch"], Repeat: true, Every: 1),
 
         // ---- 8 Abwurf: the hack done, the hatch opened by the Locator, the Locator at the pod and both Grunts aboard (standing in
         // the pod's zone, or lying down in its bay: act 1 starts with one Grunt broken anyway), the pod drops (abwurf.cut); the
         // chapter is won once the bay's part is over. A Grunt lying down outside the bay must be put together first (the rally
         // above says so).
-        new("launch", 12, new AllOf(new InZone("pod_zone"), new Aboard()), [new Section(8), new Countdown(null), new Objective(null),
+        new("launch", 14, new AllOf(new InZone("pod_zone"), new Aboard()), [new Section(8), new Countdown(null), new Objective(null),
             new Flag(StoryMarks.Escape, false), new Reserve(false), new Cue("launch"),
             new Hold(true, 0, 1, 2), new Spare(0, Away + 5), new Spare(1, Away + 5), new Spare(2, Away + 5), new Cue("cutscene abwurf", "pod_3")],
             After: ["hatch"]),
-        new("away", 12, new Since("launch", Away), [new End(StoryEnding.Escaped)]),
+        new("away", 14, new Since("launch", Away), [new End(StoryEnding.Escaped)]),
     ];
 
     /// <summary>Whether the Thresher walks through a jet that burns (Ike's line).</summary>
@@ -176,6 +185,8 @@ public static partial class Prologue
     /// <summary>Section 7's part of a checkpoint's set-up: the Galerie (13) and the Bucht (14) as a run that reached them has them.</summary>
     static partial void SetUpSection7(GameWorld world, StoryRun run, int cp, Action<StoryAction[]> Do)
     {
+        if (cp == 12)
+            Do(EscapeStart);
         if (cp < 13)
             return;
         var director = run.Director;

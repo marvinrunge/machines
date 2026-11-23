@@ -171,7 +171,7 @@ public class PrologueScriptTests
             Assert.Equal((Prologue.Starts[built].Facing, Prologue.DoorsOpen[built], Prologue.DoorsAuto[built]),
                 (Prologue.Starts[cp].Facing, Prologue.DoorsOpen[cp], Prologue.DoorsAuto[cp]));
         }
-        Assert.Equal([0, 1, 6, 7, 8, 11, 12], Prologue.Built);
+        Assert.Equal([0, 1, 6, 7, 8, 11, 12, 13, 14], Prologue.Built);
     }
 
     [Fact]
@@ -188,7 +188,7 @@ public class PrologueScriptTests
                 Assert.True(reached.Number >= beat.Span, beat.Name);
             }
         }
-        Assert.Equal([1, 6, 7, 8, 11, 12], Prologue.Script.SelectMany(b => b.Then.OfType<Then.Checkpoint>()).Select(c => c.Number).Order());
+        Assert.Equal([1, 6, 7, 8, 11, 12, 13, 14], Prologue.Script.SelectMany(b => b.Then.OfType<Then.Checkpoint>()).Select(c => c.Number).Order());
     }
 
     [Fact]
@@ -208,8 +208,10 @@ public class PrologueScriptTests
     [InlineData(6, "core_open")]
     [InlineData(7, "at_i")]
     [InlineData(8, "workshop")]
-    [InlineData(11, "notgang")]
-    [InlineData(12, "pod_bay")]
+    [InlineData(11, "escape")]
+    [InlineData(12, "lift_bulge")]
+    [InlineData(13, "j1")]
+    [InlineData(14, "t120")]
     public void Scripted_inputs_move_through_every_section_to_the_escape(int checkpoint, string first)
     {
         var world = Chapter(checkpoint);
@@ -379,6 +381,17 @@ public class PrologueScriptTests
             Step();
         }
 
+        /// <summary>The trio set down side by side at a point.</summary>
+        private void AllAt(Vector2 middle)
+        {
+            for (var i = 0; i < Run.Seats.Count; i++)
+            {
+                if (world.HeroOf(Run.Seats[i]) is { } hero)
+                    SetDown(hero, middle + new Vector2(0, (i - 1) * 3.5f));
+            }
+            Step();
+        }
+
         private Vector2 Zone(string name) => world.Deck!.Zones.First(z => z.Name == name) is var z ? (z.Min + z.Max) / 2 : default;
 
         /// <summary>To a hack's target, plugged in, the board's own solution turn by turn until it is won or broken off.</summary>
@@ -491,8 +504,26 @@ public class PrologueScriptTests
                     Fight();
                 else if (!director.Has("repaired"))
                     Go(Zone("repair"));
-                else if (!director.Has("notgang"))
-                    Go(new Vector2(520, 232));
+                else if (!director.Has("escape"))
+                    Go(new Vector2(498, 228));
+                // The escape (design-escape §3): through the Notgang to the breach, the hold, the shutter, the gallery, the bay.
+                else if (!director.Has("lift_burst"))
+                    Until(() => director.Has("lift_burst"), 8);
+                else if (!director.Has("breach"))
+                {
+                    AllAt(new Vector2(520, 192));
+                    Until(() => director.Has("breach"), 6);
+                }
+                else if (!director.Has("shut_x"))
+                    AllAt(new Vector2(372, 170));
+                else if (!director.Has("galerie"))
+                    AllAt(new Vector2(340, 130));
+                else if (!director.Has("j1"))
+                    Until(() => director.Has("j1"), 3);
+                else if (!director.Has("bucht"))
+                    AllAt(new Vector2(452, 92));
+                else if (!director.Has("pack_round"))
+                    Until(() => director.Has("pack_round"), 5);
                 else if (!Done("pod_3_hatch"))
                     Hack("pod_3_hatch");
                 else if (!Run.Flags.Contains(StoryMarks.Done("pod_3_hatch")))

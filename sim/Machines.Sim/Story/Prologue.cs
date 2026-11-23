@@ -106,7 +106,7 @@ public static partial class Prologue
         ([new(500, 248), new(505, 243), new(505, 253)], 180),
         // 12 Notgang: at the east end of R13a, facing the Notgang (the countdown starts on the first tick there); 13 Galerie:
         // in the gallery under X, facing south; 14 Bucht: in the pod bay by Z, facing east (design-escape §9).
-        ([new(500, 228), new(496, 226), new(496, 230)], 0),
+        ([new(500, 228), new(494, 228), new(488, 228)], 0),
         ([new(340, 146), new(336, 148), new(344, 148)], 270),
         ([new(440, 92), new(436, 86), new(436, 98)], 0),
     ];

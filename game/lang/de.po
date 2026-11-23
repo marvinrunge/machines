@@ -5869,3 +5869,16 @@ msgstr "AUS"
 
 msgid "Everyone is back: on in {0} s…"
 msgstr "Alle wieder da: weiter in {0} s …"
+
+# Stage 7, package E: the escape run's objectives and its options row.
+msgid "Run to the escape pods"
+msgstr "Renn zu den Rettungspods"
+
+msgid "Through the cargo hold"
+msgstr "Durch den Frachtraum"
+
+msgid "Through the gallery"
+msgstr "Durch die Rohrgalerie"
+
+msgid "Soften the list"
+msgstr "Schlagseite mildern"
