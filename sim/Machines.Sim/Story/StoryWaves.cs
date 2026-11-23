@@ -263,6 +263,9 @@ public sealed class StoryWaves
     public float PhaseSince { get; set; }
     public float NextCharge { get; set; }
 
+    /// <summary>Until when the boss keeps its mind on its way into the room (GameWorld.CloseIn): its sight does not turn it to hunt.</summary>
+    public float ClosingUntil { get; set; }
+
     /// <summary>The locked line: where the run began, which way, at whom (machine id).</summary>
     public Vector2 RunFrom { get; set; }
     public Vector2 RunWay { get; set; }
@@ -270,6 +273,9 @@ public sealed class StoryWaves
 
     /// <summary>The heroes the current run has hit already (each once).</summary>
     public SortedSet<int> RunHits { get; } = [];
+
+    /// <summary>Where each computer's Grunt in the current charge's line gets out of it (GameWorld.DodgeForStory), by machine id.</summary>
+    public SortedDictionary<int, Vector2> Dodges { get; } = [];
 
     /// <summary>The boss's armour before a stun took it off (restored as the stun ends).</summary>
     public int StunArmour { get; set; }
@@ -362,6 +368,7 @@ public sealed class StoryWaves
         hash.Mix((int)Phase);
         hash.Mix(F(PhaseSince));
         hash.Mix(F(NextCharge));
+        hash.Mix(F(ClosingUntil));
         hash.Mix(F(RunFrom.X));
         hash.Mix(F(RunFrom.Y));
         hash.Mix(F(RunWay.X));
@@ -369,6 +376,12 @@ public sealed class StoryWaves
         hash.Mix(RunTarget);
         foreach (var id in RunHits)
             hash.Mix(id);
+        foreach (var (id, at) in Dodges)
+        {
+            hash.Mix(id);
+            hash.Mix(F(at.X));
+            hash.Mix(F(at.Y));
+        }
         hash.Mix(StunArmour);
         hash.Mix(StunRammed ? 1 : 0);
         hash.Mix(Charges);

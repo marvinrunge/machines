@@ -135,4 +135,55 @@ public sealed class StoryChargeTests(ITestOutputHelper output)
         boss.HitPoints = boss.MaxHitPoints / 5;
         Assert.Equal(GameWorld.ChargeEveryQuarter, GameWorld.ChargeCadence(boss));
     }
+
+    [Fact]
+    public void The_boss_comes_into_the_armoury_and_lines_up_a_charge_from_inside()
+    {
+        var play = BossIn();
+        var world = play.World;
+        var boss = world.Find<Machine>(play.Waves.Boss)!;
+        var room = world.Deck!.Zone("R13")!;
+        var deepest = boss.Position.Y;
+        float? firstRun = null;
+        // Nobody shoots it, the trio stands where checkpoint 10 put it: the boss leaves gate N for the room and charges.
+        play.Until(() => play.Waves.Charges >= 2, 90, play: false, each: () =>
+        {
+            boss.HitPoints = boss.MaxHitPoints;
+            deepest = MathF.Min(deepest, boss.Position.Y);
+            if (play.Waves.Phase == StoryChargePhase.Run && firstRun is null)
+            {
+                firstRun = world.Time;
+                Assert.True(boss.Position.Y < room.Max.Y, $"the first charge starts at {boss.Position}, outside the armoury");
+            }
+        });
+        output.WriteLine($"charges {play.Waves.Charges} hits {play.Waves.ChargeHits} crashes {play.Waves.Crashes} deepest y {deepest:0.0} first run {firstRun:0.0}");
+        Assert.True(play.Waves.Charges >= 2, $"{play.Waves.Charges} charges in 90 s");
+        Assert.True(deepest < room.Max.Y - 6, $"the boss got no deeper than y {deepest:0.0}");
+        // Its charges are no crash at once: each runs on before it hits a hero or a wall.
+        Assert.True(play.Waves.ChargeHits + play.Waves.Crashes >= 1);
+    }
+
+    [Fact]
+    public void The_computers_grunts_get_out_of_its_way()
+    {
+        var play = BossIn();
+        var world = play.World;
+        var boss = world.Find<Machine>(play.Waves.Boss)!;
+        var grunts = play.Run.Seats.Skip(1).Select(s => world.HeroOf(s)!.Id).ToHashSet();
+        var gruntHits = 0;
+        var seen = new HashSet<(int Charge, int Id)>();
+        // Two minutes of charges, the Locator standing still (it takes them); the Grunts, the computer's, sprint aside.
+        play.Until(() => false, 120, play: false, each: () =>
+        {
+            boss.HitPoints = boss.MaxHitPoints;
+            foreach (var id in play.Waves.RunHits.Where(grunts.Contains))
+            {
+                if (seen.Add((play.Waves.Charges, id)))
+                    gruntHits++;
+            }
+        });
+        output.WriteLine($"charges {play.Waves.Charges} hits {play.Waves.ChargeHits} on the Grunts {gruntHits}");
+        Assert.True(play.Waves.Charges >= 3, $"{play.Waves.Charges} charges in 120 s");
+        Assert.True(gruntHits <= 1, $"the Grunts were run down {gruntHits} times in {play.Waves.Charges} charges");
+    }
 }

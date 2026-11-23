@@ -41,7 +41,10 @@ public sealed partial class CompanionBot(GameWorld world, PlayerId seat)
         // Unarmed and told to stay where it is put: it does not run from fire.
         grunt.DefCon = DefCon.High;
         var companion = run.Crew.Of(seat);
-        // The shut-down Locator first (the Notabschaltung, CompanionBot.Restart), then the job, the section's own, the order.
+        // Out of the armoury boss's charge before all else (CompanionBot.Armoury), then the shut-down Locator (the
+        // Notabschaltung, CompanionBot.Restart), then the job, the section's own, the order.
+        if (DodgeCharge(run, grunt))
+            return;
         if (RestartLocator(run, grunt))
             return;
         // The armoury (stage 7, package W): still while L-7 works on it, out of the charge's line, to L-7 for a Bolter.

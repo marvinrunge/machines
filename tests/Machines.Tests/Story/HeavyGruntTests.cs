@@ -118,6 +118,9 @@ public class HeavyGruntTests
         Assert.Equal(3, Machines.Sim.Navigation.Mobility.SizeOf(heavy.Radius));
         Assert.Equal(2, StoryHeavy.SizeClass);
         Assert.True(world.Nav.IsFree(heavy.Position, GameWorld.MobilityOf(heavy)));
+        // As the armoury's boss it goes where a Grunt goes: as class 2 it found no way past the crates by gate N.
+        StoryHeavy.Fit(world, heavy, StoryHeavyPart.Boss);
+        Assert.Equal(1, GameWorld.MobilityOf(heavy).Size);
     }
 
     [Fact]

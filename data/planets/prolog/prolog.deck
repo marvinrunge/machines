@@ -653,7 +653,7 @@ wpost_n_2 446 256 270 post
 wpost_n_3 460 258 270 post
 def_1 455 237 90 defend
 def_2 471 250 90 defend
-def_3 447 250 90 defend
+def_3 448.5 250.5 90 defend
 def_4 466 233 90 defend
 barricade_R_1 422 241.5 0 barricade
 barricade_R_2 422 244 0 barricade

@@ -50,11 +50,22 @@ public static class StoryHeavy
     public const float Cruise = 0.45f, Charge = 1f;
 
     /// <summary>
-    /// The size class it finds its way and moves by on the prologue's deck (<see cref="Machine.NavSize"/>): 2, not its radius's
-    /// (3.09 m, the largest). As the largest it reached no further than y≈258 up the armoury's ramp from gate N and never out of
-    /// the freight lift; as class 2 its plough brushes the gates' frames, which the greybox deck lets pass.
+    /// The size class it finds its way and moves by on the prologue's deck (<see cref="Machine.NavSize"/>) as one of the
+    /// escape's pack: 2, not its radius's (3.09 m, the largest). As the largest it reached no further than y≈258 up the
+    /// armoury's ramp from gate N and never out of the freight lift; as class 2 its plough brushes the gates' frames, which
+    /// the greybox deck lets pass.
     /// </summary>
     public const int SizeClass = 2;
+
+    /// <summary>
+    /// The size class of the armoury's boss: 1, a Grunt's. The armoury is full of cover and as class 2 it found no way past
+    /// the crates by gate N, nor a line to charge down at a Locator in the nooks between them; as class 1 it goes where the
+    /// trio's Grunts go, its plough brushing the crates' edges by half a metre at most (room 2.5 m on the 2x deck, radius 3.09).
+    /// </summary>
+    public const int BossSizeClass = 1;
+
+    /// <summary>The size class of a part.</summary>
+    public static int SizeClassOf(StoryHeavyPart part) => part == StoryHeavyPart.Boss ? BossSizeClass : SizeClass;
 
     /// <summary>The roles it is cast in: the armoury's boss, the escape's first heavy (the hazards' planned victim) and second (the door breaker).</summary>
     public const string BossRole = "boss", PackRole1 = "heavy1", PackRole2 = "heavy2";
@@ -90,7 +101,7 @@ public static class StoryHeavy
         if (!Is(machine))
             throw new ArgumentException($"machine {machine.Id} is no big Grunt", nameof(machine));
         machine.Refit(machine.Spec, Tuned(machine.Stats, part, bolters), machine.WeaponCombo, machine.Weapons.ToList());
-        machine.NavSize = SizeClass;
+        machine.NavSize = SizeClassOf(part);
         // The boss's threat is its charge: its twin heavy Bolters hit the trio at a quarter (the hunters' half is too much for a
         // fight of 70-90 s; the driver's Locator fell to them within 45 s of every start at checkpoint 10).
         if (part == StoryHeavyPart.Boss && world.Story is not null)

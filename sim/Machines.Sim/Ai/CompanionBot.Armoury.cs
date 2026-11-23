@@ -16,8 +16,7 @@ public sealed partial class CompanionBot
     /// <summary>How far from another hero a Grunt takes a post; how far beyond the boss's body it steps out of a charge's line; how near L-7 it comes for a Bolter.</summary>
     private const float PostApart = 4, Dodge = 2, ComeNear = 5;
 
-    /// <summary>This section's behaviour for the Grunt; true when it acted this look (nothing after it runs).</summary>
-    /// <summary>Before any job (a barricade, a post): held still while L-7 works on it, out of the charge's line, to L-7 for a carried Bolter.</summary>
+    /// <summary>Before any job (a barricade, a post): held still while L-7 works on it, to L-7 for a carried Bolter; true when it acted this look.</summary>
     private bool ArmouryFirst(StoryRun run, Machine grunt)
     {
         if (run.Section != 6)
@@ -29,9 +28,6 @@ public sealed partial class CompanionBot
             world.CompanionMove(grunt, grunt.Position);
             return true;
         }
-        // The heavy Grunt revs at it, or runs down a line it stands on: sideways out of it.
-        if (DodgeCharge(run, grunt))
-            return true;
         // A Bolter carried and none on it: to the Locator, to be armed.
         if (run.Flags.Contains(StoryMarks.ArmourySealed) && !waves.Fighting && waves.Carried is not null && grunt.Weapons.Count == 0
             && world.HeroOf(run.Locator) is { } locator)
@@ -57,25 +53,14 @@ public sealed partial class CompanionBot
         return true;
     }
 
+    /// <summary>
+    /// In the heavy Grunt's line when it revs at it or runs down a line it stands on: the Grunt gives no order and the world
+    /// takes it out of the line (GameWorld.DodgeForStory), as a player would sprint sideways. First of all its looks, before
+    /// it restarts the Locator or holds still for L-7's work.
+    /// </summary>
     private bool DodgeCharge(StoryRun run, Machine grunt)
     {
-        var waves = run.Waves;
-        if (waves.Boss == 0 || waves.Phase is not (StoryChargePhase.Telegraph or StoryChargePhase.Run) || world.Find<Machine>(waves.Boss) is not { IsDead: false } boss)
-            return false;
-        var rel = grunt.Position - boss.Position;
-        var ahead = Vector2.Dot(rel, waves.RunWay);
-        var across = rel.X * waves.RunWay.Y - rel.Y * waves.RunWay.X;
-        if (ahead < 0 || ahead > GameWorld.ChargeLength + boss.Radius || MathF.Abs(across) > boss.Radius + grunt.Radius + 1 && waves.RunTarget != grunt.Id)
-            return false;
-        // To a point clear of the boss's body beside the line, its own side first: fixed while the line is, so the order is
-        // given once and not again every look as the Grunt moves.
-        var side = new Vector2(waves.RunWay.Y, -waves.RunWay.X) * (across >= 0 ? 1 : -1);
-        var clear = boss.Radius + grunt.Radius + Dodge;
-        var to = grunt.Position + side * (clear - MathF.Abs(across));
-        if (!world.Nav.IsFree(to, GameWorld.MobilityOf(grunt)))
-            to = grunt.Position - side * (clear + MathF.Abs(across));
-        world.CompanionMove(grunt, to);
-        return true;
+        return run.Section == 6 && world.InChargeLine(run, grunt);
     }
 
     /// <summary>The nearest defence post to the Locator no other hero of the trio stands within <see cref="PostApart"/> m of; null when none.</summary>

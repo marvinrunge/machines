@@ -33,13 +33,10 @@ public sealed class PrologueWaveTests(ITestOutputHelper output)
         Assert.Equal(StoryWaves.Plan.Count, play.Batches.Count);
         foreach (var (wave, (start, end)) in play.Batches)
             Assert.True(end - start <= LongestBatch, $"batch {wave} took {end - start:0} s");
-        // Both Grunts armed from stripped Bolters. Whether the boss gets to charge is not asked here: as the deck is built it
-        // cannot drive from gate N into the room (size class 3) and waits at boss_n, so a charge needs one of the trio to stray
-        // into a clear line of it, which the modelled player does by chance (it did before the merge with package S shifted
-        // the actor ids, it does not after). The charge itself is StoryChargeTests'; once Old Iron can enter the armoury
-        // (a wider lane from N or a smaller nav class, stage 7 package I), ask for a charge here again.
+        // Both Grunts armed from stripped Bolters, and the boss came into the room from gate N and charged at least once.
         Assert.Equal(2, play.Waves.Mounted.Count);
         output.WriteLine($"boss charges {play.Waves.Charges}");
+        Assert.True(play.Waves.Charges >= 1, "the boss never charged");
         Assert.NotNull(play.BossDown);
         // Checkpoints on the way: 9 after batch 2, 10 after batch 4.
         Assert.True(play.Run.Checkpoint >= 10);

@@ -392,7 +392,8 @@ public sealed partial class GameWorld
     /// <summary>What a seeker does with what it saw or heard this tick.</summary>
     private void React(StoryRun run, Machine seeker, StorySeeker eyes, StoryGlimpse glimpse, Machine? quarry)
     {
-        if (seeker.DrivenByPlayer)
+        // The armoury's boss on its way into the room (GameWorld.CloseIn) is not turned to hunt what it sees.
+        if (seeker.DrivenByPlayer || seeker.Id == run.Waves.Boss && (Time < run.Waves.ClosingUntil || seeker.Order is MoveOrder))
             return;
         switch (seeker.Order)
         {
