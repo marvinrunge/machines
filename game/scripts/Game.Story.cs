@@ -301,6 +301,8 @@ public partial class Game
             }
         }
         BootDrips();
+        // The armoury's held sounds, bar ticks, presses and wrecks (Game.StoryArmoury.Follow).
+        FollowArmoury();
         // The deck's light groups follow the sight's (GameWorld.StoryLightState) in FollowDeck.
     }
 

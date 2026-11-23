@@ -300,6 +300,12 @@ the AI against a simple driver of the player's side, and writes how each went.
 the options (see `GameOptions.cs`) for one run without saving them, `MACHINES_LANG=de` or `en` the language,
 and `MACHINES_AI=easy`, `normal` or `hard` how well the AIs of a `MACHINES_MAP` run play. `MACHINES_PERF=<seconds>`
 logs what each second's frames cost for that long, then sums it up and ends the game (see `PerfLog.cs`).
+`MACHINES_STORY_ARMOURY_TEST=1` with `MACHINES_MAP=prolog` and `MACHINES_STORY=prolog,9` (or `,10`) runs through the
+armoury's view and sound once section 6 shows, by the view alone: the lockdown's klaxon, bolts and lamps dipping, a batch's
+doors, gate N, the workbench's strip, mount and mend held, a wreck with its gun stripped bare in sparks, Old Iron's motor,
+rev, scrape, crash and stun, the lift's hum, an electric crackle, gate N straining and the power dip, each step printed as
+`armoury test: <seconds> <step>` (with `MACHINES_AUDIO_TRACE=1` every sound prints its `audio story-sfx` line too; see
+`Game.StoryArmoury.Test.cs`).
 
 | Control | Does |
 | --- | --- |
