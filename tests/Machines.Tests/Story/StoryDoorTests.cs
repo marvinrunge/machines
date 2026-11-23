@@ -107,7 +107,15 @@ public class StoryDoorTests
         var before = Prologue.Script.Where(b => b.Span < Prologue.SetUpAs(checkpoint)).SelectMany(b => b.Then).ToList();
         // A door shut again behind the trio (H, stage 7) is not progress the checkpoint keeps open.
         var opened = before.OfType<Then.OpenDoors>().SelectMany(o => o.Letters).Except(before.OfType<Then.CloseDoors>().SelectMany(c => c.Letters)).ToHashSet();
-        var auto = before.OfType<Then.AutoDoors>().SelectMany(o => o.Letters).ToHashSet();
+        // A door that opened by itself and was locked after (the armoury's lockdown, stage 7) counts again only once unlocked.
+        var auto = new HashSet<char>();
+        foreach (var action in before)
+        {
+            if (action is Then.AutoDoors a)
+                auto.UnionWith(a.Letters);
+            else if (action is Then.LockDoors l)
+                auto.ExceptWith(l.Letters);
+        }
 
         Assert.All(opened, letter => Assert.Contains(letter, Prologue.DoorsOpen[checkpoint]));
         Assert.All(auto, letter => Assert.True(Prologue.DoorsOpen[checkpoint].Contains(letter) || Prologue.DoorsAuto[checkpoint].Contains(letter),

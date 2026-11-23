@@ -14,6 +14,8 @@ public partial class StoryHud
         var world = _game.World;
         if (world.Story is not { } run || !run.Crew.Holding.TryGetValue(Game.Me.Value, out var what))
             return null;
+        if (ArmouryHoldShare(run, what) is { } armoury)
+            return armoury;
         if (!what.StartsWith(GameWorld.SeatTarget, StringComparison.Ordinal)
             || !int.TryParse(what[GameWorld.SeatTarget.Length..], NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
             return null;

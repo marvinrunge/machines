@@ -32,6 +32,9 @@ public partial class StoryPage(MenuScreens screens) : MenuPage(screens.ShowMain)
             MenuTheme.Label(StoryProgress.Heading(chapter), 34, MenuTheme.Bright),
             MenuTheme.Paragraph(Lang.T("A maintenance unit wakes in its clamp aboard a ship of the machines. Its update is pending. Two Grunts in the bays beside it wake with it."), 24, MenuTheme.Text),
             MenuTheme.Label(status, 24, _progress.CanContinue || _progress.Ended ? MenuTheme.Glow : MenuTheme.Dim)));
+        // What L-7 marked in the armoury's wrecks for later (package W; act 2 reads StoryProgress.Salvaged).
+        if (_progress.Salvaged.Count > 0)
+            about.GetChild(0).AddChild(MenuTheme.Label(Lang.T("Marked in the wreck: {0}", string.Join(", ", _progress.Salvaged.Select(Salvage))), 20, MenuTheme.Dim));
         columns.AddChild(about);
 
         var trio = new ChipPanel { CustomMinimumSize = new Vector2(600, 0), Padding = 28 };
@@ -106,4 +109,12 @@ public partial class StoryPage(MenuScreens screens) : MenuPage(screens.ShowMain)
         Remember();
         StoryProgress.Play(GetTree(), _progress.Options(chapter, checkpoint));
     }
+
+    /// <summary>A salvaged part's name on the page.</summary>
+    private static string Salvage(string id) => id switch
+    {
+        Machines.Sim.Story.StoryWaves.Grunt2Drive => Lang.T("Grunt 2 drive"),
+        Machines.Sim.Story.StoryWaves.ElectricCharge => Lang.T("electric charge"),
+        _ => id,
+    };
 }

@@ -406,77 +406,7 @@ public class PrologueAssaultTests
 
     // ---- Erste Gegenwehr -------------------------------------------------------------------------------
 
-    [Fact]
-    public void The_bolter_is_taken_from_its_rack_and_the_armed_grunts_go_down_to_it()
-    {
-        var world = Chapter(8);
-        var run = world.Story!;
-        var locator = Hero(world, 0);
-        var hostiles = Cast(world, Prologue.HostileRole);
-        Assert.Equal(3, hostiles.Count);
-        Assert.All(hostiles, m => Assert.Equal((Race?)Race.Red, m.DisplayAs));
-        Assert.Empty(locator.Weapons);
-
-        // Out of the hostiles' sight they stand their posts: nobody has seen the trio yet.
-        world.Step();
-        Assert.All(hostiles, m => Assert.IsNotType<AttackOrder>(m.Order));
-
-        // All three into the workshop, the Locator at the rack: it takes the Bolter with the use key.
-        var rack = world.Deck!.Marker("pickup_bolter").Position;
-        SetDown(world, locator, rack + new Vector2(-1.5f, -1.5f));
-        SetDown(world, Hero(world, 1), rack + new Vector2(-6, -4));
-        SetDown(world, Hero(world, 2), rack + new Vector2(-6, 0));
-        world.Step();
-        Assert.Equal("pickup_bolter", world.StoryUseTarget(run.Locator));
-        world.Issue(new StoryUseCommand(Race.Red, "pickup_bolter"));
-        world.Step();
-        Assert.NotEmpty(locator.Weapons);
-        Assert.Contains(StoryMarks.Done("pickup_bolter"), run.Flags);
-        Assert.True(run.Director.Has("workshop") && run.Director.Has("sealed"));
-        world.Step();
-        Assert.True(run.Director.Has("weapon"));
-        Assert.Equal("Stop the armed Grunts", StoryMarks.Objective(run)!.Value.Text);
-
-        // They saw it and fight; the Locator shoots back, the Grunts ram.
-        Assert.True(RunUntil(world, () => hostiles.All(m => m.IsDead) || run.Over, 60, () =>
-        {
-            var foe = hostiles.Where(m => !m.IsDead).OrderBy(m => Vector2.DistanceSquared(m.Position, locator.Position)).ThenBy(m => m.Id).First();
-            world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true, Aim: foe.Position));
-        }));
-        Assert.False(run.Over);
-        Assert.True(locator.HitPoints < locator.MaxHitPoints, "they never fired back");
-        world.Step();
-        Assert.True(run.Director.Has("cleared"));
-
-        // A crate came down on a Grunt in the fight (the lesson of putting a fallen Grunt together comes for sure): it lies
-        // beside the Grunt, not on it, and the objective points at the Grunt until the Locator has put it together.
-        Assert.True(run.Director.Has("knocked"));
-        var fallen = run.Seats.Skip(1).Where(world.CompanionDown).Select(s => world.HeroOf(s)!).ToList();
-        Assert.NotEmpty(fallen);
-        Assert.Equal(Prologue.RallyText, StoryMarks.Objective(run)!.Value.Text);
-        var crates = world.Artefacts.Where(a => a.Id >= Artefact.IdBase + StoryDirector.PlacedBase).ToList();
-        Assert.Single(crates);
-        Assert.True(Vector2.Distance(crates[0].Position, fallen[0].Position) >= fallen[0].Radius + StoryFall.Lies, $"crate at {crates[0].Position}, Grunt at {fallen[0].Position}");
-        var seat = run.Seats.First(s => world.HeroOf(s) == fallen[0]);
-        SetDown(world, locator, fallen[0].Position + new Vector2(0, 3));
-        world.Issue(new StoryUseCommand(Race.Red, $"seat:{seat.Value}"));
-        Assert.True(RunUntil(world, () => !world.CompanionDown(seat), GameWorld.ReviveSeconds + 1));
-        world.Issue(new StoryUseCommand(Race.Red, Held: false));
-        Run(world, 0.2f);
-        Assert.Equal("repair_station", StoryMarks.Objective(run)!.Value.Place);
-    }
-
-    [Fact]
-    public void Without_a_weapon_the_armed_grunts_are_deadly()
-    {
-        var world = Chapter(8);
-        var run = world.Story!;
-        var locator = Hero(world, 0);
-        SetDown(world, locator, world.Deck!.Marker("pickup_bolter").Position + new Vector2(-1.5f, -1.5f));
-
-        Assert.True(RunUntil(world, () => run.Over, 60, () => world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true))));
-        Assert.Equal(StoryEnding.LocatorLost, run.Ending);
-    }
+    // The weapon on its rack and the armoury's batches after it (stage 7): PrologueWaveTests.
 
     [Fact]
     public void The_squad_called_off_at_the_workshop_stays_off()

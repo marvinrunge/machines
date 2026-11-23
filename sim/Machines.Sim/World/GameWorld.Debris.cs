@@ -51,6 +51,9 @@ public sealed partial class GameWorld
             default:
                 return;
         }
+        // A wave unit of the armoury always leaves its wreck to strip, worth something or not.
+        if (quantity <= 0 && Story?.Waves.IsFoe(actor.Id) == true)
+            quantity = 1;
         if (quantity <= 0)
             return;
         // It burns out after a minute, or, while any race has a scavenger, two seconds more per BMU
@@ -58,6 +61,9 @@ public sealed partial class GameWorld
         // the hero is fighting meanwhile, not watching a clock on each wreck.
         var lifetime = Wired is not null ? float.PositiveInfinity : Machines.Any(m => m.IsScavenger) ? DebrisBurnTime + quantity * 2 : DebrisBurnTime;
         Debris.Add(new DebrisState(_nextDebrisId++, actor.Race, position, quantity, boundary, Time, Time + lifetime));
+        // The armoury keeps what each wave unit's wreck was, for what stripping it yields (GameWorld.StoryUse.Armoury).
+        if (Story is not null && actor is Machine dropped)
+            StoryWreckDropped(dropped, _nextDebrisId - 1, position);
     }
 
     /// <summary>Wreckage that has burnt out is gone.</summary>

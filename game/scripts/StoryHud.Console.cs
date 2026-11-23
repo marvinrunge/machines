@@ -42,6 +42,7 @@ public partial class StoryHud
         ["batch"] = (null, "The next batch comes when the bar is full. Your Grunts can block its door with crates"),
         ["zap"] = (null, "It charges up before it strikes: ram it, shoot it, or sprint out of its reach"),
         ["charge"] = (null, "When the heavy one revs, sprint out of its line: it cannot turn once it runs"),
+        ["salvage"] = (KeyMap.Act.Use, "[{0}] hold at a marked wreck: take the part along for later"),
         // The escape (package E).
         ["valve"] = (null, "Stand on the valve: the jet stays off"),
         ["wheel"] = (KeyMap.Act.Use, "[{0}] Hand wheel: the jet stays off for a while"),

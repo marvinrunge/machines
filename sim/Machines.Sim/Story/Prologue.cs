@@ -101,10 +101,11 @@ public static partial class Prologue
         // sends them.
         ([new(192, 245), new(219, 236), new(213, 236)], 90),
         // 8 Kreuzung: in the crossing, looking straight through door R into the workshop; the Grunts behind, clear of the
-        // view. 9 and 10 (the armoury's pauses) as 8 until package W places them.
+        // view.
         ([new(400, 244), new(394, 239), new(394, 249)], 0),
-        ([new(400, 244), new(394, 239), new(394, 249)], 0),
-        ([new(400, 244), new(394, 239), new(394, 249)], 0),
+        // 9 and 10, the armoury's pauses 2 and 4: at the defence posts def_1, def_2 and def_4, facing south, then east.
+        ([new(455, 237), new(474, 246), new(466, 238)], 180),
+        ([new(455, 237), new(474, 246), new(466, 238)], 90),
         // 11 Reparatur: at the repair station the Grunts stand behind the Locator, east of it: the way out (door U) is west,
         // and between it and the Locator they wedged it in.
         ([new(500, 248), new(505, 243), new(505, 253)], 180),
@@ -122,7 +123,7 @@ public static partial class Prologue
     /// other is set up as the nearest built one before it (<see cref="SetUpAs"/>); the packages of stage 7 add theirs as they
     /// build them (S: 2–5, W: 9–10, E: 13–14).
     /// </summary>
-    public static readonly IReadOnlySet<int> Built = new SortedSet<int> { 0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 12 };
+    public static readonly IReadOnlySet<int> Built = new SortedSet<int> { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
 
     /// <summary>The checkpoint a chapter started from <paramref name="checkpoint"/> is set up as: itself once built, else the nearest built one before it.</summary>
     public static int SetUpAs(int checkpoint)
@@ -166,12 +167,12 @@ public static partial class Prologue
     /// </summary>
     public static readonly IReadOnlyList<string> DoorsOpen =
     [
-        "", "ABCF", "ABCF", "ABCEF", "ABCEF", "ABCEF", "ABCDEF", "ABCDEFIJW", "ABCDEFIJVKMQW", "ABCDEFIJVKMQW", "ABCDEFIJVKMQW", "ABCDEFIJVKMQRUW",
-        "ABCDEFIJVKMQRUTW", "ABCDEFIJVKMQRUTW", "ABCDEFIJVKMQRUTW",
+        "", "ABCF", "ABCF", "ABCEF", "ABCEF", "ABCEF", "ABCDEF", "ABCDEFIJW", "ABCDEFIJVKMQW", "ABCDEFIJVKMQW", "ABCDEFIJVKMQW", "ABCDEFIJVKMNQRUW",
+        "ABCDEFIJVKMNQRUTW", "ABCDEFIJVKMNQRUTW", "ABCDEFIJVKMNQRUTW",
     ];
 
     /// <summary>The doors that open by themselves as the trio comes, at each checkpoint.</summary>
-    public static readonly IReadOnlyList<string> DoorsAuto = ["", "D", "D", "D", "D", "D", "I", "", "R", "R", "R", "T", "", "", ""];
+    public static readonly IReadOnlyList<string> DoorsAuto = ["", "D", "D", "D", "D", "D", "I", "", "R", "", "", "T", "", "", ""];
 
     /// <summary>Lines the view does not say once a hack is done, if they still wait on the loudspeakers: the pod's refusal once it is hacked.</summary>
     public static readonly IReadOnlyDictionary<string, string> StaleOnceHacked = new Dictionary<string, string> { ["pod_3_hatch"] = Lines.PodNo };
@@ -603,6 +604,7 @@ public static partial class Prologue
             6 => new Objective("Hack the main computer", "hack_core"),
             7 => new Objective("Take cover from the Reapers", Cover),
             8 => new Objective("Get through the workshop", "pickup_bolter"),
+            9 or 10 => new Objective("Hold the armoury", "R13"),
             11 => new Objective("Get to the escape pods", "R15"),
             12 => new Objective("Reach the escape pods", "pod_3_hatch"),
             _ => new Objective(null),

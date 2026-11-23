@@ -86,7 +86,8 @@ public sealed partial class GameWorld
             return false;
         if (StoryInert(hero))
             return true;
-        return HeroOf(run.Locator)?.Id == machine && run.Crew.Holding.TryGetValue(run.Locator.Value, out var what) && what.StartsWith(SeatTarget, StringComparison.Ordinal);
+        return HeroOf(run.Locator)?.Id == machine && run.Crew.Holding.TryGetValue(run.Locator.Value, out var what)
+            && (what.StartsWith(SeatTarget, StringComparison.Ordinal) || ArmouryHoldsStill(what));
     }
 
     public const string SeatTarget = "seat:";
@@ -551,6 +552,7 @@ public sealed partial class GameWorld
     /// <summary>A hero lets go of Use: a revive not finished starts again from nothing next time.</summary>
     private void LetGoOfUse(StoryRun run, PlayerId player)
     {
+        run.Waves.Holds.Remove(player.Value);
         if (!run.Crew.Holding.Remove(player.Value, out var what) || !what.StartsWith(SeatTarget, StringComparison.Ordinal))
             return;
         if (int.TryParse(what[SeatTarget.Length..], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var id))
@@ -896,6 +898,13 @@ public sealed partial class GameWorld
             // The cable in the shut-down Locator is the Notabschaltung's (UpdateReserve).
             if (what == LocatorTarget(run))
                 continue;
+            // The armoury's holds (mend, mount, strip) keep themselves (GameWorld.StoryUse.Armoury).
+            if (StoryHoldArmoury(run, holder, hero, what) is { } going)
+            {
+                if (!going)
+                    run.Crew.Holding.Remove(player);
+                continue;
+            }
             if (!what.StartsWith(SeatTarget, StringComparison.Ordinal))
             {
                 if (Deck?.Markers.FirstOrDefault(m => m.Name == what) is not { } marker || Vector2.Distance(marker.Position, hero.Position) > UseReach)

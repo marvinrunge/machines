@@ -5876,3 +5876,58 @@ msgstr "Versteck dich in der Nische"
 
 msgid "Cross deck A"
 msgstr "Überquere Deck A"
+
+# Stage 7, package W: the armoury's objective, batch bar, boss bar, prompts and the salvage.
+msgid "Hold the armoury"
+msgstr "Halte die Waffenkammer"
+
+msgid "BOLTER CARRIED"
+msgstr "BOLTER DABEI"
+
+msgid "Hold still: L-7 is mounting"
+msgstr "Stillhalten: L-7 montiert"
+
+msgid "BATCH {0}: DEPLOYED"
+msgstr "CHARGE {0}: AUSGERÜCKT"
+
+msgid "BATCH {0}: 1 UNIT · MASS {1} t"
+msgstr "CHARGE {0}: 1 EINHEIT · MASSE {1} t"
+
+msgid "NEXT BATCH: {0}"
+msgstr "NÄCHSTE CHARGE: {0}"
+
+msgid "WEST DOOR"
+msgstr "WESTTÜR"
+
+msgid "EAST DOOR"
+msgstr "OSTTÜR"
+
+msgid "FREIGHT GATE"
+msgstr "FRACHTTOR"
+
+msgid "Mend ({0}): {1} {2} %"
+msgstr "Flicken ({0}): {1} {2} %"
+
+msgid "Mount ({0}): {1}"
+msgstr "Montieren ({0}): {1}"
+
+msgid "Strip ({0}): {1}"
+msgstr "Ausschlachten ({0}): {1}"
+
+msgid "Grunt 2 drive"
+msgstr "Grunt-2-Antrieb"
+
+msgid "electric charge"
+msgstr "Elektroladung"
+
+msgid "Grunt 2 (Bolter)"
+msgstr "Grunt 2 (Bolter)"
+
+msgid "Grunt 1 (Bolter)"
+msgstr "Grunt 1 (Bolter)"
+
+msgid "Marked in the wreck: {0}"
+msgstr "Im Wrack markiert: {0}"
+
+msgid "[{0}] hold at a marked wreck: take the part along for later"
+msgstr "[{0}] an einem markierten Wrack halten: das Teil für später mitnehmen"
