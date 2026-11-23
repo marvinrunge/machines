@@ -88,6 +88,9 @@ public sealed class StoryRun(StoryOptions options)
 
     public StoryBudget Budget { get; } = new();
 
+    /// <summary>What the harm seam keeps (GameWorld.StoryHarm: the Thresher's counted shots).</summary>
+    public StoryHarm Harm { get; } = new();
+
     /// <summary>What the Locator stripped and marked in the wreck for act 2 (plan stufe7 §7: <c>chassis:grunt2</c>, <c>weapon:ELECTRIC_CHARGE</c>).</summary>
     public SortedSet<string> Salvage { get; } = new(StringComparer.Ordinal);
 
@@ -125,6 +128,9 @@ public sealed class StoryRun(StoryOptions options)
         hash.Mix(Pack.Fingerprint());
         hash.Mix(Hazards.Fingerprint());
         hash.Mix(Budget.Fingerprint());
+        // Only once the seam keeps anything, so a run that never uses it keeps its checksum.
+        if (Harm.Any)
+            hash.Mix(Harm.Fingerprint());
         foreach (var part in Salvage)
             hash.Mix(part);
         return hash.Value;

@@ -35,7 +35,7 @@ public sealed record StoryBeat(string Name, int Span, StoryTrigger When, IReadOn
 /// the view only hears its events (<see cref="StoryEvents"/>). All of it is in the checksum (<see cref="Fingerprint"/>).
 /// <para>The sight (plan WP-D) and the companions (plan WP-F) tell it their news through <see cref="Hear"/>.</para>
 /// </summary>
-public sealed class StoryDirector
+public sealed partial class StoryDirector
 {
     /// <summary>How near a hero of the trio must come to a door that opens by itself, in metres from the door's middle.</summary>
     public const float DoorReach = 8;
@@ -126,6 +126,7 @@ public sealed class StoryDirector
         _inbox.Clear();
         WatchHacks(world, run);
         OpenNearDoors(world, run);
+        KeepGates(world, run);
         Land(world);
         foreach (var id in Shielded)
             if (world.FindTarget(id) is { IsDead: false } kept)
@@ -187,6 +188,9 @@ public sealed class StoryDirector
         var heroes = StoryTrigger.Heroes(world, run, StoryWho.AnyHero).ToList();
         foreach (var letter in AutoDoors.ToList())
         {
+            // A locked door stays shut however near the trio comes (LockDoors); it opens by itself again once unlocked.
+            if (Locked.Contains(letter))
+                continue;
             var leaves = world.DoorLeaves(letter);
             if (leaves.Count == 0)
             {
@@ -306,6 +310,7 @@ public sealed class StoryDirector
             hash.Mix(fall.Downs);
         }
         hash.Mix(Fallen);
+        MixGates(hash);
         return hash.Value;
     }
 }
@@ -733,6 +738,7 @@ public static partial class Then
             foreach (var letter in Letters)
             {
                 director.AutoDoors.Remove(letter);
+                director.Closing.Remove(letter);
                 world.OpenDoor(letter, Instant);
             }
         }
@@ -1327,6 +1333,9 @@ public static partial class Then
                 StoryEvents.Countdown(world, "stop", left);
                 return;
             }
+            // Easy gives the crash run more time at every start of it (stufe7 §4 F item 3: "Easy +60").
+            if (run.Options.Difficulty == StoryDifficulty.Easy)
+                seconds += StoryOptions.EasyCountdown;
             run.Timers[StoryMarks.Countdown] = world.Time + seconds;
             run.Timers[StoryMarks.CountdownFrom] = world.Time;
             StoryEvents.Countdown(world, "start", seconds);

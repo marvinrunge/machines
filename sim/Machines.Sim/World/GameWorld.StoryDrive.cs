@@ -25,6 +25,12 @@ public sealed partial class GameWorld
             return 1;
         if (run.Drives.Of.TryGetValue(machine.Id, out var drive))
             return drive.Pace(Tick);
+        // A role the director paced (stufe7 C12, Then.Pace) goes at its share.
+        foreach (var (role, share) in run.Drives.Paces)
+        {
+            if (run.Director.Cast.TryGetValue(role, out var ids) && ids.Contains(machine.Id))
+                return share;
+        }
         return !run.Flags.Contains(StoryMarks.SprintFree) && run.Sight.Seekers.TryGetValue(machine.Id, out var eyes) && !eyes.Blind
             ? StoryDrive.Walk
             : 1;
