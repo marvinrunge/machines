@@ -782,7 +782,34 @@ public sealed class DeckLayout
             pieces.AddRange(Stack(stack));
         foreach (var room in Rooms)
             pieces.AddRange(Fittings(room));
+        pieces.AddRange(ValvePipes());
         return pieces;
+    }
+
+    /// <summary>
+    /// The pipe from each valve (a marker with <c>far=</c>) to its far end, where its clang comes out (section 2's lures): a
+    /// run along x, then one along y, under the ceiling (at most 5 m up), so the player can follow where a bang will be heard.
+    /// </summary>
+    private IEnumerable<DeckPiece> ValvePipes()
+    {
+        foreach (var marker in Deck.Markers)
+        {
+            var far = marker.Tags.FirstOrDefault(t => t.StartsWith("far=", StringComparison.Ordinal))?[4..];
+            if (far is null || Machines.Sim.Story.StoryMarks.Locate(Deck, far) is not { } end)
+                continue;
+            var start = marker.Position;
+            var corner = new Vector2(end.X, start.Y);
+            var room = Height((int)MathF.Floor(start.X), (int)MathF.Floor(start.Y));
+            var z = Math.Clamp(room - 1.5f, 2.5f, 5f);
+            foreach (var (a, b) in new[] { (start, corner), (corner, end) })
+            {
+                var length = Vector2.Distance(a, b);
+                if (length < 0.5f)
+                    continue;
+                var alongX = MathF.Abs(b.X - a.X) >= MathF.Abs(b.Y - a.Y);
+                yield return new DeckPiece("pipe_run", new Vector3((a + b) / 2, z), alongX ? 90f : 0f, new Vector3(length / 4f, 1, 1));
+            }
+        }
     }
 
     /// <summary>The heavy frames round the blast doors, doors and gates (<see cref="DeckFrame"/>).</summary>
