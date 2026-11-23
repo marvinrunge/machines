@@ -111,14 +111,17 @@ public sealed partial class StoryProgress
         new()
         {
             Chapter = chapter, Checkpoint = checkpoint, IkeName = StorySeats.Named(IkeName, "Ike"), BobName = StorySeats.Named(BobName, "Bob"),
-            Difficulty = AskedDifficulty,
+            Difficulty = AskedDifficulty ?? Difficulty,
         };
 
     /// <summary>
-    /// The story's difficulty (StoryOptions.Difficulty): Normal, or for one run what MACHINES_STORY_DIFFICULTY=easy|normal|hard
-    /// asks. The story page has no row for it yet.
+    /// The story's difficulty for one run, when MACHINES_STORY_DIFFICULTY=easy|normal|hard asks for one; null otherwise, and
+    /// the story page's choice (<see cref="Difficulty"/>) holds.
     /// </summary>
-    public static StoryDifficulty AskedDifficulty =>
+    public static StoryDifficulty? AskedDifficulty =>
         Enum.TryParse<StoryDifficulty>(System.Environment.GetEnvironmentVariable("MACHINES_STORY_DIFFICULTY"), ignoreCase: true, out var asked)
-            ? asked : StoryDifficulty.Normal;
+            ? asked : null;
+
+    /// <summary>The story's difficulty as the story page sets it (StoryOptions.Difficulty): Normal until the player picks another.</summary>
+    public StoryDifficulty Difficulty { get; set; } = StoryDifficulty.Normal;
 }

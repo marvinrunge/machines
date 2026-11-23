@@ -44,7 +44,8 @@ public partial class StoryPage(MenuScreens screens) : MenuPage(screens.ShowMain)
             MenuTheme.Label(Lang.T("Grunts").ToUpperInvariant(), 26, MenuTheme.Bright),
             Setting(Lang.T("First Grunt"), _ike),
             Setting(Lang.T("Second Grunt"), _bob),
-            MenuTheme.Paragraph(Lang.T("The names the two Grunts wake with. The Locator is always {0}.", StoryReadout.LocatorName), 21, MenuTheme.Dim)));
+            MenuTheme.Paragraph(Lang.T("The names the two Grunts wake with. The Locator is always {0}.", StoryReadout.LocatorName), 21, MenuTheme.Dim),
+            Setting(Lang.T("Difficulty"), DifficultyChoice())));
         columns.AddChild(trio);
 
         var back = Button("Back", Back);
@@ -71,6 +72,19 @@ public partial class StoryPage(MenuScreens screens) : MenuPage(screens.ShowMain)
         Remember();
         _progress.Save();
         base.Back();
+    }
+
+    /// <summary>Easy, Normal or Hard (the escape's time, the hazards' share, the hunters' windows); kept with the progress.</summary>
+    private ChipChoice DifficultyChoice()
+    {
+        var all = System.Enum.GetValues<StoryDifficulty>();
+        var choice = new ChipChoice(all.Select(d => Lang.T(d.ToString())), System.Array.IndexOf(all, _progress.Difficulty)) { CustomMinimumSize = new Vector2(210, 62) };
+        choice.ItemSelected += at =>
+        {
+            _progress.Difficulty = all[at];
+            _progress.Save();
+        };
+        return choice;
     }
 
     // The names typed, or the Grunts' own where none is.
