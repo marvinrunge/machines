@@ -28,8 +28,9 @@ ORIGINAL MODELS, SOUNDS AND FILMS
   Machines.exe. Sounds, texts and the campaign's films come straight from your copy.
 
 MUSIC
-  The remake plays the original soundtrack from MP3s of your own (Track 00 - Intro.mp3 and the others).
-  Pick their folder at the first start or under Soundtrack in the options.
+  The remake comes with a soundtrack of its own, which plays with every look but Classic. The original
+  soundtrack plays from MP3s of your own (Track 00 - Intro.mp3 and the others): pick their folder at the
+  first start or in the options, where Soundtrack chooses Original, Both (mixed) or Remake.
 
 MULTIPLAYER
   Online: press "Multiplayer", type your name and press "Connect". The RELAY field already holds the

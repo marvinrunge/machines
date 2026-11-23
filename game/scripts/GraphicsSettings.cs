@@ -104,6 +104,8 @@ public static class GraphicsSettings
             if (value.Look == Look.Custom)
                 Write(config, CustomSection, value);
             config.Save(File);
+            // A soundtrack not chosen follows the look.
+            Music.Refresh();
         }
     }
 
