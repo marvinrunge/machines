@@ -34,6 +34,9 @@ public static class StoryHeavy
     /// <summary>The boss's hit points with no Bolter on the trio's Grunts, what each Bolter one of them carries as batch 5 begins adds, and the most (design-waves).</summary>
     public const int BossHitPoints = 100, BossPerBolter = 20, BossMostHitPoints = 140;
 
+    /// <summary>The share of its guns' harm the boss deals the trio (a hunter's is <see cref="StorySight.HunterHarm"/>).</summary>
+    public const float BossGunHarm = 0.25f;
+
     /// <summary>The boss's armour: what soaks the first hits (all but one point each) until it is gone.</summary>
     public const int BossArmour = 30;
 
@@ -88,6 +91,10 @@ public static class StoryHeavy
             throw new ArgumentException($"machine {machine.Id} is no big Grunt", nameof(machine));
         machine.Refit(machine.Spec, Tuned(machine.Stats, part, bolters), machine.WeaponCombo, machine.Weapons.ToList());
         machine.NavSize = SizeClass;
+        // The boss's threat is its charge: its twin heavy Bolters hit the trio at a quarter (the hunters' half is too much for a
+        // fight of 70-90 s; the driver's Locator fell to them within 45 s of every start at checkpoint 10).
+        if (part == StoryHeavyPart.Boss && world.Story is not null)
+            world.StoryWatch(machine).Harm = BossGunHarm;
         if (world.Wired is { } run)
         {
             if (!run.Bodies.TryGetValue(machine.Id, out var body))

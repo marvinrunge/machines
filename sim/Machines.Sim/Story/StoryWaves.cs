@@ -380,7 +380,7 @@ public sealed class StoryWaves
     /// <summary>
     /// The share of a hit of <paramref name="shooter"/> on <paramref name="target"/> this part takes over (GameWorld.StoryHarm);
     /// null: not its hit. The boss's charge sets its own share while it is dealt; an electric unit's strike takes
-    /// <see cref="ZapShare"/> of the Locator's hit points (three kill it), and the Grunts take it at the usual half harm.
+    /// <see cref="ZapShare"/> of the Locator's hit points (four kill it), and the Grunts take it at the usual half harm.
     /// </summary>
     public float? Harm(Actor target, Actor? shooter)
     {
