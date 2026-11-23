@@ -197,16 +197,17 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
 
     /// <summary>
     /// What the original soundtrack's folder gives the soundtrack chosen, with <paramref name="count"/> of its tracks
-    /// found, and whether the soundtrack misses it (the original's alone plays nothing without it).
+    /// found, and whether the soundtrack misses it (the original's alone plays nothing without it). Each text fits the
+    /// options' two lines beside the button in both languages (about 22 letters a line); the tooltip says the rest.
     /// </summary>
     public static (string Text, bool Missing) Tracks(Soundtrack mode, int count) => (mode, count > 0) switch
     {
         (Soundtrack.Original, true) => (Lang.T("{0} tracks", count), false),
-        (Soundtrack.Original, false) => (Lang.T("Original plays your own MP3s of the soundtrack: pick their folder, or there is no music"), true),
+        (Soundtrack.Original, false) => (Lang.T("Pick the folder with the soundtrack's MP3s"), true),
         (Soundtrack.Both, true) => (Lang.T("{0} tracks, mixed with the remake's", count), false),
-        (Soundtrack.Both, false) => (Lang.T("No folder picked: only the remake's tracks play"), true),
-        (_, true) => (Lang.T("{0} tracks, played under Original or Both", count), false),
-        _ => (Lang.T("Not needed: the remake's own soundtrack plays"), false),
+        (Soundtrack.Both, false) => (Lang.T("No folder: only the remake's tracks play"), true),
+        (_, true) => (Lang.T("{0} tracks, for Original or Both", count), false),
+        _ => (Lang.T("Not needed: the remake's music plays"), false),
     };
 
     private static string Describe(Look look) => look switch

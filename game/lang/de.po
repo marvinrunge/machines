@@ -314,20 +314,20 @@ msgstr "Original-MP3s"
 msgid "Original: the original soundtrack from your own MP3s. Remake: the remake's own soundtrack. Both: the two mixed."
 msgstr "Original: der Original-Soundtrack aus deinen eigenen MP3s. Remake: der eigene Soundtrack des Remakes. Beides: die zwei gemischt."
 
-msgid "Original plays your own MP3s of the soundtrack: pick their folder, or there is no music"
-msgstr "Original spielt deine eigenen MP3s des Soundtracks: wähle ihren Ordner, sonst gibt es keine Musik"
+msgid "Pick the folder with the soundtrack's MP3s"
+msgstr "Wähle den Ordner mit deinen MP3s"
 
 msgid "{0} tracks, mixed with the remake's"
-msgstr "{0} Stücke, gemischt mit denen des Remakes"
+msgstr "{0} Stücke, mit dem Remake gemischt"
 
-msgid "No folder picked: only the remake's tracks play"
-msgstr "Kein Ordner gewählt: es laufen nur die Stücke des Remakes"
+msgid "No folder: only the remake's tracks play"
+msgstr "Kein Ordner: nur die Stücke des Remakes"
 
-msgid "{0} tracks, played under Original or Both"
-msgstr "{0} Stücke, sie laufen unter Original oder Beides"
+msgid "{0} tracks, for Original or Both"
+msgstr "{0} Stücke, für Original oder Beides"
 
-msgid "Not needed: the remake's own soundtrack plays"
-msgstr "Nicht nötig: der eigene Soundtrack des Remakes läuft"
+msgid "Not needed: the remake's music plays"
+msgstr "Nicht nötig: die Musik des Remakes läuft"
 
 msgid "The remake has a soundtrack of its own, made for it: it comes with the game and plays over the menus and in every match."
 msgstr "Das Remake hat einen eigenen Soundtrack, eigens dafür gemacht: er kommt mit dem Spiel und läuft in den Menüs und in jedem Match."

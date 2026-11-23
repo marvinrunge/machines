@@ -11,6 +11,7 @@
 # Zeilen mit # sind Kommentare. Ein Stück, das hier fehlt oder nichts Bekanntes trägt, zählt als normal.
 # Gilt nur für die Soundtrack-Einstellung Remake oder Beides; Original spielt wie das Original.
 # Bei Beides mischen sich die Original-Stücke nur in normale Matches, nicht in Schlacht und Boss.
+# Alle Stücke sind gleich laut abgelegt; in den Menüs spielt das Spiel sie leiser, wie das Original sein Menüstück.
 #
 # Die Markierungen unten sind Vorschläge aus einer Messung (Anschläge pro Sekunde, Helligkeit,
 # Unruhe des Klangs): die hektischsten für schlacht und boss. Bitte nach Gehör korrigieren.

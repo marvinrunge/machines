@@ -242,7 +242,8 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
                 "The remake plays the original soundtrack from MP3s of your own, as the original played its CD: the intro, " +
                 "the menu tune, each planet's own track and the victory and defeat tunes.",
                 "Pick the folder that holds them (Track 00 - Intro.mp3 and the others). Without it the game plays without music."));
-            tracks = MenuTheme.Label(Tracks(Music.Folder), 24, MenuTheme.Bright);
+            tracks = MenuTheme.Label("", 24, MenuTheme.Bright);
+            ShowTracks(Music.Folder);
             page.AddChild(tracks);
         }
         else
@@ -260,19 +261,24 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
             soundtrack.ItemSelected += i =>
             {
                 Music.Mode = soundtracks[i];
-                tracks.Text = Tracks(Music.Folder);
+                ShowTracks(Music.Folder);
             };
             var row = Setting("Soundtrack", soundtrack);
             soundtrack.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
             page.AddChild(row);
-            tracks.Text = Tracks(Music.Folder);
+            ShowTracks(Music.Folder);
             page.AddChild(tracks);
         }
-        string Tracks(string? folder) => remake
-            ? OptionsPage.Tracks(Music.Mode, Music.TrackCount(folder)).Text
-            : Music.TrackCount(folder) is var count and > 0
-                ? Lang.T("{0} tracks found.", count)
-                : Lang.T("No soundtrack picked yet.");
+        // Bright where something is missing (with the classic look, until a folder is picked), else quiet.
+        void ShowTracks(string? folder)
+        {
+            var count = Music.TrackCount(folder);
+            var (text, missing) = remake
+                ? OptionsPage.Tracks(Music.Mode, count)
+                : count > 0 ? (Lang.T("{0} tracks found.", count), false) : (Lang.T("No soundtrack picked yet."), true);
+            tracks.Text = text;
+            tracks.AddThemeColorOverride("font_color", missing || !remake ? MenuTheme.Bright : MenuTheme.Dim);
+        }
         page.AddChild(Spring(across: false));
 
         var dialog = new FileDialog
@@ -286,7 +292,7 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
         dialog.DirSelected += folder =>
         {
             Music.Folder = folder;
-            tracks.Text = Tracks(folder);
+            ShowTracks(folder);
         };
         var pick = Button("Pick folder", () => dialog.PopupCentered(new Vector2I(900, 600)));
         var finish = Button("Finish", () =>

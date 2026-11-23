@@ -284,25 +284,24 @@ public class SoundtrackTests
     [Fact]
     public void The_shipped_titel_txt_lists_every_track_there_is_and_no_other()
     {
+        // Only what the file must have: which track is for what is the user's to mark (and an empty kind falls back),
+        // but every line names a track there is, each track there is has its line, and every mark is one the game knows.
         var folder = RemakeFolder();
         var files = Directory.GetFiles(folder, "*.ogg").Select(f => Path.GetFileNameWithoutExtension(f)).Order().ToArray();
-        var text = File.ReadAllText(Path.Combine(folder, "titel.txt"));
-        var listed = text.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith('#'))
-            .Select(l => l[..l.IndexOf('=')].Trim()).Order().ToArray();
-        Assert.Equal(files, listed);
-        var moods = TrackMoods.Read(text, files);
-        Assert.Empty(moods.Warnings);
-        Assert.Equal("deep_drift_v1", moods.Menu);
-        // Every kind of match has tracks of its own marked.
-        Assert.All(new[] { Mood.Normal, Mood.Battle, Mood.Boss }, mood => Assert.Contains(files, f => moods.Of(f).Contains(mood)));
+        Assert.NotEmpty(files);
+        var moods = TrackMoods.Read(File.ReadAllText(Path.Combine(folder, "titel.txt")), files);
+        Assert.True(moods.Warnings.Count == 0, "titel.txt: " + string.Join("; ", moods.Warnings));
+        Assert.Equal(files, moods.Tracks.Order());
+        Assert.All(files, f => Assert.NotEmpty(moods.Of(f)));
     }
 
     [Fact]
     public void The_remake_tracks_come_with_the_game_imported()
     {
         var folder = RemakeFolder();
-        var files = Directory.GetFiles(folder, "*.ogg").Select(f => Path.GetFileNameWithoutExtension(f)).Order().ToArray();
-        Assert.Equal(Names.Order(), files);
+        var files = Directory.GetFiles(folder, "*.ogg").Select(f => Path.GetFileNameWithoutExtension(f)).ToArray();
+        // The tracks the user made; more may join, each with its line in titel.txt.
+        Assert.NotEmpty(files);
         // Godot loads them in an exported build only from their import; its file is committed beside each.
         Assert.All(files, name => Assert.True(File.Exists(Path.Combine(folder, name + ".ogg.import")), $"{name}.ogg.import missing"));
         Assert.Empty(Directory.GetFiles(folder, "*.mp3"));

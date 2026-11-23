@@ -13,7 +13,9 @@ namespace Machines.Game;
 /// one is picked, a <c>music</c> folder beside the game serves. The remake's own tracks come with the game
 /// (<c>res://assets/music/remake</c>, loudness matched to the original's), each marked in its <c>titel.txt</c> for
 /// the menus, ordinary matches, the Battle mode or Wired's boss fights (<see cref="TrackMoods"/>): its menu tune over
-/// the menus, the others at random in a match by its kind, the boss tracks while a boss stands on the map.
+/// the menus, the others at random in a match by its kind, the boss tracks while a boss stands on the map. They are all
+/// kept at the level of the original's in-game tracks, and a remake track over the menus plays <see cref="MenuDb"/>
+/// quieter, as the original's menu tune is, so that the file may mark any of them for anything.
 /// MACHINES_SOUNDTRACK=Original|Both|Remake sets the soundtrack for one run, unsaved.
 /// </summary>
 public partial class Music : Node
@@ -24,6 +26,9 @@ public partial class Music : Node
     private const float FadeSeconds = 0.8f;
     // A boss coming or going changes the music more gently than a new screen.
     private const float MoodFadeSeconds = 2.5f;
+    // The original's menu tune is about 6 LU quieter than its in-game tracks (-16.3 against -9.5 LUFS); the remake's
+    // tracks are all kept at the in-game level (-10.1), so over the menus one plays this much quieter.
+    private const float MenuDb = -6f;
 
     private enum Phase
     {
@@ -50,6 +55,8 @@ public partial class Music : Node
     // A boss stands on the map (Wired's boss waves): an ordinary match plays its boss tracks meanwhile.
     private bool _boss;
     private Tune? _playing;
+    // How far below the music's volume the tune playing plays (see Gain).
+    private float _gainDb;
     private Tween? _fade;
 
     /// <summary>The menus: the original's intro tune the first time where it plays, then the menu tune over and over.</summary>
@@ -146,7 +153,7 @@ public partial class Music : Node
         {
             Store("music_volume", value);
             if (_instance is not null && IsInstanceValid(_instance) && _instance._fade is null && _instance.IsInsideTree())
-                _instance._player.VolumeDb = Mathf.LinearToDb(value);
+                _instance._player.VolumeDb = _instance.Level;
         }
     }
 
@@ -174,7 +181,7 @@ public partial class Music : Node
 
     public override void _Ready()
     {
-        _player = new AudioStreamPlayer { Name = "Player", VolumeDb = Mathf.LinearToDb(Volume) };
+        _player = new AudioStreamPlayer { Name = "Player", VolumeDb = Level };
         _player.Finished += OnFinished;
         AddChild(_player);
         Apply(FadeSeconds);
@@ -241,19 +248,46 @@ public partial class Music : Node
         var tune = Choose(wanted);
         _fresh = false;
         if (tune == _playing && (tune is not null || !_player.Playing))
+        {
+            // The tune plays on into the new phase (the menu tune where a match picks it first, or back): from now on
+            // it plays as this phase plays it, once or over and over, at its level. A fade under way starts it so anyway.
+            if (tune is { } going && _fade is null && _player.Stream is { } stream)
+            {
+                Looped(stream, Loops(going));
+                if (System.Environment.GetEnvironmentVariable("MACHINES_AUDIO_TRACE") == "1")
+                    GD.Print($"music {going} plays on ({(Loops(going) ? "looped" : "once")}, {Gain(going):0} dB)");
+                if (!Mathf.IsEqualApprox(_gainDb, Gain(going)))
+                {
+                    _gainDb = Gain(going);
+                    _fade = CreateTween();
+                    _fade.TweenProperty(_player, "volume_db", Level, fade);
+                    _fade.TweenCallback(Callable.From(() => _fade = null));
+                }
+            }
             return;
-        Play(tune, wanted.Phase == Phase.Menu && tune != Tune.Original(SoundtrackChoice.Intro), fade);
+        }
+        Play(tune, fade);
     }
 
-    private void Play(Tune? tune, bool loop, float fade)
+    /// <summary>Whether <paramref name="tune"/> plays over and over: a menu tune does, the intro and a match's tracks once.</summary>
+    private bool Loops(Tune tune) => _wanted is { Phase: Phase.Menu } && tune != Tune.Original(SoundtrackChoice.Intro);
+
+    /// <summary>How far below the music's volume <paramref name="tune"/> plays: a remake track over the menus by <see cref="MenuDb"/>.</summary>
+    private float Gain(Tune tune) => tune.IsRemake && _wanted is { Phase: Phase.Menu } ? MenuDb : 0f;
+
+    /// <summary>The player's level for the tune playing: the music's volume with its <see cref="Gain"/>.</summary>
+    private float Level => Mathf.LinearToDb(Volume) + _gainDb;
+
+    private void Play(Tune? tune, float fade)
     {
         _playing = tune;
-        if (tune == Tune.Original(SoundtrackChoice.Intro))
+        // Once a tune has played over the menus the intro is over: a soundtrack chosen later starts on its menu tune.
+        if (tune is not null && _wanted is { Phase: Phase.Menu })
             _introPlayed = true;
         if (_player.Playing)
-            FadeOut(tune is { } next ? () => Start(next, loop) : null, fade);
+            FadeOut(tune is { } next ? () => Start(next) : null, fade);
         else if (tune is { } next)
-            Start(next, loop);
+            Start(next);
     }
 
     /// <summary>Fades the tune playing out over <paramref name="seconds"/>, then stops it and does <paramref name="then"/>.</summary>
@@ -266,17 +300,19 @@ public partial class Music : Node
         {
             _fade = null;
             _player.Stop();
-            _player.VolumeDb = Mathf.LinearToDb(Volume);
+            _player.VolumeDb = Level;
             then?.Invoke();
         }));
     }
 
-    private void Start(Tune tune, bool loop)
+    private void Start(Tune tune)
     {
         _fade?.Kill();
         _fade = null;
         _player.Stop();
-        _player.VolumeDb = Mathf.LinearToDb(Volume);
+        var loop = Loops(tune);
+        _gainDb = Gain(tune);
+        _player.VolumeDb = Level;
         string? file;
         AudioStream? stream;
         if (tune.Remake is { } name)
@@ -307,7 +343,8 @@ public partial class Music : Node
         _player.Play();
         if (System.Environment.GetEnvironmentVariable("MACHINES_AUDIO_TRACE") == "1")
             GD.Print($"music {System.IO.Path.GetFileName(file)} ({Mode.ToString().ToLowerInvariant()}" +
-                $"{(_wanted is { } wanted ? $", {(wanted.Phase == Phase.Match ? MoodOf(wanted).ToString() : wanted.Phase.ToString()).ToLowerInvariant()}" : "")})");
+                $"{(_wanted is { } wanted ? $", {(wanted.Phase == Phase.Match ? MoodOf(wanted).ToString() : wanted.Phase.ToString()).ToLowerInvariant()}" : "")}" +
+                $"{(loop ? ", looped" : "")}{(_gainDb != 0 ? $", {_gainDb:0} dB" : "")})");
     }
 
     private static AudioStream Looped(AudioStream stream, bool loop)
@@ -326,7 +363,7 @@ public partial class Music : Node
         if (_wanted is { Phase: Phase.Menu })
             Apply(FadeSeconds);
         else if (_wanted is { Phase: Phase.Match } wanted && _playing is { } track)
-            Play(SoundtrackChoice.Next(Mode, MoodOf(wanted), track, _tracks.Keys, _moods, Random), false, FadeSeconds);
+            Play(SoundtrackChoice.Next(Mode, MoodOf(wanted), track, _tracks.Keys, _moods, Random), FadeSeconds);
     }
 
     private static Variant Setting(string key, Variant fallback)
