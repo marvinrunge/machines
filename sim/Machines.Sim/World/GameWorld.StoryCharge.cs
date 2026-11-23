@@ -113,14 +113,14 @@ public sealed partial class GameWorld
     /// <summary>The hero the boss charges: of the trio standing 12–35 m off in a clear line, the Locator first, else the nearest.</summary>
     private Machine? ChargeTarget(StoryRun run, Machine boss)
     {
-        var mobility = MobilityOf(boss);
         Machine? best = null;
         foreach (var seat in run.Seats)
         {
             if (HeroOf(seat) is not { IsDead: false } hero || StoryInert(hero))
                 continue;
             var distance = Vector2.Distance(hero.Position, boss.Position);
-            if (distance < ChargeNearest || distance > ChargeFurthest || !Nav.LineOfSight(boss.Position, hero.Position, mobility))
+            // A clear line on the ground the hero stands on (the boss's own class sees no line across the armoury's clutter).
+            if (distance < ChargeNearest || distance > ChargeFurthest || !Nav.LineOfSight(boss.Position, hero.Position, MobilityOf(hero)))
                 continue;
             if (seat == run.Locator)
                 return hero;
@@ -195,15 +195,17 @@ public sealed partial class GameWorld
     /// Where a hero hit by the charge lands: <see cref="ChargeThrow"/> m to its side of the line, or nearer, on ground it fits
     /// on and clear of the boss's way; the other side if that side is a wall; null (it stays) if neither has room.
     /// </summary>
-    internal Vector2? ThrowAside(Machine hero, Machine boss, Vector2 way)
+    public Vector2? ThrowAside(Machine hero, Machine boss, Vector2 way)
     {
         var mobility = MobilityOf(hero);
         var side = new Vector2(-way.Y, way.X);
         var rel = hero.Position - boss.Position;
         var sign = rel.X * side.X + rel.Y * side.Y >= 0 ? 1f : -1f;
+        // As far as clears the boss's body (its 3 m and the hero's own) if that is more than the throw.
+        var furthest = MathF.Max(ChargeThrow, ThrowFurthest(hero, boss));
         foreach (var s in (ReadOnlySpan<float>)[sign, -sign])
         {
-            for (var reach = ChargeThrow; reach >= 1; reach -= 0.5f)
+            for (var reach = furthest; reach >= 1; reach -= 0.5f)
             {
                 var p = hero.Position + side * (s * reach);
                 // Clear of the boss's body where it runs on, on ground that holds the hero.
@@ -215,6 +217,9 @@ public sealed partial class GameWorld
         }
         return null;
     }
+
+    /// <summary>The furthest a hero is thrown: enough to clear the boss's body from its line.</summary>
+    public static float ThrowFurthest(Machine hero, Machine boss) => boss.Radius + hero.Radius + 1;
 
     private static float DistanceToLine(Vector2 p, Vector2 a, Vector2 way)
     {

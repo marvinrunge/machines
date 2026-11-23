@@ -15,7 +15,8 @@ public sealed partial class CompanionBot
     private const float PostApart = 4, Dodge = 6, ComeNear = 5;
 
     /// <summary>This section's behaviour for the Grunt; true when it acted this look (nothing after it runs).</summary>
-    private bool ThinkArmoury(StoryRun run, Companion companion, Machine grunt)
+    /// <summary>Before any job (a barricade, a post): held still while L-7 works on it, out of the charge's line, to L-7 for a carried Bolter.</summary>
+    private bool ArmouryFirst(StoryRun run, Machine grunt)
     {
         if (run.Section != 6)
             return false;
@@ -29,14 +30,21 @@ public sealed partial class CompanionBot
         // The heavy Grunt revs at it, or runs down a line it stands on: sideways out of it.
         if (DodgeCharge(run, grunt))
             return true;
-        if (!run.Flags.Contains(StoryMarks.ArmourySealed))
-            return false;
         // A Bolter carried and none on it: to the Locator, to be armed.
-        if (!waves.Fighting && waves.Carried is not null && grunt.Weapons.Count == 0 && world.HeroOf(run.Locator) is { } locator)
+        if (run.Flags.Contains(StoryMarks.ArmourySealed) && !waves.Fighting && waves.Carried is not null && grunt.Weapons.Count == 0
+            && world.HeroOf(run.Locator) is { } locator)
         {
             world.CompanionMove(grunt, Vector2.Distance(grunt.Position, locator.Position) > ComeNear ? locator.Position : grunt.Position);
             return true;
         }
+        return false;
+    }
+
+    private bool ThinkArmoury(StoryRun run, Companion companion, Machine grunt)
+    {
+        if (run.Section != 6 || !run.Flags.Contains(StoryMarks.ArmourySealed))
+            return false;
+        var waves = run.Waves;
         if (!waves.Fighting || grunt.Weapons.Count == 0)
             return false;
         // Armed in a batch: fire at what it sees, else to the nearest free defence post.

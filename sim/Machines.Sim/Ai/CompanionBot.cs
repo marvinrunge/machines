@@ -44,6 +44,9 @@ public sealed partial class CompanionBot(GameWorld world, PlayerId seat)
         // The shut-down Locator first (the Notabschaltung, CompanionBot.Restart), then the job, the section's own, the order.
         if (RestartLocator(run, grunt))
             return;
+        // The armoury (stage 7, package W): still while L-7 works on it, out of the charge's line, to L-7 for a Bolter.
+        if (ArmouryFirst(run, grunt))
+            return;
         switch (companion.Task)
         {
             case CompanionTask.Barricade:
