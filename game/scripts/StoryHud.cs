@@ -130,6 +130,8 @@ public partial class StoryHud : Control
         DrawArmoury(now);
         // The escape's gyro and rear arc (StoryHud.Escape).
         DrawEscape(now);
+        // Section 2's eye, IM LICHT, ERFASST, SCHLEICHEN and the Thresher's last place on the tracker (StoryHud.Stealth).
+        DrawStealth(now);
         DrawConsole();
         DrawHolds();
         DrawEnd(now);

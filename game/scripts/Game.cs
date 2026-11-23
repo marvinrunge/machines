@@ -852,6 +852,7 @@ public partial class Game : Node3D
         CutsceneIfAsked(delta);
         FollowStoryEnd(delta);
         FollowStoryFilm(delta);
+        FollowStealth(delta);
         UpdateTowerMode();
         ShowFilmLook();
         ShowInteriors();
@@ -3676,7 +3677,7 @@ public partial class Game : Node3D
         // positive strafe; the client shows the world with y and z swapped, which mirrors it, so on screen both go
         // right. Ctrl turns slowly (FIRST_PERSON_MAX_SLOW_TURN_RATE).
         Issue(new DriveCommand(Player, machine.Id, Driving: true, forward, Mathf.Clamp(-turn, -1, 1), aimAt, sent, _headTarget,
-            -strafe, Input.IsKeyPressed(Key.Ctrl) || StoryCreepHeld(), aimHeight, buttons, SentYaw, Sprint: StorySprintHeld()));
+            -strafe, SlowHeld(), aimHeight, buttons, SentYaw, Sprint: StorySprintHeld()));
     }
 
     /// <summary>
@@ -3775,7 +3776,7 @@ public partial class Game : Node3D
         // With the modern keys a machine without an upper body turns its view with the keys, smoothly, and the hull
         // follows it at the same rate.
         if (FreeLook && !machine.CanTurnUpperBody && (!Paused || Online) && !ScreenOver && !InCutscene)
-            _aimYaw = Mathf.Wrap(_aimYaw - KeyTurn(machine) * HullTurnRate(machine, Input.IsKeyPressed(Key.Ctrl)) * (float)GetProcessDeltaTime(),
+            _aimYaw = Mathf.Wrap(_aimYaw - KeyTurn(machine) * HullTurnRate(machine, SlowHeld()) * (float)GetProcessDeltaTime(),
                 -Mathf.Pi, Mathf.Pi);
         // A sighted driver's gun as it will stand, and where its sight is drawn; the upper body points there at once.
         var aimsGun = Sighted;
