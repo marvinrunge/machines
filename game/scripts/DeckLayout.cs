@@ -132,7 +132,7 @@ public sealed class DeckLayout
     public const int Module = 4;
 
     /// <summary>Ceilings where no room says: inside ducts, of a room the deck gives no height, and the doors by kind.</summary>
-    public const float DuctHeight = 3, DefaultHeight = 16, DoorHeight = 8, VentHeight = 3, GateHeight = 14, BlastHeight = 14, WideBlastHeight = 16;
+    public const float DuctHeight = 3, GrateHeight = 8, DefaultHeight = 16, DoorHeight = 8, VentHeight = 3, GateHeight = 14, BlastHeight = 14, WideBlastHeight = 16;
 
     /// <summary>How far apart a lit room's ceiling lamps hang, and an emergency lamp on the walls at most.</summary>
     public const float LampSpacing = 16, WallLampSpacing = 24;
@@ -152,6 +152,7 @@ public sealed class DeckLayout
         Ceilings = [.. Rects(IsOpen, Height).Select(r => new DeckCeiling(r, Height(r.X0, r.Y0)))];
         Floors = FindFloors();
         Covers = Rects((x, y) => Deck.Cell(x, y) == DeckCell.Cover, (_, _) => 0);
+        Stacks = Rects((x, y) => Deck.Cell(x, y) == DeckCell.High, (_, _) => 0);
         Occluders = Rects((x, y) => Deck.Cell(x, y) == DeckCell.Wall, (_, _) => 0);
         Rooms = [.. Deck.Zones.Where(z => z.Tags.Contains("room"))];
         Lamps = FindLamps();
@@ -214,6 +215,66 @@ public sealed class DeckLayout
     /// <summary>The high cover (<c>c</c>) as rectangles; each holds a set piece or crates (<see cref="Pieces"/>).</summary>
     public IReadOnlyList<DeckRect> Covers { get; }
 
+    /// <summary>The high stacks (<c>h</c>) as rectangles; each stands as a set piece 8 m tall (<see cref="Stack"/>).</summary>
+    public IReadOnlyList<DeckRect> Stacks { get; }
+
+    /// <summary>How tall a high stack stands (the sim's wall height), and the longest one tower of it runs, metres.</summary>
+    public const float StackHeight = 8, StackTile = 6;
+
+    /// <summary>What a high stack is drawn as: a clamp gantry in a row, lashed containers in the hold, a pipe bank when thin, else crate towers.</summary>
+    public string StackKind(DeckRect stack)
+    {
+        var centre = stack.Centre;
+        bool In(string tag) => Deck.Zones.Any(z => z.Tags.Contains(tag) && z.Contains(centre));
+        return In("row") ? "gantry" : In("hold") ? "containers" : Math.Min(stack.Width, stack.Depth) <= 2 ? "pipes" : "crates";
+    }
+
+    /// <summary>
+    /// The set pieces of a high stack, filling its cells to 8 m: in a row (zone tag <c>row</c>) a clamp gantry, four posts and
+    /// pipe beams on both faces; in the hold (zone tag <c>hold</c>) containers two high; a stack two metres thin or less a bank
+    /// of pipes; anything else towers of crates three high, a tower at most <see cref="StackTile"/> metres a side.
+    /// </summary>
+    private IEnumerable<DeckPiece> Stack(DeckRect stack)
+    {
+        var alongX = stack.Width >= stack.Depth;
+        var (length, across) = alongX ? (stack.Width, stack.Depth) : (stack.Depth, stack.Width);
+        var facing = alongX ? 90f : 0f;
+        Vector2 At(float t, float s) => alongX ? new Vector2(stack.X0 + t, stack.Y0 + s) : new Vector2(stack.X0 + s, stack.Y0 + t);
+        var kind = StackKind(stack);
+        if (kind == "gantry")
+        {
+            foreach (var (t, s) in new[] { (0.5f, 0.5f), (length - 0.5f, 0.5f), (0.5f, across - 0.5f), (length - 0.5f, across - 0.5f) })
+                yield return new DeckPiece("kit_pillar", new Vector3(At(t, s), 0), facing, new Vector3(1, StackHeight / 8, 1));
+            for (var level = 0; level < 3; level++)
+                foreach (var s in new[] { 0.5f, across - 0.5f })
+                    yield return new DeckPiece("pipe_run", new Vector3(At(length / 2, s), 1.5f + 2.2f * level), facing, new Vector3((length - 1) / 4f, 1, 1));
+            yield break;
+        }
+        if (kind == "pipes")
+        {
+            var runs = Math.Max(1, (int)MathF.Round(length / 4f));
+            for (var i = 0; i < runs; i++)
+                for (var level = 0; level < 4; level++)
+                    yield return new DeckPiece("pipe_run", new Vector3(At((i + 0.5f) * length / runs, across / 2f), 2f * level), facing,
+                        new Vector3(length / (float)runs / 4f, 1, across));
+            yield break;
+        }
+        var tiers = kind == "containers" ? 2 : 3;
+        var tile = kind == "containers" ? 12f : StackTile;
+        var (n, m) = ((int)MathF.Ceiling(length / tile), (int)MathF.Ceiling(across / tile));
+        var (tl, ta, th) = (length / (float)n, across / (float)m, StackHeight / tiers);
+        for (var i = 0; i < n; i++)
+            for (var j = 0; j < m; j++)
+                for (var k = 0; k < tiers; k++)
+                {
+                    // Each tier a little in from the one below, turned now and then: stacked by hand, not cast in one piece.
+                    var shrink = 1 - 0.04f * k;
+                    var flip = Hash(stack.X0 + i, stack.Y0 + j, k) % 2 == 0 ? 0 : 180;
+                    yield return new DeckPiece("crate_large", new Vector3(At((i + 0.5f) * tl, (j + 0.5f) * ta), k * th), facing + flip,
+                        new Vector3(tl * shrink / 3f, th / 2.078f, ta * shrink / 2f));
+                }
+    }
+
     /// <summary>The walls as rectangles, for boxes that hide what stands behind them (occlusion culling).</summary>
     public IReadOnlyList<DeckRect> Occluders { get; }
 
@@ -242,7 +303,7 @@ public sealed class DeckLayout
             var height = ZoneHeight(zone) ?? DefaultHeight;
             for (var y = Math.Max(0, (int)MathF.Floor(zone.Min.Y)); y < Math.Min(d, (int)MathF.Ceiling(zone.Max.Y)); y++)
                 for (var x = Math.Max(0, (int)MathF.Floor(zone.Min.X)); x < Math.Min(w, (int)MathF.Ceiling(zone.Max.X)); x++)
-                    if (Deck.Cell(x, y) is DeckCell.Floor or DeckCell.Cover or DeckCell.Catwalk)
+                    if (Deck.Cell(x, y) is DeckCell.Floor or DeckCell.Cover or DeckCell.Catwalk or DeckCell.High)
                     {
                         _height[y * w + x] = set[y * w + x] ? Math.Max(_height[y * w + x], height) : height;
                         set[y * w + x] = true;
@@ -263,14 +324,14 @@ public sealed class DeckLayout
             foreach (var n in Neighbours(i % w, i / w))
             {
                 var j = n.Y * w + n.X;
-                if (set[j] || Deck.Cell(n.X, n.Y) is not (DeckCell.Floor or DeckCell.Cover or DeckCell.Catwalk))
+                if (set[j] || Deck.Cell(n.X, n.Y) is not (DeckCell.Floor or DeckCell.Cover or DeckCell.Catwalk or DeckCell.High))
                     continue;
                 (_height[j], set[j]) = (_height[i], true);
                 queue.Enqueue(j);
             }
         }
         for (var i = 0; i < w * d; i++)
-            if (!set[i] && Deck.Cell(i % w, i / w) is DeckCell.Floor or DeckCell.Cover or DeckCell.Catwalk)
+            if (!set[i] && Deck.Cell(i % w, i / w) is DeckCell.Floor or DeckCell.Cover or DeckCell.Catwalk or DeckCell.High)
                 (_height[i], set[i]) = (DefaultHeight, true);
         // A door or grate is as tall as its kind, and no taller than the lowest room it opens to.
         foreach (var opening in Openings)
@@ -319,7 +380,7 @@ public sealed class DeckLayout
                     continue;
                 var block = Flood(x, y, (a, b) => Deck.Cell(a, b) == DeckCell.Grate, seen);
                 var alongX = AcrossNorthSouth(block, (a, b) => Deck.Cell(a, b) == DeckCell.Grate);
-                openings.Add(new DeckOpening('\0', "grate", block, alongX, LowestBeside(block, alongX)));
+                openings.Add(new DeckOpening('\0', "grate", block, alongX, Math.Min(GrateHeight, LowestBeside(block, alongX))));
             }
         return openings;
     }
@@ -717,6 +778,8 @@ public sealed class DeckLayout
         }
         foreach (var cover in Covers.Where(c => !claimed.Contains(c)))
             pieces.AddRange(Crates(cover));
+        foreach (var stack in Stacks)
+            pieces.AddRange(Stack(stack));
         foreach (var room in Rooms)
             pieces.AddRange(Fittings(room));
         return pieces;

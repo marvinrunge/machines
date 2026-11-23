@@ -202,9 +202,11 @@ public class StorySprintTests(ITestOutputHelper output)
     {
         var world = Unscripted();
         world.Story!.Flags.Add(StoryMarks.SprintFree);
-        Place(world, Locator, Lane);
-        Place(world, Ike, Lane - new Vector2(8, 3));
-        Place(world, Bob, Lane - new Vector2(30, -3));
+        // 20 m further east than Lane, so that Bob, 30 m behind, stands on deck A and not in the Leitstand beyond its grate.
+        var lane = Lane + new Vector2(20, 0);
+        Place(world, Locator, lane);
+        Place(world, Ike, lane - new Vector2(8, 3));
+        Place(world, Bob, lane - new Vector2(30, -3));
         world.Step();
         var ike = world.StoryDriveOf(Hero(world, Ike).Id)!;
         var bob = world.StoryDriveOf(Hero(world, Bob).Id)!;

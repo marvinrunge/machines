@@ -153,7 +153,7 @@ public class DeckLayoutTests
             }
         }
         // The tall rooms (the computer core, the pod bay) have one shadowed lamp each; it is the only kind there is.
-        Assert.Equal(["core", "podbay"], Layout.Lamps.Where(l => l.Shadowed).Select(l => l.Group).Order());
+        Assert.Equal(["core", "podbay", "steg"], Layout.Lamps.Where(l => l.Shadowed).Select(l => l.Group).Order());
         // Groups that start on emergency have red lamps on their walls.
         Assert.Contains(Layout.Lamps, l => l.Group == "bay7_emergency" && l.Kind == DeckLampKind.Wall);
     }
@@ -170,17 +170,19 @@ public class DeckLayoutTests
         Assert.Single(pieces, p => p.Prop == "bay_crane");
         Assert.Contains(pieces, p => p.Prop == "core_console");
         Assert.Equal(4, pieces.Count(p => p.Prop == "clamp_terminal")); // Ike's and Bob's, and the core chamber's two console banks
-        Assert.Equal(3, pieces.Count(p => p.Prop == "plate"));
+        Assert.Equal(4, pieces.Count(p => p.Prop == "plate")); // the gates' and the cable passage's switches, and Y's in the pod bay
         // What stands on the floor and is not driven into (clamps, cradles, the repair station, plates) or built into the
         // wall (pillars) stands on high cover, which the sim blocks.
         var driveIn = new HashSet<string> { "clamp", "pod_cradle", "repair_station", "plate", "kit_pillar", "kit_door_frame" };
         foreach (var piece in pieces.Where(p => p.Position.Z == 0 && !driveIn.Contains(p.Prop)))
         {
             var cell = Deck.Cell((int)MathF.Floor(piece.Position.X), (int)MathF.Floor(piece.Position.Y));
-            Assert.True(cell == DeckCell.Cover || piece.Prop == "junction_box", $"{piece.Prop} at {piece.Position} stands on {cell}");
+            Assert.True(cell is DeckCell.Cover or DeckCell.High || piece.Prop == "junction_box", $"{piece.Prop} at {piece.Position} stands on {cell}");
         }
         // Fittings on the walls hang over the machines' heads.
-        Assert.All(pieces.Where(p => p.Prop is "pa_speaker" or "pipe_run" or "cable_hang"), p => Assert.True(p.Position.Z >= 2.5f, $"{p.Prop} at {p.Position} hangs too low"));
+        // (A high stack's pipe bank and its gantry's beams stand inside the stack, which the sim blocks to its full 8 m.)
+        Assert.All(pieces.Where(p => p.Prop is "pa_speaker" or "pipe_run" or "cable_hang"
+                                     && Deck.Cell((int)MathF.Floor(p.Position.X), (int)MathF.Floor(p.Position.Y)) != DeckCell.High), p => Assert.True(p.Position.Z >= 2.5f, $"{p.Prop} at {p.Position} hangs too low"));
         // Every piece of cover holds something.
         Assert.All(Layout.Covers, cover => Assert.Contains(pieces, p => cover.Contains((int)MathF.Floor(p.Position.X), (int)MathF.Floor(p.Position.Y))));
     }
