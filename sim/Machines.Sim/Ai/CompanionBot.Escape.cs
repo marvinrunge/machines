@@ -18,6 +18,9 @@ public sealed partial class CompanionBot
     {
         if (!run.Flags.Contains(StoryMarks.Escape))
             return false;
+        // Shut out by the shutter, a job beyond it (J4's valve) waits too; a chock in the hold it still pushes.
+        if (run.Hazards.Shutter == ShutterState.Shut && GameWorld.OnHoldSide(grunt.Position) && companion.Task != CompanionTask.Chock)
+            return WaitAtShutter(run, grunt);
         switch (companion.Task)
         {
             case CompanionTask.HoldFrame:
@@ -27,7 +30,7 @@ public sealed partial class CompanionBot
             case CompanionTask.Chock:
                 return Chock(run, companion, grunt);
         }
-        if (WaitOutHazards(run, grunt))
+        if (world.HeroOf(run.Locator) is { } leader && WaitOutHazards(run, grunt, leader.Position))
             return true;
         // Fallen behind the Locator, or badly hurt: it runs after it rather than stand and fire at the pack (design-escape §10:
         // an armed Grunt fires when not on a job, and keeping with L-7 comes first). It fires again once it has caught up.
@@ -70,6 +73,29 @@ public sealed partial class CompanionBot
         return y + clear > low && y - clear < high;
     }
 
+    /// <summary>Where Grunts shut out by the shutter wait for it to rise: in its frame, on the hold's side, 4 m either side of this.</summary>
+    private static readonly Vector2 ShutterWait = new(357, 144);
+
+    /// <summary>
+    /// Shut out by the shutter: it goes to the shutter and waits there, firing at the pack, until the Locator hacks the panel
+    /// beside it (hack_x) and it rises (design-escape §3 C3). Following the Locator it looked for another way round, and
+    /// that way led back through the hold into the pack.
+    /// </summary>
+    private bool WaitAtShutter(StoryRun run, Machine grunt)
+    {
+        // Each Grunt to a place of its own in the frame (the same one kept the second standing short of it).
+        var spot = ShutterWait + new Vector2(0, seat.Value % 2 == 0 ? -4 : 4);
+        if (Vector2.Distance(grunt.Position, spot) > 3)
+        {
+            if (!WaitOutHazards(run, grunt, spot))
+                world.CompanionMove(grunt, spot);
+            return true;
+        }
+        if (!FireIfArmed(run, grunt))
+            world.CompanionStand(grunt);
+        return true;
+    }
+
     /// <summary>Below this share of its hit points a Grunt in the escape no longer stops to fight: it runs with the Locator.</summary>
     private const float HurtShare = 0.4f;
 
@@ -87,7 +113,9 @@ public sealed partial class CompanionBot
         // The rest of the trio, a downed Grunt too: one lying on the pack's side keeps the frame held until the Locator has
         // put it together and both are through (letting go shut it out of the chapter).
         var others = run.Seats.Select(world.HeroOf).OfType<Machine>().Where(h => h != grunt && h.Inside is null && !h.IsDead).ToList();
-        if (others.All(h => h.Position.X < frame.Min.X - 2 && h.Position.Y < 160))
+        // Through: in the gallery, or on beyond it (a Locator already on the
+        // footbridge kept it standing in the frame for good).
+        if (others.All(h => h.Position.X < frame.Min.X - 2 && h.Position.Y < 160 || h.Position.Y < 100))
         {
             // The others are through: it leaves the frame last, and the shutter slams behind it.
             world.AssignCompanion(seat, CompanionTask.None);
@@ -156,15 +184,15 @@ public sealed partial class CompanionBot
 
     /// <summary>
     /// Reading the hazards' timetables (design-escape §10): a Grunt following the Locator stops short of a jet that burns or
-    /// warns between it and the Locator, and of a lane whose container is sliding; it waits on the free side and goes on
+    /// warns between it and where it goes (the Locator, or the frame it is sent to hold), and of a lane whose container is sliding; it waits on the free side and goes on
     /// when it is clear. True while it waits.
     /// </summary>
-    private bool WaitOutHazards(StoryRun run, Machine grunt)
+    private bool WaitOutHazards(StoryRun run, Machine grunt, Vector2 toward)
     {
-        if (world.HeroOf(run.Locator) is not { } locator || world.Deck is not { } deck)
+        if (world.Deck is not { } deck)
             return false;
         var hazards = run.Hazards;
-        var ahead = locator.Position - grunt.Position;
+        var ahead = toward - grunt.Position;
         if (ahead.LengthSquared() < 1)
             return false;
         var look = grunt.Position + Vector2.Normalize(ahead) * MathF.Min(HazardLook, ahead.Length());

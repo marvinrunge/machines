@@ -64,6 +64,14 @@ public partial class StoryDriver
         }
         LetGoOfEscape();
         Fire(game, hero, 0, false);
+        // The shutter came down on a Grunt still in the hold: back to its panel in the gallery and hacked, as a player would.
+        if (story.Hazards.Shutter == ShutterState.Shut && !GameWorld.OnHoldSide(at) && !story.Hacks.Locked.Contains("hack_x")
+            && !story.Hacks.Done.Contains("hack_x") && story.Hacks.Find("hack_x", deck) is not null
+            && story.Seats.Skip(1).Select(world.HeroOf).Any(g => g is { IsDead: false } && GameWorld.OnHoldSide(g.Position)))
+        {
+            _escapeStep = Hack(game, story, hero, "hack_x");
+            return true;
+        }
         if (In("R18") || at.X < 349 && at.Y < 152)
             return Gallery(game, story, hero);
         _galleryStep = 0;
@@ -146,6 +154,12 @@ public partial class StoryDriver
         while (_galleryStep < GalleryWay.Length - 1 && GalleryWay[_galleryStep].Y > at.Y + 2)
             _galleryStep++;
         var step = GalleryWay[_galleryStep];
+        // At the gallery's head: straight on over the footbridge, never back to the last step (it pulled the hero to and fro).
+        if (_galleryStep == GalleryWay.Length - 1 && at.Y < step.Y + 3)
+        {
+            Go(game, hero, "the footbridge", new NVector2(440, 92), 2);
+            return true;
+        }
         if (_galleryStep == BeforeJ4 + 1 && !Dark(story.Hazards, 4, world.Tick, 40) && at.Y > 106)
         {
             if (Go(game, hero, "before J4", GalleryWay[BeforeJ4], 1.2f))
@@ -153,13 +167,8 @@ public partial class StoryDriver
             Overdue("before J4", 90);
             return true;
         }
-        if (Go(game, hero, $"gallery {_galleryStep}", step, 1.2f))
-        {
-            if (_galleryStep < GalleryWay.Length - 1)
-                _galleryStep++;
-            else
-                Go(game, hero, "the footbridge", new NVector2(360, 92), 2);
-        }
+        if (Go(game, hero, $"gallery {_galleryStep}", step, 1.2f) && _galleryStep < GalleryWay.Length - 1)
+            _galleryStep++;
         return true;
     }
 

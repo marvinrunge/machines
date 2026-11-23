@@ -570,6 +570,8 @@ public static partial class Prologue
             run.Hacks.Locked.Add("hack_d5");
         if (cp < 12)
             run.Hacks.Locked.Add("pod_3_hatch");
+        // The shutter's panel opens only when the shutter came down with one of the trio still in the hold (GameWorld.UpdateShutter).
+        run.Hacks.Locked.Add("hack_x");
         // The doors opened before the checkpoint stand open from its first tick, none of them sliding (GameWorld.OpenDoor).
         Do(new OpenDoors(DoorsOpen[cp], Instant: true), new AutoDoors(DoorsAuto[cp]));
         // The Notabschaltung's reserve is whole again at every checkpoint (StoryReserve).

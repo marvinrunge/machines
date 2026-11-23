@@ -86,6 +86,8 @@ public sealed class HackDesk
         ["hack_noise"] = HackKind.Door,
         ["hack_d5"] = HackKind.Door,
         ["hack_core"] = HackKind.Core,
+        // The shutter X's panel in the gallery (design-escape §3 C3): open only once it came down on one of the trio.
+        ["hack_x"] = HackKind.Door,
         ["pod_3_hatch"] = HackKind.Pod,
     };
 

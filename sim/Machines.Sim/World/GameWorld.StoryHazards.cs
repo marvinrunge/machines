@@ -495,8 +495,10 @@ public sealed partial class GameWorld
     }
 
     /// <summary>Whether all the trio stand past the shutter (in the gallery or on).</summary>
-    private bool PastShutter(StoryRun run) =>
-        EscapeHeroes(run).All(h => h.Position.X < 348 && h.Position.Y < 160 || h.Position.Y < 100);
+    private bool PastShutter(StoryRun run) => EscapeHeroes(run).All(h => !OnHoldSide(h.Position));
+
+    /// <summary>Whether a point lies on the hold's side of the shutter X: not in the gallery (west of it) nor on beyond it.</summary>
+    public static bool OnHoldSide(Vector2 point) => !(point.X < 348 && point.Y < 160 || point.Y < 100);
 
     private void UpdateShutter(StoryRun run)
     {

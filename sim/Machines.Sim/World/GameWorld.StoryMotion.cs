@@ -1,4 +1,5 @@
 using System.Numerics;
+using Machines.Sim.Story;
 
 namespace Machines.Sim.World;
 
@@ -31,6 +32,10 @@ public sealed partial class GameWorld
         {
             if (HeroOf(run.Seats[i]) is not { } mate || mate == machine || mate.Inside is not null || StoryLies(mate)
                 || mate.Order is not FollowOrder theirs || theirs.Target != follow.Target)
+                continue;
+            // In the escape only a mate on its own side of the shutter X: one still in the hold is nearer a Locator on the
+            // footbridge as the crow flies, and the Grunt in the gallery turned back through the shutter after it.
+            if (run.Flags.Contains(StoryMarks.Escape) && OnHoldSide(mate.Position) != OnHoldSide(machine.Position))
                 continue;
             var nearer = Vector2.DistanceSquared(mate.Position, leader.Position);
             if (nearer > mine || nearer == mine && mate.Id > machine.Id)

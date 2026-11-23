@@ -241,4 +241,129 @@ public class PrologueEscapeTests
         var launched = results.Count(r => r.ok);
         Assert.True(launched >= 9, string.Join(" || ", results.Where(r => !r.ok).Select(r => $"seed {r.seed}: {r.last}")));
     }
+
+    // ---- a Locator sprinting ahead --------------------------------------------------------------------
+
+    /// <summary>Whether a hero stands on the hold's side of the shutter X, its doorway (x 348-352) counted as through.</summary>
+    private static bool ShutOut(Machine hero) => !(hero.Position.X < 352 && hero.Position.Y < 160 || hero.Position.Y < 100);
+
+    /// <summary>The shutter's panel played by its solution from the gallery, the Locator set down at it; whether it was done.</summary>
+    private static bool HackShutter(GameWorld world, Machine locator)
+    {
+        var run = world.Story!;
+        SetDown(world, locator, run.Hacks.Find("hack_x", world.Deck)!.Value.Position);
+        world.Issue(new StoryHackOpenCommand(Race.Red, "hack_x"));
+        world.Step();
+        var session = run.Hacks.Session("hack_x");
+        for (var turns = 0; session is not null && turns < 400 && !run.Hacks.Done.Contains("hack_x") && !run.Over; turns++)
+        {
+            if (!session.Open)
+                world.Issue(new StoryHackOpenCommand(Race.Red, "hack_x"));
+            else if (session.Puzzle!.SolutionTurns().Take(1).ToList() is [var turn])
+                world.Issue(new StoryHackTurnCommand(Race.Red, "hack_x", turn.Cell, turn.Clockwise));
+            world.Step();
+        }
+        return run.Hacks.Done.Contains("hack_x");
+    }
+
+    /// <summary>
+    /// One run from checkpoint 12 with the Locator driven along <see cref="Way"/> at the keys with the sprint held (as the
+    /// game's story driver plays it), waiting only before a lane while its container telegraphs or slides, and hacking the
+    /// shutter's panel when it came down on a Grunt; the Grunts on their own. Where the Grunts are when it reaches the
+    /// footbridge's far end: true when both are past the shutter and not wrecked.
+    /// </summary>
+    private static bool Sprint(int seed, Action<string> log)
+    {
+        var world = Chapter(12, seed);
+        var run = world.Story!;
+        var next = 0;
+        var lanes = world.Deck!.Zones.Where(z => z.Name.StartsWith("lane_", StringComparison.Ordinal)).OrderByDescending(z => z.Min.X).ToList();
+        for (var tick = 0; tick < 90 * GameWorld.TicksPerSecond && !run.Over && next < Way.Length; tick++)
+        {
+            var locator = Hero(world, 0);
+            if (run.Hazards.Shutter == ShutterState.Shut && !run.Hacks.Done.Contains("hack_x") && Enumerable.Range(1, 2).Any(s => ShutOut(Hero(world, s))))
+            {
+                log($"seed {seed}: X came down on a Grunt at {world.Time:0} s, hacked {HackShutter(world, locator)}");
+                continue;
+            }
+            if (Vector2.Distance(locator.Position, Way[next]) < 4)
+            {
+                next++;
+                continue;
+            }
+            var target = Way[next];
+            if (locator.Position.Y is > 150 and < 180)
+            {
+                foreach (var lane in lanes.Where(l => locator.Position.X > l.Min.X - 1).Take(1))
+                {
+                    var number = int.Parse(lane.Name["lane_".Length..], System.Globalization.CultureInfo.InvariantCulture);
+                    if (locator.Position.X > lane.Max.X + 1.5f && run.Hazards.Rails.Any(r => r.Lane == number && r.State is RailState.Telegraph or RailState.Slide))
+                        target = new Vector2(lane.Max.X + 3.5f, 168);
+                }
+            }
+            var way = target - locator.Position;
+            if (way.Length() > 1.5f)
+            {
+                var off = MathF.Atan2(way.Y, way.X) - locator.Facing;
+                off = MathF.Atan2(MathF.Sin(off), MathF.Cos(off));
+                world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true, Forward: MathF.Abs(off) < 0.6f ? 1 : 0.2f, Turn: Math.Clamp(off * 2, -1, 1), Sprint: true));
+            }
+            else
+                world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true));
+            world.Step();
+        }
+        var grunts = Enumerable.Range(1, 2).Select(s => Hero(world, s)).ToList();
+        log($"seed {seed}: at {world.Time:0} s, way {next}/{Way.Length}, " + string.Join(", ", grunts.Select(g => $"grunt at {g.Position.X:0},{g.Position.Y:0} hp {g.HitPoints:0}{(g.IsDead ? " wrecked" : "")}")));
+        return next == Way.Length && grunts.All(g => !g.IsDead && !ShutOut(g));
+    }
+
+    /// <summary>
+    /// A Locator sprinting ahead through the hold no longer leaves its Grunts to the pack: they keep their places at a lane
+    /// rather than turning each other aside (GameWorld.KeepsPlaceInEscape), the one sent to hold the shutter runs there, and
+    /// one shut out waits at the shutter until the Locator hacks its panel. Before, they fell 30 s behind and died in the
+    /// hold, or went back through it looking for another way round.
+    /// </summary>
+    [Fact]
+    public void A_locator_sprinting_ahead_finds_both_grunts_past_the_shutter_in_six_seeds_of_eight()
+    {
+        var log = new List<string>();
+        var through = Enumerable.Range(1, 8).Count(seed => Sprint(seed, log.Add));
+        Assert.True(through >= 6, $"{through} of 8: " + string.Join(" || ", log));
+    }
+
+    /// <summary>
+    /// The shutter's panel: locked until the shutter comes down with a Grunt still in the hold, then hackable from the gallery;
+    /// the Grunt shut out waits at the shutter meanwhile, and the hack raises it again (design-escape §3 C3).
+    /// </summary>
+    [Fact]
+    public void A_grunt_shut_out_by_the_shutter_waits_there_until_the_locator_hacks_its_panel()
+    {
+        var world = Chapter(12);
+        var run = world.Story!;
+        Assert.Contains("hack_x", run.Hacks.Locked);
+        var locator = Hero(world, 0);
+        Run(world, 1);
+        SetDown(world, locator, new Vector2(340, 120));
+        // The Grunts held in the hold while it comes down, then let go.
+        foreach (var seat in new[] { 1, 2 })
+        {
+            SetDown(world, Hero(world, seat), new Vector2(400 + 6 * seat, 168));
+            run.Director.Held.Add(Hero(world, seat).Id);
+        }
+        world.CloseShutter(run);
+        Assert.True(RunUntil(world, () => run.Hazards.Shutter == ShutterState.Shut, 15), $"shutter {run.Hazards.Shutter}");
+        foreach (var seat in new[] { 1, 2 })
+            run.Director.Held.Remove(Hero(world, seat).Id);
+        Assert.DoesNotContain("hack_x", run.Hacks.Locked);
+        Assert.NotNull(run.Hacks.Find("hack_x", world.Deck));
+        Run(world, 20);
+        foreach (var seat in new[] { 1, 2 })
+        {
+            var grunt = Hero(world, seat);
+            Assert.True(Vector2.Distance(grunt.Position, new Vector2(357, 144)) < 8 || grunt.IsDead || world.CompanionDown(run.Seats[seat]),
+                $"grunt {seat} at {grunt.Position} order {grunt.Order} task {run.Crew.Of(run.Seats[seat]).Task} escape {run.Flags.Contains(StoryMarks.Escape)} shutter {run.Hazards.Shutter} held {run.Director.Held.Contains(grunt.Id)} path {grunt.PathIndex}/{grunt.Path.Count}");
+        }
+        Assert.True(HackShutter(world, locator));
+        Assert.True(RunUntil(world, () => run.Hazards.Shutter != ShutterState.Shut, 2), $"shutter {run.Hazards.Shutter}");
+    }
 }
