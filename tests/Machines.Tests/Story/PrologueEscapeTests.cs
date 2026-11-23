@@ -210,10 +210,11 @@ public class PrologueEscapeTests
     }
 
 
-    [Fact(Skip = "Not met yet (package E hand-off): seed 1 loses Bob behind the shutter X (his HoldFrame job leaves him in the hold when it shuts) and the Locator cannot reach him to put him together.")]
+    [Fact(Skip = "Not met (package E hand-off to I): on 2026-11-23 none of seeds 1-10 launches; in most the pack downs both Grunts in the hold (they stand to wait out the containers and the pack, standing or within 25 m, aims), and the Locator is lost. Needs tuning of the Grunts' WaitOutHazards and HoldFrame and of the pack's fire; the failure message names each seed's last state.")]
     public void A_locator_walked_along_the_route_with_its_grunts_on_their_own_reaches_the_pod_in_nine_seeds_of_ten()
     {
-        var launched = Enumerable.Range(1, 10).Count(seed => Walk(seed));
-        Assert.True(launched >= 9, $"{launched} of 10 launched");
+        var results = Enumerable.Range(1, 10).Select(seed => { var log = new List<string>(); var ok = Walk(seed, log.Add); return (seed, ok, last: string.Join(" | ", log.TakeLast(3))); }).ToList();
+        var launched = results.Count(r => r.ok);
+        Assert.True(launched >= 9, string.Join(" || ", results.Where(r => !r.ok).Select(r => $"seed {r.seed}: {r.last}")));
     }
 }
