@@ -64,6 +64,12 @@ public sealed partial class StoryDirector
         }
     }
 
+    /// <summary>An action done now, outside the script (checks and tools: a scene set up by hand, a test of one action).</summary>
+    public void Act(GameWorld world, StoryRun run, StoryAction action) => action.Do(world, run, this);
+
+    /// <summary>Whether a trigger holds now, outside the script (checks and tools).</summary>
+    public bool Holds(GameWorld world, StoryRun run, StoryTrigger trigger) => trigger.Holds(world, run, this);
+
     /// <summary>What the gates keep, into the director's fingerprint; nothing at all while none is in use.</summary>
     private void MixGates(WiredHash hash)
     {
@@ -87,7 +93,7 @@ public sealed partial class StoryDirector
 public static partial class When
 {
     /// <summary>
-    /// A named timer of the run (<see cref="Then.Timer"/>) runs and has at most so many seconds left (0: it ran out). It
+    /// A named timer of the run (<see cref="Then.SetTimer"/>) runs and has at most so many seconds left (0: it ran out). It
     /// holds on until the timer is set anew or stopped.
     /// </summary>
     public sealed record TimerAt(string Name, float Seconds) : StoryTrigger
@@ -168,7 +174,7 @@ public static partial class Then
     /// A named timer of the run set to run out in so many seconds (<see cref="When.TimerAt"/>), or, with none, stopped. It is
     /// kept with the run's timers, in the checksum.
     /// </summary>
-    public sealed record Timer(string Name, float? Seconds) : StoryAction
+    public sealed record SetTimer(string Name, float? Seconds) : StoryAction
     {
         internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
         {
