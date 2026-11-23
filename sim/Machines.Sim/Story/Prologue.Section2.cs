@@ -118,13 +118,13 @@ public static partial class Prologue
     private static StoryAction[] Rows =>
     [
         // Gaps the Grunts need (design-stealth §2.1, §2.3): n2, n3 and n5's Builder (the scare Grunt hangs there), B4 and B5 are empty;
-        // the Tech Boy moved from B7 to B6.
+        // the Tech Boy moved from B7 to B3 (in B6 it narrowed the way from the crawl way to wait_c so the Locator stuck there).
         new Spawn(RowRole, Grunt2, ["clampA_s1", "clampA_s4", "clampA_s6", "clampA_n6"], Inert: true),
         new Spawn(RowRole, Grunt3, ["clampA_s2", "clampA_n7", "clampB_2", "clampB_8"], Inert: true),
         new Spawn(RowRole, Reaper2, ["clampA_s5", "clampA_n1"], Inert: true),
         new Spawn(RowRole, Builder, ["clampA_s8"], Inert: true),
         // The cast's rows (docs/STORY.md, Besetzung): Grunts, Reapers, Builders and Engineers (the Tech Boy), nothing else.
-        new Spawn(RowRole, TechBoy, ["clampA_s7", "clampA_n8", "clampB_6"], Inert: true),
+        new Spawn(RowRole, TechBoy, ["clampA_s7", "clampA_n8", "clampB_3"], Inert: true),
         new Spawn(ScareRole, Grunt2, ["scare_grunt2"], Inert: true),
     ];
 
