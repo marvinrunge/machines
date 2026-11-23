@@ -179,17 +179,23 @@ public partial class Game
         var section = story.Section;
         if (ReferenceEquals(_sectionDone, World))
             return;
+        // A loss (the Locator fell, the ship crashed) counts nothing until the retry runs: the death card is left out.
+        if (story.Ending is Machines.Sim.Story.StoryEnding.LocatorLost or Machines.Sim.Story.StoryEnding.Crashed)
+        {
+            _sectionAt = (section, World.Tick, World);
+            return;
+        }
         if (!ReferenceEquals(_sectionAt.World, World) || World.Tick < _sectionAt.Tick)
             _sectionAt = (section, World.Tick, World);
         var ticks = World.Tick - _sectionAt.Tick;
         _sectionTicks[_sectionAt.Section] = _sectionTicks.GetValueOrDefault(_sectionAt.Section) + ticks;
         var left = _sectionAt.Section;
         _sectionAt = (section, World.Tick, World);
+        static string Clock(int ticks) { var s = ticks / GameWorld.TicksPerSecond; return $"{s / 60}:{s % 60:00}"; }
         if (section == left && story.Ending is null)
             return;
-        static string Clock(int ticks) { var s = ticks / GameWorld.TicksPerSecond; return $"{s / 60}:{s % 60:00}"; }
         Godot.GD.Print($"story time: section {left} {Clock(_sectionTicks[left])}");
-        if (story.Ending is not null && section == left)
+        if (story.Ending is not null)
         {
             var total = 0;
             foreach (var t in _sectionTicks.Values)
