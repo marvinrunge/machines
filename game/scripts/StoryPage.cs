@@ -58,6 +58,10 @@ public partial class StoryPage(MenuScreens screens) : MenuPage(screens.ShowMain)
 
         SwitchOn();
         Focus(_progress.CanContinue ? go : fresh);
+        // For automated checks: MACHINES_MENU_START=story starts the prologue from here the way a player would, through
+        // the loading screen (MACHINES_LOADING_SCREENSHOT).
+        if (System.Environment.GetEnvironmentVariable("MACHINES_MENU_START") == "story")
+            Callable.From(() => Play(StoryOptions.Prologue, 0)).CallDeferred();
     }
 
     private static LineEdit NameField(string name, string fallback) =>

@@ -117,7 +117,7 @@ public partial class MenuScreens : Control
         _stage = new MenuStage();
         _host.AddChild(_stage);
         MenuSounds.Attach(_stage, _assets.GameFolder);
-        var page = shot.Length > 1 ? shot[1] : Setting("MACHINES_MP") is not null ? "multiplayer" : Setting("MACHINES_MENU_START") is not null ? "skirmish" : StartPage ?? "main";
+        var page = shot.Length > 1 ? shot[1] : Setting("MACHINES_MP") is not null ? "multiplayer" : Setting("MACHINES_MENU_START") is { } start ? (start == "story" ? "story" : "skirmish") : StartPage ?? "main";
         StartPage = null;
         // The first time, the original's loading and intro films play before the main menu (not in automated runs).
         // The main menu's machines load and are drawn once where nobody sees them, the first time: under the loading picture.
