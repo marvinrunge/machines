@@ -9,8 +9,8 @@
     },
     {
       "name": "storyboard",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["tools/storyboard/server.py"],
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "--no-project", "python", "tools/storyboard/server.py"],
       "port": 8766
     }
   ]
