@@ -33,8 +33,13 @@ public partial class Game : Node3D
     /// <summary>Whether a Wired or battle event is about this player's own hero (its <see cref="GameEvent.Player"/>).</summary>
     private static bool Mine(GameEvent e) => e.Player == Me;
 
-    /// <summary>The colour a race is shown in; start positions keep the scenario's race in the simulation.</summary>
-    public static Race Look(Race race) => MatchRequest.Current.Starts.Colours.GetValueOrDefault(race, race);
+    /// <summary>
+    /// The colour a race is shown in; start positions keep the scenario's race in the simulation. In a story chapter every
+    /// machine wears the red race's paint, the ship's own (the Reapers, the Commander, the Thresher) as the trio's: friend
+    /// and foe tell apart by the story's marks, not by the paint. Only the picture changes, the simulation keeps its races.
+    /// </summary>
+    public static Race Look(Race race) => MatchRequest.Current.Options.Story is not null ? Race.Red
+        : MatchRequest.Current.Starts.Colours.GetValueOrDefault(race, race);
 
     private readonly Dictionary<int, ActorView> _views = [];
 
