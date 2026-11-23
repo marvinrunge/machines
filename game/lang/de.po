@@ -484,8 +484,8 @@ msgstr "Das Licht des Originals."
 msgid "The original's models and textures."
 msgstr "Die Modelle und Texturen des Originals."
 
-msgid "The original's models with rounded edges, baked shading, sharper textures, a little sheen and the field's dust and grime."
-msgstr "Die Modelle des Originals mit gerundeten Kanten, eingebrannter Schattierung, schärferen Texturen, etwas Glanz sowie Staub und Schmutz vom Feld."
+msgid "The original's models with rounded edges, baked shading, sharper textures and a little sheen."
+msgstr "Die Modelle des Originals mit gerundeten Kanten, eingebrannter Schattierung, schärferen Texturen und etwas Glanz."
 
 msgid "The original's models, ground, lighting and effects."
 msgstr "Modelle, Boden, Licht und Effekte des Originals."

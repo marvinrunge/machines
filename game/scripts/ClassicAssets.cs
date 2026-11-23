@@ -1128,10 +1128,6 @@ public sealed class ClassicAssets
             moving.SetShaderParameter("noise", TerrainMaterials.NoiseTexture);
             return moving;
         }
-        // The overhauled machines and buildings carry the field's dust and grime (ModelGrime), on their solid parts.
-        if (sharp && race is not null && Upgraded && emissive.Max() <= 0.01f && clearness == Clearness.Opaque
-            && material.Transparency == BaseMaterial3D.TransparencyEnum.Disabled)
-            material.NextPass = ModelGrime.Overlay;
         return material;
     }
 
