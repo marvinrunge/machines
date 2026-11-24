@@ -3,10 +3,10 @@ using Machines.Sim.World;
 
 namespace Machines.Game;
 
-// Package S's view of the Thresher (design-stealth §9.1, §9.4, §13 View), view-only: his walk slowed to his patrol's quarter
-// pace and warped so each foot lingers and comes down hard; each plant (RigView.Plants, found in his walk) a stomp on his bus,
-// a drop of the hips and a roll to the planted side, a jolt of the beam, dust at the foot (Game.StoryStealth shakes the view
-// and sifts the ceiling near the listener). His beam's states: calm wide, focused to a rod and brighter when he is wary or
+// Package S's view of the Thresher (design-stealth §9.1, §9.4, §13 View), view-only. In every story chapter he walks by the
+// heavy gait made in code (RigView.Gait: one leg up at a time, lifted high, held, brought down hard; a heavy trot when he
+// chases), which sags and rolls his hips itself; each foot that lands is a stomp on his bus, a jolt of the beam, dust at the
+// foot (Game.StoryStealth shakes the view and sifts the ceiling near the listener). His beam's states: calm wide, focused to a rod and brighter when he is wary or
 // searching, with small saccades while he doubts; three black-outs as he draws.
 public partial class ActorView
 {
@@ -15,6 +15,12 @@ public partial class ActorView
 
     /// <summary>One of his feet came down at a point, with its weight (1 a front foot, 0.6 a back one): Game.StoryStealth plays and shakes it.</summary>
     internal static Action<Vector3, float>? StalkerPlanted { get; set; }
+
+    /// <summary>Whether a story runs, so the Thresher walks by his heavy gait (Game.StoryStealth sets it each frame).</summary>
+    internal static bool StoryGaits { get; set; }
+
+    /// <summary>The Thresher's model (Wired's AGGRESSOR 4 ASSASSIN), whose legs walk by the heavy gait in a story.</summary>
+    private const string ThresherModel = "AGGRESSOR_4_ASSASSIN";
 
     /// <summary>His walk on his round as a share of its own pace at the slowest, and how hard the warp brings his feet down (design-stealth §13).</summary>
     private const float StalkerSlowest = 0.2f, StalkerWarp = 0.6f;
@@ -25,13 +31,19 @@ public partial class ActorView
     /// <summary>His beam's cone as a rod (focused, degrees either way) and calm; how much brighter the rod is.</summary>
     private const float RodAngle = 12, WideAngle = 25, RodBoost = 2;
 
-    private bool _stalker;
+    private bool _stalker, _gaitAsked;
     private float? _lastWalk;
     private float _drop, _dropRoll, _jolt, _focus, _stalkerClock, _drawAt = -10;
     private StalkerState _stalkerState;
 
     partial void StorySyncStealth(Actor actor)
     {
+        if (StoryGaits && !_gaitAsked && _rigView is { } legs && ModelId.StartsWith(ThresherModel, StringComparison.Ordinal))
+        {
+            _gaitAsked = true;
+            legs.HeavyGait = true;
+            legs.FootDown = plant => { if (Visible) Planted(legs, plant); };
+        }
         var now = Stalker is { } look && look.Id == actor.Id;
         if (now == _stalker)
             return;
@@ -58,8 +70,8 @@ public partial class ActorView
                 _drawAt = _stalkerClock;
             _stalkerState = look.State;
         }
-        // His plants: each foot's point of the cycle passed since the last frame.
-        if (rig.WalkPhase is { } phase && Visible)
+        // His plants: each foot's point of the cycle passed since the last frame (the gait reports its own, FootDown).
+        if (!rig.HeavyGait && rig.WalkPhase is { } phase && Visible)
         {
             if (_lastWalk is { } last && last != phase)
             {
@@ -82,7 +94,8 @@ public partial class ActorView
         _drop = Mathf.MoveToward(_drop, 0, dt * HipDrop * 3);
         _dropRoll = Mathf.MoveToward(_dropRoll, 0, dt * HipRoll * 3);
         _jolt = Mathf.MoveToward(_jolt, 0, dt * BeamJolt * 5);
-        rig.Transform = new Transform3D(new Basis(Vector3.Right, Mathf.DegToRad(_dropRoll)), Vector3.Down * _drop);
+        if (!rig.HeavyGait)
+            rig.Transform = new Transform3D(new Basis(Vector3.Right, Mathf.DegToRad(_dropRoll)), Vector3.Down * _drop);
         _focus = Mathf.MoveToward(_focus, _stalkerState is StalkerState.Wary or StalkerState.Draw or StalkerState.Fire or StalkerState.Lost ? 1 : 0, dt * 3);
     }
 

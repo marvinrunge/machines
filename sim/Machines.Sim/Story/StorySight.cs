@@ -274,10 +274,11 @@ public sealed class StorySight
 
     /// <summary>
     /// The shares of its top speed the Thresher goes at by its order: on its round, searching (a lure), hunting (and the rush
-    /// to H). The round's share is the design's 0.25 tuned to 0.265, so the rounds take their approved 100, 150 and 95 s on the
-    /// deck as built (turns, starts and stops cost about a tenth); the walking trio stays a little faster.
+    /// to H). The round's share was the design's 0.25 tuned to 0.265 (rounds of 100, 150 and 95 s); after the first play test
+    /// it is 0.16, about 2.1 m/s, so that his new heavy gait (RigView.Gait) can plant a foot only about every 0.6 s, and the
+    /// rounds take some 1.65 times as long. The walking trio stays faster.
     /// </summary>
-    public const float PatrolPace = 0.265f, SearchPace = 0.4f, HuntPace = 0.7f;
+    public const float PatrolPace = 0.16f, SearchPace = 0.4f, HuntPace = 0.7f;
 
     /// <summary>The shares of its turn rate on its round and searching; hunting, and the guard's look back, turn at the whole of it.</summary>
     public const float PatrolTurn = 0.4f, SearchTurn = 0.6f;

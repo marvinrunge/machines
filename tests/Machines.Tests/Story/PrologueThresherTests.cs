@@ -33,10 +33,11 @@ public class PrologueThresherTests(ITestOutputHelper output)
         }
     }
 
+    // The design's 100, 150 and 95 s, slowed with his round's pace (StorySight.PatrolPace 0.265 → 0.16) for his heavy gait.
     [Theory]
-    [InlineData(1, "a", 100)]
-    [InlineData(2, "ring", 150)]
-    [InlineData(4, "b", 95)]
+    [InlineData(1, "a", 155)]
+    [InlineData(2, "ring", 236)]
+    [InlineData(4, "b", 141)]
     public void His_rounds_take_the_time_the_design_gives_them(int checkpoint, string round, float seconds)
     {
         var world = Chapter(checkpoint);

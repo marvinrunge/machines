@@ -773,7 +773,9 @@ public partial class RigView : Node3D
         Glow(Working, _workTime);
         ShowScreens(Working, _workTime);
 
-        if (_rig.Animations.Count > 0)
+        if (_gait is { } gait)
+            gait.Step(delta, speed, sideways, turnRate);
+        else if (_rig.Animations.Count > 0)
         {
             // A constructor at work plays its building cycle (MachPhysConstructor::startConstructing) instead, a
             // technician at work in a lab its research (MachPhysTechnician::research).

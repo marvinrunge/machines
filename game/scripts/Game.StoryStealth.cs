@@ -87,12 +87,20 @@ public partial class Game
     private bool StoryCreepHeld() => World.Story is not null
         && Input.GetConnectedJoypads().Count > 0 && Input.IsJoyButtonPressed(0, JoyButton.RightStick);
 
+    /// <summary>MACHINES_HEAVY_GAIT=1: the Thresher walks by his story gait outside a story too (a screenshot run, to look at it).</summary>
+    private static readonly bool GaitTest = System.Environment.GetEnvironmentVariable("MACHINES_HEAVY_GAIT") == "1";
+
     /// <summary>Each frame: the Thresher of section 2 for the views, his sounds and the music's words for him.</summary>
     private void FollowStealth(double delta)
     {
         var look = World.Story is null ? null : StoryStalker.Look(World);
         ActorView.Stalker = look;
-        ActorView.StalkerPlanted = look is null ? null : _planted ??= Planted;
+        // His feet stomp wherever he walks in a story (the escape's chase too), by his heavy gait.
+        ActorView.StoryGaits = World.Story is not null || GaitTest;
+        ActorView.StalkerPlanted = World.Story is null ? null : _planted ??= Planted;
+        // The gait test's camera keeps the walker in the middle.
+        if (GaitTest && World.Story is null && World.Machines.FirstOrDefault(m => m.IsType("AGGRESSOR", "ASSASSIN") && m.Race == Player) is { } walker)
+            _rig.Position = ActorView.World(walker.Position);
         StoryAudio.Current?.Sounds.FollowThresher(look, delta);
         StompTestIfAsked(look);
         if (look is not { } him)
