@@ -35,6 +35,12 @@ public partial class Game
     // The guns lying on the wrecks' heaps by wreck (debris id); null once stripped, or for a wreck with nothing to show.
     private readonly Dictionary<int, Node3D?> _wreckGuns = [];
 
+    /// <summary>Where Old Iron stood at the last tick the held sounds were chosen (its id, place, game time).</summary>
+    private (int Id, NVector2 At, float Time)? _bossLast;
+
+    /// <summary>The boss's speed (m/s) its charge's scrape starts at, and is at its loudest and highest from.</summary>
+    private const float ScrapeFrom = 1.5f, ScrapeFull = 8;
+
     /// <summary>After every tick of a story (ShowStoryEvents): the armoury's held sounds, ticks, presses and wrecks.</summary>
     private void FollowArmoury()
     {
@@ -85,9 +91,19 @@ public partial class Game
             var at = ActorView.World(boss.Position) + Vector3.Up * 2;
             wanted[$"{ArmouryHeld}boss"] = new("boss_idle", at, waves.Phase == StoryChargePhase.Stunned ? -8 : -3,
                 waves.Phase == StoryChargePhase.Telegraph ? 1.2f : 1);
-            if (waves.Phase == StoryChargePhase.Run)
-                wanted[$"{ArmouryHeld}run"] = new("container_scrape", at, 2, 0.8f);
+            // The scrape only while it really runs, as loud and high as it is fast (play test 2026-11-24: a charge that
+            // stuck on something went on scraping on the spot, which sounded jammed).
+            var moved = _bossLast is { } last && last.Id == boss.Id && World.Time > last.Time
+                ? NVector2.Distance(boss.Position, last.At) / (World.Time - last.Time) : 0;
+            _bossLast = (boss.Id, boss.Position, World.Time);
+            if (waves.Phase == StoryChargePhase.Run && moved > ScrapeFrom)
+            {
+                var fast = Mathf.Clamp((moved - ScrapeFrom) / (ScrapeFull - ScrapeFrom), 0, 1);
+                wanted[$"{ArmouryHeld}run"] = new("container_scrape", at, Mathf.Lerp(-8, 2, fast), Mathf.Lerp(0.65f, 0.85f, fast));
+            }
         }
+        else
+            _bossLast = null;
         // The barracks lift coming down behind gate N while the bar before batch 3 runs out.
         if (run.Flags.Contains(StoryMarks.ArmourySealed) && !waves.Fighting && waves.Wave == 3 && waves.Bar(World.Time) >= 0.7f
             && World.Deck?.Markers.FirstOrDefault(m => m.Name == "wave_n_1") is { } lift)

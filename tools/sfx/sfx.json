@@ -122,6 +122,12 @@
     {"id": "lift_groan", "seconds": 6.0, "gain": -1, "prompt": "Freight elevator shaft groaning under an enormous weight, deep straining steel creaks, cables stretching, no music, no voices"},
     {"id": "boss_idle", "loop": true, "seconds": 6.0, "gain": -2, "stereo": false, "prompt": "Heavy robot vehicle's big electric motor idling, a deep steady throbbing hum with mechanical chatter, dry, close, no reverb, no music, no voices"},
     {"id": "jet_roar", "loop": true, "seconds": 6.0, "gain": 0, "stereo": false, "prompt": "Gas flame jet roaring, a steady powerful burner blast, constant, dry, close, no reverb, no music, no voices"},
-    {"id": "lift_hum", "loop": true, "seconds": 10.0, "gain": -4, "stereo": false, "prompt": "Large freight lift descending in a shaft, a steady deep electric motor hum, cables humming and a soft rattle, constant, no music, no voices"}
+    {"id": "lift_hum", "loop": true, "seconds": 10.0, "gain": -4, "stereo": false, "prompt": "Large freight lift descending in a shaft, a steady deep electric motor hum, cables humming and a soft rattle, constant, no music, no voices"},
+    {"id": "l7_step_1", "seconds": 1.0, "gain": -4, "prompt": "A small four-legged robot's pointed steel foot tapping onto a steel deck plate, a crisp short metallic clink with a soft thud, one footstep, dry, close, no reverb, no music, no voices"},
+    {"id": "l7_step_2", "seconds": 1.0, "gain": -4, "prompt": "Light mechanical spider leg setting down on a metal floor, a short hollow metallic tock and a tiny servo whir, one footstep, dry, close, no reverb, no music, no voices"},
+    {"id": "l7_step_3", "seconds": 1.0, "gain": -4, "prompt": "Small robot walker foot stepping on steel plating, a dull clank with a faint ring of the plate, one footstep, dry, close, no reverb, no music, no voices"},
+    {"id": "l7_step_4", "seconds": 1.0, "gain": -4, "prompt": "Thin metal robot leg tip landing on a ship's steel deck, a sharp light metallic knock, slight hydraulic tick, one footstep, dry, close, no reverb, no music, no voices"},
+    {"id": "l7_step_5", "seconds": 1.0, "gain": -4, "prompt": "Small robot's metal foot stepping onto a steel grating, a light rattling clank of the grate, one footstep, dry, close, no reverb, no music, no voices"},
+    {"id": "l7_step_6", "seconds": 1.0, "gain": -4, "prompt": "Little mechanical walker foot on a metal floor panel, a soft muffled metallic clunk, servo click, one footstep, dry, close, no reverb, no music, no voices"}
   ]
 }

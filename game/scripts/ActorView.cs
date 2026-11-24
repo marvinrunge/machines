@@ -1065,7 +1065,7 @@ public partial class ActorView : Node3D
             if (actor is Machine { Inside: not null, DrivenByPlayer: false } || _constructAt is not null || _inHead)
                 _engine.Player.Stop();
             else
-                _engine.Update(moving);
+                _engine.Update(moving && !Steps);
             _lastTarget = _target;
         }
 
@@ -1158,6 +1158,8 @@ public partial class ActorView : Node3D
     // Stage 7's hooks for its packages' own ActorView files (plan stufe7 §4 F item 1): each frame, and each sync with the sim.
     // Nothing until a package writes ActorView.Stealth, .Armoury or .Escape.
     partial void StoryFrameStealth(double delta);
+    partial void StoryFrameSteps(double delta);
+    partial void StoryFrameGlow(double delta);
     partial void StoryFrameArmoury(double delta);
     partial void StoryFrameEscape(double delta);
     partial void StorySyncStealth(Actor actor);
@@ -1169,6 +1171,8 @@ public partial class ActorView : Node3D
     public override void _Process(double delta)
     {
         StoryFrameStealth(delta);
+        StoryFrameSteps(delta);
+        StoryFrameGlow(delta);
         StoryFrameArmoury(delta);
         StoryFrameEscape(delta);
         UpdateJets(delta);

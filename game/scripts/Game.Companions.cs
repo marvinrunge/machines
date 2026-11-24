@@ -68,6 +68,30 @@ public partial class Game
     // The crates set down again whose model is made, by their place in the scenario and where they stand.
     private readonly HashSet<(int Placement, System.Numerics.Vector2 At)> _cratesShown = [];
 
+    /// <summary>Whether a point is one of the deck's barricade slots (markers barricade_&lt;door&gt;_&lt;n&gt;).</summary>
+    private bool InBarricadeSlot(System.Numerics.Vector2 at) => World.Deck?.Markers.Any(m =>
+        m.Name.StartsWith("barricade_", StringComparison.Ordinal) && System.Numerics.Vector2.DistanceSquared(m.Position, at) < 0.25f) == true;
+
+    /// <summary>
+    /// A crate set down in a barricade slot stands as a stack of two (play test 2026-11-24: one crate was so low the Reapers
+    /// looked to shoot over it; the sim lets no fire through a crate whatever its height, so only the look changes): a second
+    /// copy of its model on top, turned a little, which goes with it when it is taken off or shot.
+    /// </summary>
+    private static void StackCrate(MeshInstance3D crate, int id)
+    {
+        if (crate.Mesh is not { } mesh)
+            return;
+        var box = mesh.GetAabb();
+        var turn = Mathf.DegToRad(((id * 37) % 13) - 6);
+        crate.AddChild(new MeshInstance3D
+        {
+            Mesh = mesh,
+            Name = "Stacked",
+            MaterialOverride = crate.MaterialOverride,
+            Transform = new Transform3D(new Basis(Vector3.Up, turn), new Vector3(0, box.Size.Y, 0)),
+        });
+    }
+
     /// <summary>
     /// Each frame of a story: a crate the Grunts carried off is taken off the view with the world's ArtefactRemoved; where the
     /// world sets it down again (a barricade's slot, back on the pile) it gets its model anew, as the deck's artefacts have.
@@ -88,6 +112,8 @@ public partial class Game
             var placement = new ArtefactPlacement(artefact.Type.Name, new System.Numerics.Vector3(artefact.Position, 0), 0, artefact.Tag, 0);
             if (Props.Artefact(artefact.Type, placement, new Vector3(artefact.Position.X, 0, artefact.Position.Y)) is not { } model)
                 continue;
+            if (InBarricadeSlot(artefact.Position))
+                StackCrate(model, artefact.Id);
             root.AddChild(model);
             _artefactModels[artefact.Placement] = model;
         }

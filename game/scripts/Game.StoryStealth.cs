@@ -17,6 +17,7 @@ public partial class Game
     private double _bigShakeUntil;
     private Action<Vector3, float>? _planted;
     private Func<int, float>? _crabOf;
+    private Func<int, bool>? _trioMember;
 
     /// <summary>A director's cue of this package's section (Game.StoryCue forwards what it does not know); false: not its cue.</summary>
     private bool StoryCueStealth(string[] words, Godot.Vector3 at)
@@ -98,6 +99,8 @@ public partial class Game
         ActorView.Stalker = look;
         // His feet stomp wherever he walks in a story (the escape's chase too), by his heavy gait.
         ActorView.StoryGaits = World.Story is not null || GaitTest;
+        ActorView.TrioMember = World.Story is null ? null : _trioMember ??= id => World.Story is { } trio && trio.Seats.Any(s => World.HeroOf(s)?.Id == id);
+        ActorView.SteppingId = World.Story is { } stepping && World.HeroOf(stepping.Locator) is { } locator ? locator.Id : 0;
         ActorView.CrabOf = World.Story is null ? null : _crabOf ??= World.CrabOf;
         ActorView.StalkerPlanted = World.Story is null ? null : _planted ??= Planted;
         // The gait test's camera keeps the walker in the middle.

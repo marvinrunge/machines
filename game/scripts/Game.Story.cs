@@ -159,6 +159,8 @@ public partial class Game
         ActorView.StalkerPlanted = null;
         ActorView.CrabOf = null;
         ActorView.StoryGaits = false;
+        ActorView.SteppingId = 0;
+        ActorView.TrioMember = null;
         if (_storyHeard)
         {
             StoryAudio.LineStarted -= StoryLineStarted;
