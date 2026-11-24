@@ -120,8 +120,14 @@ public partial class WiredDriver(string folder, WiredDriver.Plan plan) : Node
         await Until(() => !MenuTransition.Playing, 30);
         // The page may be put up again in its first moments: the one there after them is the one to press.
         await Wait(1.5);
-        var menu = await Until(() => Find<MainMenuPage>() is { } page && IsInstanceValid(page) ? page : null, 30) ?? throw new InvalidOperationException("no main menu came");
+        var main = await Until(() => Find<MainMenuPage>() is { Kind: MainMenuPage.Menu.Main } page && IsInstanceValid(page) ? page : null, 30) ?? throw new InvalidOperationException("no main menu came");
         await Moment("menu");
+        var single = Lang.T("Single Player").ToUpperInvariant();
+        Say("main menu: pressing Single Player");
+        await Click(Middle(Buttons(main).First(b => b.Text == single || b.Text.StartsWith(single + " ", StringComparison.Ordinal))));
+        var menu = await Until(() => Find<MainMenuPage>() is { Kind: MainMenuPage.Menu.SinglePlayer } page && IsInstanceValid(page) ? page : null, 30) ?? throw new InvalidOperationException("no single player menu came");
+        await Until(() => !MenuTransition.Playing, 30);
+        await Wait(0.5);
         var wired = Buttons(menu).First(b => b.Text == Lang.T("Wired").ToUpperInvariant());
         Say("main menu: pressing Wired");
         await Click(Middle(wired));

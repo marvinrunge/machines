@@ -10,7 +10,7 @@ namespace Machines.Game;
 /// (<see cref="CampaignProgress"/>), a name to type for a new one, and the picked one's status, the mission last
 /// played and its highest score, the missions played and the total score. Continue goes on to the missions.
 /// </summary>
-public partial class CampaignPlayersPage(MenuScreens screens) : MenuPage(screens.ShowMain)
+public partial class CampaignPlayersPage(MenuScreens screens) : MenuPage(screens.ShowSinglePlayer)
 {
     // MachGuiCtxCampaign refuses these, the names the menus give to slots.
     private static readonly string[] Reserved = ["Open", "Closed", "Computer", "Unavailable"];

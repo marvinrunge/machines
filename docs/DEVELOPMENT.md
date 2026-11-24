@@ -140,7 +140,7 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   it, a long-range missile followed to its strike and the battle, cut on the beats of the original's intro
   music, in 2560×1440 with motion blur. The game's sound is heard from the camera. It needs the soundtrack
   folder set in the options and takes about an hour (a few minutes with `preview`, 1280×720).
-- **Model viewer:** **Models** in the main menu shows every machine and building the game builds, one at a
+- **Model viewer:** **Models** under Extras in the main menu shows every machine and building the game builds, one at a
   time, to look the models over: in the original, overhauled or HD look (for that page alone) and each race's
   colours, turned by dragging and zoomed with the mouse wheel, with Previous and Next stepping through them all.
   It plays what the game plays: driving forwards or backwards and turning on the spot over a grid that moves
@@ -160,7 +160,7 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   stand) and cannot build on them, while scenery (DUMB) blocks nothing. The active ones can be shot down as in
   the original, with the hit points and armour their scenario gives them, and take the damage they pass on
   (ONDESTROY) to the ones tied to them; recordings made before keep them whole, so they play back as played.
-- **Campaign:** **Campaign** in the main menu plays the original's 25 missions in its five star systems, from
+- **Campaign:** **Campaign** under Single Player in the main menu plays the original's 25 missions in its five star systems, from
   the training camp to Midian Prime.
   - Players as in the original, each with their own progress (`saves/campaign.json`): a won mission opens the
     ones after it (AFTER), and each keeps its highest score.
@@ -278,10 +278,13 @@ dotnet test Machines.sln
 ```
 
 Open `game/project.godot` in the Godot .NET editor and press Play. Godot builds `Machines.sln` from the
-repository root (`dotnet/project/solution_directory`). The game opens on the main menu: Campaign leads to the
+repository root (`dotnet/project/solution_directory`). The game opens on the main menu: Single Player, Multiplayer, Load Game, Extras and Options. Single Player holds
+the story, the campaign, skirmish, Wired and Battle; Extras the replays and the model viewer. Campaign leads to the
 players, the choice of mission and its briefing, Skirmish to the maps (double click starts one) and settings,
-Models to the model viewer, Options to the look (Customize to each part of it), volumes, window and the import
-from your game copy.
+Options to the look (Customize to each part of it), volumes, window and the import
+from your game copy. Options' Menu size is the largest the menus are drawn: a page that would not fit the window at that
+size (a tall page, or a narrow 4:3 or 5:4 screen) is drawn smaller, so no button is ever cut off. When the relay
+refuses the game's protocol, the multiplayer page says so big: update the game, or wait for the relay.
 
 For automated checks, `MACHINES_MAP=<scenario>,<planet>` skips the menu, `MACHINES_SCREENSHOT=<file.png>`
 saves a screenshot and quits (without fog of war unless `MACHINES_FOG=1`),
@@ -355,7 +358,7 @@ as well.
 
 ## Wired
 
-**Wired** (Deutsch: *Wired – Überleben*) on the main menu is a survival mode for one player, and the remake's own addition:
+**Wired** (Deutsch: *Überlebensmodus*) under Single Player in the main menu is a survival mode for one player, and the remake's own addition:
 the original has nothing like it. You make a hero in the hangar from a chassis, weapons, modules and abilities with 150 BMUs
 (110 on Hard, 80 on Hardcore), choose an arena and a difficulty, and drive that hero in first person to keep your pod alive
 against endless waves. Destroyed machines leave wrecks full of BMUs to drive over. Between waves the pod's hangar buys, sells,

@@ -134,8 +134,14 @@ public partial class BattleDriver(string folder, BattleDriver.Course course) : W
         await Until(() => !MenuTransition.Playing, 30);
         // The page may be put up again in its first moments: the one there after them is the one to press.
         await Wait(1.5);
-        var menu = await Until(() => Find<MainMenuPage>() is { } page && IsInstanceValid(page) ? page : null, 30) ?? throw new InvalidOperationException("no main menu came");
+        var main = await Until(() => Find<MainMenuPage>() is { Kind: MainMenuPage.Menu.Main } page && IsInstanceValid(page) ? page : null, 30) ?? throw new InvalidOperationException("no main menu came");
         await Moment("menu");
+        var single = Lang.T("Single Player").ToUpperInvariant();
+        Say("main menu: pressing Single Player");
+        await Click(Middle(Buttons(main).First(b => b.Text == single || b.Text.StartsWith(single + " ", StringComparison.Ordinal))));
+        var menu = await Until(() => Find<MainMenuPage>() is { Kind: MainMenuPage.Menu.SinglePlayer } page && IsInstanceValid(page) ? page : null, 30) ?? throw new InvalidOperationException("no single player menu came");
+        await Until(() => !MenuTransition.Playing, 30);
+        await Wait(0.5);
         var word = Lang.T("Battle").ToUpperInvariant();
         var battle = Buttons(menu).First(b => b.Text == word || b.Text.StartsWith(word + " ", StringComparison.Ordinal));
         Say("main menu: pressing Battle");

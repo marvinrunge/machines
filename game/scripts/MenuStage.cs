@@ -43,13 +43,40 @@ public partial class MenuStage : Control
             GetViewport().SizeChanged -= Fit;
     }
 
-    /// <summary>Scales the stage so the menus' design height fills the window's height.</summary>
-    public void Fit()
+    /// <summary>
+    /// Scales the stage so the menus' design height fills the window's height, times the player's interface size, but
+    /// never larger than lets the page on show fit: a page that needs more room than the window's shape and the interface
+    /// size leave it is shown smaller, so its buttons (Back above all) are never cut off, whatever the window.
+    /// </summary>
+    public void Fit() => Fit(grow: true);
+
+    // How often the page may have the stage grow again after shrinking it: wrapped text needs less height on a wider
+    // stage, more on a narrower one, and must not have the two take turns.
+    private int _grows;
+    private const int MostGrows = 3;
+
+    private void Fit(bool grow)
     {
         var size = GetParentAreaSize();
         if (size.Y <= 0)
             return;
         var scale = size.Y / DesignHeight * MenuTheme.UiScale;
+        if (_page is not null && IsInstanceValid(_page) && _page.IsInsideTree())
+        {
+            var need = _page.GetCombinedMinimumSize();
+            if (need.Y > 1)
+                scale = Mathf.Min(scale, size.Y / need.Y);
+            if (need.X > 1)
+                scale = Mathf.Min(scale, size.X / need.X);
+        }
+        if (Scale.X > 0 && Mathf.Abs(scale - Scale.X) < 0.0005f && (Size - size / scale).LengthSquared() < 0.25f)
+            return;
+        if (!grow && scale > Scale.X)
+        {
+            if (_grows >= MostGrows)
+                return;
+            _grows++;
+        }
         Position = Vector2.Zero;
         Scale = new Vector2(scale, scale);
         Size = size / scale;
@@ -63,7 +90,21 @@ public partial class MenuStage : Control
         CloseMessage();
         _page?.QueueFree();
         _page = page;
+        _grows = 0;
         AddChild(page);
+        // What the page needs is known once it is built, and again whenever it grows or shrinks (a list filled, a view
+        // switched): the stage follows it.
+        page.MinimumSizeChanged += () => Callable.From(() =>
+        {
+            if (_page == page)
+                Fit(grow: false);
+        }).CallDeferred();
+        Fit(grow: true);
+        Callable.From(() =>
+        {
+            if (_page == page)
+                Fit(grow: true);
+        }).CallDeferred();
     }
 
     /// <summary>

@@ -8,7 +8,7 @@ namespace Machines.Game;
 /// with, and Continue (from that checkpoint), New (the prologue from its start), Chapters (a chapter begun, from its start)
 /// and Back. The Locator is always L-7. MACHINES_MENU_SCREENSHOT=&lt;png&gt;,story shows it.
 /// </summary>
-public partial class StoryPage(MenuScreens screens) : MenuPage(screens.ShowMain)
+public partial class StoryPage(MenuScreens screens) : MenuPage(screens.ShowSinglePlayer)
 {
     private readonly StoryProgress _progress = StoryProgress.Load();
     private LineEdit _ike = null!, _bob = null!;

@@ -5974,3 +5974,27 @@ msgstr "Ein sanftes Leuchten um Feuer, Explosionen, leuchtende Augen und Lampen.
 
 msgid "A wide, strong glow round every bright light."
 msgstr "Ein weites, kräftiges Leuchten um jedes helle Licht."
+
+msgid "Single Player"
+msgstr "Einzelspieler"
+
+msgid "Extras"
+msgstr "Extras"
+
+msgid "UPDATE NEEDED"
+msgstr "UPDATE NÖTIG"
+
+msgid "SERVER NOT UPDATED YET"
+msgstr "SERVER NOCH NICHT AKTUALISIERT"
+
+msgid "This version of the game is older than the server's.\nUpdate Machines Remake to the newest version to play online."
+msgstr "Diese Spielversion ist älter als die des Servers.\nAktualisiere Machines Remake auf die neueste Version, um online zu spielen."
+
+msgid "This version of the game is newer than the server's.\nIt can play online once the server is updated; until then, host a game yourself."
+msgstr "Diese Spielversion ist neuer als die des Servers.\nOnline geht es, sobald der Server aktualisiert ist; bis dahin kannst du selbst ein Spiel hosten."
+
+msgid "Game protocol {0}, server protocol {1}"
+msgstr "Spielprotokoll {0}, Serverprotokoll {1}"
+
+msgid "Download page"
+msgstr "Download-Seite"
