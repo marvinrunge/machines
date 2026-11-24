@@ -11,6 +11,9 @@ public partial class ActorView
     /// <summary>The machine whose feet step audibly (the Locator of a running story; 0 for none). Game.StoryStealth sets it each frame.</summary>
     internal static int SteppingId { get; set; }
 
+    /// <summary>The steps' level, dB: about 8 % of the sound's own (play test 2026-11-24, "viel leiser, 5-10 % der Lautstärke").</summary>
+    private const float StepDb = -22;
+
     private float? _lastStep;
 
     /// <summary>Whether this machine walks by its steps instead of its engine's movement loop.</summary>
@@ -31,7 +34,7 @@ public partial class ActorView
                     if (wrapped ? plant.Phase > last || plant.Phase <= phase : plant.Phase > last && plant.Phase <= phase)
                     {
                         var foot = rig.PartPosition(plant.Node);
-                        StoryAudio.Play("l7_step", World(new System.Numerics.Vector2(foot.X, foot.Z)), 0, (float)GD.RandRange(0.9, 1.1));
+                        StoryAudio.Play("l7_step", World(new System.Numerics.Vector2(foot.X, foot.Z)), 0, (float)GD.RandRange(0.9, 1.1), StepDb);
                     }
         }
         _lastStep = phase;

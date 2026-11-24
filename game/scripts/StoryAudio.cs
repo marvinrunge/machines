@@ -11,9 +11,9 @@ namespace Machines.Game;
 /// ...), which do nothing outside a story, so its events can be routed here as they come.
 /// <para>Buses, made when the chapter starts and taken away when it ends, right after Master so that each sends to one on
 /// its left: <c>Music</c> (ducked under speech), <c>World</c> (the room's reverb, a low-pass when hiding, damaged or the
-/// update intrudes, ducked under speech; the game's <c>Effects</c> bus sends into it meanwhile), <c>Voice</c> (speech;
-/// the ducking's sidechain), <c>Announcer</c> (the PA: band-pass and hall, into Voice) and <c>Radio</c> (band-pass and
-/// lo-fi, into Voice); stage 7 adds <c>Thresher</c> (his steps and voice, a long metallic reverb, into StoryMix, package S
+/// update intrudes, ducked under speech; the game's <c>Effects</c> bus sends into it meanwhile), <c>Voice</c> (speech),
+/// <c>Trio</c> (L-7's thoughts and the radio, into Voice: the ducking's sidechain), <c>Announcer</c> (the PA: band-pass and hall, into Voice) and <c>Radio</c> (band-pass and
+/// lo-fi, into Trio); stage 7 adds <c>Thresher</c> (his steps and voice, a long metallic reverb, into StoryMix, package S
 /// fills it) and <c>Warning</c> (the escape's warnings, into StoryMix, which neither the music nor the blasts duck, package E
 /// fills it).</para>
 /// <para>MACHINES_AUDIO_TRACE=1 prints each story sound as <c>audio story-&lt;kind&gt; &lt;id&gt; ... @&lt;seconds&gt;</c>;
@@ -28,7 +28,20 @@ public partial class StoryAudio : Node
         ThresherBus = "Thresher", WarningBus = "Warning";
 
     /// <summary>
-    /// The bus the story's music, world and voices meet on before Master: a gentle compressor and a limiter keep the sum
+    /// The trio's own speech, L-7's thoughts and Ike's and Bob's radio, into Voice: the only sound that ducks the music and the world
+    /// (play test 2026-11-24, "nur die eigene und die Stimmen der Bots sollen die Musik reduzieren"); the PA and the update's whisper
+    /// do not.
+    /// </summary>
+    public const string TrioBus = "Trio";
+
+    /// <summary>
+    /// The story's last bus before Master, where the mix and the music meet: only a limiter on the sum's peaks, so the music
+    /// no longer goes through the mix's compressor, which the gunfire and the blasts pulled it down with (play test 2026-11-24).
+    /// </summary>
+    public const string OutBus = "StoryOut";
+
+    /// <summary>
+    /// The bus the story's world and voices meet on before StoryOut (the music joins them only there): a gentle compressor and a limiter keep the sum
     /// under full scale when the loud music, the gunfire and the blasts come together (the break-in, the core, the
     /// workshop's fight, the drop), where it clipped before.
     /// </summary>
@@ -36,7 +49,7 @@ public partial class StoryAudio : Node
 
     // Left to right after Master; each sends to one on its left, and the ducking's sidechain (Voice) is mixed before the
     // buses it ducks (Godot mixes the buses from the last to the first).
-    private static readonly string[] Buses = [MixBus, MusicBus, WorldBus, VoiceBus, AnnouncerBus, RadioBus, ThresherBus, WarningBus];
+    private static readonly string[] Buses = [OutBus, MixBus, MusicBus, WorldBus, VoiceBus, TrioBus, AnnouncerBus, RadioBus, ThresherBus, WarningBus];
 
     public const string SfxFolder = "res://assets/story/sfx", VoiceFolder = "res://assets/story/voice", MusicFolder = "res://assets/story/music";
 
@@ -156,8 +169,8 @@ public partial class StoryAudio : Node
     /// <summary>Plays a story sound effect by its id (game/assets/story/sfx), at a point of the world or, without one, not placed.</summary>
     public static void Play(string sfxId, Vector3? at = null) => Current?._sounds.Play(sfxId, at);
 
-    /// <summary>A story sound effect started <paramref name="from"/> seconds in, at a <paramref name="pitch"/> (a door sliding open, Game.Deck).</summary>
-    public static void Play(string sfxId, Vector3? at, float from, float pitch) => Current?._sounds.Play(sfxId, at, from, pitch);
+    /// <summary>A story sound effect started <paramref name="from"/> seconds in, at a <paramref name="pitch"/> (a door sliding open, Game.Deck). <paramref name="db"/> under its level.</summary>
+    public static void Play(string sfxId, Vector3? at, float from, float pitch, float db = 0) => Current?._sounds.Play(sfxId, at, from, pitch, db);
 
     /// <summary>The ambience of a room of the deck (R4, V1b ...) or a section ("section:3"); null follows the room the listener is in.</summary>
     public static void SetAmbience(string? zone) => Current?._sounds.SetAmbience(zone);
@@ -220,15 +233,18 @@ public partial class StoryAudio : Node
             AudioServer.SetBusName(1, Buses[i]);
         }
         int Index(string name) => AudioServer.GetBusIndex(name);
-        AudioServer.SetBusSend(Index(MixBus), "Master");
-        AudioServer.SetBusSend(Index(MusicBus), MixBus);
+        AudioServer.SetBusSend(Index(OutBus), "Master");
+        AudioServer.AddBusEffect(Index(OutBus), new AudioEffectHardLimiter { CeilingDb = -1.0f, PreGainDb = 0, Release = 0.05f });
+        AudioServer.SetBusSend(Index(MixBus), OutBus);
+        AudioServer.SetBusSend(Index(MusicBus), OutBus);
+        AudioServer.SetBusSend(Index(TrioBus), VoiceBus);
         AudioServer.SetBusSend(Index(WorldBus), MixBus);
         AudioServer.SetBusSend(Index(VoiceBus), MixBus);
         var mix = Index(MixBus);
         AudioServer.AddBusEffect(mix, new AudioEffectCompressor { Threshold = -10, Ratio = 3, AttackUs = 5000, ReleaseMs = 250, Gain = 0 });
         AudioServer.AddBusEffect(mix, new AudioEffectHardLimiter { CeilingDb = -1.0f, PreGainDb = 0, Release = 0.1f });
         AudioServer.SetBusSend(Index(AnnouncerBus), VoiceBus);
-        AudioServer.SetBusSend(Index(RadioBus), VoiceBus);
+        AudioServer.SetBusSend(Index(RadioBus), TrioBus);
         AudioServer.SetBusSend(Index(GameAudio.EffectsBus), WorldBus);
         AudioServer.SetBusVolumeDb(Index(MusicBus), Mathf.LinearToDb(Mathf.Max(0.001f, global::Machines.Game.Music.Volume)));
         AudioServer.SetBusVolumeDb(Index(VoiceBus), Mathf.LinearToDb(Mathf.Max(0.001f, GameAudio.SoundVolume)));
@@ -244,9 +260,10 @@ public partial class StoryAudio : Node
 
         // Speech pushes the world and the music down by itself (the sidechain hears the voices after their compressor):
         // within 5 ms, so a line that starts with a stinger ("Gefunden.") is not buried under its first blow, and from 4 dB
-        // lower than before; the world (the gunfire and blasts of the core and the workshop) from lower still.
-        AudioEffectCompressor Duck() => new() { Sidechain = VoiceBus, Threshold = -32, Ratio = 4, AttackUs = 5000, ReleaseMs = 450 };
-        AudioEffectCompressor WorldDuck() => new() { Sidechain = VoiceBus, Threshold = -34, Ratio = 4, AttackUs = 5000, ReleaseMs = 450 };
+        // lower than before; the world (the gunfire and blasts of the core and the workshop) from lower still. Only the trio is
+        // heard by it (TrioBus), before the voices' compressor and its 4 dB of makeup, so 4 dB lower again.
+        AudioEffectCompressor Duck() => new() { Sidechain = TrioBus, Threshold = -36, Ratio = 4, AttackUs = 5000, ReleaseMs = 450 };
+        AudioEffectCompressor WorldDuck() => new() { Sidechain = TrioBus, Threshold = -38, Ratio = 4, AttackUs = 5000, ReleaseMs = 450 };
 
         var world = Index(WorldBus);
         _worldReverb = new AudioEffectReverb { RoomSize = StorySoundscape.Room.RoomSize, Damping = StorySoundscape.Room.Damping, Wet = StorySoundscape.Room.Wet, Dry = 1, PredelayMsec = StorySoundscape.Room.PredelayMs, Spread = 0.8f, Hipass = 0.1f };

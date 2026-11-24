@@ -67,14 +67,14 @@ public class PrologueAssaultTests
     {
         var world = Chapter(7, seed);
         var locator = Hero(world, 0);
-        SetDown(world, locator, new Vector2(218, 268));
+        SetDown(world, locator, new Vector2(218, 267.5f));
         locator.Facing = 0;
         Assert.True(RunUntil(world, () => world.Story!.Director.Has("core_blows"), Prologue.CoreBlows + 15,
             () => world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true))));
-        SetDown(world, locator, new Vector2(232, 268));
+        SetDown(world, locator, new Vector2(232, 267.5f));
         world.Step();
         Assert.True(world.Story!.Director.Has("fled"));
-        SetDown(world, locator, new Vector2(218, 268));
+        SetDown(world, locator, new Vector2(218, 267.5f));
         locator.Facing = 0;
         return world;
     }
@@ -241,7 +241,7 @@ public class PrologueAssaultTests
         // (on through the vent), and the Reaper searches where it saw it last, which it cannot get to.
         var reaper = hunters[0];
         SetDown(world, reaper, new Vector2(296, 279));
-        SetDown(world, locator, new Vector2(296, 268));
+        SetDown(world, locator, new Vector2(296, 267.5f));
         var eyes = world.StorySeekerOf(reaper.Id)!;
         var last = reaper.Position;
         var jumps = new List<string>();

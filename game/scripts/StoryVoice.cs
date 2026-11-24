@@ -214,7 +214,7 @@ public partial class StoryVoice(StoryAudio audio) : Node
                 break;
             case StoryVoiceChannel.Inner:
                 // The Locator's own thought: in the middle, close and dry; speech ducks the world and the music by itself.
-                _flat.Bus = StoryAudio.VoiceBus;
+                _flat.Bus = StoryAudio.TrioBus;
                 _flat.VolumeDb = 0;
                 _flat.Stream = stream;
                 _flat.Play();

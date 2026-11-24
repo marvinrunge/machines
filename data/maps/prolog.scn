@@ -10,7 +10,7 @@ ENDRACES_DEFAULT
 ARTEFACTS
 MODELS models/planet/prolog/prolog.arf
 ACTIVE vent_cover COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 3 BOUNDARY 2 -1 2 1 -2 1 -2 -1
-AT 225 268 0 90 ID 1120	// door V core_vent (closed)
+AT 225 267.5 0 90 ID 1120	// door V core_vent (closed)
 ACTIVE crate_large COST 0 HP 150 ARMOUR 5 IDS 0 HEIGHT 2.2 BOUNDARY 1.5 -1 1.5 1 -1.5 1 -1.5 -1
 AT 181 222 0 0 ID 301	// prop pile_1
 AT 181 215 0 0 ID 302	// prop pile_2

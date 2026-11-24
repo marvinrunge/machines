@@ -308,7 +308,7 @@ public class PrologueCoreTests(ITestOutputHelper output)
     {
         var (world, hacker) = Fight();
         var run = world.Story!;
-        Hero(world, 0).Position = new Vector2(240, 268);
+        Hero(world, 0).Position = new Vector2(240, 267.5f);
         Assert.True(hacker.Until(() => run.Director.Has("fled"), 1));
         Assert.Equal(5, run.Section);
         Assert.False(world.DoorClosed('M'));

@@ -29,9 +29,10 @@ public static class NetJson
     /// so the story relay refuses a build from before it. 19: the first play test's Thresher (his round at 0.16 of his speed,
     /// and he walks as a crab: GameWorld.Crabs), so a client of 18 would walk him otherwise. 20: the escape's Kühlschlange
     /// (four lanes east of the buried Notgang, the gas main beside Y, six minutes on the countdown) and story spawns kept on their side
-    /// of a wall, so a client of 19 would play another deck.
+    /// of a wall, so a client of 19 would play another deck. 21: the crawl ducts 3 m wide instead of 4 (only L-7 fits, a Grunt
+    /// standing at a mouth plainly does not), so a client of 20 would play another deck.
     /// </summary>
-    public const int Protocol = 20;
+    public const int Protocol = 21;
 
     public static readonly JsonSerializerOptions Options = Create();
 

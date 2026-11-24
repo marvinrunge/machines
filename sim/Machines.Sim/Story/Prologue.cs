@@ -88,11 +88,11 @@ public static partial class Prologue
         // 1 Decks.
         ([new(88, 74), new(80, 74), new(72, 74)], 0),
         // 2 Schacht: the Locator in V1a's new mouth, the Grunts in the Graben with their second jump still ahead (cp1a_*).
-        ([new(198, 84), new(190, 76), new(184, 76)], 90),
+        ([new(197.5f, 84), new(190, 76), new(184, 76)], 90),
         // 3 Schaltraum: the Locator at hack_s in R7, the Grunts in S (cp1b_*).
         ([new(210, 118), new(236, 100), new(236, 92)], 0),
         // 4 Deck B: the Locator in V1c (10 m down from its mouth: at 3 m he touched it on his way past), the Grunts at the foot of S (cp1c_*).
-        ([new(216.5f, 133), new(236, 136), new(236, 128)], 90),
+        ([new(215.5f, 133), new(236, 136), new(236, 128)], 90),
         // 5 Wache: the trio in the Nordgang behind the row, at wait_c, wait_w and wait_o.
         ([new(207, 199), new(158, 202), new(232, 202)], 270),
         // 6 Vorraum.

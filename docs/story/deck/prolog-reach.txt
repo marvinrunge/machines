@@ -40,7 +40,7 @@ PASS Locator: no room after the antechamber needs door H
 PASS Grunt: no room after the antechamber needs door H
 PASS Reaper class reaches R13 only through N
 PASS Thresher class reaches R13 only through N
-FAIL the escape route S -> P -> X -> R18 -> R19 -> Z for class 3 (every door open): pack_lift does not reach pod_3_hatch
+PASS the escape route S -> P -> X -> R18 -> R19 -> Z for class 3 (every door open)
 PASS Reapers reach Y from the hold
 
 Note: with every door open the Reapers reach the decks through R8 (12 m doors); in the story the blast doors H and I

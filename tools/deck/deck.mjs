@@ -322,7 +322,7 @@ function scn(deck, rects) {
 // The deck was scaled by GapScale (docs/story/deck/scale.md): every gap is that many times as wide as the plan's, so the
 // classes' gaps grow with it. A class that passed a gap of g m on the old deck passes (g x GapScale - 1) m now: Grunts 5,
 // Reapers and the Commander 9, the Thresher 13 (their drawn bodies are about 4.5-6.5, 10-11 and 15 m wide). The ducts kept
-// their 4 m cross-section, so the crawling Locator keeps its old need of 1.5 m (a 3 m gap).
+// 3 m wide (play test 2026-11-24, narrowed from 4 so a Grunt plainly cannot fit), the crawling Locator's need of 1.5 m (a 3 m gap) exactly.
 // The deck says so on its DECK line (DECK prolog 630 420 2), which the sim reads (Deck.GapScale, NavGrid.Room).
 export const GapScale = 2;
 const need = (gap) => (gap * GapScale - 1) / 2;
@@ -424,10 +424,10 @@ function stage7Checks(deck) {
       ...(inZone(deck, shut, r13) ? ['reaches R13 with N shut'] : []),
       ...(inZone(deck, open, r13) ? [] : ['misses R13 with N open'])]]);
   }
-  // The escape: the pack (class 3) from the lift through S, P, X, the gallery and the bridge into the bay; and the Reapers'
+  // The escape: the pack (class 3) from the lift through S, the Kühlschlange (R20), P, X, the gallery and the bridge into the bay; and the Reapers'
   // way to Y from the hold (the Notgang's collapse reopened: it is cells only the sim closes).
   route('the escape route S -> P -> X -> R18 -> R19 -> Z for class 3 (every door open)', 'Thresher', 'pack_lift', 'pod_3_hatch',
-    ['R15b', 'R15', 'R17', 'R18', 'R19', 'R16']);
+    ['R15b', 'R15', 'R20', 'R17', 'R18', 'R19', 'R16']);
   route('Reapers reach Y from the hold', 'Reaper', 'hold_east', 'y_switch', ['R17', 'R15', 'R15a', 'R16']);
   return checks;
 }
