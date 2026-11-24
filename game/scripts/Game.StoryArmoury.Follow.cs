@@ -38,8 +38,19 @@ public partial class Game
     /// <summary>Where Old Iron stood at the last tick the held sounds were chosen (its id, place, game time).</summary>
     private (int Id, NVector2 At, float Time)? _bossLast;
 
-    /// <summary>The boss's speed (m/s) its charge's scrape starts at, and is at its loudest and highest from.</summary>
-    private const float ScrapeFrom = 1.5f, ScrapeFull = 8;
+    /// <summary>Old Iron's speed (m/s) smoothed over a few ticks, and whether its scrape sounds now.</summary>
+    private float _bossSpeed;
+    private bool _scraping;
+
+    /// <summary>
+    /// The boss's speed (m/s) its charge's scrape starts at, stops below, and is at its loudest and highest from. Between
+    /// start and stop it keeps going: a speed that hovered at one line switched the loop off and on each tick, and each start
+    /// began the recording again, which stuttered like a stuck CD (play test 2026-11-24).
+    /// </summary>
+    private const float ScrapeFrom = 1.5f, ScrapeStop = 0.6f, ScrapeFull = 8;
+
+    /// <summary>How fast the measured speed follows the boss's (per second): about a quarter second.</summary>
+    private const float SpeedFollow = 4;
 
     /// <summary>After every tick of a story (ShowStoryEvents): the armoury's held sounds, ticks, presses and wrecks.</summary>
     private void FollowArmoury()
@@ -93,17 +104,28 @@ public partial class Game
                 waves.Phase == StoryChargePhase.Telegraph ? 1.2f : 1);
             // The scrape only while it really runs, as loud and high as it is fast (play test 2026-11-24: a charge that
             // stuck on something went on scraping on the spot, which sounded jammed).
-            var moved = _bossLast is { } last && last.Id == boss.Id && World.Time > last.Time
-                ? NVector2.Distance(boss.Position, last.At) / (World.Time - last.Time) : 0;
-            _bossLast = (boss.Id, boss.Position, World.Time);
-            if (waves.Phase == StoryChargePhase.Run && moved > ScrapeFrom)
+            if (_bossLast is { } last && last.Id == boss.Id && World.Time > last.Time)
             {
-                var fast = Mathf.Clamp((moved - ScrapeFrom) / (ScrapeFull - ScrapeFrom), 0, 1);
+                var step = World.Time - last.Time;
+                var moved = NVector2.Distance(boss.Position, last.At) / step;
+                _bossSpeed += (moved - _bossSpeed) * Mathf.Min(1, SpeedFollow * step);
+            }
+            else if (_bossLast is not { } same || same.Id != boss.Id)
+                _bossSpeed = 0;
+            _bossLast = (boss.Id, boss.Position, World.Time);
+            _scraping = waves.Phase == StoryChargePhase.Run && (_bossSpeed > ScrapeFrom || _scraping && _bossSpeed > ScrapeStop);
+            if (_scraping)
+            {
+                var fast = Mathf.Clamp((_bossSpeed - ScrapeFrom) / (ScrapeFull - ScrapeFrom), 0, 1);
                 wanted[$"{ArmouryHeld}run"] = new("container_scrape", at, Mathf.Lerp(-8, 2, fast), Mathf.Lerp(0.65f, 0.85f, fast));
             }
         }
         else
+        {
             _bossLast = null;
+            _bossSpeed = 0;
+            _scraping = false;
+        }
         // The barracks lift coming down behind gate N while the bar before batch 3 runs out.
         if (run.Flags.Contains(StoryMarks.ArmourySealed) && !waves.Fighting && waves.Wave == 3 && waves.Bar(World.Time) >= 0.7f
             && World.Deck?.Markers.FirstOrDefault(m => m.Name == "wave_n_1") is { } lift)

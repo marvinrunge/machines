@@ -14,6 +14,11 @@ public partial class StorySounds
 
     private readonly Dictionary<string, AudioStreamPlayer3D> _held = new(StringComparer.Ordinal);
 
+    // Held sounds fading out, by key: wanted again before they are gone, they come back where they were instead of starting
+    // their recording again. And each player's running fade, so a new one replaces it rather than fighting it.
+    private readonly Dictionary<string, AudioStreamPlayer3D> _fading = new(StringComparer.Ordinal);
+    private readonly Dictionary<AudioStreamPlayer3D, Tween> _fades = [];
+
     /// <summary>A held sound: which effect, where it is now, how loud (dB) and at what pitch.</summary>
     public readonly record struct Held(string Id, Vector3 At, float Db = 0, float Pitch = 1);
 
@@ -32,6 +37,11 @@ public partial class StorySounds
     /// <summary>Starts a held sound under <paramref name="key"/>, or moves the one playing there (its loudness and pitch too).</summary>
     public void Hold(string key, Held sound)
     {
+        if (_fading.Remove(key, out var fading) && IsInstanceValid(fading))
+        {
+            _held[key] = fading;
+            fading.SetMeta("db", Silent);
+        }
         if (_held.TryGetValue(key, out var playing))
         {
             if (IsInstanceValid(playing))
@@ -41,7 +51,7 @@ public partial class StorySounds
                 if (!Mathf.IsEqualApprox(playing.GetMeta("db", 0f).AsSingle(), sound.Db))
                 {
                     playing.SetMeta("db", sound.Db);
-                    playing.CreateTween().TweenProperty(playing, "volume_db", sound.Db, HeldIn);
+                    Refade(playing).TweenProperty(playing, "volume_db", sound.Db, HeldIn);
                 }
                 return;
             }
@@ -75,7 +85,7 @@ public partial class StorySounds
                 player.Play();
         };
         player.Play();
-        player.CreateTween().TweenProperty(player, "volume_db", sound.Db, HeldIn);
+        Refade(player).TweenProperty(player, "volume_db", sound.Db, HeldIn);
         _held[key] = player;
         audio.Trace($"sfx-held {resolved} on {key}");
     }
@@ -85,9 +95,26 @@ public partial class StorySounds
     {
         if (!_held.Remove(key, out var player) || !IsInstanceValid(player))
             return;
-        var tween = player.CreateTween();
+        _fading[key] = player;
+        var tween = Refade(player);
         tween.TweenProperty(player, "volume_db", Silent, HeldOut);
-        tween.TweenCallback(Callable.From(player.QueueFree));
+        tween.TweenCallback(Callable.From(() =>
+        {
+            if (_fading.TryGetValue(key, out var gone) && gone == player)
+                _fading.Remove(key);
+            _fades.Remove(player);
+            player.QueueFree();
+        }));
         audio.Trace($"sfx-held off {key}");
+    }
+
+    /// <summary>A new fade of a held sound's loudness, in place of the one it may still be running.</summary>
+    private Tween Refade(AudioStreamPlayer3D player)
+    {
+        if (_fades.Remove(player, out var running) && running.IsValid())
+            running.Kill();
+        var tween = player.CreateTween();
+        _fades[player] = tween;
+        return tween;
     }
 }

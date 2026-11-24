@@ -486,11 +486,31 @@ public sealed class ClassicAssets
                     var faceplate = element.TryGetProperty("faceplate", out var f) ? f.GetInt32() : -1;
                     var node = 0;
                     rig = Rig.Read(element, part => MeshFromParts(part, race, glowSprites: node++ != faceplate));
+                    NudgeFaceplate(id, rig);
                 }
             }
             HitchLog.Loaded($"rig {key}", start);
             return rig;
         });
+    }
+
+    /// <summary>
+    /// Where a model's eye box (the faceplate node) sits further out than its export put it, in the node's parent's axes
+    /// (x forward, y up). Old Iron (tools/wired-models' oldiron): its body grew and its front slopes back, so the box sank
+    /// into the chassis up to half its height once the eyes glowed by the box itself (play test 2026-11-24); 0.2 forward and
+    /// 0.1 up leaves its lower edge just proud of the slope.
+    /// </summary>
+    private static readonly Dictionary<string, Vector3> FaceplateNudges = new(StringComparer.Ordinal)
+    {
+        [HeavyGruntRig.ModelId] = new(0.2f, 0.1f, 0),
+    };
+
+    private static void NudgeFaceplate(string id, Rig rig)
+    {
+        if (!FaceplateNudges.TryGetValue(id, out var by) || rig.Faceplate < 0 || rig.Faceplate >= rig.Nodes.Length)
+            return;
+        var node = rig.Nodes[rig.Faceplate];
+        rig.Nodes[rig.Faceplate] = node with { Rest = node.Rest with { Origin = node.Rest.Origin + by } };
     }
 
     /// <summary>
