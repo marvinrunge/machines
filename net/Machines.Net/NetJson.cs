@@ -26,9 +26,10 @@ public static class NetJson
     /// as before; and a sighted hero without an upper body angles its guns within their arcs, <see cref="MatchOptions.HeroGunArc"/>,
     /// recordings whose options do not name them play without); main's 16 is the same change without the story.
     /// 18: story stage 7 (checkpoints 0–14, the prologue's new sim: the Notabschaltung, the stage's state in the checksum),
-    /// so the story relay refuses a build from before it.
+    /// so the story relay refuses a build from before it. 19: the first play test's Thresher (his round at 0.16 of his speed,
+    /// and he walks as a crab: GameWorld.Crabs), so a client of 18 would walk him otherwise.
     /// </summary>
-    public const int Protocol = 18;
+    public const int Protocol = 19;
 
     public static readonly JsonSerializerOptions Options = Create();
 

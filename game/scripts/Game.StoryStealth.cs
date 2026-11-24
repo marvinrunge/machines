@@ -16,6 +16,7 @@ public partial class Game
     private string? _stateCue;
     private double _bigShakeUntil;
     private Action<Vector3, float>? _planted;
+    private Func<int, float>? _crabOf;
 
     /// <summary>A director's cue of this package's section (Game.StoryCue forwards what it does not know); false: not its cue.</summary>
     private bool StoryCueStealth(string[] words, Godot.Vector3 at)
@@ -97,6 +98,7 @@ public partial class Game
         ActorView.Stalker = look;
         // His feet stomp wherever he walks in a story (the escape's chase too), by his heavy gait.
         ActorView.StoryGaits = World.Story is not null || GaitTest;
+        ActorView.CrabOf = World.Story is null ? null : _crabOf ??= World.CrabOf;
         ActorView.StalkerPlanted = World.Story is null ? null : _planted ??= Planted;
         // The gait test's camera keeps the walker in the middle.
         if (GaitTest && World.Story is null && World.Machines.FirstOrDefault(m => m.IsType("AGGRESSOR", "ASSASSIN") && m.Race == Player) is { } walker)
@@ -127,6 +129,8 @@ public partial class Game
     // within 25 m, dust at the foot when it is near enough to be seen.
     private void Planted(Vector3 foot, float weight)
     {
+        if (!IsInstanceValid(this) || !IsInsideTree())
+            return;
         StoryAudio.Current?.Sounds.Stomp(foot, weight);
         if (GetViewport().GetCamera3D() is not { } camera)
             return;

@@ -173,6 +173,8 @@ public sealed partial class GameWorld
         public int HeldBy;
         public float HeldSince;
         public Vector2 SidestepGoal;
+        // A crab walker's hull against the way it walks (a multiple of a quarter turn; see Crabs): 0 for every other machine.
+        public float Crab;
     }
 
     // Stepping sideways for a goal that stays taken would go on for ever: after this many it looks for space near by.
@@ -343,7 +345,7 @@ public sealed partial class GameWorld
             }
         }
         machine.Position = position;
-        machine.Facing = heading;
+        machine.Facing = heading + motion.Crab;
         motion.RunCovered = covered;
         motion.Speed = motion.Run.SpeedAt(t);
         if (next > end)
@@ -394,8 +396,11 @@ public sealed partial class GameWorld
         var heading = DetMath.Atan2(first.Y, first.X);
         var start = motion.Speed;
         // A new way that turns sharply off the one it was on: it stops and turns.
-        if (start > 0 && MathF.Abs(AngleBetween(machine.Facing, heading)) > SharpCorner)
+        if (start > 0 && MathF.Abs(AngleBetween(machine.Facing - motion.Crab, heading)) > SharpCorner)
             start = 0;
+        // A crab walker setting off takes the front of its four nearest the way, so it turns an eighth at most.
+        if (start == 0)
+            motion.Crab = Crabs(machine) ? CrabFor(machine.Facing, heading) : 0;
 
         var end = index;
         var length = first.Length();
@@ -425,7 +430,7 @@ public sealed partial class GameWorld
         motion.Speed = start;
         motion.Turning = false;
         if (start == 0)
-            StartTurn(machine, motion, heading, machine.Stats.RotationSpeed * StoryTurnPace(machine));
+            StartTurn(machine, motion, heading + motion.Crab, machine.Stats.RotationSpeed * StoryTurnPace(machine));
         // A run that first turns on the spot is told of once it has turned.
         if (!motion.Turning)
             AnnounceRun(machine, motion);
@@ -491,6 +496,9 @@ public sealed partial class GameWorld
             return;
         var heading = DetMath.Atan2(offset.Y, offset.X);
         var motion = MotionOf(machine);
+        // A crab walker turns the hull to the front of its four nearest the point; its head looks the rest of the way.
+        motion.Crab = Crabs(machine) ? CrabFor(machine.Facing, heading) : 0;
+        heading += motion.Crab;
         if (motion.Driving)
             AnnounceStop(machine, motion);
         motion.Driving = false;
@@ -1075,6 +1083,21 @@ public sealed partial class GameWorld
     }
 
     /// <summary>The signed turn from one heading to another, the short way round.</summary>
+    /// <summary>
+    /// Whether a machine walks as a crab (the user's wish after the first play test): a story's Thresher (Wired's AGGRESSOR 4
+    /// ASSASSIN), whose four legs stand alike all round, sets off in any way with the front of its four nearest it, so it
+    /// turns an eighth of a turn at most; its head turns the rest, so its eyes and beam still look the way it walks.
+    /// </summary>
+    private bool Crabs(Machine machine) =>
+        Story is not null && machine.IsType("AGGRESSOR", "ASSASSIN") && machine.Stats.HardwareLevel == 4;
+
+    /// <summary>The quarter turns a crab walker's hull stands off a heading, the nearest to how it faces now (−π to π).</summary>
+    private static float CrabFor(float facing, float heading) =>
+        MathF.Round(AngleBetween(heading, facing) / (MathF.PI / 2)) * (MathF.PI / 2);
+
+    /// <summary>How far a crab walker's hull stands off the way it walks or looks, radians (0 for every other machine).</summary>
+    public float CrabOf(int machine) => _motion.TryGetValue(machine, out var motion) ? motion.Crab : 0;
+
     private static float AngleBetween(float from, float to)
     {
         var by = (to - from) % MathF.Tau;

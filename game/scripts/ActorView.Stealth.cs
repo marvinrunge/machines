@@ -16,6 +16,9 @@ public partial class ActorView
     /// <summary>One of his feet came down at a point, with its weight (1 a front foot, 0.6 a back one): Game.StoryStealth plays and shakes it.</summary>
     internal static Action<Vector3, float>? StalkerPlanted { get; set; }
 
+    /// <summary>How far a crab walker's hull stands off the way it walks (GameWorld.CrabOf), while a story runs; null otherwise.</summary>
+    internal static Func<int, float>? CrabOf { get; set; }
+
     /// <summary>Whether a story runs, so the Thresher walks by his heavy gait (Game.StoryStealth sets it each frame).</summary>
     internal static bool StoryGaits { get; set; }
 

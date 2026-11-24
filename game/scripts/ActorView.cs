@@ -1030,6 +1030,9 @@ public partial class ActorView : Node3D
         var aimed = actor is Construction { StrikeAt: { } strike } ? strike : aimAt?.Position;
         var toTarget = aimed is not { } point ? 0 : MathF.Atan2(point.Y - actor.Position.Y, point.X - actor.Position.X) - facing;
         _aim = Steered ?? (aimed is null ? 0 : Mathf.Wrap(toTarget, -Mathf.Pi, Mathf.Pi));
+        // A crab walker (the story's Thresher) with nothing to aim at looks the way it walks, off its hull.
+        if (Steered is null && aimed is null && CrabOf?.Invoke(actor.Id) is { } crab && crab != 0)
+            _aim = Mathf.Wrap(-crab, -Mathf.Pi, Mathf.Pi);
         _targetYaw = actor switch
         {
             Machine m => -m.Facing,

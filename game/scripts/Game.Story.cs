@@ -153,6 +153,12 @@ public partial class Game
         // The menus after a chapter show the look as the player chose it.
         GraphicsSettings.Story = false;
         FilmLimiter(false);
+        // The Thresher's views keep no hold on this match once it is gone (a restart builds the next before this one's
+        // views have all stopped).
+        ActorView.Stalker = null;
+        ActorView.StalkerPlanted = null;
+        ActorView.CrabOf = null;
+        ActorView.StoryGaits = false;
         if (_storyHeard)
         {
             StoryAudio.LineStarted -= StoryLineStarted;

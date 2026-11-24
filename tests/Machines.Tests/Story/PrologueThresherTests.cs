@@ -33,10 +33,11 @@ public class PrologueThresherTests(ITestOutputHelper output)
         }
     }
 
-    // The design's 100, 150 and 95 s, slowed with his round's pace (StorySight.PatrolPace 0.265 → 0.16) for his heavy gait.
+    // The design's 100, 150 and 95 s, slowed with his round's pace (StorySight.PatrolPace 0.265 → 0.16) for his heavy gait;
+    // as a crab walker he turns less at the ring's corners.
     [Theory]
     [InlineData(1, "a", 155)]
-    [InlineData(2, "ring", 236)]
+    [InlineData(2, "ring", 230)]
     [InlineData(4, "b", 141)]
     public void His_rounds_take_the_time_the_design_gives_them(int checkpoint, string round, float seconds)
     {
@@ -119,8 +120,8 @@ public class PrologueThresherTests(ITestOutputHelper output)
         for (var i = 0; i < 90 * GameWorld.TicksPerSecond; i++)
         {
             Blind(world, 1f / GameWorld.TicksPerSecond);
-            // His back to the Nordgang (north, 90°) means looking south.
-            var back = MathF.Sin(thresher.Facing) < -0.7f;
+            // His back to the Nordgang (north, 90°) means looking south (his head's way: he walks as a crab).
+            var back = MathF.Sin(world.GunHeading(thresher)) < -0.7f;
             if (back && !wasBack)
                 backs.Add(world.Time);
             wasBack = back;

@@ -328,11 +328,11 @@ public class StoryCoopTests
     }
 
     [Fact]
-    public void Story_commands_go_through_the_lockstep_and_the_protocol_is_eighteen()
+    public void Story_commands_go_through_the_lockstep_and_the_protocol_is_nineteen()
     {
         // 15 brought the story, 16 the fitted bodies of every mode, 17 the computers' skirmish rules and the heroes' gun arcs.
-        // 18 story stage 7 (checkpoints 0–14).
-        Assert.Equal(18, NetJson.Protocol);
+        // 18 story stage 7 (checkpoints 0–14), 19 the play test's Thresher (slower round, crab walk).
+        Assert.Equal(19, NetJson.Protocol);
         // Every command of the sim, a story command among them however deep it derives, is known to the JSON by its name.
         var known = NetJson.Options.GetTypeInfo(typeof(Command)).PolymorphismOptions!.DerivedTypes.Select(d => d.DerivedType).ToHashSet();
         var commands = typeof(Command).Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(Command)) && !t.IsAbstract).ToList();
