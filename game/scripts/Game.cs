@@ -1170,6 +1170,7 @@ public partial class Game : Node3D
     /// </summary>
     private void TakeScreenshotIfAsked(double delta)
     {
+        TakeDeckMapIfAsked(delta);
         FollowHangar();
         ScriptHangar();
         var path = System.Environment.GetEnvironmentVariable("MACHINES_SCREENSHOT");
@@ -3815,6 +3816,9 @@ public partial class Game : Node3D
             // The ship lists on its way down: the view leans, the panel stays level.
             _firstPersonCamera.Basis *= Leaning();
         }
+        // The machine itself in the picture, all but what the camera sits in (ActorView.SelfView); from behind, or in a
+        // film, it stays out as before.
+        view.ShowSelf(chased || InCutscene ? null : _firstPersonCamera.GlobalPosition);
         // A vortex or an ion strike right beside the hero seen from behind is drawn lighter, as for the battle's watch camera.
         if (chased)
             GroundBlast.Onlooker = true;
