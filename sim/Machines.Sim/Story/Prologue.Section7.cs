@@ -84,7 +84,11 @@ public static partial class Prologue
             [new Say(Lines.AutoShut), new Run("shutter", (world, run, _) => { world.CloseShutter(run); world.StartJets(run); }),
             new Cue("shutter klaxon", "350,144"), new Assign(2, CompanionTask.HoldFrame, "x_frame"), new Say(Lines.HudHoldX, StoryAudience.Private, 2)],
             After: ["hold_entry"]),
-        new("galerie", 12, new InZone("R18", StoryWho.All), [new Checkpoint(13), new Objective("Through the gallery", "thresher_edge")]),
+        new("galerie", 12, new InZone("R18", StoryWho.All), [new Checkpoint(13)]),
+        // The marker follows the Locator, not the last of the trio: on the gallery it points to the bridge head, on the bridge to its
+        // far end (play test 2026-11-24: it pointed back along the whole bridge to the head until the bay).
+        new("galerie_mark", 12, new InZone("R18"), [new Objective("Through the gallery", "thresher_edge")]),
+        new("steg_mark", 13, new InZone("R19"), [new Objective("Across the footbridge", "432,91")]),
         // C4, the gallery: J1's show at the entry (the hush), the jets' rhythm, Ike on J4's valve; P_AUTO_3 at its true time.
         new("j1", 13, new InZone("R18", StoryWho.AnyHero), [new Run("j1", (world, run, _) => world.ShowJ1(run)), new Cue("hush 1.5 -20"),
             new Say(Lines.HudJets)]),

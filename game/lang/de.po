@@ -5948,6 +5948,9 @@ msgstr "Durch den Frachtraum"
 msgid "Through the gallery"
 msgstr "Durch die Rohrgalerie"
 
+msgid "Across the footbridge"
+msgstr "Über den Steg"
+
 msgid "Soften the list"
 msgstr "Schlagseite mildern"
 
