@@ -123,6 +123,9 @@ public partial class StoryHud
             if (camera.IsPositionBehind(at))
                 continue;
             var screen = camera.UnprojectPosition(at);
+            // A wreck right at the camera lands far off the screen (or not at all): its diamond could not be drawn.
+            if (!float.IsFinite(screen.X) || !float.IsFinite(screen.Y) || !new Rect2(Vector2.Zero, _size).Grow(40 * _u).HasPoint(screen))
+                continue;
             var colour = yields ? HudInk.Gold : new Color(MenuTheme.Dim, 0.6f);
             DrawPolygon([screen + new Vector2(0, -7) * _u, screen + new Vector2(7, 0) * _u, screen + new Vector2(0, 7) * _u, screen + new Vector2(-7, 0) * _u], [colour]);
             if (yields)

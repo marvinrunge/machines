@@ -92,7 +92,6 @@ public partial class Game
     {
         var look = World.Story is null ? null : StoryStalker.Look(World);
         ActorView.Stalker = look;
-        ActorView.StalkerQuarry = look is { Quarry: > 0 and var quarry } && World.Find<Machine>(quarry) is { IsDead: false } hunted ? ActorView.World(hunted.Position) : null;
         ActorView.StalkerPlanted = look is null ? null : _planted ??= Planted;
         StoryAudio.Current?.Sounds.FollowThresher(look, delta);
         StompTestIfAsked(look);

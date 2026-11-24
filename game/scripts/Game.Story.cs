@@ -164,8 +164,12 @@ public partial class Game
     // ---- the section timer --------------------------------------------------------------------------------
 
     /// <summary>Ticks spent in each section of this chapter, over every restart of it (a run that dies and tries again
-    /// adds its retries); only ticks count, so a pause and the death card (the sim stands still) are left out.</summary>
-    private readonly System.Collections.Generic.Dictionary<int, int> _sectionTicks = [];
+    /// adds its retries; each restart is a new Game, so they are kept beside it until the story page starts a chapter,
+    /// <see cref="ResetStoryTimer"/>); only ticks count, so a pause and the death card (the sim stands still) are left out.</summary>
+    private static readonly System.Collections.Generic.Dictionary<int, int> _sectionTicks = [];
+
+    /// <summary>A chapter started from the story page times afresh (a restart from a checkpoint goes on adding).</summary>
+    internal static void ResetStoryTimer() => _sectionTicks.Clear();
     private (int Section, int Tick, GameWorld? World) _sectionAt;
     private GameWorld? _sectionDone;
 

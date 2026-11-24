@@ -7,15 +7,11 @@ namespace Machines.Game;
 // pace and warped so each foot lingers and comes down hard; each plant (RigView.Plants, found in his walk) a stomp on his bus,
 // a drop of the hips and a roll to the planted side, a jolt of the beam, dust at the foot (Game.StoryStealth shakes the view
 // and sifts the ceiling near the listener). His beam's states: calm wide, focused to a rod and brighter when he is wary or
-// searching, with small saccades while he doubts; three black-outs as he draws, and two thin aiming lasers from his guns to
-// his quarry while he draws and fires.
+// searching, with small saccades while he doubts; three black-outs as he draws.
 public partial class ActorView
 {
     /// <summary>Section 2's Thresher this frame (Game.StoryStealth sets it each frame; null: none under the rule).</summary>
     internal static StalkerLook? Stalker { get; set; }
-
-    /// <summary>Where his quarry stands, for the lasers (Game.StoryStealth; null: none).</summary>
-    internal static Vector3? StalkerQuarry { get; set; }
 
     /// <summary>One of his feet came down at a point, with its weight (1 a front foot, 0.6 a back one): Game.StoryStealth plays and shakes it.</summary>
     internal static Action<Vector3, float>? StalkerPlanted { get; set; }
@@ -33,7 +29,6 @@ public partial class ActorView
     private float? _lastWalk;
     private float _drop, _dropRoll, _jolt, _focus, _stalkerClock, _drawAt = -10;
     private StalkerState _stalkerState;
-    private MeshInstance3D[]? _lasers;
 
     partial void StorySyncStealth(Actor actor)
     {
@@ -49,9 +44,6 @@ public partial class ActorView
             if (!now)
                 _rigView.Transform = Transform3D.Identity;
         }
-        if (!now && _lasers is not null)
-            foreach (var laser in _lasers)
-                laser.Visible = false;
     }
 
     partial void StoryFrameStealth(double delta)
@@ -92,7 +84,6 @@ public partial class ActorView
         _jolt = Mathf.MoveToward(_jolt, 0, dt * BeamJolt * 5);
         rig.Transform = new Transform3D(new Basis(Vector3.Right, Mathf.DegToRad(_dropRoll)), Vector3.Down * _drop);
         _focus = Mathf.MoveToward(_focus, _stalkerState is StalkerState.Wary or StalkerState.Draw or StalkerState.Fire or StalkerState.Lost ? 1 : 0, dt * 3);
-        Lasers();
     }
 
     private void Planted(RigView rig, RigPlant plant)
@@ -125,59 +116,4 @@ public partial class ActorView
         if (since is >= 0 and < 0.3f && (int)(since / 0.05f) % 2 == 0)
             beam.LightEnergy = 0;
     }
-
-    // Two thin lasers from his guns (either side of his eye, a little below) to his quarry while he draws and fires.
-    private void Lasers()
-    {
-        var on = _stalkerState is StalkerState.Draw or StalkerState.Fire && StalkerQuarry is not null && Visible && _rigView is not null;
-        if (!on)
-        {
-            if (_lasers is not null)
-                foreach (var laser in _lasers)
-                    laser.Visible = false;
-            return;
-        }
-        _lasers ??= [MakeLaser(), MakeLaser()];
-        var eye = Eye;
-        var right = GlobalBasis.Z.Normalized();
-        var target = StalkerQuarry!.Value + Vector3.Up * 1.2f;
-        for (var i = 0; i < 2; i++)
-        {
-            var from = eye + right * (i == 0 ? 1.6f : -1.6f) + Vector3.Down * 1.5f;
-            var length = from.DistanceTo(target);
-            var laser = _lasers[i];
-            laser.Visible = length > 0.5f;
-            if (!laser.Visible)
-                continue;
-            var along = (target - from) / length;
-            var up = Mathf.Abs(along.Y) > 0.99f ? Vector3.Right : Vector3.Up;
-            laser.GlobalTransform = new Transform3D(Basis.LookingAt(along, up).Scaled(new Vector3(1, 1, length)), from.Lerp(target, 0.5f));
-        }
-    }
-
-    private MeshInstance3D MakeLaser()
-    {
-        var laser = new MeshInstance3D
-        {
-            Name = "StalkerLaser",
-            Mesh = new BoxMesh { Size = new Vector3(0.035f, 0.035f, 1) },
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-            MaterialOverride = LaserMaterial,
-            TopLevel = true,
-        };
-        AddChild(laser);
-        return laser;
-    }
-
-    /// <summary>His aiming lasers' look: thin, unshaded, glowing red (Warmup.Stealth compiles it behind the loading screen).</summary>
-    internal static readonly StandardMaterial3D LaserMaterial = new()
-    {
-        ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-        AlbedoColor = new Color(1, 0.1f, 0.08f, 0.8f),
-        Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-        EmissionEnabled = true,
-        Emission = new Color(1, 0.1f, 0.05f),
-        EmissionEnergyMultiplier = 3,
-        CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-    };
 }

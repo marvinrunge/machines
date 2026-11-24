@@ -598,6 +598,9 @@ public partial class ActorView : Node3D
                 view.Gait(rigged, hero is not null);
             else
                 view._maxSpeed = 0;
+            // The Reapers' (assassins') stop step looks wrong: they go from the walk straight to standing.
+            if (actor is Machine reaper && reaper.IsType("AGGRESSOR", "ASSASSIN"))
+                view._rigView.StopsWalking = false;
             // A machine's upper body turns at its BODY_TURN_RATE, degrees per second (MachPhysTurnerTracker).
             if (actor is Machine { Stats.BodyTurnRate: > 0 and var bodyRate })
                 view._rigView.TurnRate = Mathf.DegToRad(bodyRate);

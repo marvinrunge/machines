@@ -125,6 +125,7 @@ public partial class StoryPage(MenuScreens screens) : MenuPage(screens.ShowMain)
     private void Play(string chapter, int checkpoint)
     {
         Remember();
+        Game.ResetStoryTimer();
         StoryProgress.Play(GetTree(), _progress.Options(chapter, checkpoint));
     }
 

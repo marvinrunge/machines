@@ -696,6 +696,12 @@ public partial class RigView : Node3D
         return true;
     }
 
+    /// <summary>
+    /// Whether legs come to a stop by their own plan (stopWalking); the Reapers' looks wrong in the remake, so theirs is left
+    /// out (ActorView) and they stand straight from the walk.
+    /// </summary>
+    public bool StopsWalking { get; set; } = true;
+
     // Legs that have them set off and come to a stop by a plan of their own, played once each (MachPhysSpiderLegs::moveAnimations).
     private string Stepping(string cycle)
     {
@@ -704,7 +710,7 @@ public partial class RigView : Node3D
             return _phase < 1 ? _cycle : cycle;
         if (walking && _cycle != "walk" && _rig.Animations.ContainsKey("startWalking"))
             return "startWalking";
-        if (!walking && _cycle is "walk" or "startWalking" && cycle is "rest" or "turnLeft" or "turnRight" && _rig.Animations.ContainsKey("stopWalking"))
+        if (!walking && StopsWalking && _cycle is "walk" or "startWalking" && cycle is "rest" or "turnLeft" or "turnRight" && _rig.Animations.ContainsKey("stopWalking"))
             return "stopWalking";
         return cycle;
     }
