@@ -26,7 +26,7 @@ public sealed partial class CompanionBot
     private const float WindowClear = 45, WindowAngle = 35;
 
     /// <summary>A Grunt gives up waiting for a window after so long and crosses anyway (it never waits for ever), seconds.</summary>
-    private const float HoldMost = 30;
+    private const float HoldMost = 50; // 30 at the old 0.265 patrol pace, scaled to 0.16
 
     /// <summary>How near the view's aim a noise source must be for the Locator's distraction to mean it, metres.</summary>
     private const float SourcePick = 8;

@@ -33,7 +33,7 @@ public partial class StoryDriver
     private const float CreepWithin = 35;
 
     /// <summary>The lap of each round by the design (design-stealth §3.6), seconds.</summary>
-    private static readonly Dictionary<string, float> RoundPlan = new() { ["a"] = 100, ["ring"] = 150, ["b"] = 95 };
+    private static readonly Dictionary<string, float> RoundPlan = new() { ["a"] = 155, ["ring"] = 230, ["b"] = 141 };
 
     private bool _stealthOn, _creeping, _holding, _stealthDone, _caughtTold, _diedOnce, _lureTold, _drawSeen;
     private double _stealthFrom, _holdFrom, _lureAt = -100, _restartAt = -1, _caughtAt = -1, _downAt = -1;
@@ -163,20 +163,50 @@ public partial class StoryDriver
                 Go(game, hero, "the Bahnsprung (x_g2)", Marker("x_g2"), 1.5f);
                 return true;
             }
-            // Along the Graben into V1a's mouth, creeping; still while he dwells at a2.
+            // Along the Graben into V1a's mouth, creeping; still while he dwells at a2. Into the duct only once both Grunts
+            // stand by the mouth, off deck A's lane: the duct sends them on to the E-Nische (the schacht beat), and one still
+            // on the lane walks along it into him as he comes back west on his slow round.
             Creep(true);
             Window("x_g2 → V1a", hero, him);
+            if (!GruntsBy(world, story, hero) && (_mouthSince < 0 || world.Time - _mouthSince < MouthWait))
+            {
+                if (Go(game, hero, "V1a's mouth, outside", new NVector2(198, 78), 1.2f))
+                {
+                    if (_mouthSince < 0)
+                        _mouthSince = world.Time;
+                    Wait(game, hero, "the Grunts at V1a's mouth");
+                }
+                return true;
+            }
+            if (_mouthSince >= 0 && !_mouthTold)
+            {
+                _mouthTold = true;
+                Tell(FormattableString.Invariant($"stealth: into V1a after {world.Time - _mouthSince:0.0} s at its mouth, the Grunts {(GruntsBy(world, story, hero) ? "by it" : "not by it")}"));
+            }
             Go(game, hero, "V1a's mouth", new NVector2(198, 86), 1.2f);
             return true;
         }
         if (!director.Has("guard") && !In("nordgang"))
         {
-            // Deck B: from V1c's top down the crawl way to the Nordgang once he is at b1 or westbound beyond b2.
-            if (In("R7", "V1b", "V1c") && !SafeOnDeckB(him))
+            // Deck B: up V1c and down the crawl way to the Nordgang once he is at b1 or westbound beyond b2 and both Grunts
+            // wait in S (they follow the Locator from there as it comes out, so all three cross in the one window and the
+            // guard beat comes with all in the Nordgang). Until then it waits in R7 (cp1b_l7), not at V1c's top: at his slow
+            // round his leg from b3 to b4 passes V1c's mouth and he saw the Locator in the duct; and the Grunts came out so
+            // late that the guard beat (90 s after deck B) sent Ike to wait_w right past his post at H.
+            if (!ReferenceEquals(world, _deckBWorld))
+                (_deckBWorld, _deckBGo, _deckBSince) = (world, false, world.Time);
+            if (In("R7", "V1b", "V1c") && !_deckBGo)
             {
-                if (Go(game, hero, "V1c's top", Marker("cp1c_l7"), 1.5f))
-                    Wait(game, hero, "him at b1 or westbound beyond b2");
-                return true;
+                var gruntsInS = story.Seats.Skip(1).All(seat => !world.CompanionDown(seat) && world.HeroOf(seat) is { } grunt
+                    && deck.Zones.FirstOrDefault(z => z.Name == "S") is { } s && s.Contains(grunt.Position));
+                if (!SafeOnDeckB(him) || !gruntsInS && world.Time - _deckBSince < DeckBWait)
+                {
+                    if (Go(game, hero, "R7 (cp1b_l7)", Marker("cp1b_l7"), 1.5f))
+                        Wait(game, hero, "him at b1 or westbound beyond b2, the Grunts in S");
+                    return true;
+                }
+                _deckBGo = true;
+                Tell(FormattableString.Invariant($"stealth: out to deck B {world.Time - _deckBSince:0.0} s after hack_s, the Grunts {(gruntsInS ? "in S" : "not in S")}"));
             }
             Window("V1c → crawl way → Nordgang", hero, him);
             Go(game, hero, "the Nordgang (wait_c)", Marker("wait_c"), 1.5f);
@@ -201,7 +231,11 @@ public partial class StoryDriver
         var valve = story.Stealth.Bangs.ContainsKey("valve_o") && !story.Stealth.Spent.Contains("valve_w") ? "valve_w" : "valve_o";
         LookAt(game, ActorView.World(Marker(valve)) + Vector3.Up * 0.5f);
         var now = world.Time;
-        if (director.Has("offer") && now - _lureAt > 15 && him.Order is not SearchOrder && !story.Stealth.Spent.Contains(valve))
+        // The lure only once both Grunts are in the Nordgang: at his slow round they may still be crossing deck B from S
+        // when the guard beat fires, and the bang sends him across their way to the pipe's far end.
+        var gruntsIn = story.Seats.Skip(1).All(seat => !world.CompanionDown(seat) && world.HeroOf(seat) is { } grunt
+            && deck.Zones.FirstOrDefault(z => z.Name == "nordgang") is { } gang && gang.Contains(grunt.Position));
+        if (director.Has("offer") && gruntsIn && now - _lureAt > 15 && him.Order is not SearchOrder && !story.Stealth.Spent.Contains(valve))
         {
             _lureAt = now;
             _ = Tap(KeyMap.Of(KeyMap.Act.GruntDistract));
@@ -210,6 +244,23 @@ public partial class StoryDriver
         }
         return true;
     }
+
+    /// <summary>The longest the Locator waits at V1a's mouth for its Grunts, seconds.</summary>
+    private const float MouthWait = 60;
+
+    private double _mouthSince = -1;
+    private bool _mouthTold, _deckBGo;
+
+    /// <summary>The longest the Locator waits in R7 for both Grunts to be in S before it goes out on deck B, seconds.</summary>
+    private const float DeckBWait = 150;
+
+    private double _deckBSince = -1;
+    private GameWorld? _deckBWorld;
+
+    // Whether both Grunts are up, within 12 m of the Locator and off deck A's lane (y 44–60), as at V1a's mouth in the Graben.
+    private static bool GruntsBy(GameWorld world, StoryRun story, Machine hero) =>
+        story.Seats.Skip(1).All(seat => !world.CompanionDown(seat) && world.HeroOf(seat) is { } grunt
+            && NVector2.Distance(grunt.Position, hero.Position) <= 12 && grunt.Position.Y > 62);
 
     // Whether he has left a1 eastbound past x (the niche's go rule).
     private static bool WentEast(Machine him, float x) => him.Position.X > x;

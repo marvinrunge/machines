@@ -81,8 +81,8 @@ public static partial class Prologue
 
         new("retreat", 4, new AllOf(new InZone("R6"), new CastNear(ThresherRole, "patrol_b_3", 14)), [new Say(Lines.BobRetreat, Bark, 2)], After: ["deck_b"]),
         new("door_h", 4, new CastAt(ThresherRole, "patrol_b_2"), [new Say(Lines.BobDoorH, Bark, 2)], After: ["deck_b"]),
-        // Checkpoint 5, Wache: all three in the Nordgang (or the Locator, 90 s after deck B); he goes to guard H.
-        new("guard", 4, new AllOf(new AnyOf(new InZone("nordgang", StoryWho.Everyone), new AllOf(new InZone("nordgang"), new Since("deck_b", 90))), new AllUp()),
+        // Checkpoint 5, Wache: all three in the Nordgang (or the Locator, 150 s after deck B, one round b at the 0.16 pace); he goes to guard H.
+        new("guard", 4, new AllOf(new AnyOf(new InZone("nordgang", StoryWho.Everyone), new AllOf(new InZone("nordgang"), new Since("deck_b", 150))), new AllUp()),
             [new Checkpoint(5), new Guard(ThresherRole, "guard_h"), new SneakTo(1, "wait_w"), new SneakTo(2, "wait_o")], After: ["deck_b"]),
 
         new("offer", 5, new Near("wait_c", 5), [new Say(Lines.BobBangOffer, Bark, 2), new Cue("hint lure"), new Cue("hint pipe")], After: ["guard"]),

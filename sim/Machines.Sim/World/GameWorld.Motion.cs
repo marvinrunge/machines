@@ -1082,7 +1082,6 @@ public sealed partial class GameWorld
         return rise / MathF.Sqrt(rise * rise + 4 * reach * reach);
     }
 
-    /// <summary>The signed turn from one heading to another, the short way round.</summary>
     /// <summary>
     /// Whether a machine walks as a crab (the user's wish after the first play test): a story's Thresher (Wired's AGGRESSOR 4
     /// ASSASSIN), whose four legs stand alike all round, sets off in any way with the front of its four nearest it, so it
@@ -1098,6 +1097,7 @@ public sealed partial class GameWorld
     /// <summary>How far a crab walker's hull stands off the way it walks or looks, radians (0 for every other machine).</summary>
     public float CrabOf(int machine) => _motion.TryGetValue(machine, out var motion) ? motion.Crab : 0;
 
+    /// <summary>The signed turn from one heading to another, the short way round.</summary>
     private static float AngleBetween(float from, float to)
     {
         var by = (to - from) % MathF.Tau;
