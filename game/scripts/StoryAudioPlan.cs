@@ -763,17 +763,17 @@ public sealed class StoryScore(int checkpoint = 0)
     /// <summary>The BPM that puts beat <see cref="HoldBeats"/> exactly at <see cref="HoldTo"/> (173.65 against the measured 173.7).</summary>
     public static double HoldBpm => Escape.HoldBpm;
 
-    /// <summary>Seconds from the countdown's start to the lift's burst (T-234 of 240): the escape's piece waits for the burst.</summary>
+    /// <summary>Seconds from the countdown's start to the lift's burst (T-354 of 360): the escape's piece waits for the burst.</summary>
     public const double BurstDelay = 6;
 
     /// <summary>Seconds the music waits past <see cref="BurstDelay"/> for the burst's cue before it starts by the countdown alone.</summary>
     public const double BurstGrace = 2;
 
     /// <summary>
-    /// Where the escape's piece starts at a retry from the escape's later checkpoints: where a typical run hears it there (234 - the
-    /// checkpoint's seconds left: 13 Galerie with 170, 14 Bucht with 120). From the Notgang (12) it starts with the burst.
+    /// Where the escape's piece starts at a retry from the escape's later checkpoints: where a typical run hears it there (354 - the
+    /// checkpoint's seconds left: 13 Galerie with 170, 14 Bucht with 120; the six minutes since the Kühlschlange). From the Notgang (12) it starts with the burst.
     /// </summary>
-    public static readonly IReadOnlyDictionary<int, double> RetryAt = new Dictionary<int, double> { [13] = 64, [14] = 114 };
+    public static readonly IReadOnlyDictionary<int, double> RetryAt = new Dictionary<int, double> { [13] = 184, [14] = 234 };
 
     private bool _caughtEnded, _brokenIn = checkpoint >= BrokenInFrom;
     private double _restUntil = double.NegativeInfinity;

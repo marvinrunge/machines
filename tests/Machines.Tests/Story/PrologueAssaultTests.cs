@@ -462,6 +462,10 @@ public class PrologueAssaultTests
         SetDown(world, locator, middle);
         SetDown(world, bob, middle + new Vector2(3, 0));
         Run(world, 2, () => SetDown(world, bob, middle + new Vector2(3, 0)));
+        // Set down as a player never is: a short order makes him forget the stretch he was driving from the start (to the
+        // Kühlschlange's entry), whose ramp, once run out, would put him at its end again.
+        world.Issue(new MoveCommand(Race.Red, [bob.Id], bob.Position));
+        world.Step();
         Assert.False(run.Director.Has("launch"));
 
         // The Locator puts him together (use held four seconds), the objective comes back, and all three board.

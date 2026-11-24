@@ -56,6 +56,8 @@ AT 592 108 0 0 ID 343	// prop barrel_3
 AT 596 112 0 0 ID 344	// prop barrel_4
 ACTIVE lock_amber COST 0 HP 80 ARMOUR 5 IDS 0 HEIGHT 1 BOUNDARY 0.5 -0.5 0.5 0.5 -0.5 0.5 -0.5 -0.5
 AT 520 112 0 0 ID 340	// prop crane_lock
+ACTIVE gas_main COST 0 HP 60 ARMOUR 2 IDS 0 HEIGHT 1.2 BOUNDARY 5 -0.5 5 0.5 -5 0.5 -5 -0.5
+AT 536 118.4 0 0 ID 345	// prop gas_main
 ACTIVE door_leaf_4 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 8 BOUNDARY 2 -1 2 1 -2 1 -2 -1
 AT 38 50 0 90 ID 1000	// door A bay7_bay6 (locked)
 AT 38 54 0 90 ID 1001	// door A bay7_bay6 (locked)

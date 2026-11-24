@@ -147,7 +147,7 @@
     {"id": "P_HUD_SEALED", "speaker": "hud", "de": "ABRIEGELUNG: WAFFENKAMMER", "en": "LOCKDOWN: ARMOURY", "when": "stage 7, section 6 (Waffenkammer): lockdown"},
     {"id": "P_HUD_BATCH", "speaker": "hud", "de": "KASERNE · AKTUALISIERUNG CHARGE {0}: {1} %", "en": "BARRACKS · UPDATE BATCH {0}: {1} %", "when": "stage 7, section 6 (Waffenkammer): the bar"},
     {"id": "P_HUD_SALVAGE", "speaker": "hud", "de": "TEILE MARKIERT: GRUNT-2-FAHRWERK · ELEKTROLADUNG", "en": "PARTS MARKED: GRUNT 2 DRIVE · ELECTRIC CHARGE", "when": "stage 7, section 6 (Waffenkammer): end strips"},
-    {"id": "P_AUTO_T240", "speaker": "auto", "de": "Atmosphäreneintritt in vier Minuten.", "en": "Atmospheric entry in four minutes.", "when": "stage 7, section 7 (Absturz-Lauf): C0, T-240"},
+    {"id": "P_AUTO_T240", "speaker": "auto", "de": "Atmosphäreneintritt in sechs Minuten.", "en": "Atmospheric entry in six minutes.", "when": "stage 7, section 7 (Absturz-Lauf): C0, T-360 (six minutes since the Kühlschlange, 2026-11-24; the id kept)"},
     {"id": "P_AUTO_SHUT", "speaker": "auto", "de": "Druckschott Frachtraum: Notverriegelung.", "en": "Cargo hold bulkhead: emergency lock.", "when": "stage 7, section 7 (Absturz-Lauf): X starts closing"},
     {"id": "P_AUTO_POD1", "speaker": "auto", "de": "Rettungspod eins: Klammerfehler.", "en": "Escape pod one: clamp failure.", "when": "stage 7, section 7 (Absturz-Lauf): pod 1's warning"},
     {"id": "P_L7_THRESHER", "speaker": "l7", "de": "Er. Hier unten.", "en": "Him. Down here.", "when": "stage 7, section 7 (Absturz-Lauf): the lift bulges; a thought"},

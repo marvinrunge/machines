@@ -143,7 +143,7 @@ public partial class Game
             case ["pack", "catch", "up", _]:
                 return true;
             case ["pack", var what, var id, var outcome]:
-                if (int.TryParse(id, out var member) && what == "fire")
+                if (int.TryParse(id, out var member) && what is "fire" or "gas")
                     ActorView.EscapeBurning[member] = World.Time + ActorView.EscapeBurnSeconds;
                 if (outcome == "destroyed")
                     _effects.Explosion(at + Vector3.Up * 2, 5);
@@ -171,6 +171,13 @@ public partial class Game
                 return true;
 
             // ---- C6, C7, the bay
+            case ["gas", "burst"]:
+                // The gas main shot through (GameWorld.UpdateGasMain): the pipe bursts and Y's apron goes up in flame.
+                StoryAudio.Play("pipe_burst", at + Vector3.Up * 2);
+                StoryAudio.Play("jet_hiss_rise", at);
+                CameraRig.Shake(at, soft ? 4 : 7, 0.8f);
+                _effects.SparkShower(at + Vector3.Up * 2, Vector3.Up, 70);
+                return true;
             case ["crane", "beam"]:
                 StoryAudio.Play("crane_snap", at + Vector3.Up * 12);
                 _deckView?.Throw("debris_beam", at + Vector3.Up * 12, new Vector3(0, -3, 0), new Vector3(0.6f, 0.2f, 1.4f), 2);
@@ -278,7 +285,8 @@ public partial class Game
         _deckView.Fx ??= _effects;
         var share = Mathf.Clamp((float)(_accumulator / GameWorld.Dt), 0, 1);
         var craneLock = World.Artefacts.FirstOrDefault(a => a.Tag == GameWorld.CraneLockTag && !a.IsDead)?.Position;
-        _deckView.ShowEscape(hazards, World.Tick, share, delta, craneLock);
+        var gasMain = World.Artefacts.FirstOrDefault(a => a.Tag == GameWorld.GasMainTag && !a.IsDead)?.Position;
+        _deckView.ShowEscape(hazards, World.Tick, share, delta, craneLock, gasMain);
         EscapeLeaves();
         _escapeShown = true;
         EscapeTestIfAsked(story, delta);

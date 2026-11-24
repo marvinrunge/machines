@@ -132,17 +132,18 @@ public class StoryScoreTests
     }
 
     [Theory]
-    [InlineData(13, 170, 64)]
-    [InlineData(14, 120, 114)]
-    [InlineData(13, 230, 64)]
+    [InlineData(13, 170, 184)]
+    [InlineData(14, 120, 234)]
+    [InlineData(13, 230, 184)]
     public void ARetryStartsTheEscapesPieceWhereARunHearsItThere(int checkpoint, float left, double at)
     {
         var score = new StoryScore();
         score.Follow(7, left);
-        Assert.Equal(at, score.EscapeFrom(checkpoint, left, 0)!.Value, 3);
-        Assert.Equal(at + 10, score.EscapeFrom(checkpoint, left - 10, 0)!.Value, 3);
-        // 234 - the checkpoint's seconds left on Normal.
-        Assert.Equal(234 - (checkpoint == 13 ? 170 : 120), StoryScore.RetryAt[checkpoint]);
+        // Past the piece's 182 s since the six minutes: in its hold.
+        Assert.Equal(StoryScore.IntoHold(at), score.EscapeFrom(checkpoint, left, 0)!.Value, 3);
+        Assert.Equal(StoryScore.IntoHold(at + 10), score.EscapeFrom(checkpoint, left - 10, 0)!.Value, 3);
+        // 354 - the checkpoint's seconds left on Normal (the six minutes since the Kühlschlange).
+        Assert.Equal(354 - (checkpoint == 13 ? 170 : 120), StoryScore.RetryAt[checkpoint]);
     }
 
     [Theory]

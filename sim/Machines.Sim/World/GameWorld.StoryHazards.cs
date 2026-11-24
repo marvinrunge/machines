@@ -45,6 +45,7 @@ public sealed partial class GameWorld
         UpdatePlates(run);
         UpdateBridge(run);
         UpdateCrane(run);
+        UpdateGasMain(run);
         UpdateEscapeDevices(run);
         UpdatePack(run);
     }
@@ -709,6 +710,43 @@ public sealed partial class GameWorld
         StoryEvents.Cue(this, "crane beam", (apron.Min + apron.Max) / 2);
         foreach (var member in PackAlive(run).Where(Under).ToList())
             PackHazard(run, member, (1, 0), (1, 0), (0.60f, 80), 0, "beam");
+    }
+
+    // ---- the gas main beside Y -----------------------------------------------------------------------------
+
+    /// <summary>The gas main's prop's tag (deck PROPS gas_main), a 10 m pipe along the bay's wall east of Y.</summary>
+    public const int GasMainTag = 345;
+
+    /// <summary>
+    /// The gas main (play test 2026-11-24: something to shoot that stops the pack, at the end): shot through while the pack
+    /// runs, it bursts over Y's apron (zone gas_fire), hurting and staggering what of the pack stands there, then burns there
+    /// for <see cref="StoryHazards.GasFireTicks"/>: what of the pack walks into it is staggered every half second and burns,
+    /// so the pack is held in the doorway; a hero in it burns as at the fire face. The Thresher is staggered, never hurt.
+    /// </summary>
+    private void UpdateGasMain(StoryRun run)
+    {
+        var hazards = run.Hazards;
+        if (hazards.GasFireUntil < 0)
+        {
+            if (run.Pack.Members.Count == 0 || Artefacts.Any(a => a.Tag == GasMainTag && !a.IsDead))
+                return;
+            hazards.GasFireUntil = Tick + StoryHazards.GasFireTicks;
+            var middle = Deck?.Zone("gas_fire") is { } zone ? (zone.Min + zone.Max) / 2 : new Vector2(522, 110);
+            StoryEvents.Cue(this, "gas burst", middle);
+            ScriptExplosion(middle, 6, 0, 10);
+            foreach (var member in InZone("gas_fire").Where(m => run.Pack.Members.ContainsKey(m.Id)).ToList())
+                PackHazard(run, member, (0.60f, 80), (0.50f, 80), (0.25f, 60), 60, "gas");
+            return;
+        }
+        if (Tick >= hazards.GasFireUntil || Tick % StoryHazards.HarmEvery != 0)
+            return;
+        foreach (var machine in InZone("gas_fire"))
+        {
+            if (run.Pack.Members.ContainsKey(machine.Id))
+                PackHazard(run, machine, (0.20f, 40), (0.15f, 40), (0.08f, 20), 20, "fire");
+            else if (InTrio(run, machine))
+                HazardHit(run, machine, StoryHazards.FireShare);
+        }
     }
 
     // ---- the devices (Use): the hand wheel, the lever ---------------------------------------------------------

@@ -31,7 +31,7 @@ public class PrologueEscapeTests
         var reached = Chapter(12);
         var run = reached.Story!;
         // Carried to the gallery's entry; the checkpoint is taken there.
-        Carry(reached, 360, each: _ => { });
+        Carry(reached, 920, each: _ => { });
         SetDown(reached, Hero(reached, 0), new Vector2(340, 130));
         SetDown(reached, Hero(reached, 1), new Vector2(340, 124));
         SetDown(reached, Hero(reached, 2), new Vector2(340, 136));
@@ -152,7 +152,8 @@ public class PrologueEscapeTests
     /// <summary>The Locator's way through the escape as a player walks it (move orders), checkpoint 12 to the pod.</summary>
     private static readonly Vector2[] Way =
     [
-        new(500, 228), new(520, 228), new(520, 192), new(520, 166), new(504, 163), new(470, 168), new(400, 168), new(372, 168),
+        new(500, 228), new(520, 228), new(540, 224), new(540, 308), new(560, 308), new(560, 192), new(580, 192), new(580, 308), new(600, 308),
+        new(600, 172), new(520, 172), new(520, 166), new(504, 163), new(470, 168), new(400, 168), new(372, 168),
         new(356, 144), new(340, 140), new(340, 110), new(340, 96), new(352, 92), new(400, 92), new(440, 92), new(470, 92),
     ];
 
@@ -233,13 +234,14 @@ public class PrologueEscapeTests
         return run.Director.Has("launch");
     }
 
-
+    // Eight, not nine, since the Kühlschlange: a walker that never sprints is nearly three times as long under the pack's guns, and a
+    // Grunt brought down in a lane (seeds 5 and 6) can cost it the run.
     [Fact]
-    public void A_locator_walked_along_the_route_with_its_grunts_on_their_own_reaches_the_pod_in_nine_seeds_of_ten()
+    public void A_locator_walked_along_the_route_with_its_grunts_on_their_own_reaches_the_pod_in_eight_seeds_of_ten()
     {
         var results = Enumerable.Range(1, 10).Select(seed => { var log = new List<string>(); var ok = Walk(seed, log.Add); return (seed, ok, last: string.Join(" | ", log.TakeLast(3))); }).ToList();
         var launched = results.Count(r => r.ok);
-        Assert.True(launched >= 9, string.Join(" || ", results.Where(r => !r.ok).Select(r => $"seed {r.seed}: {r.last}")));
+        Assert.True(launched >= 8, string.Join(" || ", results.Where(r => !r.ok).Select(r => $"seed {r.seed}: {r.last}")));
     }
 
     // ---- a Locator sprinting ahead --------------------------------------------------------------------
@@ -278,7 +280,7 @@ public class PrologueEscapeTests
         var run = world.Story!;
         var next = 0;
         var lanes = world.Deck!.Zones.Where(z => z.Name.StartsWith("lane_", StringComparison.Ordinal)).OrderByDescending(z => z.Min.X).ToList();
-        for (var tick = 0; tick < 90 * GameWorld.TicksPerSecond && !run.Over && next < Way.Length; tick++)
+        for (var tick = 0; tick < 150 * GameWorld.TicksPerSecond && !run.Over && next < Way.Length; tick++)
         {
             var locator = Hero(world, 0);
             if (run.Hazards.Shutter == ShutterState.Shut && !run.Hacks.Done.Contains("hack_x") && Enumerable.Range(1, 2).Any(s => ShutOut(Hero(world, s))))

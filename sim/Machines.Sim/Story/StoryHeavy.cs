@@ -151,10 +151,10 @@ public static partial class Then
                 {
                     StoryHeavy.Fit(world, machine, Part, Bolters);
                     // Set down as a small machine, it may stand where its own class has no room (a crowded lift): moved to
-                    // a spot it can drive off.
+                    // a spot it can drive off, in the same room (the Kühlschlange's first lane lies just past the lift's wall).
                     var mobility = GameWorld.MobilityOf(machine);
                     if (!world.Nav.IsFree(machine.Position, mobility))
-                        machine.Position = world.FreeSpotFor(machine.Position, MathF.Max(1, machine.Radius), mobility, machine);
+                        machine.Position = world.FreeSpotFor(machine.Position, MathF.Max(1, machine.Radius), mobility, machine, sameRoom: true);
                 }
             }
         }

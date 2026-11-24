@@ -2,29 +2,29 @@ Reachability on prolog.deck (tools/deck/deck.mjs). Rooms are the ZONES tagged ro
 
 ## Doors as they start (only DOORS marked open)
 - Locator (A, crawls) from spawn_l7: reaches R1
-    not: R2 R3 R0 R4 WL EL R5 R7 S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a A1 A2 ENi V1am V1aw R13n R15b R17 R18 R19
+    not: R2 R3 R0 R4 WL EL R5 R7 S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a A1 A2 ENi V1am V1aw R13n R15b R17 R18 R19 R20
 - Grunt (A, wheels) from spawn_ike: reaches R2
-    not: R1 R3 R0 R4 WL EL R5 R7 S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a A1 A2 ENi V1am V1aw R13n R15b R17 R18 R19
+    not: R1 R3 R0 R4 WL EL R5 R7 S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a A1 A2 ENi V1am V1aw R13n R15b R17 R18 R19 R20
 - Reaper/Commander (B) from spawn_reaper_1: reaches R10 R10a P1 P1s R13n
-    not: R2 R1 R3 R0 R4 WL EL R5 R7 S R6 R8 R9 P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a A1 A2 ENi V1am V1aw R15b R17 R18 R19
+    not: R2 R1 R3 R0 R4 WL EL R5 R7 S R6 R8 R9 P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a A1 A2 ENi V1am V1aw R15b R17 R18 R19 R20
 - Thresher (C) from spawn_thresher: reaches R4 WL EL R6
-    not: R2 R1 R3 R0 R5 R7 S R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a A1 A2 ENi V1am V1aw R13n R15b R17 R18 R19
+    not: R2 R1 R3 R0 R5 R7 S R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a A1 A2 ENi V1am V1aw R13n R15b R17 R18 R19 R20
 
 ## Every door open
-- Locator (A, crawls) from spawn_l7: reaches R2 R1 R3 R0 R4 WL EL R5 R7 S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a A1 A2 ENi V1am V1aw R13n R15b R17 R18 R19
+- Locator (A, crawls) from spawn_l7: reaches R2 R1 R3 R0 R4 WL EL R5 R7 S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a A1 A2 ENi V1am V1aw R13n R15b R17 R18 R19 R20
     not: -
-- Grunt (A, wheels) from spawn_ike: reaches R2 R1 R3 R0 R4 WL EL S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 R11 R11a A1 A2 ENi R13n R15b R17 R18 R19
+- Grunt (A, wheels) from spawn_ike: reaches R2 R1 R3 R0 R4 WL EL S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 R11 R11a A1 A2 ENi R13n R15b R17 R18 R19 R20
     not: R5 R7 V1a V1b V1c V2 V1am V1aw
 - Reaper/Commander (B) from spawn_reaper_1: reaches R4 WL EL R6 R8 R9 R10 R10a P1 P1s P2 R12 R13 R11 R11a R13n
-    not: R2 R1 R3 R0 R5 R7 S K R13a R14 R15 R15a R16 V1a V1b V1c V2 A1 A2 ENi V1am V1aw R15b R17 R18 R19
+    not: R2 R1 R3 R0 R5 R7 S K R13a R14 R15 R15a R16 V1a V1b V1c V2 A1 A2 ENi V1am V1aw R15b R17 R18 R19 R20
 - Thresher (C) from spawn_thresher: reaches R4 WL EL R6
-    not: R2 R1 R3 R0 R5 R7 S R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a A1 A2 ENi V1am V1aw R13n R15b R17 R18 R19
+    not: R2 R1 R3 R0 R5 R7 S R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 V1a V1b V1c V2 R11 R11a A1 A2 ENi V1am V1aw R13n R15b R17 R18 R19 R20
 
 ## Greybox (4 m cells of the .csp), Locator from spawn_l7, doors as they start
 - reaches R1
 
 ## Greybox (4 m cells of the .csp), Locator from spawn_l7, every door open
-- reaches R2 R1 R3 R0 R4 WL EL S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 R11 R11a A1 A2 ENi R13n R15b R17 R18 R19
+- reaches R2 R1 R3 R0 R4 WL EL S R6 R8 R9 R10 R10a P1 P1s P2 K R12 R13 R13a R14 R15 R15a R16 R11 R11a A1 A2 ENi R13n R15b R17 R18 R19 R20
 
 ## Checks (every door open, unless they say otherwise)
 PASS the Locator reaches every room
@@ -40,7 +40,7 @@ PASS Locator: no room after the antechamber needs door H
 PASS Grunt: no room after the antechamber needs door H
 PASS Reaper class reaches R13 only through N
 PASS Thresher class reaches R13 only through N
-PASS the escape route S -> P -> X -> R18 -> R19 -> Z for class 3 (every door open)
+FAIL the escape route S -> P -> X -> R18 -> R19 -> Z for class 3 (every door open): pack_lift does not reach pod_3_hatch
 PASS Reapers reach Y from the hold
 
 Note: with every door open the Reapers reach the decks through R8 (12 m doors); in the story the blast doors H and I

@@ -208,12 +208,18 @@ public sealed class StoryHazards
     /// <summary>Whether the crane's beam fell (its amber lock shot).</summary>
     public bool CraneDown { get; set; }
 
+    /// <summary>Until which tick the gas main beside Y burns (shot through), or -1 while it is whole.</summary>
+    public long GasFireUntil { get; set; } = -1;
+
+    /// <summary>How long the gas main burns once shot, ticks (20 s): long enough to hold the pack in Y through a good part of the hack.</summary>
+    public const int GasFireTicks = 400;
+
     /// <summary>The hazards' last half-second harm tick, so harm a half second lands on the same ticks on every peer.</summary>
     public const int HarmEvery = 10;
 
     /// <summary>Whether it keeps anything (the run's checksum mixes it in only then).</summary>
     public bool Any => Rails.Count > 0 || JetsFrom >= 0 || Shutter != ShutterState.Open || Collapsed || Drift || BridgeFallen
-        || Plates.Count > 0 || PlatesFallen > 0 || Staggered.Count > 0 || CraneDown || J1From >= 0;
+        || Plates.Count > 0 || PlatesFallen > 0 || Staggered.Count > 0 || CraneDown || J1From >= 0 || GasFireUntil >= 0;
 
     /// <summary>A fingerprint of what this part keeps, for the run's checksum.</summary>
     public long Fingerprint()
@@ -240,6 +246,7 @@ public sealed class StoryHazards
         hash.Mix(ShutterRammed);
         hash.Mix(ShutterShutTicks);
         hash.Mix((Collapsed ? 1 : 0) | (FireFace ? 2 : 0) | (Drift ? 4 : 0) | (BridgeFallen ? 8 : 0) | (CraneDown ? 16 : 0));
+        hash.Mix(GasFireUntil);
         hash.Mix(BridgeFallAt);
         foreach (var (number, (at, target)) in Plates)
         {

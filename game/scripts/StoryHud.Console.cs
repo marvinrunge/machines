@@ -48,6 +48,7 @@ public partial class StoryHud
         ["wheel"] = (KeyMap.Act.Use, "[{0}] Hand wheel: the jet stays off for a while"),
         ["chock"] = (KeyMap.Act.Use, "[{0}] Push the chock into the lane"),
         ["lever"] = (KeyMap.Act.Use, "[{0}] Lane lever: two lanes stop for a moment"),
+        ["gas"] = (null, "Shoot the gas main beside door Y: its fire holds the pack in the doorway"),
     };
 
     private sealed record ConsoleLine(string Text, double Since, float Seconds, float? Bar)

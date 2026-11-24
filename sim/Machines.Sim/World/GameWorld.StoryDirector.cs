@@ -46,14 +46,14 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// A machine of the ship set down for the story at the nearest free ground to <paramref name="at"/> (or exactly there,
+    /// A machine of the ship set down for the story at the nearest free ground to <paramref name="at"/> on its side of any wall (or exactly there,
     /// for one hanging in a clamp), of the type, level and weapons named.
     /// </summary>
     internal Machine SpawnForStory(Race race, Vector2 at, StoryUnit unit, bool exact = false)
     {
         var spec = Data.Parm.Machine(unit.SubType is null ? unit.Type : $"{unit.Type} {unit.SubType}");
         var clearance = MathF.Max(1, spec.Level(unit.Level).LowClearance);
-        return AddMachine(race, exact ? at : FreeSpotNear(at, clearance), unit.Type, unit.SubType, unit.Level, unit.Weapons);
+        return AddMachine(race, exact ? at : FreeSpotFor(at, clearance, Navigation.Mobility.Land, sameRoom: true), unit.Type, unit.SubType, unit.Level, unit.Weapons);
     }
 
     /// <summary>A hero of the story set down at a place for a checkpoint, facing the way given (degrees, 0 east, 90 north), standing.</summary>

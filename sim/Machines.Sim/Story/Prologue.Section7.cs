@@ -22,6 +22,9 @@ public static partial class Prologue
 
     private static readonly Vector2 AtY = new(520, 128);
 
+    /// <summary>The objective through the Kühlschlange (R20), its marker moving from turn to turn.</summary>
+    private const string Maze = "Through the coolant maze";
+
     /// <summary>The countdown's seconds left now (0 when none runs).</summary>
     private static float SecondsLeft(GameWorld world, StoryRun run) =>
         run.Timers.TryGetValue(StoryMarks.Countdown, out var ends) ? MathF.Max(0, ends - world.Time) : 0;
@@ -63,14 +66,22 @@ public static partial class Prologue
             new SpawnHeavy(StoryHeavy.PackRole2, StoryHeavyPart.Pack, ["524,272"]), Muster]),
         new("thresher_out", 12, new Since("lift_burst", 4), [new Run("thresher", (world, run, director) => PlaceThresher(world, run, director, new Vector2(520, 270))),
             Muster, new Say(Lines.BobThresher, Bark, 2), new Cue("thresher roar", "520,262")]),
-        // C1, the Notgang: debris ahead (a show, beside the lanes, never on anyone), plates behind on the pack.
-        new("slalom", 12, new Since("lift_burst", 0.5f), [new Fall("crate_large", "526,204", FallWarning, 0, 0, 0),
-            new Fall("crate_large", "514,186", FallWarning + 1.2f, 0, 0, 0)]),
+        // C1, the Notgang and the Kühlschlange's first lane: debris ahead (a show, beside the lanes, never on anyone), plates behind on the pack.
+        new("slalom", 12, new Since("lift_burst", 0.5f), [new Fall("crate_large", "545,258", FallWarning, 0, 0, 0),
+            new Fall("crate_large", "535,284", FallWarning + 1.2f, 0, 0, 0)]),
         new("chain_r2c", 12, new Since("lift_burst", 4), [new Run("plate", (world, run, _) => world.FallOn(run, StoryPack.R2c))]),
         new("chain_heavy", 12, new Since("heavies_out", 4), [new Run("plate", (world, run, _) => world.FallOn(run, StoryHeavy.PackRole1))]),
+        // The Kühlschlange (R20, play test 2026-11-24: "500 m länger und geschlängelt"): the Notgang south of T lies buried, so the
+        // way runs through four 16 m lanes east of it, up, down, up, down, and back along the return to the Notgang above P. The
+        // marker leads from turn to turn with the Locator, until the breach points it into the hold.
+        new("snake_0", 12, new AllOf(new InZone("snake_0"), new Not(new Since("breach", 0))), [new Objective(Maze, "550,308")]),
+        new("snake_1", 12, new AllOf(new InZone("snake_1"), new Not(new Since("breach", 0))), [new Objective(Maze, "570,192")]),
+        new("snake_2", 12, new AllOf(new InZone("snake_2"), new Not(new Since("breach", 0))), [new Objective(Maze, "590,308")]),
+        new("snake_3", 12, new AllOf(new InZone("snake_3"), new Not(new Since("breach", 0))), [new Objective(Maze, "600,172")]),
+        new("snake_out", 12, new AllOf(new InZone("snake_out"), new Not(new Since("breach", 0))), [new Objective(Maze, "522,172")]),
         // The hull breach, by position: sparks race along the ceiling ahead, then the Notgang caves in south of P, the fire face
         // burns at its edge and the ship blows door P into the hold: the way on.
-        new("breach_warn", 12, new Near("520,192", 9, StoryWho.AnyHero), [new Cue("breach warn", "520,170")], After: ["escape"]),
+        new("breach_warn", 12, new Near("540,172", 10, StoryWho.AnyHero), [new Cue("breach warn", "520,170")], After: ["escape"]),
         new("breach", 12, new AllOf(new Since("breach_warn", 2), new Check("nobody beyond", (world, run) => world.Collapse(run))),
             [new BlowDoor('P'), new Blast("520,140", 4, 0, 8), new Say(Lines.Breach), new Cue("rumble 0.8"), new Tilt(7, 1, 2),
             new Objective("Through the cargo hold", "x_frame")]),
@@ -122,7 +133,7 @@ public static partial class Prologue
         // Not once the hatch is open: the Grunts then board, and holding Y would keep them out of the pod.
         new("at_y", 14, new AllOf(new Check("pack at Y", (world, run) => world.PackAlive(run).Any(m => Vector2.Distance(m.Position, AtY) <= 16)),
             new Not(new Flagged(StoryMarks.Done("pod_3_hatch")))),
-            [new Say(Lines.IkeReapers, Bark, 1), new Assign(2, CompanionTask.HoldSwitch, "y_switch"), new Assign(1, CompanionTask.Barricade, "Y")],
+            [new Say(Lines.IkeReapers, Bark, 1), new Assign(2, CompanionTask.HoldSwitch, "y_switch"), new Assign(1, CompanionTask.Barricade, "Y"), new Cue("hint gas")],
             After: ["blast_collapse"]),
         new("hold_call", 14, new Since("at_y", 2.5f), [new Say(Lines.L7Hold, StoryAudience.Everyone, 0)]),
         new("ike_again", 14, new Since("hold_call", 1.5f), [new Say(Lines.IkeAgain, Bark, 1)]),

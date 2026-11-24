@@ -343,6 +343,8 @@ public static class Props
         "container" or "rack" => "crate_large",
         "chock" => "crate_small",
         "lock_amber" => "junction_box",
+        // The gas main beside Y, to shoot when the pack comes through (GameWorld.UpdateGasMain).
+        "gas_main" => "pipe_run",
         _ => Exists(type) ? type : null,
     };
 

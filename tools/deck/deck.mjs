@@ -236,6 +236,8 @@ const Types = {
   chock: { w: 1.5, d: 1.5, h: 1.5, hp: 60, armour: 2 },
   barrel: { w: 1, d: 1, h: 1.2, hp: 40, armour: 2 },
   lock_amber: { w: 1, d: 1, h: 1, hp: 80, armour: 5 },
+  // The bay's gas main beside door Y (play test 2026-11-24): a 10 m pipe along the wall to shoot when the pack comes through Y.
+  gas_main: { w: 10, d: 1, h: 1.2, hp: 60, armour: 2 },
 };
 
 /** How tall a door's leaves stand for a door of this width: a Grunt's door 8 m, a Reaper's blast door or gate 14-16 m. */

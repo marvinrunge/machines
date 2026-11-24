@@ -537,12 +537,12 @@ public class PrologueScriptTests
                     Go(Zone("repair"));
                 else if (!director.Has("escape"))
                     Go(new Vector2(498, 228));
-                // The escape (design-escape §3): through the Notgang to the breach, the hold, the shutter, the gallery, the bay.
+                // The escape (design-escape §3): through the Kühlschlange to the breach, the hold, the shutter, the gallery, the bay.
                 else if (!director.Has("lift_burst"))
                     Until(() => director.Has("lift_burst"), 8);
                 else if (!director.Has("breach"))
                 {
-                    AllAt(new Vector2(520, 192));
+                    AllAt(new Vector2(540, 172));
                     Until(() => director.Has("breach"), 6);
                 }
                 else if (!director.Has("shut_x"))

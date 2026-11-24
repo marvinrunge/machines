@@ -176,9 +176,16 @@ public sealed class StoryPack
     /// <summary>The escape's route through its rooms, the line the leash measures way along.</summary>
     public static readonly IReadOnlyList<Vector2> Route =
     [
-        new(486, 228), new(520, 228), new(520, 160), new(500, 160), new(496, 170), new(368, 170), new(358, 144), new(342, 144),
+        new(486, 228), new(520, 228), new(540, 224), new(540, 308), new(560, 308), new(560, 192), new(580, 192), new(580, 308),
+        new(600, 308), new(600, 172), new(520, 172), new(520, 160), new(500, 160), new(496, 170), new(368, 170), new(358, 144), new(342, 144),
         new(340, 96), new(348, 92), new(430, 92), new(470, 92), new(566, 90),
     ];
+
+    /// <summary>
+    /// The freight lift and the Notgang below it down to the Kühlschlange's entry, where the pack comes out: a lead-in that joins
+    /// the route at its second point. The first lane runs beside it behind a 4 m wall, so it is measured on its own.
+    /// </summary>
+    public static readonly (Vector2 From, Vector2 To) LiftLeg = (new(520, 282), new(520, 228));
 
     /// <summary>How far along the route a point is, metres (projected on its nearest stretch).</summary>
     public static float Progress(Vector2 p)
@@ -197,6 +204,13 @@ public sealed class StoryPack
                 (best, along) = (d, walked + t * length);
             walked += length;
         }
+        // The lift's leg joins the route at its second point, behind it: the pack in the lift is never taken for the lane past its wall.
+        var (from, to) = LiftLeg;
+        var leg = to - from;
+        var legLength = leg.Length();
+        var s = Math.Clamp(Vector2.Dot(p - from, leg) / (legLength * legLength), 0, 1);
+        if (Vector2.DistanceSquared(p, from + leg * s) < best - 1e-3f)
+            along = Vector2.Distance(Route[0], Route[1]) - (1 - s) * legLength;
         return along;
     }
 
@@ -214,6 +228,6 @@ public sealed class StoryPack
         return Route[^1];
     }
 
-    /// <summary>The doors behind the trio a straggler is set at (P, the shutter X's east side, the gallery's head), with their way along the route.</summary>
-    public static readonly IReadOnlyList<Vector2> Gates = [new(502, 165), new(366, 160), new(340, 132)];
+    /// <summary>The doors behind the trio a straggler is set at (the Kühlschlange's entry and turns, P, the shutter X's east side, the gallery's head), with their way along the route.</summary>
+    public static readonly IReadOnlyList<Vector2> Gates = [new(540, 226), new(550, 308), new(570, 192), new(590, 308), new(600, 180), new(502, 165), new(366, 160), new(340, 132)];
 }

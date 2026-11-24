@@ -143,9 +143,9 @@ public partial class DeckView
     /// <summary>
     /// The escape's hazards as the sim has them at <paramref name="tick"/>, <paramref name="share"/> of the way on to the next
     /// tick: the rails, the lanes' strips, the jets, the shutter, the bridge, the collapse; <paramref name="craneLock"/> where
-    /// the crane's amber lock still hangs (null once shot).
+    /// the crane's amber lock still hangs (null once shot), <paramref name="gasMain"/> where the gas main beside Y is whole.
     /// </summary>
-    public void ShowEscape(StoryHazards hazards, long tick, float share, double delta, NVector2? craneLock)
+    public void ShowEscape(StoryHazards hazards, long tick, float share, double delta, NVector2? craneLock, NVector2? gasMain = null)
     {
         _escapeClock += delta;
         ShowRails(hazards, share);
@@ -154,6 +154,7 @@ public partial class DeckView
         ShowBridge(hazards, tick);
         ShowCollapse(hazards);
         ShowLock(craneLock);
+        ShowGas(hazards, tick, gasMain);
     }
 
     // ---- the hold: containers, the rack, the lanes ---------------------------------------------------------------
@@ -671,6 +672,71 @@ public partial class DeckView
             Throw(i % 2 == 0 ? "debris_panel" : "debris_beam", at + new Vector3(random.RandfRange(-5, 5), 2, random.RandfRange(-4, 4)),
                 new Vector3(random.RandfRange(-3, 3), random.RandfRange(4, 7), random.RandfRange(6, 11)),
                 new Vector3(random.RandfRange(-4, 4), random.RandfRange(-2, 2), random.RandfRange(-4, 4)), 1.1f);
+    }
+
+    // ---- the gas main beside Y --------------------------------------------------------------------------------
+
+    private readonly List<GpuParticles3D> _gasFire = [];
+    private OmniLight3D? _gasGlow, _gasLeak;
+
+    /// <summary>
+    /// The gas main while whole: an orange leak light flickering on its pipe, so it reads as something to shoot. Burning
+    /// (shot through, GameWorld.UpdateGasMain): flames across Y's apron (zone gas_fire) and their glow, until it burns out.
+    /// </summary>
+    private void ShowGas(StoryHazards hazards, long tick, NVector2? gasMain)
+    {
+        if (gasMain is { } pipe && hazards.GasFireUntil < 0)
+        {
+            _gasLeak ??= NewGasLeak();
+            _gasLeak.Visible = true;
+            _gasLeak.Position = Props.World(new NVector3(pipe, 1.4f));
+            _gasLeak.LightEnergy = 1.2f + 0.5f * Mathf.Sin((float)_escapeClock * 11) + 0.3f * Mathf.Sin((float)_escapeClock * 29);
+        }
+        else if (_gasLeak is not null)
+            _gasLeak.Visible = false;
+        var burning = hazards.GasFireUntil >= 0 && tick < hazards.GasFireUntil;
+        if (!burning && _gasGlow is null)
+            return;
+        if (_gasGlow is null)
+            GasFire();
+        foreach (var fire in _gasFire)
+            if (fire.Emitting != burning)
+                fire.Emitting = burning;
+        _gasGlow!.Visible = burning;
+        _gasGlow.LightEnergy = 4 + 1.2f * Mathf.Sin((float)_escapeClock * 8) + 0.6f * Mathf.Sin((float)_escapeClock * 21);
+    }
+
+    private OmniLight3D NewGasLeak()
+    {
+        var leak = new OmniLight3D { Name = "GasLeak", LightColor = new Color(1, 0.55f, 0.2f), OmniRange = 7, ShadowEnabled = false };
+        EscapeRoot().AddChild(leak);
+        return leak;
+    }
+
+    private void GasFire()
+    {
+        var root = EscapeRoot();
+        var zone = Layout.Deck.Zone("gas_fire");
+        var (min, max) = zone is { } z ? (z.Min, z.Max) : (new NVector2(504, 100), new NVector2(540, 120));
+        var width = max.X - min.X;
+        for (var row = 0; row < 2; row++)
+            for (var i = 0; i < 5; i++)
+            {
+                var fire = Effects.DamageFire(width / 5 + 0.5f, 6);
+                fire.Position = new Vector3(min.X + (i + 0.5f) * width / 5, 0.3f, min.Y + (row + 0.5f) * (max.Y - min.Y) / 2);
+                root.AddChild(fire);
+                _gasFire.Add(fire);
+            }
+        _gasGlow = new OmniLight3D
+        {
+            Name = "GasFire",
+            LightColor = new Color(1, 0.5f, 0.15f),
+            OmniRange = 26,
+            Position = new Vector3((min.X + max.X) / 2, 4, (min.Y + max.Y) / 2),
+            ShadowEnabled = false,
+            LightVolumetricFogEnergy = 1,
+        };
+        root.AddChild(_gasGlow);
     }
 
     // ---- the crane's amber lock ----------------------------------------------------------------------------------

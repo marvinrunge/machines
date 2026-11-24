@@ -138,11 +138,14 @@ public static partial class Prologue
     /// <summary>The section (1 to 8) each checkpoint starts in.</summary>
     public static readonly IReadOnlyList<int> SectionAt = [1, 2, 2, 2, 2, 2, 3, 4, 6, 6, 6, 6, 7, 7, 7];
 
-    /// <summary>The seconds on the countdown in the Notgang (design-escape: "vier Minuten"), from the run and from its checkpoint alike.</summary>
-    public const float CountdownFull = 240, CountdownAtCheckpoint = 240;
+    /// <summary>
+    /// The seconds on the countdown in the Notgang, from the run and from its checkpoint alike: six minutes since the
+    /// Kühlschlange made the way about 550 m longer (play test 2026-11-24; design-escape had "vier Minuten" for the short way).
+    /// </summary>
+    public const float CountdownFull = 360, CountdownAtCheckpoint = 360;
 
     /// <summary>
-    /// The seconds on the countdown at each checkpoint's start; null where none runs yet (12: 240, 13 Galerie: 170, 14 Bucht: 120).
+    /// The seconds on the countdown at each checkpoint's start; null where none runs yet (12: 360, 13 Galerie: 170, 14 Bucht: 120).
     /// </summary>
     public static readonly IReadOnlyList<float?> CountdownFrom =
         [null, null, null, null, null, null, null, null, null, null, null, null, CountdownAtCheckpoint, 170, 120];

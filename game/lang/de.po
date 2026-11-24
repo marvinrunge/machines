@@ -5698,8 +5698,8 @@ msgstr "KASERNE · AKTUALISIERUNG CHARGE {0}: {1} %"
 msgid "PARTS MARKED: GRUNT 2 DRIVE · ELECTRIC CHARGE"
 msgstr "TEILE MARKIERT: GRUNT-2-FAHRWERK · ELEKTROLADUNG"
 
-msgid "Atmospheric entry in four minutes."
-msgstr "Atmosphäreneintritt in vier Minuten."
+msgid "Atmospheric entry in six minutes."
+msgstr "Atmosphäreneintritt in sechs Minuten."
 
 msgid "Cargo hold bulkhead: emergency lock."
 msgstr "Druckschott Frachtraum: Notverriegelung."
@@ -5950,6 +5950,12 @@ msgstr "Durch die Rohrgalerie"
 
 msgid "Across the footbridge"
 msgstr "Über den Steg"
+
+msgid "Through the coolant maze"
+msgstr "Durch die Kühlschlange"
+
+msgid "Shoot the gas main beside door Y: its fire holds the pack in the doorway"
+msgstr "Schieß auf die Gasleitung neben Tor Y: ihr Feuer hält die Meute im Tor fest"
 
 msgid "Soften the list"
 msgstr "Schlagseite mildern"
