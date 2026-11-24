@@ -112,7 +112,7 @@ public class CutsceneScriptTests
         Assert.InRange(outside.Length, 25, 40);
         var ship = Assert.Single(outside.Cues, c => c is { Kind: "prop" } && c.Args[1] == "mothership");
         Assert.True(ship.Number("glow", 0) > 0 && ship.Number("trail", 0) > 0);
-        var pod = outside.Cues.Last(c => c is { Kind: "prop" } && c.Args[1] == "pod");
+        var pod = outside.Cues.Last(c => c is { Kind: "prop" } && c.Args[1] == "pod_drop");
         Assert.True(pod.Number("land", 0) > 0, "the pod lands hard");
         // Dusk, and darker than the planet's own dusk (FilmCamera's dim): the ship's glow has to carry the picture.
         var dusk = Assert.Single(outside.Cues, c => c.Kind == "dusk");

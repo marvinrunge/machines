@@ -19,6 +19,11 @@ axis the upper body turns about, in place of what Meshy built there (the Reapers
 "still" names moving parts the Meshy model has no shape for (Mine 5's fans, under a flat panel): their surface goes to
 their neighbours and they are left empty, or they would turn pieces of wall.
 
+"pins" gives objects of a GLB split by hand wholly to a node instead of cutting them, by object name prefix: the
+pod's four spikes (renders/meshy/buildings/pod-1-spike, objects spike_1..4) go to its top, which turns while it
+works: {"hull": "pod-1-spike", "whole": true, "pins": {"top": "spike_"}, "axis": {"turner": "top"}}. "axis" moves a
+turning node's axis under the middle of its child (recentre), as the new cap's middle is not the original's pivot.
+
 "inner" names the parts inside a closed Meshy shell that come out of it (the ICBM's head and barrel, raised through its
 dome): the Meshy model has no shape for them, so its surface goes to the other parts and these keep their Stage-1 parts.
 
@@ -424,6 +429,32 @@ def turned(foot, top, profile, uv, sides=16):
             tris += [t for t in ([quad[0], quad[1], quad[2]], [quad[0], quad[2], quad[3]])
                      if (t[1][0] - t[0][0]).cross(t[2][0] - t[0][0]).length > 1e-9]
     return tris
+
+
+def recentre(rig, turning, held, report):
+    """The plan's "axis" ({turning node: child}): the node that turns about its z while the building works (the pod's
+    turner) gets its axis under the middle of its child's triangles (the pod's spikes, pinned to its top), so they
+    turn about themselves instead of round the original's off-centre pivot. In the rest pose nothing moves: the axis
+    shifts by d in the parent's space (rest pose and every sample of the motions) and the children by -d."""
+    nodes = rig["nodes"]
+    t = next(k for k, n in enumerate(nodes) if n["name"] == turning)
+    c = next(k for k, n in enumerate(nodes) if n["name"] == held)
+    xs = [p["positions"][k] for p in nodes[c]["parts"] for k in range(0, len(p["positions"]), 3)]
+    ys = [p["positions"][k + 1] for p in nodes[c]["parts"] for k in range(0, len(p["positions"]), 3)]
+    own = nodes[c]["transform"]
+    assert own[:9] == [1, 0, 0, 0, 1, 0, 0, 0, 1] and nodes[t]["transform"][:9] == [1, 0, 0, 0, 1, 0, 0, 0, 1]
+    d = ((min(xs) + max(xs)) / 2 + own[9], (min(ys) + max(ys)) / 2 + own[10])
+    nodes[t]["transform"] = nodes[t]["transform"][:9] + [nodes[t]["transform"][9] + d[0], nodes[t]["transform"][10] + d[1],
+                                                         nodes[t]["transform"][11]]
+    for motion in ("idle", "working"):
+        for track in rig.get(motion, []):
+            if track["node"] == t:
+                track["samples"] = [s[:9] + [s[9] + d[0], s[10] + d[1], s[11]] for s in track["samples"]]
+    for child in nodes:
+        if child["parent"] == t and child is not nodes[t]:
+            m = child["transform"]
+            child["transform"] = m[:9] + [m[9] - d[0], m[10] - d[1], m[11]]
+    report.append(f"  {turning} turns {math.hypot(*d):.2f} m over, under the middle of {held}")
 
 
 def raise_mast(new, nodes, mast, extras, report):
@@ -1117,21 +1148,26 @@ def sample(tris, count):
 
 
 def load_meshy(path, textures):
-    """A Meshy GLB's triangles (positions, normals, uvs per corner, Blender space: z up) and its maps saved as PNG."""
+    """A Meshy GLB's triangles (positions, normals, uvs per corner, Blender space: z up), its maps saved as PNG, and
+    per triangle the name of the object it came from. Meshy's own GLBs hold one object; one split by hand (the pod's
+    spikes as objects of their own, for the plan's "pins") holds several sharing one material."""
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=path)
-    ob = next(o for o in bpy.context.scene.objects if o.type == "MESH")
-    mesh = ob.data
-    mesh.calc_loop_triangles()
-    normals = mesh.corner_normals
-    uv = mesh.uv_layers.active.data
-    mw = ob.matrix_world
-    turn = mw.to_3x3()
-    tris = []
-    for lt in mesh.loop_triangles:
-        corners = [(mw @ mesh.vertices[mesh.loops[l].vertex_index].co, (turn @ normals[l].vector).normalized(),
-                    (uv[l].uv[0], 1 - uv[l].uv[1])) for l in lt.loops]
-        tris.append(corners)
+    objects = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+    ob = objects[0]
+    tris, owners = [], []
+    for each in objects:
+        mesh = each.data
+        mesh.calc_loop_triangles()
+        normals = mesh.corner_normals
+        uv = mesh.uv_layers.active.data
+        mw = each.matrix_world
+        turn = mw.to_3x3()
+        for lt in mesh.loop_triangles:
+            corners = [(mw @ mesh.vertices[mesh.loops[l].vertex_index].co, (turn @ normals[l].vector).normalized(),
+                        (uv[l].uv[0], 1 - uv[l].uv[1])) for l in lt.loops]
+            tris.append(corners)
+            owners.append(each.name)
     os.makedirs(textures, exist_ok=True)
     maps = {}
     material = ob.active_material
@@ -1162,7 +1198,7 @@ def load_meshy(path, textures):
     # A glow map laid beside them (tools/blender/calm_glow.py).
     if os.path.exists(os.path.join(textures, "emission.png")):
         maps["emission"] = os.path.join(textures, "emission.png")
-    return tris, maps
+    return tris, maps, owners
 
 
 def front_turns(front, flips):
@@ -1368,10 +1404,12 @@ def node_parts(tris, labels, transform, world, maps, classic):
     return parts
 
 
-def fit_piece(model_name, meshy, classic, nodes, world, group, report, mirror=False, turn=None):
+def fit_piece(model_name, meshy, classic, nodes, world, group, report, mirror=False, turn=None, pins=None):
     """Fits one Meshy model onto a group of nodes; returns {node: part}. Only weapons may be mirrored (a left and a
     right weapon are mirror images in the original); a hull or eye box mirrored would carry its emblems on the
-    wrong side, and Meshy built it from a picture seen the same way. A <turn> given starts the fit from it alone."""
+    wrong side, and Meshy built it from a picture seen the same way. A <turn> given starts the fit from it alone.
+    <pins> (the plan's "pins", {node name: object name prefix}) gives the objects of a GLB split by hand wholly to
+    that node instead of cutting them: the pod's spikes go to its turning top, so they turn with it."""
     target = target_triangles(nodes, world, group)
     if not target:
         report.append(f"  {model_name}: the original has no surface here")
@@ -1379,8 +1417,8 @@ def fit_piece(model_name, meshy, classic, nodes, world, group, report, mirror=Fa
     points = sample(target, SAMPLES)
     # A model fixed by hand (tools/blender/meshy_fixes.py) in place of Meshy's.
     glb = os.path.join(meshy, model_name, "fixed.glb")
-    tris, maps = load_meshy(glb if os.path.exists(glb) else os.path.join(meshy, model_name, "model.glb"),
-                            os.path.join(classic, "meshy", "textures", model_name.replace("/", "-")))
+    tris, maps, owners = load_meshy(glb if os.path.exists(glb) else os.path.join(meshy, model_name, "model.glb"),
+                                    os.path.join(classic, "meshy", "textures", model_name.replace("/", "-")))
     vertices = list({tuple(round(x, 5) for x in c[0]): c[0] for t in tris for c in t}.values())
     score, transform, how = fit(vertices, points, mirror, turn, FRONTS.get(model_name), OUTWARD.get(model_name),
                                 model_name in HELD)
@@ -1394,6 +1432,12 @@ def fit_piece(model_name, meshy, classic, nodes, world, group, report, mirror=Fa
         how += f", {WIDEN[model_name]} times as wide"
     moved = [[(transform @ c[0], c[1], c[2]) for c in t] for t in tris]
     labels = cut(moved, points)
+    for name, prefix in (pins or {}).items():
+        node = next(k for k, n in enumerate(nodes) if n["name"] == name)
+        pinned = [k for k, owner in enumerate(owners) if owner.startswith(prefix)]
+        for k in pinned:
+            labels[k] = node
+        report.append(f"  {len(pinned)} triangles of {prefix}* pinned to {name}")
     counts = {}
     for label in labels:
         counts[label] = counts.get(label, 0) + 1
@@ -1777,7 +1821,8 @@ def build(export_id, entry, classic, meshy):
     # Another export of the same rig to fit the hull to (Reaper 2 wears Reaper 3's body, which its spike would distort).
     shape = entry.get("shape")
     shape_nodes = json.load(open(os.path.join(classic, "remake", "models", "red", shape + ".json")))["rig"]["nodes"] if shape else nodes
-    fitted = fit_piece(entry["hull"], meshy, classic, shape_nodes, world_transforms(shape_nodes), moving, report)
+    fitted = fit_piece(entry["hull"], meshy, classic, shape_nodes, world_transforms(shape_nodes), moving, report,
+                       pins=entry.get("pins"))
     if entry.get("lower") and rig.get("upperBody") is not None:
         def carried(i):
             while i >= 0:
@@ -1889,6 +1934,8 @@ def build(export_id, entry, classic, meshy):
             moved["normals"] = [round(c, 4) for t in range(0, len(n), 3) for c in (turn @ Vector(n[t:t + 3])).normalized()]
             model_parts.append(moved)
     out["parts"] = model_parts
+    for turning, held in entry.get("axis", {}).items():
+        recentre(out["rig"], turning, held, report)
     out["spinners"] = []
     out["meshy"] = entry
     target = os.path.join(classic, "meshy", "models", "red", export_id + ".json")

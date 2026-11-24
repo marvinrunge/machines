@@ -17,11 +17,12 @@ blend 0.5
 
 part bucht deck
 // From the catwalk over the pod bay (cam_abwurf_1, 48 m up): the clamps let go of pod 3, it drops down its shaft. The pod is the
-// game's POD at its own size (47.5 m across, 43.5 m tall), as the cradles show it (Game.DeckShow) and as it lands outside.
+// game's POD at its own size: the player's drop variant (game/assets/story/props/pod_drop.glb, legs drawn in, 41.4 m tall), while
+// the cradles show the standing HD Pod 1 (Game.DeckShow); it lands outside as the same drop pod.
 take freigabe 3.5 cam cam_abwurf_1 look=pod_3@18 fov=52 blur=0.8
 take abwurf 3.5 cam cam_abwurf_1 look=pod@14|pod_3@-30 rate=4 fov=52 blur=0.8
 
-at 0.0 prop pod pod pod_3 pod_3 3.5
+at 0.0 prop pod pod_drop pod_3 pod_3 3.5
 // The shaft lit from above, so the pod and its drop read in the middle of the take (it stood black between two lamp pools).
 at 0.0 light pod_3 110 above=62 energy=40 angle=30
 at 0.0 line P_AUTO_POD_GO
@@ -31,7 +32,7 @@ at 0.3 sound pod_clamps
 at 1.0 sparks pod_3@30 amount=80
 at 1.5 sound metal_groan_big
 at 3.3 sound clamp_release
-at 3.5 prop pod pod pod_3 pod_3@-150 2.2 ease=in
+at 3.5 prop pod pod_drop pod_3 pod_3@-150 2.2 ease=in
 at 3.6 shake pod_3@6 12 0.6
 at 3.6 sparks pod_3@2 amount=140
 at 4.0 sound pod_drop_wind
@@ -55,11 +56,11 @@ at 0.0 dusk 0.9 dim=0.7
 at 0.0 prop ship mothership 300,-1500,2800 1500,7000,-400 22 nose=-x glow=2 trail=260
 at 0.0 sound amb_reentry for=21
 at 0.0 rumble 0.5 ease=0.3
-at 2.5 prop pod1 pod 436,-534,2316 380,-200,1600 4 ease=in until=6.2 glow=1
+at 2.5 prop pod1 pod_drop 436,-534,2316 380,-200,1600 4 ease=in until=6.2 glow=1
 at 6.0 rumble 0 ease=1
 at 21.0 flash 1450,6600,0 1400 light=7000 for=1.6
 at 21.2 smoke 1450,6600,0 180 rise=24
-at 21.6 prop pod pod 1150,1300,900 1060,905,0 3.0 ease=in glow=1.5 trail=6 land=5
+at 21.6 prop pod pod_drop 1150,1300,900 1060,905,0 3.0 ease=in glow=1.5 trail=6 land=5
 at 22.4 sound pod_drop_wind
 at 23.4 sound hull_breach db=-3
 at 23.5 shake camera 4 1.5

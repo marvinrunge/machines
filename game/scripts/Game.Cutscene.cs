@@ -85,15 +85,24 @@ public partial class Game
         return cutscene;
     }
 
-    /// <summary>A model of the original a cutscene shows by name: <c>pod</c>, or a machine's or building's model id.</summary>
+    /// <summary>
+    /// A model of the original a cutscene shows by name: <c>pod</c>, or a machine's or building's model id. The story's
+    /// pod (the escape pods in the bay, the one dropped and landed outside) is always the HD Pod, the player's own Meshy
+    /// model with its four spikes on the turning mast (renders/meshy/buildings/pod-1-spike), whichever look is chosen.
+    /// </summary>
     private Node3D? SceneModel(string name)
     {
         var id = name == "pod" ? "POD_1_T_ION_ORBITAL_CANNON" : name;
         var race = Look(Player);
+        if (name == "pod" && (_podAssets ??= new ClassicAssets(Paths.Root, ModelLook.Hd)).RigFor(id, race) is { } pod)
+            return RigView.Create(pod);
         if (_assets.RigFor(id, race) is { } rig)
             return RigView.Create(rig);
         return _assets.HasClassicModels ? new MeshInstance3D { Mesh = _assets.MeshFor(id, race, new Vector3(10, 8, 10)), Name = id } : null;
     }
+
+    /// <summary>The HD look's assets for the story's pod alone (<see cref="SceneModel"/>), made when first needed.</summary>
+    private ClassicAssets? _podAssets;
 
     // ---- the view leaning ----------------------------------------------------------------------------
 
