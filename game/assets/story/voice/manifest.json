@@ -526,19 +526,19 @@
   "P_AUTO_T240": {
    "de": {
     "file": "de/P_AUTO_T240.ogg",
-    "seconds": 2.53,
+    "seconds": 2.62,
     "placeholder": true,
     "preset": "auto",
     "source": "sapi",
-    "hash": "c3e82439483e"
+    "hash": "462e9c4c363f"
    },
    "en": {
     "file": "en/P_AUTO_T240.ogg",
-    "seconds": 2.37,
+    "seconds": 2.42,
     "placeholder": true,
     "preset": "auto",
     "source": "sapi",
-    "hash": "8fc2e4277bc6"
+    "hash": "89ae92fdcabb"
    }
   },
   "P_AUTO_T30": {
