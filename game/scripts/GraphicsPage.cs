@@ -19,6 +19,10 @@ public partial class GraphicsPage(Action back, bool inGame) : MenuPage(back)
 
     private static Look[] Looks => GraphicsSettings.Looks;
     private Label _lookNote = null!;
+    private ChipChoice _bloom = null!;
+    private Label _bloomNote = null!;
+    private string[] _bloomNotes = [];
+    private ChipChoice _dirt = null!;
 
     protected override void Build()
     {
@@ -27,7 +31,7 @@ public partial class GraphicsPage(Action back, bool inGame) : MenuPage(back)
         page.AddChild(Heading("Graphics"));
 
         var chip = new ChipPanel { Padding = 28, SizeFlagsVertical = SizeFlags.ShrinkBegin };
-        var rows = Column(18);
+        var rows = Column(14);
         chip.AddChild(rows);
         page.AddChild(chip);
 
@@ -78,6 +82,39 @@ public partial class GraphicsPage(Action back, bool inGame) : MenuPage(back)
             "The original's trees and rocks.",
             "The remade trees and rocks; on the painted ground grass and stones grow too.",
         ]));
+
+        // Not parts of the look: they change none of the looks, and show from the next match as the parts do. One row
+        // for both and no line above, or the page would grow past the screen.
+        _bloomNotes =
+        [
+            "No glow round bright light.",
+            "A soft glow round fire, explosions, glowing eyes and lamps.",
+            "A wide, strong glow round every bright light.",
+        ];
+        _bloom = new ChipChoice(GraphicsSettings.BloomLevels, GraphicsSettings.Bloom);
+        _bloom.ItemSelected += i =>
+        {
+            GraphicsSettings.Bloom = i;
+            Refresh();
+        };
+        _dirt = new ChipChoice(["Off", "On"], GraphicsSettings.LensDirt ? 1 : 0)
+        {
+            CustomMinimumSize = new Vector2(180, 0),
+            SizeFlagsVertical = SizeFlags.ShrinkCenter,
+        };
+        _dirt.ItemSelected += i =>
+        {
+            GraphicsSettings.LensDirt = i == 1;
+            Refresh();
+        };
+        var dirtName = MenuTheme.Paragraph("Lens dirt", 22, MenuTheme.Text);
+        dirtName.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        dirtName.AutowrapMode = TextServer.AutowrapMode.Off;
+        dirtName.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+        _bloomNote = Note();
+        _bloom.CustomMinimumSize = new Vector2(320, 0);
+        _bloom.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        rows.AddChild(Setting("Bloom", Line(24, _bloom, dirtName, _dirt, _bloomNote), 260));
 
         if (inGame)
             page.AddChild(MenuTheme.Paragraph("The new look shows from the next match.", 22, MenuTheme.Text));
@@ -134,5 +171,9 @@ public partial class GraphicsPage(Action back, bool inGame) : MenuPage(back)
             part.Choice.Selected = part.Of(parts);
             part.Note.Text = part.Notes[part.Choice.Selected];
         }
+        // Bloom not chosen yet follows the look's light (see GraphicsSettings.Bloom).
+        _bloom.Selected = GraphicsSettings.Bloom;
+        _dirt.Selected = GraphicsSettings.LensDirt ? 1 : 0;
+        _bloomNote.Text = _bloomNotes[_bloom.Selected];
     }
 }

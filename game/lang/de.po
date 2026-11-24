@@ -5950,3 +5950,18 @@ msgstr "Durch die Rohrgalerie"
 
 msgid "Soften the list"
 msgstr "Schlagseite mildern"
+
+msgid "Bloom"
+msgstr "Bloom"
+
+msgid "Lens dirt"
+msgstr "Linsenschmutz"
+
+msgid "No glow round bright light."
+msgstr "Kein Leuchten um helles Licht."
+
+msgid "A soft glow round fire, explosions, glowing eyes and lamps."
+msgstr "Ein sanftes Leuchten um Feuer, Explosionen, leuchtende Augen und Lampen."
+
+msgid "A wide, strong glow round every bright light."
+msgstr "Ein weites, kräftiges Leuchten um jedes helle Licht."

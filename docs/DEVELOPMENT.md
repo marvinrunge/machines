@@ -390,8 +390,8 @@ dot mark the arc's edges. Q and E still turn the hull itself. Recordings from be
 Runs and battles are seen from behind and above the hero by default (third person, as in a tank game; **Hero view** and
 **Camera distance** in the options, `hero_view=first|third`, `chase_distance=0.7-1.5`): F or the mouse wheel switches, and
 the wheel steps the camera nearer or further. The camera keeps behind the hero on the line of the view, so the crosshair
-still means exactly where the hero aims; it stands over the hero's top by at least 0.15 of its arm, so a foe beyond a tall hero is seen over its back, and buildings and hills bring it closer (the pivot coming down with it, the camera tipping down when a hill lifts it, so the hero stays in the picture). The hull glyph under the crosshair shows the
-hull, the gun and the way the keys drive, a red cross where a hill stops the gun's line short of the dot. With the Classic
+still means exactly where the hero aims; it stands over the hero's top by at least 0.15 of its arm, so a foe beyond a tall hero is seen over its back, and buildings and hills bring it closer (the pivot coming down with it, the camera tipping down when a hill lifts it, so the hero stays in the picture). A red cross
+marks where a hill stops the gun's line short of the dot. With the Classic
 layout, and inside buildings, it is first person. A story's prologue and first act are played from the faceplate alone, whatever the option says (F is Hack / use there, the wheel does nothing): the story lets its hero out later, when L-7 finds a small flying machine (the one switch `StoryMarks.ThirdPerson`, set by nothing yet). `MACHINES_WIRED_SCENE=<folder>,chase` pictures a row of chassis from
 behind (Game.ChaseScene.cs).
 

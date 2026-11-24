@@ -87,9 +87,13 @@ public partial class LoadingScreen : CanvasLayer
         var stage = new MenuStage();
         AddChild(stage);
         var request = MatchRequest.Current;
-        stage.Show(new Card(_title, _detail,
-            MiniMaps.For(request.Scenario) ?? new ClassicAssets(Paths.Root).PlanetMap(request.Planet)));
+        stage.Show(new Card(_title, _detail, (request.Options.Story is { } story ? ChapterPicture(story.Chapter) : null)
+            ?? MiniMaps.For(request.Scenario) ?? new ClassicAssets(Paths.Root).PlanetMap(request.Planet)));
     }
+
+    /// <summary>A story chapter's own picture for its loading screen (assets/story/loading/&lt;chapter&gt;.jpg), or null.</summary>
+    private static Texture2D? ChapterPicture(string chapter) =>
+        $"res://assets/story/loading/{chapter}.jpg" is var path && ResourceLoader.Exists(path) ? GD.Load<Texture2D>(path) : null;
 
     public override void _ExitTree() => Busy = false;
 
