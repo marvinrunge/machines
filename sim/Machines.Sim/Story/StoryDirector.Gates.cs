@@ -22,7 +22,8 @@ public sealed partial class StoryDirector
 
     /// <summary>
     /// Deck doors waiting to shut (<see cref="Then.CloseDoors"/>), by letter, with the zone the whole trio must be in first
-    /// ("" for none). Each shuts on the first tick its frame is free (and the trio is in), then is struck off.
+    /// ("" for none; several with commas between, each hero in any of them). Each shuts on the first tick its frame is free
+    /// (and the trio is in), then is struck off.
     /// </summary>
     public SortedDictionary<char, string> Closing { get; } = [];
 
@@ -42,8 +43,7 @@ public sealed partial class StoryDirector
                 Closing.Remove(letter);
                 continue;
             }
-            if (zone.Length > 0 && !(world.Deck?.Zone(zone) is { } inside
-                && StoryTrigger.Present(world, run, StoryWho.Everyone, h => inside.Contains(h.Position))))
+            if (zone.Length > 0 && !StoryTrigger.Present(world, run, StoryWho.Everyone, h => InAnyZone(world, zone, h.Position)))
                 continue;
             if (world.CloseDoor(letter))
                 Closing.Remove(letter);
@@ -62,6 +62,17 @@ public sealed partial class StoryDirector
                     machine.Facing = marker.Angle * MathF.PI / 180;
             }
         }
+    }
+
+    // Whether a point lies in one of the zones a door waits for, named with commas between ("R8,R9": the antechamber or the core).
+    private static bool InAnyZone(GameWorld world, string zones, Vector2 point)
+    {
+        foreach (var name in zones.Split(','))
+        {
+            if (world.Deck?.Zone(name) is { } zone && zone.Contains(point))
+                return true;
+        }
+        return false;
     }
 
     /// <summary>An action done now, outside the script (checks and tools: a scene set up by hand, a test of one action).</summary>
@@ -118,7 +129,8 @@ public static partial class Then
 {
     /// <summary>
     /// Deck doors shut (stufe7 C13): each as soon as its frame is free (nobody stands where a leaf goes) and, with
-    /// <paramref name="WhenAllIn"/>, the whole trio (a Grunt lying down too) is inside that zone; its ground is blocked anew.
+    /// <paramref name="WhenAllIn"/>, the whole trio (a Grunt lying down too) is inside that zone, or each in one of several
+    /// named with commas between; its ground is blocked anew.
     /// Opening it again (<see cref="OpenDoors"/>) calls the shutting off.
     /// </summary>
     public sealed record CloseDoors(string Letters, string? WhenAllIn = null) : StoryAction

@@ -97,9 +97,15 @@ public static partial class Prologue
         // "Das Plötzliche": H shrieks open, he gallops to it, the trio is in before him and H slams.
         new("blast_door", 5, new HackDone("hack_h"), [new OpenDoors("H"), new AutoDoors("I"), new Rush(ThresherRole, BeforeH), new Say(Lines.IkeIn, Bark, 1),
             new Cue("door h shriek", "190,210"), new SneakTo(1, null), new SneakTo(2, null), new Objective("Get into the antechamber", "R8")]),
+        // H slams once the whole trio is past it, in the antechamber or already in the core: the Locator goes straight on to the
+        // console, and the Grunts come in later (one sent to bang a valve waits where it was until the core's beat sends it to
+        // its barricade), so the three hardly ever stood in R8 at once and H stayed open, the stealth on. Until H is shut the
+        // trio is out of his sight: he stands at BeforeH looking along the open H and I into the lit antechamber and core, and
+        // a Grunt walking in past him turned his beam on it and through both doors onto the Locator at the console, 64 m off.
         new("antechamber", 5, new InZone("R8"), [new Checkpoint(6), new Section(3), new Objective("Hack the main computer", "hack_core"),
-            new CloseDoors("H", "R8"), new LockDoors("H")], After: ["blast_door"]),
-        new("h_shut", 5, new AllOf(new Since("antechamber", 0), new DoorShut('H')), [new Flag(StoryMarks.Stealth, false), new Cue("door h slam", "190,210")]),
+            new CloseDoors("H", "R8,R9"), new LockDoors("H"), new Unseen(0, true), new Unseen(1, true), new Unseen(2, true)], After: ["blast_door"]),
+        new("h_shut", 5, new AllOf(new Since("antechamber", 0), new DoorShut('H')), [new Flag(StoryMarks.Stealth, false), new Cue("door h slam", "190,210"),
+            new Unseen(0, false), new Unseen(1, false), new Unseen(2, false)]),
         new("knock", 5, new Since("h_shut", 2), [new Say(Lines.IkeKnock, Bark, 1)]),
 
         // A Grunt down in the dark: the Locator learns to put it back together (the workshop still teaches it, C10).
