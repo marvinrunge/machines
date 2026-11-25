@@ -249,13 +249,13 @@ public static class Props
     }
 
     /// <summary>
-    /// The faces inside the door frame's opening (kit_door_frame, 7 m wide, its posts' inner sides about 1.3 m either side of
-    /// its middle under a lintel at 5.55 m, see DeckFrame): its posts' inner sides and the lintel's underside, not their
-    /// outer sides at ±3.5 m.
-    /// Meshy painted them with the bare grey of its metal, and under a door's lamp they showed white beside the red frame.
+    /// The faces inside the door frame's opening (kit_door_frame, 7 m wide, its posts' inner sides 1.39 m either side of
+    /// its middle under a lintel at 5.55 m, see DeckFrame): its posts' inner sides and the lintel's underside, the wall's
+    /// reveal once bent to a slot. Their texture is a plain light grey, and under a door's lamp they showed white beside
+    /// the darker walls and frame.
     /// </summary>
     private static bool JambFaces(Vector3 at, Vector3 normal) =>
-        Mathf.Abs(at.X) < 3.42f && (Mathf.Abs(normal.X) > 0.6f && at.Y < 6.6f || normal.Y < -0.6f && at.Y > 5.6f && at.Y < 7f);
+        Mathf.Abs(at.X) < 1.45f && (Mathf.Abs(normal.X) > 0.6f && at.Y < 5.6f || normal.Y < -0.6f && at.Y > 5.5f && at.Y < 5.6f);
 
     /// <summary>Gives a mesh vertex colours: dark where <paramref name="which"/> says, else white. False when nothing was darkened.</summary>
     private static bool Darken(ArrayMesh mesh, Func<Vector3, Vector3, bool> which)
@@ -309,9 +309,9 @@ public static class Props
         material.TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic;
         // The clamp's floor ring (tools/blender/prop_pack.py adds it plain, without UVs) wears the deck plates' steel,
         // laid on from above and the sides: a flat grey torus under Ike's wheels looked like greybox.
-        if (imported.ResourceName == "ring_steel" && ResourceLoader.Exists($"{Folder}/kit_floor_0.jpg"))
+        if (imported.ResourceName == "ring_steel" && ResourceLoader.Exists($"{Folder}/kit_floor_kit-floor-gemini-clean.jpg"))
         {
-            material.AlbedoTexture = GD.Load<Texture2D>($"{Folder}/kit_floor_0.jpg");
+            material.AlbedoTexture = GD.Load<Texture2D>($"{Folder}/kit_floor_kit-floor-gemini-clean.jpg");
             material.AlbedoColor = new Color(0.62f, 0.6f, 0.6f);
             material.Uv1Triplanar = true;
             material.Uv1WorldTriplanar = true;

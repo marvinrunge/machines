@@ -159,9 +159,13 @@ public partial class DeckView : Node3D
         foreach (var face in Layout.Faces)
         {
             var span = face.Top + WallOverlap - face.Bottom;
-            var prop = span <= 5 ? "kit_wall_low" : "kit_wall";
+            var low = span <= 5;
+            var prop = low ? "kit_wall_low" : "kit_wall";
             if (Props.Get(prop) is not { } model)
                 continue;
+            // Tall walls take the vented module and the plain one (the same size) in turn, as a chequer, so a long wall
+            // does not repeat one panel.
+            var plain = !low && Props.Get("kit_wall_plain") is not null;
             var (width, tall, deep) = (model.Size.X, model.Size.Y, model.Size.Z);
             var rows = Math.Max(1, (int)MathF.Round(span / tall));
             var count = Math.Max(1, (int)MathF.Round(face.Length / DeckLayout.Module));
@@ -173,8 +177,50 @@ public partial class DeckView : Node3D
                 // Each module's front on the face, its body in the wall behind it.
                 var at = face.From + along * ((i + 0.5f) * face.Length / count) - face.Normal * (deep / 2);
                 for (var row = 0; row < rows; row++)
-                    Add(prop, new NVector3(at, face.Bottom + row * span / rows), angle, scale);
+                    Add(plain && (i + row) % 2 == 1 ? "kit_wall_plain" : prop, new NVector3(at, face.Bottom + row * span / rows), angle, scale);
             }
+        }
+        Corners();
+    }
+
+    /// <summary>Faces shorter than this (metres) take no corner column: the reveals of doorways and ducts.</summary>
+    private const float CornerFace = 1.5f;
+
+    /// <summary>
+    /// A steel column on every outer corner of the walls (kit_wall_corner, kit_wall_low_corner on walls up to 5 m), over
+    /// the seam where two runs of wall modules meet at a right angle: where one face ends at a point and runs away from it
+    /// against the other's normal, and the other alike. Not at the reveals of doorways and ducts (faces under
+    /// <see cref="CornerFace"/>), not round the door frames, which cover their corners, and not where a pillar stands.
+    /// The column's origin is the corner, its +z along the first face's normal and its +x along the second's.
+    /// </summary>
+    private void Corners()
+    {
+        static NVector2 Cw(NVector2 v) => new(v.Y, -v.X);
+        var ends = Layout.Faces.Where(f => f.Length >= CornerFace)
+            .SelectMany(f => new[] { (At: f.From, Into: NVector2.Normalize(f.To - f.From), Face: f), (At: f.To, Into: NVector2.Normalize(f.From - f.To), Face: f) })
+            .GroupBy(e => (MathF.Round(e.At.X), MathF.Round(e.At.Y)));
+        var pillars = Layout.Pieces.Where(p => p.Prop == "kit_pillar").Select(p => new NVector2(p.Position.X, p.Position.Y)).ToList();
+        foreach (var corner in ends)
+        {
+            var at = corner.First().At;
+            if (Layout.Frames.Any(f => NVector2.Distance(f.Centre, at) < f.Half + 2.5f) || pillars.Any(p => NVector2.Distance(p, at) < 1.2f))
+                continue;
+            foreach (var a in corner)
+                foreach (var b in corner)
+                {
+                    // b's normal is a's turned clockwise (the column's +x), and each face runs away against the other's normal.
+                    if (NVector2.Distance(b.Face.Normal, Cw(a.Face.Normal)) > 0.01f
+                        || NVector2.Distance(a.Into, -b.Face.Normal) > 0.01f || NVector2.Distance(b.Into, -a.Face.Normal) > 0.01f)
+                        continue;
+                    var bottom = Math.Max(a.Face.Bottom, b.Face.Bottom);
+                    var top = Math.Min(a.Face.Top, b.Face.Top);
+                    if (top - bottom < 0.5f)
+                        continue;
+                    var span = top + WallOverlap - bottom;
+                    var prop = span <= 5 ? "kit_wall_low_corner" : "kit_wall_corner";
+                    if (Props.Get(prop) is { } model)
+                        Add(prop, new NVector3(at, bottom), DeckLayout.Degrees(a.Face.Normal), new Vector3(1, span / model.Size.Y, 1));
+                }
         }
     }
 

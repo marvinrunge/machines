@@ -5,7 +5,7 @@
   "size_m": [
     3.5,
     0.6,
-    7
+    7.0
   ],
   "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
   "bounds": {
@@ -21,66 +21,21 @@
     ]
   },
   "height": 7.0,
-  "tris": 532,
-  "footprint": [
-    [
-      1.75,
-      -0.3
-    ],
-    [
-      1.75,
-      0.193
-    ],
-    [
-      1.725,
-      0.229
-    ],
-    [
-      1.417,
-      0.3
-    ],
-    [
-      -1.583,
-      0.297
-    ],
-    [
-      -1.706,
-      0.229
-    ],
-    [
-      -1.744,
-      0.19
-    ],
-    [
-      -1.747,
-      -0.3
-    ]
-  ],
-  "footprint_below_m": 0.5,
-  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/kit_door_leaf/model.glb",
-  "target_polycount": 500,
-  "tris_raw": 532,
-  "decimated_from": null,
-  "islands": 1,
-  "dropped_scraps": 0,
-  "yaw": 0,
-  "flip": false,
-  "fit": {
-    "scale": [
-      6.4403,
-      5.2289,
-      7.348
-    ],
-    "snapped": {
-      "-z": 115,
-      "+z": 126
-    }
-  },
+  "tris": 252,
+  "source": "Blender (build_door_leaf.py) + Gemini reference + Tripo texture, fitted with tripo_fit.py",
   "textures": [
+    [
+      2048,
+      2048
+    ],
     [
       1024,
       1024
+    ],
+    [
+      512,
+      512
     ]
   ],
-  "glb_bytes": 533192
+  "glb_bytes": 1209388
 }

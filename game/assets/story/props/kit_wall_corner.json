@@ -1,0 +1,32 @@
+{
+  "name": "kit_wall_corner",
+  "kind": "kit",
+  "size_m": [
+    0.54,
+    0.54,
+    8.0
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre (corner column: origin at the corner, +Z and +X the two walls' faces)",
+  "bounds": {
+    "min": [
+      -0.4,
+      0.0,
+      -0.4
+    ],
+    "max": [
+      0.14,
+      8.0,
+      0.14
+    ]
+  },
+  "height": 8.0,
+  "tris": 65,
+  "source": "Blender deck kit + Gemini reference + Tripo texture, fitted with tripo_fit.py",
+  "textures": [
+    [
+      2048,
+      2048
+    ]
+  ],
+  "glb_bytes": 603692
+}

@@ -3,8 +3,8 @@
   "id": "K2",
   "kind": "kit",
   "size_m": [
-    4,
-    4,
+    4.0,
+    4.0,
     0.3
   ],
   "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
@@ -22,33 +22,12 @@
   },
   "height": 0.3,
   "tris": 540,
-  "footprint": [
-    [
-      -2.0,
-      -2.0
-    ],
-    [
-      2.0,
-      -2.0
-    ],
-    [
-      2.0,
-      2.0
-    ],
-    [
-      -2.0,
-      2.0
-    ]
-  ],
-  "footprint_below_m": 0.5,
-  "source": "Blender, tools/blender/grate_floor.py: bars built to size, kit_floor's material",
-  "islands": 45,
+  "source": "Blender (build_floor.py, grate re-dressed by grate_texture.py) textured from a Gemini top view (floor_texture.py), no Tripo",
   "textures": [
     [
-      1024,
-      1024
+      2048,
+      2048
     ]
   ],
-  "glb_bytes": 495756,
-  "note": "Rebuilt in Blender: Meshy's grate was flat slabs with painted bars (it could not be seen through)."
+  "glb_bytes": 1492232
 }
