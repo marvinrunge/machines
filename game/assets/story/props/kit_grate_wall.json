@@ -3,9 +3,9 @@
   "id": "K12",
   "kind": "kit",
   "size_m": [
-    4,
+    4.0,
     0.4,
-    4
+    4.0
   ],
   "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
   "bounds": {
@@ -21,52 +21,13 @@
     ]
   },
   "height": 4.0,
-  "tris": 370,
-  "footprint": [
-    [
-      -2.0,
-      -0.2
-    ],
-    [
-      2.0,
-      -0.2
-    ],
-    [
-      2.0,
-      0.2
-    ],
-    [
-      -2.0,
-      0.2
-    ]
-  ],
-  "footprint_below_m": 0.5,
-  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/kit_grate_wall/model.glb",
-  "target_polycount": 400,
-  "tris_raw": 370,
-  "decimated_from": null,
-  "islands": 26,
-  "dropped_scraps": 0,
-  "yaw": 0,
-  "flip": false,
-  "fit": {
-    "scale": [
-      4.2118,
-      5.2513,
-      4.2249
-    ],
-    "snapped": {
-      "-x": 32,
-      "+x": 40,
-      "-z": 12,
-      "+z": 12
-    }
-  },
+  "tris": 246,
+  "source": "Blender (build_panels.py) textured from a Gemini front view (panel_texture.py), no Tripo",
   "textures": [
     [
-      1024,
-      1024
+      2048,
+      2048
     ]
   ],
-  "glb_bytes": 474740
+  "glb_bytes": 956496
 }
