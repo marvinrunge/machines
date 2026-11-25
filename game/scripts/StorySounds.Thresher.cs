@@ -39,7 +39,7 @@ public partial class StorySounds
         var mix = StoryStalker.Mix(distance, walls, grates);
         var heavy = weight >= 0.8f;
         var level = mix.Db + 6 * Mathf.Log(Mathf.Max(0.2f, weight)) / Mathf.Log(2);
-        var lowPass = mix.LowPassHz < StoryStalker.OpenLowPass ? mix.LowPassHz : 3000;
+        var lowPass = mix.LowPassHz;
         if (mix.Near > 0.01f)
             StompVoice(heavy ? "thresher_plant_front" : "thresher_plant_rear", at, level + Mathf.LinearToDb(mix.Near), lowPass);
         if (mix.Near < 0.99f)
@@ -72,7 +72,7 @@ public partial class StorySounds
             {
                 Name = $"Stomp{_stompVoices.Count}",
                 Bus = StoryAudio.ThresherBus,
-                UnitSize = 15,
+                UnitSize = StoryStalker.StompUnit,
                 MaxDistance = StoryStalker.Audible,
                 AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance,
                 PanningStrength = 1,

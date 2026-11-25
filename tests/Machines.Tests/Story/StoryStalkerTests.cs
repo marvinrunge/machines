@@ -226,12 +226,18 @@ public class StoryStalkerTests(ITestOutputHelper output)
         Assert.Equal(StoryStalker.OpenLowPass, open.LowPassHz);
         Assert.Equal(1, open.Near);
         Assert.True(open.Sub && open.Rattle);
+        // Play test 2026-11-25: heard wherever he walks, the walls and the distance taking little of his loudness and much of his brightness.
         var wall = StoryStalker.Mix(20, 1, 0);
-        Assert.Equal(-6, wall.Db);
-        Assert.Equal(800, wall.LowPassHz);
-        Assert.Equal(-10, StoryStalker.Mix(20, 3, 0).Db);
-        Assert.Equal(-14, StoryStalker.Mix(20, 9, 0).Db);
-        Assert.Equal(-2, StoryStalker.Mix(20, 0, 1).Db);
+        Assert.Equal(-3, wall.Db);
+        Assert.Equal(2500 * StoryStalker.WallDull, wall.LowPassHz, 1);
+        Assert.Equal(-6, StoryStalker.Mix(20, 3, 0).Db);
+        Assert.Equal(-8, StoryStalker.Mix(20, 9, 0).Db);
+        Assert.Equal(-1, StoryStalker.Mix(20, 0, 1).Db);
+        Assert.Equal(5000, StoryStalker.Mix(60, 0, 0).LowPassHz, 1);
+        Assert.Equal(800, StoryStalker.Mix(150, 0, 0).LowPassHz, 1);
+        Assert.Equal(StoryStalker.DullestHz, StoryStalker.Mix(300, 0, 0).LowPassHz);
+        Assert.True(StoryStalker.Mix(150, 2, 0).LowPassHz < StoryStalker.Mix(150, 0, 0).LowPassHz);
+        Assert.True(StoryStalker.Audible >= 400);
         Assert.Equal(0.5f, StoryStalker.Mix(60, 0, 0).Near, 3);
         Assert.Equal(0, StoryStalker.Mix(80, 0, 0).Near);
         Assert.False(StoryStalker.Mix(130, 0, 0).Sub);
