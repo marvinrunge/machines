@@ -37,6 +37,11 @@ public partial class Game
             GD.PrintErr($"cutscene: '{name}' has no part to play {(World.Deck is not null ? "on a deck" : "outside")}");
             return null;
         }
+        // A pod the deck shows on its cradle that the cutscene moves as its own prop is hidden, however the cutscene began:
+        // the two stood in one another (the story's own cue hid it, a cutscene started for a check did not).
+        var moved = part.Cues.Where(c => c is { Kind: "prop", Space: false }).Select(c => c.Args[2]).ToHashSet();
+        foreach (var pod in _pods.Values.Where(p => moved.Contains(p.GetMeta("marker").AsString())))
+            pod.Visible = false;
         // What the Grunts were still waiting to say is stale once it plays (Ike's urging came as the pod dropped).
         foreach (var bark in Machines.Sim.Story.CompanionBarks.English.Keys)
             StoryAudio.Withdraw(bark);
@@ -85,15 +90,24 @@ public partial class Game
         return cutscene;
     }
 
-    /// <summary>A model of the original a cutscene shows by name: <c>pod</c>, or a machine's or building's model id.</summary>
+    /// <summary>
+    /// A model of the original a cutscene shows by name: <c>pod</c>, or a machine's or building's model id. The story's
+    /// pod (the escape pods in the bay, the one dropped and landed outside) is always the HD Pod, the player's own Meshy
+    /// model with its four spikes on the turning mast (renders/meshy/buildings/pod-1-spike), whichever look is chosen.
+    /// </summary>
     private Node3D? SceneModel(string name)
     {
         var id = name == "pod" ? "POD_1_T_ION_ORBITAL_CANNON" : name;
         var race = Look(Player);
+        if (name == "pod" && (_podAssets ??= new ClassicAssets(Paths.Root, ModelLook.Hd)).RigFor(id, race) is { } pod)
+            return RigView.Create(pod);
         if (_assets.RigFor(id, race) is { } rig)
             return RigView.Create(rig);
         return _assets.HasClassicModels ? new MeshInstance3D { Mesh = _assets.MeshFor(id, race, new Vector3(10, 8, 10)), Name = id } : null;
     }
+
+    /// <summary>The HD look's assets for the story's pod alone (<see cref="SceneModel"/>), made when first needed.</summary>
+    private ClassicAssets? _podAssets;
 
     // ---- the view leaning ----------------------------------------------------------------------------
 
@@ -133,13 +147,24 @@ public partial class Game
     // ---- for checks ------------------------------------------------------------------------------
 
     private bool _cutsceneAsked;
+
+    /// <summary>
+    /// A cutscene asked for a check (MACHINES_CUTSCENE or MACHINES_CUTSCENE_STILLS) on a story: the chapter around it says and
+    /// plays nothing of its own (Game.Story drops the director's lines, cues and objectives), so the cutscene is heard alone.
+    /// </summary>
+    private bool CutsceneOnly => World.Story is not null && (_cutsceneOnly ??=
+        !string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("MACHINES_CUTSCENE"))
+        || !string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("MACHINES_CUTSCENE_STILLS")));
+
+    private bool? _cutsceneOnly;
     private double _cutsceneWait;
 
     /// <summary>
     /// For checks: MACHINES_CUTSCENE=&lt;name&gt; plays that cutscene once the match shows; MACHINES_CUTSCENE_STILLS=
     /// &lt;folder&gt;;&lt;name&gt;;&lt;seconds&gt;,... plays it and saves the picture at those seconds of it as
     /// &lt;folder&gt;/&lt;name&gt;-&lt;part&gt;_&lt;seconds&gt;.png, then quits. With MACHINES_STORY=prolog the deck part plays,
-    /// with MACHINES_MAP=prolog-abwurf,m_desert the outside part.
+    /// with MACHINES_MAP=prolog-abwurf,m_desert the outside part. On a story the chapter stays quiet for it (<see cref="CutsceneOnly"/>):
+    /// no boot, none of the director's lines, cues or objectives, no music, so only the cutscene is heard.
     /// </summary>
     private void CutsceneIfAsked(double delta)
     {
@@ -157,6 +182,13 @@ public partial class Game
         if (_cutsceneWait < 1.5)
             return;
         _cutsceneAsked = true;
+        if (CutsceneOnly)
+        {
+            SkipStoryBoot();
+            StoryAudio.CutVoice();
+            StoryAudio.MusicOut(0.3f);
+            StoryAudio.SetAmbience(null);
+        }
         var cutscene = PlayCutscene(name);
         if (cutscene is null)
         {
@@ -164,6 +196,9 @@ public partial class Game
                 GetTree().Quit(1);
             return;
         }
+        // Measuring frames (MACHINES_HITCH): the game ends with the cutscene, so the log sums it up.
+        if (stills is null && HitchLog.On)
+            cutscene.Finished += _ => GetTree().Quit();
         if (stills is [var folder, _, var times])
             cutscene.Stills(folder, times.Split(',', StringSplitOptions.RemoveEmptyEntries)
                 .Select(t => float.Parse(t, System.Globalization.CultureInfo.InvariantCulture)));

@@ -1,0 +1,78 @@
+{
+  "name": "pod_drop",
+  "id": "P23",
+  "kind": "set",
+  "size_m": [
+    27,
+    27,
+    41.4
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -13.477,
+      0.0,
+      -13.477
+    ],
+    "max": [
+      13.477,
+      41.4,
+      13.477
+    ]
+  },
+  "height": 41.4,
+  "tris": 6221,
+  "footprint": [
+    [
+      -4.548,
+      -0.038
+    ],
+    [
+      -3.776,
+      -3.372
+    ],
+    [
+      -1.447,
+      -4.171
+    ],
+    [
+      1.948,
+      -4.129
+    ],
+    [
+      4.219,
+      -3.073
+    ],
+    [
+      4.053,
+      1.649
+    ],
+    [
+      2.282,
+      4.138
+    ],
+    [
+      -3.485,
+      4.138
+    ]
+  ],
+  "footprint_below_m": 0.5,
+  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/pod_drop/model.glb",
+  "target_polycount": 6300,
+  "tris_raw": 6221,
+  "decimated_from": null,
+  "islands": 5,
+  "dropped_scraps": 0,
+  "yaw": 0,
+  "flip": false,
+  "fit": {
+    "scale": 43.57
+  },
+  "textures": [
+    [
+      2048,
+      2048
+    ]
+  ],
+  "glb_bytes": 1687900
+}

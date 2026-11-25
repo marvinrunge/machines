@@ -174,8 +174,8 @@ public sealed class DeckLayout
     /// </summary>
     public const float PodHatchReach = 40, PodFireOffset = 26;
 
-    /// <summary>How many times its 10 m the pods' cradle ring is drawn, to hold the game's Pod at its own size.</summary>
-    public const float PodCradle = 5;
+    /// <summary>How many times its 10 m the pods' cradle ring is drawn (its opening widened, Props.Opened), to hold the game's Pod at its own size.</summary>
+    public const float PodCradle = 5.5f;
 
     private List<Vector3> FindCrashFires()
     {

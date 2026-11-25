@@ -206,6 +206,8 @@ public partial class Cutscene : FilmCamera
             if (first && _playing.Takes[0].Kind == "cockpit" && _before is not null)
                 _followed["look"] = -_before.GlobalBasis.Z;
             GD.Print($"cutscene: take {index + 1} ({shot.Name}) at {_time:0.00} s, tick {_world.Tick}");
+            if (HitchLog.On)
+                HitchLog.Phase = $"cutscene {shot.Name}";
         }
         var u = Mathf.Clamp((float)(_time - start) / shot.Length, 0, 1);
         Scene((float)_time);
@@ -236,6 +238,8 @@ public partial class Cutscene : FilmCamera
     {
         _phase = Phase.Leaving;
         _hint.Visible = false;
+        // Skipped in space: back to the match's picture before it blends to the player's view.
+        LeaveSpace();
         _leftFrom = _camera.GlobalTransform;
         _leftFov = _camera.Fov;
         _leaving = 0;

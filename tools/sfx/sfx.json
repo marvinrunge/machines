@@ -45,6 +45,8 @@
     {"id": "revive_weld", "seconds": 3, "gain": -2, "prompt": "Small welding torch repairing a robot, sizzling arc weld, sparks crackling, a short electric buzz"},
     {"id": "metal_groan_big", "seconds": 4, "gain": 2, "stereo": true, "prompt": "Huge metal structure groaning and bending, a deep long creak of a starship tilting, rivets popping"},
     {"id": "hull_breach", "seconds": 4, "gain": 3, "stereo": true, "prompt": "Spaceship hull breach, explosive decompression, metal tearing apart, violent rush of escaping air"},
+    {"id": "space_blast_far", "seconds": 6, "gain": 4, "stereo": true, "prompt": "A gigantic explosion far away, heard from a great distance: a dull, muffled, very deep boom, a heavy low thud that rolls out into a long low rumble, no crackle, no high frequencies, cinematic"},
+    {"id": "hull_breakup", "seconds": 15, "gain": 2, "stereo": true, "prompt": "A kilometre-long starship breaking apart: colossal deep structural groaning, massive steel girders bending and snapping with low booming cracks, heavy rumbling, slow and enormous, cinematic, no music"},
     {"id": "pod_clamps", "seconds": 3, "gain": 0, "stereo": true, "prompt": "Escape pod docking clamps releasing, heavy mechanical clunks, hydraulic hiss, metal latches springing open"},
     {"id": "pod_drop_wind", "seconds": 6, "gain": 2, "stereo": true, "prompt": "Escape pod launched and falling through the sky, roaring wind rushing past the capsule, rising whoosh and deep rumble"},
     {"id": "pod_impact", "seconds": 4, "gain": 4, "stereo": true, "prompt": "Escape pod crashing into the ground, a massive impact boom, crunching metal, dirt and debris raining down"},

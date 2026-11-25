@@ -1,72 +1,146 @@
-// "Abwurf" (docs/STORY.md, Prolog im Detail, section 8; board scene s-abwurf): the pod is released, the mothership burns
-// through the atmosphere and strikes far away, the pod lands hard. Silence. Black. Read by game/scripts/CutsceneScript.cs.
+// "Abwurf" (docs/STORY.md, Prolog im Detail, section 8; board scene s-abwurf): the burning mothership, the pod released,
+// the ship racing into the planet and striking it, the pod's own fall through the air, its hard landing. Silence. Black.
+// Read by game/scripts/CutsceneScript.cs. Plan and pictures: renders/prologue/abwurf/PLAN.md.
 //
-// Two parts. "bucht" plays live on the deck when pod 3 launches (MACHINES_STORY=prolog), and ends black: the story then
-// loads the outside. "aussen" plays outside, for now on m_desert at dusk (data/maps/prolog-abwurf.scn) until the crash
-// planet of act 1 exists: live (MACHINES_MAP=prolog-abwurf,m_desert with MACHINES_CUTSCENE=abwurf) and as a film
-// (MACHINES_CINEMATIC=prolog-abwurf, tools/cinematic/films.txt).
+// Four parts in two runs. The deck run plays live when pod 3 launches (MACHINES_STORY=prolog): "brand" (space), "bucht"
+// (the deck) and "fall" (space) play as one, and it ends black: the prologue ends there. "aussen", the pod's landing, is
+// the opening of act 1 (the player's choice, 2026-11-25: the load between them belongs between the acts, not inside one
+// cutscene); once act 1 exists it plays as that act's first scene on its crash map, and it moves into act 1's own script.
+// Until then it plays outside on m_desert at dusk (data/maps/prolog-abwurf.scn): live
+// (MACHINES_MAP=prolog-abwurf,m_desert with MACHINES_CUTSCENE=abwurf) and as a film (MACHINES_CINEMATIC=prolog-abwurf,
+// tools/cinematic/films.txt).
+//
+// In space (game/scripts/SpaceStage.cs) points are metres x, y, up with no ground; the planet's centre and radius, and the
+// sun's way (yaw from +x towards +y, pitch over the level) are the part's options. The mothership
+// (game/assets/story/space/mothership.glb, 1200 m long, its nose the model's -x, the pods hanging on its -y side) starts
+// over the origin; ship@x,y,z is a point on it in its own metres (x ahead is -x, y towards the pods, z its up), moving and
+// turning with it. Its strike point 0,70476,-47619 lies on the planet's face.
 //
 // Outside, points are metres on the map (x east, y north, height over the ground below). The camera stands on the high
 // plateau near 1010,835 looking north over the low ground to the map's northern rim (about 30 m high, 700 m off), behind
-// which the ship goes down. The mothership (game/assets/story/props/mothership.glb, 1200 m long) flies from high in the
-// south-west to far beyond the rim in 22 s; its nose is taken to be the model's -x.
+// which the mothership's smoke rises.
 
 cutscene abwurf
 bars 0.12
 blend 0.5
 
+part brand space planet=0,200000,-200000 radius=200000 sun=225,30
+// Cut 1: the mothership burns over the planet, blasts running along its hull, fire and smoke trailing from the wounds; the
+// camera slides along its flank towards the bow.
+take brand 13 chase ship offset=-950,-1700,300 to=-1300,200,260 look=ship@-900,0,-80 fov=40 blur=0 rate=2
+
+// The cutscene's own music (the remake's soundtrack), from its 17th second, coming in under the first blasts.
+at 0 music music/remake/deep_drift_v2 from=17 fade=3 db=-2
+at 0 prop ship space/mothership 0,-300,0 0,580,-80 28.6 nose=-x engines=1
+// The hull breaking up: deep groaning, girders snapping, until the cut to the bay (the creaks of amb_metal_groans, even
+// an octave and a half down, were hardly heard). Each blast on the hull a dull boom from afar, the two biggest with the
+// tearing of hull_breach under it.
+at 0 sound hull_breakup db=-3 for=13
+at 0 rumble 0.3 ease=0.65
+at 1.56 explosion ship@260,70,-200 45
+at 1.56 sound space_blast_far db=0
+at 1.69 fire ship@260,70,-200 50 70
+at 1.69 smoke ship@260,70,-200 30 rise=6
+at 4.42 explosion ship@-80,-30,-215 60
+at 4.42 sound space_blast_far db=3
+at 4.42 sound hull_breach db=-5
+at 4.55 fire ship@-80,-30,-215 60 80
+at 4.55 smoke ship@-80,-30,-215 40 rise=7
+at 4.94 sound metal_groan_big db=-3
+at 7.28 explosion ship@120,110,-120 40
+at 7.28 sound space_blast_far db=-2
+at 7.41 fire ship@120,110,-120 40 60
+at 9.75 explosion ship@-330,40,-190 70
+at 9.75 sound space_blast_far db=3
+at 9.75 sound hull_breach db=-5
+at 9.88 fire ship@-330,40,-190 60 90
+at 9.88 smoke ship@-330,40,-190 45 rise=8
+
 part bucht deck
 // From the catwalk over the pod bay (cam_abwurf_1, 48 m up): the clamps let go of pod 3, it drops down its shaft. The pod is the
-// game's POD at its own size (47.5 m across, 43.5 m tall), as the cradles show it (Game.DeckShow) and as it lands outside.
-take freigabe 3.5 cam cam_abwurf_1 look=pod_3@18 fov=52 blur=0.8
-take abwurf 3.5 cam cam_abwurf_1 look=pod@14|pod_3@-30 rate=4 fov=52 blur=0.8
+// game's POD at its own size, the full HD Pod 1 the cradles show (Game.DeckShow hides the one on pod_3 while the cutscene
+// moves its own); from the release on, in space and outside, it is the drop variant (game/assets/story/props/pod_drop.glb,
+// legs drawn in, 41.4 m tall). It cuts straight out to space.
+take freigabe 4.55 cam cam_abwurf_1 look=pod_3@18 fov=52 blur=0.8
+take abwurf 4.55 cam cam_abwurf_1 look=pod_3@-6 rate=4 fov=52 blur=0.8
 
-at 0.0 prop pod pod pod_3 pod_3 3.5
+at 0 prop pod pod pod_3 pod_3 4.55
 // The shaft lit from above, so the pod and its drop read in the middle of the take (it stood black between two lamp pools).
-at 0.0 light pod_3 110 above=62 energy=40 angle=30
-at 0.0 line P_AUTO_POD_GO
-at 0.0 rumble 1.2 ease=0.5
-at 0.0 tilt 8 -2 sway=2 ease=0.5
-at 0.3 sound pod_clamps
-at 1.0 sparks pod_3@30 amount=80
-at 1.5 sound metal_groan_big
-at 3.3 sound clamp_release
-at 3.5 prop pod pod pod_3 pod_3@-150 2.2 ease=in
-at 3.6 shake pod_3@6 12 0.6
-at 3.6 sparks pod_3@2 amount=140
-at 4.0 sound pod_drop_wind
-at 5.4 fade 1 0.4
-at 6.0 silence 0.5
+at 0 light pod_3 110 above=62 energy=40 angle=30
+at 0 line P_AUTO_POD_GO
+at 0 rumble 1.2 ease=0.65
+at 0 tilt 8 -2 sway=2 ease=0.65
+at 0.39 sound pod_clamps
+at 1.3 sparks pod_3@30 amount=80
+at 1.95 sound metal_groan_big
+at 4.29 sound clamp_release
+// The shaft opens under it: the stars below, the pod seen falling away into them (FilmCamera.Opening).
+at 4.42 opening pod_3 18 above=1.0
+at 4.55 prop pod pod pod_3 pod_3@-150 2.86 ease=in
+at 4.68 shake pod_3@6 12 0.6
+at 4.68 sparks pod_3@2 amount=140
+at 5.2 sound pod_drop_wind
+
+part fall space
+// Cut 2: under the belly, among the hanging pods, pod 3 blows free and falls away towards the planet.
+take abwurf 6.5 fixed ship@450,-330,-680 look=pod|ship@150,-150,-60 fov=44 blur=0 rate=1.6
+// Cut 3: the mothership dives into the air, its nose glowing in the bow shock, fire and smoke streaming behind; from beside
+// it, then from far off, a burning streak down to the planet's face, and the blast where it strikes.
+take sturz_a 5.85 chase ship offset=-2600,-1900,1300 look=ship fov=40 blur=0 rate=2
+take sturz_b 6.5 fixed -14000,40000,-8000 look=ship rate=8 fov=16 blur=0
+take aufschlag 5.85 fixed -60000,10000,30000 look=0,70476,-47619 rate=1 fov=40 blur=0
+// Cut 4: the pod's own entry, 40 km from the strike: the shock glowing before it, the planet's limb turning under it.
+take eintritt 11 chase pod offset=92.8,-33.5,37.1 look=pod fov=50 blur=0 rate=4
+
+at 0.52 flash ship@150,-130,-60 40 light=400 for=0.6
+at 0.52 sparks ship@150,-130,-60 amount=60
+at 0.65 prop pod pod_drop ship@150,-150,-60 ship@260,-560,-60 5.85 ease=in lean=18
+at 0.65 sound pod_drop_wind db=3
+at 0 rumble 0 ease=0.15
+at 6.5 prop ship space/mothership ship 0,70476,-47619 11.7 ease=in nose=-x glow=1 trail=1200 engines=1.3
+at 6.5 sound amb_reentry for=18.2
+at 6.5 rumble 0.4 ease=2.6
+at 6.63 fire ship@-100,60,-200 80 120
+at 6.63 smoke ship@-100,60,-200 60 rise=5
+at 6.63 fire ship@250,-40,180 70 100
+at 8.45 bowshock ship 2.5 ease=3.9
+at 12.35 bowshock ship 5 ease=3.9
+at 18.33 impact 0,70476,-47619 12000
+// Seen from 60 km: a dull boom, no tearing.
+at 18.59 sound space_blast_far db=4
+at 18.85 rumble 0 ease=1.95
+at 24.7 prop pod pod_drop 43600,36300,-18200 41600,60400,-44900 11 nose=-y trail=25
+// The pod burning in (the player's own loop, spaceship_loud_burni): from its quietest moment (3.4 s in) it swells to its
+// loudest some five seconds later, as the shock flares, and goes into the black with the silence.
+at 24.7 sound pod_entry_burn from=3.4 db=5
+at 24.7 sound pod_drop_wind db=2
+at 24.7 rumble 0.9 ease=1.3
+at 24.96 bowshock pod 1.6 ease=2.6
+at 32.7 fade 1 2.95
+at 32.7 silence 3
 
 part aussen outside
-// High in the sky beside the burning ship, the pod falling away from it as a small dark dot.
-take hoehe 6 chase ship offset=700,-650,-260 fov=50 blur=0
-// From the ground at dusk, a wide lens: the ship streaks over and down to the north.
-take boden 11 fixed 1010,835,1.8 look=ship rate=1.2 fov=70 blur=0.3
-// It goes down behind the rim; the flash; the column of smoke; the shock comes late; the pod streaks in.
-take einschlag 7.6 fixed 1010,835,1.8 look=1400,5200,40 rate=0.9 fov=56 blur=0.3
-// The pod lands hard, close by.
+// Cut 5: from the ground at dusk; behind the northern rim the mothership's smoke already stands, its fire glowing at the
+// foot. The pod streaks in out of the north, down towards the camera.
+take horizont 7.8 fixed 1010,835,1.8 look=1400,4200,150 rate=0.9 fov=56 blur=0.3
 // The pod lands hard, close by: framed whole, its tip below the bar (it was cut flat at pod@2 and fov 42-45).
-take landung 4 fixed 1012,838,1.6 look=pod@12|1060,905,12 rate=3 fov=58 blur=1
+take landung 5.2 fixed 1012,838,1.6 look=pod@12|1060,905,12 rate=3 fov=58 blur=1
 // Silence. A tick of cooling metal. Black.
-take stille 3.4 fixed 1012,838,1.6 look=pod@12|1060,905,12 rate=1 fov=56 blur=1.2
+take stille 4.42 fixed 1012,838,1.6 look=pod@12|1060,905,12 rate=1 fov=56 blur=1.2
 
-at 0.0 dusk 0.9 dim=0.7
-at 0.0 prop ship mothership 300,-1500,2800 1500,7000,-400 22 nose=-x glow=2 trail=260
-at 0.0 sound amb_reentry for=21
-at 0.0 rumble 0.5 ease=0.3
-at 2.5 prop pod1 pod 436,-534,2316 380,-200,1600 4 ease=in until=6.2 glow=1
-at 6.0 rumble 0 ease=1
-at 21.0 flash 1450,6600,0 1400 light=7000 for=1.6
-at 21.2 smoke 1450,6600,0 180 rise=24
-at 21.6 prop pod pod 1150,1300,900 1060,905,0 3.0 ease=in glow=1.5 trail=6 land=5
-at 22.4 sound pod_drop_wind
-at 23.4 sound hull_breach db=-3
-at 23.5 shake camera 4 1.5
-at 23.5 rumble 0.8 ease=0.1
-at 24.6 sound pod_impact
-at 24.8 rumble 0 ease=2
-at 25.0 smoke pod 3 rise=9
-at 28.6 silence 0.2
-at 29.2 sound cooling_tick
-at 30.0 fade 1 2
+at 0 dusk 0.7 dim=0.5
+at 0 smoke 1400,4200,0 420 rise=30 early=17
+at 0 fire 1400,4200,40 700 320
+at 0 sound amb_fire db=-14
+at 0 rumble 0.15 ease=0.65
+at 3.9 prop pod pod_drop 1700,4200,1400 1060,905,0 3.9 ease=in lean=35 trail=14 land=5 sink=7
+at 4.94 sound pod_drop_wind db=4
+at 6.24 sound hull_breach db=2
+at 6.37 shake camera 4 1.5
+at 6.37 rumble 0.8 ease=0.13
+at 7.8 sound pod_impact db=3
+at 8.06 rumble 0 ease=2.6
+at 8.32 smoke pod 3 rise=9
+at 13 silence 0.2
+at 13.78 sound cooling_tick
+at 14.82 fade 1 2.6

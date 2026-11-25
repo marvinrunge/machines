@@ -208,6 +208,9 @@ public partial class Game
         }
         foreach (var e in World.Events)
         {
+            // A cutscene played alone for a check: the chapter around it is not heard or shown.
+            if (CutsceneOnly && e.Kind is GameEventKind.StoryLine or GameEventKind.StoryCue or GameEventKind.StoryObjective)
+                continue;
             var at = ActorView.World(e.Position);
             switch (e.Kind)
             {

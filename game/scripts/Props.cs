@@ -139,6 +139,8 @@ public static class Props
                 if (node is Node3D spatial)
                     offset = spatial.Transform * offset;
             var mesh = Footless(Turned(imported), offset);
+            if (name == "pod_cradle")
+                mesh = Opened(mesh, offset);
             var jambs = name == "kit_door_frame" && Darken(mesh, JambFaces);
             for (var surface = 0; surface < mesh.GetSurfaceCount(); surface++)
                 if ((part.GetSurfaceOverrideMaterial(surface) ?? mesh.SurfaceGetMaterial(surface)) is BaseMaterial3D material)
@@ -154,6 +156,45 @@ public static class Props
             root.Free();
         }
     }
+
+    /// <summary>
+    /// The pods' cradle with its ring opened wider about its middle, its outer rim and feet as they were: drawn round the
+    /// game's Pod at its own size (DeckLayout.PodCradle), its clamps and inner ring stood in the pod's hull, 34 m across
+    /// where the ring left it 28 m. Within <see cref="CradleRim"/> every point moves out so that the ring's inner edge (2.81 m
+    /// from the middle of the 10 m model) lies at <see cref="CradleOpening"/>, the rest of the ring closing up toward the rim.
+    /// </summary>
+    private static ArrayMesh Opened(ArrayMesh mesh, Transform3D offset)
+    {
+        const float inner = 2.81f;
+        var squeeze = (CradleRim - CradleOpening) / (CradleRim - inner);
+        var back = offset.AffineInverse();
+        var opened = new ArrayMesh { ResourceName = mesh.ResourceName };
+        for (var surface = 0; surface < mesh.GetSurfaceCount(); surface++)
+        {
+            var arrays = mesh.SurfaceGetArrays(surface);
+            if (arrays[(int)Mesh.ArrayType.Vertex].As<Vector3[]>() is { Length: > 0 } vertices)
+            {
+                for (var v = 0; v < vertices.Length; v++)
+                {
+                    var p = offset * vertices[v];
+                    var r = new Vector2(p.X, p.Z).Length();
+                    if (r < CradleRim && r > 0.01f)
+                    {
+                        var widened = (CradleRim - (CradleRim - r) * squeeze) / r;
+                        p = new Vector3(p.X * widened, p.Y, p.Z * widened);
+                    }
+                    vertices[v] = back * p;
+                }
+                arrays[(int)Mesh.ArrayType.Vertex] = vertices;
+            }
+            opened.AddSurfaceFromArrays(mesh.SurfaceGetPrimitiveType(surface), arrays);
+            opened.SurfaceSetMaterial(surface, mesh.SurfaceGetMaterial(surface));
+        }
+        return opened;
+    }
+
+    /// <summary>The cradle's ring opened to this inner radius, and how far out (its rim) the model stays as it was, model metres.</summary>
+    private const float CradleOpening = 3.55f, CradleRim = 6.0f;
 
     /// <summary>
     /// The mesh with its normals turned the way its faces are wound where Meshy left them pointing into the model: such a

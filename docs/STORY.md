@@ -203,8 +203,13 @@ Technische Notizen:
   am Boden liegen). Bei 0 ist das Kapitel verloren („Abgestürzt“), weiter geht es vom Checkpoint.
 - **Fortschritt und Ende (umgesetzt):** Den Checkpoint speichert nur das Spiel des Hosts (des Locators); „Weiter“ auf der
   Story-Seite und der Koop-Raum des Hosts gehen von dort weiter, auch online führt die Karte nach einem Verlust zurück in
-  den Raum mit diesem Checkpoint. Nach dem Start des Pods läuft „Abwurf“: der Teil in der Bucht live, dann der Teil draußen
-  auf m_desert in einer dunkleren Dämmerung, danach die Karte „Prolog abgeschlossen“ und die Story-Seite. Akt 1 fehlt noch.
+  den Raum mit diesem Checkpoint. Nach dem Start des Pods läuft „Abwurf“: das brennende Mutterschiff im All, der Teil in
+  der Bucht live, dann wieder im All der Abwurf, der Sturz des Schiffs in den Planeten mit Einschlag und der Eintritt des
+  Pods (eigene Weltraumbühne, SpaceStage); dann draußen auf m_desert in der Dämmerung die Rauchsäule und die Landung,
+  danach die Karte „Prolog abgeschlossen“ und die Story-Seite. Die Landung gehört als Eröffnung zu Akt 1: der Ladevorgang
+  liegt zwischen den Akten, nicht mitten in der Cutscene; bis Akt 1 steht, spielt sie als Platzhalter auf m_desert.
+  Unter dem Deck-Teil liegt „Deep Drift“ (deep_drift_v2 ab Sekunde 17, eingeblendet); die Triebwerke des Mutterschiffs
+  glühen, und unter dem Pod öffnet sich der Schacht zu den Sternen. Akt 1 fehlt noch.
 - **Wiederverwendung:** Die Decks aus dem Prolog sind später das Wrack in Akt 2, nur zerbrochen, schief und voller Sand.
   Ein Baukasten, zwei Level. Danach dient er auch dem Refugium als Grundlage.
 - Die **Rauchsäule** am Horizont in Akt 1 ist ein starker, billiger Orientierungspunkt (Partikel, Licht in der Nacht).

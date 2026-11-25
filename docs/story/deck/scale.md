@@ -275,7 +275,7 @@ What reads the deck now goes by the 2x deck:
   (voices 150 m), the hunted / uneasy music 20 / 50 m, the reverb by the doubled sizes, the beacons' beams 24 m. On a deck
   the first-person view is drawn back from a wall it noses into.
 - **Pods** at scale 1 in the bay (`Game.DeckShow`) and in `abwurf.cut` (its look, light, sparks and fall heights for a
-  43.5 m pod), the cradle ring 5x, fires 26 m north of a broken pod, the launched one found within 40 m of the hatch.
+  43.5 m pod), the cradle ring 5.5x with its opening widened (Props.Opened), fires 26 m north of a broken pod, the launched one found within 40 m of the hatch.
 - **The dark start** (sections 1 and 2): the ambient light at 45 % and the emergency lamps at 45 % (`PlanetLook.Gloom`,
   `DeckView.SetGloom`), lifting over about 3 s once the trio is through to the core. **The trio's lamps** are damaged
   (`ActorView.LampDamaged`, `LampFlicker`): 40 % of a sound lamp, with an unsteady hum and every 3 to 10 s a dip, a stutter

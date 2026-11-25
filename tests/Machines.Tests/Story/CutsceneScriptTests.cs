@@ -91,28 +91,97 @@ public class CutsceneScriptTests
         Assert.Equal([new CutscenePoint("core", 0, 0, 4)], CutscenePoint.Parse("core@4"));
         Assert.Equal([new CutscenePoint(null, 88, 133.5f, -2)], CutscenePoint.Parse("88,133.5,-2"));
         Assert.Equal([new CutscenePoint("reaper", 0, 0, 3.2f), new CutscenePoint(null, 80, 125, 3)], CutscenePoint.Parse("reaper@3.2|80,125,3"));
+        // A point on a prop in its own metres, turning with it.
+        Assert.Equal([new CutscenePoint("ship", 150, -200, -60, Local: true)], CutscenePoint.Parse("ship@150,-200,-60"));
         Assert.Throws<FormatException>(() => CutscenePoint.Parse("1,2"));
+        Assert.Throws<FormatException>(() => CutscenePoint.Parse("ship@1,2"));
         Assert.Throws<FormatException>(() => CutscenePoint.Parse("core@high"));
+    }
+
+    [Fact]
+    public void Space_parts_play_with_the_map_part_beside_them()
+    {
+        var script = CutsceneScript.Parse("""
+            cutscene probe
+            part before space planet=0,9000,-9000 radius=9000 sun=200,30
+            take a 2 chase ship offset=1,2,3 to=4,5,6 look=ship@-10,0,0
+            at 0 prop ship space/mothership 0,0,0 0,100,0 5 nose=-x
+            at 1 explosion ship@1,2,3 40
+            part bay deck
+            take b 3 cam cam_x
+            at 0.5 line P_ANN_C1
+            part after space
+            take c 4 fixed ship@10,-20,30 look=pod|ship
+            at 1 impact 0,10,-20 300
+            at 2 bowshock ship 2 ease=1
+            part out outside
+            take d 1 fixed 1,2,3
+            """);
+        // The space part before the deck's plays first, the one after it next: one run, as one part.
+        var run = script.Part(onDeck: true)!;
+        Assert.Equal("bay", run.Name);
+        Assert.True(run.HasSpace);
+        Assert.Equal(["a", "b", "c"], run.Takes.Select(t => t.Name));
+        Assert.Equal([true, false, true], run.Takes.Select(t => t.Space));
+        Assert.Equal(9, run.Length);
+        // Cues keep their moments within the run, and whether they belong to space.
+        Assert.Equal([(0f, true), (1f, true), (2.5f, false), (6f, true), (7f, true)], run.Cues.Select(c => (c.At, c.Space)));
+        Assert.Equal("200,30", run.Options["sun"]);
+        // The outside part has no space beside it.
+        var outside = script.Part(onDeck: false)!;
+        Assert.False(outside.HasSpace);
+        Assert.Equal(1, outside.Length);
+    }
+
+    [Theory]
+    [InlineData("part p space\ntake a 1 cam c", "space")]
+    [InlineData("part p space\ntake a 1 fixed 0,0,0", "goes with a deck or outside part")]
+    public void Space_parts_are_filmed_fixed_or_chasing_beside_a_map_part(string body, string why)
+    {
+        var error = Assert.Throws<FormatException>(() => CutsceneScript.Parse("cutscene probe\n" + body, "probe.cut"));
+        Assert.Contains(why, error.Message);
     }
 
     // ---- the prologue's scripts --------------------------------------------------------------------
 
     [Fact]
-    public void Abwurf_drops_the_pod_in_the_bay_then_shows_the_ship_burning_down_outside()
+    public void Abwurf_burns_drops_and_strikes_in_space_around_the_bay_then_lands_outside()
     {
         var script = Script("abwurf");
         var bay = script.Part(onDeck: true)!;
-        Assert.All(bay.Takes, t => Assert.Equal("cam_abwurf_1", t.Subject));
-        // The bay ends black: the story loads the outside then.
+        Assert.True(bay.HasSpace);
+        Assert.All(bay.Takes.Where(t => !t.Space), t => Assert.Equal("cam_abwurf_1", t.Subject));
+        // The burning ship first (cut 1), then the bay, then the fall (cuts 2 to 4).
+        Assert.True(bay.Takes[0].Space && bay.Takes[^1].Space);
+        var first = bay.Takes.ToList().FindIndex(t => !t.Space);
+        Assert.InRange(bay.StartOf(first), 8, 15);
+        var ship = bay.Cues.First(c => c is { Kind: "prop", Space: true } && c.Args[1] == "space/mothership");
+        Assert.Equal(0, ship.At);
+        var from = CutscenePoint.Parse(ship.Args[2]).Single();
+        var to = CutscenePoint.Parse(ship.Args[3]).Single();
+        var descentAngle = Math.Atan2(from.Up - to.Up, to.Y - from.Y) * 180 / Math.PI;
+        Assert.InRange(descentAngle, 4, 7);
+        Assert.Contains(bay.Cues, c => c is { Kind: "explosion", Space: true } && c.At < bay.StartOf(first));
+        // It races into the planet: glowing, trailing, in its bow shock, and strikes.
+        var dive = bay.Cues.Last(c => c is { Kind: "prop" } && c.Args[1] == "space/mothership");
+        Assert.True(dive.Number("glow", 0) > 0 && dive.Number("trail", 0) > 0);
+        Assert.Contains(bay.Cues, c => c is { Kind: "bowshock" } && c.Args[0] == "ship");
+        Assert.Contains(bay.Cues, c => c.Kind == "impact" && c.At >= dive.At);
+        // The pod's own entry in its shock.
+        Assert.Contains(bay.Cues, c => c is { Kind: "bowshock" } && c.Args[0] == "pod");
+        // The run ends black: the story loads the outside then.
         var black = bay.Cues.Last(c => c.Kind == "fade");
         Assert.Equal(1, black.Number(0));
         Assert.True(black.At + black.Number(1) <= bay.Length);
 
         var outside = script.Part(onDeck: false)!;
-        Assert.InRange(outside.Length, 25, 40);
-        var ship = Assert.Single(outside.Cues, c => c is { Kind: "prop" } && c.Args[1] == "mothership");
-        Assert.True(ship.Number("glow", 0) > 0 && ship.Number("trail", 0) > 0);
-        var pod = outside.Cues.Last(c => c is { Kind: "prop" } && c.Args[1] == "pod");
+        Assert.False(outside.HasSpace);
+        Assert.InRange(outside.Length, 10, 20);
+        // The mothership's smoke has had time to rise since the strike, but is not already at the end of its plume.
+        var smoke = Assert.Single(outside.Cues, c => c.Kind == "smoke" && c.At == 0);
+        var impact = Assert.Single(bay.Cues, c => c.Kind == "impact");
+        Assert.InRange(Math.Abs(smoke.Number("early", 0) - (bay.Length - impact.At)), 0, 1);
+        var pod = outside.Cues.Last(c => c is { Kind: "prop" } && c.Args[1] == "pod_drop");
         Assert.True(pod.Number("land", 0) > 0, "the pod lands hard");
         // Dusk, and darker than the planet's own dusk (FilmCamera's dim): the ship's glow has to carry the picture.
         var dusk = Assert.Single(outside.Cues, c => c.Kind == "dusk");
@@ -122,7 +191,7 @@ public class CutsceneScriptTests
         var end = outside.Cues.Last(c => c.Kind == "fade");
         Assert.Equal(1, end.Number(0));
         Assert.True(end.At + end.Number(1) <= outside.Length);
-        Assert.True(File.Exists(Path.Combine(Repo, "game", "assets", "story", "props", "mothership.glb")));
+        Assert.True(File.Exists(Path.Combine(Repo, "game", "assets", "story", "space", "mothership.glb")));
     }
 
     [Theory]
@@ -132,7 +201,8 @@ public class CutsceneScriptTests
         var script = Script(name);
         var deck = DeckLoader.Value;
         var lines = VoiceLines();
-        foreach (var part in script.Parts)
+        // Each run as it plays: a space part with the map part it goes with, so its points may name that part's props.
+        foreach (var part in new[] { script.Part(onDeck: true), script.Part(onDeck: false) }.OfType<CutscenePart>())
         {
             var props = part.Cues.Where(c => c.Kind == "prop").Select(c => c.Args[0]).ToHashSet();
             bool Known(string text) => CutscenePoint.Parse(text).All(p => p.Name is null
@@ -169,7 +239,7 @@ public class CutsceneScriptTests
                 Assert.InRange(cue.At, 0, part.Length);
                 var points = cue.Kind switch
                 {
-                    "shake" or "explosion" or "sparks" or "fire" or "smoke" or "flash" => [cue.Args[0]],
+                    "shake" or "explosion" or "sparks" or "fire" or "smoke" or "flash" or "impact" => [cue.Args[0]],
                     "shot" => [cue.Args[1], cue.Args[2]],
                     "prop" => [cue.Args[2], cue.Args[3]],
                     _ => Array.Empty<string>(),
@@ -180,8 +250,11 @@ public class CutsceneScriptTests
                     Assert.True(lines.ContainsKey(cue.Args[0]), $"{where}: no voice line {cue.Args[0]}");
                 if (cue.Kind == "sound")
                     Assert.True(File.Exists(Path.Combine(Repo, "game", "assets", "story", "sfx", cue.Args[0] + ".ogg")), $"{where}: no sound {cue.Args[0]}");
+                if (cue.Kind == "bowshock")
+                    Assert.True(props.Contains(cue.Args[0]), $"{where}: no prop {cue.Args[0]}");
+                // A model by its bare name is a prop (game/assets/story/props); one with a folder is under game/assets/story.
                 if (cue.Kind == "prop" && cue.Args[1] != "pod")
-                    Assert.True(File.Exists(Path.Combine(Repo, "game", "assets", "story", "props", cue.Args[1] + ".glb")), $"{where}: no prop model {cue.Args[1]}");
+                    Assert.True(File.Exists(Path.Combine(Repo, "game", "assets", "story", cue.Args[1].Contains('/') ? cue.Args[1] + ".glb" : Path.Combine("props", cue.Args[1] + ".glb"))), $"{where}: no prop model {cue.Args[1]}");
             }
         }
     }

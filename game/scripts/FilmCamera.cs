@@ -65,18 +65,20 @@ public abstract partial class FilmCamera : Node
     /// </summary>
     protected void Show(Frame frame, bool cut)
     {
-        _camera.Fov = frame.Fov;
-        _camera.LookAtFromPosition(frame.Eye, frame.Target, Vector3.Up);
+        // A script's space take films its own stage with that stage's camera.
+        var camera = SpaceCamera ?? _camera;
+        camera.Fov = frame.Fov;
+        camera.LookAtFromPosition(frame.Eye, frame.Target, Mathf.Abs((frame.Target - frame.Eye).Normalized().Y) > 0.999f ? Vector3.Forward : Vector3.Up);
         var shake = CameraRig.ShakeAt(frame.Eye).GetRotationQuaternion();
-        _camera.Basis *= new Basis(Quaternion.Identity.Slerp(shake, _inside is null ? 0.5f : 1));
+        camera.Basis *= new Basis(Quaternion.Identity.Slerp(shake, _inside is null ? 0.5f : 1));
         // A script's camera leans as the ship lists.
-        if (_part is not null && TiltNow() is { Level: false } tilt)
-            _camera.Basis *= tilt.At(FrameClock.Now);
+        if (_part is not null && !_inSpace && TiltNow() is { Level: false } tilt)
+            camera.Basis *= tilt.At(FrameClock.Now);
         // The focus follows its frame smoothly within a take: a followed machine's every jolt moved the sharp zone, and
         // the blur behind it pulsed.
         var focus = frame.Focus ?? frame.Eye.DistanceTo(frame.Target);
         _focus = cut ? focus : Mathf.Lerp(_focus, focus, 1 - Mathf.Exp(-_step / 0.15f));
-        FilmLook.Focus(_camera, _focus, frame.Blur);
+        FilmLook.Focus(camera, _focus, frame.Blur);
     }
 
     // ---- who is in it --------------------------------------------------------------------------

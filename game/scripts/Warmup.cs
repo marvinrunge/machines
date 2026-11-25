@@ -232,6 +232,18 @@ public partial class Warmup : Node3D
             AddChild(hack);
             hack.AddChild(HackHost.Warm());
         }
+        // On a deck, the space its cutscenes go out to (the burning mothership, the planet, the blasts), drawn under the
+        // loading screen with the rest (FilmCamera.RehearseSpace).
+        var space = _world.Deck is not null ? FilmCamera.RehearseSpace(this) : null;
+        if (_world.Deck is not null)
+        {
+            var opening = FilmCamera.OpeningSample();
+            stage.AddChild(opening);
+            opening.GlobalPosition = at + Vector3.Up * 0.5f;
+        }
+        // Outside, what a story's cutscene on this map shows (the pod streaking in and landing).
+        else
+            FilmCamera.RehearseOutside(stage, at, MatchRequest.Current.Scenario);
 
         // Drawn until Godot has built every pipeline it needed: some frames in a row without a new one.
         var shown = Stopwatch.StartNew();
@@ -256,6 +268,7 @@ public partial class Warmup : Node3D
         _groups = [];
         stage.QueueFree();
         hack?.QueueFree();
+        space?.QueueFree();
         // The stage goes before the match is shown, and the garbage of all that loading with it: collected later, it
         // held up a frame of the match for a third of a second.
         yield return true;
@@ -266,6 +279,9 @@ public partial class Warmup : Node3D
 
     /// <summary>The story's props a film's warm-up drew, kept loaded so the film shows the same meshes.</summary>
     private static readonly HashSet<PackedScene> FilmProps = [];
+
+    // The space stage's sky picture, kept loaded once a story has warmed it up.
+    private static Texture2D? SpaceSky;
 
     /// <summary>
     /// What a hero wears now and, on a story's deck, after taking each weapon from its racks (the markers pickup_&lt;weapon&gt;),
@@ -449,6 +465,8 @@ public partial class Warmup : Node3D
                 }
                 yield return false;
             }
+        if (_world.Deck is not null && ResourceLoader.Exists("res://assets/story/space/sky.jpg"))
+            SpaceSky ??= GD.Load<Texture2D>("res://assets/story/space/sky.jpg");
         Note($"{actors.Count + bare.Count} put up", since);
         if (views.Count == 0)
             yield break;

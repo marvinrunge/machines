@@ -395,6 +395,21 @@
    "gain_db": 10.5,
    "limited": true
   },
+  "hull_breakup": {
+   "file": "hull_breakup.ogg",
+   "loop": false,
+   "stereo": true,
+   "target_lufs": -16,
+   "source": "elevenlabs",
+   "model": "eleven_text_to_sound_v2",
+   "prompt": "A kilometre-long starship breaking apart: colossal deep structural groaning, massive steel girders bending and snapping with low booming cracks, heavy rumbling, slow and enormous, cinematic, no music",
+   "requested_seconds": 15,
+   "gen_hash": "33464cc45eb4",
+   "hash": "99480444a3aa",
+   "seconds": 13.56,
+   "gain_db": -4.1,
+   "limited": false
+  },
   "loc_fan": {
    "file": "loc_fan.ogg",
    "loop": true,
@@ -502,6 +517,17 @@
    "gain_db": -6.5,
    "limited": false
   },
+  "pod_entry_burn": {
+   "file": "pod_entry_burn.ogg",
+   "loop": true,
+   "stereo": true,
+   "target_lufs": -22,
+   "source": "user",
+   "note": "The user's own loop (an ElevenLabs download, spaceship_loud_burni #2), not in sfx.json; loudest at 8-10 s, quietest at 3.4 s.",
+   "seconds": 15.0,
+   "gain_db": -8.4,
+   "limited": false
+  },
   "pod_impact": {
    "file": "pod_impact.ogg",
    "loop": false,
@@ -578,6 +604,21 @@
    "seconds": 1.363,
    "gain_db": -8.6,
    "limited": false
+  },
+  "space_blast_far": {
+   "file": "space_blast_far.ogg",
+   "loop": false,
+   "stereo": true,
+   "target_lufs": -14,
+   "source": "elevenlabs",
+   "model": "eleven_text_to_sound_v2",
+   "prompt": "A gigantic explosion far away, heard from a great distance: a dull, muffled, very deep boom, a heavy low thud that rolls out into a long low rumble, no crackle, no high frequencies, cinematic",
+   "requested_seconds": 6,
+   "gen_hash": "1762e07f435a",
+   "hash": "1565b55fafa6",
+   "seconds": 6.0,
+   "gain_db": 7.0,
+   "limited": true
   },
   "sparks": {
    "file": "sparks.ogg",
