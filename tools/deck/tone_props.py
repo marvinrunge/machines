@@ -9,7 +9,9 @@ degrees of hue from pure red. The normal and metal-roughness textures are left a
 their red is the story's alarm. The set pieces in NEUTRAL lose their red entirely (keep 0), and on them the toning
 reaches further towards purple (full to PURPLE_FULL, gone at PURPLE_NONE degrees), where Meshy's maroon shades off, so
 they wear the plain grey of the rebuilt deck kit. Props no longer Meshy's (their .json sidecar names another source,
-like the deck kit rebuilt in Blender) are never touched.
+like the deck kit rebuilt in Blender) are never touched. The props in HOUSINGS lose only their strong red (saturation
+above the pair's first value, fully above its second), so the emergency lamp's housing turns grey while its pale red
+glass stays.
 
 It always works from the originals as committed in ORIGINALS (read with git show), so it can be run again with another
 KEEP without toning twice. After running it the .glb files have to be imported again. Not with --import in the main
@@ -40,7 +42,10 @@ RED_NONE = 30.0
 # The commit holding Meshy's original props.
 ORIGINALS = "907fa38"
 # Props left as they are: their red is a lamp's.
-LEFT = {"alarm_beacon", "lamp_emergency"}
+LEFT = {"alarm_beacon"}
+# Props whose strongly saturated red goes grey (the housing) and whose paler red stays (the glass): saturation where the
+# toning starts and where it is full.
+HOUSINGS = {"lamp_emergency": (0.50, 0.58)}
 # Set pieces toned to plain grey, to stand beside the rebuilt deck kit.
 NEUTRAL = {"barrel", "cable_hang", "clamp_terminal", "core_console", "crate_large", "crate_small", "debris_beam",
            "debris_panel", "generator", "junction_box", "pipe_run", "pod_cradle", "repair_station", "wall_screen"}
@@ -52,7 +57,8 @@ ROOT = Path(__file__).resolve().parents[2]
 FOLDER = "game/assets/story/props"
 
 
-def toned(rgb: np.ndarray, keep: float, purple: tuple[float, float] = (RED_FULL, RED_NONE)) -> np.ndarray:
+def toned(rgb: np.ndarray, keep: float, purple: tuple[float, float] = (RED_FULL, RED_NONE),
+          strong: tuple[float, float] | None = None) -> np.ndarray:
     a = rgb.astype(np.float32) / 255.0
     r, g, b = a[..., 0], a[..., 1], a[..., 2]
     mx, mn = a.max(-1), a.min(-1)
@@ -63,6 +69,8 @@ def toned(rgb: np.ndarray, keep: float, purple: tuple[float, float] = (RED_FULL,
     weight = np.where(hue <= 180.0, np.clip((RED_NONE - hue) / (RED_NONE - RED_FULL), 0.0, 1.0),
                       np.clip((none - (360.0 - hue)) / (none - full), 0.0, 1.0))
     weight = np.where(delta > 1e-6, weight, 0.0)
+    if strong is not None:
+        weight = weight * np.clip((delta / np.maximum(mx, 1e-6) - strong[0]) / (strong[1] - strong[0]), 0.0, 1.0)
     luma = (0.2126 * r + 0.7152 * g + 0.0722 * b)[..., None]
     factor = (1.0 - weight * (1.0 - keep))[..., None]
     out = luma + (a - luma) * factor
@@ -97,7 +105,8 @@ def packed(doc: dict, views: list[bytes]) -> bytes:
         + struct.pack("<II", len(binary), 0x004E4942) + bytes(binary)
 
 
-def tone_glb(glb: bytes, keep: float, purple: tuple[float, float] = (RED_FULL, RED_NONE)) -> bytes:
+def tone_glb(glb: bytes, keep: float, purple: tuple[float, float] = (RED_FULL, RED_NONE),
+             strong: tuple[float, float] | None = None) -> bytes:
     doc, binary = chunks(glb)
     assert all(v.get("buffer", 0) == 0 for v in doc["bufferViews"]) and len(doc["buffers"]) == 1
     views = [binary[v.get("byteOffset", 0) : v.get("byteOffset", 0) + v["byteLength"]] for v in doc["bufferViews"]]
@@ -108,7 +117,7 @@ def tone_glb(glb: bytes, keep: float, purple: tuple[float, float] = (RED_FULL, R
         view = image["bufferView"]
         picture = Image.open(io.BytesIO(views[view]))
         alpha = picture.getchannel("A") if picture.mode in ("RGBA", "LA") else None
-        out = Image.fromarray(toned(np.asarray(picture.convert("RGB")), keep, purple))
+        out = Image.fromarray(toned(np.asarray(picture.convert("RGB")), keep, purple, strong))
         buffer = io.BytesIO()
         if image["mimeType"] == "image/png":
             if alpha is not None:
@@ -136,6 +145,10 @@ def main() -> None:
         if stem in LEFT or only and stem not in only or not meshy(path):
             continue
         glb = subprocess.run(["git", "show", f"{ORIGINALS}:{path}"], cwd=ROOT, check=True, capture_output=True).stdout
+        if stem in HOUSINGS:
+            (ROOT / path).write_bytes(tone_glb(glb, 0.0, strong=HOUSINGS[stem]))
+            print(path, "housing grey")
+            continue
         neutral = stem in NEUTRAL
         (ROOT / path).write_bytes(tone_glb(glb, 0.0 if neutral else keep, (PURPLE_FULL, PURPLE_NONE) if neutral else (RED_FULL, RED_NONE)))
         print(path, "grey" if neutral else keep)
