@@ -169,7 +169,14 @@ public class DeckLayoutTests
         Assert.Single(pieces, p => p.Prop == "weapon_rack");
         Assert.Single(pieces, p => p.Prop == "bay_crane");
         Assert.Contains(pieces, p => p.Prop == "core_console");
-        Assert.Equal(4, pieces.Count(p => p.Prop == "clamp_terminal")); // Ike's and Bob's, and the core chamber's two console banks
+        Assert.Equal(7, pieces.Count(p => p.Prop == "clamp_terminal")); // Ike's and Bob's, the core chamber's two console banks, and the doors H, Q and X's
+        // Every hack has something to hack on within reach of where it is done: a console or a terminal.
+        foreach (var name in Machines.Sim.Story.HackDesk.Prologue.Keys.Where(n => n.StartsWith("hack_", StringComparison.Ordinal) || n.StartsWith("terminal_", StringComparison.Ordinal)))
+        {
+            var at = Deck.Markers.Single(m => m.Name == name).Position;
+            Assert.Contains(pieces, p => p.Prop is "core_console" or "clamp_terminal"
+                                         && Vector2.Distance(new Vector2(p.Position.X, p.Position.Y), at) <= Machines.Sim.World.GameWorld.HackReach);
+        }
         Assert.Equal(4, pieces.Count(p => p.Prop == "plate")); // the gates' and the cable passage's switches, and Y's in the pod bay
         // What stands on the floor and is not driven into (clamps, cradles, the repair station, plates) or built into the
         // wall (pillars) stands on high cover, which the sim blocks.

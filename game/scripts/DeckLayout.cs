@@ -768,9 +768,9 @@ public sealed class DeckLayout
             {
                 claimed.Add(cover);
                 var prop = CoverPieces[tag];
-                // A console wider than its cover is too much: a hack on a small block is a junction box.
+                // A console wider than its cover is too much: a hack on a small block is a terminal, so the player sees where to hack.
                 if (prop == "core_console" && Math.Max(cover.Width, cover.Depth) < 3)
-                    prop = "junction_box";
+                    prop = "clamp_terminal";
                 pieces.Add(new DeckPiece(prop, new Vector3(cover.Centre, 0), marker.Angle + 180, Fit(prop, cover)));
             }
             else if (NearestWall(at, 4) is { } wall)
