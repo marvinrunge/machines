@@ -3,8 +3,8 @@
   "id": "K1",
   "kind": "kit",
   "size_m": [
-    4,
-    4,
+    4.0,
+    4.0,
     0.3
   ],
   "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
@@ -21,54 +21,13 @@
     ]
   },
   "height": 0.3,
-  "tris": 383,
-  "footprint": [
-    [
-      -2.0,
-      -2.0
-    ],
-    [
-      2.0,
-      -2.0
-    ],
-    [
-      2.0,
-      2.0
-    ],
-    [
-      -2.0,
-      2.0
-    ]
-  ],
-  "footprint_below_m": 0.5,
-  "source": "Meshy meshy-t2.5 smart-topology, renders/meshy/props/kit_floor/model.glb",
-  "target_polycount": 400,
-  "tris_raw": 383,
-  "decimated_from": null,
-  "islands": 2,
-  "dropped_scraps": 0,
-  "yaw": 0,
-  "flip": false,
-  "fit": {
-    "scale": [
-      4.2118,
-      4.1437,
-      3.9638
-    ],
-    "snapped": {
-      "-x": 47,
-      "+x": 47,
-      "-y": 48,
-      "+y": 46,
-      "-z": 35,
-      "+z": 258
-    }
-  },
+  "tris": 90,
+  "source": "Blender (build_floor.py, grate re-dressed by grate_texture.py) textured from a Gemini top view (floor_texture.py), no Tripo",
   "textures": [
     [
-      1024,
-      1024
+      2048,
+      2048
     ]
   ],
-  "glb_bytes": 491916
+  "glb_bytes": 1459172
 }

@@ -480,6 +480,552 @@
    "speaker": "hud",
    "channel": "thought",
    "en": "LINK LOST"
+  },
+  {
+   "id": "P_BOB_NICHE",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Alcove. Left. Now."
+  },
+  {
+   "id": "P_IKE_QUIET",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "I didn't talk. Did you notice? I didn't talk."
+  },
+  {
+   "id": "P_BOB_QUIET",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "You're talking now."
+  },
+  {
+   "id": "P_L7_STILL",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "Drive off. Fans off."
+  },
+  {
+   "id": "P_L7_GRATE",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "He can't get in. But his light can."
+  },
+  {
+   "id": "P_BOB_ROUND_A",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "His round: ninety seconds. He stops at each end."
+  },
+  {
+   "id": "P_IKE_LANE",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "I'm counting his steps. At twenty I go. Or nineteen."
+  },
+  {
+   "id": "P_BOB_FREEZE",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Contact. Hold still."
+  },
+  {
+   "id": "P_IKE_FREEZE",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "I'm a crate. I'm a crate."
+  },
+  {
+   "id": "P_IKE_UP_DARK",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Am I dead? … No. Just very quiet."
+  },
+  {
+   "id": "P_BOB_UP_DARK",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Rebooted. He's still here. Quiet."
+  },
+  {
+   "id": "P_BOB_RETREAT",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Back. Further in."
+  },
+  {
+   "id": "P_BOB_DOOR_H",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "He stops at the door. Every time."
+  },
+  {
+   "id": "P_BOB_BANG_OFFER",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "He's guarding the door. I'll bang the pipe, the noise comes out at the far end. Say when."
+  },
+  {
+   "id": "P_IKE_BANG",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Knock knock. Anybody home?"
+  },
+  {
+   "id": "P_BOB_BANG",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Noise made. He's moving."
+  },
+  {
+   "id": "P_BOB_AGAIN",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "He's coming back. Again?"
+  },
+  {
+   "id": "P_IKE_IN",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "In! In, in, in!"
+  },
+  {
+   "id": "P_IKE_KNOCK",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "He's knocking. We're not answering."
+  },
+  {
+   "id": "P_HUD_INLIGHT",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "IN THE LIGHT"
+  },
+  {
+   "id": "P_HUD_LOCKED",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "LOCKED ON"
+  },
+  {
+   "id": "P_HUD_DELETED",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "L-7 DELETED"
+  },
+  {
+   "id": "P_HUD_DOWN_WAIT",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "SYSTEMS DOWN – WAITING FOR L-7"
+  },
+  {
+   "id": "P_HUD_CREEP",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "CREEPING"
+  },
+  {
+   "id": "P_AUTO_ARMORY",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Unauthorised weapon removal. Armoury sealed."
+  },
+  {
+   "id": "P_AUTO_WAVE_1",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Update complete: batch one. Faulty unit in the armoury."
+  },
+  {
+   "id": "P_AUTO_WAVE_2",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Batch two."
+  },
+  {
+   "id": "P_AUTO_WAVE_3",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Batch three. Freight gate clear."
+  },
+  {
+   "id": "P_AUTO_WAVE_4",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Batch four. All entrances."
+  },
+  {
+   "id": "P_AUTO_WAVE_5",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Batch five. Heavy unit."
+  },
+  {
+   "id": "P_AUTO_UNSEAL",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Power loss in section six. Seal released."
+  },
+  {
+   "id": "P_IKE_EMPTY",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Empty. Way too empty."
+  },
+  {
+   "id": "P_IKE_PIPE",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "You've got a gun. Lovely. And us? A bit of pipe? I'll take a bit of pipe!"
+  },
+  {
+   "id": "P_IKE_US",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "We ram. I know. I've thought about it. We've got no weapons, but we've got us."
+  },
+  {
+   "id": "P_IKE_STRIP_HINT",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "That one's got a Bolter. He won't be needing it."
+  },
+  {
+   "id": "P_IKE_ARMED",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Now we've got guns. And us."
+  },
+  {
+   "id": "P_IKE_ZAP",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "He's crackling! Why is he crackling?!"
+  },
+  {
+   "id": "P_IKE_GATE_N",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "The big gate. Of course. The big gate."
+  },
+  {
+   "id": "P_IKE_BIG",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "That's no Grunt. That's a Grunt that eats Grunts."
+  },
+  {
+   "id": "P_IKE_HURT",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "I'm losing bits here, in case anyone cares."
+  },
+  {
+   "id": "P_IKE_MENDED",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Good as new. Almost. Well."
+  },
+  {
+   "id": "P_IKE_CLEAR",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Is that all? … Tell me that's all."
+  },
+  {
+   "id": "P_BOB_DOOR_R",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Contact. West door."
+  },
+  {
+   "id": "P_BOB_DOOR_T",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Contact. East door."
+  },
+  {
+   "id": "P_BOB_DOOR_N",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Contact. Freight gate."
+  },
+  {
+   "id": "P_BOB_ZAP",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Electric charge. Keep your distance."
+  },
+  {
+   "id": "P_BOB_MOUNTED",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Weapon mounted. Seal removed."
+  },
+  {
+   "id": "P_BOB_CLEAR_SHORT",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "No contacts."
+  },
+  {
+   "id": "P_BOB_BIG",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Mass: three point two tonnes. … Recommendation: don't stand in front of it."
+  },
+  {
+   "id": "P_BOB_TWO",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Two contacts. West and east."
+  },
+  {
+   "id": "P_BOB_CLEAR",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "No further signals."
+  },
+  {
+   "id": "P_BOB_GLITCH_2",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Unit updated. As intended. … Correction."
+  },
+  {
+   "id": "P_L7_STRIP",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "He was like those two. Before the update reached him."
+  },
+  {
+   "id": "P_L7_STASH",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "A drive. An electric charge. Too heavy for the pod. … I'll remember where they lie."
+  },
+  {
+   "id": "P_HUD_SEALED",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "LOCKDOWN: ARMOURY"
+  },
+  {
+   "id": "P_HUD_BATCH",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "BARRACKS · UPDATE BATCH {0}: {1} %"
+  },
+  {
+   "id": "P_HUD_SALVAGE",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "PARTS MARKED: GRUNT 2 DRIVE · ELECTRIC CHARGE"
+  },
+  {
+   "id": "P_AUTO_T240",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Atmospheric entry in six minutes."
+  },
+  {
+   "id": "P_AUTO_SHUT",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Cargo hold bulkhead: emergency lock."
+  },
+  {
+   "id": "P_AUTO_POD1",
+   "speaker": "auto",
+   "channel": "pa",
+   "en": "Escape pod one: clamp failure."
+  },
+  {
+   "id": "P_L7_THRESHER",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "Him. Down here."
+  },
+  {
+   "id": "P_L7_PODBAY",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "Pod bay. Aft ring."
+  },
+  {
+   "id": "P_L7_HOLD",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "Hold them off."
+  },
+  {
+   "id": "P_L7_RESTART",
+   "speaker": "l7",
+   "channel": "thought",
+   "en": "Outside power. … Not yet."
+  },
+  {
+   "id": "P_IKE_THRESHER",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "No. No, no, no. Not him!"
+  },
+  {
+   "id": "P_IKE_CRATES",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Crates! From the right!"
+  },
+  {
+   "id": "P_IKE_CRATES_L",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Crates! From the left!"
+  },
+  {
+   "id": "P_IKE_VALVE",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "I'm on the valve. Run!"
+  },
+  {
+   "id": "P_IKE_FIRE",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "He's just walking through the fire?!"
+  },
+  {
+   "id": "P_IKE_BRIDGE",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "The bridge! It won't hold him!"
+  },
+  {
+   "id": "P_IKE_REAPERS",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Reapers! Behind us! Two! No, three!"
+  },
+  {
+   "id": "P_IKE_AGAIN",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Again?"
+  },
+  {
+   "id": "P_IKE_CRANE",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Crane! I've got the crane!"
+  },
+  {
+   "id": "P_IKE_CABLE",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Cable's in! Come on, come on …"
+  },
+  {
+   "id": "P_IKE_CABLE_DONE",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Don't ever do that again."
+  },
+  {
+   "id": "P_BOB_LIFT",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Contact behind. Five Reapers. Two heavies."
+  },
+  {
+   "id": "P_BOB_THRESHER",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "… and the Thresher."
+  },
+  {
+   "id": "P_BOB_DOOR_Y",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Door held."
+  },
+  {
+   "id": "P_BOB_BLAST",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "They're blasting through the emergency corridor."
+  },
+  {
+   "id": "P_BOB_CABLE",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Cable in. Restarting."
+  },
+  {
+   "id": "P_BOB_CABLE_DONE",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Systems up. Move."
+  },
+  {
+   "id": "P_HUD_SHUTDOWN",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "EMERGENCY SHUTDOWN — CORE SECURED — AWAITING EXTERNAL POWER"
+  },
+  {
+   "id": "P_HUD_RESTART",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "EXTERNAL POWER DETECTED … RESTARTING"
+  },
+  {
+   "id": "P_HUD_RESERVE",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "RESERVE SPENT: NEXT SHUTDOWN = DELETION"
+  },
+  {
+   "id": "P_HUD_CABLE",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "Hold [{0}]: plug in the cable"
+  },
+  {
+   "id": "P_HUD_HEEL",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "LIST {0}°"
+  },
+  {
+   "id": "P_HUD_LANES",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "Keep between the stripes when the ship groans."
+  },
+  {
+   "id": "P_HUD_COOL",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "Cool your drive in cover."
+  },
+  {
+   "id": "P_HUD_AMBER",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "Amber locks can be shot loose."
+  },
+  {
+   "id": "P_HUD_HOLDX",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "Stand in the frame: hold the bulkhead"
+  },
+  {
+   "id": "P_HUD_JETS",
+   "speaker": "hud",
+   "channel": "thought",
+   "en": "Count the jets, then run."
   }
  ]
 }

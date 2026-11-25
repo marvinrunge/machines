@@ -40,7 +40,7 @@ public sealed class NavGrid
     }
 
     /// <summary>
-    /// The fine grid of a ship deck: a cell for each of its 1 m cells. Walls, grates and cover block; ducts and their lips
+    /// The fine grid of a ship deck: a cell for each of its 1 m cells. Walls, high stacks, grates and cover block; ducts and their lips
     /// admit only machines that crawl; floor, catwalks and door slots are open (a closed door is an artefact on its slot).
     /// </summary>
     public NavGrid(Deck deck)

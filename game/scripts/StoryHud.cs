@@ -126,8 +126,17 @@ public partial class StoryHud : Control
             DrawSignature(now);
         }
         DrawBoot(now);
+        // The armoury's bar, boss bar, wreck marks and prompts (StoryHud.Armoury).
+        DrawArmoury(now);
+        // The escape's gyro and rear arc (StoryHud.Escape).
+        DrawEscape(now);
+        // Section 2's eye, IM LICHT, ERFASST, SCHLEICHEN and the Thresher's last place on the tracker (StoryHud.Stealth).
+        DrawStealth(now);
         DrawConsole();
+        DrawHolds();
         DrawEnd(now);
+        // Over everything: the Notabschaltung (StoryHud.Shutdown).
+        DrawShutdown(now);
     }
 
     // ---- the hero and the objective -----------------------------------------------------------------

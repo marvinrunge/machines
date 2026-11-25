@@ -1,6 +1,7 @@
 using System.Numerics;
 using Machines.Import.Model;
 using Machines.Sim.Combat;
+using Machines.Sim.Story;
 using Machines.Sim.Survival;
 
 namespace Machines.Sim.World;
@@ -499,15 +500,23 @@ public sealed partial class GameWorld
         // Nothing hurts the prologue's Thresher (GameWorld.StorySight); the hit still gives its dealer away.
         if (Story is not null && StoryShrugs(target, shooter))
             return false;
+        // The story's harm seam (GameWorld.StoryHarm): friendly fire within the trio vetoed, the sections' whole hits set.
+        var seam = Story is null ? StoryHarmVerdict.Pass : StoryHarmSeam(target, ref damage, shooter);
+        if (seam == StoryHarmVerdict.Veto)
+            return false;
         var share = 1f;
-        if (OnTheWavesSide(target) && shooter is Machine dealing && HeroStateOf(dealing) is { } own)
+        if (seam == StoryHarmVerdict.Pass && OnTheWavesSide(target) && shooter is Machine dealing && HeroStateOf(dealing) is { } own)
             share *= WiredChips.Dealing(this, own, dealing, new ChipHit(target, shooter, weapon, target.Armour));
         if (target is Machine taking && HeroStateOf(taking) is { } hit)
         {
             if (Time < hit.InvulnerableUntil)
                 return false;
+            if (seam == StoryHarmVerdict.Fixed)
+                return true;
             share *= WiredChips.Taking(this, hit, taking, new ChipHit(target, shooter, weapon, target.Armour));
         }
+        if (seam == StoryHarmVerdict.Fixed)
+            return true;
         // What the body of Wired's own machines makes of a hit, hero or not; exactly 1 for any other.
         share *= BodyShare(target, shooter);
         // A located machine takes more from its enemies; exactly 1 for one that is not and for a hit without a dealer.

@@ -183,7 +183,15 @@ public partial class WiredEndScript(string folder, string[] steps) : Node
                 await Wait(1.5);
                 Say($"the menu is up: {menu is not null}, new things {WiredProfile.Load().Fresh.Count}");
                 Picture(picture + "-menu");
-                if (menu?.FindChildren("*", "", true, false).OfType<ChipButton>().FirstOrDefault(b => b.Text == Lang.T("Wired").ToUpperInvariant()) is not { } wired)
+                // Wired is in the single player's menu, one click below the main menu.
+                var single = Lang.T("Single Player").ToUpperInvariant();
+                if (menu?.FindChildren("*", "", true, false).OfType<ChipButton>().FirstOrDefault(b => b.Text == single || b.Text.StartsWith(single + " ", StringComparison.Ordinal)) is not { } toSingle)
+                    return false;
+                await Click(Middle(toSingle));
+                for (var waited = 0.0; waited < 20 && Find<MainMenuPage>() is not { Kind: MainMenuPage.Menu.SinglePlayer }; waited += 0.1)
+                    await Wait(0.1);
+                await Wait(1);
+                if (Find<MainMenuPage>()?.FindChildren("*", "", true, false).OfType<ChipButton>().FirstOrDefault(b => b.Text == Lang.T("Wired").ToUpperInvariant()) is not { } wired)
                     return false;
                 await Click(Middle(wired));
                 return await Hangar(await Await<HangarPage>(20), picture) && await BackToMenu(picture);

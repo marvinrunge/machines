@@ -34,16 +34,19 @@ public sealed record DoorSwing(char Letter, int Leaf, IReadOnlyList<Vector2> Bou
     public float Distance(Vector2 point, float time)
     {
         var share = Share(time);
-        if (share >= 1)
-            return float.PositiveInfinity;
-        var p = point - Slide * share;
+        return share >= 1 ? float.PositiveInfinity : Apart(Boundary, point - Slide * share);
+    }
+
+    /// <summary>How far a point is from a leaf's (convex) outline where it stands, metres: 0 inside it.</summary>
+    public static float Apart(IReadOnlyList<Vector2> boundary, Vector2 p)
+    {
         // Inside the leaf's (convex) outline, or so far from its nearest edge.
         var inside = true;
         var sign = 0f;
         var nearest = float.MaxValue;
-        for (var i = 0; i < Boundary.Count; i++)
+        for (var i = 0; i < boundary.Count; i++)
         {
-            var (a, b) = (Boundary[i], Boundary[(i + 1) % Boundary.Count]);
+            var (a, b) = (boundary[i], boundary[(i + 1) % boundary.Count]);
             var edge = b - a;
             var cross = edge.X * (p.Y - a.Y) - edge.Y * (p.X - a.X);
             if (cross != 0)
@@ -63,13 +66,16 @@ public sealed record DoorSwing(char Letter, int Leaf, IReadOnlyList<Vector2> Bou
 
 /// <summary>
 /// A ship deck's doors (plan WP-B): a closed door is an active artefact on its slot (tools/deck/deck.mjs writes them into
-/// the scenario, tagged 100 + 10 × the door's place in the deck's DOORS, the second leaf one more). Opening one takes it off
+/// the scenario, tagged 1000 + 10 × the door's place in the deck's DOORS, the second leaf one more). Opening one takes it off
 /// the map whole: its cells are free again, and the room machines need round them is measured anew. Its leaves then slide
 /// into the walls over a second or two (<see cref="DoorSwing"/>), and only as far as they have slid can a machine pass.
 /// </summary>
 public sealed partial class GameWorld
 {
     private readonly List<DoorSwing> _doorSwings = [];
+
+    // The leaves of the doors that stand open, by letter, kept so the door can shut again (CloseDoor); a blown door's are gone.
+    private readonly SortedDictionary<char, List<Artefact>> _openLeaves = [];
 
     /// <summary>The deck doors' leaves sliding open now, in the order they began.</summary>
     public IReadOnlyList<DoorSwing> DoorSwings => _doorSwings;
@@ -103,7 +109,7 @@ public sealed partial class GameWorld
         for (var i = 0; i < deck.Doors.Count; i++)
         {
             if (deck.Doors[i].Letter == letter)
-                return 100 + 10 * i;
+                return global::Machines.Import.Planets.DeckParser.DoorTagBase + 10 * i;
         }
         return null;
     }
@@ -141,9 +147,94 @@ public sealed partial class GameWorld
                 _doorSwings.Add(new DoorSwing(letter, leaf.Id, leaf.Boundary.ToList(), along * (high - low), Time, Time + seconds));
             }
         }
+        if (leaves.Count > 0)
+            _openLeaves[letter] = leaves.ToList();
         foreach (var leaf in leaves)
             RemoveArtefact(leaf.Id);
         return leaves.Count > 0;
+    }
+
+    /// <summary>
+    /// Whether a deck door's frame is free to shut it (stufe7 C13): no machine stands where a leaf of it would stand closed,
+    /// and none of its leaves still slides open. False for a door standing closed, blown, or never opened in this world.
+    /// </summary>
+    public bool DoorFrameFree(char letter)
+    {
+        if (!_openLeaves.TryGetValue(letter, out var leaves) || _doorSwings.Any(s => s.Letter == letter))
+            return false;
+        foreach (var machine in Machines)
+        {
+            if (machine.IsDead || machine.Inside is not null)
+                continue;
+            foreach (var leaf in leaves)
+            {
+                if (DoorSwing.Apart(leaf.Boundary, machine.Position) < machine.Radius)
+                    return false;
+            }
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Shuts a deck door that stands open (stufe7 C13): its leaves stand in its slot again, whole, as artefacts, and the ground
+    /// they cover is blocked to every way anew (<see cref="Navigation.NavGrid.SetArea"/>). Only with its frame free
+    /// (<see cref="DoorFrameFree"/>); false when it was not shut. The view hears <c>door shut &lt;letter&gt;</c> and slides
+    /// the leaves back out of the walls.
+    /// </summary>
+    public bool CloseDoor(char letter)
+    {
+        if (!DoorFrameFree(letter))
+            return false;
+        var leaves = _openLeaves[letter];
+        _openLeaves.Remove(letter);
+        foreach (var leaf in leaves)
+        {
+            leaf.HitPoints = leaf.MaxHitPoints;
+            _artefacts.Add(leaf.Id, leaf);
+            if (leaf.Boundary.Count >= 3)
+                Nav.SetArea(leaf.Boundary, present: true);
+        }
+        _artefactsFiled = -1;
+        var middle = leaves.Aggregate(Vector2.Zero, (sum, leaf) => sum + leaf.Position) / leaves.Count;
+        global::Machines.Sim.Story.StoryEvents.Cue(this, $"door shut {letter}", middle);
+        return true;
+    }
+
+    /// <summary>
+    /// Blows a deck door out of its frame for good (stufe7 C13: the escape's S, P and Y): its leaves are taken off the map, no
+    /// slide, and it can never shut again. The view hears <c>door blown &lt;letter&gt;</c> and one <c>thrown &lt;placement&gt;
+    /// &lt;type&gt;</c> for each leaf, which it throws as a barricade's crate. False when nothing of it stood.
+    /// </summary>
+    public bool BlowDoor(char letter)
+    {
+        var leaves = DoorLeaves(letter);
+        _openLeaves.Remove(letter);
+        if (leaves.Count == 0)
+            return false;
+        var middle = leaves.Aggregate(Vector2.Zero, (sum, leaf) => sum + leaf.Position) / leaves.Count;
+        foreach (var leaf in leaves)
+            RemoveArtefact(leaf.Id);
+        global::Machines.Sim.Story.StoryEvents.Cue(this, $"door blown {letter}", middle);
+        foreach (var leaf in leaves)
+            global::Machines.Sim.Story.StoryEvents.Cue(this, $"thrown {leaf.Id - Artefact.IdBase} {leaf.Type.Name}", leaf.Position);
+        return true;
+    }
+
+    /// <summary>
+    /// The way and length a door's leaf slides to stand open (the slide of <see cref="DoorSwing"/>), from the leaves of its
+    /// door: for the view to slide a leaf back out of the wall as the door shuts.
+    /// </summary>
+    public static Vector2 LeafSlide(Artefact leaf, IReadOnlyList<Artefact> leaves)
+    {
+        var middle = leaves.Aggregate(Vector2.Zero, (sum, each) => sum + each.Position) / leaves.Count;
+        var along = LeafAlong(leaf, middle, leaves.Count);
+        var (low, high) = (float.MaxValue, float.MinValue);
+        foreach (var corner in leaf.Boundary)
+        {
+            var at = Vector2.Dot(corner, along);
+            (low, high) = (MathF.Min(low, at), MathF.Max(high, at));
+        }
+        return along * (high - low);
     }
 
     /// <summary>

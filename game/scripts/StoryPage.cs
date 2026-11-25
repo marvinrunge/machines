@@ -8,7 +8,7 @@ namespace Machines.Game;
 /// with, and Continue (from that checkpoint), New (the prologue from its start), Chapters (a chapter begun, from its start)
 /// and Back. The Locator is always L-7. MACHINES_MENU_SCREENSHOT=&lt;png&gt;,story shows it.
 /// </summary>
-public partial class StoryPage(MenuScreens screens) : MenuPage(screens.ShowMain)
+public partial class StoryPage(MenuScreens screens) : MenuPage(screens.ShowSinglePlayer)
 {
     private readonly StoryProgress _progress = StoryProgress.Load();
     private LineEdit _ike = null!, _bob = null!;
@@ -32,6 +32,9 @@ public partial class StoryPage(MenuScreens screens) : MenuPage(screens.ShowMain)
             MenuTheme.Label(StoryProgress.Heading(chapter), 34, MenuTheme.Bright),
             MenuTheme.Paragraph(Lang.T("A maintenance unit wakes in its clamp aboard a ship of the machines. Its update is pending. Two Grunts in the bays beside it wake with it."), 24, MenuTheme.Text),
             MenuTheme.Label(status, 24, _progress.CanContinue || _progress.Ended ? MenuTheme.Glow : MenuTheme.Dim)));
+        // What L-7 marked in the armoury's wrecks for later (package W; act 2 reads StoryProgress.Salvaged).
+        if (_progress.Salvaged.Count > 0)
+            about.GetChild(0).AddChild(MenuTheme.Label(Lang.T("Marked in the wreck: {0}", string.Join(", ", _progress.Salvaged.Select(Salvage))), 20, MenuTheme.Dim));
         columns.AddChild(about);
 
         var trio = new ChipPanel { CustomMinimumSize = new Vector2(600, 0), Padding = 28 };
@@ -41,7 +44,8 @@ public partial class StoryPage(MenuScreens screens) : MenuPage(screens.ShowMain)
             MenuTheme.Label(Lang.T("Grunts").ToUpperInvariant(), 26, MenuTheme.Bright),
             Setting(Lang.T("First Grunt"), _ike),
             Setting(Lang.T("Second Grunt"), _bob),
-            MenuTheme.Paragraph(Lang.T("The names the two Grunts wake with. The Locator is always {0}.", StoryReadout.LocatorName), 21, MenuTheme.Dim)));
+            MenuTheme.Paragraph(Lang.T("The names the two Grunts wake with. The Locator is always {0}.", StoryReadout.LocatorName), 21, MenuTheme.Dim),
+            Setting(Lang.T("Difficulty"), DifficultyChoice())));
         columns.AddChild(trio);
 
         var back = Button("Back", Back);
@@ -72,6 +76,19 @@ public partial class StoryPage(MenuScreens screens) : MenuPage(screens.ShowMain)
         Remember();
         _progress.Save();
         base.Back();
+    }
+
+    /// <summary>Easy, Normal or Hard (the escape's time, the hazards' share, the hunters' windows); kept with the progress.</summary>
+    private ChipChoice DifficultyChoice()
+    {
+        var all = System.Enum.GetValues<StoryDifficulty>();
+        var choice = new ChipChoice(all.Select(d => Lang.T(d.ToString())), System.Array.IndexOf(all, _progress.Difficulty)) { CustomMinimumSize = new Vector2(210, 62) };
+        choice.ItemSelected += at =>
+        {
+            _progress.Difficulty = all[at];
+            _progress.Save();
+        };
+        return choice;
     }
 
     // The names typed, or the Grunts' own where none is.
@@ -108,6 +125,15 @@ public partial class StoryPage(MenuScreens screens) : MenuPage(screens.ShowMain)
     private void Play(string chapter, int checkpoint)
     {
         Remember();
+        Game.ResetStoryTimer();
         StoryProgress.Play(GetTree(), _progress.Options(chapter, checkpoint));
     }
+
+    /// <summary>A salvaged part's name on the page.</summary>
+    private static string Salvage(string id) => id switch
+    {
+        Machines.Sim.Story.StoryWaves.Grunt2Drive => Lang.T("Grunt 2 drive"),
+        Machines.Sim.Story.StoryWaves.ElectricCharge => Lang.T("electric charge"),
+        _ => id,
+    };
 }

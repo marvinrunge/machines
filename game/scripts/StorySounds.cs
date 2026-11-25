@@ -24,9 +24,10 @@ public partial class StorySounds(StoryAudio audio) : Node
 
     /// <summary>
     /// A one-shot by its id, at a place in the world or not; <paramref name="from"/> seconds into the sound and at a
-    /// <paramref name="pitch"/> (a door sliding open has its stop land as its leaves come to rest, Game.Deck).
+    /// <paramref name="pitch"/> (a door sliding open has its stop land as its leaves come to rest, Game.Deck). <paramref name="db"/> under its
+    /// level (L-7's own steps, far under every other sound).
     /// </summary>
-    public void Play(string id, Vector3? at, float from = 0, float pitch = 1)
+    public void Play(string id, Vector3? at, float from = 0, float pitch = 1, float db = 0)
     {
         var sound = StoryAudio.Sfx.Resolve(id, count => _random.RandiRange(0, count - 1));
         if (sound is null || StoryAudio.SfxPath(sound) is not { } path || StoryAudio.Stream(path) is not { } stream)
@@ -44,6 +45,7 @@ public partial class StorySounds(StoryAudio audio) : Node
             player.PanningStrength = 1;
             player.GlobalPosition = place;
             player.PitchScale = pitch;
+            player.VolumeDb = db;
             player.Play(from);
             audio.Trace($"sfx {sound} at {place.X:0.#},{place.Y:0.#},{place.Z:0.#}");
         }
@@ -52,6 +54,7 @@ public partial class StorySounds(StoryAudio audio) : Node
             var player = Voice<AudioStreamPlayer>();
             player.Stream = stream;
             player.PitchScale = pitch;
+            player.VolumeDb = db;
             player.Play(from);
             audio.Trace($"sfx {sound}");
         }
@@ -90,6 +93,7 @@ public partial class StorySounds(StoryAudio audio) : Node
     /// <summary>Follows the room the listener is in, unless the director has named one.</summary>
     public void Look(Vector3 listener, int section)
     {
+        LookThresher(listener, section);
         if (_pinned is not null)
             return;
         var room = StorySoundscape.RoomAt(audio.Deck, new(listener.X, listener.Z));
@@ -121,6 +125,9 @@ public partial class StorySounds(StoryAudio audio) : Node
         audio.SetReverb(StorySoundscape.Reverb(room));
         audio.Trace($"ambience {zone} {string.Join('+', layers.Select(l => l.Sound))}");
     }
+
+    /// <summary>Each look: the Thresher's sounds (package S, StorySounds.Thresher; stufe7 C20). Nothing until S builds it.</summary>
+    partial void LookThresher(Vector3 listener, int section);
 
     /// <summary>A loop over the ambience, on or off.</summary>
     public void SetLayer(string id, bool on, float db)

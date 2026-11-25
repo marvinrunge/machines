@@ -149,6 +149,8 @@ public static class Props
                     remade.VertexColorUseAsAlbedo = jambs;
                     mesh.SurfaceSetMaterial(surface, remade);
                 }
+            if (name == "clamp_terminal")
+                AddScreen(mesh, offset);
             return new Model(mesh, offset, offset * mesh.GetAabb());
         }
         finally
@@ -290,13 +292,13 @@ public static class Props
     }
 
     /// <summary>
-    /// The faces inside the door frame's opening (kit_door_frame, 7 m wide, its posts' inner sides about 1.3 m either side of
-    /// its middle under a lintel at 5.55 m, see DeckFrame): its posts' inner sides and the lintel's underside, not their
-    /// outer sides at ±3.5 m.
-    /// Meshy painted them with the bare grey of its metal, and under a door's lamp they showed white beside the red frame.
+    /// The faces inside the door frame's opening (kit_door_frame, 7 m wide, its posts' inner sides 1.39 m either side of
+    /// its middle under a lintel at 5.55 m, see DeckFrame): its posts' inner sides and the lintel's underside, the wall's
+    /// reveal once bent to a slot. Their texture is a plain light grey, and under a door's lamp they showed white beside
+    /// the darker walls and frame.
     /// </summary>
     private static bool JambFaces(Vector3 at, Vector3 normal) =>
-        Mathf.Abs(at.X) < 3.42f && (Mathf.Abs(normal.X) > 0.6f && at.Y < 6.6f || normal.Y < -0.6f && at.Y > 5.6f && at.Y < 7f);
+        Mathf.Abs(at.X) < 1.45f && (Mathf.Abs(normal.X) > 0.6f && at.Y < 5.6f || normal.Y < -0.6f && at.Y > 5.5f && at.Y < 5.6f);
 
     /// <summary>Gives a mesh vertex colours: dark where <paramref name="which"/> says, else white. False when nothing was darkened.</summary>
     private static bool Darken(ArrayMesh mesh, Func<Vector3, Vector3, bool> which)
@@ -331,6 +333,103 @@ public static class Props
         return true;
     }
 
+    /// <summary>
+    /// Where the terminal's display lies in the prop's frame (metres, front +Z, origin at the bottom centre): the glass is a plane
+    /// tilted back about 25°, z = (ScreenD - ScreenN.Y * y) / ScreenN.Z, inside its bezel from x Left to Right and y Bottom to Top.
+    /// </summary>
+    private const float ScreenLeft = -0.35f, ScreenRight = 0.34f, ScreenBottom = 1.44f, ScreenTop = 1.87f, ScreenD = 0.7205f;
+
+    private static readonly Vector3 ScreenN = new Vector3(0, 0.42f, 0.907f).Normalized();
+
+    /// <summary>
+    /// A glowing face over the terminal's dark display (Meshy painted it black), so a terminal is plainly something to hack at:
+    /// green console lines typed at the bottom and scrolling up under a header, a blinking cursor, scan lines and a little
+    /// flicker (<see cref="ScreenShader"/>), each terminal at its own place in the text (by where it stands).
+    /// </summary>
+    private static void AddScreen(ArrayMesh mesh, Transform3D offset)
+    {
+        var inverse = offset.AffineInverse();
+        Vector3 At(float x, float y) => inverse * (new Vector3(x, y, (ScreenD - 0.42f * y) / 0.907f) + ScreenN * 0.004f);
+        var normal = (inverse.Basis * ScreenN).Normalized();
+        var arrays = new Godot.Collections.Array();
+        arrays.Resize((int)Mesh.ArrayType.Max);
+        arrays[(int)Mesh.ArrayType.Vertex] = new[]
+        {
+            At(ScreenLeft, ScreenTop), At(ScreenRight, ScreenTop), At(ScreenRight, ScreenBottom), At(ScreenLeft, ScreenBottom),
+        };
+        arrays[(int)Mesh.ArrayType.Normal] = new[] { normal, normal, normal, normal };
+        arrays[(int)Mesh.ArrayType.TexUV] = new[] { new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1) };
+        arrays[(int)Mesh.ArrayType.Index] = new[] { 0, 1, 2, 0, 2, 3 };
+        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+        mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, new ShaderMaterial { Shader = ScreenShader.Value });
+    }
+
+    private static readonly Lazy<Shader> ScreenShader = new(() => new Shader
+    {
+        Code = """
+            shader_type spatial;
+            render_mode cull_disabled;
+
+            varying float seed;
+
+            float hash(vec2 p) {
+                p = fract(p * vec2(123.34, 456.21));
+                p += dot(p, p + 45.32);
+                return fract(p.x * p.y);
+            }
+
+            void vertex() {
+                vec3 o = MODEL_MATRIX[3].xyz;
+                seed = fract(sin(dot(o.xz, vec2(12.9898, 78.233))) * 43758.5453);
+            }
+
+            // A cell's glyph: 3 x 5 lit pixels of a 4 x 7 cell, at random (it reads as text at a glance).
+            float glyph(vec2 cell, float key) {
+                vec2 px = floor(cell * vec2(4.0, 7.0));
+                if (px.x > 2.0 || px.y < 1.0 || px.y > 5.0)
+                    return 0.0;
+                return step(0.42, hash(vec2(key + px.x * 1.7, px.y + seed * 9.0)));
+            }
+
+            void fragment() {
+                const float ROWS = 12.0;
+                const float COLS = 30.0;
+                vec2 grid = vec2(UV.x * COLS, UV.y * ROWS);
+                vec2 cell = fract(grid);
+                float c = floor(grid.x);
+                float r = floor(grid.y);
+                float t = TIME * 0.8 + seed * 60.0;
+                float lit = 0.0;
+                if (r < 1.0) {
+                    // The header: a bright bar with a dark title and a blinking lamp at its right end.
+                    float bar = step(0.12, cell.y) * step(cell.y, 0.88);
+                    float title = c >= 1.0 && c < 11.0 ? glyph(cell, c * 13.0 + 7.0) : 0.0;
+                    float lamp = c == COLS - 2.0 && fract(TIME * 1.3 + seed) < 0.6 ? 1.0 : 0.0;
+                    lit = bar * mix(0.55, 0.06, max(title, lamp));
+                } else {
+                    // The lines: the bottom one is being typed, those above scroll up a line at a time.
+                    float line = r + floor(t);
+                    float indent = floor(hash(vec2(line, seed + 3.0)) * 3.0) * 2.0;
+                    float len = floor(hash(vec2(line, seed)) * (COLS - indent - 4.0)) + 3.0;
+                    bool last = r == ROWS - 1.0;
+                    float shown = last ? min(len, floor(fract(t) * len * 1.3)) : len;
+                    if (c >= indent && c < indent + shown && hash(vec2(line * 7.0 + c, seed)) > 0.16)
+                        lit = glyph(cell, line * 31.0 + c * 3.0);
+                    if (last && c == indent + shown && fract(TIME * 2.0) < 0.5)
+                        lit = step(cell.x, 0.75) * step(0.15, cell.y) * step(cell.y, 0.85);
+                }
+                float scan = 0.8 + 0.2 * sin(UV.y * 320.0);
+                float flicker = 0.95 + 0.05 * sin(TIME * 47.0 + seed * 20.0);
+                vec2 edge = UV * (1.0 - UV);
+                float vignette = clamp(pow(edge.x * edge.y * 16.0, 0.3), 0.0, 1.0);
+                ALBEDO = vec3(0.01);
+                ROUGHNESS = 0.15;
+                SPECULAR = 0.6;
+                EMISSION = vec3(0.25, 1.0, 0.45) * (0.07 + lit * 1.6) * scan * flicker * vignette;
+            }
+            """,
+    });
+
     private static MeshInstance3D? FirstMesh(Node node)
     {
         if (node is MeshInstance3D mesh)
@@ -350,9 +449,9 @@ public static class Props
         material.TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic;
         // The clamp's floor ring (tools/blender/prop_pack.py adds it plain, without UVs) wears the deck plates' steel,
         // laid on from above and the sides: a flat grey torus under Ike's wheels looked like greybox.
-        if (imported.ResourceName == "ring_steel" && ResourceLoader.Exists($"{Folder}/kit_floor_0.jpg"))
+        if (imported.ResourceName == "ring_steel" && ResourceLoader.Exists($"{Folder}/kit_floor_kit-floor-gemini-clean.jpg"))
         {
-            material.AlbedoTexture = GD.Load<Texture2D>($"{Folder}/kit_floor_0.jpg");
+            material.AlbedoTexture = GD.Load<Texture2D>($"{Folder}/kit_floor_kit-floor-gemini-clean.jpg");
             material.AlbedoColor = new Color(0.62f, 0.6f, 0.6f);
             material.Uv1Triplanar = true;
             material.Uv1WorldTriplanar = true;
@@ -379,6 +478,13 @@ public static class Props
         "vent_cover" => "kit_vent_cover",
         _ when type.StartsWith("door_leaf", StringComparison.Ordinal) => "kit_door_leaf",
         _ when type.StartsWith("gate_leaf", StringComparison.Ordinal) => "kit_grate_wall",
+        // The escape's hold (package E): the containers and the rack until their rails take them over (DeckView.Escape),
+        // the lanes' chocks, and the crane's amber lock in the bay.
+        "container" or "rack" => "crate_large",
+        "chock" => "crate_small",
+        "lock_amber" => "junction_box",
+        // The gas main beside Y, to shoot when the pack comes through (GameWorld.UpdateGasMain).
+        "gas_main" => "pipe_run",
         _ => Exists(type) ? type : null,
     };
 

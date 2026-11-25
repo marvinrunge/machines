@@ -35,7 +35,7 @@ public sealed record StoryBeat(string Name, int Span, StoryTrigger When, IReadOn
 /// the view only hears its events (<see cref="StoryEvents"/>). All of it is in the checksum (<see cref="Fingerprint"/>).
 /// <para>The sight (plan WP-D) and the companions (plan WP-F) tell it their news through <see cref="Hear"/>.</para>
 /// </summary>
-public sealed class StoryDirector
+public sealed partial class StoryDirector
 {
     /// <summary>How near a hero of the trio must come to a door that opens by itself, in metres from the door's middle.</summary>
     public const float DoorReach = 8;
@@ -126,6 +126,7 @@ public sealed class StoryDirector
         _inbox.Clear();
         WatchHacks(world, run);
         OpenNearDoors(world, run);
+        KeepGates(world, run);
         Land(world);
         foreach (var id in Shielded)
             if (world.FindTarget(id) is { IsDead: false } kept)
@@ -187,6 +188,9 @@ public sealed class StoryDirector
         var heroes = StoryTrigger.Heroes(world, run, StoryWho.AnyHero).ToList();
         foreach (var letter in AutoDoors.ToList())
         {
+            // A locked door stays shut however near the trio comes (LockDoors); it opens by itself again once unlocked.
+            if (Locked.Contains(letter))
+                continue;
             var leaves = world.DoorLeaves(letter);
             if (leaves.Count == 0)
             {
@@ -306,6 +310,7 @@ public sealed class StoryDirector
             hash.Mix(fall.Downs);
         }
         hash.Mix(Fallen);
+        MixGates(hash);
         return hash.Value;
     }
 }
@@ -354,7 +359,7 @@ public abstract record StoryTrigger
 }
 
 /// <summary>The triggers a chapter's beats are written with (<c>using static Machines.Sim.Story.When;</c>).</summary>
-public static class When
+public static partial class When
 {
     /// <summary>Holds always: a beat that only waits for the beats it comes after.</summary>
     public sealed record Always : StoryTrigger
@@ -535,7 +540,7 @@ public abstract record StoryAction
 public sealed record StoryUnit(string Type, string? SubType, int Level, string? Weapons);
 
 /// <summary>The actions a chapter's beats are written with (<c>using static Machines.Sim.Story.Then;</c>).</summary>
-public static class Then
+public static partial class Then
 {
     /// <summary>A line is said: the ship's for everyone, a Grunt's as its bark (<see cref="StoryAudience.Companion"/>) or for its player alone.</summary>
     public sealed record Say(string Line, StoryAudience Audience = StoryAudience.Everyone, int Seat = -1) : StoryAction
@@ -584,6 +589,24 @@ public static class Then
         }
     }
 
+    /// <summary>
+    /// The Notabschaltung on or off (plan stufe7 C7; <see cref="StoryReserve"/>): on, the Locator at 0 hit points shuts down
+    /// and waits for a Grunt's cable instead of falling, and the reserve is whole again; off, it falls as before.
+    /// </summary>
+    public sealed record Reserve(bool On) : StoryAction
+    {
+        internal override void Do(GameWorld world, StoryRun run, StoryDirector director)
+        {
+            if (!On)
+            {
+                run.Flags.Remove(StoryMarks.Reserve);
+                return;
+            }
+            run.Flags.Add(StoryMarks.Reserve);
+            run.Reserve.Restore(run);
+        }
+    }
+
     /// <summary>A checkpoint is reached: a later start of the chapter begins here (only ever forward).</summary>
     public sealed record Checkpoint(int Number) : StoryAction
     {
@@ -592,6 +615,8 @@ public static class Then
             if (Number <= run.Checkpoint)
                 return;
             run.Checkpoint = Number;
+            // The Notabschaltung's reserve is whole again (StoryReserve).
+            run.Reserve.Restore(run);
             StoryEvents.Checkpoint(world, Number, world.HeroOf(run.Locator)?.Position ?? Vector2.Zero);
         }
     }
@@ -713,6 +738,7 @@ public static class Then
             foreach (var letter in Letters)
             {
                 director.AutoDoors.Remove(letter);
+                director.Closing.Remove(letter);
                 world.OpenDoor(letter, Instant);
             }
         }
@@ -1307,6 +1333,9 @@ public static class Then
                 StoryEvents.Countdown(world, "stop", left);
                 return;
             }
+            // Easy gives the crash run more time at every start of it (stufe7 §4 F item 3: "Easy +60").
+            if (run.Options.Difficulty == StoryDifficulty.Easy)
+                seconds += StoryOptions.EasyCountdown;
             run.Timers[StoryMarks.Countdown] = world.Time + seconds;
             run.Timers[StoryMarks.CountdownFrom] = world.Time;
             StoryEvents.Countdown(world, "start", seconds);

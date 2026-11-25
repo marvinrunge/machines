@@ -238,6 +238,8 @@ public partial class MenuScreens : Control
             case "setup-music": ShowSetup(SetupPage.Step.Music); break;
             case "campaign": ShowCampaign(); break;
             case "story": ShowStory(); break;
+            case "singleplayer": ShowSinglePlayer(); break;
+            case "extras": ShowExtras(); break;
             case "missions": ShowMissions(); break;
             case "briefing": ShowBriefing(Campaign.Entry(CampaignProgress.Load().CurrentPlayer?.LastScenario ?? "tut01") ?? Campaign.Catalogue.CampaignScenarios.First()); break;
             case "quit":
@@ -249,6 +251,12 @@ public partial class MenuScreens : Control
     }
 
     public void ShowMain() => Go(MenuTransition.Main, () => new MainMenuPage(this));
+
+    /// <summary>The single player's menu: the story, the campaign, skirmish, Wired and Battle; their Back comes here.</summary>
+    public void ShowSinglePlayer() => Go(MenuTransition.SinglePlayer, () => new MainMenuPage(this, MainMenuPage.Menu.SinglePlayer));
+
+    /// <summary>The extras: the replays and the models; their Back comes here.</summary>
+    public void ShowExtras() => Go(MenuTransition.Extras, () => new MainMenuPage(this, MainMenuPage.Menu.Extras));
 
     /// <summary>A question of the first start (see <see cref="SetupPage"/>).</summary>
     public void ShowSetup(SetupPage.Step step) => _stage.Show(new SetupPage(this, step));
@@ -262,19 +270,16 @@ public partial class MenuScreens : Control
 
     public void ShowMultiplayer() => Go(MenuTransition.Multiplayer, () => new MultiplayerPage(this));
 
-    /// <summary>The multiplayer page, whose Back goes to <paramref name="back"/> instead of the main menu (the pod, for one).</summary>
-    public void ShowMultiplayer(Action back) => Go(MenuTransition.Multiplayer, () => new MultiplayerPage(this, back));
-
     /// <summary>The multiplayer page, on its way back to the room the player is in.</summary>
     public void ShowRoom() => Go(MenuTransition.Room, () => new MultiplayerPage(this));
 
     public void ShowLoad() => Go(MenuTransition.Load, () => FilesPage.Load(ShowMain, path => FilesPage.OpenSaved(GetTree(), path)));
 
-    public void ShowReplays() => _stage.Show(FilesPage.Replays(ShowMain, path => FilesPage.OpenReplay(GetTree(), path)));
+    public void ShowReplays() => _stage.Show(FilesPage.Replays(ShowExtras, path => FilesPage.OpenReplay(GetTree(), path)));
 
     public void ShowOptions() => Go(MenuTransition.Options, () => new OptionsPage(ShowMain, inGame: false));
 
-    public void ShowModels() => _stage.Show(new ModelsPage(ShowMain));
+    public void ShowModels() => _stage.Show(new ModelsPage(ShowExtras));
 
     /// <summary>Wired: hero creation, in the hangar.</summary>
     public void ShowHangar() => _stage.Show(HangarCreation.Page(this));
@@ -288,10 +293,10 @@ public partial class MenuScreens : Control
     /// <summary>The pod for a battle room: it goes back to the room, and its way into the battle is Ready.</summary>
     public void ShowPod(RoomState room) => _stage.Show(BattlePod.Page(this, HangarShelf.Weapons, room));
 
-    /// <summary>The campaign's players.</summary>
     /// <summary>The story: its chapters, the checkpoint reached, the Grunts' names (<see cref="StoryPage"/>).</summary>
-    public void ShowStory() => Go(MenuTransition.SinglePlayer, () => new StoryPage(this));
+    public void ShowStory() => Go(MenuTransition.Story, () => new StoryPage(this));
 
+    /// <summary>The campaign's players.</summary>
     public void ShowCampaign() => Go(MenuTransition.CampaignPlayers, () => new CampaignPlayersPage(this));
 
     /// <summary>The choice of mission for the campaign's current player, or the players when there is none.</summary>

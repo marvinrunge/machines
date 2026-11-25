@@ -3,12 +3,23 @@ using Godot;
 namespace Machines.Game;
 
 /// <summary>
-/// The main menu (MachGuiCtxMainMenu): the title on the left with Exit under it, as in the original, the menu's
-/// buttons down the right, and between them the big chip with a machine turning on its screen. Esc asks whether to
-/// quit.
+/// The main menu (MachGuiCtxMainMenu) and the two menus it leads to in the same layout: the title on the left with Exit
+/// (or Back) under it, as in the original, the menu's buttons down the right, and between them the big chip with a
+/// machine turning on its screen. The main menu holds Single Player, Multiplayer, Load Game, Extras and Options; Single
+/// Player (MachGuiCtxSinglePlayer) the story, the campaign, skirmish, Wired and Battle; Extras the replays and the
+/// models. Esc asks whether to quit, or goes back to the main menu.
 /// </summary>
-public partial class MainMenuPage(MenuScreens screens) : MenuPage(screens.Quit)
+public partial class MainMenuPage(MenuScreens screens, MainMenuPage.Menu menu = MainMenuPage.Menu.Main)
+    : MenuPage(menu == MainMenuPage.Menu.Main ? screens.Quit : screens.ShowMain)
 {
+    public enum Menu { Main, SinglePlayer, Extras }
+
+    /// <summary>Which of the three menus this is.</summary>
+    public Menu Kind => menu;
+
+    // Buttons of this size: five or six of them stand well inside the stage at the largest interface size.
+    private const float ButtonHeight = 68;
+
     protected override void Build()
     {
         var row = Line(48);
@@ -24,12 +35,15 @@ public partial class MainMenuPage(MenuScreens screens) : MenuPage(screens.Quit)
         title.AddChild(titleLines);
         left.AddChild(title);
         left.AddChild(Spring(across: false));
-        var status = new ChipPanel { Padding = 16 };
-        status.AddChild(MenuTheme.Label(
-            Lang.T("Look: {0}", Lang.T(GraphicsSettings.Name(GraphicsSettings.Look))) + "\n" +
-            Lang.T(ClassicImport.Imported ? "Models imported from your game copy" : "Models not imported yet"), 21, MenuTheme.Dim));
-        left.AddChild(status);
-        left.AddChild(Button("Exit", screens.Quit, 84, 30));
+        if (menu == Menu.Main)
+        {
+            var status = new ChipPanel { Padding = 16 };
+            status.AddChild(MenuTheme.Label(
+                Lang.T("Look: {0}", Lang.T(GraphicsSettings.Name(GraphicsSettings.Look))) + "\n" +
+                Lang.T(ClassicImport.Imported ? "Models imported from your game copy" : "Models not imported yet"), 21, MenuTheme.Dim));
+            left.AddChild(status);
+        }
+        left.AddChild(Button(menu == Menu.Main ? "Exit" : "Back", menu == Menu.Main ? screens.Quit : Back, 84, 30));
 
         var display = new ChipPanel { Padding = 4, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         var screen = new MachineDisplay(screens.Assets);
@@ -48,39 +62,75 @@ public partial class MainMenuPage(MenuScreens screens) : MenuPage(screens.Quit)
         display.AddChild(layers);
         row.AddChild(display);
 
-        // Ten buttons of this size stand no higher than the nine before them did (708 against 740), so the page still fits at a large interface size.
-        const float height = 60;
         var right = new VBoxContainer { CustomMinimumSize = new Vector2(360, 0), Alignment = BoxContainer.AlignmentMode.Center };
-        right.AddThemeConstantOverride("separation", 12);
+        right.AddThemeConstantOverride("separation", 14);
         row.AddChild(right);
-        // The story first: it is where a new player begins.
-        var story = Button("Story", screens.ShowStory, height, 30);
-        if (StoryProgress.Load().Chapter is null)
-            story.Tag = Lang.T("New");
-        right.AddChild(story);
-        var campaign = Button("Campaign", screens.ShowCampaign, height, 30);
-        right.AddChild(campaign);
-        var skirmish = Button("Skirmish", () => screens.ShowSkirmish(), height, 30);
-        right.AddChild(skirmish);
-        // A battle that had to wait for the file is written now, as Load writes Wired's waiting runs, so its tag is right.
+        // Below the main menu, the menu's name over its buttons, so the player knows where they are.
+        if (menu != Menu.Main)
+        {
+            var heading = MenuTheme.Label(Lang.T(menu == Menu.SinglePlayer ? "Single Player" : "Extras").ToUpperInvariant(), 34, MenuTheme.Bright, HorizontalAlignment.Center);
+            heading.CustomMinimumSize = new Vector2(0, 56);
+            right.AddChild(heading);
+        }
+        // A battle that had to wait for the file is written now, as Load writes Wired's waiting runs, so the tags are right.
         if (BattleAccounts.Ledger.Waiting)
             BattleAccounts.Ledger.Write();
-        var profile = WiredProfile.Load();
-        var wired = Button("Wired", screens.ShowHangar, height, 30);
-        if (profile.Fresh.Count is > 0 and var fresh)
-            wired.Tag = Lang.T("{0} new", fresh);
-        right.AddChild(wired);
-        var battle = Button("Battle", screens.ShowPod, height, 30);
-        if (profile.Battle.Fresh.Count is > 0 and var within)
-            battle.Tag = Lang.T("{0} new", within);
-        right.AddChild(battle);
-        right.AddChild(Button("Multiplayer", screens.ShowMultiplayer, height, 30));
-        right.AddChild(Button("Load Game", screens.ShowLoad, height, 30));
-        right.AddChild(Button("Replays", screens.ShowReplays, height, 30));
-        right.AddChild(Button("Models", screens.ShowModels, height, 30));
-        right.AddChild(Button("Options", screens.ShowOptions, height, 30));
+        var first = menu switch
+        {
+            Menu.SinglePlayer => SinglePlayer(right),
+            Menu.Extras => Extras(right),
+            _ => Main(right),
+        };
 
         SwitchOn();
-        Focus(story);
+        Focus(first);
+    }
+
+    private ChipButton Add(VBoxContainer column, string text, Action pressed)
+    {
+        var button = Button(text, pressed, ButtonHeight, 30);
+        column.AddChild(button);
+        return button;
+    }
+
+    private ChipButton Main(VBoxContainer right)
+    {
+        var single = Add(right, "Single Player", screens.ShowSinglePlayer);
+        // What is new in the single player's modes shows on its button too.
+        var profile = WiredProfile.Load();
+        if (StoryProgress.Load().Chapter is null)
+            single.Tag = Lang.T("New");
+        else if (profile.Fresh.Count + profile.Battle.Fresh.Count is > 0 and var fresh)
+            single.Tag = Lang.T("{0} new", fresh);
+        Add(right, "Multiplayer", screens.ShowMultiplayer);
+        Add(right, "Load Game", screens.ShowLoad);
+        Add(right, "Extras", screens.ShowExtras);
+        Add(right, "Options", screens.ShowOptions);
+        return single;
+    }
+
+    private ChipButton SinglePlayer(VBoxContainer right)
+    {
+        // The story first: it is where a new player begins.
+        var story = Add(right, "Story", screens.ShowStory);
+        if (StoryProgress.Load().Chapter is null)
+            story.Tag = Lang.T("New");
+        Add(right, "Campaign", screens.ShowCampaign);
+        Add(right, "Skirmish", () => screens.ShowSkirmish());
+        var profile = WiredProfile.Load();
+        var wired = Add(right, "Wired", screens.ShowHangar);
+        if (profile.Fresh.Count is > 0 and var fresh)
+            wired.Tag = Lang.T("{0} new", fresh);
+        var battle = Add(right, "Battle", screens.ShowPod);
+        if (profile.Battle.Fresh.Count is > 0 and var within)
+            battle.Tag = Lang.T("{0} new", within);
+        return story;
+    }
+
+    private ChipButton Extras(VBoxContainer right)
+    {
+        var replays = Add(right, "Replays", screens.ShowReplays);
+        Add(right, "Models", screens.ShowModels);
+        return replays;
     }
 }

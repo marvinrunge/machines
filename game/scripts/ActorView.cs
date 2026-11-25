@@ -598,6 +598,9 @@ public partial class ActorView : Node3D
                 view.Gait(rigged, hero is not null);
             else
                 view._maxSpeed = 0;
+            // The Reapers' (assassins') stop step looks wrong: they go from the walk straight to standing.
+            if (actor is Machine reaper && reaper.IsType("AGGRESSOR", "ASSASSIN"))
+                view._rigView.StopsWalking = false;
             // A machine's upper body turns at its BODY_TURN_RATE, degrees per second (MachPhysTurnerTracker).
             if (actor is Machine { Stats.BodyTurnRate: > 0 and var bodyRate })
                 view._rigView.TurnRate = Mathf.DegToRad(bodyRate);
@@ -1011,6 +1014,9 @@ public partial class ActorView : Node3D
     public void Sync(Actor actor, Actor? aimAt = null)
     {
         OwnedBy = actor.Owner;
+        StorySyncStealth(actor);
+        StorySyncArmoury(actor);
+        StorySyncEscape(actor);
         _target = World(actor.Position);
         // The upper body's (or a tower head's) angle relative to the hull, in the original's sense
         // (counter-clockwise); with nothing to aim at it turns back to the front.
@@ -1024,6 +1030,9 @@ public partial class ActorView : Node3D
         var aimed = actor is Construction { StrikeAt: { } strike } ? strike : aimAt?.Position;
         var toTarget = aimed is not { } point ? 0 : MathF.Atan2(point.Y - actor.Position.Y, point.X - actor.Position.X) - facing;
         _aim = Steered ?? (aimed is null ? 0 : Mathf.Wrap(toTarget, -Mathf.Pi, Mathf.Pi));
+        // A crab walker (the story's Thresher) with nothing to aim at looks the way it walks, off its hull.
+        if (Steered is null && aimed is null && CrabOf?.Invoke(actor.Id) is { } crab && crab != 0)
+            _aim = Mathf.Wrap(-crab, -Mathf.Pi, Mathf.Pi);
         _targetYaw = actor switch
         {
             Machine m => -m.Facing,
@@ -1056,7 +1065,7 @@ public partial class ActorView : Node3D
             if (actor is Machine { Inside: not null, DrivenByPlayer: false } || _constructAt is not null || _inHead)
                 _engine.Player.Stop();
             else
-                _engine.Update(moving);
+                _engine.Update(moving && !Steps);
             _lastTarget = _target;
         }
 
@@ -1146,8 +1155,26 @@ public partial class ActorView : Node3D
     /// <summary>A hit shakes the machine's head and body (MachPhysMachine::shake).</summary>
     public void Shake() => _rigView?.Shake();
 
+    // Stage 7's hooks for its packages' own ActorView files (plan stufe7 §4 F item 1): each frame, and each sync with the sim.
+    // Nothing until a package writes ActorView.Stealth, .Armoury or .Escape.
+    partial void StoryFrameStealth(double delta);
+    partial void StoryFrameSteps(double delta);
+    partial void StoryFrameGlow(double delta);
+    partial void StoryFrameArmoury(double delta);
+    partial void StoryFrameEscape(double delta);
+    partial void StorySyncStealth(Actor actor);
+    partial void StorySyncArmoury(Actor actor);
+    partial void StorySyncEscape(Actor actor);
+    // Package S: after the lamp is put at the eyes, the Thresher's beam states (ActorView.Stealth).
+    partial void StoryBeamStealth(SpotLight3D beam);
+
     public override void _Process(double delta)
     {
+        StoryFrameStealth(delta);
+        StoryFrameSteps(delta);
+        StoryFrameGlow(delta);
+        StoryFrameArmoury(delta);
+        StoryFrameEscape(delta);
         UpdateJets(delta);
         UpdateTeleport(delta);
         UpdateScan(delta);
@@ -1190,7 +1217,10 @@ public partial class ActorView : Node3D
             if (EyesOf is not null && _lamp is SpotLight3D cone)
                 HostileCone(cone, eyes == EyeLook.Hostile, eyeLevel);
             if (_lamp.Visible && _lamp is SpotLight3D beam)
+            {
                 Beam(beam);
+                StoryBeamStealth(beam);
+            }
         }
         if (_dust is not null && delta > 0)
             _dust.Emitting = Visible && new Vector2(Position.X - _lastPosition.X, Position.Z - _lastPosition.Z).Length() / (float)delta > 1.5f;

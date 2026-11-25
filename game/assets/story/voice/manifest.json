@@ -397,6 +397,42 @@
     "hash": "0a054c2690da"
    }
   },
+  "P_AUTO_ARMORY": {
+   "de": {
+    "file": "de/P_AUTO_ARMORY.ogg",
+    "seconds": 4.44,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "0840a5f94fdb"
+   },
+   "en": {
+    "file": "en/P_AUTO_ARMORY.ogg",
+    "seconds": 3.65,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "7554c78b3caa"
+   }
+  },
+  "P_AUTO_POD1": {
+   "de": {
+    "file": "de/P_AUTO_POD1.ogg",
+    "seconds": 2.91,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "b51e493589ad"
+   },
+   "en": {
+    "file": "en/P_AUTO_POD1.ogg",
+    "seconds": 2.77,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "8559ce7bb2e2"
+   }
+  },
   "P_AUTO_POD_GO": {
    "de": {
     "file": "de/P_AUTO_POD_GO.ogg",
@@ -433,6 +469,24 @@
     "hash": "40df9da6fcf6"
    }
   },
+  "P_AUTO_SHUT": {
+   "de": {
+    "file": "de/P_AUTO_SHUT.ogg",
+    "seconds": 3.1,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "f7898cd10c6d"
+   },
+   "en": {
+    "file": "en/P_AUTO_SHUT.ogg",
+    "seconds": 3.08,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "ed4d12479bcb"
+   }
+  },
   "P_AUTO_T10": {
    "de": {
     "file": "de/P_AUTO_T10.ogg",
@@ -467,6 +521,24 @@
     "preset": "auto",
     "source": "sapi",
     "hash": "c03f7da619d8"
+   }
+  },
+  "P_AUTO_T240": {
+   "de": {
+    "file": "de/P_AUTO_T240.ogg",
+    "seconds": 2.62,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "462e9c4c363f"
+   },
+   "en": {
+    "file": "en/P_AUTO_T240.ogg",
+    "seconds": 2.42,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "89ae92fdcabb"
    }
   },
   "P_AUTO_T30": {
@@ -523,6 +595,174 @@
     "hash": "732b9a12581e"
    }
   },
+  "P_AUTO_UNSEAL": {
+   "de": {
+    "file": "de/P_AUTO_UNSEAL.ogg",
+    "seconds": 4.64,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "a41c4c63e7fc"
+   },
+   "en": {
+    "file": "en/P_AUTO_UNSEAL.ogg",
+    "seconds": 3.82,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "052dfa1b09f1"
+   }
+  },
+  "P_AUTO_WAVE_1": {
+   "de": {
+    "file": "de/P_AUTO_WAVE_1.ogg",
+    "seconds": 6.74,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "1a70e61984f0"
+   },
+   "en": {
+    "file": "en/P_AUTO_WAVE_1.ogg",
+    "seconds": 4.71,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "0801a1e834e4"
+   }
+  },
+  "P_AUTO_WAVE_2": {
+   "de": {
+    "file": "de/P_AUTO_WAVE_2.ogg",
+    "seconds": 1.29,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "e7521e7bbd34"
+   },
+   "en": {
+    "file": "en/P_AUTO_WAVE_2.ogg",
+    "seconds": 0.98,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "18d8d48dae73"
+   }
+  },
+  "P_AUTO_WAVE_3": {
+   "de": {
+    "file": "de/P_AUTO_WAVE_3.ogg",
+    "seconds": 3.13,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "aa60a7f53e0f"
+   },
+   "en": {
+    "file": "en/P_AUTO_WAVE_3.ogg",
+    "seconds": 2.9,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "3b3acde7e141"
+   }
+  },
+  "P_AUTO_WAVE_4": {
+   "de": {
+    "file": "de/P_AUTO_WAVE_4.ogg",
+    "seconds": 2.95,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "fec74d52c901"
+   },
+   "en": {
+    "file": "en/P_AUTO_WAVE_4.ogg",
+    "seconds": 2.83,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "a817467c600b"
+   }
+  },
+  "P_AUTO_WAVE_5": {
+   "de": {
+    "file": "de/P_AUTO_WAVE_5.ogg",
+    "seconds": 3.25,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "0bd56c01beff"
+   },
+   "en": {
+    "file": "en/P_AUTO_WAVE_5.ogg",
+    "seconds": 2.61,
+    "placeholder": true,
+    "preset": "auto",
+    "source": "sapi",
+    "hash": "d64c8753ad3a"
+   }
+  },
+  "P_BOB_AGAIN": {
+   "de": {
+    "file": "de/P_BOB_AGAIN.ogg",
+    "seconds": 2.99,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "231725b42ba4"
+   },
+   "en": {
+    "file": "en/P_BOB_AGAIN.ogg",
+    "seconds": 2.49,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "c3af7e464692"
+   }
+  },
+  "P_BOB_BANG": {
+   "de": {
+    "file": "de/P_BOB_BANG.ogg",
+    "seconds": 2.05,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "cfdd4275de19"
+   },
+   "en": {
+    "file": "en/P_BOB_BANG.ogg",
+    "seconds": 1.95,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "79a69269b420"
+   }
+  },
+  "P_BOB_BANG_OFFER": {
+   "de": {
+    "file": "de/P_BOB_BANG_OFFER.ogg",
+    "seconds": 6.22,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "aad573925572"
+   },
+   "en": {
+    "file": "en/P_BOB_BANG_OFFER.ogg",
+    "seconds": 5.33,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "65bf064baeb6"
+   }
+  },
   "P_BOB_BARRICADE": {
    "de": {
     "file": "de/P_BOB_BARRICADE.ogg",
@@ -541,6 +781,126 @@
     "source": "google",
     "voice": "en-US-Chirp3-HD-Alnilam",
     "hash": "c45c22a581b5"
+   }
+  },
+  "P_BOB_BIG": {
+   "de": {
+    "file": "de/P_BOB_BIG.ogg",
+    "seconds": 4.91,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "f1013fe22925"
+   },
+   "en": {
+    "file": "en/P_BOB_BIG.ogg",
+    "seconds": 5.26,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "074834aa405c"
+   }
+  },
+  "P_BOB_BLAST": {
+   "de": {
+    "file": "de/P_BOB_BLAST.ogg",
+    "seconds": 1.95,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "c1e6444f8129"
+   },
+   "en": {
+    "file": "en/P_BOB_BLAST.ogg",
+    "seconds": 2.38,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "1583775572c3"
+   }
+  },
+  "P_BOB_CABLE": {
+   "de": {
+    "file": "de/P_BOB_CABLE.ogg",
+    "seconds": 3.26,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "ebc6b5e5936f"
+   },
+   "en": {
+    "file": "en/P_BOB_CABLE.ogg",
+    "seconds": 2.39,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "457074b871c6"
+   }
+  },
+  "P_BOB_CABLE_DONE": {
+   "de": {
+    "file": "de/P_BOB_CABLE_DONE.ogg",
+    "seconds": 2.7,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "35962736f634"
+   },
+   "en": {
+    "file": "en/P_BOB_CABLE_DONE.ogg",
+    "seconds": 2.15,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "647281ff9cad"
+   }
+  },
+  "P_BOB_CLEAR": {
+   "de": {
+    "file": "de/P_BOB_CLEAR.ogg",
+    "seconds": 1.77,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "977975815ca5"
+   },
+   "en": {
+    "file": "en/P_BOB_CLEAR.ogg",
+    "seconds": 1.57,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "82e1d35dc37a"
+   }
+  },
+  "P_BOB_CLEAR_SHORT": {
+   "de": {
+    "file": "de/P_BOB_CLEAR_SHORT.ogg",
+    "seconds": 1.4,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "92f30819a171"
+   },
+   "en": {
+    "file": "en/P_BOB_CLEAR_SHORT.ogg",
+    "seconds": 1.49,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "c5cf464df014"
    }
   },
   "P_BOB_CONTACT_L": {
@@ -623,6 +983,106 @@
     "hash": "0ff09a1c9c31"
    }
   },
+  "P_BOB_DOOR_H": {
+   "de": {
+    "file": "de/P_BOB_DOOR_H.ogg",
+    "seconds": 2.86,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "4d90825cb99c"
+   },
+   "en": {
+    "file": "en/P_BOB_DOOR_H.ogg",
+    "seconds": 2.63,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "50a91201952e"
+   }
+  },
+  "P_BOB_DOOR_N": {
+   "de": {
+    "file": "de/P_BOB_DOOR_N.ogg",
+    "seconds": 2.49,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "dcdabf65d6cb"
+   },
+   "en": {
+    "file": "en/P_BOB_DOOR_N.ogg",
+    "seconds": 2.41,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "85036dd90113"
+   }
+  },
+  "P_BOB_DOOR_R": {
+   "de": {
+    "file": "de/P_BOB_DOOR_R.ogg",
+    "seconds": 2.29,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "c4172fb1287f"
+   },
+   "en": {
+    "file": "en/P_BOB_DOOR_R.ogg",
+    "seconds": 2.98,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "e39b3b031ac2"
+   }
+  },
+  "P_BOB_DOOR_T": {
+   "de": {
+    "file": "de/P_BOB_DOOR_T.ogg",
+    "seconds": 2.1,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "f90731278094"
+   },
+   "en": {
+    "file": "en/P_BOB_DOOR_T.ogg",
+    "seconds": 2.41,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "7e9c6aafc955"
+   }
+  },
+  "P_BOB_DOOR_Y": {
+   "de": {
+    "file": "de/P_BOB_DOOR_Y.ogg",
+    "seconds": 1.23,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "e9969ae60da8"
+   },
+   "en": {
+    "file": "en/P_BOB_DOOR_Y.ogg",
+    "seconds": 1.06,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "6819066df832"
+   }
+  },
   "P_BOB_DOWN": {
    "de": {
     "file": "de/P_BOB_DOWN.ogg",
@@ -683,6 +1143,26 @@
     "hash": "e53d22fc4474"
    }
   },
+  "P_BOB_FREEZE": {
+   "de": {
+    "file": "de/P_BOB_FREEZE.ogg",
+    "seconds": 2.45,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "0bf52f65b10f"
+   },
+   "en": {
+    "file": "en/P_BOB_FREEZE.ogg",
+    "seconds": 2.23,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "8846ea62c904"
+   }
+  },
   "P_BOB_GATE": {
    "de": {
     "file": "de/P_BOB_GATE.ogg",
@@ -723,6 +1203,26 @@
     "hash": "bbea4f09b1c4"
    }
   },
+  "P_BOB_GLITCH_2": {
+   "de": {
+    "file": "de/P_BOB_GLITCH_2.ogg",
+    "seconds": 3.68,
+    "placeholder": false,
+    "preset": "bob-radio",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "273db3ba2834"
+   },
+   "en": {
+    "file": "en/P_BOB_GLITCH_2.ogg",
+    "seconds": 3.8,
+    "placeholder": false,
+    "preset": "bob-radio",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "efa46e0903a0"
+   }
+  },
   "P_BOB_HOLD": {
    "de": {
     "file": "de/P_BOB_HOLD.ogg",
@@ -741,6 +1241,66 @@
     "source": "google",
     "voice": "en-US-Chirp3-HD-Alnilam",
     "hash": "847c0807745a"
+   }
+  },
+  "P_BOB_LIFT": {
+   "de": {
+    "file": "de/P_BOB_LIFT.ogg",
+    "seconds": 3.96,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "1af37a93c08e"
+   },
+   "en": {
+    "file": "en/P_BOB_LIFT.ogg",
+    "seconds": 3.89,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "7ccc15c30567"
+   }
+  },
+  "P_BOB_MOUNTED": {
+   "de": {
+    "file": "de/P_BOB_MOUNTED.ogg",
+    "seconds": 2.78,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "7ab5ad29d814"
+   },
+   "en": {
+    "file": "en/P_BOB_MOUNTED.ogg",
+    "seconds": 3.03,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "ffc1fdc3a734"
+   }
+  },
+  "P_BOB_NICHE": {
+   "de": {
+    "file": "de/P_BOB_NICHE.ogg",
+    "seconds": 3.09,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "c98048d07c51"
+   },
+   "en": {
+    "file": "en/P_BOB_NICHE.ogg",
+    "seconds": 3.17,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "51897e25e803"
    }
   },
   "P_BOB_POD": {
@@ -763,6 +1323,26 @@
     "hash": "7e7181e11b5f"
    }
   },
+  "P_BOB_QUIET": {
+   "de": {
+    "file": "de/P_BOB_QUIET.ogg",
+    "seconds": 1.43,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "89296584fb94"
+   },
+   "en": {
+    "file": "en/P_BOB_QUIET.ogg",
+    "seconds": 1.46,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "4b9a94ecd14e"
+   }
+  },
   "P_BOB_RAM": {
    "de": {
     "file": "de/P_BOB_RAM.ogg",
@@ -781,6 +1361,26 @@
     "source": "google",
     "voice": "en-US-Chirp3-HD-Alnilam",
     "hash": "a3578cbe7a73"
+   }
+  },
+  "P_BOB_RETREAT": {
+   "de": {
+    "file": "de/P_BOB_RETREAT.ogg",
+    "seconds": 1.98,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "7720cc093dae"
+   },
+   "en": {
+    "file": "en/P_BOB_RETREAT.ogg",
+    "seconds": 1.82,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "351fc5da4c7d"
    }
   },
   "P_BOB_ROUND": {
@@ -803,6 +1403,26 @@
     "hash": "dac6981a75ca"
    }
   },
+  "P_BOB_ROUND_A": {
+   "de": {
+    "file": "de/P_BOB_ROUND_A.ogg",
+    "seconds": 3.75,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "545c5ca270e9"
+   },
+   "en": {
+    "file": "en/P_BOB_ROUND_A.ogg",
+    "seconds": 3.71,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "5c720a796014"
+   }
+  },
   "P_BOB_SQUAD": {
    "de": {
     "file": "de/P_BOB_SQUAD.ogg",
@@ -821,6 +1441,46 @@
     "source": "google",
     "voice": "en-US-Chirp3-HD-Alnilam",
     "hash": "0356229fe805"
+   }
+  },
+  "P_BOB_THRESHER": {
+   "de": {
+    "file": "de/P_BOB_THRESHER.ogg",
+    "seconds": 1.39,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "ee5cace4ddba"
+   },
+   "en": {
+    "file": "en/P_BOB_THRESHER.ogg",
+    "seconds": 1.16,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "194475343f41"
+   }
+  },
+  "P_BOB_TWO": {
+   "de": {
+    "file": "de/P_BOB_TWO.ogg",
+    "seconds": 3.08,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "0b63f1995db1"
+   },
+   "en": {
+    "file": "en/P_BOB_TWO.ogg",
+    "seconds": 3.63,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "5a95f0f3e962"
    }
   },
   "P_BOB_UP": {
@@ -843,6 +1503,26 @@
     "hash": "fceee4970096"
    }
   },
+  "P_BOB_UP_DARK": {
+   "de": {
+    "file": "de/P_BOB_UP_DARK.ogg",
+    "seconds": 4.15,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "bc922ed12c35"
+   },
+   "en": {
+    "file": "en/P_BOB_UP_DARK.ogg",
+    "seconds": 3.06,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "48fdc59f2fa6"
+   }
+  },
   "P_BOB_WAKE": {
    "de": {
     "file": "de/P_BOB_WAKE.ogg",
@@ -863,6 +1543,46 @@
     "hash": "d519c5e81dd4"
    }
   },
+  "P_BOB_ZAP": {
+   "de": {
+    "file": "de/P_BOB_ZAP.ogg",
+    "seconds": 3.29,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "6acead6b9e89"
+   },
+   "en": {
+    "file": "en/P_BOB_ZAP.ogg",
+    "seconds": 2.62,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "81008f4f02d6"
+   }
+  },
+  "P_IKE_AGAIN": {
+   "de": {
+    "file": "de/P_IKE_AGAIN.ogg",
+    "seconds": 0.83,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "1d2cd41cb982"
+   },
+   "en": {
+    "file": "en/P_IKE_AGAIN.ogg",
+    "seconds": 0.65,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "677f9609f64b"
+   }
+  },
   "P_IKE_ALARM": {
    "de": {
     "file": "de/P_IKE_ALARM.ogg",
@@ -881,6 +1601,46 @@
     "source": "google",
     "voice": "en-US-Chirp3-HD-Sadachbia",
     "hash": "2cd9d6235cca"
+   }
+  },
+  "P_IKE_ARMED": {
+   "de": {
+    "file": "de/P_IKE_ARMED.ogg",
+    "seconds": 2.62,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "711aa76d7c8f"
+   },
+   "en": {
+    "file": "en/P_IKE_ARMED.ogg",
+    "seconds": 2.73,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "d1263a9acd38"
+   }
+  },
+  "P_IKE_BANG": {
+   "de": {
+    "file": "de/P_IKE_BANG.ogg",
+    "seconds": 2.49,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "34215bc1ecf4"
+   },
+   "en": {
+    "file": "en/P_IKE_BANG.ogg",
+    "seconds": 2.17,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "0c4dad0f62b0"
    }
   },
   "P_IKE_BARRICADE": {
@@ -923,6 +1683,166 @@
     "hash": "900673ccd384"
    }
   },
+  "P_IKE_BIG": {
+   "de": {
+    "file": "de/P_IKE_BIG.ogg",
+    "seconds": 3.84,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "1d2e5a9aba7a"
+   },
+   "en": {
+    "file": "en/P_IKE_BIG.ogg",
+    "seconds": 3.02,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "291e2a98ba79"
+   }
+  },
+  "P_IKE_BRIDGE": {
+   "de": {
+    "file": "de/P_IKE_BRIDGE.ogg",
+    "seconds": 2.87,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "a30bc3513d23"
+   },
+   "en": {
+    "file": "en/P_IKE_BRIDGE.ogg",
+    "seconds": 2.14,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "c302552671a6"
+   }
+  },
+  "P_IKE_CABLE": {
+   "de": {
+    "file": "de/P_IKE_CABLE.ogg",
+    "seconds": 2.33,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "144804f55430"
+   },
+   "en": {
+    "file": "en/P_IKE_CABLE.ogg",
+    "seconds": 2.59,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "ffca9bbb70bb"
+   }
+  },
+  "P_IKE_CABLE_DONE": {
+   "de": {
+    "file": "de/P_IKE_CABLE_DONE.ogg",
+    "seconds": 1.29,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "e4e27c4dc838"
+   },
+   "en": {
+    "file": "en/P_IKE_CABLE_DONE.ogg",
+    "seconds": 1.41,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "5527666045b6"
+   }
+  },
+  "P_IKE_CLEAR": {
+   "de": {
+    "file": "de/P_IKE_CLEAR.ogg",
+    "seconds": 3.28,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "8d6edd1c655c"
+   },
+   "en": {
+    "file": "en/P_IKE_CLEAR.ogg",
+    "seconds": 2.19,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "94086fdbe217"
+   }
+  },
+  "P_IKE_CRANE": {
+   "de": {
+    "file": "de/P_IKE_CRANE.ogg",
+    "seconds": 2.19,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "f9a4d69d8105"
+   },
+   "en": {
+    "file": "en/P_IKE_CRANE.ogg",
+    "seconds": 2.62,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "3569cf0e7640"
+   }
+  },
+  "P_IKE_CRATES": {
+   "de": {
+    "file": "de/P_IKE_CRATES.ogg",
+    "seconds": 1.93,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "9c5d5818db16"
+   },
+   "en": {
+    "file": "en/P_IKE_CRATES.ogg",
+    "seconds": 1.33,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "029d3f26d31f"
+   }
+  },
+  "P_IKE_CRATES_L": {
+   "de": {
+    "file": "de/P_IKE_CRATES_L.ogg",
+    "seconds": 1.83,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "e289629b8794"
+   },
+   "en": {
+    "file": "en/P_IKE_CRATES_L.ogg",
+    "seconds": 1.52,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "5002decf86cd"
+   }
+  },
   "P_IKE_DISTRACT": {
    "de": {
     "file": "de/P_IKE_DISTRACT.ogg",
@@ -963,6 +1883,46 @@
     "hash": "3438ac52c0ca"
    }
   },
+  "P_IKE_EMPTY": {
+   "de": {
+    "file": "de/P_IKE_EMPTY.ogg",
+    "seconds": 2.04,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "aad478a93036"
+   },
+   "en": {
+    "file": "en/P_IKE_EMPTY.ogg",
+    "seconds": 1.53,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "b3e1b0a675ee"
+   }
+  },
+  "P_IKE_FIRE": {
+   "de": {
+    "file": "de/P_IKE_FIRE.ogg",
+    "seconds": 1.69,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "2644b88ee7c3"
+   },
+   "en": {
+    "file": "en/P_IKE_FIRE.ogg",
+    "seconds": 1.69,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "b30c063f6c36"
+   }
+  },
   "P_IKE_FOLLOW": {
    "de": {
     "file": "de/P_IKE_FOLLOW.ogg",
@@ -981,6 +1941,26 @@
     "source": "google",
     "voice": "en-US-Chirp3-HD-Sadachbia",
     "hash": "fe5fa0a1521a"
+   }
+  },
+  "P_IKE_FREEZE": {
+   "de": {
+    "file": "de/P_IKE_FREEZE.ogg",
+    "seconds": 3.0,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "dd862bc6f1f3"
+   },
+   "en": {
+    "file": "en/P_IKE_FREEZE.ogg",
+    "seconds": 1.61,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "83d6acf11091"
    }
   },
   "P_IKE_GATE": {
@@ -1003,6 +1983,26 @@
     "hash": "3f110871675a"
    }
   },
+  "P_IKE_GATE_N": {
+   "de": {
+    "file": "de/P_IKE_GATE_N.ogg",
+    "seconds": 4.02,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "6f83a1e0bdf7"
+   },
+   "en": {
+    "file": "en/P_IKE_GATE_N.ogg",
+    "seconds": 2.8,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "52aac85e59e5"
+   }
+  },
   "P_IKE_HAMMER": {
    "de": {
     "file": "de/P_IKE_HAMMER.ogg",
@@ -1021,6 +2021,86 @@
     "source": "google",
     "voice": "en-US-Chirp3-HD-Sadachbia",
     "hash": "5e488d7b91b0"
+   }
+  },
+  "P_IKE_HURT": {
+   "de": {
+    "file": "de/P_IKE_HURT.ogg",
+    "seconds": 2.75,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "53f1a5b45b36"
+   },
+   "en": {
+    "file": "en/P_IKE_HURT.ogg",
+    "seconds": 2.38,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "f6a17c0ea3ce"
+   }
+  },
+  "P_IKE_IN": {
+   "de": {
+    "file": "de/P_IKE_IN.ogg",
+    "seconds": 3.37,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "99dcc8125dda"
+   },
+   "en": {
+    "file": "en/P_IKE_IN.ogg",
+    "seconds": 3.01,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "24e09911520d"
+   }
+  },
+  "P_IKE_KNOCK": {
+   "de": {
+    "file": "de/P_IKE_KNOCK.ogg",
+    "seconds": 2.68,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "c6da86019a05"
+   },
+   "en": {
+    "file": "en/P_IKE_KNOCK.ogg",
+    "seconds": 1.83,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "3455b736ca39"
+   }
+  },
+  "P_IKE_LANE": {
+   "de": {
+    "file": "de/P_IKE_LANE.ogg",
+    "seconds": 4.73,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "5b4afc5efd90"
+   },
+   "en": {
+    "file": "en/P_IKE_LANE.ogg",
+    "seconds": 4.17,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "bf6c37600ac6"
    }
   },
   "P_IKE_LIMITER": {
@@ -1043,6 +2123,46 @@
     "hash": "67036e113b9f"
    }
   },
+  "P_IKE_MENDED": {
+   "de": {
+    "file": "de/P_IKE_MENDED.ogg",
+    "seconds": 2.84,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "67647df57864"
+   },
+   "en": {
+    "file": "en/P_IKE_MENDED.ogg",
+    "seconds": 1.96,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "f7f87f5331b7"
+   }
+  },
+  "P_IKE_PIPE": {
+   "de": {
+    "file": "de/P_IKE_PIPE.ogg",
+    "seconds": 6.73,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "f716caef1941"
+   },
+   "en": {
+    "file": "en/P_IKE_PIPE.ogg",
+    "seconds": 4.84,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "2c654ee0d438"
+   }
+  },
   "P_IKE_POD": {
    "de": {
     "file": "de/P_IKE_POD.ogg",
@@ -1061,6 +2181,26 @@
     "source": "google",
     "voice": "en-US-Chirp3-HD-Sadachbia",
     "hash": "2389aa6e23e3"
+   }
+  },
+  "P_IKE_QUIET": {
+   "de": {
+    "file": "de/P_IKE_QUIET.ogg",
+    "seconds": 3.43,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "a9f6ea499a74"
+   },
+   "en": {
+    "file": "en/P_IKE_QUIET.ogg",
+    "seconds": 2.25,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "3a29a7f62677"
    }
   },
   "P_IKE_RAM": {
@@ -1083,6 +2223,26 @@
     "hash": "36237151d7b8"
    }
   },
+  "P_IKE_REAPERS": {
+   "de": {
+    "file": "de/P_IKE_REAPERS.ogg",
+    "seconds": 3.34,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "23c34e70f02c"
+   },
+   "en": {
+    "file": "en/P_IKE_REAPERS.ogg",
+    "seconds": 3.57,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "de25982fb2f5"
+   }
+  },
   "P_IKE_STEPS": {
    "de": {
     "file": "de/P_IKE_STEPS.ogg",
@@ -1103,6 +2263,46 @@
     "hash": "762f987aeaaf"
    }
   },
+  "P_IKE_STRIP_HINT": {
+   "de": {
+    "file": "de/P_IKE_STRIP_HINT.ogg",
+    "seconds": 3.4,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "ede0a09f5e2a"
+   },
+   "en": {
+    "file": "en/P_IKE_STRIP_HINT.ogg",
+    "seconds": 2.4,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "101c8466140e"
+   }
+  },
+  "P_IKE_THRESHER": {
+   "de": {
+    "file": "de/P_IKE_THRESHER.ogg",
+    "seconds": 3.16,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "1274a1c647c6"
+   },
+   "en": {
+    "file": "en/P_IKE_THRESHER.ogg",
+    "seconds": 2.37,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "733e9e999986"
+   }
+  },
   "P_IKE_UP": {
    "de": {
     "file": "de/P_IKE_UP.ogg",
@@ -1121,6 +2321,66 @@
     "source": "google",
     "voice": "en-US-Chirp3-HD-Sadachbia",
     "hash": "bc4eb8f85255"
+   }
+  },
+  "P_IKE_UP_DARK": {
+   "de": {
+    "file": "de/P_IKE_UP_DARK.ogg",
+    "seconds": 3.5,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "f89f4d7ac1ed"
+   },
+   "en": {
+    "file": "en/P_IKE_UP_DARK.ogg",
+    "seconds": 3.89,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "93810ad8efba"
+   }
+  },
+  "P_IKE_US": {
+   "de": {
+    "file": "de/P_IKE_US.ogg",
+    "seconds": 6.66,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "15eb8d4c766d"
+   },
+   "en": {
+    "file": "en/P_IKE_US.ogg",
+    "seconds": 4.09,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "f9059afec819"
+   }
+  },
+  "P_IKE_VALVE": {
+   "de": {
+    "file": "de/P_IKE_VALVE.ogg",
+    "seconds": 2.58,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "aa888f453da1"
+   },
+   "en": {
+    "file": "en/P_IKE_VALVE.ogg",
+    "seconds": 1.41,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "9293754f0b45"
    }
   },
   "P_IKE_VENT": {
@@ -1181,6 +2441,26 @@
     "source": "google",
     "voice": "en-US-Chirp3-HD-Sadachbia",
     "hash": "0e0614cb1e40"
+   }
+  },
+  "P_IKE_ZAP": {
+   "de": {
+    "file": "de/P_IKE_ZAP.ogg",
+    "seconds": 2.32,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "bdccb2144e8e"
+   },
+   "en": {
+    "file": "en/P_IKE_ZAP.ogg",
+    "seconds": 2.43,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "b6208e6d4d37"
    }
   },
   "P_L7_BOOT_CORE": {
@@ -1421,6 +2701,166 @@
     "source": "google",
     "voice": "en-US-Chirp3-HD-Iapetus",
     "hash": "cf498c617fd1"
+   }
+  },
+  "P_L7_GRATE": {
+   "de": {
+    "file": "de/P_L7_GRATE.ogg",
+    "seconds": 2.49,
+    "placeholder": false,
+    "preset": "l7",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "cfa03e94d456"
+   },
+   "en": {
+    "file": "en/P_L7_GRATE.ogg",
+    "seconds": 3.26,
+    "placeholder": false,
+    "preset": "l7",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "995bdec737ac"
+   }
+  },
+  "P_L7_HOLD": {
+   "de": {
+    "file": "de/P_L7_HOLD.ogg",
+    "seconds": 1.1,
+    "placeholder": false,
+    "preset": "l7",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "5b28204b786d"
+   },
+   "en": {
+    "file": "en/P_L7_HOLD.ogg",
+    "seconds": 1.04,
+    "placeholder": false,
+    "preset": "l7",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "a7986cfce54f"
+   }
+  },
+  "P_L7_PODBAY": {
+   "de": {
+    "file": "de/P_L7_PODBAY.ogg",
+    "seconds": 2.52,
+    "placeholder": false,
+    "preset": "l7",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "84845126f783"
+   },
+   "en": {
+    "file": "en/P_L7_PODBAY.ogg",
+    "seconds": 2.11,
+    "placeholder": false,
+    "preset": "l7",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "b1b378a24c91"
+   }
+  },
+  "P_L7_RESTART": {
+   "de": {
+    "file": "de/P_L7_RESTART.ogg",
+    "seconds": 2.29,
+    "placeholder": false,
+    "preset": "l7",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "cede91b21d61"
+   },
+   "en": {
+    "file": "en/P_L7_RESTART.ogg",
+    "seconds": 2.44,
+    "placeholder": false,
+    "preset": "l7",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "3e2a5187060b"
+   }
+  },
+  "P_L7_STASH": {
+   "de": {
+    "file": "de/P_L7_STASH.ogg",
+    "seconds": 8.02,
+    "placeholder": false,
+    "preset": "l7",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "e390098f77c7"
+   },
+   "en": {
+    "file": "en/P_L7_STASH.ogg",
+    "seconds": 5.34,
+    "placeholder": false,
+    "preset": "l7",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "30a9b55ae0cc"
+   }
+  },
+  "P_L7_STILL": {
+   "de": {
+    "file": "de/P_L7_STILL.ogg",
+    "seconds": 2.35,
+    "placeholder": false,
+    "preset": "l7",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "2d71498fbcc8"
+   },
+   "en": {
+    "file": "en/P_L7_STILL.ogg",
+    "seconds": 2.13,
+    "placeholder": false,
+    "preset": "l7",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "329d8d49d5d0"
+   }
+  },
+  "P_L7_STRIP": {
+   "de": {
+    "file": "de/P_L7_STRIP.ogg",
+    "seconds": 4.11,
+    "placeholder": false,
+    "preset": "l7",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "a2b5196daca1"
+   },
+   "en": {
+    "file": "en/P_L7_STRIP.ogg",
+    "seconds": 2.78,
+    "placeholder": false,
+    "preset": "l7",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "267acf5cb1e8"
+   }
+  },
+  "P_L7_THRESHER": {
+   "de": {
+    "file": "de/P_L7_THRESHER.ogg",
+    "seconds": 1.85,
+    "placeholder": false,
+    "preset": "l7",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Iapetus",
+    "hash": "6c4f9ee0b79b"
+   },
+   "en": {
+    "file": "en/P_L7_THRESHER.ogg",
+    "seconds": 1.62,
+    "placeholder": false,
+    "preset": "l7",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Iapetus",
+    "hash": "13bd9d6f9c0d"
    }
   },
   "P_WHISPER_1": {

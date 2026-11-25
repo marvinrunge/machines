@@ -1,0 +1,44 @@
+{
+  "name": "kit_wall_plain",
+  "kind": "kit",
+  "size_m": [
+    4.0,
+    1.0,
+    8.0
+  ],
+  "frame": "GLB frame: metres, y up, the front faces +Z, origin at the bottom centre",
+  "bounds": {
+    "min": [
+      -2.0,
+      0.0,
+      -0.5
+    ],
+    "max": [
+      2.0,
+      8.0,
+      0.5
+    ]
+  },
+  "height": 8.0,
+  "tris": 567,
+  "source": "Blender deck kit + Gemini reference + Tripo texture, fitted with tripo_fit.py",
+  "textures": [
+    [
+      2048,
+      2048
+    ],
+    [
+      1024,
+      1024
+    ],
+    [
+      512,
+      512
+    ],
+    [
+      256,
+      256
+    ]
+  ],
+  "glb_bytes": 1140016
+}

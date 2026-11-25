@@ -347,7 +347,8 @@ public class StorySightTests
         {
             world.Step();
             if (world.Time < eyes.DwellUntil && eyes.DwelledAt == 0)
-                stood.Add((world.Time, thresher.Facing, thresher.Position));
+                // Where he looks: his head's way (a crab walker's hull may stand a quarter turn off it).
+                stood.Add((world.Time, world.GunHeading(thresher), thresher.Position));
             else if (stood.Count > 0 && world.Time > eyes.DwellUntil + 2)
                 break;
         }

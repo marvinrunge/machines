@@ -52,6 +52,16 @@ public sealed class StoryDrive
     /// </summary>
     public const float CatchUpFrom = 12, CatchUpTo = 7;
 
+    /// <summary>
+    /// The creep (plan stufe7 C12, design-stealth §3.1): held (Ctrl, carried by the drive command's slow flag; the pad's
+    /// creep button), the drive goes at this share of the walk, and the moving part of the signature is halved. It beats the
+    /// sprint: the safe key wins.
+    /// </summary>
+    public const float Creep = 0.5f;
+
+    /// <summary>It creeps this tick (its driver holds the creep, or the computer's Grunt sneaks). Set at the end of each tick for the next one's moves.</summary>
+    public bool Creeping { get; set; }
+
     /// <summary>How full the drive is, 0 (cold) to 1 (overheated).</summary>
     public float Heat { get; set; }
 
@@ -81,6 +91,8 @@ public sealed class StoryDrive
     {
         if (Sprinting)
             return 1;
+        if (Creeping)
+            return Walk * Creep;
         if (Blocked && BlockedAt >= 0 && tick - BlockedAt < StutterTicks && (tick - BlockedAt) / BeatTicks % 2 == 1)
             return Walk * StutterShare;
         return Walk;
@@ -100,6 +112,9 @@ public sealed class StoryDrive
         hash.Mix(Sprinting ? 1 : 0);
         hash.Mix(BitConverter.SingleToInt32Bits(Last.X));
         hash.Mix(BitConverter.SingleToInt32Bits(Last.Y));
+        // Only while it creeps, so a run without the creep keeps its checksum.
+        if (Creeping)
+            hash.Mix(0x43524550);
     }
 }
 
@@ -107,6 +122,13 @@ public sealed class StoryDrive
 public sealed class StoryDrives
 {
     public SortedDictionary<int, StoryDrive> Of { get; } = [];
+
+    /// <summary>
+    /// The pace table (stufe7 C12): the share of their top speed and acceleration the machines of a cast role go at, by role
+    /// (<see cref="Then.Pace"/>; the armoury's units, the escape's leash). A role not in it goes as it would. The Thresher's
+    /// order paces and the creep are package S's.
+    /// </summary>
+    public SortedDictionary<string, float> Paces { get; } = new(StringComparer.Ordinal);
 
     public StoryDrive For(int hero)
     {
@@ -122,6 +144,12 @@ public sealed class StoryDrives
         {
             hash.Mix(id);
             drive.MixInto(hash);
+        }
+        // The pace table only once a role is in it, so a run without one keeps its checksum.
+        foreach (var (role, share) in Paces)
+        {
+            hash.Mix(role);
+            hash.Mix(BitConverter.SingleToInt32Bits(share));
         }
         return hash.Value;
     }

@@ -77,13 +77,26 @@ public class StoryProgressTests
     }
 
     [Fact]
-    public void An_old_file_without_the_end_reads_as_under_way()
+    public void A_file_from_before_stage_7s_checkpoints_is_dropped_and_the_story_starts_afresh()
     {
-        // Saved before chapters could be played to their end: no Done, no Ended.
-        var old = """{ "Chapter": "prolog", "Checkpoint": 5, "Begun": ["prolog"], "IkeName": "Ike", "BobName": "Bob" }""";
-        var progress = JsonSerializer.Deserialize<StoryProgress>(old)!;
-        Assert.True(progress.CanContinue);
-        Assert.Equal(("prolog", 5), progress.Next);
-        Assert.Empty(progress.Done);
+        // Saved before stage 7 numbered the checkpoints 0–14: without a numbering, or an older one. Its 5 meant another place.
+        var old = """{ "Chapter": "prolog", "Checkpoint": 5, "Begun": ["prolog"], "IkeName": "Rost", "BobName": "Bob" }""";
+        Assert.Null(StoryProgress.FromJson(old));
+        Assert.Null(StoryProgress.FromJson("""{ "CheckpointVersion": 1, "Chapter": "prolog", "Checkpoint": 5 }"""));
+        Assert.ThrowsAny<JsonException>(() => StoryProgress.FromJson("{ broken"));
+    }
+
+    [Fact]
+    public void A_file_of_today_keeps_its_checkpoint_and_the_parts_salvaged()
+    {
+        var progress = new StoryProgress();
+        progress.Reached(StoryOptions.Prologue, 11);
+        Assert.True(progress.AddSalvaged("chassis:grunt2"));
+        Assert.True(progress.AddSalvaged("weapon:ELECTRIC_CHARGE"));
+        Assert.False(progress.AddSalvaged("chassis:grunt2"));
+        var back = StoryProgress.FromJson(JsonSerializer.Serialize(progress))!;
+        Assert.Equal(StoryProgress.CurrentCheckpoints, back.CheckpointVersion);
+        Assert.Equal((StoryOptions.Prologue, 11), back.Next);
+        Assert.Equal(["chassis:grunt2", "weapon:ELECTRIC_CHARGE"], back.Salvaged);
     }
 }

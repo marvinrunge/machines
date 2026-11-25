@@ -399,7 +399,7 @@ public class StoryHudTests
 
     /// <summary>The story's screens: every English word they put through the translation is in de.po.</summary>
     private static readonly string[] StoryScreens =
-        ["StoryHud.cs", "StoryHud.Boot.cs", "StoryHud.Demo.cs", "StoryHud.Labels.cs", "StoryPage.cs", "StoryProgress.cs", "StoryFilm.cs", "Subtitles.cs"];
+        ["StoryHud.cs", "StoryHud.Boot.cs", "StoryHud.Demo.cs", "StoryHud.Labels.cs", "StoryHud.Shutdown.cs", "StoryHud.Holds.cs", "StoryHud.Stealth.cs", "StoryPage.cs", "StoryProgress.cs", "StoryFilm.cs", "Subtitles.cs"];
 
     [Fact]
     public void Every_word_of_the_storys_screens_and_every_line_of_the_table_has_its_German()
@@ -423,7 +423,7 @@ public class StoryHudTests
                 missing.Add(line.GetProperty("id").GetString()!);
         // The story's keys, by the names KeyMap gives them (KeyMap is Godot's: read from its source).
         var keys = Regex.Matches(File.ReadAllText(Repo("game/scripts/KeyMap.cs")), @"new\(""([^""]+)"", Key\.\w+, [^)]*Where\.Story\)").Select(m => m.Groups[1].Value).ToList();
-        Assert.Equal(6, keys.Count);
+        Assert.Equal(7, keys.Count);
         missing.AddRange(keys.Where(key => !known.Contains(key)));
         Assert.Empty(missing);
     }

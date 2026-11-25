@@ -16,7 +16,13 @@ public sealed partial class StoryProgress
     {
         try
         {
-            return File.Exists(FilePath) ? JsonSerializer.Deserialize<StoryProgress>(File.ReadAllText(FilePath), Json) ?? new() : new();
+            if (!File.Exists(FilePath))
+                return new();
+            if (FromJson(File.ReadAllText(FilePath), Json) is { } read)
+                return read;
+            // A save of the checkpoints before stage 7: its numbers meant other places, so the story starts afresh.
+            GD.Print("story progress of an older checkpoint numbering dropped: the story starts afresh");
+            return new();
         }
         catch (Exception exception) when (exception is IOException or JsonException or UnauthorizedAccessException)
         {

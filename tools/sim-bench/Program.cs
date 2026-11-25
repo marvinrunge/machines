@@ -7,9 +7,9 @@
 // hunting the trio across the deck:
 //   dotnet run -c Release --project tools/sim-bench -- story [<machines, 20>] [<seconds, 60>]
 // The prologue itself as it is played, from a checkpoint, with the director, the sight, the companions and the cast it sets
-// down (from checkpoint 3 the Locator crawls the vent to the crossing and waits there, as the hunt goes on; from any other
+// down (from checkpoint 7, the break-in, the Locator crawls the vent to the crossing and waits there, as the hunt goes on; from any other
 // it stands still where the checkpoint puts it); the story's parts are timed on their own:
-//   dotnet run -c Release --project tools/sim-bench -- prologue [<checkpoint, 3>] [<seconds, 60>]
+//   dotnet run -c Release --project tools/sim-bench -- prologue [<checkpoint, 7>] [<seconds, 60>]
 using System.Diagnostics;
 using System.Numerics;
 using Machines.Import.Model;
@@ -31,7 +31,7 @@ var data = GameData.Load(Path.Combine(repo, "data", "original"));
 
 if (prologue)
 {
-    var checkpoint = args.Length > 1 ? int.Parse(args[1]) : 3;
+    var checkpoint = args.Length > 1 ? int.Parse(args[1]) : 7;
     seconds = args.Length > 2 ? int.Parse(args[2]) : 60;
     var chapter = MatchSetup.Create(data, StoryOptions.Prologue, StoryOptions.Prologue,
         new Dictionary<Race, Controller> { [Race.Red] = Controller.Player, [Race.Blue] = Controller.Ai }, seed: 7,
@@ -41,7 +41,7 @@ if (prologue)
     Time(chapter, seconds, () =>
     {
         if (chapter.HeroOf(run.Locator) is { } locator)
-            chapter.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true, Forward: checkpoint == 3 && locator.Position.X < 173 ? 1 : 0));
+            chapter.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true, Forward: checkpoint == 7 && locator.Position.X < 173 ? 1 : 0));
     });
     Console.WriteLine($"chapter: section {run.Section}, over {run.Over} ({run.Ending}), beats fired {run.Director.Fired.Count}");
     return;

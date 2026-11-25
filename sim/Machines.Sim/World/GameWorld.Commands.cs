@@ -543,7 +543,9 @@ public sealed partial class GameWorld
     /// room it needs and whether it crawls through ducts (<see cref="Navigation.Mobility"/>). The original planets' grid
     /// asks only the water of it.
     /// </summary>
-    public static Navigation.Mobility MobilityOf(Machine machine) => Navigation.Mobility.Of(machine.Stats, machine.Radius);
+    public static Navigation.Mobility MobilityOf(Machine machine) => machine.NavSize is { } size
+        ? Navigation.Mobility.Of(machine.Stats, machine.Radius) with { Size = size }
+        : Navigation.Mobility.Of(machine.Stats, machine.Radius);
 
     // ---- constructions --------------------------------------------------------------------------
 

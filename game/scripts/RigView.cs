@@ -696,6 +696,12 @@ public partial class RigView : Node3D
         return true;
     }
 
+    /// <summary>
+    /// Whether legs come to a stop by their own plan (stopWalking); the Reapers' looks wrong in the remake, so theirs is left
+    /// out (ActorView) and they stand straight from the walk.
+    /// </summary>
+    public bool StopsWalking { get; set; } = true;
+
     // Legs that have them set off and come to a stop by a plan of their own, played once each (MachPhysSpiderLegs::moveAnimations).
     private string Stepping(string cycle)
     {
@@ -704,7 +710,7 @@ public partial class RigView : Node3D
             return _phase < 1 ? _cycle : cycle;
         if (walking && _cycle != "walk" && _rig.Animations.ContainsKey("startWalking"))
             return "startWalking";
-        if (!walking && _cycle is "walk" or "startWalking" && cycle is "rest" or "turnLeft" or "turnRight" && _rig.Animations.ContainsKey("stopWalking"))
+        if (!walking && StopsWalking && _cycle is "walk" or "startWalking" && cycle is "rest" or "turnLeft" or "turnRight" && _rig.Animations.ContainsKey("stopWalking"))
             return "stopWalking";
         return cycle;
     }
@@ -767,7 +773,9 @@ public partial class RigView : Node3D
         Glow(Working, _workTime);
         ShowScreens(Working, _workTime);
 
-        if (_rig.Animations.Count > 0)
+        if (_gait is { } gait)
+            gait.Step(delta, speed, sideways, turnRate);
+        else if (_rig.Animations.Count > 0)
         {
             // A constructor at work plays its building cycle (MachPhysConstructor::startConstructing) instead, a
             // technician at work in a lab its research (MachPhysTechnician::research).
@@ -788,14 +796,14 @@ public partial class RigView : Node3D
             if (_rig.Animations.TryGetValue(_cycle, out var animation) && animation.Duration > 0)
             {
                 // Legs keep pace with the ground: the walk cycle runs at the machine's share of its top speed.
-                var rate = moving && _cycle == "walk" ? Mathf.Clamp(Mathf.Sqrt(speed * speed + sideways * sideways) / Mathf.Max(1, maxSpeed), 0.5f, fastest) : 1;
+                var rate = moving && _cycle == "walk" ? Mathf.Clamp(Mathf.Sqrt(speed * speed + sideways * sideways) / Mathf.Max(1, maxSpeed), SlowestWalk, fastest) : 1;
                 _phase += delta * rate / animation.Duration;
                 // The resting plan is played once when the legs stop, "so we don't carry on waggling on the spot"
                 // (MachPhysSpiderLegs::moveAnimations, nRepetitions 0); looped, an Assassin seemed to breathe.
                 _phase = _cycle is "startWalking" or "stopWalking" or "rest" ? Mathf.Min(_phase, 1) : _phase % 1;
                 foreach (var track in animation.Tracks)
                     if (track.Node < _nodes.Length)
-                        _nodes[track.Node].Transform = track.At(_phase);
+                        _nodes[track.Node].Transform = track.At(Warped(_phase));
             }
         }
 

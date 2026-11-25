@@ -76,7 +76,7 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
     private const int SeatFont = 15;
 
     private LineEdit _name = null!, _relay = null!, _say = null!;
-    private Label _status = null!, _roomTitle = null!, _settings = null!;
+    private Label _status = null!, _roomTitle = null!, _settings = null!, _hint = null!;
     private RichTextLabel _chat = null!;
     private ItemList _rooms = null!;
     private VBoxContainer _seats = null!;
@@ -136,7 +136,10 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
         columns.AddChild(rooms);
 
         _offline = new CenterContainer();
-        _offline.AddChild(MenuTheme.Label("Connect to a relay, or host one,\nto see its rooms.", 26, MenuTheme.Dim, HorizontalAlignment.Center));
+        _hint = MenuTheme.Label("Connect to a relay, or host one,\nto see its rooms.", 26, MenuTheme.Dim, HorizontalAlignment.Center);
+        _offline.AddChild(_hint);
+        if (_versionGap is { } gap)
+            ShowVersionGap(gap.Mine, gap.Relay, message: false);
 
         _rooms = new ItemList { SizeFlagsVertical = SizeFlags.ExpandFill };
         _rooms.ItemActivated += _ => Join();
@@ -221,9 +224,12 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             _returning = false;
             if (NetLink.Connected && _matchRoom is { } was)
             {
+                var storyLost = _storyFrom is not null && was.Options.IsStory;
                 _ = Return(was);
                 if (_automated)
                     _ = ReadyAgain(was.HostId == NetLink.ClientId, was.Players.Count);
+                else if (storyLost)
+                    _ = StoryAgain(was.HostId == NetLink.ClientId, was.Players.Count);
             }
         }
         Automate();
@@ -355,10 +361,53 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
         if (error is not null)
         {
             Say(error);
+            if (VersionGap(error) is { } gap)
+                ShowVersionGap(gap.Mine, gap.Relay, message: false);
             return;
         }
+        _versionGap = null;
         Say(ConnectedText());
         ShowLobby();
+    }
+
+    // The relay's refusal of another protocol (RelayServer: "protocol 17, the relay speaks 18"), kept while the page is
+    // left and come back to, until a connection succeeds.
+    private static (int Mine, int Relay)? _versionGap;
+
+    /// <summary>The game's and the relay's protocol, when <paramref name="error"/> is the relay refusing the game's.</summary>
+    public static (int Mine, int Relay)? VersionGap(string error) =>
+        System.Text.RegularExpressions.Regex.Match(error, @"^protocol (\d+), the relay speaks (\d+)$") is { Success: true } match
+            ? (int.Parse(match.Groups[1].Value), int.Parse(match.Groups[2].Value))
+            : null;
+
+    /// <summary>Where new versions of the game are to be had.</summary>
+    public const string Releases = "https://github.com/marvinrunge/machines/releases";
+
+    /// <summary>
+    /// The game and the relay speak different protocols: it says so big, across the rooms' chip, and (with
+    /// <paramref name="message"/>) in a message over the page, which can open the download page. An older game than the
+    /// relay has to be updated; a newer one has to wait for the relay, or play on a relay of its own.
+    /// </summary>
+    private void ShowVersionGap(int mine, int relay, bool message)
+    {
+        _versionGap = (mine, relay);
+        var older = mine < relay;
+        var title = Lang.T(older ? "UPDATE NEEDED" : "SERVER NOT UPDATED YET");
+        var text = older
+            ? Lang.T("This version of the game is older than the server's.\nUpdate Machines Remake to the newest version to play online.")
+            : Lang.T("This version of the game is newer than the server's.\nIt can play online once the server is updated; until then, host a game yourself.");
+        var versions = Lang.T("Game protocol {0}, server protocol {1}", mine, relay);
+        _hint.Text = $"{title}\n\n{text}\n\n{versions}";
+        _hint.AddThemeColorOverride("font_color", MenuTheme.Bright);
+        _hint.AddThemeFontSizeOverride("font_size", 32);
+        _hint.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _hint.CustomMinimumSize = new Vector2(520, 0);
+        if (!message)
+            return;
+        if (older)
+            screens.Message($"{title}\n\n{text}\n\n{versions}", ("Download page", () => OS.ShellOpen(Releases)), ("OK", null));
+        else
+            screens.Message($"{title}\n\n{text}\n\n{versions}");
     }
 
     private async Task Host()
@@ -905,6 +954,44 @@ public partial class MultiplayerPage(MenuScreens screens, Action? backTo = null)
             await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
         if (IsInstanceValid(this))
             NetLink.Send(new StartMatch());
+    }
+
+    /// <summary>How long a story room waits, once every seat is back and ready after a loss, before it goes on by itself.</summary>
+    private const int StoryAgainSeconds = 5;
+
+    /// <summary>
+    /// A story chapter lost online (plan stufe7 C22): back in the room the host opens again, every player is ready by
+    /// themselves, and once as many are in as before and all are ready the host's game starts the chapter again after
+    /// <see cref="StoryAgainSeconds"/> from the checkpoint, unless someone takes their ready back meanwhile. No protocol change:
+    /// it is the room's ordinary ready and start.
+    /// </summary>
+    private async Task StoryAgain(bool host, int before)
+    {
+        for (var waited = 0.0; _state is null; waited += 0.2)
+        {
+            if (!IsInstanceValid(this) || !NetLink.Connected || waited > 150)
+                return;
+            await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
+        }
+        _ready.ButtonPressed = true;
+        if (!host)
+            return;
+        var since = -1.0;
+        for (var waited = 0.0; waited < 300; waited += 0.2)
+        {
+            if (!IsInstanceValid(this) || !NetLink.Connected || _state is not { } room || !room.Options.IsStory)
+                return;
+            var all = room.Players.Count >= Math.Max(2, before) && room.Players.All(p => p.Ready);
+            since = all ? (since < 0 ? 0 : since + 0.2) : -1;
+            if (all)
+                Say(Lang.T("Everyone is back: on in {0} s…", Math.Max(1, (int)Math.Ceiling(StoryAgainSeconds - since))));
+            if (since >= StoryAgainSeconds)
+            {
+                NetLink.Send(new StartMatch());
+                return;
+            }
+            await ToSignal(GetTree().CreateTimer(0.2), SceneTreeTimer.SignalName.Timeout);
+        }
     }
 
     private static readonly Dictionary<string, long?> TerrainPrints = [];

@@ -100,6 +100,9 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                 }
                 if (ShotDue(game, story) is { } shot)
                     await BeatPicture(game, story, shot);
+                // The armoury's own pictures (StoryDriver.Armoury).
+                if (ArmouryShot() is { } armouryShot)
+                    await BeatPicture(game, story, armouryShot);
                 if (story.Over)
                 {
                     LetGo();
@@ -135,6 +138,12 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                 }
                 if (Booting(game, story))
                     continue;
+                // The Notabschaltung: the Locator shut down waits for its Grunt's cable (MACHINES_STORY_DRIVE_SHUTDOWN=1|2 waits for some, StoryDriver.Escape).
+                if (await ShutDown(game, story, hero))
+                    continue;
+                // Stage 7's sections drive by their own legs once their packages build them (StoryDriver.Stealth, .Armoury, .Escape).
+                if (DriveStealth(game) || DriveArmoury(game) || DriveEscape(game))
+                    continue;
                 if (_lampChecked is null)
                 {
                     await Lamp(game, hero);
@@ -146,6 +155,37 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
                 await DriveWatched(game, hero);
             }
         }
+    }
+
+    private bool _shutdownTold;
+
+    /// <summary>
+    /// The shared leg "wait while shut down" (plan stufe7 C23): while the Locator lies shut down the driver lets go and waits
+    /// for a Grunt's cable, telling the shutdown and the restart ("story drive: &lt;section&gt; shutdown|restart tick T seconds S")
+    /// with a picture of each. MACHINES_STORY_DRIVE_SHUTDOWN=1|2 has the escape's leg wait for one or two (StoryDriver.Escape).
+    /// </summary>
+    private async Task<bool> ShutDown(Game game, StoryRun story, Machine hero)
+    {
+        var world = game.World;
+        if (world.LocatorShutDown)
+        {
+            LetGo();
+            if (!_shutdownTold)
+            {
+                _shutdownTold = true;
+                Tell(FormattableString.Invariant($"story drive: {story.Section} shutdown tick {world.Tick} seconds {world.Time:0.0}"));
+                await Wait(1.5f);
+                await Picture("shutdown");
+            }
+            return true;
+        }
+        if (_shutdownTold)
+        {
+            _shutdownTold = false;
+            Tell(FormattableString.Invariant($"story drive: {story.Section} restart tick {world.Tick} seconds {world.Time:0.0} restarts {story.Reserve.Restarts}"));
+            await Picture("restart");
+        }
+        return false;
     }
 
     // Whether the skip was sent, and whether the boot's end was told.
@@ -361,7 +401,8 @@ public partial class StoryDriver(string folder) : WiredDriver(folder, new Plan("
             Fire(game, hero, 0, false);
             Go(game, hero, "repair", Zone("repair"), 1.5f);
         }
-        else if (!director.Has("notgang"))
+        // Into the Notgang, where the escape begins; its section drives by its own legs to the bay (StoryDriver.Escape).
+        else if (!director.Has("escape"))
             Go(game, hero, "notgang", new NVector2(520, 232), 2);
         else if (CrashFirst && _falls == 0)
             Wait(game, hero, "the crash");

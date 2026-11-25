@@ -171,14 +171,14 @@ public class DeckNavTests
         var world = TwoRooms(6, 'D');
         var type = new ArtefactType("door", true, 0, 30000, 100, null, 7, []);
         var leaf = world.AddArtefact(0, new Vector2(20, 12), type, 0, [new(19, 9), new(21, 9), new(21, 15), new(19, 15)]);
-        leaf.Tag = 100;
+        leaf.Tag = DeckParser.DoorTagBase;
         var reaper = Reaper(world, West);
         Assert.False(Passes(world, reaper, West, East));
         Assert.True(world.DoorClosed('D'));
 
         Assert.True(world.OpenDoor('D'));
 
-        Assert.Contains(world.Events, e => e.Kind == GameEventKind.ArtefactRemoved && e.Actor == leaf.Id && e.Other == 100);
+        Assert.Contains(world.Events, e => e.Kind == GameEventKind.ArtefactRemoved && e.Actor == leaf.Id && e.Other == DeckParser.DoorTagBase);
         Assert.True(Passes(world, reaper, West, East));
         Assert.False(world.DoorClosed('D'));
         Assert.False(world.OpenDoor('D'));
@@ -339,7 +339,7 @@ public class DeckNavTests
             GameWorld.MobilityOf(Commander(world, spare)), GameWorld.MobilityOf(Thresher(world, spare)));
     }
 
-    private static readonly string[] Ducts = ["V1a", "V1b", "V1c", "V2"];
+    private static readonly string[] Ducts = ["V1a", "V1am", "V1aw", "V1b", "V1c", "V2"];
 
     [Fact]
     public void The_prologue_heroes_crawl_and_walk_as_the_plan_has_them()
@@ -374,8 +374,10 @@ public class DeckNavTests
 
         Assert.Equal(all, locator);
         Assert.Empty(grunt.Intersect(Ducts));
-        Assert.Equal(all.Except(Ducts).Except(["R7"]), grunt);
-        string[] neverBig = ["K", "S", "R0", "R1", "R2", "R3", "R5", "R7", "R13", "R13a", "R14", "R15", "R15a", "R16", .. Ducts];
+        // The Lager is behind the grate F since stage 7, and the Schaltraum was always ducts only.
+        Assert.Equal(all.Except(Ducts).Except(["R5", "R7"]), grunt);
+        // R13 and its ramp are the big machines' once gate N is open (the armoury's third batch on).
+        string[] neverBig = ["K", "S", "R0", "R1", "R2", "R3", "R5", "R7", "R13a", "R14", "R15", "R15a", "R15b", "R16", "R17", "R18", "R19", "A1", "A2", "ENi", .. Ducts];
         Assert.Empty(reaper.Intersect(neverBig));
         Assert.Empty(commander.Intersect(neverBig));
         Assert.Equal(["R4", "WL", "EL", "R6"], thresher);
@@ -388,10 +390,11 @@ public class DeckNavTests
         var cast = Cast(world);
         // The story opens the core's doors to the spine and to P2 for the assault, and W for the way round by the west service
         // corridors (R11, R11a) to the antechamber's door I; the blast doors to the decks (H, I) and the gates into the crossing
-        // (G, O) stay shut.
-        foreach (var door in world.Deck!.Doors.Where(d => d.Letter is not ('H' or 'I' or 'G' or 'O')))
+        // (G, O) and the armoury's gate N stay shut.
+        foreach (var door in world.Deck!.Doors.Where(d => d.Letter is not ('H' or 'I' or 'G' or 'O' or 'N')))
             world.OpenDoor(door.Letter);
-        string[] confined = ["R9", "R10", "R10a", "P1", "P1s", "P2", "R11", "R11a"];
+        // (The ramp R13n opens off the lift R10a; gate N at its foot keeps them out of the armoury.)
+        string[] confined = ["R9", "R10", "R10a", "R13n", "P1", "P1s", "P2", "R11", "R11a"];
 
         Assert.Equal(confined.Order(StringComparer.Ordinal), Reached(world, cast.Reaper, "spawn_reaper_1").Order(StringComparer.Ordinal));
         Assert.Equal(confined.Order(StringComparer.Ordinal), Reached(world, cast.Commander, "spawn_commander").Order(StringComparer.Ordinal));
@@ -402,6 +405,78 @@ public class DeckNavTests
         // A gate opens: the crossing is theirs too.
         world.OpenDoor('G');
         Assert.Contains("R12", Reached(world, cast.Reaper, "spawn_reaper_1"));
+    }
+
+    /// <summary>The region a way of moving has at a marker (or at the nearest free point within 3 m).</summary>
+    private static int RegionAt(GameWorld world, Mobility mobility, string marker)
+    {
+        var nav = world.Nav;
+        var start = world.Deck!.Marker(marker).Position;
+        var at = nav.Cell(start);
+        if (!nav.IsFree(at.X, at.Y, mobility) && nav.NearestFreePoint(start, mobility) is { } near && Vector2.Distance(near, start) <= 3)
+            at = nav.Cell(near);
+        return nav.Region(at.X, at.Y, mobility);
+    }
+
+    [Fact]
+    public void The_thresher_keeps_out_of_the_graben_the_nordgang_and_the_niches_but_walks_his_rounds()
+    {
+        // Stage 7's stealth (design-stealth §2): the rows, the Gerüstbruch, the Kistenwand and row B's closed ends are high
+        // stacks, so with the doors as they start he walks R4's lane, the links and both lanes round deck B's island only.
+        var world = Prologue();
+        var cast = Cast(world);
+        var his = RegionAt(world, cast.Thresher, "spawn_thresher");
+        Assert.NotEqual(0, his);
+        foreach (var zone in (string[])["graben", "nordgang", "A1", "A2", "ENi", "gasse"])
+            Assert.False(Covers(world.Deck!.Zone(zone)!, (x, y) => world.Nav.Region(x, y, cast.Thresher) == his), $"he reaches {zone}");
+        foreach (var marker in (string[])["patrol_a_1", "patrol_a_2", "patrol_a_3", "patrol_a_4", "patrol_ring_r5", "patrol_ring_r2",
+                     "patrol_b_1", "patrol_b_2", "patrol_b_3", "patrol_b_4", "guard_h"])
+            Assert.True(RegionAt(world, cast.Thresher, marker) == his, $"he cannot stand at {marker}");
+        // The trio's places: the niche, the E-Nische's hiding place and the Nordgang's waits are out of his reach.
+        foreach (var marker in (string[])["niche_l7", "niche_ike", "niche_bob", "hide_e", "wait_w", "wait_c", "wait_o"])
+            Assert.NotEqual(his, RegionAt(world, cast.Thresher, marker));
+    }
+
+    [Fact]
+    public void Section_twos_ways_run_for_the_grunts_round_by_the_e_nische_and_for_the_locator_through_the_moved_duct()
+    {
+        var world = Prologue();
+        var cast = Cast(world);
+        foreach (var door in world.Deck!.Doors)
+            world.OpenDoor(door.Letter);
+        // The Grunts: the niche, the Graben, the E-Nische, the service passage, deck B, the island's Gasse, the Nordgang, H.
+        var grunt = RegionAt(world, cast.Grunt, "niche_ike");
+        foreach (var marker in (string[])["x_g0", "x_g4", "x_g5", "hide_e", "cp1b_ike", "cp1c_ike", "patrol_b_4", "wait_w", "wait_c", "wait_o", "hack_h", "squad_i_3"])
+            Assert.True(RegionAt(world, cast.Grunt, marker) == grunt, $"a Grunt cannot get to {marker}");
+        // The Locator: the new mouth beside the scare Grunt, the duct west and north to the Lager, the Schaltraum, V1c, the
+        // crawl way through the island, the Nordgang.
+        var locator = RegionAt(world, cast.Locator, "x_g4");
+        foreach (var marker in (string[])["cp1a_l7", "false_alarm_stack", "cp1b_l7", "cp1c_l7", "wait_c"])
+            Assert.True(RegionAt(world, cast.Locator, marker) == locator, $"the Locator cannot get to {marker}");
+        // The Grunts no longer reach the Lager: F is a grate.
+        Assert.NotEqual(grunt, RegionAt(world, cast.Grunt, "false_alarm_stack"));
+    }
+
+    [Fact]
+    public void The_big_machines_reach_the_armoury_only_through_gate_n_and_the_pack_runs_the_escape_route()
+    {
+        var world = Prologue();
+        var cast = Cast(world);
+        foreach (var door in world.Deck!.Doors.Where(d => d.Letter != 'N'))
+            world.OpenDoor(door.Letter);
+        // The ramp is open to the lift; gate N at its foot shuts the armoury.
+        Assert.Contains("R13n", Reached(world, cast.Reaper, "spawn_reaper_1"));
+        Assert.DoesNotContain("R13", Reached(world, cast.Reaper, "spawn_reaper_1"));
+        // The pack (the Thresher's class, the biggest) from the freight lift through S, the Notgang, P, the hold, X, the
+        // gallery, the bridge and Z into the pod bay.
+        var pack = RegionAt(world, cast.Thresher, "pack_lift");
+        foreach (var marker in (string[])["hold_east", "thresher_edge", "hack_x", "y_switch", "pod_3_hatch"])
+            Assert.True(RegionAt(world, cast.Thresher, marker) == pack, $"the pack cannot get to {marker}");
+        // The Reapers come from the hold round by the Notgang to Y.
+        Assert.Equal(RegionAt(world, cast.Reaper, "hold_east"), RegionAt(world, cast.Reaper, "commander_y"));
+
+        world.OpenDoor('N');
+        Assert.Contains("R13", Reached(world, cast.Reaper, "spawn_reaper_1"));
     }
 
     [Fact]

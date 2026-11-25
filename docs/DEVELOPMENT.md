@@ -140,7 +140,7 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   it, a long-range missile followed to its strike and the battle, cut on the beats of the original's intro
   music, in 2560×1440 with motion blur. The game's sound is heard from the camera. It needs the soundtrack
   folder set in the options and takes about an hour (a few minutes with `preview`, 1280×720).
-- **Model viewer:** **Models** in the main menu shows every machine and building the game builds, one at a
+- **Model viewer:** **Models** under Extras in the main menu shows every machine and building the game builds, one at a
   time, to look the models over: in the original, overhauled or HD look (for that page alone) and each race's
   colours, turned by dragging and zoomed with the mouse wheel, with Previous and Next stepping through them all.
   It plays what the game plays: driving forwards or backwards and turning on the spot over a grid that moves
@@ -160,7 +160,7 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   stand) and cannot build on them, while scenery (DUMB) blocks nothing. The active ones can be shot down as in
   the original, with the hit points and armour their scenario gives them, and take the damage they pass on
   (ONDESTROY) to the ones tied to them; recordings made before keep them whole, so they play back as played.
-- **Campaign:** **Campaign** in the main menu plays the original's 25 missions in its five star systems, from
+- **Campaign:** **Campaign** under Single Player in the main menu plays the original's 25 missions in its five star systems, from
   the training camp to Midian Prime.
   - Players as in the original, each with their own progress (`saves/campaign.json`): a won mission opens the
     ones after it (AFTER), and each keeps its highest score.
@@ -278,10 +278,13 @@ dotnet test Machines.sln
 ```
 
 Open `game/project.godot` in the Godot .NET editor and press Play. Godot builds `Machines.sln` from the
-repository root (`dotnet/project/solution_directory`). The game opens on the main menu: Campaign leads to the
+repository root (`dotnet/project/solution_directory`). The game opens on the main menu: Single Player, Multiplayer, Load Game, Extras and Options. Single Player holds
+the story, the campaign, skirmish, Wired and Battle; Extras the replays and the model viewer. Campaign leads to the
 players, the choice of mission and its briefing, Skirmish to the maps (double click starts one) and settings,
-Models to the model viewer, Options to the look (Customize to each part of it), volumes, window and the import
-from your game copy.
+Options to the look (Customize to each part of it), volumes, window and the import
+from your game copy. Options' Menu size is the largest the menus are drawn: a page that would not fit the window at that
+size (a tall page, or a narrow 4:3 or 5:4 screen) is drawn smaller, so no button is ever cut off. When the relay
+refuses the game's protocol, the multiplayer page says so big: update the game, or wait for the relay.
 
 For automated checks, `MACHINES_MAP=<scenario>,<planet>` skips the menu, `MACHINES_SCREENSHOT=<file.png>`
 saves a screenshot and quits (without fog of war unless `MACHINES_FOG=1`),
@@ -300,6 +303,32 @@ the AI against a simple driver of the player's side, and writes how each went.
 the options (see `GameOptions.cs`) for one run without saving them, `MACHINES_LANG=de` or `en` the language,
 and `MACHINES_AI=easy`, `normal` or `hard` how well the AIs of a `MACHINES_MAP` run play. `MACHINES_PERF=<seconds>`
 logs what each second's frames cost for that long, then sums it up and ends the game (see `PerfLog.cs`).
+`MACHINES_STORY_ARMOURY_TEST=1` with `MACHINES_MAP=prolog` and `MACHINES_STORY=prolog,9` (or `,10`) runs through the
+armoury's view and sound once section 6 shows, by the view alone: the lockdown's klaxon, bolts and lamps dipping, a batch's
+doors, gate N, the workbench's strip, mount and mend held, a wreck with its gun stripped bare in sparks, Old Iron's motor,
+rev, scrape, crash and stun, the lift's hum, an electric crackle, gate N straining and the power dip, each step printed as
+`armoury test: <seconds> <step>` (with `MACHINES_AUDIO_TRACE=1` every sound prints its `audio story-sfx` line too; see
+`Game.StoryArmoury.Test.cs`).
+
+The prologue's escape (section 7) has two switches of its own, both with `MACHINES_MAP=prolog` and
+`MACHINES_STORY=prolog,12` (or `13`, `14`). `MACHINES_STORY_ESCAPE_TEST=lift|breach|hold|shutter|jets|bridge|bay` (offline
+only) puts the unhurtable trio where that set piece plays, looking at it, a few ticks into the match, with the world as a
+run that got there has it (the Notgang caved in and door P blown from `hold` on, the jets started from `jets` on); the
+director's own beats then play it, and every second the console prints the hazards (`escape: t=... rails [...] shutter
+... jets [...] collapsed ... bridge ...`; see `Game.StoryEscape.cs`). With `MACHINES_STORY_DRIVE=<folder>` the driver
+runs section 7 on its own legs to the bay (`StoryDriver.Escape.cs`), printing each beat with the seconds left
+(`story drive: escape: <beat> at <s> s, T-<left>`) and the launch; `MACHINES_STORY_DRIVE_SHUTDOWN=1` or `2` has it stand
+in the hold's west landing until the Notabschaltung has come and gone that often (after 40 s without one it shoots its
+own Locator down, counted as a fallback). `MACHINES_OPTIONS=soft_list=on` turns on Soften the list for a run.
+
+The prologue's section 2 (the Thresher) has two switches of its own, with `MACHINES_STORY=prolog,<checkpoint>` and
+`MACHINES_MAP=prolog`. `MACHINES_STORY_STOMP_TEST=1` (offline) puts L-7 in the niche off deck A (`=x,y` elsewhere), its
+lamp off, unseen and unhurt, while the Thresher walks his round past it, and prints a line for each plant of his feet: the
+gap since the last, front or rear, distance, the walls and grates between, gain, low-pass and how much of the near samples
+(see `Game.StoryStealth.cs`, `StorySounds.Thresher.cs`). With `MACHINES_STORY_DRIVE`, `MACHINES_STORY_DRIVE_STEALTH=caught`
+tells the Grunts to wait on deck A's lane once, so one goes down and is put together again, and `=die` walks L-7 into his
+light with its lamp on until it is lost, then says how far he is after the restart; without it the driver fails the run
+when he is sure of L-7 (see `StoryDriver.Stealth.cs`).
 
 | Control | Does |
 | --- | --- |
@@ -329,7 +358,7 @@ as well.
 
 ## Wired
 
-**Wired** (Deutsch: *Wired – Überleben*) on the main menu is a survival mode for one player, and the remake's own addition:
+**Wired** (Deutsch: *Überlebensmodus*) under Single Player in the main menu is a survival mode for one player, and the remake's own addition:
 the original has nothing like it. You make a hero in the hangar from a chassis, weapons, modules and abilities with 150 BMUs
 (110 on Hard, 80 on Hardcore), choose an arena and a difficulty, and drive that hero in first person to keep your pod alive
 against endless waves. Destroyed machines leave wrecks full of BMUs to drive over. Between waves the pod's hangar buys, sells,

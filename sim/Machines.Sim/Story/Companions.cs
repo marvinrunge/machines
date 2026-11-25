@@ -28,6 +28,38 @@ public enum CompanionTask
     Board,
     /// <summary>Drive to a place (a marker, a zone or "x,y") by its own way and wait there: the Grunts down the cable duct while the Locator crawls ahead.</summary>
     Go,
+    /// <summary>Stage 7, section 2: sneak to a place by the crossing rules (package S).</summary>
+    SneakGo,
+    /// <summary>Stage 7, section 2: bang a valve or noise source to draw the Thresher off (package S).</summary>
+    Lure,
+    /// <summary>Stage 7, the armoury: hold a defence post and fire at what comes (package W).</summary>
+    Defend,
+    /// <summary>Stage 7: plug a cable into the shut-down Locator and hold it (the Notabschaltung, CompanionBot.Restart).</summary>
+    Restart,
+    /// <summary>Stage 7, the escape: stand in a frame and hold it (package E).</summary>
+    HoldFrame,
+    /// <summary>Stage 7, the escape: stand on a valve (package E).</summary>
+    Valve,
+    /// <summary>Stage 7, the escape: push a chock into a lane (package E).</summary>
+    Chock,
+    /// <summary>Stage 7, the escape: shoot the crane's lock (package E).</summary>
+    Crane,
+}
+
+/// <summary>
+/// What Use acts on, by priority (plan stufe7 C9): the nearest of the highest kind first. A downed Grunt (the Locator puts it
+/// together) › the shut-down Locator (a Grunt plugs its cable in) › a hurt Grunt (mend) › an unarmed Grunt with a Bolter
+/// carried (mount) › a wreck (strip) › a valve, noise source, hand wheel or lever › a switch, a rack, a hatch.
+/// </summary>
+public enum StoryUseKind
+{
+    Revive,
+    Plug,
+    Mend,
+    Mount,
+    Strip,
+    Device,
+    Switch,
 }
 
 /// <summary>Where a Grunt is in a distraction or a barricade (the steps of the job it is on).</summary>
@@ -105,6 +137,9 @@ public sealed class Companion(PlayerId seat)
     /// <summary>The tick of its last bark, for the cooldown.</summary>
     public int LastBark { get; set; } = int.MinValue / 2;
 
+    /// <summary>The tick the computer's Grunt fell far behind the Locator out of its sight in the escape; -1 while it is not.</summary>
+    public int LostSince { get; set; } = -1;
+
     /// <summary>Lines said once at most (by id), and the tick of the last "I don't fit in there".</summary>
     public SortedSet<string> Said { get; } = new(StringComparer.Ordinal);
 
@@ -127,6 +162,9 @@ public sealed class Companion(PlayerId seat)
         hash.Mix(ReviveTicks);
         hash.Mix(RepairTicks);
         hash.Mix(LastBark);
+        // Only while it is lost, so a run without it keeps its checksum.
+        if (LostSince >= 0)
+            hash.Mix(LostSince);
         foreach (var line in Said)
             hash.Mix(line);
     }

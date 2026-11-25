@@ -294,3 +294,25 @@ Sections 3 and 4 are played, not filmed (STORY.md, Der Hack and Erwischt). What 
 - **Crates:** the loose crate `crate_r9_5` moved to 192,287 by J (Ike's way to the pile is the longer, so J gets three
   crates near it); the NE corner's two are now `cover_r9_1/2` and no Grunt carries them off.
 - **Cameras:** `erwischt.cut` is gone, and with it the cameras `cam_erwischt_1..4` and the rail `rail_erwischt_door`.
+
+## Stage 7 (2026-11-23): high stacks, the Nordgang, the armoury's ramp, the escape's rooms
+
+Drawn into the scaled deck as it is, nothing rescaled (renders/prologue/stufe7-plan.md §4 D):
+
+- A new cell **`h`**, a high stack 8 m tall: a wall to movement, shots and sight in the sim (NavGrid, TerrainHeights),
+  a set piece standing in the room to the eye (DeckLayout.Stack: clamp gantries in a `row` zone, lashed containers in a
+  `hold`, pipe banks where it is 2 m thin or less, else crate towers three high). The clamp blocks of rows A and B, R5's
+  cover, the Gerüstbruch, the Kistenwand, row B's closed ends, deck B's island and the hold's islands are `h`.
+- Deck A: the Leitstand A1 (with its grate onto R4's lane), the Nische A2, V1a's mouth moved east beside the scare Grunt
+  (the old mouth a crushed grate), the E-Nische beside door E. The Innenblock: door F stays in DOORS, open, a 2 m slot on
+  the west link's side with a grate filling the rest, so the Grunts no longer reach the Lager; grate windows between S and
+  EL. Deck B: the Nordgang (y 196-207) behind row B, open to the deck only through its 10 m gaps, too narrow for the
+  Thresher's 13 m; the island with the Grunts' Gasse, its peephole and L-7's crawl way; the catwalk.
+- The armoury: the ramp R13n from the lift R10a down to gate N (14 m, locked) in R13's north wall.
+- The escape: the freight lift R15b behind door S, the hold R17 behind P (lanes, islands, notches, containers on SLIDES),
+  the shutter X into the gallery R18 (jets, the valve niche, L-7's wheel crawl, X's fallback duct), the bridge R19 over
+  the pits (zones tagged `pit`, rock to the sim) and Z into the pod bay. Y (R15a's mouth) starts open, as today's way to
+  the pods; the escape locks it.
+- Door artefacts are tagged 1000 + 10 x their place in DOORS (was 100), so the six new doors never meet a prop's id.
+- deck.mjs checks the reach rules of the stage (prolog-reach.txt) and draws the Thresher's cones (prolog-sight.png);
+  `--variant short` reads deck B's short way (the island filled) for trim 7.

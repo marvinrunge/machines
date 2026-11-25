@@ -56,6 +56,14 @@ public class StoryDoorTests
     [InlineData(4)]
     [InlineData(5)]
     [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    [InlineData(12)]
+    [InlineData(13)]
+    [InlineData(14)]
     public void A_checkpoint_has_every_door_opened_before_it_open_from_its_first_tick(int checkpoint)
     {
         var world = Chapter(checkpoint);
@@ -65,7 +73,9 @@ public class StoryDoorTests
         foreach (var letter in Prologue.DoorsOpen[checkpoint])
         {
             Assert.False(world.DoorClosed(letter), $"door {letter}");
-            Assert.True(world.Nav.IsFree(Middles.Value[letter], GameWorld.MobilityOf(world.HeroOf(world.Story!.Locator)!)), $"door {letter}'s middle is not free ground");
+            // A door the deck starts open (F beside its grate; X, Z at the chapter's start) has no leaves to measure its middle by.
+            if (Middles.Value.TryGetValue(letter, out var middle))
+                Assert.True(world.Nav.IsFree(middle, GameWorld.MobilityOf(world.HeroOf(world.Story!.Locator)!)), $"door {letter}'s middle is not free ground");
         }
         // On its first tick only a door that opens by itself as the trio comes may begin to slide (door I beside checkpoint 2's start).
         world.Step();
@@ -80,14 +90,31 @@ public class StoryDoorTests
     [InlineData(4)]
     [InlineData(5)]
     [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    [InlineData(11)]
+    [InlineData(12)]
+    [InlineData(13)]
+    [InlineData(14)]
     public void Every_door_the_script_opens_before_a_checkpoint_stands_open_or_opens_by_itself_there(int checkpoint)
     {
         // The doors the beats of the stretches before it open (hacked, unlocked, opened by the story), and those that opened by
         // themselves as the trio came: each open at the checkpoint, or one that still opens as the trio comes. The gates the
         // hunters force (Then.ForceGates) are a lost fight, not progress: the Grunts hold them again at checkpoint 4.
-        var before = Prologue.Script.Where(b => b.Span < checkpoint).SelectMany(b => b.Then).ToList();
-        var opened = before.OfType<Then.OpenDoors>().SelectMany(o => o.Letters).ToHashSet();
-        var auto = before.OfType<Then.AutoDoors>().SelectMany(o => o.Letters).ToHashSet();
+        var before = Prologue.Script.Where(b => b.Span < Prologue.SetUpAs(checkpoint)).SelectMany(b => b.Then).ToList();
+        // A door shut again behind the trio (H, stage 7) is not progress the checkpoint keeps open.
+        var opened = before.OfType<Then.OpenDoors>().SelectMany(o => o.Letters).Except(before.OfType<Then.CloseDoors>().SelectMany(c => c.Letters)).ToHashSet();
+        // A door that opened by itself and was locked after (the armoury's lockdown, stage 7) counts again only once unlocked.
+        var auto = new HashSet<char>();
+        foreach (var action in before)
+        {
+            if (action is Then.AutoDoors a)
+                auto.UnionWith(a.Letters);
+            else if (action is Then.LockDoors l)
+                auto.ExceptWith(l.Letters);
+        }
 
         Assert.All(opened, letter => Assert.Contains(letter, Prologue.DoorsOpen[checkpoint]));
         Assert.All(auto, letter => Assert.True(Prologue.DoorsOpen[checkpoint].Contains(letter) || Prologue.DoorsAuto[checkpoint].Contains(letter),

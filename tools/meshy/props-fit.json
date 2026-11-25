@@ -27,6 +27,7 @@
     "core": {"tex": "2k"},
     "pod_cradle": {"tex": "2k"},
     "bay_crane": {"tex": "2k"},
-    "mothership": {"tex": "2k"}
+    "mothership": {"tex": "2k"},
+    "pod_drop": {"tex": "2k"}
   }
 }

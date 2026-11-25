@@ -130,7 +130,9 @@ public class StoryRoomTests
             Assert.Equal([P(5)], client.World.Story!.Bots);
             // Bob follows the Locator (stepping out of its way where it drives at him: a move aside, then the follow again).
             Assert.Equal(CompanionOrder.Follow, client.World.Story.Crew.Of(P(5)).Order);
-            Assert.True(client.World.HeroOf(P(5))!.Order is FollowOrder { Target: var target } ? target == client.World.HeroOf(P(0))!.Id : client.World.HeroOf(P(5))!.Order is MoveOrder,
+            // At checkpoint 5 (the Wache) it went to its wait place by the valve the sneaking way and waits there (CompanionBot.Stealth).
+            var waits = client.World.Story.Stealth.Bots.TryGetValue(5, out var sneak) && sneak.Goal is not null && client.World.HeroOf(P(5))!.Order is StandGroundOrder;
+            Assert.True(waits || (client.World.HeroOf(P(5))!.Order is FollowOrder { Target: var target } ? target == client.World.HeroOf(P(0))!.Id : client.World.HeroOf(P(5))!.Order is MoveOrder),
                 $"Bob's order {client.World.HeroOf(P(5))!.Order}");
         }
         // Only the host's game keeps the progress.

@@ -46,14 +46,14 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// A machine of the ship set down for the story at the nearest free ground to <paramref name="at"/> (or exactly there,
+    /// A machine of the ship set down for the story at the nearest free ground to <paramref name="at"/> on its side of any wall (or exactly there,
     /// for one hanging in a clamp), of the type, level and weapons named.
     /// </summary>
     internal Machine SpawnForStory(Race race, Vector2 at, StoryUnit unit, bool exact = false)
     {
         var spec = Data.Parm.Machine(unit.SubType is null ? unit.Type : $"{unit.Type} {unit.SubType}");
         var clearance = MathF.Max(1, spec.Level(unit.Level).LowClearance);
-        return AddMachine(race, exact ? at : FreeSpotNear(at, clearance), unit.Type, unit.SubType, unit.Level, unit.Weapons);
+        return AddMachine(race, exact ? at : FreeSpotFor(at, clearance, Navigation.Mobility.Land, sameRoom: true), unit.Type, unit.SubType, unit.Level, unit.Weapons);
     }
 
     /// <summary>A hero of the story set down at a place for a checkpoint, facing the way given (degrees, 0 east, 90 north), standing.</summary>
@@ -91,6 +91,9 @@ public sealed partial class GameWorld
     // How the trio gets about, the ways a piece set down must not cut: the Grunts' and the Locator's, which crawls.
     private static readonly Navigation.Mobility[] TrioWays = [new(false, 1, false), new(false, 1, true)];
 
+    /// <summary>How far from the middle of a door the story keeps locked nothing may fall (its mouth, metres).</summary>
+    private const float LockedMouth = 5;
+
     /// <summary>
     /// Whether an artefact of a type set down at a place would cut a way of the trio's (<see cref="Navigation.NavGrid.Cuts"/>):
     /// a lane, a doorway or a door's mouth it would shut, so that a room or the way on falls out of reach. Falling debris that
@@ -102,6 +105,17 @@ public sealed partial class GameWorld
         if (Story is not { } run || run.Director.TypeOf(typeName) is not { } known || !Nav.Fine)
             return false;
         var footprint = Footprint(known.Type, at, degrees);
+        // A door the story keeps locked for now (the armoury's lockdown) opens again later: its mouth stays clear, though the
+        // ground beyond it is not part of any way while it is shut.
+        foreach (var letter in run.Director.Locked)
+        {
+            var leaves = DoorLeaves(letter);
+            if (leaves.Count == 0)
+                continue;
+            var middle = leaves.Aggregate(Vector2.Zero, (sum, leaf) => sum + leaf.Position) / leaves.Count;
+            if (footprint.Any(corner => Vector2.Distance(corner, middle) < LockedMouth) || Vector2.Distance(at, middle) < LockedMouth)
+                return true;
+        }
         return TrioWays.Any(way => Nav.Cuts(footprint, way));
     }
 

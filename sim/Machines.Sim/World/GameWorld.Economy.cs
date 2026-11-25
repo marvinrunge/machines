@@ -1,5 +1,6 @@
 using System.Numerics;
 using Machines.Import.Model;
+using Machines.Sim.Navigation;
 
 namespace Machines.Sim.World;
 
@@ -260,12 +261,20 @@ public sealed partial class GameWorld
     /// The nearest place to <paramref name="point"/> that no machine stands on or is heading for
     /// (MachLogSpacialManipulation::getNearestFreeSpacePoint), searched ring by ring.
     /// </summary>
-    internal Vector2 FreeSpotNear(Vector2 point, float clearance)
+    internal Vector2 FreeSpotNear(Vector2 point, float clearance) => FreeSpotFor(point, clearance, Mobility.Land);
+
+    /// <summary>
+    /// The same for a way of moving that needs room (a big machine on a deck's fine grid): the spot has room for its size
+    /// class, so the machine set down there can find its way off it. Other machines are passed over as their own spots. With
+    /// <paramref name="sameRoom"/> only a spot in a straight free line from the point counts, never one past a wall.
+    /// </summary>
+    internal Vector2 FreeSpotFor(Vector2 point, float clearance, Mobility mobility, Machine? self = null, bool sameRoom = false)
     {
-        var taken = Machines.Where(m => m.Inside is null)
+        var taken = Machines.Where(m => m.Inside is null && m != self)
             .SelectMany(m => m.Path.Count > 0 ? new[] { m.Position, m.Path[^1] } : [m.Position])
             .ToList();
-        bool Free(Vector2 p) => Nav.IsFree(p, crossesWater: false) && taken.All(t => Vector2.DistanceSquared(t, p) >= 4 * clearance * clearance);
+        bool Free(Vector2 p) => Nav.IsFree(p, mobility) && taken.All(t => Vector2.DistanceSquared(t, p) >= 4 * clearance * clearance)
+            && (!sameRoom || Nav.LineOfSight(point, p, Mobility.Land));
         if (Free(point))
             return point;
         for (var ring = 1; ring <= 10; ring++)

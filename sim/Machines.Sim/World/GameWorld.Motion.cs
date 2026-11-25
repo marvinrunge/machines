@@ -169,7 +169,12 @@ public sealed partial class GameWorld
         public bool OffWay;
         // Times it stepped sideways for its goal, and that goal.
         public int Sidesteps;
+        // Which machine held it up last, and since when (a story's hunter shoulders it aside after ShoveAfter).
+        public int HeldBy;
+        public float HeldSince;
         public Vector2 SidestepGoal;
+        // A crab walker's hull against the way it walks (a multiple of a quarter turn; see Crabs): 0 for every other machine.
+        public float Crab;
     }
 
     // Stepping sideways for a goal that stays taken would go on for ever: after this many it looks for space near by.
@@ -310,8 +315,9 @@ public sealed partial class GameWorld
             next = end + 1;
         }
 
-        // A deck door's leaf still sliding open in the way: it stops before it and tries again a moment later (GameWorld.Deck).
-        if (LeafInWay(machine, machine.Position, position))
+        // A deck door's leaf still sliding open in the way, or a container sliding on its rail in the escape's hold: it stops before
+        // it and tries again a moment later (GameWorld.Deck, GameWorld.StoryHazards).
+        if (LeafInWay(machine, machine.Position, position) || RailInWay(machine, machine.Position, position))
         {
             AnnounceStop(machine, motion);
             StopDead(motion);
@@ -339,7 +345,7 @@ public sealed partial class GameWorld
             }
         }
         machine.Position = position;
-        machine.Facing = heading;
+        machine.Facing = heading + motion.Crab;
         motion.RunCovered = covered;
         motion.Speed = motion.Run.SpeedAt(t);
         if (next > end)
@@ -390,8 +396,11 @@ public sealed partial class GameWorld
         var heading = DetMath.Atan2(first.Y, first.X);
         var start = motion.Speed;
         // A new way that turns sharply off the one it was on: it stops and turns.
-        if (start > 0 && MathF.Abs(AngleBetween(machine.Facing, heading)) > SharpCorner)
+        if (start > 0 && MathF.Abs(AngleBetween(machine.Facing - motion.Crab, heading)) > SharpCorner)
             start = 0;
+        // A crab walker setting off takes the front of its four nearest the way, so it turns an eighth at most.
+        if (start == 0)
+            motion.Crab = Crabs(machine) ? CrabFor(machine.Facing, heading) : 0;
 
         var end = index;
         var length = first.Length();
@@ -421,7 +430,7 @@ public sealed partial class GameWorld
         motion.Speed = start;
         motion.Turning = false;
         if (start == 0)
-            StartTurn(machine, motion, heading, machine.Stats.RotationSpeed * StoryTurnPace(machine));
+            StartTurn(machine, motion, heading + motion.Crab, machine.Stats.RotationSpeed * StoryTurnPace(machine));
         // A run that first turns on the spot is told of once it has turned.
         if (!motion.Turning)
             AnnounceRun(machine, motion);
@@ -487,6 +496,9 @@ public sealed partial class GameWorld
             return;
         var heading = DetMath.Atan2(offset.Y, offset.X);
         var motion = MotionOf(machine);
+        // A crab walker turns the hull to the front of its four nearest the point; its head looks the rest of the way.
+        motion.Crab = Crabs(machine) ? CrabFor(machine.Facing, heading) : 0;
+        heading += motion.Crab;
         if (motion.Driving)
             AnnounceStop(machine, motion);
         motion.Driving = false;
@@ -602,6 +614,16 @@ public sealed partial class GameWorld
         if (way == Way.Aside)
             return path.Count;
         var resting = IsResting(blocker);
+        // A story's unkillable hunter (the Thresher) on his round, held up for a while, shoulders a machine standing still in its way aside: a computer's Grunt
+        // frozen on his round (or kept unseen by the offscreen grace) once stopped him for good, as it makes way for nobody.
+        if (motion.HeldBy != blocker.Id)
+            (motion.HeldBy, motion.HeldSince) = (blocker.Id, Time);
+        if (Story is not null && way == Way.Order && machine.Order is PatrolOrder && resting && !blocker.DrivenByPlayer && StorySeekerOf(machine.Id) is { Unkillable: true }
+            && Time - motion.HeldSince >= ShoveAfter && Shove(machine, blocker, path[index]))
+        {
+            motion.WaitUntil = Time + Dt;
+            return index;
+        }
         // One driven in first person is never asked to make way: the other stops and waits. In a battle a hero at the wheel
         // may stand for minutes (a player holding the pod's door), so one held up by it goes round it, or, when it stands on
         // the goal itself, takes a place near the goal as with any machine resting there. So in a story: the Locator stands
@@ -667,6 +689,39 @@ public sealed partial class GameWorld
         motion.WaitUntil = Time + BlockedRetry;
         return index;
     }
+
+    /// <summary>
+    /// Pushes <paramref name="blocker"/> a step out of the way of <paramref name="machine"/> going to <paramref name="toward"/>:
+    /// across that way to the side it already leans to, else the other side, else ahead; only onto ground with room for it.
+    /// False when no step is free.
+    /// </summary>
+    private bool Shove(Machine machine, Machine blocker, Vector2 toward)
+    {
+        var way = toward - machine.Position;
+        if (way.LengthSquared() < 1e-6f)
+            return false;
+        way = Vector2.Normalize(way);
+        var normal = new Vector2(way.Y, -way.X);
+        var side = Vector2.Dot(blocker.Position - machine.Position, normal) >= 0 ? 1 : -1;
+        var step = MathF.Max(ShoulderStep, machine.Stats.Speed * Dt);
+        var mobility = MobilityOf(blocker);
+        foreach (var push in new[] { normal * side, -normal * side, way })
+        {
+            var to = blocker.Position + push * step;
+            if (Nav.OnPlanet(to) && Nav.IsFree(to, mobility))
+            {
+                blocker.Position = to;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>How long a story's hunter waits before a machine standing in its way before he shoulders it aside, seconds.</summary>
+    private const float ShoveAfter = 3;
+
+    /// <summary>The least a shove moves a machine a tick, metres.</summary>
+    private const float ShoulderStep = 0.2f;
 
     // The share of its speed a player's machine tries when a moving machine is in the way (speedProportion).
     /// <summary>
@@ -800,7 +855,7 @@ public sealed partial class GameWorld
     {
         var water = MobilityOf(machine);
         return Nav.OnPlanet(to) && Nav.IsFree(to, water) && Nav.LineOfSight(from, to, water) && Blocker(machine, from, to) is null
-            && !LeafInWay(machine, from, to);
+            && !LeafInWay(machine, from, to) && !RailInWay(machine, from, to);
     }
 
     /// <summary>A machine asked to make way steps aside before it goes on with its order; true while it does.</summary>
@@ -1026,6 +1081,21 @@ public sealed partial class GameWorld
         var rise = ground.At(machine.Position + direction * reach) - ground.At(machine.Position - direction * reach);
         return rise / MathF.Sqrt(rise * rise + 4 * reach * reach);
     }
+
+    /// <summary>
+    /// Whether a machine walks as a crab (the user's wish after the first play test): a story's Thresher (Wired's AGGRESSOR 4
+    /// ASSASSIN), whose four legs stand alike all round, sets off in any way with the front of its four nearest it, so it
+    /// turns an eighth of a turn at most; its head turns the rest, so its eyes and beam still look the way it walks.
+    /// </summary>
+    private bool Crabs(Machine machine) =>
+        Story is not null && machine.IsType("AGGRESSOR", "ASSASSIN") && machine.Stats.HardwareLevel == 4;
+
+    /// <summary>The quarter turns a crab walker's hull stands off a heading, the nearest to how it faces now (−π to π).</summary>
+    private static float CrabFor(float facing, float heading) =>
+        MathF.Round(AngleBetween(heading, facing) / (MathF.PI / 2)) * (MathF.PI / 2);
+
+    /// <summary>How far a crab walker's hull stands off the way it walks or looks, radians (0 for every other machine).</summary>
+    public float CrabOf(int machine) => _motion.TryGetValue(machine, out var motion) ? motion.Crab : 0;
 
     /// <summary>The signed turn from one heading to another, the short way round.</summary>
     private static float AngleBetween(float from, float to)

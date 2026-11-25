@@ -12,9 +12,14 @@ namespace Machines.Game;
 /// <c>&lt;cue&gt;_2.ogg</c> (if there are any) kept in step with it and brought in at threat 1 and 2. Everything plays on the
 /// Music bus, which speech ducks.
 /// <para>The prologue has its score (<see cref="StoryScore"/>, the user's pieces): while its files are there it plays in
-/// place of the cues and their stand-ins, its playlist from the start, the loud part at the break-in (<see cref="Caught"/>),
-/// the escape's piece with the crash countdown. Where the playlist stood is kept for the session, so that a checkpoint
-/// loaded after a fall goes on with the piece that played.</para>
+/// place of the cues and their stand-ins: the stealth's pieces from the start, the loud part at the break-in
+/// (<see cref="Caught"/>), the old playlist after it, the armoury's fight piece while its waves run, the boss's piece, the
+/// escape's piece from the lift's burst. Where each list stood is kept for the session, so that a checkpoint loaded after a
+/// fall goes on with the piece that played.</para>
+/// <para>Stage 7 (package M) reads the director's cues (<see cref="Hear"/>): the Thresher's distance and state duck the
+/// stealth's music in section 2 (<see cref="StoryDuck"/>, with a low-pass on the Music bus); the armoury's waves and pauses
+/// bring in Static Dread v2 and set its level, the boss Static Dread v1; <c>score escape</c> anchors Circuitry v1, which
+/// loops its last section until the launch; <c>hush</c> dips the music for a moment, never stopping it.</para>
 /// </summary>
 public partial class StoryMusic(StoryAudio audio) : Node
 {
@@ -34,6 +39,14 @@ public partial class StoryMusic(StoryAudio audio) : Node
     {
         _sting = new AudioStreamPlayer { Name = "Sting", Bus = StoryAudio.MusicBus };
         AddChild(_sting);
+        // The duck's low-pass and the hushes, first on the Music bus (before the speech duck and the stems' taps); the bus goes with the chapter.
+        if (AudioServer.GetBusIndex(StoryAudio.MusicBus) is var bus and >= 0)
+        {
+            _lowPass = new AudioEffectLowPassFilter { CutoffHz = StoryDuck.OpenHz, Resonance = 0.5f };
+            _hushAmp = new AudioEffectAmplify { VolumeDb = 0 };
+            AudioServer.AddBusEffect(bus, _hushAmp, 0);
+            AudioServer.AddBusEffect(bus, _lowPass, 0);
+        }
     }
 
     public override void _Process(double delta)
@@ -90,6 +103,9 @@ public partial class StoryMusic(StoryAudio audio) : Node
     /// <summary>Four times a second: the threat from the Thresher and the suspicion, and the section's cue.</summary>
     public void Look(float? thresherDistance, float suspicion, int section, float? countdownLeft)
     {
+        section = SectionOverride ?? section;
+        countdownLeft = CountdownOverride ?? countdownLeft;
+        _thresherSeen = thresherDistance;
         if (_threat.Update(thresherDistance, suspicion, audio.Clock))
             Level();
         if (_pinned is null && Score() is { } score)
@@ -136,16 +152,151 @@ public partial class StoryMusic(StoryAudio audio) : Node
         audio.Trace($"threat {_threat.Level}{(_threat.Override is not null ? " set" : "")}");
     }
 
+    // ---- the director's cues (stage 7) -----------------------------------------------------------
+
+    /// <summary>For the music's check (MACHINES_STORY_AUDIO_TEST=music): the section and the countdown it plays as if they were.</summary>
+    public int? SectionOverride { get; set; }
+    public float? CountdownOverride { get; set; }
+
+    private AudioEffectLowPassFilter? _lowPass;
+    private AudioEffectAmplify? _hushAmp;
+    private Tween? _hushTween, _filterTween;
+    private bool _filterOn;
+    private readonly StoryDuck _duck = new();
+    private float? _thresherSeen;
+    private (float Metres, double At)? _thresherHeard;
+    private string? _thresherState;
+    private bool _launched;
+
+    /// <summary>A <c>thresher near</c> cue counts over the view's own distance for so long (seconds).</summary>
+    private const double HeardFor = 1.5;
+
+    /// <summary>
+    /// A director's cue (its words, as Game.StoryCue has them) or a view's own word for the music: true when the music read
+    /// it (<see cref="StoryMusicCue.Parse"/>: <c>thresher near|state</c>, <c>wave n alive</c>, <c>wave pause</c>, <c>boss in|down</c>,
+    /// <c>score escape s</c>, <c>hush s dB</c>, <c>launch</c>). Every other cue is left to its section.
+    /// </summary>
+    public static bool Hear(IReadOnlyList<string> words) => StoryAudio.Current?.MusicCues.HearHere(words) ?? false;
+
+    public bool HearHere(IReadOnlyList<string> words)
+    {
+        if (StoryMusicCue.Parse(words) is not { } cue)
+            return false;
+        var clock = audio.Clock;
+        switch (cue.Kind)
+        {
+            case StoryMusicCueKind.ThresherNear:
+                _thresherHeard = (cue.Number, clock);
+                return true;
+            case StoryMusicCueKind.ThresherState:
+                if (cue.State != _thresherState)
+                    audio.Trace($"thresher {cue.State}");
+                _thresherState = cue.State;
+                return true;
+            case StoryMusicCueKind.Hush:
+                HushMusic(cue.Number, cue.Db);
+                return true;
+            case StoryMusicCueKind.Launch:
+                // The hold lets go: should the cutscene's fade not cover it, the piece plays out to its end.
+                _launched = true;
+                if (_escape?.Player.Stream is AudioStreamOggVorbis escape)
+                    escape.Loop = false;
+                audio.Trace($"score launch");
+                return true;
+        }
+        if (_pinned is not null || Score() is not { } score)
+            return true;
+        switch (cue.Kind)
+        {
+            case StoryMusicCueKind.WaveAlive:
+                score.Wave();
+                audio.Trace($"score wave {cue.Number:0} alive");
+                break;
+            case StoryMusicCueKind.WavePause:
+                score.Pause();
+                audio.Trace($"score wave pause");
+                break;
+            case StoryMusicCueKind.BossIn:
+                if (score.BossIn())
+                    Loud("boss", StoryScore.Boss);
+                break;
+            case StoryMusicCueKind.BossDown:
+                if (score.BossDown(clock))
+                {
+                    // The fall: the loud part (or the playlist) cut, 2 s of silence, then the playlist comes back by itself.
+                    Remember();
+                    Leave(ref _list, StoryScore.CutFade);
+                    Leave(ref _caught, StoryScore.CutFade);
+                    audio.Trace($"score boss down, rest {StoryScore.BossRest:0} s");
+                }
+                break;
+            case StoryMusicCueKind.ScoreEscape:
+                score.Burst(clock);
+                audio.Trace($"score burst with {cue.Number:0.0} s left");
+                break;
+        }
+        return true;
+    }
+
+    /// <summary>The music dips by <paramref name="db"/> for <paramref name="seconds"/> and comes back (J1, the bridge, the stealth's staged silences).</summary>
+    private void HushMusic(float seconds, float db)
+    {
+        if (_hushAmp is null)
+            return;
+        _hushTween?.Kill();
+        _hushTween = CreateTween();
+        _hushTween.TweenProperty(_hushAmp, "volume_db", Mathf.Max(db, -80f), 0.12);
+        _hushTween.TweenInterval(Mathf.Max(0, seconds - 0.12f));
+        _hushTween.TweenProperty(_hushAmp, "volume_db", 0f, 0.4);
+        audio.Trace($"music hush {seconds:0.0#} s {db:0} dB");
+    }
+
+    /// <summary>The playlist's level under the Thresher in section 2 (null elsewhere), and the low-pass with it.</summary>
+    private float? Duck(int section)
+    {
+        if (section != 2)
+        {
+            Filter(false);
+            return null;
+        }
+        var clock = audio.Clock;
+        var metres = _thresherHeard is { } heard && clock - heard.At <= HeardFor ? heard.Metres : _thresherSeen;
+        var listener = audio.Listener;
+        var sheltered = StoryDuck.Sheltered(StorySoundscape.RoomAt(audio.Deck, new(listener.X, listener.Z)));
+        var was = _duck.Db;
+        var db = _duck.Update(metres, _thresherState, sheltered, clock);
+        if (db != was)
+            audio.Trace($"duck {db:0} dB{(_duck.Filter ? " low-pass" : "")} ({(metres is { } m ? $"{m:0} m" : "none")}, {_thresherState ?? "calm"}{(sheltered ? ", sheltered" : "")})");
+        Filter(_duck.Filter);
+        return db;
+    }
+
+    /// <summary>The Music bus's low-pass closes to 1.2 kHz over 2 s, or opens over 6 s.</summary>
+    private void Filter(bool on)
+    {
+        if (on == _filterOn || _lowPass is null)
+            return;
+        _filterOn = on;
+        _filterTween?.Kill();
+        _filterTween = CreateTween();
+        _filterTween.TweenProperty(_lowPass, "cutoff_hz", on ? StoryDuck.FilterHz : StoryDuck.OpenHz, on ? StoryDuck.DownOver : StoryDuck.BackOver)
+            .SetTrans(Tween.TransitionType.Expo).SetEase(on ? Tween.EaseType.Out : Tween.EaseType.In);
+        audio.Trace($"music low-pass {(on ? "on" : "off")}");
+    }
+
     // ---- the score (StoryScore) -------------------------------------------------------------------
 
-    /// <summary>Where the prologue's playlist stood when its chapter was last played in this session: for a checkpoint after a fall.</summary>
-    private static (string Chapter, int Track, double At)? _remembered;
+    /// <summary>Where each of the prologue's lists stood when its chapter was last played in this session: for a checkpoint after a fall.</summary>
+    private static readonly Dictionary<StoryList, (string Chapter, int Track, double At)> _remembered = [];
 
     private StoryScore? _score;
     private bool? _hasScore;
     private bool _scored;
     private int _track = -1;
+    private StoryList _listKind;
+    private readonly HashSet<StoryList> _listsPlayed = [];
     private Fader? _list, _caught, _escape;
+    private StoryPiece? _caughtPiece;
     private readonly List<Fader> _leaving = [];
     private float _listDb;
 
@@ -154,29 +305,39 @@ public partial class StoryMusic(StoryAudio audio) : Node
 
     /// <summary>The piece of the score playing now and where it stands, for the checks: (name, seconds) or null.</summary>
     public (string Piece, double At)? ScorePlaying =>
-        (_escape ?? _caught ?? _list) is { Player: { Playing: true } player } ? (player.Name.ToString()["Score-".Length..], player.GetPlaybackPosition()) : null;
+        (_escape ?? _caught ?? _list) is { Player: { Playing: true } player } fader ? (fader.Piece, player.GetPlaybackPosition()) : null;
 
     /// <summary>The chapter's score while its files are there; null for the cues and their stand-ins.</summary>
     private StoryScore? Score()
     {
         _hasScore ??= audio.Chapter == Machines.Sim.Story.StoryOptions.Prologue && StoryScore.Pieces.All(p => StoryAudio.Exists(Piece(p)));
-        return _hasScore == true ? _score ??= new StoryScore() : null;
+        return _hasScore == true ? _score ??= new StoryScore(audio.StartCheckpoint) : null;
     }
 
     private static string Piece(StoryPiece piece) => $"{StoryAudio.MusicFolder}/{piece.Name}.ogg";
 
-    /// <summary>The break-in: the playlist is cut and the loud part of Lost In The Dark plays once from its entry.</summary>
+    /// <summary>The break-in: the stealth's music is cut and the loud part of Lost In The Dark plays once from its entry.</summary>
     public void Caught()
     {
         if (_pinned is not null || Score() is not { } score || !score.BreakIn())
             return;
+        Loud("caught", StoryScore.Caught);
+    }
+
+    /// <summary>
+    /// A piece over the cut playlist: the loud part of Lost In The Dark from its entry at the break-in (once), Static Dread v1
+    /// as the armoury's boss bursts in (looping its body until he falls).
+    /// </summary>
+    private void Loud(string why, StoryPiece piece)
+    {
         StopCue();
         Remember();
         Leave(ref _list, StoryScore.CutFade);
         Leave(ref _caught, StoryScore.CutFade);
-        _caught = Play(StoryScore.Caught, 0, 0, 0, ListSpeed);
+        _caughtPiece = piece;
+        _caught = Play(piece, 0, 0, 0, ListSpeed, hold: piece.Holds);
         _scored = true;
-        audio.Trace($"score caught {StoryScore.Caught.Name}");
+        audio.Trace($"score {why} {piece.Name}{(piece.Holds ? FormattableString.Invariant($", hold {piece.HoldFrom:0.000}-{piece.HoldTo:0.000} s") : "")}");
     }
 
     private void LookScore(StoryScore score, int section, float? countdownLeft)
@@ -186,43 +347,75 @@ public partial class StoryMusic(StoryAudio audio) : Node
             return;
         StopCue();
         _scored = true;
-        switch (score.Follow(section, countdownLeft))
+        var duck = Duck(section);
+        switch (score.Follow(section, countdownLeft, audio.Clock))
         {
             case StoryScorePart.Playlist:
-                _listDb = StoryScore.PlaylistDb(section, _threat.Level, audio.Booting());
+                var db = StoryScore.PlaylistDb(section, _threat.Level, audio.Booting(), score.Armoury, duck);
+                if (db != _listDb && _list is not null)
+                    audio.Trace($"score level {db:0.#} dB{(score.Armoury != StoryArmouryMusic.None ? $" ({score.Armoury.ToString().ToLowerInvariant()})" : "")}");
+                var from = _listDb;
+                _listDb = db;
+                // Another list's turn (the armoury's waves begin or are over): the one playing gives way over the overlap.
+                if (_list is not null && _listKind != score.List)
+                {
+                    Remember();
+                    Leave(ref _list, StoryScore.Overlap);
+                }
                 if (_list is null)
-                    ResumeList();
+                    ResumeList(score.List);
                 else if (_list.Target != _listDb)
-                    _list.To(_listDb, Math.Max(ListSpeed, _list.Speed));
+                    _list.To(_listDb, duck is not null ? StoryDuck.Speed(from, _listDb) : Math.Max(ListSpeed, _list.Speed));
                 break;
-            case StoryScorePart.Escape when _escape is null && countdownLeft is { } left:
-                Remember();
-                Leave(ref _list, StoryScore.EscapeFade);
-                Leave(ref _caught, StoryScore.EscapeFade);
-                var at = StoryScore.EscapeOffset(left, Length(StoryScore.Escape));
-                _escape = Play(StoryScore.Escape, at, 0, 0, ListSpeed);
-                audio.Trace($"score escape {StoryScore.Escape.Name} from {at:0.0} s with {left:0.0} s left");
+            case StoryScorePart.Escape:
+                // The Notgang: the playlist fades out for good; the escape's piece waits for the lift's burst.
+                if (_list is not null || _caught is not null)
+                {
+                    Remember();
+                    Leave(ref _list, StoryScore.EscapeFade);
+                    Leave(ref _caught, StoryScore.EscapeFade);
+                    audio.Trace($"score playlist out, waiting for the burst");
+                }
+                if (_escape is null && score.EscapeFrom(audio.StartCheckpoint, countdownLeft, audio.Clock) is { } at)
+                    StartEscape(at, countdownLeft);
                 break;
         }
     }
 
-    /// <summary>
-    /// The playlist: in this match where the break-in cut it, in a new one where the chapter's last match left it (or where
-    /// its checkpoint has it). A piece begun from its start comes in by its own fade, one gone on with fades in.
-    /// </summary>
-    private void ResumeList()
+    /// <summary>Circuitry v1 from <paramref name="at"/> seconds in, looping its hold (bars 100 to 132) until the launch lets it go.</summary>
+    private void StartEscape(double at, float? left)
     {
-        var was = _remembered is { } r && r.Chapter == audio.Chapter ? (r.Track, r.At) : ((int Track, double At)?)null;
-        var resumed = _track >= 0;
-        var (track, at) = resumed && was is { } here ? here : StoryScore.Start(audio.StartCheckpoint, was);
-        if (at > Length(StoryScore.Playlist[track]) - StoryScore.Overlap - 1)
-            (track, at) = (StoryScore.Next(track), 0);
+        _escape = Play(StoryScore.Escape, at, 0, 0, ListSpeed, hold: !_launched);
+        audio.Trace($"score escape {StoryScore.Escape.Name} from {at:0.0} s{(left is { } l ? FormattableString.Invariant($" with {l:0.0} s left") : "")}, hold {StoryScore.HoldFrom:0.000}-{StoryScore.HoldTo:0.000} s");
+    }
+
+    /// <summary>For the music's check: the escape's piece from <paramref name="at"/> seconds in at once, as a retry would start it.</summary>
+    public void EscapeAt(double at)
+    {
+        Leave(ref _escape, 0.05);
+        StartEscape(StoryScore.IntoHold(at), null);
+    }
+
+    /// <summary>
+    /// A list (<paramref name="list"/>): in this match where it was cut, in a new one where the chapter's last match left it
+    /// (or where its checkpoint has it). A piece begun from its start comes in by its own fade, one gone on with fades in.
+    /// </summary>
+    private void ResumeList(StoryList list)
+    {
+        var was = _remembered.TryGetValue(list, out var r) && r.Chapter == audio.Chapter ? (r.Track, r.At) : ((int Track, double At)?)null;
+        var resumed = _listsPlayed.Contains(list);
+        var (track, at) = resumed && was is { } here ? here : StoryScore.Start(list, audio.StartCheckpoint, was);
+        var pieces = StoryScore.Of(list);
+        if (at > Length(pieces[track]) - StoryScore.Overlap - 1)
+            (track, at) = (StoryScore.Next(list, track), 0);
+        _listKind = list;
+        _listsPlayed.Add(list);
         _track = track;
-        var piece = StoryScore.Playlist[track];
-        var fadeIn = at > 0 || resumed;
+        var piece = pieces[track];
+        var fadeIn = at > 0;
         _list = Play(piece, at, fadeIn ? Silent : _listDb, _listDb, fadeIn ? -Silent / (float)StoryScore.ResumeFade : ListSpeed);
-        _remembered = (audio.Chapter, track, at);
-        audio.Trace($"score playlist {piece.Name} from {at:0.0} s");
+        _remembered[list] = (audio.Chapter, track, at);
+        audio.Trace($"score {list.ToString().ToLowerInvariant()} {piece.Name} from {at:0.0} s");
     }
 
     private void ProcessScore(double delta)
@@ -237,10 +430,17 @@ public partial class StoryMusic(StoryAudio audio) : Node
                 _leaving.RemoveAt(i);
             }
         }
-        _escape?.Step(delta);
+        if (_escape is { } escape)
+        {
+            escape.Step(delta);
+            if (!_launched)
+                KeepInHold(escape, StoryScore.Escape);
+        }
         if (_caught is { } caught)
         {
             caught.Step(delta);
+            if (_caughtPiece is { Holds: true } held)
+                KeepInHold(caught, held);
             if (!caught.Player.Playing)
             {
                 _score?.CaughtEnded();
@@ -254,24 +454,35 @@ public partial class StoryMusic(StoryAudio audio) : Node
         list.Step(delta);
         var length = list.Player.Stream.GetLength();
         var position = list.Player.Playing ? list.Player.GetPlaybackPosition() : length;
-        _remembered = (audio.Chapter, _track, position);
+        _remembered[_listKind] = (audio.Chapter, _track, position);
         // The next piece comes in under the last seconds of this one (each begins and ends in its own fade); after the
         // last, the first again.
         if (position < length - StoryScore.Overlap)
             return;
         list.Leaving = true;
         _leaving.Add(list);
-        _track = StoryScore.Next(_track);
-        _list = Play(StoryScore.Playlist[_track], 0, _listDb, _listDb, ListSpeed);
-        _remembered = (audio.Chapter, _track, 0);
-        audio.Trace($"score playlist {StoryScore.Playlist[_track].Name}");
+        _track = StoryScore.Next(_listKind, _track);
+        var next = StoryScore.Of(_listKind)[_track];
+        _list = Play(next, 0, _listDb, _listDb, ListSpeed);
+        _remembered[_listKind] = (audio.Chapter, _track, 0);
+        audio.Trace($"score {_listKind.ToString().ToLowerInvariant()} {next.Name}");
     }
 
-    /// <summary>Where the playlist stands now, kept for a checkpoint.</summary>
+    /// <summary>Godot's beat loop jumps back at a hold's end; should it not (a stream without it), the jump is made here.</summary>
+    private void KeepInHold(Fader fader, StoryPiece piece)
+    {
+        if (fader.Player.Playing && fader.Player.GetPlaybackPosition() is var at && at > piece.HoldTo + 0.1)
+        {
+            fader.Player.Seek((float)piece.IntoHold(at));
+            audio.Trace($"score hold seek from {at:0.00} s");
+        }
+    }
+
+    /// <summary>Where the playing list stands now, kept for a checkpoint.</summary>
     private void Remember()
     {
         if (_list is { Player: { Playing: true } player })
-            _remembered = (audio.Chapter, _track, player.GetPlaybackPosition());
+            _remembered[_listKind] = (audio.Chapter, _track, player.GetPlaybackPosition());
     }
 
     private void StopScore(float seconds)
@@ -305,16 +516,26 @@ public partial class StoryMusic(StoryAudio audio) : Node
         fader = null;
     }
 
-    private Fader Play(StoryPiece piece, double at, float fromDb, float toDb, float speed)
+    private Fader Play(StoryPiece piece, double at, float fromDb, float toDb, float speed, bool hold = false)
     {
         var stream = StoryAudio.Stream(Piece(piece))!;
-        // Played once: the playlist goes on to the next piece itself.
+        // Played once: the playlist goes on to the next piece itself. A piece held (the boss's, the escape's) loops its hold
+        // by Godot's beat loop: at HoldBeats beats of HoldBpm (the hold's end) it goes back to LoopOffset (the hold's start).
         if (stream is AudioStreamOggVorbis ogg)
-            ogg.Loop = false;
+        {
+            ogg.Loop = hold && piece.Holds;
+            if (ogg.Loop)
+            {
+                ogg.Bpm = piece.HoldBpm;
+                ogg.BeatCount = piece.HoldBeats;
+                ogg.BarBeats = 4;
+                ogg.LoopOffset = piece.HoldFrom;
+            }
+        }
         var player = new AudioStreamPlayer { Name = $"Score-{piece.Name}", Stream = stream, Bus = StoryAudio.MusicBus, VolumeDb = fromDb };
         AddChild(player);
         player.Play((float)at);
-        var fader = new Fader(player);
+        var fader = new Fader(player) { Piece = piece.Name };
         fader.To(toDb, speed);
         return fader;
     }
@@ -325,6 +546,7 @@ public partial class StoryMusic(StoryAudio audio) : Node
     private sealed class Fader(AudioStreamPlayer player)
     {
         public AudioStreamPlayer Player { get; } = player;
+        public string Piece { get; init; } = "";
         public float Target { get; private set; } = player.VolumeDb;
         public float Speed { get; private set; } = ListSpeed;
         public bool Leaving { get; set; }

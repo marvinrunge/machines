@@ -32,6 +32,42 @@ public sealed partial class StoryProgress
     /// </summary>
     public bool BootSeen { get; set; }
 
+    /// <summary>
+    /// How the checkpoints of this file are numbered: <see cref="CurrentCheckpoints"/> since stage 7 (0–14). A file of an older
+    /// numbering, or one without it, is not read at all (<see cref="FromJson"/>): nothing was played for real before.
+    /// </summary>
+    public int CheckpointVersion { get; set; } = CurrentCheckpoints;
+
+    /// <summary>The checkpoints' numbering of today: 2, stage 7's 0–14.</summary>
+    public const int CurrentCheckpoints = 2;
+
+    /// <summary>What the Locator stripped and marked in the wreck for act 2, in the order stripped (plan stufe7 §7; act 2 reads it).</summary>
+    public List<string> Salvaged { get; set; } = [];
+
+    /// <summary>A part stripped in the wreck is kept, once; the host's game saves it as it happens. True when it is new.</summary>
+    public bool AddSalvaged(string id)
+    {
+        if (Salvaged.Contains(id))
+            return false;
+        Salvaged.Add(id);
+        return true;
+    }
+
+    /// <summary>
+    /// The progress a file holds, or null when it is of an older checkpoint numbering (before stage 7, or without one): such
+    /// a save is dropped and the story starts afresh. Throws <see cref="System.Text.Json.JsonException"/> on a broken file.
+    /// </summary>
+    public static StoryProgress? FromJson(string text, System.Text.Json.JsonSerializerOptions? options = null)
+    {
+        using (var document = System.Text.Json.JsonDocument.Parse(text))
+        {
+            if (!document.RootElement.TryGetProperty(nameof(CheckpointVersion), out var version)
+                || version.ValueKind != System.Text.Json.JsonValueKind.Number || version.GetInt32() < CurrentCheckpoints)
+                return null;
+        }
+        return System.Text.Json.JsonSerializer.Deserialize<StoryProgress>(text, options);
+    }
+
     public string IkeName { get; set; } = "Ike";
 
     public string BobName { get; set; } = "Bob";
@@ -72,5 +108,20 @@ public sealed partial class StoryProgress
 
     /// <summary>The options a chapter starts with from <paramref name="checkpoint"/>, with the Grunts' names given.</summary>
     public StoryOptions Options(string chapter, int checkpoint) =>
-        new() { Chapter = chapter, Checkpoint = checkpoint, IkeName = StorySeats.Named(IkeName, "Ike"), BobName = StorySeats.Named(BobName, "Bob") };
+        new()
+        {
+            Chapter = chapter, Checkpoint = checkpoint, IkeName = StorySeats.Named(IkeName, "Ike"), BobName = StorySeats.Named(BobName, "Bob"),
+            Difficulty = AskedDifficulty ?? Difficulty,
+        };
+
+    /// <summary>
+    /// The story's difficulty for one run, when MACHINES_STORY_DIFFICULTY=easy|normal|hard asks for one; null otherwise, and
+    /// the story page's choice (<see cref="Difficulty"/>) holds.
+    /// </summary>
+    public static StoryDifficulty? AskedDifficulty =>
+        Enum.TryParse<StoryDifficulty>(System.Environment.GetEnvironmentVariable("MACHINES_STORY_DIFFICULTY"), ignoreCase: true, out var asked)
+            ? asked : null;
+
+    /// <summary>The story's difficulty as the story page sets it (StoryOptions.Difficulty): Normal until the player picks another.</summary>
+    public StoryDifficulty Difficulty { get; set; } = StoryDifficulty.Normal;
 }

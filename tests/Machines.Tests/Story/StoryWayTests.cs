@@ -38,7 +38,7 @@ public class StoryWayTests
     [InlineData(277f, 251f, 277f, 238f)]
     public void A_way_from_the_parallel_corridor_never_ends_in_the_cable_duct_behind_its_wall(float x, float y, float toX, float toY)
     {
-        var world = Chapter(3);
+        var world = Chapter(7);
         var reaper = world.AddMachine(Race.Blue, new Vector2(x, y), "AGGRESSOR", "ASSASSIN", 2, "L_PLASMA_RIFLE");
         var mobility = GameWorld.MobilityOf(reaper);
         Assert.Equal(2, mobility.Size);
@@ -93,7 +93,7 @@ public class StoryWayTests
     [Fact]
     public void A_reaper_that_sees_a_grunt_far_down_the_cable_duct_does_not_stand_aiming_at_the_door()
     {
-        var world = Chapter(3);
+        var world = Chapter(7);
         var run = world.Story!;
         // Checkpoint 3 is the break-in: the hunt is on once the core has blown.
         for (var i = 0; i < (Prologue.CoreBlows + 15) * GameWorld.TicksPerSecond && !run.Director.Has("core_blows"); i++)
@@ -138,7 +138,7 @@ public class StoryWayTests
     [InlineData(485f, 227f)]
     public void The_crate_knocked_onto_a_grunt_in_the_workshop_never_shuts_the_way_on(float x, float y)
     {
-        var world = Chapter(4);
+        var world = Chapter(8);
         var run = world.Story!;
         var locator = Hero(world, 0);
         var bob = Hero(world, 2);
@@ -151,15 +151,26 @@ public class StoryWayTests
         bob.Position = new Vector2(x, y);
         world.Step();
         world.Issue(new StoryUseCommand(Race.Red, "pickup_bolter"));
-        for (var i = 0; i < 6 * GameWorld.TicksPerSecond && !run.Over; i++)
+        // The armoury bolts shut (stage 7), the first batch comes, and the crate falls a few seconds into it.
+        for (var i = 0; i < 60 * GameWorld.TicksPerSecond && !run.Over && !run.Director.Has("knocked"); i++)
+        {
+            // Bob comes in with the others (the room seals with all three in it), then stands where the test puts him.
+            if (!world.CompanionDown(run.Seats[2]))
+                bob.Position = run.Director.Has("lockdown") ? new Vector2(x, y) : rack + new Vector2(-4, 2);
+            world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true));
+            world.Step();
+        }
+        for (var i = 0; i < 3 * GameWorld.TicksPerSecond && !run.Over; i++)
         {
             if (!world.CompanionDown(run.Seats[2]))
                 bob.Position = new Vector2(x, y);
-            world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true));
             world.Step();
         }
 
         Assert.True(run.Director.Has("knocked"));
+        // The lockdown shut T and U again; the way is measured with them open, as after the batches.
+        world.OpenDoor('T', instant: true);
+        world.OpenDoor('U', instant: true);
         var crate = Assert.Single(world.Artefacts, a => a.Id >= Artefact.IdBase + StoryDirector.PlacedBase);
         Assert.True(Vector2.Distance(crate.Position, bob.Position) >= bob.Radius + StoryFall.Lies, $"crate at {crate.Position}, Bob at {bob.Position}");
         Vector2[] places = [new(451, 249), new(475, 247), new(477, 227), new(493, 249), new(505, 227)];
@@ -174,7 +185,7 @@ public class StoryWayTests
     [Fact]
     public void A_crate_beside_a_machine_on_the_deck_is_still_driven_up_to()
     {
-        var world = Chapter(3);
+        var world = Chapter(7);
         var grunt = world.AddMachine(Race.Blue, new Vector2(401, 257), "AGGRESSOR", "GRUNT", 1, "R_BOLTER");
         var crate = world.PlaceArtefact("crate_small", new Vector2(405, 257), 0);
         Assert.NotNull(crate);

@@ -33,7 +33,7 @@ public sealed class TerrainHeights
     public float MaxStep { get; private init; } = float.MaxValue;
 
     /// <summary>
-    /// A ship deck's walls as heights for shots and sight: walls 8 m, high cover 2 m, everything else (floor, ducts, grates,
+    /// A ship deck's walls as heights for shots and sight: walls and high stacks 8 m, high cover 2 m, everything else (floor, ducts, grates,
     /// door slots) the floor at 0. Vertices every half metre, at the cells' corners, edges and middles: a vertex in a cell's
     /// middle has the cell's height, one on an edge or corner the lowest of the cells it touches, so the floor stays flat up to
     /// a wall's face and even a wall one cell thick rises to its full height in its middle. Outside the deck is wall.
@@ -42,7 +42,7 @@ public sealed class TerrainHeights
     {
         static float HeightOf(DeckCell cell) => cell switch
         {
-            DeckCell.Wall => DeckWallHeight,
+            DeckCell.Wall or DeckCell.High => DeckWallHeight,
             DeckCell.Cover => DeckCoverHeight,
             _ => 0,
         };

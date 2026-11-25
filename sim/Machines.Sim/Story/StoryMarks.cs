@@ -69,6 +69,29 @@ public static class StoryMarks
     /// <summary>The target of the Use command that skips the boot, the Locator's only and only while it boots.</summary>
     public const string SkipBoot = "boot:skip";
 
+    // ---- stage 7 (plan stufe7 §4, F item 6) ----
+
+    /// <summary>The Thresher's stealth sight runs (set at grunts_awake, cleared at the antechamber; package S).</summary>
+    public const string Stealth = "stealth";
+
+    /// <summary>The armoury is sealed: the waves come (package W).</summary>
+    public const string ArmourySealed = "armoury_sealed";
+
+    /// <summary>The Notabschaltung is on: at 0 HP the Locator shuts down instead of falling (StoryReserve).</summary>
+    public const string Reserve = "reserve";
+
+    /// <summary>The Locator lies shut down, waiting for a Grunt's cable.</summary>
+    public const string L7Down = "l7_down";
+
+    /// <summary>The reserve is spent since the last checkpoint: the next shutdown is the end.</summary>
+    public const string ReserveUsed = "reserve_used";
+
+    /// <summary>The escape is under way (package E).</summary>
+    public const string Escape = "escape";
+
+    /// <summary>Use targets of stage 7: a wreck to strip, a noise source, a valve (packages W, S, E), by prefix and marker.</summary>
+    public const string WreckTarget = "wreck:", NoiseTarget = "noise:", ValveTarget = "valve:";
+
     private const string ObjectivePrefix = "objective:", DownPrefix = "down:", DistractingPrefix = "distracting:", DormantPrefix = "dormant:", DonePrefix = "done:";
 
     /// <summary>The flag of a seat's Grunt lying as a scrap heap until the Locator puts it together.</summary>

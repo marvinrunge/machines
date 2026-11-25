@@ -96,6 +96,8 @@ public partial class Game
                 continue;
             root.AddChild(model);
             _artefactModels[index] = model;
+            if (placement.TypeName == "core")
+                _deckView?.CoreLights(at, types.GetValueOrDefault("core")?.Height ?? 14);
         }
         return root;
     }
@@ -198,7 +200,7 @@ public partial class Game
         bool Clear(float x, float z)
         {
             foreach (var (dx, dz) in new[] { (0f, 0f), (WallClearance, 0f), (-WallClearance, 0f), (0f, WallClearance), (0f, -WallClearance) })
-                if (deck.Cell((int)MathF.Floor(x + dx), (int)MathF.Floor(z + dz)) is Machines.Import.Model.DeckCell.Wall or Machines.Import.Model.DeckCell.Grate)
+                if (deck.Cell((int)MathF.Floor(x + dx), (int)MathF.Floor(z + dz)) is Machines.Import.Model.DeckCell.Wall or Machines.Import.Model.DeckCell.High or Machines.Import.Model.DeckCell.Grate)
                     return false;
             return true;
         }

@@ -80,6 +80,9 @@
 
     {"id": "P22", "name": "mothership", "kind": "exterior", "size_m": [1200, 260, 220], "target_polycount": 4000, "style_swap": [["ribbed corrugated hoses arching over and into the body", "no hoses"], ["3/4 view from slightly above", "3/4 view from slightly below"]], "refs": ["/images/20261120-163217-1.png"],
      "description": "Huge blocky industrial seeding mothership, a starship that flies in space and never lands, seen whole as a scale model: a long tapered hull of dark grey steel, red only as bands and markings on about a fifth of the surface. Shown in a 3/4 view slightly from below so the flat underside with its rows of recessed square pod hatches is visible. The bow is closed and blunt; the only engine is the heavy block at the stern. Cranes and antenna masts on the back are short and thick, no thin wires. No glow, no flames, no engine fire. No wheels, no tracks, no legs, no landing gear: it is not a vehicle or a train. Exactly ONE ship, shown once: no second copy, no reflection, no fade. The cranes hold their hooks on thick rigid arms, with no cables.",
-     "note": "Seen only from far in the Abwurf; size is a guess (about 1.2 km long), the board asset is a-mutterschiff."}
+     "note": "Seen only from far in the Abwurf; size is a guess (about 1.2 km long), the board asset is a-mutterschiff."},
+    {"id": "P23", "name": "pod_drop", "kind": "set", "size_m": [27, 27, 41.4], "target_polycount": 6300, "refs": [],
+     "description": "The escape pod as it drops (the Abwurf cutscene): the player's own Meshy model (Crimson Spike Pod, 2026-11-23, FBX converted by Claude to model.glb), legs drawn in, four spikes on its dark cap.",
+     "note": "Not made from this plan: the player made it in Meshy. Size: the HD Pod 1 (the player's Crimson Spike Fortress in the rig) is 41.4 m tall with its spikes, and this one is drawn at the same scale."}
   ]
 }

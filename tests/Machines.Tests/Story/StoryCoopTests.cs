@@ -282,7 +282,7 @@ public class StoryCoopTests
     public void A_recording_of_a_three_seat_story_with_a_join_and_a_leave_plays_back_the_same()
     {
         // From the repair station, where no hunter is near: a Grunt driven about on deck A would meet the Thresher.
-        var match = new MatchInfo(StoryOptions.Prologue, StoryOptions.Prologue, new MatchOptions { Story = Named with { Checkpoint = 5 }, FogOfWar = false }, 21, 2,
+        var match = new MatchInfo(StoryOptions.Prologue, StoryOptions.Prologue, new MatchOptions { Story = Named with { Checkpoint = 11 }, FogOfWar = false }, 21, 2,
         [
             new MatchPlayer(1, "Host", Race.Red, Race.Red, Ai: false, Locator),
             new MatchPlayer(2, "Anna", Race.Red, Race.Red, Ai: false, Ike),
@@ -328,10 +328,11 @@ public class StoryCoopTests
     }
 
     [Fact]
-    public void Story_commands_go_through_the_lockstep_and_the_protocol_is_seventeen()
+    public void Story_commands_go_through_the_lockstep_and_the_protocol_is_twenty_one()
     {
         // 15 brought the story, 16 the fitted bodies of every mode, 17 the computers' skirmish rules and the heroes' gun arcs.
-        Assert.Equal(17, NetJson.Protocol);
+        // 18 story stage 7 (checkpoints 0–14), 19 the play test's Thresher (slower round, crab walk). 20 the escape's Kühlschlange, 21 the 3-m crawl ducts.
+        Assert.Equal(21, NetJson.Protocol);
         // Every command of the sim, a story command among them however deep it derives, is known to the JSON by its name.
         var known = NetJson.Options.GetTypeInfo(typeof(Command)).PolymorphismOptions!.DerivedTypes.Select(d => d.DerivedType).ToHashSet();
         var commands = typeof(Command).Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(Command)) && !t.IsAbstract).ToList();
@@ -341,13 +342,13 @@ public class StoryCoopTests
 
         // A story's match goes to every client whole: its options, and a table every world builds alike.
         var started = new MatchStarted(new MatchInfo(StoryOptions.Prologue, StoryOptions.Prologue,
-            new MatchOptions { Story = Named with { Checkpoint = 2 } }, 3, 2,
+            new MatchOptions { Story = Named with { Checkpoint = 6 } }, 3, 2,
             [new MatchPlayer(1, "Host", Race.Red, Race.Red, Ai: false, Locator), new MatchPlayer(0, "Rust", Race.Red, Race.Red, Ai: true, Ike)]));
         var back = (MatchStarted)NetJson.Decode(NetJson.Encode(started));
         Assert.Equal(started.Match.Options.Story, back.Match.Options.Story);
         Assert.Equal(started.Match.Table().Rows, back.Match.Table().Rows);
         var world = Replay.BuildWorld(Data, back.Match);
-        Assert.Equal(2, world.Story!.Checkpoint);
+        Assert.Equal(6, world.Story!.Checkpoint);
         Assert.Equal([Ike, Bob], world.Story.Bots);
         Assert.Equal(["Host", "Rust", "Bolt"], world.Story.Seats.Select(s => world.StorySeatName(s)!));
     }

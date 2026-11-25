@@ -153,12 +153,69 @@ public partial class Game
         // The menus after a chapter show the look as the player chose it.
         GraphicsSettings.Story = false;
         FilmLimiter(false);
+        // The Thresher's views keep no hold on this match once it is gone (a restart builds the next before this one's
+        // views have all stopped).
+        ActorView.Stalker = null;
+        ActorView.StalkerPlanted = null;
+        ActorView.CrabOf = null;
+        ActorView.StoryGaits = false;
+        ActorView.SteppingId = 0;
+        ActorView.TrioMember = null;
         if (_storyHeard)
         {
             StoryAudio.LineStarted -= StoryLineStarted;
             HackSounds.Player = null;
         }
         base._ExitTree();
+    }
+
+    // ---- the section timer --------------------------------------------------------------------------------
+
+    /// <summary>Ticks spent in each section of this chapter, over every restart of it (a run that dies and tries again
+    /// adds its retries; each restart is a new Game, so they are kept beside it until the story page starts a chapter,
+    /// <see cref="ResetStoryTimer"/>); only ticks count, so a pause and the death card (the sim stands still) are left out.</summary>
+    private static readonly System.Collections.Generic.Dictionary<int, int> _sectionTicks = [];
+
+    /// <summary>A chapter started from the story page times afresh (a restart from a checkpoint goes on adding).</summary>
+    internal static void ResetStoryTimer() => _sectionTicks.Clear();
+    private (int Section, int Tick, GameWorld? World) _sectionAt;
+    private GameWorld? _sectionDone;
+
+    /// <summary>
+    /// After every tick: the tick is counted to the run's section; when the section changes (or the chapter ends), the
+    /// one left is printed as <c>story time: section n mm:ss</c>, and after the last also the total, so the log of a run
+    /// keeps its times per section (stufe7 §1; the trims go by them).
+    /// </summary>
+    private void TimeStorySection(Machines.Sim.Story.StoryRun story)
+    {
+        var section = story.Section;
+        if (ReferenceEquals(_sectionDone, World))
+            return;
+        // A loss (the Locator fell, the ship crashed) counts nothing until the retry runs: the death card is left out.
+        if (story.Ending is Machines.Sim.Story.StoryEnding.LocatorLost or Machines.Sim.Story.StoryEnding.Crashed)
+        {
+            _sectionAt = (section, World.Tick, World);
+            return;
+        }
+        if (!ReferenceEquals(_sectionAt.World, World) || World.Tick < _sectionAt.Tick)
+            _sectionAt = (section, World.Tick, World);
+        var ticks = World.Tick - _sectionAt.Tick;
+        _sectionTicks[_sectionAt.Section] = _sectionTicks.GetValueOrDefault(_sectionAt.Section) + ticks;
+        var left = _sectionAt.Section;
+        _sectionAt = (section, World.Tick, World);
+        static string Clock(int ticks) { var s = ticks / GameWorld.TicksPerSecond; return $"{s / 60}:{s % 60:00}"; }
+        if (section == left && story.Ending is null)
+            return;
+        Godot.GD.Print($"story time: section {left} {Clock(_sectionTicks[left])}");
+        if (story.Ending is not null)
+        {
+            var total = 0;
+            foreach (var t in _sectionTicks.Values)
+                total += t;
+            Godot.GD.Print($"story time: total {Clock(total)}");
+            _sectionTicks.Clear();
+            _sectionDone = World;
+        }
     }
 
     // ---- what the director tells ------------------------------------------------------------------------
@@ -199,6 +256,8 @@ public partial class Game
     {
         if (World.Story is not { } story)
             return;
+        StoryShutdownTest(story);
+        TimeStorySection(story);
         if (!_storyHeard)
         {
             _storyHeard = true;
@@ -257,10 +316,24 @@ public partial class Game
             }
         }
         BootDrips();
+        // The armoury's held sounds, bar ticks, presses and wrecks (Game.StoryArmoury.Follow).
+        FollowArmoury();
         // The deck's light groups follow the sight's (GameWorld.StoryLightState) in FollowDeck.
     }
 
     /// <summary>A line of the line table spoken (its subtitle comes as it starts); without the story's audio only its subtitle.</summary>
+    private static readonly bool ShutdownTest = Godot.OS.GetEnvironment("MACHINES_STORY_SHUTDOWN_TEST") == "1";
+
+    /// <summary>
+    /// MACHINES_STORY_SHUTDOWN_TEST=1: the Notabschaltung's reserve is on in today's section 7, so it can be tried before
+    /// package E turns it on from the Notgang (a test switch for a single player: it sets the flag outside the commands).
+    /// </summary>
+    private void StoryShutdownTest(Machines.Sim.Story.StoryRun story)
+    {
+        if (ShutdownTest && story.Section == 7 && story.Flags.Add(Machines.Sim.Story.StoryMarks.Reserve))
+            Godot.GD.Print("story shutdown test: the reserve is on in section 7");
+    }
+
     private void SayStoryLine(string id)
     {
         if (StoryAudio.Current is not null)
@@ -294,6 +367,8 @@ public partial class Game
     /// <summary>The words of a director's cue: what the view shows and plays of it.</summary>
     private void StoryCue(string[] words, Godot.Vector3 at)
     {
+        // The music's rules hear every cue first (the Thresher's nearness, the waves, the boss, the escape's score).
+        StoryMusic.Hear(words);
         float Number(int i) => words.Length > i && float.TryParse(words[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var n) ? n : 0;
         switch (words)
         {
@@ -336,7 +411,8 @@ public partial class Game
                 break;
             case ["hint", var hint]:
                 // How to push crates is for a Grunt's player, how to take cover for the Locator's.
-                if (World.Story is { } told && (hint, Me == told.Locator) is not ("crates", true) and not ("cover", false))
+                // Banging a valve is for a Grunt's player, ordering the lure for the Locator's (package S).
+                if (World.Story is { } told && (hint, Me == told.Locator) is not ("crates", true) and not ("cover", false) and not ("pipe", true) and not ("lure", false))
                     _hud.Story?.Hint(hint);
                 break;
             case ["alarm"]:
@@ -403,6 +479,38 @@ public partial class Game
                 if (World.HeroOf(Me) is { } hero)
                     CameraRig.Shake(ActorView.World(hero.Position), 3 * Math.Max(0.2f, Number(1)), 2);
                 break;
+            case ["l7", "shutdown"]:
+                // The Notabschaltung (GameWorld.StoryReserve): the Locator goes dark; its own view is the HUD's (StoryHud.Shutdown).
+                StoryAudio.Play("pa_cutoff", at);
+                if (World.Story is { } down && Me == down.Locator)
+                    _screen.Interference(GameOptions.SoftScares ? 0.3f : 0.7f, 1.0f);
+                break;
+            case ["l7", "restart", _]:
+                StoryAudio.Play("clamp_release", at);
+                if (World.Story is { } back && Me == back.Locator)
+                    _screen.Interference(0.3f, 0.6f);
+                break;
+            case ["l7", ..]:
+                break;
+            case ["door", "shut", var shut] when shut.Length == 1:
+                // A door the director shut (Then.CloseDoors): its leaves slide back out of the walls.
+                ShowDoorShut(shut[0], at);
+                break;
+            case ["door", "blown", _]:
+                // A door blown out of its frame (Then.BlowDoor): the blast; its leaves fly by their own cue ("thrown").
+                StoryAudio.Play("gate_burst", at);
+                _effects.Explosion(at + Godot.Vector3.Up * 2, 5);
+                CameraRig.Shake(at, 10, 0.8f);
+                break;
+            case ["door", "locked", _]:
+                StoryAudio.Play("lockdown_bolt", at);
+                break;
+            case ["door", "unlocked", _]:
+                break;
+            default:
+                // The cues of stage 7's sections, each package's own (Game.StoryStealth, .StoryArmoury, .StoryEscape).
+                _ = StoryCueStealth(words, at) || StoryCueArmoury(words, at) || StoryCueEscape(words, at);
+                break;
         }
     }
 
@@ -425,6 +533,39 @@ public partial class Game
             tween.TweenProperty(model, "position", rest, 0.18).SetTrans(Godot.Tween.TransitionType.Bounce).SetEase(Godot.Tween.EaseType.Out);
             _effects.SparkShower(ActorView.World(crate.Position) + Godot.Vector3.Up * 1.2f, null, 12);
         }
+    }
+
+    /// <summary>The scenario's artefacts (on a deck its doors among them), kept so a door that shuts again gets its leaves back.</summary>
+    private Machines.Import.Model.ArtefactSection? _artefactSection;
+
+    /// <summary>
+    /// A deck door shut again (GameWorld.CloseDoor): each leaf's model stands where the scenario put it, slid out of the wall
+    /// over the door's time as it slid in, with the door's sound.
+    /// </summary>
+    private void ShowDoorShut(char letter, Godot.Vector3 at)
+    {
+        if (_artefactSection is not { } section || World.Deck is not { } deck || GetNodeOrNull<Godot.Node3D>("Artefacts") is not { } root)
+            return;
+        var leaves = World.DoorLeaves(letter);
+        var types = section.Types.GroupBy(t => t.Name).ToDictionary(g => g.Key, g => g.First());
+        var seconds = Machines.Sim.World.GameWorld.SwingSeconds(deck.Doors.First(d => d.Letter == letter).Kind);
+        foreach (var leaf in leaves)
+        {
+            if (leaf.Placement >= section.Placements.Count)
+                continue;
+            if (_artefactModels.Remove(leaf.Placement, out var old) && IsInstanceValid(old))
+                old.QueueFree();
+            var placement = section.Placements[leaf.Placement];
+            if (Props.Artefact(types.GetValueOrDefault(placement.TypeName), placement, new Godot.Vector3(placement.Position.X, 0, placement.Position.Y)) is not { } model)
+                continue;
+            root.AddChild(model);
+            _artefactModels[leaf.Placement] = model;
+            var closed = model.Position;
+            var slide = Machines.Sim.World.GameWorld.LeafSlide(leaf, leaves);
+            model.Position = closed + new Godot.Vector3(slide.X, 0, slide.Y);
+            model.CreateTween().TweenProperty(model, "position", closed, seconds).SetTrans(Godot.Tween.TransitionType.Sine).SetEase(Godot.Tween.EaseType.InOut);
+        }
+        StoryAudio.Play("door_open", at);
     }
 
     /// <summary>Crates taken off whole this frame, by placement, until a "thrown" cue sends them flying (or FollowCrates frees them).</summary>
@@ -466,7 +607,7 @@ public partial class Game
     /// <summary>
     /// The core blows: an announcement still speaking breaks off mid-word and what the PA had still to say is dropped (the
     /// Grunts' radio, Ike's "Run!" among it, is not the PA and is still said), a great blast and a second, the deck shakes,
-    /// the view breaks up, and the core's wreck burns on in the red emergency light. Played through the alarm, the PA is
+    /// the view breaks up, the core's green plasma goes dark and its wreck burns on in the red emergency light. Played through the alarm, the PA is
     /// quiet by then: "Wiederhole: ... kor-" follows the alarm's four announcements at the break-in and breaks off by itself
     /// some seconds before the blast, which brings its stutter "korr-". Only when the squad bursts in at once (no crates at
     /// door J) are the alarm's announcements still running here, and they are cut.
@@ -474,6 +615,7 @@ public partial class Game
     private void CoreBlows(Godot.Vector3 at)
     {
         StoryAudio.CutVoice(onlyAnnouncements: true);
+        _deckView?.CoreDown();
         _effects.Explosion(at + Godot.Vector3.Up * 4, 18);
         StoryAudio.Play("hull_breach", at);
         CameraRig.Shake(at, 12, 2);

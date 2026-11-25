@@ -35,7 +35,7 @@ public static class HangarCreation
         if (fresh.Count > 0)
             profile.Save();
         var desk = new CreationDesk(Paths.Data, screens.Assets, profile) { Fresh = fresh };
-        var hangar = new HangarPage(desk, screens.ShowMain, page => Plate(page, desk), page => Bar(page, desk, screens));
+        var hangar = new HangarPage(desk, screens.ShowSinglePlayer, page => Plate(page, desk), page => Bar(page, desk, screens));
         if (fresh.Count > 0)
             hangar.Announce(Arrived(fresh));
         return hangar;

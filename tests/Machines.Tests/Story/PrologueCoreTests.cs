@@ -96,7 +96,7 @@ public class PrologueCoreTests(ITestOutputHelper output)
     /// <summary>The fight from the antechamber's checkpoint until a beat fired (the core blowing by default).</summary>
     private static (GameWorld World, Hacker Hacker) Fight(float every = 1.5f, bool barricades = true, string until = "core_blows")
     {
-        var world = Chapter(2);
+        var world = Chapter(6);
         var run = world.Story!;
         var hacker = new Hacker(world, every);
         hacker.Plug();
@@ -113,7 +113,7 @@ public class PrologueCoreTests(ITestOutputHelper output)
     [Fact]
     public void The_grunts_barricade_both_doors_while_the_locator_hacks_and_the_barricade_blocks_the_way()
     {
-        var world = Chapter(2);
+        var world = Chapter(6);
         var run = world.Story!;
         var hacker = new Hacker(world, 1.5f);
         hacker.Plug();
@@ -189,7 +189,7 @@ public class PrologueCoreTests(ITestOutputHelper output)
         Assert.False(session.Open);
         Assert.False(world.IsHacking(Hero(world, 0).Id));
         Assert.False(world.HeldByStory(Hero(world, 0).Id));
-        Assert.Equal(3, run.Checkpoint);
+        Assert.Equal(7, run.Checkpoint);
         Assert.Equal(4, run.Section);
         Assert.DoesNotContain(StoryMarks.Squad, run.Flags);
     }
@@ -236,9 +236,9 @@ public class PrologueCoreTests(ITestOutputHelper output)
     [Fact]
     public void The_break_in_is_checkpoint_3_and_the_chapter_starts_there_again()
     {
-        var world = Chapter(3);
+        var world = Chapter(7);
         var run = world.Story!;
-        Assert.Equal((3, 4), (run.Checkpoint, run.Section));
+        Assert.Equal((7, 4), (run.Checkpoint, run.Section));
         // Both doors barricaded, the squad at I about to shoot its crates away, the core standing, the alarm on.
         Assert.Equal(3, world.BarricadeCrates("J").Count);
         Assert.Equal(3, world.BarricadeCrates("I").Count);
@@ -259,7 +259,8 @@ public class PrologueCoreTests(ITestOutputHelper output)
                 (stormed, whole) = (world.Time, locator.HitPoints);
             // The Locator stands in the open at the console a few seconds after they storm in, then takes cover by the vent
             // (four: their rounds hurt only where they meet its body, and the first to do so came after three).
-            if (stormed is { } since && open is null && world.Time >= since + 4)
+            // (Up to seven: which Reaper fires first goes by the machines' ids, and stage 7's emptier clamp rows moved them.)
+            if (stormed is { } since && open is null && (world.Time >= since + 4 && locator.HitPoints < locator.MaxHitPoints || world.Time >= since + 7))
             {
                 open = locator.HitPoints;
                 locator.Position = new Vector2(219, 262);
@@ -278,9 +279,12 @@ public class PrologueCoreTests(ITestOutputHelper output)
         Assert.Equal(locator.MaxHitPoints, whole);
         Assert.True(open < locator.MaxHitPoints, $"{open} of {locator.MaxHitPoints} in the open");
         Assert.False(locator.IsDead);
+        // In by the blast or a few seconds after it (which Reaper goes first goes by their ids).
+        for (var i = 0; i < 6 * GameWorld.TicksPerSecond && Cast(world, Prologue.ReaperRole).Count(m => !m.IsDead && Inside(m.Position, 160, 228, 224, 296)) < 2; i++)
+            world.Step();
         var inside = Cast(world, Prologue.ReaperRole).Where(m => !m.IsDead && Inside(m.Position, 160, 228, 224, 296)).ToList();
         Assert.True(inside.Count >= 2, string.Join(", ", Cast(world, Prologue.ReaperRole).Select(m => $"{m.Id} at {m.Position}")));
-        Assert.Equal(3, run.Checkpoint);
+        Assert.Equal(7, run.Checkpoint);
     }
 
     [Fact]
@@ -296,7 +300,7 @@ public class PrologueCoreTests(ITestOutputHelper output)
         Assert.True(open.Session!.Broken);
         Assert.False(open.Session.Held);
         Assert.Empty(bare.BarricadeCrates("J"));
-        Assert.Equal(3, bare.Story.Checkpoint);
+        Assert.Equal(7, bare.Story.Checkpoint);
     }
 
     [Fact]
@@ -304,7 +308,7 @@ public class PrologueCoreTests(ITestOutputHelper output)
     {
         var (world, hacker) = Fight();
         var run = world.Story!;
-        Hero(world, 0).Position = new Vector2(240, 268);
+        Hero(world, 0).Position = new Vector2(240, 267.5f);
         Assert.True(hacker.Until(() => run.Director.Has("fled"), 1));
         Assert.Equal(5, run.Section);
         Assert.False(world.DoorClosed('M'));
@@ -331,7 +335,7 @@ public class PrologueCoreTests(ITestOutputHelper output)
         var world = MatchSetup.Create(DataLoader.Value, StoryOptions.Prologue, StoryOptions.Prologue, new PlayerTable([
                 new PlayerSeat(locator, Race.Red, PlayerKind.Human, "Host"), new PlayerSeat(ike, Race.Red, PlayerKind.Human, "Anna"),
                 new PlayerSeat(bob, Race.Red, PlayerKind.Bot, "Bolt"), new PlayerSeat(PlayerId.Of(Race.Blue), Race.Blue, PlayerKind.Ai, "Ship")]),
-            3, new MatchOptions { Story = new StoryOptions { Checkpoint = 2 }, FogOfWar = false });
+            3, new MatchOptions { Story = new StoryOptions { Checkpoint = 6 }, FogOfWar = false });
         var run = world.Story!;
         var grunt = world.HeroOf(ike)!;
         var cues = new List<string>();
@@ -385,7 +389,7 @@ public class PrologueCoreTests(ITestOutputHelper output)
         var world = MatchSetup.Create(DataLoader.Value, StoryOptions.Prologue, StoryOptions.Prologue, new PlayerTable([
                 new PlayerSeat(locator, Race.Red, PlayerKind.Human, "Host"), new PlayerSeat(ike, Race.Red, PlayerKind.Human, "Anna"),
                 new PlayerSeat(bob, Race.Red, PlayerKind.Bot, "Bolt"), new PlayerSeat(PlayerId.Of(Race.Blue), Race.Blue, PlayerKind.Ai, "Ship")]),
-            3, new MatchOptions { Story = new StoryOptions { Checkpoint = 2 }, FogOfWar = false });
+            3, new MatchOptions { Story = new StoryOptions { Checkpoint = 6 }, FogOfWar = false });
         var run = world.Story!;
         var grunt = world.HeroOf(ike)!;
         var crate = world.Artefacts.Single(a => a.Tag == 307);
@@ -414,12 +418,13 @@ public class PrologueCoreTests(ITestOutputHelper output)
         var world = Chapter(1);
         var run = world.Story!;
         var locator = Hero(world, 0);
-        // Along R4 from its west door toward duct V1a: nothing yet at the door, the glare at the duct's mouth.
+        // Along R4 from its west door toward duct V1a: nothing yet at the door, the glare at the duct's mouth (moved east beside
+        // the scare Grunt in stage 7).
         locator.Position = new Vector2(124, 52);
         for (var i = 0; i < 5; i++)
             world.Step();
         Assert.False(run.Director.Has("scare_grunt2"));
-        locator.Position = new Vector2(160, 78);
+        locator.Position = new Vector2(198, 78);
         for (var i = 0; i < 5; i++)
             world.Step();
         Assert.True(run.Director.Has("scare_grunt2"));
@@ -428,7 +433,7 @@ public class PrologueCoreTests(ITestOutputHelper output)
     [Fact]
     public void No_barricade_slot_stands_before_door_k_the_grunts_way_out()
     {
-        var world = Chapter(2);
+        var world = Chapter(6);
         Assert.DoesNotContain(world.Deck!.Markers, m => m.Name.StartsWith("barricade_K", StringComparison.Ordinal));
         Assert.Equal(3, world.BarricadeSlots("J").Count);
         Assert.Equal(3, world.BarricadeSlots("I").Count);

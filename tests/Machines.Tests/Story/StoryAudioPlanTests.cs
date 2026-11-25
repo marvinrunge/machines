@@ -337,6 +337,8 @@ public class StoryAudioPlanTests
             Assert.Contains(layers, l => l.Threat == 2);
             Assert.All(layers, l => Assert.True(sfx.Has(l.Sound), $"{cue}: {l.Sound} missing"));
             Assert.All(layers.Where(l => l.Every == 0), l => Assert.True(sfx.Loops(l.Sound), $"{cue}: {l.Sound} does not loop"));
+            // No steps that are not his: they would ruin finding the Thresher by ear (stage 7).
+            Assert.DoesNotContain(layers, l => l.Sound.StartsWith("thresher_", StringComparison.Ordinal));
         }
     }
 
@@ -387,4 +389,15 @@ public class StoryAudioPlanTests
         Assert.InRange(StorySoundscape.SpeakerDelay(0), 0.03, 0.031);
         Assert.InRange(StorySoundscape.SpeakerDelay(2), 0.079, 0.081);
     }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(1, 0)]
+    [InlineData(5, 0)]
+    [InlineData(6, 1)]
+    [InlineData(7, 0)]
+    [InlineData(12, 0)]
+    [InlineData(14, 0)]
+    public void A_chapter_begun_at_a_checkpoint_starts_the_playlist_where_a_run_usually_hears_it(int checkpoint, int track) =>
+        Assert.Equal((track, 0d), StoryScore.Start(checkpoint >= StoryScore.BrokenInFrom ? StoryList.Background : StoryList.Stealth, checkpoint, null));
 }

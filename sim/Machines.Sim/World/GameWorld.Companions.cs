@@ -67,7 +67,8 @@ public sealed partial class GameWorld
 
     /// <summary>Whether an actor is a Grunt of the story lying downed or dormant: nobody fires at it, nothing hurts it, it does nothing.</summary>
     public bool StoryInert(Actor actor) =>
-        Story is not null && actor is Machine machine && CompanionSeat(machine) is { } seat && (CompanionDown(seat) || CompanionDormant(seat));
+        Story is { } run && actor is Machine machine && (CompanionSeat(machine) is { } seat && (CompanionDown(seat) || CompanionDormant(seat))
+            || run.Flags.Contains(StoryMarks.L7Down) && HeroOf(run.Locator)?.Id == machine.Id);
 
     /// <summary>Whether a Grunt of the story lies downed, so that it stands in nobody's way.</summary>
     private bool StoryLies(Machine machine) => Story is not null && CompanionSeat(machine) is { } seat && CompanionDown(seat);
@@ -85,7 +86,8 @@ public sealed partial class GameWorld
             return false;
         if (StoryInert(hero))
             return true;
-        return HeroOf(run.Locator)?.Id == machine && run.Crew.Holding.TryGetValue(run.Locator.Value, out var what) && what.StartsWith(SeatTarget, StringComparison.Ordinal);
+        return HeroOf(run.Locator)?.Id == machine && run.Crew.Holding.TryGetValue(run.Locator.Value, out var what)
+            && (what.StartsWith(SeatTarget, StringComparison.Ordinal) || ArmouryHoldsStill(what));
     }
 
     public const string SeatTarget = "seat:";
@@ -426,8 +428,21 @@ public sealed partial class GameWorld
             return "the hero is down";
         if (seat > 0 && (CompanionDown(player) || CompanionDormant(player)))
             return "the Grunt is down";
+        if (seat == 0 && run.Flags.Contains(StoryMarks.L7Down))
+            return "the Locator is shut down";
         if ((command.Target ?? StoryUseTarget(player)) is not { } target)
             return "nothing to use here";
+        if (target == LocatorTarget(run))
+        {
+            // A Grunt plugs its cable into the shut-down Locator (the Notabschaltung, GameWorld.StoryReserve).
+            if (seat == 0 || !run.Flags.Contains(StoryMarks.L7Down) || HeroOf(run.Locator) is not { } locator)
+                return "nobody to plug in there";
+            if (Vector2.Distance(locator.Position, hero.Position) > StoryReserve.Reach + hero.Radius + locator.Radius)
+                return "too far away";
+            run.Crew.Holding[player.Value] = target;
+            HoldStill(hero.Id);
+            return null;
+        }
         if (target.StartsWith(SeatTarget, StringComparison.Ordinal))
         {
             if (seat != 0)
@@ -443,6 +458,13 @@ public sealed partial class GameWorld
             HoldStill(hero.Id);
             return null;
         }
+        // Stage 7's targets, each section's own (a wreck, a noise source, a valve ...): the first that knows it answers.
+        if (StoryUseStealth(run, player, seat, hero, target) is var stealth && stealth != NotMine)
+            return stealth;
+        if (StoryUseArmoury(run, player, seat, hero, target) is var armoury && armoury != NotMine)
+            return armoury;
+        if (StoryUseEscape(run, player, seat, hero, target) is var escape && escape != NotMine)
+            return escape;
         if (Deck?.Markers.FirstOrDefault(m => m.Name == target) is not { } marker)
             return "nothing to use there";
         if (Vector2.Distance(marker.Position, hero.Position) > UseReach)
@@ -493,13 +515,17 @@ public sealed partial class GameWorld
     {
         if (Story is not { } run || run.Seats.IndexOf(player) is var seat && seat < 0 || HeroOf(player) is not { } hero)
             return null;
-        var near = new List<(string Target, float Distance)>();
+        var near = new List<StoryUseOption>();
+        // A Grunt by the shut-down Locator plugs its cable in (GameWorld.StoryReserve).
+        if (seat > 0 && run.Flags.Contains(StoryMarks.L7Down) && HeroOf(run.Locator) is { } down
+            && Vector2.Distance(down.Position, hero.Position) is var away && away <= StoryReserve.Reach + hero.Radius + down.Radius)
+            near.Add(new(LocatorTarget(run), StoryUseKind.Plug, away));
         if (seat == 0)
         {
             foreach (var grunt in run.Seats.Skip(1))
             {
                 if (CompanionDown(grunt) && HeroOf(grunt) is { } wreck && Vector2.Distance(wreck.Position, hero.Position) is var d && d <= ReviveReach)
-                    near.Add((SeatTarget + grunt.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), d));
+                    near.Add(new(SeatTarget + grunt.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), StoryUseKind.Revive, d));
             }
         }
         foreach (var marker in Deck?.Markers ?? [])
@@ -507,14 +533,26 @@ public sealed partial class GameWorld
             var usable = marker.Tags.Contains("switch") || seat == 0 && (marker.Tags.Contains("pickup") || marker.Tags.Contains("hatch"));
             if (!usable || run.Flags.Contains(StoryMarks.Done(marker.Name)) || Vector2.Distance(marker.Position, hero.Position) is var d && d > UseReach)
                 continue;
-            near.Add((marker.Name, d));
+            near.Add(new(marker.Name, StoryUseKind.Switch, d));
         }
-        return near.OrderBy(n => n.Distance).ThenBy(n => n.Target, StringComparer.Ordinal).Select(n => n.Target).FirstOrDefault();
+        // Stage 7's use targets, each section's own (GameWorld.StoryUse.Stealth, .Armoury, .Escape).
+        StoryUseTargetsStealth(run, seat, hero, near);
+        StoryUseTargetsArmoury(run, seat, hero, near);
+        StoryUseTargetsEscape(run, seat, hero, near);
+        // The nearest of the highest kind (C9), by name on a tie.
+        return near.OrderBy(n => n.Kind).ThenBy(n => n.Distance).ThenBy(n => n.Target, StringComparer.Ordinal).Select(n => n.Target).FirstOrDefault();
     }
+
+    /// <summary>Something Use could act on: its target, its kind (the priority, C9) and how far off it is.</summary>
+    internal readonly record struct StoryUseOption(string Target, StoryUseKind Kind, float Distance);
+
+    /// <summary>What a stage-7 section's Use handler answers for a target it does not know: it is not its.</summary>
+    internal const string NotMine = "nothing to use there";
 
     /// <summary>A hero lets go of Use: a revive not finished starts again from nothing next time.</summary>
     private void LetGoOfUse(StoryRun run, PlayerId player)
     {
+        run.Waves.Holds.Remove(player.Value);
         if (!run.Crew.Holding.Remove(player.Value, out var what) || !what.StartsWith(SeatTarget, StringComparison.Ordinal))
             return;
         if (int.TryParse(what[SeatTarget.Length..], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var id))
@@ -655,8 +693,11 @@ public sealed partial class GameWorld
             target.HitPoints = floor;
         if (target is not Machine machine)
             return;
-        if (HeroOf(run.Locator)?.Id == machine.Id)
+        if (Wired?.Heroes.GetValueOrDefault(run.Locator)?.Hero == machine.Id)
         {
+            // With the reserve on, the Locator at 0 shuts down instead of falling (GameWorld.StoryReserve).
+            if (machine.HitPoints <= 0 && ShutDownLocator(run, machine))
+                return;
             foreach (var companion in run.Crew.Grunts.Values)
                 companion.ReviveTicks = 0;
             return;
@@ -727,6 +768,7 @@ public sealed partial class GameWorld
         }
         WakeTerminals(run);
         UpdateHolds(run);
+        UpdateReserve(run);
         UpdateRepairStation(run);
         // A Grunt a person took over carries no crate in the computer's hands; a person pushes crates by driving into them.
         foreach (var seat in run.Seats.Skip(1))
@@ -851,6 +893,16 @@ public sealed partial class GameWorld
             if (HeroOf(holder) is not { } hero || StoryInert(hero))
             {
                 LetGoOfUse(run, holder);
+                continue;
+            }
+            // The cable in the shut-down Locator is the Notabschaltung's (UpdateReserve).
+            if (what == LocatorTarget(run))
+                continue;
+            // The armoury's holds (mend, mount, strip) keep themselves (GameWorld.StoryUse.Armoury).
+            if (StoryHoldArmoury(run, holder, hero, what) is { } going)
+            {
+                if (!going)
+                    run.Crew.Holding.Remove(player);
                 continue;
             }
             if (!what.StartsWith(SeatTarget, StringComparison.Ordinal))

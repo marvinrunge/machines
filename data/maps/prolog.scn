@@ -1,7 +1,7 @@
 // The story's prolog: written by tools/deck/deck.mjs from data/planets/prolog/prolog.deck; edit the deck, not this.
 // RED is the trio (the story's heroes), BLUE the ship. No machines: the story's director sets everything down.
-// Doors closed at the start and the props that move or break are artefacts (ids: doors 100 + 10 a door in DOORS order,
-// the second leaf one more; props as the deck gives them).
+// Doors closed at the start and the props that move or break are artefacts (ids: doors 1000 + 10 a door in DOORS order,
+// the second leaf one more, so they never meet a prop; props as the deck gives them, all below 1000).
 RACES_DEFAULT
 	RED PC
 	BLUE AI
@@ -10,7 +10,7 @@ ENDRACES_DEFAULT
 ARTEFACTS
 MODELS models/planet/prolog/prolog.arf
 ACTIVE vent_cover COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 3 BOUNDARY 2 -1 2 1 -2 1 -2 -1
-AT 225 268 0 90 ID 220	// door V core_vent (closed)
+AT 225 267.5 0 90 ID 1120	// door V core_vent (closed)
 ACTIVE crate_large COST 0 HP 150 ARMOUR 5 IDS 0 HEIGHT 2.2 BOUNDARY 1.5 -1 1.5 1 -1.5 1 -1.5 -1
 AT 181 222 0 0 ID 301	// prop pile_1
 AT 181 215 0 0 ID 302	// prop pile_2
@@ -23,52 +23,86 @@ AT 208 291 0 0 ID 308	// prop crate_r9_4
 AT 192 287 0 0 ID 313	// prop crate_r9_5
 AT 218 284 0 90 ID 309	// prop cover_r9_1
 AT 218 289 0 90 ID 310	// prop cover_r9_2
+AT 428 230 0 0 ID 314	// prop crate_r13_1
+AT 430 258 0 0 ID 315	// prop crate_r13_2
+AT 466 244 0 0 ID 316	// prop crate_r13_3
+AT 444 228 0 0 ID 317	// prop crate_r13_4
+AT 446 236 0 0 ID 318	// prop crate_r13_5
+AT 458 252 0 0 ID 319	// prop crate_r13_6
+AT 556 108 0 0 ID 320	// prop pile_bay_1
+AT 556 104 0 0 ID 321	// prop pile_bay_2
+AT 560 108 0 0 ID 322	// prop pile_bay_3
 ACTIVE crate_small COST 0 HP 60 ARMOUR 2 IDS 0 HEIGHT 1.5 BOUNDARY 0.75 -0.75 0.75 0.75 -0.75 0.75 -0.75 -0.75
 AT 166.4 125.6 0 0 ID 311	// prop stack_1
 AT 169.6 125.6 0 0 ID 312	// prop stack_2
 ACTIVE core COST 0 HP 2000 ARMOUR 10 IDS 0 HEIGHT 28 BOUNDARY 8 3.314 3.314 8 -3.314 8 -8 3.314 -8 -3.314 -3.314 -8 3.314 -8 8 -3.314
 AT 192 264 0 0 ID 400	// prop core
+ACTIVE container COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 4 BOUNDARY 6 -4 6 4 -6 4 -6 -4
+AT 479 196 0 90 ID 331	// prop container_l1
+AT 449 196 0 90 ID 332	// prop container_l2a
+AT 449 148 0 90 ID 333	// prop container_l2b
+AT 419 148 0 90 ID 334	// prop container_l3
+AT 389 148 0 90 ID 335	// prop container_l4
+ACTIVE rack COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 5 BOUNDARY 8 -5 8 5 -8 5 -8 -5
+AT 389 200 0 90 ID 336	// prop rack_l4
+ACTIVE chock COST 0 HP 60 ARMOUR 2 IDS 0 HEIGHT 1.5 BOUNDARY 0.75 -0.75 0.75 0.75 -0.75 0.75 -0.75 -0.75
+AT 463.5 181 0 0 ID 337	// prop chock_1
+AT 433.5 181 0 0 ID 338	// prop chock_2
+AT 403.5 181 0 0 ID 339	// prop chock_3
+ACTIVE barrel COST 0 HP 40 ARMOUR 2 IDS 0 HEIGHT 1.2 BOUNDARY 0.5 -0.5 0.5 0.5 -0.5 0.5 -0.5 -0.5
+AT 596 100 0 0 ID 341	// prop barrel_1
+AT 596 104 0 0 ID 342	// prop barrel_2
+AT 592 108 0 0 ID 343	// prop barrel_3
+AT 596 112 0 0 ID 344	// prop barrel_4
+ACTIVE lock_amber COST 0 HP 80 ARMOUR 5 IDS 0 HEIGHT 1 BOUNDARY 0.5 -0.5 0.5 0.5 -0.5 0.5 -0.5 -0.5
+AT 520 112 0 0 ID 340	// prop crane_lock
+ACTIVE gas_main COST 0 HP 60 ARMOUR 2 IDS 0 HEIGHT 1.2 BOUNDARY 5 -0.5 5 0.5 -5 0.5 -5 -0.5
+AT 536 118.4 0 0 ID 345	// prop gas_main
 ACTIVE door_leaf_4 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 8 BOUNDARY 2 -1 2 1 -2 1 -2 -1
-AT 38 50 0 90 ID 100	// door A bay7_bay6 (locked)
-AT 38 54 0 90 ID 101	// door A bay7_bay6 (locked)
-AT 70 50 0 90 ID 110	// door B bay7_bay8 (locked)
-AT 70 54 0 90 ID 111	// door B bay7_bay8 (locked)
-AT 50 66 0 0 ID 120	// door C bay7_corridor (locked)
-AT 54 66 0 0 ID 121	// door C bay7_corridor (locked)
-AT 118 74 0 90 ID 130	// door D corridor_deckA (closed)
-AT 118 78 0 90 ID 131	// door D corridor_deckA (closed)
-AT 234 82 0 0 ID 140	// door E service_passage (locked)
-AT 238 82 0 0 ID 141	// door E service_passage (locked)
-AT 138 114 0 90 ID 150	// door F lager_westlink (locked)
-AT 138 118 0 90 ID 151	// door F lager_westlink (locked)
-AT 226 234 0 90 ID 190	// door K core_cable (closed)
-AT 226 238 0 90 ID 191	// door K core_cable (closed)
-AT 382 234 0 90 ID 230	// door Q d5 (locked)
-AT 382 238 0 90 ID 231	// door Q d5 (locked)
-AT 418 242 0 90 ID 260	// door R kreuzung_werkstatt (closed)
-AT 418 246 0 90 ID 261	// door R kreuzung_werkstatt (closed)
-AT 482 226 0 90 ID 270	// door T werkstatt_gang (closed)
-AT 482 230 0 90 ID 271	// door T werkstatt_gang (closed)
-AT 482 242 0 90 ID 280	// door U werkstatt_repair (closed)
-AT 482 246 0 90 ID 281	// door U werkstatt_repair (closed)
+AT 38 50 0 90 ID 1000	// door A bay7_bay6 (locked)
+AT 38 54 0 90 ID 1001	// door A bay7_bay6 (locked)
+AT 70 50 0 90 ID 1010	// door B bay7_bay8 (locked)
+AT 70 54 0 90 ID 1011	// door B bay7_bay8 (locked)
+AT 50 66 0 0 ID 1020	// door C bay7_corridor (locked)
+AT 54 66 0 0 ID 1021	// door C bay7_corridor (locked)
+AT 118 74 0 90 ID 1030	// door D corridor_deckA (closed)
+AT 118 78 0 90 ID 1031	// door D corridor_deckA (closed)
+AT 234 82 0 0 ID 1040	// door E service_passage (locked)
+AT 238 82 0 0 ID 1041	// door E service_passage (locked)
+AT 226 234 0 90 ID 1090	// door K core_cable (closed)
+AT 226 238 0 90 ID 1091	// door K core_cable (closed)
+AT 382 234 0 90 ID 1130	// door Q d5 (locked)
+AT 382 238 0 90 ID 1131	// door Q d5 (locked)
+AT 418 242 0 90 ID 1160	// door R kreuzung_werkstatt (closed)
+AT 418 246 0 90 ID 1161	// door R kreuzung_werkstatt (closed)
+AT 482 226 0 90 ID 1170	// door T werkstatt_gang (closed)
+AT 482 230 0 90 ID 1171	// door T werkstatt_gang (closed)
+AT 482 242 0 90 ID 1180	// door U werkstatt_repair (closed)
+AT 482 246 0 90 ID 1181	// door U werkstatt_repair (closed)
 ACTIVE door_leaf_6 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 14 BOUNDARY 3 -1 3 1 -3 1 -3 -1
-AT 187 210 0 0 ID 160	// door H deckB_vorraum (locked)
-AT 193 210 0 0 ID 161	// door H deckB_vorraum (locked)
-AT 187 230 0 0 ID 170	// door I vorraum_core (closed)
-AT 193 230 0 0 ID 171	// door I vorraum_core (closed)
+AT 187 210 0 0 ID 1060	// door H deckB_vorraum (locked)
+AT 193 210 0 0 ID 1061	// door H deckB_vorraum (locked)
+AT 187 230 0 0 ID 1070	// door I vorraum_core (closed)
+AT 193 230 0 0 ID 1071	// door I vorraum_core (closed)
 ACTIVE door_leaf_8 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 16 BOUNDARY 4 -1 4 1 -4 1 -4 -1
-AT 188 298 0 0 ID 180	// door J core_spine (closed)
-AT 196 298 0 0 ID 181	// door J core_spine (closed)
+AT 188 298 0 0 ID 1080	// door J core_spine (closed)
+AT 196 298 0 0 ID 1081	// door J core_spine (closed)
+AT 516 258 0 0 ID 1210	// door S lift_notgang (locked)
+AT 524 258 0 0 ID 1211	// door S lift_notgang (locked)
+AT 510 156 0 90 ID 1220	// door P notgang_fracht (locked)
+AT 510 164 0 90 ID 1221	// door P notgang_fracht (locked)
 ACTIVE door_leaf_7 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 14 BOUNDARY 3.5 -1 3.5 1 -3.5 1 -3.5 -1
-AT 226 247.5 0 90 ID 200	// door M core_p2 (closed)
-AT 226 254.5 0 90 ID 201	// door M core_p2 (closed)
-AT 137.5 298 0 0 ID 290	// door W spine_service (locked)
-AT 144.5 298 0 0 ID 291	// door W spine_service (locked)
+AT 226 247.5 0 90 ID 1100	// door M core_p2 (closed)
+AT 226 254.5 0 90 ID 1101	// door M core_p2 (closed)
+AT 137.5 298 0 0 ID 1190	// door W spine_service (locked)
+AT 144.5 298 0 0 ID 1191	// door W spine_service (locked)
 ACTIVE gate_leaf_7 COST 0 HP 30000 ARMOUR 100 IDS 0 HEIGHT 14 BOUNDARY 3.5 -1 3.5 1 -3.5 1 -3.5 -1
-AT 382 247.5 0 90 ID 240	// door O g2 (closed)
-AT 382 254.5 0 90 ID 241	// door O g2 (closed)
-AT 382 279.5 0 90 ID 250	// door G g1 (closed)
-AT 382 286.5 0 90 ID 251	// door G g1 (closed)
+AT 382 247.5 0 90 ID 1140	// door O g2 (closed)
+AT 382 254.5 0 90 ID 1141	// door O g2 (closed)
+AT 382 279.5 0 90 ID 1150	// door G g1 (closed)
+AT 382 286.5 0 90 ID 1151	// door G g1 (closed)
+AT 436.5 266 0 0 ID 1200	// door N armoury_ramp (locked)
+AT 443.5 266 0 0 ID 1201	// door N armoury_ramp (locked)
 ENDARTEFACTS
 
 RACE RED none

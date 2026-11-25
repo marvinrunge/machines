@@ -65,16 +65,16 @@ public class PrologueAssaultTests
     /// </summary>
     private static GameWorld AfterCore(int seed = 3)
     {
-        var world = Chapter(3, seed);
+        var world = Chapter(7, seed);
         var locator = Hero(world, 0);
-        SetDown(world, locator, new Vector2(218, 268));
+        SetDown(world, locator, new Vector2(218, 267.5f));
         locator.Facing = 0;
         Assert.True(RunUntil(world, () => world.Story!.Director.Has("core_blows"), Prologue.CoreBlows + 15,
             () => world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true))));
-        SetDown(world, locator, new Vector2(232, 268));
+        SetDown(world, locator, new Vector2(232, 267.5f));
         world.Step();
         Assert.True(world.Story!.Director.Has("fled"));
-        SetDown(world, locator, new Vector2(218, 268));
+        SetDown(world, locator, new Vector2(218, 267.5f));
         locator.Facing = 0;
         return world;
     }
@@ -241,7 +241,7 @@ public class PrologueAssaultTests
         // (on through the vent), and the Reaper searches where it saw it last, which it cannot get to.
         var reaper = hunters[0];
         SetDown(world, reaper, new Vector2(296, 279));
-        SetDown(world, locator, new Vector2(296, 268));
+        SetDown(world, locator, new Vector2(296, 267.5f));
         var eyes = world.StorySeekerOf(reaper.Id)!;
         var last = reaper.Position;
         var jumps = new List<string>();
@@ -276,7 +276,7 @@ public class PrologueAssaultTests
     [Fact]
     public void From_the_repair_station_the_locator_drives_out_through_door_u_past_its_grunts()
     {
-        var world = Chapter(5);
+        var world = Chapter(11);
         var run = world.Story!;
         var locator = Hero(world, 0);
         Run(world, 1);
@@ -289,14 +289,16 @@ public class PrologueAssaultTests
     }
 
     [Fact]
-    public void The_notgang_has_its_crate_at_the_last_checkpoint_clear_of_the_trio()
+    public void At_the_last_checkpoint_the_trio_stands_free_in_the_bay_clear_of_the_collapse()
     {
         var world = Chapter(Prologue.LastCheckpoint);
-        var crate = world.Artefacts.Where(a => a.Id >= Artefact.IdBase + StoryDirector.PlacedBase)
-            .SingleOrDefault(a => Vector2.Distance(a.Position, world.Deck!.Marker("debris_1").Position + new Vector2(5, 0)) < 0.5f);
-        Assert.NotNull(crate);
+        var collapse = world.Deck!.Zone("collapse_notgang")!;
         for (var seat = 0; seat < 3; seat++)
-            Assert.True(Vector2.Distance(Hero(world, seat).Position, crate!.Position) > Hero(world, seat).Radius + 1, $"seat {seat} at {Hero(world, seat).Position}");
+        {
+            var hero = Hero(world, seat);
+            Assert.True(world.Nav.IsFree(hero.Position, GameWorld.MobilityOf(hero)), $"seat {seat} at {hero.Position}");
+            Assert.False(hero.Position.X > collapse.Min.X - 4 && hero.Position.X < collapse.Max.X + 4 && hero.Position.Y > collapse.Min.Y - 4 && hero.Position.Y < collapse.Max.Y + 4, $"seat {seat} at {hero.Position}");
+        }
     }
 
     [Fact]
@@ -320,7 +322,7 @@ public class PrologueAssaultTests
         Assert.All(reapers, m => Assert.False(world.StorySeekerOf(m.Id)!.Caller));
 
         // At the crossing's checkpoint, the Locator in the spine before him: he calls his squad by data link and never fires.
-        world = Chapter(4);
+        world = Chapter(8);
         commander = Cast(world, Prologue.CommanderRole).Single();
         var locator = Hero(world, 0);
         SetDown(world, locator, commander.Position + new Vector2(14, 0));
@@ -341,7 +343,7 @@ public class PrologueAssaultTests
     [Fact]
     public void A_gate_holds_while_a_grunt_stands_on_its_switch_and_gives_way_otherwise()
     {
-        var world = Chapter(4);
+        var world = Chapter(8);
         var run = world.Story!;
         var cues = new List<string>();
         // Bob is told to wait where he stands, off his switch; Ike holds G2 (gate O).
@@ -406,82 +408,12 @@ public class PrologueAssaultTests
 
     // ---- Erste Gegenwehr -------------------------------------------------------------------------------
 
-    [Fact]
-    public void The_bolter_is_taken_from_its_rack_and_the_armed_grunts_go_down_to_it()
-    {
-        var world = Chapter(4);
-        var run = world.Story!;
-        var locator = Hero(world, 0);
-        var hostiles = Cast(world, Prologue.HostileRole);
-        Assert.Equal(3, hostiles.Count);
-        Assert.All(hostiles, m => Assert.Equal((Race?)Race.Red, m.DisplayAs));
-        Assert.Empty(locator.Weapons);
-
-        // Out of the hostiles' sight they stand their posts: nobody has seen the trio yet.
-        world.Step();
-        Assert.All(hostiles, m => Assert.IsNotType<AttackOrder>(m.Order));
-
-        // All three into the workshop, the Locator at the rack: it takes the Bolter with the use key.
-        var rack = world.Deck!.Marker("pickup_bolter").Position;
-        SetDown(world, locator, rack + new Vector2(-1.5f, -1.5f));
-        SetDown(world, Hero(world, 1), rack + new Vector2(-6, -4));
-        SetDown(world, Hero(world, 2), rack + new Vector2(-6, 0));
-        world.Step();
-        Assert.Equal("pickup_bolter", world.StoryUseTarget(run.Locator));
-        world.Issue(new StoryUseCommand(Race.Red, "pickup_bolter"));
-        world.Step();
-        Assert.NotEmpty(locator.Weapons);
-        Assert.Contains(StoryMarks.Done("pickup_bolter"), run.Flags);
-        Assert.True(run.Director.Has("workshop") && run.Director.Has("sealed"));
-        world.Step();
-        Assert.True(run.Director.Has("weapon"));
-        Assert.Equal("Stop the armed Grunts", StoryMarks.Objective(run)!.Value.Text);
-
-        // They saw it and fight; the Locator shoots back, the Grunts ram.
-        Assert.True(RunUntil(world, () => hostiles.All(m => m.IsDead) || run.Over, 60, () =>
-        {
-            var foe = hostiles.Where(m => !m.IsDead).OrderBy(m => Vector2.DistanceSquared(m.Position, locator.Position)).ThenBy(m => m.Id).First();
-            world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true, Aim: foe.Position));
-        }));
-        Assert.False(run.Over);
-        Assert.True(locator.HitPoints < locator.MaxHitPoints, "they never fired back");
-        world.Step();
-        Assert.True(run.Director.Has("cleared"));
-
-        // A crate came down on a Grunt in the fight (the lesson of putting a fallen Grunt together comes for sure): it lies
-        // beside the Grunt, not on it, and the objective points at the Grunt until the Locator has put it together.
-        Assert.True(run.Director.Has("knocked"));
-        var fallen = run.Seats.Skip(1).Where(world.CompanionDown).Select(s => world.HeroOf(s)!).ToList();
-        Assert.NotEmpty(fallen);
-        Assert.Equal(Prologue.RallyText, StoryMarks.Objective(run)!.Value.Text);
-        var crates = world.Artefacts.Where(a => a.Id >= Artefact.IdBase + StoryDirector.PlacedBase).ToList();
-        Assert.Single(crates);
-        Assert.True(Vector2.Distance(crates[0].Position, fallen[0].Position) >= fallen[0].Radius + StoryFall.Lies, $"crate at {crates[0].Position}, Grunt at {fallen[0].Position}");
-        var seat = run.Seats.First(s => world.HeroOf(s) == fallen[0]);
-        SetDown(world, locator, fallen[0].Position + new Vector2(0, 3));
-        world.Issue(new StoryUseCommand(Race.Red, $"seat:{seat.Value}"));
-        Assert.True(RunUntil(world, () => !world.CompanionDown(seat), GameWorld.ReviveSeconds + 1));
-        world.Issue(new StoryUseCommand(Race.Red, Held: false));
-        Run(world, 0.2f);
-        Assert.Equal("repair_station", StoryMarks.Objective(run)!.Value.Place);
-    }
-
-    [Fact]
-    public void Without_a_weapon_the_armed_grunts_are_deadly()
-    {
-        var world = Chapter(4);
-        var run = world.Story!;
-        var locator = Hero(world, 0);
-        SetDown(world, locator, world.Deck!.Marker("pickup_bolter").Position + new Vector2(-1.5f, -1.5f));
-
-        Assert.True(RunUntil(world, () => run.Over, 60, () => world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true))));
-        Assert.Equal(StoryEnding.LocatorLost, run.Ending);
-    }
+    // The weapon on its rack and the armoury's batches after it (stage 7): PrologueWaveTests.
 
     [Fact]
     public void The_squad_called_off_at_the_workshop_stays_off()
     {
-        var world = Chapter(4);
+        var world = Chapter(8);
         var run = world.Story!;
         var rack = world.Deck!.Marker("pickup_bolter").Position;
         for (var seat = 0; seat < 3; seat++)
@@ -511,7 +443,7 @@ public class PrologueAssaultTests
     [Fact]
     public void Nobody_is_left_behind_a_downed_grunt_outside_the_pod_holds_the_launch_until_put_together()
     {
-        var world = Chapter(6);
+        var world = Chapter(12);
         var run = world.Story!;
         Hack(world, "pod_3_hatch");
         var (locator, ike, bob) = (Hero(world, 0), Hero(world, 1), Hero(world, 2));
@@ -530,6 +462,10 @@ public class PrologueAssaultTests
         SetDown(world, locator, middle);
         SetDown(world, bob, middle + new Vector2(3, 0));
         Run(world, 2, () => SetDown(world, bob, middle + new Vector2(3, 0)));
+        // Set down as a player never is: a short order makes him forget the stretch he was driving from the start (to the
+        // Kühlschlange's entry), whose ramp, once run out, would put him at its end again.
+        world.Issue(new MoveCommand(Race.Red, [bob.Id], bob.Position));
+        world.Step();
         Assert.False(run.Director.Has("launch"));
 
         // The Locator puts him together (use held four seconds), the objective comes back, and all three board.

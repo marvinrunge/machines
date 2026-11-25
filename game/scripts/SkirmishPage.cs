@@ -19,7 +19,7 @@ namespace Machines.Game;
 /// five against five), the bracket, the lives and the victory, as every seat is a hero, a player's from their pod or a bot.
 /// </summary>
 public partial class SkirmishPage(MenuScreens screens, bool forRoom = false, RoomState? room = null)
-    : MenuPage(room is not null ? screens.ShowRoom : forRoom ? screens.ShowMultiplayer : screens.ShowMain)
+    : MenuPage(room is not null ? screens.ShowRoom : forRoom ? screens.ShowMultiplayer : screens.ShowSinglePlayer)
 {
     private static readonly string[] SizeNames = ["Small", "Medium", "Large"];
     private static readonly Race[] Colours = [Race.Red, Race.Blue, Race.Green, Race.Yellow];

@@ -38,7 +38,7 @@ public static class BattlePod
             desk.Draft.Keep();
             if (room is null)
             {
-                screens.ShowMain();
+                screens.ShowSinglePlayer();
                 return;
             }
             MultiplayerPage.FromPod(ready: false);
@@ -200,20 +200,12 @@ public static class BattlePod
         row.AddChild(Titled("Victory", victory));
         row.AddChild(Titled("Bracket", bracket, HorizontalAlignment.Center));
 
-        // The two ways into a battle stand one above the other, so that the bar fits the large interface and long German words.
-        var fight = MenuPage.Button("Fight against bots", () => Start(page, desk), 40, 19);
-        fight.CustomMinimumSize = new Vector2(230, 40);
-        var online = MenuPage.Button("Multiplayer", () =>
-        {
-            draft.Keep();
-            // Its Back comes back here, where the player came from.
-            screens.ShowMultiplayer(() => screens.ShowPod());
-        }, 40, 19);
-        online.CustomMinimumSize = new Vector2(230, 40);
-        var ways = MenuPage.Column(8, fight, online);
-        ways.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
-        ways.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd | Control.SizeFlags.Expand;
-        row.AddChild(ways);
+        // The way into a battle against bots; battles with other players are set up under Multiplayer, in a room.
+        var fight = MenuPage.Button("Fight against bots", () => Start(page, desk), 62, 19);
+        fight.CustomMinimumSize = new Vector2(230, 62);
+        fight.SizeFlagsVertical = Control.SizeFlags.ShrinkEnd;
+        fight.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd | Control.SizeFlags.Expand;
+        row.AddChild(fight);
         // The bracket is topped by the worn chassis' tier, which changes on the shelves and the Path above.
         row.AddChild(new PodWatch(() => draft.Tier, Show));
         chip.AddChild(row);

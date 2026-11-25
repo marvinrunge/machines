@@ -13,7 +13,7 @@ public static class MenuTransition
 {
     /// <summary>The original's names of its screens: a page shown again on the same screen comes without a transition.</summary>
     public const string Main = "sa", Multiplayer = "sb", Join = "sc", Room = "sd", InGame = "se", Options = "sf", Load = "sg", Save = "sh",
-        SinglePlayer = "si", Debriefing = "sj", Briefing = "sk", Scenario = "sl", CampaignPlayers = "sm", Skirmish = "sn", HotKeys = "so",
+        SinglePlayer = "si", Extras = "sx", Story = "st", Debriefing = "sj", Briefing = "sk", Scenario = "sl", CampaignPlayers = "sm", Skirmish = "sn", HotKeys = "so",
         Settings = "sp", Statistics = "sq";
 
     /// <summary>How long the page before takes to switch off, in seconds; the next comes up then.</summary>

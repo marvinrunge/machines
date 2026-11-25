@@ -19,6 +19,11 @@ public enum DeckCell : byte
     Cover,
     /// <summary><c>=</c>: a catwalk or ramp; floor to the sim, raised only to the eye.</summary>
     Catwalk,
+    /// <summary>
+    /// <c>h</c>: a high stack, 8 m (crate towers, lockers, pipe banks, the clamp gantries of the rows, lashed containers):
+    /// to the sim a wall for movement, shots and sight; to the eye a set piece standing in the room, under its ceiling.
+    /// </summary>
+    High,
     /// <summary><c>A</c>–<c>Z</c>: the slot of a door or gate named in <see cref="Deck.Doors"/>.</summary>
     Door,
 }
@@ -41,6 +46,12 @@ public sealed record DeckZone(string Name, Vector2 Min, Vector2 Max, IReadOnlyLi
     public string? Tag(string key) => Tags.FirstOrDefault(t => t.StartsWith(key + "=", StringComparison.Ordinal))?[(key.Length + 1)..];
 }
 
+/// <summary>
+/// A straight rail something heavy slides along (a container, the rack): from <paramref name="From"/> to <paramref name="To"/>,
+/// carrying the prop <paramref name="Prop"/> (a PROPS name), with free tags. Only the story's director moves it.
+/// </summary>
+public sealed record DeckSlide(string Name, string Prop, Vector2 From, Vector2 To, IReadOnlyList<string> Tags, int LineNumber);
+
 /// <summary>A group of lamps lighting a zone, and how it starts: on, off or emergency.</summary>
 public sealed record DeckLight(string Name, string Zone, string State, int LineNumber);
 
@@ -61,13 +72,15 @@ public sealed class Deck
 
     public Deck(string name, int width, int depth, char[] cells, IReadOnlyList<DeckDoor> doors, IReadOnlyList<DeckMarker> markers,
         IReadOnlyList<DeckProp> props, IReadOnlyList<DeckZone> zones, IReadOnlyList<DeckLight> lights, IReadOnlyList<DeckCamera> cameras,
-        IReadOnlyList<DeckRail> rails, int gapScale = 1)
+        IReadOnlyList<DeckRail> rails, int gapScale = 1, IReadOnlyList<DeckSlide>? slides = null, string? variant = null)
     {
         if (cells.Length != width * depth)
             throw new ArgumentException($"a {width} x {depth} deck needs {width * depth} cells, not {cells.Length}");
         (Name, Width, Depth, _cells) = (name, width, depth, cells);
         (Doors, Markers, Props, Zones, Lights, Cameras, Rails) = (doors, markers, props, zones, lights, cameras, rails);
         GapScale = Math.Max(1, gapScale);
+        Slides = slides ?? [];
+        Variant = variant;
         Fingerprint = Hash();
     }
 
@@ -91,6 +104,15 @@ public sealed class Deck
     public IReadOnlyList<DeckLight> Lights { get; }
     public IReadOnlyList<DeckCamera> Cameras { get; }
     public IReadOnlyList<DeckRail> Rails { get; }
+
+    /// <summary>The rails heavy props slide along (SLIDES).</summary>
+    public IReadOnlyList<DeckSlide> Slides { get; }
+
+    /// <summary>
+    /// The variant the grid was read with, or null for the deck as drawn: the zones tagged <c>variant=</c> that name are
+    /// filled with the grid character of their <c>cells=</c> tag (DeckParser.Parse).
+    /// </summary>
+    public string? Variant { get; }
 
     /// <summary>
     /// A fingerprint of everything on the deck the sim goes by (the grid, doors, markers, props, zones and lights; not the
@@ -116,12 +138,13 @@ public sealed class Deck
         'g' => DeckCell.Grate,
         'c' => DeckCell.Cover,
         '=' => DeckCell.Catwalk,
+        'h' => DeckCell.High,
         >= 'A' and <= 'Z' => DeckCell.Door,
         _ => DeckCell.Wall,
     };
 
     /// <summary>Whether a grid character is one the format knows.</summary>
-    public static bool Known(char c) => c is '#' or '.' or 'v' or '^' or 'g' or 'c' or '=' or (>= 'A' and <= 'Z');
+    public static bool Known(char c) => c is '#' or '.' or 'v' or '^' or 'g' or 'c' or '=' or 'h' or (>= 'A' and <= 'Z');
 
     /// <summary>The marker of that name.</summary>
     /// <exception cref="KeyNotFoundException">The deck has none.</exception>
@@ -196,6 +219,17 @@ public sealed class Deck
             Text(light.Name);
             Text(light.Zone);
             Text(light.State);
+        }
+        foreach (var slide in Slides)
+        {
+            Text(slide.Name);
+            Text(slide.Prop);
+            Float(slide.From.X);
+            Float(slide.From.Y);
+            Float(slide.To.X);
+            Float(slide.To.Y);
+            foreach (var tag in slide.Tags)
+                Text(tag);
         }
         return hash;
     }

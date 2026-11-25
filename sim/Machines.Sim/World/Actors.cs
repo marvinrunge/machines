@@ -208,6 +208,10 @@ public sealed class Machine : Actor
     /// <summary>True while a player drives this machine in first person.</summary>
     public bool DrivenByPlayer { get; set; }
 
+    /// <summary>The size class it finds its way and moves by, when not its radius's (<see cref="Navigation.Mobility.SizeOf"/>):
+    /// set once as a story casts it (the prologue's big Grunts squeeze through the deck's gates as class 2); null for every other.</summary>
+    public int? NavSize { get; set; }
+
     /// <summary>The player driving it while <see cref="DrivenByPlayer"/>; null otherwise. Not in the checksum, as that is not.</summary>
     public PlayerId? Driver { get; set; }
 

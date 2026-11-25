@@ -249,7 +249,8 @@ public sealed partial class GameWorld
         if (rate <= 0)
             return;
         var head = _heads.GetValueOrDefault(actor.Id);
-        var wanted = 0f;
+        // With nothing to aim at it looks ahead: the way it walks, against a crab walker's hull.
+        var wanted = -CrabOf(actor.Id);
         if (target is not null)
         {
             var way = target.Position - actor.Position;
