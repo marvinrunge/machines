@@ -17,7 +17,7 @@ done when every file on it is built.
 
 | Done | Model | Original files | Weapons | Notes |
 |---|---|---|---|---|
-| [x] | Gorilla 5 | `AGGRESSOR_5_NINJA_…` | multi-launcher 7 ×2, punch | built 2026-11-07, about 6,040 triangles; open choices in `STYLE.md` (elbow as the original's, hands, wrist, pods silver) |
+| [x] | Gorilla 5 | `AGGRESSOR_5_NINJA_…` | multi-launcher 7 ×2, punch | built 2026-11-07; reviewed 2026-11-09 twice (subtle joints, ribbed spine, dirtier, plain blue) and 2026-11-12 an HD eye box of its own (eyebox.py: lenses, visor, antennas as solid blades, own maps) instead of painted lenses; 6,809 triangles (the eye box 942); open choices in `STYLE.md` (elbow as the original's, hands, wrist, pods silver) |
 | [ ] | Grunt 1 | `AGGRESSOR_1_GRUNT_…` (2) | bolter, electric charge | |
 | [ ] | Grunt 2 | `AGGRESSOR_2_GRUNT_…` (3) | bolter, electric charge, flame thrower 2 | |
 | [ ] | Grunt 3 | `AGGRESSOR_3_GRUNT_…` | heavy bolter 1 ×2 | |
