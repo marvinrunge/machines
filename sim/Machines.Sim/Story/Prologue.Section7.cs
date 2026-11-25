@@ -48,11 +48,23 @@ public static partial class Prologue
         new Cue("rumble 0.4"), new Cue("playlist fade 2"), new Cue("lift groan", "520,262"),
     ];
 
-    /// <summary>Section 7's beats and the launch of 8 (<see cref="Script"/> joins them in order).</summary>
+    /// <summary>
+    /// Section 7's beats and the launch of 8 (<see cref="Script"/> joins them in order). Nothing of it comes before the escape
+    /// has begun, and the escape not before the armoury is cleared: during a batch door T stands open for the units coming by
+    /// it, and a Locator that drove out through it into R13a started the countdown with the batches still running (play test
+    /// 2026-11-25), and could have reached the gallery or the pod bay and their checkpoints. A beat that already comes after
+    /// another keeps its own order, which leads back to the escape.
+    /// </summary>
     private static StoryBeat[] Section7 =>
     [
+        .. Section7Beats.Select(b => b.Name == "escape" || b.After is not null ? b : b with { After = ["escape"] }),
+    ];
+
+    private static StoryBeat[] Section7Beats =>
+    [
         // ---- C0, R13a: "vier Minuten". The countdown, the lift groaning ahead, the Thresher's steps in its shaft.
-        new("escape", 11, new AllOf(new AnyOf(new InZone("R13a"), new InZone("R15")), new Not(new InSection(8))), [new Checkpoint(12), .. EscapeStart]),
+        new("escape", 11, new AllOf(new AnyOf(new InZone("R13a"), new InZone("R15")), new Not(new InSection(8))), [new Checkpoint(12), .. EscapeStart],
+            After: ["cleared"]),
         // The escape's hazards and its pack, every tick while it runs (GameWorld.StoryHazards, GameWorld.StoryPack).
         new("escape_tick", 12, new Flagged(StoryMarks.Escape), [new Run("escape", (world, run, _) => world.UpdateEscape(run))], Repeat: true),
         new("lift_bulge", 12, new Since("escape", 3), [new Cue("lift bulge", "520,258"), new Say(Lines.IkeThresher, Bark, 1),

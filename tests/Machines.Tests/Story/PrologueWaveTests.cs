@@ -202,4 +202,38 @@ public sealed class PrologueWaveTests(ITestOutputHelper output)
         Assert.Contains(StoryMarks.ArmourySealed, play.Run.Flags);
         Assert.Equal(1, play.Waves.Wave);
     }
+
+    // Play test 2026-11-25: door T stands open while a batch comes by it, and a Locator that drove out into R13a (or on to
+    // the Notgang, the gallery, the pod bay) started the escape with the batches still running.
+    [Theory]
+    [InlineData(9, "498,228")]
+    [InlineData(10, "520,200")]
+    [InlineData(10, "500,110")]
+    public void Leaving_the_armoury_during_the_batches_starts_nothing_of_the_escape(int checkpoint, string place)
+    {
+        var play = new ArmouryPlay(checkpoint);
+        play.SetDown(play.Hero(0), At(place));
+        play.Until(() => false, 3, play: false);
+
+        Assert.DoesNotContain(play.Run.Director.Fired.Keys, beat => Prologue.Script.Skip(IndexOfEscape()).Any(b => b.Name == beat));
+        Assert.Equal(6, play.Run.Section);
+        Assert.Equal(checkpoint, play.Run.Checkpoint);
+    }
+
+    [Fact]
+    public void Once_the_armoury_is_cleared_R13a_starts_the_escape()
+    {
+        var play = new ArmouryPlay(11);
+        play.SetDown(play.Hero(0), At("498,228"));
+        play.Until(() => play.Run.Director.Has("escape"), 3, play: false);
+
+        Assert.True(play.Run.Director.Has("escape"));
+        Assert.Equal(7, play.Run.Section);
+        Assert.Equal(12, play.Run.Checkpoint);
+    }
+
+    private static Vector2 At(string place) =>
+        new(float.Parse(place.Split(",")[0], CultureInfo.InvariantCulture), float.Parse(place.Split(",")[1], CultureInfo.InvariantCulture));
+
+    private static int IndexOfEscape() => Prologue.Script.Select((b, i) => (b, i)).First(p => p.b.Name == "escape").i;
 }
