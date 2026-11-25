@@ -327,7 +327,7 @@ public static class CompanionBarks
         ["P_IKE_POD"] = "In, in, in!",
         ["P_BOB_POD"] = "Aboard.",
         ["P_IKE_VENT"] = "I don't fit in there. We'll take the long way. Open up for us!",
-        ["P_IKE_WAKE"] = "Ike? Ike. I like it. Who are we knocking over?",
+        ["P_IKE_WAKE"] = "Ike? I like. Who are we knocking over?",
         ["P_BOB_WAKE"] = "Confirmed. Designation: Bob.",
     };
 }

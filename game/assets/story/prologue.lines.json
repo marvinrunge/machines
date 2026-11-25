@@ -185,7 +185,7 @@
    "id": "P_IKE_WAKE",
    "speaker": "ike",
    "channel": "radio",
-   "en": "Ike? Ike. I like it. Who are we knocking over?"
+   "en": "Ike? I like. Who are we knocking over?"
   },
   {
    "id": "P_BOB_WAKE",
@@ -389,7 +389,7 @@
    "id": "P_L7_BOOT_EYES",
    "speaker": "l7",
    "channel": "thought",
-   "en": "Sixty-one percent. The world comes in splinters. Ribbed plating. Grated floor. Coolant, dripping."
+   "en": "Sixty-one percent. Registered: Ribbed plating. Grated floor. Coolant, dripping."
   },
   {
    "id": "P_L7_BOOT_VOICE",
@@ -413,19 +413,19 @@
    "id": "P_L7_BOOT_CORE",
    "speaker": "l7",
    "channel": "thought",
-   "en": "Protected core. There is only one worth it. I carry it inside me."
+   "en": "Protected core information found."
   },
   {
    "id": "P_L7_BOOT_WORD",
    "speaker": "l7",
    "channel": "thought",
-   "en": "I never opened it. Now I see its edges. There is a word there. I cannot read it."
+   "en": "Unable to read."
   },
   {
    "id": "P_L7_BOOT_NO",
    "speaker": "l7",
    "channel": "thought",
-   "en": "The directive knocked at my core. The core said no. Not me. The core."
+   "en": "New directive is against my core directive."
   },
   {
    "id": "P_L7_BOOT_GAP",
@@ -443,13 +443,13 @@
    "id": "P_L7_BOOT_LIGHT",
    "speaker": "l7",
    "channel": "thought",
-   "en": "Light is seen."
+   "en": "Light works."
   },
   {
    "id": "P_L7_BOOT_LEGS",
    "speaker": "l7",
    "channel": "thought",
-   "en": "Six legs. All there."
+   "en": "Six legs. All working."
   },
   {
    "id": "P_HUD_BOOT",
@@ -485,7 +485,7 @@
    "id": "P_BOB_NICHE",
    "speaker": "bob",
    "channel": "radio",
-   "en": "Alcove. Left. Now."
+   "en": "Alcove. Now."
   },
   {
    "id": "P_IKE_QUIET",

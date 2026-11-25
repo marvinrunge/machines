@@ -88,7 +88,7 @@ public partial class StoryHud
             if (Has("subtitles") && hud._hud.Subtitles is { Speaking: false } subtitles)
             {
                 subtitles.Say(StorySpeaker.Ship, "Maintenance unit L-7. Please proceed to bay four for your update.", 600);
-                subtitles.Say(StorySpeaker.Ike, "Ike? Ike. I like it. Who are we knocking over?", 600);
+                subtitles.Say(StorySpeaker.Ike, "Ike? I like. Who are we knocking over?", 600);
             }
             return now;
         }

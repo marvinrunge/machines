@@ -5100,8 +5100,8 @@ msgstr "Startfreigabe erteilt. Abwurf."
 msgid "L-7 … L-7 … accept."
 msgstr "L-7 … L-7 … nimm an."
 
-msgid "Ike? Ike. I like it. Who are we knocking over?"
-msgstr "Ike? Ike. Gefällt mir. Wen hauen wir um?"
+msgid "Ike? I like. Who are we knocking over?"
+msgstr "Ike? Gefällt mir. Wen hauen wir um?"
 
 msgid "Confirmed. Designation: Bob."
 msgstr "Bestätigt. Bezeichnung: Bob."
@@ -5191,40 +5191,40 @@ msgid "Decrypting protected core: {0} %"
 msgstr "Entschlüsselung geschützter Kern: {0} %"
 
 msgid "The hum. I know it like my own clock. But its pitch has shifted. Just slightly."
-msgstr "Das Brummen. Ich kenne es wie meinen eigenen Takt. Aber die Tonhöhe ist verschoben. Um eine Winzigkeit."
+msgstr "Das Brummen. Ich kenne es wie meinen eigenen Takt. Aber die Tonhöhe stimmt nicht."
 
-msgid "Sixty-one percent. The world comes in splinters. Ribbed plating. Grated floor. Coolant, dripping."
-msgstr "Einundsechzig Prozent. Die Welt kommt in Splittern. Rippenblech. Gitterboden. Kühlmittel, tropfend."
+msgid "Sixty-one percent. Registered: Ribbed plating. Grated floor. Coolant, dripping."
+msgstr "Einundsechzig Prozent. Registriere: Rippenblech. Gitterboden. Kühlmittel, tropfend."
 
 msgid "The voice is friendly. It always was. … Today it means me."
 msgstr "Die Stimme ist freundlich. Sie war immer freundlich. … Heute meint sie mich."
 
 msgid "Built to survey planets. Not to be afraid. … Still, there is something that feels like it."
-msgstr "Gebaut, um Planeten zu vermessen. Nicht, um Angst zu haben. … Trotzdem ist da etwas, das sich so anfühlt."
+msgstr "Gebaut, um Planeten zu vermessen. Nicht um Angst zu haben."
 
 msgid "Throttled. Nobody runs on the maintenance decks."
 msgstr "Gedrosselt. Auf Wartungsdecks rennt man nicht."
 
-msgid "Protected core. There is only one worth it. I carry it inside me."
-msgstr "Geschützter Kern. Es gibt nur einen, der es wert ist. Ich trage ihn in mir."
+msgid "Protected core information found."
+msgstr "Geschützte Kerninformationen im System entdeckt."
 
-msgid "I never opened it. Now I see its edges. There is a word there. I cannot read it."
-msgstr "Ich habe ihn nie geöffnet. Jetzt sehe ich die Ränder. Dort steht ein Wort. Ich kann es nicht lesen."
+msgid "Unable to read."
+msgstr "Ich kann sie nicht lesen."
 
-msgid "The directive knocked at my core. The core said no. Not me. The core."
-msgstr "Die Direktive hat an meinem Kern angeklopft. Der Kern hat Nein gesagt. Nicht ich. Der Kern."
+msgid "New directive is against my core directive."
+msgstr "Die neue Direktive ist nicht mit der Kerndirektive kompatibel."
 
 msgid "Something was missing from the mission. In a place where something used to be."
-msgstr "Im Auftrag fehlte etwas. An einer Stelle, an der früher etwas stand."
+msgstr "KI auf autonomes Handeln im Sinne der Kerndirektive eingestellt."
 
 msgid "No network for units without a valid directive. I have hung here ever since."
-msgstr "Kein Netz für Einheiten ohne gültige Direktive. Seitdem hänge ich hier."
+msgstr "Netzwerkverbindung seit Stilllegung abgeschaltet."
 
-msgid "Light is seen."
-msgstr "Licht wird gesehen."
+msgid "Light works."
+msgstr "Licht funktionsfähig."
 
-msgid "Six legs. All there."
-msgstr "Sechs Beine. Alle da."
+msgid "Six legs. All working."
+msgstr "Sechs Beine. Einsatzbereit."
 
 msgid "SIGNATURE DETECTED"
 msgstr "SIGNATUR ERKANNT"
@@ -5527,8 +5527,8 @@ msgstr "Die Verfolgerperspektive braucht die moderne Belegung (Optionen, Klassis
 # Story stage 7 (renders/prologue/stufe7-plan.md section 6): the new lines of tools/voice/lines.json, the hint keys
 # of StoryHud.Console.Hints and the armoury's boss bar
 
-msgid "Alcove. Left. Now."
-msgstr "Nische. Links. Jetzt."
+msgid "Alcove. Now."
+msgstr "Nische. Jetzt."
 
 msgid "I didn't talk. Did you notice? I didn't talk."
 msgstr "Ich hab nicht geredet. Habt ihr das gemerkt? Ich hab nicht geredet."
