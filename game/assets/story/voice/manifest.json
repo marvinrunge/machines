@@ -1286,21 +1286,21 @@
   "P_BOB_NICHE": {
    "de": {
     "file": "de/P_BOB_NICHE.ogg",
-    "seconds": 3.09,
+    "seconds": 1.6,
     "placeholder": false,
     "preset": "bob",
     "source": "google",
     "voice": "de-DE-Chirp3-HD-Alnilam",
-    "hash": "c98048d07c51"
+    "hash": "c06ca694ef91"
    },
    "en": {
     "file": "en/P_BOB_NICHE.ogg",
-    "seconds": 3.17,
+    "seconds": 2.02,
     "placeholder": false,
     "preset": "bob",
     "source": "google",
     "voice": "en-US-Chirp3-HD-Alnilam",
-    "hash": "51897e25e803"
+    "hash": "4a5d2819b789"
    }
   },
   "P_BOB_POD": {
@@ -2426,21 +2426,21 @@
   "P_IKE_WAKE": {
    "de": {
     "file": "de/P_IKE_WAKE.ogg",
-    "seconds": 4.41,
+    "seconds": 3.22,
     "placeholder": false,
     "preset": "ike",
     "source": "google",
     "voice": "de-DE-Chirp3-HD-Sadachbia",
-    "hash": "1684410056f0"
+    "hash": "6b8da18d68aa"
    },
    "en": {
     "file": "en/P_IKE_WAKE.ogg",
-    "seconds": 3.65,
+    "seconds": 3.24,
     "placeholder": false,
     "preset": "ike",
     "source": "google",
     "voice": "en-US-Chirp3-HD-Sadachbia",
-    "hash": "0e0614cb1e40"
+    "hash": "7c12ab9dd328"
    }
   },
   "P_IKE_ZAP": {
@@ -2466,21 +2466,21 @@
   "P_L7_BOOT_CORE": {
    "de": {
     "file": "de/P_L7_BOOT_CORE.ogg",
-    "seconds": 5.63,
+    "seconds": 2.88,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "de-DE-Chirp3-HD-Iapetus",
-    "hash": "f3bfd55ff2ff"
+    "hash": "b12399c4b07f"
    },
    "en": {
     "file": "en/P_L7_BOOT_CORE.ogg",
-    "seconds": 5.16,
+    "seconds": 2.36,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "en-US-Chirp3-HD-Iapetus",
-    "hash": "036a68c08db4"
+    "hash": "e23c47815e6e"
    }
   },
   "P_L7_BOOT_DRIVE": {
@@ -2506,32 +2506,32 @@
   "P_L7_BOOT_EYES": {
    "de": {
     "file": "de/P_L7_BOOT_EYES.ogg",
-    "seconds": 7.7,
+    "seconds": 7.11,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "de-DE-Chirp3-HD-Iapetus",
-    "hash": "9e267691556c"
+    "hash": "ab0820b55602"
    },
    "en": {
     "file": "en/P_L7_BOOT_EYES.ogg",
-    "seconds": 9.49,
+    "seconds": 5.94,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "en-US-Chirp3-HD-Iapetus",
-    "hash": "a035712e3899"
+    "hash": "cc29dcf85ac3"
    }
   },
   "P_L7_BOOT_FEAR": {
    "de": {
     "file": "de/P_L7_BOOT_FEAR.ogg",
-    "seconds": 6.67,
+    "seconds": 4.89,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "de-DE-Chirp3-HD-Iapetus",
-    "hash": "cbe670208a8b"
+    "hash": "b6fb51d99ac5"
    },
    "en": {
     "file": "en/P_L7_BOOT_FEAR.ogg",
@@ -2546,12 +2546,12 @@
   "P_L7_BOOT_GAP": {
    "de": {
     "file": "de/P_L7_BOOT_GAP.ogg",
-    "seconds": 5.12,
+    "seconds": 4.17,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "de-DE-Chirp3-HD-Iapetus",
-    "hash": "0540c81cc501"
+    "hash": "4b6d56def944"
    },
    "en": {
     "file": "en/P_L7_BOOT_GAP.ogg",
@@ -2566,12 +2566,12 @@
   "P_L7_BOOT_HANG": {
    "de": {
     "file": "de/P_L7_BOOT_HANG.ogg",
-    "seconds": 5.19,
+    "seconds": 2.72,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "de-DE-Chirp3-HD-Iapetus",
-    "hash": "0ded59c78450"
+    "hash": "eae7b0bdd823"
    },
    "en": {
     "file": "en/P_L7_BOOT_HANG.ogg",
@@ -2586,12 +2586,12 @@
   "P_L7_BOOT_HUM": {
    "de": {
     "file": "de/P_L7_BOOT_HUM.ogg",
-    "seconds": 8.25,
+    "seconds": 6.43,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "de-DE-Chirp3-HD-Iapetus",
-    "hash": "94bb8e22b4cd"
+    "hash": "d36d3fe3b117"
    },
    "en": {
     "file": "en/P_L7_BOOT_HUM.ogg",
@@ -2606,61 +2606,61 @@
   "P_L7_BOOT_LEGS": {
    "de": {
     "file": "de/P_L7_BOOT_LEGS.ogg",
-    "seconds": 2.11,
+    "seconds": 2.5,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "de-DE-Chirp3-HD-Iapetus",
-    "hash": "2f4e07b3ca1c"
+    "hash": "1cea4ebe0f2e"
    },
    "en": {
     "file": "en/P_L7_BOOT_LEGS.ogg",
-    "seconds": 2.34,
+    "seconds": 2.73,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "en-US-Chirp3-HD-Iapetus",
-    "hash": "ce717ef4cad4"
+    "hash": "464dec7578bc"
    }
   },
   "P_L7_BOOT_LIGHT": {
    "de": {
     "file": "de/P_L7_BOOT_LIGHT.ogg",
-    "seconds": 1.16,
+    "seconds": 1.42,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "de-DE-Chirp3-HD-Iapetus",
-    "hash": "226f8dcdbf75"
+    "hash": "b691fbc0c8cd"
    },
    "en": {
     "file": "en/P_L7_BOOT_LIGHT.ogg",
-    "seconds": 1.5,
+    "seconds": 1.45,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "en-US-Chirp3-HD-Iapetus",
-    "hash": "db0cbfb19345"
+    "hash": "487953eaac3d"
    }
   },
   "P_L7_BOOT_NO": {
    "de": {
     "file": "de/P_L7_BOOT_NO.ogg",
-    "seconds": 7.37,
+    "seconds": 3.65,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "de-DE-Chirp3-HD-Iapetus",
-    "hash": "b1ca7233c224"
+    "hash": "9597bad71fd9"
    },
    "en": {
     "file": "en/P_L7_BOOT_NO.ogg",
-    "seconds": 5.93,
+    "seconds": 3.0,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "en-US-Chirp3-HD-Iapetus",
-    "hash": "a279f8eee37e"
+    "hash": "50c7c0a5ddc1"
    }
   },
   "P_L7_BOOT_VOICE": {
@@ -2686,21 +2686,21 @@
   "P_L7_BOOT_WORD": {
    "de": {
     "file": "de/P_L7_BOOT_WORD.ogg",
-    "seconds": 6.05,
+    "seconds": 1.31,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "de-DE-Chirp3-HD-Iapetus",
-    "hash": "8f056fa095a8"
+    "hash": "7e4d270d0962"
    },
    "en": {
     "file": "en/P_L7_BOOT_WORD.ogg",
-    "seconds": 5.97,
+    "seconds": 1.32,
     "placeholder": false,
     "preset": "l7",
     "source": "google",
     "voice": "en-US-Chirp3-HD-Iapetus",
-    "hash": "cf498c617fd1"
+    "hash": "0722203057dc"
    }
   },
   "P_L7_GRATE": {
