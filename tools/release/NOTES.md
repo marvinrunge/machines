@@ -2,7 +2,16 @@ A **test build** of the Machines: Wired for War remake, for Windows 10/11 (64-bi
 
 **Download** the `setup.exe` below and run it, or the `windows.zip`, unzip it anywhere and run `Machines.exe`. `README.txt` lists the controls.
 
-**New in 0.7.8:**
+**New in 0.8.0: the story begins.**
+- **Story: the prologue.** **Single Player → Story** opens the first chapter of the remake's own story. You are L-7, a Geo Locator that wakes in the workshop of a mothership after refusing an update. Wake two Grunts and name them, then sneak past a Thresher through the dark maintenance decks, hack doors and terminals, hold the armoury against five waves and its boss, and race through the listing ship to the pod bay before she goes down. Play alone, with the computer driving the Grunts, or online with up to two friends as the Grunts. The chapter has checkpoints, three difficulties, English and German voices with subtitles, its own music, and ends with the cutscene "Abwurf". Act 1 follows in a later version.
+- **The main menu is split** into **Single Player** (story, campaign, skirmish, Survival, Battle) and **Extras** (replays and more).
+- **The remake has a soundtrack of its own.** With every look but Classic, the remake's own tracks play over the menus and at random in a match. **Soundtrack** in the options picks the original's music, the remake's, or both.
+- **Glow you can set:** a new **Bloom** row (Off, Low, High) and **Lens dirt** on the graphics page. Low is the glow the remake always had; the Classic look keeps it off unless you turn it on.
+- **Cleaner machines:** the Overhauled machines and buildings no longer wear a layer of brown dust and dark smudges, and the machines' eyes glow by themselves instead of wearing a light sprite.
+- **A lighter crosshair:** **Crosshair opacity** in the options (50 % by default), the compass strip and the target's bars fade with it, and the little tank sign under the crosshair is gone.
+- **Online: 0.8.0 plays only with 0.8.0.** The public relay now speaks the new version, so update before you play together. When your game and the server differ, the multiplayer page says which one is behind and links to the download page.
+
+**From 0.7.8:**
 - **Games no longer break or hang behind the loading screen.** About one start in three could go wrong while the game loaded: errors piled up from then on, and in the worst case a later load, such as going back to a checkpoint, never finished. Loading takes as long as before.
 - **Online: 0.7.7 and 0.7.8 play together.** Online play is unchanged, so a player on 0.7.7 can still play with one on 0.7.8.
 
