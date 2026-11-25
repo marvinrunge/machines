@@ -899,7 +899,7 @@ public sealed class DeckLayout
                     continue;
                 if (OnWall(start, along, inward, length * share, length) is not { } at)
                     continue;
-                beacons.Add(new DeckPiece("alarm_beacon", new Vector3(at + inward * 0.35f, Math.Min(height - 1.3f, 4.6f)), Degrees(inward), Vector3.One));
+                beacons.Add(new DeckPiece("alarm_beacon", new Vector3(at + inward * 0.55f, Math.Min(height - 1.3f, 4.6f)), Degrees(inward), Vector3.One));
                 found++;
             }
         }

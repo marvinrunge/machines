@@ -87,6 +87,7 @@ public partial class DeckView : Node3D
                 Add(fitted.Name, Props.Place(fitted.Model, Props.World(new NVector3(frame.Centre, 0)), frame.Angle, Vector3.One));
         Lamps();
         StoryFittings();
+        CoreGlow();
         foreach (var (key, places) in _batches)
             AddChild(Batch(key.Prop, places, key.Shadow, key.Ground));
         _batches.Clear();

@@ -604,7 +604,7 @@ public partial class Game
     /// <summary>
     /// The core blows: an announcement still speaking breaks off mid-word and what the PA had still to say is dropped (the
     /// Grunts' radio, Ike's "Run!" among it, is not the PA and is still said), a great blast and a second, the deck shakes,
-    /// the view breaks up, and the core's wreck burns on in the red emergency light. Played through the alarm, the PA is
+    /// the view breaks up, the core's green plasma goes dark and its wreck burns on in the red emergency light. Played through the alarm, the PA is
     /// quiet by then: "Wiederhole: ... kor-" follows the alarm's four announcements at the break-in and breaks off by itself
     /// some seconds before the blast, which brings its stutter "korr-". Only when the squad bursts in at once (no crates at
     /// door J) are the alarm's announcements still running here, and they are cut.
@@ -612,6 +612,7 @@ public partial class Game
     private void CoreBlows(Godot.Vector3 at)
     {
         StoryAudio.CutVoice(onlyAnnouncements: true);
+        _deckView?.CoreDown();
         _effects.Explosion(at + Godot.Vector3.Up * 4, 18);
         StoryAudio.Play("hull_breach", at);
         CameraRig.Shake(at, 12, 2);

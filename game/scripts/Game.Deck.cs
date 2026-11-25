@@ -96,6 +96,8 @@ public partial class Game
                 continue;
             root.AddChild(model);
             _artefactModels[index] = model;
+            if (placement.TypeName == "core")
+                _deckView?.CoreLights(at, types.GetValueOrDefault("core")?.Height ?? 14);
         }
         return root;
     }

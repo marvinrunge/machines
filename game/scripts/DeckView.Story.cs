@@ -27,6 +27,60 @@ public partial class DeckView
     /// <summary>Whether the ship's alarm sounds now, as the view shows it.</summary>
     public bool Alarm => _alarm;
 
+    /// <summary>
+    /// The core's power, lighting its hall: lights inside its column in the green of the plasma weapons, which its glowing
+    /// plasma and vents (the core's emissive materials, core_plasma and core_vent) wear too. Shadowless, so they reach the
+    /// floor and the walls through the column.
+    /// </summary>
+    private readonly List<OmniLight3D> _coreLights = [];
+
+    /// <summary>The core's glow, put out when it blows (CoreDown) and lit again with every new deck.</summary>
+    private static void CoreGlow() => CoreEmission(true);
+
+    /// <summary>
+    /// Lights the hall of a standing core (the scenario's artefact, its model stretched to its box): two lights in its
+    /// column, at a third and two thirds of its <paramref name="height"/>, which go out when it blows.
+    /// </summary>
+    public void CoreLights(Vector3 at, float height)
+    {
+        foreach (var share in new[] { 0.3f, 0.65f })
+        {
+            var light = new OmniLight3D
+            {
+                LightColor = RoundLooks.Plasma,
+                LightEnergy = 9f,
+                OmniRange = 36,
+                OmniAttenuation = 1.3f,
+                LightVolumetricFogEnergy = 0.6f,
+                Position = at + Vector3.Up * height * share,
+            };
+            AddChild(light);
+            _coreLights.Add(light);
+        }
+    }
+
+    /// <summary>The core has blown: its plasma goes dark and its lights out.</summary>
+    public void CoreDown()
+    {
+        foreach (var light in _coreLights)
+            light.Visible = false;
+        CoreEmission(false);
+    }
+
+    /// <summary>Turns the glow of the core's plasma and vents on or off (their materials are the core model's, shared by every view).</summary>
+    private static void CoreEmission(bool on)
+    {
+        if (Props.Get("core") is not { } model)
+            return;
+        for (var surface = 0; surface < model.Mesh.GetSurfaceCount(); surface++)
+            if (model.Mesh.SurfaceGetMaterial(surface) is BaseMaterial3D material
+                && (material.ResourceName.StartsWith("core_plasma") || material.ResourceName.StartsWith("core_vent")))
+            {
+                material.EmissionEnabled = on;
+                material.AlbedoColor = on ? RoundLooks.Plasma : new Color(0.05f, 0.07f, 0.05f);
+            }
+    }
+
     /// <summary>The loudspeakers (the deck's pa_speaker fittings) as points in StoryVoice's group, and the alarm's beacons.</summary>
     private void StoryFittings()
     {
