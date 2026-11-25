@@ -6,7 +6,10 @@ import, as <prop>_0.jpg ...; those files are not committed): a pixel whose hue i
 around its own luminance, so the paint reads as gunmetal with a slight red tint. Other hues (the yellow-black hazard
 stripes, orange, green or blue screen light) stay as they are; the toning fades out between RED_FULL and RED_NONE
 degrees of hue from pure red. The normal and metal-roughness textures are left alone, and so are the lamps (LEFT):
-their red is the story's alarm.
+their red is the story's alarm. The set pieces in NEUTRAL lose their red entirely (keep 0), and on them the toning
+reaches further towards purple (full to PURPLE_FULL, gone at PURPLE_NONE degrees), where Meshy's maroon shades off, so
+they wear the plain grey of the rebuilt deck kit. Props no longer Meshy's (their .json sidecar names another source,
+like the deck kit rebuilt in Blender) are never touched.
 
 It always works from the originals as committed in ORIGINALS (read with git show), so it can be run again with another
 KEEP without toning twice. After running it the .glb files have to be imported again. Not with --import in the main
@@ -15,7 +18,9 @@ assets/story/props/ holding the changed .glb files with their .glb.import and <p
 with godot --headless --import; its .godot/imported/* and the extracted <prop>_0.jpg(.import) files are then copied into
 game/.godot/imported and game/assets/story/props. The paths, and so the imported file names, are the same.
 
-    uv run --with pillow --with numpy python tools/deck/tone_props.py [keep]
+    uv run --with pillow --with numpy python tools/deck/tone_props.py [keep] [prop ...]
+
+Naming props tones only those.
 """
 import io
 import json
@@ -36,20 +41,27 @@ RED_NONE = 30.0
 ORIGINALS = "907fa38"
 # Props left as they are: their red is a lamp's.
 LEFT = {"alarm_beacon", "lamp_emergency"}
+# Set pieces toned to plain grey, to stand beside the rebuilt deck kit.
+NEUTRAL = {"barrel", "cable_hang", "clamp_terminal", "core_console", "crate_large", "crate_small", "debris_beam",
+           "debris_panel", "generator", "junction_box", "pipe_run", "pod_cradle", "repair_station", "wall_screen"}
+# On those, the hue distance on the purple side of red toned fully, and where it has faded out (blue stays).
+PURPLE_FULL = 50.0
+PURPLE_NONE = 75.0
 
 ROOT = Path(__file__).resolve().parents[2]
 FOLDER = "game/assets/story/props"
 
 
-def toned(rgb: np.ndarray, keep: float) -> np.ndarray:
+def toned(rgb: np.ndarray, keep: float, purple: tuple[float, float] = (RED_FULL, RED_NONE)) -> np.ndarray:
     a = rgb.astype(np.float32) / 255.0
     r, g, b = a[..., 0], a[..., 1], a[..., 2]
     mx, mn = a.max(-1), a.min(-1)
     delta = mx - mn
     safe = np.maximum(delta, 1e-6)
     hue = np.where(mx == r, ((g - b) / safe) % 6.0, np.where(mx == g, (b - r) / safe + 2.0, (r - g) / safe + 4.0)) * 60.0
-    away = np.minimum(hue, 360.0 - hue)
-    weight = np.clip((RED_NONE - away) / (RED_NONE - RED_FULL), 0.0, 1.0)
+    full, none = purple
+    weight = np.where(hue <= 180.0, np.clip((RED_NONE - hue) / (RED_NONE - RED_FULL), 0.0, 1.0),
+                      np.clip((none - (360.0 - hue)) / (none - full), 0.0, 1.0))
     weight = np.where(delta > 1e-6, weight, 0.0)
     luma = (0.2126 * r + 0.7152 * g + 0.0722 * b)[..., None]
     factor = (1.0 - weight * (1.0 - keep))[..., None]
@@ -85,7 +97,7 @@ def packed(doc: dict, views: list[bytes]) -> bytes:
         + struct.pack("<II", len(binary), 0x004E4942) + bytes(binary)
 
 
-def tone_glb(glb: bytes, keep: float) -> bytes:
+def tone_glb(glb: bytes, keep: float, purple: tuple[float, float] = (RED_FULL, RED_NONE)) -> bytes:
     doc, binary = chunks(glb)
     assert all(v.get("buffer", 0) == 0 for v in doc["bufferViews"]) and len(doc["buffers"]) == 1
     views = [binary[v.get("byteOffset", 0) : v.get("byteOffset", 0) + v["byteLength"]] for v in doc["bufferViews"]]
@@ -96,7 +108,7 @@ def tone_glb(glb: bytes, keep: float) -> bytes:
         view = image["bufferView"]
         picture = Image.open(io.BytesIO(views[view]))
         alpha = picture.getchannel("A") if picture.mode in ("RGBA", "LA") else None
-        out = Image.fromarray(toned(np.asarray(picture.convert("RGB")), keep))
+        out = Image.fromarray(toned(np.asarray(picture.convert("RGB")), keep, purple))
         buffer = io.BytesIO()
         if image["mimeType"] == "image/png":
             if alpha is not None:
@@ -108,16 +120,25 @@ def tone_glb(glb: bytes, keep: float) -> bytes:
     return packed(doc, views)
 
 
+def meshy(path: str) -> bool:
+    """Whether the prop is still Meshy's, by its sidecar (the rebuilt deck kit is not)."""
+    sidecar = (ROOT / path).with_suffix(".json")
+    return not sidecar.exists() or json.loads(sidecar.read_text(encoding="utf-8")).get("source", "").startswith("Meshy")
+
+
 def main() -> None:
     keep = float(sys.argv[1]) if len(sys.argv) > 1 else KEEP
+    only = set(sys.argv[2:])
     names = subprocess.run(["git", "ls-tree", "--name-only", ORIGINALS, FOLDER + "/"], cwd=ROOT, check=True,
                            capture_output=True, text=True).stdout.split()
     for path in sorted(n for n in names if n.endswith(".glb")):
-        if Path(path).stem in LEFT:
+        stem = Path(path).stem
+        if stem in LEFT or only and stem not in only or not meshy(path):
             continue
         glb = subprocess.run(["git", "show", f"{ORIGINALS}:{path}"], cwd=ROOT, check=True, capture_output=True).stdout
-        (ROOT / path).write_bytes(tone_glb(glb, keep))
-        print(path)
+        neutral = stem in NEUTRAL
+        (ROOT / path).write_bytes(tone_glb(glb, 0.0 if neutral else keep, (PURPLE_FULL, PURPLE_NONE) if neutral else (RED_FULL, RED_NONE)))
+        print(path, "grey" if neutral else keep)
 
 
 if __name__ == "__main__":
