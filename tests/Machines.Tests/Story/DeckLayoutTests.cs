@@ -169,7 +169,7 @@ public class DeckLayoutTests
         Assert.Single(pieces, p => p.Prop == "weapon_rack");
         Assert.Single(pieces, p => p.Prop == "bay_crane");
         Assert.Contains(pieces, p => p.Prop == "core_console");
-        Assert.Equal(8, pieces.Count(p => p.Prop == "clamp_terminal")); // Ike's and Bob's, the core chamber's two console banks, the doors H, Q and X's and the switch room's noise terminal
+        Assert.Equal(9, pieces.Count(p => p.Prop == "clamp_terminal")); // Ike's and Bob's, the core chamber's two console banks, the doors H, P, Q and X's and the switch room's noise terminal
         // Every hack has something to hack on within reach of where it is done: a console or a terminal.
         foreach (var name in Machines.Sim.Story.HackDesk.Prologue.Keys.Where(n => n.StartsWith("hack_", StringComparison.Ordinal) || n.StartsWith("terminal_", StringComparison.Ordinal)))
         {

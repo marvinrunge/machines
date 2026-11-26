@@ -46,6 +46,7 @@ public sealed partial class GameWorld
         UpdateBridge(run);
         UpdateCrane(run);
         UpdateGasMain(run);
+        UpdateBarricades(run);
         UpdateEscapeDevices(run);
         UpdatePack(run);
     }
@@ -712,7 +713,47 @@ public sealed partial class GameWorld
             PackHazard(run, member, (1, 0), (1, 0), (0.60f, 80), 0, "beam");
     }
 
+    // ---- the crate walls in the Kühlschlange --------------------------------------------------------------
+
+    /// <summary>The crate walls' props' tags (deck PROPS barricade_1, barricade_2): across lanes 2 and 4, to be shot through.</summary>
+    public const int Barricade1Tag = 346, Barricade2Tag = 347;
+
+    /// <summary>How near one of the pack comes to a crate wall still standing before it bursts it, metres.</summary>
+    public const float PackBursts = 9;
+
+    /// <summary>Whether the crate wall with this tag still stands.</summary>
+    public bool BarricadeStands(int tag) => Artefacts.Any(a => a.Tag == tag && !a.IsDead);
+
+    /// <summary>
+    /// The crate walls (play test 2026-11-25): the trio shoots its way through them while the pack comes on; one that still
+    /// stands when one of the pack comes up to it is burst by the pack (the crates thrown, the way open), so the pack's way
+    /// through the Kühlschlange never stays shut.
+    /// </summary>
+    private void UpdateBarricades(StoryRun run)
+    {
+        if (run.Pack.Members.Count == 0)
+            return;
+        foreach (var wall in Artefacts.Where(a => a.Tag is Barricade1Tag or Barricade2Tag && !a.IsDead).ToList())
+        {
+            if (!PackAlive(run).Any(m => Vector2.Distance(m.Position, wall.Position) <= PackBursts + m.Radius))
+                continue;
+            wall.HitPoints = 0;
+            StoryEvents.Cue(this, "barricade burst", wall.Position);
+            ScriptExplosion(wall.Position, 3, 0, 6);
+        }
+    }
+
     // ---- the gas main beside Y -----------------------------------------------------------------------------
+
+    /// <summary>Whether the gas main is still whole.</summary>
+    public bool GasMainStands => Artefacts.Any(a => a.Tag == GasMainTag && !a.IsDead);
+
+    /// <summary>The gas main gives by itself (nobody got to shoot it): it bursts as if shot (GameWorld.UpdateGasMain).</summary>
+    public void BreakGasMain()
+    {
+        foreach (var pipe in Artefacts.Where(a => a.Tag == GasMainTag && !a.IsDead))
+            pipe.HitPoints = 0;
+    }
 
     /// <summary>The gas main's prop's tag (deck PROPS gas_main), a 10 m pipe along the bay's wall east of Y.</summary>
     public const int GasMainTag = 345;

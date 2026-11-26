@@ -238,6 +238,9 @@ const Types = {
   lock_amber: { w: 1, d: 1, h: 1, hp: 80, armour: 5 },
   // The bay's gas main beside door Y (play test 2026-11-24): a 10 m pipe along the wall to shoot when the pack comes through Y.
   gas_main: { w: 10, d: 1, h: 1.2, hp: 60, armour: 2 },
+  // The Kühlschlange's crate walls (play test 2026-11-25: the escape had nothing to stop the trio while the pack came on): a
+  // wall of crates two high across a 16 m lane, to be shot through; the pack bursts what still stands when it comes up.
+  barricade: { w: 16, d: 2, h: 4.4, hp: 40, armour: 0, shot: true },
 };
 
 /** How tall a door's leaves stand for a door of this width: a Grunt's door 8 m, a Reaper's blast door or gate 14-16 m. */
@@ -344,10 +347,11 @@ function blockedFor(deck, cls, doorsOpen) {
       if (/[A-Z]/.test(c)) blocked = typeof doorsOpen === 'function' ? !doorsOpen(c) : !doorsOpen && state.get(c) !== 'open';
       b[y * deck.width + x] = blocked ? 1 : 0;
     }
-  // The props stand where they start (the sim's artefacts block too): a cell whose middle is under one is blocked.
+  // The props stand where they start (the sim's artefacts block too): a cell whose middle is under one is blocked. A prop
+  // there to be shot through (shot: the Kühlschlange's crate walls) is counted gone: the way is the trio's once it fired.
   for (const p of deck.props) {
     const t = Types[p.type];
-    if (!t) continue;
+    if (!t || t.shot) continue;
     const across = Math.abs(Math.sin(p.angle * Math.PI / 180)) > 0.5;
     const [hw, hd] = t.round ? [t.round, t.round] : across ? [t.d / 2, t.w / 2] : [t.w / 2, t.d / 2];
     for (let y = Math.floor(p.y - hd); y <= p.y + hd; y++)

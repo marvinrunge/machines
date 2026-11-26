@@ -5770,6 +5770,27 @@ msgstr "Kabel gesteckt. Neustart."
 msgid "Systems up. Move."
 msgstr "Systeme laufen. Weiter."
 
+msgid "Crates. Shoot through."
+msgstr "Kisten. Durchschießen."
+
+msgid "Door's jammed! Hack it, we'll hold them!"
+msgstr "Die Tür klemmt! Hack sie, wir halten sie auf!"
+
+msgid "The gas main! Shoot it!"
+msgstr "Die Gasleitung! Schieß drauf!"
+
+msgid "Fine, I'll do it myself!"
+msgstr "Na gut, ich mach's selbst!"
+
+msgid "Shoot through the crates"
+msgstr "Schieß dich durch die Kisten"
+
+msgid "Hack the jammed door to the hold"
+msgstr "Hack die verklemmte Tür zum Frachtraum"
+
+msgid "Shoot the gas main"
+msgstr "Schieß auf die Gasleitung"
+
 msgid "EMERGENCY SHUTDOWN — CORE SECURED — AWAITING EXTERNAL POWER"
 msgstr "NOTABSCHALTUNG — KERN GESICHERT — WARTE AUF FREMDSTROM"
 

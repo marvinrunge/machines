@@ -34,6 +34,8 @@ public sealed partial class CompanionBot
                 return Valve(run, companion, grunt);
             case CompanionTask.Chock:
                 return Chock(run, companion, grunt);
+            case CompanionTask.Shoot:
+                return Shoot(companion, grunt);
         }
         if (world.HeroOf(run.Locator) is { } leader && WaitOutHazards(run, grunt, leader.Position))
             return true;
@@ -202,6 +204,41 @@ public sealed partial class CompanionBot
         world.CompanionStand(grunt);
         companion.Step = CompanionStep.Standing;
         return true;
+    }
+
+    /// <summary>
+    /// Fires at the deck's prop the job names (play test 2026-11-25: Ike and the gas main) until it is gone: from where it
+    /// stands when the prop is in reach and in a clear line, else on its way nearer. Done when the prop is gone, or the Grunt
+    /// has no weapon.
+    /// </summary>
+    private bool Shoot(Companion companion, Machine grunt)
+    {
+        var tag = world.Deck?.Props.FirstOrDefault(p => p.Name == companion.Place)?.Id;
+        if (tag is null || grunt.Weapons.Count == 0 || world.Artefacts.FirstOrDefault(a => a.Tag == tag && !a.IsDead) is not { } prop)
+        {
+            world.AssignCompanion(seat, CompanionTask.None);
+            return false;
+        }
+        // Seen and reached at its face towards the Grunt: its middle lies inside its own ground, which no line gets through.
+        var face = Face(prop, grunt.Position);
+        var mobility = GameWorld.MobilityOf(grunt);
+        if (Vector2.Distance(grunt.Position, face) > FireReach || !world.Nav.LineOfSight(grunt.Position, face, mobility))
+        {
+            world.CompanionMove(grunt, face);
+            return true;
+        }
+        world.CompanionAttack(grunt, prop);
+        return true;
+    }
+
+    /// <summary>The point just outside an artefact's ground on the side towards <paramref name="from"/>: half its narrower side and a metre and a half out from its middle.</summary>
+    private static Vector2 Face(Artefact prop, Vector2 from)
+    {
+        var half = prop.Boundary.Count >= 3
+            ? MathF.Min(prop.Boundary.Max(p => p.X) - prop.Boundary.Min(p => p.X), prop.Boundary.Max(p => p.Y) - prop.Boundary.Min(p => p.Y)) / 2
+            : 0;
+        var away = from - prop.Position;
+        return away.LengthSquared() < 0.01f ? prop.Position : prop.Position + Vector2.Normalize(away) * (half + 1.5f);
     }
 
     /// <summary>To the chock named by the job's place, and pushes it into its lane.</summary>

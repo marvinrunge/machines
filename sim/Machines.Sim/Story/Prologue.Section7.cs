@@ -25,6 +25,23 @@ public static partial class Prologue
     /// <summary>The objective through the Kühlschlange (R20), its marker moving from turn to turn.</summary>
     private const string Maze = "Through the coolant maze";
 
+    // Play test 2026-11-25 ("die Flucht war relativ einfach"): two crate walls in the Kühlschlange to shoot through, door P
+    // jammed by the breach to hack with the pack behind, and the gas main beside Y called out and shot by Ike if no one does.
+    private const string CratesText = "Shoot through the crates", JammedText = "Hack the jammed door to the hold",
+        GasText = "Shoot the gas main";
+
+    /// <summary>The crate walls' middles (deck PROPS barricade_1, barricade_2) and how near one comes before it is pointed at, metres.</summary>
+    private const string Barricade1 = "560,252", Barricade2 = "600,236";
+
+    // Seen from the lane's foot: the lanes run 56 and 72 m up to the walls, and a Bolter reaches some 40.
+    private const float CratesSeen = 75;
+
+    /// <summary>Where the gas main is (deck PROPS gas_main).</summary>
+    private const string GasMainAt = "536,118";
+
+    /// <summary>How long Ike waits for someone to shoot the gas main before he does, and how long after that it gives by itself, seconds.</summary>
+    private const float GasWait = 6, GasGives = 8;
+
     /// <summary>The countdown's seconds left now (0 when none runs).</summary>
     private static float SecondsLeft(GameWorld world, StoryRun run) =>
         run.Timers.TryGetValue(StoryMarks.Countdown, out var ends) ? MathF.Max(0, ends - world.Time) : 0;
@@ -91,12 +108,25 @@ public static partial class Prologue
         new("snake_2", 12, new AllOf(new InZone("snake_2"), new Not(new Since("breach", 0))), [new Objective(Maze, "590,308")]),
         new("snake_3", 12, new AllOf(new InZone("snake_3"), new Not(new Since("breach", 0))), [new Objective(Maze, "600,172")]),
         new("snake_out", 12, new AllOf(new InZone("snake_out"), new Not(new Since("breach", 0))), [new Objective(Maze, "522,172")]),
-        // The hull breach, by position: sparks race along the ceiling ahead, then the Notgang caves in south of P, the fire face
-        // burns at its edge and the ship blows door P into the hold: the way on.
+        // The crate walls across lanes 2 and 4: coming down the lane to one, the marker points at it and Bob says so; shot
+        // through, the way on again. What still stands when the pack comes up it bursts (GameWorld.UpdateBarricades).
+        new("crates_1", 12, new AllOf(new InZone("snake_1"), new Near(Barricade1, CratesSeen, StoryWho.AnyHero),
+            new Check("wall 1 stands", (world, _) => world.BarricadeStands(GameWorld.Barricade1Tag))), [new Objective(CratesText, Barricade1), new Say(Lines.BobCrateWall, Bark, 2),
+                new Assign(1, CompanionTask.Shoot, "barricade_1"), new Assign(2, CompanionTask.Shoot, "barricade_1")]),
+        new("crates_1_down", 12, new Check("wall 1 down", (world, _) => !world.BarricadeStands(GameWorld.Barricade1Tag)), [new Objective(Maze, "570,192")], After: ["crates_1"]),
+        new("crates_2", 12, new AllOf(new InZone("snake_3"), new Near(Barricade2, CratesSeen, StoryWho.AnyHero),
+            new Check("wall 2 stands", (world, _) => world.BarricadeStands(GameWorld.Barricade2Tag))),
+            [new Objective(CratesText, Barricade2), new Assign(1, CompanionTask.Shoot, "barricade_2"), new Assign(2, CompanionTask.Shoot, "barricade_2")]),
+        new("crates_2_down", 12, new Check("wall 2 down", (world, _) => !world.BarricadeStands(GameWorld.Barricade2Tag)), [new Objective(Maze, "600,172")], After: ["crates_2"]),
+        // The hull breach, by position: sparks race along the ceiling ahead, then the Notgang caves in south of P and the fire
+        // face burns at its edge; the blast jams door P into the hold (play test 2026-11-25: it used to blow it open), and the
+        // Locator hacks its panel while the pack comes on through the Kühlschlange behind.
         new("breach_warn", 12, new Near("540,172", 10, StoryWho.AnyHero), [new Cue("breach warn", "520,170")], After: ["escape"]),
         new("breach", 12, new AllOf(new Since("breach_warn", 2), new Check("nobody beyond", (world, run) => world.Collapse(run))),
-            [new BlowDoor('P'), new Blast("520,140", 4, 0, 8), new Say(Lines.Breach), new Cue("rumble 0.8"), new Tilt(7, 1, 2),
-            new Objective("Through the cargo hold", "x_frame")]),
+            [new Blast("520,140", 4, 0, 8), new Say(Lines.Breach), new Cue("rumble 0.8"), new Tilt(7, 1, 2), new Cue("door p jammed", "510,160"),
+            new Hackable(true, "hack_p"), new Objective(JammedText, "hack_p"), new Say(Lines.IkeJammed, Bark, 1)]),
+        new("door_p", 12, new HackDone("hack_p"), [new UnlockDoors("P"), new OpenDoors("P"), new Objective("Through the cargo hold", "x_frame")],
+            After: ["breach"]),
         new("crash_call", 12, new Since("breach", 3), [new Say(Lines.Crash)]),
         new("podbay_call", 12, new Since("crash_call", 4), [new Say(Lines.L7PodBay, StoryAudience.Everyone, 0)]),
         // C2, the hold: the rolls start; the hint once.
@@ -149,6 +179,19 @@ public static partial class Prologue
             After: ["blast_collapse"]),
         new("hold_call", 14, new Since("at_y", 2.5f), [new Say(Lines.L7Hold, StoryAudience.Everyone, 0)]),
         new("ike_again", 14, new Since("hold_call", 1.5f), [new Say(Lines.IkeAgain, Bark, 1)]),
+        // The gas main (play test 2026-11-25: nobody shot it, and L-7 never saw it): Ike calls it out and the marker points at
+        // it; when no one has shot it after GasWait, Ike does; should he not get to it, it gives by itself. Its fire holds the
+        // pack in Y's doorway (GameWorld.UpdateGasMain); then the marker goes back to the pod.
+        new("gas_call", 14, new AllOf(new Since("ike_again", 1.5f), new Check("gas main whole", (world, _) => world.GasMainStands)),
+            [new Say(Lines.IkeGas, Bark, 1), new Objective(GasText, GasMainAt), new Cue("gas mark", GasMainAt)]),
+        new("ike_gas", 14, new AllOf(new Since("gas_call", GasWait), new Check("gas main whole", (world, _) => world.GasMainStands)),
+            [new Say(Lines.IkeGasSelf, Bark, 1), new Assign(1, CompanionTask.Shoot, "gas_main")]),
+        new("gas_gives", 14, new AllOf(new Since("ike_gas", GasGives), new Check("gas main whole", (world, _) => world.GasMainStands)),
+            [new Run("gas", (world, _, _) => world.BreakGasMain())]),
+        new("gas_out", 14, new Check("gas main gone", (world, _) => !world.GasMainStands), [new Run("objective", (world, run, director) =>
+            director.Act(world, run, !run.Hacks.Done.Contains("pod_3_hatch") ? new Objective("Hack escape pod three", "pod_3_hatch")
+                : !run.Flags.Contains(StoryMarks.Done("pod_3_hatch")) ? new Objective("Open the hatch", "pod_3_hatch")
+                : new Objective("Get everyone into the pod", "pod_zone")))], After: ["gas_call"]),
         new("door_held", 14, new Check("Y held", (world, run) => world.HeroOf(run.Seats[^1]) is { } bob
             && Vector2.Distance(bob.Position, world.Deck!.Marker("y_switch").Position) <= GameWorld.UseReach + bob.Radius),
             [new Say(Lines.BobDoorY, Bark, 2)], After: ["at_y"]),

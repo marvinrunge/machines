@@ -32,9 +32,10 @@ public class StoryStage7LinesTests
     public void The_stage_has_all_its_lines_once()
     {
         var lines = Stage7();
-        // 91 new ids: 24 in section 2, 33 in section 6, 34 in section 7 with the Notabschaltung; 73 of them spoken.
-        Assert.Equal(91, lines.Count);
-        Assert.Equal(73, lines.Count(l => l.Speaker != "hud"));
+        // 95 new ids: 24 in section 2, 33 in section 6, 38 in section 7 with the Notabschaltung and the escape rework of
+        // 2026-11-26 (crate walls, door P jammed, the gas main); 77 of them spoken.
+        Assert.Equal(95, lines.Count);
+        Assert.Equal(77, lines.Count(l => l.Speaker != "hud"));
         Assert.Equal(10, lines.Count(l => l.Speaker == "auto"));
         Assert.Equal(All().Count, All().Select(l => l.Id).Distinct().Count());
         // The plan's renamed ids, so nothing collides with the lines kept (C3).

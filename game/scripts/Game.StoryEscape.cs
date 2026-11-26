@@ -188,6 +188,25 @@ public partial class Game
                     _effects.SparkShower(at + Vector3.Up, Vector3.Up, 60);
                 };
                 return true;
+            case ["barricade", "burst"]:
+                // The pack bursts a crate wall still standing (GameWorld.UpdateBarricades): the crates fly ahead along the lane.
+                StoryAudio.Play("crate_fall", at + Vector3.Up);
+                StoryAudio.Play("metal_groan_big", at);
+                CameraRig.Shake(at, soft ? 3 : 6, 0.6f);
+                for (var i = 0; i < 5; i++)
+                    _deckView?.Throw("crate_large", at + new Vector3(-6 + 3 * i, 1.5f, 0), new Vector3(0.6f * (i - 2), 4, -7 - i % 2 * 2),
+                        new Vector3(1.2f, 0.4f * (i - 2), 0.8f));
+                return true;
+            case ["door", "p", "jammed"]:
+                // The breach jams door P (Prologue.Section7, breach): its panel sparks, the leaves grind and stop.
+                StoryAudio.Play("door_jammed", at + Vector3.Up * 3);
+                _effects.SparkShower(at + Vector3.Up * 4, Vector3.Up, 50);
+                return true;
+            case ["gas", "mark"]:
+                // Ike calls the gas main out (gas_call): it spits sparks and hisses so it is seen from the pod.
+                StoryAudio.Play("jet_hiss_rise", at);
+                _effects.SparkShower(at + Vector3.Up * 1.5f, Vector3.Up, 40);
+                return true;
             case ["door", "Y", "ram"]:
                 StoryAudio.Play($"shutter_ram_{1 + GD.Randi() % 3}", at);
                 JoltLeaves('Y', new Vector3(0, 0, -0.35f));
@@ -340,6 +359,7 @@ public partial class Game
     private static readonly Dictionary<string, (NVector2 At, float Facing)> EscapeTestSpots = new(StringComparer.Ordinal)
     {
         ["lift"] = (new(520, 236), 90),
+        ["crates"] = (new(560, 282), 270),
         ["breach"] = (new(520, 200), 270),
         ["hold"] = (new(496, 170), 180),
         ["shutter"] = (new(378, 168), 180),
@@ -349,7 +369,7 @@ public partial class Game
     };
 
     /// <summary>
-    /// A look at a set piece of the escape (MACHINES_STORY_ESCAPE_TEST=lift|breach|hold|shutter|jets|bridge|bay, with
+    /// A look at a set piece of the escape (MACHINES_STORY_ESCAPE_TEST=lift|crates|breach|hold|shutter|jets|bridge|bay, with
     /// MACHINES_STORY=prolog,12 and MACHINES_MAP=prolog; offline only): a few ticks into the match the trio, unhurtable,
     /// stands where the piece plays, looking at it, and the world is as a run that got there has it (the Notgang caved in and
     /// door P blown for the hold and on, the jets started for the gallery and on); the director's own beats then play it
@@ -372,10 +392,14 @@ public partial class Game
             }
             if (!EscapeTestSpots.TryGetValue(asked, out var spot))
             {
-                GD.PrintErr($"escape test: no set piece '{asked}' (lift, breach, hold, shutter, jets, bridge, bay)");
+                GD.PrintErr($"escape test: no set piece '{asked}' (lift, crates, breach, hold, shutter, jets, bridge, bay)");
                 return;
             }
-            var later = asked is not ("lift" or "breach");
+            var later = asked is not ("lift" or "crates" or "breach");
+            // Past the Kühlschlange its crate walls are shot through.
+            if (asked is not ("lift" or "crates"))
+                foreach (var wall in World.Artefacts.Where(a => a.Tag is GameWorld.Barricade1Tag or GameWorld.Barricade2Tag))
+                    wall.HitPoints = 0;
             if (later)
             {
                 World.Collapse(story);

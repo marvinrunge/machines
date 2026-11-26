@@ -963,6 +963,26 @@
     "hash": "55f4844a314f"
    }
   },
+  "P_BOB_CRATE_WALL": {
+   "de": {
+    "file": "de/P_BOB_CRATE_WALL.ogg",
+    "seconds": 2.18,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Alnilam",
+    "hash": "86e10efa5bf4"
+   },
+   "en": {
+    "file": "en/P_BOB_CRATE_WALL.ogg",
+    "seconds": 1.84,
+    "placeholder": false,
+    "preset": "bob",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Alnilam",
+    "hash": "71a775aedd08"
+   }
+  },
   "P_BOB_DISTRACT": {
    "de": {
     "file": "de/P_BOB_DISTRACT.ogg",
@@ -1963,6 +1983,46 @@
     "hash": "83d6acf11091"
    }
   },
+  "P_IKE_GAS": {
+   "de": {
+    "file": "de/P_IKE_GAS.ogg",
+    "seconds": 2.54,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "3b89b063c3c0"
+   },
+   "en": {
+    "file": "en/P_IKE_GAS.ogg",
+    "seconds": 2.61,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "3ad659f621b1"
+   }
+  },
+  "P_IKE_GAS_SELF": {
+   "de": {
+    "file": "de/P_IKE_GAS_SELF.ogg",
+    "seconds": 2.04,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "bcaca9bc1471"
+   },
+   "en": {
+    "file": "en/P_IKE_GAS_SELF.ogg",
+    "seconds": 1.88,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "de4a53730303"
+   }
+  },
   "P_IKE_GATE": {
    "de": {
     "file": "de/P_IKE_GATE.ogg",
@@ -2061,6 +2121,26 @@
     "source": "google",
     "voice": "en-US-Chirp3-HD-Sadachbia",
     "hash": "24e09911520d"
+   }
+  },
+  "P_IKE_JAMMED": {
+   "de": {
+    "file": "de/P_IKE_JAMMED.ogg",
+    "seconds": 2.84,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "de-DE-Chirp3-HD-Sadachbia",
+    "hash": "e4b3e7fc421e"
+   },
+   "en": {
+    "file": "en/P_IKE_JAMMED.ogg",
+    "seconds": 2.69,
+    "placeholder": false,
+    "preset": "ike",
+    "source": "google",
+    "voice": "en-US-Chirp3-HD-Sadachbia",
+    "hash": "fae7c6dd8bd2"
    }
   },
   "P_IKE_KNOCK": {

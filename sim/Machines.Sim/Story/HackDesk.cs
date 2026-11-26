@@ -88,6 +88,8 @@ public sealed class HackDesk
         ["hack_core"] = HackKind.Core,
         // The shutter X's panel in the gallery (design-escape §3 C3): open only once it came down on one of the trio.
         ["hack_x"] = HackKind.Door,
+        // Door P's panel in the Notgang (play test 2026-11-25): the breach jams P, and the Locator hacks it open with the pack behind.
+        ["hack_p"] = HackKind.Door,
         ["pod_3_hatch"] = HackKind.Pod,
     };
 

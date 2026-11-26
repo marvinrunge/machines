@@ -82,7 +82,27 @@ public partial class StoryDriver
         }
         if (In("R17") || at.X < 512 && at.Y > 130 && at.Y < 214)
             return Aisle(game, story, hero);
-        // The Notgang: down to door P, waiting there until the breach has blown it.
+        // The Kühlschlange's crate walls (play test 2026-11-25): up the lane to below the first still standing, and shot
+        // through with the crosshair on it.
+        if (!story.Director.Has("breach")
+            && world.Artefacts.Where(a => a.Tag is GameWorld.Barricade1Tag or GameWorld.Barricade2Tag && !a.IsDead).OrderBy(a => a.Tag).FirstOrDefault() is { } wall)
+        {
+            var heading = Heading(at, wall.Position);
+            if (Go(game, hero, $"below crate wall {wall.Tag - GameWorld.Barricade1Tag + 1}", wall.Position + new NVector2(0, 10), 2.5f))
+            {
+                Look(game, heading, 0);
+                Fire(game, hero, NVector2.Distance(at, wall.Position), MathF.Abs(Wrap(heading - game.AimYaw)) < 0.08f);
+            }
+            return true;
+        }
+        // Door P, jammed by the breach: its panel hacked, as a player would.
+        if (story.Director.Has("breach") && world.DoorClosed('P') && !story.Hacks.Locked.Contains("hack_p") && !story.Hacks.Done.Contains("hack_p")
+            && story.Hacks.Find("hack_p", deck) is not null)
+        {
+            _escapeStep = Hack(game, story, hero, "hack_p");
+            return true;
+        }
+        // The Notgang: down to door P, waiting there until it is open.
         if (!story.Director.Has("breach") || world.DoorClosed('P'))
         {
             if (Go(game, hero, "door P", new NVector2(520, 168), 2))

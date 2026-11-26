@@ -311,9 +311,10 @@ rev, scrape, crash and stun, the lift's hum, an electric crackle, gate N straini
 `Game.StoryArmoury.Test.cs`).
 
 The prologue's escape (section 7) has two switches of its own, both with `MACHINES_MAP=prolog` and
-`MACHINES_STORY=prolog,12` (or `13`, `14`). `MACHINES_STORY_ESCAPE_TEST=lift|breach|hold|shutter|jets|bridge|bay` (offline
+`MACHINES_STORY=prolog,12` (or `13`, `14`). `MACHINES_STORY_ESCAPE_TEST=lift|crates|breach|hold|shutter|jets|bridge|bay` (offline
 only) puts the unhurtable trio where that set piece plays, looking at it, a few ticks into the match, with the world as a
-run that got there has it (the Notgang caved in and door P blown from `hold` on, the jets started from `jets` on); the
+run that got there has it (the Kühlschlange's crate walls shot through from `breach` on, the Notgang caved in and door P
+open from `hold` on, the jets started from `jets` on); the
 director's own beats then play it, and every second the console prints the hazards (`escape: t=... rails [...] shutter
 ... jets [...] collapsed ... bridge ...`; see `Game.StoryEscape.cs`). With `MACHINES_STORY_DRIVE=<folder>` the driver
 runs section 7 on its own legs to the bay (`StoryDriver.Escape.cs`), printing each beat with the seconds left

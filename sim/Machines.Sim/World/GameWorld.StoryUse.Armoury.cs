@@ -243,7 +243,7 @@ public sealed partial class GameWorld
     }
 
     /// <summary>A Grunt of the computer's goes for a foe it sees (CompanionBot.FireIfArmed): its order once, not again every look.</summary>
-    internal void CompanionAttack(Machine grunt, Machine foe)
+    internal void CompanionAttack(Machine grunt, Actor foe)
     {
         if (grunt.Order is AttackOrder attack && attack.Target == foe.Id)
             return;

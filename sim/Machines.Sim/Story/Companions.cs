@@ -44,6 +44,8 @@ public enum CompanionTask
     Chock,
     /// <summary>Stage 7, the escape: shoot the crane's lock (package E).</summary>
     Crane,
+    /// <summary>Stage 7, the escape: shoot a deck's prop (by its name, the job's place) until it is gone: Ike and the gas main.</summary>
+    Shoot,
 }
 
 /// <summary>

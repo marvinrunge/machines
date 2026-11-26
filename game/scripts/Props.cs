@@ -485,6 +485,8 @@ public static class Props
         "lock_amber" => "junction_box",
         // The gas main beside Y, to shoot when the pack comes through (GameWorld.UpdateGasMain).
         "gas_main" => "pipe_run",
+        // The Kühlschlange's crate walls (GameWorld.UpdateBarricades): crates stacked across the lane (CrateWall).
+        "barricade" => "crate_large",
         _ => Exists(type) ? type : null,
     };
 
@@ -496,6 +498,8 @@ public static class Props
     {
         if (ForArtefact(placement.TypeName) is not { } name || Get(name) is not { } model)
             return null;
+        if (placement.TypeName == "barricade")
+            return CrateWall(type, placement, at, model);
         var size = model.Size;
         var scale = Vector3.One;
         if (type is { Boundary.Count: > 0 } box)
@@ -508,5 +512,36 @@ public static class Props
         // The scenario turns an artefact by its orientation; the prop's own frame is then the artefact's.
         var place = new Transform3D(new Basis(Vector3.Up, -Mathf.DegToRad(placement.Orientation)) * Basis.FromScale(scale), at) * model.Offset;
         return new MeshInstance3D { Name = placement.TypeName, Mesh = model.Mesh, Transform = place };
+    }
+
+    /// <summary>
+    /// A crate wall (the Kühlschlange's barricades): crates of their own size side by side across the artefact's box, two
+    /// high, each a little turned and pushed out of line as stacked in a hurry (the same every match), rather than one
+    /// crate stretched to the box.
+    /// </summary>
+    private static MeshInstance3D CrateWall(ArtefactType? type, ArtefactPlacement placement, Vector3 at, Model model)
+    {
+        var across = type is { Boundary.Count: > 0 } box ? box.Boundary.Max(p => p.X) - box.Boundary.Min(p => p.X) : 16;
+        var height = type?.Height ?? 4.4f;
+        var size = model.Size;
+        var count = Mathf.Max(1, Mathf.RoundToInt(across / Mathf.Max(size.X, 0.01f)));
+        var layers = Mathf.Max(1, Mathf.RoundToInt(height / Mathf.Max(size.Y, 0.01f)));
+        var wide = across / count;
+        var wall = new MeshInstance3D { Name = placement.TypeName, Transform = new Transform3D(new Basis(Vector3.Up, -Mathf.DegToRad(placement.Orientation)), at) };
+        for (var layer = 0; layer < layers; layer++)
+        {
+            for (var i = 0; i < count - layer % 2; i++)
+            {
+                var n = layer * 31 + i * 7 + 3;
+                var turn = ((n * 37) % 13 - 6) * 0.9f;
+                var shift = ((n * 53) % 9 - 4) * 0.06f;
+                var x = -across / 2 + wide * (i + 0.5f + 0.5f * (layer % 2));
+                var scale = new Vector3(wide * 0.97f / Mathf.Max(size.X, 0.01f), height / layers / Mathf.Max(size.Y, 0.01f), 1);
+                var place = new Transform3D(new Basis(Vector3.Up, Mathf.DegToRad(turn)) * Basis.FromScale(scale),
+                    new Vector3(x, layer * height / layers, shift)) * model.Offset;
+                wall.AddChild(new MeshInstance3D { Name = $"Crate{layer}_{i}", Mesh = model.Mesh, Transform = place });
+            }
+        }
+        return wall;
     }
 }

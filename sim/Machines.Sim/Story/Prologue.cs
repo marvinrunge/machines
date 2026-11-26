@@ -160,7 +160,7 @@ public static partial class Prologue
     public static readonly IReadOnlyList<(string Target, int DoneFrom)> Hacks =
     [
         ("clamp_l7", 1), ("terminal_ike", 1), ("terminal_bob", 1), ("hack_s", 3), ("hack_h", 6), ("hack_core", 7), ("hack_d5", 8),
-        ("hack_noise", 99), ("hack_x", 99), ("pod_3_hatch", 99),
+        ("hack_noise", 99), ("hack_x", 99), ("hack_p", 13), ("pod_3_hatch", 99),
     ];
 
     /// <summary>
@@ -227,7 +227,9 @@ public static partial class Prologue
             BobThresher = "P_BOB_THRESHER", BobDoorY = "P_BOB_DOOR_Y", BobBlast = "P_BOB_BLAST", BobCable = "P_BOB_CABLE",
             BobCableDone = "P_BOB_CABLE_DONE", HudShutdown = "P_HUD_SHUTDOWN", HudRestart = "P_HUD_RESTART", HudReserve = "P_HUD_RESERVE",
             HudCable = "P_HUD_CABLE", HudHeel = "P_HUD_HEEL", HudLanes = "P_HUD_LANES", HudCool = "P_HUD_COOL", HudAmber = "P_HUD_AMBER",
-            HudHoldX = "P_HUD_HOLDX", HudJets = "P_HUD_JETS";
+            HudHoldX = "P_HUD_HOLDX", HudJets = "P_HUD_JETS",
+            // Play test 2026-11-25: the crate walls, door P jammed, the gas main called and shot.
+            BobCrateWall = "P_BOB_CRATE_WALL", IkeJammed = "P_IKE_JAMMED", IkeGas = "P_IKE_GAS", IkeGasSelf = "P_IKE_GAS_SELF";
     }
 
     // ---- the boot (Erwachen) ----------------------------------------------------------------------------
@@ -575,6 +577,8 @@ public static partial class Prologue
             run.Hacks.Locked.Add("pod_3_hatch");
         // The shutter's panel opens only when the shutter came down with one of the trio still in the hold (GameWorld.UpdateShutter).
         run.Hacks.Locked.Add("hack_x");
+        // Door P's panel opens only when the breach jammed it (Prologue.Section7, breach).
+        run.Hacks.Locked.Add("hack_p");
         // The doors opened before the checkpoint stand open from its first tick, none of them sliding (GameWorld.OpenDoor).
         Do(new OpenDoors(DoorsOpen[cp], Instant: true), new AutoDoors(DoorsAuto[cp]));
         // The Notabschaltung's reserve is whole again at every checkpoint (StoryReserve).

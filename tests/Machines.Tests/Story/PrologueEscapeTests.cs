@@ -161,6 +161,13 @@ public class PrologueEscapeTests
     /// One run from checkpoint 12 with the Locator walked along <see cref="Way"/> by move orders and the Grunts on their own
     /// (they follow, hold the shutter's frame, wait out the jets); at the bay the pod is hacked and boarded. Whether it launched.
     /// </summary>
+    /// <summary>
+    /// Past the foot of the lane the Locator stands in once it is up at a crate wall: the waypoint south of it in its lane
+    /// is behind it, and going back for it after the wall would run it into the pack.
+    /// </summary>
+    private static int PastLaneFoot(Machine locator, int next) =>
+        next < Way.Length && Way[next].Y > locator.Position.Y + 4 && MathF.Abs(Way[next].X - locator.Position.X) < 8 ? next + 1 : next;
+
     private static bool Walk(int seed, Action<string>? log = null)
     {
         var world = Chapter(12, seed);
@@ -191,6 +198,23 @@ public class PrologueEscapeTests
             }
             if (run.Crew.Holding.ContainsKey(run.Locator.Value))
                 world.Issue(new StoryUseCommand(Race.Red, Held: false));
+            // A crate wall ahead in the Kühlschlange: shot through, as a player does (play test 2026-11-25).
+            if (WallAhead(world, locator.Position) is { } wall)
+            {
+                next = PastLaneFoot(locator, next);
+                if (tick % 20 == 0)
+                    world.Issue(new AttackCommand(Race.Red, [locator.Id], wall.Id));
+                if (tick % 100 == 0)
+                    log?.Invoke($"{tick / 20}s wall {wall.Tag} hp {wall.HitPoints} at {Vector2.Distance(wall.Position, locator.Position):0} m, order {locator.Order}");
+                world.Step();
+                continue;
+            }
+            // Door P jammed by the breach: its panel hacked.
+            if (run.Director.Has("breach") && !run.Hacks.Done.Contains("hack_p") && !run.Hacks.Locked.Contains("hack_p"))
+            {
+                log?.Invoke($"{tick / 20}s door P hacked {HackBySolution(world, locator, "hack_p")}");
+                continue;
+            }
             if (next < Way.Length && Vector2.Distance(locator.Position, Way[next]) < 4)
                 next++;
             if (next < Way.Length)
@@ -235,13 +259,16 @@ public class PrologueEscapeTests
     }
 
     // Eight, not nine, since the Kühlschlange: a walker that never sprints is nearly three times as long under the pack's guns, and a
-    // Grunt brought down in a lane (seeds 5 and 6) can cost it the run.
+    // Grunt brought down in a lane (seeds 5 and 6) can cost it the run. Six since the crate walls (play test 2026-11-25: the escape
+    // was "just running", the user wanted the pack dangerously near): each costs a Bolter alone some ten seconds, the pack closes
+    // in on a walker at the second (seeds 1 and 6), and one shooting the wall while the pack shoots it can be worn down
+    // (seeds 3 and 5). A player sprints between them, as the sprinting driver does.
     [Fact]
-    public void A_locator_walked_along_the_route_with_its_grunts_on_their_own_reaches_the_pod_in_eight_seeds_of_ten()
+    public void A_locator_walked_along_the_route_with_its_grunts_on_their_own_reaches_the_pod_in_six_seeds_of_ten()
     {
         var results = Enumerable.Range(1, 10).Select(seed => { var log = new List<string>(); var ok = Walk(seed, log.Add); return (seed, ok, last: string.Join(" | ", log.TakeLast(3))); }).ToList();
         var launched = results.Count(r => r.ok);
-        Assert.True(launched >= 8, string.Join(" || ", results.Where(r => !r.ok).Select(r => $"seed {r.seed}: {r.last}")));
+        Assert.True(launched >= 6, string.Join(" || ", results.Where(r => !r.ok).Select(r => $"seed {r.seed}: {r.last}")));
     }
 
     // ---- a Locator sprinting ahead --------------------------------------------------------------------
@@ -288,13 +315,22 @@ public class PrologueEscapeTests
                 log($"seed {seed}: X came down on a Grunt at {world.Time:0} s, hacked {HackShutter(world, locator)}");
                 continue;
             }
-            if (Vector2.Distance(locator.Position, Way[next]) < 4)
+            // A crate wall ahead: driven up to below it and shot through, the trigger held on it (play test 2026-11-25).
+            var wall = WallAhead(world, locator.Position);
+            if (wall is not null)
+                next = PastLaneFoot(locator, next);
+            if (run.Director.Has("breach") && !run.Hacks.Done.Contains("hack_p") && !run.Hacks.Locked.Contains("hack_p"))
+            {
+                log($"seed {seed}: door P hacked {HackBySolution(world, locator, "hack_p")} at {world.Time:0} s");
+                continue;
+            }
+            if (wall is null && Vector2.Distance(locator.Position, Way[next]) < 4)
             {
                 next++;
                 continue;
             }
-            var target = Way[next];
-            if (locator.Position.Y is > 150 and < 180)
+            var target = wall is null ? Way[next] : wall.Position + new Vector2(0, 9);
+            if (wall is null && locator.Position.Y is > 150 and < 180)
             {
                 foreach (var lane in lanes.Where(l => locator.Position.X > l.Min.X - 1).Take(1))
                 {
@@ -308,7 +344,15 @@ public class PrologueEscapeTests
             {
                 var off = MathF.Atan2(way.Y, way.X) - locator.Facing;
                 off = MathF.Atan2(MathF.Sin(off), MathF.Cos(off));
-                world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true, Forward: MathF.Abs(off) < 0.6f ? 1 : 0.2f, Turn: Math.Clamp(off * 2, -1, 1), Sprint: true));
+                world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true, Forward: MathF.Abs(off) < 0.6f ? 1 : 0.2f, Turn: Math.Clamp(off * 2, -1, 1),
+                    Aim: wall?.Position, Sprint: wall is null));
+            }
+            else if (wall is not null)
+            {
+                var face = wall.Position - locator.Position;
+                var off = MathF.Atan2(face.Y, face.X) - locator.Facing;
+                off = MathF.Atan2(MathF.Sin(off), MathF.Cos(off));
+                world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true, Turn: Math.Clamp(off * 2, -1, 1), Aim: wall.Position));
             }
             else
                 world.Issue(new DriveCommand(Race.Red, locator.Id, Driving: true));

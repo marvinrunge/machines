@@ -307,6 +307,14 @@ public class DeckNavTests
             new Dictionary<Race, Controller> { [Race.Red] = Controller.Player, [Race.Blue] = Controller.Ai }, 3,
             new MatchOptions { Story = new StoryOptions(), FogOfWar = false });
 
+    /// <summary>The Kühlschlange's crate walls shot through (they are there to be: play test 2026-11-25), their ground free again.</summary>
+    private static void ShootWalls(GameWorld world)
+    {
+        foreach (var wall in world.Artefacts.Where(a => a.Tag is GameWorld.Barricade1Tag or GameWorld.Barricade2Tag))
+            wall.HitPoints = 0;
+        world.Step();
+    }
+
     /// <summary>The rooms (ZONES tagged room) a way of moving reaches from a marker, in the deck's order.</summary>
     private static List<string> Reached(GameWorld world, Mobility mobility, string from)
     {
@@ -361,6 +369,7 @@ public class DeckNavTests
     public void With_every_door_open_each_mobility_reaches_the_rooms_of_the_plan()
     {
         var world = Prologue();
+        ShootWalls(world);
         var cast = Cast(world);
         foreach (var door in world.Deck!.Doors)
             world.OpenDoor(door.Letter);
@@ -461,6 +470,7 @@ public class DeckNavTests
     public void The_big_machines_reach_the_armoury_only_through_gate_n_and_the_pack_runs_the_escape_route()
     {
         var world = Prologue();
+        ShootWalls(world);
         var cast = Cast(world);
         foreach (var door in world.Deck!.Doors.Where(d => d.Letter != 'N'))
             world.OpenDoor(door.Letter);

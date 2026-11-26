@@ -920,6 +920,30 @@
    "en": "Crane! I've got the crane!"
   },
   {
+   "id": "P_BOB_CRATE_WALL",
+   "speaker": "bob",
+   "channel": "radio",
+   "en": "Crates. Shoot through."
+  },
+  {
+   "id": "P_IKE_JAMMED",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Door's jammed! Hack it, we'll hold them!"
+  },
+  {
+   "id": "P_IKE_GAS",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "The gas main! Shoot it!"
+  },
+  {
+   "id": "P_IKE_GAS_SELF",
+   "speaker": "ike",
+   "channel": "radio",
+   "en": "Fine, I'll do it myself!"
+  },
+  {
    "id": "P_IKE_CABLE",
    "speaker": "ike",
    "channel": "radio",
