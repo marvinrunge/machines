@@ -2,7 +2,13 @@ A **test build** of the Machines: Wired for War remake, for Windows 10/11 (64-bi
 
 **Download** the `setup.exe` below and run it, or the `windows.zip`, unzip it anywhere and run `Machines.exe`. `README.txt` lists the controls.
 
-**New in 0.8.0: the story begins.**
+**New in 0.8.1: a harder escape.**
+- **The escape stands in your way.** Two walls of crates block the coolant maze: shoot through them while the pack closes in, or it bursts them itself. The hull breach jams the door to the cargo hold, so hack its panel while Ike and Bob hold the pack. In the pod bay Ike calls out the gas main and marks it, so shoot it when the pack comes through door Y (if you don't, Ike does).
+- **The escape waits for the armoury.** Driving out of the armoury while its waves were still coming could start the countdown early. It now starts only once the armoury is cleared.
+- **You always hear where the Thresher is.** His steps carry across the deck, muffled by distance and walls instead of lost behind them.
+- **Online: 0.8.1 plays only with 0.8.1.** The public relay now speaks the new version, so update before you play together.
+
+**From 0.8.0: the story begins.**
 - **Story: the prologue.** **Single Player → Story** opens the first chapter of the remake's own story. You are L-7, a Geo Locator that wakes in the workshop of a mothership after refusing an update. Wake two Grunts and name them, then sneak past a Thresher through the dark maintenance decks, hack doors and terminals, hold the armoury against five waves and its boss, and race through the listing ship to the pod bay before she goes down. Play alone, with the computer driving the Grunts, or online with up to two friends as the Grunts. The chapter has checkpoints, three difficulties, English and German voices with subtitles, its own music, and ends with the cutscene "Abwurf". Act 1 follows in a later version.
 - **The main menu is split** into **Single Player** (story, campaign, skirmish, Survival, Battle) and **Extras** (replays and more).
 - **The remake has a soundtrack of its own.** With every look but Classic, the remake's own tracks play over the menus and at random in a match. **Soundtrack** in the options picks the original's music, the remake's, or both.

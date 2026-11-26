@@ -30,9 +30,11 @@ public static class NetJson
     /// and he walks as a crab: GameWorld.Crabs), so a client of 18 would walk him otherwise. 20: the escape's Kühlschlange
     /// (four lanes east of the buried Notgang, the gas main beside Y, six minutes on the countdown) and story spawns kept on their side
     /// of a wall, so a client of 19 would play another deck. 21: the crawl ducts 3 m wide instead of 4 (only L-7 fits, a Grunt
-    /// standing at a mouth plainly does not), so a client of 20 would play another deck.
+    /// standing at a mouth plainly does not), so a client of 20 would play another deck. 22: the escape's obstacles (0.8.1:
+    /// the Kühlschlange's crate walls, door P jammed by the breach and hacked open, Ike calling and shooting the gas main, the
+    /// escape only after the armoury's waves), so a client of 21 would play another escape.
     /// </summary>
-    public const int Protocol = 21;
+    public const int Protocol = 22;
 
     public static readonly JsonSerializerOptions Options = Create();
 
