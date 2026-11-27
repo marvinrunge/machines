@@ -142,6 +142,8 @@ public partial class GameAudio : Node
         }
         _priority[player] = sound.Priority;
         Configure(player, sound, stream);
+        // Each shot, blast and clank a little higher or lower than the last (SoundVariation); engines and loops keep theirs.
+        player.PitchScale = SoundVariation.Varied(1, _random.Randf());
         player.GlobalPosition = at;
         player.Play();
         Trace(id);
@@ -358,8 +360,11 @@ public partial class GameAudio : Node
         }
     }
 
-    /// <summary>A sound of the interface (MachGuiSoundManager), e.g. <c>gui/sounds/attackon.wav</c>: not placed, never muted.</summary>
-    public void PlayGui(string file)
+    /// <summary>
+    /// A sound of the interface (MachGuiSoundManager), e.g. <c>gui/sounds/attackon.wav</c>: not placed, never muted; at
+    /// <paramref name="pitch"/> (the interface's own clicks always at 1).
+    /// </summary>
+    public void PlayGui(string file, float pitch = 1)
     {
         if (!IsInsideTree() || Stream(file) is not { } stream)
             return;
@@ -379,6 +384,7 @@ public partial class GameAudio : Node
             _gui.Add(player);
         }
         player.Stream = stream;
+        player.PitchScale = pitch;
         player.Play();
         Trace(file);
     }
@@ -387,7 +393,7 @@ public partial class GameAudio : Node
     public void PlayFlat(string? id)
     {
         if (id is not null && _sounds.TryGetValue(id, out var sound))
-            PlayGui(sound.File);
+            PlayGui(sound.File, SoundVariation.Varied(1, _random.Randf()));
     }
 
     private const int GuiVoices = 4;
