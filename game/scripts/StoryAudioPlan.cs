@@ -504,12 +504,6 @@ public sealed class StorySfxManifest
         var variants = _sounds.Keys.Where(k => k.Length > id.Length + 1 && k.StartsWith(id + "_", StringComparison.Ordinal) && k[(id.Length + 1)..].All(char.IsDigit)).ToList();
         return variants.Count == 0 ? null : variants[Math.Clamp(pick(variants.Count), 0, variants.Count - 1)];
     }
-
-    /// <summary>How far a one-shot's pitch strays each time it plays, either way (user 2026-11-27: every sound effect a little different).</summary>
-    public const float PitchVary = 0.04f;
-
-    /// <summary><paramref name="pitch"/> strayed by up to <see cref="PitchVary"/> either way, <paramref name="unit"/> (0 to 1) saying where.</summary>
-    public static float Varied(float pitch, float unit) => pitch * (1 + PitchVary * (2 * Math.Clamp(unit, 0, 1) - 1));
 }
 
 /// <summary>A piece of the story's score: its file (game/assets/story/music/&lt;name&gt;.ogg) and its length in seconds.</summary>

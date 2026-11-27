@@ -363,15 +363,6 @@ public class StoryAudioPlanTests
         }
     }
 
-    [Fact]
-    public void EveryOneShotStraysALittleInPitch()
-    {
-        Assert.Equal(1 - StorySfxManifest.PitchVary, StorySfxManifest.Varied(1, 0), 5);
-        Assert.Equal(1, StorySfxManifest.Varied(1, 0.5f), 5);
-        Assert.Equal(1 + StorySfxManifest.PitchVary, StorySfxManifest.Varied(1, 1), 5);
-        Assert.Equal(1.3f * (1 + StorySfxManifest.PitchVary), StorySfxManifest.Varied(1.3f, 1), 5);
-        Assert.InRange(StorySfxManifest.PitchVary, 0.02f, 0.06f);
-    }
 
     [Fact]
     public void EveryVoicedLineHasItsFilesAndAChannel()

@@ -26,7 +26,7 @@ public partial class StorySounds(StoryAudio audio) : Node
     /// A one-shot by its id, at a place in the world or not; <paramref name="from"/> seconds into the sound and at a
     /// <paramref name="pitch"/> (a door sliding open has its stop land as its leaves come to rest, Game.Deck). <paramref name="db"/> under its
     /// level (L-7's own steps, far under every other sound). The pitch strays a little each time
-    /// (<see cref="StorySfxManifest.PitchVary"/>) unless <paramref name="vary"/> is false (a sound timed to a motion).
+    /// (<see cref="SoundVariation.PitchVary"/>, as all the game's sound effects) unless <paramref name="vary"/> is false (a sound timed to a motion).
     /// </summary>
     public void Play(string id, Vector3? at, float from = 0, float pitch = 1, float db = 0, bool vary = true)
     {
@@ -63,8 +63,8 @@ public partial class StorySounds(StoryAudio audio) : Node
         }
     }
 
-    /// <summary><paramref name="pitch"/> strayed a little, as every one-shot plays (<see cref="StorySfxManifest.Varied"/>).</summary>
-    private float Varied(float pitch) => StorySfxManifest.Varied(pitch, _random.Randf());
+    /// <summary><paramref name="pitch"/> strayed a little, as every one-shot plays (<see cref="SoundVariation.Varied"/>).</summary>
+    private float Varied(float pitch) => SoundVariation.Varied(pitch, _random.Randf());
 
     // A free voice of the kind, a new one while there are fewer than Voices, else the one playing longest.
     private T Voice<T>() where T : Node, new()
