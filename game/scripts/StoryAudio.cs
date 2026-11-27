@@ -169,8 +169,11 @@ public partial class StoryAudio : Node
     /// <summary>Plays a story sound effect by its id (game/assets/story/sfx), at a point of the world or, without one, not placed.</summary>
     public static void Play(string sfxId, Vector3? at = null) => Current?._sounds.Play(sfxId, at);
 
-    /// <summary>A story sound effect started <paramref name="from"/> seconds in, at a <paramref name="pitch"/> (a door sliding open, Game.Deck). <paramref name="db"/> under its level.</summary>
-    public static void Play(string sfxId, Vector3? at, float from, float pitch, float db = 0) => Current?._sounds.Play(sfxId, at, from, pitch, db);
+    /// <summary>
+    /// A story sound effect started <paramref name="from"/> seconds in, at a <paramref name="pitch"/> (a door sliding open, Game.Deck),
+    /// <paramref name="db"/> under its level; <paramref name="vary"/> false keeps the pitch exact (a sound timed to a motion).
+    /// </summary>
+    public static void Play(string sfxId, Vector3? at, float from, float pitch, float db = 0, bool vary = true) => Current?._sounds.Play(sfxId, at, from, pitch, db, vary);
 
     /// <summary>The ambience of a room of the deck (R4, V1b ...) or a section ("section:3"); null follows the room the listener is in.</summary>
     public static void SetAmbience(string? zone) => Current?._sounds.SetAmbience(zone);

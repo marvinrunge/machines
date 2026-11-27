@@ -154,7 +154,7 @@ public partial class Game
             / Math.Max(1, leaves.Sum(s => s.Boundary.Count));
         var seconds = swing.Until - swing.From;
         var (from, pitch) = seconds <= DoorThudAt ? (DoorThudAt - seconds, 1f) : (0f, DoorThudAt / seconds);
-        StoryAudio.Play("door_open", new Vector3(middle.X, 2, middle.Y), from, pitch);
+        StoryAudio.Play("door_open", new Vector3(middle.X, 2, middle.Y), from, pitch, vary: false);
     }
 
     /// <summary>Each frame: the sliding leaves where the sim's slide has them now; one at rest in the wall is gone.</summary>

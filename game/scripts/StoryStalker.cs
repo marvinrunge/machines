@@ -26,10 +26,11 @@ public enum StalkerState
 public readonly record struct StalkerLook(int Id, Vector2 Position, float Heading, StalkerState State, float Suspicion, int Quarry, bool Moving);
 
 /// <summary>
-/// How one of the Thresher's plants is heard at the listener (design-stealth §9.1): its gain in dB, its low-pass, how much of
-/// the near (dry, new) samples against the far ones (thresher_step_1..3), whether the sub thump and his breath come with it.
+/// How one of the Thresher's plants is heard at the listener (design-stealth §9.1): its gain in dB, how much of the near family
+/// (heavy, close: thresher_plant_1..3), the middle one (thresher_mid_1..3) and the far one (thresher_step_1..2), whether the
+/// sub thump comes with it and the grate under the listener rattles. Every foot sounds alike (user 2026-11-27).
 /// </summary>
-public readonly record struct StompMix(float Db, float LowPassHz, float Near, bool Sub, bool Rattle, int Walls, int Grates);
+public readonly record struct StompMix(float Db, float Near, float Mid, float Far, bool Sub, bool Rattle, int Walls, int Grates);
 
 /// <summary>
 /// Section 2's Thresher for the view (package S): which machine he is, what he is doing (<see cref="StalkerState"/>), whether
@@ -119,20 +120,32 @@ public static class StoryStalker
 
     // Play test 2026-11-25: on deck A his steps were not heard at all (80-115 m, behind a wall or three: -6 to -14 dB on top of
     // the distance's -17 dB, under the music). He is to be heard wherever he walks, so the player always knows where he is:
-    // the walls and the distance take little of his loudness and much of his brightness (the low-pass), a far step a dull thud.
+    // the walls and the distance take little of his loudness. User 2026-11-27: three families of steps the user picked by ear,
+    // near, middle and far, each sounding its distance itself, so no low-pass any more: only the loudness changes.
 
-    /// <summary>Behind a wall or a high stack a plant loses this many dB (and <see cref="WallDbEach"/> each further one, down to <see cref="WallDbLeast"/>), its low-pass a share <see cref="WallDull"/> of the distance's; through a grate it loses <see cref="GrateDb"/>.</summary>
-    public const float WallDb = -3, WallDbEach = -1.5f, WallDbLeast = -8, GrateDb = -1, WallDull = 0.55f, OpenLowPass = 20000;
+    /// <summary>Behind a wall or a high stack a plant loses this many dB (and <see cref="WallDbEach"/> each further one, down to <see cref="WallDbLeast"/>); through a grate it loses <see cref="GrateDb"/>.</summary>
+    public const float WallDb = -3, WallDbEach = -1.5f, WallDbLeast = -8, GrateDb = -1;
 
-    /// <summary>The distance's low-pass: open within <see cref="DullFrom"/> metres, then falling with the square of the distance to <see cref="DullestHz"/>.</summary>
-    public const float DullFrom = 30, DullestHz = 380;
+    /// <summary>
+    /// The three families by the distance: only the near one (thresher_plant_1..3, heavy and close) within
+    /// <see cref="NearWithin"/>, cross-faded into the middle one (thresher_mid_1..3) by <see cref="MidFrom"/>, the middle one alone
+    /// to <see cref="MidWithin"/>, cross-faded into the far one (thresher_step_1..2) by <see cref="FarFrom"/>, the far one beyond.
+    /// </summary>
+    public const float NearWithin = 25, MidFrom = 40, MidWithin = 80, FarFrom = 120;
 
-    /// <summary>The low-pass of a plant at <paramref name="distance"/> metres in the open: 20 kHz within 30 m, 5 kHz at 60, 1.8 kHz at 100, 800 Hz at 150.</summary>
-    public static float DistanceLowPass(float distance) =>
-        distance <= DullFrom ? OpenLowPass : MathF.Max(DullestHz, OpenLowPass * DullFrom * DullFrom / (distance * distance));
+    /// <summary>How much of the near, the middle and the far family a plant at <paramref name="distance"/> metres has (adding up to 1).</summary>
+    public static (float Near, float Mid, float Far) Families(float distance)
+    {
+        var near = Math.Clamp((MidFrom - distance) / (MidFrom - NearWithin), 0, 1);
+        var far = Math.Clamp((distance - MidWithin) / (FarFrom - MidWithin), 0, 1);
+        return (near, 1 - near - far, far);
+    }
 
-    /// <summary>Within this the near samples play (dry, new); beyond <see cref="FarFrom"/> only the far ones (thresher_step_1..3); between, cross-faded.</summary>
-    public const float NearWithin = 45, FarFrom = 75;
+    /// <summary>
+    /// A plant's extra loudness by its <paramref name="weight"/>: none for any foot of his walk (up to 1; front and back sound
+    /// alike, user 2026-11-27), 6 dB more for each doubling above it (the hunt's gallop).
+    /// </summary>
+    public static float WeightDb(float weight) => weight <= 1 ? 0 : 6 * MathF.Log2(weight);
 
     /// <summary>The sub thump comes with a plant within this many metres; a grate under the listener rattles within <see cref="RattleWithin"/>; his breath every second plant within <see cref="BreathWithin"/>.</summary>
     public const float SubWithin = 120, RattleWithin = 30, BreathWithin = 25;
@@ -186,18 +199,14 @@ public static class StoryStalker
     /// <summary>
     /// How a plant at <paramref name="distance"/> metres is heard through <paramref name="walls"/> walls and
     /// <paramref name="grates"/> grates: -3 dB behind a wall (1.5 dB more for each further one, down to -8), -1 dB a grate;
-    /// the low-pass by the distance, and darker still behind a wall; the near samples within 45 m fading to the far ones by
-    /// 75 m; the sub within 120 m.
+    /// the shares of the three families (<see cref="Families"/>); the sub within 120 m.
     /// </summary>
     public static StompMix Mix(float distance, int walls, int grates)
     {
         var db = walls > 0 ? MathF.Max(WallDbLeast, WallDb + WallDbEach * (walls - 1)) : 0;
         db += GrateDb * grates;
-        var lowPass = DistanceLowPass(distance);
-        if (walls > 0)
-            lowPass = MathF.Max(DullestHz * WallDull, MathF.Min(lowPass, 2500) * WallDull);
-        var near = Math.Clamp((FarFrom - distance) / (FarFrom - NearWithin), 0, 1);
-        return new StompMix(db, lowPass, near, distance <= SubWithin, distance <= RattleWithin, walls, grates);
+        var (near, mid, far) = Families(distance);
+        return new StompMix(db, near, mid, far, distance <= SubWithin, distance <= RattleWithin, walls, grates);
     }
 
     /// <summary>How suspicious he is of a hero, 0 to 1 (the eye glyph's fill): his own suspicion when that hero is his quarry.</summary>

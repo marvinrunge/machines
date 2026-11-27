@@ -354,6 +354,23 @@ public class StoryAudioPlanTests
         // A family by its name plays one of its numbered variants.
         Assert.Equal("thresher_step_2", sfx.Resolve("thresher_step", count => 1));
         Assert.Null(sfx.Resolve("no_such_sound", _ => 0));
+        // The Thresher's steps: the near, middle and far families the user picked (2026-11-27), each file there.
+        foreach (var (family, count) in new[] { ("thresher_plant", 3), ("thresher_mid", 3), ("thresher_step", 2) })
+        {
+            var ids = sfx.Ids.Where(id => id.StartsWith(family + "_", StringComparison.Ordinal) && id[(family.Length + 1)..].All(char.IsDigit)).ToList();
+            Assert.Equal(count, ids.Count);
+            Assert.All(ids, id => Assert.True(File.Exists(Assets($"sfx/{sfx.File(id)}")), id));
+        }
+    }
+
+    [Fact]
+    public void EveryOneShotStraysALittleInPitch()
+    {
+        Assert.Equal(1 - StorySfxManifest.PitchVary, StorySfxManifest.Varied(1, 0), 5);
+        Assert.Equal(1, StorySfxManifest.Varied(1, 0.5f), 5);
+        Assert.Equal(1 + StorySfxManifest.PitchVary, StorySfxManifest.Varied(1, 1), 5);
+        Assert.Equal(1.3f * (1 + StorySfxManifest.PitchVary), StorySfxManifest.Varied(1.3f, 1), 5);
+        Assert.InRange(StorySfxManifest.PitchVary, 0.02f, 0.06f);
     }
 
     [Fact]

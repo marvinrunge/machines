@@ -4,9 +4,11 @@ using NVector2 = System.Numerics.Vector2;
 namespace Machines.Game;
 
 // Package S (plan stufe7 C20, design-stealth §9.1): the Thresher's sound on its own bus. Each plant of his feet (ActorView.Stealth
-// finds them in his walk) is a Stomp: a near sample (thresher_plant_front_1..4 for a front foot, _rear_1..2 for a back one)
-// cross-faded with a far one (thresher_step_1..3) by the distance, heard through the deck (StoryStalker.Occlusion: a wall or a
-// high stack -6 dB and an 800 Hz low-pass, a grate -2 dB), with a sub thump within 120 m, his hydraulic breath every second
+// finds them in his walk) is a Stomp: a sample of the near family (thresher_plant_1..3, heavy), the middle one (thresher_mid_1..3)
+// or the far one (thresher_step_1..2), cross-faded by the distance (StoryStalker.Families), each picked at random and a little
+// higher or lower each time, the same for a front and a back foot, with no low-pass: the families sound their distance and only
+// the loudness falls (user 2026-11-27). Heard through the deck (StoryStalker.Occlusion and Mix: walls and grates take loudness),
+// with a sub thump within 120 m, his hydraulic breath every second
 // plant within 25 m and the grate under the listener rattling within 30 m. His states (StoryStalker.StateOf) have their own
 // sounds: the halt and a falling ping repeating faster as he grows sure, the lens focusing and the servo ticks of his scan, the
 // lock whine of the draw with the black-out's cut-outs, the wind-down when he lost his quarry, a long exhale when he calms.
@@ -25,8 +27,8 @@ public partial class StorySounds
     public static Action<string>? StompLog { get; set; }
 
     /// <summary>
-    /// One of the Thresher's plants at <paramref name="at"/> (a foot coming down): <paramref name="weight"/> 1 a heavy front
-    /// foot, about 0.6 a lighter back one; above 1 (the hunt's gallop) louder still. Heard through the deck from the listener.
+    /// One of the Thresher's plants at <paramref name="at"/> (a foot coming down), heard through the deck from the listener.
+    /// Every foot of his walk sounds alike (<paramref name="weight"/> up to 1); above 1 (the hunt's gallop) louder.
     /// </summary>
     public void Stomp(Vector3 at, float weight = 1)
     {
@@ -37,26 +39,26 @@ public partial class StorySounds
             return;
         var (walls, grates) = audio.Deck is { } deck ? StoryStalker.Occlusion(deck, new NVector2(at.X, at.Z), new NVector2(listener.X, listener.Z)) : (0, 0);
         var mix = StoryStalker.Mix(distance, walls, grates);
-        var heavy = weight >= 0.8f;
-        var level = mix.Db + 6 * Mathf.Log(Mathf.Max(0.2f, weight)) / Mathf.Log(2);
-        var lowPass = mix.LowPassHz;
-        if (mix.Near > 0.01f)
-            StompVoice(heavy ? "thresher_plant_front" : "thresher_plant_rear", at, level + Mathf.LinearToDb(mix.Near), lowPass);
-        if (mix.Near < 0.99f)
-            StompVoice("thresher_step", at, level + Mathf.LinearToDb(1 - mix.Near) + (heavy ? 0 : -3), lowPass);
+        var level = mix.Db + StoryStalker.WeightDb(weight);
+        foreach (var (family, share) in new[] { ("thresher_plant", mix.Near), ("thresher_mid", mix.Mid), ("thresher_step", mix.Far) })
+            if (share > 0.01f)
+                StompVoice(family, at, level + Mathf.LinearToDb(share), Unfiltered);
         if (mix.Sub)
-            SubThump(-4 - 20 * distance / StoryStalker.SubWithin + (walls > 0 ? -3 : 0) + (heavy ? 0 : -4));
+            SubThump(-4 - 20 * distance / StoryStalker.SubWithin + (walls > 0 ? -3 : 0));
         _plants++;
         if (distance <= StoryStalker.BreathWithin && _plants % 2 == 0)
-            StompVoice("thresher_breath", at + Vector3.Up * 7, -8 + mix.Db, lowPass);
+            StompVoice("thresher_breath", at + Vector3.Up * 7, -8 + mix.Db, Unfiltered);
         if (mix.Rattle && GrateBy(listener) is { } grate)
             Play("grating_rattle", grate, 0, (float)GD.RandRange(0.9, 1.1));
-        var line = FormattableString.Invariant($"stomp {(heavy ? "front" : "rear")} {distance:0.0} m walls {walls} grates {grates} gain {level:0.0} dB low-pass {mix.LowPassHz:0} Hz near {mix.Near:0.00}{(mix.Sub ? " sub" : "")}");
+        var line = FormattableString.Invariant($"stomp {distance:0.0} m walls {walls} grates {grates} gain {level:0.0} dB near {mix.Near:0.00} mid {mix.Mid:0.00} far {mix.Far:0.00}{(mix.Sub ? " sub" : "")}");
         audio.Trace($"{line}");
         StompLog?.Invoke(line);
     }
 
-    /// <summary>A plant's sample on the Thresher's bus, placed, at its level and low-pass (his own voices, so the story's others keep theirs).</summary>
+    /// <summary>The cutoff of Godot's distance filter that leaves a sound as it is (its highest).</summary>
+    private const float Unfiltered = 20500;
+
+    /// <summary>A plant's sample on the Thresher's bus, placed, at its level and distance filter cutoff (his own voices, so the story's others keep theirs).</summary>
     private void StompVoice(string id, Vector3 at, float db, float lowPass)
     {
         var sound = StoryAudio.Sfx.Resolve(id, count => _random.RandiRange(0, count - 1));
@@ -91,7 +93,7 @@ public partial class StorySounds
         player.Stream = stream;
         player.VolumeDb = db;
         player.AttenuationFilterCutoffHz = lowPass;
-        player.PitchScale = (float)GD.RandRange(0.94, 1.04);
+        player.PitchScale = Varied(1);
         player.GlobalPosition = at;
         player.Play();
     }
@@ -108,6 +110,7 @@ public partial class StorySounds
         }
         _sub.Stream = stream;
         _sub.VolumeDb = db;
+        _sub.PitchScale = Varied(1);
         _sub.Play();
     }
 

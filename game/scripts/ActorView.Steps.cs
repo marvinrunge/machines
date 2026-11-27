@@ -34,7 +34,7 @@ public partial class ActorView
                     if (wrapped ? plant.Phase > last || plant.Phase <= phase : plant.Phase > last && plant.Phase <= phase)
                     {
                         var foot = rig.PartPosition(plant.Node);
-                        StoryAudio.Play("l7_step", World(new System.Numerics.Vector2(foot.X, foot.Z)), 0, (float)GD.RandRange(0.9, 1.1), StepDb);
+                        StoryAudio.Play("l7_step", World(new System.Numerics.Vector2(foot.X, foot.Z)), 0, (float)GD.RandRange(0.9, 1.1), StepDb, vary: false);
                     }
         }
         _lastStep = phase;

@@ -167,8 +167,7 @@ public partial class Game
     /// MACHINES_STORY_STOMP_TEST=1 (with MACHINES_STORY=prolog,1 and MACHINES_MAP=prolog), offline: the Locator is put in the
     /// niche off deck A (niche_l7) with its lamp off, out of his sight and unhurt, and the Thresher walks his round past it,
     /// in and out of the deck's walls; =x,y puts it there instead (metres of the deck). Each plant prints a line: the time,
-    /// the gap since the last, front or rear, distance, walls and grates between, gain, low-pass, how much of the near
-    /// samples, and whether the sub came with it.
+    /// the gap since the last, distance, walls and grates between, gain, the shares of the near, middle and far families and whether the sub came with it.
     /// </summary>
     private void StompTestIfAsked(StalkerLook? look)
     {

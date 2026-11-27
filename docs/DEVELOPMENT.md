@@ -325,7 +325,7 @@ own Locator down, counted as a fallback). `MACHINES_OPTIONS=soft_list=on` turns 
 The prologue's section 2 (the Thresher) has two switches of its own, with `MACHINES_STORY=prolog,<checkpoint>` and
 `MACHINES_MAP=prolog`. `MACHINES_STORY_STOMP_TEST=1` (offline) puts L-7 in the niche off deck A (`=x,y` elsewhere), its
 lamp off, unseen and unhurt, while the Thresher walks his round past it, and prints a line for each plant of his feet: the
-gap since the last, front or rear, distance, the walls and grates between, gain, low-pass and how much of the near samples
+gap since the last, distance, the walls and grates between, gain, the shares of the near, middle and far families and whether the sub came with it
 (see `Game.StoryStealth.cs`, `StorySounds.Thresher.cs`). With `MACHINES_STORY_DRIVE`, `MACHINES_STORY_DRIVE_STEALTH=caught`
 tells the Grunts to wait on deck A's lane once, so one goes down and is put together again, and `=die` walks L-7 into his
 light with its lamp on until it is lost, then says how far he is after the restart; without it the driver fails the run
