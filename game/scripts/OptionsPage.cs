@@ -336,10 +336,8 @@ public partial class OptionsPage(Action back, bool inGame) : MenuPage(back)
     private ChipPanel Import()
     {
         var chip = new ChipPanel { SizeFlagsHorizontal = SizeFlags.ExpandFill, Padding = 8 };
-        var status = MenuTheme.Paragraph(DiscCheck.Bundled
-                ? DiscCheck.Checked is { } checkedFrom
-                    ? Lang.T("Everything comes with this package. Your Machines CD was checked: {0}.", checkedFrom)
-                    : Lang.T("Everything comes with this package. Your Machines CD has not been checked yet.")
+        var status = MenuTheme.Paragraph(ClassicImport.Imported && ClassicImport.PackWaiting
+                ? "This version brings new assets for the looks. Import again to unlock them."
                 : ClassicImport.Outdated
                 ? "Imported by an older version. Import again for the right lighting."
                 : ClassicImport.Imported && !HdTextures.Made

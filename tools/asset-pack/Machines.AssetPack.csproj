@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- The game's own pack, disc and locator code, which needs no Godot. -->
+  <ItemGroup>
+    <Compile Include="..\..\game\scripts\AssetPack.cs" Link="AssetPack.cs" />
+    <Compile Include="..\..\game\scripts\GameDisc.cs" Link="GameDisc.cs" />
+    <Compile Include="..\..\game\scripts\GameLocator.cs" Link="GameLocator.cs" />
+  </ItemGroup>
+
+</Project>

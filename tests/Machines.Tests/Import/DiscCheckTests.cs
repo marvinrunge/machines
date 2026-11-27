@@ -6,7 +6,7 @@ using Machines.Game;
 namespace Machines.Tests.Import;
 
 /// <summary>
-/// The check of the player's CD for the complete package (<see cref="GameDisc.Check"/>): CD 1, a folder of what is on
+/// The check of the player's CD before it opens the asset pack (<see cref="GameDisc.Check"/>): CD 1, a folder of what is on
 /// it and a copy installed from it pass where their files are the game's, and anything else is turned away. The CDs
 /// here are made up, with an InstallShield 5 cabinet written as the game's CD 1 has it, and checked against fingerprints
 /// of their own made-up files; the real CDs are checked when MACHINES_DISC_ISO names them.
