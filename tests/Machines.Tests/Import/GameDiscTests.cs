@@ -47,6 +47,12 @@ public class GameDiscTests : IDisposable
     }
 
     [Fact]
+    public void An_installed_copy_with_the_campaign_films_is_no_cd_two()
+    {
+        Assert.Null(GameDisc.Open(Folder("models.bin", @"pdata\x.psb", @"flics\podland.smk")));
+    }
+
+    [Fact]
     public void A_file_that_is_no_disc_image_is_no_disc()
     {
         Assert.Null(GameDisc.Open(Path.Combine(Folder("broken.iso"), "broken.iso")));

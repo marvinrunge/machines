@@ -6019,3 +6019,47 @@ msgstr "Spielprotokoll {0}, Serverprotokoll {1}"
 
 msgid "Download page"
 msgstr "Download-Seite"
+
+# The check of the player's CD in the complete package (DiscCheck)
+
+msgid "Check"
+msgstr "Prüfen"
+
+msgid "Checking…"
+msgstr "Wird geprüft …"
+
+msgid "Machines Remake rebuilds Machines: Wired for War (1999). This package brings everything along: the original's models, planets, sounds and films, and the remake's overhauled and HD looks. To play, you need your own copy of the game, which is checked once."
+msgstr "Machines Remake baut Machines: Wired for War (1999) neu. Dieses Paket bringt alles mit: die Modelle, Planeten, Klänge und Filme des Originals und die überarbeiteten und HD-Looks des Remakes. Zum Spielen brauchst du dein eigenes Exemplar des Spiels, das einmal geprüft wird."
+
+msgid "Your Machines CD was found. The check reads a few of its files and copies nothing; afterwards the game runs without the CD."
+msgstr "Deine Machines-CD wurde gefunden. Die Prüfung liest ein paar ihrer Dateien und kopiert nichts; danach läuft das Spiel ohne CD."
+
+msgid "Put the first Machines CD in the drive and it is found at once. Or pick a disc image of CD 1 (.iso), or the folder Machines is installed in. The check copies nothing; afterwards the game runs without the CD."
+msgstr "Leg die erste Machines-CD ins Laufwerk, dann wird sie sofort gefunden. Oder wähle ein Abbild von CD 1 (.iso) oder den Ordner, in dem Machines installiert ist. Die Prüfung kopiert nichts; danach läuft das Spiel ohne CD."
+
+msgid "Without the check the game does not start."
+msgstr "Ohne die Prüfung startet das Spiel nicht."
+
+msgid "Pick the CD's drive, or the folder Machines is installed in"
+msgstr "Wähle das Laufwerk der CD oder den Ordner, in dem Machines installiert ist"
+
+msgid "This is CD 2, with the campaign's films. Put in CD 1."
+msgstr "Das ist CD 2 mit den Filmen der Kampagne. Leg CD 1 ein."
+
+msgid "That is not the Machines CD: its files are not the game's."
+msgstr "Das ist nicht die Machines-CD: Ihre Dateien sind nicht die des Spiels."
+
+msgid "No Machines CD there. Pick the CD's drive, a disc image of CD 1 (.iso) or the folder Machines is installed in."
+msgstr "Dort ist keine Machines-CD. Wähle das Laufwerk der CD, ein Abbild von CD 1 (.iso) oder den Ordner, in dem Machines installiert ist."
+
+msgid "Everything comes with this package. Your Machines CD was checked: {0}."
+msgstr "Alles kommt mit diesem Paket. Deine Machines-CD wurde geprüft: {0}."
+
+msgid "Everything comes with this package. Your Machines CD has not been checked yet."
+msgstr "Alles kommt mit diesem Paket. Deine Machines-CD wurde noch nicht geprüft."
+
+msgid "Everything included, your CD checked"
+msgstr "Alles enthalten, deine CD geprüft"
+
+msgid "Your installed copy of Machines was found. The check reads a few of its files and copies nothing."
+msgstr "Dein installiertes Machines wurde gefunden. Die Prüfung liest ein paar seiner Dateien und kopiert nichts."

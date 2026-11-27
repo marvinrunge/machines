@@ -3,19 +3,21 @@ using Godot;
 namespace Machines.Game;
 
 /// <summary>
-/// The first start's few questions, one page each, before the main menu: the import from the player's own copy of the
-/// game (without it there are no models to choose a look by), the look, Classic or Overhauled, each shown on the same
+/// The first start's few questions, one page each, before the main menu: in a package that brings every asset along
+/// the check of the player's Machines CD (<see cref="DiscCheck"/>), which cannot be left for later, else the import
+/// from the player's own copy of the game (without it there are no models to choose a look by), the look, Classic or Overhauled, each shown on the same
 /// machines turning side by side, and the soundtrack (with the classic look the original's folder, with the remake's
 /// its own music). Each can be left for later, and the options change every answer at any time. They come once,
 /// until <see cref="Done"/> is kept in <c>user://settings.cfg</c>; an import reopens the menus, the intro films play,
 /// and the questions go on with the look.
-/// MACHINES_MENU_SCREENSHOT=&lt;png&gt;,setup (or setup-import, setup-look, setup-music) shows them.
+/// MACHINES_MENU_SCREENSHOT=&lt;png&gt;,setup (or setup-disc, setup-import, setup-look, setup-music) shows them.
 /// </summary>
 public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
     : MenuPage(step == SetupPage.Step.Music ? () => screens.ShowSetup(SetupPage.Step.Look) : null)
 {
     public enum Step
     {
+        Disc,
         Import,
         Look,
         Music,
@@ -42,8 +44,13 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
         }
     }
 
-    /// <summary>The first question to ask: the import where this build can run it and it has not run, else the look.</summary>
-    public static Step First => ClassicImport.Available && !ClassicImport.Imported ? Step.Import : Step.Look;
+    /// <summary>
+    /// The first question to ask: the CD where this package brings the assets and has not seen it, the import where this
+    /// build can run it and it has not run, else the look.
+    /// </summary>
+    public static Step First => DiscCheck.Needed ? Step.Disc
+        : !DiscCheck.Bundled && ClassicImport.Available && !ClassicImport.Imported ? Step.Import
+        : Step.Look;
 
     public override void Back()
     {
@@ -57,6 +64,7 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
         AddChild(page);
         switch (step)
         {
+            case Step.Disc: DiscStep(page); break;
             case Step.Import: ImportStep(page); break;
             case Step.Look: LookStep(page); break;
             default: MusicStep(page); break;
@@ -166,6 +174,107 @@ public partial class SetupPage(MenuScreens screens, SetupPage.Step step)
             {
                 if (!_importing && GameDisc.InDrive() is not null)
                     screens.ShowSetup(Step.Import);
+            };
+            AddChild(watch);
+        }
+    }
+
+    /// <summary>
+    /// The check of the player's Machines CD, where this package brings every asset along: CD 1 in a drive, a disc
+    /// image of it or the folder of a copy its setup installed, found on this computer and checked with one button, or
+    /// picked. Nothing is copied; once it passes, the game runs without the CD. The only way on without it is out.
+    /// </summary>
+    private void DiscStep(VBoxContainer page)
+    {
+        // The CD in a drive or a disc image of it first, else an installed copy.
+        var disc = GameDisc.First(GameDisc.Find(), GameDisc.Kind.One);
+        var found = disc ?? GameLocator.Find().FirstOrDefault();
+        page.AddChild(Top("Welcome"));
+        page.AddChild(Words(
+            "Machines Remake rebuilds Machines: Wired for War (1999). This package brings everything along: the original's " +
+            "models, planets, sounds and films, and the remake's overhauled and HD looks. To play, you need your own copy " +
+            "of the game, which is checked once.",
+            disc is not null
+                ? "Your Machines CD was found. The check reads a few of its files and copies nothing; afterwards the game " +
+                  "runs without the CD."
+            : found is not null
+                ? "Your installed copy of Machines was found. The check reads a few of its files and copies nothing."
+                : "Put the first Machines CD in the drive and it is found at once. Or pick a disc image of CD 1 (.iso), " +
+                  "or the folder Machines is installed in. The check copies nothing; afterwards the game runs without the CD."));
+        if (found is not null)
+        {
+            var name = File.Exists(found) ? Path.GetFileName(found)
+                : disc is not null ? Lang.T("CD in drive {0}", found.TrimEnd('\\', '/'))
+                : found;
+            var where = MenuTheme.Label(name, 24, MenuTheme.Bright);
+            where.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+            where.ClipText = true;
+            where.CustomMinimumSize = new Vector2(1, 0);
+            where.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            page.AddChild(where);
+        }
+        var status = MenuTheme.Paragraph("Without the check the game does not start.", 22, MenuTheme.Text);
+        page.AddChild(status);
+        page.AddChild(Spring(across: false));
+
+        var folders = new FileDialog
+        {
+            FileMode = FileDialog.FileModeEnum.OpenDir,
+            Access = FileDialog.AccessEnum.Filesystem,
+            Title = "Pick the CD's drive, or the folder Machines is installed in",
+            UseNativeDialog = true,
+        };
+        AddChild(folders);
+        var images = OptionsPage.ImageDialog();
+        AddChild(images);
+        var buttons = new List<ChipButton>();
+        void Check(string place)
+        {
+            foreach (var button in buttons)
+                button.Disabled = true;
+            _importing = true;
+            status.Text = Lang.T("Checking…");
+            Task.Run(() =>
+            {
+                var why = DiscCheck.Run(place);
+                Callable.From(() =>
+                {
+                    _importing = false;
+                    if (why is null)
+                    {
+                        if (Done)
+                            screens.ShowMain();
+                        else
+                            screens.ShowSetup(Step.Look);
+                        return;
+                    }
+                    foreach (var button in buttons)
+                        button.Disabled = false;
+                    status.Text = why;
+                    status.AddThemeColorOverride("font_color", MenuTheme.Bright);
+                }).CallDeferred();
+            });
+        }
+        folders.DirSelected += Check;
+        images.FileSelected += Check;
+        if (found is not null)
+            buttons.Add(Button("Check", () => Check(found)));
+        buttons.Add(Button("Disc image", () => images.PopupCentered(new Vector2I(900, 600))));
+        buttons.Add(Button(found is null ? "Folder" : "Other folder", () => folders.PopupCentered(new Vector2I(900, 600))));
+        buttons.Add(Button("Exit", screens.Quit));
+        foreach (var button in buttons)
+            button.CustomMinimumSize = new Vector2(found is null ? 360 : 280, 76);
+        page.AddChild(Line(Gap, [.. buttons]));
+        Focus(buttons[0]);
+
+        // While nothing is found, a CD put in the drive brings the page back with it.
+        if (found is null)
+        {
+            var watch = new Godot.Timer { WaitTime = 2, Autostart = true };
+            watch.Timeout += () =>
+            {
+                if (!_importing && GameDisc.InDrive() is not null)
+                    screens.ShowSetup(Step.Disc);
             };
             AddChild(watch);
         }

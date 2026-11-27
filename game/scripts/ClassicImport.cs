@@ -6,15 +6,20 @@ namespace Machines.Game;
 /// Imports the original models and terrain from the player's own copy of the game, as tools/classic-export/run.sh
 /// does: the exporter (shipped in <c>tools/classic-export</c>) loads <c>models.bin</c> and each planet's
 /// <c>pdata/*.psb</c> with the original engine and writes them to <c>classic/</c>. Nothing from the game is
-/// shipped with the remake; it only ever comes from the copy the player points at.
+/// shipped with the public release; it only ever comes from the copy the player points at. The complete package
+/// (<c>tools/release/build-complete.sh</c>, passed on privately) brings <c>classic/</c> along instead and only checks
+/// the player's CD (<see cref="DiscCheck"/>).
 /// </summary>
 public static class ClassicImport
 {
     private static string ToolFolder => Path.Combine(Paths.Root, "tools", "classic-export");
     private static string Exporter => Path.Combine(ToolFolder, "classic_export.exe");
 
-    /// <summary>The exporter is part of this build (release builds for Windows).</summary>
-    public static bool Available => OperatingSystem.IsWindows() && File.Exists(Exporter) && File.Exists(Path.Combine(ToolFolder, "models.txt"));
+    /// <summary>
+    /// The exporter is part of this build (release builds for Windows), and the build does not bring the assets along
+    /// already (a complete package checks the player's CD instead, <see cref="DiscCheck"/>, and is never imported over).
+    /// </summary>
+    public static bool Available => !DiscCheck.Bundled && OperatingSystem.IsWindows() && File.Exists(Exporter) && File.Exists(Path.Combine(ToolFolder, "models.txt"));
 
     public static bool Imported => Directory.Exists(Path.Combine(Paths.Classic, "models"));
 
