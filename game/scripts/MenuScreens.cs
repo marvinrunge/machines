@@ -9,15 +9,14 @@ namespace Machines.Game;
 /// multiplayer, saved games, replays, the model viewer and options, on a <see cref="MenuStage"/>.
 ///
 /// Automated runs skip them: MACHINES_MAP and MACHINES_SCREENSHOT start the match straight away, MACHINES_IMPORT
-/// imports from a game copy first, MACHINES_DISC_CHECK checks the player's CD first (<see cref="DiscCheck"/>), MACHINES_HD makes the HD textures and quits, MACHINES_MP opens the multiplayer page
+/// imports from a game copy first, MACHINES_HD makes the HD textures and quits, MACHINES_MP opens the multiplayer page
 /// and drives the lobby (see <see cref="MultiplayerPage"/>), MACHINES_MENU_SELECT=&lt;scenario&gt;,&lt;planet&gt; picks a
 /// map and MACHINES_MENU_START=1 starts it from the skirmish page (MACHINES_LOADING_SCREENSHOT, see
 /// <see cref="LoadingScreen"/>). MACHINES_MENU_SCREENSHOT=&lt;png&gt;[,page[,WxH]] saves a page (main, skirmish, room,
 /// room-battle, multiplayer, load, replays, options, graphics, keys, keys-run, keys-story, models, pod, pod-path, pod-modules, pod-chassis, pod-room,
 /// campaign, missions, briefing, story or quit), at that size if one
-/// is given, and quits. The first start's questions (setup, setup-disc, setup-import, setup-look, setup-music) come before the main menu until
-/// they are answered (<see cref="SetupPage"/>), and in a package that brings every asset along nothing else comes until
-/// the player's CD has been checked. MACHINES_MENU_GO=&lt;page&gt;[,seconds] skips the first films and goes from the main
+/// is given, and quits. The first start's questions (setup, setup-import, setup-look, setup-music) come before the main menu until
+/// they are answered (<see cref="SetupPage"/>). MACHINES_MENU_GO=&lt;page&gt;[,seconds] skips the first films and goes from the main
 /// menu to that page as a click would (after that many seconds), with the transition (main stays there, to wait for the logos).
 /// MACHINES_WIRED_DRIVE plays a whole Wired run from the main menu on (see <see cref="WiredDriver"/>), MACHINES_BATTLE_DRIVE a
 /// whole battle (see <see cref="BattleDriver"/>).
@@ -65,9 +64,6 @@ public partial class MenuScreens : Control
         // For automated checks: MACHINES_IMPORT=<game folder, CD drive or disc image> imports from it before the menus open.
         if (Setting("MACHINES_IMPORT") is { } importFrom && ClassicImport.Available)
             GD.Print(ClassicImport.FromSource(importFrom, line => GD.Print(line)) ?? "import finished");
-        // MACHINES_DISC_CHECK=<CD drive, folder or disc image> checks the player's CD before the menus open (DiscCheck).
-        if (Setting("MACHINES_DISC_CHECK") is { } checkAt)
-            GD.Print(DiscCheck.Run(checkAt) is { } why ? $"disc check failed: {why}" : $"disc check passed: {DiscCheck.Checked}");
         // MACHINES_HD=<game folder> makes only the HD textures (see HdTextures) and quits.
         if (Setting("MACHINES_HD") is { } hdFrom && ClassicImport.Imported)
         {
@@ -138,12 +134,11 @@ public partial class MenuScreens : Control
     private void Begin(string page)
     {
         Music.Menu(this);
-        // The first start asks its few questions before the main menu; a package that brings every asset along shows
-        // nothing else until it has seen the player's CD (DiscCheck).
-        var gated = DiscCheck.Needed && _shotPath is null;
-        Open(gated || (page == "main" && _shotPath is null && !SetupPage.Done) ? "setup" : page);
+        // The first start asks its few questions before the main menu.
+        // An update that brought a new asset pack asks for the import again, which opens it with the copy imported before.
+        Open(page == "main" && _shotPath is null && (!SetupPage.Done || ClassicImport.PackWaiting) ? "setup" : page);
         _begun = true;
-        if (!gated && !_wentAhead && Setting("MACHINES_MENU_GO")?.Split(',', StringSplitOptions.TrimEntries) is [var go, .. var after])
+        if (!_wentAhead && Setting("MACHINES_MENU_GO")?.Split(',', StringSplitOptions.TrimEntries) is [var go, .. var after])
         {
             _wentAhead = true;
             if (after is [var seconds] && double.TryParse(seconds, System.Globalization.CultureInfo.InvariantCulture, out var wait))
@@ -239,7 +234,6 @@ public partial class MenuScreens : Control
             case "pod-modules": ShowPod(HangarShelf.Modules); break;
             case "pod-chassis": ShowPod(HangarShelf.Chassis); break;
             case "setup": ShowSetup(SetupPage.First); break;
-            case "setup-disc": ShowSetup(SetupPage.Step.Disc); break;
             case "setup-import": ShowSetup(SetupPage.Step.Import); break;
             case "setup-look": ShowSetup(SetupPage.Step.Look); break;
             case "setup-music": ShowSetup(SetupPage.Step.Music); break;

@@ -8,9 +8,9 @@ namespace Machines.Game;
 /// installed copy: CD 1 holds the game packed in an InstallShield 5 cabinet (<c>data1.hdr</c> and <c>data1.cab</c>),
 /// with the films and pictures it does not pack lying beside it, and CD 2 holds the campaign's films. <see cref="Install"/>
 /// unpacks CD 1 into a folder laid out as the original's setup would have left it, which <see cref="ClassicImport"/>
-/// then imports from, and <see cref="AddFilms"/> adds CD 2's films to it. The complete package, which brings every
-/// asset along, copies nothing: <see cref="Check"/> only reads a few files of CD 1 (or of a copy installed from it) and
-/// compares them with the game's (<see cref="DiscCheck"/>). Nothing here needs Godot, so the tests run it.
+/// then imports from, and <see cref="AddFilms"/> adds CD 2's films to it. <see cref="Check"/> reads a few files of
+/// CD 1 (or of a copy installed from it) and compares them with the game's; their bytes are also the key to the asset
+/// pack (<see cref="AssetPack"/>). Nothing here needs Godot, so the tests run it.
 /// </summary>
 public static class GameDisc
 {

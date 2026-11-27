@@ -228,11 +228,10 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
   at unknown ground darkens the view with static down to black, where nothing can be picked and the world
   is silent. A level 1 beacon's map shows only what you have uncovered; a level 3 beacon lifts the fog.
   It is your view only: the AI never had it, in the original either.
-- **First start:** in the complete package, which brings every asset along, the game first checks the
-  player's CD once and copies nothing (see "The complete package" under Releases), then asks for the look
-  and the soundtrack. Elsewhere it asks its few questions before the main menu: the game copy to import from
+- **First start:** the game asks its few questions before the main menu: the game copy to import from
   (`GameLocator` finds it in Steam's libraries, GOG's games, Windows' list of programs and the usual folders,
-  and offers it with one button; otherwise the player picks its folder), the look (Classic or Overhauled, the default, each shown on the same machines turning side by
+  and offers it with one button; otherwise the player picks its folder; in the complete package the import
+  opens the sealed asset pack with it, see "The complete package and the asset pack" under Releases), the look (Classic or Overhauled, the default, each shown on the same machines turning side by
   side) and the soundtrack's folder. Each can be left for later; the options change every answer.
 - **Keys:** **Change keys** in the options moves the camera's and first person's moves and the commands
   (initiative, assembly point, pause, menus, the views ...) to keys of the player's choice; a key already in
@@ -261,9 +260,10 @@ Design doc: [Machines Remake — Game Design Document](https://claude.ai/artifac
 | `game/` | The Godot 4 client: terrain, units, RTS camera, selection and orders, build menus, HUD, minimap, first person |
 | `tools/classic-export` | Exports the original models from your own copy of the game (see its README) |
 | `tools/sim-bench` | The performance gate: four players with 200 machines each, timed tick by tick (`dotnet run -c Release --project tools/sim-bench`) |
+| `tools/asset-pack` | Seals `classic/` into the complete package's asset pack, opens it, and compares installations byte for byte (the release check; see Releases) |
 | `tools/cinematic` | Records the trailer as an MP4 (`render.sh`, needs the ffmpeg of `tools/film-upscale`) |
 | `data/original` | Original design data, copied unchanged (see `data/README.md`) |
-| `classic/` | Local-only (git-ignored): models and planet terrain exported from your game copy, and every look made from them; the complete package brings it along |
+| `classic/` | Local-only (git-ignored): models and planet terrain exported from your game copy, and every look made from them; the complete package carries it sealed (`pack/`) |
 | `references/` | Local-only (git-ignored): OpenMachines mod, fan Blender models, screenshots, manual scans |
 
 ## Requirements
@@ -520,44 +520,49 @@ A local build needs the Godot 4.7.2 .NET export templates, and for the installer
 tools/release/build-windows.sh <Godot console exe> 0.1.0 <folder made by tools/classic-export/package.sh>
 ```
 
-### The complete package (private, for testers who own the CD)
+### The complete package and the asset pack (private, for players who own the CD)
 
-The complete package brings every asset along, so a tester downloads the game once and imports nothing:
-the original's models and terrain, every look (Classic, Overhauled with `classic/remake`, HD with
-`classic/hd`, `classic/built` and `classic/meshy`), the Wired machines, the HD films, the minimaps, and the
-game copy itself as `game-copy/` with CD 2's films (sounds, texts and films are read from there;
-`classic/game_path.txt` says `game-copy`). The original soundtrack (`music/`) and the trailer
-(`films/trailer.ogv`) come along when given.
+A clean installation that imports from the CD makes only part of what a developer's checkout has: the
+exporter writes `classic/models` and `classic/planets`, and the HD textures are upscaled on the player's
+graphics card (other cards, drivers or versions give other pixels), but the overhauled models
+(`classic/remake`, the Grunt's tyres among them), the HD models (`built`, `meshy`), the Wired machines,
+the HD films and the minimaps are made by tools of the checkout and never by the import. So it looks
+blurrier and differs in places.
 
-The original's files and everything made from them belong to Night Dive Studios. The package is
-therefore passed on privately, to testers who own Machines, and never published: the CD check below
-does not make passing it on allowed. `build-complete.sh` refuses to run in CI, and GitHub's releases
-stay `build-windows.sh`'s, which ship nothing of the original.
+The complete package carries all of `classic/` ready made, sealed, as the asset pack (`pack/` beside
+`Machines.exe`, `game/scripts/AssetPack.cs`): every file AES-256-GCM-sealed with its path bound in,
+under a key that only the game's own files give (SHA-256 over a label and the bytes of `models.bin` and two
+planets' terrain, `GameDisc.Known`; their published fingerprints do not give it). The original's files
+themselves are not in the package. The import works as before (CD in a drive, disc image, folder or
+installed copy; the CDs are unpacked into `game-copy/`, CD 2's films added), then checks the copy
+(`GameDisc.Check`) and opens the pack into `classic/` instead of exporting and upscaling: every file
+checked against its SHA-256 and given the time it was made with, files of the assets the pack lacks
+removed, `classic/pack.txt` naming the pack. The result is the checkout's `classic/` byte for byte, and
+no graphics card work is needed. An update with a new pack asks for the import again
+(`ClassicImport.PackWaiting`); it opens with the copy imported before, without the CD. Sealing lowers the
+risk but is no licence: the pack is made from the original's assets, which belong to Night Dive Studios,
+so the package is passed on privately to players who own the game and never published.
+`build-complete.sh` refuses to run in CI, and GitHub's releases stay `build-windows.sh`'s, without it.
 
 ```bash
 tools/release/build-windows.sh <Godot console exe> 0.8.1 <exporter folder>   # the base: build/Machines-Remake-0.8.1
-MUSIC="<folder with Track 00 - Intro.mp3 ...>" TRAILER=<trailer.ogv> tools/release/build-complete.sh 0.8.1 [name]
+tools/release/build-complete.sh 0.8.1 [name]                                   # + pack/ -> build/Machines-Remake-0.8.1[-name]-komplett(.zip)
+tools/release/check-install.sh build/Machines-Remake-0.8.1-komplett "<CD 1 .iso>" ["<CD 2 .iso>"]
 ```
 
-It takes `classic/` of the main checkout (or `CLASSIC=<folder>`) and refuses one whose import format
-(`ClassicImport.Format`) or HD textures (`HdTextures.Format`) are older than the build's, or that lacks a
-look. The game copy is the folder `classic/game_path.txt` names (or `COPY=<folder>`). Logs and
-`classic/hd-work` stay out; file times are kept, so the HD textures' compressed caches (`.dds`) are used
-by the exported game, which cannot compress them itself. `LINK=1` hardlinks the files instead of copying
-them (while C: is short of space), `ZIP=0` leaves the zip out. The package is
-`build/Machines-Remake-<version>[-name]-komplett` and its zip.
+`build-complete.sh` seals `classic/` of the main checkout (or `CLASSIC=<folder>`) with the key of the copy
+`classic/game_path.txt` names (or `COPY=<folder>`), refusing an import whose format (`ClassicImport.Format`)
+or HD textures (`HdTextures.Format`) are older than the build's, or that lacks a look. The pack is kept in
+`build/asset-pack` and only changed files are sealed again; logs, `hd-work` and half-written caches stay
+out. It then compares the pack with the checkout. `TRAILER=<file>` adds the trailer, `LINK=1` hardlinks
+instead of copying, `ZIP=0` leaves the zip out, `PARTS=models,remake,...` seals only those folders (for a
+quick test).
 
-`classic/bundled.txt` marks the package (`DiscCheck.Bundled`). There the game imports nothing (the
-import buttons are gone, `ClassicImport.Available` is false) and shows nothing but the CD check
-(`SetupPage.Step.Disc`) before the menus until the player's CD has been checked once:
-`GameDisc.Check` takes CD 1 in a drive, a disc image of it (`.iso`) or a folder of what is on it, and
-unpacks `models.bin` and two planets' terrain from its InstallShield cabinet into nothing but a SHA-256,
-which must match the game's (`GameDisc.Known`, from the 1999 CD 1); a copy installed by the CD's setup
-passes with the same files as they lie. CD 2 is told apart and turned away, as is anything else. The
-answer is kept in `user://settings.cfg` (`[disc] checked = <drive, image or folder>`), and the game runs
-without the CD from then on. It is a check of ownership, not copy protection: the files lie in the
-package, and the automated switches (`MACHINES_MAP` and the like) skip the menus and so the check.
-`MACHINES_DISC_CHECK=<drive, folder or .iso>` runs the check before the menus open and prints the
-answer; `MACHINES_MENU_SCREENSHOT=<png>,setup-disc` shows the page. `DiscCheckTests` check it on CDs
-made up with a cabinet of their own, and on the real ones when `MACHINES_DISC_ISO="<CD 1 .iso>;<CD 2
-.iso>"` and `MACHINES_DISC_COPY=<installed copy>` name them.
+`check-install.sh` is the release check: it installs the package into a throwaway folder, imports from
+the CD with the real game (`MACHINES_IMPORT`, a fresh user folder) and compares every asset of the
+installation with the checkout, byte for byte (`classic/`, `textures/polyhaven`, `textures/ambientcg`,
+`models/nature`), listing what is missing or different; it fails on any. `tools/asset-pack` does the work
+(`dotnet run --project tools/asset-pack -- pack|unpack|scan|compare ...`) and can compare any two folders,
+packs or lists. `AssetPackTests` and `DiscCheckTests` check sealing, opening and the CD check on made-up
+copies and CDs; with `MACHINES_DISC_ISO="<CD 1 .iso>;<CD 2 .iso>"` and `MACHINES_DISC_COPY=<installed
+copy>` the real ones are checked too.

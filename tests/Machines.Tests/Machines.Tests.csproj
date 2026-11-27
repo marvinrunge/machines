@@ -54,6 +54,7 @@
     <Compile Include="..\..\game\scripts\CrosshairOpacity.cs" Link="Sim\CrosshairOpacity.cs" />
     <Compile Include="..\..\game\scripts\GameLocator.cs" Link="Import\GameLocator.cs" />
     <Compile Include="..\..\game\scripts\GameDisc.cs" Link="Import\GameDisc.cs" />
+    <Compile Include="..\..\game\scripts\AssetPack.cs" Link="Import\AssetPack.cs" />
     <Compile Include="..\..\game\scripts\Soundtrack.cs" Link="Audio\Soundtrack.cs" />
     <Compile Include="..\..\game\scripts\SoundVariation.cs" Link="Audio\SoundVariation.cs" />
     <Compile Include="..\..\game\scripts\DeckLayout.cs" Link="Story\DeckLayout.cs" />
