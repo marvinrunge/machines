@@ -8,7 +8,9 @@ namespace Machines.Game;
 /// installed copy: CD 1 holds the game packed in an InstallShield 5 cabinet (<c>data1.hdr</c> and <c>data1.cab</c>),
 /// with the films and pictures it does not pack lying beside it, and CD 2 holds the campaign's films. <see cref="Install"/>
 /// unpacks CD 1 into a folder laid out as the original's setup would have left it, which <see cref="ClassicImport"/>
-/// then imports from, and <see cref="AddFilms"/> adds CD 2's films to it. Nothing here needs Godot, so the tests run it.
+/// then imports from, and <see cref="AddFilms"/> adds CD 2's films to it. The complete package, which brings every
+/// asset along, copies nothing: <see cref="Check"/> only reads a few files of CD 1 (or of a copy installed from it) and
+/// compares them with the game's (<see cref="DiscCheck"/>). Nothing here needs Godot, so the tests run it.
 /// </summary>
 public static class GameDisc
 {
@@ -27,14 +29,14 @@ public static class GameDisc
 
     /// <summary>
     /// Opens a drive's root, a folder or a disc image as a disc, or null when it is none of the game's CDs (or cannot
-    /// be read).
+    /// be read). A copy installed by the game's setup is no disc, though it may hold CD 2's films.
     /// </summary>
     public static IDiscFiles? Open(string path)
     {
         try
         {
             IDiscFiles? disc = File.Exists(path) && path.EndsWith(".iso", StringComparison.OrdinalIgnoreCase) ? new IsoImage(path)
-                : Directory.Exists(path) ? new FolderDisc(path)
+                : Directory.Exists(path) && !GameLocator.Holds(path) ? new FolderDisc(path)
                 : null;
             if (disc is not null && Which(disc) != Kind.None)
                 return disc;
@@ -185,6 +187,141 @@ public static class GameDisc
 
     /// <summary>The copy has CD 2's films.</summary>
     public static bool HasFilms(string copy) => File.Exists(Path.Combine(copy, "flics", "podland.smk"));
+
+    /// <summary>What a place shows of the game: <see cref="Proof.Owned"/> where it is the game's CD 1 or a copy installed from it.</summary>
+    public enum Proof
+    {
+        /// <summary>CD 1 in a drive, as a disc image or a folder of what is on it, or a copy its setup installed.</summary>
+        Owned,
+
+        /// <summary>CD 2, the campaign's films: it comes with the game but holds none of the files checked.</summary>
+        SecondCd,
+
+        /// <summary>It looks like the game, but the files checked are not the game's.</summary>
+        Different,
+
+        /// <summary>Not the game at all, or nothing that can be read.</summary>
+        None,
+    }
+
+    /// <summary>A file of the game by its path from the game's folder, its length and its SHA-256.</summary>
+    public sealed record Fingerprint(string Path, long Size, string Sha256);
+
+    /// <summary>
+    /// The files that make a copy the game, as the CD packs them in its cabinet and its setup installs them: the
+    /// models (<c>models.bin</c>) and two planets' terrain. Taken from the game's CD 1 of 1999; the copy its setup
+    /// installed has the same bytes.
+    /// </summary>
+    public static readonly IReadOnlyList<Fingerprint> Known =
+    [
+        new("models.bin", 5263281, "65CA76680BCB90010D53F49B24C7B4C686AB7221F14829B80779F7CA151F4692"),
+        new(@"pdata\m_green.psb", 1269921, "7AB9F0A824915E86C3D7E775E40924754217263EA819C5B9A4BD4FEC03358D8A"),
+        new(@"pdata\roller.psb", 176815, "7C789B582D0D566606E39945D1B056E5151D39249001219419670951D5E86B92"),
+    ];
+
+    /// <summary>
+    /// Whether <paramref name="place"/> (a drive's root, a folder or a disc image) shows that the player owns the game:
+    /// CD 1, where every one of <paramref name="fingerprints"/> (at first <see cref="Known"/>) unpacks from its cabinet
+    /// to the same bytes, or a copy installed from it that holds them as they are. Nothing is copied or unpacked to the
+    /// disk; the files are read and hashed as they come.
+    /// </summary>
+    public static Proof Check(string place, IReadOnlyList<Fingerprint>? fingerprints = null)
+    {
+        fingerprints ??= Known;
+        try
+        {
+            using var disc = Open(place);
+            if (disc is not null)
+                return Which(disc) == Kind.Two ? Proof.SecondCd : Matches(disc, fingerprints) ? Proof.Owned : Proof.Different;
+            if (Directory.Exists(place) && GameLocator.Holds(place))
+            {
+                using var copy = new FolderDisc(place);
+                return fingerprints.All(print => copy.Has(print.Path) && Same(copy.Open(print.Path), print)) ? Proof.Owned : Proof.Different;
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or EndOfStreamException)
+        {
+            return Proof.Different;
+        }
+        return Proof.None;
+    }
+
+    /// <summary>CD 1's cabinet holds every fingerprinted file, of its length and with its bytes.</summary>
+    private static bool Matches(IDiscFiles disc, IReadOnlyList<Fingerprint> fingerprints)
+    {
+        using var header = disc.Open("data1.hdr");
+        var cabinet = InstallShieldCabinet.Read(header);
+        using var data = disc.Open("data1.cab");
+        foreach (var print in fingerprints)
+        {
+            var file = cabinet.Files.FirstOrDefault(entry => entry.Path.Equals(print.Path, StringComparison.OrdinalIgnoreCase));
+            if (file is null || file.Size != print.Size)
+                return false;
+            if (!file.Packed)
+            {
+                if (!disc.Has(file.Path) || !Same(disc.Open(file.Path), print))
+                    return false;
+                continue;
+            }
+            using var hash = new HashingStream();
+            cabinet.Extract(file, data, hash);
+            if (!hash.Is(print.Sha256))
+                return false;
+        }
+        return true;
+    }
+
+    private static bool Same(Stream file, Fingerprint print)
+    {
+        using (file)
+            return file.Length == print.Size
+                && Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(file)).Equals(print.Sha256, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>A stream that keeps nothing but the SHA-256 of what is written to it, and how much.</summary>
+    private sealed class HashingStream : Stream
+    {
+        private readonly System.Security.Cryptography.IncrementalHash _hash =
+            System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA256);
+
+        private long _length;
+
+        public bool Is(string sha256) => Convert.ToHexString(_hash.GetHashAndReset()).Equals(sha256, StringComparison.OrdinalIgnoreCase);
+
+        public override bool CanRead => false;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => _length;
+
+        public override long Position
+        {
+            get => _length;
+            set => throw new NotSupportedException();
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            _hash.AppendData(buffer, offset, count);
+            _length += count;
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+                _hash.Dispose();
+            base.Dispose(disposing);
+        }
+    }
 
     private static bool Wanted(string path)
     {

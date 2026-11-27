@@ -40,7 +40,8 @@ public partial class MainMenuPage(MenuScreens screens, MainMenuPage.Menu menu = 
             var status = new ChipPanel { Padding = 16 };
             status.AddChild(MenuTheme.Label(
                 Lang.T("Look: {0}", Lang.T(GraphicsSettings.Name(GraphicsSettings.Look))) + "\n" +
-                Lang.T(ClassicImport.Imported ? "Models imported from your game copy" : "Models not imported yet"), 21, MenuTheme.Dim));
+                Lang.T(DiscCheck.Bundled ? "Everything included, your CD checked"
+                    : ClassicImport.Imported ? "Models imported from your game copy" : "Models not imported yet"), 21, MenuTheme.Dim));
             left.AddChild(status);
         }
         left.AddChild(Button(menu == Menu.Main ? "Exit" : "Back", menu == Menu.Main ? screens.Quit : Back, 84, 30));
