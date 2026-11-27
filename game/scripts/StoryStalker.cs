@@ -147,8 +147,8 @@ public static class StoryStalker
     /// </summary>
     public static float WeightDb(float weight) => weight <= 1 ? 0 : 6 * MathF.Log2(weight);
 
-    /// <summary>The sub thump comes with a plant within this many metres; a grate under the listener rattles within <see cref="RattleWithin"/>; his breath every second plant within <see cref="BreathWithin"/>.</summary>
-    public const float SubWithin = 120, RattleWithin = 30, BreathWithin = 25;
+    /// <summary>The sub thump comes with a plant within this many metres; a grate under the listener rattles within <see cref="RattleWithin"/>; grit sifts off the ceiling within <see cref="DustWithin"/>.</summary>
+    public const float SubWithin = 120, RattleWithin = 30, DustWithin = 25;
 
     /// <summary>Beyond this a plant is not played at all (the bus's MaxDistance): most of a deck.</summary>
     public const float Audible = 420;

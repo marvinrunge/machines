@@ -145,10 +145,10 @@ public partial class Game
         // A bigger shake (a door's slam) is not cut short by his feet.
         if (strength > 0.02f && FrameClock.Now >= _bigShakeUntil)
             CameraRig.Shake(at, 2.5f * strength, 0.35f);
-        if (distance <= StoryStalker.BreathWithin)
+        if (distance <= StoryStalker.DustWithin)
         {
             var ahead = -camera.GlobalBasis.Z with { Y = 0 };
-            _effects.CeilingDust(at + Vector3.Up * 3.5f + ahead.Normalized() * 3, (int)(4 + 10 * (1 - distance / StoryStalker.BreathWithin)));
+            _effects.CeilingDust(at + Vector3.Up * 3.5f + ahead.Normalized() * 3, (int)(4 + 10 * (1 - distance / StoryStalker.DustWithin)));
         }
     }
 

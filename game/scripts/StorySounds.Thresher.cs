@@ -8,8 +8,8 @@ namespace Machines.Game;
 // or the far one (thresher_step_1..2), cross-faded by the distance (StoryStalker.Families), each picked at random and a little
 // higher or lower each time, the same for a front and a back foot, with no low-pass: the families sound their distance and only
 // the loudness falls (user 2026-11-27). Heard through the deck (StoryStalker.Occlusion and Mix: walls and grates take loudness),
-// with a sub thump within 120 m, his hydraulic breath every second
-// plant within 25 m and the grate under the listener rattling within 30 m. His states (StoryStalker.StateOf) have their own
+// with a sub thump within 120 m and the grate under the listener rattling within 30 m (no hydraulic breath with his steps any
+// more, user 2026-11-27). His states (StoryStalker.StateOf) have their own
 // sounds: the halt and a falling ping repeating faster as he grows sure, the lens focusing and the servo ticks of his scan, the
 // lock whine of the draw with the black-out's cut-outs, the wind-down when he lost his quarry, a long exhale when he calms.
 // Package E calls Stomp for the hunt's gallop as well. MACHINES_STORY_STOMP_TEST (Game.StoryStealth) logs one line a plant.
@@ -18,7 +18,6 @@ public partial class StorySounds
     private const int StompVoices = 10;
     private readonly List<AudioStreamPlayer3D> _stompVoices = [];
     private AudioStreamPlayer? _sub;
-    private int _plants;
     private StalkerState? _heardState;
     private double _pingAt, _clock;
     private bool _busTuned;
@@ -45,9 +44,6 @@ public partial class StorySounds
                 StompVoice(family, at, level + Mathf.LinearToDb(share), Unfiltered);
         if (mix.Sub)
             SubThump(-4 - 20 * distance / StoryStalker.SubWithin + (walls > 0 ? -3 : 0));
-        _plants++;
-        if (distance <= StoryStalker.BreathWithin && _plants % 2 == 0)
-            StompVoice("thresher_breath", at + Vector3.Up * 7, -8 + mix.Db, Unfiltered);
         if (mix.Rattle && GrateBy(listener) is { } grate)
             Play("grating_rattle", grate, 0, (float)GD.RandRange(0.9, 1.1));
         var line = FormattableString.Invariant($"stomp {distance:0.0} m walls {walls} grates {grates} gain {level:0.0} dB near {mix.Near:0.00} mid {mix.Mid:0.00} far {mix.Far:0.00}{(mix.Sub ? " sub" : "")}");
